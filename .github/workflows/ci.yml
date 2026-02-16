@@ -68,7 +68,7 @@ jobs:
       run: rustup target add wasm32-unknown-unknown
 
     - name: Build WASM target
-      run: cargo build --target wasm32-unknown-unknown --release
+      run: cargo build --target wasm32-unknown-unknown --release --features wasm
     
     - name: Check binary size
       run: |
