@@ -143,3 +143,61 @@
 - Do not suppress deprecated `libsql` constructors long-term with `#[allow(deprecated)]`; migrate to `Builder`.
 - Do not swallow serialization failures in builder APIs; this hides invalid input and makes debugging difficult.
 - Do not assume FK constraints are active unless explicitly enabled on each SQLite connection path.
+
+## 2026-02-16: Iteration 9 — Comprehensive Analysis & GOAP Planning
+
+### What Worked
+1. Using `goap-planning` skill as orchestrator to systematically identify improvement opportunities
+2. Analyzing current codebase state holistically before planning new work
+3. Grouping improvements into logical phases (Testing, Performance, Observability, Features)
+4. Creating ADRs for architectural decisions before implementation
+5. Cost-based prioritization helps determine execution order
+
+### Technical Insights
+- Current codebase is production-ready (all gates passing, LOC compliant, perf targets met)
+- Hypervector operations can benefit from SIMD (std::simd/portable_simd) for 2-4x batch throughput
+- Connection pooling is only beneficial for remote Turso, not local SQLite
+- Tracing provides async-aware structured logging superior to log crate
+- Versioning strategy should use snapshots with bounded retention (not full event sourcing)
+
+### What to Avoid
+- Do not implement SIMD without scalar fallback for non-SIMD targets
+- Do not pool connections for local SQLite (no benefit, adds overhead)
+- Do not make versioning mandatory (should be opt-in via config)
+- Do not add heavy dependencies (Arrow/Parquet) for simple export/import
+
+### Analysis Methodology
+- Reviewed all source files for improvement opportunities
+- Categorized findings into Testing, Performance, Observability, Features
+- Assigned costs based on complexity and risk
+- Created ADRs for architecture-impacting changes
+- Updated GOAP state atomically with all new goals
+
+## 2026-02-16: Iteration 10 — Swarm Methodology
+
+### What Worked
+1. Creating specialized swarm skills for parallel execution by domain expertise
+2. Decoupling work into independent groups (A/B/C/D) with clear boundaries
+3. Using `SWARM_COORDINATION.md` as the single source of truth for swarm state
+4. Skill-per-group approach allows domain-specific knowledge capture
+5. Shared GOAP_STATE enables progress visibility across all agents
+
+### Technical Insights
+- Swarm groups work best when they operate on orthogonal concerns (different modules/phases)
+- ADR gate prevents architectural conflicts between parallel workstreams
+- Phase boundaries provide natural integration points for cross-group validation
+- Skill files should include: workflow, code patterns, commands, and common pitfalls
+- 15-agent swarm (4 groups) is manageable with proper coordination
+
+### What to Avoid
+- Do not let swarm groups modify the same file simultaneously (coordinate via GOAP_STATE)
+- Do not skip ADR review for cross-cutting changes (even within a group)
+- Do not merge swarm work without running full validation gates
+- Do not create circular dependencies between swarm groups
+
+### Swarm Best Practices
+- Each skill focuses on one domain with clear boundaries
+- Include code examples and command references in every skill
+- Skills should be executable (not just descriptive)
+- Update GOAP_STATE atomically at start and end of each task
+- Document conflicts in `SWARM_ISSUES.md` when coordination fails

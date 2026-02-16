@@ -22,6 +22,8 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 - @.github/workflows/ci.yml — CI pipeline
 
 ## Skills
+
+### Core Skills
 - `rust-development`: Implement or refactor Rust modules
 - `testing-validation`: Run compile/test/lint/LOC gates
 - `benchmarking-perf`: Criterion benchmarks and performance targets
@@ -30,6 +32,19 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 - `goap-planning`: Build ordered action plans from state to goal
 - `github-ci-guardrails`: Validate merge readiness via `gh` CLI
 - `drawio`: Create architecture diagrams for plans, modules, and data flows
+
+### Swarm Group Skills (Parallel Execution)
+- `swarm-testing-quality`: Property-based testing, fuzzing, edge case coverage
+- `swarm-performance`: SIMD optimization, connection pooling, batch APIs, caching
+- `swarm-observability`: Tracing, metrics, derive macros, error context
+- `swarm-advanced-features`: Export/import, versioning, migrations, backup/restore
+
+### Using Swarm Mode
+When executing in swarm mode:
+1. Check @plans/SWARM_COORDINATION.md for current swarm status
+2. Each swarm group operates independently on its phase
+3. Group agents report progress to shared GOAP_STATE
+4. Final integration happens at phase boundaries
 
 ## Accuracy Guardrails
 - Do not assume crate existence/version; verify.

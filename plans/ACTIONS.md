@@ -353,3 +353,243 @@ actions:
       - cargo fmt --check
       - cargo clippy -- -D warnings
       - "wc -l src/*.rs  # verify all files < 500 LOC"
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 5: TESTING & QUALITY ASSURANCE (cost: 8)
+  # ═══════════════════════════════════════════════════════
+  - name: add_property_based_testing
+    preconditions:
+      tests_passing: true
+    effects:
+      property_based_tests_added: true
+    cost: 3
+    status: pending
+    file: tests/property_based.rs, Cargo.toml
+    description: |
+      Add proptest for property-based testing:
+      - Hypervector roundtrip: from_bytes(to_bytes(v)) == v
+      - Cosine similarity bounds: [-1.0, 1.0]
+      - Bundle associativity: bundle([a, b, c]) == bundle([bundle([a, b]), c])
+      - Association symmetry: associate(a, b, s) creates queryable link
+
+  - name: create_fuzzing_targets
+    preconditions:
+      core_modules_created: true
+    effects:
+      fuzzing_targets_created: true
+    cost: 3
+    status: pending
+    file: fuzz/, Cargo.toml
+    description: |
+      Create cargo-fuzz targets for:
+      - HVec10240::from_bytes (malformed inputs)
+      - Reservoir::step (arbitrary input sizes)
+      - Persistence::save_concept (edge case metadata)
+
+  - name: expand_edge_case_coverage
+    preconditions:
+      tests_passing: true
+    effects:
+      edge_case_coverage_complete: true
+    cost: 2
+    status: pending
+    file: src/*/mod.rs (test modules)
+    description: |
+      Add tests for boundary conditions:
+      - Empty sequences, zero-length inputs
+      - Max configured limits (concepts, associations)
+      - Spectral radius boundaries [0.9, 1.1]
+      - Reservoir size boundaries
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 6: PERFORMANCE ENHANCEMENTS (cost: 12)
+  # ═══════════════════════════════════════════════════════
+  - name: implement_simd_hypervector_ops
+    preconditions:
+      core_modules_created: true
+    effects:
+      simd_hypervector_ops: true
+    cost: 4
+    status: pending
+    file: src/hyperdim.rs
+    adr: ADR-0013
+    description: |
+      Optimize HVec10240 operations with SIMD:
+      - Use std::simd for u128x4 operations
+      - Bundle: parallel popcount across lanes
+      - Cosine similarity: SIMD-accelerated equality count
+      - Bind: XOR across SIMD lanes
+      Target: 2-4x throughput improvement for batch ops
+
+  - name: add_connection_pooling
+    preconditions:
+      persistence_connection_unsafe: false
+    effects:
+      connection_pooling_turso: true
+    cost: 3
+    status: pending
+    file: src/persistence.rs
+    adr: ADR-0014
+    description: |
+      Implement connection pooling for remote Turso:
+      - Use deadpool or bb8 for async pool
+      - Configurable pool size (default: 10)
+      - Health checks and connection recycling
+      - Keep per-operation model for local SQLite
+
+  - name: add_framework_batch_operations
+    preconditions:
+      persistence_batch_ops: false
+    effects:
+      framework_batch_operations: true
+    cost: 3
+    status: pending
+    file: src/framework.rs
+    description: |
+      Add batch APIs to ChaoticSemanticFramework:
+      - inject_concepts(&[(id, vector)]) -> Result<()>
+      - associate_many(&[(from, to, strength)]) -> Result<()>
+      - probe_batch(queries, top_k) -> Result<Vec<Vec<(String, f32)>>>
+      Reduces per-op async overhead for bulk workflows
+
+  - name: implement_concept_lru_cache
+    preconditions:
+      core_modules_created: true
+    effects:
+      concept_cache_implemented: true
+    cost: 2
+    status: pending
+    file: src/singularity.rs
+    description: |
+      Add LRU cache for frequently accessed concepts:
+      - Cache get() and find_similar() results
+      - Configurable cache size (default: 1000)
+      - Invalidation on update/delete/associate
+      - Memory-constrained environments benefit
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 7: OBSERVABILITY & DX (cost: 10)
+  # ═══════════════════════════════════════════════════════
+  - name: add_structured_logging
+    preconditions:
+      core_modules_created: true
+    effects:
+      structured_logging_added: true
+    cost: 3
+    status: pending
+    file: src/framework.rs, src/persistence.rs
+    adr: ADR-0015
+    description: |
+      Integrate tracing for structured logging:
+      - #[instrument] on async framework methods
+      - Span per persistence operation
+      - Configurable levels (ERROR, WARN, INFO, DEBUG, TRACE)
+      - JSON output option for production
+
+  - name: add_metrics_collection
+    preconditions:
+      core_modules_created: true
+    effects:
+      metrics_collection_enabled: true
+    cost: 3
+    status: pending
+    file: src/framework.rs, src/singularity.rs
+    description: |
+      Add metrics for operational visibility:
+      - Counter: concepts_injected_total, associations_created_total
+      - Histogram: probe_latency_ms, reservoir_step_latency_us
+      - Gauge: concept_count, db_size_bytes
+      - Export to prometheus metrics endpoint
+
+  - name: create_derive_macros
+    preconditions:
+      core_modules_created: true
+    effects:
+      derive_macros_created: true
+    cost: 2
+    status: pending
+    file: chaotic_semantic_memory_derive/, Cargo.toml
+    description: |
+      Create proc-macro crate for derive macros:
+      - #[derive(Concept)] for automatic metadata extraction
+      - #[derive(HypervectorField)] for struct fields → HVec10240
+      - Reduces boilerplate in user code
+
+  - name: improve_error_context
+    preconditions:
+      core_modules_created: true
+    effects:
+      error_context_improved: true
+    cost: 2
+    status: pending
+    file: src/error.rs
+    description: |
+      Enhance error messages with context:
+      - Add #[source] for error chains
+      - Include operation context (which concept, which association)
+      - Suggest fixes in error messages where applicable
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 8: ADVANCED FEATURES (cost: 15)
+  # ═══════════════════════════════════════════════════════
+  - name: implement_export_import
+    preconditions:
+      core_modules_created: true
+    effects:
+      export_import_functionality: true
+    cost: 4
+    status: pending
+    file: src/framework.rs, src/persistence.rs
+    adr: ADR-0016
+    description: |
+      Add data migration capabilities:
+      - export_json(path) -> Result<()> (concepts + associations)
+      - import_json(path, merge: bool) -> Result<usize>
+      - export_binary(path) -> compact binary format
+      - Streaming for large datasets (chunked processing)
+
+  - name: add_concept_versioning
+    preconditions:
+      persistence_batch_ops: false
+    effects:
+      concept_versioning_enabled: true
+    cost: 4
+    status: pending
+    file: src/singularity.rs, src/persistence.rs
+    adr: ADR-0017
+    description: |
+      Implement concept version history:
+      - Track all vector/metadata modifications
+      - Schema: concept_versions(concept_id, version, vector, modified_at)
+      - API: get_concept_history(id, limit) -> Vec<ConceptVersion>
+      - Configurable retention (default: keep last 10)
+
+  - name: add_schema_migration_support
+    preconditions:
+      core_modules_created: true
+    effects:
+      schema_migration_support: true
+    cost: 3
+    status: pending
+    file: src/persistence.rs
+    description: |
+      Add schema versioning and migrations:
+      - __schema_version table
+      - Migration runner: apply_migrations(current, target)
+      - Versioned migrations in migrations/
+      - Rollback support for failed migrations
+
+  - name: implement_backup_restore
+    preconditions:
+      core_modules_created: true
+    effects:
+      backup_restore_operations: true
+    cost: 4
+    status: pending
+    file: src/framework.rs, src/persistence.rs
+    description: |
+      Add backup/restore operations:
+      - backup(path) -> Result<()> (sqlite VACUUM INTO)
+      - restore(path) -> Result<()> (replace db file)
+      - List backups with timestamps
+      - Integrity verification after restore
