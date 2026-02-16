@@ -19,9 +19,6 @@ jobs:
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
         toolchain: stable
-
-    - name: Install WASM target
-      run: rustup target add wasm32-unknown-unknown
         components: rustfmt, clippy
     
     - name: Cache cargo
@@ -63,6 +60,9 @@ jobs:
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
         toolchain: stable
+
+    - name: Install WASM target
+      run: rustup target add wasm32-unknown-unknown
     
     - name: Build release
       run: cargo build --release
