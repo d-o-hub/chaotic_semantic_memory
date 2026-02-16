@@ -70,4 +70,60 @@ After each iteration:
 2. Record progress in @progress/PROGRESS.md.
 3. Update module LOC counts.
 4. Run test + bench gates.
-5. Commit message format: `AGENT iteration N: [summary]`.
+5. Commit with Conventional Commits format: `<type>(<scope>): <description>`
+
+### Commit Message Format (Conventional Commits)
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) for atomic, readable history:
+
+```
+<type>(<scope>): <short summary in imperative mood>
+
+<body: explain what and why, not how>
+
+<footer: BREAKING CHANGE, Co-authored-by, etc.>
+```
+
+**Types:**
+- `feat`: New feature or capability
+- `fix`: Bug fix or correction
+- `perf`: Performance improvement
+- `refactor`: Code change with no behavior change
+- `test`: Adding or fixing tests
+- `docs`: Documentation changes (AGENTS.md, ADRs, README)
+- `chore`: Maintenance (deps, CI, formatting)
+
+**Scopes:**
+- `hyperdim`: Hypervector operations (`src/hyperdim.rs`)
+- `reservoir`: Echo state network (`src/reservoir.rs`)
+- `singularity`: Concept store (`src/singularity.rs`)
+- `persistence`: libSQL storage (`src/persistence.rs`)
+- `framework`: High-level API (`src/framework.rs`)
+- `wasm`: WASM bindings (`src/wasm.rs`)
+- `ci`: CI/CD pipeline
+- `skills`: Agent skills (`.agents/skills/`)
+- `adr`: Architecture decisions (`plans/adr/`)
+- `planning`: GOAP state, actions, goals (`plans/`)
+
+**Examples:**
+```bash
+# Feature with scope
+feat(reservoir): add SIMD-accelerated cosine similarity
+
+# Fix with breaking change footer
+fix(persistence): enforce foreign key constraints
+
+BREAKING CHANGE: existing databases without FK support may fail
+
+# Multiple scopes in body
+perf(hyperdim,framework): optimize batch operations
+
+- Use par_chunks for hypervector bundling
+- Add inject_concepts() batch API
+
+# Documentation update
+docs(adr): add ADR-0013 for SIMD hypervector operations
+
+# Chore/maintenance
+chore(deps): update libsql to 0.5
+```
