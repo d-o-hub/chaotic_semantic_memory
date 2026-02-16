@@ -34,7 +34,7 @@ actions:
     status: complete
 
   # ═══════════════════════════════════════════════════════
-  # PHASE 1: CORRECTNESS FIXES (do first, cost: 6)
+  # PHASE 1: CORRECTNESS FIXES (do first, cost: 11)
   # ═══════════════════════════════════════════════════════
   - name: fix_permute_shift_zero
     preconditions:
@@ -97,6 +97,45 @@ actions:
     description: |
       Reset reservoir state at start of process_sequence().
       Always reset before processing (simplest correct behavior).
+
+  - name: enforce_sqlite_foreign_keys
+    preconditions:
+      persistence_connection_unsafe: false
+    effects:
+      sqlite_foreign_keys_not_enforced: false
+    cost: 2
+    status: complete
+    file: src/persistence.rs, tests/persistence_roundtrip.rs
+    adr: ADR-0011
+    description: |
+      Enable PRAGMA foreign_keys=ON for every database connection.
+      Keep per-operation connection model and enforce constraints in tests.
+
+  - name: propagate_conceptbuilder_metadata_errors
+    preconditions:
+      core_modules_created: true
+    effects:
+      conceptbuilder_swallows_metadata_errors: false
+    cost: 1
+    status: complete
+    file: src/singularity.rs
+    adr: ADR-0012
+    description: |
+      Preserve metadata serialization failures inside ConceptBuilder and return
+      them from build() instead of silently dropping invalid metadata.
+
+  - name: migrate_libsql_builder_api
+    preconditions:
+      core_modules_created: true
+    effects:
+      libsql_deprecated_apis_used: false
+    cost: 2
+    status: complete
+    file: src/persistence.rs
+    adr: ADR-0011
+    description: |
+      Replace deprecated Database::open/open_remote constructors with
+      libsql::Builder::new_local/new_remote and remove deprecated allowances.
 
   # ═══════════════════════════════════════════════════════
   # PHASE 2: PERFORMANCE OPTIMIZATIONS (cost: 22)

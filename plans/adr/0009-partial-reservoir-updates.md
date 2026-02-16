@@ -1,7 +1,7 @@
 # [ADR-0009] Partitioned Reservoir Step Updates For Latency Gate
 
 ## Status
-Proposed
+Accepted
 
 ## Context and Problem Statement
 The performance gate requires `reservoir_step_50k < 100us`. After sparse layout and cache optimizations, `Reservoir::step()` remained around millisecond-scale at 50k nodes because every step updated every node.

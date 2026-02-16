@@ -228,6 +228,7 @@ pub struct ConceptBuilder {
     id: String,
     vector: Option<HVec10240>,
     metadata: HashMap<String, serde_json::Value>,
+    metadata_error: Option<MemoryError>,
 }
 
 impl ConceptBuilder {
@@ -236,6 +237,7 @@ impl ConceptBuilder {
             id: id.into(),
             vector: None,
             metadata: HashMap::new(),
+            metadata_error: None,
         }
     }
 
@@ -245,13 +247,24 @@ impl ConceptBuilder {
     }
 
     pub fn with_metadata(mut self, key: impl Into<String>, value: impl Serialize) -> Self {
-        if let Ok(value) = serde_json::to_value(value) {
-            self.metadata.insert(key.into(), value);
+        if self.metadata_error.is_none() {
+            match serde_json::to_value(value) {
+                Ok(value) => {
+                    self.metadata.insert(key.into(), value);
+                }
+                Err(error) => {
+                    self.metadata_error = Some(MemoryError::Serialization(error));
+                }
+            }
         }
         self
     }
 
     pub fn build(self) -> Result<Concept> {
+        if let Some(error) = self.metadata_error {
+            return Err(error);
+        }
+
         let now = unix_now_secs();
 
         Ok(Concept {
@@ -269,4 +282,33 @@ fn unix_now_secs() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
+}
+
+#[cfg(test)]
+mod tests {
+    use serde::ser::{Error as _, Serializer};
+    use serde::Serialize;
+
+    use super::*;
+
+    struct FailingMetadata;
+
+    impl Serialize for FailingMetadata {
+        fn serialize<S>(&self, _serializer: S) -> std::result::Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            Err(S::Error::custom(
+                "intentional metadata serialization failure",
+            ))
+        }
+    }
+
+    #[test]
+    fn concept_builder_returns_error_when_metadata_serialization_fails() {
+        let result = ConceptBuilder::new("failing")
+            .with_metadata("bad", FailingMetadata)
+            .build();
+        assert!(result.is_err());
+    }
 }

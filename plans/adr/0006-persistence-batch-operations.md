@@ -1,7 +1,7 @@
 # [ADR-0006] Persistence Batch Operations
 
 ## Status
-Proposed
+Accepted
 
 ## Context and Problem Statement
 The current persistence layer performs one database round-trip per concept save/load. When persisting many concepts (e.g., bulk import, framework shutdown), this results in N sequential round-trips:

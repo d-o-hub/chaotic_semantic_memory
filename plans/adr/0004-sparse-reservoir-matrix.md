@@ -1,10 +1,10 @@
 # [ADR-0004] Sparse Reservoir Weight Matrix
 
 ## Status
-Proposed
+Accepted
 
 ## Context and Problem Statement
-The current `Reservoir` implementation uses dense `ndarray::Array2<f32>` for the reservoir weight matrix `w_res`. With the default size of 50,000 nodes:
+An earlier `Reservoir` implementation used a dense reservoir weight matrix for `w_res`. With the default size of 50,000 nodes:
 - Dense matrix: 50,000 × 50,000 × 4 bytes = **~10 GB RAM** just for `w_res`
 - Initialization is O(n²) even though only ~10% of entries are non-zero
 - Matrix-vector multiplication in `step()` is O(n²) instead of O(n·k)

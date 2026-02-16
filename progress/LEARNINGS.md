@@ -126,3 +126,20 @@
 ### What to Avoid
 - Do not treat architecture-changing performance fixes as implementation details; capture tradeoffs in ADRs.
 - Do not assume full synchronous ESN update semantics when partitioned updates are enabled.
+
+## 2026-02-16: Iteration 8 — Persistence and Builder Integrity
+
+### What Worked
+1. Migrating to `libsql::Builder` removed deprecated API usage without changing external persistence behavior.
+2. Enabling `PRAGMA foreign_keys = ON` in the connection helper made FK behavior deterministic for every operation.
+3. Capturing builder-time serialization errors and returning them at `build()` closed silent data-loss paths while preserving fluent API shape.
+
+### Technical Insights
+- With per-operation connections, FK enforcement must be applied per connection; schema-level FK declarations are not sufficient by themselves.
+- `ConceptBuilder` can preserve fluent method chaining while still surfacing metadata errors by storing the first error and failing in `build()`.
+- Running `clippy` with `--all-targets --all-features` catches bench/test target lints that default clippy invocations can miss.
+
+### What to Avoid
+- Do not suppress deprecated `libsql` constructors long-term with `#[allow(deprecated)]`; migrate to `Builder`.
+- Do not swallow serialization failures in builder APIs; this hides invalid input and makes debugging difficult.
+- Do not assume FK constraints are active unless explicitly enabled on each SQLite connection path.

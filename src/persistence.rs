@@ -2,7 +2,7 @@
 //!
 //! Supports both local SQLite files and remote Turso databases.
 
-use libsql::{params, Connection, Database};
+use libsql::{params, Builder, Connection, Database};
 use std::sync::Arc;
 
 use crate::error::{MemoryError, Result};
@@ -16,9 +16,10 @@ pub struct Persistence {
 
 impl Persistence {
     /// Create new persistence layer with local SQLite
-    #[allow(deprecated)]
     pub async fn new_local(path: &str) -> Result<Self> {
-        let db = Database::open(path)
+        let db = Builder::new_local(path)
+            .build()
+            .await
             .map_err(|e| MemoryError::Database(format!("Failed to open database: {}", e)))?;
 
         let persistence = Self { db: Arc::new(db) };
@@ -27,9 +28,10 @@ impl Persistence {
     }
 
     /// Create new persistence layer with remote Turso
-    #[allow(deprecated)]
     pub async fn new_turso(url: &str, token: &str) -> Result<Self> {
-        let db = Database::open_remote(url, token)
+        let db = Builder::new_remote(url.to_string(), token.to_string())
+            .build()
+            .await
             .map_err(|e| MemoryError::Database(format!("Failed to open remote database: {}", e)))?;
 
         let persistence = Self { db: Arc::new(db) };
@@ -37,15 +39,22 @@ impl Persistence {
         Ok(persistence)
     }
 
-    fn connect(&self) -> Result<Connection> {
-        self.db
+    async fn connect(&self) -> Result<Connection> {
+        let conn = self
+            .db
             .connect()
-            .map_err(|e| MemoryError::Database(format!("Failed to connect: {}", e)))
+            .map_err(|e| MemoryError::Database(format!("Failed to connect: {}", e)))?;
+
+        conn.execute("PRAGMA foreign_keys = ON;", ())
+            .await
+            .map_err(|e| MemoryError::Database(format!("Failed to enable foreign keys: {}", e)))?;
+
+        Ok(conn)
     }
 
     /// Initialize database schema
     async fn init_schema(&self) -> Result<()> {
-        let conn = self.connect()?;
+        let conn = self.connect().await?;
 
         conn.execute_batch(
             "BEGIN;
@@ -75,7 +84,7 @@ impl Persistence {
 
     /// Save a concept to the database
     pub async fn save_concept(&self, concept: &Concept) -> Result<()> {
-        let conn = self.connect()?;
+        let conn = self.connect().await?;
         let vector_bytes = concept.vector.to_bytes();
         let metadata_json = serde_json::to_string(&concept.metadata)?;
 
@@ -102,7 +111,7 @@ impl Persistence {
             return Ok(());
         }
 
-        let conn = self.connect()?;
+        let conn = self.connect().await?;
         conn.execute("BEGIN", ())
             .await
             .map_err(|e| MemoryError::Database(format!("Failed to begin transaction: {}", e)))?;
@@ -148,7 +157,7 @@ impl Persistence {
 
     /// Load a concept from the database
     pub async fn load_concept(&self, id: &str) -> Result<Option<Concept>> {
-        let conn = self.connect()?;
+        let conn = self.connect().await?;
 
         let mut rows = conn
             .query(
@@ -193,7 +202,7 @@ impl Persistence {
 
     /// Load all concepts from the database
     pub async fn load_all_concepts(&self) -> Result<Vec<Concept>> {
-        let conn = self.connect()?;
+        let conn = self.connect().await?;
 
         let mut rows = conn
             .query(
@@ -242,7 +251,7 @@ impl Persistence {
 
     /// Delete a concept from the database
     pub async fn delete_concept(&self, id: &str) -> Result<()> {
-        let conn = self.connect()?;
+        let conn = self.connect().await?;
 
         conn.execute("BEGIN", ())
             .await
@@ -282,7 +291,7 @@ impl Persistence {
 
     /// Save an association
     pub async fn save_association(&self, from: &str, to: &str, strength: f32) -> Result<()> {
-        let conn = self.connect()?;
+        let conn = self.connect().await?;
 
         conn.execute(
             "INSERT OR REPLACE INTO associations (from_id, to_id, strength)
@@ -301,7 +310,7 @@ impl Persistence {
             return Ok(());
         }
 
-        let conn = self.connect()?;
+        let conn = self.connect().await?;
         conn.execute("BEGIN", ())
             .await
             .map_err(|e| MemoryError::Database(format!("Failed to begin transaction: {}", e)))?;
@@ -338,7 +347,7 @@ impl Persistence {
 
     /// Load associations for a concept
     pub async fn load_associations(&self, id: &str) -> Result<Vec<(String, f32)>> {
-        let conn = self.connect()?;
+        let conn = self.connect().await?;
 
         let mut rows = conn
             .query(
@@ -368,7 +377,7 @@ impl Persistence {
 
     /// Perform database checkpoint (optimize)
     pub async fn checkpoint(&self) -> Result<()> {
-        let conn = self.connect()?;
+        let conn = self.connect().await?;
 
         let mut rows = conn
             .query("PRAGMA wal_checkpoint(TRUNCATE);", ())
@@ -384,7 +393,7 @@ impl Persistence {
 
     /// Get database size in bytes
     pub async fn size(&self) -> Result<u64> {
-        let conn = self.connect()?;
+        let conn = self.connect().await?;
 
         let mut rows = conn
             .query(

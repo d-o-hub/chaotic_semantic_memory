@@ -25,6 +25,9 @@ optimization_goals:
     - associations_allow_duplicates: false
     - load_silently_overwrites: false
     - reservoir_not_reset_between_sequences: false
+    - sqlite_foreign_keys_not_enforced: false
+    - conceptbuilder_swallows_metadata_errors: false
+    - libsql_deprecated_apis_used: false
 
     # Phase 2: Performance (cost: 22, impact: high)
     - reservoir_dense_matrix_infeasible: false   # ADR-0004

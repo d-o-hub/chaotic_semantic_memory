@@ -9,6 +9,10 @@ world_state:
   sample_app_created: true
   documentation_complete: true
   validated: true
+  dependency_hygiene_complete: true
+  adr_registry_current: true
+  result_contract_clarified: true
+  action_last_completed: run_validation
 
   # Module status (LOC counts)
   modules:
@@ -48,8 +52,11 @@ world_state:
   no_memory_limits: false
   no_integration_tests: false
   wasm_rayon_not_gated: false
+  sqlite_foreign_keys_not_enforced: false
+  conceptbuilder_swallows_metadata_errors: false
+  libsql_deprecated_apis_used: false
 
   # Validation outcomes
   wasm_target_installed: true
   reservoir_step_under_100us: true
-  reservoir_step_50k_latest_us: 88.053
+  reservoir_step_50k_latest_us: 76.627

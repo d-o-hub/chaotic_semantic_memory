@@ -1,7 +1,8 @@
 //! Proof of concept: Build working binary demonstrating all features
 
-use anyhow::Result;
-use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240};
+use std::io::Write;
+
+use chaotic_semantic_memory::prelude::*;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -75,7 +76,7 @@ async fn main() -> Result<()> {
         framework.probe(HVec10240::random(), 5).await?;
         if i % 100 == 0 {
             print!(".");
-            std::io::Write::flush(&mut std::io::stdout())?;
+            std::io::stdout().flush()?;
         }
     }
     let elapsed = start.elapsed();

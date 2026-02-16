@@ -1,7 +1,7 @@
 # [ADR-0008] WASM Rayon Gating Strategy
 
 ## Status
-Proposed (supersedes ADR-0003)
+Accepted (supersedes ADR-0003)
 
 ## Context and Problem Statement
 Rayon is used in three modules (`hyperdim.rs`, `reservoir.rs`, `singularity.rs`) for CPU parallelism. However, `wasm32-unknown-unknown` does not support threads, and importing `rayon::prelude::*` will fail to compile or panic at runtime on WASM targets.

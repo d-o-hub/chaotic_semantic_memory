@@ -3,7 +3,7 @@ use chaotic_semantic_memory::HVec10240;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn bench_hvec_creation(c: &mut Criterion) {
-    c.bench_function("hvec_random", |b| b.iter(|| HVec10240::random()));
+    c.bench_function("hvec_random", |b| b.iter(HVec10240::random));
 }
 
 fn bench_cosine_similarity(c: &mut Criterion) {

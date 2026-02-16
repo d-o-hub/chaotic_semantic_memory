@@ -1,7 +1,7 @@
 # [ADR-0007] Similarity Search Optimization
 
 ## Status
-Proposed
+Accepted
 
 ## Context and Problem Statement
 `Singularity::find_similar()` currently:

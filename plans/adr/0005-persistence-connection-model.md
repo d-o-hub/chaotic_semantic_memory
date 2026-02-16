@@ -1,7 +1,7 @@
 # [ADR-0005] Persistence Connection Model
 
 ## Status
-Proposed
+Accepted
 
 ## Context and Problem Statement
 The current `Persistence` struct wraps a single `libsql::Connection` behind `Arc<RwLock<Connection>>`. This has several issues:

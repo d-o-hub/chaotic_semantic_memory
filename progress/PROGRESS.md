@@ -125,10 +125,43 @@
 
 ## Current Status
 - **Gates**: all 4 pass (check, test, fmt, clippy)
-- **Tests**: 15 unit + 3 integration = 18 total, all passing
-- **LOC**: all files under 500 (max: persistence.rs @ 410)
+- **Tests**: 16 unit + 4 integration = 20 total, all passing
+- **LOC**: all files under 500 (max: reservoir.rs @ 427)
 - **Skills**: 7 total (rust-development, testing-validation, benchmarking-perf, debugging-reservoir, adr-creation, goap-planning, github-ci-guardrails)
-- **ADRs**: 7 total (0001, 0002, 0004–0008; 0003 superseded by 0008)
+- **ADRs**: 11 total (0001, 0002, 0004-0012; 0003 superseded by 0008)
 - **GOAP**: original 16 issue actions complete; Phase 4 follow-up actions complete
 - **Remaining gaps**:
   - none in current GOAP state
+
+### 2026-02-16: AGENT Iteration 8 — Persistence + Builder Correctness Hardening
+- Implemented persistence API modernization and integrity enforcement:
+  - migrated `src/persistence.rs` from deprecated `Database::open/open_remote` to `libsql::Builder::new_local/new_remote`
+  - converted connection acquisition to async and enabled `PRAGMA foreign_keys = ON` per connection
+  - kept per-operation connection model and transaction behavior unchanged
+- Implemented metadata error propagation in `src/singularity.rs`:
+  - `ConceptBuilder` now records metadata serialization failures and returns them from `build()`
+  - added unit test for intentional metadata serialization failure
+- Extended integration coverage in `tests/persistence_roundtrip.rs`:
+  - added FK enforcement test that rejects association to missing concept
+- Updated planning artifacts:
+  - `plans/GOAP_STATE.md`: set correctness gaps to closed (`false`), refreshed latest benchmark value
+  - `plans/ACTIONS.md`: added and completed actions:
+    - `enforce_sqlite_foreign_keys`
+    - `propagate_conceptbuilder_metadata_errors`
+    - `migrate_libsql_builder_api`
+  - added ADRs:
+    - `plans/adr/0011-sqlite-foreign-keys-and-builder-migration.md`
+    - `plans/adr/0012-conceptbuilder-metadata-error-propagation.md`
+- Validation:
+  - `CARGO_TERM_PROGRESS_WHEN=never cargo check --message-format=short` pass
+  - `cargo test --all-features --quiet` pass
+  - `cargo fmt --check` pass
+  - `cargo clippy --all-targets --all-features -- -D warnings` pass
+  - benchmark gate workflow pass:
+    - `cargo bench --bench benchmark reservoir_step_50k -- --save-baseline main`
+    - `cargo bench --bench benchmark reservoir_step_50k -- --baseline main`
+    - latest median ~`76.627us` (<100us target)
+- LOC gate snapshot:
+  - `src/persistence.rs`: 419
+  - `src/singularity.rs`: 312
+  - all `src/*.rs` remain under 500 LOC

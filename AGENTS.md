@@ -9,7 +9,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 - Use `libsql` (never `turso-client`).
 - Use Tokio async/await for I/O.
 - Use Rayon for CPU parallelism.
-- All public APIs return `Result<T, Error>`.
+- All fallible public APIs return `Result<T, Error>`.
 - Reservoir spectral radius must stay in `[0.9, 1.1]`.
 - WASM threading paths must be gated with `#[cfg(not(target_arch = "wasm32"))]`.
 
