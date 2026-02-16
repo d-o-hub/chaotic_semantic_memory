@@ -9,14 +9,63 @@ use rayon::prelude::*;
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 
+/// Compact sparse row storage (CSR-like) for fast row-wise dot products.
+struct SparseWeights {
+    row_offsets: Vec<usize>,
+    indices: Vec<usize>,
+    weights: Vec<f32>,
+}
+
+impl SparseWeights {
+    fn build(rows: usize, cols: usize, degree: usize, rng: &mut StdRng) -> Self {
+        let nnz = rows.saturating_mul(degree);
+        let mut row_offsets = Vec::with_capacity(rows + 1);
+        let mut indices = Vec::with_capacity(nnz);
+        let mut weights = Vec::with_capacity(nnz);
+        row_offsets.push(0);
+
+        for _ in 0..rows {
+            for _ in 0..degree {
+                indices.push(rng.gen_range(0..cols));
+                weights.push(rng.gen_range(-1.0..1.0));
+            }
+            row_offsets.push(indices.len());
+        }
+
+        Self {
+            row_offsets,
+            indices,
+            weights,
+        }
+    }
+
+    #[inline]
+    fn dot_row(&self, row: usize, values: &[f32]) -> f32 {
+        let start = self.row_offsets[row];
+        let end = self.row_offsets[row + 1];
+        let mut sum = 0.0;
+
+        for idx in start..end {
+            sum += self.weights[idx] * values[self.indices[idx]];
+        }
+        sum
+    }
+
+    fn scale(&mut self, scale: f32) {
+        for w in &mut self.weights {
+            *w *= scale;
+        }
+    }
+}
+
 /// Sparse Echo State Network with chaotic dynamics
 pub struct Reservoir {
     size: usize,
     input_size: usize,
     state: Vec<f32>,
     scratch: Vec<f32>,
-    w_in: Vec<Vec<(usize, f32)>>,
-    w_res: Vec<Vec<(usize, f32)>>,
+    w_in: SparseWeights,
+    w_res: SparseWeights,
     spectral_radius: f32,
     alpha: f32,
 }
@@ -42,14 +91,14 @@ impl Reservoir {
 
         let mut rng = StdRng::seed_from_u64(seed);
 
-        let w_in = Self::build_sparse_weights(size, input_size, Self::INPUT_DEGREE, &mut rng);
+        let w_in = SparseWeights::build(size, input_size, Self::INPUT_DEGREE, &mut rng);
         let mut w_res =
-            Self::build_sparse_weights(size, size, Self::RESERVOIR_DEGREE.min(size), &mut rng);
+            SparseWeights::build(size, size, Self::RESERVOIR_DEGREE.min(size), &mut rng);
 
         let current_radius = Self::estimate_spectral_radius(&w_res, size);
         if current_radius > 0.0 {
             let scale = Self::DEFAULT_RADIUS / current_radius;
-            Self::scale_weights(&mut w_res, scale);
+            w_res.scale(scale);
         }
 
         Ok(Self {
@@ -74,28 +123,34 @@ impl Reservoir {
             )));
         }
 
-        let state = &self.state;
-        let w_in = &self.w_in;
-        let w_res = &self.w_res;
-        let alpha = self.alpha;
-
         #[cfg(not(target_arch = "wasm32"))]
-        self.scratch
-            .par_iter_mut()
-            .enumerate()
-            .for_each(|(i, out)| {
-                let input_sum = dot_sparse_row(&w_in[i], input);
-                let res_sum = dot_sparse_row(&w_res[i], state);
-                let activated = (input_sum + res_sum).tanh();
-                *out = state[i] * (1.0 - alpha) + activated * alpha;
-            });
+        {
+            let state = &self.state;
+            let w_in = &self.w_in;
+            let w_res = &self.w_res;
+            let alpha = self.alpha;
+            let one_minus_alpha = 1.0 - alpha;
+
+            self.scratch
+                .par_iter_mut()
+                .enumerate()
+                .for_each(|(i, out)| {
+                    let input_sum = w_in.dot_row(i, input);
+                    let res_sum = w_res.dot_row(i, state);
+                    let activated = (input_sum + res_sum).tanh();
+                    *out = state[i] * one_minus_alpha + activated * alpha;
+                });
+        }
 
         #[cfg(target_arch = "wasm32")]
-        for i in 0..self.size {
-            let input_sum = dot_sparse_row(&self.w_in[i], input);
-            let res_sum = dot_sparse_row(&self.w_res[i], &self.state);
-            let activated = (input_sum + res_sum).tanh();
-            self.scratch[i] = self.state[i] * (1.0 - self.alpha) + activated * self.alpha;
+        {
+            let one_minus_alpha = 1.0 - self.alpha;
+            for i in 0..self.size {
+                let input_sum = self.w_in.dot_row(i, input);
+                let res_sum = self.w_res.dot_row(i, &self.state);
+                let activated = (input_sum + res_sum).tanh();
+                self.scratch[i] = self.state[i] * one_minus_alpha + activated * self.alpha;
+            }
         }
 
         std::mem::swap(&mut self.state, &mut self.scratch);
@@ -128,7 +183,7 @@ impl Reservoir {
         let current = Self::estimate_spectral_radius(&self.w_res, self.size);
         if current > 0.0 {
             let scale = radius / current;
-            Self::scale_weights(&mut self.w_res, scale);
+            self.w_res.scale(scale);
             self.spectral_radius = radius;
         }
 
@@ -175,39 +230,14 @@ impl Reservoir {
         self.size
     }
 
-    fn build_sparse_weights(
-        rows: usize,
-        cols: usize,
-        degree: usize,
-        rng: &mut StdRng,
-    ) -> Vec<Vec<(usize, f32)>> {
-        let mut matrix = Vec::with_capacity(rows);
-        for _ in 0..rows {
-            let mut row = Vec::with_capacity(degree);
-            for _ in 0..degree {
-                row.push((rng.gen_range(0..cols), rng.gen_range(-1.0..1.0)));
-            }
-            matrix.push(row);
-        }
-        matrix
-    }
-
-    fn scale_weights(weights: &mut [Vec<(usize, f32)>], scale: f32) {
-        for row in weights {
-            for (_, w) in row {
-                *w *= scale;
-            }
-        }
-    }
-
     /// Estimate spectral radius using power iteration
-    fn estimate_spectral_radius(w: &[Vec<(usize, f32)>], size: usize) -> f32 {
+    fn estimate_spectral_radius(w: &SparseWeights, size: usize) -> f32 {
         let mut v = vec![1.0f32 / size as f32; size];
         let mut y = vec![0.0f32; size];
 
         for _ in 0..16 {
-            for i in 0..size {
-                y[i] = dot_sparse_row(&w[i], &v);
+            for (i, y_i) in y.iter_mut().enumerate() {
+                *y_i = w.dot_row(i, &v);
             }
 
             let mut norm = 0.0f32;
@@ -225,8 +255,8 @@ impl Reservoir {
         }
 
         let mut wv = vec![0.0f32; size];
-        for i in 0..size {
-            wv[i] = dot_sparse_row(&w[i], &v);
+        for (i, wv_i) in wv.iter_mut().enumerate() {
+            *wv_i = w.dot_row(i, &v);
         }
 
         let mut numerator = 0.0f32;
@@ -242,15 +272,6 @@ impl Reservoir {
             (numerator / denominator).abs()
         }
     }
-}
-
-#[inline]
-fn dot_sparse_row(weights: &[(usize, f32)], values: &[f32]) -> f32 {
-    let mut sum = 0.0;
-    for (index, weight) in weights {
-        sum += *weight * values[*index];
-    }
-    sum
 }
 
 /// Chaotic reservoir with configurable dynamics

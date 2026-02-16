@@ -1,4 +1,4 @@
-use chaotic_semantic_memory::reservoir::ChaoticReservoir;
+use chaotic_semantic_memory::reservoir::Reservoir;
 use chaotic_semantic_memory::HVec10240;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
@@ -39,7 +39,7 @@ fn bench_binding(c: &mut Criterion) {
 }
 
 fn bench_reservoir_step_50k(c: &mut Criterion) {
-    let mut reservoir = ChaoticReservoir::new_seeded(10240, 50000, 0.1, 42).unwrap();
+    let mut reservoir = Reservoir::new_seeded(10240, 50000, 42).unwrap();
     let input = vec![0.25; 10240];
 
     c.bench_function("reservoir_step_50k", |bencher| {

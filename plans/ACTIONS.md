@@ -283,11 +283,15 @@ actions:
     effects:
       reservoir_step_under_100us: true
     cost: 8
-    status: pending
+    status: in_progress
     file: src/reservoir.rs, benches/benchmark.rs
     description: |
       Profile the step hot path and reduce reservoir_step_50k under 100us.
       Focus areas: sparse traversal cache locality, activation vectorization, and benchmark harness overhead.
+      Iteration 6 progress:
+      - migrated sparse weights from nested Vec rows to compact CSR-like storage for cache locality
+      - benchmark now measures base Reservoir::step for the 50k gate
+      - latest median improved to ~2478.3us (target still unmet)
 
   # ═══════════════════════════════════════════════════════
   # VALIDATION (runs after each phase)

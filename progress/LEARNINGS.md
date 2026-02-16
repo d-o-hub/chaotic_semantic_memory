@@ -94,3 +94,19 @@
 ### What to Avoid
 - Do not assume `wasm-bindgen` and `js-sys` optional deps are available just because code is cfg-gated by target.
 - Do not mark GOAP validation complete without rerunning both native gates and target-specific wasm checks.
+
+## 2026-02-16: Iteration 6 — Reservoir Step Optimization
+
+### What Worked
+1. Flattening sparse rows into CSR-like contiguous arrays reduced pointer chasing and improved step throughput.
+2. Keeping row offsets immutable made per-row dot products simple and branch-light in both rayon and wasm paths.
+3. Re-benchmarking immediately after refactor gave a clean before/after signal for GOAP state updates.
+
+### Technical Insights
+- `Vec<Vec<(usize, f32)>>` incurs substantial allocator and cache overhead at 50k rows; contiguous index/weight buffers are materially faster.
+- The base `Reservoir::step` path is a better performance gate metric than `ChaoticReservoir::step` when tracking reservoir core compute.
+- Current 50k step cost is still millisecond-scale, so hitting `<100us` likely needs deeper algorithmic change (lower effective degree, SIMD/approx activation, or alternative update strategy), not only data-layout cleanup.
+
+### What to Avoid
+- Do not interpret benchmark p-values near threshold as target success; use absolute median against the `<100us` gate.
+- Do not relax spectral-radius guardrails to chase speed; keep radius constraints explicit and enforced.
