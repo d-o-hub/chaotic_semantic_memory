@@ -249,6 +249,47 @@ actions:
       - tests/reservoir_determinism.rs (seeded RNG + reset → reproducible)
 
   # ═══════════════════════════════════════════════════════
+  # PHASE 4: TOOLCHAIN + DOCUMENTATION + PERF FOLLOW-UP
+  # ═══════════════════════════════════════════════════════
+  - name: validate_wasm_target_build
+    preconditions:
+      wasm_rayon_not_gated: false
+    effects:
+      wasm_target_installed: true
+      wasm_compiles: true
+    cost: 2
+    status: complete
+    file: Cargo.toml
+    description: |
+      Install wasm32-unknown-unknown target and validate cargo check for wasm target.
+      Ensure wasm target dependencies are linked correctly for src/wasm.rs.
+
+  - name: complete_readme_documentation
+    preconditions:
+      core_modules_created: true
+    effects:
+      documentation_complete: true
+    cost: 2
+    status: complete
+    file: README.md
+    description: |
+      Expand README with architecture overview, async usage example, wasm build instructions,
+      and explicit local validation/benchmark gate commands.
+
+  - name: optimize_reservoir_step_latency
+    preconditions:
+      reservoir_step_per_alloc: false
+      reservoir_dense_matrix_infeasible: false
+    effects:
+      reservoir_step_under_100us: true
+    cost: 8
+    status: pending
+    file: src/reservoir.rs, benches/benchmark.rs
+    description: |
+      Profile the step hot path and reduce reservoir_step_50k under 100us.
+      Focus areas: sparse traversal cache locality, activation vectorization, and benchmark harness overhead.
+
+  # ═══════════════════════════════════════════════════════
   # VALIDATION (runs after each phase)
   # ═══════════════════════════════════════════════════════
   - name: run_validation

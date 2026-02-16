@@ -78,3 +78,19 @@
 - Do not duplicate gate commands across skills — put them in one script and reference it.
 - Do not use generic module templates that don't reflect actual codebase patterns (WASM cfg gating, sparse weights, per-op connections).
 - Do not keep stale `references/` directories when content has moved to `reference/` or `scripts/`.
+
+## 2026-02-16: Iteration 5 — GOAP Validation + WASM Closure
+
+### What Worked
+1. Treating `plans/GOAP_STATE.md` booleans as executable acceptance criteria and closing them directly.
+2. Running wasm target checks in both default and feature-enabled modes to catch dependency wiring gaps.
+3. Splitting work into parallel streams (toolchain/docs/validation) reduced cycle time while preserving one coherent update.
+
+### Technical Insights
+- If `src/wasm.rs` is compiled behind `cfg(target_arch = "wasm32")`, wasm crates must be target dependencies, not optional globals without active feature linkage.
+- `#[wasm_bindgen]` async exports require `wasm-bindgen-futures` on `wasm32`.
+- Benchmark variance can flip baseline comparison direction; use the persisted `latest` median for GOAP state and keep target truth (`<100us`) strict.
+
+### What to Avoid
+- Do not assume `wasm-bindgen` and `js-sys` optional deps are available just because code is cfg-gated by target.
+- Do not mark GOAP validation complete without rerunning both native gates and target-specific wasm checks.

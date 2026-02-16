@@ -64,14 +64,33 @@
   - Fixed benchmark command syntax
   - Listed all 7 skills
 
+### 2026-02-16: AGENT Iteration 5 — GOAP Orchestration + Parallel Validation
+- Used `goap-planning` as orchestrator to select the next minimal-cost path from current world state:
+  - close `wasm_target_installed` + `wasm_compiles`
+  - close `documentation_complete`
+  - keep `reservoir_step_under_100us` as next pending optimization action
+- Parallel workstream handoff execution:
+  - Workstream A (toolchain/build): installed `wasm32-unknown-unknown`, fixed target dependency wiring in `Cargo.toml`, validated wasm checks
+  - Workstream B (docs): expanded `README.md` with component map, async usage, wasm build notes, and gate commands
+  - Workstream C (validation): reran all local gates + LOC gate + benchmark baseline/compare cycle
+- Validation outcomes:
+  - local gates pass (`cargo check`, `cargo test --all-features`, `cargo fmt --check`, `cargo clippy -- -D warnings`)
+  - LOC gate pass for all `src/*.rs` (max remains `persistence.rs` @ 410)
+  - wasm target checks pass:
+    - `cargo check --target wasm32-unknown-unknown`
+    - `cargo check --target wasm32-unknown-unknown --features wasm`
+  - benchmark refreshed:
+    - `reservoir_step_50k`: latest compare median ~`3184.3us` (improved vs ~`3628.5us`, still above `<100us` target)
+- Updated GOAP records:
+  - `plans/GOAP_STATE.md`: set `wasm_target_installed: true`, `wasm_compiles: true`, `documentation_complete: true`, refreshed LOC + perf metric
+  - `plans/ACTIONS.md`: added Phase 4 actions with completed wasm/doc tasks and pending reservoir latency optimization
+
 ## Current Status
 - **Gates**: all 4 pass (check, test, fmt, clippy)
 - **Tests**: 15 unit + 3 integration = 18 total, all passing
 - **LOC**: all files under 500 (max: persistence.rs @ 410)
 - **Skills**: 7 total (rust-development, testing-validation, benchmarking-perf, debugging-reservoir, adr-creation, goap-planning, github-ci-guardrails)
 - **ADRs**: 7 total (0001, 0002, 0004–0008; 0003 superseded by 0008)
-- **GOAP**: all 16 identified issues resolved, all actions marked complete
+- **GOAP**: original 16 issue actions complete; Phase 4 follow-up actions added (2 complete, 1 pending)
 - **Remaining gaps**:
-  - `wasm_target_installed: false` — wasm32-unknown-unknown not installed locally
-  - `reservoir_step_under_100us: false` — currently ~3.6ms (needs profiling)
-  - `documentation_complete: false` — README is minimal
+  - `reservoir_step_under_100us: false` — currently ~3.18ms (needs deeper hot-path optimization)
