@@ -1,0 +1,37 @@
+<mxfile host="app.diagrams.net" modified="2026-02-15T00:00:00.000Z" agent="codex" version="24.7.17">
+  <diagram id="chaotic-memory" name="ChaoticSemanticMemory">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="framework" value="ChaoticSemanticFramework" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="600" y="180" width="240" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="singularity" value="singularity" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="280" y="340" width="180" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="reservoir" value="reservoir" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="520" y="340" width="180" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="turso" value="turso/libSQL" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="760" y="340" width="180" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="wasm" value="wasm" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="340" width="180" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="e1" value="inject/retrieve" edge="1" parent="1" source="framework" target="singularity" style="endArrow=block;html=1;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2" value="recurrent_step" edge="1" parent="1" source="framework" target="reservoir" style="endArrow=block;html=1;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e3" value="persist/restore" edge="1" parent="1" source="framework" target="turso" style="endArrow=block;html=1;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e4" value="bindgen API" edge="1" parent="1" source="framework" target="wasm" style="endArrow=block;html=1;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
