@@ -1,0 +1,121 @@
+{
+  "goal": "release_ready",
+  "goap_actions": [
+    {
+      "name": "analyze-repo",
+      "preconditions": [
+        "repo_access"
+      ],
+      "effects": [
+        "state_snapshot"
+      ]
+    },
+    {
+      "name": "define-acceptance",
+      "preconditions": [
+        "requirements_known"
+      ],
+      "effects": [
+        "acceptance_defined"
+      ]
+    },
+    {
+      "name": "compute-gaps",
+      "preconditions": [
+        "state_snapshot",
+        "acceptance_defined"
+      ],
+      "effects": [
+        "missing_tasks"
+      ]
+    },
+    {
+      "name": "delegate-specialists",
+      "preconditions": [
+        "missing_tasks"
+      ],
+      "effects": [
+        "specialist_handoffs"
+      ]
+    },
+    {
+      "name": "implement-changes",
+      "preconditions": [
+        "specialist_handoffs"
+      ],
+      "effects": [
+        "artifacts_updated"
+      ]
+    },
+    {
+      "name": "add-tests",
+      "preconditions": [
+        "artifacts_updated"
+      ],
+      "effects": [
+        "tests_updated"
+      ]
+    },
+    {
+      "name": "record-adr",
+      "preconditions": [
+        "architecture_decisions_identified"
+      ],
+      "effects": [
+        "adrs_recorded"
+      ]
+    },
+    {
+      "name": "run-verification",
+      "preconditions": [
+        "tests_updated",
+        "adrs_recorded"
+      ],
+      "effects": [
+        "verification_passed"
+      ]
+    },
+    {
+      "name": "run-example",
+      "preconditions": [
+        "verification_passed"
+      ],
+      "effects": [
+        "example_proven"
+      ]
+    },
+    {
+      "name": "finalize-release",
+      "preconditions": [
+        "example_proven"
+      ],
+      "effects": [
+        "release_ready"
+      ]
+    }
+  ],
+  "specialists": {
+    "architecture-agent": [
+      "Refine architecture draw.io for current module dependencies"
+    ],
+    "implementation-agent": [
+      "Implement remaining framework reliability edge cases"
+    ],
+    "test-agent": [
+      "Add integration assertions for restore consistency"
+    ],
+    "performance-agent": [
+      "Run and evaluate performance benchmark deltas"
+    ],
+    "persistence-agent": [
+      "Validate Turso checkpoint and restore behavior"
+    ],
+    "wasm-agent": [
+      "Verify wasm init/probe behavior in edge target"
+    ],
+    "release-agent": [
+      "Prepare release commit and PR metadata"
+    ]
+  },
+  "unassigned": []
+}
