@@ -63,11 +63,19 @@ jobs:
 
     - name: Build release
       run: cargo build --release
+
+    - name: Install WASM target
+      run: rustup target add wasm32-unknown-unknown
+
+    - name: Build WASM target
+      run: cargo build --target wasm32-unknown-unknown --release
     
     - name: Check binary size
       run: |
         echo "Native binary size:"
         ls -lh target/release/*.so target/release/*.rlib target/release/*.a 2>/dev/null || echo "No library artifacts"
+        echo "WASM binary size:"
+        ls -lh target/wasm32-unknown-unknown/release/*.wasm 2>/dev/null || echo "No WASM artifacts"
 
   benchmark:
     runs-on: ubuntu-latest
