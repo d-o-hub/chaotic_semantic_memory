@@ -17,6 +17,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 - @Cargo.toml — dependencies and features
 - @src/lib.rs — crate root and prelude
 - @plans/GOAP_STATE.md — current world state
+- @plans/GOALS.md — project goals and targets
 - @plans/ACTIONS.md — GOAP action plan
 - @.github/workflows/ci.yml — CI pipeline
 
@@ -28,6 +29,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 - `adr-creation`: Write architecture decision records
 - `goap-planning`: Build ordered action plans from state to goal
 - `github-ci-guardrails`: Validate merge readiness via `gh` CLI
+- `drawio`: Create architecture diagrams for plans, modules, and data flows
 
 ## Accuracy Guardrails
 - Do not assume crate existence/version; verify.
@@ -37,7 +39,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 
 ## Git + CI Source of Truth
 - Use atomic commits: one logical change per commit.
-- Before commit, run: `cargo check`, `cargo test --all-features`, `cargo fmt --check`, `cargo clippy -- -D warnings`.
+- Before commit, run: `cargo check --quiet`, `cargo test --all-features --quiet`, `cargo fmt --check --quiet`, `cargo clippy --quiet -- -D warnings`.
 - Treat GitHub Actions as merge gate source of truth.
 - Use `gh` CLI to verify checks: `gh pr checks --watch`, `gh run list --branch <branch> --limit 5`.
 - Do not claim success until local checks and relevant GitHub checks pass.
@@ -47,10 +49,10 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 - Compare: `cargo bench --bench benchmark -- --baseline main`
 - Target: `reservoir_step_50k < 100μs`.
 
-## Learning Loop (RALPH)
+## Learning Loop
 After each iteration:
 1. Record what worked in @progress/LEARNINGS.md.
 2. Record progress in @progress/PROGRESS.md.
 3. Update module LOC counts.
 4. Run test + bench gates.
-5. Commit message format: `RALPH iteration N: [summary]`.
+5. Commit message format: `AGENT iteration N: [summary]`.
