@@ -1,9 +1,0 @@
-[
-  "Refine architecture draw.io for current module dependencies",
-  "Implement remaining framework reliability edge cases",
-  "Add integration assertions for restore consistency",
-  "Run and evaluate performance benchmark deltas",
-  "Validate Turso checkpoint and restore behavior",
-  "Verify wasm init/probe behavior in edge target",
-  "Prepare release commit and PR metadata"
-]
