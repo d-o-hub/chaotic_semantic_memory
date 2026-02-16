@@ -34,6 +34,9 @@ rand = "0.8"
 # Database - Use libsql NOT turso-client
 libsql = "0.4"
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 tokio-test = "0.4"
