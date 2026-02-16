@@ -10,10 +10,11 @@ Run `scripts/validate.sh` for the full gate sequence.
 
 ## Gate Sequence (manual)
 ```bash
-cargo check
-cargo test --all-features
-cargo fmt --check
-cargo clippy -- -D warnings
+# Quiet mode - reduced output
+cargo check --quiet
+cargo test --all-features --quiet
+cargo fmt --check --quiet
+cargo clippy --quiet -- -D warnings
 ```
 
 Then check LOC limits with `scripts/loc-check.sh`.

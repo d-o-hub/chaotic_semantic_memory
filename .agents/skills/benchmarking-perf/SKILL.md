@@ -19,14 +19,14 @@ description: "Run and analyze criterion benchmarks for performance-sensitive cha
 
 ### 1. Save Baseline Before Changes
 ```bash
-cargo bench --bench benchmark -- --save-baseline before
+cargo bench --bench benchmark -- --save-baseline before 2>&1 | tail -50
 ```
 
 ### 2. Make Changes
 
 ### 3. Compare Against Baseline
 ```bash
-cargo bench --bench benchmark -- --baseline before
+cargo bench --bench benchmark -- --baseline before 2>&1 | tail -50
 ```
 
 ### 4. Interpret Results
