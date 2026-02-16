@@ -19,14 +19,16 @@ description: "Run and analyze criterion benchmarks for performance-sensitive cha
 
 ### 1. Save Baseline Before Changes
 ```bash
-cargo bench --bench benchmark -- --save-baseline before 2>&1 | tail -50
+export CARGO_TERM_PROGRESS_WHEN=never
+cargo bench --bench benchmark -- --save-baseline before 2>&1 | grep -E "(^test |time:|Benchmark|bench_|[0-9]+\.[0-9]+ µs)" | tail -30
 ```
 
 ### 2. Make Changes
 
 ### 3. Compare Against Baseline
 ```bash
-cargo bench --bench benchmark -- --baseline before 2>&1 | tail -50
+export CARGO_TERM_PROGRESS_WHEN=never
+cargo bench --bench benchmark -- --baseline before 2>&1 | grep -E "(time:|Benchmark|bench_|change:)" | tail -30
 ```
 
 ### 4. Interpret Results

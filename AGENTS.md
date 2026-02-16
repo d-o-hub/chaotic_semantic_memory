@@ -39,7 +39,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 
 ## Git + CI Source of Truth
 - Use atomic commits: one logical change per commit.
-- Before commit, run: `cargo check --quiet`, `cargo test --all-features --quiet`, `cargo fmt --check --quiet`, `cargo clippy --quiet -- -D warnings`.
+- Before commit, run: `CARGO_TERM_PROGRESS_WHEN=never cargo check --message-format=short`, `cargo test --all-features --quiet` (or `cargo nextest run --all-features`), `cargo fmt --check`, `cargo clippy -- -D warnings`.
 - Treat GitHub Actions as merge gate source of truth.
 - Use `gh` CLI to verify checks: `gh pr checks --watch`, `gh run list --branch <branch> --limit 5`.
 - Do not claim success until local checks and relevant GitHub checks pass.
