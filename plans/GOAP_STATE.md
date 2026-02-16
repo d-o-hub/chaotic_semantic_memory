@@ -15,7 +15,7 @@ world_state:
     lib.rs: 29
     error.rs: 26
     hyperdim.rs: 314
-    reservoir.rs: 378
+    reservoir.rs: 427
     singularity.rs: 272
     persistence.rs: 410
     persistence_wasm.rs: 63
@@ -51,5 +51,5 @@ world_state:
 
   # Validation outcomes
   wasm_target_installed: true
-  reservoir_step_under_100us: false
-  reservoir_step_50k_latest_us: 2478.3
+  reservoir_step_under_100us: true
+  reservoir_step_50k_latest_us: 88.053

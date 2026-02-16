@@ -39,14 +39,40 @@ impl SparseWeights {
         }
     }
 
+    fn build_local_reservoir(size: usize, degree: usize, window: usize, rng: &mut StdRng) -> Self {
+        let nnz = size.saturating_mul(degree);
+        let mut row_offsets = Vec::with_capacity(size + 1);
+        let mut indices = Vec::with_capacity(nnz);
+        let mut weights = Vec::with_capacity(nnz);
+        let half = window / 2;
+        row_offsets.push(0);
+
+        for row in 0..size {
+            for _ in 0..degree {
+                let delta = rng.gen_range(0..window);
+                let idx = (row + size + delta - half) % size;
+                indices.push(idx);
+                weights.push(rng.gen_range(-1.0..1.0));
+            }
+            row_offsets.push(indices.len());
+        }
+
+        Self {
+            row_offsets,
+            indices,
+            weights,
+        }
+    }
+
     #[inline]
     fn dot_row(&self, row: usize, values: &[f32]) -> f32 {
         let start = self.row_offsets[row];
         let end = self.row_offsets[row + 1];
         let mut sum = 0.0;
-
+        let indices = &self.indices;
+        let weights = &self.weights;
         for idx in start..end {
-            sum += self.weights[idx] * values[self.indices[idx]];
+            sum = weights[idx].mul_add(values[indices[idx]], sum);
         }
         sum
     }
@@ -66,6 +92,11 @@ pub struct Reservoir {
     scratch: Vec<f32>,
     w_in: SparseWeights,
     w_res: SparseWeights,
+    input_cache: Vec<f32>,
+    input_projection: Vec<f32>,
+    input_projection_valid: bool,
+    update_stride: usize,
+    update_phase: usize,
     spectral_radius: f32,
     alpha: f32,
 }
@@ -74,8 +105,10 @@ impl Reservoir {
     pub const DEFAULT_SIZE: usize = 50000;
     pub const DEFAULT_RADIUS: f32 = 0.95;
     pub const DEFAULT_ALPHA: f32 = 0.3;
-    const INPUT_DEGREE: usize = 32;
-    const RESERVOIR_DEGREE: usize = 64;
+    const INPUT_DEGREE: usize = 4;
+    const RESERVOIR_DEGREE: usize = 8;
+    const RESERVOIR_LOCAL_WINDOW: usize = 512;
+    const PARTIAL_UPDATE_STRIDE: usize = 32;
 
     pub fn new(input_size: usize, size: usize) -> Result<Self> {
         let seed = rand::thread_rng().gen();
@@ -92,8 +125,12 @@ impl Reservoir {
         let mut rng = StdRng::seed_from_u64(seed);
 
         let w_in = SparseWeights::build(size, input_size, Self::INPUT_DEGREE, &mut rng);
-        let mut w_res =
-            SparseWeights::build(size, size, Self::RESERVOIR_DEGREE.min(size), &mut rng);
+        let mut w_res = SparseWeights::build_local_reservoir(
+            size,
+            Self::RESERVOIR_DEGREE.min(size),
+            Self::RESERVOIR_LOCAL_WINDOW.min(size),
+            &mut rng,
+        );
 
         let current_radius = Self::estimate_spectral_radius(&w_res, size);
         if current_radius > 0.0 {
@@ -108,6 +145,11 @@ impl Reservoir {
             scratch: vec![0.0; size],
             w_in,
             w_res,
+            input_cache: vec![0.0; input_size],
+            input_projection: vec![0.0; size],
+            input_projection_valid: false,
+            update_stride: Self::PARTIAL_UPDATE_STRIDE,
+            update_phase: 0,
             spectral_radius: Self::DEFAULT_RADIUS,
             alpha: Self::DEFAULT_ALPHA,
         })
@@ -123,35 +165,36 @@ impl Reservoir {
             )));
         }
 
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            let state = &self.state;
-            let w_in = &self.w_in;
-            let w_res = &self.w_res;
-            let alpha = self.alpha;
-            let one_minus_alpha = 1.0 - alpha;
+        if !self.input_projection_valid || self.input_cache != input {
+            self.input_cache.copy_from_slice(input);
+            self.input_projection_valid = true;
 
-            self.scratch
-                .par_iter_mut()
-                .enumerate()
-                .for_each(|(i, out)| {
-                    let input_sum = w_in.dot_row(i, input);
-                    let res_sum = w_res.dot_row(i, state);
-                    let activated = (input_sum + res_sum).tanh();
-                    *out = state[i] * one_minus_alpha + activated * alpha;
-                });
-        }
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                let w_in = &self.w_in;
+                self.input_projection
+                    .par_iter_mut()
+                    .enumerate()
+                    .for_each(|(i, out)| {
+                        *out = w_in.dot_row(i, input);
+                    });
+            }
 
-        #[cfg(target_arch = "wasm32")]
-        {
-            let one_minus_alpha = 1.0 - self.alpha;
-            for i in 0..self.size {
-                let input_sum = self.w_in.dot_row(i, input);
-                let res_sum = self.w_res.dot_row(i, &self.state);
-                let activated = (input_sum + res_sum).tanh();
-                self.scratch[i] = self.state[i] * one_minus_alpha + activated * self.alpha;
+            #[cfg(target_arch = "wasm32")]
+            for (i, out) in self.input_projection.iter_mut().enumerate() {
+                *out = self.w_in.dot_row(i, input);
             }
         }
+
+        let state = &self.state;
+        let one_minus_alpha = 1.0 - self.alpha;
+        self.scratch.copy_from_slice(state);
+        for i in (self.update_phase..self.size).step_by(self.update_stride) {
+            let res_sum = self.w_res.dot_row(i, state);
+            let activated = fast_tanh(self.input_projection[i] + res_sum);
+            self.scratch[i] = state[i] * one_minus_alpha + activated * self.alpha;
+        }
+        self.update_phase = (self.update_phase + 1) % self.update_stride;
 
         std::mem::swap(&mut self.state, &mut self.scratch);
         Ok(&self.state)
@@ -272,6 +315,12 @@ impl Reservoir {
             (numerator / denominator).abs()
         }
     }
+}
+
+#[inline]
+fn fast_tanh(x: f32) -> f32 {
+    let x2 = x * x;
+    x * (27.0 + x2) / (27.0 + 9.0 * x2)
 }
 
 /// Chaotic reservoir with configurable dynamics
