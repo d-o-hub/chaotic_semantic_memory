@@ -1,12 +1,39 @@
 ---
 name: rust-development
-description: "Implement or refactor Rust in this repository under strict constraints: Tokio async I/O, Rayon CPU parallelism, file LOC caps, and Result-based public APIs."
+description: "Implement or refactor Rust in this repository. Use when writing new modules, modifying existing source files, or adding features to the chaotic_semantic_memory crate."
 ---
 
 # Rust Development
 
-1. Read `AGENTS.md` constraints first.
-2. Keep module boundaries under LOC caps.
-3. Implement with `references/module-pattern.md`.
-4. Enforce gates from `references/quality-gates.md`.
-5. Add unit, integration, and property tests.
+## Workflow
+1. Read @AGENTS.md constraints.
+2. Read the target file and its neighbors before editing.
+3. Follow the patterns in `reference/codebase-patterns.md`.
+4. Run `scripts/validate.sh` after changes.
+5. Verify LOC: every `src/*.rs` file must be ≤ 500 lines.
+
+## Module Map
+
+| File | Purpose | LOC |
+|---|---|---|
+| `src/lib.rs` | Crate root + prelude | ~23 |
+| `src/error.rs` | `MemoryError` enum, `Result` alias | ~26 |
+| `src/hyperdim.rs` | `HVec10240` (10240-bit vectors), bundle, bind, similarity | ~314 |
+| `src/reservoir.rs` | Sparse ESN, `ChaoticReservoir`, spectral radius | ~357 |
+| `src/singularity.rs` | `Concept`, `Singularity` store, similarity search | ~272 |
+| `src/persistence.rs` | libSQL persistence, batch ops, per-op connections | ~410 |
+| `src/framework.rs` | `ChaoticSemanticFramework`, builder, lifecycle | ~339 |
+| `src/wasm.rs` | WASM bindings (cfg-gated) | ~100 |
+
+## Key Conventions
+- All public APIs return `Result<T, MemoryError>`.
+- Tokio async for I/O (`persistence.rs`, `framework.rs`).
+- Rayon for CPU parallelism, always behind `#[cfg(not(target_arch = "wasm32"))]`.
+- libsql only (never `turso-client`).
+- Reservoir spectral radius must stay in `[0.9, 1.1]`.
+- `rand::rngs::StdRng` with `SeedableRng` for reproducibility in reservoir/tests.
+
+## When Adding a New Module
+- Add `pub mod name;` to `lib.rs`.
+- Re-export key types in the `prelude` module if they're part of the public API.
+- Add cfg gate if it uses Rayon or threading.

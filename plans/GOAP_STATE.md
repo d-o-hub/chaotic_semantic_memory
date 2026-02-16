@@ -24,6 +24,7 @@ world_state:
   # Test status
   unit_tests_passing: 15
   integration_tests_exist: true
+  integration_tests_passing: 3
 
   # Correctness issues (must fix)
   permute_shift_zero_bug: false
