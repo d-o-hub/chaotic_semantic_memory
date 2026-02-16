@@ -1,0 +1,35 @@
+# Build artifacts
+/target
+**/target
+
+# Cargo lock (optional - uncomment if you don't want to commit it)
+# Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Test/criterion performance reports
+/criterion
+**/*.html
+
+# WASM build artifacts
+*.wasm
+*.js
+
+# Debug builds
+*.pdb
+
+# Release builds with opt-level=3 and lto may produce large files
+# These can be gitignored if you rebuild rather than download releases

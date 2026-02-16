@@ -1,0 +1,7 @@
+* text=auto eol=lf
+
+# Binary files
+*.pdb binary
+
+# Benchmark data
+/criterion/** binary
