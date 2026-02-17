@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use tokio::fs;
 use tracing::warn;
 
@@ -76,6 +77,20 @@ impl ChaoticSemanticFramework {
         let mut out = Vec::with_capacity(queries.len());
         for query in queries {
             out.push(sing.find_similar(query, top_k));
+        }
+        Ok(out)
+    }
+
+    pub async fn probe_batch_cached(
+        &self,
+        queries: &[HVec10240],
+        top_k: usize,
+    ) -> Result<Vec<Arc<[(String, f32)]>>> {
+        self.validate_top_k(top_k)?;
+        let sing = self.singularity.read().await;
+        let mut out = Vec::with_capacity(queries.len());
+        for query in queries {
+            out.push(sing.find_similar_cached(query, top_k));
         }
         Ok(out)
     }

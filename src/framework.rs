@@ -340,6 +340,7 @@ pub struct FrameworkBuilder {
     config: FrameworkConfig,
     db_path: Option<String>,
     db_token: Option<String>,
+    concept_cache_size: usize,
 }
 
 impl FrameworkBuilder {
@@ -348,6 +349,7 @@ impl FrameworkBuilder {
             config: FrameworkConfig::default(),
             db_path: None,
             db_token: None,
+            concept_cache_size: SingularityConfig::default().concept_cache_size,
         }
     }
 
@@ -368,6 +370,11 @@ impl FrameworkBuilder {
 
     pub fn with_max_associations_per_concept(mut self, max_associations: usize) -> Self {
         self.config.max_associations_per_concept = Some(max_associations);
+        self
+    }
+
+    pub fn with_concept_cache_size(mut self, size: usize) -> Self {
+        self.concept_cache_size = size.max(1);
         self
     }
 
@@ -407,7 +414,7 @@ impl FrameworkBuilder {
         let singularity = Arc::new(RwLock::new(Singularity::with_config(SingularityConfig {
             max_concepts: self.config.max_concepts,
             max_associations_per_concept: self.config.max_associations_per_concept,
-            concept_cache_size: 1000,
+            concept_cache_size: self.concept_cache_size,
         })));
 
         let persistence = if self.config.enable_persistence {

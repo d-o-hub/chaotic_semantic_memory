@@ -1,0 +1,287 @@
+# Chaotic Semantic Memory - LLM Context
+# This file provides structured context for LLM APIs to understand the codebase
+# Format: YAML (machine-optimized, minimal markup)
+# Last Updated: 2026-02-17
+
+metadata:
+  project_name: chaotic_semantic_memory
+  description: Production Rust crate for AI memory systems
+  format_version: "1.0"
+  
+mission:
+  statement: Build and maintain chaotic_semantic_memory as a production Rust crate for AI memory systems
+  scope: 
+    - Echo State Network reservoir computing
+    - Hyperdimensional vector operations
+    - Semantic concept storage and retrieval
+    - Persistent storage via libsql/SQLite
+    - WebAssembly compatibility
+
+constraints:
+  hard:
+    - name: max_loc_per_file
+      value: 500
+      unit: lines
+      description: Source files must not exceed 500 lines of code
+      
+    - name: max_loc_skill
+      value: 250
+      unit: lines
+      description: SKILL.md files in .agents/skills/ must not exceed 250 LOC
+      details: Move detail to reference/, scripts/, or assets/
+      
+    - name: database_libsql
+      value: "libsql"
+      forbidden: "turso-client"
+      description: Must use libsql, never turso-client
+      
+    - name: async_runtime
+      value: "tokio"
+      pattern: "async/await"
+      description: Use Tokio async/await for all I/O operations
+      
+    - name: cpu_parallelism
+      value: "rayon"
+      description: Use Rayon for CPU parallelism
+      
+    - name: error_handling
+      pattern: "Result<T, Error>"
+      description: All fallible public APIs must return Result<T, Error>
+      
+    - name: spectral_radius
+      min: 0.9
+      max: 1.1
+      description: Reservoir spectral radius must stay in [0.9, 1.1]
+      
+    - name: wasm_threading
+      gate: "#[cfg(not(target_arch = \"wasm32\"))]"
+      description: WASM threading paths must be gated
+      
+    - name: no_magic_numbers
+      value: true
+      description: No hardcoded runtime settings or magic numbers; use named constants and configurable env/config values
+      
+  soft:
+    - name: branch_protection
+      description: main branch is protected on GitHub; all changes require PR with passing CI
+
+architecture:
+  modules:
+    - name: hyperdim
+      file: src/hyperdim.rs
+      purpose: 10240-bit hyperdimensional vectors with SIMD operations
+      public_types:
+        - HVec10240
+      
+    - name: reservoir
+      file: src/reservoir.rs
+      purpose: Echo State Network with chaotic dynamics
+      public_types:
+        - Reservoir
+        - ChaoticReservoir
+      constraints:
+        - spectral_radius_invariant
+      
+    - name: singularity
+      file: src/singularity.rs
+      purpose: Episode-free concept storage and semantic search
+      public_types:
+        - Singularity
+        - Concept
+        - ConceptBuilder
+      
+    - name: persistence
+      file: src/persistence.rs
+      purpose: Database persistence via libsql
+      public_types:
+        - Persistence
+      native_only: true
+      wasm_stub: src/persistence_wasm.rs
+      
+    - name: framework
+      file: src/framework.rs
+      purpose: Main orchestration framework
+      public_types:
+        - ChaoticSemanticFramework
+        - FrameworkBuilder
+      
+    - name: error
+      file: src/error.rs
+      purpose: Error types and Result alias
+      public_types:
+        - MemoryError
+        - Result
+
+data_flow:
+  description: Concept data flows through the system
+  flows:
+    - name: concept_injection
+      steps:
+        - input: "Concept ID + HVec10240"
+        - framework: "ChaoticSemanticFramework.inject_concept()"
+        - singularity: "Singularity.inject()"
+        - optional: "Persistence.save_concept()"
+        
+    - name: semantic_query
+      steps:
+        - input: "HVec10240 query + top_k"
+        - framework: "ChaoticSemanticFramework.probe()"
+        - singularity: "Singularity.find_similar()"
+        - output: "Vec<(id, similarity)>"
+        
+    - name: temporal_processing
+      steps:
+        - input: "Sequence of Vec<f32>"
+        - framework: "ChaoticSemanticFramework.process_sequence()"
+        - reservoir: "ChaoticReservoir.step()"
+        - hyperdim: "to_hypervector()"
+        - output: "HVec10240"
+
+key_files:
+  configuration:
+    - path: Cargo.toml
+      purpose: Dependencies and features
+      
+  source_root:
+    - path: src/lib.rs
+      purpose: Crate root and prelude
+      exports: [MemoryError, Result, ChaoticSemanticFramework, FrameworkBuilder, HVec10240, Concept, ConceptBuilder]
+      
+  planning:
+    - path: plans/GOAP_STATE.md
+      purpose: Current world state
+      
+    - path: plans/GOALS.md
+      purpose: Project goals and targets
+      
+    - path: plans/ACTIONS.md
+      purpose: GOAP action plan
+      
+    - path: plans/SWARM_COORDINATION.md
+      purpose: Parallel execution coordination
+      
+  architecture_docs:
+    - path: docs/architecture/context.yaml
+      purpose: This file - LLM context source
+      
+    - path: docs/architecture/context.drawio
+      purpose: Visual diagram (generated from YAML)
+      
+  ci:
+    - path: .github/workflows/ci.yml
+      purpose: CI pipeline
+      
+  adrs:
+    - path: plans/adr/
+      purpose: Architecture Decision Records
+      count: 16
+
+skills:
+  location_pattern: ".agents/skills/{skill_name}/SKILL.md"
+  total_count: 13
+  categories:
+    core:
+      count: 9
+      items:
+        - rust-development
+        - testing-validation
+        - benchmarking-perf
+        - debugging-reservoir
+        - adr-creation
+        - goap-planning
+        - github-ci-guardrails
+        - drawio
+        - git-workflow
+        
+    swarm:
+      count: 4
+      description: Parallel execution groups
+      items:
+        - swarm-testing-quality
+        - swarm-performance
+        - swarm-observability
+        - swarm-advanced-features
+
+validation:
+  gates:
+    - name: check
+      command: cargo check
+      
+    - name: test
+      command: cargo test --all-features
+      
+    - name: format
+      command: cargo fmt --check
+      
+    - name: clippy
+      command: cargo clippy --all-targets --all-features -- -D warnings
+      
+    - name: loc
+      command: scripts/validate.sh (includes LOC check)
+      
+    - name: wasm
+      command: cargo check --target wasm32-unknown-unknown
+      
+  script: scripts/validate.sh
+  description: Run before commit
+  
+  performance_targets:
+    - name: reservoir_step_50k
+      target: "< 100μs"
+      latest_measured: "76.627μs"
+      status: passing
+      
+    - name: turso_roundtrip
+      target: "< 20ms"
+      status: passing
+      
+    - name: memory_10m_concepts
+      target: "< 12MB"
+      status: passing
+      
+    - name: wasm_binary_size
+      target: "< 500KB"
+      current: "437.67KB"
+      status: passing
+
+workflow:
+  before_commit:
+    - run: scripts/validate.sh
+    - ensure: All gates pass
+    
+  commit_format:
+    type: Conventional Commits
+    pattern: "<type>(<scope>): <description>"
+    example: "feat(reservoir): add SIMD hypervector operations"
+    
+  learning_loop:
+    - step: 1
+      action: Record what worked in progress/LEARNINGS.md
+      
+    - step: 2
+      action: Record progress in progress/PROGRESS.md
+      
+    - step: 3
+      action: Update module LOC counts
+      
+    - step: 4
+      action: Run test + bench gates
+      
+    - step: 5
+      action: Commit with Conventional Commits format
+
+current_status:
+  active_wave: 6
+  swarm_groups: 4
+  total_tests: 23
+  tests_passing: 23
+  modules_under_loc_limit: 12/12
+  performance_gates: 4/4 passing
+  
+guardrails:
+  - Never create unused code
+  - Verify at least one real usage site before adding proc-macros, traits, or convenience APIs
+  - Write/update ADR for architecture changes
+  - Do not assume crate existence/version; verify
+  - Prefer exact, testable instructions over high-level advice
+  - When uncertain on modern Rust practice, verify with web research

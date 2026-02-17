@@ -689,3 +689,21 @@ actions:
       - document policy in AGENTS and skills
       - require named constants and env/config-backed tunables
       - remove hardcoded thresholds/sample sizes from new performance gates
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 11: API COMPLETENESS (cost: 2)
+  # ═══════════════════════════════════════════════════════
+  - name: enable_zero_alloc_query_cache
+    preconditions:
+      concept_cache_implemented: true
+    effects:
+      query_cache_zero_alloc: true
+    cost: 2
+    status: complete
+    file: src/singularity.rs, src/framework.rs, src/framework_ops.rs, tests/framework_lifecycle.rs
+    adr: ADR-0023
+    description: |
+      Reduce allocations in repeated similarity queries:
+      - hash cache keys from `HVec10240` words (no `to_bytes()` allocation)
+      - store cached results as `Arc<[(String, f32)]>` to avoid cloning `Vec` on cache hits
+      - expose `Singularity::find_similar_cached()` and `ChaoticSemanticFramework::probe_batch_cached()`

@@ -22,6 +22,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 - @plans/ACTIONS.md — GOAP action plan
 - @.github/workflows/ci.yml — CI pipeline
 - @plans/adr/ — ADR folder
+- @docs/architecture/context.yaml — Structured LLM context (machine-optimized)
 
 ## Skills (13 Total)
 

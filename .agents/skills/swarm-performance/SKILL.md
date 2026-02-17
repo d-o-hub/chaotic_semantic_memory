@@ -44,6 +44,10 @@ pub async fn inject_concepts(
 }
 ```
 
+## Caching Pattern
+- Prefer cached values stored as `Arc<[T]>` so cache hits are cheap (`Arc::clone`).
+- Avoid keying caches via temporary `Vec` materializations; hash fixed-size words/arrays directly.
+
 ## Performance Targets
 
 - Batch similarity: 10k ops/ms

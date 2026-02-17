@@ -123,3 +123,25 @@ async fn concurrent_access_with_persistence() {
         job.await.unwrap().unwrap();
     }
 }
+
+#[tokio::test]
+async fn probe_batch_cached_reuses_cached_results() {
+    let framework = ChaoticSemanticFramework::builder()
+        .without_persistence()
+        .with_concept_cache_size(8)
+        .build()
+        .await
+        .unwrap();
+
+    let vec_a = HVec10240::random();
+    framework.inject_concept("a", vec_a).await.unwrap();
+    framework
+        .inject_concept("b", HVec10240::random())
+        .await
+        .unwrap();
+
+    let queries = [vec_a];
+    let first = framework.probe_batch_cached(&queries, 2).await.unwrap();
+    let second = framework.probe_batch_cached(&queries, 2).await.unwrap();
+    assert!(Arc::ptr_eq(&first[0], &second[0]));
+}

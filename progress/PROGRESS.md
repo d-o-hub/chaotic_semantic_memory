@@ -360,3 +360,16 @@
   - set ADRs `0018`–`0022` status to Accepted
   - updated `plans/GOAP_STATE.md` flags for completed Phase 10/11 tasks and Phase 12 checks
   - refreshed GOAP module LOC snapshot
+
+### 2026-02-17: Iteration 16 — Zero-Alloc Query Cache
+- Implemented allocation-free query-cache key hashing and cache-hit reuse:
+  - `Singularity::find_similar_cached()` returns `Arc<[(String, f32)]>` for cheap cache-hit clones
+  - cache keys hash `HVec10240` words directly (no `to_bytes()` allocation)
+- Removed hardcoded query-cache sizing:
+  - added `FrameworkBuilder::with_concept_cache_size(...)` to configure `SingularityConfig.concept_cache_size`
+- Added a cache-friendly batch API:
+  - `ChaoticSemanticFramework::probe_batch_cached(...)` for `Arc`-backed results
+- Planning + documentation:
+  - added ADR-0023 (`plans/adr/0023-zero-alloc-query-cache.md`)
+  - updated GOAP artifacts (`plans/GOAP_STATE.md`, `plans/GOALS.md`, `plans/ACTIONS.md`)
+  - updated performance/dev skills to document the `Arc<[T]>` caching pattern

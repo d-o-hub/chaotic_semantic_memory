@@ -314,3 +314,18 @@
 - Do not ignore association insert errors in load/import paths (`let _ = ...`) in production code.
 - Do not rely on `fs::copy` for live SQLite backups.
 - Do not let public API inputs pass through without explicit finite/range/size checks.
+
+## 2026-02-17: Iteration 16 — Zero-Alloc Query Cache
+
+### What Worked
+1. Returning `Arc<[(String, f32)]>` from the cached similarity path avoids `Vec` cloning on cache hits.
+2. Keying the cache by hashing `HVec10240` words directly eliminated a hidden `to_bytes()` allocation in the hot path.
+3. Exposing a cache-friendly batch API (`probe_batch_cached`) provided a real usage site for the new cached-return surface.
+
+### Technical Insights
+- If a function must return an owned `Vec`, cache hits will still allocate to materialize the `Vec`; providing an `Arc`-returning API is the clean escape hatch.
+- Hashing fixed-size arrays (`[u128; 80]`) is a straightforward way to avoid allocating temporary byte buffers for cache keys.
+
+### What to Avoid
+- Do not cache `Vec` and clone it on cache hits in a latency-sensitive query path.
+- Do not compute cache keys by allocating temporary buffers when the underlying data is already a fixed-size word array.

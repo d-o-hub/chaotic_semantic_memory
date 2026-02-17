@@ -4,13 +4,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, VecDeque};
 use std::hash::{Hash, Hasher};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 #[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
+
+const DEFAULT_CONCEPT_CACHE_SIZE: usize = 1000;
 
 /// A concept in semantic memory
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,7 +36,7 @@ impl Default for SingularityConfig {
         Self {
             max_concepts: None,
             max_associations_per_concept: None,
-            concept_cache_size: 1000,
+            concept_cache_size: DEFAULT_CONCEPT_CACHE_SIZE,
         }
     }
 }
@@ -43,7 +45,7 @@ impl Default for SingularityConfig {
 struct QueryCache {
     capacity: usize,
     order: VecDeque<u64>,
-    results: HashMap<u64, Vec<(String, f32)>>,
+    results: HashMap<u64, Arc<[(String, f32)]>>,
 }
 
 impl QueryCache {
@@ -55,8 +57,8 @@ impl QueryCache {
         }
     }
 
-    fn get(&mut self, key: u64) -> Option<Vec<(String, f32)>> {
-        let value = self.results.get(&key).cloned()?;
+    fn get(&mut self, key: u64) -> Option<Arc<[(String, f32)]>> {
+        let value = Arc::clone(self.results.get(&key)?);
         if let Some(pos) = self.order.iter().position(|k| *k == key) {
             self.order.remove(pos);
         }
@@ -64,7 +66,7 @@ impl QueryCache {
         Some(value)
     }
 
-    fn put(&mut self, key: u64, value: Vec<(String, f32)>) {
+    fn put(&mut self, key: u64, value: Arc<[(String, f32)]>) {
         if let Entry::Occupied(mut entry) = self.results.entry(key) {
             entry.insert(value);
             if let Some(pos) = self.order.iter().position(|k| *k == key) {
@@ -170,8 +172,15 @@ impl Singularity {
 
     /// Find similar concepts using cosine similarity
     pub fn find_similar(&self, query: &HVec10240, top_k: usize) -> Vec<(String, f32)> {
+        self.find_similar_cached(query, top_k).as_ref().to_vec()
+    }
+
+    /// Find similar concepts and return cached results as `Arc<[_]>`.
+    ///
+    /// Cache hits avoid cloning the cached result vector.
+    pub fn find_similar_cached(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]> {
         if top_k == 0 || self.concepts.is_empty() {
-            return Vec::new();
+            return Arc::from(Vec::new());
         }
 
         let cache_key = similarity_cache_key(query, top_k);
@@ -199,18 +208,22 @@ impl Singularity {
         if results.len() <= top_k {
             results.sort_by(|a, b| b.1.total_cmp(&a.1));
             if let Ok(mut cache) = self.query_cache.lock() {
-                cache.put(cache_key, results.clone());
+                let results = Arc::from(results);
+                cache.put(cache_key, Arc::clone(&results));
+                return results;
             }
-            return results;
+            return Arc::from(results);
         }
 
         results.select_nth_unstable_by(top_k - 1, |a, b| b.1.total_cmp(&a.1));
         results.truncate(top_k);
         results.sort_by(|a, b| b.1.total_cmp(&a.1));
         if let Ok(mut cache) = self.query_cache.lock() {
-            cache.put(cache_key, results.clone());
+            let results = Arc::from(results);
+            cache.put(cache_key, Arc::clone(&results));
+            return results;
         }
-        results
+        Arc::from(results)
     }
 
     /// Create or update association between concepts
@@ -392,7 +405,7 @@ fn unix_now_secs() -> u64 {
 fn similarity_cache_key(query: &HVec10240, top_k: usize) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     top_k.hash(&mut hasher);
-    query.to_bytes().hash(&mut hasher);
+    query.data.hash(&mut hasher);
     hasher.finish()
 }
 
