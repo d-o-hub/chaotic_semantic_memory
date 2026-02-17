@@ -12,9 +12,9 @@ world_state:
   dependency_hygiene_complete: true
   adr_registry_current: true
   result_contract_clarified: true
-  action_last_completed: expand_edge_case_coverage
+  action_last_completed: enable_mutation_testing
   orchestrator_last_run: goap_parallel_missing_tasks_2026_02_17
-  orchestrator_last_run_at_utc: 2026-02-17T07:45:32Z
+  orchestrator_last_run_at_utc: 2026-02-17T07:48:51Z
 
   # Swarm orchestration snapshot
   active_wave: 1
@@ -32,10 +32,11 @@ world_state:
   wave_2_completed:
     group_a: expand_edge_case_coverage
   wave_3_queued:
-    group_a: enable_mutation_testing
     group_b: add_framework_batch_operations
     group_c: add_metrics_collection
     group_d: add_concept_versioning
+  wave_3_completed:
+    group_a: enable_mutation_testing
   wave_4_queued:
     group_b: implement_concept_lru_cache
     group_c: create_derive_macros
@@ -108,7 +109,7 @@ world_state:
   property_based_tests_added: true
   fuzzing_targets_created: true
   edge_case_coverage_complete: true
-  mutation_testing_enabled: false
+  mutation_testing_enabled: true
 
   # Phase 6: Performance Enhancements (cost: 12)
   simd_hypervector_ops: false

@@ -4,7 +4,7 @@
 
 | Group | Phase | Focus | Status |
 |-------|-------|-------|--------|
-| A | 5 | Testing & Quality | Ready (Wave 3 queued) |
+| A | 5 | Testing & Quality | Complete (Wave 4 idle) |
 | B | 6 | Performance | In Progress |
 | C | 7 | Observability & DX | In Progress |
 | D | 8 | Advanced Features | In Progress |
@@ -49,7 +49,7 @@ Run ID: `goap_parallel_missing_tasks_2026_02_17`
 
 | Group | Action | Start Condition | Depends On |
 |-------|--------|-----------------|------------|
-| A | `enable_mutation_testing` | when `expand_edge_case_coverage` complete | W2 A |
+| A | `enable_mutation_testing` | complete | W2 A |
 | B | `add_framework_batch_operations` | when `add_connection_pooling` complete | W2 B |
 | C | `add_metrics_collection` | when `improve_error_context` complete | W2 C |
 | D | `add_concept_versioning` | when `implement_export_import` complete | W2 D |

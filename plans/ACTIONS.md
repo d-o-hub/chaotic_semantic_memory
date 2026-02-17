@@ -407,7 +407,7 @@ actions:
     effects:
       mutation_testing_enabled: true
     cost: 2
-    status: pending
+    status: complete
     file: Cargo.toml, scripts/, tests/
     description: |
       Add mutation testing workflow and baseline:
