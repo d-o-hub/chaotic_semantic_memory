@@ -12,9 +12,9 @@ world_state:
   dependency_hygiene_complete: true
   adr_registry_current: true
   result_contract_clarified: true
-  action_last_completed: create_fuzzing_targets
+  action_last_completed: expand_edge_case_coverage
   orchestrator_last_run: goap_parallel_missing_tasks_2026_02_17
-  orchestrator_last_run_at_utc: 2026-02-17T07:43:18Z
+  orchestrator_last_run_at_utc: 2026-02-17T07:45:32Z
 
   # Swarm orchestration snapshot
   active_wave: 1
@@ -26,10 +26,11 @@ world_state:
   wave_1_completed:
     group_a: create_fuzzing_targets
   wave_2_queued:
-    group_a: expand_edge_case_coverage
     group_b: add_connection_pooling
     group_c: improve_error_context
     group_d: implement_export_import
+  wave_2_completed:
+    group_a: expand_edge_case_coverage
   wave_3_queued:
     group_a: enable_mutation_testing
     group_b: add_framework_batch_operations
@@ -106,7 +107,7 @@ world_state:
   # Phase 5: Testing & Quality (cost: 8)
   property_based_tests_added: true
   fuzzing_targets_created: true
-  edge_case_coverage_complete: false
+  edge_case_coverage_complete: true
   mutation_testing_enabled: false
 
   # Phase 6: Performance Enhancements (cost: 12)

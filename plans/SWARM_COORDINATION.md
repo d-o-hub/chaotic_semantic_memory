@@ -4,7 +4,7 @@
 
 | Group | Phase | Focus | Status |
 |-------|-------|-------|--------|
-| A | 5 | Testing & Quality | Ready (Wave 2 queued) |
+| A | 5 | Testing & Quality | Ready (Wave 3 queued) |
 | B | 6 | Performance | In Progress |
 | C | 7 | Observability & DX | In Progress |
 | D | 8 | Advanced Features | In Progress |
@@ -40,7 +40,7 @@ Run ID: `goap_parallel_missing_tasks_2026_02_17`
 
 | Group | Action | Start Condition | Depends On |
 |-------|--------|-----------------|------------|
-| A | `expand_edge_case_coverage` | when `create_fuzzing_targets` complete | W1 A |
+| A | `expand_edge_case_coverage` | complete | W1 A |
 | B | `add_connection_pooling` | when `implement_simd_hypervector_ops` complete | W1 B, W1 A handoff |
 | C | `improve_error_context` | when `add_structured_logging` complete | W1 C |
 | D | `implement_export_import` | when `add_schema_migration_support` complete | W1 D, W1 B handoff |
