@@ -11,11 +11,11 @@ fn p50_ms(samples: &mut [f64]) -> f64 {
 
 #[tokio::test]
 async fn turso_roundtrip_p50_under_20ms_when_configured() {
-    let Ok(url) = env::var("TURSO_DATABASE_URL") else {
+    let Some(url) = non_empty_env("TURSO_DATABASE_URL") else {
         println!("Skipping Turso latency test: TURSO_DATABASE_URL is not set");
         return;
     };
-    let Ok(token) = env::var("TURSO_AUTH_TOKEN") else {
+    let Some(token) = non_empty_env("TURSO_AUTH_TOKEN") else {
         println!("Skipping Turso latency test: TURSO_AUTH_TOKEN is not set");
         return;
     };
@@ -53,4 +53,14 @@ fn chrono_like_now_nanos() -> u128 {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos()
+}
+
+fn non_empty_env(key: &str) -> Option<String> {
+    env::var(key).ok().and_then(|value| {
+        if value.trim().is_empty() {
+            None
+        } else {
+            Some(value)
+        }
+    })
 }
