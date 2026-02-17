@@ -12,9 +12,9 @@ world_state:
   dependency_hygiene_complete: true
   adr_registry_current: true
   result_contract_clarified: true
-  action_last_completed: enable_zero_alloc_query_cache
-  orchestrator_last_run: goap_enable_zero_alloc_query_cache_2026_02_17
-  orchestrator_last_run_at_utc: 2026-02-17T18:22:46Z
+  action_last_completed: swarm_wave_6_closure
+  orchestrator_last_run: goap_swarm_wave6_final_closure_2026_02_17
+  orchestrator_last_run_at_utc: 2026-02-17T19:35:00Z
 
   # Swarm orchestration snapshot
   active_wave: 6
@@ -49,7 +49,11 @@ world_state:
     group_c: validate_wasm_binary_size
     group_d: enforce_performance_goal_gate
   wave_6_in_progress: {}
-  wave_6_completed: {}
+  wave_6_completed:
+    group_a: finalize_testing_documentation
+    group_b: finalize_performance_benchmarks
+    group_c: finalize_observability_integration
+    group_d: finalize_advanced_features_validation
   handoff_queue:
     - "A->B: fuzz findings on malformed vectors before SIMD hardening"
     - "B->D: persistence and batching compatibility notes before versioning/export"
@@ -65,6 +69,9 @@ world_state:
     - plans/handoffs/W5_C_to_D_wasm_size_report.md
     - plans/handoffs/W5_D_to_All_performance_gate_decision.md
   phase_boundary_gate_pending: []
+  swarm_status: complete
+  all_waves_finished: true
+  final_validation_passed: true
   planning_gaps:
     mutation_testing_action_missing: false
 
