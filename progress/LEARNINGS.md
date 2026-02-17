@@ -295,3 +295,22 @@
 
 ### What to Avoid
 - Do not introduce numeric literals directly in tunable runtime decisions without naming and configurability.
+
+## 2026-02-17: Iteration 12 — Missing Task Closure
+
+### What Worked
+1. Enforcing validation once at framework API boundary keeps behavior consistent without duplicating checks in singularity internals.
+2. `VACUUM INTO` is a safer SQLite backup primitive than file copy for live databases.
+3. Logging-and-continue on orphan associations preserves load/import availability while removing silent data loss.
+4. Splitting framework validation into a dedicated module is an effective way to satisfy strict LOC caps without behavior regressions.
+
+### Technical Insights
+- Import flows that tolerate orphan associations must also filter persistence writes, or foreign-key enforcement will still fail.
+- Auto-migration is easiest to guarantee by invoking migrations directly from schema initialization.
+- WASM parity needs both persistence stubs and binding surface updates to avoid target-specific API drift.
+- Restoring from attached backup DB avoids replacing a live sqlite file on disk while preserving active handle safety.
+
+### What to Avoid
+- Do not ignore association insert errors in load/import paths (`let _ = ...`) in production code.
+- Do not rely on `fs::copy` for live SQLite backups.
+- Do not let public API inputs pass through without explicit finite/range/size checks.

@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use tokio::fs;
+use tracing::warn;
 
 use crate::error::Result;
 use crate::framework::ChaoticSemanticFramework;
@@ -24,6 +25,7 @@ impl ChaoticSemanticFramework {
         {
             let mut sing = self.singularity.write().await;
             for (id, vector) in concepts {
+                Self::validate_concept_id(id)?;
                 let concept = ConceptBuilder::new(id.clone())
                     .with_vector(*vector)
                     .build()?;
@@ -48,6 +50,9 @@ impl ChaoticSemanticFramework {
         {
             let mut sing = self.singularity.write().await;
             for (from, to, strength) in associations {
+                Self::validate_concept_id(from)?;
+                Self::validate_concept_id(to)?;
+                Self::validate_association_strength(*strength)?;
                 sing.associate(from, to, *strength)?;
             }
         }
@@ -66,6 +71,7 @@ impl ChaoticSemanticFramework {
         queries: &[HVec10240],
         top_k: usize,
     ) -> Result<Vec<Vec<(String, f32)>>> {
+        self.validate_top_k(top_k)?;
         let sing = self.singularity.read().await;
         let mut out = Vec::with_capacity(queries.len());
         for query in queries {
@@ -106,17 +112,30 @@ impl ChaoticSemanticFramework {
 
         {
             let mut sing = self.singularity.write().await;
+            let mut valid_associations = Vec::with_capacity(payload.associations.len());
             for concept in &payload.concepts {
+                self.validate_concept(concept)?;
                 sing.inject(concept.clone())?;
             }
             for (from, to, strength) in &payload.associations {
-                let _ = sing.associate(from, to, *strength);
+                match sing.associate(from, to, *strength) {
+                    Ok(()) => valid_associations.push((from.clone(), to.clone(), *strength)),
+                    Err(error) => {
+                        warn!(
+                            from_id = %from,
+                            to_id = %to,
+                            strength = *strength,
+                            error = %error,
+                            "skipping invalid association during import_json"
+                        );
+                    }
+                }
             }
-        }
 
-        if let Some(ref persistence) = self.persistence {
-            persistence.save_concepts(&payload.concepts).await?;
-            persistence.save_associations(&payload.associations).await?;
+            if let Some(ref persistence) = self.persistence {
+                persistence.save_concepts(&payload.concepts).await?;
+                persistence.save_associations(&valid_associations).await?;
+            }
         }
 
         Ok(payload.concepts.len())

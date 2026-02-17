@@ -1,5 +1,6 @@
 use libsql::params;
 use tokio::fs;
+use tracing::{info, warn};
 
 use crate::error::{MemoryError, Result};
 use crate::persistence::{ConceptVersion, Persistence};
@@ -142,6 +143,7 @@ impl Persistence {
         })?;
 
         for version in (current + 1)..=target_version {
+            info!(version, "applying schema migration");
             if version == 2 {
                 conn.execute_batch(
                     "CREATE INDEX IF NOT EXISTS idx_concept_versions_modified_at
@@ -169,26 +171,92 @@ impl Persistence {
     }
 
     pub async fn backup(&self, path: &str) -> Result<()> {
-        let Some(local_path) = &self.local_path else {
-            return Err(MemoryError::Persistence(
+        let Some(_local_path) = &self.local_path else {
+            return Err(MemoryError::UnsupportedOperation(
                 "backup is only supported for local SQLite databases".to_string(),
             ));
         };
 
         self.checkpoint().await?;
-        fs::copy(local_path, path).await.map_err(MemoryError::Io)?;
+        if fs::metadata(path).await.is_ok() {
+            fs::remove_file(path).await.map_err(MemoryError::Io)?;
+        }
+
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        conn.execute("VACUUM INTO ?1", params![path])
+            .await
+            .map_err(|e| MemoryError::Database(format!("Failed to create backup: {}", e)))?;
         Ok(())
     }
 
     pub async fn restore(&self, path: &str) -> Result<()> {
-        let Some(local_path) = &self.local_path else {
-            return Err(MemoryError::Persistence(
+        let Some(_local_path) = &self.local_path else {
+            return Err(MemoryError::UnsupportedOperation(
                 "restore is only supported for local SQLite databases".to_string(),
             ));
         };
 
-        fs::copy(path, local_path).await.map_err(MemoryError::Io)?;
+        fs::metadata(path).await.map_err(MemoryError::Io)?;
+
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        conn.execute("BEGIN IMMEDIATE", ()).await.map_err(|e| {
+            MemoryError::Database(format!("Failed to begin restore transaction: {}", e))
+        })?;
+
+        if let Err(error) = async {
+            conn.execute("ATTACH DATABASE ?1 AS restore_db", params![path])
+                .await
+                .map_err(|e| MemoryError::Database(format!("Failed to attach backup DB: {}", e)))?;
+
+            conn.execute_batch(
+                "DELETE FROM associations;
+                 DELETE FROM concept_versions;
+                 DELETE FROM concepts;
+                 DELETE FROM __schema_version;",
+            )
+            .await
+            .map_err(|e| MemoryError::Database(format!("Failed to clear current database: {}", e)))?;
+
+            conn.execute_batch(
+                "INSERT INTO concepts (id, vector, metadata, created_at, modified_at)
+                 SELECT id, vector, metadata, created_at, modified_at FROM restore_db.concepts;
+                 INSERT INTO associations (from_id, to_id, strength)
+                 SELECT from_id, to_id, strength FROM restore_db.associations;
+                 INSERT INTO concept_versions (concept_id, version, vector, metadata, modified_at)
+                 SELECT concept_id, version, vector, metadata, modified_at FROM restore_db.concept_versions;
+                 INSERT INTO __schema_version(version)
+                 SELECT version FROM restore_db.__schema_version;",
+            )
+            .await
+            .map_err(|e| MemoryError::Database(format!("Failed to import backup data: {}", e)))?;
+
+            Ok::<(), MemoryError>(())
+        }
+        .await
+        {
+            let _ = conn.execute_batch("ROLLBACK;").await;
+            return Err(error);
+        }
+
+        conn.execute("COMMIT", ())
+            .await
+            .map_err(|e| MemoryError::Database(format!("Failed to commit restore: {}", e)))?;
+        if let Err(error) = conn.execute_batch("DETACH DATABASE restore_db;").await {
+            warn!(error = %error, "failed to detach restore_db after restore");
+        }
+
         self.init_schema().await?;
+        Ok(())
+    }
+
+    pub async fn health_check(&self) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        conn.query("SELECT 1", ()).await.map_err(|e| {
+            MemoryError::Database(format!("Failed persistence health check: {}", e))
+        })?;
         Ok(())
     }
 }

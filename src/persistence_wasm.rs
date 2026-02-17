@@ -3,10 +3,20 @@
 //! Persistence is unavailable on `wasm32` in this crate build.
 
 use crate::error::{MemoryError, Result};
+use crate::hyperdim::HVec10240;
 use crate::singularity::Concept;
 
 /// Persistence stub for wasm32 builds.
 pub struct Persistence;
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ConceptVersion {
+    pub concept_id: String,
+    pub version: i64,
+    pub vector: HVec10240,
+    pub metadata: serde_json::Value,
+    pub modified_at: u64,
+}
 
 impl Persistence {
     pub async fn new_local(_path: &str) -> Result<Self> {
@@ -53,7 +63,39 @@ impl Persistence {
         Err(wasm_persistence_unavailable())
     }
 
+    pub async fn clear_all(&self) -> Result<()> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn get_concept_history(
+        &self,
+        _id: &str,
+        _limit: usize,
+    ) -> Result<Vec<ConceptVersion>> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn schema_version(&self) -> Result<i64> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn apply_migrations(&self, _target_version: i64) -> Result<()> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn backup(&self, _path: &str) -> Result<()> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn restore(&self, _path: &str) -> Result<()> {
+        Err(wasm_persistence_unavailable())
+    }
+
     pub async fn checkpoint(&self) -> Result<()> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn health_check(&self) -> Result<()> {
         Err(wasm_persistence_unavailable())
     }
 
@@ -63,5 +105,5 @@ impl Persistence {
 }
 
 fn wasm_persistence_unavailable() -> MemoryError {
-    MemoryError::Persistence("Persistence is unavailable on wasm32".to_string())
+    MemoryError::UnsupportedOperation("Persistence is unavailable on wasm32".to_string())
 }

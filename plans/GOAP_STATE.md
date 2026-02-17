@@ -12,12 +12,12 @@ world_state:
   dependency_hygiene_complete: true
   adr_registry_current: true
   result_contract_clarified: true
-  action_last_completed: enforce_performance_goal_gate
+  action_last_completed: implement_phase_10_12_missing_tasks
   orchestrator_last_run: goap_parallel_missing_tasks_wave5_2026_02_17
   orchestrator_last_run_at_utc: 2026-02-17T09:46:00Z
 
   # Swarm orchestration snapshot
-  active_wave: 5
+  active_wave: 6
   wave_strategy: parallel_by_phase_with_handoffs
   wave_1_in_progress: {}
   wave_1_completed:
@@ -48,6 +48,8 @@ world_state:
     group_b: validate_memory_footprint_10m
     group_c: validate_wasm_binary_size
     group_d: enforce_performance_goal_gate
+  wave_6_in_progress: {}
+  wave_6_completed: {}
   handoff_queue:
     - "A->B: fuzz findings on malformed vectors before SIMD hardening"
     - "B->D: persistence and batching compatibility notes before versioning/export"
@@ -68,17 +70,18 @@ world_state:
 
   # Module status (LOC counts)
   modules:
-    lib.rs: 33
-    error.rs: 26
+    lib.rs: 34
+    error.rs: 32
     hyperdim.rs: 410
     reservoir.rs: 427
-    singularity.rs: 426
-    persistence.rs: 495
-    persistence_wasm.rs: 67
-    framework.rs: 429
-    framework_ops.rs: 177
-    persistence_ops.rs: 194
-    wasm.rs: 100
+    singularity.rs: 420
+    persistence.rs: 498
+    persistence_wasm.rs: 109
+    framework.rs: 487
+    framework_ops.rs: 196
+    framework_validation.rs: 80
+    persistence_ops.rs: 262
+    wasm.rs: 165
 
   # Test status
   unit_tests_passing: 16
@@ -144,3 +147,21 @@ world_state:
   concept_versioning_enabled: true
   schema_migration_support: true
   backup_restore_operations: true
+
+  # Phase 10: Hardening & Validation (cost: 12)
+  input_validation_policy: true
+  backup_restore_safety: true
+  silent_data_loss_fixed: true
+  auto_schema_migration: true
+
+  # Phase 11: WASM Parity & API Completeness (cost: 8)
+  wasm_persistence_stubs_complete: true
+  wasm_bindings_expanded: true
+  framework_read_apis_added: true
+  query_cache_zero_alloc: false
+
+  # Phase 12: Ecosystem & Release Engineering (cost: 8)
+  error_variants_refined: true
+  persistence_health_check: true
+  concurrent_access_tests: true
+  backup_restore_tests: true

@@ -9,6 +9,7 @@ pub mod error;
 pub mod framework;
 #[cfg(not(target_arch = "wasm32"))]
 mod framework_ops;
+mod framework_validation;
 pub mod hyperdim;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod persistence;

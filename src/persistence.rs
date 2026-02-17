@@ -10,6 +10,8 @@ use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 use crate::singularity::Concept;
 
+pub(crate) const LATEST_SCHEMA_VERSION: i64 = 2;
+
 /// Database connection manager
 pub struct Persistence {
     pub(crate) db: Arc<Database>,
@@ -131,6 +133,7 @@ impl Persistence {
         .await
         .map_err(|e| MemoryError::Database(format!("Failed to initialize schema: {}", e)))?;
 
+        self.apply_migrations(LATEST_SCHEMA_VERSION).await?;
         Ok(())
     }
 

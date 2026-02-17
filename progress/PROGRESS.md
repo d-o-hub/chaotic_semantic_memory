@@ -328,3 +328,35 @@
   - `cargo test --all-features --quiet` pass
   - `cargo fmt --check` pass
   - `cargo clippy --all-targets --all-features -- -D warnings` pass
+
+### 2026-02-17: AGENT Iteration 12 — Phase 10/11/12 Missing Task Closure
+- Implemented ADR-0018 input validation policy at framework boundary:
+  - concept ID validation (non-empty, <=256 bytes)
+  - finite association strength validation
+  - configurable `top_k` cap via `FrameworkConfig.max_probe_top_k`
+  - configurable metadata-size validation hook via `FrameworkConfig.max_metadata_bytes`
+- Implemented ADR-0019 backup/restore safety in persistence ops:
+  - backup now uses SQLite `VACUUM INTO` instead of raw file copy
+  - restore now imports from attached backup DB inside transaction, then re-initializes schema/migrations
+- Implemented ADR-0020 silent-data-loss fix:
+  - replaced silent `let _ = associate(...)` patterns with structured `tracing::warn!` logging in `load_replace`, `load_merge`, and `import_json`
+  - import now persists only valid associations (skips orphaned links)
+- Implemented ADR-0021 auto schema migration:
+  - added `LATEST_SCHEMA_VERSION` and automatic `apply_migrations(...)` call at end of schema init
+  - migration steps emit info logs
+- Implemented ADR-0022 WASM parity updates:
+  - added missing WASM persistence stubs (`clear_all`, `get_concept_history`, `schema_version`, `apply_migrations`, `backup`, `restore`, `health_check`) and `ConceptVersion` stub type
+  - expanded WASM bindings with `associate`, `delete_concept`, `get_associations`, and `metrics_snapshot`
+- Phase 12 hardening additions:
+  - refined `MemoryError` with `InvalidInput` and `UnsupportedOperation`
+  - added `Persistence::health_check()` and `ChaoticSemanticFramework::persistence_health_check()`
+  - added integration tests for input validation, orphan-association import behavior, concurrent access, health check/schema version, and backup/restore roundtrip
+- LOC compliance:
+  - split validation helpers into new `src/framework_validation.rs` to keep `src/framework.rs` under 500 LOC
+- Validation:
+  - `scripts/validate.sh` pass (fmt, clippy, tests, LOC gate, wasm check, wasm size gate)
+  - wasm size gate pass: `507102 bytes (495.22 KiB)`
+- Planning updates:
+  - set ADRs `0018`–`0022` status to Accepted
+  - updated `plans/GOAP_STATE.md` flags for completed Phase 10/11 tasks and Phase 12 checks
+  - refreshed GOAP module LOC snapshot

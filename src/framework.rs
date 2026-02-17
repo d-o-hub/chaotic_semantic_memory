@@ -3,13 +3,15 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::instrument;
+use tracing::{instrument, warn};
 
 use crate::error::Result;
 use crate::hyperdim::HVec10240;
 use crate::persistence::Persistence;
 use crate::reservoir::ChaoticReservoir;
-use crate::singularity::{ConceptBuilder, Singularity, SingularityConfig};
+use crate::singularity::{Concept, ConceptBuilder, Singularity, SingularityConfig};
+
+const DEFAULT_MAX_PROBE_TOP_K: usize = 10_000;
 
 /// Main framework for chaotic semantic memory
 pub struct ChaoticSemanticFramework {
@@ -29,6 +31,8 @@ pub struct FrameworkConfig {
     pub max_concepts: Option<usize>,
     pub max_associations_per_concept: Option<usize>,
     pub connection_pool_size: usize,
+    pub max_probe_top_k: usize,
+    pub max_metadata_bytes: Option<usize>,
 }
 
 impl Default for FrameworkConfig {
@@ -41,6 +45,8 @@ impl Default for FrameworkConfig {
             max_concepts: None,
             max_associations_per_concept: None,
             connection_pool_size: 10,
+            max_probe_top_k: DEFAULT_MAX_PROBE_TOP_K,
+            max_metadata_bytes: None,
         }
     }
 }
@@ -113,6 +119,7 @@ impl ChaoticSemanticFramework {
     #[instrument(skip(self, id, vector))]
     pub async fn inject_concept(&self, id: impl Into<String>, vector: HVec10240) -> Result<()> {
         let id = id.into();
+        Self::validate_concept_id(&id)?;
         let concept = ConceptBuilder::new(id).with_vector(vector).build()?;
 
         {
@@ -131,6 +138,7 @@ impl ChaoticSemanticFramework {
     /// Query for similar concepts
     #[instrument(skip(self, query))]
     pub async fn probe(&self, query: HVec10240, top_k: usize) -> Result<Vec<(String, f32)>> {
+        self.validate_top_k(top_k)?;
         let start = std::time::Instant::now();
         let sing = self.singularity.read().await;
         let results = sing.find_similar(&query, top_k);
@@ -164,6 +172,9 @@ impl ChaoticSemanticFramework {
     /// Associate two concepts
     #[instrument(skip(self))]
     pub async fn associate(&self, from: &str, to: &str, strength: f32) -> Result<()> {
+        Self::validate_concept_id(from)?;
+        Self::validate_concept_id(to)?;
+        Self::validate_association_strength(strength)?;
         {
             let mut sing = self.singularity.write().await;
             sing.associate(from, to, strength)?;
@@ -180,6 +191,7 @@ impl ChaoticSemanticFramework {
     /// Delete concept from memory and persistence
     #[instrument(skip(self))]
     pub async fn delete_concept(&self, id: &str) -> Result<()> {
+        Self::validate_concept_id(id)?;
         {
             let mut sing = self.singularity.write().await;
             sing.delete(id)?;
@@ -195,8 +207,17 @@ impl ChaoticSemanticFramework {
     /// Get associations for a concept
     #[instrument(skip(self))]
     pub async fn get_associations(&self, id: &str) -> Result<Vec<(String, f32)>> {
+        Self::validate_concept_id(id)?;
         let sing = self.singularity.read().await;
         Ok(sing.get_associations(id))
+    }
+
+    /// Get a concept by ID.
+    #[instrument(skip(self))]
+    pub async fn get_concept(&self, id: &str) -> Result<Option<Concept>> {
+        Self::validate_concept_id(id)?;
+        let sing = self.singularity.read().await;
+        Ok(sing.get(id).cloned())
     }
 
     /// Persist all data to storage
@@ -204,6 +225,15 @@ impl ChaoticSemanticFramework {
     pub async fn persist(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
             persistence.checkpoint().await?;
+        }
+        Ok(())
+    }
+
+    /// Verify persistence connectivity.
+    #[instrument(skip(self))]
+    pub async fn persistence_health_check(&self) -> Result<()> {
+        if let Some(ref persistence) = self.persistence {
+            persistence.health_check().await?;
         }
         Ok(())
     }
@@ -217,6 +247,7 @@ impl ChaoticSemanticFramework {
             let mut sing = self.singularity.write().await;
             sing.clear();
             for concept in concepts {
+                self.validate_concept(&concept)?;
                 sing.inject(concept)?;
             }
 
@@ -225,7 +256,15 @@ impl ChaoticSemanticFramework {
             for concept_id in concept_ids {
                 let links = persistence.load_associations(&concept_id).await?;
                 for (to_id, strength) in links {
-                    let _ = sing.associate(&concept_id, &to_id, strength);
+                    if let Err(error) = sing.associate(&concept_id, &to_id, strength) {
+                        warn!(
+                            from_id = %concept_id,
+                            to_id = %to_id,
+                            strength,
+                            error = %error,
+                            "skipping invalid association during load_replace"
+                        );
+                    }
                 }
             }
         }
@@ -239,6 +278,7 @@ impl ChaoticSemanticFramework {
             let concepts = persistence.load_all_concepts().await?;
             let mut sing = self.singularity.write().await;
             for concept in concepts {
+                self.validate_concept(&concept)?;
                 sing.inject(concept)?;
             }
 
@@ -246,7 +286,15 @@ impl ChaoticSemanticFramework {
             for concept_id in concept_ids {
                 let links = persistence.load_associations(&concept_id).await?;
                 for (to_id, strength) in links {
-                    let _ = sing.associate(&concept_id, &to_id, strength);
+                    if let Err(error) = sing.associate(&concept_id, &to_id, strength) {
+                        warn!(
+                            from_id = %concept_id,
+                            to_id = %to_id,
+                            strength,
+                            error = %error,
+                            "skipping invalid association during load_merge"
+                        );
+                    }
                 }
             }
         }
@@ -331,6 +379,16 @@ impl FrameworkBuilder {
 
     pub fn with_connection_pool_size(mut self, pool_size: usize) -> Self {
         self.config.connection_pool_size = pool_size.max(1);
+        self
+    }
+
+    pub fn with_max_probe_top_k(mut self, max_probe_top_k: usize) -> Self {
+        self.config.max_probe_top_k = max_probe_top_k.max(1);
+        self
+    }
+
+    pub fn with_max_metadata_bytes(mut self, max_metadata_bytes: usize) -> Self {
+        self.config.max_metadata_bytes = Some(max_metadata_bytes);
         self
     }
 

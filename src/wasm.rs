@@ -58,6 +58,71 @@ impl WasmFramework {
         Ok(array)
     }
 
+    /// Associate two concepts
+    pub async fn associate(&self, from: String, to: String, strength: f32) -> Result<(), JsValue> {
+        self.framework
+            .associate(&from, &to, strength)
+            .await
+            .map_err(|e| JsValue::from_str(&format!("{:?}", e)))
+    }
+
+    /// Delete concept by ID
+    pub async fn delete_concept(&self, id: String) -> Result<(), JsValue> {
+        self.framework
+            .delete_concept(&id)
+            .await
+            .map_err(|e| JsValue::from_str(&format!("{:?}", e)))
+    }
+
+    /// Get associations for a concept
+    pub async fn get_associations(&self, id: String) -> Result<Array, JsValue> {
+        let associations = self
+            .framework
+            .get_associations(&id)
+            .await
+            .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
+
+        let array = Array::new();
+        for (to, strength) in associations {
+            let obj = js_sys::Object::new();
+            js_sys::Reflect::set(&obj, &"to".into(), &to.into()).unwrap();
+            js_sys::Reflect::set(&obj, &"strength".into(), &strength.into()).unwrap();
+            array.push(&obj);
+        }
+        Ok(array)
+    }
+
+    /// Get framework metrics snapshot
+    pub fn metrics_snapshot(&self) -> JsValue {
+        let metrics = self.framework.metrics_snapshot();
+        let obj = js_sys::Object::new();
+        js_sys::Reflect::set(
+            &obj,
+            &"concepts_injected_total".into(),
+            &(metrics.concepts_injected_total as f64).into(),
+        )
+        .unwrap();
+        js_sys::Reflect::set(
+            &obj,
+            &"associations_created_total".into(),
+            &(metrics.associations_created_total as f64).into(),
+        )
+        .unwrap();
+        js_sys::Reflect::set(
+            &obj,
+            &"probes_total".into(),
+            &(metrics.probes_total as f64).into(),
+        )
+        .unwrap();
+        js_sys::Reflect::set(
+            &obj,
+            &"avg_probe_latency_ms".into(),
+            &metrics.avg_probe_latency_ms.into(),
+        )
+        .unwrap();
+        obj.into()
+    }
+
     /// Get framework stats
     pub async fn stats(&self) -> Result<JsValue, JsValue> {
         let stats = self
