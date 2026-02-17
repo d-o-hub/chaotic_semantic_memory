@@ -17,8 +17,11 @@ world_state:
   orchestrator_last_run_at_utc: 2026-02-17T19:35:00Z
 
   # Swarm orchestration snapshot
-  active_wave: 6
+  active_wave: 7
   wave_strategy: parallel_by_phase_with_handoffs
+  wave_7_name: "Documentation & Parity Improvements"
+  wave_7_started_at: "2026-02-17"
+  wave_7_focus: "Phase 13-16: Documentation, Observability, Testing, WASM"
   wave_1_in_progress: {}
   wave_1_completed:
     group_a: create_fuzzing_targets
@@ -68,8 +71,21 @@ world_state:
     - plans/handoffs/W5_B_to_D_memory_budget_report.md
     - plans/handoffs/W5_C_to_D_wasm_size_report.md
     - plans/handoffs/W5_D_to_All_performance_gate_decision.md
-  phase_boundary_gate_pending: []
-  swarm_status: complete
+    - plans/handoffs/W6_A_to_All_testing_closure.md
+    - plans/handoffs/W6_B_to_All_performance_closure.md
+    - plans/handoffs/W6_C_to_All_observability_closure.md
+    - plans/handoffs/W6_D_to_All_features_closure.md
+  phase_boundary_gate_pending:
+    - "Phase 13 completion: All documentation actions merged"
+    - "Phase 14 completion: Observability coverage verified"
+    - "Phase 15 completion: Benchmarks and tests passing"
+    - "Phase 16 completion: WASM API tested in browser"
+  swarm_status: active
+  wave_7_in_progress:
+    group_a: Phase 15 testing pragmatism
+    group_b: Phase 13 documentation improvements
+    group_c: Phase 14 observability completion
+    group_d: Phase 16 WASM parity
   all_waves_finished: true
   final_validation_passed: true
   planning_gaps:
@@ -172,3 +188,23 @@ world_state:
   persistence_health_check: true
   concurrent_access_tests: true
   backup_restore_tests: true
+
+  # Phase 13: Documentation & DX Improvements (cost: 6)
+  framework_config_documented: false
+  singularity_config_documented: false
+  readme_installation_section: false
+  basic_in_memory_example: false
+  cargo_aliases_created: false
+
+  # Phase 14: Observability Completion (cost: 4)
+  singularity_tracing_added: false
+  cache_hit_miss_metrics: false
+  reservoir_step_metrics: false
+
+  # Phase 15: Testing Pragmatism (cost: 3)
+  to_hypervector_benchmark_added: false
+  critical_error_path_tests: false
+
+  # Phase 16: WASM Parity (cost: 3)
+  wasm_process_sequence_exposed: false
+  wasm_memory_export_import: false

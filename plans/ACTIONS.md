@@ -707,3 +707,243 @@ actions:
       - hash cache keys from `HVec10240` words (no `to_bytes()` allocation)
       - store cached results as `Arc<[(String, f32)]>` to avoid cloning `Vec` on cache hits
       - expose `Singularity::find_similar_cached()` and `ChaoticSemanticFramework::probe_batch_cached()`
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 12: SWARM WAVE 6 - FINAL CLOSURE (cost: 4)
+  # ═══════════════════════════════════════════════════════
+  - name: finalize_testing_documentation
+    preconditions:
+      benchmarks_prove_performance: true
+    effects:
+      swarm_wave_6_group_a_complete: true
+    cost: 1
+    status: complete
+    file: tests/, plans/handoffs/
+    description: |
+      Group A closure: consolidate all testing artifacts, coverage reports,
+      and document test strategy for future maintenance.
+
+  - name: finalize_performance_benchmarks
+    preconditions:
+      benchmarks_prove_performance: true
+    effects:
+      swarm_wave_6_group_b_complete: true
+    cost: 1
+    status: complete
+    file: benches/, plans/handoffs/
+    description: |
+      Group B closure: finalize benchmark baselines, document performance
+      regression suite, and publish performance budget reports.
+
+  - name: finalize_observability_integration
+    preconditions:
+      benchmarks_prove_performance: true
+    effects:
+      swarm_wave_6_group_c_complete: true
+    cost: 1
+    status: complete
+    file: src/, plans/handoffs/
+    description: |
+      Group C closure: validate tracing integration across all modules,
+      publish observability conventions and span taxonomy.
+
+  - name: finalize_advanced_features_validation
+    preconditions:
+      benchmarks_prove_performance: true
+    effects:
+      swarm_wave_6_group_d_complete: true
+    cost: 1
+    status: complete
+    file: tests/, plans/handoffs/
+    description: |
+      Group D closure: validate integration of all advanced features
+      (export/import, versioning, migrations, backup/restore) and document usage patterns.
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 13: DOCUMENTATION & DX IMPROVEMENTS (cost: 6)
+  # ═══════════════════════════════════════════════════════
+  - name: document_framework_config
+    preconditions:
+      documentation_complete: true
+    effects:
+      framework_config_documented: true
+    cost: 1
+    status: pending
+    file: src/framework.rs
+    adr: ADR-0027
+    description: |
+      Add comprehensive rustdocs to FrameworkConfig struct and all its fields.
+      Document default values, valid ranges, and usage examples.
+      Target: framework.rs lines 26-36.
+
+  - name: document_singularity_config
+    preconditions:
+      documentation_complete: true
+    effects:
+      singularity_config_documented: true
+    cost: 1
+    status: pending
+    file: src/singularity.rs
+    adr: ADR-0027
+    description: |
+      Add comprehensive rustdocs to SingularityConfig struct and all its fields.
+      Document cache size limits, memory policies, and association constraints.
+      Target: singularity.rs lines 28-32.
+
+  - name: expand_readme_documentation
+    preconditions:
+      documentation_complete: true
+    effects:
+      readme_installation_section: true
+    cost: 2
+    status: pending
+    file: README.md
+    description: |
+      Add Installation section to README (cargo add, feature flags).
+      Add Configuration guide with parameter tables and tuning advice.
+      Add API Patterns section with common usage patterns.
+      Keep existing Quick Start but expand with comprehensive sections.
+
+  - name: create_basic_in_memory_example
+    preconditions:
+      documentation_complete: true
+    effects:
+      basic_in_memory_example: true
+    cost: 1
+    status: pending
+    file: examples/basic_in_memory.rs
+    description: |
+      Create simplest possible usage example without persistence.
+      Demonstrate: inject_concept, probe, associate operations.
+      Keep under 100 lines, compile and run successfully.
+
+  - name: add_cargo_aliases
+    preconditions:
+      documentation_complete: true
+    effects:
+      cargo_aliases_created: true
+    cost: 1
+    status: pending
+    file: .cargo/config.toml
+    description: |
+      Create .cargo/config.toml with common developer aliases:
+      - test-all: run all tests including integration
+      - bench-local: run benchmarks with baseline
+      - check-wasm: verify WASM target compilation
+      - fmt-check: format check with strict mode
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 14: OBSERVABILITY COMPLETION (cost: 4)
+  # ═══════════════════════════════════════════════════════
+  - name: add_singularity_tracing
+    preconditions:
+      structured_logging_added: true
+    effects:
+      singularity_tracing_added: true
+    cost: 1
+    status: pending
+    file: src/singularity.rs
+    adr: ADR-0028
+    description: |
+      Add #[instrument] spans to Singularity methods:
+      - inject(), get(), delete(), find_similar()
+      - associate(), get_associations()
+      - Cache operations for observability
+      Follow existing tracing patterns from framework.rs.
+
+  - name: add_cache_metrics
+    preconditions:
+      metrics_collection_enabled: true
+      concept_cache_implemented: true
+    effects:
+      cache_hit_miss_metrics: true
+    cost: 1
+    status: pending
+    file: src/singularity.rs
+    description: |
+      Add cache hit/miss counters to LRU cache operations.
+      Metrics: cache_hits_total, cache_misses_total, cache_evictions_total.
+      Export via existing metrics endpoint.
+
+  - name: add_reservoir_metrics
+    preconditions:
+      metrics_collection_enabled: true
+    effects:
+      reservoir_step_metrics: true
+    cost: 2
+    status: pending
+    file: src/reservoir.rs
+    description: |
+      Add reservoir operation counters:
+      - reservoir_steps_total (counter)
+      - reservoir_step_latency_us (histogram)
+      - reservoir_nodes_active (gauge)
+      Export via existing metrics infrastructure.
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 15: TESTING PRAGMATISM (cost: 3)
+  # ═══════════════════════════════════════════════════════
+  - name: add_to_hypervector_benchmark
+    preconditions:
+      benchmarks_exist: true
+    effects:
+      to_hypervector_benchmark_added: true
+    cost: 1
+    status: pending
+    file: benches/benchmark.rs
+    description: |
+      Add benchmark for Reservoir::to_hypervector() which is a hot path.
+      Test various reservoir sizes (1k, 10k, 50k nodes).
+      Establish baseline for future optimization work.
+
+  - name: add_critical_error_path_tests
+    preconditions:
+      tests_passing: true
+      edge_case_coverage_complete: true
+    effects:
+      critical_error_path_tests: true
+    cost: 2
+    status: pending
+    file: tests/critical_error_paths.rs
+    description: |
+      Add focused error path tests (not 580 lines, just 3-5 critical cases):
+      - Concept ID boundary testing (256-byte limit)
+      - Association strength validation (negative values)
+      - Reservoir dimension boundaries
+      - Framework top_k limits validation
+      Keep file under 150 LOC, focus on highest-impact error scenarios.
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 16: WASM PARITY (cost: 3)
+  # ═══════════════════════════════════════════════════════
+  - name: expose_process_sequence_to_wasm
+    preconditions:
+      wasm_compiles: true
+      wasm_bindings_expanded: true
+    effects:
+      wasm_process_sequence_exposed: true
+    cost: 2
+    status: pending
+    file: src/wasm.rs, wasm/chaotic_semantic_memory.d.ts
+    adr: ADR-0029
+    description: |
+      Expose ChaoticSemanticFramework::process_sequence() to WASM API.
+      Handle sequence input as Vec<String> or Vec<JsValue>.
+      Return temporal hypervector as Uint8Array (1280 bytes).
+      Update TypeScript declarations for new method.
+
+  - name: add_wasm_memory_export_import
+    preconditions:
+      wasm_compiles: true
+      export_import_functionality: true
+    effects:
+      wasm_memory_export_import: true
+    cost: 1
+    status: pending
+    file: src/wasm.rs
+    adr: ADR-0029
+    description: |
+      Add memory-based export/import for WASM (file-based returns errors):
+      - export_to_bytes() -> Uint8Array (compressed binary format)
+      - import_from_bytes(data: Uint8Array) -> Result<usize>
+      Enables browser-based state persistence without filesystem.
