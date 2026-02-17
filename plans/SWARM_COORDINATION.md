@@ -9,6 +9,10 @@
 | C | 9 | WASM Size Gate | Complete |
 | D | 9 | Performance Gate Integration | Complete |
 
+## Swarm Status: **COMPLETE** ✅
+
+All 6 waves finished. All groups have completed their assigned tasks.
+
 ## Orchestrator Run (2026-02-17)
 
 Run ID: `goap_parallel_missing_tasks_wave5_2026_02_17`
@@ -78,6 +82,29 @@ Run ID: `goap_parallel_missing_tasks_wave5_2026_02_17`
 2. `B -> D`: Provide memory-accounting method and pass/fail evidence for 10M-under-12MB target.
 3. `C -> D`: Provide wasm artifact path, measured size, and deterministic CI command.
 4. `D -> All`: Publish final performance-goal gate decision with remediation if a target fails.
+
+### Parallel Wave 6 (completed)
+
+| Group | Action | Start Condition | Depends On |
+|-------|--------|-----------------|------------|
+| A | `finalize_testing_documentation` | complete | W5 complete |
+| B | `finalize_performance_benchmarks` | complete | W5 complete |
+| C | `finalize_observability_integration` | complete | W5 complete |
+| D | `finalize_advanced_features_validation` | complete | W5 complete |
+
+### Wave 6 Closure Contract
+
+1. `A -> All`: Consolidate testing artifacts and coverage reports.
+2. `B -> All`: Finalize benchmark baselines and performance regression suite.
+3. `C -> All`: Publish observability conventions and tracing span taxonomy.
+4. `D -> All`: Validate all advanced features (export/import, versioning, backup/restore) integration.
+
+### Wave 6 Artifacts
+
+- `plans/handoffs/W6_A_to_All_testing_closure.md`
+- `plans/handoffs/W6_B_to_All_performance_closure.md`
+- `plans/handoffs/W6_C_to_All_observability_closure.md`
+- `plans/handoffs/W6_D_to_All_features_closure.md`
 
 ### Wave 5 Artifacts
 
