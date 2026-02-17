@@ -7,6 +7,21 @@
 
 It targets both native and `wasm32` builds with explicit threading guards.
 
+## Installation
+
+```bash
+cargo add chaotic_semantic_memory
+```
+
+Enable WASM bindings when needed:
+
+```toml
+[dependencies]
+chaotic_semantic_memory = { version = "0.1.0", features = ["wasm"] }
+```
+
+MSRV: Rust `1.82`.
+
 ## Core Components
 
 - `hyperdim`: binary hypervector math (`HVec10240`) and similarity operations
@@ -38,6 +53,63 @@ async fn main() -> Result<()> {
 ```
 
 See `examples/proof_of_concept.rs` for an end-to-end flow.
+See `examples/basic_in_memory.rs` for the minimal in-memory workflow.
+
+## Configuration
+
+`ChaoticSemanticFramework::builder()` exposes runtime tuning knobs.
+
+| Parameter | Default | Valid Range | Effect |
+|---|---:|---|---|
+| `reservoir_size` | `50_000` | `> 0` | Reservoir capacity and memory footprint |
+| `reservoir_input_size` | `10_240` | `> 0` | Width of each sequence step |
+| `chaos_strength` | `0.1` | `0.0..=1.0` (recommended) | Noise amplitude in chaotic updates |
+| `enable_persistence` | `true` | boolean | Enables libSQL persistence setup |
+| `max_concepts` | `None` | optional positive | Evicts oldest concepts when reached |
+| `max_associations_per_concept` | `None` | optional positive | Keeps strongest associations only |
+| `connection_pool_size` | `10` | `>= 1` | Turso/libSQL remote pool size |
+| `max_probe_top_k` | `10_000` | `>= 1` | Input guard for `probe` and batch probes |
+| `max_metadata_bytes` | `None` | optional positive | Metadata payload size guard |
+| `concept_cache_size` | `1_000` | `>= 1` | Similarity query cache capacity |
+
+### Tuning Guide
+
+- Small workloads: disable persistence and use `reservoir_size` around `10_240`.
+- Mid-sized workloads: keep defaults and set `max_concepts` to enforce memory ceilings.
+- Large workloads: keep persistence enabled, increase `connection_pool_size`, and tune `max_probe_top_k` to practical limits.
+
+## API Patterns
+
+In-memory flow:
+
+```rust
+let framework = ChaoticSemanticFramework::builder()
+    .without_persistence()
+    .build()
+    .await?;
+```
+
+Persistent flow:
+
+```rust
+let framework = ChaoticSemanticFramework::builder()
+    .with_local_db("memory.db")
+    .build()
+    .await?;
+```
+
+Batch APIs for bulk workloads:
+
+```rust
+framework.inject_concepts(&concepts).await?;
+framework.associate_many(&edges).await?;
+let hits = framework.probe_batch(&queries, 10).await?;
+```
+
+Load semantics:
+
+- `load_replace()`: clear in-memory state, then load persisted data.
+- `load_merge()`: merge persisted state into current in-memory state.
 
 ## WASM Build
 
@@ -49,6 +121,7 @@ cargo check --target wasm32-unknown-unknown
 Notes:
 - WASM threading-sensitive paths are guarded with `#[cfg(not(target_arch = "wasm32"))]`.
 - Persistence is intentionally unavailable on `wasm32` in this crate build.
+- WASM parity APIs include `processSequence`, `exportToBytes`, and `importFromBytes`.
 
 ## Development Gates
 

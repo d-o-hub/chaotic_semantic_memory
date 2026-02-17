@@ -4,7 +4,11 @@ use serde::{Deserialize, Serialize};
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, VecDeque};
 use std::hash::{Hash, Hasher};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+
+#[cfg(not(target_arch = "wasm32"))]
+use tracing::instrument;
 
 #[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
@@ -25,9 +29,13 @@ pub struct Concept {
 }
 
 #[derive(Debug, Clone)]
+/// Runtime configuration for [`Singularity`].
 pub struct SingularityConfig {
+    /// Maximum concept count before eviction (default: `None`).
     pub max_concepts: Option<usize>,
+    /// Maximum outbound associations per concept (default: `None`).
     pub max_associations_per_concept: Option<usize>,
+    /// LRU cache capacity for similarity results (default: `1000`, coerced to `>= 1`).
     pub concept_cache_size: usize,
 }
 
@@ -66,28 +74,55 @@ impl QueryCache {
         Some(value)
     }
 
-    fn put(&mut self, key: u64, value: Arc<[(String, f32)]>) {
+    fn put(&mut self, key: u64, value: Arc<[(String, f32)]>) -> bool {
         if let Entry::Occupied(mut entry) = self.results.entry(key) {
             entry.insert(value);
             if let Some(pos) = self.order.iter().position(|k| *k == key) {
                 self.order.remove(pos);
             }
             self.order.push_back(key);
-            return;
+            return false;
         }
 
+        let mut evicted = false;
         if self.results.len() >= self.capacity {
             if let Some(oldest) = self.order.pop_front() {
                 self.results.remove(&oldest);
+                evicted = true;
             }
         }
         self.order.push_back(key);
         self.results.insert(key, value);
+        evicted
     }
 
     fn clear(&mut self) {
         self.order.clear();
         self.results.clear();
+    }
+}
+
+#[derive(Debug, Default)]
+struct CacheMetrics {
+    hits_total: AtomicU64,
+    misses_total: AtomicU64,
+    evictions_total: AtomicU64,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct CacheMetricsSnapshot {
+    pub cache_hits_total: u64,
+    pub cache_misses_total: u64,
+    pub cache_evictions_total: u64,
+}
+
+impl CacheMetrics {
+    fn snapshot(&self) -> CacheMetricsSnapshot {
+        CacheMetricsSnapshot {
+            cache_hits_total: self.hits_total.load(Ordering::Relaxed),
+            cache_misses_total: self.misses_total.load(Ordering::Relaxed),
+            cache_evictions_total: self.evictions_total.load(Ordering::Relaxed),
+        }
     }
 }
 
@@ -97,6 +132,7 @@ pub struct Singularity {
     associations: HashMap<String, HashMap<String, f32>>,
     config: SingularityConfig,
     query_cache: Mutex<QueryCache>,
+    cache_metrics: CacheMetrics,
 }
 
 impl Singularity {
@@ -109,11 +145,13 @@ impl Singularity {
             concepts: HashMap::new(),
             associations: HashMap::new(),
             query_cache: Mutex::new(QueryCache::with_capacity(config.concept_cache_size)),
+            cache_metrics: CacheMetrics::default(),
             config,
         }
     }
 
     /// Inject a concept directly into memory
+    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self, concept), fields(concept_id = %concept.id)))]
     pub fn inject(&mut self, concept: Concept) -> Result<()> {
         if concept.vector.data.len() != 80 {
             return Err(MemoryError::InvalidDimension {
@@ -133,11 +171,13 @@ impl Singularity {
     }
 
     /// Retrieve concept by ID
+    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self), fields(concept_id = %id)))]
     pub fn get(&self, id: &str) -> Option<&Concept> {
         self.concepts.get(id)
     }
 
     /// Delete concept by ID
+    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self), fields(concept_id = %id)))]
     pub fn delete(&mut self, id: &str) -> Result<()> {
         self.concepts.remove(id);
         self.associations.remove(id);
@@ -171,6 +211,7 @@ impl Singularity {
     }
 
     /// Find similar concepts using cosine similarity
+    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self, query), fields(top_k = top_k)))]
     pub fn find_similar(&self, query: &HVec10240, top_k: usize) -> Vec<(String, f32)> {
         self.find_similar_cached(query, top_k).as_ref().to_vec()
     }
@@ -186,9 +227,15 @@ impl Singularity {
         let cache_key = similarity_cache_key(query, top_k);
         if let Ok(mut cache) = self.query_cache.lock() {
             if let Some(results) = cache.get(cache_key) {
+                self.cache_metrics
+                    .hits_total
+                    .fetch_add(1, Ordering::Relaxed);
                 return results;
             }
         }
+        self.cache_metrics
+            .misses_total
+            .fetch_add(1, Ordering::Relaxed);
 
         #[cfg(not(target_arch = "wasm32"))]
         let mut results: Vec<(String, f32)> = self
@@ -209,7 +256,11 @@ impl Singularity {
             results.sort_by(|a, b| b.1.total_cmp(&a.1));
             if let Ok(mut cache) = self.query_cache.lock() {
                 let results = Arc::from(results);
-                cache.put(cache_key, Arc::clone(&results));
+                if cache.put(cache_key, Arc::clone(&results)) {
+                    self.cache_metrics
+                        .evictions_total
+                        .fetch_add(1, Ordering::Relaxed);
+                }
                 return results;
             }
             return Arc::from(results);
@@ -220,13 +271,18 @@ impl Singularity {
         results.sort_by(|a, b| b.1.total_cmp(&a.1));
         if let Ok(mut cache) = self.query_cache.lock() {
             let results = Arc::from(results);
-            cache.put(cache_key, Arc::clone(&results));
+            if cache.put(cache_key, Arc::clone(&results)) {
+                self.cache_metrics
+                    .evictions_total
+                    .fetch_add(1, Ordering::Relaxed);
+            }
             return results;
         }
         Arc::from(results)
     }
 
     /// Create or update association between concepts
+    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self), fields(from_id = %from, to_id = %to, strength = strength)))]
     pub fn associate(&mut self, from: &str, to: &str, strength: f32) -> Result<()> {
         if !self.concepts.contains_key(from) || !self.concepts.contains_key(to) {
             return Err(MemoryError::Persistence(
@@ -256,6 +312,7 @@ impl Singularity {
     }
 
     /// Get associations for a concept
+    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self), fields(concept_id = %id)))]
     pub fn get_associations(&self, id: &str) -> Vec<(String, f32)> {
         let mut results: Vec<(String, f32)> = self
             .associations
@@ -301,6 +358,10 @@ impl Singularity {
 
     pub fn is_empty(&self) -> bool {
         self.concepts.is_empty()
+    }
+
+    pub fn cache_metrics_snapshot(&self) -> CacheMetricsSnapshot {
+        self.cache_metrics.snapshot()
     }
 
     fn evict_oldest_if_needed(&mut self) {

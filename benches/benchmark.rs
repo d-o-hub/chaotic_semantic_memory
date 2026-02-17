@@ -50,12 +50,34 @@ fn bench_reservoir_step_50k(c: &mut Criterion) {
     });
 }
 
+fn bench_reservoir_to_hypervector(c: &mut Criterion) {
+    let mut group = c.benchmark_group("reservoir_to_hypervector");
+
+    let reservoir_1k = Reservoir::new_seeded(1024, 1000, 42).unwrap();
+    group.bench_function("1k_error", |bencher| {
+        bencher.iter(|| black_box(reservoir_1k.to_hypervector().is_err()))
+    });
+
+    let reservoir_10k = Reservoir::new_seeded(10240, 10240, 42).unwrap();
+    group.bench_function("10k", |bencher| {
+        bencher.iter(|| black_box(reservoir_10k.to_hypervector().unwrap()))
+    });
+
+    let reservoir_50k = Reservoir::new_seeded(10240, 50000, 42).unwrap();
+    group.bench_function("50k", |bencher| {
+        bencher.iter(|| black_box(reservoir_50k.to_hypervector().unwrap()))
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_hvec_creation,
     bench_cosine_similarity,
     bench_batch_similarity,
     bench_binding,
-    bench_reservoir_step_50k
+    bench_reservoir_step_50k,
+    bench_reservoir_to_hypervector
 );
 criterion_main!(benches);

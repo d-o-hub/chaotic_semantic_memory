@@ -768,9 +768,13 @@ actions:
     effects:
       framework_config_documented: true
     cost: 1
-    status: pending
+    status: complete
     file: src/framework.rs
     adr: ADR-0027
+    notes: |
+      Swarm Consensus Priority: HIGH (Immediate)
+      This is documentation-only work with highest user impact.
+      Does not affect runtime behavior or API stability.
     description: |
       Add comprehensive rustdocs to FrameworkConfig struct and all its fields.
       Document default values, valid ranges, and usage examples.
@@ -782,7 +786,7 @@ actions:
     effects:
       singularity_config_documented: true
     cost: 1
-    status: pending
+    status: complete
     file: src/singularity.rs
     adr: ADR-0027
     description: |
@@ -796,7 +800,7 @@ actions:
     effects:
       readme_installation_section: true
     cost: 2
-    status: pending
+    status: complete
     file: README.md
     description: |
       Add Installation section to README (cargo add, feature flags).
@@ -810,7 +814,7 @@ actions:
     effects:
       basic_in_memory_example: true
     cost: 1
-    status: pending
+    status: complete
     file: examples/basic_in_memory.rs
     description: |
       Create simplest possible usage example without persistence.
@@ -823,7 +827,7 @@ actions:
     effects:
       cargo_aliases_created: true
     cost: 1
-    status: pending
+    status: complete
     file: .cargo/config.toml
     description: |
       Create .cargo/config.toml with common developer aliases:
@@ -841,7 +845,7 @@ actions:
     effects:
       singularity_tracing_added: true
     cost: 1
-    status: pending
+    status: complete
     file: src/singularity.rs
     adr: ADR-0028
     description: |
@@ -858,7 +862,7 @@ actions:
     effects:
       cache_hit_miss_metrics: true
     cost: 1
-    status: pending
+    status: complete
     file: src/singularity.rs
     description: |
       Add cache hit/miss counters to LRU cache operations.
@@ -871,7 +875,7 @@ actions:
     effects:
       reservoir_step_metrics: true
     cost: 2
-    status: pending
+    status: complete
     file: src/reservoir.rs
     description: |
       Add reservoir operation counters:
@@ -889,7 +893,7 @@ actions:
     effects:
       to_hypervector_benchmark_added: true
     cost: 1
-    status: pending
+    status: complete
     file: benches/benchmark.rs
     description: |
       Add benchmark for Reservoir::to_hypervector() which is a hot path.
@@ -903,7 +907,7 @@ actions:
     effects:
       critical_error_path_tests: true
     cost: 2
-    status: pending
+    status: complete
     file: tests/critical_error_paths.rs
     description: |
       Add focused error path tests (not 580 lines, just 3-5 critical cases):
@@ -923,7 +927,7 @@ actions:
     effects:
       wasm_process_sequence_exposed: true
     cost: 2
-    status: pending
+    status: complete
     file: src/wasm.rs, wasm/chaotic_semantic_memory.d.ts
     adr: ADR-0029
     description: |
@@ -939,7 +943,7 @@ actions:
     effects:
       wasm_memory_export_import: true
     cost: 1
-    status: pending
+    status: complete
     file: src/wasm.rs
     adr: ADR-0029
     description: |
@@ -947,3 +951,69 @@ actions:
       - export_to_bytes() -> Uint8Array (compressed binary format)
       - import_from_bytes(data: Uint8Array) -> Result<usize>
       Enables browser-based state persistence without filesystem.
+
+  # ═══════════════════════════════════════════════════════
+  # DEFERRED WORK (Post-1.0) - Per Swarm Consensus 2026-02-17
+  # ═══════════════════════════════════════════════════════
+  # The following actions are NOT part of Wave 7 and are deferred
+  # based on Analysis Swarm Consensus. They are documented here
+  # for future reference and can be activated based on user demand.
+  #
+  # Deferred ADRs:
+  # - ADR-0024: Concept Expiration (TTL) - defer until session management need
+  # - ADR-0024: Performance Phase 2 (SIMD, PQ, LSH) - defer until >200k concepts
+  # - ADR-0025: Weighted Forgetting (Decay) - defer until biological modeling need
+  # - ADR-0026: Namespace Isolation - defer until multi-tenant SaaS deployment
+  #
+  # Activation triggers documented in respective ADRs.
+  # Current system is production-ready for 1.0 without these features.
+  # ═══════════════════════════════════════════════════════
+
+  - name: deferred_concept_ttl
+    preconditions: []
+    effects:
+      deferred_concept_ttl: true
+    cost: 8
+    status: deferred
+    adr: ADR-0024
+    description: |
+      DEFERRED: Concept expiration with TTL support.
+      See ADR-0024 for full specification.
+      Activate when: Session management use cases emerge.
+
+  - name: deferred_performance_phase2
+    preconditions: []
+    effects:
+      deferred_phase2_optimizations: true
+    cost: 15
+    status: deferred
+    adr: ADR-0024
+    description: |
+      DEFERRED: Performance Phase 2 optimizations.
+      Includes: SIMD completion for hamming_distance, Product Quantization, LSH indexing.
+      See ADR-0024 for full specification.
+      Activate when: >200k concepts with latency degradation observed.
+
+  - name: deferred_association_decay
+    preconditions: []
+    effects:
+      deferred_association_decay: true
+    cost: 6
+    status: deferred
+    adr: ADR-0025
+    description: |
+      DEFERRED: Weighted forgetting with association decay.
+      See ADR-0025 for full specification.
+      Activate when: Biological memory modeling requested by users.
+
+  - name: deferred_namespace_isolation
+    preconditions: []
+    effects:
+      deferred_namespace_isolation: true
+    cost: 10
+    status: deferred
+    adr: ADR-0026
+    description: |
+      DEFERRED: Namespace isolation for multi-tenancy.
+      See ADR-0026 for full specification.
+      Activate when: Multi-tenant SaaS deployment requirements emerge.

@@ -12,9 +12,9 @@ world_state:
   dependency_hygiene_complete: true
   adr_registry_current: true
   result_contract_clarified: true
-  action_last_completed: swarm_wave_6_closure
-  orchestrator_last_run: goap_swarm_wave6_final_closure_2026_02_17
-  orchestrator_last_run_at_utc: 2026-02-17T19:35:00Z
+  action_last_completed: swarm_wave_7_closure
+  orchestrator_last_run: goap_swarm_wave7_phase13_16_closure_2026_02_17
+  orchestrator_last_run_at_utc: 2026-02-17T22:15:00Z
 
   # Swarm orchestration snapshot
   active_wave: 7
@@ -75,17 +75,29 @@ world_state:
     - plans/handoffs/W6_B_to_All_performance_closure.md
     - plans/handoffs/W6_C_to_All_observability_closure.md
     - plans/handoffs/W6_D_to_All_features_closure.md
-  phase_boundary_gate_pending:
-    - "Phase 13 completion: All documentation actions merged"
-    - "Phase 14 completion: Observability coverage verified"
-    - "Phase 15 completion: Benchmarks and tests passing"
-    - "Phase 16 completion: WASM API tested in browser"
+    - plans/handoffs/W7_A_to_All_testing_pragmatism.md
+    - plans/handoffs/W7_B_to_All_documentation_dx.md
+    - plans/handoffs/W7_C_to_All_observability_completion.md
+    - plans/handoffs/W7_D_to_All_wasm_parity.md
+  phase_boundary_gate_pending: []
   swarm_status: active
-  wave_7_in_progress:
-    group_a: Phase 15 testing pragmatism
-    group_b: Phase 13 documentation improvements
-    group_c: Phase 14 observability completion
-    group_d: Phase 16 WASM parity
+  wave_7_in_progress: {}
+  wave_7_completed:
+    group_a: add_to_hypervector_benchmark + add_critical_error_path_tests
+    group_b: documentation + examples + cargo_aliases
+    group_c: singularity tracing + cache/reservoir metrics
+    group_d: wasm process sequence + memory export/import
+  
+  # Swarm Consensus 2026-02-17: Wave 7 Priority Order
+  # 1. Phase 13 (Documentation) - Highest impact, lowest risk
+  # 2. Phase 14 (Observability) - Production debugging support
+  # 3. Phase 15 (Testing) - Focused benchmarks and error paths
+  # 4. Phase 16 (WASM) - Feature parity
+  # 
+  # ADRs 0024-0026 DEFERRED to Post-1.0 per consensus:
+  # - These are advanced features not blocking 1.0 release
+  # - Current system production-ready without them
+  # - Reconsider based on actual user feedback
   all_waves_finished: true
   final_validation_passed: true
   planning_gaps:
@@ -190,21 +202,29 @@ world_state:
   backup_restore_tests: true
 
   # Phase 13: Documentation & DX Improvements (cost: 6)
-  framework_config_documented: false
-  singularity_config_documented: false
-  readme_installation_section: false
-  basic_in_memory_example: false
-  cargo_aliases_created: false
+  framework_config_documented: true
+  singularity_config_documented: true
+  readme_installation_section: true
+  basic_in_memory_example: true
+  cargo_aliases_created: true
 
   # Phase 14: Observability Completion (cost: 4)
-  singularity_tracing_added: false
-  cache_hit_miss_metrics: false
-  reservoir_step_metrics: false
+  singularity_tracing_added: true
+  cache_hit_miss_metrics: true
+  reservoir_step_metrics: true
 
   # Phase 15: Testing Pragmatism (cost: 3)
-  to_hypervector_benchmark_added: false
-  critical_error_path_tests: false
+  to_hypervector_benchmark_added: true
+  critical_error_path_tests: true
 
   # Phase 16: WASM Parity (cost: 3)
-  wasm_process_sequence_exposed: false
-  wasm_memory_export_import: false
+  wasm_process_sequence_exposed: true
+  wasm_memory_export_import: true
+
+  # Post-1.0 Deferred Work (ADR-0024, ADR-0025, ADR-0026)
+  # Per Swarm Consensus 2026-02-17: Advanced features deferred until user demand
+  deferred_concept_ttl: false           # ADR-0024: Concept expiration
+  deferred_association_decay: false     # ADR-0025: Weighted forgetting
+  deferred_namespace_isolation: false   # ADR-0026: Multi-tenancy
+  deferred_phase2_optimizations: false  # ADR-0024: SIMD completion, PQ, LSH
+  deferred_trigger_threshold: "User demand or >200k concepts with latency issues"

@@ -26,9 +26,9 @@
 | 0021 | Auto Schema Migration | Accepted | Implemented |
 | 0022 | WASM API Parity (Original) | Accepted | Implemented |
 | 0023 | Zero-Alloc Query Cache | Accepted | Implemented |
-| **0027** | **Documentation Standards** | **Accepted** | **Wave 7 - Immediate** |
-| **0028** | **Observability Completion** | **Accepted** | **Wave 7 - Immediate** |
-| **0029** | **WASM API Parity (Phase 2)** | **Accepted** | **Wave 7 - Immediate** |
+| **0027** | **Documentation Standards** | **Implemented** | **Wave 7 - Complete** |
+| **0028** | **Observability Completion** | **Implemented** | **Wave 7 - Complete** |
+| **0029** | **WASM API Parity (Phase 2)** | **Implemented** | **Wave 7 - Complete** |
 | 0024 | Concept Expiration (TTL) | Deferred | Post-1.0 |
 | 0024 | Performance Optimizations Phase 2 | Deferred | Post-1.0 |
 | 0025 | Weighted Forgetting (Decay) | Deferred | Post-1.0 |

@@ -6,6 +6,7 @@ pub use hyperdim::HVec10240;
 pub use singularity::{Concept, ConceptBuilder};
 
 pub mod error;
+mod export_payload;
 pub mod framework;
 #[cfg(not(target_arch = "wasm32"))]
 mod framework_ops;

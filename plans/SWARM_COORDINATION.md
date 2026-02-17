@@ -4,14 +4,34 @@
 
 | Group | Phase | Focus | Status |
 |-------|-------|-------|--------|
-| A | 9 | Turso Latency Benchmarking | Complete |
-| B | 9 | Memory Footprint Validation | Complete |
-| C | 9 | WASM Size Gate | Complete |
-| D | 9 | Performance Gate Integration | Complete |
+| A | 15 | Testing Pragmatism | Complete |
+| B | 13 | Documentation & DX | Complete |
+| C | 14 | Observability Completion | Complete |
+| D | 16 | WASM Parity | Complete |
 
 ## Swarm Status: **COMPLETE** ✅
 
-All 6 waves finished. All groups have completed their assigned tasks.
+All 7 waves finished. All groups have completed their assigned tasks.
+
+## Orchestrator Run (2026-02-17, Wave 7)
+
+Run ID: `goap_swarm_wave7_phase13_16_closure_2026_02_17`
+
+### Parallel Wave 7 (completed)
+
+| Group | Action | Status | Output/Handoff Artifact |
+|-------|--------|--------|--------------------------|
+| A | `add_to_hypervector_benchmark` + `add_critical_error_path_tests` | Complete | `plans/handoffs/W7_A_to_All_testing_pragmatism.md` |
+| B | `document_framework_config` + `document_singularity_config` + `expand_readme_documentation` + `create_basic_in_memory_example` + `add_cargo_aliases` | Complete | `plans/handoffs/W7_B_to_All_documentation_dx.md` |
+| C | `add_singularity_tracing` + `add_cache_metrics` + `add_reservoir_metrics` | Complete | `plans/handoffs/W7_C_to_All_observability_completion.md` |
+| D | `expose_process_sequence_to_wasm` + `add_wasm_memory_export_import` | Complete | `plans/handoffs/W7_D_to_All_wasm_parity.md` |
+
+### Wave 7 Handoff Contract
+
+1. `A -> All`: critical-path tests and benchmarks close phase 15 quality gates.
+2. `B -> All`: config docs, README expansion, and aliases become canonical developer UX entry points.
+3. `C -> All`: tracing and metric fields are standardized for framework + wasm snapshots.
+4. `D -> All`: wasm temporal + memory parity methods and type declarations are now available.
 
 ## Orchestrator Run (2026-02-17)
 
