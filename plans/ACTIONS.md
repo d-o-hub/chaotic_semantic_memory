@@ -363,7 +363,7 @@ actions:
     effects:
       property_based_tests_added: true
     cost: 3
-    status: pending
+    status: complete
     file: tests/property_based.rs, Cargo.toml
     description: |
       Add proptest for property-based testing:
@@ -378,7 +378,7 @@ actions:
     effects:
       fuzzing_targets_created: true
     cost: 3
-    status: pending
+    status: complete
     file: fuzz/, Cargo.toml
     description: |
       Create cargo-fuzz targets for:
@@ -401,6 +401,20 @@ actions:
       - Spectral radius boundaries [0.9, 1.1]
       - Reservoir size boundaries
 
+  - name: enable_mutation_testing
+    preconditions:
+      edge_case_coverage_complete: true
+    effects:
+      mutation_testing_enabled: true
+    cost: 2
+    status: pending
+    file: Cargo.toml, scripts/, tests/
+    description: |
+      Add mutation testing workflow and baseline:
+      - Configure `cargo-mutants` command in validation script/docs
+      - Define fast mutation subset for CI and full local profile
+      - Add kill-rate report artifact path in `progress/`
+
   # ═══════════════════════════════════════════════════════
   # PHASE 6: PERFORMANCE ENHANCEMENTS (cost: 12)
   # ═══════════════════════════════════════════════════════
@@ -410,7 +424,7 @@ actions:
     effects:
       simd_hypervector_ops: true
     cost: 4
-    status: pending
+    status: in_progress
     file: src/hyperdim.rs
     adr: ADR-0013
     description: |
@@ -476,7 +490,7 @@ actions:
     effects:
       structured_logging_added: true
     cost: 3
-    status: pending
+    status: in_progress
     file: src/framework.rs, src/persistence.rs
     adr: ADR-0015
     description: |
@@ -570,7 +584,7 @@ actions:
     effects:
       schema_migration_support: true
     cost: 3
-    status: pending
+    status: in_progress
     file: src/persistence.rs
     description: |
       Add schema versioning and migrations:
