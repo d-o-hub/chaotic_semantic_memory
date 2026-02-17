@@ -61,6 +61,23 @@ cargo clippy --quiet -- -D warnings
 
 LOC policy: each source file in `src/` must stay at or below 500 lines.
 
+## Mutation Testing
+
+Install cargo-mutants once:
+
+```bash
+cargo install cargo-mutants
+```
+
+Run profiles:
+
+```bash
+scripts/mutation_test.sh fast
+scripts/mutation_test.sh full
+```
+
+Reports are written under `progress/mutation/`.
+
 ## Benchmark Gates
 
 ```bash

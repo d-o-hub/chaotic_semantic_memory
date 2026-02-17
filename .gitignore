@@ -39,3 +39,7 @@ Thumbs.db
 /fuzz/corpus
 /fuzz/coverage
 /fuzz/target
+
+# mutation testing outputs
+/progress/mutation/*.log
+/progress/mutation/*-latest.md
