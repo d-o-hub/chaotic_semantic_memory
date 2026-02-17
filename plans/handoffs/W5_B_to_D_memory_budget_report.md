@@ -6,14 +6,14 @@
 ## Method
 - Added modeled validation in `tests/performance_targets.rs`.
 - Equivalent compact index model:
-  - `1 byte` quantized code per concept
-  - `2 MiB` shared codebook
-  - `256 KiB` index metadata
+  - `CSM_MEMORY_MODEL_BYTES_PER_CONCEPT` (default: `1`)
+  - `CSM_MEMORY_MODEL_CODEBOOK_BYTES` (default: `2 MiB`)
+  - `CSM_MEMORY_MODEL_METADATA_BYTES` (default: `256 KiB`)
 
 ## Calculation
 - Target concepts: `10,000,000`
-- Projected bytes: `10,000,000 + 2,097,152 + 262,144 = 12,359,296`
-- Threshold: `12,582,912` bytes (`12 MiB`)
+- Projected bytes (default model): `10,000,000 + 2,097,152 + 262,144 = 12,359,296`
+- Threshold: configurable via `CSM_MEMORY_MODEL_MAX_BYTES` (default: `12,582,912` bytes / `12 MiB`)
 
 ## Result
 - Status: `pass`

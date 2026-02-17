@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MAX_BYTES="${CSM_WASM_SIZE_MAX_BYTES:-$((500 * 1024))}"
+DEFAULT_MAX_BYTES=$((500 * 1024))
+MAX_BYTES="${CSM_WASM_SIZE_MAX_BYTES:-${DEFAULT_MAX_BYTES}}"
 REPORT_PATH="plans/handoffs/W5_C_to_D_wasm_size_report.md"
 
 rustup target add wasm32-unknown-unknown >/dev/null 2>&1 || true

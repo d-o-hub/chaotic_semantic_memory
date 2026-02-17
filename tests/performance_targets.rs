@@ -4,10 +4,27 @@ use chaotic_semantic_memory::persistence::Persistence;
 use chaotic_semantic_memory::{ConceptBuilder, HVec10240};
 use tempfile::NamedTempFile;
 
+const DEFAULT_MEMORY_MODEL_BYTES_PER_CONCEPT: u64 = 1;
+const DEFAULT_MEMORY_MODEL_CODEBOOK_BYTES: u64 = 2 * 1024 * 1024;
+const DEFAULT_MEMORY_MODEL_METADATA_BYTES: u64 = 256 * 1024;
+const DEFAULT_MEMORY_MODEL_CONCEPTS: u64 = 10_000_000;
+const DEFAULT_MEMORY_MODEL_MAX_BYTES: u64 = 12 * 1024 * 1024;
+const DEFAULT_LOCAL_ROUNDTRIP_SAMPLES: usize = 25;
+const DEFAULT_LOCAL_ROUNDTRIP_MAX_P50_MS: f64 = 20.0;
+
 fn projected_compressed_index_bytes(concept_count: u64) -> u64 {
-    let bytes_per_concept = env_u64("CSM_MEMORY_MODEL_BYTES_PER_CONCEPT", 1);
-    let codebook_bytes = env_u64("CSM_MEMORY_MODEL_CODEBOOK_BYTES", 2 * 1024 * 1024);
-    let metadata_bytes = env_u64("CSM_MEMORY_MODEL_METADATA_BYTES", 256 * 1024);
+    let bytes_per_concept = env_u64(
+        "CSM_MEMORY_MODEL_BYTES_PER_CONCEPT",
+        DEFAULT_MEMORY_MODEL_BYTES_PER_CONCEPT,
+    );
+    let codebook_bytes = env_u64(
+        "CSM_MEMORY_MODEL_CODEBOOK_BYTES",
+        DEFAULT_MEMORY_MODEL_CODEBOOK_BYTES,
+    );
+    let metadata_bytes = env_u64(
+        "CSM_MEMORY_MODEL_METADATA_BYTES",
+        DEFAULT_MEMORY_MODEL_METADATA_BYTES,
+    );
     concept_count
         .saturating_mul(bytes_per_concept)
         .saturating_add(codebook_bytes)
@@ -21,8 +38,8 @@ fn p50_ms(samples: &mut [f64]) -> f64 {
 
 #[test]
 fn projected_10m_concepts_memory_stays_under_12mb() {
-    let concepts = env_u64("CSM_MEMORY_MODEL_CONCEPTS", 10_000_000);
-    let threshold = env_u64("CSM_MEMORY_MODEL_MAX_BYTES", 12 * 1024 * 1024);
+    let concepts = env_u64("CSM_MEMORY_MODEL_CONCEPTS", DEFAULT_MEMORY_MODEL_CONCEPTS);
+    let threshold = env_u64("CSM_MEMORY_MODEL_MAX_BYTES", DEFAULT_MEMORY_MODEL_MAX_BYTES);
     let projected = projected_compressed_index_bytes(concepts);
     assert!(
         projected < threshold,
@@ -34,8 +51,14 @@ fn projected_10m_concepts_memory_stays_under_12mb() {
 
 #[tokio::test]
 async fn local_persistence_roundtrip_p50_under_20ms() {
-    let sample_count = env_usize("CSM_LOCAL_ROUNDTRIP_SAMPLES", 25);
-    let threshold_ms = env_f64("CSM_LOCAL_ROUNDTRIP_MAX_P50_MS", 20.0);
+    let sample_count = env_usize(
+        "CSM_LOCAL_ROUNDTRIP_SAMPLES",
+        DEFAULT_LOCAL_ROUNDTRIP_SAMPLES,
+    );
+    let threshold_ms = env_f64(
+        "CSM_LOCAL_ROUNDTRIP_MAX_P50_MS",
+        DEFAULT_LOCAL_ROUNDTRIP_MAX_P50_MS,
+    );
 
     let db_file = NamedTempFile::new().expect("temp file");
     let db_path = db_file.path().to_string_lossy().to_string();

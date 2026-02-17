@@ -10,9 +10,9 @@
 
 ## Query Profile
 - Operation: `load_concept(id)` roundtrip after one seeded `save_concept`
-- Samples: 25 latency measurements
-- Pool size: 4 (`new_turso_with_pool(..., 4)`)
-- Pass threshold: `p50 < 20ms`
+- Samples: configurable via `CSM_TURSO_ROUNDTRIP_SAMPLES` (default: `25`)
+- Pool size: configurable via `CSM_TURSO_POOL_SIZE` (default: `4`)
+- Pass threshold: configurable via `CSM_TURSO_ROUNDTRIP_MAX_P50_MS` (default: `20ms`)
 
 ## Latest Local Run
 - `LOCAL_ROUNDTRIP_P50_MS=0.475` (`tests/performance_targets.rs`)

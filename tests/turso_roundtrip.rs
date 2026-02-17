@@ -4,6 +4,10 @@ use std::time::Instant;
 use chaotic_semantic_memory::persistence::Persistence;
 use chaotic_semantic_memory::{ConceptBuilder, HVec10240};
 
+const DEFAULT_TURSO_POOL_SIZE: usize = 4;
+const DEFAULT_TURSO_ROUNDTRIP_SAMPLES: usize = 25;
+const DEFAULT_TURSO_ROUNDTRIP_MAX_P50_MS: f64 = 20.0;
+
 fn p50_ms(samples: &mut [f64]) -> f64 {
     samples.sort_by(|a, b| a.total_cmp(b));
     samples[samples.len() / 2]
@@ -20,9 +24,15 @@ async fn turso_roundtrip_p50_under_20ms_when_configured() {
         return;
     };
 
-    let pool_size = env_usize("CSM_TURSO_POOL_SIZE", 4);
-    let sample_count = env_usize("CSM_TURSO_ROUNDTRIP_SAMPLES", 25);
-    let threshold_ms = env_f64("CSM_TURSO_ROUNDTRIP_MAX_P50_MS", 20.0);
+    let pool_size = env_usize("CSM_TURSO_POOL_SIZE", DEFAULT_TURSO_POOL_SIZE);
+    let sample_count = env_usize(
+        "CSM_TURSO_ROUNDTRIP_SAMPLES",
+        DEFAULT_TURSO_ROUNDTRIP_SAMPLES,
+    );
+    let threshold_ms = env_f64(
+        "CSM_TURSO_ROUNDTRIP_MAX_P50_MS",
+        DEFAULT_TURSO_ROUNDTRIP_MAX_P50_MS,
+    );
 
     let persistence = Persistence::new_turso_with_pool(&url, &token, pool_size)
         .await
