@@ -43,6 +43,10 @@ cargo bench --bench benchmark -- --baseline main
 ## LOC Enforcement
 Every file in `src/*.rs` must be ≤ 500 lines. Run `scripts/loc-check.sh` to verify.
 
+## Configurability Check
+- Reject hardcoded tunables in new code paths.
+- Require named constants and/or env/config-backed settings for thresholds, limits, and sample sizes.
+
 ## Known Test Gotchas
 - Reservoir tests use `new_seeded(..., 42)` for determinism — don't use `new()` in tests.
 - Persistence tests need `tempfile::NamedTempFile` for DB path.

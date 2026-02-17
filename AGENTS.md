@@ -12,6 +12,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 - All fallible public APIs return `Result<T, Error>`.
 - Reservoir spectral radius must stay in `[0.9, 1.1]`.
 - WASM threading paths must be gated with `#[cfg(not(target_arch = "wasm32"))]`.
+- No hardcoded runtime settings or magic numbers in production paths; use named constants and configurable env/config values.
 
 ## Key Files and folder
 - @Cargo.toml — dependencies and features
@@ -38,7 +39,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 ### Swarm Group Skills (Parallel Execution)
 - `swarm-testing-quality`: Property-based testing, fuzzing, edge case coverage
 - `swarm-performance`: SIMD optimization, connection pooling, batch APIs, caching
-- `swarm-observability`: Tracing, metrics, derive macros, error context
+- `swarm-observability`: Tracing, metrics, error context (derive macros removed - unused)
 - `swarm-advanced-features`: Export/import, versioning, migrations, backup/restore
 
 ### Using Swarm Mode
@@ -53,6 +54,7 @@ When executing in swarm mode:
 - When uncertain on modern Rust practice, verify with web research.
 - If a decision changes architecture, write/update ADR in `plans/adr/`.
 - Prefer exact, testable instructions over high-level advice.
+- **Never create unused code**: Before adding proc-macros, traits, or convenience APIs, verify at least one real usage site exists in examples, tests, or docs.
 
 ## Quick Reference
 

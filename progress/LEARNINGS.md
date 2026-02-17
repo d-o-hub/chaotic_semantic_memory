@@ -265,3 +265,17 @@
 ### What to Avoid
 - Do not rely on ad-hoc `ls -lh` size checks for gating; enforce thresholds with explicit scripts and non-zero exits.
 - Do not hard-fail remote-latency tests in environments where Turso credentials are intentionally absent.
+
+## 2026-02-17: Iteration 15 — No-Magic-Number Guardrail
+
+### What Worked
+1. Converting thresholds/sample sizes to env-backed parameters with defaults removed brittle hardcoded behavior.
+2. Capturing the policy in AGENTS + GOAP + skills made enforcement explicit at planning and implementation stages.
+3. Treating empty CI secrets as "missing" avoided accidental external calls and flaky failures.
+
+### Technical Insights
+- Env-backed test tunables keep CI deterministic while allowing stricter thresholds in dedicated environments.
+- Guardrails are most effective when mirrored in both process docs (plans/skills) and executable code paths.
+
+### What to Avoid
+- Do not introduce numeric literals directly in tunable runtime decisions without naming and configurability.

@@ -4,15 +4,14 @@ use chaotic_semantic_memory::persistence::Persistence;
 use chaotic_semantic_memory::{ConceptBuilder, HVec10240};
 use tempfile::NamedTempFile;
 
-const TEN_MILLION: u64 = 10_000_000;
-const MAX_MEMORY_BYTES: u64 = 12 * 1024 * 1024;
-
 fn projected_compressed_index_bytes(concept_count: u64) -> u64 {
-    // Equivalent compact index model:
-    // - 1 byte/product-quantized code per concept
-    // - 2 MiB shared codebook
-    // - 256 KiB index metadata
-    concept_count + (2 * 1024 * 1024) + (256 * 1024)
+    let bytes_per_concept = env_u64("CSM_MEMORY_MODEL_BYTES_PER_CONCEPT", 1);
+    let codebook_bytes = env_u64("CSM_MEMORY_MODEL_CODEBOOK_BYTES", 2 * 1024 * 1024);
+    let metadata_bytes = env_u64("CSM_MEMORY_MODEL_METADATA_BYTES", 256 * 1024);
+    concept_count
+        .saturating_mul(bytes_per_concept)
+        .saturating_add(codebook_bytes)
+        .saturating_add(metadata_bytes)
 }
 
 fn p50_ms(samples: &mut [f64]) -> f64 {
@@ -22,23 +21,28 @@ fn p50_ms(samples: &mut [f64]) -> f64 {
 
 #[test]
 fn projected_10m_concepts_memory_stays_under_12mb() {
-    let projected = projected_compressed_index_bytes(TEN_MILLION);
+    let concepts = env_u64("CSM_MEMORY_MODEL_CONCEPTS", 10_000_000);
+    let threshold = env_u64("CSM_MEMORY_MODEL_MAX_BYTES", 12 * 1024 * 1024);
+    let projected = projected_compressed_index_bytes(concepts);
     assert!(
-        projected < MAX_MEMORY_BYTES,
+        projected < threshold,
         "projected={} bytes exceeds {} bytes",
         projected,
-        MAX_MEMORY_BYTES
+        threshold
     );
 }
 
 #[tokio::test]
 async fn local_persistence_roundtrip_p50_under_20ms() {
+    let sample_count = env_usize("CSM_LOCAL_ROUNDTRIP_SAMPLES", 25);
+    let threshold_ms = env_f64("CSM_LOCAL_ROUNDTRIP_MAX_P50_MS", 20.0);
+
     let db_file = NamedTempFile::new().expect("temp file");
     let db_path = db_file.path().to_string_lossy().to_string();
     let persistence = Persistence::new_local(&db_path).await.expect("new_local");
 
-    let mut durations_ms = Vec::with_capacity(25);
-    for i in 0..25 {
+    let mut durations_ms = Vec::with_capacity(sample_count);
+    for i in 0..sample_count {
         let id = format!("local-rt-{i}");
         let concept = ConceptBuilder::new(id.clone())
             .with_vector(HVec10240::random())
@@ -58,5 +62,29 @@ async fn local_persistence_roundtrip_p50_under_20ms() {
 
     let p50 = p50_ms(&mut durations_ms);
     println!("LOCAL_ROUNDTRIP_P50_MS={p50:.3}");
-    assert!(p50 < 20.0, "p50={p50:.3}ms is above 20ms");
+    assert!(
+        p50 < threshold_ms,
+        "p50={p50:.3}ms is above {threshold_ms}ms"
+    );
+}
+
+fn env_u64(key: &str, default: u64) -> u64 {
+    std::env::var(key)
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .unwrap_or(default)
+}
+
+fn env_usize(key: &str, default: usize) -> usize {
+    std::env::var(key)
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(default)
+}
+
+fn env_f64(key: &str, default: f64) -> f64 {
+    std::env::var(key)
+        .ok()
+        .and_then(|value| value.parse::<f64>().ok())
+        .unwrap_or(default)
 }

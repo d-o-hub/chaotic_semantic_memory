@@ -289,3 +289,18 @@
   - `cargo test --test performance_targets -- --nocapture` pass
   - `cargo test --test turso_roundtrip -- --nocapture` pass (skipped remote check locally due missing Turso env)
   - `scripts/wasm_size_gate.sh` pass
+
+### 2026-02-17: AGENT Iteration 15 — Configurability Policy Enforcement
+- Enforced anti-magic-number policy across docs/planning/skills:
+  - updated `AGENTS.md` hard constraints with no-hardcoded-settings rule
+  - updated `plans/GOALS.md`, `plans/GOAP_STATE.md`, `plans/ACTIONS.md`, and `plans/SWARM_COORDINATION.md`
+  - updated skills in `.agents/skills/` (`rust-development`, `testing-validation`, `git-workflow`, `goap-planning` reference)
+- Removed hardcoded tunables from Wave 5 implementation paths:
+  - `tests/performance_targets.rs` now uses env-configurable concept/threshold/sample settings
+  - `tests/turso_roundtrip.rs` now uses env-configurable pool/sample/threshold settings
+  - `scripts/wasm_size_gate.sh` now uses env-configurable max-size threshold (`CSM_WASM_SIZE_MAX_BYTES`)
+- Validation:
+  - `cargo check --message-format=short` pass
+  - `cargo test --all-features --quiet` pass
+  - `cargo fmt --check` pass
+  - `cargo clippy --all-targets --all-features -- -D warnings` pass

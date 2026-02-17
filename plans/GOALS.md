@@ -16,6 +16,10 @@ performance_goals:
   - 10m_concepts_under_12mb: true
   - wasm_binary_under_500kb: true
 
+engineering_goals:
+  - no_hardcoded_runtime_settings: true
+  - no_magic_numbers_without_named_constants: true
+
 optimization_goals:
   name: "Optimize Core Subsystems"
   targets:

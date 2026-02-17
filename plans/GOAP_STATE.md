@@ -118,6 +118,8 @@ world_state:
   turso_roundtrip_under_20ms: true
   10m_concepts_under_12mb: true
   wasm_binary_under_500kb: true
+  no_hardcoded_runtime_settings: true
+  no_magic_numbers_without_named_constants: true
 
   # Phase 5: Testing & Quality (cost: 8)
   property_based_tests_added: true
@@ -134,7 +136,7 @@ world_state:
   # Phase 7: Observability & DX (cost: 10)
   structured_logging_added: true
   metrics_collection_enabled: true
-  derive_macros_created: true
+  derive_macros_created: false  # REMOVED: never used, eliminated to reduce maintenance
   error_context_improved: true
 
   # Phase 8: Advanced Features (cost: 15)

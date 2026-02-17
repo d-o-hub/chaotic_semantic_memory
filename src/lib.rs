@@ -1,7 +1,5 @@
 //! Chaotic Semantic Memory System
 
-#[cfg(feature = "derive")]
-pub use chaotic_semantic_memory_derive::{Concept, HypervectorField};
 pub use error::{MemoryError, Result};
 pub use framework::{ChaoticSemanticFramework, FrameworkBuilder};
 pub use hyperdim::HVec10240;

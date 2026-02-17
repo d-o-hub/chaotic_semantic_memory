@@ -92,6 +92,7 @@ Run ID: `goap_parallel_missing_tasks_wave5_2026_02_17`
 2. **ADR Gate**: Any architecture change requires ADR review before implementation
 3. **Integration Points**: Phase boundaries require cross-group validation
 4. **Conflict Resolution**: First-come-first-served on shared files, coordinate via GOAP_STATE
+5. **Configurability Rule**: No hardcoded runtime settings or magic numbers; use named constants and env/config tunables.
 
 ## Work Distribution
 
@@ -109,7 +110,7 @@ Run ID: `goap_parallel_missing_tasks_wave5_2026_02_17`
 ### Group C: Observability
 - Structured logging (`tracing`)
 - Metrics collection
-- Derive macros
+- ~~Derive macros~~ (removed - unused)
 - Error context enhancement
 
 ### Group D: Advanced Features

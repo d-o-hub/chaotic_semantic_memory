@@ -20,7 +20,11 @@ async fn turso_roundtrip_p50_under_20ms_when_configured() {
         return;
     };
 
-    let persistence = Persistence::new_turso_with_pool(&url, &token, 4)
+    let pool_size = env_usize("CSM_TURSO_POOL_SIZE", 4);
+    let sample_count = env_usize("CSM_TURSO_ROUNDTRIP_SAMPLES", 25);
+    let threshold_ms = env_f64("CSM_TURSO_ROUNDTRIP_MAX_P50_MS", 20.0);
+
+    let persistence = Persistence::new_turso_with_pool(&url, &token, pool_size)
         .await
         .expect("new_turso_with_pool");
 
@@ -34,8 +38,8 @@ async fn turso_roundtrip_p50_under_20ms_when_configured() {
         .await
         .expect("save_concept");
 
-    let mut durations_ms = Vec::with_capacity(25);
-    for _ in 0..25 {
+    let mut durations_ms = Vec::with_capacity(sample_count);
+    for _ in 0..sample_count {
         let start = Instant::now();
         let loaded = persistence.load_concept(&id).await.expect("load_concept");
         let elapsed = start.elapsed().as_secs_f64() * 1000.0;
@@ -45,7 +49,10 @@ async fn turso_roundtrip_p50_under_20ms_when_configured() {
 
     let p50 = p50_ms(&mut durations_ms);
     println!("TURSO_ROUNDTRIP_P50_MS={p50:.3}");
-    assert!(p50 < 20.0, "turso p50={p50:.3}ms is above 20ms");
+    assert!(
+        p50 < threshold_ms,
+        "turso p50={p50:.3}ms is above {threshold_ms}ms"
+    );
 }
 
 fn chrono_like_now_nanos() -> u128 {
@@ -63,4 +70,18 @@ fn non_empty_env(key: &str) -> Option<String> {
             Some(value)
         }
     })
+}
+
+fn env_usize(key: &str, default: usize) -> usize {
+    env::var(key)
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(default)
+}
+
+fn env_f64(key: &str, default: f64) -> f64 {
+    env::var(key)
+        .ok()
+        .and_then(|value| value.parse::<f64>().ok())
+        .unwrap_or(default)
 }

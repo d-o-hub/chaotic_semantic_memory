@@ -32,6 +32,7 @@ description: "Implement or refactor Rust in this repository. Use when writing ne
 - libsql only (never `turso-client`).
 - Reservoir spectral radius must stay in `[0.9, 1.1]`.
 - `rand::rngs::StdRng` with `SeedableRng` for reproducibility in reservoir/tests.
+- No magic numbers in production logic: use named constants and configurable env/config parameters for tunables.
 
 ## When Adding a New Module
 - Add `pub mod name;` to `lib.rs`.

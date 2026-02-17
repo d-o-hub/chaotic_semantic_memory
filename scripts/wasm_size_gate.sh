@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MAX_BYTES=$((500 * 1024))
+MAX_BYTES="${CSM_WASM_SIZE_MAX_BYTES:-$((500 * 1024))}"
 REPORT_PATH="plans/handoffs/W5_C_to_D_wasm_size_report.md"
 
 rustup target add wasm32-unknown-unknown >/dev/null 2>&1 || true
@@ -31,7 +31,7 @@ cat > "${REPORT_PATH}" <<EOF
 - Command: \`cargo build --target wasm32-unknown-unknown --release --features wasm\`
 - Artifact: \`${WASM_FILE}\`
 - Size: \`${SIZE_BYTES}\` bytes (\`${SIZE_KB}\` KiB)
-- Threshold: \`${MAX_BYTES}\` bytes (500 KiB)
+- Threshold: \`${MAX_BYTES}\` bytes (configurable via \`CSM_WASM_SIZE_MAX_BYTES\`)
 
 ## Result
 - Status: \`${STATUS}\`

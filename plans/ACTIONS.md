@@ -521,13 +521,12 @@ actions:
     effects:
       derive_macros_created: true
     cost: 2
-    status: complete
+    status: cancelled
     file: chaotic_semantic_memory_derive/, Cargo.toml
     description: |
-      Create proc-macro crate for derive macros:
-      - #[derive(Concept)] for automatic metadata extraction
-      - #[derive(HypervectorField)] for struct fields → HVec10240
-      - Reduces boilerplate in user code
+      REMOVED: Proc-macro crate was created but never used. 
+      No examples, tests, or library code utilized #[derive(Concept)] or #[derive(HypervectorField)].
+      Derive crate removed to reduce maintenance burden. Use ConceptBuilder directly instead.
 
   - name: improve_error_context
     preconditions:
@@ -672,3 +671,21 @@ actions:
       - verify all three performance targets reached
       - update GOAP state and close wave-5 pending gate
       - publish decision artifact: plans/handoffs/W5_D_to_All_performance_gate_decision.md
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 10: CONFIGURABILITY & MAGIC-NUMBER POLICY (cost: 3)
+  # ═══════════════════════════════════════════════════════
+  - name: enforce_configurable_settings_policy
+    preconditions:
+      benchmarks_prove_performance: true
+    effects:
+      no_hardcoded_runtime_settings: true
+      no_magic_numbers_without_named_constants: true
+    cost: 3
+    status: complete
+    file: AGENTS.md, plans/GOALS.md, .agents/skills/, tests/performance_targets.rs, tests/turso_roundtrip.rs, scripts/wasm_size_gate.sh
+    description: |
+      Enforce anti-magic-number policy:
+      - document policy in AGENTS and skills
+      - require named constants and env/config-backed tunables
+      - remove hardcoded thresholds/sample sizes from new performance gates

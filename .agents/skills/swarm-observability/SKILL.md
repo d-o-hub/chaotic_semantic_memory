@@ -45,11 +45,16 @@ pub async fn probe(&self, query: HVec10240, top_k: usize) -> Result<Vec<(String,
 }
 ```
 
-## Derive Macro
+## Derive Macros (DEPRECATED)
 
-Create proc-macro crate for:
-- `#[derive(Concept)]` for automatic metadata extraction
-- `#[derive(HypervectorField)]` for struct fields → HVec10240
+Derive macros were removed after discovery of zero usage. Use `ConceptBuilder` directly:
+
+```rust
+// Instead of #[derive(Concept)]:
+let concept = ConceptBuilder::new("id")
+    .with_vector(HVec10240::random())
+    .build()?;
+```
 
 ## Error Context
 

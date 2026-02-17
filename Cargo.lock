@@ -282,7 +282,6 @@ name = "chaotic_semantic_memory"
 version = "0.1.0"
 dependencies = [
  "bincode",
- "chaotic_semantic_memory_derive",
  "criterion",
  "getrandom 0.2.17",
  "js-sys",
@@ -298,15 +297,6 @@ dependencies = [
  "tracing",
  "wasm-bindgen",
  "wasm-bindgen-futures",
-]
-
-[[package]]
-name = "chaotic_semantic_memory_derive"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]

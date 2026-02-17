@@ -16,7 +16,6 @@ tracing = "0.1"
 
 # Random number generation
 rand = "0.8"
-chaotic_semantic_memory_derive = { path = "chaotic_semantic_memory_derive", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # CPU parallelism
@@ -57,4 +56,3 @@ path = "examples/proof_of_concept.rs"
 [features]
 default = []
 wasm = []
-derive = ["dep:chaotic_semantic_memory_derive"]

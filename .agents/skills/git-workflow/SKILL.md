@@ -33,6 +33,9 @@ cargo clippy -- -D warnings
 
 Or use: `scripts/validate.sh`
 
+## Review Rule
+- Block commits that introduce hardcoded runtime settings or unexplained numeric literals in tunable paths.
+
 ## Performance Gate
 
 ```bash
