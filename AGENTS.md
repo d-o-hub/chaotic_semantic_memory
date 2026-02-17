@@ -13,13 +13,14 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 - Reservoir spectral radius must stay in `[0.9, 1.1]`.
 - WASM threading paths must be gated with `#[cfg(not(target_arch = "wasm32"))]`.
 
-## Key Files
+## Key Files and folder
 - @Cargo.toml — dependencies and features
 - @src/lib.rs — crate root and prelude
 - @plans/GOAP_STATE.md — current world state
 - @plans/GOALS.md — project goals and targets
 - @plans/ACTIONS.md — GOAP action plan
 - @.github/workflows/ci.yml — CI pipeline
+- @plans/adr/ — ADR folder
 
 ## Skills (13 Total)
 

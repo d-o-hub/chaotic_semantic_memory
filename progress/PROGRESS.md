@@ -241,4 +241,30 @@
   - `cargo test --all-features` pass
   - `cargo build --release` pass
   - `cargo build --target wasm32-unknown-unknown --release --features wasm` pass
-  - LOC snapshot: all `src/*.rs` <= 500
+- LOC snapshot: all `src/*.rs` <= 500
+
+### 2026-02-17: AGENT Iteration 13 — GOAP Wave 5 Orchestration for Missing Performance Tasks
+- Re-read planning artifacts (`GOAP_STATE`, `GOALS`, `ACTIONS`, `SWARM_COORDINATION`) using `goap-planning` as orchestrator.
+- Identified missing executable GOAP actions for target goals:
+  - `turso_roundtrip_under_20ms`
+  - `10m_concepts_under_12mb`
+  - `wasm_binary_under_500kb`
+  - aggregate gate `benchmarks_prove_performance`
+- Added Phase 9 action set to `plans/ACTIONS.md` with explicit preconditions/effects/cost:
+  - `benchmark_turso_roundtrip` (Group A)
+  - `validate_memory_footprint_10m` (Group B)
+  - `validate_wasm_binary_size` (Group C)
+  - `enforce_performance_goal_gate` (Group D)
+- Updated `plans/GOAP_STATE.md` orchestration snapshot:
+  - `active_wave: 5`
+  - `wave_5_in_progress` for groups A/B/C/D
+  - added performance-goal state flags initialized to `false`
+  - queued pending gate `wave_5_performance_goal_validation`
+- Updated `plans/SWARM_COORDINATION.md` for Wave 5 launch:
+  - active groups remapped to Phase 9 workstreams
+  - handoff contract and artifact list added
+- Created Wave 5 handoff artifacts:
+  - `plans/handoffs/W5_A_to_B_turso_latency_profile.md`
+  - `plans/handoffs/W5_B_to_D_memory_budget_report.md`
+  - `plans/handoffs/W5_C_to_D_wasm_size_report.md`
+  - `plans/handoffs/W5_D_to_All_performance_gate_decision.md`

@@ -13,11 +13,11 @@ world_state:
   adr_registry_current: true
   result_contract_clarified: true
   action_last_completed: implement_backup_restore
-  orchestrator_last_run: goap_parallel_missing_tasks_2026_02_17
-  orchestrator_last_run_at_utc: 2026-02-17T07:52:48Z
+  orchestrator_last_run: goap_parallel_missing_tasks_wave5_2026_02_17
+  orchestrator_last_run_at_utc: 2026-02-17T09:15:00Z
 
   # Swarm orchestration snapshot
-  active_wave: 4
+  active_wave: 5
   wave_strategy: parallel_by_phase_with_handoffs
   wave_1_in_progress: {}
   wave_1_completed:
@@ -42,6 +42,11 @@ world_state:
     group_b: implement_concept_lru_cache
     group_c: create_derive_macros
     group_d: implement_backup_restore
+  wave_5_in_progress:
+    group_a: benchmark_turso_roundtrip
+    group_b: validate_memory_footprint_10m
+    group_c: validate_wasm_binary_size
+    group_d: enforce_performance_goal_gate
   handoff_queue:
     - "A->B: fuzz findings on malformed vectors before SIMD hardening"
     - "B->D: persistence and batching compatibility notes before versioning/export"
@@ -52,7 +57,12 @@ world_state:
     - plans/handoffs/W1_B_to_D_perf_and_layout_notes.md
     - plans/handoffs/W1_C_to_All_tracing_conventions.md
     - plans/handoffs/W1_D_to_All_schema_constraints.md
-  phase_boundary_gate_pending: []
+    - plans/handoffs/W5_A_to_B_turso_latency_profile.md
+    - plans/handoffs/W5_B_to_D_memory_budget_report.md
+    - plans/handoffs/W5_C_to_D_wasm_size_report.md
+    - plans/handoffs/W5_D_to_All_performance_gate_decision.md
+  phase_boundary_gate_pending:
+    - wave_5_performance_goal_validation
   planning_gaps:
     mutation_testing_action_missing: false
 
@@ -104,6 +114,10 @@ world_state:
   wasm_target_installed: true
   reservoir_step_under_100us: true
   reservoir_step_50k_latest_us: 76.627
+  benchmarks_prove_performance: false
+  turso_roundtrip_under_20ms: false
+  10m_concepts_under_12mb: false
+  wasm_binary_under_500kb: false
 
   # Phase 5: Testing & Quality (cost: 8)
   property_based_tests_added: true

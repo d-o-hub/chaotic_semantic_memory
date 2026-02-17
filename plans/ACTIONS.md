@@ -607,3 +607,68 @@ actions:
       - restore(path) -> Result<()> (replace db file)
       - List backups with timestamps
       - Integrity verification after restore
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 9: PERFORMANCE GOAL VALIDATION CLOSURE (cost: 10)
+  # ═══════════════════════════════════════════════════════
+  - name: benchmark_turso_roundtrip
+    preconditions:
+      connection_pooling_turso: true
+    effects:
+      turso_roundtrip_under_20ms: true
+    cost: 3
+    status: in_progress
+    file: benches/benchmark.rs, src/persistence.rs
+    description: |
+      Add a reproducible Turso roundtrip benchmark gate:
+      - define benchmark scenario and connection profile
+      - measure p50/p95 query roundtrip latency
+      - enforce target p50 < 20ms for representative workload
+      - publish artifact: plans/handoffs/W5_A_to_B_turso_latency_profile.md
+
+  - name: validate_memory_footprint_10m
+    preconditions:
+      concept_cache_implemented: true
+      framework_batch_operations: true
+    effects:
+      10m_concepts_under_12mb: true
+    cost: 3
+    status: in_progress
+    file: benches/benchmark.rs, src/singularity.rs, docs/
+    description: |
+      Define and verify memory footprint methodology for high-scale concepts:
+      - specify what is included in memory accounting
+      - run reproducible footprint benchmark for 10M-concept equivalent model
+      - enforce threshold under 12MB for compressed/indexed representation target
+      - publish artifact: plans/handoffs/W5_B_to_D_memory_budget_report.md
+
+  - name: validate_wasm_binary_size
+    preconditions:
+      wasm_compiles: true
+    effects:
+      wasm_binary_under_500kb: true
+    cost: 2
+    status: in_progress
+    file: scripts/, Cargo.toml, .github/workflows/ci.yml
+    description: |
+      Add deterministic wasm size gate:
+      - build wasm release artifact with fixed feature set
+      - measure binary size from generated artifact path
+      - enforce threshold < 500KB
+      - publish artifact: plans/handoffs/W5_C_to_D_wasm_size_report.md
+
+  - name: enforce_performance_goal_gate
+    preconditions:
+      turso_roundtrip_under_20ms: true
+      10m_concepts_under_12mb: true
+      wasm_binary_under_500kb: true
+    effects:
+      benchmarks_prove_performance: true
+    cost: 2
+    status: in_progress
+    file: plans/GOAP_STATE.md, plans/SWARM_COORDINATION.md, progress/PROGRESS.md
+    description: |
+      Integrate wave-5 benchmark outcomes into a single go/no-go performance gate:
+      - verify all three performance targets reached
+      - update GOAP state and close wave-5 pending gate
+      - publish decision artifact: plans/handoffs/W5_D_to_All_performance_gate_decision.md

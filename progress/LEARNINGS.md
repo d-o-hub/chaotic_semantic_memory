@@ -233,3 +233,19 @@
 ### What to Avoid
 - Do not assume crate-root aliasing to wasm stubs is enough when native-only impl files are always compiled.
 - Do not call remote-persistence constructors from shared builder code without ensuring wasm stubs provide parity or cfg branch separation.
+
+## 2026-02-17: Iteration 13 — GOAP Coverage for Goal-Only Targets
+
+### What Worked
+1. Recomputing GOAP from `GOALS` against `GOAP_STATE` exposed targets that were defined but not actionized.
+2. Modeling missing targets as one new phase with explicit preconditions/effects made orchestration concrete.
+3. Adding handoff templates before implementation reduced ambiguity between parallel groups.
+
+### Technical Insights
+- Goal flags without corresponding actions create false "complete" narratives in plan-driven workflows.
+- Aggregate gates (like `benchmarks_prove_performance`) should be represented as explicit actions with dependencies on lower-level metrics.
+- Handoff artifacts are most useful when they define reusable assumptions (environment, workload, measurement commands).
+
+### What to Avoid
+- Do not mark performance goals as complete only because related earlier phases finished.
+- Do not launch parallel waves without explicit input/output handoff contracts.

@@ -4,14 +4,14 @@
 
 | Group | Phase | Focus | Status |
 |-------|-------|-------|--------|
-| A | 5 | Testing & Quality | Complete |
-| B | 6 | Performance | Complete |
-| C | 7 | Observability & DX | Complete |
-| D | 8 | Advanced Features | Complete |
+| A | 9 | Turso Latency Benchmarking | In Progress |
+| B | 9 | Memory Footprint Validation | In Progress |
+| C | 9 | WASM Size Gate | In Progress |
+| D | 9 | Performance Gate Integration | In Progress |
 
 ## Orchestrator Run (2026-02-17)
 
-Run ID: `goap_parallel_missing_tasks_2026_02_17`
+Run ID: `goap_parallel_missing_tasks_wave5_2026_02_17`
 
 ### Parallel Wave 1 (launched)
 
@@ -35,6 +35,7 @@ Run ID: `goap_parallel_missing_tasks_2026_02_17`
 2. After Phase 6 outputs: rerun perf gate and update benchmark deltas.
 3. After Phase 7 outputs: verify observability footprint and error context coverage.
 4. Before Phase 8 merge: require migration compatibility check + restore/import validation.
+5. Before Wave 5 completion: require all performance targets to pass and update `benchmarks_prove_performance`.
 
 ### Parallel Wave 2 (queued)
 
@@ -61,6 +62,29 @@ Run ID: `goap_parallel_missing_tasks_2026_02_17`
 | B | `implement_concept_lru_cache` | complete | W3 B |
 | C | `create_derive_macros` | complete | W3 C |
 | D | `implement_backup_restore` | complete | W3 D |
+
+### Parallel Wave 5 (launched)
+
+| Group | Action | Start Condition | Depends On |
+|-------|--------|-----------------|------------|
+| A | `benchmark_turso_roundtrip` | in_progress | W4 complete |
+| B | `validate_memory_footprint_10m` | in_progress | W4 complete, W5 A handoff |
+| C | `validate_wasm_binary_size` | in_progress | W4 complete |
+| D | `enforce_performance_goal_gate` | in_progress | W5 A, W5 B, W5 C handoffs |
+
+### Wave 5 Handoff Contract
+
+1. `A -> B`: Provide Turso latency profile and query mix assumptions for footprint workload alignment.
+2. `B -> D`: Provide memory-accounting method and pass/fail evidence for 10M-under-12MB target.
+3. `C -> D`: Provide wasm artifact path, measured size, and deterministic CI command.
+4. `D -> All`: Publish final performance-goal gate decision with remediation if a target fails.
+
+### Wave 5 Artifacts
+
+- `plans/handoffs/W5_A_to_B_turso_latency_profile.md`
+- `plans/handoffs/W5_B_to_D_memory_budget_report.md`
+- `plans/handoffs/W5_C_to_D_wasm_size_report.md`
+- `plans/handoffs/W5_D_to_All_performance_gate_decision.md`
 
 ## Coordination Rules
 
