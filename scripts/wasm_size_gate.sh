@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MAX_BYTES=$((500 * 1024))
+REPORT_PATH="plans/handoffs/W5_C_to_D_wasm_size_report.md"
+
+rustup target add wasm32-unknown-unknown >/dev/null 2>&1 || true
+cargo build --target wasm32-unknown-unknown --release --features wasm >/dev/null
+
+WASM_FILE="$(find target/wasm32-unknown-unknown/release -maxdepth 1 -name '*.wasm' | head -n 1)"
+if [[ -z "${WASM_FILE}" ]]; then
+  echo "No wasm artifact produced under target/wasm32-unknown-unknown/release"
+  exit 1
+fi
+
+SIZE_BYTES="$(wc -c < "${WASM_FILE}")"
+SIZE_KB="$(awk "BEGIN { printf \"%.2f\", ${SIZE_BYTES}/1024 }")"
+STATUS="pass"
+
+if (( SIZE_BYTES >= MAX_BYTES )); then
+  STATUS="fail"
+fi
+
+cat > "${REPORT_PATH}" <<EOF
+# W5 C -> D Handoff: WASM Size Report
+
+## Action
+- \`validate_wasm_binary_size\`
+
+## Measurement
+- Command: \`cargo build --target wasm32-unknown-unknown --release --features wasm\`
+- Artifact: \`${WASM_FILE}\`
+- Size: \`${SIZE_BYTES}\` bytes (\`${SIZE_KB}\` KiB)
+- Threshold: \`${MAX_BYTES}\` bytes (500 KiB)
+
+## Result
+- Status: \`${STATUS}\`
+- \`wasm_binary_under_500kb\`: \`$([[ "${STATUS}" == "pass" ]] && echo true || echo false)\`
+EOF
+
+if [[ "${STATUS}" == "fail" ]]; then
+  echo "WASM size gate failed: ${SIZE_BYTES} bytes >= ${MAX_BYTES} bytes"
+  exit 1
+fi
+
+echo "WASM size gate passed: ${SIZE_BYTES} bytes (${SIZE_KB} KiB)"

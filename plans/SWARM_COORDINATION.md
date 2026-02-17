@@ -4,10 +4,10 @@
 
 | Group | Phase | Focus | Status |
 |-------|-------|-------|--------|
-| A | 9 | Turso Latency Benchmarking | In Progress |
-| B | 9 | Memory Footprint Validation | In Progress |
-| C | 9 | WASM Size Gate | In Progress |
-| D | 9 | Performance Gate Integration | In Progress |
+| A | 9 | Turso Latency Benchmarking | Complete |
+| B | 9 | Memory Footprint Validation | Complete |
+| C | 9 | WASM Size Gate | Complete |
+| D | 9 | Performance Gate Integration | Complete |
 
 ## Orchestrator Run (2026-02-17)
 
@@ -63,14 +63,14 @@ Run ID: `goap_parallel_missing_tasks_wave5_2026_02_17`
 | C | `create_derive_macros` | complete | W3 C |
 | D | `implement_backup_restore` | complete | W3 D |
 
-### Parallel Wave 5 (launched)
+### Parallel Wave 5 (completed)
 
 | Group | Action | Start Condition | Depends On |
 |-------|--------|-----------------|------------|
-| A | `benchmark_turso_roundtrip` | in_progress | W4 complete |
-| B | `validate_memory_footprint_10m` | in_progress | W4 complete, W5 A handoff |
-| C | `validate_wasm_binary_size` | in_progress | W4 complete |
-| D | `enforce_performance_goal_gate` | in_progress | W5 A, W5 B, W5 C handoffs |
+| A | `benchmark_turso_roundtrip` | complete | W4 complete |
+| B | `validate_memory_footprint_10m` | complete | W4 complete, W5 A handoff |
+| C | `validate_wasm_binary_size` | complete | W4 complete |
+| D | `enforce_performance_goal_gate` | complete | W5 A, W5 B, W5 C handoffs |
 
 ### Wave 5 Handoff Contract
 

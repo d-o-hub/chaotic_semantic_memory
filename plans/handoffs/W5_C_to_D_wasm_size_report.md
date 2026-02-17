@@ -3,15 +3,12 @@
 ## Action
 - `validate_wasm_binary_size`
 
-## Required Inputs
-- Release build command with fixed features
-- Artifact path used for byte-size measurement
-- Size measurement command and units
+## Measurement
+- Command: `cargo build --target wasm32-unknown-unknown --release --features wasm`
+- Artifact: `target/wasm32-unknown-unknown/release/chaotic_semantic_memory.wasm`
+- Size: `448175` bytes (`437.67` KiB)
+- Threshold: `512000` bytes (500 KiB)
 
-## Output Contract
-- Artifact size in bytes and KB
-- Explicit pass/fail against target: `wasm_binary_under_500kb`
-- Reproducible command snippet for CI/local verification
-
-## Consumption by Group D
-- Attach as mandatory evidence in Wave 5 final gate decision
+## Result
+- Status: `pass`
+- `wasm_binary_under_500kb`: `true`

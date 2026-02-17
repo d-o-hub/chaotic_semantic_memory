@@ -12,9 +12,9 @@ world_state:
   dependency_hygiene_complete: true
   adr_registry_current: true
   result_contract_clarified: true
-  action_last_completed: implement_backup_restore
+  action_last_completed: enforce_performance_goal_gate
   orchestrator_last_run: goap_parallel_missing_tasks_wave5_2026_02_17
-  orchestrator_last_run_at_utc: 2026-02-17T09:15:00Z
+  orchestrator_last_run_at_utc: 2026-02-17T09:46:00Z
 
   # Swarm orchestration snapshot
   active_wave: 5
@@ -42,7 +42,8 @@ world_state:
     group_b: implement_concept_lru_cache
     group_c: create_derive_macros
     group_d: implement_backup_restore
-  wave_5_in_progress:
+  wave_5_in_progress: {}
+  wave_5_completed:
     group_a: benchmark_turso_roundtrip
     group_b: validate_memory_footprint_10m
     group_c: validate_wasm_binary_size
@@ -61,8 +62,7 @@ world_state:
     - plans/handoffs/W5_B_to_D_memory_budget_report.md
     - plans/handoffs/W5_C_to_D_wasm_size_report.md
     - plans/handoffs/W5_D_to_All_performance_gate_decision.md
-  phase_boundary_gate_pending:
-    - wave_5_performance_goal_validation
+  phase_boundary_gate_pending: []
   planning_gaps:
     mutation_testing_action_missing: false
 
@@ -74,7 +74,7 @@ world_state:
     reservoir.rs: 427
     singularity.rs: 426
     persistence.rs: 495
-    persistence_wasm.rs: 63
+    persistence_wasm.rs: 67
     framework.rs: 429
     framework_ops.rs: 177
     persistence_ops.rs: 194
@@ -83,7 +83,7 @@ world_state:
   # Test status
   unit_tests_passing: 16
   integration_tests_exist: true
-  integration_tests_passing: 4
+  integration_tests_passing: 7
 
   # Correctness issues (must fix)
   permute_shift_zero_bug: false
@@ -114,10 +114,10 @@ world_state:
   wasm_target_installed: true
   reservoir_step_under_100us: true
   reservoir_step_50k_latest_us: 76.627
-  benchmarks_prove_performance: false
-  turso_roundtrip_under_20ms: false
-  10m_concepts_under_12mb: false
-  wasm_binary_under_500kb: false
+  benchmarks_prove_performance: true
+  turso_roundtrip_under_20ms: true
+  10m_concepts_under_12mb: true
+  wasm_binary_under_500kb: true
 
   # Phase 5: Testing & Quality (cost: 8)
   property_based_tests_added: true

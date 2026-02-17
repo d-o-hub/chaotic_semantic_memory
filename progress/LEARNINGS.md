@@ -249,3 +249,19 @@
 ### What to Avoid
 - Do not mark performance goals as complete only because related earlier phases finished.
 - Do not launch parallel waves without explicit input/output handoff contracts.
+
+## 2026-02-17: Iteration 14 — Performance Target Implementation Closure
+
+### What Worked
+1. Making Turso latency tests env-gated keeps CI deterministic while still validating real remote latency when secrets are available.
+2. Using a dedicated wasm-size gate script gives a single reproducible source of truth for binary-size constraints.
+3. Modeled memory-budget assertions are a practical way to enforce long-horizon capacity targets without allocating massive fixtures.
+
+### Technical Insights
+- `cargo test --test <name> -- --nocapture` is useful for surfacing measured p50 metrics in logs and handoff artifacts.
+- The produced wasm artifact size is currently `448,175` bytes (`437.67 KiB`), leaving headroom under the `500 KiB` target.
+- Performance gate closure is easier to audit when each target writes a handoff report and the final D report references all three.
+
+### What to Avoid
+- Do not rely on ad-hoc `ls -lh` size checks for gating; enforce thresholds with explicit scripts and non-zero exits.
+- Do not hard-fail remote-latency tests in environments where Turso credentials are intentionally absent.

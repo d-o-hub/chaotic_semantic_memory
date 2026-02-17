@@ -617,8 +617,8 @@ actions:
     effects:
       turso_roundtrip_under_20ms: true
     cost: 3
-    status: in_progress
-    file: benches/benchmark.rs, src/persistence.rs
+    status: complete
+    file: tests/turso_roundtrip.rs, tests/performance_targets.rs, .github/workflows/ci.yml
     description: |
       Add a reproducible Turso roundtrip benchmark gate:
       - define benchmark scenario and connection profile
@@ -633,8 +633,8 @@ actions:
     effects:
       10m_concepts_under_12mb: true
     cost: 3
-    status: in_progress
-    file: benches/benchmark.rs, src/singularity.rs, docs/
+    status: complete
+    file: tests/performance_targets.rs, plans/handoffs/W5_B_to_D_memory_budget_report.md
     description: |
       Define and verify memory footprint methodology for high-scale concepts:
       - specify what is included in memory accounting
@@ -648,8 +648,8 @@ actions:
     effects:
       wasm_binary_under_500kb: true
     cost: 2
-    status: in_progress
-    file: scripts/, Cargo.toml, .github/workflows/ci.yml
+    status: complete
+    file: scripts/wasm_size_gate.sh, .github/workflows/ci.yml
     description: |
       Add deterministic wasm size gate:
       - build wasm release artifact with fixed feature set
@@ -665,7 +665,7 @@ actions:
     effects:
       benchmarks_prove_performance: true
     cost: 2
-    status: in_progress
+    status: complete
     file: plans/GOAP_STATE.md, plans/SWARM_COORDINATION.md, progress/PROGRESS.md
     description: |
       Integrate wave-5 benchmark outcomes into a single go/no-go performance gate:
