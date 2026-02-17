@@ -2,7 +2,11 @@
 
 ## Status
 - **Proposed**: 2026-02-17
-- **Accepted**: Pending
+- **Accepted**: 2026-02-17
+
+**Priority**: High (Immediate - Wave 7)
+
+**Rationale**: Analysis Swarm Consensus confirmed singularity.rs lacks tracing coverage compared to other modules. Low-cost addition that significantly improves production debugging capabilities.
 
 ## Context
 

@@ -2,7 +2,11 @@
 
 ## Status
 - **Proposed**: 2026-02-17
-- **Accepted**: Pending
+- **Accepted**: 2026-02-17
+
+**Priority**: High (Immediate - Wave 7)
+
+**Rationale**: Analysis Swarm Consensus identified `process_sequence()` as core differentiator missing from WASM API. Memory-based export/import enables browser persistence (file-based doesn't work in WASM). Critical for WASM feature parity.
 
 ## Context
 

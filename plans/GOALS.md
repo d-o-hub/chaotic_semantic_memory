@@ -23,36 +23,50 @@ engineering_goals:
 optimization_goals:
   name: "Optimize Core Subsystems"
   targets:
-    # Phase 1: Correctness (cost: 6, risk: high if unfixed)
-    - permute_shift_zero_bug: false
-    - reservoir_to_hvec_div_zero: false
-    - associations_allow_duplicates: false
-    - load_silently_overwrites: false
-    - reservoir_not_reset_between_sequences: false
-    - sqlite_foreign_keys_not_enforced: false
-    - conceptbuilder_swallows_metadata_errors: false
-    - libsql_deprecated_apis_used: false
+    # Phase 1: Correctness - ALL COMPLETED ✓
+    # Note: These were completed in earlier waves, GOAP_STATE tracks true status
+    - permute_shift_zero_bug: true      # Fixed: hyperdim.rs permute(0) guard
+    - reservoir_to_hvec_div_zero: true  # Fixed: proper size validation
+    - associations_allow_duplicates: true  # Fixed: HashMap storage
+    - load_silently_overwrites: true    # Fixed: load_replace/load_merge semantics
+    - reservoir_not_reset_between_sequences: true  # Fixed: reset() at sequence start
+    - sqlite_foreign_keys_not_enforced: true  # Fixed: PRAGMA foreign_keys=ON
+    - conceptbuilder_swallows_metadata_errors: true  # Fixed: error propagation
+    - libsql_deprecated_apis_used: true  # Fixed: Builder API migration
 
-    # Phase 2: Performance (cost: 22, impact: high)
-    - reservoir_dense_matrix_infeasible: false   # ADR-0004
-    - singularity_search_sequential: false       # ADR-0007
-    - reservoir_step_per_alloc: false
-    - bundle_per_chunk_alloc: false
-    - persistence_no_batching: false             # ADR-0006
-    - persistence_connection_unsafe: false       # ADR-0005
+    # Phase 2: Performance - ALL COMPLETED ✓
+    - reservoir_dense_matrix_infeasible: true   # ADR-0004 - Sparse CSR implemented
+    - singularity_search_sequential: true       # ADR-0007 - Rayon parallelization
+    - reservoir_step_per_alloc: true            # Fixed: scratch buffer reuse
+    - bundle_per_chunk_alloc: true              # Fixed: fold() accumulator pattern
+    - persistence_no_batching: true             # ADR-0006 - Batch operations
+    - persistence_connection_unsafe: true       # ADR-0005 - Per-operation connections
 
-    # Phase 3: Capabilities (cost: 12, impact: medium)
-    - wasm_rayon_not_gated: false                # ADR-0008 (supersedes ADR-0003)
-    - no_concept_deletion_in_framework: false
-    - no_memory_limits: false
-    - prelude_module_missing: false
-    - no_integration_tests: false
+    # Phase 3: Capabilities - ALL COMPLETED ✓
+    - wasm_rayon_not_gated: true                # ADR-0008 - cfg gating
+    - no_concept_deletion_in_framework: true    # Fixed: delete_concept() added
+    - no_memory_limits: true                    # Fixed: max_concepts/max_associations
+    - prelude_module_missing: true              # Fixed: prelude module added
+    - no_integration_tests: true                # Fixed: 7 integration tests
 
 enhancement_goals:
-  name: "Architecture Enhancements (future triggers)"
+  name: "Architecture Enhancements (Post-1.0 Deferred)"
+  note: "Deferred per Swarm Consensus 2026-02-17. Reconsider based on production feedback."
   targets:
-    - approximate_search_indexing: false  # trigger: >200k concepts + latency miss
-    - deterministic_hashed_projections: false  # trigger: w_in memory pressure
+    # ADR-0024 Phase 2B/C: Trigger when >200k concepts with latency degradation
+    - approximate_search_indexing: deferred  
+    # ADR-0024 Phase 2: Trigger when w_in memory pressure observed
+    - deterministic_hashed_projections: deferred
+    # ADR-0024: Product Quantization for 10M concept scale
+    - product_quantization: deferred
+    # ADR-0024: LSH index for sub-linear search
+    - lsh_indexing: deferred
+    # ADR-0025: Biological memory decay modeling
+    - association_decay: deferred
+    # ADR-0024: Concept TTL for session management
+    - concept_ttl: deferred
+    # ADR-0026: Multi-tenancy support
+    - namespace_isolation: deferred
 
 improvement_goals:
   name: "Continuous Improvement Program"

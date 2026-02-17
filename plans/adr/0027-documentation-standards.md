@@ -2,7 +2,11 @@
 
 ## Status
 - **Proposed**: 2026-02-17
-- **Accepted**: Pending
+- **Accepted**: 2026-02-17
+
+**Priority**: High (Immediate - Wave 7)
+
+**Rationale**: Analysis Swarm Consensus identified documentation gaps as highest-impact, lowest-risk improvement for 1.0 release. Improves developer experience without adding code complexity.
 
 ## Context
 
