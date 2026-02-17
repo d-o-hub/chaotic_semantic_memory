@@ -33,3 +33,9 @@ Thumbs.db
 
 # Release builds with opt-level=3 and lto may produce large files
 # These can be gitignored if you rebuild rather than download releases
+
+# cargo-fuzz artifacts
+/fuzz/artifacts
+/fuzz/corpus
+/fuzz/coverage
+/fuzz/target

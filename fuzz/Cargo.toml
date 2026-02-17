@@ -1,0 +1,37 @@
+[package]
+name = "chaotic_semantic_memory-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+tokio = { version = "1.40", features = ["rt", "macros"] }
+serde_json = "1.0"
+
+[dependencies.chaotic_semantic_memory]
+path = ".."
+
+[[bin]]
+name = "hvec_from_bytes"
+path = "fuzz_targets/hvec_from_bytes.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "reservoir_step"
+path = "fuzz_targets/reservoir_step.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "persistence_save_concept"
+path = "fuzz_targets/persistence_save_concept.rs"
+test = false
+doc = false
+bench = false
