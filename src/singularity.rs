@@ -1,7 +1,10 @@
 //! Episode-free concept injection
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::hash_map::Entry;
+use std::collections::{HashMap, VecDeque};
+use std::hash::{Hash, Hasher};
+use std::sync::Mutex;
 
 #[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
@@ -19,10 +22,71 @@ pub struct Concept {
     pub modified_at: u64,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct SingularityConfig {
     pub max_concepts: Option<usize>,
     pub max_associations_per_concept: Option<usize>,
+    pub concept_cache_size: usize,
+}
+
+impl Default for SingularityConfig {
+    fn default() -> Self {
+        Self {
+            max_concepts: None,
+            max_associations_per_concept: None,
+            concept_cache_size: 1000,
+        }
+    }
+}
+
+#[derive(Default)]
+struct QueryCache {
+    capacity: usize,
+    order: VecDeque<u64>,
+    results: HashMap<u64, Vec<(String, f32)>>,
+}
+
+impl QueryCache {
+    fn with_capacity(capacity: usize) -> Self {
+        Self {
+            capacity: capacity.max(1),
+            order: VecDeque::new(),
+            results: HashMap::new(),
+        }
+    }
+
+    fn get(&mut self, key: u64) -> Option<Vec<(String, f32)>> {
+        let value = self.results.get(&key).cloned()?;
+        if let Some(pos) = self.order.iter().position(|k| *k == key) {
+            self.order.remove(pos);
+        }
+        self.order.push_back(key);
+        Some(value)
+    }
+
+    fn put(&mut self, key: u64, value: Vec<(String, f32)>) {
+        if let Entry::Occupied(mut entry) = self.results.entry(key) {
+            entry.insert(value);
+            if let Some(pos) = self.order.iter().position(|k| *k == key) {
+                self.order.remove(pos);
+            }
+            self.order.push_back(key);
+            return;
+        }
+
+        if self.results.len() >= self.capacity {
+            if let Some(oldest) = self.order.pop_front() {
+                self.results.remove(&oldest);
+            }
+        }
+        self.order.push_back(key);
+        self.results.insert(key, value);
+    }
+
+    fn clear(&mut self) {
+        self.order.clear();
+        self.results.clear();
+    }
 }
 
 /// Episode-free singularity engine
@@ -30,6 +94,7 @@ pub struct Singularity {
     concepts: HashMap<String, Concept>,
     associations: HashMap<String, HashMap<String, f32>>,
     config: SingularityConfig,
+    query_cache: Mutex<QueryCache>,
 }
 
 impl Singularity {
@@ -41,6 +106,7 @@ impl Singularity {
         Self {
             concepts: HashMap::new(),
             associations: HashMap::new(),
+            query_cache: Mutex::new(QueryCache::with_capacity(config.concept_cache_size)),
             config,
         }
     }
@@ -60,6 +126,7 @@ impl Singularity {
         }
 
         self.concepts.insert(concept.id.clone(), concept);
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -75,6 +142,7 @@ impl Singularity {
         for links in self.associations.values_mut() {
             links.remove(id);
         }
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -82,6 +150,7 @@ impl Singularity {
     pub fn clear(&mut self) {
         self.concepts.clear();
         self.associations.clear();
+        self.invalidate_cache();
     }
 
     /// Update concept vector
@@ -89,6 +158,7 @@ impl Singularity {
         if let Some(concept) = self.concepts.get_mut(id) {
             concept.vector = new_vector;
             concept.modified_at = unix_now_secs();
+            self.invalidate_cache();
             Ok(())
         } else {
             Err(MemoryError::Persistence(format!(
@@ -102,6 +172,13 @@ impl Singularity {
     pub fn find_similar(&self, query: &HVec10240, top_k: usize) -> Vec<(String, f32)> {
         if top_k == 0 || self.concepts.is_empty() {
             return Vec::new();
+        }
+
+        let cache_key = similarity_cache_key(query, top_k);
+        if let Ok(mut cache) = self.query_cache.lock() {
+            if let Some(results) = cache.get(cache_key) {
+                return results;
+            }
         }
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -121,12 +198,18 @@ impl Singularity {
 
         if results.len() <= top_k {
             results.sort_by(|a, b| b.1.total_cmp(&a.1));
+            if let Ok(mut cache) = self.query_cache.lock() {
+                cache.put(cache_key, results.clone());
+            }
             return results;
         }
 
         results.select_nth_unstable_by(top_k - 1, |a, b| b.1.total_cmp(&a.1));
         results.truncate(top_k);
         results.sort_by(|a, b| b.1.total_cmp(&a.1));
+        if let Ok(mut cache) = self.query_cache.lock() {
+            cache.put(cache_key, results.clone());
+        }
         results
     }
 
@@ -155,6 +238,7 @@ impl Singularity {
             }
         }
 
+        self.invalidate_cache();
         Ok(())
     }
 
@@ -184,6 +268,20 @@ impl Singularity {
         self.concepts.keys().cloned().collect()
     }
 
+    pub fn all_concepts(&self) -> Vec<Concept> {
+        self.concepts.values().cloned().collect()
+    }
+
+    pub fn all_associations(&self) -> Vec<(String, String, f32)> {
+        let mut output = Vec::new();
+        for (from, links) in &self.associations {
+            for (to, strength) in links {
+                output.push((from.clone(), to.clone(), *strength));
+            }
+        }
+        output
+    }
+
     pub fn len(&self) -> usize {
         self.concepts.len()
     }
@@ -210,9 +308,16 @@ impl Singularity {
                 for links in self.associations.values_mut() {
                     links.remove(&oldest_id);
                 }
+                self.invalidate_cache();
             } else {
                 break;
             }
+        }
+    }
+
+    fn invalidate_cache(&self) {
+        if let Ok(mut cache) = self.query_cache.lock() {
+            cache.clear();
         }
     }
 }
@@ -282,6 +387,13 @@ fn unix_now_secs() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
+}
+
+fn similarity_cache_key(query: &HVec10240, top_k: usize) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    top_k.hash(&mut hasher);
+    query.to_bytes().hash(&mut hasher);
+    hasher.finish()
 }
 
 #[cfg(test)]

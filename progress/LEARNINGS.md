@@ -201,3 +201,35 @@
 - Skills should be executable (not just descriptive)
 - Update GOAP_STATE atomically at start and end of each task
 - Document conflicts in `SWARM_ISSUES.md` when coordination fails
+
+## 2026-02-16: Iteration 11 — Property-Based Testing
+
+### What Worked
+1. Constraining proptest generators to valid hypervector byte length (`1280`) made roundtrip properties precise and stable.
+2. Using `Singularity` directly in properties kept association checks fast and deterministic.
+3. Running `cargo test`, `fmt`, and `clippy` immediately after introducing new dev-dependencies caught ownership issues quickly.
+
+### Technical Insights
+- `prop_assert_eq!(links[0].0, "b")` moves `String`; assertions on indexed tuple fields should compare borrowed values (`as_str()`).
+- Bundle associativity is not guaranteed with strict-majority thresholding; order-invariance is the safer invariant for current implementation.
+- Adding a new dev-dependency may require network access at least once to hydrate Cargo index/crates.
+
+### What to Avoid
+- Do not write algebraic properties that conflict with the concrete threshold semantics of `HVec10240::bundle`.
+- Do not rely on absent helper scripts (`scripts/loc-check.sh`) without checking repository contents first.
+
+## 2026-02-17: Iteration 12 — Native/WASM Extension Split
+
+### What Worked
+1. Splitting native-only extension impls (`framework_ops`, `persistence_ops`) behind `#[cfg(not(target_arch = "wasm32"))]` cleanly avoided wasm-only type mismatches.
+2. Treating wasm persistence as a strict stub surface (adding missing constructor stubs) unblocked target-specific builds without leaking native assumptions.
+3. Running release + wasm release builds after unit gates caught target-configuration issues that `cargo check` did not surface.
+
+### Technical Insights
+- Additional impl blocks that depend on `tokio::fs` or `libsql` should be target-gated, not merely feature-gated, when wasm is a first-class build target.
+- Tokio filesystem APIs require explicit `fs` feature enablement on the target dependency block.
+- CI-equivalent validation should include at least one full release + wasm release pass to catch cfg boundary regressions early.
+
+### What to Avoid
+- Do not assume crate-root aliasing to wasm stubs is enough when native-only impl files are always compiled.
+- Do not call remote-persistence constructors from shared builder code without ensuring wasm stubs provide parity or cfg branch separation.

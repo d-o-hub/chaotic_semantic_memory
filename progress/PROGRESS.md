@@ -202,3 +202,43 @@
   - Shared GOAP_STATE for progress tracking
 - Current swarm status: All 4 groups ready for execution
 - Skills total: 12 (8 core + 4 swarm groups)
+
+### 2026-02-16: AGENT Iteration 11 — Phase 5 Task 1 (Property-Based Testing)
+- Implemented `add_property_based_testing` from `plans/ACTIONS.md`:
+  - added `proptest` to `Cargo.toml` dev-dependencies
+  - added `tests/property_based.rs` with 4 property tests:
+    - hypervector bytes roundtrip
+    - cosine similarity bounds `[-1.0, 1.0]`
+    - bundle order invariance for 3 vectors
+    - association creates queryable link
+- Updated planning state:
+  - `plans/ACTIONS.md`: `add_property_based_testing` set to `complete`
+  - `plans/GOAP_STATE.md`:
+    - `property_based_tests_added: true`
+    - `action_last_completed: add_property_based_testing`
+    - refreshed test counters and module LOC snapshot
+- Validation:
+  - `cargo test --all-features --quiet` pass
+  - `cargo fmt --check` pass
+  - `cargo clippy --all-targets --all-features -- -D warnings` pass
+  - `wc -l src/*.rs tests/*.rs` pass (all `src/*.rs` < 500 LOC)
+
+### 2026-02-17: AGENT Iteration 12 — Completed Phases 6-8 and Final Validation
+- Stabilized in-progress implementation and resolved blocking compile issues:
+  - fixed `SingularityConfig` duplicate `Default` impl conflict
+  - fixed tracing instrumentation signature issue on `inject_concept`
+  - fixed framework builder config initialization with `concept_cache_size`
+  - made framework metric increment methods `pub(crate)` for batch ops integration
+- Completed native/wasm compatibility hardening:
+  - gated `framework_ops` and `persistence_ops` behind `#[cfg(not(target_arch = "wasm32"))]`
+  - added wasm stub `Persistence::new_turso_with_pool`
+  - enabled Tokio `fs` feature on native dependency target
+- Kept LOC gate compliant by extracting association batch operation implementation into `src/persistence_ops.rs`.
+- Updated GOAP planning state to mark all remaining Phase 6/7/8 actions complete.
+- Validation gates executed:
+  - `cargo fmt -- --check` pass
+  - `cargo clippy --all-features --all-targets -- -D warnings` pass
+  - `cargo test --all-features` pass
+  - `cargo build --release` pass
+  - `cargo build --target wasm32-unknown-unknown --release --features wasm` pass
+  - LOC snapshot: all `src/*.rs` <= 500

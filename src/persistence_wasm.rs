@@ -17,6 +17,10 @@ impl Persistence {
         Err(wasm_persistence_unavailable())
     }
 
+    pub async fn new_turso_with_pool(_url: &str, _token: &str, _pool_size: usize) -> Result<Self> {
+        Err(wasm_persistence_unavailable())
+    }
+
     pub async fn save_concept(&self, _concept: &Concept) -> Result<()> {
         Err(wasm_persistence_unavailable())
     }

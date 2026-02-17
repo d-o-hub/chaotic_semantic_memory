@@ -1,7 +1,9 @@
 //! Main framework integrating all components
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tracing::instrument;
 
 use crate::error::Result;
 use crate::hyperdim::HVec10240;
@@ -11,10 +13,11 @@ use crate::singularity::{ConceptBuilder, Singularity, SingularityConfig};
 
 /// Main framework for chaotic semantic memory
 pub struct ChaoticSemanticFramework {
-    singularity: Arc<RwLock<Singularity>>,
-    persistence: Option<Arc<Persistence>>,
-    reservoir: Arc<RwLock<Option<ChaoticReservoir>>>,
-    config: FrameworkConfig,
+    pub(crate) singularity: Arc<RwLock<Singularity>>,
+    pub(crate) persistence: Option<Arc<Persistence>>,
+    pub(crate) reservoir: Arc<RwLock<Option<ChaoticReservoir>>>,
+    pub(crate) config: FrameworkConfig,
+    pub(crate) metrics: Arc<FrameworkMetrics>,
 }
 
 #[derive(Clone, Debug)]
@@ -25,6 +28,7 @@ pub struct FrameworkConfig {
     pub enable_persistence: bool,
     pub max_concepts: Option<usize>,
     pub max_associations_per_concept: Option<usize>,
+    pub connection_pool_size: usize,
 }
 
 impl Default for FrameworkConfig {
@@ -36,6 +40,60 @@ impl Default for FrameworkConfig {
             enable_persistence: true,
             max_concepts: None,
             max_associations_per_concept: None,
+            connection_pool_size: 10,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct FrameworkMetrics {
+    concepts_injected_total: AtomicU64,
+    associations_created_total: AtomicU64,
+    probes_total: AtomicU64,
+    probe_latency_ms_total: AtomicU64,
+    probe_latency_count: AtomicU64,
+}
+
+#[derive(Debug, Clone)]
+pub struct FrameworkMetricsSnapshot {
+    pub concepts_injected_total: u64,
+    pub associations_created_total: u64,
+    pub probes_total: u64,
+    pub avg_probe_latency_ms: f64,
+}
+
+impl FrameworkMetrics {
+    pub(crate) fn inc_concepts_injected(&self, count: u64) {
+        self.concepts_injected_total
+            .fetch_add(count, Ordering::Relaxed);
+    }
+
+    pub(crate) fn inc_associations_created(&self, count: u64) {
+        self.associations_created_total
+            .fetch_add(count, Ordering::Relaxed);
+    }
+
+    fn observe_probe_latency_ms(&self, latency_ms: u64) {
+        self.probes_total.fetch_add(1, Ordering::Relaxed);
+        self.probe_latency_ms_total
+            .fetch_add(latency_ms, Ordering::Relaxed);
+        self.probe_latency_count.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn snapshot(&self) -> FrameworkMetricsSnapshot {
+        let count = self.probe_latency_count.load(Ordering::Relaxed);
+        let total = self.probe_latency_ms_total.load(Ordering::Relaxed);
+        let avg = if count == 0 {
+            0.0
+        } else {
+            total as f64 / count as f64
+        };
+
+        FrameworkMetricsSnapshot {
+            concepts_injected_total: self.concepts_injected_total.load(Ordering::Relaxed),
+            associations_created_total: self.associations_created_total.load(Ordering::Relaxed),
+            probes_total: self.probes_total.load(Ordering::Relaxed),
+            avg_probe_latency_ms: avg,
         }
     }
 }
@@ -52,7 +110,9 @@ impl ChaoticSemanticFramework {
     }
 
     /// Inject a concept into memory
+    #[instrument(skip(self, id, vector))]
     pub async fn inject_concept(&self, id: impl Into<String>, vector: HVec10240) -> Result<()> {
+        let id = id.into();
         let concept = ConceptBuilder::new(id).with_vector(vector).build()?;
 
         {
@@ -63,17 +123,24 @@ impl ChaoticSemanticFramework {
         if let Some(ref persistence) = self.persistence {
             persistence.save_concept(&concept).await?;
         }
+        self.metrics.inc_concepts_injected(1);
 
         Ok(())
     }
 
     /// Query for similar concepts
+    #[instrument(skip(self, query))]
     pub async fn probe(&self, query: HVec10240, top_k: usize) -> Result<Vec<(String, f32)>> {
+        let start = std::time::Instant::now();
         let sing = self.singularity.read().await;
-        Ok(sing.find_similar(&query, top_k))
+        let results = sing.find_similar(&query, top_k);
+        let elapsed_ms = start.elapsed().as_millis() as u64;
+        self.metrics.observe_probe_latency_ms(elapsed_ms);
+        Ok(results)
     }
 
     /// Process temporal sequence through reservoir
+    #[instrument(skip(self, sequence))]
     pub async fn process_sequence(&self, sequence: &[Vec<f32>]) -> Result<HVec10240> {
         let mut reservoir = self.reservoir.write().await;
 
@@ -95,6 +162,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Associate two concepts
+    #[instrument(skip(self))]
     pub async fn associate(&self, from: &str, to: &str, strength: f32) -> Result<()> {
         {
             let mut sing = self.singularity.write().await;
@@ -104,11 +172,13 @@ impl ChaoticSemanticFramework {
         if let Some(ref persistence) = self.persistence {
             persistence.save_association(from, to, strength).await?;
         }
+        self.metrics.inc_associations_created(1);
 
         Ok(())
     }
 
     /// Delete concept from memory and persistence
+    #[instrument(skip(self))]
     pub async fn delete_concept(&self, id: &str) -> Result<()> {
         {
             let mut sing = self.singularity.write().await;
@@ -123,12 +193,14 @@ impl ChaoticSemanticFramework {
     }
 
     /// Get associations for a concept
+    #[instrument(skip(self))]
     pub async fn get_associations(&self, id: &str) -> Result<Vec<(String, f32)>> {
         let sing = self.singularity.read().await;
         Ok(sing.get_associations(id))
     }
 
     /// Persist all data to storage
+    #[instrument(skip(self))]
     pub async fn persist(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
             persistence.checkpoint().await?;
@@ -137,6 +209,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Load and replace all in-memory state from persistence
+    #[instrument(skip(self))]
     pub async fn load_replace(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
             let concepts = persistence.load_all_concepts().await?;
@@ -160,6 +233,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Load and merge persisted state into in-memory state
+    #[instrument(skip(self))]
     pub async fn load_merge(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
             let concepts = persistence.load_all_concepts().await?;
@@ -182,6 +256,10 @@ impl ChaoticSemanticFramework {
     /// Backward-compatible alias for replace semantics
     pub async fn load(&self) -> Result<()> {
         self.load_replace().await
+    }
+
+    pub fn metrics_snapshot(&self) -> FrameworkMetricsSnapshot {
+        self.metrics.snapshot()
     }
 
     /// Get framework statistics
@@ -251,6 +329,11 @@ impl FrameworkBuilder {
         self
     }
 
+    pub fn with_connection_pool_size(mut self, pool_size: usize) -> Self {
+        self.config.connection_pool_size = pool_size.max(1);
+        self
+    }
+
     pub fn with_local_db(mut self, path: impl Into<String>) -> Self {
         self.db_path = Some(path.into());
         self.db_token = None;
@@ -266,12 +349,18 @@ impl FrameworkBuilder {
         let singularity = Arc::new(RwLock::new(Singularity::with_config(SingularityConfig {
             max_concepts: self.config.max_concepts,
             max_associations_per_concept: self.config.max_associations_per_concept,
+            concept_cache_size: 1000,
         })));
 
         let persistence = if self.config.enable_persistence {
             if let Some(path) = self.db_path {
                 let persist = if let Some(token) = self.db_token {
-                    Persistence::new_turso(&path, &token).await?
+                    Persistence::new_turso_with_pool(
+                        &path,
+                        &token,
+                        self.config.connection_pool_size,
+                    )
+                    .await?
                 } else {
                     Persistence::new_local(&path).await?
                 };
@@ -288,6 +377,7 @@ impl FrameworkBuilder {
             persistence,
             reservoir: Arc::new(RwLock::new(None)),
             config: self.config,
+            metrics: Arc::new(FrameworkMetrics::default()),
         };
 
         framework.load_replace().await?;

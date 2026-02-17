@@ -4,10 +4,10 @@
 
 | Group | Phase | Focus | Status |
 |-------|-------|-------|--------|
-| A | 5 | Testing & Quality | Complete (Wave 4 idle) |
-| B | 6 | Performance | In Progress |
-| C | 7 | Observability & DX | In Progress |
-| D | 8 | Advanced Features | In Progress |
+| A | 5 | Testing & Quality | Complete |
+| B | 6 | Performance | Complete |
+| C | 7 | Observability & DX | Complete |
+| D | 8 | Advanced Features | Complete |
 
 ## Orchestrator Run (2026-02-17)
 
@@ -18,9 +18,9 @@ Run ID: `goap_parallel_missing_tasks_2026_02_17`
 | Group | Action | Status | Output/Handoff Artifact |
 |-------|--------|--------|--------------------------|
 | A | `create_fuzzing_targets` | Complete | `fuzz/` corpus + crash triage notes |
-| B | `implement_simd_hypervector_ops` | In Progress | benchmark deltas + invariant checklist |
-| C | `add_structured_logging` | In Progress | tracing field conventions + span map |
-| D | `add_schema_migration_support` | In Progress | migration plan + schema version map |
+| B | `implement_simd_hypervector_ops` | Complete | benchmark deltas + invariant checklist |
+| C | `add_structured_logging` | Complete | tracing field conventions + span map |
+| D | `add_schema_migration_support` | Complete | migration plan + schema version map |
 
 ### Handoff Contract
 
@@ -41,26 +41,26 @@ Run ID: `goap_parallel_missing_tasks_2026_02_17`
 | Group | Action | Start Condition | Depends On |
 |-------|--------|-----------------|------------|
 | A | `expand_edge_case_coverage` | complete | W1 A |
-| B | `add_connection_pooling` | when `implement_simd_hypervector_ops` complete | W1 B, W1 A handoff |
-| C | `improve_error_context` | when `add_structured_logging` complete | W1 C |
-| D | `implement_export_import` | when `add_schema_migration_support` complete | W1 D, W1 B handoff |
+| B | `add_connection_pooling` | complete | W1 B, W1 A handoff |
+| C | `improve_error_context` | complete | W1 C |
+| D | `implement_export_import` | complete | W1 D, W1 B handoff |
 
 ### Parallel Wave 3 (queued)
 
 | Group | Action | Start Condition | Depends On |
 |-------|--------|-----------------|------------|
 | A | `enable_mutation_testing` | complete | W2 A |
-| B | `add_framework_batch_operations` | when `add_connection_pooling` complete | W2 B |
-| C | `add_metrics_collection` | when `improve_error_context` complete | W2 C |
-| D | `add_concept_versioning` | when `implement_export_import` complete | W2 D |
+| B | `add_framework_batch_operations` | complete | W2 B |
+| C | `add_metrics_collection` | complete | W2 C |
+| D | `add_concept_versioning` | complete | W2 D |
 
 ### Parallel Wave 4 (queued)
 
 | Group | Action | Start Condition | Depends On |
 |-------|--------|-----------------|------------|
-| B | `implement_concept_lru_cache` | when `add_framework_batch_operations` complete | W3 B |
-| C | `create_derive_macros` | when `add_metrics_collection` complete | W3 C |
-| D | `implement_backup_restore` | when `add_concept_versioning` complete | W3 D |
+| B | `implement_concept_lru_cache` | complete | W3 B |
+| C | `create_derive_macros` | complete | W3 C |
+| D | `implement_backup_restore` | complete | W3 D |
 
 ## Coordination Rules
 

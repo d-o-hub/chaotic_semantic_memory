@@ -4,6 +4,7 @@
 
 use libsql::{params, Builder, Connection, Database};
 use std::sync::Arc;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
@@ -11,7 +12,19 @@ use crate::singularity::Concept;
 
 /// Database connection manager
 pub struct Persistence {
-    db: Arc<Database>,
+    pub(crate) db: Arc<Database>,
+    pub(crate) local_path: Option<String>,
+    pub(crate) remote_limit: Option<Arc<Semaphore>>,
+    pub(crate) version_retention: usize,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ConceptVersion {
+    pub concept_id: String,
+    pub version: i64,
+    pub vector: HVec10240,
+    pub metadata: serde_json::Value,
+    pub modified_at: u64,
 }
 
 impl Persistence {
@@ -22,24 +35,38 @@ impl Persistence {
             .await
             .map_err(|e| MemoryError::Database(format!("Failed to open database: {}", e)))?;
 
-        let persistence = Self { db: Arc::new(db) };
+        let persistence = Self {
+            db: Arc::new(db),
+            local_path: Some(path.to_string()),
+            remote_limit: None,
+            version_retention: 10,
+        };
         persistence.init_schema().await?;
         Ok(persistence)
     }
 
     /// Create new persistence layer with remote Turso
     pub async fn new_turso(url: &str, token: &str) -> Result<Self> {
+        Self::new_turso_with_pool(url, token, 10).await
+    }
+
+    pub async fn new_turso_with_pool(url: &str, token: &str, pool_size: usize) -> Result<Self> {
         let db = Builder::new_remote(url.to_string(), token.to_string())
             .build()
             .await
             .map_err(|e| MemoryError::Database(format!("Failed to open remote database: {}", e)))?;
 
-        let persistence = Self { db: Arc::new(db) };
+        let persistence = Self {
+            db: Arc::new(db),
+            local_path: None,
+            remote_limit: Some(Arc::new(Semaphore::new(pool_size.max(1)))),
+            version_retention: 10,
+        };
         persistence.init_schema().await?;
         Ok(persistence)
     }
 
-    async fn connect(&self) -> Result<Connection> {
+    pub(crate) async fn connect(&self) -> Result<Connection> {
         let conn = self
             .db
             .connect()
@@ -52,8 +79,20 @@ impl Persistence {
         Ok(conn)
     }
 
+    pub(crate) async fn acquire_remote_slot(&self) -> Result<Option<OwnedSemaphorePermit>> {
+        match &self.remote_limit {
+            Some(limit) => {
+                limit.clone().acquire_owned().await.map(Some).map_err(|e| {
+                    MemoryError::Database(format!("Failed to acquire pool slot: {}", e))
+                })
+            }
+            None => Ok(None),
+        }
+    }
+
     /// Initialize database schema
-    async fn init_schema(&self) -> Result<()> {
+    pub(crate) async fn init_schema(&self) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
         conn.execute_batch(
@@ -74,6 +113,19 @@ impl Persistence {
                 FOREIGN KEY (to_id) REFERENCES concepts(id)
             );
             CREATE INDEX IF NOT EXISTS idx_associations_from ON associations(from_id);
+            CREATE TABLE IF NOT EXISTS concept_versions (
+                concept_id TEXT NOT NULL,
+                version INTEGER NOT NULL,
+                vector BLOB NOT NULL,
+                metadata TEXT NOT NULL,
+                modified_at INTEGER NOT NULL,
+                PRIMARY KEY (concept_id, version),
+                FOREIGN KEY (concept_id) REFERENCES concepts(id) ON DELETE CASCADE
+            );
+            CREATE TABLE IF NOT EXISTS __schema_version (
+                version INTEGER PRIMARY KEY
+            );
+            INSERT OR IGNORE INTO __schema_version(version) VALUES (1);
             COMMIT;",
         )
         .await
@@ -84,6 +136,7 @@ impl Persistence {
 
     /// Save a concept to the database
     pub async fn save_concept(&self, concept: &Concept) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
         let vector_bytes = concept.vector.to_bytes();
         let metadata_json = serde_json::to_string(&concept.metadata)?;
@@ -102,6 +155,7 @@ impl Persistence {
         .await
         .map_err(|e| MemoryError::Database(format!("Failed to save concept: {}", e)))?;
 
+        self.record_concept_version(&conn, concept).await?;
         Ok(())
     }
 
@@ -111,6 +165,7 @@ impl Persistence {
             return Ok(());
         }
 
+        let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
         conn.execute("BEGIN", ())
             .await
@@ -141,6 +196,11 @@ impl Persistence {
                 )));
                 break;
             }
+
+            if let Err(e) = self.record_concept_version(&conn, concept).await {
+                first_error = Some(e);
+                break;
+            }
         }
 
         if let Some(error) = first_error {
@@ -157,6 +217,7 @@ impl Persistence {
 
     /// Load a concept from the database
     pub async fn load_concept(&self, id: &str) -> Result<Option<Concept>> {
+        let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
         let mut rows = conn
@@ -202,6 +263,7 @@ impl Persistence {
 
     /// Load all concepts from the database
     pub async fn load_all_concepts(&self) -> Result<Vec<Concept>> {
+        let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
         let mut rows = conn
@@ -251,6 +313,7 @@ impl Persistence {
 
     /// Delete a concept from the database
     pub async fn delete_concept(&self, id: &str) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
         conn.execute("BEGIN", ())
@@ -291,6 +354,7 @@ impl Persistence {
 
     /// Save an association
     pub async fn save_association(&self, from: &str, to: &str, strength: f32) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
         conn.execute(
@@ -304,49 +368,9 @@ impl Persistence {
         Ok(())
     }
 
-    /// Save associations in a single transaction
-    pub async fn save_associations(&self, associations: &[(String, String, f32)]) -> Result<()> {
-        if associations.is_empty() {
-            return Ok(());
-        }
-
-        let conn = self.connect().await?;
-        conn.execute("BEGIN", ())
-            .await
-            .map_err(|e| MemoryError::Database(format!("Failed to begin transaction: {}", e)))?;
-
-        let mut first_error: Option<MemoryError> = None;
-        for (from, to, strength) in associations {
-            if let Err(e) = conn
-                .execute(
-                    "INSERT OR REPLACE INTO associations (from_id, to_id, strength)
-                     VALUES (?1, ?2, ?3)",
-                    params![from.clone(), to.clone(), *strength],
-                )
-                .await
-            {
-                first_error = Some(MemoryError::Database(format!(
-                    "Failed to batch save association: {}",
-                    e
-                )));
-                break;
-            }
-        }
-
-        if let Some(error) = first_error {
-            let _ = conn.execute("ROLLBACK", ()).await;
-            return Err(error);
-        }
-
-        conn.execute("COMMIT", ())
-            .await
-            .map_err(|e| MemoryError::Database(format!("Failed to commit transaction: {}", e)))?;
-
-        Ok(())
-    }
-
     /// Load associations for a concept
     pub async fn load_associations(&self, id: &str) -> Result<Vec<(String, f32)>> {
+        let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
         let mut rows = conn
@@ -377,6 +401,7 @@ impl Persistence {
 
     /// Perform database checkpoint (optimize)
     pub async fn checkpoint(&self) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
         let mut rows = conn
@@ -393,6 +418,7 @@ impl Persistence {
 
     /// Get database size in bytes
     pub async fn size(&self) -> Result<u64> {
+        let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
         let mut rows = conn
@@ -415,5 +441,55 @@ impl Persistence {
         } else {
             Ok(0)
         }
+    }
+
+    async fn record_concept_version(&self, conn: &Connection, concept: &Concept) -> Result<()> {
+        let mut rows = conn
+            .query(
+                "SELECT COALESCE(MAX(version), 0) FROM concept_versions WHERE concept_id = ?1",
+                params![concept.id.clone()],
+            )
+            .await
+            .map_err(|e| {
+                MemoryError::Database(format!("Failed to query concept version: {}", e))
+            })?;
+
+        let current = if let Some(row) = rows.next().await.map_err(|e| {
+            MemoryError::Database(format!("Failed to fetch concept version row: {}", e))
+        })? {
+            row.get::<i64>(0).unwrap_or(0)
+        } else {
+            0
+        };
+        let next_version = current + 1;
+        let vector_bytes = concept.vector.to_bytes();
+        let metadata_json = serde_json::to_string(&concept.metadata)?;
+
+        conn.execute(
+            "INSERT INTO concept_versions (concept_id, version, vector, metadata, modified_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                concept.id.clone(),
+                next_version,
+                vector_bytes,
+                metadata_json,
+                concept.modified_at as i64
+            ],
+        )
+        .await
+        .map_err(|e| MemoryError::Database(format!("Failed to save concept version: {}", e)))?;
+
+        conn.execute(
+            "DELETE FROM concept_versions
+             WHERE concept_id = ?1
+             AND version <= (
+                SELECT MAX(version) - ?2 FROM concept_versions WHERE concept_id = ?1
+             )",
+            params![concept.id.clone(), self.version_retention as i64],
+        )
+        .await
+        .map_err(|e| MemoryError::Database(format!("Failed to prune concept versions: {}", e)))?;
+
+        Ok(())
     }
 }

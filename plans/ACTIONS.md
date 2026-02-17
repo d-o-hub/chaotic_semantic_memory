@@ -424,7 +424,7 @@ actions:
     effects:
       simd_hypervector_ops: true
     cost: 4
-    status: in_progress
+    status: complete
     file: src/hyperdim.rs
     adr: ADR-0013
     description: |
@@ -441,7 +441,7 @@ actions:
     effects:
       connection_pooling_turso: true
     cost: 3
-    status: pending
+    status: complete
     file: src/persistence.rs
     adr: ADR-0014
     description: |
@@ -457,7 +457,7 @@ actions:
     effects:
       framework_batch_operations: true
     cost: 3
-    status: pending
+    status: complete
     file: src/framework.rs
     description: |
       Add batch APIs to ChaoticSemanticFramework:
@@ -472,7 +472,7 @@ actions:
     effects:
       concept_cache_implemented: true
     cost: 2
-    status: pending
+    status: complete
     file: src/singularity.rs
     description: |
       Add LRU cache for frequently accessed concepts:
@@ -490,7 +490,7 @@ actions:
     effects:
       structured_logging_added: true
     cost: 3
-    status: in_progress
+    status: complete
     file: src/framework.rs, src/persistence.rs
     adr: ADR-0015
     description: |
@@ -506,7 +506,7 @@ actions:
     effects:
       metrics_collection_enabled: true
     cost: 3
-    status: pending
+    status: complete
     file: src/framework.rs, src/singularity.rs
     description: |
       Add metrics for operational visibility:
@@ -521,7 +521,7 @@ actions:
     effects:
       derive_macros_created: true
     cost: 2
-    status: pending
+    status: complete
     file: chaotic_semantic_memory_derive/, Cargo.toml
     description: |
       Create proc-macro crate for derive macros:
@@ -535,7 +535,7 @@ actions:
     effects:
       error_context_improved: true
     cost: 2
-    status: pending
+    status: complete
     file: src/error.rs
     description: |
       Enhance error messages with context:
@@ -552,7 +552,7 @@ actions:
     effects:
       export_import_functionality: true
     cost: 4
-    status: pending
+    status: complete
     file: src/framework.rs, src/persistence.rs
     adr: ADR-0016
     description: |
@@ -568,7 +568,7 @@ actions:
     effects:
       concept_versioning_enabled: true
     cost: 4
-    status: pending
+    status: complete
     file: src/singularity.rs, src/persistence.rs
     adr: ADR-0017
     description: |
@@ -584,7 +584,7 @@ actions:
     effects:
       schema_migration_support: true
     cost: 3
-    status: in_progress
+    status: complete
     file: src/persistence.rs
     description: |
       Add schema versioning and migrations:
@@ -599,7 +599,7 @@ actions:
     effects:
       backup_restore_operations: true
     cost: 4
-    status: pending
+    status: complete
     file: src/framework.rs, src/persistence.rs
     description: |
       Add backup/restore operations:

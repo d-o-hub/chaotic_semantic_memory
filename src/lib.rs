@@ -1,5 +1,7 @@
 //! Chaotic Semantic Memory System
 
+#[cfg(feature = "derive")]
+pub use chaotic_semantic_memory_derive::{Concept, HypervectorField};
 pub use error::{MemoryError, Result};
 pub use framework::{ChaoticSemanticFramework, FrameworkBuilder};
 pub use hyperdim::HVec10240;
@@ -7,9 +9,13 @@ pub use singularity::{Concept, ConceptBuilder};
 
 pub mod error;
 pub mod framework;
+#[cfg(not(target_arch = "wasm32"))]
+mod framework_ops;
 pub mod hyperdim;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod persistence;
+#[cfg(not(target_arch = "wasm32"))]
+mod persistence_ops;
 #[cfg(target_arch = "wasm32")]
 pub mod persistence_wasm;
 pub mod reservoir;
