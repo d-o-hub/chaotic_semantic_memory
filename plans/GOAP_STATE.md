@@ -68,9 +68,9 @@ world_state:
 
   # Module status (LOC counts)
   modules:
-    lib.rs: 35
+    lib.rs: 33
     error.rs: 26
-    hyperdim.rs: 314
+    hyperdim.rs: 410
     reservoir.rs: 427
     singularity.rs: 426
     persistence.rs: 495

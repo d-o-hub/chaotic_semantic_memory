@@ -1,7 +1,7 @@
 # [ADR-0013] SIMD-Accelerated Hypervector Operations
 
 ## Status
-Proposed
+Accepted
 
 ## Context and Problem Statement
 Current hypervector operations (bundle, bind, cosine_similarity) use scalar loops over `[u128; 80]`. While already fast, batch operations could benefit from SIMD parallelism for higher throughput in data-intensive workloads.
@@ -19,22 +19,22 @@ Current hypervector operations (bundle, bind, cosine_similarity) use scalar loop
 4. **External crates (packed_simd)** - More mature but additional dependency
 
 ## Decision Outcome
-Chosen option: **std::simd** from `std::simd` (nightly) or `portable_simd` crate
+Chosen option: **target-specific SIMD intrinsics on x86/x86_64 with scalar fallback**
 
 ### Implementation Strategy
-- Use `u64x4` or `u128x2` for vectorized operations
-- Bundle: Parallel popcount across lanes
-- Cosine similarity: Parallel equality comparison
-- Maintain scalar fallback for non-SIMD targets
+- Use `std::arch` intrinsics (`_mm_xor_si128` load/xor/store path) for native x86/x86_64
+- Accelerate `bind` and `cosine_similarity` hot loops without changing public API
+- Keep scalar fallback for non-x86 and wasm targets
+- Preserve existing serialized representation (`[u128; 80]` / 1280-byte format)
 
 ### Positive Consequences
-- 2-4x throughput improvement for batch operations
-- Single implementation works on x86_64, aarch64, wasm32
-- Future-proof as portable_simd stabilizes
+- Native hot-path throughput improves without requiring nightly features
+- No new dependencies added
+- Public data format and behavior remain backward compatible
 
 ### Negative Consequences
-- Adds nightly Rust requirement (until portable_simd stabilizes)
-- Slightly more complex code
+- Intrinsics path currently targets x86/x86_64 only
+- Slightly more unsafe code with architecture guards
 - Diminishing returns for small batches
 
 ## Links

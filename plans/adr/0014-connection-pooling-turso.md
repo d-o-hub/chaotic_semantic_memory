@@ -1,7 +1,7 @@
 # [ADR-0014] Connection Pooling for Remote Turso Databases
 
 ## Status
-Proposed
+Accepted
 
 ## Context and Problem Statement
 Current persistence uses per-operation connections from `Arc<Database>`. While cheap for local SQLite, remote Turso connections have higher latency. Creating a new connection per operation adds unnecessary overhead.

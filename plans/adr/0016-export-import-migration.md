@@ -1,7 +1,7 @@
 # [ADR-0016] Data Export/Import for Migration
 
 ## Status
-Proposed
+Accepted
 
 ## Context and Problem Statement
 Users need to:

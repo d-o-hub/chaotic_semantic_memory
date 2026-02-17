@@ -218,6 +218,22 @@
 - Do not write algebraic properties that conflict with the concrete threshold semantics of `HVec10240::bundle`.
 - Do not rely on absent helper scripts (`scripts/loc-check.sh`) without checking repository contents first.
 
+## 2026-02-17: Iteration 12 — Plan/ADR Closure + SIMD Alignment
+
+### What Worked
+1. Treating `Status: pending` / `Status: Proposed` markers as executable backlog made missing planning tasks easy to close deterministically.
+2. Implementing architecture-specific SIMD paths with strict cfg guards avoided wasm regressions while improving native hot paths.
+3. Reintroducing a single `scripts/validate.sh` gate simplified end-to-end local verification.
+
+### Technical Insights
+- x86/x86_64 intrinsics can accelerate hypervector XOR/equality hot loops without changing on-disk format.
+- Clippy `-D warnings` catches cfg-branch unreachable-code issues on architecture-specific early returns; scalar fallback branches should be cfg-scoped.
+- A missing repository validation script can silently drift process quality even if CI remains green.
+
+### What to Avoid
+- Do not mark ADRs as accepted until their implementation details match the actual code path.
+- Do not use architecture-specific optimizations without explicit wasm/non-native fallback branches.
+
 ## 2026-02-17: Iteration 12 — Native/WASM Extension Split
 
 ### What Worked

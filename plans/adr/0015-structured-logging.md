@@ -1,7 +1,7 @@
 # [ADR-0015] Structured Logging with Tracing
 
 ## Status
-Proposed
+Accepted
 
 ## Context and Problem Statement
 Current error handling uses `thiserror` but lacks operational logging. Production deployments need visibility into:

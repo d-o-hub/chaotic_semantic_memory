@@ -1,7 +1,7 @@
 # [ADR-0017] Concept Version History
 
 ## Status
-Proposed
+Accepted
 
 ## Context and Problem Statement
 Concepts can be updated over time. Users may need to:

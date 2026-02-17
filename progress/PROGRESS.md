@@ -218,6 +218,30 @@
     - `action_last_completed: add_property_based_testing`
     - refreshed test counters and module LOC snapshot
 - Validation:
+
+### 2026-02-17: AGENT Iteration 12 — Plan/ADR Missing Task Closure
+- Implemented remaining missing tasks detected in `plans/` and `plans/adr/`:
+  - completed placeholder handoffs:
+    - `plans/handoffs/W1_B_to_D_perf_and_layout_notes.md`
+    - `plans/handoffs/W1_C_to_All_tracing_conventions.md`
+    - `plans/handoffs/W1_D_to_All_schema_constraints.md`
+  - aligned ADR status with implemented work:
+    - set ADR-0013..0017 status to `Accepted`
+    - updated ADR-0013 decision details to match x86/x86_64 SIMD intrinsics + fallback implementation
+- Implemented SIMD-backed hypervector hot paths in `src/hyperdim.rs`:
+  - added native x86/x86_64 accelerated paths for `bind` and `cosine_similarity`
+  - preserved wasm and non-x86 scalar fallbacks
+  - kept API and serialized format unchanged
+- Added missing validation script referenced by AGENTS quick reference:
+  - `scripts/validate.sh` (fmt, clippy, tests, LOC gate, wasm check, wasm size gate)
+- Validation:
+  - `cargo fmt --all`
+  - `cargo clippy --all-targets -- -D warnings`
+  - `cargo test --all-targets`
+  - `scripts/validate.sh`
+  - all passed locally
+- GitHub Actions verification via `gh`:
+  - latest CI run `22090953639` on `main` concluded `success` with all jobs (`test`, `build`, `benchmark`) passing
   - `cargo test --all-features --quiet` pass
   - `cargo fmt --check` pass
   - `cargo clippy --all-targets --all-features -- -D warnings` pass

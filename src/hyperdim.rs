@@ -14,6 +14,57 @@ use rayon::prelude::*;
 
 use crate::error::Result;
 
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(target_arch = "x86_64", target_arch = "x86")
+))]
+#[inline]
+fn bind_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::{__m128i, _mm_loadu_si128, _mm_storeu_si128, _mm_xor_si128};
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::{__m128i, _mm_loadu_si128, _mm_storeu_si128, _mm_xor_si128};
+
+    let mut out = [0u128; 80];
+    for i in 0..80 {
+        // SAFETY: pointers come from fixed-size arrays with at least 16 bytes per element.
+        unsafe {
+            let a = _mm_loadu_si128((&lhs[i] as *const u128).cast::<__m128i>());
+            let b = _mm_loadu_si128((&rhs[i] as *const u128).cast::<__m128i>());
+            let x = _mm_xor_si128(a, b);
+            _mm_storeu_si128((&mut out[i] as *mut u128).cast::<__m128i>(), x);
+        }
+    }
+    out
+}
+
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(target_arch = "x86_64", target_arch = "x86")
+))]
+#[inline]
+fn cosine_similarity_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> f32 {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::{__m128i, _mm_loadu_si128, _mm_storeu_si128, _mm_xor_si128};
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::{__m128i, _mm_loadu_si128, _mm_storeu_si128, _mm_xor_si128};
+
+    let mut dot_product: u32 = 0;
+    for i in 0..80 {
+        let mut lanes = [0u64; 2];
+        // SAFETY: pointers come from fixed-size arrays with at least 16 bytes per element,
+        // and `lanes` provides a 16-byte writable region.
+        unsafe {
+            let a = _mm_loadu_si128((&lhs[i] as *const u128).cast::<__m128i>());
+            let b = _mm_loadu_si128((&rhs[i] as *const u128).cast::<__m128i>());
+            let x = _mm_xor_si128(a, b);
+            _mm_storeu_si128(lanes.as_mut_ptr().cast::<__m128i>(), x);
+        }
+        dot_product += (!lanes[0]).count_ones() + (!lanes[1]).count_ones();
+    }
+    (2.0 * dot_product as f32 / HVec10240::DIMENSION as f32) - 1.0
+}
+
 /// 10240-bit hypervector (80 x 128-bit words)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HVec10240 {
@@ -117,6 +168,29 @@ impl HVec10240 {
 
     /// XOR binding of two hypervectors
     pub fn bind(&self, other: &Self) -> Self {
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            any(target_arch = "x86_64", target_arch = "x86")
+        ))]
+        {
+            return Self {
+                data: bind_simd_x86(&self.data, &other.data),
+            };
+        }
+
+        #[cfg(any(
+            target_arch = "wasm32",
+            not(any(target_arch = "x86_64", target_arch = "x86"))
+        ))]
+        {
+            let mut result = [0u128; 80];
+            for i in 0..80 {
+                result[i] = self.data[i] ^ other.data[i];
+            }
+            return Self { data: result };
+        }
+
+        #[allow(unreachable_code)]
         let mut result = [0u128; 80];
         for i in 0..80 {
             result[i] = self.data[i] ^ other.data[i];
@@ -126,6 +200,28 @@ impl HVec10240 {
 
     /// Cosine similarity between two hypervectors
     pub fn cosine_similarity(&self, other: &Self) -> f32 {
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            any(target_arch = "x86_64", target_arch = "x86")
+        ))]
+        {
+            return cosine_similarity_simd_x86(&self.data, &other.data);
+        }
+
+        #[cfg(any(
+            target_arch = "wasm32",
+            not(any(target_arch = "x86_64", target_arch = "x86"))
+        ))]
+        {
+            let mut dot_product: u32 = 0;
+            for i in 0..80 {
+                let eq = !(self.data[i] ^ other.data[i]);
+                dot_product += eq.count_ones();
+            }
+            return (2.0 * dot_product as f32 / Self::DIMENSION as f32) - 1.0;
+        }
+
+        #[allow(unreachable_code)]
         let mut dot_product: u32 = 0;
 
         for i in 0..80 {
