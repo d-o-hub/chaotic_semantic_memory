@@ -5,6 +5,7 @@ pub use framework::{ChaoticSemanticFramework, FrameworkBuilder};
 pub use hyperdim::HVec10240;
 pub use singularity::{Concept, ConceptBuilder};
 
+pub mod cli;
 pub mod error;
 mod export_payload;
 pub mod framework;

@@ -1017,3 +1017,131 @@ actions:
       DEFERRED: Namespace isolation for multi-tenancy.
       See ADR-0026 for full specification.
       Activate when: Multi-tenant SaaS deployment requirements emerge.
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 20: CLI CRATE (cost: 12) - Wave 9
+  # ═══════════════════════════════════════════════════════
+  - name: add_clap_dependencies
+    preconditions:
+      core_modules_created: true
+    effects:
+      cli_crate_created: true
+    cost: 1
+    status: pending
+    file: Cargo.toml, crates/cli/Cargo.toml
+    description: |
+      Add CLI dependencies to workspace:
+      - clap (with derive feature)
+      - clap_complete (shell completions)
+      - anyhow (error handling)
+      - colored (terminal output)
+      Create crates/cli/ as workspace member.
+
+  - name: create_cli_module_structure
+    preconditions:
+      cli_crate_created: true
+    effects:
+      cli_module_structure_created: true
+    cost: 2
+    status: pending
+    file: crates/cli/src/main.rs, crates/cli/src/commands/mod.rs
+    description: |
+      Create CLI module hierarchy:
+      - src/main.rs (entry point, clap parser)
+      - src/commands/mod.rs (command registry)
+      - src/commands/inject.rs
+      - src/commands/probe.rs
+      - src/commands/associate.rs
+      - src/commands/export.rs
+      - src/commands/import.rs
+
+  - name: implement_inject_command
+    preconditions:
+      cli_module_structure_created: true
+    effects:
+      cli_inject_implemented: true
+    cost: 2
+    status: pending
+    file: crates/cli/src/commands/inject.rs
+    description: |
+      Implement `csm inject <id> [--text "content"] [--file path]`:
+      - Read text or file content
+      - Generate hypervector from content
+      - Inject concept via library API
+      - Output concept ID and confirmation
+
+  - name: implement_probe_command
+    preconditions:
+      cli_module_structure_created: true
+    effects:
+      cli_probe_implemented: true
+    cost: 2
+    status: pending
+    file: crates/cli/src/commands/probe.rs
+    description: |
+      Implement `csm probe <text> [--top-k N] [--json]`:
+      - Generate query hypervector from text
+      - Find similar concepts
+      - Output ranked results (text or JSON)
+      - Colorize output for readability
+
+  - name: implement_associate_command
+    preconditions:
+      cli_module_structure_created: true
+    effects:
+      cli_associate_implemented: true
+    cost: 1
+    status: pending
+    file: crates/cli/src/commands/associate.rs
+    description: |
+      Implement `csm associate <from_id> <to_id> [--strength N]`:
+      - Validate both concept IDs exist
+      - Create association with optional strength
+      - Output confirmation with association details
+
+  - name: implement_export_import_commands
+    preconditions:
+      cli_inject_implemented: true
+      cli_probe_implemented: true
+      cli_associate_implemented: true
+    effects:
+      cli_commands_implemented: true
+    cost: 2
+    status: pending
+    file: crates/cli/src/commands/export.rs, crates/cli/src/commands/import.rs
+    description: |
+      Implement export/import commands:
+      - `csm export <path>` - Export all concepts/associations to JSON
+      - `csm import <path> [--merge]` - Import from JSON file
+      - Support both merge and replace modes
+
+  - name: add_cli_integration_tests
+    preconditions:
+      cli_commands_implemented: true
+    effects:
+      cli_tests_passing: true
+    cost: 2
+    status: pending
+    file: crates/cli/tests/cli_integration.rs
+    description: |
+      Add integration tests using assert_cmd:
+      - Test inject/probe roundtrip
+      - Test association creation and query
+      - Test export/import cycle
+      - Test error cases (missing ID, invalid input)
+      - Test JSON output format
+
+  - name: add_shell_completions
+    preconditions:
+      cli_commands_implemented: true
+    effects:
+      shell_completions_generated: true
+    cost: 1
+    status: pending
+    file: crates/cli/src/completions.rs, crates/cli/completions/
+    description: |
+      Generate shell completion scripts:
+      - Add `csm completions <shell>` subcommand
+      - Generate bash, zsh, fish completions
+      - Include completions in release assets
+      - Document installation in README

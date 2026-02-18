@@ -9,9 +9,9 @@
 | C | 14 | Observability Completion | Complete |
 | D | 16 | WASM Parity | Complete |
 
-## Swarm Status: **COMPLETE** ✅
+## Swarm Status: **ACTIVE** 🔄
 
-All 7 waves finished. All groups have completed their assigned tasks.
+Wave 9 (CLI Crate) pending. Waves 1-8 complete.
 
 ## Orchestrator Run (2026-02-17, Wave 7)
 
@@ -132,6 +132,29 @@ Run ID: `goap_parallel_missing_tasks_wave5_2026_02_17`
 - `plans/handoffs/W5_B_to_D_memory_budget_report.md`
 - `plans/handoffs/W5_C_to_D_wasm_size_report.md`
 - `plans/handoffs/W5_D_to_All_performance_gate_decision.md`
+
+### Wave 9 (queued) - CLI Crate
+
+| Group | Action | Start Condition | Depends On |
+|-------|--------|-----------------|------------|
+| A | `add_clap_dependencies` + `create_cli_module_structure` | pending | - |
+| B | `implement_inject_command` + `implement_probe_command` + `implement_associate_command` | pending | W9 A |
+| C | `implement_export_import_commands` + `add_cli_integration_tests` | pending | W9 B |
+| D | `add_shell_completions` | pending | W9 C |
+
+### Wave 9 Handoff Contract
+
+1. `A -> B`: Provide CLI module structure and dependency setup for command implementations.
+2. `B -> C`: Provide working inject/probe/associate commands for export/import and testing.
+3. `C -> D`: Provide tested CLI commands for completion script generation.
+4. `D -> All`: Publish shell completion scripts and installation documentation.
+
+### Wave 9 Artifacts (pending)
+
+- `plans/handoffs/W9_A_to_B_cli_structure.md`
+- `plans/handoffs/W9_B_to_C_cli_commands.md`
+- `plans/handoffs/W9_C_to_D_cli_tests.md`
+- `plans/handoffs/W9_D_to_All_completions.md`
 
 ## Coordination Rules
 

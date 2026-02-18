@@ -195,6 +195,59 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
+    /// Import memory state from binary file.
+    ///
+    /// If `merge` is false, clears existing state before importing.
+    /// Returns the number of concepts imported.
+    pub async fn import_binary(&self, path: &str, merge: bool) -> Result<usize> {
+        let bytes = fs::read(path).await?;
+        let payload: ExportPayload = bincode::deserialize(&bytes).map_err(|e| {
+            crate::error::MemoryError::Serialization(serde_json::Error::io(std::io::Error::other(
+                e.to_string(),
+            )))
+        })?;
+
+        if !merge {
+            {
+                let mut sing = self.singularity.write().await;
+                sing.clear();
+            }
+            if let Some(ref persistence) = self.persistence {
+                persistence.clear_all().await?;
+            }
+        }
+
+        {
+            let mut sing = self.singularity.write().await;
+            let mut valid_associations = Vec::with_capacity(payload.associations.len());
+            for concept in &payload.concepts {
+                self.validate_concept(concept)?;
+                sing.inject(concept.clone())?;
+            }
+            for (from, to, strength) in &payload.associations {
+                match sing.associate(from, to, *strength) {
+                    Ok(()) => valid_associations.push((from.clone(), to.clone(), *strength)),
+                    Err(error) => {
+                        warn!(
+                            from_id = %from,
+                            to_id = %to,
+                            strength = *strength,
+                            error = %error,
+                            "skipping invalid association during import_binary"
+                        );
+                    }
+                }
+            }
+
+            if let Some(ref persistence) = self.persistence {
+                persistence.save_concepts(&payload.concepts).await?;
+                persistence.save_associations(&valid_associations).await?;
+            }
+        }
+
+        Ok(payload.concepts.len())
+    }
+
     /// Create database backup (SQLite only).
     ///
     /// Creates a copy of the database file. Only works with local SQLite databases.

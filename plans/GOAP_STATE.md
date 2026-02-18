@@ -12,16 +12,20 @@ world_state:
   dependency_hygiene_complete: true
   adr_registry_current: true
   result_contract_clarified: true
-  action_last_completed: swarm_wave_8_test_benchmark_remediation
+  action_last_completed: cli_crate_implementation_complete
   orchestrator_last_run: goap_swarm_wave8_comprehensive_analysis_2026_02_18
   orchestrator_last_run_at_utc: 2026-02-18T10:30:00Z
 
   # Swarm orchestration snapshot
-  active_wave: 8
+  active_wave: 9
   wave_strategy: parallel_by_phase_with_handoffs
-  wave_8_name: "Test & Benchmark Remediation"
-  wave_8_started_at: "2026-02-18"
-  wave_8_focus: "Phase 17-18: Comprehensive testing, benchmarks, and 2026 GitHub standards"
+  wave_9_name: "CLI Crate Implementation"
+  wave_9_started_at: "2026-02-18"
+  wave_9_focus: "Phase 20: CLI crate with inject, probe, associate, export, import, completions"
+  wave_9_completed:
+    group_a: cli_crate_scaffold
+    group_b: cli_commands_implementation
+    group_c: cli_tests_and_completions
   wave_1_in_progress: {}
   wave_1_completed:
     group_a: create_fuzzing_targets
@@ -119,6 +123,17 @@ world_state:
     persistence_ops.rs: 262
     export_payload.rs: 16
     wasm.rs: 271
+    cli/mod.rs: 10
+    cli/args.rs: 120
+    cli/error.rs: 100
+    cli/commands/mod.rs: 80
+    cli/commands/inject.rs: 125
+    cli/commands/probe.rs: 150
+    cli/commands/associate.rs: 135
+    cli/commands/export.rs: 55
+    cli/commands/import.rs: 105
+    cli/commands/completions.rs: 40
+    bin/csm.rs: 90
 
   # Test status - Updated 2026-02-18
   unit_tests_passing: 14
@@ -242,6 +257,12 @@ world_state:
   pr_template_created: true
   issue_templates_created: true
   llms_full_txt_created: true
+
+  # Phase 20: CLI Crate (cost: 12)
+  cli_crate_created: true
+  cli_commands_implemented: true
+  cli_tests_passing: true
+  shell_completions_generated: true
 
   # Post-1.0 Deferred Work (ADR-0024, ADR-0025, ADR-0026)
   # Per Swarm Consensus 2026-02-17: Advanced features deferred until user demand
