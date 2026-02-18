@@ -105,23 +105,24 @@ world_state:
 
   # Module status (LOC counts)
   modules:
-    lib.rs: 34
+    lib.rs: 35
     error.rs: 32
     hyperdim.rs: 410
-    reservoir.rs: 427
-    singularity.rs: 439
+    reservoir.rs: 483
+    singularity.rs: 500
     persistence.rs: 498
     persistence_wasm.rs: 109
     framework.rs: 494
-    framework_ops.rs: 211
-    framework_validation.rs: 80
+    framework_ops.rs: 196
+    framework_validation.rs: 86
     persistence_ops.rs: 262
-    wasm.rs: 165
+    export_payload.rs: 16
+    wasm.rs: 271
 
   # Test status
-  unit_tests_passing: 16
+  unit_tests_passing: 14
   integration_tests_exist: true
-  integration_tests_passing: 7
+  integration_tests_passing: 28
 
   # Correctness issues (must fix)
   permute_shift_zero_bug: false
