@@ -1,20 +1,12 @@
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::fs;
 use tracing::warn;
 
 use crate::error::Result;
+use crate::export_payload::{unix_now_secs, ExportPayload};
 use crate::framework::ChaoticSemanticFramework;
 use crate::hyperdim::HVec10240;
 use crate::singularity::ConceptBuilder;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct ExportPayload {
-    version: String,
-    exported_at: u64,
-    concepts: Vec<crate::singularity::Concept>,
-    associations: Vec<(String, String, f32)>,
-}
 
 impl ChaoticSemanticFramework {
     pub async fn inject_concepts(&self, concepts: &[(String, HVec10240)]) -> Result<()> {
@@ -201,11 +193,4 @@ impl ChaoticSemanticFramework {
         }
         Ok(Vec::new())
     }
-}
-
-fn unix_now_secs() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
 }

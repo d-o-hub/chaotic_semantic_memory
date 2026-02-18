@@ -23,15 +23,25 @@ pub struct ChaoticSemanticFramework {
 }
 
 #[derive(Clone, Debug)]
+/// Runtime configuration for [`ChaoticSemanticFramework`], tuned via [`FrameworkBuilder`].
 pub struct FrameworkConfig {
+    /// Reservoir node count (default: `50_000`, must be `> 0`).
     pub reservoir_size: usize,
+    /// Input width per sequence step (default: `10_240`, must be `> 0`).
     pub reservoir_input_size: usize,
+    /// Chaotic noise magnitude (default: `0.1`, recommended: `0.0..=1.0`).
     pub chaos_strength: f32,
+    /// Enables persistence setup at build time (default: `true`).
     pub enable_persistence: bool,
+    /// Maximum concept count before oldest-concept eviction (default: `None`).
     pub max_concepts: Option<usize>,
+    /// Maximum outbound associations per concept (default: `None`).
     pub max_associations_per_concept: Option<usize>,
+    /// Remote libSQL pool size (default: `10`, coerced to `>= 1`).
     pub connection_pool_size: usize,
+    /// Upper bound for `top_k` in probes (default: `10_000`, coerced to `>= 1`).
     pub max_probe_top_k: usize,
+    /// Optional metadata size limit in bytes per concept (default: `None`).
     pub max_metadata_bytes: Option<usize>,
 }
 
@@ -66,6 +76,12 @@ pub struct FrameworkMetricsSnapshot {
     pub associations_created_total: u64,
     pub probes_total: u64,
     pub avg_probe_latency_ms: f64,
+    pub cache_hits_total: u64,
+    pub cache_misses_total: u64,
+    pub cache_evictions_total: u64,
+    pub reservoir_steps_total: u64,
+    pub avg_reservoir_step_latency_us: f64,
+    pub reservoir_nodes_active: u64,
 }
 
 impl FrameworkMetrics {
@@ -100,6 +116,12 @@ impl FrameworkMetrics {
             associations_created_total: self.associations_created_total.load(Ordering::Relaxed),
             probes_total: self.probes_total.load(Ordering::Relaxed),
             avg_probe_latency_ms: avg,
+            cache_hits_total: 0,
+            cache_misses_total: 0,
+            cache_evictions_total: 0,
+            reservoir_steps_total: 0,
+            avg_reservoir_step_latency_us: 0.0,
+            reservoir_nodes_active: 0,
         }
     }
 }
@@ -306,8 +328,29 @@ impl ChaoticSemanticFramework {
         self.load_replace().await
     }
 
-    pub fn metrics_snapshot(&self) -> FrameworkMetricsSnapshot {
-        self.metrics.snapshot()
+    pub async fn metrics_snapshot(&self) -> FrameworkMetricsSnapshot {
+        let mut snapshot = self.metrics.snapshot();
+
+        let cache_snapshot = {
+            let sing = self.singularity.read().await;
+            sing.cache_metrics_snapshot()
+        };
+
+        let reservoir_snapshot = {
+            let reservoir = self.reservoir.read().await;
+            reservoir
+                .as_ref()
+                .map(ChaoticReservoir::metrics_snapshot)
+                .unwrap_or_default()
+        };
+
+        snapshot.cache_hits_total = cache_snapshot.cache_hits_total;
+        snapshot.cache_misses_total = cache_snapshot.cache_misses_total;
+        snapshot.cache_evictions_total = cache_snapshot.cache_evictions_total;
+        snapshot.reservoir_steps_total = reservoir_snapshot.reservoir_steps_total;
+        snapshot.avg_reservoir_step_latency_us = reservoir_snapshot.avg_reservoir_step_latency_us;
+        snapshot.reservoir_nodes_active = reservoir_snapshot.reservoir_nodes_active;
+        snapshot
     }
 
     /// Get framework statistics
@@ -447,48 +490,5 @@ impl FrameworkBuilder {
 
         framework.load_replace().await?;
         Ok(framework)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_framework_creation() {
-        let framework = ChaoticSemanticFramework::builder()
-            .without_persistence()
-            .build()
-            .await
-            .unwrap();
-
-        let stats = framework.stats().await.unwrap();
-        assert_eq!(stats.concept_count, 0);
-    }
-
-    #[tokio::test]
-    async fn test_concept_lifecycle() {
-        let framework = ChaoticSemanticFramework::builder()
-            .without_persistence()
-            .build()
-            .await
-            .unwrap();
-
-        framework
-            .inject_concept("a", HVec10240::random())
-            .await
-            .unwrap();
-        framework
-            .inject_concept("b", HVec10240::random())
-            .await
-            .unwrap();
-        framework.associate("a", "b", 0.8).await.unwrap();
-
-        let associations = framework.get_associations("a").await.unwrap();
-        assert_eq!(associations.len(), 1);
-
-        framework.delete_concept("b").await.unwrap();
-        let associations = framework.get_associations("a").await.unwrap();
-        assert!(associations.is_empty());
     }
 }

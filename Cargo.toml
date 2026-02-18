@@ -45,6 +45,8 @@ harness = false
 opt-level = 3
 lto = "fat"
 codegen-units = 1
+panic = "abort"
+strip = "symbols"
 
 [lib]
 crate-type = ["lib", "cdylib"]
@@ -52,6 +54,10 @@ crate-type = ["lib", "cdylib"]
 [[example]]
 name = "proof_of_concept"
 path = "examples/proof_of_concept.rs"
+
+[[example]]
+name = "basic_in_memory"
+path = "examples/basic_in_memory.rs"
 
 [features]
 default = []

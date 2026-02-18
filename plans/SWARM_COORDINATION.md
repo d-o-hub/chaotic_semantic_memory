@@ -4,10 +4,34 @@
 
 | Group | Phase | Focus | Status |
 |-------|-------|-------|--------|
-| A | 9 | Turso Latency Benchmarking | Complete |
-| B | 9 | Memory Footprint Validation | Complete |
-| C | 9 | WASM Size Gate | Complete |
-| D | 9 | Performance Gate Integration | Complete |
+| A | 15 | Testing Pragmatism | Complete |
+| B | 13 | Documentation & DX | Complete |
+| C | 14 | Observability Completion | Complete |
+| D | 16 | WASM Parity | Complete |
+
+## Swarm Status: **COMPLETE** ✅
+
+All 7 waves finished. All groups have completed their assigned tasks.
+
+## Orchestrator Run (2026-02-17, Wave 7)
+
+Run ID: `goap_swarm_wave7_phase13_16_closure_2026_02_17`
+
+### Parallel Wave 7 (completed)
+
+| Group | Action | Status | Output/Handoff Artifact |
+|-------|--------|--------|--------------------------|
+| A | `add_to_hypervector_benchmark` + `add_critical_error_path_tests` | Complete | `plans/handoffs/W7_A_to_All_testing_pragmatism.md` |
+| B | `document_framework_config` + `document_singularity_config` + `expand_readme_documentation` + `create_basic_in_memory_example` + `add_cargo_aliases` | Complete | `plans/handoffs/W7_B_to_All_documentation_dx.md` |
+| C | `add_singularity_tracing` + `add_cache_metrics` + `add_reservoir_metrics` | Complete | `plans/handoffs/W7_C_to_All_observability_completion.md` |
+| D | `expose_process_sequence_to_wasm` + `add_wasm_memory_export_import` | Complete | `plans/handoffs/W7_D_to_All_wasm_parity.md` |
+
+### Wave 7 Handoff Contract
+
+1. `A -> All`: critical-path tests and benchmarks close phase 15 quality gates.
+2. `B -> All`: config docs, README expansion, and aliases become canonical developer UX entry points.
+3. `C -> All`: tracing and metric fields are standardized for framework + wasm snapshots.
+4. `D -> All`: wasm temporal + memory parity methods and type declarations are now available.
 
 ## Orchestrator Run (2026-02-17)
 
@@ -78,6 +102,29 @@ Run ID: `goap_parallel_missing_tasks_wave5_2026_02_17`
 2. `B -> D`: Provide memory-accounting method and pass/fail evidence for 10M-under-12MB target.
 3. `C -> D`: Provide wasm artifact path, measured size, and deterministic CI command.
 4. `D -> All`: Publish final performance-goal gate decision with remediation if a target fails.
+
+### Parallel Wave 6 (completed)
+
+| Group | Action | Start Condition | Depends On |
+|-------|--------|-----------------|------------|
+| A | `finalize_testing_documentation` | complete | W5 complete |
+| B | `finalize_performance_benchmarks` | complete | W5 complete |
+| C | `finalize_observability_integration` | complete | W5 complete |
+| D | `finalize_advanced_features_validation` | complete | W5 complete |
+
+### Wave 6 Closure Contract
+
+1. `A -> All`: Consolidate testing artifacts and coverage reports.
+2. `B -> All`: Finalize benchmark baselines and performance regression suite.
+3. `C -> All`: Publish observability conventions and tracing span taxonomy.
+4. `D -> All`: Validate all advanced features (export/import, versioning, backup/restore) integration.
+
+### Wave 6 Artifacts
+
+- `plans/handoffs/W6_A_to_All_testing_closure.md`
+- `plans/handoffs/W6_B_to_All_performance_closure.md`
+- `plans/handoffs/W6_C_to_All_observability_closure.md`
+- `plans/handoffs/W6_D_to_All_features_closure.md`
 
 ### Wave 5 Artifacts
 

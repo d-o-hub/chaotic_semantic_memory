@@ -1,0 +1,5 @@
+[alias]
+test-all = "test --all-targets --all-features"
+bench-local = "bench --bench benchmark -- --baseline main"
+check-wasm = "check --target wasm32-unknown-unknown --features wasm"
+fmt-check = "fmt --all -- --check"
