@@ -5,6 +5,7 @@ pub use framework::{ChaoticSemanticFramework, FrameworkBuilder};
 pub use hyperdim::HVec10240;
 pub use singularity::{Concept, ConceptBuilder};
 
+#[cfg(not(target_arch = "wasm32"))]
 pub mod cli;
 pub mod error;
 mod export_payload;

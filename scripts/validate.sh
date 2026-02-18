@@ -10,6 +10,13 @@ cargo fmt --check
 echo "==> cargo clippy --all-targets -- -D warnings"
 cargo clippy --all-targets -- -D warnings
 
+# CI applies stricter RUSTFLAGS; this is the minimal local gate
+echo "==> cargo test --no-run --all-features (check for warnings)"
+if cargo test --no-run --all-features 2>&1 | grep -qi "warning:"; then
+  echo "Error: Warnings found in test compilation"
+  exit 1
+fi
+
 echo "==> cargo test --all-targets"
 cargo test --all-targets
 

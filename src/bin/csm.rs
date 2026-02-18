@@ -1,82 +1,88 @@
+#[cfg(not(target_arch = "wasm32"))]
 use std::process::ExitCode as StdExitCode;
 
-use chaotic_semantic_memory::cli::{
-    run_associate, run_completions, run_export, run_import, run_inject, run_probe, CliArgs,
-    CliError, Commands, CompletionsArgs, ExitCode, OutputFormat,
-};
-use clap::Parser;
-use colored::Colorize;
-use tracing::Level;
-use tracing_subscriber::FmtSubscriber;
-
-fn init_tracing(verbose: u8) {
-    if std::env::var("NO_COLOR").is_ok() {
-        colored::control::set_override(false);
-    }
-    let level = match verbose {
-        0 => Level::ERROR,
-        1 => Level::WARN,
-        2 => Level::INFO,
-        3 => Level::DEBUG,
-        _ => Level::TRACE,
+#[cfg(not(target_arch = "wasm32"))]
+mod native {
+    pub use chaotic_semantic_memory::cli::{
+        run_associate, run_completions, run_export, run_import, run_inject, run_probe, CliArgs,
+        CliError, Commands, CompletionsArgs, ExitCode, OutputFormat,
     };
-    let _ = tracing::subscriber::set_global_default(
-        FmtSubscriber::builder()
-            .with_max_level(level)
-            .with_target(false)
-            .finish(),
-    );
-}
+    pub use clap::Parser;
+    pub use colored::Colorize;
+    pub use tracing::Level;
+    pub use tracing_subscriber::FmtSubscriber;
 
-fn format_error(err: &CliError, format: OutputFormat) -> String {
-    match format {
-        OutputFormat::Json => {
-            serde_json::json!({"status": "error", "error": err.to_string()}).to_string()
+    pub fn init_tracing(verbose: u8) {
+        if std::env::var("NO_COLOR").is_ok() {
+            colored::control::set_override(false);
         }
-        _ => format!("{}: {}", "error".red().bold(), err),
+        let level = match verbose {
+            0 => Level::ERROR,
+            1 => Level::WARN,
+            2 => Level::INFO,
+            3 => Level::DEBUG,
+            _ => Level::TRACE,
+        };
+        let _ = tracing::subscriber::set_global_default(
+            FmtSubscriber::builder()
+                .with_max_level(level)
+                .with_target(false)
+                .finish(),
+        );
     }
-}
 
-fn handle_completions(args: &CompletionsArgs) -> Result<(), CliError> {
-    run_completions(args.clone()).map_err(CliError::from)
-}
-
-#[tokio::main]
-async fn run_async(args: CliArgs) -> Result<(), CliError> {
-    let db_path = args.database.as_deref();
-    let fmt = args.output_format;
-
-    match &args.command {
-        Commands::Completions(cmd) => handle_completions(cmd),
-        Commands::Version(v) => {
-            println!("csm {}", env!("CARGO_PKG_VERSION"));
-            if v.detailed {
-                println!(
-                    "target: {}",
-                    std::env::var("TARGET").unwrap_or_else(|_| "unknown".into())
-                );
+    pub fn format_error(err: &CliError, format: OutputFormat) -> String {
+        match format {
+            OutputFormat::Json => {
+                serde_json::json!({"status": "error", "error": err.to_string()}).to_string()
             }
-            Ok(())
+            _ => format!("{}: {}", "error".red().bold(), err),
         }
-        Commands::Inject(cmd) => run_inject(cmd.clone(), db_path, fmt)
-            .await
-            .map_err(CliError::from),
-        Commands::Probe(cmd) => run_probe(cmd.clone(), db_path, fmt)
-            .await
-            .map_err(CliError::from),
-        Commands::Associate(cmd) => run_associate(cmd.clone(), db_path, fmt)
-            .await
-            .map_err(CliError::from),
-        Commands::Export(cmd) => run_export(cmd.clone(), db_path, fmt)
-            .await
-            .map_err(CliError::from),
-        Commands::Import(cmd) => run_import(cmd.clone(), db_path, fmt)
-            .await
-            .map_err(CliError::from),
+    }
+
+    pub fn handle_completions(args: &CompletionsArgs) -> Result<(), CliError> {
+        run_completions(args.clone()).map_err(CliError::from)
+    }
+
+    #[tokio::main]
+    pub async fn run_async(args: CliArgs) -> Result<(), CliError> {
+        let db_path = args.database.as_deref();
+        let fmt = args.output_format;
+
+        match &args.command {
+            Commands::Completions(cmd) => handle_completions(cmd),
+            Commands::Version(v) => {
+                println!("csm {}", env!("CARGO_PKG_VERSION"));
+                if v.detailed {
+                    println!(
+                        "target: {}",
+                        std::env::var("TARGET").unwrap_or_else(|_| "unknown".into())
+                    );
+                }
+                Ok(())
+            }
+            Commands::Inject(cmd) => run_inject(cmd.clone(), db_path, fmt)
+                .await
+                .map_err(CliError::from),
+            Commands::Probe(cmd) => run_probe(cmd.clone(), db_path, fmt)
+                .await
+                .map_err(CliError::from),
+            Commands::Associate(cmd) => run_associate(cmd.clone(), db_path, fmt)
+                .await
+                .map_err(CliError::from),
+            Commands::Export(cmd) => run_export(cmd.clone(), db_path, fmt)
+                .await
+                .map_err(CliError::from),
+            Commands::Import(cmd) => run_import(cmd.clone(), db_path, fmt)
+                .await
+                .map_err(CliError::from),
+        }
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn main() -> StdExitCode {
+    use native::*;
     let args = CliArgs::parse();
     init_tracing(args.verbose);
     match run_async(args) {
@@ -86,4 +92,10 @@ fn main() -> StdExitCode {
             StdExitCode::from(ExitCode::from(e) as u8)
         }
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn main() {
+    eprintln!("CLI is not supported on WASM target");
+    std::process::exit(1);
 }

@@ -78,10 +78,6 @@ path = "examples/proof_of_concept.rs"
 name = "basic_in_memory"
 path = "examples/basic_in_memory.rs"
 
-[[example]]
-name = "cli_usage"
-path = "examples/cli_usage.rs"
-
 [features]
 default = []
 wasm = []

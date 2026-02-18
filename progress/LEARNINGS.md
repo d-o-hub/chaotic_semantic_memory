@@ -329,3 +329,17 @@
 ### What to Avoid
 - Do not cache `Vec` and clone it on cache hits in a latency-sensitive query path.
 - Do not compute cache keys by allocating temporary buffers when the underlying data is already a fixed-size word array.
+
+## 2026-02-18: CI vs Local Environment Discrepancies
+
+### Technical Insights
+1. CI uses `RUSTFLAGS="-D warnings"` which treats all warnings as errors, while local builds often do not.
+2. CI may use a different Rust version than local (e.g., 1.93.1 vs local stable), exposing deprecations in fresher toolchains.
+3. Deprecated APIs in dependencies may only surface in CI due to the newer toolchain version used there.
+4. Always run `cargo clippy -- -D warnings` locally before commit to catch issues early.
+5. Run `cargo test --all-features` not just default features, as some code paths are feature-gated.
+6. Check for deprecation warnings in test dependencies too — CI catches these even if your main crate builds cleanly.
+
+### What to Avoid
+- Do not rely on local `cargo test` alone — CI is stricter and may fail on warnings your local setup ignores.
+- Do not assume test dependencies won't trigger CI failures; deprecated APIs in dev-dependencies count as warnings too.

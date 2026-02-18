@@ -1,9 +1,12 @@
+use assert_cmd::cargo::cargo_bin_cmd;
 use assert_cmd::Command;
 use predicates::prelude::*;
 use tempfile::NamedTempFile;
 
 fn csm() -> Command {
-    Command::cargo_bin("csm").unwrap()
+    let mut cmd = cargo_bin_cmd!("csm");
+    cmd.current_dir(std::env::current_dir().expect("should have current dir"));
+    cmd
 }
 fn db() -> NamedTempFile {
     NamedTempFile::new().unwrap()
