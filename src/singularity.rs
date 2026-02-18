@@ -8,10 +8,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 #[cfg(not(target_arch = "wasm32"))]
-use tracing::instrument;
-
-#[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
+#[cfg(not(target_arch = "wasm32"))]
+use tracing::instrument;
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
@@ -49,7 +48,7 @@ impl Default for SingularityConfig {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct QueryCache {
     capacity: usize,
     order: VecDeque<u64>,
@@ -127,6 +126,7 @@ impl CacheMetrics {
 }
 
 /// Episode-free singularity engine
+#[derive(Debug)]
 pub struct Singularity {
     concepts: HashMap<String, Concept>,
     associations: HashMap<String, HashMap<String, f32>>,

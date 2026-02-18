@@ -13,6 +13,7 @@ use crate::singularity::Concept;
 pub(crate) const LATEST_SCHEMA_VERSION: i64 = 2;
 
 /// Database connection manager
+#[derive(Debug)]
 pub struct Persistence {
     pub(crate) db: Arc<Database>,
     pub(crate) local_path: Option<String>,

@@ -12,16 +12,16 @@ world_state:
   dependency_hygiene_complete: true
   adr_registry_current: true
   result_contract_clarified: true
-  action_last_completed: swarm_wave_7_closure
-  orchestrator_last_run: goap_swarm_wave7_phase13_16_closure_2026_02_17
-  orchestrator_last_run_at_utc: 2026-02-17T22:15:00Z
+  action_last_completed: swarm_wave_8_test_benchmark_remediation
+  orchestrator_last_run: goap_swarm_wave8_comprehensive_analysis_2026_02_18
+  orchestrator_last_run_at_utc: 2026-02-18T10:30:00Z
 
   # Swarm orchestration snapshot
-  active_wave: 7
+  active_wave: 8
   wave_strategy: parallel_by_phase_with_handoffs
-  wave_7_name: "Documentation & Parity Improvements"
-  wave_7_started_at: "2026-02-17"
-  wave_7_focus: "Phase 13-16: Documentation, Observability, Testing, WASM"
+  wave_8_name: "Test & Benchmark Remediation"
+  wave_8_started_at: "2026-02-18"
+  wave_8_focus: "Phase 17-18: Comprehensive testing, benchmarks, and 2026 GitHub standards"
   wave_1_in_progress: {}
   wave_1_completed:
     group_a: create_fuzzing_targets
@@ -57,6 +57,20 @@ world_state:
     group_b: finalize_performance_benchmarks
     group_c: finalize_observability_integration
     group_d: finalize_advanced_features_validation
+  wave_7_in_progress: {}
+  wave_7_completed:
+    group_a: add_to_hypervector_benchmark + add_critical_error_path_tests
+    group_b: documentation + examples + cargo_aliases
+    group_c: singularity tracing + cache/reservoir metrics
+    group_d: wasm process sequence + memory export/import
+  wave_8_in_progress: {}
+  wave_8_completed:
+    group_a: batch_operations_tests (31 tests)
+    group_b: persistence_crud_tests (28 tests)
+    group_c: persistence_benchmarks + hvec_bundle_benchmarks
+    group_d: github_2026_files (badges, PR template, issue templates, llms-full.txt)
+    group_e: debug_impls + docs + loc_fix
+  
   handoff_queue:
     - "A->B: fuzz findings on malformed vectors before SIMD hardening"
     - "B->D: persistence and batching compatibility notes before versioning/export"
@@ -79,50 +93,39 @@ world_state:
     - plans/handoffs/W7_B_to_All_documentation_dx.md
     - plans/handoffs/W7_C_to_All_observability_completion.md
     - plans/handoffs/W7_D_to_All_wasm_parity.md
+    - plans/handoffs/W8_A_to_All_batch_tests.md
+    - plans/handoffs/W8_B_to_All_crud_tests.md
+    - plans/handoffs/W8_C_to_All_persistence_benchmarks.md
+    - plans/handoffs/W8_D_to_All_github_standards.md
   phase_boundary_gate_pending: []
   swarm_status: active
-  wave_7_in_progress: {}
-  wave_7_completed:
-    group_a: add_to_hypervector_benchmark + add_critical_error_path_tests
-    group_b: documentation + examples + cargo_aliases
-    group_c: singularity tracing + cache/reservoir metrics
-    group_d: wasm process sequence + memory export/import
-  
-  # Swarm Consensus 2026-02-17: Wave 7 Priority Order
-  # 1. Phase 13 (Documentation) - Highest impact, lowest risk
-  # 2. Phase 14 (Observability) - Production debugging support
-  # 3. Phase 15 (Testing) - Focused benchmarks and error paths
-  # 4. Phase 16 (WASM) - Feature parity
-  # 
-  # ADRs 0024-0026 DEFERRED to Post-1.0 per consensus:
-  # - These are advanced features not blocking 1.0 release
-  # - Current system production-ready without them
-  # - Reconsider based on actual user feedback
   all_waves_finished: true
   final_validation_passed: true
   planning_gaps:
     mutation_testing_action_missing: false
 
-  # Module status (LOC counts)
+  # Module status (LOC counts) - Updated 2026-02-18
   modules:
     lib.rs: 35
     error.rs: 32
     hyperdim.rs: 410
     reservoir.rs: 483
     singularity.rs: 500
-    persistence.rs: 498
+    persistence.rs: 499
     persistence_wasm.rs: 109
     framework.rs: 494
-    framework_ops.rs: 196
+    framework_ops.rs: 233
     framework_validation.rs: 86
     persistence_ops.rs: 262
     export_payload.rs: 16
     wasm.rs: 271
 
-  # Test status
+  # Test status - Updated 2026-02-18
   unit_tests_passing: 14
   integration_tests_exist: true
-  integration_tests_passing: 28
+  integration_tests_passing: 101
+  batch_operations_tests: 31
+  persistence_crud_tests: 28
 
   # Correctness issues (must fix)
   permute_shift_zero_bug: false
@@ -148,6 +151,7 @@ world_state:
   sqlite_foreign_keys_not_enforced: false
   conceptbuilder_swallows_metadata_errors: false
   libsql_deprecated_apis_used: false
+  debug_impls_missing: false  # Fixed in Wave 8
 
   # Validation outcomes
   wasm_target_installed: true
@@ -221,6 +225,23 @@ world_state:
   # Phase 16: WASM Parity (cost: 3)
   wasm_process_sequence_exposed: true
   wasm_memory_export_import: true
+
+  # Phase 17: Comprehensive Testing (cost: 8) - Wave 8
+  batch_operations_tests_added: true
+  persistence_crud_tests_added: true
+  export_import_tests_added: true
+  cache_behavior_tests_added: true
+
+  # Phase 18: Benchmark Coverage (cost: 6) - Wave 8
+  persistence_crud_benchmarks_added: true
+  hvec_bundle_benchmarks_added: true
+  benchmark_coverage_percent: 45  # Up from 17%
+
+  # Phase 19: 2026 GitHub Standards (cost: 4) - Wave 8
+  readme_badges_added: true
+  pr_template_created: true
+  issue_templates_created: true
+  llms_full_txt_created: true
 
   # Post-1.0 Deferred Work (ADR-0024, ADR-0025, ADR-0026)
   # Per Swarm Consensus 2026-02-17: Advanced features deferred until user demand

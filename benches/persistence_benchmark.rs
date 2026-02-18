@@ -1,0 +1,380 @@
+use chaotic_semantic_memory::persistence::Persistence;
+use chaotic_semantic_memory::singularity::Concept;
+use chaotic_semantic_memory::HVec10240;
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use std::collections::HashMap;
+use tempfile::NamedTempFile;
+
+fn make_concept(id: &str) -> Concept {
+    Concept {
+        id: id.to_string(),
+        vector: HVec10240::random(),
+        metadata: HashMap::new(),
+        created_at: 1,
+        modified_at: 1,
+    }
+}
+
+fn make_concepts(count: usize, prefix: &str) -> Vec<Concept> {
+    (0..count)
+        .map(|i| make_concept(&format!("{}-{}", prefix, i)))
+        .collect()
+}
+
+fn make_concept_with_metadata(id: &str) -> Concept {
+    let mut metadata = HashMap::new();
+    metadata.insert("name".to_string(), serde_json::json!("test"));
+    metadata.insert("count".to_string(), serde_json::json!(42));
+    metadata.insert(
+        "nested".to_string(),
+        serde_json::json!({"inner": "value", "number": 123}),
+    );
+    Concept {
+        id: id.to_string(),
+        vector: HVec10240::random(),
+        metadata,
+        created_at: 1,
+        modified_at: 1,
+    }
+}
+
+fn bench_save_concept(c: &mut Criterion) {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+
+    c.bench_function("save_concept", |b| {
+        b.iter(|| {
+            let concept = make_concept_with_metadata("bench-save");
+            let temp = NamedTempFile::new().unwrap();
+            let path = temp.path().to_str().unwrap();
+            rt.block_on(async {
+                let persistence = Persistence::new_local(path).await.unwrap();
+                persistence.save_concept(black_box(&concept)).await.unwrap();
+                black_box(persistence)
+            })
+        })
+    });
+}
+
+fn bench_load_concept(c: &mut Criterion) {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+
+    c.bench_function("load_concept", |b| {
+        b.iter(|| {
+            let temp = NamedTempFile::new().unwrap();
+            let path = temp.path().to_str().unwrap();
+            rt.block_on(async {
+                let persistence = Persistence::new_local(path).await.unwrap();
+                let concept = make_concept_with_metadata("bench-load");
+                persistence.save_concept(&concept).await.unwrap();
+                let loaded = persistence
+                    .load_concept(black_box("bench-load"))
+                    .await
+                    .unwrap();
+                black_box(loaded)
+            })
+        })
+    });
+}
+
+fn bench_delete_concept(c: &mut Criterion) {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+
+    c.bench_function("delete_concept", |b| {
+        b.iter(|| {
+            let temp = NamedTempFile::new().unwrap();
+            let path = temp.path().to_str().unwrap();
+            rt.block_on(async {
+                let persistence = Persistence::new_local(path).await.unwrap();
+                persistence
+                    .save_concept(&make_concept("to-delete"))
+                    .await
+                    .unwrap();
+                persistence
+                    .delete_concept(black_box("to-delete"))
+                    .await
+                    .unwrap();
+                black_box(persistence)
+            })
+        })
+    });
+}
+
+fn bench_delete_concept_with_cascade(c: &mut Criterion) {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+
+    c.bench_function("delete_concept_with_cascade", |b| {
+        b.iter(|| {
+            let temp = NamedTempFile::new().unwrap();
+            let path = temp.path().to_str().unwrap();
+            rt.block_on(async {
+                let persistence = Persistence::new_local(path).await.unwrap();
+                let concepts = make_concepts(10, "cascade");
+                persistence.save_concepts(&concepts).await.unwrap();
+                for i in 0..9 {
+                    persistence
+                        .save_association("cascade-0", &format!("cascade-{}", i), 0.5)
+                        .await
+                        .unwrap();
+                }
+                persistence
+                    .delete_concept(black_box("cascade-0"))
+                    .await
+                    .unwrap();
+                black_box(persistence)
+            })
+        })
+    });
+}
+
+fn bench_save_concepts_batch(c: &mut Criterion) {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let mut group = c.benchmark_group("save_concepts_batch");
+
+    for size in [10, 100, 1000] {
+        group.bench_function(format!("{}_concepts", size), |b| {
+            b.iter(|| {
+                let concepts = make_concepts(size, "batch");
+                let temp = NamedTempFile::new().unwrap();
+                let path = temp.path().to_str().unwrap();
+                rt.block_on(async {
+                    let persistence = Persistence::new_local(path).await.unwrap();
+                    persistence
+                        .save_concepts(black_box(&concepts))
+                        .await
+                        .unwrap();
+                    black_box(persistence)
+                })
+            })
+        });
+    }
+
+    group.finish();
+}
+
+fn bench_load_all_concepts(c: &mut Criterion) {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let mut group = c.benchmark_group("load_all_concepts");
+
+    for size in [10, 100, 1000] {
+        group.bench_function(format!("{}_concepts", size), |b| {
+            b.iter(|| {
+                let temp = NamedTempFile::new().unwrap();
+                let path = temp.path().to_str().unwrap();
+                rt.block_on(async {
+                    let persistence = Persistence::new_local(path).await.unwrap();
+                    let concepts = make_concepts(size, "load-all");
+                    persistence.save_concepts(&concepts).await.unwrap();
+                    let loaded = persistence.load_all_concepts().await.unwrap();
+                    black_box(loaded)
+                })
+            })
+        });
+    }
+
+    group.finish();
+}
+
+fn bench_save_association(c: &mut Criterion) {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+
+    c.bench_function("save_association", |b| {
+        b.iter(|| {
+            let temp = NamedTempFile::new().unwrap();
+            let path = temp.path().to_str().unwrap();
+            rt.block_on(async {
+                let persistence = Persistence::new_local(path).await.unwrap();
+                persistence
+                    .save_concept(&make_concept("assoc-from"))
+                    .await
+                    .unwrap();
+                persistence
+                    .save_concept(&make_concept("assoc-to"))
+                    .await
+                    .unwrap();
+                persistence
+                    .save_association(
+                        black_box("assoc-from"),
+                        black_box("assoc-to"),
+                        black_box(0.75),
+                    )
+                    .await
+                    .unwrap();
+                black_box(persistence)
+            })
+        })
+    });
+}
+
+fn bench_load_associations(c: &mut Criterion) {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let mut group = c.benchmark_group("load_associations");
+
+    for assoc_count in [1, 10, 50] {
+        group.bench_function(format!("{}_associations", assoc_count), |b| {
+            b.iter(|| {
+                let temp = NamedTempFile::new().unwrap();
+                let path = temp.path().to_str().unwrap();
+                rt.block_on(async {
+                    let persistence = Persistence::new_local(path).await.unwrap();
+                    persistence
+                        .save_concept(&make_concept("hub"))
+                        .await
+                        .unwrap();
+                    for i in 0..assoc_count {
+                        persistence
+                            .save_concept(&make_concept(&format!("spoke-{}", i)))
+                            .await
+                            .unwrap();
+                    }
+                    for i in 0..assoc_count {
+                        persistence
+                            .save_association("hub", &format!("spoke-{}", i), 0.5)
+                            .await
+                            .unwrap();
+                    }
+                    let associations = persistence
+                        .load_associations(black_box("hub"))
+                        .await
+                        .unwrap();
+                    black_box(associations)
+                })
+            })
+        });
+    }
+
+    group.finish();
+}
+
+fn bench_crud_roundtrip(c: &mut Criterion) {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+
+    c.bench_function("crud_roundtrip", |b| {
+        b.iter(|| {
+            let concept = make_concept_with_metadata("roundtrip");
+            let temp = NamedTempFile::new().unwrap();
+            let path = temp.path().to_str().unwrap();
+            rt.block_on(async {
+                let persistence = Persistence::new_local(path).await.unwrap();
+
+                persistence.save_concept(black_box(&concept)).await.unwrap();
+                let loaded = persistence
+                    .load_concept(black_box("roundtrip"))
+                    .await
+                    .unwrap()
+                    .unwrap();
+                black_box(&loaded);
+                persistence
+                    .delete_concept(black_box("roundtrip"))
+                    .await
+                    .unwrap();
+                let gone = persistence.load_concept("roundtrip").await.unwrap();
+                black_box(gone)
+            })
+        })
+    });
+}
+
+fn bench_crud_roundtrip_with_associations(c: &mut Criterion) {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+
+    c.bench_function("crud_roundtrip_with_associations", |b| {
+        b.iter(|| {
+            let temp = NamedTempFile::new().unwrap();
+            let path = temp.path().to_str().unwrap();
+            rt.block_on(async {
+                let persistence = Persistence::new_local(path).await.unwrap();
+
+                let concepts = make_concepts(5, "rt");
+                persistence
+                    .save_concepts(black_box(&concepts))
+                    .await
+                    .unwrap();
+
+                persistence
+                    .save_association("rt-0", "rt-1", 0.8)
+                    .await
+                    .unwrap();
+                persistence
+                    .save_association("rt-0", "rt-2", 0.6)
+                    .await
+                    .unwrap();
+                persistence
+                    .save_association("rt-1", "rt-3", 0.4)
+                    .await
+                    .unwrap();
+
+                let loaded = persistence.load_concept("rt-0").await.unwrap().unwrap();
+                black_box(&loaded);
+
+                let associations = persistence.load_associations("rt-0").await.unwrap();
+                black_box(&associations);
+
+                persistence.delete_concept("rt-0").await.unwrap();
+
+                let remaining = persistence.load_all_concepts().await.unwrap();
+                black_box(remaining.len())
+            })
+        })
+    });
+}
+
+fn bench_checkpoint(c: &mut Criterion) {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+
+    c.bench_function("checkpoint_after_100_saves", |b| {
+        b.iter(|| {
+            let temp = NamedTempFile::new().unwrap();
+            let path = temp.path().to_str().unwrap();
+            rt.block_on(async {
+                let persistence = Persistence::new_local(path).await.unwrap();
+                let concepts = make_concepts(100, "ckpt");
+                persistence.save_concepts(&concepts).await.unwrap();
+                persistence.checkpoint().await.unwrap();
+                black_box(persistence)
+            })
+        })
+    });
+}
+
+fn bench_concurrent_saves(c: &mut Criterion) {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+
+    c.bench_function("concurrent_10_saves", |b| {
+        b.iter(|| {
+            rt.block_on(async {
+                let handles: Vec<_> = (0..10)
+                    .map(|i| {
+                        tokio::spawn(async move {
+                            let temp = NamedTempFile::new().unwrap();
+                            let path = temp.path().to_str().unwrap();
+                            let p = Persistence::new_local(path).await.unwrap();
+                            let concept = make_concept(&format!("concurrent-{}", i));
+                            p.save_concept(&concept).await.unwrap();
+                        })
+                    })
+                    .collect();
+
+                for handle in handles {
+                    handle.await.unwrap();
+                }
+            })
+        })
+    });
+}
+
+criterion_group!(
+    benches,
+    bench_save_concept,
+    bench_load_concept,
+    bench_delete_concept,
+    bench_delete_concept_with_cascade,
+    bench_save_concepts_batch,
+    bench_load_all_concepts,
+    bench_save_association,
+    bench_load_associations,
+    bench_crud_roundtrip,
+    bench_crud_roundtrip_with_associations,
+    bench_checkpoint,
+    bench_concurrent_saves,
+);
+criterion_main!(benches);

@@ -1,0 +1,162 @@
+# chaotic_semantic_memory - Machine-Readable API Reference
+
+> Generated for LLM consumption. Last updated: 2026-02-18
+
+## Installation
+
+```toml
+[dependencies]
+chaotic_semantic_memory = "0.1.0"
+
+# For WASM targets
+chaotic_semantic_memory = { version = "0.1.0", features = ["wasm"] }
+```
+
+MSRV: Rust 1.82
+
+## Core Types
+
+### HVec10240
+10240-bit binary hyperdimensional vector.
+
+```rust
+use chaotic_semantic_memory::hyperdim::HVec10240;
+
+let v1 = HVec10240::random();
+let v2 = HVec10240::random();
+let similarity = v1.hamming_similarity(&v2); // f32 in [0.0, 1.0]
+let combined = v1.xor(&v2);
+let permuted = v1.permute(3);
+```
+
+### Concept
+Named concept with associated hypervector and optional metadata.
+
+```rust
+use chaotic_semantic_memory::singularity::{Concept, ConceptBuilder};
+
+let concept = ConceptBuilder::new("cat".to_string())
+    .with_metadata(b"{\"color\":\"orange\"}")
+    .build();
+```
+
+### ChaoticSemanticFramework
+Primary async API for memory operations.
+
+```rust
+use chaotic_semantic_memory::prelude::*;
+
+let framework = ChaoticSemanticFramework::builder()
+    .without_persistence()
+    .build()
+    .await?;
+```
+
+## FrameworkBuilder Options
+
+| Method | Default | Constraint |
+|--------|---------|------------|
+| `reservoir_size(n)` | 50_000 | n > 0 |
+| `reservoir_input_size(n)` | 10_240 | n > 0 |
+| `chaos_strength(f)` | 0.1 | 0.0 <= f <= 1.0 |
+| `max_concepts(n)` | None | n > 0 |
+| `max_associations_per_concept(n)` | None | n > 0 |
+| `connection_pool_size(n)` | 10 | n >= 1 |
+| `max_probe_top_k(n)` | 10_000 | n >= 1 |
+| `max_metadata_bytes(n)` | None | n > 0 |
+| `concept_cache_size(n)` | 1_000 | n >= 1 |
+| `without_persistence()` | - | Disables libSQL |
+| `with_local_db(path)` | - | Enables libSQL with local file |
+| `with_remote_db(url, token)` | - | Enables libSQL with remote DB |
+
+## Framework Operations
+
+### inject_concept
+Store a concept with its hypervector.
+
+```rust
+framework.inject_concept("cat".to_string(), vector).await?;
+```
+
+### inject_concepts
+Batch insert concepts.
+
+```rust
+framework.inject_concepts(&concepts).await?;
+```
+
+### probe
+Query for similar concepts.
+
+```rust
+let hits: Vec<Concept> = framework.probe(query_vector, top_k).await?;
+```
+
+### probe_batch
+Batch query for similar concepts.
+
+```rust
+let results: Vec<Vec<Concept>> = framework.probe_batch(&query_vectors, top_k).await?;
+```
+
+### associate
+Create association between two concepts.
+
+```rust
+framework.associate("cat".to_string(), "pet".to_string(), 0.8).await?;
+```
+
+### associate_many
+Batch create associations.
+
+```rust
+framework.associate_many(&edges).await?;
+```
+
+### load_replace
+Clear memory and load from persistence.
+
+```rust
+framework.load_replace().await?;
+```
+
+### load_merge
+Merge persisted data into current memory.
+
+```rust
+framework.load_merge().await?;
+```
+
+## Error Handling
+
+All fallible APIs return `Result<T, MemoryError>`.
+
+```rust
+use chaotic_semantic_memory::prelude::{Result, MemoryError};
+
+match framework.probe(vector, 10).await {
+    Ok(hits) => {},
+    Err(MemoryError::InvalidInput(msg)) => {},
+    Err(MemoryError::PersistenceError(msg)) => {},
+    Err(e) => {},
+}
+```
+
+## Constraints and Limits
+
+| Constraint | Value | Source |
+|------------|-------|--------|
+| Source file LOC | <= 500 | AGENTS.md |
+| Reservoir spectral radius | [0.9, 1.1] | AGENTS.md |
+| Benchmark target | reservoir_step_50k < 100μs | AGENTS.md |
+| Vector dimension | 10_240 bits | Design |
+
+## WASM Considerations
+
+- Persistence APIs unavailable on wasm32
+- Threading paths gated with `#[cfg(not(target_arch = "wasm32"))]`
+- Use `features = ["wasm"]` for wasm-bindgen exports
+
+## License
+
+MIT

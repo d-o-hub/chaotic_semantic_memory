@@ -9,6 +9,10 @@ use crate::hyperdim::HVec10240;
 use crate::singularity::ConceptBuilder;
 
 impl ChaoticSemanticFramework {
+    /// Batch inject multiple concepts into memory.
+    ///
+    /// Each concept is validated and inserted atomically. If persistence is enabled,
+    /// concepts are persisted to the database in a single batch operation.
     pub async fn inject_concepts(&self, concepts: &[(String, HVec10240)]) -> Result<()> {
         if concepts.is_empty() {
             return Ok(());
@@ -35,6 +39,10 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
+    /// Batch create associations between concepts.
+    ///
+    /// Each association is validated before insertion. If persistence is enabled,
+    /// associations are persisted in a single batch operation.
     pub async fn associate_many(&self, associations: &[(String, String, f32)]) -> Result<()> {
         if associations.is_empty() {
             return Ok(());
@@ -59,6 +67,9 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
+    /// Batch similarity queries without caching.
+    ///
+    /// Returns similarity results for each query vector. Results are not cached.
     pub async fn probe_batch(
         &self,
         queries: &[HVec10240],
@@ -73,6 +84,10 @@ impl ChaoticSemanticFramework {
         Ok(out)
     }
 
+    /// Batch similarity queries with LRU caching.
+    ///
+    /// Results are cached and reused for identical queries. Returns Arc references
+    /// to avoid cloning large result sets.
     pub async fn probe_batch_cached(
         &self,
         queries: &[HVec10240],
@@ -87,6 +102,10 @@ impl ChaoticSemanticFramework {
         Ok(out)
     }
 
+    /// Export memory state to JSON file.
+    ///
+    /// Writes all concepts and associations to the specified path in JSON format.
+    /// Useful for backups, debugging, and interoperability.
     pub async fn export_json(&self, path: &str) -> Result<()> {
         let payload = {
             let sing = self.singularity.read().await;
@@ -103,6 +122,10 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
+    /// Import memory state from JSON file.
+    ///
+    /// If `merge` is false, clears existing state before importing.
+    /// Returns the number of concepts imported.
     pub async fn import_json(&self, path: &str, merge: bool) -> Result<usize> {
         let bytes = fs::read(path).await?;
         let payload: ExportPayload = serde_json::from_slice(&bytes)?;
@@ -148,6 +171,10 @@ impl ChaoticSemanticFramework {
         Ok(payload.concepts.len())
     }
 
+    /// Export memory state to binary file.
+    ///
+    /// Uses bincode for compact serialization. More efficient than JSON for
+    /// large datasets.
     pub async fn export_binary(&self, path: &str) -> Result<()> {
         let payload = {
             let sing = self.singularity.read().await;
@@ -168,6 +195,9 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
+    /// Create database backup (SQLite only).
+    ///
+    /// Creates a copy of the database file. Only works with local SQLite databases.
     pub async fn backup(&self, path: &str) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
             persistence.backup(path).await?;
@@ -175,6 +205,9 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
+    /// Restore from database backup (SQLite only).
+    ///
+    /// Replaces the current database with the backup and reloads memory state.
     pub async fn restore(&self, path: &str) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
             persistence.restore(path).await?;
@@ -183,6 +216,10 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
+    /// Get version history for a concept.
+    ///
+    /// Returns up to `limit` previous versions of the concept, ordered by
+    /// version number descending. Returns empty vec if persistence is disabled.
     pub async fn concept_history(
         &self,
         id: &str,

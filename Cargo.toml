@@ -41,6 +41,10 @@ proptest = "1.6"
 name = "benchmark"
 harness = false
 
+[[bench]]
+name = "persistence_benchmark"
+harness = false
+
 [profile.release]
 opt-level = 3
 lto = "fat"

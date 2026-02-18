@@ -29,6 +29,7 @@
 | **0027** | **Documentation Standards** | **Implemented** | **Wave 7 - Complete** |
 | **0028** | **Observability Completion** | **Implemented** | **Wave 7 - Complete** |
 | **0029** | **WASM API Parity (Phase 2)** | **Implemented** | **Wave 7 - Complete** |
+| **0030** | **Test & Benchmark Gap Remediation** | **Implemented** | **Wave 8 - Complete** |
 | 0024 | Concept Expiration (TTL) | Deferred | Post-1.0 |
 | 0024 | Performance Optimizations Phase 2 | Deferred | Post-1.0 |
 | 0025 | Weighted Forgetting (Decay) | Deferred | Post-1.0 |

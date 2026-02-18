@@ -38,6 +38,27 @@ fn bench_binding(c: &mut Criterion) {
     });
 }
 
+fn bench_hvec_bundle(c: &mut Criterion) {
+    let mut group = c.benchmark_group("hvec_bundle");
+
+    let vectors_10: Vec<_> = (0..10).map(|_| HVec10240::random()).collect();
+    group.bench_function("hvec_bundle_10", |b| {
+        b.iter(|| HVec10240::bundle(black_box(&vectors_10)).unwrap())
+    });
+
+    let vectors_100: Vec<_> = (0..100).map(|_| HVec10240::random()).collect();
+    group.bench_function("hvec_bundle_100", |b| {
+        b.iter(|| HVec10240::bundle(black_box(&vectors_100)).unwrap())
+    });
+
+    let vectors_1000: Vec<_> = (0..1000).map(|_| HVec10240::random()).collect();
+    group.bench_function("hvec_bundle_1000", |b| {
+        b.iter(|| HVec10240::bundle(black_box(&vectors_1000)).unwrap())
+    });
+
+    group.finish();
+}
+
 fn bench_reservoir_step_50k(c: &mut Criterion) {
     let mut reservoir = Reservoir::new_seeded(10240, 50000, 42).unwrap();
     let input = vec![0.25; 10240];
@@ -77,6 +98,7 @@ criterion_group!(
     bench_cosine_similarity,
     bench_batch_similarity,
     bench_binding,
+    bench_hvec_bundle,
     bench_reservoir_step_50k,
     bench_reservoir_to_hypervector
 );

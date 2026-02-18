@@ -1,11 +1,34 @@
 # chaotic_semantic_memory
 
+[![CI](https://github.com/anomalyco/chaotic_semantic_memory/actions/workflows/ci.yml/badge.svg)](https://github.com/anomalyco/chaotic_semantic_memory/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/chaotic_semantic_memory.svg)](https://crates.io/crates/chaotic_semantic_memory)
+[![docs.rs](https://img.shields.io/docsrs/chaotic_semantic_memory)](https://docs.rs/chaotic_semantic_memory)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 `chaotic_semantic_memory` is a Rust crate for AI memory systems built on:
 - 10240-bit hyperdimensional vectors
 - chaotic echo-state reservoirs
 - libSQL persistence
 
 It targets both native and `wasm32` builds with explicit threading guards.
+
+## Quick Links
+
+| Resource | Link |
+|----------|------|
+| Documentation | [docs.rs/chaotic_semantic_memory](https://docs.rs/chaotic_semantic_memory) |
+| Crates.io | [crates.io/crates/chaotic_semantic_memory](https://crates.io/crates/chaotic_semantic_memory) |
+| Issues | [GitHub Issues](https://github.com/anomalyco/chaotic_semantic_memory/issues) |
+| Changelog | [CHANGELOG.md](CHANGELOG.md) |
+
+## Status
+
+| Property | Value |
+|----------|-------|
+| Version | `0.1.0` |
+| MSRV | Rust `1.82` |
+| License | MIT |
+| Targets | Native, `wasm32-unknown-unknown` |
 
 ## Installation
 
@@ -19,8 +42,6 @@ Enable WASM bindings when needed:
 [dependencies]
 chaotic_semantic_memory = { version = "0.1.0", features = ["wasm"] }
 ```
-
-MSRV: Rust `1.82`.
 
 ## Core Components
 
@@ -159,6 +180,27 @@ cargo bench --bench benchmark -- --baseline main
 ```
 
 Primary perf gate: `reservoir_step_50k < 100us`.
+
+## Security
+
+### Reporting Vulnerabilities
+
+Please report security vulnerabilities privately via [GitHub Security Advisories](https://github.com/anomalyco/chaotic_semantic_memory/security/advisories/new).
+
+Do not file public issues for security bugs.
+
+### Supported Versions
+
+| Version | Supported |
+| ------- | --------- |
+| 0.1.x   | Yes       |
+
+### Security Features
+
+- No hardcoded secrets or credentials in source code
+- Input validation on all public APIs
+- Memory limits enforced via `max_concepts`, `max_metadata_bytes`, and `max_probe_top_k`
+- WASM build excludes persistence layer (no filesystem access)
 
 ## License
 
