@@ -1,8 +1,8 @@
 use std::process::ExitCode as StdExitCode;
 
 use chaotic_semantic_memory::cli::{
-    run_associate, run_completions, run_export, run_import, run_inject, run_probe,
-    CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat,
+    run_associate, run_completions, run_export, run_import, run_inject, run_probe, CliArgs,
+    CliError, Commands, CompletionsArgs, ExitCode, OutputFormat,
 };
 use clap::Parser;
 use colored::Colorize;
@@ -58,11 +58,21 @@ async fn run_async(args: CliArgs) -> Result<(), CliError> {
             }
             Ok(())
         }
-        Commands::Inject(cmd) => run_inject(cmd.clone(), db_path, fmt).await.map_err(CliError::from),
-        Commands::Probe(cmd) => run_probe(cmd.clone(), db_path, fmt).await.map_err(CliError::from),
-        Commands::Associate(cmd) => run_associate(cmd.clone(), db_path, fmt).await.map_err(CliError::from),
-        Commands::Export(cmd) => run_export(cmd.clone(), db_path, fmt).await.map_err(CliError::from),
-        Commands::Import(cmd) => run_import(cmd.clone(), db_path, fmt).await.map_err(CliError::from),
+        Commands::Inject(cmd) => run_inject(cmd.clone(), db_path, fmt)
+            .await
+            .map_err(CliError::from),
+        Commands::Probe(cmd) => run_probe(cmd.clone(), db_path, fmt)
+            .await
+            .map_err(CliError::from),
+        Commands::Associate(cmd) => run_associate(cmd.clone(), db_path, fmt)
+            .await
+            .map_err(CliError::from),
+        Commands::Export(cmd) => run_export(cmd.clone(), db_path, fmt)
+            .await
+            .map_err(CliError::from),
+        Commands::Import(cmd) => run_import(cmd.clone(), db_path, fmt)
+            .await
+            .map_err(CliError::from),
     }
 }
 

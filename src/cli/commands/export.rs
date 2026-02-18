@@ -6,7 +6,11 @@ use crate::cli::args::{ExportArgs, ExportFormat, OutputFormat};
 
 use super::{create_framework, print_success, print_warning};
 
-pub async fn run_export(args: ExportArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()> {
+pub async fn run_export(
+    args: ExportArgs,
+    db_path: Option<&Path>,
+    format: OutputFormat,
+) -> Result<()> {
     let framework = create_framework(db_path)
         .await
         .context("failed to initialize framework")?;
@@ -32,7 +36,11 @@ pub async fn run_export(args: ExportArgs, db_path: Option<&Path>, format: Output
     match result {
         Ok(()) => {
             print_success(
-                &format!("exported {} concepts to {}", stats.concept_count, args.output.display()),
+                &format!(
+                    "exported {} concepts to {}",
+                    stats.concept_count,
+                    args.output.display()
+                ),
                 format,
             );
             if matches!(format, OutputFormat::Json) {

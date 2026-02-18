@@ -2,11 +2,15 @@ use std::path::Path;
 
 use anyhow::{Context, Result};
 
-use crate::cli::args::{ImportFormat, ImportArgs, OutputFormat};
+use crate::cli::args::{ImportArgs, ImportFormat, OutputFormat};
 
 use super::{create_framework, print_error, print_success, print_warning};
 
-pub async fn run_import(args: ImportArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()> {
+pub async fn run_import(
+    args: ImportArgs,
+    db_path: Option<&Path>,
+    format: OutputFormat,
+) -> Result<()> {
     if !args.input.exists() {
         print_error(&format!("file not found: {}", args.input.display()));
         anyhow::bail!("import file does not exist: {}", args.input.display());
@@ -62,7 +66,10 @@ pub async fn run_import(args: ImportArgs, db_path: Option<&Path>, format: Output
         Err(e) => {
             let err_str = e.to_string();
             let msg = if err_str.contains("version") || err_str.contains("deserialize") {
-                format!("import failed: incompatible or corrupted file - {}", err_str)
+                format!(
+                    "import failed: incompatible or corrupted file - {}",
+                    err_str
+                )
             } else if err_str.contains("permission") || err_str.contains("denied") {
                 format!("permission denied: {}", args.input.display())
             } else {
@@ -79,7 +86,11 @@ pub async fn run_import(args: ImportArgs, db_path: Option<&Path>, format: Output
 fn detect_format(args: &ImportArgs) -> ImportFormat {
     match args.format {
         ImportFormat::Auto => {
-            let ext = args.input.extension().and_then(|s| s.to_str()).unwrap_or("");
+            let ext = args
+                .input
+                .extension()
+                .and_then(|s| s.to_str())
+                .unwrap_or("");
             match ext.to_lowercase().as_str() {
                 "bin" | "binary" | "dat" => ImportFormat::Binary,
                 _ => ImportFormat::Json,
@@ -97,7 +108,10 @@ fn is_binary_file(path: &Path) -> Result<bool> {
     let mut file = std::fs::File::open(path).context("failed to open file")?;
     let mut header = [0u8; 4];
     use std::io::Read;
-    file.read_exact(&mut header).context("failed to read file header")?;
-    let is_text = header.iter().all(|&b| b.is_ascii_graphic() || b.is_ascii_whitespace() || b == b'{');
+    file.read_exact(&mut header)
+        .context("failed to read file header")?;
+    let is_text = header
+        .iter()
+        .all(|&b| b.is_ascii_graphic() || b.is_ascii_whitespace() || b == b'{');
     Ok(!is_text)
 }

@@ -43,7 +43,9 @@ pub fn print_warning(msg: &str, format: OutputFormat) {
     }
 }
 
-pub async fn create_framework(db_path: Option<&std::path::Path>) -> Result<ChaoticSemanticFramework> {
+pub async fn create_framework(
+    db_path: Option<&std::path::Path>,
+) -> Result<ChaoticSemanticFramework> {
     let mut builder = ChaoticSemanticFramework::builder();
     if let Some(path) = db_path {
         builder = builder.with_local_db(path.to_string_lossy());

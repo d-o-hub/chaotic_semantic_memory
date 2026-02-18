@@ -1,11 +1,18 @@
 use std::path::Path;
 
-use anyhow::{Context, Result};
 use crate::cli::args::{AssociateArgs, OutputFormat};
+use anyhow::{Context, Result};
 
-use super::{create_framework, print_error, print_success, print_warning, validate_concept_id, validate_strength};
+use super::{
+    create_framework, print_error, print_success, print_warning, validate_concept_id,
+    validate_strength,
+};
 
-pub async fn run_associate(args: AssociateArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()> {
+pub async fn run_associate(
+    args: AssociateArgs,
+    db_path: Option<&Path>,
+    format: OutputFormat,
+) -> Result<()> {
     validate_concept_id(&args.source_id)?;
     validate_concept_id(&args.target_id)?;
     validate_strength(args.strength)?;
@@ -14,19 +21,13 @@ pub async fn run_associate(args: AssociateArgs, db_path: Option<&Path>, format: 
         .await
         .context("failed to initialize framework")?;
 
-    let source_exists = framework
-        .get_concept(&args.source_id)
-        .await?
-        .is_some();
+    let source_exists = framework.get_concept(&args.source_id).await?.is_some();
     if !source_exists {
         print_error(&format!("concept '{}' not found", args.source_id));
         anyhow::bail!("concept '{}' not found", args.source_id);
     }
 
-    let target_exists = framework
-        .get_concept(&args.target_id)
-        .await?
-        .is_some();
+    let target_exists = framework.get_concept(&args.target_id).await?.is_some();
     if !target_exists {
         print_error(&format!("concept '{}' not found", args.target_id));
         anyhow::bail!("concept '{}' not found", args.target_id);
@@ -108,7 +109,10 @@ pub async fn run_associate_batch(
                 anyhow::bail!("batch failed at {} -> {}: {}", source_id, target_id, e);
             }
             if matches!(format, OutputFormat::Table) {
-                print_warning(&format!("skipped {} -> {}: {}", source_id, target_id, e), format);
+                print_warning(
+                    &format!("skipped {} -> {}: {}", source_id, target_id, e),
+                    format,
+                );
             }
         } else {
             created += 1;
@@ -117,13 +121,13 @@ pub async fn run_associate_batch(
 
     match format {
         OutputFormat::Json => {
-            println!(
-                r#"{{"created":{},"failed":{}}}"#,
-                created, failed
-            );
+            println!(r#"{{"created":{},"failed":{}}}"#, created, failed);
         }
         OutputFormat::Table => {
-            print_success(&format!("batch complete: {} created, {} failed", created, failed), format);
+            print_success(
+                &format!("batch complete: {} created, {} failed", created, failed),
+                format,
+            );
         }
         OutputFormat::Quiet => {}
     }

@@ -8,10 +8,14 @@ use crate::hyperdim::HVec10240;
 
 use super::{create_framework, print_success, print_warning, validate_concept_id, validate_top_k};
 
-pub async fn run_probe(args: ProbeArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()> {
+pub async fn run_probe(
+    args: ProbeArgs,
+    db_path: Option<&Path>,
+    format: OutputFormat,
+) -> Result<()> {
     validate_concept_id(&args.concept_id)?;
     validate_top_k(args.top_k)?;
-    
+
     let framework = create_framework(db_path)
         .await
         .context("failed to initialize framework")?;
@@ -91,7 +95,7 @@ pub async fn run_probe_with_vector(
     format: OutputFormat,
 ) -> Result<()> {
     validate_top_k(top_k)?;
-    
+
     let framework = create_framework(db_path)
         .await
         .context("failed to initialize framework")?;
