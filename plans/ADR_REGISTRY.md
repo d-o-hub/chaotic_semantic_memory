@@ -31,6 +31,7 @@
 | **0029** | **WASM API Parity (Phase 2)** | **Implemented** | **Wave 7 - Complete** |
 | **0030** | **Test & Benchmark Gap Remediation** | **Implemented** | **Wave 8 - Complete** |
 | **0038** | **Cargo.toml Modernization** | **Implemented** | **Wave 10 - Phase 24** |
+| **0039** | **Release Engineering** | **Implemented** | **Wave 11 - Phase 25** |
 | **0031** | **Two-Tier Architecture Documentation** | **Accepted** | **Documentation** |
 | 0024 | Concept Expiration (TTL) | Deferred | Post-1.0 |
 | 0024 | Performance Optimizations Phase 2 | Deferred | Post-1.0 |
@@ -43,6 +44,17 @@
 - **Implemented**: Code complete and merged
 - **Deferred**: Postponed to future release, see ADR for trigger conditions
 - **Superseded**: Replaced by newer ADR (noted in header)
+
+## Wave 11 Active ADRs
+
+Per Swarm Consensus 2026-02-19, these ADRs were implemented for release engineering:
+
+1. **ADR-0039**: Release Engineering
+   - semantic-release for automated versioning
+   - Trusted Publishing for crates.io (OIDC-based)
+   - npm provenance for WASM bindings
+   - mdBook for GitHub Pages documentation
+   - CLI usage examples and documentation
 
 ## Wave 10 Active ADRs
 

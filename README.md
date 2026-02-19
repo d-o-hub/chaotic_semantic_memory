@@ -26,7 +26,7 @@ It targets both native and `wasm32` builds with explicit threading guards.
 | Property | Value |
 |----------|-------|
 | Version | `0.1.0` |
-| MSRV | Rust `1.82` |
+| MSRV | Rust `1.85` |
 | License | MIT |
 | Targets | Native, `wasm32-unknown-unknown` |
 
@@ -51,6 +51,43 @@ chaotic_semantic_memory = { version = "0.1.0", features = ["wasm"] }
 - `framework`: high-level async orchestration API
 - `persistence`: libSQL-backed storage (native only)
 - `wasm`: JS-facing bindings for browser/runtime integration
+- `cli`: Command-line interface (`csm` binary)
+
+## CLI Usage
+
+The `csm` binary provides command-line access:
+
+```bash
+# Inject a concept
+csm inject my-concept --database memory.db
+
+# Find similar concepts
+csm probe my-concept -k 10 --database memory.db
+
+# Create associations
+csm associate source-concept target-concept --strength 0.8
+
+# Export memory state
+csm export --output backup.json
+
+# Import memory state
+csm import backup.json --merge
+
+# Generate shell completions
+csm completions bash > ~/.local/share/bash-completion/completions/csm
+```
+
+### CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `inject` | Inject a new concept with a random or provided vector |
+| `probe` | Find similar concepts by concept ID |
+| `associate` | Create an association between two concepts |
+| `export` | Export memory state to JSON or binary |
+| `import` | Import memory state from file |
+| `version` | Show version information |
+| `completions` | Generate shell completions |
 
 ## Quick Start
 

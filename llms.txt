@@ -1,0 +1,602 @@
+# chaotic_semantic_memory
+
+> AI memory systems with hyperdimensional vectors and chaotic reservoirs
+
+**Version:** 0.1.0
+**License:** MIT
+**Repository:** https://github.com/anomalyco/chaotic_semantic_memory
+**Homepage:** https://github.com/anomalyco/chaotic_semantic_memory
+**Keywords:** ai, memory, hypervector, reservoir, wasm
+**Dependencies:**
+- rand (0.8.5)
+- serde (1.0.219) [features: derive]
+- serde_json (1.0.138)
+- thiserror (2.0.11)
+- clap_complete (4.5.42)
+- clap (4.5.27) [features: derive, env, string]
+- anyhow (1.0.95)
+- tracing-subscriber (0.3.19)
+- colored (2.2.0)
+- bincode (1.3.3)
+- tracing (0.1.41)
+**Features:**
+- wasm: []
+- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored]
+- default: [cli]
+
+Generated: 2026-02-19 17:29:54 UTC  
+Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
+
+## Core Documentation
+
+- [Complete API Documentation](llms-full.txt): Full public API documentation with detailed descriptions
+- [README](README.md): Project overview and getting started guide
+- [Cargo.toml](Cargo.toml): Project configuration and dependencies
+
+## Table of Contents
+
+### src/reservoir.rs
+
+- pub struct ReservoirMetricsSnapshot
+- impl ReservoirMetrics
+- impl SparseWeights
+- pub struct Reservoir
+- impl Reservoir
+- pub struct ChaoticReservoir
+- impl ChaoticReservoir
+
+### src/hyperdim.rs
+
+- pub struct HVec10240
+- impl HVec10240
+- impl Serialize for HVec10240
+- impl Visitor for HVecVisitor
+- impl Deserialize for HVec10240
+- pub fn batch_cosine_similarity
+
+### src/concept_builder.rs
+
+- pub struct ConceptBuilder
+- impl ConceptBuilder
+
+### src/persistence_ops.rs
+
+- impl Persistence
+
+### src/framework.rs
+
+- pub struct ChaoticSemanticFramework
+- pub struct FrameworkMetrics
+- pub struct FrameworkMetricsSnapshot
+- impl FrameworkMetrics
+- impl ChaoticSemanticFramework
+
+### src/framework_validation.rs
+
+- impl ChaoticSemanticFramework
+
+### src/framework_ops.rs
+
+- impl ChaoticSemanticFramework
+
+### src/persistence.rs
+
+- pub struct Persistence
+- pub struct ConceptVersion
+- impl Persistence
+
+### src/lib.rs
+
+- pub use error::{MemoryError, Result}
+- pub use framework::ChaoticSemanticFramework
+- pub use framework_builder::FrameworkBuilder
+- pub use hyperdim::HVec10240
+- pub use singularity::{Concept, ConceptBuilder}
+- pub mod cli
+- pub mod concept_builder
+- pub mod error
+- pub mod framework
+- pub mod framework_builder
+- pub mod hyperdim
+- pub mod persistence
+- pub mod persistence_wasm
+- pub mod reservoir
+- pub mod singularity
+- pub use crate::persistence_wasm as persistence
+- pub mod prelude
+- pub use prelude::crate::error::{MemoryError, Result}
+- pub use prelude::crate::framework::ChaoticSemanticFramework
+- pub use prelude::crate::framework_builder::FrameworkBuilder
+- pub use prelude::crate::hyperdim::HVec10240
+- pub use prelude::crate::singularity::{Concept, ConceptBuilder}
+- pub mod wasm
+
+### src/singularity.rs
+
+- pub const DEFAULT_MAX_CACHED_TOP_K
+- pub struct Concept
+- pub struct SingularityConfig
+- impl Default for SingularityConfig
+- impl QueryCache
+- pub struct CacheMetricsSnapshot
+- impl CacheMetrics
+- pub struct Singularity
+- impl Singularity
+- impl Default for Singularity
+- pub use crate::concept_builder::ConceptBuilder
+
+### src/persistence_wasm.rs
+
+- pub struct Persistence
+- pub struct ConceptVersion
+- impl Persistence
+
+### src/error.rs
+
+- pub enum MemoryError
+- pub type Result
+
+### src/wasm.rs
+
+- pub struct WasmFramework
+- impl WasmFramework
+- pub fn random_hypervector
+- pub fn cosine_similarity
+
+### src/framework_builder.rs
+
+- pub struct FrameworkConfig
+- impl Default for FrameworkConfig
+- pub struct FrameworkStats
+- pub struct FrameworkBuilder
+- impl FrameworkBuilder
+
+### src/cli/args.rs
+
+- pub struct CliArgs
+- pub enum OutputFormat
+- pub enum Commands
+- pub struct InjectArgs
+- pub enum VectorSource
+- pub struct ProbeArgs
+- pub struct AssociateArgs
+- pub enum ExportFormat
+- pub struct ExportArgs
+- pub enum ImportFormat
+- pub struct ImportArgs
+- pub struct VersionArgs
+- pub struct CompletionsArgs
+
+### src/cli/error.rs
+
+- pub enum CliError
+- impl From for CliError
+- pub type Result
+- pub enum ExitCode
+- impl From for ExitCode
+- impl From for ExitCode
+- impl CliError
+- impl ExitCode
+
+### src/cli/commands/associate.rs
+
+- pub fn run_associate
+- pub fn run_associate_batch
+
+### src/cli/commands/export.rs
+
+- pub fn run_export
+
+### src/cli/commands/probe.rs
+
+- pub fn run_probe
+- pub fn run_probe_with_vector
+
+### src/cli/commands/import.rs
+
+- pub fn run_import
+
+### src/cli/commands/completions.rs
+
+- pub fn run_completions
+
+### src/cli/commands/inject.rs
+
+- pub fn run_inject
+
+### src/cli/commands/mod.rs
+
+- pub mod associate
+- pub mod completions
+- pub mod export
+- pub mod import
+- pub mod inject
+- pub mod probe
+- pub use associate::run_associate
+- pub use completions::run_completions
+- pub use export::run_export
+- pub use import::run_import
+- pub use inject::run_inject
+- pub use probe::run_probe
+- pub fn print_success
+- pub fn print_error
+- pub fn print_warning
+- pub fn create_framework
+
+### src/cli/mod.rs
+
+- pub mod args
+- pub mod commands
+- pub mod error
+- pub use args::*
+- pub use commands::{run_associate, run_completions, run_export, run_import, run_inject, run_probe}
+- pub use error::{CliError, ExitCode, Result}
+
+### src/bin/csm.rs
+
+- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, run_associate, run_completions, run_export, run_import, run_inject, run_probe}
+- pub use native::clap::Parser
+- pub use native::colored::Colorize
+- pub use native::tracing::Level
+- pub use native::tracing_subscriber::FmtSubscriber
+- pub fn native::init_tracing
+- pub fn native::format_error
+- pub fn native::handle_completions
+- pub fn native::run_async
+
+---
+
+## README.md
+
+### chaotic_semantic_memory
+
+[![CI](https://github.com/anomalyco/chaotic_semantic_memory/actions/workflows/ci.yml/badge.svg)](https://github.com/anomalyco/chaotic_semantic_memory/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/chaotic_semantic_memory.svg)](https://crates.io/crates/chaotic_semantic_memory)
+[![docs.rs](https://img.shields.io/docsrs/chaotic_semantic_memory)](https://docs.rs/chaotic_semantic_memory)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+`chaotic_semantic_memory` is a Rust crate for AI memory systems built on:
+- 10240-bit hyperdimensional vectors
+- chaotic echo-state reservoirs
+- libSQL persistence
+
+It targets both native and `wasm32` builds with explicit threading guards.
+
+#### Quick Links
+
+| Resource | Link |
+|----------|------|
+| Documentation | [docs.rs/chaotic_semantic_memory](https://docs.rs/chaotic_semantic_memory) |
+| Crates.io | [crates.io/crates/chaotic_semantic_memory](https://crates.io/crates/chaotic_semantic_memory) |
+| Issues | [GitHub Issues](https://github.com/anomalyco/chaotic_semantic_memory/issues) |
+| Changelog | [CHANGELOG.md](CHANGELOG.md) |
+
+#### Status
+
+| Property | Value |
+|----------|-------|
+| Version | `0.1.0` |
+| MSRV | Rust `1.85` |
+| License | MIT |
+| Targets | Native, `wasm32-unknown-unknown` |
+
+#### Installation
+
+```bash
+cargo add chaotic_semantic_memory
+```
+
+Enable WASM bindings when needed:
+
+```toml
+[dependencies]
+chaotic_semantic_memory = { version = "0.1.0", features = ["wasm"] }
+```
+
+#### Core Components
+
+- `hyperdim`: binary hypervector math (`HVec10240`) and similarity operations
+- `reservoir`: sparse chaotic reservoir dynamics with spectral radius controls
+- `singularity`: concept graph, associations, retrieval, and memory limits
+- `framework`: high-level async orchestration API
+- `persistence`: libSQL-backed storage (native only)
+- `wasm`: JS-facing bindings for browser/runtime integration
+- `cli`: Command-line interface (`csm` binary)
+
+#### CLI Usage
+
+The `csm` binary provides command-line access:
+
+```bash
+### Inject a concept
+csm inject my-concept --database memory.db
+
+### Find similar concepts
+csm probe my-concept -k 10 --database memory.db
+
+### Create associations
+csm associate source-concept target-concept --strength 0.8
+
+### Export memory state
+csm export --output backup.json
+
+### Import memory state
+csm import backup.json --merge
+
+### Generate shell completions
+csm completions bash > ~/.local/share/bash-completion/completions/csm
+```
+
+##### CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `inject` | Inject a new concept with a random or provided vector |
+| `probe` | Find similar concepts by concept ID |
+| `associate` | Create an association between two concepts |
+| `export` | Export memory state to JSON or binary |
+| `import` | Import memory state from file |
+| `version` | Show version information |
+| `completions` | Generate shell completions |
+
+#### Quick Start
+
+```rust
+use chaotic_semantic_memory::prelude::*;
+
+###[tokio::main]
+async fn main() -> Result<()> {
+    let framework = ChaoticSemanticFramework::builder()
+        .without_persistence()
+        .build()
+        .await?;
+
+    let concept = ConceptBuilder::new("cat".to_string()).build();
+    framework.inject_concept("cat".to_string(), concept.vector.clone()).await?;
+
+    let hits = framework.probe(concept.vector.clone(), 5).await?;
+    println!("hits: {}", hits.len());
+    Ok(())
+}
+```
+
+See `examples/proof_of_concept.rs` for an end-to-end flow.
+See `examples/basic_in_memory.rs` for the minimal in-memory workflow.
+
+#### Configuration
+
+`ChaoticSemanticFramework::builder()` exposes runtime tuning knobs.
+
+| Parameter | Default | Valid Range | Effect |
+|---|---:|---|---|
+| `reservoir_size` | `50_000` | `> 0` | Reservoir capacity and memory footprint |
+| `reservoir_input_size` | `10_240` | `> 0` | Width of each sequence step |
+| `chaos_strength` | `0.1` | `0.0..=1.0` (recommended) | Noise amplitude in chaotic updates |
+| `enable_persistence` | `true` | boolean | Enables libSQL persistence setup |
+| `max_concepts` | `None` | optional positive | Evicts oldest concepts when reached |
+| `max_associations_per_concept` | `None` | optional positive | Keeps strongest associations only |
+| `connection_pool_size` | `10` | `>= 1` | Turso/libSQL remote pool size |
+| `max_probe_top_k` | `10_000` | `>= 1` | Input guard for `probe` and batch probes |
+| `max_metadata_bytes` | `None` | optional positive | Metadata payload size guard |
+| `concept_cache_size` | `1_000` | `>= 1` | Similarity query cache capacity |
+
+##### Tuning Guide
+
+- Small workloads: disable persistence and use `reservoir_size` around `10_240`.
+- Mid-sized workloads: keep defaults and set `max_concepts` to enforce memory ceilings.
+- Large workloads: keep persistence enabled, increase `connection_pool_size`, and tune `max_probe_top_k` to practical limits.
+
+#### API Patterns
+
+In-memory flow:
+
+```rust
+let framework = ChaoticSemanticFramework::builder()
+    .without_persistence()
+    .build()
+    .await?;
+```
+
+Persistent flow:
+
+```rust
+let framework = ChaoticSemanticFramework::builder()
+    .with_local_db("memory.db")
+    .build()
+    .await?;
+```
+
+Batch APIs for bulk workloads:
+
+```rust
+framework.inject_concepts(&concepts).await?;
+framework.associate_many(&edges).await?;
+let hits = framework.probe_batch(&queries, 10).await?;
+```
+
+Load semantics:
+
+- `load_replace()`: clear in-memory state, then load persisted data.
+- `load_merge()`: merge persisted state into current in-memory state.
+
+#### WASM Build
+
+```bash
+rustup target add wasm32-unknown-unknown
+cargo check --target wasm32-unknown-unknown
+```
+
+Notes:
+- WASM threading-sensitive paths are guarded with `#[cfg(not(target_arch = "wasm32"))]`.
+- Persistence is intentionally unavailable on `wasm32` in this crate build.
+- WASM parity APIs include `processSequence`, `exportToBytes`, and `importFromBytes`.
+
+#### Development Gates
+
+```bash
+cargo check --quiet
+cargo test --all-features --quiet
+cargo fmt --check --quiet
+cargo clippy --quiet -- -D warnings
+```
+
+LOC policy: each source file in `src/` must stay at or below 500 lines.
+
+#### Mutation Testing
+
+Install cargo-mutants once:
+
+```bash
+cargo install cargo-mutants
+```
+
+Run profiles:
+
+```bash
+scripts/mutation_test.sh fast
+scripts/mutation_test.sh full
+```
+
+Reports are written under `progress/mutation/`.
+
+#### Benchmark Gates
+
+```bash
+cargo bench --bench benchmark -- --save-baseline main
+cargo bench --bench benchmark -- --baseline main
+```
+
+Primary perf gate: `reservoir_step_50k < 100us`.
+
+#### Security
+
+##### Reporting Vulnerabilities
+
+Please report security vulnerabilities privately via [GitHub Security Advisories](https://github.com/anomalyco/chaotic_semantic_memory/security/advisories/new).
+
+Do not file public issues for security bugs.
+
+##### Supported Versions
+
+| Version | Supported |
+| ------- | --------- |
+| 0.1.x   | Yes       |
+
+##### Security Features
+
+- No hardcoded secrets or credentials in source code
+- Input validation on all public APIs
+- Memory limits enforced via `max_concepts`, `max_metadata_bytes`, and `max_probe_top_k`
+- WASM build excludes persistence layer (no filesystem access)
+
+#### License
+
+MIT
+
+## Cargo.toml
+
+```toml
+[package]
+name = "chaotic_semantic_memory"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "AI memory systems with hyperdimensional vectors and chaotic reservoirs"
+license = "MIT"
+repository = "https://github.com/anomalyco/chaotic_semantic_memory"
+homepage = "https://github.com/anomalyco/chaotic_semantic_memory"
+documentation = "https://docs.rs/chaotic_semantic_memory"
+readme = "README.md"
+keywords = ["ai", "memory", "hypervector", "reservoir", "wasm"]
+categories = ["data-structures", "algorithms", "wasm"]
+resolver = "3"
+include = [
+    "/src",
+    "/benches",
+    "/examples",
+    "/tests",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+]
+
+[dependencies]
+# Serialization
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.138"
+bincode = "1.3.3"
+
+# Error handling
+thiserror = "2.0.11"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
+
+# Random number generation
+rand = "0.8.5"
+
+# CLI dependencies (gated behind "cli" feature)
+clap = { version = "4.5.27", features = ["derive", "env", "string"], optional = true }
+clap_complete = { version = "4.5.42", optional = true }
+anyhow = { version = "1.0.95", optional = true }
+colored = { version = "2.2.0", optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# CPU parallelism
+rayon = "1.10.0"
+
+# Database - Use libsql NOT turso-client
+libsql = "0.4"
+tokio = { version = "1.43.0", features = ["rt-multi-thread", "macros", "sync", "fs"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2.15", features = ["js"] }
+tokio = { version = "1.43.0", features = ["rt", "macros", "sync"] }
+wasm-bindgen = "0.2.100"
+wasm-bindgen-futures = "0.4.50"
+js-sys = "0.3.77"
+
+[dev-dependencies]
+criterion = { version = "0.5.1", features = ["html_reports"] }
+tempfile = "3.16.0"
+proptest = "1.6.0"
+# CLI testing
+assert_cmd = "2.0.16"
+predicates = "3.1.3"
+
+[[bench]]
+name = "benchmark"
+harness = false
+
+[[bench]]
+name = "persistence_benchmark"
+harness = false
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[[bin]]
+name = "csm"
+path = "src/bin/csm.rs"
+required-features = ["cli"]
+
+[[example]]
+name = "proof_of_concept"
+path = "examples/proof_of_concept.rs"
+
+[[example]]
+name = "basic_in_memory"
+path = "examples/basic_in_memory.rs"
+
+[features]
+default = ["cli"]
+cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored"]
+wasm = []
+```
+

@@ -42,4 +42,10 @@ if [ -x scripts/wasm_size_gate.sh ]; then
   scripts/wasm_size_gate.sh
 fi
 
+echo "==> Generating/validating llms-full.txt"
+scripts/gen-llms-txt.sh
+if ! git diff --quiet llms-full.txt 2>/dev/null; then
+  echo "⚠️  llms-full.txt was modified - run 'git add llms-full.txt' to include changes"
+fi
+
 echo "Validation complete."

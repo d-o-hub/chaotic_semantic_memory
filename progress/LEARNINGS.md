@@ -197,3 +197,36 @@
 ### Swarm Best Practices
 - Each skill focuses on one domain with clear boundaries
 - Include code examples and command references in every skill
+
+## 2026-02-19: CI/CD Fix and Agent Handoff Coordination
+
+### What Worked
+1. **Parallel specialist agents** - Spawning @plan, @ci, and @test agents simultaneously for faster resolution
+2. **Agent skill loading** - Pre-loading skills before spawning agents ensures they have the right context
+3. **Iterative CI fixing** - First attempt fixed GOAP sync, second iteration fixed the benchmark linker errors
+4. **Monitoring with `gh run watch`** - Watching CI until completion catches transient failures immediately
+
+### Technical Insights
+- **Linker errors in CI** often caused by stale cache artifacts when multiple crate types (lib + bin + cdylib) share build directories
+- **`cargo bench --lib`** prevents binary target compilation, avoiding conflicts with `crate-type = ["lib", "cdylib"]` in Cargo.toml
+- **Cache key versioning** (v1 → v2 → v3) is essential when build configuration changes affect artifact compatibility
+- **`cargo clean -p <package>`** before benchmarks ensures no stale artifacts from previous builds
+
+### CI Debugging Process
+1. Check failed job logs with `gh run view --job=<id> --log-failed`
+2. Identify if it's a cache issue (linker errors, undefined symbols) or code issue (test failures, clippy warnings)
+3. For cache issues: update cache key + add clean step
+4. For build conflicts: use `--lib` flag to limit scope
+5. Iterate and monitor with `gh run watch <id>`
+
+### Agent Handoff Patterns
+- **@plan** handles GOAP/ACTIONS.md synchronization
+- **@ci** handles workflow file modifications and cache management
+- **@test** handles validation gates and test verification
+- Handoff via git commits preserves work between agent invocations
+
+### What to Avoid
+- Do not reuse cache keys across CI configuration changes
+- Do not run `cargo bench` without `--lib` when binary targets exist
+- Do not skip `cargo clean` when switching between different build modes (release, bench, wasm)
+- Do not leave GOAP_STATE.md out of sync with ACTIONS.md
