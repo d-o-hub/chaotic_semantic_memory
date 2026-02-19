@@ -23,6 +23,7 @@ world_state:
     - "Deleted context.drawio (outdated stub)"
     - "Renamed llm-api-architecture.drawio → agents-context.drawio"
     - "Created ADR-0031 for two-tier documentation (context.yaml + drawio)"
+    - "Fixed post-commit hook to write agents-context.drawio (was llm-api-architecture.drawio)"
 
   # Swarm orchestration snapshot
   active_wave: 9

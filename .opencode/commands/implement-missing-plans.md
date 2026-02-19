@@ -243,7 +243,19 @@ For self-learning (when files get too large):
 ## STEP 7: Final Validation Before Commit
 
 Run full validation gates:
-!`cargo fmt -- --check && cargo clippy --all-targets --all-features -- -D warnings && cargo test --all-features`
+```bash
+cargo fmt -- --check || exit 1
+cargo clippy --all-targets --all-features -- -D warnings || exit 1
+
+# Run tests and verify at least 1 test executed
+TEST_OUTPUT=$(cargo test --all-features 2>&1)
+TEST_COUNT=$(echo "$TEST_OUTPUT" | grep -oP '\d+(?= tests?)' | tail -1)
+if [ -z "$TEST_COUNT" ] || [ "$TEST_COUNT" -eq 0 ]; then
+  echo "FAIL: No tests executed in final validation (count: ${TEST_COUNT:-0})"
+  exit 1
+fi
+echo "PASS: Final validation - $TEST_COUNT tests executed"
+```
 
 If any fail: return to STEP 5 to fix.
 
@@ -324,15 +336,23 @@ ITERATION=1
 while [ $ITERATION -le $MAX_ITERATIONS ]; do
   echo "=== Iteration $ITERATION/$MAX_ITERATIONS ==="
   
-  # Run full validation
-  cargo fmt -- --check || exit 1
-  cargo clippy --all-targets --all-features -- -D warnings || exit 1
-  cargo test --all-features || exit 1
-  
-  # Commit and push
-  git add -A
-  git commit --amend --no-edit 2>/dev/null || git commit -m "fix(plans): iteration $ITERATION fixes"
-  git push
+# Run full validation
+cargo fmt -- --check || exit 1
+cargo clippy --all-targets --all-features -- -D warnings || exit 1
+
+# Run tests and verify at least 1 test executed
+TEST_OUTPUT=$(cargo test --all-features 2>&1)
+TEST_COUNT=$(echo "$TEST_OUTPUT" | grep -oP '\d+(?= tests?)' | tail -1)
+if [ -z "$TEST_COUNT" ] || [ "$TEST_COUNT" -eq 0 ]; then
+  echo "FAIL: No tests executed in CI loop iteration $ITERATION (count: ${TEST_COUNT:-0})"
+  exit 1
+fi
+echo "PASS: Iteration $ITERATION - $TEST_COUNT tests executed"
+
+# Commit and push (NO AMEND - create new commit each iteration)
+git add -A
+git commit -m "fix(plans): iteration $ITERATION fixes - $TEST_COUNT tests passed"
+git push
   
   # Verify CI
   RUN_ID=$(gh run list --limit 1 --branch "$BRANCH" --json id -q '.[0].id')

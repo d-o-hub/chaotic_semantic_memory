@@ -56,6 +56,7 @@ Chosen option: "Two-tier with YAML canonical", because YAML is the primary LLM c
 2. DrawIO files are generated/updated when architecture changes
 3. Both formats tracked in git for history
 4. `drawio` skill handles diagram generation
+5. `.git/hooks/post-commit` auto-updates `agents-context.drawio` on relevant changes
 
 ## Links
 

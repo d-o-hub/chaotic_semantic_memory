@@ -166,7 +166,7 @@ impl WasmFramework {
 
     /// Probe for similar concepts with multiple queries in batch
     pub async fn probe_batch(&self, vectors: Array, top_k: usize) -> Result<Array, JsValue> {
-        let mut results = Array::new();
+        let results = Array::new();
 
         for i in 0..vectors.length() {
             let vector_bytes = vectors
