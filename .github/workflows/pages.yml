@@ -52,8 +52,9 @@ jobs:
     - name: Generate API documentation
       run: |
         cargo doc --no-deps --all-features
-        if [ -d "book/book" ]; then
-          cp -r target/doc book/book/api
+        if [ -d "book/build" ]; then
+          mkdir -p book/build/api
+          cp -r target/doc/* book/build/api/
         else
           mkdir -p _site/api
           cp -r target/doc/* _site/api/
@@ -62,7 +63,7 @@ jobs:
     - name: Upload Pages artifact
       uses: actions/upload-pages-artifact@v3
       with:
-        path: ${{ hashFiles('book/book.toml') != '' && 'book/book' || '_site' }}
+        path: ${{ hashFiles('book/book.toml') != '' && 'book/build' || '_site' }}
 
   deploy:
     environment:
