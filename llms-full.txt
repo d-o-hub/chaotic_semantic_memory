@@ -1,162 +1,1749 @@
-# chaotic_semantic_memory - Machine-Readable API Reference
+# chaotic_semantic_memory - Complete API Documentation
 
-> Generated for LLM consumption. Last updated: 2026-02-18
+> AI memory systems with hyperdimensional vectors and chaotic reservoirs
 
-## Installation
+**Version:** 0.1.0
+**License:** MIT
+**Repository:** https://github.com/anomalyco/chaotic_semantic_memory
+**Homepage:** https://github.com/anomalyco/chaotic_semantic_memory
+**Keywords:** ai, memory, hypervector, reservoir, wasm
+**Dependencies:**
+- rand (0.8.5)
+- serde (1.0.219) [features: derive]
+- serde_json (1.0.138)
+- thiserror (2.0.11)
+- clap_complete (4.5.42)
+- clap (4.5.27) [features: derive, env, string]
+- anyhow (1.0.95)
+- tracing-subscriber (0.3.19)
+- colored (2.2.0)
+- bincode (1.3.3)
+- tracing (0.1.41)
+**Features:**
+- wasm: []
+- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored]
+- default: [cli]
+
+Generated: 2026-02-19 17:29:54 UTC  
+Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
+
+## Table of Contents
+
+### src/reservoir.rs
+
+- pub struct ReservoirMetricsSnapshot
+- impl ReservoirMetrics
+- impl SparseWeights
+- pub struct Reservoir
+- impl Reservoir
+- pub struct ChaoticReservoir
+- impl ChaoticReservoir
+
+### src/hyperdim.rs
+
+- pub struct HVec10240
+- impl HVec10240
+- impl Serialize for HVec10240
+- impl Visitor for HVecVisitor
+- impl Deserialize for HVec10240
+- pub fn batch_cosine_similarity
+
+### src/concept_builder.rs
+
+- pub struct ConceptBuilder
+- impl ConceptBuilder
+
+### src/persistence_ops.rs
+
+- impl Persistence
+
+### src/framework.rs
+
+- pub struct ChaoticSemanticFramework
+- pub struct FrameworkMetrics
+- pub struct FrameworkMetricsSnapshot
+- impl FrameworkMetrics
+- impl ChaoticSemanticFramework
+
+### src/framework_validation.rs
+
+- impl ChaoticSemanticFramework
+
+### src/framework_ops.rs
+
+- impl ChaoticSemanticFramework
+
+### src/persistence.rs
+
+- pub struct Persistence
+- pub struct ConceptVersion
+- impl Persistence
+
+### src/lib.rs
+
+- pub use error::{MemoryError, Result}
+- pub use framework::ChaoticSemanticFramework
+- pub use framework_builder::FrameworkBuilder
+- pub use hyperdim::HVec10240
+- pub use singularity::{Concept, ConceptBuilder}
+- pub mod cli
+- pub mod concept_builder
+- pub mod error
+- pub mod framework
+- pub mod framework_builder
+- pub mod hyperdim
+- pub mod persistence
+- pub mod persistence_wasm
+- pub mod reservoir
+- pub mod singularity
+- pub use crate::persistence_wasm as persistence
+- pub mod prelude
+- pub use prelude::crate::error::{MemoryError, Result}
+- pub use prelude::crate::framework::ChaoticSemanticFramework
+- pub use prelude::crate::framework_builder::FrameworkBuilder
+- pub use prelude::crate::hyperdim::HVec10240
+- pub use prelude::crate::singularity::{Concept, ConceptBuilder}
+- pub mod wasm
+
+### src/singularity.rs
+
+- pub const DEFAULT_MAX_CACHED_TOP_K
+- pub struct Concept
+- pub struct SingularityConfig
+- impl Default for SingularityConfig
+- impl QueryCache
+- pub struct CacheMetricsSnapshot
+- impl CacheMetrics
+- pub struct Singularity
+- impl Singularity
+- impl Default for Singularity
+- pub use crate::concept_builder::ConceptBuilder
+
+### src/persistence_wasm.rs
+
+- pub struct Persistence
+- pub struct ConceptVersion
+- impl Persistence
+
+### src/error.rs
+
+- pub enum MemoryError
+- pub type Result
+
+### src/wasm.rs
+
+- pub struct WasmFramework
+- impl WasmFramework
+- pub fn random_hypervector
+- pub fn cosine_similarity
+
+### src/framework_builder.rs
+
+- pub struct FrameworkConfig
+- impl Default for FrameworkConfig
+- pub struct FrameworkStats
+- pub struct FrameworkBuilder
+- impl FrameworkBuilder
+
+### src/cli/args.rs
+
+- pub struct CliArgs
+- pub enum OutputFormat
+- pub enum Commands
+- pub struct InjectArgs
+- pub enum VectorSource
+- pub struct ProbeArgs
+- pub struct AssociateArgs
+- pub enum ExportFormat
+- pub struct ExportArgs
+- pub enum ImportFormat
+- pub struct ImportArgs
+- pub struct VersionArgs
+- pub struct CompletionsArgs
+
+### src/cli/error.rs
+
+- pub enum CliError
+- impl From for CliError
+- pub type Result
+- pub enum ExitCode
+- impl From for ExitCode
+- impl From for ExitCode
+- impl CliError
+- impl ExitCode
+
+### src/cli/commands/associate.rs
+
+- pub fn run_associate
+- pub fn run_associate_batch
+
+### src/cli/commands/export.rs
+
+- pub fn run_export
+
+### src/cli/commands/probe.rs
+
+- pub fn run_probe
+- pub fn run_probe_with_vector
+
+### src/cli/commands/import.rs
+
+- pub fn run_import
+
+### src/cli/commands/completions.rs
+
+- pub fn run_completions
+
+### src/cli/commands/inject.rs
+
+- pub fn run_inject
+
+### src/cli/commands/mod.rs
+
+- pub mod associate
+- pub mod completions
+- pub mod export
+- pub mod import
+- pub mod inject
+- pub mod probe
+- pub use associate::run_associate
+- pub use completions::run_completions
+- pub use export::run_export
+- pub use import::run_import
+- pub use inject::run_inject
+- pub use probe::run_probe
+- pub fn print_success
+- pub fn print_error
+- pub fn print_warning
+- pub fn create_framework
+
+### src/cli/mod.rs
+
+- pub mod args
+- pub mod commands
+- pub mod error
+- pub use args::*
+- pub use commands::{run_associate, run_completions, run_export, run_import, run_inject, run_probe}
+- pub use error::{CliError, ExitCode, Result}
+
+### src/bin/csm.rs
+
+- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, run_associate, run_completions, run_export, run_import, run_inject, run_probe}
+- pub use native::clap::Parser
+- pub use native::colored::Colorize
+- pub use native::tracing::Level
+- pub use native::tracing_subscriber::FmtSubscriber
+- pub fn native::init_tracing
+- pub fn native::format_error
+- pub fn native::handle_completions
+- pub fn native::run_async
+
+---
+
+## README.md
+
+### chaotic_semantic_memory
+
+[![CI](https://github.com/anomalyco/chaotic_semantic_memory/actions/workflows/ci.yml/badge.svg)](https://github.com/anomalyco/chaotic_semantic_memory/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/chaotic_semantic_memory.svg)](https://crates.io/crates/chaotic_semantic_memory)
+[![docs.rs](https://img.shields.io/docsrs/chaotic_semantic_memory)](https://docs.rs/chaotic_semantic_memory)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+`chaotic_semantic_memory` is a Rust crate for AI memory systems built on:
+- 10240-bit hyperdimensional vectors
+- chaotic echo-state reservoirs
+- libSQL persistence
+
+It targets both native and `wasm32` builds with explicit threading guards.
+
+#### Quick Links
+
+| Resource | Link |
+|----------|------|
+| Documentation | [docs.rs/chaotic_semantic_memory](https://docs.rs/chaotic_semantic_memory) |
+| Crates.io | [crates.io/crates/chaotic_semantic_memory](https://crates.io/crates/chaotic_semantic_memory) |
+| Issues | [GitHub Issues](https://github.com/anomalyco/chaotic_semantic_memory/issues) |
+| Changelog | [CHANGELOG.md](CHANGELOG.md) |
+
+#### Status
+
+| Property | Value |
+|----------|-------|
+| Version | `0.1.0` |
+| MSRV | Rust `1.85` |
+| License | MIT |
+| Targets | Native, `wasm32-unknown-unknown` |
+
+#### Installation
+
+```bash
+cargo add chaotic_semantic_memory
+```
+
+Enable WASM bindings when needed:
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = "0.1.0"
-
-# For WASM targets
 chaotic_semantic_memory = { version = "0.1.0", features = ["wasm"] }
 ```
 
-MSRV: Rust 1.82
+#### Core Components
 
-## Core Types
+- `hyperdim`: binary hypervector math (`HVec10240`) and similarity operations
+- `reservoir`: sparse chaotic reservoir dynamics with spectral radius controls
+- `singularity`: concept graph, associations, retrieval, and memory limits
+- `framework`: high-level async orchestration API
+- `persistence`: libSQL-backed storage (native only)
+- `wasm`: JS-facing bindings for browser/runtime integration
+- `cli`: Command-line interface (`csm` binary)
 
-### HVec10240
-10240-bit binary hyperdimensional vector.
+#### CLI Usage
 
-```rust
-use chaotic_semantic_memory::hyperdim::HVec10240;
+The `csm` binary provides command-line access:
 
-let v1 = HVec10240::random();
-let v2 = HVec10240::random();
-let similarity = v1.hamming_similarity(&v2); // f32 in [0.0, 1.0]
-let combined = v1.xor(&v2);
-let permuted = v1.permute(3);
+```bash
+### Inject a concept
+csm inject my-concept --database memory.db
+
+### Find similar concepts
+csm probe my-concept -k 10 --database memory.db
+
+### Create associations
+csm associate source-concept target-concept --strength 0.8
+
+### Export memory state
+csm export --output backup.json
+
+### Import memory state
+csm import backup.json --merge
+
+### Generate shell completions
+csm completions bash > ~/.local/share/bash-completion/completions/csm
 ```
 
-### Concept
-Named concept with associated hypervector and optional metadata.
+##### CLI Commands
 
-```rust
-use chaotic_semantic_memory::singularity::{Concept, ConceptBuilder};
+| Command | Description |
+|---------|-------------|
+| `inject` | Inject a new concept with a random or provided vector |
+| `probe` | Find similar concepts by concept ID |
+| `associate` | Create an association between two concepts |
+| `export` | Export memory state to JSON or binary |
+| `import` | Import memory state from file |
+| `version` | Show version information |
+| `completions` | Generate shell completions |
 
-let concept = ConceptBuilder::new("cat".to_string())
-    .with_metadata(b"{\"color\":\"orange\"}")
-    .build();
-```
-
-### ChaoticSemanticFramework
-Primary async API for memory operations.
+#### Quick Start
 
 ```rust
 use chaotic_semantic_memory::prelude::*;
 
+###[tokio::main]
+async fn main() -> Result<()> {
+    let framework = ChaoticSemanticFramework::builder()
+        .without_persistence()
+        .build()
+        .await?;
+
+    let concept = ConceptBuilder::new("cat".to_string()).build();
+    framework.inject_concept("cat".to_string(), concept.vector.clone()).await?;
+
+    let hits = framework.probe(concept.vector.clone(), 5).await?;
+    println!("hits: {}", hits.len());
+    Ok(())
+}
+```
+
+See `examples/proof_of_concept.rs` for an end-to-end flow.
+See `examples/basic_in_memory.rs` for the minimal in-memory workflow.
+
+#### Configuration
+
+`ChaoticSemanticFramework::builder()` exposes runtime tuning knobs.
+
+| Parameter | Default | Valid Range | Effect |
+|---|---:|---|---|
+| `reservoir_size` | `50_000` | `> 0` | Reservoir capacity and memory footprint |
+| `reservoir_input_size` | `10_240` | `> 0` | Width of each sequence step |
+| `chaos_strength` | `0.1` | `0.0..=1.0` (recommended) | Noise amplitude in chaotic updates |
+| `enable_persistence` | `true` | boolean | Enables libSQL persistence setup |
+| `max_concepts` | `None` | optional positive | Evicts oldest concepts when reached |
+| `max_associations_per_concept` | `None` | optional positive | Keeps strongest associations only |
+| `connection_pool_size` | `10` | `>= 1` | Turso/libSQL remote pool size |
+| `max_probe_top_k` | `10_000` | `>= 1` | Input guard for `probe` and batch probes |
+| `max_metadata_bytes` | `None` | optional positive | Metadata payload size guard |
+| `concept_cache_size` | `1_000` | `>= 1` | Similarity query cache capacity |
+
+##### Tuning Guide
+
+- Small workloads: disable persistence and use `reservoir_size` around `10_240`.
+- Mid-sized workloads: keep defaults and set `max_concepts` to enforce memory ceilings.
+- Large workloads: keep persistence enabled, increase `connection_pool_size`, and tune `max_probe_top_k` to practical limits.
+
+#### API Patterns
+
+In-memory flow:
+
+```rust
 let framework = ChaoticSemanticFramework::builder()
     .without_persistence()
     .build()
     .await?;
 ```
 
-## FrameworkBuilder Options
-
-| Method | Default | Constraint |
-|--------|---------|------------|
-| `reservoir_size(n)` | 50_000 | n > 0 |
-| `reservoir_input_size(n)` | 10_240 | n > 0 |
-| `chaos_strength(f)` | 0.1 | 0.0 <= f <= 1.0 |
-| `max_concepts(n)` | None | n > 0 |
-| `max_associations_per_concept(n)` | None | n > 0 |
-| `connection_pool_size(n)` | 10 | n >= 1 |
-| `max_probe_top_k(n)` | 10_000 | n >= 1 |
-| `max_metadata_bytes(n)` | None | n > 0 |
-| `concept_cache_size(n)` | 1_000 | n >= 1 |
-| `without_persistence()` | - | Disables libSQL |
-| `with_local_db(path)` | - | Enables libSQL with local file |
-| `with_remote_db(url, token)` | - | Enables libSQL with remote DB |
-
-## Framework Operations
-
-### inject_concept
-Store a concept with its hypervector.
+Persistent flow:
 
 ```rust
-framework.inject_concept("cat".to_string(), vector).await?;
+let framework = ChaoticSemanticFramework::builder()
+    .with_local_db("memory.db")
+    .build()
+    .await?;
 ```
 
-### inject_concepts
-Batch insert concepts.
+Batch APIs for bulk workloads:
 
 ```rust
 framework.inject_concepts(&concepts).await?;
-```
-
-### probe
-Query for similar concepts.
-
-```rust
-let hits: Vec<Concept> = framework.probe(query_vector, top_k).await?;
-```
-
-### probe_batch
-Batch query for similar concepts.
-
-```rust
-let results: Vec<Vec<Concept>> = framework.probe_batch(&query_vectors, top_k).await?;
-```
-
-### associate
-Create association between two concepts.
-
-```rust
-framework.associate("cat".to_string(), "pet".to_string(), 0.8).await?;
-```
-
-### associate_many
-Batch create associations.
-
-```rust
 framework.associate_many(&edges).await?;
+let hits = framework.probe_batch(&queries, 10).await?;
 ```
 
-### load_replace
-Clear memory and load from persistence.
+Load semantics:
 
-```rust
-framework.load_replace().await?;
+- `load_replace()`: clear in-memory state, then load persisted data.
+- `load_merge()`: merge persisted state into current in-memory state.
+
+#### WASM Build
+
+```bash
+rustup target add wasm32-unknown-unknown
+cargo check --target wasm32-unknown-unknown
 ```
 
-### load_merge
-Merge persisted data into current memory.
+Notes:
+- WASM threading-sensitive paths are guarded with `#[cfg(not(target_arch = "wasm32"))]`.
+- Persistence is intentionally unavailable on `wasm32` in this crate build.
+- WASM parity APIs include `processSequence`, `exportToBytes`, and `importFromBytes`.
 
-```rust
-framework.load_merge().await?;
+#### Development Gates
+
+```bash
+cargo check --quiet
+cargo test --all-features --quiet
+cargo fmt --check --quiet
+cargo clippy --quiet -- -D warnings
 ```
 
-## Error Handling
+LOC policy: each source file in `src/` must stay at or below 500 lines.
 
-All fallible APIs return `Result<T, MemoryError>`.
+#### Mutation Testing
+
+Install cargo-mutants once:
+
+```bash
+cargo install cargo-mutants
+```
+
+Run profiles:
+
+```bash
+scripts/mutation_test.sh fast
+scripts/mutation_test.sh full
+```
+
+Reports are written under `progress/mutation/`.
+
+#### Benchmark Gates
+
+```bash
+cargo bench --bench benchmark -- --save-baseline main
+cargo bench --bench benchmark -- --baseline main
+```
+
+Primary perf gate: `reservoir_step_50k < 100us`.
+
+#### Security
+
+##### Reporting Vulnerabilities
+
+Please report security vulnerabilities privately via [GitHub Security Advisories](https://github.com/anomalyco/chaotic_semantic_memory/security/advisories/new).
+
+Do not file public issues for security bugs.
+
+##### Supported Versions
+
+| Version | Supported |
+| ------- | --------- |
+| 0.1.x   | Yes       |
+
+##### Security Features
+
+- No hardcoded secrets or credentials in source code
+- Input validation on all public APIs
+- Memory limits enforced via `max_concepts`, `max_metadata_bytes`, and `max_probe_top_k`
+- WASM build excludes persistence layer (no filesystem access)
+
+#### License
+
+MIT
+
+---
+
+## src/reservoir.rs
+
+### ReservoirMetricsSnapshot
 
 ```rust
-use chaotic_semantic_memory::prelude::{Result, MemoryError};
-
-match framework.probe(vector, 10).await {
-    Ok(hits) => {},
-    Err(MemoryError::InvalidInput(msg)) => {},
-    Err(MemoryError::PersistenceError(msg)) => {},
-    Err(e) => {},
+#[derive(Debug, Clone, Default)]
+pub struct ReservoirMetricsSnapshot {
+    pub reservoir_steps_total: u64,
+    pub avg_reservoir_step_latency_us: f64,
+    pub reservoir_nodes_active: u64,
 }
 ```
 
-## Constraints and Limits
 
-| Constraint | Value | Source |
-|------------|-------|--------|
-| Source file LOC | <= 500 | AGENTS.md |
-| Reservoir spectral radius | [0.9, 1.1] | AGENTS.md |
-| Benchmark target | reservoir_step_50k < 100μs | AGENTS.md |
-| Vector dimension | 10_240 bits | Design |
+### impl ReservoirMetrics
 
-## WASM Considerations
+```rust
+impl ReservoirMetrics {
+}
+```
 
-- Persistence APIs unavailable on wasm32
-- Threading paths gated with `#[cfg(not(target_arch = "wasm32"))]`
-- Use `features = ["wasm"]` for wasm-bindgen exports
 
-## License
+### impl SparseWeights
 
-MIT
+```rust
+impl SparseWeights {
+}
+```
+
+
+### Reservoir
+
+```rust
+pub struct Reservoir {
+}
+```
+
+Sparse Echo State Network with chaotic dynamics
+
+### impl Reservoir
+
+```rust
+impl Reservoir {
+    pub const DEFAULT_SIZE: Type;
+    pub const DEFAULT_RADIUS: Type;
+    pub const DEFAULT_ALPHA: Type;
+    pub fn new(input_size: usize, size: usize) -> Result<Self>;
+    pub fn new_seeded(input_size: usize, size: usize, seed: u64) -> Result<Self>;
+    pub fn step(&mut self, input: &[f32]) -> Result<&[f32]>;
+    pub fn run(&mut self, inputs: &[Vec<f32>]) -> Result<Vec<Vec<f32>>>;
+    pub fn state(&self) -> &[f32];
+    pub fn set_spectral_radius(&mut self, radius: f32) -> Result<()>;
+    pub fn reset(&mut self);
+    pub fn to_hypervector(&self) -> Result<HVec10240>;
+    pub fn size(&self) -> usize;
+    pub fn metrics_snapshot(&self) -> ReservoirMetricsSnapshot;
+}
+```
+
+
+### ChaoticReservoir
+
+```rust
+pub struct ChaoticReservoir {
+}
+```
+
+Chaotic reservoir with configurable dynamics
+
+### impl ChaoticReservoir
+
+```rust
+impl ChaoticReservoir {
+    pub fn new(input_size: usize, size: usize, chaos_strength: f32) -> Result<Self>;
+    pub fn new_seeded(input_size: usize, size: usize, chaos_strength: f32, seed: u64) -> Result<Self>;
+    pub fn step(&mut self, input: &[f32]) -> Result<&[f32]>;
+    pub fn reset(&mut self);
+    pub fn state(&self) -> &[f32];
+    pub fn to_hypervector(&self) -> Result<HVec10240>;
+    pub fn metrics_snapshot(&self) -> ReservoirMetricsSnapshot;
+}
+```
+
+
+
+## src/hyperdim.rs
+
+### HVec10240
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HVec10240 {
+}
+```
+
+10240-bit hypervector (80 x 128-bit words)
+
+### impl HVec10240
+
+```rust
+impl HVec10240 {
+    pub const DIMENSION: Type;
+    pub const WORDS: Type;
+    pub fn zero() -> Self;
+    pub fn random() -> Self;
+    pub fn sparse(density: f32) -> Self;
+    pub fn bundle(vectors: &[Self]) -> Result<Self>;
+    pub fn bind(&self, other: &Self) -> Self;
+    pub fn cosine_similarity(&self, other: &Self) -> f32;
+    pub fn hamming_distance(&self, other: &Self) -> u32;
+    pub fn permute(&self, shift: usize) -> Self;
+    pub fn to_bytes(&self) -> Vec<u8>;
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self>;
+}
+```
+
+
+### impl Serialize for HVec10240
+
+```rust
+impl Serialize for HVec10240 {
+}
+```
+
+
+### impl Visitor<'de> for HVecVisitor
+
+```rust
+impl<'de> Visitor<'de> for HVecVisitor {
+}
+```
+
+
+### impl Deserialize<'de> for HVec10240
+
+```rust
+impl<'de> Deserialize<'de> for HVec10240 {
+}
+```
+
+
+### batch_cosine_similarity
+
+```rust
+pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> Vec<f32>
+```
+
+Batch similarity computation
+
+
+## src/concept_builder.rs
+
+### ConceptBuilder
+
+```rust
+#[derive(Debug)]
+pub struct ConceptBuilder {
+}
+```
+
+Builder for constructing [`Concept`] instances with a fluent API.
+
+#### Example
+
+```
+use chaotic_semantic_memory::singularity::ConceptBuilder;
+use chaotic_semantic_memory::HVec10240;
+
+let concept = ConceptBuilder::new("example")
+.with_vector(HVec10240::random())
+.with_metadata("source", "test")
+.build()
+.unwrap();
+```
+
+### impl ConceptBuilder
+
+```rust
+impl ConceptBuilder {
+    pub fn new(id: impl Trait) -> Self;
+    pub fn with_vector(self, vector: HVec10240) -> Self;
+    pub fn with_metadata(self, key: impl Trait, value: impl Trait) -> Self;
+    pub fn build(self) -> Result<Concept>;
+}
+```
+
+
+
+## src/persistence_ops.rs
+
+### impl Persistence
+
+```rust
+impl Persistence {
+    pub fn save_associations(&self, associations: &[(String, String, f32)]) -> Result<()>;
+    pub fn clear_all(&self) -> Result<()>;
+    pub fn get_concept_history(&self, id: &str, limit: usize) -> Result<Vec<ConceptVersion>>;
+    pub fn schema_version(&self) -> Result<i64>;
+    pub fn apply_migrations(&self, target_version: i64) -> Result<()>;
+    pub fn backup(&self, path: &str) -> Result<()>;
+    pub fn restore(&self, path: &str) -> Result<()>;
+    pub fn health_check(&self) -> Result<()>;
+}
+```
+
+
+
+## src/framework.rs
+
+### ChaoticSemanticFramework
+
+```rust
+pub struct ChaoticSemanticFramework {
+}
+```
+
+Main framework for chaotic semantic memory
+
+### FrameworkMetrics
+
+```rust
+#[derive(Debug, Default)]
+pub struct FrameworkMetrics {
+}
+```
+
+
+### FrameworkMetricsSnapshot
+
+```rust
+#[derive(Debug, Clone)]
+pub struct FrameworkMetricsSnapshot {
+    pub concepts_injected_total: u64,
+    pub associations_created_total: u64,
+    pub probes_total: u64,
+    pub avg_probe_latency_ms: f64,
+    pub cache_hits_total: u64,
+    pub cache_misses_total: u64,
+    pub cache_evictions_total: u64,
+    pub reservoir_steps_total: u64,
+    pub avg_reservoir_step_latency_us: f64,
+    pub reservoir_nodes_active: u64,
+}
+```
+
+
+### impl FrameworkMetrics
+
+```rust
+impl FrameworkMetrics {
+}
+```
+
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
+    pub fn builder() -> FrameworkBuilder;
+    pub fn singularity(&self) -> Arc<RwLock<Singularity>>;
+    pub fn inject_concept(&self, id: impl Trait, vector: HVec10240) -> Result<()>;
+    pub fn inject_concept_with_metadata(&self, id: impl Trait, vector: HVec10240, metadata: std::collections::HashMap<String, serde_json::Value>) -> Result<()>;
+    pub fn probe(&self, query: HVec10240, top_k: usize) -> Result<Vec<(String, f32)>>;
+    pub fn process_sequence(&self, sequence: &[Vec<f32>]) -> Result<HVec10240>;
+    pub fn associate(&self, from: &str, to: &str, strength: f32) -> Result<()>;
+    pub fn delete_concept(&self, id: &str) -> Result<()>;
+    pub fn get_associations(&self, id: &str) -> Result<Vec<(String, f32)>>;
+    pub fn get_concept(&self, id: &str) -> Result<Option<Concept>>;
+    pub fn persist(&self) -> Result<()>;
+    pub fn persistence_health_check(&self) -> Result<()>;
+    pub fn load_replace(&self) -> Result<()>;
+    pub fn load_merge(&self) -> Result<()>;
+    pub fn load(&self) -> Result<()>;
+    pub fn metrics_snapshot(&self) -> FrameworkMetricsSnapshot;
+    pub fn stats(&self) -> Result<FrameworkStats>;
+}
+```
+
+
+
+## src/framework_validation.rs
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
+}
+```
+
+
+
+## src/framework_ops.rs
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
+    pub fn inject_concepts(&self, concepts: &[(String, HVec10240)]) -> Result<()>;
+    pub fn associate_many(&self, associations: &[(String, String, f32)]) -> Result<()>;
+    pub fn probe_batch(&self, queries: &[HVec10240], top_k: usize) -> Result<Vec<Vec<(String, f32)>>>;
+    pub fn probe_batch_cached(&self, queries: &[HVec10240], top_k: usize) -> Result<Vec<Arc<[(String, f32)]>>>;
+    pub fn export_json(&self, path: &str) -> Result<()>;
+    pub fn import_json(&self, path: &str, merge: bool) -> Result<usize>;
+    pub fn export_binary(&self, path: &str) -> Result<()>;
+    pub fn import_binary(&self, path: &str, merge: bool) -> Result<usize>;
+    pub fn backup(&self, path: &str) -> Result<()>;
+    pub fn restore(&self, path: &str) -> Result<()>;
+    pub fn concept_history(&self, id: &str, limit: usize) -> Result<Vec<crate::persistence::ConceptVersion>>;
+}
+```
+
+
+
+## src/persistence.rs
+
+### Persistence
+
+```rust
+#[derive(Debug)]
+pub struct Persistence {
+}
+```
+
+Database connection manager
+
+### ConceptVersion
+
+```rust
+#[derive(Debug, Clone, serde :: Serialize, serde :: Deserialize)]
+pub struct ConceptVersion {
+    pub concept_id: String,
+    pub version: i64,
+    pub vector: HVec10240,
+    pub metadata: serde_json::Value,
+    pub modified_at: u64,
+}
+```
+
+
+### impl Persistence
+
+```rust
+impl Persistence {
+    pub fn new_local(path: &str) -> Result<Self>;
+    pub fn new_turso(url: &str, token: &str) -> Result<Self>;
+    pub fn new_turso_with_pool(url: &str, token: &str, pool_size: usize) -> Result<Self>;
+    pub fn save_concept(&self, concept: &Concept) -> Result<()>;
+    pub fn save_concepts(&self, concepts: &[Concept]) -> Result<()>;
+    pub fn load_concept(&self, id: &str) -> Result<Option<Concept>>;
+    pub fn load_all_concepts(&self) -> Result<Vec<Concept>>;
+    pub fn delete_concept(&self, id: &str) -> Result<()>;
+    pub fn save_association(&self, from: &str, to: &str, strength: f32) -> Result<()>;
+    pub fn load_associations(&self, id: &str) -> Result<Vec<(String, f32)>>;
+    pub fn checkpoint(&self) -> Result<()>;
+    pub fn size(&self) -> Result<u64>;
+}
+```
+
+
+
+## src/lib.rs
+
+### error::{MemoryError, Result}
+
+```rust
+pub use error::{MemoryError, Result};
+```
+
+
+### framework::ChaoticSemanticFramework
+
+```rust
+pub use framework::ChaoticSemanticFramework;
+```
+
+
+### framework_builder::FrameworkBuilder
+
+```rust
+pub use framework_builder::FrameworkBuilder;
+```
+
+
+### hyperdim::HVec10240
+
+```rust
+pub use hyperdim::HVec10240;
+```
+
+
+### singularity::{Concept, ConceptBuilder}
+
+```rust
+pub use singularity::{Concept, ConceptBuilder};
+```
+
+
+### crate::persistence_wasm as persistence
+
+```rust
+pub use crate::persistence_wasm as persistence;
+```
+
+
+### crate::error::{MemoryError, Result}
+
+```rust
+pub use crate::error::{MemoryError, Result};
+```
+
+
+### crate::framework::ChaoticSemanticFramework
+
+```rust
+pub use crate::framework::ChaoticSemanticFramework;
+```
+
+
+### crate::framework_builder::FrameworkBuilder
+
+```rust
+pub use crate::framework_builder::FrameworkBuilder;
+```
+
+
+### crate::hyperdim::HVec10240
+
+```rust
+pub use crate::hyperdim::HVec10240;
+```
+
+
+### crate::singularity::{Concept, ConceptBuilder}
+
+```rust
+pub use crate::singularity::{Concept, ConceptBuilder};
+```
+
+
+
+## src/singularity.rs
+
+### DEFAULT_MAX_CACHED_TOP_K
+
+```rust
+pub const DEFAULT_MAX_CACHED_TOP_K: usize
+```
+
+
+### Concept
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Concept {
+    pub id: String,
+    pub vector: HVec10240,
+    pub metadata: HashMap<String, serde_json::Value>,
+    pub created_at: u64,
+    pub modified_at: u64,
+}
+```
+
+A concept in semantic memory
+
+### SingularityConfig
+
+```rust
+#[derive(Debug, Clone)]
+pub struct SingularityConfig {
+    pub max_concepts: Option<usize>,
+    pub max_associations_per_concept: Option<usize>,
+    pub concept_cache_size: usize,
+    pub max_cached_top_k: usize,
+}
+```
+
+Runtime configuration for [`Singularity`].
+
+### impl Default for SingularityConfig
+
+```rust
+impl Default for SingularityConfig {
+}
+```
+
+
+### impl QueryCache
+
+```rust
+impl QueryCache {
+}
+```
+
+
+### CacheMetricsSnapshot
+
+```rust
+#[derive(Debug, Clone, Default)]
+pub struct CacheMetricsSnapshot {
+    pub cache_hits_total: u64,
+    pub cache_misses_total: u64,
+    pub cache_evictions_total: u64,
+}
+```
+
+
+### impl CacheMetrics
+
+```rust
+impl CacheMetrics {
+}
+```
+
+
+### Singularity
+
+```rust
+#[derive(Debug)]
+pub struct Singularity {
+}
+```
+
+Episode-free singularity engine
+
+### impl Singularity
+
+```rust
+impl Singularity {
+    pub fn new() -> Self;
+    pub fn with_config(config: SingularityConfig) -> Self;
+    pub fn inject(&mut self, concept: Concept) -> Result<()>;
+    pub fn get(&self, id: &str) -> Option<&Concept>;
+    pub fn delete(&mut self, id: &str) -> Result<()>;
+    pub fn clear(&mut self);
+    pub fn update(&mut self, id: &str, new_vector: HVec10240) -> Result<()>;
+    pub fn find_similar(&self, query: &HVec10240, top_k: usize) -> Vec<(String, f32)>;
+    pub fn find_similar_cached(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]>;
+    pub fn associate(&mut self, from: &str, to: &str, strength: f32) -> Result<()>;
+    pub fn get_associations(&self, id: &str) -> Vec<(String, f32)>;
+    pub fn bundle_concepts(&self, ids: &[String]) -> Result<HVec10240>;
+    pub fn concept_ids(&self) -> Vec<String>;
+    pub fn all_concepts(&self) -> Vec<Concept>;
+    pub fn all_associations(&self) -> Vec<(String, String, f32)>;
+    pub fn len(&self) -> usize;
+    pub fn is_empty(&self) -> bool;
+    pub fn cache_metrics_snapshot(&self) -> CacheMetricsSnapshot;
+}
+```
+
+
+### impl Default for Singularity
+
+```rust
+impl Default for Singularity {
+}
+```
+
+
+### crate::concept_builder::ConceptBuilder
+
+```rust
+pub use crate::concept_builder::ConceptBuilder;
+```
+
+
+
+## src/persistence_wasm.rs
+
+### Persistence
+
+```rust
+pub struct Persistence;
+```
+
+Persistence stub for wasm32 builds.
+
+### ConceptVersion
+
+```rust
+#[derive(Debug, Clone, serde :: Serialize, serde :: Deserialize)]
+pub struct ConceptVersion {
+    pub concept_id: String,
+    pub version: i64,
+    pub vector: HVec10240,
+    pub metadata: serde_json::Value,
+    pub modified_at: u64,
+}
+```
+
+
+### impl Persistence
+
+```rust
+impl Persistence {
+    pub fn new_local(_path: &str) -> Result<Self>;
+    pub fn new_turso(_url: &str, _token: &str) -> Result<Self>;
+    pub fn new_turso_with_pool(_url: &str, _token: &str, _pool_size: usize) -> Result<Self>;
+    pub fn save_concept(&self, _concept: &Concept) -> Result<()>;
+    pub fn save_concepts(&self, _concepts: &[Concept]) -> Result<()>;
+    pub fn load_concept(&self, _id: &str) -> Result<Option<Concept>>;
+    pub fn load_all_concepts(&self) -> Result<Vec<Concept>>;
+    pub fn delete_concept(&self, _id: &str) -> Result<()>;
+    pub fn save_association(&self, _from: &str, _to: &str, _strength: f32) -> Result<()>;
+    pub fn save_associations(&self, _associations: &[(String, String, f32)]) -> Result<()>;
+    pub fn load_associations(&self, _id: &str) -> Result<Vec<(String, f32)>>;
+    pub fn clear_all(&self) -> Result<()>;
+    pub fn get_concept_history(&self, _id: &str, _limit: usize) -> Result<Vec<ConceptVersion>>;
+    pub fn schema_version(&self) -> Result<i64>;
+    pub fn apply_migrations(&self, _target_version: i64) -> Result<()>;
+    pub fn backup(&self, _path: &str) -> Result<()>;
+    pub fn restore(&self, _path: &str) -> Result<()>;
+    pub fn checkpoint(&self) -> Result<()>;
+    pub fn health_check(&self) -> Result<()>;
+    pub fn size(&self) -> Result<u64>;
+}
+```
+
+
+
+## src/error.rs
+
+### MemoryError
+
+```rust
+#[derive(Error, Debug)]
+pub enum MemoryError {
+    Database(String),
+    InvalidInput { field: String, reason: String },
+    InvalidDimension { expected: usize, actual: usize },
+    UnsupportedOperation(String),
+    Reservoir(String),
+    Persistence(String),
+    Io(std::io::Error),
+    Serialization(serde_json::Error),
+}
+```
+
+
+### Result
+
+```rust
+pub type Result<T> = std::result::Result<T, MemoryError>
+```
+
+
+
+## src/wasm.rs
+
+### WasmFramework
+
+```rust
+pub struct WasmFramework {
+}
+```
+
+WASM-friendly wrapper for the framework
+
+### impl WasmFramework
+
+```rust
+impl WasmFramework {
+    pub fn new() -> Result<WasmFramework, JsValue>;
+    pub fn inject_concept(&self, id: String, vector: &[u8]) -> Result<(), JsValue>;
+    pub fn probe(&self, vector: &[u8], top_k: usize) -> Result<Array, JsValue>;
+    pub fn associate(&self, from: String, to: String, strength: f32) -> Result<(), JsValue>;
+    pub fn delete_concept(&self, id: String) -> Result<(), JsValue>;
+    pub fn get_associations(&self, id: String) -> Result<Array, JsValue>;
+    pub fn get_concept(&self, id: String) -> Result<JsValue, JsValue>;
+    pub fn inject_concepts(&self, ids: Array, vectors: Array) -> Result<(), JsValue>;
+    pub fn associate_many(&self, associations: Array) -> Result<(), JsValue>;
+    pub fn probe_batch(&self, vectors: Array, top_k: usize) -> Result<Array, JsValue>;
+    pub fn metrics_snapshot(&self) -> Result<JsValue, JsValue>;
+    pub fn process_sequence(&self, sequence: Array) -> Result<Box<[u8]>, JsValue>;
+    pub fn export_to_bytes(&self) -> Result<Uint8Array, JsValue>;
+    pub fn import_from_bytes(&self, data: Uint8Array, merge: bool) -> Result<usize, JsValue>;
+    pub fn stats(&self) -> Result<JsValue, JsValue>;
+}
+```
+
+
+### random_hypervector
+
+```rust
+pub fn random_hypervector() -> Box<[u8]>
+```
+
+Create a random hypervector (1280 bytes)
+
+### cosine_similarity
+
+```rust
+pub fn cosine_similarity(a: &[u8], b: &[u8]) -> Result<f32, JsValue>
+```
+
+Compute cosine similarity between two hypervectors
+
+
+## src/export_payload.rs
+
+
+## src/framework_builder.rs
+
+### FrameworkConfig
+
+```rust
+#[derive(Clone, Debug)]
+pub struct FrameworkConfig {
+    pub reservoir_size: usize,
+    pub reservoir_input_size: usize,
+    pub chaos_strength: f32,
+    pub enable_persistence: bool,
+    pub max_concepts: Option<usize>,
+    pub max_associations_per_concept: Option<usize>,
+    pub connection_pool_size: usize,
+    pub max_probe_top_k: usize,
+    pub max_metadata_bytes: Option<usize>,
+    pub max_cached_top_k: usize,
+}
+```
+
+Runtime configuration for [`ChaoticSemanticFramework`], tuned via [`FrameworkBuilder`].
+
+### impl Default for FrameworkConfig
+
+```rust
+impl Default for FrameworkConfig {
+}
+```
+
+
+### FrameworkStats
+
+```rust
+#[derive(Debug, Clone)]
+pub struct FrameworkStats {
+    pub concept_count: usize,
+    pub db_size_bytes: u64,
+}
+```
+
+Framework statistics
+
+### FrameworkBuilder
+
+```rust
+pub struct FrameworkBuilder {
+}
+```
+
+Builder for ChaoticSemanticFramework
+
+### impl FrameworkBuilder
+
+```rust
+impl FrameworkBuilder {
+    pub fn with_reservoir_size(self, size: usize) -> Self;
+    pub fn with_reservoir_input_size(self, size: usize) -> Self;
+    pub fn with_chaos_strength(self, strength: f32) -> Self;
+    pub fn with_max_concepts(self, max_concepts: usize) -> Self;
+    pub fn with_max_associations_per_concept(self, max_associations: usize) -> Self;
+    pub fn with_concept_cache_size(self, size: usize) -> Self;
+    pub fn with_turso(self, url: impl Trait, token: impl Trait) -> Self;
+    pub fn with_connection_pool_size(self, pool_size: usize) -> Self;
+    pub fn with_max_probe_top_k(self, max_probe_top_k: usize) -> Self;
+    pub fn with_max_metadata_bytes(self, max_metadata_bytes: usize) -> Self;
+    pub fn with_max_cached_top_k(self, max_cached_top_k: usize) -> Self;
+    pub fn with_local_db(self, path: impl Trait) -> Self;
+    pub fn without_persistence(self) -> Self;
+    pub fn build(self) -> Result<ChaoticSemanticFramework>;
+}
+```
+
+
+
+## src/cli/args.rs
+
+### CliArgs
+
+```rust
+#[derive(Parser, Debug)]
+pub struct CliArgs {
+    pub command: Commands,
+    pub verbose: u8,
+    pub database: Option<PathBuf>,
+    pub output_format: OutputFormat,
+}
+```
+
+
+### OutputFormat
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum OutputFormat {
+    Json,
+    Table,
+    Quiet,
+}
+```
+
+
+### Commands
+
+```rust
+#[derive(Subcommand, Debug)]
+pub enum Commands {
+    Inject(InjectArgs),
+    Probe(ProbeArgs),
+    Associate(AssociateArgs),
+    Export(ExportArgs),
+    Import(ImportArgs),
+    Version(VersionArgs),
+    Completions(CompletionsArgs),
+}
+```
+
+
+### InjectArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct InjectArgs {
+    pub concept_id: String,
+    pub from_file: Option<PathBuf>,
+    pub vector_source: VectorSource,
+}
+```
+
+
+### VectorSource
+
+```rust
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum VectorSource {
+    Random,
+    File,
+    Stdin,
+}
+```
+
+
+### ProbeArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct ProbeArgs {
+    pub concept_id: String,
+    pub top_k: usize,
+    pub threshold: Option<f64>,
+}
+```
+
+
+### AssociateArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct AssociateArgs {
+    pub source_id: String,
+    pub target_id: String,
+    pub strength: f64,
+}
+```
+
+
+### ExportFormat
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum ExportFormat {
+    Json,
+    Binary,
+}
+```
+
+
+### ExportArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct ExportArgs {
+    pub output: PathBuf,
+    pub format: ExportFormat,
+}
+```
+
+
+### ImportFormat
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum ImportFormat {
+    Json,
+    Binary,
+    Auto,
+}
+```
+
+
+### ImportArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct ImportArgs {
+    pub input: PathBuf,
+    pub format: ImportFormat,
+    pub merge: bool,
+}
+```
+
+
+### VersionArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct VersionArgs {
+    pub detailed: bool,
+}
+```
+
+
+### CompletionsArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct CompletionsArgs {
+    pub shell: clap_complete::Shell,
+    pub output: Option<PathBuf>,
+}
+```
+
+
+
+## src/cli/error.rs
+
+### CliError
+
+```rust
+#[derive(Error, Debug)]
+pub enum CliError {
+    Config(String),
+    Database(String),
+    Input(String),
+    Output(String),
+    Validation(String),
+    Persistence(String),
+    Memory(MemoryError),
+    Io(std::io::Error),
+    Other(String),
+}
+```
+
+
+### impl From<anyhow::Error> for CliError
+
+```rust
+impl From<anyhow::Error> for CliError {
+}
+```
+
+
+### Result
+
+```rust
+pub type Result<T> = std::result::Result<T, CliError>
+```
+
+
+### ExitCode
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExitCode {
+    Success,
+    ConfigError,
+    DatabaseError,
+    InputError,
+    OutputError,
+    ValidationError,
+    MemoryError,
+    IoError,
+    UnknownError,
+}
+```
+
+
+### impl From<&CliError> for ExitCode
+
+```rust
+impl From<&CliError> for ExitCode {
+}
+```
+
+
+### impl From<CliError> for ExitCode
+
+```rust
+impl From<CliError> for ExitCode {
+}
+```
+
+
+### impl CliError
+
+```rust
+impl CliError {
+    pub fn exit_code(&self) -> i32;
+}
+```
+
+
+### impl ExitCode
+
+```rust
+impl ExitCode {
+    pub fn as_i32(self) -> i32;
+}
+```
+
+
+
+## src/cli/commands/associate.rs
+
+### run_associate
+
+```rust
+pub fn run_associate(args: AssociateArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+
+### run_associate_batch
+
+```rust
+pub fn run_associate_batch(associations: Vec<(String, String, f64)>, db_path: Option<&Path>, format: OutputFormat, continue_on_error: bool) -> Result<()>
+```
+
+
+
+## src/cli/commands/export.rs
+
+### run_export
+
+```rust
+pub fn run_export(args: ExportArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+
+
+## src/cli/commands/probe.rs
+
+### run_probe
+
+```rust
+pub fn run_probe(args: ProbeArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+
+### run_probe_with_vector
+
+```rust
+pub fn run_probe_with_vector(query_vector: HVec10240, top_k: usize, threshold: Option<f64>, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+
+
+## src/cli/commands/import.rs
+
+### run_import
+
+```rust
+pub fn run_import(args: ImportArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+
+
+## src/cli/commands/completions.rs
+
+### run_completions
+
+```rust
+pub fn run_completions(args: CompletionsArgs) -> Result<()>
+```
+
+
+
+## src/cli/commands/inject.rs
+
+### run_inject
+
+```rust
+pub fn run_inject(args: InjectArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+
+
+## src/cli/commands/mod.rs
+
+### associate::run_associate
+
+```rust
+pub use associate::run_associate;
+```
+
+
+### completions::run_completions
+
+```rust
+pub use completions::run_completions;
+```
+
+
+### export::run_export
+
+```rust
+pub use export::run_export;
+```
+
+
+### import::run_import
+
+```rust
+pub use import::run_import;
+```
+
+
+### inject::run_inject
+
+```rust
+pub use inject::run_inject;
+```
+
+
+### probe::run_probe
+
+```rust
+pub use probe::run_probe;
+```
+
+
+### print_success
+
+```rust
+pub fn print_success(msg: &str, format: OutputFormat)
+```
+
+
+### print_error
+
+```rust
+pub fn print_error(msg: &str)
+```
+
+
+### print_warning
+
+```rust
+pub fn print_warning(msg: &str, format: OutputFormat)
+```
+
+
+### create_framework
+
+```rust
+pub fn create_framework(db_path: Option<&std::path::Path>) -> Result<ChaoticSemanticFramework>
+```
+
+
+
+## src/cli/mod.rs
+
+### args::*
+
+```rust
+pub use args::*;
+```
+
+
+### commands::{run_associate, run_completions, run_export, run_import, run_inject, run_probe}
+
+```rust
+pub use commands::{run_associate, run_completions, run_export, run_import, run_inject, run_probe};
+```
+
+
+### error::{CliError, ExitCode, Result}
+
+```rust
+pub use error::{CliError, ExitCode, Result};
+```
+
+
+
+## src/bin/csm.rs
+
+### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, run_associate, run_completions, run_export, run_import, run_inject, run_probe}
+
+```rust
+pub use chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, run_associate, run_completions, run_export, run_import, run_inject, run_probe};
+```
+
+
+### clap::Parser
+
+```rust
+pub use clap::Parser;
+```
+
+
+### colored::Colorize
+
+```rust
+pub use colored::Colorize;
+```
+
+
+### tracing::Level
+
+```rust
+pub use tracing::Level;
+```
+
+
+### tracing_subscriber::FmtSubscriber
+
+```rust
+pub use tracing_subscriber::FmtSubscriber;
+```
+
+
+### init_tracing
+
+```rust
+pub fn init_tracing(verbose: u8)
+```
+
+
+### format_error
+
+```rust
+pub fn format_error(err: &CliError, format: OutputFormat) -> String
+```
+
+
+### handle_completions
+
+```rust
+pub fn handle_completions(args: &CompletionsArgs) -> Result<(), CliError>
+```
+
+
+### run_async
+
+```rust
+pub fn run_async(args: CliArgs) -> Result<((), OutputFormat), CliError>
+```
+
+
+

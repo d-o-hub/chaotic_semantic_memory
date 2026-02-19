@@ -1452,3 +1452,115 @@ actions:
       - Verify WASM target: cargo check --target wasm32-unknown-unknown --edition 2024
       - Run full test suite to ensure no regressions
       - Edition 2024 is low-risk: no macro_rules!, SIMD unchanged, Rayon safe
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 25: RELEASE ENGINEERING (cost: 12) - Wave 11
+  # ADR-0039: Automated release management with trusted publishing
+  # ═══════════════════════════════════════════════════════
+  - name: create_release_management_skill
+    preconditions:
+      crates_io_ready: true
+    effects:
+      release_management_skill_created: true
+    cost: 2
+    status: complete
+    file: .agents/skills/release-management/
+    adr: ADR-0039
+    description: |
+      Create release management skill with:
+      - SKILL.md: Quick start, validation gates, CLI usage examples
+      - references/release-workflow.md: CI/CD workflow details
+      - references/trusted-publishing.md: OIDC authentication docs
+      - scripts/validate-release.sh: Pre-release validation
+      - scripts/create-github-release.sh: Release helper
+
+  - name: create_release_engineering_adr
+    preconditions:
+      release_management_skill_created: true
+    effects:
+      release_adr_created: true
+    cost: 1
+    status: complete
+    file: plans/adr/0039-release-engineering.md
+    description: |
+      Create ADR-0039 documenting:
+      - Context: Manual release challenges, security concerns
+      - Decision: semantic-release + OIDC trusted publishing + mdBook
+      - Consequences: Zero-touch releases, no secrets, provenance
+      - Implementation: GitHub Actions, crates.io/npm trusted publishing
+      - Alternatives: cargo-release, release-please
+
+  - name: create_github_pages_workflow
+    preconditions:
+      release_management_skill_created: true
+    effects:
+      github_pages_workflow_created: true
+    cost: 2
+    status: complete
+    file: .github/workflows/pages.yml, book/
+    adr: ADR-0039
+    description: |
+      Create GitHub Pages documentation:
+      - .github/workflows/pages.yml: mdBook deployment workflow
+      - book/src/SUMMARY.md: Table of contents
+      - book/src/*.md: Documentation chapters
+      - Uses actions/configure-pages, actions/deploy-pages
+      - Auto-deploys on push to main
+
+  - name: create_crates_io_publishing_workflow
+    preconditions:
+      crates_io_ready: true
+      release_management_skill_created: true
+    effects:
+      crates_io_trusted_publishing: true
+    cost: 2
+    status: complete
+    file: .github/workflows/release.yml
+    adr: ADR-0039
+    description: |
+      Create crates.io trusted publishing workflow:
+      - Uses rust-lang/crates-io-auth-action@v1 (OIDC)
+      - No API token required (Trusted Publishing)
+      - Triggers on version tags (v*)
+      - Validates tag matches Cargo.toml version
+      - Creates GitHub Release with changelog
+      - Builds release artifacts (binary, WASM)
+
+  - name: create_npm_publishing_workflow
+    preconditions:
+      wasm_compiles: true
+      release_management_skill_created: true
+    effects:
+      npm_provenance_publishing: true
+    cost: 2
+    status: complete
+    file: .github/workflows/npm-publish.yml, wasm/
+    adr: ADR-0039
+    description: |
+      Create npm/npx publishing for WASM bindings:
+      - Uses wasm-pack for WASM package build
+      - npm provenance with --provenance flag
+      - Requires permissions: id-token: write
+      - Package: @anomalyco/chaotic-semantic-memory
+      - Enables npx usage for WASM bindings
+
+  - name: create_mdbook_structure
+    preconditions:
+      github_pages_workflow_created: true
+    effects:
+      mdbook_docs_structure: true
+    cost: 3
+    status: complete
+    file: book/src/, book/book.toml
+    description: |
+      Create mdBook documentation structure:
+      - book/book.toml: mdBook configuration
+      - book/src/SUMMARY.md: Navigation structure
+      - book/src/introduction.md: Project overview
+      - book/src/getting-started.md: Quick start guide
+      - book/src/architecture.md: Architecture overview
+      - book/src/api-reference.md: API documentation
+      - book/src/cli.md: CLI usage guide
+      - book/src/wasm.md: WASM bindings guide
+      - book/src/configuration.md: Configuration options
+      - book/src/performance.md: Performance tuning

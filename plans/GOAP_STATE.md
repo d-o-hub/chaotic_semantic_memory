@@ -118,37 +118,39 @@ world_state:
   planning_gaps:
     mutation_testing_action_missing: false
 
-  # Module status (LOC counts) - Updated 2026-02-18
+  # Module status (LOC counts) - Updated 2026-02-19
   modules:
-    lib.rs: 35
+    lib.rs: 41
     error.rs: 32
-    hyperdim.rs: 410
+    hyperdim.rs: 399
     reservoir.rs: 483
-    singularity.rs: 500
+    singularity.rs: 441
     persistence.rs: 499
     persistence_wasm.rs: 109
-    framework.rs: 494
-    framework_ops.rs: 233
+    framework.rs: 492
+    framework_ops.rs: 292
     framework_validation.rs: 86
     persistence_ops.rs: 262
     export_payload.rs: 16
-    wasm.rs: 271
-    cli/mod.rs: 10
-    cli/args.rs: 120
-    cli/error.rs: 100
-    cli/commands/mod.rs: 80
-    cli/commands/inject.rs: 125
-    cli/commands/probe.rs: 150
-    cli/commands/associate.rs: 135
-    cli/commands/export.rs: 55
-    cli/commands/import.rs: 105
-    cli/commands/completions.rs: 40
-    bin/csm.rs: 90
+    wasm.rs: 416
+    concept_builder.rs: 119
+    framework_builder.rs: 188
+    cli/mod.rs: 7
+    cli/args.rs: 130
+    cli/error.rs: 113
+    cli/commands/mod.rs: 107
+    cli/commands/inject.rs: 157
+    cli/commands/probe.rs: 151
+    cli/commands/associate.rs: 160
+    cli/commands/export.rs: 62
+    cli/commands/import.rs: 125
+    cli/commands/completions.rs: 42
+    bin/csm.rs: 93
 
-  # Test status - Updated 2026-02-18
-  unit_tests_passing: 14
+  # Test status - Updated 2026-02-19
+  unit_tests_passing: 22
   integration_tests_exist: true
-  integration_tests_passing: 101
+  integration_tests_passing: 112
   batch_operations_tests: 31
   persistence_crud_tests: 28
 
@@ -308,6 +310,14 @@ world_state:
 
   # GOAP/Plan Consistency
   actions_md_phase20_synced: true       # ACTIONS.md Phase 20 now correctly marked complete
+
+  # Phase 25: Release Engineering (cost: 12) - Wave 11
+  release_management_skill_created: true
+  release_adr_created: true             # ADR-0039
+  github_pages_workflow_created: true
+  crates_io_trusted_publishing: true
+  npm_provenance_publishing: true
+  mdbook_docs_structure: true
 
   # Post-1.0 Deferred Work (ADR-0024, ADR-0025, ADR-0026)
   # Per Swarm Consensus 2026-02-17: Advanced features deferred until user demand

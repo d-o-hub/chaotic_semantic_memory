@@ -195,7 +195,7 @@ jobs:
 1. Navigate to `https://crates.io/crates/chaotic_semantic_memory/settings`
 2. Click "Trusted Publishing" → "Add"
 3. Configure:
-   - Repository: `your-org/chaotic_semantic_memory`
+   - Repository: `d-o-hub/chaotic_semantic_memory`
    - Workflow: `.github/workflows/release.yml`
    - Environment: (optional, for additional controls)
 

@@ -44,6 +44,13 @@ if echo "$CHANGED_FILES" | grep -qE "^(src/|\.agents/skills/|plans/|Cargo\.toml)
     "$(git rev-parse --show-toplevel)/scripts/gen-agents-context.sh"
     echo "   Run 'git add docs/architecture/agents-context.drawio' to include in next commit"
 fi
+
+# Generate llms-full.txt when source files change
+if echo "$CHANGED_FILES" | grep -qE "^(src/|Cargo\.toml)"; then
+    echo "📝 Updating llms-full.txt..."
+    "$(git rev-parse --show-toplevel)/scripts/gen-llms-txt.sh"
+    echo "   Run 'git add llms-full.txt' to include in next commit"
+fi
 HOOK_EOF
 
 chmod +x "$POST_COMMIT_HOOK"

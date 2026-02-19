@@ -65,6 +65,12 @@ Run before commit (see `git-workflow` skill for details):
 scripts/validate.sh
 ```
 
+### Auto-generate AI docs
+```bash
+scripts/gen-llms-txt.sh  # generates llms.txt and llms-full.txt
+```
+This runs automatically on post-commit when source files change.
+
 ### Performance Gate
 ```bash
 cargo bench --bench benchmark -- --save-baseline main
