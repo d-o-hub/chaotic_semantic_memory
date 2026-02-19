@@ -126,10 +126,13 @@ jobs:
           ~/.cargo/registry
           ~/.cargo/git
           target
-        key: ${{ runner.os }}-cargo-bench-v2-${{ hashFiles('**/Cargo.lock') }}
-    
+        key: ${{ runner.os }}-cargo-bench-v3-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Clean target for bench
+      run: cargo clean -p chaotic_semantic_memory
+
     - name: Run benchmarks
-      run: cargo bench
+      run: cargo bench --lib --no-fail-fast
     
     - name: Upload benchmark results
       uses: actions/upload-artifact@v6
