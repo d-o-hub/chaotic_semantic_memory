@@ -1,7 +1,7 @@
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]
 use std::process::ExitCode as StdExitCode;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]
 mod native {
     pub use chaotic_semantic_memory::cli::{
         CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, run_associate,
@@ -71,7 +71,7 @@ mod native {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]
 fn main() -> StdExitCode {
     use native::*;
     let args = CliArgs::parse();
@@ -86,8 +86,8 @@ fn main() -> StdExitCode {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(not(all(not(target_arch = "wasm32"), feature = "cli")))]
 fn main() {
-    eprintln!("CLI is not supported on WASM target");
+    eprintln!("CLI is not available. Build with --features cli to enable.");
     std::process::exit(1);
 }
