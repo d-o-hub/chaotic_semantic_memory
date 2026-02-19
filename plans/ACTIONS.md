@@ -1366,8 +1366,8 @@ actions:
       Add required and recommended crates.io metadata:
       - description: "AI memory systems with hyperdimensional vectors and chaotic reservoirs"
       - license: "MIT"
-      - repository: "https://github.com/anomalyco/chaotic_semantic_memory"
-      - homepage: "https://github.com/anomalyco/chaotic_semantic_memory"
+      - repository: "https://github.com/d-o-hub/chaotic_semantic_memory"
+      - homepage: "https://github.com/d-o-hub/chaotic_semantic_memory"
       - documentation: "https://docs.rs/chaotic_semantic_memory"
       - readme: "README.md"
       - keywords: ["ai", "memory", "hypervector", "reservoir", "wasm"]
@@ -1541,7 +1541,7 @@ actions:
       - Uses wasm-pack for WASM package build
       - npm provenance with --provenance flag
       - Requires permissions: id-token: write
-      - Package: @anomalyco/chaotic-semantic-memory
+      - Package: @d-o-hub/chaotic-semantic-memory
       - Enables npx usage for WASM bindings
 
   - name: create_mdbook_structure

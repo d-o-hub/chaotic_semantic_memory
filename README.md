@@ -1,6 +1,6 @@
 # chaotic_semantic_memory
 
-[![CI](https://github.com/anomalyco/chaotic_semantic_memory/actions/workflows/ci.yml/badge.svg)](https://github.com/anomalyco/chaotic_semantic_memory/actions/workflows/ci.yml)
+[![CI](https://github.com/d-o-hub/chaotic_semantic_memory/actions/workflows/ci.yml/badge.svg)](https://github.com/d-o-hub/chaotic_semantic_memory/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/chaotic_semantic_memory.svg)](https://crates.io/crates/chaotic_semantic_memory)
 [![docs.rs](https://img.shields.io/docsrs/chaotic_semantic_memory)](https://docs.rs/chaotic_semantic_memory)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -18,7 +18,7 @@ It targets both native and `wasm32` builds with explicit threading guards.
 |----------|------|
 | Documentation | [docs.rs/chaotic_semantic_memory](https://docs.rs/chaotic_semantic_memory) |
 | Crates.io | [crates.io/crates/chaotic_semantic_memory](https://crates.io/crates/chaotic_semantic_memory) |
-| Issues | [GitHub Issues](https://github.com/anomalyco/chaotic_semantic_memory/issues) |
+| Issues | [GitHub Issues](https://github.com/d-o-hub/chaotic_semantic_memory/issues) |
 | Changelog | [CHANGELOG.md](CHANGELOG.md) |
 
 ## Status
@@ -222,7 +222,7 @@ Primary perf gate: `reservoir_step_50k < 100us`.
 
 ### Reporting Vulnerabilities
 
-Please report security vulnerabilities privately via [GitHub Security Advisories](https://github.com/anomalyco/chaotic_semantic_memory/security/advisories/new).
+Please report security vulnerabilities privately via [GitHub Security Advisories](https://github.com/d-o-hub/chaotic_semantic_memory/security/advisories/new).
 
 Do not file public issues for security bugs.
 

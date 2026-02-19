@@ -1,0 +1,42 @@
+{
+  "name": "@d-o-hub/chaotic-semantic-memory",
+  "version": "0.1.0",
+  "description": "AI memory systems with hyperdimensional vectors and chaotic reservoirs - WASM bindings",
+  "main": "chaotic_semantic_memory.js",
+  "types": "chaotic_semantic_memory.d.ts",
+  "files": [
+    "chaotic_semantic_memory_bg.wasm",
+    "chaotic_semantic_memory.js",
+    "chaotic_semantic_memory.d.ts",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --experimental-wasm-modules test.js"
+  },
+  "keywords": [
+    "ai",
+    "memory",
+    "hypervector",
+    "reservoir",
+    "wasm",
+    "semantic",
+    "neural",
+    "echo-state-network"
+  ],
+  "author": "d-o-hub",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/d-o-hub/chaotic_semantic_memory.git"
+  },
+  "bugs": {
+    "url": "https://github.com/d-o-hub/chaotic_semantic_memory/issues"
+  },
+  "homepage": "https://github.com/d-o-hub/chaotic_semantic_memory#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "type": "module",
+  "sideEffects": false
+}
