@@ -1,0 +1,82 @@
+name: GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'book/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+
+    - name: Install mdBook
+      run: cargo install mdbook
+
+    - name: Setup Pages
+      uses: actions/configure-pages@v5
+
+    - name: Build mdBook documentation
+      run: |
+        if [ -f "book/book.toml" ]; then
+          cd book && mdbook build
+        else
+          echo "No book directory found, creating placeholder"
+          mkdir -p _site
+          echo "# chaotic_semantic_memory Documentation" > _site/index.md
+          echo "" >> _site/index.md
+          echo "Documentation will be added soon." >> _site/index.md
+        fi
+
+    - name: Generate API documentation
+      run: |
+        cargo doc --no-deps --all-features
+        if [ -d "book/book" ]; then
+          cp -r target/doc book/book/api
+        else
+          mkdir -p _site/api
+          cp -r target/doc/* _site/api/
+        fi
+
+    - name: Upload Pages artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: ${{ hashFiles('book/book.toml') != '' && 'book/book' || '_site' }}
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
+
+    - name: Deployment summary
+      run: |
+        echo "## Documentation Deployed" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "URL: ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY

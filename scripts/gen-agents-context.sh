@@ -1,4 +1,28 @@
-<mxfile host="app.diagrams.net" modified="2026-02-19T17:00:19Z" agent="Auto-Update Hook" version="24.0.0">
+#!/usr/bin/env bash
+# Generate AGENTS.md context diagram for docs/architecture/
+# Called by post-commit hook to auto-update diagram
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+OUTPUT_FILE="${PROJECT_ROOT}/docs/architecture/agents-context.drawio"
+
+# Get current module LOC counts (for future use)
+# MODULE_LOCS=$(find "${PROJECT_ROOT}/src" -name "*.rs" -exec wc -l {} + | sort -n)
+
+# Get active swarm status
+SWARM_STATUS=$(grep "active_wave:" "${PROJECT_ROOT}/plans/SWARM_COORDINATION.md" 2>/dev/null | head -1 || echo "active_wave: unknown")
+
+# Get current test count
+TEST_COUNT="$(find "${PROJECT_ROOT}/tests" -name '*.rs' 2>/dev/null | wc -l) test files"
+
+# Generate timestamp
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# Generate the diagram XML with proper XML escaping
+cat > "$OUTPUT_FILE" << 'DIAGRAM_EOF'
+<mxfile host="app.diagrams.net" modified="TIMESTAMP_PLACEHOLDER" agent="Auto-Update Hook" version="24.0.0">
   <diagram id="agents-md-context" name="AGENTS.md Context">
     <mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1000" math="0" shadow="0">
       <root>
@@ -6,7 +30,7 @@
         <mxCell id="1" parent="0" />
         
         <!-- Title -->
-        <mxCell id="title" value="AGENTS.md Visual Guide&lt;br&gt;&lt;font size=&quot;10&quot;&gt;Auto-updated: 2026-02-19T17:00:19Z&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;" vertex="1" parent="1">
+        <mxCell id="title" value="AGENTS.md Visual Guide&lt;br&gt;&lt;font size=&quot;10&quot;&gt;Auto-updated: TIMESTAMP_PLACEHOLDER&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;" vertex="1" parent="1">
           <mxGeometry x="500" y="20" width="400" height="40" as="geometry" />
         </mxCell>
         
@@ -107,7 +131,7 @@
         </mxCell>
         
         <!-- Current Status Note -->
-        <mxCell id="status" value="Status: active_wave: unknown&lt;br&gt;Tests: 12 test files&lt;br&gt;All modules &lt; 500 LOC" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="1">
+        <mxCell id="status" value="Status: SWARM_STATUS_PLACEHOLDER&lt;br&gt;Tests: TEST_COUNT_PLACEHOLDER&lt;br&gt;All modules &lt; 500 LOC" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="1">
           <mxGeometry x="950" y="80" width="200" height="60" as="geometry" />
         </mxCell>
         
@@ -120,3 +144,11 @@
     </mxGraphModel>
   </diagram>
 </mxfile>
+DIAGRAM_EOF
+
+# Replace placeholders with actual values
+sed -i "s/TIMESTAMP_PLACEHOLDER/${TIMESTAMP}/g" "$OUTPUT_FILE"
+sed -i "s/SWARM_STATUS_PLACEHOLDER/${SWARM_STATUS}/g" "$OUTPUT_FILE"
+sed -i "s/TEST_COUNT_PLACEHOLDER/${TEST_COUNT}/g" "$OUTPUT_FILE"
+
+echo "✅ Generated: $OUTPUT_FILE"

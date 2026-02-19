@@ -1,0 +1,158 @@
+name: npm Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g., v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write  # Required for npm provenance
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      should-publish: ${{ steps.check.outputs.should-publish }}
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        ref: ${{ github.event.inputs.tag || github.ref }}
+
+    - name: Extract version from tag
+      id: version
+      run: |
+        TAG="${{ github.event.inputs.tag || github.ref_name }}"
+        VERSION="${TAG#v}"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Extracted version: $VERSION"
+
+    - name: Check WASM feature exists
+      id: check
+      run: |
+        if grep -q 'wasm' Cargo.toml; then
+          echo "should-publish=true" >> $GITHUB_OUTPUT
+        else
+          echo "should-publish=false" >> $GITHUB_OUTPUT
+          echo "::warning::No wasm feature found in Cargo.toml, skipping npm publish"
+        fi
+
+  build-wasm:
+    runs-on: ubuntu-24.04
+    needs: validate
+    if: needs.validate.outputs.should-publish == 'true'
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        ref: ${{ github.event.inputs.tag || github.ref }}
+
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+        target: wasm32-unknown-unknown
+
+    - name: Cache cargo
+      uses: actions/cache@v5
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-wasm-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Install wasm-pack
+      run: cargo install wasm-pack
+
+    - name: Build WASM package
+      run: |
+        wasm-pack build --target web --scope anomalyco --out-dir pkg
+
+    - name: Prepare npm package
+      run: |
+        cd pkg
+        # Update package.json with proper metadata
+        VERSION="${{ needs.validate.outputs.version }}"
+        cat package.json | jq --arg v "$VERSION" '.version = $v' > package.json.tmp
+        mv package.json.tmp package.json
+        # Add provenance support fields
+        cat package.json | jq '. += {
+          "name": "@anomalyco/chaotic-semantic-memory",
+          "description": "AI memory systems with hyperdimensional vectors and chaotic reservoirs",
+          "license": "MIT",
+          "repository": {
+            "type": "git",
+            "url": "git+https://github.com/anomalyco/chaotic_semantic_memory.git"
+          },
+          "homepage": "https://github.com/anomalyco/chaotic_semantic_memory#readme",
+          "keywords": ["ai", "memory", "hypervector", "reservoir", "wasm"],
+          "sideEffects": false
+        }' > package.json.tmp
+        mv package.json.tmp package.json
+        cat package.json
+
+    - name: Upload WASM package
+      uses: actions/upload-artifact@v6
+      with:
+        name: wasm-package
+        path: pkg/
+        retention-days: 7
+
+  publish-npm:
+    runs-on: ubuntu-24.04
+    needs: [validate, build-wasm]
+    if: needs.validate.outputs.should-publish == 'true'
+    environment: npm
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        ref: ${{ github.event.inputs.tag || github.ref }}
+
+    - name: Download WASM package
+      uses: actions/download-artifact@v6
+      with:
+        name: wasm-package
+        path: pkg
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        registry-url: 'https://registry.npmjs.org'
+
+    - name: Publish to npm with provenance
+      working-directory: pkg
+      run: npm publish --provenance --access public
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  notify:
+    runs-on: ubuntu-24.04
+    needs: [validate, publish-npm]
+    if: always()
+    steps:
+    - name: Publish summary
+      run: |
+        echo "## npm Publish Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.publish-npm.result }}" == "success" ]; then
+          echo "✅ Successfully published @anomalyco/chaotic-semantic-memory@${{ needs.validate.outputs.version }} to npm" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Provenance**: Enabled (OIDC verified)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Registry**: npmjs.com" >> $GITHUB_STEP_SUMMARY
+          echo "- **Scope**: @anomalyco" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.validate.outputs.should-publish }}" == "false" ]; then
+          echo "⚠️ Skipped: No WASM feature configured" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Publishing failed" >> $GITHUB_STEP_SUMMARY
+        fi

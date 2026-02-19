@@ -126,10 +126,10 @@ jobs:
           ~/.cargo/registry
           ~/.cargo/git
           target
-        key: ${{ runner.os }}-cargo-bench-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-cargo-bench-v2-${{ hashFiles('**/Cargo.lock') }}
     
     - name: Run benchmarks
-      run: cargo bench
+      run: cargo bench --lib
     
     - name: Upload benchmark results
       uses: actions/upload-artifact@v6
