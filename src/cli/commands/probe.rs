@@ -1,10 +1,9 @@
 use std::path::Path;
 
-use anyhow::{Context, Result};
-use colored::Colorize;
-
 use crate::cli::args::{OutputFormat, ProbeArgs};
+use crate::cli::error::{CliError, Result};
 use crate::hyperdim::HVec10240;
+use colored::Colorize;
 
 use super::{create_framework, print_success, print_warning, validate_concept_id, validate_top_k};
 
@@ -16,19 +15,18 @@ pub async fn run_probe(
     validate_concept_id(&args.concept_id)?;
     validate_top_k(args.top_k)?;
 
-    let framework = create_framework(db_path)
-        .await
-        .context("failed to initialize framework")?;
+    let framework = create_framework(db_path).await?;
 
     let concept = framework
         .get_concept(&args.concept_id)
-        .await?
-        .ok_or_else(|| anyhow::anyhow!("concept '{}' not found", args.concept_id))?;
+        .await
+        .map_err(|e| CliError::Persistence(format!("failed to get concept: {e}")))?
+        .ok_or_else(|| CliError::Input(format!("concept '{}' not found", args.concept_id)))?;
 
     let results = framework
         .probe(concept.vector, args.top_k)
         .await
-        .context("probe operation failed")?;
+        .map_err(|e| CliError::Persistence(format!("probe operation failed: {e}")))?;
 
     let filtered: Vec<_> = results
         .into_iter()
@@ -47,14 +45,15 @@ pub async fn run_probe(
                     })
                 })
                 .collect();
+            let output = serde_json::json!({
+                "query_id": args.concept_id,
+                "count": results_json.len(),
+                "results": results_json
+            });
             println!(
                 "{}",
-                serde_json::to_string(&serde_json::json!({
-                    "query_id": args.concept_id,
-                    "count": results_json.len(),
-                    "results": results_json
-                }))
-                .unwrap()
+                serde_json::to_string(&output)
+                    .map_err(|e| CliError::Output(format!("failed to serialize results: {e}")))?
             );
         }
         OutputFormat::Table => {
@@ -96,14 +95,12 @@ pub async fn run_probe_with_vector(
 ) -> Result<()> {
     validate_top_k(top_k)?;
 
-    let framework = create_framework(db_path)
-        .await
-        .context("failed to initialize framework")?;
+    let framework = create_framework(db_path).await?;
 
     let results = framework
         .probe(query_vector, top_k)
         .await
-        .context("probe operation failed")?;
+        .map_err(|e| CliError::Persistence(format!("probe operation failed: {e}")))?;
 
     let filtered: Vec<_> = results
         .into_iter()
@@ -121,13 +118,14 @@ pub async fn run_probe_with_vector(
                     })
                 })
                 .collect();
+            let output = serde_json::json!({
+                "count": results_json.len(),
+                "results": results_json
+            });
             println!(
                 "{}",
-                serde_json::to_string(&serde_json::json!({
-                    "count": results_json.len(),
-                    "results": results_json
-                }))
-                .unwrap()
+                serde_json::to_string(&output)
+                    .map_err(|e| CliError::Output(format!("failed to serialize results: {e}")))?
             );
         }
         OutputFormat::Table => {

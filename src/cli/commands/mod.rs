@@ -13,8 +13,8 @@ pub use inject::run_inject;
 pub use probe::run_probe;
 
 use crate::cli::args::OutputFormat;
+use crate::cli::error::{CliError, Result};
 use crate::framework::ChaoticSemanticFramework;
-use anyhow::Result;
 use colored::Colorize;
 
 pub fn print_success(msg: &str, format: OutputFormat) {
@@ -22,7 +22,10 @@ pub fn print_success(msg: &str, format: OutputFormat) {
         return;
     }
     if matches!(format, OutputFormat::Json) {
-        println!(r#"{{"status":"success","message":"{}"}}"#, msg);
+        println!(
+            "{}",
+            serde_json::json!({"status": "success", "message": msg})
+        );
     } else {
         eprintln!("{} {}", "✓".green(), msg);
     }
@@ -37,7 +40,10 @@ pub fn print_warning(msg: &str, format: OutputFormat) {
         return;
     }
     if matches!(format, OutputFormat::Json) {
-        println!(r#"{{"status":"warning","message":"{}"}}"#, msg);
+        println!(
+            "{}",
+            serde_json::json!({"status": "warning", "message": msg})
+        );
     } else {
         eprintln!("{} {}", "⚠".yellow(), msg);
     }
@@ -52,35 +58,50 @@ pub async fn create_framework(
     } else {
         builder = builder.without_persistence();
     }
-    Ok(builder.build().await?)
+    builder
+        .build()
+        .await
+        .map_err(|e| CliError::Persistence(format!("failed to initialize framework: {e}")))
 }
 
 fn validate_concept_id(id: &str) -> Result<()> {
     if id.is_empty() {
-        anyhow::bail!("concept ID cannot be empty");
+        return Err(CliError::Validation("concept ID cannot be empty".into()));
     }
     if id.len() > 256 {
-        anyhow::bail!("concept ID too long (max 256 bytes, got {})", id.len());
+        return Err(CliError::Validation(format!(
+            "concept ID too long (max 256 bytes, got {})",
+            id.len()
+        )));
     }
     Ok(())
 }
 
 fn validate_top_k(top_k: usize) -> Result<()> {
     if top_k == 0 {
-        anyhow::bail!("top_k must be at least 1");
+        return Err(CliError::Validation("top_k must be at least 1".into()));
     }
     if top_k > 10_000 {
-        anyhow::bail!("top_k exceeds limit (max 10000, got {})", top_k);
+        return Err(CliError::Validation(format!(
+            "top_k exceeds limit (max 10000, got {})",
+            top_k
+        )));
     }
     Ok(())
 }
 
 fn validate_strength(strength: f64) -> Result<()> {
     if !strength.is_finite() {
-        anyhow::bail!("strength must be finite (got {})", strength);
+        return Err(CliError::Validation(format!(
+            "strength must be finite (got {})",
+            strength
+        )));
     }
     if strength < 0.0 {
-        anyhow::bail!("strength must be >= 0 (got {})", strength);
+        return Err(CliError::Validation(format!(
+            "strength must be >= 0 (got {})",
+            strength
+        )));
     }
     Ok(())
 }

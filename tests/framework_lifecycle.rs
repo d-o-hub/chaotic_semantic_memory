@@ -1,5 +1,5 @@
-use chaotic_semantic_memory::prelude::*;
 use chaotic_semantic_memory::MemoryError;
+use chaotic_semantic_memory::prelude::*;
 use std::sync::Arc;
 use tempfile::NamedTempFile;
 

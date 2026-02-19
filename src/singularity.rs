@@ -15,7 +15,8 @@ use tracing::instrument;
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 
-const DEFAULT_CONCEPT_CACHE_SIZE: usize = 1000;
+const DEFAULT_CONCEPT_CACHE_SIZE: usize = 128;
+pub const DEFAULT_MAX_CACHED_TOP_K: usize = 100;
 
 /// A concept in semantic memory
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,8 +35,11 @@ pub struct SingularityConfig {
     pub max_concepts: Option<usize>,
     /// Maximum outbound associations per concept (default: `None`).
     pub max_associations_per_concept: Option<usize>,
-    /// LRU cache capacity for similarity results (default: `1000`, coerced to `>= 1`).
+    /// LRU cache capacity for similarity results (default: `128`, coerced to `>= 1`).
     pub concept_cache_size: usize,
+    /// Maximum top_k for cache eligibility (default: `100`).
+    /// Queries with top_k > this value bypass the cache.
+    pub max_cached_top_k: usize,
 }
 
 impl Default for SingularityConfig {
@@ -44,6 +48,7 @@ impl Default for SingularityConfig {
             max_concepts: None,
             max_associations_per_concept: None,
             concept_cache_size: DEFAULT_CONCEPT_CACHE_SIZE,
+            max_cached_top_k: DEFAULT_MAX_CACHED_TOP_K,
         }
     }
 }
@@ -136,6 +141,7 @@ pub struct Singularity {
 }
 
 impl Singularity {
+    #[must_use]
     pub fn new() -> Self {
         Self::with_config(SingularityConfig::default())
     }
@@ -219,23 +225,30 @@ impl Singularity {
     /// Find similar concepts and return cached results as `Arc<[_]>`.
     ///
     /// Cache hits avoid cloning the cached result vector.
+    /// Queries with `top_k > max_cached_top_k` bypass the cache to prevent
+    /// excessive memory usage from storing large result sets.
     pub fn find_similar_cached(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]> {
         if top_k == 0 || self.concepts.is_empty() {
             return Arc::from(Vec::new());
         }
 
-        let cache_key = similarity_cache_key(query, top_k);
-        if let Ok(mut cache) = self.query_cache.lock() {
-            if let Some(results) = cache.get(cache_key) {
-                self.cache_metrics
-                    .hits_total
-                    .fetch_add(1, Ordering::Relaxed);
-                return results;
+        // Bypass cache for large top_k to prevent excessive memory usage
+        let bypass_cache = top_k > self.config.max_cached_top_k;
+
+        if !bypass_cache {
+            let cache_key = similarity_cache_key(query, top_k);
+            if let Ok(mut cache) = self.query_cache.lock() {
+                if let Some(results) = cache.get(cache_key) {
+                    self.cache_metrics
+                        .hits_total
+                        .fetch_add(1, Ordering::Relaxed);
+                    return results;
+                }
             }
+            self.cache_metrics
+                .misses_total
+                .fetch_add(1, Ordering::Relaxed);
         }
-        self.cache_metrics
-            .misses_total
-            .fetch_add(1, Ordering::Relaxed);
 
         #[cfg(not(target_arch = "wasm32"))]
         let mut results: Vec<(String, f32)> = self
@@ -254,7 +267,27 @@ impl Singularity {
 
         if results.len() <= top_k {
             results.sort_by(|a, b| b.1.total_cmp(&a.1));
+            if !bypass_cache {
+                if let Ok(mut cache) = self.query_cache.lock() {
+                    let cache_key = similarity_cache_key(query, top_k);
+                    let results = Arc::from(results);
+                    if cache.put(cache_key, Arc::clone(&results)) {
+                        self.cache_metrics
+                            .evictions_total
+                            .fetch_add(1, Ordering::Relaxed);
+                    }
+                    return results;
+                }
+            }
+            return Arc::from(results);
+        }
+
+        results.select_nth_unstable_by(top_k - 1, |a, b| b.1.total_cmp(&a.1));
+        results.truncate(top_k);
+        results.sort_by(|a, b| b.1.total_cmp(&a.1));
+        if !bypass_cache {
             if let Ok(mut cache) = self.query_cache.lock() {
+                let cache_key = similarity_cache_key(query, top_k);
                 let results = Arc::from(results);
                 if cache.put(cache_key, Arc::clone(&results)) {
                     self.cache_metrics
@@ -263,20 +296,6 @@ impl Singularity {
                 }
                 return results;
             }
-            return Arc::from(results);
-        }
-
-        results.select_nth_unstable_by(top_k - 1, |a, b| b.1.total_cmp(&a.1));
-        results.truncate(top_k);
-        results.sort_by(|a, b| b.1.total_cmp(&a.1));
-        if let Ok(mut cache) = self.query_cache.lock() {
-            let results = Arc::from(results);
-            if cache.put(cache_key, Arc::clone(&results)) {
-                self.cache_metrics
-                    .evictions_total
-                    .fetch_add(1, Ordering::Relaxed);
-            }
-            return results;
         }
         Arc::from(results)
     }
@@ -472,8 +491,8 @@ fn similarity_cache_key(query: &HVec10240, top_k: usize) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use serde::ser::{Error as _, Serializer};
     use serde::Serialize;
+    use serde::ser::{Error as _, Serializer};
 
     use super::*;
 

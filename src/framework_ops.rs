@@ -3,7 +3,7 @@ use tokio::fs;
 use tracing::warn;
 
 use crate::error::Result;
-use crate::export_payload::{unix_now_secs, ExportPayload};
+use crate::export_payload::{ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
 use crate::hyperdim::HVec10240;
 use crate::singularity::ConceptBuilder;
@@ -140,16 +140,17 @@ impl ChaoticSemanticFramework {
             }
         }
 
-        {
+        // Acquire write lock, inject concepts + build associations list, then release
+        let valid_associations = {
             let mut sing = self.singularity.write().await;
-            let mut valid_associations = Vec::with_capacity(payload.associations.len());
+            let mut associations = Vec::with_capacity(payload.associations.len());
             for concept in &payload.concepts {
                 self.validate_concept(concept)?;
                 sing.inject(concept.clone())?;
             }
             for (from, to, strength) in &payload.associations {
                 match sing.associate(from, to, *strength) {
-                    Ok(()) => valid_associations.push((from.clone(), to.clone(), *strength)),
+                    Ok(()) => associations.push((from.clone(), to.clone(), *strength)),
                     Err(error) => {
                         warn!(
                             from_id = %from,
@@ -161,11 +162,13 @@ impl ChaoticSemanticFramework {
                     }
                 }
             }
+            associations
+        }; // Lock released here
 
-            if let Some(ref persistence) = self.persistence {
-                persistence.save_concepts(&payload.concepts).await?;
-                persistence.save_associations(&valid_associations).await?;
-            }
+        // Persist concepts and associations (no lock needed)
+        if let Some(ref persistence) = self.persistence {
+            persistence.save_concepts(&payload.concepts).await?;
+            persistence.save_associations(&valid_associations).await?;
         }
 
         Ok(payload.concepts.len())
@@ -217,16 +220,17 @@ impl ChaoticSemanticFramework {
             }
         }
 
-        {
+        // Acquire write lock, inject concepts + build associations list, then release
+        let valid_associations = {
             let mut sing = self.singularity.write().await;
-            let mut valid_associations = Vec::with_capacity(payload.associations.len());
+            let mut associations = Vec::with_capacity(payload.associations.len());
             for concept in &payload.concepts {
                 self.validate_concept(concept)?;
                 sing.inject(concept.clone())?;
             }
             for (from, to, strength) in &payload.associations {
                 match sing.associate(from, to, *strength) {
-                    Ok(()) => valid_associations.push((from.clone(), to.clone(), *strength)),
+                    Ok(()) => associations.push((from.clone(), to.clone(), *strength)),
                     Err(error) => {
                         warn!(
                             from_id = %from,
@@ -238,11 +242,13 @@ impl ChaoticSemanticFramework {
                     }
                 }
             }
+            associations
+        }; // Lock released here
 
-            if let Some(ref persistence) = self.persistence {
-                persistence.save_concepts(&payload.concepts).await?;
-                persistence.save_associations(&valid_associations).await?;
-            }
+        // Persist concepts and associations (no lock needed)
+        if let Some(ref persistence) = self.persistence {
+            persistence.save_concepts(&payload.concepts).await?;
+            persistence.save_associations(&valid_associations).await?;
         }
 
         Ok(payload.concepts.len())

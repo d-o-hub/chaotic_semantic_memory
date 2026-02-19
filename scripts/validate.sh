@@ -7,8 +7,8 @@ WASM_TARGET="wasm32-unknown-unknown"
 echo "==> cargo fmt --check"
 cargo fmt --check
 
-echo "==> cargo clippy --all-targets -- -D warnings"
-cargo clippy --all-targets -- -D warnings
+echo "==> cargo clippy --all-targets --all-features -- -D warnings"
+cargo clippy --all-targets --all-features -- -D warnings
 
 # CI applies stricter RUSTFLAGS; this is the minimal local gate
 echo "==> cargo test --no-run --all-features (check for warnings)"
@@ -21,7 +21,7 @@ echo "==> cargo test --all-targets"
 cargo test --all-targets
 
 echo "==> Source file LOC gate (< ${MAX_SRC_LOC})"
-for file in src/*.rs; do
+for file in $(find src -name '*.rs'); do
   loc="$(wc -l < "${file}")"
   if [ "${loc}" -gt "${MAX_SRC_LOC}" ]; then
     echo "LOC gate failed: ${file} has ${loc} lines"

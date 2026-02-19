@@ -12,9 +12,17 @@ world_state:
   dependency_hygiene_complete: true
   adr_registry_current: true
   result_contract_clarified: true
+  architecture_docs_two_tier: true
+  architecture_docs_canonical_source: "context.yaml"
   action_last_completed: cli_crate_implementation_complete
-  orchestrator_last_run: goap_swarm_wave8_comprehensive_analysis_2026_02_18
-  orchestrator_last_run_at_utc: 2026-02-18T10:30:00Z
+  orchestrator_last_run: goap_wave10_comprehensive_analysis_2026_02_19
+  orchestrator_last_run_at_utc: 2026-02-19T00:00:00Z
+
+  # Recent changes (2026-02-19)
+  recent_changes:
+    - "Deleted context.drawio (outdated stub)"
+    - "Renamed llm-api-architecture.drawio → agents-context.drawio"
+    - "Created ADR-0031 for two-tier documentation (context.yaml + drawio)"
 
   # Swarm orchestration snapshot
   active_wave: 9
@@ -263,6 +271,41 @@ world_state:
   cli_commands_implemented: true
   cli_tests_passing: true
   shell_completions_generated: true
+
+  # Phase 21: Production Hardening (cost: 18) - Wave 10
+  async_lock_safety: true               # ADR-0031: RwLock held across await points
+  cli_json_escaping: true               # ADR-0032: CLI JSON output safety
+  cli_exit_code_correctness: true       # ADR-0032: CLI exit codes collapse to 255
+  cli_error_output_format: true         # ADR-0032: --output-format ignored on errors
+  cli_unused_config_flag: true          # ADR-0032: --config flag declared but unused
+  wasm_panic_safety: true               # ADR-0033: Reflect::set().unwrap() in wasm.rs
+  framework_metadata_injection: true    # ADR-0034: inject_concept_with_metadata API
+  framework_builder_input_size: true    # ADR-0034: with_reservoir_input_size() missing
+  wasm_batch_api_parity: true           # ADR-0034: WASM missing batch APIs
+  cache_memory_guardrails: true         # ADR-0035: Query cache memory blow-up risk
+
+  # Phase 22: CI/DX Hardening (cost: 10) - Wave 10
+  loc_gate_recursive: true              # ADR-0036: LOC gate misses src/cli/ and src/bin/
+  pre_commit_hook_installed: true       # ADR-0036: No pre-commit hook exists
+  clippy_flags_consistent: true         # ADR-0036: CI vs local clippy flag mismatch
+  post_commit_hook_fixed: true          # ADR-0036: post-commit runs cargo test + amends
+  exitcode_crate_removed: true          # ADR-0036: Completed via ADR-0038
+  cli_deps_gated: true                  # ADR-0036: Completed via ADR-0038
+
+  # Phase 23: Rust Best Practices (cost: 6) - Wave 10
+  must_use_annotations: true            # ADR-0037: Missing #[must_use] on constructors
+  unsafe_docs_complete: true            # ADR-0037: SIMD unsafe blocks need better docs
+  clippy_suppressions_targeted: true    # ADR-0037: File-wide #![allow] -> per-loop
+  cli_json_serde: true                  # ADR-0037: Replace format! JSON with serde_json
+  probe_unwrap_removed: true            # ADR-0037: serde_json::to_string().unwrap()
+
+  # Phase 24: Cargo.toml Modernization (cost: 4) - Wave 10
+  cargo_toml_modernized: true           # ADR-0038: Edition 2024, metadata, deps
+  crates_io_ready: true                 # ADR-0038: Required metadata for publishing
+  edition_2024: true                    # ADR-0038: Rust edition 2024 upgrade
+
+  # GOAP/Plan Consistency
+  actions_md_phase20_synced: false      # ACTIONS.md Phase 20 still shows "pending" but code is done
 
   # Post-1.0 Deferred Work (ADR-0024, ADR-0025, ADR-0026)
   # Per Swarm Consensus 2026-02-17: Advanced features deferred until user demand

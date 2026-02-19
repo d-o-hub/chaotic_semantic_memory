@@ -21,12 +21,12 @@ Machine-optimized context with:
 - Direct access to key-value pairs
 
 ### Tier 2: Visual Diagram (For Humans)
-**File**: `context.drawio` (Generated from YAML)
+**File**: `agents-context.drawio`
 
-Visual representation with:
-- Color-coded sections
-- Relationship arrows
-- Spatial layout
+Visual representation of AGENTS.md context with:
+- Color-coded sections (Mission, Constraints, Skills, Gates)
+- Relationship arrows showing workflow
+- Spatial layout for quick scanning
 - Exportable to PNG/PDF
 
 ## For LLM APIs
@@ -52,26 +52,19 @@ constraints:
 
 ## For Human Developers
 
-**Primary source**: `context.drawio`
+**Primary source**: `agents-context.drawio`
 
 View in draw.io:
 1. Open [draw.io](https://app.diagrams.net)
 2. File → Open From → Device
-3. Select `context.drawio`
-
-Or generate from YAML:
-```bash
-python3 scripts/yaml-to-drawio.py \
-  docs/architecture/context.yaml \
-  docs/architecture/context.drawio
-```
+3. Select `agents-context.drawio`
 
 ## Files
 
 | File | Purpose | Audience |
 |------|---------|----------|
 | `context.yaml` | Structured context | LLM APIs |
-| `context.drawio` | Visual diagram | Humans |
+| `agents-context.drawio` | AGENTS.md visual guide | Humans |
 | `arch.drawio` | Module architecture | Both |
 | `high-level-arch.drawio` | System overview | Both |
 
@@ -83,11 +76,6 @@ python3 tests/validate_llm_context.py
 ```
 
 Expected output: 9/9 tests passed (100%)
-
-## Legacy Files
-
-- `llm-api-architecture.drawio` - Old auto-generated diagram (redundant)
-- Use `context.yaml` + `context.drawio` instead
 
 ---
 

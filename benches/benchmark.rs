@@ -1,6 +1,6 @@
-use chaotic_semantic_memory::reservoir::Reservoir;
 use chaotic_semantic_memory::HVec10240;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use chaotic_semantic_memory::reservoir::Reservoir;
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_hvec_creation(c: &mut Criterion) {
     c.bench_function("hvec_random", |b| b.iter(HVec10240::random));

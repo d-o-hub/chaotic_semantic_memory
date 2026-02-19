@@ -2,8 +2,6 @@
 //!
 //! Implements 10240-bit hypervectors using `[u128; 80]`.
 
-#![allow(clippy::needless_range_loop)]
-
 use rand::Rng;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -27,7 +25,8 @@ fn bind_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
 
     let mut out = [0u128; 80];
     for i in 0..80 {
-        // SAFETY: pointers come from fixed-size arrays with at least 16 bytes per element.
+        // SAFETY: `u128` is 16-byte aligned, matching `__m128i` requirements.
+        // Pointers come from fixed-size arrays with at least 16 bytes per element.
         unsafe {
             let a = _mm_loadu_si128((&lhs[i] as *const u128).cast::<__m128i>());
             let b = _mm_loadu_si128((&rhs[i] as *const u128).cast::<__m128i>());
@@ -52,8 +51,8 @@ fn cosine_similarity_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> f32 {
     let mut dot_product: u32 = 0;
     for i in 0..80 {
         let mut lanes = [0u64; 2];
-        // SAFETY: pointers come from fixed-size arrays with at least 16 bytes per element,
-        // and `lanes` provides a 16-byte writable region.
+        // SAFETY: `u128` is 16-byte aligned, matching `__m128i` requirements.
+        // `lanes` provides a 16-byte writable region (2 x u64 = 16 bytes).
         unsafe {
             let a = _mm_loadu_si128((&lhs[i] as *const u128).cast::<__m128i>());
             let b = _mm_loadu_si128((&rhs[i] as *const u128).cast::<__m128i>());
@@ -67,6 +66,7 @@ fn cosine_similarity_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> f32 {
 
 /// 10240-bit hypervector (80 x 128-bit words)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[must_use]
 pub struct HVec10240 {
     pub(crate) data: [u128; 80],
 }
@@ -84,8 +84,8 @@ impl HVec10240 {
     pub fn random() -> Self {
         let mut rng = rand::thread_rng();
         let mut data = [0u128; 80];
-        for i in 0..80 {
-            data[i] = rng.gen();
+        for word in &mut data {
+            *word = rng.r#gen();
         }
         Self { data }
     }
@@ -118,6 +118,7 @@ impl HVec10240 {
             .fold(
                 || Box::new([0i32; Self::DIMENSION]),
                 |mut local, v| {
+                    #[allow(clippy::needless_range_loop)]
                     for i in 0..80 {
                         for j in 0..128 {
                             if (v.data[i] >> j) & 1 == 1 {
@@ -131,6 +132,7 @@ impl HVec10240 {
             .reduce(
                 || Box::new([0i32; Self::DIMENSION]),
                 |mut a, b| {
+                    #[allow(clippy::needless_range_loop)]
                     for i in 0..Self::DIMENSION {
                         a[i] += b[i];
                     }
@@ -142,6 +144,7 @@ impl HVec10240 {
         let counts = {
             let mut local = Box::new([0i32; Self::DIMENSION]);
             for v in vectors {
+                #[allow(clippy::needless_range_loop)]
                 for i in 0..80 {
                     for j in 0..128 {
                         if (v.data[i] >> j) & 1 == 1 {
@@ -155,6 +158,7 @@ impl HVec10240 {
 
         let threshold = vectors.len() as i32 / 2;
         let mut data = [0u128; 80];
+        #[allow(clippy::needless_range_loop)]
         for i in 0..Self::DIMENSION {
             if counts[i] > threshold {
                 let word = i / 128;
@@ -173,66 +177,51 @@ impl HVec10240 {
             any(target_arch = "x86_64", target_arch = "x86")
         ))]
         {
-            return Self {
+            Self {
                 data: bind_simd_x86(&self.data, &other.data),
-            };
+            }
         }
 
-        #[cfg(any(
-            target_arch = "wasm32",
-            not(any(target_arch = "x86_64", target_arch = "x86"))
-        ))]
+        #[cfg(not(all(
+            not(target_arch = "wasm32"),
+            any(target_arch = "x86_64", target_arch = "x86")
+        )))]
         {
             let mut result = [0u128; 80];
             for i in 0..80 {
                 result[i] = self.data[i] ^ other.data[i];
             }
-            return Self { data: result };
+            Self { data: result }
         }
-
-        #[allow(unreachable_code)]
-        let mut result = [0u128; 80];
-        for i in 0..80 {
-            result[i] = self.data[i] ^ other.data[i];
-        }
-        Self { data: result }
     }
 
     /// Cosine similarity between two hypervectors
+    #[must_use]
     pub fn cosine_similarity(&self, other: &Self) -> f32 {
         #[cfg(all(
             not(target_arch = "wasm32"),
             any(target_arch = "x86_64", target_arch = "x86")
         ))]
         {
-            return cosine_similarity_simd_x86(&self.data, &other.data);
+            cosine_similarity_simd_x86(&self.data, &other.data)
         }
 
-        #[cfg(any(
-            target_arch = "wasm32",
-            not(any(target_arch = "x86_64", target_arch = "x86"))
-        ))]
+        #[cfg(not(all(
+            not(target_arch = "wasm32"),
+            any(target_arch = "x86_64", target_arch = "x86")
+        )))]
         {
             let mut dot_product: u32 = 0;
             for i in 0..80 {
                 let eq = !(self.data[i] ^ other.data[i]);
                 dot_product += eq.count_ones();
             }
-            return (2.0 * dot_product as f32 / Self::DIMENSION as f32) - 1.0;
+            (2.0 * dot_product as f32 / Self::DIMENSION as f32) - 1.0
         }
-
-        #[allow(unreachable_code)]
-        let mut dot_product: u32 = 0;
-
-        for i in 0..80 {
-            let eq = !(self.data[i] ^ other.data[i]);
-            dot_product += eq.count_ones();
-        }
-
-        (2.0 * dot_product as f32 / Self::DIMENSION as f32) - 1.0
     }
 
     /// Hamming distance
+    #[must_use]
     pub fn hamming_distance(&self, other: &Self) -> u32 {
         let mut distance = 0u32;
         for i in 0..80 {
@@ -247,13 +236,13 @@ impl HVec10240 {
         let bit_shift = shift % 128;
         let word_shift = (shift / 128) % 80;
 
-        for i in 0..80 {
+        for (i, word) in result.iter_mut().enumerate() {
             let src1 = (i + word_shift) % 80;
             if bit_shift == 0 {
-                result[i] = self.data[src1];
+                *word = self.data[src1];
             } else {
                 let src2 = (i + word_shift + 1) % 80;
-                result[i] = (self.data[src1] << bit_shift) | (self.data[src2] >> (128 - bit_shift));
+                *word = (self.data[src1] << bit_shift) | (self.data[src2] >> (128 - bit_shift));
             }
         }
 

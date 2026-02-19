@@ -1,5 +1,19 @@
 # Swarm Coordination
 
+## Combined Agents (Generated from Skills)
+
+| Agent | Skills Combined | Use For |
+|-------|-----------------|---------|
+| @impl | rust-development + testing-validation | Implementation |
+| @fix | rust-development + testing-validation + debugging-reservoir | Bug fixes |
+| @perf | benchmarking-perf + debugging-reservoir + swarm-performance | Performance |
+| @test | testing-validation + swarm-testing-quality | Testing |
+| @plan | goap-planning + adr-creation | Planning/ADR |
+| @ci | github-ci-guardrails + git-workflow | CI/CD |
+| @swarm | all swarm skills | Full swarm |
+
+Generated via: `scripts/generate-agents.sh`
+
 ## Active Swarm Groups
 
 | Group | Phase | Focus | Status |

@@ -155,7 +155,7 @@ impl Reservoir {
     const PARTIAL_UPDATE_STRIDE: usize = 32;
 
     pub fn new(input_size: usize, size: usize) -> Result<Self> {
-        let seed = rand::thread_rng().gen();
+        let seed = rand::thread_rng().r#gen();
         Self::new_seeded(input_size, size, seed)
     }
 
@@ -385,7 +385,7 @@ pub struct ChaoticReservoir {
 
 impl ChaoticReservoir {
     pub fn new(input_size: usize, size: usize, chaos_strength: f32) -> Result<Self> {
-        let seed = rand::thread_rng().gen();
+        let seed = rand::thread_rng().r#gen();
         Self::new_seeded(input_size, size, chaos_strength, seed)
     }
 

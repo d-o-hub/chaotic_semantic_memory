@@ -2,12 +2,13 @@
 
 use js_sys::{Array, Float32Array, Uint8Array};
 use tracing::warn;
-use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use wasm_bindgen::prelude::*;
 
-use crate::export_payload::{unix_now_secs, ExportPayload};
+use crate::export_payload::{ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
 use crate::hyperdim::HVec10240;
+use crate::singularity::Concept;
 
 /// WASM-friendly wrapper for the framework
 #[wasm_bindgen]
@@ -51,8 +52,10 @@ impl WasmFramework {
         let array = Array::new();
         for (id, score) in results {
             let obj = js_sys::Object::new();
-            js_sys::Reflect::set(&obj, &"id".into(), &id.into()).unwrap();
-            js_sys::Reflect::set(&obj, &"score".into(), &score.into()).unwrap();
+            js_sys::Reflect::set(&obj, &"id".into(), &id.into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+            js_sys::Reflect::set(&obj, &"score".into(), &score.into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
             array.push(&obj);
         }
 
@@ -86,15 +89,116 @@ impl WasmFramework {
         let array = Array::new();
         for (to, strength) in associations {
             let obj = js_sys::Object::new();
-            js_sys::Reflect::set(&obj, &"to".into(), &to.into()).unwrap();
-            js_sys::Reflect::set(&obj, &"strength".into(), &strength.into()).unwrap();
+            js_sys::Reflect::set(&obj, &"to".into(), &to.into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+            js_sys::Reflect::set(&obj, &"strength".into(), &strength.into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
             array.push(&obj);
         }
         Ok(array)
     }
 
+    /// Get a concept by ID
+    pub async fn get_concept(&self, id: String) -> Result<JsValue, JsValue> {
+        let concept_opt = self.framework.get_concept(&id).await.map_err(to_js_error)?;
+
+        match concept_opt {
+            Some(concept) => concept_to_js_value(&concept),
+            None => Ok(JsValue::NULL),
+        }
+    }
+
+    /// Inject multiple concepts in batch
+    pub async fn inject_concepts(&self, ids: Array, vectors: Array) -> Result<(), JsValue> {
+        if ids.length() != vectors.length() {
+            return Err(JsValue::from_str(
+                "ids and vectors arrays must have the same length",
+            ));
+        }
+
+        for i in 0..ids.length() {
+            let id = ids
+                .get(i)
+                .as_string()
+                .ok_or_else(|| JsValue::from_str("id must be a string"))?;
+            let vector_bytes = vectors
+                .get(i)
+                .dyn_into::<Uint8Array>()
+                .map_err(|_| JsValue::from_str("vector must be Uint8Array"))?
+                .to_vec();
+            let hvec = HVec10240::from_bytes(&vector_bytes).map_err(to_js_error)?;
+
+            self.framework
+                .inject_concept(id, hvec)
+                .await
+                .map_err(to_js_error)?;
+        }
+
+        Ok(())
+    }
+
+    /// Create multiple associations in batch
+    pub async fn associate_many(&self, associations: Array) -> Result<(), JsValue> {
+        for i in 0..associations.length() {
+            let assoc = associations.get(i);
+            let from = js_sys::Reflect::get(&assoc, &"from".into())
+                .map_err(|_| JsValue::from_str("association must have 'from' field"))?
+                .as_string()
+                .ok_or_else(|| JsValue::from_str("'from' must be a string"))?;
+            let to = js_sys::Reflect::get(&assoc, &"to".into())
+                .map_err(|_| JsValue::from_str("association must have 'to' field"))?
+                .as_string()
+                .ok_or_else(|| JsValue::from_str("'to' must be a string"))?;
+            let strength = js_sys::Reflect::get(&assoc, &"strength".into())
+                .map_err(|_| JsValue::from_str("association must have 'strength' field"))?
+                .as_f64()
+                .ok_or_else(|| JsValue::from_str("'strength' must be a number"))?
+                as f32;
+
+            self.framework
+                .associate(&from, &to, strength)
+                .await
+                .map_err(to_js_error)?;
+        }
+
+        Ok(())
+    }
+
+    /// Probe for similar concepts with multiple queries in batch
+    pub async fn probe_batch(&self, vectors: Array, top_k: usize) -> Result<Array, JsValue> {
+        let mut results = Array::new();
+
+        for i in 0..vectors.length() {
+            let vector_bytes = vectors
+                .get(i)
+                .dyn_into::<Uint8Array>()
+                .map_err(|_| JsValue::from_str("vector must be Uint8Array"))?
+                .to_vec();
+            let hvec = HVec10240::from_bytes(&vector_bytes).map_err(to_js_error)?;
+
+            let query_results = self
+                .framework
+                .probe(hvec, top_k)
+                .await
+                .map_err(to_js_error)?;
+
+            let query_array = Array::new();
+            for (id, score) in query_results {
+                let obj = js_sys::Object::new();
+                js_sys::Reflect::set(&obj, &"id".into(), &id.into())
+                    .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+                js_sys::Reflect::set(&obj, &"score".into(), &score.into())
+                    .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+                query_array.push(&obj);
+            }
+            results.push(&query_array);
+        }
+
+        Ok(results)
+    }
+
     /// Get framework metrics snapshot
-    pub async fn metrics_snapshot(&self) -> JsValue {
+    pub async fn metrics_snapshot(&self) -> Result<JsValue, JsValue> {
         let metrics = self.framework.metrics_snapshot().await;
         let obj = js_sys::Object::new();
         js_sys::Reflect::set(
@@ -102,62 +206,62 @@ impl WasmFramework {
             &"concepts_injected_total".into(),
             &(metrics.concepts_injected_total as f64).into(),
         )
-        .unwrap();
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
         js_sys::Reflect::set(
             &obj,
             &"associations_created_total".into(),
             &(metrics.associations_created_total as f64).into(),
         )
-        .unwrap();
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
         js_sys::Reflect::set(
             &obj,
             &"probes_total".into(),
             &(metrics.probes_total as f64).into(),
         )
-        .unwrap();
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
         js_sys::Reflect::set(
             &obj,
             &"avg_probe_latency_ms".into(),
             &metrics.avg_probe_latency_ms.into(),
         )
-        .unwrap();
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
         js_sys::Reflect::set(
             &obj,
             &"cache_hits_total".into(),
             &(metrics.cache_hits_total as f64).into(),
         )
-        .unwrap();
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
         js_sys::Reflect::set(
             &obj,
             &"cache_misses_total".into(),
             &(metrics.cache_misses_total as f64).into(),
         )
-        .unwrap();
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
         js_sys::Reflect::set(
             &obj,
             &"cache_evictions_total".into(),
             &(metrics.cache_evictions_total as f64).into(),
         )
-        .unwrap();
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
         js_sys::Reflect::set(
             &obj,
             &"reservoir_steps_total".into(),
             &(metrics.reservoir_steps_total as f64).into(),
         )
-        .unwrap();
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
         js_sys::Reflect::set(
             &obj,
             &"avg_reservoir_step_latency_us".into(),
             &metrics.avg_reservoir_step_latency_us.into(),
         )
-        .unwrap();
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
         js_sys::Reflect::set(
             &obj,
             &"reservoir_nodes_active".into(),
             &(metrics.reservoir_nodes_active as f64).into(),
         )
-        .unwrap();
-        obj.into()
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+        Ok(obj.into())
     }
 
     /// Process a temporal sequence and return the resulting hypervector bytes.
@@ -239,13 +343,13 @@ impl WasmFramework {
             &"concept_count".into(),
             &(stats.concept_count as u32).into(),
         )
-        .unwrap();
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
         js_sys::Reflect::set(
             &obj,
             &"db_size_bytes".into(),
             &(stats.db_size_bytes as f64).into(),
         )
-        .unwrap();
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
 
         Ok(obj.into())
     }
@@ -264,6 +368,47 @@ pub fn cosine_similarity(a: &[u8], b: &[u8]) -> Result<f32, JsValue> {
     let hvec_b = HVec10240::from_bytes(b).map_err(to_js_error)?;
 
     Ok(hvec_a.cosine_similarity(&hvec_b))
+}
+
+/// Convert a Concept to a JsValue object
+fn concept_to_js_value(concept: &Concept) -> Result<JsValue, JsValue> {
+    let obj = js_sys::Object::new();
+
+    js_sys::Reflect::set(&obj, &"id".into(), &concept.id.clone().into())
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    js_sys::Reflect::set(
+        &obj,
+        &"vector".into(),
+        &Uint8Array::from(concept.vector.to_bytes().as_slice()),
+    )
+    .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    // Convert metadata HashMap to JS object
+    let metadata_obj = js_sys::Object::new();
+    for (key, value) in &concept.metadata {
+        let value_str = serde_json::to_string(value).map_err(to_js_error)?;
+        js_sys::Reflect::set(&metadata_obj, &key.clone().into(), &value_str.into())
+            .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+    }
+    js_sys::Reflect::set(&obj, &"metadata".into(), &metadata_obj.into())
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    js_sys::Reflect::set(
+        &obj,
+        &"created_at".into(),
+        &(concept.created_at as f64).into(),
+    )
+    .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    js_sys::Reflect::set(
+        &obj,
+        &"modified_at".into(),
+        &(concept.modified_at as f64).into(),
+    )
+    .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    Ok(obj.into())
 }
 
 fn to_js_error<E: std::fmt::Display>(error: E) -> JsValue {

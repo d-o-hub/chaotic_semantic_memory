@@ -18,6 +18,9 @@ pub enum CliError {
     #[error("Validation error: {0}")]
     Validation(String),
 
+    #[error("Persistence error: {0}")]
+    Persistence(String),
+
     #[error("{0}")]
     Memory(#[from] MemoryError),
 
@@ -58,6 +61,7 @@ impl From<&CliError> for ExitCode {
             CliError::Input(_) => ExitCode::InputError,
             CliError::Output(_) => ExitCode::OutputError,
             CliError::Validation(_) => ExitCode::ValidationError,
+            CliError::Persistence(_) => ExitCode::DatabaseError,
             CliError::Memory(_) => ExitCode::MemoryError,
             CliError::Io(_) => ExitCode::IoError,
             CliError::Other(_) => ExitCode::UnknownError,

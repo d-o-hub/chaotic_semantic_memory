@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
+use chaotic_semantic_memory::HVec10240;
 use chaotic_semantic_memory::persistence::Persistence;
 use chaotic_semantic_memory::singularity::Concept;
-use chaotic_semantic_memory::HVec10240;
 use tempfile::NamedTempFile;
 
 #[tokio::test]

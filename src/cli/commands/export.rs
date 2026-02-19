@@ -1,8 +1,7 @@
 use std::path::Path;
 
-use anyhow::{Context, Result};
-
 use crate::cli::args::{ExportArgs, ExportFormat, OutputFormat};
+use crate::cli::error::{CliError, Result};
 
 use super::{create_framework, print_success, print_warning};
 
@@ -11,12 +10,13 @@ pub async fn run_export(
     db_path: Option<&Path>,
     format: OutputFormat,
 ) -> Result<()> {
-    let framework = create_framework(db_path)
-        .await
-        .context("failed to initialize framework")?;
+    let framework = create_framework(db_path).await?;
 
     let path_str = args.output.to_string_lossy();
-    let stats = framework.stats().await?;
+    let stats = framework
+        .stats()
+        .await
+        .map_err(|e| CliError::Persistence(format!("failed to get stats: {e}")))?;
 
     if stats.concept_count == 0 {
         print_warning("exporting empty memory state", format);
@@ -45,15 +45,16 @@ pub async fn run_export(
             );
             if matches!(format, OutputFormat::Json) {
                 println!(
-                    r#"{{"exported":{},"path":"{}"}}"#,
-                    stats.concept_count,
-                    args.output.display()
+                    "{}",
+                    serde_json::json!({
+                        "exported": stats.concept_count,
+                        "path": args.output.display().to_string()
+                    })
                 );
             }
         }
         Err(e) => {
-            let msg = format!("export failed: {}", e);
-            return Err(anyhow::anyhow!(msg));
+            return Err(CliError::Output(format!("export failed: {e}")));
         }
     }
 

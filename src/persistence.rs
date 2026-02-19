@@ -2,7 +2,7 @@
 //!
 //! Supports both local SQLite files and remote Turso databases.
 
-use libsql::{params, Builder, Connection, Database};
+use libsql::{Builder, Connection, Database, params};
 use std::sync::Arc;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 

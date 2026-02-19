@@ -29,6 +29,7 @@ fn concept_and_association_limits_enforced() {
         max_concepts: Some(2),
         max_associations_per_concept: Some(1),
         concept_cache_size: 64,
+        max_cached_top_k: 100,
     });
 
     let mk = |id: &str, created_at: u64| Concept {

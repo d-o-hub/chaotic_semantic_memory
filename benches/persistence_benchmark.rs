@@ -1,7 +1,7 @@
+use chaotic_semantic_memory::HVec10240;
 use chaotic_semantic_memory::persistence::Persistence;
 use chaotic_semantic_memory::singularity::Concept;
-use chaotic_semantic_memory::HVec10240;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use std::collections::HashMap;
 use tempfile::NamedTempFile;
 

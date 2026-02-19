@@ -1,17 +1,16 @@
 //! Main framework integrating all components
 
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::RwLock;
 use tracing::{instrument, warn};
 
 use crate::error::Result;
+use crate::framework_builder::{FrameworkBuilder, FrameworkConfig, FrameworkStats};
 use crate::hyperdim::HVec10240;
 use crate::persistence::Persistence;
 use crate::reservoir::ChaoticReservoir;
-use crate::singularity::{Concept, ConceptBuilder, Singularity, SingularityConfig};
-
-const DEFAULT_MAX_PROBE_TOP_K: usize = 10_000;
+use crate::singularity::{Concept, ConceptBuilder, Singularity};
 
 /// Main framework for chaotic semantic memory
 pub struct ChaoticSemanticFramework {
@@ -20,45 +19,6 @@ pub struct ChaoticSemanticFramework {
     pub(crate) reservoir: Arc<RwLock<Option<ChaoticReservoir>>>,
     pub(crate) config: FrameworkConfig,
     pub(crate) metrics: Arc<FrameworkMetrics>,
-}
-
-#[derive(Clone, Debug)]
-/// Runtime configuration for [`ChaoticSemanticFramework`], tuned via [`FrameworkBuilder`].
-pub struct FrameworkConfig {
-    /// Reservoir node count (default: `50_000`, must be `> 0`).
-    pub reservoir_size: usize,
-    /// Input width per sequence step (default: `10_240`, must be `> 0`).
-    pub reservoir_input_size: usize,
-    /// Chaotic noise magnitude (default: `0.1`, recommended: `0.0..=1.0`).
-    pub chaos_strength: f32,
-    /// Enables persistence setup at build time (default: `true`).
-    pub enable_persistence: bool,
-    /// Maximum concept count before oldest-concept eviction (default: `None`).
-    pub max_concepts: Option<usize>,
-    /// Maximum outbound associations per concept (default: `None`).
-    pub max_associations_per_concept: Option<usize>,
-    /// Remote libSQL pool size (default: `10`, coerced to `>= 1`).
-    pub connection_pool_size: usize,
-    /// Upper bound for `top_k` in probes (default: `10_000`, coerced to `>= 1`).
-    pub max_probe_top_k: usize,
-    /// Optional metadata size limit in bytes per concept (default: `None`).
-    pub max_metadata_bytes: Option<usize>,
-}
-
-impl Default for FrameworkConfig {
-    fn default() -> Self {
-        Self {
-            reservoir_size: 50000,
-            reservoir_input_size: 10240,
-            chaos_strength: 0.1,
-            enable_persistence: true,
-            max_concepts: None,
-            max_associations_per_concept: None,
-            connection_pool_size: 10,
-            max_probe_top_k: DEFAULT_MAX_PROBE_TOP_K,
-            max_metadata_bytes: None,
-        }
-    }
 }
 
 #[derive(Debug, Default)]
@@ -128,6 +88,7 @@ impl FrameworkMetrics {
 
 impl ChaoticSemanticFramework {
     /// Create a new framework builder
+    #[must_use]
     pub fn builder() -> FrameworkBuilder {
         FrameworkBuilder::new()
     }
@@ -143,6 +104,37 @@ impl ChaoticSemanticFramework {
         let id = id.into();
         Self::validate_concept_id(&id)?;
         let concept = ConceptBuilder::new(id).with_vector(vector).build()?;
+
+        {
+            let mut sing = self.singularity.write().await;
+            sing.inject(concept.clone())?;
+        }
+
+        if let Some(ref persistence) = self.persistence {
+            persistence.save_concept(&concept).await?;
+        }
+        self.metrics.inc_concepts_injected(1);
+
+        Ok(())
+    }
+
+    /// Inject a concept with metadata into memory
+    #[instrument(skip(self, id, vector, metadata))]
+    pub async fn inject_concept_with_metadata(
+        &self,
+        id: impl Into<String>,
+        vector: HVec10240,
+        metadata: std::collections::HashMap<String, serde_json::Value>,
+    ) -> Result<()> {
+        let id = id.into();
+        Self::validate_concept_id(&id)?;
+        Self::validate_metadata_bytes(&metadata, self.config.max_metadata_bytes)?;
+
+        let mut builder = ConceptBuilder::new(id).with_vector(vector);
+        for (key, value) in metadata {
+            builder = builder.with_metadata(key, value);
+        }
+        let concept = builder.build()?;
 
         {
             let mut sing = self.singularity.write().await;
@@ -266,21 +258,30 @@ impl ChaoticSemanticFramework {
         if let Some(ref persistence) = self.persistence {
             let concepts = persistence.load_all_concepts().await?;
 
-            let mut sing = self.singularity.write().await;
-            sing.clear();
-            for concept in concepts {
-                self.validate_concept(&concept)?;
-                sing.inject(concept)?;
+            let mut concept_ids = Vec::with_capacity(concepts.len());
+            for concept in &concepts {
+                self.validate_concept(concept)?;
+                concept_ids.push(concept.id.clone());
             }
 
-            // Associations are loaded after concept insertions.
-            let concept_ids = sing.concept_ids();
-            for concept_id in concept_ids {
-                let links = persistence.load_associations(&concept_id).await?;
+            let mut all_associations: Vec<(String, String, f32)> = Vec::new();
+            for concept_id in &concept_ids {
+                let links = persistence.load_associations(concept_id).await?;
                 for (to_id, strength) in links {
-                    if let Err(error) = sing.associate(&concept_id, &to_id, strength) {
+                    all_associations.push((concept_id.clone(), to_id, strength));
+                }
+            }
+
+            {
+                let mut sing = self.singularity.write().await;
+                sing.clear();
+                for concept in concepts {
+                    sing.inject(concept)?;
+                }
+                for (from_id, to_id, strength) in all_associations {
+                    if let Err(error) = sing.associate(&from_id, &to_id, strength) {
                         warn!(
-                            from_id = %concept_id,
+                            from_id = %from_id,
                             to_id = %to_id,
                             strength,
                             error = %error,
@@ -298,19 +299,33 @@ impl ChaoticSemanticFramework {
     pub async fn load_merge(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
             let concepts = persistence.load_all_concepts().await?;
-            let mut sing = self.singularity.write().await;
-            for concept in concepts {
-                self.validate_concept(&concept)?;
-                sing.inject(concept)?;
+
+            for concept in &concepts {
+                self.validate_concept(concept)?;
             }
 
-            let concept_ids = sing.concept_ids();
-            for concept_id in concept_ids {
-                let links = persistence.load_associations(&concept_id).await?;
+            let concept_ids = {
+                let mut sing = self.singularity.write().await;
+                for concept in concepts.clone() {
+                    sing.inject(concept)?;
+                }
+                sing.concept_ids()
+            };
+
+            let mut all_associations: Vec<(String, String, f32)> = Vec::new();
+            for concept_id in &concept_ids {
+                let links = persistence.load_associations(concept_id).await?;
                 for (to_id, strength) in links {
-                    if let Err(error) = sing.associate(&concept_id, &to_id, strength) {
+                    all_associations.push((concept_id.clone(), to_id, strength));
+                }
+            }
+
+            {
+                let mut sing = self.singularity.write().await;
+                for (from_id, to_id, strength) in all_associations {
+                    if let Err(error) = sing.associate(&from_id, &to_id, strength) {
                         warn!(
-                            from_id = %concept_id,
+                            from_id = %from_id,
                             to_id = %to_id,
                             strength,
                             error = %error,
@@ -371,124 +386,107 @@ impl ChaoticSemanticFramework {
     }
 }
 
-/// Framework statistics
-#[derive(Debug, Clone)]
-pub struct FrameworkStats {
-    pub concept_count: usize,
-    pub db_size_bytes: u64,
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::hyperdim::HVec10240;
 
-/// Builder for ChaoticSemanticFramework
-pub struct FrameworkBuilder {
-    config: FrameworkConfig,
-    db_path: Option<String>,
-    db_token: Option<String>,
-    concept_cache_size: usize,
-}
+    #[tokio::test]
+    async fn test_inject_concept_with_metadata_success() {
+        let framework = ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .build()
+            .await
+            .unwrap();
 
-impl FrameworkBuilder {
-    fn new() -> Self {
-        Self {
-            config: FrameworkConfig::default(),
-            db_path: None,
-            db_token: None,
-            concept_cache_size: SingularityConfig::default().concept_cache_size,
-        }
+        let vector = HVec10240::random();
+        let mut metadata = std::collections::HashMap::new();
+        metadata.insert("source".to_string(), serde_json::json!("test"));
+        metadata.insert("score".to_string(), serde_json::json!(0.95));
+
+        framework
+            .inject_concept_with_metadata("concept-1", vector, metadata)
+            .await
+            .unwrap();
+
+        let concept = framework.get_concept("concept-1").await.unwrap().unwrap();
+        assert_eq!(concept.id, "concept-1");
+        assert_eq!(concept.metadata.get("source").unwrap(), "test");
+        assert_eq!(concept.metadata.get("score").unwrap(), 0.95);
     }
 
-    pub fn with_reservoir_size(mut self, size: usize) -> Self {
-        self.config.reservoir_size = size;
-        self
+    #[tokio::test]
+    async fn test_inject_concept_with_metadata_exceeds_limit() {
+        let framework = ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .with_max_metadata_bytes(10)
+            .build()
+            .await
+            .unwrap();
+
+        let vector = HVec10240::random();
+        let mut metadata = std::collections::HashMap::new();
+        metadata.insert(
+            "data".to_string(),
+            serde_json::json!("this is a very long string"),
+        );
+
+        let result = framework
+            .inject_concept_with_metadata("concept-1", vector, metadata)
+            .await;
+
+        assert!(result.is_err());
     }
 
-    pub fn with_chaos_strength(mut self, strength: f32) -> Self {
-        self.config.chaos_strength = strength;
-        self
+    #[tokio::test]
+    async fn test_framework_builder_with_reservoir_input_size() {
+        let framework = ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .with_reservoir_size(1000)
+            .with_reservoir_input_size(512)
+            .with_chaos_strength(0.05)
+            .build()
+            .await
+            .unwrap();
+
+        assert_eq!(framework.config.reservoir_input_size, 512);
+        assert_eq!(framework.config.reservoir_size, 1000);
+        assert_eq!(framework.config.chaos_strength, 0.05);
     }
 
-    pub fn with_max_concepts(mut self, max_concepts: usize) -> Self {
-        self.config.max_concepts = Some(max_concepts);
-        self
+    #[tokio::test]
+    async fn test_get_concept_not_found() {
+        let framework = ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .build()
+            .await
+            .unwrap();
+
+        let result = framework.get_concept("nonexistent").await.unwrap();
+        assert!(result.is_none());
     }
 
-    pub fn with_max_associations_per_concept(mut self, max_associations: usize) -> Self {
-        self.config.max_associations_per_concept = Some(max_associations);
-        self
-    }
+    #[tokio::test]
+    async fn test_inject_concept_with_metadata_empty() {
+        let framework = ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .build()
+            .await
+            .unwrap();
 
-    pub fn with_concept_cache_size(mut self, size: usize) -> Self {
-        self.concept_cache_size = size.max(1);
-        self
-    }
+        let vector = HVec10240::random();
+        let metadata = std::collections::HashMap::new();
 
-    pub fn with_turso(mut self, url: impl Into<String>, token: impl Into<String>) -> Self {
-        self.db_path = Some(url.into());
-        self.db_token = Some(token.into());
-        self
-    }
+        framework
+            .inject_concept_with_metadata("concept-empty", vector, metadata)
+            .await
+            .unwrap();
 
-    pub fn with_connection_pool_size(mut self, pool_size: usize) -> Self {
-        self.config.connection_pool_size = pool_size.max(1);
-        self
-    }
-
-    pub fn with_max_probe_top_k(mut self, max_probe_top_k: usize) -> Self {
-        self.config.max_probe_top_k = max_probe_top_k.max(1);
-        self
-    }
-
-    pub fn with_max_metadata_bytes(mut self, max_metadata_bytes: usize) -> Self {
-        self.config.max_metadata_bytes = Some(max_metadata_bytes);
-        self
-    }
-
-    pub fn with_local_db(mut self, path: impl Into<String>) -> Self {
-        self.db_path = Some(path.into());
-        self.db_token = None;
-        self
-    }
-
-    pub fn without_persistence(mut self) -> Self {
-        self.config.enable_persistence = false;
-        self
-    }
-
-    pub async fn build(self) -> Result<ChaoticSemanticFramework> {
-        let singularity = Arc::new(RwLock::new(Singularity::with_config(SingularityConfig {
-            max_concepts: self.config.max_concepts,
-            max_associations_per_concept: self.config.max_associations_per_concept,
-            concept_cache_size: self.concept_cache_size,
-        })));
-
-        let persistence = if self.config.enable_persistence {
-            if let Some(path) = self.db_path {
-                let persist = if let Some(token) = self.db_token {
-                    Persistence::new_turso_with_pool(
-                        &path,
-                        &token,
-                        self.config.connection_pool_size,
-                    )
-                    .await?
-                } else {
-                    Persistence::new_local(&path).await?
-                };
-                Some(Arc::new(persist))
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        let framework = ChaoticSemanticFramework {
-            singularity,
-            persistence,
-            reservoir: Arc::new(RwLock::new(None)),
-            config: self.config,
-            metrics: Arc::new(FrameworkMetrics::default()),
-        };
-
-        framework.load_replace().await?;
-        Ok(framework)
+        let concept = framework
+            .get_concept("concept-empty")
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(concept.metadata.is_empty());
     }
 }

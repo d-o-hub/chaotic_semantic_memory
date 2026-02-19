@@ -4,8 +4,8 @@ use std::process::ExitCode as StdExitCode;
 #[cfg(not(target_arch = "wasm32"))]
 mod native {
     pub use chaotic_semantic_memory::cli::{
-        run_associate, run_completions, run_export, run_import, run_inject, run_probe, CliArgs,
-        CliError, Commands, CompletionsArgs, ExitCode, OutputFormat,
+        CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, run_associate,
+        run_completions, run_export, run_import, run_inject, run_probe,
     };
     pub use clap::Parser;
     pub use colored::Colorize;
@@ -41,15 +41,15 @@ mod native {
     }
 
     pub fn handle_completions(args: &CompletionsArgs) -> Result<(), CliError> {
-        run_completions(args.clone()).map_err(CliError::from)
+        run_completions(args.clone())
     }
 
     #[tokio::main]
-    pub async fn run_async(args: CliArgs) -> Result<(), CliError> {
+    pub async fn run_async(args: CliArgs) -> Result<((), OutputFormat), CliError> {
         let db_path = args.database.as_deref();
         let fmt = args.output_format;
 
-        match &args.command {
+        let result = match &args.command {
             Commands::Completions(cmd) => handle_completions(cmd),
             Commands::Version(v) => {
                 println!("csm {}", env!("CARGO_PKG_VERSION"));
@@ -61,22 +61,13 @@ mod native {
                 }
                 Ok(())
             }
-            Commands::Inject(cmd) => run_inject(cmd.clone(), db_path, fmt)
-                .await
-                .map_err(CliError::from),
-            Commands::Probe(cmd) => run_probe(cmd.clone(), db_path, fmt)
-                .await
-                .map_err(CliError::from),
-            Commands::Associate(cmd) => run_associate(cmd.clone(), db_path, fmt)
-                .await
-                .map_err(CliError::from),
-            Commands::Export(cmd) => run_export(cmd.clone(), db_path, fmt)
-                .await
-                .map_err(CliError::from),
-            Commands::Import(cmd) => run_import(cmd.clone(), db_path, fmt)
-                .await
-                .map_err(CliError::from),
-        }
+            Commands::Inject(cmd) => run_inject(cmd.clone(), db_path, fmt).await,
+            Commands::Probe(cmd) => run_probe(cmd.clone(), db_path, fmt).await,
+            Commands::Associate(cmd) => run_associate(cmd.clone(), db_path, fmt).await,
+            Commands::Export(cmd) => run_export(cmd.clone(), db_path, fmt).await,
+            Commands::Import(cmd) => run_import(cmd.clone(), db_path, fmt).await,
+        };
+        result.map(|_| ((), fmt))
     }
 }
 
@@ -84,11 +75,12 @@ mod native {
 fn main() -> StdExitCode {
     use native::*;
     let args = CliArgs::parse();
+    let output_format = args.output_format;
     init_tracing(args.verbose);
     match run_async(args) {
-        Ok(()) => StdExitCode::from(ExitCode::Success as u8),
+        Ok(_) => StdExitCode::from(ExitCode::Success as u8),
         Err(ref e) => {
-            eprintln!("{}", format_error(e, OutputFormat::Table));
+            eprintln!("{}", format_error(e, output_format));
             StdExitCode::from(ExitCode::from(e) as u8)
         }
     }

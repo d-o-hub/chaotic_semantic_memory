@@ -30,6 +30,8 @@
 | **0028** | **Observability Completion** | **Implemented** | **Wave 7 - Complete** |
 | **0029** | **WASM API Parity (Phase 2)** | **Implemented** | **Wave 7 - Complete** |
 | **0030** | **Test & Benchmark Gap Remediation** | **Implemented** | **Wave 8 - Complete** |
+| **0038** | **Cargo.toml Modernization** | **Implemented** | **Wave 10 - Phase 24** |
+| **0031** | **Two-Tier Architecture Documentation** | **Accepted** | **Documentation** |
 | 0024 | Concept Expiration (TTL) | Deferred | Post-1.0 |
 | 0024 | Performance Optimizations Phase 2 | Deferred | Post-1.0 |
 | 0025 | Weighted Forgetting (Decay) | Deferred | Post-1.0 |
@@ -42,9 +44,32 @@
 - **Deferred**: Postponed to future release, see ADR for trigger conditions
 - **Superseded**: Replaced by newer ADR (noted in header)
 
+## Wave 10 Active ADRs
+
+Per Swarm Consensus 2026-02-19, these ADRs are being implemented for 1.0 release:
+
+1. **ADR-0038**: Cargo.toml Modernization
+   - Edition 2024 upgrade with MSRV 1.85
+   - crates.io metadata (description, license, repository, keywords, categories)
+   - Dependency version pinning for reproducibility
+   - CLI deps gating with `cli` feature
+   - Remove unused exitcode crate
+
+2. **ADR-0036**: CI/DX Hardening
+   - LOC gate recursive fix
+   - Pre-commit hooks
+   - Clippy flags alignment
+   - Post-commit hook fixes
+
+3. **ADR-0037**: Rust Best Practices
+   - #[must_use] annotations
+   - Unsafe docs improvement
+   - Clippy suppressions targeting
+   - CLI JSON serde usage
+
 ## Wave 7 Active ADRs
 
-Per Swarm Consensus 2026-02-17, these ADRs are being implemented for 1.0 release:
+Per Swarm Consensus 2026-02-17, these ADRs were implemented for 1.0 release:
 
 1. **ADR-0027**: Documentation Standards
    - Document FrameworkConfig, SingularityConfig

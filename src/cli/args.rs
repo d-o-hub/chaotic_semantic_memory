@@ -12,9 +12,6 @@ pub struct CliArgs {
     #[arg(short, long, global = true, action = clap::ArgAction::Count)]
     pub verbose: u8,
 
-    #[arg(short, long, global = true, value_name = "FILE")]
-    pub config: Option<PathBuf>,
-
     #[arg(short, long, global = true, value_name = "PATH")]
     pub database: Option<PathBuf>,
 

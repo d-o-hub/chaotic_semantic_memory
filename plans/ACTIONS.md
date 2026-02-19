@@ -1020,128 +1020,435 @@ actions:
 
   # ═══════════════════════════════════════════════════════
   # PHASE 20: CLI CRATE (cost: 12) - Wave 9
+  # NOTE: Implementation landed as src/cli/ + src/bin/csm.rs
+  #       (not crates/cli/ as originally planned)
   # ═══════════════════════════════════════════════════════
-  - name: add_clap_dependencies
+  - name: implement_cli_crate
     preconditions:
       core_modules_created: true
     effects:
       cli_crate_created: true
-    cost: 1
-    status: pending
-    file: Cargo.toml, crates/cli/Cargo.toml
+      cli_commands_implemented: true
+      cli_tests_passing: true
+      shell_completions_generated: true
+    cost: 12
+    status: complete
+    file: src/cli/, src/bin/csm.rs, tests/cli_integration.rs
     description: |
-      Add CLI dependencies to workspace:
-      - clap (with derive feature)
-      - clap_complete (shell completions)
-      - anyhow (error handling)
-      - colored (terminal output)
-      Create crates/cli/ as workspace member.
+      CLI implemented as src/cli/ module (not separate crate) with:
+      - src/cli/args.rs: clap argument definitions
+      - src/cli/error.rs: CliError + ExitCode types
+      - src/cli/commands/{inject,probe,associate,export,import,completions}.rs
+      - src/bin/csm.rs: binary entry point with tracing init
+      - tests/cli_integration.rs: assert_cmd integration tests
+      Shell completions via `csm completions <shell>` subcommand.
 
-  - name: create_cli_module_structure
+  # ═══════════════════════════════════════════════════════
+  # PHASE 21: PRODUCTION HARDENING (cost: 18) - Wave 10
+  # ═══════════════════════════════════════════════════════
+  - name: fix_async_lock_safety
     preconditions:
       cli_crate_created: true
     effects:
-      cli_module_structure_created: true
-    cost: 2
-    status: pending
-    file: crates/cli/src/main.rs, crates/cli/src/commands/mod.rs
+      async_lock_safety: true
+    cost: 4
+    status: complete
+    file: src/framework.rs, src/framework_ops.rs
+    adr: ADR-0031
     description: |
-      Create CLI module hierarchy:
-      - src/main.rs (entry point, clap parser)
-      - src/commands/mod.rs (command registry)
-      - src/commands/inject.rs
-      - src/commands/probe.rs
-      - src/commands/associate.rs
-      - src/commands/export.rs
-      - src/commands/import.rs
+      Restructure lock scopes to avoid holding tokio::RwLock across .await:
+      - load_replace/load_merge: collect concept_ids, release lock, load associations, reacquire
+      - import_json/import_binary: build concepts+associations while locked, release, then persist
+      Eliminates starvation risk during concurrent probe/inject operations.
 
-  - name: implement_inject_command
+  - name: fix_cli_json_escaping
     preconditions:
-      cli_module_structure_created: true
+      cli_crate_created: true
     effects:
-      cli_inject_implemented: true
+      cli_json_escaping: true
     cost: 2
-    status: pending
-    file: crates/cli/src/commands/inject.rs
+    status: complete
+    file: src/cli/commands/mod.rs, src/cli/commands/inject.rs, src/cli/commands/associate.rs, src/cli/commands/export.rs, src/cli/commands/import.rs
+    adr: ADR-0032
     description: |
-      Implement `csm inject <id> [--text "content"] [--file path]`:
-      - Read text or file content
-      - Generate hypervector from content
-      - Inject concept via library API
-      - Output concept ID and confirmation
+      Replace all format!-based JSON output with serde_json::json! macro.
+      Ensures valid JSON for concept IDs containing quotes, backslashes, or newlines.
 
-  - name: implement_probe_command
+  - name: fix_cli_exit_codes
     preconditions:
-      cli_module_structure_created: true
+      cli_crate_created: true
     effects:
-      cli_probe_implemented: true
+      cli_exit_code_correctness: true
     cost: 2
-    status: pending
-    file: crates/cli/src/commands/probe.rs
+    status: complete
+    file: src/cli/commands/*.rs, src/cli/error.rs
+    adr: ADR-0032
     description: |
-      Implement `csm probe <text> [--top-k N] [--json]`:
-      - Generate query hypervector from text
-      - Find similar concepts
-      - Output ranked results (text or JSON)
-      - Colorize output for readability
+      Change CLI commands from anyhow::Result to cli::Result<()> with explicit
+      CliError variants so exit codes map correctly (1-7) instead of collapsing to 255.
 
-  - name: implement_associate_command
+  - name: fix_cli_error_output
     preconditions:
-      cli_module_structure_created: true
+      cli_exit_code_correctness: true
     effects:
-      cli_associate_implemented: true
+      cli_error_output_format: true
     cost: 1
-    status: pending
-    file: crates/cli/src/commands/associate.rs
+    status: complete
+    file: src/bin/csm.rs
+    adr: ADR-0032
     description: |
-      Implement `csm associate <from_id> <to_id> [--strength N]`:
-      - Validate both concept IDs exist
-      - Create association with optional strength
-      - Output confirmation with association details
+      Pass output_format to error formatter in main() so --output-format=json
+      produces JSON-formatted errors instead of always using table format.
 
-  - name: implement_export_import_commands
+  - name: fix_cli_config_flag
     preconditions:
-      cli_inject_implemented: true
-      cli_probe_implemented: true
-      cli_associate_implemented: true
+      cli_crate_created: true
     effects:
-      cli_commands_implemented: true
-    cost: 2
-    status: pending
-    file: crates/cli/src/commands/export.rs, crates/cli/src/commands/import.rs
-    description: |
-      Implement export/import commands:
-      - `csm export <path>` - Export all concepts/associations to JSON
-      - `csm import <path> [--merge]` - Import from JSON file
-      - Support both merge and replace modes
-
-  - name: add_cli_integration_tests
-    preconditions:
-      cli_commands_implemented: true
-    effects:
-      cli_tests_passing: true
-    cost: 2
-    status: pending
-    file: crates/cli/tests/cli_integration.rs
-    description: |
-      Add integration tests using assert_cmd:
-      - Test inject/probe roundtrip
-      - Test association creation and query
-      - Test export/import cycle
-      - Test error cases (missing ID, invalid input)
-      - Test JSON output format
-
-  - name: add_shell_completions
-    preconditions:
-      cli_commands_implemented: true
-    effects:
-      shell_completions_generated: true
+      cli_unused_config_flag: true
     cost: 1
-    status: pending
-    file: crates/cli/src/completions.rs, crates/cli/completions/
+    status: complete
+    file: src/cli/args.rs
+    adr: ADR-0032
     description: |
-      Generate shell completion scripts:
-      - Add `csm completions <shell>` subcommand
-      - Generate bash, zsh, fish completions
-      - Include completions in release assets
-      - Document installation in README
+      Remove unused --config flag from CliArgs or add stub implementation
+      that reads database path from a TOML config file.
+
+  - name: fix_wasm_panic_safety
+    preconditions:
+      wasm_compiles: true
+    effects:
+      wasm_panic_safety: true
+    cost: 2
+    status: complete
+    file: src/wasm.rs
+    adr: ADR-0033
+    description: |
+      Replace all Reflect::set(...).unwrap() calls with error propagation.
+      Convert metrics_snapshot() to return Result<JsValue, JsValue>.
+      Eliminates unrecoverable panics across WASM boundary.
+
+  - name: add_framework_metadata_injection
+    preconditions:
+      core_modules_created: true
+    effects:
+      framework_metadata_injection: true
+    cost: 2
+    status: complete
+    file: src/framework.rs
+    adr: ADR-0034
+    description: |
+      Add inject_concept_with_metadata(id, vector, metadata) method on
+      ChaoticSemanticFramework that validates max_metadata_bytes and
+      passes through to ConceptBuilder.
+
+  - name: add_builder_input_size
+    preconditions:
+      core_modules_created: true
+    effects:
+      framework_builder_input_size: true
+    cost: 1
+    status: complete
+    file: src/framework.rs
+    adr: ADR-0034
+    description: |
+      Add with_reservoir_input_size(size) setter on FrameworkBuilder
+      to allow configuring input dimension for process_sequence().
+
+  - name: add_wasm_batch_api_parity
+    preconditions:
+      wasm_panic_safety: true
+    effects:
+      wasm_batch_api_parity: true
+    cost: 2
+    status: complete
+    file: src/wasm.rs
+    adr: ADR-0034
+    description: |
+      Add WASM bindings for missing batch APIs: get_concept, inject_concepts,
+      associate_many, probe_batch. Maintains feature parity with native framework.
+
+  - name: add_cache_memory_guardrails
+    preconditions:
+      concept_cache_implemented: true
+    effects:
+      cache_memory_guardrails: true
+    cost: 2
+    status: complete
+    file: src/singularity.rs, src/framework.rs
+    adr: ADR-0035
+    description: |
+      Reduce DEFAULT_CONCEPT_CACHE_SIZE from 1000 to 128.
+      Add max_cached_top_k (default: 100) to SingularityConfig.
+      Bypass cache when top_k > max_cached_top_k.
+      Expose with_max_cached_top_k() on FrameworkBuilder.
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 22: CI/DX HARDENING (cost: 10) - Wave 10
+  # ═══════════════════════════════════════════════════════
+  - name: fix_loc_gate_recursive
+    preconditions:
+      cli_crate_created: true
+    effects:
+      loc_gate_recursive: true
+    cost: 2
+    status: complete
+    file: scripts/validate.sh, .github/workflows/ci.yml
+    adr: ADR-0036
+    description: |
+      Update LOC gate from `for file in src/*.rs` to `find src -name '*.rs'`
+      in both scripts/validate.sh and .github/workflows/ci.yml.
+      Covers 11 files in src/cli/, src/cli/commands/, and src/bin/ that are
+      currently excluded from LOC enforcement.
+
+  - name: add_pre_commit_hook
+    preconditions:
+      loc_gate_recursive: true
+    effects:
+      pre_commit_hook_installed: true
+    cost: 2
+    status: complete
+    file: scripts/pre-commit.sh, scripts/setup-hooks.sh
+    adr: ADR-0036
+    description: |
+      Create fast pre-commit hook running cargo fmt --check and LOC gate.
+      Add scripts/setup-hooks.sh installer. Document in README/CONTRIBUTING.
+
+  - name: fix_clippy_parity
+    preconditions:
+      core_modules_created: true
+    effects:
+      clippy_flags_consistent: true
+    cost: 1
+    status: complete
+    file: scripts/validate.sh, .github/workflows/ci.yml
+    adr: ADR-0036
+    description: |
+      Align clippy command to `cargo clippy --all-targets --all-features -- -D warnings`
+      in both CI and local validate.sh.
+
+  - name: fix_post_commit_hook
+    preconditions:
+      core_modules_created: true
+    effects:
+      post_commit_hook_fixed: true
+    cost: 1
+    status: complete
+    file: .git/hooks/post-commit
+    adr: ADR-0036
+    description: |
+      Remove cargo test call and silent commit amending from post-commit hook.
+      Keep diagram auto-update but stage without amending.
+
+  - name: remove_exitcode_crate
+    preconditions:
+      cli_crate_created: true
+    effects:
+      exitcode_crate_removed: true
+    cost: 1
+    status: complete
+    file: Cargo.toml
+    adr: ADR-0036
+    description: |
+      Remove unused exitcode dependency from Cargo.toml.
+      CLI already defines its own ExitCode enum in src/cli/error.rs.
+
+  - name: gate_cli_deps
+    preconditions:
+      exitcode_crate_removed: true
+    effects:
+      cli_deps_gated: true
+    cost: 3
+    status: complete
+    file: Cargo.toml
+    adr: ADR-0036
+    description: |
+      Move clap, clap_complete, anyhow, colored to target.'cfg(not(target_arch = "wasm32"))'.dependencies
+      so library-only users don't compile CLI dependencies.
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 23: RUST BEST PRACTICES (cost: 6) - Wave 10
+  # ═══════════════════════════════════════════════════════
+  - name: add_must_use_annotations
+    preconditions:
+      core_modules_created: true
+    effects:
+      must_use_annotations: true
+    cost: 2
+    status: complete
+    file: src/hyperdim.rs, src/singularity.rs, src/reservoir.rs, src/framework.rs
+    adr: ADR-0037
+    description: |
+      Add #[must_use] to public constructors and factory methods:
+      HVec10240::{zero,random,sparse,bundle,bind,permute,cosine_similarity,hamming_distance}
+      Singularity::new(), Reservoir::new(), to_hypervector()
+      ChaoticSemanticFramework::builder()
+
+  - name: improve_unsafe_docs
+    preconditions:
+      core_modules_created: true
+    effects:
+      unsafe_docs_complete: true
+    cost: 1
+    status: complete
+    file: src/hyperdim.rs
+    adr: ADR-0037
+    description: |
+      Expand SAFETY comments on SIMD blocks to explicitly document:
+      - u128 alignment guarantees matching __m128i requirements
+      - Array bounds validation (fixed [u128; 80] ensures 16-byte elements)
+      - No aliasing violations from cast operations
+
+  - name: fix_clippy_suppressions
+    preconditions:
+      core_modules_created: true
+    effects:
+      clippy_suppressions_targeted: true
+    cost: 1
+    status: complete
+    file: src/hyperdim.rs
+    adr: ADR-0037
+    description: |
+      Replace file-wide #![allow(clippy::needless_range_loop)] with per-loop annotations.
+      Restructure cfg-branch returns to eliminate #[allow(unreachable_code)] blocks.
+
+  - name: fix_cli_json_serde
+    preconditions:
+      cli_crate_created: true
+    effects:
+      cli_json_serde: true
+    cost: 1
+    status: complete
+    file: src/cli/commands/inject.rs, src/cli/commands/associate.rs, src/cli/commands/export.rs, src/cli/commands/import.rs
+    adr: ADR-0037
+    description: |
+      Replace format!-based JSON construction with serde_json::json! macro
+      in all CLI command output paths. Ensures proper string escaping.
+
+  - name: fix_probe_unwrap
+    preconditions:
+      cli_crate_created: true
+    effects:
+      probe_unwrap_removed: true
+    cost: 1
+    status: complete
+    file: src/cli/commands/probe.rs
+    adr: ADR-0037
+    description: |
+      Replace serde_json::to_string().unwrap() at lines 57 and 130 with
+      .context("JSON serialization failed")? to prevent panics.
+
+  - name: sync_actions_md_phase20
+    preconditions:
+      cli_crate_created: true
+    effects:
+      actions_md_phase20_synced: true
+    cost: 0
+    status: complete
+    description: |
+      Sync Phase 20 action status from "pending" to "complete" in ACTIONS.md.
+      CLI was implemented as src/cli/ (not crates/cli/ as originally planned).
+      GOAP_STATE was already correct; only ACTIONS.md was stale.
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 24: CARGO.TOML MODERNIZATION (cost: 4) - Wave 10
+  # ADR-0038: Comprehensive Cargo.toml update for 2026 best practices
+  # ═══════════════════════════════════════════════════════
+  - name: add_crates_io_metadata
+    preconditions:
+      core_modules_created: true
+    effects:
+      crates_io_ready: true
+    cost: 1
+    status: complete
+    file: Cargo.toml
+    adr: ADR-0038
+    description: |
+      Add required and recommended crates.io metadata:
+      - description: "AI memory systems with hyperdimensional vectors and chaotic reservoirs"
+      - license: "MIT"
+      - repository: "https://github.com/anomalyco/chaotic_semantic_memory"
+      - homepage: "https://github.com/anomalyco/chaotic_semantic_memory"
+      - documentation: "https://docs.rs/chaotic_semantic_memory"
+      - readme: "README.md"
+      - keywords: ["ai", "memory", "hypervector", "reservoir", "wasm"]
+      - categories: ["data-structures", "algorithms", "wasm"]
+      - resolver: "3"
+      - include: ["/src", "/benches", "/examples", "/tests", "README.md", "LICENSE", "CHANGELOG.md"]
+
+  - name: update_dependency_versions
+    preconditions:
+      core_modules_created: true
+    effects:
+      cargo_toml_modernized: true
+    cost: 1
+    status: complete
+    file: Cargo.toml
+    adr: ADR-0038
+    description: |
+      Update all dependency versions from minor-only to specific patch versions:
+      - serde: "1.0" -> "1.0.219"
+      - serde_json: "1.0" -> "1.0.138"
+      - bincode: "1.3" -> "1.3.3"
+      - thiserror: "1.0" -> "2.0.11"
+      - tracing: "0.1" -> "0.1.41"
+      - tracing-subscriber: "0.3" -> "0.3.19"
+      - rand: "0.8" -> "0.8.5"
+      - clap: "4.5" -> "4.5.27"
+      - clap_complete: "4.5" -> "4.5.42"
+      - anyhow: "1.0" -> "1.0.95"
+      - colored: "2.1" -> "2.2.0"
+      - tokio: "1.40" -> "1.43.0"
+      - libsql: "0.4" -> "0.4.1"
+      - rayon: "1.10" -> "1.10.0"
+      And all dev-dependencies with specific versions.
+
+  - name: remove_exitcode_crate
+    preconditions:
+      cli_crate_created: true
+    effects:
+      exitcode_crate_removed: true
+    cost: 1
+    status: complete
+    file: Cargo.toml
+    adr: ADR-0036, ADR-0038
+    description: |
+      Remove the exitcode = "1.1" dependency from Cargo.toml.
+      The CLI already defines its own ExitCode enum in src/cli/error.rs.
+      This dependency is unused and should have been removed earlier.
+      Update any imports that reference exitcode::ExitCode to use cli::ExitCode.
+
+  - name: gate_cli_dependencies
+    preconditions:
+      remove_exitcode_crate: true
+    effects:
+      cli_deps_gated: true
+    cost: 1
+    status: complete
+    file: Cargo.toml
+    adr: ADR-0036, ADR-0038
+    description: |
+      Gate CLI-specific dependencies behind a "cli" feature flag:
+      - Add [features] section with default = ["cli"] and cli feature
+      - Mark clap, clap_complete, anyhow, colored as optional = true
+      - Update default dependencies to exclude CLI deps when default-features = false
+      - This allows library-only users to avoid compiling CLI dependencies
+      - Maintains backward compatibility (cli is default-enabled)
+
+  - name: upgrade_to_edition_2024
+    preconditions:
+      update_dependency_versions: true
+      gate_cli_dependencies: true
+    effects:
+      edition_2024: true
+    cost: 1
+    status: complete
+    file: Cargo.toml
+    adr: ADR-0038
+    description: |
+      Upgrade to Rust edition 2024 and update MSRV:
+      - Change edition: "2021" -> "2024"
+      - Change rust-version: "1.82" -> "1.85" (required for edition 2024)
+      - Verify compilation with: cargo check --edition 2024 --all-targets
+      - Verify WASM target: cargo check --target wasm32-unknown-unknown --edition 2024
+      - Run full test suite to ensure no regressions
+      - Edition 2024 is low-risk: no macro_rules!, SIMD unchanged, Rayon safe

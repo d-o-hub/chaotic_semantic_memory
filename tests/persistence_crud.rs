@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
+use chaotic_semantic_memory::HVec10240;
 use chaotic_semantic_memory::persistence::Persistence;
 use chaotic_semantic_memory::singularity::Concept;
-use chaotic_semantic_memory::HVec10240;
 use tempfile::NamedTempFile;
 
 fn make_concept(id: &str, created_at: u64, modified_at: u64) -> Concept {

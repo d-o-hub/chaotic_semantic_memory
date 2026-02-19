@@ -1,8 +1,7 @@
 use std::path::Path;
 
-use anyhow::{Context, Result};
-
 use crate::cli::args::{ImportArgs, ImportFormat, OutputFormat};
+use crate::cli::error::{CliError, Result};
 
 use super::{create_framework, print_error, print_success, print_warning};
 
@@ -13,12 +12,13 @@ pub async fn run_import(
 ) -> Result<()> {
     if !args.input.exists() {
         print_error(&format!("file not found: {}", args.input.display()));
-        anyhow::bail!("import file does not exist: {}", args.input.display());
+        return Err(CliError::Input(format!(
+            "import file does not exist: {}",
+            args.input.display()
+        )));
     }
 
-    let framework = create_framework(db_path)
-        .await
-        .context("failed to initialize framework")?;
+    let framework = create_framework(db_path).await?;
 
     let path_str = args.input.to_string_lossy();
     let detected_format = detect_format(&args);
@@ -56,10 +56,12 @@ pub async fn run_import(
             );
             if matches!(format, OutputFormat::Json) {
                 println!(
-                    r#"{{"imported":{},"path":"{}","merge":{}}}"#,
-                    count,
-                    args.input.display(),
-                    args.merge
+                    "{}",
+                    serde_json::json!({
+                        "imported": count,
+                        "path": args.input.display().to_string(),
+                        "merge": args.merge
+                    })
                 );
             }
         }
@@ -76,7 +78,7 @@ pub async fn run_import(
                 format!("import failed: {}", err_str)
             };
             print_error(&msg);
-            return Err(anyhow::anyhow!(msg));
+            return Err(CliError::Input(msg));
         }
     }
 
@@ -101,17 +103,23 @@ fn detect_format(args: &ImportArgs) -> ImportFormat {
 }
 
 fn is_binary_file(path: &Path) -> Result<bool> {
-    let metadata = std::fs::metadata(path).context("failed to read file metadata")?;
+    let metadata = std::fs::metadata(path).map_err(|e| {
+        CliError::Io(std::io::Error::new(
+            e.kind(),
+            "failed to read file metadata",
+        ))
+    })?;
     if metadata.len() < 4 {
         return Ok(false);
     }
-    let mut file = std::fs::File::open(path).context("failed to open file")?;
+    let mut file = std::fs::File::open(path)
+        .map_err(|e| CliError::Io(std::io::Error::new(e.kind(), "failed to open file")))?;
     let mut header = [0u8; 4];
     use std::io::Read;
     file.read_exact(&mut header)
-        .context("failed to read file header")?;
+        .map_err(|e| CliError::Io(std::io::Error::new(e.kind(), "failed to read file header")))?;
     let is_text = header
         .iter()
-        .all(|&b| b.is_ascii_graphic() || b.is_ascii_whitespace() || b == b'{');
+        .all(|b| b.is_ascii_graphic() || b.is_ascii_whitespace() || *b == b'{');
     Ok(!is_text)
 }
