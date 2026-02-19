@@ -151,4 +151,11 @@ sed -i "s/TIMESTAMP_PLACEHOLDER/${TIMESTAMP}/g" "$OUTPUT_FILE"
 sed -i "s/SWARM_STATUS_PLACEHOLDER/${SWARM_STATUS}/g" "$OUTPUT_FILE"
 sed -i "s/TEST_COUNT_PLACEHOLDER/${TEST_COUNT}/g" "$OUTPUT_FILE"
 
+echo "Adding to git..."
+if git add "$OUTPUT_FILE"; then
+    echo "✅ Added to git"
+else
+    echo "⚠️  Could not add to git" >&2
+fi
+
 echo "✅ Generated: $OUTPUT_FILE"

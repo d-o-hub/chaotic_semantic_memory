@@ -5,12 +5,12 @@
 # Cargo lock (optional - uncomment if you don't want to commit it)
 # Cargo.lock
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
 
 # OS
 .DS_Store
@@ -43,3 +43,6 @@ Thumbs.db
 # mutation testing outputs
 /progress/mutation/*.log
 /progress/mutation/*-latest.md
+
+# Auto-generated exports
+export.json

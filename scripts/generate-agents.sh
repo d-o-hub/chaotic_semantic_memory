@@ -322,6 +322,13 @@ generate_plan_agent
 generate_ci_agent
 generate_swarm_agent
 
+echo "Adding agents to git..."
+if git add .opencode/agents/; then
+    echo "✅ Added agents to git"
+else
+    echo "⚠️  Could not add agents to git" >&2
+fi
+
 echo ""
 echo "=== Summary ==="
 echo "Generated: 7 agents"

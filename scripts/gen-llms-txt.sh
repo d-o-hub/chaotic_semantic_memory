@@ -16,6 +16,16 @@ if ! command -v cargo-llms-txt &> /dev/null; then
 fi
 
 echo "Generating llms-full.txt..."
-cargo llms-txt
+if ! cargo llms-txt; then
+    echo "❌ Failed to generate llms-full.txt" >&2
+    exit 1
+fi
+
+echo "Adding llms*.txt to git..."
+if git add llms-full.txt llms.txt; then
+    echo "✅ Added llms*.txt to git"
+else
+    echo "⚠️  Could not add llms*.txt to git (may already be tracked or not exist)"
+fi
 
 echo "✅ llms-full.txt generated"

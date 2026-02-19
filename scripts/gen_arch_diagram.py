@@ -2,6 +2,7 @@
 """Auto-generate draw.io architecture diagram from source code."""
 
 import re
+import subprocess
 from pathlib import Path
 
 SRC_DIR = Path("src")
@@ -180,6 +181,7 @@ def generate_xml(modules):
 </mxfile>'''
 
 def main():
+    import subprocess
     print("Parsing src/lib.rs and modules...")
     modules = auto_discover()
     print(f"Discovered {len(modules)} modules:")
@@ -191,6 +193,16 @@ def main():
     out_path = Path("docs/architecture/arch.drawio")
     out_path.write_text(xml)
     print(f"\nGenerated: {out_path} ({len(xml.split(chr(10)))} lines)")
+    
+    print("Adding to git...")
+    try:
+        result = subprocess.run(["git", "add", str(out_path)], capture_output, text=True)
+        if result.returncode == 0:
+            print("✅ Added to git")
+        else:
+            print(f"⚠️  Could not add to git: {result.stderr}")
+    except Exception as e:
+        print(f"⚠️  Error adding to git: {e}")
 
 if __name__ == "__main__":
     main()
