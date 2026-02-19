@@ -88,7 +88,17 @@ fi
 Run validation gates (stop on first failure):
 !`cargo fmt -- --check`
 !`cargo clippy --all-targets --all-features -- -D warnings`
-!`cargo test --all-features --quiet`
+
+```bash
+# Run tests and verify at least 1 test executed
+TEST_OUTPUT=$(cargo test --all-features 2>&1)
+TEST_COUNT=$(echo "$TEST_OUTPUT" | grep -oP '\d+(?= tests?)' | tail -1)
+if [ -z "$TEST_COUNT" ] || [ "$TEST_COUNT" -eq 0 ]; then
+  echo "FAIL: No tests executed (count: ${TEST_COUNT:-0})"
+  exit 1
+fi
+echo "PASS: $TEST_COUNT tests executed"
+```
 
 LOC_FAIL=0
 for file in $(find src -name '*.rs'); do
@@ -150,7 +160,16 @@ Execute categories in parallel where independent:
 For each task in IMPLEMENTATION_QUEUE:
 1. Read ADR/specification fully
 2. Use appropriate combined agent (@impl, @fix, @perf, @test, @plan)
-3. Run targeted validation: !`cargo check && cargo test --lib`
+3. Run targeted validation:
+```bash
+cargo check || exit 1
+TEST_OUTPUT=$(cargo test --lib 2>&1)
+TEST_COUNT=$(echo "$TEST_OUTPUT" | grep -oP '\d+(?= tests?)' | tail -1)
+if [ -z "$TEST_COUNT" ] || [ "$TEST_COUNT" -eq 0 ]; then
+  echo "FAIL: No tests executed in --lib (count: ${TEST_COUNT:-0})"
+  exit 1
+fi
+```
 4. If validation fails: fix and retry (max 3 attempts per task)
 5. Do NOT skip or defer - always implement
 
@@ -290,10 +309,12 @@ echo "ATOMIC PUSH COMPLETE - History is now immutable for this branch"
    !`gh run view "$RUN_ID" --json conclusion,status -q '.conclusion, .status'`
 
 4. If failed (non-skipped):
-   - Get logs: !`gh run view "$RUN_ID" --log-failed 2>&1 | head -100`
-   - Analyze failure, fix in code
-   - Amend commit: !`git add -A && git commit --amend --no-edit && git push`
-   - Repeat verification
+- Get logs: !`gh run view "$RUN_ID" --log-failed 2>&1 | head -100`
+- Analyze failure, fix in code
+- Create NEW fixup commit (NO AMEND): !`git add -A && git commit -m "fix(plans): ci fix iteration $ITERATION" && git push`
+- Repeat verification
+
+**NOTE:** Never use `--amend` after push. Each fix creates immutable history.
 
 ## STEP 10: Loop Until CI Passes (Max 5 iterations)
 

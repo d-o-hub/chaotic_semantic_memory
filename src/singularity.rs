@@ -421,99 +421,21 @@ impl Default for Singularity {
     }
 }
 
-/// Builder for creating concepts
-pub struct ConceptBuilder {
-    id: String,
-    vector: Option<HVec10240>,
-    metadata: HashMap<String, serde_json::Value>,
-    metadata_error: Option<MemoryError>,
-}
-
-impl ConceptBuilder {
-    pub fn new(id: impl Into<String>) -> Self {
-        Self {
-            id: id.into(),
-            vector: None,
-            metadata: HashMap::new(),
-            metadata_error: None,
-        }
-    }
-
-    pub fn with_vector(mut self, vector: HVec10240) -> Self {
-        self.vector = Some(vector);
-        self
-    }
-
-    pub fn with_metadata(mut self, key: impl Into<String>, value: impl Serialize) -> Self {
-        if self.metadata_error.is_none() {
-            match serde_json::to_value(value) {
-                Ok(value) => {
-                    self.metadata.insert(key.into(), value);
-                }
-                Err(error) => {
-                    self.metadata_error = Some(MemoryError::Serialization(error));
-                }
-            }
-        }
-        self
-    }
-
-    pub fn build(self) -> Result<Concept> {
-        if let Some(error) = self.metadata_error {
-            return Err(error);
-        }
-
-        let now = unix_now_secs();
-
-        Ok(Concept {
-            id: self.id,
-            vector: self.vector.unwrap_or_else(HVec10240::random),
-            metadata: self.metadata,
-            created_at: now,
-            modified_at: now,
-        })
-    }
-}
-
-fn unix_now_secs() -> u64 {
+/// Get current Unix timestamp in seconds
+pub(crate) fn unix_now_secs() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
 }
 
-fn similarity_cache_key(query: &HVec10240, top_k: usize) -> u64 {
+/// Generate cache key for similarity query
+pub(crate) fn similarity_cache_key(query: &HVec10240, top_k: usize) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     top_k.hash(&mut hasher);
     query.data.hash(&mut hasher);
     hasher.finish()
 }
 
-#[cfg(test)]
-mod tests {
-    use serde::Serialize;
-    use serde::ser::{Error as _, Serializer};
-
-    use super::*;
-
-    struct FailingMetadata;
-
-    impl Serialize for FailingMetadata {
-        fn serialize<S>(&self, _serializer: S) -> std::result::Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-        {
-            Err(S::Error::custom(
-                "intentional metadata serialization failure",
-            ))
-        }
-    }
-
-    #[test]
-    fn concept_builder_returns_error_when_metadata_serialization_fails() {
-        let result = ConceptBuilder::new("failing")
-            .with_metadata("bad", FailingMetadata)
-            .build();
-        assert!(result.is_err());
-    }
-}
+// Re-export ConceptBuilder from the dedicated module
+pub use crate::concept_builder::ConceptBuilder;
