@@ -7,7 +7,33 @@ set -e
 SKILLS_DIR=".agents/skills"
 AGENTS_DIR=".opencode/agents"
 
+# Check if regeneration is needed
+NEEDS_REGEN=0
+
+if [ ! -d "$AGENTS_DIR" ] || [ -z "$(ls -A "$AGENTS_DIR" 2>/dev/null)" ]; then
+  NEEDS_REGEN=1
+  REASON="agents directory missing or empty"
+else
+  # Check if any skill file is newer than the oldest agent
+  OLDEST_AGENT=$(find "$AGENTS_DIR" -name "*.md" -printf '%T@\t%p\n' 2>/dev/null | sort -n | head -1 | cut -f2-)
+  if [ -n "$OLDEST_AGENT" ]; then
+    for skill_file in "$SKILLS_DIR"/*/SKILL.md; do
+      if [ -f "$skill_file" ] && [ "$skill_file" -nt "$OLDEST_AGENT" ]; then
+        NEEDS_REGEN=1
+        REASON="skill $(basename $(dirname "$skill_file")) modified"
+        break
+      fi
+    done
+  fi
+fi
+
+if [ "$NEEDS_REGEN" -eq 0 ]; then
+  echo "=== Agents up to date, skipping regeneration ==="
+  exit 0
+fi
+
 echo "=== Generating OpenCode Agents from Skill Mappings ==="
+echo "Reason: $REASON"
 
 mkdir -p "$AGENTS_DIR"
 
