@@ -14,9 +14,9 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: cli_crate_implementation_complete
-  orchestrator_last_run: goap_phase20_sync_fix_2026_02_19
-  orchestrator_last_run_at_utc: 2026-02-19T12:00:00Z
+  action_last_completed: release_engineering_infrastructure
+  orchestrator_last_run: wave_11_release_engineering_2026_02_19
+  orchestrator_last_run_at_utc: 2026-02-19T17:45:00Z
 
   # Recent changes (2026-02-19)
   recent_changes:
@@ -318,6 +318,8 @@ world_state:
   crates_io_trusted_publishing: true
   npm_provenance_publishing: true
   mdbook_docs_structure: true
+  wave_11_complete: true
+  ci_all_checks_passed: true
 
   # Post-1.0 Deferred Work (ADR-0024, ADR-0025, ADR-0026)
   # Per Swarm Consensus 2026-02-17: Advanced features deferred until user demand
