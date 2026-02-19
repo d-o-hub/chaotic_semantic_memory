@@ -1,7 +1,6 @@
 [book]
 authors = ["d.o."]
 language = "en"
-multilingual = false
 src = "src"
 title = "Chaotic Semantic Memory"
 description = "AI memory systems with hyperdimensional vectors and chaotic reservoirs"
