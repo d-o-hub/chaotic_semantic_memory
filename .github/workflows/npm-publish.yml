@@ -76,7 +76,7 @@ jobs:
 
     - name: Build WASM package
       run: |
-        wasm-pack build --target web --scope anomalyco --out-dir pkg
+        wasm-pack build --target web --scope d-o-hub --out-dir pkg
 
     - name: Prepare npm package
       run: |
@@ -87,14 +87,14 @@ jobs:
         mv package.json.tmp package.json
         # Add provenance support fields
         cat package.json | jq '. += {
-          "name": "@anomalyco/chaotic-semantic-memory",
+          "name": "@d-o-hub/chaotic-semantic-memory",
           "description": "AI memory systems with hyperdimensional vectors and chaotic reservoirs",
           "license": "MIT",
           "repository": {
             "type": "git",
-            "url": "git+https://github.com/anomalyco/chaotic_semantic_memory.git"
+            "url": "git+https://github.com/d-o-hub/chaotic_semantic_memory.git"
           },
-          "homepage": "https://github.com/anomalyco/chaotic_semantic_memory#readme",
+          "homepage": "https://github.com/d-o-hub/chaotic_semantic_memory#readme",
           "keywords": ["ai", "memory", "hypervector", "reservoir", "wasm"],
           "sideEffects": false
         }' > package.json.tmp
@@ -146,11 +146,11 @@ jobs:
         echo "## npm Publish Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         if [ "${{ needs.publish-npm.result }}" == "success" ]; then
-          echo "✅ Successfully published @anomalyco/chaotic-semantic-memory@${{ needs.validate.outputs.version }} to npm" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Successfully published @d-o-hub/chaotic-semantic-memory@${{ needs.validate.outputs.version }} to npm" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Provenance**: Enabled (OIDC verified)" >> $GITHUB_STEP_SUMMARY
           echo "- **Registry**: npmjs.com" >> $GITHUB_STEP_SUMMARY
-          echo "- **Scope**: @anomalyco" >> $GITHUB_STEP_SUMMARY
+          echo "- **Scope**: @d-o-hub" >> $GITHUB_STEP_SUMMARY
         elif [ "${{ needs.validate.outputs.should-publish }}" == "false" ]; then
           echo "⚠️ Skipped: No WASM feature configured" >> $GITHUB_STEP_SUMMARY
         else

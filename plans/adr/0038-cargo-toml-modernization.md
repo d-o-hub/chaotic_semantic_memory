@@ -98,8 +98,8 @@ We will implement all changes in a single coordinated effort, committed in logic
 [package]
 description = "AI memory systems with hyperdimensional vectors and chaotic reservoirs"
 license = "MIT"
-repository = "https://github.com/anomalyco/chaotic_semantic_memory"
-homepage = "https://github.com/anomalyco/chaotic_semantic_memory"
+repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
+homepage = "https://github.com/d-o-hub/chaotic_semantic_memory"
 documentation = "https://docs.rs/chaotic_semantic_memory"
 readme = "README.md"
 keywords = ["ai", "memory", "hypervector", "reservoir", "wasm"]

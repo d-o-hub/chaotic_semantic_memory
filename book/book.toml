@@ -1,0 +1,21 @@
+[book]
+authors = ["d.o."]
+language = "en"
+multilingual = false
+src = "src"
+title = "Chaotic Semantic Memory"
+description = "AI memory systems with hyperdimensional vectors and chaotic reservoirs"
+
+[build]
+build-dir = "build"
+
+[output.html]
+git-repository-url = "https://github.com/d-o-hub/chaotic_semantic_memory"
+edit-url-template = "https://github.com/d-o-hub/chaotic_semantic_memory/edit/main/book/{path}"
+site-url = "/chaotic_semantic_memory/"
+
+[output.html.search]
+enable = true
+
+[output.html.print]
+enable = true

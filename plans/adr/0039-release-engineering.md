@@ -278,8 +278,8 @@ build-dir = "book"
 create-missing = false
 
 [output.html]
-git-repository-url = "https://github.com/anomalyco/chaotic_semantic_memory"
-edit-url-template = "https://github.com/anomalyco/chaotic_semantic_memory/edit/main/docs/{path}"
+git-repository-url = "https://github.com/d-o-hub/chaotic_semantic_memory"
+edit-url-template = "https://github.com/d-o-hub/chaotic_semantic_memory/edit/main/docs/{path}"
 site-url = "/chaotic_semantic_memory/"
 
 [output.html.search]
