@@ -129,7 +129,7 @@ jobs:
         key: ${{ runner.os }}-cargo-bench-v2-${{ hashFiles('**/Cargo.lock') }}
     
     - name: Run benchmarks
-      run: cargo bench --lib
+      run: cargo bench
     
     - name: Upload benchmark results
       uses: actions/upload-artifact@v6
