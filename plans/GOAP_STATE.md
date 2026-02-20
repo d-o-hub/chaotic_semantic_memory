@@ -15,24 +15,25 @@ world_state:
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
   action_last_completed: release_engineering_infrastructure
-  orchestrator_last_run: wave_11_release_engineering_2026_02_19
-  orchestrator_last_run_at_utc: 2026-02-19T17:45:00Z
+  orchestrator_last_run: wave_12_release_automation_2026_02_20
+  orchestrator_last_run_at_utc: 2026-02-20T10:00:00Z
 
-  # Recent changes (2026-02-19)
+  # Recent changes (2026-02-20)
   recent_changes:
-    - "Deleted context.drawio (outdated stub)"
-    - "Renamed llm-api-architecture.drawio → agents-context.drawio"
-    - "Created ADR-0031 for two-tier documentation (context.yaml + drawio)"
-    - "Fixed post-commit hook to write agents-context.drawio (was llm-api-architecture.drawio)"
-    - "Fixed GOAP sync: actions_md_phase20_synced = true (ACTIONS.md already marked complete)"
+    - "Created ADR-0042 for release automation and v0.1.0 readiness"
+    - "Identified 13 issues blocking v0.1.0 release"
+    - "Started Wave 12: Release Automation"
 
   # Swarm orchestration snapshot
-  active_wave: 11
+  active_wave: 12
   wave_strategy: parallel_by_phase_with_handoffs
   wave_11_name: "Release Engineering"
   wave_11_started_at: "2026-02-19"
   wave_11_focus: "Phase 25: Release automation, crates.io publishing, npm provenance"
-  all_waves_finished: true
+  wave_12_name: "Release Automation & v0.1.0"
+  wave_12_started_at: "2026-02-20"
+  wave_12_focus: "Phase 26: Fix release infrastructure, clean workspace, publish v0.1.0"
+  all_waves_finished: false
   wave_9_completed:
     group_a: cli_crate_scaffold
     group_b: cli_commands_implementation
@@ -114,7 +115,7 @@ world_state:
     - plans/handoffs/W8_D_to_All_github_standards.md
   phase_boundary_gate_pending: []
   swarm_status: active
-  all_waves_finished: true
+  all_waves_finished: false
   final_validation_passed: true
   planning_gaps:
     mutation_testing_action_missing: false
@@ -326,6 +327,18 @@ world_state:
   wave_11_complete: true
   ci_all_checks_passed: true
 
+  # Phase 26: Release Automation & v0.1.0 (cost: 16) - Wave 12
+  release_workflow_fixed: false              # ADR-0042: Fix non-existent crates-io-auth-action
+  release_scripts_non_interactive: false     # ADR-0042: Remove read -p from scripts
+  release_validate_dry_run: false            # ADR-0042: Add cargo publish --dry-run
+  release_changelog_automation: false        # ADR-0042: Merge [Unreleased] into version
+  release_version_sync: false               # ADR-0042: Sync Cargo.toml + package.json versions
+  release_workspace_clean: false            # ADR-0042: Clean cruft, update .gitignore
+  release_notify_error_handling: false      # ADR-0042: Fix notify job failure detection
+  release_manager_script: false             # ADR-0042: Unified scripts/release-manager.sh
+  v010_tag_created: false                   # ADR-0042: v0.1.0 tag pushed
+  v010_published: false                     # ADR-0042: Published to crates.io
+
   # Post-1.0 Deferred Work (ADR-0024, ADR-0025, ADR-0026)
   # Per Swarm Consensus 2026-02-17: Advanced features deferred until user demand
   deferred_concept_ttl: false           # ADR-0024: Concept expiration
@@ -333,3 +346,39 @@ world_state:
   deferred_namespace_isolation: false   # ADR-0026: Multi-tenancy
   deferred_phase2_optimizations: false  # ADR-0024: SIMD completion, PQ, LSH
   deferred_trigger_threshold: "User demand or >200k concepts with latency issues"
+
+  # Phase 27: Post-Release Security & Hardening (cost: 38) - Wave 13
+  # Triggered by: Specialist analysis swarm findings 2026-02-20
+  swarm_analysis_completed: true
+  swarm_analysis_findings_total: 90
+  
+  # Error handling improvements
+  error_source_attributes_added: false         # Add #[source] to all error variants
+  production_expect_fixed: false               # Fix expect() in framework.rs:177
+  error_context_enhanced: false                # Add remediation hints to errors
+  
+  # Security hardening
+  bincode_size_limits_added: false             # CRITICAL: Add 100MB limit to deserialization
+  path_traversal_protection_added: false       # Validate file paths in framework_ops
+  metadata_validation_added: false             # Check metadata size before serialization
+  security_tests_added: false                  # Property-based security tests
+  
+  # Performance optimizations
+  bundle_allocation_optimized: false           # Fix 640MB allocation storm
+  find_similar_optimized: false                # Remove string cloning in search
+  to_hypervector_parallelized: false           # Rayon parallelization
+  cache_rwlock_fixed: false                    # Replace Mutex with RwLock
+  avx2_simd_added: false                       # AVX2/NEON SIMD paths
+  
+  # Memory leak prevention
+  max_concepts_limit_added: false              # Add hard ceiling (default 100K)
+  max_associations_limit_added: false          # Per-concept association limit
+  version_retention_configurable: false        # Make version_retention settable
+  version_retention_hard_ceiling: false        # Hard limit on version history
+  
+  # Observability improvements
+  reservoir_tracing_added: false               # Instrument hot path
+  persistence_tracing_added: false             # Instrument DB operations
+  cli_tracing_added: false                     # Instrument command entry points
+  tracing_coverage_percent: 30                 # Current: 30%, Target: 70%
+  error_log_correlation_fixed: false           # #[instrument(err)] on fallible fns
