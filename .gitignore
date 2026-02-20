@@ -48,7 +48,9 @@ Thumbs.db
 export.json
 
 # IDE / editor tooling
-.opencode/
+.opencode/node_modules/
+.opencode/bun.lock
+.opencode/package.json
 .idea/
 .vscode/
 
