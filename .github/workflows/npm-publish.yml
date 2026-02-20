@@ -75,6 +75,8 @@ jobs:
       run: cargo install wasm-pack
 
     - name: Build WASM package
+      env:
+        WASM_OPT_FLAGS: "--enable-bulk-memory --enable-sign-ext"
       run: |
         wasm-pack build --target web --scope d-o-hub --out-dir pkg
 
