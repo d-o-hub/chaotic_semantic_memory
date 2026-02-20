@@ -15,6 +15,8 @@ set -euo pipefail
 : "${CSM_MEMORY_DB:=.agents/memory/skill-memory.db}"
 : "${CSM_VERBOSE:=0}"
 : "${CSM_LOG_LEVEL:=WARN}"  # ERROR, WARN, INFO, DEBUG, TRACE
+: "${CSM_METRICS_ENABLED:=true}"
+: "${CSM_METRICS_DIR:=.agents/memory/metrics}"
 
 # Constants
 readonly SKILL_MEMORY_VERSION="2.0.0"
@@ -163,6 +165,74 @@ _log_audit() {
     else
         echo "AUDIT: [$timestamp] action=$action concept_id=$concept_id details=$details pid=$$" >&2
     fi
+}
+
+# ============================================================================
+# METRICS COLLECTION
+# ============================================================================
+
+# Record operation metric
+_metrics_record() {
+    local skill="$1"
+    local operation="$2"
+    local latency="$3"
+    local success="$4"
+    
+    [[ "$CSM_METRICS_ENABLED" != "true" ]] && return 0
+    
+    local timestamp
+    timestamp=$(date -Iseconds)
+    
+    local metrics_file="$CSM_METRICS_DIR/${skill}.jsonl"
+    
+    mkdir -p "$CSM_METRICS_DIR"
+    
+    if command -v jq >/dev/null 2>&1; then
+        jq -n \
+            --arg ts "$timestamp" \
+            --arg skill "$skill" \
+            --arg op "$operation" \
+            --argjson latency "$latency" \
+            --argjson success "$success" \
+            '{
+                timestamp: $ts,
+                skill: $skill,
+                operation: $op,
+                latency_ms: $latency,
+                success: $success
+            }' >> "$metrics_file" 2>/dev/null
+    fi
+}
+
+# Get metrics summary
+skill_metrics_summary() {
+    local skill="${1:-}"
+    local metrics_file="$CSM_METRICS_DIR/${skill}.jsonl"
+    
+    if [[ ! -f "$metrics_file" ]]; then
+        echo "No metrics found for skill: $skill"
+        return 1
+    fi
+    
+    echo "Metrics for: $skill"
+    echo "  (See $metrics_file for details)"
+    
+    cat "$metrics_file" | while read -r line; do
+        echo "    $line" | jq -r '"    \(.operation): latency=\(.latency_ms)ms success=\(.success)"' 2>/dev/null || echo "    $line"
+    done
+}
+
+# Get all metrics
+skill_metrics_all() {
+    echo "Skill Memory Metrics"
+    echo "===================="
+    
+    for f in "$CSM_METRICS_DIR"/*.jsonl; do
+        [[ ! -f "$f" ]] && continue
+        local skill
+        skill=$(basename "$f" .jsonl)
+        skill_metrics_summary "$skill"
+    done
 }
 
 # ============================================================================
@@ -394,16 +464,28 @@ skill_remember() {
         return 1
     fi
     
-    # Execute CLI with retry logic
+    # Execute CLI with retry logic and timing
     _log_info "Remembering: $concept_id"
     local cli_output
     local cli_exit
+    local start_time
+    start_time=$(date +%s%3N)
     
     if ! cli_output=$(_cli_with_retry csm --database "$db_path" inject "$concept_id" -m "$metadata"); then
         cli_exit=$?
+        local end_time latency
+        end_time=$(date +%s%3N)
+        latency=$((end_time - start_time))
         _log_error "CLI inject failed with exit code $cli_exit after retries: $cli_output"
+        _metrics_record "$skill_name" "remember" "$latency" "false"
         return 2
     fi
+    
+    # Record latency on success
+    local end_time latency
+    end_time=$(date +%s%3N)
+    latency=$((end_time - start_time))
+    _metrics_record "$skill_name" "remember" "$latency" "true"
     
     # Audit log
     _log_audit "concept_created" "$concept_id" "skill=$skill_name, operation=$operation"
