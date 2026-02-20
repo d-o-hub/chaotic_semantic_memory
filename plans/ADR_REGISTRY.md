@@ -40,7 +40,7 @@
 | **0036** | **CI/DX Hardening** | **Implemented** | **Wave 10 - Phase 22** |
 | **0037** | **Rust Best Practices** | **Implemented** | **Wave 10 - Phase 23** |
 | **0040** | **Async Lock Safety** | **Implemented** | **Wave 10** |
-| **0041** | **Batch Similarity Optimization** | **Proposed** | **Performance** |
+| **0041** | **Batch Similarity Optimization** | **Implemented** | **Wave 12 - Phase 6B** |
 | 0024 | Concept Expiration (TTL) | Deferred | Post-1.0 |
 | 0024 | Performance Optimizations Phase 2 | Deferred | Post-1.0 |
 | 0025 | Weighted Forgetting (Decay) | Deferred | Post-1.0 |

@@ -321,9 +321,9 @@ pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> V
     #[cfg(not(target_arch = "wasm32"))]
     {
         use rayon::prelude::*;
-        // Tuned chunk size: 32 candidates fits well in L1 cache
-        // Each candidate = 1280 bytes, 32 candidates = ~40KB (fits L1)
-        const CHUNK_SIZE: usize = 32;
+        // Tuned chunk size: 128 candidates amortizes Rayon overhead
+        // Higher chunk size reduces synchronization cost for 1000 candidates
+        const CHUNK_SIZE: usize = 128;
         let mut results = vec![0.0f32; candidates.len()];
         candidates
             .par_chunks(CHUNK_SIZE)

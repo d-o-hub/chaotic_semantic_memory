@@ -186,9 +186,9 @@ world_state:
   reservoir_step_under_100us: true
   reservoir_step_50k_latest_us: 76.627
 
-  # Batch similarity performance (ADR-0041)
-  batch_similarity_under_500us: false
-  batch_similarity_1000_latest_us: 612
+  # Batch similarity performance (ADR-0041) - Phase 2 Complete
+  batch_similarity_under_500us: true
+  batch_similarity_1000_latest_us: 470
   benchmarks_prove_performance: true
   turso_roundtrip_under_20ms: true
   10m_concepts_under_12mb: true
