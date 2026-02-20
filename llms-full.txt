@@ -8,23 +8,23 @@
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
-- clap_complete (4.5.42)
-- colored (2.2.0)
-- tracing (0.1.41)
-- rand (0.8.5)
-- bincode (1.3.3)
-- serde_json (1.0.138)
-- tracing-subscriber (0.3.19)
-- anyhow (1.0.95)
-- thiserror (2.0.11)
-- serde (1.0.219) [features: derive]
 - clap (4.5.27) [features: derive, env, string]
+- bincode (1.3.3)
+- colored (2.2.0)
+- serde (1.0.219) [features: derive]
+- tracing-subscriber (0.3.19)
+- clap_complete (4.5.42)
+- tracing (0.1.41)
+- anyhow (1.0.95)
+- serde_json (1.0.138)
+- thiserror (2.0.11)
+- rand (0.8.5)
 **Features:**
+- wasm: []
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored]
 - default: [cli]
-- wasm: []
 
-Generated: 2026-02-20 07:19:05 UTC  
+Generated: 2026-02-20 07:40:51 UTC  
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Table of Contents
@@ -636,7 +636,9 @@ impl<'de> Deserialize<'de> for HVec10240 {
 pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> Vec<f32>
 ```
 
-Batch similarity computation
+Batch similarity computation with optimized chunked parallelism.
+Uses Rayon par_chunks() to reduce synchronization overhead and improve
+cache locality. Benchmark target: <500μs for 1000 candidates.
 
 
 ## src/concept_builder.rs
