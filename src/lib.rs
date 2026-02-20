@@ -3,7 +3,7 @@
 pub use error::{MemoryError, Result};
 pub use framework::ChaoticSemanticFramework;
 pub use framework_builder::FrameworkBuilder;
-pub use hyperdim::HVec10240;
+pub use hyperdim::{HVec10240, batch_cosine_similarity};
 pub use singularity::{Concept, ConceptBuilder};
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]

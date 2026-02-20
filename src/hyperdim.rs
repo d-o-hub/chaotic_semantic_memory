@@ -315,32 +315,27 @@ impl<'de> Deserialize<'de> for HVec10240 {
 }
 
 /// Batch similarity computation with optimized chunked parallelism.
-/// Uses Rayon par_chunks() to reduce synchronization overhead and improve
-/// cache locality. Benchmark target: <500μs for 1000 candidates.
+/// Uses Rayon par_chunks() with tuned chunk size for cache efficiency.
+/// Benchmark target: <500μs for 1000 candidates.
 pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> Vec<f32> {
     #[cfg(not(target_arch = "wasm32"))]
     {
         use rayon::prelude::*;
-
-        // Chunk size tuned for L1 cache efficiency and reduced sync overhead.
-        // Each chunk processes ~64 candidates sequentially per thread.
-        const CHUNK_SIZE: usize = 64;
-
+        // Tuned chunk size: 32 candidates fits well in L1 cache
+        // Each candidate = 1280 bytes, 32 candidates = ~40KB (fits L1)
+        const CHUNK_SIZE: usize = 32;
         let mut results = vec![0.0f32; candidates.len()];
-
         candidates
             .par_chunks(CHUNK_SIZE)
             .zip(results.par_chunks_mut(CHUNK_SIZE))
             .for_each(|(cands, out)| {
                 // Sequential processing within chunk for cache efficiency
-                for (i, candidate) in cands.iter().enumerate() {
-                    out[i] = query.cosine_similarity(candidate);
+                for (i, c) in cands.iter().enumerate() {
+                    out[i] = query.cosine_similarity(c);
                 }
             });
-
         results
     }
-
     #[cfg(target_arch = "wasm32")]
     {
         candidates
@@ -386,31 +381,24 @@ mod tests {
 
     #[test]
     fn test_serialization() {
-        let vec = HVec10240::random();
-        let bytes = vec.to_bytes();
-        let recovered = HVec10240::from_bytes(&bytes).unwrap();
-        assert_eq!(vec.data, recovered.data);
+        let v = HVec10240::random();
+        let bytes = v.to_bytes();
+        assert_eq!(v.data, HVec10240::from_bytes(&bytes).unwrap().data);
     }
 
     #[test]
     fn test_bundle() {
-        let vecs: Vec<_> = (0..10).map(|_| HVec10240::random()).collect();
-        let bundled = HVec10240::bundle(&vecs).unwrap();
-        assert_eq!(bundled.data.len(), 80);
+        let v: Vec<_> = (0..10).map(|_| HVec10240::random()).collect();
+        assert_eq!(HVec10240::bundle(&v).unwrap().data.len(), 80);
     }
 
     #[test]
-    fn test_permute_shift_zero_identity() {
-        let vec = HVec10240::random();
-        assert_eq!(vec, vec.permute(0));
-    }
-
-    #[test]
-    fn test_permute_word_shift_only() {
-        let vec = HVec10240::random();
-        let shifted = vec.permute(128);
+    fn test_permute() {
+        let v = HVec10240::random();
+        assert_eq!(v, v.permute(0));
+        let s = v.permute(128);
         for i in 0..80 {
-            assert_eq!(shifted.data[i], vec.data[(i + 1) % 80]);
+            assert_eq!(s.data[i], v.data[(i + 1) % 80]);
         }
     }
 }
