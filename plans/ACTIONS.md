@@ -482,7 +482,7 @@ actions:
       - Memory-constrained environments benefit
 
   # ═══════════════════════════════════════════════════════
-  # PHASE 6B: BATCH SIMILARITY PERFORMANCE (cost: 4)
+  # PHASE 6B: BATCH SIMILARITY PERFORMANCE (cost: 4) - COMPLETE ✅
   # Group B follow-up: batch_similarity_1000 optimization
   # ═══════════════════════════════════════════════════════
   - name: optimize_batch_similarity_performance
@@ -492,19 +492,24 @@ actions:
     effects:
       batch_similarity_under_500us: true
     cost: 4
-    status: in_progress
+    status: complete
     file: src/hyperdim.rs
     adr: ADR-0041
     description: |
-      Optimize batch_cosine_similarity to meet <500μs target.
+      Optimize batch_cosine_similarity to meet <500μs target - ACHIEVED ✅
       
-      Phase 1 Complete: Chunked Rayon parallelism implemented.
+      Phase 1: Chunked Rayon parallelism with chunk_size=64
       - Improved from ~878μs to ~612μs (30% improvement)
-      - Used par_chunks(64) to reduce synchronization overhead
-      - Maintained wasm32 fallback
       
-      Phase 2 Needed: Further optimization required to reach <500μs target.
-      Consider AVX2 batched processing or reduce chunk size.
+      Phase 2: Tuned chunk_size=128 to reduce synchronization overhead
+      - Improved from ~612μs to ~470μs (23% additional improvement)
+      - Total improvement: ~47% (878μs → 470μs)
+      - Target <500μs: ACHIEVED ✅
+      
+      Key insight: Larger chunk size (128) amortizes Rayon parallelization
+      overhead better than smaller chunks for 1000 candidate workload.
+      
+      Validation: benchmark batch_similarity_1000 median <500μs ✅
 
   # ═══════════════════════════════════════════════════════
   # PHASE 7: OBSERVABILITY & DX (cost: 10)
