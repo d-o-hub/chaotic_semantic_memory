@@ -188,7 +188,7 @@ world_state:
 
   # Batch similarity performance (ADR-0041)
   batch_similarity_under_500us: false
-  batch_similarity_1000_latest_us: 878
+  batch_similarity_1000_latest_us: 612
   benchmarks_prove_performance: true
   turso_roundtrip_under_20ms: true
   10m_concepts_under_12mb: true
