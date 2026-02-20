@@ -46,3 +46,14 @@ Thumbs.db
 
 # Auto-generated exports
 export.json
+
+# IDE / editor tooling
+.opencode/
+.idea/
+.vscode/
+
+# Stray test output
+/1
+
+# Temporary examples (not part of crate)
+examples/tmp/

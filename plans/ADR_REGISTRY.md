@@ -41,6 +41,9 @@
 | **0037** | **Rust Best Practices** | **Implemented** | **Wave 10 - Phase 23** |
 | **0040** | **Async Lock Safety** | **Implemented** | **Wave 10** |
 | **0041** | **Batch Similarity Optimization** | **Implemented** | **Wave 12 - Phase 6B** |
+| **0043** | **Skill-Memory Security Hardening** | **Accepted** | **Skill System** |
+| **0044** | **Memory Limits and Resource Governance** | **Proposed** | **Wave 13 - Phase 27** |
+| **0045** | **Security Policy for Input Validation** | **Proposed** | **Wave 13 - Phase 27** |
 | 0024 | Concept Expiration (TTL) | Deferred | Post-1.0 |
 | 0024 | Performance Optimizations Phase 2 | Deferred | Post-1.0 |
 | 0025 | Weighted Forgetting (Decay) | Deferred | Post-1.0 |
@@ -113,7 +116,30 @@ Per Swarm Consensus 2026-02-19, these ADRs were implemented for 1.0 release (Pha
    - Fix load_replace, load_merge, import_json, import_binary
    - Eliminate starvation risk during concurrent operations
 
-## Wave 7 Active ADRs
+ ## Wave 13 Active ADRs (Post-Release Security & Hardening)
+
+ Per specialist analysis swarm findings (2026-02-20), these ADRs address critical security and resource issues:
+
+ 1. **ADR-0043**: Skill-Memory Security Hardening
+    - Input validation for skill names and concept IDs
+    - Path traversal protection in skill-memory.sh
+    - Error handling improvements with exit code differentiation
+
+ 2. **ADR-0044**: Memory Limits and Resource Governance
+    - Configurable max_concepts with safe default (100K)
+    - Configurable max_associations per concept (1K default)
+    - Version retention limits with hard ceiling (1000 max)
+    - Metadata size validation (64KB limit)
+    - Query cache size limits
+
+ 3. **ADR-0045**: Security Policy for Input Validation
+    - Bincode deserialization size limits (100MB max)
+    - Path traversal protection for file operations
+    - Metadata size validation during concept building
+    - Error message sanitization to prevent token leakage
+    - Association strength bounds checking
+
+ ## Wave 7 Active ADRs
 
 Per Swarm Consensus 2026-02-17, these ADRs were implemented for 1.0 release:
 
