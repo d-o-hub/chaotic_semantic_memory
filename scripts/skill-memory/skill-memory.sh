@@ -17,6 +17,9 @@ set -euo pipefail
 : "${CSM_LOG_LEVEL:=WARN}"  # ERROR, WARN, INFO, DEBUG, TRACE
 : "${CSM_METRICS_ENABLED:=true}"
 : "${CSM_METRICS_DIR:=.agents/memory/metrics}"
+: "${CSM_RATE_LIMIT_ENABLED:=false}"
+: "${CSM_RATE_LIMIT_OPS_PER_MINUTE:=60}"
+: "${CSM_RATE_LIMIT_DIR:=.agents/memory/rate-limits}"
 
 # Constants
 readonly SKILL_MEMORY_VERSION="2.0.0"
@@ -404,6 +407,44 @@ _init_memory_db() {
 # CORE MEMORY OPERATIONS
 # ============================================================================
 
+# Rate limiting check
+_rate_limit_check() {
+    local skill="$1"
+    local limit_dir="${CSM_RATE_LIMIT_DIR:-.agents/memory/rate-limits}"
+    local limit_file="$limit_dir/${skill}.limit"
+    local max_ops="${CSM_RATE_LIMIT_OPS_PER_MINUTE:-60}"
+    
+    mkdir -p "$limit_dir"
+    
+    local now
+    now=$(date +%s)
+    
+    if [[ ! -f "$limit_file" ]]; then
+        echo "$now 1" > "$limit_file"
+        return 0
+    fi
+    
+    local last_time count
+    last_time=$(cut -d' ' -f1 "$limit_file")
+    count=$(cut -d' ' -f2 "$limit_file")
+    
+    local elapsed=$((now - last_time))
+    
+    if [[ $elapsed -gt 60 ]]; then
+        echo "$now 1" > "$limit_file"
+        return 0
+    fi
+    
+    if [[ $count -ge $max_ops ]]; then
+        _log_error "Rate limit exceeded for $skill: $count ops/min (max: $max_ops)"
+        return 1
+    fi
+    
+    count=$((count + 1))
+    echo "$last_time $count" > "$limit_file"
+    return 0
+}
+
 # Remember an operation
 # Usage: skill_remember "skill_name" "operation" "context" "result"
 # Returns: concept_id on success, empty on failure
@@ -420,6 +461,11 @@ skill_remember() {
     # Validate inputs
     if ! _validate_skill_name "$skill_name"; then
         return 1
+    fi
+    
+    # Check rate limit
+    if [[ "$CSM_RATE_LIMIT_ENABLED" == "true" ]]; then
+        _rate_limit_check "$skill_name" || return 1
     fi
     
     if [[ -z "$operation" ]]; then
