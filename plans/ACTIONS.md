@@ -1574,6 +1574,103 @@ actions:
       - Package: @d-o-hub/chaotic-semantic-memory
       - Enables npx usage for WASM bindings
 
+  # ═══════════════════════════════════════════════════════
+  # PHASE 26B: npm OIDC Trusted Publishing (cost: 7)
+  # ADR-0046: Manual first publish, then configure OIDC
+  # ═══════════════════════════════════════════════════════
+  - name: fix_npm_publish_wasm_opt
+    preconditions:
+      npm_provenance_publishing: true
+    effects:
+      npm_publish_wasm_opt_fixed: true
+    cost: 1
+    status: complete
+    file: .github/workflows/npm-publish.yml
+    adr: ADR-0046
+    description: |
+      Fix wasm-opt validation error in npm-publish workflow:
+      - Add WASM_OPT_FLAGS: "--enable-bulk-memory --enable-sign-ext"
+      - wasm-opt requires these flags for Rust WASM bulk memory ops
+
+  - name: update_npm_publish_workflow_oidc
+    preconditions:
+      npm_publish_wasm_opt_fixed: true
+    effects:
+      npm_publish_workflow_updated: true
+    cost: 1
+    status: complete
+    file: .github/workflows/npm-publish.yml
+    adr: ADR-0046
+    description: |
+      Update npm-publish workflow for OIDC Trusted Publishing:
+      - Add step: npm install -g npm@latest (requires npm >=11.5.1)
+      - Remove NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} env var
+      - Keep --provenance flag (OIDC auto-authenticates)
+      - Note: Package must exist before OIDC works
+
+  - name: add_pkg_json_repository_field
+    preconditions:
+      npm_publish_workflow_updated: true
+    effects:
+      npm_pkg_json_repository: true
+    cost: 1
+    status: complete
+    file: .github/workflows/npm-publish.yml
+    adr: ADR-0046
+    description: |
+      Add repository field to generated package.json:
+      - Required for npm provenance validation
+      - Add in "Prepare npm package" step:
+        "repository": {"type": "git", "url": "git+https://github.com/..."}
+      - Add publishConfig: {access: "public", provenance: true}
+
+  - name: manual_first_npm_publish
+    preconditions:
+      npm_pkg_json_repository: true
+    effects:
+      npm_first_publish_manual: true
+    cost: 2
+    status: pending
+    file: N/A (manual action)
+    adr: ADR-0046
+    description: |
+      Manual first publish from local machine:
+      1. Build WASM: wasm-pack build --target web --scope d-o-hub
+      2. Ensure package.json has repository field
+      3. Publish: cd pkg && npm publish --provenance --access public
+      Note: OIDC requires package to exist before configuration
+
+  - name: configure_npm_trusted_publisher
+    preconditions:
+      npm_first_publish_manual: true
+    effects:
+      npm_oidc_configured: true
+    cost: 1
+    status: pending
+    file: N/A (npm UI action)
+    adr: ADR-0046
+    description: |
+      Configure Trusted Publisher in npm UI:
+      1. Go to npmjs.com/package/@d-o-hub/chaotic-semantic-memory/access
+      2. Under "Trusted Publisher", click "GitHub Actions"
+      3. Set: org=d-o-hub, repo=chaotic_semantic_memory, workflow=npm-publish.yml
+      4. Click "Set up connection"
+
+  - name: verify_npm_ci_publish
+    preconditions:
+      npm_oidc_configured: true
+    effects:
+      npm_publish_automated: true
+    cost: 1
+    status: pending
+    file: N/A (verification)
+    adr: ADR-0046
+    description: |
+      Verify CI publishing works via OIDC:
+      1. Create new release tag
+      2. Monitor workflow for "Signed provenance statement"
+      3. Verify package updated on npmjs.com
+
   - name: create_mdbook_structure
     preconditions:
       github_pages_workflow_created: true

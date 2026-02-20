@@ -328,16 +328,25 @@ world_state:
   ci_all_checks_passed: true
 
   # Phase 26: Release Automation & v0.1.0 (cost: 16) - Wave 12
-  release_workflow_fixed: false              # ADR-0042: Fix non-existent crates-io-auth-action
-  release_scripts_non_interactive: false     # ADR-0042: Remove read -p from scripts
-  release_validate_dry_run: false            # ADR-0042: Add cargo publish --dry-run
-  release_changelog_automation: false        # ADR-0042: Merge [Unreleased] into version
-  release_version_sync: false               # ADR-0042: Sync Cargo.toml + package.json versions
-  release_workspace_clean: false            # ADR-0042: Clean cruft, update .gitignore
-  release_notify_error_handling: false      # ADR-0042: Fix notify job failure detection
-  release_manager_script: false             # ADR-0042: Unified scripts/release-manager.sh
-  v010_tag_created: false                   # ADR-0042: v0.1.0 tag pushed
-  v010_published: false                     # ADR-0042: Published to crates.io
+  release_workflow_fixed: true               # ADR-0042: Fixed release.yml workflow
+  release_scripts_non_interactive: true      # ADR-0042: release-manager.sh has --yes flag
+  release_validate_dry_run: true             # ADR-0042: cargo publish --dry-run in release-manager.sh
+  release_changelog_automation: true         # ADR-0042: release-manager.sh handles CHANGELOG
+  release_version_sync: true                 # ADR-0042: release-manager.sh syncs all doc versions
+  release_workspace_clean: true              # ADR-0042: Updated .gitignore
+  release_notify_error_handling: true        # ADR-0042: release.yml checks job results
+  release_manager_script: true               # ADR-0042: scripts/release-manager.sh created
+  v010_tag_created: true                     # ADR-0042: v0.1.0 tag pushed
+  v010_published: true                       # ADR-0042: Published to crates.io
+
+  # Phase 26B: npm OIDC Trusted Publishing (cost: 7) - Wave 12
+  # Per ADR-0046: npm requires manual first publish before OIDC can be configured
+  npm_publish_wasm_opt_fixed: true           # Fix: --enable-bulk-memory for wasm-opt
+  npm_publish_workflow_updated: true         # ADR-0046: Removed NODE_AUTH_TOKEN, added npm@latest
+  npm_pkg_json_repository: true              # ADR-0046: repository field + publishConfig.provenance
+  npm_first_publish_manual: false            # ADR-0046: Manual first publish from local machine
+  npm_oidc_configured: false                 # ADR-0046: Configure Trusted Publisher in npm UI
+  npm_publish_automated: false               # ADR-0046: CI publishing works via OIDC
 
   # Post-1.0 Deferred Work (ADR-0024, ADR-0025, ADR-0026)
   # Per Swarm Consensus 2026-02-17: Advanced features deferred until user demand

@@ -98,7 +98,11 @@ jobs:
           },
           "homepage": "https://github.com/d-o-hub/chaotic_semantic_memory#readme",
           "keywords": ["ai", "memory", "hypervector", "reservoir", "wasm"],
-          "sideEffects": false
+          "sideEffects": false,
+          "publishConfig": {
+            "access": "public",
+            "provenance": true
+          }
         }' > package.json.tmp
         mv package.json.tmp package.json
         cat package.json
@@ -132,11 +136,12 @@ jobs:
         node-version: '22'
         registry-url: 'https://registry.npmjs.org'
 
+    - name: Ensure latest npm (>=11.5.1 for OIDC)
+      run: npm install -g npm@latest
+
     - name: Publish to npm with provenance
       working-directory: pkg
       run: npm publish --provenance --access public
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   notify:
     runs-on: ubuntu-24.04
