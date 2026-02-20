@@ -23,9 +23,16 @@ Generated via: `scripts/generate-agents.sh`
 | C | 14 | Observability Completion | Complete |
 | D | 16 | WASM Parity | Complete |
 
-## Swarm Status: **ACTIVE** 🔄
+## Swarm Status: **COMPLETE** ✅
 
-Wave 9 (CLI Crate) pending. Waves 1-8 complete.
+All waves (1-11) complete. Production-ready release achieved.
+
+### Final State
+- **25 phases** completed across **11 waves**
+- **138 tests** passing (22 unit + 112 integration + 4 property-based)
+- **5/6 performance targets** met
+- **All validation gates** passing
+- **CI/CD fully automated** with Trusted Publishing
 
 ## Orchestrator Run (2026-02-17, Wave 7)
 
@@ -147,28 +154,45 @@ Run ID: `goap_parallel_missing_tasks_wave5_2026_02_17`
 - `plans/handoffs/W5_C_to_D_wasm_size_report.md`
 - `plans/handoffs/W5_D_to_All_performance_gate_decision.md`
 
-### Wave 9 (queued) - CLI Crate
+### Wave 9 (completed) - CLI Crate
 
-| Group | Action | Start Condition | Depends On |
-|-------|--------|-----------------|------------|
-| A | `add_clap_dependencies` + `create_cli_module_structure` | pending | - |
-| B | `implement_inject_command` + `implement_probe_command` + `implement_associate_command` | pending | W9 A |
-| C | `implement_export_import_commands` + `add_cli_integration_tests` | pending | W9 B |
-| D | `add_shell_completions` | pending | W9 C |
+| Group | Action | Status | Output/Handoff Artifact |
+|-------|--------|--------|--------------------------|
+| A | CLI crate scaffold | Complete | src/cli/ module structure |
+| B | CLI commands implementation | Complete | inject, probe, associate, export, import |
+| C | CLI tests and completions | Complete | tests/cli_integration.rs |
+| D | Shell completions | Complete | `csm completions <shell>` |
 
-### Wave 9 Handoff Contract
+**Wave 9 Artifacts:**
+- `plans/handoffs/W9_CLI_design.md`
+- `plans/handoffs/W9_CLI_edge_cases.md`
 
-1. `A -> B`: Provide CLI module structure and dependency setup for command implementations.
-2. `B -> C`: Provide working inject/probe/associate commands for export/import and testing.
-3. `C -> D`: Provide tested CLI commands for completion script generation.
-4. `D -> All`: Publish shell completion scripts and installation documentation.
+### Wave 10 (completed) - Production Hardening (Phases 21-24)
 
-### Wave 9 Artifacts (pending)
+| Phase | Focus | Key Deliverables | Status |
+|-------|-------|------------------|--------|
+| 21 | Production Hardening | Async lock safety, CLI robustness, WASM panic safety | Complete |
+| 22 | CI/DX Hardening | LOC gate recursive, pre-commit hooks, clippy parity | Complete |
+| 23 | Rust Best Practices | #[must_use], unsafe docs, CLI JSON serde | Complete |
+| 24 | Cargo.toml Modernization | Edition 2024, crates.io metadata, dependency gating | Complete |
 
-- `plans/handoffs/W9_A_to_B_cli_structure.md`
-- `plans/handoffs/W9_B_to_C_cli_commands.md`
-- `plans/handoffs/W9_C_to_D_cli_tests.md`
-- `plans/handoffs/W9_D_to_All_completions.md`
+**Wave 10 Artifacts:**
+- `plans/handoffs/W10_CI_FIX_FINAL.md`
+- ADRs: 0032, 0033, 0034, 0035, 0036, 0037, 0038, 0040
+
+### Wave 11 (completed) - Release Engineering (Phase 25)
+
+| Deliverable | Status | Details |
+|-------------|--------|---------|
+| Release Management Skill | ✅ Complete | `.agents/skills/release-management/` |
+| GitHub Pages Workflow | ✅ Complete | `.github/workflows/pages.yml` |
+| crates.io Trusted Publishing | ✅ Complete | OIDC-based, no long-lived secrets |
+| npm Provenance Publishing | ✅ Complete | WASM bindings with provenance |
+| mdBook Documentation | ✅ Complete | GitHub Pages structure |
+
+**Wave 11 Artifacts:**
+- `plans/handoffs/W11_Release_Engineering_Complete.md`
+- ADR-0039: Release Engineering
 
 ## Coordination Rules
 

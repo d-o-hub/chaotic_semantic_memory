@@ -482,6 +482,30 @@ actions:
       - Memory-constrained environments benefit
 
   # ═══════════════════════════════════════════════════════
+  # PHASE 6B: BATCH SIMILARITY PERFORMANCE (cost: 4)
+  # Group B follow-up: batch_similarity_1000 optimization
+  # ═══════════════════════════════════════════════════════
+  - name: optimize_batch_similarity_performance
+    preconditions:
+      benchmarks_exist: true
+      simd_hypervector_ops: true
+    effects:
+      batch_similarity_under_500us: true
+    cost: 4
+    status: pending
+    file: src/hyperdim.rs
+    adr: ADR-0041
+    description: |
+      Optimize batch_cosine_similarity to meet <500μs target (currently ~878μs).
+      
+      Implementation: Batched AVX2 + chunked Rayon parallelism (hybrid approach).
+      - Process 2 candidates per AVX2 iteration (256-bit operations)
+      - Use par_chunks() for thread-local processing (64 candidates/chunk)
+      - Maintain wasm32 fallback and non-x86 compatibility
+      
+      Validation: benchmark must show batch_similarity_1000 < 500μs median.
+
+  # ═══════════════════════════════════════════════════════
   # PHASE 7: OBSERVABILITY & DX (cost: 10)
   # ═══════════════════════════════════════════════════════
   - name: add_structured_logging

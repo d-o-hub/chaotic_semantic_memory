@@ -33,6 +33,14 @@
 | **0038** | **Cargo.toml Modernization** | **Implemented** | **Wave 10 - Phase 24** |
 | **0039** | **Release Engineering** | **Implemented** | **Wave 11 - Phase 25** |
 | **0031** | **Two-Tier Architecture Documentation** | **Accepted** | **Documentation** |
+| **0032** | **CLI Robustness** | **Implemented** | **Wave 10** |
+| **0033** | **WASM Panic Safety** | **Implemented** | **Wave 10** |
+| **0034** | **Framework Metadata Injection** | **Implemented** | **Wave 10** |
+| **0035** | **Cache Memory Guardrails** | **Implemented** | **Wave 10** |
+| **0036** | **CI/DX Hardening** | **Implemented** | **Wave 10 - Phase 22** |
+| **0037** | **Rust Best Practices** | **Implemented** | **Wave 10 - Phase 23** |
+| **0040** | **Async Lock Safety** | **Implemented** | **Wave 10** |
+| **0041** | **Batch Similarity Optimization** | **Proposed** | **Performance** |
 | 0024 | Concept Expiration (TTL) | Deferred | Post-1.0 |
 | 0024 | Performance Optimizations Phase 2 | Deferred | Post-1.0 |
 | 0025 | Weighted Forgetting (Decay) | Deferred | Post-1.0 |
@@ -58,26 +66,52 @@ Per Swarm Consensus 2026-02-19, these ADRs were implemented for release engineer
 
 ## Wave 10 Active ADRs
 
-Per Swarm Consensus 2026-02-19, these ADRs are being implemented for 1.0 release:
+Per Swarm Consensus 2026-02-19, these ADRs were implemented for 1.0 release (Phases 21-24):
 
-1. **ADR-0038**: Cargo.toml Modernization
+1. **ADR-0032**: CLI Robustness
+   - JSON escaping with serde_json (replaces format!)
+   - Proper exit code mapping (1-7 instead of 255)
+   - Error output respects --output-format flag
+   - Remove unused --config flag
+
+2. **ADR-0033**: WASM Panic Safety
+   - Replace Reflect::set().unwrap() with error propagation
+   - Convert metrics_snapshot() to return Result
+   - Eliminate unrecoverable panics across WASM boundary
+
+3. **ADR-0034**: Framework Metadata Injection
+   - Add inject_concept_with_metadata() API
+   - Add with_reservoir_input_size() to FrameworkBuilder
+   - Add WASM batch API parity (get_concept, inject_concepts, etc.)
+
+4. **ADR-0035**: Cache Memory Guardrails
+   - Reduce DEFAULT_CONCEPT_CACHE_SIZE from 1000 to 128
+   - Add max_cached_top_k limit (default: 100)
+   - Bypass cache when top_k exceeds limit
+
+5. **ADR-0036**: CI/DX Hardening
+   - LOC gate recursive fix (find src -name '*.rs')
+   - Pre-commit hooks (format + LOC check)
+   - Clippy flags alignment between CI and local
+   - Post-commit hook fixes (no test + amend)
+
+6. **ADR-0037**: Rust Best Practices
+   - #[must_use] annotations on constructors
+   - Improved unsafe documentation
+   - Targeted clippy suppressions (per-loop, not file-wide)
+   - CLI JSON serde usage
+
+7. **ADR-0038**: Cargo.toml Modernization
    - Edition 2024 upgrade with MSRV 1.85
    - crates.io metadata (description, license, repository, keywords, categories)
    - Dependency version pinning for reproducibility
-   - CLI deps gating with `cli` feature
+   - CLI deps gating with target-specific dependencies
    - Remove unused exitcode crate
 
-2. **ADR-0036**: CI/DX Hardening
-   - LOC gate recursive fix
-   - Pre-commit hooks
-   - Clippy flags alignment
-   - Post-commit hook fixes
-
-3. **ADR-0037**: Rust Best Practices
-   - #[must_use] annotations
-   - Unsafe docs improvement
-   - Clippy suppressions targeting
-   - CLI JSON serde usage
+8. **ADR-0040**: Async Lock Safety
+   - Restructure lock scopes to avoid holding RwLock across await
+   - Fix load_replace, load_merge, import_json, import_binary
+   - Eliminate starvation risk during concurrent operations
 
 ## Wave 7 Active ADRs
 

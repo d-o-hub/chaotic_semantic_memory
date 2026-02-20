@@ -1,7 +1,7 @@
-# [ADR-0031] Async Lock Safety: Avoid Holding RwLock Across Await Points
+# [ADR-0040] Async Lock Safety: Avoid Holding RwLock Across Await Points
 
 ## Status
-Proposed
+Accepted
 
 ## Context and Problem Statement
 Several framework methods hold `tokio::sync::RwLock<Singularity>` write guards across `.await` points (persistence I/O). This is a well-documented Tokio anti-pattern that blocks all other readers/writers for the duration of database operations, causing latency spikes and potential starvation under concurrent access.
@@ -44,3 +44,6 @@ For `import_json`/`import_binary`:
 ### Negative Consequences
 - Slightly more complex control flow in affected methods
 - During load_replace, a brief window exists between concept injection and association application where queries return results without associations (acceptable for initialization)
+
+## Implementation Status
+✅ **Implemented** - All lock scope restructurings completed in Wave 10

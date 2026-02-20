@@ -27,11 +27,12 @@ world_state:
     - "Fixed GOAP sync: actions_md_phase20_synced = true (ACTIONS.md already marked complete)"
 
   # Swarm orchestration snapshot
-  active_wave: 9
+  active_wave: 11
   wave_strategy: parallel_by_phase_with_handoffs
-  wave_9_name: "CLI Crate Implementation"
-  wave_9_started_at: "2026-02-18"
-  wave_9_focus: "Phase 20: CLI crate with inject, probe, associate, export, import, completions"
+  wave_11_name: "Release Engineering"
+  wave_11_started_at: "2026-02-19"
+  wave_11_focus: "Phase 25: Release automation, crates.io publishing, npm provenance"
+  all_waves_finished: true
   wave_9_completed:
     group_a: cli_crate_scaffold
     group_b: cli_commands_implementation
@@ -184,6 +185,10 @@ world_state:
   wasm_target_installed: true
   reservoir_step_under_100us: true
   reservoir_step_50k_latest_us: 76.627
+
+  # Batch similarity performance (ADR-0041)
+  batch_similarity_under_500us: false
+  batch_similarity_1000_latest_us: 878
   benchmarks_prove_performance: true
   turso_roundtrip_under_20ms: true
   10m_concepts_under_12mb: true
