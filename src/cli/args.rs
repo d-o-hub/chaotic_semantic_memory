@@ -47,6 +47,9 @@ pub struct InjectArgs {
 
     #[arg(long, default_value = "random", value_enum)]
     pub vector_source: VectorSource,
+
+    #[arg(short, long, value_name = "JSON")]
+    pub metadata: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]

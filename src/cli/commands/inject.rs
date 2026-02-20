@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::Path;
 
 use crate::cli::args::{InjectArgs, OutputFormat, VectorSource};
@@ -44,15 +45,31 @@ pub async fn run_inject(
         .await
         .map_err(|e| CliError::Persistence(format!("failed to check concept: {e}")))?;
 
-    framework
-        .inject_concept(&args.concept_id, vector)
-        .await
-        .map_err(|e| {
-            CliError::Persistence(format!(
-                "failed to inject concept '{}': {e}",
-                args.concept_id
-            ))
-        })?;
+    // Handle metadata if provided
+    if let Some(metadata_json) = args.metadata {
+        let metadata: HashMap<String, serde_json::Value> = serde_json::from_str(&metadata_json)
+            .map_err(|e| CliError::Validation(format!("invalid metadata JSON: {e}")))?;
+
+        framework
+            .inject_concept_with_metadata(&args.concept_id, vector, metadata)
+            .await
+            .map_err(|e| {
+                CliError::Persistence(format!(
+                    "failed to inject concept with metadata '{}': {e}",
+                    args.concept_id
+                ))
+            })?;
+    } else {
+        framework
+            .inject_concept(&args.concept_id, vector)
+            .await
+            .map_err(|e| {
+                CliError::Persistence(format!(
+                    "failed to inject concept '{}': {e}",
+                    args.concept_id
+                ))
+            })?;
+    }
 
     match format {
         OutputFormat::Json => {

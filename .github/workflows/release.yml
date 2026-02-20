@@ -5,9 +5,13 @@ on:
     tags:
       - 'v*'
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
-  id-token: write  # Required for OIDC trusted publishing
+  id-token: write
 
 env:
   CARGO_TERM_COLOR: always
@@ -37,6 +41,14 @@ jobs:
           exit 1
         fi
         echo "✓ Version matches: $TAG_VERSION"
+
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+
+    - name: Validate publish dry-run
+      run: cargo publish --dry-run
 
   build-artifacts:
     runs-on: ubuntu-24.04
@@ -70,11 +82,8 @@ jobs:
     - name: Prepare release artifacts
       run: |
         mkdir -p release
-        # Binary artifact
         cp target/release/csm release/csm-x86_64-unknown-linux-gnu
-        # WASM artifacts
         cp target/wasm32-unknown-unknown/release/chaotic_semantic_memory.wasm release/
-        # Create archive
         cd release
         tar -czvf chaotic_semantic_memory-${{ needs.validate.outputs.version }}-linux-x86_64.tar.gz csm-x86_64-unknown-linux-gnu
         tar -czvf chaotic_semantic_memory-${{ needs.validate.outputs.version }}-wasm.tar.gz chaotic_semantic_memory.wasm
@@ -98,16 +107,18 @@ jobs:
       with:
         toolchain: stable
 
-    - name: Publish to crates.io (Trusted Publishing)
-      uses: rust-lang/crates-io-auth-action@v1
-      with:
-        name: chaotic_semantic_memory
+    - name: Publish to crates.io
+      run: cargo publish
+      env:
+        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
   create-github-release:
     runs-on: ubuntu-24.04
     needs: [validate, publish-crates, build-artifacts]
     steps:
     - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
 
     - name: Download release artifacts
       uses: actions/download-artifact@v6
@@ -119,10 +130,8 @@ jobs:
       id: changelog
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
-        # Extract changelog section for this version
-        awk "/^## \\[${VERSION}\\]/,/^## \\[|^$/" CHANGELOG.md | head -n -1 > release_notes.md
+        awk "/^## \\[${VERSION}\\]/,/^## \\[/" CHANGELOG.md | sed '1d;$d' > release_notes.md
         if [ ! -s release_notes.md ]; then
-          echo "No changelog entry found for version $VERSION"
           echo "Release $VERSION" > release_notes.md
         fi
 
@@ -138,14 +147,29 @@ jobs:
 
   notify:
     runs-on: ubuntu-24.04
-    needs: [create-github-release]
+    needs: [validate, build-artifacts, publish-crates, create-github-release]
     if: always()
     steps:
     - name: Release summary
       run: |
         echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "✅ Successfully released v${{ needs.validate.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **crates.io**: Published with Trusted Publishing (OIDC)" >> $GITHUB_STEP_SUMMARY
-        echo "- **GitHub Release**: Created with artifacts" >> $GITHUB_STEP_SUMMARY
+        VERSION="${{ needs.validate.outputs.version }}"
+
+        if [ "${{ needs.publish-crates.result }}" == "success" ] && \
+           [ "${{ needs.create-github-release.result }}" == "success" ]; then
+          echo "✅ Successfully released v${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **crates.io**: Published" >> $GITHUB_STEP_SUMMARY
+          echo "- **GitHub Release**: Created with artifacts" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Release v${VERSION} had failures:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| validate | ${{ needs.validate.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| build-artifacts | ${{ needs.build-artifacts.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| publish-crates | ${{ needs.publish-crates.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| create-github-release | ${{ needs.create-github-release.result }} |" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi
