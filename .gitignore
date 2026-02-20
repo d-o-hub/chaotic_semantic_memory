@@ -57,3 +57,18 @@ export.json
 
 # Temporary examples (not part of crate)
 examples/tmp/
+
+# Skill-memory test databases and exports
+.agents/memory/*.db
+.agents/memory/*.db-journal
+.agents/memory/*.db-wal
+.agents/memory/*.db-shm
+*.memory.json
+
+# Skill-memory logs
+.agents/memory/*.log
+*.skill-memory.log
+
+# Temporary exports from demos
+/tmp/*-export.json
+/tmp/*-memory.json

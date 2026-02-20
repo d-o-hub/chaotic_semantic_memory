@@ -23,6 +23,68 @@ readonly VALID_SKILL_NAME_PATTERN='^[a-zA-Z0-9_-]+$'
 readonly VALID_CONCEPT_ID_PATTERN='^[a-zA-Z0-9_:-]+$'
 
 # ============================================================================
+# RETRY LOGIC
+# ============================================================================
+
+# Configuration for retry behavior
+: "${CSM_RETRY_MAX_ATTEMPTS:=3}"
+: "${CSM_RETRY_BASE_DELAY:=1}"  # seconds
+: "${CSM_RETRY_MAX_DELAY:=8}"   # seconds
+
+# Execute CLI command with retry logic
+# Usage: _cli_with_retry csm [args...]
+_cli_with_retry() {
+    local max_attempts="${CSM_RETRY_MAX_ATTEMPTS}"
+    local base_delay="${CSM_RETRY_BASE_DELAY}"
+    local max_delay="${CSM_RETRY_MAX_DELAY}"
+    local attempt=1
+    local output
+    local exit_code
+    
+    _log_debug "Executing with retry (max $max_attempts attempts): $*"
+    
+    while [[ $attempt -le $max_attempts ]]; do
+        output=$("$@" 2>&1) && {
+            echo "$output"
+            return 0
+        }
+        
+        exit_code=$?
+        
+        # Don't retry on certain error codes
+        case $exit_code in
+            1)  # Validation error - don't retry
+                _log_error "Command failed with validation error (exit $exit_code): $*"
+                echo "$output"
+                return $exit_code
+                ;;
+            127) # Command not found - don't retry
+                _log_error "Command not found: $1"
+                echo "$output"
+                return $exit_code
+                ;;
+        esac
+        
+        if [[ $attempt -lt $max_attempts ]]; then
+            local delay=$((base_delay * (2 ** (attempt - 1))))
+            [[ $delay -gt $max_delay ]] && delay=$max_delay
+            
+            _log_warn "Attempt $attempt failed (exit $exit_code), retrying in ${delay}s..."
+            _log_debug "Error output: $output"
+            sleep $delay
+        else
+            _log_error "All $max_attempts attempts failed (exit $exit_code): $*"
+            echo "$output"
+            return $exit_code
+        fi
+        
+        ((attempt++))
+    done
+    
+    return $exit_code
+}
+
+# ============================================================================
 # LOGGING FUNCTIONS
 # ============================================================================
 
@@ -332,14 +394,14 @@ skill_remember() {
         return 1
     fi
     
-    # Execute CLI with error capture
+    # Execute CLI with retry logic
     _log_info "Remembering: $concept_id"
     local cli_output
     local cli_exit
     
-    if ! cli_output=$(csm --database "$db_path" inject "$concept_id" -m "$metadata" 2>&1); then
+    if ! cli_output=$(_cli_with_retry csm --database "$db_path" inject "$concept_id" -m "$metadata"); then
         cli_exit=$?
-        _log_error "CLI inject failed with exit code $cli_exit: $cli_output"
+        _log_error "CLI inject failed with exit code $cli_exit after retries: $cli_output"
         return 2
     fi
     
@@ -410,7 +472,7 @@ skill_recall() {
     local cli_output
     local cli_exit
     
-    if ! cli_output=$(csm --database "$db_path" export -o "$temp_export" --output-format json 2>&1); then
+    if ! cli_output=$(_cli_with_retry csm --database "$db_path" export -o "$temp_export" --output-format json 2>&1); then
         cli_exit=$?
         _log_error "CLI export failed with exit code $cli_exit: $cli_output"
         echo "[]"
@@ -492,7 +554,7 @@ skill_associate() {
     local cli_output
     local cli_exit
     
-    if ! cli_output=$(csm --database "$db_path" associate "$concept1" "$concept2" -s "$strength" 2>&1); then
+    if ! cli_output=$(_cli_with_retry csm --database "$db_path" associate "$concept1" "$concept2" -s "$strength" 2>&1); then
         cli_exit=$?
         _log_error "CLI associate failed with exit code $cli_exit: $cli_output"
         return 2
@@ -547,7 +609,7 @@ skill_related() {
     local cli_output
     local cli_exit
     
-    if ! cli_output=$(csm --database "$db_path" export -o "$temp_export" --output-format json 2>&1); then
+    if ! cli_output=$(_cli_with_retry csm --database "$db_path" export -o "$temp_export" --output-format json 2>&1); then
         cli_exit=$?
         _log_error "CLI export failed with exit code $cli_exit: $cli_output"
         echo "[]"
@@ -613,7 +675,7 @@ skill_memory_stats() {
     local cli_output
     local cli_exit
     
-    if ! cli_output=$(csm --database "$db_path" export -o "$temp_export" --output-format json 2>&1); then
+    if ! cli_output=$(_cli_with_retry csm --database "$db_path" export -o "$temp_export" --output-format json 2>&1); then
         cli_exit=$?
         _log_error "CLI export failed with exit code $cli_exit: $cli_output"
         return 2
@@ -729,7 +791,7 @@ skill_export() {
         local cli_output
         local cli_exit
         
-        if ! cli_output=$(csm --database "$db_path" export -o "$output_file" 2>&1); then
+        if ! cli_output=$(_cli_with_retry csm --database "$db_path" export -o "$output_file" 2>&1); then
             cli_exit=$?
             _log_error "CLI export failed with exit code $cli_exit: $cli_output"
             return 2
@@ -742,7 +804,7 @@ skill_export() {
         local cli_output
         local cli_exit
         
-        if ! cli_output=$(csm --database "$db_path" export -o - 2>&1); then
+        if ! cli_output=$(_cli_with_retry csm --database "$db_path" export -o - 2>&1); then
             cli_exit=$?
             _log_error "CLI export failed with exit code $cli_exit: $cli_output"
             return 2
@@ -782,7 +844,7 @@ skill_import() {
     local cli_output
     local cli_exit
     
-    if ! cli_output=$(csm --database "$db_path" import "$input_file" 2>&1); then
+    if ! cli_output=$(_cli_with_retry csm --database "$db_path" import "$input_file" 2>&1); then
         cli_exit=$?
         _log_error "CLI import failed with exit code $cli_exit: $cli_output"
         return 2
@@ -796,70 +858,181 @@ skill_import() {
 # UTILITY FUNCTIONS
 # ============================================================================
 
-# Check system health
+# Check system health and database integrity
+# Usage: skill_memory_check [--full]
 skill_memory_check() {
+    local full_check=false
     local db_path="${CSM_MEMORY_DB}"
+    local failures=0
+    local warnings=0
     
-    echo "Skill Memory Health Check"
-    echo "========================="
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --full)
+                full_check=true
+                shift
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+    
+    echo "╔════════════════════════════════════════════════════════════╗"
+    echo "║         SKILL-MEMORY HEALTH CHECK v${SKILL_MEMORY_VERSION}              ║"
+    echo "╚════════════════════════════════════════════════════════════╝"
     echo ""
+    
+    # Section 1: Dependencies
+    echo "📦 DEPENDENCIES"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     # Check csm binary
     if ! command -v csm >/dev/null 2>&1; then
-        echo "[FAIL] csm binary not found in PATH"
-        return 1
+        echo "  [FAIL] csm binary not found in PATH"
+        ((failures++))
     else
-        echo "[PASS] csm binary found"
+        local csm_version
+        csm_version=$(csm --version 2>/dev/null | head -1 || echo "unknown")
+        echo "  [PASS] csm binary found: $csm_version"
     fi
     
     # Check jq
     if ! command -v jq >/dev/null 2>&1; then
-        echo "[WARN] jq not found, logging will use fallback format"
+        echo "  [WARN] jq not found (logging will use fallback format)"
+        ((warnings++))
     else
-        echo "[PASS] jq found"
-    fi
-    
-    # Check database path
-    if ! _validate_db_path "$db_path"; then
-        echo "[FAIL] Database path invalid: $db_path"
-        return 1
-    else
-        echo "[PASS] Database path valid: $db_path"
-    fi
-    
-    # Check database directory
-    local db_dir
-    db_dir=$(dirname "$db_path")
-    if [[ -d "$db_dir" ]]; then
-        local perms
-        perms=$(stat -c "%a" "$db_dir" 2>/dev/null || stat -f "%Lp" "$db_dir" 2>/dev/null)
-        if [[ "$perms" == "700" ]]; then
-            echo "[PASS] Database directory has secure permissions (700)"
-        else
-            echo "[WARN] Database directory permissions: $perms (recommended: 700)"
-        fi
-    else
-        echo "[INFO] Database directory does not exist yet (will be created)"
-    fi
-    
-    # Check database file
-    if [[ -f "$db_path" ]]; then
-        echo "[INFO] Database exists: $(ls -lh "$db_path" | awk '{print $5}')"
-        
-        # Try to export
-        if csm --database "$db_path" export -o /dev/null >/dev/null 2>&1; then
-            echo "[PASS] Database is readable"
-        else
-            echo "[FAIL] Database export failed (may be corrupted)"
-            return 1
-        fi
-    else
-        echo "[INFO] Database file does not exist yet"
+        local jq_version
+        jq_version=$(jq --version 2>/dev/null || echo "unknown")
+        echo "  [PASS] jq found: $jq_version"
     fi
     
     echo ""
-    echo "Health check complete"
-    return 0
+    
+    # Section 2: Configuration
+    echo "⚙️  CONFIGURATION"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  CSM_MEMORY_DB:     $CSM_MEMORY_DB"
+    echo "  CSM_LOG_LEVEL:     $CSM_LOG_LEVEL"
+    echo "  CSM_RETRY_MAX:     $CSM_RETRY_MAX_ATTEMPTS"
+    
+    # Check database path
+    if ! _validate_db_path "$db_path" 2>/dev/null; then
+        echo "  [FAIL] Database path invalid or outside project directory"
+        ((failures++))
+    else
+        echo "  [PASS] Database path valid"
+    fi
+    
+    echo ""
+    
+    # Section 3: Database Directory
+    echo "📁 DATABASE DIRECTORY"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    local db_dir
+    db_dir=$(dirname "$db_path")
+    
+    if [[ -d "$db_dir" ]]; then
+        local perms owner
+        perms=$(stat -c "%a" "$db_dir" 2>/dev/null || stat -f "%Lp" "$db_dir" 2>/dev/null)
+        owner=$(stat -c "%U" "$db_dir" 2>/dev/null || stat -f "%Su" "$db_dir" 2>/dev/null)
+        
+        echo "  Path:     $db_dir"
+        echo "  Owner:    $owner"
+        echo "  Perms:    $perms"
+        
+        if [[ "$perms" == "700" ]]; then
+            echo "  [PASS] Secure permissions (700)"
+        else
+            echo "  [WARN] Permissions are $perms (recommended: 700)"
+            ((warnings++))
+        fi
+    else
+        echo "  [INFO] Directory does not exist (will be created on first use)"
+    fi
+    
+    echo ""
+    
+    # Section 4: Database File
+    echo "💾 DATABASE FILE"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    if [[ -f "$db_path" ]]; then
+        local size perms owner
+        size=$(ls -lh "$db_path" 2>/dev/null | awk '{print $5}')
+        perms=$(stat -c "%a" "$db_path" 2>/dev/null || stat -f "%Lp" "$db_path" 2>/dev/null)
+        owner=$(stat -c "%U" "$db_path" 2>/dev/null || stat -f "%Su" "$db_path" 2>/dev/null)
+        
+        echo "  Path:     $db_path"
+        echo "  Size:     $size"
+        echo "  Owner:    $owner"
+        echo "  Perms:    $perms"
+        
+        # Check if readable
+        if csm --database "$db_path" export -o /dev/null >/dev/null 2>&1; then
+            echo "  [PASS] Database readable"
+        else
+            echo "  [FAIL] Database not readable (may be corrupted)"
+            ((failures++))
+        fi
+        
+        # Full integrity check
+        if [[ "$full_check" == true ]]; then
+            echo ""
+            echo "  🔍 Running integrity check..."
+            
+            local temp_export
+            temp_export=$(mktemp)
+            
+            if csm --database "$db_path" export -o "$temp_export" >/dev/null 2>&1; then
+                local concept_count assoc_count
+                concept_count=$(jq '.concepts | length' "$temp_export" 2>/dev/null || echo "error")
+                assoc_count=$(jq '.associations | length' "$temp_export" 2>/dev/null || echo "error")
+                
+                echo "  Concepts:      $concept_count"
+                echo "  Associations:  $assoc_count"
+                
+                # Validate all concepts have required fields
+                local invalid_concepts
+                invalid_concepts=$(jq '[.concepts[] | select(.metadata.operation == null or .metadata.timestamp == null)] | length' "$temp_export" 2>/dev/null || echo "0")
+                
+                if [[ "$invalid_concepts" -eq 0 ]]; then
+                    echo "  [PASS] All concepts have required metadata"
+                else
+                    echo "  [FAIL] $invalid_concepts concept(s) missing required metadata"
+                    ((failures++))
+                fi
+                
+                rm -f "$temp_export"
+            else
+                echo "  [FAIL] Cannot export database for integrity check"
+                ((failures++))
+            fi
+        fi
+    else
+        echo "  [INFO] Database file does not exist (will be created on first use)"
+    fi
+    
+    echo ""
+    
+    # Summary
+    echo "📊 SUMMARY"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    if [[ $failures -eq 0 && $warnings -eq 0 ]]; then
+        echo "  ✅ All checks passed!"
+        echo ""
+        return 0
+    elif [[ $failures -eq 0 ]]; then
+        echo "  ⚠️  $warnings warning(s) found (non-critical)"
+        echo ""
+        return 0
+    else
+        echo "  ❌ $failures failure(s), $warnings warning(s) found"
+        echo ""
+        return 1
+    fi
 }
 
 # ============================================================================
@@ -871,6 +1044,7 @@ if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
     export -f skill_remember skill_recall skill_associate skill_related
     export -f skill_remember_linked skill_suggest skill_export skill_import
     export -f skill_memory_stats skill_memory_check
-    export CSM_MEMORY_DB CSM_LOG_LEVEL SKILL_MEMORY_VERSION
+    export CSM_MEMORY_DB CSM_LOG_LEVEL SKILL_MEMORY_VERSION CSM_RETRY_MAX_ATTEMPTS CSM_RETRY_BASE_DELAY CSM_RETRY_MAX_DELAY
     _log_info "Skill memory library v${SKILL_MEMORY_VERSION} loaded"
+    true  # Ensure successful exit status
 fi
