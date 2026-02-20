@@ -63,6 +63,7 @@ examples/tmp/
 .agents/memory/*.db-journal
 .agents/memory/*.db-wal
 .agents/memory/*.db-shm
+.agents/memory/metrics/
 *.memory.json
 
 # Skill-memory logs
