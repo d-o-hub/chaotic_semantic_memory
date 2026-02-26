@@ -1691,3 +1691,82 @@ actions:
       - book/src/wasm.md: WASM bindings guide
       - book/src/configuration.md: Configuration options
       - book/src/performance.md: Performance tuning
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 27: SECURITY & PERFORMANCE HARDENING (cost: 10) - Wave 13
+  # ADR-0047: Focused hardening sprint for v0.2.0
+  # Triggered by: Analysis swarm findings 2026-02-26
+  # ═══════════════════════════════════════════════════════
+  - name: add_bincode_size_limits
+    preconditions:
+      export_import_functionality: true
+    effects:
+      bincode_size_limits_added: true
+    cost: 2
+    status: pending
+    file: src/framework_ops.rs, src/wasm.rs
+    adr: ADR-0047
+    description: |
+      CRITICAL: Add size limit to bincode deserialization to prevent OOM DoS.
+      - Use bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE)
+      - Default MAX_IMPORT_SIZE: 100MB (configurable via FrameworkBuilder)
+      - Apply to import_binary() and WASM importFromBytes()
+      - Add test: oversized payload returns MemoryError::InvalidInput
+
+  - name: fix_error_source_attributes
+    preconditions:
+      error_context_improved: true
+    effects:
+      error_source_attributes_added: true
+    cost: 2
+    status: pending
+    file: src/error.rs
+    adr: ADR-0047
+    description: |
+      Add #[source] attributes to error variants per thiserror 2.0 patterns.
+      - Database(String) → Database { message: String, source: Option<Box<dyn Error>> }
+      - Or use #[from] where applicable for automatic source chain
+      - Preserve error chain for debugging and logging
+
+  - name: remove_production_expect
+    preconditions:
+      core_modules_created: true
+    effects:
+      production_expect_fixed: true
+    cost: 1
+    status: pending
+    file: src/framework.rs
+    adr: ADR-0047
+    description: |
+      Replace expect("reservoir initialized above") at framework.rs:177 with
+      proper Result propagation. Use .ok_or(MemoryError::Reservoir(...))? instead.
+
+  - name: cache_mutex_to_rwlock
+    preconditions:
+      concept_cache_implemented: true
+    effects:
+      cache_rwlock_fixed: true
+    cost: 3
+    status: pending
+    file: src/singularity.rs
+    adr: ADR-0047
+    description: |
+      Replace Mutex<QueryCache> with std::sync::RwLock<QueryCache>.
+      - Cache reads (find_similar_cached) use read() lock
+      - Cache writes (put, invalidate) use write() lock
+      - Allows concurrent similarity queries without lock contention
+
+  - name: add_path_validation
+    preconditions:
+      export_import_functionality: true
+    effects:
+      path_traversal_protection_added: true
+    cost: 2
+    status: pending
+    file: src/framework_ops.rs
+    adr: ADR-0047
+    description: |
+      Add path validation for file operations (export/import/backup/restore).
+      - Reject paths containing ".." components
+      - Canonicalize paths before use
+      - Document trust model in rustdoc (caller is responsible for path safety)

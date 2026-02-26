@@ -23,16 +23,32 @@ Generated via: `scripts/generate-agents.sh`
 | C | 14 | Observability Completion | Complete |
 | D | 16 | WASM Parity | Complete |
 
-## Swarm Status: **COMPLETE** ✅
+## Swarm Status: **ACTIVE** 🟢
 
-All waves (1-11) complete. Production-ready release achieved.
+Waves 1-12 complete. Wave 13 (Security & Performance Hardening) in progress.
 
-### Final State
-- **25 phases** completed across **11 waves**
-- **138 tests** passing (22 unit + 112 integration + 4 property-based)
+### Current State
+- **26 phases** completed across **12 waves** + 1 in progress
+- **137 tests** passing (21 unit + 112 integration + 4 property-based)
 - **5/6 performance targets** met
 - **All validation gates** passing
 - **CI/CD fully automated** with Trusted Publishing
+
+### Wave 13 (in progress) - Security & Performance Hardening (Phase 27)
+
+Run ID: `goap_swarm_wave13_security_perf_hardening_2026_02_26`
+
+| Action | Priority | Status | ADR |
+|--------|----------|--------|-----|
+| `add_bincode_size_limits` | P1 (Critical) | Pending | ADR-0047 |
+| `fix_error_source_attributes` | P1 | Pending | ADR-0047 |
+| `remove_production_expect` | P1 | Pending | ADR-0047 |
+| `cache_mutex_to_rwlock` | P2 | Pending | ADR-0047 |
+| `add_path_validation` | P2 | Pending | ADR-0047 |
+
+**Trigger:** Analysis swarm identified 9 findings (3 security, 3 performance, 3 observability).
+**Scope:** Focused 5-item hardening sprint, deferring lower-priority items to Phase 28.
+**ADR:** plans/adr/0047-security-performance-hardening.md
 
 ## Orchestrator Run (2026-02-17, Wave 7)
 
