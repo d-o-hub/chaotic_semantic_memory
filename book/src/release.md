@@ -18,7 +18,7 @@ scripts/release-manager.sh validate
 # Prepare release (version bump, changelog, sync)
 scripts/release-manager.sh prepare 0.2.0
 
-# Publish (tag, push, GitHub release)
+# Publish (creates git tag, pushes - triggers GitHub release via CI)
 scripts/release-manager.sh publish 0.2.0
 
 # Full pipeline (validate + prepare + publish)
@@ -70,13 +70,14 @@ The `prepare` command automatically updates version references across all docume
 
 ### Release (`release.yml`)
 
-Triggered by tag push (`v*`):
+Triggered by git tag push (`v*`):
 
-1. **validate** — Extract version, match Cargo.toml, dry-run publish
+1. **validate** — Extract version from git tag, match Cargo.toml, dry-run publish
 2. **build-artifacts** — Build release binary + WASM, create tarballs
 3. **publish-crates** — `cargo publish` to crates.io
 4. **create-github-release** — Upload artifacts, extract changelog notes
 5. **notify** — Report success or failure with per-job status table
+6. **update-rolling-tags** — Update major/minor tags (v1, v1.2)
 
 ### npm Publish (`npm-publish.yml`)
 
