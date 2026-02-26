@@ -26,36 +26,36 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 - @progress/LEARNINGS.md — Self-learning patterns and iteration history
 - @progress/PROGRESS.md — Project progress tracking
 
-## Skills (13 Total)
+## Skills (16 Total)
 
 ### Core Skills
 - `rust-development`: Implement or refactor Rust modules
   - **References**: @.agents/skills/rust-development/reference/codebase-patterns.md
-  - **Scripts**: @.agents/skills/rust-development/scripts/validate.sh
 - `testing-validation`: Run compile/test/lint/LOC gates
   - **Scripts**: @.agents/skills/testing-validation/scripts/validate.sh, @.agents/skills/testing-validation/scripts/loc-check.sh
-- `benchmarking-perf`: Criterion benchmarks and performance targets
-- `debugging-reservoir`: Diagnose ESN spectral radius, sparse weights, dynamics
-- `skill-memory`: Use csm CLI for skill learning and knowledge graphs
-  - **References**: @.agents/skills/skill-memory/references/integration-patterns.md, @.agents/skills/skill-memory/references/api-reference.md
-- `adr-creation`: Write architecture decision records
-  - **References**: @.agents/skills/adr-creation/references/madr-template.md, @.agents/skills/adr-creation/references/review-checklist.md
 - `goap-planning`: Build ordered action plans from state to goal
   - **References**: @.agents/skills/goap-planning/references/planner-pattern.md, @.agents/skills/goap-planning/references/action-model.md
-- `github-ci-guardrails`: Validate merge readiness via `gh` CLI
+- `adr-creation`: Write architecture decision records
+  - **References**: @.agents/skills/adr-creation/references/madr-template.md, @.agents/skills/adr-creation/references/review-checklist.md
+- `github-ci-guardrails`: Validate merge readiness via gh CLI
   - **References**: @.agents/skills/github-ci-guardrails/references/local-gates.md, @.agents/skills/github-ci-guardrails/references/gh-ci-truth.md
-- `drawio`: Create architecture diagrams for plans, modules, and data flows
 - `git-workflow`: Git commit conventions, validation gates, CI/CD workflows
   - **References**: @.agents/skills/git-workflow/references/commit-types.md
 - `release-management`: GitHub release management, crates.io publishing
   - **References**: @.agents/skills/release-management/references/version-tag-format.md, @.agents/skills/release-management/references/trusted-publishing.md
   - **Scripts**: @.agents/skills/release-management/scripts/create-github-release.sh, @.agents/skills/release-management/scripts/validate-release.sh
+- `benchmarking-perf`: Criterion benchmarks and performance targets
+- `debugging-reservoir`: Diagnose ESN spectral radius, sparse weights, dynamics
+- `skill-memory`: Use csm CLI for skill learning and knowledge graphs
+  - **References**: @.agents/skills/skill-memory/references/integration-patterns.md, @.agents/skills/skill-memory/references/api-reference.md
+- `drawio`: Create architecture diagrams for plans, modules, and data flows
 
 ### Swarm Group Skills (Parallel Execution)
 - `swarm-testing-quality`: Property-based testing, fuzzing, edge case coverage
 - `swarm-performance`: SIMD optimization, connection pooling, batch APIs, caching
 - `swarm-observability`: Tracing, metrics, error context
 - `swarm-advanced-features`: Export/import, versioning, migrations, backup/restore
+- `analysis-swarm`: Multi-persona code analysis orchestrator
 
 ### Using Swarm Mode
 When executing in swarm mode:

@@ -14,9 +14,9 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: adr_0047_security_hardening_complete
-  orchestrator_last_run: wave_13_security_perf_hardening_2026_02_26
-  orchestrator_last_run_at_utc: 2026-02-26T12:50:00Z
+  action_last_completed: to_hypervector_parallelized_complete
+  orchestrator_last_run: wave_13_perf_optimizations_2026_02_26
+  orchestrator_last_run_at_utc: 2026-02-26T13:30:00Z
 
   # Recent changes (2026-02-26)
   recent_changes:
@@ -24,6 +24,8 @@ world_state:
     - "Created ADR-0047 for security & performance hardening"
     - "Started Wave 13: Security & Performance Hardening"
     - "Implemented ADR-0047: bincode limits, path validation, expect removal, RwLock cache"
+    - "Completed find_similar optimization: added find_similar_arc, optimized string handling"
+    - "Completed to_hypervector parallelization: Rayon on 80-word loop"
 
   # Swarm orchestration snapshot
   active_wave: 13
@@ -124,21 +126,21 @@ world_state:
   planning_gaps:
     mutation_testing_action_missing: false
 
-  # Module status (LOC counts) - Updated 2026-02-19
+  # Module status (LOC counts) - Updated 2026-02-26
   modules:
     lib.rs: 41
     error.rs: 32
-    hyperdim.rs: 399
-    reservoir.rs: 483
-    singularity.rs: 441
+    hyperdim.rs: 404
+    reservoir.rs: 469
+    singularity.rs: 457
     persistence.rs: 499
     persistence_wasm.rs: 109
-    framework.rs: 492
-    framework_ops.rs: 292
+    framework.rs: 496
+    framework_ops.rs: 372
     framework_validation.rs: 86
     persistence_ops.rs: 262
     export_payload.rs: 16
-    wasm.rs: 416
+    wasm.rs: 430
     concept_builder.rs: 119
     framework_builder.rs: 188
     cli/mod.rs: 7
@@ -378,9 +380,9 @@ world_state:
   security_tests_added: false                  # Property-based security tests (deferred)
   
   # Performance optimizations
-  bundle_allocation_optimized: false           # Fix 640MB allocation storm
-  find_similar_optimized: false                # Remove string cloning in search
-  to_hypervector_parallelized: false           # Rayon parallelization
+  bundle_allocation_optimized: true            # Fold pattern already efficient ✅
+  find_similar_optimized: true                 # Add find_similar_arc, optimize computation ✅
+  to_hypervector_parallelized: true            # Rayon parallelization on 80-word loop ✅
   cache_rwlock_fixed: true                    # Replace Mutex with RwLock ✅
   avx2_simd_added: false                       # AVX2/NEON SIMD paths
   
