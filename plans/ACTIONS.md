@@ -1767,3 +1767,31 @@ actions:
     adr: ADR-0047
     description: |
       Add path validation for file operations (export/import/backup/restore).
+
+  - name: add_reservoir_tracing
+    preconditions:
+      structured_logging_added: true
+    effects:
+      reservoir_tracing_added: true
+    cost: 1
+    status: complete
+    file: src/reservoir.rs
+    description: |
+      Add #[instrument] tracing to reservoir hot path methods:
+      - step, run, reset, set_spectral_radius, to_hypervector
+      Use cfg_attr pattern for WASM compatibility.
+
+  - name: add_persistence_tracing
+    preconditions:
+      structured_logging_added: true
+    effects:
+      persistence_tracing_added: true
+    cost: 1
+    status: complete
+    file: src/persistence.rs
+    description: |
+      Add #[instrument] tracing to persistence async methods:
+      - new_local, new_turso, new_turso_with_pool
+      - connect, init_schema
+      - save_concept, save_concepts, load_concept, load_all_concepts, delete_concept
+      - save_association, load_associations, checkpoint, size

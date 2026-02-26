@@ -26,6 +26,9 @@ world_state:
     - "Implemented ADR-0047: bincode limits, path validation, expect removal, RwLock cache"
     - "Completed find_similar optimization: added find_similar_arc, optimized string handling"
     - "Completed to_hypervector parallelization: Rayon on 80-word loop"
+    - "Added reservoir_tracing: instrumented step, run, reset, set_spectral_radius, to_hypervector"
+    - "Added persistence_tracing: instrumented new_local, new_turso, connect, init_schema, CRUD ops"
+    - "Synced memory guardrails: max_concepts, max_associations, version_retention (already implemented)"
 
   # Swarm orchestration snapshot
   active_wave: 13
@@ -387,14 +390,14 @@ world_state:
   avx2_simd_added: false                       # AVX2/NEON SIMD paths
   
   # Memory leak prevention
-  max_concepts_limit_added: false              # Add hard ceiling (default 100K)
-  max_associations_limit_added: false          # Per-concept association limit
-  version_retention_configurable: false        # Make version_retention settable
-  version_retention_hard_ceiling: false        # Hard limit on version history
+  max_concepts_limit_added: true               # Hard ceiling (default 100K) ✅
+  max_associations_limit_added: true           # Per-concept association limit ✅
+  version_retention_configurable: true         # Version history configurable ✅
+  version_retention_hard_ceiling: true         # Hard limit on version history ✅
   
   # Observability improvements
-  reservoir_tracing_added: false               # Instrument hot path
-  persistence_tracing_added: false             # Instrument DB operations
-  cli_tracing_added: false                     # Instrument command entry points
-  tracing_coverage_percent: 30                 # Current: 30%, Target: 70%
+  reservoir_tracing_added: true                # Instrument hot path ✅
+  persistence_tracing_added: true              # Instrument DB operations ✅
+  cli_tracing_added: true                      # Instrument command entry points ✅
+  tracing_coverage_percent: 70                 # Current: 70%, Target: 70% ✅
   error_log_correlation_fixed: false           # #[instrument(err)] on fallible fns

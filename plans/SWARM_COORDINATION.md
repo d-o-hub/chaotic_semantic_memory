@@ -40,11 +40,15 @@ Run ID: `goap_swarm_wave13_security_perf_hardening_2026_02_26`
 
 | Action | Priority | Status | ADR |
 |--------|----------|--------|-----|
-| `add_bincode_size_limits` | P1 (Critical) | Pending | ADR-0047 |
-| `fix_error_source_attributes` | P1 | Pending | ADR-0047 |
-| `remove_production_expect` | P1 | Pending | ADR-0047 |
-| `cache_mutex_to_rwlock` | P2 | Pending | ADR-0047 |
-| `add_path_validation` | P2 | Pending | ADR-0047 |
+| `add_bincode_size_limits` | P1 (Critical) | Complete | ADR-0047 |
+| `fix_error_source_attributes` | P1 | Deferred | ADR-0047 |
+| `remove_production_expect` | P1 | Complete | ADR-0047 |
+| `cache_mutex_to_rwlock` | P2 | Complete | ADR-0047 |
+| `add_path_validation` | P2 | Complete | ADR-0047 |
+| `add_reservoir_tracing` | P3 | Complete | - |
+| `add_persistence_tracing` | P3 | Complete | - |
+
+**Status:** Wave 13 COMPLETE ✅
 
 **Trigger:** Analysis swarm identified 9 findings (3 security, 3 performance, 3 observability).
 **Scope:** Focused 5-item hardening sprint, deferring lower-priority items to Phase 28.

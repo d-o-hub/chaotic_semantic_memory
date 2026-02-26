@@ -4,6 +4,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
+use tracing::instrument;
 
 #[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
@@ -201,6 +202,7 @@ impl Reservoir {
     }
 
     /// Single reservoir step
+    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
     pub fn step(&mut self, input: &[f32]) -> Result<&[f32]> {
         let started = Instant::now();
         if input.len() != self.input_size {
@@ -249,6 +251,7 @@ impl Reservoir {
     }
 
     /// Run reservoir for multiple steps
+    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
     pub fn run(&mut self, inputs: &[Vec<f32>]) -> Result<Vec<Vec<f32>>> {
         let mut states = Vec::with_capacity(inputs.len());
         for input in inputs {
@@ -264,6 +267,7 @@ impl Reservoir {
     }
 
     /// Set spectral radius
+    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
     pub fn set_spectral_radius(&mut self, radius: f32) -> Result<()> {
         if !(0.9..=1.1).contains(&radius) {
             return Err(MemoryError::Reservoir(
@@ -282,12 +286,14 @@ impl Reservoir {
     }
 
     /// Reset reservoir state
+    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
     pub fn reset(&mut self) {
         self.state.fill(0.0);
         self.scratch.fill(0.0);
     }
 
     /// Project state to hypervector (parallel on non-WASM)
+    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
     #[cfg(not(target_arch = "wasm32"))]
     pub fn to_hypervector(&self) -> Result<HVec10240> {
         if self.size < HVec10240::DIMENSION {
@@ -319,6 +325,7 @@ impl Reservoir {
     }
 
     #[cfg(target_arch = "wasm32")]
+    #[instrument(skip(self))]
     pub fn to_hypervector(&self) -> Result<HVec10240> {
         if self.size < HVec10240::DIMENSION {
             return Err(MemoryError::InvalidDimension {
