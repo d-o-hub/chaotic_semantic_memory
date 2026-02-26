@@ -55,5 +55,12 @@ pub async fn inject_concepts(
 - Cache hit rate: >80% for repeated access patterns
 - Reservoir step: maintain <100μs @ 50k
 
+## Test Files
+
+Run performance tests:
+```bash
+cargo test --test <test_name>
+```
+
 ## LOC Constraint
 All files must remain ≤ 500 lines. Refactor to new modules if needed.

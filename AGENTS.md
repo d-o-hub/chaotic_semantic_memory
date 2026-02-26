@@ -52,9 +52,12 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 
 ### Swarm Group Skills (Parallel Execution)
 - `swarm-testing-quality`: Property-based testing, fuzzing, edge case coverage
+  - **Test Files**: Use separate test files in `tests/` directory
 - `swarm-performance`: SIMD optimization, connection pooling, batch APIs, caching
+  - **Test Files**: Use separate test files in `tests/` directory
 - `swarm-observability`: Tracing, metrics, error context
 - `swarm-advanced-features`: Export/import, versioning, migrations, backup/restore
+  - **Test Files**: Use separate test files in `tests/` directory
 - `analysis-swarm`: Multi-persona code analysis orchestrator
 
 ### Using Swarm Mode
