@@ -174,7 +174,11 @@ impl ChaoticSemanticFramework {
             )?);
         }
 
-        let r = reservoir.as_mut().expect("reservoir initialized above");
+        let r = reservoir
+            .as_mut()
+            .ok_or(crate::error::MemoryError::Reservoir(
+                "reservoir failed to initialize".to_string(),
+            ))?;
         r.reset();
         for input in sequence {
             r.step(input)?;

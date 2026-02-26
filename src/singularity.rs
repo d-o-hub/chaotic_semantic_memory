@@ -5,7 +5,7 @@ use std::collections::hash_map::Entry;
 use std::collections::{HashMap, VecDeque};
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 #[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
@@ -136,7 +136,7 @@ pub struct Singularity {
     concepts: HashMap<String, Concept>,
     associations: HashMap<String, HashMap<String, f32>>,
     config: SingularityConfig,
-    query_cache: Mutex<QueryCache>,
+    query_cache: RwLock<QueryCache>,
     cache_metrics: CacheMetrics,
 }
 
@@ -150,7 +150,7 @@ impl Singularity {
         Self {
             concepts: HashMap::new(),
             associations: HashMap::new(),
-            query_cache: Mutex::new(QueryCache::with_capacity(config.concept_cache_size)),
+            query_cache: RwLock::new(QueryCache::with_capacity(config.concept_cache_size)),
             cache_metrics: CacheMetrics::default(),
             config,
         }
@@ -237,7 +237,7 @@ impl Singularity {
 
         if !bypass_cache {
             let cache_key = similarity_cache_key(query, top_k);
-            if let Ok(mut cache) = self.query_cache.lock() {
+            if let Ok(mut cache) = self.query_cache.write() {
                 if let Some(results) = cache.get(cache_key) {
                     self.cache_metrics
                         .hits_total
@@ -268,7 +268,7 @@ impl Singularity {
         if results.len() <= top_k {
             results.sort_by(|a, b| b.1.total_cmp(&a.1));
             if !bypass_cache {
-                if let Ok(mut cache) = self.query_cache.lock() {
+                if let Ok(mut cache) = self.query_cache.write() {
                     let cache_key = similarity_cache_key(query, top_k);
                     let results = Arc::from(results);
                     if cache.put(cache_key, Arc::clone(&results)) {
@@ -286,7 +286,7 @@ impl Singularity {
         results.truncate(top_k);
         results.sort_by(|a, b| b.1.total_cmp(&a.1));
         if !bypass_cache {
-            if let Ok(mut cache) = self.query_cache.lock() {
+            if let Ok(mut cache) = self.query_cache.write() {
                 let cache_key = similarity_cache_key(query, top_k);
                 let results = Arc::from(results);
                 if cache.put(cache_key, Arc::clone(&results)) {
@@ -409,7 +409,7 @@ impl Singularity {
     }
 
     fn invalidate_cache(&self) {
-        if let Ok(mut cache) = self.query_cache.lock() {
+        if let Ok(mut cache) = self.query_cache.write() {
             cache.clear();
         }
     }
