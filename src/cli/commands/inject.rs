@@ -1,12 +1,15 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use tracing::instrument;
+
 use crate::cli::args::{InjectArgs, OutputFormat, VectorSource};
 use crate::cli::error::{CliError, Result};
 use crate::hyperdim::HVec10240;
 
 use super::{create_framework, print_success, print_warning, validate_concept_id};
 
+#[instrument(name = "cli_inject")]
 pub async fn run_inject(
     args: InjectArgs,
     db_path: Option<&Path>,

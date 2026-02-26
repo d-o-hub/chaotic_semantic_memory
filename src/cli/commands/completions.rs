@@ -2,6 +2,8 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 
+use tracing::instrument;
+
 use clap::CommandFactory;
 use clap_complete::Shell;
 
@@ -9,6 +11,7 @@ use crate::cli::args::CliArgs;
 use crate::cli::args::CompletionsArgs;
 use crate::cli::error::{CliError, Result};
 
+#[instrument(name = "cli_completions")]
 pub fn run_completions(args: CompletionsArgs) -> Result<()> {
     let mut cmd = CliArgs::command();
     let name = cmd.get_name().to_string();

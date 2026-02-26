@@ -14,9 +14,9 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: to_hypervector_parallelized_complete
-  orchestrator_last_run: wave_13_perf_optimizations_2026_02_26
-  orchestrator_last_run_at_utc: 2026-02-26T13:30:00Z
+  action_last_completed: error_log_correlation_fixed_complete
+  orchestrator_last_run: wave_14_observability_completion_2026_02_26
+  orchestrator_last_run_at_utc: 2026-02-26T14:00:00Z
 
   # Recent changes (2026-02-26)
   recent_changes:
@@ -29,6 +29,7 @@ world_state:
     - "Added reservoir_tracing: instrumented step, run, reset, set_spectral_radius, to_hypervector"
     - "Added persistence_tracing: instrumented new_local, new_turso, connect, init_schema, CRUD ops"
     - "Synced memory guardrails: max_concepts, max_associations, version_retention (already implemented)"
+    - "Completed error_log_correlation: added #[instrument(err)] to framework and framework_ops"
 
   # Swarm orchestration snapshot
   active_wave: 13
@@ -400,4 +401,4 @@ world_state:
   persistence_tracing_added: true              # Instrument DB operations ✅
   cli_tracing_added: true                      # Instrument command entry points ✅
   tracing_coverage_percent: 70                 # Current: 70%, Target: 70% ✅
-  error_log_correlation_fixed: false           # #[instrument(err)] on fallible fns
+  error_log_correlation_fixed: true           # #[instrument(err)] on fallible fns ✅

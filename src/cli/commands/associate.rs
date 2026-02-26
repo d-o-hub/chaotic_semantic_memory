@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use tracing::instrument;
+
 use crate::cli::args::{AssociateArgs, OutputFormat};
 use crate::cli::error::{CliError, Result};
 
@@ -8,6 +10,7 @@ use super::{
     validate_strength,
 };
 
+#[instrument(name = "cli_associate")]
 pub async fn run_associate(
     args: AssociateArgs,
     db_path: Option<&Path>,
