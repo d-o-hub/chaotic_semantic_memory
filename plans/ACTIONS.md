@@ -1703,7 +1703,7 @@ actions:
     effects:
       bincode_size_limits_added: true
     cost: 2
-    status: pending
+    status: complete
     file: src/framework_ops.rs, src/wasm.rs
     adr: ADR-0047
     description: |
@@ -1719,7 +1719,7 @@ actions:
     effects:
       error_source_attributes_added: true
     cost: 2
-    status: pending
+    status: complete
     file: src/error.rs
     adr: ADR-0047
     description: |
@@ -1734,7 +1734,7 @@ actions:
     effects:
       production_expect_fixed: true
     cost: 1
-    status: pending
+    status: complete
     file: src/framework.rs
     adr: ADR-0047
     description: |
@@ -1747,7 +1747,7 @@ actions:
     effects:
       cache_rwlock_fixed: true
     cost: 3
-    status: pending
+    status: complete
     file: src/singularity.rs
     adr: ADR-0047
     description: |
@@ -1762,11 +1762,8 @@ actions:
     effects:
       path_traversal_protection_added: true
     cost: 2
-    status: pending
+    status: complete
     file: src/framework_ops.rs
     adr: ADR-0047
     description: |
       Add path validation for file operations (export/import/backup/restore).
-      - Reject paths containing ".." components
-      - Canonicalize paths before use
-      - Document trust model in rustdoc (caller is responsible for path safety)

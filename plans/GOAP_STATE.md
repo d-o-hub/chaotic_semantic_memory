@@ -14,15 +14,16 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: release_engineering_infrastructure
+  action_last_completed: adr_0047_security_hardening_complete
   orchestrator_last_run: wave_13_security_perf_hardening_2026_02_26
-  orchestrator_last_run_at_utc: 2026-02-26T10:00:00Z
+  orchestrator_last_run_at_utc: 2026-02-26T12:50:00Z
 
   # Recent changes (2026-02-26)
   recent_changes:
     - "Analysis swarm completed: 9 findings (3 security, 3 performance, 3 observability)"
     - "Created ADR-0047 for security & performance hardening"
     - "Started Wave 13: Security & Performance Hardening"
+    - "Implemented ADR-0047: bincode limits, path validation, expect removal, RwLock cache"
 
   # Swarm orchestration snapshot
   active_wave: 13
@@ -361,25 +362,26 @@ world_state:
 
   # Phase 27: Post-Release Security & Hardening (cost: 38) - Wave 13
   # Triggered by: Specialist analysis swarm findings 2026-02-20
+  # Implementation: ADR-0047 - Security & Performance Hardening for v0.2.0
   swarm_analysis_completed: true
   swarm_analysis_findings_total: 9
   
   # Error handling improvements
-  error_source_attributes_added: false         # Add #[source] to all error variants
-  production_expect_fixed: false               # Fix expect() in framework.rs:177
-  error_context_enhanced: false                # Add remediation hints to errors
+  error_source_attributes_added: false         # Add #[source] to all error variants (deferred)
+  production_expect_fixed: true               # Fix expect() in framework.rs:177 ✅
+  error_context_enhanced: false                # Add remediation hints to errors (deferred)
   
   # Security hardening
-  bincode_size_limits_added: false             # CRITICAL: Add 100MB limit to deserialization
-  path_traversal_protection_added: false       # Validate file paths in framework_ops
-  metadata_validation_added: false             # Check metadata size before serialization
-  security_tests_added: false                  # Property-based security tests
+  bincode_size_limits_added: true             # CRITICAL: Add 100MB limit to deserialization ✅
+  path_traversal_protection_added: true       # Validate file paths in framework_ops ✅
+  metadata_validation_added: true              # Check metadata size before serialization (done in ADR-0034)
+  security_tests_added: false                  # Property-based security tests (deferred)
   
   # Performance optimizations
   bundle_allocation_optimized: false           # Fix 640MB allocation storm
   find_similar_optimized: false                # Remove string cloning in search
   to_hypervector_parallelized: false           # Rayon parallelization
-  cache_rwlock_fixed: false                    # Replace Mutex with RwLock
+  cache_rwlock_fixed: true                    # Replace Mutex with RwLock ✅
   avx2_simd_added: false                       # AVX2/NEON SIMD paths
   
   # Memory leak prevention
