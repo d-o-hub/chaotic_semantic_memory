@@ -32,16 +32,6 @@ It targets both native and `wasm32` builds with explicit threading guards.
 - **CLI**: Full-featured command-line interface with shell completions
 - **Production-Ready**: Structured logging, metrics, input validation, memory guardrails
 
-## Status
-
-| Property | Value |
-|----------|-------|
-| MSRV | Rust `1.85` |
-| License | MIT |
-| Targets | Native, `wasm32-unknown-unknown` |
-
-[![Crates.io version](https://img.shields.io/crates/v/chaotic_semantic_memory.svg)](https://crates.io/crates/chaotic_semantic_memory)
-
 ## Installation
 
 ```bash
@@ -232,30 +222,9 @@ cargo bench --bench benchmark -- --baseline main
 
 Primary perf gate: `reservoir_step_50k < 100us`.
 
-## Security
-
-### Reporting Vulnerabilities
-
-Please report security vulnerabilities privately via [GitHub Security Advisories](https://github.com/d-o-hub/chaotic_semantic_memory/security/advisories/new).
-
-Do not file public issues for security bugs.
-
-### Supported Versions
-
-| Version | Supported |
-| ------- | --------- |
-| 0.1.x   | Yes       |
-
-### Security Features
-
-- No hardcoded secrets or credentials in source code
-- Input validation on all public APIs
-- Memory limits enforced via `max_concepts`, `max_metadata_bytes`, and `max_probe_top_k`
-- WASM build excludes persistence layer (no filesystem access)
-
 ## License
 
-MIT
+[MIT](LICENSE)
 
 ## Contributing
 
