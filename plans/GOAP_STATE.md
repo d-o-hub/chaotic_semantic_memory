@@ -354,7 +354,7 @@ world_state:
   npm_publish_wasm_opt_fixed: true           # Fix: --enable-bulk-memory for wasm-opt
   npm_publish_workflow_updated: true         # ADR-0046: Removed NODE_AUTH_TOKEN, added npm@latest
   npm_pkg_json_repository: true              # ADR-0046: repository field + publishConfig.provenance
-  npm_first_publish_manual: false            # ADR-0046: Manual first publish from local machine
+npm_first_publish_manual: true # ADR-0046: Manual first publish from local machine - COMPLETED 2026-02-27
   npm_oidc_configured: false                 # ADR-0046: Configure Trusted Publisher in npm UI
   npm_publish_automated: false               # ADR-0046: CI publishing works via OIDC
 

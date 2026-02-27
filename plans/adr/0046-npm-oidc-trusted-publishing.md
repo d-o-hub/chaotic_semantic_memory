@@ -2,7 +2,15 @@
 
 ## Status
 
-Proposed
+In Progress - Phase 2 Complete
+
+**Completed:**
+- ✅ Phase 1: Workflow updated (NODE_AUTH_TOKEN removed, npm@latest ensured)
+- ✅ Phase 2: Manual first publish (v0.1.0 published to npm on 2026-02-27)
+
+**Pending:**
+- ⏳ Phase 3: Configure Trusted Publisher in npm UI
+- ⏳ Phase 4: Verify CI publishing with OIDC
 
 ## Context and Problem Statement
 
