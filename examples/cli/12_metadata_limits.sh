@@ -126,7 +126,7 @@ echo "The import/export format supports metadata in the JSON payload:"
 echo ""
 cat << 'JSON_EXAMPLE'
 {
-  "version": "0.1.0",
+  "version": "0.1.1",
   "exported_at": 1234567890,
   "concepts": [
     {

@@ -397,3 +397,22 @@
 - Each skill focuses on one domain with clear boundaries
 - Include code examples and command references in every skill
 
+
+## 2026-02-27: v0.1.1 Release
+
+### What Worked
+1. Release workflow automation with OIDC trusted publishing to crates.io
+2. GitHub Actions release workflow with version tag triggering
+3. Automated npm publishing for WASM bindings with provenance
+
+### Technical Insights
+- crates.io requires `publish-update` scope for existing crates (not just `publish-new`)
+- npm provenance requires npm >= 11.5.1 and `--provenance` flag
+- Action artifact version mismatch (v6 vs v7) causes workflow failures
+- Token scopes must be specific to the crate name for crates.io
+
+### What to Avoid
+- Do not use `publish-new` scope alone for existing crates
+- Do not mix artifact upload/download action versions
+- Do not skip manual token scope verification on crates.io
+- Do not publish without CHANGELOG update

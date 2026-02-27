@@ -25,7 +25,7 @@ It targets both native and `wasm32` builds with explicit threading guards.
 
 | Property | Value |
 |----------|-------|
-| Version | `0.1.0` |
+| Version | `0.1.1` |
 | MSRV | Rust `1.85` |
 | License | MIT |
 | Targets | Native, `wasm32-unknown-unknown` |
@@ -40,7 +40,7 @@ Enable WASM bindings when needed:
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.1.0", features = ["wasm"] }
+chaotic_semantic_memory = { version = "0.1.1", features = ["wasm"] }
 ```
 
 ## Core Components

@@ -348,6 +348,8 @@ world_state:
   release_manager_script: true               # ADR-0042: scripts/release-manager.sh created
   v010_tag_created: true                     # ADR-0042: v0.1.0 tag pushed
   v010_published: true                       # ADR-0042: Published to crates.io
+  v011_tag_created: true                     # v0.1.1 tag pushed
+  v011_published: true                       # Published to crates.io 2026-02-27
 
   # Phase 26B: npm OIDC Trusted Publishing (cost: 7) - Wave 12
   # Per ADR-0046: npm requires manual first publish before OIDC can be configured
