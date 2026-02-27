@@ -48,7 +48,7 @@ jobs:
         toolchain: stable
 
     - name: Validate publish dry-run
-      run: cargo publish --dry-run
+      run: cargo publish --dry-run --allow-dirty
 
   build-artifacts:
     runs-on: ubuntu-24.04
@@ -108,7 +108,7 @@ jobs:
         toolchain: stable
 
     - name: Publish to crates.io
-      run: cargo publish
+      run: cargo publish --allow-dirty
       env:
         CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
