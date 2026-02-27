@@ -6,31 +6,21 @@ This file tracks pending manual actions that cannot be automated and require hum
 
 ### 1. Manual First npm Publish
 
-**Status**: Pending
+**Status**: ✅ Completed (2026-02-27)
 **ADR**: ADR-0046 - npm OIDC Trusted Publishing
 
-**Action Required**:
-Run from local machine (requires npm account authorization):
+**Completed Actions**:
+- Built WASM package with `wasm-pack build --target web --scope d-o-hub`
+- Published v0.1.0 to npm with provenance
+- Package now available at: https://www.npmjs.com/package/@d-o-hub/chaotic_semantic_memory
 
-```bash
-# Build WASM package
-wasm-pack build --target web --scope d-o-hub
-
-# Navigate to package directory
-cd pkg
-
-# Publish with provenance (first publish required before OIDC works)
-npm publish --provenance --access public
-```
-
-**Verification**:
-- Check package appears at https://www.npmjs.com/package/@d-o-hub/chaotic-semantic-memory
+**Note**: npm auto-corrected `repository.url` to `git+https://` format. Run `npm pkg fix` in `pkg/` directory to normalize this for future builds.
 
 ---
 
 ### 2. Configure npm Trusted Publisher
 
-**Status**: Pending
+**Status**: 🔄 Ready to Complete (v0.1.0 published, can now configure)
 **ADR**: ADR-0046 - npm OIDC Trusted Publishing
 
 **Action Required**:
@@ -96,6 +86,7 @@ npm publish --provenance --access public
 
 | Item | Completed | Date |
 |------|-----------|------|
+| **WASM-pack bulk memory fix (ADR-0048)** | ✅ | 2026-02-27 |
 | All Phase 27 (Wave 13) actions | ✅ | 2026-02-26 |
 | All Phase 26B actions (except manual) | ✅ | 2026-02-20 |
 | All Phase 25 (Wave 11) actions | ✅ | 2026-02-19 |
