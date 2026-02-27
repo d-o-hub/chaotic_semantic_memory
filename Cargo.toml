@@ -100,3 +100,6 @@ path = "examples/basic_in_memory.rs"
 default = ["cli"]
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored"]
 wasm = []
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]
