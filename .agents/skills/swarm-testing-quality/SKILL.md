@@ -5,13 +5,21 @@ description: "Property-based testing, fuzzing, and edge case coverage. Use when 
 
 # Swarm: Testing & Quality
 
+## Test Files
+
+This project uses separate integration test files in `tests/`. Run specific tests:
+
+```bash
+cargo test --test <test_file_name>
+```
+
 ## Workflow
-1. Check current test coverage in `src/*/tests` modules
+1. Check current test coverage in `tests/` directory
 2. Identify properties to test (invariants, roundtrips, bounds)
 3. Add `proptest` dependency to `Cargo.toml`
-4. Create `tests/property_based.rs` with property tests
+4. Create new test file in `tests/` with property tests
 5. Set up `fuzz/` directory with cargo-fuzz targets
-6. Add edge case tests to module test blocks
+6. Add edge case tests to separate test files
 7. Run validation gates
 
 ## Key Properties to Test
@@ -36,7 +44,7 @@ description: "Property-based testing, fuzzing, and edge case coverage. Use when 
 
 ```bash
 # Run property tests
-cargo test --test property_based
+cargo test --test <test_name>
 
 # Run fuzzer (requires cargo-fuzz)
 cargo fuzz run fuzz_hvec_from_bytes

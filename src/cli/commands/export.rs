@@ -1,10 +1,13 @@
 use std::path::Path;
 
+use tracing::instrument;
+
 use crate::cli::args::{ExportArgs, ExportFormat, OutputFormat};
 use crate::cli::error::{CliError, Result};
 
 use super::{create_framework, print_success, print_warning};
 
+#[instrument(name = "cli_export")]
 pub async fn run_export(
     args: ExportArgs,
     db_path: Option<&Path>,

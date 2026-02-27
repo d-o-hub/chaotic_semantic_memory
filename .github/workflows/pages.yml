@@ -61,7 +61,7 @@ jobs:
         fi
 
     - name: Upload Pages artifact
-      uses: actions/upload-pages-artifact@v3
+      uses: actions/upload-pages-artifact@v4
       with:
         path: ${{ hashFiles('book/book.toml') != '' && 'book/build' || '_site' }}
 

@@ -1,5 +1,6 @@
 //! WASM bindings for chaotic semantic memory
 
+use bincode::Options;
 use js_sys::{Array, Float32Array, Uint8Array};
 use tracing::warn;
 use wasm_bindgen::JsCast;
@@ -9,6 +10,8 @@ use crate::export_payload::{ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
 use crate::hyperdim::HVec10240;
 use crate::singularity::Concept;
+
+const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024; // 100 MB default
 
 /// WASM-friendly wrapper for the framework
 #[wasm_bindgen]
@@ -303,7 +306,18 @@ impl WasmFramework {
     /// Import state from bytes previously produced by `exportToBytes`.
     #[wasm_bindgen(js_name = importFromBytes)]
     pub async fn import_from_bytes(&self, data: Uint8Array, merge: bool) -> Result<usize, JsValue> {
-        let payload: ExportPayload = bincode::deserialize(&data.to_vec()).map_err(to_js_error)?;
+        let bytes = data.to_vec();
+
+        if bytes.len() > MAX_IMPORT_SIZE as usize {
+            return Err(JsValue::from_str(&format!(
+                "Import data size {} exceeds maximum allowed size {}",
+                bytes.len(),
+                MAX_IMPORT_SIZE
+            )));
+        }
+
+        let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
+        let payload: ExportPayload = options.deserialize(&bytes).map_err(to_js_error)?;
 
         if !merge {
             let mut singularity = self.framework.singularity.write().await;

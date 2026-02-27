@@ -40,6 +40,20 @@ cargo bench --bench benchmark -- --baseline main
 | Integration | `tests/*.rs` | Public API behavior, persistence roundtrips |
 | Benchmarks | `benches/benchmark.rs` | Performance targets (reservoir_step < 100μs @ 50k) |
 
+## Integration Test Files
+
+Run tests by file:
+```bash
+cargo test --test <test_name>
+```
+
+Use separate test files in `tests/` for:
+- Property-based tests
+- Batch operation tests
+- Persistence tests
+- Framework lifecycle tests
+- Edge case coverage
+
 ## LOC Enforcement
 Every file in `src/*.rs` must be ≤ 500 lines. Run `scripts/loc-check.sh` to verify.
 

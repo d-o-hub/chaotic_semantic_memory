@@ -5,7 +5,7 @@ use std::collections::hash_map::Entry;
 use std::collections::{HashMap, VecDeque};
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 #[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
@@ -136,7 +136,7 @@ pub struct Singularity {
     concepts: HashMap<String, Concept>,
     associations: HashMap<String, HashMap<String, f32>>,
     config: SingularityConfig,
-    query_cache: Mutex<QueryCache>,
+    query_cache: RwLock<QueryCache>,
     cache_metrics: CacheMetrics,
 }
 
@@ -150,7 +150,7 @@ impl Singularity {
         Self {
             concepts: HashMap::new(),
             associations: HashMap::new(),
-            query_cache: Mutex::new(QueryCache::with_capacity(config.concept_cache_size)),
+            query_cache: RwLock::new(QueryCache::with_capacity(config.concept_cache_size)),
             cache_metrics: CacheMetrics::default(),
             config,
         }
@@ -219,7 +219,19 @@ impl Singularity {
     /// Find similar concepts using cosine similarity
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self, query), fields(top_k = top_k)))]
     pub fn find_similar(&self, query: &HVec10240, top_k: usize) -> Vec<(String, f32)> {
-        self.find_similar_cached(query, top_k).as_ref().to_vec()
+        self.find_similar_arc(query, top_k).as_ref().to_vec()
+    }
+
+    /// Find similar concepts and return cached results as `Arc<[_]>`.
+    ///
+    /// Returns the cached result directly without cloning, avoiding unnecessary
+    /// Vec allocation on cache hits.
+    ///
+    /// Cache hits avoid cloning the cached result vector.
+    /// Queries with `top_k > max_cached_top_k` bypass the cache to prevent
+    /// excessive memory usage from storing large result sets.
+    pub fn find_similar_arc(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]> {
+        self.find_similar_cached(query, top_k)
     }
 
     /// Find similar concepts and return cached results as `Arc<[_]>`.
@@ -237,7 +249,7 @@ impl Singularity {
 
         if !bypass_cache {
             let cache_key = similarity_cache_key(query, top_k);
-            if let Ok(mut cache) = self.query_cache.lock() {
+            if let Ok(mut cache) = self.query_cache.write() {
                 if let Some(results) = cache.get(cache_key) {
                     self.cache_metrics
                         .hits_total
@@ -250,25 +262,29 @@ impl Singularity {
                 .fetch_add(1, Ordering::Relaxed);
         }
 
-        #[cfg(not(target_arch = "wasm32"))]
-        let mut results: Vec<(String, f32)> = self
+        // Collect IDs and vectors once to avoid cloning strings during parallel iteration
+        let concept_data: Vec<(String, HVec10240)> = self
             .concepts
-            .values()
-            .par_bridge()
-            .map(|c| (c.id.clone(), query.cosine_similarity(&c.vector)))
+            .iter()
+            .map(|(id, c)| (id.clone(), c.vector)) // HVec10240 is Copy
+            .collect();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let mut results: Vec<(String, f32)> = concept_data
+            .par_iter()
+            .map(|(id, vec)| (id.clone(), query.cosine_similarity(vec)))
             .collect();
 
         #[cfg(target_arch = "wasm32")]
-        let mut results: Vec<(String, f32)> = self
-            .concepts
-            .values()
-            .map(|c| (c.id.clone(), query.cosine_similarity(&c.vector)))
+        let mut results: Vec<(String, f32)> = concept_data
+            .iter()
+            .map(|(id, vec)| (id.clone(), query.cosine_similarity(vec)))
             .collect();
 
         if results.len() <= top_k {
             results.sort_by(|a, b| b.1.total_cmp(&a.1));
             if !bypass_cache {
-                if let Ok(mut cache) = self.query_cache.lock() {
+                if let Ok(mut cache) = self.query_cache.write() {
                     let cache_key = similarity_cache_key(query, top_k);
                     let results = Arc::from(results);
                     if cache.put(cache_key, Arc::clone(&results)) {
@@ -286,7 +302,7 @@ impl Singularity {
         results.truncate(top_k);
         results.sort_by(|a, b| b.1.total_cmp(&a.1));
         if !bypass_cache {
-            if let Ok(mut cache) = self.query_cache.lock() {
+            if let Ok(mut cache) = self.query_cache.write() {
                 let cache_key = similarity_cache_key(query, top_k);
                 let results = Arc::from(results);
                 if cache.put(cache_key, Arc::clone(&results)) {
@@ -409,7 +425,7 @@ impl Singularity {
     }
 
     fn invalidate_cache(&self) {
-        if let Ok(mut cache) = self.query_cache.lock() {
+        if let Ok(mut cache) = self.query_cache.write() {
             cache.clear();
         }
     }

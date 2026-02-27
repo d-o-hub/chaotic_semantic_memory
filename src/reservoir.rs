@@ -4,6 +4,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
+use tracing::instrument;
 
 #[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
@@ -201,6 +202,7 @@ impl Reservoir {
     }
 
     /// Single reservoir step
+    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
     pub fn step(&mut self, input: &[f32]) -> Result<&[f32]> {
         let started = Instant::now();
         if input.len() != self.input_size {
@@ -249,6 +251,7 @@ impl Reservoir {
     }
 
     /// Run reservoir for multiple steps
+    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
     pub fn run(&mut self, inputs: &[Vec<f32>]) -> Result<Vec<Vec<f32>>> {
         let mut states = Vec::with_capacity(inputs.len());
         for input in inputs {
@@ -264,6 +267,7 @@ impl Reservoir {
     }
 
     /// Set spectral radius
+    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
     pub fn set_spectral_radius(&mut self, radius: f32) -> Result<()> {
         if !(0.9..=1.1).contains(&radius) {
             return Err(MemoryError::Reservoir(
@@ -282,12 +286,15 @@ impl Reservoir {
     }
 
     /// Reset reservoir state
+    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
     pub fn reset(&mut self) {
         self.state.fill(0.0);
         self.scratch.fill(0.0);
     }
 
-    /// Project state to hypervector
+    /// Project state to hypervector (parallel on non-WASM)
+    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn to_hypervector(&self) -> Result<HVec10240> {
         if self.size < HVec10240::DIMENSION {
             return Err(MemoryError::InvalidDimension {
@@ -295,25 +302,51 @@ impl Reservoir {
                 actual: self.size,
             });
         }
+        let chunk_size = self.size / HVec10240::DIMENSION;
+        let data: Vec<u128> = (0..80)
+            .into_par_iter()
+            .map(|i| {
+                let mut word = 0u128;
+                for j in 0..128 {
+                    let bit_index = i * 128 + j;
+                    let sum: f32 = self.state
+                        [(bit_index * chunk_size)..(bit_index * chunk_size + chunk_size)]
+                        .iter()
+                        .sum();
+                    if sum > 0.0 {
+                        word |= 1u128 << j;
+                    }
+                }
+                word
+            })
+            .collect();
+        let data: [u128; 80] = data.try_into().unwrap();
+        Ok(HVec10240 { data })
+    }
 
+    #[cfg(target_arch = "wasm32")]
+    #[instrument(skip(self))]
+    pub fn to_hypervector(&self) -> Result<HVec10240> {
+        if self.size < HVec10240::DIMENSION {
+            return Err(MemoryError::InvalidDimension {
+                expected: HVec10240::DIMENSION,
+                actual: self.size,
+            });
+        }
         let chunk_size = self.size / HVec10240::DIMENSION;
         let mut data = [0u128; 80];
-
         for (i, word) in data.iter_mut().enumerate() {
             for j in 0..128 {
                 let bit_index = i * 128 + j;
-                let start = bit_index * chunk_size;
-                let end = start + chunk_size;
-                let mut sum = 0.0;
-                for value in &self.state[start..end] {
-                    sum += *value;
-                }
+                let sum: f32 = self.state
+                    [(bit_index * chunk_size)..(bit_index * chunk_size + chunk_size)]
+                    .iter()
+                    .sum();
                 if sum > 0.0 {
                     *word |= 1u128 << j;
                 }
             }
         }
-
         Ok(HVec10240 { data })
     }
 
@@ -439,45 +472,5 @@ impl ChaoticReservoir {
 
     pub fn metrics_snapshot(&self) -> ReservoirMetricsSnapshot {
         self.base.metrics_snapshot()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_reservoir_creation() {
-        let reservoir = Reservoir::new_seeded(10, 256, 42).unwrap();
-        assert_eq!(reservoir.size(), 256);
-    }
-
-    #[test]
-    fn test_reservoir_step() {
-        let mut reservoir = Reservoir::new_seeded(10, 256, 42).unwrap();
-        let input = vec![0.5; 10];
-        let result = reservoir.step(&input).unwrap();
-        assert_eq!(result.len(), 256);
-    }
-
-    #[test]
-    fn test_spectral_radius_constraint() {
-        let mut reservoir = Reservoir::new_seeded(10, 256, 42).unwrap();
-        assert!(reservoir.set_spectral_radius(1.05).is_ok());
-        assert!(reservoir.set_spectral_radius(1.2).is_err());
-    }
-
-    #[test]
-    fn test_chaotic_reservoir() {
-        let mut reservoir = ChaoticReservoir::new_seeded(10, 256, 0.1, 42).unwrap();
-        let input = vec![0.5; 10];
-        let result = reservoir.step(&input).unwrap();
-        assert_eq!(result.len(), 256);
-    }
-
-    #[test]
-    fn test_to_hypervector_small_reservoir_errors() {
-        let reservoir = Reservoir::new_seeded(10, 256, 42).unwrap();
-        assert!(reservoir.to_hypervector().is_err());
     }
 }

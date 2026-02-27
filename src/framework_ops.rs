@@ -1,18 +1,72 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::fs;
-use tracing::warn;
+use tracing::{instrument, warn};
 
-use crate::error::Result;
+use crate::error::{MemoryError, Result};
 use crate::export_payload::{ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
 use crate::hyperdim::HVec10240;
 use crate::singularity::ConceptBuilder;
+use bincode::Options;
+
+const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024; // 100 MB default
+const MAX_PATH_LENGTH: usize = 4096;
+
+fn validate_path(path: &str) -> Result<PathBuf> {
+    if path.len() > MAX_PATH_LENGTH {
+        return Err(MemoryError::InvalidInput {
+            field: "path".to_string(),
+            reason: format!(
+                "path exceeds maximum length of {} characters",
+                MAX_PATH_LENGTH
+            ),
+        });
+    }
+
+    let path = PathBuf::from(path);
+
+    if path
+        .components()
+        .any(|c| c == std::path::Component::ParentDir)
+    {
+        return Err(MemoryError::InvalidInput {
+            field: "path".to_string(),
+            reason: "path traversal '..' components are not allowed".to_string(),
+        });
+    }
+
+    if path.is_absolute() {
+        let normalized = match path.canonicalize() {
+            Ok(p) => p,
+            Err(_) => {
+                return Err(MemoryError::InvalidInput {
+                    field: "path".to_string(),
+                    reason: "absolute path does not exist or cannot be accessed".to_string(),
+                });
+            }
+        };
+
+        if !normalized.starts_with(std::env::current_dir().unwrap_or_default())
+            && !normalized.starts_with("/tmp")
+        {
+            return Err(MemoryError::InvalidInput {
+                field: "path".to_string(),
+                reason: "absolute paths must be within current working directory or /tmp"
+                    .to_string(),
+            });
+        }
+    }
+
+    Ok(path)
+}
 
 impl ChaoticSemanticFramework {
     /// Batch inject multiple concepts into memory.
     ///
     /// Each concept is validated and inserted atomically. If persistence is enabled,
     /// concepts are persisted to the database in a single batch operation.
+    #[instrument(err, skip(self, concepts))]
     pub async fn inject_concepts(&self, concepts: &[(String, HVec10240)]) -> Result<()> {
         if concepts.is_empty() {
             return Ok(());
@@ -43,6 +97,7 @@ impl ChaoticSemanticFramework {
     ///
     /// Each association is validated before insertion. If persistence is enabled,
     /// associations are persisted in a single batch operation.
+    #[instrument(err, skip(self, associations))]
     pub async fn associate_many(&self, associations: &[(String, String, f32)]) -> Result<()> {
         if associations.is_empty() {
             return Ok(());
@@ -70,6 +125,7 @@ impl ChaoticSemanticFramework {
     /// Batch similarity queries without caching.
     ///
     /// Returns similarity results for each query vector. Results are not cached.
+    #[instrument(err, skip(self, queries))]
     pub async fn probe_batch(
         &self,
         queries: &[HVec10240],
@@ -88,6 +144,8 @@ impl ChaoticSemanticFramework {
     ///
     /// Results are cached and reused for identical queries. Returns Arc references
     /// to avoid cloning large result sets.
+    #[allow(clippy::type_complexity)]
+    #[instrument(err, skip(self, queries))]
     pub async fn probe_batch_cached(
         &self,
         queries: &[HVec10240],
@@ -106,7 +164,10 @@ impl ChaoticSemanticFramework {
     ///
     /// Writes all concepts and associations to the specified path in JSON format.
     /// Useful for backups, debugging, and interoperability.
+    #[instrument(err, skip(self), fields(path))]
     pub async fn export_json(&self, path: &str) -> Result<()> {
+        let validated_path = validate_path(path)?;
+
         let payload = {
             let sing = self.singularity.read().await;
             ExportPayload {
@@ -118,7 +179,7 @@ impl ChaoticSemanticFramework {
         };
 
         let data = serde_json::to_vec_pretty(&payload)?;
-        fs::write(path, data).await?;
+        fs::write(validated_path, data).await?;
         Ok(())
     }
 
@@ -126,8 +187,10 @@ impl ChaoticSemanticFramework {
     ///
     /// If `merge` is false, clears existing state before importing.
     /// Returns the number of concepts imported.
+    #[instrument(err, skip(self), fields(path, merge))]
     pub async fn import_json(&self, path: &str, merge: bool) -> Result<usize> {
-        let bytes = fs::read(path).await?;
+        let validated_path = validate_path(path)?;
+        let bytes = fs::read(validated_path).await?;
         let payload: ExportPayload = serde_json::from_slice(&bytes)?;
 
         if !merge {
@@ -178,7 +241,10 @@ impl ChaoticSemanticFramework {
     ///
     /// Uses bincode for compact serialization. More efficient than JSON for
     /// large datasets.
+    #[instrument(err, skip(self), fields(path))]
     pub async fn export_binary(&self, path: &str) -> Result<()> {
+        let validated_path = validate_path(path)?;
+
         let payload = {
             let sing = self.singularity.read().await;
             ExportPayload {
@@ -194,7 +260,7 @@ impl ChaoticSemanticFramework {
                 e.to_string(),
             )))
         })?;
-        fs::write(path, data).await?;
+        fs::write(validated_path, data).await?;
         Ok(())
     }
 
@@ -202,13 +268,30 @@ impl ChaoticSemanticFramework {
     ///
     /// If `merge` is false, clears existing state before importing.
     /// Returns the number of concepts imported.
+    #[instrument(err, skip(self), fields(path, merge))]
     pub async fn import_binary(&self, path: &str, merge: bool) -> Result<usize> {
-        let bytes = fs::read(path).await?;
-        let payload: ExportPayload = bincode::deserialize(&bytes).map_err(|e| {
-            crate::error::MemoryError::Serialization(serde_json::Error::io(std::io::Error::other(
-                e.to_string(),
-            )))
-        })?;
+        let validated_path = validate_path(path)?;
+        let bytes = fs::read(validated_path).await?;
+
+        if bytes.len() > MAX_IMPORT_SIZE as usize {
+            return Err(crate::error::MemoryError::InvalidInput {
+                field: "import_data".to_string(),
+                reason: format!(
+                    "import data size {} exceeds maximum allowed size {}",
+                    bytes.len(),
+                    MAX_IMPORT_SIZE
+                ),
+            });
+        }
+
+        let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
+        let payload: ExportPayload =
+            options
+                .deserialize(&bytes)
+                .map_err(|e| crate::error::MemoryError::InvalidInput {
+                    field: "import_data".to_string(),
+                    reason: format!("bincode deserialization failed: {}", e),
+                })?;
 
         if !merge {
             {
@@ -257,9 +340,13 @@ impl ChaoticSemanticFramework {
     /// Create database backup (SQLite only).
     ///
     /// Creates a copy of the database file. Only works with local SQLite databases.
+    #[instrument(err, skip(self), fields(path))]
     pub async fn backup(&self, path: &str) -> Result<()> {
+        let validated_path = validate_path(path)?;
         if let Some(ref persistence) = self.persistence {
-            persistence.backup(path).await?;
+            persistence
+                .backup(validated_path.to_str().unwrap_or(path))
+                .await?;
         }
         Ok(())
     }
@@ -267,9 +354,13 @@ impl ChaoticSemanticFramework {
     /// Restore from database backup (SQLite only).
     ///
     /// Replaces the current database with the backup and reloads memory state.
+    #[instrument(err, skip(self), fields(path))]
     pub async fn restore(&self, path: &str) -> Result<()> {
+        let validated_path = validate_path(path)?;
         if let Some(ref persistence) = self.persistence {
-            persistence.restore(path).await?;
+            persistence
+                .restore(validated_path.to_str().unwrap_or(path))
+                .await?;
             self.load_replace().await?;
         }
         Ok(())
@@ -279,6 +370,7 @@ impl ChaoticSemanticFramework {
     ///
     /// Returns up to `limit` previous versions of the concept, ordered by
     /// version number descending. Returns empty vec if persistence is disabled.
+    #[instrument(err, skip(self), fields(id, limit))]
     pub async fn concept_history(
         &self,
         id: &str,

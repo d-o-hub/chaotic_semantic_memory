@@ -1,10 +1,13 @@
 use std::path::Path;
 
+use tracing::instrument;
+
 use crate::cli::args::{ImportArgs, ImportFormat, OutputFormat};
 use crate::cli::error::{CliError, Result};
 
 use super::{create_framework, print_error, print_success, print_warning};
 
+#[instrument(name = "cli_import")]
 pub async fn run_import(
     args: ImportArgs,
     db_path: Option<&Path>,

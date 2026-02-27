@@ -99,7 +99,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Inject a concept into memory
-    #[instrument(skip(self, id, vector))]
+    #[instrument(err, skip(self, id, vector))]
     pub async fn inject_concept(&self, id: impl Into<String>, vector: HVec10240) -> Result<()> {
         let id = id.into();
         Self::validate_concept_id(&id)?;
@@ -119,7 +119,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Inject a concept with metadata into memory
-    #[instrument(skip(self, id, vector, metadata))]
+    #[instrument(err, skip(self, id, vector, metadata))]
     pub async fn inject_concept_with_metadata(
         &self,
         id: impl Into<String>,
@@ -150,7 +150,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Query for similar concepts
-    #[instrument(skip(self, query))]
+    #[instrument(err, skip(self, query))]
     pub async fn probe(&self, query: HVec10240, top_k: usize) -> Result<Vec<(String, f32)>> {
         self.validate_top_k(top_k)?;
         let start = std::time::Instant::now();
@@ -162,7 +162,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Process temporal sequence through reservoir
-    #[instrument(skip(self, sequence))]
+    #[instrument(err, skip(self, sequence))]
     pub async fn process_sequence(&self, sequence: &[Vec<f32>]) -> Result<HVec10240> {
         let mut reservoir = self.reservoir.write().await;
 
@@ -174,7 +174,11 @@ impl ChaoticSemanticFramework {
             )?);
         }
 
-        let r = reservoir.as_mut().expect("reservoir initialized above");
+        let r = reservoir
+            .as_mut()
+            .ok_or(crate::error::MemoryError::Reservoir(
+                "reservoir failed to initialize".to_string(),
+            ))?;
         r.reset();
         for input in sequence {
             r.step(input)?;
@@ -184,7 +188,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Associate two concepts
-    #[instrument(skip(self))]
+    #[instrument(err, skip(self))]
     pub async fn associate(&self, from: &str, to: &str, strength: f32) -> Result<()> {
         Self::validate_concept_id(from)?;
         Self::validate_concept_id(to)?;
@@ -203,7 +207,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Delete concept from memory and persistence
-    #[instrument(skip(self))]
+    #[instrument(err, skip(self))]
     pub async fn delete_concept(&self, id: &str) -> Result<()> {
         Self::validate_concept_id(id)?;
         {
@@ -219,7 +223,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Get associations for a concept
-    #[instrument(skip(self))]
+    #[instrument(err, skip(self))]
     pub async fn get_associations(&self, id: &str) -> Result<Vec<(String, f32)>> {
         Self::validate_concept_id(id)?;
         let sing = self.singularity.read().await;
@@ -227,7 +231,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Get a concept by ID.
-    #[instrument(skip(self))]
+    #[instrument(err, skip(self))]
     pub async fn get_concept(&self, id: &str) -> Result<Option<Concept>> {
         Self::validate_concept_id(id)?;
         let sing = self.singularity.read().await;
@@ -235,7 +239,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Persist all data to storage
-    #[instrument(skip(self))]
+    #[instrument(err, skip(self))]
     pub async fn persist(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
             persistence.checkpoint().await?;
@@ -244,7 +248,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Verify persistence connectivity.
-    #[instrument(skip(self))]
+    #[instrument(err, skip(self))]
     pub async fn persistence_health_check(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
             persistence.health_check().await?;
@@ -253,7 +257,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Load and replace all in-memory state from persistence
-    #[instrument(skip(self))]
+    #[instrument(err, skip(self))]
     pub async fn load_replace(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
             let concepts = persistence.load_all_concepts().await?;
@@ -295,7 +299,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Load and merge persisted state into in-memory state
-    #[instrument(skip(self))]
+    #[instrument(err, skip(self))]
     pub async fn load_merge(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
             let concepts = persistence.load_all_concepts().await?;

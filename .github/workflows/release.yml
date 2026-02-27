@@ -121,7 +121,7 @@ jobs:
         fetch-depth: 0
 
     - name: Download release artifacts
-      uses: actions/download-artifact@v6
+      uses: actions/download-artifact@v7
       with:
         name: release-artifacts
         path: release
@@ -173,3 +173,18 @@ jobs:
           echo "| create-github-release | ${{ needs.create-github-release.result }} |" >> $GITHUB_STEP_SUMMARY
           exit 1
         fi
+
+  update-rolling-tags:
+    runs-on: ubuntu-24.04
+    needs: [validate, create-github-release]
+    if: needs.create-github-release.result == 'success'
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Update rolling tags
+      uses: cssnr/update-version-tags-action@v2
+      with:
+        prefix: v
+        major: true
+        minor: true
+        token: ${{ secrets.GITHUB_TOKEN }}

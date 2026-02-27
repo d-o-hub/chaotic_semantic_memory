@@ -13,7 +13,8 @@ Automated release pipeline using 2026 best practices: semantic-release for versi
 # Pre-release validation
 .agents/skills/release-management/scripts/validate-release.sh
 
-# Create GitHub release (after validation passes)
+# Create GitHub release (creates git tag + GitHub release)
+# Note: pushing v* tag triggers release.yml workflow automatically
 .agents/skills/release-management/scripts/create-github-release.sh v1.2.0
 ```
 
@@ -21,10 +22,16 @@ Automated release pipeline using 2026 best practices: semantic-release for versi
 
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│  Validate       │────▶│  Create Release  │────▶│  CI Publishes   │
-│  (local checks) │     │  (tag + notes)   │     │  (auto-publish) │
+│  Validate       │────▶│  Push Git Tag    │────▶│  CI Creates     │
+│  (local checks) │     │  (git push v*)   │     │  GitHub Release │
 └─────────────────┘     └──────────────────┘     └─────────────────┘
 ```
+
+### How It Works
+1. User creates git tag locally: `git tag -a v1.2.0 -m "Release 1.2.0"`
+2. User pushes tag: `git push origin v1.2.0`
+3. GitHub Actions triggers on `v*` tag push
+4. CI builds, publishes to crates.io, creates GitHub release with artifacts
 
 ### Prerequisites
 1. All conventional commits merged to main
@@ -45,9 +52,9 @@ Run `scripts/validate-release.sh` which checks:
 
 | Target | Method | Trigger |
 |--------|--------|---------|
-| crates.io | Trusted Publishing (OIDC) | Tag push `v*` |
-| npm (if applicable) | `npm publish --provenance` | Tag push `v*` |
-| GitHub Release | `gh release create` | Manual or CI |
+| crates.io | Trusted Publishing (OIDC) | Push git tag `v*` |
+| npm (if applicable) | `npm publish --provenance` | Push git tag `v*` |
+| GitHub Release | `softprops/action-gh-release` | Push git tag `v*` triggers CI |
 | GitHub Pages | mdBook + actions/deploy-pages | Push to main |
 
 ## CLI Usage Examples
@@ -57,8 +64,9 @@ Run `scripts/validate-release.sh` which checks:
 # 1. Validate everything
 ./scripts/validate-release.sh
 
-# 2. Create and push tag
-./scripts/create-github-release.sh v1.2.0
+# 2. Create git tag (this also creates GitHub release via CI)
+git tag -a v1.2.0 -m "Release 1.2.0"
+git push origin v1.2.0
 
 # 3. Monitor CI
 gh run watch
@@ -84,8 +92,9 @@ git checkout -b hotfix/v1.2.1 v1.2.0
 # Apply fix and commit
 git commit -m "fix: critical bug in reservoir spectral radius"
 
-# Tag and push
-./scripts/create-github-release.sh v1.2.1
+# Tag and push (triggers release workflow)
+git tag -a v1.2.1 -m "Hotfix 1.2.1"
+git push origin v1.2.1
 ```
 
 ### Rollback Failed Release
@@ -118,6 +127,7 @@ Derived automatically from conventional commits:
 |----------|---------|
 | [release-workflow.md](references/release-workflow.md) | Full workflow with CI examples |
 | [trusted-publishing.md](references/trusted-publishing.md) | crates.io + npm OIDC setup |
+| [version-tag-format.md](references/version-tag-format.md) | v{version} best practices, rolling tags |
 
 ## Troubleshooting
 
