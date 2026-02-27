@@ -76,6 +76,12 @@ When executing in swarm mode:
 
 ## Quick Reference
 
+### Version Sync (Before Release)
+```bash
+# Sync version across all files (prevents stale docs)
+./scripts/sync-version.sh 0.2.0
+```
+
 ### Validation Gates
 Run before commit (see `git-workflow` skill for details):
 ```bash

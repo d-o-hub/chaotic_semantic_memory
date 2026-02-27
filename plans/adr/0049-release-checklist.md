@@ -64,37 +64,26 @@ Before pushing any version tag, verify:
 
 ### 2. Version Sync Script
 
-Create `scripts/sync-version.sh` that updates all version references:
+Use `scripts/sync-version.sh` to automate version updates:
 
 ```bash
-#!/bin/bash
-# Usage: ./scripts/sync-version.sh 0.2.0
+# Preview changes
+./scripts/sync-version.sh 0.2.0 --dry-run
 
-VERSION="$1"
-if [ -z "$VERSION" ]; then
-    echo "Usage: $0 <version>"
-    exit 1
-fi
-
-OLD_VERSION=$(grep -m1 'version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
-
-echo "Syncing version: $OLD_VERSION -> $VERSION"
-
-# Update Cargo.toml
-sed -i "s/version = \"$OLD_VERSION\"/version = \"$VERSION\"/" Cargo.toml
-
-# Update Cargo.lock
-cargo update
-
-# Update CHANGELOG.md
-# ... (move Unreleased to version section)
-
-# Update all other files with version
-find . -type f \( -name "*.md" -o -name "*.toml" -o -name "*.json" -o -name "*.sh" \) \
-    -exec sed -i "s/$OLD_VERSION/$VERSION/g" {} \;
-
-echo "Version sync complete. Review changes before committing."
+# Apply version update
+./scripts/sync-version.sh 0.2.0
 ```
+
+The script updates:
+- Cargo.toml (exact version)
+- Cargo.lock
+- CHANGELOG.md ([Unreleased] → [version])
+- README.md
+- book/src/getting-started.md
+- wasm/package.json
+- tests/*.rs
+- examples/cli/*.sh
+- Regenerates llms.txt
 
 ### 3. Version Reference Locations
 

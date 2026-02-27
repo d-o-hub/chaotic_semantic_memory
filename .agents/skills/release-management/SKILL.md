@@ -5,18 +5,39 @@ description: GitHub release management, crates.io trusted publishing, npm proven
 
 # Release Management
 
-Automated release pipeline using 2026 best practices: semantic-release for versioning, Trusted Publishing for crates.io/npm, and mdBook for docs.
+Automated release pipeline using 2026 best practices: version sync automation, Trusted Publishing for crates.io/npm, and mdBook for docs.
 
 ## Quick Start
 
 ```bash
-# Pre-release validation
-.agents/skills/release-management/scripts/validate-release.sh
+# 1. Sync version across all files (automates README, docs, tests)
+./scripts/sync-version.sh 0.2.0
 
-# Create GitHub release (creates git tag + GitHub release)
-# Note: pushing v* tag triggers release.yml workflow automatically
-.agents/skills/release-management/scripts/create-github-release.sh v1.2.0
+# 2. Pre-release validation
+./agents/skills/release-management/scripts/validate-release.sh
+
+# 3. Create git tag (push triggers release.yml workflow)
+git tag -a v0.2.0 -m "Release 0.2.0"
+git push origin v0.2.0
 ```
+
+## Version Sync (Critical Step)
+
+Before every release, run `./scripts/sync-version.sh <version>` to update:
+
+| File | Update Type | Example |
+|------|-------------|---------|
+| Cargo.toml | Exact version | `0.2.0` |
+| Cargo.lock | Regenerated | - |
+| CHANGELOG.md | [Unreleased] → [0.2.0] | - |
+| README.md | Major.minor compatibility | `0.2` |
+| book/src/getting-started.md | Major.minor compatibility | `0.2` |
+| wasm/package.json | Exact version | `0.2.0` |
+| tests/*.rs | Exact version | `0.2.0` |
+| examples/cli/*.sh | Exact version | `0.2.0` |
+| llms.txt | Regenerated | - |
+
+This prevents the common issue of stale versions in documentation.
 
 ## Release Process Flow
 
@@ -61,17 +82,26 @@ Run `scripts/validate-release.sh` which checks:
 
 ### Full Release (Recommended)
 ```bash
-# 1. Validate everything
-./scripts/validate-release.sh
+# 1. Sync version across all files (prevents stale docs)
+./scripts/sync-version.sh 0.2.0
 
-# 2. Create git tag (this also creates GitHub release via CI)
-git tag -a v1.2.0 -m "Release 1.2.0"
-git push origin v1.2.0
+# 2. Review changes
+git diff
 
-# 3. Monitor CI
+# 3. Run validation gates
+cargo test --all-features
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+
+# 4. Commit and tag
+git add -A && git commit -m "release: v0.2.0"
+git tag -a v0.2.0 -m "Release 0.2.0"
+git push origin main v0.2.0
+
+# 5. Monitor CI
 gh run watch
 
-# 4. Verify publication
+# 6. Verify publication
 cargo search chaotic_semantic_memory
 ```
 
@@ -128,6 +158,7 @@ Derived automatically from conventional commits:
 | [release-workflow.md](references/release-workflow.md) | Full workflow with CI examples |
 | [trusted-publishing.md](references/trusted-publishing.md) | crates.io + npm OIDC setup |
 | [version-tag-format.md](references/version-tag-format.md) | v{version} best practices, rolling tags |
+| ADR-0049 | Release checklist and version sync protocol |
 
 ## Troubleshooting
 

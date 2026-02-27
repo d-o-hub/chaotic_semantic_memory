@@ -36,10 +36,11 @@ It targets both native and `wasm32` builds with explicit threading guards.
 
 | Property | Value |
 |----------|-------|
-| Version | `0.1.1` |
 | MSRV | Rust `1.85` |
 | License | MIT |
 | Targets | Native, `wasm32-unknown-unknown` |
+
+[![Crates.io version](https://img.shields.io/crates/v/chaotic_semantic_memory.svg)](https://crates.io/crates/chaotic_semantic_memory)
 
 ## Installation
 
@@ -51,8 +52,10 @@ Enable WASM bindings when needed:
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.1.1", features = ["wasm"] }
+chaotic_semantic_memory = { version = "0.1", features = ["wasm"] }
 ```
+
+> **Note:** Using `"0.1"` ensures compatibility with the latest 0.1.x patch versions.
 
 ## Core Components
 

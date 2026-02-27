@@ -32,6 +32,11 @@ jobs:
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "Extracted version: $VERSION"
 
+    - name: Sync version across codebase
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        bash scripts/sync-version.sh "$VERSION"
+
     - name: Validate version matches Cargo.toml
       run: |
         TAG_VERSION="${GITHUB_REF#refs/tags/v}"
