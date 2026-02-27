@@ -1795,3 +1795,58 @@ actions:
       - connect, init_schema
       - save_concept, save_concepts, load_concept, load_all_concepts, delete_concept
       - save_association, load_associations, checkpoint, size
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 28: RELEASE PROTOCOL & v0.2.0 PREPARATION (cost: 8)
+  # ADR-0049: Release checklist and version sync protocol
+  # ═══════════════════════════════════════════════════════════════════════════
+  - name: create_release_checklist_adr
+    preconditions:
+      v011_published: true
+    effects:
+      release_checklist_adr_created: true
+    cost: 1
+    status: complete
+    file: plans/adr/0049-release-checklist.md
+    adr: ADR-0049
+    description: |
+      Create ADR documenting:
+      - Pre-release validation checklist
+      - Version sync checklist with all file locations
+      - Token scope verification requirements
+      - Post-release verification steps
+      - Version reference table
+
+  - name: document_version_reference_locations
+    preconditions:
+      release_checklist_adr_created: true
+    effects:
+      release_checklist_document: true
+    cost: 1
+    status: complete
+    file: plans/adr/0049-release-checklist.md
+    description: |
+      Document all files containing version references:
+      - Cargo.toml, Cargo.lock, CHANGELOG.md
+      - README.md, book/src/*.md
+      - wasm/package.json
+      - tests/*.rs, examples/cli/*.sh
+      - plans/adr/*.md, progress/LEARNINGS.md
+
+  - name: create_version_sync_script
+    preconditions:
+      release_checklist_document: true
+    effects:
+      version_sync_script_created: true
+    cost: 2
+    status: pending
+    file: scripts/sync-version.sh
+    description: |
+      Create scripts/sync-version.sh that:
+      - Takes version as argument
+      - Updates Cargo.toml version
+      - Runs cargo update for Cargo.lock
+      - Updates CHANGELOG.md [Unreleased] section
+      - Updates README.md version badge
+      - Updates all example and test files
+      - Provides summary of changes before commit

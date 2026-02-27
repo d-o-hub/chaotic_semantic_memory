@@ -404,3 +404,10 @@ npm_first_publish_manual: true # ADR-0046: Manual first publish from local machi
   cli_tracing_added: true                      # Instrument command entry points ✅
   tracing_coverage_percent: 70                 # Current: 70%, Target: 70% ✅
   error_log_correlation_fixed: true           # #[instrument(err)] on fallible fns ✅
+
+  # Phase 28: Release Protocol & v0.2.0 Preparation (cost: 8)
+  # ADR-0049: Release checklist and version sync protocol
+  release_checklist_adr_created: true         # ADR-0049: Release checklist ✅
+  release_checklist_document: true           # Document all version reference locations ✅
+  v020_release_planned: false                # Plan v0.2.0 release with checklist
+  version_sync_script_created: false         # scripts/sync-version.sh automation
