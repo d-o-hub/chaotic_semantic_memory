@@ -134,9 +134,6 @@ jobs:
       uses: actions/setup-node@v6
       with:
         node-version: '24'
-        registry-url: 'https://registry.npmjs.org'
-        # When NPM_TOKEN is set, don't let setup-node configure auth
-        # We'll handle auth manually in the publish step
 
     - name: Publish to npm
       working-directory: pkg
@@ -153,8 +150,8 @@ jobs:
         # Always use NPM_TOKEN if available (not OIDC)
         if [ -n "$NPM_TOKEN" ]; then
           echo "Publishing with npm token..."
-          # Use npm adduser with token to properly authenticate
-          echo "$NPM_TOKEN" | npm login --registry=https://registry.npmjs.org/ --auth-type=legacy --always-auth
+          # Configure auth in home directory for npm to use
+          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
           npm publish --tag "$NPM_TAG" --access public
         else
           echo "Publishing with OIDC provenance..."
