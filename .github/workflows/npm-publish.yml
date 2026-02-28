@@ -13,7 +13,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write  # Required for npm provenance
+  id-token: write  # Required for npm provenance (used when no NPM_TOKEN)
 
 env:
   CARGO_TERM_COLOR: always
@@ -135,11 +135,14 @@ jobs:
       with:
         node-version: '24'
         registry-url: 'https://registry.npmjs.org'
+        # When NPM_TOKEN is set, don't let setup-node configure auth
+        # We'll handle auth manually in the publish step
 
     - name: Publish to npm
       working-directory: pkg
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
+        
         # Determine npm tag - prerelease versions need explicit tag
         if [[ "$VERSION" == *"- "* ]] || [[ "$VERSION" == *"-"* ]]; then
           NPM_TAG="next"
@@ -147,8 +150,11 @@ jobs:
           NPM_TAG="latest"
         fi
         
+        # Always use NPM_TOKEN if available (not OIDC)
         if [ -n "$NPM_TOKEN" ]; then
           echo "Publishing with npm token..."
+          # Write token to .npmrc for npm to use
+          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
           npm publish --tag "$NPM_TAG" --access public
         else
           echo "Publishing with OIDC provenance..."
