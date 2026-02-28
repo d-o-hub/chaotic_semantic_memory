@@ -155,7 +155,8 @@ jobs:
           echo "Publishing with npm token..."
           # Write token to .npmrc for npm to use
           echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > .npmrc
-          npm publish --tag "$NPM_TAG" --access public
+          # Disable provenance when using token to avoid OIDC conflicts
+          npm publish --tag "$NPM_TAG" --access public --provenance=false
         else
           echo "Publishing with OIDC provenance..."
           npm publish --provenance --tag "$NPM_TAG" --access public
