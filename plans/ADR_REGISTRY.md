@@ -47,6 +47,7 @@
 | **0046** | **npm OIDC Trusted Publishing** | **Proposed** | **Wave 12B - Phase 26B** |
 | **0047** | **Security & Performance Hardening** | **Implemented** | **Wave 13 - Phase 27** |
 | **0048** | **WASM-pack Bulk Memory Fix** | **Implemented** | **2026-02-27** |
+| **0050** | **npm Node.js 24 + Token Fallback** | **Implemented** | **2026-02-28** |
 | 0024 | Concept Expiration (TTL) | Deferred | Post-1.0 |
 | 0024 | Performance Optimizations Phase 2 | Deferred | Post-1.0 |
 | 0025 | Weighted Forgetting (Decay) | Deferred | Post-1.0 |

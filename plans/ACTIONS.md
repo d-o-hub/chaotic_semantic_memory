@@ -1671,6 +1671,24 @@ actions:
       2. Monitor workflow for "Signed provenance statement"
       3. Verify package updated on npmjs.com
 
+  # ADR-0050: Node.js 24 + Token Fallback Fix
+  - name: fix_npm_node24_token
+    preconditions:
+      npm_publish_workflow_updated: true
+    effects:
+      npm_node24_required: true
+      npm_publish_automated: true
+    cost: 1
+    status: complete
+    file: .github/workflows/npm-publish.yml
+    adr: ADR-0050
+    description: |
+      Fix npm publishing by using Node.js 24 + token fallback:
+      - Change node-version from '22' to '24' (npm v11+ required for OIDC)
+      - Add NPM_TOKEN secret support as fallback
+      - Try OIDC first, fall back to token if NPM_TOKEN provided
+      - This fixes the "404 Not Found" / "Access token expired" error
+
   - name: create_mdbook_structure
     preconditions:
       github_pages_workflow_created: true

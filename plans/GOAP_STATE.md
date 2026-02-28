@@ -351,14 +351,15 @@ world_state:
   v011_tag_created: true                     # v0.1.1 tag pushed
   v011_published: true                       # Published to crates.io 2026-02-27
 
-  # Phase 26B: npm OIDC Trusted Publishing (cost: 7) - Wave 12
-  # Per ADR-0046: npm requires manual first publish before OIDC can be configured
+  # Phase 26B: npm Publishing Fix (cost: 7) - Wave 12
+  # Per ADR-0046: npm requires Node.js 24 for OIDC, or use NPM_TOKEN
   npm_publish_wasm_opt_fixed: true           # Fix: --enable-bulk-memory for wasm-opt
-  npm_publish_workflow_updated: true         # ADR-0046: Removed NODE_AUTH_TOKEN, added npm@latest
-  npm_pkg_json_repository: true              # ADR-0046: repository field + publishConfig.provenance
-npm_first_publish_manual: true # ADR-0046: Manual first publish from local machine - COMPLETED 2026-02-27
-  npm_oidc_configured: false                 # ADR-0046: Configure Trusted Publisher in npm UI
-  npm_publish_automated: false               # ADR-0046: CI publishing works via OIDC
+  npm_publish_workflow_updated: true         # ADR-0046: Updated to Node.js 24 + token fallback
+  npm_pkg_json_repository: true              # repository field + publishConfig.provenance
+  npm_first_publish_manual: true             # Manual first publish from local machine - COMPLETED 2026-02-27
+  npm_oidc_configured: false                 # Requires package to exist first
+  npm_publish_automated: false               # CI publishing - test with this fix
+  npm_node24_required: true                  # Node.js 24 ships npm v11 required for OIDC
 
   # Post-1.0 Deferred Work (ADR-0024, ADR-0025, ADR-0026)
   # Per Swarm Consensus 2026-02-17: Advanced features deferred until user demand

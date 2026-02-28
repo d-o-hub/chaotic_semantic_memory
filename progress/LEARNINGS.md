@@ -416,3 +416,28 @@
 - Do not mix artifact upload/download action versions
 - Do not skip manual token scope verification on crates.io
 - Do not publish without CHANGELOG update
+
+## 2026-02-28: npm Publishing Fix (ADR-0050)
+
+### Problem
+npm publishing failed with "404 Not Found" + "Access token expired" - confusing error message.
+
+### Root Cause
+- Node.js 22 ships with npm v10
+- npm OIDC requires npm v11.5.1+ (shipped with Node.js 24)
+- Without proper npm version, OIDC handshake fails silently
+
+### Solution
+1. **Upgrade to Node.js 24** - Required for npm v11+ OIDC support
+2. **Add NPM_TOKEN fallback** - Use token if available, otherwise try OIDC
+
+### Technical Insights
+- The error "Access token expired" is misleading - it's not about token expiry
+- "404 Not Found" means the registry doesn't recognize the publisher (anonymous)
+- Node.js 24 is LTS and ships with npm v11.5.1+
+- OIDC still requires Trusted Publisher config in npm UI for full automation
+
+### What to Avoid
+- Do not use Node.js 22 for npm OIDC publishing
+- Do not assume OIDC works without Node.js 24
+- Do not remove token fallback - useful for testing and as backup

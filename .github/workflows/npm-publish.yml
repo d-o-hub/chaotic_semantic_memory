@@ -133,15 +133,21 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v6
       with:
-        node-version: '22'
+        node-version: '24'
         registry-url: 'https://registry.npmjs.org'
 
-    - name: Ensure latest npm (>=11.5.1 for OIDC)
-      run: npm install -g npm@latest
-
-    - name: Publish to npm with provenance
+    - name: Publish to npm
       working-directory: pkg
-      run: npm publish --provenance --access public
+      run: |
+        if [ -n "$NPM_TOKEN" ]; then
+          echo "Publishing with npm token..."
+          npm publish --access public
+        else
+          echo "Publishing with OIDC provenance..."
+          npm publish --provenance --access public
+        fi
+      env:
+        NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   notify:
     runs-on: ubuntu-24.04
@@ -155,7 +161,11 @@ jobs:
         if [ "${{ needs.publish-npm.result }}" == "success" ]; then
           echo "✅ Successfully published @d-o-hub/chaotic-semantic-memory@${{ needs.validate.outputs.version }} to npm" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Provenance**: Enabled (OIDC verified)" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "- **Auth**: npm token" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Provenance**: OIDC verified" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "- **Registry**: npmjs.com" >> $GITHUB_STEP_SUMMARY
           echo "- **Scope**: @d-o-hub" >> $GITHUB_STEP_SUMMARY
         elif [ "${{ needs.validate.outputs.should-publish }}" == "false" ]; then
