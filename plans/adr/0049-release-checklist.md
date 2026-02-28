@@ -91,17 +91,17 @@ Maintain a complete list of files that may contain version references:
 
 | File | Version Format | Auto-syncable |
 |------|---------------|---------------|
-| Cargo.toml | `"0.1.2"` | Yes |
-| Cargo.lock | `"0.1.2"` | Yes (cargo update) |
-| CHANGELOG.md | `[0.1.2]` | Yes |
-| README.md | `0.1.2` | Yes |
-| book/src/*.md | `0.1.2` | Yes |
-| wasm/package.json | `"0.1.2"` | Yes |
-| tests/*.rs | `"0.1.2"` | Yes |
-| examples/cli/*.sh | `"0.1.2"` | Yes |
-| plans/adr/*.md | `v0.1.2` | Manual |
-| progress/LEARNINGS.md | v0.1.2 | Manual |
-| llms.txt | `0.1.2` | Yes (gen-llms-txt.sh) |
+| Cargo.toml | `"0.1.3"` | Yes |
+| Cargo.lock | `"0.1.3"` | Yes (cargo update) |
+| CHANGELOG.md | `[0.1.3]` | Yes |
+| README.md | `0.1.3` | Yes |
+| book/src/*.md | `0.1.3` | Yes |
+| wasm/package.json | `"0.1.3"` | Yes |
+| tests/*.rs | `"0.1.3"` | Yes |
+| examples/cli/*.sh | `0.1.3` | Yes |
+| plans/adr/*.md | `v0.1.3` | Manual |
+| progress/LEARNINGS.md | v0.1.3 | Manual |
+| llms.txt | `0.1.3` | Yes (gen-llms-txt.sh) |
 
 ### 4. Token Scope Reference
 
@@ -130,7 +130,7 @@ Maintain a complete list of files that may contain version references:
 
 ## References
 
-- Learnings: `progress/LEARNINGS.md` - v0.1.2 Release section
+- Learnings: `progress/LEARNINGS.md` - v0.1.3 Release section
 - Release workflow: `.github/workflows/release.yml`
 - npm workflow: `.github/workflows/npm-publish.yml`
 - npm workflow: `.github/workflows/npm-publish.yml`
