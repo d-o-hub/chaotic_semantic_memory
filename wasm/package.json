@@ -1,5 +1,5 @@
 {
-  "name": "@d-o-hub/chaotic-semantic-memory",
+  "name": "@d-o-hub/chaotic_semantic_memory",
   "version": "0.1.1",
   "description": "AI memory systems with hyperdimensional vectors and chaotic reservoirs - WASM bindings",
   "main": "chaotic_semantic_memory.js",
