@@ -460,6 +460,53 @@ npm workflow fails with "Access token expired or revoked" and "404 Not Found"
 - Workflow correctly falls back to OIDC but needs Trusted Publisher configured on npm side
 - 2026 best practice: Trusted Publishing with OIDC (no long-lived tokens)
 
+## 2026-02-28: Full Working Release Pipeline
+
+### Problem
+Need complete release pipeline: crates.io + npm + GitHub Release all synced to same version
+
+### Solution
+1. **Single git tag triggers all publishes**: `git tag v0.1.2 && git push origin v0.1.2`
+2. **release.yml** handles: crates.io (OIDC), GitHub Release
+3. **npm-publish.yml** handles: npm with OIDC provenance
+
+### Verified Working Pipeline
+```bash
+# 1. Update version in Cargo.toml
+# 2. Commit version bump
+# 3. Create and push tag
+git add Cargo.toml && git commit -m "release: bump version to v0.1.2"
+git tag v0.1.2 && git push origin main v0.1.2
+
+# This triggers:
+# - release.yml: publishes to crates.io + creates GitHub Release
+# - npm-publish.yml: builds WASM + publishes to npm with provenance
+```
+
+### Version Sync Required Files
+| File | Version | Auto-sync |
+|------|---------|-----------|
+| Cargo.toml | 0.1.2 | Manual |
+| wasm/package.json | 0.1.2 | Workflow |
+| CHANGELOG.md | 0.1.2 | Manual |
+| README.md badges | 0.1.2 | Manual |
+
+### npm Package Name (CRITICAL)
+- Use **underscore**: `@d-o-hub/chaotic_semantic_memory`
+- NOT hyphen: `@d-o-hub/chaotic-semantic-memory`
+- Registry URL: `https://registry.npmjs.org/@d-o-hub_chaotic-semantic_memory`
+
+### What Works Now
+- ✅ crates.io: OIDC trusted publishing (no token needed after first publish)
+- ✅ npm: OIDC provenance (no token needed after Trusted Publisher config)
+- ✅ GitHub Release: auto-created with artifacts
+- ✅ Single tag triggers all three
+
+### What to Avoid
+- Do not use hyphen in npm package name
+- Do not manually publish - let CI do it
+- Do not forget to update Cargo.toml before tagging
+
 ### What to Avoid
 - Do not confuse underscore vs hyphen in package names
 - Do not assume token is valid - generate fresh one for CI
