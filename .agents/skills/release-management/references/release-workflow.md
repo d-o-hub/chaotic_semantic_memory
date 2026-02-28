@@ -216,6 +216,34 @@ jobs:
 - [ ] Breaking changes documented
 - [ ] Trusted Publishing verified
 
+## ⚠️ Common Pitfalls
+
+### Release Name Format
+Always use `v{version}` format for release names, NOT `{package} v{version}`:
+
+```yaml
+# ✅ Correct
+name: v${{ needs.validate.outputs.version }}
+
+# ❌ Wrong - hardcoded package name
+name: chaotic_semantic_memory v${{ needs.validate.outputs.version }}
+```
+
+### body_path vs generate_release_notes
+These options are **mutually exclusive** in `softprops/action-gh-release`:
+
+```yaml
+# ✅ Correct - use body_path to include custom changelog
+body_path: release_notes.md
+generate_release_notes: false  # or omit entirely
+
+# ❌ Wrong - generate_release_notes overrides body_path
+body_path: release_notes.md
+generate_release_notes: true  # This will IGNORE your body_path!
+```
+
+When `generate_release_notes: true`, the action auto-generates minimal release notes (just version + compare link) and ignores any `body` or `body_path` you provide.
+
 ## Post-Release Checklist
 
 - [ ] crates.io page shows new version
