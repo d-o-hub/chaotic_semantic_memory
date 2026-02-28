@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-02-28
+
+### Added
+- ADR-0051: Real-World Readiness & Quality Hardening
+- Real-world examples: chatbot memory, document RAG, knowledge graph, streaming temporal
+- Edge case tests: builder config propagation, import adversarial payloads, eviction cache
+
+### Fixed
+- max_cached_top_k propagation: FrameworkBuilder now correctly forwards config to Singularity
+- Default max_cached_top_k aligned to 100 (matching SingularityConfig)
+- NotFound error variant: Cleaner error handling for missing concepts
+- JSON import size limit: Added 100MB cap to prevent OOM
+
 ## [0.1.2] - 2026-02-28
 
 ### Fixed
