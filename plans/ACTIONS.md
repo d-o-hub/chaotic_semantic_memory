@@ -1571,7 +1571,7 @@ actions:
       - Uses wasm-pack for WASM package build
       - npm provenance with --provenance flag
       - Requires permissions: id-token: write
-      - Package: @d-o-hub/chaotic-semantic-memory
+      - Package: @d-o-hub/chaotic_semantic_memory
       - Enables npx usage for WASM bindings
 
   # ═══════════════════════════════════════════════════════
@@ -1651,7 +1651,7 @@ actions:
     adr: ADR-0046
     description: |
       Configure Trusted Publisher in npm UI:
-      1. Go to npmjs.com/package/@d-o-hub/chaotic-semantic-memory/access
+      1. Go to npmjs.com/package/@d-o-hub/chaotic_semantic_memory/access
       2. Under "Trusted Publisher", click "GitHub Actions"
       3. Set: org=d-o-hub, repo=chaotic_semantic_memory, workflow=npm-publish.yml
       4. Click "Set up connection"

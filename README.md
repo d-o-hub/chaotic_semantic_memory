@@ -3,7 +3,7 @@
 [![CI](https://github.com/d-o-hub/chaotic_semantic_memory/actions/workflows/ci.yml/badge.svg)](https://github.com/d-o-hub/chaotic_semantic_memory/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/chaotic_semantic_memory.svg)](https://crates.io/crates/chaotic_semantic_memory)
 [![docs.rs](https://img.shields.io/docsrs/chaotic_semantic_memory)](https://docs.rs/chaotic_semantic_memory)
-[![npm](https://img.shields.io/npm/v/@d-o-hub/chaotic-semantic-memory)](https://www.npmjs.com/package/@d-o-hub/chaotic-semantic-memory)
+[![npm](https://img.shields.io/npm/v/@d-o-hub/chaotic_semantic_memory)](https://www.npmjs.com/package/@d-o-hub/chaotic_semantic_memory)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 `chaotic_semantic_memory` is a Rust crate for AI memory systems built on:

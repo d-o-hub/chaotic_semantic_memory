@@ -356,10 +356,12 @@ world_state:
   npm_publish_wasm_opt_fixed: true           # Fix: --enable-bulk-memory for wasm-opt
   npm_publish_workflow_updated: true         # ADR-0046: Updated to Node.js 24 + token fallback
   npm_pkg_json_repository: true              # repository field + publishConfig.provenance
-  npm_first_publish_manual: true             # Manual first publish from local machine - COMPLETED 2026-02-27
-  npm_oidc_configured: false                 # Requires package to exist first
-  npm_publish_automated: false               # CI publishing - test with this fix
-  npm_node24_required: true                  # Node.js 24 ships npm v11 required for OIDC
+  npm_first_publish_manual: true             # v0.1.0 exists on npm (verified via Snyk + API)
+  npm_package_exists: true                   # @d-o-hub/chaotic_semantic_memory at v0.1.0
+  npm_token_expired: true                     # NPM_TOKEN secret is expired/revoked
+  npm_oidc_configured: false                  # Requires fresh token + Trusted Publisher config
+  npm_publish_automated: false                # BLOCKED: needs fresh npm token
+  npm_node24_required: true                   # Node.js 24 ships npm v11 required for OIDC
 
   # Post-1.0 Deferred Work (ADR-0024, ADR-0025, ADR-0026)
   # Per Swarm Consensus 2026-02-17: Advanced features deferred until user demand

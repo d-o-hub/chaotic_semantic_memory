@@ -94,11 +94,11 @@ declare class HVec10240 {
 ## NPM Package
 
 ```bash
-npm install @d-o-hub/chaotic-semantic-memory
+npm install @d-o-hub/chaotic_semantic_memory
 ```
 
 Or use directly with npx:
 
 ```bash
-npx @d-o-hub/chaotic-semantic-memory
+npx @d-o-hub/chaotic_semantic_memory
 ```

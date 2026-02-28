@@ -89,7 +89,7 @@ jobs:
         mv package.json.tmp package.json
         # Add provenance support fields
         cat package.json | jq '. += {
-          "name": "@d-o-hub/chaotic-semantic-memory",
+          "name": "@d-o-hub/chaotic_semantic_memory",
           "description": "AI memory systems with hyperdimensional vectors and chaotic reservoirs",
           "license": "MIT",
           "repository": {
@@ -134,6 +134,10 @@ jobs:
       uses: actions/setup-node@v6
       with:
         node-version: '24'
+        registry-url: 'https://registry.npmjs.org'
+
+    - name: Install latest npm
+      run: npm install -g npm@latest
 
     - name: Publish to npm
       working-directory: pkg

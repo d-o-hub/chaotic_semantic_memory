@@ -1,17 +1,17 @@
-# @d-o-hub/chaotic-semantic-memory
+# @d-o-hub/chaotic_semantic_memory
 
 WASM bindings for chaotic_semantic_memory - AI memory systems with hyperdimensional vectors and chaotic reservoirs.
 
 ## Installation
 
 ```bash
-npm install @d-o-hub/chaotic-semantic-memory
+npm install @d-o-hub/chaotic_semantic_memory
 ```
 
 ## Quick Start
 
 ```javascript
-import init, { ChaoticSemanticFramework, HVec10240 } from '@d-o-hub/chaotic-semantic-memory';
+import init, { ChaoticSemanticFramework, HVec10240 } from '@d-o-hub/chaotic_semantic_memory';
 
 // Initialize WASM module
 await init();

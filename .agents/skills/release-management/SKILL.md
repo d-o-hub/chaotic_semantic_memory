@@ -167,6 +167,9 @@ Derived automatically from conventional commits:
 | "crate already exists" | Version bump required; check Cargo.toml |
 | "OIDC token exchange failed" | Verify Trusted Publishing config on crates.io |
 | "npm provenance failed" | Ensure Node 24+ and `id-token: write` permission |
+| "npm token expired" | Generate fresh automation token at npmjs.com/settings/tokens |
+| "npm 404 Not Found" | Package doesn't exist OR Trusted Publisher not configured |
+| "Access token expired" | NPM_TOKEN secret is revoked; regenerate at npmjs.com |
 | Docs not deploying | Check GitHub Pages settings → Source: GitHub Actions |
 
 ## Security Requirements

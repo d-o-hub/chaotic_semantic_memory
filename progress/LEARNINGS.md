@@ -441,3 +441,26 @@ npm publishing failed with "404 Not Found" + "Access token expired" - confusing 
 - Do not use Node.js 22 for npm OIDC publishing
 - Do not assume OIDC works without Node.js 24
 - Do not remove token fallback - useful for testing and as backup
+
+## 2026-02-28: npm Publishing - Token Expiry + Trusted Publishing
+
+### Problem
+npm workflow fails with "Access token expired or revoked" and "404 Not Found"
+
+### Solution
+1. **Generate fresh npm token** - Automation token at npmjs.com/settings/tokens
+2. **Configure Trusted Publisher** - Go to package settings on npmjs.com
+3. **Use workflow dispatch** - Test with `gh api .../dispatches` or push test tag
+
+### Technical Insights
+- Package `@d-o-hub/chaotic_semantic_memory` EXISTS at v0.1.0 (confirmed via Snyk)
+- Package name uses **underscore** not hyphen: `@d-o-hub/chaotic_semantic_memory`
+- npm registry URL: `@d-o-hub_chaotic-semantic_memory` (underscore in path)
+- GitHub Actions logs show "Access token expired" - token in secrets is revoked/expired
+- Workflow correctly falls back to OIDC but needs Trusted Publisher configured on npm side
+- 2026 best practice: Trusted Publishing with OIDC (no long-lived tokens)
+
+### What to Avoid
+- Do not confuse underscore vs hyphen in package names
+- Do not assume token is valid - generate fresh one for CI
+- Do not skip Trusted Publisher config for automated releases

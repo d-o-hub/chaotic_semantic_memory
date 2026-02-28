@@ -77,75 +77,84 @@ curl -s https://crates.io/api/v1/crates/chaotic_semantic_memory | jq '.versions[
   run: echo $ACTIONS_ID_TOKEN_REQUEST_TOKEN | head -c 20
 ```
 
-## npm Trusted Publishing with Provenance
+## npm Trusted Publishing with Provenance (2026)
 
 ### Requirements
 
-- Node.js 24+
-- npm 11+
-- Package must exist on npm (initial publish is manual)
+- Node.js 22.14.0+ (not 24+ - verified in npm docs Feb 2026)
+- npm 11.5.1+
+- Package must exist on npm (initial publish requires token)
 - GitHub repository with Actions
+- 2FA enabled on npm account
 
-### Setup Steps
+### Setup Steps (Official 2026 Process)
 
-1. **Initial Publish** (manual, requires login):
+1. **Initial Publish** (one-time, requires npm automation token):
    ```bash
-   npm login
-   npm publish
+   npm login --registry=https://registry.npmjs.org/
+   # Use automation token from https://www.npmjs.com/settings/tokens
+   cd pkg
+   npm publish --access public
    ```
 
-2. **Configure Trusted Publishing**:
-   - Go to `https://www.npmjs.com/package/PACKAGE_NAME/access`
-   - Enable "Trusted Publishing"
-   - Configure GitHub repository
+2. **Configure Trusted Publisher on npmjs.com**:
+   - Go to: `https://www.npmjs.com/package/@d-o-hub/chaotic_semantic_memory/settings`
+   - Find "Trusted Publishing" section
+   - Click "Select your publisher" → GitHub Actions
+   - Configure:
+     - **Organization**: `d-o-hub`
+     - **Repository**: `chaotic_semantic_memory`
+     - **Workflow filename**: `npm-publish.yml` (just filename, not path!)
+     - **Environment**: `npm` (optional, matches workflow)
 
-3. **Update package.json**:
-   ```json
-   {
-     "name": "chaotic_semantic_memory",
-     "version": "1.0.0",
-     "repository": {
-       "type": "git",
-       "url": "git+https://github.com/d-o-hub/chaotic_semantic_memory.git"
-     }
-   }
-   ```
+3. **Update GitHub Actions workflow** (already done):
+   - Ensure `id-token: write` permission
+   - Use Node 22.14.0+
+   - Run `npm install -g npm@latest`
 
 ### GitHub Actions Configuration
 
 ```yaml
+permissions:
+  contents: read
+  id-token: write  # Required for OIDC
+
 jobs:
   publish-npm:
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write  # Required for OIDC
-      contents: read
-    
+    runs-on: ubuntu-24.04
+    environment: npm  # Optional: matches trusted publisher config
     steps:
-      - uses: actions/checkout@v4
-      
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
         with:
-          node-version: '24'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
-          
+
       - name: Install latest npm
         run: npm install -g npm@latest
-        
+
       - name: Publish with provenance
-        run: npm publish --provenance
-        # No NODE_AUTH_TOKEN needed!
+        run: npm publish --provenance --access public
 ```
 
-### Provenance Verification
+### Common Issues (2026)
 
-Users can verify package provenance:
+| Error | Solution |
+|-------|----------|
+| "404 Not Found" | Package doesn't exist - do initial publish first |
+| "Access token expired" | Token revoked; generate new at npmjs.com/settings/tokens |
+| "OIDC token exchange failed" | Trusted publisher not configured on npm |
+| "Workflow filename" mismatch | Use just `npm-publish.yml`, not path |
 
+### Verification
+
+After successful publish:
 ```bash
-# View provenance info
-npm view chaotic_semantic_memory time
+# Check package exists
+npm view @d-o-hub/chaotic_semantic_memory
 
-# Verify with sigstore
+# Verify provenance (shows sigstore transparency log)
 npm audit signatures
 ```
 
