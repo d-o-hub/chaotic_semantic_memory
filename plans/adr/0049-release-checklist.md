@@ -56,6 +56,11 @@ Before pushing any version tag, verify:
 - [ ] Release workflow completes successfully
 - [ ] GitHub Release created automatically
 
+#### GitHub Release Verification
+- [ ] Release name uses `v{version}` format (e.g., `v0.1.3`), NOT `{package} v{version}`
+- [ ] Release body contains full changelog, not just auto-generated compare link
+- [ ] Verify with `gh release list` and `gh release view "v{x}.{y}.{z}"`
+
 #### Post-Release Verification
 - [ ] crates.io shows new version published
 - [ ] docs.rs documentation updated
