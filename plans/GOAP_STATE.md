@@ -15,24 +15,24 @@ world_state:
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
   action_last_completed: error_log_correlation_fixed_complete
-  orchestrator_last_run: wave_14_observability_completion_2026_02_26
-  orchestrator_last_run_at_utc: 2026-02-26T14:00:00Z
+  orchestrator_last_run: wave_14_real_world_readiness_2026_02_28
+  orchestrator_last_run_at_utc: 2026-02-28T12:00:00Z
 
-  # Recent changes (2026-02-26)
+  # Recent changes (2026-02-28)
   recent_changes:
+    - "Completed Wave 14: Real-World Readiness & Quality Hardening"
+    - "Created ADR-0051: Real-World Readiness & Quality Hardening"
+    - "Fixed max_cached_top_k propagation bug in FrameworkBuilder"
+    - "Aligned default max_cached_top_k to 100 (matching SingularityConfig)"
+    - "Added NotFound error variant for cleaner error handling"
+    - "Added JSON import size limit (100MB) to prevent OOM"
+    - "Added 4 real-world examples: chatbot, RAG, knowledge graph, streaming"
+    - "Added edge case tests: builder config, import adversarial, eviction cache"
     - "Analysis swarm completed: 9 findings (3 security, 3 performance, 3 observability)"
     - "Created ADR-0047 for security & performance hardening"
-    - "Started Wave 13: Security & Performance Hardening"
-    - "Implemented ADR-0047: bincode limits, path validation, expect removal, RwLock cache"
-    - "Completed find_similar optimization: added find_similar_arc, optimized string handling"
-    - "Completed to_hypervector parallelization: Rayon on 80-word loop"
-    - "Added reservoir_tracing: instrumented step, run, reset, set_spectral_radius, to_hypervector"
-    - "Added persistence_tracing: instrumented new_local, new_turso, connect, init_schema, CRUD ops"
-    - "Synced memory guardrails: max_concepts, max_associations, version_retention (already implemented)"
-    - "Completed error_log_correlation: added #[instrument(err)] to framework and framework_ops"
 
   # Swarm orchestration snapshot
-  active_wave: 13
+  active_wave: 14
   wave_strategy: parallel_by_phase_with_handoffs
   wave_11_name: "Release Engineering"
   wave_11_started_at: "2026-02-19"
@@ -43,6 +43,9 @@ world_state:
   wave_13_name: "Security & Performance Hardening"
   wave_13_started_at: "2026-02-26"
   wave_13_focus: "Phase 27: Bincode size limits, error source chains, production expect fix, cache RwLock, path validation"
+  wave_14_name: "Real-World Readiness"
+  wave_14_started_at: "2026-02-28"
+  wave_14_focus: "Phase 29-31: Bug fixes, real-world examples, edge case tests"
   all_waves_finished: false
   wave_9_completed:
     group_a: cli_crate_scaffold
@@ -414,3 +417,27 @@ world_state:
   release_checklist_document: true           # Document all version reference locations ✅
   v020_release_planned: false                # Plan v0.2.0 release with checklist
   version_sync_script_created: false         # scripts/sync-version.sh automation
+
+  # Phase 29: Real-World Readiness Bug Fixes (cost: 6) - Wave 14
+  # ADR-0051: Real-World Readiness & Quality Hardening
+  cached_top_k_propagation_fixed: true       # Fix max_cached_top_k not propagated ✅
+  cached_top_k_default_aligned: true        # Align default to 100 ✅
+  not_found_error_variant_added: true        # New NotFound variant in error.rs ✅
+  json_import_size_limit_added: true         # Cap JSON import at 100MB ✅
+
+  # Phase 30: Real-Life Usage Examples (cost: 8) - Wave 14
+  chatbot_memory_example_added: true        # examples/chatbot_memory.rs ✅
+  document_rag_example_added: true           # examples/document_rag.rs ✅
+  knowledge_graph_example_added: true       # examples/knowledge_graph.rs ✅
+  streaming_temporal_example_added: true     # examples/streaming_temporal.rs ✅
+
+  # Phase 31: Edge Case Tests (cost: 5) - Wave 14
+  builder_config_tests_added: true          # tests/builder_config.rs ✅
+  import_adversarial_tests_added: true      # tests/import_adversarial.rs ✅
+  eviction_cache_tests_added: true          # tests/eviction_cache.rs ✅
+
+  # Wave 14: Real-World Readiness
+  wave_14_name: "Real-World Readiness"
+  wave_14_started_at: "2026-02-28"
+  wave_14_focus: "Phase 29-31: Bug fixes, real-world examples, edge case tests"
+  wave_14_complete: true
