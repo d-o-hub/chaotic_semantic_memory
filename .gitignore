@@ -77,3 +77,4 @@ examples/tmp/
 # Temporary exports from demos
 /tmp/*-export.json
 /tmp/*-memory.json
+csm_test*

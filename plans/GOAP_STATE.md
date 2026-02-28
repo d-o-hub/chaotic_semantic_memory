@@ -416,7 +416,8 @@ world_state:
   release_checklist_adr_created: true         # ADR-0049: Release checklist ✅
   release_checklist_document: true           # Document all version reference locations ✅
   v020_release_planned: false                # Plan v0.2.0 release with checklist
-  version_sync_script_created: false         # scripts/sync-version.sh automation
+  version_sync_script_created: true          # scripts/sync-version.sh automation ✅
+  pre_release_validate_script_created: true  # scripts/pre-release-validate.sh ✅ ADR-0052
 
   # Phase 29: Real-World Readiness Bug Fixes (cost: 6) - Wave 14
   # ADR-0051: Real-World Readiness & Quality Hardening

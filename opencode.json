@@ -1,0 +1,74 @@
+{
+  "provider": {
+    "bailian-coding-plan": {
+      "npm": "@ai-sdk/anthropic",
+      "name": "Model Studio Coding Plan",
+      "options": {
+        "baseURL": "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic/v1"
+      },
+      "models": {
+        "qwen3.5-plus": {
+          "name": "Qwen3.5 Plus",
+          "reasoning": true,
+          "tool_call": true,
+          "modalities": { "input": ["text", "image", "video"], "output": ["text"] },
+          "limit": { "context": 1000000, "output": 65536 },
+          "cost": { "input": 0, "output": 0 }
+        },
+        "qwen3-max": {
+          "name": "Qwen3 Max",
+          "tool_call": true,
+          "modalities": { "input": ["text"], "output": ["text"] },
+          "limit": { "context": 262144, "output": 65536 },
+          "cost": { "input": 0, "output": 0 }
+        },
+        "qwen3-coder-next": {
+          "name": "Qwen3 Coder Next",
+          "tool_call": true,
+          "modalities": { "input": ["text"], "output": ["text"] },
+          "limit": { "context": 262144, "output": 65536 },
+          "cost": { "input": 0, "output": 0 }
+        },
+        "qwen3-coder-plus": {
+          "name": "Qwen3 Coder Plus",
+          "tool_call": true,
+          "modalities": { "input": ["text"], "output": ["text"] },
+          "limit": { "context": 1048576, "output": 65536 },
+          "cost": { "input": 0, "output": 0 }
+        },
+        "glm-5": {
+          "name": "GLM-5",
+          "reasoning": true,
+          "tool_call": true,
+          "modalities": { "input": ["text"], "output": ["text"] },
+          "limit": { "context": 202752, "output": 16384 },
+          "cost": { "input": 0, "output": 0 }
+        },
+        "glm-4.7": {
+          "name": "GLM-4.7",
+          "reasoning": true,
+          "tool_call": true,
+          "modalities": { "input": ["text"], "output": ["text"] },
+          "limit": { "context": 202752, "output": 16384 },
+          "cost": { "input": 0, "output": 0 }
+        },
+        "minimax-m2.5": {
+          "name": "MiniMax M2.5",
+          "reasoning": true,
+          "tool_call": true,
+          "modalities": { "input": ["text"], "output": ["text"] },
+          "limit": { "context": 1048576, "output": 32768 },
+          "cost": { "input": 0, "output": 0 }
+        },
+        "kimi-k2.5": {
+          "name": "Kimi K2.5",
+          "reasoning": true,
+          "tool_call": true,
+          "modalities": { "input": ["text", "image", "video"], "output": ["text"] },
+          "limit": { "context": 262144, "output": 32768 },
+          "cost": { "input": 0, "output": 0 }
+        }
+      }
+    }
+  }
+}

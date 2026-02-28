@@ -62,12 +62,19 @@ This prevents the common issue of stale versions in documentation.
 
 ## Validation Gates
 
-Run `scripts/validate-release.sh` which checks:
+Run `./scripts/pre-release-validate.sh` which checks:
+- [ ] All README CLI commands work as documented
 - [ ] All tests pass (`cargo test --all-features`)
 - [ ] No clippy warnings (`cargo clippy -- -D warnings`)
 - [ ] Documentation builds (`cargo doc --no-deps`)
-- [ ] Version in Cargo.toml matches planned release
-- [ ] No uncommitted changes in working tree
+- [ ] LOC policy enforced (<= 500 lines per file)
+- [ ] WASM build and size gate
+- [ ] Version sync script available
+
+For faster validation without benchmarks:
+```bash
+./scripts/pre-release-validate.sh --skip-bench
+```
 
 ## Publishing Targets
 
