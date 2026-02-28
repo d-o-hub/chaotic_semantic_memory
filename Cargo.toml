@@ -96,6 +96,22 @@ path = "examples/proof_of_concept.rs"
 name = "basic_in_memory"
 path = "examples/basic_in_memory.rs"
 
+[[example]]
+name = "chatbot_memory"
+path = "examples/chatbot_memory.rs"
+
+[[example]]
+name = "document_rag"
+path = "examples/document_rag.rs"
+
+[[example]]
+name = "knowledge_graph"
+path = "examples/knowledge_graph.rs"
+
+[[example]]
+name = "streaming_temporal"
+path = "examples/streaming_temporal.rs"
+
 [features]
 default = ["cli"]
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored"]
