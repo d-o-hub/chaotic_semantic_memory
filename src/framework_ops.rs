@@ -191,6 +191,16 @@ impl ChaoticSemanticFramework {
     pub async fn import_json(&self, path: &str, merge: bool) -> Result<usize> {
         let validated_path = validate_path(path)?;
         let bytes = fs::read(validated_path).await?;
+        if bytes.len() > MAX_IMPORT_SIZE as usize {
+            return Err(crate::error::MemoryError::InvalidInput {
+                field: "import_data".to_string(),
+                reason: format!(
+                    "JSON import data size {} exceeds maximum allowed size {}",
+                    bytes.len(),
+                    MAX_IMPORT_SIZE
+                ),
+            });
+        }
         let payload: ExportPayload = serde_json::from_slice(&bytes)?;
 
         if !merge {

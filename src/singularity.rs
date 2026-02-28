@@ -209,10 +209,10 @@ impl Singularity {
             self.invalidate_cache();
             Ok(())
         } else {
-            Err(MemoryError::Persistence(format!(
-                "Concept '{}' not found",
-                id
-            )))
+            Err(MemoryError::NotFound {
+                entity: "Concept".to_string(),
+                id: id.to_string(),
+            })
         }
     }
 
@@ -320,9 +320,15 @@ impl Singularity {
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self), fields(from_id = %from, to_id = %to, strength = strength)))]
     pub fn associate(&mut self, from: &str, to: &str, strength: f32) -> Result<()> {
         if !self.concepts.contains_key(from) || !self.concepts.contains_key(to) {
-            return Err(MemoryError::Persistence(
-                "Both concepts must exist to create association".to_string(),
-            ));
+            let missing = if !self.concepts.contains_key(from) {
+                from
+            } else {
+                to
+            };
+            return Err(MemoryError::NotFound {
+                entity: "Concept".to_string(),
+                id: missing.to_string(),
+            });
         }
 
         let links = self.associations.entry(from.to_string()).or_default();

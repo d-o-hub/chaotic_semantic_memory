@@ -9,7 +9,7 @@ use crate::persistence::Persistence;
 use crate::singularity::{Singularity, SingularityConfig};
 
 const DEFAULT_MAX_PROBE_TOP_K: usize = 10_000;
-const DEFAULT_MAX_CACHED_TOP_K: usize = 10_000;
+const DEFAULT_MAX_CACHED_TOP_K: usize = 100;
 
 /// Runtime configuration for [`ChaoticSemanticFramework`], tuned via [`FrameworkBuilder`].
 #[derive(Clone, Debug)]
@@ -151,7 +151,7 @@ impl FrameworkBuilder {
             max_concepts: self.config.max_concepts,
             max_associations_per_concept: self.config.max_associations_per_concept,
             concept_cache_size: self.concept_cache_size,
-            max_cached_top_k: DEFAULT_MAX_CACHED_TOP_K,
+            max_cached_top_k: self.config.max_cached_top_k,
         })));
 
         let persistence = if self.config.enable_persistence {

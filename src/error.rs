@@ -13,6 +13,9 @@ pub enum MemoryError {
     #[error("Invalid vector dimension: expected {expected}, got {actual}")]
     InvalidDimension { expected: usize, actual: usize },
 
+    #[error("{entity} not found: '{id}'")]
+    NotFound { entity: String, id: String },
+
     #[error("Unsupported operation: {0}")]
     UnsupportedOperation(String),
 
