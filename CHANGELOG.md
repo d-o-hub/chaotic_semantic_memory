@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-02-28
+
+### Fixed
+- npm package name: corrected `@d-o-hub/chaotic-semantic-memory` → `@d-o-hub/chaotic_semantic_memory` (underscore)
+- npm publishing: v0.1.2 now published with OIDC provenance via GitHub Actions
+- Updated workflow to use Node.js 24 with npm fallback for token authentication
+
+### Changed
+- npm workflow now uses trusted publishing (OIDC) when configured
+
 ## [0.1.1] - 2026-02-27
 
 ### Added
