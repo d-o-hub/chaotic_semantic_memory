@@ -81,7 +81,7 @@ curl -s https://crates.io/api/v1/crates/chaotic_semantic_memory | jq '.versions[
 
 ### Requirements
 
-- Node.js 22.14.0+ (not 24+ - verified in npm docs Feb 2026)
+- Node.js 24+ (verified - workflow uses ubuntu-24.04)
 - npm 11.5.1+
 - Package must exist on npm (initial publish requires token)
 - GitHub repository with Actions
@@ -109,7 +109,7 @@ curl -s https://crates.io/api/v1/crates/chaotic_semantic_memory | jq '.versions[
 
 3. **Update GitHub Actions workflow** (already done):
    - Ensure `id-token: write` permission
-   - Use Node 22.14.0+
+   - Use Node 24+ (ubuntu-24.04 runner)
    - Run `npm install -g npm@latest`
 
 ### GitHub Actions Configuration
@@ -128,7 +128,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install latest npm
