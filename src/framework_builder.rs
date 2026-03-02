@@ -58,7 +58,8 @@ impl Default for FrameworkConfig {
 #[derive(Debug, Clone)]
 pub struct FrameworkStats {
     pub concept_count: usize,
-    pub db_size_bytes: u64,
+    /// Database size in bytes. `None` if persistence is disabled or size unavailable.
+    pub db_size_bytes: Option<u64>,
 }
 
 /// Builder for ChaoticSemanticFramework

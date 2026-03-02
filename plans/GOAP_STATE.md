@@ -449,21 +449,21 @@ world_state:
   wave_15_focus: "Phase 32-36: Safety fixes, API completeness, error hardening, docs, WASM parity"
   wave_15_complete: false
 
-  # Phase 32: Production Safety (cost: 6) - Wave 15
+  # Phase 32: Production Safety (cost: 6) - Wave 15 ✅ COMPLETE
   # ADR-0053: API Hardening & New Features
-  reservoir_try_into_unwrap_removed: false    # reservoir.rs:323 try_into().unwrap()
-  persistence_semaphore_deadlock_fixed: false  # Nested acquire_remote_slot in init_schema→apply_migrations→schema_version
-  version_row_get_unwrap_fixed: false          # persistence.rs:464 row.get().unwrap_or(0)
-  validate_path_current_dir_fixed: false       # framework_ops.rs:50 current_dir().unwrap_or_default()
+  reservoir_try_into_unwrap_removed: true    # reservoir.rs:323 try_into().unwrap() ✅
+  persistence_semaphore_deadlock_fixed: true  # Nested acquire_remote_slot in init_schema→apply_migrations→schema_version ✅
+  version_row_get_unwrap_fixed: true          # persistence.rs:464 row.get().unwrap_or(0) ✅
+  validate_path_current_dir_fixed: true       # framework_ops.rs:50 current_dir().unwrap_or_default() ✅
 
-  # Phase 33: API Completeness (cost: 10) - Wave 15
-  framework_update_concept_vector: false       # update_concept_vector(id, vector) on framework
-  framework_update_concept_metadata: false     # update_concept_metadata(id, metadata) on framework
-  framework_disassociate: false                # disassociate(from, to) on framework + persistence
-  framework_clear_associations: false          # clear_associations(from) on framework + persistence
-  singularity_bundle_strict: false             # bundle_concepts_strict(ids) returns NotFound
-  singularity_clear_cache: false               # clear_similarity_cache() public API
-  builder_version_retention: false             # with_version_retention(n) on FrameworkBuilder
+  # Phase 33: API Completeness (cost: 10) - Wave 15 ✅ COMPLETE
+  framework_update_concept_vector: true       # update_concept_vector(id, vector) on framework ✅
+  framework_update_concept_metadata: true     # update_concept_metadata(id, metadata) on framework ✅
+  framework_disassociate: true                # disassociate(from, to) on framework + persistence ✅
+  framework_clear_associations: true          # clear_associations(from) on framework + persistence ✅
+  singularity_bundle_strict: true             # bundle_concepts_strict(ids) returns NotFound ✅
+  singularity_clear_cache: true               # clear_similarity_cache() public API ✅
+  builder_version_retention: false             # with_version_retention(n) on FrameworkBuilder (deferred)
 
   # Phase 34: Error Handling Hardening (cost: 4) - Wave 15
   error_source_chain_support: false            # #[source] on Database/Reservoir variants

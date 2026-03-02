@@ -159,13 +159,6 @@ impl Singularity {
     /// Inject a concept directly into memory
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self, concept), fields(concept_id = %concept.id)))]
     pub fn inject(&mut self, concept: Concept) -> Result<()> {
-        if concept.vector.data.len() != 80 {
-            return Err(MemoryError::InvalidDimension {
-                expected: 80,
-                actual: concept.vector.data.len(),
-            });
-        }
-
         let is_new = !self.concepts.contains_key(&concept.id);
         if is_new {
             self.evict_oldest_if_needed();

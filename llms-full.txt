@@ -8,23 +8,23 @@
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
-- clap (4.5.60) [features: derive, env, string]
 - serde_json (1.0.138)
-- anyhow (1.0.102)
 - rand (0.8.5)
-- bincode (1.3.3)
-- tracing (0.1.41)
-- tracing-subscriber (0.3.19)
-- serde (1.0.219) [features: derive]
 - clap_complete (4.5.42)
-- colored (2.2.0)
+- serde (1.0.219) [features: derive]
+- tracing-subscriber (0.3.19)
+- bincode (1.3.3)
 - thiserror (2.0.11)
+- tracing (0.1.41)
+- clap (4.5.60) [features: derive, env, string]
+- anyhow (1.0.102)
+- colored (2.2.0)
 **Features:**
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored]
 - default: [cli]
 - wasm: []
 
-Generated: 2026-03-02 17:58:35 UTC  
+Generated: 2026-03-02 18:14:46 UTC  
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Table of Contents
@@ -136,6 +136,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl WasmFramework
 - pub fn random_hypervector
 - pub fn cosine_similarity
+
+### src/singularity_ext.rs
+
+- impl Singularity
 
 ### src/framework_builder.rs
 
@@ -685,6 +689,8 @@ impl Persistence {
     pub fn backup(&self, path: &str) -> Result<()>;
     pub fn restore(&self, path: &str) -> Result<()>;
     pub fn health_check(&self) -> Result<()>;
+    pub fn delete_association(&self, from: &str, to: &str) -> Result<()>;
+    pub fn clear_concept_associations(&self, id: &str) -> Result<()>;
 }
 ```
 
@@ -791,6 +797,12 @@ impl ChaoticSemanticFramework {
     pub fn backup(&self, path: &str) -> Result<()>;
     pub fn restore(&self, path: &str) -> Result<()>;
     pub fn concept_history(&self, id: &str, limit: usize) -> Result<Vec<crate::persistence::ConceptVersion>>;
+    pub fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()>;
+    pub fn update_concept_metadata(&self, id: &str, metadata: std::collections::HashMap<String, serde_json::Value>) -> Result<()>;
+    pub fn disassociate(&self, from: &str, to: &str) -> Result<()>;
+    pub fn clear_associations(&self, id: &str) -> Result<()>;
+    pub fn clear_similarity_cache(&self);
+    pub fn bundle_concepts_strict(&self, ids: &[String]) -> Result<HVec10240>;
 }
 ```
 
@@ -1180,6 +1192,22 @@ pub fn cosine_similarity(a: &[u8], b: &[u8]) -> Result<f32, JsValue>
 ```
 
 Compute cosine similarity between two hypervectors
+
+
+## src/singularity_ext.rs
+
+### impl Singularity
+
+```rust
+impl Singularity {
+    pub fn bundle_concepts_strict(&self, ids: &[String]) -> Result<HVec10240>;
+    pub fn disassociate(&mut self, from: &str, to: &str) -> Result<()>;
+    pub fn clear_associations(&mut self, id: &str) -> Result<()>;
+    pub fn clear_similarity_cache(&self);
+    pub fn update_metadata(&mut self, id: &str, metadata: HashMap<String, serde_json::Value>) -> Result<()>;
+}
+```
+
 
 
 ## src/export_payload.rs

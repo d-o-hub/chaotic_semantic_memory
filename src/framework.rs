@@ -378,9 +378,9 @@ impl ChaoticSemanticFramework {
         let concept_count = sing.len();
 
         let db_size = if let Some(ref persistence) = self.persistence {
-            persistence.size().await.unwrap_or(0)
+            Some(persistence.size().await.unwrap_or(0))
         } else {
-            0
+            None
         };
 
         Ok(FrameworkStats {
