@@ -133,8 +133,8 @@ impl CacheMetrics {
 /// Episode-free singularity engine
 #[derive(Debug)]
 pub struct Singularity {
-    concepts: HashMap<String, Concept>,
-    associations: HashMap<String, HashMap<String, f32>>,
+    pub(crate) concepts: HashMap<String, Concept>,
+    pub(crate) associations: HashMap<String, HashMap<String, f32>>,
     config: SingularityConfig,
     query_cache: RwLock<QueryCache>,
     cache_metrics: CacheMetrics,
@@ -430,7 +430,7 @@ impl Singularity {
         }
     }
 
-    fn invalidate_cache(&self) {
+    pub(crate) fn invalidate_cache(&self) {
         if let Ok(mut cache) = self.query_cache.write() {
             cache.clear();
         }

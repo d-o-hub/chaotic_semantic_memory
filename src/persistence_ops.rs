@@ -260,6 +260,31 @@ impl Persistence {
         Ok(())
     }
 
+    /// Delete a single association between two concepts.
+    pub async fn delete_association(&self, from: &str, to: &str) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        conn.execute(
+            "DELETE FROM associations WHERE from_id = ?1 AND to_id = ?2",
+            params![from, to],
+        )
+        .await
+        .map_err(|e| MemoryError::Database(format!("Failed to delete association: {}", e)))?;
+        Ok(())
+    }
+
+    /// Clear all outbound associations for a concept.
+    pub async fn clear_concept_associations(&self, id: &str) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        conn.execute("DELETE FROM associations WHERE from_id = ?1", params![id])
+            .await
+            .map_err(|e| {
+                MemoryError::Database(format!("Failed to clear concept associations: {}", e))
+            })?;
+        Ok(())
+    }
+
     /// Internal migration method that reuses an existing connection.
     /// Used by init_schema() to avoid semaphore deadlock from nested permit acquisition.
     pub(crate) async fn apply_migrations_with_conn(
