@@ -81,6 +81,23 @@ impl WasmFramework {
             .map_err(to_js_error)
     }
 
+    /// Update a concept's vector
+    pub async fn update_concept(&self, id: String, vector: &[u8]) -> Result<(), JsValue> {
+        let hvec = HVec10240::from_bytes(vector).map_err(to_js_error)?;
+        self.framework
+            .update_concept_vector(&id, hvec)
+            .await
+            .map_err(to_js_error)
+    }
+
+    /// Remove an association between two concepts
+    pub async fn disassociate(&self, from: String, to: String) -> Result<(), JsValue> {
+        self.framework
+            .disassociate(&from, &to)
+            .await
+            .map_err(to_js_error)
+    }
+
     /// Get associations for a concept
     pub async fn get_associations(&self, id: String) -> Result<Array, JsValue> {
         let associations = self
@@ -361,11 +378,19 @@ impl WasmFramework {
         js_sys::Reflect::set(
             &obj,
             &"db_size_bytes".into(),
-            &(stats.db_size_bytes as f64).into(),
+            &stats
+                .db_size_bytes
+                .map_or(JsValue::NULL, |v| (v as f64).into()),
         )
         .map_err(|_| JsValue::from_str("failed to set JS property"))?;
 
         Ok(obj.into())
+    }
+
+    /// Get concept count (convenience method)
+    pub async fn concept_count(&self) -> Result<usize, JsValue> {
+        let sing = self.framework.singularity.read().await;
+        Ok(sing.len())
     }
 }
 

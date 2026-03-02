@@ -470,11 +470,11 @@ world_state:
   stats_db_size_optional: true                # FrameworkStats db_size_bytes: Option<u64> ✅
   dead_dimension_check_removed: true          # Singularity::inject redundant data.len() check ✅
 
-  # Phase 35: Documentation Pass (cost: 4) - Wave 15
-  reservoir_invariants_documented: false        # input_size, stride, spectral radius docs
-  persistence_schema_documented: false          # version retention, migration semantics
-  load_merge_behavior_documented: false         # load_replace vs load_merge
-  wasm_parity_notes_added: false               # lib.rs WASM parity docs
+  # Phase 35: Documentation Pass (cost: 4) - Wave 15 ✅ COMPLETE
+  reservoir_invariants_documented: true        # input_size, stride, spectral radius docs ✅
+  persistence_schema_documented: true          # version retention, migration semantics ✅
+  load_merge_behavior_documented: true         # load_replace vs load_merge ✅
+  wasm_parity_notes_added: true               # lib.rs WASM parity docs ✅
 
   # Phase 36: WASM API Parity (cost: 4) - Wave 15
   wasm_update_concept_exposed: false           # update_concept in WASM
