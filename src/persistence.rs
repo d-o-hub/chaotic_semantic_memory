@@ -1,6 +1,5 @@
-//! Persistence layer using libSQL
-//!
-//! Supports both local SQLite files and remote Turso databases.
+//! Persistence layer using libSQL (SQLite/Turso). Auto-migrations, version retention, FK enabled.
+
 use libsql::{Builder, Connection, Database, params};
 use std::sync::Arc;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};

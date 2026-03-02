@@ -1,4 +1,12 @@
-//! Chaotic Semantic Memory System
+//! Chaotic Semantic Memory System.
+//!
+//! High-performance semantic memory using hyperdimensional computing and
+//! chaotic reservoir dynamics.
+//!
+//! # WASM Parity
+//! Most APIs available in WASM. Exceptions:
+//! - `Persistence`: Replaced with stubs in `persistence_wasm`
+//! - `process_sequence`: No Rayon parallelization in WASM
 
 pub use error::{MemoryError, Result};
 pub use framework::ChaoticSemanticFramework;

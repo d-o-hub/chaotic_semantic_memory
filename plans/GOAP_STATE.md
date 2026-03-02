@@ -465,10 +465,10 @@ world_state:
   singularity_clear_cache: true               # clear_similarity_cache() public API ✅
   builder_version_retention: false             # with_version_retention(n) on FrameworkBuilder (deferred)
 
-  # Phase 34: Error Handling Hardening (cost: 4) - Wave 15
-  error_source_chain_support: false            # #[source] on Database/Reservoir variants
-  stats_db_size_optional: false                # FrameworkStats db_size_bytes: Option<u64>
-  dead_dimension_check_removed: false          # Singularity::inject redundant data.len() check
+  # Phase 34: Error Handling Hardening (cost: 4) - Wave 15 ✅ COMPLETE
+  error_source_chain_support: false            # #[source] on Database/Reservoir variants (deferred)
+  stats_db_size_optional: true                # FrameworkStats db_size_bytes: Option<u64> ✅
+  dead_dimension_check_removed: true          # Singularity::inject redundant data.len() check ✅
 
   # Phase 35: Documentation Pass (cost: 4) - Wave 15
   reservoir_invariants_documented: false        # input_size, stride, spectral radius docs

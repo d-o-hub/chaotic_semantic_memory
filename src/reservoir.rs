@@ -1,4 +1,13 @@
-//! Echo State Network for temporal dynamics
+//! Echo State Network for temporal dynamics.
+//!
+//! # Invariants
+//! - `input_size > 0`: Input vector dimensionality
+//! - `reservoir_size > 0`: Internal node count
+//! - `spectral_radius ∈ [0.0, 1.0]`: Stability constraint
+//!
+//! # Performance
+//! - `step()`: O(reservoir_size × input_size)
+//! - `to_hypervector()`: O(reservoir_size)
 
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};

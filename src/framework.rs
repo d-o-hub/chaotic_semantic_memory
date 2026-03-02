@@ -256,7 +256,10 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
-    /// Load and replace all in-memory state from persistence
+    /// Load and replace all in-memory state from persistence.
+    ///
+    /// Clears existing state, loads persisted state. Use for fresh starts.
+    /// See also: [`load_merge`](Self::load_merge) for additive semantics.
     #[instrument(err, skip(self))]
     pub async fn load_replace(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
@@ -298,7 +301,10 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
-    /// Load and merge persisted state into in-memory state
+    /// Load and merge persisted state into in-memory state.
+    ///
+    /// Preserves existing state, adds persisted state on top.
+    /// See also: [`load_replace`](Self::load_replace) for replacement semantics.
     #[instrument(err, skip(self))]
     pub async fn load_merge(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
@@ -395,14 +401,17 @@ mod tests {
     use super::*;
     use crate::hyperdim::HVec10240;
 
-    #[tokio::test]
-    async fn test_inject_concept_with_metadata_success() {
-        let framework = ChaoticSemanticFramework::builder()
+    async fn create_framework() -> ChaoticSemanticFramework {
+        ChaoticSemanticFramework::builder()
             .without_persistence()
             .build()
             .await
-            .unwrap();
+            .unwrap()
+    }
 
+    #[tokio::test]
+    async fn test_inject_concept_with_metadata_success() {
+        let framework = create_framework().await;
         let vector = HVec10240::random();
         let mut metadata = std::collections::HashMap::new();
         metadata.insert("source".to_string(), serde_json::json!("test"));
@@ -438,7 +447,6 @@ mod tests {
         let result = framework
             .inject_concept_with_metadata("concept-1", vector, metadata)
             .await;
-
         assert!(result.is_err());
     }
 
@@ -460,24 +468,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_concept_not_found() {
-        let framework = ChaoticSemanticFramework::builder()
-            .without_persistence()
-            .build()
-            .await
-            .unwrap();
-
+        let framework = create_framework().await;
         let result = framework.get_concept("nonexistent").await.unwrap();
         assert!(result.is_none());
     }
 
     #[tokio::test]
     async fn test_inject_concept_with_metadata_empty() {
-        let framework = ChaoticSemanticFramework::builder()
-            .without_persistence()
-            .build()
-            .await
-            .unwrap();
-
+        let framework = create_framework().await;
         let vector = HVec10240::random();
         let metadata = std::collections::HashMap::new();
 
