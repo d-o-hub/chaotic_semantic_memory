@@ -1868,3 +1868,584 @@ actions:
       - Updates README.md version badge
       - Updates all example and test files
       - Provides summary of changes before commit
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 32: PRODUCTION SAFETY (cost: 6) - Wave 15
+  # ADR-0053: API Hardening & New Features
+  # ═══════════════════════════════════════════════════════
+  - name: remove_reservoir_try_into_unwrap
+    preconditions:
+      core_modules_created: true
+    effects:
+      reservoir_try_into_unwrap_removed: true
+    cost: 1
+    status: pending
+    file: src/reservoir.rs
+    adr: ADR-0053
+    description: |
+      Replace `data.try_into().unwrap()` at reservoir.rs:323 with safe construction.
+      Build [u128; 80] directly via array initialization or map to MemoryError::Reservoir.
+      Eliminates last panic path in non-WASM reservoir hot path.
+
+  - name: fix_persistence_semaphore_deadlock
+    preconditions:
+      core_modules_created: true
+    effects:
+      persistence_semaphore_deadlock_fixed: true
+    cost: 3
+    status: pending
+    file: src/persistence.rs, src/persistence_ops.rs
+    adr: ADR-0053
+    description: |
+      Fix nested acquire_remote_slot deadlock risk:
+      - init_schema() acquires permit, then calls apply_migrations()
+      - apply_migrations() acquires permit, then calls schema_version()
+      - schema_version() acquires permit (3rd nesting!)
+      - restore() acquires permit, then calls init_schema()
+      Solution: Create internal _with_conn variants that accept &Connection
+      for schema_version_with_conn, apply_migrations_with_conn.
+      Keep public methods as acquire-once entry points.
+
+  - name: fix_version_row_get_unwrap
+    preconditions:
+      core_modules_created: true
+    effects:
+      version_row_get_unwrap_fixed: true
+    cost: 1
+    status: pending
+    file: src/persistence.rs
+    adr: ADR-0053
+    description: |
+      Replace `row.get::<i64>(0).unwrap_or(0)` at persistence.rs:464 with proper
+      error mapping: `.map_err(|e| MemoryError::Database(...))?`
+      Silent fallback to version=0 can corrupt version history.
+
+  - name: fix_validate_path_current_dir
+    preconditions:
+      core_modules_created: true
+    effects:
+      validate_path_current_dir_fixed: true
+    cost: 1
+    status: pending
+    file: src/framework_ops.rs
+    adr: ADR-0053
+    description: |
+      Replace `std::env::current_dir().unwrap_or_default()` at framework_ops.rs:50
+      with proper error propagation:
+      `std::env::current_dir().map_err(|e| MemoryError::Io(e))?`
+      Empty path default weakens path traversal protection.
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 33: API COMPLETENESS (cost: 10) - Wave 15
+  # ═══════════════════════════════════════════════════════
+  - name: add_framework_update_concept_vector
+    preconditions:
+      core_modules_created: true
+    effects:
+      framework_update_concept_vector: true
+    cost: 2
+    status: pending
+    file: src/framework.rs, src/persistence.rs
+    adr: ADR-0053
+    description: |
+      Add update_concept_vector(id, vector) to ChaoticSemanticFramework.
+      - Calls singularity.update(id, new_vector)
+      - Persists updated concept via save_concept
+      - Records version history automatically
+      - Returns NotFound if concept doesn't exist
+
+  - name: add_framework_update_concept_metadata
+    preconditions:
+      framework_update_concept_vector: true
+    effects:
+      framework_update_concept_metadata: true
+    cost: 2
+    status: pending
+    file: src/framework.rs, src/singularity.rs
+    adr: ADR-0053
+    description: |
+      Add update_concept_metadata(id, metadata) to framework and singularity.
+      - Validates metadata size against max_metadata_bytes
+      - Updates metadata HashMap on existing concept
+      - Persists and records version
+      - Returns NotFound if concept doesn't exist
+
+  - name: add_framework_disassociate
+    preconditions:
+      core_modules_created: true
+    effects:
+      framework_disassociate: true
+    cost: 2
+    status: pending
+    file: src/framework.rs, src/singularity.rs, src/persistence.rs
+    adr: ADR-0053
+    description: |
+      Add disassociate(from, to) to framework + singularity + persistence:
+      - Singularity: remove from HashMap<String, HashMap<String, f32>>
+      - Persistence: DELETE FROM associations WHERE from_id=? AND to_id=?
+      - Framework: orchestrate both + validate IDs
+
+  - name: add_framework_clear_associations
+    preconditions:
+      framework_disassociate: true
+    effects:
+      framework_clear_associations: true
+    cost: 1
+    status: pending
+    file: src/framework.rs, src/singularity.rs, src/persistence.rs
+    adr: ADR-0053
+    description: |
+      Add clear_associations(from) to framework + singularity + persistence:
+      - Singularity: remove all entries for from_id
+      - Persistence: DELETE FROM associations WHERE from_id=?
+      - Framework: orchestrate + cache invalidation
+
+  - name: add_singularity_bundle_strict
+    preconditions:
+      core_modules_created: true
+    effects:
+      singularity_bundle_strict: true
+    cost: 1
+    status: pending
+    file: src/singularity.rs
+    adr: ADR-0053
+    description: |
+      Add bundle_concepts_strict(ids: &[String]) -> Result<HVec10240>.
+      Unlike bundle_concepts() which silently skips missing IDs,
+      this returns MemoryError::NotFound listing all missing IDs.
+
+  - name: add_singularity_clear_cache
+    preconditions:
+      concept_cache_implemented: true
+    effects:
+      singularity_clear_cache: true
+    cost: 1
+    status: pending
+    file: src/singularity.rs
+    adr: ADR-0053
+    description: |
+      Add clear_similarity_cache() public method to Singularity.
+      Allows callers to explicitly invalidate query cache without
+      going through mutation paths. Useful for cache warming workflows.
+
+  - name: add_builder_version_retention
+    preconditions:
+      core_modules_created: true
+    effects:
+      builder_version_retention: true
+    cost: 1
+    status: pending
+    file: src/framework_builder.rs
+    adr: ADR-0053
+    description: |
+      Add with_version_retention(n: usize) to FrameworkBuilder.
+      Propagates to Persistence constructor to override default
+      version_retention=10.
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 34: ERROR HANDLING HARDENING (cost: 4) - Wave 15
+  # ═══════════════════════════════════════════════════════
+  - name: add_error_source_chain
+    preconditions:
+      core_modules_created: true
+    effects:
+      error_source_chain_support: true
+    cost: 2
+    status: pending
+    file: src/error.rs
+    adr: ADR-0053
+    description: |
+      Add #[source] attributes to MemoryError variants for error chain support:
+      - Database(String) stays simple (libsql errors are already stringified)
+      - Reservoir(String) stays simple
+      - Ensure thiserror 2.0 #[from] on Io and Serialization is working
+      - Add Display impl that includes source chain context
+
+  - name: fix_stats_db_size_optional
+    preconditions:
+      core_modules_created: true
+    effects:
+      stats_db_size_optional: true
+    cost: 1
+    status: pending
+    file: src/framework.rs, src/framework_builder.rs
+    adr: ADR-0053
+    description: |
+      Change FrameworkStats.db_size_bytes from u64 to Option<u64>.
+      Replace persistence.size().await.unwrap_or(0) with:
+      Some(persistence.size().await.ok()) pattern.
+      Callers can distinguish "no persistence" from "0 bytes".
+
+  - name: remove_dead_dimension_check
+    preconditions:
+      core_modules_created: true
+    effects:
+      dead_dimension_check_removed: true
+    cost: 1
+    status: pending
+    file: src/singularity.rs
+    adr: ADR-0053
+    description: |
+      Remove redundant check `concept.vector.data.len() != 80` in inject().
+      data is [u128; 80] so len() is compile-time 80 — can never fail.
+      Replace with meaningful validation or remove entirely.
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 35: DOCUMENTATION PASS (cost: 4) - Wave 15
+  # ═══════════════════════════════════════════════════════
+  - name: document_reservoir_invariants
+    preconditions:
+      core_modules_created: true
+    effects:
+      reservoir_invariants_documented: true
+    cost: 1
+    status: pending
+    file: src/reservoir.rs
+    adr: ADR-0053
+    description: |
+      Add rustdoc to Reservoir and ChaoticReservoir:
+      - Document input_size requirement vs process_sequence
+      - Document partial update stride semantics
+      - Document spectral radius [0.9, 1.1] invariant
+      - Document CSR sparse weight format and fixed degree k=64
+
+  - name: document_persistence_schema
+    preconditions:
+      core_modules_created: true
+    effects:
+      persistence_schema_documented: true
+    cost: 1
+    status: pending
+    file: src/persistence.rs
+    adr: ADR-0053
+    description: |
+      Add rustdoc to Persistence:
+      - Document schema tables and columns
+      - Document version retention semantics
+      - Document migration process and versioning
+      - Document local vs remote connection model
+
+  - name: document_load_merge_behavior
+    preconditions:
+      core_modules_created: true
+    effects:
+      load_merge_behavior_documented: true
+    cost: 1
+    status: pending
+    file: src/framework_ops.rs
+    adr: ADR-0053
+    description: |
+      Add rustdoc to load_replace/load_merge:
+      - Document that load_replace clears in-memory state
+      - Document that load_merge appends without clearing
+      - Document that invalid associations are skipped with warning
+      - Document locking behavior and async safety
+
+  - name: add_wasm_parity_notes
+    preconditions:
+      core_modules_created: true
+    effects:
+      wasm_parity_notes_added: true
+    cost: 1
+    status: pending
+    file: src/lib.rs
+    adr: ADR-0053
+    description: |
+      Add module-level doc section to lib.rs documenting:
+      - Which features are WASM-compatible
+      - Which features are native-only (persistence, file ops, backup)
+      - Recommended WASM workflow (bytes export → IndexedDB)
+      - Rayon parallelism replaced with sequential fallbacks
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 36: WASM API PARITY (cost: 4) - Wave 15
+  # ═══════════════════════════════════════════════════════
+  - name: expose_wasm_update_concept
+    preconditions:
+      framework_update_concept_vector: true
+    effects:
+      wasm_update_concept_exposed: true
+    cost: 1
+    status: pending
+    file: src/wasm.rs
+    adr: ADR-0053
+    description: |
+      Add update_concept(id, vector_bytes) to WasmFramework.
+      Delegates to framework.update_concept_vector() internally.
+      Accepts Uint8Array for vector bytes.
+
+  - name: expose_wasm_disassociate
+    preconditions:
+      framework_disassociate: true
+    effects:
+      wasm_disassociate_exposed: true
+    cost: 1
+    status: pending
+    file: src/wasm.rs
+    adr: ADR-0053
+    description: |
+      Add disassociate(from, to) to WasmFramework.
+      Delegates to framework.disassociate().
+
+  - name: expose_wasm_stats
+    preconditions:
+      core_modules_created: true
+    effects:
+      wasm_stats_exposed: true
+    cost: 1
+    status: pending
+    file: src/wasm.rs
+    adr: ADR-0053
+    description: |
+      Add concept_count() and stats() to WasmFramework.
+      Returns JsValue with concept count and metrics snapshot.
+
+  - name: document_wasm_persistence_story
+    preconditions:
+      wasm_parity_notes_added: true
+    effects:
+      wasm_persistence_story_documented: true
+    cost: 1
+    status: pending
+    file: src/wasm.rs, book/src/wasm.md
+    adr: ADR-0053
+    description: |
+      Document recommended WASM persistence workflow:
+      - Use export_to_bytes() to serialize state
+      - Store bytes in IndexedDB via localForage or idb-keyval
+      - Use import_from_bytes() to restore on page load
+      - Add code example showing full lifecycle
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 37: TEXT-TO-HYPERVECTOR ENCODING (cost: 8) - Wave 15
+  # ADR-0054: High-Impact New Features
+  # ═══════════════════════════════════════════════════════
+  - name: create_text_encoder
+    preconditions:
+      core_modules_created: true
+    effects:
+      text_encoder_created: true
+      text_encoder_deterministic: true
+      text_encoder_position_aware: true
+    cost: 4
+    status: pending
+    file: src/encoder.rs
+    adr: ADR-0054
+    description: |
+      Create src/encoder.rs with TextEncoder struct (~200 LOC):
+      1. Tokenize: whitespace split + lowercase
+      2. Token → base HVec10240 via stable FNV-1a hash → seeded StdRng
+      3. Position encoding: token_hv.permute(position * stride)
+      4. Bundle via majority-rule (existing HVec10240::bundle)
+      Must be deterministic: same text always produces same vector.
+      Add golden tests with known input/output pairs.
+      Register module in src/lib.rs.
+
+  - name: add_text_encoder_ngrams
+    preconditions:
+      text_encoder_created: true
+    effects:
+      text_encoder_ngram_support: true
+    cost: 2
+    status: pending
+    file: src/encoder.rs
+    adr: ADR-0054
+    description: |
+      Add optional character n-gram overlay to TextEncoder:
+      - encode_with_ngrams(text, n) generates character n-gram HVecs
+      - Bind n-gram HVecs with token-level vector for robustness
+      - Configurable via TextEncoderConfig { use_char_ngrams: bool, ngram_size: usize }
+
+  - name: add_framework_text_convenience
+    preconditions:
+      text_encoder_created: true
+    effects:
+      framework_inject_text: true
+      framework_probe_text: true
+      text_encoder_wasm_compatible: true
+    cost: 2
+    status: pending
+    file: src/framework.rs, src/wasm.rs
+    adr: ADR-0054
+    description: |
+      Add convenience methods to ChaoticSemanticFramework:
+      - inject_text(id, text) → encodes text, injects concept
+      - inject_text_with_metadata(id, text, metadata) → same with metadata
+      - probe_text(query_text, top_k) → encodes query, runs probe
+      Add WASM bindings: inject_text, probe_text
+      Stores original text in metadata["_text"] for retrieval.
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 38: METADATA-FILTERED SIMILARITY SEARCH (cost: 6) - Wave 15
+  # ADR-0054: High-Impact New Features
+  # ═══════════════════════════════════════════════════════
+  - name: create_metadata_filter_types
+    preconditions:
+      core_modules_created: true
+    effects:
+      metadata_filter_types_created: true
+    cost: 2
+    status: pending
+    file: src/metadata_filter.rs
+    adr: ADR-0054
+    description: |
+      Create src/metadata_filter.rs with MetadataFilter enum:
+      - Eq(key, value): exact match
+      - In(key, values): value in set
+      - Exists(key): key present in metadata
+      - And(filters): all must match
+      - Or(filters): any must match
+      - Not(filter): negation
+      Add matches(&HashMap<String, Value>) -> bool method.
+      Register module in src/lib.rs.
+
+  - name: add_filtered_similarity_search
+    preconditions:
+      metadata_filter_types_created: true
+    effects:
+      singularity_find_similar_filtered: true
+      framework_probe_filtered: true
+    cost: 3
+    status: pending
+    file: src/singularity.rs, src/framework.rs
+    adr: ADR-0054
+    description: |
+      Add find_similar_filtered(query, top_k, filter) to Singularity:
+      - Skip concepts that don't match filter predicate BEFORE computing cosine similarity
+      - Same caching strategy as find_similar (key includes filter hash)
+      - Rayon parallel iteration with filter
+      Add probe_filtered(query, top_k, filter) to ChaoticSemanticFramework.
+
+  - name: add_filtered_search_wasm
+    preconditions:
+      singularity_find_similar_filtered: true
+    effects:
+      metadata_filter_wasm_exposed: true
+    cost: 1
+    status: pending
+    file: src/wasm.rs
+    adr: ADR-0054
+    description: |
+      Add WASM binding for filtered probe:
+      - probe_filtered(vector_bytes, top_k, filter_json) → Array of {id, score}
+      - Parse MetadataFilter from JSON string for JS interop
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 39: ASSOCIATION GRAPH TRAVERSAL (cost: 8) - Wave 15
+  # ADR-0054: High-Impact New Features
+  # ═══════════════════════════════════════════════════════
+  - name: add_graph_traversal_apis
+    preconditions:
+      core_modules_created: true
+    effects:
+      singularity_neighbors: true
+      singularity_bfs: true
+      singularity_shortest_path: true
+      singularity_incoming_associations: true
+    cost: 5
+    status: pending
+    file: src/graph_traversal.rs
+    adr: ADR-0054
+    description: |
+      Create src/graph_traversal.rs with traversal impl on Singularity (~200 LOC):
+      - neighbors(id, min_strength) → outbound edges above threshold
+      - bfs(start, config) → BFS with depth tracking and strength filtering
+      - shortest_path(from, to, config) → Dijkstra with cost = -ln(strength)
+      - incoming_associations(id) → reverse lookup via scan or lazy reverse map
+      TraversalConfig: max_depth, min_strength, max_results.
+      Guard against cycles via visited set. Register module in src/lib.rs.
+
+  - name: add_framework_traversal
+    preconditions:
+      singularity_bfs: true
+    effects:
+      framework_traverse: true
+      framework_shortest_path: true
+    cost: 2
+    status: pending
+    file: src/framework.rs
+    adr: ADR-0054
+    description: |
+      Add to ChaoticSemanticFramework:
+      - traverse(start, config) → delegates to singularity BFS
+      - shortest_path(from, to) → delegates to singularity shortest_path
+      Both validate concept IDs and acquire read lock.
+
+  - name: add_graph_traversal_wasm
+    preconditions:
+      framework_traverse: true
+    effects:
+      graph_traversal_wasm_exposed: true
+    cost: 1
+    status: pending
+    file: src/wasm.rs
+    adr: ADR-0054
+    description: |
+      Add WASM bindings for graph traversal:
+      - traverse(start_id, max_depth, min_strength) → Array of {id, depth}
+      - shortest_path(from_id, to_id) → Array of IDs or null
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 40: INCREMENTAL BUNDLE ACCUMULATOR (cost: 4) - Wave 15
+  # ADR-0054: High-Impact New Features
+  # ═══════════════════════════════════════════════════════
+  - name: add_bundle_accumulator
+    preconditions:
+      core_modules_created: true
+    effects:
+      bundle_accumulator_created: true
+      bundle_accumulator_add_remove: true
+      bundle_accumulator_streaming: true
+    cost: 4
+    status: pending
+    file: src/hyperdim.rs
+    adr: ADR-0054
+    description: |
+      Add BundleAccumulator to src/hyperdim.rs (~60 LOC):
+      - new() → empty accumulator with zeroed i32 counters
+      - add(&HVec10240) → increment counters for set bits
+      - remove(&HVec10240) → decrement counters for set bits
+      - finalize() → majority threshold → HVec10240
+      - len() → number of vectors added
+      Enables sliding-window memory and streaming concept drift.
+      Export BundleAccumulator from prelude.
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 41: MEMORY CHANGE EVENTS (cost: 4) - Wave 15
+  # ADR-0054: High-Impact New Features
+  # ═══════════════════════════════════════════════════════
+  - name: add_memory_events
+    preconditions:
+      core_modules_created: true
+    effects:
+      memory_event_enum_created: true
+      framework_subscribe: true
+    cost: 3
+    status: pending
+    file: src/framework.rs
+    adr: ADR-0054
+    description: |
+      Add MemoryEvent enum and subscribe() to ChaoticSemanticFramework:
+      - ConceptInjected { id, timestamp }
+      - ConceptUpdated { id, timestamp }
+      - ConceptDeleted { id, timestamp }
+      - Associated { from, to, strength }
+      - Disassociated { from, to }
+      Use tokio::sync::broadcast channel (capacity: 1024).
+      Emit events from inject_concept, delete_concept, associate, etc.
+      No persistence of events (ephemeral broadcast).
+
+  - name: add_memory_events_wasm
+    preconditions:
+      memory_event_enum_created: true
+    effects:
+      memory_events_wasm_compatible: true
+    cost: 1
+    status: pending
+    file: src/wasm.rs
+    adr: ADR-0054
+    description: |
+      Add WASM callback support for memory events:
+      - on_event(callback: Function) → register JS callback
+      - Events serialized as JSON objects for JS interop
+      Gate behind cfg(target_arch = "wasm32").

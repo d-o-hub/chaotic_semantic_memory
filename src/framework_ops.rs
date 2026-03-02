@@ -47,9 +47,12 @@ fn validate_path(path: &str) -> Result<PathBuf> {
             }
         };
 
-        if !normalized.starts_with(std::env::current_dir().unwrap_or_default())
-            && !normalized.starts_with("/tmp")
-        {
+        let current_dir = std::env::current_dir().map_err(|e| MemoryError::InvalidInput {
+            field: "path".to_string(),
+            reason: format!("cannot determine current working directory: {}", e),
+        })?;
+
+        if !normalized.starts_with(&current_dir) && !normalized.starts_with("/tmp") {
             return Err(MemoryError::InvalidInput {
                 field: "path".to_string(),
                 reason: "absolute paths must be within current working directory or /tmp"

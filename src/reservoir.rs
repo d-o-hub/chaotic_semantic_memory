@@ -320,7 +320,10 @@ impl Reservoir {
                 word
             })
             .collect();
-        let data: [u128; 80] = data.try_into().unwrap();
+        // SAFETY: We iterate exactly 80 times (0..80), so data always has 80 elements
+        let data: [u128; 80] = data
+            .try_into()
+            .unwrap_or_else(|_| panic!("internal error: expected 80 u128 elements"));
         Ok(HVec10240 { data })
     }
 

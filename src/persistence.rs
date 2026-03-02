@@ -1,7 +1,6 @@
 //! Persistence layer using libSQL
 //!
 //! Supports both local SQLite files and remote Turso databases.
-
 use libsql::{Builder, Connection, Database, params};
 use std::sync::Arc;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
@@ -97,7 +96,6 @@ impl Persistence {
     pub(crate) async fn init_schema(&self) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
-
         conn.execute_batch(
             "BEGIN;
             CREATE TABLE IF NOT EXISTS concepts (
@@ -133,8 +131,9 @@ impl Persistence {
         )
         .await
         .map_err(|e| MemoryError::Database(format!("Failed to initialize schema: {}", e)))?;
-
-        self.apply_migrations(LATEST_SCHEMA_VERSION).await?;
+        // Use internal method that reuses the connection to avoid semaphore deadlock
+        self.apply_migrations_with_conn(&conn, LATEST_SCHEMA_VERSION)
+            .await?;
         Ok(())
     }
 
@@ -461,7 +460,9 @@ impl Persistence {
         let current = if let Some(row) = rows.next().await.map_err(|e| {
             MemoryError::Database(format!("Failed to fetch concept version row: {}", e))
         })? {
-            row.get::<i64>(0).unwrap_or(0)
+            row.get::<i64>(0).map_err(|e| {
+                MemoryError::Database(format!("Failed to read version from row: {}", e))
+            })?
         } else {
             0
         };

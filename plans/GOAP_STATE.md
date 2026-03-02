@@ -442,3 +442,81 @@ world_state:
   wave_14_started_at: "2026-02-28"
   wave_14_focus: "Phase 29-31: Bug fixes, real-world examples, edge case tests"
   wave_14_complete: true
+
+  # Wave 15: API Hardening & New Features (ADR-0053)
+  wave_15_name: "API Hardening & New Features"
+  wave_15_started_at: "2026-03-02"
+  wave_15_focus: "Phase 32-36: Safety fixes, API completeness, error hardening, docs, WASM parity"
+  wave_15_complete: false
+
+  # Phase 32: Production Safety (cost: 6) - Wave 15
+  # ADR-0053: API Hardening & New Features
+  reservoir_try_into_unwrap_removed: false    # reservoir.rs:323 try_into().unwrap()
+  persistence_semaphore_deadlock_fixed: false  # Nested acquire_remote_slot in init_schema→apply_migrations→schema_version
+  version_row_get_unwrap_fixed: false          # persistence.rs:464 row.get().unwrap_or(0)
+  validate_path_current_dir_fixed: false       # framework_ops.rs:50 current_dir().unwrap_or_default()
+
+  # Phase 33: API Completeness (cost: 10) - Wave 15
+  framework_update_concept_vector: false       # update_concept_vector(id, vector) on framework
+  framework_update_concept_metadata: false     # update_concept_metadata(id, metadata) on framework
+  framework_disassociate: false                # disassociate(from, to) on framework + persistence
+  framework_clear_associations: false          # clear_associations(from) on framework + persistence
+  singularity_bundle_strict: false             # bundle_concepts_strict(ids) returns NotFound
+  singularity_clear_cache: false               # clear_similarity_cache() public API
+  builder_version_retention: false             # with_version_retention(n) on FrameworkBuilder
+
+  # Phase 34: Error Handling Hardening (cost: 4) - Wave 15
+  error_source_chain_support: false            # #[source] on Database/Reservoir variants
+  stats_db_size_optional: false                # FrameworkStats db_size_bytes: Option<u64>
+  dead_dimension_check_removed: false          # Singularity::inject redundant data.len() check
+
+  # Phase 35: Documentation Pass (cost: 4) - Wave 15
+  reservoir_invariants_documented: false        # input_size, stride, spectral radius docs
+  persistence_schema_documented: false          # version retention, migration semantics
+  load_merge_behavior_documented: false         # load_replace vs load_merge
+  wasm_parity_notes_added: false               # lib.rs WASM parity docs
+
+  # Phase 36: WASM API Parity (cost: 4) - Wave 15
+  wasm_update_concept_exposed: false           # update_concept in WASM
+  wasm_disassociate_exposed: false             # disassociate in WASM
+  wasm_stats_exposed: false                    # concept_count/stats in WASM
+  wasm_persistence_story_documented: false     # WASM → bytes → IndexedDB docs
+
+  # Phase 37: Text-to-Hypervector Encoding (cost: 8) - Wave 15
+  # ADR-0054: High-Impact New Features
+  text_encoder_created: false                  # src/encoder.rs with TextEncoder
+  text_encoder_deterministic: false            # Stable hash → seeded PRNG → HVec10240
+  text_encoder_position_aware: false           # Positional permutation encoding
+  text_encoder_ngram_support: false            # Optional character n-gram overlay
+  framework_inject_text: false                 # inject_text(id, text) convenience
+  framework_probe_text: false                  # probe_text(query, top_k) convenience
+  text_encoder_wasm_compatible: false          # Works in WASM target
+
+  # Phase 38: Metadata-Filtered Similarity Search (cost: 6) - Wave 15
+  # ADR-0054: High-Impact New Features
+  metadata_filter_types_created: false         # MetadataFilter enum (Eq, In, Exists, And, Or, Not)
+  singularity_find_similar_filtered: false     # find_similar_filtered(query, top_k, filter)
+  framework_probe_filtered: false              # probe_filtered(query, top_k, filter)
+  metadata_filter_wasm_exposed: false          # WASM binding for filtered probe
+
+  # Phase 39: Association Graph Traversal (cost: 8) - Wave 15
+  # ADR-0054: High-Impact New Features
+  singularity_neighbors: false                 # neighbors(id, min_strength) API
+  singularity_bfs: false                       # bfs(start, config) API
+  singularity_shortest_path: false             # shortest_path(from, to, config) API
+  singularity_incoming_associations: false     # incoming_associations(id) reverse lookup
+  framework_traverse: false                    # traverse(start, config) framework API
+  framework_shortest_path: false               # shortest_path(from, to) framework API
+  graph_traversal_wasm_exposed: false          # WASM bindings for traversal
+
+  # Phase 40: Incremental Bundle Accumulator (cost: 4) - Wave 15
+  # ADR-0054: High-Impact New Features
+  bundle_accumulator_created: false            # BundleAccumulator struct
+  bundle_accumulator_add_remove: false         # add/remove/finalize API
+  bundle_accumulator_streaming: false          # Sliding-window memory support
+
+  # Phase 41: Memory Change Events (cost: 4) - Wave 15
+  # ADR-0054: High-Impact New Features
+  memory_event_enum_created: false             # MemoryEvent enum
+  framework_subscribe: false                   # subscribe() → broadcast::Receiver
+  memory_events_wasm_compatible: false         # WASM callback support
