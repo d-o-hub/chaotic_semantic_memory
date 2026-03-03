@@ -108,7 +108,7 @@ jobs:
         cat package.json
 
     - name: Upload WASM package
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: wasm-package
         path: pkg/
@@ -125,7 +125,7 @@ jobs:
         ref: ${{ github.event.inputs.tag || github.ref }}
 
     - name: Download WASM package
-      uses: actions/download-artifact@v6
+      uses: actions/download-artifact@v8
       with:
         name: wasm-package
         path: pkg
