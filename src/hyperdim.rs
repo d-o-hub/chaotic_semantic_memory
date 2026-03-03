@@ -90,6 +90,21 @@ impl HVec10240 {
         Self { data }
     }
 
+    /// Create a deterministic random hypervector from a seed.
+    ///
+    /// Uses `rand::rngs::StdRng` for reproducibility across runs.
+    pub fn new_seeded(seed: u64) -> Self {
+        use rand::rngs::StdRng;
+        use rand::{Rng, SeedableRng};
+
+        let mut rng = StdRng::seed_from_u64(seed);
+        let mut data = [0u128; 80];
+        for word in &mut data {
+            *word = rng.r#gen();
+        }
+        Self { data }
+    }
+
     /// Create a random sparse hypervector with given density
     pub fn sparse(density: f32) -> Self {
         let mut rng = rand::thread_rng();
@@ -344,6 +359,9 @@ pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> V
             .collect()
     }
 }
+
+// Re-export BundleAccumulator from bundle module
+pub use crate::bundle::BundleAccumulator;
 
 #[cfg(test)]
 mod tests {

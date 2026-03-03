@@ -1,7 +1,7 @@
 # [ADR-0054] High-Impact New Features: Text Encoding, Filtered Search, Graph Traversal
 
 ## Status
-Proposed
+Implemented
 
 ## Context and Problem Statement
 

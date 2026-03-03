@@ -1,7 +1,7 @@
 # [ADR-0053] Wave 15: API Hardening, Missing Features & New Capabilities
 
 ## Status
-Proposed
+Implemented
 
 ## Context and Problem Statement
 

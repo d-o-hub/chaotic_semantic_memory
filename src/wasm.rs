@@ -392,12 +392,48 @@ impl WasmFramework {
         let sing = self.framework.singularity.read().await;
         Ok(sing.len())
     }
+
+    /// Inject a concept from text
+    pub async fn inject_text(&self, id: String, text: String) -> Result<(), JsValue> {
+        self.framework
+            .inject_text(&id, &text)
+            .await
+            .map_err(to_js_error)
+    }
+
+    /// Probe for similar concepts using text
+    pub async fn probe_text(&self, query: String, top_k: usize) -> Result<Array, JsValue> {
+        let results = self
+            .framework
+            .probe_text(&query, top_k)
+            .await
+            .map_err(to_js_error)?;
+
+        let array = Array::new();
+        for (id, similarity) in results {
+            let obj = js_sys::Object::new();
+            js_sys::Reflect::set(&obj, &"id".into(), &id.into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+            js_sys::Reflect::set(&obj, &"similarity".into(), &similarity.into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+            array.push(&obj);
+        }
+
+        Ok(array)
+    }
 }
 
 /// Create a random hypervector (1280 bytes)
 #[wasm_bindgen]
 pub fn random_hypervector() -> Box<[u8]> {
     HVec10240::random().to_bytes().into_boxed_slice()
+}
+
+/// Encode text to a hypervector using HDC encoding
+#[wasm_bindgen]
+pub fn encode_text(text: &str) -> Box<[u8]> {
+    let encoder = crate::encoder::TextEncoder::new();
+    encoder.encode(text).to_bytes().into_boxed_slice()
 }
 
 /// Compute cosine similarity between two hypervectors

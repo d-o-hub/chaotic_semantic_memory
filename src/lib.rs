@@ -14,9 +14,11 @@ pub use framework_builder::FrameworkBuilder;
 pub use hyperdim::{HVec10240, batch_cosine_similarity};
 pub use singularity::{Concept, ConceptBuilder};
 
+pub mod bundle;
 #[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]
 pub mod cli;
 pub mod concept_builder;
+pub mod encoder;
 pub mod error;
 mod export_payload;
 pub mod framework;
@@ -24,7 +26,9 @@ pub mod framework_builder;
 #[cfg(not(target_arch = "wasm32"))]
 mod framework_ops;
 mod framework_validation;
+pub mod graph_traversal;
 pub mod hyperdim;
+pub mod metadata_filter;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod persistence;
 #[cfg(not(target_arch = "wasm32"))]

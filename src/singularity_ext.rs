@@ -1,12 +1,14 @@
 //! Singularity extension methods for API completeness.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[cfg(not(target_arch = "wasm32"))]
 use tracing::instrument;
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
+use crate::metadata_filter::MetadataFilter;
 use crate::singularity::{Singularity, unix_now_secs};
 
 impl Singularity {
@@ -95,4 +97,62 @@ impl Singularity {
             })
         }
     }
+
+    /// Find similar concepts filtered by metadata predicate.
+    ///
+    /// Only concepts matching the filter are considered for similarity.
+    /// This is useful for RAG patterns like document scoping or multi-tenant filtering.
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        instrument(skip(self, query), fields(top_k = top_k))
+    )]
+    pub fn find_similar_filtered(
+        &self,
+        query: &HVec10240,
+        top_k: usize,
+        filter: &MetadataFilter,
+    ) -> Arc<[(String, f32)]> {
+        if top_k == 0 || self.concepts.is_empty() {
+            return Arc::from(Vec::new());
+        }
+
+        // Filter concepts first
+        let filtered: Vec<(String, HVec10240)> = self
+            .concepts
+            .iter()
+            .filter(|(_, concept)| filter.matches(&concept.metadata))
+            .map(|(id, c)| (id.clone(), c.vector))
+            .collect();
+
+        if filtered.is_empty() {
+            return Arc::from(Vec::new());
+        }
+
+        // Compute similarities
+        #[cfg(not(target_arch = "wasm32"))]
+        let mut results: Vec<(String, f32)> = filtered
+            .par_iter()
+            .map(|(id, vec)| (id.clone(), query.cosine_similarity(vec)))
+            .collect();
+
+        #[cfg(target_arch = "wasm32")]
+        let mut results: Vec<(String, f32)> = filtered
+            .iter()
+            .map(|(id, vec)| (id.clone(), query.cosine_similarity(vec)))
+            .collect();
+
+        // Sort and truncate
+        if results.len() <= top_k {
+            results.sort_by(|a, b| b.1.total_cmp(&a.1));
+        } else {
+            results.select_nth_unstable_by(top_k - 1, |a, b| b.1.total_cmp(&a.1));
+            results.truncate(top_k);
+            results.sort_by(|a, b| b.1.total_cmp(&a.1));
+        }
+
+        Arc::from(results)
+    }
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+use rayon::prelude::*;
