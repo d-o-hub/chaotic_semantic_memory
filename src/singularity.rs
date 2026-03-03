@@ -133,8 +133,8 @@ impl CacheMetrics {
 /// Episode-free singularity engine
 #[derive(Debug)]
 pub struct Singularity {
-    concepts: HashMap<String, Concept>,
-    associations: HashMap<String, HashMap<String, f32>>,
+    pub(crate) concepts: HashMap<String, Concept>,
+    pub(crate) associations: HashMap<String, HashMap<String, f32>>,
     config: SingularityConfig,
     query_cache: RwLock<QueryCache>,
     cache_metrics: CacheMetrics,
@@ -159,13 +159,6 @@ impl Singularity {
     /// Inject a concept directly into memory
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self, concept), fields(concept_id = %concept.id)))]
     pub fn inject(&mut self, concept: Concept) -> Result<()> {
-        if concept.vector.data.len() != 80 {
-            return Err(MemoryError::InvalidDimension {
-                expected: 80,
-                actual: concept.vector.data.len(),
-            });
-        }
-
         let is_new = !self.concepts.contains_key(&concept.id);
         if is_new {
             self.evict_oldest_if_needed();
@@ -430,7 +423,7 @@ impl Singularity {
         }
     }
 
-    fn invalidate_cache(&self) {
+    pub(crate) fn invalidate_cache(&self) {
         if let Ok(mut cache) = self.query_cache.write() {
             cache.clear();
         }

@@ -81,6 +81,23 @@ impl WasmFramework {
             .map_err(to_js_error)
     }
 
+    /// Update a concept's vector
+    pub async fn update_concept(&self, id: String, vector: &[u8]) -> Result<(), JsValue> {
+        let hvec = HVec10240::from_bytes(vector).map_err(to_js_error)?;
+        self.framework
+            .update_concept_vector(&id, hvec)
+            .await
+            .map_err(to_js_error)
+    }
+
+    /// Remove an association between two concepts
+    pub async fn disassociate(&self, from: String, to: String) -> Result<(), JsValue> {
+        self.framework
+            .disassociate(&from, &to)
+            .await
+            .map_err(to_js_error)
+    }
+
     /// Get associations for a concept
     pub async fn get_associations(&self, id: String) -> Result<Array, JsValue> {
         let associations = self
@@ -361,11 +378,48 @@ impl WasmFramework {
         js_sys::Reflect::set(
             &obj,
             &"db_size_bytes".into(),
-            &(stats.db_size_bytes as f64).into(),
+            &stats
+                .db_size_bytes
+                .map_or(JsValue::NULL, |v| (v as f64).into()),
         )
         .map_err(|_| JsValue::from_str("failed to set JS property"))?;
 
         Ok(obj.into())
+    }
+
+    /// Get concept count (convenience method)
+    pub async fn concept_count(&self) -> Result<usize, JsValue> {
+        let sing = self.framework.singularity.read().await;
+        Ok(sing.len())
+    }
+
+    /// Inject a concept from text
+    pub async fn inject_text(&self, id: String, text: String) -> Result<(), JsValue> {
+        self.framework
+            .inject_text(&id, &text)
+            .await
+            .map_err(to_js_error)
+    }
+
+    /// Probe for similar concepts using text
+    pub async fn probe_text(&self, query: String, top_k: usize) -> Result<Array, JsValue> {
+        let results = self
+            .framework
+            .probe_text(&query, top_k)
+            .await
+            .map_err(to_js_error)?;
+
+        let array = Array::new();
+        for (id, similarity) in results {
+            let obj = js_sys::Object::new();
+            js_sys::Reflect::set(&obj, &"id".into(), &id.into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+            js_sys::Reflect::set(&obj, &"similarity".into(), &similarity.into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+            array.push(&obj);
+        }
+
+        Ok(array)
     }
 }
 
@@ -373,6 +427,13 @@ impl WasmFramework {
 #[wasm_bindgen]
 pub fn random_hypervector() -> Box<[u8]> {
     HVec10240::random().to_bytes().into_boxed_slice()
+}
+
+/// Encode text to a hypervector using HDC encoding
+#[wasm_bindgen]
+pub fn encode_text(text: &str) -> Box<[u8]> {
+    let encoder = crate::encoder::TextEncoder::new();
+    encoder.encode(text).to_bytes().into_boxed_slice()
 }
 
 /// Compute cosine similarity between two hypervectors

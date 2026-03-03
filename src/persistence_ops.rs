@@ -259,4 +259,92 @@ impl Persistence {
         })?;
         Ok(())
     }
+
+    /// Delete a single association between two concepts.
+    pub async fn delete_association(&self, from: &str, to: &str) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        conn.execute(
+            "DELETE FROM associations WHERE from_id = ?1 AND to_id = ?2",
+            params![from, to],
+        )
+        .await
+        .map_err(|e| MemoryError::Database(format!("Failed to delete association: {}", e)))?;
+        Ok(())
+    }
+
+    /// Clear all outbound associations for a concept.
+    pub async fn clear_concept_associations(&self, id: &str) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        conn.execute("DELETE FROM associations WHERE from_id = ?1", params![id])
+            .await
+            .map_err(|e| {
+                MemoryError::Database(format!("Failed to clear concept associations: {}", e))
+            })?;
+        Ok(())
+    }
+
+    /// Internal migration method that reuses an existing connection.
+    /// Used by init_schema() to avoid semaphore deadlock from nested permit acquisition.
+    pub(crate) async fn apply_migrations_with_conn(
+        &self,
+        conn: &libsql::Connection,
+        target_version: i64,
+    ) -> Result<()> {
+        let current = self.schema_version_with_conn(conn).await?;
+        if target_version <= current {
+            return Ok(());
+        }
+
+        conn.execute("BEGIN", ()).await.map_err(|e| {
+            MemoryError::Database(format!("Failed to begin migration transaction: {}", e))
+        })?;
+
+        for version in (current + 1)..=target_version {
+            info!(version, "applying schema migration");
+            if version == 2 {
+                conn.execute_batch(
+                    "CREATE INDEX IF NOT EXISTS idx_concept_versions_modified_at
+                     ON concept_versions(modified_at);",
+                )
+                .await
+                .map_err(|e| MemoryError::Database(format!("Failed migration v2: {}", e)))?;
+            }
+
+            conn.execute(
+                "INSERT INTO __schema_version(version) VALUES (?1)",
+                libsql::params![version],
+            )
+            .await
+            .map_err(|e| {
+                MemoryError::Database(format!("Failed to record schema version: {}", e))
+            })?;
+        }
+
+        conn.execute("COMMIT", ())
+            .await
+            .map_err(|e| MemoryError::Database(format!("Failed to commit migrations: {}", e)))?;
+
+        Ok(())
+    }
+
+    /// Internal schema version query that reuses an existing connection.
+    async fn schema_version_with_conn(&self, conn: &libsql::Connection) -> Result<i64> {
+        let mut rows = conn
+            .query("SELECT COALESCE(MAX(version), 0) FROM __schema_version", ())
+            .await
+            .map_err(|e| MemoryError::Database(format!("Failed to get schema version: {}", e)))?;
+
+        if let Some(row) = rows.next().await.map_err(|e| {
+            MemoryError::Database(format!("Failed to fetch schema version row: {}", e))
+        })? {
+            let version: i64 = row.get(0).map_err(|e| {
+                MemoryError::Database(format!("Failed to parse schema version: {}", e))
+            })?;
+            Ok(version)
+        } else {
+            Ok(0)
+        }
+    }
 }

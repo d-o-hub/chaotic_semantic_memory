@@ -47,9 +47,12 @@ fn validate_path(path: &str) -> Result<PathBuf> {
             }
         };
 
-        if !normalized.starts_with(std::env::current_dir().unwrap_or_default())
-            && !normalized.starts_with("/tmp")
-        {
+        let current_dir = std::env::current_dir().map_err(|e| MemoryError::InvalidInput {
+            field: "path".to_string(),
+            reason: format!("cannot determine current working directory: {}", e),
+        })?;
+
+        if !normalized.starts_with(&current_dir) && !normalized.starts_with("/tmp") {
             return Err(MemoryError::InvalidInput {
                 field: "path".to_string(),
                 reason: "absolute paths must be within current working directory or /tmp"
@@ -390,5 +393,93 @@ impl ChaoticSemanticFramework {
             return persistence.get_concept_history(id, limit).await;
         }
         Ok(Vec::new())
+    }
+
+    /// Update a concept's vector.
+    ///
+    /// Updates the vector in memory and persists the change if persistence is enabled.
+    /// Records a new version in the version history.
+    #[instrument(err, skip(self), fields(id))]
+    pub async fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()> {
+        let concept = {
+            let mut sing = self.singularity.write().await;
+            sing.update(id, vector)?;
+            sing.get(id).cloned()
+        };
+
+        if let (Some(concept), Some(persistence)) = (concept, &self.persistence) {
+            persistence.save_concept(&concept).await?;
+        }
+        Ok(())
+    }
+
+    /// Update a concept's metadata.
+    ///
+    /// Updates the metadata in memory and persists the change if persistence is enabled.
+    #[instrument(err, skip(self), fields(id))]
+    pub async fn update_concept_metadata(
+        &self,
+        id: &str,
+        metadata: std::collections::HashMap<String, serde_json::Value>,
+    ) -> Result<()> {
+        let concept = {
+            let mut sing = self.singularity.write().await;
+            sing.update_metadata(id, metadata)?;
+            sing.get(id).cloned()
+        };
+
+        if let (Some(concept), Some(persistence)) = (concept, &self.persistence) {
+            persistence.save_concept(&concept).await?;
+        }
+        Ok(())
+    }
+
+    /// Remove an association between two concepts.
+    ///
+    /// Removes the association from memory and persists the change if persistence is enabled.
+    #[instrument(err, skip(self), fields(from, to))]
+    pub async fn disassociate(&self, from: &str, to: &str) -> Result<()> {
+        {
+            let mut sing = self.singularity.write().await;
+            sing.disassociate(from, to)?;
+        }
+
+        if let Some(persistence) = &self.persistence {
+            persistence.delete_association(from, to).await?;
+        }
+        Ok(())
+    }
+
+    /// Clear all outbound associations for a concept.
+    ///
+    /// Removes all associations from the given concept in memory and persists
+    /// the change if persistence is enabled.
+    #[instrument(err, skip(self), fields(id))]
+    pub async fn clear_associations(&self, id: &str) -> Result<()> {
+        {
+            let mut sing = self.singularity.write().await;
+            sing.clear_associations(id)?;
+        }
+
+        if let Some(persistence) = &self.persistence {
+            persistence.clear_concept_associations(id).await?;
+        }
+        Ok(())
+    }
+
+    /// Clear the similarity query cache.
+    ///
+    /// Useful when you want to ensure fresh similarity results.
+    pub async fn clear_similarity_cache(&self) {
+        let sing = self.singularity.read().await;
+        sing.clear_similarity_cache();
+    }
+
+    /// Bundle multiple concepts into a single hypervector (strict version).
+    ///
+    /// Returns `NotFound` error if any concept ID is missing.
+    pub async fn bundle_concepts_strict(&self, ids: &[String]) -> Result<HVec10240> {
+        let sing = self.singularity.read().await;
+        sing.bundle_concepts_strict(ids)
     }
 }

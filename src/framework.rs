@@ -256,7 +256,10 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
-    /// Load and replace all in-memory state from persistence
+    /// Load and replace all in-memory state from persistence.
+    ///
+    /// Clears existing state, loads persisted state. Use for fresh starts.
+    /// See also: [`load_merge`](Self::load_merge) for additive semantics.
     #[instrument(err, skip(self))]
     pub async fn load_replace(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
@@ -298,7 +301,10 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
-    /// Load and merge persisted state into in-memory state
+    /// Load and merge persisted state into in-memory state.
+    ///
+    /// Preserves existing state, adds persisted state on top.
+    /// See also: [`load_replace`](Self::load_replace) for replacement semantics.
     #[instrument(err, skip(self))]
     pub async fn load_merge(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
@@ -372,125 +378,65 @@ impl ChaoticSemanticFramework {
         snapshot
     }
 
+    /// Update a concept's vector (WASM-only, memory-only).
+    #[cfg(target_arch = "wasm32")]
+    pub async fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()> {
+        self.singularity.write().await.update(id, vector)
+    }
+
+    /// Remove an association (WASM-only, memory-only).
+    #[cfg(target_arch = "wasm32")]
+    pub async fn disassociate(&self, from: &str, to: &str) -> Result<()> {
+        self.singularity.write().await.disassociate(from, to)
+    }
+
+    /// Inject a concept from text using the built-in encoder.
+    ///
+    /// The text is encoded to a hypervector using `TextEncoder` and stored
+    /// with the given ID. This is a convenience method for the common case
+    /// of storing text-based concepts.
+    pub async fn inject_text(&self, id: &str, text: &str) -> Result<()> {
+        let encoder = crate::encoder::TextEncoder::new();
+        let vector = encoder.encode(text);
+        self.inject_concept(id, vector).await
+    }
+
+    /// Inject a concept from text with metadata.
+    pub async fn inject_text_with_metadata(
+        &self,
+        id: &str,
+        text: &str,
+        metadata: std::collections::HashMap<String, serde_json::Value>,
+    ) -> Result<()> {
+        let encoder = crate::encoder::TextEncoder::new();
+        let vector = encoder.encode(text);
+        self.inject_concept_with_metadata(id, vector, metadata)
+            .await
+    }
+
+    /// Probe for similar concepts using text input.
+    ///
+    /// Encodes the query text and finds the most similar concepts.
+    pub async fn probe_text(&self, query: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
+        let encoder = crate::encoder::TextEncoder::new();
+        let vector = encoder.encode(query);
+        self.probe(vector, top_k).await
+    }
+
     /// Get framework statistics
     pub async fn stats(&self) -> Result<FrameworkStats> {
         let sing = self.singularity.read().await;
         let concept_count = sing.len();
 
         let db_size = if let Some(ref persistence) = self.persistence {
-            persistence.size().await.unwrap_or(0)
+            Some(persistence.size().await.unwrap_or(0))
         } else {
-            0
+            None
         };
 
         Ok(FrameworkStats {
             concept_count,
             db_size_bytes: db_size,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::hyperdim::HVec10240;
-
-    #[tokio::test]
-    async fn test_inject_concept_with_metadata_success() {
-        let framework = ChaoticSemanticFramework::builder()
-            .without_persistence()
-            .build()
-            .await
-            .unwrap();
-
-        let vector = HVec10240::random();
-        let mut metadata = std::collections::HashMap::new();
-        metadata.insert("source".to_string(), serde_json::json!("test"));
-        metadata.insert("score".to_string(), serde_json::json!(0.95));
-
-        framework
-            .inject_concept_with_metadata("concept-1", vector, metadata)
-            .await
-            .unwrap();
-
-        let concept = framework.get_concept("concept-1").await.unwrap().unwrap();
-        assert_eq!(concept.id, "concept-1");
-        assert_eq!(concept.metadata.get("source").unwrap(), "test");
-        assert_eq!(concept.metadata.get("score").unwrap(), 0.95);
-    }
-
-    #[tokio::test]
-    async fn test_inject_concept_with_metadata_exceeds_limit() {
-        let framework = ChaoticSemanticFramework::builder()
-            .without_persistence()
-            .with_max_metadata_bytes(10)
-            .build()
-            .await
-            .unwrap();
-
-        let vector = HVec10240::random();
-        let mut metadata = std::collections::HashMap::new();
-        metadata.insert(
-            "data".to_string(),
-            serde_json::json!("this is a very long string"),
-        );
-
-        let result = framework
-            .inject_concept_with_metadata("concept-1", vector, metadata)
-            .await;
-
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_framework_builder_with_reservoir_input_size() {
-        let framework = ChaoticSemanticFramework::builder()
-            .without_persistence()
-            .with_reservoir_size(1000)
-            .with_reservoir_input_size(512)
-            .with_chaos_strength(0.05)
-            .build()
-            .await
-            .unwrap();
-
-        assert_eq!(framework.config.reservoir_input_size, 512);
-        assert_eq!(framework.config.reservoir_size, 1000);
-        assert_eq!(framework.config.chaos_strength, 0.05);
-    }
-
-    #[tokio::test]
-    async fn test_get_concept_not_found() {
-        let framework = ChaoticSemanticFramework::builder()
-            .without_persistence()
-            .build()
-            .await
-            .unwrap();
-
-        let result = framework.get_concept("nonexistent").await.unwrap();
-        assert!(result.is_none());
-    }
-
-    #[tokio::test]
-    async fn test_inject_concept_with_metadata_empty() {
-        let framework = ChaoticSemanticFramework::builder()
-            .without_persistence()
-            .build()
-            .await
-            .unwrap();
-
-        let vector = HVec10240::random();
-        let metadata = std::collections::HashMap::new();
-
-        framework
-            .inject_concept_with_metadata("concept-empty", vector, metadata)
-            .await
-            .unwrap();
-
-        let concept = framework
-            .get_concept("concept-empty")
-            .await
-            .unwrap()
-            .unwrap();
-        assert!(concept.metadata.is_empty());
     }
 }

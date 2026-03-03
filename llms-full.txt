@@ -8,23 +8,23 @@
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
+- clap (4.5.60) [features: derive, env, string]
+- clap_complete (4.5.42)
+- bincode (1.3.3)
+- serde_json (1.0.138)
 - anyhow (1.0.102)
 - colored (2.2.0)
-- tracing-subscriber (0.3.19)
 - rand (0.8.5)
-- clap (4.5.60) [features: derive, env, string]
-- bincode (1.3.3)
 - serde (1.0.219) [features: derive]
-- serde_json (1.0.138)
-- thiserror (2.0.11)
 - tracing (0.1.41)
-- clap_complete (4.5.42)
+- thiserror (2.0.11)
+- tracing-subscriber (0.3.19)
 **Features:**
-- wasm: []
 - default: [cli]
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored]
+- wasm: []
 
-Generated: 2026-02-28 19:40:23 UTC  
+Generated: 2026-03-03 09:02:06 UTC  
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Table of Contents
@@ -47,6 +47,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Visitor for HVecVisitor
 - impl Deserialize for HVec10240
 - pub fn batch_cosine_similarity
+- pub use crate::bundle::BundleAccumulator
 
 ### src/concept_builder.rs
 
@@ -86,12 +87,16 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use framework_builder::FrameworkBuilder
 - pub use hyperdim::{HVec10240, batch_cosine_similarity}
 - pub use singularity::{Concept, ConceptBuilder}
+- pub mod bundle
 - pub mod cli
 - pub mod concept_builder
+- pub mod encoder
 - pub mod error
 - pub mod framework
 - pub mod framework_builder
+- pub mod graph_traversal
 - pub mod hyperdim
+- pub mod metadata_filter
 - pub mod persistence
 - pub mod persistence_wasm
 - pub mod reservoir
@@ -104,6 +109,12 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use prelude::crate::hyperdim::HVec10240
 - pub use prelude::crate::singularity::{Concept, ConceptBuilder}
 - pub mod wasm
+
+### src/metadata_filter.rs
+
+- pub enum MetadataFilter
+- impl MetadataFilter
+- impl ops::Not for MetadataFilter
 
 ### src/singularity.rs
 
@@ -135,7 +146,12 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct WasmFramework
 - impl WasmFramework
 - pub fn random_hypervector
+- pub fn encode_text
 - pub fn cosine_similarity
+
+### src/singularity_ext.rs
+
+- impl Singularity
 
 ### src/framework_builder.rs
 
@@ -237,6 +253,26 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn native::format_error
 - pub fn native::handle_completions
 - pub fn native::run_async
+
+### src/graph_traversal.rs
+
+- pub struct TraversalConfig
+- impl Default for TraversalConfig
+- impl Singularity
+
+### src/encoder.rs
+
+- pub struct TextEncoderConfig
+- impl Default for TextEncoderConfig
+- pub struct TextEncoder
+- impl Default for TextEncoder
+- impl TextEncoder
+
+### src/bundle.rs
+
+- pub struct BundleAccumulator
+- impl Default for BundleAccumulator
+- impl BundleAccumulator
 
 ---
 
@@ -586,6 +622,7 @@ impl HVec10240 {
     pub const WORDS: Type;
     pub fn zero() -> Self;
     pub fn random() -> Self;
+    pub fn new_seeded(seed: u64) -> Self;
     pub fn sparse(density: f32) -> Self;
     pub fn bundle(vectors: &[Self]) -> Result<Self>;
     pub fn bind(&self, other: &Self) -> Self;
@@ -631,6 +668,13 @@ pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> V
 Batch similarity computation with optimized chunked parallelism.
 Uses Rayon par_chunks() with tuned chunk size for cache efficiency.
 Benchmark target: <500μs for 1000 candidates.
+
+### crate::bundle::BundleAccumulator
+
+```rust
+pub use crate::bundle::BundleAccumulator;
+```
+
 
 
 ## src/concept_builder.rs
@@ -685,6 +729,8 @@ impl Persistence {
     pub fn backup(&self, path: &str) -> Result<()>;
     pub fn restore(&self, path: &str) -> Result<()>;
     pub fn health_check(&self) -> Result<()>;
+    pub fn delete_association(&self, from: &str, to: &str) -> Result<()>;
+    pub fn clear_concept_associations(&self, id: &str) -> Result<()>;
 }
 ```
 
@@ -757,6 +803,11 @@ impl ChaoticSemanticFramework {
     pub fn load_merge(&self) -> Result<()>;
     pub fn load(&self) -> Result<()>;
     pub fn metrics_snapshot(&self) -> FrameworkMetricsSnapshot;
+    pub fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()>;
+    pub fn disassociate(&self, from: &str, to: &str) -> Result<()>;
+    pub fn inject_text(&self, id: &str, text: &str) -> Result<()>;
+    pub fn inject_text_with_metadata(&self, id: &str, text: &str, metadata: std::collections::HashMap<String, serde_json::Value>) -> Result<()>;
+    pub fn probe_text(&self, query: &str, top_k: usize) -> Result<Vec<(String, f32)>>;
     pub fn stats(&self) -> Result<FrameworkStats>;
 }
 ```
@@ -791,6 +842,12 @@ impl ChaoticSemanticFramework {
     pub fn backup(&self, path: &str) -> Result<()>;
     pub fn restore(&self, path: &str) -> Result<()>;
     pub fn concept_history(&self, id: &str, limit: usize) -> Result<Vec<crate::persistence::ConceptVersion>>;
+    pub fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()>;
+    pub fn update_concept_metadata(&self, id: &str, metadata: std::collections::HashMap<String, serde_json::Value>) -> Result<()>;
+    pub fn disassociate(&self, from: &str, to: &str) -> Result<()>;
+    pub fn clear_associations(&self, id: &str) -> Result<()>;
+    pub fn clear_similarity_cache(&self);
+    pub fn bundle_concepts_strict(&self, ids: &[String]) -> Result<HVec10240>;
 }
 ```
 
@@ -919,6 +976,47 @@ pub use crate::hyperdim::HVec10240;
 
 ```rust
 pub use crate::singularity::{Concept, ConceptBuilder};
+```
+
+
+
+## src/metadata_filter.rs
+
+### MetadataFilter
+
+```rust
+#[derive(Debug, Clone)]
+pub enum MetadataFilter {
+    Eq(String, Value),
+    In(String, Vec<Value>),
+    Exists(String),
+    And(Vec<MetadataFilter>),
+    Or(Vec<MetadataFilter>),
+    Not(Box<MetadataFilter>),
+}
+```
+
+A predicate for filtering concepts by metadata during similarity search.
+
+### impl MetadataFilter
+
+```rust
+impl MetadataFilter {
+    pub fn eq(key: impl Trait, value: impl Trait) -> Self;
+    pub fn in_(key: impl Trait, values: Vec<Value>) -> Self;
+    pub fn exists(key: impl Trait) -> Self;
+    pub fn and(filters: Vec<MetadataFilter>) -> Self;
+    pub fn or(filters: Vec<MetadataFilter>) -> Self;
+    pub fn matches(&self, metadata: &HashMap<String, Value>) -> bool;
+}
+```
+
+
+### impl ops::Not for MetadataFilter
+
+```rust
+impl ops::Not for MetadataFilter {
+}
 ```
 
 
@@ -1151,6 +1249,8 @@ impl WasmFramework {
     pub fn probe(&self, vector: &[u8], top_k: usize) -> Result<Array, JsValue>;
     pub fn associate(&self, from: String, to: String, strength: f32) -> Result<(), JsValue>;
     pub fn delete_concept(&self, id: String) -> Result<(), JsValue>;
+    pub fn update_concept(&self, id: String, vector: &[u8]) -> Result<(), JsValue>;
+    pub fn disassociate(&self, from: String, to: String) -> Result<(), JsValue>;
     pub fn get_associations(&self, id: String) -> Result<Array, JsValue>;
     pub fn get_concept(&self, id: String) -> Result<JsValue, JsValue>;
     pub fn inject_concepts(&self, ids: Array, vectors: Array) -> Result<(), JsValue>;
@@ -1161,6 +1261,9 @@ impl WasmFramework {
     pub fn export_to_bytes(&self) -> Result<Uint8Array, JsValue>;
     pub fn import_from_bytes(&self, data: Uint8Array, merge: bool) -> Result<usize, JsValue>;
     pub fn stats(&self) -> Result<JsValue, JsValue>;
+    pub fn concept_count(&self) -> Result<usize, JsValue>;
+    pub fn inject_text(&self, id: String, text: String) -> Result<(), JsValue>;
+    pub fn probe_text(&self, query: String, top_k: usize) -> Result<Array, JsValue>;
 }
 ```
 
@@ -1173,6 +1276,14 @@ pub fn random_hypervector() -> Box<[u8]>
 
 Create a random hypervector (1280 bytes)
 
+### encode_text
+
+```rust
+pub fn encode_text(text: &str) -> Box<[u8]>
+```
+
+Encode text to a hypervector using HDC encoding
+
 ### cosine_similarity
 
 ```rust
@@ -1180,6 +1291,23 @@ pub fn cosine_similarity(a: &[u8], b: &[u8]) -> Result<f32, JsValue>
 ```
 
 Compute cosine similarity between two hypervectors
+
+
+## src/singularity_ext.rs
+
+### impl Singularity
+
+```rust
+impl Singularity {
+    pub fn bundle_concepts_strict(&self, ids: &[String]) -> Result<HVec10240>;
+    pub fn disassociate(&mut self, from: &str, to: &str) -> Result<()>;
+    pub fn clear_associations(&mut self, id: &str) -> Result<()>;
+    pub fn clear_similarity_cache(&self);
+    pub fn update_metadata(&mut self, id: &str, metadata: HashMap<String, serde_json::Value>) -> Result<()>;
+    pub fn find_similar_filtered(&self, query: &HVec10240, top_k: usize, filter: &MetadataFilter) -> Arc<[(String, f32)]>;
+}
+```
+
 
 
 ## src/export_payload.rs
@@ -1221,7 +1349,7 @@ impl Default for FrameworkConfig {
 #[derive(Debug, Clone)]
 pub struct FrameworkStats {
     pub concept_count: usize,
-    pub db_size_bytes: u64,
+    pub db_size_bytes: Option<u64>,
 }
 ```
 
@@ -1740,6 +1868,141 @@ pub fn handle_completions(args: &CompletionsArgs) -> Result<(), CliError>
 
 ```rust
 pub fn run_async(args: CliArgs) -> Result<((), OutputFormat), CliError>
+```
+
+
+
+## src/graph_traversal.rs
+
+### TraversalConfig
+
+```rust
+#[derive(Debug, Clone)]
+pub struct TraversalConfig {
+    pub max_depth: usize,
+    pub min_strength: f32,
+    pub max_results: usize,
+}
+```
+
+Configuration for graph traversal operations.
+
+### impl Default for TraversalConfig
+
+```rust
+impl Default for TraversalConfig {
+}
+```
+
+
+### impl Singularity
+
+```rust
+impl Singularity {
+    pub fn neighbors(&self, id: &str, min_strength: f32) -> Vec<(String, f32)>;
+    pub fn incoming_associations(&self, id: &str) -> Vec<(String, f32)>;
+    pub fn bfs(&self, start: &str, config: &TraversalConfig) -> Result<Vec<(String, u32)>>;
+    pub fn shortest_path(&self, from: &str, to: &str, config: &TraversalConfig) -> Result<Option<Vec<String>>>;
+}
+```
+
+
+
+## src/encoder.rs
+
+### TextEncoderConfig
+
+```rust
+#[derive(Debug, Clone)]
+pub struct TextEncoderConfig {
+    pub position_stride: usize,
+    pub ngram_size: Option<usize>,
+    pub lowercase: bool,
+}
+```
+
+Configuration for the text encoder.
+
+### impl Default for TextEncoderConfig
+
+```rust
+impl Default for TextEncoderConfig {
+}
+```
+
+
+### TextEncoder
+
+```rust
+#[derive(Debug, Clone)]
+pub struct TextEncoder {
+}
+```
+
+Deterministic text-to-hypervector encoder using HDC principles.
+
+Produces consistent `HVec10240` vectors from text input without external dependencies.
+The encoding is:
+- **Deterministic**: Same input always produces same output
+- **Similarity-preserving**: Similar texts produce similar vectors
+- **WASM-compatible**: No external dependencies
+
+### impl Default for TextEncoder
+
+```rust
+impl Default for TextEncoder {
+}
+```
+
+
+### impl TextEncoder
+
+```rust
+impl TextEncoder {
+    pub fn new() -> Self;
+    pub fn with_config(config: TextEncoderConfig) -> Self;
+    pub fn encode(&self, text: &str) -> HVec10240;
+    pub fn encode_with_ngrams(&self, text: &str, n: usize) -> HVec10240;
+}
+```
+
+
+
+## src/bundle.rs
+
+### BundleAccumulator
+
+```rust
+#[derive(Debug, Clone)]
+pub struct BundleAccumulator {
+}
+```
+
+Incremental bundle accumulator for streaming/sliding-window memory.
+
+Maintains signed bit counts for efficient add/remove operations.
+Finalize applies majority threshold to produce a bundled hypervector.
+
+### impl Default for BundleAccumulator
+
+```rust
+impl Default for BundleAccumulator {
+}
+```
+
+
+### impl BundleAccumulator
+
+```rust
+impl BundleAccumulator {
+    pub fn new() -> Self;
+    pub fn add(&mut self, hv: &HVec10240);
+    pub fn remove(&mut self, hv: &HVec10240);
+    pub fn finalize(&self) -> HVec10240;
+    pub fn len(&self) -> u32;
+    pub fn is_empty(&self) -> bool;
+    pub fn clear(&mut self);
+}
 ```
 
 
