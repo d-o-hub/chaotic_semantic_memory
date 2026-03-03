@@ -14,12 +14,13 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: wave15_api_hardening_features_complete
-  orchestrator_last_run: wave_15_api_hardening_features_2026_03_03
-  orchestrator_last_run_at_utc: 2026-03-03T12:00:00Z
+  action_last_completed: merge_pr_15
+  orchestrator_last_run: merge_pr_15_2026_03_03
+  orchestrator_last_run_at_utc: 2026-03-03T10:35:00Z
 
   # Recent changes (2026-03-03)
   recent_changes:
+    - "Merged PR #15: Wave 15 complete"
     - "Completed Wave 15: API Hardening & New Features"
     - "Created ADR-0053: API Hardening & Missing Features (Implemented)"
     - "Created ADR-0054: High-Impact New Features (Implemented)"
@@ -31,6 +32,10 @@ world_state:
     - "Added inject_text/probe_text convenience methods to framework"
     - "Added WASM bindings for inject_text, probe_text, encode_text"
     - "All tests passing, clippy clean, fmt clean"
+
+  # PR Status
+  pr_15_merged: true
+  pr_15_merged_at: "2026-03-03T10:30:00Z"
 
   # Swarm orchestration snapshot
   active_wave: 15
