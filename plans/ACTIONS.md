@@ -1857,7 +1857,7 @@ actions:
     effects:
       version_sync_script_created: true
     cost: 2
-    status: pending
+    status: complete
     file: scripts/sync-version.sh
     description: |
       Create scripts/sync-version.sh that:
@@ -1879,7 +1879,7 @@ actions:
     effects:
       reservoir_try_into_unwrap_removed: true
     cost: 1
-    status: pending
+    status: complete
     file: src/reservoir.rs
     adr: ADR-0053
     description: |
@@ -1893,7 +1893,7 @@ actions:
     effects:
       persistence_semaphore_deadlock_fixed: true
     cost: 3
-    status: pending
+    status: complete
     file: src/persistence.rs, src/persistence_ops.rs
     adr: ADR-0053
     description: |
@@ -1912,7 +1912,7 @@ actions:
     effects:
       version_row_get_unwrap_fixed: true
     cost: 1
-    status: pending
+    status: complete
     file: src/persistence.rs
     adr: ADR-0053
     description: |
@@ -1926,7 +1926,7 @@ actions:
     effects:
       validate_path_current_dir_fixed: true
     cost: 1
-    status: pending
+    status: complete
     file: src/framework_ops.rs
     adr: ADR-0053
     description: |
@@ -1944,7 +1944,7 @@ actions:
     effects:
       framework_update_concept_vector: true
     cost: 2
-    status: pending
+    status: complete
     file: src/framework.rs, src/persistence.rs
     adr: ADR-0053
     description: |
@@ -1960,7 +1960,7 @@ actions:
     effects:
       framework_update_concept_metadata: true
     cost: 2
-    status: pending
+    status: complete
     file: src/framework.rs, src/singularity.rs
     adr: ADR-0053
     description: |
@@ -1976,7 +1976,7 @@ actions:
     effects:
       framework_disassociate: true
     cost: 2
-    status: pending
+    status: complete
     file: src/framework.rs, src/singularity.rs, src/persistence.rs
     adr: ADR-0053
     description: |
@@ -1991,7 +1991,7 @@ actions:
     effects:
       framework_clear_associations: true
     cost: 1
-    status: pending
+    status: complete
     file: src/framework.rs, src/singularity.rs, src/persistence.rs
     adr: ADR-0053
     description: |
@@ -2006,7 +2006,7 @@ actions:
     effects:
       singularity_bundle_strict: true
     cost: 1
-    status: pending
+    status: complete
     file: src/singularity.rs
     adr: ADR-0053
     description: |
@@ -2020,7 +2020,7 @@ actions:
     effects:
       singularity_clear_cache: true
     cost: 1
-    status: pending
+    status: complete
     file: src/singularity.rs
     adr: ADR-0053
     description: |
@@ -2034,7 +2034,7 @@ actions:
     effects:
       builder_version_retention: true
     cost: 1
-    status: pending
+    status: complete
     file: src/framework_builder.rs
     adr: ADR-0053
     description: |
@@ -2051,7 +2051,7 @@ actions:
     effects:
       error_source_chain_support: true
     cost: 2
-    status: pending
+    status: complete
     file: src/error.rs
     adr: ADR-0053
     description: |
@@ -2067,7 +2067,7 @@ actions:
     effects:
       stats_db_size_optional: true
     cost: 1
-    status: pending
+    status: complete
     file: src/framework.rs, src/framework_builder.rs
     adr: ADR-0053
     description: |
@@ -2082,7 +2082,7 @@ actions:
     effects:
       dead_dimension_check_removed: true
     cost: 1
-    status: pending
+    status: complete
     file: src/singularity.rs
     adr: ADR-0053
     description: |
@@ -2099,7 +2099,7 @@ actions:
     effects:
       reservoir_invariants_documented: true
     cost: 1
-    status: pending
+    status: complete
     file: src/reservoir.rs
     adr: ADR-0053
     description: |
@@ -2115,7 +2115,7 @@ actions:
     effects:
       persistence_schema_documented: true
     cost: 1
-    status: pending
+    status: complete
     file: src/persistence.rs
     adr: ADR-0053
     description: |
@@ -2131,7 +2131,7 @@ actions:
     effects:
       load_merge_behavior_documented: true
     cost: 1
-    status: pending
+    status: complete
     file: src/framework_ops.rs
     adr: ADR-0053
     description: |
@@ -2147,7 +2147,7 @@ actions:
     effects:
       wasm_parity_notes_added: true
     cost: 1
-    status: pending
+    status: complete
     file: src/lib.rs
     adr: ADR-0053
     description: |
@@ -2166,7 +2166,7 @@ actions:
     effects:
       wasm_update_concept_exposed: true
     cost: 1
-    status: pending
+    status: complete
     file: src/wasm.rs
     adr: ADR-0053
     description: |
@@ -2180,7 +2180,7 @@ actions:
     effects:
       wasm_disassociate_exposed: true
     cost: 1
-    status: pending
+    status: complete
     file: src/wasm.rs
     adr: ADR-0053
     description: |
@@ -2193,7 +2193,7 @@ actions:
     effects:
       wasm_stats_exposed: true
     cost: 1
-    status: pending
+    status: complete
     file: src/wasm.rs
     adr: ADR-0053
     description: |
@@ -2206,7 +2206,7 @@ actions:
     effects:
       wasm_persistence_story_documented: true
     cost: 1
-    status: pending
+    status: complete
     file: src/wasm.rs, book/src/wasm.md
     adr: ADR-0053
     description: |
@@ -2228,7 +2228,7 @@ actions:
       text_encoder_deterministic: true
       text_encoder_position_aware: true
     cost: 4
-    status: pending
+    status: complete
     file: src/encoder.rs
     adr: ADR-0054
     description: |
@@ -2247,7 +2247,7 @@ actions:
     effects:
       text_encoder_ngram_support: true
     cost: 2
-    status: pending
+    status: complete
     file: src/encoder.rs
     adr: ADR-0054
     description: |
@@ -2264,7 +2264,7 @@ actions:
       framework_probe_text: true
       text_encoder_wasm_compatible: true
     cost: 2
-    status: pending
+    status: complete
     file: src/framework.rs, src/wasm.rs
     adr: ADR-0054
     description: |
@@ -2285,7 +2285,7 @@ actions:
     effects:
       metadata_filter_types_created: true
     cost: 2
-    status: pending
+    status: complete
     file: src/metadata_filter.rs
     adr: ADR-0054
     description: |
@@ -2306,7 +2306,7 @@ actions:
       singularity_find_similar_filtered: true
       framework_probe_filtered: true
     cost: 3
-    status: pending
+    status: complete
     file: src/singularity.rs, src/framework.rs
     adr: ADR-0054
     description: |
@@ -2322,7 +2322,7 @@ actions:
     effects:
       metadata_filter_wasm_exposed: true
     cost: 1
-    status: pending
+    status: complete
     file: src/wasm.rs
     adr: ADR-0054
     description: |
@@ -2343,7 +2343,7 @@ actions:
       singularity_shortest_path: true
       singularity_incoming_associations: true
     cost: 5
-    status: pending
+    status: complete
     file: src/graph_traversal.rs
     adr: ADR-0054
     description: |
@@ -2362,7 +2362,7 @@ actions:
       framework_traverse: true
       framework_shortest_path: true
     cost: 2
-    status: pending
+    status: complete
     file: src/framework.rs
     adr: ADR-0054
     description: |
@@ -2377,7 +2377,7 @@ actions:
     effects:
       graph_traversal_wasm_exposed: true
     cost: 1
-    status: pending
+    status: complete
     file: src/wasm.rs
     adr: ADR-0054
     description: |
@@ -2397,7 +2397,7 @@ actions:
       bundle_accumulator_add_remove: true
       bundle_accumulator_streaming: true
     cost: 4
-    status: pending
+    status: complete
     file: src/hyperdim.rs
     adr: ADR-0054
     description: |

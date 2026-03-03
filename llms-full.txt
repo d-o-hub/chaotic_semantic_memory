@@ -8,23 +8,23 @@
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
-- tracing (0.1.41)
+- clap (4.5.60) [features: derive, env, string]
 - clap_complete (4.5.42)
+- bincode (1.3.3)
+- serde_json (1.0.138)
+- anyhow (1.0.102)
 - colored (2.2.0)
 - rand (0.8.5)
-- bincode (1.3.3)
-- clap (4.5.60) [features: derive, env, string]
-- anyhow (1.0.102)
 - serde (1.0.219) [features: derive]
-- serde_json (1.0.138)
-- tracing-subscriber (0.3.19)
+- tracing (0.1.41)
 - thiserror (2.0.11)
+- tracing-subscriber (0.3.19)
 **Features:**
 - default: [cli]
-- wasm: []
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored]
+- wasm: []
 
-Generated: 2026-03-03 08:24:16 UTC  
+Generated: 2026-03-03 09:02:06 UTC  
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Table of Contents
@@ -47,6 +47,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Visitor for HVecVisitor
 - impl Deserialize for HVec10240
 - pub fn batch_cosine_similarity
+- pub use crate::bundle::BundleAccumulator
 
 ### src/concept_builder.rs
 
@@ -86,13 +87,16 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use framework_builder::FrameworkBuilder
 - pub use hyperdim::{HVec10240, batch_cosine_similarity}
 - pub use singularity::{Concept, ConceptBuilder}
+- pub mod bundle
 - pub mod cli
 - pub mod concept_builder
 - pub mod encoder
 - pub mod error
 - pub mod framework
 - pub mod framework_builder
+- pub mod graph_traversal
 - pub mod hyperdim
+- pub mod metadata_filter
 - pub mod persistence
 - pub mod persistence_wasm
 - pub mod reservoir
@@ -105,6 +109,12 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use prelude::crate::hyperdim::HVec10240
 - pub use prelude::crate::singularity::{Concept, ConceptBuilder}
 - pub mod wasm
+
+### src/metadata_filter.rs
+
+- pub enum MetadataFilter
+- impl MetadataFilter
+- impl ops::Not for MetadataFilter
 
 ### src/singularity.rs
 
@@ -244,6 +254,12 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn native::handle_completions
 - pub fn native::run_async
 
+### src/graph_traversal.rs
+
+- pub struct TraversalConfig
+- impl Default for TraversalConfig
+- impl Singularity
+
 ### src/encoder.rs
 
 - pub struct TextEncoderConfig
@@ -251,6 +267,12 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct TextEncoder
 - impl Default for TextEncoder
 - impl TextEncoder
+
+### src/bundle.rs
+
+- pub struct BundleAccumulator
+- impl Default for BundleAccumulator
+- impl BundleAccumulator
 
 ---
 
@@ -647,6 +669,13 @@ Batch similarity computation with optimized chunked parallelism.
 Uses Rayon par_chunks() with tuned chunk size for cache efficiency.
 Benchmark target: <500μs for 1000 candidates.
 
+### crate::bundle::BundleAccumulator
+
+```rust
+pub use crate::bundle::BundleAccumulator;
+```
+
+
 
 ## src/concept_builder.rs
 
@@ -951,6 +980,47 @@ pub use crate::singularity::{Concept, ConceptBuilder};
 
 
 
+## src/metadata_filter.rs
+
+### MetadataFilter
+
+```rust
+#[derive(Debug, Clone)]
+pub enum MetadataFilter {
+    Eq(String, Value),
+    In(String, Vec<Value>),
+    Exists(String),
+    And(Vec<MetadataFilter>),
+    Or(Vec<MetadataFilter>),
+    Not(Box<MetadataFilter>),
+}
+```
+
+A predicate for filtering concepts by metadata during similarity search.
+
+### impl MetadataFilter
+
+```rust
+impl MetadataFilter {
+    pub fn eq(key: impl Trait, value: impl Trait) -> Self;
+    pub fn in_(key: impl Trait, values: Vec<Value>) -> Self;
+    pub fn exists(key: impl Trait) -> Self;
+    pub fn and(filters: Vec<MetadataFilter>) -> Self;
+    pub fn or(filters: Vec<MetadataFilter>) -> Self;
+    pub fn matches(&self, metadata: &HashMap<String, Value>) -> bool;
+}
+```
+
+
+### impl ops::Not for MetadataFilter
+
+```rust
+impl ops::Not for MetadataFilter {
+}
+```
+
+
+
 ## src/singularity.rs
 
 ### DEFAULT_MAX_CACHED_TOP_K
@@ -1234,6 +1304,7 @@ impl Singularity {
     pub fn clear_associations(&mut self, id: &str) -> Result<()>;
     pub fn clear_similarity_cache(&self);
     pub fn update_metadata(&mut self, id: &str, metadata: HashMap<String, serde_json::Value>) -> Result<()>;
+    pub fn find_similar_filtered(&self, query: &HVec10240, top_k: usize, filter: &MetadataFilter) -> Arc<[(String, f32)]>;
 }
 ```
 
@@ -1801,6 +1872,42 @@ pub fn run_async(args: CliArgs) -> Result<((), OutputFormat), CliError>
 
 
 
+## src/graph_traversal.rs
+
+### TraversalConfig
+
+```rust
+#[derive(Debug, Clone)]
+pub struct TraversalConfig {
+    pub max_depth: usize,
+    pub min_strength: f32,
+    pub max_results: usize,
+}
+```
+
+Configuration for graph traversal operations.
+
+### impl Default for TraversalConfig
+
+```rust
+impl Default for TraversalConfig {
+}
+```
+
+
+### impl Singularity
+
+```rust
+impl Singularity {
+    pub fn neighbors(&self, id: &str, min_strength: f32) -> Vec<(String, f32)>;
+    pub fn incoming_associations(&self, id: &str) -> Vec<(String, f32)>;
+    pub fn bfs(&self, start: &str, config: &TraversalConfig) -> Result<Vec<(String, u32)>>;
+    pub fn shortest_path(&self, from: &str, to: &str, config: &TraversalConfig) -> Result<Option<Vec<String>>>;
+}
+```
+
+
+
 ## src/encoder.rs
 
 ### TextEncoderConfig
@@ -1856,6 +1963,45 @@ impl TextEncoder {
     pub fn with_config(config: TextEncoderConfig) -> Self;
     pub fn encode(&self, text: &str) -> HVec10240;
     pub fn encode_with_ngrams(&self, text: &str, n: usize) -> HVec10240;
+}
+```
+
+
+
+## src/bundle.rs
+
+### BundleAccumulator
+
+```rust
+#[derive(Debug, Clone)]
+pub struct BundleAccumulator {
+}
+```
+
+Incremental bundle accumulator for streaming/sliding-window memory.
+
+Maintains signed bit counts for efficient add/remove operations.
+Finalize applies majority threshold to produce a bundled hypervector.
+
+### impl Default for BundleAccumulator
+
+```rust
+impl Default for BundleAccumulator {
+}
+```
+
+
+### impl BundleAccumulator
+
+```rust
+impl BundleAccumulator {
+    pub fn new() -> Self;
+    pub fn add(&mut self, hv: &HVec10240);
+    pub fn remove(&mut self, hv: &HVec10240);
+    pub fn finalize(&self) -> HVec10240;
+    pub fn len(&self) -> u32;
+    pub fn is_empty(&self) -> bool;
+    pub fn clear(&mut self);
 }
 ```
 
