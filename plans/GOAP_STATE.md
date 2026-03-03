@@ -36,6 +36,10 @@ world_state:
   # PR Status
   pr_15_merged: true
   pr_15_merged_at: "2026-03-03T10:30:00Z"
+  
+  # CI Status
+  ci_main_passing: true
+  codeql_main_passing: true
 
   # Swarm orchestration snapshot
   active_wave: 15
