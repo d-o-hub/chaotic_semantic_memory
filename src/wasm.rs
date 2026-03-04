@@ -16,7 +16,7 @@ const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024; // 100 MB default
 /// WASM-friendly wrapper for the framework
 #[wasm_bindgen]
 pub struct WasmFramework {
-    framework: ChaoticSemanticFramework,
+    pub(crate) framework: ChaoticSemanticFramework,
 }
 
 #[wasm_bindgen]
