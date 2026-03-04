@@ -18,8 +18,9 @@ world_state:
   orchestrator_last_run: merge_pr_15_2026_03_03
   orchestrator_last_run_at_utc: 2026-03-03T10:35:00Z
 
-  # Recent changes (2026-03-03)
+  # Recent changes (2026-03-04)
   recent_changes:
+    - "v0.2.0 released: crates.io ✅, npm ✅, GitHub Release ✅"
     - "Wave 16 complete: Production Polish & Correctness (ADR-0055)"
     - "FNV-1a hash stability in TextEncoder (breaking: re-encode persisted vectors)"
     - "Weighted Dijkstra shortest_path + shortest_path_hops BFS compat"
@@ -47,6 +48,13 @@ world_state:
   # CI Status
   ci_main_passing: true
   codeql_main_passing: true
+
+  # Release Status (v0.2.0)
+  release_v020_completed: true
+  release_v020_completed_at: "2026-03-04T18:31:00Z"
+  crates_io_v020_published: true
+  npm_v020_published: true
+  github_release_v020_created: true
 
   # Swarm orchestration snapshot
   active_wave: 16
