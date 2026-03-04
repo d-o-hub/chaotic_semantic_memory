@@ -5,7 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0]
+
+## [0.2.0] - 2026-03-04
+
+### Added
+- **FNV-1a hash stability** (`encoder.rs`): `TextEncoder` now uses FNV-1a (64-bit) instead of
+  `DefaultHasher` (SipHash), guaranteeing deterministic encoding across Rust versions and platforms.
+  `DefaultHasher` is explicitly non-stable; FNV-1a is a breaking change for persisted encoded vectors
+  but is required for correctness (ADR-0055).
+- **Weighted Dijkstra `shortest_path`** (`graph_traversal.rs`): `Singularity::shortest_path` now
+  implements true weighted Dijkstra with `-ln(strength)` edge cost, preferring paths through stronger
+  associations. The previous BFS behavior is preserved as `shortest_path_hops` for backward compat.
+- **`BundleAccumulator::try_remove`** (`bundle.rs`): Fallible variant that returns
+  `Err(MemoryError::InvalidInput)` on empty accumulator instead of panicking.
+- **`BundleAccumulator::remove` no-op on empty** (`bundle.rs`): The infallible `remove` now saturates
+  at zero instead of panicking, matching the documented "sliding-window" use case.
+- **WASM parity** (`wasm.rs`): New WASM bindings for `update_concept_metadata`, `clear_associations`,
+  `neighbors`, `bfs`, and `shortest_path` — completing the graph/metadata API surface in the browser.
+- **Wave 16 test suite** (`tests/wave16_features.rs`): 21 new tests covering TextEncoder golden
+  vectors, graph traversal cycle/disconnect edge cases, BundleAccumulator edge cases, and filtered
+  search edge cases.
+- **Wave 16 benchmarks** (`benches/benchmark.rs`): Criterion benchmarks for `TextEncoder::encode`
+  (short/medium/long), `find_similar_filtered` (100/1k concepts), graph traversal BFS/Dijkstra
+  (sparse/dense), and `BundleAccumulator` add/remove/finalize cycles.
+
+### Fixed
+- **Panic elimination** (`reservoir.rs`): `Reservoir::to_hypervector` no longer panics on internal
+  `try_into` failure; maps to `MemoryError::Reservoir` instead.
+- **Doc/code mismatch** (`graph_traversal.rs`): `shortest_path` docs claimed weighted Dijkstra but
+  implemented unweighted BFS. Now correctly implements Dijkstra; BFS variant renamed `shortest_path_hops`.
+- **Hash instability** (`encoder.rs`): `TextEncoder::stable_hash` used `DefaultHasher` (SipHash),
+  which is non-stable across Rust versions. Replaced with inline FNV-1a implementation.
+
+### Changed
+- `TextEncoder` encoding output will differ from v0.1.x for any text input due to the FNV-1a hash
+  change. Re-encode and re-persist any stored text-derived vectors after upgrading.
+- `Singularity::shortest_path` now returns the minimum-cost (Dijkstra) path, not the fewest-hop
+  (BFS) path. Use `shortest_path_hops` for the previous behavior.
 
 ## [0.1.3] - 2026-02-28
 

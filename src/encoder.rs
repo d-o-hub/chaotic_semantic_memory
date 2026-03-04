@@ -6,10 +6,18 @@
 //! # Algorithm
 //!
 //! 1. **Tokenize**: Split on whitespace, lowercase, optional unicode segmentation
-//! 2. **Token → base HVec**: Stable hash (FNV-1a) → seeded PRNG → random HVec10240
+//! 2. **Token → base HVec**: FNV-1a hash → seeded PRNG → random HVec10240
 //! 3. **Position encoding**: `token_hv.permute(position * stride)`
 //! 4. **Bundle**: Majority-rule bundling of all position-encoded token vectors
 //! 5. **Optional**: Character n-gram overlay for typo robustness
+//!
+//! # Hash Stability
+//!
+//! Token hashing uses FNV-1a (Fowler–Noll–Vo 1a, 64-bit), implemented inline with
+//! no external dependencies. FNV-1a is guaranteed stable across Rust versions and
+//! platforms, unlike `std::collections::hash_map::DefaultHasher` (SipHash), which
+//! is explicitly documented as non-stable. This ensures encoded vectors are
+//! reproducible across Rust upgrades and different builds.
 //!
 //! # Example
 //!
@@ -24,8 +32,24 @@
 //! ```
 
 use crate::hyperdim::HVec10240;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+
+/// FNV-1a 64-bit offset basis and prime (Fowler–Noll–Vo).
+const FNV1A_OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
+const FNV1A_PRIME: u64 = 0x0000_0100_0000_01b3;
+
+/// Compute a stable FNV-1a 64-bit hash for a byte slice.
+///
+/// This is guaranteed stable across Rust versions and platforms, unlike
+/// `DefaultHasher` (SipHash), which is explicitly non-stable.
+#[inline]
+fn fnv1a_hash(bytes: &[u8]) -> u64 {
+    let mut hash = FNV1A_OFFSET_BASIS;
+    for &byte in bytes {
+        hash ^= byte as u64;
+        hash = hash.wrapping_mul(FNV1A_PRIME);
+    }
+    hash
+}
 
 /// Configuration for the text encoder.
 #[derive(Debug, Clone)]
@@ -115,10 +139,14 @@ impl TextEncoder {
             })
             .collect();
 
-        // Bundle all position-encoded vectors
+        // Bundle all position-encoded vectors.
+        // `HVec10240::bundle` only fails on empty input; we guard against that above,
+        // so the fallback to zero is a defensive no-op that avoids propagating an
+        // unreachable error through the public API.
         let mut result = HVec10240::bundle(&encoded_vectors).unwrap_or_else(|_| HVec10240::zero());
 
-        // Optionally add n-gram overlay
+        // Optionally add n-gram overlay.
+        // Same reasoning: bundle of non-empty slice is infallible in practice.
         if let Some(n) = self.config.ngram_size {
             let ngram_hv = self.encode_ngrams(&processed, n);
             // Blend n-gram encoding with token encoding
@@ -151,11 +179,12 @@ impl TextEncoder {
         HVec10240::new_seeded(hash)
     }
 
-    /// Compute a stable hash for a token using FNV-1a.
+    /// Compute a stable FNV-1a hash for a token.
+    ///
+    /// Uses FNV-1a (64-bit) for guaranteed cross-version stability.
+    /// `DefaultHasher` (SipHash) is explicitly non-stable across Rust versions.
     fn stable_hash(&self, token: &str) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        token.hash(&mut hasher);
-        hasher.finish()
+        fnv1a_hash(token.as_bytes())
     }
 
     /// Encode text using character n-grams.

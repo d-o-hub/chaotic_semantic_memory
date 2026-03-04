@@ -1,8 +1,17 @@
 //! Graph traversal operations on the association graph.
 //!
 //! Provides BFS, shortest path, and neighbor queries on the concept association graph.
+//!
+//! # Shortest Path
+//!
+//! Two variants are provided:
+//! - [`Singularity::shortest_path`]: Weighted Dijkstra using `-ln(strength)` as edge cost.
+//!   Prefers paths through stronger associations. Returns the minimum-cost path.
+//! - [`Singularity::shortest_path_hops`]: Unweighted BFS. Returns the fewest-hop path
+//!   regardless of edge strength. Use when hop count matters more than association strength.
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 
 use crate::error::{MemoryError, Result};
 use crate::singularity::Singularity;
@@ -94,11 +103,102 @@ impl Singularity {
         Ok(results)
     }
 
-    /// Find the shortest path between two concepts.
+    /// Find the minimum-cost path between two concepts using weighted Dijkstra.
     ///
-    /// Uses BFS to find the shortest path. Returns `None` if no path exists.
-    /// Edge costs are computed as `-ln(strength)` to prefer stronger associations.
+    /// Edge cost is `-ln(strength)`, so stronger associations have lower cost.
+    /// A strength of `1.0` has cost `0.0`; a strength of `0.1` has cost `~2.3`.
+    /// Strength values ≤ 0 are treated as cost `f32::MAX` (effectively unreachable).
+    ///
+    /// Returns `None` if no path exists within `config.max_depth` hops.
+    /// Use [`shortest_path_hops`] for unweighted (fewest-hop) traversal.
     pub fn shortest_path(
+        &self,
+        from: &str,
+        to: &str,
+        config: &TraversalConfig,
+    ) -> Result<Option<Vec<String>>> {
+        if !self.concepts.contains_key(from) {
+            return Err(MemoryError::NotFound {
+                entity: "Concept".to_string(),
+                id: from.to_string(),
+            });
+        }
+        if !self.concepts.contains_key(to) {
+            return Err(MemoryError::NotFound {
+                entity: "Concept".to_string(),
+                id: to.to_string(),
+            });
+        }
+
+        if from == to {
+            return Ok(Some(vec![from.to_string()]));
+        }
+
+        // Dijkstra: min-heap of (cost_bits, depth, node_id)
+        // We store cost as ordered bits via f32::to_bits for BinaryHeap<Reverse<...>>.
+        let mut dist: HashMap<String, f32> = HashMap::new();
+        let mut parent: HashMap<String, String> = HashMap::new();
+        // BinaryHeap is a max-heap; Reverse makes it a min-heap.
+        let mut heap: BinaryHeap<Reverse<(u32, u32, String)>> = BinaryHeap::new();
+
+        dist.insert(from.to_string(), 0.0);
+        heap.push(Reverse((0u32, 0u32, from.to_string())));
+
+        while let Some(Reverse((cost_bits, depth, current))) = heap.pop() {
+            if current == to {
+                // Reconstruct path
+                let mut path = vec![to.to_string()];
+                let mut node = to;
+                while let Some(p) = parent.get(node) {
+                    path.push(p.clone());
+                    node = p;
+                    if node == from {
+                        break;
+                    }
+                }
+                path.reverse();
+                return Ok(Some(path));
+            }
+
+            let current_cost = f32::from_bits(cost_bits);
+            if let Some(&best) = dist.get(&current) {
+                if current_cost > best {
+                    continue; // Stale entry
+                }
+            }
+
+            if depth as usize >= config.max_depth {
+                continue;
+            }
+
+            let neighbors = self.neighbors(&current, config.min_strength);
+            for (neighbor, strength) in neighbors {
+                // Cost: -ln(strength), guarding against strength <= 0
+                let edge_cost = if strength > 0.0 {
+                    -strength.ln()
+                } else {
+                    f32::MAX / 2.0
+                };
+                let new_cost = current_cost + edge_cost;
+                let best = dist.get(&neighbor).copied().unwrap_or(f32::MAX);
+                if new_cost < best {
+                    dist.insert(neighbor.clone(), new_cost);
+                    parent.insert(neighbor.clone(), current.clone());
+                    heap.push(Reverse((new_cost.to_bits(), depth + 1, neighbor)));
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Find the fewest-hop path between two concepts using unweighted BFS.
+    ///
+    /// Returns the path with the minimum number of hops, ignoring edge strengths.
+    /// Use [`shortest_path`] for strength-weighted (Dijkstra) traversal.
+    ///
+    /// Returns `None` if no path exists within `config.max_depth` hops.
+    pub fn shortest_path_hops(
         &self,
         from: &str,
         to: &str,
@@ -123,15 +223,14 @@ impl Singularity {
 
         let mut visited: HashSet<String> = HashSet::new();
         let mut parent: HashMap<String, String> = HashMap::new();
-        let mut queue: VecDeque<String> = VecDeque::new();
+        let mut queue: VecDeque<(String, u32)> = VecDeque::new();
 
         visited.insert(from.to_string());
-        queue.push_back(from.to_string());
+        queue.push_back((from.to_string(), 0));
 
-        let mut found = false;
-        while let Some(current) = queue.pop_front() {
-            if found {
-                break;
+        while let Some((current, depth)) = queue.pop_front() {
+            if depth as usize >= config.max_depth {
+                continue;
             }
 
             let neighbors = self.neighbors(&current, config.min_strength);
@@ -139,31 +238,25 @@ impl Singularity {
                 if visited.insert(neighbor.clone()) {
                     parent.insert(neighbor.clone(), current.clone());
                     if neighbor == to {
-                        found = true;
-                        break;
+                        // Reconstruct path
+                        let mut path = vec![to.to_string()];
+                        let mut node = to;
+                        while let Some(p) = parent.get(node) {
+                            path.push(p.clone());
+                            node = p;
+                            if node == from {
+                                break;
+                            }
+                        }
+                        path.reverse();
+                        return Ok(Some(path));
                     }
-                    queue.push_back(neighbor);
+                    queue.push_back((neighbor, depth + 1));
                 }
             }
         }
 
-        if !found {
-            return Ok(None);
-        }
-
-        // Reconstruct path
-        let mut path = vec![to.to_string()];
-        let mut current = to;
-        while let Some(p) = parent.get(current) {
-            path.push(p.clone());
-            current = p;
-            if current == from {
-                break;
-            }
-        }
-        path.reverse();
-
-        Ok(Some(path))
+        Ok(None)
     }
 }
 
@@ -259,7 +352,7 @@ mod tests {
         let mut sing = Singularity::new();
         sing.inject(make_concept("a")).unwrap();
         sing.inject(make_concept("b")).unwrap();
-        sing.associate("a", "b", 0.5).unwrap();
+        sing.associate("a", "b", 0.9).unwrap();
 
         let config = TraversalConfig::default();
         let path = sing.shortest_path("a", "b", &config).unwrap();
@@ -272,8 +365,8 @@ mod tests {
         sing.inject(make_concept("a")).unwrap();
         sing.inject(make_concept("b")).unwrap();
         sing.inject(make_concept("c")).unwrap();
-        sing.associate("a", "b", 0.5).unwrap();
-        sing.associate("b", "c", 0.5).unwrap();
+        sing.associate("a", "b", 0.9).unwrap();
+        sing.associate("b", "c", 0.9).unwrap();
 
         let config = TraversalConfig::default();
         let path = sing.shortest_path("a", "c", &config).unwrap();
@@ -303,5 +396,65 @@ mod tests {
         let config = TraversalConfig::default();
         let path = sing.shortest_path("a", "a", &config).unwrap();
         assert_eq!(path, Some(vec!["a".to_string()]));
+    }
+
+    /// Dijkstra prefers the high-strength path (lower cost = -ln(strength)).
+    #[test]
+    fn test_shortest_path_dijkstra_prefers_strong_edge() {
+        let mut sing = Singularity::new();
+        // a --0.9--> b --0.9--> d  (strong path, 2 hops)
+        // a --0.1--> c --0.1--> d  (weak path, 2 hops)
+        for id in ["a", "b", "c", "d"] {
+            sing.inject(make_concept(id)).unwrap();
+        }
+        sing.associate("a", "b", 0.9).unwrap();
+        sing.associate("b", "d", 0.9).unwrap();
+        sing.associate("a", "c", 0.1).unwrap();
+        sing.associate("c", "d", 0.1).unwrap();
+
+        let config = TraversalConfig::default();
+        let path = sing.shortest_path("a", "d", &config).unwrap().unwrap();
+        // Strong path a→b→d has lower cost than weak path a→c→d
+        assert_eq!(path, vec!["a", "b", "d"]);
+    }
+
+    #[test]
+    fn test_shortest_path_hops_direct() {
+        let mut sing = Singularity::new();
+        sing.inject(make_concept("a")).unwrap();
+        sing.inject(make_concept("b")).unwrap();
+        sing.associate("a", "b", 0.5).unwrap();
+
+        let config = TraversalConfig::default();
+        let path = sing.shortest_path_hops("a", "b", &config).unwrap();
+        assert_eq!(path, Some(vec!["a".to_string(), "b".to_string()]));
+    }
+
+    #[test]
+    fn test_shortest_path_hops_indirect() {
+        let mut sing = Singularity::new();
+        sing.inject(make_concept("a")).unwrap();
+        sing.inject(make_concept("b")).unwrap();
+        sing.inject(make_concept("c")).unwrap();
+        sing.associate("a", "b", 0.5).unwrap();
+        sing.associate("b", "c", 0.5).unwrap();
+
+        let config = TraversalConfig::default();
+        let path = sing.shortest_path_hops("a", "c", &config).unwrap();
+        assert_eq!(
+            path,
+            Some(vec!["a".to_string(), "b".to_string(), "c".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_shortest_path_hops_no_path() {
+        let mut sing = Singularity::new();
+        sing.inject(make_concept("a")).unwrap();
+        sing.inject(make_concept("b")).unwrap();
+
+        let config = TraversalConfig::default();
+        let path = sing.shortest_path_hops("a", "b", &config).unwrap();
+        assert!(path.is_none());
     }
 }

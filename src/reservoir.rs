@@ -329,10 +329,14 @@ impl Reservoir {
                 word
             })
             .collect();
-        // SAFETY: We iterate exactly 80 times (0..80), so data always has 80 elements
-        let data: [u128; 80] = data
-            .try_into()
-            .unwrap_or_else(|_| panic!("internal error: expected 80 u128 elements"));
+        // SAFETY: We iterate exactly 80 times (0..80), so data always has 80 elements.
+        // The map produces exactly 80 items; try_into can only fail if the length differs,
+        // which is structurally impossible here — map to MemoryError instead of panicking.
+        let data: [u128; 80] = data.try_into().map_err(|_| {
+            MemoryError::Reservoir(
+                "internal: par_iter produced unexpected element count".to_string(),
+            )
+        })?;
         Ok(HVec10240 { data })
     }
 

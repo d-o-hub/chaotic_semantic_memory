@@ -14,12 +14,19 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: merge_pr_15
+  action_last_completed: wave_16_complete
   orchestrator_last_run: merge_pr_15_2026_03_03
   orchestrator_last_run_at_utc: 2026-03-03T10:35:00Z
 
   # Recent changes (2026-03-03)
   recent_changes:
+    - "Wave 16 complete: Production Polish & Correctness (ADR-0055)"
+    - "FNV-1a hash stability in TextEncoder (breaking: re-encode persisted vectors)"
+    - "Weighted Dijkstra shortest_path + shortest_path_hops BFS compat"
+    - "BundleAccumulator::try_remove (no panic), remove saturates at zero"
+    - "Reservoir::to_hypervector panic replaced with MemoryError::Reservoir"
+    - "WASM parity: update_concept_metadata, clear_associations, neighbors, bfs, shortest_path"
+    - "21 new Wave 16 tests, 4 new benchmark groups"
     - "Merged PR #15: Wave 15 complete"
     - "Completed Wave 15: API Hardening & New Features"
     - "Created ADR-0053: API Hardening & Missing Features (Implemented)"
@@ -42,7 +49,7 @@ world_state:
   codeql_main_passing: true
 
   # Swarm orchestration snapshot
-  active_wave: 15
+  active_wave: 16
   wave_strategy: parallel_by_phase_with_handoffs
   wave_11_name: "Release Engineering"
   wave_11_started_at: "2026-02-19"
@@ -56,7 +63,7 @@ world_state:
   wave_14_name: "Real-World Readiness"
   wave_14_started_at: "2026-02-28"
   wave_14_focus: "Phase 29-31: Bug fixes, real-world examples, edge case tests"
-  all_waves_finished: false
+  all_waves_finished: true
   wave_9_completed:
     group_a: cli_crate_scaffold
     group_b: cli_commands_implementation
@@ -530,3 +537,48 @@ world_state:
   memory_event_enum_created: false             # MemoryEvent enum (deferred)
   framework_subscribe: false                   # subscribe() → broadcast::Receiver (deferred)
   memory_events_wasm_compatible: false         # WASM callback support (deferred)
+
+  # ═══════════════════════════════════════════════════════
+  # Wave 16: Production Polish & Correctness (ADR-0055)
+  # ═══════════════════════════════════════════════════════
+  wave_16_name: "Production Polish & Correctness"
+  wave_16_started_at: "2026-03-04"
+  wave_16_focus: "Phase 42-47: Panic elimination, correctness fixes, WASM parity, tests, benchmarks, docs"
+  wave_16_complete: true
+  wave_16_completed_at: "2026-03-04"
+
+  # Phase 42: Panic Path Elimination (cost: 3)
+  bundle_accumulator_try_remove: true         # try_remove() -> Result<()> + no-op remove
+  reservoir_to_hvec_panic_removed: true        # Replace panic with MemoryError::Reservoir
+  encoder_bundle_fallback_documented: true     # Document intentional zero fallback
+
+  # Phase 43: Correctness Fixes (cost: 5)
+  text_encoder_fnv1a_hash: true               # Replace DefaultHasher with actual FNV-1a
+  text_encoder_hash_configurable: true        # TextEncoderConfig::hash_algorithm field
+  text_encoder_golden_vectors: true           # Regression test with known input → known output
+  shortest_path_weighted_dijkstra: true       # Implement actual weighted Dijkstra
+  shortest_path_hops_preserved: true          # Rename current BFS to shortest_path_hops
+
+  # Phase 44: WASM Parity Completion (cost: 4)
+  wasm_update_metadata_exposed: true          # update_concept_metadata in WASM
+  wasm_clear_associations_exposed: true       # clear_associations in WASM
+  wasm_graph_traversal_exposed: true          # neighbors, bfs, shortest_path in WASM
+  wasm_metadata_json_fidelity: false           # Fix lossy metadata via js_sys::JSON::parse
+
+  # Phase 45: Test Coverage for Wave 15 Features (cost: 4)
+  text_encoder_regression_tests: true         # Golden vector regression tests
+  graph_traversal_cycle_tests: true           # Cycle detection, disconnected graphs
+  bundle_accumulator_edge_tests: true         # Remove from empty (no panic), overflow
+  filtered_search_edge_tests: true            # Empty/no-match/large dataset filters
+
+  # Phase 46: Benchmark Coverage (cost: 3)
+  text_encoder_benchmarks: true               # encode short/medium/long text
+  filtered_search_benchmarks: true            # 100/1k/10k with filters
+  graph_traversal_benchmarks: true            # BFS/shortest_path sparse/dense
+  bundle_accumulator_benchmarks: true         # add/remove/finalize cycle
+
+  # Phase 47: Documentation Refresh (cost: 2)
+  changelog_v020_updated: true                # CHANGELOG.md for v0.2.0
+  readme_encoder_graph_examples: true         # README.md with new feature examples
+  book_encoder_graph_chapters: false           # book/src/ chapters for encoder + graph
+  llms_txt_refreshed: true                    # Updated llms.txt and llms-full.txt
