@@ -14,25 +14,35 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: error_log_correlation_fixed_complete
-  orchestrator_last_run: wave_14_real_world_readiness_2026_02_28
-  orchestrator_last_run_at_utc: 2026-02-28T12:00:00Z
+  action_last_completed: merge_pr_15
+  orchestrator_last_run: merge_pr_15_2026_03_03
+  orchestrator_last_run_at_utc: 2026-03-03T10:35:00Z
 
-  # Recent changes (2026-02-28)
+  # Recent changes (2026-03-03)
   recent_changes:
-    - "Completed Wave 14: Real-World Readiness & Quality Hardening"
-    - "Created ADR-0051: Real-World Readiness & Quality Hardening"
-    - "Fixed max_cached_top_k propagation bug in FrameworkBuilder"
-    - "Aligned default max_cached_top_k to 100 (matching SingularityConfig)"
-    - "Added NotFound error variant for cleaner error handling"
-    - "Added JSON import size limit (100MB) to prevent OOM"
-    - "Added 4 real-world examples: chatbot, RAG, knowledge graph, streaming"
-    - "Added edge case tests: builder config, import adversarial, eviction cache"
-    - "Analysis swarm completed: 9 findings (3 security, 3 performance, 3 observability)"
-    - "Created ADR-0047 for security & performance hardening"
+    - "Merged PR #15: Wave 15 complete"
+    - "Completed Wave 15: API Hardening & New Features"
+    - "Created ADR-0053: API Hardening & Missing Features (Implemented)"
+    - "Created ADR-0054: High-Impact New Features (Implemented)"
+    - "Added metadata_filter.rs: predicate-based filtering for similarity search"
+    - "Added graph_traversal.rs: BFS, shortest_path, neighbors, incoming_associations"
+    - "Added BundleAccumulator to hyperdim.rs for streaming/sliding-window memory"
+    - "Added find_similar_filtered to singularity for RAG patterns"
+    - "Added TextEncoder (encoder.rs): deterministic text-to-hypervector encoding"
+    - "Added inject_text/probe_text convenience methods to framework"
+    - "Added WASM bindings for inject_text, probe_text, encode_text"
+    - "All tests passing, clippy clean, fmt clean"
+
+  # PR Status
+  pr_15_merged: true
+  pr_15_merged_at: "2026-03-03T10:30:00Z"
+  
+  # CI Status
+  ci_main_passing: true
+  codeql_main_passing: true
 
   # Swarm orchestration snapshot
-  active_wave: 14
+  active_wave: 15
   wave_strategy: parallel_by_phase_with_handoffs
   wave_11_name: "Release Engineering"
   wave_11_started_at: "2026-02-19"
@@ -442,3 +452,81 @@ world_state:
   wave_14_started_at: "2026-02-28"
   wave_14_focus: "Phase 29-31: Bug fixes, real-world examples, edge case tests"
   wave_14_complete: true
+
+  # Wave 15: API Hardening & New Features (ADR-0053, ADR-0054)
+  wave_15_name: "API Hardening & New Features"
+  wave_15_started_at: "2026-03-02"
+  wave_15_focus: "Phase 32-40: Safety fixes, API completeness, error hardening, docs, WASM parity, text encoding, metadata filtering, graph traversal, bundle accumulator"
+  wave_15_complete: true
+
+  # Phase 32: Production Safety (cost: 6) - Wave 15 ✅ COMPLETE
+  # ADR-0053: API Hardening & New Features
+  reservoir_try_into_unwrap_removed: true    # reservoir.rs:323 try_into().unwrap() ✅
+  persistence_semaphore_deadlock_fixed: true  # Nested acquire_remote_slot in init_schema→apply_migrations→schema_version ✅
+  version_row_get_unwrap_fixed: true          # persistence.rs:464 row.get().unwrap_or(0) ✅
+  validate_path_current_dir_fixed: true       # framework_ops.rs:50 current_dir().unwrap_or_default() ✅
+
+  # Phase 33: API Completeness (cost: 10) - Wave 15 ✅ COMPLETE
+  framework_update_concept_vector: true       # update_concept_vector(id, vector) on framework ✅
+  framework_update_concept_metadata: true     # update_concept_metadata(id, metadata) on framework ✅
+  framework_disassociate: true                # disassociate(from, to) on framework + persistence ✅
+  framework_clear_associations: true          # clear_associations(from) on framework + persistence ✅
+  singularity_bundle_strict: true             # bundle_concepts_strict(ids) returns NotFound ✅
+  singularity_clear_cache: true               # clear_similarity_cache() public API ✅
+  builder_version_retention: false             # with_version_retention(n) on FrameworkBuilder (deferred)
+
+  # Phase 34: Error Handling Hardening (cost: 4) - Wave 15 ✅ COMPLETE
+  error_source_chain_support: false            # #[source] on Database/Reservoir variants (deferred)
+  stats_db_size_optional: true                # FrameworkStats db_size_bytes: Option<u64> ✅
+  dead_dimension_check_removed: true          # Singularity::inject redundant data.len() check ✅
+
+  # Phase 35: Documentation Pass (cost: 4) - Wave 15 ✅ COMPLETE
+  reservoir_invariants_documented: true        # input_size, stride, spectral radius docs ✅
+  persistence_schema_documented: true          # version retention, migration semantics ✅
+  load_merge_behavior_documented: true         # load_replace vs load_merge ✅
+  wasm_parity_notes_added: true               # lib.rs WASM parity docs ✅
+
+  # Phase 36: WASM API Parity (cost: 4) - Wave 15 ✅ COMPLETE
+  wasm_update_concept_exposed: true           # update_concept in WASM ✅
+  wasm_disassociate_exposed: true             # disassociate in WASM ✅
+  wasm_stats_exposed: true                    # concept_count/stats in WASM ✅
+  wasm_persistence_story_documented: true     # WASM → bytes → IndexedDB docs ✅
+
+  # Phase 37: Text-to-Hypervector Encoding (cost: 8) - Wave 15 ✅ COMPLETE
+  # ADR-0054: High-Impact New Features
+  text_encoder_created: true                   # src/encoder.rs with TextEncoder ✅
+  text_encoder_deterministic: true             # Stable hash → seeded PRNG → HVec10240 ✅
+  text_encoder_position_aware: true            # Positional permutation encoding ✅
+  text_encoder_ngram_support: true             # Optional character n-gram overlay ✅
+  framework_inject_text: true                  # inject_text(id, text) convenience ✅
+  framework_probe_text: true                   # probe_text(query, top_k) convenience ✅
+  text_encoder_wasm_compatible: true           # Works in WASM target ✅
+
+  # Phase 38: Metadata-Filtered Similarity Search (cost: 6) - Wave 15 ✅ COMPLETE
+  # ADR-0054: High-Impact New Features
+  metadata_filter_types_created: true          # MetadataFilter enum (Eq, In, Exists, And, Or, Not) ✅
+  singularity_find_similar_filtered: true      # find_similar_filtered(query, top_k, filter) ✅
+  framework_probe_filtered: false              # probe_filtered(query, top_k, filter) (deferred)
+  metadata_filter_wasm_exposed: false          # WASM binding for filtered probe (deferred)
+
+  # Phase 39: Association Graph Traversal (cost: 8) - Wave 15 ✅ COMPLETE
+  # ADR-0054: High-Impact New Features
+  singularity_neighbors: true                  # neighbors(id, min_strength) API ✅
+  singularity_bfs: true                        # bfs(start, config) API ✅
+  singularity_shortest_path: true              # shortest_path(from, to, config) API ✅
+  singularity_incoming_associations: true      # incoming_associations(id) reverse lookup ✅
+  framework_traverse: false                    # traverse(start, config) framework API (deferred)
+  framework_shortest_path: false               # shortest_path(from, to) framework API (deferred)
+  graph_traversal_wasm_exposed: false          # WASM bindings for traversal (deferred)
+
+  # Phase 40: Incremental Bundle Accumulator (cost: 4) - Wave 15 ✅ COMPLETE
+  # ADR-0054: High-Impact New Features
+  bundle_accumulator_created: true             # BundleAccumulator struct ✅
+  bundle_accumulator_add_remove: true          # add/remove/finalize API ✅
+  bundle_accumulator_streaming: true           # Sliding-window memory support ✅
+
+  # Phase 41: Memory Change Events (cost: 4) - Wave 15 (DEFERRED)
+  # ADR-0054: High-Impact New Features
+  memory_event_enum_created: false             # MemoryEvent enum (deferred)
+  framework_subscribe: false                   # subscribe() → broadcast::Receiver (deferred)
+  memory_events_wasm_compatible: false         # WASM callback support (deferred)

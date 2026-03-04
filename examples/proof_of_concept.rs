@@ -67,7 +67,11 @@ async fn main() -> Result<()> {
     let stats = framework.stats().await?;
     println!("\n📊 Framework Statistics:");
     println!("   - Concepts: {}", stats.concept_count);
-    println!("   - Database size: {} bytes", stats.db_size_bytes);
+    if let Some(size) = stats.db_size_bytes {
+        println!("   - Database size: {} bytes", size);
+    } else {
+        println!("   - Database size: N/A (persistence disabled)");
+    }
 
     // 8. Benchmark
     println!("\n⚡ Running benchmark...");

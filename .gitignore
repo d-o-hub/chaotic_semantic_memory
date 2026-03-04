@@ -78,3 +78,4 @@ examples/tmp/
 /tmp/*-export.json
 /tmp/*-memory.json
 csm_test*
+.blackboxcli/

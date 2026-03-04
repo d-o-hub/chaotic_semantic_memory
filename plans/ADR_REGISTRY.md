@@ -49,6 +49,8 @@
 | **0048** | **WASM-pack Bulk Memory Fix** | **Implemented** | **2026-02-27** |
 | **0050** | **npm Node.js 24 + Token Fallback** | **Implemented** | **2026-02-28** |
 | **0051** | **Real-World Readiness & Quality Hardening** | **Implemented** | **Wave 14 - Phase 29-31** |
+| **0053** | **API Hardening & New Features** | **Proposed** | **Wave 15 - Phase 32-36** |
+| **0054** | **High-Impact New Features** | **Proposed** | **Wave 15 - Phase 37-41** |
 | 0024 | Concept Expiration (TTL) | Deferred | Post-1.0 |
 | 0024 | Performance Optimizations Phase 2 | Deferred | Post-1.0 |
 | 0025 | Weighted Forgetting (Decay) | Deferred | Post-1.0 |
