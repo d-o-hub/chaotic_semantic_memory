@@ -42,7 +42,7 @@ Enable WASM bindings when needed:
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.1", features = ["wasm"] }
+chaotic_semantic_memory = { version = "0.2", features = ["wasm"] }
 ```
 
 > **Note:** Using `"0.1"` ensures compatibility with the latest 0.1.x patch versions.
