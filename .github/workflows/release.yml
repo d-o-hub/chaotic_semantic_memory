@@ -135,9 +135,27 @@ jobs:
       id: changelog
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
-        awk "/^## \\[${VERSION}\\]/,/^## \\[/" CHANGELOG.md | sed '1d;$d' > release_notes.md
-        if [ ! -s release_notes.md ]; then
+        
+        # Extract changelog section for this version
+        # Handles both "## [VERSION]" and "## [VERSION] - YYYY-MM-DD" formats
+        # Skips duplicate headers and extracts content until next version
+        CHANGELOG_CONTENT=$(awk "
+          /^## \\\\[${VERSION}\\\\]/ {
+            found=1
+            next
+          }
+          /^## \\\\[0-9]/ {
+            if (found) exit
+          }
+          found { print }
+        " CHANGELOG.md)
+        
+        if [ -z "$CHANGELOG_CONTENT" ]; then
+          echo "⚠️ No changelog content found for version $VERSION"
           echo "Release $VERSION" > release_notes.md
+        else
+          echo "$CHANGELOG_CONTENT" > release_notes.md
+          echo "✓ Extracted changelog content ($(wc -l < release_notes.md) lines)"
         fi
 
     - name: Create GitHub Release
