@@ -1,5 +1,6 @@
 //! Incremental bundle accumulator for streaming/sliding-window memory.
 
+use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 
 /// Incremental bundle accumulator for streaming/sliding-window memory.
@@ -42,10 +43,12 @@ impl BundleAccumulator {
 
     /// Remove a hypervector from the accumulator.
     ///
-    /// # Panics
-    /// Panics if the accumulator is empty.
+    /// Saturates at zero: removing from an empty accumulator is a no-op.
+    /// Use [`try_remove`] if you need to detect underflow.
     pub fn remove(&mut self, hv: &HVec10240) {
-        assert!(self.n > 0, "cannot remove from empty accumulator");
+        if self.n == 0 {
+            return;
+        }
         #[allow(clippy::needless_range_loop)]
         for i in 0..80 {
             for j in 0..128 {
@@ -55,6 +58,28 @@ impl BundleAccumulator {
             }
         }
         self.n -= 1;
+    }
+
+    /// Remove a hypervector from the accumulator, returning an error if empty.
+    ///
+    /// Returns `Err(MemoryError::InvalidInput)` when the accumulator is empty.
+    pub fn try_remove(&mut self, hv: &HVec10240) -> Result<()> {
+        if self.n == 0 {
+            return Err(MemoryError::InvalidInput {
+                field: "accumulator".to_string(),
+                reason: "cannot remove from empty BundleAccumulator".to_string(),
+            });
+        }
+        #[allow(clippy::needless_range_loop)]
+        for i in 0..80 {
+            for j in 0..128 {
+                if (hv.data[i] >> j) & 1 == 1 {
+                    self.counts[i * 128 + j] -= 1;
+                }
+            }
+        }
+        self.n -= 1;
+        Ok(())
     }
 
     /// Finalize the accumulator into a bundled hypervector.

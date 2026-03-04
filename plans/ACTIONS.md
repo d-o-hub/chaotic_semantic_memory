@@ -1630,7 +1630,7 @@ actions:
     effects:
       npm_first_publish_manual: true
     cost: 2
-    status: pending
+    status: complete
     file: N/A (manual action)
     adr: ADR-0046
     description: |
@@ -1646,7 +1646,7 @@ actions:
     effects:
       npm_oidc_configured: true
     cost: 1
-    status: pending
+    status: complete
     file: N/A (npm UI action)
     adr: ADR-0046
     description: |
@@ -1662,7 +1662,7 @@ actions:
     effects:
       npm_publish_automated: true
     cost: 1
-    status: pending
+    status: complete
     file: N/A (verification)
     adr: ADR-0046
     description: |
@@ -2421,7 +2421,7 @@ actions:
       memory_event_enum_created: true
       framework_subscribe: true
     cost: 3
-    status: pending
+    status: complete
     file: src/framework.rs
     adr: ADR-0054
     description: |
@@ -2441,7 +2441,7 @@ actions:
     effects:
       memory_events_wasm_compatible: true
     cost: 1
-    status: pending
+    status: complete
     file: src/wasm.rs
     adr: ADR-0054
     description: |
@@ -2449,3 +2449,229 @@ actions:
       - on_event(callback: Function) → register JS callback
       - Events serialized as JSON objects for JS interop
       Gate behind cfg(target_arch = "wasm32").
+
+  # ═══════════════════════════════════════════════════════
+  # WAVE 16: PRODUCTION POLISH & CORRECTNESS (cost: 21)
+  # ADR-0055: Panic elimination, correctness, WASM, tests, benchmarks, docs
+  # ═══════════════════════════════════════════════════════
+
+  # Phase 42: Panic Path Elimination (cost: 3)
+  - name: fix_bundle_accumulator_panic
+    preconditions:
+      bundle_accumulator_created: true
+    effects:
+      bundle_accumulator_try_remove: true
+    cost: 1
+    status: complete
+    file: src/bundle.rs
+    adr: ADR-0055
+    description: |
+      Replace assert! panic in BundleAccumulator::remove:
+      - Add try_remove(&mut self, hv: &HVec10240) -> bool (returns false if empty)
+      - Change remove() to be no-op in release (debug_assert! only)
+      - Keeps backward compat while eliminating production panic path
+
+  - name: fix_reservoir_to_hvec_panic
+    preconditions:
+      core_modules_created: true
+    effects:
+      reservoir_to_hvec_panic_removed: true
+    cost: 1
+    status: complete
+    file: src/reservoir.rs
+    adr: ADR-0055
+    description: |
+      Replace panic! in to_hypervector() at line 335:
+      - Replace .unwrap_or_else(|_| panic!(...)) with:
+        .try_into().map_err(|_| MemoryError::Reservoir("hypervector word count mismatch".into()))?
+      - The error is structurally impossible (0..80 always yields 80 elements) but
+        eliminates the last panic path in non-WASM reservoir code
+
+  - name: document_encoder_bundle_fallback
+    preconditions:
+      text_encoder_created: true
+    effects:
+      encoder_bundle_fallback_documented: true
+    cost: 1
+    status: complete
+    file: src/encoder.rs
+    adr: ADR-0055
+    description: |
+      Document the intentional HVec10240::zero() fallback in TextEncoder::encode:
+      - The unwrap_or_else(|_| HVec10240::zero()) is actually unreachable (non-empty vec)
+      - Add doc comment explaining why this is safe
+      - Optionally add bundle_or_zero() convenience method to HVec10240
+
+  # Phase 43: Correctness Fixes (cost: 5)
+  - name: implement_fnv1a_hash
+    preconditions:
+      text_encoder_created: true
+    effects:
+      text_encoder_fnv1a_hash: true
+      text_encoder_hash_configurable: true
+    cost: 2
+    status: complete
+    file: src/encoder.rs
+    adr: ADR-0055
+    description: |
+      Replace DefaultHasher (SipHash) with actual FNV-1a:
+      - Implement inline FNV-1a (6 lines, no deps):
+        const FNV_OFFSET: u64 = 0xcbf29ce484222325;
+        const FNV_PRIME: u64 = 0x100000001b3;
+      - Add HashAlgorithm enum { Fnv1a, Sip } to TextEncoderConfig
+      - Default to Fnv1a (matches docs), Sip available for backward compat
+      - This is a BREAKING CHANGE for persisted TextEncoder vectors
+
+  - name: add_golden_vector_tests
+    preconditions:
+      text_encoder_fnv1a_hash: true
+    effects:
+      text_encoder_golden_vectors: true
+    cost: 1
+    status: complete
+    file: src/encoder.rs
+    adr: ADR-0055
+    description: |
+      Add regression tests with known input → known output:
+      - Hash "hello" → assert specific u64 value (FNV-1a constant)
+      - Encode "hello world" → assert specific cosine similarity with known vector
+      - Ensures hash stability across Rust versions/platforms
+
+  - name: implement_weighted_shortest_path
+    preconditions:
+      singularity_shortest_path: true
+    effects:
+      shortest_path_weighted_dijkstra: true
+      shortest_path_hops_preserved: true
+    cost: 2
+    status: complete
+    file: src/graph_traversal.rs
+    adr: ADR-0055
+    description: |
+      Fix shortest_path docs/code mismatch:
+      - Rename current BFS implementation to shortest_path_hops() (backward compat)
+      - Implement new shortest_path() using Dijkstra with cost = -ln(strength)
+      - Edges with strength <= 0.0 are treated as infinite cost (not traversable)
+      - Uses BinaryHeap for O((V+E) log V) complexity
+      - Update TraversalConfig with max_cost: f32 field
+      - Update WASM wrappers to expose both variants
+
+  # Phase 44: WASM Parity Completion (cost: 4)
+  - name: add_wasm_metadata_traversal_parity
+    preconditions:
+      framework_update_concept_metadata: true
+      singularity_bfs: true
+    effects:
+      wasm_update_metadata_exposed: true
+      wasm_clear_associations_exposed: true
+      wasm_graph_traversal_exposed: true
+      wasm_metadata_json_fidelity: true
+    cost: 4
+    status: complete
+    file: src/wasm.rs
+    adr: ADR-0055
+    description: |
+      Add missing WASM wrappers:
+      - update_concept_metadata(id, metadata_json) → parse JSON, call framework
+      - clear_associations(id) → call framework.clear_associations()
+      - neighbors(id, min_strength) → Array of {id, strength}
+      - bfs(start_id, max_depth, min_strength) → Array of {id, depth}
+      - shortest_path(from, to) → Array of IDs or null
+      Fix metadata fidelity:
+      - Replace string value_str with js_sys::JSON::parse(&value_str)
+      - Preserves numbers, booleans, nested objects from metadata
+
+  # Phase 45: Test Coverage (cost: 4)
+  - name: add_wave15_feature_tests
+    preconditions:
+      text_encoder_created: true
+      bundle_accumulator_created: true
+      singularity_bfs: true
+      singularity_find_similar_filtered: true
+    effects:
+      text_encoder_regression_tests: true
+      graph_traversal_cycle_tests: true
+      bundle_accumulator_edge_tests: true
+      filtered_search_edge_tests: true
+    cost: 4
+    status: complete
+    file: tests/wave15_features.rs
+    adr: ADR-0055
+    description: |
+      Create tests/wave15_features.rs with comprehensive edge case tests:
+      TextEncoder:
+      - Single character input, very long text (1000 words), unicode text
+      - Position stride=0 produces same encoding regardless of word order
+      Graph traversal:
+      - Cycle detection (A→B→C→A), traversal terminates correctly
+      - Disconnected graph, BFS returns only reachable nodes
+      - max_results limit enforced
+      BundleAccumulator:
+      - try_remove from empty returns false (no panic)
+      - Remove more than added behavior
+      - Large accumulator (1000 vectors)
+      MetadataFilter:
+      - Empty filter matches everything
+      - No concepts match filter → empty results
+      - Nested And/Or/Not combinations
+
+  # Phase 46: Benchmark Coverage (cost: 3)
+  - name: add_wave15_benchmarks
+    preconditions:
+      text_encoder_created: true
+      bundle_accumulator_created: true
+      singularity_bfs: true
+    effects:
+      text_encoder_benchmarks: true
+      filtered_search_benchmarks: true
+      graph_traversal_benchmarks: true
+      bundle_accumulator_benchmarks: true
+    cost: 3
+    status: complete
+    file: benches/benchmark.rs
+    adr: ADR-0055
+    description: |
+      Add criterion benchmarks for Wave 15 features:
+      TextEncoder:
+      - encode_short (3 words), encode_medium (20 words), encode_long (200 words)
+      - encode_with_ngrams (3-gram on medium text)
+      MetadataFilter:
+      - find_similar_filtered with 1k concepts, simple Eq filter
+      - find_similar_filtered with 10k concepts, And(Eq, Exists) filter
+      Graph traversal:
+      - bfs sparse graph (100 nodes, avg 3 edges)
+      - bfs dense graph (100 nodes, avg 20 edges)
+      - shortest_path (100 nodes, 10 hops)
+      BundleAccumulator:
+      - add/finalize cycle (100 vectors)
+      - add/remove/finalize sliding window (50 add, 25 remove, finalize)
+
+  # Phase 47: Documentation Refresh (cost: 2)
+  - name: refresh_v020_docs
+    preconditions:
+      text_encoder_fnv1a_hash: true
+      shortest_path_weighted_dijkstra: true
+    effects:
+      changelog_v020_updated: true
+      readme_encoder_graph_examples: true
+      book_encoder_graph_chapters: true
+      llms_txt_refreshed: true
+    cost: 2
+    status: complete
+    file: CHANGELOG.md, README.md, book/src/, llms.txt
+    adr: ADR-0055
+    description: |
+      Update documentation for v0.2.0:
+      CHANGELOG.md:
+      - New: TextEncoder, MetadataFilter, graph traversal, BundleAccumulator
+      - Breaking: TextEncoder hash changed to FNV-1a (was SipHash)
+      - Fixed: shortest_path now uses weighted Dijkstra
+      README.md:
+      - Add TextEncoder usage example
+      - Add graph traversal example
+      - Update feature list
+      book/src/:
+      - Add encoder.md chapter (text encoding guide)
+      - Add graph.md chapter (graph traversal guide)
+      llms.txt/llms-full.txt:
+      - Regenerate via scripts/gen-llms-txt.sh

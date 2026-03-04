@@ -1,5 +1,10 @@
 use chaotic_semantic_memory::HVec10240;
+use chaotic_semantic_memory::bundle::BundleAccumulator;
+use chaotic_semantic_memory::encoder::TextEncoder;
+use chaotic_semantic_memory::graph_traversal::TraversalConfig;
+use chaotic_semantic_memory::metadata_filter::MetadataFilter;
 use chaotic_semantic_memory::reservoir::Reservoir;
+use chaotic_semantic_memory::singularity::{Concept, ConceptBuilder, Singularity};
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_hvec_creation(c: &mut Criterion) {
@@ -92,6 +97,199 @@ fn bench_reservoir_to_hypervector(c: &mut Criterion) {
     group.finish();
 }
 
+fn make_concept(id: &str) -> Concept {
+    ConceptBuilder::new(id)
+        .with_vector(HVec10240::random())
+        .build()
+        .unwrap()
+}
+
+fn make_concept_with_tag(id: &str, tag: &str) -> Concept {
+    ConceptBuilder::new(id)
+        .with_vector(HVec10240::random())
+        .with_metadata("tag", tag)
+        .build()
+        .unwrap()
+}
+
+// ─── TextEncoder benchmarks ──────────────────────────────────────────────────
+
+fn bench_text_encoder(c: &mut Criterion) {
+    let encoder = TextEncoder::new();
+    let mut group = c.benchmark_group("text_encoder");
+
+    group.bench_function("encode_short", |b| {
+        b.iter(|| encoder.encode(black_box("hello world")))
+    });
+
+    group.bench_function("encode_medium", |b| {
+        b.iter(|| {
+            encoder.encode(black_box(
+                "the quick brown fox jumps over the lazy dog near the river bank",
+            ))
+        })
+    });
+
+    group.bench_function("encode_long", |b| {
+        b.iter(|| {
+            encoder.encode(black_box(
+                "artificial intelligence machine learning deep learning neural networks \
+                 natural language processing computer vision reinforcement learning \
+                 transformer architecture attention mechanism self-supervised learning \
+                 large language models generative adversarial networks variational autoencoders",
+            ))
+        })
+    });
+
+    group.bench_function("encode_with_ngrams_3", |b| {
+        b.iter(|| encoder.encode_with_ngrams(black_box("hello world rust"), 3))
+    });
+
+    group.finish();
+}
+
+// ─── Filtered search benchmarks ─────────────────────────────────────────────
+
+fn bench_filtered_search(c: &mut Criterion) {
+    let mut group = c.benchmark_group("filtered_search");
+
+    // Build singularities of different sizes
+    let mut sing_100 = Singularity::new();
+    for i in 0..100 {
+        let tag = if i % 2 == 0 { "science" } else { "art" };
+        sing_100
+            .inject(make_concept_with_tag(&format!("c{i}"), tag))
+            .unwrap();
+    }
+
+    let mut sing_1k = Singularity::new();
+    for i in 0..1000 {
+        let tag = if i % 2 == 0 { "science" } else { "art" };
+        sing_1k
+            .inject(make_concept_with_tag(&format!("c{i}"), tag))
+            .unwrap();
+    }
+
+    let query = HVec10240::random();
+    let filter = MetadataFilter::Eq(
+        "tag".to_string(),
+        serde_json::Value::String("science".to_string()),
+    );
+
+    group.bench_function("filtered_100", |b| {
+        b.iter(|| sing_100.find_similar_filtered(black_box(&query), 10, black_box(&filter)))
+    });
+
+    group.bench_function("filtered_1k", |b| {
+        b.iter(|| sing_1k.find_similar_filtered(black_box(&query), 10, black_box(&filter)))
+    });
+
+    group.finish();
+}
+
+// ─── Graph traversal benchmarks ─────────────────────────────────────────────
+
+fn bench_graph_traversal(c: &mut Criterion) {
+    let mut group = c.benchmark_group("graph_traversal");
+
+    // Build a sparse graph: chain of 50 nodes
+    let mut sing_sparse = Singularity::new();
+    for i in 0..50usize {
+        sing_sparse.inject(make_concept(&format!("n{i}"))).unwrap();
+    }
+    for i in 0..49usize {
+        sing_sparse
+            .associate(&format!("n{i}"), &format!("n{}", i + 1), 0.9)
+            .unwrap();
+    }
+
+    // Build a denser graph: each node connects to next 3
+    let mut sing_dense = Singularity::new();
+    for i in 0..50usize {
+        sing_dense.inject(make_concept(&format!("d{i}"))).unwrap();
+    }
+    for i in 0..50usize {
+        for j in 1..=3usize {
+            if i + j < 50 {
+                sing_dense
+                    .associate(&format!("d{i}"), &format!("d{}", i + j), 0.9)
+                    .unwrap();
+            }
+        }
+    }
+
+    let config = TraversalConfig::default();
+
+    group.bench_function("bfs_sparse_50", |b| {
+        b.iter(|| {
+            sing_sparse
+                .bfs(black_box("n0"), black_box(&config))
+                .unwrap()
+        })
+    });
+
+    group.bench_function("bfs_dense_50", |b| {
+        b.iter(|| sing_dense.bfs(black_box("d0"), black_box(&config)).unwrap())
+    });
+
+    group.bench_function("shortest_path_sparse", |b| {
+        b.iter(|| {
+            sing_sparse
+                .shortest_path(black_box("n0"), black_box("n49"), black_box(&config))
+                .unwrap()
+        })
+    });
+
+    group.bench_function("shortest_path_hops_sparse", |b| {
+        b.iter(|| {
+            sing_sparse
+                .shortest_path_hops(black_box("n0"), black_box("n49"), black_box(&config))
+                .unwrap()
+        })
+    });
+
+    group.finish();
+}
+
+// ─── BundleAccumulator benchmarks ───────────────────────────────────────────
+
+fn bench_bundle_accumulator(c: &mut Criterion) {
+    let mut group = c.benchmark_group("bundle_accumulator");
+
+    let vectors: Vec<HVec10240> = (0..100).map(|_| HVec10240::random()).collect();
+
+    group.bench_function("add_100", |b| {
+        b.iter(|| {
+            let mut acc = BundleAccumulator::new();
+            for v in &vectors {
+                acc.add(black_box(v));
+            }
+            acc
+        })
+    });
+
+    group.bench_function("add_remove_finalize_10", |b| {
+        b.iter(|| {
+            let mut acc = BundleAccumulator::new();
+            for v in &vectors[..10] {
+                acc.add(black_box(v));
+            }
+            acc.remove(black_box(&vectors[0]));
+            black_box(acc.finalize())
+        })
+    });
+
+    group.bench_function("finalize_100", |b| {
+        let mut acc = BundleAccumulator::new();
+        for v in &vectors {
+            acc.add(v);
+        }
+        b.iter(|| black_box(acc.finalize()))
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_hvec_creation,
@@ -100,6 +298,10 @@ criterion_group!(
     bench_binding,
     bench_hvec_bundle,
     bench_reservoir_step_50k,
-    bench_reservoir_to_hypervector
+    bench_reservoir_to_hypervector,
+    bench_text_encoder,
+    bench_filtered_search,
+    bench_graph_traversal,
+    bench_bundle_accumulator
 );
 criterion_main!(benches);
