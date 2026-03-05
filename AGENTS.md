@@ -91,7 +91,8 @@ scripts/validate.sh
 ### Documentation Link Check
 Validate links, commands, and version references in docs:
 ```bash
-scripts/check-docs-links.sh           # Quick check
+scripts/check-docs-links.sh           # Quick check (links + versions)
+scripts/check-docs-links.sh --fix     # Auto-fix version mismatches
 scripts/check-docs-links.sh --check-urls  # Full URL validation
 ```
 
@@ -156,6 +157,7 @@ Key patterns recorded from iterations (see @progress/LEARNINGS.md for full histo
 - Do not relax spectral-radius guardrails to chase speed
 - Do not pool connections for local SQLite (no benefit, adds overhead)
 - Do not make versioning mandatory (should be opt-in)
+- Do not create multiple scripts with overlapping functionality — merge related scripts (e.g., version checking into link checking)
 
 ## Learning Loop
 After each iteration:
