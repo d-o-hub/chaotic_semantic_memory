@@ -78,11 +78,13 @@ echo "Major.minor:        ${MAJOR_MINOR}"
 echo ""
 
 # Helper function to update a file
+# Args: file, expected_version, pattern, replacement, description
 update_file() {
     local file="$1"
-    local pattern="$2"
-    local replacement="$3"
-    local description="$4"
+    local expected_version="$2"
+    local pattern="$3"
+    local replacement="$4"
+    local description="$5"
 
     if [[ ! -f "$file" ]]; then
         echo -e "${YELLOW}⊘${NC} $description: file not found ($file)"
@@ -90,24 +92,35 @@ update_file() {
         return 0
     fi
 
-    if grep -q "$pattern" "$file"; then
-        if $CHECK_ONLY; then
-            echo -e "${YELLOW}!${NC} $description: needs update"
-            ((UPDATED++)) || true
-            return 0
-        fi
+    # Extract current version from file
+    local current_version
+    current_version=$(grep -oE "$pattern" "$file" 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' || true)
 
-        if $DRY_RUN; then
-            echo -e "${BLUE}○${NC} $description: would update"
-            ((UPDATED++)) || true
-        else
-            sed -i "$replacement" "$file"
-            echo -e "${GREEN}✓${NC} $description: updated"
-            ((UPDATED++)) || true
-        fi
-    else
-        echo -e "${GREEN}✓${NC} $description: already in sync"
+    # Check if already in sync
+    if [[ "$current_version" == "$expected_version" ]] || [[ "$current_version" == "${expected_version%.*}" ]]; then
+        echo -e "${GREEN}✓${NC} $description: already in sync ($current_version)"
         ((SKIPPED++)) || true
+        return 0
+    fi
+
+    # Version mismatch or pattern not found
+    if $CHECK_ONLY; then
+        if [[ -n "$current_version" ]]; then
+            echo -e "${YELLOW}!${NC} $description: needs update ($current_version → $expected_version)"
+        else
+            echo -e "${YELLOW}!${NC} $description: pattern not found"
+        fi
+        ((UPDATED++)) || true
+        return 0
+    fi
+
+    if $DRY_RUN; then
+        echo -e "${BLUE}○${NC} $description: would update"
+        ((UPDATED++)) || true
+    else
+        sed -i "$replacement" "$file"
+        echo -e "${GREEN}✓${NC} $description: updated"
+        ((UPDATED++)) || true
     fi
 }
 
@@ -154,7 +167,8 @@ check_security_md() {
 echo ""
 echo -e "${BLUE}→ Checking wasm/package.json${NC}"
 update_file "wasm/package.json" \
-    '"version": "[0-9]\+\.[0-9]\+\.[0-9]\+"' \
+    "$CARGO_VERSION" \
+    '"version": "[0-9]+\.[0-9]+\.[0-9]+"' \
     "s/\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+\"/\"version\": \"${CARGO_VERSION}\"/" \
     "wasm/package.json version"
 
@@ -163,9 +177,9 @@ update_file "wasm/package.json" \
 # =============================================================================
 echo ""
 echo -e "${BLUE}→ Checking README.md${NC}"
-# Update version in installation examples
 update_file "README.md" \
-    'chaotic_semantic_memory = { version = "[0-9]\+\.[0-9]\+"' \
+    "$MAJOR_MINOR" \
+    'chaotic_semantic_memory = { version = "[0-9]+\.[0-9]+"' \
     "s/chaotic_semantic_memory = { version = \"[0-9]\+\.[0-9]\+\"/chaotic_semantic_memory = { version = \"${MAJOR_MINOR}\"/g" \
     "README.md installation version"
 
@@ -175,7 +189,8 @@ update_file "README.md" \
 echo ""
 echo -e "${BLUE}→ Checking book/src/getting-started.md${NC}"
 update_file "book/src/getting-started.md" \
-    'chaotic_semantic_memory = { version = "[0-9]\+\.[0-9]\+"' \
+    "$MAJOR_MINOR" \
+    'chaotic_semantic_memory = { version = "[0-9]+\.[0-9]+"' \
     "s/chaotic_semantic_memory = { version = \"[0-9]\+\.[0-9]\+\"/chaotic_semantic_memory = { version = \"${MAJOR_MINOR}\"/g" \
     "book/src/getting-started.md version"
 
@@ -192,10 +207,17 @@ check_security_md
 echo ""
 echo -e "${BLUE}→ Checking wasm/README.md${NC}"
 if [[ -f "wasm/README.md" ]]; then
-    update_file "wasm/README.md" \
-        '@d-o-hub/chaotic_semantic_memory@[0-9]\+\.[0-9]\+\.[0-9]\+' \
-        "s/@d-o-hub\/chaotic_semantic_memory@[0-9]\+\.[0-9]\+\.[0-9]\+/@d-o-hub\/chaotic_semantic_memory@${CARGO_VERSION}/g" \
-        "wasm/README.md version"
+    # Check if there's a versioned npm package reference
+    if grep -q '@d-o-hub/chaotic_semantic_memory@[0-9]' wasm/README.md 2>/dev/null; then
+        update_file "wasm/README.md" \
+            "$CARGO_VERSION" \
+            '@d-o-hub/chaotic_semantic_memory@[0-9]+\.[0-9]+\.[0-9]+' \
+            "s/@d-o-hub\/chaotic_semantic_memory@[0-9]\+\.[0-9]\+\.[0-9]\+/@d-o-hub\/chaotic_semantic_memory@${CARGO_VERSION}/g" \
+            "wasm/README.md version"
+    else
+        echo -e "${GREEN}✓${NC} wasm/README.md: no versioned package reference (uses latest)"
+        ((SKIPPED++)) || true
+    fi
 fi
 
 # =============================================================================
