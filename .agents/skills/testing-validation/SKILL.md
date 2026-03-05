@@ -57,6 +57,18 @@ Use separate test files in `tests/` for:
 ## LOC Enforcement
 Every file in `src/*.rs` must be ≤ 500 lines. Run `scripts/loc-check.sh` to verify.
 
+## Documentation Link & Command Validation
+Run `scripts/check-docs-links.sh` to validate:
+- Internal file links (`@file.md` and `[text](./path.md)` style)
+- External URLs (with `--check-urls` flag)
+- Code block commands in bash/shell blocks
+- Version references consistency across docs
+
+```bash
+./scripts/check-docs-links.sh           # Quick check (no URL validation)
+./scripts/check-docs-links.sh --check-urls  # Full check with URL validation
+```
+
 ## Configurability Check
 - Reject hardcoded tunables in new code paths.
 - Require named constants and/or env/config-backed settings for thresholds, limits, and sample sizes.

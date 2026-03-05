@@ -1,0 +1,1 @@
+/home/do/git/chaotic_semantic_memory/scripts/check-docs-links.sh

@@ -32,7 +32,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 - `rust-development`: Implement or refactor Rust modules
   - **References**: @.agents/skills/rust-development/reference/codebase-patterns.md
 - `testing-validation`: Run compile/test/lint/LOC gates
-  - **Scripts**: @.agents/skills/testing-validation/scripts/validate.sh, @.agents/skills/testing-validation/scripts/loc-check.sh
+  - **Scripts**: @.agents/skills/testing-validation/scripts/validate.sh, @.agents/skills/testing-validation/scripts/loc-check.sh, @.agents/skills/testing-validation/scripts/check-docs-links.sh
 - `goap-planning`: Build ordered action plans from state to goal
   - **References**: @.agents/skills/goap-planning/references/planner-pattern.md, @.agents/skills/goap-planning/references/action-model.md
 - `adr-creation`: Write architecture decision records
@@ -86,6 +86,13 @@ When executing in swarm mode:
 Run before commit (see `git-workflow` skill for details):
 ```bash
 scripts/validate.sh
+```
+
+### Documentation Link Check
+Validate links, commands, and version references in docs:
+```bash
+scripts/check-docs-links.sh           # Quick check
+scripts/check-docs-links.sh --check-urls  # Full URL validation
 ```
 
 ### Pre-Release Validation

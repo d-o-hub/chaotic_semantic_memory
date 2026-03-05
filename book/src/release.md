@@ -126,5 +126,5 @@ cargo yank --version 0.2.0 chaotic_semantic_memory
 
 ## Architecture Decision Records
 
-- [ADR-0039](../plans/adr/0039-release-engineering.md) — Release engineering strategy
-- [ADR-0042](../plans/adr/0042-release-automation-v010.md) — Release automation and v0.1.0 readiness
+- [ADR-0039](../../plans/adr/0039-release-engineering.md) — Release engineering strategy
+- [ADR-0042](../../plans/adr/0042-release-automation-v010.md) — Release automation and v0.1.0 readiness
