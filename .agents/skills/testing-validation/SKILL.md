@@ -62,10 +62,15 @@ Run `scripts/check-docs-links.sh` to validate:
 - Internal file links (`@file.md` and `[text](./path.md)` style)
 - External URLs (with `--check-urls` flag)
 - Code block commands in bash/shell blocks
-- Version references consistency across docs
+- Version references consistency across ALL files:
+  - Core: Cargo.toml, Cargo.lock, wasm/package.json
+  - Docs: README.md, book/src/getting-started.md, CHANGELOG.md, llms.txt
+  - Tests: examples/cli/*.sh, tests/*.rs
+  - Generated: export.json, csm_test.json
 
 ```bash
 ./scripts/check-docs-links.sh           # Quick check (no URL validation)
+./scripts/check-docs-links.sh --fix     # Auto-fix version mismatches
 ./scripts/check-docs-links.sh --check-urls  # Full check with URL validation
 ```
 

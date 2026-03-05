@@ -29,7 +29,7 @@ Before every release, run `./scripts/sync-version.sh <version>` to update:
 |------|-------------|---------|
 | Cargo.toml | Exact version | `0.2.0` |
 | Cargo.lock | Regenerated | - |
-| CHANGELOG.md | [Unreleased] → [0.2.0] | - |
+| CHANGELOG.md | [Unreleased] → [0.2.0] with date | - |
 | README.md | Major.minor compatibility | `0.2` |
 | book/src/getting-started.md | Major.minor compatibility | `0.2` |
 | wasm/package.json | Exact version | `0.2.0` |
@@ -38,6 +38,14 @@ Before every release, run `./scripts/sync-version.sh <version>` to update:
 | llms.txt | Regenerated | - |
 
 This prevents the common issue of stale versions in documentation.
+
+### Script Distinction
+
+| Script | Purpose | When to Use |
+|--------|---------|-------------|
+| `sync-version.sh <ver>` | Release automation | During release (used in CI) |
+| `sync-docs.sh` | Documentation sync | Development, has `--check` mode |
+| `check-docs-links.sh` | Validation + fix | CI validation, has `--fix` mode |
 
 ## Release Process Flow
 
