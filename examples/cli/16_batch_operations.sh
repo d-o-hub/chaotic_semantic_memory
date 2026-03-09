@@ -43,7 +43,7 @@ echo ""
 # ============================================================================
 echo -e "${YELLOW}Edge Case 1: Empty Import${NC}"
 echo "  Creating and importing an empty concepts/associations file..."
-echo '  {"version": "0.2.0","exported_at":0,"concepts":[],"associations":[]}' > "$IMPORT_FILE"
+echo '  {"version": "0.2.1","exported_at":0,"concepts":[],"associations":[]}' > "$IMPORT_FILE"
 echo "  Command: csm import $IMPORT_FILE"
 ./target/debug/csm import "$IMPORT_FILE" --output-format json
 echo ""

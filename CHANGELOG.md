@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-03-09
+
+### Fixed
+- **Probe cache-miss allocation path** (`singularity.rs`): `find_similar_cached` no longer
+  materializes an intermediate `Vec<(String, HVec10240)>` before similarity scoring.
+- **Local SQLite WAL policy** (`persistence.rs`): local connections now enable
+  `PRAGMA journal_mode=WAL` while preserving per-connection `PRAGMA foreign_keys=ON`.
+- **WASM metadata fidelity** (`wasm.rs`): metadata values are now converted with
+  `js_sys::JSON::parse`, preserving non-string JSON types in browser bindings.
+
+### Added
+- **Scale probe benchmark coverage** (`benches/benchmark.rs`): exact-search benchmark group at
+  10k, 100k, and 200k concept scales.
+- **WAL validation tests** (`tests/persistence_crud.rs`, `tests/performance_targets.rs`):
+  assertions for `journal_mode=WAL` and checkpoint compatibility.
+- **mdBook chapters** (`book/src/encoder.md`, `book/src/graph.md`): text encoding and graph
+  traversal guides linked from `book/src/SUMMARY.md`.
+
 ## [0.2.0] - 2026-03-04
 
 ### Added
