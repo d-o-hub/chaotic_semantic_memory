@@ -14,12 +14,17 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: wave_16_complete
-  orchestrator_last_run: merge_pr_15_2026_03_03
-  orchestrator_last_run_at_utc: 2026-03-03T10:35:00Z
+  action_last_completed: phase_48_complete
+  orchestrator_last_run: phase_48_performance_followup_2026_03_09
+  orchestrator_last_run_at_utc: 2026-03-09T19:43:20Z
 
-  # Recent changes (2026-03-04)
+  # Recent changes (2026-03-09)
   recent_changes:
+    - "Phase 48 complete: probe cache-miss scan no longer materializes cloned concept vectors"
+    - "Local SQLite path now enforces PRAGMA journal_mode=WAL while preserving per-connection FK ON"
+    - "Added Phase 48 coverage: WAL mode tests + 10k/100k/200k exact probe benchmark group"
+    - "Fixed WASM metadata JSON fidelity via js_sys::JSON::parse in concept conversion"
+    - "Added book chapters: encoder.md and graph.md, linked from mdBook SUMMARY"
     - "v0.2.0 released: crates.io ✅, npm ✅, GitHub Release ✅"
     - "Wave 16 complete: Production Polish & Correctness (ADR-0055)"
     - "FNV-1a hash stability in TextEncoder (breaking: re-encode persisted vectors)"
@@ -57,7 +62,7 @@ world_state:
   github_release_v020_created: true
 
   # Swarm orchestration snapshot
-  active_wave: 16
+  active_wave: 17
   wave_strategy: parallel_by_phase_with_handoffs
   wave_11_name: "Release Engineering"
   wave_11_started_at: "2026-02-19"
@@ -72,6 +77,10 @@ world_state:
   wave_14_started_at: "2026-02-28"
   wave_14_focus: "Phase 29-31: Bug fixes, real-world examples, edge case tests"
   all_waves_finished: true
+  wave_17_name: "Performance Follow-up & GOAP Consistency"
+  wave_17_started_at: "2026-03-09"
+  wave_17_focus: "Phase 48 + planning consistency fixes"
+  wave_17_complete: true
   wave_9_completed:
     group_a: cli_crate_scaffold
     group_b: cli_commands_implementation
@@ -151,9 +160,10 @@ world_state:
     - plans/handoffs/W8_B_to_All_crud_tests.md
     - plans/handoffs/W8_C_to_All_persistence_benchmarks.md
     - plans/handoffs/W8_D_to_All_github_standards.md
+    - plans/handoffs/W17_Phase48_Performance_Followup.md
   phase_boundary_gate_pending: []
   swarm_status: active
-  all_waves_finished: false
+  all_waves_finished: true
   final_validation_passed: true
   planning_gaps:
     mutation_testing_action_missing: false
@@ -164,15 +174,15 @@ world_state:
     error.rs: 32
     hyperdim.rs: 404
     reservoir.rs: 469
-    singularity.rs: 457
-    persistence.rs: 499
+    singularity.rs: 452
+    persistence.rs: 500
     persistence_wasm.rs: 109
     framework.rs: 496
     framework_ops.rs: 372
     framework_validation.rs: 86
     persistence_ops.rs: 262
     export_payload.rs: 16
-    wasm.rs: 430
+    wasm.rs: 435
     concept_builder.rs: 119
     framework_builder.rs: 188
     cli/mod.rs: 7
@@ -187,12 +197,12 @@ world_state:
     cli/commands/completions.rs: 42
     bin/csm.rs: 93
 
-  # Test status - Updated 2026-02-19
+  # Test status - Updated 2026-03-09
   unit_tests_passing: 22
   integration_tests_exist: true
   integration_tests_passing: 112
-  batch_operations_tests: 31
-  persistence_crud_tests: 28
+  batch_operations_tests: 32
+  persistence_crud_tests: 29
 
   # Correctness issues (must fix)
   permute_shift_zero_bug: false
@@ -571,7 +581,7 @@ world_state:
   wasm_update_metadata_exposed: true          # update_concept_metadata in WASM
   wasm_clear_associations_exposed: true       # clear_associations in WASM
   wasm_graph_traversal_exposed: true          # neighbors, bfs, shortest_path in WASM
-  wasm_metadata_json_fidelity: false           # Fix lossy metadata via js_sys::JSON::parse
+  wasm_metadata_json_fidelity: true            # Fix lossy metadata via js_sys::JSON::parse
 
   # Phase 45: Test Coverage for Wave 15 Features (cost: 4)
   text_encoder_regression_tests: true         # Golden vector regression tests
@@ -588,10 +598,10 @@ world_state:
   # Phase 47: Documentation Refresh (cost: 2)
   changelog_v020_updated: true                # CHANGELOG.md for v0.2.0
   readme_encoder_graph_examples: true         # README.md with new feature examples
-  book_encoder_graph_chapters: false           # book/src/ chapters for encoder + graph
+  book_encoder_graph_chapters: true            # book/src/ chapters for encoder + graph
   llms_txt_refreshed: true                    # Updated llms.txt and llms-full.txt
 
-  # Phase 48: Performance Follow-up (cost: 7) - Proposed 2026-03-09
-  probe_scan_materialization_removed: false   # ADR-0056: find_similar_cached clones all concepts on cache misses
-  local_sqlite_wal_enabled: false             # ADR-0056: local SQLite init does not enforce journal_mode=WAL
+  # Phase 48: Performance Follow-up (cost: 7) - Completed 2026-03-09
+  probe_scan_materialization_removed: true    # ADR-0056: find_similar_cached no longer clones all concepts on cache misses
+  local_sqlite_wal_enabled: true              # ADR-0056: local SQLite init enforces journal_mode=WAL
   probe_scale_trigger_exceeded: false         # ADR-0056: activate optional ANN/LSH only after >200k concepts + measured latency regression

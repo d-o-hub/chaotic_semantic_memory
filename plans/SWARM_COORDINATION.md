@@ -18,41 +18,33 @@ Generated via: `scripts/generate-agents.sh`
 
 | Group | Phase | Focus | Status |
 |-------|-------|-------|--------|
-| A | 15 | Testing Pragmatism | Complete |
-| B | 13 | Documentation & DX | Complete |
-| C | 14 | Observability Completion | Complete |
-| D | 16 | WASM Parity | Complete |
+| A | 48 | Probe Scan Path | Complete |
+| B | 48 | SQLite WAL Policy | Complete |
+| C | 48 | Validation Coverage | Complete |
+| D | 48 | GOAP/ADR/Docs Sync | Complete |
 
 ## Swarm Status: **ACTIVE** 🟢
 
-Waves 1-12 complete. Wave 13 (Security & Performance Hardening) in progress.
+Waves 1-17 complete. Phase 48 performance follow-up is closed with handoff artifacts.
 
 ### Current State
-- **26 phases** completed across **12 waves** + 1 in progress
-- **137 tests** passing (21 unit + 112 integration + 4 property-based)
-- **5/6 performance targets** met
-- **All validation gates** passing
-- **CI/CD fully automated** with Trusted Publishing
+- **Phase 48 complete** (probe-path allocation removal + local SQLite WAL policy)
+- **Validation gates passing** (`scripts/validate.sh` + LOC + WASM size gate)
+- **New handoff artifact:** `plans/handoffs/W17_Phase48_Performance_Followup.md`
+- **ADR-0056 implemented** with deferred ANN/LSH trigger preserved
 
-### Wave 13 (in progress) - Security & Performance Hardening (Phase 27)
+### Wave 17 (completed) - Performance Follow-up & GOAP Consistency (Phase 48)
 
-Run ID: `goap_swarm_wave13_security_perf_hardening_2026_02_26`
+Run ID: `goap_wave17_phase48_2026_03_09`
 
 | Action | Priority | Status | ADR |
 |--------|----------|--------|-----|
-| `add_bincode_size_limits` | P1 (Critical) | Complete | ADR-0047 |
-| `fix_error_source_attributes` | P1 | Deferred | ADR-0047 |
-| `remove_production_expect` | P1 | Complete | ADR-0047 |
-| `cache_mutex_to_rwlock` | P2 | Complete | ADR-0047 |
-| `add_path_validation` | P2 | Complete | ADR-0047 |
-| `add_reservoir_tracing` | P3 | Complete | - |
-| `add_persistence_tracing` | P3 | Complete | - |
+| `remove_probe_scan_materialization` | P1 | Complete | ADR-0056 |
+| `enable_local_sqlite_wal` | P1 | Complete | ADR-0056 |
+| `add_wal_validation_coverage` | P2 | Complete | ADR-0056 |
+| `sync_goap_and_docs_state` | P2 | Complete | ADR-0056 |
 
-**Status:** Wave 13 COMPLETE ✅
-
-**Trigger:** Analysis swarm identified 9 findings (3 security, 3 performance, 3 observability).
-**Scope:** Focused 5-item hardening sprint, deferring lower-priority items to Phase 28.
-**ADR:** plans/adr/0047-security-performance-hardening.md
+**Status:** Wave 17 COMPLETE ✅
 
 ## Orchestrator Run (2026-02-17, Wave 7)
 

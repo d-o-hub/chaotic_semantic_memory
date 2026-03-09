@@ -2,6 +2,7 @@ use std::time::Instant;
 
 use chaotic_semantic_memory::persistence::Persistence;
 use chaotic_semantic_memory::{ConceptBuilder, HVec10240};
+use libsql::Builder;
 use tempfile::NamedTempFile;
 
 const DEFAULT_MEMORY_MODEL_BYTES_PER_CONCEPT: u64 = 1;
@@ -89,6 +90,37 @@ async fn local_persistence_roundtrip_p50_under_20ms() {
         p50 < threshold_ms,
         "p50={p50:.3}ms is above {threshold_ms}ms"
     );
+}
+
+#[tokio::test]
+async fn local_wal_checkpoint_roundtrip_stays_consistent() {
+    let db_file = NamedTempFile::new().expect("temp file");
+    let db_path = db_file.path().to_string_lossy().to_string();
+    let persistence = Persistence::new_local(&db_path).await.expect("new_local");
+
+    for i in 0..5 {
+        let id = format!("wal-{i}");
+        let concept = ConceptBuilder::new(id.clone())
+            .with_vector(HVec10240::random())
+            .build()
+            .expect("concept");
+        persistence
+            .save_concept(&concept)
+            .await
+            .expect("save_concept");
+    }
+
+    persistence.checkpoint().await.expect("checkpoint");
+
+    let db = Builder::new_local(&db_path).build().await.expect("open db");
+    let conn = db.connect().expect("connect");
+    let mut rows = conn
+        .query("PRAGMA journal_mode;", ())
+        .await
+        .expect("query pragma");
+    let row = rows.next().await.expect("row read").expect("row");
+    let mode: String = row.get(0).expect("mode");
+    assert_eq!(mode.to_ascii_lowercase(), "wal");
 }
 
 fn env_u64(key: &str, default: u64) -> u64 {

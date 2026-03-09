@@ -405,7 +405,9 @@ fn concept_to_js_value(concept: &Concept) -> Result<JsValue, JsValue> {
     let metadata_obj = js_sys::Object::new();
     for (key, value) in &concept.metadata {
         let value_str = serde_json::to_string(value).map_err(to_js_error)?;
-        js_sys::Reflect::set(&metadata_obj, &key.clone().into(), &value_str.into())
+        let js_value = js_sys::JSON::parse(&value_str)
+            .map_err(|_| JsValue::from_str("failed to parse metadata JSON"))?;
+        js_sys::Reflect::set(&metadata_obj, &key.clone().into(), &js_value)
             .map_err(|_| JsValue::from_str("failed to set JS property"))?;
     }
     js_sys::Reflect::set(&obj, &"metadata".into(), &metadata_obj.into())

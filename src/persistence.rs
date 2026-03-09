@@ -1,16 +1,12 @@
 //! Persistence layer using libSQL (SQLite/Turso). Auto-migrations, version retention, FK enabled.
-
-use libsql::{Builder, Connection, Database, params};
-use std::sync::Arc;
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 use crate::singularity::Concept;
-
+use libsql::{Builder, Connection, Database, params};
+use std::sync::Arc;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 pub(crate) const LATEST_SCHEMA_VERSION: i64 = 2;
 
-/// Database connection manager
 #[derive(Debug)]
 pub struct Persistence {
     pub(crate) db: Arc<Database>,
@@ -71,12 +67,17 @@ impl Persistence {
         let conn = self
             .db
             .connect()
-            .map_err(|e| MemoryError::Database(format!("Failed to connect: {}", e)))?;
+            .map_err(|e| MemoryError::Database(format!("Failed to connect: {e}")))?;
 
-        conn.execute("PRAGMA foreign_keys = ON;", ())
+        if self.local_path.is_some() {
+            let _ = conn
+                .query("PRAGMA journal_mode=WAL;", ())
+                .await
+                .map_err(|e| MemoryError::Database(format!("Failed to enable WAL mode: {e}")))?;
+        }
+        conn.execute("PRAGMA foreign_keys=ON;", ())
             .await
-            .map_err(|e| MemoryError::Database(format!("Failed to enable foreign keys: {}", e)))?;
-
+            .map_err(|e| MemoryError::Database(format!("Failed to enable foreign keys: {e}")))?;
         Ok(conn)
     }
 
