@@ -590,3 +590,8 @@ world_state:
   readme_encoder_graph_examples: true         # README.md with new feature examples
   book_encoder_graph_chapters: false           # book/src/ chapters for encoder + graph
   llms_txt_refreshed: true                    # Updated llms.txt and llms-full.txt
+
+  # Phase 48: Performance Follow-up (cost: 7) - Proposed 2026-03-09
+  probe_scan_materialization_removed: false   # ADR-0056: find_similar_cached clones all concepts on cache misses
+  local_sqlite_wal_enabled: false             # ADR-0056: local SQLite init does not enforce journal_mode=WAL
+  probe_scale_trigger_exceeded: false         # ADR-0056: activate optional ANN/LSH only after >200k concepts + measured latency regression
