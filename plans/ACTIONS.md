@@ -2675,3 +2675,36 @@ actions:
       - Add graph.md chapter (graph traversal guide)
       llms.txt/llms-full.txt:
       - Regenerate via scripts/gen-llms-txt.sh
+
+  # Phase 48: Performance Follow-up (cost: 7)
+  - name: remove_probe_scan_materialization
+    preconditions:
+      concept_cache_implemented: true
+      simd_hypervector_ops: true
+    effects:
+      probe_scan_materialization_removed: true
+    cost: 5
+    status: pending
+    file: src/singularity.rs, benches/benchmark.rs, tests/batch_operations.rs
+    adr: ADR-0056
+    description: |
+      Refactor `find_similar_cached()` so cache misses do not first clone every concept ID and
+      vector into a temporary `Vec<(String, HVec10240)>`.
+      Preserve exact-search semantics and current cache behavior.
+      Add benchmarks at 10k, 100k, and 200k concepts to measure latency before activating the
+      deferred ANN/LSH path.
+
+  - name: enable_local_sqlite_wal
+    preconditions:
+      persistence_no_batching: false
+      persistence_connection_unsafe: false
+    effects:
+      local_sqlite_wal_enabled: true
+    cost: 2
+    status: pending
+    file: src/persistence.rs, tests/persistence_crud.rs, tests/performance_targets.rs
+    adr: ADR-0056
+    description: |
+      Enable `PRAGMA journal_mode=WAL` during local SQLite initialization, keep per-connection
+      foreign-key enforcement, and add tests that verify WAL mode plus checkpoint compatibility.
+      Leave the remote Turso path unchanged.

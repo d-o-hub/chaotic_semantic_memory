@@ -53,13 +53,14 @@ enhancement_goals:
   name: "Architecture Enhancements (Post-1.0 Deferred)"
   note: "Deferred per Swarm Consensus 2026-02-17. Reconsider based on production feedback."
   targets:
-    # ADR-0024 Phase 2B/C: Trigger when >200k concepts with latency degradation
+    # ADR-0056 / ADR-0024 Phase 2B/C: Trigger when >200k concepts with latency degradation
+    # after exact-scan materialization costs are removed from the probe path
     - approximate_search_indexing: deferred  
     # ADR-0024 Phase 2: Trigger when w_in memory pressure observed
     - deterministic_hashed_projections: deferred
     # ADR-0024: Product Quantization for 10M concept scale
     - product_quantization: deferred
-    # ADR-0024: LSH index for sub-linear search
+    # ADR-0056 / ADR-0024: Optional LSH index for sub-linear search
     - lsh_indexing: deferred
     # ADR-0025: Biological memory decay modeling
     - association_decay: deferred
@@ -97,3 +98,7 @@ improvement_goals:
 
     # Phase 11: API Completeness (cost: 2)
     - query_cache_zero_alloc: true
+
+    # Phase 48: Performance Follow-up (cost: 7)
+    - probe_scan_materialization_removed: true
+    - local_sqlite_wal_enabled: true
