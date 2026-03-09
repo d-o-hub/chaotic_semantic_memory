@@ -13,6 +13,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 - Reservoir spectral radius must stay in `[0.9, 1.1]`.
 - WASM threading paths must be gated with `#[cfg(not(target_arch = "wasm32"))]`.
 - No hardcoded runtime settings or magic numbers in production paths; use named constants and configurable env/config values.
+- - Never render architecture diagrams as raw ASCII art in responses; use fenced ```mermaid``` blocks for all inline diagrams.
 
 ## Key Files and Folders
 - @Cargo.toml — dependencies and features
@@ -48,7 +49,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 - `debugging-reservoir`: Diagnose ESN spectral radius, sparse weights, dynamics
 - `skill-memory`: Use csm CLI for skill learning and knowledge graphs
   - **References**: @.agents/skills/skill-memory/references/integration-patterns.md, @.agents/skills/skill-memory/references/api-reference.md
-- `drawio`: Create architecture diagrams for plans, modules, and data flows
+- `drawio`: Create architecture diagrams for plans, modules, and data flows   - **References**: @.agents/skills/drawio/SKILL.md   - **Trigger**: any request to "show", "draw", "visualize", or "overview" architecture
 
 ### Swarm Group Skills (Parallel Execution)
 - `swarm-testing-quality`: Property-based testing, fuzzing, edge case coverage
