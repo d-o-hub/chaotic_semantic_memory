@@ -255,23 +255,19 @@ impl Singularity {
                 .fetch_add(1, Ordering::Relaxed);
         }
 
-        // Collect IDs and vectors once to avoid cloning strings during parallel iteration
-        let concept_data: Vec<(String, HVec10240)> = self
+        #[cfg(not(target_arch = "wasm32"))]
+        let mut results: Vec<(String, f32)> = self
             .concepts
             .iter()
-            .map(|(id, c)| (id.clone(), c.vector)) // HVec10240 is Copy
-            .collect();
-
-        #[cfg(not(target_arch = "wasm32"))]
-        let mut results: Vec<(String, f32)> = concept_data
-            .par_iter()
-            .map(|(id, vec)| (id.clone(), query.cosine_similarity(vec)))
+            .par_bridge()
+            .map(|(id, concept)| (id.clone(), query.cosine_similarity(&concept.vector)))
             .collect();
 
         #[cfg(target_arch = "wasm32")]
-        let mut results: Vec<(String, f32)> = concept_data
+        let mut results: Vec<(String, f32)> = self
+            .concepts
             .iter()
-            .map(|(id, vec)| (id.clone(), query.cosine_similarity(vec)))
+            .map(|(id, concept)| (id.clone(), query.cosine_similarity(&concept.vector)))
             .collect();
 
         if results.len() <= top_k {

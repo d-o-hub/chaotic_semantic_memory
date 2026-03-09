@@ -2684,7 +2684,7 @@ actions:
     effects:
       probe_scan_materialization_removed: true
     cost: 5
-    status: pending
+    status: complete
     file: src/singularity.rs, benches/benchmark.rs, tests/batch_operations.rs
     adr: ADR-0056
     description: |
@@ -2701,7 +2701,7 @@ actions:
     effects:
       local_sqlite_wal_enabled: true
     cost: 2
-    status: pending
+    status: complete
     file: src/persistence.rs, tests/persistence_crud.rs, tests/performance_targets.rs
     adr: ADR-0056
     description: |

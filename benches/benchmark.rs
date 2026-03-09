@@ -6,6 +6,13 @@ use chaotic_semantic_memory::metadata_filter::MetadataFilter;
 use chaotic_semantic_memory::reservoir::Reservoir;
 use chaotic_semantic_memory::singularity::{Concept, ConceptBuilder, Singularity};
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use std::time::Duration;
+
+const PROBE_BENCH_TOP_K: usize = 10;
+const PROBE_BENCH_SAMPLE_SIZE: usize = 10;
+const PROBE_BENCH_WARMUP_SECS: u64 = 1;
+const PROBE_BENCH_MEASUREMENT_SECS: u64 = 3;
+const PROBE_BENCH_COUNTS: [usize; 3] = [10_000, 100_000, 200_000];
 
 fn bench_hvec_creation(c: &mut Criterion) {
     c.bench_function("hvec_random", |b| b.iter(HVec10240::random));
@@ -110,6 +117,22 @@ fn make_concept_with_tag(id: &str, tag: &str) -> Concept {
         .with_metadata("tag", tag)
         .build()
         .unwrap()
+}
+
+fn build_probe_benchmark_singularity(concept_count: usize) -> Singularity {
+    let mut singularity = Singularity::new();
+    let vector = HVec10240::random();
+    for i in 0..concept_count {
+        singularity
+            .inject(
+                ConceptBuilder::new(format!("p{i}"))
+                    .with_vector(vector)
+                    .build()
+                    .unwrap(),
+            )
+            .unwrap();
+    }
+    singularity
 }
 
 // ─── TextEncoder benchmarks ──────────────────────────────────────────────────
@@ -290,6 +313,31 @@ fn bench_bundle_accumulator(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_probe_exact_scan_scale(c: &mut Criterion) {
+    let mut group = c.benchmark_group("probe_exact_scan_scale");
+    group.sample_size(PROBE_BENCH_SAMPLE_SIZE);
+    group.warm_up_time(Duration::from_secs(PROBE_BENCH_WARMUP_SECS));
+    group.measurement_time(Duration::from_secs(PROBE_BENCH_MEASUREMENT_SECS));
+
+    for concept_count in PROBE_BENCH_COUNTS {
+        let singularity = build_probe_benchmark_singularity(concept_count);
+        let query = HVec10240::random();
+        group.bench_function(
+            format!("exact_top{PROBE_BENCH_TOP_K}_{concept_count}"),
+            |b| {
+                b.iter(|| {
+                    black_box(
+                        singularity
+                            .find_similar_cached(black_box(&query), black_box(PROBE_BENCH_TOP_K)),
+                    )
+                })
+            },
+        );
+    }
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_hvec_creation,
@@ -302,6 +350,7 @@ criterion_group!(
     bench_text_encoder,
     bench_filtered_search,
     bench_graph_traversal,
-    bench_bundle_accumulator
+    bench_bundle_accumulator,
+    bench_probe_exact_scan_scale
 );
 criterion_main!(benches);

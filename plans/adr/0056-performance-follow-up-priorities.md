@@ -1,7 +1,7 @@
 # [ADR-0056] Performance Follow-up Priorities After v0.2.0
 
 ## Status
-Proposed
+Implemented
 
 ## Context and Problem Statement
 
@@ -97,8 +97,19 @@ today without committing the crate to unnecessary architectural churn.
 
 ## Follow-up Actions
 
-1. Add a GOAP action to remove per-query probe materialization and benchmark the exact scan path at
-   10k, 100k, and 200k concepts.
-2. Add a GOAP action to enable WAL for local SQLite and validate it with tests.
-3. Revisit optional ANN/LSH indexing only if the new probe benchmarks show the deferred scale
-   trigger has been reached.
+1. Completed: removed per-query probe materialization and added exact-scan benchmark coverage for
+   10k, 100k, and 200k concept scales.
+2. Completed: enabled WAL mode for local SQLite initialization and validated WAL + checkpoint
+   compatibility in integration tests.
+3. Ongoing (deferred trigger): revisit optional ANN/LSH indexing only when scale benchmarks show
+   evidence beyond the current threshold policy.
+
+## Implementation Notes (2026-03-09)
+
+- `src/singularity.rs`: cache-miss probe path no longer clones all concepts into an intermediate
+  vector before similarity computation.
+- `src/persistence.rs`: local connections now run `PRAGMA journal_mode=WAL;` and all connections
+  continue enforcing `PRAGMA foreign_keys=ON;`.
+- `tests/persistence_crud.rs`, `tests/performance_targets.rs`: added explicit WAL-mode assertions.
+- `benches/benchmark.rs`: added `probe_exact_scan_scale` benchmark group (10k/100k/200k).
+- `plans/GOAP_STATE.md` and `plans/ACTIONS.md` updated to mark Phase 48 complete.

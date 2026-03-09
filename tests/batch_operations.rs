@@ -658,6 +658,36 @@ async fn probe_batch_cached_multiple_distinct_queries() {
 }
 
 #[tokio::test]
+async fn probe_batch_cached_large_corpus_keeps_exact_semantics() {
+    let framework = ChaoticSemanticFramework::builder()
+        .without_persistence()
+        .with_concept_cache_size(64)
+        .build()
+        .await
+        .unwrap();
+
+    let exact = HVec10240::random();
+    framework
+        .inject_concepts(&[("exact-hit".to_string(), exact)])
+        .await
+        .unwrap();
+
+    let mut noise = Vec::with_capacity(2_000);
+    for i in 0..2_000 {
+        noise.push((format!("noise-{i}"), HVec10240::random()));
+    }
+    framework.inject_concepts(&noise).await.unwrap();
+
+    let queries = vec![exact];
+    let first = framework.probe_batch_cached(&queries, 1).await.unwrap();
+    let second = framework.probe_batch_cached(&queries, 1).await.unwrap();
+
+    assert_eq!(first[0][0].0, "exact-hit");
+    assert_eq!(second[0][0].0, "exact-hit");
+    assert!(Arc::ptr_eq(&first[0], &second[0]));
+}
+
+#[tokio::test]
 async fn batch_operations_concurrent_access() {
     let framework = Arc::new(
         ChaoticSemanticFramework::builder()

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use chaotic_semantic_memory::HVec10240;
 use chaotic_semantic_memory::persistence::Persistence;
 use chaotic_semantic_memory::singularity::Concept;
+use libsql::Builder;
 use tempfile::NamedTempFile;
 
 fn make_concept(id: &str, created_at: u64, modified_at: u64) -> Concept {
@@ -25,6 +26,15 @@ fn make_concept_with_meta(id: &str, meta_key: &str, meta_value: &str) -> Concept
         created_at: 1,
         modified_at: 1,
     }
+}
+
+async fn sqlite_journal_mode(path: &str) -> String {
+    let db = Builder::new_local(path).build().await.unwrap();
+    let conn = db.connect().unwrap();
+    let mut rows = conn.query("PRAGMA journal_mode;", ()).await.unwrap();
+    let row = rows.next().await.unwrap().unwrap();
+    let mode: String = row.get(0).unwrap();
+    mode.to_ascii_lowercase()
 }
 
 #[tokio::test]
@@ -361,8 +371,19 @@ async fn checkpoint_succeeds() {
         .await
         .unwrap();
 
-    let result = persistence.checkpoint().await;
-    assert!(result.is_ok());
+    persistence.checkpoint().await.unwrap();
+    let mode = sqlite_journal_mode(path).await;
+    assert_eq!(mode, "wal");
+}
+
+#[tokio::test]
+async fn local_sqlite_enables_wal_mode() {
+    let temp = NamedTempFile::new().unwrap();
+    let path = temp.path().to_str().unwrap();
+    let _persistence = Persistence::new_local(path).await.unwrap();
+
+    let mode = sqlite_journal_mode(path).await;
+    assert_eq!(mode, "wal");
 }
 
 #[tokio::test]
