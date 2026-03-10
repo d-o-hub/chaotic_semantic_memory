@@ -135,26 +135,23 @@ jobs:
       id: changelog
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
-        
-        # Extract changelog section for this version
-        # Handles both "## [VERSION]" and "## [VERSION] - YYYY-MM-DD" formats
-        # Skips duplicate headers and extracts content until next version
-        CHANGELOG_CONTENT=$(awk "
-          /^## \\\\[${VERSION}\\\\]/ {
-            found=1
-            next
-          }
-          /^## \\\\[0-9]/ {
+
+        # Single-quoted awk avoids all shell escaping issues.
+        # -v passes the version string cleanly into awk.
+        # index() does a plain string match, so dots in "0.2.1" are not treated as regex wildcards.
+        CHANGELOG_CONTENT=$(awk -v ver="$VERSION" '
+          /^## \[/ {
             if (found) exit
+            if (index($0, "[" ver "]") > 0) { found=1; next }
           }
           found { print }
-        " CHANGELOG.md)
-        
+        ' CHANGELOG.md)
+
         if [ -z "$CHANGELOG_CONTENT" ]; then
           echo "⚠️ No changelog content found for version $VERSION"
           echo "Release $VERSION" > release_notes.md
         else
-          echo "$CHANGELOG_CONTENT" > release_notes.md
+          printf '%s\n' "$CHANGELOG_CONTENT" > release_notes.md
           echo "✓ Extracted changelog content ($(wc -l < release_notes.md) lines)"
         fi
 
@@ -186,27 +183,3 @@ jobs:
           echo "- **GitHub Release**: Created with artifacts" >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ Release v${VERSION} had failures:" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Job | Result |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| validate | ${{ needs.validate.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| build-artifacts | ${{ needs.build-artifacts.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| publish-crates | ${{ needs.publish-crates.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| create-github-release | ${{ needs.create-github-release.result }} |" >> $GITHUB_STEP_SUMMARY
-          exit 1
-        fi
-
-  update-rolling-tags:
-    runs-on: ubuntu-24.04
-    needs: [validate, create-github-release]
-    if: needs.create-github-release.result == 'success'
-    steps:
-    - uses: actions/checkout@v6
-
-    - name: Update rolling tags
-      uses: cssnr/update-version-tags-action@v2
-      with:
-        prefix: v
-        major: true
-        minor: true
-        token: ${{ secrets.GITHUB_TOKEN }}
