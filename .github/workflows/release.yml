@@ -37,6 +37,14 @@ jobs:
         VERSION="${{ steps.version.outputs.version }}"
         bash scripts/sync-version.sh "$VERSION"
 
+    - name: Commit synced docs
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add -A
+        git diff --staged --quiet || git commit -m "docs: sync version to ${{ steps.version.outputs.version }}"
+        git push
+
     - name: Validate version matches Cargo.toml
       run: |
         TAG_VERSION="${GITHUB_REF#refs/tags/v}"

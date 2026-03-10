@@ -71,6 +71,9 @@ jobs:
           echo "✓ $file: $LOC LOC"
         done
 
+    - name: Check docs sync
+      run: bash scripts/sync-docs.sh --check
+
   build:
     runs-on: ubuntu-24.04
     needs: test

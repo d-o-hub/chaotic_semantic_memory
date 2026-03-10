@@ -22,4 +22,8 @@ for file in $(find src -name '*.rs'); do
   fi
 done
 
+# Docs sync check
+echo "  → Checking docs sync..."
+bash scripts/sync-docs.sh --check
+
 echo "✅ Pre-commit checks passed!"
