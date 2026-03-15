@@ -7,10 +7,13 @@ use tracing::{instrument, warn};
 
 use crate::error::Result;
 use crate::framework_builder::{FrameworkBuilder, FrameworkConfig, FrameworkStats};
+use crate::framework_events::MemoryEvent;
+use crate::graph_traversal::TraversalConfig;
 use crate::hyperdim::HVec10240;
+use crate::metadata_filter::MetadataFilter;
 use crate::persistence::Persistence;
 use crate::reservoir::ChaoticReservoir;
-use crate::singularity::{Concept, ConceptBuilder, Singularity};
+use crate::singularity::{Concept, ConceptBuilder, Singularity, unix_now_secs};
 
 /// Main framework for chaotic semantic memory
 pub struct ChaoticSemanticFramework {
@@ -19,6 +22,7 @@ pub struct ChaoticSemanticFramework {
     pub(crate) reservoir: Arc<RwLock<Option<ChaoticReservoir>>>,
     pub(crate) config: FrameworkConfig,
     pub(crate) metrics: Arc<FrameworkMetrics>,
+    pub(crate) event_sender: tokio::sync::broadcast::Sender<MemoryEvent>,
 }
 
 #[derive(Debug, Default)]
@@ -103,7 +107,9 @@ impl ChaoticSemanticFramework {
     pub async fn inject_concept(&self, id: impl Into<String>, vector: HVec10240) -> Result<()> {
         let id = id.into();
         Self::validate_concept_id(&id)?;
-        let concept = ConceptBuilder::new(id).with_vector(vector).build()?;
+        let concept = ConceptBuilder::new(id.clone())
+            .with_vector(vector)
+            .build()?;
 
         {
             let mut sing = self.singularity.write().await;
@@ -114,6 +120,10 @@ impl ChaoticSemanticFramework {
             persistence.save_concept(&concept).await?;
         }
         self.metrics.inc_concepts_injected(1);
+        self.emit_event(MemoryEvent::ConceptInjected {
+            id,
+            timestamp: concept.modified_at,
+        });
 
         Ok(())
     }
@@ -145,6 +155,10 @@ impl ChaoticSemanticFramework {
             persistence.save_concept(&concept).await?;
         }
         self.metrics.inc_concepts_injected(1);
+        self.emit_event(MemoryEvent::ConceptInjected {
+            id: concept.id.clone(),
+            timestamp: concept.modified_at,
+        });
 
         Ok(())
     }
@@ -159,6 +173,44 @@ impl ChaoticSemanticFramework {
         let elapsed_ms = start.elapsed().as_millis() as u64;
         self.metrics.observe_probe_latency_ms(elapsed_ms);
         Ok(results)
+    }
+
+    /// Query for similar concepts with metadata filtering.
+    #[instrument(err, skip(self, query, filter))]
+    pub async fn probe_filtered(
+        &self,
+        query: &HVec10240,
+        top_k: usize,
+        filter: &MetadataFilter,
+    ) -> Result<Vec<(String, f32)>> {
+        self.validate_top_k(top_k)?;
+        let start = std::time::Instant::now();
+        let sing = self.singularity.read().await;
+        let results = sing.find_similar_filtered(query, top_k, filter);
+        let elapsed_ms = start.elapsed().as_millis() as u64;
+        self.metrics.observe_probe_latency_ms(elapsed_ms);
+        Ok(results.as_ref().to_vec())
+    }
+
+    /// Traverse graph using breadth-first search.
+    #[instrument(err, skip(self, config))]
+    pub async fn traverse(
+        &self,
+        start: &str,
+        config: TraversalConfig,
+    ) -> Result<Vec<(String, u32)>> {
+        Self::validate_concept_id(start)?;
+        let sing = self.singularity.read().await;
+        sing.bfs(start, &config)
+    }
+
+    /// Find shortest weighted path between two concepts.
+    #[instrument(err, skip(self))]
+    pub async fn shortest_path(&self, from: &str, to: &str) -> Result<Option<Vec<String>>> {
+        Self::validate_concept_id(from)?;
+        Self::validate_concept_id(to)?;
+        let sing = self.singularity.read().await;
+        sing.shortest_path(from, to, &TraversalConfig::default())
     }
 
     /// Process temporal sequence through reservoir
@@ -176,7 +228,7 @@ impl ChaoticSemanticFramework {
 
         let r = reservoir
             .as_mut()
-            .ok_or(crate::error::MemoryError::Reservoir(
+            .ok_or(crate::error::MemoryError::reservoir(
                 "reservoir failed to initialize".to_string(),
             ))?;
         r.reset();
@@ -202,6 +254,11 @@ impl ChaoticSemanticFramework {
             persistence.save_association(from, to, strength).await?;
         }
         self.metrics.inc_associations_created(1);
+        self.emit_event(MemoryEvent::Associated {
+            from: from.to_string(),
+            to: to.to_string(),
+            strength,
+        });
 
         Ok(())
     }
@@ -218,6 +275,11 @@ impl ChaoticSemanticFramework {
         if let Some(ref persistence) = self.persistence {
             persistence.delete_concept(id).await?;
         }
+
+        self.emit_event(MemoryEvent::ConceptDeleted {
+            id: id.to_string(),
+            timestamp: unix_now_secs(),
+        });
 
         Ok(())
     }
@@ -376,18 +438,6 @@ impl ChaoticSemanticFramework {
         snapshot.avg_reservoir_step_latency_us = reservoir_snapshot.avg_reservoir_step_latency_us;
         snapshot.reservoir_nodes_active = reservoir_snapshot.reservoir_nodes_active;
         snapshot
-    }
-
-    /// Update a concept's vector (WASM-only, memory-only).
-    #[cfg(target_arch = "wasm32")]
-    pub async fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()> {
-        self.singularity.write().await.update(id, vector)
-    }
-
-    /// Remove an association (WASM-only, memory-only).
-    #[cfg(target_arch = "wasm32")]
-    pub async fn disassociate(&self, from: &str, to: &str) -> Result<()> {
-        self.singularity.write().await.disassociate(from, to)
     }
 
     /// Inject a concept from text using the built-in encoder.

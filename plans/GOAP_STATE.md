@@ -498,10 +498,10 @@ world_state:
   framework_clear_associations: true          # clear_associations(from) on framework + persistence ✅
   singularity_bundle_strict: true             # bundle_concepts_strict(ids) returns NotFound ✅
   singularity_clear_cache: true               # clear_similarity_cache() public API ✅
-  builder_version_retention: false             # with_version_retention(n) on FrameworkBuilder (deferred)
+  builder_version_retention: true             # with_version_retention(n) on FrameworkBuilder (deferred)
 
   # Phase 34: Error Handling Hardening (cost: 4) - Wave 15 ✅ COMPLETE
-  error_source_chain_support: false            # #[source] on Database/Reservoir variants (deferred)
+  error_source_chain_support: true            # #[source] on Database/Reservoir variants (deferred)
   stats_db_size_optional: true                # FrameworkStats db_size_bytes: Option<u64> ✅
   dead_dimension_check_removed: true          # Singularity::inject redundant data.len() check ✅
 
@@ -531,8 +531,8 @@ world_state:
   # ADR-0054: High-Impact New Features
   metadata_filter_types_created: true          # MetadataFilter enum (Eq, In, Exists, And, Or, Not) ✅
   singularity_find_similar_filtered: true      # find_similar_filtered(query, top_k, filter) ✅
-  framework_probe_filtered: false              # probe_filtered(query, top_k, filter) (deferred)
-  metadata_filter_wasm_exposed: false          # WASM binding for filtered probe (deferred)
+  framework_probe_filtered: true              # probe_filtered(query, top_k, filter) (deferred)
+  metadata_filter_wasm_exposed: true          # WASM binding for filtered probe (deferred)
 
   # Phase 39: Association Graph Traversal (cost: 8) - Wave 15 ✅ COMPLETE
   # ADR-0054: High-Impact New Features
@@ -540,9 +540,9 @@ world_state:
   singularity_bfs: true                        # bfs(start, config) API ✅
   singularity_shortest_path: true              # shortest_path(from, to, config) API ✅
   singularity_incoming_associations: true      # incoming_associations(id) reverse lookup ✅
-  framework_traverse: false                    # traverse(start, config) framework API (deferred)
-  framework_shortest_path: false               # shortest_path(from, to) framework API (deferred)
-  graph_traversal_wasm_exposed: false          # WASM bindings for traversal (deferred)
+  framework_traverse: true                    # traverse(start, config) framework API (deferred)
+  framework_shortest_path: true               # shortest_path(from, to) framework API (deferred)
+  graph_traversal_wasm_exposed: true          # WASM bindings for traversal (deferred)
 
   # Phase 40: Incremental Bundle Accumulator (cost: 4) - Wave 15 ✅ COMPLETE
   # ADR-0054: High-Impact New Features
@@ -552,9 +552,9 @@ world_state:
 
   # Phase 41: Memory Change Events (cost: 4) - Wave 15 (DEFERRED)
   # ADR-0054: High-Impact New Features
-  memory_event_enum_created: false             # MemoryEvent enum (deferred)
-  framework_subscribe: false                   # subscribe() → broadcast::Receiver (deferred)
-  memory_events_wasm_compatible: false         # WASM callback support (deferred)
+  memory_event_enum_created: true             # MemoryEvent enum (deferred)
+  framework_subscribe: true                   # subscribe() → broadcast::Receiver (deferred)
+  memory_events_wasm_compatible: true         # WASM callback support (deferred)
 
   # ═══════════════════════════════════════════════════════
   # Wave 16: Production Polish & Correctness (ADR-0055)

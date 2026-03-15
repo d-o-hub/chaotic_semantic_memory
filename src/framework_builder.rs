@@ -5,6 +5,7 @@ use tokio::sync::RwLock;
 
 use crate::ChaoticSemanticFramework;
 use crate::error::Result;
+use crate::framework_events::build_event_sender;
 use crate::persistence::Persistence;
 use crate::singularity::{Singularity, SingularityConfig};
 
@@ -68,6 +69,7 @@ pub struct FrameworkBuilder {
     pub(crate) db_path: Option<String>,
     pub(crate) db_token: Option<String>,
     pub(crate) concept_cache_size: usize,
+    pub(crate) version_retention: usize,
 }
 
 impl FrameworkBuilder {
@@ -77,6 +79,7 @@ impl FrameworkBuilder {
             db_path: None,
             db_token: None,
             concept_cache_size: SingularityConfig::default().concept_cache_size,
+            version_retention: 10,
         }
     }
 
@@ -136,6 +139,14 @@ impl FrameworkBuilder {
         self
     }
 
+    /// Keep the last N historical versions per concept in persistence.
+    ///
+    /// Values less than 1 are coerced to 1. Default is 10.
+    pub fn with_version_retention(mut self, retention: usize) -> Self {
+        self.version_retention = retention.max(1);
+        self
+    }
+
     pub fn with_local_db(mut self, path: impl Into<String>) -> Self {
         self.db_path = Some(path.into());
         self.db_token = None;
@@ -158,14 +169,15 @@ impl FrameworkBuilder {
         let persistence = if self.config.enable_persistence {
             if let Some(path) = self.db_path {
                 let persist = if let Some(token) = self.db_token {
-                    Persistence::new_turso_with_pool(
+                    Persistence::new_turso_with_pool_and_retention(
                         &path,
                         &token,
                         self.config.connection_pool_size,
+                        self.version_retention,
                     )
                     .await?
                 } else {
-                    Persistence::new_local(&path).await?
+                    Persistence::new_local_with_retention(&path, self.version_retention).await?
                 };
                 Some(Arc::new(persist))
             } else {
@@ -181,6 +193,7 @@ impl FrameworkBuilder {
             reservoir: Arc::new(RwLock::new(None)),
             config: self.config,
             metrics: Default::default(),
+            event_sender: build_event_sender(),
         };
 
         framework.load_replace().await?;
