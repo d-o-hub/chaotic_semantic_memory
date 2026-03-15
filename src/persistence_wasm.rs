@@ -23,11 +23,24 @@ impl Persistence {
         Err(wasm_persistence_unavailable())
     }
 
+    pub async fn new_local_with_retention(_path: &str, _retention: usize) -> Result<Self> {
+        Err(wasm_persistence_unavailable())
+    }
+
     pub async fn new_turso(_url: &str, _token: &str) -> Result<Self> {
         Err(wasm_persistence_unavailable())
     }
 
     pub async fn new_turso_with_pool(_url: &str, _token: &str, _pool_size: usize) -> Result<Self> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn new_turso_with_pool_and_retention(
+        _url: &str,
+        _token: &str,
+        _pool_size: usize,
+        _retention: usize,
+    ) -> Result<Self> {
         Err(wasm_persistence_unavailable())
     }
 
