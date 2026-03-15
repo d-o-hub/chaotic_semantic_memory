@@ -6,6 +6,7 @@ use tracing::{instrument, warn};
 use crate::error::{MemoryError, Result};
 use crate::export_payload::{ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
+use crate::framework_events::MemoryEvent;
 use crate::hyperdim::HVec10240;
 use crate::singularity::ConceptBuilder;
 use bincode::Options;
@@ -410,6 +411,10 @@ impl ChaoticSemanticFramework {
         if let (Some(concept), Some(persistence)) = (concept, &self.persistence) {
             persistence.save_concept(&concept).await?;
         }
+        self.emit_event(MemoryEvent::ConceptUpdated {
+            id: id.to_string(),
+            timestamp: unix_now_secs(),
+        });
         Ok(())
     }
 
@@ -431,6 +436,10 @@ impl ChaoticSemanticFramework {
         if let (Some(concept), Some(persistence)) = (concept, &self.persistence) {
             persistence.save_concept(&concept).await?;
         }
+        self.emit_event(MemoryEvent::ConceptUpdated {
+            id: id.to_string(),
+            timestamp: unix_now_secs(),
+        });
         Ok(())
     }
 
@@ -447,6 +456,10 @@ impl ChaoticSemanticFramework {
         if let Some(persistence) = &self.persistence {
             persistence.delete_association(from, to).await?;
         }
+        self.emit_event(MemoryEvent::Disassociated {
+            from: from.to_string(),
+            to: to.to_string(),
+        });
         Ok(())
     }
 

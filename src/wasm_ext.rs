@@ -2,8 +2,10 @@
 //!
 //! Split from `wasm.rs` to keep each file under the 500-LOC project limit.
 
-use js_sys::Array;
+use js_sys::{Array, Function};
+use tokio::sync::broadcast::error::RecvError;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::spawn_local;
 
 use crate::wasm::{WasmFramework, to_js_error};
 
@@ -107,11 +109,10 @@ impl WasmFramework {
     /// Returns an Array of concept ID strings, or an empty Array if no path exists.
     /// Uses default `TraversalConfig` (max_depth=3).
     pub async fn shortest_path(&self, from: String, to: String) -> Result<Array, JsValue> {
-        use crate::graph_traversal::TraversalConfig;
-        let sing = self.framework.singularity.read().await;
-        let config = TraversalConfig::default();
-        let path = sing
-            .shortest_path(&from, &to, &config)
+        let path = self
+            .framework
+            .shortest_path(&from, &to)
+            .await
             .map_err(to_js_error)?;
         let array = Array::new();
         if let Some(nodes) = path {
@@ -120,6 +121,85 @@ impl WasmFramework {
             }
         }
         Ok(array)
+    }
+
+    /// Probe for similar concepts with metadata filtering.
+    pub async fn probe_filtered(
+        &self,
+        vector: &[u8],
+        top_k: usize,
+        filter_json: String,
+    ) -> Result<Array, JsValue> {
+        let query = crate::hyperdim::HVec10240::from_bytes(vector).map_err(to_js_error)?;
+        let filter: crate::metadata_filter::MetadataFilter = serde_json::from_str(&filter_json)
+            .map_err(|e| JsValue::from_str(&format!("invalid filter JSON: {e}")))?;
+
+        let results = self
+            .framework
+            .probe_filtered(&query, top_k, &filter)
+            .await
+            .map_err(to_js_error)?;
+
+        let array = Array::new();
+        for (id, score) in results {
+            let obj = js_sys::Object::new();
+            js_sys::Reflect::set(&obj, &"id".into(), &id.into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+            js_sys::Reflect::set(&obj, &"score".into(), &score.into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+            array.push(&obj);
+        }
+
+        Ok(array)
+    }
+
+    /// Breadth-first traversal from a starting concept with custom config.
+    pub async fn traverse(
+        &self,
+        start: String,
+        max_depth: u32,
+        min_strength: f32,
+    ) -> Result<Array, JsValue> {
+        let results = self
+            .framework
+            .traverse(
+                &start,
+                crate::graph_traversal::TraversalConfig {
+                    max_depth: max_depth as usize,
+                    min_strength,
+                    max_results: 100,
+                },
+            )
+            .await
+            .map_err(to_js_error)?;
+
+        let array = Array::new();
+        for (id, depth) in results {
+            let obj = js_sys::Object::new();
+            js_sys::Reflect::set(&obj, &"id".into(), &id.into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+            js_sys::Reflect::set(&obj, &"depth".into(), &(depth as f64).into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+            array.push(&obj);
+        }
+        Ok(array)
+    }
+
+    /// Register a callback for memory events.
+    pub fn on_event(&self, callback: Function) {
+        let mut receiver = self.framework.subscribe();
+        spawn_local(async move {
+            loop {
+                match receiver.recv().await {
+                    Ok(event) => {
+                        let js_event = memory_event_to_js_value(&event);
+                        let _ = callback.call1(&JsValue::NULL, &js_event);
+                    }
+                    Err(RecvError::Lagged(_)) => continue,
+                    Err(RecvError::Closed) => break,
+                }
+            }
+        });
     }
 
     /// Inject a concept from text
@@ -150,4 +230,37 @@ impl WasmFramework {
 
         Ok(array)
     }
+}
+
+fn memory_event_to_js_value(event: &crate::framework_events::MemoryEvent) -> JsValue {
+    let obj = js_sys::Object::new();
+    match event {
+        crate::framework_events::MemoryEvent::ConceptInjected { id, timestamp } => {
+            let _ = js_sys::Reflect::set(&obj, &"type".into(), &"ConceptInjected".into());
+            let _ = js_sys::Reflect::set(&obj, &"id".into(), &id.clone().into());
+            let _ = js_sys::Reflect::set(&obj, &"timestamp".into(), &(*timestamp as f64).into());
+        }
+        crate::framework_events::MemoryEvent::ConceptUpdated { id, timestamp } => {
+            let _ = js_sys::Reflect::set(&obj, &"type".into(), &"ConceptUpdated".into());
+            let _ = js_sys::Reflect::set(&obj, &"id".into(), &id.clone().into());
+            let _ = js_sys::Reflect::set(&obj, &"timestamp".into(), &(*timestamp as f64).into());
+        }
+        crate::framework_events::MemoryEvent::ConceptDeleted { id, timestamp } => {
+            let _ = js_sys::Reflect::set(&obj, &"type".into(), &"ConceptDeleted".into());
+            let _ = js_sys::Reflect::set(&obj, &"id".into(), &id.clone().into());
+            let _ = js_sys::Reflect::set(&obj, &"timestamp".into(), &(*timestamp as f64).into());
+        }
+        crate::framework_events::MemoryEvent::Associated { from, to, strength } => {
+            let _ = js_sys::Reflect::set(&obj, &"type".into(), &"Associated".into());
+            let _ = js_sys::Reflect::set(&obj, &"from".into(), &from.clone().into());
+            let _ = js_sys::Reflect::set(&obj, &"to".into(), &to.clone().into());
+            let _ = js_sys::Reflect::set(&obj, &"strength".into(), &(*strength as f64).into());
+        }
+        crate::framework_events::MemoryEvent::Disassociated { from, to } => {
+            let _ = js_sys::Reflect::set(&obj, &"type".into(), &"Disassociated".into());
+            let _ = js_sys::Reflect::set(&obj, &"from".into(), &from.clone().into());
+            let _ = js_sys::Reflect::set(&obj, &"to".into(), &to.clone().into());
+        }
+    }
+    obj.into()
 }
