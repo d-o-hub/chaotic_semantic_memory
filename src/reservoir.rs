@@ -171,7 +171,7 @@ impl Reservoir {
 
     pub fn new_seeded(input_size: usize, size: usize, seed: u64) -> Result<Self> {
         if input_size == 0 || size == 0 {
-            return Err(MemoryError::Reservoir(
+            return Err(MemoryError::reservoir(
                 "Input size and reservoir size must be greater than zero".to_string(),
             ));
         }
@@ -215,7 +215,7 @@ impl Reservoir {
     pub fn step(&mut self, input: &[f32]) -> Result<&[f32]> {
         let started = Instant::now();
         if input.len() != self.input_size {
-            return Err(MemoryError::Reservoir(format!(
+            return Err(MemoryError::reservoir(format!(
                 "Input size mismatch: expected {}, got {}",
                 self.input_size,
                 input.len()
@@ -279,7 +279,7 @@ impl Reservoir {
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
     pub fn set_spectral_radius(&mut self, radius: f32) -> Result<()> {
         if !(0.9..=1.1).contains(&radius) {
-            return Err(MemoryError::Reservoir(
+            return Err(MemoryError::reservoir(
                 "Spectral radius must be in [0.9, 1.1]".to_string(),
             ));
         }
@@ -333,7 +333,7 @@ impl Reservoir {
         // The map produces exactly 80 items; try_into can only fail if the length differs,
         // which is structurally impossible here — map to MemoryError instead of panicking.
         let data: [u128; 80] = data.try_into().map_err(|_| {
-            MemoryError::Reservoir(
+            MemoryError::reservoir(
                 "internal: par_iter produced unexpected element count".to_string(),
             )
         })?;
@@ -457,7 +457,7 @@ impl ChaoticReservoir {
 
     pub fn step(&mut self, input: &[f32]) -> Result<&[f32]> {
         if input.len() != self.noisy_input.len() {
-            return Err(MemoryError::Reservoir(format!(
+            return Err(MemoryError::reservoir(format!(
                 "Input size mismatch: expected {}, got {}",
                 self.noisy_input.len(),
                 input.len()

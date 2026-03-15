@@ -11,6 +11,7 @@
 pub use error::{MemoryError, Result};
 pub use framework::ChaoticSemanticFramework;
 pub use framework_builder::FrameworkBuilder;
+pub use framework_events::MemoryEvent;
 pub use hyperdim::{HVec10240, batch_cosine_similarity};
 pub use singularity::{Concept, ConceptBuilder};
 
@@ -23,6 +24,7 @@ pub mod error;
 mod export_payload;
 pub mod framework;
 pub mod framework_builder;
+mod framework_events;
 #[cfg(not(target_arch = "wasm32"))]
 mod framework_ops;
 mod framework_validation;
@@ -46,6 +48,7 @@ pub mod prelude {
     pub use crate::error::{MemoryError, Result};
     pub use crate::framework::ChaoticSemanticFramework;
     pub use crate::framework_builder::FrameworkBuilder;
+    pub use crate::framework_events::MemoryEvent;
     pub use crate::hyperdim::HVec10240;
     pub use crate::singularity::{Concept, ConceptBuilder};
 }
