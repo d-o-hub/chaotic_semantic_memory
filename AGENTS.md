@@ -4,24 +4,7 @@
 Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI memory systems.
 
 ## Hard Constraints
-- Source files: `<= 500 LOC` each.
-- `SKILL.md` (`.agents/skills/` folder): `<= 250 LOC`; detailed references in `reference/`, `scripts/`, or `assets/`.
-- Use `libsql` (never `turso-client`).
-- Use Tokio async/await for I/O.
-- Use Rayon for CPU parallelism.
-- All fallible public APIs return `Result<T, Error>`.
-- Reservoir spectral radius must stay in `[0.9, 1.1]`.
-- WASM threading paths must be gated with `#[cfg(not(target_arch = "wasm32"))]`.
-- No hardcoded runtime settings or magic numbers in production paths; use named constants and configurable env/config values.
-- - Never render architecture diagrams as raw ASCII art in responses; use fenced ```mermaid``` blocks for all inline diagrams.
-- **Never use an archived GitHub repository as a reference package or dependency.**
-  Always either:
-  1. Find an actively maintained alternative crate on crates.io, OR
-  2. Fork the archived repo into `d-o-hub/` and maintain it yourself.
-  Before adding any dependency, verify its repository is not archived via:
-  ```bash
-  gh repo view <owner>/<repo> --json isArchived,pushedAt
-  ```
+See: [agents-docs/hard-constraints.md](agents-docs/hard-constraints.md)
 
 ## Key Files and Folders
 - @Cargo.toml — dependencies and features
@@ -31,194 +14,46 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 - @plans/ACTIONS.md — GOAP action plan
 - @.github/workflows/ci.yml — CI pipeline
 - @plans/adr/ — ADR folder
-- @docs/architecture/context.yaml — Structured LLM context (machine-optimized)
-- @progress/LEARNINGS.md — Self-learning patterns and iteration history
+- @docs/architecture/context.yaml — Structured LLM context
+- @progress/LEARNINGS.md — Self-learning patterns
 - @progress/PROGRESS.md — Project progress tracking
 
 ## Skills (16 Total)
 
 ### Core Skills
 - `rust-development`: Implement or refactor Rust modules
-  - **References**: @.agents/skills/rust-development/reference/codebase-patterns.md
 - `testing-validation`: Run compile/test/lint/LOC gates
-  - **Scripts**: @.agents/skills/testing-validation/scripts/validate.sh, @.agents/skills/testing-validation/scripts/loc-check.sh, @.agents/skills/testing-validation/scripts/check-docs-links.sh
 - `goap-planning`: Build ordered action plans from state to goal
-  - **References**: @.agents/skills/goap-planning/references/planner-pattern.md, @.agents/skills/goap-planning/references/action-model.md
 - `adr-creation`: Write architecture decision records
-  - **References**: @.agents/skills/adr-creation/references/madr-template.md, @.agents/skills/adr-creation/references/review-checklist.md
 - `github-ci-guardrails`: Validate merge readiness via gh CLI
-  - **References**: @.agents/skills/github-ci-guardrails/references/local-gates.md, @.agents/skills/github-ci-guardrails/references/gh-ci-truth.md
-- `git-workflow`: Git commit conventions, validation gates, CI/CD workflows
-  - **References**: @.agents/skills/git-workflow/references/commit-types.md
+- `git-workflow`: Git commit conventions, validation gates, CI/CD
 - `release-management`: GitHub release management, crates.io publishing
-  - **References**: @.agents/skills/release-management/references/version-tag-format.md, @.agents/skills/release-management/references/trusted-publishing.md
-  - **Scripts**: @.agents/skills/release-management/scripts/create-github-release.sh, @.agents/skills/release-management/scripts/validate-release.sh
 - `benchmarking-perf`: Criterion benchmarks and performance targets
 - `debugging-reservoir`: Diagnose ESN spectral radius, sparse weights, dynamics
 - `skill-memory`: Use csm CLI for skill learning and knowledge graphs
-  - **References**: @.agents/skills/skill-memory/references/integration-patterns.md, @.agents/skills/skill-memory/references/api-reference.md
-- `drawio`: Create architecture diagrams for plans, modules, and data flows   - **References**: @.agents/skills/drawio/SKILL.md   - **Trigger**: any request to "show", "draw", "visualize", or "overview" architecture
+- `drawio`: Create architecture diagrams
 
 ### Swarm Group Skills (Parallel Execution)
 - `swarm-testing-quality`: Property-based testing, fuzzing, edge case coverage
-  - **Test Files**: Use separate test files in `tests/` directory
 - `swarm-performance`: SIMD optimization, connection pooling, batch APIs, caching
-  - **Test Files**: Use separate test files in `tests/` directory
 - `swarm-observability`: Tracing, metrics, error context
 - `swarm-advanced-features`: Export/import, versioning, migrations, backup/restore
-  - **Test Files**: Use separate test files in `tests/` directory
 - `analysis-swarm`: Multi-persona code analysis orchestrator
 
 ### Using Swarm Mode
-When executing in swarm mode:
 1. Check @plans/SWARM_COORDINATION.md for current swarm status
 2. Each swarm group operates independently on its phase
 3. Group agents report progress to shared GOAP_STATE
 4. Final integration happens at phase boundaries
 
 ## Accuracy Guardrails
-- Do not assume crate existence/version; verify.
-- When uncertain on modern Rust practice, verify with web research.
-- If a decision changes architecture, write/update ADR in `plans/adr/`.
-- Prefer exact, testable instructions over high-level advice.
-- **Never create unused code**: Before adding proc-macros, traits, or convenience APIs, verify at least one real usage site exists in examples, tests, or docs.
-- **Before adding or recommending any GitHub-hosted crate**, run:
-  ```bash
-  gh repo view <owner>/<repo> --json isArchived,pushedAt
-  ```
-  Confirm the repo is **not archived** and was pushed to within the last 12 months.
-  If archived: find an active alternative on crates.io, or fork into `d-o-hub/` and maintain it.
+See: [agents-docs/accuracy-guardrails.md](agents-docs/accuracy-guardrails.md)
 
 ## Quick Reference
-
-### Version Sync (Before Release)
-```bash
-# Sync version across all files (prevents stale docs)
-./scripts/sync-version.sh 0.2.0
-```
-
-### Validation Gates
-Run before commit (see `git-workflow` skill for details):
-```bash
-scripts/validate.sh
-```
-
-### Documentation Link Check
-Validate links, commands, and version references in docs:
-```bash
-scripts/check-docs-links.sh           # Quick check (links + versions)
-scripts/check-docs-links.sh --fix     # Auto-fix version mismatches
-scripts/check-docs-links.sh --check-urls  # Full URL validation
-```
-
-### Pre-Release Validation
-Run before every git tag / release:
-```bash
-./scripts/pre-release-validate.sh          # Full validation
-./scripts/pre-release-validate.sh --skip-bench  # Skip benchmarks (faster)
-```
-
-### Auto-generate AI docs
-```bash
-scripts/gen-llms-txt.sh  # generates llms.txt and llms-full.txt
-```
-This runs automatically on post-commit when source files change.
-
-### Performance Gate
-```bash
-cargo bench --bench benchmark -- --save-baseline main
-cargo bench --bench benchmark -- --baseline main
-```
-Target: `reservoir_step_50k < 100μs`
-
-### Commit Format
-Use Conventional Commits (see `git-workflow` skill):
-```
-<type>(<scope>): <description>
-
-<body>
-```
+See: [agents-docs/quick-reference.md](agents-docs/quick-reference.md)
 
 ## Self-Learning Patterns
-
-Key patterns recorded from iterations (see @progress/LEARNINGS.md for full history):
-
-### What Works
-1. Systematic codebase analysis before planning — found more real issues than GOAP state listed
-2. Using oracle for deep code review across all modules simultaneously
-3. Writing ADRs for every non-trivial architectural change before implementation
-4. Creating domain-specific debugging skills rather than generic boilerplate
-5. Adding executable scripts to skills — agent can run them directly
-6. Treating GOAP state booleans as executable acceptance criteria
-7. Using seeded RNG (`StdRng::seed_from_u64(42)`) in tests for determinism
-8. Migrating to `libsql::Builder` to remove deprecated API usage
-9. Enabling `PRAGMA foreign_keys = ON` per-connection for deterministic FK behavior
-
-### Technical Insights
-- Dense `Array2<f32>` for 50k×50k reservoir is infeasible (~10 GB). CSR with k=64 reduces to ~25 MB.
-- `HVec10240::permute()` with `bit_shift == 0` causes undefined behavior — must guard
-- `Arc<RwLock<Connection>>` for libsql is unsafe under tokio. Per-operation `connect()` is cheap and eliminates Send/Sync risks
-- Always use `f32::total_cmp()` for similarity sorting — `partial_cmp().unwrap()` panics on NaN
-- `Vec<Vec<(usize, f32)>>` incurs substantial allocator overhead; contiguous CSR buffers are faster
-- For large sparse reservoirs, memory locality can dominate runtime more than arithmetic throughput
-
-### What to Avoid
-- Do not use dense matrices for reservoirs > ~2000 nodes
-- Do not share a single libsql `Connection` across async tasks via RwLock
-- Do not use `partial_cmp().unwrap()` on floats
-- Do not assume `Vec<(String, f32)>` associations deduplicate — use `HashMap<String, f32>`
-- Do not use `cargo bench -- --baseline` (without `--bench benchmark`) — libtest benches interfere
-- Do not suppress deprecated libsql constructors long-term — migrate to `Builder`
-- Do not relax spectral-radius guardrails to chase speed
-- Do not pool connections for local SQLite (no benefit, adds overhead)
-- Do not make versioning mandatory (should be opt-in)
-- Do not create multiple scripts with overlapping functionality — merge related scripts (e.g., version checking into link checking)
-- Do not use archived GitHub repositories as dependencies — always find an active alternative or fork and maintain
-
-## Learning Loop
-After each iteration:
-1. Record what worked in @progress/LEARNINGS.md.
-2. Record progress in @progress/PROGRESS.md.
-3. Update module LOC counts.
-4. Run test + bench gates.
-5. Commit with Conventional Commits format (see `git-workflow` skill).
+See: [agents-docs/self-learning-patterns.md](agents-docs/self-learning-patterns.md)
 
 ## Skill Memory (Dogfooding CSM)
-
-Skills use the `csm` CLI to persist learning and build knowledge graphs.
-
-### Configuration
-```yaml
-memory:
-  enabled: true
-  database: ".agents/memory/skill-memory.db"
-  namespace_prefix: "skill"
-```
-
-### Quick Usage
-```bash
-source scripts/skill-memory/skill-memory.sh
-
-# Remember operation
-CONCEPT_ID=$(skill_remember "adr-creation" "decision" "ADR-0043" "approved")
-
-# Recall similar
-skill_recall "CSM integration" 0.7 5
-
-# Create association
-skill_associate "error::xyz" "solution::abc" 0.95
-```
-
-### Available Functions
-- `skill_remember skill op context result` - Store operation
-- `skill_recall query [threshold] [top_k]` - Find similar
-- `skill_associate c1 c2 [strength]` - Link concepts
-- `skill_related concept_id [min_strength]` - Get related
-- `skill_suggest query [threshold]` - Show suggestions
-
-### Dogfooding Principle
-By using the `csm` CLI for skill memory, we validate:
-- CLI reliability in real workflows
-- libsql persistence durability
-- Edge cases through actual usage
-- Framework utility through self-use
+See: [agents-docs/skill-memory.md](agents-docs/skill-memory.md)

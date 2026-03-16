@@ -2,7 +2,7 @@
 #
 # skill-memory.sh - Shared memory functions for opencode agents
 #
-# Usage: source .opencode/lib/skill-memory.sh
+# Usage: source scripts/skill-memory/skill-memory.sh
 #
 # Security: Validated inputs, secure permissions, structured logging
 # Error Handling: Captures stderr, differentiates exit codes
@@ -15,14 +15,20 @@ set -euo pipefail
 : "${CSM_MEMORY_DB:=.agents/memory/skill-memory.db}"
 : "${CSM_VERBOSE:=0}"
 : "${CSM_LOG_LEVEL:=WARN}"  # ERROR, WARN, INFO, DEBUG, TRACE
+: "${CSM_LOG_FILE:=}"
+: "${CSM_LOG_ROTATE_MAX_BYTES:=10485760}"
+: "${CSM_LOG_ROTATE_MAX_FILES:=5}"
 : "${CSM_METRICS_ENABLED:=true}"
 : "${CSM_METRICS_DIR:=.agents/memory/metrics}"
 : "${CSM_RATE_LIMIT_ENABLED:=false}"
 : "${CSM_RATE_LIMIT_OPS_PER_MINUTE:=60}"
 : "${CSM_RATE_LIMIT_DIR:=.agents/memory/rate-limits}"
+: "${CSM_ENCRYPT_KEY:=}"
+: "${CSM_ENCRYPT_ALGORITHM:=aes-256-cbc}"
+: "${CSM_ENCRYPT_FIELDS:=context,result}"
 
 # Constants
-readonly SKILL_MEMORY_VERSION="2.0.0"
+readonly SKILL_MEMORY_VERSION="3.0.0"
 readonly MAX_CONCEPT_ID_LENGTH=256
 readonly VALID_SKILL_NAME_PATTERN='^[a-zA-Z0-9_-]+$'
 readonly VALID_CONCEPT_ID_PATTERN='^[a-zA-Z0-9_:-]+$'
@@ -90,6 +96,128 @@ _cli_with_retry() {
 }
 
 # ============================================================================
+# LOG FILE MANAGEMENT
+# ============================================================================
+
+_file_size_bytes() {
+    local file="$1"
+    local size
+
+    if size=$(stat -c "%s" "$file" 2>/dev/null); then
+        echo "$size"
+        return 0
+    fi
+
+    if size=$(stat -f "%z" "$file" 2>/dev/null); then
+        echo "$size"
+        return 0
+    fi
+
+    return 1
+}
+
+_rotate_logs() {
+    local log_file="$1"
+    local max_bytes="${CSM_LOG_ROTATE_MAX_BYTES}"
+    local max_files="${CSM_LOG_ROTATE_MAX_FILES}"
+
+    [[ -z "$log_file" ]] && return 0
+    [[ ! -f "$log_file" ]] && return 0
+    [[ "$max_files" -lt 1 ]] && return 0
+
+    local size
+    if ! size=$(_file_size_bytes "$log_file"); then
+        return 0
+    fi
+
+    if [[ "$size" -lt "$max_bytes" ]]; then
+        return 0
+    fi
+
+    local oldest="$log_file.$max_files"
+    [[ -f "$oldest" ]] && rm -f "$oldest"
+
+    local i
+    for ((i=max_files-1; i>=1; i--)); do
+        local src="$log_file.$i"
+        local dst="$log_file.$((i + 1))"
+        [[ -f "$src" ]] && mv "$src" "$dst"
+    done
+
+    mv "$log_file" "$log_file.1"
+    (umask 077 && : > "$log_file")
+}
+
+_log_write_file() {
+    local line="$1"
+
+    [[ -z "${CSM_LOG_FILE:-}" ]] && return 0
+
+    local log_dir
+    log_dir=$(dirname "$CSM_LOG_FILE")
+
+    if [[ ! -d "$log_dir" ]]; then
+        mkdir -p "$log_dir" 2>/dev/null || return 0
+    fi
+
+    if [[ ! -f "$CSM_LOG_FILE" ]]; then
+        (umask 077 && touch "$CSM_LOG_FILE") || return 0
+    fi
+
+    _rotate_logs "$CSM_LOG_FILE"
+    echo "$line" >> "$CSM_LOG_FILE"
+}
+
+# ============================================================================
+# ENCRYPTION HELPERS
+# ============================================================================
+
+_ensure_openssl() {
+    if ! command -v openssl >/dev/null 2>&1; then
+        _log_error "openssl is required when CSM_ENCRYPT_KEY is set"
+        return 1
+    fi
+
+    return 0
+}
+
+_encrypt_value() {
+    local value="$1"
+
+    if [[ -z "${CSM_ENCRYPT_KEY:-}" ]]; then
+        echo "$value"
+        return 0
+    fi
+
+    _ensure_openssl || return 1
+
+    if ! printf '%s' "$value" | openssl enc -"$CSM_ENCRYPT_ALGORITHM" -base64 -pbkdf2 -salt -k "$CSM_ENCRYPT_KEY" 2>/dev/null; then
+        _log_error "Failed to encrypt value"
+        return 1
+    fi
+
+    return 0
+}
+
+_decrypt_value() {
+    local value="$1"
+
+    if [[ -z "${CSM_ENCRYPT_KEY:-}" ]]; then
+        echo "$value"
+        return 0
+    fi
+
+    _ensure_openssl || return 1
+
+    if ! printf '%s' "$value" | openssl enc -"$CSM_ENCRYPT_ALGORITHM" -base64 -pbkdf2 -salt -d -k "$CSM_ENCRYPT_KEY" 2>/dev/null; then
+        _log_error "Failed to decrypt value"
+        return 1
+    fi
+
+    return 0
+}
+
+# ============================================================================
 # LOGGING FUNCTIONS
 # ============================================================================
 
@@ -110,9 +238,11 @@ _log() {
     local timestamp
     timestamp=$(date -Iseconds)
     
+    local log_line
+
     # Structured JSON log to stderr
     if command -v jq >/dev/null 2>&1; then
-        jq -n \
+        log_line=$(jq -n \
             --arg ts "$timestamp" \
             --arg lvl "$level" \
             --arg msg "$message" \
@@ -124,11 +254,14 @@ _log() {
                 source: $src,
                 message: $msg,
                 pid: ($pid | tonumber)
-            }' >&2
+            }')
     else
         # Fallback if jq not available
-        echo "{\"timestamp\":\"$timestamp\",\"level\":\"$level\",\"source\":\"skill-memory\",\"message\":\"$message\",\"pid\":$$}" >&2
+        log_line="{\"timestamp\":\"$timestamp\",\"level\":\"$level\",\"source\":\"skill-memory\",\"message\":\"$message\",\"pid\":$$}"
     fi
+
+    echo "$log_line" >&2
+    _log_write_file "$log_line"
 }
 
 # Convenience functions for each level
@@ -147,8 +280,10 @@ _log_audit() {
     local timestamp
     timestamp=$(date -Iseconds)
     
+    local log_line
+
     if command -v jq >/dev/null 2>&1; then
-        jq -n \
+        log_line=$(jq -n \
             --arg ts "$timestamp" \
             --arg act "$action" \
             --arg cid "$concept_id" \
@@ -164,10 +299,13 @@ _log_audit() {
                 details: $det,
                 pid: ($pid | tonumber),
                 ppid: ($ppid | tonumber)
-            }' >&2
+            }')
     else
-        echo "AUDIT: [$timestamp] action=$action concept_id=$concept_id details=$details pid=$$" >&2
+        log_line="AUDIT: [$timestamp] action=$action concept_id=$concept_id details=$details pid=$$"
     fi
+
+    echo "$log_line" >&2
+    _log_write_file "$log_line"
 }
 
 # ============================================================================
@@ -455,6 +593,9 @@ skill_remember() {
     local context="$3"
     local result="$4"
     local db_path="${CSM_MEMORY_DB}"
+    local encrypt_enabled=false
+    local context_value="$context"
+    local result_value="$result"
     
     _log_debug "skill_remember called: skill=$skill_name, operation=$operation"
     
@@ -485,25 +626,68 @@ skill_remember() {
         return 2
     fi
     
+    if [[ -n "${CSM_ENCRYPT_KEY:-}" ]]; then
+        encrypt_enabled=true
+
+        if [[ ",${CSM_ENCRYPT_FIELDS}," == *",context,"* ]]; then
+            if ! context_value=$(_encrypt_value "$context"); then
+                return 1
+            fi
+        fi
+
+        if [[ ",${CSM_ENCRYPT_FIELDS}," == *",result,"* ]]; then
+            if ! result_value=$(_encrypt_value "$result"); then
+                return 1
+            fi
+        fi
+    fi
+
     # Build metadata JSON safely using jq
     local metadata
-    if ! metadata=$(jq -n \
-        --arg op "$operation" \
-        --arg ctx "$context" \
-        --arg res "$result" \
-        --arg skill "$skill_name" \
-        --arg ts "$(date -Iseconds)" \
-        --arg ver "$SKILL_MEMORY_VERSION" \
-        '{
-            operation: $op,
-            context: $ctx,
-            result: $res,
-            skill: $skill,
-            timestamp: $ts,
-            version: $ver
-        }' 2>/dev/null); then
-        _log_error "Failed to build metadata JSON"
-        return 3
+    if [[ "$encrypt_enabled" == true ]]; then
+        if ! metadata=$(jq -n \
+            --arg op "$operation" \
+            --arg ctx "$context_value" \
+            --arg res "$result_value" \
+            --arg skill "$skill_name" \
+            --arg ts "$(date -Iseconds)" \
+            --arg ver "$SKILL_MEMORY_VERSION" \
+            --arg alg "$CSM_ENCRYPT_ALGORITHM" \
+            --arg fields "$CSM_ENCRYPT_FIELDS" \
+            '{
+                operation: $op,
+                context: $ctx,
+                result: $res,
+                skill: $skill,
+                timestamp: $ts,
+                version: $ver,
+                encryption: {
+                    algorithm: $alg,
+                    fields: ($fields | split(",") | map(select(length > 0)))
+                }
+            }' 2>/dev/null); then
+            _log_error "Failed to build encrypted metadata JSON"
+            return 3
+        fi
+    else
+        if ! metadata=$(jq -n \
+            --arg op "$operation" \
+            --arg ctx "$context_value" \
+            --arg res "$result_value" \
+            --arg skill "$skill_name" \
+            --arg ts "$(date -Iseconds)" \
+            --arg ver "$SKILL_MEMORY_VERSION" \
+            '{
+                operation: $op,
+                context: $ctx,
+                result: $res,
+                skill: $skill,
+                timestamp: $ts,
+                version: $ver
+            }' 2>/dev/null); then
+            _log_error "Failed to build metadata JSON"
+            return 3
+        fi
     fi
     
     if ! _validate_metadata_json "$metadata"; then
@@ -616,24 +800,91 @@ skill_recall() {
     
     # Search with error handling
     local results
-    if ! results=$(jq --arg query "$query" --arg thresh "$threshold" --arg top_k "$top_k" '
-        .concepts // [] |
-        map(select(
-            (.metadata.context // "" | ascii_downcase | contains($query | ascii_downcase)) or
-            (.metadata.result // "" | ascii_downcase | contains($query | ascii_downcase)) or
-            (.metadata.operation // "" | ascii_downcase | contains($query | ascii_downcase))
-        )) |
-        map({
-            id: .id,
-            similarity: 0.8,
-            metadata: .metadata
-        }) |
-        sort_by(.metadata.timestamp) |
-        reverse |
-        .[:($top_k | tonumber)]' "$temp_export" 2>&1); then
-        _log_error "jq filter failed: $results"
-        echo "[]"
-        return 3
+    if [[ -n "${CSM_ENCRYPT_KEY:-}" ]]; then
+        local query_lc
+        query_lc=$(echo "$query" | tr '[:upper:]' '[:lower:]')
+
+        local temp_results
+        temp_results=$(mktemp)
+
+        while IFS= read -r concept; do
+            local concept_id operation_value context_value result_value
+            local enc_alg
+
+            concept_id=$(echo "$concept" | jq -r '.id')
+            operation_value=$(echo "$concept" | jq -r '.metadata.operation // ""')
+            context_value=$(echo "$concept" | jq -r '.metadata.context // ""')
+            result_value=$(echo "$concept" | jq -r '.metadata.result // ""')
+            enc_alg=$(echo "$concept" | jq -r '.metadata.encryption.algorithm // empty')
+
+            if [[ -n "$enc_alg" ]]; then
+                if [[ "$enc_alg" != "$CSM_ENCRYPT_ALGORITHM" ]]; then
+                    _log_warn "Encrypted metadata algorithm mismatch: $enc_alg (expected $CSM_ENCRYPT_ALGORITHM)"
+                fi
+
+                if [[ ",${CSM_ENCRYPT_FIELDS}," == *",context,"* ]]; then
+                    if ! context_value=$(_decrypt_value "$context_value"); then
+                        _log_warn "Failed to decrypt context for $concept_id"
+                        continue
+                    fi
+                fi
+
+                if [[ ",${CSM_ENCRYPT_FIELDS}," == *",result,"* ]]; then
+                    if ! result_value=$(_decrypt_value "$result_value"); then
+                        _log_warn "Failed to decrypt result for $concept_id"
+                        continue
+                    fi
+                fi
+            fi
+
+            local operation_lc context_lc result_lc
+            operation_lc=$(echo "$operation_value" | tr '[:upper:]' '[:lower:]')
+            context_lc=$(echo "$context_value" | tr '[:upper:]' '[:lower:]')
+            result_lc=$(echo "$result_value" | tr '[:upper:]' '[:lower:]')
+
+            if [[ "$operation_lc" == *"$query_lc"* || "$context_lc" == *"$query_lc"* || "$result_lc" == *"$query_lc"* ]]; then
+                local updated
+                if ! updated=$(echo "$concept" | jq --arg ctx "$context_value" --arg res "$result_value" '
+                    .metadata.context = $ctx |
+                    .metadata.result = $res |
+                    del(.metadata.encryption)'); then
+                    _log_warn "Failed to normalize decrypted metadata for $concept_id"
+                    continue
+                fi
+
+                echo "$updated" | jq '{id: .id, similarity: 0.8, metadata: .metadata}' >> "$temp_results"
+            fi
+        done < <(jq -c '.concepts // [] | .[]' "$temp_export")
+
+        if [[ -s "$temp_results" ]]; then
+            if ! results=$(jq -s '.' "$temp_results" 2>&1); then
+                _log_error "jq aggregation failed: $results"
+                echo "[]"
+                return 3
+            fi
+        else
+            results="[]"
+        fi
+    else
+        if ! results=$(jq --arg query "$query" --arg thresh "$threshold" --arg top_k "$top_k" '
+            .concepts // [] |
+            map(select(
+                (.metadata.context // "" | ascii_downcase | contains($query | ascii_downcase)) or
+                (.metadata.result // "" | ascii_downcase | contains($query | ascii_downcase)) or
+                (.metadata.operation // "" | ascii_downcase | contains($query | ascii_downcase))
+            )) |
+            map({
+                id: .id,
+                similarity: 0.8,
+                metadata: .metadata
+            }) |
+            sort_by(.metadata.timestamp) |
+            reverse |
+            .[:($top_k | tonumber)]' "$temp_export" 2>&1); then
+            _log_error "jq filter failed: $results"
+            echo "[]"
+            return 3
+        fi
     fi
     
     local count
@@ -1172,7 +1423,10 @@ if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
     export -f skill_remember skill_recall skill_associate skill_related
     export -f skill_remember_linked skill_suggest skill_export skill_import
     export -f skill_memory_stats skill_memory_check
-    export CSM_MEMORY_DB CSM_LOG_LEVEL SKILL_MEMORY_VERSION CSM_RETRY_MAX_ATTEMPTS CSM_RETRY_BASE_DELAY CSM_RETRY_MAX_DELAY
+    export CSM_MEMORY_DB CSM_LOG_LEVEL CSM_LOG_FILE CSM_LOG_ROTATE_MAX_BYTES CSM_LOG_ROTATE_MAX_FILES
+    export CSM_METRICS_ENABLED CSM_METRICS_DIR CSM_RATE_LIMIT_ENABLED CSM_RATE_LIMIT_OPS_PER_MINUTE CSM_RATE_LIMIT_DIR
+    export CSM_ENCRYPT_KEY CSM_ENCRYPT_ALGORITHM CSM_ENCRYPT_FIELDS SKILL_MEMORY_VERSION
+    export CSM_RETRY_MAX_ATTEMPTS CSM_RETRY_BASE_DELAY CSM_RETRY_MAX_DELAY
     _log_info "Skill memory library v${SKILL_MEMORY_VERSION} loaded"
     true  # Ensure successful exit status
 fi

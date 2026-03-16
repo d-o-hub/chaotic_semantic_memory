@@ -79,3 +79,7 @@ examples/tmp/
 /tmp/*-memory.json
 csm_test*
 .blackboxcli/
+
+# Temporary test directory
+.tmp/
+*.tmp
