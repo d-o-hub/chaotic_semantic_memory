@@ -53,6 +53,7 @@
 | **0054** | **High-Impact New Features** | **Proposed** | **Wave 15 - Phase 37-41** |
 | **0055** | **Production Polish & Correctness** | **Implemented** | **Wave 16 - Phase 42-47** |
 | **0056** | **Performance Follow-up Priorities** | **Implemented** | **Wave 17 - Phase 48** |
+| **0057** | **Phase 41 API Completion and Memory Events** | **Implemented** | **Wave 17 - Phase 41 Follow-up** |
 | 0024 | Concept Expiration (TTL) | Deferred | Post-1.0 |
 | 0024 | Performance Optimizations Phase 2 | Deferred | Post-1.0 |
 | 0025 | Weighted Forgetting (Decay) | Deferred | Post-1.0 |

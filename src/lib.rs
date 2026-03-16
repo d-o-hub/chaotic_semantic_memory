@@ -35,6 +35,8 @@ pub mod metadata_filter;
 pub mod persistence;
 #[cfg(not(target_arch = "wasm32"))]
 mod persistence_ops;
+#[cfg(not(target_arch = "wasm32"))]
+mod persistence_versions;
 #[cfg(target_arch = "wasm32")]
 pub mod persistence_wasm;
 pub mod reservoir;
