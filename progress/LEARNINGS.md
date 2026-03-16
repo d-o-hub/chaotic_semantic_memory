@@ -511,3 +511,21 @@ git tag v0.1.2 && git push origin main v0.1.2
 - Do not confuse underscore vs hyphen in package names
 - Do not assume token is valid - generate fresh one for CI
 - Do not skip Trusted Publisher config for automated releases
+
+## 2026-03-16: Release Prep & CI Monitoring
+
+### What Worked
+1. Using `gh run list` and `gh run view --log-failed` to isolate LOC gate failures quickly.
+2. Running `sync-version.sh` before release validation to keep docs/examples consistent.
+3. Re-running `scripts/validate.sh` with an extended timeout after dependency refresh.
+
+### Technical Insights
+- `sync-version.sh` updates Cargo.lock and bumps dependencies; full validation must be rerun afterward.
+- `scripts/validate.sh` regenerates `llms.txt` and `llms-full.txt`; include them in release commits.
+- CodeQL emits Node.js 20 deprecation warnings for `actions/checkout@v4`; workflows should move to
+  Node.js 24-compatible actions before June 2026.
+
+### What to Avoid
+- Do not treat stale CI failures as current when new runs are already in progress.
+- Do not skip changelog link updates when cutting a new patch release.
+- Do not ignore Node.js 20 deprecation warnings ahead of runner defaults switch.
