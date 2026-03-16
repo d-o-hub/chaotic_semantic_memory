@@ -14,12 +14,15 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: phase49_release_prep_2026_03_16
-  orchestrator_last_run: phase49_release_prep_2026_03_16
-  orchestrator_last_run_at_utc: 2026-03-16T08:30:00Z
+  action_last_completed: phase50_release_ci_fixes_2026_03_16
+  orchestrator_last_run: phase50_release_ci_fixes_2026_03_16
+  orchestrator_last_run_at_utc: 2026-03-16T08:55:00Z
 
   # Recent changes (2026-03-09)
   recent_changes:
+    - "Release CI fix: tag builds no longer attempt git push from detached HEAD"
+    - "npm publish guard: skip already-published versions; workflow_dispatch rerun succeeded"
+    - "Release v0.2.2 complete: crates.io + GitHub Release ok; npm publish idempotent"
     - "Release prep: synced version to v0.2.2 and refreshed Cargo.lock dependencies"
     - "CI monitoring: LOC gate failure traced to persistence.rs in older runs; validation now passes"
     - "CodeQL completed on main/PR; Node.js 20 deprecation warning recorded for workflow follow-up"
