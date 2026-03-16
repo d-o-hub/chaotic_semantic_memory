@@ -6,6 +6,15 @@
 # Example: ./scripts/sync-version.sh 0.2.0
 # =============================================================================
 #
+# ⚠️  IMPORTANT: Git tags are created automatically by GitHub Actions
+#    DO NOT create tags manually! The release workflow will create them.
+#
+# Workflow:
+#   1. Update version in Cargo.toml
+#   2. Run: ./scripts/sync-version.sh <version>
+#   3. Commit and push to main
+#   4. GitHub Actions creates tag and releases automatically
+#
 # Version compatibility guide:
 # - "0.1"   = compatible with any 0.1.x (RECOMMENDED)
 # - "0.1.0" = exact version
@@ -120,10 +129,17 @@ echo "=============================================="
 echo "Version sync complete: $CURRENT_VERSION → $VERSION"
 echo "=============================================="
 echo ""
+echo "⚠️  IMPORTANT: Git tags are now created automatically by GitHub Actions"
+echo "    Do NOT create tags manually - they will be created on push to main"
+echo ""
 echo "Next steps:"
 echo "  1. Review changes: git diff"
 echo "  2. Run validation: ./scripts/validate.sh"
 echo "  3. Commit: git add -A && git commit -m \"release: v$VERSION\""
-echo "  4. Tag: git tag -a v$VERSION -m \"Release v$VERSION\""
-echo "  5. Push: git push origin main && git push origin v$VERSION"
+echo "  4. Push: git push origin main"
 echo ""
+echo "GitHub Actions will automatically:"
+echo "  - Create tag v$VERSION"
+echo "  - Publish to crates.io"
+echo "  - Publish to npm"
+echo "  - Create GitHub Release"

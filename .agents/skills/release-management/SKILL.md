@@ -16,9 +16,9 @@ Automated release pipeline using 2026 best practices: version sync automation, T
 # 2. Pre-release validation
 ./agents/skills/release-management/scripts/validate-release.sh
 
-# 3. Create git tag (push triggers release.yml workflow)
-git tag -a v0.2.0 -m "Release 0.2.0"
-git push origin v0.2.0
+# 3. Commit and push (GitHub Actions creates tag automatically)
+git add -A && git commit -m "release: v0.2.0"
+git push origin main
 ```
 
 ## Version Sync (Critical Step)
@@ -39,6 +39,13 @@ Before every release, run `./scripts/sync-version.sh <version>` to update:
 
 This prevents the common issue of stale versions in documentation.
 
+### ⚠️ Important: Tags are Created Automatically
+
+**DO NOT create git tags manually!** The release workflow automatically:
+1. Extracts version from Cargo.toml
+2. Creates and pushes the tag
+3. Triggers the full release pipeline
+
 ### Script Distinction
 
 | Script | Purpose | When to Use |
@@ -51,20 +58,22 @@ This prevents the common issue of stale versions in documentation.
 
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│  Validate       │────▶│  Push Git Tag    │────▶│  CI Creates     │
-│  (local checks) │     │  (git push v*)   │     │  GitHub Release │
+│  Update version │────▶│  Push to main    │────▶│  CI Creates     │
+│  in Cargo.toml  │     │  (git push)      │     │  Tag + Release  │
 └─────────────────┘     └──────────────────┘     └─────────────────┘
 ```
 
 ### How It Works
-1. User creates git tag locally: `git tag -a v1.2.0 -m "Release 1.2.0"`
-2. User pushes tag: `git push origin v1.2.0`
-3. GitHub Actions triggers on `v*` tag push
-4. CI builds, publishes to crates.io, creates GitHub release with artifacts
+1. Update version in `Cargo.toml` and run `./scripts/sync-version.sh <version>`
+2. Update `CHANGELOG.md` with release notes
+3. Commit and push to main: `git push origin main`
+4. GitHub Actions extracts version from Cargo.toml
+5. CI creates tag `v*` automatically
+6. CI builds, publishes to crates.io/npm, creates GitHub release
 
 ### Prerequisites
 1. All conventional commits merged to main
-2. `CHANGELOG.md` reflects changes (auto-generated via semantic-release)
+2. `CHANGELOG.md` reflects changes with proper version header
 3. CI passes on main branch
 4. Trusted Publishing configured (see references/trusted-publishing.md)
 
@@ -108,17 +117,18 @@ cargo test --all-features
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 
-# 4. Commit and tag
+# 4. Commit and push (GitHub Actions creates tag automatically)
 git add -A && git commit -m "release: v0.2.0"
-git tag -a v0.2.0 -m "Release 0.2.0"
-git push origin main v0.2.0
+git push origin main
 
-# 5. Monitor CI
+# 5. Monitor CI (GitHub Actions will create tag and release)
 gh run watch
 
 # 6. Verify publication
 cargo search chaotic_semantic_memory
 ```
+
+**⚠️ Important:** Do NOT create tags manually! GitHub Actions automatically creates tags from Cargo.toml version.
 
 ### Dry Run (Test Release Process)
 ```bash
