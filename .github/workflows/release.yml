@@ -129,6 +129,8 @@ jobs:
   create-github-release:
     runs-on: ubuntu-24.04
     needs: [validate, publish-crates, build-artifacts]
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
     - uses: actions/checkout@v6
       with:
