@@ -152,6 +152,12 @@ jobs:
         fi
         
         # Always use NPM_TOKEN if available (not OIDC)
+        if npm view "@d-o-hub/chaotic_semantic_memory@${VERSION}" version >/dev/null 2>&1; then
+          echo "Version ${VERSION} already published; skipping npm publish."
+          exit 0
+        fi
+
+        # Always use NPM_TOKEN if available (not OIDC)
         if [ -n "$NPM_TOKEN" ]; then
           echo "Publishing with npm token..."
           # Configure auth in home directory for npm to use
