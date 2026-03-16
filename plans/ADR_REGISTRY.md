@@ -54,6 +54,7 @@
 | **0055** | **Production Polish & Correctness** | **Implemented** | **Wave 16 - Phase 42-47** |
 | **0056** | **Performance Follow-up Priorities** | **Implemented** | **Wave 17 - Phase 48** |
 | **0057** | **Phase 41 API Completion and Memory Events** | **Implemented** | **Wave 17 - Phase 41 Follow-up** |
+| **0058** | **Fix Import/Export Serialization** | **Implemented** | **2026-03-16** |
 | 0024 | Concept Expiration (TTL) | Deferred | Post-1.0 |
 | 0024 | Performance Optimizations Phase 2 | Deferred | Post-1.0 |
 | 0025 | Weighted Forgetting (Decay) | Deferred | Post-1.0 |
@@ -126,7 +127,18 @@ Per Swarm Consensus 2026-02-19, these ADRs were implemented for 1.0 release (Pha
    - Fix load_replace, load_merge, import_json, import_binary
    - Eliminate starvation risk during concurrent operations
 
- ## Wave 13 Active ADRs (Post-Release Security & Hardening)
+ ## Wave 18 Active ADRs (Serialization Fixes)
+
+Critical fixes for import/export functionality:
+
+1. **ADR-0058**: Fix Import/Export Serialization
+   - Base64 encoding for HVec10240 in JSON format
+   - BinaryMetadataValue for bincode-compatible binary export
+   - Separate BinaryExportPayload struct for binary format
+   - Consistent bincode options for export/import
+   - Added turso-memory-verification skill
+
+## Wave 13 Active ADRs (Post-Release Security & Hardening)
 
  Per specialist analysis swarm findings (2026-02-20), these ADRs address critical security and resource issues:
 
