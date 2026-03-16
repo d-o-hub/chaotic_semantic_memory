@@ -14,12 +14,14 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: phase51_release_merge_trigger_2026_03_16
-  orchestrator_last_run: phase51_release_merge_trigger_2026_03_16
+  action_last_completed: phase52_release_merge_monitor_2026_03_16
+  orchestrator_last_run: phase52_release_merge_monitor_2026_03_16
   orchestrator_last_run_at_utc: 2026-03-16T09:30:00Z
 
   # Recent changes (2026-03-09)
   recent_changes:
+    - "PR #31 merged; release workflow validated changelog/doc sync on main"
+    - "Release workflow skipped publish because v0.2.2 tag already exists"
     - "Release workflow now runs on main merge, creates tag + GitHub Release in one flow"
     - "Release summary step fixed (closing fi, skip summary when tag exists)"
     - "npm publish guard now checks registry version list before attempting publish"
