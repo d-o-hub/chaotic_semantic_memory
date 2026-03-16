@@ -5,6 +5,8 @@ use crate::error::Result;
 use crate::framework::ChaoticSemanticFramework;
 #[cfg(target_arch = "wasm32")]
 use crate::hyperdim::HVec10240;
+#[cfg(target_arch = "wasm32")]
+use std::collections::HashMap;
 
 const DEFAULT_EVENT_CHANNEL_CAPACITY: usize = 1024;
 
@@ -47,6 +49,24 @@ impl ChaoticSemanticFramework {
     #[cfg(target_arch = "wasm32")]
     pub async fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()> {
         self.singularity.write().await.update(id, vector)?;
+        self.emit_event(MemoryEvent::ConceptUpdated {
+            id: id.to_string(),
+            timestamp: unix_now_secs(),
+        });
+        Ok(())
+    }
+
+    /// Update a concept's metadata (WASM-only, memory-only).
+    #[cfg(target_arch = "wasm32")]
+    pub async fn update_concept_metadata(
+        &self,
+        id: &str,
+        metadata: HashMap<String, serde_json::Value>,
+    ) -> Result<()> {
+        self.singularity
+            .write()
+            .await
+            .update_metadata(id, metadata)?;
         self.emit_event(MemoryEvent::ConceptUpdated {
             id: id.to_string(),
             timestamp: unix_now_secs(),

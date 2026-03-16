@@ -55,8 +55,10 @@ impl WasmFramework {
         let metadata: std::collections::HashMap<String, serde_json::Value> =
             serde_json::from_str(&metadata_json)
                 .map_err(|e| JsValue::from_str(&format!("invalid metadata JSON: {e}")))?;
-        let mut sing = self.framework.singularity.write().await;
-        sing.update_metadata(&id, metadata).map_err(to_js_error)
+        self.framework
+            .update_concept_metadata(&id, metadata)
+            .await
+            .map_err(to_js_error)
     }
 
     /// Clear all outbound associations for a concept.
@@ -86,7 +88,7 @@ impl WasmFramework {
     /// Breadth-first traversal from a starting concept.
     ///
     /// Returns an Array of `{id: string, depth: number}` objects.
-    /// Uses default `TraversalConfig` (max_depth=3, max_results=100).
+    /// Uses default `TraversalConfig`.
     pub async fn bfs(&self, start: String) -> Result<Array, JsValue> {
         use crate::graph_traversal::TraversalConfig;
         let sing = self.framework.singularity.read().await;
@@ -107,7 +109,7 @@ impl WasmFramework {
     /// Find the minimum-cost path between two concepts (weighted Dijkstra).
     ///
     /// Returns an Array of concept ID strings, or an empty Array if no path exists.
-    /// Uses default `TraversalConfig` (max_depth=3).
+    /// Uses default `TraversalConfig`.
     pub async fn shortest_path(&self, from: String, to: String) -> Result<Array, JsValue> {
         let path = self
             .framework
@@ -160,16 +162,13 @@ impl WasmFramework {
         max_depth: u32,
         min_strength: f32,
     ) -> Result<Array, JsValue> {
+        let mut config = crate::graph_traversal::TraversalConfig::default();
+        config.max_depth = max_depth as usize;
+        config.min_strength = min_strength;
+
         let results = self
             .framework
-            .traverse(
-                &start,
-                crate::graph_traversal::TraversalConfig {
-                    max_depth: max_depth as usize,
-                    min_strength,
-                    max_results: 100,
-                },
-            )
+            .traverse(&start, config)
             .await
             .map_err(to_js_error)?;
 

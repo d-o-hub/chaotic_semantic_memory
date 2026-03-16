@@ -14,12 +14,15 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: phase_48_complete
+  action_last_completed: phase41_ci_fix_2026_03_16
   orchestrator_last_run: phase_48_performance_followup_2026_03_09
   orchestrator_last_run_at_utc: 2026-03-09T19:43:20Z
 
   # Recent changes (2026-03-09)
   recent_changes:
+    - "Phase 41 follow-up: split persistence_versions to satisfy LOC gate"
+    - "Phase 41 follow-up: WASM traversal config now uses default max_results"
+    - "Phase 41 follow-up: WASM metadata updates emit MemoryEvent"
     - "Phase 48 complete: probe cache-miss scan no longer materializes cloned concept vectors"
     - "Local SQLite path now enforces PRAGMA journal_mode=WAL while preserving per-connection FK ON"
     - "Added Phase 48 coverage: WAL mode tests + 10k/100k/200k exact probe benchmark group"
