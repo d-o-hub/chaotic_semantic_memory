@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2026-03-16
+
+### Fixed
+- **Import/Export Serialization** (`hyperdim.rs`, `export_payload.rs`, `framework_ops.rs`):
+  - HVec10240 JSON serialization now uses base64 encoding for human-readable formats
+  - Binary export uses bincode-compatible BinaryExportPayload with BinaryMetadataValue
+  - Fixed "invalid type: sequence, expected byte array" error for JSON import
+  - Fixed "Bincode does not support deserialize_any" error for binary import
+
+### Added
+- **Turso Memory Verification Skill** (`.agents/skills/turso-memory-verification/`):
+  - New skill for verifying memory persistence before releases
+  - Automated test script (`scripts/verify-memory-roundtrip.sh`) for JSON/binary roundtrip testing
+- **ADR-0058** documenting the serialization fixes and migration path
+
 ## [0.2.2] - 2026-03-16
 
 ### Changed
