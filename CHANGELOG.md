@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-03-16
+
+### Changed
+- Version sync for 0.2.2 across docs, examples, and WASM package metadata.
+- Dependency refresh via Cargo.lock update (clap 4.6.0, tracing-subscriber 0.3.23,
+  tempfile 3.27.0, plus transitive updates).
+
+### Fixed
+- Release validation artifacts regenerated (`llms.txt`, `llms-full.txt`).
+
 ## [0.2.1] - 2026-03-09
 
 ### Fixed
@@ -153,6 +163,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CI workflow with security permissions and concurrency controls
 - Trusted Publishing eliminates need for long-lived API tokens
 
-[unreleased]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.1.1...HEAD
+[unreleased]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.2
+[0.2.1]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.1
+[0.2.0]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.0
 [0.1.1]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.1.1
 [0.1.0]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.1.0
