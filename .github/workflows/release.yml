@@ -2,8 +2,8 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
 
 concurrency:
   group: release-${{ github.ref }}
@@ -22,15 +22,26 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.version.outputs.version }}
+      release-needed: ${{ steps.tag.outputs.release-needed }}
     steps:
     - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
 
-    - name: Extract version from tag
+    - name: Extract version from Cargo.toml
       id: version
       run: |
-        VERSION="${GITHUB_REF#refs/tags/v}"
+        VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d'"' -f2)
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "Extracted version: $VERSION"
+
+    - name: Verify changelog entry exists
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        if ! grep -q "^## \[${VERSION}\]" CHANGELOG.md; then
+          echo "❌ Missing changelog entry for ${VERSION}"
+          exit 1
+        fi
 
     - name: Sync version across codebase
       run: |
@@ -46,15 +57,22 @@ jobs:
           exit 1
         fi
 
-    - name: Validate version matches Cargo.toml
+    - name: Ensure release tag exists
+      id: tag
       run: |
-        TAG_VERSION="${GITHUB_REF#refs/tags/v}"
-        CARGO_VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d'"' -f2)
-        if [ "$TAG_VERSION" != "$CARGO_VERSION" ]; then
-          echo "❌ Tag version ($TAG_VERSION) does not match Cargo.toml version ($CARGO_VERSION)"
-          exit 1
+        VERSION="${{ steps.version.outputs.version }}"
+        TAG="v${VERSION}"
+        git fetch --tags --force
+        if git rev-parse "$TAG" >/dev/null 2>&1; then
+          echo "Tag ${TAG} already exists; skipping release."
+          echo "release-needed=false" >> $GITHUB_OUTPUT
+          exit 0
         fi
-        echo "✓ Version matches: $TAG_VERSION"
+
+        git tag "$TAG"
+        git push origin "$TAG"
+        echo "Created tag ${TAG}"
+        echo "release-needed=true" >> $GITHUB_OUTPUT
 
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -67,6 +85,7 @@ jobs:
   build-artifacts:
     runs-on: ubuntu-24.04
     needs: validate
+    if: needs.validate.outputs.release-needed == 'true'
     steps:
     - uses: actions/checkout@v6
 
@@ -112,6 +131,7 @@ jobs:
   publish-crates:
     runs-on: ubuntu-24.04
     needs: [validate, build-artifacts]
+    if: needs.validate.outputs.release-needed == 'true'
     environment: crates.io
     steps:
     - uses: actions/checkout@v6
@@ -129,6 +149,7 @@ jobs:
   create-github-release:
     runs-on: ubuntu-24.04
     needs: [validate, publish-crates, build-artifacts]
+    if: needs.validate.outputs.release-needed == 'true'
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
@@ -169,6 +190,8 @@ jobs:
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
+        tag_name: v${{ needs.validate.outputs.version }}
+        target_commitish: ${{ github.sha }}
         name: v${{ needs.validate.outputs.version }}
         body_path: release_notes.md
         files: release/*.tar.gz
@@ -186,8 +209,10 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         VERSION="${{ needs.validate.outputs.version }}"
 
-        if [ "${{ needs.publish-crates.result }}" == "success" ] && \
-           [ "${{ needs.create-github-release.result }}" == "success" ]; then
+        if [ "${{ needs.validate.outputs.release-needed }}" != "true" ]; then
+          echo "ℹ️ No release needed for v${VERSION} (tag already exists)." >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.publish-crates.result }}" == "success" ] && \
+             [ "${{ needs.create-github-release.result }}" == "success" ]; then
           echo "✅ Successfully released v${VERSION}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **crates.io**: Published" >> $GITHUB_STEP_SUMMARY

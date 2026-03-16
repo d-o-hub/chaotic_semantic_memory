@@ -151,8 +151,12 @@ jobs:
           NPM_TAG="latest"
         fi
         
-        # Always use NPM_TOKEN if available (not OIDC)
-        if npm view "@d-o-hub/chaotic_semantic_memory@${VERSION}" version >/dev/null 2>&1; then
+        if ! PUBLISHED_VERSIONS=$(npm view "@d-o-hub/chaotic_semantic_memory" versions --json --registry https://registry.npmjs.org 2>/dev/null); then
+          echo "❌ Unable to query npm registry for published versions."
+          exit 1
+        fi
+
+        if echo "$PUBLISHED_VERSIONS" | jq -e --arg v "$VERSION" 'index($v)' >/dev/null; then
           echo "Version ${VERSION} already published; skipping npm publish."
           exit 0
         fi
