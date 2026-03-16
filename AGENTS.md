@@ -31,6 +31,7 @@ See: [agents-docs/hard-constraints.md](agents-docs/hard-constraints.md)
 - `benchmarking-perf`: Criterion benchmarks and performance targets
 - `debugging-reservoir`: Diagnose ESN spectral radius, sparse weights, dynamics
 - `skill-memory`: Use csm CLI for skill learning and knowledge graphs
+- `turso-memory-verification`: Verify memory persistence before releases (REQUIRED)
 - `drawio`: Create architecture diagrams
 
 ### Swarm Group Skills (Parallel Execution)
