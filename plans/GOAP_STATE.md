@@ -14,12 +14,15 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: phase50_release_ci_fixes_2026_03_16
-  orchestrator_last_run: phase50_release_ci_fixes_2026_03_16
-  orchestrator_last_run_at_utc: 2026-03-16T08:55:00Z
+  action_last_completed: phase51_release_merge_trigger_2026_03_16
+  orchestrator_last_run: phase51_release_merge_trigger_2026_03_16
+  orchestrator_last_run_at_utc: 2026-03-16T09:30:00Z
 
   # Recent changes (2026-03-09)
   recent_changes:
+    - "Release workflow now runs on main merge, creates tag + GitHub Release in one flow"
+    - "Release summary step fixed (closing fi, skip summary when tag exists)"
+    - "npm publish guard now checks registry version list before attempting publish"
     - "Release CI fix: tag builds no longer attempt git push from detached HEAD"
     - "npm publish guard: skip already-published versions; workflow_dispatch rerun succeeded"
     - "Release v0.2.2 complete: crates.io + GitHub Release ok; npm publish idempotent"

@@ -532,3 +532,20 @@ git tag v0.1.2 && git push origin main v0.1.2
 - Do not treat stale CI failures as current when new runs are already in progress.
 - Do not skip changelog link updates when cutting a new patch release.
 - Do not ignore Node.js 20 deprecation warnings ahead of runner defaults switch.
+
+## 2026-03-16: Release Workflow Merge Trigger
+
+### What Worked
+1. Moving release creation to run after merge on main avoids detached HEAD pushes.
+2. Creating tags from the workflow keeps releases tied to the merge commit that bumped versions.
+3. Registry version list checks prevent npm republish failures on tag re-runs.
+
+### Technical Insights
+- `softprops/action-gh-release` can create a release off main when `tag_name` is provided.
+- GitHub Actions `push` workflows should skip release steps when the tag already exists.
+- `npm view <pkg> versions --json` is the most reliable way to detect already-published versions.
+
+### What to Avoid
+- Do not run release steps on every main push; gate on tag existence.
+- Do not rely on `npm publish` errors for control flow; preflight registry checks instead.
+- Do not leave workflow summary scripts with unterminated conditionals.
