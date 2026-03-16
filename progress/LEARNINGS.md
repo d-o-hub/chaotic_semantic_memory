@@ -518,10 +518,13 @@ git tag v0.1.2 && git push origin main v0.1.2
 1. Using `gh run list` and `gh run view --log-failed` to isolate LOC gate failures quickly.
 2. Running `sync-version.sh` before release validation to keep docs/examples consistent.
 3. Re-running `scripts/validate.sh` with an extended timeout after dependency refresh.
+4. Making release and npm workflows idempotent to handle tag reruns safely.
 
 ### Technical Insights
 - `sync-version.sh` updates Cargo.lock and bumps dependencies; full validation must be rerun afterward.
 - `scripts/validate.sh` regenerates `llms.txt` and `llms-full.txt`; include them in release commits.
+- Release workflows run on detached HEAD for tags; any push step must be avoided or replaced with a clean-check.
+- npm publish returns a hard error when a version already exists; treat that as a no-op in CI.
 - CodeQL emits Node.js 20 deprecation warnings for `actions/checkout@v4`; workflows should move to
   Node.js 24-compatible actions before June 2026.
 
