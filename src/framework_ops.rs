@@ -1,15 +1,14 @@
-use std::path::PathBuf;
-use std::sync::Arc;
-use tokio::fs;
-use tracing::{instrument, warn};
-
 use crate::error::{MemoryError, Result};
-use crate::export_payload::{ExportPayload, unix_now_secs};
+use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
 use crate::framework_events::MemoryEvent;
 use crate::hyperdim::HVec10240;
 use crate::singularity::ConceptBuilder;
 use bincode::Options;
+use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::fs;
+use tracing::{instrument, warn};
 
 const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024; // 100 MB default
 const MAX_PATH_LENGTH: usize = 4096;
@@ -181,12 +180,10 @@ impl ChaoticSemanticFramework {
                 associations: sing.all_associations(),
             }
         };
-
         let data = serde_json::to_vec_pretty(&payload)?;
         fs::write(validated_path, data).await?;
         Ok(())
     }
-
     /// Import memory state from JSON file.
     ///
     /// If `merge` is false, clears existing state before importing.
@@ -241,16 +238,13 @@ impl ChaoticSemanticFramework {
             }
             associations
         }; // Lock released here
-
         // Persist concepts and associations (no lock needed)
         if let Some(ref persistence) = self.persistence {
             persistence.save_concepts(&payload.concepts).await?;
             persistence.save_associations(&valid_associations).await?;
         }
-
         Ok(payload.concepts.len())
     }
-
     /// Export memory state to binary file.
     ///
     /// Uses bincode for compact serialization. More efficient than JSON for
@@ -261,15 +255,18 @@ impl ChaoticSemanticFramework {
 
         let payload = {
             let sing = self.singularity.read().await;
-            ExportPayload {
+            let json_payload = ExportPayload {
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 exported_at: unix_now_secs(),
                 concepts: sing.all_concepts(),
                 associations: sing.all_associations(),
-            }
+            };
+            // Convert to binary-compatible format
+            BinaryExportPayload::from(json_payload)
         };
 
-        let data = bincode::serialize(&payload).map_err(|e| {
+        let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
+        let data = options.serialize(&payload).map_err(|e| {
             crate::error::MemoryError::Serialization(serde_json::Error::io(std::io::Error::other(
                 e.to_string(),
             )))
@@ -297,16 +294,21 @@ impl ChaoticSemanticFramework {
                 ),
             });
         }
-
         let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
-        let payload: ExportPayload =
+        let binary_payload: BinaryExportPayload =
             options
                 .deserialize(&bytes)
                 .map_err(|e| crate::error::MemoryError::InvalidInput {
                     field: "import_data".to_string(),
                     reason: format!("bincode deserialization failed: {}", e),
                 })?;
-
+        // Convert to regular payload
+        let payload = binary_payload.to_export_payload().map_err(|e| {
+            crate::error::MemoryError::InvalidInput {
+                field: "import_data".to_string(),
+                reason: format!("failed to convert binary payload: {}", e),
+            }
+        })?;
         if !merge {
             {
                 let mut sing = self.singularity.write().await;
@@ -316,7 +318,6 @@ impl ChaoticSemanticFramework {
                 persistence.clear_all().await?;
             }
         }
-
         // Acquire write lock, inject concepts + build associations list, then release
         let valid_associations = {
             let mut sing = self.singularity.write().await;
