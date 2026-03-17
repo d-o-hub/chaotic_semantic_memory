@@ -189,13 +189,52 @@ Derived automatically from conventional commits:
 
 | Issue | Solution |
 |-------|----------|
-| "crate already exists" | Version bump required; check Cargo.toml |
+| "crate already exists" on crates.io | The workflow now checks and skips publish if already published |
+| GitHub release not created but crates.io exists | The workflow now checks for existing releases and skips creation |
+| Tag exists but release missing | Delete local/remote tag: `git tag -d vX.X.X && git push origin :refs/tags/vX.X.X`, then re-push |
 | "OIDC token exchange failed" | Verify Trusted Publishing config on crates.io |
 | "npm provenance failed" | Ensure Node 24+ and `id-token: write` permission |
 | "npm token expired" | Generate fresh automation token at npmjs.com/settings/tokens |
 | "npm 404 Not Found" | Package doesn't exist OR Trusted Publisher not configured |
 | "Access token expired" | NPM_TOKEN secret is revoked; regenerate at npmjs.com |
 | Docs not deploying | Check GitHub Pages settings → Source: GitHub Actions |
+
+## Idempotent Releases (2026-03-17)
+
+The release workflow is now idempotent - it handles partial failures gracefully:
+
+1. **crates.io check**: Before publishing, checks if version already exists on crates.io
+2. **GitHub release check**: Before creating release, checks if release already exists
+3. **Skipped gracefully**: If either already exists, it skips that step and continues
+
+This prevents the issue where:
+- Crate was manually published to crates.io
+- CI failed trying to re-publish
+- GitHub release was never created
+- Future runs skipped because tag existed
+
+### Manual Recovery (if needed)
+
+If a release partially failed:
+
+```bash
+# Check current state
+gh release list
+curl -s https://crates.io/api/v1/crates/chaotic_semantic_memory/versions | jq '.versions[0].num'
+npm view @d-o-hub/chaotic_semantic_memory version
+
+# If GitHub release missing but crates.io published:
+# 1. Delete the tag locally and remotely
+git tag -d vX.X.X && git push origin :refs/tags/vX.X.X
+
+# 2. Re-create at correct commit (or HEAD)
+git tag vX.X.X <commit> && git push origin vX.X.X
+# OR create at HEAD:
+git tag vX.X.X && git push origin vX.X.X
+
+# 3. CI will now create the release (or manually with):
+gh release create vX.X.X --title "vX.X.X" --notes-file CHANGELOG.md
+```
 
 ## Security Requirements
 

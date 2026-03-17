@@ -141,14 +141,26 @@ jobs:
       with:
         toolchain: stable
 
+    - name: Check if version already published to crates.io
+      id: crates-check
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        if curl -s "https://crates.io/api/v1/crates/chaotic_semantic_memory/$VERSION" | grep -q '"version"'; then
+          echo "⚠️ Version $VERSION already exists on crates.io, skipping publish"
+          echo "already-published=true" >> $GITHUB_OUTPUT
+        else
+          echo "already-published=false" >> $GITHUB_OUTPUT
+        fi
+
     - name: Publish to crates.io
+      if: steps.crates-check.outputs.already-published != 'true'
       run: cargo publish --allow-dirty
       env:
         CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
   create-github-release:
     runs-on: ubuntu-24.04
-    needs: [validate, publish-crates, build-artifacts]
+    needs: [validate, build-artifacts]
     if: needs.validate.outputs.release-needed == 'true'
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -157,7 +169,22 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Check if GitHub release already exists
+      id: release-check
+      run: |
+        VERSION="${{ needs.validate.outputs.version }}"
+        TAG="v${VERSION}"
+        if gh release view "$TAG" >/dev/null 2>&1; then
+          echo "⚠️ GitHub release $TAG already exists, skipping creation"
+          echo "release-exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "release-exists=false" >> $GITHUB_OUTPUT
+        fi
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Download release artifacts
+      if: steps.release-check.outputs.release-exists != 'true'
       uses: actions/download-artifact@v8
       with:
         name: release-artifacts
@@ -165,6 +192,7 @@ jobs:
 
     - name: Extract changelog for this version
       id: changelog
+      if: steps.release-check.outputs.release-exists != 'true'
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
 
@@ -188,6 +216,7 @@ jobs:
         fi
 
     - name: Create GitHub Release
+      if: steps.release-check.outputs.release-exists != 'true'
       uses: softprops/action-gh-release@v2
       with:
         tag_name: v${{ needs.validate.outputs.version }}
@@ -211,12 +240,14 @@ jobs:
 
         if [ "${{ needs.validate.outputs.release-needed }}" != "true" ]; then
           echo "ℹ️ No release needed for v${VERSION} (tag already exists)." >> $GITHUB_STEP_SUMMARY
-        elif [ "${{ needs.publish-crates.result }}" == "success" ] && \
-             [ "${{ needs.create-github-release.result }}" == "success" ]; then
-          echo "✅ Successfully released v${VERSION}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **crates.io**: Published" >> $GITHUB_STEP_SUMMARY
-          echo "- **GitHub Release**: Created with artifacts" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.publish-crates.result }}" == "skipped" ] || [ "${{ needs.publish-crates.result }}" == "success" ]; then
+          echo "✅ crates.io: Published or already exists" >> $GITHUB_STEP_SUMMARY
         else
-          echo "❌ Release v${VERSION} had failures:" >> $GITHUB_STEP_SUMMARY
+          echo "❌ crates.io: Failed" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ "${{ needs.create-github-release.result }}" == "skipped" ] || [ "${{ needs.create-github-release.result }}" == "success" ]; then
+          echo "✅ GitHub Release: Created or already exists" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ GitHub Release: Failed" >> $GITHUB_STEP_SUMMARY
         fi
