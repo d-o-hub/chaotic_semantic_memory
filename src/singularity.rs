@@ -137,6 +137,16 @@ pub enum CandidateSource {
     ExactFallback,
 }
 
+pub(crate) struct ScoredCandidateParams<'a> {
+    pub query: &'a HVec10240,
+    pub top_k: usize,
+    pub candidates: Vec<usize>,
+    pub start_ns: u64,
+    pub cand_ns: u64,
+    pub source: CandidateSource,
+    pub bypass_cache: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RetrievalConfig {
     pub max_candidates: usize,
@@ -320,8 +330,10 @@ impl Singularity {
     pub fn find_similar_cached(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]> {
         let start_ns = unix_now_ns();
         if top_k == 0 || self.concepts.is_empty() {
-            let mut stats = RetrievalStats::default();
-            stats.fell_back_to_exact_scan = true;
+            let stats = RetrievalStats {
+                fell_back_to_exact_scan: true,
+                ..Default::default()
+            };
             if let Ok(mut s) = self.last_retrieval_stats.write() {
                 *s = stats;
             }
@@ -339,10 +351,12 @@ impl Singularity {
                         .hits_total
                         .fetch_add(1, Ordering::Relaxed);
 
-                    let mut stats = RetrievalStats::default();
-                    stats.candidate_count = results.len();
-                    stats.scored_count = 0;
-                    stats.scoring_ns = unix_now_ns().saturating_sub(start_ns);
+                    let stats = RetrievalStats {
+                        candidate_count: results.len(),
+                        scored_count: 0,
+                        scoring_ns: unix_now_ns().saturating_sub(start_ns),
+                        ..Default::default()
+                    };
                     if let Ok(mut s) = self.last_retrieval_stats.write() {
                         *s = stats;
                     }
@@ -380,7 +394,7 @@ impl Singularity {
         }
 
         // Reduced-candidate path
-        self.scored_candidate_retrieval(
+        self.scored_candidate_retrieval(ScoredCandidateParams {
             query,
             top_k,
             candidates,
@@ -388,19 +402,22 @@ impl Singularity {
             cand_ns,
             source,
             bypass_cache,
-        )
+        })
     }
 
     pub(crate) fn scored_candidate_retrieval(
         &self,
-        query: &HVec10240,
-        top_k: usize,
-        candidates: Vec<usize>,
-        _start_ns: u64,
-        cand_ns: u64,
-        _source: CandidateSource,
-        bypass_cache: bool,
+        params: ScoredCandidateParams,
     ) -> Arc<[(String, f32)]> {
+        let ScoredCandidateParams {
+            query,
+            top_k,
+            candidates,
+            start_ns: _start_ns,
+            cand_ns,
+            source: _source,
+            bypass_cache,
+        } = params;
         let scoring_start = unix_now_ns();
         let candidate_count = candidates.len();
 
@@ -563,14 +580,7 @@ impl Singularity {
         results_arc
     }
 
-    fn update_stats(
-        &self,
-        candidates: usize,
-        scored: usize,
-        fallback: bool,
-        cand_ns: u64,
-        score_ns: u64,
-    ) {
+    fn update_stats(&self, candidates: usize, scored: usize, fallback: bool, cand_ns: u64, score_ns: u64) {
         let stats = RetrievalStats {
             candidate_count: candidates,
             scored_count: scored,
@@ -673,10 +683,7 @@ impl Singularity {
     }
 
     pub fn last_retrieval_stats(&self) -> RetrievalStats {
-        self.last_retrieval_stats
-            .read()
-            .map(|s| s.clone())
-            .unwrap_or_default()
+        self.last_retrieval_stats.read().map(|s| s.clone()).unwrap_or_default()
     }
 
     fn evict_oldest_if_needed(&mut self) {
