@@ -333,17 +333,14 @@ fn bench_retrieval_baseline(c: &mut Criterion) {
         // Worst-case: all concepts have the same vector
         let singularity_worst = build_probe_benchmark_singularity(concept_count, true);
         let query = HVec10240::new_seeded(999);
-        group.bench_function(
-            format!("exact_worst_case_{concept_count}"),
-            |b| {
-                b.iter(|| {
-                    black_box(
-                        singularity_worst
-                            .find_similar_cached(black_box(&query), black_box(PROBE_BENCH_TOP_K)),
-                    )
-                })
-            },
-        );
+        group.bench_function(format!("exact_worst_case_{concept_count}"), |b| {
+            b.iter(|| {
+                black_box(
+                    singularity_worst
+                        .find_similar_cached(black_box(&query), black_box(PROBE_BENCH_TOP_K)),
+                )
+            })
+        });
 
         // Realistic: all concepts have different vectors
         let singularity_realistic = build_probe_benchmark_singularity(concept_count, false);
@@ -354,28 +351,22 @@ fn bench_retrieval_baseline(c: &mut Criterion) {
         ret_config.enable_bucket_candidates = true;
         singularity_bucket.set_retrieval_config(ret_config);
 
-        group.bench_function(
-            format!("reduced_bucket_{concept_count}"),
-            |b| {
-                b.iter(|| {
-                    black_box(
-                        singularity_bucket
-                            .find_similar_cached(black_box(&query), black_box(PROBE_BENCH_TOP_K)),
-                    )
-                })
-            },
-        );
-        group.bench_function(
-            format!("exact_realistic_{concept_count}"),
-            |b| {
-                b.iter(|| {
-                    black_box(
-                        singularity_realistic
-                            .find_similar_cached(black_box(&query), black_box(PROBE_BENCH_TOP_K)),
-                    )
-                })
-            },
-        );
+        group.bench_function(format!("reduced_bucket_{concept_count}"), |b| {
+            b.iter(|| {
+                black_box(
+                    singularity_bucket
+                        .find_similar_cached(black_box(&query), black_box(PROBE_BENCH_TOP_K)),
+                )
+            })
+        });
+        group.bench_function(format!("exact_realistic_{concept_count}"), |b| {
+            b.iter(|| {
+                black_box(
+                    singularity_realistic
+                        .find_similar_cached(black_box(&query), black_box(PROBE_BENCH_TOP_K)),
+                )
+            })
+        });
     }
 
     group.finish();

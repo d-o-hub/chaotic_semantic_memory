@@ -380,7 +380,15 @@ impl Singularity {
         }
 
         // Reduced-candidate path
-        self.scored_candidate_retrieval(query, top_k, candidates, start_ns, cand_ns, source, bypass_cache)
+        self.scored_candidate_retrieval(
+            query,
+            top_k,
+            candidates,
+            start_ns,
+            cand_ns,
+            source,
+            bypass_cache,
+        )
     }
 
     pub(crate) fn scored_candidate_retrieval(
@@ -436,13 +444,7 @@ impl Singularity {
             }
         }
 
-        self.update_stats(
-            candidate_count,
-            scored_count,
-            false,
-            cand_ns,
-            scoring_ns,
-        );
+        self.update_stats(candidate_count, scored_count, false, cand_ns, scoring_ns);
 
         results_arc
     }
@@ -463,7 +465,10 @@ impl Singularity {
                 if let Some(links) = self.associations.get(&id) {
                     let mut sorted_links: Vec<_> = links.iter().collect();
                     sorted_links.sort_by(|a, b| b.1.total_cmp(a.1));
-                    for (neighbor_id, _) in sorted_links.into_iter().take(self.retrieval_config.graph_fanout) {
+                    for (neighbor_id, _) in sorted_links
+                        .into_iter()
+                        .take(self.retrieval_config.graph_fanout)
+                    {
                         if !candidates.contains(neighbor_id) {
                             candidates.insert(neighbor_id.clone());
                             queue.push_back((neighbor_id.clone(), depth + 1));
@@ -506,13 +511,15 @@ impl Singularity {
     ) -> Arc<[(String, f32)]> {
         let scoring_start = unix_now_ns();
         #[cfg(not(target_arch = "wasm32"))]
-        let scores: Vec<f32> = self.concept_vectors
+        let scores: Vec<f32> = self
+            .concept_vectors
             .par_iter()
             .map(|v| query.cosine_similarity(v))
             .collect();
 
         #[cfg(target_arch = "wasm32")]
-        let scores: Vec<f32> = self.concept_vectors
+        let scores: Vec<f32> = self
+            .concept_vectors
             .iter()
             .map(|v| query.cosine_similarity(v))
             .collect();
@@ -556,7 +563,14 @@ impl Singularity {
         results_arc
     }
 
-    fn update_stats(&self, candidates: usize, scored: usize, fallback: bool, cand_ns: u64, score_ns: u64) {
+    fn update_stats(
+        &self,
+        candidates: usize,
+        scored: usize,
+        fallback: bool,
+        cand_ns: u64,
+        score_ns: u64,
+    ) {
         let stats = RetrievalStats {
             candidate_count: candidates,
             scored_count: scored,
@@ -659,7 +673,10 @@ impl Singularity {
     }
 
     pub fn last_retrieval_stats(&self) -> RetrievalStats {
-        self.last_retrieval_stats.read().map(|s| s.clone()).unwrap_or_default()
+        self.last_retrieval_stats
+            .read()
+            .map(|s| s.clone())
+            .unwrap_or_default()
     }
 
     fn evict_oldest_if_needed(&mut self) {

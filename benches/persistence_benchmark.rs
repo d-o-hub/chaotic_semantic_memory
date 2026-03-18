@@ -58,9 +58,7 @@ fn bench_persistence_warm(c: &mut Criterion) {
     let rt = tokio::runtime::Runtime::new().unwrap();
     let temp = NamedTempFile::new().unwrap();
     let path = temp.path().to_str().unwrap().to_string();
-    let persistence = rt.block_on(async {
-        Persistence::new_local(&path).await.unwrap()
-    });
+    let persistence = rt.block_on(async { Persistence::new_local(&path).await.unwrap() });
 
     let mut group = c.benchmark_group("persistence_warm");
 
@@ -91,7 +89,6 @@ fn bench_persistence_warm(c: &mut Criterion) {
 
     group.finish();
 }
-
 
 fn bench_delete_concept(c: &mut Criterion) {
     let rt = tokio::runtime::Runtime::new().unwrap();
