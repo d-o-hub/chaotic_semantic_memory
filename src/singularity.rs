@@ -580,14 +580,7 @@ impl Singularity {
         results_arc
     }
 
-    fn update_stats(
-        &self,
-        candidates: usize,
-        scored: usize,
-        fallback: bool,
-        cand_ns: u64,
-        score_ns: u64,
-    ) {
+    fn update_stats(&self, candidates: usize, scored: usize, fallback: bool, cand_ns: u64, score_ns: u64) {
         let stats = RetrievalStats {
             candidate_count: candidates,
             scored_count: scored,
@@ -690,10 +683,7 @@ impl Singularity {
     }
 
     pub fn last_retrieval_stats(&self) -> RetrievalStats {
-        self.last_retrieval_stats
-            .read()
-            .map(|s| s.clone())
-            .unwrap_or_default()
+        self.last_retrieval_stats.read().map(|s| s.clone()).unwrap_or_default()
     }
 
     fn evict_oldest_if_needed(&mut self) {
