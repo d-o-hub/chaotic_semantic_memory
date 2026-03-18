@@ -119,10 +119,20 @@ fn make_concept_with_tag(id: &str, tag: &str) -> Concept {
         .unwrap()
 }
 
-fn build_probe_benchmark_singularity(concept_count: usize) -> Singularity {
-    let mut singularity = Singularity::new();
-    let vector = HVec10240::random();
+fn build_probe_benchmark_singularity(concept_count: usize, worst_case: bool) -> Singularity {
+    use chaotic_semantic_memory::singularity::SingularityConfig;
+    let config = SingularityConfig {
+        max_cached_top_k: 0, // Bypass cache to measure scan cost
+        ..Default::default()
+    };
+    let mut singularity = Singularity::with_config(config);
+    let base_vector = HVec10240::new_seeded(42);
     for i in 0..concept_count {
+        let vector = if worst_case {
+            base_vector
+        } else {
+            HVec10240::new_seeded(i as u64)
+        };
         singularity
             .inject(
                 ConceptBuilder::new(format!("p{i}"))
@@ -313,21 +323,54 @@ fn bench_bundle_accumulator(c: &mut Criterion) {
     group.finish();
 }
 
-fn bench_probe_exact_scan_scale(c: &mut Criterion) {
-    let mut group = c.benchmark_group("probe_exact_scan_scale");
+fn bench_retrieval_baseline(c: &mut Criterion) {
+    let mut group = c.benchmark_group("retrieval_baseline");
     group.sample_size(PROBE_BENCH_SAMPLE_SIZE);
     group.warm_up_time(Duration::from_secs(PROBE_BENCH_WARMUP_SECS));
     group.measurement_time(Duration::from_secs(PROBE_BENCH_MEASUREMENT_SECS));
 
     for concept_count in PROBE_BENCH_COUNTS {
-        let singularity = build_probe_benchmark_singularity(concept_count);
-        let query = HVec10240::random();
+        // Worst-case: all concepts have the same vector
+        let singularity_worst = build_probe_benchmark_singularity(concept_count, true);
+        let query = HVec10240::new_seeded(999);
         group.bench_function(
-            format!("exact_top{PROBE_BENCH_TOP_K}_{concept_count}"),
+            format!("exact_worst_case_{concept_count}"),
             |b| {
                 b.iter(|| {
                     black_box(
-                        singularity
+                        singularity_worst
+                            .find_similar_cached(black_box(&query), black_box(PROBE_BENCH_TOP_K)),
+                    )
+                })
+            },
+        );
+
+        // Realistic: all concepts have different vectors
+        let singularity_realistic = build_probe_benchmark_singularity(concept_count, false);
+
+        // Reduced-candidate: Bucket
+        let mut singularity_bucket = build_probe_benchmark_singularity(concept_count, false);
+        let mut ret_config = singularity_bucket.retrieval_config().clone();
+        ret_config.enable_bucket_candidates = true;
+        singularity_bucket.set_retrieval_config(ret_config);
+
+        group.bench_function(
+            format!("reduced_bucket_{concept_count}"),
+            |b| {
+                b.iter(|| {
+                    black_box(
+                        singularity_bucket
+                            .find_similar_cached(black_box(&query), black_box(PROBE_BENCH_TOP_K)),
+                    )
+                })
+            },
+        );
+        group.bench_function(
+            format!("exact_realistic_{concept_count}"),
+            |b| {
+                b.iter(|| {
+                    black_box(
+                        singularity_realistic
                             .find_similar_cached(black_box(&query), black_box(PROBE_BENCH_TOP_K)),
                     )
                 })
@@ -351,6 +394,6 @@ criterion_group!(
     bench_filtered_search,
     bench_graph_traversal,
     bench_bundle_accumulator,
-    bench_probe_exact_scan_scale
+    bench_retrieval_baseline
 );
 criterion_main!(benches);

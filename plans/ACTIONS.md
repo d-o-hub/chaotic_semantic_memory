@@ -2708,3 +2708,44 @@ actions:
       Enable `PRAGMA journal_mode=WAL` during local SQLite initialization, keep per-connection
       foreign-key enforcement, and add tests that verify WAL mode plus checkpoint compatibility.
       Leave the remote Turso path unchanged.
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 54: RETRIEVAL OPTIMIZATION (cost: 15) - Wave 19
+  # ═══════════════════════════════════════════════════════
+  - name: retrieval_hot_path_refactor
+    preconditions:
+      probe_scan_materialization_removed: true
+    effects:
+      retrieval_hot_path_optimized: true
+    cost: 5
+    status: complete
+    file: src/singularity.rs
+    adr: ADR-0059
+    description: |
+      Refactor Singularity to use dense storage (concept_vectors, concept_indices) for hot-path scans.
+      Achieved ~2.6x speedup for exact similarity retrieval.
+
+  - name: reduced_candidate_retrieval
+    preconditions:
+      retrieval_hot_path_optimized: true
+    effects:
+      reduced_candidate_retrieval_implemented: true
+    cost: 5
+    status: complete
+    file: src/singularity.rs
+    adr: ADR-0059
+    description: |
+      Implement two-stage retrieval pipeline with graph-neighborhood and vector-bucket candidate generation.
+      Bucket retrieval provides additional ~2.4x speedup at 200k scale.
+
+  - name: benchmark_methodology_cleanup
+    preconditions: []
+    effects:
+      benchmark_methodology_improved: true
+    cost: 5
+    status: complete
+    file: benches/persistence_benchmark.rs, benches/benchmark.rs
+    adr: ADR-0059
+    description: |
+      Separate cold/warm persistence benchmarks. Add shared-store contention benchmarks.
+      Introduce realistic/worst-case retrieval fixtures.

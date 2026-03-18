@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Reduced-Candidate Retrieval** (`singularity.rs`): Introduced a two-stage retrieval pipeline.
+  Supports vector-bucket and graph-neighborhood candidate generation before exact reranking.
+- **Retrieval Observability**: `RetrievalStats` struct and `last_retrieval_stats()` method
+  provide visibility into candidate counts and stage-specific latencies.
+- **Concurrent Persistence Benchmarks**: Added `shared_store_concurrent_10_saves` to
+  `persistence_benchmark.rs` to measure contention under shared-store conditions.
+- **ADR-0059** documenting retrieval optimizations and benchmark hygiene.
+
+### Changed
+- **Optimized Exact Retrieval** (`singularity.rs`): Refactored `Singularity` to use dense storage
+  for concept vectors and indices, resulting in ~2.6x speedup for exact similarity scans.
+- **Benchmark Methodology**: Persistence benchmarks now distinguish between `cold` (with setup)
+  and `warm` (steady-state) operations.
+
 ## [0.2.3] - 2026-03-16
 
 ### Fixed
