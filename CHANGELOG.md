@@ -7,11 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-03-19
+
 ### Added
 - **Reduced-Candidate Retrieval** (`singularity.rs`): Introduced a two-stage retrieval pipeline.
   Supports vector-bucket and graph-neighborhood candidate generation before exact reranking.
 - **Retrieval Observability**: `RetrievalStats` struct and `last_retrieval_stats()` method
   provide visibility into candidate counts and stage-specific latencies.
+- **Public re-exports**: `BundleAccumulator`, `RetrievalStats`, `RetrievalConfig`, and
+  `CandidateSource` are now exported from crate root and prelude.
 - **Concurrent Persistence Benchmarks**: Added `shared_store_concurrent_10_saves` to
   `persistence_benchmark.rs` to measure contention under shared-store conditions.
 - **ADR-0059** documenting retrieval optimizations and benchmark hygiene.
@@ -21,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for concept vectors and indices, resulting in ~2.6x speedup for exact similarity scans.
 - **Benchmark Methodology**: Persistence benchmarks now distinguish between `cold` (with setup)
   and `warm` (steady-state) operations.
+
+### Fixed
+- **Release workflow** (`release.yml`): Fixed crates.io version check using wrong variable
+  (`steps.version` instead of `needs.validate.outputs.version`), which could cause publish
+  failures or duplicate publish attempts.
 
 ## [0.2.3] - 2026-03-16
 

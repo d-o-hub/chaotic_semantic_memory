@@ -8,12 +8,14 @@
 //! - `Persistence`: Replaced with stubs in `persistence_wasm`
 //! - `process_sequence`: No Rayon parallelization in WASM
 
+pub use bundle::BundleAccumulator;
 pub use error::{MemoryError, Result};
 pub use framework::ChaoticSemanticFramework;
 pub use framework_builder::FrameworkBuilder;
 pub use framework_events::MemoryEvent;
 pub use hyperdim::{HVec10240, batch_cosine_similarity};
 pub use singularity::{Concept, ConceptBuilder};
+pub use singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats};
 
 pub mod bundle;
 #[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]
@@ -48,12 +50,14 @@ mod singularity_retrieval;
 pub use crate::persistence_wasm as persistence;
 
 pub mod prelude {
+    pub use crate::bundle::BundleAccumulator;
     pub use crate::error::{MemoryError, Result};
     pub use crate::framework::ChaoticSemanticFramework;
     pub use crate::framework_builder::FrameworkBuilder;
     pub use crate::framework_events::MemoryEvent;
     pub use crate::hyperdim::HVec10240;
     pub use crate::singularity::{Concept, ConceptBuilder};
+    pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats};
 }
 
 #[cfg(target_arch = "wasm32")]

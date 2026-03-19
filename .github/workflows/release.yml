@@ -144,7 +144,7 @@ jobs:
     - name: Check if version already published to crates.io
       id: crates-check
       run: |
-        VERSION="${{ steps.version.outputs.version }}"
+        VERSION="${{ needs.validate.outputs.version }}"
         if curl -s "https://crates.io/api/v1/crates/chaotic_semantic_memory/$VERSION" | grep -q '"version"'; then
           echo "⚠️ Version $VERSION already exists on crates.io, skipping publish"
           echo "already-published=true" >> $GITHUB_OUTPUT

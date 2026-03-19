@@ -2,30 +2,30 @@
 
 > AI memory systems with hyperdimensional vectors and chaotic reservoirs
 
-**Version:** 0.2.3
+**Version:** 0.2.4
 **License:** MIT
 **Repository:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
-- colored (2.2.0)
-- serde (1.0.219) [features: derive]
-- tracing (0.1.41)
-- serde_json (1.0.138)
-- rand (0.8.5)
-- bincode (1.3.3)
-- tracing-subscriber (0.3.19)
-- anyhow (1.0.102)
-- clap_complete (4.5.42)
-- clap (4.5.60) [features: derive, env, string]
 - base64 (0.22)
 - thiserror (2.0.11)
+- tracing (0.1.41)
+- rand (0.8.5)
+- clap_complete (4.5.42)
+- colored (2.2.0)
+- serde_json (1.0.149)
+- bincode (1.3.3)
+- clap (4.5.60) [features: derive, env, string]
+- tracing-subscriber (0.3.19)
+- anyhow (1.0.102)
+- serde (1.0.219) [features: derive]
 **Features:**
-- default: [cli]
-- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored]
 - wasm: []
+- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored]
+- default: [cli]
 
-Generated: 2026-03-16 14:03:46 UTC  
+Generated: 2026-03-19 16:18:01 UTC  
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Core Documentation
@@ -86,6 +86,14 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - impl ChaoticSemanticFramework
 
+### src/singularity_retrieval.rs
+
+- pub struct RetrievalStats
+- pub enum CandidateSource
+- pub struct RetrievalConfig
+- impl Default for RetrievalConfig
+- impl Singularity
+
 ### src/persistence.rs
 
 - pub struct Persistence
@@ -94,12 +102,14 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/lib.rs
 
+- pub use bundle::BundleAccumulator
 - pub use error::{MemoryError, Result}
 - pub use framework::ChaoticSemanticFramework
 - pub use framework_builder::FrameworkBuilder
 - pub use framework_events::MemoryEvent
 - pub use hyperdim::{HVec10240, batch_cosine_similarity}
 - pub use singularity::{Concept, ConceptBuilder}
+- pub use singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
 - pub mod bundle
 - pub mod cli
 - pub mod concept_builder
@@ -116,12 +126,14 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod singularity
 - pub use crate::persistence_wasm as persistence
 - pub mod prelude
+- pub use prelude::crate::bundle::BundleAccumulator
 - pub use prelude::crate::error::{MemoryError, Result}
 - pub use prelude::crate::framework::ChaoticSemanticFramework
 - pub use prelude::crate::framework_builder::FrameworkBuilder
 - pub use prelude::crate::framework_events::MemoryEvent
 - pub use prelude::crate::hyperdim::HVec10240
 - pub use prelude::crate::singularity::{Concept, ConceptBuilder}
+- pub use prelude::crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
 - pub mod wasm
 
 ### src/metadata_filter.rs
@@ -136,6 +148,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/singularity.rs
 
+- pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
 - pub const DEFAULT_MAX_CACHED_TOP_K
 - pub struct Concept
 - pub struct SingularityConfig
@@ -339,6 +352,7 @@ It targets both native and `wasm32` builds with explicit threading guards.
 - **Hyperdimensional Computing**: 10240-bit binary hypervectors with SIMD-accelerated operations
 - **Chaotic Reservoirs**: Configurable echo-state networks with spectral radius controls `[0.9, 1.1]`
 - **Semantic Memory**: Concept graphs with weighted associations and similarity search
+- **Optimized Retrieval**: Two-stage retrieval pipeline with heuristic-based candidate generation (bucket, graph) and dense-vector scoring.
 - **Persistence**: libSQL for local SQLite or remote Turso database
 - **WASM Support**: Browser-compatible with memory-based import/export
 - **CLI**: Full-featured command-line interface with shell completions
@@ -558,7 +572,7 @@ Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md)
 ```toml
 [package]
 name = "chaotic_semantic_memory"
-version = "0.2.3"
+version = "0.2.4"
 edition = "2024"
 rust-version = "1.85"
 description = "AI memory systems with hyperdimensional vectors and chaotic reservoirs"
@@ -583,7 +597,7 @@ include = [
 [dependencies]
 # Serialization
 serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.138"
+serde_json = "1.0.149"
 bincode = "1.3.3"
 base64 = "0.22"
 
