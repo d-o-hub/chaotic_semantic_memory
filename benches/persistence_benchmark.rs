@@ -22,12 +22,13 @@ fn make_concepts(count: usize, prefix: &str) -> Vec<Concept> {
 }
 
 fn make_concept_with_metadata(id: &str) -> Concept {
+    use serde_json::json;
     let mut metadata = HashMap::new();
-    metadata.insert("name".to_string(), serde_json::json!("test"));
-    metadata.insert("count".to_string(), serde_json::json!(42));
+    metadata.insert("name".to_string(), json!("test"));
+    metadata.insert("count".to_string(), json!(42));
     metadata.insert(
         "nested".to_string(),
-        serde_json::json!({"inner": "value", "number": 123}),
+        json!({"inner": "value", "number": 123}),
     );
     Concept {
         id: id.to_string(),
@@ -38,34 +39,45 @@ fn make_concept_with_metadata(id: &str) -> Concept {
     }
 }
 
-fn bench_save_concept(c: &mut Criterion) {
+fn bench_persistence_cold(c: &mut Criterion) {
     let rt = tokio::runtime::Runtime::new().unwrap();
 
-    c.bench_function("save_concept", |b| {
+    c.bench_function("persistence_cold_start", |b| {
         b.iter(|| {
-            let concept = make_concept_with_metadata("bench-save");
             let temp = NamedTempFile::new().unwrap();
             let path = temp.path().to_str().unwrap();
             rt.block_on(async {
                 let persistence = Persistence::new_local(path).await.unwrap();
-                persistence.save_concept(black_box(&concept)).await.unwrap();
                 black_box(persistence)
             })
         })
     });
 }
 
-fn bench_load_concept(c: &mut Criterion) {
+fn bench_persistence_warm(c: &mut Criterion) {
     let rt = tokio::runtime::Runtime::new().unwrap();
+    let temp = NamedTempFile::new().unwrap();
+    let path = temp.path().to_str().unwrap().to_string();
+    let persistence = rt.block_on(async { Persistence::new_local(&path).await.unwrap() });
 
-    c.bench_function("load_concept", |b| {
+    let mut group = c.benchmark_group("persistence_warm");
+
+    group.bench_function("save_concept", |b| {
         b.iter(|| {
-            let temp = NamedTempFile::new().unwrap();
-            let path = temp.path().to_str().unwrap();
+            let concept = make_concept_with_metadata("bench-save");
             rt.block_on(async {
-                let persistence = Persistence::new_local(path).await.unwrap();
-                let concept = make_concept_with_metadata("bench-load");
-                persistence.save_concept(&concept).await.unwrap();
+                persistence.save_concept(black_box(&concept)).await.unwrap();
+            })
+        })
+    });
+
+    group.bench_function("load_concept", |b| {
+        let concept = make_concept_with_metadata("bench-load");
+        rt.block_on(async {
+            persistence.save_concept(&concept).await.unwrap();
+        });
+        b.iter(|| {
+            rt.block_on(async {
                 let loaded = persistence
                     .load_concept(black_box("bench-load"))
                     .await
@@ -74,6 +86,8 @@ fn bench_load_concept(c: &mut Criterion) {
             })
         })
     });
+
+    group.finish();
 }
 
 fn bench_delete_concept(c: &mut Criterion) {
@@ -336,23 +350,34 @@ fn bench_checkpoint(c: &mut Criterion) {
     });
 }
 
-fn bench_concurrent_saves(c: &mut Criterion) {
+fn bench_persistence_concurrency(c: &mut Criterion) {
     let rt = tokio::runtime::Runtime::new().unwrap();
 
-    c.bench_function("concurrent_10_saves", |b| {
+    c.bench_function("shared_store_concurrent_10_saves", |b| {
         b.iter(|| {
+            let temp = NamedTempFile::new().unwrap();
+            let path = temp.path().to_str().unwrap().to_string();
+
             rt.block_on(async {
-                let handles: Vec<_> = (0..10)
-                    .map(|i| {
-                        tokio::spawn(async move {
-                            let temp = NamedTempFile::new().unwrap();
-                            let path = temp.path().to_str().unwrap();
-                            let p = Persistence::new_local(path).await.unwrap();
-                            let concept = make_concept(&format!("concurrent-{}", i));
-                            p.save_concept(&concept).await.unwrap();
-                        })
-                    })
-                    .collect();
+                let persistence = Persistence::new_local(&path).await.unwrap();
+                let persistence = std::sync::Arc::new(persistence);
+                let mut handles = Vec::new();
+                for i in 0..10 {
+                    let p = std::sync::Arc::clone(&persistence);
+                    handles.push(tokio::spawn(async move {
+                        let concept = make_concept(&format!("concurrent-{}", i));
+                        // Retry loop for bench stability
+                        loop {
+                            match p.save_concept(&concept).await {
+                                Ok(_) => break,
+                                Err(e) if format!("{:?}", e).contains("database is locked") => {
+                                    tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+                                }
+                                Err(e) => panic!("Unexpected error: {:?}", e),
+                            }
+                        }
+                    }));
+                }
 
                 for handle in handles {
                     handle.await.unwrap();
@@ -364,8 +389,9 @@ fn bench_concurrent_saves(c: &mut Criterion) {
 
 criterion_group!(
     benches,
-    bench_save_concept,
-    bench_load_concept,
+    bench_persistence_cold,
+    bench_persistence_warm,
+    bench_persistence_concurrency,
     bench_delete_concept,
     bench_delete_concept_with_cascade,
     bench_save_concepts_batch,
@@ -375,6 +401,5 @@ criterion_group!(
     bench_crud_roundtrip,
     bench_crud_roundtrip_with_associations,
     bench_checkpoint,
-    bench_concurrent_saves,
 );
 criterion_main!(benches);

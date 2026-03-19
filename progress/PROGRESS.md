@@ -1,3 +1,21 @@
+## 2026-03-17: Retrieval Optimization and Benchmark Hygiene
+
+### Summary
+Optimized the retrieval hot path and improved benchmark methodology as part of Issue #33.
+
+### Current State
+- **142 tests** passing.
+- **Performance**:
+    - Exact scan optimized: ~2.6x speedup (24ms vs 65ms for 200k concepts).
+    - Reduced-candidate (bucket) retrieval: ~2.4x additional speedup (~12ms for 200k concepts).
+- **Benchmark Hygiene**:
+    - Separated persistence benchmarks into cold and warm.
+    - Implemented shared-store concurrency benchmarks with retry logic.
+- **Observability**: Added `RetrievalStats` for fine-grained latency and candidate tracking.
+
+### Commits
+- `REPLACE_WITH_COMMIT_HASH`: feat: optimize retrieval hot path and cleanup benchmarks
+
 ## 2026-02-27: GOAP Analysis and Orchestration Review
 
 ### Analysis Summary

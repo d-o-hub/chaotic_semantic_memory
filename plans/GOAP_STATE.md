@@ -234,6 +234,7 @@ world_state:
   prelude_module_missing: false
 
   # Performance gaps
+  retrieval_latency_high: false
   singularity_search_sequential: false
   reservoir_step_per_alloc: false
   bundle_per_chunk_alloc: false
@@ -624,4 +625,9 @@ world_state:
   # Phase 48: Performance Follow-up (cost: 7) - Completed 2026-03-09
   probe_scan_materialization_removed: true    # ADR-0056: find_similar_cached no longer clones all concepts on cache misses
   local_sqlite_wal_enabled: true              # ADR-0056: local SQLite init enforces journal_mode=WAL
-  probe_scale_trigger_exceeded: false         # ADR-0056: activate optional ANN/LSH only after >200k concepts + measured latency regression
+  probe_scale_trigger_exceeded: true          # ADR-0056: activate optional ANN/LSH after >200k concepts with measured latency regression
+
+  # Phase 54: Retrieval Optimization (cost: 15) - Wave 19 ✅ COMPLETE
+  retrieval_hot_path_optimized: true
+  reduced_candidate_retrieval_implemented: true
+  benchmark_methodology_improved: true

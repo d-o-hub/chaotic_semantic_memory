@@ -27,6 +27,7 @@ It targets both native and `wasm32` builds with explicit threading guards.
 - **Hyperdimensional Computing**: 10240-bit binary hypervectors with SIMD-accelerated operations
 - **Chaotic Reservoirs**: Configurable echo-state networks with spectral radius controls `[0.9, 1.1]`
 - **Semantic Memory**: Concept graphs with weighted associations and similarity search
+- **Optimized Retrieval**: Two-stage retrieval pipeline with heuristic-based candidate generation (bucket, graph) and dense-vector scoring.
 - **Persistence**: libSQL for local SQLite or remote Turso database
 - **WASM Support**: Browser-compatible with memory-based import/export
 - **CLI**: Full-featured command-line interface with shell completions

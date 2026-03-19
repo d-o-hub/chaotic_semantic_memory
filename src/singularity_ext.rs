@@ -112,47 +112,33 @@ impl Singularity {
         top_k: usize,
         filter: &MetadataFilter,
     ) -> Arc<[(String, f32)]> {
+        let start_ns = crate::singularity::unix_now_ns();
         if top_k == 0 || self.concepts.is_empty() {
             return Arc::from(Vec::new());
         }
 
-        // Filter concepts first
-        let filtered: Vec<(String, HVec10240)> = self
+        // Filter concepts first to get candidate indices
+        let cand_start = crate::singularity::unix_now_ns();
+        let candidates: Vec<usize> = self
             .concepts
             .iter()
             .filter(|(_, concept)| filter.matches(&concept.metadata))
-            .map(|(id, c)| (id.clone(), c.vector))
+            .filter_map(|(id, _)| self.id_to_index.get(id).copied())
             .collect();
+        let cand_ns = crate::singularity::unix_now_ns().saturating_sub(cand_start);
 
-        if filtered.is_empty() {
+        if candidates.is_empty() {
             return Arc::from(Vec::new());
         }
 
-        // Compute similarities
-        #[cfg(not(target_arch = "wasm32"))]
-        let mut results: Vec<(String, f32)> = filtered
-            .par_iter()
-            .map(|(id, vec)| (id.clone(), query.cosine_similarity(vec)))
-            .collect();
-
-        #[cfg(target_arch = "wasm32")]
-        let mut results: Vec<(String, f32)> = filtered
-            .iter()
-            .map(|(id, vec)| (id.clone(), query.cosine_similarity(vec)))
-            .collect();
-
-        // Sort and truncate
-        if results.len() <= top_k {
-            results.sort_by(|a, b| b.1.total_cmp(&a.1));
-        } else {
-            results.select_nth_unstable_by(top_k - 1, |a, b| b.1.total_cmp(&a.1));
-            results.truncate(top_k);
-            results.sort_by(|a, b| b.1.total_cmp(&a.1));
-        }
-
-        Arc::from(results)
+        self.scored_candidate_retrieval(crate::singularity_retrieval::ScoredCandidateParams {
+            query,
+            top_k,
+            candidates,
+            start_ns,
+            cand_ns,
+            source: crate::singularity_retrieval::CandidateSource::Metadata,
+            bypass_cache: true, // Always bypass cache for filtered queries for now
+        })
     }
 }
-
-#[cfg(not(target_arch = "wasm32"))]
-use rayon::prelude::*;
