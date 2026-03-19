@@ -83,3 +83,4 @@ csm_test*
 # Temporary test directory
 .tmp/
 *.tmp
+.claude/settings.local.json
