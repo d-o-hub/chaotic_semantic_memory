@@ -8,12 +8,14 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 
 #[cfg(not(target_arch = "wasm32"))]
-use rayon::prelude::*;
-#[cfg(not(target_arch = "wasm32"))]
 use tracing::instrument;
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
+
+// Re-export retrieval types from the dedicated module
+use crate::singularity_retrieval::ScoredCandidateParams;
+pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats};
 
 const DEFAULT_CONCEPT_CACHE_SIZE: usize = 128;
 pub const DEFAULT_MAX_CACHED_TOP_K: usize = 100;
@@ -54,10 +56,10 @@ impl Default for SingularityConfig {
 }
 
 #[derive(Debug, Default)]
-struct QueryCache {
-    capacity: usize,
-    order: VecDeque<u64>,
-    results: HashMap<u64, Arc<[(String, f32)]>>,
+pub(crate) struct QueryCache {
+    pub(crate) capacity: usize,
+    pub(crate) order: VecDeque<u64>,
+    pub(crate) results: HashMap<u64, Arc<[(String, f32)]>>,
 }
 
 impl QueryCache {
@@ -78,7 +80,7 @@ impl QueryCache {
         Some(value)
     }
 
-    fn put(&mut self, key: u64, value: Arc<[(String, f32)]>) -> bool {
+    pub(crate) fn put(&mut self, key: u64, value: Arc<[(String, f32)]>) -> bool {
         if let Entry::Occupied(mut entry) = self.results.entry(key) {
             entry.insert(value);
             if let Some(pos) = self.order.iter().position(|k| *k == key) {
@@ -107,13 +109,13 @@ impl QueryCache {
 }
 
 #[derive(Debug, Default)]
-struct CacheMetrics {
-    hits_total: AtomicU64,
-    misses_total: AtomicU64,
-    evictions_total: AtomicU64,
+pub(crate) struct CacheMetrics {
+    pub(crate) hits_total: AtomicU64,
+    pub(crate) misses_total: AtomicU64,
+    pub(crate) evictions_total: AtomicU64,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CacheMetricsSnapshot {
     pub cache_hits_total: u64,
     pub cache_misses_total: u64,
@@ -135,9 +137,14 @@ impl CacheMetrics {
 pub struct Singularity {
     pub(crate) concepts: HashMap<String, Concept>,
     pub(crate) associations: HashMap<String, HashMap<String, f32>>,
-    config: SingularityConfig,
-    query_cache: RwLock<QueryCache>,
-    cache_metrics: CacheMetrics,
+    pub(crate) concept_indices: Vec<String>,
+    pub(crate) concept_vectors: Vec<HVec10240>,
+    pub(crate) id_to_index: HashMap<String, usize>,
+    pub(crate) config: SingularityConfig,
+    pub(crate) retrieval_config: RetrievalConfig,
+    pub(crate) query_cache: RwLock<QueryCache>,
+    pub(crate) cache_metrics: CacheMetrics,
+    pub(crate) last_retrieval_stats: RwLock<RetrievalStats>,
 }
 
 impl Singularity {
@@ -150,9 +157,14 @@ impl Singularity {
         Self {
             concepts: HashMap::new(),
             associations: HashMap::new(),
+            concept_indices: Vec::new(),
+            concept_vectors: Vec::new(),
+            id_to_index: HashMap::new(),
             query_cache: RwLock::new(QueryCache::with_capacity(config.concept_cache_size)),
             cache_metrics: CacheMetrics::default(),
+            last_retrieval_stats: RwLock::new(RetrievalStats::default()),
             config,
+            retrieval_config: RetrievalConfig::default(),
         }
     }
 
@@ -162,6 +174,15 @@ impl Singularity {
         let is_new = !self.concepts.contains_key(&concept.id);
         if is_new {
             self.evict_oldest_if_needed();
+        }
+
+        if let Some(&idx) = self.id_to_index.get(&concept.id) {
+            self.concept_vectors[idx] = concept.vector;
+        } else {
+            let idx = self.concept_indices.len();
+            self.id_to_index.insert(concept.id.clone(), idx);
+            self.concept_indices.push(concept.id.clone());
+            self.concept_vectors.push(concept.vector);
         }
 
         self.concepts.insert(concept.id.clone(), concept);
@@ -178,6 +199,15 @@ impl Singularity {
     /// Delete concept by ID
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self), fields(concept_id = %id)))]
     pub fn delete(&mut self, id: &str) -> Result<()> {
+        if let Some(idx) = self.id_to_index.remove(id) {
+            self.concept_indices.swap_remove(idx);
+            let _ = self.concept_vectors.swap_remove(idx);
+            if idx < self.concept_indices.len() {
+                let swapped_id = &self.concept_indices[idx];
+                self.id_to_index.insert(swapped_id.clone(), idx);
+            }
+        }
+
         self.concepts.remove(id);
         self.associations.remove(id);
         for links in self.associations.values_mut() {
@@ -191,11 +221,18 @@ impl Singularity {
     pub fn clear(&mut self) {
         self.concepts.clear();
         self.associations.clear();
+        self.concept_indices.clear();
+        self.concept_vectors.clear();
+        self.id_to_index.clear();
         self.invalidate_cache();
     }
 
     /// Update concept vector
     pub fn update(&mut self, id: &str, new_vector: HVec10240) -> Result<()> {
+        if let Some(&idx) = self.id_to_index.get(id) {
+            self.concept_vectors[idx] = new_vector;
+        }
+
         if let Some(concept) = self.concepts.get_mut(id) {
             concept.vector = new_vector;
             concept.modified_at = unix_now_secs();
@@ -216,28 +253,24 @@ impl Singularity {
     }
 
     /// Find similar concepts and return cached results as `Arc<[_]>`.
-    ///
-    /// Returns the cached result directly without cloning, avoiding unnecessary
-    /// Vec allocation on cache hits.
-    ///
-    /// Cache hits avoid cloning the cached result vector.
-    /// Queries with `top_k > max_cached_top_k` bypass the cache to prevent
-    /// excessive memory usage from storing large result sets.
     pub fn find_similar_arc(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]> {
         self.find_similar_cached(query, top_k)
     }
 
     /// Find similar concepts and return cached results as `Arc<[_]>`.
-    ///
-    /// Cache hits avoid cloning the cached result vector.
-    /// Queries with `top_k > max_cached_top_k` bypass the cache to prevent
-    /// excessive memory usage from storing large result sets.
     pub fn find_similar_cached(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]> {
+        let start_ns = unix_now_ns();
         if top_k == 0 || self.concepts.is_empty() {
+            let stats = RetrievalStats {
+                fell_back_to_exact_scan: true,
+                ..Default::default()
+            };
+            if let Ok(mut s) = self.last_retrieval_stats.write() {
+                *s = stats;
+            }
             return Arc::from(Vec::new());
         }
 
-        // Bypass cache for large top_k to prevent excessive memory usage
         let bypass_cache = top_k > self.config.max_cached_top_k;
 
         if !bypass_cache {
@@ -247,6 +280,15 @@ impl Singularity {
                     self.cache_metrics
                         .hits_total
                         .fetch_add(1, Ordering::Relaxed);
+                    let stats = RetrievalStats {
+                        candidate_count: results.len(),
+                        scored_count: 0,
+                        scoring_ns: unix_now_ns().saturating_sub(start_ns),
+                        ..Default::default()
+                    };
+                    if let Ok(mut s) = self.last_retrieval_stats.write() {
+                        *s = stats;
+                    }
                     return results;
                 }
             }
@@ -255,54 +297,41 @@ impl Singularity {
                 .fetch_add(1, Ordering::Relaxed);
         }
 
-        #[cfg(not(target_arch = "wasm32"))]
-        let mut results: Vec<(String, f32)> = self
-            .concepts
-            .iter()
-            .par_bridge()
-            .map(|(id, concept)| (id.clone(), query.cosine_similarity(&concept.vector)))
-            .collect();
+        // Generate candidates based on RetrievalConfig
+        let candidate_start = unix_now_ns();
+        let mut candidates = Vec::new();
+        let mut source = CandidateSource::ExactFallback;
 
-        #[cfg(target_arch = "wasm32")]
-        let mut results: Vec<(String, f32)> = self
-            .concepts
-            .iter()
-            .map(|(id, concept)| (id.clone(), query.cosine_similarity(&concept.vector)))
-            .collect();
-
-        if results.len() <= top_k {
-            results.sort_by(|a, b| b.1.total_cmp(&a.1));
-            if !bypass_cache {
-                if let Ok(mut cache) = self.query_cache.write() {
-                    let cache_key = similarity_cache_key(query, top_k);
-                    let results = Arc::from(results);
-                    if cache.put(cache_key, Arc::clone(&results)) {
-                        self.cache_metrics
-                            .evictions_total
-                            .fetch_add(1, Ordering::Relaxed);
-                    }
-                    return results;
-                }
-            }
-            return Arc::from(results);
-        }
-
-        results.select_nth_unstable_by(top_k - 1, |a, b| b.1.total_cmp(&a.1));
-        results.truncate(top_k);
-        results.sort_by(|a, b| b.1.total_cmp(&a.1));
-        if !bypass_cache {
-            if let Ok(mut cache) = self.query_cache.write() {
-                let cache_key = similarity_cache_key(query, top_k);
-                let results = Arc::from(results);
-                if cache.put(cache_key, Arc::clone(&results)) {
-                    self.cache_metrics
-                        .evictions_total
-                        .fetch_add(1, Ordering::Relaxed);
-                }
-                return results;
+        if self.retrieval_config.enable_graph_candidates {
+            candidates = self.generate_graph_candidates(query);
+            if !candidates.is_empty() {
+                source = CandidateSource::Graph;
             }
         }
-        Arc::from(results)
+
+        if candidates.is_empty() && self.retrieval_config.enable_bucket_candidates {
+            candidates = self.generate_bucket_candidates(query);
+            if !candidates.is_empty() {
+                source = CandidateSource::Bucket;
+            }
+        }
+
+        let cand_ns = unix_now_ns().saturating_sub(candidate_start);
+
+        if candidates.is_empty() {
+            return self.exact_similarity_scan(query, top_k, start_ns, bypass_cache);
+        }
+
+        // Reduced-candidate path
+        self.scored_candidate_retrieval(ScoredCandidateParams {
+            query,
+            top_k,
+            candidates,
+            start_ns,
+            cand_ns,
+            source,
+            bypass_cache,
+        })
     }
 
     /// Create or update association between concepts
@@ -407,11 +436,7 @@ impl Singularity {
                 .map(|c| c.id.clone());
 
             if let Some(oldest_id) = oldest {
-                self.concepts.remove(&oldest_id);
-                self.associations.remove(&oldest_id);
-                for links in self.associations.values_mut() {
-                    links.remove(&oldest_id);
-                }
+                self.delete(&oldest_id).ok();
                 self.invalidate_cache();
             } else {
                 break;
@@ -438,6 +463,14 @@ pub(crate) fn unix_now_secs() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
+}
+
+/// Get current Unix timestamp in nanoseconds
+pub(crate) fn unix_now_ns() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos() as u64
 }
 
 /// Generate cache key for similarity query

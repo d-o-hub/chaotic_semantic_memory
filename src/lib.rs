@@ -42,6 +42,7 @@ pub mod persistence_wasm;
 pub mod reservoir;
 pub mod singularity;
 mod singularity_ext;
+mod singularity_retrieval;
 
 #[cfg(target_arch = "wasm32")]
 pub use crate::persistence_wasm as persistence;
