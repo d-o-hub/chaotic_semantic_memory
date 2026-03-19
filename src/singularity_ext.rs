@@ -131,13 +131,13 @@ impl Singularity {
             return Arc::from(Vec::new());
         }
 
-        self.scored_candidate_retrieval(crate::singularity::ScoredCandidateParams {
+        self.scored_candidate_retrieval(crate::singularity_retrieval::ScoredCandidateParams {
             query,
             top_k,
             candidates,
             start_ns,
             cand_ns,
-            source: crate::singularity::CandidateSource::Metadata,
+            source: crate::singularity_retrieval::CandidateSource::Metadata,
             bypass_cache: true, // Always bypass cache for filtered queries for now
         })
     }
