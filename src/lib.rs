@@ -1,10 +1,32 @@
-//! Chaotic Semantic Memory System.
+//! # Chaotic Semantic Memory
 //!
-//! High-performance semantic memory using hyperdimensional computing and
-//! chaotic reservoir dynamics.
+//! High-performance memory system using **Hyperdimensional Computing** (HDC) and
+//! chaotic echo-state reservoir dynamics.
 //!
-//! # WASM Parity
-//! Most APIs available in WASM. Exceptions:
+//! ## Encoding Model
+//!
+//! This crate uses HDC (not transformer embeddings) for text-to-vector encoding.
+//! [`encoder::TextEncoder`] converts text via token-level FNV-1a hashing, positional
+//! permutation, and majority-rule bundling into 10240-bit binary hypervectors.
+//! Similar tokens in similar positions produce similar vectors. For true semantic
+//! similarity (synonyms, paraphrases), inject vectors from an external embedding
+//! model via [`ChaoticSemanticFramework::inject_concept`].
+//!
+//! **Turso Vector Alternative**: This crate uses libSQL (local SQLite or remote Turso)
+//! for persistence. You can add Turso's native vector search tables (`F32_BLOB` with
+//! `vector_top_k()`) alongside the crate's HDC storage in the same database. The crate
+//! manages `concepts` and `associations` tables; you manage `semantic_vectors` for
+//! float-vector similarity search.
+//!
+//! ## Concurrency
+//!
+//! The framework uses `tokio::sync::RwLock` internally and is safe to share
+//! across async tasks via `Arc`. SQLite persistence uses WAL mode for concurrent
+//! reads. All public APIs are async — do not wrap in `block_on` inside a Tokio runtime.
+//!
+//! ## WASM Parity
+//!
+//! Most APIs are available in WASM. Exceptions:
 //! - `Persistence`: Replaced with stubs in `persistence_wasm`
 //! - `process_sequence`: No Rayon parallelization in WASM
 

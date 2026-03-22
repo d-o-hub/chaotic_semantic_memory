@@ -19,16 +19,16 @@ This exports:
 10240-bit binary hypervector.
 
 ```rust
-let v1 = HVec10240::random(&mut rng);
-let v2 = HVec10240::random(&mut rng);
+let v1 = HVec10240::random();
+let v2 = HVec10240::random();
 
 // Operations
-let bundled = HVec10240::bundle(&[&v1, &v2]);
-let bound = HVec10240::bind(&v1, &v2);
+let bundled = HVec10240::bundle(&[v1, v2])?;
+let bound = v1.bind(&v2);
 let permuted = v1.permute(128);
 
 // Similarity
-let sim = HVec10240::cosine_similarity(&v1, &v2);
+let sim = v1.cosine_similarity(&v2);
 ```
 
 ### ChaoticSemanticFramework
@@ -50,9 +50,9 @@ Stored concept with vector and metadata.
 
 ```rust
 let concept = ConceptBuilder::new("my-id".to_string())
-    .with_vector(HVec10240::random(&mut rng))
-    .with_metadata(json!({"key": "value"}))
-    .build();
+    .with_vector(HVec10240::random())
+    .with_metadata("key", "value")
+    .build()?;
 ```
 
 ## Async Operations
@@ -78,7 +78,7 @@ All fallible APIs return `Result<T, MemoryError>`:
 ```rust
 match framework.probe(vector, 10).await {
     Ok(hits) => println!("Found {} hits", hits.len()),
-    Err(MemoryError::ConceptNotFound(id)) => eprintln!("Not found: {}", id),
+    Err(MemoryError::NotFound { entity, id }) => eprintln!("{} not found: {}", entity, id),
     Err(e) => eprintln!("Error: {}", e),
 }
 ```

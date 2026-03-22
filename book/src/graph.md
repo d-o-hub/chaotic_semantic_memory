@@ -13,7 +13,8 @@
 
 ```rust,no_run
 use chaotic_semantic_memory::graph_traversal::TraversalConfig;
-use chaotic_semantic_memory::prelude::{ConceptBuilder, Result, Singularity};
+use chaotic_semantic_memory::prelude::{ConceptBuilder, Result};
+use chaotic_semantic_memory::singularity::Singularity;
 
 fn main() -> Result<()> {
     let mut sing = Singularity::new();

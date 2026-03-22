@@ -2,30 +2,30 @@
 
 > AI memory systems with hyperdimensional vectors and chaotic reservoirs
 
-**Version:** 0.2.4
+**Version:** 0.2.5
 **License:** MIT
 **Repository:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
-- tracing-subscriber (0.3.19)
-- rand (0.8.5)
-- serde_json (1.0.149)
-- tracing (0.1.41)
-- colored (2.2.0)
-- bincode (1.3.3)
-- clap_complete (4.5.42)
 - clap (4.5.60) [features: derive, env, string]
+- bincode (1.3.3)
+- base64 (0.22)
+- clap_complete (4.5.42)
+- serde_json (1.0.149)
+- rand (0.8.5)
+- tracing (0.1.41)
 - serde (1.0.219) [features: derive]
 - anyhow (1.0.102)
-- base64 (0.22)
 - thiserror (2.0.11)
+- tracing-subscriber (0.3.19)
+- colored (2.2.0)
 **Features:**
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored]
 - default: [cli]
 - wasm: []
 
-Generated: 2026-03-19 16:21:58 UTC  
+Generated: 2026-03-22 19:45:05 UTC  
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Core Documentation
@@ -331,8 +331,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 [![npm](https://img.shields.io/npm/v/@d-o-hub/chaotic_semantic_memory)](https://www.npmjs.com/package/@d-o-hub/chaotic_semantic_memory)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-`chaotic_semantic_memory` is a Rust crate for AI memory systems built on:
-- 10240-bit hyperdimensional vectors with SIMD acceleration
+`chaotic_semantic_memory` is a Rust crate for AI memory systems built on
+**Hyperdimensional Computing (HDC)** — not transformer embeddings:
+- 10240-bit binary hypervectors with SIMD-accelerated operations
 - chaotic echo-state reservoirs for temporal processing
 - libSQL persistence (local SQLite or remote Turso)
 
@@ -372,6 +373,13 @@ WASM support is enabled automatically when compiling for the `wasm32` target arc
 chaotic_semantic_memory = { version = "0.2" }
 ```
 
+For library-only consumers who don't need the CLI binary or its dependencies:
+
+```toml
+[dependencies]
+chaotic_semantic_memory = { version = "0.2", default-features = false }
+```
+
 > **Note:** Using `"0.2"` ensures compatibility with the latest 0.2.x patch versions.
 
 #### Core Components
@@ -387,6 +395,66 @@ chaotic_semantic_memory = { version = "0.2" }
 - `metadata_filter`: metadata query and filtering
 - `bundle`: snapshot and bundle helpers
 - `cli`: Command-line interface (`csm` binary)
+
+#### How Text Encoding Works
+
+The built-in `TextEncoder` uses **Hyperdimensional Computing (HDC)**, not
+transformer or embedding-model-based similarity:
+
+1. Tokenize input text (whitespace split + lowercase)
+2. Hash each token with **FNV-1a** → seed a PRNG → generate a random `HVec10240`
+3. Apply **positional permutation** so word order matters
+4. **Bundle** all token vectors via majority-rule into a single `HVec10240`
+
+Because encoding is hash-based, similar *tokens* in similar *positions* produce
+similar vectors. However, synonyms and paraphrases will **not** be close —
+for true semantic similarity, use an external embedding model (e.g.
+`sentence-transformers`) and inject the resulting vectors directly:
+
+```rust
+// HDC text convenience — good for lexical / keyword similarity
+framework.inject_text("doc-1", "reservoir computing overview").await?;
+let hits = framework.probe_text("reservoir computing", 5).await?;
+
+// External embeddings — good for semantic similarity
+let embedding: HVec10240 = my_model.encode("an overview of echo-state networks");
+framework.inject_concept("doc-2", embedding).await?;
+```
+
+##### Turso Vector Alternative
+
+This crate uses libSQL (local SQLite or remote Turso) for persistence. For
+semantic similarity, you can add Turso's [native vector search](https://turso.tech/vector)
+tables alongside the crate's HDC storage using the same database:
+
+```rust
+use libsql::Builder;
+
+// Connect to the same database this crate uses for persistence
+let db = Builder::new_local("memory.db").build().await?;
+let conn = db.connect()?;
+
+// Add semantic vector table alongside the crate's concepts table
+conn.execute_batch("
+    CREATE TABLE IF NOT EXISTS semantic_vectors (
+        id TEXT PRIMARY KEY,
+        embedding F32_BLOB(384)
+    );
+    CREATE INDEX IF NOT EXISTS semantic_idx ON semantic_vectors(
+        libsql_vector_idx(embedding, 'metric=cosine')
+    );
+").await?;
+
+// Query with vector_top_k
+let rows = conn.query(
+    "SELECT id FROM vector_top_k('semantic_idx', vector(?), 10)",
+    libsql::params![query_embedding_f32_as_string]
+).await?;
+```
+
+This keeps HDC and semantic vectors in the **same database**: the crate manages
+`concepts` and `associations` tables, while you manage `semantic_vectors` for
+float-vector similarity search. Both query the same libSQL/Turso instance.
 
 #### CLI Usage
 
@@ -436,7 +504,7 @@ async fn main() -> Result<()> {
         .build()
         .await?;
 
-    let concept = ConceptBuilder::new("cat".to_string()).build();
+    let concept = ConceptBuilder::new("cat".to_string()).build()?;
     framework.inject_concept("cat".to_string(), concept.vector.clone()).await?;
 
     let hits = framework.probe(concept.vector.clone(), 5).await?;
@@ -463,7 +531,7 @@ See `examples/basic_in_memory.rs` for the minimal in-memory workflow.
 | `connection_pool_size` | `10` | `>= 1` | Turso/libSQL remote pool size |
 | `max_probe_top_k` | `10_000` | `>= 1` | Input guard for `probe` and batch probes |
 | `max_metadata_bytes` | `None` | optional positive | Metadata payload size guard |
-| `concept_cache_size` | `1_000` | `>= 1` | Similarity query cache capacity (set via `with_concept_cache_size`, stored separately from `FrameworkConfig`) |
+| `concept_cache_size` | `128` | `>= 1` | Similarity query cache capacity (set via `with_concept_cache_size`, stored separately from `FrameworkConfig`) |
 
 ##### Tuning Guide
 
@@ -515,6 +583,17 @@ Notes:
 - WASM threading-sensitive paths are guarded with `#[cfg(not(target_arch = "wasm32"))]`.
 - Persistence is intentionally unavailable on `wasm32` in this crate build.
 - WASM parity APIs include `processSequence`, `exportToBytes`, and `importFromBytes`.
+
+#### Concurrency Model
+
+- Internal state is protected by `tokio::sync::RwLock` — safe for concurrent
+  access from multiple Tokio tasks.
+- Local SQLite uses **WAL mode**, allowing concurrent readers alongside a
+  single writer.
+- Multiple `ChaoticSemanticFramework` instances sharing the same database file
+  can read concurrently; writes are serialized by SQLite's WAL lock.
+- The framework is fully async. Do **not** wrap calls in `block_on` inside an
+  existing Tokio runtime — use `.await` directly or spawn a task.
 
 #### Development Gates
 
@@ -572,7 +651,7 @@ Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md)
 ```toml
 [package]
 name = "chaotic_semantic_memory"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2024"
 rust-version = "1.85"
 description = "AI memory systems with hyperdimensional vectors and chaotic reservoirs"

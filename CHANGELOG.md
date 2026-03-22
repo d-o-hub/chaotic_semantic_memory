@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Documentation**: Added Turso vector alternative section to README, encoder docs,
+  and introduction. Users can now use Turso's native `F32_BLOB` and `vector_top_k()`
+  for semantic similarity while keeping HDC for lexical matching.
+
+## [0.2.5] - 2026-03-22
+
+### Changed
+- **README**: Clarified that text encoding uses Hyperdimensional Computing (HDC), not
+  transformer embeddings. Added "How Text Encoding Works" section explaining the
+  FNV-1a → PRNG → positional permutation → bundling pipeline.
+- **README**: Added "Concurrency Model" section documenting `tokio::sync::RwLock`,
+  SQLite WAL mode, multi-instance safety, and `block_on` warning.
+- **README**: Added library-only installation note (`default-features = false`).
+- **lib.rs**: Expanded module-level documentation with encoding model, concurrency
+  guarantees, and WASM parity notes.
+
+### Fixed
+- Addressed documentation gaps identified in [#35](https://github.com/d-o-hub/chaotic_semantic_memory/issues/35):
+  HDC vs embeddings clarification, concurrency model, and feature-gating guidance.
+
 ## [0.2.4] - 2026-03-19
 
 ### Added
@@ -204,7 +225,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CI workflow with security permissions and concurrency controls
 - Trusted Publishing eliminates need for long-lived API tokens
 
-[unreleased]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.2.2...HEAD
+[unreleased]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.2.5...HEAD
+[0.2.5]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.5
+[0.2.4]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.4
+[0.2.3]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.3
 [0.2.2]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.2
 [0.2.1]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.1
 [0.2.0]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.0
