@@ -5,7 +5,7 @@ use crate::singularity::Concept;
 use libsql::{Builder, Connection, Database, params};
 use std::sync::Arc;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-pub(crate) const LATEST_SCHEMA_VERSION: i64 = 2;
+pub(crate) const LATEST_SCHEMA_VERSION: i64 = 3;
 
 #[derive(Debug)]
 pub struct Persistence {
@@ -156,16 +156,18 @@ impl Persistence {
         let conn = self.connect().await?;
         let vector_bytes = concept.vector.to_bytes();
         let metadata_json = serde_json::to_string(&concept.metadata)?;
+        let expires_at: Option<i64> = concept.expires_at.map(|t| t as i64);
 
         conn.execute(
-            "INSERT OR REPLACE INTO concepts (id, vector, metadata, created_at, modified_at)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT OR REPLACE INTO concepts (id, vector, metadata, created_at, modified_at, expires_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
                 concept.id.clone(),
                 vector_bytes,
                 metadata_json,
                 concept.created_at as i64,
-                concept.modified_at as i64
+                concept.modified_at as i64,
+                expires_at
             ],
         )
         .await
@@ -238,7 +240,7 @@ impl Persistence {
 
         let mut rows = conn
             .query(
-                "SELECT vector, metadata, created_at, modified_at FROM concepts WHERE id = ?1",
+                "SELECT vector, metadata, created_at, modified_at, expires_at FROM concepts WHERE id = ?1",
                 params![id],
             )
             .await
@@ -261,6 +263,7 @@ impl Persistence {
             let modified_at: i64 = row
                 .get(3)
                 .map_err(|e| MemoryError::database(format!("Failed to get modified_at: {}", e)))?;
+            let expires_at: Option<i64> = row.get(4).ok();
 
             let vector = HVec10240::from_bytes(&vector_bytes)?;
             let metadata = serde_json::from_str(&metadata_json)?;
@@ -271,7 +274,7 @@ impl Persistence {
                 metadata,
                 created_at: created_at as u64,
                 modified_at: modified_at as u64,
-                expires_at: None,
+                expires_at: expires_at.map(|t| t as u64),
             }))
         } else {
             Ok(None)
@@ -285,7 +288,7 @@ impl Persistence {
 
         let mut rows = conn
             .query(
-                "SELECT id, vector, metadata, created_at, modified_at FROM concepts",
+                "SELECT id, vector, metadata, created_at, modified_at, expires_at FROM concepts",
                 (),
             )
             .await
@@ -312,6 +315,7 @@ impl Persistence {
             let modified_at: i64 = row
                 .get(4)
                 .map_err(|e| MemoryError::database(format!("Failed to get modified_at: {}", e)))?;
+            let expires_at: Option<i64> = row.get(5).ok();
 
             let vector = HVec10240::from_bytes(&vector_bytes)?;
             let metadata = serde_json::from_str(&metadata_json)?;
@@ -322,7 +326,7 @@ impl Persistence {
                 metadata,
                 created_at: created_at as u64,
                 modified_at: modified_at as u64,
-                expires_at: None,
+                expires_at: expires_at.map(|t| t as u64),
             });
         }
 

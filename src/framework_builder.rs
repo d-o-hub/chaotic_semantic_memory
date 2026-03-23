@@ -114,12 +114,10 @@ impl FrameworkBuilder {
         self
     }
 
-    pub fn with_turso(mut self, url: impl Into<String>, token: impl Into<String>) -> Self {
-        self.db_path = Some(url.into());
-        self.db_token = Some(token.into());
-        self
-    }
-
+    /// Configure the connection pool size for remote Turso databases.
+    ///
+    /// Only available when the `persistence` feature is enabled.
+    #[cfg(feature = "persistence")]
     pub fn with_connection_pool_size(mut self, pool_size: usize) -> Self {
         self.config.connection_pool_size = pool_size.max(1);
         self
@@ -148,12 +146,28 @@ impl FrameworkBuilder {
         self
     }
 
+    /// Configure a local SQLite database for persistence.
+    ///
+    /// Only available when the `persistence` feature is enabled.
+    #[cfg(feature = "persistence")]
     pub fn with_local_db(mut self, path: impl Into<String>) -> Self {
         self.db_path = Some(path.into());
         self.db_token = None;
         self
     }
 
+    /// Configure a remote Turso database for persistence.
+    ///
+    /// Only available when the `persistence` feature is enabled.
+    #[cfg(feature = "persistence")]
+    pub fn with_turso(mut self, url: impl Into<String>, token: impl Into<String>) -> Self {
+        self.db_path = Some(url.into());
+        self.db_token = Some(token.into());
+        self
+    }
+
+    /// Disable persistence even when the feature is enabled.
+    #[cfg(feature = "persistence")]
     pub fn without_persistence(mut self) -> Self {
         self.config.enable_persistence = false;
         self
