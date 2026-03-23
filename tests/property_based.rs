@@ -53,6 +53,7 @@ proptest! {
             metadata: HashMap::new(),
             created_at: 1,
             modified_at: 1,
+            expires_at: None,
         };
         let concept_b = Concept {
             id: "b".to_string(),
@@ -60,6 +61,7 @@ proptest! {
             metadata: HashMap::new(),
             created_at: 1,
             modified_at: 1,
+            expires_at: None,
         };
 
         singularity.inject(concept_a).unwrap();

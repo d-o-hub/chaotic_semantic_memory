@@ -38,6 +38,7 @@ fn concept_and_association_limits_enforced() {
         metadata: HashMap::new(),
         created_at,
         modified_at: created_at,
+        expires_at: None,
     };
 
     singularity.inject(mk("a", 1)).unwrap();

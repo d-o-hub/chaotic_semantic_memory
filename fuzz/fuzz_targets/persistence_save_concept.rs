@@ -37,6 +37,7 @@ fuzz_target!(|data: &[u8]| {
             metadata,
             created_at: 0,
             modified_at: 0,
+            expires_at: None,
         };
 
         let _ = persistence.save_concept(&concept).await;

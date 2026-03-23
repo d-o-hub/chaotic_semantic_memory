@@ -153,6 +153,13 @@ impl Persistence {
                 .map_err(|e| MemoryError::database(format!("Failed migration v2: {}", e)))?;
             }
 
+            if version == 3 {
+                // Add expires_at column for TTL support
+                conn.execute_batch("ALTER TABLE concepts ADD COLUMN expires_at INTEGER;")
+                    .await
+                    .map_err(|e| MemoryError::database(format!("Failed migration v3: {}", e)))?;
+            }
+
             conn.execute(
                 "INSERT INTO __schema_version(version) VALUES (?1)",
                 libsql::params![version],
@@ -310,6 +317,13 @@ impl Persistence {
                 )
                 .await
                 .map_err(|e| MemoryError::database(format!("Failed migration v2: {}", e)))?;
+            }
+
+            if version == 3 {
+                // Add expires_at column for TTL support
+                conn.execute_batch("ALTER TABLE concepts ADD COLUMN expires_at INTEGER;")
+                    .await
+                    .map_err(|e| MemoryError::database(format!("Failed migration v3: {}", e)))?;
             }
 
             conn.execute(

@@ -1,6 +1,6 @@
 [package]
 name = "chaotic_semantic_memory"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2024"
 rust-version = "1.85"
 description = "AI memory systems with hyperdimensional vectors and chaotic reservoirs"
@@ -44,11 +44,11 @@ anyhow = { version = "1.0.102", optional = true }
 colored = { version = "2.2.0", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-# CPU parallelism
-rayon = "1.10.0"
+# CPU parallelism (opt-in via "parallel" feature)
+rayon = { version = "1.10.0", optional = true }
 
-# Database - Use libsql NOT turso-client
-libsql = "0.4"
+# Database - Use libsql NOT turso-client (opt-in via "persistence" feature)
+libsql = { version = "0.4", optional = true }
 tokio = { version = "1.43.0", features = ["rt-multi-thread", "macros", "sync", "fs"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -114,8 +114,10 @@ name = "streaming_temporal"
 path = "examples/streaming_temporal.rs"
 
 [features]
-default = ["cli"]
+default = ["cli", "persistence", "parallel"]
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored"]
+persistence = ["dep:libsql"]
+parallel = ["dep:rayon"]
 wasm = []
 
 [package.metadata.wasm-pack.profile.release]

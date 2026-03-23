@@ -18,8 +18,11 @@ Inject a new concept:
 # Random vector
 csm inject my-concept --database memory.db
 
-# Vector from hex
-csm inject my-concept --vector 0xdeadbeef... --database memory.db
+# Vector from file
+csm inject my-concept --from-file vector.bin --database memory.db
+
+# Vector from stdin
+echo "vector data" | csm inject my-concept --vector-source stdin --database memory.db
 
 # With metadata
 csm inject my-concept --metadata '{"key":"value"}' --database memory.db
@@ -99,10 +102,11 @@ csm completions powershell > $HOME\.config\powershell\completions\csm.ps1
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Invalid arguments |
+| 1 | Configuration error |
 | 2 | Database error |
-| 3 | Concept not found |
-| 4 | Import/export error |
-| 5 | I/O error |
-| 6 | Serialization error |
-| 7 | Unknown error |
+| 3 | Input error |
+| 4 | Output error |
+| 5 | Validation error |
+| 6 | Memory error |
+| 7 | I/O error |
+| 255 | Unknown error |

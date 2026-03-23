@@ -13,9 +13,10 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
+#[cfg(not(target_arch = "wasm32"))]
 use tracing::instrument;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
 
 use crate::error::{MemoryError, Result};
@@ -226,7 +227,7 @@ impl Reservoir {
             self.input_cache.copy_from_slice(input);
             self.input_projection_valid = true;
 
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
             {
                 let w_in = &self.w_in;
                 self.input_projection
@@ -237,7 +238,7 @@ impl Reservoir {
                     });
             }
 
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
             for (i, out) in self.input_projection.iter_mut().enumerate() {
                 *out = self.w_in.dot_row(i, input);
             }
@@ -302,8 +303,11 @@ impl Reservoir {
     }
 
     /// Project state to hypervector (parallel on non-WASM)
-    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg_attr(
+        all(not(target_arch = "wasm32"), feature = "parallel"),
+        instrument(skip(self))
+    )]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
     pub fn to_hypervector(&self) -> Result<HVec10240> {
         if self.size < HVec10240::DIMENSION {
             return Err(MemoryError::InvalidDimension {
@@ -340,8 +344,8 @@ impl Reservoir {
         Ok(HVec10240 { data })
     }
 
-    #[cfg(target_arch = "wasm32")]
-    #[instrument(skip(self))]
+    #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
+    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
     pub fn to_hypervector(&self) -> Result<HVec10240> {
         if self.size < HVec10240::DIMENSION {
             return Err(MemoryError::InvalidDimension {

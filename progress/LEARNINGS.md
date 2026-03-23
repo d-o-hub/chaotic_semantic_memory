@@ -533,6 +533,54 @@ git tag v0.1.2 && git push origin main v0.1.2
 - Do not skip changelog link updates when cutting a new patch release.
 - Do not ignore Node.js 20 deprecation warnings ahead of runner defaults switch.
 
+## 2026-03-22: Documentation Audit & Code-Documentation Alignment
+
+### Problem
+Documentation across README.md, book/, and pkg/ had 21 discrepancies against actual codebase:
+- Code examples that won't compile (missing `?` on `Result`, wrong method signatures)
+- Fictional APIs (`with_remote_db`, `ConceptNotFound`, `CSM_*` env vars)
+- Wrong defaults (`concept_cache_size` documented as 1000, actual is 128)
+- WASM docs used wrong class names (`ChaoticSemanticFramework` vs `WasmFramework`)
+- CLI exit codes and flags were fabricated
+
+### What Worked
+1. Comprehensive codebase audit using `explore` agent to cross-reference all .md files against source
+2. Systematic fix of all 21 discrepancies across 9 files
+3. Using `grep` to verify actual method signatures, enum variants, and constants before documenting
+4. Updating CHANGELOG.md with proper version links
+
+### Documentation Accuracy Checklist (NEW - Required for all doc changes)
+Before updating any documentation:
+1. **Verify method signatures**: `grep` for the actual function, check parameters and return type
+2. **Verify enum variants**: Check error.rs, args.rs for actual variant names
+3. **Verify constants**: Check for `const DEFAULT_*` values in source
+4. **Verify prelude exports**: Check `src/lib.rs` prelude module for actual exports
+5. **Verify CLI flags**: Check `src/cli/args.rs` for actual clap attributes
+6. **Verify WASM exports**: Check `src/wasm.rs` for actual `#[wasm_bindgen]` methods
+7. **Test code examples**: All Rust examples should be syntactically correct
+
+### What to Avoid
+- Do not write documentation from memory - always verify against source
+- Do not assume method names match what "seems logical" - check actual code
+- Do not copy-paste examples between files without re-verifying
+- Do not document environment variables that don't exist in code
+- Do not skip prelude verification when documenting imports
+- Do not fabricate CLI flags or exit codes without checking args.rs
+
+### Key Files to Verify Against
+| Doc Area | Source Verification File |
+|----------|-------------------------|
+| API signatures | `src/framework.rs`, `src/framework_ops.rs` |
+| Error variants | `src/error.rs` |
+| Builder methods | `src/framework_builder.rs` |
+| ConceptBuilder | `src/concept_builder.rs` |
+| HVec10240 API | `src/hyperdim.rs` |
+| CLI flags | `src/cli/args.rs` |
+| CLI exit codes | `src/cli/error.rs` |
+| WASM API | `src/wasm.rs`, `src/wasm_ext.rs` |
+| Prelude exports | `src/lib.rs` (prelude module) |
+| Default config | `src/singularity.rs` (DEFAULT_* constants) |
+
 ## 2026-03-16: Release Workflow Merge Trigger
 
 ### What Worked

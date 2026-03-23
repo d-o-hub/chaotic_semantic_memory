@@ -40,7 +40,7 @@ let framework = ChaoticSemanticFramework::builder()
 | `max_concepts` | None | >0 | Evict oldest when reached |
 | `max_associations_per_concept` | None | >0 | Keep strongest only |
 | `max_metadata_bytes` | None | >0 | Metadata size limit |
-| `concept_cache_size` | 1,000 | ≥1 | LRU cache capacity |
+| `concept_cache_size` | 128 | ≥1 | LRU cache capacity |
 | `max_cached_top_k` | 100 | ≥1 | Bypass cache above this |
 | `max_probe_top_k` | 10,000 | ≥1 | Query guard limit |
 
@@ -65,15 +65,7 @@ Local SQLite file.
 ### Remote Turso
 
 ```rust
-.with_remote_db("libsql://...", auth_token)
+.with_turso("libsql://...", auth_token)
 ```
 
 Remote Turso/LibSQL database with authentication.
-
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `CSM_DATABASE_PATH` | Default database path |
-| `CSM_LOG_LEVEL` | Log level (trace, debug, info, warn, error) |
-| `CSM_RESERVOIR_SIZE` | Override reservoir size |

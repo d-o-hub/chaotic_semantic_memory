@@ -14,12 +14,40 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: phase54_retrieval_module_split_2026_03_19
-  orchestrator_last_run: phase54_retrieval_module_split_2026_03_19
-  orchestrator_last_run_at_utc: 2026-03-19T10:30:00Z
+  action_last_completed: issue_35_audit_fixes_2026_03_23
+  orchestrator_last_run: issue_35_audit_fixes_2026_03_23
+  orchestrator_last_run_at_utc: 2026-03-23T10:30:00Z
 
-  # Recent changes (2026-03-19)
+  # Recent changes (2026-03-23)
   recent_changes:
+    - "Issue #35: Comprehensive audit fixes for production readiness"
+    - "Feature-gated dependencies: persistence, parallel, cli features (default includes all)"
+    - "Added TTL support: inject_concept_with_ttl, inject_text_with_ttl, purge_expired"
+    - "Added expires_at field to Concept struct"
+    - "Documented HDC vs semantic embeddings distinction in README"
+    - "Documented concurrency model: multi-instance safety, WAL mode, lock discipline"
+    - "Documented probe O(n) complexity and ANN deferred rationale"
+    - "Gated rayon behind 'parallel' feature for non-WASM builds"
+    - "Added stub persistence module when persistence feature disabled"
+    - "Fixed all test/benchmark files for expires_at field"
+    - "Created ADR-0060: Configurable Dimensions (deferred)"
+
+  # Recent changes (2026-03-22)
+  recent_changes:
+    - "Documentation audit: fixed 21 discrepancies across 9 .md files against codebase"
+    - "Fixed: ConceptBuilder::build() returns Result (README Quick Start)"
+    - "Fixed: concept_cache_size default is 128 not 1000 (README, book, pkg)"
+    - "Fixed: HVec10240 API signatures - random() takes no params, bind/cosine_similarity are instance methods"
+    - "Fixed: ConceptBuilder::with_metadata takes (key, value) not single JSON"
+    - "Fixed: MemoryError::NotFound variant (not ConceptNotFound)"
+    - "Fixed: with_turso method (not with_remote_db)"
+    - "Fixed: Removed non-existent CSM_* environment variables"
+    - "Fixed: Singularity not in prelude (graph.md)"
+    - "Fixed: CLI exit codes match actual ExitCode enum; --vector flag replaced with --from-file"
+    - "Fixed: WASM class is WasmFramework (not ChaoticSemanticFramework); score not similarity"
+    - "Fixed: WASM build requires --no-default-features"
+    - "Fixed: CHANGELOG.md missing version links for 0.2.3, 0.2.4, 0.2.5"
+    - "Added Documentation Accuracy Checklist to LEARNINGS.md"
     - "PR #34: Extracted retrieval optimization code to singularity_retrieval.rs to satisfy LOC gate"
     - "singularity.rs now 484 LOC (was 758), singularity_retrieval.rs added at 292 LOC"
     - "All tests passing, CI LOC gate satisfied"

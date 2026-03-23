@@ -14,6 +14,17 @@ Traditional vector databases store static embeddings. Chaotic semantic memory ad
 2. **Emergent dynamics** - Reservoir chaos enables associative recall
 3. **Sub-symbolic reasoning** - Hypervector operations are neuro-symbolic
 
+## Vector Options
+
+This crate uses **Hyperdimensional Computing (HDC)** for fast lexical similarity.
+For semantic similarity (synonyms, paraphrases), you can:
+
+- **External embeddings**: Use `sentence-transformers` or similar, inject via `inject_concept()`
+- **Turso native vectors**: Add `F32_BLOB` tables to the same libSQL/Turso database this crate uses
+- **Hybrid approach**: HDC for lexical matching + Turso `vector_top_k()` for semantic search
+
+See [Text Encoding](./encoder.md) for details.
+
 ## Features
 
 - Native Rust with WASM target support

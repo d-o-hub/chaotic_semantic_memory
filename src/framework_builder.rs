@@ -6,6 +6,7 @@ use tokio::sync::RwLock;
 use crate::ChaoticSemanticFramework;
 use crate::error::Result;
 use crate::framework_events::build_event_sender;
+#[cfg(feature = "persistence")]
 use crate::persistence::Persistence;
 use crate::singularity::{Singularity, SingularityConfig};
 
@@ -113,12 +114,10 @@ impl FrameworkBuilder {
         self
     }
 
-    pub fn with_turso(mut self, url: impl Into<String>, token: impl Into<String>) -> Self {
-        self.db_path = Some(url.into());
-        self.db_token = Some(token.into());
-        self
-    }
-
+    /// Configure the connection pool size for remote Turso databases.
+    ///
+    /// Only available when the `persistence` feature is enabled.
+    #[cfg(feature = "persistence")]
     pub fn with_connection_pool_size(mut self, pool_size: usize) -> Self {
         self.config.connection_pool_size = pool_size.max(1);
         self
@@ -147,14 +146,39 @@ impl FrameworkBuilder {
         self
     }
 
+    /// Configure a local SQLite database for persistence.
+    ///
+    /// Only available when the `persistence` feature is enabled.
+    #[cfg(feature = "persistence")]
     pub fn with_local_db(mut self, path: impl Into<String>) -> Self {
         self.db_path = Some(path.into());
         self.db_token = None;
         self
     }
 
+    /// Configure a remote Turso database for persistence.
+    ///
+    /// Only available when the `persistence` feature is enabled.
+    #[cfg(feature = "persistence")]
+    pub fn with_turso(mut self, url: impl Into<String>, token: impl Into<String>) -> Self {
+        self.db_path = Some(url.into());
+        self.db_token = Some(token.into());
+        self
+    }
+
+    /// Disable persistence even when the feature is enabled.
+    ///
+    /// When the `persistence` feature is disabled, this method is a no-op
+    /// since persistence is already unavailable.
+    #[cfg(feature = "persistence")]
     pub fn without_persistence(mut self) -> Self {
         self.config.enable_persistence = false;
+        self
+    }
+
+    /// Disable persistence (no-op when `persistence` feature is disabled).
+    #[cfg(not(feature = "persistence"))]
+    pub fn without_persistence(self) -> Self {
         self
     }
 
@@ -166,6 +190,7 @@ impl FrameworkBuilder {
             max_cached_top_k: self.config.max_cached_top_k,
         })));
 
+        #[cfg(feature = "persistence")]
         let persistence = if self.config.enable_persistence {
             if let Some(path) = self.db_path {
                 let persist = if let Some(token) = self.db_token {
@@ -186,6 +211,9 @@ impl FrameworkBuilder {
         } else {
             None
         };
+
+        #[cfg(not(feature = "persistence"))]
+        let persistence: Option<Arc<crate::persistence::Persistence>> = None;
 
         let framework = ChaoticSemanticFramework {
             singularity,
