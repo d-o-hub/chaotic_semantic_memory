@@ -13,6 +13,15 @@
 - `Cargo.toml` - `version = "X.Y.Z"`
 - `wasm/package.json` - `"version": "X.Y.Z"`
 - Test fixtures (grep `"version":` in tests/ and examples/)
+- npm registry (after publishing WASM package)
+
+## Release Checklist
+1. Update version in `Cargo.toml` and `wasm/package.json`
+2. Run `./scripts/verify-version-sync.sh`
+3. Build WASM: `cargo build --target wasm32-unknown-unknown --release --features wasm`
+4. Publish crates.io: `cargo publish`
+5. Publish npm: `cd wasm && npm publish`
+6. Create GitHub release: `gh release create vX.Y.Z`
 
 ## Validation Gates
 Run before commit (see `git-workflow` skill for details):

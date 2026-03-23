@@ -13,6 +13,7 @@ Key patterns recorded from iterations (see @progress/LEARNINGS.md for full histo
 7. Using seeded RNG (`StdRng::seed_from_u64(42)`) in tests for determinism
 8. Migrating to `libsql::Builder` to remove deprecated API usage
 9. Enabling `PRAGMA foreign_keys = ON` per-connection for deterministic FK behavior
+10. CI-enforced version synchronization — catches drift before merge
 
 ## Technical Insights
 
@@ -36,6 +37,7 @@ Key patterns recorded from iterations (see @progress/LEARNINGS.md for full histo
 - Do not make versioning mandatory (should be opt-in)
 - Do not create multiple scripts with overlapping functionality — merge related scripts (e.g., version checking into link checking)
 - Do not use archived GitHub repositories as dependencies — always find an active alternative or fork and maintain
+- Do not hardcode version numbers in test fixtures or examples — use current version or verify sync
 
 ## Learning Loop
 
