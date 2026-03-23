@@ -227,9 +227,62 @@ jobs:
         draft: false
         prerelease: ${{ contains(needs.validate.outputs.version, '-') }}
 
+  publish-npm:
+    runs-on: ubuntu-24.04
+    needs: [validate, build-artifacts]
+    if: needs.validate.outputs.release-needed == 'true'
+    environment: npm
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+        registry-url: 'https://registry.npmjs.org'
+
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+        target: wasm32-unknown-unknown
+
+    - name: Install wasm-pack
+      run: cargo install wasm-pack
+
+    - name: Check if version already published to npm
+      id: npm-check
+      run: |
+        VERSION="${{ needs.validate.outputs.version }}"
+        NPM_VERSION=$(npm view @d-o-hub/chaotic_semantic_memory version 2>/dev/null || echo "none")
+        if [ "$NPM_VERSION" = "$VERSION" ]; then
+          echo "⚠️ Version $VERSION already exists on npm, skipping publish"
+          echo "already-published=true" >> $GITHUB_OUTPUT
+        else
+          echo "already-published=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Build WASM package
+      if: steps.npm-check.outputs.already-published != 'true'
+      env:
+        WASM_OPT_FLAGS: "--enable-bulk-memory --enable-sign-ext"
+      run: |
+        cd wasm
+        wasm-pack build --target web --out-dir pkg -- --features wasm
+        cp ../LICENSE pkg/
+        cp ../README.md pkg/
+
+    - name: Publish to npm
+      if: steps.npm-check.outputs.already-published != 'true'
+      run: |
+        cd wasm/pkg
+        npm publish --provenance --access public
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
   notify:
     runs-on: ubuntu-24.04
-    needs: [validate, build-artifacts, publish-crates, create-github-release]
+    needs: [validate, build-artifacts, publish-crates, create-github-release, publish-npm]
     if: always()
     steps:
     - name: Release summary
@@ -250,4 +303,10 @@ jobs:
           echo "✅ GitHub Release: Created or already exists" >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ GitHub Release: Failed" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ "${{ needs.publish-npm.result }}" == "skipped" ] || [ "${{ needs.publish-npm.result }}" == "success" ]; then
+          echo "✅ npm: Published or already exists" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ npm: Failed" >> $GITHUB_STEP_SUMMARY
         fi
