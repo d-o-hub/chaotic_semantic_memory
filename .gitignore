@@ -84,3 +84,4 @@ csm_test*
 .tmp/
 *.tmp
 .claude/settings.local.json
+.claude/skills

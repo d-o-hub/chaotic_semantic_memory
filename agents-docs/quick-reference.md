@@ -2,9 +2,17 @@
 
 ## Version Sync (Before Release)
 ```bash
+# Check version synchronization (runs in CI)
+./scripts/verify-version-sync.sh
+
 # Sync version across all files (prevents stale docs)
-./scripts/sync-version.sh 0.2.0
+./scripts/sync-version.sh 0.2.5
 ```
+
+**Version must match in:**
+- `Cargo.toml` - `version = "X.Y.Z"`
+- `wasm/package.json` - `"version": "X.Y.Z"`
+- Test fixtures (grep `"version":` in tests/ and examples/)
 
 ## Validation Gates
 Run before commit (see `git-workflow` skill for details):
