@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::sync::Arc;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
 
 use crate::hyperdim::HVec10240;
@@ -155,14 +155,14 @@ impl Singularity {
     ) -> Arc<[(String, f32)]> {
         let scoring_start = unix_now_ns();
 
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         let scores: Vec<f32> = self
             .concept_vectors
             .par_iter()
             .map(|v| query.cosine_similarity(v))
             .collect();
 
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
         let scores: Vec<f32> = self
             .concept_vectors
             .iter()
@@ -225,13 +225,13 @@ impl Singularity {
         let scoring_start = unix_now_ns();
         let candidate_count = candidates.len();
 
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         let mut scores: Vec<(usize, f32)> = candidates
             .into_par_iter()
             .map(|idx| (idx, query.cosine_similarity(&self.concept_vectors[idx])))
             .collect();
 
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
         let mut scores: Vec<(usize, f32)> = candidates
             .into_iter()
             .map(|idx| (idx, query.cosine_similarity(&self.concept_vectors[idx])))

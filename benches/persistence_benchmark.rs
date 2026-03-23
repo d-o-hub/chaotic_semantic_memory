@@ -12,6 +12,7 @@ fn make_concept(id: &str) -> Concept {
         metadata: HashMap::new(),
         created_at: 1,
         modified_at: 1,
+        expires_at: None,
     }
 }
 
@@ -36,6 +37,7 @@ fn make_concept_with_metadata(id: &str) -> Concept {
         metadata,
         created_at: 1,
         modified_at: 1,
+        expires_at: None,
     }
 }
 

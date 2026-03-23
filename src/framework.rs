@@ -11,6 +11,7 @@ use crate::framework_events::MemoryEvent;
 use crate::graph_traversal::TraversalConfig;
 use crate::hyperdim::HVec10240;
 use crate::metadata_filter::MetadataFilter;
+#[cfg(feature = "persistence")]
 use crate::persistence::Persistence;
 use crate::reservoir::ChaoticReservoir;
 use crate::singularity::{Concept, ConceptBuilder, Singularity, unix_now_secs};
@@ -18,7 +19,10 @@ use crate::singularity::{Concept, ConceptBuilder, Singularity, unix_now_secs};
 /// Main framework for chaotic semantic memory
 pub struct ChaoticSemanticFramework {
     pub(crate) singularity: Arc<RwLock<Singularity>>,
+    #[cfg(feature = "persistence")]
     pub(crate) persistence: Option<Arc<Persistence>>,
+    #[cfg(not(feature = "persistence"))]
+    pub(crate) persistence: Option<Arc<crate::persistence::Persistence>>,
     pub(crate) reservoir: Arc<RwLock<Option<ChaoticReservoir>>>,
     pub(crate) config: FrameworkConfig,
     pub(crate) metrics: Arc<FrameworkMetrics>,
@@ -172,7 +176,18 @@ impl ChaoticSemanticFramework {
         let results = sing.find_similar(&query, top_k);
         let elapsed_ms = start.elapsed().as_millis() as u64;
         self.metrics.observe_probe_latency_ms(elapsed_ms);
-        Ok(results)
+
+        // Filter expired concepts
+        let now = crate::singularity::unix_now_secs();
+        let filtered: Vec<(String, f32)> = results
+            .into_iter()
+            .filter(|(id, _)| {
+                sing.get(id)
+                    .is_none_or(|c| c.expires_at.is_none_or(|exp| exp > now))
+            })
+            .collect();
+
+        Ok(filtered)
     }
 
     /// Query for similar concepts with metadata filtering.
@@ -438,39 +453,6 @@ impl ChaoticSemanticFramework {
         snapshot.avg_reservoir_step_latency_us = reservoir_snapshot.avg_reservoir_step_latency_us;
         snapshot.reservoir_nodes_active = reservoir_snapshot.reservoir_nodes_active;
         snapshot
-    }
-
-    /// Inject a concept from text using the built-in encoder.
-    ///
-    /// The text is encoded to a hypervector using `TextEncoder` and stored
-    /// with the given ID. This is a convenience method for the common case
-    /// of storing text-based concepts.
-    pub async fn inject_text(&self, id: &str, text: &str) -> Result<()> {
-        let encoder = crate::encoder::TextEncoder::new();
-        let vector = encoder.encode(text);
-        self.inject_concept(id, vector).await
-    }
-
-    /// Inject a concept from text with metadata.
-    pub async fn inject_text_with_metadata(
-        &self,
-        id: &str,
-        text: &str,
-        metadata: std::collections::HashMap<String, serde_json::Value>,
-    ) -> Result<()> {
-        let encoder = crate::encoder::TextEncoder::new();
-        let vector = encoder.encode(text);
-        self.inject_concept_with_metadata(id, vector, metadata)
-            .await
-    }
-
-    /// Probe for similar concepts using text input.
-    ///
-    /// Encodes the query text and finds the most similar concepts.
-    pub async fn probe_text(&self, query: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
-        let encoder = crate::encoder::TextEncoder::new();
-        let vector = encoder.encode(query);
-        self.probe(vector, top_k).await
     }
 
     /// Get framework statistics

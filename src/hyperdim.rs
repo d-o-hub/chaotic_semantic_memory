@@ -7,7 +7,7 @@ use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
 
 use crate::error::Result;
@@ -127,7 +127,7 @@ impl HVec10240 {
             return Ok(Self::zero());
         }
 
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         let counts = vectors
             .par_iter()
             .fold(
@@ -154,6 +154,22 @@ impl HVec10240 {
                     a
                 },
             );
+
+        #[cfg(all(not(target_arch = "wasm32"), not(feature = "parallel")))]
+        let counts = {
+            let mut local = Box::new([0i32; Self::DIMENSION]);
+            for v in vectors {
+                #[allow(clippy::needless_range_loop)]
+                for i in 0..80 {
+                    for j in 0..128 {
+                        if (v.data[i] >> j) & 1 == 1 {
+                            local[i * 128 + j] += 1;
+                        }
+                    }
+                }
+            }
+            local
+        };
 
         #[cfg(target_arch = "wasm32")]
         let counts = {
@@ -372,7 +388,7 @@ impl<'de> Deserialize<'de> for HVec10240 {
 /// Uses Rayon par_chunks() with tuned chunk size for cache efficiency.
 /// Benchmark target: <500μs for 1000 candidates.
 pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> Vec<f32> {
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
     {
         use rayon::prelude::*;
         // Tuned chunk size: 128 candidates amortizes Rayon overhead
@@ -390,7 +406,7 @@ pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> V
             });
         results
     }
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
     {
         candidates
             .iter()

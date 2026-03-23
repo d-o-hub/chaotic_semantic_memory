@@ -27,6 +27,7 @@ pub struct ConceptBuilder {
     vector: Option<HVec10240>,
     metadata: HashMap<String, serde_json::Value>,
     metadata_error: Option<MemoryError>,
+    ttl_seconds: Option<u64>,
 }
 
 impl ConceptBuilder {
@@ -38,7 +39,18 @@ impl ConceptBuilder {
             vector: None,
             metadata: HashMap::new(),
             metadata_error: None,
+            ttl_seconds: None,
         }
+    }
+
+    /// Sets the TTL (time to live) in seconds for this concept.
+    ///
+    /// The concept will expire after `ttl_seconds` from creation.
+    /// If not set, the concept never expires.
+    #[must_use]
+    pub fn with_ttl(mut self, ttl_seconds: u64) -> Self {
+        self.ttl_seconds = Some(ttl_seconds);
+        self
     }
 
     /// Sets the vector for this concept.
@@ -78,6 +90,7 @@ impl ConceptBuilder {
         }
 
         let now = crate::singularity::unix_now_secs();
+        let expires_at = self.ttl_seconds.map(|ttl| now + ttl);
 
         Ok(Concept {
             id: self.id,
@@ -85,6 +98,7 @@ impl ConceptBuilder {
             metadata: self.metadata,
             created_at: now,
             modified_at: now,
+            expires_at,
         })
     }
 }
@@ -115,5 +129,26 @@ mod tests {
         let concept = ConceptBuilder::new("test").build().unwrap();
         // Just verify it builds successfully without explicit vector
         assert_eq!(concept.id, "test");
+    }
+
+    #[test]
+    fn concept_builder_with_ttl_sets_expiration() {
+        let now = crate::singularity::unix_now_secs();
+        let concept = ConceptBuilder::new("ttl-test")
+            .with_ttl(3600)
+            .build()
+            .unwrap();
+
+        assert!(concept.expires_at.is_some());
+        let expires_at = concept.expires_at.unwrap();
+        // Expiration should be approximately now + 3600
+        assert!(expires_at >= now + 3600 - 1);
+        assert!(expires_at <= now + 3600 + 1);
+    }
+
+    #[test]
+    fn concept_builder_without_ttl_has_no_expiration() {
+        let concept = ConceptBuilder::new("no-ttl").build().unwrap();
+        assert!(concept.expires_at.is_none());
     }
 }

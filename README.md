@@ -23,6 +23,24 @@ It targets both native and `wasm32` builds with explicit threading guards.
 | Issues | [GitHub Issues](https://github.com/d-o-hub/chaotic_semantic_memory/issues) |
 | Changelog | [CHANGELOG.md](CHANGELOG.md) |
 
+## Important: HDC, Not Semantic Embeddings
+
+This crate uses **Hyperdimensional Computing (HDC)** for text encoding — it is
+**not** a transformer or embedding model. Understanding this distinction is critical:
+
+| | HDC (this crate) | Transformer Embeddings (e.g. sentence-transformers) |
+|---|---|---|
+| **Method** | Hash-based token → random hypervector | Learned neural network encodings |
+| **Similarity** | Tokens + position match → similar vectors | Semantic meaning → similar vectors |
+| **"cat" vs "kitten"** | Low similarity (different tokens) | High similarity (synonyms) |
+| **"cat sat" vs "sat cat"** | Different (position-aware) | Often similar |
+| **Compute** | CPU-only, deterministic, no GPU | GPU-accelerated, learned weights |
+| **Use case** | Keyword/lexical search, exact-match recall | Semantic search, paraphrase detection |
+
+**Bottom line:** `inject_text` / `probe_text` match on shared tokens at similar
+positions. For true semantic similarity, use an external embedding model and inject
+vectors directly via `inject_concept`.
+
 ## Features
 
 - **Hyperdimensional Computing**: 10240-bit binary hypervectors with SIMD-accelerated operations
@@ -71,23 +89,37 @@ chaotic_semantic_memory = { version = "0.2", default-features = false }
 - `bundle`: snapshot and bundle helpers
 - `cli`: Command-line interface (`csm` binary)
 
-## How Text Encoding Works
+## How Text Encoding Works (HDC Pipeline)
 
-The built-in `TextEncoder` uses **Hyperdimensional Computing (HDC)**, not
-transformer or embedding-model-based similarity:
+The built-in `TextEncoder` uses **Hyperdimensional Computing (HDC)** — a deterministic,
+hash-based encoding, **not** a learned neural network:
 
-1. Tokenize input text (whitespace split + lowercase)
-2. Hash each token with **FNV-1a** → seed a PRNG → generate a random `HVec10240`
-3. Apply **positional permutation** so word order matters
-4. **Bundle** all token vectors via majority-rule into a single `HVec10240`
+```
+┌─────────────┐     ┌──────────────────┐     ┌──────────────────┐     ┌─────────┐
+│  "hello     │     │ FNV-1a hash      │     │ Positional       │     │ Bundle  │
+│   world"    │──▶ │ per token        │────▶│ permutation      │───▶│ majority│
+│             │     │ PRNG → HVec10240 │     │ (word order)     │     │ rule    │
+└─────────────┘     └──────────────────┘     └──────────────────┘     └─────────┘
+    Tokenize             Token→HVec              Position Encode         Final HV
+```
 
-Because encoding is hash-based, similar *tokens* in similar *positions* produce
-similar vectors. However, synonyms and paraphrases will **not** be close —
-for true semantic similarity, use an external embedding model (e.g.
-`sentence-transformers`) and inject the resulting vectors directly:
+**Pipeline steps:**
+
+1. **Tokenize**: Split on whitespace, lowercase (`hello world` → `["hello", "world"]`)
+2. **Token → HVec**: FNV-1a hash → seed PRNG → generate random `HVec10240` per token
+3. **Positional encoding**: Permute each token vector by its position (order matters)
+4. **Bundle**: Majority-rule combination into a single `HVec10240`
+
+**Key properties:**
+- **Deterministic**: Same text always produces the same vector (FNV-1a is stable across Rust versions)
+- **Token-sensitive**: Similar tokens in similar positions → similar vectors
+- **NOT semantic**: Synonyms/paraphrases ("cat" vs "kitten") will NOT match
+- **Position-aware**: "cat sat" ≠ "sat cat" (order matters)
+
+### Recommended API
 
 ```rust
-// HDC text convenience — good for lexical / keyword similarity
+// HDC text encoding — good for lexical/keyword similarity
 framework.inject_text("doc-1", "reservoir computing overview").await?;
 let hits = framework.probe_text("reservoir computing", 5).await?;
 
@@ -95,6 +127,16 @@ let hits = framework.probe_text("reservoir computing", 5).await?;
 let embedding: HVec10240 = my_model.encode("an overview of echo-state networks");
 framework.inject_concept("doc-2", embedding).await?;
 ```
+
+**Use `inject_text`/`probe_text` for:**
+- Keyword search and exact-match recall
+- Document deduplication (same/similar text)
+- Indexing text where token overlap matters
+
+**Use external embeddings (`inject_concept`) for:**
+- Semantic search (synonyms, paraphrases)
+- Concept-level similarity across different wording
+- Cross-lingual matching
 
 ### Turso Vector Alternative
 
@@ -261,14 +303,81 @@ Notes:
 
 ## Concurrency Model
 
-- Internal state is protected by `tokio::sync::RwLock` — safe for concurrent
-  access from multiple Tokio tasks.
-- Local SQLite uses **WAL mode**, allowing concurrent readers alongside a
-  single writer.
-- Multiple `ChaoticSemanticFramework` instances sharing the same database file
-  can read concurrently; writes are serialized by SQLite's WAL lock.
-- The framework is fully async. Do **not** wrap calls in `block_on` inside an
-  existing Tokio runtime — use `.await` directly or spawn a task.
+Internal state is protected by `tokio::sync::RwLock` — safe for concurrent
+access from multiple Tokio tasks via `Arc<ChaoticSemanticFramework>`.
+
+### Multi-Instance Safety
+
+Multiple `ChaoticSemanticFramework` instances sharing the same database file
+are safe for concurrent operation:
+
+- **Reads** (`probe`, `get_concept`, `get_associations`, `stats`) acquire
+  `RwLock` read guards and can run fully concurrently across tasks and
+  framework instances.
+- **Writes** (`inject_concept`, `associate`, `delete_concept`) acquire write
+  guards in-process and are serialized at the database layer by SQLite's WAL
+  write lock. Two instances writing to the same database will queue on WAL
+  without data corruption.
+
+### SQLite WAL Mode
+
+Local SQLite connections explicitly enable `PRAGMA journal_mode=WAL` during
+initialization (`src/persistence.rs`). This provides:
+
+- Concurrent readers never block each other or a writer.
+- A single writer never blocks readers (readers see the last consistent snapshot).
+- Checkpoints via `PRAGMA wal_checkpoint(TRUNCATE)` merge WAL data back into
+  the main database file.
+
+Remote Turso connections delegate concurrency to the server and do not set
+WAL mode locally.
+
+### Lock Discipline
+
+Write locks on `singularity` are held only for in-memory operations and are
+never held across `.await` points (see [ADR-0040](plans/adr/0040-async-lock-safety.md)).
+Persistence I/O happens after the write lock is released, so concurrent probes
+are never blocked by database writes.
+
+### Scaling Characteristics
+
+| Operation | Complexity | Notes |
+|---|---|---|
+| `inject_concept` | O(1) amortized | HashMap insert + dense vector append |
+| `associate` | O(1) amortized | HashMap insert with optional eviction |
+| `probe` (exact scan) | O(n) | Cosine similarity over all n concepts; parallelized via Rayon on native |
+| `probe` (bucket candidates) | O(n / 2^w) | w-bit bucket width narrows candidate set before exact scoring |
+| `probe` (graph candidates) | O(f^d) | BFS from nearest neighbor at depth d, fanout f |
+
+The default retrieval path is an **exact O(n) scan** over all stored concept
+vectors. For larger corpora, two-stage candidate generation can be enabled via
+`RetrievalConfig`:
+
+- **Bucket candidates**: Coarse hash-bucketing on the first w bits of the
+  hypervector narrows the candidate set before exact scoring.
+- **Graph candidates**: BFS expansion from the nearest-neighbor seed through
+  the association graph, bounded by depth and fanout.
+
+Both reduce the scored subset from n to a smaller candidate set while
+preserving exact similarity semantics on the reranking pass.
+
+### ANN/LSH Deferred
+
+Approximate nearest-neighbor (ANN) or locality-sensitive hashing (LSH) indexing
+is **intentionally deferred** until benchmarks demonstrate latency regression
+beyond the current threshold. As documented in
+[ADR-0056](plans/adr/0056-performance-follow-up-priorities.md), the trigger is
+**>200k concepts** with latency degradation. Current benchmarks show the exact
+scan completes in ~24ms at 200k concepts, well within acceptable bounds
+(see [ADR-0059](plans/adr/0059-retrieval-optimization.md) for retrieval
+optimization details and benchmark methodology).
+
+### Async Runtime
+
+The framework is fully async. Do **not** wrap calls in `block_on` inside an
+existing Tokio runtime — use `.await` directly or spawn a task. All public
+APIs return `Result<T, MemoryError>` and use Tokio for I/O, with Rayon
+gated behind `#[cfg(not(target_arch = "wasm32"))]` for CPU parallelism.
 
 ## Development Gates
 

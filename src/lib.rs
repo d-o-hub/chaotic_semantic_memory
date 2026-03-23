@@ -51,15 +51,16 @@ pub mod framework_builder;
 mod framework_events;
 #[cfg(not(target_arch = "wasm32"))]
 mod framework_ops;
+mod framework_ttl;
 mod framework_validation;
 pub mod graph_traversal;
 pub mod hyperdim;
 pub mod metadata_filter;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 pub mod persistence;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_ops;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_versions;
 #[cfg(target_arch = "wasm32")]
 pub mod persistence_wasm;
@@ -67,9 +68,120 @@ pub mod reservoir;
 pub mod singularity;
 mod singularity_ext;
 mod singularity_retrieval;
+mod singularity_ttl;
 
 #[cfg(target_arch = "wasm32")]
 pub use crate::persistence_wasm as persistence;
+
+// Stub persistence module when persistence feature is disabled on non-WASM
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "persistence")))]
+pub mod persistence {
+    //! Stub persistence module when the "persistence" feature is disabled.
+    //! Enable the "persistence" feature for full libSQL-backed persistence.
+
+    use crate::error::Result;
+    use crate::hyperdim::HVec10240;
+    use crate::singularity::Concept;
+
+    /// Stub persistence type when persistence feature is disabled.
+    #[derive(Debug)]
+    pub struct Persistence;
+
+    /// Stub concept version type when persistence feature is disabled.
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+    pub struct ConceptVersion {
+        pub concept_id: String,
+        pub version: i64,
+        pub vector: HVec10240,
+        pub metadata: serde_json::Value,
+        pub modified_at: u64,
+    }
+
+    impl Persistence {
+        pub async fn save_concept(&self, _concept: &Concept) -> Result<()> {
+            Ok(())
+        }
+
+        pub async fn save_concepts(&self, _concepts: &[Concept]) -> Result<()> {
+            Ok(())
+        }
+
+        pub async fn load_concept(&self, _id: &str) -> Result<Option<Concept>> {
+            Ok(None)
+        }
+
+        pub async fn load_all_concepts(&self) -> Result<Vec<Concept>> {
+            Ok(Vec::new())
+        }
+
+        pub async fn delete_concept(&self, _id: &str) -> Result<()> {
+            Ok(())
+        }
+
+        pub async fn save_association(&self, _from: &str, _to: &str, _strength: f32) -> Result<()> {
+            Ok(())
+        }
+
+        pub async fn save_associations(
+            &self,
+            _associations: &[(String, String, f32)],
+        ) -> Result<()> {
+            Ok(())
+        }
+
+        pub async fn load_associations(&self, _id: &str) -> Result<Vec<(String, f32)>> {
+            Ok(Vec::new())
+        }
+
+        pub async fn delete_association(&self, _from: &str, _to: &str) -> Result<()> {
+            Ok(())
+        }
+
+        pub async fn clear_concept_associations(&self, _id: &str) -> Result<()> {
+            Ok(())
+        }
+
+        pub async fn clear_all(&self) -> Result<()> {
+            Ok(())
+        }
+
+        pub async fn checkpoint(&self) -> Result<()> {
+            Ok(())
+        }
+
+        pub async fn health_check(&self) -> Result<()> {
+            Ok(())
+        }
+
+        pub async fn size(&self) -> Result<u64> {
+            Ok(0)
+        }
+
+        pub async fn backup(&self, _path: &str) -> Result<()> {
+            Ok(())
+        }
+
+        pub async fn restore(&self, _path: &str) -> Result<()> {
+            Ok(())
+        }
+
+        pub async fn get_concept_history(
+            &self,
+            _id: &str,
+            _limit: usize,
+        ) -> Result<Vec<ConceptVersion>> {
+            Ok(Vec::new())
+        }
+
+        pub async fn schema_version(&self) -> Result<i64> {
+            Ok(0)
+        }
+
+        pub async fn apply_migrations(&self, _target_version: i64) -> Result<()> {
+            Ok(())
+        }
+    }
+}
 
 pub mod prelude {
     pub use crate::bundle::BundleAccumulator;

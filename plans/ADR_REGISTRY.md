@@ -56,6 +56,7 @@
 | **0057** | **Phase 41 API Completion and Memory Events** | **Implemented** | **Wave 17 - Phase 41 Follow-up** |
 | **0058** | **Fix Import/Export Serialization** | **Implemented** | **2026-03-16** |
 | **0059** | **Retrieval Optimization and Benchmark Hygiene** | **Implemented** | **2026-03-17** |
+| **0060** | **Configurable Hypervector Dimensions** | Deferred | Issue #35 |
 | 0024 | Concept Expiration (TTL) | Deferred | Post-1.0 |
 | 0024 | Performance Optimizations Phase 2 | Deferred | Post-1.0 |
 | 0025 | Weighted Forgetting (Decay) | Deferred | Post-1.0 |

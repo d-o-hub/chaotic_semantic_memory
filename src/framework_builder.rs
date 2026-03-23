@@ -6,6 +6,7 @@ use tokio::sync::RwLock;
 use crate::ChaoticSemanticFramework;
 use crate::error::Result;
 use crate::framework_events::build_event_sender;
+#[cfg(feature = "persistence")]
 use crate::persistence::Persistence;
 use crate::singularity::{Singularity, SingularityConfig};
 
@@ -166,6 +167,7 @@ impl FrameworkBuilder {
             max_cached_top_k: self.config.max_cached_top_k,
         })));
 
+        #[cfg(feature = "persistence")]
         let persistence = if self.config.enable_persistence {
             if let Some(path) = self.db_path {
                 let persist = if let Some(token) = self.db_token {
@@ -186,6 +188,9 @@ impl FrameworkBuilder {
         } else {
             None
         };
+
+        #[cfg(not(feature = "persistence"))]
+        let persistence: Option<Arc<crate::persistence::Persistence>> = None;
 
         let framework = ChaoticSemanticFramework {
             singularity,

@@ -102,6 +102,7 @@ impl BinaryConcept {
                 .collect(),
             created_at: self.created_at,
             modified_at: self.modified_at,
+            expires_at: None,
         })
     }
 }

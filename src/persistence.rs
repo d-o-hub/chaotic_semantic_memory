@@ -271,6 +271,7 @@ impl Persistence {
                 metadata,
                 created_at: created_at as u64,
                 modified_at: modified_at as u64,
+                expires_at: None,
             }))
         } else {
             Ok(None)
@@ -321,6 +322,7 @@ impl Persistence {
                 metadata,
                 created_at: created_at as u64,
                 modified_at: modified_at as u64,
+                expires_at: None,
             });
         }
 

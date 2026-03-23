@@ -13,6 +13,7 @@ fn make_concept(id: &str, created_at: u64, modified_at: u64) -> Concept {
         metadata: HashMap::new(),
         created_at,
         modified_at,
+        expires_at: None,
     }
 }
 
@@ -25,6 +26,7 @@ fn make_concept_with_meta(id: &str, meta_key: &str, meta_value: &str) -> Concept
         metadata,
         created_at: 1,
         modified_at: 1,
+        expires_at: None,
     }
 }
 
@@ -403,6 +405,7 @@ async fn metadata_preserved_across_roundtrip() {
         metadata,
         created_at: 100,
         modified_at: 200,
+        expires_at: None,
     };
 
     persistence.save_concept(&concept).await.unwrap();
@@ -430,6 +433,7 @@ async fn vector_integrity_preserved() {
         metadata: HashMap::new(),
         created_at: 1,
         modified_at: 1,
+        expires_at: None,
     };
 
     persistence.save_concept(&concept).await.unwrap();

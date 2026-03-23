@@ -28,6 +28,7 @@ pub struct Concept {
     pub metadata: HashMap<String, serde_json::Value>,
     pub created_at: u64,
     pub modified_at: u64,
+    pub expires_at: Option<u64>,
 }
 
 #[derive(Debug, Clone)]

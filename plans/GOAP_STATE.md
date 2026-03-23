@@ -14,9 +14,23 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: phase54_retrieval_module_split_2026_03_19
-  orchestrator_last_run: phase54_retrieval_module_split_2026_03_19
-  orchestrator_last_run_at_utc: 2026-03-19T10:30:00Z
+  action_last_completed: issue_35_audit_fixes_2026_03_23
+  orchestrator_last_run: issue_35_audit_fixes_2026_03_23
+  orchestrator_last_run_at_utc: 2026-03-23T10:30:00Z
+
+  # Recent changes (2026-03-23)
+  recent_changes:
+    - "Issue #35: Comprehensive audit fixes for production readiness"
+    - "Feature-gated dependencies: persistence, parallel, cli features (default includes all)"
+    - "Added TTL support: inject_concept_with_ttl, inject_text_with_ttl, purge_expired"
+    - "Added expires_at field to Concept struct"
+    - "Documented HDC vs semantic embeddings distinction in README"
+    - "Documented concurrency model: multi-instance safety, WAL mode, lock discipline"
+    - "Documented probe O(n) complexity and ANN deferred rationale"
+    - "Gated rayon behind 'parallel' feature for non-WASM builds"
+    - "Added stub persistence module when persistence feature disabled"
+    - "Fixed all test/benchmark files for expires_at field"
+    - "Created ADR-0060: Configurable Dimensions (deferred)"
 
   # Recent changes (2026-03-22)
   recent_changes:
