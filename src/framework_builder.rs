@@ -167,9 +167,18 @@ impl FrameworkBuilder {
     }
 
     /// Disable persistence even when the feature is enabled.
+    ///
+    /// When the `persistence` feature is disabled, this method is a no-op
+    /// since persistence is already unavailable.
     #[cfg(feature = "persistence")]
     pub fn without_persistence(mut self) -> Self {
         self.config.enable_persistence = false;
+        self
+    }
+
+    /// Disable persistence (no-op when `persistence` feature is disabled).
+    #[cfg(not(feature = "persistence"))]
+    pub fn without_persistence(self) -> Self {
         self
     }
 

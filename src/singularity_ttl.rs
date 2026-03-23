@@ -1,6 +1,22 @@
 //! TTL (Time-To-Live) operations for Singularity.
 
-use crate::singularity::{Singularity, unix_now_secs};
+use std::collections::HashMap;
+
+use crate::hyperdim::HVec10240;
+use crate::singularity::{Concept, Singularity, unix_now_secs};
+
+impl Default for Concept {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            vector: HVec10240::zero(),
+            metadata: HashMap::new(),
+            created_at: 0,
+            modified_at: 0,
+            expires_at: None,
+        }
+    }
+}
 
 impl Singularity {
     /// Purge all expired concepts from memory.

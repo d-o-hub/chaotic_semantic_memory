@@ -20,7 +20,11 @@ pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, Retriev
 const DEFAULT_CONCEPT_CACHE_SIZE: usize = 128;
 pub const DEFAULT_MAX_CACHED_TOP_K: usize = 100;
 
-/// A concept in semantic memory
+/// A concept in semantic memory.
+///
+/// Use [`ConceptBuilder`] to construct instances with proper defaults.
+/// Direct struct construction is supported but the `expires_at` field should
+/// default to `None` for backward compatibility.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Concept {
     pub id: String,
@@ -28,6 +32,7 @@ pub struct Concept {
     pub metadata: HashMap<String, serde_json::Value>,
     pub created_at: u64,
     pub modified_at: u64,
+    #[serde(default)]
     pub expires_at: Option<u64>,
 }
 
