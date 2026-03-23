@@ -18,3 +18,8 @@
   ```bash
   gh repo view <owner>/<repo> --json isArchived,pushedAt
   ```
+- **Version numbers must be synchronized across all files before release.**
+  Run `scripts/verify-version-sync.sh` to verify. Files checked:
+  - `Cargo.toml` - `version = "X.Y.Z"`
+  - `wasm/package.json` - `"version": "X.Y.Z"`
+  - Test fixtures and examples with `"version":` literals
