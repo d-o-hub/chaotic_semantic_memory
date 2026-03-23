@@ -43,7 +43,10 @@ jobs:
     
     - name: Check formatting
       run: cargo fmt -- --check
-    
+
+    - name: Check version sync
+      run: bash scripts/verify-version-sync.sh
+
     - name: Run clippy
       run: cargo clippy --all-targets --all-features -- -D warnings
     
