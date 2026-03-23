@@ -13,6 +13,8 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
+#[cfg(not(target_arch = "wasm32"))]
+use tracing::instrument;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
