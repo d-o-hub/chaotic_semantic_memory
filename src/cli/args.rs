@@ -12,8 +12,20 @@ pub struct CliArgs {
     #[arg(short, long, global = true, action = clap::ArgAction::Count)]
     pub verbose: u8,
 
+    /// Path to database file. If not specified, uses git-local storage when in a git repo.
     #[arg(short, long, global = true, value_name = "PATH")]
     pub database: Option<PathBuf>,
+
+    /// Force git-local storage (.git/memory-index/csm.db).
+    /// Creates "never committed, per-clone" storage inside the .git directory.
+    /// Error if not in a git repository.
+    #[arg(long, global = true)]
+    pub git_local: bool,
+
+    /// Override the default git-local index path.
+    /// Only used when --git-local is specified or no database is given in a git repo.
+    #[arg(long, global = true, value_name = "PATH")]
+    pub index_path: Option<PathBuf>,
 
     #[arg(long, global = true, value_enum, default_value = "table")]
     pub output_format: OutputFormat,
