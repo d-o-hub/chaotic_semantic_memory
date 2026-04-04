@@ -4,8 +4,9 @@ use std::process::ExitCode as StdExitCode;
 #[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]
 mod native {
     pub use chaotic_semantic_memory::cli::{
-        CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, run_associate,
-        run_completions, run_export, run_import, run_inject, run_probe,
+        CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir,
+        resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_inject,
+        run_probe,
     };
     pub use clap::Parser;
     pub use colored::Colorize;
@@ -44,10 +45,71 @@ mod native {
         run_completions(args.clone())
     }
 
+    /// Resolve database path from CLI arguments.
+    ///
+    /// Priority order:
+    /// 1. Explicit --database path (if provided)
+    /// 2. Explicit --index-path (if provided with --git-local)
+    /// 3. Git-local storage (.git/memory-index/csm.db) if in git repo and no --database
+    /// 4. None (in-memory mode) if not in git repo and no --database
+    pub fn resolve_database_path(
+        database: Option<&std::path::Path>,
+        git_local: bool,
+        index_path: Option<&std::path::Path>,
+    ) -> Result<Option<std::path::PathBuf>, CliError> {
+        // Case 1: Explicit --database path provided
+        if let Some(db_path) = database {
+            return Ok(Some(db_path.to_path_buf()));
+        }
+
+        // Case 2: --index-path override with --git-local
+        if let Some(custom_path) = index_path {
+            if !git_local {
+                return Err(CliError::Config(
+                    "--index-path requires --git-local to be specified".to_string(),
+                ));
+            }
+            return Ok(Some(custom_path.to_path_buf()));
+        }
+
+        // Case 3: --git-local explicitly requested
+        if git_local {
+            let path = resolve_git_local_path().ok_or_else(|| {
+                CliError::Config(
+                    "--git-local specified but not in a git repository. \
+                     Run this command inside a git repo or use --database to specify a path."
+                        .to_string(),
+                )
+            })?;
+            ensure_git_local_dir(&path).map_err(|e| {
+                CliError::Config(format!("Failed to create git-local directory: {}", e))
+            })?;
+            return Ok(Some(path));
+        }
+
+        // Case 4: Default - try git-local storage
+        if let Some(path) = resolve_git_local_path() {
+            // Found a git repo, use git-local storage by default
+            ensure_git_local_dir(&path).map_err(|e| {
+                CliError::Config(format!("Failed to create git-local directory: {}", e))
+            })?;
+            return Ok(Some(path));
+        }
+
+        // Case 5: Not in git repo and no database specified - use in-memory mode
+        Ok(None)
+    }
+
     #[tokio::main]
     pub async fn run_async(args: CliArgs) -> Result<((), OutputFormat), CliError> {
-        let db_path = args.database.as_deref();
         let fmt = args.output_format;
+
+        // Resolve the database path with git-local support
+        let db_path = resolve_database_path(
+            args.database.as_deref(),
+            args.git_local,
+            args.index_path.as_deref(),
+        )?;
 
         let result = match &args.command {
             Commands::Completions(cmd) => handle_completions(cmd),
@@ -61,11 +123,11 @@ mod native {
                 }
                 Ok(())
             }
-            Commands::Inject(cmd) => run_inject(cmd.clone(), db_path, fmt).await,
-            Commands::Probe(cmd) => run_probe(cmd.clone(), db_path, fmt).await,
-            Commands::Associate(cmd) => run_associate(cmd.clone(), db_path, fmt).await,
-            Commands::Export(cmd) => run_export(cmd.clone(), db_path, fmt).await,
-            Commands::Import(cmd) => run_import(cmd.clone(), db_path, fmt).await,
+            Commands::Inject(cmd) => run_inject(cmd.clone(), db_path.as_deref(), fmt).await,
+            Commands::Probe(cmd) => run_probe(cmd.clone(), db_path.as_deref(), fmt).await,
+            Commands::Associate(cmd) => run_associate(cmd.clone(), db_path.as_deref(), fmt).await,
+            Commands::Export(cmd) => run_export(cmd.clone(), db_path.as_deref(), fmt).await,
+            Commands::Import(cmd) => run_import(cmd.clone(), db_path.as_deref(), fmt).await,
         };
         result.map(|_| ((), fmt))
     }

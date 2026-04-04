@@ -14,6 +14,7 @@ pub use probe::run_probe;
 
 use crate::cli::args::OutputFormat;
 use crate::cli::error::{CliError, Result};
+use crate::cli::git_local::{ensure_git_local_dir, resolve_git_local_path};
 use crate::framework::ChaoticSemanticFramework;
 use colored::Colorize;
 
@@ -49,6 +50,63 @@ pub fn print_warning(msg: &str, format: OutputFormat) {
     }
 }
 
+/// Resolves the database path based on CLI arguments.
+///
+/// Priority order:
+/// 1. Explicit --database path (if provided)
+/// 2. Explicit --index-path (if provided with --git-local)
+/// 3. Git-local storage (.git/memory-index/csm.db) if in git repo and no --database
+/// 4. None (in-memory mode) if not in git repo and no --database
+///
+/// Returns a tuple of (resolved_path, should_use_git_local)
+fn resolve_database_path(
+    database: Option<&std::path::Path>,
+    git_local: bool,
+    index_path: Option<&std::path::Path>,
+) -> Result<Option<std::path::PathBuf>> {
+    // Case 1: Explicit --database path provided
+    if let Some(db_path) = database {
+        return Ok(Some(db_path.to_path_buf()));
+    }
+
+    // Case 2: --index-path override with --git-local
+    if let Some(custom_path) = index_path {
+        if !git_local {
+            return Err(CliError::Config(
+                "--index-path requires --git-local to be specified".to_string(),
+            ));
+        }
+        return Ok(Some(custom_path.to_path_buf()));
+    }
+
+    // Case 3: --git-local explicitly requested
+    if git_local {
+        let path = resolve_git_local_path().ok_or_else(|| {
+            CliError::Config(
+                "--git-local specified but not in a git repository. \
+                 Run this command inside a git repo or use --database to specify a path."
+                    .to_string(),
+            )
+        })?;
+        ensure_git_local_dir(&path).map_err(|e| {
+            CliError::Config(format!("Failed to create git-local directory: {}", e))
+        })?;
+        return Ok(Some(path));
+    }
+
+    // Case 4: Default - try git-local storage
+    if let Some(path) = resolve_git_local_path() {
+        // Found a git repo, use git-local storage by default
+        ensure_git_local_dir(&path).map_err(|e| {
+            CliError::Config(format!("Failed to create git-local directory: {}", e))
+        })?;
+        return Ok(Some(path));
+    }
+
+    // Case 5: Not in git repo and no database specified - use in-memory mode
+    Ok(None)
+}
+
 pub async fn create_framework(
     db_path: Option<&std::path::Path>,
 ) -> Result<ChaoticSemanticFramework> {
@@ -62,6 +120,18 @@ pub async fn create_framework(
         .build()
         .await
         .map_err(|e| CliError::Persistence(format!("failed to initialize framework: {e}")))
+}
+
+/// Create framework with full argument handling including git-local support.
+///
+/// This is the preferred entry point for CLI commands that need database access.
+pub async fn create_framework_with_args(
+    database: Option<&std::path::Path>,
+    git_local: bool,
+    index_path: Option<&std::path::Path>,
+) -> Result<ChaoticSemanticFramework> {
+    let resolved_path = resolve_database_path(database, git_local, index_path)?;
+    create_framework(resolved_path.as_deref()).await
 }
 
 fn validate_concept_id(id: &str) -> Result<()> {
