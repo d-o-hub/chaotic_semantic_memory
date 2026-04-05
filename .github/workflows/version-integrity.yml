@@ -1,0 +1,42 @@
+name: Version Integrity
+
+on:
+  pull_request:
+    paths:
+    - 'Cargo.toml'
+    - 'CHANGELOG.md'
+    - 'wasm/package.json'
+  push:
+    branches:
+    - main
+    paths:
+    - 'Cargo.toml'
+    - 'CHANGELOG.md'
+    - 'wasm/package.json'
+
+permissions:
+  contents: read
+
+jobs:
+  check-version-sync:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Verify version consistency
+      run: |
+        bash scripts/verify-version-sync.sh
+
+  check-changelog-entry:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Check CHANGELOG entry exists for current version
+      run: |
+        VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d'"' -f2)
+        if ! grep -q "^\[${VERSION}\]" CHANGELOG.md; then
+          echo "❌ No CHANGELOG entry for version ${VERSION}"
+          exit 1
+        fi
+        echo "✅ CHANGELOG entry exists for ${VERSION}"
