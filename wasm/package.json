@@ -38,5 +38,9 @@
     "node": ">=18.0.0"
   },
   "type": "module",
-  "sideEffects": false
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
 }
