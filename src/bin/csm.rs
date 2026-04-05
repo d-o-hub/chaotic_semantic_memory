@@ -125,39 +125,14 @@ mod native {
             }
             Commands::Inject(cmd) => run_inject(cmd.clone(), db_path.as_deref(), fmt).await,
             Commands::Probe(cmd) => run_probe(cmd.clone(), db_path.as_deref(), fmt).await,
-            Commands::Query(cmd) => {
-                run_query(
-                    cmd.clone(),
-                    db_path.as_deref(),
-                    args.git_local,
-                    args.index_path.as_deref(),
-                    fmt,
-                )
-                .await
-            }
+            Commands::Query(cmd) => run_query(cmd.clone(), db_path.as_deref(), fmt).await,
             Commands::Associate(cmd) => run_associate(cmd.clone(), db_path.as_deref(), fmt).await,
             Commands::Export(cmd) => run_export(cmd.clone(), db_path.as_deref(), fmt).await,
             Commands::Import(cmd) => run_import(cmd.clone(), db_path.as_deref(), fmt).await,
             Commands::IndexJsonl(cmd) => {
-                run_index_jsonl(
-                    cmd.clone(),
-                    db_path.as_deref(),
-                    args.git_local,
-                    args.index_path.as_deref(),
-                    fmt,
-                )
-                .await
+                run_index_jsonl(cmd.clone(), db_path.as_deref(), fmt).await
             }
-            Commands::IndexDir(cmd) => {
-                run_index_dir(
-                    cmd.clone(),
-                    db_path.as_deref(),
-                    args.git_local,
-                    args.index_path.as_deref(),
-                    fmt,
-                )
-                .await
-            }
+            Commands::IndexDir(cmd) => run_index_dir(cmd.clone(), db_path.as_deref(), fmt).await,
         };
         result.map(|_| ((), fmt))
     }

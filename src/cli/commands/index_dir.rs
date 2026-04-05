@@ -3,7 +3,7 @@
 //! Supports glob patterns, heading-based chunking, and code-aware encoding.
 
 use crate::cli::args::{IndexDirArgs, OutputFormat};
-use crate::cli::commands::{create_framework_with_args, print_success};
+use crate::cli::commands::{create_framework, print_success, truncate_preview};
 use crate::cli::error::{CliError, Result};
 use crate::encoder::TextEncoder;
 
@@ -12,12 +12,10 @@ use std::path::Path;
 
 pub async fn run_index_dir(
     args: IndexDirArgs,
-    database: Option<&Path>,
-    git_local: bool,
-    index_path: Option<&Path>,
+    db_path: Option<&Path>,
     format: OutputFormat,
 ) -> Result<()> {
-    let framework = create_framework_with_args(database, git_local, index_path).await?;
+    let framework = create_framework(db_path).await?;
 
     // Create encoder based on code_aware flag
     let encoder = if args.code_aware {
@@ -69,11 +67,13 @@ pub async fn run_index_dir(
                 let hv = encoder.encode(&chunk.content);
 
                 // Create metadata map
+                let path_str = path.display().to_string();
                 let mut metadata = std::collections::HashMap::new();
                 metadata.insert(
                     "source".to_string(),
-                    serde_json::Value::String(path.display().to_string()),
+                    serde_json::Value::String(path_str.clone()),
                 );
+                metadata.insert("path".to_string(), serde_json::Value::String(path_str));
                 metadata.insert(
                     "heading".to_string(),
                     serde_json::Value::String(chunk.heading.clone()),
@@ -84,12 +84,20 @@ pub async fn run_index_dir(
                 );
                 metadata.insert(
                     "content_preview".to_string(),
-                    serde_json::Value::String(if chunk.content.len() > 200 {
-                        format!("{}...", &chunk.content[..200])
-                    } else {
-                        chunk.content.clone()
-                    }),
+                    serde_json::Value::String(truncate_preview(&chunk.content, 200)),
                 );
+
+                // Store file modification time as Unix timestamp
+                if let Ok(file_meta) = fs::metadata(&path) {
+                    if let Ok(modified) = file_meta.modified() {
+                        if let Ok(ts) = modified.duration_since(std::time::UNIX_EPOCH) {
+                            metadata.insert(
+                                "modified_at".to_string(),
+                                serde_json::Value::Number(ts.as_secs().into()),
+                            );
+                        }
+                    }
+                }
 
                 framework
                     .inject_concept_with_metadata(&id, hv, metadata)

@@ -3,7 +3,7 @@
 //! Streams JSONL line-by-line, extracts text field, preserves metadata.
 
 use crate::cli::args::{IndexJsonlArgs, OutputFormat};
-use crate::cli::commands::{create_framework_with_args, print_success, print_warning};
+use crate::cli::commands::{create_framework, print_success, print_warning, truncate_preview};
 use crate::cli::error::{CliError, Result};
 use crate::encoder::TextEncoder;
 
@@ -13,9 +13,7 @@ use std::path::Path;
 
 pub async fn run_index_jsonl(
     args: IndexJsonlArgs,
-    database: Option<&Path>,
-    git_local: bool,
-    index_path: Option<&Path>,
+    db_path: Option<&Path>,
     format: OutputFormat,
 ) -> Result<()> {
     // Validate file exists
@@ -26,7 +24,7 @@ pub async fn run_index_jsonl(
         )));
     }
 
-    let framework = create_framework_with_args(database, git_local, index_path).await?;
+    let framework = create_framework(db_path).await?;
 
     // Create encoder based on code_aware flag
     let encoder = if args.code_aware {
@@ -126,11 +124,7 @@ pub async fn run_index_jsonl(
         );
         metadata.insert(
             "text_preview".to_string(),
-            serde_json::Value::String(if text.len() > 200 {
-                format!("{}...", &text[..200])
-            } else {
-                text.clone()
-            }),
+            serde_json::Value::String(truncate_preview(&text, 200)),
         );
         metadata.insert(
             "tags".to_string(),

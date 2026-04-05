@@ -3,7 +3,7 @@
 //! Encodes input text and searches for similar concepts.
 
 use crate::cli::args::{OutputFormat, QueryArgs};
-use crate::cli::commands::{create_framework_with_args, print_success, print_warning};
+use crate::cli::commands::{create_framework, print_success, print_warning, truncate_preview};
 use crate::cli::error::{CliError, Result};
 use crate::encoder::TextEncoder;
 
@@ -11,9 +11,7 @@ use std::path::Path;
 
 pub async fn run_query(
     args: QueryArgs,
-    database: Option<&Path>,
-    git_local: bool,
-    index_path: Option<&Path>,
+    db_path: Option<&Path>,
     format: OutputFormat,
 ) -> Result<()> {
     // Validate min_score range
@@ -29,7 +27,7 @@ pub async fn run_query(
         return Err(CliError::Validation("top-k must be at least 1".into()));
     }
 
-    let framework = create_framework_with_args(database, git_local, index_path).await?;
+    let framework = create_framework(db_path).await?;
 
     // Create encoder based on code_aware flag
     let encoder = if args.code_aware {
@@ -79,8 +77,8 @@ pub async fn run_query(
                     .unwrap_or("")
                     .to_string();
 
-                let display_text = if args.compact && text.len() > 200 {
-                    format!("{}...", &text[..200])
+                let display_text = if args.compact {
+                    truncate_preview(&text, 200)
                 } else {
                     text
                 };
