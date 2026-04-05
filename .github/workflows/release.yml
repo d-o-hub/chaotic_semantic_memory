@@ -277,9 +277,8 @@ jobs:
       if: steps.npm-check.outputs.already-published != 'true'
       run: |
         cd wasm/pkg
+        # Use OIDC Trusted Publishing (no token needed with --provenance on Node.js 24)
         npm publish --provenance --access public
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   notify:
     runs-on: ubuntu-24.04
