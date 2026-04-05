@@ -46,7 +46,7 @@ echo "  Creating valid import JSON..."
 # This demonstrates the import structure without serialization issues
 cat > "$VALID_IMPORT_FILE" << 'EOF'
 {
-  "version": "0.2.5",
+  "version": "0.2.6",
   "exported_at": 1700000000,
   "concepts": [],
   "associations": []
@@ -99,7 +99,7 @@ echo "  - Handle the error gracefully in automation pipelines"
 echo ""
 echo "Import file format:"
 echo '  {'
-echo '    "version": "0.2.5",'
+echo '    "version": "0.2.6",'
 echo '    "exported_at": <unix_timestamp>,'
 echo '    "concepts": [...],'
 echo '    "associations": [...]'
