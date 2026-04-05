@@ -6,11 +6,18 @@
 - ✅ Phase 1: Workflow updated (NODE_AUTH_TOKEN removed, npm@latest ensured)
 - ✅ Phase 2: Manual first publish (v0.1.0 published to npm on 2026-02-20)
 - ✅ Phase 3: Verified package exists (via Snyk and API)
+- ✅ Workflow files updated for OIDC (release.yml, npm-publish.yml)
+- ✅ wasm/package.json has publishConfig with provenance support
 
-**Pending (blocked by token):**
-- ⏳ Phase 4: Generate fresh npm automation token (current one expired)
-- ⏳ Phase 5: Configure Trusted Publisher in npm UI
-- ⏳ Phase 6: Verify CI publishing with OIDC
+**Pending (requires manual action):**
+- ⏳ Phase 4: Configure Trusted Publisher in npm UI
+  - Go to: https://www.npmjs.com/package/@d-o-hub/chaotic_semantic_memory/access
+  - Add GitHub Actions Trusted Publisher:
+    - Organization: `d-o-hub`
+    - Repository: `chaotic_semantic_memory`
+    - Workflow: `release.yml` (for main releases) or `npm-publish.yml` (for tag-triggered)
+    - Environment: `npm` (optional)
+- ⏳ Phase 5: Trigger new release to verify OIDC publishing works
 
 ## Context and Problem Statement
 
