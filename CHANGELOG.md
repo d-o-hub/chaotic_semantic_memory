@@ -5,9 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.6] - 2026-04-05
 
 ### Added
+
+- **memory-context integration** (issue #43): Complete CLI tooling for AI coding assistants:
+  - `index-jsonl`: Stream JSONL files with `--field` extraction, `--id-field`, `--tag-field`, and `--code-aware` encoding
+  - `index-dir`: Markdown directory ingest with glob patterns (`--glob`), heading-based chunking (`--heading-level`), and code-aware encoding
+  - `query`: Text-based similarity search with `--top-k`, `--min-score`, `--output json`, and `--compact` flags
+  - Git-local default storage: `.git/memory-index/csm.db` for "never committed, per-clone" memory indexes
+  - Code-aware tokenization: Splits identifiers on `_`, `-`, `.`, `/`, `::` with character trigram overlay
+
 - **Documentation**: Added Turso vector alternative section to README, encoder docs,
   and introduction. Users can now use Turso's native `F32_BLOB` and `vector_top_k()`
   for semantic similarity while keeping HDC for lexical matching.
@@ -225,7 +233,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CI workflow with security permissions and concurrency controls
 - Trusted Publishing eliminates need for long-lived API tokens
 
-[unreleased]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.2.5...HEAD
+[unreleased]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.2.6...HEAD
+[0.2.6]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.6
 [0.2.5]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.5
 [0.2.4]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.4
 [0.2.3]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.3

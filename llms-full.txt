@@ -2,33 +2,33 @@
 
 > AI memory systems with hyperdimensional vectors and chaotic reservoirs
 
-**Version:** 0.2.5
+**Version:** 0.2.6
 **License:** MIT
 **Repository:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
-- bincode (1.3.3)
 - tracing (0.1.41)
+- clap_complete (4.5.42)
+- serde (1.0.219) [features: derive]
+- bincode (1.3.3)
+- tracing-subscriber (0.3.19)
+- anyhow (1.0.102)
+- thiserror (2.0.11)
 - clap (4.5.60) [features: derive, env, string]
+- base64 (0.22)
+- rand (0.8.5)
 - colored (2.2.0)
 - glob (0.3.2)
-- rand (0.8.5)
-- thiserror (2.0.11)
-- tracing-subscriber (0.3.19)
-- clap_complete (4.5.42)
 - serde_json (1.0.149)
-- anyhow (1.0.102)
-- serde (1.0.219) [features: derive]
-- base64 (0.22)
 **Features:**
 - default: [cli, persistence, parallel]
-- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
-- persistence: [dep:libsql]
 - wasm: []
 - parallel: [dep:rayon]
+- persistence: [dep:libsql]
+- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 
-Generated: 2026-04-05 08:59:34 UTC  
+Generated: 2026-04-05 10:50:03 UTC  
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Table of Contents
@@ -304,8 +304,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn print_success
 - pub fn print_error
 - pub fn print_warning
+- pub fn truncate_preview
 - pub fn create_framework
-- pub fn create_framework_with_args
 
 ### src/cli/commands/index_jsonl.rs
 
@@ -2350,7 +2350,7 @@ impl ExitCode {
 ### run_query
 
 ```rust
-pub fn run_query(args: QueryArgs, database: Option<&Path>, git_local: bool, index_path: Option<&Path>, format: OutputFormat) -> Result<()>
+pub fn run_query(args: QueryArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
 
@@ -2515,6 +2515,16 @@ pub fn print_warning(msg: &str, format: OutputFormat)
 ```
 
 
+### truncate_preview
+
+```rust
+pub fn truncate_preview(s: &str, max_chars: usize) -> String
+```
+
+Truncate a string to `max_chars` characters, appending "..." if truncated.
+
+Uses `char_indices` to avoid panicking on multi-byte UTF-8 boundaries.
+
 ### create_framework
 
 ```rust
@@ -2522,23 +2532,13 @@ pub fn create_framework(db_path: Option<&std::path::Path>) -> Result<ChaoticSema
 ```
 
 
-### create_framework_with_args
-
-```rust
-pub fn create_framework_with_args(database: Option<&std::path::Path>, git_local: bool, index_path: Option<&std::path::Path>) -> Result<ChaoticSemanticFramework>
-```
-
-Create framework with full argument handling including git-local support.
-
-This is the preferred entry point for CLI commands that need database access.
-
 
 ## src/cli/commands/index_jsonl.rs
 
 ### run_index_jsonl
 
 ```rust
-pub fn run_index_jsonl(args: IndexJsonlArgs, database: Option<&Path>, git_local: bool, index_path: Option<&Path>, format: OutputFormat) -> Result<()>
+pub fn run_index_jsonl(args: IndexJsonlArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
 
@@ -2548,7 +2548,7 @@ pub fn run_index_jsonl(args: IndexJsonlArgs, database: Option<&Path>, git_local:
 ### run_index_dir
 
 ```rust
-pub fn run_index_dir(args: IndexDirArgs, database: Option<&Path>, git_local: bool, index_path: Option<&Path>, format: OutputFormat) -> Result<()>
+pub fn run_index_dir(args: IndexDirArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
 
