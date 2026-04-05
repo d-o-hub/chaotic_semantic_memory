@@ -2,15 +2,21 @@ pub mod associate;
 pub mod completions;
 pub mod export;
 pub mod import;
+pub mod index_dir;
+pub mod index_jsonl;
 pub mod inject;
 pub mod probe;
+pub mod query;
 
 pub use associate::run_associate;
 pub use completions::run_completions;
 pub use export::run_export;
 pub use import::run_import;
+pub use index_dir::run_index_dir;
+pub use index_jsonl::run_index_jsonl;
 pub use inject::run_inject;
 pub use probe::run_probe;
+pub use query::run_query;
 
 use crate::cli::args::OutputFormat;
 use crate::cli::error::{CliError, Result};
@@ -46,6 +52,16 @@ pub fn print_warning(msg: &str, format: OutputFormat) {
         );
     } else {
         eprintln!("{} {}", "⚠".yellow(), msg);
+    }
+}
+
+/// Truncate a string to `max_chars` characters, appending "..." if truncated.
+///
+/// Uses `char_indices` to avoid panicking on multi-byte UTF-8 boundaries.
+pub fn truncate_preview(s: &str, max_chars: usize) -> String {
+    match s.char_indices().nth(max_chars) {
+        Some((idx, _)) => format!("{}...", &s[..idx]),
+        None => s.to_string(),
     }
 }
 
