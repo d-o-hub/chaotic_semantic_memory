@@ -35,7 +35,7 @@ jobs:
       run: cargo install mdbook
 
     - name: Setup Pages
-      uses: actions/configure-pages@v5
+      uses: actions/configure-pages@v6
 
     - name: Build mdBook documentation
       run: |
@@ -74,7 +74,7 @@ jobs:
     steps:
     - name: Deploy to GitHub Pages
       id: deployment
-      uses: actions/deploy-pages@v4
+      uses: actions/deploy-pages@v5
 
     - name: Deployment summary
       run: |
