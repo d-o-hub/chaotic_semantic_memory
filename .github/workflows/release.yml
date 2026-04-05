@@ -267,10 +267,9 @@ jobs:
       env:
         WASM_OPT_FLAGS: "--enable-bulk-memory --enable-sign-ext"
       run: |
-        cd wasm
-        wasm-pack build --target web --out-dir pkg -- --features wasm
-        cp ../LICENSE pkg/
-        cp ../README.md pkg/
+        wasm-pack build --target web --out-dir wasm/pkg -- --features wasm
+        cp LICENSE wasm/pkg/
+        cp README.md wasm/pkg/
 
     - name: Publish to npm
       if: steps.npm-check.outputs.already-published != 'true'
