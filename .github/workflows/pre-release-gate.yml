@@ -1,0 +1,124 @@
+name: Pre-Release Gate
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  pr-drain-check:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Check for blocking open PRs
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        # Get open PRs without hold-for-next or deferred labels
+        OPEN_PRS=$(gh pr list --state open --json number,title,labels \
+          --jq '[.[] | select(.labels == null or all(.labels[].name; . != "hold-for-next" and . != "deferred"))] | length')
+
+        if [ "$OPEN_PRS" -gt 0 ]; then
+          echo "❌ Found $OPEN_PRS open PRs without hold-for-next/deferred labels"
+          gh pr list --state open
+          exit 1
+        fi
+        echo "✅ No blocking open PRs"
+
+  version-triad:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Verify version triad integrity
+      run: |
+        CARGO_VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d'"' -f2)
+        CHANGELOG_VERSION=$(grep -oP '^\[\K[0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | head -1)
+        WASM_VERSION=$(grep '"version"' wasm/package.json | cut -d'"' -f4)
+
+        echo "Cargo.toml: $CARGO_VERSION"
+        echo "CHANGELOG:  $CHANGELOG_VERSION"
+        echo "wasm/pkg:   $WASM_VERSION"
+
+        if [ "$CARGO_VERSION" != "$CHANGELOG_VERSION" ] || [ "$CARGO_VERSION" != "$WASM_VERSION" ]; then
+          echo "❌ Version mismatch!"
+          exit 1
+        fi
+        echo "✅ Version triad matches: $CARGO_VERSION"
+
+  security-audit:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+
+    - name: Install cargo-audit
+      run: cargo install cargo-audit
+
+    - name: Run security audit
+      run: cargo audit --deny warnings
+
+  wasm-smoke-build:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        target: wasm32-unknown-unknown
+
+    - name: WASM smoke build
+      run: cargo check --target wasm32-unknown-unknown --features wasm
+
+  planning-state-check:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Verify ADR-0042 is Accepted
+      run: |
+        STATUS=$(grep -A1 "^## Status" plans/adr/0042-release-automation-v010.md | tail -1)
+        if [ "$STATUS" != "Accepted" ]; then
+          echo "❌ ADR-0042 status is '$STATUS', expected 'Accepted'"
+          exit 1
+        fi
+        echo "✅ ADR-0042 status is Accepted"
+
+  gate-summary:
+    runs-on: ubuntu-24.04
+    needs: [pr-drain-check, version-triad, security-audit, wasm-smoke-build, planning-state-check]
+    if: always()
+    steps:
+    - name: Gate summary
+      run: |
+        echo "## Pre-Release Gate Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| PR Drain | ${{ needs.pr-drain-check.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Version Triad | ${{ needs.version-triad.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Security Audit | ${{ needs.security-audit.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| WASM Build | ${{ needs.wasm-smoke-build.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Planning State | ${{ needs.planning-state-check.result }} |" >> $GITHUB_STEP_SUMMARY
+
+        if [ "${{ needs.pr-drain-check.result }}" != "success" ] || \
+           [ "${{ needs.version-triad.result }}" != "success" ] || \
+           [ "${{ needs.security-audit.result }}" != "success" ] || \
+           [ "${{ needs.wasm-smoke-build.result }}" != "success" ] || \
+           [ "${{ needs.planning-state-check.result }}" != "success" ]; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "❌ **Gate failed** - one or more checks did not pass" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ **All gates passed**" >> $GITHUB_STEP_SUMMARY

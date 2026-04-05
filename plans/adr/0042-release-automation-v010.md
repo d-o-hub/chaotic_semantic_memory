@@ -2,7 +2,9 @@
 
 ## Status
 
-Proposed
+Accepted
+
+> Updated 2026-04-05: Status changed from Proposed to Accepted as part of issue #50 release guardrails implementation.
 
 ## Context and Problem Statement
 

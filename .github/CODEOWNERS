@@ -1,0 +1,16 @@
+# CODEOWNERS - Repository ownership rules
+# These owners will be required reviewers for pull requests
+
+# Default owner for everything in the repo
+* @d-o-hub
+
+# CI/CD workflows require admin review
+.github/workflows/ @d-o-hub
+
+# Core source code
+src/ @d-o-hub
+
+# Documentation and planning
+plans/ @d-o-hub
+CLAUDE.md @d-o-hub
+AGENTS.md @d-o-hub
