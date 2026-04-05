@@ -14,13 +14,58 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: issue_35_audit_fixes_2026_03_23
-  orchestrator_last_run: issue_35_audit_fixes_2026_03_23
-  orchestrator_last_run_at_utc: 2026-03-23T10:30:00Z
+  action_last_completed: release_orchestration_2026_04_05
+  orchestrator_last_run: release_orchestration_2026_04_05
+  orchestrator_last_run_at_utc: 2026-04-05T11:45:00Z
 
-  # Recent changes (2026-03-23)
+  # Recent changes (2026-04-05)
   recent_changes:
-    - "Issue #35: Comprehensive audit fixes for production readiness"
+    - "Issue #43: memory-context integration - JSONL/Markdown ingest, git-local index, code-aware encoding"
+    - "v0.2.6: memory-context integration release"
+    - "v0.2.7: npm publish path fix (still failed due to scope issue)"
+    - "PR #49: Fix npm scoped package.json for v0.2.8 release"
+    - "PR #45: CLI correctness fixes (UTF-8 truncation, modified_at metadata)"
+    - "Dependabot alert #3: rustls-webpki medium severity vulnerability"
+
+  # Release Orchestration (2026-04-05)
+  release_orchestration_active: true
+  release_orchestration_completed: true
+  release_orchestration_team: release-orchestration
+  pr_49_status: merged
+  pr_49_merged_at: "2026-04-05T14:05:00Z"
+  pr_45_status: merged
+  pr_45_merged_at: "2026-04-05T14:05:00Z"
+  pr_51_status: merged
+  pr_51_merged_at: "2026-04-05T14:20:00Z"
+  issue_50_status: closed
+  issue_50_labels_added_to_issue: true
+  issue_50_milestone_assigned_to_issue: true
+  crates_io_v028_published: true
+  github_release_v028_created: true
+  npm_v028_published: false
+  npm_publish_blocked_reason: "OTP required - npm account requires one-time password authentication"
+  pr_40_status: merged
+  dependabot_alert_3: blocked_upstream
+  dependabot_alert_3_severity: medium
+  dependabot_alert_3_package: rustls-webpki
+  dependabot_alert_3_fix_version: ">=0.103.10"
+  dependabot_alert_3_current_version: "0.102.8"
+  dependabot_alert_3_transitive: true
+  dependabot_alert_3_chain: "libsql 0.4.0/0.9.30 -> hyper-rustls 0.25.0 -> rustls 0.22.4 -> rustls-webpki 0.102.8"
+  dependabot_alert_3_blocker: "No stable rustls-webpki >=0.103.10 exists; alpha 0.104.0-alpha.5 available but not production-ready"
+
+  # Issue #50 Release Guardrails
+  issue_50_status: closed
+  issue_50_pr: 51
+  issue_50_labels_created: true
+  issue_50_labels_added_to_issue: true
+  issue_50_milestone_created: true
+  issue_50_milestone_assigned_to_issue: true
+  issue_50_milestone: "v0.2.7"
+  issue_50_adr_0042_status: "Accepted"
+  issue_50_workflows_added: true
+  npm_missing_versions: ["0.2.6", "0.2.7", "0.2.8"]
+  npm_latest_published: "0.2.5"
     - "Feature-gated dependencies: persistence, parallel, cli features (default includes all)"
     - "Added TTL support: inject_concept_with_ttl, inject_text_with_ttl, purge_expired"
     - "Added expires_at field to Concept struct"
