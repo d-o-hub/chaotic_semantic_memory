@@ -62,7 +62,7 @@ js-sys = "0.3.77"
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }
 tempfile = "3.26.0"
-proptest = "1.6.0"
+proptest = "1.11.0"
 # CLI testing
 assert_cmd = "2.0.16"
 predicates = "3.1.3"
