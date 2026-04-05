@@ -137,8 +137,7 @@ mod tests {
         // Note: git may search parent directories, so this could still return Some
         // if the temp directory is inside a git repo. We just verify the function
         // works without crashing.
-        if path.is_some() {
-            let path = path.unwrap();
+        if let Some(path) = path {
             assert!(
                 path.ends_with("csm.db"),
                 "If path is returned, it should end with csm.db: {:?}",
