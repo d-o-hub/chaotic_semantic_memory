@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.8] - 2026-04-05
+
+### Fixed
+
+- **npm publish workflow**: Copy prepared package.json with scoped name
+  `@d-o-hub/chaotic_semantic_memory` to wasm/pkg directory after wasm-pack build,
+  fixing "403 Forbidden" error due to unscoped package name mismatch.
+
 ## [0.2.7] - 2026-04-05
 
 ### Fixed
@@ -240,7 +248,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CI workflow with security permissions and concurrency controls
 - Trusted Publishing eliminates need for long-lived API tokens
 
-[unreleased]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.2.7...HEAD
+[unreleased]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.2.8...HEAD
+[0.2.8]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.8
 [0.2.7]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.7
 [0.2.6]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.6
 [0.2.5]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.5

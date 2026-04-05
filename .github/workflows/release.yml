@@ -270,6 +270,8 @@ jobs:
         wasm-pack build --target web --out-dir wasm/pkg -- --features wasm
         cp LICENSE wasm/pkg/
         cp README.md wasm/pkg/
+        # Use prepared package.json with scoped name @d-o-hub/chaotic_semantic_memory
+        cp wasm/package.json wasm/pkg/package.json
 
     - name: Publish to npm
       if: steps.npm-check.outputs.already-published != 'true'
