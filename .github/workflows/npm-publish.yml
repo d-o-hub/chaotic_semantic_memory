@@ -143,14 +143,14 @@ jobs:
       working-directory: pkg
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
-        
+
         # Determine npm tag - prerelease versions need explicit tag
         if [[ "$VERSION" == *"- "* ]] || [[ "$VERSION" == *"-"* ]]; then
           NPM_TAG="next"
         else
           NPM_TAG="latest"
         fi
-        
+
         if ! PUBLISHED_VERSIONS=$(npm view "@d-o-hub/chaotic_semantic_memory" versions --json --registry https://registry.npmjs.org 2>/dev/null); then
           echo "❌ Unable to query npm registry for published versions."
           exit 1
@@ -161,18 +161,9 @@ jobs:
           exit 0
         fi
 
-        # Always use NPM_TOKEN if available (not OIDC)
-        if [ -n "$NPM_TOKEN" ]; then
-          echo "Publishing with npm token..."
-          # Configure auth in home directory for npm to use
-          echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
-          npm publish --tag "$NPM_TAG" --access public
-        else
-          echo "Publishing with OIDC provenance..."
-          npm publish --provenance --tag "$NPM_TAG" --access public
-        fi
-      env:
-        NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # Use OIDC Trusted Publishing (no token needed)
+        echo "Publishing with OIDC Trusted Publishing..."
+        npm publish --provenance --tag "$NPM_TAG" --access public
 
   notify:
     runs-on: ubuntu-24.04
