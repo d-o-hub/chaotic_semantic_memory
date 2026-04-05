@@ -72,7 +72,7 @@ async fn framework_import_skips_orphan_associations_without_failing() {
     let import_path = import_file.path().to_str().unwrap().to_string();
 
     let payload = serde_json::json!({
-        "version": "0.2.6",
+        "version": "0.2.7",
         "exported_at": 1u64,
         "concepts": [],
         "associations": [["a", "missing", 0.7]]
