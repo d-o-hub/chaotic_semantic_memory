@@ -5,8 +5,8 @@ use std::process::ExitCode as StdExitCode;
 mod native {
     pub use chaotic_semantic_memory::cli::{
         CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir,
-        resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_inject,
-        run_probe,
+        resolve_git_local_path, run_associate, run_completions, run_export, run_import,
+        run_index_dir, run_index_jsonl, run_inject, run_probe,
     };
     pub use clap::Parser;
     pub use colored::Colorize;
@@ -128,6 +128,26 @@ mod native {
             Commands::Associate(cmd) => run_associate(cmd.clone(), db_path.as_deref(), fmt).await,
             Commands::Export(cmd) => run_export(cmd.clone(), db_path.as_deref(), fmt).await,
             Commands::Import(cmd) => run_import(cmd.clone(), db_path.as_deref(), fmt).await,
+            Commands::IndexJsonl(cmd) => {
+                run_index_jsonl(
+                    cmd.clone(),
+                    db_path.as_deref(),
+                    args.git_local,
+                    args.index_path.as_deref(),
+                    fmt,
+                )
+                .await
+            }
+            Commands::IndexDir(cmd) => {
+                run_index_dir(
+                    cmd.clone(),
+                    db_path.as_deref(),
+                    args.git_local,
+                    args.index_path.as_deref(),
+                    fmt,
+                )
+                .await
+            }
         };
         result.map(|_| ((), fmt))
     }

@@ -47,6 +47,10 @@ pub enum Commands {
     Import(ImportArgs),
     Version(VersionArgs),
     Completions(CompletionsArgs),
+    /// Index JSONL file content into memory.
+    IndexJsonl(IndexJsonlArgs),
+    /// Index Markdown files from directory into memory.
+    IndexDir(IndexDirArgs),
 }
 
 #[derive(Args, Debug, Clone)]
@@ -142,4 +146,44 @@ pub struct CompletionsArgs {
 
     #[arg(short, long, value_name = "FILE")]
     pub output: Option<PathBuf>,
+}
+
+/// Arguments for indexing JSONL files.
+#[derive(Args, Debug, Clone)]
+pub struct IndexJsonlArgs {
+    /// Path to JSONL file to index.
+    #[arg(short = 'F', long, value_name = "FILE")]
+    pub file: PathBuf,
+
+    /// Field name containing text to encode (default: "text").
+    #[arg(short, long, default_value = "text")]
+    pub field: String,
+
+    /// Field name containing unique ID (optional).
+    #[arg(long, value_name = "FIELD")]
+    pub id_field: Option<String>,
+
+    /// Field name containing comma-separated tags (optional).
+    #[arg(long, value_name = "FIELD")]
+    pub tag_field: Option<String>,
+
+    /// Use code-aware encoding for source code content.
+    #[arg(long)]
+    pub code_aware: bool,
+}
+
+/// Arguments for indexing Markdown directory.
+#[derive(Args, Debug, Clone)]
+pub struct IndexDirArgs {
+    /// Glob pattern(s) for files to index (can be repeated).
+    #[arg(short, long, required = true, value_name = "PATTERN")]
+    pub glob: Vec<String>,
+
+    /// Minimum heading level to chunk (default: 2 for ## sections).
+    #[arg(long, default_value = "2", value_name = "LEVEL")]
+    pub heading_level: usize,
+
+    /// Use code-aware encoding for source code content.
+    #[arg(long)]
+    pub code_aware: bool,
 }
