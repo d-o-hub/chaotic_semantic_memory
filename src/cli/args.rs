@@ -42,6 +42,7 @@ pub enum OutputFormat {
 pub enum Commands {
     Inject(InjectArgs),
     Probe(ProbeArgs),
+    Query(QueryArgs),
     Associate(AssociateArgs),
     Export(ExportArgs),
     Import(ImportArgs),
@@ -85,6 +86,30 @@ pub struct ProbeArgs {
 
     #[arg(short, long)]
     pub threshold: Option<f64>,
+}
+
+/// Arguments for text-based similarity query.
+#[derive(Args, Debug, Clone)]
+pub struct QueryArgs {
+    /// Text to encode and search for similar concepts.
+    #[arg(required = true)]
+    pub text: String,
+
+    /// Maximum number of results to return.
+    #[arg(short = 'k', long, default_value = "10")]
+    pub top_k: usize,
+
+    /// Minimum similarity score (0.0-1.0) for results.
+    #[arg(short, long, default_value = "0.0")]
+    pub min_score: f64,
+
+    /// Use code-aware encoding for source code content.
+    #[arg(long)]
+    pub code_aware: bool,
+
+    /// Compact output: trim long text to 200 characters.
+    #[arg(long)]
+    pub compact: bool,
 }
 
 #[derive(Args, Debug, Clone)]

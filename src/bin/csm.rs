@@ -6,7 +6,7 @@ mod native {
     pub use chaotic_semantic_memory::cli::{
         CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir,
         resolve_git_local_path, run_associate, run_completions, run_export, run_import,
-        run_index_dir, run_index_jsonl, run_inject, run_probe,
+        run_index_dir, run_index_jsonl, run_inject, run_probe, run_query,
     };
     pub use clap::Parser;
     pub use colored::Colorize;
@@ -125,6 +125,16 @@ mod native {
             }
             Commands::Inject(cmd) => run_inject(cmd.clone(), db_path.as_deref(), fmt).await,
             Commands::Probe(cmd) => run_probe(cmd.clone(), db_path.as_deref(), fmt).await,
+            Commands::Query(cmd) => {
+                run_query(
+                    cmd.clone(),
+                    db_path.as_deref(),
+                    args.git_local,
+                    args.index_path.as_deref(),
+                    fmt,
+                )
+                .await
+            }
             Commands::Associate(cmd) => run_associate(cmd.clone(), db_path.as_deref(), fmt).await,
             Commands::Export(cmd) => run_export(cmd.clone(), db_path.as_deref(), fmt).await,
             Commands::Import(cmd) => run_import(cmd.clone(), db_path.as_deref(), fmt).await,

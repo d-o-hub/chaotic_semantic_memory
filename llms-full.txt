@@ -8,26 +8,27 @@
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
-- base64 (0.22)
-- clap_complete (4.5.42)
-- bincode (1.3.3)
-- colored (2.2.0)
-- tracing (0.1.41)
-- serde (1.0.219) [features: derive]
-- serde_json (1.0.149)
-- thiserror (2.0.11)
-- clap (4.5.60) [features: derive, env, string]
 - tracing-subscriber (0.3.19)
 - rand (0.8.5)
+- serde (1.0.219) [features: derive]
+- tracing (0.1.41)
+- serde_json (1.0.149)
+- clap (4.5.60) [features: derive, env, string]
+- base64 (0.22)
+- colored (2.2.0)
+- bincode (1.3.3)
+- thiserror (2.0.11)
+- clap_complete (4.5.42)
 - anyhow (1.0.102)
+- glob (0.3.2)
 **Features:**
-- wasm: []
-- default: [cli, persistence, parallel]
-- parallel: [dep:rayon]
-- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored]
+- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - persistence: [dep:libsql]
+- parallel: [dep:rayon]
+- default: [cli, persistence, parallel]
+- wasm: []
 
-Generated: 2026-04-05 08:47:01 UTC  
+Generated: 2026-04-05 08:55:41 UTC  
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Table of Contents
@@ -235,6 +236,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct ImportArgs
 - pub struct VersionArgs
 - pub struct CompletionsArgs
+- pub struct IndexJsonlArgs
+- pub struct IndexDirArgs
 
 ### src/cli/error.rs
 
@@ -279,12 +282,16 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod completions
 - pub mod export
 - pub mod import
+- pub mod index_dir
+- pub mod index_jsonl
 - pub mod inject
 - pub mod probe
 - pub use associate::run_associate
 - pub use completions::run_completions
 - pub use export::run_export
 - pub use import::run_import
+- pub use index_dir::run_index_dir
+- pub use index_jsonl::run_index_jsonl
 - pub use inject::run_inject
 - pub use probe::run_probe
 - pub fn print_success
@@ -293,6 +300,16 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn create_framework
 - pub fn create_framework_with_args
 
+### src/cli/commands/index_jsonl.rs
+
+- pub fn run_index_jsonl
+
+### src/cli/commands/index_dir.rs
+
+- pub fn run_index_dir
+- pub struct MarkdownChunk
+- pub fn chunk_by_heading
+
 ### src/cli/mod.rs
 
 - pub mod args
@@ -300,13 +317,13 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod error
 - pub mod git_local
 - pub use args::*
-- pub use commands::{run_associate, run_completions, run_export, run_import, run_inject, run_probe}
+- pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe}
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
 
 ### src/bin/csm.rs
 
-- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_inject, run_probe}
+- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe}
 - pub use native::clap::Parser
 - pub use native::colored::Colorize
 - pub use native::tracing::Level
@@ -2066,6 +2083,8 @@ pub enum Commands {
     Import(ImportArgs),
     Version(VersionArgs),
     Completions(CompletionsArgs),
+    IndexJsonl(IndexJsonlArgs),
+    IndexDir(IndexDirArgs),
 }
 ```
 
@@ -2185,6 +2204,34 @@ pub struct CompletionsArgs {
 }
 ```
 
+
+### IndexJsonlArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct IndexJsonlArgs {
+    pub file: PathBuf,
+    pub field: String,
+    pub id_field: Option<String>,
+    pub tag_field: Option<String>,
+    pub code_aware: bool,
+}
+```
+
+Arguments for indexing JSONL files.
+
+### IndexDirArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct IndexDirArgs {
+    pub glob: Vec<String>,
+    pub heading_level: usize,
+    pub code_aware: bool,
+}
+```
+
+Arguments for indexing Markdown directory.
 
 
 ## src/cli/error.rs
@@ -2379,6 +2426,20 @@ pub use import::run_import;
 ```
 
 
+### index_dir::run_index_dir
+
+```rust
+pub use index_dir::run_index_dir;
+```
+
+
+### index_jsonl::run_index_jsonl
+
+```rust
+pub use index_jsonl::run_index_jsonl;
+```
+
+
 ### inject::run_inject
 
 ```rust
@@ -2432,6 +2493,50 @@ Create framework with full argument handling including git-local support.
 This is the preferred entry point for CLI commands that need database access.
 
 
+## src/cli/commands/index_jsonl.rs
+
+### run_index_jsonl
+
+```rust
+pub fn run_index_jsonl(args: IndexJsonlArgs, database: Option<&Path>, git_local: bool, index_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+
+
+## src/cli/commands/index_dir.rs
+
+### run_index_dir
+
+```rust
+pub fn run_index_dir(args: IndexDirArgs, database: Option<&Path>, git_local: bool, index_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+
+### MarkdownChunk
+
+```rust
+#[derive(Debug, Clone)]
+pub struct MarkdownChunk {
+    pub heading: String,
+    pub level: usize,
+    pub content: String,
+}
+```
+
+A chunk of markdown content.
+
+### chunk_by_heading
+
+```rust
+pub fn chunk_by_heading(content: &str, min_level: usize) -> Vec<MarkdownChunk>
+```
+
+Chunk markdown content by heading boundaries.
+
+Only chunks at headings >= min_level (default 2 for ##).
+Heading level 1 (#) is typically the document title and skipped.
+
+
 ## src/cli/mod.rs
 
 ### args::*
@@ -2441,10 +2546,10 @@ pub use args::*;
 ```
 
 
-### commands::{run_associate, run_completions, run_export, run_import, run_inject, run_probe}
+### commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe}
 
 ```rust
-pub use commands::{run_associate, run_completions, run_export, run_import, run_inject, run_probe};
+pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe};
 ```
 
 
@@ -2465,10 +2570,10 @@ pub use git_local::{ensure_git_local_dir, resolve_git_local_path};
 
 ## src/bin/csm.rs
 
-### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_inject, run_probe}
+### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe}
 
 ```rust
-pub use chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_inject, run_probe};
+pub use chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe};
 ```
 
 
