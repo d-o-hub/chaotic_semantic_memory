@@ -65,6 +65,10 @@ pub struct TextEncoderConfig {
     /// Whether to lowercase text before encoding.
     /// Default: true.
     pub lowercase: bool,
+
+    /// Enable code-aware tokenization (split on `_`, `-`, `.`, `/`, `::`).
+    /// Default: false.
+    pub code_aware: bool,
 }
 
 impl Default for TextEncoderConfig {
@@ -73,6 +77,7 @@ impl Default for TextEncoderConfig {
             position_stride: 1,
             ngram_size: None,
             lowercase: true,
+            code_aware: false,
         }
     }
 }
@@ -108,10 +113,80 @@ impl TextEncoder {
         Self { config }
     }
 
+    /// Create a code-aware encoder with character trigram overlay.
+    /// This is the recommended configuration for CLI memory-context integration.
+    pub fn new_code_aware() -> Self {
+        Self {
+            config: TextEncoderConfig {
+                ngram_size: Some(3), // Character trigram overlay
+                code_aware: true,
+                ..Default::default()
+            },
+        }
+    }
+
+    /// Tokenize text with code-aware splitting.
+    ///
+    /// Splits on: `_`, `-`, `.`, `/`, `::` in addition to whitespace.
+    /// This improves retrieval for identifiers like `my_function_name`, `MyClass.method`.
+    fn tokenize_code(text: &str) -> Vec<String> {
+        let mut tokens = Vec::new();
+
+        // First split on whitespace
+        for word in text.split_whitespace() {
+            // Then split on code separators: `::`, `_`, `-`, `.`, `/`
+            // Process `::` first since it's multi-char
+            let parts = Self::split_on_separators(word);
+            tokens.extend(parts);
+        }
+
+        tokens
+    }
+
+    /// Split a single word on code separators.
+    fn split_on_separators(word: &str) -> Vec<String> {
+        let mut result = Vec::new();
+        let mut current = String::new();
+        let chars: Vec<char> = word.chars().collect();
+        let mut i = 0;
+
+        while i < chars.len() {
+            // Check for `::` (double colon)
+            if i + 1 < chars.len() && chars[i] == ':' && chars[i + 1] == ':' {
+                if !current.is_empty() {
+                    result.push(current.clone());
+                    current.clear();
+                }
+                i += 2;
+                continue;
+            }
+
+            // Check for single-char separators: `_`, `-`, `.`, `/`
+            let c = chars[i];
+            if c == '_' || c == '-' || c == '.' || c == '/' {
+                if !current.is_empty() {
+                    result.push(current.clone());
+                    current.clear();
+                }
+                i += 1;
+                continue;
+            }
+
+            current.push(c);
+            i += 1;
+        }
+
+        if !current.is_empty() {
+            result.push(current);
+        }
+
+        result
+    }
+
     /// Encode text into a hypervector.
     ///
     /// The encoding process:
-    /// 1. Tokenize (whitespace split, optional lowercase)
+    /// 1. Tokenize (whitespace split, optional lowercase, optional code-aware)
     /// 2. Generate deterministic base vector for each token
     /// 3. Apply position encoding via permutation
     /// 4. Bundle all position-encoded vectors
@@ -123,7 +198,14 @@ impl TextEncoder {
             text.to_string()
         };
 
-        let tokens: Vec<&str> = processed.split_whitespace().collect();
+        let tokens = if self.config.code_aware {
+            Self::tokenize_code(&processed)
+        } else {
+            processed
+                .split_whitespace()
+                .map(|s| s.to_string())
+                .collect()
+        };
 
         if tokens.is_empty() {
             return HVec10240::zero();
@@ -307,5 +389,86 @@ mod tests {
         let hv = encoder.encode("hello world");
         // Should still produce a valid hypervector
         assert_ne!(hv, HVec10240::zero());
+    }
+
+    #[test]
+    fn test_code_aware_tokenize_snake_case() {
+        let tokens = TextEncoder::tokenize_code("my_function_name");
+        assert_eq!(tokens, vec!["my", "function", "name"]);
+    }
+
+    #[test]
+    fn test_code_aware_tokenize_camel_case() {
+        // camelCase doesn't split on separators, so it stays as one token
+        // but the ngram overlay helps with similarity
+        // Note: tokenize_code doesn't lowercase - that's done in encode()
+        let tokens = TextEncoder::tokenize_code("MyClassName");
+        assert_eq!(tokens, vec!["MyClassName"]);
+    }
+
+    #[test]
+    fn test_code_aware_tokenize_path() {
+        let tokens = TextEncoder::tokenize_code("src/lib.rs");
+        assert_eq!(tokens, vec!["src", "lib", "rs"]);
+    }
+
+    #[test]
+    fn test_code_aware_tokenize_double_colon() {
+        let tokens = TextEncoder::tokenize_code("std::collections::HashMap");
+        assert_eq!(tokens, vec!["std", "collections", "HashMap"]);
+    }
+
+    #[test]
+    fn test_code_aware_tokenize_mixed() {
+        let tokens = TextEncoder::tokenize_code("my_module::MyClass.method_name");
+        assert_eq!(tokens, vec!["my", "module", "MyClass", "method", "name"]);
+    }
+
+    #[test]
+    fn test_code_aware_similarity() {
+        let encoder = TextEncoder::new_code_aware();
+        // Similar function names should have high similarity
+        let hv1 = encoder.encode("get_user_by_id");
+        let hv2 = encoder.encode("get_user_by_name");
+        assert!(hv1.cosine_similarity(&hv2) > 0.5);
+    }
+
+    #[test]
+    fn test_code_aware_deterministic() {
+        let encoder = TextEncoder::new_code_aware();
+        let hv1 = encoder.encode("fn process_data(input: &str) -> Result");
+        let hv2 = encoder.encode("fn process_data(input: &str) -> Result");
+        assert!(hv1.cosine_similarity(&hv2) > 0.99);
+    }
+
+    #[test]
+    fn test_code_aware_vs_regular() {
+        let regular = TextEncoder::new();
+        let code_aware = TextEncoder::new_code_aware();
+
+        // Code-aware should produce different vectors due to splitting
+        let hv1 = regular.encode("my_function_name");
+        let hv2 = code_aware.encode("my_function_name");
+        // They should be different (not identical)
+        assert!(hv1.cosine_similarity(&hv2) < 0.95);
+    }
+
+    #[test]
+    fn test_split_on_separators_edge_cases() {
+        // Empty string
+        let tokens = TextEncoder::split_on_separators("");
+        assert!(tokens.is_empty());
+
+        // Only separators
+        let tokens = TextEncoder::split_on_separators("___");
+        assert!(tokens.is_empty());
+
+        // Leading separator
+        let tokens = TextEncoder::split_on_separators("_leading");
+        assert_eq!(tokens, vec!["leading"]);
+
+        // Trailing separator
+        let tokens = TextEncoder::split_on_separators("trailing_");
+        assert_eq!(tokens, vec!["trailing"]);
     }
 }
