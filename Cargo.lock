@@ -366,6 +366,7 @@ dependencies = [
  "colored",
  "criterion",
  "getrandom 0.2.17",
+ "glob",
  "js-sys",
  "libsql",
  "predicates",

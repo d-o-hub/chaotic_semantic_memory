@@ -8,27 +8,27 @@
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
-- tracing-subscriber (0.3.19)
-- rand (0.8.5)
-- serde (1.0.219) [features: derive]
-- tracing (0.1.41)
-- serde_json (1.0.149)
-- clap (4.5.60) [features: derive, env, string]
-- base64 (0.22)
-- colored (2.2.0)
 - bincode (1.3.3)
-- thiserror (2.0.11)
-- clap_complete (4.5.42)
-- anyhow (1.0.102)
+- tracing (0.1.41)
+- clap (4.5.60) [features: derive, env, string]
+- colored (2.2.0)
 - glob (0.3.2)
+- rand (0.8.5)
+- thiserror (2.0.11)
+- tracing-subscriber (0.3.19)
+- clap_complete (4.5.42)
+- serde_json (1.0.149)
+- anyhow (1.0.102)
+- serde (1.0.219) [features: derive]
+- base64 (0.22)
 **Features:**
+- default: [cli, persistence, parallel]
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - persistence: [dep:libsql]
-- parallel: [dep:rayon]
-- default: [cli, persistence, parallel]
 - wasm: []
+- parallel: [dep:rayon]
 
-Generated: 2026-04-05 08:55:41 UTC  
+Generated: 2026-04-05 08:59:34 UTC  
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Core Documentation
@@ -235,6 +235,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct InjectArgs
 - pub enum VectorSource
 - pub struct ProbeArgs
+- pub struct QueryArgs
 - pub struct AssociateArgs
 - pub enum ExportFormat
 - pub struct ExportArgs
@@ -255,6 +256,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl From for ExitCode
 - impl CliError
 - impl ExitCode
+
+### src/cli/commands/query.rs
+
+- pub fn run_query
 
 ### src/cli/commands/associate.rs
 
@@ -292,6 +297,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod index_jsonl
 - pub mod inject
 - pub mod probe
+- pub mod query
 - pub use associate::run_associate
 - pub use completions::run_completions
 - pub use export::run_export
@@ -300,6 +306,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use index_jsonl::run_index_jsonl
 - pub use inject::run_inject
 - pub use probe::run_probe
+- pub use query::run_query
 - pub fn print_success
 - pub fn print_error
 - pub fn print_warning
@@ -323,13 +330,13 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod error
 - pub mod git_local
 - pub use args::*
-- pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe}
+- pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
 
 ### src/bin/csm.rs
 
-- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe}
+- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
 - pub use native::clap::Parser
 - pub use native::colored::Colorize
 - pub use native::tracing::Level
