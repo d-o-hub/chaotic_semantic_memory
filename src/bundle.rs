@@ -30,12 +30,12 @@ impl BundleAccumulator {
 
     /// Add a hypervector to the accumulator.
     pub fn add(&mut self, hv: &HVec10240) {
-        #[allow(clippy::needless_range_loop)]
         for i in 0..80 {
-            for j in 0..128 {
-                if (hv.data[i] >> j) & 1 == 1 {
-                    self.counts[i * 128 + j] += 1;
-                }
+            let mut val = hv.data[i];
+            while val != 0 {
+                let j = val.trailing_zeros() as usize;
+                self.counts[i * 128 + j] += 1;
+                val &= val - 1;
             }
         }
         self.n += 1;
@@ -49,12 +49,12 @@ impl BundleAccumulator {
         if self.n == 0 {
             return;
         }
-        #[allow(clippy::needless_range_loop)]
         for i in 0..80 {
-            for j in 0..128 {
-                if (hv.data[i] >> j) & 1 == 1 {
-                    self.counts[i * 128 + j] -= 1;
-                }
+            let mut val = hv.data[i];
+            while val != 0 {
+                let j = val.trailing_zeros() as usize;
+                self.counts[i * 128 + j] -= 1;
+                val &= val - 1;
             }
         }
         self.n -= 1;
@@ -70,12 +70,12 @@ impl BundleAccumulator {
                 reason: "cannot remove from empty BundleAccumulator".to_string(),
             });
         }
-        #[allow(clippy::needless_range_loop)]
         for i in 0..80 {
-            for j in 0..128 {
-                if (hv.data[i] >> j) & 1 == 1 {
-                    self.counts[i * 128 + j] -= 1;
-                }
+            let mut val = hv.data[i];
+            while val != 0 {
+                let j = val.trailing_zeros() as usize;
+                self.counts[i * 128 + j] -= 1;
+                val &= val - 1;
             }
         }
         self.n -= 1;
@@ -94,11 +94,11 @@ impl BundleAccumulator {
         let mut data = [0u128; 80];
         let threshold = 0; // Majority threshold: count > 0
 
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..80 {
+        for (i, word) in data.iter_mut().enumerate() {
+            let offset = i * 128;
             for j in 0..128 {
-                if self.counts[i * 128 + j] > threshold {
-                    data[i] |= 1u128 << j;
+                if self.counts[offset + j] > threshold {
+                    *word |= 1u128 << j;
                 }
             }
         }
