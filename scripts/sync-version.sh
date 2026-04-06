@@ -42,9 +42,44 @@ fi
 
 # Validate version format (semver)
 if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "Error: Version must be in semver format (e.g., 0.2.0)"
-    exit 1
+  echo "Error: Version must be in semver format (e.g., 0.2.0)"
+  exit 1
 fi
+
+# Guardrail: Validate CHANGELOG format before modifying
+validate_changelog() {
+  local ver="$1"
+  local changelog="CHANGELOG.md"
+  
+  if [ ! -f "$changelog" ]; then
+    echo "Error: $changelog not found"
+    exit 1
+  fi
+  
+  # Check for Unreleased section
+  if ! grep -q "## \\[Unreleased\\]" "$changelog"; then
+    echo "Error: Missing [Unreleased] section in $changelog"
+    exit 1
+  fi
+  
+  # Check for duplicate version headers (would break release workflow)
+  local existing_count
+  existing_count=$(grep -c "^## \\[${ver}\\]" "$changelog" 2>/dev/null || echo "0")
+  if [ "$existing_count" -gt 0 ]; then
+    echo "Error: Version ${ver} already has ${existing_count} header(s) in $changelog"
+    echo "  This would create duplicates. Remove existing headers for ${ver} first."
+    exit 1
+  fi
+  
+  # Check for version link entry at bottom
+  if ! grep -q "^\\[${ver}\\]:" "$changelog" 2>/dev/null; then
+    echo "Warning: Missing version link [${ver}]: at bottom of $changelog"
+    echo "  This will be added automatically by sync-version"
+  fi
+}
+
+# Run validation
+validate_changelog "$VERSION"
 
 # Extract major.minor for Cargo.toml compatibility version
 MAJOR_MINOR=$(echo "$VERSION" | cut -d. -f1,2)

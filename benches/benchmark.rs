@@ -1,9 +1,13 @@
 use chaotic_semantic_memory::HVec10240;
+use chaotic_semantic_memory::bridge_retrieval::BridgeRetrieval;
 use chaotic_semantic_memory::bundle::BundleAccumulator;
 use chaotic_semantic_memory::encoder::TextEncoder;
 use chaotic_semantic_memory::graph_traversal::TraversalConfig;
 use chaotic_semantic_memory::metadata_filter::MetadataFilter;
 use chaotic_semantic_memory::reservoir::Reservoir;
+use chaotic_semantic_memory::semantic_bridge::{
+    BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown,
+};
 use chaotic_semantic_memory::singularity::{Concept, ConceptBuilder, Singularity};
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use std::time::Duration;
@@ -372,6 +376,160 @@ fn bench_retrieval_baseline(c: &mut Criterion) {
     group.finish();
 }
 
+// ─── Semantic Bridge benchmarks ───────────────────────────────────────────────
+
+fn build_bridge_concept_graph(label_count: usize) -> ConceptGraph {
+    let mut graph = ConceptGraph::new();
+    for i in 0..label_count {
+        let concept_id = format!("concept_{i}");
+        let label = format!("label_{i}");
+        graph.add_concept(
+            CanonicalConcept::new(concept_id)
+                .with_label(label)
+                .with_label(format!("alias_{i}")),
+        );
+    }
+    graph
+}
+
+fn build_bridge_singularity(concept_count: usize) -> Singularity {
+    let mut singularity = Singularity::new();
+    for i in 0..concept_count {
+        singularity
+            .inject(
+                ConceptBuilder::new(format!("mem_{i}"))
+                    .with_vector(HVec10240::new_seeded(i as u64))
+                    .with_metadata("_text", format!("memory content {i}"))
+                    .build()
+                    .unwrap(),
+            )
+            .unwrap();
+    }
+    singularity
+}
+
+fn bench_concept_expansion(c: &mut Criterion) {
+    let mut group = c.benchmark_group("concept_expansion");
+
+    // Build concept graphs of different sizes
+    let graph_10 = build_bridge_concept_graph(10);
+    let graph_50 = build_bridge_concept_graph(50);
+    let graph_100 = build_bridge_concept_graph(100);
+
+    let concept_ids: Vec<String> = (0..5).map(|i| format!("concept_{i}")).collect();
+
+    group.bench_function("expand_10_labels", |b| {
+        b.iter(|| graph_10.expand(black_box(&concept_ids), black_box(2)))
+    });
+
+    group.bench_function("expand_50_labels", |b| {
+        b.iter(|| graph_50.expand(black_box(&concept_ids), black_box(2)))
+    });
+
+    group.bench_function("expand_100_labels", |b| {
+        b.iter(|| graph_100.expand(black_box(&concept_ids), black_box(2)))
+    });
+
+    group.finish();
+}
+
+fn bench_bridge_retrieval(c: &mut Criterion) {
+    let mut group = c.benchmark_group("bridge_retrieval");
+    group.sample_size(PROBE_BENCH_SAMPLE_SIZE);
+    group.warm_up_time(Duration::from_secs(PROBE_BENCH_WARMUP_SECS));
+    group.measurement_time(Duration::from_secs(PROBE_BENCH_MEASUREMENT_SECS));
+
+    let encoder = TextEncoder::new();
+    let config = BridgeConfig::default();
+
+    // 100 concepts with matching concept graph
+    let graph_100 = build_bridge_concept_graph(100);
+    let singularity_100 = build_bridge_singularity(100);
+    let bridge_100 = BridgeRetrieval::new(encoder.clone(), graph_100, config.clone());
+
+    group.bench_function("pipeline_100_concepts", |b| {
+        b.iter(|| {
+            black_box(
+                bridge_100
+                    .query(
+                        black_box(&singularity_100),
+                        black_box("memory content"),
+                        10,
+                        None,
+                    )
+                    .unwrap(),
+            )
+        })
+    });
+
+    // 1k concepts
+    let graph_1k = build_bridge_concept_graph(1000);
+    let singularity_1k = build_bridge_singularity(1000);
+    let bridge_1k = BridgeRetrieval::new(encoder.clone(), graph_1k, config.clone());
+
+    group.bench_function("pipeline_1k_concepts", |b| {
+        b.iter(|| {
+            black_box(
+                bridge_1k
+                    .query(
+                        black_box(&singularity_1k),
+                        black_box("memory content"),
+                        10,
+                        None,
+                    )
+                    .unwrap(),
+            )
+        })
+    });
+
+    group.finish();
+}
+
+fn bench_memory_packet_compilation(c: &mut Criterion) {
+    let mut group = c.benchmark_group("memory_packet");
+
+    // Build 20 hits with varying scores
+    let hits: Vec<BridgeHit> = (0..20)
+        .map(|i| BridgeHit {
+            id: format!("hit_{i}"),
+            text_preview: Some(format!("This is memory content number {i} with some text")),
+            scores: ScoreBreakdown::deterministic_only(0.9 - (i as f32 * 0.03)),
+        })
+        .collect();
+
+    let config = BridgeConfig {
+        max_packet_facts: 20,
+        token_budget: 500,
+        ..Default::default()
+    };
+
+    group.bench_function("compile_20_hits", |b| {
+        b.iter(|| {
+            black_box(MemoryPacket {
+                query_intent: "test query".to_string(),
+                facts: hits
+                    .iter()
+                    .filter_map(|h| h.text_preview.clone())
+                    .take(config.max_packet_facts)
+                    .collect(),
+                sources: hits
+                    .iter()
+                    .map(|h| h.id.clone())
+                    .take(config.max_packet_facts)
+                    .collect(),
+                confidence: hits
+                    .iter()
+                    .take(config.max_packet_facts)
+                    .map(|h| h.scores.final_score)
+                    .sum::<f32>()
+                    / config.max_packet_facts as f32,
+            })
+        })
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_hvec_creation,
@@ -385,6 +543,9 @@ criterion_group!(
     bench_filtered_search,
     bench_graph_traversal,
     bench_bundle_accumulator,
-    bench_retrieval_baseline
+    bench_retrieval_baseline,
+    bench_concept_expansion,
+    bench_bridge_retrieval,
+    bench_memory_packet_compilation
 );
 criterion_main!(benches);

@@ -11,14 +11,14 @@
 
 ```yaml
 semantic_bridge:
-  adr_0061_status: proposed
-  concept_graph_exists: false
-  bridge_types_defined: false
-  bridge_retrieval_pipeline: false
-  memory_grounding_field: false
-  semantic_reranker_trait: false
-  memory_packet_output: false
-  bridge_persistence: false
+  adr_0061_status: implemented
+  concept_graph_exists: true
+  bridge_types_defined: true
+  bridge_retrieval_pipeline: true
+  memory_grounding_field: true
+  semantic_reranker_trait: true
+  memory_packet_output: true
+  bridge_persistence: true
   bridge_tests: false
   bridge_benchmarks: false
 
