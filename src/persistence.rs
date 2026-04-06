@@ -275,6 +275,7 @@ impl Persistence {
                 created_at: created_at as u64,
                 modified_at: modified_at as u64,
                 expires_at: expires_at.map(|t| t as u64),
+                canonical_concept_ids: Vec::new(),
             }))
         } else {
             Ok(None)
@@ -327,6 +328,7 @@ impl Persistence {
                 created_at: created_at as u64,
                 modified_at: modified_at as u64,
                 expires_at: expires_at.map(|t| t as u64),
+                canonical_concept_ids: Vec::new(),
             });
         }
 

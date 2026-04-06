@@ -34,6 +34,9 @@ pub struct Concept {
     pub modified_at: u64,
     #[serde(default)]
     pub expires_at: Option<u64>,
+    /// Links to canonical concepts for semantic bridge scoring.
+    #[serde(default)]
+    pub canonical_concept_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone)]

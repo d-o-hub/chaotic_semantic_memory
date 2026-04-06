@@ -8,27 +8,27 @@
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
+- anyhow (1.0.102)
 - bincode (1.3.3)
-- rand (0.8.5)
+- serde (1.0.219) [features: derive]
 - tracing-subscriber (0.3.19)
-- clap_complete (4.5.42)
+- glob (0.3.2)
 - serde_json (1.0.149)
 - base64 (0.22)
-- serde (1.0.219) [features: derive]
-- clap (4.5.60) [features: derive, env, string]
-- colored (2.2.0)
 - thiserror (2.0.11)
-- glob (0.3.2)
+- rand (0.8.5)
+- colored (2.2.0)
 - tracing (0.1.41)
-- anyhow (1.0.102)
+- clap (4.5.60) [features: derive, env, string]
+- clap_complete (4.5.42)
 **Features:**
-- default: [cli, persistence, parallel]
-- wasm: []
+- parallel: [dep:rayon]
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - persistence: [dep:libsql]
-- parallel: [dep:rayon]
+- default: [cli, persistence, parallel]
+- wasm: []
 
-Generated: 2026-04-06 17:23:12 UTC  
+Generated: 2026-04-06 17:52:26 UTC  
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Table of Contents
@@ -83,6 +83,21 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - impl ChaoticSemanticFramework
 
+### src/semantic_bridge.rs
+
+- pub struct CanonicalConcept
+- impl CanonicalConcept
+- pub struct BridgeConfig
+- impl Default for BridgeConfig
+- pub struct ScoreBreakdown
+- impl ScoreBreakdown
+- pub struct BridgeHit
+- pub struct MemoryPacket
+- impl MemoryPacket
+- pub trait SemanticReranker
+- pub struct ConceptGraph
+- impl ConceptGraph
+
 ### src/framework_ops.rs
 
 - impl ChaoticSemanticFramework
@@ -109,6 +124,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use framework_builder::FrameworkBuilder
 - pub use framework_events::MemoryEvent
 - pub use hyperdim::{HVec10240, batch_cosine_similarity}
+- pub use semantic_bridge::{BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown}
 - pub use singularity::{Concept, ConceptBuilder}
 - pub use singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
 - pub mod bundle
@@ -125,6 +141,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod persistence_wasm
 - pub mod reservoir
 - pub mod retrieval
+- pub mod semantic_bridge
 - pub mod singularity
 - pub use crate::persistence_wasm as persistence
 - pub mod persistence
@@ -138,6 +155,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use prelude::crate::framework_builder::FrameworkBuilder
 - pub use prelude::crate::framework_events::MemoryEvent
 - pub use prelude::crate::hyperdim::HVec10240
+- pub use prelude::crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket}
 - pub use prelude::crate::singularity::{Concept, ConceptBuilder}
 - pub use prelude::crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
 - pub mod wasm
@@ -1178,6 +1196,165 @@ impl ChaoticSemanticFramework {
 
 
 
+## src/semantic_bridge.rs
+
+### CanonicalConcept
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CanonicalConcept {
+    pub id: String,
+    pub version: u32,
+    pub labels: Vec<String>,
+    pub related: Vec<String>,
+}
+```
+
+A canonical concept with symbolic identity relationships.
+
+Canonical concepts represent semantic equivalence classes (e.g., "agent memory"
+≈ "cross-session context" ≈ "ai memory") without modifying stored vectors.
+
+### impl CanonicalConcept
+
+```rust
+impl CanonicalConcept {
+    pub fn new(id: impl Trait) -> Self;
+    pub fn with_label(self, label: impl Trait) -> Self;
+    pub fn with_related(self, related_id: impl Trait) -> Self;
+}
+```
+
+
+### BridgeConfig
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BridgeConfig {
+    pub max_expansion_depth: u8,
+    pub max_packet_facts: usize,
+    pub token_budget: usize,
+    pub deterministic_weight: f32,
+    pub concept_weight: f32,
+    pub semantic_weight: f32,
+}
+```
+
+Configuration for the bridge retrieval pipeline.
+
+### impl Default for BridgeConfig
+
+```rust
+impl Default for BridgeConfig {
+}
+```
+
+
+### ScoreBreakdown
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScoreBreakdown {
+    pub deterministic: f32,
+    pub concept: f32,
+    pub semantic: f32,
+    pub final_score: f32,
+    pub evidence: Vec<String>,
+}
+```
+
+Breakdown of scores for a bridge retrieval hit.
+
+### impl ScoreBreakdown
+
+```rust
+impl ScoreBreakdown {
+    pub fn deterministic_only(score: f32) -> Self;
+}
+```
+
+
+### BridgeHit
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BridgeHit {
+    pub id: String,
+    pub text_preview: Option<String>,
+    pub scores: ScoreBreakdown,
+}
+```
+
+A single hit from bridge retrieval.
+
+### MemoryPacket
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryPacket {
+    pub query_intent: String,
+    pub facts: Vec<String>,
+    pub sources: Vec<String>,
+    pub confidence: f32,
+}
+```
+
+Compressed memory packet for LLM context injection.
+
+### impl MemoryPacket
+
+```rust
+impl MemoryPacket {
+    pub fn estimated_tokens(&self) -> usize;
+    pub fn to_json(&self) -> serde_json::Result<String>;
+    pub fn to_json_pretty(&self) -> serde_json::Result<String>;
+}
+```
+
+
+### SemanticReranker
+
+```rust
+pub trait SemanticReranker: Send + Sync {
+    fn version(&self) -> &str;
+    fn rerank(&self, query: &str, hits: &mut [BridgeHit]);
+}
+```
+
+Trait for optional semantic reranking.
+
+Implementations can wrap local models, remote APIs, or rule-based heuristics.
+The reranker never mutates deterministic scores—only adjusts ordering.
+
+### ConceptGraph
+
+```rust
+#[derive(Debug, Clone, Default)]
+pub struct ConceptGraph {
+}
+```
+
+In-memory canonical concept graph for symbolic semantic expansion.
+
+### impl ConceptGraph
+
+```rust
+impl ConceptGraph {
+    pub fn new() -> Self;
+    pub fn add_concept(&mut self, concept: CanonicalConcept);
+    pub fn remove_concept(&mut self, id: &str) -> Option<CanonicalConcept>;
+    pub fn get_concept(&self, id: &str) -> Option<&CanonicalConcept>;
+    pub fn match_tokens(&self, tokens: &[String]) -> Vec<String>;
+    pub fn expand(&self, concept_ids: &[String], max_depth: u8) -> Vec<String>;
+    pub fn load_from_json(reader: impl Trait) -> crate::Result<Self>;
+    pub fn save_to_json(&self, writer: impl Trait) -> crate::Result<()>;
+    pub fn concept_count(&self) -> usize;
+    pub fn label_count(&self) -> usize;
+}
+```
+
+
+
 ## src/framework_ops.rs
 
 ### impl ChaoticSemanticFramework
@@ -1366,6 +1543,13 @@ pub use hyperdim::{HVec10240, batch_cosine_similarity};
 ```
 
 
+### semantic_bridge::{BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown}
+
+```rust
+pub use semantic_bridge::{BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown};
+```
+
+
 ### singularity::{Concept, ConceptBuilder}
 
 ```rust
@@ -1477,6 +1661,13 @@ pub use crate::framework_events::MemoryEvent;
 
 ```rust
 pub use crate::hyperdim::HVec10240;
+```
+
+
+### crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket}
+
+```rust
+pub use crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket};
 ```
 
 
@@ -2962,6 +3153,7 @@ impl TextEncoder {
     pub fn new_code_aware() -> Self;
     pub fn encode(&self, text: &str) -> HVec10240;
     pub fn encode_with_ngrams(&self, text: &str, n: usize) -> HVec10240;
+    pub fn tokenize(text: &str, code_aware: bool, lowercase: bool) -> Vec<String>;
 }
 ```
 

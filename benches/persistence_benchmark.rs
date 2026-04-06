@@ -13,6 +13,7 @@ fn make_concept(id: &str) -> Concept {
         created_at: 1,
         modified_at: 1,
         expires_at: None,
+        canonical_concept_ids: Vec::new(),
     }
 }
 
@@ -38,6 +39,7 @@ fn make_concept_with_metadata(id: &str) -> Concept {
         created_at: 1,
         modified_at: 1,
         expires_at: None,
+        canonical_concept_ids: Vec::new(),
     }
 }
 

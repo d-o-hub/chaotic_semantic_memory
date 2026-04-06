@@ -28,6 +28,7 @@ pub struct ConceptBuilder {
     metadata: HashMap<String, serde_json::Value>,
     metadata_error: Option<MemoryError>,
     ttl_seconds: Option<u64>,
+    canonical_concept_ids: Vec<String>,
 }
 
 impl ConceptBuilder {
@@ -40,7 +41,15 @@ impl ConceptBuilder {
             metadata: HashMap::new(),
             metadata_error: None,
             ttl_seconds: None,
+            canonical_concept_ids: Vec::new(),
         }
+    }
+
+    /// Sets the canonical concept IDs for semantic bridge linking.
+    #[must_use]
+    pub fn with_canonical_concepts(mut self, ids: Vec<String>) -> Self {
+        self.canonical_concept_ids = ids;
+        self
     }
 
     /// Sets the TTL (time to live) in seconds for this concept.
@@ -99,6 +108,7 @@ impl ConceptBuilder {
             created_at: now,
             modified_at: now,
             expires_at,
+            canonical_concept_ids: self.canonical_concept_ids,
         })
     }
 }

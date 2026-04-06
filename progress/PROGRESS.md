@@ -1,3 +1,39 @@
+## 2026-04-06: Release Workflow Production Solution
+
+### Summary
+Diagnosed and documented production-ready npm publish solution using OIDC Trusted Publishing.
+
+### Root Cause
+**v0.2.9 npm publish failed** due to duplicate CHANGELOG header at release time:
+- Commit `795ad92` had `## [0.2.9]` on line 8 AND `## [0.2.9] - 2026-04-06` on line 9
+- This broke awk extraction in release workflow
+- Fixed in commits `ee5786e` (remove duplicate) and `4b0f088` (add version link)
+
+### Production Solution Verified
+The release workflow is already correctly configured:
+1. **OIDC Trusted Publishing** - `npm publish --provenance` (no NPM_TOKEN needed)
+2. **Idempotent checks** - Skips if version exists on crates.io/npm
+3. **Changelog validation** - Verifies single header format
+
+### Verification
+- Tested workflow_dispatch trigger
+- Confirmed idempotent behavior (skips existing tags)
+- Documented in LEARNINGS.md
+
+### Current State
+- ✅ All tests passing
+- ✅ Release workflow validated
+- ✅ OIDC provenance confirmed
+- 📝 Solution documented in LEARNINGS.md
+
+### Next Release Steps
+1. Update version in Cargo.toml (e.g., 0.3.0)
+2. Run `./scripts/sync-version.sh 0.3.0`
+3. Update CHANGELOG with `## [0.3.0] - YYYY-MM-DD`
+4. Commit: `git commit -m "release: v0.3.0"`
+5. Push: `git push origin main`
+6. Workflow creates tag and publishes automatically
+
 ## 2026-03-17: Retrieval Optimization and Benchmark Hygiene
 
 ### Summary

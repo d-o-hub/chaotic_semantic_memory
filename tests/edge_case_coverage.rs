@@ -39,6 +39,7 @@ fn concept_and_association_limits_enforced() {
         created_at,
         modified_at: created_at,
         expires_at: None,
+        canonical_concept_ids: Vec::new(),
     };
 
     singularity.inject(mk("a", 1)).unwrap();

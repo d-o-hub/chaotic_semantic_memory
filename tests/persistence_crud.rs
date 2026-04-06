@@ -14,6 +14,7 @@ fn make_concept(id: &str, created_at: u64, modified_at: u64) -> Concept {
         created_at,
         modified_at,
         expires_at: None,
+        canonical_concept_ids: Vec::new(),
     }
 }
 
@@ -27,6 +28,7 @@ fn make_concept_with_meta(id: &str, meta_key: &str, meta_value: &str) -> Concept
         created_at: 1,
         modified_at: 1,
         expires_at: None,
+        canonical_concept_ids: Vec::new(),
     }
 }
 
@@ -406,6 +408,7 @@ async fn metadata_preserved_across_roundtrip() {
         created_at: 100,
         modified_at: 200,
         expires_at: None,
+        canonical_concept_ids: Vec::new(),
     };
 
     persistence.save_concept(&concept).await.unwrap();
@@ -434,6 +437,7 @@ async fn vector_integrity_preserved() {
         created_at: 1,
         modified_at: 1,
         expires_at: None,
+        canonical_concept_ids: Vec::new(),
     };
 
     persistence.save_concept(&concept).await.unwrap();

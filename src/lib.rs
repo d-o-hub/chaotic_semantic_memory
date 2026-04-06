@@ -30,6 +30,7 @@
 //! - `Persistence`: Replaced with stubs in `persistence_wasm`
 //! - `process_sequence`: No Rayon parallelization in WASM
 
+pub use bridge_retrieval::BridgeRetrieval;
 pub use bundle::BundleAccumulator;
 pub use error::{MemoryError, Result};
 pub use framework::ChaoticSemanticFramework;
@@ -42,6 +43,7 @@ pub use semantic_bridge::{
 pub use singularity::{Concept, ConceptBuilder};
 pub use singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats};
 
+pub mod bridge_retrieval;
 pub mod bundle;
 #[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]
 pub mod cli;
@@ -50,6 +52,7 @@ pub mod encoder;
 pub mod error;
 mod export_payload;
 pub mod framework;
+mod framework_bridge;
 pub mod framework_builder;
 mod framework_events;
 #[cfg(not(target_arch = "wasm32"))]
@@ -189,6 +192,7 @@ pub mod persistence {
 }
 
 pub mod prelude {
+    pub use crate::bridge_retrieval::BridgeRetrieval;
     pub use crate::bundle::BundleAccumulator;
     pub use crate::error::{MemoryError, Result};
     pub use crate::framework::ChaoticSemanticFramework;

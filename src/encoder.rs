@@ -125,6 +125,11 @@ impl TextEncoder {
         }
     }
 
+    /// Get the encoder configuration.
+    pub fn config(&self) -> &TextEncoderConfig {
+        &self.config
+    }
+
     /// Tokenize text with code-aware splitting.
     ///
     /// Splits on: `_`, `-`, `.`, `/`, `::` in addition to whitespace.
@@ -437,7 +442,6 @@ mod tests {
         let tokens = TextEncoder::tokenize_code("src/lib.rs");
         assert_eq!(tokens, vec!["src", "lib", "rs"]);
     }
-
     #[test]
     fn test_code_aware_tokenize_double_colon() {
         let tokens = TextEncoder::tokenize_code("std::collections::HashMap");
@@ -471,7 +475,6 @@ mod tests {
     fn test_code_aware_vs_regular() {
         let regular = TextEncoder::new();
         let code_aware = TextEncoder::new_code_aware();
-
         // Code-aware should produce different vectors due to splitting
         let hv1 = regular.encode("my_function_name");
         let hv2 = code_aware.encode("my_function_name");
@@ -484,15 +487,12 @@ mod tests {
         // Empty string
         let tokens = TextEncoder::split_on_separators("");
         assert!(tokens.is_empty());
-
         // Only separators
         let tokens = TextEncoder::split_on_separators("___");
         assert!(tokens.is_empty());
-
         // Leading separator
         let tokens = TextEncoder::split_on_separators("_leading");
         assert_eq!(tokens, vec!["leading"]);
-
         // Trailing separator
         let tokens = TextEncoder::split_on_separators("trailing_");
         assert_eq!(tokens, vec!["trailing"]);

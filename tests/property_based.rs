@@ -54,6 +54,7 @@ proptest! {
             created_at: 1,
             modified_at: 1,
             expires_at: None,
+            canonical_concept_ids: Vec::new(),
         };
         let concept_b = Concept {
             id: "b".to_string(),
@@ -62,6 +63,7 @@ proptest! {
             created_at: 1,
             modified_at: 1,
             expires_at: None,
+            canonical_concept_ids: Vec::new(),
         };
 
         singularity.inject(concept_a).unwrap();

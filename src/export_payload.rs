@@ -103,6 +103,7 @@ impl BinaryConcept {
             created_at: self.created_at,
             modified_at: self.modified_at,
             expires_at: None,
+            canonical_concept_ids: Vec::new(),
         })
     }
 }

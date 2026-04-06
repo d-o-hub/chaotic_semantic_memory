@@ -18,6 +18,7 @@ async fn persistence_roundtrip_crud() {
         created_at: 1,
         modified_at: 1,
         expires_at: None,
+        canonical_concept_ids: Vec::new(),
     };
 
     persistence.save_concept(&concept).await.unwrap();
@@ -50,6 +51,7 @@ async fn persistence_rejects_association_for_missing_concept_when_fk_enabled() {
         created_at: 1,
         modified_at: 1,
         expires_at: None,
+        canonical_concept_ids: Vec::new(),
     };
     persistence.save_concept(&concept).await.unwrap();
 
@@ -83,6 +85,7 @@ async fn backup_and_restore_roundtrip_state() {
         created_at: 1,
         modified_at: 1,
         expires_at: None,
+        canonical_concept_ids: Vec::new(),
     };
     persistence.save_concept(&concept_alpha).await.unwrap();
     persistence.backup(backup_path).await.unwrap();
@@ -94,6 +97,7 @@ async fn backup_and_restore_roundtrip_state() {
         created_at: 2,
         modified_at: 2,
         expires_at: None,
+        canonical_concept_ids: Vec::new(),
     };
     persistence.save_concept(&concept_beta).await.unwrap();
 

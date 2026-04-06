@@ -655,3 +655,69 @@ Result: No content printed, fallback to "Release $VERSION"
 - [ ] CHANGELOG has `[VERSION]:` link entry at bottom
 - [ ] npm Trusted Publisher configured in npm UI
 - [ ] Version Integrity CI passes before pushing release
+
+## 2026-04-06: Release Workflow Production Solution
+
+### Root Cause Analysis
+**v0.2.9 npm publish failure** was caused by duplicate CHANGELOG header:
+```
+## [0.2.9]           ← Duplicate header (line 8)
+## [0.2.9] - 2026-04-06  ← Correct header (line 9)
+```
+This broke awk extraction in release workflow (lines 203-209 in release.yml).
+
+### Production-Ready Solution Implemented
+**Current workflow is already correctly configured:**
+
+1. **OIDC Trusted Publishing for npm** (line 282):
+   - `npm publish --provenance --access public`
+   - No NPM_TOKEN secret needed (uses GitHub OIDC)
+   - Node.js 24+ with `id-token: write` permission
+
+2. **Idempotent Release Workflow**:
+   - Checks existing crates.io versions (lines 146-154)
+   - Checks existing GitHub releases (lines 173-185)
+   - Checks existing npm versions (lines 254-264)
+   - Skips publishing if version exists
+
+3. **Changelog Validation** (line 42):
+   - Verifies `## [VERSION]` header exists
+   - Extracts content using awk (lines 203-209)
+
+### What Worked
+1. Using `workflow_dispatch` to trigger releases manually
+2. Tag deletion + re-creation to re-trigger failed releases
+3. Idempotent checks preventing duplicate publishes
+
+### Technical Insights
+- **npm OIDC > NPM_TOKEN**: OIDC tokens auto-rotate, no expiration issues
+- **Changelog format**: Must have single `## [VERSION] - DATE` header
+- **Tag lifecycle**: Workflow creates tags from Cargo.toml version automatically
+
+### What to Avoid
+- ❌ Do NOT create git tags manually - workflow creates them
+- ❌ Do NOT use NPM_TOKEN secret - OIDC is production-ready
+- ❌ Do NOT duplicate CHANGELOG headers - breaks awk extraction
+
+### Final Checklist for Releases
+1. Update `Cargo.toml` version
+2. Run `./scripts/sync-version.sh <version>`
+3. Add CHANGELOG entry with proper format
+4. Commit and push to main
+5. Workflow creates tag and publishes automatically
+6. Monitor with `gh run watch`
+
+### Verification Commands
+```bash
+# Check existing versions
+npm view @d-o-hub/chaotic_semantic_memory versions
+curl -s https://crates.io/api/v1/crates/chaotic_semantic_memory/versions | jq '.versions[0].num'
+
+# Re-trigger failed release
+git tag -d vX.X.X
+git push origin :refs/tags/vX.X.X
+gh workflow run release.yml --ref main
+
+# Monitor workflow
+gh run watch
+```
