@@ -8,27 +8,27 @@
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
-- base64 (0.22)
 - clap_complete (4.5.42)
-- serde_json (1.0.149)
-- bincode (1.3.3)
-- tracing (0.1.41)
-- clap (4.5.60) [features: derive, env, string]
-- colored (2.2.0)
-- serde (1.0.219) [features: derive]
-- tracing-subscriber (0.3.19)
-- rand (0.8.5)
+- base64 (0.22)
 - anyhow (1.0.102)
 - glob (0.3.2)
+- colored (2.2.0)
+- bincode (1.3.3)
+- tracing-subscriber (0.3.19)
+- tracing (0.1.41)
+- serde (1.0.219) [features: derive]
+- serde_json (1.0.149)
+- rand (0.8.5)
 - thiserror (2.0.11)
+- clap (4.5.60) [features: derive, env, string]
 **Features:**
-- persistence: [dep:libsql]
-- default: [cli, persistence, parallel]
 - parallel: [dep:rayon]
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
+- persistence: [dep:libsql]
+- default: [cli, persistence, parallel]
 - wasm: []
 
-Generated: 2026-04-05 14:07:58 UTC  
+Generated: 2026-04-06 16:37:19 UTC  
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Table of Contents
@@ -124,6 +124,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod persistence
 - pub mod persistence_wasm
 - pub mod reservoir
+- pub mod retrieval
 - pub mod singularity
 - pub use crate::persistence_wasm as persistence
 - pub mod persistence
@@ -198,6 +199,30 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/singularity_ext.rs
 
 - impl Singularity
+
+### src/retrieval/mod.rs
+
+- pub mod bm25
+- pub mod hybrid
+- pub use bm25::{Bm25Config, Bm25Index}
+- pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
+
+### src/retrieval/hybrid.rs
+
+- pub fn compute_weights
+- pub fn normalize_scores
+- pub fn merge_results
+- pub enum HybridMode
+- pub struct HybridConfig
+- impl Default for HybridConfig
+
+### src/retrieval/bm25.rs
+
+- pub struct Bm25Config
+- impl Default for Bm25Config
+- pub struct Bm25Index
+- impl Default for Bm25Index
+- impl Bm25Index
 
 ### src/export_payload.rs
 
@@ -1878,6 +1903,158 @@ impl Singularity {
 
 
 
+## src/retrieval/mod.rs
+
+### bm25::{Bm25Config, Bm25Index}
+
+```rust
+pub use bm25::{Bm25Config, Bm25Index};
+```
+
+
+### hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
+
+```rust
+pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores};
+```
+
+
+
+## src/retrieval/hybrid.rs
+
+### compute_weights
+
+```rust
+pub fn compute_weights(token_count: usize) -> (f32, f32)
+```
+
+Compute query-length-dependent weights for hybrid retrieval.
+
+Returns (keyword_weight, semantic_weight) based on token count.
+
+| Query Tokens | Keyword | Semantic | Rationale |
+|-------------|---------|----------|-----------|
+| 1-2 | 0.9 | 0.1 | Exact match dominates |
+| 3-4 | 0.7 | 0.3 | Keyword still strong |
+| 5-8 | 0.4 | 0.6 | Semantic takes over |
+| 9+ | 0.2 | 0.8 | Full semantic mode |
+
+### normalize_scores
+
+```rust
+pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)>
+```
+
+Normalize scores to [0, 1] range using min-max normalization.
+
+If all scores are equal, returns 0.5 for all.
+
+### merge_results
+
+```rust
+pub fn merge_results(bm25_results: &[(String, f32)], hdc_results: &[(String, f32)], weights: (f32, f32)) -> Vec<(String, f32)>
+```
+
+Merge BM25 and HDC results with given weights.
+
+Takes two result sets (from BM25 and HDC), normalizes scores,
+and combines them using weighted sum.
+
+Duplicate IDs are merged by taking the maximum combined score.
+
+### HybridMode
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum HybridMode {
+    Auto,
+    SemanticOnly,
+    KeywordOnly,
+    Custom(f32),
+}
+```
+
+Hybrid retrieval mode.
+
+### HybridConfig
+
+```rust
+#[derive(Debug, Clone)]
+pub struct HybridConfig {
+    pub mode: HybridMode,
+    pub min_score: f32,
+}
+```
+
+Configuration for hybrid retrieval.
+
+### impl Default for HybridConfig
+
+```rust
+impl Default for HybridConfig {
+}
+```
+
+
+
+## src/retrieval/bm25.rs
+
+### Bm25Config
+
+```rust
+#[derive(Debug, Clone, Copy)]
+pub struct Bm25Config {
+    pub k1: f32,
+    pub b: f32,
+}
+```
+
+BM25 parameters.
+
+### impl Default for Bm25Config
+
+```rust
+impl Default for Bm25Config {
+}
+```
+
+
+### Bm25Index
+
+```rust
+#[derive(Debug, Clone)]
+pub struct Bm25Index {
+}
+```
+
+BM25 keyword search index.
+
+### impl Default for Bm25Index
+
+```rust
+impl Default for Bm25Index {
+}
+```
+
+
+### impl Bm25Index
+
+```rust
+impl Bm25Index {
+    pub fn new() -> Self;
+    pub fn with_config(config: Bm25Config) -> Self;
+    pub fn add_document<T: AsRef>(&mut self, id: &str, tokens: &[T]);
+    pub fn remove_document(&mut self, id: &str);
+    pub fn search<T: AsRef>(&self, query_tokens: &[T], top_k: usize) -> Vec<(String, f32)>;
+    pub fn clear(&mut self);
+    pub fn len(&self) -> usize;
+    pub fn is_empty(&self) -> bool;
+    pub fn avg_doc_length(&self) -> f32;
+}
+```
+
+
+
 ## src/export_payload.rs
 
 ### impl From<serde_json::Value> for BinaryMetadataValue
@@ -2144,6 +2321,9 @@ pub struct QueryArgs {
     pub min_score: f64,
     pub code_aware: bool,
     pub compact: bool,
+    pub semantic_only: bool,
+    pub keyword_only: bool,
+    pub keyword_weight: Option<f64>,
 }
 ```
 

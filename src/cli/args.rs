@@ -110,6 +110,20 @@ pub struct QueryArgs {
     /// Compact output: trim long text to 200 characters.
     #[arg(long)]
     pub compact: bool,
+
+    /// Disable hybrid mode (use semantic-only HDC search).
+    #[arg(long)]
+    pub semantic_only: bool,
+
+    /// Use keyword-only BM25 search (no semantic matching).
+    #[arg(long)]
+    pub keyword_only: bool,
+
+    /// Override automatic keyword weight (0.0-1.0).
+    /// Default is query-length-dependent: 0.9 for 1-2 tokens, 0.7 for 3-4,
+    /// 0.4 for 5-8, 0.2 for 9+.
+    #[arg(long, value_name = "WEIGHT")]
+    pub keyword_weight: Option<f64>,
 }
 
 #[derive(Args, Debug, Clone)]

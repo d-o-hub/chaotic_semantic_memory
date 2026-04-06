@@ -65,6 +65,7 @@ mod persistence_versions;
 #[cfg(target_arch = "wasm32")]
 pub mod persistence_wasm;
 pub mod reservoir;
+pub mod retrieval;
 pub mod singularity;
 mod singularity_ext;
 mod singularity_retrieval;
