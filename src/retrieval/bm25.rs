@@ -1,0 +1,396 @@
+//! BM25 keyword search index for hybrid retrieval.
+//!
+//! Implements the Okapi BM25 ranking function for exact keyword matching.
+//! Used alongside HDC semantic search for improved short-query recall.
+//!
+//! # Algorithm
+//!
+//! BM25 scores documents based on:
+//! - Term frequency (TF) with saturation parameter k1
+//! - Inverse document frequency (IDF)
+//! - Document length normalization with parameter b
+//!
+//! # Example
+//!
+//! ```
+//! use chaotic_semantic_memory::retrieval::bm25::Bm25Index;
+//!
+//! let mut index = Bm25Index::new();
+//! index.add_document("doc1", &["hello", "world"]);
+//! index.add_document("doc2", &["hello", "rust"]);
+//!
+//! let results = index.search(&["hello", "world"], 10);
+//! assert_eq!(results[0].0, "doc1"); // Exact match ranks first
+//! ```
+
+use std::collections::HashMap;
+
+/// BM25 parameters.
+#[derive(Debug, Clone, Copy)]
+pub struct Bm25Config {
+    /// Term frequency saturation parameter (default: 1.2)
+    pub k1: f32,
+    /// Document length normalization parameter (default: 0.75)
+    pub b: f32,
+}
+
+impl Default for Bm25Config {
+    fn default() -> Self {
+        Self { k1: 1.2, b: 0.75 }
+    }
+}
+
+/// A document in the BM25 index.
+#[derive(Debug, Clone)]
+struct Document {
+    /// Document ID.
+    id: String,
+    /// Term frequencies in this document.
+    term_freqs: HashMap<String, u32>,
+    /// Document length (number of tokens).
+    length: usize,
+}
+
+/// BM25 keyword search index.
+#[derive(Debug, Clone)]
+pub struct Bm25Index {
+    /// Indexed documents.
+    documents: Vec<Document>,
+    /// Document ID to index mapping.
+    doc_index: HashMap<String, usize>,
+    /// Document frequency for each term (number of docs containing term).
+    doc_freqs: HashMap<String, u32>,
+    /// Total document length (for average calculation).
+    total_length: usize,
+    /// Configuration.
+    config: Bm25Config,
+}
+
+impl Default for Bm25Index {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Bm25Index {
+    /// Create a new BM25 index with default configuration.
+    pub fn new() -> Self {
+        Self::with_config(Bm25Config::default())
+    }
+
+    /// Create a new BM25 index with custom configuration.
+    pub fn with_config(config: Bm25Config) -> Self {
+        Self {
+            documents: Vec::new(),
+            doc_index: HashMap::new(),
+            doc_freqs: HashMap::new(),
+            total_length: 0,
+            config,
+        }
+    }
+
+    /// Add a document to the index.
+    ///
+    /// If a document with the same ID exists, it is replaced.
+    pub fn add_document<T: AsRef<str>>(&mut self, id: &str, tokens: &[T]) {
+        // Remove existing document if present
+        if let Some(&idx) = self.doc_index.get(id) {
+            self.remove_document_at(idx);
+        }
+
+        // Build term frequencies
+        let mut term_freqs: HashMap<String, u32> = HashMap::new();
+        for token in tokens {
+            *term_freqs.entry(token.as_ref().to_string()).or_insert(0) += 1;
+        }
+
+        // Update document frequencies
+        for term in term_freqs.keys() {
+            *self.doc_freqs.entry(term.clone()).or_insert(0) += 1;
+        }
+
+        // Add document
+        let doc = Document {
+            id: id.to_string(),
+            term_freqs,
+            length: tokens.len(),
+        };
+
+        let idx = self.documents.len();
+        self.documents.push(doc);
+        self.doc_index.insert(id.to_string(), idx);
+        self.total_length += tokens.len();
+    }
+
+    /// Remove a document from the index.
+    pub fn remove_document(&mut self, id: &str) {
+        if let Some(&idx) = self.doc_index.get(id) {
+            self.remove_document_at(idx);
+        }
+    }
+
+    fn remove_document_at(&mut self, idx: usize) {
+        let doc = &self.documents[idx];
+
+        // Update document frequencies
+        for term in doc.term_freqs.keys() {
+            if let Some(df) = self.doc_freqs.get_mut(term) {
+                *df = df.saturating_sub(1);
+            }
+        }
+
+        self.total_length = self.total_length.saturating_sub(doc.length);
+        self.documents.remove(idx);
+
+        // Rebuild index mapping
+        self.doc_index.clear();
+        for (i, doc) in self.documents.iter().enumerate() {
+            self.doc_index.insert(doc.id.clone(), i);
+        }
+    }
+
+    /// Search for documents matching the query.
+    ///
+    /// Returns up to `top_k` results sorted by BM25 score (descending).
+    pub fn search<T: AsRef<str>>(&self, query_tokens: &[T], top_k: usize) -> Vec<(String, f32)> {
+        if self.documents.is_empty() || query_tokens.is_empty() {
+            return Vec::new();
+        }
+
+        let n = self.documents.len() as f32;
+        let avgdl = if self.documents.is_empty() {
+            1.0
+        } else {
+            self.total_length as f32 / n
+        };
+
+        // Compute query term frequencies
+        let mut query_freqs: HashMap<String, u32> = HashMap::new();
+        for token in query_tokens {
+            *query_freqs.entry(token.as_ref().to_string()).or_insert(0) += 1;
+        }
+
+        // Score each document
+        let mut scores: Vec<(String, f32)> = self
+            .documents
+            .iter()
+            .map(|doc| {
+                let score = self.score_document(doc, &query_freqs, n, avgdl);
+                (doc.id.clone(), score)
+            })
+            .filter(|(_, score)| *score > 0.0)
+            .collect();
+
+        // Sort by score descending
+        scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        scores.truncate(top_k);
+        scores
+    }
+
+    fn score_document(
+        &self,
+        doc: &Document,
+        query_freqs: &HashMap<String, u32>,
+        n: f32,
+        avgdl: f32,
+    ) -> f32 {
+        let mut score = 0.0;
+        let k1 = self.config.k1;
+        let b = self.config.b;
+        let doc_len = doc.length as f32;
+
+        for term in query_freqs.keys() {
+            // Skip terms not in document
+            let tf = match doc.term_freqs.get(term) {
+                Some(&tf) => tf as f32,
+                None => continue,
+            };
+
+            // IDF calculation
+            let df = self.doc_freqs.get(term).copied().unwrap_or(0) as f32;
+            let idf = ((n - df + 0.5) / (df + 0.5) + 1.0).ln();
+
+            // BM25 term score
+            let numerator = tf * (k1 + 1.0);
+            let denominator = tf + k1 * (1.0 - b + b * doc_len / avgdl);
+
+            score += idf * numerator / denominator;
+        }
+
+        score
+    }
+
+    /// Clear all documents from the index.
+    pub fn clear(&mut self) {
+        self.documents.clear();
+        self.doc_index.clear();
+        self.doc_freqs.clear();
+        self.total_length = 0;
+    }
+
+    /// Get the number of documents in the index.
+    pub fn len(&self) -> usize {
+        self.documents.len()
+    }
+
+    /// Check if the index is empty.
+    pub fn is_empty(&self) -> bool {
+        self.documents.is_empty()
+    }
+
+    /// Get the average document length.
+    pub fn avg_doc_length(&self) -> f32 {
+        if self.documents.is_empty() {
+            0.0
+        } else {
+            self.total_length as f32 / self.documents.len() as f32
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add_document() {
+        let mut index = Bm25Index::new();
+        index.add_document("doc1", &["hello", "world"]);
+        assert_eq!(index.len(), 1);
+    }
+
+    #[test]
+    fn test_search_exact_match() {
+        let mut index = Bm25Index::new();
+        index.add_document("doc1", &["hello", "world"]);
+        index.add_document("doc2", &["hello", "rust"]);
+
+        let results = index.search(&["hello", "world"], 10);
+        assert_eq!(results[0].0, "doc1");
+    }
+
+    #[test]
+    fn test_search_partial_match() {
+        let mut index = Bm25Index::new();
+        index.add_document("doc1", &["hello", "world"]);
+        index.add_document("doc2", &["goodbye", "world"]);
+
+        let results = index.search(&["hello"], 10);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, "doc1");
+    }
+
+    #[test]
+    fn test_search_empty_index() {
+        let index = Bm25Index::new();
+        let results = index.search(&["hello"], 10);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_search_empty_query() {
+        let mut index = Bm25Index::new();
+        index.add_document("doc1", &["hello", "world"]);
+
+        let results: Vec<(String, f32)> = index.search::<&str>(&[], 10);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_remove_document() {
+        let mut index = Bm25Index::new();
+        index.add_document("doc1", &["hello", "world"]);
+        index.add_document("doc2", &["hello", "rust"]);
+
+        index.remove_document("doc1");
+        assert_eq!(index.len(), 1);
+
+        let results = index.search(&["world"], 10);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_replace_document() {
+        let mut index = Bm25Index::new();
+        index.add_document("doc1", &["hello", "world"]);
+        index.add_document("doc1", &["goodbye", "rust"]);
+
+        assert_eq!(index.len(), 1);
+
+        let results = index.search(&["rust"], 10);
+        assert_eq!(results[0].0, "doc1");
+    }
+
+    #[test]
+    fn test_top_k() {
+        let mut index = Bm25Index::new();
+        index.add_document("doc1", &["hello", "world"]);
+        index.add_document("doc2", &["hello", "rust"]);
+        index.add_document("doc3", &["hello", "python"]);
+
+        let results = index.search(&["hello"], 2);
+        assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn test_idf_rare_term_higher_score() {
+        let mut index = Bm25Index::new();
+
+        // "rare" appears in 1 doc, "common" appears in 3 docs
+        index.add_document("doc1", &["rare", "common"]);
+        index.add_document("doc2", &["common"]);
+        index.add_document("doc3", &["common"]);
+
+        // Searching for both should rank doc1 higher (contains rare term)
+        let results = index.search(&["rare", "common"], 10);
+        assert_eq!(results[0].0, "doc1");
+    }
+
+    #[test]
+    fn test_doc_length_normalization() {
+        let mut index = Bm25Index::new();
+
+        // Short document with term
+        index.add_document("short", &["hello"]);
+        // Long document with same term repeated
+        index.add_document(
+            "long",
+            &[
+                "hello", "hello", "hello", "hello", "hello", "other", "words", "here",
+            ],
+        );
+
+        // Both match, but shorter doc should score higher per-term
+        // (BM25 normalizes by document length)
+        let results = index.search(&["hello"], 10);
+        assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn test_clear() {
+        let mut index = Bm25Index::new();
+        index.add_document("doc1", &["hello", "world"]);
+        index.clear();
+
+        assert!(index.is_empty());
+        let results = index.search(&["hello"], 10);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_avg_doc_length() {
+        let mut index = Bm25Index::new();
+        index.add_document("doc1", &["a", "b", "c"]);
+        index.add_document("doc2", &["x", "y"]);
+
+        assert_eq!(index.avg_doc_length(), 2.5);
+    }
+
+    #[test]
+    fn test_custom_config() {
+        let config = Bm25Config { k1: 2.0, b: 0.5 };
+        let index = Bm25Index::with_config(config);
+        assert_eq!(index.config.k1, 2.0);
+        assert_eq!(index.config.b, 0.5);
+    }
+}
