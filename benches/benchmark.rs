@@ -206,7 +206,7 @@ fn bench_filtered_search(c: &mut Criterion) {
     let query = HVec10240::random();
     let filter = MetadataFilter::Eq(
         "tag".to_string(),
-        serde_json::Value::String("science".to_string()),
+        serde_json::from_str("\"science\"").unwrap(),
     );
 
     group.bench_function("filtered_100", |b| {

@@ -133,12 +133,12 @@ impl HVec10240 {
             .fold(
                 || Box::new([0i32; Self::DIMENSION]),
                 |mut local, v| {
-                    #[allow(clippy::needless_range_loop)]
                     for i in 0..80 {
-                        for j in 0..128 {
-                            if (v.data[i] >> j) & 1 == 1 {
-                                local[i * 128 + j] += 1;
-                            }
+                        let mut val = v.data[i];
+                        while val != 0 {
+                            let j = val.trailing_zeros() as usize;
+                            local[i * 128 + j] += 1;
+                            val &= val - 1;
                         }
                     }
                     local
@@ -159,12 +159,12 @@ impl HVec10240 {
         let counts = {
             let mut local = Box::new([0i32; Self::DIMENSION]);
             for v in vectors {
-                #[allow(clippy::needless_range_loop)]
                 for i in 0..80 {
-                    for j in 0..128 {
-                        if (v.data[i] >> j) & 1 == 1 {
-                            local[i * 128 + j] += 1;
-                        }
+                    let mut val = v.data[i];
+                    while val != 0 {
+                        let j = val.trailing_zeros() as usize;
+                        local[i * 128 + j] += 1;
+                        val &= val - 1;
                     }
                 }
             }
@@ -175,12 +175,12 @@ impl HVec10240 {
         let counts = {
             let mut local = Box::new([0i32; Self::DIMENSION]);
             for v in vectors {
-                #[allow(clippy::needless_range_loop)]
                 for i in 0..80 {
-                    for j in 0..128 {
-                        if (v.data[i] >> j) & 1 == 1 {
-                            local[i * 128 + j] += 1;
-                        }
+                    let mut val = v.data[i];
+                    while val != 0 {
+                        let j = val.trailing_zeros() as usize;
+                        local[i * 128 + j] += 1;
+                        val &= val - 1;
                     }
                 }
             }
@@ -189,12 +189,12 @@ impl HVec10240 {
 
         let threshold = vectors.len() as i32 / 2;
         let mut data = [0u128; 80];
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..Self::DIMENSION {
-            if counts[i] > threshold {
-                let word = i / 128;
-                let bit = i % 128;
-                data[word] |= 1u128 << bit;
+        for (i, word) in data.iter_mut().enumerate() {
+            let offset = i * 128;
+            for j in 0..128 {
+                if counts[offset + j] > threshold {
+                    *word |= 1u128 << j;
+                }
             }
         }
 
