@@ -24,6 +24,12 @@ impl ChaoticSemanticFramework {
                 ),
             });
         }
+        if id.chars().any(|c| c.is_control()) {
+            return Err(MemoryError::InvalidInput {
+                field: "id".to_string(),
+                reason: "concept ID must not contain control characters".to_string(),
+            });
+        }
         Ok(())
     }
 
@@ -82,5 +88,44 @@ impl ChaoticSemanticFramework {
             });
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_concept_id_dangerous_chars() {
+        // Null byte
+        assert!(ChaoticSemanticFramework::validate_concept_id("test\0id").is_err());
+        // Newline
+        assert!(ChaoticSemanticFramework::validate_concept_id("test\nid").is_err());
+        // Carriage return
+        assert!(ChaoticSemanticFramework::validate_concept_id("test\rid").is_err());
+        // Tab
+        assert!(ChaoticSemanticFramework::validate_concept_id("test\tid").is_err());
+        // ESC
+        assert!(ChaoticSemanticFramework::validate_concept_id("test\x1bid").is_err());
+        // DEL
+        assert!(ChaoticSemanticFramework::validate_concept_id("test\x7fid").is_err());
+
+        // Valid IDs
+        assert!(ChaoticSemanticFramework::validate_concept_id("valid-id_123").is_ok());
+        assert!(ChaoticSemanticFramework::validate_concept_id("id:with:colons").is_ok());
+        assert!(ChaoticSemanticFramework::validate_concept_id("path/to/resource").is_ok());
+    }
+
+    #[test]
+    fn test_validate_concept_id_empty() {
+        assert!(ChaoticSemanticFramework::validate_concept_id("").is_err());
+    }
+
+    #[test]
+    fn test_validate_concept_id_too_long() {
+        let long_id = "a".repeat(257);
+        assert!(ChaoticSemanticFramework::validate_concept_id(&long_id).is_err());
+        let edge_id = "a".repeat(256);
+        assert!(ChaoticSemanticFramework::validate_concept_id(&edge_id).is_ok());
     }
 }

@@ -81,16 +81,7 @@ pub async fn create_framework(
 }
 
 fn validate_concept_id(id: &str) -> Result<()> {
-    if id.is_empty() {
-        return Err(CliError::Validation("concept ID cannot be empty".into()));
-    }
-    if id.len() > 256 {
-        return Err(CliError::Validation(format!(
-            "concept ID too long (max 256 bytes, got {})",
-            id.len()
-        )));
-    }
-    Ok(())
+    ChaoticSemanticFramework::validate_concept_id(id).map_err(|e| CliError::Validation(e.to_string()))
 }
 
 fn validate_top_k(top_k: usize) -> Result<()> {
