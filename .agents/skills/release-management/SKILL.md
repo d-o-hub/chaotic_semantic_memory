@@ -93,6 +93,48 @@ For faster validation without benchmarks:
 ./scripts/pre-release-validate.sh --skip-bench
 ```
 
+## CHANGELOG Requirements (CRITICAL)
+
+The release workflow extracts changelog content using awk. **Incorrect formatting causes empty release notes.**
+
+### Required Format
+```markdown
+## [0.2.9] - 2026-04-06
+
+### Added
+- Description of new features
+
+### Changed
+- Description of changes
+
+### Fixed
+- Description of fixes
+
+[unreleased]: https://github.com/.../compare/v0.2.9...HEAD
+[0.2.9]: https://github.com/.../releases/tag/v0.2.9
+[0.2.8]: https://github.com/.../releases/tag/v0.2.8
+```
+
+### Common Mistakes (DO NOT DO)
+```markdown
+## [0.2.9]                    ❌ Duplicate/empty header
+## [0.2.9] - 2026-04-06       ❌ Causes awk to exit immediately
+
+## [0.2.9]                    ❌ Missing date
+```
+
+### Pre-Commit Validation
+```bash
+# Check for duplicate headers
+grep -c '^\#\# \[.*\]' CHANGELOG.md | while read count; do
+  [ "$count" -gt 1 ] && echo "❌ Duplicate header detected" && exit 1
+done
+
+# Check for version link entry at bottom
+VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d'"' -f2)
+grep -q "^\[${VERSION}\]:" CHANGELOG.md || echo "❌ Missing version link"
+```
+
 ## Publishing Targets
 
 | Target | Method | Trigger |

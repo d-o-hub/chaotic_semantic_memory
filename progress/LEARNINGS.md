@@ -597,3 +597,61 @@ Before updating any documentation:
 - Do not run release steps on every main push; gate on tag existence.
 - Do not rely on `npm publish` errors for control flow; preflight registry checks instead.
 - Do not leave workflow summary scripts with unterminated conditionals.
+
+## 2026-04-06: Release Workflow Changelog & npm OIDC Failures
+
+### Problem
+1. **CHANGELOG missing from GitHub Release** - v0.2.9 release showed only "Release 0.2.9" body
+2. **npm publish failed with 404** - OIDC Trusted Publishing not configured
+
+### Root Causes
+
+#### CHANGELOG Extraction Failure
+The release workflow uses awk to extract changelog content between `## [version]` headers:
+```awk
+/^## \[/ {
+  if (found) exit
+  if (index($0, "[" ver "]") > 0) { found=1; next }
+}
+found { print }
+```
+
+A **duplicate empty header** in CHANGELOG.md caused immediate exit:
+```markdown
+## [0.2.9]          <- first match, sets found=1
+## [0.2.9] - 2026-04-06   <- matches pattern, found=true, EXIT
+```
+Result: No content printed, fallback to "Release $VERSION"
+
+#### npm OIDC Failure
+- OIDC Trusted Publishing requires configuration in **npm UI**, not just GitHub
+- ADR-0046 Phase 4 (Configure Trusted Publisher) was never completed
+- Without npm-side config, OIDC token is rejected with "404 Not Found"
+
+### Solutions
+1. **CHANGELOG Validation**: Add pre-commit check for duplicate headers
+2. **npm OIDC Setup**: Complete ADR-0046 Phase 4
+   - Go to: https://www.npmjs.com/package/@d-o-hub/chaotic_semantic_memory/access
+   - Add GitHub Actions Trusted Publisher with:
+     - Organization: `d-o-hub`
+     - Repository: `chaotic_semantic_memory`
+     - Workflow: `release.yml`
+     - Environment: `npm`
+
+### Technical Insights
+- CHANGELOG header format must be `## [VERSION] - YYYY-MM-DD` (single header)
+- Version Integrity CI checks for `[VERSION]` link entries at bottom of CHANGELOG
+- OIDC requires both GitHub-side (`id-token: write`) AND npm-side configuration
+- npm OIDC only works with Node.js 24+ (npm 11.5.1+)
+
+### What to Avoid
+- Do not have duplicate `## [version]` headers in CHANGELOG.md
+- Do not assume OIDC works without npm UI configuration
+- Do not skip Version Integrity CI failures - they indicate real problems
+- Do not forget to add `[VERSION]:` link entries at bottom of CHANGELOG
+
+### Pre-Release Checklist Updates
+- [ ] CHANGELOG has exactly one `## [VERSION]` header with date
+- [ ] CHANGELOG has `[VERSION]:` link entry at bottom
+- [ ] npm Trusted Publisher configured in npm UI
+- [ ] Version Integrity CI passes before pushing release
