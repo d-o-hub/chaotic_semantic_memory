@@ -1,5 +1,20 @@
 # Quick Reference Commands
 
+## Build Performance
+```bash
+# sccache can be enabled for local builds (not in CI):
+# Add to .cargo/config.toml:
+# [build]
+# rustc-wrapper = "sccache"
+# Start server: sccache --start-server
+# Check stats: sccache --stats
+
+# Free disk space (removes ~35GB from target/)
+cargo clean
+
+# Rebuild faster with sccache
+```
+
 ## Version Sync (Before Release)
 ```bash
 # Check version synchronization (runs in CI)
