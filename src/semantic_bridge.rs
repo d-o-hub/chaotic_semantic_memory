@@ -286,6 +286,11 @@ impl ConceptGraph {
     pub fn label_count(&self) -> usize {
         self.label_index.len()
     }
+
+    /// Return an iterator over all concepts.
+    pub fn all_concepts(&self) -> impl Iterator<Item = &CanonicalConcept> {
+        self.concepts.values()
+    }
 }
 
 #[cfg(test)]

@@ -160,6 +160,20 @@ impl Persistence {
                     .map_err(|e| MemoryError::database(format!("Failed migration v3: {}", e)))?;
             }
 
+            if version == 4 {
+                // Add canonical_concepts table for semantic bridge
+                conn.execute_batch(
+                    "CREATE TABLE IF NOT EXISTS canonical_concepts (
+                        id TEXT PRIMARY KEY,
+                        version INTEGER NOT NULL,
+                        labels_json TEXT NOT NULL,
+                        related_json TEXT NOT NULL
+                    );",
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v4: {}", e)))?;
+            }
+
             conn.execute(
                 "INSERT INTO __schema_version(version) VALUES (?1)",
                 libsql::params![version],
@@ -324,6 +338,20 @@ impl Persistence {
                 conn.execute_batch("ALTER TABLE concepts ADD COLUMN expires_at INTEGER;")
                     .await
                     .map_err(|e| MemoryError::database(format!("Failed migration v3: {}", e)))?;
+            }
+
+            if version == 4 {
+                // Add canonical_concepts table for semantic bridge
+                conn.execute_batch(
+                    "CREATE TABLE IF NOT EXISTS canonical_concepts (
+                        id TEXT PRIMARY KEY,
+                        version INTEGER NOT NULL,
+                        labels_json TEXT NOT NULL,
+                        related_json TEXT NOT NULL
+                    );",
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v4: {}", e)))?;
             }
 
             conn.execute(

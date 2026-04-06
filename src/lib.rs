@@ -43,6 +43,8 @@ pub use semantic_bridge::{
 pub use singularity::{Concept, ConceptBuilder};
 pub use singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats};
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+mod bridge_persistence;
 pub mod bridge_retrieval;
 pub mod bundle;
 #[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]

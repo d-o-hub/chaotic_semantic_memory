@@ -8,27 +8,27 @@
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
-- anyhow (1.0.102)
-- bincode (1.3.3)
-- serde (1.0.219) [features: derive]
-- tracing-subscriber (0.3.19)
 - glob (0.3.2)
 - serde_json (1.0.149)
-- base64 (0.22)
-- thiserror (2.0.11)
-- rand (0.8.5)
-- colored (2.2.0)
+- serde (1.0.219) [features: derive]
 - tracing (0.1.41)
+- rand (0.8.5)
 - clap (4.5.60) [features: derive, env, string]
+- colored (2.2.0)
+- thiserror (2.0.11)
+- tracing-subscriber (0.3.19)
+- bincode (1.3.3)
+- base64 (0.22)
 - clap_complete (4.5.42)
+- anyhow (1.0.102)
 **Features:**
 - parallel: [dep:rayon]
-- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
-- persistence: [dep:libsql]
-- default: [cli, persistence, parallel]
 - wasm: []
+- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
+- default: [cli, persistence, parallel]
+- persistence: [dep:libsql]
 
-Generated: 2026-04-06 17:52:26 UTC  
+Generated: 2026-04-06 18:17:18 UTC  
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Table of Contents
@@ -118,6 +118,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/lib.rs
 
+- pub use bridge_retrieval::BridgeRetrieval
 - pub use bundle::BundleAccumulator
 - pub use error::{MemoryError, Result}
 - pub use framework::ChaoticSemanticFramework
@@ -127,6 +128,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use semantic_bridge::{BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown}
 - pub use singularity::{Concept, ConceptBuilder}
 - pub use singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
+- pub mod bridge_retrieval
 - pub mod bundle
 - pub mod cli
 - pub mod concept_builder
@@ -149,6 +151,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct persistence::ConceptVersion
 - impl persistence::Persistence
 - pub mod prelude
+- pub use prelude::crate::bridge_retrieval::BridgeRetrieval
 - pub use prelude::crate::bundle::BundleAccumulator
 - pub use prelude::crate::error::{MemoryError, Result}
 - pub use prelude::crate::framework::ChaoticSemanticFramework
@@ -189,6 +192,11 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - impl Default for Concept
 - impl Singularity
+
+### src/bridge_retrieval.rs
+
+- pub struct BridgeRetrieval
+- impl BridgeRetrieval
 
 ### src/persistence_wasm.rs
 
@@ -370,6 +378,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
+
+### src/framework_bridge.rs
+
+- impl ChaoticSemanticFramework
 
 ### src/bin/csm.rs
 
@@ -1079,6 +1091,7 @@ let concept = ConceptBuilder::new("example")
 ```rust
 impl ConceptBuilder {
     pub fn new(id: impl Trait) -> Self;
+    pub fn with_canonical_concepts(self, ids: Vec<String>) -> Self;
     pub fn with_ttl(self, ttl_seconds: u64) -> Self;
     pub fn with_vector(self, vector: HVec10240) -> Self;
     pub fn with_metadata(self, key: impl Trait, value: impl Trait) -> Self;
@@ -1501,6 +1514,13 @@ impl Persistence {
 
 ## src/lib.rs
 
+### bridge_retrieval::BridgeRetrieval
+
+```rust
+pub use bridge_retrieval::BridgeRetrieval;
+```
+
+
 ### bundle::BundleAccumulator
 
 ```rust
@@ -1619,6 +1639,13 @@ impl Persistence {
     pub fn schema_version(&self) -> Result<i64>;
     pub fn apply_migrations(&self, _target_version: i64) -> Result<()>;
 }
+```
+
+
+### crate::bridge_retrieval::BridgeRetrieval
+
+```rust
+pub use crate::bridge_retrieval::BridgeRetrieval;
 ```
 
 
@@ -1777,6 +1804,7 @@ pub struct Concept {
     pub created_at: u64,
     pub modified_at: u64,
     pub expires_at: Option<u64>,
+    pub canonical_concept_ids: Vec<String>,
 }
 ```
 
@@ -1906,6 +1934,34 @@ impl Singularity {
     pub fn purge_expired(&mut self) -> usize;
     pub fn is_expired(&self, id: &str) -> bool;
     pub fn active_concept_ids(&self) -> Vec<String>;
+}
+```
+
+
+
+## src/bridge_retrieval.rs
+
+### BridgeRetrieval
+
+```rust
+#[derive(Debug, Clone)]
+pub struct BridgeRetrieval {
+}
+```
+
+Bridge retrieval orchestrator combining concept expansion with HDC recall.
+
+### impl BridgeRetrieval
+
+```rust
+impl BridgeRetrieval {
+    pub fn new(encoder: TextEncoder, concept_graph: ConceptGraph, config: BridgeConfig) -> Self;
+    pub fn with_defaults(encoder: TextEncoder, concept_graph: ConceptGraph) -> Self;
+    pub fn query(&self, singularity: &Singularity, query_text: &str, top_k: usize, reranker: Option<&dyn Trait>) -> Result<Vec<BridgeHit>>;
+    pub fn memory_packet(&self, singularity: &Singularity, query_text: &str, top_k: usize, reranker: Option<&dyn Trait>) -> Result<MemoryPacket>;
+    pub fn concept_graph(&self) -> &ConceptGraph;
+    pub fn encoder(&self) -> &TextEncoder;
+    pub fn config(&self) -> &BridgeConfig;
 }
 ```
 
@@ -2979,6 +3035,22 @@ pub use git_local::{ensure_git_local_dir, resolve_git_local_path};
 
 
 
+## src/framework_bridge.rs
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
+    pub fn probe_bridge_text(&self, query: &str, top_k: usize, bridge: &BridgeRetrieval) -> Result<Vec<BridgeHit>>;
+    pub fn probe_bridge_text_with_reranker(&self, query: &str, top_k: usize, bridge: &BridgeRetrieval, reranker: &dyn Trait) -> Result<Vec<BridgeHit>>;
+    pub fn probe_bridge_text_filtered(&self, query: &str, top_k: usize, bridge: &BridgeRetrieval, filter: &MetadataFilter) -> Result<Vec<BridgeHit>>;
+    pub fn memory_packet_text(&self, query: &str, top_k: usize, bridge: &BridgeRetrieval) -> Result<MemoryPacket>;
+    pub fn memory_packet_text_with_reranker(&self, query: &str, top_k: usize, bridge: &BridgeRetrieval, reranker: &dyn Trait) -> Result<MemoryPacket>;
+}
+```
+
+
+
 ## src/bin/csm.rs
 
 ### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
@@ -3151,6 +3223,7 @@ impl TextEncoder {
     pub fn new() -> Self;
     pub fn with_config(config: TextEncoderConfig) -> Self;
     pub fn new_code_aware() -> Self;
+    pub fn config(&self) -> &TextEncoderConfig;
     pub fn encode(&self, text: &str) -> HVec10240;
     pub fn encode_with_ngrams(&self, text: &str, n: usize) -> HVec10240;
     pub fn tokenize(text: &str, code_aware: bool, lowercase: bool) -> Vec<String>;
