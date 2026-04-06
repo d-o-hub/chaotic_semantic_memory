@@ -1,7 +1,7 @@
 # ADR-0061: Semantic Bridge Layer as Overlay on Singularity
 
 ## Status
-Proposed
+Accepted
 
 ## Context
 
