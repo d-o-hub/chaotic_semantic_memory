@@ -1,3 +1,6 @@
+[build]
+rustc-wrapper = "sccache"
+
 [alias]
 test-all = "test --all-targets --all-features"
 bench-local = "bench --bench benchmark -- --baseline main"

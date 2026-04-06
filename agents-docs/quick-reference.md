@@ -1,5 +1,17 @@
 # Quick Reference Commands
 
+## Build Performance
+```bash
+# sccache is enabled by default via .cargo/config.toml
+# Start server if needed: sccache --start-server
+# Check stats: sccache --stats
+
+# Free disk space (removes ~35GB from target/)
+cargo clean
+
+# Rebuild faster with sccache
+```
+
 ## Version Sync (Before Release)
 ```bash
 # Check version synchronization (runs in CI)
