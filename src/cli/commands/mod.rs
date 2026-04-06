@@ -81,7 +81,8 @@ pub async fn create_framework(
 }
 
 fn validate_concept_id(id: &str) -> Result<()> {
-    ChaoticSemanticFramework::validate_concept_id(id).map_err(|e| CliError::Validation(e.to_string()))
+    ChaoticSemanticFramework::validate_concept_id(id)
+        .map_err(|e| CliError::Validation(e.to_string()))
 }
 
 fn validate_top_k(top_k: usize) -> Result<()> {
