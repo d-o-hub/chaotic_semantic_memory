@@ -63,14 +63,14 @@ WASM support is enabled automatically when compiling for the `wasm32` target arc
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.2" }
+chaotic_semantic_memory = { version = "0.3" }
 ```
 
 For library-only consumers who don't need the CLI binary or its dependencies:
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.2", default-features = false }
+chaotic_semantic_memory = { version = "0.3", default-features = false }
 ```
 
 > **Note:** Using `"0.2"` ensures compatibility with the latest 0.2.x patch versions.

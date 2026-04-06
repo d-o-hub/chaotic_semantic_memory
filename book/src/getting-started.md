@@ -12,7 +12,7 @@ For WASM bindings:
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.2", features = ["wasm"] }
+chaotic_semantic_memory = { version = "0.3", features = ["wasm"] }
 ```
 
 ## Requirements
