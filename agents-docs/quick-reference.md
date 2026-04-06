@@ -2,8 +2,11 @@
 
 ## Build Performance
 ```bash
-# sccache is enabled by default via .cargo/config.toml
-# Start server if needed: sccache --start-server
+# sccache can be enabled for local builds (not in CI):
+# Add to .cargo/config.toml:
+# [build]
+# rustc-wrapper = "sccache"
+# Start server: sccache --start-server
 # Check stats: sccache --stats
 
 # Free disk space (removes ~35GB from target/)
