@@ -36,6 +36,9 @@ pub use framework::ChaoticSemanticFramework;
 pub use framework_builder::FrameworkBuilder;
 pub use framework_events::MemoryEvent;
 pub use hyperdim::{HVec10240, batch_cosine_similarity};
+pub use semantic_bridge::{
+    BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown,
+};
 pub use singularity::{Concept, ConceptBuilder};
 pub use singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats};
 
@@ -66,6 +69,7 @@ mod persistence_versions;
 pub mod persistence_wasm;
 pub mod reservoir;
 pub mod retrieval;
+pub mod semantic_bridge;
 pub mod singularity;
 mod singularity_ext;
 mod singularity_retrieval;
@@ -191,6 +195,7 @@ pub mod prelude {
     pub use crate::framework_builder::FrameworkBuilder;
     pub use crate::framework_events::MemoryEvent;
     pub use crate::hyperdim::HVec10240;
+    pub use crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket};
     pub use crate::singularity::{Concept, ConceptBuilder};
     pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats};
 }

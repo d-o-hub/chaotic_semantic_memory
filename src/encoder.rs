@@ -250,6 +250,32 @@ impl TextEncoder {
         encoder.encode(text)
     }
 
+    /// Tokenize text into a vector of tokens.
+    ///
+    /// This is a convenience function for reuse by other modules that need
+    /// tokenization consistent with the encoder's logic.
+    ///
+    /// # Arguments
+    /// * `text` - Input text to tokenize
+    /// * `code_aware` - Enable code-aware splitting (on `_`, `-`, `.`, `/`, `::`)
+    /// * `lowercase` - Convert tokens to lowercase
+    pub fn tokenize(text: &str, code_aware: bool, lowercase: bool) -> Vec<String> {
+        let processed = if lowercase {
+            text.to_lowercase()
+        } else {
+            text.to_string()
+        };
+
+        if code_aware {
+            Self::tokenize_code(&processed)
+        } else {
+            processed
+                .split_whitespace()
+                .map(|s| s.to_string())
+                .collect()
+        }
+    }
+
     /// Convert a token to a deterministic hypervector.
     ///
     /// Uses FNV-1a hash → seeded PRNG → random HVec10240 for reproducibility.
