@@ -3,10 +3,22 @@ use std::collections::HashMap;
 use crate::error::{MemoryError, Result};
 use crate::framework::ChaoticSemanticFramework;
 use crate::singularity::Concept;
+use crate::singularity_retrieval::RetrievalConfig;
 
 const MAX_CONCEPT_ID_BYTES: usize = 256;
+const MAX_BUCKET_PROBE_WIDTH: usize = 16;
 
 impl ChaoticSemanticFramework {
+    pub(crate) fn validate_retrieval_config(config: &RetrievalConfig) -> Result<()> {
+        if config.bucket_probe_width > MAX_BUCKET_PROBE_WIDTH {
+            return Err(MemoryError::InvalidInput {
+                field: "bucket_probe_width".to_string(),
+                reason: format!("bucket_probe_width exceeds {}", MAX_BUCKET_PROBE_WIDTH),
+            });
+        }
+        Ok(())
+    }
+
     pub(crate) fn validate_concept_id(id: &str) -> Result<()> {
         if id.is_empty() {
             return Err(MemoryError::InvalidInput {
@@ -127,5 +139,20 @@ mod tests {
         assert!(ChaoticSemanticFramework::validate_concept_id(&long_id).is_err());
         let edge_id = "a".repeat(256);
         assert!(ChaoticSemanticFramework::validate_concept_id(&edge_id).is_ok());
+    }
+
+    #[test]
+    fn test_validate_retrieval_config_bucket_width() {
+        let config = RetrievalConfig {
+            bucket_probe_width: 16,
+            ..RetrievalConfig::default()
+        };
+        assert!(ChaoticSemanticFramework::validate_retrieval_config(&config).is_ok());
+
+        let config = RetrievalConfig {
+            bucket_probe_width: 17,
+            ..RetrievalConfig::default()
+        };
+        assert!(ChaoticSemanticFramework::validate_retrieval_config(&config).is_err());
     }
 }
