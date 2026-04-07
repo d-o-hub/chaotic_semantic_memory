@@ -19,8 +19,8 @@ semantic_bridge:
   semantic_reranker_trait: true
   memory_packet_output: true
   bridge_persistence: true
-  bridge_tests: false
-  bridge_benchmarks: false
+  bridge_tests: true
+  bridge_benchmarks: true
 
   # Existing infrastructure (reuse — do NOT rebuild)
   existing_reusable:
