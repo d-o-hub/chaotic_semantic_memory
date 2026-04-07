@@ -26,7 +26,6 @@ fn bind_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
     let mut out = [0u128; 80];
     for i in 0..80 {
         // SAFETY: `u128` is 16-byte aligned, matching `__m128i` requirements.
-        // Pointers come from fixed-size arrays with at least 16 bytes per element.
         unsafe {
             let a = _mm_loadu_si128((&lhs[i] as *const u128).cast::<__m128i>());
             let b = _mm_loadu_si128((&rhs[i] as *const u128).cast::<__m128i>());
@@ -43,23 +42,20 @@ fn bind_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
 ))]
 #[inline]
 fn cosine_similarity_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> f32 {
-    #[cfg(target_arch = "x86")]
-    use std::arch::x86::{__m128i, _mm_loadu_si128, _mm_storeu_si128, _mm_xor_si128};
-    #[cfg(target_arch = "x86_64")]
-    use std::arch::x86_64::{__m128i, _mm_loadu_si128, _mm_storeu_si128, _mm_xor_si128};
-
+    // Optimized GPR-based popcount loop.
+    // Modern CPUs have high-throughput GPR POPCNT but no AVX2 POPCNT.
+    // Eliminates the store-to-load forwarding stall in the previous SIMD version.
     let mut dot_product: u32 = 0;
-    for i in 0..80 {
-        let mut lanes = [0u64; 2];
-        // SAFETY: `u128` is 16-byte aligned, matching `__m128i` requirements.
-        // `lanes` provides a 16-byte writable region (2 x u64 = 16 bytes).
-        unsafe {
-            let a = _mm_loadu_si128((&lhs[i] as *const u128).cast::<__m128i>());
-            let b = _mm_loadu_si128((&rhs[i] as *const u128).cast::<__m128i>());
-            let x = _mm_xor_si128(a, b);
-            _mm_storeu_si128(lanes.as_mut_ptr().cast::<__m128i>(), x);
+    unsafe {
+        let lptr = lhs.as_ptr() as *const u64;
+        let rptr = rhs.as_ptr() as *const u64;
+        // Unroll for better port utilization and pipelining
+        for i in (0..160).step_by(4) {
+            dot_product += (*lptr.add(i) ^ *rptr.add(i)).count_zeros() as u32;
+            dot_product += (*lptr.add(i + 1) ^ *rptr.add(i + 1)).count_zeros() as u32;
+            dot_product += (*lptr.add(i + 2) ^ *rptr.add(i + 2)).count_zeros() as u32;
+            dot_product += (*lptr.add(i + 3) ^ *rptr.add(i + 3)).count_zeros() as u32;
         }
-        dot_product += (!lanes[0]).count_ones() + (!lanes[1]).count_ones();
     }
     (2.0 * dot_product as f32 / HVec10240::DIMENSION as f32) - 1.0
 }
