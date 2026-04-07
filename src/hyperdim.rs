@@ -51,10 +51,10 @@ fn cosine_similarity_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> f32 {
         let rptr = rhs.as_ptr() as *const u64;
         // Unroll for better port utilization and pipelining
         for i in (0..160).step_by(4) {
-            dot_product += (*lptr.add(i) ^ *rptr.add(i)).count_zeros() as u32;
-            dot_product += (*lptr.add(i + 1) ^ *rptr.add(i + 1)).count_zeros() as u32;
-            dot_product += (*lptr.add(i + 2) ^ *rptr.add(i + 2)).count_zeros() as u32;
-            dot_product += (*lptr.add(i + 3) ^ *rptr.add(i + 3)).count_zeros() as u32;
+            dot_product += (*lptr.add(i) ^ *rptr.add(i)).count_zeros();
+            dot_product += (*lptr.add(i + 1) ^ *rptr.add(i + 1)).count_zeros();
+            dot_product += (*lptr.add(i + 2) ^ *rptr.add(i + 2)).count_zeros();
+            dot_product += (*lptr.add(i + 3) ^ *rptr.add(i + 3)).count_zeros();
         }
     }
     (2.0 * dot_product as f32 / HVec10240::DIMENSION as f32) - 1.0
