@@ -79,3 +79,26 @@ Use Conventional Commits (see `git-workflow` skill):
 
 <body>
 ```
+
+## CLI Commands
+```bash
+# Ingest content into memory
+csm index-jsonl <file.jsonl>     # Index JSONL file
+csm index-dir <directory>        # Index directory of files
+
+# Query memory
+csm query "search terms"         # Text-based similarity search
+
+# Concept operations
+csm inject <id> --from-text "content"
+csm probe <id> --top-k 10
+csm associate <from> <to> --strength 0.8
+
+# Export/Import
+csm export > backup.json
+csm import backup.json
+```
+
+## Memory Storage Paths
+- **git-local mode** (default): `.csm/memory.db` in repo root
+- **Custom path**: Set `CSM_DB_PATH` environment variable

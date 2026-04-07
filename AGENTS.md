@@ -9,6 +9,11 @@ See: [agents-docs/hard-constraints.md](agents-docs/hard-constraints.md)
 ## Key Files and Folders
 - @Cargo.toml — dependencies and features
 - @src/lib.rs — crate root and prelude
+- @src/singularity.rs — Core concept storage and similarity search
+- @src/reservoir.rs — Echo State Network implementation
+- @src/semantic_bridge.rs — Semantic Bridge Layer (ADR-0061)
+- @src/bridge_retrieval.rs — Bridge retrieval pipeline
+- @src/retrieval/ — Hybrid BM25/HDC retrieval (ADR-0062)
 - @plans/GOAP_STATE.md — current world state
 - @plans/GOALS.md — project goals and targets
 - @plans/ACTIONS.md — GOAP action plan
