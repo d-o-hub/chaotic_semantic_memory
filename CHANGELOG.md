@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cosine similarity SIMD**: Optimized by removing SIMD-to-GPR stall (#58).
 - **Concept ID injection**: Fixed medium-severity input validation issue.
 - **bucket_probe_width overflow**: Bound to prevent Denial of Service panic.
+- **WASM size gate**: Fixed script to check library WASM instead of CLI binary.
 
 ## [Unreleased]
 
