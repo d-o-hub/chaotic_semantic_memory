@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-08
+
+### Added
+
+- **ADR-0062: Hybrid BM25+HDC Retrieval**: Implemented query-length-dependent
+  hybrid scoring for improved short-query recall. BM25 keyword index runs
+  parallel with HDC semantic search. Weights shift from 90% keyword for 1-2
+  token queries to 80% semantic for 9+ tokens.
+- **Semantic Bridge Layer (Issue #52)**: Complete implementation of zero-drift
+  semantic generalization overlay:
+  - `src/semantic_bridge.rs`: Core types (CanonicalConcept, ScoreBreakdown, MemoryPacket)
+  - `src/concept_graph.rs`: In-memory canonical concept graph with token-to-concept index
+  - `src/bridge_retrieval.rs`: Pipeline: normalize → recall → expand → rerank
+  - `src/bridge_persistence.rs`: Feature-gated persistence for bridge tables
+- **BM25 Optimization**: `swap_remove` for document removal (O(N) → O(1)), hoisted
+  IDF calculations out of scoring loop (~33% search speedup).
+
+### Changed
+
+- **Encoder tests**: Moved from inline `src/encoder.rs` to standalone
+  `tests/encoder_tests.rs` for better organization.
+- **ADR-0062 status**: Updated from "Proposed" to "Implemented".
+
+### Fixed
+
+- **git_local doc test**: Enabled previously ignored doc test after path resolution fix.
+- **Cosine similarity SIMD**: Optimized by removing SIMD-to-GPR stall (#58).
+- **Concept ID injection**: Fixed medium-severity input validation issue.
+
 ## [0.2.9] - 2026-04-06
 
 ### Added
@@ -263,7 +292,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CI workflow with security permissions and concurrency controls
 - Trusted Publishing eliminates need for long-lived API tokens
 
-[unreleased]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.2.9...HEAD
+[unreleased]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.3.0
 [0.2.9]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.9
 [0.2.8]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.8
 [0.2.7]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.7
