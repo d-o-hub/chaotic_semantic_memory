@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-04-08
+
+### Changed
+- **Optimized BM25 Retrieval**: Significant performance improvements in document removal and search operations.
+  - Refactored `remove_document_at` to use `swap_remove` (O(N) -> O(1)).
+  - Optimized `search` by hoisting IDF calculations and constants out of the document scoring loop.
+  - Added dedicated BM25 benchmark suite.
+
 ## [Unreleased]
 
 ## [0.2.9] - 2026-04-06
