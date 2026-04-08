@@ -1,3 +1,8 @@
+---
+name: turso-memory-verification
+description: "Verify memory persistence with Turso/libSQL databases before releases. Use before any release to ensure import/export functionality works correctly, data roundtrips successfully, and no serialization regressions."
+---
+
 # Skill: turso-memory-verification
 
 Verify memory persistence with Turso/libSQL databases before releases.
