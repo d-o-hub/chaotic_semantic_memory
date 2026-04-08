@@ -120,7 +120,7 @@ async fn builder_with_version_retention_limits_saved_versions() {
     let conn = db.connect().unwrap();
     let mut rows = conn
         .query(
-            "SELECT COUNT(*) FROM concept_versions WHERE concept_id = ?1",
+            "SELECT COUNT(*) FROM csm_versions WHERE concept_id = ?1",
             libsql::params!["v"],
         )
         .await

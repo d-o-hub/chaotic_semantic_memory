@@ -21,7 +21,7 @@ impl Persistence {
         for (from, to, strength) in associations {
             if let Err(e) = conn
                 .execute(
-                    "INSERT OR REPLACE INTO associations (from_id, to_id, strength)
+                    "INSERT OR REPLACE INTO csm_associations (from_id, to_id, strength)
                      VALUES (?1, ?2, ?3)",
                     params![from.clone(), to.clone(), *strength],
                 )
@@ -52,9 +52,9 @@ impl Persistence {
         let conn = self.connect().await?;
         conn.execute_batch(
             "BEGIN;
-             DELETE FROM associations;
-             DELETE FROM concept_versions;
-             DELETE FROM concepts;
+             DELETE FROM csm_associations;
+             DELETE FROM csm_versions;
+             DELETE FROM csm_concepts;
              COMMIT;",
         )
         .await
@@ -69,7 +69,7 @@ impl Persistence {
         let mut rows = conn
             .query(
                 "SELECT concept_id, version, vector, metadata, modified_at
-                 FROM concept_versions
+                 FROM csm_versions
                  WHERE concept_id = ?1
                  ORDER BY version DESC
                  LIMIT ?2",
@@ -114,7 +114,10 @@ impl Persistence {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
         let mut rows = conn
-            .query("SELECT COALESCE(MAX(version), 0) FROM __schema_version", ())
+            .query(
+                "SELECT COALESCE(MAX(version), 0) FROM csm_schema_version",
+                (),
+            )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to get schema version: {}", e)))?;
 
@@ -146,8 +149,8 @@ impl Persistence {
             info!(version, "applying schema migration");
             if version == 2 {
                 conn.execute_batch(
-                    "CREATE INDEX IF NOT EXISTS idx_concept_versions_modified_at
-                     ON concept_versions(modified_at);",
+                    "CREATE INDEX IF NOT EXISTS idx_csm_versions_modified_at
+                     ON csm_versions(modified_at);",
                 )
                 .await
                 .map_err(|e| MemoryError::database(format!("Failed migration v2: {}", e)))?;
@@ -155,7 +158,7 @@ impl Persistence {
 
             if version == 3 {
                 // Add expires_at column for TTL support
-                conn.execute_batch("ALTER TABLE concepts ADD COLUMN expires_at INTEGER;")
+                conn.execute_batch("ALTER TABLE csm_concepts ADD COLUMN expires_at INTEGER;")
                     .await
                     .map_err(|e| MemoryError::database(format!("Failed migration v3: {}", e)))?;
             }
@@ -163,7 +166,7 @@ impl Persistence {
             if version == 4 {
                 // Add canonical_concepts table for semantic bridge
                 conn.execute_batch(
-                    "CREATE TABLE IF NOT EXISTS canonical_concepts (
+                    "CREATE TABLE IF NOT EXISTS csm_canonical (
                         id TEXT PRIMARY KEY,
                         version INTEGER NOT NULL,
                         labels_json TEXT NOT NULL,
@@ -174,8 +177,40 @@ impl Persistence {
                 .map_err(|e| MemoryError::database(format!("Failed migration v4: {}", e)))?;
             }
 
+            if version == 5 {
+                // Rename tables to use csm_ prefix for namespace isolation
+                // Only rename if old tables exist (handles both new and existing databases)
+                // Use SQLite's table existence check
+                let has_old_tables: bool = conn
+                    .query(
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='concepts'",
+                        (),
+                    )
+                    .await
+                    .map_err(|e| MemoryError::database(format!("Failed to check tables: {}", e)))?
+                    .next()
+                    .await
+                    .map_err(|e| MemoryError::database(format!("Failed to fetch: {}", e)))?
+                    .map(|row| row.get::<i64>(0).unwrap_or(0) > 0)
+                    .unwrap_or(false);
+
+                if has_old_tables {
+                    conn.execute_batch(
+                        "ALTER TABLE concepts RENAME TO csm_concepts;
+                         ALTER TABLE associations RENAME TO csm_associations;
+                         ALTER TABLE concept_versions RENAME TO csm_versions;
+                         DROP TABLE __schema_version;
+                         ALTER TABLE canonical_concepts RENAME TO csm_canonical;",
+                    )
+                    .await
+                    .map_err(|e| {
+                        MemoryError::database(format!("Failed migration v5 rename: {}", e))
+                    })?;
+                }
+            }
+
             conn.execute(
-                "INSERT INTO __schema_version(version) VALUES (?1)",
+                "INSERT INTO csm_schema_version(version) VALUES (?1)",
                 libsql::params![version],
             )
             .await
@@ -232,23 +267,23 @@ impl Persistence {
                 .map_err(|e| MemoryError::database(format!("Failed to attach backup DB: {}", e)))?;
 
             conn.execute_batch(
-                "DELETE FROM associations;
-                 DELETE FROM concept_versions;
-                 DELETE FROM concepts;
-                 DELETE FROM __schema_version;",
+                "DELETE FROM csm_associations;
+                 DELETE FROM csm_versions;
+                 DELETE FROM csm_concepts;
+                 DELETE FROM csm_schema_version;",
             )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to clear current database: {}", e)))?;
 
             conn.execute_batch(
-                "INSERT INTO concepts (id, vector, metadata, created_at, modified_at)
-                 SELECT id, vector, metadata, created_at, modified_at FROM restore_db.concepts;
-                 INSERT INTO associations (from_id, to_id, strength)
-                 SELECT from_id, to_id, strength FROM restore_db.associations;
-                 INSERT INTO concept_versions (concept_id, version, vector, metadata, modified_at)
-                 SELECT concept_id, version, vector, metadata, modified_at FROM restore_db.concept_versions;
-                 INSERT INTO __schema_version(version)
-                 SELECT version FROM restore_db.__schema_version;",
+                "INSERT INTO csm_concepts (id, vector, metadata, created_at, modified_at)
+                 SELECT id, vector, metadata, created_at, modified_at FROM restore_db.csm_concepts;
+                 INSERT INTO csm_associations (from_id, to_id, strength)
+                 SELECT from_id, to_id, strength FROM restore_db.csm_associations;
+                 INSERT INTO csm_versions (concept_id, version, vector, metadata, modified_at)
+                 SELECT concept_id, version, vector, metadata, modified_at FROM restore_db.csm_versions;
+                 INSERT INTO csm_schema_version(version)
+                 SELECT version FROM restore_db.csm_schema_version;",
             )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to import backup data: {}", e)))?;
@@ -286,7 +321,7 @@ impl Persistence {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
         conn.execute(
-            "DELETE FROM associations WHERE from_id = ?1 AND to_id = ?2",
+            "DELETE FROM csm_associations WHERE from_id = ?1 AND to_id = ?2",
             params![from, to],
         )
         .await
@@ -298,11 +333,14 @@ impl Persistence {
     pub async fn clear_concept_associations(&self, id: &str) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
-        conn.execute("DELETE FROM associations WHERE from_id = ?1", params![id])
-            .await
-            .map_err(|e| {
-                MemoryError::database(format!("Failed to clear concept associations: {}", e))
-            })?;
+        conn.execute(
+            "DELETE FROM csm_associations WHERE from_id = ?1",
+            params![id],
+        )
+        .await
+        .map_err(|e| {
+            MemoryError::database(format!("Failed to clear concept associations: {}", e))
+        })?;
         Ok(())
     }
 
@@ -326,8 +364,8 @@ impl Persistence {
             info!(version, "applying schema migration");
             if version == 2 {
                 conn.execute_batch(
-                    "CREATE INDEX IF NOT EXISTS idx_concept_versions_modified_at
-                     ON concept_versions(modified_at);",
+                    "CREATE INDEX IF NOT EXISTS idx_csm_versions_modified_at
+                     ON csm_versions(modified_at);",
                 )
                 .await
                 .map_err(|e| MemoryError::database(format!("Failed migration v2: {}", e)))?;
@@ -335,7 +373,7 @@ impl Persistence {
 
             if version == 3 {
                 // Add expires_at column for TTL support
-                conn.execute_batch("ALTER TABLE concepts ADD COLUMN expires_at INTEGER;")
+                conn.execute_batch("ALTER TABLE csm_concepts ADD COLUMN expires_at INTEGER;")
                     .await
                     .map_err(|e| MemoryError::database(format!("Failed migration v3: {}", e)))?;
             }
@@ -343,7 +381,7 @@ impl Persistence {
             if version == 4 {
                 // Add canonical_concepts table for semantic bridge
                 conn.execute_batch(
-                    "CREATE TABLE IF NOT EXISTS canonical_concepts (
+                    "CREATE TABLE IF NOT EXISTS csm_canonical (
                         id TEXT PRIMARY KEY,
                         version INTEGER NOT NULL,
                         labels_json TEXT NOT NULL,
@@ -354,8 +392,40 @@ impl Persistence {
                 .map_err(|e| MemoryError::database(format!("Failed migration v4: {}", e)))?;
             }
 
+            if version == 5 {
+                // Rename tables to use csm_ prefix for namespace isolation
+                // Only rename if old tables exist (handles both new and existing databases)
+                // Use SQLite's table existence check
+                let has_old_tables: bool = conn
+                    .query(
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='concepts'",
+                        (),
+                    )
+                    .await
+                    .map_err(|e| MemoryError::database(format!("Failed to check tables: {}", e)))?
+                    .next()
+                    .await
+                    .map_err(|e| MemoryError::database(format!("Failed to fetch: {}", e)))?
+                    .map(|row| row.get::<i64>(0).unwrap_or(0) > 0)
+                    .unwrap_or(false);
+
+                if has_old_tables {
+                    conn.execute_batch(
+                        "ALTER TABLE concepts RENAME TO csm_concepts;
+                         ALTER TABLE associations RENAME TO csm_associations;
+                         ALTER TABLE concept_versions RENAME TO csm_versions;
+                         DROP TABLE __schema_version;
+                         ALTER TABLE canonical_concepts RENAME TO csm_canonical;",
+                    )
+                    .await
+                    .map_err(|e| {
+                        MemoryError::database(format!("Failed migration v5 rename: {}", e))
+                    })?;
+                }
+            }
+
             conn.execute(
-                "INSERT INTO __schema_version(version) VALUES (?1)",
+                "INSERT INTO csm_schema_version(version) VALUES (?1)",
                 libsql::params![version],
             )
             .await
@@ -374,7 +444,10 @@ impl Persistence {
     /// Internal schema version query that reuses an existing connection.
     async fn schema_version_with_conn(&self, conn: &libsql::Connection) -> Result<i64> {
         let mut rows = conn
-            .query("SELECT COALESCE(MAX(version), 0) FROM __schema_version", ())
+            .query(
+                "SELECT COALESCE(MAX(version), 0) FROM csm_schema_version",
+                (),
+            )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to get schema version: {}", e)))?;
 

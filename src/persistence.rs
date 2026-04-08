@@ -5,7 +5,7 @@ use crate::singularity::Concept;
 use libsql::{Builder, Connection, Database, params};
 use std::sync::Arc;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-pub(crate) const LATEST_SCHEMA_VERSION: i64 = 4;
+pub(crate) const LATEST_SCHEMA_VERSION: i64 = 5;
 
 #[derive(Debug)]
 pub struct Persistence {
@@ -111,35 +111,35 @@ impl Persistence {
         let conn = self.connect().await?;
         conn.execute_batch(
             "BEGIN;
-            CREATE TABLE IF NOT EXISTS concepts (
+            CREATE TABLE IF NOT EXISTS csm_concepts (
                 id TEXT PRIMARY KEY,
                 vector BLOB NOT NULL,
                 metadata TEXT NOT NULL,
                 created_at INTEGER NOT NULL,
                 modified_at INTEGER NOT NULL
             );
-            CREATE TABLE IF NOT EXISTS associations (
+            CREATE TABLE IF NOT EXISTS csm_associations (
                 from_id TEXT NOT NULL,
                 to_id TEXT NOT NULL,
                 strength REAL NOT NULL,
                 PRIMARY KEY (from_id, to_id),
-                FOREIGN KEY (from_id) REFERENCES concepts(id),
-                FOREIGN KEY (to_id) REFERENCES concepts(id)
+                FOREIGN KEY (from_id) REFERENCES csm_concepts(id),
+                FOREIGN KEY (to_id) REFERENCES csm_concepts(id)
             );
-            CREATE INDEX IF NOT EXISTS idx_associations_from ON associations(from_id);
-            CREATE TABLE IF NOT EXISTS concept_versions (
+            CREATE INDEX IF NOT EXISTS idx_csm_associations_from ON csm_associations(from_id);
+            CREATE TABLE IF NOT EXISTS csm_versions (
                 concept_id TEXT NOT NULL,
                 version INTEGER NOT NULL,
                 vector BLOB NOT NULL,
                 metadata TEXT NOT NULL,
                 modified_at INTEGER NOT NULL,
                 PRIMARY KEY (concept_id, version),
-                FOREIGN KEY (concept_id) REFERENCES concepts(id) ON DELETE CASCADE
+                FOREIGN KEY (concept_id) REFERENCES csm_concepts(id) ON DELETE CASCADE
             );
-            CREATE TABLE IF NOT EXISTS __schema_version (
+            CREATE TABLE IF NOT EXISTS csm_schema_version (
                 version INTEGER PRIMARY KEY
             );
-            INSERT OR IGNORE INTO __schema_version(version) VALUES (1);
+            INSERT OR IGNORE INTO csm_schema_version(version) VALUES (1);
             COMMIT;",
         )
         .await
@@ -159,7 +159,7 @@ impl Persistence {
         let expires_at: Option<i64> = concept.expires_at.map(|t| t as i64);
 
         conn.execute(
-            "INSERT OR REPLACE INTO concepts (id, vector, metadata, created_at, modified_at, expires_at)
+            "INSERT OR REPLACE INTO csm_concepts (id, vector, metadata, created_at, modified_at, expires_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
                 concept.id.clone(),
@@ -196,7 +196,7 @@ impl Persistence {
 
             if let Err(e) = conn
                 .execute(
-                    "INSERT OR REPLACE INTO concepts (id, vector, metadata, created_at, modified_at)
+                    "INSERT OR REPLACE INTO csm_concepts (id, vector, metadata, created_at, modified_at)
                      VALUES (?1, ?2, ?3, ?4, ?5)",
                     params![
                         concept.id.clone(),
@@ -240,7 +240,7 @@ impl Persistence {
 
         let mut rows = conn
             .query(
-                "SELECT vector, metadata, created_at, modified_at, expires_at FROM concepts WHERE id = ?1",
+                "SELECT vector, metadata, created_at, modified_at, expires_at FROM csm_concepts WHERE id = ?1",
                 params![id],
             )
             .await
@@ -289,7 +289,7 @@ impl Persistence {
 
         let mut rows = conn
             .query(
-                "SELECT id, vector, metadata, created_at, modified_at, expires_at FROM concepts",
+                "SELECT id, vector, metadata, created_at, modified_at, expires_at FROM csm_concepts",
                 (),
             )
             .await
@@ -346,7 +346,7 @@ impl Persistence {
 
         if let Err(e) = conn
             .execute(
-                "DELETE FROM associations WHERE from_id = ?1 OR to_id = ?1",
+                "DELETE FROM csm_associations WHERE from_id = ?1 OR to_id = ?1",
                 params![id],
             )
             .await
@@ -359,7 +359,7 @@ impl Persistence {
         }
 
         if let Err(e) = conn
-            .execute("DELETE FROM concepts WHERE id = ?1", params![id])
+            .execute("DELETE FROM csm_concepts WHERE id = ?1", params![id])
             .await
         {
             let _ = conn.execute("ROLLBACK", ()).await;
@@ -382,7 +382,7 @@ impl Persistence {
         let conn = self.connect().await?;
 
         conn.execute(
-            "INSERT OR REPLACE INTO associations (from_id, to_id, strength)
+            "INSERT OR REPLACE INTO csm_associations (from_id, to_id, strength)
              VALUES (?1, ?2, ?3)",
             params![from, to, strength],
         )
@@ -399,7 +399,7 @@ impl Persistence {
 
         let mut rows = conn
             .query(
-                "SELECT to_id, strength FROM associations WHERE from_id = ?1",
+                "SELECT to_id, strength FROM csm_associations WHERE from_id = ?1",
                 params![id],
             )
             .await

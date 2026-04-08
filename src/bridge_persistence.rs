@@ -18,7 +18,7 @@ impl Persistence {
         let related_json = serde_json::to_string(&concept.related)?;
 
         conn.execute(
-            "INSERT OR REPLACE INTO canonical_concepts (id, version, labels_json, related_json)
+            "INSERT OR REPLACE INTO csm_canonical (id, version, labels_json, related_json)
              VALUES (?1, ?2, ?3, ?4)",
             params![
                 concept.id.clone(),
@@ -38,7 +38,7 @@ impl Persistence {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
-        conn.execute("DELETE FROM canonical_concepts WHERE id = ?1", params![id])
+        conn.execute("DELETE FROM csm_canonical WHERE id = ?1", params![id])
             .await
             .map_err(|e| {
                 MemoryError::database(format!("Failed to delete canonical concept: {}", e))
@@ -54,7 +54,7 @@ impl Persistence {
 
         let mut rows = conn
             .query(
-                "SELECT id, version, labels_json, related_json FROM canonical_concepts WHERE id = ?1",
+                "SELECT id, version, labels_json, related_json FROM csm_canonical WHERE id = ?1",
                 params![id],
             )
             .await
@@ -99,7 +99,7 @@ impl Persistence {
 
         let mut rows = conn
             .query(
-                "SELECT id, version, labels_json, related_json FROM canonical_concepts",
+                "SELECT id, version, labels_json, related_json FROM csm_canonical",
                 params![],
             )
             .await
@@ -148,10 +148,7 @@ impl Persistence {
             .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {}", e)))?;
 
         // Clear existing concepts
-        if let Err(e) = conn
-            .execute("DELETE FROM canonical_concepts", params![])
-            .await
-        {
+        if let Err(e) = conn.execute("DELETE FROM csm_canonical", params![]).await {
             let _ = conn.execute("ROLLBACK", ()).await;
             return Err(MemoryError::database(format!(
                 "Failed to clear canonical concepts: {}",
@@ -179,7 +176,7 @@ impl Persistence {
 
             if let Err(e) = conn
                 .execute(
-                    "INSERT INTO canonical_concepts (id, version, labels_json, related_json)
+                    "INSERT INTO csm_canonical (id, version, labels_json, related_json)
                      VALUES (?1, ?2, ?3, ?4)",
                     params![
                         concept.id.clone(),

@@ -11,7 +11,7 @@ impl Persistence {
     ) -> Result<()> {
         let mut rows = conn
             .query(
-                "SELECT COALESCE(MAX(version), 0) FROM concept_versions WHERE concept_id = ?1",
+                "SELECT COALESCE(MAX(version), 0) FROM csm_versions WHERE concept_id = ?1",
                 params![concept.id.clone()],
             )
             .await
@@ -33,7 +33,7 @@ impl Persistence {
         let metadata_json = serde_json::to_string(&concept.metadata)?;
 
         conn.execute(
-            "INSERT INTO concept_versions (concept_id, version, vector, metadata, modified_at)
+            "INSERT INTO csm_versions (concept_id, version, vector, metadata, modified_at)
              VALUES (?1, ?2, ?3, ?4, ?5)",
             params![
                 concept.id.clone(),
@@ -47,10 +47,10 @@ impl Persistence {
         .map_err(|e| MemoryError::database(format!("Failed to save concept version: {}", e)))?;
 
         conn.execute(
-            "DELETE FROM concept_versions
+            "DELETE FROM csm_versions
              WHERE concept_id = ?1
              AND version <= (
-                SELECT MAX(version) - ?2 FROM concept_versions WHERE concept_id = ?1
+                SELECT MAX(version) - ?2 FROM csm_versions WHERE concept_id = ?1
              )",
             params![concept.id.clone(), self.version_retention as i64],
         )
