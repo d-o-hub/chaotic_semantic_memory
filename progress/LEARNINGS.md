@@ -721,3 +721,37 @@ gh workflow run release.yml --ref main
 # Monitor workflow
 gh run watch
 ```
+
+## 2026-04-08: WASM Size Gate Script Bug
+
+### Problem
+The `scripts/wasm_size_gate.sh` script reported WASM size as 5.06 KiB (passing), but the actual library WASM is ~870KB.
+
+### Root Cause
+```bash
+WASM_FILE="$(find target/wasm32-unknown-unknown/release -maxdepth 1 -name '*.wasm' | head -n 1)"
+```
+This picked `csm.wasm` (CLI binary, 5KB) instead of `chaotic_semantic_memory.wasm` (library, 870KB).
+
+**Filesystem order is not deterministic** - `find` output order varies by filesystem.
+
+### Solution
+Explicitly target the library WASM:
+```bash
+WASM_FILE="target/wasm32-unknown-unknown/release/chaotic_semantic_memory.wasm"
+if [[ ! -f "${WASM_FILE}" ]]; then
+  # Fallback: find any .wasm that's not the CLI binary
+  WASM_FILE="$(find ... -name '*.wasm' ! -name 'csm.wasm' | head -n 1)"
+fi
+```
+
+### Technical Insights
+- `find | head -n 1` is **unreliable** for deterministic file selection
+- Always use explicit filenames or filters (`! -name`) to avoid picking wrong files
+- The WASM build produces TWO artifacts: library (~870KB) and CLI binary (~5KB)
+
+### What to Avoid
+- ❌ Do NOT use `find | head -n 1` when specific file matters
+- ❌ Do NOT assume filesystem order is consistent
+- ✅ DO use explicit filenames when possible
+- ✅ DO use exclusion filters (`! -name`) for fallbacks

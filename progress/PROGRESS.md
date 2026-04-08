@@ -1,3 +1,43 @@
+## 2026-04-08: v0.3.0 Release Preparation
+
+### Summary
+Prepared and validated v0.3.0 release with Semantic Bridge Layer, Hybrid Retrieval, and Database Table Prefix.
+
+### Changes Since v0.2.9
+- **Semantic Bridge Layer (Issue #52, ADR-0061)**: CanonicalConcept, ConceptGraph, BridgeRetrieval pipeline
+- **Hybrid BM25+HDC Retrieval (ADR-0062)**: Query-length-dependent score fusion
+- **Database Table Prefix (ADR-0063)**: `csm_` prefix for namespace isolation
+- **Schema Migration v5**: Backward-compatible table renaming
+- **Encoder Test Refactor**: Moved to tests/encoder_tests.rs
+- **WASM Size Gate Fix**: Script now checks library (~870KB) not CLI binary (~5KB)
+
+### Current State
+- ✅ 100 tests passing
+- ✅ All CI checks passing
+- ✅ WASM size gate passed (850.32 KiB < 1MB limit)
+- ✅ CHANGELOG updated for v0.3.0
+- ✅ ADR-0062, ADR-0063 documented
+- ✅ Merged PR #59 (security fix), PR #60 (BM25 optimization)
+
+### Multi-Persona Code Review (Analysis Swarm)
+**RYAN findings:**
+- Migration v5 properly checks old table existence
+- All SQL queries use prefixed tables
+- AGENTS.md compliance verified (LOC, parameterized queries)
+
+**FLASH findings:**
+- No blockers - CI passing
+- Zero manual intervention for migration
+
+**SOCRATES findings:**
+- Breaking change documented in ADR-0063
+- External SQL tools must update table references
+
+### Technical Insights
+- `find | head -n 1` is unreliable for file selection - filesystem order is not deterministic
+- WASM library (`chaotic_semantic_memory.wasm`) is ~870KB, CLI binary (`csm.wasm`) is ~5KB
+- Schema migration v5 handles both new databases and existing databases with old table names
+
 ## 2026-04-06: Release Workflow Production Solution
 
 ### Summary

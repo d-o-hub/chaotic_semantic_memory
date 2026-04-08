@@ -170,8 +170,8 @@ let rows = conn.query(
 ```
 
 This keeps HDC and semantic vectors in the **same database**: the crate manages
-`concepts` and `associations` tables, while you manage `semantic_vectors` for
-float-vector similarity search. Both query the same libSQL/Turso instance.
+`csm_concepts` and `csm_associations` tables (with `csm_` prefix for namespace isolation),
+while you manage `semantic_vectors` for float-vector similarity search. Both query the same libSQL/Turso instance.
 
 ## CLI Usage
 

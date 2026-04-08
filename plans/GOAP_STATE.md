@@ -18,14 +18,15 @@ world_state:
   orchestrator_last_run: release_orchestration_2026_04_05
   orchestrator_last_run_at_utc: 2026-04-05T11:45:00Z
 
-  # Recent changes (2026-04-05)
+  # Recent changes (2026-04-08)
   recent_changes:
-    - "Issue #43: memory-context integration - JSONL/Markdown ingest, git-local index, code-aware encoding"
-    - "v0.2.6: memory-context integration release"
-    - "v0.2.7: npm publish path fix (still failed due to scope issue)"
-    - "PR #49: Fix npm scoped package.json for v0.2.8 release"
-    - "PR #45: CLI correctness fixes (UTF-8 truncation, modified_at metadata)"
-    - "Dependabot alert #3: rustls-webpki medium severity vulnerability"
+    - "v0.3.0: Semantic Bridge Layer (Issue #52, ADR-0061), Hybrid BM25/HDC Retrieval (ADR-0062)"
+    - "ADR-0063: Database table prefix (csm_) for namespace isolation"
+    - "Schema migration v5: Rename tables with csm_ prefix for backward compatibility"
+    - "Encoder tests moved to tests/encoder_tests.rs for better organization"
+    - "WASM size gate: Fixed script to check library not CLI binary, increased limit to 1MB"
+    - "Merged PR #59: Security fix for bucket_probe_width overflow"
+    - "Merged PR #60: BM25 optimization (swap_remove, hoisted IDF)"
 
   # Release Orchestration (2026-04-05)
   release_orchestration_active: true
@@ -151,6 +152,21 @@ world_state:
   crates_io_v020_published: true
   npm_v020_published: true
   github_release_v020_created: true
+
+  # Release Status (v0.3.0)
+  release_v030_prepared: true
+  release_v030_changes:
+    - "Semantic Bridge Layer (Issue #52, ADR-0061)"
+    - "Hybrid BM25+HDC Retrieval (ADR-0062)"
+    - "Database table prefix csm_ (ADR-0063)"
+    - "Schema migration v5"
+    - "Encoder test refactor"
+    - "Security fixes (PR #59, #60)"
+  crates_io_v030_ready: true
+  wasm_size_gate_passed: true
+  wasm_library_size_kb: 850.32
+  all_tests_passing: true
+  tests_count: 100
 
   # Swarm orchestration snapshot
   active_wave: 17
