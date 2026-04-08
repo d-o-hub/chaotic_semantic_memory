@@ -1,5 +1,12 @@
 use crate::types::{CaseResult, SummaryMetrics, TaskType};
 
+/// Aggregates case results into summary metrics.
+///
+/// # Arguments
+/// * `results` - List of individual query case results
+/// * `ingest_ms` - Total time to ingest all memories
+/// * `peak_memory` - Peak memory usage during benchmark
+/// * `storage_bytes` - Estimated storage size of all memories
 pub fn aggregate(
     results: &[CaseResult],
     ingest_ms: u128,
@@ -44,7 +51,8 @@ pub fn aggregate(
     let mut latencies: Vec<_> = results.iter().map(|r| r.latency_ms).collect();
     latencies.sort_unstable();
     let p50 = latencies[count / 2];
-    let p95 = latencies[(count as f32 * 0.95) as usize];
+    let p95_idx = ((count - 1) as f64 * 0.95).round() as usize;
+    let p95 = latencies[p95_idx];
 
     let exact_matches: Vec<_> = results.iter().filter_map(|r| r.exact_match).collect();
     let exact_match = if !exact_matches.is_empty() {
@@ -69,5 +77,103 @@ pub fn aggregate(
         peak_memory_bytes: peak_memory,
         prompt_tokens: results.iter().map(|r| r.prompt_tokens as u64).sum(),
         completion_tokens: results.iter().map(|r| r.completion_tokens as u64).sum(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::RetrievedItem;
+
+    fn make_result(
+        query_id: &str,
+        task_type: TaskType,
+        recall_at_1: bool,
+        recall_at_5: bool,
+        latency_ms: u128,
+        abstained: bool,
+    ) -> CaseResult {
+        CaseResult {
+            query_id: query_id.into(),
+            task_type,
+            retrieved: vec![RetrievedItem {
+                memory_id: "test".into(),
+                rank: 1,
+                score: 0.5,
+            }],
+            recall_at_1,
+            recall_at_5,
+            recall_at_10: recall_at_5,
+            reciprocal_rank: if recall_at_1 { 1.0 } else { 0.0 },
+            predicted_answer: None,
+            exact_match: None,
+            abstained,
+            latency_ms,
+            prompt_tokens: 0,
+            completion_tokens: 0,
+        }
+    }
+
+    #[test]
+    fn aggregate_empty_results() {
+        let summary = aggregate(&[], 100, 1024, 512);
+        assert_eq!(summary.cases, 0);
+        assert_eq!(summary.ingest_ms, 100);
+        assert_eq!(summary.peak_memory_bytes, 1024);
+        assert_eq!(summary.storage_bytes, 512);
+    }
+
+    #[test]
+    fn aggregate_single_result() {
+        let results = vec![make_result("q1", TaskType::Recall, true, true, 10, false)];
+        let summary = aggregate(&results, 100, 1024, 512);
+        assert_eq!(summary.cases, 1);
+        assert_eq!(summary.recall_at_1, 1.0);
+        assert_eq!(summary.recall_at_5, 1.0);
+        assert_eq!(summary.mrr, 1.0);
+        // Single element: p50 and p95 should both be the same
+        assert_eq!(summary.p50_latency_ms, 10);
+        assert_eq!(summary.p95_latency_ms, 10);
+    }
+
+    #[test]
+    fn aggregate_recall_mixed() {
+        let results = vec![
+            make_result("q1", TaskType::Recall, true, true, 10, false),
+            make_result("q2", TaskType::Recall, false, false, 20, false),
+        ];
+        let summary = aggregate(&results, 100, 1024, 512);
+        assert_eq!(summary.cases, 2);
+        assert_eq!(summary.recall_at_1, 0.5);
+        assert_eq!(summary.recall_at_5, 0.5);
+        assert_eq!(summary.mrr, 0.5);
+    }
+
+    #[test]
+    fn aggregate_abstention_metrics() {
+        let results = vec![
+            make_result("q1", TaskType::Abstain, false, false, 10, true),  // true positive
+            make_result("q2", TaskType::Abstain, false, false, 10, false), // false negative
+            make_result("q3", TaskType::Recall, false, false, 10, true),   // false positive
+            make_result("q4", TaskType::Recall, false, false, 10, false),  // true negative
+        ];
+        let summary = aggregate(&results, 100, 1024, 512);
+        // 1 TP, 1 FP -> precision = 1/2 = 0.5
+        // 2 abstain cases, 1 abstained -> recall = 1/2 = 0.5
+        assert_eq!(summary.abstain_precision, 0.5);
+        assert_eq!(summary.abstain_recall, 0.5);
+    }
+
+    #[test]
+    fn aggregate_latency_percentiles() {
+        let results: Vec<_> = (1..=10)
+            .map(|i| make_result(&format!("q{}", i), TaskType::Recall, false, false, i, false))
+            .collect();
+        let summary = aggregate(&results, 100, 1024, 512);
+        // Sorted latencies: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        // p50 (index 5) = 6
+        // p95: (10-1) * 0.95 = 8.55 -> round -> 9 -> index 9 = 10
+        assert_eq!(summary.p50_latency_ms, 6);
+        assert_eq!(summary.p95_latency_ms, 10);
     }
 }
