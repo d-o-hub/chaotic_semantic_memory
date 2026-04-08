@@ -19,9 +19,9 @@ fn bench_bm25_search(c: &mut Criterion) {
     // Index 1000 documents
     for i in 0..1000 {
         let mut doc_tokens = Vec::new();
-        for j in 0..10 {
+        for (j, &token) in tokens.iter().enumerate().take(10) {
             if (i + j) % 2 == 0 {
-                doc_tokens.push(tokens[j]);
+                doc_tokens.push(token);
             }
         }
         index.add_document(&format!("doc_{}", i), &doc_tokens);
