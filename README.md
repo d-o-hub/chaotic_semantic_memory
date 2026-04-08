@@ -148,7 +148,7 @@ tables alongside the crate's HDC storage using the same database:
 use libsql::Builder;
 
 // Connect to the same database this crate uses for persistence
-let db = Builder::new_local("memory.db").build().await?;
+let db = Builder::new_local("csm_memory.db").build().await?;
 let conn = db.connect()?;
 
 // Add semantic vector table alongside the crate's concepts table
@@ -179,13 +179,13 @@ The `csm` binary provides command-line access:
 
 ```bash
 # Inject a concept
-csm inject my-concept --database memory.db
+csm inject my-concept --database csm_memory.db
 
 # Find similar concepts
-csm probe my-concept -k 10 --database memory.db
+csm probe my-concept -k 10 --database csm_memory.db
 
 # Create associations
-csm associate source-concept target-concept --strength 0.8 --database memory.db
+csm associate source-concept target-concept --strength 0.8 --database csm_memory.db
 
 # Export memory state
 csm export --output backup.json
@@ -271,7 +271,7 @@ Persistent flow:
 
 ```rust
 let framework = ChaoticSemanticFramework::builder()
-    .with_local_db("memory.db")
+    .with_local_db("csm_memory.db")
     .build()
     .await?;
 ```

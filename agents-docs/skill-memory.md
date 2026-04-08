@@ -7,7 +7,7 @@ Skills use the `csm` CLI to persist learning and build knowledge graphs.
 ```yaml
 memory:
   enabled: true
-  database: ".agents/memory/skill-memory.db"
+  database: ".agents/csm-memory/skill-memory.db"
   namespace_prefix: "skill"
 ```
 

@@ -11,7 +11,7 @@ async fn main() -> Result<()> {
     // 1. Initialize with libSQL
     let framework = ChaoticSemanticFramework::builder()
         .with_reservoir_size(50000)
-        .with_local_db("memory.db")
+        .with_local_db("csm_memory.db")
         .build()
         .await?;
 

@@ -10,7 +10,7 @@ let framework = ChaoticSemanticFramework::builder()
     .with_chaos_strength(0.1)
     
     // Persistence settings
-    .with_local_db("memory.db")
+    .with_local_db("csm_memory.db")
     .with_connection_pool_size(10)
     
     // Memory limits
@@ -57,7 +57,7 @@ In-memory only, no database.
 ### Local SQLite
 
 ```rust
-.with_local_db("memory.db")
+.with_local_db("csm_memory.db")
 ```
 
 Local SQLite file.

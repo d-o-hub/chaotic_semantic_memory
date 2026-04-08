@@ -10,12 +10,12 @@
 
 # Encryption settings
 : "${CSM_ENCRYPTION_ENABLED:=false}"
-: "${CSM_ENCRYPTION_KEY_FILE:=.agents/memory/.key}"
+: "${CSM_ENCRYPTION_KEY_FILE:=.agents/csm-memory/.key}"
 
 # Rate limiting settings
 : "${CSM_RATE_LIMIT_ENABLED:=false}"
 : "${CSM_RATE_LIMIT_OPS_PER_MINUTE:=60}"
-: "${CSM_RATE_LIMIT_DIR:=.agents/memory/rate-limits}"
+: "${CSM_RATE_LIMIT_DIR:=.agents/csm-memory/rate-limits}"
 
 # ============================================================================
 # ENCRYPTION

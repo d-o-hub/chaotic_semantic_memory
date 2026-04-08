@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-DB="${1:-.agents/memory/demo-skill-memory.db}"
+DB="${1:-.agents/csm-memory/demo-skill-memory.db}"
 EXPORT_FILE="/tmp/verify-export.json"
 
 echo "╔════════════════════════════════════════════════════════════════╗"

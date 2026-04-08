@@ -16,14 +16,14 @@ Skill (bash/rust/python)
     csm probe "similar refactoring" -k 5
     csm associate "error::xyz" "solution::abc" -s 0.9
     ↓ stores in
-    .agents/memory/skill-memory.db (libsql)
+    .agents/csm-memory/skill-memory.db (libsql)
 ```
 
 ## Quick Start
 
 ```bash
 # Initialize memory database for a skill
-export CSM_MEMORY_DB=".agents/memory/skill-memory.db"
+export CSM_MEMORY_DB=".agents/csm-memory/skill-memory.db"
 
 # Remember an operation
 csm --database "$CSM_MEMORY_DB" inject "skill::adr-creation::decision::0043" \
@@ -57,7 +57,7 @@ remember_operation() {
     local operation="$2"
     local context="$3"
     local result="$4"
-    local db="${CSM_MEMORY_DB:-.agents/memory/skill-memory.db}"
+    local db="${CSM_MEMORY_DB:-.agents/csm-memory/skill-memory.db}"
     
     local concept_id="skill::${skill_name}::${operation}::$(date +%s)"
     local metadata=$(jq -n \
@@ -86,7 +86,7 @@ recall_similar() {
     local query="$1"
     local threshold="${2:-0.7}"
     local top_k="${3:-5}"
-    local db="${CSM_MEMORY_DB:-.agents/memory/skill-memory.db}"
+    local db="${CSM_MEMORY_DB:-.agents/csm-memory/skill-memory.db}"
     
     # Query and filter by similarity
     csm --database "$db" probe "$query" -k "$top_k" --output-format json | \
@@ -106,7 +106,7 @@ create_association() {
     local concept1="$1"
     local concept2="$2"
     local strength="${3:-0.8}"
-    local db="${CSM_MEMORY_DB:-.agents/memory/skill-memory.db}"
+    local db="${CSM_MEMORY_DB:-.agents/csm-memory/skill-memory.db}"
     
     csm --database "$db" associate "$concept1" "$concept2" -s "$strength"
 }
@@ -123,7 +123,7 @@ create_association "error::E0495::abc123" "solution::lifetime::def456" 0.95
 get_related() {
     local concept_id="$1"
     local min_strength="${2:-0.7}"
-    local db="${CSM_MEMORY_DB:-.agents/memory/skill-memory.db}"
+    local db="${CSM_MEMORY_DB:-.agents/csm-memory/skill-memory.db}"
     
     # Export and filter by associations
     local export_data=$(csm --database "$db" export -o - --output-format json)
@@ -144,7 +144,7 @@ Add to `AGENTS.md`:
 
 memory:
   enabled: true
-  database: ".agents/memory/skill-memory.db"  # libsql database path
+  database: ".agents/csm-memory/skill-memory.db"  # libsql database path
   namespace_prefix: "skill"                    # All skill concepts prefixed
   
   # Auto-remember settings
@@ -174,7 +174,7 @@ memory:
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DB="${CSM_MEMORY_DB:-.agents/memory/skill-memory.db}"
+DB="${CSM_MEMORY_DB:-.agents/csm-memory/skill-memory.db}"
 
 # Ensure database exists
 if [ ! -f "$DB" ]; then
@@ -289,7 +289,7 @@ fi
 
 set -euo pipefail
 
-DB="${CSM_MEMORY_DB:-.agents/memory/skill-memory.db}"
+DB="${CSM_MEMORY_DB:-.agents/csm-memory/skill-memory.db}"
 
 remember_error() {
     local symptom="$1"
@@ -371,7 +371,7 @@ fi
 
 set -euo pipefail
 
-DB="${CSM_MEMORY_DB:-.agents/memory/skill-memory.db}"
+DB="${CSM_MEMORY_DB:-.agents/csm-memory/skill-memory.db}"
 
 remember_refactoring() {
     local file_path="$1"
@@ -493,8 +493,8 @@ find_similar_refactorings "convert match statement to trait"
 export CSM_VERBOSE=1
 
 # Check database contents
-csm --database .agents/memory/skill-memory.db export -o - | jq '.'
+csm --database .agents/csm-memory/skill-memory.db export -o - | jq '.'
 
 # Verify associations
-csm --database .agents/memory/skill-memory.db export -o - | jq '.associations'
+csm --database .agents/csm-memory/skill-memory.db export -o - | jq '.associations'
 ```

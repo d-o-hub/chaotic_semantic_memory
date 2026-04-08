@@ -61,7 +61,7 @@ use chaotic_semantic_memory::prelude::*;
 #[tokio::main]
 async fn main() -> Result<()> {
     let framework = ChaoticSemanticFramework::builder()
-        .with_local_db("memory.db")
+        .with_local_db("csm_memory.db")
         .build()
         .await?;
 

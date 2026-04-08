@@ -60,18 +60,18 @@ export.json
 # Temporary examples (not part of crate)
 examples/tmp/
 
-# Skill-memory test databases and exports
-.agents/memory/*.db
-.agents/memory/*.db-journal
-.agents/memory/*.db-wal
-.agents/memory/*.db-shm
-.agents/memory/metrics/
-.agents/memory/rate-limits/
-.agents/memory/.key
+# Skill-memory test databases and exports (AI agent storage)
+.agents/csm-memory/*.db
+.agents/csm-memory/*.db-journal
+.agents/csm-memory/*.db-wal
+.agents/csm-memory/*.db-shm
+.agents/csm-memory/metrics/
+.agents/csm-memory/rate-limits/
+.agents/csm-memory/.key
 *.memory.json
 
-# Skill-memory logs
-.agents/memory/*.log
+# Skill-memory logs (AI agent storage)
+.agents/csm-memory/*.log
 *.skill-memory.log
 
 # Temporary exports from demos

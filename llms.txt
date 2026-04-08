@@ -8,27 +8,27 @@
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
-- colored (2.2.0)
-- glob (0.3.2)
-- base64 (0.22)
 - clap (4.5.60) [features: derive, env, string]
-- bincode (1.3.3)
-- rand (0.8.5)
-- serde (1.0.219) [features: derive]
-- tracing (0.1.41)
 - tracing-subscriber (0.3.19)
-- serde_json (1.0.149)
-- thiserror (2.0.11)
-- anyhow (1.0.102)
 - clap_complete (4.5.42)
+- colored (2.2.0)
+- anyhow (1.0.102)
+- rand (0.8.5)
+- base64 (0.22)
+- glob (0.3.2)
+- serde (1.0.219) [features: derive]
+- thiserror (2.0.11)
+- serde_json (1.0.149)
+- bincode (1.3.3)
+- tracing (0.1.41)
 **Features:**
-- wasm: []
-- parallel: [dep:rayon]
-- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - default: [cli, persistence, parallel]
+- parallel: [dep:rayon]
+- wasm: []
 - persistence: [dep:libsql]
+- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 
-Generated: 2026-04-08 08:23:18 UTC  
+Generated: 2026-04-08 09:38:54 UTC  
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Core Documentation
@@ -581,7 +581,7 @@ tables alongside the crate's HDC storage using the same database:
 use libsql::Builder;
 
 // Connect to the same database this crate uses for persistence
-let db = Builder::new_local("memory.db").build().await?;
+let db = Builder::new_local("csm_memory.db").build().await?;
 let conn = db.connect()?;
 
 // Add semantic vector table alongside the crate's concepts table
@@ -603,8 +603,8 @@ let rows = conn.query(
 ```
 
 This keeps HDC and semantic vectors in the **same database**: the crate manages
-`concepts` and `associations` tables, while you manage `semantic_vectors` for
-float-vector similarity search. Both query the same libSQL/Turso instance.
+`csm_concepts` and `csm_associations` tables (with `csm_` prefix for namespace isolation),
+while you manage `semantic_vectors` for float-vector similarity search. Both query the same libSQL/Turso instance.
 
 #### CLI Usage
 
@@ -612,13 +612,13 @@ The `csm` binary provides command-line access:
 
 ```bash
 ### Inject a concept
-csm inject my-concept --database memory.db
+csm inject my-concept --database csm_memory.db
 
 ### Find similar concepts
-csm probe my-concept -k 10 --database memory.db
+csm probe my-concept -k 10 --database csm_memory.db
 
 ### Create associations
-csm associate source-concept target-concept --strength 0.8 --database memory.db
+csm associate source-concept target-concept --strength 0.8 --database csm_memory.db
 
 ### Export memory state
 csm export --output backup.json
@@ -704,7 +704,7 @@ Persistent flow:
 
 ```rust
 let framework = ChaoticSemanticFramework::builder()
-    .with_local_db("memory.db")
+    .with_local_db("csm_memory.db")
     .build()
     .await?;
 ```

@@ -9,7 +9,7 @@
 #
 
 # Metrics directory
-: "${CSM_METRICS_DIR:=.agents/memory/metrics}"
+: "${CSM_METRICS_DIR:=.agents/csm-memory/metrics}"
 
 # Metrics enabled?
 : "${CSM_METRICS_ENABLED:=true}"

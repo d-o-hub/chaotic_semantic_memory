@@ -70,7 +70,7 @@ add Turso's native `F32_BLOB` vector tables alongside the crate's HDC storage:
 use libsql::Builder;
 
 // Connect to the same database this crate uses
-let db = Builder::new_local("memory.db").build().await?;
+let db = Builder::new_local("csm_memory.db").build().await?;
 let conn = db.connect()?;
 
 conn.execute_batch("

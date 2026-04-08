@@ -16,7 +16,7 @@ Inject a new concept:
 
 ```bash
 # Random vector
-csm inject my-concept --database memory.db
+csm inject my-concept --database csm_memory.db
 
 # Vector from file
 csm inject my-concept --from-file vector.bin --database memory.db
@@ -34,7 +34,7 @@ Find similar concepts:
 
 ```bash
 # By concept ID
-csm probe my-concept -k 10 --database memory.db
+csm probe my-concept -k 10 --database csm_memory.db
 
 # Output as JSON
 csm probe my-concept -k 10 --output-format json --database memory.db
@@ -45,7 +45,7 @@ csm probe my-concept -k 10 --output-format json --database memory.db
 Create associations:
 
 ```bash
-csm associate source target --strength 0.8 --database memory.db
+csm associate source target --strength 0.8 --database csm_memory.db
 ```
 
 ### export
@@ -54,10 +54,10 @@ Export memory state:
 
 ```bash
 # JSON format
-csm export --output backup.json --database memory.db
+csm export --output backup.json --database csm_memory.db
 
 # Binary format (smaller)
-csm export --output backup.bin --format binary --database memory.db
+csm export --output backup.bin --format binary --database csm_memory.db
 ```
 
 ### import
@@ -66,7 +66,7 @@ Import memory state:
 
 ```bash
 # Replace existing
-csm import backup.json --database memory.db
+csm import backup.json --database csm_memory.db
 
 # Merge with existing
 csm import backup.json --merge --database memory.db

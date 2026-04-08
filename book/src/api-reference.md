@@ -39,7 +39,7 @@ Main orchestration type.
 let framework = ChaoticSemanticFramework::builder()
     .with_reservoir_size(50_000)
     .with_chaos_strength(0.1)
-    .with_local_db("memory.db")
+    .with_local_db("csm_memory.db")
     .build()
     .await?;
 ```

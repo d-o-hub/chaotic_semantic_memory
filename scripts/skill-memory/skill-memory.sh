@@ -12,17 +12,17 @@
 set -euo pipefail
 
 # Configuration with defaults
-: "${CSM_MEMORY_DB:=.agents/memory/skill-memory.db}"
+: "${CSM_MEMORY_DB:=.agents/csm-memory/skill-memory.db}"
 : "${CSM_VERBOSE:=0}"
 : "${CSM_LOG_LEVEL:=WARN}"  # ERROR, WARN, INFO, DEBUG, TRACE
 : "${CSM_LOG_FILE:=}"
 : "${CSM_LOG_ROTATE_MAX_BYTES:=10485760}"
 : "${CSM_LOG_ROTATE_MAX_FILES:=5}"
 : "${CSM_METRICS_ENABLED:=true}"
-: "${CSM_METRICS_DIR:=.agents/memory/metrics}"
+: "${CSM_METRICS_DIR:=.agents/csm-memory/metrics}"
 : "${CSM_RATE_LIMIT_ENABLED:=false}"
 : "${CSM_RATE_LIMIT_OPS_PER_MINUTE:=60}"
-: "${CSM_RATE_LIMIT_DIR:=.agents/memory/rate-limits}"
+: "${CSM_RATE_LIMIT_DIR:=.agents/csm-memory/rate-limits}"
 : "${CSM_ENCRYPT_KEY:=}"
 : "${CSM_ENCRYPT_ALGORITHM:=aes-256-cbc}"
 : "${CSM_ENCRYPT_FIELDS:=context,result}"
@@ -548,7 +548,7 @@ _init_memory_db() {
 # Rate limiting check
 _rate_limit_check() {
     local skill="$1"
-    local limit_dir="${CSM_RATE_LIMIT_DIR:-.agents/memory/rate-limits}"
+    local limit_dir="${CSM_RATE_LIMIT_DIR:-.agents/csm-memory/rate-limits}"
     local limit_file="$limit_dir/${skill}.limit"
     local max_ops="${CSM_RATE_LIMIT_OPS_PER_MINUTE:-60}"
     

@@ -21,7 +21,7 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 
 # Setup: Clean database for fresh demo
-DB=".agents/memory/demo-skill-memory.db"
+DB=".agents/csm-memory/demo-skill-memory.db"
 rm -f "$DB"
 export CSM_MEMORY_DB="$DB"
 

@@ -35,7 +35,7 @@ let framework = ChaoticSemanticFramework::builder()
 
 ```rust
 let framework = ChaoticSemanticFramework::builder()
-    .with_local_db("memory.db")
+    .with_local_db("csm_memory.db")
     .with_max_concepts(1_000_000)
     .with_concept_cache_size(1_000)
     .build()
