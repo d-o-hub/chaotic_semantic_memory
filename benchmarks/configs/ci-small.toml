@@ -1,0 +1,7 @@
+dataset = "benchmarks/datasets/v1/small"
+mode = "retrieval-only"
+top_k = 10
+reader_enabled = false
+max_cases = 128
+strict_seed = true
+persist_results = true

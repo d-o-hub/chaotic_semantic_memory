@@ -1,0 +1,39 @@
+name: benchmark-ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  benchmark-small:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run benchmark
+        run: cargo run --manifest-path benchmarks/Cargo.toml -- --dataset-dir benchmarks/datasets/v1/small --mode retrieval-only --out-dir benchmarks/results/ci
+
+      - name: Verify outputs
+        run: |
+          if [ ! -f benchmarks/results/ci/summary.json ]; then echo "Missing summary.json"; exit 1; fi
+          if [ ! -f benchmarks/results/ci/results.jsonl ]; then echo "Missing results.jsonl"; exit 1; fi
+          if [ ! -f benchmarks/results/ci/report.md ]; then echo "Missing report.md"; exit 1; fi
+
+          # Basic schema check for summary.json
+          grep -q "recall_at_1" benchmarks/results/ci/summary.json || (echo "Malformed summary.json"; exit 1)
+          grep -q "peak_memory_bytes" benchmarks/results/ci/summary.json || (echo "Malformed summary.json: missing peak_memory_bytes"; exit 1)
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmarks/results/ci

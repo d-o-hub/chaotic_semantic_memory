@@ -1,0 +1,9 @@
+dataset = "benchmarks/datasets/v1/small"
+mode = "reader-lite"
+top_k = 10
+reader_enabled = true
+max_cases = 32
+strict_seed = true
+persist_results = true
+max_prompt_tokens = 512
+max_completion_tokens = 96
