@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" modified="2026-04-07T19:00:40Z" agent="Auto-Update Hook" version="24.0.0">
+<mxfile host="app.diagrams.net" modified="2026-04-08T07:24:56Z" agent="Auto-Update Hook" version="24.0.0">
   <diagram id="agents-md-context" name="AGENTS.md Context">
     <mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1000" math="0" shadow="0">
       <root>
@@ -6,7 +6,7 @@
         <mxCell id="1" parent="0" />
         
         <!-- Title -->
-        <mxCell id="title" value="AGENTS.md Visual Guide&lt;br&gt;&lt;font size=&quot;10&quot;&gt;Auto-updated: 2026-04-07T19:00:40Z&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;" vertex="1" parent="1">
+        <mxCell id="title" value="AGENTS.md Visual Guide&lt;br&gt;&lt;font size=&quot;10&quot;&gt;Auto-updated: 2026-04-08T07:24:56Z&lt;/font&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;" vertex="1" parent="1">
           <mxGeometry x="500" y="20" width="400" height="40" as="geometry" />
         </mxCell>
         
@@ -107,7 +107,7 @@
         </mxCell>
         
         <!-- Current Status Note -->
-        <mxCell id="status" value="Status: active_wave: unknown&lt;br&gt;Tests: 20 test files&lt;br&gt;All modules &lt; 500 LOC" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="1">
+        <mxCell id="status" value="Status: active_wave: unknown&lt;br&gt;Tests: 21 test files&lt;br&gt;All modules &lt; 500 LOC" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="1">
           <mxGeometry x="950" y="80" width="200" height="60" as="geometry" />
         </mxCell>
         
