@@ -78,7 +78,16 @@ validate_changelog() {
   fi
 }
 
-# Run validation
+# Get current version from Cargo.toml first
+CURRENT_VERSION=$(grep -m1 'version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+
+# If version unchanged, skip validation and exit early
+if [ "$VERSION" = "$CURRENT_VERSION" ]; then
+    echo "Version $VERSION is current. No sync needed."
+    exit 0
+fi
+
+# Run validation (only for version bumps)
 validate_changelog "$VERSION"
 
 # Extract major.minor for Cargo.toml compatibility version
@@ -88,15 +97,8 @@ echo "=============================================="
 echo "Version Sync: $VERSION"
 echo "=============================================="
 
-# Get current version from Cargo.toml
-CURRENT_VERSION=$(grep -m1 'version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
 echo "Current version: $CURRENT_VERSION"
 echo ""
-
-if [ "$VERSION" = "$CURRENT_VERSION" ]; then
-    echo "Version unchanged. Nothing to do."
-    exit 0
-fi
 
 # Files that need version updates
 declare -A VERSION_FILES
