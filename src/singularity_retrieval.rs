@@ -13,6 +13,7 @@ use std::sync::Arc;
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
 
+use crate::error::Result;
 use crate::hyperdim::HVec10240;
 use crate::singularity::{Singularity, unix_now_ns};
 
@@ -58,6 +59,12 @@ pub struct RetrievalConfig {
     pub enable_bucket_candidates: bool,
 }
 
+impl RetrievalConfig {
+    pub fn validate(&self) -> Result<()> {
+        crate::framework::ChaoticSemanticFramework::validate_retrieval_config(self)
+    }
+}
+
 impl Default for RetrievalConfig {
     fn default() -> Self {
         Self {
@@ -74,8 +81,10 @@ impl Default for RetrievalConfig {
 
 impl Singularity {
     /// Set the retrieval configuration.
-    pub fn set_retrieval_config(&mut self, config: RetrievalConfig) {
+    pub fn set_retrieval_config(&mut self, config: RetrievalConfig) -> Result<()> {
+        config.validate()?;
         self.retrieval_config = config;
+        Ok(())
     }
 
     /// Get the retrieval configuration.
