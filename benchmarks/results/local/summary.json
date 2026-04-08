@@ -1,0 +1,17 @@
+{
+  "cases": 40,
+  "recall_at_1": 0.025,
+  "recall_at_5": 0.125,
+  "recall_at_10": 0.25,
+  "mrr": 0.07322421,
+  "exact_match": 0.0,
+  "abstain_precision": 0.5,
+  "abstain_recall": 1.0,
+  "ingest_ms": 106,
+  "p50_latency_ms": 2,
+  "p95_latency_ms": 2,
+  "storage_bytes": 0,
+  "peak_memory_bytes": 13238272,
+  "prompt_tokens": 2550,
+  "completion_tokens": 320
+}

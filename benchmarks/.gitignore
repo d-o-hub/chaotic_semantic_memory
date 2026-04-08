@@ -1,0 +1,7 @@
+# Generated benchmark outputs
+/results/
+/results-*/
+/target/
+
+# Generated datasets (v2 and later)
+/datasets/v2/

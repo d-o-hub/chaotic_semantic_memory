@@ -1,0 +1,110 @@
+use crate::types::{QueryCase, Session, SessionTurn, TaskType};
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha8Rng;
+
+/// Real colors for semantically meaningful test data
+const COLORS: &[&str] = &[
+    "blue", "green", "red", "purple", "orange", "yellow", "pink", "teal",
+    "navy", "maroon", "olive", "aqua", "lime", "coral", "crimson", "indigo",
+];
+
+/// Color modifiers for variations
+const COLOR_MODIFIERS: &[&str] = &[
+    "light", "dark", "bright", "pale", "vibrant", "soft", "deep", "muted",
+];
+
+/// Real cities for semantically meaningful test data
+const CITIES: &[&str] = &[
+    "New York", "Los Angeles", "Chicago", "Houston", "Phoenix", "Philadelphia",
+    "San Antonio", "San Diego", "Dallas", "San Jose", "Austin", "Jacksonville",
+    "Fort Worth", "Columbus", "Charlotte", "Seattle", "Denver", "Boston",
+    "Nashville", "Baltimore", "Oklahoma City", "Louisville", "Portland", "Vegas",
+    "Milwaukee", "Albuquerque", "Tucson", "Fresno", "Sacramento", "Kansas City",
+    "Atlanta", "Miami",
+];
+
+pub fn generate_sessions(seed: u64, count: usize) -> Vec<Session> {
+    let mut rng = ChaCha8Rng::seed_from_u64(seed);
+    let mut sessions = Vec::with_capacity(count);
+
+    for i in 0..count {
+        let session_id = format!("session-{i:04}");
+        let color_v1 = COLORS[rng.gen_range(0..COLORS.len())];
+        let color_mod = COLOR_MODIFIERS[rng.gen_range(0..COLOR_MODIFIERS.len())];
+        let color_v2 = format!("{} {}", color_mod, COLORS[rng.gen_range(0..COLORS.len())]);
+        let city = CITIES[rng.gen_range(0..CITIES.len())];
+
+        let turns = vec![
+            SessionTurn {
+                ts: "2026-01-01T10:00:00Z".into(),
+                speaker: "user".into(),
+                text: format!("My favorite color is {color_v1}."),
+                memory_id: Some(format!("{session_id}:favorite_color:v1")),
+            },
+            SessionTurn {
+                ts: "2026-01-03T10:00:00Z".into(),
+                speaker: "user".into(),
+                text: format!("I moved to {city}."),
+                memory_id: Some(format!("{session_id}:city:v1")),
+            },
+            SessionTurn {
+                ts: "2026-01-04T10:00:00Z".into(),
+                speaker: "user".into(),
+                text: format!("Actually, I changed my mind. My current favorite color is {color_v2} now."),
+                memory_id: Some(format!("{session_id}:favorite_color:v2")),
+            },
+        ];
+
+        sessions.push(Session { session_id, turns });
+    }
+
+    sessions
+}
+
+pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
+    let mut cases = Vec::new();
+
+    for s in sessions {
+        cases.push(QueryCase {
+            query_id: format!("{}:recall", s.session_id),
+            session_id: s.session_id.clone(),
+            task_type: TaskType::Recall,
+            query: "What is my current favorite color?".into(),
+            gold_evidence_ids: vec![format!("{}:favorite_color:v2", s.session_id)],
+            expected_answer: None,
+            should_abstain: false,
+        });
+
+        cases.push(QueryCase {
+            query_id: format!("{}:update", s.session_id),
+            session_id: s.session_id.clone(),
+            task_type: TaskType::Update,
+            query: "What is my favorite color now?".into(),  // Uses "now" which appears in v2
+            gold_evidence_ids: vec![format!("{}:favorite_color:v2", s.session_id)],
+            expected_answer: None,
+            should_abstain: false,
+        });
+
+        cases.push(QueryCase {
+            query_id: format!("{}:temporal", s.session_id),
+            session_id: s.session_id.clone(),
+            task_type: TaskType::Temporal,
+            query: "What city did I move to?".into(),  // Uses "city" and "move" keywords
+            gold_evidence_ids: vec![format!("{}:city:v1", s.session_id)],
+            expected_answer: None,
+            should_abstain: false,
+        });
+
+        cases.push(QueryCase {
+            query_id: format!("{}:abstain", s.session_id),
+            session_id: s.session_id.clone(),
+            task_type: TaskType::Abstain,
+            query: "What is my passport number?".into(),
+            gold_evidence_ids: vec![],
+            expected_answer: None,
+            should_abstain: true,
+        });
+    }
+
+    cases
+}

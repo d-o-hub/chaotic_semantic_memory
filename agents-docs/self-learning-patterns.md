@@ -23,6 +23,10 @@ Key patterns recorded from iterations (see @progress/LEARNINGS.md for full histo
 - Always use `f32::total_cmp()` for similarity sorting — `partial_cmp().unwrap()` panics on NaN
 - `Vec<Vec<(usize, f32)>>` incurs substantial allocator overhead; contiguous CSR buffers are faster
 - For large sparse reservoirs, memory locality can dominate runtime more than arithmetic throughput
+- **inject_text() does NOT store text content** — must use inject_text_with_metadata() with `("_text", text)` for retrieval
+- **probe_text() uses pure HDC similarity** — for short queries (1-2 tokens), BM25 hybrid with 90% keyword weight is better
+- **HDC returns low-similarity noise** — scores ~0.12 for unrelated documents. Must filter with threshold before hybrid merge
+- **Min-max normalization amplifies noise** — low HDC scores (0.12) become 1.0, competing with correct BM25 results
 
 ## What to Avoid
 
@@ -38,6 +42,7 @@ Key patterns recorded from iterations (see @progress/LEARNINGS.md for full histo
 - Do not create multiple scripts with overlapping functionality — merge related scripts (e.g., version checking into link checking)
 - Do not use archived GitHub repositories as dependencies — always find an active alternative or fork and maintain
 - Do not hardcode version numbers in test fixtures or examples — use current version or verify sync
+- **Do not use inject_text() when you need to retrieve the original text later** — use inject_text_with_metadata() instead
 
 ## Learning Loop
 
