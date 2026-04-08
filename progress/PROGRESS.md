@@ -1,3 +1,44 @@
+## 2026-04-08: Benchmark Suite Quality Improvements
+
+### Summary
+Fixed critical text storage bug and added comprehensive unit tests for benchmark suite (Issue #61).
+
+### Changes
+- **Bug Fix**: MemoryAdapter now uses inject_text_with_metadata() to store `_text` metadata
+- **Tests Added**: 10 unit tests (memory_adapter: 2, scorer: 8)
+- **Documentation**: Added benchmarks/.gitignore for generated results
+
+### TaskType Coverage Analysis
+| TaskType | Generated | Status |
+|----------|-----------|--------|
+| Recall | ✅ | Full coverage |
+| Update | ✅ | Partial (no version history) |
+| Temporal | ✅ | Minimal (no reservoir) |
+| Abstain | ✅ | Full coverage |
+| Association | ❌ | **Not generated** |
+| MultiSession | ❌ | **Not implemented** |
+
+### Feature Gaps Identified
+- Semantic Bridge (ADR-0061): Not tested
+- BM25/Hybrid retrieval: Not tested
+- TTL (Time-to-Live): Not tested
+- Version history: Not tested
+- Association graph: Defined but not generated
+
+### Current State
+- ✅ 10 new benchmark tests passing
+- ✅ Main crate tests passing (25 tests)
+- ✅ No build warnings
+- ✅ Benchmark runs successfully (Recall@1: 0.025, MRR: 0.073)
+
+### Commits
+- `b07be75`: fix(benchmark): text storage bug and add unit tests
+
+### Next Steps
+1. Generate Association test cases in generator.rs
+2. Add TTL and version history tests
+3. Consider BM25/hybrid retrieval mode testing
+
 ## 2026-04-08: v0.3.0 Release Preparation
 
 ### Summary

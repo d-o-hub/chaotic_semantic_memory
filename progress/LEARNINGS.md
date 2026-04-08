@@ -722,6 +722,35 @@ gh workflow run release.yml --ref main
 gh run watch
 ```
 
+## 2026-04-08: Benchmark Suite Text Storage Bug
+
+### Problem
+MemoryAdapter.get_text() always returned the concept ID instead of original text because inject_text() doesn't store text content.
+
+### Root Cause
+- `inject_text()` only stores the HDC vector, NOT the text metadata
+- `get_text()` expected `_text` metadata field but it was never written
+- Reader-lite mode (and any retrieval requiring original content) failed silently
+
+### Solution
+Use `inject_text_with_metadata()` with `("_text", text.to_string())` metadata:
+```rust
+let mut metadata = HashMap::new();
+metadata.insert("_text".to_string(), serde_json::Value::String(text.to_string()));
+self.framework.inject_text_with_metadata(id, text, metadata).await?;
+```
+
+### Technical Insights
+- `inject_text()` is for HDC-only storage (no content retrieval needed)
+- `inject_text_with_metadata()` stores arbitrary JSON metadata alongside the vector
+- `get_concept()` returns metadata as `HashMap<String, serde_json::Value>`
+- BM25/hybrid retrieval benefits from original text for keyword matching
+
+### What to Avoid
+- ❌ Do NOT use inject_text() when you need to retrieve original content later
+- ❌ Do NOT assume concept ID equals stored text content
+- ✅ DO use inject_text_with_metadata() for content-aware storage
+
 ## 2026-04-08: WASM Size Gate Script Bug
 
 ### Problem
