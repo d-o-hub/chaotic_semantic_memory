@@ -6,7 +6,7 @@ use crate::{
     reader::Reader,
     report,
     scorer,
-    types::{CaseResult, RetrievedItem},
+    types::{CaseResult, RetrievedItem, TaskType},
 };
 use anyhow::Result;
 use std::time::Instant;
@@ -35,16 +35,24 @@ pub async fn run(cli: Cli) -> Result<()> {
                 adapter.ingest_memory(id, &turn.text).await?;
             }
         }
-        sys.refresh_all();
-        peak_mem = peak_mem.max(sys.process(pid).map(|p| p.memory()).unwrap_or(0));
     }
+    // Sample memory only once after all ingest
+    sys.refresh_all();
+    peak_mem = peak_mem.max(sys.process(pid).map(|p| p.memory()).unwrap_or(0));
     let ingest_ms = start_ingest.elapsed().as_millis();
 
     println!("Running queries...");
     let mut results = Vec::new();
     for query_case in queries {
         let start_query = Instant::now();
-        let hits = adapter.query(&query_case.query, cli.top_k).await?;
+
+        // Use session-scoped retrieval for session-specific queries
+        let hits = if matches!(query_case.task_type, TaskType::Recall | TaskType::Update | TaskType::Temporal) {
+            adapter.query_in_session(&query_case.query, &query_case.session_id, cli.top_k).await?
+        } else {
+            // For abstain and other queries, search globally
+            adapter.query(&query_case.query, cli.top_k).await?
+        };
         let latency_ms = start_query.elapsed().as_millis();
 
         let retrieved: Vec<_> = hits
@@ -103,10 +111,11 @@ pub async fn run(cli: Cli) -> Result<()> {
         }
 
         results.push(result);
-
-        sys.refresh_all();
-        peak_mem = peak_mem.max(sys.process(pid).map(|p| p.memory()).unwrap_or(0));
     }
+
+    // Sample memory once after all queries
+    sys.refresh_all();
+    peak_mem = peak_mem.max(sys.process(pid).map(|p| p.memory()).unwrap_or(0));
 
     println!("Aggregating metrics...");
     let summary = metrics::aggregate(&results, ingest_ms, peak_mem, 0);

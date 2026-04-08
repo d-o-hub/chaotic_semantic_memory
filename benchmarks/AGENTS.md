@@ -20,6 +20,22 @@ This AGENTS.md is intentionally local to `benchmarks/` and must be treated as in
 - Avoid hype, vanity metrics, and marketing phrasing.
 - Minimize token usage in all benchmark flows.
 - Default to no external model dependency.
+- Use semantically meaningful test data (real words, not synthetic tokens like "color-5").
+
+## Retrieval Strategy
+
+The benchmark uses **hybrid retrieval** (BM25 + HDC) with query-length-dependent weights:
+
+| Query Tokens | Keyword (BM25) | Semantic (HDC) | Rationale |
+|-------------|----------------|----------------|-----------|
+| 1-2 | 90% | 10% | Exact match dominates (function names, error strings) |
+| 3-4 | 70% | 30% | Keywords still strong |
+| 5-8 | 40% | 60% | Semantic takes over |
+| 9+ | 20% | 80% | Full semantic mode (natural language questions) |
+
+**Key insight**: For short queries under 5 tokens, keyword search consistently outperforms semantic search. Users searching for exact function names or error strings get poor results from embeddings alone.
+
+**Implementation**: See `memory_adapter.rs` - uses `compute_weights()` and `merge_results()` from `retrieval/hybrid.rs`.
 
 ## Required outputs
 
