@@ -1,7 +1,7 @@
 # ADR-0062: Hybrid BM25+HDC Retrieval with Query-Length-Dependent Scoring
 
 ## Status
-Proposed
+Implemented
 
 ## Context
 
@@ -157,3 +157,21 @@ Total: ~500 LOC (under limit)
 - [Robertson & Zaragoza, 2009: The Probabilistic Relevance Framework: BM25 and Beyond](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/SigIRForum2009.pdf)
 - [github-template-ai-agents#121](https://github.com/d-o-hub/github-template-ai-agents/issues/121)
 - Related: ADR-0059 (Retrieval Optimization)
+
+## Implementation Notes (2026-04-05)
+
+Implementation completed in v0.3.0:
+
+- `src/retrieval/mod.rs`: Module exports and feature gating
+- `src/retrieval/bm25.rs`: Full BM25 index implementation with:
+  - `add_document`, `remove_document_at`, `search`, `clear` methods
+  - k1=1.2, b=0.75 parameters as specified
+  - In-memory index with `swap_remove` optimization (O(N) -> O(1))
+- `src/retrieval/hybrid.rs`: Score fusion with query-length-dependent weights:
+  - `compute_weights(token_count)` returns (keyword_weight, semantic_weight)
+  - `normalize_scores(scores)` uses min-max normalization
+  - `merge_results()` deduplicates by ID with max score
+
+All module LOC counts under 500 limit:
+- bm25.rs: ~396 LOC
+- hybrid.rs: ~242 LOC
