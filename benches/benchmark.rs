@@ -353,7 +353,7 @@ fn bench_retrieval_baseline(c: &mut Criterion) {
         let mut singularity_bucket = build_probe_benchmark_singularity(concept_count, false);
         let mut ret_config = singularity_bucket.retrieval_config().clone();
         ret_config.enable_bucket_candidates = true;
-        singularity_bucket.set_retrieval_config(ret_config);
+        let _ = singularity_bucket.set_retrieval_config(ret_config);
 
         group.bench_function(format!("reduced_bucket_{concept_count}"), |b| {
             b.iter(|| {

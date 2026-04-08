@@ -75,11 +75,15 @@ harness = false
 name = "persistence_benchmark"
 harness = false
 
+[[bench]]
+name = "bm25_benchmark"
+harness = false
+
 [profile.release]
 opt-level = 3
 lto = "fat"
 codegen-units = 1
-panic = "abort"
+panic = "unwind"
 strip = "symbols"
 
 [lib]

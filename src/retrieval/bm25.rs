@@ -140,12 +140,16 @@ impl Bm25Index {
         }
 
         self.total_length = self.total_length.saturating_sub(doc.length);
-        self.documents.remove(idx);
+        let id = doc.id.clone();
+        self.doc_index.remove(&id);
 
-        // Rebuild index mapping
-        self.doc_index.clear();
-        for (i, doc) in self.documents.iter().enumerate() {
-            self.doc_index.insert(doc.id.clone(), i);
+        // O(1) removal using swap_remove
+        self.documents.swap_remove(idx);
+
+        // If we swapped an element into idx, update its mapping
+        if idx < self.documents.len() {
+            let swapped_id = &self.documents[idx].id;
+            self.doc_index.insert(swapped_id.clone(), idx);
         }
     }
 
@@ -158,16 +162,29 @@ impl Bm25Index {
         }
 
         let n = self.documents.len() as f32;
-        let avgdl = if self.documents.is_empty() {
-            1.0
-        } else {
-            self.total_length as f32 / n
-        };
+        let avgdl = self.total_length as f32 / n;
 
-        // Compute query term frequencies
-        let mut query_freqs: HashMap<String, u32> = HashMap::new();
+        // Compute unique query terms and their IDFs once
+        let mut query_terms = Vec::new();
+        let mut idf_values = Vec::new();
+
+        // Use a set to handle duplicate tokens in query efficiently
+        let mut seen_terms = HashMap::new();
         for token in query_tokens {
-            *query_freqs.entry(token.as_ref().to_string()).or_insert(0) += 1;
+            seen_terms.entry(token.as_ref()).or_insert(());
+        }
+
+        for term in seen_terms.keys() {
+            let df = self.doc_freqs.get(*term).copied().unwrap_or(0) as f32;
+            let idf = ((n - df + 0.5) / (df + 0.5) + 1.0).ln();
+            if idf > 0.0 {
+                query_terms.push(*term);
+                idf_values.push(idf);
+            }
+        }
+
+        if query_terms.is_empty() {
+            return Vec::new();
         }
 
         // Score each document
@@ -175,7 +192,7 @@ impl Bm25Index {
             .documents
             .iter()
             .map(|doc| {
-                let score = self.score_document(doc, &query_freqs, n, avgdl);
+                let score = self.score_document(doc, &query_terms, &idf_values, avgdl);
                 (doc.id.clone(), score)
             })
             .filter(|(_, score)| *score > 0.0)
@@ -190,8 +207,8 @@ impl Bm25Index {
     fn score_document(
         &self,
         doc: &Document,
-        query_freqs: &HashMap<String, u32>,
-        n: f32,
+        query_terms: &[&str],
+        idf_values: &[f32],
         avgdl: f32,
     ) -> f32 {
         let mut score = 0.0;
@@ -199,20 +216,23 @@ impl Bm25Index {
         let b = self.config.b;
         let doc_len = doc.length as f32;
 
-        for term in query_freqs.keys() {
+        // Cache constants
+        let k1_plus_1 = k1 + 1.0;
+        let b_div_avgdl = b / avgdl;
+        let k1_times_1_minus_b = k1 * (1.0 - b);
+
+        for (i, term) in query_terms.iter().enumerate() {
             // Skip terms not in document
-            let tf = match doc.term_freqs.get(term) {
+            let tf = match doc.term_freqs.get(*term) {
                 Some(&tf) => tf as f32,
                 None => continue,
             };
 
-            // IDF calculation
-            let df = self.doc_freqs.get(term).copied().unwrap_or(0) as f32;
-            let idf = ((n - df + 0.5) / (df + 0.5) + 1.0).ln();
+            let idf = idf_values[i];
 
             // BM25 term score
-            let numerator = tf * (k1 + 1.0);
-            let denominator = tf + k1 * (1.0 - b + b * doc_len / avgdl);
+            let numerator = tf * k1_plus_1;
+            let denominator = tf + k1_times_1_minus_b + k1 * doc_len * b_div_avgdl;
 
             score += idf * numerator / denominator;
         }
