@@ -59,6 +59,7 @@
 | **0060** | **Configurable Hypervector Dimensions** | Deferred | Issue #35 |
 | **0061** | **Semantic Bridge Layer** | **Implemented** | **Issue #52 - Phase 55-58** |
 | **0062** | **Hybrid BM25-HDC Retrieval** | **Implemented** | **2026-04-05** |
+| **0063** | **Database Table Prefix** | **Implemented** | **2026-04-08** |
 | 0024 | Concept Expiration (TTL) | Deferred | Post-1.0 |
 | 0024 | Performance Optimizations Phase 2 | Deferred | Post-1.0 |
 | 0025 | Weighted Forgetting (Decay) | Deferred | Post-1.0 |
