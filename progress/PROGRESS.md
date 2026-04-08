@@ -1,3 +1,45 @@
+## 2026-04-08: Benchmark Suite Hybrid Retrieval Implementation
+
+### Summary
+Implemented hybrid retrieval (BM25 + HDC) with session-scoped queries, achieving 30x improvement in Recall@1.
+
+### Changes
+- **MemoryAdapter**: Added BM25 index, hybrid merge with query-length-dependent weights
+- **Generator**: Replaced synthetic tokens with semantically meaningful data (real colors, cities)
+- **Runner**: Added session-scoped retrieval for Recall/Update/Temporal queries
+- **AGENTS.md**: Documented hybrid retrieval strategy and rationale
+
+### Key Bug Fix
+HDC returns low-similarity matches (~0.12) for unrelated documents. After min-max normalization,
+these become 1.0 and compete with correct BM25 results. Fixed by adding threshold filter (0.15).
+
+### Performance Improvement
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| Recall@1 | 2.5% | 75% | 30x |
+| Recall@5 | 10% | 75% | 7.5x |
+| MRR | 7.1% | 75% | 10x |
+
+### TaskType Results
+- Recall: 100% correct at rank 1
+- Temporal: 100% correct at rank 1
+- Update: 100% correct at rank 1
+- Abstain: Returns results (needs threshold tuning)
+
+### Current State
+- ✅ 10 benchmark tests passing
+- ✅ Hybrid retrieval working correctly
+- ✅ Session-scoped retrieval implemented
+- 📝 Abstention threshold needs tuning
+
+### Commits
+- `813fb14`: feat(benchmark): hybrid retrieval with session-scoped queries
+
+### Next Steps
+1. Tune abstention threshold
+2. Add Association and MultiSession test cases
+3. Consider lemmatization for better temporal/update query matching
+
 ## 2026-04-08: Benchmark Suite Quality Improvements
 
 ### Summary

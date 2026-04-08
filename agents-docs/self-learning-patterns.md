@@ -25,6 +25,8 @@ Key patterns recorded from iterations (see @progress/LEARNINGS.md for full histo
 - For large sparse reservoirs, memory locality can dominate runtime more than arithmetic throughput
 - **inject_text() does NOT store text content** — must use inject_text_with_metadata() with `("_text", text)` for retrieval
 - **probe_text() uses pure HDC similarity** — for short queries (1-2 tokens), BM25 hybrid with 90% keyword weight is better
+- **HDC returns low-similarity noise** — scores ~0.12 for unrelated documents. Must filter with threshold before hybrid merge
+- **Min-max normalization amplifies noise** — low HDC scores (0.12) become 1.0, competing with correct BM25 results
 
 ## What to Avoid
 
