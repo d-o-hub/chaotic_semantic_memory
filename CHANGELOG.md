@@ -7,22 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.0] - 2026-04-08
 
-### Changed
-- **Optimized BM25 Retrieval**: Significant performance improvements in document removal and search operations.
-  - Refactored `remove_document_at` to use `swap_remove` (O(N) -> O(1)).
-  - Optimized `search` by hoisting IDF calculations and constants out of the document scoring loop.
-  - Added dedicated BM25 benchmark suite.
-
-## [Unreleased]
-
-## [0.3.0] - 2026-04-08
-
 ### Added
 
 - **ADR-0062: Hybrid BM25+HDC Retrieval**: Implemented query-length-dependent
   hybrid scoring for improved short-query recall. BM25 keyword index runs
   parallel with HDC semantic search. Weights shift from 90% keyword for 1-2
   token queries to 80% semantic for 9+ tokens.
+- **ADR-0063: Database Table Prefix**: All tables now use `csm_` prefix
+  (`csm_concepts`, `csm_associations`, `csm_versions`, `csm_schema_version`,
+  `csm_canonical`) for namespace isolation in shared SQLite databases.
 - **Semantic Bridge Layer (Issue #52)**: Complete implementation of zero-drift
   semantic generalization overlay:
   - `src/semantic_bridge.rs`: Core types (CanonicalConcept, ScoreBreakdown, MemoryPacket)
@@ -37,12 +30,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Encoder tests**: Moved from inline `src/encoder.rs` to standalone
   `tests/encoder_tests.rs` for better organization.
 - **ADR-0062 status**: Updated from "Proposed" to "Implemented".
+- **Schema migration v5**: Added migration to rename existing tables to
+  prefixed versions for backward compatibility.
 
 ### Fixed
 
 - **git_local doc test**: Enabled previously ignored doc test after path resolution fix.
 - **Cosine similarity SIMD**: Optimized by removing SIMD-to-GPR stall (#58).
 - **Concept ID injection**: Fixed medium-severity input validation issue.
+- **bucket_probe_width overflow**: Bound to prevent Denial of Service panic.
+
+## [Unreleased]
 
 ## [0.2.9] - 2026-04-06
 
