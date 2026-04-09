@@ -187,21 +187,34 @@ impl Bm25Index {
             return Vec::new();
         }
 
-        // Score each document
-        let mut scores: Vec<(String, f32)> = self
+        // Pre-calculate constants for scoring
+        let k1 = self.config.k1;
+        let b = self.config.b;
+        let k1_plus_1 = k1 + 1.0;
+        let c1 = k1 * (1.0 - b);
+        let c2 = k1 * b / avgdl;
+
+        // Score each document - store index to avoid String clones
+        let mut scores: Vec<(usize, f32)> = self
             .documents
             .iter()
-            .map(|doc| {
-                let score = self.score_document(doc, &query_terms, &idf_values, avgdl);
-                (doc.id.clone(), score)
+            .enumerate()
+            .map(|(idx, doc)| {
+                let score = self.score_document(doc, &query_terms, &idf_values, k1_plus_1, c1, c2);
+                (idx, score)
             })
             .filter(|(_, score)| *score > 0.0)
             .collect();
 
-        // Sort by score descending
-        scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        // Sort by score descending using unstable sort for performance
+        scores.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         scores.truncate(top_k);
+
+        // Map to final results, cloning IDs only for top_k
         scores
+            .into_iter()
+            .map(|(idx, score)| (self.documents[idx].id.clone(), score))
+            .collect()
     }
 
     fn score_document(
@@ -209,17 +222,12 @@ impl Bm25Index {
         doc: &Document,
         query_terms: &[&str],
         idf_values: &[f32],
-        avgdl: f32,
+        k1_plus_1: f32,
+        c1: f32,
+        c2: f32,
     ) -> f32 {
         let mut score = 0.0;
-        let k1 = self.config.k1;
-        let b = self.config.b;
         let doc_len = doc.length as f32;
-
-        // Cache constants
-        let k1_plus_1 = k1 + 1.0;
-        let b_div_avgdl = b / avgdl;
-        let k1_times_1_minus_b = k1 * (1.0 - b);
 
         for (i, term) in query_terms.iter().enumerate() {
             // Skip terms not in document
@@ -230,9 +238,11 @@ impl Bm25Index {
 
             let idf = idf_values[i];
 
-            // BM25 term score
+            // BM25 term score using pre-calculated constants:
+            // score = idf * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * doc_len / avgdl))
+            // denominator = tf + k1 * (1 - b) + (k1 * b / avgdl) * doc_len
             let numerator = tf * k1_plus_1;
-            let denominator = tf + k1_times_1_minus_b + k1 * doc_len * b_div_avgdl;
+            let denominator = tf + c1 + c2 * doc_len;
 
             score += idf * numerator / denominator;
         }
