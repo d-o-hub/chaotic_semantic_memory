@@ -387,9 +387,9 @@ pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> V
     #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
     {
         use rayon::prelude::*;
-        // Tuned chunk size: 128 candidates amortizes Rayon overhead
-        // Higher chunk size reduces synchronization cost for 1000 candidates
-        const CHUNK_SIZE: usize = 128;
+        // Tuned chunk size: 512 candidates amortizes Rayon overhead
+        // Higher chunk size reduces synchronization cost for 1000+ candidates
+        const CHUNK_SIZE: usize = 512;
         let mut results = vec![0.0f32; candidates.len()];
         candidates
             .par_chunks(CHUNK_SIZE)
@@ -469,5 +469,31 @@ mod tests {
         for i in 0..80 {
             assert_eq!(s.data[i], v.data[(i + 1) % 80]);
         }
+    }
+
+    #[test]
+    fn test_json_serialize_is_base64() {
+        let v = HVec10240::random();
+        let json = serde_json::to_string(&v).unwrap();
+        // Should be a base64 string, not an array
+        assert!(json.starts_with('"'), "Expected string, got: {}", json);
+        assert!(
+            !json.starts_with('['),
+            "Expected base64 string, not array: {}",
+            json
+        );
+        // Verify roundtrip
+        let decoded: HVec10240 = serde_json::from_str(&json).unwrap();
+        assert_eq!(v.data, decoded.data);
+    }
+
+    #[test]
+    fn test_json_array_deserialize_fallback() {
+        // Legacy format: array of bytes (for backward compatibility)
+        let v = HVec10240::random();
+        let bytes = v.to_bytes();
+        let array_json: String = serde_json::to_string(&bytes).unwrap();
+        let decoded: HVec10240 = serde_json::from_str(&array_json).unwrap();
+        assert_eq!(v.data, decoded.data);
     }
 }
