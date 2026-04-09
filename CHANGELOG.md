@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-04-09
+
+### Added
+
+- **BM25 Parallel Scoring**: Added Rayon `par_iter()` for parallel document scoring
+  with cfg gates for non-WASM builds.
+- **BM25 Scalability Benchmarks**: New benchmarks for 100, 1000, 10000 document queries.
+- **Singularity Scalability Benchmarks**: New benchmarks for 100, 1000, 10000, 50000 concepts.
+- **HVec JSON Serialization Tests**: Verify base64 encoding and legacy array format support.
+
+### Changed
+
+- **BM25 Optimization**: Combined PR #64 optimizations with parallel scoring:
+  - Pre-calculate constants (k1+1, c1, c2) outside loops
+  - Use document indices instead of cloning String IDs during scoring
+  - Use `sort_unstable_by` for faster descending score sorting
+  - Only clone IDs for top_k results (deferred allocation)
+- **Performance Improvements**:
+  - `bm25_search_1000`: ~40% faster (3.2ms → 1.9ms)
+  - `bm25_search_10000`: ~47% faster (3.9ms → 1.9ms)
+  - `reservoir_step_50k`: ~57μs (target: <100μs) ✅
+  - `singularity_probe_50000`: ~3.7ms (excellent scalability)
+
+### Fixed
+
+- **CLI Binary Shadowing**: Fixed outdated CLI binary (v0.1.0) shadowing newly installed
+  v0.3.0 in PATH priority.
+- **Export/Import Roundtrip**: Verified JSON base64 serialization works correctly for
+  concept vectors.
+
 ## [0.3.0] - 2026-04-08
 
 ### Added
