@@ -539,30 +539,42 @@ fn bench_bm25_search(c: &mut Criterion) {
     group.warm_up_time(Duration::from_secs(PROBE_BENCH_WARMUP_SECS));
     group.measurement_time(Duration::from_secs(PROBE_BENCH_MEASUREMENT_SECS));
 
-    // Build BM25 index with 100 documents
-    let mut index_100 = Bm25Index::new();
-    for i in 0..100 {
-        let doc_id = format!("doc_{i}");
-        let tokens: Vec<&str> = vec!["memory", "content", "semantic", "test"];
-        index_100.add_document(&doc_id, &tokens);
-    }
     let query_tokens: Vec<&str> = vec!["memory", "semantic"];
 
-    group.bench_function("search_100_docs", |b| {
-        b.iter(|| index_100.search(black_box(&query_tokens), black_box(10)))
-    });
+    // Test with different sizes: 100, 1000, 10000 docs
+    for doc_count in [100, 1000, 10000] {
+        let mut index = Bm25Index::new();
+        for i in 0..doc_count {
+            let doc_id = format!("doc_{i}");
+            let tokens: Vec<&str> = vec!["memory", "content", "semantic", "test"];
+            index.add_document(&doc_id, &tokens);
+        }
 
-    // Build BM25 index with 1000 documents
-    let mut index_1000 = Bm25Index::new();
-    for i in 0..1000 {
-        let doc_id = format!("doc_{i}");
-        let tokens: Vec<&str> = vec!["memory", "content", "semantic", "test"];
-        index_1000.add_document(&doc_id, &tokens);
+        group.bench_function(format!("search_{doc_count}_docs"), |b| {
+            b.iter(|| index.search(black_box(&query_tokens), black_box(10)))
+        });
     }
 
-    group.bench_function("search_1000_docs", |b| {
-        b.iter(|| index_1000.search(black_box(&query_tokens), black_box(10)))
-    });
+    group.finish();
+}
+
+// ─── Scalability benchmarks ─────────────────────────────────────────────────
+
+fn bench_singularity_scalability(c: &mut Criterion) {
+    let mut group = c.benchmark_group("singularity_scale");
+    group.sample_size(PROBE_BENCH_SAMPLE_SIZE);
+    group.warm_up_time(Duration::from_secs(PROBE_BENCH_WARMUP_SECS));
+    group.measurement_time(Duration::from_secs(PROBE_BENCH_MEASUREMENT_SECS));
+
+    // Test similarity search with different concept counts
+    for concept_count in [100, 1000, 10000, 50000] {
+        let singularity = build_probe_benchmark_singularity(concept_count, false);
+        let query = HVec10240::new_seeded(999);
+
+        group.bench_function(format!("probe_{concept_count}_concepts"), |b| {
+            b.iter(|| black_box(singularity.find_similar_cached(black_box(&query), black_box(10))))
+        });
+    }
 
     group.finish();
 }
@@ -584,6 +596,7 @@ criterion_group!(
     bench_concept_expansion,
     bench_bridge_retrieval,
     bench_memory_packet_compilation,
-    bench_bm25_search
+    bench_bm25_search,
+    bench_singularity_scalability
 );
 criterion_main!(benches);

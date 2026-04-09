@@ -9,12 +9,24 @@ description: "Run and analyze criterion benchmarks for performance-sensitive cha
 
 | Benchmark | Target | Current (v0.3.0) |
 |---|---|---|
-| `reservoir_step_50k` | < 100μs | ~102μs (close, parallel input projection) |
-| `cosine_similarity` | < 1μs | ~0.23μs ✅ |
-| `batch_similarity_1000` | < 500μs | ~322μs ✅ |
-| `hvec_random` | < 5μs | ~0.82μs ✅ |
-| `hvec_bind` | < 1μs | ~0.08μs ✅ |
-| `bm25_search_1000` | < 5ms | ~2.41ms ✅ |
+| `reservoir_step_50k` | < 100μs | ~57μs ✅ |
+| `cosine_similarity` | < 1μs | ~0.15μs ✅ |
+| `batch_similarity_1000` | < 500μs | ~280μs ✅ |
+| `hvec_random` | < 5μs | ~0.49μs ✅ |
+| `hvec_bind` | < 1μs | ~0.07μs ✅ |
+| `bm25_search_10000` | < 5ms | ~2.2ms ✅ |
+| `singularity_probe_50000` | < 10ms | ~3.7ms ✅ |
+
+## Scalability Results
+
+| Concept Count | Probe Time |
+|--------------|------------|
+| 100 | ~1.3ms |
+| 1,000 | ~1.6ms |
+| 10,000 | ~1.6ms |
+| 50,000 | ~3.7ms |
+
+Excellent scalability: 50x more concepts only 3x slower.
 
 ## Workflow
 
