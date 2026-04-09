@@ -25,6 +25,9 @@
 
 use std::collections::HashMap;
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
+use rayon::prelude::*;
+
 /// BM25 parameters.
 #[derive(Debug, Clone, Copy)]
 pub struct Bm25Config {
@@ -187,7 +190,19 @@ impl Bm25Index {
             return Vec::new();
         }
 
-        // Score each document
+        // Score each document (parallel when available)
+        #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
+        let mut scores: Vec<(String, f32)> = self
+            .documents
+            .par_iter()
+            .map(|doc| {
+                let score = self.score_document(doc, &query_terms, &idf_values, avgdl);
+                (doc.id.clone(), score)
+            })
+            .filter(|(_, score)| *score > 0.0)
+            .collect();
+
+        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
         let mut scores: Vec<(String, f32)> = self
             .documents
             .iter()
