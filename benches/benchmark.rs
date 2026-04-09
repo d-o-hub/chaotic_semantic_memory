@@ -5,6 +5,7 @@ use chaotic_semantic_memory::encoder::TextEncoder;
 use chaotic_semantic_memory::graph_traversal::TraversalConfig;
 use chaotic_semantic_memory::metadata_filter::MetadataFilter;
 use chaotic_semantic_memory::reservoir::Reservoir;
+use chaotic_semantic_memory::retrieval::bm25::Bm25Index;
 use chaotic_semantic_memory::semantic_bridge::{
     BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown,
 };
@@ -530,6 +531,42 @@ fn bench_memory_packet_compilation(c: &mut Criterion) {
     group.finish();
 }
 
+// ─── BM25 keyword search benchmarks ───────────────────────────────────────────
+
+fn bench_bm25_search(c: &mut Criterion) {
+    let mut group = c.benchmark_group("bm25_search");
+    group.sample_size(PROBE_BENCH_SAMPLE_SIZE);
+    group.warm_up_time(Duration::from_secs(PROBE_BENCH_WARMUP_SECS));
+    group.measurement_time(Duration::from_secs(PROBE_BENCH_MEASUREMENT_SECS));
+
+    // Build BM25 index with 100 documents
+    let mut index_100 = Bm25Index::new();
+    for i in 0..100 {
+        let doc_id = format!("doc_{i}");
+        let tokens: Vec<&str> = vec!["memory", "content", "semantic", "test"];
+        index_100.add_document(&doc_id, &tokens);
+    }
+    let query_tokens: Vec<&str> = vec!["memory", "semantic"];
+
+    group.bench_function("search_100_docs", |b| {
+        b.iter(|| index_100.search(black_box(&query_tokens), black_box(10)))
+    });
+
+    // Build BM25 index with 1000 documents
+    let mut index_1000 = Bm25Index::new();
+    for i in 0..1000 {
+        let doc_id = format!("doc_{i}");
+        let tokens: Vec<&str> = vec!["memory", "content", "semantic", "test"];
+        index_1000.add_document(&doc_id, &tokens);
+    }
+
+    group.bench_function("search_1000_docs", |b| {
+        b.iter(|| index_1000.search(black_box(&query_tokens), black_box(10)))
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_hvec_creation,
@@ -546,6 +583,7 @@ criterion_group!(
     bench_retrieval_baseline,
     bench_concept_expansion,
     bench_bridge_retrieval,
-    bench_memory_packet_compilation
+    bench_memory_packet_compilation,
+    bench_bm25_search
 );
 criterion_main!(benches);

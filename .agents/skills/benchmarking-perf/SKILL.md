@@ -7,13 +7,14 @@ description: "Run and analyze criterion benchmarks for performance-sensitive cha
 
 ## Performance Targets
 
-| Benchmark | Target | Current |
+| Benchmark | Target | Current (v0.3.0) |
 |---|---|---|
-| `reservoir_step_50k` | < 100μs | ~3.6ms (needs sparse optimization) |
-| `cosine_similarity` | < 1μs | ✅ met |
-| `batch_similarity_1000` | < 500μs | ✅ met |
-| `hvec_random` | < 5μs | ✅ met |
-| `hvec_bind` | < 1μs | ✅ met |
+| `reservoir_step_50k` | < 100μs | ~102μs (close, parallel input projection) |
+| `cosine_similarity` | < 1μs | ~0.23μs ✅ |
+| `batch_similarity_1000` | < 500μs | ~322μs ✅ |
+| `hvec_random` | < 5μs | ~0.82μs ✅ |
+| `hvec_bind` | < 1μs | ~0.08μs ✅ |
+| `bm25_search_1000` | < 5ms | ~2.41ms ✅ |
 
 ## Workflow
 
