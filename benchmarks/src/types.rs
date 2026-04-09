@@ -87,6 +87,8 @@ pub struct CaseResult {
     pub recall_at_10: bool,
     /// Reciprocal rank of first gold evidence match.
     pub reciprocal_rank: f32,
+    /// NDCG@10 for multi-gold evidence cases.
+    pub ndcg_at_10: f32,
     /// Predicted answer (in reader-lite mode).
     pub predicted_answer: Option<String>,
     /// Whether predicted answer matches expected (exact match).
@@ -114,6 +116,9 @@ pub struct SummaryMetrics {
     pub recall_at_10: f32,
     /// Mean reciprocal rank across all cases.
     pub mrr: f32,
+    /// Mean NDCG@10 across all cases.
+    #[serde(default)]
+    pub ndcg_at_10: f32,
     /// Exact match accuracy (reader mode only).
     pub exact_match: Option<f32>,
     /// Precision of abstention decisions.
@@ -126,6 +131,9 @@ pub struct SummaryMetrics {
     pub p50_latency_ms: u128,
     /// 95th percentile query latency in milliseconds.
     pub p95_latency_ms: u128,
+    /// 99th percentile query latency in milliseconds.
+    #[serde(default)]
+    pub p99_latency_ms: u128,
     /// Estimated storage size in bytes.
     pub storage_bytes: u64,
     /// Peak memory usage during benchmark in bytes.

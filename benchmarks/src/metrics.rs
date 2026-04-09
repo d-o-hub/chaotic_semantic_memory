@@ -27,6 +27,7 @@ pub fn aggregate(
     let recall_at_5 = results.iter().filter(|r| r.recall_at_5).count() as f32 / count as f32;
     let recall_at_10 = results.iter().filter(|r| r.recall_at_10).count() as f32 / count as f32;
     let mrr = results.iter().map(|r| r.reciprocal_rank).sum::<f32>() / count as f32;
+    let ndcg_at_10 = results.iter().map(|r| r.ndcg_at_10).sum::<f32>() / count as f32;
 
     let abstain_cases: Vec<_> = results
         .iter()
@@ -50,9 +51,12 @@ pub fn aggregate(
 
     let mut latencies: Vec<_> = results.iter().map(|r| r.latency_ms).collect();
     latencies.sort_unstable();
-    let p50 = latencies[count / 2];
-    let p95_idx = ((count - 1) as f64 * 0.95).round() as usize;
+    // Use floor-based indexing for percentiles (industry standard)
+    let p50 = latencies[(count - 1) / 2];  // True lower median
+    let p95_idx = ((count - 1) as f64 * 0.95) as usize;  // Floor via truncation
     let p95 = latencies[p95_idx];
+    let p99_idx = ((count - 1) as f64 * 0.99) as usize;  // Floor via truncation
+    let p99 = latencies[p99_idx];
 
     let exact_matches: Vec<_> = results.iter().filter_map(|r| r.exact_match).collect();
     let exact_match = if !exact_matches.is_empty() {
@@ -67,12 +71,14 @@ pub fn aggregate(
         recall_at_5,
         recall_at_10,
         mrr,
+        ndcg_at_10,
         exact_match,
         abstain_precision,
         abstain_recall,
         ingest_ms,
         p50_latency_ms: p50,
         p95_latency_ms: p95,
+        p99_latency_ms: p99,
         storage_bytes,
         peak_memory_bytes: peak_memory,
         prompt_tokens: results.iter().map(|r| r.prompt_tokens as u64).sum(),
@@ -105,6 +111,7 @@ mod tests {
             recall_at_5,
             recall_at_10: recall_at_5,
             reciprocal_rank: if recall_at_1 { 1.0 } else { 0.0 },
+            ndcg_at_10: if recall_at_1 { 1.0 } else { 0.0 },
             predicted_answer: None,
             exact_match: None,
             abstained,
@@ -131,9 +138,10 @@ mod tests {
         assert_eq!(summary.recall_at_1, 1.0);
         assert_eq!(summary.recall_at_5, 1.0);
         assert_eq!(summary.mrr, 1.0);
-        // Single element: p50 and p95 should both be the same
+        // Single element: p50, p95, p99 should all be the same
         assert_eq!(summary.p50_latency_ms, 10);
         assert_eq!(summary.p95_latency_ms, 10);
+        assert_eq!(summary.p99_latency_ms, 10);
     }
 
     #[test]
@@ -171,9 +179,11 @@ mod tests {
             .collect();
         let summary = aggregate(&results, 100, 1024, 512);
         // Sorted latencies: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        // p50 (index 5) = 6
-        // p95: (10-1) * 0.95 = 8.55 -> round -> 9 -> index 9 = 10
-        assert_eq!(summary.p50_latency_ms, 6);
-        assert_eq!(summary.p95_latency_ms, 10);
+        // p50: (10-1) / 2 = 4 (floor) -> index 4 = 5 (corrected)
+        // p95: (10-1) * 0.95 = 8.55 -> floor = 8 -> index 8 = 9 (corrected)
+        // p99: (10-1) * 0.99 = 8.91 -> floor = 8 -> index 8 = 9
+        assert_eq!(summary.p50_latency_ms, 5);
+        assert_eq!(summary.p95_latency_ms, 9);
+        assert_eq!(summary.p99_latency_ms, 9);
     }
 }

@@ -10,21 +10,26 @@ use crate::{
 };
 use anyhow::Result;
 use std::time::Instant;
-use sysinfo::{System, Pid};
+use sysinfo::{System, Pid, ProcessesToUpdate};
 
 pub async fn run(cli: Cli) -> Result<()> {
     println!("Loading dataset from {}", cli.dataset_dir.display());
     let sessions = dataset::load_sessions(&cli.dataset_dir.join("sessions.jsonl"))?;
     let queries = dataset::load_queries(&cli.dataset_dir.join("queries.jsonl"))?;
 
+    // Estimate storage size from sessions file
+    let storage_bytes = std::fs::metadata(cli.dataset_dir.join("sessions.jsonl"))
+        .map(|m| m.len())
+        .unwrap_or(0);
+
     println!("Initializing memory system...");
     let adapter = MemoryAdapter::new_in_memory().await?;
     let reader = Reader::new();
 
-    let mut sys = System::new_all();
+    let mut sys = System::new();
     let pid = Pid::from_u32(std::process::id());
 
-    sys.refresh_all();
+    sys.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
     let mut peak_mem = sys.process(pid).map(|p| p.memory()).unwrap_or(0);
 
     println!("Ingesting memories...");
@@ -37,7 +42,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         }
     }
     // Sample memory only once after all ingest
-    sys.refresh_all();
+    sys.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
     peak_mem = peak_mem.max(sys.process(pid).map(|p| p.memory()).unwrap_or(0));
     let ingest_ms = start_ingest.elapsed().as_millis();
 
@@ -73,6 +78,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             recall_at_5: false,
             recall_at_10: false,
             reciprocal_rank: 0.0,
+            ndcg_at_10: 0.0,
             predicted_answer: None,
             exact_match: None,
             abstained: false,
@@ -85,9 +91,10 @@ pub async fn run(cli: Cli) -> Result<()> {
         result.recall_at_5 = scorer::hit_at_k(&query_case, &result, 5);
         result.recall_at_10 = scorer::hit_at_k(&query_case, &result, 10);
         result.reciprocal_rank = scorer::reciprocal_rank(&query_case, &result);
+        result.ndcg_at_10 = scorer::ndcg_at_k(&query_case, &result, 10);
 
         // Simple abstention logic for retrieval-only: if top score < threshold or empty
-        result.abstained = result.retrieved.is_empty() || result.retrieved[0].score < 0.1;
+        result.abstained = result.retrieved.is_empty() || result.retrieved[0].score < cli.abstain_threshold;
 
         if matches!(cli.mode, Mode::ReaderLite) {
             let mut retrieved_texts = Vec::new();
@@ -111,14 +118,20 @@ pub async fn run(cli: Cli) -> Result<()> {
         }
 
         results.push(result);
+
+        // Sample memory every 10 queries for accurate peak measurement
+        if results.len() % 10 == 0 {
+            sys.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
+            peak_mem = peak_mem.max(sys.process(pid).map(|p| p.memory()).unwrap_or(0));
+        }
     }
 
     // Sample memory once after all queries
-    sys.refresh_all();
+    sys.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
     peak_mem = peak_mem.max(sys.process(pid).map(|p| p.memory()).unwrap_or(0));
 
     println!("Aggregating metrics...");
-    let summary = metrics::aggregate(&results, ingest_ms, peak_mem, 0);
+    let summary = metrics::aggregate(&results, ingest_ms, peak_mem, storage_bytes);
 
     println!("Writing reports to {}...", cli.out_dir.display());
     std::fs::create_dir_all(&cli.out_dir)?;

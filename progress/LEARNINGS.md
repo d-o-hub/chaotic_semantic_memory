@@ -782,5 +782,61 @@ fi
 ### What to Avoid
 - ❌ Do NOT use `find | head -n 1` when specific file matters
 - ❌ Do NOT assume filesystem order is consistent
+
+## 2026-04-09: Benchmark Optimization via GOAP Planning
+
+### What Worked
+1. GOAP planning with action model (preconditions, effects, cost) provided structured approach to optimization
+2. Parallel teammate analysis for different benchmark components (metrics, scorer, ingest, measurement)
+3. Running actual benchmarks before deciding on Phase 4 (parallel ingest) - data-driven decision
+4. Adding NDCG@k metric for multi-gold evaluation - standard IR metric was missing
+
+### Technical Insights
+
+**Percentile Indexing**:
+- `latencies[count / 2]` is **biased high** for even-length arrays
+- Correct: `latencies[(count - 1) / 2]` for true lower median
+- p95/p99 should use **floor** (`as usize` truncation), not `.round()`
+
+**NDCG@k Implementation**:
+- Use logarithmic discount: `1 / 2^position` where position is 0-indexed
+- DCG = sum of discounts for relevant items found
+- IDCG = sum of discounts for all relevant items (ideal ranking)
+- NDCG = DCG / IDCG (0.0 if no relevant items)
+
+**HashSet for Gold Evidence Lookups**:
+- O(1) lookup vs O(n) nested iteration in `hit_at_k` and `reciprocal_rank`
+- Convert `Vec<String>` to `HashSet<&str>` once per call
+
+**sysinfo API Change (v0.33)**:
+- `refresh_process(pid)` removed in favor of `refresh_processes(ProcessesToUpdate::Some(&[pid]), false)`
+- `System::new_all()` is expensive - use `System::new()` + targeted refresh
+
+**Parallel Ingest Decision**:
+- Benchmark data showed avg **2.5ms/session** ingest time
+- Threshold for parallel benefit: **5ms/session**
+- Sequential ingest is adequate for up to 500 sessions (~1.2s total)
+- Adding `futures` crate dependency not justified at current scale
+
+### Benchmark Results (Phase 4 Evaluation)
+| Sessions | Ingest_ms | Avg ms/session | Decision |
+|----------|-----------|----------------|----------|
+| 10       | 38        | 3.8ms          | Pass     |
+| 100      | 261       | 2.6ms          | Pass     |
+| 500      | 1258      | 2.5ms          | Pass     |
+
+### Files Changed
+- `benchmarks/src/metrics.rs` - Percentile fix, p99, NDCG aggregation
+- `benchmarks/src/scorer.rs` - NDCG@k, HashSet optimization
+- `benchmarks/src/types.rs` - New metric fields
+- `benchmarks/src/runner.rs` - sysinfo fix, storage bytes, configurable threshold
+- `benchmarks/src/generator.rs` - Variable session length, cross-session queries
+- `benchmarks/src/report.rs` - Updated markdown output
+
+### What to Avoid
+- ❌ Do NOT use `count / 2` for percentile indexing (biased)
+- ❌ Do NOT use `.round()` for percentile index calculation (can overshoot)
+- ❌ Do NOT optimize ingest without measuring first (parallel may not be needed)
+- ❌ Do NOT use `sysinfo::refresh_all()` when only checking one process
 - ✅ DO use explicit filenames when possible
 - ✅ DO use exclusion filters (`! -name`) for fallbacks

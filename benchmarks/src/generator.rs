@@ -23,37 +23,70 @@ const CITIES: &[&str] = &[
     "Atlanta", "Miami",
 ];
 
+/// Generate sessions with fixed 3-turn structure (backward compatible)
 pub fn generate_sessions(seed: u64, count: usize) -> Vec<Session> {
+    generate_sessions_with_range(seed, count, 3, 3)
+}
+
+/// Generate sessions with variable turn count between min and max (inclusive)
+pub fn generate_sessions_with_range(seed: u64, count: usize, min_turns: usize, max_turns: usize) -> Vec<Session> {
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
     let mut sessions = Vec::with_capacity(count);
 
     for i in 0..count {
         let session_id = format!("session-{i:04}");
+        let turn_count = if min_turns == max_turns {
+            min_turns
+        } else {
+            rng.gen_range(min_turns..=max_turns)
+        };
+
         let color_v1 = COLORS[rng.gen_range(0..COLORS.len())];
         let color_mod = COLOR_MODIFIERS[rng.gen_range(0..COLOR_MODIFIERS.len())];
         let color_v2 = format!("{} {}", color_mod, COLORS[rng.gen_range(0..COLORS.len())]);
         let city = CITIES[rng.gen_range(0..CITIES.len())];
 
-        let turns = vec![
-            SessionTurn {
-                ts: "2026-01-01T10:00:00Z".into(),
-                speaker: "user".into(),
-                text: format!("My favorite color is {color_v1}."),
-                memory_id: Some(format!("{session_id}:favorite_color:v1")),
-            },
-            SessionTurn {
+        // Build turns based on turn_count (minimum 1 turn)
+        let mut turns = Vec::with_capacity(turn_count);
+
+        // First turn always mentions color
+        turns.push(SessionTurn {
+            ts: "2026-01-01T10:00:00Z".into(),
+            speaker: "user".into(),
+            text: format!("My favorite color is {color_v1}."),
+            memory_id: Some(format!("{session_id}:favorite_color:v1")),
+        });
+
+        // Second turn mentions city (if we have at least 2 turns)
+        if turn_count >= 2 {
+            turns.push(SessionTurn {
                 ts: "2026-01-03T10:00:00Z".into(),
                 speaker: "user".into(),
                 text: format!("I moved to {city}."),
                 memory_id: Some(format!("{session_id}:city:v1")),
-            },
-            SessionTurn {
+            });
+        }
+
+        // Third turn updates color (if we have at least 3 turns)
+        if turn_count >= 3 {
+            turns.push(SessionTurn {
                 ts: "2026-01-04T10:00:00Z".into(),
                 speaker: "user".into(),
                 text: format!("Actually, I changed my mind. My current favorite color is {color_v2} now."),
                 memory_id: Some(format!("{session_id}:favorite_color:v2")),
-            },
-        ];
+            });
+        }
+
+        // Additional turns with filler content (for variable-length stress testing)
+        for j in 3..turn_count {
+            let filler_idx = j - 3;
+            turns.push(SessionTurn {
+                ts: format!("2026-01-{:02}T10:00:00Z", 5 + filler_idx),
+                speaker: "user".into(),
+                text: format!("I also wanted to mention something about topic {}.", filler_idx + 1),
+                memory_id: Some(format!("{session_id}:topic:{}:v1", filler_idx + 1)),
+            });
+        }
 
         sessions.push(Session { session_id, turns });
     }
@@ -103,6 +136,39 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             gold_evidence_ids: vec![],
             expected_answer: None,
             should_abstain: true,
+        });
+    }
+
+    // Add cross-session query types (Association and MultiSession)
+    if sessions.len() >= 2 {
+        // Association: Link concepts across sessions
+        let s1 = &sessions[0];
+        let s2 = &sessions[1];
+        cases.push(QueryCase {
+            query_id: "cross-session:association".into(),
+            session_id: "cross-session".into(),
+            task_type: TaskType::Association,
+            query: "What colors have I mentioned across different conversations?".into(),
+            gold_evidence_ids: vec![
+                format!("{}:favorite_color:v1", s1.session_id),
+                format!("{}:favorite_color:v1", s2.session_id),
+            ],
+            expected_answer: None,
+            should_abstain: false,
+        });
+
+        // MultiSession: Aggregate across sessions
+        cases.push(QueryCase {
+            query_id: "cross-session:multisession".into(),
+            session_id: "cross-session".into(),
+            task_type: TaskType::MultiSession,
+            query: "Which cities have I lived in or moved to?".into(),
+            gold_evidence_ids: sessions.iter()
+                .filter_map(|s| s.turns.iter().find(|t| t.memory_id.as_ref().map_or(false, |id| id.contains(":city:"))))
+                .filter_map(|t| t.memory_id.clone())
+                .collect(),
+            expected_answer: None,
+            should_abstain: false,
         });
     }
 

@@ -25,11 +25,13 @@ pub fn write_markdown(path: &Path, summary: &SummaryMetrics) -> Result<()> {
 - Recall@5: {:.4}\n\
 - Recall@10: {:.4}\n\
 - MRR: {:.4}\n\
+- NDCG@10: {:.4}\n\
 - Abstain precision: {:.4}\n\
 - Abstain recall: {:.4}\n\
 - Ingest ms: {}\n\
 - p50 latency ms: {}\n\
 - p95 latency ms: {}\n\
+- p99 latency ms: {}\n\
 - Storage bytes: {}\n\
 - Peak memory bytes: {}\n\
 - Prompt tokens: {}\n\
@@ -39,11 +41,13 @@ pub fn write_markdown(path: &Path, summary: &SummaryMetrics) -> Result<()> {
         summary.recall_at_5,
         summary.recall_at_10,
         summary.mrr,
+        summary.ndcg_at_10,
         summary.abstain_precision,
         summary.abstain_recall,
         summary.ingest_ms,
         summary.p50_latency_ms,
         summary.p95_latency_ms,
+        summary.p99_latency_ms,
         summary.storage_bytes,
         summary.peak_memory_bytes,
         summary.prompt_tokens,

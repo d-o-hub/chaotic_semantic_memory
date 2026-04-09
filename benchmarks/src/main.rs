@@ -22,16 +22,20 @@ async fn main() -> Result<()> {
             out_dir,
             count,
             seed,
+            min_turns,
+            max_turns,
         }) => {
             println!(
-                "Generating dataset to {} with {} sessions (seed: {})...",
+                "Generating dataset to {} with {} sessions (seed: {}, turns: {}-{})...",
                 out_dir.display(),
                 count,
-                seed
+                seed,
+                min_turns,
+                max_turns
             );
             std::fs::create_dir_all(&out_dir)?;
 
-            let sessions = generator::generate_sessions(seed, count);
+            let sessions = generator::generate_sessions_with_range(seed, count, min_turns, max_turns);
             let queries = generator::generate_queries(&sessions);
 
             let sessions_path = out_dir.join("sessions.jsonl");
