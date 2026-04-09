@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-04-09
+
+### Added
+
+- **Benchmark Harness Metrics**: Added p99 latency percentile, NDCG@k scoring, and
+  cross-session query types (Association, MultiSession) for comprehensive evaluation.
+- **Configurable Abstain Threshold**: New `--abstain-threshold` CLI parameter for
+  tuning retrieval abstention behavior.
+
+### Changed
+
+- **Percentile Indexing**: Floor-based indexing for p50/p95/p99 calculations
+  (industry standard: `latencies[(count-1)/2]` for median).
+- **NDCG@k Implementation**: Logarithmic discount `1/2^position` for 0-indexed
+  ranking, with HashSet O(1) lookup for gold evidence IDs.
+- **sysinfo API**: Updated to v0.33 API (`refresh_processes(ProcessesToUpdate::Some(&[pid]), false)`).
+- **Storage Bytes Estimation**: Added storage size tracking from sessions.jsonl metadata.
+- **Variable Session Generation**: `generate_sessions_with_range()` supports min/max turn counts.
+
+### Fixed
+
+- **Benchmark Tests**: All 19 tests passing with new metric fields (p99_latency_ms, ndcg_at_10).
+
 ## [0.3.1] - 2026-04-09
 
 ### Added
