@@ -161,9 +161,15 @@ jobs:
           exit 0
         fi
 
-        # Use OIDC Trusted Publishing (no token needed)
-        echo "Publishing with OIDC Trusted Publishing..."
-        npm publish --provenance --tag "$NPM_TAG" --access public
+        # Try OIDC Trusted Publishing first (preferred), fallback to NPM_TOKEN
+        if npm publish --provenance --tag "$NPM_TAG" --access public 2>/dev/null; then
+          echo "✅ Published with OIDC Trusted Publishing"
+        else
+          echo "OIDC failed, falling back to NPM_TOKEN..."
+          npm publish --tag "$NPM_TAG" --access public
+        fi
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   notify:
     runs-on: ubuntu-24.04

@@ -297,8 +297,15 @@ jobs:
       if: steps.npm-check.outputs.already-published != 'true'
       run: |
         cd wasm/pkg
-        # Use OIDC Trusted Publishing (no token needed with --provenance on Node.js 24)
-        npm publish --provenance --access public
+        # Try OIDC Trusted Publishing first (preferred), fallback to NPM_TOKEN
+        if npm publish --provenance --access public 2>/dev/null; then
+          echo "✅ Published with OIDC Trusted Publishing"
+        else
+          echo "OIDC failed, falling back to NPM_TOKEN..."
+          npm publish --access public
+        fi
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   notify:
     runs-on: ubuntu-24.04
