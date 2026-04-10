@@ -143,6 +143,7 @@ jobs:
       working-directory: pkg
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
+        WORKFLOW_NAME="npm-publish.yml"
 
         # Determine npm tag - prerelease versions need explicit tag
         if [[ "$VERSION" == *"- "* ]] || [[ "$VERSION" == *"-"* ]]; then
@@ -161,9 +162,35 @@ jobs:
           exit 0
         fi
 
-        # Use OIDC Trusted Publishing (no token needed)
-        echo "Publishing with OIDC Trusted Publishing..."
-        npm publish --provenance --tag "$NPM_TAG" --access public
+        echo "Publishing with workflow: ${WORKFLOW_NAME} (must match npmjs Trusted Publisher config)"
+
+        # Try OIDC Trusted Publishing first (preferred)
+        if npm publish --provenance --tag "$NPM_TAG" --access public 2>&1 | tee /tmp/npm-publish.log; then
+          echo "✅ Published with OIDC Trusted Publishing"
+          exit 0
+        fi
+
+        # Analyze OIDC failure
+        if grep -q "404" /tmp/npm-publish.log; then
+          echo "::error::OIDC 404 - Trusted Publisher workflow mismatch or not configured"
+          echo "::error::Current workflow: ${WORKFLOW_NAME}"
+          echo "::error::Fix: Go to npmjs.com/package/@d-o-hub/chaotic_semantic_memory/settings/trusted-publishers"
+          echo "::error::Add Trusted Publisher for workflow: ${WORKFLOW_NAME}"
+          echo "::error::If using multiple workflows, add entries for each (release.yml, npm-publish.yml)"
+        fi
+
+        # Check if NPM_TOKEN is available for fallback
+        if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+          echo "::error::OIDC failed and NPM_TOKEN not configured"
+          echo "::error::Fix: Configure Trusted Publisher on npmjs.com OR add NPM_TOKEN secret"
+          exit 1
+        fi
+
+        # Fallback to NPM_TOKEN
+        echo "OIDC failed, falling back to NPM_TOKEN..."
+        npm publish --tag "$NPM_TAG" --access public
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   notify:
     runs-on: ubuntu-24.04
