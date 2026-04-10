@@ -341,7 +341,9 @@ jobs:
       run: |
         cd wasm/pkg
         VERSION="${{ needs.validate.outputs.version }}"
+        WORKFLOW_NAME="release.yml"
         echo "Publishing @d-o-hub/chaotic_semantic_memory@${VERSION} to npm..."
+        echo "Workflow: ${WORKFLOW_NAME} (must match npmjs Trusted Publisher config)"
 
         # Try OIDC Trusted Publishing first (preferred)
         if npm publish --provenance --access public 2>&1 | tee /tmp/npm-publish.log; then
@@ -349,10 +351,13 @@ jobs:
           exit 0
         fi
 
-        # Check if OIDC failed due to missing Trusted Publisher config
+        # Analyze OIDC failure
         if grep -q "404" /tmp/npm-publish.log; then
-          echo "::warning::OIDC failed (404) - Trusted Publisher may not be configured"
-          echo "::warning::Configure at: npmjs.com/package/@d-o-hub/chaotic_semantic_memory/settings/trusted-publishers"
+          echo "::error::OIDC 404 - Trusted Publisher workflow mismatch or not configured"
+          echo "::error::Current workflow: ${WORKFLOW_NAME}"
+          echo "::error::Fix: Go to npmjs.com/package/@d-o-hub/chaotic_semantic_memory/settings/trusted-publishers"
+          echo "::error::Add Trusted Publisher for workflow: ${WORKFLOW_NAME}"
+          echo "::error::If using multiple workflows, add entries for each (release.yml, npm-publish.yml)"
         fi
 
         # Check if NPM_TOKEN is available for fallback
