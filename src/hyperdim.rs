@@ -417,6 +417,5 @@ pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> V
 // Re-export BundleAccumulator from bundle module
 pub use crate::bundle::BundleAccumulator;
 
-
 #[cfg(test)]
 mod hyperdim_tests;
