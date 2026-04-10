@@ -187,11 +187,14 @@ impl HVec10240 {
         let mut data = [0u128; 80];
         for (i, word) in data.iter_mut().enumerate() {
             let offset = i * 128;
+            let mut w = 0u128;
             for j in 0..128 {
-                if counts[offset + j] > threshold {
-                    *word |= 1u128 << j;
-                }
+                // Optimization: Branchless bitmask construction.
+                // Casting boolean to u128 (true -> 1, false -> 0) avoids branch misprediction
+                // penalties in the thresholding loop.
+                w |= ((counts[offset + j] > threshold) as u128) << j;
             }
+            *word = w;
         }
 
         Ok(Self { data })

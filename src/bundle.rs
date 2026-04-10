@@ -96,11 +96,14 @@ impl BundleAccumulator {
 
         for (i, word) in data.iter_mut().enumerate() {
             let offset = i * 128;
+            let mut w = 0u128;
             for j in 0..128 {
-                if self.counts[offset + j] > threshold {
-                    *word |= 1u128 << j;
-                }
+                // Optimization: Branchless bitmask construction.
+                // Casting boolean to u128 (true -> 1, false -> 0) avoids branch misprediction
+                // penalties in the thresholding loop.
+                w |= ((self.counts[offset + j] > threshold) as u128) << j;
             }
+            *word = w;
         }
 
         HVec10240 { data }
