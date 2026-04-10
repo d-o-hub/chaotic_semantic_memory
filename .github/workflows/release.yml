@@ -102,6 +102,49 @@ jobs:
     - name: Validate publish dry-run
       run: cargo publish --dry-run --allow-dirty
 
+    - name: Verify npm OIDC Trusted Publisher configuration
+      run: |
+        echo "Checking npm Trusted Publisher configuration..."
+
+        # Get OIDC token to verify it's available
+        if ! command -v curl &>/dev/null; then
+          echo "::warning::Cannot verify OIDC configuration (curl not available)"
+          exit 0
+        fi
+
+        # Request OIDC token from GitHub
+        OIDC_TOKEN_URL="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=npm"
+        if [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
+          echo "✓ OIDC token endpoint available"
+
+          # Verify we can get an OIDC token
+          TOKEN_RESPONSE=$(curl -s -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$OIDC_TOKEN_URL" 2>/dev/null || echo '{"error": "no response"}')
+
+          if echo "$TOKEN_RESPONSE" | grep -q '"value"'; then
+            echo "✓ OIDC token can be generated"
+          else
+            echo "::error::OIDC token generation failed. Check workflow has 'id-token: write' permission."
+            exit 1
+          fi
+        else
+          echo "::warning::Cannot verify OIDC (not in Actions context)"
+        fi
+
+        # Note: npm Trusted Publisher must be configured on npmjs.com
+        # Go to: npmjs.com → @d-o-hub/chaotic_semantic_memory → Settings → Trusted Publishers
+        # Add repository: d-o-hub/chaotic_semantic_memory
+        echo ""
+        echo "⚠️ IMPORTANT: Ensure Trusted Publisher is configured on npmjs.com:"
+        echo "   1. Go to https://www.npmjs.com/package/@d-o-hub/chaotic_semantic_memory"
+        echo "   2. Click Settings → Trusted Publishers"
+        echo "   3. Add GitHub repository: d-o-hub/chaotic_semantic_memory"
+        echo "   4. Set workflow: release.yml (or * for all workflows)"
+        echo ""
+        echo "If OIDC fails, the workflow will fall back to NPM_TOKEN secret."
+      env:
+        ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+        ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
+
   build-artifacts:
     runs-on: ubuntu-24.04
     needs: validate
@@ -297,19 +340,96 @@ jobs:
       if: steps.npm-check.outputs.already-published != 'true'
       run: |
         cd wasm/pkg
-        # Try OIDC Trusted Publishing first (preferred), fallback to NPM_TOKEN
-        if npm publish --provenance --access public 2>/dev/null; then
+        VERSION="${{ needs.validate.outputs.version }}"
+        echo "Publishing @d-o-hub/chaotic_semantic_memory@${VERSION} to npm..."
+
+        # Try OIDC Trusted Publishing first (preferred)
+        if npm publish --provenance --access public 2>&1 | tee /tmp/npm-publish.log; then
           echo "✅ Published with OIDC Trusted Publishing"
-        else
-          echo "OIDC failed, falling back to NPM_TOKEN..."
-          npm publish --access public
+          exit 0
         fi
+
+        # Check if OIDC failed due to missing Trusted Publisher config
+        if grep -q "404" /tmp/npm-publish.log; then
+          echo "::warning::OIDC failed (404) - Trusted Publisher may not be configured"
+          echo "::warning::Configure at: npmjs.com/package/@d-o-hub/chaotic_semantic_memory/settings/trusted-publishers"
+        fi
+
+        # Check if NPM_TOKEN is available for fallback
+        if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+          echo "::error::OIDC failed and NPM_TOKEN not configured"
+          echo "::error::Fix: Configure Trusted Publisher on npmjs.com OR add NPM_TOKEN secret"
+          exit 1
+        fi
+
+        # Fallback to NPM_TOKEN
+        echo "Falling back to NPM_TOKEN..."
+        npm publish --access public
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+  verify-release:
+    runs-on: ubuntu-24.04
+    needs: [validate, publish-crates, create-github-release, publish-npm]
+    if: always() && needs.validate.outputs.release-needed == 'true'
+    steps:
+    - name: Verify complete release across all registries
+      run: |
+        VERSION="${{ needs.validate.outputs.version }}"
+        ERRORS=""
+
+        echo "## Release Verification for v${VERSION}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Check crates.io
+        echo "Checking crates.io..."
+        if curl -s "https://crates.io/api/v1/crates/chaotic_semantic_memory/$VERSION" | grep -q '"version"'; then
+          echo "✅ crates.io: Published" >> $GITHUB_STEP_SUMMARY
+        else
+          ERRORS="${ERRORS}crates.io; "
+          echo "❌ crates.io: Missing" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        # Check npm
+        echo "Checking npm..."
+        NPM_VERSION=$(npm view @d-o-hub/chaotic_semantic_memory version 2>/dev/null || echo "none")
+        if [ "$NPM_VERSION" = "$VERSION" ]; then
+          echo "✅ npm: Published" >> $GITHUB_STEP_SUMMARY
+        else
+          ERRORS="${ERRORS}npm (current: $NPM_VERSION); "
+          echo "❌ npm: Missing (current: $NPM_VERSION)" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        # Check GitHub release
+        echo "Checking GitHub release..."
+        if gh release view "v${VERSION}" >/dev/null 2>&1; then
+          echo "✅ GitHub Release: Created" >> $GITHUB_STEP_SUMMARY
+        else
+          ERRORS="${ERRORS}github; "
+          echo "❌ GitHub Release: Missing" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        # Report result
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ -n "$ERRORS" ]; then
+          echo "::error::Partial release detected! Missing: ${ERRORS}"
+          echo "⚠️ **Partial Release Detected**" >> $GITHUB_STEP_SUMMARY
+          echo "Missing registries: ${ERRORS}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Recovery Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Check workflow logs for failure details" >> $GITHUB_STEP_SUMMARY
+          echo "2. Re-run the failed workflow (idempotent)" >> $GITHUB_STEP_SUMMARY
+          echo "3. Or manually publish to missing registries" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi
+
+        echo "✅ **All registries verified successfully**" >> $GITHUB_STEP_SUMMARY
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   notify:
     runs-on: ubuntu-24.04
-    needs: [validate, build-artifacts, publish-crates, create-github-release, publish-npm]
+    needs: [validate, build-artifacts, publish-crates, create-github-release, publish-npm, verify-release]
     if: always()
     steps:
     - name: Release summary
