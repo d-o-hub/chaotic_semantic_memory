@@ -54,6 +54,8 @@ vectors directly via `inject_concept`.
 
 ## Installation
 
+### Rust Library
+
 ```bash
 cargo add chaotic_semantic_memory
 ```
@@ -71,6 +73,18 @@ For library-only consumers who don't need the CLI binary or its dependencies:
 ```toml
 [dependencies]
 chaotic_semantic_memory = { version = "0.3", default-features = false }
+```
+
+### CLI Binary
+
+**via npm (recommended for Node.js users):**
+```bash
+npm install -g @d-o-hub/csm
+```
+
+**via cargo:**
+```bash
+cargo install chaotic_semantic_memory --bin csm
 ```
 
 > **Note:** Using `"0.2"` ensures compatibility with the latest 0.2.x patch versions.

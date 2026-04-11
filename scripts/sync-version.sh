@@ -113,6 +113,7 @@ VERSION_FILES["book/src/getting-started.md"]="s/version = \"$CURRENT_VERSION\"/v
 # CHANGELOG, package.json, tests - exact version
 VERSION_FILES["CHANGELOG.md"]="s/\[Unreleased\]/\[$VERSION\]/; s/## \[Unreleased\]/## [$VERSION] - $(date +%Y-%m-%d)/"
 VERSION_FILES["wasm/package.json"]="s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$VERSION\"/"
+VERSION_FILES["cli-npm/package.json"]="s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$VERSION\"/"
 
 # Test and example files - exact version
 VERSION_FILES["tests/framework_lifecycle.rs"]="s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$VERSION\"/g"

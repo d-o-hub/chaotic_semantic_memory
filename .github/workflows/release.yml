@@ -145,7 +145,83 @@ jobs:
         ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
         ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
 
-  build-artifacts:
+  build-cli-matrix:
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            platform: linux
+            arch: x64
+          - runner: ubuntu-24.04
+            target: aarch64-unknown-linux-gnu
+            platform: linux
+            arch: arm64
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+            platform: darwin
+            arch: arm64
+          - runner: macos-13
+            target: x86_64-apple-darwin
+            platform: darwin
+            arch: x64
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: win32
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    needs: validate
+    if: needs.validate.outputs.release-needed == 'true'
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+        target: ${{ matrix.target }}
+
+    - name: Install cross-compilation linker (Linux arm64)
+      if: matrix.target == 'aarch64-unknown-linux-gnu'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-aarch64-linux-gnu
+        echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+
+    - name: Cache cargo
+      uses: actions/cache@v5
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-${{ matrix.target }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Build release binary
+      run: cargo build --release --target ${{ matrix.target }}
+
+    - name: Prepare binary artifact
+      shell: bash
+      run: |
+        mkdir -p release
+        BINARY_NAME=csm-${{ matrix.platform }}-${{ matrix.arch }}
+        if [ "${{ matrix.platform }}" = "win32" ]; then
+          BINARY_NAME="${BINARY_NAME}.exe"
+          cp target/${{ matrix.target }}/release/csm.exe release/${BINARY_NAME}
+        else
+          cp target/${{ matrix.target }}/release/csm release/${BINARY_NAME}
+        fi
+        cd release
+        tar -czvf csm-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz ${BINARY_NAME}
+
+    - name: Upload binary artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: csm-${{ matrix.platform }}-${{ matrix.arch }}
+        path: release/*.tar.gz
+        retention-days: 30
+
+  build-wasm:
     runs-on: ubuntu-24.04
     needs: validate
     if: needs.validate.outputs.release-needed == 'true'
@@ -157,43 +233,29 @@ jobs:
       with:
         toolchain: stable
 
-    - name: Cache cargo
-      uses: actions/cache@v5
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
-
-    - name: Build release binary
-      run: cargo build --release
-
     - name: Install WASM target
       run: rustup target add wasm32-unknown-unknown
 
     - name: Build WASM release
       run: cargo build --target wasm32-unknown-unknown --release --features wasm
 
-    - name: Prepare release artifacts
+    - name: Prepare WASM artifact
       run: |
         mkdir -p release
-        cp target/release/csm release/csm-x86_64-unknown-linux-gnu
         cp target/wasm32-unknown-unknown/release/chaotic_semantic_memory.wasm release/
         cd release
-        tar -czvf chaotic_semantic_memory-${{ needs.validate.outputs.version }}-linux-x86_64.tar.gz csm-x86_64-unknown-linux-gnu
         tar -czvf chaotic_semantic_memory-${{ needs.validate.outputs.version }}-wasm.tar.gz chaotic_semantic_memory.wasm
 
-    - name: Upload release artifacts
+    - name: Upload WASM artifact
       uses: actions/upload-artifact@v7
       with:
-        name: release-artifacts
+        name: wasm-artifact
         path: release/*.tar.gz
         retention-days: 30
 
   publish-crates:
     runs-on: ubuntu-24.04
-    needs: [validate, build-artifacts]
+    needs: [validate, build-cli-matrix]
     if: needs.validate.outputs.release-needed == 'true'
     environment: crates.io
     steps:
@@ -223,7 +285,7 @@ jobs:
 
   create-github-release:
     runs-on: ubuntu-24.04
-    needs: [validate, build-artifacts]
+    needs: [validate, build-cli-matrix, build-wasm]
     if: needs.validate.outputs.release-needed == 'true'
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -246,11 +308,19 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Download release artifacts
+    - name: Download all CLI binary artifacts
       if: steps.release-check.outputs.release-exists != 'true'
       uses: actions/download-artifact@v8
       with:
-        name: release-artifacts
+        pattern: csm-*
+        path: release
+        merge-multiple: true
+
+    - name: Download WASM artifact
+      if: steps.release-check.outputs.release-exists != 'true'
+      uses: actions/download-artifact@v8
+      with:
+        name: wasm-artifact
         path: release
 
     - name: Extract changelog for this version
@@ -290,9 +360,9 @@ jobs:
         draft: false
         prerelease: ${{ contains(needs.validate.outputs.version, '-') }}
 
-  publish-npm:
+  publish-npm-wasm:
     runs-on: ubuntu-24.04
-    needs: [validate, build-artifacts]
+    needs: [validate, build-wasm]
     if: needs.validate.outputs.release-needed == 'true'
     environment: npm
     steps:
@@ -373,9 +443,85 @@ jobs:
       env:
         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+  publish-npm-cli:
+    runs-on: ubuntu-24.04
+    needs: [validate, create-github-release]
+    if: needs.validate.outputs.release-needed == 'true'
+    environment: npm-cli
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: '24'
+        registry-url: 'https://registry.npmjs.org'
+
+    - name: Check if CLI version already published to npm
+      id: npm-check
+      run: |
+        VERSION="${{ needs.validate.outputs.version }}"
+        NPM_VERSION=$(npm view @d-o-hub/csm version 2>/dev/null || echo "none")
+        if [ "$NPM_VERSION" = "$VERSION" ]; then
+          echo "⚠️ Version $VERSION already exists on npm for @d-o-hub/csm, skipping publish"
+          echo "already-published=true" >> $GITHUB_OUTPUT
+        else
+          echo "already-published=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Build CLI npm package
+      if: steps.npm-check.outputs.already-published != 'true'
+      run: |
+        VERSION="${{ needs.validate.outputs.version }}"
+        mkdir -p cli-npm/bin
+        # The postinstall script will download binaries from GitHub Releases
+        # We just need the npm package files
+        # Update version in package.json
+        jq ".version = \"$VERSION\"" cli-npm/package.json > cli-npm/package.json.tmp
+        mv cli-npm/package.json.tmp cli-npm/package.json
+        # Ensure LICENSE and README are in place
+        cp LICENSE cli-npm/
+        # README already exists in cli-npm/
+
+    - name: Publish CLI to npm
+      if: steps.npm-check.outputs.already-published != 'true'
+      run: |
+        cd cli-npm
+        VERSION="${{ needs.validate.outputs.version }}"
+        WORKFLOW_NAME="release.yml"
+        echo "Publishing @d-o-hub/csm@${VERSION} to npm..."
+        echo "Workflow: ${WORKFLOW_NAME} (must match npmjs Trusted Publisher config)"
+
+        # Try OIDC Trusted Publishing first (preferred)
+        if npm publish --provenance --access public 2>&1 | tee /tmp/npm-publish.log; then
+          echo "✅ Published @d-o-hub/csm with OIDC Trusted Publishing"
+          exit 0
+        fi
+
+        # Analyze OIDC failure
+        if grep -q "404" /tmp/npm-publish.log; then
+          echo "::error::OIDC 404 - Trusted Publisher workflow mismatch or not configured"
+          echo "::error::Current workflow: ${WORKFLOW_NAME}"
+          echo "::error::Fix: Go to npmjs.com/package/@d-o-hub/csm/settings/trusted-publishers"
+          echo "::error::Add Trusted Publisher for workflow: ${WORKFLOW_NAME}"
+        fi
+
+        # Check if NPM_TOKEN is available for fallback
+        if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+          echo "::error::OIDC failed and NPM_TOKEN not configured"
+          echo "::error::Fix: Configure Trusted Publisher on npmjs.com OR add NPM_TOKEN secret"
+          exit 1
+        fi
+
+        # Fallback to NPM_TOKEN
+        echo "Falling back to NPM_TOKEN..."
+        npm publish --access public
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
   verify-release:
     runs-on: ubuntu-24.04
-    needs: [validate, publish-crates, create-github-release, publish-npm]
+    needs: [validate, publish-crates, create-github-release, publish-npm-wasm, publish-npm-cli]
     if: always() && needs.validate.outputs.release-needed == 'true'
     steps:
     - name: Verify complete release across all registries
@@ -395,14 +541,24 @@ jobs:
           echo "❌ crates.io: Missing" >> $GITHUB_STEP_SUMMARY
         fi
 
-        # Check npm
-        echo "Checking npm..."
+        # Check npm WASM package
+        echo "Checking npm WASM package..."
         NPM_VERSION=$(npm view @d-o-hub/chaotic_semantic_memory version 2>/dev/null || echo "none")
         if [ "$NPM_VERSION" = "$VERSION" ]; then
-          echo "✅ npm: Published" >> $GITHUB_STEP_SUMMARY
+          echo "✅ npm (@d-o-hub/chaotic_semantic_memory): Published" >> $GITHUB_STEP_SUMMARY
         else
-          ERRORS="${ERRORS}npm (current: $NPM_VERSION); "
-          echo "❌ npm: Missing (current: $NPM_VERSION)" >> $GITHUB_STEP_SUMMARY
+          ERRORS="${ERRORS}npm-wasm (current: $NPM_VERSION); "
+          echo "❌ npm (@d-o-hub/chaotic_semantic_memory): Missing (current: $NPM_VERSION)" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        # Check npm CLI package
+        echo "Checking npm CLI package..."
+        CLI_VERSION=$(npm view @d-o-hub/csm version 2>/dev/null || echo "none")
+        if [ "$CLI_VERSION" = "$VERSION" ]; then
+          echo "✅ npm (@d-o-hub/csm): Published" >> $GITHUB_STEP_SUMMARY
+        else
+          ERRORS="${ERRORS}npm-cli (current: $CLI_VERSION); "
+          echo "❌ npm (@d-o-hub/csm): Missing (current: $CLI_VERSION)" >> $GITHUB_STEP_SUMMARY
         fi
 
         # Check GitHub release
@@ -434,7 +590,7 @@ jobs:
 
   notify:
     runs-on: ubuntu-24.04
-    needs: [validate, build-artifacts, publish-crates, create-github-release, publish-npm, verify-release]
+    needs: [validate, build-cli-matrix, build-wasm, publish-crates, create-github-release, publish-npm-wasm, publish-npm-cli, verify-release]
     if: always()
     steps:
     - name: Release summary
@@ -457,8 +613,14 @@ jobs:
           echo "❌ GitHub Release: Failed" >> $GITHUB_STEP_SUMMARY
         fi
 
-        if [ "${{ needs.publish-npm.result }}" == "skipped" ] || [ "${{ needs.publish-npm.result }}" == "success" ]; then
-          echo "✅ npm: Published or already exists" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.publish-npm-wasm.result }}" == "skipped" ] || [ "${{ needs.publish-npm-wasm.result }}" == "success" ]; then
+          echo "✅ npm (@d-o-hub/chaotic_semantic_memory): Published or already exists" >> $GITHUB_STEP_SUMMARY
         else
-          echo "❌ npm: Failed" >> $GITHUB_STEP_SUMMARY
+          echo "❌ npm (@d-o-hub/chaotic_semantic_memory): Failed" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ "${{ needs.publish-npm-cli.result }}" == "skipped" ] || [ "${{ needs.publish-npm-cli.result }}" == "success" ]; then
+          echo "✅ npm (@d-o-hub/csm): Published or already exists" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ npm (@d-o-hub/csm): Failed" >> $GITHUB_STEP_SUMMARY
         fi
