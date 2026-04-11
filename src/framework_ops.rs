@@ -37,14 +37,29 @@ fn validate_path(path: &str) -> Result<PathBuf> {
     }
 
     if path.is_absolute() {
-        let normalized = match path.canonicalize() {
-            Ok(p) => p,
-            Err(_) => {
-                return Err(MemoryError::InvalidInput {
-                    field: "path".to_string(),
-                    reason: "absolute path does not exist or cannot be accessed".to_string(),
-                });
-            }
+        let normalized = if path.exists() {
+            path.canonicalize().map_err(|_| MemoryError::InvalidInput {
+                field: "path".to_string(),
+                reason: "absolute path cannot be accessed".to_string(),
+            })?
+        } else {
+            let parent = path.parent().ok_or_else(|| MemoryError::InvalidInput {
+                field: "path".to_string(),
+                reason: "absolute path has no parent directory".to_string(),
+            })?;
+            let file_name = path.file_name().ok_or_else(|| MemoryError::InvalidInput {
+                field: "path".to_string(),
+                reason: "absolute path must include a file name".to_string(),
+            })?;
+            let parent_normalized =
+                parent
+                    .canonicalize()
+                    .map_err(|_| MemoryError::InvalidInput {
+                        field: "path".to_string(),
+                        reason: "absolute path parent does not exist or cannot be accessed"
+                            .to_string(),
+                    })?;
+            parent_normalized.join(file_name)
         };
 
         let current_dir = std::env::current_dir().map_err(|e| MemoryError::InvalidInput {
@@ -66,9 +81,6 @@ fn validate_path(path: &str) -> Result<PathBuf> {
 
 impl ChaoticSemanticFramework {
     /// Batch inject multiple concepts into memory.
-    ///
-    /// Each concept is validated and inserted atomically. If persistence is enabled,
-    /// concepts are persisted to the database in a single batch operation.
     #[instrument(err, skip(self, concepts))]
     pub async fn inject_concepts(&self, concepts: &[(String, HVec10240)]) -> Result<()> {
         if concepts.is_empty() {
@@ -97,9 +109,6 @@ impl ChaoticSemanticFramework {
     }
 
     /// Batch create associations between concepts.
-    ///
-    /// Each association is validated before insertion. If persistence is enabled,
-    /// associations are persisted in a single batch operation.
     #[instrument(err, skip(self, associations))]
     pub async fn associate_many(&self, associations: &[(String, String, f32)]) -> Result<()> {
         if associations.is_empty() {
@@ -126,8 +135,6 @@ impl ChaoticSemanticFramework {
     }
 
     /// Batch similarity queries without caching.
-    ///
-    /// Returns similarity results for each query vector. Results are not cached.
     #[instrument(err, skip(self, queries))]
     pub async fn probe_batch(
         &self,
@@ -144,9 +151,6 @@ impl ChaoticSemanticFramework {
     }
 
     /// Batch similarity queries with LRU caching.
-    ///
-    /// Results are cached and reused for identical queries. Returns Arc references
-    /// to avoid cloning large result sets.
     #[allow(clippy::type_complexity)]
     #[instrument(err, skip(self, queries))]
     pub async fn probe_batch_cached(
@@ -164,9 +168,6 @@ impl ChaoticSemanticFramework {
     }
 
     /// Export memory state to JSON file.
-    ///
-    /// Writes all concepts and associations to the specified path in JSON format.
-    /// Useful for backups, debugging, and interoperability.
     #[instrument(err, skip(self), fields(path))]
     pub async fn export_json(&self, path: &str) -> Result<()> {
         let validated_path = validate_path(path)?;
@@ -185,9 +186,6 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
     /// Import memory state from JSON file.
-    ///
-    /// If `merge` is false, clears existing state before importing.
-    /// Returns the number of concepts imported.
     #[instrument(err, skip(self), fields(path, merge))]
     pub async fn import_json(&self, path: &str, merge: bool) -> Result<usize> {
         let validated_path = validate_path(path)?;
@@ -246,9 +244,6 @@ impl ChaoticSemanticFramework {
         Ok(payload.concepts.len())
     }
     /// Export memory state to binary file.
-    ///
-    /// Uses bincode for compact serialization. More efficient than JSON for
-    /// large datasets.
     #[instrument(err, skip(self), fields(path))]
     pub async fn export_binary(&self, path: &str) -> Result<()> {
         let validated_path = validate_path(path)?;
@@ -276,9 +271,6 @@ impl ChaoticSemanticFramework {
     }
 
     /// Import memory state from binary file.
-    ///
-    /// If `merge` is false, clears existing state before importing.
-    /// Returns the number of concepts imported.
     #[instrument(err, skip(self), fields(path, merge))]
     pub async fn import_binary(&self, path: &str, merge: bool) -> Result<usize> {
         let validated_path = validate_path(path)?;
@@ -353,8 +345,6 @@ impl ChaoticSemanticFramework {
     }
 
     /// Create database backup (SQLite only).
-    ///
-    /// Creates a copy of the database file. Only works with local SQLite databases.
     #[instrument(err, skip(self), fields(path))]
     pub async fn backup(&self, path: &str) -> Result<()> {
         let validated_path = validate_path(path)?;
@@ -367,8 +357,6 @@ impl ChaoticSemanticFramework {
     }
 
     /// Restore from database backup (SQLite only).
-    ///
-    /// Replaces the current database with the backup and reloads memory state.
     #[instrument(err, skip(self), fields(path))]
     pub async fn restore(&self, path: &str) -> Result<()> {
         let validated_path = validate_path(path)?;
@@ -382,9 +370,6 @@ impl ChaoticSemanticFramework {
     }
 
     /// Get version history for a concept.
-    ///
-    /// Returns up to `limit` previous versions of the concept, ordered by
-    /// version number descending. Returns empty vec if persistence is disabled.
     #[instrument(err, skip(self), fields(id, limit))]
     pub async fn concept_history(
         &self,
@@ -398,9 +383,6 @@ impl ChaoticSemanticFramework {
     }
 
     /// Update a concept's vector.
-    ///
-    /// Updates the vector in memory and persists the change if persistence is enabled.
-    /// Records a new version in the version history.
     #[instrument(err, skip(self), fields(id))]
     pub async fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()> {
         let concept = {
@@ -420,8 +402,6 @@ impl ChaoticSemanticFramework {
     }
 
     /// Update a concept's metadata.
-    ///
-    /// Updates the metadata in memory and persists the change if persistence is enabled.
     #[instrument(err, skip(self), fields(id))]
     pub async fn update_concept_metadata(
         &self,
@@ -445,8 +425,6 @@ impl ChaoticSemanticFramework {
     }
 
     /// Remove an association between two concepts.
-    ///
-    /// Removes the association from memory and persists the change if persistence is enabled.
     #[instrument(err, skip(self), fields(from, to))]
     pub async fn disassociate(&self, from: &str, to: &str) -> Result<()> {
         {
@@ -465,9 +443,6 @@ impl ChaoticSemanticFramework {
     }
 
     /// Clear all outbound associations for a concept.
-    ///
-    /// Removes all associations from the given concept in memory and persists
-    /// the change if persistence is enabled.
     #[instrument(err, skip(self), fields(id))]
     pub async fn clear_associations(&self, id: &str) -> Result<()> {
         {
@@ -482,16 +457,12 @@ impl ChaoticSemanticFramework {
     }
 
     /// Clear the similarity query cache.
-    ///
-    /// Useful when you want to ensure fresh similarity results.
     pub async fn clear_similarity_cache(&self) {
         let sing = self.singularity.read().await;
         sing.clear_similarity_cache();
     }
 
     /// Bundle multiple concepts into a single hypervector (strict version).
-    ///
-    /// Returns `NotFound` error if any concept ID is missing.
     pub async fn bundle_concepts_strict(&self, ids: &[String]) -> Result<HVec10240> {
         let sing = self.singularity.read().await;
         sing.bundle_concepts_strict(ids)

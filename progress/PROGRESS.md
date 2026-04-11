@@ -1,3 +1,69 @@
+## 2026-04-11: Persistence Field Integrity Hardening
+
+### Summary
+Closed data-integrity gaps that could drop TTL and canonical linkage fields across batch persistence and binary export/import paths, and added workflow-level regression guards.
+
+### Changes
+- Updated persistence schema target to v6 and added migration for `canonical_concept_ids_json`.
+- Unified single and batch concept saves to persist both `expires_at` and canonical concept IDs.
+- Updated concept load paths to deserialize canonical IDs from persistence.
+- Extended binary export payload to preserve `expires_at` and `canonical_concept_ids` roundtrip.
+- Exposed `expires_at` and `canonical_concept_ids` in WASM concept serialization.
+- Relaxed absolute-path validation for export targets where the output file does not yet exist.
+- Added targeted regressions:
+  - `batch_save_concepts_preserves_ttl_and_canonical_ids`
+  - `binary_import_export_preserves_ttl_and_canonical_links`
+- Updated CI workflow with explicit persistence field-regression test step.
+
+## 2026-04-11: PR Triage, Issue Planning & Maintenance
+
+### Summary
+Triaged open PRs, merged branchless optimization, closed duplicate, labeled new issue, and compacted project learnings.
+
+### PR Activity
+- **PR #66** (merged): Branchless bitmask construction in `bundle.rs` and `hyperdim.rs` — ~40% finalize speedup, ~10% bundle speedup. CI all green. 6 lines changed.
+- **PR #65** (closed as duplicate): Same optimization as #66 but also attempted to convert `hyperdim.rs` from flat file to directory module (`src/hyperdim/hyperdim_tests.rs`). Unnecessary structural change since file is at 499 LOC (under 500 limit).
+
+### Issue Activity
+- **Issue #67** (open, labeled `enhancement`): Ship `csm` CLI binary via npm using napi-rs or separate package. Deferred — requires cross-platform CI build matrix and is low priority vs WASM library usage.
+
+### GOAP State Updates
+- `branchless_bundling_optimization: true` — PR #66 merged
+- Issue #67 tracked as deferred enhancement (Phase: post-v1.0)
+
+### Current State (v0.3.2)
+- ✅ All tests passing (102 tests)
+- ✅ All CI checks green
+- ✅ No open PRs
+- ✅ 1 open issue (#67 - deferred enhancement)
+- ✅ Learnings compacted (removed duplicate entries)
+- ✅ hyperdim.rs at 499 LOC (at limit, monitor)
+- ✅ WASM library: 852KB (under 1MB limit)
+
+## 2026-04-09: Benchmark Harness Optimizations (v0.3.1, v0.3.2)
+
+### Summary
+Released v0.3.1 and v0.3.2 with BM25 parallelization, percentile indexing fixes, and new metrics.
+
+### v0.3.2 Changes
+- Added p99 latency percentile and NDCG@k scoring
+- Floor-based percentile indexing (`(count-1)/2` for median)
+- Configurable abstain threshold CLI parameter
+- sysinfo API updated to v0.33
+- 19 benchmark tests passing
+
+### v0.3.1 Changes
+- BM25 parallel scoring with Rayon `par_iter()`
+- ~40% BM25 search speedup (3.2ms → 1.9ms for 1000 docs)
+- Reservoir step: ~57μs (well under 100μs target)
+- Singularity probe 50k: ~3.7ms (excellent scalability)
+- Fixed CLI binary shadowing issue
+
+### Technical Insights
+- `latencies[count/2]` biased high for even arrays; use `(count-1)/2`
+- sysinfo v0.33 changed `refresh_process()` API
+- HashSet for gold evidence: O(1) vs O(n) nested iteration
+
 ## 2026-04-08: Benchmark Suite Hybrid Retrieval Implementation
 
 ### Summary

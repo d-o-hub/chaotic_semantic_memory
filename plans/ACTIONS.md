@@ -990,7 +990,7 @@ actions:
   # for future reference and can be activated based on user demand.
   #
   # Deferred ADRs:
-  # - ADR-0024: Concept Expiration (TTL) - defer until session management need
+  # - ADR-0024: Advanced TTL policy automation - defer beyond baseline TTL APIs
   # - ADR-0024: Performance Phase 2 (SIMD, PQ, LSH) - defer until >200k concepts
   # - ADR-0025: Weighted Forgetting (Decay) - defer until biological modeling need
   # - ADR-0026: Namespace Isolation - defer until multi-tenant SaaS deployment
@@ -998,6 +998,20 @@ actions:
   # Activation triggers documented in respective ADRs.
   # Current system is production-ready for 1.0 without these features.
   # ═══════════════════════════════════════════════════════
+
+  - name: implement_concept_ttl_baseline
+    preconditions:
+      core_modules_created: true
+    effects:
+      concept_ttl: true
+    cost: 3
+    status: complete
+    file: src/framework_ttl.rs, src/singularity_ttl.rs, src/persistence.rs
+    adr: ADR-0024
+    description: |
+      Implement baseline concept TTL support.
+      Added API surface: inject_concept_with_ttl(), inject_text_with_ttl(), purge_expired().
+      Added expires_at persistence and load/save support.
 
   - name: deferred_concept_ttl
     preconditions: []
@@ -1007,9 +1021,9 @@ actions:
     status: deferred
     adr: ADR-0024
     description: |
-      DEFERRED: Concept expiration with TTL support.
-      See ADR-0024 for full specification.
-      Activate when: Session management use cases emerge.
+      DEFERRED: Advanced TTL policies beyond baseline support.
+      Baseline TTL APIs are implemented; this action tracks post-1.0 policy automation.
+      See ADR-0024 for extended specification and activation criteria.
 
   - name: deferred_performance_phase2
     preconditions: []

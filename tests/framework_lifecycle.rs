@@ -145,3 +145,54 @@ async fn probe_batch_cached_reuses_cached_results() {
     let second = framework.probe_batch_cached(&queries, 2).await.unwrap();
     assert!(Arc::ptr_eq(&first[0], &second[0]));
 }
+
+#[tokio::test]
+async fn binary_import_export_preserves_ttl_and_canonical_links() {
+    let temp_db = NamedTempFile::new().unwrap();
+    let db_path = temp_db.path().to_str().unwrap();
+    let import_file = NamedTempFile::new().unwrap();
+    let import_path = import_file.path().to_str().unwrap().to_string();
+    let export_file = NamedTempFile::new().unwrap();
+    let export_path = export_file.path().to_str().unwrap().to_string();
+
+    let payload = serde_json::json!({
+        "version": "0.3.2",
+        "exported_at": 1u64,
+        "concepts": [{
+            "id": "ttl-canonical",
+            "vector": HVec10240::random(),
+            "metadata": {"kind": "regression"},
+            "created_at": 10u64,
+            "modified_at": 11u64,
+            "expires_at": 777u64,
+            "canonical_concept_ids": ["concept.alpha", "concept.beta"]
+        }],
+        "associations": []
+    });
+    tokio::fs::write(&import_path, serde_json::to_vec(&payload).unwrap())
+        .await
+        .unwrap();
+
+    let framework = ChaoticSemanticFramework::builder()
+        .with_local_db(db_path)
+        .build()
+        .await
+        .unwrap();
+
+    framework.import_json(&import_path, false).await.unwrap();
+    framework.export_binary(&export_path).await.unwrap();
+
+    let reload = ChaoticSemanticFramework::builder()
+        .without_persistence()
+        .build()
+        .await
+        .unwrap();
+    reload.import_binary(&export_path, false).await.unwrap();
+
+    let concept = reload.get_concept("ttl-canonical").await.unwrap().unwrap();
+    assert_eq!(concept.expires_at, Some(777));
+    assert_eq!(
+        concept.canonical_concept_ids,
+        vec!["concept.alpha".to_string(), "concept.beta".to_string()]
+    );
+}

@@ -64,8 +64,8 @@ enhancement_goals:
     - lsh_indexing: deferred
     # ADR-0025: Biological memory decay modeling
     - association_decay: deferred
-    # ADR-0024: Concept TTL for session management
-    - concept_ttl: deferred
+    # ADR-0024 baseline shipped; advanced policy automation remains deferred
+    - concept_ttl: true
     # ADR-0026: Multi-tenancy support
     - namespace_isolation: deferred
 

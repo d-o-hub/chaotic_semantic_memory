@@ -427,6 +427,19 @@ fn concept_to_js_value(concept: &Concept) -> Result<JsValue, JsValue> {
     )
     .map_err(|_| JsValue::from_str("failed to set JS property"))?;
 
+    let expires_at = concept
+        .expires_at
+        .map_or(JsValue::NULL, |v| (v as f64).into());
+    js_sys::Reflect::set(&obj, &"expires_at".into(), &expires_at)
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    let canonical_ids = Array::new();
+    for id in &concept.canonical_concept_ids {
+        canonical_ids.push(&JsValue::from_str(id));
+    }
+    js_sys::Reflect::set(&obj, &"canonical_concept_ids".into(), &canonical_ids.into())
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
     Ok(obj.into())
 }
 

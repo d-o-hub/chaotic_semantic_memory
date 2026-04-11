@@ -53,6 +53,11 @@ jobs:
     - name: Run tests
       run: cargo test --all-features
 
+    - name: Run persistence field regression tests
+      run: |
+        cargo test --all-features batch_save_concepts_preserves_ttl_and_canonical_ids
+        cargo test --all-features binary_import_export_preserves_ttl_and_canonical_links
+
     - name: Validate performance target tests
       run: cargo test --test performance_targets --quiet
 

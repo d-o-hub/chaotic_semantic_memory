@@ -14,9 +14,9 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: release_orchestration_2026_04_05
-  orchestrator_last_run: release_orchestration_2026_04_05
-  orchestrator_last_run_at_utc: 2026-04-05T11:45:00Z
+  action_last_completed: implement_concept_ttl_baseline
+  orchestrator_last_run: run_validation
+  orchestrator_last_run_at_utc: 2026-04-11T18:15:00Z
 
   # Benchmark Optimization Analysis (2026-04-09) - COMPLETE
   benchmark_optimization_analysis_active: false
@@ -204,20 +204,18 @@ world_state:
   npm_v020_published: true
   github_release_v020_created: true
 
-  # Release Status (v0.3.0)
-  release_v030_prepared: true
-  release_v030_changes:
-    - "Semantic Bridge Layer (Issue #52, ADR-0061)"
-    - "Hybrid BM25+HDC Retrieval (ADR-0062)"
-    - "Database table prefix csm_ (ADR-0063)"
-    - "Schema migration v5"
-    - "Encoder test refactor"
-    - "Security fixes (PR #59, #60)"
-  crates_io_v030_ready: true
+  # Release Status (v0.3.2)
+  release_v032_prepared: true
+  release_v032_changes:
+    - "Benchmark harness optimizations (v0.3.1, v0.3.2)"
+    - "BM25 parallel scoring with Rayon"
+    - "NDCG@k scoring, p99 percentile"
+    - "Percentile indexing fix"
+  crates_io_v032_ready: true
   wasm_size_gate_passed: true
-  wasm_library_size_kb: 850.32
+  wasm_library_size_kb: 852
   all_tests_passing: true
-  tests_count: 100
+  tests_count: 102
 
   # Swarm orchestration snapshot
   active_wave: 17
@@ -326,18 +324,18 @@ world_state:
   planning_gaps:
     mutation_testing_action_missing: false
 
-  # Module status (LOC counts) - Updated 2026-03-19
+  # Module status (LOC counts) - Updated 2026-04-11
   modules:
     lib.rs: 63
     error.rs: 32
-    hyperdim.rs: 404
-    reservoir.rs: 469
-    singularity.rs: 484
+    hyperdim.rs: 499
+    reservoir.rs: 496
+    singularity.rs: 494
     singularity_retrieval.rs: 292
     singularity_ext.rs: 159
-    persistence.rs: 500
+    persistence.rs: 469
     persistence_wasm.rs: 109
-    framework.rs: 496
+    framework.rs: 474
     framework_ops.rs: 372
     framework_validation.rs: 86
     persistence_ops.rs: 262
@@ -357,12 +355,13 @@ world_state:
     cli/commands/completions.rs: 42
     bin/csm.rs: 93
 
-  # Test status - Updated 2026-03-09
+  # Test status - Updated 2026-04-11
   unit_tests_passing: 22
   integration_tests_exist: true
   integration_tests_passing: 112
   batch_operations_tests: 32
   persistence_crud_tests: 29
+  total_tests: 102
 
   # Correctness issues (must fix)
   permute_shift_zero_bug: false
@@ -429,6 +428,7 @@ world_state:
   concept_versioning_enabled: true
   schema_migration_support: true
   backup_restore_operations: true
+  concept_ttl: true                         # Baseline TTL APIs and expires_at persistence shipped
 
   # Phase 10: Hardening & Validation (cost: 12)
   input_validation_policy: true
@@ -564,7 +564,7 @@ world_state:
 
   # Post-1.0 Deferred Work (ADR-0024, ADR-0025, ADR-0026)
   # Per Swarm Consensus 2026-02-17: Advanced features deferred until user demand
-  deferred_concept_ttl: false           # ADR-0024: Concept expiration
+  deferred_concept_ttl: false           # ADR-0024: advanced TTL policy automation (baseline TTL shipped)
   deferred_association_decay: false     # ADR-0025: Weighted forgetting
   deferred_namespace_isolation: false   # ADR-0026: Multi-tenancy
   deferred_phase2_optimizations: false  # ADR-0024: SIMD completion, PQ, LSH

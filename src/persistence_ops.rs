@@ -209,6 +209,15 @@ impl Persistence {
                 }
             }
 
+            if version == 6 {
+                // Preserve semantic-bridge linkage IDs on concepts
+                conn.execute_batch(
+                    "ALTER TABLE csm_concepts ADD COLUMN canonical_concept_ids_json TEXT;",
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v6: {}", e)))?;
+            }
+
             conn.execute(
                 "INSERT INTO csm_schema_version(version) VALUES (?1)",
                 libsql::params![version],
@@ -422,6 +431,15 @@ impl Persistence {
                         MemoryError::database(format!("Failed migration v5 rename: {}", e))
                     })?;
                 }
+            }
+
+            if version == 6 {
+                // Preserve semantic-bridge linkage IDs on concepts
+                conn.execute_batch(
+                    "ALTER TABLE csm_concepts ADD COLUMN canonical_concept_ids_json TEXT;",
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v6: {}", e)))?;
             }
 
             conn.execute(

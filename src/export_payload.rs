@@ -71,6 +71,8 @@ pub(crate) struct BinaryConcept {
     pub(crate) metadata: HashMap<String, BinaryMetadataValue>,
     pub(crate) created_at: u64,
     pub(crate) modified_at: u64,
+    pub(crate) expires_at: Option<u64>,
+    pub(crate) canonical_concept_ids: Vec<String>,
 }
 
 impl From<crate::singularity::Concept> for BinaryConcept {
@@ -85,6 +87,8 @@ impl From<crate::singularity::Concept> for BinaryConcept {
                 .collect(),
             created_at: concept.created_at,
             modified_at: concept.modified_at,
+            expires_at: concept.expires_at,
+            canonical_concept_ids: concept.canonical_concept_ids,
         }
     }
 }
@@ -102,8 +106,8 @@ impl BinaryConcept {
                 .collect(),
             created_at: self.created_at,
             modified_at: self.modified_at,
-            expires_at: None,
-            canonical_concept_ids: Vec::new(),
+            expires_at: self.expires_at,
+            canonical_concept_ids: self.canonical_concept_ids.clone(),
         })
     }
 }
