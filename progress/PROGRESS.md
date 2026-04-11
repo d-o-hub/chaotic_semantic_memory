@@ -15,6 +15,10 @@ Closed data-integrity gaps that could drop TTL and canonical linkage fields acro
   - `binary_import_export_preserves_ttl_and_canonical_links`
 - Updated CI workflow with explicit persistence field-regression test step.
 
+### Warnings Tracked
+- GitHub push warning: branch-protection bypass message shown on direct push to `main` (policy process warning, not a test failure). Follow-up: prefer PR flow for future changes.
+- GitHub security warning: default branch reports 3 Dependabot advisories (2 moderate, 1 low). Follow-up: schedule dependency remediation pass.
+
 ## 2026-04-11: PR Triage, Issue Planning & Maintenance
 
 ### Summary

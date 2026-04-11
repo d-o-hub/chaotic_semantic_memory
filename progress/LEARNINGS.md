@@ -12,6 +12,16 @@
 - Do not rely on unit tests that only assert `expires_at: None`; add positive tests with non-default TTL and canonical IDs.
 - Do not assume CI's broad test pass catches field-loss regressions unless targeted regression tests are present.
 
+## 2026-04-11: CI Warning Handling
+
+### Technical Insights
+- A successful push can still emit operational warnings (branch-policy bypass notices, security advisory counts) that are outside compile/test status checks.
+- These warnings should be tracked explicitly in project progress to avoid losing context after green CI runs.
+
+### What to Avoid
+- Do not treat "all checks green" as equivalent to "no warnings present".
+- Do not leave Dependabot advisory warnings undocumented when postponing fixes.
+
 ## 2026-04-11: PR Triage & Issue Planning
 
 ### What Worked
