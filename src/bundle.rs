@@ -97,9 +97,9 @@ impl BundleAccumulator {
         for (i, word) in data.iter_mut().enumerate() {
             let offset = i * 128;
             for j in 0..128 {
-                if self.counts[offset + j] > threshold {
-                    *word |= 1u128 << j;
-                }
+                // Branchless bit construction to reduce misprediction penalties
+                let condition = self.counts[offset + j] > threshold;
+                *word |= (condition as u128) << j;
             }
         }
 
