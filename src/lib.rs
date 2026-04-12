@@ -67,6 +67,8 @@ pub mod metadata_filter;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 pub mod persistence;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+mod persistence_migrations;
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_ops;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_versions;
