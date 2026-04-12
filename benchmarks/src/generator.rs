@@ -4,8 +4,8 @@ use rand_chacha::ChaCha8Rng;
 
 /// Real colors for semantically meaningful test data
 const COLORS: &[&str] = &[
-    "blue", "green", "red", "purple", "orange", "yellow", "pink", "teal",
-    "navy", "maroon", "olive", "aqua", "lime", "coral", "crimson", "indigo",
+    "blue", "green", "red", "purple", "orange", "yellow", "pink", "teal", "navy", "maroon",
+    "olive", "aqua", "lime", "coral", "crimson", "indigo",
 ];
 
 /// Color modifiers for variations
@@ -15,21 +15,47 @@ const COLOR_MODIFIERS: &[&str] = &[
 
 /// Real cities for semantically meaningful test data
 const CITIES: &[&str] = &[
-    "New York", "Los Angeles", "Chicago", "Houston", "Phoenix", "Philadelphia",
-    "San Antonio", "San Diego", "Dallas", "San Jose", "Austin", "Jacksonville",
-    "Fort Worth", "Columbus", "Charlotte", "Seattle", "Denver", "Boston",
-    "Nashville", "Baltimore", "Oklahoma City", "Louisville", "Portland", "Vegas",
-    "Milwaukee", "Albuquerque", "Tucson", "Fresno", "Sacramento", "Kansas City",
-    "Atlanta", "Miami",
+    "New York",
+    "Los Angeles",
+    "Chicago",
+    "Houston",
+    "Phoenix",
+    "Philadelphia",
+    "San Antonio",
+    "San Diego",
+    "Dallas",
+    "San Jose",
+    "Austin",
+    "Jacksonville",
+    "Fort Worth",
+    "Columbus",
+    "Charlotte",
+    "Seattle",
+    "Denver",
+    "Boston",
+    "Nashville",
+    "Baltimore",
+    "Oklahoma City",
+    "Louisville",
+    "Portland",
+    "Vegas",
+    "Milwaukee",
+    "Albuquerque",
+    "Tucson",
+    "Fresno",
+    "Sacramento",
+    "Kansas City",
+    "Atlanta",
+    "Miami",
 ];
 
-/// Generate sessions with fixed 3-turn structure (backward compatible)
-pub fn generate_sessions(seed: u64, count: usize) -> Vec<Session> {
-    generate_sessions_with_range(seed, count, 3, 3)
-}
-
 /// Generate sessions with variable turn count between min and max (inclusive)
-pub fn generate_sessions_with_range(seed: u64, count: usize, min_turns: usize, max_turns: usize) -> Vec<Session> {
+pub fn generate_sessions_with_range(
+    seed: u64,
+    count: usize,
+    min_turns: usize,
+    max_turns: usize,
+) -> Vec<Session> {
     let mut rng = ChaCha8Rng::seed_from_u64(seed);
     let mut sessions = Vec::with_capacity(count);
 
@@ -72,7 +98,9 @@ pub fn generate_sessions_with_range(seed: u64, count: usize, min_turns: usize, m
             turns.push(SessionTurn {
                 ts: "2026-01-04T10:00:00Z".into(),
                 speaker: "user".into(),
-                text: format!("Actually, I changed my mind. My current favorite color is {color_v2} now."),
+                text: format!(
+                    "Actually, I changed my mind. My current favorite color is {color_v2} now."
+                ),
                 memory_id: Some(format!("{session_id}:favorite_color:v2")),
             });
         }
@@ -83,7 +111,10 @@ pub fn generate_sessions_with_range(seed: u64, count: usize, min_turns: usize, m
             turns.push(SessionTurn {
                 ts: format!("2026-01-{:02}T10:00:00Z", 5 + filler_idx),
                 speaker: "user".into(),
-                text: format!("I also wanted to mention something about topic {}.", filler_idx + 1),
+                text: format!(
+                    "I also wanted to mention something about topic {}.",
+                    filler_idx + 1
+                ),
                 memory_id: Some(format!("{session_id}:topic:{}:v1", filler_idx + 1)),
             });
         }
@@ -112,7 +143,7 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             query_id: format!("{}:update", s.session_id),
             session_id: s.session_id.clone(),
             task_type: TaskType::Update,
-            query: "What is my favorite color now?".into(),  // Uses "now" which appears in v2
+            query: "What is my favorite color now?".into(), // Uses "now" which appears in v2
             gold_evidence_ids: vec![format!("{}:favorite_color:v2", s.session_id)],
             expected_answer: None,
             should_abstain: false,
@@ -122,7 +153,7 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             query_id: format!("{}:temporal", s.session_id),
             session_id: s.session_id.clone(),
             task_type: TaskType::Temporal,
-            query: "What city did I move to?".into(),  // Uses "city" and "move" keywords
+            query: "What city did I move to?".into(), // Uses "city" and "move" keywords
             gold_evidence_ids: vec![format!("{}:city:v1", s.session_id)],
             expected_answer: None,
             should_abstain: false,
@@ -163,8 +194,15 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             session_id: "cross-session".into(),
             task_type: TaskType::MultiSession,
             query: "Which cities have I lived in or moved to?".into(),
-            gold_evidence_ids: sessions.iter()
-                .filter_map(|s| s.turns.iter().find(|t| t.memory_id.as_ref().map_or(false, |id| id.contains(":city:"))))
+            gold_evidence_ids: sessions
+                .iter()
+                .filter_map(|s| {
+                    s.turns.iter().find(|t| {
+                        t.memory_id
+                            .as_ref()
+                            .map_or(false, |id| id.contains(":city:"))
+                    })
+                })
                 .filter_map(|t| t.memory_id.clone())
                 .collect(),
             expected_answer: None,

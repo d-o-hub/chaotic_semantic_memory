@@ -92,7 +92,7 @@ actions:
       wasm_js_smoke_test_enforced: true
       wasm_js_smoke_test_in_ci: true
     cost: 2
-    status: pending
+    status: complete
     file: .github/workflows/ci.yml, .github/workflows/npm-publish.yml, wasm/test.js
     description: |
       Build the WASM package and execute a Node-based smoke test against the
@@ -105,7 +105,7 @@ actions:
     effects:
       wasm_docs_match_generated_api: true
     cost: 2
-    status: pending
+    status: complete
     file: wasm/README.md, wasm/test.js, src/wasm.rs, src/wasm_ext.rs
     description: |
       Make the documented WASM class and method names match the generated package
@@ -120,7 +120,7 @@ actions:
       benchmark_ci_enforces_quality_thresholds: true
       benchmark_ci_quality_thresholds_enforced: true
     cost: 2
-    status: pending
+    status: complete
     file: .github/workflows/benchmark-ci.yml, benchmarks/src/metrics.rs, benchmarks/src/runner.rs
     description: |
       Upgrade benchmark CI from artifact/schema presence checks to conservative
@@ -133,7 +133,7 @@ actions:
     effects:
       benchmark_storage_metric_truthful: true
     cost: 2
-    status: pending
+    status: complete
     file: benchmarks/src/runner.rs, benchmarks/src/types.rs, benchmarks/src/report.rs
     description: |
       Replace dataset-file-size storage accounting with a metric derived from the
@@ -146,7 +146,7 @@ actions:
     effects:
       benchmark_report_contract_complete: true
     cost: 2
-    status: pending
+    status: complete
     file: benchmarks/src/report.rs, benchmarks/src/runner.rs
     description: |
       Include dataset version, config profile, commit SHA, reader-mode state, and
@@ -160,7 +160,7 @@ actions:
       pages_fallback_renders_html: true
       pages_fallback_emits_html: true
     cost: 1
-    status: pending
+    status: complete
     file: .github/workflows/pages.yml
     description: |
       Emit an index.html fallback page instead of index.md so GitHub Pages always

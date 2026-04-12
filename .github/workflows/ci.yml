@@ -56,6 +56,22 @@ jobs:
     - name: Run benchmark workspace tests
       run: cargo test --manifest-path benchmarks/Cargo.toml --quiet
 
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install wasm-pack
+      run: cargo install wasm-pack
+
+    - name: Build WASM package for smoke test
+      run: wasm-pack build --target nodejs --out-dir wasm/pkg-node -- --features wasm
+
+    - name: Run WASM smoke test
+      env:
+        WASM_PACKAGE_DIR: ${{ github.workspace }}/wasm/pkg-node
+      run: node --experimental-wasm-modules wasm/test.js
+
     - name: Run persistence field regression tests
       run: |
         cargo test --all-features batch_save_concepts_preserves_ttl_and_canonical_ids

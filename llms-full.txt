@@ -8,27 +8,27 @@
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
+- anyhow (1.0.102)
+- serde_json (1.0.149)
+- thiserror (2.0.11)
+- colored (2.2.0)
 - tracing-subscriber (0.3.19)
 - glob (0.3.2)
-- rand (0.8.5)
-- serde_json (1.0.149)
-- tracing (0.1.41)
-- serde (1.0.219) [features: derive]
-- base64 (0.22)
-- bincode (1.3.3)
-- thiserror (2.0.11)
-- clap_complete (4.5.42)
 - clap (4.5.60) [features: derive, env, string]
-- anyhow (1.0.102)
-- colored (2.2.0)
+- tracing (0.1.41)
+- bincode (1.3.3)
+- serde (1.0.219) [features: derive]
+- clap_complete (4.5.42)
+- base64 (0.22)
+- rand (0.8.5)
 **Features:**
 - persistence: [dep:libsql]
-- default: [cli, persistence, parallel]
-- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
-- parallel: [dep:rayon]
 - wasm: []
+- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
+- default: [cli, persistence, parallel]
+- parallel: [dep:rayon]
 
-Generated: 2026-04-12 07:53:15 UTC  
+Generated: 2026-04-12 10:44:41 UTC  
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Table of Contents
@@ -254,6 +254,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct Bm25Index
 - impl Default for Bm25Index
 - impl Bm25Index
+
+### src/persistence_migrations.rs
+
+- impl Persistence
 
 ### src/export_payload.rs
 
@@ -2343,6 +2347,17 @@ impl Bm25Index {
     pub fn len(&self) -> usize;
     pub fn is_empty(&self) -> bool;
     pub fn avg_doc_length(&self) -> f32;
+}
+```
+
+
+
+## src/persistence_migrations.rs
+
+### impl Persistence
+
+```rust
+impl Persistence {
 }
 ```
 

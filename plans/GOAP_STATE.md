@@ -80,12 +80,12 @@ world_state:
   repo_analysis_2026_04_12_findings:
     ci_benchmark_executes_criterion_targets: true
     benchmark_workspace_tests_in_ci: true
-    wasm_js_smoke_test_in_ci: false
-    wasm_docs_match_generated_api: false
-    benchmark_ci_quality_thresholds_enforced: false
-    benchmark_storage_metric_truthful: false
-    benchmark_report_contract_complete: false
-    pages_fallback_emits_html: false
+    wasm_js_smoke_test_in_ci: true
+    wasm_docs_match_generated_api: true
+    benchmark_ci_quality_thresholds_enforced: true
+    benchmark_storage_metric_truthful: true
+    benchmark_report_contract_complete: true
+    pages_fallback_emits_html: true
   repo_analysis_2026_04_12_validated_commands:
     - "cargo test --all-features --quiet"
     - "cargo check --target wasm32-unknown-unknown --features wasm"
@@ -99,7 +99,13 @@ world_state:
     - "Benchmark runner reports dataset file size as storage_bytes and always uses the in-memory adapter."
   ci_executes_real_criterion_benches: true
   benchmark_workspace_tests_run_in_ci: true
-  action_last_completed: add_benchmark_workspace_tests_to_ci
+  wasm_js_smoke_test_enforced: true
+  benchmark_ci_enforces_quality_thresholds: true
+  benchmark_storage_metric_truthful: true
+  benchmark_report_contract_complete: true
+  pages_fallback_renders_html: true
+  wasm_docs_match_generated_api: true
+  action_last_completed: complete_benchmark_report_contract
 
   # Recent changes (2026-04-08)
   recent_changes:
