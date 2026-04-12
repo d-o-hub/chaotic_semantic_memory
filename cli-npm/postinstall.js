@@ -6,7 +6,7 @@
 
 import { createWriteStream, mkdirSync, existsSync, chmodSync } from 'fs';
 import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
 import { createGunzip } from 'zlib';
@@ -38,7 +38,8 @@ if (!tarballName) {
 
 // Read package version
 const pkgPath = join(__dirname, 'package.json');
-const pkg = await import(pkgPath, { assert: { type: 'json' } });
+const pkgUrl = pathToFileURL(pkgPath);
+const pkg = await import(pkgUrl.href, { assert: { type: 'json' } });
 const version = pkg.default.version;
 
 // GitHub Release URL
