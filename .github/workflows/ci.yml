@@ -59,7 +59,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
+        node-version: '24'
 
     - name: Install wasm-pack
       run: cargo install wasm-pack
@@ -206,7 +206,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
+        node-version: '24'
 
     - name: Pack CLI and run smoke test
       shell: bash
