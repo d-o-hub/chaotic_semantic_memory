@@ -391,13 +391,21 @@ impl ChaoticSemanticFramework {
                 self.validate_concept(concept)?;
             }
 
-            let concept_ids = {
+            let concept_ids: Vec<String> = concepts.iter().map(|c| c.id.clone()).collect();
+
+            {
                 let mut sing = self.singularity.write().await;
-                for concept in concepts.clone() {
+                for concept in concepts {
+                    if sing.get(&concept.id).is_some() {
+                        warn!(
+                            concept_id = %concept.id,
+                            "skipping persisted concept during load_merge because id already exists in memory"
+                        );
+                        continue;
+                    }
                     sing.inject(concept)?;
                 }
-                sing.concept_ids()
-            };
+            }
 
             let mut all_associations: Vec<(String, String, f32)> = Vec::new();
             for concept_id in &concept_ids {

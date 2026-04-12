@@ -196,3 +196,39 @@ async fn binary_import_export_preserves_ttl_and_canonical_links() {
         vec!["concept.alpha".to_string(), "concept.beta".to_string()]
     );
 }
+
+#[tokio::test]
+async fn load_merge_does_not_silently_overwrite_existing_concepts() {
+    let temp = NamedTempFile::new().unwrap();
+    let path = temp.path().to_str().unwrap().to_string();
+
+    let framework_a = ChaoticSemanticFramework::builder()
+        .with_local_db(path.clone())
+        .build()
+        .await
+        .unwrap();
+    let framework_b = ChaoticSemanticFramework::builder()
+        .with_local_db(path)
+        .build()
+        .await
+        .unwrap();
+
+    let vector_a = HVec10240::random();
+    let vector_b = HVec10240::random();
+
+    framework_a
+        .inject_concept("shared-id", vector_a)
+        .await
+        .unwrap();
+
+    // Persist a different value through another instance.
+    framework_b
+        .inject_concept("shared-id", vector_b)
+        .await
+        .unwrap();
+
+    framework_a.load_merge().await.unwrap();
+
+    let concept = framework_a.get_concept("shared-id").await.unwrap().unwrap();
+    assert_eq!(concept.vector, vector_a);
+}

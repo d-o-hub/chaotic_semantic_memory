@@ -71,6 +71,36 @@ async fn persistence_health_check_and_schema_version_work() {
 }
 
 #[tokio::test]
+async fn save_and_load_concept_preserves_ttl_and_canonical_concept_ids() {
+    let temp = NamedTempFile::new().unwrap();
+    let path = temp.path().to_str().unwrap();
+    let persistence = Persistence::new_local(path).await.unwrap();
+
+    let concept = Concept {
+        id: "alpha-ttl".to_string(),
+        vector: HVec10240::random(),
+        metadata: HashMap::new(),
+        created_at: 1,
+        modified_at: 2,
+        expires_at: Some(777),
+        canonical_concept_ids: vec!["concept.anchor".to_string()],
+    };
+
+    persistence.save_concept(&concept).await.unwrap();
+
+    let loaded = persistence
+        .load_concept("alpha-ttl")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(loaded.expires_at, Some(777));
+    assert_eq!(
+        loaded.canonical_concept_ids,
+        vec!["concept.anchor".to_string()]
+    );
+}
+
+#[tokio::test]
 async fn backup_and_restore_roundtrip_state() {
     let db = NamedTempFile::new().unwrap();
     let db_path = db.path().to_str().unwrap();
@@ -106,4 +136,51 @@ async fn backup_and_restore_roundtrip_state() {
     let beta = persistence.load_concept("beta").await.unwrap();
     assert!(alpha.is_some());
     assert!(beta.is_none());
+}
+
+#[tokio::test]
+async fn backup_and_restore_preserves_ttl_and_canonical_concept_ids() {
+    let db = NamedTempFile::new().unwrap();
+    let db_path = db.path().to_str().unwrap();
+    let backup = NamedTempFile::new().unwrap();
+    let backup_path = backup.path().to_str().unwrap();
+
+    let persistence = Persistence::new_local(db_path).await.unwrap();
+    let concept = Concept {
+        id: "semantic-bridge-anchor".to_string(),
+        vector: HVec10240::random(),
+        metadata: HashMap::new(),
+        created_at: 10,
+        modified_at: 11,
+        expires_at: Some(123_456),
+        canonical_concept_ids: vec!["concept.alpha".to_string(), "concept.beta".to_string()],
+    };
+
+    persistence.save_concept(&concept).await.unwrap();
+    persistence.backup(backup_path).await.unwrap();
+
+    // Mutate live DB after backup so restore must recover original fields.
+    let replacement = Concept {
+        id: "semantic-bridge-anchor".to_string(),
+        vector: HVec10240::random(),
+        metadata: HashMap::new(),
+        created_at: 10,
+        modified_at: 12,
+        expires_at: None,
+        canonical_concept_ids: Vec::new(),
+    };
+    persistence.save_concept(&replacement).await.unwrap();
+
+    persistence.restore(backup_path).await.unwrap();
+    let restored = persistence
+        .load_concept("semantic-bridge-anchor")
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(restored.expires_at, Some(123_456));
+    assert_eq!(
+        restored.canonical_concept_ids,
+        vec!["concept.alpha".to_string(), "concept.beta".to_string()]
+    );
 }

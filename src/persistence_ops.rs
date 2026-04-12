@@ -285,8 +285,8 @@ impl Persistence {
             .map_err(|e| MemoryError::database(format!("Failed to clear current database: {}", e)))?;
 
             conn.execute_batch(
-                "INSERT INTO csm_concepts (id, vector, metadata, created_at, modified_at)
-                 SELECT id, vector, metadata, created_at, modified_at FROM restore_db.csm_concepts;
+                "INSERT INTO csm_concepts (id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
+                 SELECT id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json FROM restore_db.csm_concepts;
                  INSERT INTO csm_associations (from_id, to_id, strength)
                  SELECT from_id, to_id, strength FROM restore_db.csm_associations;
                  INSERT INTO csm_versions (concept_id, version, vector, metadata, modified_at)
