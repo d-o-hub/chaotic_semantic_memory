@@ -23,7 +23,7 @@ See: [agents-docs/hard-constraints.md](agents-docs/hard-constraints.md)
 - @progress/LEARNINGS.md — Self-learning patterns
 - @progress/PROGRESS.md — Project progress tracking
 
-## Skills (16 Total)
+## Skills (19 Total)
 
 ### Core Skills
 - `rust-development`: Implement or refactor Rust modules
@@ -35,7 +35,8 @@ See: [agents-docs/hard-constraints.md](agents-docs/hard-constraints.md)
 - `release-management`: GitHub release management, crates.io publishing
 - `benchmarking-perf`: Criterion benchmarks and performance targets
 - `debugging-reservoir`: Diagnose ESN spectral radius, sparse weights, dynamics
-- `skill-memory`: Use csm CLI for skill learning and knowledge graphs
+- `skill-memory-internal`: Internal dogfooding memory workflow via csm CLI
+- `memory-lifecycle-verification`: Portable save/load/archive/delete verification for files and DB records
 - `turso-memory-verification`: Verify memory persistence before releases (REQUIRED)
 - `drawio`: Create architecture diagrams
 
