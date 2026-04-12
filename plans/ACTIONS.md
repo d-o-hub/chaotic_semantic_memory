@@ -33,9 +33,138 @@ actions:
     cost: 8
     status: complete
 
+  - name: analyze_repo_gaps_ci_bench_wasm_eval
+    preconditions:
+      tests_passing: true
+      benchmarks_exist: true
+      wasm_compiles: true
+    effects:
+      repo_analysis_2026_04_12_completed: true
+    cost: 2
+    status: complete
+    file: plans/GOAP_STATE.md, .github/workflows/ci.yml, .github/workflows/benchmark-ci.yml, wasm/README.md, wasm/test.js, benchmarks/src/runner.rs
+    description: |
+      Verify current repository state for missing implementations, tests, evals,
+      benchmarks, and GitHub Actions issues. Confirm that main CI benchmark
+      execution is not running Criterion bench targets, benchmark CI validates
+      schema presence instead of quality thresholds, WASM JS docs/tests drift from
+      the generated package API, and benchmark reporting/storage metrics are not
+      yet truthful enough for release claims.
+
   # ═══════════════════════════════════════════════════════
   # PHASE 1: CORRECTNESS FIXES (do first, cost: 11)
   # ═══════════════════════════════════════════════════════
+  - name: fix_ci_benchmark_execution
+    preconditions:
+      repo_analysis_2026_04_12_completed: true
+      benchmarks_exist: true
+    effects:
+      ci_executes_real_criterion_benches: true
+      ci_benchmark_executes_criterion_targets: true
+    cost: 1
+    status: complete
+    file: .github/workflows/ci.yml
+    description: |
+      Replace cargo bench --lib --no-fail-fast with explicit bench-target
+      execution so the Criterion suites in benches/benchmark.rs,
+      benches/persistence_benchmark.rs, and benches/bm25_benchmark.rs actually run
+      in CI.
+
+  - name: add_benchmark_workspace_tests_to_ci
+    preconditions:
+      repo_analysis_2026_04_12_completed: true
+    effects:
+      benchmark_workspace_tests_run_in_ci: true
+      benchmark_workspace_tests_in_ci: true
+    cost: 1
+    status: complete
+    file: .github/workflows/ci.yml, .github/workflows/benchmark-ci.yml
+    description: |
+      Add cargo test --manifest-path benchmarks/Cargo.toml to CI so the existing
+      benchmark workspace unit tests become enforced instead of running only
+      through local validation.
+
+  - name: add_wasm_js_smoke_test_to_ci
+    preconditions:
+      repo_analysis_2026_04_12_completed: true
+      wasm_compiles: true
+    effects:
+      wasm_js_smoke_test_enforced: true
+      wasm_js_smoke_test_in_ci: true
+    cost: 2
+    status: pending
+    file: .github/workflows/ci.yml, .github/workflows/npm-publish.yml, wasm/test.js
+    description: |
+      Build the WASM package and execute a Node-based smoke test against the
+      generated JS bindings so package-surface regressions are caught before
+      release.
+
+  - name: reconcile_wasm_docs_with_generated_api
+    preconditions:
+      repo_analysis_2026_04_12_completed: true
+    effects:
+      wasm_docs_match_generated_api: true
+    cost: 2
+    status: pending
+    file: wasm/README.md, wasm/test.js, src/wasm.rs, src/wasm_ext.rs
+    description: |
+      Make the documented WASM class and method names match the generated package
+      API, either by updating docs/tests to the actual bindings or by adding
+      js_name aliases so the generated bindings match the documented contract.
+
+  - name: enforce_benchmark_quality_thresholds_in_ci
+    preconditions:
+      repo_analysis_2026_04_12_completed: true
+      benchmarks_exist: true
+    effects:
+      benchmark_ci_enforces_quality_thresholds: true
+      benchmark_ci_quality_thresholds_enforced: true
+    cost: 2
+    status: pending
+    file: .github/workflows/benchmark-ci.yml, benchmarks/src/metrics.rs, benchmarks/src/runner.rs
+    description: |
+      Upgrade benchmark CI from artifact/schema presence checks to conservative
+      retrieval-quality gates covering recall, MRR, and abstention behavior so
+      regressions fail CI instead of being silently published.
+
+  - name: make_benchmark_storage_metric_truthful
+    preconditions:
+      repo_analysis_2026_04_12_completed: true
+    effects:
+      benchmark_storage_metric_truthful: true
+    cost: 2
+    status: pending
+    file: benchmarks/src/runner.rs, benchmarks/src/types.rs, benchmarks/src/report.rs
+    description: |
+      Replace dataset-file-size storage accounting with a metric derived from the
+      actual benchmarked memory/index state so reported storage cost reflects the
+      system under test.
+
+  - name: complete_benchmark_report_contract
+    preconditions:
+      repo_analysis_2026_04_12_completed: true
+    effects:
+      benchmark_report_contract_complete: true
+    cost: 2
+    status: pending
+    file: benchmarks/src/report.rs, benchmarks/src/runner.rs
+    description: |
+      Include dataset version, config profile, commit SHA, reader-mode state, and
+      references to machine-readable outputs in report.md so benchmark artifacts
+      satisfy the benchmark workspace contract.
+
+  - name: fix_pages_fallback_html
+    preconditions:
+      repo_analysis_2026_04_12_completed: true
+    effects:
+      pages_fallback_renders_html: true
+      pages_fallback_emits_html: true
+    cost: 1
+    status: pending
+    file: .github/workflows/pages.yml
+    description: |
+      Emit an index.html fallback page instead of index.md so GitHub Pages always
+      serves a valid root document when mdBook content is absent.
   - name: fix_permute_shift_zero
     preconditions:
       core_modules_created: true

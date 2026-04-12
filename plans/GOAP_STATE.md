@@ -69,6 +69,38 @@ world_state:
     benchmark_tests_passed: 19
   benchmark_verification_conclusion: "All optimizations validated - CI passing, tests passing, benchmarks within targets"
 
+  # Repository analysis snapshot (2026-04-12)
+  repo_analysis_2026_04_12_completed: true
+  repo_analysis_2026_04_12_scope:
+    - missing_implementations
+    - tests
+    - evals
+    - benchmarks
+    - github_actions
+  repo_analysis_2026_04_12_findings:
+    ci_benchmark_executes_criterion_targets: true
+    benchmark_workspace_tests_in_ci: true
+    wasm_js_smoke_test_in_ci: false
+    wasm_docs_match_generated_api: false
+    benchmark_ci_quality_thresholds_enforced: false
+    benchmark_storage_metric_truthful: false
+    benchmark_report_contract_complete: false
+    pages_fallback_emits_html: false
+  repo_analysis_2026_04_12_validated_commands:
+    - "cargo test --all-features --quiet"
+    - "cargo check --target wasm32-unknown-unknown --features wasm"
+    - "cargo run --manifest-path benchmarks/Cargo.toml -- --dataset-dir benchmarks/datasets/v1/small --mode retrieval-only --out-dir benchmarks/results/ci"
+    - "cargo test --manifest-path benchmarks/Cargo.toml --quiet"
+    - "cargo bench --lib --no-fail-fast"
+  repo_analysis_2026_04_12_notes:
+    - "Main CI benchmark command only ran bench-profile unit tests; Criterion bench targets in benches/*.rs were not executed."
+    - "Benchmark CI passed despite poor retrieval metrics because it validates artifact presence instead of metric thresholds."
+    - "WASM Rust target compiles, but the documented JS API and wasm/test.js drift from the generated pkg API and are not exercised in CI."
+    - "Benchmark runner reports dataset file size as storage_bytes and always uses the in-memory adapter."
+  ci_executes_real_criterion_benches: true
+  benchmark_workspace_tests_run_in_ci: true
+  action_last_completed: add_benchmark_workspace_tests_to_ci
+
   # Recent changes (2026-04-08)
   recent_changes:
     - "v0.3.0: Semantic Bridge Layer (Issue #52, ADR-0061), Hybrid BM25/HDC Retrieval (ADR-0062)"

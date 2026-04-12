@@ -53,6 +53,9 @@ jobs:
     - name: Run tests
       run: cargo test --all-features
 
+    - name: Run benchmark workspace tests
+      run: cargo test --manifest-path benchmarks/Cargo.toml --quiet
+
     - name: Run persistence field regression tests
       run: |
         cargo test --all-features batch_save_concepts_preserves_ttl_and_canonical_ids
@@ -142,8 +145,11 @@ jobs:
     - name: Clean target for bench
       run: cargo clean -p chaotic_semantic_memory
 
-    - name: Run benchmarks
-      run: cargo bench --lib --no-fail-fast
+    - name: Run Criterion benchmarks
+      run: |
+        cargo bench --bench benchmark -- --noplot
+        cargo bench --bench persistence_benchmark -- --noplot
+        cargo bench --bench bm25_benchmark -- --noplot
     
     - name: Upload benchmark results
       uses: actions/upload-artifact@v7

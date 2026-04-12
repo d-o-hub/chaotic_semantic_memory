@@ -102,3 +102,15 @@ improvement_goals:
     # Phase 48: Performance Follow-up (cost: 7)
     - probe_scan_materialization_removed: true
     - local_sqlite_wal_enabled: true
+
+release_and_validation_goals:
+  name: "CI Truthfulness And Evaluation Integrity"
+  targets:
+    - ci_executes_real_criterion_benches: true
+    - benchmark_workspace_tests_run_in_ci: true
+    - wasm_js_smoke_test_enforced: true
+    - wasm_docs_match_generated_api: true
+    - benchmark_ci_enforces_quality_thresholds: true
+    - benchmark_storage_metric_truthful: true
+    - benchmark_report_contract_complete: true
+    - pages_fallback_renders_html: true
