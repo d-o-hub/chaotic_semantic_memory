@@ -26,7 +26,9 @@ Thumbs.db
 
 # WASM build artifacts
 *.wasm
-*.js
+wasm/pkg-node/
+wasm/pkg-web/
+pkg/
 
 # Debug builds
 *.pdb

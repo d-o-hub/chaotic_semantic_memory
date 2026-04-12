@@ -79,6 +79,7 @@ pub mod reservoir;
 pub mod retrieval;
 pub mod semantic_bridge;
 pub mod singularity;
+mod singularity_cache;
 mod singularity_ext;
 mod singularity_retrieval;
 mod singularity_ttl;

@@ -13,6 +13,11 @@ use crate::singularity::Concept;
 
 const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024; // 100 MB default
 
+#[wasm_bindgen(start)]
+pub fn initialize_wasm() {
+    console_error_panic_hook::set_once();
+}
+
 /// WASM-friendly wrapper for the framework
 #[wasm_bindgen]
 pub struct WasmFramework {

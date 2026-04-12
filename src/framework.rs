@@ -171,10 +171,14 @@ impl ChaoticSemanticFramework {
     #[instrument(err, skip(self, query))]
     pub async fn probe(&self, query: HVec10240, top_k: usize) -> Result<Vec<(String, f32)>> {
         self.validate_top_k(top_k)?;
+        #[cfg(not(target_arch = "wasm32"))]
         let start = std::time::Instant::now();
         let sing = self.singularity.read().await;
         let results = sing.find_similar(&query, top_k);
+        #[cfg(not(target_arch = "wasm32"))]
         let elapsed_ms = start.elapsed().as_millis() as u64;
+        #[cfg(target_arch = "wasm32")]
+        let elapsed_ms = 0;
         self.metrics.observe_probe_latency_ms(elapsed_ms);
 
         // Filter expired concepts
@@ -199,10 +203,14 @@ impl ChaoticSemanticFramework {
         filter: &MetadataFilter,
     ) -> Result<Vec<(String, f32)>> {
         self.validate_top_k(top_k)?;
+        #[cfg(not(target_arch = "wasm32"))]
         let start = std::time::Instant::now();
         let sing = self.singularity.read().await;
         let results = sing.find_similar_filtered(query, top_k, filter);
+        #[cfg(not(target_arch = "wasm32"))]
         let elapsed_ms = start.elapsed().as_millis() as u64;
+        #[cfg(target_arch = "wasm32")]
+        let elapsed_ms = 0;
         self.metrics.observe_probe_latency_ms(elapsed_ms);
         Ok(results.as_ref().to_vec())
     }

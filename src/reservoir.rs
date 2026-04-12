@@ -3,9 +3,8 @@
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Instant;
 #[cfg(not(target_arch = "wasm32"))]
-use tracing::instrument;
+use {std::time::Instant, tracing::instrument};
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
@@ -52,14 +51,12 @@ impl ReservoirMetrics {
         }
     }
 }
-
 /// Compact sparse row storage (CSR-like) for fast row-wise dot products.
 struct SparseWeights {
     row_offsets: Vec<usize>,
     indices: Vec<usize>,
     weights: Vec<f32>,
 }
-
 impl SparseWeights {
     fn build(rows: usize, cols: usize, degree: usize, rng: &mut StdRng) -> Self {
         let nnz = rows.saturating_mul(degree);
@@ -138,7 +135,6 @@ impl SparseWeights {
         }
     }
 }
-
 /// Sparse Echo State Network with chaotic dynamics
 pub struct Reservoir {
     size: usize,
@@ -156,7 +152,6 @@ pub struct Reservoir {
     alpha: f32,
     metrics: ReservoirMetrics,
 }
-
 impl Reservoir {
     pub const DEFAULT_SIZE: usize = 50000;
     pub const DEFAULT_RADIUS: f32 = 0.95;
@@ -215,6 +210,7 @@ impl Reservoir {
     /// Single reservoir step
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
     pub fn step(&mut self, input: &[f32]) -> Result<&[f32]> {
+        #[cfg(not(target_arch = "wasm32"))]
         let started = Instant::now();
         if input.len() != self.input_size {
             return Err(MemoryError::reservoir(format!(
@@ -262,7 +258,10 @@ impl Reservoir {
             self.scratch[i] = self.state[i];
         }
 
+        #[cfg(not(target_arch = "wasm32"))]
         let latency_us = started.elapsed().as_micros() as u64;
+        #[cfg(target_arch = "wasm32")]
+        let latency_us = 0;
         self.metrics.observe_step(latency_us, self.size as u64);
         Ok(&self.state)
     }

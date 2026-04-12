@@ -1,3 +1,5 @@
+#[cfg(target_arch = "wasm32")]
+use js_sys::Date;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -153,9 +155,20 @@ impl BinaryExportPayload {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn unix_now_secs() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn unix_now_secs() -> u64 {
+    let millis = Date::now();
+    if !millis.is_finite() || millis < 0.0 {
+        return 0;
+    }
+    let secs = (millis / 1000.0).floor();
+    format!("{secs:.0}").parse::<u64>().unwrap_or(0)
 }
