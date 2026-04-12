@@ -1,13 +1,4 @@
 //! Echo State Network for temporal dynamics.
-//!
-//! # Invariants
-//! - `input_size > 0`: Input vector dimensionality
-//! - `reservoir_size > 0`: Internal node count
-//! - `spectral_radius ∈ [0.0, 1.0]`: Stability constraint
-//!
-//! # Performance
-//! - `step()`: O(reservoir_size × input_size)
-//! - `to_hypervector()`: O(reservoir_size)
 
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -36,7 +27,6 @@ pub struct ReservoirMetricsSnapshot {
     pub avg_reservoir_step_latency_us: f64,
     pub reservoir_nodes_active: u64,
 }
-
 impl ReservoirMetrics {
     fn observe_step(&self, latency_us: u64, nodes_active: u64) {
         self.steps_total.fetch_add(1, Ordering::Relaxed);
@@ -118,15 +108,26 @@ impl SparseWeights {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn dot_row(&self, row: usize, values: &[f32]) -> f32 {
         let start = self.row_offsets[row];
         let end = self.row_offsets[row + 1];
         let mut sum = 0.0;
-        let indices = &self.indices;
-        let weights = &self.weights;
-        for idx in start..end {
-            sum = weights[idx].mul_add(values[indices[idx]], sum);
+        let indices = &self.indices[start..end];
+        let weights = &self.weights[start..end];
+        let mut i = 0;
+
+        while i + 3 < indices.len() {
+            sum = weights[i].mul_add(values[indices[i]], sum);
+            sum = weights[i + 1].mul_add(values[indices[i + 1]], sum);
+            sum = weights[i + 2].mul_add(values[indices[i + 2]], sum);
+            sum = weights[i + 3].mul_add(values[indices[i + 3]], sum);
+            i += 4;
+        }
+
+        while i < indices.len() {
+            sum = weights[i].mul_add(values[indices[i]], sum);
+            i += 1;
         }
         sum
     }
@@ -246,15 +247,21 @@ impl Reservoir {
 
         let state = &self.state;
         let one_minus_alpha = 1.0 - self.alpha;
-        self.scratch.copy_from_slice(state);
-        for i in (self.update_phase..self.size).step_by(self.update_stride) {
+        let update_phase = self.update_phase;
+        for i in (update_phase..self.size).step_by(self.update_stride) {
             let res_sum = self.w_res.dot_row(i, state);
             let activated = fast_tanh(self.input_projection[i] + res_sum);
             self.scratch[i] = state[i] * one_minus_alpha + activated * self.alpha;
         }
-        self.update_phase = (self.update_phase + 1) % self.update_stride;
+        self.update_phase = (update_phase + 1) % self.update_stride;
 
         std::mem::swap(&mut self.state, &mut self.scratch);
+
+        // Keep scratch in sync with state for the next partial-update step.
+        for i in (update_phase..self.size).step_by(self.update_stride) {
+            self.scratch[i] = self.state[i];
+        }
+
         let latency_us = started.elapsed().as_micros() as u64;
         self.metrics.observe_step(latency_us, self.size as u64);
         Ok(&self.state)
@@ -333,9 +340,6 @@ impl Reservoir {
                 word
             })
             .collect();
-        // SAFETY: We iterate exactly 80 times (0..80), so data always has 80 elements.
-        // The map produces exactly 80 items; try_into can only fail if the length differs,
-        // which is structurally impossible here — map to MemoryError instead of panicking.
         let data: [u128; 80] = data.try_into().map_err(|_| {
             MemoryError::reservoir(
                 "internal: par_iter produced unexpected element count".to_string(),

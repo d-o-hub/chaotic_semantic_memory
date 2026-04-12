@@ -317,7 +317,6 @@ impl Singularity {
                 source = CandidateSource::Graph;
             }
         }
-
         if candidates.is_empty() && self.retrieval_config.enable_bucket_candidates {
             candidates = self.generate_bucket_candidates(query);
             if !candidates.is_empty() {
@@ -346,6 +345,12 @@ impl Singularity {
     /// Create or update association between concepts
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self), fields(from_id = %from, to_id = %to, strength = strength)))]
     pub fn associate(&mut self, from: &str, to: &str, strength: f32) -> Result<()> {
+        if !strength.is_finite() || !(0.0..=1.0).contains(&strength) {
+            return Err(MemoryError::InvalidInput {
+                field: "strength".to_string(),
+                reason: "must be finite and between 0.0 and 1.0".to_string(),
+            });
+        }
         if !self.concepts.contains_key(from) || !self.concepts.contains_key(to) {
             let missing = if !self.concepts.contains_key(from) {
                 from

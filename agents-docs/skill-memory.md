@@ -1,8 +1,31 @@
-# Skill Memory (Dogfooding CSM)
+# Skill Memory
 
-Skills use the `csm` CLI to persist learning and build knowledge graphs.
+This repository uses two memory-oriented skills instead of one broad skill.
 
-## Configuration
+## Skill Split
+
+- `skill-memory-internal`: daily dogfooding memory for agent development workflows.
+- `memory-lifecycle-verification`: portable verification for save/load/archive/delete across files and DB entries.
+
+## When to Use Which
+
+### `skill-memory-internal`
+
+Use during implementation, debugging, planning, and test loops to store and recall operational context.
+
+Path:
+
+- `.agents/skills/skill-memory-internal/SKILL.md`
+
+### `memory-lifecycle-verification`
+
+Use before release or when onboarding memory behavior into another codebase. This skill is the portability and correctness contract.
+
+Path:
+
+- `.agents/skills/memory-lifecycle-verification/SKILL.md`
+
+## Shared Configuration
 
 ```yaml
 memory:
@@ -11,33 +34,40 @@ memory:
   namespace_prefix: "skill"
 ```
 
-## Quick Usage
+## Internal Memory Quick Usage
 
 ```bash
-source scripts/skill-memory/skill-memory.sh
+export CSM_MEMORY_DB=".agents/csm-memory/skill-memory.db"
 
-# Remember operation
-CONCEPT_ID=$(skill_remember "adr-creation" "decision" "ADR-0043" "approved")
+# Save
+csm --database "$CSM_MEMORY_DB" inject \
+  "skill::impl::decision::$(date +%s)" \
+  --metadata '{"operation":"decision","result":"accepted"}'
 
-# Recall similar
-skill_recall "CSM integration" 0.7 5
+# Load
+csm --database "$CSM_MEMORY_DB" probe "decision accepted" -k 5 --output-format json
 
-# Create association
-skill_associate "error::xyz" "solution::abc" 0.95
+# Associate
+csm --database "$CSM_MEMORY_DB" associate \
+  "skill::impl::decision::123" "skill::test::validation::123" -s 0.9
 ```
 
-## Available Functions
+## Lifecycle Verification Minimum Contract
 
-- `skill_remember skill op context result` - Store operation
-- `skill_recall query [threshold] [top_k]` - Find similar
-- `skill_associate c1 c2 [strength]` - Link concepts
-- `skill_related concept_id [min_strength]` - Get related
-- `skill_suggest query [threshold]` - Show suggestions
+Every verification run must prove all four operations:
 
-## Dogfooding Principle
+- `save`: data persisted and discoverable
+- `load`: export/import roundtrip preserves IDs and metadata
+- `archive`: archived state is recorded and auditable
+- `delete`: deleted/tombstoned entries are no longer active and leave no orphans
 
-By using the `csm` CLI for skill memory, we validate:
-- CLI reliability in real workflows
-- libsql persistence durability
-- Edge cases through actual usage
-- Framework utility through self-use
+Reference artifacts:
+
+- `.agents/skills/memory-lifecycle-verification/references/VALIDATION_CHECKLIST.md`
+- `.agents/skills/memory-lifecycle-verification/references/sql_checks.sql`
+
+## Why This Split
+
+- Keeps day-to-day memory use simple for internal agent work.
+- Makes lifecycle verification reusable in other repositories.
+- Ensures file + database behavior is testable with explicit evidence.
