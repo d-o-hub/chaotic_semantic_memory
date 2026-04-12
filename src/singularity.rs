@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::sync::atomic::Ordering;
 use std::sync::{Arc, RwLock};
 
 #[cfg(not(target_arch = "wasm32"))]
