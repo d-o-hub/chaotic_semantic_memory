@@ -63,6 +63,7 @@ mod framework_ttl;
 mod framework_validation;
 pub mod graph_traversal;
 pub mod hyperdim;
+mod hyperdim_batch;
 pub mod metadata_filter;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 pub mod persistence;

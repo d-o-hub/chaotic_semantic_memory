@@ -173,3 +173,48 @@ jobs:
         name: benchmark-results-${{ github.run_id }}
         path: target/criterion/
         retention-days: 30
+
+  npm-cli-smoke:
+    runs-on: ubuntu-24.04
+    needs: test
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+
+    - name: Cache cargo
+      uses: actions/cache@v5
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-cli-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Build CLI binary
+      run: cargo build --release --bin csm
+
+    - name: Stage Linux binary for npm pack
+      run: |
+        mkdir -p cli-npm/bin
+        cp target/release/csm cli-npm/bin/csm-linux-x64
+        chmod +x cli-npm/bin/csm-linux-x64
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Pack CLI and run smoke test
+      shell: bash
+      run: |
+        set -euo pipefail
+        cd cli-npm
+        TARBALL=$(npm pack --silent)
+        TMP_DIR=$(mktemp -d)
+        npm install --prefix "$TMP_DIR" "./$TARBALL" >/dev/null
+        "$TMP_DIR/node_modules/.bin/csm" --help >/dev/null
+        echo "✅ CLI npm package smoke test passed"

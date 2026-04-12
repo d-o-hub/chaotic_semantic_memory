@@ -34,6 +34,7 @@
   "files": [
     "index.js",
     "postinstall.js",
+    "bin",
     "LICENSE",
     "README.md"
   ],

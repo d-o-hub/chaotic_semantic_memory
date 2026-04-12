@@ -23,7 +23,8 @@
 //! assert_eq!(results[0].0, "doc1"); // Exact match ranks first
 //! ```
 
-use std::collections::HashMap;
+use std::cmp::Ordering;
+use std::collections::{HashMap, HashSet};
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
@@ -160,7 +161,7 @@ impl Bm25Index {
     ///
     /// Returns up to `top_k` results sorted by BM25 score (descending).
     pub fn search<T: AsRef<str>>(&self, query_tokens: &[T], top_k: usize) -> Vec<(String, f32)> {
-        if self.documents.is_empty() || query_tokens.is_empty() {
+        if self.documents.is_empty() || query_tokens.is_empty() || top_k == 0 {
             return Vec::new();
         }
 
@@ -172,16 +173,16 @@ impl Bm25Index {
         let mut idf_values = Vec::new();
 
         // Use a set to handle duplicate tokens in query efficiently
-        let mut seen_terms = HashMap::new();
+        let mut seen_terms = HashSet::with_capacity(query_tokens.len());
         for token in query_tokens {
-            seen_terms.entry(token.as_ref()).or_insert(());
-        }
-
-        for term in seen_terms.keys() {
-            let df = self.doc_freqs.get(*term).copied().unwrap_or(0) as f32;
+            let term = token.as_ref();
+            if !seen_terms.insert(term) {
+                continue;
+            }
+            let df = self.doc_freqs.get(term).copied().unwrap_or(0) as f32;
             let idf = ((n - df + 0.5) / (df + 0.5) + 1.0).ln();
             if idf > 0.0 {
-                query_terms.push(*term);
+                query_terms.push(term);
                 idf_values.push(idf);
             }
         }
@@ -222,9 +223,13 @@ impl Bm25Index {
             .filter(|(_, score)| *score > 0.0)
             .collect();
 
-        // Sort by score descending using unstable sort for performance
-        scores.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        scores.truncate(top_k);
+        // Partial select keeps complexity near O(n) for large corpora
+        if scores.len() > top_k {
+            let nth = top_k - 1;
+            scores.select_nth_unstable_by(nth, score_cmp_desc);
+            scores.truncate(top_k);
+        }
+        scores.sort_unstable_by(score_cmp_desc);
 
         // Map to final results, cloning IDs only for top_k
         scores
@@ -292,6 +297,10 @@ impl Bm25Index {
             self.total_length as f32 / self.documents.len() as f32
         }
     }
+}
+
+fn score_cmp_desc(a: &(usize, f32), b: &(usize, f32)) -> Ordering {
+    b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal)
 }
 
 #[cfg(test)]
@@ -376,6 +385,15 @@ mod tests {
 
         let results = index.search(&["hello"], 2);
         assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn test_top_k_zero_returns_empty() {
+        let mut index = Bm25Index::new();
+        index.add_document("doc1", &["hello", "world"]);
+
+        let results = index.search(&["hello"], 0);
+        assert!(results.is_empty());
     }
 
     #[test]

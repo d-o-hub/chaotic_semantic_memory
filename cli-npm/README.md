@@ -67,6 +67,10 @@ The CLI binary is downloaded automatically during install for:
 - macOS arm64 (Apple Silicon)
 - Windows x64
 
+Binaries are bundled directly inside the npm package for the platforms above. The postinstall script
+falls back to downloading from the corresponding GitHub Release asset if a platform-specific binary
+is missing, so manual installs can recover gracefully.
+
 ## License
 
 MIT

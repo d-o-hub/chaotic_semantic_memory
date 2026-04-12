@@ -445,7 +445,7 @@ jobs:
 
   publish-npm-cli:
     runs-on: ubuntu-24.04
-    needs: [validate, create-github-release]
+    needs: [validate, build-cli-matrix, create-github-release]
     if: needs.validate.outputs.release-needed == 'true'
     environment: npm-cli
     steps:
@@ -456,6 +456,26 @@ jobs:
       with:
         node-version: '24'
         registry-url: 'https://registry.npmjs.org'
+
+    - name: Download CLI binary artifacts
+      uses: actions/download-artifact@v8
+      with:
+        pattern: csm-*
+        path: cli-artifacts
+        merge-multiple: true
+
+    - name: Stage binaries inside npm package
+      shell: bash
+      run: |
+        rm -f cli-npm/bin/* || true
+        mkdir -p cli-npm/bin
+        shopt -s nullglob
+        for archive in cli-artifacts/*.tar.gz; do
+          echo "Extracting $archive"
+          tar -xzf "$archive" -C cli-npm/bin
+        done
+        echo "Packaged binaries:"
+        ls -R cli-npm/bin
 
     - name: Check if CLI version already published to npm
       id: npm-check
@@ -473,9 +493,8 @@ jobs:
       if: steps.npm-check.outputs.already-published != 'true'
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
-        mkdir -p cli-npm/bin
-        # The postinstall script will download binaries from GitHub Releases
-        # We just need the npm package files
+        # CLI binaries are already staged under cli-npm/bin via downloaded artifacts.
+        # Postinstall still falls back to GitHub Releases when a platform binary is absent.
         # Update version in package.json
         jq ".version = \"$VERSION\"" cli-npm/package.json > cli-npm/package.json.tmp
         mv cli-npm/package.json.tmp cli-npm/package.json

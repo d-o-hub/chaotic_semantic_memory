@@ -57,6 +57,10 @@ export.json
 # Stray test output
 /1
 
+# CLI npm package artifacts
+/cli-npm/bin/*
+!/cli-npm/bin/.gitkeep
+
 # Temporary examples (not part of crate)
 examples/tmp/
 

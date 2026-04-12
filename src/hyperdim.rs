@@ -12,6 +12,8 @@ use rayon::prelude::*;
 
 use crate::error::Result;
 
+pub use crate::hyperdim_batch::batch_cosine_similarity;
+
 #[cfg(all(
     not(target_arch = "wasm32"),
     any(target_arch = "x86_64", target_arch = "x86")
@@ -377,37 +379,6 @@ impl<'de> Deserialize<'de> for HVec10240 {
     {
         // Use deserialize_any to handle both string (base64) and bytes formats
         deserializer.deserialize_any(HVecVisitor)
-    }
-}
-
-/// Batch similarity computation with optimized chunked parallelism.
-/// Uses Rayon par_chunks() with tuned chunk size for cache efficiency.
-/// Benchmark target: <500μs for 1000 candidates.
-pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> Vec<f32> {
-    #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-    {
-        use rayon::prelude::*;
-        // Tuned chunk size: 512 candidates amortizes Rayon overhead
-        // Higher chunk size reduces synchronization cost for 1000+ candidates
-        const CHUNK_SIZE: usize = 512;
-        let mut results = vec![0.0f32; candidates.len()];
-        candidates
-            .par_chunks(CHUNK_SIZE)
-            .zip(results.par_chunks_mut(CHUNK_SIZE))
-            .for_each(|(cands, out)| {
-                // Sequential processing within chunk for cache efficiency
-                for (i, c) in cands.iter().enumerate() {
-                    out[i] = query.cosine_similarity(c);
-                }
-            });
-        results
-    }
-    #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-    {
-        candidates
-            .iter()
-            .map(|c| query.cosine_similarity(c))
-            .collect()
     }
 }
 
