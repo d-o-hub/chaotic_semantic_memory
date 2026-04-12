@@ -109,7 +109,11 @@ impl Bm25Index {
 
         // Update document frequencies
         for term in term_freqs.keys() {
-            *self.doc_freqs.entry(term.clone()).or_insert(0) += 1;
+            if let Some(df) = self.doc_freqs.get_mut(term) {
+                *df += 1;
+            } else {
+                self.doc_freqs.insert(term.clone(), 1);
+            }
         }
 
         // Add document
@@ -160,7 +164,7 @@ impl Bm25Index {
     ///
     /// Returns up to `top_k` results sorted by BM25 score (descending).
     pub fn search<T: AsRef<str>>(&self, query_tokens: &[T], top_k: usize) -> Vec<(String, f32)> {
-        if self.documents.is_empty() || query_tokens.is_empty() {
+        if self.documents.is_empty() || query_tokens.is_empty() || top_k == 0 {
             return Vec::new();
         }
 
@@ -202,6 +206,7 @@ impl Bm25Index {
         let mut scores: Vec<(usize, f32)> = self
             .documents
             .par_iter()
+            .with_min_len(1024)
             .enumerate()
             .map(|(idx, doc)| {
                 let score = self.score_document(doc, &query_terms, &idf_values, k1_plus_1, c1, c2);
@@ -222,9 +227,14 @@ impl Bm25Index {
             .filter(|(_, score)| *score > 0.0)
             .collect();
 
-        // Sort by score descending using unstable sort for performance
+        // Sort by score descending using O(N) selection followed by sort of top-k
+        if scores.len() > top_k {
+            scores.select_nth_unstable_by(top_k - 1, |a, b| {
+                b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+            });
+            scores.truncate(top_k);
+        }
         scores.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        scores.truncate(top_k);
 
         // Map to final results, cloning IDs only for top_k
         scores
