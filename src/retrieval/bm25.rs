@@ -102,15 +102,26 @@ impl Bm25Index {
             self.remove_document_at(idx);
         }
 
-        // Build term frequencies
-        let mut term_freqs: HashMap<String, u32> = HashMap::new();
+        // Build term frequencies using &str to avoid redundant allocations for duplicates
+        let mut term_counts: HashMap<&str, u32> = HashMap::with_capacity(tokens.len().min(1000));
         for token in tokens {
-            *term_freqs.entry(token.as_ref().to_string()).or_insert(0) += 1;
+            let t = token.as_ref();
+            if let Some(count) = term_counts.get_mut(t) {
+                *count += 1;
+            } else {
+                term_counts.insert(t, 1);
+            }
         }
 
-        // Update document frequencies
-        for term in term_freqs.keys() {
-            *self.doc_freqs.entry(term.clone()).or_insert(0) += 1;
+        let mut term_freqs = HashMap::with_capacity(term_counts.len());
+        for (term, count) in term_counts {
+            // Update global document frequencies - only clone String once per unique term
+            if let Some(df) = self.doc_freqs.get_mut(term) {
+                *df += 1;
+            } else {
+                self.doc_freqs.insert(term.to_string(), 1);
+            }
+            term_freqs.insert(term.to_string(), count);
         }
 
         // Add document
@@ -134,7 +145,8 @@ impl Bm25Index {
     }
 
     fn remove_document_at(&mut self, idx: usize) {
-        let doc = &self.documents[idx];
+        // O(1) removal using swap_remove - provides ownership of the document
+        let doc = self.documents.swap_remove(idx);
 
         // Update document frequencies
         for term in doc.term_freqs.keys() {
@@ -144,11 +156,7 @@ impl Bm25Index {
         }
 
         self.total_length = self.total_length.saturating_sub(doc.length);
-        let id = doc.id.clone();
-        self.doc_index.remove(&id);
-
-        // O(1) removal using swap_remove
-        self.documents.swap_remove(idx);
+        self.doc_index.remove(&doc.id);
 
         // If we swapped an element into idx, update its mapping
         if idx < self.documents.len() {
