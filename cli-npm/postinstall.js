@@ -9,7 +9,6 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
-import { createGunzip } from 'zlib';
 import { spawn } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -85,7 +84,6 @@ try {
 
   await pipeline(
     nodeStream,
-    createGunzip(),
     tar.stdin
   );
 

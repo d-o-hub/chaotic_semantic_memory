@@ -64,8 +64,8 @@ validate_changelog() {
   
   # Check for duplicate version headers (would break release workflow)
   local existing_count
-  existing_count=$(grep -c "^## \\[${ver}\\]" "$changelog" 2>/dev/null || echo "0")
-  if [ "$existing_count" -gt 0 ]; then
+  existing_count=$(grep -c "^## \[${ver}\]" "$changelog" || true)
+  if [ "${existing_count:-0}" -gt 0 ]; then
     echo "Error: Version ${ver} already has ${existing_count} header(s) in $changelog"
     echo "  This would create duplicates. Remove existing headers for ${ver} first."
     exit 1
