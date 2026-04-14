@@ -57,7 +57,7 @@ jobs:
       run: cargo test --manifest-path benchmarks/Cargo.toml --quiet
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version: '24'
 
@@ -204,7 +204,7 @@ jobs:
         chmod +x cli-npm/bin/csm-linux-x64
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version: '24'
 
