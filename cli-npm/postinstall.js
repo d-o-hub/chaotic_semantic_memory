@@ -5,7 +5,7 @@
  */
 
 import { createWriteStream, mkdirSync, existsSync, chmodSync, readFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, resolve, normalize } from 'path';
 import { fileURLToPath } from 'url';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
@@ -29,24 +29,39 @@ const tarballMap = {
 const key = `${platform}-${arch}`;
 const tarballName = tarballMap[key];
 
-if (!tarballName) {
+// Hard whitelist of allowed tarball names for security
+const allowedTarballs = Object.values(tarballMap);
+
+if (!tarballName || !allowedTarballs.includes(tarballName)) {
   console.log(`Skipping binary download: unsupported platform ${platform}-${arch}`);
   console.log('Supported platforms: linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64');
   process.exit(0);
 }
 
 // Read package version
-const pkgPath = join(__dirname, 'package.json');
+const pkgPath = resolve(__dirname, 'package.json');
 const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
 const version = pkg.version;
 
-// GitHub Release URL
+// Ensure version matches semver to prevent URL injection
+if (!/^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/.test(version)) {
+  console.error(`Invalid package version: ${version}`);
+  process.exit(1);
+}
+
+// GitHub Release URL construction
 const repo = 'd-o-hub/chaotic_semantic_memory';
 const downloadUrl = `https://github.com/${repo}/releases/download/v${version}/${tarballName}`;
 
-const binDir = join(__dirname, 'bin');
+const binDir = resolve(__dirname, 'bin');
 const binaryName = tarballName.replace('.tar.gz', '');
-const binaryPath = join(binDir, platform === 'win32' ? `${binaryName}.exe` : binaryName);
+const binaryPath = normalize(join(binDir, platform === 'win32' ? `${binaryName}.exe` : binaryName));
+
+// Safety check: ensure binaryPath is actually inside the package's bin directory
+if (!binaryPath.startsWith(binDir)) {
+  console.error('Invalid binary path detected.');
+  process.exit(1);
+}
 
 // Ensure bin directory exists
 if (!existsSync(binDir)) {
@@ -79,8 +94,9 @@ try {
   // Convert web ReadableStream to Node.js Readable stream
   const nodeStream = Readable.fromWeb(response.body);
 
-  // Use tar command to extract (more reliable than tar npm package)
-  const tar = spawn('tar', ['-xz', '-f', '-', '-C', binDir]);
+  // Use tar command to extract. We use -xz directly.
+  // Security: shell: false prevents shell injection, and we use a whitelisted binDir.
+  const tar = spawn('tar', ['-xz', '-f', '-', '-C', binDir], { shell: false });
 
   await pipeline(
     nodeStream,
