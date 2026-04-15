@@ -102,15 +102,21 @@ impl Bm25Index {
             self.remove_document_at(idx);
         }
 
-        // Build term frequencies
-        let mut term_freqs: HashMap<String, u32> = HashMap::new();
+        // Build term frequencies using temporary refs to minimize String allocations
+        let mut local_counts: HashMap<&str, u32> = HashMap::with_capacity(tokens.len());
         for token in tokens {
-            *term_freqs.entry(token.as_ref().to_string()).or_insert(0) += 1;
+            *local_counts.entry(token.as_ref()).or_insert(0) += 1;
         }
 
-        // Update document frequencies
-        for term in term_freqs.keys() {
-            *self.doc_freqs.entry(term.clone()).or_insert(0) += 1;
+        let mut term_freqs = HashMap::with_capacity(local_counts.len());
+        for (term, count) in local_counts {
+            // Update document frequencies - only clone term if it's the first time in doc_freqs
+            if let Some(df) = self.doc_freqs.get_mut(term) {
+                *df += 1;
+            } else {
+                self.doc_freqs.insert(term.to_string(), 1);
+            }
+            term_freqs.insert(term.to_string(), count);
         }
 
         // Add document
@@ -134,7 +140,9 @@ impl Bm25Index {
     }
 
     fn remove_document_at(&mut self, idx: usize) {
-        let doc = &self.documents[idx];
+        // Swap remove at start provides ownership of Document and its ID,
+        // avoiding an expensive String::clone for doc_index removal.
+        let doc = self.documents.swap_remove(idx);
 
         // Update document frequencies
         for term in doc.term_freqs.keys() {
@@ -144,11 +152,7 @@ impl Bm25Index {
         }
 
         self.total_length = self.total_length.saturating_sub(doc.length);
-        let id = doc.id.clone();
-        self.doc_index.remove(&id);
-
-        // O(1) removal using swap_remove
-        self.documents.swap_remove(idx);
+        self.doc_index.remove(&doc.id);
 
         // If we swapped an element into idx, update its mapping
         if idx < self.documents.len() {
@@ -249,6 +253,8 @@ impl Bm25Index {
     ) -> f32 {
         let mut score = 0.0;
         let doc_len = doc.length as f32;
+        // Hoist document-level constant for scoring
+        let doc_const = c1 + c2 * doc_len;
 
         for (i, term) in query_terms.iter().enumerate() {
             // Skip terms not in document
@@ -261,9 +267,9 @@ impl Bm25Index {
 
             // BM25 term score using pre-calculated constants:
             // score = idf * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * doc_len / avgdl))
-            // denominator = tf + k1 * (1 - b) + (k1 * b / avgdl) * doc_len
+            // denominator = tf + doc_const
             let numerator = tf * k1_plus_1;
-            let denominator = tf + c1 + c2 * doc_len;
+            let denominator = tf + doc_const;
 
             score += idf * numerator / denominator;
         }
