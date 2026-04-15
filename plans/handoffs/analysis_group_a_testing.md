@@ -171,7 +171,7 @@ async fn persistence_corrupted_vector_bytes() {
     // Manually insert corrupted vector data
     let conn = persistence.connect().await.unwrap();
     conn.execute(
-        "INSERT INTO concepts (id, vector, metadata, created_at, modified_at) 
+        "INSERT INTO csm_concepts (id, vector, metadata, created_at, modified_at)
          VALUES (?1, ?2, ?3, ?4, ?5)",
         libsql::params![
             "corrupted",
@@ -288,10 +288,10 @@ async fn db_schema_tables_exist() {
         tables.push(row.get::<String>(0).unwrap());
     }
     
-    assert!(tables.contains(&"concepts".to_string()));
-    assert!(tables.contains(&"associations".to_string()));
-    assert!(tables.contains(&"concept_versions".to_string()));
-    assert!(tables.contains(&"__schema_version".to_string()));
+    assert!(tables.contains(&"csm_concepts".to_string()));
+    assert!(tables.contains(&"csm_associations".to_string()));
+    assert!(tables.contains(&"csm_versions".to_string()));
+    assert!(tables.contains(&"csm_schema_version".to_string()));
 }
 
 #[tokio::test]
@@ -313,7 +313,7 @@ async fn db_foreign_key_constraints_active() {
     // Direct SQL: Try to delete concept without cascade (should fail due to FK)
     let conn = get_raw_connection(path).await;
     let result = conn
-        .execute("DELETE FROM concepts WHERE id = 'test'", ())
+        .execute("DELETE FROM csm_concepts WHERE id = 'test'", ())
         .await;
     
     // Should fail due to foreign key constraint
@@ -321,7 +321,7 @@ async fn db_foreign_key_constraints_active() {
 }
 
 #[tokio::test]
-async fn db_concept_versions_cascade_delete() {
+async fn db_csm_versions_cascade_delete() {
     let temp = NamedTempFile::new().unwrap();
     let path = temp.path().to_str().unwrap();
     let persistence = Persistence::new_local(path).await.unwrap();
@@ -340,7 +340,7 @@ async fn db_concept_versions_cascade_delete() {
     // Verify versions exist
     let conn = get_raw_connection(path).await;
     let mut rows = conn
-        .query("SELECT COUNT(*) FROM concept_versions WHERE concept_id = 'versioned'", ())
+        .query("SELECT COUNT(*) FROM csm_versions WHERE concept_id = 'versioned'", ())
         .await
         .unwrap();
     
@@ -352,7 +352,7 @@ async fn db_concept_versions_cascade_delete() {
     
     // Verify versions were cascade deleted
     let mut rows = conn
-        .query("SELECT COUNT(*) FROM concept_versions WHERE concept_id = 'versioned'", ())
+        .query("SELECT COUNT(*) FROM csm_versions WHERE concept_id = 'versioned'", ())
         .await
         .unwrap();
     
@@ -375,7 +375,7 @@ async fn db_vector_blob_exact_size() {
     // Direct SQL: Verify vector blob is exactly 1280 bytes
     let conn = get_raw_connection(path).await;
     let mut rows = conn
-        .query("SELECT LENGTH(vector) as vec_len FROM concepts WHERE id = 'sized'", ())
+        .query("SELECT LENGTH(vector) as vec_len FROM csm_concepts WHERE id = 'sized'", ())
         .await
         .unwrap();
     
@@ -414,12 +414,12 @@ async fn db_index_usage_verification() {
         indexes.push(row.get::<String>(0).unwrap());
     }
     
-    assert!(indexes.iter().any(|i| i.contains("associations")));
-    assert!(indexes.iter().any(|i| i.contains("concept_versions")));
+    assert!(indexes.iter().any(|i| i.contains("csm_associations")));
+    assert!(indexes.iter().any(|i| i.contains("csm_versions")));
     
     // EXPLAIN QUERY PLAN to verify index usage
     let mut rows = conn
-        .query("EXPLAIN QUERY PLAN SELECT * FROM associations WHERE from_id = 'c1'", ())
+        .query("EXPLAIN QUERY PLAN SELECT * FROM csm_associations WHERE from_id = 'c1'", ())
         .await
         .unwrap();
     
@@ -510,7 +510,7 @@ async fn db_schema_version_integrity() {
     // Verify through direct SQL
     let conn = get_raw_connection(path).await;
     let mut rows = conn
-        .query("SELECT MAX(version) FROM __schema_version", ())
+        .query("SELECT MAX(version) FROM csm_schema_version", ())
         .await
         .unwrap();
     
@@ -552,7 +552,7 @@ async fn db_concept_timestamps_monotonic() {
     let db = libsql::Builder::new_local(path).build().await.unwrap();
     let conn = db.connect().unwrap();
     let mut rows = conn
-        .query("SELECT created_at, modified_at FROM concepts WHERE id = 'timed'", ())
+        .query("SELECT created_at, modified_at FROM csm_concepts WHERE id = 'timed'", ())
         .await
         .unwrap();
     
@@ -573,7 +573,7 @@ async fn db_concept_timestamps_monotonic() {
     persistence.save_concept(&updated).await.unwrap();
     
     let mut rows = conn
-        .query("SELECT created_at, modified_at FROM concepts WHERE id = 'timed'", ())
+        .query("SELECT created_at, modified_at FROM csm_concepts WHERE id = 'timed'", ())
         .await
         .unwrap();
     
@@ -615,7 +615,7 @@ async fn db_association_strength_precision() {
         let conn = db.connect().unwrap();
         let mut rows = conn
             .query(
-                "SELECT strength FROM associations WHERE from_id = 'assoc_test' AND to_id = ?1",
+                "SELECT strength FROM csm_associations WHERE from_id = 'assoc_test' AND to_id = ?1",
                 [target]
             )
             .await
@@ -653,7 +653,7 @@ async fn db_version_retention_policy() {
     let conn = db.connect().unwrap();
     let mut rows = conn
         .query(
-            "SELECT COUNT(*) FROM concept_versions WHERE concept_id = 'versioned_retention'",
+            "SELECT COUNT(*) FROM csm_versions WHERE concept_id = 'versioned_retention'",
             ()
         )
         .await
