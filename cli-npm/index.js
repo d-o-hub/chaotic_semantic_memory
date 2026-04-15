@@ -4,9 +4,8 @@
  * Detects platform and executes the appropriate binary
  */
 
-import { createRequire } from 'module';
 import { spawn } from 'child_process';
-import { join, dirname } from 'path';
+import { join, dirname, resolve, normalize } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -27,19 +26,31 @@ const binaryMap = {
 const key = `${platform}-${arch}`;
 const binaryName = binaryMap[key];
 
-if (!binaryName) {
+// Hard whitelist of allowed binary names for security
+const allowedBinaries = Object.values(binaryMap);
+
+if (!binaryName || !allowedBinaries.includes(binaryName)) {
   console.error(`Unsupported platform: ${platform}-${arch}`);
   console.error('Supported platforms: linux-x64, linux-arm64, darwin-x64, darwin-arm64, win32-x64');
   process.exit(1);
 }
 
-const binaryPath = join(__dirname, 'bin', binaryName);
+// Securely resolve the binary path
+const binDir = resolve(__dirname, 'bin');
+const binaryPath = normalize(join(binDir, binaryName));
+
+// Safety check: ensure binaryPath is actually inside the package's bin directory
+if (!binaryPath.startsWith(binDir)) {
+  console.error('Invalid binary path detected.');
+  process.exit(1);
+}
 
 // Spawn the binary with all arguments
 const args = process.argv.slice(2);
 const child = spawn(binaryPath, args, {
   stdio: 'inherit',
   env: process.env,
+  shell: false, // Security: explicitly disable shell
 });
 
 child.on('error', (err) => {

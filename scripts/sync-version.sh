@@ -19,7 +19,7 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 
-# Validate version format (semver)
+# Validate version format (semver) to prevent command injection
 if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Error: Version must be in semver format (e.g., 0.2.0)"
   exit 1
@@ -43,7 +43,7 @@ validate_changelog() {
   
   # Check for duplicate version headers
   local existing_count
-  # grep -c returns 0 if no match, so we don't need || echo "0"
+  # Use double backslash and quotes to ensure grep sees a literal bracket safely
   existing_count=$(grep -c "^## \\\[${ver}\\\]" "$changelog" || true)
   if [ "${existing_count:-0}" -gt 0 ]; then
     echo "Error: Version ${ver} already has ${existing_count} header(s) in $changelog"
@@ -52,7 +52,8 @@ validate_changelog() {
 }
 
 # Get current version from Cargo.toml first
-CURRENT_VERSION=$(grep -m1 'version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+# Use quotes for the filename to satisfy linting
+CURRENT_VERSION=$(grep -m1 'version = ' "Cargo.toml" | sed 's/version = "\(.*\)"/\1/')
 
 # If version unchanged, skip validation and exit early
 if [ "$VERSION" = "$CURRENT_VERSION" ]; then
@@ -99,6 +100,7 @@ cargo lock --version "$VERSION" 2>/dev/null || cargo update
 # Update each file
 for file in "${!VERSION_FILES[@]}"; do
     if [ -f "$file" ]; then
+        # Ensure sed command is constructed safely
         sed -i "${VERSION_FILES[$file]}" "$file"
         echo "  ✓ Updated $file"
     fi
