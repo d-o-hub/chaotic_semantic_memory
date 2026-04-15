@@ -186,10 +186,10 @@ async fn record_concept_version(&self, conn: &Connection, concept: &Concept) -> 
     // ... creates new version record
     
     conn.execute(
-        "DELETE FROM csm_versions
+        "DELETE FROM concept_versions
          WHERE concept_id = ?1
          AND version <= (
-            SELECT MAX(version) - ?2 FROM csm_versions WHERE concept_id = ?1
+            SELECT MAX(version) - ?2 FROM concept_versions WHERE concept_id = ?1
          )",
         params![concept.id.clone(), self.version_retention as i64],
     )
@@ -210,14 +210,14 @@ async fn record_concept_version(&self, conn: &Connection, concept: &Concept) -> 
     
     // First check total version count
     let count: i64 = conn.query(
-        "SELECT COUNT(*) FROM csm_versions WHERE concept_id = ?1",
+        "SELECT COUNT(*) FROM concept_versions WHERE concept_id = ?1",
         params![concept.id.clone()]
     ).await?.next().await?.get(0)?;
     
     if count >= retention as i64 * 2 {
         // Emergency cleanup if somehow exceeded
         conn.execute(
-            "DELETE FROM csm_versions WHERE concept_id = ?1
+            "DELETE FROM concept_versions WHERE concept_id = ?1
              ORDER BY version ASC LIMIT ?2",
             params![concept.id.clone(), count - retention as i64]
         ).await?;

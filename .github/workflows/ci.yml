@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [ main ]
 
-permissions:
-  contents: read
-
 env:
   CARGO_TERM_COLOR: always
 
@@ -23,26 +20,46 @@ jobs:
       run: cargo test --all-features -- --quiet
 
   build-cli:
-    name: Build CLI (${{ matrix.platform }})
+    name: Build CLI (${{ matrix.platform }}-${{ matrix.arch }})
     strategy:
       matrix:
         include:
           - platform: linux
+            arch: x64
             runner: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+          - platform: linux
+            arch: arm64
+            runner: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
           - platform: macos
+            arch: arm64
             runner: macos-latest
             target: aarch64-apple-darwin
+          - platform: macos
+            arch: x64
+            runner: macos-13
+            target: x86_64-apple-darwin
           - platform: windows
+            arch: x64
             runner: windows-latest
             target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.runner }}
     steps:
     - uses: actions/checkout@v6
+
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
         target: ${{ matrix.target }}
+
+    - name: Install cross-compilation linker (Linux arm64)
+      if: matrix.target == 'aarch64-unknown-linux-gnu'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-aarch64-linux-gnu
+        echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+
     - name: Build CLI
       run: cargo build --release --bin csm --features cli --target ${{ matrix.target }} --locked
 
