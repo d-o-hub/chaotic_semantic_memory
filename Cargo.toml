@@ -35,7 +35,7 @@ tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 
 # Random number generation
-rand = "0.8.5"
+rand = "0.9.2"
 
 # CLI dependencies (gated behind "cli" feature)
 clap = { version = "4.5.60", features = ["derive", "env", "string"], optional = true }
