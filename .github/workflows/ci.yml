@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [ main ]
 
-permissions:
-  contents: read
-
 env:
   CARGO_TERM_COLOR: always
 
@@ -41,7 +38,7 @@ jobs:
             target: aarch64-apple-darwin
           - platform: macos
             arch: x64
-            runner: macos-13
+            runner: macos-latest
             target: x86_64-apple-darwin
           - platform: windows
             arch: x64
