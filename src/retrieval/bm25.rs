@@ -102,15 +102,24 @@ impl Bm25Index {
             self.remove_document_at(idx);
         }
 
-        // Build term frequencies
-        let mut term_freqs: HashMap<String, u32> = HashMap::new();
+        // Build local term frequencies without initial String allocations.
+        // Capacitating for the common case (short docs) reduces re-allocations.
+        let mut local_freqs: HashMap<&str, u32> = HashMap::with_capacity(tokens.len().min(128));
         for token in tokens {
-            *term_freqs.entry(token.as_ref().to_string()).or_insert(0) += 1;
+            *local_freqs.entry(token.as_ref()).or_insert(0) += 1;
         }
 
-        // Update document frequencies
-        for term in term_freqs.keys() {
-            *self.doc_freqs.entry(term.clone()).or_insert(0) += 1;
+        // Update global document frequencies and build the final term_freqs map.
+        // Clones only happen once per unique term, not once per token.
+        let mut term_freqs = HashMap::with_capacity(local_freqs.len());
+        for (term, freq) in local_freqs {
+            // Update doc_freqs: avoid clone if term already exists.
+            if let Some(df) = self.doc_freqs.get_mut(term) {
+                *df += 1;
+            } else {
+                self.doc_freqs.insert(term.to_string(), 1);
+            }
+            term_freqs.insert(term.to_string(), freq);
         }
 
         // Add document
@@ -134,7 +143,10 @@ impl Bm25Index {
     }
 
     fn remove_document_at(&mut self, idx: usize) {
-        let doc = &self.documents[idx];
+        // O(1) removal using swap_remove.
+        // Moving to start provides ownership of the Document, allowing us to use
+        // its ID for map removal without an expensive clone().
+        let doc = self.documents.swap_remove(idx);
 
         // Update document frequencies
         for term in doc.term_freqs.keys() {
@@ -144,11 +156,7 @@ impl Bm25Index {
         }
 
         self.total_length = self.total_length.saturating_sub(doc.length);
-        let id = doc.id.clone();
-        self.doc_index.remove(&id);
-
-        // O(1) removal using swap_remove
-        self.documents.swap_remove(idx);
+        self.doc_index.remove(&doc.id);
 
         // If we swapped an element into idx, update its mapping
         if idx < self.documents.len() {
@@ -198,11 +206,13 @@ impl Bm25Index {
         let c1 = k1 * (1.0 - b);
         let c2 = k1 * b / avgdl;
 
-        // Score each document - store index to avoid String clones (parallel when available)
+        // Score each document - store index to avoid String clones (parallel when available).
+        // Using with_min_len optimizes work distribution for the relatively light scoring task.
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         let mut scores: Vec<(usize, f32)> = self
             .documents
             .par_iter()
+            .with_min_len(1024)
             .enumerate()
             .map(|(idx, doc)| {
                 let score = self.score_document(doc, &query_terms, &idf_values, k1_plus_1, c1, c2);
@@ -249,6 +259,8 @@ impl Bm25Index {
     ) -> f32 {
         let mut score = 0.0;
         let doc_len = doc.length as f32;
+        // Hoist calculation of document-level constant outside the term loop.
+        let denominator_base = c1 + c2 * doc_len;
 
         for (i, term) in query_terms.iter().enumerate() {
             // Skip terms not in document
@@ -263,7 +275,7 @@ impl Bm25Index {
             // score = idf * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * doc_len / avgdl))
             // denominator = tf + k1 * (1 - b) + (k1 * b / avgdl) * doc_len
             let numerator = tf * k1_plus_1;
-            let denominator = tf + c1 + c2 * doc_len;
+            let denominator = tf + denominator_base;
 
             score += idf * numerator / denominator;
         }
