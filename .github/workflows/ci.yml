@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [ main ]
 
-permissions:
-  contents: read
-
 env:
   CARGO_TERM_COLOR: always
 
@@ -44,7 +41,7 @@ jobs:
       with:
         target: ${{ matrix.target }}
     - name: Build CLI
-      run: cargo build --release --bin csm --features cli
+      run: cargo build --release --bin csm --features cli --target ${{ matrix.target }} --locked
 
   wasm:
     runs-on: ubuntu-latest
