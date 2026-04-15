@@ -2125,7 +2125,7 @@ actions:
     description: |
       Add disassociate(from, to) to framework + singularity + persistence:
       - Singularity: remove from HashMap<String, HashMap<String, f32>>
-      - Persistence: DELETE FROM csm_associations WHERE from_id=? AND to_id=?
+      - Persistence: DELETE FROM associations WHERE from_id=? AND to_id=?
       - Framework: orchestrate both + validate IDs
 
   - name: add_framework_clear_associations
@@ -2140,7 +2140,7 @@ actions:
     description: |
       Add clear_associations(from) to framework + singularity + persistence:
       - Singularity: remove all entries for from_id
-      - Persistence: DELETE FROM csm_associations WHERE from_id=?
+      - Persistence: DELETE FROM associations WHERE from_id=?
       - Framework: orchestrate + cache invalidation
 
   - name: add_singularity_bundle_strict
