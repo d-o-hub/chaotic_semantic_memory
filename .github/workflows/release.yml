@@ -474,7 +474,7 @@ jobs:
         for archive in cli-artifacts/*.tar.gz; do
           echo "Extracting $archive"
           tar -xzf "$archive" -C cli-npm/bin
-          ((COUNT++))
+          COUNT=$((COUNT + 1))
         done
         echo "Packaged binaries ($COUNT):"
         ls -R cli-npm/bin
