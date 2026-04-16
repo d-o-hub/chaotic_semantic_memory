@@ -62,6 +62,24 @@ fn cosine_similarity_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> f32 {
     (2.0 * dot_product as f32 / HVec10240::DIMENSION as f32) - 1.0
 }
 
+/// Optimized Hamming distance calculation using unrolled loop.
+#[inline]
+fn hamming_distance_optimized(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
+    let mut distance: u32 = 0;
+    unsafe {
+        let lptr = lhs.as_ptr() as *const u64;
+        let rptr = rhs.as_ptr() as *const u64;
+        // Unroll for better port utilization and pipelining
+        for i in (0..160).step_by(4) {
+            distance += (*lptr.add(i) ^ *rptr.add(i)).count_ones();
+            distance += (*lptr.add(i + 1) ^ *rptr.add(i + 1)).count_ones();
+            distance += (*lptr.add(i + 2) ^ *rptr.add(i + 2)).count_ones();
+            distance += (*lptr.add(i + 3) ^ *rptr.add(i + 3)).count_ones();
+        }
+    }
+    distance
+}
+
 /// 10240-bit hypervector (80 x 128-bit words)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[must_use]
@@ -252,11 +270,7 @@ impl HVec10240 {
     /// Hamming distance
     #[must_use]
     pub fn hamming_distance(&self, other: &Self) -> u32 {
-        let mut distance = 0u32;
-        for i in 0..80 {
-            distance += (self.data[i] ^ other.data[i]).count_ones();
-        }
-        distance
+        hamming_distance_optimized(&self.data, &other.data)
     }
 
     /// Permute the hypervector (rotation)
