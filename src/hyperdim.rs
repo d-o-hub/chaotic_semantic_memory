@@ -66,16 +66,16 @@ fn cosine_similarity_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> f32 {
 #[inline]
 fn hamming_distance_optimized(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
     let mut distance: u32 = 0;
-    // Cast to u64 for better pipelining of POPCNT on most architectures
-    let l64 = unsafe { &*(lhs.as_ptr() as *const [u64; 160]) };
-    let r64 = unsafe { &*(rhs.as_ptr() as *const [u64; 160]) };
-
-    // Unroll by 4 for better instruction-level parallelism
-    for i in (0..160).step_by(4) {
-        distance += (l64[i] ^ r64[i]).count_ones();
-        distance += (l64[i + 1] ^ r64[i + 1]).count_ones();
-        distance += (l64[i + 2] ^ r64[i + 2]).count_ones();
-        distance += (l64[i + 3] ^ r64[i + 3]).count_ones();
+    unsafe {
+        let lptr = lhs.as_ptr() as *const u64;
+        let rptr = rhs.as_ptr() as *const u64;
+        // Unroll for better port utilization and pipelining
+        for i in (0..160).step_by(4) {
+            distance += (*lptr.add(i) ^ *rptr.add(i)).count_ones();
+            distance += (*lptr.add(i + 1) ^ *rptr.add(i + 1)).count_ones();
+            distance += (*lptr.add(i + 2) ^ *rptr.add(i + 2)).count_ones();
+            distance += (*lptr.add(i + 3) ^ *rptr.add(i + 3)).count_ones();
+        }
     }
     distance
 }
