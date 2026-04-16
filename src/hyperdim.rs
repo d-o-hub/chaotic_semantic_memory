@@ -2,7 +2,7 @@
 //!
 //! Implements 10240-bit hypervectors using `[u128; 80]`.
 
-use rand::Rng;
+use rand::RngExt;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -98,10 +98,10 @@ impl HVec10240 {
 
     /// Create a random hypervector (each bit has 50% probability)
     pub fn random() -> Self {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut data = [0u128; 80];
         for word in &mut data {
-            *word = rng.r#gen();
+            *word = rng.random();
         }
         Self { data }
     }
@@ -111,24 +111,24 @@ impl HVec10240 {
     /// Uses `rand::rngs::StdRng` for reproducibility across runs.
     pub fn new_seeded(seed: u64) -> Self {
         use rand::rngs::StdRng;
-        use rand::{Rng, SeedableRng};
+        use rand::{RngExt, SeedableRng};
 
         let mut rng = StdRng::seed_from_u64(seed);
         let mut data = [0u128; 80];
         for word in &mut data {
-            *word = rng.r#gen();
+            *word = rng.random();
         }
         Self { data }
     }
 
     /// Create a random sparse hypervector with given density
     pub fn sparse(density: f32) -> Self {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut data = [0u128; 80];
         let bits_to_set = (Self::DIMENSION as f32 * density) as usize;
 
         for _ in 0..bits_to_set {
-            let pos = rng.gen_range(0..Self::DIMENSION);
+            let pos = rng.random_range(0..Self::DIMENSION);
             let word = pos / 128;
             let bit = pos % 128;
             data[word] |= 1u128 << bit;
