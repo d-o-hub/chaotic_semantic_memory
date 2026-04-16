@@ -101,6 +101,32 @@ impl ChaoticSemanticFramework {
         }
         Ok(())
     }
+
+    pub(crate) fn validate_batch_size(&self, batch_size: usize) -> Result<()> {
+        if batch_size > self.config.max_batch_size {
+            return Err(MemoryError::InvalidInput {
+                field: "batch_size".to_string(),
+                reason: format!(
+                    "batch size exceeds configured limit {} (got {})",
+                    self.config.max_batch_size, batch_size
+                ),
+            });
+        }
+        Ok(())
+    }
+
+    pub(crate) fn validate_sequence_length(&self, length: usize) -> Result<()> {
+        if length > self.config.max_sequence_length {
+            return Err(MemoryError::InvalidInput {
+                field: "sequence_length".to_string(),
+                reason: format!(
+                    "sequence length exceeds configured limit {} (got {})",
+                    self.config.max_sequence_length, length
+                ),
+            });
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

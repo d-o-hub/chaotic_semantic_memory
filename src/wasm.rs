@@ -32,7 +32,7 @@ impl WasmFramework {
             .without_persistence()
             .build()
             .await
-            .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
+            .map_err(to_js_error)?;
 
         Ok(WasmFramework { framework })
     }
@@ -135,6 +135,10 @@ impl WasmFramework {
 
     /// Inject multiple concepts in batch
     pub async fn inject_concepts(&self, ids: Array, vectors: Array) -> Result<(), JsValue> {
+        self.framework
+            .validate_batch_size(ids.length() as usize)
+            .map_err(to_js_error)?;
+
         if ids.length() != vectors.length() {
             return Err(JsValue::from_str(
                 "ids and vectors arrays must have the same length",
@@ -164,6 +168,10 @@ impl WasmFramework {
 
     /// Create multiple associations in batch
     pub async fn associate_many(&self, associations: Array) -> Result<(), JsValue> {
+        self.framework
+            .validate_batch_size(associations.length() as usize)
+            .map_err(to_js_error)?;
+
         for i in 0..associations.length() {
             let assoc = associations.get(i);
             let from = js_sys::Reflect::get(&assoc, &"from".into())
@@ -191,6 +199,10 @@ impl WasmFramework {
 
     /// Probe for similar concepts with multiple queries in batch
     pub async fn probe_batch(&self, vectors: Array, top_k: usize) -> Result<Array, JsValue> {
+        self.framework
+            .validate_batch_size(vectors.length() as usize)
+            .map_err(to_js_error)?;
+
         let results = Array::new();
 
         for i in 0..vectors.length() {
@@ -292,6 +304,10 @@ impl WasmFramework {
     /// Process a temporal sequence and return the resulting hypervector bytes.
     #[wasm_bindgen(js_name = processSequence)]
     pub async fn process_sequence(&self, sequence: Array) -> Result<Box<[u8]>, JsValue> {
+        self.framework
+            .validate_sequence_length(sequence.length() as usize)
+            .map_err(to_js_error)?;
+
         let mut parsed_sequence = Vec::with_capacity(sequence.length() as usize);
         for item in sequence.iter() {
             let step = item

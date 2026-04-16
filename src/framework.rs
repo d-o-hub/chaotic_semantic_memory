@@ -239,6 +239,7 @@ impl ChaoticSemanticFramework {
     /// Process temporal sequence through reservoir
     #[instrument(err, skip(self, sequence))]
     pub async fn process_sequence(&self, sequence: &[Vec<f32>]) -> Result<HVec10240> {
+        self.validate_sequence_length(sequence.len())?;
         let mut reservoir = self.reservoir.write().await;
 
         if reservoir.is_none() {
