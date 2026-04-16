@@ -662,6 +662,7 @@ async fn probe_batch_cached_large_corpus_keeps_exact_semantics() {
     let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(64)
+        .with_max_batch_size(2001)
         .build()
         .await
         .unwrap();
