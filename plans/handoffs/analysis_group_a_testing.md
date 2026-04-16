@@ -171,7 +171,7 @@ async fn persistence_corrupted_vector_bytes() {
     // Manually insert corrupted vector data
     let conn = persistence.connect().await.unwrap();
     conn.execute(
-        "INSERT INTO concepts (id, vector, metadata, created_at, modified_at) 
+        "INSERT INTO concepts (id, vector, metadata, created_at, modified_at)
          VALUES (?1, ?2, ?3, ?4, ?5)",
         libsql::params![
             "corrupted",

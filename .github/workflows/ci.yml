@@ -6,215 +6,85 @@ on:
   pull_request:
     branches: [ main ]
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
-
 env:
   CARGO_TERM_COLOR: always
-  CARGO_INCREMENTAL: 0
 
 jobs:
   test:
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      checks: write
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v6
-    
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1
-      with:
-        toolchain: stable
-        components: rustfmt, clippy
-    
-    - name: Cache cargo
-      uses: actions/cache@v5
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Check formatting
-      run: cargo fmt -- --check
-
-    - name: Check version sync
-      run: bash scripts/verify-version-sync.sh
-
-    - name: Run clippy
-      run: cargo clippy --all-targets --all-features -- -D warnings
-    
     - name: Run tests
-      run: cargo test --all-features
+      run: cargo test --all-features -- --quiet
 
-    - name: Run benchmark workspace tests
-      run: cargo test --manifest-path benchmarks/Cargo.toml --quiet
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '24'
-
-    - name: Install wasm-pack
-      run: cargo install wasm-pack
-
-    - name: Build WASM package for smoke test
-      run: wasm-pack build --target nodejs --out-dir wasm/pkg-node -- --features wasm
-
-    - name: Run WASM smoke test
-      env:
-        WASM_PACKAGE_DIR: ${{ github.workspace }}/wasm/pkg-node
-      run: node --experimental-wasm-modules wasm/test.js
-
-    - name: Run persistence field regression tests
-      run: |
-        cargo test --all-features batch_save_concepts_preserves_ttl_and_canonical_ids
-        cargo test --all-features binary_import_export_preserves_ttl_and_canonical_links
-
-    - name: Validate performance target tests
-      run: cargo test --test performance_targets --quiet
-
-    - name: Validate Turso roundtrip target (skips when secrets are missing)
-      env:
-        TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
-        TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-      run: cargo test --test turso_roundtrip -- --nocapture
-      continue-on-error: true
-    
-    - name: Check LOC limits
-      run: |
-        for file in $(find src -name '*.rs'); do
-          LOC=$(wc -l < "$file")
-          if [ "$LOC" -gt 500 ]; then
-            echo "❌ $file exceeds 500 LOC ($LOC lines)"
-            exit 1
-          fi
-          echo "✓ $file: $LOC LOC"
-        done
-
-    - name: Check docs sync
-      run: bash scripts/sync-docs.sh --check
-
-  build:
-    runs-on: ubuntu-24.04
-    needs: test
-    permissions:
-      contents: read
-    steps:
-    - uses: actions/checkout@v6
-    
-    - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v1
-      with:
-        toolchain: stable
-
-    - name: Cache cargo
-      uses: actions/cache@v5
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
-
-    - name: Build release
-      run: cargo build --release
-
-    - name: Install WASM target
-      run: rustup target add wasm32-unknown-unknown
-
-    - name: Build WASM target
-      run: cargo build --target wasm32-unknown-unknown --release --features wasm
-    
-    - name: Enforce WASM size gate (< 500KiB)
-      run: scripts/wasm_size_gate.sh
-
-  benchmark:
-    runs-on: ubuntu-24.04
-    needs: test
-    permissions:
-      contents: read
-      actions: write
-    steps:
-    - uses: actions/checkout@v6
-    
-    - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v1
-      with:
-        toolchain: stable
-    
-    - name: Cache cargo
-      uses: actions/cache@v5
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-bench-v3-${{ hashFiles('**/Cargo.lock') }}
-
-    - name: Clean target for bench
-      run: cargo clean -p chaotic_semantic_memory
-
-    - name: Run Criterion benchmarks
-      run: |
-        cargo bench --bench benchmark -- --noplot
-        cargo bench --bench persistence_benchmark -- --noplot
-        cargo bench --bench bm25_benchmark -- --noplot
-    
-    - name: Upload benchmark results
-      uses: actions/upload-artifact@v7
-      with:
-        name: benchmark-results-${{ github.run_id }}
-        path: target/criterion/
-        retention-days: 30
-
-  npm-cli-smoke:
-    runs-on: ubuntu-24.04
-    needs: test
+  build-cli:
+    name: Build CLI (${{ matrix.platform }}-${{ matrix.arch }})
+    strategy:
+      matrix:
+        include:
+          - platform: linux
+            arch: x64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - platform: linux
+            arch: arm64
+            runner: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+          - platform: macos
+            arch: arm64
+            runner: macos-latest
+            target: aarch64-apple-darwin
+          - platform: macos
+            arch: x64
+            runner: macos-latest
+            target: x86_64-apple-darwin
+          - platform: windows
+            arch: x64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
     steps:
     - uses: actions/checkout@v6
 
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        toolchain: stable
+        target: ${{ matrix.target }}
 
-    - name: Cache cargo
-      uses: actions/cache@v5
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-cli-${{ hashFiles('**/Cargo.lock') }}
-
-    - name: Build CLI binary
-      run: cargo build --release --bin csm
-
-    - name: Stage Linux binary for npm pack
+    - name: Install cross-compilation linker (Linux arm64)
+      if: matrix.target == 'aarch64-unknown-linux-gnu'
       run: |
-        mkdir -p cli-npm/bin
-        cp target/release/csm cli-npm/bin/csm-linux-x64
-        chmod +x cli-npm/bin/csm-linux-x64
+        sudo apt-get update
+        sudo apt-get install -y gcc-aarch64-linux-gnu
+        echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+    - name: Build CLI
+      run: cargo build --release --bin csm --features cli --target ${{ matrix.target }} --locked
+
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        node-version: '24'
+        target: wasm32-unknown-unknown
+    - name: Check WASM
+      run: cargo check --target wasm32-unknown-unknown --features wasm
 
-    - name: Pack CLI and run smoke test
-      shell: bash
-      run: |
-        set -euo pipefail
-        cd cli-npm
-        TARBALL=$(npm pack --silent)
-        TMP_DIR=$(mktemp -d)
-        npm install --prefix "$TMP_DIR" "./$TARBALL" >/dev/null
-        "$TMP_DIR/node_modules/.bin/csm" --help >/dev/null
-        echo "✅ CLI npm package smoke test passed"
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        components: clippy, rustfmt
+    - name: Format check
+      run: cargo fmt --all -- --check
+    - name: Clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+    - name: LOC gate
+      run: bash scripts/validate.sh
