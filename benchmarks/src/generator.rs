@@ -1,5 +1,5 @@
 use crate::types::{QueryCase, Session, SessionTurn, TaskType};
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 /// Real colors for semantically meaningful test data
@@ -64,13 +64,13 @@ pub fn generate_sessions_with_range(
         let turn_count = if min_turns == max_turns {
             min_turns
         } else {
-            rng.gen_range(min_turns..=max_turns)
+            rng.random_range(min_turns..=max_turns)
         };
 
-        let color_v1 = COLORS[rng.gen_range(0..COLORS.len())];
-        let color_mod = COLOR_MODIFIERS[rng.gen_range(0..COLOR_MODIFIERS.len())];
-        let color_v2 = format!("{} {}", color_mod, COLORS[rng.gen_range(0..COLORS.len())]);
-        let city = CITIES[rng.gen_range(0..CITIES.len())];
+        let color_v1 = COLORS[rng.random_range(0..COLORS.len())];
+        let color_mod = COLOR_MODIFIERS[rng.random_range(0..COLOR_MODIFIERS.len())];
+        let color_v2 = format!("{} {}", color_mod, COLORS[rng.random_range(0..COLORS.len())]);
+        let city = CITIES[rng.random_range(0..CITIES.len())];
 
         // Build turns based on turn_count (minimum 1 turn)
         let mut turns = Vec::with_capacity(turn_count);
@@ -200,7 +200,7 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
                     s.turns.iter().find(|t| {
                         t.memory_id
                             .as_ref()
-                            .map_or(false, |id| id.contains(":city:"))
+                            .is_some_and(|id| id.contains(":city:"))
                     })
                 })
                 .filter_map(|t| t.memory_id.clone())

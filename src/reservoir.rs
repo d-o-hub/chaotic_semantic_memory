@@ -1,7 +1,7 @@
 //! Echo State Network for temporal dynamics.
 
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 use std::sync::atomic::{AtomicU64, Ordering};
 #[cfg(not(target_arch = "wasm32"))]
 use {std::time::Instant, tracing::instrument};
@@ -67,8 +67,8 @@ impl SparseWeights {
 
         for _ in 0..rows {
             for _ in 0..degree {
-                indices.push(rng.gen_range(0..cols));
-                weights.push(rng.gen_range(-1.0..1.0));
+                indices.push(rng.random_range(0..cols));
+                weights.push(rng.random_range(-1.0..1.0));
             }
             row_offsets.push(indices.len());
         }
@@ -90,10 +90,10 @@ impl SparseWeights {
 
         for row in 0..size {
             for _ in 0..degree {
-                let delta = rng.gen_range(0..window);
+                let delta = rng.random_range(0..window);
                 let idx = (row + size + delta - half) % size;
                 indices.push(idx);
-                weights.push(rng.gen_range(-1.0..1.0));
+                weights.push(rng.random_range(-1.0..1.0));
             }
             row_offsets.push(indices.len());
         }
@@ -162,7 +162,7 @@ impl Reservoir {
     const PARTIAL_UPDATE_STRIDE: usize = 32;
 
     pub fn new(input_size: usize, size: usize) -> Result<Self> {
-        let seed = rand::thread_rng().r#gen();
+        let seed = rand::rng().random();
         Self::new_seeded(input_size, size, seed)
     }
 
@@ -441,7 +441,7 @@ pub struct ChaoticReservoir {
 
 impl ChaoticReservoir {
     pub fn new(input_size: usize, size: usize, chaos_strength: f32) -> Result<Self> {
-        let seed = rand::thread_rng().r#gen();
+        let seed = rand::rng().random();
         Self::new_seeded(input_size, size, chaos_strength, seed)
     }
 
@@ -475,7 +475,7 @@ impl ChaoticReservoir {
             self.noisy_input[i] = *value
                 + self
                     .rng
-                    .gen_range(-self.chaos_strength..self.chaos_strength);
+                    .random_range(-self.chaos_strength..self.chaos_strength);
         }
 
         self.base.step(&self.noisy_input)
