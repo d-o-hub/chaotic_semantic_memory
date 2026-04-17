@@ -102,15 +102,24 @@ impl Bm25Index {
             self.remove_document_at(idx);
         }
 
-        // Build term frequencies
-        let mut term_freqs: HashMap<String, u32> = HashMap::new();
+        // Build term frequencies - count tokens first to minimize String allocations
+        // O(unique tokens) allocations instead of O(total tokens)
+        let mut local_freqs: HashMap<&str, u32> = HashMap::with_capacity(tokens.len().min(128));
         for token in tokens {
-            *term_freqs.entry(token.as_ref().to_string()).or_insert(0) += 1;
+            *local_freqs.entry(token.as_ref()).or_insert(0) += 1;
         }
 
-        // Update document frequencies
-        for term in term_freqs.keys() {
-            *self.doc_freqs.entry(term.clone()).or_insert(0) += 1;
+        // Convert unique tokens to Strings once and update document frequencies
+        let mut term_freqs = HashMap::with_capacity(local_freqs.len());
+        for (term, count) in local_freqs {
+            let term_string = term.to_string();
+            // Use get_mut to update existing terms without cloning
+            if let Some(df) = self.doc_freqs.get_mut(&term_string) {
+                *df += 1;
+            } else {
+                self.doc_freqs.insert(term_string.clone(), 1);
+            }
+            term_freqs.insert(term_string, count);
         }
 
         // Add document

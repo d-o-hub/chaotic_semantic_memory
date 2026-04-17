@@ -83,6 +83,8 @@ impl ChaoticSemanticFramework {
     /// Batch inject multiple concepts into memory.
     #[instrument(err, skip(self, concepts))]
     pub async fn inject_concepts(&self, concepts: &[(String, HVec10240)]) -> Result<()> {
+        self.validate_batch_size(concepts.len())?;
+
         if concepts.is_empty() {
             return Ok(());
         }
@@ -111,6 +113,8 @@ impl ChaoticSemanticFramework {
     /// Batch create associations between concepts.
     #[instrument(err, skip(self, associations))]
     pub async fn associate_many(&self, associations: &[(String, String, f32)]) -> Result<()> {
+        self.validate_batch_size(associations.len())?;
+
         if associations.is_empty() {
             return Ok(());
         }
@@ -142,6 +146,7 @@ impl ChaoticSemanticFramework {
         top_k: usize,
     ) -> Result<Vec<Vec<(String, f32)>>> {
         self.validate_top_k(top_k)?;
+        self.validate_batch_size(queries.len())?;
         let sing = self.singularity.read().await;
         let mut out = Vec::with_capacity(queries.len());
         for query in queries {
@@ -159,6 +164,7 @@ impl ChaoticSemanticFramework {
         top_k: usize,
     ) -> Result<Vec<Arc<[(String, f32)]>>> {
         self.validate_top_k(top_k)?;
+        self.validate_batch_size(queries.len())?;
         let sing = self.singularity.read().await;
         let mut out = Vec::with_capacity(queries.len());
         for query in queries {
