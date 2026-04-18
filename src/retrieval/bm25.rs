@@ -25,6 +25,7 @@
 
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
@@ -50,7 +51,7 @@ struct Document {
     /// Document ID.
     id: String,
     /// Term frequencies in this document.
-    term_freqs: HashMap<String, u32>,
+    term_freqs: HashMap<Arc<str>, u32>,
     /// Document length (number of tokens).
     length: usize,
 }
@@ -63,7 +64,7 @@ pub struct Bm25Index {
     /// Document ID to index mapping.
     doc_index: HashMap<String, usize>,
     /// Document frequency for each term (number of docs containing term).
-    doc_freqs: HashMap<String, u32>,
+    doc_freqs: HashMap<Arc<str>, u32>,
     /// Total document length (for average calculation).
     total_length: usize,
     /// Configuration.
@@ -109,17 +110,20 @@ impl Bm25Index {
             *local_freqs.entry(token.as_ref()).or_insert(0) += 1;
         }
 
-        // Convert unique tokens to Strings once and update document frequencies
+        // Convert unique tokens to Arcs once and update document frequencies
+        // Reuses existing Arcs from doc_freqs to eliminate redundant allocations
         let mut term_freqs = HashMap::with_capacity(local_freqs.len());
         for (term, count) in local_freqs {
-            let term_string = term.to_string();
-            // Use get_mut to update existing terms without cloning
-            if let Some(df) = self.doc_freqs.get_mut(&term_string) {
+            let term_arc = if let Some(df) = self.doc_freqs.get_mut(term) {
                 *df += 1;
+                // Double lookup to get the Arc key, still faster than allocation
+                self.doc_freqs.get_key_value(term).unwrap().0.clone()
             } else {
-                self.doc_freqs.insert(term_string.clone(), 1);
-            }
-            term_freqs.insert(term_string, count);
+                let new_term: Arc<str> = Arc::from(term);
+                self.doc_freqs.insert(Arc::clone(&new_term), 1);
+                new_term
+            };
+            term_freqs.insert(term_arc, count);
         }
 
         // Add document
@@ -143,7 +147,8 @@ impl Bm25Index {
     }
 
     fn remove_document_at(&mut self, idx: usize) {
-        let doc = &self.documents[idx];
+        // O(1) removal using swap_remove - gives ownership of the document
+        let doc = self.documents.swap_remove(idx);
 
         // Update document frequencies
         for term in doc.term_freqs.keys() {
@@ -153,11 +158,8 @@ impl Bm25Index {
         }
 
         self.total_length = self.total_length.saturating_sub(doc.length);
-        let id = doc.id.clone();
-        self.doc_index.remove(&id);
-
-        // O(1) removal using swap_remove
-        self.documents.swap_remove(idx);
+        // Use owned ID to avoid clone during removal from index
+        self.doc_index.remove(&doc.id);
 
         // If we swapped an element into idx, update its mapping
         if idx < self.documents.len() {
