@@ -445,13 +445,11 @@ pub struct ChaoticReservoir {
     rng: StdRng,
     noisy_input: Vec<f32>,
 }
-
 impl ChaoticReservoir {
     pub fn new(input_size: usize, size: usize, chaos_strength: f32) -> Result<Self> {
         let seed = rand::rng().random();
         Self::new_seeded(input_size, size, chaos_strength, seed)
     }
-
     pub fn new_seeded(
         input_size: usize,
         size: usize,
@@ -460,7 +458,6 @@ impl ChaoticReservoir {
     ) -> Result<Self> {
         let mut base = Reservoir::new_seeded(input_size, size, seed)?;
         base.set_spectral_radius(1.0)?;
-
         Ok(Self {
             base,
             chaos_strength,
@@ -468,7 +465,6 @@ impl ChaoticReservoir {
             noisy_input: vec![0.0; input_size],
         })
     }
-
     pub fn step(&mut self, input: &[f32]) -> Result<&[f32]> {
         if input.len() != self.noisy_input.len() {
             return Err(MemoryError::reservoir(format!(
@@ -477,29 +473,23 @@ impl ChaoticReservoir {
                 input.len()
             )));
         }
-
         for (i, value) in input.iter().enumerate() {
             self.noisy_input[i] = *value
                 + self
                     .rng
                     .random_range(-self.chaos_strength..self.chaos_strength);
         }
-
         self.base.step(&self.noisy_input)
     }
-
     pub fn reset(&mut self) {
         self.base.reset();
     }
-
     pub fn state(&self) -> &[f32] {
         self.base.state()
     }
-
     pub fn to_hypervector(&self) -> Result<HVec10240> {
         self.base.to_hypervector()
     }
-
     pub fn metrics_snapshot(&self) -> ReservoirMetricsSnapshot {
         self.base.metrics_snapshot()
     }
