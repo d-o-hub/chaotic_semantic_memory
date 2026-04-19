@@ -109,19 +109,26 @@ impl SparseWeights {
     fn dot_row(&self, row: usize, values: &[f32]) -> f32 {
         let start = self.row_offsets[row];
         let end = self.row_offsets[row + 1];
-        let mut sum = 0.0;
         let indices = &self.indices[start..end];
         let weights = &self.weights[start..end];
         let mut i = 0;
 
+        // Use multiple accumulators to break the serial dependency chain of mul_add.
+        // This allows the CPU to utilize multiple execution ports for ILP.
+        let mut sum0 = 0.0;
+        let mut sum1 = 0.0;
+        let mut sum2 = 0.0;
+        let mut sum3 = 0.0;
+
         while i + 3 < indices.len() {
-            sum = weights[i].mul_add(values[indices[i]], sum);
-            sum = weights[i + 1].mul_add(values[indices[i + 1]], sum);
-            sum = weights[i + 2].mul_add(values[indices[i + 2]], sum);
-            sum = weights[i + 3].mul_add(values[indices[i + 3]], sum);
+            sum0 = weights[i].mul_add(values[indices[i]], sum0);
+            sum1 = weights[i + 1].mul_add(values[indices[i + 1]], sum1);
+            sum2 = weights[i + 2].mul_add(values[indices[i + 2]], sum2);
+            sum3 = weights[i + 3].mul_add(values[indices[i + 3]], sum3);
             i += 4;
         }
 
+        let mut sum = (sum0 + sum1) + (sum2 + sum3);
         while i < indices.len() {
             sum = weights[i].mul_add(values[indices[i]], sum);
             i += 1;
