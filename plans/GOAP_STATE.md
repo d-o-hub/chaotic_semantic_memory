@@ -14,9 +14,10 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: update_agents_workflow_best_practices
-  orchestrator_last_run: workflow_verification_2026_04_19
-  orchestrator_last_run_at_utc: 2026-04-19T18:45:00Z
+  action_last_completed: separate_agents_claude_md
+  orchestrator_last_run: workflow_finalized_2026_04_19
+  orchestrator_last_run_at_utc: 2026-04-19T19:00:00Z
+  ci_all_checks_passed: true
 
   # Benchmark Optimization Analysis (2026-04-09) - COMPLETE
   benchmark_optimization_analysis_active: false
