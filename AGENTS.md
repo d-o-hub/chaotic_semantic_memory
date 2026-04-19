@@ -29,23 +29,22 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 
 ### Phase 2: Planning (WHY)
 
-4. **For non-trivial tasks (3+ steps), use Plan Mode** — Enter plan mode via `EnterPlanMode` tool:
+4. **Plan before implementing** — For non-trivial tasks (3+ steps):
    - Explore codebase before proposing changes
    - Identify affected files and dependencies
    - Document approach in `plans/` directory
    - Get user approval before implementation
 
-5. **For complex multi-file changes, spawn teammates** — Use `TeamCreate` + `Agent` for parallel work:
-   - Create task list via `TaskCreate`
-   - Spawn specialized agents with clear prompts
-   - Assign tasks via `TaskUpdate(owner=...)`
-   - Monitor via idle notifications
-   - Clean up with shutdown requests and `TeamDelete`
+5. **Use parallel execution for complex changes** — For multi-file tasks:
+   - Create task list for each subtask
+   - Spawn specialized workers with clear prompts
+   - Assign tasks and monitor progress
+   - Clean up resources after completion
 
 ### Phase 3: Implementation (HOW)
 
 6. **Edit files with precision** — Never bulk-edit without reading first:
-   - Use `Read` before `Edit` — understand existing code
+   - Read before editing — understand existing code
    - Match existing style, naming, patterns
    - Preserve comments and docstrings unless explicitly removing
 
@@ -81,7 +80,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
     git commit -m "feat(singularity): add similarity cache"
     ```
 
-12. **Push to branch and monitor CI** — Use `github-ci-guardrails` skill:
+12. **Push and monitor CI** — Watch workflow until completion:
     ```bash
     git push origin <branch>
     gh run watch --exit-status
@@ -102,19 +101,9 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
       tests_count: <new_count>
     ```
 
-15. **Push to main requires PR** — Branch protection enforced:
-    ```bash
-    gh pr create --title "type(scope): description" --body "$(cat <<'EOF'
-    ## Summary
-    - Change 1
-
-    ## Test plan
-    - [ ] cargo test --all-features
-    - [ ] CI passes
-    EOF
-    )"
-    gh pr merge --squash --delete-branch
-    ```
+15. **Protected branches require PR** — Branch protection enforced:
+    - `main` requires pull request
+    - Verify CI passes before merge
 
 ---
 
@@ -123,11 +112,11 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 Before starting any task, verify:
 - [ ] GOAP_STATE.md loaded — know current state
 - [ ] Hard constraints understood — LOC <=500, spectral radius [0.9, 1.1]
-- [ ] CI baseline confirmed via `gh run list --workflow=ci.yml --limit 3`
+- [ ] CI baseline confirmed via `gh run list`
 
 Before completing any task, verify:
-- [ ] All validation gates pass (check, test, fmt, clippy, LOC)
-- [ ] CI workflow passes — `gh run watch --exit-status` exits 0
+- [ ] All validation gates pass (check, test, fmt, clippy)
+- [ ] CI workflow passes
 - [ ] Pre-existing warnings fixed (not just new issues)
 - [ ] GOAP_STATE.md updated with `action_last_completed`
 - [ ] Learnings captured if new patterns discovered
@@ -136,19 +125,19 @@ Before completing any task, verify:
 
 ## 7 Core Rules
 
-1. **Always read before editing** — Use `Read` tool before `Edit`. Never guess file contents.
+1. **Always read before editing** — Never guess file contents.
 
-2. **Stay under context limits** — AGENTS.md is advisory (~160 instructions reliably followed). Each line must earn its place.
+2. **Stay under context limits** — Each instruction must earn its place.
 
-3. **Hooks for deterministic enforcement** — Validation gates (test, clippy, LOC) are mandatory.
+3. **Hooks for deterministic enforcement** — Validation gates are mandatory.
 
 4. **Use `@imports` for modularity** — Reference files via `@path/to/file` syntax.
 
-5. **Plan mode for 3+ step tasks** — Use `EnterPlanMode` before implementation.
+5. **Plan before implementing** — For tasks with 3+ steps.
 
 6. **Update monthly, encode errors immediately** — Every correction becomes a rule.
 
-7. **Reference, don't duplicate** — Point to `Cargo.toml`, `context.yaml`, `GOAP_STATE.md`.
+7. **Reference, don't duplicate** — Point to source files, don't restate contents.
 
 ---
 
