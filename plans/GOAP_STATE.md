@@ -14,9 +14,9 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: implement_concept_ttl_baseline
-  orchestrator_last_run: wave20_impl_queue_rebuild
-  orchestrator_last_run_at_utc: 2026-04-12T00:00:00Z
+  action_last_completed: update_agents_workflow_best_practices
+  orchestrator_last_run: workflow_verification_2026_04_19
+  orchestrator_last_run_at_utc: 2026-04-19T18:45:00Z
 
   # Benchmark Optimization Analysis (2026-04-09) - COMPLETE
   benchmark_optimization_analysis_active: false
@@ -604,8 +604,8 @@ world_state:
   npm_first_publish_manual: true             # v0.1.0 exists on npm (verified via Snyk + API)
   npm_package_exists: true                   # @d-o-hub/chaotic_semantic_memory at v0.1.0
   npm_token_expired: true                     # NPM_TOKEN secret is expired/revoked
-  npm_oidc_configured: false                  # Requires fresh token + Trusted Publisher config
-  npm_publish_automated: false                # BLOCKED: needs fresh npm token
+  npm_oidc_configured: true                   # Verified: v0.3.2 published via OIDC (2026-04-10)
+  npm_publish_automated: true                 # Verified: npm workflow dispatch succeeded
   npm_node24_required: true                   # Node.js 24 ships npm v11 required for OIDC
 
   # Post-1.0 Deferred Work (ADR-0024, ADR-0025, ADR-0026)
