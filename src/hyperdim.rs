@@ -47,17 +47,26 @@ fn cosine_similarity_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> f32 {
     // Optimized GPR-based popcount loop.
     // Modern CPUs have high-throughput GPR POPCNT but no AVX2 POPCNT.
     // Eliminates the store-to-load forwarding stall in the previous SIMD version.
-    let mut dot_product: u32 = 0;
+    let dot_product: u32;
     unsafe {
         let lptr = lhs.as_ptr() as *const u64;
         let rptr = rhs.as_ptr() as *const u64;
+
+        // Use multiple independent accumulators to break the serial dependency chain.
+        // This allows the CPU to utilize multiple execution ports for ILP.
+        let mut s0 = 0;
+        let mut s1 = 0;
+        let mut s2 = 0;
+        let mut s3 = 0;
+
         // Unroll for better port utilization and pipelining
         for i in (0..160).step_by(4) {
-            dot_product += (*lptr.add(i) ^ *rptr.add(i)).count_zeros();
-            dot_product += (*lptr.add(i + 1) ^ *rptr.add(i + 1)).count_zeros();
-            dot_product += (*lptr.add(i + 2) ^ *rptr.add(i + 2)).count_zeros();
-            dot_product += (*lptr.add(i + 3) ^ *rptr.add(i + 3)).count_zeros();
+            s0 += (*lptr.add(i) ^ *rptr.add(i)).count_zeros();
+            s1 += (*lptr.add(i + 1) ^ *rptr.add(i + 1)).count_zeros();
+            s2 += (*lptr.add(i + 2) ^ *rptr.add(i + 2)).count_zeros();
+            s3 += (*lptr.add(i + 3) ^ *rptr.add(i + 3)).count_zeros();
         }
+        dot_product = (s0 + s1) + (s2 + s3);
     }
     (2.0 * dot_product as f32 / HVec10240::DIMENSION as f32) - 1.0
 }
@@ -65,17 +74,26 @@ fn cosine_similarity_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> f32 {
 /// Optimized Hamming distance calculation using unrolled loop.
 #[inline]
 fn hamming_distance_optimized(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
-    let mut distance: u32 = 0;
+    let distance: u32;
     unsafe {
         let lptr = lhs.as_ptr() as *const u64;
         let rptr = rhs.as_ptr() as *const u64;
+
+        // Use multiple independent accumulators to break the serial dependency chain.
+        // This allows the CPU to utilize multiple execution ports for ILP.
+        let mut s0 = 0;
+        let mut s1 = 0;
+        let mut s2 = 0;
+        let mut s3 = 0;
+
         // Unroll for better port utilization and pipelining
         for i in (0..160).step_by(4) {
-            distance += (*lptr.add(i) ^ *rptr.add(i)).count_ones();
-            distance += (*lptr.add(i + 1) ^ *rptr.add(i + 1)).count_ones();
-            distance += (*lptr.add(i + 2) ^ *rptr.add(i + 2)).count_ones();
-            distance += (*lptr.add(i + 3) ^ *rptr.add(i + 3)).count_ones();
+            s0 += (*lptr.add(i) ^ *rptr.add(i)).count_ones();
+            s1 += (*lptr.add(i + 1) ^ *rptr.add(i + 1)).count_ones();
+            s2 += (*lptr.add(i + 2) ^ *rptr.add(i + 2)).count_ones();
+            s3 += (*lptr.add(i + 3) ^ *rptr.add(i + 3)).count_ones();
         }
+        distance = (s0 + s1) + (s2 + s3);
     }
     distance
 }
