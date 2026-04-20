@@ -137,14 +137,14 @@ impl Singularity {
 
     /// Generate candidates by coarse bucketing.
     pub(crate) fn generate_bucket_candidates(&self, query: &HVec10240) -> Vec<usize> {
-        let bucket_count = 1 << self.retrieval_config.bucket_probe_width;
-        let query_bucket = (query.data[0] % bucket_count as u128) as usize;
+        let bucket_mask = (1u128 << self.retrieval_config.bucket_probe_width) - 1;
+        let query_bucket = query.data[0] & bucket_mask;
 
         self.concept_vectors
             .iter()
             .enumerate()
             .filter_map(|(idx, vec)| {
-                let vec_bucket = (vec.data[0] % bucket_count as u128) as usize;
+                let vec_bucket = vec.data[0] & bucket_mask;
                 if vec_bucket == query_bucket {
                     Some(idx)
                 } else {
