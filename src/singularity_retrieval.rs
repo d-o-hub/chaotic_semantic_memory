@@ -137,6 +137,7 @@ impl Singularity {
 
     /// Generate candidates by coarse bucketing.
     pub(crate) fn generate_bucket_candidates(&self, query: &HVec10240) -> Vec<usize> {
+        debug_assert!(self.retrieval_config.bucket_probe_width <= 127);
         let bucket_mask = (1u128 << self.retrieval_config.bucket_probe_width) - 1;
         let query_bucket = query.data[0] & bucket_mask;
 
