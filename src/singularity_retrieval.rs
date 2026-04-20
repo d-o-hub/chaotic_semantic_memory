@@ -44,11 +44,11 @@ pub enum CandidateSource {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FilterStrategy {
     /// Pre-filter candidates, then score (optimal for low selectivity)
-    PreFilter,
+    Pre,
     /// Generate bucket candidates, score, post-filter (optimal for medium selectivity)
-    BucketPostFilter,
+    BucketPost,
     /// Full similarity scan, post-filter results (optimal for high selectivity)
-    ScanPostFilter,
+    ScanPost,
 }
 
 /// Parameters for scored candidate retrieval.
@@ -306,6 +306,7 @@ impl Singularity {
     }
 
     /// Update retrieval statistics.
+    #[allow(clippy::too_many_arguments)]
     fn update_stats(
         &self,
         candidates: usize,

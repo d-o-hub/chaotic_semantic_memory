@@ -136,15 +136,15 @@ impl Singularity {
         // ADR-0065: Route based on selectivity
         // For small datasets (<20 concepts), always use PreFilter for correctness
         let strategy = if total_count < 20 || selectivity < 0.3 {
-            FilterStrategy::PreFilter
+            FilterStrategy::Pre
         } else if selectivity < 0.8 {
-            FilterStrategy::BucketPostFilter
+            FilterStrategy::BucketPost
         } else {
-            FilterStrategy::ScanPostFilter
+            FilterStrategy::ScanPost
         };
 
         match strategy {
-            FilterStrategy::PreFilter => {
+            FilterStrategy::Pre => {
                 let cand_start = crate::singularity::unix_now_ns();
                 let candidates: Vec<usize> = self
                     .concepts
@@ -168,7 +168,7 @@ impl Singularity {
                     Some(strategy),
                 )
             }
-            FilterStrategy::BucketPostFilter => {
+            FilterStrategy::BucketPost => {
                 let cand_start = crate::singularity::unix_now_ns();
                 let candidates = self.generate_bucket_candidates(query);
                 let cand_ns = crate::singularity::unix_now_ns().saturating_sub(cand_start);
@@ -200,7 +200,7 @@ impl Singularity {
                     .collect();
                 Arc::from(filtered)
             }
-            FilterStrategy::ScanPostFilter => {
+            FilterStrategy::ScanPost => {
                 let all_results = self.exact_similarity_scan(query, top_k * 2, start_ns, true);
 
                 let filtered: Vec<(String, f32)> = all_results
