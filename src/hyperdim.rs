@@ -51,14 +51,12 @@ fn cosine_similarity_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> f32 {
     unsafe {
         let lptr = lhs.as_ptr() as *const u64;
         let rptr = rhs.as_ptr() as *const u64;
-
         // Use multiple independent accumulators to break the serial dependency chain.
         // This allows the CPU to utilize multiple execution ports for ILP.
         let mut s0 = 0;
         let mut s1 = 0;
         let mut s2 = 0;
         let mut s3 = 0;
-
         // Unroll for better port utilization and pipelining
         for i in (0..160).step_by(4) {
             s0 += (*lptr.add(i) ^ *rptr.add(i)).count_zeros();

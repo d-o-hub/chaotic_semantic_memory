@@ -10,6 +10,7 @@ use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 use crate::metadata_filter::MetadataFilter;
 use crate::singularity::{Singularity, unix_now_secs};
+use crate::singularity_retrieval::{CandidateSource, FilterStrategy};
 
 impl Singularity {
     /// Bundle multiple concepts into a single hypervector (strict version).
@@ -98,10 +99,12 @@ impl Singularity {
         }
     }
 
-    /// Find similar concepts filtered by metadata predicate.
+    /// Find similar concepts filtered by metadata predicate (ADR-0065: selectivity-aware).
     ///
-    /// Only concepts matching the filter are considered for similarity.
-    /// This is useful for RAG patterns like document scoping or multi-tenant filtering.
+    /// Routes to optimal strategy based on filter selectivity:
+    /// - selectivity < 0.3: Pre-filter candidates, then score
+    /// - selectivity 0.3-0.8: Bucket candidates, score, post-filter
+    /// - selectivity >= 0.8: Full scan, score, post-filter
     #[cfg_attr(
         not(target_arch = "wasm32"),
         instrument(skip(self, query), fields(top_k = top_k))
@@ -117,28 +120,115 @@ impl Singularity {
             return Arc::from(Vec::new());
         }
 
-        // Filter concepts first to get candidate indices
-        let cand_start = crate::singularity::unix_now_ns();
-        let candidates: Vec<usize> = self
+        // ADR-0065: Compute selectivity ratio
+        let total_count = self.concepts.len();
+        let matching_count = self
             .concepts
-            .iter()
-            .filter(|(_, concept)| filter.matches(&concept.metadata))
-            .filter_map(|(id, _)| self.id_to_index.get(id).copied())
-            .collect();
-        let cand_ns = crate::singularity::unix_now_ns().saturating_sub(cand_start);
+            .values()
+            .filter(|c| filter.matches(&c.metadata))
+            .count();
+        let selectivity = matching_count as f32 / total_count as f32;
 
-        if candidates.is_empty() {
+        if matching_count == 0 {
             return Arc::from(Vec::new());
         }
 
-        self.scored_candidate_retrieval(crate::singularity_retrieval::ScoredCandidateParams {
-            query,
-            top_k,
-            candidates,
-            start_ns,
-            cand_ns,
-            source: crate::singularity_retrieval::CandidateSource::Metadata,
-            bypass_cache: true, // Always bypass cache for filtered queries for now
-        })
+        // ADR-0065: Route based on selectivity
+        // For small datasets (<20 concepts), always use PreFilter for correctness
+        let strategy = if total_count < 20 || selectivity < 0.3 {
+            FilterStrategy::PreFilter
+        } else if selectivity < 0.8 {
+            FilterStrategy::BucketPostFilter
+        } else {
+            FilterStrategy::ScanPostFilter
+        };
+
+        match strategy {
+            FilterStrategy::PreFilter => {
+                let cand_start = crate::singularity::unix_now_ns();
+                let candidates: Vec<usize> = self
+                    .concepts
+                    .iter()
+                    .filter(|(_, concept)| filter.matches(&concept.metadata))
+                    .filter_map(|(id, _)| self.id_to_index.get(id).copied())
+                    .collect();
+                let cand_ns = crate::singularity::unix_now_ns().saturating_sub(cand_start);
+
+                self.scored_candidate_retrieval_with_stats(
+                    crate::singularity_retrieval::ScoredCandidateParams {
+                        query,
+                        top_k,
+                        candidates,
+                        start_ns,
+                        cand_ns,
+                        source: CandidateSource::Metadata,
+                        bypass_cache: true,
+                    },
+                    selectivity,
+                    Some(strategy),
+                )
+            }
+            FilterStrategy::BucketPostFilter => {
+                let cand_start = crate::singularity::unix_now_ns();
+                let candidates = self.generate_bucket_candidates(query);
+                let cand_ns = crate::singularity::unix_now_ns().saturating_sub(cand_start);
+
+                let all_results = self.scored_candidate_retrieval_with_stats(
+                    crate::singularity_retrieval::ScoredCandidateParams {
+                        query,
+                        top_k: top_k * 2,
+                        candidates,
+                        start_ns,
+                        cand_ns,
+                        source: CandidateSource::Bucket,
+                        bypass_cache: true,
+                    },
+                    selectivity,
+                    Some(strategy),
+                );
+
+                let filtered: Vec<(String, f32)> = all_results
+                    .iter()
+                    .filter(|(id, _)| {
+                        self.concepts
+                            .get(id)
+                            .map(|c| filter.matches(&c.metadata))
+                            .unwrap_or(false)
+                    })
+                    .take(top_k)
+                    .map(|(id, score)| (id.clone(), *score))
+                    .collect();
+                Arc::from(filtered)
+            }
+            FilterStrategy::ScanPostFilter => {
+                let all_results = self.exact_similarity_scan(query, top_k * 2, start_ns, true);
+
+                let filtered: Vec<(String, f32)> = all_results
+                    .iter()
+                    .filter(|(id, _)| {
+                        self.concepts
+                            .get(id)
+                            .map(|c| filter.matches(&c.metadata))
+                            .unwrap_or(false)
+                    })
+                    .take(top_k)
+                    .map(|(id, score)| (id.clone(), *score))
+                    .collect();
+
+                // Update stats via direct call
+                if let Ok(mut s) = self.last_retrieval_stats.write() {
+                    *s = crate::singularity_retrieval::RetrievalStats {
+                        candidate_count: matching_count,
+                        scored_count: filtered.len(),
+                        fell_back_to_exact_scan: true,
+                        candidate_ns: 0,
+                        scoring_ns: 0,
+                        selectivity_ratio: selectivity,
+                        filter_strategy: Some(strategy),
+                    };
+                }
+                Arc::from(filtered)
+            }
+        }
     }
 }

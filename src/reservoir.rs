@@ -1,16 +1,14 @@
 //! Echo State Network for temporal dynamics.
 
+use crate::error::{MemoryError, Result};
+use crate::hyperdim::HVec10240;
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
+#[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
+use rayon::prelude::*;
 use std::sync::atomic::{AtomicU64, Ordering};
 #[cfg(not(target_arch = "wasm32"))]
 use {std::time::Instant, tracing::instrument};
-
-#[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-use rayon::prelude::*;
-
-use crate::error::{MemoryError, Result};
-use crate::hyperdim::HVec10240;
 
 #[derive(Debug, Default)]
 struct ReservoirMetrics {
@@ -43,7 +41,6 @@ impl ReservoirMetrics {
         } else {
             total as f64 / count as f64
         };
-
         ReservoirMetricsSnapshot {
             reservoir_steps_total: self.steps_total.load(Ordering::Relaxed),
             avg_reservoir_step_latency_us: avg,
@@ -148,6 +145,7 @@ pub struct Reservoir {
     input_size: usize,
     state: Vec<f32>,
     scratch: Vec<f32>,
+    prev_state: Vec<f32>, // ADR-0064: t-1 state for inertia
     w_in: SparseWeights,
     w_res: SparseWeights,
     input_cache: Vec<f32>,
@@ -157,6 +155,7 @@ pub struct Reservoir {
     update_phase: usize,
     spectral_radius: f32,
     alpha: f32,
+    pub(crate) beta: f32, // ADR-0064: inertia coefficient
     metrics: ReservoirMetrics,
 }
 impl Reservoir {
@@ -179,7 +178,6 @@ impl Reservoir {
                 "Input size and reservoir size must be greater than zero".to_string(),
             ));
         }
-
         let mut rng = StdRng::seed_from_u64(seed);
 
         let w_in = SparseWeights::build(size, input_size, Self::INPUT_DEGREE, &mut rng);
@@ -201,6 +199,7 @@ impl Reservoir {
             input_size,
             state: vec![0.0; size],
             scratch: vec![0.0; size],
+            prev_state: vec![0.0; size], // ADR-0064
             w_in,
             w_res,
             input_cache: vec![0.0; input_size],
@@ -210,6 +209,7 @@ impl Reservoir {
             update_phase: 0,
             spectral_radius: Self::DEFAULT_RADIUS,
             alpha: Self::DEFAULT_ALPHA,
+            beta: 0.0, // ADR-0064: default no inertia
             metrics: ReservoirMetrics::default(),
         })
     }
@@ -250,14 +250,17 @@ impl Reservoir {
 
         let state = &self.state;
         let one_minus_alpha = 1.0 - self.alpha;
+        let beta = self.beta;
+        let prev_state = &self.prev_state;
         let update_phase = self.update_phase;
         for i in (update_phase..self.size).step_by(self.update_stride) {
             let res_sum = self.w_res.dot_row(i, state);
             let activated = fast_tanh(self.input_projection[i] + res_sum);
-            self.scratch[i] = state[i] * one_minus_alpha + activated * self.alpha;
+            let inertial = beta * (state[i] - prev_state[i]);
+            self.scratch[i] = state[i] * one_minus_alpha + activated * self.alpha + inertial;
         }
         self.update_phase = (update_phase + 1) % self.update_stride;
-
+        self.prev_state.copy_from_slice(&self.state);
         std::mem::swap(&mut self.state, &mut self.scratch);
 
         // Keep scratch in sync with state for the next partial-update step.
@@ -313,6 +316,7 @@ impl Reservoir {
     pub fn reset(&mut self) {
         self.state.fill(0.0);
         self.scratch.fill(0.0);
+        self.prev_state.fill(0.0);
     }
 
     /// Project state to hypervector (parallel on non-WASM)

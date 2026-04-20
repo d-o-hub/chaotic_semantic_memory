@@ -2892,3 +2892,267 @@ actions:
     description: |
       Separate cold/warm persistence benchmarks. Add shared-store contention benchmarks.
       Introduce realistic/worst-case retrieval fixtures.
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 60: RESEARCH-DRIVEN ENHANCEMENTS (2026-04-20)
+  # Source: plans/RESEARCH_2026_PAPERS.md
+  # Two HIGH-priority action chains derived from 2026 papers
+  # ═══════════════════════════════════════════════════════
+
+  # ─────────────────────────────────────────────────────────
+  # HIGH-1: InertialESN — Second-order reservoir dynamics
+  # Paper: Zhao et al., "Inertial ESN", Neurocomputing Apr 2026
+  # doi:10.1016/j.neucom.2026.133675
+  #
+  # GOAP target: inertial_reservoir_benchmarked = true
+  #
+  # Current state (reservoir.rs:250):
+  #   scratch[i] = state[i] * (1-α) + tanh(W_in·input + W_res·state) * α
+  #
+  # Target state (InertialESN Eq. 3):
+  #   scratch[i] = state[i]*(1-α) + tanh(W·state + W_in·input)*α + β*(state[i] - prev_state[i])
+  #   where β ∈ [0.0, 0.3] is the inertial momentum coefficient
+  #
+  # Deterministic topology (optional phase 2):
+  #   Replace SparseWeights::build_local_reservoir with cyclic-shift mixing operator
+  #   using low-discrepancy permutations (number-theoretic sequences)
+  #
+  # Action chain: ADR → implement → test → benchmark (cost: 11)
+  # ─────────────────────────────────────────────────────────
+
+  - name: write_adr_inertial_reservoir
+    preconditions:
+      core_modules_created: true
+      reservoir_to_hvec_div_zero: false
+    effects:
+      inertial_reservoir_adr_written: true
+    cost: 2
+    status: queued
+    file: docs/adr/ADR-006X-inertial-reservoir.md
+    description: |
+      Write ADR for InertialESN integration. Must cover:
+      1. Decision: Add optional second-order momentum to Reservoir::step()
+      2. Context: Current first-order leaky integrator limits long-range memory
+         (Paper: Zhao et al., Neurocomputing 2026, doi:10.1016/j.neucom.2026.133675)
+      3. Implementation approach:
+         a. Add `prev_state: Vec<f32>` field to Reservoir struct
+         b. Add `beta: f32` field (default 0.0 = backward-compatible)
+         c. Modify step() inner loop (reservoir.rs:247-251):
+            ```rust
+            let inertial = self.beta * (state[i] - self.prev_state[i]);
+            self.scratch[i] = state[i] * one_minus_alpha + activated * self.alpha + inertial;
+            ```
+         d. Copy state → prev_state before swap at line 254
+      4. Trade-offs:
+         - +1 Vec<f32> allocation (50K * 4 bytes = 200KB at default size)
+         - No API change: beta=0.0 recovers original behavior exactly
+         - Spectral radius constraint still applies (validated in paper)
+      5. Phase 2 (separate ADR): deterministic topology via cyclic-shift mixing
+      6. Consequences: Must update spectral radius estimation for β > 0
+
+  - name: implement_inertial_reservoir
+    preconditions:
+      inertial_reservoir_adr_written: true
+    effects:
+      inertial_reservoir_implemented: true
+    cost: 3
+    status: queued
+    file: src/reservoir.rs
+    description: |
+      Implement second-order inertial dynamics in Reservoir.
+
+      Changes to src/reservoir.rs:
+      1. Add fields to Reservoir struct (line ~140):
+         - `prev_state: Vec<f32>` — state at t-1 for momentum term
+         - `beta: f32` — inertial coefficient, default 0.0
+      2. Initialize in new_seeded() (line ~192):
+         - `prev_state: vec![0.0; size]`
+         - `beta: 0.0`
+      3. Add builder method:
+         - `pub fn with_beta(mut self, beta: f32) -> Result<Self>`
+         - Validate β ∈ [0.0, 0.5], error if outside range
+      4. Modify step() inner loop (line 247-251):
+         ```rust
+         for i in (update_phase..self.size).step_by(self.update_stride) {
+             let res_sum = self.w_res.dot_row(i, state);
+             let activated = fast_tanh(self.input_projection[i] + res_sum);
+             let inertial = self.beta * (state[i] - self.prev_state[i]);
+             self.scratch[i] = state[i] * one_minus_alpha + activated * self.alpha + inertial;
+         }
+         ```
+      5. Before state swap (line 254), copy current state to prev_state:
+         ```rust
+         self.prev_state.copy_from_slice(&self.state);
+         std::mem::swap(&mut self.state, &mut self.scratch);
+         ```
+      6. Update reset() to also zero prev_state
+      7. Hard constraint: reservoir.rs must stay ≤ 500 LOC
+
+  - name: test_inertial_reservoir
+    preconditions:
+      inertial_reservoir_implemented: true
+    effects:
+      inertial_reservoir_tested: true
+    cost: 3
+    status: queued
+    file: tests/reservoir_tests.rs
+    description: |
+      Test the inertial reservoir dynamics.
+
+      Test cases:
+      1. test_beta_zero_matches_original: Create two reservoirs, one with beta=0.0
+         (default), one without. Process same sequence. Assert states are identical.
+         This proves backward compatibility.
+      2. test_beta_positive_changes_dynamics: Create reservoir with beta=0.15.
+         Process sequence. Assert state differs from beta=0.0 (not equal).
+      3. test_beta_validation: Assert with_beta(0.6) returns error.
+         Assert with_beta(-0.1) returns error. Assert with_beta(0.3) succeeds.
+      4. test_inertial_memory_length: Process a distinctive input at step 0,
+         then feed noise for N steps. Compare state similarity to step-0 state
+         for beta=0.0 vs beta=0.2. Assert beta=0.2 retains more signal
+         (higher cosine similarity to original). This is the key scientific claim.
+      5. test_reset_clears_prev_state: Call reset(), verify prev_state is zeroed.
+
+      Validation: cargo test --all-features --quiet
+
+  - name: benchmark_inertial_reservoir
+    preconditions:
+      inertial_reservoir_tested: true
+    effects:
+      inertial_reservoir_benchmarked: true
+    cost: 3
+    status: queued
+    file: benches/benchmark.rs
+    description: |
+      Benchmark inertial vs standard reservoir dynamics.
+
+      Benchmarks to add/modify:
+      1. reservoir_step_beta0: Standard step (baseline, should match existing)
+      2. reservoir_step_beta015: Step with beta=0.15 (expected: <5% overhead from
+         prev_state copy + multiply-add per node)
+      3. reservoir_sequence_10_beta0 vs reservoir_sequence_10_beta015:
+         10-step sequence comparison
+      4. memory_retention_curve: Inject signal, measure cosine similarity decay
+         over 100 steps for beta=[0.0, 0.1, 0.2, 0.3]. Output as CSV for plotting.
+
+      Expected overhead: ~3-5% (one extra Vec copy + one multiply-add per active node)
+      Acceptance criterion: throughput regression < 10% at beta=0.15
+
+  # ─────────────────────────────────────────────────────────
+  # HIGH-2: Selectivity-aware filtered retrieval
+  # Paper: Amanbayev et al., "Filtered ANN Search", arXiv:2602.11443 Feb 2026
+  #
+  # GOAP target: selectivity_aware_retrieval_tested = true
+  #
+  # Current state (singularity_ext.rs:120-142):
+  #   find_similar_filtered() already pre-filters (filter → candidate list → score).
+  #   BUT: always uses Metadata candidate source, regardless of selectivity.
+  #
+  # Key insight from paper:
+  #   When selectivity < 0.2 (few candidates survive filter),
+  #   pre-filtering + scoring is optimal (what we already do).
+  #   When selectivity > 0.5 (most candidates survive filter),
+  #   bucket/graph candidate generation is faster than full metadata scan.
+  #   When selectivity ~ 1.0, use unfiltered path with post-filter on results.
+  #
+  # Enhancement: compute selectivity ratio, route to optimal strategy
+  #
+  # Action chain: ADR → implement → test (cost: 8)
+  # ─────────────────────────────────────────────────────────
+
+  - name: write_adr_selectivity_aware_retrieval
+    preconditions:
+      core_modules_created: true
+    effects:
+      selectivity_aware_retrieval_adr_written: true
+    cost: 2
+    status: queued
+    file: docs/adr/ADR-006X-selectivity-aware-retrieval.md
+    description: |
+      Write ADR for selectivity-aware filtered retrieval.
+
+      Decision: Route find_similar_filtered() to different candidate
+      generation strategies based on filter selectivity.
+
+      Context: Amanbayev et al. (arXiv:2602.11443, Feb 2026) show that
+      filtered ANN performance depends heavily on selectivity ratio
+      (filtered_count / total_count). Pre-filtering is optimal at low
+      selectivity, but at high selectivity the overhead of scanning all
+      concepts just to discard few is wasteful vs bucket/graph retrieval
+      with post-filter.
+
+      Approach:
+      1. Compute selectivity ratio: matching_count / total_count
+         (already available — concepts.iter().filter().count() on line 122)
+      2. Route based on ratio:
+         - ratio < 0.3: metadata pre-filter → score (current path, optimal)
+         - ratio ≥ 0.3 and ratio < 0.8: bucket candidate generation →
+           post-filter → score (uses RetrievalConfig from singularity_retrieval.rs)
+         - ratio ≥ 0.8: standard find_similar() → post-filter results
+      3. Expose selectivity ratio in RetrievalStats for observability
+
+      Trade-offs:
+      - One extra count pass over concepts to estimate selectivity
+      - Bucket/graph path may include non-matching candidates (post-filtered)
+      - Thresholds (0.3, 0.8) are configurable via RetrievalConfig
+
+  - name: implement_selectivity_aware_retrieval
+    preconditions:
+      selectivity_aware_retrieval_adr_written: true
+    effects:
+      selectivity_aware_retrieval_implemented: true
+    cost: 3
+    status: queued
+    file: src/singularity_ext.rs, src/singularity_retrieval.rs
+    description: |
+      Implement selectivity-adaptive routing in find_similar_filtered().
+
+      Changes to src/singularity_ext.rs (find_similar_filtered, line 109-143):
+      1. Before building candidate list, compute selectivity:
+         ```rust
+         let matching_count = self.concepts.values()
+             .filter(|c| filter.matches(&c.metadata))
+             .count();
+         let selectivity = matching_count as f32 / self.concepts.len() as f32;
+         ```
+      2. Route based on selectivity:
+         - Low (< 0.3): current path (pre-filter → score candidates)
+         - Medium (0.3-0.8): use bucket candidates from find_similar(),
+           then post-filter results by metadata
+         - High (≥ 0.8): call find_similar(query, top_k * 2), post-filter
+           results, truncate to top_k
+
+      Changes to src/singularity_retrieval.rs (RetrievalStats):
+      3. Add `selectivity_ratio: f32` field to RetrievalStats
+      4. Add `strategy_used: FilterStrategy` enum (PreFilter, BucketPostFilter, ScanPostFilter)
+
+      Hard constraint: singularity_ext.rs must stay ≤ 500 LOC
+
+  - name: test_selectivity_aware_retrieval
+    preconditions:
+      selectivity_aware_retrieval_implemented: true
+    effects:
+      selectivity_aware_retrieval_tested: true
+    cost: 3
+    status: queued
+    file: tests/retrieval_tests.rs
+    description: |
+      Test selectivity-aware filtered retrieval.
+
+      Test cases:
+      1. test_low_selectivity_uses_prefilter: Inject 1000 concepts with
+         varied metadata. Filter matches 10% (selectivity=0.1). Assert
+         RetrievalStats.strategy_used == PreFilter. Assert correct results.
+      2. test_high_selectivity_uses_scan: Filter matches 90% (selectivity=0.9).
+         Assert strategy_used == ScanPostFilter. Assert correct results.
+      3. test_medium_selectivity_uses_bucket: Filter matches 50%. Assert
+         strategy_used == BucketPostFilter. Assert correct results.
+      4. test_filtered_results_match_across_strategies: For a fixed dataset
+         and query, verify that all three strategies return the same top-k
+         results (modulo ordering ties). This proves correctness.
+      5. test_selectivity_ratio_in_stats: Verify RetrievalStats.selectivity_ratio
+         is populated and matches expected value.
+      6. test_empty_filter_matches_all: Filter that matches everything
+         (selectivity=1.0) returns same results as unfiltered find_similar().
+
+      Validation: cargo test --all-features --quiet

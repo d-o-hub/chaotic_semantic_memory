@@ -1,4 +1,8 @@
-@AGENTS.md
+# CLAUDE.md - Claude Code Specific Instructions
+
+This file contains instructions specific to Claude Code CLI. For general project instructions, see [AGENTS.md](AGENTS.md).
+
+---
 
 ## Agent Teams (TeamCreate)
 
@@ -189,7 +193,7 @@ Agents with `backendType: "in-process"` share the main Claude process:
 - Persist until session ends
 - Clean up via `TeamDelete` or session exit
 
-### Multi-Session 
+### Multi-Session (Boris Method)
 
 - Each session uses its own Git worktree
 - `/compact` at 50% context, `/clear` when switching tasks

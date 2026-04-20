@@ -15,9 +15,32 @@ world_state:
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
   action_last_completed: separate_agents_claude_md
-  orchestrator_last_run: workflow_finalized_2026_04_19
-  orchestrator_last_run_at_utc: 2026-04-19T19:00:00Z
+  orchestrator_last_run: research_high_prio_2026_04_20
+  orchestrator_last_run_at_utc: 2026-04-20T00:00:00Z
   ci_all_checks_passed: true
+
+  # ═══════════════════════════════════════════════════════
+  # Research-driven enhancements (2026-04-20)
+  # Source: plans/RESEARCH_2026_PAPERS.md
+  # ═══════════════════════════════════════════════════════
+
+  # HIGH-1: InertialESN — Second-order reservoir dynamics
+  # Paper: Zhao et al., "Inertial ESN", Neurocomputing Apr 2026
+  # State update: state[t] = (1-α)·state[t-1] + α·tanh(W·state+W_in·input) + β·(state[t-1]-state[t-2])
+  # Also: deterministic mixing operator replaces random sparse matrix
+  inertial_reservoir_adr_written: true
+  inertial_reservoir_implemented: true
+  inertial_reservoir_tested: true
+  inertial_reservoir_benchmarked: false  # Pending
+
+  # HIGH-2: Selectivity-aware filtered retrieval
+  # Paper: Amanbayev et al., "Filtered ANN Search", arXiv:2602.11443 Feb 2026
+  # Current find_similar_filtered() already pre-filters (line 122 singularity_ext.rs)
+  # Enhancement: selectivity-adaptive strategy (bucket vs graph vs scan) based on
+  # filter selectivity ratio = filtered_count / total_count
+  selectivity_aware_retrieval_adr_written: true
+  selectivity_aware_retrieval_implemented: true
+  selectivity_aware_retrieval_tested: true
 
   # Benchmark Optimization Analysis (2026-04-09) - COMPLETE
   benchmark_optimization_analysis_active: false

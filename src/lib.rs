@@ -76,6 +76,7 @@ mod persistence_versions;
 #[cfg(target_arch = "wasm32")]
 pub mod persistence_wasm;
 pub mod reservoir;
+mod reservoir_inertial; // ADR-0064
 pub mod retrieval;
 pub mod semantic_bridge;
 pub mod singularity;
