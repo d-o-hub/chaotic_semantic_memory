@@ -145,9 +145,9 @@ Before completing any task, verify:
 See: [agents-docs/hard-constraints.md](agents-docs/hard-constraints.md)
 
 ## Key Files
-**Core**: `src/singularity.rs`, `src/reservoir.rs`, `src/framework.rs`, `src/persistence.rs`
+**Core**: `src/singularity.rs`, `src/reservoir.rs`, `src/reservoir_inertial.rs`, `src/framework.rs`, `src/persistence.rs`
 **Bridge**: `src/semantic_bridge.rs`, `src/bridge_retrieval.rs`
-**Retrieval**: `src/retrieval/bm25.rs`, `src/retrieval/hybrid.rs`
+**Retrieval**: `src/retrieval/bm25.rs`, `src/retrieval/hybrid.rs`, `src/singularity_retrieval.rs`
 **CLI**: `src/cli/commands/query.rs`, `src/cli/commands/index_dir.rs`
 **State**: `plans/GOAP_STATE.md`, `plans/ACTIONS.md`
 
