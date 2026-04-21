@@ -85,7 +85,7 @@ impl Bm25Index {
             self.remove_document(id);
         }
 
-        let mut term_freqs = HashMap::new();
+        let mut term_freqs = HashMap::with_capacity(tokens.len().min(100));
         for token in tokens {
             let term = token.as_ref();
             // Arc interning - share term strings between documents and doc_freqs
@@ -97,8 +97,7 @@ impl Bm25Index {
                 let term_arc = self
                     .doc_freqs
                     .get_key_value(term)
-                    .map(|(k, _)| Arc::clone(k))
-                    .unwrap_or_else(|| Arc::from(term));
+                    .map_or_else(|| Arc::from(term), |(k, _)| Arc::clone(k));
 
                 term_freqs.insert(term_arc, 1);
             }
@@ -163,8 +162,8 @@ impl Bm25Index {
         let avgdl = self.total_length as f32 / n;
 
         // Compute unique query terms and their IDFs once
-        let mut query_terms = Vec::new();
-        let mut idf_values = Vec::new();
+        let mut query_terms = Vec::with_capacity(query_tokens.len());
+        let mut idf_values = Vec::with_capacity(query_tokens.len());
 
         // Use a set to handle duplicate tokens in query efficiently
         let mut seen_terms = HashSet::with_capacity(query_tokens.len());
