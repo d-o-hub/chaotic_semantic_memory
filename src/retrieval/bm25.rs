@@ -1,11 +1,37 @@
-#[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
+//! BM25 keyword search index for hybrid retrieval.
+//!
+//! Implements the Okapi BM25 ranking function for exact keyword matching.
+//! Used alongside HDC semantic search for improved short-query recall.
+//!
+//! # Algorithm
+//!
+//! BM25 scores documents based on:
+//! - Term frequency (TF) with saturation parameter k1
+//! - Inverse document frequency (IDF)
+//! - Document length normalization with parameter b
+//!
+//! # Example
+//!
+//! ```
+//! use chaotic_semantic_memory::retrieval::bm25::Bm25Index;
+//!
+//! let mut index = Bm25Index::new();
+//! index.add_document("doc1", &["hello", "world"]);
+//! index.add_document("doc2", &["hello", "rust"]);
+//!
+//! let results = index.search(&["hello", "world"], 10);
+//! assert_eq!(results[0].0, "doc1"); // Exact match ranks first
+//! ```
+
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
+use rayon::prelude::*;
 
 /// Configuration for BM25 ranking algorithm.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy)]
 pub struct Bm25Config {
     /// Controls term frequency saturation. Typical value: 1.2.
     pub k1: f32,
@@ -20,20 +46,20 @@ impl Default for Bm25Config {
 }
 
 /// A document in the BM25 index.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 struct Document {
     id: String,
-    term_freqs: HashMap<String, u32>,
+    term_freqs: HashMap<Arc<str>, u32>,
     length: usize,
 }
 
 /// BM25-based document index for keyword search.
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default)]
 pub struct Bm25Index {
     config: Bm25Config,
     documents: Vec<Document>,
     doc_index: HashMap<String, usize>,
-    doc_freqs: HashMap<String, u32>,
+    doc_freqs: HashMap<Arc<str>, u32>,
     total_length: usize,
 }
 
@@ -62,10 +88,19 @@ impl Bm25Index {
         let mut term_freqs = HashMap::new();
         for token in tokens {
             let term = token.as_ref();
+            // Arc interning - share term strings between documents and doc_freqs
+            // Double lookup pattern to bypass lack of get_key_value_mut
             if let Some(count) = term_freqs.get_mut(term) {
                 *count += 1;
             } else {
-                term_freqs.insert(term.to_string(), 1);
+                // If term exists in index, reuse its Arc to save memory
+                let term_arc = self
+                    .doc_freqs
+                    .get_key_value(term)
+                    .map(|(k, _)| Arc::clone(k))
+                    .unwrap_or_else(|| Arc::from(term));
+
+                term_freqs.insert(term_arc, 1);
             }
         }
 
@@ -78,7 +113,7 @@ impl Bm25Index {
 
         // Update global document frequencies
         for term in doc.term_freqs.keys() {
-            *self.doc_freqs.entry(term.clone()).or_insert(0) += 1;
+            *self.doc_freqs.entry(Arc::clone(term)).or_insert(0) += 1;
         }
 
         self.total_length += length;
