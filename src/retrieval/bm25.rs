@@ -209,6 +209,9 @@ impl Bm25Index {
         let c1 = k1 * (1.0 - b);
         let c2 = k1 * b / avgdl;
 
+        // Pre-calculate weighted IDF values (hoisted from inner document loop)
+        let weighted_idf: Vec<f32> = idf_values.iter().map(|&idf| idf * k1_plus_1).collect();
+
         // Score each document - store index to avoid String clones (parallel when available)
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         let mut scores: Vec<(usize, f32)> = self
@@ -216,7 +219,7 @@ impl Bm25Index {
             .par_iter()
             .enumerate()
             .map(|(idx, doc)| {
-                let score = self.score_document(doc, &query_terms, &idf_values, k1_plus_1, c1, c2);
+                let score = self.score_document(doc, &query_terms, &weighted_idf, c1, c2);
                 (idx, score)
             })
             .filter(|(_, score)| *score > 0.0)
@@ -228,7 +231,7 @@ impl Bm25Index {
             .iter()
             .enumerate()
             .map(|(idx, doc)| {
-                let score = self.score_document(doc, &query_terms, &idf_values, k1_plus_1, c1, c2);
+                let score = self.score_document(doc, &query_terms, &weighted_idf, c1, c2);
                 (idx, score)
             })
             .filter(|(_, score)| *score > 0.0)
@@ -253,13 +256,16 @@ impl Bm25Index {
         &self,
         doc: &Document,
         query_terms: &[&str],
-        idf_values: &[f32],
-        k1_plus_1: f32,
+        weighted_idf: &[f32],
         c1: f32,
         c2: f32,
     ) -> f32 {
         let mut score = 0.0;
         let doc_len = doc.length as f32;
+
+        // Hoist document-level constant from the inner query-term loop.
+        // Uses f32::mul_add for performance where supported.
+        let den_base = c2.mul_add(doc_len, c1);
 
         for (i, term) in query_terms.iter().enumerate() {
             // Skip terms not in document
@@ -268,15 +274,14 @@ impl Bm25Index {
                 None => continue,
             };
 
-            let idf = idf_values[i];
-
             // BM25 term score using pre-calculated constants:
             // score = idf * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * doc_len / avgdl))
             // denominator = tf + k1 * (1 - b) + (k1 * b / avgdl) * doc_len
-            let numerator = tf * k1_plus_1;
-            let denominator = tf + c1 + c2 * doc_len;
+            // Optimized: score = (tf * weighted_idf) / (tf + den_base)
+            let numerator = tf * weighted_idf[i];
+            let denominator = tf + den_base;
 
-            score += idf * numerator / denominator;
+            score += numerator / denominator;
         }
 
         score
