@@ -2927,7 +2927,7 @@ actions:
     effects:
       inertial_reservoir_adr_written: true
     cost: 2
-    status: queued
+    status: complete
     file: docs/adr/ADR-006X-inertial-reservoir.md
     description: |
       Write ADR for InertialESN integration. Must cover:
@@ -2956,7 +2956,7 @@ actions:
     effects:
       inertial_reservoir_implemented: true
     cost: 3
-    status: queued
+    status: complete
     file: src/reservoir.rs
     description: |
       Implement second-order inertial dynamics in Reservoir.
@@ -3066,7 +3066,7 @@ actions:
     effects:
       selectivity_aware_retrieval_adr_written: true
     cost: 2
-    status: queued
+    status: complete
     file: docs/adr/ADR-006X-selectivity-aware-retrieval.md
     description: |
       Write ADR for selectivity-aware filtered retrieval.
@@ -3102,7 +3102,7 @@ actions:
     effects:
       selectivity_aware_retrieval_implemented: true
     cost: 3
-    status: queued
+    status: complete
     file: src/singularity_ext.rs, src/singularity_retrieval.rs
     description: |
       Implement selectivity-adaptive routing in find_similar_filtered().

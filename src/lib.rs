@@ -41,7 +41,7 @@ pub use semantic_bridge::{
     BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown,
 };
 pub use singularity::{Concept, ConceptBuilder};
-pub use singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats};
+pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats};
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod bridge_persistence;
@@ -65,6 +65,7 @@ pub mod graph_traversal;
 pub mod hyperdim;
 mod hyperdim_batch;
 pub mod metadata_filter;
+pub use metadata_filter::MetadataFilter;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 pub mod persistence;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
@@ -208,7 +209,9 @@ pub mod prelude {
     pub use crate::hyperdim::HVec10240;
     pub use crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket};
     pub use crate::singularity::{Concept, ConceptBuilder};
-    pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats};
+    pub use crate::singularity_retrieval::{
+        CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats,
+    };
 }
 
 #[cfg(target_arch = "wasm32")]

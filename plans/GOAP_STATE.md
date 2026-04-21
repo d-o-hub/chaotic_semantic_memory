@@ -14,9 +14,9 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: separate_agents_claude_md
-  orchestrator_last_run: research_high_prio_2026_04_20
-  orchestrator_last_run_at_utc: 2026-04-20T00:00:00Z
+  action_last_completed: implement_missing_tests_2026_04_21
+  orchestrator_last_run: goap_audit_2026_04_21
+  orchestrator_last_run_at_utc: 2026-04-21T00:00:00Z
   ci_all_checks_passed: true
 
   # ═══════════════════════════════════════════════════════
@@ -30,7 +30,7 @@ world_state:
   # Also: deterministic mixing operator replaces random sparse matrix
   inertial_reservoir_adr_written: true
   inertial_reservoir_implemented: true
-  inertial_reservoir_tested: true
+  inertial_reservoir_tested: true  # tests/reservoir_inertial_tests.rs implemented 2026-04-21
   inertial_reservoir_benchmarked: false  # Pending
 
   # HIGH-2: Selectivity-aware filtered retrieval
@@ -40,7 +40,7 @@ world_state:
   # filter selectivity ratio = filtered_count / total_count
   selectivity_aware_retrieval_adr_written: true
   selectivity_aware_retrieval_implemented: true
-  selectivity_aware_retrieval_tested: true
+  selectivity_aware_retrieval_tested: true  # tests/retrieval_selectivity_tests.rs implemented 2026-04-21
 
   # Benchmark Optimization Analysis (2026-04-09) - COMPLETE
   benchmark_optimization_analysis_active: false
@@ -129,69 +129,8 @@ world_state:
   benchmark_report_contract_complete: true
   pages_fallback_renders_html: true
   wasm_docs_match_generated_api: true
-  action_last_completed: complete_benchmark_report_contract
 
-  # Recent changes (2026-04-08)
-  recent_changes:
-    - "v0.3.0: Semantic Bridge Layer (Issue #52, ADR-0061), Hybrid BM25/HDC Retrieval (ADR-0062)"
-    - "ADR-0063: Database table prefix (csm_) for namespace isolation"
-    - "Schema migration v5: Rename tables with csm_ prefix for backward compatibility"
-    - "Encoder tests moved to tests/encoder_tests.rs for better organization"
-    - "WASM size gate: Fixed script to check library not CLI binary, increased limit to 1MB"
-    - "Merged PR #59: Security fix for bucket_probe_width overflow"
-    - "Merged PR #60: BM25 optimization (swap_remove, hoisted IDF)"
-
-  # Release Orchestration (2026-04-05)
-  release_orchestration_active: true
-  release_orchestration_completed: true
-  release_orchestration_team: release-orchestration
-  pr_49_status: merged
-  pr_49_merged_at: "2026-04-05T14:05:00Z"
-  pr_45_status: merged
-  pr_45_merged_at: "2026-04-05T14:05:00Z"
-  pr_51_status: merged
-  pr_51_merged_at: "2026-04-05T14:20:00Z"
-  issue_50_status: closed
-  issue_50_labels_added_to_issue: true
-  issue_50_milestone_assigned_to_issue: true
-  crates_io_v028_published: true
-  github_release_v028_created: true
-  npm_v028_published: false
-  npm_publish_blocked_reason: "OTP required - npm account requires one-time password authentication"
-  pr_40_status: merged
-  dependabot_alert_3: blocked_upstream
-  dependabot_alert_3_severity: medium
-  dependabot_alert_3_package: rustls-webpki
-  dependabot_alert_3_fix_version: ">=0.103.10"
-  dependabot_alert_3_current_version: "0.102.8"
-  dependabot_alert_3_transitive: true
-  dependabot_alert_3_chain: "libsql 0.4.0/0.9.30 -> hyper-rustls 0.25.0 -> rustls 0.22.4 -> rustls-webpki 0.102.8"
-  dependabot_alert_3_blocker: "No stable rustls-webpki >=0.103.10 exists; alpha 0.104.0-alpha.5 available but not production-ready"
-
-  # Issue #50 Release Guardrails
-  issue_50_status: closed
-  issue_50_pr: 51
-  issue_50_labels_created: true
-  issue_50_labels_added_to_issue: true
-  issue_50_milestone_created: true
-  issue_50_milestone_assigned_to_issue: true
-  issue_50_milestone: "v0.2.7"
-  issue_50_adr_0042_status: "Accepted"
-  issue_50_workflows_added: true
-  npm_missing_versions: ["0.2.6", "0.2.7", "0.2.8"]
-  npm_latest_published: "0.2.5"
-    - "Feature-gated dependencies: persistence, parallel, cli features (default includes all)"
-    - "Added TTL support: inject_concept_with_ttl, inject_text_with_ttl, purge_expired"
-    - "Added expires_at field to Concept struct"
-    - "Documented HDC vs semantic embeddings distinction in README"
-    - "Documented concurrency model: multi-instance safety, WAL mode, lock discipline"
-    - "Documented probe O(n) complexity and ANN deferred rationale"
-    - "Gated rayon behind 'parallel' feature for non-WASM builds"
-    - "Added stub persistence module when persistence feature disabled"
-    - "Fixed all test/benchmark files for expires_at field"
-    - "Created ADR-0060: Configurable Dimensions (deferred)"
-
-  # Recent changes (2026-03-22)
+  # Recent changes (consolidated)
   recent_changes:
     - "Documentation audit: fixed 21 discrepancies across 9 .md files against codebase"
     - "Fixed: ConceptBuilder::build() returns Result (README Quick Start)"
@@ -290,148 +229,83 @@ world_state:
   wave_20_queue_executable: 14
   wave_20_handoff_contracts_created: 5
   wave_20_status: queued
-  wave_11_name: "Release Engineering"
-  wave_11_started_at: "2026-02-19"
-  wave_11_focus: "Phase 25: Release automation, crates.io publishing, npm provenance"
-  wave_12_name: "Release Automation & v0.1.0"
-  wave_12_started_at: "2026-02-20"
-  wave_12_focus: "Phase 26: Fix release infrastructure, clean workspace, publish v0.1.0"
-  wave_13_name: "Security & Performance Hardening"
-  wave_13_started_at: "2026-02-26"
-  wave_13_focus: "Phase 27: Bincode size limits, error source chains, production expect fix, cache RwLock, path validation"
-  wave_14_name: "Real-World Readiness"
-  wave_14_started_at: "2026-02-28"
-  wave_14_focus: "Phase 29-31: Bug fixes, real-world examples, edge case tests"
+  # Completed waves 1-14, 17 — summary (detail in progress/WAVE_HISTORY.md)
+  waves_1_through_9_complete: true   # Swarm phases: fuzz, SIMD, logging, migration, pooling, export, versioning, CLI
+  waves_11_through_14_complete: true # Release engineering, security hardening, real-world readiness
+  wave_17_complete: true             # Performance follow-up & GOAP consistency
   all_waves_finished: false
-  wave_17_name: "Performance Follow-up & GOAP Consistency"
-  wave_17_started_at: "2026-03-09"
-  wave_17_focus: "Phase 48 + planning consistency fixes"
-  wave_17_complete: true
-  wave_9_completed:
-    group_a: cli_crate_scaffold
-    group_b: cli_commands_implementation
-    group_c: cli_tests_and_completions
-  wave_1_in_progress: {}
-  wave_1_completed:
-    group_a: create_fuzzing_targets
-    group_b: implement_simd_hypervector_ops
-    group_c: add_structured_logging
-    group_d: add_schema_migration_support
-  wave_2_queued: {}
-  wave_2_completed:
-    group_a: expand_edge_case_coverage
-    group_b: add_connection_pooling
-    group_c: improve_error_context
-    group_d: implement_export_import
-  wave_3_queued: {}
-  wave_3_completed:
-    group_a: enable_mutation_testing
-    group_b: add_framework_batch_operations
-    group_c: add_metrics_collection
-    group_d: add_concept_versioning
-  wave_4_queued: {}
-  wave_4_completed:
-    group_b: implement_concept_lru_cache
-    group_c: create_derive_macros
-    group_d: implement_backup_restore
-  wave_5_in_progress: {}
-  wave_5_completed:
-    group_a: benchmark_turso_roundtrip
-    group_b: validate_memory_footprint_10m
-    group_c: validate_wasm_binary_size
-    group_d: enforce_performance_goal_gate
-  wave_6_in_progress: {}
-  wave_6_completed:
-    group_a: finalize_testing_documentation
-    group_b: finalize_performance_benchmarks
-    group_c: finalize_observability_integration
-    group_d: finalize_advanced_features_validation
-  wave_7_in_progress: {}
-  wave_7_completed:
-    group_a: add_to_hypervector_benchmark + add_critical_error_path_tests
-    group_b: documentation + examples + cargo_aliases
-    group_c: singularity tracing + cache/reservoir metrics
-    group_d: wasm process sequence + memory export/import
-  wave_8_in_progress: {}
-  wave_8_completed:
-    group_a: batch_operations_tests (31 tests)
-    group_b: persistence_crud_tests (28 tests)
-    group_c: persistence_benchmarks + hvec_bundle_benchmarks
-    group_d: github_2026_files (badges, PR template, issue templates, llms-full.txt)
-    group_e: debug_impls + docs + loc_fix
-  
-  handoff_queue:
-    - "A->B: fuzz findings on malformed vectors before SIMD hardening"
-    - "B->D: persistence and batching compatibility notes before versioning/export"
-    - "C->All: tracing span and error-context conventions for new APIs"
-    - "D->All: schema migration version contracts before export/import/versioning"
-  handoff_artifacts:
-    - plans/handoffs/W1_A_to_B_fuzz_findings.md
-    - plans/handoffs/W1_B_to_D_perf_and_layout_notes.md
-    - plans/handoffs/W1_C_to_All_tracing_conventions.md
-    - plans/handoffs/W1_D_to_All_schema_constraints.md
-    - plans/handoffs/W5_A_to_B_turso_latency_profile.md
-    - plans/handoffs/W5_B_to_D_memory_budget_report.md
-    - plans/handoffs/W5_C_to_D_wasm_size_report.md
-    - plans/handoffs/W5_D_to_All_performance_gate_decision.md
-    - plans/handoffs/W6_A_to_All_testing_closure.md
-    - plans/handoffs/W6_B_to_All_performance_closure.md
-    - plans/handoffs/W6_C_to_All_observability_closure.md
-    - plans/handoffs/W6_D_to_All_features_closure.md
-    - plans/handoffs/W7_A_to_All_testing_pragmatism.md
-    - plans/handoffs/W7_B_to_All_documentation_dx.md
-    - plans/handoffs/W7_C_to_All_observability_completion.md
-    - plans/handoffs/W7_D_to_All_wasm_parity.md
-    - plans/handoffs/W8_A_to_All_batch_tests.md
-    - plans/handoffs/W8_B_to_All_crud_tests.md
-    - plans/handoffs/W8_C_to_All_persistence_benchmarks.md
-    - plans/handoffs/W8_D_to_All_github_standards.md
-    - plans/handoffs/W17_Phase48_Performance_Followup.md
-  phase_boundary_gate_pending: []
   swarm_status: active
-  all_waves_finished: false
   final_validation_passed: true
-  planning_gaps:
-    mutation_testing_action_missing: false
 
-  # Module status (LOC counts) - Updated 2026-04-11
+  # PR tracking
+  pr_94_status: open
+  pr_94_title: "perf(retrieval): optimize BM25 scoring loop"
+  pr_94_ci_passed: true
+  pr_94_source: jules_bot
+
+  # Release orchestration (completed)
+  release_orchestration_completed: true
+  issue_50_status: closed
+  crates_io_v028_published: true
+  github_release_v028_created: true
+  npm_v028_published: false
+  npm_publish_blocked_reason: "OTP required - npm account requires one-time password authentication"
+  npm_missing_versions: ["0.2.6", "0.2.7", "0.2.8"]
+  npm_latest_published: "0.2.5"
+  dependabot_alert_3: blocked_upstream
+  dependabot_alert_3_package: rustls-webpki
+  dependabot_alert_3_blocker: "No stable rustls-webpki >=0.103.10 exists"
+
+  # Module status (LOC counts) - Updated 2026-04-21
   modules:
-    lib.rs: 63
+    lib.rs: 217
     error.rs: 32
-    hyperdim.rs: 499
-    reservoir.rs: 496
-    singularity.rs: 494
-    singularity_retrieval.rs: 292
-    singularity_ext.rs: 159
-    persistence.rs: 469
-    persistence_wasm.rs: 109
-    framework.rs: 474
-    framework_ops.rs: 372
-    framework_validation.rs: 86
-    persistence_ops.rs: 262
-    export_payload.rs: 16
-    wasm.rs: 435
-    concept_builder.rs: 119
-    framework_builder.rs: 188
-    cli/mod.rs: 7
-    cli/args.rs: 130
-    cli/error.rs: 113
-    cli/commands/mod.rs: 107
-    cli/commands/inject.rs: 157
-    cli/commands/probe.rs: 151
-    cli/commands/associate.rs: 160
-    cli/commands/export.rs: 62
-    cli/commands/import.rs: 125
-    cli/commands/completions.rs: 42
-    bin/csm.rs: 93
+    hyperdim.rs: 500
+    reservoir.rs: 500
+    reservoir_inertial.rs: 34
+    singularity.rs: 447
+    singularity_retrieval.rs: 405
+    singularity_ext.rs: 234
+    persistence.rs: 491
+    persistence_ops.rs: 371
+    persistence_wasm.rs: 122
+    persistence_migrations.rs: 162
+    framework.rs: 491
+    framework_ops.rs: 476
+    framework_builder.rs: 248
+    framework_validation.rs: 184
+    framework_bridge.rs: 176
+    export_payload.rs: 174
+    concept_builder.rs: 164
+    encoder.rs: 329
+    graph_traversal.rs: 460
+    metadata_filter.rs: 200
+    bundle.rs: 178
+    wasm.rs: 469
+    wasm_ext.rs: 265
+    semantic_bridge.rs: 400
+    bridge_retrieval.rs: 386
+    bridge_persistence.rs: 293
+    retrieval/bm25.rs: 471
+    retrieval/hybrid.rs: 242
+    cli/args.rs: 228
+    cli/git_local.rs: 182
+    cli/commands/mod.rs: 115
+    cli/commands/query.rs: 282
+    cli/commands/index_dir.rs: 304
+    cli/commands/index_jsonl.rs: 153
+    cli/commands/inject.rs: 177
+    cli/commands/probe.rs: 154
+    cli/commands/associate.rs: 163
+    cli/commands/export.rs: 65
+    cli/commands/import.rs: 128
+    cli/commands/completions.rs: 45
+    bin/csm.rs: 160
 
-  # Test status - Updated 2026-04-11
-  unit_tests_passing: 22
+  # Test status - Updated 2026-04-21
+  tests_passing: 284
   integration_tests_exist: true
-  integration_tests_passing: 112
-  batch_operations_tests: 32
-  persistence_crud_tests: 29
-  total_tests: 102
+  total_tests: 284
 
   # Correctness issues (must fix)
   permute_shift_zero_bug: false
@@ -604,7 +478,6 @@ world_state:
   npm_provenance_publishing: true
   mdbook_docs_structure: true
   wave_11_complete: true
-  ci_all_checks_passed: true
 
   # Phase 26: Release Automation & v0.1.0 (cost: 16) - Wave 12
   release_workflow_fixed: true               # ADR-0042: Fixed release.yml workflow
