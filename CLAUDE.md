@@ -1,226 +1,98 @@
-# CLAUDE.md - Claude Code Specific Instructions
+# CLAUDE.md - Claude Code CLI Instructions
 
-This file contains instructions specific to Claude Code CLI. For general project instructions, see [AGENTS.md](AGENTS.md).
+**General project workflow**: See [AGENTS.md](AGENTS.md) for coding phases, validation gates, and session checklist.
 
 ---
 
 ## Agent Teams (TeamCreate)
 
-Use `TeamCreate` to spawn coordinated agents for complex multi-file tasks.
-
-### Team Workflow
+Spawn coordinated agents for complex multi-file tasks.
 
 ```
-TeamCreate → TaskCreate (for each subtask) → Agent (spawn teammates) → TaskUpdate (assign) → Monitor → Shutdown → TeamDelete
+TeamCreate → TaskCreate → Agent (spawn) → TaskUpdate (assign) → Monitor → Shutdown → TeamDelete
 ```
 
-### Example: Parallel Documentation Sync
+| subagent_type | Tools | Use Case |
+|---------------|-------|----------|
+| `general-purpose` | All | Full implementation |
+| `Explore` | Glob, Grep, Read | Codebase exploration |
+| `Plan` | All (no Edit/Write) | Architecture planning |
 
-```yaml
-# 1. Create team
-TeamCreate(team_name: "phase55-doc-sync", description: "Documentation sync")
-
-# 2. Create tasks
-TaskCreate(subject: "Update AGENTS.md")
-TaskCreate(subject: "Update README.md")
-
-# 3. Spawn agents with team_name
-Agent(name: "doc-writer-1", team_name: "phase55-doc-sync", prompt: "Update AGENTS.md...")
-Agent(name: "doc-writer-2", team_name: "phase55-doc-sync", prompt: "Update README.md...")
-
-# 4. Assign tasks
-TaskUpdate(taskId: "1", owner: "doc-writer-1")
-TaskUpdate(taskId: "2", owner: "doc-writer-2")
-
-# 5. Monitor via idle notifications (automatic)
-
-# 6. Shutdown when complete
-SendMessage(to: "doc-writer-1", message: {type: "shutdown_request", reason: "Complete"})
-
-# 7. Clean up
-TeamDelete()
-```
-
-### Agent Types (subagent_type)
-
-| Type | Use Case | Tools |
-|------|----------|-------|
-| `general-purpose` | Full implementation | All tools |
-| `Explore` | Codebase exploration | Glob, Grep, Read (no Edit) |
-| `Plan` | Architecture planning | All tools (no Edit/Write) |
-
-### Task Dependency Management
-
-```yaml
-# Blocked task waits for dependency
-TaskUpdate(taskId: "2", addBlockedBy: ["1"])  # Task 2 waits for Task 1
-
-# Check blocked status
-TaskList()  # Shows blockedBy for each task
-
-# After Task 1 completes, Task 2 becomes unblocked
-```
+**Task blocking**: `TaskUpdate(taskId: "2", addBlockedBy: ["1"])`
 
 ---
 
 ## Specialist Skills
 
-Skills are loaded on-demand via `/skill-name` or auto-triggered by description match.
+Loaded on-demand via `/skill-name` or auto-triggered by description.
 
-### Core Skills
+| Core Skills | Purpose |
+|-------------|---------|
+| `rust-development` | Implement/refactor modules |
+| `testing-validation` | Compile/test/lint/LOC gates |
+| `goap-planning` | Action plans from GOAP_STATE |
+| `adr-creation` | ADR documents |
+| `github-ci-guardrails` | CI via gh CLI |
+| `git-workflow` | Commit conventions |
 
-| Skill | Trigger | Purpose |
-|-------|---------|---------|
-| `rust-development` | Rust code changes | Implement/refactor modules |
-| `testing-validation` | Validation gates | Compile/test/lint/LOC |
-| `goap-planning` | Planning tasks | Build action plans from state |
-| `adr-creation` | Architecture changes | Write ADR documents |
-| `github-ci-guardrails` | Pre-merge checks | Validate CI via gh CLI |
-| `git-workflow` | Git operations | Commit conventions, CI/CD |
-| `release-management` | Publishing | GitHub releases, crates.io |
-| `benchmarking-perf` | Performance | Criterion benchmarks |
-
-### Swarm Skills (Parallel Groups)
-
-| Skill | Focus Area |
-|-------|------------|
-| `swarm-testing-quality` | Property testing, fuzzing |
-| `swarm-performance` | SIMD, pooling, caching |
+| Swarm Skills | Focus |
+|--------------|-------|
+| `swarm-testing-quality` | Proptest, fuzzing |
+| `swarm-performance` | SIMD, pooling |
 | `swarm-observability` | Tracing, metrics |
-| `swarm-advanced-features` | Export/import, migrations |
-
-### Skill Invocation
-
-```bash
-# Manual invoke
-/skill-name
-
-# Auto-trigger (skill description matches task)
-# Skills are in .claude/skills/<skill>/SKILL.md
-```
 
 ---
 
 ## Hooks System
 
-Hooks are deterministic callbacks in `.claude/settings.json`. Where AGENTS.md is advisory (~70% followed), hooks are mandatory.
+Mandatory callbacks in `.claude/settings.json` (AGENTS.md is advisory ~70%).
 
-### Hook Types
-
-| Hook | When | Use Case |
-|------|------|----------|
-| `PreToolUse` | Before tool call | Route risky ops to Opus |
-| `PostToolUse` | After tool call | Auto-format after edit |
-| `Stop` | Before "done" | Verify work complete |
-
-### Example: PostToolUse Auto-Format
-
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Edit",
-        "hooks": ["cargo fmt --quiet"]
-      }
-    ]
-  }
-}
-```
+| Hook | When | Example |
+|------|------|---------|
+| `PreToolUse` | Before tool | Route risky ops to Opus |
+| `PostToolUse` | After tool | `cargo fmt --quiet` on Edit |
+| `Stop` | Before done | Verify work complete |
 
 ---
 
 ## Plan Mode
 
-Use `EnterPlanMode` for tasks requiring 3+ steps or architectural decisions.
+Use `EnterPlanMode` for 3+ steps or architectural decisions.
 
-### Plan Mode Workflow
+**Workflow**: `EnterPlanMode → Explore → Write Plan → ExitPlanMode → Implement`
 
-```
-EnterPlanMode → Explore → Write Plan → ExitPlanMode (requests approval) → Implement
-```
-
-### When to Use
-
-- Adding new features (architectural decisions)
-- Refactoring multiple files
-- Making trade-off decisions
-- User preference matters
-
-### When NOT to Use
-
-- Simple fixes (typos, obvious bugs)
-- Single-file edits with clear requirements
-- Research/exploration tasks
+**Avoid for**: Simple fixes, single-file edits, research tasks.
 
 ---
 
 ## Auto-Memory
 
-Memory persists across conversations at:
-```
-~/.claude/projects/-home-do-git-chaotic-semantic-memory/memory/
-```
+Persists at: `~/.claude/projects/-home-do-git-chaotic-semantic-memory/memory/`
 
-### Memory Files
+- `MEMORY.md` — Always loaded (<200 lines)
+- Topic files — Linked from MEMORY.md
 
-- `MEMORY.md` — Always loaded (keep under 200 lines)
-- Topic files (e.g., `debugging.md`, `patterns.md`) — Linked from MEMORY.md
-
-### Memory Rules
-
-- Save stable patterns confirmed across multiple interactions
-- Don't save session-specific context
-- Update/remove outdated memories
-- Never duplicate CLAUDE.md or AGENTS.md content
+**Rules**: Save stable patterns only; no session context; never duplicate AGENTS.md.
 
 ---
 
 ## Session Management
 
-### Cleanup Stale Resources
-
-```bash
-rm -rf ~/.claude/teams/<team-name> ~/.claude/tasks/<team-name>
-```
-
-Or use `/exit` to terminate all in-process agents.
-
-### In-Process Agents
-
-Agents with `backendType: "in-process"` share the main Claude process:
-- Cannot be killed by shutdown requests
-- Persist until session ends
-- Clean up via `TeamDelete` or session exit
-
-### Multi-Session (Boris Method)
-
-- Each session uses its own Git worktree
-- `/compact` at 50% context, `/clear` when switching tasks
-- Plan → Execute → Verify loop
+- **Cleanup**: `rm -rf ~/.claude/teams/<team>` or `/exit`
+- **In-process agents**: Persist until session ends (can't be killed by shutdown)
+- **Multi-session**: Git worktree per session; `/compact` at 50% context
 
 ---
 
 ## Message Protocol
 
-### Shutdown Request/Response
-
 ```json
-// Request
-SendMessage(to: "agent-name", message: {type: "shutdown_request", reason: "Complete"})
+// Shutdown
+SendMessage(to: "agent", message: {type: "shutdown_request", reason: "..."})
+SendMessage(to: "lead", message: {type: "shutdown_response", request_id: "x", approve: true})
 
-// Response (agent must send)
-SendMessage(to: "team-lead", message: {type: "shutdown_response", request_id: "xxx", approve: true})
-```
-
-### Plan Approval
-
-```json
-// Request (from ExitPlanMode)
-SendMessage(to: "team-lead", message: {type: "plan_approval_request", request_id: "xxx"})
-
-// Response
-SendMessage(to: "planner", message: {type: "plan_approval_response", request_id: "xxx", approve: true})
+// Plan approval
+SendMessage(to: "lead", message: {type: "plan_approval_response", request_id: "x", approve: true})
 ```
 
 ---
@@ -228,6 +100,5 @@ SendMessage(to: "planner", message: {type: "plan_approval_response", request_id:
 ## Context Efficiency
 
 - Keep CLAUDE.md under 200 lines
-- Each line must earn its place
-- Reference files via `@path/to/file` syntax
-- Use skills for on-demand loading (not every session)
+- Reference files via `@path/to/file`
+- Skills for on-demand loading
