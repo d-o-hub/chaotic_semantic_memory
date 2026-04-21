@@ -15,7 +15,15 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
    - `@plans/GOAP_STATE.md` — Current world state, completed phases, module LOC
    - `@plans/ACTIONS.md` — Queued actions and their preconditions
 
-2. **Understand the codebase structure** — Know where files live before editing:
+2. **Review ALL uncommitted changes** — Never start implementation without knowing the full scope:
+   ```bash
+   git status --short           # List ALL modified/untracked files
+   git diff HEAD                # Review content of pending changes
+   ```
+   - If unrelated changes exist, either commit them first or explicitly scope them out
+   - Document which pending changes are intentionally excluded from this session
+
+3. **Understand the codebase structure** — Know where files live before editing:
    - Core modules: `src/singularity.rs`, `src/reservoir.rs`, `src/framework.rs`
    - Persistence: `src/persistence.rs`, `src/persistence_ops.rs`
    - Retrieval: `src/retrieval/bm25.rs`, `src/retrieval/hybrid.rs`
@@ -111,12 +119,14 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 
 Before starting any task, verify:
 - [ ] GOAP_STATE.md loaded — know current state
+- [ ] ALL uncommitted changes reviewed via `git status --short`
 - [ ] Hard constraints understood — LOC <=500, spectral radius [0.9, 1.1]
 - [ ] CI baseline confirmed via `gh run list`
 
 Before completing any task, verify:
 - [ ] All validation gates pass (check, test, fmt, clippy)
 - [ ] CI workflow passes
+- [ ] GitHub Actions warnings/issues checked via `gh run view`
 - [ ] Pre-existing warnings fixed (not just new issues)
 - [ ] GOAP_STATE.md updated with `action_last_completed`
 - [ ] Learnings captured if new patterns discovered
