@@ -14,10 +14,16 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: implement_missing_tests_2026_04_21
+  action_last_completed: github_actions_security_audit_2026_04_21
   orchestrator_last_run: goap_audit_2026_04_21
   orchestrator_last_run_at_utc: 2026-04-21T00:00:00Z
   ci_all_checks_passed: true
+
+  # GitHub Actions Security Audit (2026-04-21)
+  codeql_missing_permissions_fixed: true
+  codeql_alerts_resolved: 4  # actions/missing-workflow-permissions in ci.yml
+  dependabot_alerts_open: 6  # rustls-webpki(3), rand(2), libsql-sqlite3-parser(1)
+  dependabot_blocked_upstream: true  # No stable rustls-webpki >=0.103.10 exists
 
   # ═══════════════════════════════════════════════════════
   # Research-driven enhancements (2026-04-20)
