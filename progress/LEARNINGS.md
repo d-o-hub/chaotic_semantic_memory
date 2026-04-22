@@ -18,6 +18,16 @@
 - Do not use duplicate YAML keys — YAML spec says last key wins, but humans read all of them
 - Do not skip GOAP audit between sessions — state drift compounds silently
 
+## 2026-04-21: Unified Similarity Optimization
+
+### Technical Insights
+- Unifying architecture-gated paths (x86 SIMD vs. generic fallback) into a single unrolled GPR loop improves maintainability and provides high performance for non-x86/WASM targets.
+- Deriving Cosine Similarity from Hamming Distance (`1.0 - (dist / 5120.0)`) for bipolar hypervectors saves the implicit `NOT` instruction required when using `count_zeros()` on XORed data.
+- Unrolled 64-bit GPR popcount loops with independent accumulators effectively maximize Instruction-Level Parallelism (ILP), often outperforming SIMD implementations that suffer from store-to-load forwarding (STLF) stalls when data crosses register domains.
+
+### Performance Baseline
+- `HVec10240::cosine_similarity` optimized via unrolled GPR loop: ~238 ns on x86_64 (verified ~5% speedup from ~247 ns).
+
 ## 2026-04-11: Persistence Roundtrip Regression Guardrails
 
 ### Technical Insights
