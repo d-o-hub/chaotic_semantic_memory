@@ -23,6 +23,7 @@
 //! assert_eq!(results[0].0, "doc1"); // Exact match ranks first
 //! ```
 
+use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -31,7 +32,7 @@ use std::sync::Arc;
 use rayon::prelude::*;
 
 /// Configuration for BM25 ranking algorithm.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Bm25Config {
     /// Controls term frequency saturation. Typical value: 1.2.
     pub k1: f32,
@@ -54,7 +55,7 @@ struct Document {
 }
 
 /// BM25-based document index for keyword search.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Bm25Index {
     config: Bm25Config,
     documents: Vec<Document>,
