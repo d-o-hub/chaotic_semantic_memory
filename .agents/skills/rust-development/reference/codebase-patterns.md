@@ -17,7 +17,7 @@ let results: Vec<_> = items.par_iter().map(|x| compute(x)).collect();
 let results: Vec<_> = items.iter().map(|x| compute(x)).collect();
 ```
 
-Currently gated in: `hyperdim.rs`, `reservoir.rs`, `singularity.rs`.
+Currently gated in: `hyperdim.rs`, `reservoir.rs`, `singularity.rs`, `bm25.rs`.
 
 ## Sparse Reservoir Weights
 Reservoir uses `Vec<Vec<(usize, f32)>>` adjacency lists, NOT dense `Array2`:

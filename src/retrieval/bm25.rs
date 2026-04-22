@@ -192,7 +192,7 @@ impl Bm25Index {
         let c1 = k1 * (1.0 - b);
         let c2 = k1 * b / avgdl;
 
-        // Pre-calculate weighted IDF values: idf * (k1 + 1)
+        // Pre-calculate weighted IDF values (hoisted from inner document loop)
         let weighted_idf: Vec<f32> = idf_values.iter().map(|&idf| idf * k1_plus_1).collect();
 
         // Score each document - store index to avoid String clones (parallel when available)
@@ -246,7 +246,8 @@ impl Bm25Index {
         let mut score = 0.0;
         let doc_len = doc.length as f32;
 
-        // Document-length normalization denominator base (constant for all terms in this doc)
+        // Hoist document-level constant from the inner query-term loop.
+        // Uses f32::mul_add for performance where supported.
         let den_base = c2.mul_add(doc_len, c1);
 
         for (i, term) in query_terms.iter().enumerate() {
@@ -259,6 +260,7 @@ impl Bm25Index {
             // BM25 term score using pre-calculated constants:
             // score = idf * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * doc_len / avgdl))
             // denominator = tf + k1 * (1 - b) + (k1 * b / avgdl) * doc_len
+            // Optimized: score = (tf * weighted_idf) / (tf + den_base)
             let numerator = tf * weighted_idf[i];
             let denominator = tf + den_base;
 
