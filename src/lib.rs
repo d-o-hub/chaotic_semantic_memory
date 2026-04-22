@@ -46,6 +46,8 @@ pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod bridge_persistence;
 pub mod bridge_retrieval;
+pub mod memory_governance;
+pub mod semantic_triples;
 pub mod bundle;
 #[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]
 pub mod cli;
