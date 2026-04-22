@@ -1,10 +1,12 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use chaotic_semantic_memory::memory_governance::{GovernancePolicy, DecayPolicy};
+use chaotic_semantic_memory::memory_governance::{DecayPolicy, GovernancePolicy};
 use chaotic_semantic_memory::singularity::ConceptBuilder;
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_governance(c: &mut Criterion) {
     let policy = GovernancePolicy {
-        decay: Some(DecayPolicy::Exponential { half_life_secs: 100 }),
+        decay: Some(DecayPolicy::Exponential {
+            half_life_secs: 100,
+        }),
         ..Default::default()
     };
 

@@ -6,7 +6,6 @@
 //! as memory decay, conflict resolution, and privacy controls, preventing
 //! "zombie memories" from contaminating the context window.
 
-
 use crate::metadata_filter::MetadataFilter;
 use crate::singularity::Concept;
 use serde::{Deserialize, Serialize};
@@ -85,7 +84,9 @@ impl GovernancePolicy {
                     // Optional: store decay factor in metadata for downstream confidence weighting
                     managed_concept.metadata.insert(
                         "governance_decay_factor".to_string(),
-                        serde_json::Value::Number(serde_json::Number::from_f64(decay_factor as f64).unwrap())
+                        serde_json::Value::Number(
+                            serde_json::Number::from_f64(decay_factor as f64).unwrap(),
+                        ),
                     );
                 }
                 DecayPolicy::FixedExpiration { ttl_secs } => {
@@ -105,7 +106,7 @@ impl GovernancePolicy {
 #[cfg(test)]
 mod tests {
     use super::*;
-        use crate::singularity::ConceptBuilder;
+    use crate::singularity::ConceptBuilder;
 
     #[test]
     fn test_privacy_filtering() {
@@ -121,43 +122,78 @@ mod tests {
             .with_metadata("tenant_id", "tenant-1")
             .with_metadata("ssn", "123-456-7890")
             .with_metadata("public_info", "hello")
-            .build().unwrap();
+            .build()
+            .unwrap();
 
         let applied = policy.apply(concept, 100).unwrap();
-        assert_eq!(applied.metadata.get("tenant_id").unwrap().as_str().unwrap(), "tenant-1");
-        assert_eq!(applied.metadata.get("public_info").unwrap().as_str().unwrap(), "hello");
-        assert!(!applied.metadata.contains_key("ssn"), "SSN should be redacted");
+        assert_eq!(
+            applied.metadata.get("tenant_id").unwrap().as_str().unwrap(),
+            "tenant-1"
+        );
+        assert_eq!(
+            applied
+                .metadata
+                .get("public_info")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "hello"
+        );
+        assert!(
+            !applied.metadata.contains_key("ssn"),
+            "SSN should be redacted"
+        );
 
         let concept_wrong_tenant = ConceptBuilder::new("c2")
             .with_metadata("tenant_id", "tenant-2")
-            .build().unwrap();
+            .build()
+            .unwrap();
 
         let applied_wrong = policy.apply(concept_wrong_tenant, 100);
-        assert!(applied_wrong.is_none(), "Concept should be filtered due to visibility constraint");
+        assert!(
+            applied_wrong.is_none(),
+            "Concept should be filtered due to visibility constraint"
+        );
     }
 
     #[test]
     fn test_exponential_decay() {
         let policy = GovernancePolicy {
-            decay: Some(DecayPolicy::Exponential { half_life_secs: 100 }),
+            decay: Some(DecayPolicy::Exponential {
+                half_life_secs: 100,
+            }),
             ..Default::default()
         };
 
-        let concept = ConceptBuilder::new("c1")
-            .build().unwrap(); // Assume modified_at is ~current time
+        let concept = ConceptBuilder::new("c1").build().unwrap(); // Assume modified_at is ~current time
 
         // Current time is same as creation/modification time -> decay_factor = 1.0
         let applied_now = policy.apply(concept.clone(), concept.modified_at).unwrap();
-        let decay_now = applied_now.metadata.get("governance_decay_factor").unwrap().as_f64().unwrap();
+        let decay_now = applied_now
+            .metadata
+            .get("governance_decay_factor")
+            .unwrap()
+            .as_f64()
+            .unwrap();
         assert_eq!(decay_now, 1.0);
 
         // 100 seconds later (1 half-life) -> decay_factor = 0.5
-        let applied_1_hl = policy.apply(concept.clone(), concept.modified_at + 100).unwrap();
-        let decay_1_hl = applied_1_hl.metadata.get("governance_decay_factor").unwrap().as_f64().unwrap();
+        let applied_1_hl = policy
+            .apply(concept.clone(), concept.modified_at + 100)
+            .unwrap();
+        let decay_1_hl = applied_1_hl
+            .metadata
+            .get("governance_decay_factor")
+            .unwrap()
+            .as_f64()
+            .unwrap();
         assert!((decay_1_hl - 0.5).abs() < 0.001);
 
         // 500 seconds later (5 half-lives) -> decay_factor = (0.5)^5 = 0.03125 (Below threshold of 0.05)
         let applied_zombie = policy.apply(concept.clone(), concept.modified_at + 500);
-        assert!(applied_zombie.is_none(), "Memory should be considered zombie and filtered");
+        assert!(
+            applied_zombie.is_none(),
+            "Memory should be considered zombie and filtered"
+        );
     }
 }

@@ -5,7 +5,6 @@
 //! into compact semantic triples (Subject, Predicate, Object) to drastically
 //! reduce token overhead and improve retrieval precision.
 
-
 use serde::{Deserialize, Serialize};
 
 /// A semantic triple representing a discrete fact.
@@ -17,7 +16,11 @@ pub struct SemanticTriple {
 }
 
 impl SemanticTriple {
-    pub fn new(subject: impl Into<String>, predicate: impl Into<String>, object: impl Into<String>) -> Self {
+    pub fn new(
+        subject: impl Into<String>,
+        predicate: impl Into<String>,
+        object: impl Into<String>,
+    ) -> Self {
         Self {
             subject: subject.into(),
             predicate: predicate.into(),
@@ -66,7 +69,7 @@ mod tests {
             triples: vec![
                 SemanticTriple::new("User", "prefers", "dark mode"),
                 SemanticTriple::new("User", "uses", "mobile app"),
-            ]
+            ],
         };
 
         let expected = "Summary: User preferences regarding UI\nFacts:\n- User prefers dark mode\n- User uses mobile app\n";
