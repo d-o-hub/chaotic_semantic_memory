@@ -227,3 +227,10 @@
 - Do not skip ADR review for cross-cutting changes (even within a group)
 - Do not merge swarm work without running full validation gates
 - Do not create circular dependencies between swarm groups
+
+## BM25 Scoring Optimization and WASM Fix (2026-03-10)
+- **Optimization**: Hoisted document-length normalization constants and pre-calculated weighted IDF values in the search hot path, achieving ~4% speedup.
+- **Instruction Mapping**: Utilized `f32::mul_add` for hardware acceleration.
+- **WASM Compatibility**: Gated `rayon` import with `#[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]` to resolve CI build failures.
+- **Memory Efficiency**: Restored `Arc<str>` interning for terms while removing transient `Serialize`/`Deserialize` to avoid dependency conflicts.
+- **API**: Enhanced `add_document` to be generic over `AsRef<str>` for better usability across the crate.

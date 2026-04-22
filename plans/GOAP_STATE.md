@@ -14,7 +14,7 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: optimize_cosine_similarity_unified_loop_2026_04_21
+  action_last_completed: retrieval_hot_path_optimized
   orchestrator_last_run: goap_audit_2026_04_21
   orchestrator_last_run_at_utc: 2026-04-21T00:00:00Z
   ci_all_checks_passed: true

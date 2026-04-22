@@ -23,6 +23,7 @@
 //! assert_eq!(results[0].0, "doc1"); // Exact match ranks first
 //! ```
 
+use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -30,12 +31,12 @@ use std::sync::Arc;
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
 
-/// BM25 parameters.
-#[derive(Debug, Clone, Copy)]
+/// Configuration for BM25 ranking algorithm.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Bm25Config {
-    /// Term frequency saturation parameter (default: 1.2)
+    /// Controls term frequency saturation. Typical value: 1.2.
     pub k1: f32,
-    /// Document length normalization parameter (default: 0.75)
+    /// Controls document length normalization. Typical value: 0.75.
     pub b: f32,
 }
 
@@ -48,106 +49,88 @@ impl Default for Bm25Config {
 /// A document in the BM25 index.
 #[derive(Debug, Clone)]
 struct Document {
-    /// Document ID.
     id: String,
-    /// Term frequencies in this document.
     term_freqs: HashMap<Arc<str>, u32>,
-    /// Document length (number of tokens).
     length: usize,
 }
 
-/// BM25 keyword search index.
-#[derive(Debug, Clone)]
+/// BM25-based document index for keyword search.
+#[derive(Debug, Clone, Default)]
 pub struct Bm25Index {
-    /// Indexed documents.
-    documents: Vec<Document>,
-    /// Document ID to index mapping.
-    doc_index: HashMap<String, usize>,
-    /// Document frequency for each term (number of docs containing term).
-    doc_freqs: HashMap<Arc<str>, u32>,
-    /// Total document length (for average calculation).
-    total_length: usize,
-    /// Configuration.
     config: Bm25Config,
-}
-
-impl Default for Bm25Index {
-    fn default() -> Self {
-        Self::new()
-    }
+    documents: Vec<Document>,
+    doc_index: HashMap<String, usize>,
+    doc_freqs: HashMap<Arc<str>, u32>,
+    total_length: usize,
 }
 
 impl Bm25Index {
     /// Create a new BM25 index with default configuration.
     pub fn new() -> Self {
-        Self::with_config(Bm25Config::default())
+        Self::default()
     }
 
     /// Create a new BM25 index with custom configuration.
     pub fn with_config(config: Bm25Config) -> Self {
         Self {
-            documents: Vec::new(),
-            doc_index: HashMap::new(),
-            doc_freqs: HashMap::new(),
-            total_length: 0,
             config,
+            ..Default::default()
         }
     }
 
     /// Add a document to the index.
     ///
-    /// If a document with the same ID exists, it is replaced.
+    /// If a document with the same ID already exists, it will be replaced.
     pub fn add_document<T: AsRef<str>>(&mut self, id: &str, tokens: &[T]) {
-        // Remove existing document if present
-        if let Some(&idx) = self.doc_index.get(id) {
-            self.remove_document_at(idx);
+        if self.doc_index.contains_key(id) {
+            self.remove_document(id);
         }
 
-        // Build term frequencies - count tokens first to minimize String allocations
-        // O(unique tokens) allocations instead of O(total tokens)
-        let mut local_freqs: HashMap<&str, u32> = HashMap::with_capacity(tokens.len().min(128));
+        let mut term_freqs = HashMap::with_capacity(tokens.len().min(100));
         for token in tokens {
-            *local_freqs.entry(token.as_ref()).or_insert(0) += 1;
-        }
-
-        // Convert unique tokens to Arcs once and update document frequencies
-        // Reuses existing Arcs from doc_freqs to eliminate redundant allocations
-        let mut term_freqs = HashMap::with_capacity(local_freqs.len());
-        for (term, count) in local_freqs {
-            let term_arc = if let Some(df) = self.doc_freqs.get_mut(term) {
-                *df += 1;
-                // Double lookup to get the Arc key, still faster than allocation
-                self.doc_freqs.get_key_value(term).unwrap().0.clone()
+            let term = token.as_ref();
+            // Arc interning - share term strings between documents and doc_freqs
+            // Double lookup pattern to bypass lack of get_key_value_mut
+            if let Some(count) = term_freqs.get_mut(term) {
+                *count += 1;
             } else {
-                let new_term: Arc<str> = Arc::from(term);
-                self.doc_freqs.insert(Arc::clone(&new_term), 1);
-                new_term
-            };
-            term_freqs.insert(term_arc, count);
+                // If term exists in index, reuse its Arc to save memory
+                let term_arc = self
+                    .doc_freqs
+                    .get_key_value(term)
+                    .map_or_else(|| Arc::from(term), |(k, _)| Arc::clone(k));
+
+                term_freqs.insert(term_arc, 1);
+            }
         }
 
-        // Add document
+        let length = tokens.len();
         let doc = Document {
             id: id.to_string(),
             term_freqs,
-            length: tokens.len(),
+            length,
         };
 
+        // Update global document frequencies
+        for term in doc.term_freqs.keys() {
+            *self.doc_freqs.entry(Arc::clone(term)).or_insert(0) += 1;
+        }
+
+        self.total_length += length;
         let idx = self.documents.len();
-        self.documents.push(doc);
         self.doc_index.insert(id.to_string(), idx);
-        self.total_length += tokens.len();
+        self.documents.push(doc);
     }
 
     /// Remove a document from the index.
     pub fn remove_document(&mut self, id: &str) {
-        if let Some(&idx) = self.doc_index.get(id) {
+        if let Some(idx) = self.doc_index.remove(id) {
             self.remove_document_at(idx);
         }
     }
 
     fn remove_document_at(&mut self, idx: usize) {
-        // O(1) removal using swap_remove - gives ownership of the document
+        // Use swap_remove - gives ownership of the document
         let doc = self.documents.swap_remove(idx);
 
         // Update document frequencies
@@ -180,8 +163,8 @@ impl Bm25Index {
         let avgdl = self.total_length as f32 / n;
 
         // Compute unique query terms and their IDFs once
-        let mut query_terms = Vec::new();
-        let mut idf_values = Vec::new();
+        let mut query_terms = Vec::with_capacity(query_tokens.len());
+        let mut idf_values = Vec::with_capacity(query_tokens.len());
 
         // Use a set to handle duplicate tokens in query efficiently
         let mut seen_terms = HashSet::with_capacity(query_tokens.len());
@@ -472,5 +455,33 @@ mod tests {
         let index = Bm25Index::with_config(config);
         assert_eq!(index.config.k1, 2.0);
         assert_eq!(index.config.b, 0.5);
+    }
+
+    #[test]
+    fn test_zero_length_document() {
+        let mut index = Bm25Index::new();
+        index.add_document("empty", &[] as &[&str]);
+        index.add_document("doc1", &["hello"]);
+
+        let results = index.search(&["hello"], 10);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, "doc1");
+    }
+
+    #[test]
+    fn test_single_term_query() {
+        let mut index = Bm25Index::new();
+        index.add_document("doc1", &["hello", "world"]);
+        let results = index.search(&["hello"], 10);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, "doc1");
+    }
+
+    #[test]
+    fn test_no_matching_terms() {
+        let mut index = Bm25Index::new();
+        index.add_document("doc1", &["hello", "world"]);
+        let results = index.search(&["rust"], 10);
+        assert!(results.is_empty());
     }
 }
