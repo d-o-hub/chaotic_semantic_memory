@@ -226,17 +226,17 @@ fn test_filtered_results_match_across_strategies() {
     let mut sing = Singularity::new();
 
     let target_vec = HVec10240::random();
-    let query_vec = target_vec.clone();
+    let query_vec = target_vec;
 
     let c_target = ConceptBuilder::new("target")
-        .with_vector(target_vec.clone())
+        .with_vector(target_vec)
         .with_metadata("type", json!("target"))
         .build()
         .unwrap();
     sing.inject(c_target).unwrap();
 
     for i in 0..25 {
-        let c = ConceptBuilder::new(&format!("noise{}", i))
+        let c = ConceptBuilder::new(format!("noise{}", i))
             .with_vector(HVec10240::random())
             .with_metadata("type", json!("noise"))
             .build()
@@ -259,7 +259,7 @@ fn test_filtered_results_match_across_strategies() {
     for i in 0..10 {
         let c = sing.get(&format!("noise{}", i)).unwrap().clone();
         let c_builder = ConceptBuilder::new(&c.id)
-            .with_vector(c.vector.clone())
+            .with_vector(c.vector)
             .with_metadata("type", json!("target"));
         sing.inject(c_builder.build().unwrap()).unwrap(); // Overwrite
     }
@@ -277,7 +277,7 @@ fn test_filtered_results_match_across_strategies() {
     for i in 10..24 {
         let c = sing.get(&format!("noise{}", i)).unwrap().clone();
         let c_builder = ConceptBuilder::new(&c.id)
-            .with_vector(c.vector.clone())
+            .with_vector(c.vector)
             .with_metadata("type", json!("target"));
         sing.inject(c_builder.build().unwrap()).unwrap(); // Overwrite
     }

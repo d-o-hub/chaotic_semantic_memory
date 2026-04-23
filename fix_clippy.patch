@@ -1,0 +1,24 @@
+--- tests/reservoir_inertial_tests.rs
++++ tests/reservoir_inertial_tests.rs
+@@ -105,8 +105,8 @@
+
+     let mut input = vec![0.5; 10];
+     for i in 0..100 {
+-        for j in 0..10 {
+-            input[j] = ((i + j) % 10) as f32 * 0.1;
++        for (j, item) in input.iter_mut().enumerate() {
++            *item = ((i + j) % 10) as f32 * 0.1;
+         }
+         r1.step(&input).unwrap();
+         r2.step(&input).unwrap();
+@@ -134,8 +134,8 @@
+     let noise = vec![0.0; 10];
+
+     for i in 0..100 {
+-        for j in 0..10 {
+-            signal[j] = ((i + j) % 10) as f32 * 0.1;
++        for (j, item) in signal.iter_mut().enumerate() {
++            *item = ((i + j) % 10) as f32 * 0.1;
+         }
+         r1.step(&signal).unwrap();
+         r2.step(&signal).unwrap();

@@ -1,0 +1,41 @@
+--- reservoir_inertial_tests.rs
++++ reservoir_inertial_tests.rs
+@@ -90,7 +90,6 @@
+     assert_eq!(r.beta(), 0.1);
+ }
+
+ #[test]
+ fn test_beta_positive_changes_dynamics() {
+-    let mut r1 = Reservoir::new_seeded(10, 256, 42).unwrap().with_beta(0.0).unwrap();
+-    let mut r2 = Reservoir::new_seeded(10, 256, 42).unwrap().with_beta(0.15).unwrap();
++    let mut r1 = Reservoir::new_seeded(10, 256, 42)
+--- /dev/null
++++ /dev/null
+@@ -101,8 +100,12 @@
+         r2.step(&input).unwrap();
+     }
+
+-    assert_ne!(r1.state(), r2.state(), "State with beta=0.15 should differ from beta=0.0");
++    assert_ne!(
++        r1.state(),
++        r2.state(),
++        "State with beta=0.15 should differ from beta=0.0"
++    );
+ }
+
+ #[test]
+ fn test_inertial_memory_length() {
+--- /dev/null
++++ /dev/null
+@@ -142,6 +145,11 @@
+     let sim1 = cosine_sim(&r1_state_0, r1.state());
+     let sim2 = cosine_sim(&r2_state_0, r2.state());
+
+-    assert!(sim2 > sim1, "beta=0.15 should retain memory longer than beta=0.0 (sim2: {}, sim1: {})", sim2, sim1);
++    assert!(
++        sim2 > sim1,
++        "beta=0.15 should retain memory longer than beta=0.0 (sim2: {}, sim1: {})",
++        sim2,
++        sim1
++    );
+ }
