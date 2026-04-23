@@ -89,3 +89,61 @@ fn test_beta_builder_is_chainable() {
 
     assert_eq!(r.beta(), 0.1);
 }
+
+#[test]
+fn test_beta_positive_changes_dynamics() {
+    let mut r1 = Reservoir::new_seeded(10, 256, 42).unwrap().with_beta(0.0).unwrap();
+    let mut r2 = Reservoir::new_seeded(10, 256, 42).unwrap().with_beta(0.15).unwrap();
+
+    let mut input = vec![0.5; 10];
+    for i in 0..100 {
+        for j in 0..10 {
+            input[j] = ((i + j) % 10) as f32 * 0.1;
+        }
+        r1.step(&input).unwrap();
+        r2.step(&input).unwrap();
+    }
+
+    assert_ne!(r1.state(), r2.state(), "State with beta=0.15 should differ from beta=0.0");
+}
+
+#[test]
+fn test_inertial_memory_length() {
+    let mut r1 = Reservoir::new_seeded(10, 256, 42).unwrap().with_beta(0.0).unwrap();
+    let mut r2 = Reservoir::new_seeded(10, 256, 42).unwrap().with_beta(0.15).unwrap();
+
+    let mut signal = vec![1.0; 10];
+    let noise = vec![0.0; 10];
+
+    for i in 0..100 {
+        for j in 0..10 {
+            signal[j] = ((i + j) % 10) as f32 * 0.1;
+        }
+        r1.step(&signal).unwrap();
+        r2.step(&signal).unwrap();
+    }
+
+    let r1_state_0 = r1.state().to_vec();
+    let r2_state_0 = r2.state().to_vec();
+
+    for _ in 0..30 {
+        r1.step(&noise).unwrap();
+        r2.step(&noise).unwrap();
+    }
+
+    let cosine_sim = |a: &[f32], b: &[f32]| -> f32 {
+        let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
+        let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
+        if norm_a == 0.0 || norm_b == 0.0 {
+            0.0
+        } else {
+            dot / (norm_a * norm_b)
+        }
+    };
+
+    let sim1 = cosine_sim(&r1_state_0, r1.state());
+    let sim2 = cosine_sim(&r2_state_0, r2.state());
+
+    assert!(sim2 > sim1, "beta=0.15 should retain memory longer than beta=0.0 (sim2: {}, sim1: {})", sim2, sim1);
+}

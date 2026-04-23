@@ -220,3 +220,78 @@ fn test_find_similar_filtered_respects_top_k() {
     let results = sing.find_similar_filtered(&query, 3, &filter);
     assert!(results.len() <= 3);
 }
+
+#[test]
+fn test_filtered_results_match_across_strategies() {
+    let mut sing = Singularity::new();
+
+    let target_vec = HVec10240::random();
+    let query_vec = target_vec.clone();
+
+    let c_target = ConceptBuilder::new("target")
+        .with_vector(target_vec.clone())
+        .with_metadata("type", json!("target"))
+        .build()
+        .unwrap();
+    sing.inject(c_target).unwrap();
+
+    for i in 0..25 {
+        let c = ConceptBuilder::new(&format!("noise{}", i))
+            .with_vector(HVec10240::random())
+            .with_metadata("type", json!("noise"))
+            .build()
+            .unwrap();
+        sing.inject(c).unwrap();
+    }
+
+    let filter = MetadataFilter::eq("type", "target");
+
+    // Selectivity = 1/26 = 0.038 (Pre filter)
+    let pre_results = sing.find_similar_filtered(&query_vec, 1, &filter);
+    assert_eq!(pre_results.len(), 1);
+    assert_eq!(pre_results[0].0, "target");
+    assert_eq!(
+        sing.last_retrieval_stats().filter_strategy,
+        Some(FilterStrategy::Pre)
+    );
+
+    // Make it medium selectivity (BucketPost filter)
+    for i in 0..10 {
+        let c = sing.get(&format!("noise{}", i)).unwrap().clone();
+        let c_builder = ConceptBuilder::new(&c.id)
+            .with_vector(c.vector.clone())
+            .with_metadata("type", json!("target"));
+        sing.inject(c_builder.build().unwrap()).unwrap(); // Overwrite
+    }
+
+    // Selectivity = 11/26 = 0.42
+    let bucket_results = sing.find_similar_filtered(&query_vec, 1, &filter);
+    assert_eq!(bucket_results.len(), 1);
+    assert_eq!(bucket_results[0].0, "target");
+    assert_eq!(
+        sing.last_retrieval_stats().filter_strategy,
+        Some(FilterStrategy::BucketPost)
+    );
+
+    // Make it high selectivity (ScanPost filter)
+    for i in 10..24 {
+        let c = sing.get(&format!("noise{}", i)).unwrap().clone();
+        let c_builder = ConceptBuilder::new(&c.id)
+            .with_vector(c.vector.clone())
+            .with_metadata("type", json!("target"));
+        sing.inject(c_builder.build().unwrap()).unwrap(); // Overwrite
+    }
+
+    // Selectivity = 25/26 = 0.96
+    let scan_results = sing.find_similar_filtered(&query_vec, 1, &filter);
+    assert_eq!(scan_results.len(), 1);
+    assert_eq!(scan_results[0].0, "target");
+    assert_eq!(
+        sing.last_retrieval_stats().filter_strategy,
+        Some(FilterStrategy::ScanPost)
+    );
+
+    // Ensure the top hit is consistent across all states
+    assert_eq!(pre_results[0].0, bucket_results[0].0);
+    assert_eq!(bucket_results[0].0, scan_results[0].0);
+}
