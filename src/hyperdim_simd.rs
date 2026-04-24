@@ -96,15 +96,15 @@ pub(crate) unsafe fn bind_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
 #[inline]
 #[target_feature(enable = "neon")]
 pub(crate) unsafe fn bind_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
-    use std::arch::aarch64::{uint64x2_t, veorq_u64, vld1q_u64, vst1q_u64};
+    use std::arch::aarch64::{veorq_u64, vld1q_u64, vst1q_u64};
 
     let mut out = [0u128; 80];
     for i in 0..80 {
-        // SAFETY: u128 is 16-byte aligned; we reinterpret as two 64-bit halves.
-        // Pointer arithmetic is within bounds of the [u128; 80] arrays.
-        let lhs_ptr = lhs.as_ptr().add(i) as *const uint64x2_t;
-        let rhs_ptr = rhs.as_ptr().add(i) as *const uint64x2_t;
-        let out_ptr = out.as_mut_ptr().add(i) as *mut uint64x2_t;
+        // SAFETY: u128 is 16-byte aligned; we cast to *const u64 which is correct
+        // for vld1q_u64. The pointer arithmetic is within bounds.
+        let lhs_ptr = lhs.as_ptr().add(i) as *const u64;
+        let rhs_ptr = rhs.as_ptr().add(i) as *const u64;
+        let out_ptr = out.as_mut_ptr().add(i) as *mut u64;
 
         let a = vld1q_u64(lhs_ptr);
         let b = vld1q_u64(rhs_ptr);
