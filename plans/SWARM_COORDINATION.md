@@ -40,8 +40,8 @@ Run ID: `goap_wave21_impl_queue_resolution_2026_04_24`
 | IQ-03 | `update_getrandom_wasm_flag` | ✅ complete | wasm_js feature enabled |
 | IQ-04 | `evaluate_bincode_to_postcard` | ⏳ deferred | v0.4.0 (backward compat) |
 | IQ-05..IQ-10 | skill-memory hardening | ✅ verified | Scripts already complete |
-| IQ-11 | `configure_npm_oidc_trusted_publisher` | 🔒 blocked | External account required |
-| IQ-12 | `automate_npm_publish_flow` | 🔒 blocked | Depends on IQ-11 |
+| IQ-11 | `configure_npm_oidc_trusted_publisher` | ✅ complete | OIDC working - v0.3.2 published |
+| IQ-12 | `automate_npm_publish_flow` | ✅ complete | npm workflow dispatch succeeded |
 | IQ-13 | `add_error_source_attributes` | ✅ complete | #[source] on all variants |
 | IQ-14 | `enhance_error_context_hints` | ✅ complete | Remediation hints added |
 | IQ-15 | `add_property_security_tests` | ✅ complete | 13 tests in security_proptest.rs |

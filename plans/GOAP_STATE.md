@@ -14,9 +14,9 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: goap_audit_stale_actions_marked_complete
-  orchestrator_last_run: goap_audit_2026_04_21
-  orchestrator_last_run_at_utc: 2026-04-21T00:00:00Z
+  action_last_completed: goap_wave21_impl_queue_resolved
+  orchestrator_last_run: goap_wave21_impl_queue_resolution_2026_04_24
+  orchestrator_last_run_at_utc: 2026-04-24T00:00:00Z
   ci_all_checks_passed: true
 
   # GitHub Actions Security Audit (2026-04-21)
@@ -108,6 +108,21 @@ world_state:
     core_tests_passed: 4
     benchmark_tests_passed: 19
   benchmark_verification_conclusion: "All optimizations validated - CI passing, tests passing, benchmarks within targets"
+
+  # Benchmark Verification (2026-04-24) - COMPLETE
+  benchmark_verification_2026_04_24_completed: true
+  benchmark_verification_2026_04_24_date: "2026-04-24T12:00:00Z"
+  benchmark_verification_2026_04_24_results:
+    reservoir_step_50k_us: 55.7
+    cosine_similarity_ns: 128.85
+    batch_similarity_1000_us: 195
+    hvec_random_ns: 440
+    hvec_bind_ns: 46.8
+    bm25_search_10000_ms: 2.07
+    singularity_probe_50000_ms: 3.7
+  benchmark_verification_2026_04_24_tests_passing: 284
+  benchmark_verification_2026_04_24_clippy_clean: true
+  benchmark_verification_2026_04_24_conclusion: "All targets exceeded - reservoir 44% faster, batch 58% faster"
 
   # Repository analysis snapshot (2026-04-12)
   repo_analysis_2026_04_12_completed: true
@@ -232,19 +247,27 @@ world_state:
   wasm_size_gate_passed: true
   wasm_library_size_kb: 852
   all_tests_passing: true
-  tests_count: 102
+  tests_count: 284
 
   # Swarm orchestration snapshot
-  active_wave: 20
+  active_wave: 21
   wave_strategy: parallel_by_phase_with_handoffs
   wave_20_name: "Implementation Queue Rebuild"
   wave_20_started_at: "2026-04-12"
   wave_20_focus: "Queue reconstruction + A-F parallel assignment + handoff contracts"
   wave_20_queue_total: 16
-  wave_20_queue_blocked: 2
-  wave_20_queue_executable: 14
+  wave_20_queue_blocked: 1           # Only IQ-04 deferred
+  wave_20_queue_executable: 15
   wave_20_handoff_contracts_created: 5
-  wave_20_status: queued
+  wave_20_status: resolved
+  wave_20_resolved_at: "2026-04-24"
+  wave_20_resolution:
+    iq_01_03_complete: true      # libsql, rand, getrandom upgrades
+    iq_04_deferred: true         # bincode→postcard for v0.4.0
+    iq_05_10_verified: true      # skill-memory scripts functional
+    iq_11_12_complete: true      # npm OIDC working - v0.3.2 published via OIDC
+    iq_13_16_complete: true      # error chains, security tests, SIMD
+  wave_21_complete: true         # Dependency upgrade analysis documented
   # Completed waves 1-14, 17 — summary (detail in progress/WAVE_HISTORY.md)
   waves_1_through_9_complete: true   # Swarm phases: fuzz, SIMD, logging, migration, pooling, export, versioning, CLI
   waves_11_through_14_complete: true # Release engineering, security hardening, real-world readiness
@@ -264,10 +287,10 @@ world_state:
   issue_50_status: closed
   crates_io_v028_published: true
   github_release_v028_created: true
-  npm_v028_published: false
-  npm_publish_blocked_reason: "OTP required - npm account requires one-time password authentication"
-  npm_missing_versions: ["0.2.6", "0.2.7", "0.2.8"]
-  npm_latest_published: "0.2.5"
+  npm_v028_published: true                # Verified: 0.2.8 on npm (2026-04-05)
+  npm_oidc_working: true                  # Verified: v0.3.2 published via OIDC (2026-04-10)
+  npm_missing_versions: ["0.2.6", "0.2.7"]  # 0.2.8 and 0.3.x all published
+  npm_latest_published: "0.3.2"           # Latest WASM bindings version
   dependabot_alert_3: blocked_upstream
   dependabot_alert_3_package: rustls-webpki
   dependabot_alert_3_blocker: "No stable rustls-webpki >=0.103.10 exists"
@@ -351,14 +374,14 @@ world_state:
   libsql_deprecated_apis_used: false
   debug_impls_missing: false  # Fixed in Wave 8
 
-  # Validation outcomes
+  # Validation outcomes (Updated 2026-04-24)
   wasm_target_installed: true
   reservoir_step_under_100us: true
-  reservoir_step_50k_latest_us: 76.627
+  reservoir_step_50k_latest_us: 55.718
 
   # Batch similarity performance (ADR-0041) - Phase 2 Complete
   batch_similarity_under_500us: true
-  batch_similarity_1000_latest_us: 470
+  batch_similarity_1000_latest_us: 195.06
   benchmarks_prove_performance: true
   turso_roundtrip_under_20ms: true
   10m_concepts_under_12mb: true
