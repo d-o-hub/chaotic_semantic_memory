@@ -19,8 +19,57 @@ env:
   CARGO_INCREMENTAL: 0
 
 jobs:
+  # Guardrail: Wait for CI workflow to complete successfully before releasing
+  wait-for-ci:
+    runs-on: ubuntu-24.04
+    outputs:
+      ci-passed: ${{ steps.check-ci.outputs.passed }}
+    steps:
+    - name: Wait for CI workflow to complete
+      id: check-ci
+      run: |
+        # Wait up to 10 minutes for CI workflow to complete
+        MAX_WAIT=600
+        SLEEP_INTERVAL=30
+        ELAPSED=0
+
+        while [ $ELAPSED -lt $MAX_WAIT ]; do
+          # Get the CI workflow run for this commit
+          CI_RUN=$(gh run list --workflow=ci.yml --commit ${{ github.sha }} --limit 1 --json conclusion,status --jq '.[0]' 2>/dev/null || echo '{"status":"queued"}')
+
+          CI_STATUS=$(echo "$CI_RUN" | jq -r '.status')
+          CI_CONCLUSION=$(echo "$CI_RUN" | jq -r '.conclusion')
+
+          echo "CI status: $CI_STATUS, conclusion: $CI_CONCLUSION"
+
+          if [ "$CI_STATUS" = "completed" ]; then
+            if [ "$CI_CONCLUSION" = "success" ]; then
+              echo "✅ CI passed"
+              echo "passed=true" >> $GITHUB_OUTPUT
+              exit 0
+            else
+              echo "❌ CI failed with conclusion: $CI_CONCLUSION"
+              echo "::error::CI workflow failed. Release blocked."
+              echo "passed=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          fi
+
+          echo "Waiting for CI to complete... ($ELAPSED/$MAX_WAIT seconds)"
+          sleep $SLEEP_INTERVAL
+          ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
+        done
+
+        echo "::error::Timeout waiting for CI workflow to complete"
+        echo "passed=false" >> $GITHUB_OUTPUT
+        exit 1
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   validate:
     runs-on: ubuntu-24.04
+    needs: wait-for-ci
+    if: needs.wait-for-ci.outputs.ci-passed == 'true'
     outputs:
       version: ${{ steps.version.outputs.version }}
       release-needed: ${{ steps.tag.outputs.release-needed }}
