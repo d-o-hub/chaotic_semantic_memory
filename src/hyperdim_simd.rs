@@ -90,21 +90,26 @@ pub(crate) unsafe fn bind_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
 }
 
 /// ARM NEON-optimized bind (128-bit XOR).
+/// Uses uint64x2_t to process each 128-bit word as two 64-bit halves.
 /// NEON is always available on aarch64.
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
 #[inline]
-pub(crate) fn bind_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
-    use std::arch::aarch64::{veorq_u128, vld1q_u128, vst1q_u128};
+#[target_feature(enable = "neon")]
+pub(crate) unsafe fn bind_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
+    use std::arch::aarch64::{uint64x2_t, veorq_u64, vld1q_u64, vst1q_u64};
 
     let mut out = [0u128; 80];
     for i in 0..80 {
-        // SAFETY: NEON intrinsics are safe on aarch64; u128 matches uint128x1_t.
-        unsafe {
-            let a = vld1q_u128(lhs.as_ptr().add(i));
-            let b = vld1q_u128(rhs.as_ptr().add(i));
-            let x = veorq_u128(a, b);
-            vst1q_u128(out.as_mut_ptr().add(i), x);
-        }
+        // SAFETY: u128 is 16-byte aligned; we reinterpret as two 64-bit halves.
+        // Pointer arithmetic is within bounds of the [u128; 80] arrays.
+        let lhs_ptr = lhs.as_ptr().add(i) as *const uint64x2_t;
+        let rhs_ptr = rhs.as_ptr().add(i) as *const uint64x2_t;
+        let out_ptr = out.as_mut_ptr().add(i) as *mut uint64x2_t;
+
+        let a = vld1q_u64(lhs_ptr);
+        let b = vld1q_u64(rhs_ptr);
+        let x = veorq_u64(a, b);
+        vst1q_u64(out_ptr, x);
     }
     out
 }

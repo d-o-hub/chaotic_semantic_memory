@@ -194,8 +194,11 @@ impl HVec10240 {
 
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
         {
+            // SAFETY: bind_simd_neon requires unsafe due to NEON intrinsics.
+            // The function is marked #[target_feature(enable = "neon")] which
+            // is always available on aarch64, making this call safe.
             Self {
-                data: bind_simd_neon(&self.data, &other.data),
+                data: unsafe { bind_simd_neon(&self.data, &other.data) },
             }
         }
 

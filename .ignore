@@ -2,3 +2,4 @@
 !.tmp/
 !*.tmp
 !*.tgz
+!memory_retention_curve.csv

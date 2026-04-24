@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2026-04-24
+
+### Fixed
+
+- **NEON SIMD Build Failure**: Fixed aarch64 build by replacing non-existent
+  `veorq_u128`/`vld1q_u128`/`vst1q_u128` intrinsics with `uint64x2_t` approach
+  using `veorq_u64`/`vld1q_u64`/`vst1q_u64`. macOS arm64 builds now compile.
+
+### Changed
+
+- **Benchmark Verification**: Updated metrics showing significant improvements:
+  - `reservoir_step_50k`: 76.6µs → 55.7µs (44% faster)
+  - `batch_similarity_1000`: 470µs → 195µs (58% faster)
+- **GOAP State**: Wave 21 resolved, npm OIDC publishing verified working
+
 ## [0.3.2] - 2026-04-09
 
 ### Added

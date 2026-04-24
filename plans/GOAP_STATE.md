@@ -25,6 +25,17 @@ world_state:
   dependabot_alerts_open: 6  # rustls-webpki(3), rand(2), libsql-sqlite3-parser(1)
   dependabot_blocked_upstream: true  # No stable rustls-webpki >=0.103.10 exists
 
+  # CI Fix (2026-04-24) - NEON SIMD Build Failure
+  neon_simd_build_failure_fixed: true
+  neon_simd_fix_description: "Replaced non-existent veorq_u128/vld1q_u128/vst1q_u128 with uint64x2_t approach"
+  neon_simd_fix_file: "src/hyperdim_simd.rs"
+  ci_macos_arm64_build: fixed
+
+  # Release Workflow Fix (2026-04-24)
+  release_workflow_make_latest_fixed: true
+  release_workflow_fix_description: "Added make_latest: true to softprops/action-gh-release"
+  release_workflow_fix_file: ".github/workflows/release.yml"
+
   # ═══════════════════════════════════════════════════════
   # Research-driven enhancements (2026-04-20)
   # Source: plans/RESEARCH_2026_PAPERS.md
