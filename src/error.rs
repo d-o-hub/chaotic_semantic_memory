@@ -4,39 +4,47 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum MemoryError {
-    #[error("Database error: {message}")]
+    #[error(
+        "Database error: {message}. Hint: check database connection and ensure migrations are applied"
+    )]
     Database {
         message: String,
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
 
-    #[error("Invalid input for '{field}': {reason}")]
+    #[error("Invalid input for '{field}': {reason}. Hint: verify the value meets constraints")]
     InvalidInput { field: String, reason: String },
 
-    #[error("Invalid vector dimension: expected {expected}, got {actual}")]
+    #[error(
+        "Invalid vector dimension: expected {expected}, got {actual}. Hint: use HVec::random() or ensure vector matches 10240-bit dimension"
+    )]
     InvalidDimension { expected: usize, actual: usize },
 
-    #[error("{entity} not found: '{id}'")]
+    #[error("{entity} not found: '{id}'. Hint: verify the ID exists or create the entity first")]
     NotFound { entity: String, id: String },
 
-    #[error("Unsupported operation: {0}")]
+    #[error("Unsupported operation: {0}. Hint: check feature flags or use an alternative method")]
     UnsupportedOperation(String),
 
-    #[error("Reservoir error: {message}")]
+    #[error(
+        "Reservoir error: {message}. Hint: ensure reservoir is initialized with valid parameters"
+    )]
     Reservoir {
         message: String,
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
 
-    #[error("Persistence error: {0}")]
+    #[error(
+        "Persistence error: {0}. Hint: enable 'persistence' feature and check file permissions"
+    )]
     Persistence(String),
 
-    #[error("IO error: {0}")]
+    #[error("IO error: {0}. Hint: verify file paths exist and have correct permissions")]
     Io(#[from] std::io::Error),
 
-    #[error("Serialization error: {0}")]
+    #[error("Serialization error: {0}. Hint: ensure data is valid JSON and types match schema")]
     Serialization(#[from] serde_json::Error),
 }
 

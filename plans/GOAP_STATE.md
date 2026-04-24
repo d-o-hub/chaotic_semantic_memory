@@ -48,6 +48,16 @@ world_state:
   selectivity_aware_retrieval_implemented: true
   selectivity_aware_retrieval_tested: true  # tests/retrieval_selectivity_tests.rs implemented 2026-04-21
 
+  # Skill-Memory Production Hardening (IQ-05 to IQ-10) - COMPLETE 2026-04-24
+  # Scripts verified in scripts/skill-memory/
+  skill_memory_hardening_complete: true
+  skill_memory_retry_logic: true           # _cli_with_retry() in skill-memory.sh:47
+  skill_memory_health_checks: true         # skill_memory_check() in skill-memory.sh:1242
+  skill_memory_metrics_collection: true    # _metrics_record() in skill-memory-metrics.sh
+  skill_memory_log_rotation: true          # _rotate_log_if_needed() in skill-memory-log-rotation.sh
+  skill_memory_encryption: true            # _encrypt_data/_decrypt_data in skill-memory-advanced.sh
+  skill_memory_rate_limiting: true         # _check_rate_limit() in skill-memory-advanced.sh
+
   # Benchmark Optimization Analysis (2026-04-09) - COMPLETE
   benchmark_optimization_analysis_active: false
   benchmark_optimization_analysis_completed: true
@@ -266,7 +276,8 @@ world_state:
   modules:
     lib.rs: 217
     error.rs: 32
-    hyperdim.rs: 500
+    hyperdim.rs: 473
+    hyperdim_simd.rs: 109                      # AVX2/NEON SIMD extension (ADR-0065)
     reservoir.rs: 500
     reservoir_inertial.rs: 34
     singularity.rs: 447
@@ -526,22 +537,22 @@ world_state:
   swarm_analysis_findings_total: 9
   
   # Error handling improvements
-  error_source_attributes_added: false         # Add #[source] to all error variants (deferred)
+  error_source_attributes_added: true          # IQ-13: #[source] on Database/Reservoir/Persistence variants
   production_expect_fixed: true               # Fix expect() in framework.rs:177 ✅
-  error_context_enhanced: false                # Add remediation hints to errors (deferred)
+  error_context_enhanced: true                 # IQ-14: Remediation hints in error Display messages
   
   # Security hardening
   bincode_size_limits_added: true             # CRITICAL: Add 100MB limit to deserialization ✅
   path_traversal_protection_added: true       # Validate file paths in framework_ops ✅
   metadata_validation_added: true              # Check metadata size before serialization (done in ADR-0034)
-  security_tests_added: false                  # Property-based security tests (deferred)
+  security_tests_added: true                   # IQ-15: Property-based security tests (tests/security_proptest.rs)
   
   # Performance optimizations
   bundle_allocation_optimized: true            # Fold pattern already efficient ✅
   find_similar_optimized: true                 # Add find_similar_arc, optimize computation ✅
   to_hypervector_parallelized: true            # Rayon parallelization on 80-word loop ✅
   cache_rwlock_fixed: true                    # Replace Mutex with RwLock ✅
-  avx2_simd_added: false                       # AVX2/NEON SIMD paths
+  avx2_simd_added: true                        # AVX2/NEON SIMD paths (hyperdim_simd.rs)
   
   # Memory leak prevention
   max_concepts_limit_added: true               # Hard ceiling (default 100K) ✅

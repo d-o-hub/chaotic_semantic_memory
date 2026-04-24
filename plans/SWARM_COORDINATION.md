@@ -25,34 +25,33 @@ Generated via: `scripts/generate-agents.sh`
 
 ## Swarm Status: **ACTIVE** 🟢
 
-Waves 1-17 complete. Phase 48 performance follow-up is closed with handoff artifacts.
+Waves 1-20 complete. Wave 21 dependency analysis documented.
 
-## Orchestrator Run (2026-04-12, Wave 20)
+## Orchestrator Run (2026-04-24, Wave 21)
 
-Run ID: `goap_wave20_impl_queue_rebuild_2026_04_12`
+Run ID: `goap_wave21_impl_queue_resolution_2026_04_24`
 
-### Discovered IMPLEMENTATION_QUEUE (active, non-archived sources)
+### Resolved IMPLEMENTATION_QUEUE (Wave 20 -> 21)
 
-| Queue ID | Task | Source | State |
-|----------|------|--------|-------|
-| IQ-01 | `upgrade_libsql_0_4_to_0_9` | `plans/swarm_audit_github_2026.md` | queued |
-| IQ-02 | `upgrade_rand_0_8_to_0_9` | `plans/swarm_audit_github_2026.md` | queued |
-| IQ-03 | `update_getrandom_wasm_flag` | `plans/swarm_audit_github_2026.md` | queued |
-| IQ-04 | `evaluate_bincode_to_postcard_migration` | `plans/swarm_audit_github_2026.md` | queued |
-| IQ-05 | `implement_skill_memory_retry_logic` | `plans/GOAP_SKILL_MEMORY_HARDENING.md` | queued |
-| IQ-06 | `implement_skill_memory_health_checks` | `plans/GOAP_SKILL_MEMORY_HARDENING.md` | queued |
-| IQ-07 | `implement_skill_memory_metrics_collection` | `plans/GOAP_SKILL_MEMORY_HARDENING.md` | queued |
-| IQ-08 | `implement_skill_memory_log_rotation` | `plans/GOAP_SKILL_MEMORY_HARDENING.md` | queued |
-| IQ-09 | `implement_skill_memory_optional_encryption` | `plans/GOAP_SKILL_MEMORY_HARDENING.md` | queued |
-| IQ-10 | `implement_skill_memory_rate_limiting` | `plans/GOAP_SKILL_MEMORY_HARDENING.md` | queued |
-| IQ-11 | `configure_npm_oidc_trusted_publisher` | `plans/GOAP_STATE.md` | blocked(external-account) |
-| IQ-12 | `automate_npm_publish_flow` | `plans/GOAP_STATE.md` | blocked(depends_on_IQ-11) |
-| IQ-13 | `add_error_source_attributes` | `plans/GOAP_STATE.md` | queued |
-| IQ-14 | `enhance_error_context_hints` | `plans/GOAP_STATE.md` | queued |
-| IQ-15 | `add_property_security_tests` | `plans/GOAP_STATE.md` | queued |
-| IQ-16 | `add_avx2_neon_simd_paths` | `plans/GOAP_STATE.md` | queued |
+| Queue ID | Task | Final State | Notes |
+|----------|------|-------------|-------|
+| IQ-01 | `upgrade_libsql_0_4_to_0_9` | ✅ complete | Already at 0.9.30 |
+| IQ-02 | `upgrade_rand_0_8_to_0_9` | ✅ complete | Already at 0.10.1 |
+| IQ-03 | `update_getrandom_wasm_flag` | ✅ complete | wasm_js feature enabled |
+| IQ-04 | `evaluate_bincode_to_postcard` | ⏳ deferred | v0.4.0 (backward compat) |
+| IQ-05..IQ-10 | skill-memory hardening | ✅ verified | Scripts already complete |
+| IQ-11 | `configure_npm_oidc_trusted_publisher` | 🔒 blocked | External account required |
+| IQ-12 | `automate_npm_publish_flow` | 🔒 blocked | Depends on IQ-11 |
+| IQ-13 | `add_error_source_attributes` | ✅ complete | #[source] on all variants |
+| IQ-14 | `enhance_error_context_hints` | ✅ complete | Remediation hints added |
+| IQ-15 | `add_property_security_tests` | ✅ complete | 13 tests in security_proptest.rs |
+| IQ-16 | `add_avx2_neon_simd_paths` | ✅ complete | hyperdim_simd.rs (109 LOC) |
 
-### Parallel Groups A-F (max parallelism)
+### Wave 21 Handoff Artifact
+
+- `plans/handoffs/W21_dependency_upgrade_analysis.md`
+
+### Wave 20 Handoff Artifacts (resolved)
 
 | Group | Focus | Agent | Max Parallel | Queue IDs |
 |-------|-------|-------|--------------|-----------|

@@ -14,61 +14,17 @@ use crate::error::Result;
 
 pub use crate::hyperdim_batch::batch_cosine_similarity;
 
+// Import SIMD functions from extension module
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+use crate::hyperdim_simd::bind_simd_avx2;
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+use crate::hyperdim_simd::bind_simd_neon;
 #[cfg(all(
     not(target_arch = "wasm32"),
     any(target_arch = "x86_64", target_arch = "x86")
 ))]
-#[inline]
-fn bind_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
-    #[cfg(target_arch = "x86")]
-    use std::arch::x86::{__m128i, _mm_loadu_si128, _mm_storeu_si128, _mm_xor_si128};
-    #[cfg(target_arch = "x86_64")]
-    use std::arch::x86_64::{__m128i, _mm_loadu_si128, _mm_storeu_si128, _mm_xor_si128};
-
-    let mut out = [0u128; 80];
-    for i in 0..80 {
-        // SAFETY: `u128` is 16-byte aligned, matching `__m128i` requirements.
-        unsafe {
-            let a = _mm_loadu_si128((&lhs[i] as *const u128).cast::<__m128i>());
-            let b = _mm_loadu_si128((&rhs[i] as *const u128).cast::<__m128i>());
-            let x = _mm_xor_si128(a, b);
-            _mm_storeu_si128((&mut out[i] as *mut u128).cast::<__m128i>(), x);
-        }
-    }
-    out
-}
-
-/// Optimized Hamming distance calculation using unrolled loop.
-///
-/// This implementation uses a 4x unrolled loop with independent accumulators
-/// to break the serial dependency chain of popcount operations, maximizing
-/// Instruction-Level Parallelism (ILP). It operates on 64-bit words to avoid
-/// the overhead of 128-bit operations on many architectures.
-#[inline]
-fn hamming_distance_optimized(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
-    let distance: u32;
-    unsafe {
-        let lptr = lhs.as_ptr() as *const u64;
-        let rptr = rhs.as_ptr() as *const u64;
-
-        // Use multiple independent accumulators to break the serial dependency chain.
-        // This allows the CPU to utilize multiple execution ports for ILP.
-        let mut s0 = 0;
-        let mut s1 = 0;
-        let mut s2 = 0;
-        let mut s3 = 0;
-
-        // Unroll for better port utilization and pipelining
-        for i in (0..160).step_by(4) {
-            s0 += (*lptr.add(i) ^ *rptr.add(i)).count_ones();
-            s1 += (*lptr.add(i + 1) ^ *rptr.add(i + 1)).count_ones();
-            s2 += (*lptr.add(i + 2) ^ *rptr.add(i + 2)).count_ones();
-            s3 += (*lptr.add(i + 3) ^ *rptr.add(i + 3)).count_ones();
-        }
-        distance = (s0 + s1) + (s2 + s3);
-    }
-    distance
-}
+use crate::hyperdim_simd::bind_simd_x86;
+use crate::hyperdim_simd::hamming_distance_optimized;
 
 /// 10240-bit hypervector (80 x 128-bit words)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -207,22 +163,55 @@ impl HVec10240 {
         Ok(Self { data })
     }
 
-    /// XOR binding of two hypervectors
+    /// XOR binding of two hypervectors.
+    ///
+    /// Dispatches to optimized SIMD paths based on platform:
+    /// - x86_64: AVX2 (runtime detection) or SSE fallback
+    /// - aarch64: NEON
+    /// - Other: scalar XOR
     pub fn bind(&self, other: &Self) -> Self {
-        #[cfg(all(
-            not(target_arch = "wasm32"),
-            any(target_arch = "x86_64", target_arch = "x86")
-        ))]
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+        {
+            // Runtime dispatch: AVX2 if available, else SSE fallback
+            if is_x86_feature_detected!("avx2") {
+                // SAFETY: AVX2 feature detected at runtime.
+                Self {
+                    data: unsafe { bind_simd_avx2(&self.data, &other.data) },
+                }
+            } else {
+                Self {
+                    data: bind_simd_x86(&self.data, &other.data),
+                }
+            }
+        }
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86"))]
         {
             Self {
                 data: bind_simd_x86(&self.data, &other.data),
             }
         }
 
-        #[cfg(not(all(
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+        {
+            Self {
+                data: bind_simd_neon(&self.data, &other.data),
+            }
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            let mut result = [0u128; 80];
+            for i in 0..80 {
+                result[i] = self.data[i] ^ other.data[i];
+            }
+            Self { data: result }
+        }
+
+        #[cfg(all(
             not(target_arch = "wasm32"),
-            any(target_arch = "x86_64", target_arch = "x86")
-        )))]
+            not(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64"))
+        ))]
         {
             let mut result = [0u128; 80];
             for i in 0..80 {

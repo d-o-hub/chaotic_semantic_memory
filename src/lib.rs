@@ -64,6 +64,7 @@ mod framework_validation;
 pub mod graph_traversal;
 pub mod hyperdim;
 mod hyperdim_batch;
+mod hyperdim_simd; // AVX2/NEON SIMD paths
 pub mod metadata_filter;
 pub mod semantic_triples;
 pub use metadata_filter::MetadataFilter;
