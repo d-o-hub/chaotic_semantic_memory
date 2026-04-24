@@ -14,17 +14,61 @@ use crate::error::Result;
 
 pub use crate::hyperdim_batch::batch_cosine_similarity;
 
-// Import SIMD functions from extension module
-#[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-use crate::hyperdim_simd::bind_simd_avx2;
-#[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-use crate::hyperdim_simd::bind_simd_neon;
 #[cfg(all(
     not(target_arch = "wasm32"),
     any(target_arch = "x86_64", target_arch = "x86")
 ))]
-use crate::hyperdim_simd::bind_simd_x86;
-use crate::hyperdim_simd::hamming_distance_optimized;
+#[inline]
+fn bind_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::{__m128i, _mm_loadu_si128, _mm_storeu_si128, _mm_xor_si128};
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::{__m128i, _mm_loadu_si128, _mm_storeu_si128, _mm_xor_si128};
+
+    let mut out = [0u128; 80];
+    for i in 0..80 {
+        // SAFETY: `u128` is 16-byte aligned, matching `__m128i` requirements.
+        unsafe {
+            let a = _mm_loadu_si128((&lhs[i] as *const u128).cast::<__m128i>());
+            let b = _mm_loadu_si128((&rhs[i] as *const u128).cast::<__m128i>());
+            let x = _mm_xor_si128(a, b);
+            _mm_storeu_si128((&mut out[i] as *mut u128).cast::<__m128i>(), x);
+        }
+    }
+    out
+}
+
+/// Optimized Hamming distance calculation using unrolled loop.
+///
+/// This implementation uses a 4x unrolled loop with independent accumulators
+/// to break the serial dependency chain of popcount operations, maximizing
+/// Instruction-Level Parallelism (ILP). It operates on 64-bit words to avoid
+/// the overhead of 128-bit operations on many architectures.
+#[inline]
+fn hamming_distance_optimized(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
+    let distance: u32;
+    unsafe {
+        let lptr = lhs.as_ptr() as *const u64;
+        let rptr = rhs.as_ptr() as *const u64;
+
+        // Use multiple independent accumulators to break the serial dependency chain.
+        // This allows the CPU to utilize multiple execution ports for ILP.
+        let mut s0 = 0;
+        let mut s1 = 0;
+        let mut s2 = 0;
+        let mut s3 = 0;
+
+        // Unroll for better port utilization and pipelining
+        for i in (0..160).step_by(4) {
+            s0 += (*lptr.add(i) ^ *rptr.add(i)).count_ones();
+            s1 += (*lptr.add(i + 1) ^ *rptr.add(i + 1)).count_ones();
+            s2 += (*lptr.add(i + 2) ^ *rptr.add(i + 2)).count_ones();
+            s3 += (*lptr.add(i + 3) ^ *rptr.add(i + 3)).count_ones();
+        }
+        distance = (s0 + s1) + (s2 + s3);
+    }
+    distance
+}
 
 /// 10240-bit hypervector (80 x 128-bit words)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -163,58 +207,22 @@ impl HVec10240 {
         Ok(Self { data })
     }
 
-    /// XOR binding of two hypervectors.
-    ///
-    /// Dispatches to optimized SIMD paths based on platform:
-    /// - x86_64: AVX2 (runtime detection) or SSE fallback
-    /// - aarch64: NEON
-    /// - Other: scalar XOR
+    /// XOR binding of two hypervectors
     pub fn bind(&self, other: &Self) -> Self {
-        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-        {
-            // Runtime dispatch: AVX2 if available, else SSE fallback
-            if is_x86_feature_detected!("avx2") {
-                // SAFETY: AVX2 feature detected at runtime.
-                Self {
-                    data: unsafe { bind_simd_avx2(&self.data, &other.data) },
-                }
-            } else {
-                Self {
-                    data: bind_simd_x86(&self.data, &other.data),
-                }
-            }
-        }
-
-        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86"))]
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            any(target_arch = "x86_64", target_arch = "x86")
+        ))]
         {
             Self {
                 data: bind_simd_x86(&self.data, &other.data),
             }
         }
 
-        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-        {
-            // SAFETY: bind_simd_neon requires unsafe due to NEON intrinsics.
-            // The function is marked #[target_feature(enable = "neon")] which
-            // is always available on aarch64, making this call safe.
-            Self {
-                data: unsafe { bind_simd_neon(&self.data, &other.data) },
-            }
-        }
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            let mut result = [0u128; 80];
-            for i in 0..80 {
-                result[i] = self.data[i] ^ other.data[i];
-            }
-            Self { data: result }
-        }
-
-        #[cfg(all(
+        #[cfg(not(all(
             not(target_arch = "wasm32"),
-            not(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64"))
-        ))]
+            any(target_arch = "x86_64", target_arch = "x86")
+        )))]
         {
             let mut result = [0u128; 80];
             for i in 0..80 {
@@ -244,44 +252,20 @@ impl HVec10240 {
         hamming_distance_optimized(&self.data, &other.data)
     }
 
-    /// Permute the hypervector (cyclic rotation)
-    ///
-    /// Optimized implementation that eliminates modulo operations and branches
-    /// from the hot loop by splitting the rotation into two contiguous segments.
-    #[allow(clippy::needless_range_loop)]
+    /// Permute the hypervector (rotation)
     pub fn permute(&self, shift: usize) -> Self {
         let mut result = [0u128; 80];
         let bit_shift = shift % 128;
         let word_shift = (shift / 128) % 80;
 
-        // Optimized path for word-aligned rotations
-        if bit_shift == 0 {
-            let (left, right) = self.data.split_at(word_shift);
-            result[..80 - word_shift].copy_from_slice(right);
-            result[80 - word_shift..].copy_from_slice(left);
-            return Self { data: result };
-        }
-
-        let inv_bit_shift = 128 - bit_shift;
-
-        // Split cyclic rotation into two segments to eliminate modulo in the loop
-        // Segment 1: src1 from word_shift to 78, src2 from word_shift + 1 to 79
-        let limit = 79 - word_shift;
-        for i in 0..limit {
-            let src1 = i + word_shift;
-            let src2 = src1 + 1;
-            result[i] = (self.data[src1] << bit_shift) | (self.data[src2] >> inv_bit_shift);
-        }
-
-        // Handle the wrap-around word at the boundary of segment 1 and 2
-        // result[79 - word_shift] uses data[79] and data[0]
-        result[limit] = (self.data[79] << bit_shift) | (self.data[0] >> inv_bit_shift);
-
-        // Segment 2: src1 from 0 to word_shift - 1, src2 from 1 to word_shift
-        for i in limit + 1..80 {
-            let src1 = i + word_shift - 80;
-            let src2 = src1 + 1;
-            result[i] = (self.data[src1] << bit_shift) | (self.data[src2] >> inv_bit_shift);
+        for (i, word) in result.iter_mut().enumerate() {
+            let src1 = (i + word_shift) % 80;
+            if bit_shift == 0 {
+                *word = self.data[src1];
+            } else {
+                let src2 = (i + word_shift + 1) % 80;
+                *word = (self.data[src1] << bit_shift) | (self.data[src2] >> (128 - bit_shift));
+            }
         }
 
         Self { data: result }

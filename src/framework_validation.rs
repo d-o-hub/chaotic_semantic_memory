@@ -2,14 +2,11 @@ use std::collections::HashMap;
 
 use crate::error::{MemoryError, Result};
 use crate::framework::ChaoticSemanticFramework;
-use crate::graph_traversal::TraversalConfig;
 use crate::singularity::Concept;
 use crate::singularity_retrieval::RetrievalConfig;
 
 const MAX_CONCEPT_ID_BYTES: usize = 256;
 const MAX_BUCKET_PROBE_WIDTH: usize = 16;
-const MAX_TRAVERSAL_DEPTH: usize = 32;
-const MAX_TRAVERSAL_RESULTS: usize = 10_000;
 
 impl ChaoticSemanticFramework {
     pub(crate) fn validate_retrieval_config(config: &RetrievalConfig) -> Result<()> {
@@ -17,22 +14,6 @@ impl ChaoticSemanticFramework {
             return Err(MemoryError::InvalidInput {
                 field: "bucket_probe_width".to_string(),
                 reason: format!("bucket_probe_width exceeds {}", MAX_BUCKET_PROBE_WIDTH),
-            });
-        }
-        Ok(())
-    }
-
-    pub(crate) fn validate_traversal_config(config: &TraversalConfig) -> Result<()> {
-        if config.max_depth > MAX_TRAVERSAL_DEPTH {
-            return Err(MemoryError::InvalidInput {
-                field: "max_depth".to_string(),
-                reason: format!("max_depth exceeds {}", MAX_TRAVERSAL_DEPTH),
-            });
-        }
-        if config.max_results > MAX_TRAVERSAL_RESULTS {
-            return Err(MemoryError::InvalidInput {
-                field: "max_results".to_string(),
-                reason: format!("max_results exceeds {}", MAX_TRAVERSAL_RESULTS),
             });
         }
         Ok(())
@@ -199,27 +180,5 @@ mod tests {
             ..RetrievalConfig::default()
         };
         assert!(ChaoticSemanticFramework::validate_retrieval_config(&config).is_err());
-    }
-
-    #[test]
-    fn test_validate_traversal_config() {
-        let config = TraversalConfig {
-            max_depth: 32,
-            max_results: 10_000,
-            ..Default::default()
-        };
-        assert!(ChaoticSemanticFramework::validate_traversal_config(&config).is_ok());
-
-        let config = TraversalConfig {
-            max_depth: 33,
-            ..Default::default()
-        };
-        assert!(ChaoticSemanticFramework::validate_traversal_config(&config).is_err());
-
-        let config = TraversalConfig {
-            max_results: 10_001,
-            ..Default::default()
-        };
-        assert!(ChaoticSemanticFramework::validate_traversal_config(&config).is_err());
     }
 }

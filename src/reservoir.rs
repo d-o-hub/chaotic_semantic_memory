@@ -109,8 +109,13 @@ impl SparseWeights {
         let indices = &self.indices[start..end];
         let weights = &self.weights[start..end];
         let mut i = 0;
-        // Use multiple accumulators for ILP (instruction-level parallelism).
-        let (mut sum0, mut sum1, mut sum2, mut sum3) = (0.0, 0.0, 0.0, 0.0);
+
+        // Use multiple accumulators to break the serial dependency chain of mul_add.
+        // This allows the CPU to utilize multiple execution ports for ILP.
+        let mut sum0 = 0.0;
+        let mut sum1 = 0.0;
+        let mut sum2 = 0.0;
+        let mut sum3 = 0.0;
 
         while i + 3 < indices.len() {
             sum0 = weights[i].mul_add(values[indices[i]], sum0);
@@ -255,9 +260,7 @@ impl Reservoir {
             self.scratch[i] = state[i] * one_minus_alpha + activated * self.alpha + inertial;
         }
         self.update_phase = (update_phase + 1) % self.update_stride;
-        for i in (update_phase..self.size).step_by(self.update_stride) {
-            self.prev_state[i] = self.state[i];
-        }
+        self.prev_state.copy_from_slice(&self.state);
         std::mem::swap(&mut self.state, &mut self.scratch);
 
         // Keep scratch in sync with state for the next partial-update step.

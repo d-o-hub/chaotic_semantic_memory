@@ -4,47 +4,39 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum MemoryError {
-    #[error(
-        "Database error: {message}. Hint: check database connection and ensure migrations are applied"
-    )]
+    #[error("Database error: {message}")]
     Database {
         message: String,
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
 
-    #[error("Invalid input for '{field}': {reason}. Hint: verify the value meets constraints")]
+    #[error("Invalid input for '{field}': {reason}")]
     InvalidInput { field: String, reason: String },
 
-    #[error(
-        "Invalid vector dimension: expected {expected}, got {actual}. Hint: use HVec::random() or ensure vector matches 10240-bit dimension"
-    )]
+    #[error("Invalid vector dimension: expected {expected}, got {actual}")]
     InvalidDimension { expected: usize, actual: usize },
 
-    #[error("{entity} not found: '{id}'. Hint: verify the ID exists or create the entity first")]
+    #[error("{entity} not found: '{id}'")]
     NotFound { entity: String, id: String },
 
-    #[error("Unsupported operation: {0}. Hint: check feature flags or use an alternative method")]
+    #[error("Unsupported operation: {0}")]
     UnsupportedOperation(String),
 
-    #[error(
-        "Reservoir error: {message}. Hint: ensure reservoir is initialized with valid parameters"
-    )]
+    #[error("Reservoir error: {message}")]
     Reservoir {
         message: String,
         #[source]
         source: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
 
-    #[error(
-        "Persistence error: {0}. Hint: enable 'persistence' feature and check file permissions"
-    )]
+    #[error("Persistence error: {0}")]
     Persistence(String),
 
-    #[error("IO error: {0}. Hint: verify file paths exist and have correct permissions")]
+    #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("Serialization error: {0}. Hint: ensure data is valid JSON and types match schema")]
+    #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
 }
 

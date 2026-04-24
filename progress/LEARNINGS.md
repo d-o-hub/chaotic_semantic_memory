@@ -234,3 +234,15 @@
 - **WASM Compatibility**: Gated `rayon` import with `#[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]` to resolve CI build failures.
 - **Memory Efficiency**: Restored `Arc<str>` interning for terms while removing transient `Serialize`/`Deserialize` to avoid dependency conflicts.
 - **API**: Enhanced `add_document` to be generic over `AsRef<str>` for better usability across the crate.
+
+## 2026-04-23: Security Fix - Path Hijacking Mitigation
+
+### Technical Insights
+- **Vulnerability**: Unqualified command execution (e.g., `Command::new("git")`) relies on the system `PATH`, which can include relative entries (like `.`) or be manipulated to include malicious directories, leading to path hijacking.
+- **Mitigation**: Resolve executables to absolute paths by manually searching `PATH` while strictly ignoring non-absolute entries. This ensures that only trusted system directories are searched.
+- **Implementation**: The `find_executable` helper in `src/cli/git_local.rs` filters `env::split_paths` to only consider `path.is_absolute()`, preventing the execution of binaries from the current or relative directories.
+- **Cross-Platform**: On Windows, the search must account for the `.exe` extension if not explicitly provided.
+
+### What to Avoid
+- Do not use unqualified command names in `Command::new()` for system tools.
+- Do not trust the `PATH` environment variable to contain only absolute paths; always validate entries before use in security-sensitive contexts.

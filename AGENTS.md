@@ -154,61 +154,6 @@ Before completing any task, verify:
 ## Hard Constraints
 See: [agents-docs/hard-constraints.md](agents-docs/hard-constraints.md)
 
----
-
-## Release Safety Requirements
-
-**CRITICAL: Never release with failing CI. The release workflow now has a guardrail that waits for CI to pass.**
-
-### Pre-Release Checklist (MANDATORY)
-
-1. **Verify CI passes on all platforms**:
-   ```bash
-   gh run list --workflow=ci.yml --limit 3
-   gh run view --log  # Check all jobs: macos-arm64, windows-x64, linux
-   ```
-
-2. **Ensure Cargo.lock is synchronized**:
-   ```bash
-   cargo build --release  # Regenerates Cargo.lock after version bump
-   git add Cargo.lock     # Must be committed with version changes
-   ```
-
-3. **Check existing releases**:
-   ```bash
-   gh release list --limit 5
-   gh release view --json tagName,isLatest
-   ```
-
-4. **Validate changelog entry exists**:
-   ```bash
-   grep -q "^## \[${VERSION}\]" CHANGELOG.md
-   ```
-
-### Version Bump Workflow
-
-1. Update `Cargo.toml` version
-2. Update `wasm/package.json` version
-3. Update `CHANGELOG.md` with new section
-4. Run `cargo build --release` to sync Cargo.lock
-5. Commit all version files together (atomic)
-6. Push and wait for CI to pass
-7. Only then create tag/release
-
-### Platform-Specific Considerations
-
-- **macOS arm64**: NEON SIMD intrinsics require explicit unsafe blocks
-- **Windows x64**: CI uses `--locked` flag, Cargo.lock must match Cargo.toml
-- **WASM**: Size gate checks library (~870KB), not CLI binary (~5KB)
-
-### Reference Files
-
-- `.github/workflows/release.yml` — Has `wait-for-ci` guardrail job
-- `.agents/skills/release-management/` — Full release skill
-- `scripts/validate.sh` — Pre-commit validation gates
-
----
-
 ## Key Files
 **Core**: `src/singularity.rs`, `src/reservoir.rs`, `src/reservoir_inertial.rs`, `src/framework.rs`, `src/persistence.rs`
 **Bridge**: `src/semantic_bridge.rs`, `src/bridge_retrieval.rs`

@@ -45,10 +45,7 @@ vectors directly via `inject_concept`.
 
 - **Hyperdimensional Computing**: 10240-bit binary hypervectors with SIMD-accelerated operations
 - **Chaotic Reservoirs**: Configurable echo-state networks with spectral radius controls `[0.9, 1.1]`
-- **Inertial Reservoir Dynamics**: Second-order momentum (beta parameter) for improved temporal memory retention
 - **Semantic Memory**: Concept graphs with weighted associations and similarity search
-- **Selectivity-Aware Retrieval**: Adaptive filter strategy routing based on selectivity ratio
-- **Semantic Bridge Layer**: Zero-drift semantic expansion with canonical concept graph
 - **Optimized Retrieval**: Two-stage retrieval pipeline with heuristic-based candidate generation (bucket, graph) and dense-vector scoring.
 - **Persistence**: libSQL for local SQLite or remote Turso database
 - **WASM Support**: Browser-compatible with memory-based import/export
@@ -96,11 +93,7 @@ cargo install chaotic_semantic_memory --bin csm
 
 - `hyperdim`: binary hypervector math (`HVec10240`) and similarity operations
 - `reservoir`: sparse chaotic reservoir dynamics with spectral radius controls
-- `reservoir_inertial`: second-order momentum dynamics (InertialESN)
 - `singularity`: concept graph, associations, retrieval, and memory limits
-- `singularity_retrieval`: selectivity-aware filtered retrieval strategies
-- `semantic_bridge`: zero-drift semantic expansion layer
-- `bridge_retrieval`: bridge retrieval pipeline (normalize → recall → expand)
 - `framework`: high-level async orchestration API
 - `persistence`: libSQL-backed storage (native only)
 - `wasm`: JS-facing bindings for browser/runtime integration (wasm32 target only)
