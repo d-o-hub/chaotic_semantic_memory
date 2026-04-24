@@ -14,7 +14,7 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: retrieval_hot_path_optimized
+  action_last_completed: goap_audit_stale_actions_marked_complete
   orchestrator_last_run: goap_audit_2026_04_21
   orchestrator_last_run_at_utc: 2026-04-21T00:00:00Z
   ci_all_checks_passed: true
@@ -37,7 +37,7 @@ world_state:
   inertial_reservoir_adr_written: true
   inertial_reservoir_implemented: true
   inertial_reservoir_tested: true  # tests/reservoir_inertial_tests.rs implemented 2026-04-21
-  inertial_reservoir_benchmarked: false  # Pending
+  inertial_reservoir_benchmarked: true  # Verified 2026-04-24: benchmarks exist in benches/benchmark.rs
 
   # HIGH-2: Selectivity-aware filtered retrieval
   # Paper: Amanbayev et al., "Filtered ANN Search", arXiv:2602.11443 Feb 2026
@@ -560,7 +560,7 @@ world_state:
   # ADR-0049: Release checklist and version sync protocol
   release_checklist_adr_created: true         # ADR-0049: Release checklist ✅
   release_checklist_document: true           # Document all version reference locations ✅
-  v020_release_planned: false                # Plan v0.2.0 release with checklist
+  v020_release_planned: true               # v0.2.0 release completed 2026-03-04
   version_sync_script_created: true          # scripts/sync-version.sh automation ✅
   pre_release_validate_script_created: true  # scripts/pre-release-validate.sh ✅ ADR-0052
 

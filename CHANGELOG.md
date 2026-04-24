@@ -96,6 +96,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **PR #102**: Optimized HVec10240::permute by eliminating modulo and branching (~15% faster)
+- **PR #100**: Phase 60 test suites and benchmarks for comprehensive coverage
+- **ADR-0064**: Inertial Reservoir Dynamics (InertialESN) - second-order momentum for improved
+  temporal memory retention. Beta parameter [0.0, 0.5] for momentum control.
+- **ADR-0065**: Selectivity-Aware Filtered Retrieval - strategy routing based on filter
+  selectivity ratio (PreFilter, BucketPostFilter, ScanPostFilter).
+
+### Changed
+
+- **GOAP Audit**: Resolved 3 stale queued actions (test_inertial_reservoir, test_selectivity_aware_retrieval,
+  benchmark_inertial_reservoir) - work already complete.
+
 ## [0.2.9] - 2026-04-06
 
 ### Added
