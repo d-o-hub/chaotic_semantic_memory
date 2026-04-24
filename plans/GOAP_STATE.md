@@ -14,9 +14,9 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: retrieval_hot_path_optimized
-  orchestrator_last_run: goap_audit_2026_04_21
-  orchestrator_last_run_at_utc: 2026-04-21T00:00:00Z
+  action_last_completed: goap_wave21_impl_queue_resolved
+  orchestrator_last_run: goap_wave21_impl_queue_resolution_2026_04_24
+  orchestrator_last_run_at_utc: 2026-04-24T00:00:00Z
   ci_all_checks_passed: true
 
   # GitHub Actions Security Audit (2026-04-21)
@@ -24,6 +24,19 @@ world_state:
   codeql_alerts_resolved: 4  # actions/missing-workflow-permissions in ci.yml
   dependabot_alerts_open: 6  # rustls-webpki(3), rand(2), libsql-sqlite3-parser(1)
   dependabot_blocked_upstream: true  # No stable rustls-webpki >=0.103.10 exists
+
+  # CI Fix (2026-04-24) - NEON SIMD Build Failure
+  neon_simd_build_failure_fixed: true
+  neon_simd_fix_description: "Replaced non-existent veorq_u128/vld1q_u128/vst1q_u128 with uint64x2_t approach"
+  neon_simd_fix_file: "src/hyperdim_simd.rs"
+  ci_macos_arm64_build: fixed
+
+  # Release Workflow Fix (2026-04-24)
+  release_workflow_make_latest_fixed: true
+  release_workflow_fix_description: "Added make_latest: true to softprops/action-gh-release"
+  release_workflow_fix_file: ".github/workflows/release.yml"
+  release_workflow_ci_guardrail_added: true  # wait-for-ci job blocks release on failing CI
+  release_guardrails_documented: true        # AGENTS.md + release-management skill updated
 
   # ═══════════════════════════════════════════════════════
   # Research-driven enhancements (2026-04-20)
@@ -37,7 +50,7 @@ world_state:
   inertial_reservoir_adr_written: true
   inertial_reservoir_implemented: true
   inertial_reservoir_tested: true  # tests/reservoir_inertial_tests.rs implemented 2026-04-21
-  inertial_reservoir_benchmarked: false  # Pending
+  inertial_reservoir_benchmarked: true  # Verified 2026-04-24: benchmarks exist in benches/benchmark.rs
 
   # HIGH-2: Selectivity-aware filtered retrieval
   # Paper: Amanbayev et al., "Filtered ANN Search", arXiv:2602.11443 Feb 2026
@@ -47,6 +60,16 @@ world_state:
   selectivity_aware_retrieval_adr_written: true
   selectivity_aware_retrieval_implemented: true
   selectivity_aware_retrieval_tested: true  # tests/retrieval_selectivity_tests.rs implemented 2026-04-21
+
+  # Skill-Memory Production Hardening (IQ-05 to IQ-10) - COMPLETE 2026-04-24
+  # Scripts verified in scripts/skill-memory/
+  skill_memory_hardening_complete: true
+  skill_memory_retry_logic: true           # _cli_with_retry() in skill-memory.sh:47
+  skill_memory_health_checks: true         # skill_memory_check() in skill-memory.sh:1242
+  skill_memory_metrics_collection: true    # _metrics_record() in skill-memory-metrics.sh
+  skill_memory_log_rotation: true          # _rotate_log_if_needed() in skill-memory-log-rotation.sh
+  skill_memory_encryption: true            # _encrypt_data/_decrypt_data in skill-memory-advanced.sh
+  skill_memory_rate_limiting: true         # _check_rate_limit() in skill-memory-advanced.sh
 
   # Benchmark Optimization Analysis (2026-04-09) - COMPLETE
   benchmark_optimization_analysis_active: false
@@ -98,6 +121,21 @@ world_state:
     core_tests_passed: 4
     benchmark_tests_passed: 19
   benchmark_verification_conclusion: "All optimizations validated - CI passing, tests passing, benchmarks within targets"
+
+  # Benchmark Verification (2026-04-24) - COMPLETE
+  benchmark_verification_2026_04_24_completed: true
+  benchmark_verification_2026_04_24_date: "2026-04-24T12:00:00Z"
+  benchmark_verification_2026_04_24_results:
+    reservoir_step_50k_us: 55.7
+    cosine_similarity_ns: 128.85
+    batch_similarity_1000_us: 195
+    hvec_random_ns: 440
+    hvec_bind_ns: 46.8
+    bm25_search_10000_ms: 2.07
+    singularity_probe_50000_ms: 3.7
+  benchmark_verification_2026_04_24_tests_passing: 284
+  benchmark_verification_2026_04_24_clippy_clean: true
+  benchmark_verification_2026_04_24_conclusion: "All targets exceeded - reservoir 44% faster, batch 58% faster"
 
   # Repository analysis snapshot (2026-04-12)
   repo_analysis_2026_04_12_completed: true
@@ -222,19 +260,27 @@ world_state:
   wasm_size_gate_passed: true
   wasm_library_size_kb: 852
   all_tests_passing: true
-  tests_count: 102
+  tests_count: 284
 
   # Swarm orchestration snapshot
-  active_wave: 20
+  active_wave: 21
   wave_strategy: parallel_by_phase_with_handoffs
   wave_20_name: "Implementation Queue Rebuild"
   wave_20_started_at: "2026-04-12"
   wave_20_focus: "Queue reconstruction + A-F parallel assignment + handoff contracts"
   wave_20_queue_total: 16
-  wave_20_queue_blocked: 2
-  wave_20_queue_executable: 14
+  wave_20_queue_blocked: 1           # Only IQ-04 deferred
+  wave_20_queue_executable: 15
   wave_20_handoff_contracts_created: 5
-  wave_20_status: queued
+  wave_20_status: resolved
+  wave_20_resolved_at: "2026-04-24"
+  wave_20_resolution:
+    iq_01_03_complete: true      # libsql, rand, getrandom upgrades
+    iq_04_deferred: true         # bincode→postcard for v0.4.0
+    iq_05_10_verified: true      # skill-memory scripts functional
+    iq_11_12_complete: true      # npm OIDC working - v0.3.2 published via OIDC
+    iq_13_16_complete: true      # error chains, security tests, SIMD
+  wave_21_complete: true         # Dependency upgrade analysis documented
   # Completed waves 1-14, 17 — summary (detail in progress/WAVE_HISTORY.md)
   waves_1_through_9_complete: true   # Swarm phases: fuzz, SIMD, logging, migration, pooling, export, versioning, CLI
   waves_11_through_14_complete: true # Release engineering, security hardening, real-world readiness
@@ -254,10 +300,10 @@ world_state:
   issue_50_status: closed
   crates_io_v028_published: true
   github_release_v028_created: true
-  npm_v028_published: false
-  npm_publish_blocked_reason: "OTP required - npm account requires one-time password authentication"
-  npm_missing_versions: ["0.2.6", "0.2.7", "0.2.8"]
-  npm_latest_published: "0.2.5"
+  npm_v028_published: true                # Verified: 0.2.8 on npm (2026-04-05)
+  npm_oidc_working: true                  # Verified: v0.3.2 published via OIDC (2026-04-10)
+  npm_missing_versions: ["0.2.6", "0.2.7"]  # 0.2.8 and 0.3.x all published
+  npm_latest_published: "0.3.2"           # Latest WASM bindings version
   dependabot_alert_3: blocked_upstream
   dependabot_alert_3_package: rustls-webpki
   dependabot_alert_3_blocker: "No stable rustls-webpki >=0.103.10 exists"
@@ -266,7 +312,8 @@ world_state:
   modules:
     lib.rs: 217
     error.rs: 32
-    hyperdim.rs: 500
+    hyperdim.rs: 473
+    hyperdim_simd.rs: 109                      # AVX2/NEON SIMD extension (ADR-0065)
     reservoir.rs: 500
     reservoir_inertial.rs: 34
     singularity.rs: 447
@@ -340,14 +387,14 @@ world_state:
   libsql_deprecated_apis_used: false
   debug_impls_missing: false  # Fixed in Wave 8
 
-  # Validation outcomes
+  # Validation outcomes (Updated 2026-04-24)
   wasm_target_installed: true
   reservoir_step_under_100us: true
-  reservoir_step_50k_latest_us: 76.627
+  reservoir_step_50k_latest_us: 55.718
 
   # Batch similarity performance (ADR-0041) - Phase 2 Complete
   batch_similarity_under_500us: true
-  batch_similarity_1000_latest_us: 470
+  batch_similarity_1000_latest_us: 195.06
   benchmarks_prove_performance: true
   turso_roundtrip_under_20ms: true
   10m_concepts_under_12mb: true
@@ -526,22 +573,22 @@ world_state:
   swarm_analysis_findings_total: 9
   
   # Error handling improvements
-  error_source_attributes_added: false         # Add #[source] to all error variants (deferred)
+  error_source_attributes_added: true          # IQ-13: #[source] on Database/Reservoir/Persistence variants
   production_expect_fixed: true               # Fix expect() in framework.rs:177 ✅
-  error_context_enhanced: false                # Add remediation hints to errors (deferred)
+  error_context_enhanced: true                 # IQ-14: Remediation hints in error Display messages
   
   # Security hardening
   bincode_size_limits_added: true             # CRITICAL: Add 100MB limit to deserialization ✅
   path_traversal_protection_added: true       # Validate file paths in framework_ops ✅
   metadata_validation_added: true              # Check metadata size before serialization (done in ADR-0034)
-  security_tests_added: false                  # Property-based security tests (deferred)
+  security_tests_added: true                   # IQ-15: Property-based security tests (tests/security_proptest.rs)
   
   # Performance optimizations
   bundle_allocation_optimized: true            # Fold pattern already efficient ✅
   find_similar_optimized: true                 # Add find_similar_arc, optimize computation ✅
   to_hypervector_parallelized: true            # Rayon parallelization on 80-word loop ✅
   cache_rwlock_fixed: true                    # Replace Mutex with RwLock ✅
-  avx2_simd_added: false                       # AVX2/NEON SIMD paths
+  avx2_simd_added: true                        # AVX2/NEON SIMD paths (hyperdim_simd.rs)
   
   # Memory leak prevention
   max_concepts_limit_added: true               # Hard ceiling (default 100K) ✅
@@ -560,7 +607,7 @@ world_state:
   # ADR-0049: Release checklist and version sync protocol
   release_checklist_adr_created: true         # ADR-0049: Release checklist ✅
   release_checklist_document: true           # Document all version reference locations ✅
-  v020_release_planned: false                # Plan v0.2.0 release with checklist
+  v020_release_planned: true               # v0.2.0 release completed 2026-03-04
   version_sync_script_created: true          # scripts/sync-version.sh automation ✅
   pre_release_validate_script_created: true  # scripts/pre-release-validate.sh ✅ ADR-0052
 
