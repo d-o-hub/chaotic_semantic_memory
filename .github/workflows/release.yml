@@ -359,6 +359,7 @@ jobs:
         files: release/*.tar.gz
         draft: false
         prerelease: ${{ contains(needs.validate.outputs.version, '-') }}
+        make_latest: true
 
   publish-npm-wasm:
     runs-on: ubuntu-24.04

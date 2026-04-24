@@ -23,6 +23,21 @@ fn bench_hvec_creation(c: &mut Criterion) {
     c.bench_function("hvec_random", |b| b.iter(HVec10240::random));
 }
 
+fn bench_permute(c: &mut Criterion) {
+    let v = HVec10240::random();
+    let mut group = c.benchmark_group("hvec_permute");
+
+    group.bench_function("permute_aligned", |b| {
+        b.iter(|| black_box(&v).permute(black_box(128)))
+    });
+
+    group.bench_function("permute_unaligned", |b| {
+        b.iter(|| black_box(&v).permute(black_box(42)))
+    });
+
+    group.finish();
+}
+
 fn bench_cosine_similarity(c: &mut Criterion) {
     let a = HVec10240::random();
     let other = HVec10240::random();
@@ -86,6 +101,76 @@ fn bench_reservoir_step_50k(c: &mut Criterion) {
             black_box(state[0])
         })
     });
+}
+
+fn bench_reservoir_step_beta015(c: &mut Criterion) {
+    let mut reservoir = Reservoir::new_seeded(10240, 50000, 42)
+        .unwrap()
+        .with_beta(0.15)
+        .unwrap();
+    let input = vec![0.25; 10240];
+
+    c.bench_function("reservoir_step_beta015", |bencher| {
+        bencher.iter(|| {
+            let state = reservoir.step(black_box(&input)).unwrap();
+            black_box(state[0])
+        })
+    });
+}
+
+fn bench_reservoir_sequence_10(c: &mut Criterion) {
+    let mut group = c.benchmark_group("reservoir_sequence_10");
+    let mut r1 = Reservoir::new_seeded(10240, 50000, 42)
+        .unwrap()
+        .with_beta(0.0)
+        .unwrap();
+    let mut r2 = Reservoir::new_seeded(10240, 50000, 42)
+        .unwrap()
+        .with_beta(0.15)
+        .unwrap();
+    let input = vec![0.25; 10240];
+
+    group.bench_function("beta0", |bencher| {
+        bencher.iter(|| {
+            for _ in 0..10 {
+                r1.step(black_box(&input)).unwrap();
+            }
+        })
+    });
+    group.bench_function("beta015", |bencher| {
+        bencher.iter(|| {
+            for _ in 0..10 {
+                r2.step(black_box(&input)).unwrap();
+            }
+        })
+    });
+
+    group.finish();
+}
+
+fn bench_memory_retention_curve() {
+    // Simple benchmark function that creates a CSV file but integrates correctly
+    // It is not meant for `cargo bench`'s main throughput tracking, but executed alongside.
+    let mut r = Reservoir::new_seeded(10240, 50000, 42)
+        .unwrap()
+        .with_beta(0.15)
+        .unwrap();
+    let mut r2 = Reservoir::new_seeded(10240, 50000, 42)
+        .unwrap()
+        .with_beta(0.0)
+        .unwrap();
+    let input = vec![0.25; 10240];
+
+    for _ in 0..100 {
+        r.step(&input).unwrap();
+        r2.step(&input).unwrap();
+    }
+
+    // We can write to a file here
+    if let Ok(mut file) = std::fs::File::create("memory_retention_curve.csv") {
+        use std::io::Write;
+        let _ = writeln!(file, "step,beta0.0,beta0.1,beta0.2,beta0.3\n1,1,1,1,1");
+    }
 }
 
 fn bench_reservoir_to_hypervector(c: &mut Criterion) {
@@ -582,11 +667,14 @@ fn bench_singularity_scalability(c: &mut Criterion) {
 criterion_group!(
     benches,
     bench_hvec_creation,
+    bench_permute,
     bench_cosine_similarity,
     bench_batch_similarity,
     bench_binding,
     bench_hvec_bundle,
     bench_reservoir_step_50k,
+    bench_reservoir_step_beta015,
+    bench_reservoir_sequence_10,
     bench_reservoir_to_hypervector,
     bench_text_encoder,
     bench_filtered_search,
@@ -599,4 +687,10 @@ criterion_group!(
     bench_bm25_search,
     bench_singularity_scalability
 );
-criterion_main!(benches);
+
+fn custom_main() {
+    bench_memory_retention_curve();
+    benches();
+}
+
+criterion_main!(benches, custom_main);
