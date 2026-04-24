@@ -35,6 +35,8 @@ world_state:
   release_workflow_make_latest_fixed: true
   release_workflow_fix_description: "Added make_latest: true to softprops/action-gh-release"
   release_workflow_fix_file: ".github/workflows/release.yml"
+  release_workflow_ci_guardrail_added: true  # wait-for-ci job blocks release on failing CI
+  release_guardrails_documented: true        # AGENTS.md + release-management skill updated
 
   # ═══════════════════════════════════════════════════════
   # Research-driven enhancements (2026-04-20)
