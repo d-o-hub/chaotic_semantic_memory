@@ -67,6 +67,7 @@ impl Singularity {
     /// Returns nodes reachable within `config.max_depth` hops, along with their depths.
     /// Nodes are returned in BFS order.
     pub fn bfs(&self, start: &str, config: &TraversalConfig) -> Result<Vec<(String, u32)>> {
+        crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
         if !self.concepts.contains_key(start) {
             return Err(MemoryError::NotFound {
                 entity: "Concept".to_string(),
@@ -117,6 +118,7 @@ impl Singularity {
         to: &str,
         config: &TraversalConfig,
     ) -> Result<Option<Vec<String>>> {
+        crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
         if !self.concepts.contains_key(from) {
             return Err(MemoryError::NotFound {
                 entity: "Concept".to_string(),
@@ -204,6 +206,7 @@ impl Singularity {
         to: &str,
         config: &TraversalConfig,
     ) -> Result<Option<Vec<String>>> {
+        crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
         if !self.concepts.contains_key(from) {
             return Err(MemoryError::NotFound {
                 entity: "Concept".to_string(),
