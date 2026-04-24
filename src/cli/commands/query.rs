@@ -123,21 +123,21 @@ pub async fn run_query(
                 let concept = framework.get_concept(id).await.ok().flatten();
                 let metadata_json = concept
                     .as_ref()
-                    .map(|c| serde_json::to_value(&c.metadata).unwrap_or(serde_json::json!({})))
-                    .unwrap_or(serde_json::json!({}));
+                    .map(|c| serde_json::to_value(&c.metadata).unwrap_or_else(|| serde_json::json!({})))
+                    .unwrap_or_else(|| serde_json::json!({}));
 
                 let text = metadata_json
                     .get("text_preview")
                     .or_else(|| metadata_json.get("content_preview"))
                     .and_then(|v| v.as_str())
-                    .unwrap_or("")
+                    .unwrap_or_else(|| "")
                     .to_string();
 
                 let path = metadata_json
                     .get("source")
                     .or_else(|| metadata_json.get("path"))
                     .and_then(|v| v.as_str())
-                    .unwrap_or("")
+                    .unwrap_or_else(|| "")
                     .to_string();
 
                 let display_text = if args.compact {

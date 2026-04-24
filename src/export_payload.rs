@@ -48,7 +48,7 @@ impl From<BinaryMetadataValue> for serde_json::Value {
             BinaryMetadataValue::Null => serde_json::Value::Null,
             BinaryMetadataValue::Bool(b) => serde_json::Value::Bool(b),
             BinaryMetadataValue::Number(n) => {
-                serde_json::Value::Number(n.parse().unwrap_or(serde_json::Number::from(0)))
+                serde_json::Value::Number(n.parse().unwrap_or_else(|| serde_json::Number::from(0)))
             }
             BinaryMetadataValue::String(s) => serde_json::Value::String(s),
             BinaryMetadataValue::Array(arr) => {
