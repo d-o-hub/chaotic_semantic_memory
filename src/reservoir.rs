@@ -109,13 +109,8 @@ impl SparseWeights {
         let indices = &self.indices[start..end];
         let weights = &self.weights[start..end];
         let mut i = 0;
-
-        // Use multiple accumulators to break the serial dependency chain of mul_add.
-        // This allows the CPU to utilize multiple execution ports for ILP.
-        let mut sum0 = 0.0;
-        let mut sum1 = 0.0;
-        let mut sum2 = 0.0;
-        let mut sum3 = 0.0;
+        // Use multiple accumulators for ILP (instruction-level parallelism).
+        let (mut sum0, mut sum1, mut sum2, mut sum3) = (0.0, 0.0, 0.0, 0.0);
 
         while i + 3 < indices.len() {
             sum0 = weights[i].mul_add(values[indices[i]], sum0);
