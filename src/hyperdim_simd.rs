@@ -102,14 +102,18 @@ pub(crate) unsafe fn bind_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
     for i in 0..80 {
         // SAFETY: u128 is 16-byte aligned; we cast to *const u64 which is correct
         // for vld1q_u64. The pointer arithmetic is within bounds.
-        let lhs_ptr = lhs.as_ptr().add(i) as *const u64;
-        let rhs_ptr = rhs.as_ptr().add(i) as *const u64;
-        let out_ptr = out.as_mut_ptr().add(i) as *mut u64;
+        // All unsafe operations are in an explicit unsafe block as required by
+        // #[target_feature(enable = "neon")].
+        unsafe {
+            let lhs_ptr = lhs.as_ptr().add(i) as *const u64;
+            let rhs_ptr = rhs.as_ptr().add(i) as *const u64;
+            let out_ptr = out.as_mut_ptr().add(i) as *mut u64;
 
-        let a = vld1q_u64(lhs_ptr);
-        let b = vld1q_u64(rhs_ptr);
-        let x = veorq_u64(a, b);
-        vst1q_u64(out_ptr, x);
+            let a = vld1q_u64(lhs_ptr);
+            let b = vld1q_u64(rhs_ptr);
+            let x = veorq_u64(a, b);
+            vst1q_u64(out_ptr, x);
+        }
     }
     out
 }
