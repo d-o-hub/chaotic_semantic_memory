@@ -156,18 +156,33 @@ impl Singularity {
         let bucket_mask = (1u128 << self.retrieval_config.bucket_probe_width) - 1;
         let query_bucket = query.data[0] & bucket_mask;
 
-        self.concept_vectors
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, vec)| {
-                let vec_bucket = vec.data[0] & bucket_mask;
-                if vec_bucket == query_bucket {
-                    Some(idx)
-                } else {
-                    None
-                }
-            })
-            .collect()
+        let filter = |(idx, vec): (usize, &HVec10240)| {
+            if (vec.data[0] & bucket_mask) == query_bucket {
+                Some(idx)
+            } else {
+                None
+            }
+        };
+
+        // Algorithmic Optimization: Parallelize O(N) candidate generation via Rayon.
+        // Reduces latency from O(N) to O(N/P) where P is the number of execution units.
+        #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
+        {
+            self.concept_vectors
+                .par_iter()
+                .enumerate()
+                .filter_map(filter)
+                .collect()
+        }
+
+        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
+        {
+            self.concept_vectors
+                .iter()
+                .enumerate()
+                .filter_map(filter)
+                .collect()
+        }
     }
 
     /// Perform exact similarity scan over all vectors.
