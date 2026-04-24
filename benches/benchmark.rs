@@ -23,6 +23,21 @@ fn bench_hvec_creation(c: &mut Criterion) {
     c.bench_function("hvec_random", |b| b.iter(HVec10240::random));
 }
 
+fn bench_permute(c: &mut Criterion) {
+    let v = HVec10240::random();
+    let mut group = c.benchmark_group("hvec_permute");
+
+    group.bench_function("permute_aligned", |b| {
+        b.iter(|| black_box(&v).permute(black_box(128)))
+    });
+
+    group.bench_function("permute_unaligned", |b| {
+        b.iter(|| black_box(&v).permute(black_box(42)))
+    });
+
+    group.finish();
+}
+
 fn bench_cosine_similarity(c: &mut Criterion) {
     let a = HVec10240::random();
     let other = HVec10240::random();
@@ -582,6 +597,7 @@ fn bench_singularity_scalability(c: &mut Criterion) {
 criterion_group!(
     benches,
     bench_hvec_creation,
+    bench_permute,
     bench_cosine_similarity,
     bench_batch_similarity,
     bench_binding,

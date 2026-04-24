@@ -6,7 +6,7 @@
 ## Measurement
 - Command: `cargo build --target wasm32-unknown-unknown --release --features wasm`
 - Artifact: `target/wasm32-unknown-unknown/release/chaotic_semantic_memory.wasm`
-- Size: `876152` bytes (`855.62` KiB)
+- Size: `876779` bytes (`856.23` KiB)
 - Threshold: `1048576` bytes (configurable via `CSM_WASM_SIZE_MAX_BYTES`)
 
 ## Result
