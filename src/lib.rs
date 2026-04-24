@@ -65,6 +65,7 @@ pub mod graph_traversal;
 pub mod hyperdim;
 mod hyperdim_batch;
 pub mod metadata_filter;
+pub mod semantic_triples;
 pub use metadata_filter::MetadataFilter;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 pub mod persistence;
