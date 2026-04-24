@@ -252,20 +252,44 @@ impl HVec10240 {
         hamming_distance_optimized(&self.data, &other.data)
     }
 
-    /// Permute the hypervector (rotation)
+    /// Permute the hypervector (cyclic rotation)
+    ///
+    /// Optimized implementation that eliminates modulo operations and branches
+    /// from the hot loop by splitting the rotation into two contiguous segments.
+    #[allow(clippy::needless_range_loop)]
     pub fn permute(&self, shift: usize) -> Self {
         let mut result = [0u128; 80];
         let bit_shift = shift % 128;
         let word_shift = (shift / 128) % 80;
 
-        for (i, word) in result.iter_mut().enumerate() {
-            let src1 = (i + word_shift) % 80;
-            if bit_shift == 0 {
-                *word = self.data[src1];
-            } else {
-                let src2 = (i + word_shift + 1) % 80;
-                *word = (self.data[src1] << bit_shift) | (self.data[src2] >> (128 - bit_shift));
-            }
+        // Optimized path for word-aligned rotations
+        if bit_shift == 0 {
+            let (left, right) = self.data.split_at(word_shift);
+            result[..80 - word_shift].copy_from_slice(right);
+            result[80 - word_shift..].copy_from_slice(left);
+            return Self { data: result };
+        }
+
+        let inv_bit_shift = 128 - bit_shift;
+
+        // Split cyclic rotation into two segments to eliminate modulo in the loop
+        // Segment 1: src1 from word_shift to 78, src2 from word_shift + 1 to 79
+        let limit = 79 - word_shift;
+        for i in 0..limit {
+            let src1 = i + word_shift;
+            let src2 = src1 + 1;
+            result[i] = (self.data[src1] << bit_shift) | (self.data[src2] >> inv_bit_shift);
+        }
+
+        // Handle the wrap-around word at the boundary of segment 1 and 2
+        // result[79 - word_shift] uses data[79] and data[0]
+        result[limit] = (self.data[79] << bit_shift) | (self.data[0] >> inv_bit_shift);
+
+        // Segment 2: src1 from 0 to word_shift - 1, src2 from 1 to word_shift
+        for i in limit + 1..80 {
+            let src1 = i + word_shift - 80;
+            let src2 = src1 + 1;
+            result[i] = (self.data[src1] << bit_shift) | (self.data[src2] >> inv_bit_shift);
         }
 
         Self { data: result }
