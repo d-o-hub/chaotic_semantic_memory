@@ -220,14 +220,16 @@ mod tests {
         let bin_dir = temp_dir.path().join("bin");
         std::fs::create_dir(&bin_dir).unwrap();
 
-        let exe_name = if cfg!(windows) { "test_exe.exe" } else { "test_exe" };
+        let exe_name = if cfg!(windows) {
+            "test_exe.exe"
+        } else {
+            "test_exe"
+        };
         let exe_path = bin_dir.join(exe_name);
         File::create(&exe_path).unwrap();
 
         // Helper to create PATH string
-        let make_path = |paths: Vec<PathBuf>| -> OsString {
-            env::join_paths(paths).unwrap()
-        };
+        let make_path = |paths: Vec<PathBuf>| -> OsString { env::join_paths(paths).unwrap() };
 
         // Test 1: Finding absolute path
         let path_os = make_path(vec![bin_dir.clone()]);
