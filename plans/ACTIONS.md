@@ -2994,8 +2994,8 @@ actions:
     effects:
       inertial_reservoir_tested: true
     cost: 3
-    status: complete  # Verified 2026-04-24: tests/reservoir_inertial_tests.rs exists with 10 tests
-    file: tests/reservoir_inertial_tests.rs
+    status: queued
+    file: tests/reservoir_tests.rs
     description: |
       Test the inertial reservoir dynamics.
 
@@ -3021,7 +3021,7 @@ actions:
     effects:
       inertial_reservoir_benchmarked: true
     cost: 3
-    status: complete  # Verified 2026-04-24: benchmarks exist in benches/benchmark.rs (reservoir_step_beta015, reservoir_sequence_10)
+    status: queued
     file: benches/benchmark.rs
     description: |
       Benchmark inertial vs standard reservoir dynamics.
@@ -3134,8 +3134,8 @@ actions:
     effects:
       selectivity_aware_retrieval_tested: true
     cost: 3
-    status: complete  # Verified 2026-04-24: tests/retrieval_selectivity_tests.rs exists with 11 tests
-    file: tests/retrieval_selectivity_tests.rs
+    status: queued
+    file: tests/retrieval_tests.rs
     description: |
       Test selectivity-aware filtered retrieval.
 

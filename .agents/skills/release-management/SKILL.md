@@ -71,30 +71,11 @@ This prevents the common issue of stale versions in documentation.
 5. CI creates tag `v*` automatically
 6. CI builds, publishes to crates.io/npm, creates GitHub release
 
-### Prerequisites (CRITICAL - Check Before Any Release)
-
-1. **CI must be passing** — The release workflow has a `wait-for-ci` guardrail that blocks release until CI passes
-   ```bash
-   gh run list --workflow=ci.yml --limit 3
-   # ALL jobs must show "completed" with "success" — not just green overall
-   ```
-
-2. **Cargo.lock must be synchronized** — Windows CI uses `--locked` flag
-   ```bash
-   cargo build --release  # Regenerates Cargo.lock after version bump
-   git add Cargo.lock     # MUST be committed with version changes
-   ```
-
-3. All conventional commits merged to main
-4. `CHANGELOG.md` reflects changes with proper version header
-5. Trusted Publishing configured (see references/trusted-publishing.md)
-
-### ⚠️ NEVER RELEASE WITH FAILING CI
-
-If CI is failing, the release workflow will be blocked by the `wait-for-ci` guardrail. Fix all CI issues first:
-- Check all platform builds: `macos-arm64`, `windows-x64`, `ubuntu-x64`
-- Fix pre-existing warnings (not just new issues)
-- Run `gh run view --log` to see detailed failure reasons
+### Prerequisites
+1. All conventional commits merged to main
+2. `CHANGELOG.md` reflects changes with proper version header
+3. CI passes on main branch
+4. Trusted Publishing configured (see references/trusted-publishing.md)
 
 ## Validation Gates
 

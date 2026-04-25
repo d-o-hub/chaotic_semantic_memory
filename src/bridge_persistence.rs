@@ -148,7 +148,7 @@ impl Persistence {
             .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {}", e)))?;
 
         // Clear existing concepts
-        if let Err(e) = conn.execute("DELETE FROM csm_canonical", ()).await {
+        if let Err(e) = conn.execute("DELETE FROM csm_canonical", params![]).await {
             let _ = conn.execute("ROLLBACK", ()).await;
             return Err(MemoryError::database(format!(
                 "Failed to clear canonical concepts: {}",
@@ -156,25 +156,8 @@ impl Persistence {
             )));
         }
 
-        // Insert all concepts with prepared statement for efficiency
+        // Insert all concepts
         let mut first_error: Option<MemoryError> = None;
-        let stmt = match conn
-            .prepare(
-                "INSERT INTO csm_canonical (id, version, labels_json, related_json)
-                 VALUES (?1, ?2, ?3, ?4)",
-            )
-            .await
-        {
-            Ok(s) => s,
-            Err(e) => {
-                let _ = conn.execute("ROLLBACK", ()).await;
-                return Err(MemoryError::database(format!(
-                    "Failed to prepare insert statement: {}",
-                    e
-                )));
-            }
-        };
-
         for concept in graph.all_concepts() {
             let labels_json = match serde_json::to_string(&concept.labels) {
                 Ok(j) => j,
@@ -191,16 +174,17 @@ impl Persistence {
                 }
             };
 
-            // Reset statement before each execution for proper parameter binding
-            stmt.reset();
-
-            if let Err(e) = stmt
-                .execute(params![
-                    concept.id.clone(),
-                    concept.version as i64,
-                    labels_json,
-                    related_json
-                ])
+            if let Err(e) = conn
+                .execute(
+                    "INSERT INTO csm_canonical (id, version, labels_json, related_json)
+                     VALUES (?1, ?2, ?3, ?4)",
+                    params![
+                        concept.id.clone(),
+                        concept.version as i64,
+                        labels_json,
+                        related_json
+                    ],
+                )
                 .await
             {
                 first_error = Some(MemoryError::database(format!(
