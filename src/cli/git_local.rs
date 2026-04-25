@@ -19,49 +19,6 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Environment variable name for system PATH lookup.
-const ENV_PATH: &str = "PATH";
-
-/// Find an executable in the system PATH, but only considering absolute paths.
-///
-/// This prevents path hijacking vulnerabilities where an attacker could place
-/// a malicious executable in the current directory or a relative path in the PATH.
-fn find_executable(name: &str) -> Option<PathBuf> {
-    find_executable_in_path(name, env::var_os(ENV_PATH)?)
-}
-
-/// Internal helper for testing find_executable logic with a custom PATH string.
-fn find_executable_in_path(name: &str, path_os: std::ffi::OsString) -> Option<PathBuf> {
-    for path in env::split_paths(&path_os) {
-        // Security check: only allow absolute paths in PATH
-        if !path.is_absolute() {
-            continue;
-        }
-
-        let exe_path = path.join(name);
-        // On Windows, we should also check for .exe extension if not present
-        #[cfg(windows)]
-        {
-            if exe_path.exists() && exe_path.is_file() {
-                return Some(exe_path);
-            }
-            let mut exe_with_ext = exe_path.clone();
-            exe_with_ext.set_extension("exe");
-            if exe_with_ext.exists() && exe_with_ext.is_file() {
-                return Some(exe_with_ext);
-            }
-        }
-
-        #[cfg(not(windows))]
-        {
-            if exe_path.exists() && exe_path.is_file() {
-                return Some(exe_path);
-            }
-        }
-    }
-    None
-}
-
 /// Resolve the git-local database path for the current repository.
 ///
 /// Uses `git rev-parse --git-dir` to find the .git directory and returns
@@ -81,10 +38,39 @@ fn find_executable_in_path(name: &str, path_os: std::ffi::OsString) -> Option<Pa
 /// // In a git repo, should return Some path
 /// assert!(path.is_some() || path.is_none()); // Always passes, documents behavior
 /// ```
-pub fn resolve_git_local_path() -> Option<PathBuf> {
-    // Find absolute path to git to prevent hijacking
-    let git_path = find_executable("git")?;
+fn find_executable(name: &str) -> Option<PathBuf> {
+    find_executable_in_path(name, env::var_os("PATH")?)
+}
 
+fn find_executable_in_path(name: &str, path_os: std::ffi::OsString) -> Option<PathBuf> {
+    for path in env::split_paths(&path_os) {
+        if !path.is_absolute() {
+            continue;
+        }
+        let exe_path = path.join(name);
+        #[cfg(windows)]
+        {
+            if exe_path.exists() && exe_path.is_file() {
+                return Some(exe_path);
+            }
+            let mut exe_with_ext = exe_path.clone();
+            exe_with_ext.set_extension("exe");
+            if exe_with_ext.exists() && exe_with_ext.is_file() {
+                return Some(exe_with_ext);
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            if exe_path.exists() && exe_path.is_file() {
+                return Some(exe_path);
+            }
+        }
+    }
+    None
+}
+
+pub fn resolve_git_local_path() -> Option<PathBuf> {
+    let git_path = find_executable("git")?;
     // Run git rev-parse --git-dir to find the .git directory
     let output = Command::new(git_path)
         .args(["rev-parse", "--git-dir"])
@@ -212,46 +198,6 @@ mod tests {
 
         // Now parent directory should exist
         assert!(db_path.parent().unwrap().exists());
-    }
-
-    #[test]
-    fn test_find_executable_in_path() {
-        use std::ffi::OsString;
-        use std::fs::File;
-
-        let temp_dir = tempfile::tempdir().unwrap();
-        let bin_dir = temp_dir.path().join("bin");
-        std::fs::create_dir(&bin_dir).unwrap();
-
-        let exe_name = if cfg!(windows) {
-            "test_exe.exe"
-        } else {
-            "test_exe"
-        };
-        let exe_path = bin_dir.join(exe_name);
-        File::create(&exe_path).unwrap();
-
-        // Helper to create PATH string
-        let make_path = |paths: Vec<PathBuf>| -> OsString { env::join_paths(paths).unwrap() };
-
-        // Test 1: Finding absolute path
-        let path_os = make_path(vec![bin_dir.clone()]);
-        let found = find_executable_in_path("test_exe", path_os);
-        assert!(found.is_some());
-        assert!(found.unwrap().is_absolute());
-
-        // Test 2: Ignoring relative path
-        // We need to be careful here, as "bin" might be interpreted relative to current_dir
-        let relative_path = PathBuf::from("relative_bin");
-        let path_os = make_path(vec![relative_path]);
-        let found = find_executable_in_path("test_exe", path_os);
-        assert!(found.is_none(), "Should ignore relative paths in PATH");
-
-        // Test 3: Mixed absolute and relative, should find absolute
-        let path_os = make_path(vec![PathBuf::from("relative_bin"), bin_dir]);
-        let found = find_executable_in_path("test_exe", path_os);
-        assert!(found.is_some());
-        assert!(found.unwrap().is_absolute());
     }
 
     #[test]

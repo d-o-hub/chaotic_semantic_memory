@@ -117,19 +117,6 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
-    pub(crate) fn validate_sequence_length(&self, length: usize) -> Result<()> {
-        if length > self.config.max_sequence_length {
-            return Err(MemoryError::InvalidInput {
-                field: "sequence_length".to_string(),
-                reason: format!(
-                    "sequence length exceeds configured limit {} (got {})",
-                    self.config.max_sequence_length, length
-                ),
-            });
-        }
-        Ok(())
-    }
-
     pub(crate) fn validate_traversal_config(
         config: &crate::graph_traversal::TraversalConfig,
     ) -> Result<()> {
@@ -148,6 +135,19 @@ impl ChaoticSemanticFramework {
                 reason: format!(
                     "traversal results exceed {} (got {})",
                     MAX_TRAVERSAL_RESULTS, config.max_results
+                ),
+            });
+        }
+        Ok(())
+    }
+
+    pub(crate) fn validate_sequence_length(&self, length: usize) -> Result<()> {
+        if length > self.config.max_sequence_length {
+            return Err(MemoryError::InvalidInput {
+                field: "sequence_length".to_string(),
+                reason: format!(
+                    "sequence length exceeds configured limit {} (got {})",
+                    self.config.max_sequence_length, length
                 ),
             });
         }
