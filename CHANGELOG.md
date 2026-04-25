@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4] - 2026-04-25
+
+### Fixed
+
+- **Path Hijacking Prevention**: Filter PATH to exclude relative entries (CWE-426)
+  when spawning git subprocesses to prevent command injection attacks.
+- **CLI Constants**: Use static constants for environment variable names to avoid
+  spelling errors (DeepSource RUST-R005).
+
+### Security
+
+- **git_local.rs**: Sanitized PATH lookup for git command execution.
+- **benchmarks/runner.rs**: Sanitized PATH lookup for commit SHA resolution.
+
 ## [0.3.2] - 2026-04-09
 
 ### Added
