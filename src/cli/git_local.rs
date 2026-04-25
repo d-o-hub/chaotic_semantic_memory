@@ -19,12 +19,15 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+/// Environment variable name for system PATH lookup.
+const ENV_PATH: &str = "PATH";
+
 /// Find an executable in the system PATH, but only considering absolute paths.
 ///
 /// This prevents path hijacking vulnerabilities where an attacker could place
 /// a malicious executable in the current directory or a relative path in the PATH.
 fn find_executable(name: &str) -> Option<PathBuf> {
-    find_executable_in_path(name, env::var_os("PATH")?)
+    find_executable_in_path(name, env::var_os(ENV_PATH)?)
 }
 
 /// Internal helper for testing find_executable logic with a custom PATH string.
