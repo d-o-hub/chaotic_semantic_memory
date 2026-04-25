@@ -12,6 +12,7 @@ on:
     branches: [main]
     paths:
       - 'src/**'
+      - 'benches/**'
       - 'benchmarks/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
