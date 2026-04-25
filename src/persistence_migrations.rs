@@ -38,6 +38,17 @@ impl Persistence {
         table_name: &str,
         column_name: &str,
     ) -> Result<bool> {
+        // Validate table_name to prevent SQL injection in pragma_table_info (CWE-89)
+        if !table_name
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
+        {
+            return Err(MemoryError::InvalidInput {
+                field: "table_name".to_string(),
+                reason: "Table name contains invalid characters".to_string(),
+            });
+        }
+
         let sql = format!(
             "SELECT COUNT(*) FROM pragma_table_info('{}') WHERE name = ?1",
             table_name

@@ -170,7 +170,19 @@ fn resolve_commit_sha() -> Option<String> {
         }
     }
 
+    // Filter PATH to exclude relative entries (CWE-426) to prevent path hijacking
+    let safe_path = std::env::var("PATH")
+        .ok()
+        .map(|p| {
+            std::env::join_paths(
+                std::env::split_paths(&p).filter(|p| p.is_absolute() && p.exists()),
+            )
+            .unwrap_or_default()
+        })
+        .unwrap_or_default();
+
     let output = Command::new("git")
+        .env("PATH", safe_path)
         .args(["rev-parse", "HEAD"])
         .output()
         .ok()?;
