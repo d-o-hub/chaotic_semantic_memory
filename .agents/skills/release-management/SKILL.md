@@ -135,6 +135,14 @@ VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d'"' -f2)
 grep -q "^\[${VERSION}\]:" CHANGELOG.md || echo "❌ Missing version link"
 ```
 
+## Distribution Channels (CRITICAL)
+
+Before publishing or validating, you MUST use the `dist-channel-selection` skill to identify the correct target. This repository distributes three distinct artifacts:
+
+1. **Rust Library:** `chaotic_semantic_memory` (crates.io)
+2. **JS/WASM Library:** `@d-o-hub/chaotic_semantic_memory` (npm)
+3. **CLI Tool:** `@d-o-hub/csm` (npm)
+
 ## Publishing Targets
 
 | Target | Method | Trigger |
