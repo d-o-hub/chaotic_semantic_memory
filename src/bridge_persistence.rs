@@ -148,7 +148,7 @@ impl Persistence {
             .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {}", e)))?;
 
         // Clear existing concepts
-        if let Err(e) = conn.execute("DELETE FROM csm_canonical", params![]).await {
+        if let Err(e) = conn.execute("DELETE FROM csm_canonical", ()).await {
             let _ = conn.execute("ROLLBACK", ()).await;
             return Err(MemoryError::database(format!(
                 "Failed to clear canonical concepts: {}",
@@ -156,7 +156,7 @@ impl Persistence {
             )));
         }
 
-        // Insert all concepts
+        // Insert all concepts with prepared statement for efficiency
         let mut first_error: Option<MemoryError> = None;
         let stmt = match conn
             .prepare(
@@ -190,6 +190,9 @@ impl Persistence {
                     break;
                 }
             };
+
+            // Reset statement before each execution for proper parameter binding
+            stmt.reset();
 
             if let Err(e) = stmt
                 .execute(params![
