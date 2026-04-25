@@ -80,6 +80,7 @@ mod persistence_versions;
 pub mod persistence_wasm;
 pub mod reservoir;
 mod reservoir_inertial; // ADR-0064
+mod reservoir_sparse; // LOC gate extraction
 pub mod retrieval;
 pub mod semantic_bridge;
 pub mod singularity;
