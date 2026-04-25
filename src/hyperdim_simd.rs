@@ -71,6 +71,9 @@ pub(crate) fn bind_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
 #[inline]
 #[target_feature(enable = "avx2")]
+/// # Safety
+/// This function is unsafe because it uses AVX2 intrinsics. The caller must ensure that
+/// AVX2 is supported by the CPU at runtime.
 pub(crate) unsafe fn bind_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
     use std::arch::x86_64::{__m256i, _mm256_loadu_si256, _mm256_storeu_si256, _mm256_xor_si256};
 
@@ -99,6 +102,9 @@ pub(crate) unsafe fn bind_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
 #[inline]
 #[target_feature(enable = "neon")]
+/// # Safety
+/// This function is unsafe because it uses NEON intrinsics. The caller must ensure that
+/// NEON is supported by the CPU (always true for aarch64).
 pub(crate) unsafe fn bind_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
     use std::arch::aarch64::{veorq_u64, vld1q_u64, vst1q_u64};
 

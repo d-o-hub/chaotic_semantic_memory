@@ -40,23 +40,27 @@ use std::process::Command;
 pub fn resolve_git_local_path() -> Option<PathBuf> {
     const ENV_PATH: &str = "PATH";
 
-    // Filter PATH to exclude relative entries (CWE-426) to prevent path hijacking
-    let safe_path = std::env::var(ENV_PATH)
-        .ok()
-        .map(|p| {
-            std::env::join_paths(
-                std::env::split_paths(&p).filter(|p| p.is_absolute() && p.exists()),
-            )
-            .unwrap_or_default()
-        })
+    // Filter PATH to exclude relative entries (CWE-426) to prevent path hijacking.
+    // If PATH is unset or results in an empty string after filtering, we fallback
+    // to letting the system attempt to find 'git' normally (standard behavior).
+    let safe_path = std::env::var(ENV_PATH).ok().and_then(|p| {
+        let joined = std::env::join_paths(
+            std::env::split_paths(&p).filter(|p| p.is_absolute() && p.exists()),
+        )
         .unwrap_or_default();
+        if joined.to_string_lossy().is_empty() {
+            None
+        } else {
+            Some(joined)
+        }
+    });
 
     // Run git rev-parse --git-dir to find the .git directory
-    let output = Command::new("git")
-        .env(ENV_PATH, safe_path)
-        .args(["rev-parse", "--git-dir"])
-        .output()
-        .ok()?;
+    let mut cmd = Command::new("git");
+    if let Some(path) = safe_path {
+        cmd.env(ENV_PATH, path);
+    }
+    let output = cmd.args(["rev-parse", "--git-dir"]).output().ok()?;
 
     if !output.status.success() {
         return None;
