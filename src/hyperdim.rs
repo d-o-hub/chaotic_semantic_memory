@@ -110,9 +110,9 @@ impl HVec10240 {
                 let mut planes = [0u128; 32];
                 for v in vectors {
                     let mut carry = v.data[i];
-                    for p in 0..num_planes {
-                        let next_carry = planes[p] & carry;
-                        planes[p] ^= carry;
+                    for plane in planes.iter_mut().take(num_planes) {
+                        let next_carry = *plane & carry;
+                        *plane ^= carry;
                         carry = next_carry;
                         if carry == 0 {
                             break;
@@ -142,9 +142,9 @@ impl HVec10240 {
                 let mut planes = [0u128; 32];
                 for v in vectors {
                     let mut carry = v.data[i];
-                    for p in 0..num_planes {
-                        let next_carry = planes[p] & carry;
-                        planes[p] ^= carry;
+                    for plane in planes.iter_mut().take(num_planes) {
+                        let next_carry = *plane & carry;
+                        *plane ^= carry;
                         carry = next_carry;
                         if carry == 0 {
                             break;
