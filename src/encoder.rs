@@ -392,7 +392,7 @@ mod tests {
         assert_eq!(TextEncoder::split_on_separators("::"), Vec::<String>::new());
         assert_eq!(
             TextEncoder::split_on_separators(":::"),
-            Vec::<String>::new()
+            vec![":"] // :: splits, remaining : is part of the word
         );
         assert_eq!(TextEncoder::split_on_separators("word_"), vec!["word"]);
         assert_eq!(TextEncoder::split_on_separators("_word"), vec!["word"]);
