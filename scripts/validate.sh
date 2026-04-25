@@ -53,7 +53,7 @@ if command -v npm >/dev/null 2>&1; then
   cargo build --release --bin csm
   mkdir -p cli-npm/bin
   cp target/release/csm cli-npm/bin/csm-linux-x64
-  chmod +x cli-npm/bin/csm-linux-x64
+  chmod 755 cli-npm/bin/csm-linux-x64
   pushd cli-npm >/dev/null
   TARBALL=$(npm pack --silent)
   TMP_DIR=$(mktemp -d)
