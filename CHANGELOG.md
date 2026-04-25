@@ -108,8 +108,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **bucket_probe_width overflow**: Bound to prevent Denial of Service panic.
 - **WASM size gate**: Fixed script to check library WASM instead of CLI binary.
 
-## [Unreleased]
-
 ## [0.2.9] - 2026-04-06
 
 ### Added
@@ -366,7 +364,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CI workflow with security permissions and concurrency controls
 - Trusted Publishing eliminates need for long-lived API tokens
 
-[unreleased]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.1...HEAD
+[unreleased]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.4...HEAD
+[0.3.4]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.2...v0.3.4
+[0.3.2]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.3.1
 [0.3.0]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.3.0
 [0.2.9]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.9
@@ -379,5 +379,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.2.2]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.2
 [0.2.1]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.1
 [0.2.0]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.0
+[0.1.3]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.1.3
+[0.1.2]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.1.2
 [0.1.1]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.1.1
 [0.1.0]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.1.0

@@ -111,7 +111,7 @@ impl Singularity {
     /// Strength values ≤ 0 are treated as cost `f32::MAX` (effectively unreachable).
     ///
     /// Returns `None` if no path exists within `config.max_depth` hops.
-    /// Use [`shortest_path_hops`] for unweighted (fewest-hop) traversal.
+    /// Use [`Self::shortest_path_hops`] for unweighted (fewest-hop) traversal.
     pub fn shortest_path(
         &self,
         from: &str,
@@ -197,7 +197,7 @@ impl Singularity {
     /// Find the fewest-hop path between two concepts using unweighted BFS.
     ///
     /// Returns the path with the minimum number of hops, ignoring edge strengths.
-    /// Use [`shortest_path`] for strength-weighted (Dijkstra) traversal.
+    /// Use [`Self::shortest_path`] for strength-weighted (Dijkstra) traversal.
     ///
     /// Returns `None` if no path exists within `config.max_depth` hops.
     pub fn shortest_path_hops(
