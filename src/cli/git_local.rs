@@ -18,6 +18,9 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+/// Environment variable name for system PATH lookup.
+const ENV_PATH: &str = "PATH";
+
 /// Resolve the git-local database path for the current repository.
 ///
 /// Uses `git rev-parse --git-dir` to find the .git directory and returns
@@ -38,8 +41,6 @@ use std::process::Command;
 /// assert!(path.is_some() || path.is_none()); // Always passes, documents behavior
 /// ```
 pub fn resolve_git_local_path() -> Option<PathBuf> {
-    const ENV_PATH: &str = "PATH";
-
     // Filter PATH to exclude relative entries (CWE-426) to prevent path hijacking.
     // If PATH is unset or results in an empty string after filtering, we fallback
     // to letting the system attempt to find 'git' normally (standard behavior).
