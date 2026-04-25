@@ -127,80 +127,87 @@ impl HVec10240 {
         Self { data }
     }
 
-    /// Bundle (sum) multiple hypervectors
+    /// Bundle (sum) multiple hypervectors using bit-sliced addition.
+    ///
+    /// This implementation is optimized for performance and memory efficiency:
+    /// 1. It uses word-parallel bit-sliced addition to count set bits across vectors.
+    /// 2. It eliminates the large heap-allocated counter array and bit-by-bit loops.
+    /// 3. It parallelizes over hypervector words rather than over vectors to minimize
+    ///    memory traffic and synchronization overhead.
     pub fn bundle(vectors: &[Self]) -> Result<Self> {
         if vectors.is_empty() {
             return Ok(Self::zero());
         }
 
+        let num_vectors = vectors.len();
+        // Threshold: strictly greater than half
+        let threshold = num_vectors / 2 + 1;
+        // Number of bit-planes needed to represent a sum up to num_vectors
+        let num_planes = (usize::BITS - num_vectors.leading_zeros()) as usize;
+
+        let mut data = [0u128; 80];
+
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        let counts = vectors
-            .par_iter()
-            .fold(
-                || Box::new([0i32; Self::DIMENSION]),
-                |mut local, v| {
-                    for i in 0..80 {
-                        let mut val = v.data[i];
-                        while val != 0 {
-                            let j = val.trailing_zeros() as usize;
-                            local[i * 128 + j] += 1;
-                            val &= val - 1;
+        {
+            data.par_iter_mut().enumerate().for_each(|(i, word)| {
+                // Use bit-sliced adder to count bits for each position in the word
+                let mut planes = [0u128; 32];
+                for v in vectors {
+                    let mut carry = v.data[i];
+                    for plane in planes.iter_mut().take(num_planes) {
+                        let next_carry = *plane & carry;
+                        *plane ^= carry;
+                        carry = next_carry;
+                        if carry == 0 {
+                            break;
                         }
                     }
-                    local
-                },
-            )
-            .reduce(
-                || Box::new([0i32; Self::DIMENSION]),
-                |mut a, b| {
-                    #[allow(clippy::needless_range_loop)]
-                    for i in 0..Self::DIMENSION {
-                        a[i] += b[i];
-                    }
-                    a
-                },
-            );
+                }
 
-        #[cfg(all(not(target_arch = "wasm32"), not(feature = "parallel")))]
-        let counts = {
-            let mut local = Box::new([0i32; Self::DIMENSION]);
-            for v in vectors {
-                for i in 0..80 {
-                    let mut val = v.data[i];
-                    while val != 0 {
-                        let j = val.trailing_zeros() as usize;
-                        local[i * 128 + j] += 1;
-                        val &= val - 1;
+                // Reconstruct the resulting word using bit-sliced comparison: count >= threshold
+                let mut current_eq = !0u128;
+                let mut current_gt = 0u128;
+                for p in (0..num_planes).rev() {
+                    let bit = (threshold >> p) & 1;
+                    if bit == 1 {
+                        current_eq &= planes[p];
+                    } else {
+                        current_gt |= current_eq & planes[p];
+                        current_eq &= !planes[p];
                     }
                 }
-            }
-            local
-        };
+                *word = current_gt | current_eq;
+            });
+        }
 
-        #[cfg(target_arch = "wasm32")]
-        let counts = {
-            let mut local = Box::new([0i32; Self::DIMENSION]);
-            for v in vectors {
-                for i in 0..80 {
-                    let mut val = v.data[i];
-                    while val != 0 {
-                        let j = val.trailing_zeros() as usize;
-                        local[i * 128 + j] += 1;
-                        val &= val - 1;
+        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
+        {
+            for i in 0..80 {
+                let mut planes = [0u128; 32];
+                for v in vectors {
+                    let mut carry = v.data[i];
+                    for plane in planes.iter_mut().take(num_planes) {
+                        let next_carry = *plane & carry;
+                        *plane ^= carry;
+                        carry = next_carry;
+                        if carry == 0 {
+                            break;
+                        }
                     }
                 }
-            }
-            local
-        };
 
-        let threshold = vectors.len() as i32 / 2;
-        let mut data = [0u128; 80];
-        for (i, word) in data.iter_mut().enumerate() {
-            let offset = i * 128;
-            for j in 0..128 {
-                // Branchless bit construction to reduce misprediction penalties
-                let condition = counts[offset + j] > threshold;
-                *word |= (condition as u128) << j;
+                let mut current_eq = !0u128;
+                let mut current_gt = 0u128;
+                for p in (0..num_planes).rev() {
+                    let bit = (threshold >> p) & 1;
+                    if bit == 1 {
+                        current_eq &= planes[p];
+                    } else {
+                        current_gt |= current_eq & planes[p];
+                        current_eq &= !planes[p];
+                    }
+                }
+                data[i] = current_gt | current_eq;
             }
         }
 
