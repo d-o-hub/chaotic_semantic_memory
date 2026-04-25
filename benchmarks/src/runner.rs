@@ -164,14 +164,17 @@ pub async fn run(cli: Cli) -> Result<()> {
 }
 
 fn resolve_commit_sha() -> Option<String> {
-    if let Ok(sha) = std::env::var("GITHUB_SHA") {
+    const ENV_GITHUB_SHA: &str = "GITHUB_SHA";
+    const ENV_PATH: &str = "PATH";
+
+    if let Ok(sha) = std::env::var(ENV_GITHUB_SHA) {
         if !sha.trim().is_empty() {
             return Some(sha);
         }
     }
 
     // Filter PATH to exclude relative entries (CWE-426) to prevent path hijacking
-    let safe_path = std::env::var("PATH")
+    let safe_path = std::env::var(ENV_PATH)
         .ok()
         .map(|p| {
             std::env::join_paths(
@@ -182,7 +185,7 @@ fn resolve_commit_sha() -> Option<String> {
         .unwrap_or_default();
 
     let output = Command::new("git")
-        .env("PATH", safe_path)
+        .env(ENV_PATH, safe_path)
         .args(["rev-parse", "HEAD"])
         .output()
         .ok()?;

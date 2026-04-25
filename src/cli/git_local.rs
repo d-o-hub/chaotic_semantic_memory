@@ -38,8 +38,10 @@ use std::process::Command;
 /// assert!(path.is_some() || path.is_none()); // Always passes, documents behavior
 /// ```
 pub fn resolve_git_local_path() -> Option<PathBuf> {
+    const ENV_PATH: &str = "PATH";
+
     // Filter PATH to exclude relative entries (CWE-426) to prevent path hijacking
-    let safe_path = std::env::var("PATH")
+    let safe_path = std::env::var(ENV_PATH)
         .ok()
         .map(|p| {
             std::env::join_paths(
@@ -51,7 +53,7 @@ pub fn resolve_git_local_path() -> Option<PathBuf> {
 
     // Run git rev-parse --git-dir to find the .git directory
     let output = Command::new("git")
-        .env("PATH", safe_path)
+        .env(ENV_PATH, safe_path)
         .args(["rev-parse", "--git-dir"])
         .output()
         .ok()?;
