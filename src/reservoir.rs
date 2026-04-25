@@ -260,7 +260,9 @@ impl Reservoir {
             self.scratch[i] = state[i] * one_minus_alpha + activated * self.alpha + inertial;
         }
         self.update_phase = (update_phase + 1) % self.update_stride;
-        self.prev_state.copy_from_slice(&self.state);
+        for i in (update_phase..self.size).step_by(self.update_stride) {
+            self.prev_state[i] = self.state[i];
+        }
         std::mem::swap(&mut self.state, &mut self.scratch);
 
         // Keep scratch in sync with state for the next partial-update step.

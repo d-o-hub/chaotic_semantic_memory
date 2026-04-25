@@ -7,6 +7,8 @@ use crate::singularity_retrieval::RetrievalConfig;
 
 const MAX_CONCEPT_ID_BYTES: usize = 256;
 const MAX_BUCKET_PROBE_WIDTH: usize = 16;
+const MAX_TRAVERSAL_DEPTH: usize = 32;
+const MAX_TRAVERSAL_RESULTS: usize = 10_000;
 
 impl ChaoticSemanticFramework {
     pub(crate) fn validate_retrieval_config(config: &RetrievalConfig) -> Result<()> {
@@ -122,6 +124,30 @@ impl ChaoticSemanticFramework {
                 reason: format!(
                     "sequence length exceeds configured limit {} (got {})",
                     self.config.max_sequence_length, length
+                ),
+            });
+        }
+        Ok(())
+    }
+
+    pub(crate) fn validate_traversal_config(
+        config: &crate::graph_traversal::TraversalConfig,
+    ) -> Result<()> {
+        if config.max_depth > MAX_TRAVERSAL_DEPTH {
+            return Err(MemoryError::InvalidInput {
+                field: "max_depth".to_string(),
+                reason: format!(
+                    "traversal depth exceeds {} (got {})",
+                    MAX_TRAVERSAL_DEPTH, config.max_depth
+                ),
+            });
+        }
+        if config.max_results > MAX_TRAVERSAL_RESULTS {
+            return Err(MemoryError::InvalidInput {
+                field: "max_results".to_string(),
+                reason: format!(
+                    "traversal results exceed {} (got {})",
+                    MAX_TRAVERSAL_RESULTS, config.max_results
                 ),
             });
         }

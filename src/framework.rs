@@ -223,6 +223,7 @@ impl ChaoticSemanticFramework {
         config: TraversalConfig,
     ) -> Result<Vec<(String, u32)>> {
         Self::validate_concept_id(start)?;
+        Self::validate_traversal_config(&config)?;
         let sing = self.singularity.read().await;
         sing.bfs(start, &config)
     }
