@@ -75,6 +75,12 @@ For library-only consumers who don't need the CLI binary or its dependencies:
 chaotic_semantic_memory = { version = "0.3", default-features = false }
 ```
 
+### WASM npm Package (for JS/TS)
+
+```bash
+npm install @d-o-hub/chaotic_semantic_memory
+```
+
 ### CLI Binary
 
 **via npm (recommended for Node.js users):**

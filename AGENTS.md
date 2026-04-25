@@ -154,6 +154,69 @@ Before completing any task, verify:
 ## Hard Constraints
 See: [agents-docs/hard-constraints.md](agents-docs/hard-constraints.md)
 
+---
+
+## Release Safety Requirements
+
+**CRITICAL: Never release with failing CI. The release workflow now has a guardrail that waits for CI to pass.**
+
+### Artifact Selection (REQUIRED)
+
+Before validating, installing, or publishing, identify the correct channel:
+- **Rust Library:** `chaotic_semantic_memory` (crates.io / cargo)
+- **JS/WASM Library:** `@d-o-hub/chaotic_semantic_memory` (npm WASM)
+- **CLI Tool:** `@d-o-hub/csm` (npm CLI)
+
+Refer to the `dist-channel-selection` skill for canonical commands.
+
+### Pre-Release Checklist (MANDATORY)
+
+1. **Verify CI passes on all platforms**:
+   ```bash
+   gh run list --workflow=ci.yml --limit 3
+   gh run view --log  # Check all jobs: macos-arm64, windows-x64, linux
+   ```
+
+2. **Ensure Cargo.lock is synchronized**:
+   ```bash
+   cargo build --release  # Regenerates Cargo.lock after version bump
+   git add Cargo.lock     # Must be committed with version changes
+   ```
+
+3. **Check existing releases**:
+   ```bash
+   gh release list --limit 5
+   gh release view --json tagName,isLatest
+   ```
+
+4. **Validate changelog entry exists**:
+   ```bash
+   grep -q "^## \[${VERSION}\]" CHANGELOG.md
+   ```
+
+### Version Bump Workflow
+
+1. Update `Cargo.toml` version
+2. Update `wasm/package.json` version
+3. Update `CHANGELOG.md` with new section
+4. Run `cargo build --release` to sync Cargo.lock
+5. Commit all version files together (atomic)
+6. Push and wait for CI to pass
+7. Only then create tag/release
+
+### Platform-Specific Considerations
+
+- **macOS arm64**: NEON SIMD intrinsics require explicit unsafe blocks
+- **Windows x64**: CI uses `--locked` flag, Cargo.lock must match Cargo.toml
+- **WASM**: Size gate checks library (~870KB), not CLI binary (~5KB)
+
+### Reference Files
+
+- `.github/workflows/release.yml` — Has `wait-for-ci` guardrail job
+- `.agents/skills/release-management/` — Full release skill
+- `scripts/validate.sh` — Pre-commit validation gates
+
+---
 ## Key Files
 **Core**: `src/singularity.rs`, `src/reservoir.rs`, `src/reservoir_inertial.rs`, `src/framework.rs`, `src/persistence.rs`
 **Bridge**: `src/semantic_bridge.rs`, `src/bridge_retrieval.rs`
@@ -161,8 +224,8 @@ See: [agents-docs/hard-constraints.md](agents-docs/hard-constraints.md)
 **CLI**: `src/cli/commands/query.rs`, `src/cli/commands/index_dir.rs`
 **State**: `plans/GOAP_STATE.md`, `plans/ACTIONS.md`
 
-## Skills (19 Total)
-**Core**: `rust-development`, `testing-validation`, `goap-planning`, `adr-creation`, `github-ci-guardrails`, `git-workflow`, `release-management`, `benchmarking-perf`, `debugging-reservoir`, `skill-memory-internal`, `memory-lifecycle-verification`, `turso-memory-verification`, `drawio`
+## Skills (20 Total)
+**Core**: `rust-development`, `testing-validation`, `goap-planning`, `adr-creation`, `github-ci-guardrails`, `git-workflow`, `release-management`, `dist-channel-selection`, `benchmarking-perf`, `debugging-reservoir`, `skill-memory-internal`, `memory-lifecycle-verification`, `turso-memory-verification`, `drawio`
 
 **Swarm**: `swarm-testing-quality`, `swarm-performance`, `swarm-observability`, `swarm-advanced-features`, `analysis-swarm`
 
