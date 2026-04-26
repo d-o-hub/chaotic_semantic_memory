@@ -232,3 +232,46 @@ impl Singularity {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::concept_builder::ConceptBuilder;
+    use crate::singularity::SingularityConfig;
+
+    #[test]
+    fn test_bundle_concepts_strict_success() {
+        let mut singularity = Singularity::with_config(SingularityConfig::default());
+        let vec1 = HVec10240::random();
+        let vec2 = HVec10240::random();
+
+        let c1 = ConceptBuilder::new("c1").with_vector(vec1).build().unwrap();
+        let c2 = ConceptBuilder::new("c2").with_vector(vec2).build().unwrap();
+
+        singularity.inject(c1).unwrap();
+        singularity.inject(c2).unwrap();
+
+        let result = singularity.bundle_concepts_strict(&["c1".to_string(), "c2".to_string()]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_bundle_concepts_strict_missing_id() {
+        let mut singularity = Singularity::with_config(SingularityConfig::default());
+        let vec1 = HVec10240::random();
+
+        let c1 = ConceptBuilder::new("c1").with_vector(vec1).build().unwrap();
+        singularity.inject(c1).unwrap();
+
+        let result =
+            singularity.bundle_concepts_strict(&["c1".to_string(), "missing_id".to_string()]);
+
+        match result {
+            Err(MemoryError::NotFound { entity, id }) => {
+                assert_eq!(entity, "Concept");
+                assert_eq!(id, "missing_id");
+            }
+            _ => panic!("Expected NotFound error, got {:?}", result),
+        }
+    }
+}

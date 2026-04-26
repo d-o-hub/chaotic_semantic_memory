@@ -8,28 +8,28 @@
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
-- serde (1.0.219) [features: derive]
-- anyhow (1.0.102)
-- tracing (0.1.41)
-- rand (0.10.1)
-- clap_complete (4.5.42)
-- glob (0.3.2)
-- base64 (0.22)
-- bincode (1.3.3)
-- rand_chacha (0.10.0)
 - tracing-subscriber (0.3.19)
+- bincode (1.3.3)
 - serde_json (1.0.149)
-- thiserror (2.0.11)
 - clap (4.5.60) [features: derive, env, string]
+- serde (1.0.219) [features: derive]
+- base64 (0.22)
+- tracing (0.1.41)
+- clap_complete (4.5.42)
 - colored (2.2.0)
+- rand (0.10.1)
+- anyhow (1.0.102)
+- glob (0.3.2)
+- thiserror (2.0.11)
+- rand_chacha (0.10.0)
 **Features:**
-- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - default: [cli, persistence, parallel]
-- parallel: [dep:rayon]
 - wasm: []
+- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
+- parallel: [dep:rayon]
 - persistence: [dep:libsql]
 
-Generated: 2026-04-25 19:13:35 UTC  
+Generated: 2026-04-26 12:24:46 UTC
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Core Documentation
@@ -40,28 +40,30 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Table of Contents
 
-### src/reservoir_inertial.rs
+### src/framework_bridge.rs
 
-- impl Reservoir
+- impl ChaoticSemanticFramework
 
-### src/reservoir_metrics.rs
+### src/semantic_triples.rs
 
-- pub struct ReservoirMetricsSnapshot
-- impl ReservoirMetrics
+- pub struct SemanticTriple
+- impl SemanticTriple
+- pub struct StructuredMemoryPayload
+- impl StructuredMemoryPayload
 
 ### src/reservoir.rs
 
-- pub use crate::reservoir_metrics::ReservoirMetricsSnapshot
-- impl SparseWeights
+- pub struct ReservoirMetricsSnapshot
+- impl ReservoirMetrics
 - pub struct Reservoir
 - impl Reservoir
 - pub struct ChaoticReservoir
 - impl ChaoticReservoir
 
-### src/framework_events.rs
+### src/concept_builder.rs
 
-- pub enum MemoryEvent
-- impl ChaoticSemanticFramework
+- pub struct ConceptBuilder
+- impl ConceptBuilder
 
 ### src/hyperdim.rs
 
@@ -73,57 +75,56 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Deserialize for HVec10240
 - pub use crate::bundle::BundleAccumulator
 
+### src/bundle.rs
+
+- pub struct BundleAccumulator
+- impl Default for BundleAccumulator
+- impl BundleAccumulator
+
+### src/metadata_filter.rs
+
+- pub enum MetadataFilter
+- impl MetadataFilter
+- impl ops::Not for MetadataFilter
+
+### src/persistence.rs
+
+- pub struct Persistence
+- pub struct ConceptVersion
+- impl Persistence
+
+### src/reservoir_sparse.rs
+
+- impl SparseWeights
+
+### src/singularity_ttl.rs
+
+- impl Default for Concept
+- impl Singularity
+
+### src/singularity_cache.rs
+
+- impl QueryCache
+- pub struct CacheMetricsSnapshot
+- impl CacheMetrics
+
 ### src/framework_ttl.rs
 
 - impl crate::framework::ChaoticSemanticFramework
 
-### src/concept_builder.rs
+### src/framework_builder.rs
 
-- pub struct ConceptBuilder
-- impl ConceptBuilder
+- pub struct FrameworkConfig
+- impl Default for FrameworkConfig
+- pub struct FrameworkStats
+- pub struct FrameworkBuilder
+- impl FrameworkBuilder
 
-### src/persistence_ops.rs
+### src/graph_traversal.rs
 
-- impl Persistence
-
-### src/framework.rs
-
-- pub struct ChaoticSemanticFramework
-- pub struct FrameworkMetrics
-- pub struct FrameworkMetricsSnapshot
-- impl FrameworkMetrics
-- impl ChaoticSemanticFramework
-
-### src/hyperdim_batch.rs
-
-- pub fn batch_cosine_similarity
-
-### src/framework_validation.rs
-
-- impl ChaoticSemanticFramework
-
-### src/semantic_bridge.rs
-
-- pub struct CanonicalConcept
-- impl CanonicalConcept
-- pub struct BridgeConfig
-- impl Default for BridgeConfig
-- pub struct ScoreBreakdown
-- impl ScoreBreakdown
-- pub struct BridgeHit
-- pub struct MemoryPacket
-- impl MemoryPacket
-- pub trait SemanticReranker
-- pub struct ConceptGraph
-- impl ConceptGraph
-
-### src/framework_ops.rs
-
-- impl ChaoticSemanticFramework
-
-### src/bridge_persistence.rs
-
-- impl Persistence
+- pub struct TraversalConfig
+- impl Default for TraversalConfig
+- impl Singularity
 
 ### src/singularity_retrieval.rs
 
@@ -135,10 +136,222 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Default for RetrievalConfig
 - impl Singularity
 
-### src/persistence.rs
+### src/cli/commands/index_dir.rs
+
+- pub fn run_index_dir
+- pub struct MarkdownChunk
+- pub fn chunk_by_heading
+
+### src/cli/commands/associate.rs
+
+- pub fn run_associate
+- pub fn run_associate_batch
+
+### src/cli/commands/import.rs
+
+- pub fn run_import
+
+### src/cli/commands/inject.rs
+
+- pub fn run_inject
+
+### src/cli/commands/probe.rs
+
+- pub fn run_probe
+- pub fn run_probe_with_vector
+
+### src/cli/commands/index_jsonl.rs
+
+- pub fn run_index_jsonl
+
+### src/cli/commands/query.rs
+
+- pub fn run_query
+
+### src/cli/commands/export.rs
+
+- pub fn run_export
+
+### src/cli/commands/mod.rs
+
+- pub mod associate
+- pub mod completions
+- pub mod export
+- pub mod import
+- pub mod index_dir
+- pub mod index_jsonl
+- pub mod inject
+- pub mod probe
+- pub mod query
+- pub use associate::run_associate
+- pub use completions::run_completions
+- pub use export::run_export
+- pub use import::run_import
+- pub use index_dir::run_index_dir
+- pub use index_jsonl::run_index_jsonl
+- pub use inject::run_inject
+- pub use probe::run_probe
+- pub use query::run_query
+- pub fn print_success
+- pub fn print_error
+- pub fn print_warning
+- pub fn truncate_preview
+- pub fn create_framework
+
+### src/cli/commands/completions.rs
+
+- pub fn run_completions
+
+### src/cli/git_local.rs
+
+- pub fn resolve_git_local_path
+- pub fn ensure_git_local_dir
+
+### src/cli/error.rs
+
+- pub enum CliError
+- impl From for CliError
+- pub type Result
+- pub enum ExitCode
+- impl From for ExitCode
+- impl From for ExitCode
+- impl CliError
+- impl ExitCode
+
+### src/cli/args.rs
+
+- pub struct CliArgs
+- pub enum OutputFormat
+- pub enum Commands
+- pub struct InjectArgs
+- pub enum VectorSource
+- pub struct ProbeArgs
+- pub struct QueryArgs
+- pub struct AssociateArgs
+- pub enum ExportFormat
+- pub struct ExportArgs
+- pub enum ImportFormat
+- pub struct ImportArgs
+- pub struct VersionArgs
+- pub struct CompletionsArgs
+- pub struct IndexJsonlArgs
+- pub struct IndexDirArgs
+
+### src/cli/mod.rs
+
+- pub mod args
+- pub mod commands
+- pub mod error
+- pub mod git_local
+- pub use args::*
+- pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+- pub use error::{CliError, ExitCode, Result}
+- pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
+
+### src/persistence_migrations.rs
+
+- impl Persistence
+
+### src/framework_validation.rs
+
+- impl ChaoticSemanticFramework
+
+### src/persistence_ops.rs
+
+- impl Persistence
+
+### src/reservoir_inertial.rs
+
+- impl Reservoir
+
+### src/hyperdim_batch.rs
+
+- pub fn batch_cosine_similarity
+
+### src/retrieval/hybrid.rs
+
+- pub fn compute_weights
+- pub fn normalize_scores
+- pub fn merge_results
+- pub enum HybridMode
+- pub struct HybridConfig
+- impl Default for HybridConfig
+
+### src/retrieval/mod.rs
+
+- pub mod bm25
+- pub mod hybrid
+- pub use bm25::{Bm25Config, Bm25Index}
+- pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
+
+### src/retrieval/bm25.rs
+
+- pub struct Bm25Config
+- impl Default for Bm25Config
+- pub struct Bm25Index
+- impl Bm25Index
+
+### src/singularity.rs
+
+- pub use crate::singularity_cache::CacheMetricsSnapshot
+- pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
+- pub const DEFAULT_MAX_CACHED_TOP_K
+- pub struct Concept
+- pub struct SingularityConfig
+- impl Default for SingularityConfig
+- pub struct Singularity
+- impl Singularity
+- impl Default for Singularity
+- pub use crate::concept_builder::ConceptBuilder
+
+### src/framework.rs
+
+- pub struct ChaoticSemanticFramework
+- pub struct FrameworkMetrics
+- pub struct FrameworkMetricsSnapshot
+- impl FrameworkMetrics
+- impl ChaoticSemanticFramework
+
+### src/persistence_wasm.rs
 
 - pub struct Persistence
 - pub struct ConceptVersion
+- impl Persistence
+
+### src/framework_ops.rs
+
+- impl ChaoticSemanticFramework
+
+### src/wasm.rs
+
+- pub fn initialize_wasm
+- pub struct WasmFramework
+- impl WasmFramework
+- pub fn random_hypervector
+- pub fn encode_text
+- pub fn cosine_similarity
+
+### src/error.rs
+
+- pub enum MemoryError
+- impl MemoryError
+- pub type Result
+
+### src/wasm_ext.rs
+
+- impl WasmFramework
+
+### src/export_payload.rs
+
+- impl From for BinaryMetadataValue
+- impl From for serde_json::Value
+- impl From for BinaryConcept
+- impl BinaryConcept
+- impl From for BinaryExportPayload
+- impl BinaryExportPayload
+
+### src/persistence_versions.rs
+
 - impl Persistence
 
 ### src/lib.rs
@@ -190,234 +403,46 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use prelude::crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod wasm
 
-### src/metadata_filter.rs
-
-- pub enum MetadataFilter
-- impl MetadataFilter
-- impl ops::Not for MetadataFilter
-
-### src/wasm_ext.rs
-
-- impl WasmFramework
-
-### src/singularity.rs
-
-- pub use crate::singularity_cache::CacheMetricsSnapshot
-- pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
-- pub const DEFAULT_MAX_CACHED_TOP_K
-- pub struct Concept
-- pub struct SingularityConfig
-- impl Default for SingularityConfig
-- pub struct Singularity
-- impl Singularity
-- impl Default for Singularity
-- pub use crate::concept_builder::ConceptBuilder
-
-### src/singularity_ttl.rs
-
-- impl Default for Concept
-- impl Singularity
-
 ### src/bridge_retrieval.rs
 
 - pub struct BridgeRetrieval
 - impl BridgeRetrieval
 
-### src/persistence_wasm.rs
+### src/semantic_bridge.rs
 
-- pub struct Persistence
-- pub struct ConceptVersion
+- pub struct CanonicalConcept
+- impl CanonicalConcept
+- pub struct BridgeConfig
+- impl Default for BridgeConfig
+- pub struct ScoreBreakdown
+- impl ScoreBreakdown
+- pub struct BridgeHit
+- pub struct MemoryPacket
+- impl MemoryPacket
+- pub trait SemanticReranker
+- pub struct ConceptGraph
+- impl ConceptGraph
+
+### src/framework_events.rs
+
+- pub enum MemoryEvent
+- impl ChaoticSemanticFramework
+
+### src/bridge_persistence.rs
+
 - impl Persistence
 
-### src/error.rs
+### src/encoder.rs
 
-- pub enum MemoryError
-- impl MemoryError
-- pub type Result
-
-### src/persistence_versions.rs
-
-- impl Persistence
-
-### src/wasm.rs
-
-- pub fn initialize_wasm
-- pub struct WasmFramework
-- impl WasmFramework
-- pub fn random_hypervector
-- pub fn encode_text
-- pub fn cosine_similarity
+- pub struct TextEncoderConfig
+- impl Default for TextEncoderConfig
+- pub struct TextEncoder
+- impl Default for TextEncoder
+- impl TextEncoder
 
 ### src/singularity_ext.rs
 
 - impl Singularity
-
-### src/semantic_triples.rs
-
-- pub struct SemanticTriple
-- impl SemanticTriple
-- pub struct StructuredMemoryPayload
-- impl StructuredMemoryPayload
-
-### src/retrieval/mod.rs
-
-- pub mod bm25
-- pub mod hybrid
-- pub use bm25::{Bm25Config, Bm25Index}
-- pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
-
-### src/retrieval/hybrid.rs
-
-- pub fn compute_weights
-- pub fn normalize_scores
-- pub fn merge_results
-- pub enum HybridMode
-- pub struct HybridConfig
-- impl Default for HybridConfig
-
-### src/retrieval/bm25.rs
-
-- pub struct Bm25Config
-- impl Default for Bm25Config
-- pub struct Bm25Index
-- impl Bm25Index
-
-### src/persistence_migrations.rs
-
-- impl Persistence
-
-### src/export_payload.rs
-
-- impl From for BinaryMetadataValue
-- impl From for serde_json::Value
-- impl From for BinaryConcept
-- impl BinaryConcept
-- impl From for BinaryExportPayload
-- impl BinaryExportPayload
-
-### src/framework_builder.rs
-
-- pub struct FrameworkConfig
-- impl Default for FrameworkConfig
-- pub struct FrameworkStats
-- pub struct FrameworkBuilder
-- impl FrameworkBuilder
-
-### src/cli/git_local.rs
-
-- pub fn resolve_git_local_path
-- pub fn ensure_git_local_dir
-
-### src/cli/args.rs
-
-- pub struct CliArgs
-- pub enum OutputFormat
-- pub enum Commands
-- pub struct InjectArgs
-- pub enum VectorSource
-- pub struct ProbeArgs
-- pub struct QueryArgs
-- pub struct AssociateArgs
-- pub enum ExportFormat
-- pub struct ExportArgs
-- pub enum ImportFormat
-- pub struct ImportArgs
-- pub struct VersionArgs
-- pub struct CompletionsArgs
-- pub struct IndexJsonlArgs
-- pub struct IndexDirArgs
-
-### src/cli/error.rs
-
-- pub enum CliError
-- impl From for CliError
-- pub type Result
-- pub enum ExitCode
-- impl From for ExitCode
-- impl From for ExitCode
-- impl CliError
-- impl ExitCode
-
-### src/cli/commands/query.rs
-
-- pub fn run_query
-
-### src/cli/commands/associate.rs
-
-- pub fn run_associate
-- pub fn run_associate_batch
-
-### src/cli/commands/export.rs
-
-- pub fn run_export
-
-### src/cli/commands/probe.rs
-
-- pub fn run_probe
-- pub fn run_probe_with_vector
-
-### src/cli/commands/import.rs
-
-- pub fn run_import
-
-### src/cli/commands/completions.rs
-
-- pub fn run_completions
-
-### src/cli/commands/inject.rs
-
-- pub fn run_inject
-
-### src/cli/commands/mod.rs
-
-- pub mod associate
-- pub mod completions
-- pub mod export
-- pub mod import
-- pub mod index_dir
-- pub mod index_jsonl
-- pub mod inject
-- pub mod probe
-- pub mod query
-- pub use associate::run_associate
-- pub use completions::run_completions
-- pub use export::run_export
-- pub use import::run_import
-- pub use index_dir::run_index_dir
-- pub use index_jsonl::run_index_jsonl
-- pub use inject::run_inject
-- pub use probe::run_probe
-- pub use query::run_query
-- pub fn print_success
-- pub fn print_error
-- pub fn print_warning
-- pub fn truncate_preview
-- pub fn create_framework
-
-### src/cli/commands/index_jsonl.rs
-
-- pub fn run_index_jsonl
-
-### src/cli/commands/index_dir.rs
-
-- pub fn run_index_dir
-- pub struct MarkdownChunk
-- pub fn chunk_by_heading
-
-### src/cli/mod.rs
-
-- pub mod args
-- pub mod commands
-- pub mod error
-- pub mod git_local
-- pub use args::*
-- pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
-- pub use error::{CliError, ExitCode, Result}
-- pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
-
-### src/framework_bridge.rs
-
-- impl ChaoticSemanticFramework
 
 ### src/bin/csm.rs
 
@@ -431,32 +456,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn native::handle_completions
 - pub fn native::resolve_database_path
 - pub fn native::run_async
-
-### src/graph_traversal.rs
-
-- pub struct TraversalConfig
-- impl Default for TraversalConfig
-- impl Singularity
-
-### src/singularity_cache.rs
-
-- impl QueryCache
-- pub struct CacheMetricsSnapshot
-- impl CacheMetrics
-
-### src/encoder.rs
-
-- pub struct TextEncoderConfig
-- impl Default for TextEncoderConfig
-- pub struct TextEncoder
-- impl Default for TextEncoder
-- impl TextEncoder
-
-### src/bundle.rs
-
-- pub struct BundleAccumulator
-- impl Default for BundleAccumulator
-- impl BundleAccumulator
 
 ---
 
@@ -537,6 +536,12 @@ For library-only consumers who don't need the CLI binary or its dependencies:
 ```toml
 [dependencies]
 chaotic_semantic_memory = { version = "0.3", default-features = false }
+```
+
+##### WASM npm Package (for JS/TS)
+
+```bash
+npm install @d-o-hub/chaotic_semantic_memory
 ```
 
 ##### CLI Binary
