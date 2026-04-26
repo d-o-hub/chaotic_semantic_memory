@@ -1,6 +1,6 @@
 //! Tests for Phase 33 API completeness features.
 
-use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240};
+use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240, MemoryError};
 use std::collections::HashMap;
 
 async fn create_test_framework() -> ChaoticSemanticFramework {
@@ -40,7 +40,7 @@ async fn test_update_concept_vector_not_found() {
     let vector = HVec10240::random();
 
     let result = framework.update_concept_vector("nonexistent", vector).await;
-    assert!(result.is_err());
+    assert!(matches!(result, Err(MemoryError::NotFound { .. })));
 }
 
 #[tokio::test]
@@ -99,6 +99,13 @@ async fn test_disassociate() {
 }
 
 #[tokio::test]
+async fn test_disassociate_not_found() {
+    let framework = create_test_framework().await;
+    let result = framework.disassociate("nonexistent", "other").await;
+    assert!(matches!(result, Err(MemoryError::NotFound { .. })));
+}
+
+#[tokio::test]
 async fn test_clear_associations() {
     let framework = create_test_framework().await;
     let id1 = "concept-1";
@@ -131,6 +138,13 @@ async fn test_clear_associations() {
     // Verify all associations removed
     let associations = framework.singularity().read().await.get_associations(id1);
     assert!(associations.is_empty());
+}
+
+#[tokio::test]
+async fn test_clear_associations_not_found() {
+    let framework = create_test_framework().await;
+    let result = framework.clear_associations("nonexistent").await;
+    assert!(matches!(result, Err(MemoryError::NotFound { .. })));
 }
 
 #[tokio::test]
@@ -169,7 +183,7 @@ async fn test_bundle_concepts_strict_missing() {
     let result = framework
         .bundle_concepts_strict(&[id1.to_string(), "nonexistent".to_string()])
         .await;
-    assert!(result.is_err());
+    assert!(matches!(result, Err(MemoryError::NotFound { .. })));
 }
 
 #[tokio::test]
