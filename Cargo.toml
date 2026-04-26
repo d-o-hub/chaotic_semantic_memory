@@ -129,3 +129,7 @@ wasm = []
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]
+
+[[bench]]
+name = "bridge_merge_benchmark"
+harness = false
