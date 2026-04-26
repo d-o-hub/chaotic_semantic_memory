@@ -92,3 +92,7 @@ csm_test*
 .claude/settings.local.json
 .claude/skills
 *.tgz
+
+
+llms-full.txt
+llms.txt
