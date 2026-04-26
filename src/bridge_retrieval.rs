@@ -123,19 +123,19 @@ impl BridgeRetrieval {
     }
 
     /// Merge primary and expanded results with score breakdown.
-    fn merge_with_breakdown<'a>(
+    fn merge_with_breakdown(
         &self,
-        primary: &'a [(String, f32)],
-        expanded: &'a [(String, f32)],
+        primary: &[(String, f32)],
+        expanded: &[(String, f32)],
     ) -> Vec<BridgeHit> {
         use std::collections::HashMap;
 
-        let mut hit_map: HashMap<&str, BridgeHit> = HashMap::with_capacity(primary.len());
+        let mut hit_map: HashMap<String, BridgeHit> = HashMap::new();
 
         // Process primary results (deterministic scores)
         for (id, score) in primary {
             hit_map.insert(
-                id.as_str(),
+                id.clone(),
                 BridgeHit {
                     id: id.clone(),
                     text_preview: None,
@@ -152,14 +152,14 @@ impl BridgeRetrieval {
 
         // Process expanded results (concept scores)
         for (id, score) in expanded {
-            if let Some(hit) = hit_map.get_mut(id.as_str()) {
+            if let Some(hit) = hit_map.get_mut(id) {
                 // Boost existing hit's concept score
                 hit.scores.concept = hit.scores.concept.max(*score);
                 hit.scores.evidence.push("concept_expansion".to_string());
             } else {
                 // New hit from expansion only
                 hit_map.insert(
-                    id.as_str(),
+                    id.clone(),
                     BridgeHit {
                         id: id.clone(),
                         text_preview: None,
