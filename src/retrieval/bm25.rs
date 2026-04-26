@@ -198,7 +198,11 @@ impl Bm25Index {
             .enumerate()
             .filter_map(|(idx, doc)| {
                 let score = self.score_document(doc, &query_weights, c1, c2);
-                if score > 0.0 { Some((idx, score)) } else { None }
+                if score > 0.0 {
+                    Some((idx, score))
+                } else {
+                    None
+                }
             })
             .collect();
 
@@ -209,7 +213,11 @@ impl Bm25Index {
             .enumerate()
             .filter_map(|(idx, doc)| {
                 let score = self.score_document(doc, &query_weights, c1, c2);
-                if score > 0.0 { Some((idx, score)) } else { None }
+                if score > 0.0 {
+                    Some((idx, score))
+                } else {
+                    None
+                }
             })
             .collect();
 
