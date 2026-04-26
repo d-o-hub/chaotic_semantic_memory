@@ -17,7 +17,8 @@ world_state:
   action_last_completed: goap_wave21_impl_queue_resolved
   orchestrator_last_run: goap_wave21_impl_queue_resolution_2026_04_24
   orchestrator_last_run_at_utc: 2026-04-24T00:00:00Z
-  ci_all_checks_passed: true
+  action_last_completed: optimize_save_associations
+      ci_all_checks_passed: true
 
   # GitHub Actions Security Audit (2026-04-21)
   codeql_missing_permissions_fixed: true
