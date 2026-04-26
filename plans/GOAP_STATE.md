@@ -14,7 +14,7 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: goap_implement_2026_04_25
+  action_last_completed: optimize_save_associations
   orchestrator_last_run: goap_analysis_2026_04_25
   orchestrator_last_run_at_utc: 2026-04-25T22:00:00Z
   ci_all_checks_passed: true
