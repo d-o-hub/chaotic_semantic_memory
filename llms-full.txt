@@ -260,6 +260,20 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/hyperdim_batch.rs
 
+### src/framework_validation.rs
+
+- impl ChaoticSemanticFramework
+
+### src/persistence_ops.rs
+
+- impl Persistence
+
+### src/reservoir_inertial.rs
+
+- impl Reservoir
+
+### src/hyperdim_batch.rs
+
 - pub fn batch_cosine_similarity
 
 ### src/retrieval/hybrid.rs
