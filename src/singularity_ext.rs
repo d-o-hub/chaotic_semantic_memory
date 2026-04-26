@@ -237,7 +237,9 @@ impl Singularity {
 mod tests {
     use super::*;
     use crate::concept_builder::ConceptBuilder;
+    use crate::error::MemoryError;
     use crate::singularity::SingularityConfig;
+    use std::collections::HashMap;
 
     #[test]
     fn test_bundle_concepts_strict_success() {
@@ -273,5 +275,44 @@ mod tests {
             }
             _ => panic!("Expected NotFound error, got {:?}", result),
         }
+    }
+
+    #[test]
+    fn test_update_metadata_not_found() {
+        let mut sing = Singularity::new();
+        let metadata = HashMap::new();
+
+        let result = sing.update_metadata("non-existent-id", metadata);
+
+        match result {
+            Err(MemoryError::NotFound { entity, id }) => {
+                assert_eq!(entity, "Concept");
+                assert_eq!(id, "non-existent-id");
+            }
+            _ => panic!("Expected MemoryError::NotFound, got {:?}", result),
+        }
+    }
+
+    #[test]
+    fn test_update_metadata_success() {
+        let mut sing = Singularity::new();
+        let concept = ConceptBuilder::new("test-id")
+            .with_metadata("original", serde_json::Value::Bool(true))
+            .build()
+            .expect("Failed to build concept");
+
+        sing.concepts.insert("test-id".to_string(), concept);
+
+        let mut new_metadata = HashMap::new();
+        new_metadata.insert("updated".to_string(), serde_json::Value::Bool(true));
+
+        let time_before = crate::singularity::unix_now_secs();
+
+        let result = sing.update_metadata("test-id", new_metadata.clone());
+        assert!(result.is_ok());
+
+        let updated_concept = sing.concepts.get("test-id").unwrap();
+        assert_eq!(updated_concept.metadata, new_metadata);
+        assert!(updated_concept.modified_at >= time_before);
     }
 }

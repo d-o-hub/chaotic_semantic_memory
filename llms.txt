@@ -29,7 +29,9 @@
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
 
-Generated: 2026-04-26 12:24:46 UTC
+
+Generated: 2026-04-25 19:13:35 UTC
+
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Core Documentation
