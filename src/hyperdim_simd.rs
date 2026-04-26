@@ -15,6 +15,8 @@
 #[inline]
 pub(crate) fn hamming_distance_optimized(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
     let distance: u32;
+    // SAFETY: Transmuting to u64 pointers is safe because u128 is 16-byte aligned
+    // and u64 is 8-byte aligned. Array size 80 * u128 is 160 * u64.
     unsafe {
         let lptr = lhs.as_ptr() as *const u64;
         let rptr = rhs.as_ptr() as *const u64;
@@ -53,6 +55,7 @@ pub(crate) fn bind_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
     let mut out = [0u128; 80];
     for i in 0..80 {
         // SAFETY: `u128` is 16-byte aligned, matching `__m128i` requirements.
+        // Array indexing is within bounds (0..80).
         unsafe {
             let a = _mm_loadu_si128((&lhs[i] as *const u128).cast::<__m128i>());
             let b = _mm_loadu_si128((&rhs[i] as *const u128).cast::<__m128i>());
@@ -68,6 +71,9 @@ pub(crate) fn bind_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
 #[inline]
 #[target_feature(enable = "avx2")]
+/// # Safety
+/// This function is unsafe because it uses AVX2 intrinsics. The caller must ensure that
+/// AVX2 is supported by the CPU at runtime.
 pub(crate) unsafe fn bind_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
     use std::arch::x86_64::{__m256i, _mm256_loadu_si256, _mm256_storeu_si256, _mm256_xor_si256};
 
@@ -75,7 +81,8 @@ pub(crate) unsafe fn bind_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
     // Process pairs of u128s (32 bytes per AVX2 instruction)
     for i in (0..80).step_by(2) {
         // SAFETY: AVX2 requires 32-byte alignment; u128 array is 16-byte aligned.
-        // Using unaligned loads handles this safely. Pointer arithmetic is within bounds.
+        // Using unaligned loads (_mm256_loadu_si256) handles this safely.
+        // Pointer arithmetic and array access are within bounds (80 elements).
         unsafe {
             let ptr_lhs = lhs.as_ptr().add(i) as *const __m256i;
             let ptr_rhs = rhs.as_ptr().add(i) as *const __m256i;
@@ -95,13 +102,16 @@ pub(crate) unsafe fn bind_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
 #[inline]
 #[target_feature(enable = "neon")]
+/// # Safety
+/// This function is unsafe because it uses NEON intrinsics. The caller must ensure that
+/// NEON is supported by the CPU (always true for aarch64).
 pub(crate) unsafe fn bind_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
     use std::arch::aarch64::{veorq_u64, vld1q_u64, vst1q_u64};
 
     let mut out = [0u128; 80];
     for i in 0..80 {
         // SAFETY: u128 is 16-byte aligned; we cast to *const u64 which is correct
-        // for vld1q_u64. The pointer arithmetic is within bounds.
+        // for vld1q_u64. The pointer arithmetic is within bounds (80 words).
         // All unsafe operations are in an explicit unsafe block as required by
         // #[target_feature(enable = "neon")].
         unsafe {

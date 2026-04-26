@@ -162,9 +162,15 @@ impl Bm25Index {
         let n = self.documents.len() as f32;
         let avgdl = self.total_length as f32 / n;
 
-        // Compute unique query terms and their IDFs once
-        let mut query_terms = Vec::with_capacity(query_tokens.len());
-        let mut idf_values = Vec::with_capacity(query_tokens.len());
+        // Pre-calculate constants for scoring (hoisted out of loop)
+        let k1 = self.config.k1;
+        let b = self.config.b;
+        let k1_plus_1 = k1 + 1.0;
+        let c1 = k1 * (1.0 - b);
+        let c2 = k1 * b / avgdl;
+
+        // Compute unique query terms and their weighted IDFs once
+        let mut query_weights = Vec::with_capacity(query_tokens.len());
 
         // Use a set to handle duplicate tokens in query efficiently
         let mut seen_terms = HashSet::with_capacity(query_tokens.len());
@@ -176,24 +182,13 @@ impl Bm25Index {
             let df = self.doc_freqs.get(term).copied().unwrap_or(0) as f32;
             let idf = ((n - df + 0.5) / (df + 0.5) + 1.0).ln();
             if idf > 0.0 {
-                query_terms.push(term);
-                idf_values.push(idf);
+                query_weights.push((term, idf * k1_plus_1));
             }
         }
 
-        if query_terms.is_empty() {
+        if query_weights.is_empty() {
             return Vec::new();
         }
-
-        // Pre-calculate constants for scoring (hoisted out of loop)
-        let k1 = self.config.k1;
-        let b = self.config.b;
-        let k1_plus_1 = k1 + 1.0;
-        let c1 = k1 * (1.0 - b);
-        let c2 = k1 * b / avgdl;
-
-        // Pre-calculate weighted IDF values (hoisted from inner document loop)
-        let weighted_idf: Vec<f32> = idf_values.iter().map(|&idf| idf * k1_plus_1).collect();
 
         // Score each document - store index to avoid String clones (parallel when available)
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
@@ -201,11 +196,14 @@ impl Bm25Index {
             .documents
             .par_iter()
             .enumerate()
-            .map(|(idx, doc)| {
-                let score = self.score_document(doc, &query_terms, &weighted_idf, c1, c2);
-                (idx, score)
+            .filter_map(|(idx, doc)| {
+                let score = self.score_document(doc, &query_weights, c1, c2);
+                if score > 0.0 {
+                    Some((idx, score))
+                } else {
+                    None
+                }
             })
-            .filter(|(_, score)| *score > 0.0)
             .collect();
 
         #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
@@ -213,11 +211,14 @@ impl Bm25Index {
             .documents
             .iter()
             .enumerate()
-            .map(|(idx, doc)| {
-                let score = self.score_document(doc, &query_terms, &weighted_idf, c1, c2);
-                (idx, score)
+            .filter_map(|(idx, doc)| {
+                let score = self.score_document(doc, &query_weights, c1, c2);
+                if score > 0.0 {
+                    Some((idx, score))
+                } else {
+                    None
+                }
             })
-            .filter(|(_, score)| *score > 0.0)
             .collect();
 
         // Partial select keeps complexity near O(n) for large corpora
@@ -238,8 +239,7 @@ impl Bm25Index {
     fn score_document(
         &self,
         doc: &Document,
-        query_terms: &[&str],
-        weighted_idf: &[f32],
+        query_weights: &[(&str, f32)],
         c1: f32,
         c2: f32,
     ) -> f32 {
@@ -250,7 +250,7 @@ impl Bm25Index {
         // Uses f32::mul_add for performance where supported.
         let den_base = c2.mul_add(doc_len, c1);
 
-        for (i, term) in query_terms.iter().enumerate() {
+        for (term, weighted_idf) in query_weights {
             // Skip terms not in document
             let tf = match doc.term_freqs.get(*term) {
                 Some(&tf) => tf as f32,
@@ -261,7 +261,7 @@ impl Bm25Index {
             // score = idf * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * doc_len / avgdl))
             // denominator = tf + k1 * (1 - b) + (k1 * b / avgdl) * doc_len
             // Optimized: score = (tf * weighted_idf) / (tf + den_base)
-            let numerator = tf * weighted_idf[i];
+            let numerator = tf * weighted_idf;
             let denominator = tf + den_base;
 
             score += numerator / denominator;

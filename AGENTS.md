@@ -160,6 +160,15 @@ See: [agents-docs/hard-constraints.md](agents-docs/hard-constraints.md)
 
 **CRITICAL: Never release with failing CI. The release workflow now has a guardrail that waits for CI to pass.**
 
+### Artifact Selection (REQUIRED)
+
+Before validating, installing, or publishing, identify the correct channel:
+- **Rust Library:** `chaotic_semantic_memory` (crates.io / cargo)
+- **JS/WASM Library:** `@d-o-hub/chaotic_semantic_memory` (npm WASM)
+- **CLI Tool:** `@d-o-hub/csm` (npm CLI)
+
+Refer to the `dist-channel-selection` skill for canonical commands.
+
 ### Pre-Release Checklist (MANDATORY)
 
 1. **Verify CI passes on all platforms**:
@@ -208,7 +217,6 @@ See: [agents-docs/hard-constraints.md](agents-docs/hard-constraints.md)
 - `scripts/validate.sh` — Pre-commit validation gates
 
 ---
-
 ## Key Files
 **Core**: `src/singularity.rs`, `src/reservoir.rs`, `src/reservoir_inertial.rs`, `src/framework.rs`, `src/persistence.rs`
 **Bridge**: `src/semantic_bridge.rs`, `src/bridge_retrieval.rs`
@@ -216,8 +224,8 @@ See: [agents-docs/hard-constraints.md](agents-docs/hard-constraints.md)
 **CLI**: `src/cli/commands/query.rs`, `src/cli/commands/index_dir.rs`
 **State**: `plans/GOAP_STATE.md`, `plans/ACTIONS.md`
 
-## Skills (19 Total)
-**Core**: `rust-development`, `testing-validation`, `goap-planning`, `adr-creation`, `github-ci-guardrails`, `git-workflow`, `release-management`, `benchmarking-perf`, `debugging-reservoir`, `skill-memory-internal`, `memory-lifecycle-verification`, `turso-memory-verification`, `drawio`
+## Skills (20 Total)
+**Core**: `rust-development`, `testing-validation`, `goap-planning`, `adr-creation`, `github-ci-guardrails`, `git-workflow`, `release-management`, `dist-channel-selection`, `benchmarking-perf`, `debugging-reservoir`, `skill-memory-internal`, `memory-lifecycle-verification`, `turso-memory-verification`, `drawio`
 
 **Swarm**: `swarm-testing-quality`, `swarm-performance`, `swarm-observability`, `swarm-advanced-features`, `analysis-swarm`
 

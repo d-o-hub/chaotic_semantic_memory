@@ -10,7 +10,7 @@ HOOKS_DIR="${PROJECT_ROOT}/.git/hooks"
 # Install pre-commit hook
 if [ -f "${SCRIPT_DIR}/pre-commit.sh" ]; then
   cp "${SCRIPT_DIR}/pre-commit.sh" "${HOOKS_DIR}/pre-commit"
-  chmod +x "${HOOKS_DIR}/pre-commit"
+  chmod 755 "${HOOKS_DIR}/pre-commit"
   echo "✅ Pre-commit hook installed!"
 else
   echo "❌ pre-commit.sh not found in scripts/"

@@ -44,7 +44,7 @@ impl BundleAccumulator {
     /// Remove a hypervector from the accumulator.
     ///
     /// Saturates at zero: removing from an empty accumulator is a no-op.
-    /// Use [`try_remove`] if you need to detect underflow.
+    /// Use [`Self::try_remove`] if you need to detect underflow.
     pub fn remove(&mut self, hv: &HVec10240) {
         if self.n == 0 {
             return;

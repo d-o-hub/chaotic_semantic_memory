@@ -164,13 +164,35 @@ pub async fn run(cli: Cli) -> Result<()> {
 }
 
 fn resolve_commit_sha() -> Option<String> {
-    if let Ok(sha) = std::env::var("GITHUB_SHA") {
+    const ENV_GITHUB_SHA: &str = "GITHUB_SHA";
+    const ENV_PATH: &str = "PATH";
+
+    if let Ok(sha) = std::env::var(ENV_GITHUB_SHA) {
         if !sha.trim().is_empty() {
             return Some(sha);
         }
     }
 
-    let output = Command::new("git")
+    // Filter PATH to exclude relative entries (CWE-426) to prevent path hijacking.
+    // If PATH is unset or results in an empty string after filtering, we fallback
+    // to letting the system attempt to find 'git' normally (standard behavior).
+    let safe_path = std::env::var(ENV_PATH).ok().and_then(|p| {
+        let joined = std::env::join_paths(
+            std::env::split_paths(&p).filter(|p| p.is_absolute() && p.exists()),
+        )
+        .unwrap_or_default();
+        if joined.to_string_lossy().is_empty() {
+            None
+        } else {
+            Some(joined)
+        }
+    });
+
+    let mut cmd = Command::new("git");
+    if let Some(path) = safe_path {
+        cmd.env(ENV_PATH, path);
+    }
+    let output = cmd
         .args(["rev-parse", "HEAD"])
         .output()
         .ok()?;
