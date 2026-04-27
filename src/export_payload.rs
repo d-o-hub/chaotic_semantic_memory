@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod export_payload_tests;
+
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
 use serde::{Deserialize, Serialize};

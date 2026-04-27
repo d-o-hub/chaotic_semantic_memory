@@ -236,9 +236,8 @@ impl Singularity {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::concept_builder::ConceptBuilder;
     use crate::error::MemoryError;
-    use crate::singularity::SingularityConfig;
+    use crate::singularity::{ConceptBuilder, Singularity, SingularityConfig};
     use std::collections::HashMap;
 
     #[test]
