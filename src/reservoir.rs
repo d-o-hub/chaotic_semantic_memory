@@ -1,13 +1,4 @@
 //! Echo State Network for temporal dynamics.
-//!
-//! # Invariants
-//! - `input_size > 0`: Input vector dimensionality
-//! - `reservoir_size > 0`: Internal node count
-//! - `spectral_radius ∈ [0.0, 1.0]`: Stability constraint
-//!
-//! # Performance
-//! - `step()`: O(reservoir_size × input_size)
-//! - `to_hypervector()`: O(reservoir_size)
 
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -63,7 +54,6 @@ impl ReservoirMetrics {
     }
 }
 
-/// Compact sparse row storage (CSR-like) for fast row-wise dot products.
 struct SparseWeights {
     row_offsets: Vec<usize>,
     indices: Vec<usize>,
@@ -138,7 +128,6 @@ impl SparseWeights {
     }
 }
 
-/// Sparse Echo State Network with chaotic dynamics
 pub struct Reservoir {
     size: usize,
     input_size: usize,
@@ -230,7 +219,6 @@ impl Reservoir {
         })
     }
 
-    /// Single reservoir step
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
     pub fn step(&mut self, input: &[f32]) -> Result<&[f32]> {
         let started = Instant::now();
@@ -279,7 +267,6 @@ impl Reservoir {
         Ok(&self.state)
     }
 
-    /// Run reservoir for multiple steps
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
     pub fn run(&mut self, inputs: &[Vec<f32>]) -> Result<Vec<Vec<f32>>> {
         let mut states = Vec::with_capacity(inputs.len());
@@ -290,12 +277,10 @@ impl Reservoir {
         Ok(states)
     }
 
-    /// Get current reservoir state
     pub fn state(&self) -> &[f32] {
         &self.state
     }
 
-    /// Set spectral radius
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
     pub fn set_spectral_radius(&mut self, radius: f32) -> Result<()> {
         if !(0.9..=1.1).contains(&radius) {
@@ -314,14 +299,12 @@ impl Reservoir {
         Ok(())
     }
 
-    /// Reset reservoir state
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
     pub fn reset(&mut self) {
         self.state.fill(0.0);
         self.scratch.fill(0.0);
     }
 
-    /// Project state to hypervector (parallel on non-WASM)
     #[cfg_attr(
         all(not(target_arch = "wasm32"), feature = "parallel"),
         instrument(skip(self))
@@ -397,7 +380,6 @@ impl Reservoir {
         self.metrics.snapshot()
     }
 
-    /// Estimate spectral radius using power iteration
     fn estimate_spectral_radius(w: &SparseWeights, size: usize) -> f32 {
         let mut v = vec![1.0f32 / size as f32; size];
         let mut y = vec![0.0f32; size];
@@ -447,7 +429,6 @@ fn fast_tanh(x: f32) -> f32 {
     x * (27.0 + x2) / (27.0 + 9.0 * x2)
 }
 
-/// Chaotic reservoir with configurable dynamics
 pub struct ChaoticReservoir {
     base: Reservoir,
     chaos_strength: f32,

@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [0.3.4] - 2026-04-27
+
+### Fixed
+
+- **Security**: Added robust parameter validation for `chaos_strength`, `reservoir_size`, and history `limit` to prevent DoS (panics) and resource exhaustion (OOM).
+- **Reservoir**: Fixed potential `rand::gen_range` panic when `chaos_strength` was effectively zero or invalid.
+
 ## [0.3.2] - 2026-04-09
 
 ### Added
