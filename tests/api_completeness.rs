@@ -1,6 +1,6 @@
 //! Tests for Phase 33 API completeness features.
 
-use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240, MemoryError};
+use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240, error::MemoryError};
 use std::collections::HashMap;
 
 async fn create_test_framework() -> ChaoticSemanticFramework {
@@ -169,7 +169,13 @@ async fn test_bundle_concepts_strict_missing() {
     let result = framework
         .bundle_concepts_strict(&[id1.to_string(), "nonexistent".to_string()])
         .await;
-    assert!(matches!(result.unwrap_err(), MemoryError::NotFound { .. }));
+    match result {
+        Err(MemoryError::NotFound { entity, id }) => {
+            assert_eq!(entity, "Concept");
+            assert_eq!(id, "nonexistent");
+        }
+        _ => panic!("Expected NotFound error, got {:?}", result),
+    }
 }
 
 #[tokio::test]
