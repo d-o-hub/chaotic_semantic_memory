@@ -169,8 +169,7 @@ impl Bm25Index {
         let c1 = k1 * (1.0 - b);
         let c2 = k1 * b / avgdl;
 
-        // Compute unique query terms and their weighted IDFs once.
-        // Terms not in the index (df == 0) are skipped early to avoid wasted lookups in score_document.
+        // Compute unique query terms and their weighted IDFs once
         let mut query_weights = Vec::with_capacity(query_tokens.len());
 
         // Use a set to handle duplicate tokens in query efficiently
@@ -203,7 +202,6 @@ impl Bm25Index {
         let mut scores: Vec<(usize, f32)> = self
             .documents
             .par_iter()
-            .with_min_len(1024) // Prevent task over-decomposition for small corpora
             .enumerate()
             .filter_map(|(idx, doc)| {
                 let score = self.score_document(doc, &query_weights, c1, c2);
@@ -252,10 +250,6 @@ impl Bm25Index {
         c1: f32,
         c2: f32,
     ) -> f32 {
-        if doc.term_freqs.is_empty() {
-            return 0.0;
-        }
-
         let mut score = 0.0;
         let doc_len = doc.length as f32;
 

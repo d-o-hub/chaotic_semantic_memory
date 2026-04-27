@@ -51,11 +51,11 @@ impl Singularity {
     /// Get incoming associations for a concept.
     ///
     /// Returns concepts that have associations pointing to this concept.
-    pub fn incoming_associations(&self, id: &str) -> Vec<(String, f32)> {
+    pub fn incoming_associations(&self, id: &str) -> Vec<(&str, f32)> {
         let mut incoming = Vec::new();
         for (from_id, links) in &self.associations {
             if let Some(&strength) = links.get(id) {
-                incoming.push((from_id.clone(), strength));
+                incoming.push((from_id.as_str(), strength));
             }
         }
         incoming.sort_by(|a, b| b.1.total_cmp(&a.1));
