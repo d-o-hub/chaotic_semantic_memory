@@ -391,6 +391,13 @@ impl ChaoticSemanticFramework {
         id: &str,
         limit: usize,
     ) -> Result<Vec<crate::persistence::ConceptVersion>> {
+        const MAX_HISTORY_LIMIT: usize = 1000;
+        if limit > MAX_HISTORY_LIMIT {
+            return Err(MemoryError::InvalidInput {
+                field: "limit".to_string(),
+                reason: format!("limit exceeds maximum allowed of {}", MAX_HISTORY_LIMIT),
+            });
+        }
         if let Some(ref persistence) = self.persistence {
             return persistence.get_concept_history(id, limit).await;
         }
