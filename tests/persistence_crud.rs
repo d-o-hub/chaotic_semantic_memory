@@ -121,6 +121,36 @@ async fn batch_save_concepts_saves_all() {
 }
 
 #[tokio::test]
+async fn batch_save_concepts_preserves_ttl_and_canonical_ids() {
+    let temp = NamedTempFile::new().unwrap();
+    let path = temp.path().to_str().unwrap();
+    let persistence = Persistence::new_local(path).await.unwrap();
+
+    let concept = Concept {
+        id: "batch-ttl-canonical".to_string(),
+        vector: HVec10240::random(),
+        metadata: HashMap::new(),
+        created_at: 10,
+        modified_at: 11,
+        expires_at: Some(123_456),
+        canonical_concept_ids: vec!["concept.alpha".to_string(), "concept.beta".to_string()],
+    };
+
+    persistence.save_concepts(&[concept]).await.unwrap();
+
+    let loaded = persistence
+        .load_concept("batch-ttl-canonical")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(loaded.expires_at, Some(123_456));
+    assert_eq!(
+        loaded.canonical_concept_ids,
+        vec!["concept.alpha".to_string(), "concept.beta".to_string()]
+    );
+}
+
+#[tokio::test]
 async fn batch_save_empty_vec_is_noop() {
     let temp = NamedTempFile::new().unwrap();
     let path = temp.path().to_str().unwrap();

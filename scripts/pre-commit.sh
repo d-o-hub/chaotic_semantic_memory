@@ -47,4 +47,8 @@ fi
 echo " → Checking docs sync..."
 bash scripts/sync-docs.sh --check
 
+# Clippy lint (catches CI failures early)
+echo " → Checking clippy..."
+cargo clippy --all-targets --all-features -- -D warnings
+
 echo "✅ Pre-commit checks passed!"

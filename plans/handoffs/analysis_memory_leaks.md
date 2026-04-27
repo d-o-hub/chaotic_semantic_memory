@@ -217,7 +217,7 @@ async fn record_concept_version(&self, conn: &Connection, concept: &Concept) -> 
     if count >= retention as i64 * 2 {
         // Emergency cleanup if somehow exceeded
         conn.execute(
-            "DELETE FROM concept_versions WHERE concept_id = ?1 
+            "DELETE FROM concept_versions WHERE concept_id = ?1
              ORDER BY version ASC LIMIT ?2",
             params![concept.id.clone(), count - retention as i64]
         ).await?;

@@ -7,6 +7,8 @@ use crate::singularity_retrieval::RetrievalConfig;
 
 const MAX_CONCEPT_ID_BYTES: usize = 256;
 const MAX_BUCKET_PROBE_WIDTH: usize = 16;
+const MAX_TRAVERSAL_DEPTH: usize = 32;
+const MAX_TRAVERSAL_RESULTS: usize = 10_000;
 
 impl ChaoticSemanticFramework {
     pub(crate) fn validate_retrieval_config(config: &RetrievalConfig) -> Result<()> {
@@ -96,6 +98,56 @@ impl ChaoticSemanticFramework {
                 reason: format!(
                     "top_k exceeds configured limit {} (got {})",
                     self.config.max_probe_top_k, top_k
+                ),
+            });
+        }
+        Ok(())
+    }
+
+    pub(crate) fn validate_batch_size(&self, batch_size: usize) -> Result<()> {
+        if batch_size > self.config.max_batch_size {
+            return Err(MemoryError::InvalidInput {
+                field: "batch_size".to_string(),
+                reason: format!(
+                    "batch size exceeds configured limit {} (got {})",
+                    self.config.max_batch_size, batch_size
+                ),
+            });
+        }
+        Ok(())
+    }
+
+    pub(crate) fn validate_traversal_config(
+        config: &crate::graph_traversal::TraversalConfig,
+    ) -> Result<()> {
+        if config.max_depth > MAX_TRAVERSAL_DEPTH {
+            return Err(MemoryError::InvalidInput {
+                field: "max_depth".to_string(),
+                reason: format!(
+                    "traversal depth exceeds {} (got {})",
+                    MAX_TRAVERSAL_DEPTH, config.max_depth
+                ),
+            });
+        }
+        if config.max_results > MAX_TRAVERSAL_RESULTS {
+            return Err(MemoryError::InvalidInput {
+                field: "max_results".to_string(),
+                reason: format!(
+                    "traversal results exceed {} (got {})",
+                    MAX_TRAVERSAL_RESULTS, config.max_results
+                ),
+            });
+        }
+        Ok(())
+    }
+
+    pub(crate) fn validate_sequence_length(&self, length: usize) -> Result<()> {
+        if length > self.config.max_sequence_length {
+            return Err(MemoryError::InvalidInput {
+                field: "sequence_length".to_string(),
+                reason: format!(
+                    "sequence length exceeds configured limit {} (got {})",
+                    self.config.max_sequence_length, length
                 ),
             });
         }

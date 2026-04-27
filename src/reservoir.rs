@@ -1,26 +1,15 @@
 //! Echo State Network for temporal dynamics.
-//!
-//! # Invariants
-//! - `input_size > 0`: Input vector dimensionality
-//! - `reservoir_size > 0`: Internal node count
-//! - `spectral_radius ∈ [0.0, 1.0]`: Stability constraint
-//!
-//! # Performance
-//! - `step()`: O(reservoir_size × input_size)
-//! - `to_hypervector()`: O(reservoir_size)
-
-use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Instant;
-#[cfg(not(target_arch = "wasm32"))]
-use tracing::instrument;
-
-#[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-use rayon::prelude::*;
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
+use crate::reservoir_sparse::SparseWeights;
+use rand::rngs::StdRng;
+use rand::{RngExt, SeedableRng};
+#[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
+use rayon::prelude::*;
+use std::sync::atomic::{AtomicU64, Ordering};
+#[cfg(not(target_arch = "wasm32"))]
+use {std::time::Instant, tracing::instrument};
 
 #[derive(Debug, Default)]
 struct ReservoirMetrics {
@@ -36,7 +25,6 @@ pub struct ReservoirMetricsSnapshot {
     pub avg_reservoir_step_latency_us: f64,
     pub reservoir_nodes_active: u64,
 }
-
 impl ReservoirMetrics {
     fn observe_step(&self, latency_us: u64, nodes_active: u64) {
         self.steps_total.fetch_add(1, Ordering::Relaxed);
@@ -54,7 +42,6 @@ impl ReservoirMetrics {
         } else {
             total as f64 / count as f64
         };
-
         ReservoirMetricsSnapshot {
             reservoir_steps_total: self.steps_total.load(Ordering::Relaxed),
             avg_reservoir_step_latency_us: avg,
@@ -62,88 +49,13 @@ impl ReservoirMetrics {
         }
     }
 }
-
-/// Compact sparse row storage (CSR-like) for fast row-wise dot products.
-struct SparseWeights {
-    row_offsets: Vec<usize>,
-    indices: Vec<usize>,
-    weights: Vec<f32>,
-}
-
-impl SparseWeights {
-    fn build(rows: usize, cols: usize, degree: usize, rng: &mut StdRng) -> Self {
-        let nnz = rows.saturating_mul(degree);
-        let mut row_offsets = Vec::with_capacity(rows + 1);
-        let mut indices = Vec::with_capacity(nnz);
-        let mut weights = Vec::with_capacity(nnz);
-        row_offsets.push(0);
-
-        for _ in 0..rows {
-            for _ in 0..degree {
-                indices.push(rng.gen_range(0..cols));
-                weights.push(rng.gen_range(-1.0..1.0));
-            }
-            row_offsets.push(indices.len());
-        }
-
-        Self {
-            row_offsets,
-            indices,
-            weights,
-        }
-    }
-
-    fn build_local_reservoir(size: usize, degree: usize, window: usize, rng: &mut StdRng) -> Self {
-        let nnz = size.saturating_mul(degree);
-        let mut row_offsets = Vec::with_capacity(size + 1);
-        let mut indices = Vec::with_capacity(nnz);
-        let mut weights = Vec::with_capacity(nnz);
-        let half = window / 2;
-        row_offsets.push(0);
-
-        for row in 0..size {
-            for _ in 0..degree {
-                let delta = rng.gen_range(0..window);
-                let idx = (row + size + delta - half) % size;
-                indices.push(idx);
-                weights.push(rng.gen_range(-1.0..1.0));
-            }
-            row_offsets.push(indices.len());
-        }
-
-        Self {
-            row_offsets,
-            indices,
-            weights,
-        }
-    }
-
-    #[inline]
-    fn dot_row(&self, row: usize, values: &[f32]) -> f32 {
-        let start = self.row_offsets[row];
-        let end = self.row_offsets[row + 1];
-        let mut sum = 0.0;
-        let indices = &self.indices;
-        let weights = &self.weights;
-        for idx in start..end {
-            sum = weights[idx].mul_add(values[indices[idx]], sum);
-        }
-        sum
-    }
-
-    fn scale(&mut self, scale: f32) {
-        for w in &mut self.weights {
-            *w *= scale;
-        }
-    }
-}
-
 /// Sparse Echo State Network with chaotic dynamics
 pub struct Reservoir {
     size: usize,
     input_size: usize,
     state: Vec<f32>,
     scratch: Vec<f32>,
+    prev_state: Vec<f32>, // ADR-0064: t-1 state for inertia
     w_in: SparseWeights,
     w_res: SparseWeights,
     input_cache: Vec<f32>,
@@ -153,9 +65,9 @@ pub struct Reservoir {
     update_phase: usize,
     spectral_radius: f32,
     alpha: f32,
+    pub(crate) beta: f32, // ADR-0064: inertia coefficient
     metrics: ReservoirMetrics,
 }
-
 impl Reservoir {
     pub const DEFAULT_SIZE: usize = 50000;
     pub const DEFAULT_RADIUS: f32 = 0.95;
@@ -189,7 +101,7 @@ impl Reservoir {
     }
 
     pub fn new(input_size: usize, size: usize) -> Result<Self> {
-        let seed = rand::thread_rng().r#gen();
+        let seed = rand::rng().random();
         Self::new_seeded(input_size, size, seed)
     }
 
@@ -216,6 +128,7 @@ impl Reservoir {
             input_size,
             state: vec![0.0; size],
             scratch: vec![0.0; size],
+            prev_state: vec![0.0; size], // ADR-0064
             w_in,
             w_res,
             input_cache: vec![0.0; input_size],
@@ -225,6 +138,7 @@ impl Reservoir {
             update_phase: 0,
             spectral_radius: Self::DEFAULT_RADIUS,
             alpha: Self::DEFAULT_ALPHA,
+            beta: 0.0, // ADR-0064: default no inertia
             metrics: ReservoirMetrics::default(),
         })
     }
@@ -232,6 +146,7 @@ impl Reservoir {
     /// Single reservoir step
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
     pub fn step(&mut self, input: &[f32]) -> Result<&[f32]> {
+        #[cfg(not(target_arch = "wasm32"))]
         let started = Instant::now();
         if input.len() != self.input_size {
             return Err(MemoryError::reservoir(format!(
@@ -264,16 +179,30 @@ impl Reservoir {
 
         let state = &self.state;
         let one_minus_alpha = 1.0 - self.alpha;
-        self.scratch.copy_from_slice(state);
-        for i in (self.update_phase..self.size).step_by(self.update_stride) {
+        let beta = self.beta;
+        let prev_state = &self.prev_state;
+        let update_phase = self.update_phase;
+        for i in (update_phase..self.size).step_by(self.update_stride) {
             let res_sum = self.w_res.dot_row(i, state);
             let activated = fast_tanh(self.input_projection[i] + res_sum);
-            self.scratch[i] = state[i] * one_minus_alpha + activated * self.alpha;
+            let inertial = beta * (state[i] - prev_state[i]);
+            self.scratch[i] = state[i] * one_minus_alpha + activated * self.alpha + inertial;
         }
-        self.update_phase = (self.update_phase + 1) % self.update_stride;
-
+        self.update_phase = (update_phase + 1) % self.update_stride;
+        for i in (update_phase..self.size).step_by(self.update_stride) {
+            self.prev_state[i] = self.state[i];
+        }
         std::mem::swap(&mut self.state, &mut self.scratch);
+
+        // Keep scratch in sync with state for the next partial-update step.
+        for i in (update_phase..self.size).step_by(self.update_stride) {
+            self.scratch[i] = self.state[i];
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
         let latency_us = started.elapsed().as_micros() as u64;
+        #[cfg(target_arch = "wasm32")]
+        let latency_us = 0;
         self.metrics.observe_step(latency_us, self.size as u64);
         Ok(&self.state)
     }
@@ -318,6 +247,7 @@ impl Reservoir {
     pub fn reset(&mut self) {
         self.state.fill(0.0);
         self.scratch.fill(0.0);
+        self.prev_state.fill(0.0);
     }
 
     /// Project state to hypervector (parallel on non-WASM)
@@ -351,9 +281,6 @@ impl Reservoir {
                 word
             })
             .collect();
-        // SAFETY: We iterate exactly 80 times (0..80), so data always has 80 elements.
-        // The map produces exactly 80 items; try_into can only fail if the length differs,
-        // which is structurally impossible here — map to MemoryError instead of panicking.
         let data: [u128; 80] = data.try_into().map_err(|_| {
             MemoryError::reservoir(
                 "internal: par_iter produced unexpected element count".to_string(),
@@ -453,13 +380,11 @@ pub struct ChaoticReservoir {
     rng: StdRng,
     noisy_input: Vec<f32>,
 }
-
 impl ChaoticReservoir {
     pub fn new(input_size: usize, size: usize, chaos_strength: f32) -> Result<Self> {
-        let seed = rand::thread_rng().r#gen();
+        let seed = rand::rng().random();
         Self::new_seeded(input_size, size, chaos_strength, seed)
     }
-
     pub fn new_seeded(
         input_size: usize,
         size: usize,
@@ -469,7 +394,6 @@ impl ChaoticReservoir {
         Reservoir::validate_params(size, input_size, chaos_strength)?;
         let mut base = Reservoir::new_seeded(input_size, size, seed)?;
         base.set_spectral_radius(1.0)?;
-
         Ok(Self {
             base,
             chaos_strength,
@@ -477,7 +401,6 @@ impl ChaoticReservoir {
             noisy_input: vec![0.0; input_size],
         })
     }
-
     pub fn step(&mut self, input: &[f32]) -> Result<&[f32]> {
         if input.len() != self.noisy_input.len() {
             return Err(MemoryError::reservoir(format!(
@@ -486,7 +409,6 @@ impl ChaoticReservoir {
                 input.len()
             )));
         }
-
         for (i, value) in input.iter().enumerate() {
             let noise = if self.chaos_strength > 0.0 {
                 self.rng
@@ -496,22 +418,17 @@ impl ChaoticReservoir {
             };
             self.noisy_input[i] = *value + noise;
         }
-
         self.base.step(&self.noisy_input)
     }
-
     pub fn reset(&mut self) {
         self.base.reset();
     }
-
     pub fn state(&self) -> &[f32] {
         self.base.state()
     }
-
     pub fn to_hypervector(&self) -> Result<HVec10240> {
         self.base.to_hypervector()
     }
-
     pub fn metrics_snapshot(&self) -> ReservoirMetricsSnapshot {
         self.base.metrics_snapshot()
     }

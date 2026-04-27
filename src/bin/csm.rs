@@ -13,8 +13,13 @@ mod native {
     pub use tracing::Level;
     pub use tracing_subscriber::FmtSubscriber;
 
+    /// Environment variable to disable colored output.
+    const ENV_NO_COLOR: &str = "NO_COLOR";
+    /// Environment variable for target platform.
+    const ENV_TARGET: &str = "TARGET";
+
     pub fn init_tracing(verbose: u8) {
-        if std::env::var("NO_COLOR").is_ok() {
+        if std::env::var(ENV_NO_COLOR).is_ok() {
             colored::control::set_override(false);
         }
         let level = match verbose {
@@ -118,7 +123,7 @@ mod native {
                 if v.detailed {
                     println!(
                         "target: {}",
-                        std::env::var("TARGET").unwrap_or_else(|_| "unknown".into())
+                        std::env::var(ENV_TARGET).unwrap_or_else(|_| "unknown".into())
                     );
                 }
                 Ok(())

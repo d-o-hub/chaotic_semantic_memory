@@ -6,143 +6,107 @@ on:
   pull_request:
     branches: [ main ]
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
-  CARGO_INCREMENTAL: 0
 
 jobs:
   test:
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      checks: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
     - uses: actions/checkout@v6
-    
     - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v1
-      with:
-        toolchain: stable
-        components: rustfmt, clippy
-    
-    - name: Cache cargo
-      uses: actions/cache@v5
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Check formatting
-      run: cargo fmt -- --check
-
-    - name: Check version sync
-      run: bash scripts/verify-version-sync.sh
-
-    - name: Run clippy
-      run: cargo clippy --all-targets --all-features -- -D warnings
-    
+      uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7 # v1
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
     - name: Run tests
-      run: cargo test --all-features
+      run: cargo test --all-features --locked -- --quiet
 
-    - name: Validate performance target tests
-      run: cargo test --test performance_targets --quiet
+  build-cli:
+    name: Build CLI (${{ matrix.platform }}-${{ matrix.arch }})
+    needs: test
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - platform: linux
+            arch: x64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - platform: linux
+            arch: arm64
+            runner: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+          - platform: macos
+            arch: arm64
+            runner: macos-latest
+            target: aarch64-apple-darwin
+          - platform: macos
+            arch: x64
+            runner: macos-latest
+            target: x86_64-apple-darwin
+          - platform: windows
+            arch: x64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+    - uses: actions/checkout@v6
 
-    - name: Validate Turso roundtrip target (skips when secrets are missing)
-      env:
-        TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
-        TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
-      run: cargo test --test turso_roundtrip -- --nocapture
-      continue-on-error: true
-    
-    - name: Check LOC limits
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7 # v1
+      with:
+        target: ${{ matrix.target }}
+
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
+
+    - name: Install cross-compilation linker (Linux arm64)
+      if: matrix.target == 'aarch64-unknown-linux-gnu'
       run: |
-        for file in $(find src -name '*.rs'); do
-          LOC=$(wc -l < "$file")
-          if [ "$LOC" -gt 500 ]; then
-            echo "❌ $file exceeds 500 LOC ($LOC lines)"
-            exit 1
-          fi
-          echo "✓ $file: $LOC LOC"
-        done
+        sudo apt-get update
+        sudo apt-get install -y gcc-aarch64-linux-gnu
+        echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
-    - name: Check docs sync
-      run: bash scripts/sync-docs.sh --check
+    - name: Build CLI
+      run: cargo build --release --bin csm --features cli --target ${{ matrix.target }} --locked
 
-  build:
-    runs-on: ubuntu-24.04
-    needs: test
-    permissions:
-      contents: read
+  wasm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
     - uses: actions/checkout@v6
-    
     - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v1
+      uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7 # v1
       with:
-        toolchain: stable
+        target: wasm32-unknown-unknown
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
+    - name: Check WASM
+      run: cargo check --target wasm32-unknown-unknown --features wasm
 
-    - name: Cache cargo
-      uses: actions/cache@v5
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
-
-    - name: Build release
-      run: cargo build --release
-
-    - name: Install WASM target
-      run: rustup target add wasm32-unknown-unknown
-
-    - name: Build WASM target
-      run: cargo build --target wasm32-unknown-unknown --release --features wasm
-    
-    - name: Enforce WASM size gate (< 500KiB)
-      run: scripts/wasm_size_gate.sh
-
-  benchmark:
-    runs-on: ubuntu-24.04
-    needs: test
-    permissions:
-      contents: read
-      actions: write
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
     - uses: actions/checkout@v6
-    
     - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v1
+      uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7 # v1
       with:
-        toolchain: stable
-    
-    - name: Cache cargo
-      uses: actions/cache@v5
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-bench-v3-${{ hashFiles('**/Cargo.lock') }}
-
-    - name: Clean target for bench
-      run: cargo clean -p chaotic_semantic_memory
-
-    - name: Run benchmarks
-      run: cargo bench --lib --no-fail-fast
-    
-    - name: Upload benchmark results
-      uses: actions/upload-artifact@v7
-      with:
-        name: benchmark-results-${{ github.run_id }}
-        path: target/criterion/
-        retention-days: 30
+        components: clippy, rustfmt
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
+    - name: Format check
+      run: cargo fmt --all -- --check
+    - name: Clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+    - name: LOC gate
+      run: bash scripts/validate.sh

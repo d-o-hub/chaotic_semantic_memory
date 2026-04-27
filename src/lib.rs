@@ -41,7 +41,7 @@ pub use semantic_bridge::{
     BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown,
 };
 pub use singularity::{Concept, ConceptBuilder};
-pub use singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats};
+pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats};
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod bridge_persistence;
@@ -63,9 +63,15 @@ mod framework_ttl;
 mod framework_validation;
 pub mod graph_traversal;
 pub mod hyperdim;
+mod hyperdim_batch;
+mod hyperdim_simd; // AVX2/NEON SIMD paths
 pub mod metadata_filter;
+pub mod semantic_triples;
+pub use metadata_filter::MetadataFilter;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 pub mod persistence;
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+mod persistence_migrations;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_ops;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
@@ -73,9 +79,12 @@ mod persistence_versions;
 #[cfg(target_arch = "wasm32")]
 pub mod persistence_wasm;
 pub mod reservoir;
+mod reservoir_inertial; // ADR-0064
+mod reservoir_sparse; // LOC gate extraction
 pub mod retrieval;
 pub mod semantic_bridge;
 pub mod singularity;
+mod singularity_cache;
 mod singularity_ext;
 mod singularity_retrieval;
 mod singularity_ttl;
@@ -203,7 +212,9 @@ pub mod prelude {
     pub use crate::hyperdim::HVec10240;
     pub use crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket};
     pub use crate::singularity::{Concept, ConceptBuilder};
-    pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats};
+    pub use crate::singularity_retrieval::{
+        CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats,
+    };
 }
 
 #[cfg(target_arch = "wasm32")]

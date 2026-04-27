@@ -44,9 +44,22 @@ jobs:
         else
           echo "No book directory found, creating placeholder"
           mkdir -p _site
-          echo "# chaotic_semantic_memory Documentation" > _site/index.md
-          echo "" >> _site/index.md
-          echo "Documentation will be added soon." >> _site/index.md
+          cat <<'HTML' > _site/index.html
+          <!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8" />
+              <title>chaotic_semantic_memory Documentation</title>
+              <style>
+                body { font-family: Arial, sans-serif; margin: 2rem; line-height: 1.6; }
+              </style>
+            </head>
+            <body>
+              <h1>chaotic_semantic_memory Documentation</h1>
+              <p>Documentation will be added soon.</p>
+            </body>
+          </html>
+          HTML
         fi
 
     - name: Generate API documentation
@@ -61,7 +74,7 @@ jobs:
         fi
 
     - name: Upload Pages artifact
-      uses: actions/upload-pages-artifact@v4
+      uses: actions/upload-pages-artifact@v5
       with:
         path: ${{ hashFiles('book/book.toml') != '' && 'book/build' || '_site' }}
 

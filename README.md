@@ -54,6 +54,8 @@ vectors directly via `inject_concept`.
 
 ## Installation
 
+### Rust Library
+
 ```bash
 cargo add chaotic_semantic_memory
 ```
@@ -73,6 +75,24 @@ For library-only consumers who don't need the CLI binary or its dependencies:
 chaotic_semantic_memory = { version = "0.3", default-features = false }
 ```
 
+### WASM npm Package (for JS/TS)
+
+```bash
+npm install @d-o-hub/chaotic_semantic_memory
+```
+
+### CLI Binary
+
+**via npm (recommended for Node.js users):**
+```bash
+npm install -g @d-o-hub/csm
+```
+
+**via cargo:**
+```bash
+cargo install chaotic_semantic_memory --bin csm
+```
+
 > **Note:** Using `"0.2"` ensures compatibility with the latest 0.2.x patch versions.
 
 ## Core Components
@@ -88,6 +108,32 @@ chaotic_semantic_memory = { version = "0.3", default-features = false }
 - `metadata_filter`: metadata query and filtering
 - `bundle`: snapshot and bundle helpers
 - `cli`: Command-line interface (`csm` binary)
+- `semantic_bridge`: Semantic Bridge Layer for concept expansion (ADR-0061)
+- `bridge_retrieval`: Bridge retrieval pipeline for zero-drift semantic search
+- `retrieval`: Hybrid BM25/HDC retrieval module (ADR-0062)
+
+## Semantic Bridge Layer (v0.3.0)
+
+Zero-drift semantic expansion on top of deterministic HDC memory:
+- **CanonicalConcept**: Versioned concept with labels and related IDs
+- **ConceptGraph**: In-memory label index for token-to-concept matching
+- **BridgeRetrieval**: Pipeline: normalize → HDC recall → concept expansion → second recall
+- **MemoryPacket**: Compressed output for LLM context injection
+
+**Key principle**: Additive, non-destructive, never mutates canonical memory vectors.
+
+## Hybrid BM25+HDC Retrieval (v0.3.0)
+
+Hybrid retrieval combines keyword (BM25) and semantic (HDC) search:
+- **BM25 parameters**: k1=1.2 (TF saturation), b=0.75 (doc length normalization)
+- **Query-length-dependent weights**:
+
+| Tokens | Keyword | Semantic |
+|--------|---------|----------|
+| 1-2    | 0.9     | 0.1      |
+| 3-4    | 0.7     | 0.3      |
+| 5-8    | 0.4     | 0.6      |
+| 9+     | 0.2     | 0.8      |
 
 ## How Text Encoding Works (HDC Pipeline)
 
