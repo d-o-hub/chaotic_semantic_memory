@@ -40,7 +40,7 @@ async fn test_update_concept_vector_not_found() {
     let vector = HVec10240::random();
 
     let result = framework.update_concept_vector("nonexistent", vector).await;
-    assert!(result.is_err());
+    assert!(matches!(result.unwrap_err(), MemoryError::NotFound { .. }));
 }
 
 #[tokio::test]
