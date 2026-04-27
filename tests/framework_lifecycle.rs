@@ -72,7 +72,7 @@ async fn framework_import_skips_orphan_associations_without_failing() {
     let import_path = import_file.path().to_str().unwrap().to_string();
 
     let payload = serde_json::json!({
-        "version": "0.3.2",
+        "version": "0.3.0",
         "exported_at": 1u64,
         "concepts": [],
         "associations": [["a", "missing", 0.7]]
@@ -144,91 +144,4 @@ async fn probe_batch_cached_reuses_cached_results() {
     let first = framework.probe_batch_cached(&queries, 2).await.unwrap();
     let second = framework.probe_batch_cached(&queries, 2).await.unwrap();
     assert!(Arc::ptr_eq(&first[0], &second[0]));
-}
-
-#[tokio::test]
-async fn binary_import_export_preserves_ttl_and_canonical_links() {
-    let temp_db = NamedTempFile::new().unwrap();
-    let db_path = temp_db.path().to_str().unwrap();
-    let import_file = NamedTempFile::new().unwrap();
-    let import_path = import_file.path().to_str().unwrap().to_string();
-    let export_file = NamedTempFile::new().unwrap();
-    let export_path = export_file.path().to_str().unwrap().to_string();
-
-    let payload = serde_json::json!({
-        "version": "0.3.2",
-        "exported_at": 1u64,
-        "concepts": [{
-            "id": "ttl-canonical",
-            "vector": HVec10240::random(),
-            "metadata": {"kind": "regression"},
-            "created_at": 10u64,
-            "modified_at": 11u64,
-            "expires_at": 777u64,
-            "canonical_concept_ids": ["concept.alpha", "concept.beta"]
-        }],
-        "associations": []
-    });
-    tokio::fs::write(&import_path, serde_json::to_vec(&payload).unwrap())
-        .await
-        .unwrap();
-
-    let framework = ChaoticSemanticFramework::builder()
-        .with_local_db(db_path)
-        .build()
-        .await
-        .unwrap();
-
-    framework.import_json(&import_path, false).await.unwrap();
-    framework.export_binary(&export_path).await.unwrap();
-
-    let reload = ChaoticSemanticFramework::builder()
-        .without_persistence()
-        .build()
-        .await
-        .unwrap();
-    reload.import_binary(&export_path, false).await.unwrap();
-
-    let concept = reload.get_concept("ttl-canonical").await.unwrap().unwrap();
-    assert_eq!(concept.expires_at, Some(777));
-    assert_eq!(
-        concept.canonical_concept_ids,
-        vec!["concept.alpha".to_string(), "concept.beta".to_string()]
-    );
-}
-
-#[tokio::test]
-async fn load_merge_does_not_silently_overwrite_existing_concepts() {
-    let temp = NamedTempFile::new().unwrap();
-    let path = temp.path().to_str().unwrap().to_string();
-
-    let framework_a = ChaoticSemanticFramework::builder()
-        .with_local_db(path.clone())
-        .build()
-        .await
-        .unwrap();
-    let framework_b = ChaoticSemanticFramework::builder()
-        .with_local_db(path)
-        .build()
-        .await
-        .unwrap();
-
-    let vector_a = HVec10240::random();
-    let vector_b = HVec10240::random();
-
-    framework_a
-        .inject_concept("shared-id", vector_a)
-        .await
-        .unwrap();
-
-    // Persist a different value through another instance.
-    framework_b
-        .inject_concept("shared-id", vector_b)
-        .await
-        .unwrap();
-
-    framework_a.load_merge().await.unwrap();
-
-    let concept = framework_a.get_concept("shared-id").await.unwrap().unwrap();
-    assert_eq!(concept.vector, vector_a);
 }

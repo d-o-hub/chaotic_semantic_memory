@@ -48,23 +48,4 @@ if ! git diff --quiet llms-full.txt 2>/dev/null; then
   echo "⚠️  llms-full.txt was modified - run 'git add llms-full.txt' to include changes"
 fi
 
-if command -v npm >/dev/null 2>&1; then
-  echo "==> CLI npm pack smoke test"
-  cargo build --release --bin csm
-  mkdir -p cli-npm/bin
-  cp target/release/csm cli-npm/bin/csm-linux-x64
-  chmod 755 cli-npm/bin/csm-linux-x64
-  pushd cli-npm >/dev/null
-  TARBALL=$(npm pack --silent)
-  TMP_DIR=$(mktemp -d)
-  npm install --prefix "$TMP_DIR" "./$TARBALL" >/dev/null
-  "$TMP_DIR/node_modules/.bin/csm" --help >/dev/null
-  rm -f "$TARBALL"
-  popd >/dev/null
-  rm -rf "$TMP_DIR"
-  rm -f cli-npm/bin/csm-linux-x64
-else
-  echo "skip: npm not found, skipping CLI pack smoke test"
-fi
-
 echo "Validation complete."

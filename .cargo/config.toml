@@ -1,2 +1,9 @@
-[target.wasm32-unknown-unknown]
-rustflags = ["--cfg", "getrandom_backend=\"wasm_js\""]
+# sccache can be enabled for local builds:
+# [build]
+# rustc-wrapper = "sccache"
+
+[alias]
+test-all = "test --all-targets --all-features"
+bench-local = "bench --bench benchmark -- --baseline main"
+check-wasm = "check --target wasm32-unknown-unknown --features wasm"
+fmt-check = "fmt --all -- --check"

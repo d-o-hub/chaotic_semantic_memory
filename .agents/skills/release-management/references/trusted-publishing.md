@@ -140,35 +140,12 @@ jobs:
 
 ### Common Issues (2026)
 
-| Error | OIDC Status | Root Cause | Solution |
-|-------|-------------|------------|----------|
-| "404 Not Found" | Signed ✓ | Package doesn't exist | Do initial publish with NPM_TOKEN first |
-| "404 Not Found" | Signed ✓ | **Workflow filename mismatch** | Update npmjs Trusted Publisher workflow name |
-| "404 Not Found" | Signed ✓ | Environment mismatch | Remove environment or match exactly |
-| "Access token expired" | N/A | Token-based publish | Token revoked; generate new |
-| "OIDC token exchange failed" | Not signed | Trusted Publisher missing | Configure on npmjs.com |
-| "Workflow filename" mismatch | N/A | Wrong workflow configured | Use just `filename.yml`, no path |
-
-### Critical: Workflow Filename Matching (2026-04)
-
-**The #1 cause of E404 OIDC failures is workflow filename mismatch.**
-
-npm Trusted Publishers verify the OIDC token's `workflow` claim against the configured workflow filename:
-
-```
-npmjs config: release.yml → OIDC workflow claim: release.yml → ✓ MATCH
-npmjs config: release.yml → OIDC workflow claim: npm-publish.yml → ✗ E404
-```
-
-**Real-world failure pattern**:
-- v0.3.1: Published from `release.yml` → OIDC success
-- v0.3.2: Published from `npm-publish.yml` → OIDC E404 (same package, same Trusted Publisher)
-
-**Solution**: Configure Trusted Publisher for ALL workflows that publish:
-1. Go to npmjs.com → Package → Settings → Trusted Publishers
-2. Add entries for each workflow:
-   - `release.yml` (for unified releases)
-   - `npm-publish.yml` (for tag-triggered standalone)
+| Error | Solution |
+|-------|----------|
+| "404 Not Found" | Package doesn't exist - do initial publish first |
+| "Access token expired" | Token revoked; generate new at npmjs.com/settings/tokens |
+| "OIDC token exchange failed" | Trusted publisher not configured on npm |
+| "Workflow filename" mismatch | Use just `npm-publish.yml`, not path |
 
 ### Verification
 

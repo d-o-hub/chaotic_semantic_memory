@@ -51,11 +51,11 @@ impl Singularity {
     /// Get incoming associations for a concept.
     ///
     /// Returns concepts that have associations pointing to this concept.
-    pub fn incoming_associations(&self, id: &str) -> Vec<(&str, f32)> {
+    pub fn incoming_associations(&self, id: &str) -> Vec<(String, f32)> {
         let mut incoming = Vec::new();
         for (from_id, links) in &self.associations {
             if let Some(&strength) = links.get(id) {
-                incoming.push((from_id.as_str(), strength));
+                incoming.push((from_id.clone(), strength));
             }
         }
         incoming.sort_by(|a, b| b.1.total_cmp(&a.1));
@@ -67,7 +67,6 @@ impl Singularity {
     /// Returns nodes reachable within `config.max_depth` hops, along with their depths.
     /// Nodes are returned in BFS order.
     pub fn bfs(&self, start: &str, config: &TraversalConfig) -> Result<Vec<(String, u32)>> {
-        crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
         if !self.concepts.contains_key(start) {
             return Err(MemoryError::NotFound {
                 entity: "Concept".to_string(),
@@ -111,14 +110,13 @@ impl Singularity {
     /// Strength values ≤ 0 are treated as cost `f32::MAX` (effectively unreachable).
     ///
     /// Returns `None` if no path exists within `config.max_depth` hops.
-    /// Use [`Self::shortest_path_hops`] for unweighted (fewest-hop) traversal.
+    /// Use [`shortest_path_hops`] for unweighted (fewest-hop) traversal.
     pub fn shortest_path(
         &self,
         from: &str,
         to: &str,
         config: &TraversalConfig,
     ) -> Result<Option<Vec<String>>> {
-        crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
         if !self.concepts.contains_key(from) {
             return Err(MemoryError::NotFound {
                 entity: "Concept".to_string(),
@@ -197,7 +195,7 @@ impl Singularity {
     /// Find the fewest-hop path between two concepts using unweighted BFS.
     ///
     /// Returns the path with the minimum number of hops, ignoring edge strengths.
-    /// Use [`Self::shortest_path`] for strength-weighted (Dijkstra) traversal.
+    /// Use [`shortest_path`] for strength-weighted (Dijkstra) traversal.
     ///
     /// Returns `None` if no path exists within `config.max_depth` hops.
     pub fn shortest_path_hops(
@@ -206,7 +204,6 @@ impl Singularity {
         to: &str,
         config: &TraversalConfig,
     ) -> Result<Option<Vec<String>>> {
-        crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
         if !self.concepts.contains_key(from) {
             return Err(MemoryError::NotFound {
                 entity: "Concept".to_string(),

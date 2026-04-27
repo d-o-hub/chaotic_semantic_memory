@@ -1,8 +1,3 @@
-#[cfg(test)]
-mod export_payload_tests;
-
-#[cfg(target_arch = "wasm32")]
-use js_sys::Date;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -76,8 +71,6 @@ pub(crate) struct BinaryConcept {
     pub(crate) metadata: HashMap<String, BinaryMetadataValue>,
     pub(crate) created_at: u64,
     pub(crate) modified_at: u64,
-    pub(crate) expires_at: Option<u64>,
-    pub(crate) canonical_concept_ids: Vec<String>,
 }
 
 impl From<crate::singularity::Concept> for BinaryConcept {
@@ -92,8 +85,6 @@ impl From<crate::singularity::Concept> for BinaryConcept {
                 .collect(),
             created_at: concept.created_at,
             modified_at: concept.modified_at,
-            expires_at: concept.expires_at,
-            canonical_concept_ids: concept.canonical_concept_ids,
         }
     }
 }
@@ -111,8 +102,8 @@ impl BinaryConcept {
                 .collect(),
             created_at: self.created_at,
             modified_at: self.modified_at,
-            expires_at: self.expires_at,
-            canonical_concept_ids: self.canonical_concept_ids.clone(),
+            expires_at: None,
+            canonical_concept_ids: Vec::new(),
         })
     }
 }
@@ -158,20 +149,9 @@ impl BinaryExportPayload {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn unix_now_secs() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
-}
-
-#[cfg(target_arch = "wasm32")]
-pub(crate) fn unix_now_secs() -> u64 {
-    let millis = Date::now();
-    if !millis.is_finite() || millis < 0.0 {
-        return 0;
-    }
-    let secs = (millis / 1000.0).floor();
-    format!("{secs:.0}").parse::<u64>().unwrap_or(0)
 }

@@ -25,10 +25,6 @@ pub struct RetrievalStats {
     pub fell_back_to_exact_scan: bool,
     pub candidate_ns: u64,
     pub scoring_ns: u64,
-    /// ADR-0065: Filter selectivity ratio (matching_count / total_count)
-    pub selectivity_ratio: f32,
-    /// ADR-0065: Strategy used for filtered retrieval
-    pub filter_strategy: Option<FilterStrategy>,
 }
 
 /// Source of candidates in reduced-candidate retrieval.
@@ -38,17 +34,6 @@ pub enum CandidateSource {
     Graph,
     Bucket,
     ExactFallback,
-}
-
-/// Strategy used for filtered retrieval (ADR-0065).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum FilterStrategy {
-    /// Pre-filter candidates, then score (optimal for low selectivity)
-    Pre,
-    /// Generate bucket candidates, score, post-filter (optimal for medium selectivity)
-    BucketPost,
-    /// Full similarity scan, post-filter results (optimal for high selectivity)
-    ScanPost,
 }
 
 /// Parameters for scored candidate retrieval.
@@ -152,37 +137,21 @@ impl Singularity {
 
     /// Generate candidates by coarse bucketing.
     pub(crate) fn generate_bucket_candidates(&self, query: &HVec10240) -> Vec<usize> {
-        debug_assert!(self.retrieval_config.bucket_probe_width <= 127);
-        let bucket_mask = (1u128 << self.retrieval_config.bucket_probe_width) - 1;
-        let query_bucket = query.data[0] & bucket_mask;
+        let bucket_count = 1 << self.retrieval_config.bucket_probe_width;
+        let query_bucket = (query.data[0] % bucket_count as u128) as usize;
 
-        let filter = |(idx, vec): (usize, &HVec10240)| {
-            if (vec.data[0] & bucket_mask) == query_bucket {
-                Some(idx)
-            } else {
-                None
-            }
-        };
-
-        // Algorithmic Optimization: Parallelize O(N) candidate generation via Rayon.
-        // Reduces latency from O(N) to O(N/P) where P is the number of execution units.
-        #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        {
-            self.concept_vectors
-                .par_iter()
-                .enumerate()
-                .filter_map(filter)
-                .collect()
-        }
-
-        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-        {
-            self.concept_vectors
-                .iter()
-                .enumerate()
-                .filter_map(filter)
-                .collect()
-        }
+        self.concept_vectors
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, vec)| {
+                let vec_bucket = (vec.data[0] % bucket_count as u128) as usize;
+                if vec_bucket == query_bucket {
+                    Some(idx)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     /// Perform exact similarity scan over all vectors.
@@ -244,8 +213,6 @@ impl Singularity {
             true,
             scoring_start.saturating_sub(start_ns),
             scoring_ns,
-            1.0,  // Full scan means 100% selectivity for unfiltered
-            None, // No filter strategy for unfiltered
         );
         results_arc
     }
@@ -307,21 +274,12 @@ impl Singularity {
             }
         }
 
-        self.update_stats(
-            candidate_count,
-            scored_count,
-            false,
-            cand_ns,
-            scoring_ns,
-            0.0,
-            None,
-        );
+        self.update_stats(candidate_count, scored_count, false, cand_ns, scoring_ns);
 
         results_arc
     }
 
     /// Update retrieval statistics.
-    #[allow(clippy::too_many_arguments)]
     fn update_stats(
         &self,
         candidates: usize,
@@ -329,8 +287,6 @@ impl Singularity {
         fallback: bool,
         cand_ns: u64,
         score_ns: u64,
-        selectivity: f32,
-        strategy: Option<FilterStrategy>,
     ) {
         let stats = RetrievalStats {
             candidate_count: candidates,
@@ -338,83 +294,9 @@ impl Singularity {
             fell_back_to_exact_scan: fallback,
             candidate_ns: cand_ns,
             scoring_ns: score_ns,
-            selectivity_ratio: selectivity,
-            filter_strategy: strategy,
         };
         if let Ok(mut s) = self.last_retrieval_stats.write() {
             *s = stats;
         }
-    }
-
-    /// Score candidates with explicit selectivity stats (ADR-0065).
-    pub(crate) fn scored_candidate_retrieval_with_stats(
-        &self,
-        params: ScoredCandidateParams,
-        selectivity: f32,
-        strategy: Option<FilterStrategy>,
-    ) -> Arc<[(String, f32)]> {
-        let ScoredCandidateParams {
-            query,
-            top_k,
-            candidates,
-            start_ns: _start_ns,
-            cand_ns,
-            source: _source,
-            bypass_cache,
-        } = params;
-        let scoring_start = unix_now_ns();
-        let candidate_count = candidates.len();
-
-        #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        let mut scores: Vec<(usize, f32)> = candidates
-            .into_par_iter()
-            .map(|idx| (idx, query.cosine_similarity(&self.concept_vectors[idx])))
-            .collect();
-
-        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-        let mut scores: Vec<(usize, f32)> = candidates
-            .into_iter()
-            .map(|idx| (idx, query.cosine_similarity(&self.concept_vectors[idx])))
-            .collect();
-
-        let scoring_ns = unix_now_ns().saturating_sub(scoring_start);
-        let scored_count = scores.len();
-
-        if scores.len() <= top_k {
-            scores.sort_by(|a, b| b.1.total_cmp(&a.1));
-        } else {
-            scores.select_nth_unstable_by(top_k - 1, |a, b| b.1.total_cmp(&a.1));
-            scores.truncate(top_k);
-            scores.sort_by(|a, b| b.1.total_cmp(&a.1));
-        }
-
-        let results: Vec<(String, f32)> = scores
-            .into_iter()
-            .map(|(idx, score)| (self.concept_indices[idx].clone(), score))
-            .collect();
-
-        let results_arc = Arc::from(results);
-        if !bypass_cache {
-            if let Ok(mut cache) = self.query_cache.write() {
-                let cache_key = crate::singularity::similarity_cache_key(query, top_k);
-                if cache.put(cache_key, Arc::clone(&results_arc)) {
-                    self.cache_metrics
-                        .evictions_total
-                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                }
-            }
-        }
-
-        self.update_stats(
-            candidate_count,
-            scored_count,
-            false,
-            cand_ns,
-            scoring_ns,
-            selectivity,
-            strategy,
-        );
-
-        results_arc
     }
 }

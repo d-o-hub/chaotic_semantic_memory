@@ -26,9 +26,7 @@ Thumbs.db
 
 # WASM build artifacts
 *.wasm
-wasm/pkg-node/
-wasm/pkg-web/
-pkg/
+*.js
 
 # Debug builds
 *.pdb
@@ -59,10 +57,6 @@ export.json
 # Stray test output
 /1
 
-# CLI npm package artifacts
-/cli-npm/bin/*
-!/cli-npm/bin/.gitkeep
-
 # Temporary examples (not part of crate)
 examples/tmp/
 
@@ -91,4 +85,3 @@ csm_test*
 *.tmp
 .claude/settings.local.json
 .claude/skills
-*.tgz

@@ -2,55 +2,33 @@
 
 > AI memory systems with hyperdimensional vectors and chaotic reservoirs
 
-**Version:** 0.3.4
+**Version:** 0.3.2
 **License:** MIT
 **Repository:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
-- base64 (0.22)
 - serde_json (1.0.149)
-- base64 (0.22)
-- serde (1.0.219) [features: derive]
-- rand (0.10.1)
-- clap_complete (4.5.42)
-- glob (0.3.2)
-- base64 (0.22)
-- bincode (1.3.3)
-- tracing-subscriber (0.3.19)
-- clap_complete (4.5.42)
-- anyhow (1.0.102)
-- colored (2.2.0)
-- tracing (0.1.41)
-- rand (0.10.1)
-- bincode (1.3.3)
-- thiserror (2.0.11)
-- glob (0.3.2)
-- rand_chacha (0.10.0)
-- clap (4.5.60) [features: derive, env, string]
-- rand_chacha (0.10.0)
-- tracing-subscriber (0.3.19)
-- thiserror (2.0.11)
 - bincode (1.3.3)
 - serde (1.0.219) [features: derive]
-- tracing (0.1.41)
-- serde_json (1.0.149)
-- rand_chacha (0.10.0)
 - clap (4.5.60) [features: derive, env, string]
-- rand (0.10.1)
-- glob (0.3.2)
-- clap_complete (4.5.42)
-- colored (2.2.0)
 - anyhow (1.0.102)
+- colored (2.2.0)
+- rand (0.8.5)
+- base64 (0.22)
+- clap_complete (4.5.42)
+- tracing-subscriber (0.3.19)
+- glob (0.3.2)
+- tracing (0.1.41)
+- thiserror (2.0.11)
 **Features:**
-- persistence: [dep:libsql]
+- parallel: [dep:rayon]
 - default: [cli, persistence, parallel]
 - wasm: []
-
-Generated: 2026-04-26 12:09:47 UTC
+- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - persistence: [dep:libsql]
 
-Generated: 2026-04-25 19:13:35 UTC
+Generated: 2026-04-09 15:18:18 UTC
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Core Documentation
@@ -61,52 +39,87 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Table of Contents
 
-### src/framework_bridge.rs
-
-- impl ChaoticSemanticFramework
-
-### src/semantic_triples.rs
-
-- pub struct SemanticTriple
-- impl SemanticTriple
-- pub struct StructuredMemoryPayload
-- impl StructuredMemoryPayload
-
 ### src/reservoir.rs
 
 - pub struct ReservoirMetricsSnapshot
 - impl ReservoirMetrics
+- impl SparseWeights
 - pub struct Reservoir
 - impl Reservoir
 - pub struct ChaoticReservoir
 - impl ChaoticReservoir
+
+### src/framework_events.rs
+
+- pub enum MemoryEvent
+- impl ChaoticSemanticFramework
+
+### src/hyperdim.rs
+
+- pub struct HVec10240
+- impl HVec10240
+- impl Serialize for HVec10240
+- impl Visitor for HVecVisitor
+- impl Deserialize for HVec10240
+- pub fn batch_cosine_similarity
+- pub use crate::bundle::BundleAccumulator
+
+### src/framework_ttl.rs
+
+- impl crate::framework::ChaoticSemanticFramework
 
 ### src/concept_builder.rs
 
 - pub struct ConceptBuilder
 - impl ConceptBuilder
 
-### src/hyperdim.rs
+### src/persistence_ops.rs
 
-- pub use crate::hyperdim_batch::batch_cosine_similarity
-- pub struct HVec10240
-- impl HVec10240
-- impl Serialize for HVec10240
-- impl Visitor for HVecVisitor
-- impl Deserialize for HVec10240
-- pub use crate::bundle::BundleAccumulator
+- impl Persistence
 
-### src/bundle.rs
+### src/framework.rs
 
-- pub struct BundleAccumulator
-- impl Default for BundleAccumulator
-- impl BundleAccumulator
+- pub struct ChaoticSemanticFramework
+- pub struct FrameworkMetrics
+- pub struct FrameworkMetricsSnapshot
+- impl FrameworkMetrics
+- impl ChaoticSemanticFramework
 
-### src/metadata_filter.rs
+### src/framework_validation.rs
 
-- pub enum MetadataFilter
-- impl MetadataFilter
-- impl ops::Not for MetadataFilter
+- impl ChaoticSemanticFramework
+
+### src/semantic_bridge.rs
+
+- pub struct CanonicalConcept
+- impl CanonicalConcept
+- pub struct BridgeConfig
+- impl Default for BridgeConfig
+- pub struct ScoreBreakdown
+- impl ScoreBreakdown
+- pub struct BridgeHit
+- pub struct MemoryPacket
+- impl MemoryPacket
+- pub trait SemanticReranker
+- pub struct ConceptGraph
+- impl ConceptGraph
+
+### src/framework_ops.rs
+
+- impl ChaoticSemanticFramework
+
+### src/bridge_persistence.rs
+
+- impl Persistence
+
+### src/singularity_retrieval.rs
+
+- pub struct RetrievalStats
+- pub enum CandidateSource
+- pub struct RetrievalConfig
+- impl RetrievalConfig
+- impl Default for RetrievalConfig
+- impl Singularity
 
 ### src/persistence.rs
 
@@ -114,24 +127,148 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct ConceptVersion
 - impl Persistence
 
-### src/reservoir_sparse.rs
+### src/lib.rs
 
-- impl SparseWeights
+- pub use bridge_retrieval::BridgeRetrieval
+- pub use bundle::BundleAccumulator
+- pub use error::{MemoryError, Result}
+- pub use framework::ChaoticSemanticFramework
+- pub use framework_builder::FrameworkBuilder
+- pub use framework_events::MemoryEvent
+- pub use hyperdim::{HVec10240, batch_cosine_similarity}
+- pub use semantic_bridge::{BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown}
+- pub use singularity::{Concept, ConceptBuilder}
+- pub use singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
+- pub mod bridge_retrieval
+- pub mod bundle
+- pub mod cli
+- pub mod concept_builder
+- pub mod encoder
+- pub mod error
+- pub mod framework
+- pub mod framework_builder
+- pub mod graph_traversal
+- pub mod hyperdim
+- pub mod metadata_filter
+- pub mod persistence
+- pub mod persistence_wasm
+- pub mod reservoir
+- pub mod retrieval
+- pub mod semantic_bridge
+- pub mod singularity
+- pub use crate::persistence_wasm as persistence
+- pub mod persistence
+- pub struct persistence::Persistence
+- pub struct persistence::ConceptVersion
+- impl persistence::Persistence
+- pub mod prelude
+- pub use prelude::crate::bridge_retrieval::BridgeRetrieval
+- pub use prelude::crate::bundle::BundleAccumulator
+- pub use prelude::crate::error::{MemoryError, Result}
+- pub use prelude::crate::framework::ChaoticSemanticFramework
+- pub use prelude::crate::framework_builder::FrameworkBuilder
+- pub use prelude::crate::framework_events::MemoryEvent
+- pub use prelude::crate::hyperdim::HVec10240
+- pub use prelude::crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket}
+- pub use prelude::crate::singularity::{Concept, ConceptBuilder}
+- pub use prelude::crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
+- pub mod wasm
+
+### src/metadata_filter.rs
+
+- pub enum MetadataFilter
+- impl MetadataFilter
+- impl ops::Not for MetadataFilter
+
+### src/wasm_ext.rs
+
+- impl WasmFramework
+
+### src/singularity.rs
+
+- pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
+- pub const DEFAULT_MAX_CACHED_TOP_K
+- pub struct Concept
+- pub struct SingularityConfig
+- impl Default for SingularityConfig
+- impl QueryCache
+- pub struct CacheMetricsSnapshot
+- impl CacheMetrics
+- pub struct Singularity
+- impl Singularity
+- impl Default for Singularity
+- pub use crate::concept_builder::ConceptBuilder
 
 ### src/singularity_ttl.rs
 
 - impl Default for Concept
 - impl Singularity
 
-### src/singularity_cache.rs
+### src/bridge_retrieval.rs
 
-- impl QueryCache
-- pub struct CacheMetricsSnapshot
-- impl CacheMetrics
+- pub struct BridgeRetrieval
+- impl BridgeRetrieval
 
-### src/framework_ttl.rs
+### src/persistence_wasm.rs
 
-- impl crate::framework::ChaoticSemanticFramework
+- pub struct Persistence
+- pub struct ConceptVersion
+- impl Persistence
+
+### src/error.rs
+
+- pub enum MemoryError
+- impl MemoryError
+- pub type Result
+
+### src/persistence_versions.rs
+
+- impl Persistence
+
+### src/wasm.rs
+
+- pub struct WasmFramework
+- impl WasmFramework
+- pub fn random_hypervector
+- pub fn encode_text
+- pub fn cosine_similarity
+
+### src/singularity_ext.rs
+
+- impl Singularity
+
+### src/retrieval/mod.rs
+
+- pub mod bm25
+- pub mod hybrid
+- pub use bm25::{Bm25Config, Bm25Index}
+- pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
+
+### src/retrieval/hybrid.rs
+
+- pub fn compute_weights
+- pub fn normalize_scores
+- pub fn merge_results
+- pub enum HybridMode
+- pub struct HybridConfig
+- impl Default for HybridConfig
+
+### src/retrieval/bm25.rs
+
+- pub struct Bm25Config
+- impl Default for Bm25Config
+- pub struct Bm25Index
+- impl Default for Bm25Index
+- impl Bm25Index
+
+### src/export_payload.rs
+
+- impl From for BinaryMetadataValue
+- impl From for serde_json::Value
+- impl From for BinaryConcept
+- impl BinaryConcept
+- impl From for BinaryExportPayload
+- impl BinaryExportPayload
 
 ### src/framework_builder.rs
 
@@ -141,57 +278,70 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct FrameworkBuilder
 - impl FrameworkBuilder
 
-### src/graph_traversal.rs
+### src/cli/git_local.rs
 
-- pub struct TraversalConfig
-- impl Default for TraversalConfig
-- impl Singularity
+- pub fn resolve_git_local_path
+- pub fn ensure_git_local_dir
 
-### src/singularity_retrieval.rs
+### src/cli/args.rs
 
-- pub struct RetrievalStats
-- pub enum CandidateSource
-- pub enum FilterStrategy
-- pub struct RetrievalConfig
-- impl RetrievalConfig
-- impl Default for RetrievalConfig
-- impl Singularity
+- pub struct CliArgs
+- pub enum OutputFormat
+- pub enum Commands
+- pub struct InjectArgs
+- pub enum VectorSource
+- pub struct ProbeArgs
+- pub struct QueryArgs
+- pub struct AssociateArgs
+- pub enum ExportFormat
+- pub struct ExportArgs
+- pub enum ImportFormat
+- pub struct ImportArgs
+- pub struct VersionArgs
+- pub struct CompletionsArgs
+- pub struct IndexJsonlArgs
+- pub struct IndexDirArgs
 
-### src/cli/commands/index_dir.rs
+### src/cli/error.rs
 
-- pub fn run_index_dir
-- pub struct MarkdownChunk
-- pub fn chunk_by_heading
+- pub enum CliError
+- impl From for CliError
+- pub type Result
+- pub enum ExitCode
+- impl From for ExitCode
+- impl From for ExitCode
+- impl CliError
+- impl ExitCode
+
+### src/cli/commands/query.rs
+
+- pub fn run_query
 
 ### src/cli/commands/associate.rs
 
 - pub fn run_associate
 - pub fn run_associate_batch
 
-### src/cli/commands/import.rs
+### src/cli/commands/export.rs
 
-- pub fn run_import
-
-### src/cli/commands/inject.rs
-
-- pub fn run_inject
+- pub fn run_export
 
 ### src/cli/commands/probe.rs
 
 - pub fn run_probe
 - pub fn run_probe_with_vector
 
-### src/cli/commands/index_jsonl.rs
+### src/cli/commands/import.rs
 
-- pub fn run_index_jsonl
+- pub fn run_import
 
-### src/cli/commands/query.rs
+### src/cli/commands/completions.rs
 
-- pub fn run_query
+- pub fn run_completions
 
-### src/cli/commands/export.rs
+### src/cli/commands/inject.rs
 
-- pub fn run_export
+- pub fn run_inject
 
 ### src/cli/commands/mod.rs
 
@@ -219,44 +369,15 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn truncate_preview
 - pub fn create_framework
 
-### src/cli/commands/completions.rs
+### src/cli/commands/index_jsonl.rs
 
-- pub fn run_completions
+- pub fn run_index_jsonl
 
-### src/cli/git_local.rs
+### src/cli/commands/index_dir.rs
 
-- pub fn resolve_git_local_path
-- pub fn ensure_git_local_dir
-
-### src/cli/error.rs
-
-- pub enum CliError
-- impl From for CliError
-- pub type Result
-- pub enum ExitCode
-- impl From for ExitCode
-- impl From for ExitCode
-- impl CliError
-- impl ExitCode
-
-### src/cli/args.rs
-
-- pub struct CliArgs
-- pub enum OutputFormat
-- pub enum Commands
-- pub struct InjectArgs
-- pub enum VectorSource
-- pub struct ProbeArgs
-- pub struct QueryArgs
-- pub struct AssociateArgs
-- pub enum ExportFormat
-- pub struct ExportArgs
-- pub enum ImportFormat
-- pub struct ImportArgs
-- pub struct VersionArgs
-- pub struct CompletionsArgs
-- pub struct IndexJsonlArgs
-- pub struct IndexDirArgs
+- pub fn run_index_dir
+- pub struct MarkdownChunk
+- pub fn chunk_by_heading
 
 ### src/cli/mod.rs
 
@@ -269,201 +390,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
 
-### src/persistence_migrations.rs
-
-- impl Persistence
-
-### src/framework_validation.rs
+### src/framework_bridge.rs
 
 - impl ChaoticSemanticFramework
-
-### src/persistence_ops.rs
-
-- impl Persistence
-
-### src/reservoir_inertial.rs
-
-- impl Reservoir
-
-### src/hyperdim_batch.rs
-
-- pub fn batch_cosine_similarity
-
-### src/retrieval/hybrid.rs
-
-- pub fn compute_weights
-- pub fn normalize_scores
-- pub fn merge_results
-- pub enum HybridMode
-- pub struct HybridConfig
-- impl Default for HybridConfig
-
-### src/retrieval/mod.rs
-
-- pub mod bm25
-- pub mod hybrid
-- pub use bm25::{Bm25Config, Bm25Index}
-- pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
-
-### src/retrieval/bm25.rs
-
-- pub struct Bm25Config
-- impl Default for Bm25Config
-- pub struct Bm25Index
-- impl Bm25Index
-
-### src/singularity.rs
-
-- pub use crate::singularity_cache::CacheMetricsSnapshot
-- pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
-- pub const DEFAULT_MAX_CACHED_TOP_K
-- pub struct Concept
-- pub struct SingularityConfig
-- impl Default for SingularityConfig
-- pub struct Singularity
-- impl Singularity
-- impl Default for Singularity
-- pub use crate::concept_builder::ConceptBuilder
-
-### src/framework.rs
-
-- pub struct ChaoticSemanticFramework
-- pub struct FrameworkMetrics
-- pub struct FrameworkMetricsSnapshot
-- impl FrameworkMetrics
-- impl ChaoticSemanticFramework
-
-### src/persistence_wasm.rs
-
-- pub struct Persistence
-- pub struct ConceptVersion
-- impl Persistence
-
-### src/framework_ops.rs
-
-- impl ChaoticSemanticFramework
-
-### src/wasm.rs
-
-- pub fn initialize_wasm
-- pub struct WasmFramework
-- impl WasmFramework
-- pub fn random_hypervector
-- pub fn encode_text
-- pub fn cosine_similarity
-
-### src/error.rs
-
-- pub enum MemoryError
-- impl MemoryError
-- pub type Result
-
-### src/wasm_ext.rs
-
-- impl WasmFramework
-
-### src/export_payload.rs
-
-- impl From for BinaryMetadataValue
-- impl From for serde_json::Value
-- impl From for BinaryConcept
-- impl BinaryConcept
-- impl From for BinaryExportPayload
-- impl BinaryExportPayload
-
-### src/persistence_versions.rs
-
-- impl Persistence
-
-### src/lib.rs
-
-- pub use bridge_retrieval::BridgeRetrieval
-- pub use bundle::BundleAccumulator
-- pub use error::{MemoryError, Result}
-- pub use framework::ChaoticSemanticFramework
-- pub use framework_builder::FrameworkBuilder
-- pub use framework_events::MemoryEvent
-- pub use hyperdim::{HVec10240, batch_cosine_similarity}
-- pub use semantic_bridge::{BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown}
-- pub use singularity::{Concept, ConceptBuilder}
-- pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
-- pub mod bridge_retrieval
-- pub mod bundle
-- pub mod cli
-- pub mod concept_builder
-- pub mod encoder
-- pub mod error
-- pub mod framework
-- pub mod framework_builder
-- pub mod graph_traversal
-- pub mod hyperdim
-- pub mod metadata_filter
-- pub mod semantic_triples
-- pub use metadata_filter::MetadataFilter
-- pub mod persistence
-- pub mod persistence_wasm
-- pub mod reservoir
-- pub mod retrieval
-- pub mod semantic_bridge
-- pub mod singularity
-- pub use crate::persistence_wasm as persistence
-- pub mod persistence
-- pub struct persistence::Persistence
-- pub struct persistence::ConceptVersion
-- impl persistence::Persistence
-- pub mod prelude
-- pub use prelude::crate::bridge_retrieval::BridgeRetrieval
-- pub use prelude::crate::bundle::BundleAccumulator
-- pub use prelude::crate::error::{MemoryError, Result}
-- pub use prelude::crate::framework::ChaoticSemanticFramework
-- pub use prelude::crate::framework_builder::FrameworkBuilder
-- pub use prelude::crate::framework_events::MemoryEvent
-- pub use prelude::crate::hyperdim::HVec10240
-- pub use prelude::crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket}
-- pub use prelude::crate::singularity::{Concept, ConceptBuilder}
-- pub use prelude::crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
-- pub mod wasm
-
-### src/bridge_retrieval.rs
-
-- pub struct BridgeRetrieval
-- impl BridgeRetrieval
-
-### src/semantic_bridge.rs
-
-- pub struct CanonicalConcept
-- impl CanonicalConcept
-- pub struct BridgeConfig
-- impl Default for BridgeConfig
-- pub struct ScoreBreakdown
-- impl ScoreBreakdown
-- pub struct BridgeHit
-- pub struct MemoryPacket
-- impl MemoryPacket
-- pub trait SemanticReranker
-- pub struct ConceptGraph
-- impl ConceptGraph
-
-### src/framework_events.rs
-
-- pub enum MemoryEvent
-- impl ChaoticSemanticFramework
-
-### src/bridge_persistence.rs
-
-- impl Persistence
-
-### src/encoder.rs
-
-- pub struct TextEncoderConfig
-- impl Default for TextEncoderConfig
-- pub struct TextEncoder
-- impl Default for TextEncoder
-- impl TextEncoder
-
-### src/singularity_ext.rs
-
-- impl Singularity
 
 ### src/bin/csm.rs
 
@@ -477,6 +406,26 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn native::handle_completions
 - pub fn native::resolve_database_path
 - pub fn native::run_async
+
+### src/graph_traversal.rs
+
+- pub struct TraversalConfig
+- impl Default for TraversalConfig
+- impl Singularity
+
+### src/encoder.rs
+
+- pub struct TextEncoderConfig
+- impl Default for TextEncoderConfig
+- pub struct TextEncoder
+- impl Default for TextEncoder
+- impl TextEncoder
+
+### src/bundle.rs
+
+- pub struct BundleAccumulator
+- impl Default for BundleAccumulator
+- impl BundleAccumulator
 
 ---
 
@@ -538,8 +487,6 @@ vectors directly via `inject_concept`.
 
 #### Installation
 
-##### Rust Library
-
 ```bash
 cargo add chaotic_semantic_memory
 ```
@@ -559,24 +506,6 @@ For library-only consumers who don't need the CLI binary or its dependencies:
 chaotic_semantic_memory = { version = "0.3", default-features = false }
 ```
 
-##### WASM npm Package (for JS/TS)
-
-```bash
-npm install @d-o-hub/chaotic_semantic_memory
-```
-
-##### CLI Binary
-
-**via npm (recommended for Node.js users):**
-```bash
-npm install -g @d-o-hub/csm
-```
-
-**via cargo:**
-```bash
-cargo install chaotic_semantic_memory --bin csm
-```
-
 > **Note:** Using `"0.2"` ensures compatibility with the latest 0.2.x patch versions.
 
 #### Core Components
@@ -592,32 +521,6 @@ cargo install chaotic_semantic_memory --bin csm
 - `metadata_filter`: metadata query and filtering
 - `bundle`: snapshot and bundle helpers
 - `cli`: Command-line interface (`csm` binary)
-- `semantic_bridge`: Semantic Bridge Layer for concept expansion (ADR-0061)
-- `bridge_retrieval`: Bridge retrieval pipeline for zero-drift semantic search
-- `retrieval`: Hybrid BM25/HDC retrieval module (ADR-0062)
-
-#### Semantic Bridge Layer (v0.3.0)
-
-Zero-drift semantic expansion on top of deterministic HDC memory:
-- **CanonicalConcept**: Versioned concept with labels and related IDs
-- **ConceptGraph**: In-memory label index for token-to-concept matching
-- **BridgeRetrieval**: Pipeline: normalize → HDC recall → concept expansion → second recall
-- **MemoryPacket**: Compressed output for LLM context injection
-
-**Key principle**: Additive, non-destructive, never mutates canonical memory vectors.
-
-#### Hybrid BM25+HDC Retrieval (v0.3.0)
-
-Hybrid retrieval combines keyword (BM25) and semantic (HDC) search:
-- **BM25 parameters**: k1=1.2 (TF saturation), b=0.75 (doc length normalization)
-- **Query-length-dependent weights**:
-
-| Tokens | Keyword | Semantic |
-|--------|---------|----------|
-| 1-2    | 0.9     | 0.1      |
-| 3-4    | 0.7     | 0.3      |
-| 5-8    | 0.4     | 0.6      |
-| 9+     | 0.2     | 0.8      |
 
 #### How Text Encoding Works (HDC Pipeline)
 
@@ -965,7 +868,7 @@ Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md)
 ```toml
 [package]
 name = "chaotic_semantic_memory"
-version = "0.3.4"
+version = "0.3.2"
 edition = "2024"
 rust-version = "1.85"
 description = "AI memory systems with hyperdimensional vectors and chaotic reservoirs"
@@ -1000,8 +903,7 @@ tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 
 # Random number generation
-rand = "0.10.1"
-rand_chacha = "0.10.0"
+rand = "0.8.5"
 
 # CLI dependencies (gated behind "cli" feature)
 clap = { version = "4.5.60", features = ["derive", "env", "string"], optional = true }
@@ -1015,16 +917,15 @@ glob = { version = "0.3.2", optional = true }
 rayon = { version = "1.10.0", optional = true }
 
 # Database - Use libsql NOT turso-client (opt-in via "persistence" feature)
-libsql = { version = "0.9.30", default-features = false, features = ["sync", "hrana", "remote"], optional = true }
+libsql = { version = "0.4", optional = true }
 tokio = { version = "1.43.0", features = ["rt-multi-thread", "macros", "sync", "fs"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.4.2", features = ["wasm_js"] }
+getrandom = { version = "0.2.15", features = ["js"] }
 tokio = { version = "1.43.0", features = ["rt", "macros", "sync"] }
 wasm-bindgen = "0.2.100"
 wasm-bindgen-futures = "0.4.64"
 js-sys = "0.3.77"
-console_error_panic_hook = { version = "0.1", optional = false }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }

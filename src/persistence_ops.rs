@@ -17,19 +17,14 @@ impl Persistence {
             .await
             .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {}", e)))?;
 
-        let stmt = conn
-            .prepare(
-                "INSERT OR REPLACE INTO csm_associations (from_id, to_id, strength)
-                 VALUES (?1, ?2, ?3)",
-            )
-            .await
-            .map_err(|e| MemoryError::database(format!("Failed to prepare statement: {}", e)))?;
-
         let mut first_error: Option<MemoryError> = None;
         for (from, to, strength) in associations {
-            stmt.reset();
-            if let Err(e) = stmt
-                .execute(params![from.clone(), to.clone(), *strength])
+            if let Err(e) = conn
+                .execute(
+                    "INSERT OR REPLACE INTO csm_associations (from_id, to_id, strength)
+                     VALUES (?1, ?2, ?3)",
+                    params![from.clone(), to.clone(), *strength],
+                )
                 .await
             {
                 first_error = Some(MemoryError::database(format!(
@@ -139,9 +134,96 @@ impl Persistence {
     }
 
     pub async fn apply_migrations(&self, target_version: i64) -> Result<()> {
+        let current = self.schema_version().await?;
+        if target_version <= current {
+            return Ok(());
+        }
+
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
-        self.apply_migrations_with_conn(&conn, target_version).await
+        conn.execute("BEGIN", ()).await.map_err(|e| {
+            MemoryError::database(format!("Failed to begin migration transaction: {}", e))
+        })?;
+
+        for version in (current + 1)..=target_version {
+            info!(version, "applying schema migration");
+            if version == 2 {
+                conn.execute_batch(
+                    "CREATE INDEX IF NOT EXISTS idx_csm_versions_modified_at
+                     ON csm_versions(modified_at);",
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v2: {}", e)))?;
+            }
+
+            if version == 3 {
+                // Add expires_at column for TTL support
+                conn.execute_batch("ALTER TABLE csm_concepts ADD COLUMN expires_at INTEGER;")
+                    .await
+                    .map_err(|e| MemoryError::database(format!("Failed migration v3: {}", e)))?;
+            }
+
+            if version == 4 {
+                // Add canonical_concepts table for semantic bridge
+                conn.execute_batch(
+                    "CREATE TABLE IF NOT EXISTS csm_canonical (
+                        id TEXT PRIMARY KEY,
+                        version INTEGER NOT NULL,
+                        labels_json TEXT NOT NULL,
+                        related_json TEXT NOT NULL
+                    );",
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v4: {}", e)))?;
+            }
+
+            if version == 5 {
+                // Rename tables to use csm_ prefix for namespace isolation
+                // Only rename if old tables exist (handles both new and existing databases)
+                // Use SQLite's table existence check
+                let has_old_tables: bool = conn
+                    .query(
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='concepts'",
+                        (),
+                    )
+                    .await
+                    .map_err(|e| MemoryError::database(format!("Failed to check tables: {}", e)))?
+                    .next()
+                    .await
+                    .map_err(|e| MemoryError::database(format!("Failed to fetch: {}", e)))?
+                    .map(|row| row.get::<i64>(0).unwrap_or(0) > 0)
+                    .unwrap_or(false);
+
+                if has_old_tables {
+                    conn.execute_batch(
+                        "ALTER TABLE concepts RENAME TO csm_concepts;
+                         ALTER TABLE associations RENAME TO csm_associations;
+                         ALTER TABLE concept_versions RENAME TO csm_versions;
+                         DROP TABLE __schema_version;
+                         ALTER TABLE canonical_concepts RENAME TO csm_canonical;",
+                    )
+                    .await
+                    .map_err(|e| {
+                        MemoryError::database(format!("Failed migration v5 rename: {}", e))
+                    })?;
+                }
+            }
+
+            conn.execute(
+                "INSERT INTO csm_schema_version(version) VALUES (?1)",
+                libsql::params![version],
+            )
+            .await
+            .map_err(|e| {
+                MemoryError::database(format!("Failed to record schema version: {}", e))
+            })?;
+        }
+
+        conn.execute("COMMIT", ())
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to commit migrations: {}", e)))?;
+
+        Ok(())
     }
 
     pub async fn backup(&self, path: &str) -> Result<()> {
@@ -194,8 +276,8 @@ impl Persistence {
             .map_err(|e| MemoryError::database(format!("Failed to clear current database: {}", e)))?;
 
             conn.execute_batch(
-                "INSERT INTO csm_concepts (id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
-                 SELECT id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json FROM restore_db.csm_concepts;
+                "INSERT INTO csm_concepts (id, vector, metadata, created_at, modified_at)
+                 SELECT id, vector, metadata, created_at, modified_at FROM restore_db.csm_concepts;
                  INSERT INTO csm_associations (from_id, to_id, strength)
                  SELECT from_id, to_id, strength FROM restore_db.csm_associations;
                  INSERT INTO csm_versions (concept_id, version, vector, metadata, modified_at)
@@ -291,16 +373,9 @@ impl Persistence {
 
             if version == 3 {
                 // Add expires_at column for TTL support
-                if !self
-                    .column_exists(conn, "csm_concepts", "expires_at")
-                    .await?
-                {
-                    conn.execute_batch("ALTER TABLE csm_concepts ADD COLUMN expires_at INTEGER;")
-                        .await
-                        .map_err(|e| {
-                            MemoryError::database(format!("Failed migration v3: {}", e))
-                        })?;
-                }
+                conn.execute_batch("ALTER TABLE csm_concepts ADD COLUMN expires_at INTEGER;")
+                    .await
+                    .map_err(|e| MemoryError::database(format!("Failed migration v3: {}", e)))?;
             }
 
             if version == 4 {
@@ -318,20 +393,34 @@ impl Persistence {
             }
 
             if version == 5 {
-                self.apply_v5_namespace_migration(conn).await?;
-            }
-
-            if version == 6 {
-                // Preserve semantic-bridge linkage IDs on concepts
-                if !self
-                    .column_exists(conn, "csm_concepts", "canonical_concept_ids_json")
-                    .await?
-                {
-                    conn.execute_batch(
-                        "ALTER TABLE csm_concepts ADD COLUMN canonical_concept_ids_json TEXT;",
+                // Rename tables to use csm_ prefix for namespace isolation
+                // Only rename if old tables exist (handles both new and existing databases)
+                // Use SQLite's table existence check
+                let has_old_tables: bool = conn
+                    .query(
+                        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='concepts'",
+                        (),
                     )
                     .await
-                    .map_err(|e| MemoryError::database(format!("Failed migration v6: {}", e)))?;
+                    .map_err(|e| MemoryError::database(format!("Failed to check tables: {}", e)))?
+                    .next()
+                    .await
+                    .map_err(|e| MemoryError::database(format!("Failed to fetch: {}", e)))?
+                    .map(|row| row.get::<i64>(0).unwrap_or(0) > 0)
+                    .unwrap_or(false);
+
+                if has_old_tables {
+                    conn.execute_batch(
+                        "ALTER TABLE concepts RENAME TO csm_concepts;
+                         ALTER TABLE associations RENAME TO csm_associations;
+                         ALTER TABLE concept_versions RENAME TO csm_versions;
+                         DROP TABLE __schema_version;
+                         ALTER TABLE canonical_concepts RENAME TO csm_canonical;",
+                    )
+                    .await
+                    .map_err(|e| {
+                        MemoryError::database(format!("Failed migration v5 rename: {}", e))
+                    })?;
                 }
             }
 

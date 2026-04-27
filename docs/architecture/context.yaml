@@ -1,13 +1,13 @@
 # Chaotic Semantic Memory - LLM Context
 # This file provides structured context for LLM APIs to understand the codebase
 # Format: YAML (machine-optimized, minimal markup)
-# Last Updated: 2026-04-12
+# Last Updated: 2026-02-17
 
 metadata:
   project_name: chaotic_semantic_memory
   description: Production Rust crate for AI memory systems
   format_version: "1.0"
-  last_updated: 2026-04-12
+  last_updated: 2026-02-19
   
 mission:
   statement: Build and maintain chaotic_semantic_memory as a production Rust crate for AI memory systems
@@ -200,35 +200,30 @@ key_files:
 
 skills:
   location_pattern: ".agents/skills/{skill_name}/SKILL.md"
-  total_count: 19
+  total_count: 14
   categories:
     core:
-      count: 14
+      count: 10
       items:
         - rust-development
         - testing-validation
-        - goap-planning
-        - adr-creation
-        - github-ci-guardrails
-        - git-workflow
-        - release-management
         - benchmarking-perf
         - debugging-reservoir
-        - skill-memory-internal
-        - memory-lifecycle-verification
-        - turso-memory-verification
-        - npm-trusted-publishers
+        - adr-creation
+        - goap-planning
+        - github-ci-guardrails
         - drawio
+        - git-workflow
+        - release-management
         
     swarm:
-      count: 5
+      count: 4
       description: Parallel execution groups
       items:
         - swarm-testing-quality
         - swarm-performance
         - swarm-observability
         - swarm-advanced-features
-        - analysis-swarm
 
 validation:
   gates:

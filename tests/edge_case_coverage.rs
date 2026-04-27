@@ -59,53 +59,6 @@ fn concept_and_association_limits_enforced() {
 }
 
 #[test]
-fn singularity_association_strength_is_validated() {
-    let mut singularity = Singularity::new();
-    let mk = |id: &str| Concept {
-        id: id.to_string(),
-        vector: HVec10240::random(),
-        metadata: HashMap::new(),
-        created_at: 1,
-        modified_at: 1,
-        expires_at: None,
-        canonical_concept_ids: Vec::new(),
-    };
-
-    singularity.inject(mk("a")).unwrap();
-    singularity.inject(mk("b")).unwrap();
-
-    assert!(singularity.associate("a", "b", f32::NAN).is_err());
-    assert!(singularity.associate("a", "b", f32::INFINITY).is_err());
-    assert!(singularity.associate("a", "b", -0.1).is_err());
-    assert!(singularity.associate("a", "b", 1.1).is_err());
-}
-
-#[test]
-fn singularity_association_updates_instead_of_duplicating() {
-    let mut singularity = Singularity::new();
-    let mk = |id: &str| Concept {
-        id: id.to_string(),
-        vector: HVec10240::random(),
-        metadata: HashMap::new(),
-        created_at: 1,
-        modified_at: 1,
-        expires_at: None,
-        canonical_concept_ids: Vec::new(),
-    };
-
-    singularity.inject(mk("a")).unwrap();
-    singularity.inject(mk("b")).unwrap();
-
-    singularity.associate("a", "b", 0.2).unwrap();
-    singularity.associate("a", "b", 0.9).unwrap();
-
-    let links = singularity.get_associations("a");
-    assert_eq!(links.len(), 1);
-    assert_eq!(links[0].0, "b");
-    assert_eq!(links[0].1, 0.9);
-}
-
-#[test]
 fn spectral_radius_inclusive_bounds() {
     let mut reservoir = Reservoir::new_seeded(8, 64, 11).unwrap();
     assert!(reservoir.set_spectral_radius(0.9).is_ok());

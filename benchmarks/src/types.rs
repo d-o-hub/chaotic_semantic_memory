@@ -143,26 +143,3 @@ pub struct SummaryMetrics {
     /// Total completion tokens used (reader mode).
     pub completion_tokens: u64,
 }
-
-/// Dataset manifest metadata loaded from `manifest.json`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DatasetManifest {
-    pub version: String,
-    pub seed: u64,
-    pub session_count: usize,
-}
-
-/// High-level benchmark metadata recorded alongside reports.
-#[derive(Debug, Clone, Serialize)]
-pub struct BenchmarkMetadata {
-    pub dataset_dir: String,
-    pub dataset_version: String,
-    pub dataset_seed: u64,
-    pub dataset_session_count: usize,
-    pub mode: String,
-    pub reader_mode_enabled: bool,
-    pub top_k: usize,
-    pub abstain_threshold: f32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub commit_sha: Option<String>,
-}

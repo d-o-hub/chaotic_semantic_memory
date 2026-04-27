@@ -41,14 +41,14 @@ pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)> {
     let range = max - min;
     let epsilon = 1e-10;
 
-    if range < epsilon {
-        return scores.iter().map(|(id, _)| (id.clone(), 1.0)).collect();
-    }
-
     scores
         .iter()
         .map(|(id, score)| {
-            let normalized = (score - min) / range;
+            let normalized = if range < epsilon {
+                0.5 // All scores equal
+            } else {
+                (score - min) / range
+            };
             (id.clone(), normalized)
         })
         .collect()
@@ -196,9 +196,9 @@ mod tests {
         let scores = vec![("a".to_string(), 5.0), ("b".to_string(), 5.0)];
         let normalized = normalize_scores(&scores);
 
-        // All equal scores should normalize to 1.0
-        assert!((normalized[0].1 - 1.0).abs() < 1e-6);
-        assert!((normalized[1].1 - 1.0).abs() < 1e-6);
+        // All equal scores should normalize to 0.5
+        assert!((normalized[0].1 - 0.5).abs() < 1e-6);
+        assert!((normalized[1].1 - 0.5).abs() < 1e-6);
     }
 
     #[test]

@@ -13,8 +13,6 @@ use crate::singularity::{Singularity, SingularityConfig};
 
 const DEFAULT_MAX_PROBE_TOP_K: usize = 10_000;
 const DEFAULT_MAX_CACHED_TOP_K: usize = 100;
-const DEFAULT_MAX_BATCH_SIZE: usize = 1000;
-const DEFAULT_MAX_SEQUENCE_LENGTH: usize = 1024;
 
 /// Runtime configuration for [`ChaoticSemanticFramework`], tuned via [`FrameworkBuilder`].
 #[derive(Clone, Debug)]
@@ -40,10 +38,6 @@ pub struct FrameworkConfig {
     /// Maximum top_k for cache eligibility (default: `100`).
     /// Queries with top_k > this value bypass the cache.
     pub max_cached_top_k: usize,
-    /// Maximum items in a batch operation (default: `1000`).
-    pub max_batch_size: usize,
-    /// Maximum steps in a temporal sequence (default: `1024`).
-    pub max_sequence_length: usize,
 }
 
 impl Default for FrameworkConfig {
@@ -59,8 +53,6 @@ impl Default for FrameworkConfig {
             max_probe_top_k: DEFAULT_MAX_PROBE_TOP_K,
             max_metadata_bytes: None,
             max_cached_top_k: DEFAULT_MAX_CACHED_TOP_K,
-            max_batch_size: DEFAULT_MAX_BATCH_SIZE,
-            max_sequence_length: DEFAULT_MAX_SEQUENCE_LENGTH,
         }
     }
 }
@@ -147,16 +139,6 @@ impl FrameworkBuilder {
         self
     }
 
-    pub fn with_max_batch_size(mut self, max_batch_size: usize) -> Self {
-        self.config.max_batch_size = max_batch_size.max(1);
-        self
-    }
-
-    pub fn with_max_sequence_length(mut self, max_sequence_length: usize) -> Self {
-        self.config.max_sequence_length = max_sequence_length.max(1);
-        self
-    }
-
     /// Keep the last N historical versions per concept in persistence.
     ///
     /// Values less than 1 are coerced to 1. Default is 10.
@@ -207,7 +189,6 @@ impl FrameworkBuilder {
             self.config.reservoir_input_size,
             self.config.chaos_strength,
         )?;
-
         let singularity = Arc::new(RwLock::new(Singularity::with_config(SingularityConfig {
             max_concepts: self.config.max_concepts,
             max_associations_per_concept: self.config.max_associations_per_concept,

@@ -1,4 +1,4 @@
-use crate::types::{DatasetManifest, QueryCase, Session};
+use crate::types::{QueryCase, Session};
 use anyhow::{Context, Result};
 use serde::de::DeserializeOwned;
 use std::{
@@ -26,9 +26,4 @@ pub fn load_sessions(path: &Path) -> Result<Vec<Session>> {
 
 pub fn load_queries(path: &Path) -> Result<Vec<QueryCase>> {
     read_jsonl(path)
-}
-
-pub fn load_manifest(path: &Path) -> Result<DatasetManifest> {
-    let file = File::open(path).with_context(|| format!("open {}", path.display()))?;
-    Ok(serde_json::from_reader(file)?)
 }

@@ -13,11 +13,6 @@ use crate::singularity::Concept;
 
 const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024; // 100 MB default
 
-#[wasm_bindgen(start)]
-pub fn initialize_wasm() {
-    console_error_panic_hook::set_once();
-}
-
 /// WASM-friendly wrapper for the framework
 #[wasm_bindgen]
 pub struct WasmFramework {
@@ -32,7 +27,7 @@ impl WasmFramework {
             .without_persistence()
             .build()
             .await
-            .map_err(to_js_error)?;
+            .map_err(|e| JsValue::from_str(&format!("{:?}", e)))?;
 
         Ok(WasmFramework { framework })
     }
@@ -135,10 +130,6 @@ impl WasmFramework {
 
     /// Inject multiple concepts in batch
     pub async fn inject_concepts(&self, ids: Array, vectors: Array) -> Result<(), JsValue> {
-        self.framework
-            .validate_batch_size(ids.length() as usize)
-            .map_err(to_js_error)?;
-
         if ids.length() != vectors.length() {
             return Err(JsValue::from_str(
                 "ids and vectors arrays must have the same length",
@@ -168,10 +159,6 @@ impl WasmFramework {
 
     /// Create multiple associations in batch
     pub async fn associate_many(&self, associations: Array) -> Result<(), JsValue> {
-        self.framework
-            .validate_batch_size(associations.length() as usize)
-            .map_err(to_js_error)?;
-
         for i in 0..associations.length() {
             let assoc = associations.get(i);
             let from = js_sys::Reflect::get(&assoc, &"from".into())
@@ -199,10 +186,6 @@ impl WasmFramework {
 
     /// Probe for similar concepts with multiple queries in batch
     pub async fn probe_batch(&self, vectors: Array, top_k: usize) -> Result<Array, JsValue> {
-        self.framework
-            .validate_batch_size(vectors.length() as usize)
-            .map_err(to_js_error)?;
-
         let results = Array::new();
 
         for i in 0..vectors.length() {
@@ -304,10 +287,6 @@ impl WasmFramework {
     /// Process a temporal sequence and return the resulting hypervector bytes.
     #[wasm_bindgen(js_name = processSequence)]
     pub async fn process_sequence(&self, sequence: Array) -> Result<Box<[u8]>, JsValue> {
-        self.framework
-            .validate_sequence_length(sequence.length() as usize)
-            .map_err(to_js_error)?;
-
         let mut parsed_sequence = Vec::with_capacity(sequence.length() as usize);
         for item in sequence.iter() {
             let step = item
@@ -447,19 +426,6 @@ fn concept_to_js_value(concept: &Concept) -> Result<JsValue, JsValue> {
         &(concept.modified_at as f64).into(),
     )
     .map_err(|_| JsValue::from_str("failed to set JS property"))?;
-
-    let expires_at = concept
-        .expires_at
-        .map_or(JsValue::NULL, |v| (v as f64).into());
-    js_sys::Reflect::set(&obj, &"expires_at".into(), &expires_at)
-        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
-
-    let canonical_ids = Array::new();
-    for id in &concept.canonical_concept_ids {
-        canonical_ids.push(&JsValue::from_str(id));
-    }
-    js_sys::Reflect::set(&obj, &"canonical_concept_ids".into(), &canonical_ids.into())
-        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
 
     Ok(obj.into())
 }

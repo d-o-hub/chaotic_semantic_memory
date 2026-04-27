@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand, ValueEnum};
-use std::{fmt, path::PathBuf};
+use std::path::PathBuf;
 
 /// Benchmark mode for memory system evaluation.
 #[derive(Debug, Clone, ValueEnum)]
@@ -9,15 +9,6 @@ pub enum Mode {
     RetrievalOnly,
     /// Include mock reader for answer quality evaluation.
     ReaderLite,
-}
-
-impl fmt::Display for Mode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Mode::RetrievalOnly => write!(f, "retrieval-only"),
-            Mode::ReaderLite => write!(f, "reader-lite"),
-        }
-    }
 }
 
 /// CLI configuration for the benchmark runner.

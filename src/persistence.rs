@@ -5,7 +5,7 @@ use crate::singularity::Concept;
 use libsql::{Builder, Connection, Database, params};
 use std::sync::Arc;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-pub(crate) const LATEST_SCHEMA_VERSION: i64 = 6;
+pub(crate) const LATEST_SCHEMA_VERSION: i64 = 5;
 
 #[derive(Debug)]
 pub struct Persistence {
@@ -157,20 +157,17 @@ impl Persistence {
         let vector_bytes = concept.vector.to_bytes();
         let metadata_json = serde_json::to_string(&concept.metadata)?;
         let expires_at: Option<i64> = concept.expires_at.map(|t| t as i64);
-        let canonical_concept_ids_json = serde_json::to_string(&concept.canonical_concept_ids)?;
 
         conn.execute(
-            "INSERT OR REPLACE INTO csm_concepts
-             (id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT OR REPLACE INTO csm_concepts (id, vector, metadata, created_at, modified_at, expires_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
                 concept.id.clone(),
                 vector_bytes,
                 metadata_json,
                 concept.created_at as i64,
                 concept.modified_at as i64,
-                expires_at,
-                canonical_concept_ids_json
+                expires_at
             ],
         )
         .await
@@ -196,22 +193,17 @@ impl Persistence {
         for concept in concepts {
             let vector_bytes = concept.vector.to_bytes();
             let metadata_json = serde_json::to_string(&concept.metadata)?;
-            let expires_at: Option<i64> = concept.expires_at.map(|t| t as i64);
-            let canonical_concept_ids_json = serde_json::to_string(&concept.canonical_concept_ids)?;
 
             if let Err(e) = conn
                 .execute(
-                    "INSERT OR REPLACE INTO csm_concepts
-                     (id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                    "INSERT OR REPLACE INTO csm_concepts (id, vector, metadata, created_at, modified_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5)",
                     params![
                         concept.id.clone(),
                         vector_bytes,
                         metadata_json,
                         concept.created_at as i64,
-                        concept.modified_at as i64,
-                        expires_at,
-                        canonical_concept_ids_json
+                        concept.modified_at as i64
                     ],
                 )
                 .await
@@ -248,8 +240,7 @@ impl Persistence {
 
         let mut rows = conn
             .query(
-                "SELECT vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json
-                 FROM csm_concepts WHERE id = ?1",
+                "SELECT vector, metadata, created_at, modified_at, expires_at FROM csm_concepts WHERE id = ?1",
                 params![id],
             )
             .await
@@ -273,15 +264,9 @@ impl Persistence {
                 .get(3)
                 .map_err(|e| MemoryError::database(format!("Failed to get modified_at: {}", e)))?;
             let expires_at: Option<i64> = row.get(4).ok();
-            let canonical_concept_ids_json: Option<String> = row.get(5).ok();
 
             let vector = HVec10240::from_bytes(&vector_bytes)?;
             let metadata = serde_json::from_str(&metadata_json)?;
-            let canonical_concept_ids = canonical_concept_ids_json
-                .as_deref()
-                .map(serde_json::from_str)
-                .transpose()?
-                .unwrap_or_default();
 
             Ok(Some(Concept {
                 id: id.to_string(),
@@ -290,7 +275,7 @@ impl Persistence {
                 created_at: created_at as u64,
                 modified_at: modified_at as u64,
                 expires_at: expires_at.map(|t| t as u64),
-                canonical_concept_ids,
+                canonical_concept_ids: Vec::new(),
             }))
         } else {
             Ok(None)
@@ -304,8 +289,7 @@ impl Persistence {
 
         let mut rows = conn
             .query(
-                "SELECT id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json
-                 FROM csm_concepts",
+                "SELECT id, vector, metadata, created_at, modified_at, expires_at FROM csm_concepts",
                 (),
             )
             .await
@@ -333,15 +317,9 @@ impl Persistence {
                 .get(4)
                 .map_err(|e| MemoryError::database(format!("Failed to get modified_at: {}", e)))?;
             let expires_at: Option<i64> = row.get(5).ok();
-            let canonical_concept_ids_json: Option<String> = row.get(6).ok();
 
             let vector = HVec10240::from_bytes(&vector_bytes)?;
             let metadata = serde_json::from_str(&metadata_json)?;
-            let canonical_concept_ids = canonical_concept_ids_json
-                .as_deref()
-                .map(serde_json::from_str)
-                .transpose()?
-                .unwrap_or_default();
 
             concepts.push(Concept {
                 id,
@@ -350,7 +328,7 @@ impl Persistence {
                 created_at: created_at as u64,
                 modified_at: modified_at as u64,
                 expires_at: expires_at.map(|t| t as u64),
-                canonical_concept_ids,
+                canonical_concept_ids: Vec::new(),
             });
         }
 

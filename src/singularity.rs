@@ -1,9 +1,10 @@
 //! Episode-free concept injection
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::hash_map::Entry;
+use std::collections::{HashMap, VecDeque};
 use std::hash::{Hash, Hasher};
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -11,12 +12,8 @@ use tracing::instrument;
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
-use crate::singularity_cache::{CacheMetrics, QueryCache};
-#[cfg(target_arch = "wasm32")]
-use js_sys::Date;
 
 // Re-export retrieval types from the dedicated module
-pub use crate::singularity_cache::CacheMetricsSnapshot;
 use crate::singularity_retrieval::ScoredCandidateParams;
 pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats};
 
@@ -63,6 +60,83 @@ impl Default for SingularityConfig {
             max_associations_per_concept: None,
             concept_cache_size: DEFAULT_CONCEPT_CACHE_SIZE,
             max_cached_top_k: DEFAULT_MAX_CACHED_TOP_K,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct QueryCache {
+    pub(crate) capacity: usize,
+    pub(crate) order: VecDeque<u64>,
+    pub(crate) results: HashMap<u64, Arc<[(String, f32)]>>,
+}
+
+impl QueryCache {
+    fn with_capacity(capacity: usize) -> Self {
+        Self {
+            capacity: capacity.max(1),
+            order: VecDeque::new(),
+            results: HashMap::new(),
+        }
+    }
+
+    fn get(&mut self, key: u64) -> Option<Arc<[(String, f32)]>> {
+        let value = Arc::clone(self.results.get(&key)?);
+        if let Some(pos) = self.order.iter().position(|k| *k == key) {
+            self.order.remove(pos);
+        }
+        self.order.push_back(key);
+        Some(value)
+    }
+
+    pub(crate) fn put(&mut self, key: u64, value: Arc<[(String, f32)]>) -> bool {
+        if let Entry::Occupied(mut entry) = self.results.entry(key) {
+            entry.insert(value);
+            if let Some(pos) = self.order.iter().position(|k| *k == key) {
+                self.order.remove(pos);
+            }
+            self.order.push_back(key);
+            return false;
+        }
+
+        let mut evicted = false;
+        if self.results.len() >= self.capacity {
+            if let Some(oldest) = self.order.pop_front() {
+                self.results.remove(&oldest);
+                evicted = true;
+            }
+        }
+        self.order.push_back(key);
+        self.results.insert(key, value);
+        evicted
+    }
+
+    fn clear(&mut self) {
+        self.order.clear();
+        self.results.clear();
+    }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct CacheMetrics {
+    pub(crate) hits_total: AtomicU64,
+    pub(crate) misses_total: AtomicU64,
+    pub(crate) evictions_total: AtomicU64,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CacheMetricsSnapshot {
+    pub cache_hits_total: u64,
+    pub cache_misses_total: u64,
+    pub cache_evictions_total: u64,
+}
+
+impl CacheMetrics {
+    fn snapshot(&self) -> CacheMetricsSnapshot {
+        CacheMetricsSnapshot {
+            cache_hits_total: self.hits_total.load(Ordering::Relaxed),
+            cache_misses_total: self.misses_total.load(Ordering::Relaxed),
+            cache_evictions_total: self.evictions_total.load(Ordering::Relaxed),
         }
     }
 }
@@ -243,6 +317,7 @@ impl Singularity {
                 source = CandidateSource::Graph;
             }
         }
+
         if candidates.is_empty() && self.retrieval_config.enable_bucket_candidates {
             candidates = self.generate_bucket_candidates(query);
             if !candidates.is_empty() {
@@ -271,12 +346,6 @@ impl Singularity {
     /// Create or update association between concepts
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self), fields(from_id = %from, to_id = %to, strength = strength)))]
     pub fn associate(&mut self, from: &str, to: &str, strength: f32) -> Result<()> {
-        if !strength.is_finite() || !(0.0..=1.0).contains(&strength) {
-            return Err(MemoryError::InvalidInput {
-                field: "strength".to_string(),
-                reason: "must be finite and between 0.0 and 1.0".to_string(),
-            });
-        }
         if !self.concepts.contains_key(from) || !self.concepts.contains_key(to) {
             let missing = if !self.concepts.contains_key(from) {
                 from
@@ -398,7 +467,6 @@ impl Default for Singularity {
 }
 
 /// Get current Unix timestamp in seconds
-#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn unix_now_secs() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -406,33 +474,12 @@ pub(crate) fn unix_now_secs() -> u64 {
         .as_secs()
 }
 
-#[cfg(target_arch = "wasm32")]
-pub(crate) fn unix_now_secs() -> u64 {
-    let millis = Date::now();
-    if !millis.is_finite() || millis < 0.0 {
-        return 0;
-    }
-    let secs = (millis / 1000.0).floor();
-    format!("{secs:.0}").parse::<u64>().unwrap_or(0)
-}
-
 /// Get current Unix timestamp in nanoseconds
-#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn unix_now_ns() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos() as u64
-}
-
-#[cfg(target_arch = "wasm32")]
-pub(crate) fn unix_now_ns() -> u64 {
-    let millis = Date::now();
-    if !millis.is_finite() || millis < 0.0 {
-        return 0;
-    }
-    let nanos = (millis * 1_000_000.0).floor();
-    format!("{nanos:.0}").parse::<u64>().unwrap_or(0)
 }
 
 /// Generate cache key for similarity query

@@ -40,8 +40,7 @@ jobs:
     - name: Verify version triad integrity
       run: |
         CARGO_VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d'"' -f2)
-        # Fixed regex: CHANGELOG uses ## [version] format (Keep a Changelog)
-        CHANGELOG_VERSION=$(grep -oP '^## \\[\\K[0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | head -1)
+        CHANGELOG_VERSION=$(grep -oP '^\[\K[0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | head -1)
         WASM_VERSION=$(grep '"version"' wasm/package.json | cut -d'"' -f4)
 
         echo "Cargo.toml: $CARGO_VERSION"

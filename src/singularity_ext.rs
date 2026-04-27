@@ -10,7 +10,6 @@ use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 use crate::metadata_filter::MetadataFilter;
 use crate::singularity::{Singularity, unix_now_secs};
-use crate::singularity_retrieval::{CandidateSource, FilterStrategy};
 
 impl Singularity {
     /// Bundle multiple concepts into a single hypervector (strict version).
@@ -99,12 +98,10 @@ impl Singularity {
         }
     }
 
-    /// Find similar concepts filtered by metadata predicate (ADR-0065: selectivity-aware).
+    /// Find similar concepts filtered by metadata predicate.
     ///
-    /// Routes to optimal strategy based on filter selectivity:
-    /// - selectivity < 0.3: Pre-filter candidates, then score
-    /// - selectivity 0.3-0.8: Bucket candidates, score, post-filter
-    /// - selectivity >= 0.8: Full scan, score, post-filter
+    /// Only concepts matching the filter are considered for similarity.
+    /// This is useful for RAG patterns like document scoping or multi-tenant filtering.
     #[cfg_attr(
         not(target_arch = "wasm32"),
         instrument(skip(self, query), fields(top_k = top_k))
@@ -120,198 +117,28 @@ impl Singularity {
             return Arc::from(Vec::new());
         }
 
-        // ADR-0065: Compute selectivity ratio
-        let total_count = self.concepts.len();
-        let matching_count = self
+        // Filter concepts first to get candidate indices
+        let cand_start = crate::singularity::unix_now_ns();
+        let candidates: Vec<usize> = self
             .concepts
-            .values()
-            .filter(|c| filter.matches(&c.metadata))
-            .count();
-        let selectivity = matching_count as f32 / total_count as f32;
+            .iter()
+            .filter(|(_, concept)| filter.matches(&concept.metadata))
+            .filter_map(|(id, _)| self.id_to_index.get(id).copied())
+            .collect();
+        let cand_ns = crate::singularity::unix_now_ns().saturating_sub(cand_start);
 
-        if matching_count == 0 {
+        if candidates.is_empty() {
             return Arc::from(Vec::new());
         }
 
-        // ADR-0065: Route based on selectivity
-        // For small datasets (<20 concepts), always use PreFilter for correctness
-        let strategy = if total_count < 20 || selectivity < 0.3 {
-            FilterStrategy::Pre
-        } else if selectivity < 0.8 {
-            FilterStrategy::BucketPost
-        } else {
-            FilterStrategy::ScanPost
-        };
-
-        match strategy {
-            FilterStrategy::Pre => {
-                let cand_start = crate::singularity::unix_now_ns();
-                let candidates: Vec<usize> = self
-                    .concepts
-                    .iter()
-                    .filter(|(_, concept)| filter.matches(&concept.metadata))
-                    .filter_map(|(id, _)| self.id_to_index.get(id).copied())
-                    .collect();
-                let cand_ns = crate::singularity::unix_now_ns().saturating_sub(cand_start);
-
-                self.scored_candidate_retrieval_with_stats(
-                    crate::singularity_retrieval::ScoredCandidateParams {
-                        query,
-                        top_k,
-                        candidates,
-                        start_ns,
-                        cand_ns,
-                        source: CandidateSource::Metadata,
-                        bypass_cache: true,
-                    },
-                    selectivity,
-                    Some(strategy),
-                )
-            }
-            FilterStrategy::BucketPost => {
-                let cand_start = crate::singularity::unix_now_ns();
-                let candidates = self.generate_bucket_candidates(query);
-                let cand_ns = crate::singularity::unix_now_ns().saturating_sub(cand_start);
-
-                let all_results = self.scored_candidate_retrieval_with_stats(
-                    crate::singularity_retrieval::ScoredCandidateParams {
-                        query,
-                        top_k: top_k * 2,
-                        candidates,
-                        start_ns,
-                        cand_ns,
-                        source: CandidateSource::Bucket,
-                        bypass_cache: true,
-                    },
-                    selectivity,
-                    Some(strategy),
-                );
-
-                let filtered: Vec<(String, f32)> = all_results
-                    .iter()
-                    .filter(|(id, _)| {
-                        self.concepts
-                            .get(id)
-                            .map(|c| filter.matches(&c.metadata))
-                            .unwrap_or(false)
-                    })
-                    .take(top_k)
-                    .map(|(id, score)| (id.clone(), *score))
-                    .collect();
-                Arc::from(filtered)
-            }
-            FilterStrategy::ScanPost => {
-                let all_results = self.exact_similarity_scan(query, top_k * 2, start_ns, true);
-
-                let filtered: Vec<(String, f32)> = all_results
-                    .iter()
-                    .filter(|(id, _)| {
-                        self.concepts
-                            .get(id)
-                            .map(|c| filter.matches(&c.metadata))
-                            .unwrap_or(false)
-                    })
-                    .take(top_k)
-                    .map(|(id, score)| (id.clone(), *score))
-                    .collect();
-
-                // Update stats via direct call
-                if let Ok(mut s) = self.last_retrieval_stats.write() {
-                    *s = crate::singularity_retrieval::RetrievalStats {
-                        candidate_count: matching_count,
-                        scored_count: filtered.len(),
-                        fell_back_to_exact_scan: true,
-                        candidate_ns: 0,
-                        scoring_ns: 0,
-                        selectivity_ratio: selectivity,
-                        filter_strategy: Some(strategy),
-                    };
-                }
-                Arc::from(filtered)
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::error::MemoryError;
-    use crate::singularity::{ConceptBuilder, Singularity, SingularityConfig};
-    use std::collections::HashMap;
-
-    #[test]
-    fn test_bundle_concepts_strict_success() {
-        let mut singularity = Singularity::with_config(SingularityConfig::default());
-        let vec1 = HVec10240::random();
-        let vec2 = HVec10240::random();
-
-        let c1 = ConceptBuilder::new("c1").with_vector(vec1).build().unwrap();
-        let c2 = ConceptBuilder::new("c2").with_vector(vec2).build().unwrap();
-
-        singularity.inject(c1).unwrap();
-        singularity.inject(c2).unwrap();
-
-        let result = singularity.bundle_concepts_strict(&["c1".to_string(), "c2".to_string()]);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_bundle_concepts_strict_missing_id() {
-        let mut singularity = Singularity::with_config(SingularityConfig::default());
-        let vec1 = HVec10240::random();
-
-        let c1 = ConceptBuilder::new("c1").with_vector(vec1).build().unwrap();
-        singularity.inject(c1).unwrap();
-
-        let result =
-            singularity.bundle_concepts_strict(&["c1".to_string(), "missing_id".to_string()]);
-
-        match result {
-            Err(MemoryError::NotFound { entity, id }) => {
-                assert_eq!(entity, "Concept");
-                assert_eq!(id, "missing_id");
-            }
-            _ => panic!("Expected NotFound error, got {:?}", result),
-        }
-    }
-
-    #[test]
-    fn test_update_metadata_not_found() {
-        let mut sing = Singularity::new();
-        let metadata = HashMap::new();
-
-        let result = sing.update_metadata("non-existent-id", metadata);
-
-        match result {
-            Err(MemoryError::NotFound { entity, id }) => {
-                assert_eq!(entity, "Concept");
-                assert_eq!(id, "non-existent-id");
-            }
-            _ => panic!("Expected MemoryError::NotFound, got {:?}", result),
-        }
-    }
-
-    #[test]
-    fn test_update_metadata_success() {
-        let mut sing = Singularity::new();
-        let concept = ConceptBuilder::new("test-id")
-            .with_metadata("original", serde_json::Value::Bool(true))
-            .build()
-            .expect("Failed to build concept");
-
-        sing.concepts.insert("test-id".to_string(), concept);
-
-        let mut new_metadata = HashMap::new();
-        new_metadata.insert("updated".to_string(), serde_json::Value::Bool(true));
-
-        let time_before = crate::singularity::unix_now_secs();
-
-        let result = sing.update_metadata("test-id", new_metadata.clone());
-        assert!(result.is_ok());
-
-        let updated_concept = sing.concepts.get("test-id").unwrap();
-        assert_eq!(updated_concept.metadata, new_metadata);
-        assert!(updated_concept.modified_at >= time_before);
+        self.scored_candidate_retrieval(crate::singularity_retrieval::ScoredCandidateParams {
+            query,
+            top_k,
+            candidates,
+            start_ns,
+            cand_ns,
+            source: crate::singularity_retrieval::CandidateSource::Metadata,
+            bypass_cache: true, // Always bypass cache for filtered queries for now
+        })
     }
 }
