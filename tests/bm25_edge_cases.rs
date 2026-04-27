@@ -9,7 +9,10 @@ mod edge_case_tests {
 
         // "rust" and "fast" are OOV
         let results = index.search(&["rust", "fast"], 10);
-        assert!(results.is_empty(), "Query with all OOV terms should return empty results");
+        assert!(
+            results.is_empty(),
+            "Query with all OOV terms should return empty results"
+        );
     }
 
     #[test]
