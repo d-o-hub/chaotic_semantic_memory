@@ -17,19 +17,14 @@ impl Persistence {
             .await
             .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {}", e)))?;
 
-        let stmt = conn
-            .prepare(
-                "INSERT OR REPLACE INTO csm_associations (from_id, to_id, strength)
-                 VALUES (?1, ?2, ?3)",
-            )
-            .await
-            .map_err(|e| MemoryError::database(format!("Failed to prepare statement: {}", e)))?;
-
         let mut first_error: Option<MemoryError> = None;
         for (from, to, strength) in associations {
-            stmt.reset();
-            if let Err(e) = stmt
-                .execute(params![from.clone(), to.clone(), *strength])
+            if let Err(e) = conn
+                .execute(
+                    "INSERT OR REPLACE INTO csm_associations (from_id, to_id, strength)
+                     VALUES (?1, ?2, ?3)",
+                    params![from.clone(), to.clone(), *strength],
+                )
                 .await
             {
                 first_error = Some(MemoryError::database(format!(
