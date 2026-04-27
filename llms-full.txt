@@ -8,27 +8,28 @@
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
-- bincode (1.3.3)
-- rand (0.8.5)
 - colored (2.2.0)
+- rand (0.10.1)
+- serde (1.0.219) [features: derive]
+- base64 (0.22)
+- serde_json (1.0.149)
+- clap_complete (4.5.42)
+- tracing-subscriber (0.3.19)
+- rand_chacha (0.10.0)
+- bincode (1.3.3)
+- clap (4.5.60) [features: derive, env, string]
 - tracing (0.1.41)
 - glob (0.3.2)
-- clap (4.5.60) [features: derive, env, string]
-- serde (1.0.219) [features: derive]
 - thiserror (2.0.11)
-- clap_complete (4.5.42)
-- serde_json (1.0.149)
 - anyhow (1.0.102)
-- tracing-subscriber (0.3.19)
-- base64 (0.22)
 **Features:**
-- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - wasm: []
-- parallel: [dep:rayon]
 - persistence: [dep:libsql]
 - default: [cli, persistence, parallel]
+- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
+- parallel: [dep:rayon]
 
-Generated: 2026-04-27 21:06:47 UTC
+Generated: 2026-04-27 22:29:37 UTC
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Table of Contents
@@ -37,11 +38,17 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - impl ChaoticSemanticFramework
 
+### src/semantic_triples.rs
+
+- pub struct SemanticTriple
+- impl SemanticTriple
+- pub struct StructuredMemoryPayload
+- impl StructuredMemoryPayload
+
 ### src/reservoir.rs
 
 - pub struct ReservoirMetricsSnapshot
 - impl ReservoirMetrics
-- impl SparseWeights
 - pub struct Reservoir
 - impl Reservoir
 - pub struct ChaoticReservoir
@@ -54,12 +61,12 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/hyperdim.rs
 
+- pub use crate::hyperdim_batch::batch_cosine_similarity
 - pub struct HVec10240
 - impl HVec10240
 - impl Serialize for HVec10240
 - impl Visitor for HVecVisitor
 - impl Deserialize for HVec10240
-- pub fn batch_cosine_similarity
 - pub use crate::bundle::BundleAccumulator
 
 ### src/bundle.rs
@@ -80,10 +87,20 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct ConceptVersion
 - impl Persistence
 
+### src/reservoir_sparse.rs
+
+- impl SparseWeights
+
 ### src/singularity_ttl.rs
 
 - impl Default for Concept
 - impl Singularity
+
+### src/singularity_cache.rs
+
+- impl QueryCache
+- pub struct CacheMetricsSnapshot
+- impl CacheMetrics
 
 ### src/framework_ttl.rs
 
@@ -107,6 +124,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub struct RetrievalStats
 - pub enum CandidateSource
+- pub enum FilterStrategy
 - pub struct RetrievalConfig
 - impl RetrievalConfig
 - impl Default for RetrievalConfig
@@ -224,6 +242,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
 
+### src/persistence_migrations.rs
+
+- impl Persistence
+
 ### src/framework_validation.rs
 
 - impl ChaoticSemanticFramework
@@ -231,6 +253,14 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/persistence_ops.rs
 
 - impl Persistence
+
+### src/reservoir_inertial.rs
+
+- impl Reservoir
+
+### src/hyperdim_batch.rs
+
+- pub fn batch_cosine_similarity
 
 ### src/retrieval/hybrid.rs
 
@@ -253,19 +283,16 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct Bm25Config
 - impl Default for Bm25Config
 - pub struct Bm25Index
-- impl Default for Bm25Index
 - impl Bm25Index
 
 ### src/singularity.rs
 
+- pub use crate::singularity_cache::CacheMetricsSnapshot
 - pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
 - pub const DEFAULT_MAX_CACHED_TOP_K
 - pub struct Concept
 - pub struct SingularityConfig
 - impl Default for SingularityConfig
-- impl QueryCache
-- pub struct CacheMetricsSnapshot
-- impl CacheMetrics
 - pub struct Singularity
 - impl Singularity
 - impl Default for Singularity
@@ -291,6 +318,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/wasm.rs
 
+- pub fn initialize_wasm
 - pub struct WasmFramework
 - impl WasmFramework
 - pub fn random_hypervector
@@ -331,7 +359,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use hyperdim::{HVec10240, batch_cosine_similarity}
 - pub use semantic_bridge::{BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown}
 - pub use singularity::{Concept, ConceptBuilder}
-- pub use singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
+- pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod bridge_retrieval
 - pub mod bundle
 - pub mod cli
@@ -343,6 +371,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod graph_traversal
 - pub mod hyperdim
 - pub mod metadata_filter
+- pub mod semantic_triples
+- pub use metadata_filter::MetadataFilter
 - pub mod persistence
 - pub mod persistence_wasm
 - pub mod reservoir
@@ -364,7 +394,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use prelude::crate::hyperdim::HVec10240
 - pub use prelude::crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket}
 - pub use prelude::crate::singularity::{Concept, ConceptBuilder}
-- pub use prelude::crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
+- pub use prelude::crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod wasm
 
 ### src/bridge_retrieval.rs
@@ -481,6 +511,8 @@ vectors directly via `inject_concept`.
 
 #### Installation
 
+##### Rust Library
+
 ```bash
 cargo add chaotic_semantic_memory
 ```
@@ -500,6 +532,24 @@ For library-only consumers who don't need the CLI binary or its dependencies:
 chaotic_semantic_memory = { version = "0.3", default-features = false }
 ```
 
+##### WASM npm Package (for JS/TS)
+
+```bash
+npm install @d-o-hub/chaotic_semantic_memory
+```
+
+##### CLI Binary
+
+**via npm (recommended for Node.js users):**
+```bash
+npm install -g @d-o-hub/csm
+```
+
+**via cargo:**
+```bash
+cargo install chaotic_semantic_memory --bin csm
+```
+
 > **Note:** Using `"0.2"` ensures compatibility with the latest 0.2.x patch versions.
 
 #### Core Components
@@ -515,6 +565,32 @@ chaotic_semantic_memory = { version = "0.3", default-features = false }
 - `metadata_filter`: metadata query and filtering
 - `bundle`: snapshot and bundle helpers
 - `cli`: Command-line interface (`csm` binary)
+- `semantic_bridge`: Semantic Bridge Layer for concept expansion (ADR-0061)
+- `bridge_retrieval`: Bridge retrieval pipeline for zero-drift semantic search
+- `retrieval`: Hybrid BM25/HDC retrieval module (ADR-0062)
+
+#### Semantic Bridge Layer (v0.3.0)
+
+Zero-drift semantic expansion on top of deterministic HDC memory:
+- **CanonicalConcept**: Versioned concept with labels and related IDs
+- **ConceptGraph**: In-memory label index for token-to-concept matching
+- **BridgeRetrieval**: Pipeline: normalize → HDC recall → concept expansion → second recall
+- **MemoryPacket**: Compressed output for LLM context injection
+
+**Key principle**: Additive, non-destructive, never mutates canonical memory vectors.
+
+#### Hybrid BM25+HDC Retrieval (v0.3.0)
+
+Hybrid retrieval combines keyword (BM25) and semantic (HDC) search:
+- **BM25 parameters**: k1=1.2 (TF saturation), b=0.75 (doc length normalization)
+- **Query-length-dependent weights**:
+
+| Tokens | Keyword | Semantic |
+|--------|---------|----------|
+| 1-2    | 0.9     | 0.1      |
+| 3-4    | 0.7     | 0.3      |
+| 5-8    | 0.4     | 0.6      |
+| 9+     | 0.2     | 0.8      |
 
 #### How Text Encoding Works (HDC Pipeline)
 
@@ -875,6 +951,53 @@ impl ChaoticSemanticFramework {
 
 
 
+## src/semantic_triples.rs
+
+### SemanticTriple
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct SemanticTriple {
+    pub subject: String,
+    pub predicate: String,
+    pub object: String,
+}
+```
+
+A semantic triple representing a discrete fact.
+
+### impl SemanticTriple
+
+```rust
+impl SemanticTriple {
+    pub fn new(subject: impl Trait, predicate: impl Trait, object: impl Trait) -> Self;
+    pub fn to_sentence(&self) -> String;
+}
+```
+
+
+### StructuredMemoryPayload
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StructuredMemoryPayload {
+    pub raw_summary: String,
+    pub triples: Vec<SemanticTriple>,
+}
+```
+
+A structured memory payload that can be stored in a `Concept`'s metadata.
+
+### impl StructuredMemoryPayload
+
+```rust
+impl StructuredMemoryPayload {
+    pub fn to_context_string(&self) -> String;
+}
+```
+
+
+
 ## src/reservoir.rs
 
 ### ReservoirMetricsSnapshot
@@ -897,14 +1020,6 @@ impl ReservoirMetrics {
 ```
 
 
-### impl SparseWeights
-
-```rust
-impl SparseWeights {
-}
-```
-
-
 ### Reservoir
 
 ```rust
@@ -912,6 +1027,7 @@ pub struct Reservoir {
 }
 ```
 
+Sparse Echo State Network with chaotic dynamics
 
 ### impl Reservoir
 
@@ -943,6 +1059,7 @@ pub struct ChaoticReservoir {
 }
 ```
 
+Chaotic reservoir with configurable dynamics
 
 ### impl ChaoticReservoir
 
@@ -1002,6 +1119,13 @@ impl ConceptBuilder {
 
 ## src/hyperdim.rs
 
+### crate::hyperdim_batch::batch_cosine_similarity
+
+```rust
+pub use crate::hyperdim_batch::batch_cosine_similarity;
+```
+
+
 ### HVec10240
 
 ```rust
@@ -1056,16 +1180,6 @@ impl<'de> Deserialize<'de> for HVec10240 {
 }
 ```
 
-
-### batch_cosine_similarity
-
-```rust
-pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> Vec<f32>
-```
-
-Batch similarity computation with optimized chunked parallelism.
-Uses Rayon par_chunks() with tuned chunk size for cache efficiency.
-Benchmark target: <500μs for 1000 candidates.
 
 ### crate::bundle::BundleAccumulator
 
@@ -1204,6 +1318,17 @@ impl Persistence {
 
 
 
+## src/reservoir_sparse.rs
+
+### impl SparseWeights
+
+```rust
+impl SparseWeights {
+}
+```
+
+
+
 ## src/singularity_ttl.rs
 
 ### impl Default for Concept
@@ -1226,6 +1351,37 @@ impl Singularity {
 
 
 
+## src/singularity_cache.rs
+
+### impl QueryCache
+
+```rust
+impl QueryCache {
+}
+```
+
+
+### CacheMetricsSnapshot
+
+```rust
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CacheMetricsSnapshot {
+    pub cache_hits_total: u64,
+    pub cache_misses_total: u64,
+    pub cache_evictions_total: u64,
+}
+```
+
+
+### impl CacheMetrics
+
+```rust
+impl CacheMetrics {
+}
+```
+
+
+
 ## src/framework_ttl.rs
 
 ### impl crate::framework::ChaoticSemanticFramework
@@ -1241,6 +1397,9 @@ impl crate::framework::ChaoticSemanticFramework {
 }
 ```
 
+
+
+## src/hyperdim_simd.rs
 
 
 ## src/framework_builder.rs
@@ -1260,6 +1419,8 @@ pub struct FrameworkConfig {
     pub max_probe_top_k: usize,
     pub max_metadata_bytes: Option<usize>,
     pub max_cached_top_k: usize,
+    pub max_batch_size: usize,
+    pub max_sequence_length: usize,
 }
 ```
 
@@ -1308,6 +1469,8 @@ impl FrameworkBuilder {
     pub fn with_max_probe_top_k(self, max_probe_top_k: usize) -> Self;
     pub fn with_max_metadata_bytes(self, max_metadata_bytes: usize) -> Self;
     pub fn with_max_cached_top_k(self, max_cached_top_k: usize) -> Self;
+    pub fn with_max_batch_size(self, max_batch_size: usize) -> Self;
+    pub fn with_max_sequence_length(self, max_sequence_length: usize) -> Self;
     pub fn with_version_retention(self, retention: usize) -> Self;
     pub fn with_local_db(self, path: impl Trait) -> Self;
     pub fn with_turso(self, url: impl Trait, token: impl Trait) -> Self;
@@ -1347,7 +1510,7 @@ impl Default for TraversalConfig {
 ```rust
 impl Singularity {
     pub fn neighbors(&self, id: &str, min_strength: f32) -> Vec<(String, f32)>;
-    pub fn incoming_associations(&self, id: &str) -> Vec<(String, f32)>;
+    pub fn incoming_associations(&self, id: &str) -> Vec<(&str, f32)>;
     pub fn bfs(&self, start: &str, config: &TraversalConfig) -> Result<Vec<(String, u32)>>;
     pub fn shortest_path(&self, from: &str, to: &str, config: &TraversalConfig) -> Result<Option<Vec<String>>>;
     pub fn shortest_path_hops(&self, from: &str, to: &str, config: &TraversalConfig) -> Result<Option<Vec<String>>>;
@@ -1368,6 +1531,8 @@ pub struct RetrievalStats {
     pub fell_back_to_exact_scan: bool,
     pub candidate_ns: u64,
     pub scoring_ns: u64,
+    pub selectivity_ratio: f32,
+    pub filter_strategy: Option<FilterStrategy>,
 }
 ```
 
@@ -1386,6 +1551,19 @@ pub enum CandidateSource {
 ```
 
 Source of candidates in reduced-candidate retrieval.
+
+### FilterStrategy
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FilterStrategy {
+    Pre,
+    BucketPost,
+    ScanPost,
+}
+```
+
+Strategy used for filtered retrieval (ADR-0065).
 
 ### RetrievalConfig
 
@@ -2038,6 +2216,17 @@ pub use git_local::{ensure_git_local_dir, resolve_git_local_path};
 
 
 
+## src/persistence_migrations.rs
+
+### impl Persistence
+
+```rust
+impl Persistence {
+}
+```
+
+
+
 ## src/framework_validation.rs
 
 ### impl ChaoticSemanticFramework
@@ -2068,6 +2257,30 @@ impl Persistence {
 }
 ```
 
+
+
+## src/reservoir_inertial.rs
+
+### impl Reservoir
+
+```rust
+impl Reservoir {
+    pub fn with_beta(self, beta: f32) -> Result<Self>;
+    pub fn beta(&self) -> f32;
+}
+```
+
+
+
+## src/hyperdim_batch.rs
+
+### batch_cosine_similarity
+
+```rust
+pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> Vec<f32>
+```
+
+Batch similarity computation tuned for cache locality and Rayon overhead.
 
 
 ## src/retrieval/hybrid.rs
@@ -2169,14 +2382,14 @@ pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, norma
 ### Bm25Config
 
 ```rust
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Bm25Config {
     pub k1: f32,
     pub b: f32,
 }
 ```
 
-BM25 parameters.
+Configuration for BM25 ranking algorithm.
 
 ### impl Default for Bm25Config
 
@@ -2189,20 +2402,12 @@ impl Default for Bm25Config {
 ### Bm25Index
 
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Bm25Index {
 }
 ```
 
-BM25 keyword search index.
-
-### impl Default for Bm25Index
-
-```rust
-impl Default for Bm25Index {
-}
-```
-
+BM25-based document index for keyword search.
 
 ### impl Bm25Index
 
@@ -2223,6 +2428,13 @@ impl Bm25Index {
 
 
 ## src/singularity.rs
+
+### crate::singularity_cache::CacheMetricsSnapshot
+
+```rust
+pub use crate::singularity_cache::CacheMetricsSnapshot;
+```
+
 
 ### crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
 
@@ -2277,34 +2489,6 @@ Runtime configuration for [`Singularity`].
 
 ```rust
 impl Default for SingularityConfig {
-}
-```
-
-
-### impl QueryCache
-
-```rust
-impl QueryCache {
-}
-```
-
-
-### CacheMetricsSnapshot
-
-```rust
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct CacheMetricsSnapshot {
-    pub cache_hits_total: u64,
-    pub cache_misses_total: u64,
-    pub cache_evictions_total: u64,
-}
-```
-
-
-### impl CacheMetrics
-
-```rust
-impl CacheMetrics {
 }
 ```
 
@@ -2521,7 +2705,17 @@ impl ChaoticSemanticFramework {
 
 
 
+## src/export_payload/export_payload_tests.rs
+
+
 ## src/wasm.rs
+
+### initialize_wasm
+
+```rust
+pub fn initialize_wasm()
+```
+
 
 ### WasmFramework
 
@@ -2771,10 +2965,17 @@ pub use singularity::{Concept, ConceptBuilder};
 ```
 
 
-### singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
+### singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 
 ```rust
-pub use singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats};
+pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats};
+```
+
+
+### metadata_filter::MetadataFilter
+
+```rust
+pub use metadata_filter::MetadataFilter;
 ```
 
 
@@ -2899,10 +3100,10 @@ pub use crate::singularity::{Concept, ConceptBuilder};
 ```
 
 
-### crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
+### crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 
 ```rust
-pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats};
+pub use crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats};
 ```
 
 
@@ -3299,6 +3500,3 @@ Priority order:
 ```rust
 pub fn run_async(args: CliArgs) -> Result<((), OutputFormat), CliError>
 ```
-
-
-

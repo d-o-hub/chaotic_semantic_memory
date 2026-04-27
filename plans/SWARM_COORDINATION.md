@@ -27,6 +27,59 @@ Generated via: `scripts/generate-agents.sh`
 
 Waves 1-17 complete. Phase 48 performance follow-up is closed with handoff artifacts.
 
+## Orchestrator Run (2026-04-12, Wave 20)
+
+Run ID: `goap_wave20_impl_queue_rebuild_2026_04_12`
+
+### Discovered IMPLEMENTATION_QUEUE (active, non-archived sources)
+
+| Queue ID | Task | Source | State |
+|----------|------|--------|-------|
+| IQ-01 | `upgrade_libsql_0_4_to_0_9` | `plans/swarm_audit_github_2026.md` | queued |
+| IQ-02 | `upgrade_rand_0_8_to_0_9` | `plans/swarm_audit_github_2026.md` | queued |
+| IQ-03 | `update_getrandom_wasm_flag` | `plans/swarm_audit_github_2026.md` | queued |
+| IQ-04 | `evaluate_bincode_to_postcard_migration` | `plans/swarm_audit_github_2026.md` | queued |
+| IQ-05 | `implement_skill_memory_retry_logic` | `plans/GOAP_SKILL_MEMORY_HARDENING.md` | queued |
+| IQ-06 | `implement_skill_memory_health_checks` | `plans/GOAP_SKILL_MEMORY_HARDENING.md` | queued |
+| IQ-07 | `implement_skill_memory_metrics_collection` | `plans/GOAP_SKILL_MEMORY_HARDENING.md` | queued |
+| IQ-08 | `implement_skill_memory_log_rotation` | `plans/GOAP_SKILL_MEMORY_HARDENING.md` | queued |
+| IQ-09 | `implement_skill_memory_optional_encryption` | `plans/GOAP_SKILL_MEMORY_HARDENING.md` | queued |
+| IQ-10 | `implement_skill_memory_rate_limiting` | `plans/GOAP_SKILL_MEMORY_HARDENING.md` | queued |
+| IQ-11 | `configure_npm_oidc_trusted_publisher` | `plans/GOAP_STATE.md` | blocked(external-account) |
+| IQ-12 | `automate_npm_publish_flow` | `plans/GOAP_STATE.md` | blocked(depends_on_IQ-11) |
+| IQ-13 | `add_error_source_attributes` | `plans/GOAP_STATE.md` | queued |
+| IQ-14 | `enhance_error_context_hints` | `plans/GOAP_STATE.md` | queued |
+| IQ-15 | `add_property_security_tests` | `plans/GOAP_STATE.md` | queued |
+| IQ-16 | `add_avx2_neon_simd_paths` | `plans/GOAP_STATE.md` | queued |
+
+### Parallel Groups A-F (max parallelism)
+
+| Group | Focus | Agent | Max Parallel | Queue IDs |
+|-------|-------|-------|--------------|-----------|
+| A | Implementation (feature work) | `@impl` | 2 | IQ-05, IQ-06, IQ-07, IQ-08, IQ-09, IQ-10 |
+| B | Fix/Security hardening | `@fix` | 2 | IQ-13, IQ-14 |
+| C | Performance | `@perf` | 1 | IQ-16, IQ-04 |
+| D | Testing | `@test` | 2 | IQ-15 + regression suites for IQ-01..IQ-10 |
+| E | Planning/ADR | `@plan` | 1 | IQ-01, IQ-02, IQ-03 (breaking changes and sequencing) |
+| F | CI/Release/Ops | `@ci` | 1 | IQ-11, IQ-12 |
+
+### Dependency and Handoff Chain
+
+1. `E -> A/B/C`: dependency/ADR decisions for upgrades and migration boundaries.
+2. `A -> D`: implementation contracts, retry/health/metrics/log-rotation APIs, and edge cases.
+3. `B -> D`: error taxonomy and source-chain expectations.
+4. `C -> D`: SIMD/serialization perf assumptions and benchmark acceptance thresholds.
+5. `F -> All`: npm publisher prerequisites and CI gating strategy.
+6. `D -> F`: final validation evidence before CI release gate.
+
+### Wave 20 Handoff Artifacts
+
+- `plans/handoffs/W20_A_to_D_impl_contract.md`
+- `plans/handoffs/W20_B_to_D_fix_contract.md`
+- `plans/handoffs/W20_C_to_D_perf_contract.md`
+- `plans/handoffs/W20_E_to_All_planning_contract.md`
+- `plans/handoffs/W20_F_to_All_ci_blockers.md`
+
 ### Current State
 - **Phase 48 complete** (probe-path allocation removal + local SQLite WAL policy)
 - **Validation gates passing** (`scripts/validate.sh` + LOC + WASM size gate)

@@ -2,7 +2,7 @@
 //!
 //! Implements 10240-bit hypervectors using `[u128; 80]`.
 
-use rand::Rng;
+use rand::RngExt;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -12,53 +12,19 @@ use rayon::prelude::*;
 
 use crate::error::Result;
 
+pub use crate::hyperdim_batch::batch_cosine_similarity;
+
+// Import SIMD functions from extension module
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+use crate::hyperdim_simd::bind_simd_avx2;
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+use crate::hyperdim_simd::bind_simd_neon;
 #[cfg(all(
     not(target_arch = "wasm32"),
     any(target_arch = "x86_64", target_arch = "x86")
 ))]
-#[inline]
-fn bind_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
-    #[cfg(target_arch = "x86")]
-    use std::arch::x86::{__m128i, _mm_loadu_si128, _mm_storeu_si128, _mm_xor_si128};
-    #[cfg(target_arch = "x86_64")]
-    use std::arch::x86_64::{__m128i, _mm_loadu_si128, _mm_storeu_si128, _mm_xor_si128};
-
-    let mut out = [0u128; 80];
-    for i in 0..80 {
-        // SAFETY: `u128` is 16-byte aligned, matching `__m128i` requirements.
-        unsafe {
-            let a = _mm_loadu_si128((&lhs[i] as *const u128).cast::<__m128i>());
-            let b = _mm_loadu_si128((&rhs[i] as *const u128).cast::<__m128i>());
-            let x = _mm_xor_si128(a, b);
-            _mm_storeu_si128((&mut out[i] as *mut u128).cast::<__m128i>(), x);
-        }
-    }
-    out
-}
-
-#[cfg(all(
-    not(target_arch = "wasm32"),
-    any(target_arch = "x86_64", target_arch = "x86")
-))]
-#[inline]
-fn cosine_similarity_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> f32 {
-    // Optimized GPR-based popcount loop.
-    // Modern CPUs have high-throughput GPR POPCNT but no AVX2 POPCNT.
-    // Eliminates the store-to-load forwarding stall in the previous SIMD version.
-    let mut dot_product: u32 = 0;
-    unsafe {
-        let lptr = lhs.as_ptr() as *const u64;
-        let rptr = rhs.as_ptr() as *const u64;
-        // Unroll for better port utilization and pipelining
-        for i in (0..160).step_by(4) {
-            dot_product += (*lptr.add(i) ^ *rptr.add(i)).count_zeros();
-            dot_product += (*lptr.add(i + 1) ^ *rptr.add(i + 1)).count_zeros();
-            dot_product += (*lptr.add(i + 2) ^ *rptr.add(i + 2)).count_zeros();
-            dot_product += (*lptr.add(i + 3) ^ *rptr.add(i + 3)).count_zeros();
-        }
-    }
-    (2.0 * dot_product as f32 / HVec10240::DIMENSION as f32) - 1.0
-}
+use crate::hyperdim_simd::bind_simd_x86;
+use crate::hyperdim_simd::hamming_distance_optimized;
 
 /// 10240-bit hypervector (80 x 128-bit words)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -78,10 +44,10 @@ impl HVec10240 {
 
     /// Create a random hypervector (each bit has 50% probability)
     pub fn random() -> Self {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut data = [0u128; 80];
         for word in &mut data {
-            *word = rng.r#gen();
+            *word = rng.random();
         }
         Self { data }
     }
@@ -91,24 +57,24 @@ impl HVec10240 {
     /// Uses `rand::rngs::StdRng` for reproducibility across runs.
     pub fn new_seeded(seed: u64) -> Self {
         use rand::rngs::StdRng;
-        use rand::{Rng, SeedableRng};
+        use rand::{RngExt, SeedableRng};
 
         let mut rng = StdRng::seed_from_u64(seed);
         let mut data = [0u128; 80];
         for word in &mut data {
-            *word = rng.r#gen();
+            *word = rng.random();
         }
         Self { data }
     }
 
     /// Create a random sparse hypervector with given density
     pub fn sparse(density: f32) -> Self {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut data = [0u128; 80];
         let bits_to_set = (Self::DIMENSION as f32 * density) as usize;
 
         for _ in 0..bits_to_set {
-            let pos = rng.gen_range(0..Self::DIMENSION);
+            let pos = rng.random_range(0..Self::DIMENSION);
             let word = pos / 128;
             let bit = pos % 128;
             data[word] |= 1u128 << bit;
@@ -117,102 +83,145 @@ impl HVec10240 {
         Self { data }
     }
 
-    /// Bundle (sum) multiple hypervectors
+    /// Bundle (sum) multiple hypervectors using bit-sliced addition.
+    ///
+    /// This implementation is optimized for performance and memory efficiency:
+    /// 1. It uses word-parallel bit-sliced addition to count set bits across vectors.
+    /// 2. It eliminates the large heap-allocated counter array and bit-by-bit loops.
+    /// 3. It parallelizes over hypervector words rather than over vectors to minimize
+    ///    memory traffic and synchronization overhead.
     pub fn bundle(vectors: &[Self]) -> Result<Self> {
         if vectors.is_empty() {
             return Ok(Self::zero());
         }
 
+        let num_vectors = vectors.len();
+        // Threshold: strictly greater than half
+        let threshold = num_vectors / 2 + 1;
+        // Number of bit-planes needed to represent a sum up to num_vectors
+        let num_planes = (usize::BITS - num_vectors.leading_zeros()) as usize;
+
+        let mut data = [0u128; 80];
+
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        let counts = vectors
-            .par_iter()
-            .fold(
-                || Box::new([0i32; Self::DIMENSION]),
-                |mut local, v| {
-                    for i in 0..80 {
-                        let mut val = v.data[i];
-                        while val != 0 {
-                            let j = val.trailing_zeros() as usize;
-                            local[i * 128 + j] += 1;
-                            val &= val - 1;
+        {
+            data.par_iter_mut().enumerate().for_each(|(i, word)| {
+                // Use bit-sliced adder to count bits for each position in the word
+                let mut planes = [0u128; 32];
+                for v in vectors {
+                    let mut carry = v.data[i];
+                    for plane in planes.iter_mut().take(num_planes) {
+                        let next_carry = *plane & carry;
+                        *plane ^= carry;
+                        carry = next_carry;
+                        if carry == 0 {
+                            break;
                         }
                     }
-                    local
-                },
-            )
-            .reduce(
-                || Box::new([0i32; Self::DIMENSION]),
-                |mut a, b| {
-                    #[allow(clippy::needless_range_loop)]
-                    for i in 0..Self::DIMENSION {
-                        a[i] += b[i];
-                    }
-                    a
-                },
-            );
+                }
 
-        #[cfg(all(not(target_arch = "wasm32"), not(feature = "parallel")))]
-        let counts = {
-            let mut local = Box::new([0i32; Self::DIMENSION]);
-            for v in vectors {
-                for i in 0..80 {
-                    let mut val = v.data[i];
-                    while val != 0 {
-                        let j = val.trailing_zeros() as usize;
-                        local[i * 128 + j] += 1;
-                        val &= val - 1;
+                // Reconstruct the resulting word using bit-sliced comparison: count >= threshold
+                let mut current_eq = !0u128;
+                let mut current_gt = 0u128;
+                for p in (0..num_planes).rev() {
+                    let bit = (threshold >> p) & 1;
+                    if bit == 1 {
+                        current_eq &= planes[p];
+                    } else {
+                        current_gt |= current_eq & planes[p];
+                        current_eq &= !planes[p];
                     }
                 }
-            }
-            local
-        };
+                *word = current_gt | current_eq;
+            });
+        }
 
-        #[cfg(target_arch = "wasm32")]
-        let counts = {
-            let mut local = Box::new([0i32; Self::DIMENSION]);
-            for v in vectors {
-                for i in 0..80 {
-                    let mut val = v.data[i];
-                    while val != 0 {
-                        let j = val.trailing_zeros() as usize;
-                        local[i * 128 + j] += 1;
-                        val &= val - 1;
+        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
+        {
+            for i in 0..80 {
+                let mut planes = [0u128; 32];
+                for v in vectors {
+                    let mut carry = v.data[i];
+                    for plane in planes.iter_mut().take(num_planes) {
+                        let next_carry = *plane & carry;
+                        *plane ^= carry;
+                        carry = next_carry;
+                        if carry == 0 {
+                            break;
+                        }
                     }
                 }
-            }
-            local
-        };
 
-        let threshold = vectors.len() as i32 / 2;
-        let mut data = [0u128; 80];
-        for (i, word) in data.iter_mut().enumerate() {
-            let offset = i * 128;
-            for j in 0..128 {
-                if counts[offset + j] > threshold {
-                    *word |= 1u128 << j;
+                let mut current_eq = !0u128;
+                let mut current_gt = 0u128;
+                for p in (0..num_planes).rev() {
+                    let bit = (threshold >> p) & 1;
+                    if bit == 1 {
+                        current_eq &= planes[p];
+                    } else {
+                        current_gt |= current_eq & planes[p];
+                        current_eq &= !planes[p];
+                    }
                 }
+                data[i] = current_gt | current_eq;
             }
         }
 
         Ok(Self { data })
     }
 
-    /// XOR binding of two hypervectors
+    /// XOR binding of two hypervectors.
+    ///
+    /// Dispatches to optimized SIMD paths based on platform:
+    /// - x86_64: AVX2 (runtime detection) or SSE fallback
+    /// - aarch64: NEON
+    /// - Other: scalar XOR
     pub fn bind(&self, other: &Self) -> Self {
-        #[cfg(all(
-            not(target_arch = "wasm32"),
-            any(target_arch = "x86_64", target_arch = "x86")
-        ))]
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+        {
+            // Runtime dispatch: AVX2 if available, else SSE fallback
+            if is_x86_feature_detected!("avx2") {
+                // SAFETY: AVX2 feature detected at runtime.
+                Self {
+                    data: unsafe { bind_simd_avx2(&self.data, &other.data) },
+                }
+            } else {
+                Self {
+                    data: bind_simd_x86(&self.data, &other.data),
+                }
+            }
+        }
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86"))]
         {
             Self {
                 data: bind_simd_x86(&self.data, &other.data),
             }
         }
 
-        #[cfg(not(all(
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+        {
+            // SAFETY: bind_simd_neon requires unsafe due to NEON intrinsics.
+            // The function is marked #[target_feature(enable = "neon")] which
+            // is always available on aarch64, making this call safe.
+            Self {
+                data: unsafe { bind_simd_neon(&self.data, &other.data) },
+            }
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            let mut result = [0u128; 80];
+            for i in 0..80 {
+                result[i] = self.data[i] ^ other.data[i];
+            }
+            Self { data: result }
+        }
+
+        #[cfg(all(
             not(target_arch = "wasm32"),
-            any(target_arch = "x86_64", target_arch = "x86")
-        )))]
+            not(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64"))
+        ))]
         {
             let mut result = [0u128; 80];
             for i in 0..80 {
@@ -222,55 +231,64 @@ impl HVec10240 {
         }
     }
 
-    /// Cosine similarity between two hypervectors
+    /// Cosine similarity between two hypervectors.
+    ///
+    /// Calculated as `1.0 - (HammingDistance / 5120.0)` for 10240-bit vectors.
+    /// This implementation is unified across all platforms and uses an unrolled
+    /// GPR popcount loop for maximum performance.
     #[must_use]
     pub fn cosine_similarity(&self, other: &Self) -> f32 {
-        #[cfg(all(
-            not(target_arch = "wasm32"),
-            any(target_arch = "x86_64", target_arch = "x86")
-        ))]
-        {
-            cosine_similarity_simd_x86(&self.data, &other.data)
-        }
-
-        #[cfg(not(all(
-            not(target_arch = "wasm32"),
-            any(target_arch = "x86_64", target_arch = "x86")
-        )))]
-        {
-            let mut dot_product: u32 = 0;
-            for i in 0..80 {
-                let eq = !(self.data[i] ^ other.data[i]);
-                dot_product += eq.count_ones();
-            }
-            (2.0 * dot_product as f32 / Self::DIMENSION as f32) - 1.0
-        }
+        let distance = hamming_distance_optimized(&self.data, &other.data);
+        // Similarity = (Matches - Mismatches) / Dimension
+        // Similarity = (Dimension - 2 * HammingDistance) / Dimension
+        // Similarity = 1.0 - (2.0 * HammingDistance / 10240.0) = 1.0 - (HammingDistance / 5120.0)
+        1.0 - (distance as f32 / 5120.0)
     }
 
     /// Hamming distance
     #[must_use]
     pub fn hamming_distance(&self, other: &Self) -> u32 {
-        let mut distance = 0u32;
-        for i in 0..80 {
-            distance += (self.data[i] ^ other.data[i]).count_ones();
-        }
-        distance
+        hamming_distance_optimized(&self.data, &other.data)
     }
 
-    /// Permute the hypervector (rotation)
+    /// Permute the hypervector (cyclic rotation)
+    ///
+    /// Optimized implementation that eliminates modulo operations and branches
+    /// from the hot loop by splitting the rotation into two contiguous segments.
+    #[allow(clippy::needless_range_loop)]
     pub fn permute(&self, shift: usize) -> Self {
         let mut result = [0u128; 80];
         let bit_shift = shift % 128;
         let word_shift = (shift / 128) % 80;
 
-        for (i, word) in result.iter_mut().enumerate() {
-            let src1 = (i + word_shift) % 80;
-            if bit_shift == 0 {
-                *word = self.data[src1];
-            } else {
-                let src2 = (i + word_shift + 1) % 80;
-                *word = (self.data[src1] << bit_shift) | (self.data[src2] >> (128 - bit_shift));
-            }
+        // Optimized path for word-aligned rotations
+        if bit_shift == 0 {
+            let (left, right) = self.data.split_at(word_shift);
+            result[..80 - word_shift].copy_from_slice(right);
+            result[80 - word_shift..].copy_from_slice(left);
+            return Self { data: result };
+        }
+
+        let inv_bit_shift = 128 - bit_shift;
+
+        // Split cyclic rotation into two segments to eliminate modulo in the loop
+        // Segment 1: src1 from word_shift to 78, src2 from word_shift + 1 to 79
+        let limit = 79 - word_shift;
+        for i in 0..limit {
+            let src1 = i + word_shift;
+            let src2 = src1 + 1;
+            result[i] = (self.data[src1] << bit_shift) | (self.data[src2] >> inv_bit_shift);
+        }
+
+        // Handle the wrap-around word at the boundary of segment 1 and 2
+        // result[79 - word_shift] uses data[79] and data[0]
+        result[limit] = (self.data[79] << bit_shift) | (self.data[0] >> inv_bit_shift);
+
+        // Segment 2: src1 from 0 to word_shift - 1, src2 from 1 to word_shift
+        for i in limit + 1..80 {
+            let src1 = i + word_shift - 80;
+            let src2 = src1 + 1;
+            result[i] = (self.data[src1] << bit_shift) | (self.data[src2] >> inv_bit_shift);
         }
 
         Self { data: result }
@@ -377,37 +395,6 @@ impl<'de> Deserialize<'de> for HVec10240 {
     {
         // Use deserialize_any to handle both string (base64) and bytes formats
         deserializer.deserialize_any(HVecVisitor)
-    }
-}
-
-/// Batch similarity computation with optimized chunked parallelism.
-/// Uses Rayon par_chunks() with tuned chunk size for cache efficiency.
-/// Benchmark target: <500μs for 1000 candidates.
-pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> Vec<f32> {
-    #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-    {
-        use rayon::prelude::*;
-        // Tuned chunk size: 512 candidates amortizes Rayon overhead
-        // Higher chunk size reduces synchronization cost for 1000+ candidates
-        const CHUNK_SIZE: usize = 512;
-        let mut results = vec![0.0f32; candidates.len()];
-        candidates
-            .par_chunks(CHUNK_SIZE)
-            .zip(results.par_chunks_mut(CHUNK_SIZE))
-            .for_each(|(cands, out)| {
-                // Sequential processing within chunk for cache efficiency
-                for (i, c) in cands.iter().enumerate() {
-                    out[i] = query.cosine_similarity(c);
-                }
-            });
-        results
-    }
-    #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-    {
-        candidates
-            .iter()
-            .map(|c| query.cosine_similarity(c))
-            .collect()
     }
 }
 

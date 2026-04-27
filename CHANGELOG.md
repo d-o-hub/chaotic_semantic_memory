@@ -5,12 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.3.4] - 2026-04-27
+## [0.3.4] - 2026-04-25
 
 ### Fixed
 
-- **Security**: Added robust parameter validation for `chaos_strength`, `reservoir_size`, and history `limit` to prevent DoS (panics) and resource exhaustion (OOM).
-- **Reservoir**: Fixed potential `rand::gen_range` panic when `chaos_strength` was effectively zero or invalid.
+- **Path Hijacking Prevention**: Filter PATH to exclude relative entries (CWE-426)
+  when spawning git subprocesses to prevent command injection attacks.
+- **CLI Constants**: Use static constants for environment variable names to avoid
+  spelling errors (DeepSource RUST-R005).
+
+### Security
+- **Input Validation**: Added bounds for reservoir dimensions and history limit to prevent OOM/DoS.
+- **Panic Prevention**: Guarded against NaN/negative chaos strength in noise generation.
+
+- **git_local.rs**: Sanitized PATH lookup for git command execution.
+- **benchmarks/runner.rs**: Sanitized PATH lookup for commit SHA resolution.
 
 ## [0.3.2] - 2026-04-09
 
@@ -100,8 +109,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Concept ID injection**: Fixed medium-severity input validation issue.
 - **bucket_probe_width overflow**: Bound to prevent Denial of Service panic.
 - **WASM size gate**: Fixed script to check library WASM instead of CLI binary.
-
-## [Unreleased]
 
 ## [0.2.9] - 2026-04-06
 
@@ -361,6 +368,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [unreleased]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.4...HEAD
 [0.3.4]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.2...v0.3.4
+[0.3.2]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.3.1
 [0.3.0]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.3.0
 [0.2.9]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.9
@@ -373,5 +381,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.2.2]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.2
 [0.2.1]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.1
 [0.2.0]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.0
+[0.1.3]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.1.3
+[0.1.2]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.1.2
 [0.1.1]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.1.1
 [0.1.0]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.1.0

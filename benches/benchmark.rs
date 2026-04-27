@@ -88,6 +88,70 @@ fn bench_reservoir_step_50k(c: &mut Criterion) {
     });
 }
 
+// ─── Inertial reservoir benchmarks (ADR-0064) ───────────────────────────────
+
+fn bench_inertial_reservoir(c: &mut Criterion) {
+    let mut group = c.benchmark_group("inertial_reservoir");
+    group.sample_size(PROBE_BENCH_SAMPLE_SIZE);
+    group.warm_up_time(Duration::from_secs(PROBE_BENCH_WARMUP_SECS));
+    group.measurement_time(Duration::from_secs(PROBE_BENCH_MEASUREMENT_SECS));
+
+    let input = vec![0.25; 10240];
+
+    // Baseline: beta=0.0 (standard reservoir)
+    let mut reservoir_beta0 = Reservoir::new_seeded(10240, 50000, 42).unwrap();
+    group.bench_function("step_50k_beta0", |b| {
+        b.iter(|| {
+            let state = reservoir_beta0.step(black_box(&input)).unwrap();
+            black_box(state[0])
+        })
+    });
+
+    // Inertial: beta=0.15
+    let mut reservoir_beta015 = Reservoir::new_seeded(10240, 50000, 42)
+        .unwrap()
+        .with_beta(0.15)
+        .unwrap();
+    group.bench_function("step_50k_beta015", |b| {
+        b.iter(|| {
+            let state = reservoir_beta015.step(black_box(&input)).unwrap();
+            black_box(state[0])
+        })
+    });
+
+    // 10-step sequence comparison
+    let inputs: Vec<Vec<f32>> = (0..10)
+        .map(|i| vec![0.1 * (i as f32 + 1.0); 10240])
+        .collect();
+
+    let mut seq_beta0 = Reservoir::new_seeded(10240, 50000, 42).unwrap();
+    group.bench_function("sequence_10_beta0", |b| {
+        b.iter(|| {
+            seq_beta0.reset();
+            for inp in &inputs {
+                let state = seq_beta0.step(black_box(inp)).unwrap();
+                black_box(state[0]);
+            }
+        })
+    });
+
+    let mut seq_beta015 = Reservoir::new_seeded(10240, 50000, 42)
+        .unwrap()
+        .with_beta(0.15)
+        .unwrap();
+    group.bench_function("sequence_10_beta015", |b| {
+        b.iter(|| {
+            seq_beta015.reset();
+            for inp in &inputs {
+                let state = seq_beta015.step(black_box(inp)).unwrap();
+                black_box(state[0]);
+            }
+        })
+    });
+
+    group.finish();
+}
+
 fn bench_reservoir_to_hypervector(c: &mut Criterion) {
     let mut group = c.benchmark_group("reservoir_to_hypervector");
 
@@ -587,6 +651,7 @@ criterion_group!(
     bench_binding,
     bench_hvec_bundle,
     bench_reservoir_step_50k,
+    bench_inertial_reservoir,
     bench_reservoir_to_hypervector,
     bench_text_encoder,
     bench_filtered_search,

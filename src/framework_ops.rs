@@ -12,6 +12,7 @@ use tracing::{instrument, warn};
 
 const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024; // 100 MB default
 const MAX_PATH_LENGTH: usize = 4096;
+const MAX_HISTORY_LIMIT: usize = 1000;
 
 fn validate_path(path: &str) -> Result<PathBuf> {
     if path.len() > MAX_PATH_LENGTH {
@@ -37,14 +38,29 @@ fn validate_path(path: &str) -> Result<PathBuf> {
     }
 
     if path.is_absolute() {
-        let normalized = match path.canonicalize() {
-            Ok(p) => p,
-            Err(_) => {
-                return Err(MemoryError::InvalidInput {
-                    field: "path".to_string(),
-                    reason: "absolute path does not exist or cannot be accessed".to_string(),
-                });
-            }
+        let normalized = if path.exists() {
+            path.canonicalize().map_err(|_| MemoryError::InvalidInput {
+                field: "path".to_string(),
+                reason: "absolute path cannot be accessed".to_string(),
+            })?
+        } else {
+            let parent = path.parent().ok_or_else(|| MemoryError::InvalidInput {
+                field: "path".to_string(),
+                reason: "absolute path has no parent directory".to_string(),
+            })?;
+            let file_name = path.file_name().ok_or_else(|| MemoryError::InvalidInput {
+                field: "path".to_string(),
+                reason: "absolute path must include a file name".to_string(),
+            })?;
+            let parent_normalized =
+                parent
+                    .canonicalize()
+                    .map_err(|_| MemoryError::InvalidInput {
+                        field: "path".to_string(),
+                        reason: "absolute path parent does not exist or cannot be accessed"
+                            .to_string(),
+                    })?;
+            parent_normalized.join(file_name)
         };
 
         let current_dir = std::env::current_dir().map_err(|e| MemoryError::InvalidInput {
@@ -65,8 +81,11 @@ fn validate_path(path: &str) -> Result<PathBuf> {
 }
 
 impl ChaoticSemanticFramework {
+    /// Batch inject multiple concepts into memory.
     #[instrument(err, skip(self, concepts))]
     pub async fn inject_concepts(&self, concepts: &[(String, HVec10240)]) -> Result<()> {
+        self.validate_batch_size(concepts.len())?;
+
         if concepts.is_empty() {
             return Ok(());
         }
@@ -92,8 +111,11 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
+    /// Batch create associations between concepts.
     #[instrument(err, skip(self, associations))]
     pub async fn associate_many(&self, associations: &[(String, String, f32)]) -> Result<()> {
+        self.validate_batch_size(associations.len())?;
+
         if associations.is_empty() {
             return Ok(());
         }
@@ -117,6 +139,7 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
+    /// Batch similarity queries without caching.
     #[instrument(err, skip(self, queries))]
     pub async fn probe_batch(
         &self,
@@ -124,6 +147,7 @@ impl ChaoticSemanticFramework {
         top_k: usize,
     ) -> Result<Vec<Vec<(String, f32)>>> {
         self.validate_top_k(top_k)?;
+        self.validate_batch_size(queries.len())?;
         let sing = self.singularity.read().await;
         let mut out = Vec::with_capacity(queries.len());
         for query in queries {
@@ -132,6 +156,7 @@ impl ChaoticSemanticFramework {
         Ok(out)
     }
 
+    /// Batch similarity queries with LRU caching.
     #[allow(clippy::type_complexity)]
     #[instrument(err, skip(self, queries))]
     pub async fn probe_batch_cached(
@@ -140,6 +165,7 @@ impl ChaoticSemanticFramework {
         top_k: usize,
     ) -> Result<Vec<Arc<[(String, f32)]>>> {
         self.validate_top_k(top_k)?;
+        self.validate_batch_size(queries.len())?;
         let sing = self.singularity.read().await;
         let mut out = Vec::with_capacity(queries.len());
         for query in queries {
@@ -148,6 +174,7 @@ impl ChaoticSemanticFramework {
         Ok(out)
     }
 
+    /// Export memory state to JSON file.
     #[instrument(err, skip(self), fields(path))]
     pub async fn export_json(&self, path: &str) -> Result<()> {
         let validated_path = validate_path(path)?;
@@ -165,6 +192,7 @@ impl ChaoticSemanticFramework {
         fs::write(validated_path, data).await?;
         Ok(())
     }
+    /// Import memory state from JSON file.
     #[instrument(err, skip(self), fields(path, merge))]
     pub async fn import_json(&self, path: &str, merge: bool) -> Result<usize> {
         let validated_path = validate_path(path)?;
@@ -222,6 +250,7 @@ impl ChaoticSemanticFramework {
         }
         Ok(payload.concepts.len())
     }
+    /// Export memory state to binary file.
     #[instrument(err, skip(self), fields(path))]
     pub async fn export_binary(&self, path: &str) -> Result<()> {
         let validated_path = validate_path(path)?;
@@ -248,6 +277,7 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
+    /// Import memory state from binary file.
     #[instrument(err, skip(self), fields(path, merge))]
     pub async fn import_binary(&self, path: &str, merge: bool) -> Result<usize> {
         let validated_path = validate_path(path)?;
@@ -321,6 +351,7 @@ impl ChaoticSemanticFramework {
         Ok(payload.concepts.len())
     }
 
+    /// Create database backup (SQLite only).
     #[instrument(err, skip(self), fields(path))]
     pub async fn backup(&self, path: &str) -> Result<()> {
         let validated_path = validate_path(path)?;
@@ -332,6 +363,7 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
+    /// Restore from database backup (SQLite only).
     #[instrument(err, skip(self), fields(path))]
     pub async fn restore(&self, path: &str) -> Result<()> {
         let validated_path = validate_path(path)?;
@@ -344,18 +376,23 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
+    /// Get version history for a concept.
     #[instrument(err, skip(self), fields(id, limit))]
     pub async fn concept_history(
         &self,
         id: &str,
-        limit: usize,
+        mut limit: usize,
     ) -> Result<Vec<crate::persistence::ConceptVersion>> {
+        if limit > MAX_HISTORY_LIMIT {
+            limit = MAX_HISTORY_LIMIT;
+        }
         if let Some(ref persistence) = self.persistence {
             return persistence.get_concept_history(id, limit).await;
         }
         Ok(Vec::new())
     }
 
+    /// Update a concept's vector.
     #[instrument(err, skip(self), fields(id))]
     pub async fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()> {
         let concept = {
@@ -374,6 +411,7 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
+    /// Update a concept's metadata.
     #[instrument(err, skip(self), fields(id))]
     pub async fn update_concept_metadata(
         &self,
@@ -396,6 +434,7 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
+    /// Remove an association between two concepts.
     #[instrument(err, skip(self), fields(from, to))]
     pub async fn disassociate(&self, from: &str, to: &str) -> Result<()> {
         {
@@ -413,6 +452,7 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
+    /// Clear all outbound associations for a concept.
     #[instrument(err, skip(self), fields(id))]
     pub async fn clear_associations(&self, id: &str) -> Result<()> {
         {
@@ -426,11 +466,13 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
+    /// Clear the similarity query cache.
     pub async fn clear_similarity_cache(&self) {
         let sing = self.singularity.read().await;
         sing.clear_similarity_cache();
     }
 
+    /// Bundle multiple concepts into a single hypervector (strict version).
     pub async fn bundle_concepts_strict(&self, ids: &[String]) -> Result<HVec10240> {
         let sing = self.singularity.read().await;
         sing.bundle_concepts_strict(ids)

@@ -44,7 +44,7 @@ impl BundleAccumulator {
     /// Remove a hypervector from the accumulator.
     ///
     /// Saturates at zero: removing from an empty accumulator is a no-op.
-    /// Use [`try_remove`] if you need to detect underflow.
+    /// Use [`Self::try_remove`] if you need to detect underflow.
     pub fn remove(&mut self, hv: &HVec10240) {
         if self.n == 0 {
             return;
@@ -97,9 +97,9 @@ impl BundleAccumulator {
         for (i, word) in data.iter_mut().enumerate() {
             let offset = i * 128;
             for j in 0..128 {
-                if self.counts[offset + j] > threshold {
-                    *word |= 1u128 << j;
-                }
+                // Branchless bit construction to reduce misprediction penalties
+                let condition = self.counts[offset + j] > threshold;
+                *word |= (condition as u128) << j;
             }
         }
 

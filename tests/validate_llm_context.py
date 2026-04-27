@@ -176,7 +176,8 @@ class LLMContextValidator:
             'results': self.results
         }
 
-    def print_report(self, results: Dict[str, any]):
+    @staticmethod
+    def print_report(results: Dict[str, any]):
         """Print validation report"""
         print("=" * 70)
         print("LLM CONTEXT UNDERSTANDING VALIDATION")
@@ -200,7 +201,6 @@ class LLMContextValidator:
             print("❌ LLM context needs improvement")
         
         return results['failed'] == 0
-
 
 def main():
     """Main entry point"""

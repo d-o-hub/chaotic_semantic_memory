@@ -8,27 +8,28 @@
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
-- bincode (1.3.3)
-- rand (0.8.5)
 - colored (2.2.0)
+- rand (0.10.1)
+- serde (1.0.219) [features: derive]
+- base64 (0.22)
+- serde_json (1.0.149)
+- clap_complete (4.5.42)
+- tracing-subscriber (0.3.19)
+- rand_chacha (0.10.0)
+- bincode (1.3.3)
+- clap (4.5.60) [features: derive, env, string]
 - tracing (0.1.41)
 - glob (0.3.2)
-- clap (4.5.60) [features: derive, env, string]
-- serde (1.0.219) [features: derive]
 - thiserror (2.0.11)
-- clap_complete (4.5.42)
-- serde_json (1.0.149)
 - anyhow (1.0.102)
-- tracing-subscriber (0.3.19)
-- base64 (0.22)
 **Features:**
-- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - wasm: []
-- parallel: [dep:rayon]
 - persistence: [dep:libsql]
 - default: [cli, persistence, parallel]
+- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
+- parallel: [dep:rayon]
 
-Generated: 2026-04-27 21:06:47 UTC
+Generated: 2026-04-27 22:29:37 UTC
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Core Documentation
@@ -43,11 +44,17 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - impl ChaoticSemanticFramework
 
+### src/semantic_triples.rs
+
+- pub struct SemanticTriple
+- impl SemanticTriple
+- pub struct StructuredMemoryPayload
+- impl StructuredMemoryPayload
+
 ### src/reservoir.rs
 
 - pub struct ReservoirMetricsSnapshot
 - impl ReservoirMetrics
-- impl SparseWeights
 - pub struct Reservoir
 - impl Reservoir
 - pub struct ChaoticReservoir
@@ -60,12 +67,12 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/hyperdim.rs
 
+- pub use crate::hyperdim_batch::batch_cosine_similarity
 - pub struct HVec10240
 - impl HVec10240
 - impl Serialize for HVec10240
 - impl Visitor for HVecVisitor
 - impl Deserialize for HVec10240
-- pub fn batch_cosine_similarity
 - pub use crate::bundle::BundleAccumulator
 
 ### src/bundle.rs
@@ -86,10 +93,20 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct ConceptVersion
 - impl Persistence
 
+### src/reservoir_sparse.rs
+
+- impl SparseWeights
+
 ### src/singularity_ttl.rs
 
 - impl Default for Concept
 - impl Singularity
+
+### src/singularity_cache.rs
+
+- impl QueryCache
+- pub struct CacheMetricsSnapshot
+- impl CacheMetrics
 
 ### src/framework_ttl.rs
 
@@ -113,6 +130,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub struct RetrievalStats
 - pub enum CandidateSource
+- pub enum FilterStrategy
 - pub struct RetrievalConfig
 - impl RetrievalConfig
 - impl Default for RetrievalConfig
@@ -230,6 +248,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
 
+### src/persistence_migrations.rs
+
+- impl Persistence
+
 ### src/framework_validation.rs
 
 - impl ChaoticSemanticFramework
@@ -237,6 +259,14 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/persistence_ops.rs
 
 - impl Persistence
+
+### src/reservoir_inertial.rs
+
+- impl Reservoir
+
+### src/hyperdim_batch.rs
+
+- pub fn batch_cosine_similarity
 
 ### src/retrieval/hybrid.rs
 
@@ -259,19 +289,16 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct Bm25Config
 - impl Default for Bm25Config
 - pub struct Bm25Index
-- impl Default for Bm25Index
 - impl Bm25Index
 
 ### src/singularity.rs
 
+- pub use crate::singularity_cache::CacheMetricsSnapshot
 - pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
 - pub const DEFAULT_MAX_CACHED_TOP_K
 - pub struct Concept
 - pub struct SingularityConfig
 - impl Default for SingularityConfig
-- impl QueryCache
-- pub struct CacheMetricsSnapshot
-- impl CacheMetrics
 - pub struct Singularity
 - impl Singularity
 - impl Default for Singularity
@@ -297,6 +324,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/wasm.rs
 
+- pub fn initialize_wasm
 - pub struct WasmFramework
 - impl WasmFramework
 - pub fn random_hypervector
@@ -337,7 +365,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use hyperdim::{HVec10240, batch_cosine_similarity}
 - pub use semantic_bridge::{BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown}
 - pub use singularity::{Concept, ConceptBuilder}
-- pub use singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
+- pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod bridge_retrieval
 - pub mod bundle
 - pub mod cli
@@ -349,6 +377,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod graph_traversal
 - pub mod hyperdim
 - pub mod metadata_filter
+- pub mod semantic_triples
+- pub use metadata_filter::MetadataFilter
 - pub mod persistence
 - pub mod persistence_wasm
 - pub mod reservoir
@@ -370,7 +400,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use prelude::crate::hyperdim::HVec10240
 - pub use prelude::crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket}
 - pub use prelude::crate::singularity::{Concept, ConceptBuilder}
-- pub use prelude::crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
+- pub use prelude::crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod wasm
 
 ### src/bridge_retrieval.rs
@@ -487,6 +517,8 @@ vectors directly via `inject_concept`.
 
 #### Installation
 
+##### Rust Library
+
 ```bash
 cargo add chaotic_semantic_memory
 ```
@@ -506,6 +538,24 @@ For library-only consumers who don't need the CLI binary or its dependencies:
 chaotic_semantic_memory = { version = "0.3", default-features = false }
 ```
 
+##### WASM npm Package (for JS/TS)
+
+```bash
+npm install @d-o-hub/chaotic_semantic_memory
+```
+
+##### CLI Binary
+
+**via npm (recommended for Node.js users):**
+```bash
+npm install -g @d-o-hub/csm
+```
+
+**via cargo:**
+```bash
+cargo install chaotic_semantic_memory --bin csm
+```
+
 > **Note:** Using `"0.2"` ensures compatibility with the latest 0.2.x patch versions.
 
 #### Core Components
@@ -521,6 +571,32 @@ chaotic_semantic_memory = { version = "0.3", default-features = false }
 - `metadata_filter`: metadata query and filtering
 - `bundle`: snapshot and bundle helpers
 - `cli`: Command-line interface (`csm` binary)
+- `semantic_bridge`: Semantic Bridge Layer for concept expansion (ADR-0061)
+- `bridge_retrieval`: Bridge retrieval pipeline for zero-drift semantic search
+- `retrieval`: Hybrid BM25/HDC retrieval module (ADR-0062)
+
+#### Semantic Bridge Layer (v0.3.0)
+
+Zero-drift semantic expansion on top of deterministic HDC memory:
+- **CanonicalConcept**: Versioned concept with labels and related IDs
+- **ConceptGraph**: In-memory label index for token-to-concept matching
+- **BridgeRetrieval**: Pipeline: normalize → HDC recall → concept expansion → second recall
+- **MemoryPacket**: Compressed output for LLM context injection
+
+**Key principle**: Additive, non-destructive, never mutates canonical memory vectors.
+
+#### Hybrid BM25+HDC Retrieval (v0.3.0)
+
+Hybrid retrieval combines keyword (BM25) and semantic (HDC) search:
+- **BM25 parameters**: k1=1.2 (TF saturation), b=0.75 (doc length normalization)
+- **Query-length-dependent weights**:
+
+| Tokens | Keyword | Semantic |
+|--------|---------|----------|
+| 1-2    | 0.9     | 0.1      |
+| 3-4    | 0.7     | 0.3      |
+| 5-8    | 0.4     | 0.6      |
+| 9+     | 0.2     | 0.8      |
 
 #### How Text Encoding Works (HDC Pipeline)
 
@@ -903,7 +979,8 @@ tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 
 # Random number generation
-rand = "0.8.5"
+rand = "0.10.1"
+rand_chacha = "0.10.0"
 
 # CLI dependencies (gated behind "cli" feature)
 clap = { version = "4.5.60", features = ["derive", "env", "string"], optional = true }
@@ -917,15 +994,16 @@ glob = { version = "0.3.2", optional = true }
 rayon = { version = "1.10.0", optional = true }
 
 # Database - Use libsql NOT turso-client (opt-in via "persistence" feature)
-libsql = { version = "0.4", optional = true }
+libsql = { version = "0.9.30", default-features = false, features = ["sync", "hrana", "remote"], optional = true }
 tokio = { version = "1.43.0", features = ["rt-multi-thread", "macros", "sync", "fs"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.2.15", features = ["js"] }
+getrandom = { version = "0.4.2", features = ["wasm_js"] }
 tokio = { version = "1.43.0", features = ["rt", "macros", "sync"] }
 wasm-bindgen = "0.2.100"
 wasm-bindgen-futures = "0.4.64"
 js-sys = "0.3.77"
+console_error_panic_hook = { version = "0.1", optional = false }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }

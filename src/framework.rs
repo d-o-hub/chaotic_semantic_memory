@@ -171,10 +171,14 @@ impl ChaoticSemanticFramework {
     #[instrument(err, skip(self, query))]
     pub async fn probe(&self, query: HVec10240, top_k: usize) -> Result<Vec<(String, f32)>> {
         self.validate_top_k(top_k)?;
+        #[cfg(not(target_arch = "wasm32"))]
         let start = std::time::Instant::now();
         let sing = self.singularity.read().await;
         let results = sing.find_similar(&query, top_k);
+        #[cfg(not(target_arch = "wasm32"))]
         let elapsed_ms = start.elapsed().as_millis() as u64;
+        #[cfg(target_arch = "wasm32")]
+        let elapsed_ms = 0;
         self.metrics.observe_probe_latency_ms(elapsed_ms);
 
         // Filter expired concepts
@@ -199,10 +203,14 @@ impl ChaoticSemanticFramework {
         filter: &MetadataFilter,
     ) -> Result<Vec<(String, f32)>> {
         self.validate_top_k(top_k)?;
+        #[cfg(not(target_arch = "wasm32"))]
         let start = std::time::Instant::now();
         let sing = self.singularity.read().await;
         let results = sing.find_similar_filtered(query, top_k, filter);
+        #[cfg(not(target_arch = "wasm32"))]
         let elapsed_ms = start.elapsed().as_millis() as u64;
+        #[cfg(target_arch = "wasm32")]
+        let elapsed_ms = 0;
         self.metrics.observe_probe_latency_ms(elapsed_ms);
         Ok(results.as_ref().to_vec())
     }
@@ -215,6 +223,7 @@ impl ChaoticSemanticFramework {
         config: TraversalConfig,
     ) -> Result<Vec<(String, u32)>> {
         Self::validate_concept_id(start)?;
+        Self::validate_traversal_config(&config)?;
         let sing = self.singularity.read().await;
         sing.bfs(start, &config)
     }
@@ -231,6 +240,7 @@ impl ChaoticSemanticFramework {
     /// Process temporal sequence through reservoir
     #[instrument(err, skip(self, sequence))]
     pub async fn process_sequence(&self, sequence: &[Vec<f32>]) -> Result<HVec10240> {
+        self.validate_sequence_length(sequence.len())?;
         let mut reservoir = self.reservoir.write().await;
 
         if reservoir.is_none() {
@@ -391,13 +401,21 @@ impl ChaoticSemanticFramework {
                 self.validate_concept(concept)?;
             }
 
-            let concept_ids = {
+            let concept_ids: Vec<String> = concepts.iter().map(|c| c.id.clone()).collect();
+
+            {
                 let mut sing = self.singularity.write().await;
-                for concept in concepts.clone() {
+                for concept in concepts {
+                    if sing.get(&concept.id).is_some() {
+                        warn!(
+                            concept_id = %concept.id,
+                            "skipping persisted concept during load_merge because id already exists in memory"
+                        );
+                        continue;
+                    }
                     sing.inject(concept)?;
                 }
-                sing.concept_ids()
-            };
+            }
 
             let mut all_associations: Vec<(String, String, f32)> = Vec::new();
             for concept_id in &concept_ids {

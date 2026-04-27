@@ -6,21 +6,17 @@ use crate::{
     reader::Reader,
     report,
     scorer,
-    types::{CaseResult, RetrievedItem, TaskType},
+    types::{BenchmarkMetadata, CaseResult, RetrievedItem, TaskType},
 };
 use anyhow::Result;
-use std::time::Instant;
+use std::{process::Command, time::Instant};
 use sysinfo::{System, Pid, ProcessesToUpdate};
 
 pub async fn run(cli: Cli) -> Result<()> {
     println!("Loading dataset from {}", cli.dataset_dir.display());
     let sessions = dataset::load_sessions(&cli.dataset_dir.join("sessions.jsonl"))?;
     let queries = dataset::load_queries(&cli.dataset_dir.join("queries.jsonl"))?;
-
-    // Estimate storage size from sessions file
-    let storage_bytes = std::fs::metadata(cli.dataset_dir.join("sessions.jsonl"))
-        .map(|m| m.len())
-        .unwrap_or(0);
+    let manifest = dataset::load_manifest(&cli.dataset_dir.join("manifest.json"))?;
 
     println!("Initializing memory system...");
     let adapter = MemoryAdapter::new_in_memory().await?;
@@ -52,7 +48,10 @@ pub async fn run(cli: Cli) -> Result<()> {
         let start_query = Instant::now();
 
         // Use session-scoped retrieval for session-specific queries
-        let hits = if matches!(query_case.task_type, TaskType::Recall | TaskType::Update | TaskType::Temporal) {
+        let hits = if matches!(
+            query_case.task_type,
+            TaskType::Recall | TaskType::Update | TaskType::Temporal | TaskType::Abstain,
+        ) {
             adapter.query_in_session(&query_case.query, &query_case.session_id, cli.top_k).await?
         } else {
             // For abstain and other queries, search globally
@@ -130,14 +129,31 @@ pub async fn run(cli: Cli) -> Result<()> {
     sys.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
     peak_mem = peak_mem.max(sys.process(pid).map(|p| p.memory()).unwrap_or(0));
 
+    let storage_bytes = adapter.storage_bytes().await?;
+
     println!("Aggregating metrics...");
     let summary = metrics::aggregate(&results, ingest_ms, peak_mem, storage_bytes);
 
+    let metadata = BenchmarkMetadata {
+        dataset_dir: cli.dataset_dir.display().to_string(),
+        dataset_version: manifest.version,
+        dataset_seed: manifest.seed,
+        dataset_session_count: manifest.session_count,
+        mode: cli.mode.to_string(),
+        reader_mode_enabled: matches!(cli.mode, Mode::ReaderLite),
+        top_k: cli.top_k,
+        abstain_threshold: cli.abstain_threshold,
+        commit_sha: resolve_commit_sha(),
+    };
+
     println!("Writing reports to {}...", cli.out_dir.display());
     std::fs::create_dir_all(&cli.out_dir)?;
-    report::write_summary(&cli.out_dir.join("summary.json"), &summary)?;
-    report::write_results_jsonl(&cli.out_dir.join("results.jsonl"), &results)?;
-    report::write_markdown(&cli.out_dir.join("report.md"), &summary)?;
+    let summary_path = cli.out_dir.join("summary.json");
+    let results_path = cli.out_dir.join("results.jsonl");
+    let report_path = cli.out_dir.join("report.md");
+    report::write_summary(&summary_path, &summary)?;
+    report::write_results_jsonl(&results_path, &results)?;
+    report::write_markdown(&report_path, &summary, &metadata, &summary_path, &results_path)?;
 
     println!("Benchmark complete.");
     println!("Recall@1: {:.4}", summary.recall_at_1);
@@ -145,4 +161,45 @@ pub async fn run(cli: Cli) -> Result<()> {
     println!("Peak memory: {} bytes", summary.peak_memory_bytes);
 
     Ok(())
+}
+
+fn resolve_commit_sha() -> Option<String> {
+    const ENV_GITHUB_SHA: &str = "GITHUB_SHA";
+    const ENV_PATH: &str = "PATH";
+
+    if let Ok(sha) = std::env::var(ENV_GITHUB_SHA) {
+        if !sha.trim().is_empty() {
+            return Some(sha);
+        }
+    }
+
+    // Filter PATH to exclude relative entries (CWE-426) to prevent path hijacking.
+    // If PATH is unset or results in an empty string after filtering, we fallback
+    // to letting the system attempt to find 'git' normally (standard behavior).
+    let safe_path = std::env::var(ENV_PATH).ok().and_then(|p| {
+        let joined = std::env::join_paths(
+            std::env::split_paths(&p).filter(|p| p.is_absolute() && p.exists()),
+        )
+        .unwrap_or_default();
+        if joined.to_string_lossy().is_empty() {
+            None
+        } else {
+            Some(joined)
+        }
+    });
+
+    let mut cmd = Command::new("git");
+    if let Some(path) = safe_path {
+        cmd.env(ENV_PATH, path);
+    }
+    let output = cmd
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }

@@ -1,0 +1,46 @@
+{
+  "name": "@d-o-hub/csm",
+  "version": "0.3.4",
+  "description": "CLI for chaotic semantic memory - AI memory systems with hyperdimensional vectors",
+  "bin": {
+    "csm": "./index.js"
+  },
+  "scripts": {
+    "postinstall": "node postinstall.js"
+  },
+  "keywords": [
+    "cli",
+    "ai",
+    "memory",
+    "hypervector",
+    "reservoir",
+    "semantic",
+    "echo-state-network"
+  ],
+  "author": "d-o-hub",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/d-o-hub/chaotic_semantic_memory.git"
+  },
+  "bugs": {
+    "url": "https://github.com/d-o-hub/chaotic_semantic_memory/issues"
+  },
+  "homepage": "https://github.com/d-o-hub/chaotic_semantic_memory#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "type": "module",
+  "files": [
+    "index.js",
+    "postinstall.js",
+    "bin",
+    "LICENSE",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "optionalDependencies": {}
+}
