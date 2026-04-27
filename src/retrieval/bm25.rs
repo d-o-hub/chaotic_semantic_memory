@@ -179,10 +179,17 @@ impl Bm25Index {
             if !seen_terms.insert(term) {
                 continue;
             }
-            let df = self.doc_freqs.get(term).copied().unwrap_or(0) as f32;
-            let idf = ((n - df + 0.5) / (df + 0.5) + 1.0).ln();
-            if idf > 0.0 {
-                query_weights.push((term, idf * k1_plus_1));
+
+            // Optimization: Skip OOV terms. They contribute 0 to all scores and increase per-doc loop overhead.
+            match self.doc_freqs.get(term) {
+                Some(&df) if df > 0 => {
+                    let df = df as f32;
+                    let idf = ((n - df + 0.5) / (df + 0.5) + 1.0).ln();
+                    if idf > 0.0 {
+                        query_weights.push((term, idf * k1_plus_1));
+                    }
+                }
+                _ => continue,
             }
         }
 
