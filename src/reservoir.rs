@@ -1,15 +1,12 @@
 //! Echo State Network for temporal dynamics.
-
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 #[cfg(not(target_arch = "wasm32"))]
 use tracing::instrument;
-
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
-
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 
@@ -153,7 +150,6 @@ impl Reservoir {
     const RESERVOIR_DEGREE: usize = 8;
     const RESERVOIR_LOCAL_WINDOW: usize = 512;
     const PARTIAL_UPDATE_STRIDE: usize = 32;
-
     pub const MAX_SIZE: usize = 100_000;
 
     pub(crate) fn validate_params(size: usize, input_size: usize, chaos: f32) -> Result<()> {
@@ -177,6 +173,7 @@ impl Reservoir {
         }
         Ok(())
     }
+
     pub fn new(input_size: usize, size: usize) -> Result<Self> {
         let seed = rand::thread_rng().r#gen();
         Self::new_seeded(input_size, size, seed)
@@ -184,9 +181,7 @@ impl Reservoir {
 
     pub fn new_seeded(input_size: usize, size: usize, seed: u64) -> Result<Self> {
         Self::validate_params(size, input_size, 0.0)?;
-
         let mut rng = StdRng::seed_from_u64(seed);
-
         let w_in = SparseWeights::build(size, input_size, Self::INPUT_DEGREE, &mut rng);
         let mut w_res = SparseWeights::build_local_reservoir(
             size,
@@ -194,13 +189,11 @@ impl Reservoir {
             Self::RESERVOIR_LOCAL_WINDOW.min(size),
             &mut rng,
         );
-
         let current_radius = Self::estimate_spectral_radius(&w_res, size);
         if current_radius > 0.0 {
             let scale = Self::DEFAULT_RADIUS / current_radius;
             w_res.scale(scale);
         }
-
         Ok(Self {
             size,
             input_size,
@@ -229,11 +222,9 @@ impl Reservoir {
                 input.len()
             )));
         }
-
         if !self.input_projection_valid || self.input_cache != input {
             self.input_cache.copy_from_slice(input);
             self.input_projection_valid = true;
-
             #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
             {
                 let w_in = &self.w_in;
@@ -244,13 +235,11 @@ impl Reservoir {
                         *out = w_in.dot_row(i, input);
                     });
             }
-
             #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
             for (i, out) in self.input_projection.iter_mut().enumerate() {
                 *out = self.w_in.dot_row(i, input);
             }
         }
-
         let state = &self.state;
         let one_minus_alpha = 1.0 - self.alpha;
         self.scratch.copy_from_slice(state);
@@ -260,7 +249,6 @@ impl Reservoir {
             self.scratch[i] = state[i] * one_minus_alpha + activated * self.alpha;
         }
         self.update_phase = (self.update_phase + 1) % self.update_stride;
-
         std::mem::swap(&mut self.state, &mut self.scratch);
         let latency_us = started.elapsed().as_micros() as u64;
         self.metrics.observe_step(latency_us, self.size as u64);
@@ -288,14 +276,12 @@ impl Reservoir {
                 "Spectral radius must be in [0.9, 1.1]".to_string(),
             ));
         }
-
         let current = Self::estimate_spectral_radius(&self.w_res, self.size);
         if current > 0.0 {
             let scale = radius / current;
             self.w_res.scale(scale);
             self.spectral_radius = radius;
         }
-
         Ok(())
     }
 
@@ -335,9 +321,6 @@ impl Reservoir {
                 word
             })
             .collect();
-        // SAFETY: We iterate exactly 80 times (0..80), so data always has 80 elements.
-        // The map produces exactly 80 items; try_into can only fail if the length differs,
-        // which is structurally impossible here — map to MemoryError instead of panicking.
         let data: [u128; 80] = data.try_into().map_err(|_| {
             MemoryError::reservoir(
                 "internal: par_iter produced unexpected element count".to_string(),
@@ -383,12 +366,10 @@ impl Reservoir {
     fn estimate_spectral_radius(w: &SparseWeights, size: usize) -> f32 {
         let mut v = vec![1.0f32 / size as f32; size];
         let mut y = vec![0.0f32; size];
-
         for _ in 0..16 {
             for (i, y_i) in y.iter_mut().enumerate() {
                 *y_i = w.dot_row(i, &v);
             }
-
             let mut norm = 0.0f32;
             for val in &y {
                 norm += val * val;
@@ -397,24 +378,20 @@ impl Reservoir {
             if norm == 0.0 {
                 return 0.0;
             }
-
             for i in 0..size {
                 v[i] = y[i] / norm;
             }
         }
-
         let mut wv = vec![0.0f32; size];
         for (i, wv_i) in wv.iter_mut().enumerate() {
             *wv_i = w.dot_row(i, &v);
         }
-
         let mut numerator = 0.0f32;
         let mut denominator = 0.0f32;
         for i in 0..size {
             numerator += v[i] * wv[i];
             denominator += v[i] * v[i];
         }
-
         if denominator == 0.0 {
             0.0
         } else {
@@ -451,7 +428,6 @@ impl ChaoticReservoir {
         Reservoir::validate_params(size, input_size, chaos_strength)?;
         let mut base = Reservoir::new_seeded(input_size, size, seed)?;
         base.set_spectral_radius(1.0)?;
-
         Ok(Self {
             base,
             chaos_strength,
@@ -468,17 +444,14 @@ impl ChaoticReservoir {
                 input.len()
             )));
         }
-
         for (i, value) in input.iter().enumerate() {
             let noise = if self.chaos_strength > 0.0 {
-                self.rng
-                    .gen_range(-self.chaos_strength..self.chaos_strength)
+                self.rng.gen_range(-self.chaos_strength..self.chaos_strength)
             } else {
                 0.0
             };
             self.noisy_input[i] = *value + noise;
         }
-
         self.base.step(&self.noisy_input)
     }
 

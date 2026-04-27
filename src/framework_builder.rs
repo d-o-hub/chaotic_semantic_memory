@@ -5,10 +5,10 @@ use tokio::sync::RwLock;
 
 use crate::ChaoticSemanticFramework;
 use crate::error::Result;
+use crate::reservoir::Reservoir;
 use crate::framework_events::build_event_sender;
 #[cfg(feature = "persistence")]
 use crate::persistence::Persistence;
-use crate::reservoir::Reservoir;
 use crate::singularity::{Singularity, SingularityConfig};
 
 const DEFAULT_MAX_PROBE_TOP_K: usize = 10_000;
