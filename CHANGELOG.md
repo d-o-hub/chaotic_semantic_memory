@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   spelling errors (DeepSource RUST-R005).
 
 ### Security
+- **Input Validation**: Added bounds for reservoir dimensions and history limit to prevent OOM/DoS.
+- **Panic Prevention**: Guarded against NaN/negative chaos strength in noise generation.
 
 - **git_local.rs**: Sanitized PATH lookup for git command execution.
 - **benchmarks/runner.rs**: Sanitized PATH lookup for commit SHA resolution.

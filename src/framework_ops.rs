@@ -12,6 +12,7 @@ use tracing::{instrument, warn};
 
 const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024; // 100 MB default
 const MAX_PATH_LENGTH: usize = 4096;
+const MAX_HISTORY_LIMIT: usize = 1000;
 
 fn validate_path(path: &str) -> Result<PathBuf> {
     if path.len() > MAX_PATH_LENGTH {
@@ -380,8 +381,11 @@ impl ChaoticSemanticFramework {
     pub async fn concept_history(
         &self,
         id: &str,
-        limit: usize,
+        mut limit: usize,
     ) -> Result<Vec<crate::persistence::ConceptVersion>> {
+        if limit > MAX_HISTORY_LIMIT {
+            limit = MAX_HISTORY_LIMIT;
+        }
         if let Some(ref persistence) = self.persistence {
             return persistence.get_concept_history(id, limit).await;
         }

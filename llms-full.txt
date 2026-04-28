@@ -8,23 +8,28 @@
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
-- base64 (0.22)
-- bincode (1.3.3)
-- tracing-subscriber (0.3.19)
-- clap_complete (4.5.42)
-- anyhow (1.0.102)
 - colored (2.2.0)
-- tracing (0.1.41)
-- thiserror (2.0.11)
-- glob (0.3.2)
+- rand (0.10.1)
+- serde (1.0.219) [features: derive]
+- base64 (0.22)
+- serde_json (1.0.149)
+- clap_complete (4.5.42)
+- tracing-subscriber (0.3.19)
 - rand_chacha (0.10.0)
+- bincode (1.3.3)
 - clap (4.5.60) [features: derive, env, string]
+- tracing (0.1.41)
+- glob (0.3.2)
+- thiserror (2.0.11)
+- anyhow (1.0.102)
 **Features:**
+- wasm: []
 - persistence: [dep:libsql]
 - default: [cli, persistence, parallel]
-- wasm: []
+- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
+- parallel: [dep:rayon]
 
-Generated: 2026-04-26 12:09:47 UTC
+Generated: 2026-04-27 22:29:37 UTC
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ## Table of Contents
@@ -256,25 +261,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/hyperdim_batch.rs
 
 - pub fn batch_cosine_similarity
-### src/framework_validation.rs
-
-- impl ChaoticSemanticFramework
-
-### src/persistence_ops.rs
-
-- impl Persistence
-
-### src/reservoir_inertial.rs
-
-- impl Reservoir
-
-### src/hyperdim_batch.rs
-
-- pub fn batch_cosine_similarity
-- pub mod bm25
-- pub mod hybrid
-- pub use bm25::{Bm25Config, Bm25Index}
-- pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
 
 ### src/retrieval/hybrid.rs
 
@@ -1050,6 +1036,7 @@ impl Reservoir {
     pub const DEFAULT_SIZE: Type;
     pub const DEFAULT_RADIUS: Type;
     pub const DEFAULT_ALPHA: Type;
+    pub const MAX_SIZE: Type;
     pub fn new(input_size: usize, size: usize) -> Result<Self>;
     pub fn new_seeded(input_size: usize, size: usize, seed: u64) -> Result<Self>;
     pub fn step(&mut self, input: &[f32]) -> Result<&[f32]>;
@@ -1523,7 +1510,7 @@ impl Default for TraversalConfig {
 ```rust
 impl Singularity {
     pub fn neighbors(&self, id: &str, min_strength: f32) -> Vec<(String, f32)>;
-    pub fn incoming_associations(&self, id: &str) -> Vec<(String, f32)>;
+    pub fn incoming_associations(&self, id: &str) -> Vec<(&str, f32)>;
     pub fn bfs(&self, start: &str, config: &TraversalConfig) -> Result<Vec<(String, u32)>>;
     pub fn shortest_path(&self, from: &str, to: &str, config: &TraversalConfig) -> Result<Option<Vec<String>>>;
     pub fn shortest_path_hops(&self, from: &str, to: &str, config: &TraversalConfig) -> Result<Option<Vec<String>>>;
