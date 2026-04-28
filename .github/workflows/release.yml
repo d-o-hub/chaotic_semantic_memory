@@ -13,6 +13,7 @@ concurrency:
 permissions:
   contents: write
   id-token: write
+  actions: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -35,10 +36,13 @@ jobs:
 
         while [ $ELAPSED -lt $MAX_WAIT ]; do
           # Get the CI workflow run for this commit
-          CI_RUN=$(gh run list --workflow=ci.yml --commit ${{ github.sha }} --limit 1 --json conclusion,status --jq '.[0]' 2>/dev/null || echo '{"status":"queued"}')
+          CI_RUN=$(gh run list --workflow=ci.yml --commit ${{ github.sha }} --limit 1 --json conclusion,status --jq '.[0]' || echo '')
+          if [ -z "$CI_RUN" ] || [ "$CI_RUN" = "null" ]; then
+            CI_RUN='{"status":"queued","conclusion":null}'
+          fi
 
-          CI_STATUS=$(echo "$CI_RUN" | jq -r '.status')
-          CI_CONCLUSION=$(echo "$CI_RUN" | jq -r '.conclusion')
+          CI_STATUS=$(echo "$CI_RUN" | jq -r '.status // "queued"')
+          CI_CONCLUSION=$(echo "$CI_RUN" | jq -r '.conclusion // "null"')
 
           echo "CI status: $CI_STATUS, conclusion: $CI_CONCLUSION"
 

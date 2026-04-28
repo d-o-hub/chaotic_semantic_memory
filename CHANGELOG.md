@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Reservoir**: Prevent panic on unsanitized `chaos_strength` and enforce bounds (#126).
+- **CI**: `release.yml` `wait-for-ci` guardrail now grants `actions: read`, surfaces
+  `gh run list` errors, and tolerates empty/null responses (no more 600s timeouts).
+- **CI**: `pages.yml` placeholder heredoc terminator de-indented; resolves
+  `syntax error: unexpected end of file` on `book/**` pushes.
+
+### Performance
+- **Retrieval**: Optimize parallel task granularity in BM25 search (#127).
+
+## [0.3.3] - 2026-04-24 [YANKED]
+
+> **Yanked**: this version was tagged from buggy code that broke the macOS arm64
+> build (`E0432` from non-existent NEON intrinsics `veorq_u128`/`vld1q_u128`/
+> `vst1q_u128`). Use `0.3.4` instead.
+
+### Fixed
+- See `0.3.4` for the corrected NEON intrinsic types.
+
 ## [0.3.4] - 2026-04-25
 
 ### Fixed
