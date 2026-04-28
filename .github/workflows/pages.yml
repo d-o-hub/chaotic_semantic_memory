@@ -44,22 +44,20 @@ jobs:
         else
           echo "No book directory found, creating placeholder"
           mkdir -p _site
-          cat <<'HTML' > _site/index.html
-          <!DOCTYPE html>
-          <html lang="en">
-            <head>
-              <meta charset="utf-8" />
-              <title>chaotic_semantic_memory Documentation</title>
-              <style>
-                body { font-family: Arial, sans-serif; margin: 2rem; line-height: 1.6; }
-              </style>
-            </head>
-            <body>
-              <h1>chaotic_semantic_memory Documentation</h1>
-              <p>Documentation will be added soon.</p>
-            </body>
-          </html>
-          HTML
+          printf '%s\n' \
+            '<!DOCTYPE html>' \
+            '<html lang="en">' \
+            '  <head>' \
+            '    <meta charset="utf-8" />' \
+            '    <title>chaotic_semantic_memory Documentation</title>' \
+            '    <style>body { font-family: Arial, sans-serif; margin: 2rem; line-height: 1.6; }</style>' \
+            '  </head>' \
+            '  <body>' \
+            '    <h1>chaotic_semantic_memory Documentation</h1>' \
+            '    <p>Documentation will be added soon.</p>' \
+            '  </body>' \
+            '</html>' \
+            > _site/index.html
         fi
 
     - name: Generate API documentation

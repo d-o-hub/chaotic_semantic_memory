@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.5] - 2026-04-28
+
+### Fixed
+- **Reservoir**: Prevent panic on unsanitized `chaos_strength` and enforce bounds (#126).
+- **CI (Release workflow)**: `wait-for-ci` guardrail now grants `actions: read`
+  (scoped to the job), surfaces `gh run list` errors, and tolerates empty/null
+  responses. Resolves 600 s timeouts that failed every push to `main` since v0.3.4.
+- **CI (GitHub Pages)**: Placeholder fallback heredoc replaced with a `printf`
+  array; the previous indented heredoc broke both bash and YAML block-scalar
+  parsing on `book/**` pushes.
+- **Docs**: Corrected stale npm package URL in release-management skill
+  (`@d-o-hub/chaotic_semantic_memory`, `@d-o-hub/csm`) per issue #106.
+
+### Performance
+- **Retrieval**: Optimize parallel task granularity in BM25 search (#127).
+
+### Internal
+- **GOAP state**: Synced 3 stale `queued` actions to `complete`
+  (inertial reservoir tests + benches, selectivity-aware retrieval tests).
+- **CHANGELOG**: Back-filled `[0.3.3] [YANKED]` entry documenting the yanked
+  release (NEON intrinsic build break on macOS arm64).
+
+## [0.3.3] - 2026-04-24 [YANKED]
+
+> **Yanked**: this version was tagged from buggy code that broke the macOS arm64
+> build (`E0432` from non-existent NEON intrinsics `veorq_u128`/`vld1q_u128`/
+> `vst1q_u128`). Use `0.3.4` instead.
+
+### Fixed
+- See `0.3.4` for the corrected NEON intrinsic types.
+
 ## [0.3.4] - 2026-04-25
 
 ### Fixed

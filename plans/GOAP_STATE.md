@@ -14,10 +14,17 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: goap_implement_2026_04_25
-  orchestrator_last_run: goap_analysis_2026_04_25
-  orchestrator_last_run_at_utc: 2026-04-25T22:00:00Z
-  ci_all_checks_passed: true
+  action_last_completed: ci_fix_release_wait_and_pages_heredoc_2026_04_28
+  orchestrator_last_run: goap_analysis_2026_04_28
+  orchestrator_last_run_at_utc: 2026-04-28T07:00:00Z
+  ci_all_checks_passed: false                  # Release + Pages + Pre-Release Gate failing
+  ci_release_workflow_blocked: true            # wait-for-ci times out (missing actions: read)
+  ci_release_workflow_fix_applied: true        # 2026-04-28: actions: read + null guards
+  ci_pages_workflow_fix_applied: true          # 2026-04-28: heredoc terminator de-indented
+  ci_pre_release_gate_failing: true            # version triad + security audit + planning
+  changelog_v033_yanked_recorded: true         # 2026-04-28: backfilled CHANGELOG
+  changelog_unreleased_section: true           # 2026-04-28: added Unreleased
+  goap_actions_md_synced: true                 # 2026-04-28: 3 queued -> complete
 
   # GitHub Actions Security Audit (2026-04-21)
   codeql_missing_permissions_fixed: true
