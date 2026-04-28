@@ -14,8 +14,8 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: ci_fix_release_wait_and_pages_heredoc_2026_04_28
-  orchestrator_last_run: goap_analysis_2026_04_28
+  action_last_completed: release_verify_retry_logic_2026_04_28
+  orchestrator_last_run: goap_release_fix_2026_04_28
   orchestrator_last_run_at_utc: 2026-04-28T07:00:00Z
   ci_all_checks_passed: false                  # Release + Pages + Pre-Release Gate failing
   ci_release_workflow_blocked: true            # wait-for-ci times out (missing actions: read)
@@ -263,8 +263,8 @@ world_state:
   github_release_v028_created: true
   npm_v028_published: false
   npm_publish_blocked_reason: "OTP required - npm account requires one-time password authentication"
-  npm_missing_versions: ["0.3.3", "0.3.4", "0.3.5"]
-  npm_latest_published: "0.3.2"
+  npm_missing_versions: []  # 2026-04-28: v0.3.5 published to all registries
+  npm_latest_published: "0.3.5"
   dependabot_alert_3: blocked_upstream
   dependabot_alert_3_package: rustls-webpki
   dependabot_alert_3_blocker: "No stable rustls-webpki >=0.103.10 exists"
