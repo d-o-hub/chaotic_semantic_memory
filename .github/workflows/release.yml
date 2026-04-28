@@ -28,6 +28,10 @@ jobs:
     outputs:
       ci-passed: ${{ steps.check-ci.outputs.passed }}
     steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 1
+
     - name: Wait for CI workflow to complete
       id: check-ci
       run: |
@@ -38,7 +42,7 @@ jobs:
 
         while [ $ELAPSED -lt $MAX_WAIT ]; do
           # Get the CI workflow run for this commit
-          CI_RUN=$(gh run list --workflow=ci.yml --commit ${{ github.sha }} --limit 1 --json conclusion,status --jq '.[0]' || echo '')
+          CI_RUN=$(gh run list --repo ${{ github.repository }} --workflow=ci.yml --commit ${{ github.sha }} --limit 1 --json conclusion,status --jq '.[0]' || echo '')
           if [ -z "$CI_RUN" ] || [ "$CI_RUN" = "null" ]; then
             CI_RUN='{"status":"queued","conclusion":null}'
           fi
@@ -354,7 +358,7 @@ jobs:
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
         TAG="v${VERSION}"
-        if gh release view "$TAG" >/dev/null 2>&1; then
+        if gh release view "$TAG" --repo ${{ github.repository }} >/dev/null 2>&1; then
           echo "⚠️ GitHub release $TAG already exists, skipping creation"
           echo "release-exists=true" >> $GITHUB_OUTPUT
         else
@@ -646,7 +650,7 @@ jobs:
 
         # Check GitHub release
         echo "Checking GitHub release..."
-        if gh release view "v${VERSION}" >/dev/null 2>&1; then
+        if gh release view "v${VERSION}" --repo ${{ github.repository }} >/dev/null 2>&1; then
           echo "✅ GitHub Release: Created" >> $GITHUB_STEP_SUMMARY
         else
           ERRORS="${ERRORS}github; "

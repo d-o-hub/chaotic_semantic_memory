@@ -397,7 +397,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CI workflow with security permissions and concurrency controls
 - Trusted Publishing eliminates need for long-lived API tokens
 
-[unreleased]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.4...HEAD
+[0.3.5]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.4...v0.3.5
+[unreleased]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.5...HEAD
 [0.3.4]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.2...v0.3.4
 [0.3.2]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.3.1

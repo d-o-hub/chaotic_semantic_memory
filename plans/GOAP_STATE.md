@@ -263,8 +263,8 @@ world_state:
   github_release_v028_created: true
   npm_v028_published: false
   npm_publish_blocked_reason: "OTP required - npm account requires one-time password authentication"
-  npm_missing_versions: ["0.2.6", "0.2.7", "0.2.8"]
-  npm_latest_published: "0.2.5"
+  npm_missing_versions: ["0.3.3", "0.3.4", "0.3.5"]
+  npm_latest_published: "0.3.2"
   dependabot_alert_3: blocked_upstream
   dependabot_alert_3_package: rustls-webpki
   dependabot_alert_3_blocker: "No stable rustls-webpki >=0.103.10 exists"
@@ -316,9 +316,9 @@ world_state:
     bin/csm.rs: 160
 
   # Test status - Updated 2026-04-21
-  tests_passing: 284
+  tests_passing: 333
   integration_tests_exist: true
-  total_tests: 284
+  total_tests: 333
 
   # Correctness issues (must fix)
   permute_shift_zero_bug: false
