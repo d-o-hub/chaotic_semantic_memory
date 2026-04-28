@@ -40,6 +40,62 @@ csm probe my-concept -k 10 --database csm_memory.db
 csm probe my-concept -k 10 --output-format json --database memory.db
 ```
 
+### query
+
+Text-based similarity search (encodes text and finds similar concepts):
+
+```bash
+# Hybrid search (keyword + semantic)
+csm query "machine learning neural networks" -k 10 --database csm_memory.db
+
+# Semantic-only HDC search
+csm query "machine learning" --semantic-only -k 5 --database memory.db
+
+# Keyword-only BM25 search
+csm query "exact term match" --keyword-only -k 5 --database memory.db
+
+# With minimum score threshold
+csm query "AI concepts" -k 10 --min-score 0.5 --database memory.db
+
+# Compact output (trim long text)
+csm query "long document content" --compact -k 5 --database memory.db
+
+# Code-aware encoding for source code
+csm query "fn process_data" --code-aware -k 5 --database memory.db
+```
+
+### index-dir
+
+Index Markdown files from a directory into memory:
+
+```bash
+# Index all markdown files in a directory
+csm index-dir -g "docs/**/*.md" --database csm_memory.db
+
+# Index with multiple glob patterns
+csm index-dir -g "src/**/*.md" -g "book/**/*.md" --database memory.db
+
+# Index code files with code-aware encoding
+csm index-dir -g "src/**/*.rs" --code-aware --database memory.db
+
+# Control heading chunking level (default: 2 for ## sections)
+csm index-dir -g "docs/**/*.md" --heading-level 3 --database memory.db
+```
+
+**Important**: `index-dir` requires `--glob <PATTERN>` (not a direct path).
+Concept IDs follow format: `md:<path>:<heading_level>:<chunk_index>`
+
+### index-jsonl
+
+Index JSONL file content into memory:
+
+```bash
+# Index from JSONL file
+csm index-jsonl data.jsonl --database csm_memory.db
+
+# Each line must be valid JSON with 'id' and optional 'text'/'metadata' fields
+```
+
 ### associate
 
 Create associations:
