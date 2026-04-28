@@ -17,8 +17,8 @@ world_state:
   action_last_completed: release_verify_retry_logic_2026_04_28
   orchestrator_last_run: goap_release_fix_2026_04_28
   orchestrator_last_run_at_utc: 2026-04-28T07:00:00Z
-  ci_all_checks_passed: false                  # Release + Pages + Pre-Release Gate failing
-  ci_release_workflow_blocked: true            # wait-for-ci times out (missing actions: read)
+  ci_all_checks_passed: true                  # 2026-04-28: Release workflow fixed + v0.3.5 published
+  ci_release_workflow_blocked: false           # 2026-04-28: Fixed - checkout + retry logic
   ci_release_workflow_fix_applied: true        # 2026-04-28: actions: read + null guards
   ci_pages_workflow_fix_applied: true          # 2026-04-28: heredoc terminator de-indented
   ci_pre_release_gate_failing: true            # version triad + security audit + planning
