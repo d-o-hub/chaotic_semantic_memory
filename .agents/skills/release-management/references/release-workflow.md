@@ -202,7 +202,8 @@ jobs:
 ### npm Trusted Publishing Setup
 
 1. First publish must be manual: `npm publish`
-2. Navigate to `https://www.npmjs.com/package/chaotic_semantic_memory/access`
+2. Navigate to `https://www.npmjs.com/package/@d-o-hub/chaotic_semantic_memory/access`
+   (and `https://www.npmjs.com/package/@d-o-hub/csm/access` for the CLI)
 3. Enable "Trusted Publishing"
 4. Configure GitHub repository
 
