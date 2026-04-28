@@ -76,6 +76,29 @@ impl Reservoir {
     const RESERVOIR_DEGREE: usize = 8;
     const RESERVOIR_LOCAL_WINDOW: usize = 512;
     const PARTIAL_UPDATE_STRIDE: usize = 32;
+    pub const MAX_SIZE: usize = 100_000;
+
+    pub(crate) fn validate_params(size: usize, input_size: usize, chaos: f32) -> Result<()> {
+        if size == 0 || size > Self::MAX_SIZE {
+            return Err(MemoryError::InvalidInput {
+                field: "reservoir_size".into(),
+                reason: format!("must be 1..={}", Self::MAX_SIZE),
+            });
+        }
+        if input_size == 0 || input_size > Self::MAX_SIZE {
+            return Err(MemoryError::InvalidInput {
+                field: "reservoir_input_size".into(),
+                reason: format!("must be 1..={}", Self::MAX_SIZE),
+            });
+        }
+        if !chaos.is_finite() || chaos < 0.0 {
+            return Err(MemoryError::InvalidInput {
+                field: "chaos_strength".into(),
+                reason: "must be finite and non-negative".into(),
+            });
+        }
+        Ok(())
+    }
 
     pub fn new(input_size: usize, size: usize) -> Result<Self> {
         let seed = rand::rng().random();
@@ -83,11 +106,7 @@ impl Reservoir {
     }
 
     pub fn new_seeded(input_size: usize, size: usize, seed: u64) -> Result<Self> {
-        if input_size == 0 || size == 0 {
-            return Err(MemoryError::reservoir(
-                "Input size and reservoir size must be greater than zero".to_string(),
-            ));
-        }
+        Self::validate_params(size, input_size, 0.0)?;
         let mut rng = StdRng::seed_from_u64(seed);
 
         let w_in = SparseWeights::build(size, input_size, Self::INPUT_DEGREE, &mut rng);
@@ -372,6 +391,7 @@ impl ChaoticReservoir {
         chaos_strength: f32,
         seed: u64,
     ) -> Result<Self> {
+        Reservoir::validate_params(size, input_size, chaos_strength)?;
         let mut base = Reservoir::new_seeded(input_size, size, seed)?;
         base.set_spectral_radius(1.0)?;
         Ok(Self {
@@ -390,10 +410,13 @@ impl ChaoticReservoir {
             )));
         }
         for (i, value) in input.iter().enumerate() {
-            self.noisy_input[i] = *value
-                + self
-                    .rng
-                    .random_range(-self.chaos_strength..self.chaos_strength);
+            let noise = if self.chaos_strength > 0.0 {
+                self.rng
+                    .random_range(-self.chaos_strength..self.chaos_strength)
+            } else {
+                0.0
+            };
+            self.noisy_input[i] = *value + noise;
         }
         self.base.step(&self.noisy_input)
     }

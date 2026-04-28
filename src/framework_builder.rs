@@ -8,6 +8,7 @@ use crate::error::Result;
 use crate::framework_events::build_event_sender;
 #[cfg(feature = "persistence")]
 use crate::persistence::Persistence;
+use crate::reservoir::Reservoir;
 use crate::singularity::{Singularity, SingularityConfig};
 
 const DEFAULT_MAX_PROBE_TOP_K: usize = 10_000;
@@ -201,6 +202,11 @@ impl FrameworkBuilder {
     }
 
     pub async fn build(self) -> Result<ChaoticSemanticFramework> {
+        Reservoir::validate_params(
+            self.config.reservoir_size,
+            self.config.reservoir_input_size,
+            self.config.chaos_strength,
+        )?;
         let singularity = Arc::new(RwLock::new(Singularity::with_config(SingularityConfig {
             max_concepts: self.config.max_concepts,
             max_associations_per_concept: self.config.max_associations_per_concept,
