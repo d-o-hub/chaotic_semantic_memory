@@ -611,7 +611,7 @@ jobs:
     needs: [validate, publish-crates, create-github-release, publish-npm-wasm, publish-npm-cli]
     if: always() && needs.validate.outputs.release-needed == 'true'
     steps:
-    - name: Verify complete release across all registries
+    - name: Verify complete release across all registries (with retry)
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
         ERRORS=""
@@ -619,36 +619,44 @@ jobs:
         echo "## Release Verification for v${VERSION}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
-        # Check crates.io
+        # Retry helper: exponential backoff for registry checks
+        # Registries take 1-2 minutes to index after publish
+        check_with_retry() {
+          local name="$1"
+          local check_cmd="$2"
+          local max_retries=3
+          local delays=(5 10 20)
+          local attempt=0
+
+          while [ $attempt -lt $max_retries ]; do
+            if eval "$check_cmd"; then
+              echo "✅ $name: Published" >> $GITHUB_STEP_SUMMARY
+              return 0
+            fi
+            attempt=$((attempt + 1))
+            if [ $attempt -lt $max_retries ]; then
+              echo "Waiting for $name to propagate... (attempt $attempt/$max_retries, delay ${delays[$attempt - 1]}s)"
+              sleep ${delays[$attempt - 1]}
+            fi
+          done
+          ERRORS="${ERRORS}${name}; "
+          echo "❌ $name: Missing (after $max_retries attempts)" >> $GITHUB_STEP_SUMMARY
+          return 1
+        }
+
+        # Check crates.io (with retry)
         echo "Checking crates.io..."
-        if curl -s "https://crates.io/api/v1/crates/chaotic_semantic_memory/$VERSION" | grep -q '"version"'; then
-          echo "✅ crates.io: Published" >> $GITHUB_STEP_SUMMARY
-        else
-          ERRORS="${ERRORS}crates.io; "
-          echo "❌ crates.io: Missing" >> $GITHUB_STEP_SUMMARY
-        fi
+        check_with_retry "crates.io" "curl -s 'https://crates.io/api/v1/crates/chaotic_semantic_memory/$VERSION' | grep -q '\"version\"'"
 
-        # Check npm WASM package
+        # Check npm WASM package (with retry)
         echo "Checking npm WASM package..."
-        NPM_VERSION=$(npm view @d-o-hub/chaotic_semantic_memory version 2>/dev/null || echo "none")
-        if [ "$NPM_VERSION" = "$VERSION" ]; then
-          echo "✅ npm (@d-o-hub/chaotic_semantic_memory): Published" >> $GITHUB_STEP_SUMMARY
-        else
-          ERRORS="${ERRORS}npm-wasm (current: $NPM_VERSION); "
-          echo "❌ npm (@d-o-hub/chaotic_semantic_memory): Missing (current: $NPM_VERSION)" >> $GITHUB_STEP_SUMMARY
-        fi
+        check_with_retry "npm (@d-o-hub/chaotic_semantic_memory)" "[ \"$(npm view @d-o-hub/chaotic_semantic_memory version 2>/dev/null || echo 'none')\" = \"$VERSION\" ]"
 
-        # Check npm CLI package
+        # Check npm CLI package (with retry)
         echo "Checking npm CLI package..."
-        CLI_VERSION=$(npm view @d-o-hub/csm version 2>/dev/null || echo "none")
-        if [ "$CLI_VERSION" = "$VERSION" ]; then
-          echo "✅ npm (@d-o-hub/csm): Published" >> $GITHUB_STEP_SUMMARY
-        else
-          ERRORS="${ERRORS}npm-cli (current: $CLI_VERSION); "
-          echo "❌ npm (@d-o-hub/csm): Missing (current: $CLI_VERSION)" >> $GITHUB_STEP_SUMMARY
-        fi
+        check_with_retry "npm (@d-o-hub/csm)" "[ \"$(npm view @d-o-hub/csm version 2>/dev/null || echo 'none')\" = \"$VERSION\" ]"
 
-        # Check GitHub release
+        # Check GitHub release (no retry needed - immediate)
         echo "Checking GitHub release..."
         if gh release view "v${VERSION}" --repo ${{ github.repository }} >/dev/null 2>&1; then
           echo "✅ GitHub Release: Created" >> $GITHUB_STEP_SUMMARY
