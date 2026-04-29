@@ -195,36 +195,44 @@ impl Singularity {
     ) -> Arc<[(String, f32)]> {
         let scoring_start = unix_now_ns();
 
+        // Algorithmic Optimization: Use integer Hamming distance for ranking to avoid floating-point
+        // overhead and use a fused allocation to improve cache locality.
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        let scores: Vec<f32> = self
+        let mut scores: Vec<(usize, u32)> = self
             .concept_vectors
             .par_iter()
-            .map(|v| query.cosine_similarity(v))
+            .enumerate()
+            .with_min_len(512)
+            .map(|(idx, v)| (idx, query.hamming_distance(v)))
             .collect();
 
         #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-        let scores: Vec<f32> = self
+        let mut scores: Vec<(usize, u32)> = self
             .concept_vectors
             .iter()
-            .map(|v| query.cosine_similarity(v))
+            .enumerate()
+            .map(|(idx, v)| (idx, query.hamming_distance(v)))
             .collect();
 
         let scoring_ns = unix_now_ns().saturating_sub(scoring_start);
         let scored_count = scores.len();
 
-        let mut indices: Vec<usize> = (0..scored_count).collect();
-
+        // Sort by Hamming distance (ascending = more similar)
         if scored_count <= top_k {
-            indices.sort_by(|&a, &b| scores[b].total_cmp(&scores[a]));
+            scores.sort_unstable_by_key(|&(_, dist)| dist);
         } else {
-            indices.select_nth_unstable_by(top_k - 1, |&a, &b| scores[b].total_cmp(&scores[a]));
-            indices.truncate(top_k);
-            indices.sort_by(|&a, &b| scores[b].total_cmp(&scores[a]));
+            scores.select_nth_unstable_by(top_k - 1, |a, b| a.1.cmp(&b.1));
+            scores.truncate(top_k);
+            scores.sort_unstable_by_key(|&(_, dist)| dist);
         }
 
-        let results: Vec<(String, f32)> = indices
+        let results: Vec<(String, f32)> = scores
             .into_iter()
-            .map(|idx| (self.concept_indices[idx].clone(), scores[idx]))
+            .map(|(idx, dist)| {
+                // Defer cosine similarity calculation until the final top_k results
+                let similarity = 1.0 - (dist as f32 / 5120.0);
+                (self.concept_indices[idx].clone(), similarity)
+            })
             .collect();
 
         let results_arc = Arc::from(results);
@@ -268,31 +276,34 @@ impl Singularity {
         let candidate_count = candidates.len();
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        let mut scores: Vec<(usize, f32)> = candidates
+        let mut scores: Vec<(usize, u32)> = candidates
             .into_par_iter()
-            .map(|idx| (idx, query.cosine_similarity(&self.concept_vectors[idx])))
+            .map(|idx| (idx, query.hamming_distance(&self.concept_vectors[idx])))
             .collect();
 
         #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-        let mut scores: Vec<(usize, f32)> = candidates
+        let mut scores: Vec<(usize, u32)> = candidates
             .into_iter()
-            .map(|idx| (idx, query.cosine_similarity(&self.concept_vectors[idx])))
+            .map(|idx| (idx, query.hamming_distance(&self.concept_vectors[idx])))
             .collect();
 
         let scoring_ns = unix_now_ns().saturating_sub(scoring_start);
         let scored_count = scores.len();
 
         if scores.len() <= top_k {
-            scores.sort_by(|a, b| b.1.total_cmp(&a.1));
+            scores.sort_unstable_by_key(|&(_, dist)| dist);
         } else {
-            scores.select_nth_unstable_by(top_k - 1, |a, b| b.1.total_cmp(&a.1));
+            scores.select_nth_unstable_by(top_k - 1, |a, b| a.1.cmp(&b.1));
             scores.truncate(top_k);
-            scores.sort_by(|a, b| b.1.total_cmp(&a.1));
+            scores.sort_unstable_by_key(|&(_, dist)| dist);
         }
 
         let results: Vec<(String, f32)> = scores
             .into_iter()
-            .map(|(idx, score)| (self.concept_indices[idx].clone(), score))
+            .map(|(idx, dist)| {
+                let similarity = 1.0 - (dist as f32 / 5120.0);
+                (self.concept_indices[idx].clone(), similarity)
+            })
             .collect();
 
         let results_arc = Arc::from(results);
@@ -366,31 +377,34 @@ impl Singularity {
         let candidate_count = candidates.len();
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        let mut scores: Vec<(usize, f32)> = candidates
+        let mut scores: Vec<(usize, u32)> = candidates
             .into_par_iter()
-            .map(|idx| (idx, query.cosine_similarity(&self.concept_vectors[idx])))
+            .map(|idx| (idx, query.hamming_distance(&self.concept_vectors[idx])))
             .collect();
 
         #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-        let mut scores: Vec<(usize, f32)> = candidates
+        let mut scores: Vec<(usize, u32)> = candidates
             .into_iter()
-            .map(|idx| (idx, query.cosine_similarity(&self.concept_vectors[idx])))
+            .map(|idx| (idx, query.hamming_distance(&self.concept_vectors[idx])))
             .collect();
 
         let scoring_ns = unix_now_ns().saturating_sub(scoring_start);
         let scored_count = scores.len();
 
         if scores.len() <= top_k {
-            scores.sort_by(|a, b| b.1.total_cmp(&a.1));
+            scores.sort_unstable_by_key(|&(_, dist)| dist);
         } else {
-            scores.select_nth_unstable_by(top_k - 1, |a, b| b.1.total_cmp(&a.1));
+            scores.select_nth_unstable_by(top_k - 1, |a, b| a.1.cmp(&b.1));
             scores.truncate(top_k);
-            scores.sort_by(|a, b| b.1.total_cmp(&a.1));
+            scores.sort_unstable_by_key(|&(_, dist)| dist);
         }
 
         let results: Vec<(String, f32)> = scores
             .into_iter()
-            .map(|(idx, score)| (self.concept_indices[idx].clone(), score))
+            .map(|(idx, dist)| {
+                let similarity = 1.0 - (dist as f32 / 5120.0);
+                (self.concept_indices[idx].clone(), similarity)
+            })
             .collect();
 
         let results_arc = Arc::from(results);
