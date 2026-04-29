@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Pre-commit hook: Fast checks only (fmt + LOC gate + CHANGELOG)
+# Pre-commit hook: Fast checks only (fmt + LOC gate + CHANGELOG + security)
 # For full validation, run: scripts/validate.sh
 
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 MAX_SRC_LOC=500
 
@@ -59,5 +61,51 @@ bash scripts/sync-docs.sh --check
 # Clippy lint (catches CI failures early)
 echo " → Checking clippy..."
 cargo clippy --all-targets --all-features -- -D warnings
+
+# Gitleaks secret scanning (optional - only if installed)
+if command -v gitleaks >/dev/null 2>&1; then
+  echo " → Scanning for secrets (gitleaks)..."
+  # Scan only staged files for speed
+  if git diff --cached --quiet; then
+    echo "   skip: no staged changes to scan"
+  else
+    # Create temporary file with staged content
+    STAGED_TMP=$(mktemp)
+    git diff --cached --name-only > "$STAGED_TMP"
+    if [[ -s "$STAGED_TMP" ]]; then
+      gitleaks protect --staged --verbose 2>/dev/null || {
+        echo "❌ Gitleaks detected potential secrets in staged files!"
+        echo "   Review and remove sensitive data before committing"
+        rm -f "$STAGED_TMP"
+        exit 1
+      }
+    fi
+    rm -f "$STAGED_TMP"
+    echo "   ✓ No secrets detected"
+  fi
+else
+  echo " → Gitleaks not installed (optional)"
+  echo "   Install with: brew install gitleaks || apt install gitleaks"
+fi
+
+# Skill symlink validation (optional - only if skills exist)
+if [[ -d ".claude/skills" ]] && [[ -x "${SCRIPT_DIR}/validate-skills.sh" ]]; then
+  echo " → Validating skill symlinks..."
+  "${SCRIPT_DIR}/validate-skills.sh" --verbose 2>/dev/null || {
+    echo "❌ Invalid skill symlinks detected!"
+    echo "   Run: scripts/setup-skills.sh --force"
+    exit 1
+  }
+fi
+
+# GitHub Actions SHA validation (optional - fast offline check)
+if [[ -x "${SCRIPT_DIR}/validate-github-actions-shas.sh" ]] && [[ "${CSM_VALIDATE_GITHUB_ACTIONS_SHAS:-}" == "true" ]]; then
+  echo " → Validating GitHub Actions SHAs..."
+  "${SCRIPT_DIR}/validate-github-actions-shas.sh" --offline 2>/dev/null || {
+    echo "❌ GitHub Actions not properly pinned to SHA!"
+    echo "   Run: scripts/validate-github-actions-shas.sh --verbose"
+    exit 1
+  }
+fi
 
 echo "✅ Pre-commit checks passed!"

@@ -3204,3 +3204,44 @@ actions:
       SonarCloud, DeepSource. 333 tests passing. Replaces float cosine
       with Hamming-distance integer ranking + fused (idx,score) vector
       and Rayon with_min_len(512).
+
+  - name: real_usage_verification_2026_04_29
+    preconditions:
+      pr_129_merged: true
+    effects:
+      verification_2026_04_29_completed: true
+      action_last_completed: real_usage_verification_2026_04_29
+    cost: 12
+    status: complete
+    file: plans/VERIFICATION_2026_04_29.md, benchmarks/results/verify-2026-04-29/
+    description: |
+      End-to-end verification of v0.3.5 + 787098a (PR #129 perf merge).
+      GOAP plan: compile_examples → run_examples → run_criterion_benches
+      → run_workspace_benchmark → run_test_suite → write_report.
+
+      Outcomes:
+      - 7/7 examples run end-to-end without panic
+      - 347/347 tests pass
+      - All 3 criterion bench targets pass (--quick mode)
+      - bm25_search_1000: 3030 µs → 64.4 µs (47× faster, validates PR #129)
+      - InertialESN beta=0.15 has zero regression vs beta=0
+      - Bridge retrieval pipeline (1k concepts): 1.92 ms
+      - Workspace small dataset: recall@1=0.75, MRR=0.75, abstain_precision=1.0
+
+  - name: latency_us_reporting_and_hybrid_example_2026_04_29
+    preconditions:
+      verification_2026_04_29_completed: true
+    effects:
+      latency_reporting_uses_us_for_sub_ms: true
+      hybrid_retrieval_example_exists: true
+      action_last_completed: latency_us_reporting_and_hybrid_example_2026_04_29
+    cost: 7
+    status: complete
+    file: benchmarks/src/types.rs, benchmarks/src/runner.rs, benchmarks/src/metrics.rs, benchmarks/src/report.rs, examples/hybrid_retrieval.rs
+    description: |
+      Address remaining observations from VERIFICATION_2026_04_29.md:
+      1. p50_latency_ms = 0 in workspace summary → Add p50_latency_us field
+         for sub-millisecond precision. Added latency_us to CaseResult and
+         p50_latency_us to SummaryMetrics with serde(default) for backward compat.
+      2. Add examples/hybrid_retrieval.rs to exercise probe_bridge_text
+         for Semantic Bridge Layer hybrid retrieval (ADR-0061).

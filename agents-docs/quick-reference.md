@@ -102,3 +102,45 @@ csm import backup.json
 ## Memory Storage Paths
 - **git-local mode** (default): `.csm/memory.db` in repo root
 - **Custom path**: Set `CSM_DB_PATH` environment variable
+
+## Skill Management Scripts
+```bash
+# Setup symlinks for skills in ~/.claude/skills/
+./scripts/setup-skills.sh
+
+# Validate all skills have required files
+./scripts/validate-skills.sh
+
+# Validate skill.md format (frontmatter, sections)
+./scripts/validate-skill-format.sh
+
+# Validate links in skill files
+./scripts/validate-links.sh
+```
+
+## Validation Scripts
+```bash
+# Validate GitHub Actions use SHA-pinned actions
+./scripts/validate-github-actions-shas.sh
+
+# Validate git hooks are properly installed
+./scripts/validate-git-hooks.sh
+
+# Validate GitHub workflows
+./scripts/validate-workflows.sh
+
+# Lint caching library for scripts
+source scripts/lib/lint_cache.sh
+```
+
+## Automation Scripts
+```bash
+# Self-fix loop - run validation and auto-fix issues
+./scripts/self-fix-loop.sh
+
+# AI-assisted commit with conventional format
+./scripts/ai-commit.sh
+
+# Propagate version changes to all files
+./scripts/propagate-version.sh
+```

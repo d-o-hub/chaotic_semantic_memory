@@ -58,6 +58,11 @@ pub fn aggregate(
     let p99_idx = ((count - 1) as f64 * 0.99) as usize;  // Floor via truncation
     let p99 = latencies[p99_idx];
 
+    // Compute microsecond latencies for sub-ms precision
+    let mut latencies_us: Vec<_> = results.iter().map(|r| r.latency_us).collect();
+    latencies_us.sort_unstable();
+    let p50_us = latencies_us[(count - 1) / 2];
+
     let exact_matches: Vec<_> = results.iter().filter_map(|r| r.exact_match).collect();
     let exact_match = if !exact_matches.is_empty() {
         Some(exact_matches.iter().filter(|&&m| m).count() as f32 / exact_matches.len() as f32)
@@ -77,6 +82,7 @@ pub fn aggregate(
         abstain_recall,
         ingest_ms,
         p50_latency_ms: p50,
+        p50_latency_us: p50_us,
         p95_latency_ms: p95,
         p99_latency_ms: p99,
         storage_bytes,
@@ -116,6 +122,7 @@ mod tests {
             exact_match: None,
             abstained,
             latency_ms,
+            latency_us: latency_ms * 1000,  // Simulate us from ms for tests
             prompt_tokens: 0,
             completion_tokens: 0,
         }
