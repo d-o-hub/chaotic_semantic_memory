@@ -93,6 +93,7 @@ mod tests {
             exact_match: None,
             abstained: false,
             latency_ms: 0,
+            latency_us: 0,
             prompt_tokens: 0,
             completion_tokens: 0,
         }

@@ -51,6 +51,7 @@ pub fn write_markdown(
 - Abstain recall: {:.4}\n\
 - Ingest ms: {}\n\
 - p50 latency ms: {}\n\
+- p50 latency µs: {}\n\
 - p95 latency ms: {}\n\
 - p99 latency ms: {}\n\
 - Storage bytes: {}\n\
@@ -78,6 +79,7 @@ pub fn write_markdown(
         summary.abstain_recall,
         summary.ingest_ms,
         summary.p50_latency_ms,
+        summary.p50_latency_us,
         summary.p95_latency_ms,
         summary.p99_latency_ms,
         summary.storage_bytes,

@@ -14,9 +14,9 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: real_usage_verification_2026_04_29
-  orchestrator_last_run: goap_real_usage_verification_2026_04_29
-  orchestrator_last_run_at_utc: 2026-04-29T08:30:00Z
+  action_last_completed: latency_us_reporting_and_hybrid_example_2026_04_29
+  orchestrator_last_run: goap_remaining_observations_2026_04_29
+  orchestrator_last_run_at_utc: 2026-04-29T09:30:00Z
   pr_129_merged: true                          # 2026-04-29T07:52:50Z squash-merged → 787098a
   perf_singularity_integer_scoring_landed: true # Hamming int ranking + fused (idx,score) + Rayon with_min_len(512)
   # Real-usage verification (2026-04-29) — see plans/VERIFICATION_2026_04_29.md
@@ -28,6 +28,9 @@ world_state:
   verification_bm25_search_1000_us: 64.4        # was 3030 µs pre PR #129 (47× faster)
   verification_bridge_retrieval_pipeline_1k_ms: 1.92
   tests_count: 347                              # was 333 pre PR #129
+  # Remaining observations addressed (2026-04-29)
+  latency_reporting_uses_us_for_sub_ms: true    # p50_latency_us field added to benchmarks
+  hybrid_retrieval_example_exists: true         # examples/hybrid_retrieval.rs created
   ci_all_checks_passed: true                  # 2026-04-28: Release workflow fixed + v0.3.5 published
   ci_release_workflow_blocked: false           # 2026-04-28: Fixed - checkout + retry logic
   ci_release_workflow_fix_applied: true        # 2026-04-28: actions: read + null guards

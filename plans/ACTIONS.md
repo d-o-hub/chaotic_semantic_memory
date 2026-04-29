@@ -3227,3 +3227,21 @@ actions:
       - InertialESN beta=0.15 has zero regression vs beta=0
       - Bridge retrieval pipeline (1k concepts): 1.92 ms
       - Workspace small dataset: recall@1=0.75, MRR=0.75, abstain_precision=1.0
+
+  - name: latency_us_reporting_and_hybrid_example_2026_04_29
+    preconditions:
+      verification_2026_04_29_completed: true
+    effects:
+      latency_reporting_uses_us_for_sub_ms: true
+      hybrid_retrieval_example_exists: true
+      action_last_completed: latency_us_reporting_and_hybrid_example_2026_04_29
+    cost: 7
+    status: complete
+    file: benchmarks/src/types.rs, benchmarks/src/runner.rs, benchmarks/src/metrics.rs, benchmarks/src/report.rs, examples/hybrid_retrieval.rs
+    description: |
+      Address remaining observations from VERIFICATION_2026_04_29.md:
+      1. p50_latency_ms = 0 in workspace summary → Add p50_latency_us field
+         for sub-millisecond precision. Added latency_us to CaseResult and
+         p50_latency_us to SummaryMetrics with serde(default) for backward compat.
+      2. Add examples/hybrid_retrieval.rs to exercise probe_bridge_text
+         for Semantic Bridge Layer hybrid retrieval (ADR-0061).
