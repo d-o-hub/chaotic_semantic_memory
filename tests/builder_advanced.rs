@@ -144,7 +144,10 @@ async fn builder_with_max_cached_top_k_custom() {
         .unwrap();
 
     // Probe with cached top_k should cache results
-    let results = framework.probe_batch_cached(&[HVec10240::random()], 5).await.unwrap();
+    let results = framework
+        .probe_batch_cached(&[HVec10240::random()], 5)
+        .await
+        .unwrap();
     assert_eq!(results.len(), 1);
 }
 

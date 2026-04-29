@@ -97,7 +97,10 @@ async fn concept_history_limit_clamped_to_max() {
 
     // Request history with limit exceeding MAX_HISTORY_LIMIT (1000)
     // Should be clamped to 1000
-    let history = framework.concept_history("history-limit", 5000).await.unwrap();
+    let history = framework
+        .concept_history("history-limit", 5000)
+        .await
+        .unwrap();
     // History may be empty without updates, but call should succeed
     assert!(history.len() <= 1000);
 }
@@ -197,5 +200,8 @@ async fn update_concept_metadata_persists() {
 
     // Concept should still exist with updated metadata
     let concept = framework.get_concept("update-meta").await.unwrap().unwrap();
-    assert_eq!(concept.metadata.get("updated"), Some(&serde_json::json!(true)));
+    assert_eq!(
+        concept.metadata.get("updated"),
+        Some(&serde_json::json!(true))
+    );
 }

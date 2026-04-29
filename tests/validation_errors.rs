@@ -28,7 +28,9 @@ async fn concept_id_too_long_fails() {
 
     // Create an ID longer than MAX_CONCEPT_ID_BYTES (256)
     let long_id = "x".repeat(300);
-    let result = framework.inject_concept(&long_id, HVec10240::random()).await;
+    let result = framework
+        .inject_concept(&long_id, HVec10240::random())
+        .await;
     assert!(result.is_err());
 }
 
@@ -63,7 +65,9 @@ async fn association_strength_negative_fails() {
         .await
         .unwrap();
 
-    let result = framework.associate("assoc-neg-1", "assoc-neg-2", -0.5).await;
+    let result = framework
+        .associate("assoc-neg-1", "assoc-neg-2", -0.5)
+        .await;
     assert!(result.is_err());
 }
 
@@ -84,7 +88,9 @@ async fn association_strength_infinite_fails() {
         .await
         .unwrap();
 
-    let result = framework.associate("assoc-inf-1", "assoc-inf-2", f32::INFINITY).await;
+    let result = framework
+        .associate("assoc-inf-1", "assoc-inf-2", f32::INFINITY)
+        .await;
     assert!(result.is_err());
 }
 

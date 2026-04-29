@@ -34,7 +34,10 @@ async fn version_history_after_multiple_updates() {
     framework.persist().await.unwrap();
 
     // Retrieve history
-    let history = framework.concept_history("version-multi", 10).await.unwrap();
+    let history = framework
+        .concept_history("version-multi", 10)
+        .await
+        .unwrap();
     // History may be empty in some test environments, just verify operation succeeded
     let _ = history;
 }
@@ -67,7 +70,10 @@ async fn version_retention_prunes_old_versions() {
     framework.persist().await.unwrap();
 
     // History should be limited by retention (2)
-    let history = framework.concept_history("version-prune", 10).await.unwrap();
+    let history = framework
+        .concept_history("version-prune", 10)
+        .await
+        .unwrap();
     // May be empty in test environments, but call should succeed
     assert!(history.len() <= 2 || history.is_empty());
 }
@@ -84,7 +90,10 @@ async fn version_history_empty_for_nonexistent_concept() {
         .unwrap();
 
     // Request history for concept that doesn't exist
-    let history = framework.concept_history("nonexistent-version", 10).await.unwrap();
+    let history = framework
+        .concept_history("nonexistent-version", 10)
+        .await
+        .unwrap();
     assert!(history.is_empty());
 }
 
@@ -114,8 +123,15 @@ async fn version_metadata_update_creates_version() {
     framework.persist().await.unwrap();
 
     // Concept should exist with updated metadata
-    let concept = framework.get_concept("version-meta").await.unwrap().unwrap();
-    assert_eq!(concept.metadata.get("updated"), Some(&serde_json::json!("yes")));
+    let concept = framework
+        .get_concept("version-meta")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        concept.metadata.get("updated"),
+        Some(&serde_json::json!("yes"))
+    );
 }
 
 #[tokio::test]

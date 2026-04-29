@@ -126,7 +126,10 @@ async fn export_and_import_cycle_preserves_data() {
         .inject_concept("cycle-2", HVec10240::random())
         .await
         .unwrap();
-    framework.associate("cycle-1", "cycle-2", 0.9).await.unwrap();
+    framework
+        .associate("cycle-1", "cycle-2", 0.9)
+        .await
+        .unwrap();
 
     // Export to JSON
     let json_temp = NamedTempFile::new().unwrap();
