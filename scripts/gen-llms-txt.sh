@@ -21,11 +21,4 @@ if ! cargo llms-txt; then
     exit 1
 fi
 
-echo "Adding llms*.txt to git..."
-if git add llms-full.txt llms.txt; then
-    echo "✅ Added llms*.txt to git"
-else
-    echo "⚠️  Could not add llms*.txt to git (may already be tracked or not exist)"
-fi
-
-echo "✅ llms-full.txt generated"
+echo "✅ llms-full.txt generated (files not auto-added to git)"

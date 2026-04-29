@@ -127,6 +127,9 @@ jobs:
         VERSION="${{ steps.version.outputs.version }}"
         bash scripts/sync-version.sh "$VERSION"
 
+    - name: Generate llms.txt files for AI tool integration
+      run: bash scripts/gen-llms-txt.sh
+
     - name: Ensure version sync is clean
       run: |
         git add -A

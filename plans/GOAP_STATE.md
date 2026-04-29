@@ -14,7 +14,7 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: latency_us_reporting_and_hybrid_example_2026_04_29
+   action_last_completed: fix_llms_txt_script_and_release_workflow_2026_04_29
   orchestrator_last_run: goap_remaining_observations_2026_04_29
   orchestrator_last_run_at_utc: 2026-04-29T09:30:00Z
   pr_129_merged: true                          # 2026-04-29T07:52:50Z squash-merged → 787098a
@@ -158,8 +158,10 @@ world_state:
   wasm_docs_match_generated_api: true
 
   # Recent changes (consolidated)
-  recent_changes:
-    - "Documentation audit: fixed 21 discrepancies across 9 .md files against codebase"
+   recent_changes:
+     - "Fixed gen-llms-txt.sh to only generate files without auto-adding to git (prevents release workflow state issues)"
+     - "Added llms.txt generation step to release.yml validate job for AI tool integration"
+     - "Documentation audit: fixed 21 discrepancies across 9 .md files against codebase"
     - "Fixed: ConceptBuilder::build() returns Result (README Quick Start)"
     - "Fixed: concept_cache_size default is 128 not 1000 (README, book, pkg)"
     - "Fixed: HVec10240 API signatures - random() takes no params, bind/cosine_similarity are instance methods"
