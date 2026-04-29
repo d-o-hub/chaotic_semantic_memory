@@ -2,3 +2,6 @@
 !.tmp/
 !*.tmp
 !*.tgz
+!*.log
+!.*.db
+!.json

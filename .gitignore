@@ -92,3 +92,4 @@ csm_test*
 .claude/settings.local.json
 .claude/skills
 *.tgz
+csm_memory.db
