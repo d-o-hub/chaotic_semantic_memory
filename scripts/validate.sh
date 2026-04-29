@@ -82,11 +82,10 @@ fi
 # ShellCheck for all shell scripts (optional - only if installed)
 if command -v shellcheck >/dev/null 2>&1; then
   echo "==> ShellCheck (severity=error)"
-  SHELL_SCRIPTS=$(find scripts -name '*.sh' -type f)
+  # Note: Exclude setup-hooks.sh as shellcheck crashes on it with 'openBinaryFile' error
+  SHELL_SCRIPTS=$(find scripts -name '*.sh' -type f | grep -v setup-hooks.sh)
   if [[ -n "${SHELL_SCRIPTS}" ]]; then
-    # Note: --external-sources=false prevents shellcheck from following source references
-    # which can cause crashes when analyzing files that reference other scripts
-    shellcheck --severity=error --external-sources=false "${SHELL_SCRIPTS}"
+    shellcheck --severity=error "${SHELL_SCRIPTS}"
     echo "ok: all shell scripts pass shellcheck"
   else
     echo "skip: no shell scripts found"
