@@ -32,48 +32,29 @@
 Generated: [TIMESTAMP REMOVED FOR DETERMINISM]
 Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
-## Core Documentation
-
-- [Complete API Documentation](llms-full.txt): Full public API documentation with detailed descriptions
-- [README](README.md): Project overview and getting started guide
-- [Cargo.toml](Cargo.toml): Project configuration and dependencies
-
 ## Table of Contents
 
-### src/framework_bridge.rs
+### src/bin/csm.rs
 
-- impl ChaoticSemanticFramework
+- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+- pub use native::clap::Parser
+- pub use native::colored::Colorize
+- pub use native::tracing::Level
+- pub use native::tracing_subscriber::FmtSubscriber
+- pub fn native::init_tracing
+- pub fn native::format_error
+- pub fn native::handle_completions
+- pub fn native::resolve_database_path
+- pub fn native::run_async
 
-### src/semantic_triples.rs
+### src/bridge_persistence.rs
 
-- pub struct SemanticTriple
-- impl SemanticTriple
-- pub struct StructuredMemoryPayload
-- impl StructuredMemoryPayload
+- impl Persistence
 
-### src/reservoir.rs
+### src/bridge_retrieval.rs
 
-- pub struct ReservoirMetricsSnapshot
-- impl ReservoirMetrics
-- pub struct Reservoir
-- impl Reservoir
-- pub struct ChaoticReservoir
-- impl ChaoticReservoir
-
-### src/concept_builder.rs
-
-- pub struct ConceptBuilder
-- impl ConceptBuilder
-
-### src/hyperdim.rs
-
-- pub use crate::hyperdim_batch::batch_cosine_similarity
-- pub struct HVec10240
-- impl HVec10240
-- impl Serialize for HVec10240
-- impl Visitor for HVecVisitor
-- impl Deserialize for HVec10240
-- pub use crate::bundle::BundleAccumulator
+- pub struct BridgeRetrieval
+- impl BridgeRetrieval
 
 ### src/bundle.rs
 
@@ -81,60 +62,41 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Default for BundleAccumulator
 - impl BundleAccumulator
 
-### src/metadata_filter.rs
+### src/cli/args.rs
 
-- pub enum MetadataFilter
-- impl MetadataFilter
-- impl ops::Not for MetadataFilter
+- pub struct CliArgs
+- pub enum OutputFormat
+- pub enum Commands
+- pub struct InjectArgs
+- pub enum VectorSource
+- pub struct ProbeArgs
+- pub struct QueryArgs
+- pub struct AssociateArgs
+- pub enum ExportFormat
+- pub struct ExportArgs
+- pub enum ImportFormat
+- pub struct ImportArgs
+- pub struct VersionArgs
+- pub struct CompletionsArgs
+- pub struct IndexJsonlArgs
+- pub struct IndexDirArgs
 
-### src/persistence.rs
+### src/cli/commands/associate.rs
 
-- pub struct Persistence
-- pub struct ConceptVersion
-- impl Persistence
+- pub fn run_associate
+- pub fn run_associate_batch
 
-### src/reservoir_sparse.rs
+### src/cli/commands/completions.rs
 
-- impl SparseWeights
+- pub fn run_completions
 
-### src/singularity_ttl.rs
+### src/cli/commands/export.rs
 
-- impl Default for Concept
-- impl Singularity
+- pub fn run_export
 
-### src/singularity_cache.rs
+### src/cli/commands/import.rs
 
-- impl QueryCache
-- pub struct CacheMetricsSnapshot
-- impl CacheMetrics
-
-### src/framework_ttl.rs
-
-- impl crate::framework::ChaoticSemanticFramework
-
-### src/framework_builder.rs
-
-- pub struct FrameworkConfig
-- impl Default for FrameworkConfig
-- pub struct FrameworkStats
-- pub struct FrameworkBuilder
-- impl FrameworkBuilder
-
-### src/graph_traversal.rs
-
-- pub struct TraversalConfig
-- impl Default for TraversalConfig
-- impl Singularity
-
-### src/singularity_retrieval.rs
-
-- pub struct RetrievalStats
-- pub enum CandidateSource
-- pub enum FilterStrategy
-- pub struct RetrievalConfig
-- impl RetrievalConfig
-- impl Default for RetrievalConfig
-- impl Singularity
+- pub fn run_import
 
 ### src/cli/commands/index_dir.rs
 
@@ -142,35 +104,13 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct MarkdownChunk
 - pub fn chunk_by_heading
 
-### src/cli/commands/associate.rs
-
-- pub fn run_associate
-- pub fn run_associate_batch
-
-### src/cli/commands/import.rs
-
-- pub fn run_import
-
-### src/cli/commands/inject.rs
-
-- pub fn run_inject
-
-### src/cli/commands/probe.rs
-
-- pub fn run_probe
-- pub fn run_probe_with_vector
-
 ### src/cli/commands/index_jsonl.rs
 
 - pub fn run_index_jsonl
 
-### src/cli/commands/query.rs
+### src/cli/commands/inject.rs
 
-- pub fn run_query
-
-### src/cli/commands/export.rs
-
-- pub fn run_export
+- pub fn run_inject
 
 ### src/cli/commands/mod.rs
 
@@ -198,14 +138,14 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn truncate_preview
 - pub fn create_framework
 
-### src/cli/commands/completions.rs
+### src/cli/commands/probe.rs
 
-- pub fn run_completions
+- pub fn run_probe
+- pub fn run_probe_with_vector
 
-### src/cli/git_local.rs
+### src/cli/commands/query.rs
 
-- pub fn resolve_git_local_path
-- pub fn ensure_git_local_dir
+- pub fn run_query
 
 ### src/cli/error.rs
 
@@ -218,24 +158,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl CliError
 - impl ExitCode
 
-### src/cli/args.rs
+### src/cli/git_local.rs
 
-- pub struct CliArgs
-- pub enum OutputFormat
-- pub enum Commands
-- pub struct InjectArgs
-- pub enum VectorSource
-- pub struct ProbeArgs
-- pub struct QueryArgs
-- pub struct AssociateArgs
-- pub enum ExportFormat
-- pub struct ExportArgs
-- pub enum ImportFormat
-- pub struct ImportArgs
-- pub struct VersionArgs
-- pub struct CompletionsArgs
-- pub struct IndexJsonlArgs
-- pub struct IndexDirArgs
+- pub fn resolve_git_local_path
+- pub fn ensure_git_local_dir
 
 ### src/cli/mod.rs
 
@@ -248,98 +174,24 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
 
-### src/persistence_migrations.rs
+### src/concept_builder.rs
 
-- impl Persistence
+- pub struct ConceptBuilder
+- impl ConceptBuilder
 
-### src/framework_validation.rs
+### src/encoder.rs
 
-- impl ChaoticSemanticFramework
-
-### src/persistence_ops.rs
-
-- impl Persistence
-
-### src/reservoir_inertial.rs
-
-- impl Reservoir
-
-### src/hyperdim_batch.rs
-
-- pub fn batch_cosine_similarity
-
-### src/retrieval/hybrid.rs
-
-- pub fn compute_weights
-- pub fn normalize_scores
-- pub fn merge_results
-- pub enum HybridMode
-- pub struct HybridConfig
-- impl Default for HybridConfig
-
-### src/retrieval/mod.rs
-
-- pub mod bm25
-- pub mod hybrid
-- pub use bm25::{Bm25Config, Bm25Index}
-- pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
-
-### src/retrieval/bm25.rs
-
-- pub struct Bm25Config
-- impl Default for Bm25Config
-- pub struct Bm25Index
-- impl Bm25Index
-
-### src/singularity.rs
-
-- pub use crate::singularity_cache::CacheMetricsSnapshot
-- pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
-- pub const DEFAULT_MAX_CACHED_TOP_K
-- pub struct Concept
-- pub struct SingularityConfig
-- impl Default for SingularityConfig
-- pub struct Singularity
-- impl Singularity
-- impl Default for Singularity
-- pub use crate::concept_builder::ConceptBuilder
-
-### src/framework.rs
-
-- pub struct ChaoticSemanticFramework
-- pub struct FrameworkMetrics
-- pub struct FrameworkMetricsSnapshot
-- impl FrameworkMetrics
-- impl ChaoticSemanticFramework
-
-### src/persistence_wasm.rs
-
-- pub struct Persistence
-- pub struct ConceptVersion
-- impl Persistence
-
-### src/framework_ops.rs
-
-- impl ChaoticSemanticFramework
-
-### src/wasm.rs
-
-- pub fn initialize_wasm
-- pub struct WasmFramework
-- impl WasmFramework
-- pub fn random_hypervector
-- pub fn encode_text
-- pub fn cosine_similarity
+- pub struct TextEncoderConfig
+- impl Default for TextEncoderConfig
+- pub struct TextEncoder
+- impl Default for TextEncoder
+- impl TextEncoder
 
 ### src/error.rs
 
 - pub enum MemoryError
 - impl MemoryError
 - pub type Result
-
-### src/wasm_ext.rs
-
-- impl WasmFramework
 
 ### src/export_payload.rs
 
@@ -350,9 +202,62 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl From for BinaryExportPayload
 - impl BinaryExportPayload
 
-### src/persistence_versions.rs
+### src/framework.rs
 
-- impl Persistence
+- pub struct ChaoticSemanticFramework
+- pub struct FrameworkMetrics
+- pub struct FrameworkMetricsSnapshot
+- impl FrameworkMetrics
+- impl ChaoticSemanticFramework
+
+### src/framework_bridge.rs
+
+- impl ChaoticSemanticFramework
+
+### src/framework_builder.rs
+
+- pub struct FrameworkConfig
+- impl Default for FrameworkConfig
+- pub struct FrameworkStats
+- pub struct FrameworkBuilder
+- impl FrameworkBuilder
+
+### src/framework_events.rs
+
+- pub enum MemoryEvent
+- impl ChaoticSemanticFramework
+
+### src/framework_ops.rs
+
+- impl ChaoticSemanticFramework
+
+### src/framework_ttl.rs
+
+- impl crate::framework::ChaoticSemanticFramework
+
+### src/framework_validation.rs
+
+- impl ChaoticSemanticFramework
+
+### src/graph_traversal.rs
+
+- pub struct TraversalConfig
+- impl Default for TraversalConfig
+- impl Singularity
+
+### src/hyperdim.rs
+
+- pub use crate::hyperdim_batch::batch_cosine_similarity
+- pub struct HVec10240
+- impl HVec10240
+- impl Serialize for HVec10240
+- impl Visitor for HVecVisitor
+- impl Deserialize for HVec10240
+- pub use crate::bundle::BundleAccumulator
+
+### src/hyperdim_batch.rs
+
+- pub fn batch_cosine_similarity
 
 ### src/lib.rs
 
@@ -403,10 +308,75 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use prelude::crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod wasm
 
-### src/bridge_retrieval.rs
+### src/metadata_filter.rs
 
-- pub struct BridgeRetrieval
-- impl BridgeRetrieval
+- pub enum MetadataFilter
+- impl MetadataFilter
+- impl ops::Not for MetadataFilter
+
+### src/persistence.rs
+
+- pub struct Persistence
+- pub struct ConceptVersion
+- impl Persistence
+
+### src/persistence_migrations.rs
+
+- impl Persistence
+
+### src/persistence_ops.rs
+
+- impl Persistence
+
+### src/persistence_versions.rs
+
+- impl Persistence
+
+### src/persistence_wasm.rs
+
+- pub struct Persistence
+- pub struct ConceptVersion
+- impl Persistence
+
+### src/reservoir.rs
+
+- pub struct ReservoirMetricsSnapshot
+- impl ReservoirMetrics
+- pub struct Reservoir
+- impl Reservoir
+- pub struct ChaoticReservoir
+- impl ChaoticReservoir
+
+### src/reservoir_inertial.rs
+
+- impl Reservoir
+
+### src/reservoir_sparse.rs
+
+- impl SparseWeights
+
+### src/retrieval/bm25.rs
+
+- pub struct Bm25Config
+- impl Default for Bm25Config
+- pub struct Bm25Index
+- impl Bm25Index
+
+### src/retrieval/hybrid.rs
+
+- pub fn compute_weights
+- pub fn normalize_scores
+- pub fn merge_results
+- pub enum HybridMode
+- pub struct HybridConfig
+- impl Default for HybridConfig
+
+### src/retrieval/mod.rs
+
+- pub mod bm25
+- pub mod hybrid
+- pub use bm25::{Bm25Config, Bm25Index}
+- pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
 
 ### src/semantic_bridge.rs
 
@@ -423,275 +393,71 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct ConceptGraph
 - impl ConceptGraph
 
-### src/framework_events.rs
+### src/semantic_triples.rs
 
-- pub enum MemoryEvent
-- impl ChaoticSemanticFramework
+- pub struct SemanticTriple
+- impl SemanticTriple
+- pub struct StructuredMemoryPayload
+- impl StructuredMemoryPayload
 
-### src/bridge_persistence.rs
+### src/singularity.rs
 
-- impl Persistence
+- pub use crate::singularity_cache::CacheMetricsSnapshot
+- pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
+- pub const DEFAULT_MAX_CACHED_TOP_K
+- pub struct Concept
+- pub struct SingularityConfig
+- impl Default for SingularityConfig
+- pub struct Singularity
+- impl Singularity
+- impl Default for Singularity
+- pub use crate::concept_builder::ConceptBuilder
 
-### src/encoder.rs
+### src/singularity_cache.rs
 
-- pub struct TextEncoderConfig
-- impl Default for TextEncoderConfig
-- pub struct TextEncoder
-- impl Default for TextEncoder
-- impl TextEncoder
+- impl QueryCache
+- pub struct CacheMetricsSnapshot
+- impl CacheMetrics
 
 ### src/singularity_ext.rs
 
 - impl Singularity
 
-### src/bin/csm.rs
+### src/singularity_retrieval.rs
 
-- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
-- pub use native::clap::Parser
-- pub use native::colored::Colorize
-- pub use native::tracing::Level
-- pub use native::tracing_subscriber::FmtSubscriber
-- pub fn native::init_tracing
-- pub fn native::format_error
-- pub fn native::handle_completions
-- pub fn native::resolve_database_path
-- pub fn native::run_async
+- pub struct RetrievalStats
+- pub enum CandidateSource
+- pub enum FilterStrategy
+- pub struct RetrievalConfig
+- impl RetrievalConfig
+- impl Default for RetrievalConfig
+- impl Singularity
 
----
+### src/singularity_ttl.rs
+
+- impl Default for Concept
+- impl Singularity
+
+### src/wasm.rs
+
+- pub fn initialize_wasm
+- pub struct WasmFramework
+- impl WasmFramework
+- pub fn random_hypervector
+- pub fn encode_text
+- pub fn cosine_similarity
+
+### src/wasm_ext.rs
+
+- impl WasmFramework
+
+## Core Documentation
+
+- [Complete API Documentation](llms-full.txt): Full public API documentation with detailed descriptions
+- [README](README.md): Project overview and getting started guide
+- [Cargo.toml](Cargo.toml): Project configuration and dependencies
 
 ## README.md
-
-### chaotic_semantic_memory
-
-[![CI](https://github.com/d-o-hub/chaotic_semantic_memory/actions/workflows/ci.yml/badge.svg)](https://github.com/d-o-hub/chaotic_semantic_memory/actions/workflows/ci.yml)
-[![Crates.io](https://img.shields.io/crates/v/chaotic_semantic_memory.svg)](https://crates.io/crates/chaotic_semantic_memory)
-[![docs.rs](https://img.shields.io/docsrs/chaotic_semantic_memory)](https://docs.rs/chaotic_semantic_memory)
-[![npm](https://img.shields.io/npm/v/@d-o-hub/chaotic_semantic_memory)](https://www.npmjs.com/package/@d-o-hub/chaotic_semantic_memory)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-`chaotic_semantic_memory` is a Rust crate for AI memory systems built on
-**Hyperdimensional Computing (HDC)** — not transformer embeddings:
-- 10240-bit binary hypervectors with SIMD-accelerated operations
-- chaotic echo-state reservoirs for temporal processing
-- libSQL persistence (local SQLite or remote Turso)
-
-It targets both native and `wasm32` builds with explicit threading guards.
-
-#### Quick Links
-
-| Resource | Link |
-|----------|------|
-| Documentation | [docs.rs/chaotic_semantic_memory](https://docs.rs/chaotic_semantic_memory) |
-| Crates.io | [crates.io/crates/chaotic_semantic_memory](https://crates.io/crates/chaotic_semantic_memory) |
-| Issues | [GitHub Issues](https://github.com/d-o-hub/chaotic_semantic_memory/issues) |
-| Changelog | [CHANGELOG.md](CHANGELOG.md) |
-
-#### Important: HDC, Not Semantic Embeddings
-
-This crate uses **Hyperdimensional Computing (HDC)** for text encoding — it is
-**not** a transformer or embedding model. Understanding this distinction is critical:
-
-| | HDC (this crate) | Transformer Embeddings (e.g. sentence-transformers) |
-|---|---|---|
-| **Method** | Hash-based token → random hypervector | Learned neural network encodings |
-| **Similarity** | Tokens + position match → similar vectors | Semantic meaning → similar vectors |
-| **"cat" vs "kitten"** | Low similarity (different tokens) | High similarity (synonyms) |
-| **"cat sat" vs "sat cat"** | Different (position-aware) | Often similar |
-| **Compute** | CPU-only, deterministic, no GPU | GPU-accelerated, learned weights |
-| **Use case** | Keyword/lexical search, exact-match recall | Semantic search, paraphrase detection |
-
-**Bottom line:** `inject_text` / `probe_text` match on shared tokens at similar
-positions. For true semantic similarity, use an external embedding model and inject
-vectors directly via `inject_concept`.
-
-#### Features
-
-- **Hyperdimensional Computing**: 10240-bit binary hypervectors with SIMD-accelerated operations
-- **Chaotic Reservoirs**: Configurable echo-state networks with spectral radius controls `[0.9, 1.1]`
-- **Semantic Memory**: Concept graphs with weighted associations and similarity search
-- **Optimized Retrieval**: Two-stage retrieval pipeline with heuristic-based candidate generation (bucket, graph) and dense-vector scoring.
-- **Persistence**: libSQL for local SQLite or remote Turso database
-- **WASM Support**: Browser-compatible with memory-based import/export
-- **CLI**: Full-featured command-line interface with shell completions
-- **Production-Ready**: Structured logging, metrics, input validation, memory guardrails
-
-#### Installation
-
-##### Rust Library
-
-```bash
-cargo add chaotic_semantic_memory
-```
-
-For WASM targets, build with `--target wasm32-unknown-unknown`. No additional feature flag is needed;
-WASM support is enabled automatically when compiling for the `wasm32` target architecture.
-
-```toml
-[dependencies]
-chaotic_semantic_memory = { version = "0.3" }
-```
-
-For library-only consumers who don't need the CLI binary or its dependencies:
-
-```toml
-[dependencies]
-chaotic_semantic_memory = { version = "0.3", default-features = false }
-```
-
-##### WASM npm Package (for JS/TS)
-
-```bash
-npm install @d-o-hub/chaotic_semantic_memory
-```
-
-##### CLI Binary
-
-**via npm (recommended for Node.js users):**
-```bash
-npm install -g @d-o-hub/csm
-```
-
-**via cargo:**
-```bash
-cargo install chaotic_semantic_memory --bin csm
-```
-
-> **Note:** Using `"0.2"` ensures compatibility with the latest 0.2.x patch versions.
-
-#### Core Components
-
-- `hyperdim`: binary hypervector math (`HVec10240`) and similarity operations
-- `reservoir`: sparse chaotic reservoir dynamics with spectral radius controls
-- `singularity`: concept graph, associations, retrieval, and memory limits
-- `framework`: high-level async orchestration API
-- `persistence`: libSQL-backed storage (native only)
-- `wasm`: JS-facing bindings for browser/runtime integration (wasm32 target only)
-- `encoder`: text and binary encoding utilities
-- `graph_traversal`: graph walk and reachability utilities
-- `metadata_filter`: metadata query and filtering
-- `bundle`: snapshot and bundle helpers
-- `cli`: Command-line interface (`csm` binary)
-- `semantic_bridge`: Semantic Bridge Layer for concept expansion (ADR-0061)
-- `bridge_retrieval`: Bridge retrieval pipeline for zero-drift semantic search
-- `retrieval`: Hybrid BM25/HDC retrieval module (ADR-0062)
-
-#### Semantic Bridge Layer (v0.3.0)
-
-Zero-drift semantic expansion on top of deterministic HDC memory:
-- **CanonicalConcept**: Versioned concept with labels and related IDs
-- **ConceptGraph**: In-memory label index for token-to-concept matching
-- **BridgeRetrieval**: Pipeline: normalize → HDC recall → concept expansion → second recall
-- **MemoryPacket**: Compressed output for LLM context injection
-
-**Key principle**: Additive, non-destructive, never mutates canonical memory vectors.
-
-#### Hybrid BM25+HDC Retrieval (v0.3.0)
-
-Hybrid retrieval combines keyword (BM25) and semantic (HDC) search:
-- **BM25 parameters**: k1=1.2 (TF saturation), b=0.75 (doc length normalization)
-- **Query-length-dependent weights**:
-
-| Tokens | Keyword | Semantic |
-|--------|---------|----------|
-| 1-2    | 0.9     | 0.1      |
-| 3-4    | 0.7     | 0.3      |
-| 5-8    | 0.4     | 0.6      |
-| 9+     | 0.2     | 0.8      |
-
-#### How Text Encoding Works (HDC Pipeline)
-
-The built-in `TextEncoder` uses **Hyperdimensional Computing (HDC)** — a deterministic,
-hash-based encoding, **not** a learned neural network:
-
-```
-┌─────────────┐     ┌──────────────────┐     ┌──────────────────┐     ┌─────────┐
-│  "hello     │     │ FNV-1a hash      │     │ Positional       │     │ Bundle  │
-│   world"    │──▶ │ per token        │────▶│ permutation      │───▶│ majority│
-│             │     │ PRNG → HVec10240 │     │ (word order)     │     │ rule    │
-└─────────────┘     └──────────────────┘     └──────────────────┘     └─────────┘
-    Tokenize             Token→HVec              Position Encode         Final HV
-```
-
-**Pipeline steps:**
-
-1. **Tokenize**: Split on whitespace, lowercase (`hello world` → `["hello", "world"]`)
-2. **Token → HVec**: FNV-1a hash → seed PRNG → generate random `HVec10240` per token
-3. **Positional encoding**: Permute each token vector by its position (order matters)
-4. **Bundle**: Majority-rule combination into a single `HVec10240`
-
-**Key properties:**
-- **Deterministic**: Same text always produces the same vector (FNV-1a is stable across Rust versions)
-- **Token-sensitive**: Similar tokens in similar positions → similar vectors
-- **NOT semantic**: Synonyms/paraphrases ("cat" vs "kitten") will NOT match
-- **Position-aware**: "cat sat" ≠ "sat cat" (order matters)
-
-##### Recommended API
-
-```rust
-// HDC text encoding — good for lexical/keyword similarity
-framework.inject_text("doc-1", "reservoir computing overview").await?;
-let hits = framework.probe_text("reservoir computing", 5).await?;
-
-// External embeddings — good for semantic similarity
-let embedding: HVec10240 = my_model.encode("an overview of echo-state networks");
-framework.inject_concept("doc-2", embedding).await?;
-```
-
-**Use `inject_text`/`probe_text` for:**
-- Keyword search and exact-match recall
-- Document deduplication (same/similar text)
-- Indexing text where token overlap matters
-
-**Use external embeddings (`inject_concept`) for:**
-- Semantic search (synonyms, paraphrases)
-- Concept-level similarity across different wording
-- Cross-lingual matching
-
-##### Turso Vector Alternative
-
-This crate uses libSQL (local SQLite or remote Turso) for persistence. For
-semantic similarity, you can add Turso's [native vector search](https://turso.tech/vector)
-tables alongside the crate's HDC storage using the same database:
-
-```rust
-use libsql::Builder;
-
-// Connect to the same database this crate uses for persistence
-let db = Builder::new_local("csm_memory.db").build().await?;
-let conn = db.connect()?;
-
-// Add semantic vector table alongside the crate's concepts table
-conn.execute_batch("
-    CREATE TABLE IF NOT EXISTS semantic_vectors (
-        id TEXT PRIMARY KEY,
-        embedding F32_BLOB(384)
-    );
-    CREATE INDEX IF NOT EXISTS semantic_idx ON semantic_vectors(
-        libsql_vector_idx(embedding, 'metric=cosine')
-    );
-").await?;
-
-// Query with vector_top_k
-let rows = conn.query(
-    "SELECT id FROM vector_top_k('semantic_idx', vector(?), 10)",
-    libsql::params![query_embedding_f32_as_string]
-).await?;
-```
-
-This keeps HDC and semantic vectors in the **same database**: the crate manages
-`csm_concepts` and `csm_associations` tables (with `csm_` prefix for namespace isolation),
-while you manage `semantic_vectors` for float-vector similarity search. Both query the same libSQL/Turso instance.
-
-#### CLI Usage
-
-The `csm` binary provides command-line access:
-
-```bash
-### Inject a concept
-csm inject my-concept --database csm_memory.db
-
-### Find similar concepts
-csm probe my-concept -k 10 --database csm_memory.db
 
 ### Create associations
 csm associate source-concept target-concept --strength 0.8 --database csm_memory.db
@@ -699,8 +465,8 @@ csm associate source-concept target-concept --strength 0.8 --database csm_memory
 ### Export memory state
 csm export --output backup.json
 
-### Import memory state
-csm import backup.json --merge
+### Find similar concepts
+csm probe my-concept -k 10 --database csm_memory.db
 
 ### Generate shell completions
 csm completions bash > ~/.local/share/bash-completion/completions/csm
@@ -939,6 +705,238 @@ Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md)
 - Pull request process
 - ADR submission for architectural changes
 
+### Import memory state
+csm import backup.json --merge
+
+### Inject a concept
+csm inject my-concept --database csm_memory.db
+
+### chaotic_semantic_memory
+
+[![CI](https://github.com/d-o-hub/chaotic_semantic_memory/actions/workflows/ci.yml/badge.svg)](https://github.com/d-o-hub/chaotic_semantic_memory/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/chaotic_semantic_memory.svg)](https://crates.io/crates/chaotic_semantic_memory)
+[![docs.rs](https://img.shields.io/docsrs/chaotic_semantic_memory)](https://docs.rs/chaotic_semantic_memory)
+[![npm](https://img.shields.io/npm/v/@d-o-hub/chaotic_semantic_memory)](https://www.npmjs.com/package/@d-o-hub/chaotic_semantic_memory)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+`chaotic_semantic_memory` is a Rust crate for AI memory systems built on
+**Hyperdimensional Computing (HDC)** — not transformer embeddings:
+- 10240-bit binary hypervectors with SIMD-accelerated operations
+- chaotic echo-state reservoirs for temporal processing
+- libSQL persistence (local SQLite or remote Turso)
+
+It targets both native and `wasm32` builds with explicit threading guards.
+
+#### Quick Links
+
+| Resource | Link |
+|----------|------|
+| Documentation | [docs.rs/chaotic_semantic_memory](https://docs.rs/chaotic_semantic_memory) |
+| Crates.io | [crates.io/crates/chaotic_semantic_memory](https://crates.io/crates/chaotic_semantic_memory) |
+| Issues | [GitHub Issues](https://github.com/d-o-hub/chaotic_semantic_memory/issues) |
+| Changelog | [CHANGELOG.md](CHANGELOG.md) |
+
+#### Important: HDC, Not Semantic Embeddings
+
+This crate uses **Hyperdimensional Computing (HDC)** for text encoding — it is
+**not** a transformer or embedding model. Understanding this distinction is critical:
+
+| | HDC (this crate) | Transformer Embeddings (e.g. sentence-transformers) |
+|---|---|---|
+| **Method** | Hash-based token → random hypervector | Learned neural network encodings |
+| **Similarity** | Tokens + position match → similar vectors | Semantic meaning → similar vectors |
+| **"cat" vs "kitten"** | Low similarity (different tokens) | High similarity (synonyms) |
+| **"cat sat" vs "sat cat"** | Different (position-aware) | Often similar |
+| **Compute** | CPU-only, deterministic, no GPU | GPU-accelerated, learned weights |
+| **Use case** | Keyword/lexical search, exact-match recall | Semantic search, paraphrase detection |
+
+**Bottom line:** `inject_text` / `probe_text` match on shared tokens at similar
+positions. For true semantic similarity, use an external embedding model and inject
+vectors directly via `inject_concept`.
+
+#### Features
+
+- **Hyperdimensional Computing**: 10240-bit binary hypervectors with SIMD-accelerated operations
+- **Chaotic Reservoirs**: Configurable echo-state networks with spectral radius controls `[0.9, 1.1]`
+- **Semantic Memory**: Concept graphs with weighted associations and similarity search
+- **Optimized Retrieval**: Two-stage retrieval pipeline with heuristic-based candidate generation (bucket, graph) and dense-vector scoring.
+- **Persistence**: libSQL for local SQLite or remote Turso database
+- **WASM Support**: Browser-compatible with memory-based import/export
+- **CLI**: Full-featured command-line interface with shell completions
+- **Production-Ready**: Structured logging, metrics, input validation, memory guardrails
+
+#### Installation
+
+##### Rust Library
+
+```bash
+cargo add chaotic_semantic_memory
+```
+
+For WASM targets, build with `--target wasm32-unknown-unknown`. No additional feature flag is needed;
+WASM support is enabled automatically when compiling for the `wasm32` target architecture.
+
+```toml
+[dependencies]
+chaotic_semantic_memory = { version = "0.3" }
+```
+
+For library-only consumers who don't need the CLI binary or its dependencies:
+
+```toml
+[dependencies]
+chaotic_semantic_memory = { version = "0.3", default-features = false }
+```
+
+##### WASM npm Package (for JS/TS)
+
+```bash
+npm install @d-o-hub/chaotic_semantic_memory
+```
+
+##### CLI Binary
+
+**via npm (recommended for Node.js users):**
+```bash
+npm install -g @d-o-hub/csm
+```
+
+**via cargo:**
+```bash
+cargo install chaotic_semantic_memory --bin csm
+```
+
+> **Note:** Using `"0.2"` ensures compatibility with the latest 0.2.x patch versions.
+
+#### Core Components
+
+- `hyperdim`: binary hypervector math (`HVec10240`) and similarity operations
+- `reservoir`: sparse chaotic reservoir dynamics with spectral radius controls
+- `singularity`: concept graph, associations, retrieval, and memory limits
+- `framework`: high-level async orchestration API
+- `persistence`: libSQL-backed storage (native only)
+- `wasm`: JS-facing bindings for browser/runtime integration (wasm32 target only)
+- `encoder`: text and binary encoding utilities
+- `graph_traversal`: graph walk and reachability utilities
+- `metadata_filter`: metadata query and filtering
+- `bundle`: snapshot and bundle helpers
+- `cli`: Command-line interface (`csm` binary)
+- `semantic_bridge`: Semantic Bridge Layer for concept expansion (ADR-0061)
+- `bridge_retrieval`: Bridge retrieval pipeline for zero-drift semantic search
+- `retrieval`: Hybrid BM25/HDC retrieval module (ADR-0062)
+
+#### Semantic Bridge Layer (v0.3.0)
+
+Zero-drift semantic expansion on top of deterministic HDC memory:
+- **CanonicalConcept**: Versioned concept with labels and related IDs
+- **ConceptGraph**: In-memory label index for token-to-concept matching
+- **BridgeRetrieval**: Pipeline: normalize → HDC recall → concept expansion → second recall
+- **MemoryPacket**: Compressed output for LLM context injection
+
+**Key principle**: Additive, non-destructive, never mutates canonical memory vectors.
+
+#### Hybrid BM25+HDC Retrieval (v0.3.0)
+
+Hybrid retrieval combines keyword (BM25) and semantic (HDC) search:
+- **BM25 parameters**: k1=1.2 (TF saturation), b=0.75 (doc length normalization)
+- **Query-length-dependent weights**:
+
+| Tokens | Keyword | Semantic |
+|--------|---------|----------|
+| 1-2    | 0.9     | 0.1      |
+| 3-4    | 0.7     | 0.3      |
+| 5-8    | 0.4     | 0.6      |
+| 9+     | 0.2     | 0.8      |
+
+#### How Text Encoding Works (HDC Pipeline)
+
+The built-in `TextEncoder` uses **Hyperdimensional Computing (HDC)** — a deterministic,
+hash-based encoding, **not** a learned neural network:
+
+```
+┌─────────────┐     ┌──────────────────┐     ┌──────────────────┐     ┌─────────┐
+│  "hello     │     │ FNV-1a hash      │     │ Positional       │     │ Bundle  │
+│   world"    │──▶ │ per token        │────▶│ permutation      │───▶│ majority│
+│             │     │ PRNG → HVec10240 │     │ (word order)     │     │ rule    │
+└─────────────┘     └──────────────────┘     └──────────────────┘     └─────────┘
+    Tokenize             Token→HVec              Position Encode         Final HV
+```
+
+**Pipeline steps:**
+
+1. **Tokenize**: Split on whitespace, lowercase (`hello world` → `["hello", "world"]`)
+2. **Token → HVec**: FNV-1a hash → seed PRNG → generate random `HVec10240` per token
+3. **Positional encoding**: Permute each token vector by its position (order matters)
+4. **Bundle**: Majority-rule combination into a single `HVec10240`
+
+**Key properties:**
+- **Deterministic**: Same text always produces the same vector (FNV-1a is stable across Rust versions)
+- **Token-sensitive**: Similar tokens in similar positions → similar vectors
+- **NOT semantic**: Synonyms/paraphrases ("cat" vs "kitten") will NOT match
+- **Position-aware**: "cat sat" ≠ "sat cat" (order matters)
+
+##### Recommended API
+
+```rust
+// HDC text encoding — good for lexical/keyword similarity
+framework.inject_text("doc-1", "reservoir computing overview").await?;
+let hits = framework.probe_text("reservoir computing", 5).await?;
+
+// External embeddings — good for semantic similarity
+let embedding: HVec10240 = my_model.encode("an overview of echo-state networks");
+framework.inject_concept("doc-2", embedding).await?;
+```
+
+**Use `inject_text`/`probe_text` for:**
+- Keyword search and exact-match recall
+- Document deduplication (same/similar text)
+- Indexing text where token overlap matters
+
+**Use external embeddings (`inject_concept`) for:**
+- Semantic search (synonyms, paraphrases)
+- Concept-level similarity across different wording
+- Cross-lingual matching
+
+##### Turso Vector Alternative
+
+This crate uses libSQL (local SQLite or remote Turso) for persistence. For
+semantic similarity, you can add Turso's [native vector search](https://turso.tech/vector)
+tables alongside the crate's HDC storage using the same database:
+
+```rust
+use libsql::Builder;
+
+// Connect to the same database this crate uses for persistence
+let db = Builder::new_local("csm_memory.db").build().await?;
+let conn = db.connect()?;
+
+// Add semantic vector table alongside the crate's concepts table
+conn.execute_batch("
+    CREATE TABLE IF NOT EXISTS semantic_vectors (
+        id TEXT PRIMARY KEY,
+        embedding F32_BLOB(384)
+    );
+    CREATE INDEX IF NOT EXISTS semantic_idx ON semantic_vectors(
+        libsql_vector_idx(embedding, 'metric=cosine')
+    );
+").await?;
+
+// Query with vector_top_k
+let rows = conn.query(
+    "SELECT id FROM vector_top_k('semantic_idx', vector(?), 10)",
+    libsql::params![query_embedding_f32_as_string]
+).await?;
+```
+
+This keeps HDC and semantic vectors in the **same database**: the crate manages
+`csm_concepts` and `csm_associations` tables (with `csm_` prefix for namespace isolation),
+while you manage `semantic_vectors` for float-vector similarity search. Both query the same libSQL/Turso instance.
+
+#### CLI Usage
+
+The `csm` binary provides command-line access:
+
+```bash
 ## Cargo.toml
 
 ```toml
