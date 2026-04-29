@@ -84,7 +84,9 @@ if command -v shellcheck >/dev/null 2>&1; then
   echo "==> ShellCheck (severity=error)"
   SHELL_SCRIPTS=$(find scripts -name '*.sh' -type f)
   if [[ -n "${SHELL_SCRIPTS}" ]]; then
-    shellcheck --severity=error "${SHELL_SCRIPTS}"
+    # Note: --external-sources=false prevents shellcheck from following source references
+    # which can cause crashes when analyzing files that reference other scripts
+    shellcheck --severity=error --external-sources=false "${SHELL_SCRIPTS}"
     echo "ok: all shell scripts pass shellcheck"
   else
     echo "skip: no shell scripts found"
