@@ -97,6 +97,9 @@ pub struct CaseResult {
     pub abstained: bool,
     /// Query latency in milliseconds.
     pub latency_ms: u128,
+    /// Query latency in microseconds (precise for sub-ms measurements).
+    #[serde(default)]
+    pub latency_us: u128,
     /// Number of prompt tokens used (reader mode).
     pub prompt_tokens: u32,
     /// Number of completion tokens used (reader mode).
@@ -129,6 +132,9 @@ pub struct SummaryMetrics {
     pub ingest_ms: u128,
     /// Median (p50) query latency in milliseconds.
     pub p50_latency_ms: u128,
+    /// Median (p50) query latency in microseconds (precise for sub-ms).
+    #[serde(default)]
+    pub p50_latency_us: u128,
     /// 95th percentile query latency in milliseconds.
     pub p95_latency_ms: u128,
     /// 99th percentile query latency in milliseconds.

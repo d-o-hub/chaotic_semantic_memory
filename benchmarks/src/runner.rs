@@ -57,7 +57,9 @@ pub async fn run(cli: Cli) -> Result<()> {
             // For abstain and other queries, search globally
             adapter.query(&query_case.query, cli.top_k).await?
         };
-        let latency_ms = start_query.elapsed().as_millis();
+        let elapsed = start_query.elapsed();
+        let latency_ms = elapsed.as_millis();
+        let latency_us = elapsed.as_micros();
 
         let retrieved: Vec<_> = hits
             .into_iter()
@@ -82,6 +84,7 @@ pub async fn run(cli: Cli) -> Result<()> {
             exact_match: None,
             abstained: false,
             latency_ms,
+            latency_us,
             prompt_tokens: 0,
             completion_tokens: 0,
         };

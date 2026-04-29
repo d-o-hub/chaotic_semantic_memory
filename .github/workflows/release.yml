@@ -88,6 +88,11 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+
     - name: Extract version from Cargo.toml
       id: version
       run: |
@@ -127,6 +132,9 @@ jobs:
         VERSION="${{ steps.version.outputs.version }}"
         bash scripts/sync-version.sh "$VERSION"
 
+    - name: Generate llms.txt files for AI tool integration
+      run: bash scripts/gen-llms-txt.sh
+
     - name: Ensure version sync is clean
       run: |
         git add -A
@@ -152,11 +160,6 @@ jobs:
         git push origin "$TAG"
         echo "Created tag ${TAG}"
         echo "release-needed=true" >> $GITHUB_OUTPUT
-
-    - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v1
-      with:
-        toolchain: stable
 
     - name: Validate publish dry-run
       run: cargo publish --dry-run --allow-dirty

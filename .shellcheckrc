@@ -1,0 +1,4 @@
+# .shellcheckrc - Shellcheck configuration
+# Disable source path checking to avoid crashes
+# when scripts reference other script paths
+disable=SC1091
