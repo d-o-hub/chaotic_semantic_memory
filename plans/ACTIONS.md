@@ -3156,3 +3156,51 @@ actions:
          (selectivity=1.0) returns same results as unfiltered find_similar().
 
       Validation: cargo test --all-features --quiet
+
+  # ═══════════════════════════════════════════════════════
+  # 2026-04-29 Orchestrator audit (truthfulness + PR #129)
+  # ═══════════════════════════════════════════════════════
+  - name: state_truthfulness_audit_2026_04_29
+    preconditions:
+      ci_all_checks_passed: true
+    effects:
+      action_last_completed: state_truthfulness_audit_2026_04_29
+    cost: 1
+    status: complete
+    file: plans/GOAP_STATE.md
+    description: |
+      Verified 8 GOAP keys flagged "deferred" in trailing comments are
+      actually implemented in source. Updated GOAP_STATE.md to reflect
+      truthful state with verification source pointers:
+
+      Verified-and-corrected keys:
+      - framework_probe_filtered → src/framework.rs:199
+      - framework_traverse → src/framework.rs:220
+      - framework_shortest_path → src/framework.rs:233
+      - metadata_filter_wasm_exposed → src/wasm_ext.rs:129
+      - graph_traversal_wasm_exposed → src/wasm_ext.rs:73/92/113/159
+      - memory_event_enum_created → src/framework_events.rs
+      - framework_subscribe → src/framework_events.rs:42
+      - memory_events_wasm_compatible → src/framework.rs:127,162,282,304
+      - builder_version_retention → src/framework_builder.rs:163
+      - error_source_attributes_added → src/error.rs:10,29
+      - error_source_chain_support → src/error.rs:10,29
+      - avx2_simd_added → src/hyperdim_simd.rs:73 + 102 (NEON)
+
+  - name: merge_pr_129_perf_singularity
+    preconditions:
+      ci_all_checks_passed: true
+    effects:
+      pr_129_merged: true
+      perf_singularity_integer_scoring_landed: true
+    cost: 1
+    status: queued
+    file: src/singularity_retrieval.rs
+    description: |
+      Merge draft PR #129 (perf(singularity): optimize similarity search
+      with fused integer scoring). All 16 status checks SUCCESS:
+      CI/test, CodeQL (rust/python/js), benchmark-small, lint, wasm,
+      Build CLI (linux-x64/arm64, macos-x64/arm64, windows-x64),
+      SonarCloud, DeepSource. 333 tests passing. Replaces float cosine
+      with Hamming-distance integer ranking + fused (idx,score) vector
+      and Rayon with_min_len(512).

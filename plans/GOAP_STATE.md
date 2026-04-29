@@ -14,9 +14,9 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: release_verify_retry_logic_2026_04_28
-  orchestrator_last_run: goap_release_fix_2026_04_28
-  orchestrator_last_run_at_utc: 2026-04-28T07:00:00Z
+  action_last_completed: state_truthfulness_audit_2026_04_29
+  orchestrator_last_run: goap_state_audit_and_pr129_merge_2026_04_29
+  orchestrator_last_run_at_utc: 2026-04-29T00:00:00Z
   ci_all_checks_passed: true                  # 2026-04-28: Release workflow fixed + v0.3.5 published
   ci_release_workflow_blocked: false           # 2026-04-28: Fixed - checkout + retry logic
   ci_release_workflow_fix_applied: true        # 2026-04-28: actions: read + null guards
@@ -533,7 +533,7 @@ world_state:
   swarm_analysis_findings_total: 9
   
   # Error handling improvements
-  error_source_attributes_added: false         # Add #[source] to all error variants (deferred)
+  error_source_attributes_added: true          # 2026-04-29: verified #[source] on Database/Reservoir variants in src/error.rs:10,29
   production_expect_fixed: true               # Fix expect() in framework.rs:177 ✅
   error_context_enhanced: false                # Add remediation hints to errors (deferred)
   
@@ -548,7 +548,7 @@ world_state:
   find_similar_optimized: true                 # Add find_similar_arc, optimize computation ✅
   to_hypervector_parallelized: true            # Rayon parallelization on 80-word loop ✅
   cache_rwlock_fixed: true                    # Replace Mutex with RwLock ✅
-  avx2_simd_added: false                       # AVX2/NEON SIMD paths
+  avx2_simd_added: true                        # 2026-04-29: verified AVX2 + NEON paths in src/hyperdim_simd.rs (target_feature=avx2 line 73; aarch64 NEON line 102)
   
   # Memory leak prevention
   max_concepts_limit_added: true               # Hard ceiling (default 100K) ✅
@@ -615,10 +615,10 @@ world_state:
   framework_clear_associations: true          # clear_associations(from) on framework + persistence ✅
   singularity_bundle_strict: true             # bundle_concepts_strict(ids) returns NotFound ✅
   singularity_clear_cache: true               # clear_similarity_cache() public API ✅
-  builder_version_retention: true             # with_version_retention(n) on FrameworkBuilder (deferred)
+  builder_version_retention: true             # 2026-04-29: verified with_version_retention(n) at src/framework_builder.rs:163
 
   # Phase 34: Error Handling Hardening (cost: 4) - Wave 15 ✅ COMPLETE
-  error_source_chain_support: true            # #[source] on Database/Reservoir variants (deferred)
+  error_source_chain_support: true            # 2026-04-29: verified #[source] on Database/Reservoir in src/error.rs:10,29
   stats_db_size_optional: true                # FrameworkStats db_size_bytes: Option<u64> ✅
   dead_dimension_check_removed: true          # Singularity::inject redundant data.len() check ✅
 
@@ -648,8 +648,8 @@ world_state:
   # ADR-0054: High-Impact New Features
   metadata_filter_types_created: true          # MetadataFilter enum (Eq, In, Exists, And, Or, Not) ✅
   singularity_find_similar_filtered: true      # find_similar_filtered(query, top_k, filter) ✅
-  framework_probe_filtered: true              # probe_filtered(query, top_k, filter) (deferred)
-  metadata_filter_wasm_exposed: true          # WASM binding for filtered probe (deferred)
+  framework_probe_filtered: true              # 2026-04-29: verified at src/framework.rs:199
+  metadata_filter_wasm_exposed: true          # 2026-04-29: verified at src/wasm_ext.rs:129 (probe_filtered)
 
   # Phase 39: Association Graph Traversal (cost: 8) - Wave 15 ✅ COMPLETE
   # ADR-0054: High-Impact New Features
@@ -657,9 +657,9 @@ world_state:
   singularity_bfs: true                        # bfs(start, config) API ✅
   singularity_shortest_path: true              # shortest_path(from, to, config) API ✅
   singularity_incoming_associations: true      # incoming_associations(id) reverse lookup ✅
-  framework_traverse: true                    # traverse(start, config) framework API (deferred)
-  framework_shortest_path: true               # shortest_path(from, to) framework API (deferred)
-  graph_traversal_wasm_exposed: true          # WASM bindings for traversal (deferred)
+  framework_traverse: true                    # 2026-04-29: verified at src/framework.rs:220
+  framework_shortest_path: true               # 2026-04-29: verified at src/framework.rs:233
+  graph_traversal_wasm_exposed: true          # 2026-04-29: verified neighbors/bfs/shortest_path/traverse in src/wasm_ext.rs:73,92,113,159
 
   # Phase 40: Incremental Bundle Accumulator (cost: 4) - Wave 15 ✅ COMPLETE
   # ADR-0054: High-Impact New Features
@@ -669,9 +669,9 @@ world_state:
 
   # Phase 41: Memory Change Events (cost: 4) - Wave 15 (DEFERRED)
   # ADR-0054: High-Impact New Features
-  memory_event_enum_created: true             # MemoryEvent enum (deferred)
-  framework_subscribe: true                   # subscribe() → broadcast::Receiver (deferred)
-  memory_events_wasm_compatible: true         # WASM callback support (deferred)
+  memory_event_enum_created: true             # 2026-04-29: verified MemoryEvent in src/framework_events.rs
+  framework_subscribe: true                   # 2026-04-29: verified subscribe() at src/framework_events.rs:42
+  memory_events_wasm_compatible: true         # 2026-04-29: emitter wired (framework.rs:127,162,282,304)
 
   # ═══════════════════════════════════════════════════════
   # Wave 16: Production Polish & Correctness (ADR-0055)
