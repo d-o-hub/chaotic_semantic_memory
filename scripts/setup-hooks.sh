@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Setup script to install Git hooks
+# shellcheck disable=SC1091 - Not sourcing, just copying
 
 set -euo pipefail
 
