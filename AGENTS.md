@@ -42,6 +42,8 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
    - Identify affected files and dependencies
    - Document approach in `plans/` directory
    - Get user approval before implementation
+   - **TRIZ Integration**: Use `triz-analysis` skill for architectural decisions
+   - **Problem Solving**: Use `triz-solver` skill when stuck on complex problems
 
 5. **Use parallel execution for complex changes** — For multi-file tasks:
    - Create task list for each subtask
@@ -224,10 +226,16 @@ Refer to the `dist-channel-selection` skill for canonical commands.
 **CLI**: `src/cli/commands/query.rs`, `src/cli/commands/index_dir.rs`
 **State**: `plans/GOAP_STATE.md`, `plans/ACTIONS.md`
 
-## Skills (20 Total)
-**Core**: `rust-development`, `testing-validation`, `goap-planning`, `adr-creation`, `github-ci-guardrails`, `git-workflow`, `release-management`, `dist-channel-selection`, `benchmarking-perf`, `debugging-reservoir`, `skill-memory-internal`, `memory-lifecycle-verification`, `turso-memory-verification`, `drawio`
+## Skills (30 Total)
+**Core**: `rust-development`, `testing-validation`, `goap-planning`, `adr-creation`, `github-ci-guardrails`, `git-workflow`, `release-management`, `dist-channel-selection`, `benchmarking-perf`, `debugging-reservoir`, `skill-memory-internal`, `memory-lifecycle-verification`, `turso-memory-verification`, `drawio`, `npm-trusted-publishers`
 
 **Swarm**: `swarm-testing-quality`, `swarm-performance`, `swarm-observability`, `swarm-advanced-features`, `analysis-swarm`
+
+**Workflow**: `learn`, `task-decomposition`, `shell-script-quality`
+
+**Automation**: `self-fix-loop`, `iterative-refinement`, `skill-creator`, `skill-evaluator`
+
+**TRIZ**: `triz-analysis`, `triz-solver`
 
 ## External References
 - [agents-docs/hard-constraints.md](agents-docs/hard-constraints.md) — LOC limits, spectral radius
