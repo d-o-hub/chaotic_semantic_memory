@@ -14,9 +14,11 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-  action_last_completed: state_truthfulness_audit_2026_04_29
+  action_last_completed: merge_pr_129_perf_singularity_2026_04_29
   orchestrator_last_run: goap_state_audit_and_pr129_merge_2026_04_29
-  orchestrator_last_run_at_utc: 2026-04-29T00:00:00Z
+  orchestrator_last_run_at_utc: 2026-04-29T07:52:50Z
+  pr_129_merged: true                          # 2026-04-29T07:52:50Z squash-merged → 787098a
+  perf_singularity_integer_scoring_landed: true # Hamming int ranking + fused (idx,score) + Rayon with_min_len(512)
   ci_all_checks_passed: true                  # 2026-04-28: Release workflow fixed + v0.3.5 published
   ci_release_workflow_blocked: false           # 2026-04-28: Fixed - checkout + retry logic
   ci_release_workflow_fix_applied: true        # 2026-04-28: actions: read + null guards

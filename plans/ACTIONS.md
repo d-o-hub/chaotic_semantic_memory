@@ -3194,7 +3194,7 @@ actions:
       pr_129_merged: true
       perf_singularity_integer_scoring_landed: true
     cost: 1
-    status: queued
+    status: complete       # 2026-04-29T07:52:50Z squash-merged → 787098a
     file: src/singularity_retrieval.rs
     description: |
       Merge draft PR #129 (perf(singularity): optimize similarity search
