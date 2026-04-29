@@ -137,10 +137,12 @@ jobs:
 
     - name: Ensure version sync is clean
       run: |
+        # Exclude llms.txt and llms-full.txt from clean check as they may be mutated
+        # by the gen-llms-txt.sh step or sync-version.sh.
         git add -A
-        if ! git diff --staged --quiet; then
+        if ! git diff --staged --quiet -- ':!llms.txt' ':!llms-full.txt'; then
           echo "❌ sync-version produced changes. Run scripts/sync-version.sh and commit before tagging."
-          git diff --staged
+          git diff --staged -- ':!llms.txt' ':!llms-full.txt'
           exit 1
         fi
 
