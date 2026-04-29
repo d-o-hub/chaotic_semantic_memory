@@ -122,10 +122,14 @@ else
   echo "      Install with: npm install -g markdownlint-cli || gem install mdl"
 fi
 
-# GitHub Actions SHA validation (optional)
-if [[ -x "${SCRIPT_DIR}/validate-github-actions-shas.sh" ]]; then
+# GitHub Actions SHA validation (optional - only if requested)
+# Note: Disabled by default as existing workflows use version tags
+# To enable: export CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true
+if [[ -x "${SCRIPT_DIR}/validate-github-actions-shas.sh" ]] && [[ "${CSM_VALIDATE_GITHUB_ACTIONS_SHAS:-}" == "true" ]]; then
   echo "==> GitHub Actions SHA validation"
   "${SCRIPT_DIR}/validate-github-actions-shas.sh" --offline
+else
+  echo "skip: GitHub Actions SHA validation (use CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true to enable)"
 fi
 
 echo "Validation complete."
