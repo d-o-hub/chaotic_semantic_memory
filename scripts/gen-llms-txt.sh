@@ -9,16 +9,22 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 cd "${PROJECT_ROOT}"
 
-# Check if cargo-llms-txt is installed
+# Ensure cargo-llms-txt v0.1.1 is installed for deterministic output
 if ! command -v cargo-llms-txt &> /dev/null; then
-    echo "Installing cargo-llms-txt..."
-    cargo install cargo-llms-txt
+    echo "Installing cargo-llms-txt v0.1.1..."
+    cargo install cargo-llms-txt --version 0.1.1
 fi
 
-echo "Generating llms-full.txt..."
+echo "Generating llms.txt and llms-full.txt..."
 if ! cargo llms-txt; then
-    echo "❌ Failed to generate llms-full.txt" >&2
+    echo "❌ Failed to generate llms.txt and llms-full.txt" >&2
     exit 1
 fi
 
-echo "✅ llms-full.txt generated (files not auto-added to git)"
+# Normalize output to ensure deterministic results (sort dependencies/features)
+if command -v python3 &> /dev/null; then
+    python3 "${SCRIPT_DIR}/normalize_llms.py" llms.txt
+    python3 "${SCRIPT_DIR}/normalize_llms.py" llms-full.txt
+fi
+
+echo "✅ llms.txt and llms-full.txt generated and normalized"
