@@ -14,10 +14,16 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-   action_last_completed: fix_llms_txt_script_and_release_workflow_2026_04_29
-  orchestrator_last_run: goap_remaining_observations_2026_04_29
-  orchestrator_last_run_at_utc: 2026-04-29T09:30:00Z
-  pr_129_merged: true                          # 2026-04-29T07:52:50Z squash-merged → 787098a
+   action_last_completed: pr130_merged_2026_04_29
+  orchestrator_last_run: goap_pr130_feedback_resolution_2026_04_29
+  orchestrator_last_run_at_utc: 2026-04-29T12:35:00Z
+  pr_130_merged: true                           # 2026-04-29T12:33:00Z squash-merged → b14e680
+  pr_130_codex_p1_fixed: true                   # 2026-04-29: All 4 P1 issues addressed before merge
+  pr_130_sha_validation_opt_in: true            # pre-commit.sh: CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true
+  pr_130_ci_sha_binding: true                   # self-fix-loop.sh: captures pushed SHA, filters by headSha
+  pr_130_subpath_regex: true                    # validate-github-actions-shas.sh: supports owner/repo/path@ref
+  pr_130_yaml_extension: true                   # validate-github-actions-shas.sh: finds .yaml files
+  pr_129_merged: true                           # 2026-04-29T07:52:50Z squash-merged → 787098a
   perf_singularity_integer_scoring_landed: true # Hamming int ranking + fused (idx,score) + Rayon with_min_len(512)
   # Real-usage verification (2026-04-29) — see plans/VERIFICATION_2026_04_29.md
   verification_2026_04_29_completed: true
