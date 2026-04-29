@@ -179,10 +179,14 @@ while [[ $ITERATION -lt $MAX_ITERATIONS ]]; do
     fi
   fi
 
-  # Step 2: Push changes
+  # Step 2: Push changes (capture SHA before push for CI monitoring)
   echo -e "${BLUE}Step 2: Pushing to $BRANCH...${NC}"
+
+  # Capture the commit SHA we're about to push
+  PUSHED_SHA="$(git rev-parse HEAD)"
+
   if $DRY_RUN; then
-    echo -e "  ${YELLOW}[dry-run]${NC} Would push to origin/$BRANCH"
+    echo -e "  ${YELLOW}[dry-run]${NC} Would push to origin/$BRANCH (SHA: $PUSHED_SHA)"
   else
     git push origin "$BRANCH" 2>&1 || {
       echo -e "  ${RED}Push failed${NC}"
@@ -191,13 +195,15 @@ while [[ $ITERATION -lt $MAX_ITERATIONS ]]; do
       if git diff --quiet "HEAD..origin/$BRANCH"; then
         echo -e "  ${YELLOW}Remote has new commits - rebasing...${NC}"
         git pull --rebase origin "$BRANCH"
+        # Update SHA after rebase
+        PUSHED_SHA="$(git rev-parse HEAD)"
         git push origin "$BRANCH"
       fi
     }
-    echo -e "  ${GREEN}Pushed to origin/$BRANCH${NC}"
+    echo -e "  ${GREEN}Pushed to origin/$BRANCH (SHA: $PUSHED_SHA)${NC}"
   fi
 
-  # Step 3: Monitor CI
+  # Step 3: Monitor CI (bind to pushed commit SHA)
   echo -e "${BLUE}Step 3: Monitoring CI workflow...${NC}"
 
   if $DRY_RUN; then
@@ -205,10 +211,11 @@ while [[ $ITERATION -lt $MAX_ITERATIONS ]]; do
     continue
   fi
 
-  # Get the latest workflow run
+  # Get the latest workflow run for this specific commit
   sleep 5  # Wait for CI to start
 
-  RUN_ID="$(gh run list --branch "$BRANCH" --limit 1 --json databaseId --jq '.[0].databaseId')"
+  # Filter by headSha to ensure we monitor the correct run
+  RUN_ID="$(gh run list --branch "$BRANCH" --json databaseId,headSha --jq ".[] | select(.headSha == \"$PUSHED_SHA\") | .databaseId" | head -1)"
 
   if [[ -z "$RUN_ID" || "$RUN_ID" == "null" ]]; then
     echo -e "  ${YELLOW}No workflow run found - waiting...${NC}"

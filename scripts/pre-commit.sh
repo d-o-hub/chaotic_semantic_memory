@@ -98,14 +98,18 @@ if [[ -d ".claude/skills" ]] && [[ -x "${SCRIPT_DIR}/validate-skills.sh" ]]; the
   }
 fi
 
-# GitHub Actions SHA validation (optional - fast offline check)
-if [[ -x "${SCRIPT_DIR}/validate-github-actions-shas.sh" ]]; then
+# GitHub Actions SHA validation (optional - opt-in via env var)
+# Note: Disabled by default as existing workflows use version tags
+# To enable: export CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true
+if [[ -x "${SCRIPT_DIR}/validate-github-actions-shas.sh" ]] && [[ "${CSM_VALIDATE_GITHUB_ACTIONS_SHAS:-}" == "true" ]]; then
   echo " → Validating GitHub Actions SHAs..."
-  "${SCRIPT_DIR}/validate-github-actions-shas.sh" --offline 2>/dev/null || {
+  "${SCRIPT_DIR}/validate-github-actions-shas.sh" --offline || {
     echo "❌ GitHub Actions not properly pinned to SHA!"
     echo "   Run: scripts/validate-github-actions-shas.sh --verbose"
     exit 1
   }
+else
+  echo "skip: GitHub Actions SHA validation (use CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true to enable)"
 fi
 
 echo "✅ Pre-commit checks passed!"

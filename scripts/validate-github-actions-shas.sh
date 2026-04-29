@@ -111,11 +111,11 @@ if [[ ! -d "${WORKFLOW_DIR}" ]]; then
     exit 2
 fi
 
-# Find all workflow files
+# Find all workflow files (both .yml and .yaml extensions)
 WORKFLOW_FILES=()
 while IFS= read -r -d '' file; do
     WORKFLOW_FILES+=("$file")
-done < <(find "${WORKFLOW_DIR}" -name "*.yml" -type f -print0 2>/dev/null)
+done < <(find "${WORKFLOW_DIR}" -type f \( -name "*.yml" -o -name "*.yaml" \) -print0 2>/dev/null)
 
 if [[ ${#WORKFLOW_FILES[@]} -eq 0 ]]; then
     echo "${YELLOW}WARNING:${NC} No workflow files found in ${WORKFLOW_DIR}"
@@ -211,14 +211,19 @@ validate_action() {
     local file="$2"
     local line_num="$3"
 
-    # Extract action reference: owner/repo@ref
-    # Pattern: uses: owner/repo@ref or uses: owner/repo@ref # comment
+    # Extract action reference: owner/repo@ref or owner/repo/path@ref
+    # Pattern: uses: owner/repo@ref or uses: owner/repo/path@ref or uses: owner/repo@ref # comment
     # Store regex in variable to avoid special char interpretation issues
-    local uses_pattern='uses:[[:space:]]*([a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+)@([a-zA-Z0-9_.-]+)'
+    # Supports both simple actions (owner/repo) and subpath actions (owner/repo/path)
+    # Note: Bash ERE doesn't support non-capturing groups, use alternation instead
+    local uses_pattern='uses:[[:space:]]*([a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+(/[a-zA-Z0-9_.-]+)?)@([a-zA-Z0-9_.-]+)'
     local action_ref=""
     if [[ "$uses_line" =~ $uses_pattern ]]; then
+        # BASH_REMATCH[1] contains owner/repo (or owner/repo/path if subpath present)
+        # BASH_REMATCH[2] contains /path if present (or empty)
+        # BASH_REMATCH[3] contains the ref
         local owner_repo="${BASH_REMATCH[1]}"
-        local ref="${BASH_REMATCH[2]}"
+        local ref="${BASH_REMATCH[3]}"
         action_ref="${owner_repo}@${ref}"
     else
         # Docker actions or local paths - skip validation
@@ -228,8 +233,7 @@ validate_action() {
 
     CHECKED=$((CHECKED + 1))
 
-    local owner_repo="${BASH_REMATCH[1]}"
-    local ref="${BASH_REMATCH[2]}"
+    # owner_repo and ref already extracted above
 
     # Check 1: Must be SHA-pinned, not version tag or branch
     if is_version_tag "$ref"; then
