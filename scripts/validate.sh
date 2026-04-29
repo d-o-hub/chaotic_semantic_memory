@@ -17,9 +17,16 @@ echo "==> cargo clippy --all-targets --all-features -- -D warnings"
 cargo clippy --all-targets --all-features -- -D warnings
 
 # CI applies stricter RUSTFLAGS; this is the minimal local gate
+# Check for warnings AND ensure compilation succeeds
 echo "==> cargo test --no-run --all-features (check for warnings)"
-if cargo test --no-run --all-features 2>&1 | grep -qi "warning:"; then
+OUTPUT=$(cargo test --no-run --all-features 2>&1) || {
+  echo "Error: Compilation failed with --all-features"
+  echo "$OUTPUT"
+  exit 1
+}
+if echo "$OUTPUT" | grep -qi "warning:"; then
   echo "Error: Warnings found in test compilation"
+  echo "$OUTPUT" | grep -i "warning:"
   exit 1
 fi
 
