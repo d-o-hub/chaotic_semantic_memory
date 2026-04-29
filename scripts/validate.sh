@@ -80,10 +80,10 @@ else
 fi
 
 # ShellCheck for all shell scripts (optional - only if installed)
+# Note: .shellcheckrc disables SC1091 to avoid crashes on path references
 if command -v shellcheck >/dev/null 2>&1; then
   echo "==> ShellCheck (severity=error)"
-  # Note: Exclude setup-hooks.sh as shellcheck crashes on it with 'openBinaryFile' error
-  SHELL_SCRIPTS=$(find scripts -name '*.sh' -type f | grep -v setup-hooks.sh)
+  SHELL_SCRIPTS=$(find scripts -name '*.sh' -type f)
   if [[ -n "${SHELL_SCRIPTS}" ]]; then
     shellcheck --severity=error "${SHELL_SCRIPTS}"
     echo "ok: all shell scripts pass shellcheck"
