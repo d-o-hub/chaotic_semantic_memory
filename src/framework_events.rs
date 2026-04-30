@@ -101,3 +101,109 @@ fn unix_now_secs() -> u64 {
 pub(crate) fn build_event_sender() -> broadcast::Sender<MemoryEvent> {
     broadcast::channel(DEFAULT_EVENT_CHANNEL_CAPACITY).0
 }
+
+// ============================================================================
+// TESTS
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn memory_event_variants_construct() {
+        let injected = MemoryEvent::ConceptInjected {
+            id: "test-id".to_string(),
+            timestamp: 12345,
+        };
+        let updated = MemoryEvent::ConceptUpdated {
+            id: "test-id".to_string(),
+            timestamp: 12346,
+        };
+        let _deleted = MemoryEvent::ConceptDeleted {
+            id: "test-id".to_string(),
+            timestamp: 12347,
+        };
+        let _associated = MemoryEvent::Associated {
+            from: "a".to_string(),
+            to: "b".to_string(),
+            strength: 0.5,
+        };
+        let _disassociated = MemoryEvent::Disassociated {
+            from: "a".to_string(),
+            to: "b".to_string(),
+        };
+
+        // Verify Clone works
+        let cloned = injected.clone();
+        assert!(matches!(cloned, MemoryEvent::ConceptInjected { .. }));
+
+        // Verify Debug works
+        let debug_str = format!("{:?}", updated);
+        assert!(debug_str.contains("ConceptUpdated"));
+    }
+
+    #[test]
+    fn build_event_sender_creates_channel() {
+        let sender = build_event_sender();
+        // Channel should be operational
+        let mut receiver = sender.subscribe();
+        assert!(receiver.try_recv().is_err()); // Empty channel
+    }
+
+    #[test]
+    fn sender_broadcasts_to_multiple_receivers() {
+        let sender = build_event_sender();
+        let mut rx1 = sender.subscribe();
+        let mut rx2 = sender.subscribe();
+
+        let event = MemoryEvent::ConceptInjected {
+            id: "broadcast-test".to_string(),
+            timestamp: 99999,
+        };
+
+        sender.send(event.clone()).unwrap();
+
+        // Both receivers should get the event
+        let recv1 = rx1.try_recv().unwrap();
+        let recv2 = rx2.try_recv().unwrap();
+
+        assert!(
+            matches!(recv1, MemoryEvent::ConceptInjected { id, timestamp } if id == "broadcast-test" && timestamp == 99999)
+        );
+        assert!(
+            matches!(recv2, MemoryEvent::ConceptInjected { id, timestamp } if id == "broadcast-test" && timestamp == 99999)
+        );
+    }
+
+    #[test]
+    fn receiver_capacity_overflow_does_not_block_sender() {
+        let sender = build_event_sender();
+
+        // Create a receiver that doesn't consume
+        let _rx = sender.subscribe();
+
+        // Send multiple events - broadcast channel doesn't block on overflow
+        for i in 0..200 {
+            sender
+                .send(MemoryEvent::ConceptInjected {
+                    id: format!("id-{i}"),
+                    timestamp: i,
+                })
+                .unwrap();
+        }
+
+        // Sender should still be functional
+        sender
+            .send(MemoryEvent::ConceptDeleted {
+                id: "final".to_string(),
+                timestamp: 999,
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn default_channel_capacity_is_1024() {
+        assert_eq!(DEFAULT_EVENT_CHANNEL_CAPACITY, 1024);
+    }
+}

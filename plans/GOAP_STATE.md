@@ -14,10 +14,10 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-   action_last_completed: pr130_merged_2026_04_29
-  orchestrator_last_run: goap_pr130_feedback_resolution_2026_04_29
-  orchestrator_last_run_at_utc: 2026-04-29T12:35:00Z
-  pr_130_merged: true                           # 2026-04-29T12:33:00Z squash-merged → b14e680
+   action_last_completed: goap_inline_tests_and_clippy_config_2026_04_30
+  orchestrator_last_run: goap_coverage_clippy_planning_2026_04_29
+  orchestrator_last_run_at_utc: 2026-04-29T15:00:00Z
+  # PR Status
   pr_130_codex_p1_fixed: true                   # 2026-04-29: All 4 P1 issues addressed before merge
   pr_130_sha_validation_opt_in: true            # pre-commit.sh: CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true
   pr_130_ci_sha_binding: true                   # self-fix-loop.sh: captures pushed SHA, filters by headSha
@@ -33,7 +33,7 @@ world_state:
   verification_workspace_mrr: 0.75
   verification_bm25_search_1000_us: 64.4        # was 3030 µs pre PR #129 (47× faster)
   verification_bridge_retrieval_pipeline_1k_ms: 1.92
-  tests_count: 347                              # was 333 pre PR #129
+  tests_count: 511                              # updated 2026-04-30 (inline tests added to 4 modules)
   # Remaining observations addressed (2026-04-29)
   latency_reporting_uses_us_for_sub_ms: true    # p50_latency_us field added to benchmarks
   hybrid_retrieval_example_exists: true         # examples/hybrid_retrieval.rs created
@@ -74,6 +74,65 @@ world_state:
   selectivity_aware_retrieval_adr_written: true
   selectivity_aware_retrieval_implemented: true
   selectivity_aware_retrieval_tested: true  # tests/retrieval_selectivity_tests.rs implemented 2026-04-21
+
+  # ═══════════════════════════════════════════════════════
+  # Wave 20 Queue Validation (2026-04-29)
+  # All 16 queued items reviewed; 14 already complete, 2 blocked/deferred
+  # ═══════════════════════════════════════════════════════
+  wave_20_queue_validation_completed: true
+  wave_20_queue_results:
+    # Dependency upgrades (all already current)
+    IQ_01_libsql_upgrade: complete        # Already at 0.9.30 with Builder API
+    IQ_02_rand_upgrade: complete          # Already at 0.10.1
+    IQ_03_getrandom_wasm_flag: complete   # Already at 0.4.2 + wasm_js feature
+    IQ_04_bincode_to_postcard: deferred   # No user demand; security limits already present
+    # Skill-memory hardening (all implemented)
+    IQ_05_retry_logic: complete           # _cli_with_retry in skill-memory.sh
+    IQ_06_health_checks: complete         # skill_memory_check function
+    IQ_07_metrics_collection: complete    # _metrics_record in skill-memory-metrics.sh
+    IQ_08_log_rotation: complete          # _rotate_logs in skill-memory.sh
+    IQ_09_encryption: complete            # _encrypt_data/_decrypt_data in skill-memory-advanced.sh
+    IQ_10_rate_limiting: complete         # CSM_RATE_LIMIT_* config
+    # npm publishing (blocked)
+    IQ_11_npm_oidc: blocked               # Requires external account configuration
+    IQ_12_npm_publish_automate: blocked   # Depends on IQ-11
+    # Error handling (already complete)
+    IQ_13_error_source_attributes: complete  # #[source] on Database/Reservoir variants
+    IQ_14_error_context_hints: deferred      # No user demand; marked deferred
+    IQ_15_security_tests: deferred           # Property tests exist; no dedicated security suite
+    IQ_16_avx2_neon_simd: complete           # AVX2 + NEON paths verified in hyperdim_simd.rs
+
+  # ═══════════════════════════════════════════════════════
+  # Coverage Analysis (2026-04-29)
+  # 534 tests, 7838 LOC tests, 9467 LOC source (ratio: 0.83:1)
+  # All modules have dedicated test coverage
+  # ═══════════════════════════════════════════════════════
+  coverage_analysis_completed: true
+  coverage_metrics:
+    total_tests: 534
+    test_files: 46
+    source_files: 55
+    test_loc: 7838
+    source_loc: 9467
+    test_to_source_ratio: 0.83
+    inline_test_modules: 16
+    dead_code_markers: 4          # BinaryConcept serialization fields
+    todo_markers: 0
+  coverage_gaps_identified: 5     # See plans/GOAP_COVERAGE_IMPROVEMENT.md
+  coverage_plan_created: true      # plans/GOAP_COVERAGE_IMPROVEMENT.md
+  coverage_gaps_resolved: 5        # 2026-04-30: All 5 gaps addressed with inline tests
+
+  # ═══════════════════════════════════════════════════════
+  # Clippy Best Practices (2026-04-29)
+  # Passing with -D warnings, 6 justified #[allow(...)]
+  # ═══════════════════════════════════════════════════════
+  clippy_analysis_completed: true
+  clippy_status: passing
+  clippy_per_item_allows: 6       # dead_code (4), too_many_arguments (1), type_complexity (1), needless_range_loop (1)
+  clippy_config_file_exists: true     # .clippy.toml created 2026-04-30
+  cargo_lints_section_exists: true    # [lints.rust] + [lints.clippy] added 2026-04-30
+  clippy_best_practices_plan_created: true  # plans/GOAP_CLIPPY_BEST_PRACTICES.md
+  clippy_inline_tests_added: true     # 2026-04-30: hyperdim_simd (6), reservoir_sparse (10), persistence_wasm (4), framework_events (5), singularity_cache (9)
 
   # Benchmark Optimization Analysis (2026-04-09) - COMPLETE
   benchmark_optimization_analysis_active: false

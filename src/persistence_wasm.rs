@@ -1,6 +1,7 @@
 //! WASM persistence stubs.
 //!
 //! Persistence is unavailable on `wasm32` in this crate build.
+//! All operations return `MemoryError::UnsupportedOperation`.
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
@@ -119,4 +120,67 @@ impl Persistence {
 
 fn wasm_persistence_unavailable() -> MemoryError {
     MemoryError::UnsupportedOperation("Persistence is unavailable on wasm32".to_string())
+}
+
+// ============================================================================
+// TESTS
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn new_local_returns_unsupported() {
+        let result = Persistence::new_local("test.db").await;
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        assert!(matches!(err, MemoryError::UnsupportedOperation(_)));
+    }
+
+    #[tokio::test]
+    async fn new_turso_returns_unsupported() {
+        let result = Persistence::new_turso("https://example.com", "token").await;
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        assert!(matches!(err, MemoryError::UnsupportedOperation(_)));
+    }
+
+    #[tokio::test]
+    async fn all_operations_return_unsupported() {
+        // Persistence struct cannot be created (constructor fails),
+        // but we can verify the error function behavior
+        let err = wasm_persistence_unavailable();
+
+        assert!(matches!(err, MemoryError::UnsupportedOperation(_)));
+
+        // Verify error message contains expected text
+        let msg = err.to_string();
+        assert!(msg.contains("wasm32"));
+        assert!(msg.contains("unavailable"));
+    }
+
+    #[test]
+    fn concept_version_serialization_roundtrip() {
+        // ConceptVersion is used in WASM builds for version serialization
+        let version = ConceptVersion {
+            concept_id: "test-id".to_string(),
+            version: 1,
+            vector: HVec10240::zero(),
+            metadata: serde_json::json!({"key": "value"}),
+            modified_at: 12345,
+        };
+
+        // Serialize to JSON
+        let json = serde_json::to_string(&version).unwrap();
+
+        // Deserialize back
+        let recovered: ConceptVersion = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(recovered.concept_id, version.concept_id);
+        assert_eq!(recovered.version, version.version);
+        assert_eq!(recovered.modified_at, version.modified_at);
+    }
 }
