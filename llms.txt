@@ -1030,6 +1030,46 @@ codegen-units = 1
 panic = "unwind"
 strip = "symbols"
 
+# ============================================================================
+# LINTS CONFIGURATION (Rust 2024)
+# ============================================================================
+
+[lints.rust]
+# Safety lints
+unsafe_code = "allow"  # SIMD uses intentional unsafe blocks
+missing_docs = "allow"  # Project uses selective documentation
+
+# Serialization struct fields may be unused but needed for format
+dead_code = "allow"
+
+[lints.clippy]
+# Enable all clippy lints at warning level
+all = { level = "warn", priority = -1 }
+
+# Pedantic lints are too strict for this project
+pedantic = { level = "allow", priority = -1 }
+nursery = { level = "allow", priority = -1 }
+
+# Explicit overrides for justified allows in source
+too_many_arguments = "allow"  # Internal hot paths documented in GOAP_STATE
+type_complexity = "allow"     # Complex generics in framework
+needless_range_loop = "allow" # Intentional range iteration in hyperdim
+
+# Production code should avoid panics but examples/benchmarks use them
+unwrap_used = "allow"
+expect_used = "allow"
+panic = "allow"
+
+# Examples and benchmarks use println - allow in library
+print_stdout = "allow"
+print_stderr = "allow"
+
+# Allow common short identifiers
+many_single_char_names = "allow"
+
+# Allow some cognitive complexity for hot paths
+cognitive_complexity = "allow"
+
 [lib]
 crate-type = ["lib", "cdylib"]
 

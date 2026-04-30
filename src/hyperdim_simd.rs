@@ -127,3 +127,115 @@ pub(crate) unsafe fn bind_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
     }
     out
 }
+
+// ============================================================================
+// TESTS
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Helper to create test vectors with known values
+    fn make_test_vectors() -> ([u128; 80], [u128; 80]) {
+        let mut lhs = [0u128; 80];
+        let mut rhs = [0u128; 80];
+        for i in 0..80 {
+            lhs[i] = (i as u128) * 0x123456789ABCDEF;
+            rhs[i] = (i as u128) * 0xFEDCBA987654321;
+        }
+        (lhs, rhs)
+    }
+
+    #[test]
+    fn hamming_distance_optimized_correctness() {
+        let lhs = [0xFFFFFFFFFFFFFFFF_FFFFFFFFFFFFFFFFu128; 80];
+        let rhs = [0u128; 80];
+        let distance = hamming_distance_optimized(&lhs, &rhs);
+        // All 128 bits set in each word: 128 * 80 = 10240
+        assert_eq!(distance, 10240);
+    }
+
+    #[test]
+    fn hamming_distance_optimized_identical_vectors() {
+        let v = [0x123456789ABCDEF_0FEDCBA987654321u128; 80];
+        let distance = hamming_distance_optimized(&v, &v);
+        assert_eq!(distance, 0);
+    }
+
+    #[test]
+    fn hamming_distance_optimized_complements() {
+        let lhs = [0xAAAAAAAAAAAAAAAA_AAAAAAAAAAAAAAAAu128; 80];
+        let rhs = [0x5555555555555555_5555555555555555u128; 80];
+        let distance = hamming_distance_optimized(&lhs, &rhs);
+        // All bits differ: 10240
+        assert_eq!(distance, 10240);
+    }
+
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(target_arch = "x86_64", target_arch = "x86")
+    ))]
+    #[test]
+    fn bind_simd_x86_correctness() {
+        let (lhs, rhs) = make_test_vectors();
+        let result = bind_simd_x86(&lhs, &rhs);
+
+        // Verify XOR operation: result should be lhs XOR rhs
+        for i in 0..80 {
+            assert_eq!(result[i], lhs[i] ^ rhs[i]);
+        }
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+    #[test]
+    fn bind_simd_avx2_correctness() {
+        let (lhs, rhs) = make_test_vectors();
+
+        // SAFETY: This test runs on x86_64. We check if AVX2 is available.
+        if std::arch::is_x86_feature_detected!("avx2") {
+            let result = unsafe { bind_simd_avx2(&lhs, &rhs) };
+
+            // Verify XOR operation: result should be lhs XOR rhs
+            for i in 0..80 {
+                assert_eq!(result[i], lhs[i] ^ rhs[i]);
+            }
+
+            // Verify equivalence with SSE version
+            let sse_result = bind_simd_x86(&lhs, &rhs);
+            assert_eq!(result, sse_result);
+        }
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+    #[test]
+    fn bind_simd_neon_correctness() {
+        let (lhs, rhs) = make_test_vectors();
+
+        // SAFETY: NEON is always available on aarch64
+        let result = unsafe { bind_simd_neon(&lhs, &rhs) };
+
+        // Verify XOR operation: result should be lhs XOR rhs
+        for i in 0..80 {
+            assert_eq!(result[i], lhs[i] ^ rhs[i]);
+        }
+    }
+
+    #[test]
+    fn hamming_distance_matches_bit_count() {
+        // Create vectors with specific bit patterns
+        let lhs: [u128; 80] = std::array::from_fn(|i| 1u128 << (i % 128));
+        let rhs: [u128; 80] = std::array::from_fn(|i| 1u128 << ((i + 64) % 128));
+
+        let distance = hamming_distance_optimized(&lhs, &rhs);
+
+        // Count expected differences manually
+        let expected: u32 = lhs
+            .iter()
+            .zip(rhs.iter())
+            .map(|(l, r)| (l ^ r).count_ones())
+            .sum();
+
+        assert_eq!(distance, expected);
+    }
+}

@@ -1,0 +1,11 @@
+# Clippy lint configuration for chaotic_semantic_memory
+# See: https://rust-lang.github.io/rust-clippy/master/index.html#configuration
+
+# Cognitive complexity threshold - warn on overly complex functions
+cognitive-complexity-threshold = 30
+
+# Maximum lines per function - encourages decomposition
+too-many-lines-threshold = 100
+
+# Single character binding names are acceptable in short contexts
+allowed-idents-below-min-chars = ["i", "j", "k", "n", "x", "y", "z", "id"]
