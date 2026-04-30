@@ -84,36 +84,43 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 
 ### Phase 5: Atomic Commit & CI Gate (GOAP Orchestration)
 
-11. **Atomic commits** — One logical change per commit, never mix unrelated changes:
+11. **Create feature branch FIRST** — `main` is protected, never commit directly:
+    ```bash
+    git checkout -b <type>/<scope>-<description>
+    # Examples: test/inline-tests-clippy-config, fix/persistence-fk, feat/reservoir-simd
+    ```
+
+12. **Atomic commits** — One logical change per commit, never mix unrelated changes:
     ```bash
     git add src/singularity.rs src/singularity_cache.rs
     git commit -m "feat(singularity): add similarity cache"
     ```
 
-12. **Push and monitor CI** — Watch workflow until completion:
+13. **Push branch and create PR** — Never push directly to `main`:
     ```bash
     git push origin <branch>
-    gh run watch --exit-status
-    gh run list --workflow=ci.yml --limit 1
+    gh pr create --title "<type>(<scope>): <summary>" --body "..."
+    gh pr checks --watch  # Wait for CI to pass
     ```
 
-13. **Fix ALL issues (including pre-existing)** — CI must pass completely:
+14. **Merge after CI passes** — Only merge when all checks are green:
+    ```bash
+    gh pr merge  # Squash merge preferred
+    ```
+
+15. **Fix ALL issues (including pre-existing)** — CI must pass completely:
     - New failures: Fix immediately
     - Pre-existing warnings: Fix before claiming completion
     - Use `goap-planning` skill to track fix actions in GOAP_STATE
     - Update `action_last_completed` and `world_state` after each fix
 
-14. **Document in GOAP_STATE** — Record completion state:
+16. **Document in GOAP_STATE** — Record completion state:
     ```yaml
     world_state:
       action_last_completed: <action_name>
       ci_all_checks_passed: true
       tests_count: <new_count>
     ```
-
-15. **Protected branches require PR** — Branch protection enforced:
-    - `main` requires pull request
-    - Verify CI passes before merge
 
 ---
 
@@ -126,6 +133,8 @@ Before starting any task, verify:
 - [ ] CI baseline confirmed via `gh run list`
 
 Before completing any task, verify:
+- [ ] **Branch created (NOT main)** — never push directly to protected branch
+- [ ] **PR created and CI passing** — merge only after green checks
 - [ ] All validation gates pass (check, test, fmt, clippy)
 - [ ] CI workflow passes
 - [ ] GitHub Actions warnings/issues checked via `gh run view`
@@ -135,7 +144,7 @@ Before completing any task, verify:
 
 ---
 
-## 7 Core Rules
+## 8 Core Rules
 
 1. **Always read before editing** — Never guess file contents.
 
@@ -150,6 +159,8 @@ Before completing any task, verify:
 6. **Update monthly, encode errors immediately** — Every correction becomes a rule.
 
 7. **Reference, don't duplicate** — Point to source files, don't restate contents.
+
+8. **Never push directly to `main`** — Create branch → commit → PR → merge after CI passes.
 
 ---
 
