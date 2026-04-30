@@ -478,3 +478,21 @@ impl ChaoticSemanticFramework {
         sing.bundle_concepts_strict(ids)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn path_traversal_blocked() {
+        assert!(validate_path("../etc/passwd").is_err());
+    }
+    #[test]
+    fn path_too_long() {
+        let long = "a".repeat(5000);
+        assert!(validate_path(&long).is_err());
+    }
+    #[test]
+    fn path_relative_ok() {
+        assert!(validate_path("test.json").is_ok());
+    }
+}

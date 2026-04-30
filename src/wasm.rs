@@ -472,3 +472,28 @@ fn concept_to_js_value(concept: &Concept) -> Result<JsValue, JsValue> {
 pub(crate) fn to_js_error<E: std::fmt::Display>(error: E) -> JsValue {
     JsValue::from_str(&error.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn hvec_bytes_roundtrip() {
+        let v = HVec10240::random();
+        let bytes = v.to_bytes();
+        let v2 = HVec10240::from_bytes(&bytes).unwrap();
+        assert_eq!(v, v2);
+    }
+    #[test]
+    fn hvec_bytes_invalid_len() {
+        assert!(HVec10240::from_bytes(&[0u8; 100]).is_err());
+    }
+    #[test]
+    fn unix_now_secs_positive() {
+        assert!(unix_now_secs() > 0);
+    }
+    #[test]
+    fn to_js_error_msg() {
+        let err = to_js_error("test error");
+        assert!(err.is_string());
+    }
+}

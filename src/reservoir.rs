@@ -433,3 +433,48 @@ impl ChaoticReservoir {
         self.base.metrics_snapshot()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn new_valid() {
+        let r = Reservoir::new(1024, 10240).unwrap();
+        assert_eq!(r.size(), 10240);
+    }
+    #[test]
+    fn new_invalid_size() {
+        assert!(Reservoir::new(1024, 0).is_err());
+        assert!(Reservoir::new(1024, 200_000).is_err());
+    }
+    #[test]
+    fn step_ok() {
+        let mut r = Reservoir::new(1024, 10240).unwrap();
+        let s = r.step(&[0.0; 1024]).unwrap();
+        assert_eq!(s.len(), 10240);
+    }
+    #[test]
+    fn reset_clears() {
+        let mut r = Reservoir::new(1024, 10240).unwrap();
+        r.step(&[1.0; 1024]).unwrap();
+        r.reset();
+        assert!(r.state().iter().all(|x| *x == 0.0));
+    }
+    #[test]
+    fn spectral_radius_bounds() {
+        let mut r = Reservoir::new(1024, 10240).unwrap();
+        assert!(r.set_spectral_radius(0.8).is_err());
+        r.set_spectral_radius(1.0).unwrap();
+    }
+    #[test]
+    fn metrics_steps() {
+        let mut r = Reservoir::new(1024, 10240).unwrap();
+        r.step(&[0.0; 1024]).unwrap();
+        assert_eq!(r.metrics_snapshot().reservoir_steps_total, 1);
+    }
+    #[test]
+    fn chaotic_new() {
+        let c = ChaoticReservoir::new(1024, 10240, 0.1).unwrap();
+        assert_eq!(c.state().len(), 10240);
+    }
+}

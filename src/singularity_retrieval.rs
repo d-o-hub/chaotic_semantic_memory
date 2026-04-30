@@ -432,3 +432,40 @@ impl Singularity {
         results_arc
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn retrieval_config_defaults() {
+        let c = RetrievalConfig::default();
+        assert_eq!(c.max_candidates, 1000);
+        assert_eq!(c.graph_depth, 2);
+    }
+    #[test]
+    fn retrieval_stats_defaults() {
+        let s = RetrievalStats::default();
+        assert_eq!(s.candidate_count, 0);
+        assert!(!s.fell_back_to_exact_scan);
+    }
+    #[test]
+    fn candidate_source_variants() {
+        assert_ne!(CandidateSource::Graph, CandidateSource::Bucket);
+        assert_ne!(CandidateSource::Metadata, CandidateSource::ExactFallback);
+    }
+    #[test]
+    fn filter_strategy_variants() {
+        assert_ne!(FilterStrategy::Pre, FilterStrategy::BucketPost);
+        assert_ne!(FilterStrategy::BucketPost, FilterStrategy::ScanPost);
+    }
+    #[test]
+    fn singularity_last_stats() {
+        let s = Singularity::new();
+        assert_eq!(s.last_retrieval_stats().candidate_count, 0);
+    }
+    #[test]
+    fn singularity_get_config() {
+        let s = Singularity::new();
+        assert_eq!(s.retrieval_config().max_candidates, 1000);
+    }
+}
