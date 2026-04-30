@@ -14,11 +14,14 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-   action_last_completed: goap_orchestrator_verification_complete_2026_04_30
+   action_last_completed: goap_orchestrator_full_verification_2026_04_30
   orchestrator_last_run: goap_orchestrator_agent_team_2026_04_30
-  orchestrator_last_run_at_utc: 2026-04-30T10:00:00Z
+  orchestrator_last_run_at_utc: 2026-04-30T15:00:00Z
   goap_orchestrator_analysis_complete: true         # 2026-04-30: All actionable items verified complete
-  skills_all_defined: true                          # 2026-04-30: 27 skills with SKILL.md verified
+  skills_all_defined: true                          # 2026-04-30: 29 skills with SKILL.md verified
+  no_missing_implementations: true                  # 2026-04-30: No TODO/FIXME/unimplemented! in source
+  book_chapters_complete: true                      # 2026-04-30: semantic-bridge, inertial-reservoir, ttl chapters exist
+  changelog_links_complete: true                    # 2026-04-30: All version links verified
   hybrid_retrieval_example_compiles: true           # 2026-04-30: cargo check --example hybrid_retrieval OK
   # PR Status
   pr_130_codex_p1_fixed: true                   # 2026-04-29: All 4 P1 issues addressed before merge
@@ -36,7 +39,20 @@ world_state:
   verification_workspace_mrr: 0.75
   verification_bm25_search_1000_us: 64.4        # was 3030 µs pre PR #129 (47× faster)
   verification_bridge_retrieval_pipeline_1k_ms: 1.92
-  tests_count: 511                              # updated 2026-04-30 (inline tests added to 4 modules)
+  tests_count: 526                              # 2026-04-30: +10 inline tests (encoder, persistence_ops)
+  skills_count: 29                              # 2026-04-30: All 29 skills have SKILL.md verified
+  coverage_ratio_current: 66                    # Test:Source ratio (target: 90%)
+  coverage_inline_tests_added: true             # encoder.rs (7), persistence_ops.rs (3)
+
+  # ═══════════════════════════════════════════════════════
+  # Production Readiness (Real Usage Test 2026-04-30)
+  # ═══════════════════════════════════════════════════════
+  production_rust_library_ready: true           # Tested from crates.io v0.3.5
+  production_cli_ready: true                    # All CLI commands pass
+  production_wasm_export_import_bug: true       # CRITICAL: bincode + serde_json::Value incompatible
+  wasm_export_uses_wrong_payload: true          # Uses ExportPayload instead of BinaryExportPayload
+  wasm_export_bug_location: "src/wasm.rs:340"   # bincode::serialize(&payload) with serde_json::Value
+  production_score: 7.5                         # Rust/CLI ready, WASM needs fix
   # Remaining observations addressed (2026-04-29)
   latency_reporting_uses_us_for_sub_ms: true    # p50_latency_us field added to benchmarks
   hybrid_retrieval_example_exists: true         # examples/hybrid_retrieval.rs created

@@ -327,3 +327,66 @@ impl TextEncoder {
         HVec10240::bundle(&ngram_vectors).unwrap_or_else(|_| HVec10240::zero())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn encode_deterministic() {
+        let encoder = TextEncoder::new();
+        let text = "hello world";
+        let v1 = encoder.encode(text);
+        let v2 = encoder.encode(text);
+        // Same text → same vector (deterministic)
+        assert_eq!(v1, v2);
+    }
+
+    #[test]
+    fn encode_position_aware() {
+        let encoder = TextEncoder::new();
+        let v1 = encoder.encode("cat sat");
+        let v2 = encoder.encode("sat cat");
+        // Different order → different vectors
+        assert_ne!(v1, v2);
+    }
+
+    #[test]
+    fn tokenize_splits_whitespace() {
+        let tokens = TextEncoder::tokenize("hello world test", false, true);
+        assert_eq!(tokens, vec!["hello", "world", "test"]);
+    }
+
+    #[test]
+    fn tokenize_lowercase() {
+        let tokens = TextEncoder::tokenize("HELLO World", false, true);
+        assert_eq!(tokens, vec!["hello", "world"]);
+    }
+
+    #[test]
+    fn tokenize_code_aware() {
+        let tokens = TextEncoder::tokenize("my_var::method", true, true);
+        // Code-aware splits on :: and _ (underscore is a separator)
+        // "my_var::method" → ["my", "var", "method"]
+        assert!(tokens.contains(&"my".to_string()));
+        assert!(tokens.contains(&"var".to_string()));
+        assert!(tokens.contains(&"method".to_string()));
+    }
+
+    #[test]
+    fn encode_with_ngrams() {
+        let encoder = TextEncoder::new();
+        let v = encoder.encode_with_ngrams("abc", 2);
+        // N-gram encoding should produce a non-zero vector
+        let zero = HVec10240::zero();
+        assert!(v.hamming_distance(&zero) > 0);
+    }
+
+    #[test]
+    fn stable_hash_consistent() {
+        let encoder = TextEncoder::new();
+        let h1 = encoder.stable_hash("test_token");
+        let h2 = encoder.stable_hash("test_token");
+        assert_eq!(h1, h2);
+    }
+}

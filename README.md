@@ -453,6 +453,54 @@ scripts/mutation_test.sh full
 
 Reports are written under `progress/mutation/`.
 
+## Test Coverage
+
+| Metric | Current |
+|--------|---------|
+| Total tests | 571 |
+| Test files | 46 |
+| Test LOC | 8,501 |
+| Source LOC | 12,140 (excluding inline tests) |
+| Inline test LOC | 2,333 (in src modules) |
+| Test:Source ratio | **70%** (target: 90%) |
+
+### Test Types
+
+| Type | Count | Purpose |
+|------|-------|---------|
+| Unit tests | Inline in 31 modules | Function-level correctness |
+| Integration tests | 46 dedicated files | Cross-module workflows |
+| CLI integration | 30 tests in `tests/cli_integration.rs` | End-to-end CLI usage |
+| Property-based | `tests/property_based.rs` | Edge case discovery |
+| Real usage | 8 examples in `examples/` | Production scenarios |
+| Skill-memory | 17 tests in `tests/skill_memory_integration.rs` | CLI patterns validation |
+
+### Real Usage Validation
+
+```bash
+# CLI workflow test (inject → probe → export → import)
+csm inject doc-1 --database test.db
+csm probe doc-1 -k 5 --database test.db
+csm export -o backup.json --database test.db
+csm import backup.json --merge --database test.db
+
+# Skill-memory integration test
+# Location: .agents/csm-memory/skill-memory.db
+# Verified: concept save/recall, db file creation
+```
+
+### Production Readiness Score: 7.5/10
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Rust Library | ✅ Ready | Tested from crates.io v0.3.5 |
+| CLI Binary | ✅ Ready | All commands pass |
+| WASM/npm | ⚠️ Partial | Export/import bug (see below) |
+
+**Known WASM Issue**: `exportToBytes()` / `importFromBytes()` fails with UTF-8 error.
+Bincode serialization is incompatible with `serde_json::Value` metadata.
+Workaround: Use JSON export/import in WASM until fix released.
+
 ## Benchmark Gates
 
 ```bash

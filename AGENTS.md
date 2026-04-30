@@ -66,55 +66,77 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
    cargo clippy --quiet -- -D warnings      # Lint check
    ```
 
-8. **Update state after completion** — Record what changed:
+8. **Coverage validation** — Ensure test coverage meets target:
+   ```bash
+   # Calculate test:source ratio
+   test_loc=$(wc -l tests/*.rs | tail -1 | awk '{print $1}')
+   src_loc=$(wc -l src/*.rs src/**/*.rs | tail -1 | awk '{print $1}')
+   ratio=$((test_loc * 100 / src_loc))
+   # Target: >= 90% coverage
+   ```
+
+9. **Real usage validation** — Test production scenarios:
+   ```bash
+   # CLI workflow test
+   csm inject test-1 --database /tmp/validate.db
+   csm probe test-1 -k 5 --database /tmp/validate.db
+   csm export -o /tmp/validate.json --database /tmp/validate.db
+   csm import /tmp/validate.json --database /tmp/validate.db
+   rm /tmp/validate.db /tmp/validate.json
+
+   # Skill-memory integration
+   ls -la .agents/csm-memory/skill-memory.db  # Verify db exists
+   ```
+
+10. **Update state after completion** — Record what changed:
    - Update `GOAP_STATE.md`: `action_last_completed`, module LOC, test counts
    - Add learnings to `progress/LEARNINGS.md` if new patterns discovered
 
 ### Phase 4: Verification (Compound Engineering)
 
-9. **Run full validation before claiming completion**:
+11. **Run full validation before claiming completion**:
    ```bash
    ./scripts/validate.sh                    # All gates in one command
    ```
 
-10. **If errors occur, encode corrections** — Compound engineering principle:
+12. **If errors occur, encode corrections** — Compound engineering principle:
     - Fix the immediate error
     - Add rule/constraint to prevent recurrence
     - Update AGENTS.md or hard-constraints.md if systemic
 
 ### Phase 5: Atomic Commit & CI Gate (GOAP Orchestration)
 
-11. **Create feature branch FIRST** — `main` is protected, never commit directly:
+13. **Create feature branch FIRST** — `main` is protected, never commit directly:
     ```bash
     git checkout -b <type>/<scope>-<description>
     # Examples: test/inline-tests-clippy-config, fix/persistence-fk, feat/reservoir-simd
     ```
 
-12. **Atomic commits** — One logical change per commit, never mix unrelated changes:
+14. **Atomic commits** — One logical change per commit, never mix unrelated changes:
     ```bash
     git add src/singularity.rs src/singularity_cache.rs
     git commit -m "feat(singularity): add similarity cache"
     ```
 
-13. **Push branch and create PR** — Never push directly to `main`:
+15. **Push branch and create PR** — Never push directly to `main`:
     ```bash
     git push origin <branch>
     gh pr create --title "<type>(<scope>): <summary>" --body "..."
     gh pr checks --watch  # Wait for CI to pass
     ```
 
-14. **Merge after CI passes** — Only merge when all checks are green:
+16. **Merge after CI passes** — Only merge when all checks are green:
     ```bash
     gh pr merge  # Squash merge preferred
     ```
 
-15. **Fix ALL issues (including pre-existing)** — CI must pass completely:
+17. **Fix ALL issues (including pre-existing)** — CI must pass completely:
     - New failures: Fix immediately
     - Pre-existing warnings: Fix before claiming completion
     - Use `goap-planning` skill to track fix actions in GOAP_STATE
     - Update `action_last_completed` and `world_state` after each fix
 
-16. **Document in GOAP_STATE** — Record completion state:
+18. **Document in GOAP_STATE** — Record completion state:
     ```yaml
     world_state:
       action_last_completed: <action_name>
@@ -136,6 +158,8 @@ Before completing any task, verify:
 - [ ] **Branch created (NOT main)** — never push directly to protected branch
 - [ ] **PR created and CI passing** — merge only after green checks
 - [ ] All validation gates pass (check, test, fmt, clippy)
+- [ ] **Coverage gate** — test:source ratio >= 90% (or improving)
+- [ ] **Real usage validated** — CLI workflow, skill-memory db, file persistence
 - [ ] CI workflow passes
 - [ ] GitHub Actions warnings/issues checked via `gh run view`
 - [ ] Pre-existing warnings fixed (not just new issues)
