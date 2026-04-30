@@ -150,8 +150,7 @@ mod tests {
         assert_eq!(weights.row_offsets.len(), 11);
 
         // Verify total non-zeros (rows * degree)
-        assert_eq!(weights.indices.len(), 40);
-        assert_eq!(weights.weights.len(), 40);
+        assert_eq!(weights.entries.len(), 40);
 
         // Verify each row has exactly degree entries
         for row in 0..10 {
@@ -168,15 +167,15 @@ mod tests {
         let weights = SparseWeights::build_local_reservoir(size, 4, 10, &mut rng);
 
         // Verify all indices are within bounds (0..size)
-        for idx in &weights.indices {
-            assert!(*idx < size);
+        for entry in &weights.entries {
+            assert!(entry.index < size as u32);
         }
 
         // Verify row_offsets length
         assert_eq!(weights.row_offsets.len(), size + 1);
 
         // Verify total non-zeros
-        assert_eq!(weights.indices.len(), size * 4);
+        assert_eq!(weights.entries.len(), size * 4);
     }
 
     #[test]
@@ -193,7 +192,7 @@ mod tests {
         // Result should be sum of weights for row 0
         let start = weights.row_offsets[0];
         let end = weights.row_offsets[1];
-        let expected: f32 = weights.weights[start..end].iter().sum();
+        let expected: f32 = weights.entries[start..end].iter().map(|e| e.weight).sum();
 
         assert!((result - expected).abs() < 1e-5);
     }
@@ -218,8 +217,20 @@ mod tests {
         // Manually construct sparse weights with single element per row
         let sparse = SparseWeights {
             row_offsets: vec![0, 1, 2, 3],
-            indices: vec![0, 1, 2],
-            weights: vec![0.5, 1.0, 2.0],
+            entries: vec![
+                WeightEntry {
+                    index: 0,
+                    weight: 0.5,
+                },
+                WeightEntry {
+                    index: 1,
+                    weight: 1.0,
+                },
+                WeightEntry {
+                    index: 2,
+                    weight: 2.0,
+                },
+            ],
         };
 
         let values = [10.0, 20.0, 30.0, 40.0];
@@ -239,8 +250,24 @@ mod tests {
         // Manually construct sparse weights with an empty row
         let sparse = SparseWeights {
             row_offsets: vec![0, 2, 2, 4], // Row 1 has 0 elements (offset 2..2)
-            indices: vec![0, 1, 2, 3],
-            weights: vec![1.0, 2.0, 3.0, 4.0],
+            entries: vec![
+                WeightEntry {
+                    index: 0,
+                    weight: 1.0,
+                },
+                WeightEntry {
+                    index: 1,
+                    weight: 2.0,
+                },
+                WeightEntry {
+                    index: 2,
+                    weight: 3.0,
+                },
+                WeightEntry {
+                    index: 3,
+                    weight: 4.0,
+                },
+            ],
         };
 
         let values = [10.0, 20.0, 30.0, 40.0];
@@ -261,14 +288,14 @@ mod tests {
         let mut weights = SparseWeights::build(5, 10, 3, &mut rng);
 
         // Record original weights
-        let original: Vec<f32> = weights.weights.clone();
+        let original: Vec<f32> = weights.entries.iter().map(|e| e.weight).collect();
 
         // Scale by 0.5
         weights.scale(0.5);
 
         // Verify all weights are halved
-        for (i, w) in weights.weights.iter().enumerate() {
-            assert!((w - original[i] * 0.5).abs() < 1e-5);
+        for (i, entry) in weights.entries.iter().enumerate() {
+            assert!((entry.weight - original[i] * 0.5).abs() < 1e-5);
         }
     }
 
@@ -281,8 +308,8 @@ mod tests {
         weights.scale(0.0);
 
         // All weights should be zero
-        for w in &weights.weights {
-            assert_eq!(*w, 0.0);
+        for entry in &weights.entries {
+            assert_eq!(entry.weight, 0.0);
         }
     }
 
@@ -290,8 +317,20 @@ mod tests {
     fn dot_row_with_negative_weights() {
         let sparse = SparseWeights {
             row_offsets: vec![0, 3],
-            indices: vec![0, 1, 2],
-            weights: vec![-1.0, 2.0, -3.0],
+            entries: vec![
+                WeightEntry {
+                    index: 0,
+                    weight: -1.0,
+                },
+                WeightEntry {
+                    index: 1,
+                    weight: 2.0,
+                },
+                WeightEntry {
+                    index: 2,
+                    weight: -3.0,
+                },
+            ],
         };
 
         let values = [10.0, 20.0, 30.0];
@@ -304,8 +343,16 @@ mod tests {
     fn dot_row_with_negative_values() {
         let sparse = SparseWeights {
             row_offsets: vec![0, 2],
-            indices: vec![0, 1],
-            weights: vec![1.0, -1.0],
+            entries: vec![
+                WeightEntry {
+                    index: 0,
+                    weight: 1.0,
+                },
+                WeightEntry {
+                    index: 1,
+                    weight: -1.0,
+                },
+            ],
         };
 
         let values = [-10.0, -20.0];
