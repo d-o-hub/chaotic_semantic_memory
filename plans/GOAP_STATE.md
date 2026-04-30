@@ -837,3 +837,56 @@ world_state:
   retrieval_hot_path_optimized: true
   reduced_candidate_retrieval_implemented: true
   benchmark_methodology_improved: true
+
+  # ═══════════════════════════════════════════════════════
+  # 2026-04-30 Gap Analysis — Wave 21-24 Roadmap
+  # See: plans/GAP_ANALYSIS_2026_04_30.md
+  # ADRs proposed: plans/adr/0066-0076.md
+  # ═══════════════════════════════════════════════════════
+  gap_analysis_2026_04_30_completed: true
+  gap_analysis_2026_04_30_findings: 10
+  gap_analysis_2026_04_30_adrs_drafted: 11
+  gap_analysis_2026_04_30_total_cost: 116
+  action_last_completed: gap_analysis_2026_04_30
+
+  # Wave 21 P0 — Adoption Unblockers (queued, total cost 34)
+  cli_framework_parity_complete: false        # ADR-0066 — 11 CLI subcommands missing
+  mcp_server_implemented: false               # ADR-0067 — `csm mcp serve` for LLM agents
+  adr_backfill_complete: false                # ADR-0076 — ~29 missing ADR files
+
+  # Wave 22 P1 — Capability Ceiling (queued, total cost 40)
+  hnsw_ann_index_implemented: false           # ADR-0068 — scale beyond 200k concepts
+  probe_scale_ceiling_lifted: false           # ADR-0068 — current ceiling ~200k
+  embedding_model_bridge_implemented: false   # ADR-0069 — fastembed/openai/voyage
+  graphrag_retrieval_implemented: false       # ADR-0070 — anchor + BFS + joint score
+
+  # Wave 23 P2 — Production Polish (queued, total cost 28)
+  reranking_pipeline_implemented: false       # ADR-0071 — MMR + recency + cross-encoder
+  otlp_exporter_implemented: false            # ADR-0072 — opentelemetry + prometheus
+  namespace_isolation_implemented: false      # ADR-0073 — supersedes deferred ADR-0026
+  version_history_surface_implemented: false  # ADR-0074 — activate dormant version table
+
+  # Wave 24 P3 — Future Scale (queued, cost 14, depends on Wave 22)
+  quantized_binary_hypervectors_implemented: false  # ADR-0075 — 32× memory compression
+
+  # ═══════════════════════════════════════════════════════
+  # Real-usage Verification + Clippy Audit (2026-04-30)
+  # See: plans/VERIFICATION_2026_04_30.md
+  # ═══════════════════════════════════════════════════════
+  verification_2026_04_30_completed: true
+  verification_2026_04_30_lifecycle_pass: true                # save/probe/export/import roundtrip OK
+  verification_2026_04_30_benchmarks_pass: true               # bm25 + benchmark + persistence
+  verification_2026_04_30_dist_channels_aligned: true         # crates.io + npm CLI + npm WASM all 0.3.5
+  verification_2026_04_30_clippy_audit: true
+  verification_2026_04_30_bm25_search_1000_us: 47.1           # was 64.4 µs (PR #129); now 47.1 µs (-27%)
+  verification_2026_04_30_singularity_probe_50000_ms: 3.73    # < 10 ms target
+  verification_2026_04_30_persistence_cold_start_us: 700      # ~705 µs
+  verification_2026_04_30_archive_phase_skipped: true         # no native CLI command — tracked in ADR-0066
+  verification_2026_04_30_delete_phase_skipped: true          # no native CLI command — tracked in ADR-0066
+
+  # Clippy pedantic / nursery audit
+  clippy_pedantic_surface_warnings: 936
+  clippy_actionable_warnings: 110                             # float_cmp + drop_tightening + cast_* + const_fn + redundant_clone
+  adr_0077_clippy_promotion_drafted: true                     # plans/adr/0077-clippy-pedantic-selective-promotion.md
+  clippy_pedantic_promotion_complete: false                   # 5 themed PRs queued
+  action_last_completed: verification_and_clippy_audit_2026_04_30
