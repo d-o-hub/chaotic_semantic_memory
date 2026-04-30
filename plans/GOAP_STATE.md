@@ -14,7 +14,7 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-   action_last_completed: coverage_improvement_pr138_merged_2026_04_30
+   action_last_completed: inline_tests_93_coverage_2026_04_30
   orchestrator_last_run: goap_orchestrator_agent_team_2026_04_30
   orchestrator_last_run_at_utc: 2026-04-30T15:00:00Z
   goap_orchestrator_analysis_complete: true         # 2026-04-30: All actionable items verified complete
@@ -42,10 +42,11 @@ world_state:
   verification_workspace_mrr: 0.75
   verification_bm25_search_1000_us: 64.4        # was 3030 µs pre PR #129 (47× faster)
   verification_bridge_retrieval_pipeline_1k_ms: 1.92
-  tests_count: 571                              # 2026-04-30: +45 tests (inline + skill-memory integration)
+  tests_count: 598                              # 2026-04-30: +27 inline tests (reservoir:7, singularity:5, retrieval:6, ops:3, wasm:4)
   skills_count: 29                              # 2026-04-30: All 29 skills have SKILL.md verified
-  coverage_ratio_current: 70                    # Test:Source ratio (target: 90%)
+  coverage_ratio_current: 93                   # Test:Source ratio (target: 90% - ACHIEVED)
   coverage_inline_tests_added: true             # encoder.rs (7), persistence_ops.rs (3), framework_ttl.rs (9), wasm_ext.rs (17)
+  coverage_core_inline_tests_added: true       # 2026-04-30: reservoir.rs (7), singularity.rs (5), singularity_retrieval.rs (6), framework_ops.rs (3), wasm.rs (4)
   coverage_skill_memory_integration_added: true # 17 tests for CLI patterns (tests/skill_memory_integration.rs)
   coverage_wasm_export_import_fix: true         # BinaryExportPayload regression tests (export_payload_tests.rs)
 
