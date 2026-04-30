@@ -92,12 +92,25 @@ After backfill, add to `plans/ADR_REGISTRY.md`:
 
 A new check in `scripts/validate.sh`:
 ```bash
-# Every ADR ID in registry must have a file
-missing=$(comm -23 \
-  <(grep -oE 'ADR-00[0-9]{2}' plans/ADR_REGISTRY.md | sort -u) \
-  <(ls docs/adr plans/adr | grep -oE '00[0-9]{2}' | sort -u))
-[ -z "$missing" ] || { echo "Missing ADR files: $missing"; exit 1; }
+# Every ADR ID in registry must have a file.
+# Normalize both sides to the bare 4-digit form (e.g., "0024") so `comm`
+# compares identical strings — registry uses `ADR-NNNN`, files use `NNNN-…md`.
+registry_ids=$(grep -oE 'ADR-[0-9]{4}' plans/ADR_REGISTRY.md \
+                 | sed -E 's/^ADR-//' | sort -u)
+disk_ids=$(ls docs/adr plans/adr 2>/dev/null \
+             | grep -oE '^[0-9]{4}' | sort -u)
+missing=$(comm -23 <(echo "$registry_ids") <(echo "$disk_ids"))
+if [ -n "$missing" ]; then
+  echo "Missing ADR files for IDs:"
+  echo "$missing" | sed 's/^/  /'
+  exit 1
+fi
 ```
+
+**Note (Codex review feedback addressed 2026-04-30):** an earlier draft of this
+snippet compared `ADR-NNNN` against `NNNN`, which would have reported every
+registry entry as missing and broken the gate. The version above normalizes
+both sides to the bare 4-digit form before diffing.
 
 ## Pros and Cons
 
