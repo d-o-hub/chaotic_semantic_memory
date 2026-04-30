@@ -14,7 +14,7 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-   action_last_completed: goap_inline_tests_and_clippy_config_2026_04_30
+   action_last_completed: enforce_pr_workflow_before_commit_steps_2026_04_30
   orchestrator_last_run: goap_coverage_clippy_planning_2026_04_29
   orchestrator_last_run_at_utc: 2026-04-29T15:00:00Z
   # PR Status
