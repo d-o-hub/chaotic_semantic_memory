@@ -14,7 +14,7 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-   action_last_completed: goap_orchestrator_full_verification_2026_04_30
+   action_last_completed: coverage_improvement_pr138_merged_2026_04_30
   orchestrator_last_run: goap_orchestrator_agent_team_2026_04_30
   orchestrator_last_run_at_utc: 2026-04-30T15:00:00Z
   goap_orchestrator_analysis_complete: true         # 2026-04-30: All actionable items verified complete
@@ -24,6 +24,9 @@ world_state:
   changelog_links_complete: true                    # 2026-04-30: All version links verified
   hybrid_retrieval_example_compiles: true           # 2026-04-30: cargo check --example hybrid_retrieval OK
   # PR Status
+  pr_138_merged: true                           # 2026-04-30: Coverage improvements + WASM fix (571 tests, 70%)
+  pr_138_tests_added: 45                        # encoder(7), persistence_ops(3), framework_ttl(9), wasm_ext(17), skill-memory(17)
+  pr_138_wasm_export_import_fix: true           # BinaryExportPayload for bincode serialization
   pr_130_codex_p1_fixed: true                   # 2026-04-29: All 4 P1 issues addressed before merge
   pr_130_sha_validation_opt_in: true            # pre-commit.sh: CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true
   pr_130_ci_sha_binding: true                   # self-fix-loop.sh: captures pushed SHA, filters by headSha
@@ -39,20 +42,22 @@ world_state:
   verification_workspace_mrr: 0.75
   verification_bm25_search_1000_us: 64.4        # was 3030 µs pre PR #129 (47× faster)
   verification_bridge_retrieval_pipeline_1k_ms: 1.92
-  tests_count: 526                              # 2026-04-30: +10 inline tests (encoder, persistence_ops)
+  tests_count: 571                              # 2026-04-30: +45 tests (inline + skill-memory integration)
   skills_count: 29                              # 2026-04-30: All 29 skills have SKILL.md verified
-  coverage_ratio_current: 66                    # Test:Source ratio (target: 90%)
-  coverage_inline_tests_added: true             # encoder.rs (7), persistence_ops.rs (3)
+  coverage_ratio_current: 70                    # Test:Source ratio (target: 90%)
+  coverage_inline_tests_added: true             # encoder.rs (7), persistence_ops.rs (3), framework_ttl.rs (9), wasm_ext.rs (17)
+  coverage_skill_memory_integration_added: true # 17 tests for CLI patterns (tests/skill_memory_integration.rs)
+  coverage_wasm_export_import_fix: true         # BinaryExportPayload regression tests (export_payload_tests.rs)
 
   # ═══════════════════════════════════════════════════════
   # Production Readiness (Real Usage Test 2026-04-30)
   # ═══════════════════════════════════════════════════════
   production_rust_library_ready: true           # Tested from crates.io v0.3.5
   production_cli_ready: true                    # All CLI commands pass
-  production_wasm_export_import_bug: true       # CRITICAL: bincode + serde_json::Value incompatible
-  wasm_export_uses_wrong_payload: true          # Uses ExportPayload instead of BinaryExportPayload
-  wasm_export_bug_location: "src/wasm.rs:340"   # bincode::serialize(&payload) with serde_json::Value
-  production_score: 7.5                         # Rust/CLI ready, WASM needs fix
+  production_wasm_export_import_bug: false      # FIXED in PR #138
+  wasm_export_uses_binary_payload: true        # Now uses BinaryExportPayload for bincode
+  wasm_export_fix_verified: true                # Regression tests pass
+  production_score: 8.5                         # Up from 7.5 - WASM fixed, coverage 70%
   # Remaining observations addressed (2026-04-29)
   latency_reporting_uses_us_for_sub_ms: true    # p50_latency_us field added to benchmarks
   hybrid_retrieval_example_exists: true         # examples/hybrid_retrieval.rs created
@@ -122,24 +127,26 @@ world_state:
     IQ_16_avx2_neon_simd: complete           # AVX2 + NEON paths verified in hyperdim_simd.rs
 
   # ═══════════════════════════════════════════════════════
-  # Coverage Analysis (2026-04-29)
-  # 534 tests, 7838 LOC tests, 9467 LOC source (ratio: 0.83:1)
+  # Coverage Analysis (2026-04-30)
+  # 571 tests, 8501 LOC tests, 12140 LOC source (ratio: 0.70:1 inline tests separate)
   # All modules have dedicated test coverage
   # ═══════════════════════════════════════════════════════
   coverage_analysis_completed: true
   coverage_metrics:
-    total_tests: 534
+    total_tests: 571
     test_files: 46
     source_files: 55
-    test_loc: 7838
-    source_loc: 9467
-    test_to_source_ratio: 0.83
-    inline_test_modules: 16
-    dead_code_markers: 4          # BinaryConcept serialization fields
+    test_loc: 8501
+    source_loc: 12140
+    inline_test_loc: 2333            # Tests embedded in src modules
+    test_to_source_ratio: 0.70       # Excluding inline tests from source LOC
+    inline_test_modules: 31          # Up from 27 (encoder, persistence_ops, framework_ttl, wasm_ext, export_payload_tests)
+    dead_code_markers: 4             # BinaryConcept serialization fields
     todo_markers: 0
-  coverage_gaps_identified: 5     # See plans/GOAP_COVERAGE_IMPROVEMENT.md
-  coverage_plan_created: true      # plans/GOAP_COVERAGE_IMPROVEMENT.md
-  coverage_gaps_resolved: 5        # 2026-04-30: All 5 gaps addressed with inline tests
+  coverage_gaps_identified: 5        # See plans/GOAP_COVERAGE_IMPROVEMENT.md
+  coverage_plan_created: true        # plans/GOAP_COVERAGE_IMPROVEMENT.md
+  coverage_gaps_resolved: 5          # 2026-04-30: All 5 gaps addressed with inline tests
+  coverage_pr_138_merged: true       # 2026-04-30: PR #138 merged with +45 tests, coverage 66→70%
 
   # ═══════════════════════════════════════════════════════
   # Clippy Best Practices (2026-04-29)
