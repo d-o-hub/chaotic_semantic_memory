@@ -112,4 +112,13 @@ else
   echo "skip: GitHub Actions SHA validation (use CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true to enable)"
 fi
 
+# Update coverage metrics in README.md (only if src files changed)
+STAGED_SRC=$(git diff --cached --name-only 2>/dev/null | grep -c "^src/" || echo "0")
+if [[ "$STAGED_SRC" -gt 0 ]] && [[ -x "${SCRIPT_DIR}/update-coverage.sh" ]]; then
+  echo " → Updating coverage metrics..."
+  "${SCRIPT_DIR}/update-coverage.sh"
+  # Re-add README.md if it was modified
+  git diff --quiet README.md || git add README.md
+fi
+
 echo "✅ Pre-commit checks passed!"
