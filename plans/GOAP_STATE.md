@@ -14,9 +14,12 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-   action_last_completed: enforce_pr_workflow_before_commit_steps_2026_04_30
-  orchestrator_last_run: goap_coverage_clippy_planning_2026_04_29
-  orchestrator_last_run_at_utc: 2026-04-29T15:00:00Z
+   action_last_completed: goap_orchestrator_verification_complete_2026_04_30
+  orchestrator_last_run: goap_orchestrator_agent_team_2026_04_30
+  orchestrator_last_run_at_utc: 2026-04-30T10:00:00Z
+  goap_orchestrator_analysis_complete: true         # 2026-04-30: All actionable items verified complete
+  skills_all_defined: true                          # 2026-04-30: 27 skills with SKILL.md verified
+  hybrid_retrieval_example_compiles: true           # 2026-04-30: cargo check --example hybrid_retrieval OK
   # PR Status
   pr_130_codex_p1_fixed: true                   # 2026-04-29: All 4 P1 issues addressed before merge
   pr_130_sha_validation_opt_in: true            # pre-commit.sh: CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true
