@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::error::{MemoryError, Result};
 use crate::framework::ChaoticSemanticFramework;
+use crate::metadata_filter::{MAX_FILTER_DEPTH, MetadataFilter};
 use crate::singularity::Concept;
 use crate::singularity_retrieval::RetrievalConfig;
 
@@ -148,6 +149,20 @@ impl ChaoticSemanticFramework {
                 reason: format!(
                     "sequence length exceeds configured limit {} (got {})",
                     self.config.max_sequence_length, length
+                ),
+            });
+        }
+        Ok(())
+    }
+
+    pub(crate) fn validate_metadata_filter(filter: &MetadataFilter) -> Result<()> {
+        let depth = filter.depth();
+        if depth > MAX_FILTER_DEPTH {
+            return Err(MemoryError::InvalidInput {
+                field: "filter".to_string(),
+                reason: format!(
+                    "metadata filter depth exceeds maximum allowed {} (got {})",
+                    MAX_FILTER_DEPTH, depth
                 ),
             });
         }
