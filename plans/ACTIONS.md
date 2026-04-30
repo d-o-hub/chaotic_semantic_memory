@@ -3245,3 +3245,308 @@ actions:
          p50_latency_us to SummaryMetrics with serde(default) for backward compat.
       2. Add examples/hybrid_retrieval.rs to exercise probe_bridge_text
          for Semantic Bridge Layer hybrid retrieval (ADR-0061).
+
+  # ═══════════════════════════════════════════════════════
+  # 2026-04-30 Gap Analysis — Wave 21-24 Roadmap
+  # See: plans/GAP_ANALYSIS_2026_04_30.md
+  # ADRs: plans/adr/0066-0076.md
+  # ═══════════════════════════════════════════════════════
+
+  - name: gap_analysis_2026_04_30
+    preconditions:
+      coverage_pr_138_merged: true
+    effects:
+      gap_analysis_2026_04_30_completed: true
+      action_last_completed: gap_analysis_2026_04_30
+    cost: 4
+    status: complete
+    file: plans/GAP_ANALYSIS_2026_04_30.md
+    description: |
+      Cross-referenced Framework public API (22 methods) vs CLI surface (9 commands),
+      ADR_REGISTRY.md (~40 IDs claimed) vs on-disk ADR files (11 present), and
+      surveyed missing high-value features (MCP, ANN, embeddings, GraphRAG, OTLP,
+      namespaces, version history, binary HVs). Documented 10 findings F1-F10
+      and produced 11 detailed ADRs (0066-0076).
+
+  # ─────────────────────────────────────────────────────────
+  # Wave 21: P0 — Adoption Unblockers (cost: 34)
+  # ─────────────────────────────────────────────────────────
+
+  - name: implement_cli_framework_parity
+    preconditions:
+      gap_analysis_2026_04_30_completed: true
+    effects:
+      cli_framework_parity_complete: true
+    cost: 12
+    status: queued
+    file: plans/adr/0066-cli-framework-api-parity.md
+    description: |
+      Add 11 missing subcommands: delete, get, update, disassociate,
+      associations, traverse, path, probe-filtered, stats, metrics, watch.
+      Each command file ≤ 250 LOC. Wire into bin/csm.rs match block.
+      Add tests/cli_parity.rs verifying each subcommand.
+
+  - name: implement_mcp_server
+    preconditions:
+      gap_analysis_2026_04_30_completed: true
+    effects:
+      mcp_server_implemented: true
+    cost: 16
+    status: queued
+    file: plans/adr/0067-mcp-server.md
+    description: |
+      Add `csm mcp serve` subcommand using rmcp crate behind `mcp` feature.
+      12 tools (memory_inject, memory_probe, memory_traverse, etc.) +
+      3 resources (concept://, stats://, health://). Stdio + SSE transports.
+      Smoke test against Claude Desktop config.
+
+  - name: backfill_missing_adrs
+    preconditions:
+      gap_analysis_2026_04_30_completed: true
+    effects:
+      adr_backfill_complete: true
+    cost: 6
+    status: queued
+    file: plans/adr/0076-adr-backfill.md
+    description: |
+      Reconstruct ~29 missing ADR files from registry IDs using commit history,
+      GOAP_STATE comments, and handoff notes. Each backfilled ADR ≤ 250 lines,
+      marked "Accepted (backfill)". Add scripts/validate.sh check enforcing
+      registry ↔ disk parity.
+
+  # ─────────────────────────────────────────────────────────
+  # Wave 22: P1 — Capability Ceiling Removal (cost: 40)
+  # ─────────────────────────────────────────────────────────
+
+  - name: implement_hnsw_ann_index
+    preconditions:
+      gap_analysis_2026_04_30_completed: true
+    effects:
+      hnsw_ann_index_implemented: true
+      probe_scale_ceiling_lifted: true
+    cost: 18
+    status: queued
+    file: plans/adr/0068-hnsw-ann-index.md
+    description: |
+      Add AnnIndex trait + 3 backends (BruteForce default, HNSW opt-in, LSH opt-in).
+      Migration 005_add_hnsw_graph.sql for serialized index persistence.
+      Bench targets at 50k/200k/1M concepts. Recall@10 ≥ 0.95 vs brute force.
+      p50 ≤ 5 ms at 1M concepts.
+
+  - name: implement_embedding_model_bridge
+    preconditions:
+      gap_analysis_2026_04_30_completed: true
+    effects:
+      embedding_model_bridge_implemented: true
+    cost: 14
+    status: queued
+    file: plans/adr/0069-embedding-model-bridge.md
+    description: |
+      Add EmbeddingProvider trait + 4 backends (HDC TextEncoder default,
+      fastembed, OpenAI, Voyage). Achlioptas random sparse projection
+      from native_dim → 10240. Wire into inject_text/probe_text via
+      builder. WASM unaffected.
+
+  - name: implement_graphrag_retrieval
+    preconditions:
+      gap_analysis_2026_04_30_completed: true
+    effects:
+      graphrag_retrieval_implemented: true
+    cost: 8
+    status: queued
+    file: plans/adr/0070-graphrag-hybrid-retrieval.md
+    description: |
+      Add probe_with_graph(query, GraphRagConfig) → anchor probe → BFS expand →
+      joint scoring (similarity_weight * cosine + graph_weight * 1/(1+hops) * strength).
+      CLI: csm probe-graph. Tests with synthetic known-structure graph.
+
+  # ─────────────────────────────────────────────────────────
+  # Wave 23: P2 — Production Polish (cost: 28)
+  # ─────────────────────────────────────────────────────────
+
+  - name: implement_reranking_pipeline
+    preconditions:
+      gap_analysis_2026_04_30_completed: true
+    effects:
+      reranking_pipeline_implemented: true
+    cost: 6
+    status: queued
+    file: plans/adr/0071-reranking-mmr-pipeline.md
+    description: |
+      Add Reranker trait + 3 implementations: MMR (lambda diversity),
+      RecencyDecay (half-life), CrossEncoder (opt-in feature, candle ONNX).
+      probe_with_rerankers() chains stages. CLI flag --rerank mmr:0.7,recency:30d.
+
+  - name: implement_otlp_exporter
+    preconditions:
+      gap_analysis_2026_04_30_completed: true
+    effects:
+      otlp_exporter_implemented: true
+    cost: 6
+    status: queued
+    file: plans/adr/0072-otlp-exporter.md
+    description: |
+      Add observability module behind otlp/prometheus features.
+      OTLP gRPC export + Prometheus /metrics endpoint.
+      7 metrics surfaced (probe_total, probe_latency_ms, inject_total, etc.).
+      Smoke test against local Jaeger + Prometheus.
+
+  - name: implement_namespace_isolation
+    preconditions:
+      gap_analysis_2026_04_30_completed: true
+    effects:
+      namespace_isolation_implemented: true
+      deferred_namespace_isolation: true
+    cost: 12
+    status: queued
+    file: plans/adr/0073-namespace-isolation.md
+    description: |
+      Migration 006_add_namespace.sql adds namespace column + index.
+      FrameworkBuilder::with_namespace(ns). All Framework methods
+      auto-scope by self.namespace. CLI --namespace flag + namespaces
+      list/delete/export. Default namespace _default for backward compat.
+
+  - name: implement_version_history_surface
+    preconditions:
+      gap_analysis_2026_04_30_completed: true
+    effects:
+      version_history_surface_implemented: true
+    cost: 4
+    status: queued
+    file: plans/adr/0074-version-history-surface.md
+    description: |
+      Activate dormant concept_versions table: list_versions, get_version,
+      diff_versions, rollback_to_version Framework APIs. CLI: history, diff,
+      rollback. WASM bindings. Rollback creates new version (non-destructive).
+
+  # ─────────────────────────────────────────────────────────
+  # Wave 24: P3 — Future Scale (cost: 14)
+  # ─────────────────────────────────────────────────────────
+
+  - name: implement_quantized_binary_hypervectors
+    preconditions:
+      hnsw_ann_index_implemented: true
+    effects:
+      quantized_binary_hypervectors_implemented: true
+    cost: 14
+    status: queued
+    file: plans/adr/0075-quantized-binary-hypervectors.md
+    description: |
+      Add BHVec10240 (160 × u64 packed) + Hypervector trait.
+      Singularity<H> generic over Hypervector. Migration 007_add_vector_format.sql.
+      32× memory compression at ~5% recall cost. Opt-in via FrameworkBuilder.
+      Recall@10 vs f32 benchmark report required.
+
+  # ═══════════════════════════════════════════════════════
+  # 2026-04-30 — Real-usage verification + Clippy audit
+  # See: plans/VERIFICATION_2026_04_30.md, plans/adr/0077-*.md
+  # ═══════════════════════════════════════════════════════
+
+  - name: verification_and_clippy_audit_2026_04_30
+    preconditions:
+      gap_analysis_2026_04_30_completed: true
+    effects:
+      verification_2026_04_30_completed: true
+      clippy_pedantic_surface_warnings: 936
+      clippy_actionable_warnings: 110
+      adr_0077_clippy_promotion_drafted: true
+      action_last_completed: verification_and_clippy_audit_2026_04_30
+    cost: 6
+    status: complete
+    file: plans/VERIFICATION_2026_04_30.md, plans/adr/0077-clippy-pedantic-selective-promotion.md
+    description: |
+      End-to-end real-usage verification using installed `csm 0.3.5`:
+      1. Lifecycle skill: inject (×2) → associate → probe → export → import →
+         re-probe roundtrip. All available phases pass; archive/delete skipped
+         (missing CLI surface, tracked in ADR-0066).
+      2. Distribution channel alignment verified (crates.io + npm CLI + npm WASM
+         all at 0.3.5 — `dist-channel-selection` skill).
+      3. Benchmark refresh: bm25_search_1000 47.1 µs (-27% vs 64.4 µs baseline);
+         singularity_probe_50000 3.73 ms (< 10 ms target); persistence cold start
+         705 µs. All Criterion suites pass `--quick`.
+      4. Clippy audit: current `-D warnings` green; pedantic+nursery probe
+         surfaces 936 warnings, of which 110 are actionable correctness/perf
+         signals (float_cmp 44, drop_tightening 21, cast_precision_loss 13,
+         cast_possible_truncation 8, redundant_clone 7, missing_const_for_fn 25).
+         Wrote ADR-0077 proposing selective promotion in 5 themed PRs.
+
+  # ─────────────────────────────────────────────────────────
+  # Wave 23+ — Clippy hardening (cost: 12, depends on ADR-0077)
+  # ─────────────────────────────────────────────────────────
+
+  - name: clippy_phase_a_promote_lints
+    preconditions:
+      adr_0077_clippy_promotion_drafted: true
+    effects:
+      clippy_phase_a_complete: true
+    cost: 1
+    status: queued
+    file: Cargo.toml
+    description: |
+      Promote 6 lints from pedantic/nursery blanket-allow to `warn`:
+      float_cmp, significant_drop_tightening, cast_precision_loss,
+      cast_possible_truncation, redundant_clone, missing_const_for_fn.
+      Single Cargo.toml edit, no source changes. Expected: ~110 new
+      warnings surface, CI temporarily fails — Phase B fixes them.
+
+  - name: clippy_phase_b_pr1_float_cmp
+    preconditions:
+      clippy_phase_a_complete: true
+    effects:
+      clippy_phase_b_pr1_complete: true
+    cost: 3
+    status: queued
+    file: src/reservoir.rs, src/singularity_*.rs, src/hyperdim*.rs
+    description: |
+      Fix 44 float_cmp sites. Use approx_eq! macro or explicit epsilon
+      comparison. Annotate intentional zero-checks with #[allow(clippy::float_cmp)].
+
+  - name: clippy_phase_b_pr2_drop_tightening
+    preconditions:
+      clippy_phase_a_complete: true
+    effects:
+      clippy_phase_b_pr2_complete: true
+    cost: 2
+    status: queued
+    file: src/framework*.rs, src/singularity_cache.rs
+    description: |
+      Fix 21 significant_drop_tightening sites — release locks earlier in
+      async hot paths. Add scope blocks around critical sections.
+
+  - name: clippy_phase_b_pr3_cast_safety
+    preconditions:
+      clippy_phase_a_complete: true
+    effects:
+      clippy_phase_b_pr3_complete: true
+    cost: 2
+    status: queued
+    file: src/hyperdim.rs, src/reservoir.rs, src/retrieval/bm25.rs
+    description: |
+      Fix 13 cast_precision_loss + 8 cast_possible_truncation sites.
+      Use safe alternatives: TryFrom for narrowing casts, explicit f64
+      intermediate for precision-sensitive math.
+
+  - name: clippy_phase_b_pr4_const_fns
+    preconditions:
+      clippy_phase_a_complete: true
+    effects:
+      clippy_phase_b_pr4_complete: true
+    cost: 2
+    status: queued
+    file: src/framework_builder.rs, src/concept_builder.rs, others
+    description: |
+      Mark 25 candidate functions as `const fn` for compile-time evaluation
+      and free perf wins. Builders, accessors, pure helpers.
+
+  - name: clippy_phase_b_pr5_redundant_clones
+    preconditions:
+      clippy_phase_a_complete: true
+    effects:
+      clippy_phase_b_pr5_complete: true
+      clippy_pedantic_promotion_complete: true
+    cost: 2
+    status: queued
+    file: src/, tests/
+    description: |
+      Remove 7 redundant_clone sites. Mostly tests and small surface code.
+      Verify cargo test --all-features stays green throughout.
