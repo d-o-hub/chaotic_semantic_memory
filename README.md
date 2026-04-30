@@ -489,17 +489,15 @@ csm import backup.json --merge --database test.db
 # Verified: concept save/recall, db file creation
 ```
 
-### Production Readiness Score: 7.5/10
+### Production Readiness Score: 8.5/10
 
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Rust Library | ✅ Ready | Tested from crates.io v0.3.5 |
 | CLI Binary | ✅ Ready | All commands pass |
-| WASM/npm | ⚠️ Partial | Export/import bug (see below) |
+| WASM/npm | ✅ Ready | Export/import fixed in v0.3.5 (PR #138) |
 
-**Known WASM Issue**: `exportToBytes()` / `importFromBytes()` fails with UTF-8 error.
-Bincode serialization is incompatible with `serde_json::Value` metadata.
-Workaround: Use JSON export/import in WASM until fix released.
+**WASM Export Fix**: `exportToBytes()` / `importFromBytes()` now uses `BinaryExportPayload` for bincode serialization, resolving the previous UTF-8 error with `serde_json::Value` metadata.
 
 ## Benchmark Gates
 

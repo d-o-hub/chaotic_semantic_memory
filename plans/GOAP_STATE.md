@@ -15,14 +15,16 @@ world_state:
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
    action_last_completed: inline_tests_93_coverage_2026_04_30
-  orchestrator_last_run: goap_orchestrator_agent_team_2026_04_30
-  orchestrator_last_run_at_utc: 2026-04-30T15:00:00Z
+  orchestrator_last_run: goap_orchestrator_analysis_2026_04_30
+  orchestrator_last_run_at_utc: 2026-04-30T18:30:00Z
   goap_orchestrator_analysis_complete: true         # 2026-04-30: All actionable items verified complete
   skills_all_defined: true                          # 2026-04-30: 29 skills with SKILL.md verified
   no_missing_implementations: true                  # 2026-04-30: No TODO/FIXME/unimplemented! in source
-  book_chapters_complete: true                      # 2026-04-30: semantic-bridge, inertial-reservoir, ttl chapters exist
+  book_chapters_complete: true                      # 2026-04-30: 15 book chapters verified (semantic-bridge, inertial-reservoir, ttl exist)
   changelog_links_complete: true                    # 2026-04-30: All version links verified
   hybrid_retrieval_example_compiles: true           # 2026-04-30: cargo check --example hybrid_retrieval OK
+  loc_gate_verified: true                           # 2026-04-30: All files ≤500 LOC (max: singularity.rs, wasm_ext.rs at 500)
+  misleading_docs_found: true                       # 2026-04-30: README.md WASM issue outdated (lines 500-503)
   # PR Status
   pr_138_merged: true                           # 2026-04-30: Coverage improvements + WASM fix (571 tests, 70%)
   pr_138_tests_added: 45                        # encoder(7), persistence_ops(3), framework_ttl(9), wasm_ext(17), skill-memory(17)
