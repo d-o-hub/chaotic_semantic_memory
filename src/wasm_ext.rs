@@ -2,13 +2,19 @@
 //!
 //! Split from `wasm.rs` to keep each file under the 500-LOC project limit.
 
+#[cfg(target_arch = "wasm32")]
 use js_sys::{Array, Function};
+#[cfg(target_arch = "wasm32")]
 use tokio::sync::broadcast::error::RecvError;
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen_futures::spawn_local;
 
+#[cfg(target_arch = "wasm32")]
 use crate::wasm::{WasmFramework, to_js_error};
 
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 impl WasmFramework {
     /// Get framework stats
@@ -231,6 +237,7 @@ impl WasmFramework {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
 fn memory_event_to_js_value(event: &crate::framework_events::MemoryEvent) -> JsValue {
     let obj = js_sys::Object::new();
     match event {
@@ -262,4 +269,232 @@ fn memory_event_to_js_value(event: &crate::framework_events::MemoryEvent) -> JsV
         }
     }
     obj.into()
+}
+
+// ============================================================================
+// TESTS
+// ============================================================================
+//
+// These tests verify the underlying data patterns used by WASM bindings.
+// They run on native targets to ensure JSON serialization, byte conversion,
+// and filter logic work correctly before WASM consumers use them.
+
+#[cfg(test)]
+mod tests {
+    use crate::framework_events::MemoryEvent;
+    use crate::graph_traversal::TraversalConfig;
+    use crate::hyperdim::HVec10240;
+    use crate::metadata_filter::MetadataFilter;
+    use serde_json::json;
+    use std::collections::HashMap;
+
+    // -------------------------------------------------------------------------
+    // MetadataFilter JSON serialization tests (used by probe_filtered)
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn metadata_filter_eq_json_roundtrip() {
+        let filter = MetadataFilter::eq("type", "document");
+        let json = serde_json::to_string(&filter).unwrap();
+        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
+        assert_eq!(filter, parsed);
+    }
+
+    #[test]
+    fn metadata_filter_in_json_roundtrip() {
+        let filter = MetadataFilter::in_("tag", vec![json!("rust"), json!("python")]);
+        let json = serde_json::to_string(&filter).unwrap();
+        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
+        assert_eq!(filter, parsed);
+    }
+
+    #[test]
+    fn metadata_filter_exists_json_roundtrip() {
+        let filter = MetadataFilter::exists("title");
+        let json = serde_json::to_string(&filter).unwrap();
+        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
+        assert_eq!(filter, parsed);
+    }
+
+    #[test]
+    fn metadata_filter_and_json_roundtrip() {
+        let filter = MetadataFilter::and(vec![
+            MetadataFilter::eq("type", "document"),
+            MetadataFilter::exists("author"),
+        ]);
+        let json = serde_json::to_string(&filter).unwrap();
+        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
+        assert_eq!(filter, parsed);
+    }
+
+    #[test]
+    fn metadata_filter_or_json_roundtrip() {
+        let filter = MetadataFilter::or(vec![
+            MetadataFilter::eq("status", "active"),
+            MetadataFilter::eq("status", "pending"),
+        ]);
+        let json = serde_json::to_string(&filter).unwrap();
+        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
+        assert_eq!(filter, parsed);
+    }
+
+    #[test]
+    fn metadata_filter_not_json_roundtrip() {
+        let filter = MetadataFilter::Not(Box::new(MetadataFilter::eq("private", true)));
+        let json = serde_json::to_string(&filter).unwrap();
+        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
+        assert_eq!(filter, parsed);
+    }
+
+    #[test]
+    fn metadata_filter_nested_complex_json_roundtrip() {
+        // (type == "document" AND tag in ["rust", "python"]) AND NOT private
+        let filter = MetadataFilter::and(vec![
+            MetadataFilter::eq("type", "document"),
+            MetadataFilter::in_("tag", vec![json!("rust"), json!("python")]),
+            MetadataFilter::Not(Box::new(MetadataFilter::eq("private", true))),
+        ]);
+        let json = serde_json::to_string(&filter).unwrap();
+        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
+        assert_eq!(filter, parsed);
+    }
+
+    #[test]
+    fn metadata_filter_json_string_format() {
+        // Verify the JSON format matches what WASM users would pass
+        let filter = MetadataFilter::eq("category", "science");
+        let json = serde_json::to_string(&filter).unwrap();
+        // Expected format: {"Eq":["category","science"]}
+        assert!(json.contains("Eq"));
+        assert!(json.contains("category"));
+        assert!(json.contains("science"));
+    }
+
+    // -------------------------------------------------------------------------
+    // TraversalConfig tests (used by bfs, shortest_path, traverse)
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn traversal_config_defaults() {
+        let config = TraversalConfig::default();
+        assert_eq!(config.max_depth, 3);
+        assert_eq!(config.min_strength, 0.0);
+        assert_eq!(config.max_results, 100);
+    }
+
+    #[test]
+    fn traversal_config_custom_values() {
+        // Simulate what WASM traverse() does with custom params
+        let config = TraversalConfig {
+            max_depth: 5,
+            min_strength: 0.7,
+            ..Default::default()
+        };
+        assert_eq!(config.max_depth, 5);
+        assert_eq!(config.min_strength, 0.7);
+    }
+
+    // -------------------------------------------------------------------------
+    // HVec10240 byte conversion tests (used by probe_filtered)
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn hvec_bytes_roundtrip() {
+        let original = HVec10240::random();
+        let bytes = original.to_bytes();
+        let restored = HVec10240::from_bytes(&bytes).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn hvec_bytes_length() {
+        let hvec = HVec10240::random();
+        let bytes = hvec.to_bytes();
+        // 10240 bits / 8 = 1280 bytes
+        assert_eq!(bytes.len(), 1280);
+    }
+
+    #[test]
+    fn hvec_from_bytes_invalid_length() {
+        let short_bytes = vec![0u8; 100];
+        let result = HVec10240::from_bytes(&short_bytes);
+        assert!(result.is_err());
+    }
+
+    // -------------------------------------------------------------------------
+    // MemoryEvent tests (used by on_event callback)
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn memory_event_variants_construct() {
+        let injected = MemoryEvent::ConceptInjected {
+            id: "test-id".to_string(),
+            timestamp: 12345,
+        };
+        let updated = MemoryEvent::ConceptUpdated {
+            id: "test-id".to_string(),
+            timestamp: 12346,
+        };
+        let deleted = MemoryEvent::ConceptDeleted {
+            id: "test-id".to_string(),
+            timestamp: 12347,
+        };
+        let associated = MemoryEvent::Associated {
+            from: "a".to_string(),
+            to: "b".to_string(),
+            strength: 0.8,
+        };
+        let disassociated = MemoryEvent::Disassociated {
+            from: "a".to_string(),
+            to: "b".to_string(),
+        };
+
+        // Verify Clone works
+        assert!(matches!(
+            injected.clone(),
+            MemoryEvent::ConceptInjected { .. }
+        ));
+
+        // Verify Debug works
+        assert!(format!("{:?}", updated).contains("ConceptUpdated"));
+        assert!(format!("{:?}", deleted).contains("ConceptDeleted"));
+        assert!(format!("{:?}", associated).contains("Associated"));
+        assert!(format!("{:?}", disassociated).contains("Disassociated"));
+    }
+
+    #[test]
+    fn memory_event_clone_preserves_data() {
+        let event = MemoryEvent::Associated {
+            from: "source".to_string(),
+            to: "target".to_string(),
+            strength: 0.95,
+        };
+        let cloned = event.clone();
+        match cloned {
+            MemoryEvent::Associated { from, to, strength } => {
+                assert_eq!(from, "source");
+                assert_eq!(to, "target");
+                assert!((strength - 0.95).abs() < 0.001);
+            }
+            _ => panic!("Expected Associated variant"),
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // MetadataFilter matching tests (probe_filtered uses filter.matches)
+    // -------------------------------------------------------------------------
+
+    #[test]
+    fn metadata_filter_matches_empty_metadata() {
+        let filter = MetadataFilter::eq("type", "document");
+        let empty_metadata = HashMap::new();
+        assert!(!filter.matches(&empty_metadata));
+    }
+
+    #[test]
+    fn metadata_filter_exists_on_empty_metadata() {
+        let filter = MetadataFilter::exists("field");
+        let empty_metadata = HashMap::new();
+        assert!(!filter.matches(&empty_metadata));
+    }
 }

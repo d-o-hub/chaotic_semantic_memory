@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::ops;
 
 /// A predicate for filtering concepts by metadata during similarity search.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum MetadataFilter {
     /// Key equals value: `key == value`
     Eq(String, Value),

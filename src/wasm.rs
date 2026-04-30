@@ -6,7 +6,7 @@ use tracing::warn;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 
-use crate::export_payload::{ExportPayload, unix_now_secs};
+use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
 use crate::hyperdim::HVec10240;
 use crate::singularity::Concept;
@@ -337,7 +337,9 @@ impl WasmFramework {
             }
         };
 
-        let data = bincode::serialize(&payload).map_err(to_js_error)?;
+        // Use BinaryExportPayload for bincode compatibility (serde_json::Value is incompatible with bincode)
+        let binary_payload = BinaryExportPayload::from(payload);
+        let data = bincode::serialize(&binary_payload).map_err(to_js_error)?;
         Ok(Uint8Array::from(data.as_slice()))
     }
 
@@ -354,8 +356,11 @@ impl WasmFramework {
             )));
         }
 
+        // Deserialize as BinaryExportPayload (bincode-compatible), then convert to ExportPayload
         let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
-        let payload: ExportPayload = options.deserialize(&bytes).map_err(to_js_error)?;
+        let binary_payload: BinaryExportPayload =
+            options.deserialize(&bytes).map_err(to_js_error)?;
+        let payload = binary_payload.to_export_payload().map_err(to_js_error)?;
 
         if !merge {
             let mut singularity = self.framework.singularity.write().await;

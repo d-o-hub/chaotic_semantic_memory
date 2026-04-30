@@ -2385,7 +2385,7 @@ pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig
 ### MetadataFilter
 
 ```rust
-#[derive(Debug, Clone, serde :: Serialize, serde :: Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde :: Serialize, serde :: Deserialize)]
 pub enum MetadataFilter {
     Eq(String, Value),
     In(String, Vec<Value>),
