@@ -62,10 +62,10 @@ trait JsonSchemaExt {
 
 impl<T: rmcp::schemars::JsonSchema> JsonSchemaExt for T {
     fn json_schema() -> serde_json::Value {
-        let mut settings = rmcp::schemars::gen::SchemaSettings::draft07();
+        let mut settings = rmcp::schemars::r#gen::SchemaSettings::draft07();
         settings.inline_subschemas = true;
-        let r#gen = settings.into_generator();
-        let schema = r#gen.into_root_schema_for::<T>();
+        let generator = settings.into_generator();
+        let schema = generator.into_root_schema_for::<T>();
         serde_json::to_value(schema).unwrap_or(serde_json::Value::Null)
     }
 }
