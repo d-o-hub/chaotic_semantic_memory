@@ -38,6 +38,9 @@ tracing-subscriber = "0.3.19"
 rand = "0.10.1"
 rand_chacha = "0.10.0"
 
+# Async trait support
+async-trait = "0.1.83"
+
 # CLI dependencies (gated behind "cli" feature)
 clap = { version = "4.5.60", features = ["derive", "env", "string"], optional = true }
 clap_complete = { version = "4.5.42", optional = true }

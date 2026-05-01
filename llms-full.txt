@@ -9,6 +9,7 @@
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
 - anyhow (1.0.102)
+- async-trait (0.1.83)
 - base64 (0.22)
 - bincode (1.3.3)
 - clap (4.5.60) [features: derive, env, string]
@@ -268,6 +269,26 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct ConceptBuilder
 - impl ConceptBuilder
 
+### src/embedding/hdc_text.rs
+
+- pub struct HdcTextProvider
+- impl Default for HdcTextProvider
+- impl HdcTextProvider
+- impl EmbeddingProvider for HdcTextProvider
+
+### src/embedding/mod.rs
+
+- pub use hdc_text::HdcTextProvider
+- pub use projection::{Projection, ProjectionConfig}
+- pub trait EmbeddingProvider
+
+### src/embedding/projection.rs
+
+- pub struct ProjectionConfig
+- impl Default for ProjectionConfig
+- pub struct Projection
+- impl Projection
+
 ### src/encoder.rs
 
 - pub struct TextEncoderConfig
@@ -371,6 +392,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod bundle
 - pub mod cli
 - pub mod concept_builder
+- pub mod embedding
 - pub mod encoder
 - pub mod error
 - pub mod framework
@@ -2214,6 +2236,126 @@ impl ConceptBuilder {
     pub fn with_vector(self, vector: HVec10240) -> Self;
     pub fn with_metadata(self, key: impl Trait, value: impl Trait) -> Self;
     pub fn build(self) -> Result<Concept>;
+}
+```
+
+## src/embedding/hdc_text.rs
+
+### HdcTextProvider
+
+```rust
+#[derive(Debug, Clone)]
+pub struct HdcTextProvider {
+}
+```
+
+HDC text embedding provider using FNV-1a hashing.
+
+This is the default provider when no external embeddings are configured.
+It generates hypervectors directly without an intermediate f32 embedding,
+so the "native dimension" is 10240 and projection is identity.
+
+### impl Default for HdcTextProvider
+
+```rust
+impl Default for HdcTextProvider {
+}
+```
+
+### impl EmbeddingProvider for HdcTextProvider
+
+```rust
+impl EmbeddingProvider for HdcTextProvider {
+}
+```
+
+### impl HdcTextProvider
+
+```rust
+impl HdcTextProvider {
+    pub fn new() -> Self;
+    pub fn with_config(config: crate::encoder::TextEncoderConfig) -> Self;
+}
+```
+
+## src/embedding/mod.rs
+
+### EmbeddingProvider
+
+```rust
+pub trait EmbeddingProvider: Send + Sync {
+    fn name(&self) -> &str;
+    fn native_dim(&self) -> usize;
+    fn embed(&self, text: &str) -> Result<Vec<f32>>;
+    fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>>;
+    fn project(&self, vec: &[f32], projection: &Projection) -> HVec10240;
+}
+```
+
+Embedding provider trait for text-to-vector conversion.
+
+Implementations may be:
+- Local (HDC hash, FastEmbed ONNX)
+- Remote HTTP (OpenAI, Voyage)
+
+All providers project their native dimensionality to HVec10240.
+
+### hdc_text::HdcTextProvider
+
+```rust
+pub use hdc_text::HdcTextProvider;
+```
+
+### projection::{Projection, ProjectionConfig}
+
+```rust
+pub use projection::{Projection, ProjectionConfig};
+```
+
+## src/embedding/projection.rs
+
+### Projection
+
+```rust
+#[derive(Debug, Clone)]
+pub struct Projection {
+}
+```
+
+Sparse random projection matrix for f32[native_dim] → HVec10240.
+
+Matrix is 10240 × native_dim with values in {-1, 0, +1}.
+Stored as flat array with indices for non-zero entries.
+
+### ProjectionConfig
+
+```rust
+#[derive(Debug, Clone)]
+pub struct ProjectionConfig {
+    pub seed: u64,
+    pub native_dim: usize,
+    pub target_dim: usize,
+    pub sparsity: f32,
+}
+```
+
+Configuration for projection matrix generation.
+
+### impl Default for ProjectionConfig
+
+```rust
+impl Default for ProjectionConfig {
+}
+```
+
+### impl Projection
+
+```rust
+impl Projection {
+    pub fn new(config: &ProjectionConfig) -> Self;
+    pub fn project(&self, vec: &[f32]) -> HVec10240;
+    pub fn nnz(&self) -> usize;
+    pub fn sparsity_ratio(&self) -> f32;
 }
 ```
 
