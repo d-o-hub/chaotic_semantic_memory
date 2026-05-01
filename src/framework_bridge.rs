@@ -51,6 +51,7 @@ impl ChaoticSemanticFramework {
         filter: &MetadataFilter,
     ) -> Result<Vec<BridgeHit>> {
         self.validate_top_k(top_k)?;
+        Self::validate_metadata_filter(filter)?;
         let singularity = self.singularity.read().await;
 
         // Get filtered concept IDs first

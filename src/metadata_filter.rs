@@ -65,26 +65,18 @@ impl MetadataFilter {
         }
     }
 
-    /// Calculate the maximum depth of the filter tree (iterative to avoid stack overflow).
     pub(crate) fn depth(&self) -> usize {
-        let mut max_depth = 0;
-        let mut stack = vec![(self, 1)];
-        while let Some((filter, current_depth)) = stack.pop() {
-            max_depth = max_depth.max(current_depth);
-            if current_depth > MAX_FILTER_DEPTH {
-                return current_depth; // Early exit if limit exceeded
-            }
-            match filter {
-                Self::And(filters) | Self::Or(filters) => {
-                    for f in filters {
-                        stack.push((f, current_depth + 1));
-                    }
-                }
-                Self::Not(filter) => stack.push((filter, current_depth + 1)),
+        let (mut max, mut stack) = (0, vec![(self, 1)]);
+        while let Some((f, d)) = stack.pop() {
+            max = max.max(d);
+            if d > MAX_FILTER_DEPTH { return d; }
+            match f {
+                Self::And(v) | Self::Or(v) => v.iter().for_each(|i| stack.push((i, d + 1))),
+                Self::Not(i) => stack.push((i, d + 1)),
                 _ => {}
             }
         }
-        max_depth
+        max
     }
 }
 
