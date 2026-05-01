@@ -67,11 +67,11 @@ pub enum Commands {
         seed: u64,
 
         /// Minimum number of turns per session.
-        #[arg(long, default_value_t = 3)]
+        #[arg(long, default_value_t = 5)]
         min_turns: usize,
 
         /// Maximum number of turns per session.
-        #[arg(long, default_value_t = 3)]
+        #[arg(long, default_value_t = 10)]
         max_turns: usize,
     },
 }
