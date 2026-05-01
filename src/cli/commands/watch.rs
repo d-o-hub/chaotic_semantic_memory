@@ -1,6 +1,6 @@
 use super::create_framework;
 use crate::cli::args::{OutputFormat, WatchArgs};
-use crate::cli::error::Result;
+use crate::cli::error::{CliError, Result};
 use std::path::Path;
 use tokio::io::AsyncWriteExt;
 use tracing::instrument;
@@ -42,11 +42,6 @@ pub async fn run_watch(
                     }
                 }
 
-                // Internal enum variants aren't Serialize by default in some versions,
-                // but let's assume they are or manually serialize.
-                // MemoryEvent in src/framework_events.rs doesn't have #[derive(Serialize)].
-                // Wait, ADR says JSONL.
-
                 let json = match event {
                     crate::framework_events::MemoryEvent::ConceptInjected { id, timestamp } => {
                         serde_json::json!({"event": "ConceptInjected", "id": id, "timestamp": timestamp})
@@ -67,8 +62,12 @@ pub async fn run_watch(
 
                 let mut line = serde_json::to_vec(&json).unwrap();
                 line.push(b'\n');
-                let _ = stdout.write_all(&line).await;
-                let _ = stdout.flush().await;
+                if let Err(e) = stdout.write_all(&line).await {
+                    return Err(CliError::Io(e));
+                }
+                if let Err(e) = stdout.flush().await {
+                    return Err(CliError::Io(e));
+                }
             }
             Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
                 eprintln!("Warning: Watch lagged by {} events", n);

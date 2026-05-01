@@ -12,12 +12,17 @@ pub async fn run_path(args: PathArgs, db_path: Option<&Path>, format: OutputForm
     validate_concept_id(&args.to)?;
     let framework = create_framework(db_path).await?;
 
+    let config = TraversalConfig {
+        max_depth: 32, // ADR-0064 limit
+        ..Default::default()
+    };
+
     let path = if args.weighted {
         framework.shortest_path(&args.from, &args.to).await
     } else {
         let singularity = framework.singularity();
         let sing = singularity.read().await;
-        sing.shortest_path_hops(&args.from, &args.to, &TraversalConfig::default())
+        sing.shortest_path_hops(&args.from, &args.to, &config)
     }
     .map_err(|e| CliError::Persistence(format!("shortest path calculation failed: {e}")))?;
 
