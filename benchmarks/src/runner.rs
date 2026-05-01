@@ -48,14 +48,21 @@ pub async fn run(cli: Cli) -> Result<()> {
         let start_query = Instant::now();
 
         // Use session-scoped retrieval for session-specific queries
-        let hits = if matches!(
-            query_case.task_type,
-            TaskType::Recall | TaskType::Update | TaskType::Temporal | TaskType::Abstain,
-        ) {
-            adapter.query_in_session(&query_case.query, &query_case.session_id, cli.top_k).await?
-        } else {
-            // For abstain and other queries, search globally
-            adapter.query(&query_case.query, cli.top_k).await?
+        let hits = match query_case.task_type {
+            TaskType::Recall | TaskType::Update | TaskType::Temporal | TaskType::Abstain | TaskType::Isolation => {
+                adapter.query_in_session(&query_case.query, &query_case.session_id, cli.top_k).await?
+            }
+            TaskType::Association => {
+                if query_case.session_id == "cross-session" {
+                    adapter.query_association(&query_case.query, cli.top_k).await?
+                } else {
+                    adapter.query_in_session_association(&query_case.query, &query_case.session_id, cli.top_k).await?
+                }
+            }
+            _ => {
+                // For other queries, search globally
+                adapter.query(&query_case.query, cli.top_k).await?
+            }
         };
         let elapsed = start_query.elapsed();
         let latency_ms = elapsed.as_millis();
