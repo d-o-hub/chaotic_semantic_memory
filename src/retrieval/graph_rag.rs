@@ -204,17 +204,19 @@ fn find_anchors(
 }
 
 /// BFS traverse from a starting concept.
+///
+/// Re-visits nodes if a path with a higher graph score (strength / (1 + hops)) is found.
 fn traverse_from(
     start: &str,
     associations: &HashMap<String, Vec<(String, f32)>>,
     config: &TraversalConfig,
 ) -> Vec<(String, usize, f32)> {
-    let mut results: Vec<(String, usize, f32)> = Vec::new();
-    let mut visited: HashSet<String> = HashSet::new();
+    // Map of node_id -> (depth, path_strength, graph_score)
+    let mut best_paths: HashMap<String, (usize, f32, f32)> = HashMap::new();
     let mut queue: VecDeque<(String, usize, f32)> = VecDeque::new();
-    queue.push_back((start.to_string(), 0, 1.0));
 
-    visited.insert(start.to_string());
+    queue.push_back((start.to_string(), 0, 1.0));
+    best_paths.insert(start.to_string(), (0, 1.0, 1.0));
 
     while let Some((current, depth, path_strength)) = queue.pop_front() {
         if depth >= config.max_depth {
@@ -226,22 +228,31 @@ fn traverse_from(
                 if *strength < config.min_strength {
                     continue;
                 }
-                if visited.contains(neighbor) {
-                    continue;
-                }
-                if results.len() >= config.max_results {
-                    break;
-                }
 
+                let new_depth = depth + 1;
                 let new_strength = path_strength.min(*strength);
-                visited.insert(neighbor.clone());
-                results.push((neighbor.clone(), depth + 1, new_strength));
-                queue.push_back((neighbor.clone(), depth + 1, new_strength));
+                let new_graph_score = new_strength / (1.0 + new_depth as f32);
+
+                let is_better = if let Some(&(_, _, prev_score)) = best_paths.get(neighbor) {
+                    new_graph_score > prev_score
+                } else {
+                    best_paths.len() < config.max_results
+                };
+
+                if is_better {
+                    best_paths.insert(neighbor.clone(), (new_depth, new_strength, new_graph_score));
+                    queue.push_back((neighbor.clone(), new_depth, new_strength));
+                }
             }
         }
     }
 
-    results
+    // Convert map to results, excluding the start node
+    best_paths
+        .into_iter()
+        .filter(|(id, _)| id != start)
+        .map(|(id, (depth, strength, _))| (id, depth, strength))
+        .collect()
 }
 
 #[cfg(test)]
