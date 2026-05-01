@@ -128,6 +128,9 @@ pub struct SummaryMetrics {
     pub abstain_precision: f32,
     /// Recall of abstention decisions.
     pub abstain_recall: f32,
+    /// Success rate of association tasks.
+    #[serde(default)]
+    pub association_success_rate: f32,
     /// Total ingestion time in milliseconds.
     pub ingest_ms: u128,
     /// Median (p50) query latency in milliseconds.
