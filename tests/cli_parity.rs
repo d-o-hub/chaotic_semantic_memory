@@ -10,7 +10,7 @@ fn test_cli_parity_lifecycle() {
 
     // 1. Inject
     let mut cmd = Command::cargo_bin("csm").unwrap();
-    cmd.args(&[
+    cmd.args([
         "--database",
         db_str,
         "inject",
@@ -23,7 +23,7 @@ fn test_cli_parity_lifecycle() {
 
     // 2. Get
     let mut cmd = Command::cargo_bin("csm").unwrap();
-    cmd.args(&["--database", db_str, "get", "c1"])
+    cmd.args(["--database", db_str, "get", "c1"])
         .assert()
         .success()
         .stdout(predicate::str::contains("c1"))
@@ -31,7 +31,7 @@ fn test_cli_parity_lifecycle() {
 
     // 3. Update
     let mut cmd = Command::cargo_bin("csm").unwrap();
-    cmd.args(&[
+    cmd.args([
         "--database",
         db_str,
         "update",
@@ -43,26 +43,26 @@ fn test_cli_parity_lifecycle() {
     .success();
 
     let mut cmd = Command::cargo_bin("csm").unwrap();
-    cmd.args(&["--database", db_str, "get", "c1"])
+    cmd.args(["--database", db_str, "get", "c1"])
         .assert()
         .success()
         .stdout(predicate::str::contains("updated"));
 
     // 4. Stats
     let mut cmd = Command::cargo_bin("csm").unwrap();
-    cmd.args(&["--database", db_str, "stats"])
+    cmd.args(["--database", db_str, "stats"])
         .assert()
         .success()
         .stdout(predicate::str::contains("Concepts: 1"));
 
     // 5. Delete
     let mut cmd = Command::cargo_bin("csm").unwrap();
-    cmd.args(&["--database", db_str, "delete", "c1"])
+    cmd.args(["--database", db_str, "delete", "c1"])
         .assert()
         .success();
 
     let mut cmd = Command::cargo_bin("csm").unwrap();
-    cmd.args(&["--database", db_str, "get", "c1"])
+    cmd.args(["--database", db_str, "get", "c1"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("not found"));
@@ -78,7 +78,7 @@ fn test_cli_parity_graph() {
     for id in &["a", "b", "c"] {
         Command::cargo_bin("csm")
             .unwrap()
-            .args(&["--database", db_str, "inject", id])
+            .args(["--database", db_str, "inject", id])
             .assert()
             .success();
     }
@@ -86,7 +86,7 @@ fn test_cli_parity_graph() {
     // Associate a -> b -> c
     Command::cargo_bin("csm")
         .unwrap()
-        .args(&[
+        .args([
             "--database",
             db_str,
             "associate",
@@ -99,7 +99,7 @@ fn test_cli_parity_graph() {
         .success();
     Command::cargo_bin("csm")
         .unwrap()
-        .args(&[
+        .args([
             "--database",
             db_str,
             "associate",
@@ -114,7 +114,7 @@ fn test_cli_parity_graph() {
     // Associations
     Command::cargo_bin("csm")
         .unwrap()
-        .args(&["--database", db_str, "associations", "a"])
+        .args(["--database", db_str, "associations", "a"])
         .assert()
         .success()
         .stdout(predicate::str::contains("b"))
@@ -123,7 +123,7 @@ fn test_cli_parity_graph() {
     // Associations reverse
     Command::cargo_bin("csm")
         .unwrap()
-        .args(&["--database", db_str, "associations", "b", "--reverse"])
+        .args(["--database", db_str, "associations", "b", "--reverse"])
         .assert()
         .success()
         .stdout(predicate::str::contains("a"));
@@ -131,7 +131,7 @@ fn test_cli_parity_graph() {
     // Traverse
     Command::cargo_bin("csm")
         .unwrap()
-        .args(&["--database", db_str, "traverse", "a", "--depth", "2"])
+        .args(["--database", db_str, "traverse", "a", "--depth", "2"])
         .assert()
         .success()
         .stdout(predicate::str::contains("a"))
@@ -141,7 +141,7 @@ fn test_cli_parity_graph() {
     // Path
     Command::cargo_bin("csm")
         .unwrap()
-        .args(&["--database", db_str, "path", "a", "c"])
+        .args(["--database", db_str, "path", "a", "c"])
         .assert()
         .success()
         .stdout(predicate::str::contains("a -> b -> c"));
@@ -149,13 +149,13 @@ fn test_cli_parity_graph() {
     // Disassociate
     Command::cargo_bin("csm")
         .unwrap()
-        .args(&["--database", db_str, "disassociate", "a", "b"])
+        .args(["--database", db_str, "disassociate", "a", "b"])
         .assert()
         .success();
 
     Command::cargo_bin("csm")
         .unwrap()
-        .args(&["--database", db_str, "path", "a", "c"])
+        .args(["--database", db_str, "path", "a", "c"])
         .assert()
         .success()
         .stdout(predicate::str::contains("No path found"));
@@ -169,7 +169,7 @@ fn test_cli_parity_metrics() {
 
     Command::cargo_bin("csm")
         .unwrap()
-        .args(&["--database", db_str, "inject", "m1"])
+        .args(["--database", db_str, "inject", "m1"])
         .assert()
         .success();
 
@@ -177,14 +177,14 @@ fn test_cli_parity_metrics() {
     // We just verify the command succeeds and outputs the table.
     Command::cargo_bin("csm")
         .unwrap()
-        .args(&["--database", db_str, "metrics"])
+        .args(["--database", db_str, "metrics"])
         .assert()
         .success()
         .stdout(predicate::str::contains("Total Probes:"));
 
     Command::cargo_bin("csm")
         .unwrap()
-        .args(&["--database", db_str, "metrics", "--reset"])
+        .args(["--database", db_str, "metrics", "--reset"])
         .assert()
         .success();
 }
@@ -197,7 +197,7 @@ fn test_cli_parity_probe_filtered() {
 
     Command::cargo_bin("csm")
         .unwrap()
-        .args(&[
+        .args([
             "--database",
             db_str,
             "inject",
@@ -209,7 +209,7 @@ fn test_cli_parity_probe_filtered() {
         .success();
     Command::cargo_bin("csm")
         .unwrap()
-        .args(&[
+        .args([
             "--database",
             db_str,
             "inject",
@@ -222,7 +222,7 @@ fn test_cli_parity_probe_filtered() {
 
     Command::cargo_bin("csm")
         .unwrap()
-        .args(&[
+        .args([
             "--database",
             db_str,
             "probe-filtered",
