@@ -267,12 +267,39 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
-    /// Get associations for a concept
+    /// Get associations for a concept (outbound edges).
     #[instrument(err, skip(self))]
     pub async fn get_associations(&self, id: &str) -> Result<Vec<(String, f32)>> {
         Self::validate_concept_id(id)?;
         let sing = self.singularity.read().await;
         Ok(sing.get_associations(id))
+    }
+
+    /// Get incoming associations for a concept (inbound edges).
+    ///
+    /// Returns concepts that have associations pointing to this concept,
+    /// sorted by strength descending.
+    #[instrument(err, skip(self))]
+    pub async fn incoming_associations(&self, id: &str) -> Result<Vec<(String, f32)>> {
+        Self::validate_concept_id(id)?;
+        let sing = self.singularity.read().await;
+        Ok(sing
+            .incoming_associations(id)
+            .into_iter()
+            .map(|(s, f)| (s.to_string(), f))
+            .collect())
+    }
+
+    /// Find the fewest-hop path between two concepts (unweighted BFS).
+    ///
+    /// Returns the path with the minimum number of hops, ignoring edge strengths.
+    /// Use [`Self::shortest_path`] for strength-weighted (Dijkstra) traversal.
+    #[instrument(err, skip(self))]
+    pub async fn shortest_path_hops(&self, from: &str, to: &str) -> Result<Option<Vec<String>>> {
+        Self::validate_concept_id(from)?;
+        Self::validate_concept_id(to)?;
+        let sing = self.singularity.read().await;
+        sing.shortest_path_hops(from, to, &TraversalConfig::default())
     }
 
     /// Get a concept by ID.

@@ -1,70 +1,85 @@
 # ADR Registry
 
+> **Note**: ADRs 0001-0056 were backfilled on 2026-05-01 from ACTIONS.md, git history, and handoff files.
+> See ADR-0076 for the backfill process.
+
 ## Quick Reference
 
-| ADR | Title | Status | Priority |
-|-----|-------|--------|----------|
-| 0001 | Use libSQL for Persistence | Accepted | Implemented |
-| 0002 | Hypervector Size (10240 bits) | Accepted | Implemented |
-| 0004 | Sparse Reservoir Matrix | Accepted | Implemented |
-| 0005 | Persistence Connection Model | Accepted | Implemented |
-| 0006 | Persistence Batch Operations | Accepted | Implemented |
-| 0007 | Similarity Search Optimization | Accepted | Implemented |
-| 0008 | WASM Rayon Gating | Accepted | Implemented |
-| 0009 | Partial Reservoir Updates | Accepted | Implemented |
-| 0010 | Public API Result Contract | Accepted | Implemented |
-| 0011 | SQLite Foreign Keys & Builder Migration | Accepted | Implemented |
-| 0012 | ConceptBuilder Metadata Error Propagation | Accepted | Implemented |
-| 0013 | SIMD Hypervector Operations | Accepted | Implemented |
-| 0014 | Connection Pooling for Turso | Accepted | Implemented |
-| 0015 | Structured Logging | Accepted | Implemented |
-| 0016 | Export/Import Migration | Accepted | Implemented |
-| 0017 | Concept Versioning | Accepted | Implemented |
-| 0018 | Input Validation Policy | Accepted | Implemented |
-| 0019 | Backup/Restore Safety | Accepted | Implemented |
-| 0020 | Silent Data Loss on Load | Accepted | Implemented |
-| 0021 | Auto Schema Migration | Accepted | Implemented |
-| 0022 | WASM API Parity (Original) | Accepted | Implemented |
-| 0023 | Zero-Alloc Query Cache | Accepted | Implemented |
-| **0027** | **Documentation Standards** | **Implemented** | **Wave 7 - Complete** |
-| **0028** | **Observability Completion** | **Implemented** | **Wave 7 - Complete** |
-| **0029** | **WASM API Parity (Phase 2)** | **Implemented** | **Wave 7 - Complete** |
-| **0030** | **Test & Benchmark Gap Remediation** | **Implemented** | **Wave 8 - Complete** |
-| **0038** | **Cargo.toml Modernization** | **Implemented** | **Wave 10 - Phase 24** |
-| **0039** | **Release Engineering** | **Implemented** | **Wave 11 - Phase 25** |
-| **0031** | **Two-Tier Architecture Documentation** | **Accepted** | **Documentation** |
-| **0032** | **CLI Robustness** | **Implemented** | **Wave 10** |
-| **0033** | **WASM Panic Safety** | **Implemented** | **Wave 10** |
-| **0034** | **Framework Metadata Injection** | **Implemented** | **Wave 10** |
-| **0035** | **Cache Memory Guardrails** | **Implemented** | **Wave 10** |
-| **0036** | **CI/DX Hardening** | **Implemented** | **Wave 10 - Phase 22** |
-| **0037** | **Rust Best Practices** | **Implemented** | **Wave 10 - Phase 23** |
-| **0040** | **Async Lock Safety** | **Implemented** | **Wave 10** |
-| **0041** | **Batch Similarity Optimization** | **Implemented** | **Wave 12 - Phase 6B** |
-| **0043** | **Skill-Memory Security Hardening** | **Accepted** | **Skill System** |
-| **0044** | **Memory Limits and Resource Governance** | **Proposed** | **Wave 13 - Phase 27** |
-| **0045** | **Security Policy for Input Validation** | **Proposed** | **Wave 13 - Phase 27** |
-| **0046** | **npm OIDC Trusted Publishing** | **Proposed** | **Wave 12B - Phase 26B** |
-| **0047** | **Security & Performance Hardening** | **Implemented** | **Wave 13 - Phase 27** |
-| **0048** | **WASM-pack Bulk Memory Fix** | **Implemented** | **2026-02-27** |
-| **0050** | **npm Node.js 24 + Token Fallback** | **Implemented** | **2026-02-28** |
-| **0051** | **Real-World Readiness & Quality Hardening** | **Implemented** | **Wave 14 - Phase 29-31** |
-| **0053** | **API Hardening & New Features** | **Proposed** | **Wave 15 - Phase 32-36** |
-| **0054** | **High-Impact New Features** | **Proposed** | **Wave 15 - Phase 37-41** |
-| **0055** | **Production Polish & Correctness** | **Implemented** | **Wave 16 - Phase 42-47** |
-| **0056** | **Performance Follow-up Priorities** | **Implemented** | **Wave 17 - Phase 48** |
-| **0057** | **Phase 41 API Completion and Memory Events** | **Implemented** | **Wave 17 - Phase 41 Follow-up** |
-| **0058** | **Fix Import/Export Serialization** | **Implemented** | **2026-03-16** |
-| **0059** | **Retrieval Optimization and Benchmark Hygiene** | **Implemented** | **2026-03-17** |
-| **0060** | **Configurable Hypervector Dimensions** | Deferred | Issue #35 |
-| **0061** | **Semantic Bridge Layer** | **Implemented** | **Issue #52 - Phase 55-58** |
-| **0062** | **Hybrid BM25-HDC Retrieval** | **Implemented** | **2026-04-05** |
-| **0063** | **Database Table Prefix** | **Implemented** | **2026-04-08** |
-| **0077** | **Clippy Pedantic Selective Promotion** | **Phase A+B Implemented** | **2026-05-01** |
-| 0024 | Concept Expiration (TTL) | Deferred | Post-1.0 |
-| 0024 | Performance Optimizations Phase 2 | Deferred | Post-1.0 |
-| 0025 | Weighted Forgetting (Decay) | Deferred | Post-1.0 |
-| 0026 | Namespace Isolation | Deferred | Post-1.0 |
+| ADR | Title | Status | File |
+|-----|-------|--------|------|
+| 0001 | Use libSQL for Persistence | Accepted | [adr/0001-use-libsql-for-persistence.md](adr/0001-use-libsql-for-persistence.md) |
+| 0002 | Hypervector Size (10240 bits) | Accepted | [adr/0002-hypervector-size-10240-bits.md](adr/0002-hypervector-size-10240-bits.md) |
+| 0003 | _Superseded by ADR-0008_ | Superseded | N/A |
+| 0004 | Sparse Reservoir Matrix | Accepted | [adr/0004-sparse-reservoir-matrix.md](adr/0004-sparse-reservoir-matrix.md) |
+| 0005 | Persistence Connection Model | Accepted | [adr/0005-persistence-connection-model.md](adr/0005-persistence-connection-model.md) |
+| 0006 | Persistence Batch Operations | Accepted | [adr/0006-persistence-batch-operations.md](adr/0006-persistence-batch-operations.md) |
+| 0007 | Similarity Search Optimization | Accepted | [adr/0007-similarity-search-optimization.md](adr/0007-similarity-search-optimization.md) |
+| 0008 | WASM Rayon Gating | Accepted | [adr/0008-wasm-rayon-gating.md](adr/0008-wasm-rayon-gating.md) |
+| 0009 | Partial Reservoir Updates | Accepted | [adr/0009-partial-reservoir-updates.md](adr/0009-partial-reservoir-updates.md) |
+| 0010 | Public API Result Contract | Accepted | [adr/0010-public-api-result-contract.md](adr/0010-public-api-result-contract.md) |
+| 0011 | SQLite Foreign Keys & Builder Migration | Accepted | [adr/0011-sqlite-foreign-keys-and-builder-migration.md](adr/0011-sqlite-foreign-keys-and-builder-migration.md) |
+| 0012 | ConceptBuilder Metadata Error Propagation | Accepted | [adr/0012-conceptbuilder-metadata-error-propagation.md](adr/0012-conceptbuilder-metadata-error-propagation.md) |
+| 0013 | SIMD Hypervector Operations | Accepted | [adr/0013-simd-hypervector-operations.md](adr/0013-simd-hypervector-operations.md) |
+| 0014 | Connection Pooling for Turso | Accepted | [adr/0014-connection-pooling-for-turso.md](adr/0014-connection-pooling-for-turso.md) |
+| 0015 | Structured Logging | Accepted | [adr/0015-structured-logging.md](adr/0015-structured-logging.md) |
+| 0016 | Export/Import Migration | Accepted | [adr/0016-export-import-migration.md](adr/0016-export-import-migration.md) |
+| 0017 | Concept Versioning | Accepted | [adr/0017-concept-versioning.md](adr/0017-concept-versioning.md) |
+| 0018 | Input Validation Policy | Accepted | [adr/0018-input-validation-policy.md](adr/0018-input-validation-policy.md) |
+| 0019 | Backup/Restore Safety | Accepted | [adr/0019-backup-restore-safety.md](adr/0019-backup-restore-safety.md) |
+| 0020 | Silent Data Loss on Load | Accepted | [adr/0020-silent-data-loss-on-load.md](adr/0020-silent-data-loss-on-load.md) |
+| 0021 | Auto Schema Migration | Accepted | [adr/0021-auto-schema-migration.md](adr/0021-auto-schema-migration.md) |
+| 0022 | WASM API Parity (Original) | Accepted | [adr/0022-wasm-api-parity-original.md](adr/0022-wasm-api-parity-original.md) |
+| 0023 | Zero-Alloc Query Cache | Accepted | [adr/0023-zero-alloc-query-cache.md](adr/0023-zero-alloc-query-cache.md) |
+| 0024 | Concept Expiration (TTL) | Accepted (Baseline) | [adr/0024-concept-expiration-ttl.md](adr/0024-concept-expiration-ttl.md) |
+| 0025 | Weighted Forgetting (Decay) | Deferred | [adr/0025-weighted-forgetting-decay.md](adr/0025-weighted-forgetting-decay.md) |
+| 0026 | Namespace Isolation | Deferred | [adr/0026-namespace-isolation.md](adr/0026-namespace-isolation.md) |
+| 0027 | Documentation Standards | Implemented | [adr/0027-documentation-standards.md](adr/0027-documentation-standards.md) |
+| 0028 | Observability Completion | Implemented | [adr/0028-observability-completion.md](adr/0028-observability-completion.md) |
+| 0029 | WASM API Parity (Phase 2) | Implemented | [adr/0029-wasm-api-parity-phase-2.md](adr/0029-wasm-api-parity-phase-2.md) |
+| 0030 | Test & Benchmark Gap Remediation | Implemented | [adr/0030-test-and-benchmark-gap-remediation.md](adr/0030-test-and-benchmark-gap-remediation.md) |
+| 0031 | Two-Tier Architecture Documentation | Accepted | [adr/0031-two-tier-architecture-documentation.md](adr/0031-two-tier-architecture-documentation.md) |
+| 0032 | CLI Robustness | Implemented | [adr/0032-cli-robustness.md](adr/0032-cli-robustness.md) |
+| 0033 | WASM Panic Safety | Implemented | [adr/0033-wasm-panic-safety.md](adr/0033-wasm-panic-safety.md) |
+| 0034 | Framework Metadata Injection | Implemented | [adr/0034-framework-metadata-injection.md](adr/0034-framework-metadata-injection.md) |
+| 0035 | Cache Memory Guardrails | Implemented | [adr/0035-cache-memory-guardrails.md](adr/0035-cache-memory-guardrails.md) |
+| 0036 | CI/DX Hardening | Implemented | [adr/0036-ci-dx-hardening.md](adr/0036-ci-dx-hardening.md) |
+| 0037 | Rust Best Practices | Implemented | [adr/0037-rust-best-practices.md](adr/0037-rust-best-practices.md) |
+| 0038 | Cargo.toml Modernization | Implemented | [adr/0038-cargo-toml-modernization.md](adr/0038-cargo-toml-modernization.md) |
+| 0039 | Release Engineering | Implemented | [adr/0039-release-engineering.md](adr/0039-release-engineering.md) |
+| 0040 | Async Lock Safety | Implemented | [adr/0040-async-lock-safety.md](adr/0040-async-lock-safety.md) |
+| 0041 | Batch Similarity Optimization | Implemented | [adr/0041-batch-similarity-optimization.md](adr/0041-batch-similarity-optimization.md) |
+| 0042 | Release Automation v0.1.0 | Accepted | [adr/0042-release-automation-v010.md](adr/0042-release-automation-v010.md) |
+| 0043 | Skill-Memory Security Hardening | Accepted | [adr/0043-skill-memory-security-hardening.md](adr/0043-skill-memory-security-hardening.md) |
+| 0044 | Memory Limits and Resource Governance | Proposed | [adr/0044-memory-limits-and-resource-governance.md](adr/0044-memory-limits-and-resource-governance.md) |
+| 0045 | Security Policy for Input Validation | Proposed | [adr/0045-security-policy-for-input-validation.md](adr/0045-security-policy-for-input-validation.md) |
+| 0046 | npm OIDC Trusted Publishing | Proposed | [adr/0046-npm-oidc-trusted-publishing.md](adr/0046-npm-oidc-trusted-publishing.md) |
+| 0047 | Security & Performance Hardening | Implemented | [adr/0047-security-and-performance-hardening.md](adr/0047-security-and-performance-hardening.md) |
+| 0048 | WASM-pack Bulk Memory Fix | Implemented | [adr/0048-wasm-pack-bulk-memory-fix.md](adr/0048-wasm-pack-bulk-memory-fix.md) |
+| 0050 | npm Node.js 24 + Token Fallback | Implemented | [adr/0050-npm-nodejs-24-and-token-fallback.md](adr/0050-npm-nodejs-24-and-token-fallback.md) |
+| 0051 | Real-World Readiness & Quality Hardening | Implemented | [adr/0051-real-world-readiness-and-quality-hardening.md](adr/0051-real-world-readiness-and-quality-hardening.md) |
+| 0053 | API Hardening & New Features | Proposed | [adr/0053-api-hardening-and-new-features.md](adr/0053-api-hardening-and-new-features.md) |
+| 0054 | High-Impact New Features | Proposed | [adr/0054-high-impact-new-features.md](adr/0054-high-impact-new-features.md) |
+| 0055 | Production Polish & Correctness | Implemented | [adr/0055-production-polish-and-correctness.md](adr/0055-production-polish-and-correctness.md) |
+| 0056 | Performance Follow-up Priorities | Implemented | [adr/0056-performance-follow-up-priorities.md](adr/0056-performance-follow-up-priorities.md) |
+| 0057 | Phase 41 API Completion and Memory Events | Implemented | [adr/0057-phase41-api-completion-and-events.md](adr/0057-phase41-api-completion-and-events.md) |
+| 0058 | Fix Import/Export Serialization | Implemented | [adr/0058-fix-import-export-serialization.md](adr/0058-fix-import-export-serialization.md) |
+| 0059 | Retrieval Optimization and Benchmark Hygiene | Implemented | [adr/0059-retrieval-optimization.md](adr/0059-retrieval-optimization.md) |
+| 0060 | Configurable Hypervector Dimensions | Deferred | [adr/0060-configurable-dimensions.md](adr/0060-configurable-dimensions.md) |
+| 0061 | Semantic Bridge Layer | Implemented | [adr/0061-semantic-bridge-layer.md](adr/0061-semantic-bridge-layer.md) |
+| 0062 | Hybrid BM25-HDC Retrieval | Implemented | [adr/0062-hybrid-bm25-hdc-retrieval.md](adr/0062-hybrid-bm25-hdc-retrieval.md) |
+| 0063 | Database Table Prefix | Implemented | [adr/0063-database-table-prefix.md](adr/0063-database-table-prefix.md) |
+| 0066 | CLI ↔ Framework API Parity | Implemented | [adr/0066-cli-framework-api-parity.md](adr/0066-cli-framework-api-parity.md) |
+| 0067 | MCP Server | Implemented | [adr/0067-mcp-server.md](adr/0067-mcp-server.md) |
+| 0068 | HNSW ANN Index | Proposed | [adr/0068-hnsw-ann-index.md](adr/0068-hnsw-ann-index.md) |
+| 0069 | Embedding Model Bridge | Proposed | [adr/0069-embedding-model-bridge.md](adr/0069-embedding-model-bridge.md) |
+| 0070 | GraphRAG Hybrid Retrieval | Proposed | [adr/0070-graphrag-hybrid-retrieval.md](adr/0070-graphrag-hybrid-retrieval.md) |
+| 0071 | Reranking MMR Pipeline | Proposed | [adr/0071-reranking-mmr-pipeline.md](adr/0071-reranking-mmr-pipeline.md) |
+| 0072 | OTLP Exporter | Proposed | [adr/0072-otlp-exporter.md](adr/0072-otlp-exporter.md) |
+| 0073 | Namespace Isolation | Proposed | [adr/0073-namespace-isolation.md](adr/0073-namespace-isolation.md) |
+| 0074 | Version History Surface | Proposed | [adr/0074-version-history-surface.md](adr/0074-version-history-surface.md) |
+| 0075 | Quantized Binary Hypervectors | Proposed | [adr/0075-quantized-binary-hypervectors.md](adr/0075-quantized-binary-hypervectors.md) |
+| 0076 | ADR Backfill | Implemented | [adr/0076-adr-backfill.md](adr/0076-adr-backfill.md) |
+| 0077 | Clippy Pedantic Selective Promotion | Phase A+B Implemented | [adr/0077-clippy-pedantic-selective-promotion.md](adr/0077-clippy-pedantic-selective-promotion.md) |
 
 ## Status Definitions
 

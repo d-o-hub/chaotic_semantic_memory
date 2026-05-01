@@ -17,6 +17,7 @@
 - glob (0.3.2)
 - rand (0.10.1)
 - rand_chacha (0.10.0)
+- rmcp (0.2)
 - serde (1.0.219) [features: derive]
 - serde_json (1.0.149)
 - thiserror (2.0.11)
@@ -25,6 +26,7 @@
 **Features:**
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - default: [cli, persistence, parallel]
+- mcp: [dep:rmcp, cli]
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
 - wasm: []
@@ -36,7 +38,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/bin/csm.rs
 
-- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+- pub use native::chaotic_semantic_memory::cli::commands::watch::EventFilter
+- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch}
 - pub use native::clap::Parser
 - pub use native::colored::Colorize
 - pub use native::tracing::Level
@@ -80,19 +83,46 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct CompletionsArgs
 - pub struct IndexJsonlArgs
 - pub struct IndexDirArgs
+- pub struct DeleteArgs
+- pub struct GetArgs
+- pub struct UpdateArgs
+- pub struct DisassociateArgs
+- pub struct AssociationsArgs
+- pub struct TraverseArgs
+- pub struct PathArgs
+- pub struct ProbeFilteredArgs
+- pub struct StatsArgs
+- pub struct MetricsArgs
+- pub struct WatchArgs
 
 ### src/cli/commands/associate.rs
 
 - pub fn run_associate
 - pub fn run_associate_batch
 
+### src/cli/commands/associations.rs
+
+- pub fn run_associations
+
 ### src/cli/commands/completions.rs
 
 - pub fn run_completions
 
+### src/cli/commands/delete.rs
+
+- pub fn run_delete
+
+### src/cli/commands/disassociate.rs
+
+- pub fn run_disassociate
+
 ### src/cli/commands/export.rs
 
 - pub fn run_export
+
+### src/cli/commands/get.rs
+
+- pub fn run_get
 
 ### src/cli/commands/import.rs
 
@@ -112,40 +142,92 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub fn run_inject
 
+### src/cli/commands/metrics.rs
+
+- pub fn run_metrics
+
 ### src/cli/commands/mod.rs
 
 - pub mod associate
+- pub mod associations
 - pub mod completions
+- pub mod delete
+- pub mod disassociate
 - pub mod export
+- pub mod get
 - pub mod import
 - pub mod index_dir
 - pub mod index_jsonl
 - pub mod inject
+- pub mod metrics
+- pub mod path
 - pub mod probe
+- pub mod probe_filtered
 - pub mod query
+- pub mod stats
+- pub mod traverse
+- pub mod update
+- pub mod watch
 - pub use associate::run_associate
+- pub use associations::run_associations
 - pub use completions::run_completions
+- pub use delete::run_delete
+- pub use disassociate::run_disassociate
 - pub use export::run_export
+- pub use get::run_get
 - pub use import::run_import
 - pub use index_dir::run_index_dir
 - pub use index_jsonl::run_index_jsonl
 - pub use inject::run_inject
+- pub use metrics::run_metrics
+- pub use path::run_path
 - pub use probe::run_probe
+- pub use probe_filtered::run_probe_filtered
 - pub use query::run_query
+- pub use stats::run_stats
+- pub use traverse::run_traverse
+- pub use update::run_update
+- pub use watch::run_watch
 - pub fn print_success
 - pub fn print_error
 - pub fn print_warning
 - pub fn truncate_preview
 - pub fn create_framework
 
+### src/cli/commands/path.rs
+
+- pub fn run_path
+
 ### src/cli/commands/probe.rs
 
 - pub fn run_probe
 - pub fn run_probe_with_vector
 
+### src/cli/commands/probe_filtered.rs
+
+- pub fn run_probe_filtered
+
 ### src/cli/commands/query.rs
 
 - pub fn run_query
+
+### src/cli/commands/stats.rs
+
+- pub fn run_stats
+
+### src/cli/commands/traverse.rs
+
+- pub fn run_traverse
+
+### src/cli/commands/update.rs
+
+- pub fn run_update
+
+### src/cli/commands/watch.rs
+
+- pub enum EventFilter
+- impl EventFilter
+- pub fn run_watch
 
 ### src/cli/error.rs
 
@@ -170,7 +252,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod error
 - pub mod git_local
 - pub use args::*
-- pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+- pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch}
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
 
@@ -284,6 +366,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod framework_builder
 - pub mod graph_traversal
 - pub mod hyperdim
+- pub mod mcp
 - pub mod metadata_filter
 - pub mod semantic_triples
 - pub use metadata_filter::MetadataFilter
@@ -310,6 +393,46 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use prelude::crate::singularity::{Concept, ConceptBuilder}
 - pub use prelude::crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod wasm
+
+### src/mcp/mod.rs
+
+- pub use resources::McpResources
+- pub use server::serve
+- pub use tools::McpTools
+
+### src/mcp/resources.rs
+
+- pub struct McpResources
+- impl McpResources
+- pub struct ResourceDefinition
+
+### src/mcp/schema.rs
+
+- pub fn inject_schema
+- pub fn inject_text_schema
+- pub fn probe_schema
+- pub fn probe_text_schema
+- pub fn probe_filtered_schema
+- pub fn get_schema
+- pub fn delete_schema
+- pub fn associate_schema
+- pub fn traverse_schema
+- pub fn shortest_path_schema
+- pub fn stats_schema
+- pub fn export_schema
+
+### src/mcp/server.rs
+
+- pub enum Transport
+- pub struct McpConfig
+- impl Default for McpConfig
+- pub fn serve
+
+### src/mcp/tools.rs
+
+- pub struct McpTools
+- impl McpTools
+- pub struct ToolDefinition
 
 ### src/metadata_filter.rs
 
@@ -982,10 +1105,16 @@ The `csm` binary provides command-line access:
 ```bash
 ## src/bin/csm.rs
 
-### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+### chaotic_semantic_memory::cli::commands::watch::EventFilter
 
 ```rust
-pub use chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query};
+pub use chaotic_semantic_memory::cli::commands::watch::EventFilter;
+```
+
+### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch}
+
+```rust
+pub use chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch};
 ```
 
 ### clap::Parser
@@ -1141,6 +1270,18 @@ pub struct AssociateArgs {
 }
 ```
 
+### AssociationsArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct AssociationsArgs {
+    pub concept_id: String,
+    pub reverse: bool,
+}
+```
+
+Arguments for listing associations of a concept.
+
 ### CliArgs
 
 ```rust
@@ -1170,6 +1311,17 @@ pub enum Commands {
     Completions(CompletionsArgs),
     IndexJsonl(IndexJsonlArgs),
     IndexDir(IndexDirArgs),
+    Delete(DeleteArgs),
+    Get(GetArgs),
+    Update(UpdateArgs),
+    Disassociate(DisassociateArgs),
+    Associations(AssociationsArgs),
+    Traverse(TraverseArgs),
+    Path(PathArgs),
+    ProbeFiltered(ProbeFilteredArgs),
+    Stats(StatsArgs),
+    Metrics(MetricsArgs),
+    Watch(WatchArgs),
 }
 ```
 
@@ -1182,6 +1334,30 @@ pub struct CompletionsArgs {
     pub output: Option<PathBuf>,
 }
 ```
+
+### DeleteArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct DeleteArgs {
+    pub concept_id: String,
+    pub force: bool,
+}
+```
+
+Arguments for the delete command.
+
+### DisassociateArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct DisassociateArgs {
+    pub from: String,
+    pub to: Option<String>,
+}
+```
+
+Arguments for the disassociate command.
 
 ### ExportArgs
 
@@ -1202,6 +1378,17 @@ pub enum ExportFormat {
     Binary,
 }
 ```
+
+### GetArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct GetArgs {
+    pub concept_id: String,
+}
+```
+
+Arguments for the get command.
 
 ### ImportArgs
 
@@ -1265,6 +1452,17 @@ pub struct InjectArgs {
 }
 ```
 
+### MetricsArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct MetricsArgs {
+    pub reset: bool,
+}
+```
+
+Arguments for metrics command.
+
 ### OutputFormat
 
 ```rust
@@ -1276,6 +1474,19 @@ pub enum OutputFormat {
 }
 ```
 
+### PathArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct PathArgs {
+    pub from: String,
+    pub to: String,
+    pub weighted: bool,
+}
+```
+
+Arguments for finding shortest path between two concepts.
+
 ### ProbeArgs
 
 ```rust
@@ -1286,6 +1497,19 @@ pub struct ProbeArgs {
     pub threshold: Option<f64>,
 }
 ```
+
+### ProbeFilteredArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct ProbeFilteredArgs {
+    pub concept_id: String,
+    pub top_k: usize,
+    pub filter: String,
+}
+```
+
+Arguments for filtered similarity probe.
 
 ### QueryArgs
 
@@ -1304,6 +1528,43 @@ pub struct QueryArgs {
 ```
 
 Arguments for text-based similarity query.
+
+### StatsArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct StatsArgs;
+```
+
+Arguments for stats command.
+
+### TraverseArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct TraverseArgs {
+    pub start: String,
+    pub depth: usize,
+    pub min_strength: f64,
+}
+```
+
+Arguments for BFS traversal from a starting concept.
+
+### UpdateArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct UpdateArgs {
+    pub concept_id: String,
+    pub vector_from_text: Option<String>,
+    pub code_aware: bool,
+    pub metadata: Option<String>,
+    pub replace_metadata: bool,
+}
+```
+
+Arguments for the update command.
 
 ### VectorSource
 
@@ -1325,6 +1586,17 @@ pub struct VersionArgs {
 }
 ```
 
+### WatchArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct WatchArgs {
+    pub filter: String,
+}
+```
+
+Arguments for watch command.
+
 ## src/cli/commands/associate.rs
 
 ### run_associate
@@ -1339,6 +1611,14 @@ pub fn run_associate(args: AssociateArgs, db_path: Option<&Path>, format: Output
 pub fn run_associate_batch(associations: Vec<(String, String, f64)>, db_path: Option<&Path>, format: OutputFormat, continue_on_error: bool) -> Result<()>
 ```
 
+## src/cli/commands/associations.rs
+
+### run_associations
+
+```rust
+pub fn run_associations(args: AssociationsArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
 ## src/cli/commands/completions.rs
 
 ### run_completions
@@ -1347,12 +1627,36 @@ pub fn run_associate_batch(associations: Vec<(String, String, f64)>, db_path: Op
 pub fn run_completions(args: CompletionsArgs) -> Result<()>
 ```
 
+## src/cli/commands/delete.rs
+
+### run_delete
+
+```rust
+pub fn run_delete(args: DeleteArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/disassociate.rs
+
+### run_disassociate
+
+```rust
+pub fn run_disassociate(args: DisassociateArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
 ## src/cli/commands/export.rs
 
 ### run_export
 
 ```rust
 pub fn run_export(args: ExportArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/get.rs
+
+### run_get
+
+```rust
+pub fn run_get(args: GetArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
 ## src/cli/commands/import.rs
@@ -1411,12 +1715,28 @@ pub fn run_index_jsonl(args: IndexJsonlArgs, db_path: Option<&Path>, format: Out
 pub fn run_inject(args: InjectArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
+## src/cli/commands/metrics.rs
+
+### run_metrics
+
+```rust
+pub fn run_metrics(db_path: Option<&Path>, format: OutputFormat, reset: bool) -> Result<()>
+```
+
+Run the metrics command.
+
 ## src/cli/commands/mod.rs
 
 ### associate::run_associate
 
 ```rust
 pub use associate::run_associate;
+```
+
+### associations::run_associations
+
+```rust
+pub use associations::run_associations;
 ```
 
 ### completions::run_completions
@@ -1431,10 +1751,28 @@ pub use completions::run_completions;
 pub fn create_framework(db_path: Option<&std::path::Path>) -> Result<ChaoticSemanticFramework>
 ```
 
+### delete::run_delete
+
+```rust
+pub use delete::run_delete;
+```
+
+### disassociate::run_disassociate
+
+```rust
+pub use disassociate::run_disassociate;
+```
+
 ### export::run_export
 
 ```rust
 pub use export::run_export;
+```
+
+### get::run_get
+
+```rust
+pub use get::run_get;
 ```
 
 ### import::run_import
@@ -1461,6 +1799,18 @@ pub use index_jsonl::run_index_jsonl;
 pub use inject::run_inject;
 ```
 
+### metrics::run_metrics
+
+```rust
+pub use metrics::run_metrics;
+```
+
+### path::run_path
+
+```rust
+pub use path::run_path;
+```
+
 ### print_error
 
 ```rust
@@ -1485,10 +1835,28 @@ pub fn print_warning(msg: &str, format: OutputFormat)
 pub use probe::run_probe;
 ```
 
+### probe_filtered::run_probe_filtered
+
+```rust
+pub use probe_filtered::run_probe_filtered;
+```
+
 ### query::run_query
 
 ```rust
 pub use query::run_query;
+```
+
+### stats::run_stats
+
+```rust
+pub use stats::run_stats;
+```
+
+### traverse::run_traverse
+
+```rust
+pub use traverse::run_traverse;
 ```
 
 ### truncate_preview
@@ -1500,6 +1868,26 @@ pub fn truncate_preview(s: &str, max_chars: usize) -> String
 Truncate a string to `max_chars` characters, appending "..." if truncated.
 
 Uses `char_indices` to avoid panicking on multi-byte UTF-8 boundaries.
+
+### update::run_update
+
+```rust
+pub use update::run_update;
+```
+
+### watch::run_watch
+
+```rust
+pub use watch::run_watch;
+```
+
+## src/cli/commands/path.rs
+
+### run_path
+
+```rust
+pub fn run_path(args: PathArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
 
 ## src/cli/commands/probe.rs
 
@@ -1515,6 +1903,14 @@ pub fn run_probe(args: ProbeArgs, db_path: Option<&Path>, format: OutputFormat) 
 pub fn run_probe_with_vector(query_vector: HVec10240, top_k: usize, threshold: Option<f64>, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
+## src/cli/commands/probe_filtered.rs
+
+### run_probe_filtered
+
+```rust
+pub fn run_probe_filtered(args: ProbeFilteredArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
 ## src/cli/commands/query.rs
 
 ### run_query
@@ -1522,6 +1918,67 @@ pub fn run_probe_with_vector(query_vector: HVec10240, top_k: usize, threshold: O
 ```rust
 pub fn run_query(args: QueryArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
+
+## src/cli/commands/stats.rs
+
+### run_stats
+
+```rust
+pub fn run_stats(db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+Run the stats command.
+
+## src/cli/commands/traverse.rs
+
+### run_traverse
+
+```rust
+pub fn run_traverse(args: TraverseArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/update.rs
+
+### run_update
+
+```rust
+pub fn run_update(args: UpdateArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/watch.rs
+
+### EventFilter
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EventFilter {
+    All,
+    ConceptInjected,
+    ConceptUpdated,
+    ConceptDeleted,
+    Associated,
+    Disassociated,
+}
+```
+
+Filter for event types.
+
+### impl EventFilter
+
+```rust
+impl EventFilter {
+    pub fn matches(&self, event: &MemoryEvent) -> bool;
+    pub fn parse(s: &str) -> Option<Self>;
+}
+```
+
+### run_watch
+
+```rust
+pub fn run_watch(db_path: Option<&Path>, filter: EventFilter) -> Result<()>
+```
+
+Run the watch command.
 
 ## src/cli/error.rs
 
@@ -1652,10 +2109,10 @@ assert!(path.is_some() || path.is_none()); // Always passes, documents behavior
 pub use args::*;
 ```
 
-### commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+### commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch}
 
 ```rust
-pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query};
+pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch};
 ```
 
 ### error::{CliError, ExitCode, Result}
@@ -1877,6 +2334,8 @@ impl ChaoticSemanticFramework {
     pub fn associate(&self, from: &str, to: &str, strength: f32) -> Result<()>;
     pub fn delete_concept(&self, id: &str) -> Result<()>;
     pub fn get_associations(&self, id: &str) -> Result<Vec<(String, f32)>>;
+    pub fn incoming_associations(&self, id: &str) -> Result<Vec<(String, f32)>>;
+    pub fn shortest_path_hops(&self, from: &str, to: &str) -> Result<Option<Vec<String>>>;
     pub fn get_concept(&self, id: &str) -> Result<Option<Concept>>;
     pub fn persist(&self) -> Result<()>;
     pub fn persistence_health_check(&self) -> Result<()>;
@@ -2383,6 +2842,239 @@ pub use singularity::{Concept, ConceptBuilder};
 
 ```rust
 pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats};
+```
+
+## src/mcp/mod.rs
+
+### resources::McpResources
+
+```rust
+pub use resources::McpResources;
+```
+
+### server::serve
+
+```rust
+pub use server::serve;
+```
+
+### tools::McpTools
+
+```rust
+pub use tools::McpTools;
+```
+
+## src/mcp/resources.rs
+
+### McpResources
+
+```rust
+pub struct McpResources {
+}
+```
+
+MCP Resources handler for chaotic_semantic_memory.
+
+### ResourceDefinition
+
+```rust
+#[derive(Debug, Clone, serde :: Serialize)]
+pub struct ResourceDefinition {
+    pub uri: String,
+    pub name: String,
+    pub description: String,
+    pub mime_type: String,
+}
+```
+
+Resource definition for MCP resources/list response.
+
+### impl McpResources
+
+```rust
+impl McpResources {
+    pub fn new(database: Option<PathBuf>) -> Self;
+    pub fn list_resources() -> Vec<ResourceDefinition>;
+    pub fn read(&self, uri: &str) -> Result<Value>;
+}
+```
+
+## src/mcp/schema.rs
+
+### associate_schema
+
+```rust
+pub fn associate_schema() -> Value
+```
+
+Schema for memory_associate tool.
+
+### delete_schema
+
+```rust
+pub fn delete_schema() -> Value
+```
+
+Schema for memory_delete tool.
+
+### export_schema
+
+```rust
+pub fn export_schema() -> Value
+```
+
+Schema for memory_export tool.
+
+### get_schema
+
+```rust
+pub fn get_schema() -> Value
+```
+
+Schema for memory_get tool.
+
+### inject_schema
+
+```rust
+pub fn inject_schema() -> Value
+```
+
+Schema for memory_inject tool.
+
+### inject_text_schema
+
+```rust
+pub fn inject_text_schema() -> Value
+```
+
+Schema for memory_inject_text tool.
+
+### probe_filtered_schema
+
+```rust
+pub fn probe_filtered_schema() -> Value
+```
+
+Schema for memory_probe_filtered tool.
+
+### probe_schema
+
+```rust
+pub fn probe_schema() -> Value
+```
+
+Schema for memory_probe tool.
+
+### probe_text_schema
+
+```rust
+pub fn probe_text_schema() -> Value
+```
+
+Schema for memory_probe_text tool.
+
+### shortest_path_schema
+
+```rust
+pub fn shortest_path_schema() -> Value
+```
+
+Schema for memory_shortest_path tool.
+
+### stats_schema
+
+```rust
+pub fn stats_schema() -> Value
+```
+
+Schema for memory_stats tool.
+
+### traverse_schema
+
+```rust
+pub fn traverse_schema() -> Value
+```
+
+Schema for memory_traverse tool.
+
+## src/mcp/server.rs
+
+### McpConfig
+
+```rust
+#[derive(Debug, Clone)]
+pub struct McpConfig {
+    pub transport: Transport,
+    pub bind: Option<String>,
+    pub database: Option<std::path::PathBuf>,
+}
+```
+
+Configuration for MCP server.
+
+### Transport
+
+```rust
+#[derive(Debug, Clone, Copy, Default)]
+pub enum Transport {
+    Stdio,
+    Sse,
+}
+```
+
+Transport type for MCP server.
+
+### impl Default for McpConfig
+
+```rust
+impl Default for McpConfig {
+}
+```
+
+### serve
+
+```rust
+pub fn serve(config: McpConfig) -> Result<()>
+```
+
+Start the MCP server.
+
+#### Errors
+
+Returns error if server fails to start or transport initialization fails.
+
+## src/mcp/tools.rs
+
+### McpTools
+
+```rust
+pub struct McpTools {
+}
+```
+
+MCP Tools handler for chaotic_semantic_memory operations.
+
+### ToolDefinition
+
+```rust
+#[derive(Debug, Clone, serde :: Serialize)]
+pub struct ToolDefinition {
+    pub name: String,
+    pub description: String,
+    pub input_schema: Value,
+}
+```
+
+Tool definition for MCP tools/list response.
+
+### impl McpTools
+
+```rust
+impl McpTools {
+    pub fn new(database: Option<PathBuf>) -> Self;
+    pub fn list_tools() -> Vec<ToolDefinition>;
+    pub fn execute(&self, tool_name: &str, arguments: Value) -> Result<Value>;
+}
 ```
 
 ## src/metadata_filter.rs

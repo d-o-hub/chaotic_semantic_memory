@@ -45,6 +45,9 @@ anyhow = { version = "1.0.102", optional = true }
 colored = { version = "2.2.0", optional = true }
 glob = { version = "0.3.2", optional = true }
 
+# MCP server dependencies (gated behind "mcp" feature - ADR-0067)
+rmcp = { version = "0.2", optional = true }
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # CPU parallelism (opt-in via "parallel" feature)
 rayon = { version = "1.10.0", optional = true }
@@ -186,6 +189,7 @@ cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
 persistence = ["dep:libsql"]
 parallel = ["dep:rayon"]
 wasm = []
+mcp = ["dep:rmcp", "cli"]  # ADR-0067: MCP server requires CLI infrastructure
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]

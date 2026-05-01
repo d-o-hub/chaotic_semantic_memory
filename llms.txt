@@ -17,6 +17,7 @@
 - glob (0.3.2)
 - rand (0.10.1)
 - rand_chacha (0.10.0)
+- rmcp (0.2)
 - serde (1.0.219) [features: derive]
 - serde_json (1.0.149)
 - thiserror (2.0.11)
@@ -25,6 +26,7 @@
 **Features:**
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - default: [cli, persistence, parallel]
+- mcp: [dep:rmcp, cli]
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
 - wasm: []
@@ -36,7 +38,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/bin/csm.rs
 
-- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+- pub use native::chaotic_semantic_memory::cli::commands::watch::EventFilter
+- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch}
 - pub use native::clap::Parser
 - pub use native::colored::Colorize
 - pub use native::tracing::Level
@@ -80,19 +83,46 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct CompletionsArgs
 - pub struct IndexJsonlArgs
 - pub struct IndexDirArgs
+- pub struct DeleteArgs
+- pub struct GetArgs
+- pub struct UpdateArgs
+- pub struct DisassociateArgs
+- pub struct AssociationsArgs
+- pub struct TraverseArgs
+- pub struct PathArgs
+- pub struct ProbeFilteredArgs
+- pub struct StatsArgs
+- pub struct MetricsArgs
+- pub struct WatchArgs
 
 ### src/cli/commands/associate.rs
 
 - pub fn run_associate
 - pub fn run_associate_batch
 
+### src/cli/commands/associations.rs
+
+- pub fn run_associations
+
 ### src/cli/commands/completions.rs
 
 - pub fn run_completions
 
+### src/cli/commands/delete.rs
+
+- pub fn run_delete
+
+### src/cli/commands/disassociate.rs
+
+- pub fn run_disassociate
+
 ### src/cli/commands/export.rs
 
 - pub fn run_export
+
+### src/cli/commands/get.rs
+
+- pub fn run_get
 
 ### src/cli/commands/import.rs
 
@@ -112,40 +142,92 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub fn run_inject
 
+### src/cli/commands/metrics.rs
+
+- pub fn run_metrics
+
 ### src/cli/commands/mod.rs
 
 - pub mod associate
+- pub mod associations
 - pub mod completions
+- pub mod delete
+- pub mod disassociate
 - pub mod export
+- pub mod get
 - pub mod import
 - pub mod index_dir
 - pub mod index_jsonl
 - pub mod inject
+- pub mod metrics
+- pub mod path
 - pub mod probe
+- pub mod probe_filtered
 - pub mod query
+- pub mod stats
+- pub mod traverse
+- pub mod update
+- pub mod watch
 - pub use associate::run_associate
+- pub use associations::run_associations
 - pub use completions::run_completions
+- pub use delete::run_delete
+- pub use disassociate::run_disassociate
 - pub use export::run_export
+- pub use get::run_get
 - pub use import::run_import
 - pub use index_dir::run_index_dir
 - pub use index_jsonl::run_index_jsonl
 - pub use inject::run_inject
+- pub use metrics::run_metrics
+- pub use path::run_path
 - pub use probe::run_probe
+- pub use probe_filtered::run_probe_filtered
 - pub use query::run_query
+- pub use stats::run_stats
+- pub use traverse::run_traverse
+- pub use update::run_update
+- pub use watch::run_watch
 - pub fn print_success
 - pub fn print_error
 - pub fn print_warning
 - pub fn truncate_preview
 - pub fn create_framework
 
+### src/cli/commands/path.rs
+
+- pub fn run_path
+
 ### src/cli/commands/probe.rs
 
 - pub fn run_probe
 - pub fn run_probe_with_vector
 
+### src/cli/commands/probe_filtered.rs
+
+- pub fn run_probe_filtered
+
 ### src/cli/commands/query.rs
 
 - pub fn run_query
+
+### src/cli/commands/stats.rs
+
+- pub fn run_stats
+
+### src/cli/commands/traverse.rs
+
+- pub fn run_traverse
+
+### src/cli/commands/update.rs
+
+- pub fn run_update
+
+### src/cli/commands/watch.rs
+
+- pub enum EventFilter
+- impl EventFilter
+- pub fn run_watch
 
 ### src/cli/error.rs
 
@@ -170,7 +252,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod error
 - pub mod git_local
 - pub use args::*
-- pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+- pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch}
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
 
@@ -284,6 +366,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod framework_builder
 - pub mod graph_traversal
 - pub mod hyperdim
+- pub mod mcp
 - pub mod metadata_filter
 - pub mod semantic_triples
 - pub use metadata_filter::MetadataFilter
@@ -310,6 +393,46 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use prelude::crate::singularity::{Concept, ConceptBuilder}
 - pub use prelude::crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod wasm
+
+### src/mcp/mod.rs
+
+- pub use resources::McpResources
+- pub use server::serve
+- pub use tools::McpTools
+
+### src/mcp/resources.rs
+
+- pub struct McpResources
+- impl McpResources
+- pub struct ResourceDefinition
+
+### src/mcp/schema.rs
+
+- pub fn inject_schema
+- pub fn inject_text_schema
+- pub fn probe_schema
+- pub fn probe_text_schema
+- pub fn probe_filtered_schema
+- pub fn get_schema
+- pub fn delete_schema
+- pub fn associate_schema
+- pub fn traverse_schema
+- pub fn shortest_path_schema
+- pub fn stats_schema
+- pub fn export_schema
+
+### src/mcp/server.rs
+
+- pub enum Transport
+- pub struct McpConfig
+- impl Default for McpConfig
+- pub fn serve
+
+### src/mcp/tools.rs
+
+- pub struct McpTools
+- impl McpTools
+- pub struct ToolDefinition
 
 ### src/metadata_filter.rs
 
@@ -1036,6 +1159,9 @@ anyhow = { version = "1.0.102", optional = true }
 colored = { version = "2.2.0", optional = true }
 glob = { version = "0.3.2", optional = true }
 
+# MCP server dependencies (gated behind "mcp" feature - ADR-0067)
+rmcp = { version = "0.2", optional = true }
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # CPU parallelism (opt-in via "parallel" feature)
 rayon = { version = "1.10.0", optional = true }
@@ -1177,6 +1303,7 @@ cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
 persistence = ["dep:libsql"]
 parallel = ["dep:rayon"]
 wasm = []
+mcp = ["dep:rmcp", "cli"]  # ADR-0067: MCP server requires CLI infrastructure
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]
