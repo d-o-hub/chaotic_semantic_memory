@@ -49,7 +49,7 @@ pub async fn run(cli: Cli) -> Result<()> {
 
         // Use session-scoped retrieval for session-specific queries
         let hits = match query_case.task_type {
-            TaskType::Recall | TaskType::Update | TaskType::Temporal | TaskType::Abstain => {
+            TaskType::Recall | TaskType::Update | TaskType::Temporal | TaskType::Abstain | TaskType::Isolation => {
                 adapter.query_in_session(&query_case.query, &query_case.session_id, cli.top_k).await?
             }
             TaskType::Association => {

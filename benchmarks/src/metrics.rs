@@ -60,6 +60,30 @@ pub fn aggregate(
         0.0
     };
 
+    let multisession_cases: Vec<_> = results
+        .iter()
+        .filter(|r| matches!(r.task_type, TaskType::MultiSession))
+        .collect();
+    let multisession_recall = if !multisession_cases.is_empty() {
+        multisession_cases.iter().filter(|r| r.recall_at_5).count() as f32
+            / multisession_cases.len() as f32
+    } else {
+        0.0
+    };
+
+    let isolation_cases: Vec<_> = results
+        .iter()
+        .filter(|r| matches!(r.task_type, TaskType::Isolation))
+        .collect();
+    let session_isolation = if !isolation_cases.is_empty() {
+        // For isolation, success means we correctly returned nothing (or below threshold)
+        // because the query was for data in a different session.
+        isolation_cases.iter().filter(|r| r.retrieved.is_empty() || r.abstained).count() as f32
+            / isolation_cases.len() as f32
+    } else {
+        0.0
+    };
+
     let mut latencies: Vec<_> = results.iter().map(|r| r.latency_ms).collect();
     latencies.sort_unstable();
     // Use floor-based indexing for percentiles (industry standard)
@@ -92,6 +116,8 @@ pub fn aggregate(
         abstain_precision,
         abstain_recall,
         association_success_rate,
+        multisession_recall,
+        session_isolation,
         ingest_ms,
         p50_latency_ms: p50,
         p50_latency_us: p50_us,
