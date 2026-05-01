@@ -69,7 +69,9 @@ impl MetadataFilter {
         let (mut max, mut stack) = (0, vec![(self, 1)]);
         while let Some((f, d)) = stack.pop() {
             max = max.max(d);
-            if d > MAX_FILTER_DEPTH { return d; }
+            if d > MAX_FILTER_DEPTH {
+                return d;
+            }
             match f {
                 Self::And(v) | Self::Or(v) => v.iter().for_each(|i| stack.push((i, d + 1))),
                 Self::Not(i) => stack.push((i, d + 1)),
