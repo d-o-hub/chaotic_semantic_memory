@@ -1,5 +1,6 @@
 use anyhow::Result;
 use chaotic_semantic_memory::prelude::*;
+use chaotic_semantic_memory::retrieval::GraphRagConfig;
 use chaotic_semantic_memory::retrieval::bm25::Bm25Index;
 use chaotic_semantic_memory::retrieval::hybrid::{compute_weights, merge_results};
 use std::collections::{HashMap, HashSet};
@@ -76,6 +77,35 @@ impl MemoryAdapter {
         // Store text for retrieval
         self.text_store.write().await.insert(id.to_string(), text.to_string());
 
+        // Create automatic associations for cross-session linking
+        // For benchmarks, we associate concepts within the same session
+        // and concepts with shared significant tokens across sessions.
+        if let Some((session_id, _)) = id.split_once(':') {
+            let text_store = self.text_store.read().await;
+            for (other_id, other_text) in text_store.iter() {
+                if other_id == id {
+                    continue;
+                }
+
+                let mut strength = 0.0;
+                if other_id.starts_with(session_id) {
+                    // Intra-session association
+                    strength = 0.8;
+                } else {
+                    // Cross-session association based on token overlap
+                    let other_tokens = tokenize_for_bm25(other_text);
+                    let overlap = Self::token_overlap_ratio(&tokens, &other_tokens);
+                    if overlap > 0.3 {
+                        strength = overlap * 0.5;
+                    }
+                }
+
+                if strength > 0.0 {
+                    self.framework.associate(id, other_id, strength).await?;
+                }
+            }
+        }
+
         if let Some(previous_id) = Self::previous_version_id(id) {
             if let Err(err) = self.framework.delete_concept(&previous_id).await {
                 debug!(target: "benchmark", %previous_id, ?err, "failed to delete prior version");
@@ -89,8 +119,34 @@ impl MemoryAdapter {
     }
 
     pub async fn query(&self, text: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
+        self.query_internal(text, top_k, false).await
+    }
+
+    /// Query specifically for association tasks using GraphRAG.
+    pub async fn query_association(&self, text: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
+        self.query_internal(text, top_k, true).await
+    }
+
+    async fn query_internal(&self, text: &str, top_k: usize, use_graph: bool) -> Result<Vec<(String, f32)>> {
         // Get HDC results
-        let hdc_hits = self.framework.probe_text(text, top_k * 3).await?; // Get more for filtering
+        let hdc_hits = if use_graph {
+            let config = GraphRagConfig {
+                anchor_top_k: top_k,
+                final_top_k: top_k * 2,
+                max_hops: 2,
+                similarity_weight: 0.4,
+                graph_weight: 0.6,
+                ..Default::default()
+            };
+            self.framework
+                .probe_text_with_graph(text, config)
+                .await?
+                .into_iter()
+                .map(|r| (r.id, r.score))
+                .collect()
+        } else {
+            self.framework.probe_text(text, top_k * 3).await?
+        };
 
         // Get BM25 results
         let query_tokens = tokenize_for_bm25(text);
@@ -134,8 +190,21 @@ impl MemoryAdapter {
 
     /// Query with session filtering - only returns documents from the specified session.
     pub async fn query_in_session(&self, text: &str, session_id: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
+        self.query_in_session_internal(text, session_id, top_k, false).await
+    }
+
+    /// Query with session filtering specifically for association tasks.
+    pub async fn query_in_session_association(&self, text: &str, session_id: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
+        self.query_in_session_internal(text, session_id, top_k, true).await
+    }
+
+    async fn query_in_session_internal(&self, text: &str, session_id: &str, top_k: usize, use_graph: bool) -> Result<Vec<(String, f32)>> {
         // Get all results
-        let all_results = self.query(text, top_k * 3).await?;
+        let all_results = if use_graph {
+            self.query_association(text, top_k * 3).await?
+        } else {
+            self.query(text, top_k * 3).await?
+        };
 
         // Filter to session-specific results
         let session_prefix = format!("{}:", session_id);
