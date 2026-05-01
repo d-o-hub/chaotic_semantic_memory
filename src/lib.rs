@@ -75,6 +75,7 @@ pub mod persistence;
 mod persistence_migrations;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_ops;
+mod persistence_tests;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_versions;
 #[cfg(target_arch = "wasm32")]
@@ -88,6 +89,7 @@ pub mod singularity;
 mod singularity_cache;
 mod singularity_ext;
 mod singularity_retrieval;
+mod singularity_tests;
 mod singularity_ttl;
 
 #[cfg(target_arch = "wasm32")]

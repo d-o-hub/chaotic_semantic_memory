@@ -311,6 +311,14 @@ impl Reservoir {
         self.size
     }
 
+    pub fn reset_metrics(&self) {
+        self.metrics.steps_total.store(0, Ordering::Relaxed);
+        self.metrics
+            .step_latency_us_total
+            .store(0, Ordering::Relaxed);
+        self.metrics.step_latency_count.store(0, Ordering::Relaxed);
+    }
+
     pub fn metrics_snapshot(&self) -> ReservoirMetricsSnapshot {
         self.metrics.snapshot()
     }
@@ -423,6 +431,9 @@ impl ChaoticReservoir {
     }
     pub fn to_hypervector(&self) -> Result<HVec10240> {
         self.base.to_hypervector()
+    }
+    pub fn reset_metrics(&self) {
+        self.base.reset_metrics();
     }
     pub fn metrics_snapshot(&self) -> ReservoirMetricsSnapshot {
         self.base.metrics_snapshot()

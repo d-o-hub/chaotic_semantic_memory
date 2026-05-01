@@ -431,7 +431,7 @@ impl ChaoticSemanticFramework {
         {
             let mut reservoir = self.reservoir.write().await;
             if let Some(ref mut r) = *reservoir {
-                r.reset();
+                r.reset_metrics();
             }
         }
     }

@@ -13,6 +13,13 @@ pub async fn run_update(
     format: OutputFormat,
 ) -> Result<()> {
     validate_concept_id(&args.id)?;
+
+    if args.vector_from_text.is_none() && args.metadata.is_none() {
+        return Err(CliError::Input(
+            "Either --vector-from-text or --metadata must be provided".to_string(),
+        ));
+    }
+
     let framework = create_framework(db_path).await?;
 
     if let Some(text) = args.vector_from_text {

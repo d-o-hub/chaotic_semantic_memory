@@ -409,6 +409,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/persistence_ops.rs
 
 - impl Persistence
+- impl Persistence
 
 ### src/persistence_versions.rs
 
@@ -2857,6 +2858,18 @@ impl Persistence {
 }
 ```
 
+### impl Persistence
+
+```rust
+impl Persistence {
+    pub fn save_metric(&self, key: &str, value: u64) -> Result<()>;
+    pub fn load_metric(&self, key: &str) -> Result<u64>;
+    pub fn clear_metrics(&self) -> Result<()>;
+}
+```
+
+## src/persistence_tests.rs
+
 ## src/persistence_versions.rs
 
 ### impl Persistence
@@ -2959,6 +2972,7 @@ impl ChaoticReservoir {
     pub fn reset(&mut self);
     pub fn state(&self) -> &[f32];
     pub fn to_hypervector(&self) -> Result<HVec10240>;
+    pub fn reset_metrics(&self);
     pub fn metrics_snapshot(&self) -> ReservoirMetricsSnapshot;
 }
 ```
@@ -2981,6 +2995,7 @@ impl Reservoir {
     pub fn to_hypervector(&self) -> Result<HVec10240>;
     pub fn to_hypervector(&self) -> Result<HVec10240>;
     pub fn size(&self) -> usize;
+    pub fn reset_metrics(&self);
     pub fn metrics_snapshot(&self) -> ReservoirMetricsSnapshot;
 }
 ```
@@ -3593,6 +3608,8 @@ impl Singularity {
     pub fn last_retrieval_stats(&self) -> RetrievalStats;
 }
 ```
+
+## src/singularity_tests.rs
 
 ## src/singularity_ttl.rs
 

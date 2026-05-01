@@ -136,6 +136,10 @@ impl Persistence {
                 PRIMARY KEY (concept_id, version),
                 FOREIGN KEY (concept_id) REFERENCES csm_concepts(id) ON DELETE CASCADE
             );
+            CREATE TABLE IF NOT EXISTS csm_metrics (
+                key TEXT PRIMARY KEY,
+                value INTEGER NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS csm_schema_version (
                 version INTEGER PRIMARY KEY
             );
