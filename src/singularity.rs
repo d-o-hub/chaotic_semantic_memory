@@ -356,6 +356,10 @@ impl Singularity {
         self.cache_metrics.snapshot()
     }
 
+    pub fn reset_cache_metrics(&self) {
+        self.cache_metrics.reset();
+    }
+
     fn evict_oldest_if_needed(&mut self) {
         let Some(limit) = self.config.max_concepts else {
             return;

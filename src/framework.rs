@@ -38,7 +38,7 @@ pub struct FrameworkMetrics {
     probe_latency_count: AtomicU64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct FrameworkMetricsSnapshot {
     pub concepts_injected_total: u64,
     pub associations_created_total: u64,
@@ -68,6 +68,14 @@ impl FrameworkMetrics {
         self.probe_latency_ms_total
             .fetch_add(latency_ms, Ordering::Relaxed);
         self.probe_latency_count.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn reset(&self) {
+        self.concepts_injected_total.store(0, Ordering::Relaxed);
+        self.associations_created_total.store(0, Ordering::Relaxed);
+        self.probes_total.store(0, Ordering::Relaxed);
+        self.probe_latency_ms_total.store(0, Ordering::Relaxed);
+        self.probe_latency_count.store(0, Ordering::Relaxed);
     }
 
     fn snapshot(&self) -> FrameworkMetricsSnapshot {
@@ -318,6 +326,18 @@ impl ChaoticSemanticFramework {
         Ok(sing.get_associations(id))
     }
 
+    /// Get incoming associations for a concept.
+    #[instrument(err, skip(self))]
+    pub async fn incoming_associations(&self, id: &str) -> Result<Vec<(String, f32)>> {
+        Self::validate_concept_id(id)?;
+        let sing = self.singularity.read().await;
+        let incoming = sing.incoming_associations(id);
+        Ok(incoming
+            .into_iter()
+            .map(|(id, strength)| (id.to_string(), strength))
+            .collect())
+    }
+
     /// Get a concept by ID.
     #[instrument(err, skip(self))]
     pub async fn get_concept(&self, id: &str) -> Result<Option<Concept>> {
@@ -472,6 +492,21 @@ impl ChaoticSemanticFramework {
         snapshot.avg_reservoir_step_latency_us = reservoir_snapshot.avg_reservoir_step_latency_us;
         snapshot.reservoir_nodes_active = reservoir_snapshot.reservoir_nodes_active;
         snapshot
+    }
+
+    /// Reset all metrics.
+    pub async fn reset_metrics(&self) {
+        self.metrics.reset();
+        {
+            let sing = self.singularity.read().await;
+            sing.reset_cache_metrics();
+        }
+        {
+            let mut reservoir = self.reservoir.write().await;
+            if let Some(ref mut r) = *reservoir {
+                r.reset();
+            }
+        }
     }
 
     /// Get framework statistics

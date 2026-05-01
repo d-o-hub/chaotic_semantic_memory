@@ -79,6 +79,12 @@ impl CacheMetrics {
             cache_evictions_total: self.evictions_total.load(Ordering::Relaxed),
         }
     }
+
+    pub(crate) fn reset(&self) {
+        self.hits_total.store(0, Ordering::Relaxed);
+        self.misses_total.store(0, Ordering::Relaxed);
+        self.evictions_total.store(0, Ordering::Relaxed);
+    }
 }
 
 // ============================================================================

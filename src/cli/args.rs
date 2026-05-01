@@ -52,6 +52,28 @@ pub enum Commands {
     IndexJsonl(IndexJsonlArgs),
     /// Index Markdown files from directory into memory.
     IndexDir(IndexDirArgs),
+    /// Delete a concept by ID.
+    Delete(DeleteArgs),
+    /// Get a concept by ID.
+    Get(GetArgs),
+    /// Update a concept's vector or metadata.
+    Update(UpdateArgs),
+    /// Remove an association between two concepts.
+    Disassociate(DisassociateArgs),
+    /// Get associations for a concept.
+    Associations(AssociationsArgs),
+    /// Traverse the association graph.
+    Traverse(TraverseArgs),
+    /// Find the shortest path between two concepts.
+    Path(PathArgs),
+    /// Search concepts with metadata filtering.
+    ProbeFiltered(ProbeFilteredArgs),
+    /// Get framework statistics.
+    Stats(StatsArgs),
+    /// Get framework metrics.
+    Metrics(MetricsArgs),
+    /// Watch memory events in real-time.
+    Watch(WatchArgs),
 }
 
 #[derive(Args, Debug, Clone)]
@@ -209,6 +231,122 @@ pub struct IndexJsonlArgs {
     /// Use code-aware encoding for source code content.
     #[arg(long)]
     pub code_aware: bool,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct DeleteArgs {
+    /// ID of the concept to delete.
+    #[arg(required = true)]
+    pub id: String,
+
+    /// Force deletion without confirmation (not yet implemented).
+    #[arg(long)]
+    pub force: bool,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct GetArgs {
+    /// ID of the concept to retrieve.
+    #[arg(required = true)]
+    pub id: String,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct UpdateArgs {
+    /// ID of the concept to update.
+    #[arg(required = true)]
+    pub id: String,
+
+    /// Update vector from provided text.
+    #[arg(long, value_name = "TEXT")]
+    pub vector_from_text: Option<String>,
+
+    /// Update metadata from JSON string.
+    #[arg(long, value_name = "JSON")]
+    pub metadata: Option<String>,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct DisassociateArgs {
+    /// Source concept ID.
+    #[arg(required = true)]
+    pub from: String,
+
+    /// Target concept ID (if omitted, clears all associations from 'from').
+    pub to: Option<String>,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct AssociationsArgs {
+    /// ID of the concept.
+    #[arg(required = true)]
+    pub id: String,
+
+    /// Get incoming instead of outgoing associations.
+    #[arg(short, long)]
+    pub reverse: bool,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct TraverseArgs {
+    /// Starting concept ID.
+    #[arg(required = true)]
+    pub start: String,
+
+    /// Maximum traversal depth.
+    #[arg(short = 'D', long, default_value = "3")]
+    pub depth: usize,
+
+    /// Minimum association strength to follow.
+    #[arg(short, long, default_value = "0.0")]
+    pub min_strength: f64,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct PathArgs {
+    /// Source concept ID.
+    #[arg(required = true)]
+    pub from: String,
+
+    /// Target concept ID.
+    #[arg(required = true)]
+    pub to: String,
+
+    /// Use weighted shortest path (Dijkstra) instead of unweighted (BFS).
+    #[arg(short, long)]
+    pub weighted: bool,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct ProbeFilteredArgs {
+    /// ID of the concept to use as query vector.
+    #[arg(required = true)]
+    pub concept_id: String,
+
+    /// Maximum number of results to return.
+    #[arg(short = 'k', long, default_value = "10")]
+    pub top_k: usize,
+
+    /// Metadata filter in JSON format (e.g. '{"key": {"$eq": "val"}}').
+    #[arg(short, long, required = true, value_name = "JSON")]
+    pub filter: String,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct StatsArgs {}
+
+#[derive(Args, Debug, Clone)]
+pub struct MetricsArgs {
+    /// Reset metrics after retrieval.
+    #[arg(long)]
+    pub reset: bool,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct WatchArgs {
+    /// Filter events by kind (ConceptInjected, ConceptUpdated, ConceptDeleted, Associated, Disassociated).
+    #[arg(short, long)]
+    pub filter: Option<String>,
 }
 
 /// Arguments for indexing Markdown directory.

@@ -10,6 +10,7 @@
 - [Graph Traversal](./graph.md)
 - [Semantic Bridge](./semantic-bridge.md)
 - [CLI Usage](./cli.md)
+- [CLI Reference](./cli-reference.md)
 - [WASM Bindings](./wasm.md)
 - [Configuration](./configuration.md)
 - [Concept TTL](./ttl.md)
