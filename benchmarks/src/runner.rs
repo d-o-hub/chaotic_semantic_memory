@@ -33,7 +33,7 @@ pub async fn run(cli: Cli) -> Result<()> {
     for session in &sessions {
         for turn in &session.turns {
             if let Some(id) = &turn.memory_id {
-                adapter.ingest_memory(id, &turn.text).await?;
+                adapter.ingest_memory(id, &turn.text, turn.ttl_seconds).await?;
             }
         }
     }
@@ -48,14 +48,36 @@ pub async fn run(cli: Cli) -> Result<()> {
         let start_query = Instant::now();
 
         // Use session-scoped retrieval for session-specific queries
-        let hits = if matches!(
-            query_case.task_type,
-            TaskType::Recall | TaskType::Update | TaskType::Temporal | TaskType::Abstain,
-        ) {
-            adapter.query_in_session(&query_case.query, &query_case.session_id, cli.top_k).await?
-        } else {
-            // For abstain and other queries, search globally
-            adapter.query(&query_case.query, cli.top_k).await?
+        let hits = match query_case.task_type {
+            TaskType::Recall | TaskType::Update | TaskType::Temporal | TaskType::Abstain => {
+                adapter.query_in_session(&query_case.query, &query_case.session_id, cli.top_k).await?
+            }
+            TaskType::Bm25 => {
+                adapter.query_bm25(&query_case.query, cli.top_k).await?
+            }
+            TaskType::Hybrid => {
+                adapter.query_hybrid(&query_case.query, cli.top_k).await?
+            }
+            TaskType::Bridge => {
+                adapter.query_bridge(&query_case.query, cli.top_k).await?
+            }
+            TaskType::History => {
+                let id = &query_case.gold_evidence_ids[0];
+                // Strip manual :v1/:v2 suffix from gold ID to get root ID if present
+                let root_id = id.split(":v").next().unwrap_or(id);
+                let versions = adapter.query_history(root_id, 10).await?;
+                // Map versions to hits for scoring (using version number as "score" for ranking check)
+                versions.into_iter().map(|v| (format!("{}:v{}", root_id, v.version), v.version as f32)).collect()
+            }
+            TaskType::Ttl => {
+                // Benchmark purge_expired as well
+                let _ = adapter.purge_expired().await?;
+                adapter.query_in_session(&query_case.query, &query_case.session_id, cli.top_k).await?
+            }
+            _ => {
+                // For other queries, search globally
+                adapter.query(&query_case.query, cli.top_k).await?
+            }
         };
         let elapsed = start_query.elapsed();
         let latency_ms = elapsed.as_millis();

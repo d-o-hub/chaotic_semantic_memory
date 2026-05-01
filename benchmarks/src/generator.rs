@@ -80,7 +80,8 @@ pub fn generate_sessions_with_range(
             ts: "2026-01-01T10:00:00Z".into(),
             speaker: "user".into(),
             text: format!("My favorite color is {color_v1}."),
-            memory_id: Some(format!("{session_id}:favorite_color:v1")),
+            memory_id: Some(format!("{session_id}:favorite_color")),
+            ttl_seconds: None,
         });
 
         // Second turn mentions city (if we have at least 2 turns)
@@ -89,7 +90,8 @@ pub fn generate_sessions_with_range(
                 ts: "2026-01-03T10:00:00Z".into(),
                 speaker: "user".into(),
                 text: format!("I moved to {city}."),
-                memory_id: Some(format!("{session_id}:city:v1")),
+                memory_id: Some(format!("{session_id}:city")),
+                ttl_seconds: None,
             });
         }
 
@@ -101,13 +103,27 @@ pub fn generate_sessions_with_range(
                 text: format!(
                     "Actually, I changed my mind. My current favorite color is {color_v2} now."
                 ),
-                memory_id: Some(format!("{session_id}:favorite_color:v2")),
+                memory_id: Some(format!("{session_id}:favorite_color")),
+                ttl_seconds: None,
+            });
+        }
+
+        // Fourth turn with TTL (if we have at least 4 turns)
+        if turn_count >= 4 {
+            let temp_color = COLORS[rng.random_range(0..COLORS.len())];
+            turns.push(SessionTurn {
+                ts: "2026-01-05T10:00:00Z".into(),
+                speaker: "user".into(),
+                text: format!("I'm currently thinking of the color {temp_color} for a moment."),
+                memory_id: Some(format!("{session_id}:temp_color")),
+                ttl_seconds: Some(60),
             });
         }
 
         // Additional turns with filler content (for variable-length stress testing)
-        for j in 3..turn_count {
-            let filler_idx = j - 3;
+        let filler_start = if turn_count >= 4 { 4 } else { 3 };
+        for j in filler_start..turn_count {
+            let filler_idx = j - filler_start;
             turns.push(SessionTurn {
                 ts: format!("2026-01-{:02}T10:00:00Z", 5 + filler_idx),
                 speaker: "user".into(),
@@ -115,7 +131,8 @@ pub fn generate_sessions_with_range(
                     "I also wanted to mention something about topic {}.",
                     filler_idx + 1
                 ),
-                memory_id: Some(format!("{session_id}:topic:{}:v1", filler_idx + 1)),
+                memory_id: Some(format!("{session_id}:topic:{}", filler_idx + 1)),
+                ttl_seconds: None,
             });
         }
 
@@ -134,7 +151,7 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             session_id: s.session_id.clone(),
             task_type: TaskType::Recall,
             query: "What is my current favorite color?".into(),
-            gold_evidence_ids: vec![format!("{}:favorite_color:v2", s.session_id)],
+            gold_evidence_ids: vec![format!("{}:favorite_color", s.session_id)],
             expected_answer: None,
             should_abstain: false,
         });
@@ -144,7 +161,7 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             session_id: s.session_id.clone(),
             task_type: TaskType::Update,
             query: "What is my favorite color now?".into(), // Uses "now" which appears in v2
-            gold_evidence_ids: vec![format!("{}:favorite_color:v2", s.session_id)],
+            gold_evidence_ids: vec![format!("{}:favorite_color", s.session_id)],
             expected_answer: None,
             should_abstain: false,
         });
@@ -154,7 +171,7 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             session_id: s.session_id.clone(),
             task_type: TaskType::Temporal,
             query: "What city did I move to?".into(), // Uses "city" and "move" keywords
-            gold_evidence_ids: vec![format!("{}:city:v1", s.session_id)],
+            gold_evidence_ids: vec![format!("{}:city", s.session_id)],
             expected_answer: None,
             should_abstain: false,
         });
@@ -167,6 +184,64 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             gold_evidence_ids: vec![],
             expected_answer: None,
             should_abstain: true,
+        });
+
+        if s.turns.iter().any(|t| t.ttl_seconds.is_some()) {
+            cases.push(QueryCase {
+                query_id: format!("{}:ttl", s.session_id),
+                session_id: s.session_id.clone(),
+                task_type: TaskType::Ttl,
+                query: "What color was I thinking of just for a moment?".into(),
+                gold_evidence_ids: vec![format!("{}:temp_color", s.session_id)],
+                expected_answer: None,
+                should_abstain: false,
+            });
+        }
+
+        cases.push(QueryCase {
+            query_id: format!("{}:bridge", s.session_id),
+            session_id: s.session_id.clone(),
+            task_type: TaskType::Bridge,
+            query: "What is my favorite hue?".into(),
+            gold_evidence_ids: vec![format!("{}:favorite_color", s.session_id)],
+            expected_answer: None,
+            should_abstain: false,
+        });
+
+        cases.push(QueryCase {
+            query_id: format!("{}:history", s.session_id),
+            session_id: s.session_id.clone(),
+            task_type: TaskType::History,
+            query: "Show me the history of my favorite color.".into(),
+            gold_evidence_ids: vec![
+                format!("{}:favorite_color:v1", s.session_id),
+                format!("{}:favorite_color:v2", s.session_id),
+            ],
+            expected_answer: None,
+            should_abstain: false,
+        });
+
+        cases.push(QueryCase {
+            query_id: format!("{}:bm25", s.session_id),
+            session_id: s.session_id.clone(),
+            task_type: TaskType::Bm25,
+            query: s.turns.iter().find(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":city"))).map(|t| t.text.clone()).unwrap_or_else(|| "Chicago".into()),
+            gold_evidence_ids: vec![format!("{}:city", s.session_id)],
+            expected_answer: None,
+            should_abstain: false,
+        });
+
+        cases.push(QueryCase {
+            query_id: format!("{}:hybrid", s.session_id),
+            session_id: s.session_id.clone(),
+            task_type: TaskType::Hybrid,
+            query: format!("favorite color in {}", s.turns.iter().find(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":city"))).map(|t| t.text.clone()).unwrap_or_else(|| "Chicago".into())),
+            gold_evidence_ids: vec![
+                format!("{}:favorite_color", s.session_id),
+                format!("{}:city", s.session_id),
+            ],
+            expected_answer: None,
+            should_abstain: false,
         });
     }
 
@@ -181,8 +256,8 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             task_type: TaskType::Association,
             query: "What colors have I mentioned across different conversations?".into(),
             gold_evidence_ids: vec![
-                format!("{}:favorite_color:v1", s1.session_id),
-                format!("{}:favorite_color:v1", s2.session_id),
+                format!("{}:favorite_color", s1.session_id),
+                format!("{}:favorite_color", s2.session_id),
             ],
             expected_answer: None,
             should_abstain: false,
@@ -200,7 +275,7 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
                     s.turns.iter().find(|t| {
                         t.memory_id
                             .as_ref()
-                            .is_some_and(|id| id.contains(":city:"))
+                            .is_some_and(|id| id.contains(":city"))
                     })
                 })
                 .filter_map(|t| t.memory_id.clone())

@@ -1,11 +1,13 @@
 use anyhow::Result;
+use chaotic_semantic_memory::bridge_retrieval::BridgeRetrieval;
+use chaotic_semantic_memory::encoder::TextEncoder;
 use chaotic_semantic_memory::prelude::*;
 use chaotic_semantic_memory::retrieval::bm25::Bm25Index;
 use chaotic_semantic_memory::retrieval::hybrid::{compute_weights, merge_results};
+use chaotic_semantic_memory::semantic_bridge::{CanonicalConcept, ConceptGraph};
 use std::collections::{HashMap, HashSet};
 use tempfile::NamedTempFile;
 use tokio::{fs, sync::RwLock};
-use tracing::debug;
 
 /// Tokenize text for BM25 matching, stripping punctuation.
 fn tokenize_for_bm25(text: &str) -> Vec<String> {
@@ -39,6 +41,8 @@ pub struct MemoryAdapter {
     framework: ChaoticSemanticFramework,
     bm25_index: RwLock<Bm25Index>,
     text_store: RwLock<HashMap<String, String>>,
+    bridge: BridgeRetrieval,
+    _tmp_db: tempfile::NamedTempFile,
 }
 
 const MIN_OVERLAP_WEIGHT: f32 = 0.05;
@@ -50,24 +54,45 @@ const STOPWORDS: &[&str] = &[
 
 impl MemoryAdapter {
     pub async fn new_in_memory() -> Result<Self> {
+        let _tmp_db = tempfile::NamedTempFile::new()?;
+        let db_path = _tmp_db.path().to_string_lossy().to_string();
+
         let framework = ChaoticSemanticFramework::builder()
-            .without_persistence()
+            .with_local_db(db_path)
             .build()
             .await?;
+
+        let mut graph = ConceptGraph::new();
+        // Add expansion labels for bridge retrieval
+        graph.add_concept(CanonicalConcept::new("bridge.color").with_label("color").with_label("hue"));
+        graph.add_concept(CanonicalConcept::new("bridge.city").with_label("city").with_label("location"));
+
+        let encoder = TextEncoder::new();
+        let bridge = BridgeRetrieval::with_defaults(encoder, graph);
+
         Ok(Self {
             framework,
             bm25_index: RwLock::new(Bm25Index::new()),
             text_store: RwLock::new(HashMap::new()),
+            bridge,
+            _tmp_db,
         })
     }
 
-    pub async fn ingest_memory(&self, id: &str, text: &str) -> Result<()> {
+    pub async fn ingest_memory(&self, id: &str, text: &str, ttl_seconds: Option<u64>) -> Result<()> {
         // Store text metadata for HDC
         let mut metadata = HashMap::new();
         metadata.insert("_text".to_string(), serde_json::Value::String(text.to_string()));
-        self.framework
-            .inject_text_with_metadata(id, text, metadata)
-            .await?;
+
+        if let Some(ttl) = ttl_seconds {
+            self.framework
+                .inject_text_with_ttl(id, text, ttl)
+                .await?;
+        } else {
+            self.framework
+                .inject_text_with_metadata(id, text, metadata)
+                .await?;
+        }
 
         // Tokenize and add to BM25 index
         let tokens = tokenize_for_bm25(text);
@@ -75,15 +100,6 @@ impl MemoryAdapter {
 
         // Store text for retrieval
         self.text_store.write().await.insert(id.to_string(), text.to_string());
-
-        if let Some(previous_id) = Self::previous_version_id(id) {
-            if let Err(err) = self.framework.delete_concept(&previous_id).await {
-                debug!(target: "benchmark", %previous_id, ?err, "failed to delete prior version");
-            }
-
-            self.bm25_index.write().await.remove_document(&previous_id);
-            self.text_store.write().await.remove(&previous_id);
-        }
 
         Ok(())
     }
@@ -133,7 +149,12 @@ impl MemoryAdapter {
     }
 
     /// Query with session filtering - only returns documents from the specified session.
-    pub async fn query_in_session(&self, text: &str, session_id: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
+    pub async fn query_in_session(
+        &self,
+        text: &str,
+        session_id: &str,
+        top_k: usize,
+    ) -> Result<Vec<(String, f32)>> {
         // Get all results
         let all_results = self.query(text, top_k * 3).await?;
 
@@ -146,6 +167,38 @@ impl MemoryAdapter {
             .collect();
 
         Ok(filtered)
+    }
+
+    pub async fn query_bm25(&self, text: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
+        let query_tokens = tokenize_for_bm25(text);
+        let bm25_hits = self.bm25_index.read().await.search(&query_tokens, top_k);
+        Ok(bm25_hits)
+    }
+
+    pub async fn query_hybrid(&self, text: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
+        self.query(text, top_k).await
+    }
+
+    pub async fn query_bridge(&self, text: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
+        let sing_lock = self.framework.singularity();
+        let sing = sing_lock.read().await;
+        let hits = self.bridge.query(&sing, text, top_k, None)?;
+        Ok(hits
+            .into_iter()
+            .map(|h| (h.id, h.scores.final_score))
+            .collect())
+    }
+
+    pub async fn query_history(
+        &self,
+        id: &str,
+        limit: usize,
+    ) -> Result<Vec<chaotic_semantic_memory::persistence::ConceptVersion>> {
+        self.framework.concept_history(id, limit).await.map_err(Into::into)
+    }
+
+    pub async fn purge_expired(&self) -> Result<usize> {
+        self.framework.purge_expired().await.map_err(Into::into)
     }
 
     pub async fn get_text(&self, id: &str) -> Result<Option<String>> {
@@ -177,14 +230,6 @@ impl MemoryAdapter {
         Ok(bytes.len() as u64)
     }
 
-    fn previous_version_id(id: &str) -> Option<String> {
-        let (prefix, version) = id.rsplit_once(":v")?;
-        let version_num: u32 = version.parse().ok()?;
-        if version_num == 0 || version_num == 1 {
-            return None;
-        }
-        Some(format!("{}:v{}", prefix, version_num - 1))
-    }
 
     fn token_overlap_ratio(query_tokens: &[String], doc_tokens: &[String]) -> f32 {
         let doc_set: HashSet<&str> = doc_tokens
