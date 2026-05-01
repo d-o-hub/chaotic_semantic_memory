@@ -303,6 +303,15 @@ impl Singularity {
             // ADR-0068: Route through AnnIndex
             if let Ok(results) = self.index.search(query, top_k) {
                 let results_arc = Arc::from(results);
+
+                // ADR-0068: Update stats for ANN search
+                let stats = self.index.stats();
+                if let Ok(mut s) = self.last_retrieval_stats.write() {
+                    s.scored_count = results_arc.len();
+                    s.candidate_count = stats.count;
+                    s.scoring_ns = unix_now_ns().saturating_sub(start_ns);
+                }
+
                 if !bypass_cache {
                     if let Ok(mut cache) = self.query_cache.write() {
                         let cache_key = similarity_cache_key(query, top_k);

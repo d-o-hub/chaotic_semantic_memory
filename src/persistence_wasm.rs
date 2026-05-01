@@ -116,6 +116,14 @@ impl Persistence {
     pub async fn size(&self) -> Result<u64> {
         Err(wasm_persistence_unavailable())
     }
+
+    pub async fn save_index(&self, _id: &str, _data: &[u8]) -> Result<()> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn load_index(&self, _id: &str) -> Result<Option<Vec<u8>>> {
+        Err(wasm_persistence_unavailable())
+    }
 }
 
 fn wasm_persistence_unavailable() -> MemoryError {
