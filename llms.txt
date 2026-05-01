@@ -17,6 +17,7 @@
 - colored (2.2.0)
 - fastembed (4)
 - glob (0.3.2)
+- hnsw_rs (0.3.4)
 - rand (0.10.1)
 - rand_chacha (0.10.0)
 - reqwest (0.12) [features: json, rustls-tls]
@@ -27,6 +28,8 @@
 - tracing (0.1.41)
 - tracing-subscriber (0.3.19)
 **Features:**
+- ann-hnsw: [dep:hnsw_rs]
+- ann-lsh: []
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - default: [cli, persistence, parallel]
 - embed-fastembed: [dep:fastembed]
@@ -353,6 +356,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Default for FrameworkConfig
 - pub struct FrameworkStats
 - pub struct FrameworkBuilder
+- impl Default for FrameworkBuilder
 - impl FrameworkBuilder
 
 ### src/framework_events.rs
@@ -402,6 +406,36 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub fn batch_cosine_similarity
 
+### src/index/brute_force.rs
+
+- pub struct BruteForce
+- impl BruteForce
+- impl AnnIndex for BruteForce
+
+### src/index/hnsw.rs
+
+- impl Distance for HammingDist
+- pub struct HnswIndex
+- impl HnswIndex
+- impl std::fmt::Debug for HnswIndex
+- impl AnnIndex for HnswIndex
+
+### src/index/lsh.rs
+
+- pub struct LshIndex
+- impl LshIndex
+- impl AnnIndex for LshIndex
+
+### src/index/mod.rs
+
+- pub mod brute_force
+- pub mod hnsw
+- pub mod lsh
+- pub struct IndexStats
+- pub enum IndexBackend
+- impl Default for IndexBackend
+- pub trait AnnIndex
+
 ### src/lib.rs
 
 - pub use bridge_retrieval::BridgeRetrieval
@@ -435,6 +469,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod retrieval
 - pub mod semantic_bridge
 - pub mod singularity
+- pub mod index
 - pub use crate::persistence_wasm as persistence
 - pub mod persistence
 - pub struct persistence::Persistence
@@ -1229,6 +1264,9 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"], optional = true
 # Local ONNX embeddings (opt-in via embed-fastembed feature)
 fastembed = { version = "4", optional = true }
 
+# HNSW ANN index (opt-in via ann-hnsw feature)
+hnsw_rs = { version = "0.3.4", optional = true }
+
 # CLI dependencies (gated behind "cli" feature)
 clap = { version = "4.5.60", features = ["derive", "env", "string"], optional = true }
 clap_complete = { version = "4.5.42", optional = true }
@@ -1386,6 +1424,10 @@ mcp = ["dep:rmcp", "cli"]  # ADR-0067: MCP server requires CLI infrastructure
 embed-fastembed = ["dep:fastembed"]
 embed-openai = ["dep:reqwest"]
 embed-voyage = ["dep:reqwest"]
+
+# ANN backends (ADR-0068)
+ann-hnsw = ["dep:hnsw_rs"]
+ann-lsh = []
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]

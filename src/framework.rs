@@ -314,6 +314,14 @@ impl ChaoticSemanticFramework {
     #[instrument(err, skip(self))]
     pub async fn persist(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
+            // ADR-0068: Persist ANN index state
+            let data = self.singularity.read().await.index.serialize();
+            if let Ok(index_data) = data {
+                if !index_data.is_empty() {
+                    persistence.save_index("main", &index_data).await?;
+                }
+            }
+
             persistence.checkpoint().await?;
         }
         Ok(())
@@ -366,6 +374,17 @@ impl ChaoticSemanticFramework {
                             error = %error,
                             "skipping invalid association during load_replace"
                         );
+                    }
+                }
+
+                // ADR-0068: Load ANN index state
+                if let Some(ref persistence) = self.persistence {
+                    if let Ok(Some(index_data)) = persistence.load_index("main").await {
+                        let _ = sing.index.deserialize(&index_data);
+                    } else {
+                        // Fallback: rebuild index from concepts
+                        let concepts = sing.concepts.clone();
+                        let _ = sing.index.rebuild(&concepts);
                     }
                 }
             }
@@ -421,6 +440,17 @@ impl ChaoticSemanticFramework {
                             error = %error,
                             "skipping invalid association during load_merge"
                         );
+                    }
+                }
+
+                // ADR-0068: Load ANN index state
+                if let Some(ref persistence) = self.persistence {
+                    if let Ok(Some(index_data)) = persistence.load_index("main").await {
+                        let _ = sing.index.deserialize(&index_data);
+                    } else {
+                        // Fallback: rebuild index from concepts
+                        let concepts = sing.concepts.clone();
+                        let _ = sing.index.rebuild(&concepts);
                     }
                 }
             }

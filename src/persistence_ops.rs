@@ -335,6 +335,19 @@ impl Persistence {
                 }
             }
 
+            if version == 7 {
+                // Add HNSW graph table for index persistence
+                conn.execute_batch(
+                    "CREATE TABLE IF NOT EXISTS csm_hnsw_graph (
+                        id TEXT PRIMARY KEY,
+                        data BLOB NOT NULL,
+                        modified_at INTEGER NOT NULL
+                    );",
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v7: {}", e)))?;
+            }
+
             conn.execute(
                 "INSERT INTO csm_schema_version(version) VALUES (?1)",
                 libsql::params![version],

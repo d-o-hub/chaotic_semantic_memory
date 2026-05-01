@@ -15,6 +15,9 @@ use tracing::instrument;
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
+use crate::index::AnnIndex;
+use crate::index::IndexBackend;
+use crate::index::brute_force::BruteForce;
 pub use crate::singularity_cache::CacheMetricsSnapshot;
 use crate::singularity_cache::{CacheMetrics, QueryCache};
 use crate::singularity_retrieval::ScoredCandidateParams;
@@ -78,6 +81,7 @@ pub struct Singularity {
     pub(crate) query_cache: RwLock<QueryCache>,
     pub(crate) cache_metrics: CacheMetrics,
     pub(crate) last_retrieval_stats: RwLock<RetrievalStats>,
+    pub(crate) index: Box<dyn AnnIndex>,
 }
 impl Singularity {
     #[must_use]
@@ -86,6 +90,7 @@ impl Singularity {
     }
 
     pub fn with_config(config: SingularityConfig) -> Self {
+        let index = Box::new(BruteForce::new());
         Self {
             concepts: HashMap::new(),
             associations: HashMap::new(),
@@ -97,6 +102,46 @@ impl Singularity {
             last_retrieval_stats: RwLock::new(RetrievalStats::default()),
             config,
             retrieval_config: RetrievalConfig::default(),
+            index,
+        }
+    }
+
+    pub fn with_config_and_backend(config: SingularityConfig, backend: IndexBackend) -> Self {
+        let index: Box<dyn AnnIndex> = match backend {
+            IndexBackend::BruteForce => Box::new(BruteForce::new()),
+            #[cfg(feature = "ann-hnsw")]
+            IndexBackend::Hnsw {
+                m,
+                ef_construction,
+                ef_search,
+            } => Box::new(crate::index::hnsw::HnswIndex::new(
+                m,
+                ef_construction,
+                ef_search,
+            )),
+            #[cfg(not(feature = "ann-hnsw"))]
+            IndexBackend::Hnsw { .. } => Box::new(BruteForce::new()),
+            #[cfg(feature = "ann-lsh")]
+            IndexBackend::Lsh {
+                num_tables,
+                hash_bits,
+            } => Box::new(crate::index::lsh::LshIndex::new(num_tables, hash_bits)),
+            #[cfg(not(feature = "ann-lsh"))]
+            IndexBackend::Lsh { .. } => Box::new(BruteForce::new()),
+        };
+
+        Self {
+            concepts: HashMap::new(),
+            associations: HashMap::new(),
+            concept_indices: Vec::new(),
+            concept_vectors: Vec::new(),
+            id_to_index: HashMap::new(),
+            query_cache: RwLock::new(QueryCache::with_capacity(config.concept_cache_size)),
+            cache_metrics: CacheMetrics::default(),
+            last_retrieval_stats: RwLock::new(RetrievalStats::default()),
+            config,
+            retrieval_config: RetrievalConfig::default(),
+            index,
         }
     }
     /// Inject a concept directly into memory
@@ -116,7 +161,10 @@ impl Singularity {
             self.concept_vectors.push(concept.vector);
         }
 
-        self.concepts.insert(concept.id.clone(), concept);
+        let concept_id = concept.id.clone();
+        let concept_vector = concept.vector;
+        self.concepts.insert(concept_id.clone(), concept);
+        self.index.insert(concept_id, &concept_vector)?;
         self.invalidate_cache();
         Ok(())
     }
@@ -140,6 +188,7 @@ impl Singularity {
         }
 
         self.concepts.remove(id);
+        let _ = self.index.delete(id);
         self.associations.remove(id);
         for links in self.associations.values_mut() {
             links.remove(id);
@@ -155,6 +204,7 @@ impl Singularity {
         self.concept_indices.clear();
         self.concept_vectors.clear();
         self.id_to_index.clear();
+        let _ = self.index.rebuild(&self.concepts);
         self.invalidate_cache();
     }
 
@@ -167,6 +217,7 @@ impl Singularity {
         if let Some(concept) = self.concepts.get_mut(id) {
             concept.vector = new_vector;
             concept.modified_at = unix_now_secs();
+            self.index.insert(id.to_string(), &new_vector)?;
             self.invalidate_cache();
             Ok(())
         } else {
@@ -249,6 +300,21 @@ impl Singularity {
         let cand_ns = unix_now_ns().saturating_sub(candidate_start);
 
         if candidates.is_empty() {
+            // ADR-0068: Route through AnnIndex
+            if let Ok(results) = self.index.search(query, top_k) {
+                let results_arc = Arc::from(results);
+                if !bypass_cache {
+                    if let Ok(mut cache) = self.query_cache.write() {
+                        let cache_key = similarity_cache_key(query, top_k);
+                        if cache.put(cache_key, Arc::clone(&results_arc)) {
+                            self.cache_metrics
+                                .evictions_total
+                                .fetch_add(1, Ordering::Relaxed);
+                        }
+                    }
+                }
+                return results_arc;
+            }
             return self.exact_similarity_scan(query, top_k, start_ns, bypass_cache);
         }
 

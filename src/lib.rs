@@ -73,6 +73,7 @@ pub mod mcp;
 pub mod metadata_filter;
 pub mod semantic_triples;
 pub use metadata_filter::MetadataFilter;
+pub mod index;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 pub mod persistence;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
