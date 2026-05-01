@@ -49,6 +49,17 @@ pub fn aggregate(
         (0.0, 0.0)
     };
 
+    let association_cases: Vec<_> = results
+        .iter()
+        .filter(|r| matches!(r.task_type, TaskType::Association))
+        .collect();
+    let association_success_rate = if !association_cases.is_empty() {
+        association_cases.iter().filter(|r| r.recall_at_5).count() as f32
+            / association_cases.len() as f32
+    } else {
+        0.0
+    };
+
     let mut latencies: Vec<_> = results.iter().map(|r| r.latency_ms).collect();
     latencies.sort_unstable();
     // Use floor-based indexing for percentiles (industry standard)
@@ -80,6 +91,7 @@ pub fn aggregate(
         exact_match,
         abstain_precision,
         abstain_recall,
+        association_success_rate,
         ingest_ms,
         p50_latency_ms: p50,
         p50_latency_us: p50_us,
