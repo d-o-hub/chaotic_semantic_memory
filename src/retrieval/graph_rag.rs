@@ -9,7 +9,7 @@ use crate::error::Result;
 use crate::graph_traversal::TraversalConfig;
 use crate::hyperdim::HVec10240;
 use crate::singularity::Concept;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Configuration for GraphRAG retrieval.
 #[derive(Debug, Clone)]
@@ -124,20 +124,17 @@ pub fn graph_rag_retrieve(
 
         let traversed = traverse_from(anchor_id, &assoc_map, &traversal_config);
 
-        for (node_id, hop) in traversed {
+        for (node_id, hop, path_strength) in traversed {
             if seen.contains(&node_id) {
                 continue;
             }
             seen.insert(node_id.clone());
 
-            // Get path strength (simplified: use min edge along path)
-            let strength = get_path_strength(anchor_id, &node_id, hop, &assoc_map);
-
             candidates.push(Candidate {
                 id: node_id,
                 anchor_id: anchor_id.clone(),
                 hop_distance: hop,
-                path_strength: strength,
+                path_strength,
             });
         }
     }
@@ -211,68 +208,40 @@ fn traverse_from(
     start: &str,
     associations: &HashMap<String, Vec<(String, f32)>>,
     config: &TraversalConfig,
-) -> Vec<(String, usize)> {
-    let mut results: Vec<(String, usize)> = Vec::new();
+) -> Vec<(String, usize, f32)> {
+    let mut results: Vec<(String, usize, f32)> = Vec::new();
     let mut visited: HashSet<String> = HashSet::new();
-    let mut queue: Vec<(String, usize, f32)> = vec![(start.to_string(), 0, 1.0)];
+    let mut queue: VecDeque<(String, usize, f32)> = VecDeque::new();
+    queue.push_back((start.to_string(), 0, 1.0));
 
     visited.insert(start.to_string());
 
-    while let Some((current, depth, _strength)) = queue.pop() {
+    while let Some((current, depth, path_strength)) = queue.pop_front() {
         if depth >= config.max_depth {
             continue;
         }
 
-        let edges = associations.get(&current);
-        if edges.is_none() {
-            continue;
-        }
+        if let Some(edges) = associations.get(&current) {
+            for (neighbor, strength) in edges {
+                if *strength < config.min_strength {
+                    continue;
+                }
+                if visited.contains(neighbor) {
+                    continue;
+                }
+                if results.len() >= config.max_results {
+                    break;
+                }
 
-        for (neighbor, strength) in edges.unwrap() {
-            if *strength < config.min_strength {
-                continue;
+                let new_strength = path_strength.min(*strength);
+                visited.insert(neighbor.clone());
+                results.push((neighbor.clone(), depth + 1, new_strength));
+                queue.push_back((neighbor.clone(), depth + 1, new_strength));
             }
-            if visited.contains(neighbor) {
-                continue;
-            }
-            if results.len() >= config.max_results {
-                break;
-            }
-
-            visited.insert(neighbor.clone());
-            results.push((neighbor.clone(), depth + 1));
-            queue.push((neighbor.clone(), depth + 1, *strength));
         }
     }
 
     results
-}
-
-/// Estimate path strength (simplified: returns average edge strength).
-fn get_path_strength(
-    from: &str,
-    to: &str,
-    hops: usize,
-    associations: &HashMap<String, Vec<(String, f32)>>,
-) -> f32 {
-    // Simplified: for direct neighbors, return edge strength
-    // For multi-hop, estimate based on hop distance
-    if hops == 0 {
-        return 1.0;
-    }
-    if hops == 1 {
-        let edges = associations.get(from);
-        if let Some(edges) = edges {
-            for (neighbor, strength) in edges {
-                if neighbor == to {
-                    return *strength;
-                }
-            }
-        }
-        return 0.5;
-    }
-    // Multi-hop: use decay factor
-    0.5 / (hops as f32)
 }
 
 #[cfg(test)]

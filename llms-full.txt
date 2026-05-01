@@ -360,10 +360,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub enum MemoryEvent
 - impl ChaoticSemanticFramework
 
-### src/framework_graph_rag.rs
-
-- impl ChaoticSemanticFramework
-
 ### src/framework_metrics.rs
 
 - pub struct FrameworkMetrics
@@ -2675,6 +2671,8 @@ impl ChaoticSemanticFramework {
     pub fn incoming_associations(&self, id: &str) -> Result<Vec<(String, f32)>>;
     pub fn shortest_path_hops(&self, from: &str, to: &str) -> Result<Option<Vec<String>>>;
     pub fn get_concept(&self, id: &str) -> Result<Option<Concept>>;
+    pub fn probe_with_graph(&self, query: HVec10240, config: GraphRagConfig) -> Result<Vec<GraphRagResult>>;
+    pub fn probe_text_with_graph(&self, text: &str, config: GraphRagConfig) -> Result<Vec<GraphRagResult>>;
     pub fn persist(&self) -> Result<()>;
     pub fn persistence_health_check(&self) -> Result<()>;
     pub fn load_replace(&self) -> Result<()>;
@@ -2799,17 +2797,6 @@ impl ChaoticSemanticFramework {
     pub fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()>;
     pub fn update_concept_metadata(&self, id: &str, metadata: HashMap<String, serde_json::Value>) -> Result<()>;
     pub fn disassociate(&self, from: &str, to: &str) -> Result<()>;
-}
-```
-
-## src/framework_graph_rag.rs
-
-### impl ChaoticSemanticFramework
-
-```rust
-impl ChaoticSemanticFramework {
-    pub fn probe_with_graph(&self, query: HVec10240, config: GraphRagConfig) -> Result<Vec<GraphRagResult>>;
-    pub fn probe_text_with_graph(&self, text: &str, config: GraphRagConfig) -> Result<Vec<GraphRagResult>>;
 }
 ```
 
@@ -4428,6 +4415,8 @@ impl WasmFramework {
     pub fn on_event(&self, callback: Function);
     pub fn inject_text(&self, id: String, text: String) -> Result<(), JsValue>;
     pub fn probe_text(&self, query: String, top_k: usize) -> Result<Array, JsValue>;
+    pub fn probe_with_graph(&self, vector: &[u8], anchor_top_k: usize, max_hops: usize, min_assoc_strength: f32, similarity_weight: f32, graph_weight: f32, final_top_k: usize) -> Result<Array, JsValue>;
+    pub fn probe_text_with_graph(&self, text: String, anchor_top_k: usize, max_hops: usize, min_assoc_strength: f32, similarity_weight: f32, graph_weight: f32, final_top_k: usize) -> Result<Array, JsValue>;
 }
 ```
 
