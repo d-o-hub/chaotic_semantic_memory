@@ -202,6 +202,14 @@ pub mod persistence {
             Ok(0)
         }
 
+        pub async fn save_index(&self, _id: &str, _data: &[u8]) -> Result<()> {
+            Ok(())
+        }
+
+        pub async fn load_index(&self, _id: &str) -> Result<Option<Vec<u8>>> {
+            Ok(None)
+        }
+
         pub async fn apply_migrations(&self, _target_version: i64) -> Result<()> {
             Ok(())
         }
