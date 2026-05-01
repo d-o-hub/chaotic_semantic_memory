@@ -75,6 +75,7 @@ mod tests {
     fn make_case_result(retrieved: Vec<(&str, usize, f32)>) -> CaseResult {
         CaseResult {
             query_id: "test-query".to_string(),
+            session_id: "test-session".to_string(),
             task_type: TaskType::Recall,
             retrieved: retrieved
                 .iter()
