@@ -20,7 +20,7 @@ async fn test_graph_rag_synthetic_structure() {
     let v2 = HVec10240::new_seeded(2);
     let v3 = HVec10240::new_seeded(3);
 
-    framework.inject_concept("c0", v0.clone()).await.unwrap();
+    framework.inject_concept("c0", v0).await.unwrap();
     framework.inject_concept("c1", v1).await.unwrap();
     framework.inject_concept("c2", v2).await.unwrap();
     framework.inject_concept("c3", v3).await.unwrap();
@@ -56,7 +56,7 @@ async fn test_graph_rag_synthetic_structure() {
 
     // Check path strength for c2 (min of 0.8 and 0.6 is 0.6)
     let c2_res = results.iter().find(|r| r.id == "c2").unwrap();
-    assert_eq!(c2_res.assoc_strength, 0.6);
+    assert!((c2_res.assoc_strength - 0.6).abs() < f32::EPSILON);
 }
 
 #[tokio::test]
@@ -66,13 +66,13 @@ async fn test_graph_rag_connected_outranks_similarity() {
     let v_query = HVec10240::new_seeded(100);
 
     // anchor: very high similarity
-    let v_anchor = v_query.clone();
+    let v_anchor = v_query;
 
     // neighbor: low similarity to query
     let v_neighbor = HVec10240::new_seeded(200);
 
     // high_sim: also very high similarity, but not connected
-    let v_high_sim = v_query.clone();
+    let v_high_sim = v_query;
 
     framework.inject_concept("anchor", v_anchor).await.unwrap();
     framework
