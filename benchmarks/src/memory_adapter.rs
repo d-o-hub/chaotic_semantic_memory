@@ -66,6 +66,12 @@ impl MemoryAdapter {
         // Store text metadata for HDC
         let mut metadata = HashMap::new();
         metadata.insert("_text".to_string(), serde_json::Value::String(text.to_string()));
+
+        // Add session_id to metadata for framework-level filtering
+        if let Some((session_id, _)) = id.split_once(':') {
+            metadata.insert("session_id".to_string(), serde_json::Value::String(session_id.to_string()));
+        }
+
         self.framework
             .inject_text_with_metadata(id, text, metadata)
             .await?;
@@ -199,22 +205,56 @@ impl MemoryAdapter {
     }
 
     async fn query_in_session_internal(&self, text: &str, session_id: &str, top_k: usize, use_graph: bool) -> Result<Vec<(String, f32)>> {
-        // Get all results
-        let all_results = if use_graph {
-            self.query_association(text, top_k * 3).await?
-        } else {
-            self.query(text, top_k * 3).await?
-        };
+        if use_graph {
+            // GraphRAG doesn't yet support framework-level metadata filtering in this adapter's wrapper,
+            // so we still use post-filtering for association queries.
+            let all_results = self.query_association(text, top_k * 10).await?;
+            let session_prefix = format!("{}:", session_id);
+            let filtered: Vec<_> = all_results
+                .into_iter()
+                .filter(|(id, _)| id.starts_with(&session_prefix))
+                .take(top_k)
+                .collect();
+            return Ok(filtered);
+        }
 
-        // Filter to session-specific results
+        // For standard queries, use framework-level session filtering
+        let hdc_hits = self.framework.query_in_session(text, session_id, top_k * 3).await?;
+
+        // Get BM25 results (BM25 still needs manual session filtering here as it's a separate index)
+        let query_tokens = tokenize_for_bm25(text);
+        let bm25_hits = self.bm25_index.read().await.search(&query_tokens, top_k * 10);
         let session_prefix = format!("{}:", session_id);
-        let filtered: Vec<_> = all_results
+        let bm25_filtered: Vec<_> = bm25_hits
             .into_iter()
             .filter(|(id, _)| id.starts_with(&session_prefix))
-            .take(top_k)
             .collect();
 
-        Ok(filtered)
+        // Merge results
+        let weights = compute_weights(query_tokens.len());
+        let merged = merge_results(&bm25_filtered, &hdc_hits, weights);
+
+        let reweighted = {
+            let text_store = self.text_store.read().await;
+            merged
+                .into_iter()
+                .filter_map(|(id, score)| {
+                    let overlap = text_store.get(&id).map(|text| {
+                        let doc_tokens = tokenize_for_bm25(text);
+                        Self::token_overlap_ratio(&query_tokens, &doc_tokens)
+                    })?;
+
+                    let adjusted = score * (MIN_OVERLAP_WEIGHT + (1.0 - MIN_OVERLAP_WEIGHT) * overlap);
+                    if adjusted < MIN_ADJUSTED_SCORE {
+                        None
+                    } else {
+                        Some((id, adjusted))
+                    }
+                })
+                .collect::<Vec<_>>()
+        };
+
+        Ok(reweighted.into_iter().take(top_k).collect())
     }
 
     pub async fn get_text(&self, id: &str) -> Result<Option<String>> {
