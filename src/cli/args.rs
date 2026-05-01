@@ -74,6 +74,8 @@ pub enum Commands {
     Metrics(MetricsArgs),
     /// Watch for real-time memory events.
     Watch(WatchArgs),
+    /// GraphRAG retrieval: similarity + graph traversal hybrid.
+    ProbeGraph(ProbeGraphArgs),
 }
 
 #[derive(Args, Debug, Clone)]
@@ -385,4 +387,36 @@ pub struct WatchArgs {
     /// Event type filter: all, injected, updated, deleted, associated, disassociated.
     #[arg(short, long, default_value = "all")]
     pub filter: String,
+}
+
+/// Arguments for GraphRAG retrieval.
+#[derive(Args, Debug, Clone)]
+pub struct ProbeGraphArgs {
+    /// Text query for similarity search.
+    #[arg(required = true)]
+    pub text: String,
+
+    /// Number of anchor concepts from initial probe.
+    #[arg(long, default_value = "5")]
+    pub anchors: usize,
+
+    /// Maximum hops to traverse from each anchor.
+    #[arg(long, default_value = "2")]
+    pub hops: usize,
+
+    /// Minimum association strength to follow.
+    #[arg(long, default_value = "0.0")]
+    pub min_strength: f32,
+
+    /// Weight for similarity score component.
+    #[arg(long, default_value = "0.6")]
+    pub similarity_weight: f32,
+
+    /// Weight for graph distance component.
+    #[arg(long, default_value = "0.4")]
+    pub graph_weight: f32,
+
+    /// Final top-K results to return.
+    #[arg(short = 'k', long, default_value = "20")]
+    pub top_k: usize,
 }

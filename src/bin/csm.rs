@@ -8,8 +8,8 @@ mod native {
         CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir,
         resolve_git_local_path, run_associate, run_associations, run_completions, run_delete,
         run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl,
-        run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats,
-        run_traverse, run_update, run_watch,
+        run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph,
+        run_query, run_stats, run_traverse, run_update, run_watch,
     };
     pub use clap::Parser;
     pub use colored::Colorize;
@@ -165,6 +165,9 @@ mod native {
                     ))
                 })?;
                 run_watch(db_path.as_deref(), filter).await
+            }
+            Commands::ProbeGraph(cmd) => {
+                run_probe_graph(cmd.clone(), db_path.as_deref(), fmt).await
             }
         };
         result.map(|_| ((), fmt))

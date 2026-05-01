@@ -39,7 +39,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/bin/csm.rs
 
 - pub use native::chaotic_semantic_memory::cli::commands::watch::EventFilter
-- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch}
+- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
 - pub use native::clap::Parser
 - pub use native::colored::Colorize
 - pub use native::tracing::Level
@@ -94,6 +94,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct StatsArgs
 - pub struct MetricsArgs
 - pub struct WatchArgs
+- pub struct ProbeGraphArgs
 
 ### src/cli/commands/associate.rs
 
@@ -163,6 +164,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod path
 - pub mod probe
 - pub mod probe_filtered
+- pub mod probe_graph
 - pub mod query
 - pub mod stats
 - pub mod traverse
@@ -183,6 +185,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use path::run_path
 - pub use probe::run_probe
 - pub use probe_filtered::run_probe_filtered
+- pub use probe_graph::run_probe_graph
 - pub use query::run_query
 - pub use stats::run_stats
 - pub use traverse::run_traverse
@@ -206,6 +209,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/cli/commands/probe_filtered.rs
 
 - pub fn run_probe_filtered
+
+### src/cli/commands/probe_graph.rs
+
+- pub fn run_probe_graph
 
 ### src/cli/commands/query.rs
 
@@ -252,7 +259,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod error
 - pub mod git_local
 - pub use args::*
-- pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch}
+- pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
 
@@ -304,6 +311,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/framework_events.rs
 
 - pub enum MemoryEvent
+- impl ChaoticSemanticFramework
+
+### src/framework_graph_rag.rs
+
 - impl ChaoticSemanticFramework
 
 ### src/framework_metrics.rs
@@ -488,6 +499,13 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct Bm25Index
 - impl Bm25Index
 
+### src/retrieval/graph_rag.rs
+
+- pub struct GraphRagConfig
+- impl Default for GraphRagConfig
+- pub struct GraphRagResult
+- pub fn graph_rag_retrieve
+
 ### src/retrieval/hybrid.rs
 
 - pub fn compute_weights
@@ -500,8 +518,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/retrieval/mod.rs
 
 - pub mod bm25
+- pub mod graph_rag
 - pub mod hybrid
 - pub use bm25::{Bm25Config, Bm25Index}
+- pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve}
 - pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
 
 ### src/semantic_bridge.rs
@@ -1111,10 +1131,10 @@ The `csm` binary provides command-line access:
 pub use chaotic_semantic_memory::cli::commands::watch::EventFilter;
 ```
 
-### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch}
+### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
 
 ```rust
-pub use chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch};
+pub use chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch};
 ```
 
 ### clap::Parser
@@ -1322,6 +1342,7 @@ pub enum Commands {
     Stats(StatsArgs),
     Metrics(MetricsArgs),
     Watch(WatchArgs),
+    ProbeGraph(ProbeGraphArgs),
 }
 ```
 
@@ -1510,6 +1531,23 @@ pub struct ProbeFilteredArgs {
 ```
 
 Arguments for filtered similarity probe.
+
+### ProbeGraphArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct ProbeGraphArgs {
+    pub text: String,
+    pub anchors: usize,
+    pub hops: usize,
+    pub min_strength: f32,
+    pub similarity_weight: f32,
+    pub graph_weight: f32,
+    pub top_k: usize,
+}
+```
+
+Arguments for GraphRAG retrieval.
 
 ### QueryArgs
 
@@ -1841,6 +1879,12 @@ pub use probe::run_probe;
 pub use probe_filtered::run_probe_filtered;
 ```
 
+### probe_graph::run_probe_graph
+
+```rust
+pub use probe_graph::run_probe_graph;
+```
+
 ### query::run_query
 
 ```rust
@@ -1909,6 +1953,14 @@ pub fn run_probe_with_vector(query_vector: HVec10240, top_k: usize, threshold: O
 
 ```rust
 pub fn run_probe_filtered(args: ProbeFilteredArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/probe_graph.rs
+
+### run_probe_graph
+
+```rust
+pub fn run_probe_graph(args: ProbeGraphArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
 ## src/cli/commands/query.rs
@@ -2109,10 +2161,10 @@ assert!(path.is_some() || path.is_none()); // Always passes, documents behavior
 pub use args::*;
 ```
 
-### commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch}
+### commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
 
 ```rust
-pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch};
+pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch};
 ```
 
 ### error::{CliError, ExitCode, Result}
@@ -2461,6 +2513,17 @@ impl ChaoticSemanticFramework {
     pub fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()>;
     pub fn update_concept_metadata(&self, id: &str, metadata: HashMap<String, serde_json::Value>) -> Result<()>;
     pub fn disassociate(&self, from: &str, to: &str) -> Result<()>;
+}
+```
+
+## src/framework_graph_rag.rs
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
+    pub fn probe_with_graph(&self, query: HVec10240, config: GraphRagConfig) -> Result<Vec<GraphRagResult>>;
+    pub fn probe_text_with_graph(&self, text: &str, config: GraphRagConfig) -> Result<Vec<GraphRagResult>>;
 }
 ```
 
@@ -3389,6 +3452,61 @@ impl Default for Bm25Config {
 }
 ```
 
+## src/retrieval/graph_rag.rs
+
+### GraphRagConfig
+
+```rust
+#[derive(Debug, Clone)]
+pub struct GraphRagConfig {
+    pub anchor_top_k: usize,
+    pub max_hops: usize,
+    pub min_assoc_strength: f32,
+    pub similarity_weight: f32,
+    pub graph_weight: f32,
+    pub final_top_k: usize,
+}
+```
+
+Configuration for GraphRAG retrieval.
+
+### GraphRagResult
+
+```rust
+#[derive(Debug, Clone)]
+pub struct GraphRagResult {
+    pub id: String,
+    pub score: f32,
+    pub similarity: f32,
+    pub anchor_id: Option<String>,
+    pub hop_distance: usize,
+    pub assoc_strength: f32,
+}
+```
+
+Result from GraphRAG retrieval.
+
+### graph_rag_retrieve
+
+```rust
+pub fn graph_rag_retrieve(query: &HVec10240, concepts: &[Concept], associations: &[(String, String, f32)], config: &GraphRagConfig) -> Result<Vec<GraphRagResult>>
+```
+
+Execute GraphRAG retrieval.
+
+Algorithm:
+1. Anchor: probe(query, anchor_top_k) → seed set
+2. Expand: traverse from each anchor
+3. Score: similarity_weight * cosine + graph_weight * (1/(1+hops)) * strength
+4. Dedupe + rank by score
+
+### impl Default for GraphRagConfig
+
+```rust
+impl Default for GraphRagConfig {
+}
+```
+
 ## src/retrieval/hybrid.rs
 
 ### HybridConfig
@@ -3470,6 +3588,12 @@ If all scores are equal, returns 0.5 for all.
 
 ```rust
 pub use bm25::{Bm25Config, Bm25Index};
+```
+
+### graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve}
+
+```rust
+pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
 ```
 
 ### hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
