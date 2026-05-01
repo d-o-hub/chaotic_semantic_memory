@@ -60,7 +60,8 @@ pub struct Reservoir {
     w_res: SparseWeights,
     input_cache: Vec<f32>,
     input_projection: Vec<f32>,
-    input_projection_valid: bool,
+    input_version: u32,
+    node_versions: Vec<u32>,
     update_stride: usize,
     update_phase: usize,
     spectral_radius: f32,
@@ -133,7 +134,8 @@ impl Reservoir {
             w_res,
             input_cache: vec![0.0; input_size],
             input_projection: vec![0.0; size],
-            input_projection_valid: false,
+            input_version: 0,
+            node_versions: vec![0; size],
             update_stride: Self::PARTIAL_UPDATE_STRIDE,
             update_phase: 0,
             spectral_radius: Self::DEFAULT_RADIUS,
@@ -156,48 +158,38 @@ impl Reservoir {
             )));
         }
 
-        if !self.input_projection_valid || self.input_cache != input {
+        if self.input_cache != input {
             self.input_cache.copy_from_slice(input);
-            self.input_projection_valid = true;
-
-            #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-            {
-                let w_in = &self.w_in;
-                self.input_projection
-                    .par_iter_mut()
-                    .enumerate()
-                    .for_each(|(i, out)| {
-                        *out = w_in.dot_row(i, input);
-                    });
-            }
-
-            #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-            for (i, out) in self.input_projection.iter_mut().enumerate() {
-                *out = self.w_in.dot_row(i, input);
-            }
+            self.input_version = self.input_version.wrapping_add(1);
         }
 
-        let state = &self.state;
         let one_minus_alpha = 1.0 - self.alpha;
         let beta = self.beta;
-        let prev_state = &self.prev_state;
         let update_phase = self.update_phase;
         for i in (update_phase..self.size).step_by(self.update_stride) {
-            let res_sum = self.w_res.dot_row(i, state);
+            // Algorithmic Optimization: Lazy partial input projection.
+            if self.node_versions[i] != self.input_version {
+                self.input_projection[i] = self.w_in.dot_row(i, input);
+                self.node_versions[i] = self.input_version;
+            }
+
+            let res_sum = self.w_res.dot_row(i, &self.state);
             let activated = fast_tanh(self.input_projection[i] + res_sum);
-            let inertial = beta * (state[i] - prev_state[i]);
-            self.scratch[i] = state[i] * one_minus_alpha + activated * self.alpha + inertial;
+            let current_val = self.state[i];
+            let inertial = beta * (current_val - self.prev_state[i]);
+
+            // Compute new state into scratch using a stable snapshot of `self.state`.
+            self.scratch[i] =
+                current_val.mul_add(one_minus_alpha, activated.mul_add(self.alpha, inertial));
         }
-        self.update_phase = (update_phase + 1) % self.update_stride;
+
+        // Second pass: Commit the updates for this phase.
+        // This keeps semantics synchronous within the phase (no order dependency).
         for i in (update_phase..self.size).step_by(self.update_stride) {
             self.prev_state[i] = self.state[i];
+            self.state[i] = self.scratch[i];
         }
-        std::mem::swap(&mut self.state, &mut self.scratch);
-
-        // Keep scratch in sync with state for the next partial-update step.
-        for i in (update_phase..self.size).step_by(self.update_stride) {
-            self.scratch[i] = self.state[i];
-        }
+        self.update_phase = (update_phase + 1) % self.update_stride;
 
         #[cfg(not(target_arch = "wasm32"))]
         let latency_us = started.elapsed().as_micros() as u64;
@@ -370,7 +362,10 @@ impl Reservoir {
 #[inline]
 fn fast_tanh(x: f32) -> f32 {
     let x2 = x * x;
-    x * (27.0 + x2) / (27.0 + 9.0 * x2)
+    // Approximates tanh(x) as x*(27+x^2)/(27+9x^2) using FMA for speed.
+    let num = x2.mul_add(x, 27.0 * x);
+    let den = x2.mul_add(9.0, 27.0);
+    num / den
 }
 
 /// Chaotic reservoir with configurable dynamics
