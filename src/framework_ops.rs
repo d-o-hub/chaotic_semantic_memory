@@ -148,11 +148,14 @@ impl ChaoticSemanticFramework {
     ) -> Result<Vec<Vec<(String, f32)>>> {
         self.validate_top_k(top_k)?;
         self.validate_batch_size(queries.len())?;
-        let sing = self.singularity.read().await;
-        let mut out = Vec::with_capacity(queries.len());
-        for query in queries {
-            out.push(sing.find_similar(query, top_k));
-        }
+        let out = {
+            let sing = self.singularity.read().await;
+            let mut out = Vec::with_capacity(queries.len());
+            for query in queries {
+                out.push(sing.find_similar(query, top_k));
+            }
+            out
+        };
         Ok(out)
     }
 
@@ -166,11 +169,14 @@ impl ChaoticSemanticFramework {
     ) -> Result<Vec<Arc<[(String, f32)]>>> {
         self.validate_top_k(top_k)?;
         self.validate_batch_size(queries.len())?;
-        let sing = self.singularity.read().await;
-        let mut out = Vec::with_capacity(queries.len());
-        for query in queries {
-            out.push(sing.find_similar_cached(query, top_k));
-        }
+        let out = {
+            let sing = self.singularity.read().await;
+            let mut out = Vec::with_capacity(queries.len());
+            for query in queries {
+                out.push(sing.find_similar_cached(query, top_k));
+            }
+            out
+        };
         Ok(out)
     }
 

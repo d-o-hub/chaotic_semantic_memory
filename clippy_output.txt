@@ -1,0 +1,1900 @@
+warning: casting `i64` to `u32` may truncate the value
+  --> src/bridge_persistence.rs:86:26
+   |
+86 |                 version: version as u32,
+   |                          ^^^^^^^^^^^^^^
+   |
+   = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+   = note: requested on the command line with `-W clippy::cast-possible-truncation`
+help: ... or use `try_from` and handle the error accordingly
+   |
+86 -                 version: version as u32,
+86 +                 version: u32::try_from(version),
+   |
+
+warning: casting `i64` to `u32` may truncate the value
+   --> src/bridge_persistence.rs:132:26
+    |
+132 |                 version: version as u32,
+    |                          ^^^^^^^^^^^^^^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+help: ... or use `try_from` and handle the error accordingly
+    |
+132 -                 version: version as u32,
+132 +                 version: u32::try_from(version),
+    |
+
+warning: this could be a `const fn`
+  --> src/bridge_retrieval.rs:28:5
+   |
+28 | /     pub fn new(encoder: TextEncoder, concept_graph: ConceptGraph, conf...
+29 | |         Self {
+30 | |             encoder,
+31 | |             concept_graph,
+...  |
+34 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+   = note: requested on the command line with `-W clippy::missing-const-for-fn`
+help: make the function `const`
+   |
+28 |     pub const fn new(encoder: TextEncoder, concept_graph: ConceptGraph, config: BridgeConfig) -> Self {
+   |         +++++
+
+warning: casting `f32` to `usize` may truncate the value
+   --> src/bridge_retrieval.rs:232:29
+    |
+232 | ... = (text.split_whitespace().count() as f32 / 0.75).ceil() as usize;
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+
+warning: casting `usize` to `f32` may cause a loss of precision (`usize` can be up to 64 bits wide depending on the target architecture, but `f32`'s mantissa is only 23 bits wide)
+   --> src/bridge_retrieval.rs:232:30
+    |
+232 | ...   let estimated = (text.split_whitespace().count() as f32 / 0.75).c...
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+    = note: requested on the command line with `-W clippy::cast-precision-loss`
+
+warning: casting `usize` to `f32` may cause a loss of precision (`usize` can be up to 64 bits wide depending on the target architecture, but `f32`'s mantissa is only 23 bits wide)
+   --> src/bridge_retrieval.rs:248:46
+    |
+248 |             top_scores.iter().sum::<f32>() / top_scores.len() as f32
+    |                                              ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: this could be a `const fn`
+   --> src/bridge_retrieval.rs:260:5
+    |
+260 | /     pub fn concept_graph(&self) -> &ConceptGraph {
+261 | |         &self.concept_graph
+262 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+260 |     pub const fn concept_graph(&self) -> &ConceptGraph {
+    |         +++++
+
+warning: this could be a `const fn`
+   --> src/bridge_retrieval.rs:265:5
+    |
+265 | /     pub fn encoder(&self) -> &TextEncoder {
+266 | |         &self.encoder
+267 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+265 |     pub const fn encoder(&self) -> &TextEncoder {
+    |         +++++
+
+warning: this could be a `const fn`
+   --> src/bridge_retrieval.rs:270:5
+    |
+270 | /     pub fn config(&self) -> &BridgeConfig {
+271 | |         &self.config
+272 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+270 |     pub const fn config(&self) -> &BridgeConfig {
+    |         +++++
+
+warning: this could be a `const fn`
+   --> src/bundle.rs:110:5
+    |
+110 | /     pub fn len(&self) -> u32 {
+111 | |         self.n
+112 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+110 |     pub const fn len(&self) -> u32 {
+    |         +++++
+
+warning: this could be a `const fn`
+   --> src/bundle.rs:115:5
+    |
+115 | /     pub fn is_empty(&self) -> bool {
+116 | |         self.n == 0
+117 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+115 |     pub const fn is_empty(&self) -> bool {
+    |         +++++
+
+warning: casting `f64` to `f32` may truncate the value
+  --> src/cli/commands/associate.rs:54:54
+   |
+54 |         .associate(&args.source_id, &args.target_id, args.strength as f32)
+   |                                                      ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+
+warning: casting `f64` to `f32` may truncate the value
+   --> src/cli/commands/associate.rs:118:52
+    |
+118 |                 .associate(&source_id, &target_id, strength as f32)
+    |                                                    ^^^^^^^^^^^^^^^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+
+warning: redundant clone
+   --> src/cli/commands/index_dir.rs:177:41
+    |
+177 |                 heading: current_heading.clone().unwrap_or_default(),
+    |                                         ^^^^^^^^ help: remove this
+    |
+note: this value is dropped without further use
+   --> src/cli/commands/index_dir.rs:177:26
+    |
+177 |                 heading: current_heading.clone().unwrap_or_default(),
+    |                          ^^^^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_clone
+    = note: requested on the command line with `-W clippy::redundant-clone`
+
+warning: casting `f64` to `f32` may truncate the value
+  --> src/cli/commands/probe.rs:37:70
+   |
+37 | ...hold.is_none_or(|t| *score >= t as f32))
+   |                                  ^^^^^^^^
+   |
+   = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+
+warning: casting `f64` to `f32` may truncate the value
+   --> src/cli/commands/probe.rs:110:65
+    |
+110 |         .filter(|(_, score)| threshold.is_none_or(|t| *score >= t as f32))
+    |                                                                 ^^^^^^^^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+
+warning: casting `f64` to `f32` may truncate the value
+  --> src/cli/commands/query.rs:99:18
+   |
+99 |                 (kw as f32, (1.0 - kw) as f32)
+   |                  ^^^^^^^^^
+   |
+   = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+
+warning: casting `f64` to `f32` may truncate the value
+  --> src/cli/commands/query.rs:99:29
+   |
+99 |                 (kw as f32, (1.0 - kw) as f32)
+   |                             ^^^^^^^^^^^^^^^^^
+   |
+   = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+
+warning: casting `f64` to `f32` may truncate the value
+   --> src/cli/commands/query.rs:114:40
+    |
+114 |         .filter(|(_, score)| *score >= args.min_score as f32)
+    |                                        ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+
+warning: temporary with significant `Drop` can be early dropped
+   --> src/cli/commands/query.rs:258:9
+    |
+256 |   ) -> Result<Bm25Index> {
+    |  ________________________-
+257 | |     let singularity = framework.singularity();
+258 | |     let sing = singularity.read().await;
+    | |         ^^^^
+259 | |     let mut index = Bm25Index::new();
+...   |
+281 | |     Ok(index)
+282 | | }
+    | |_- temporary `sing` is currently being dropped at the end of its contained scope
+    |
+    = note: this might lead to unnecessary resource contention
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+    = note: requested on the command line with `-W clippy::significant-drop-tightening`
+help: merge the temporary construction with its single usage
+    |
+258 ~
+259 +     singularity.read().await.;
+260 |     let mut index = Bm25Index::new();
+261 |
+262 ~
+    |
+
+warning: this could be a `const fn`
+  --> src/cli/error.rs:85:5
+   |
+85 | /     pub fn as_i32(self) -> i32 {
+86 | |         self as i32
+87 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+   |
+85 |     pub const fn as_i32(self) -> i32 {
+   |         +++++
+
+warning: this could be a `const fn`
+  --> src/concept_builder.rs:60:5
+   |
+60 | /     pub fn with_ttl(mut self, ttl_seconds: u64) -> Self {
+61 | |         self.ttl_seconds = Some(ttl_seconds);
+62 | |         self
+63 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+   |
+60 |     pub const fn with_ttl(mut self, ttl_seconds: u64) -> Self {
+   |         +++++
+
+warning: this could be a `const fn`
+  --> src/concept_builder.rs:67:5
+   |
+67 | /     pub fn with_vector(mut self, vector: HVec10240) -> Self {
+68 | |         self.vector = Some(vector);
+69 | |         self
+70 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+   |
+67 |     pub const fn with_vector(mut self, vector: HVec10240) -> Self {
+   |         +++++
+
+warning: this could be a `const fn`
+   --> src/encoder.rs:112:5
+    |
+112 | /     pub fn with_config(config: TextEncoderConfig) -> Self {
+113 | |         Self { config }
+114 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+112 |     pub const fn with_config(config: TextEncoderConfig) -> Self {
+    |         +++++
+
+warning: this could be a `const fn`
+   --> src/encoder.rs:129:5
+    |
+129 | /     pub fn config(&self) -> &TextEncoderConfig {
+130 | |         &self.config
+131 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+129 |     pub const fn config(&self) -> &TextEncoderConfig {
+    |         +++++
+
+warning: casting `u64` to `f64` may cause a loss of precision (`u64` is 64 bits wide, but `f64`'s mantissa is only 52 bits wide)
+  --> src/framework.rs:79:13
+   |
+79 |             total as f64 / count as f64
+   |             ^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `u64` to `f64` may cause a loss of precision (`u64` is 64 bits wide, but `f64`'s mantissa is only 52 bits wide)
+  --> src/framework.rs:79:28
+   |
+79 |             total as f64 / count as f64
+   |                            ^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: temporary with significant `Drop` can be early dropped
+   --> src/framework.rs:176:13
+    |
+171 |     #[instrument(err, skip(self, query))]
+    |     ------------------------------------- temporary `sing` is currently being dropped at the end of its contained scope
+...
+176 |         let sing = self.singularity.read().await;
+    |             ^^^^
+    |
+    = note: this might lead to unnecessary resource contention
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+help: merge the temporary construction with its single usage
+    |
+176 ~
+177 +         let results = self.singularity.read().await.find_similar(&query, top_k);
+178 ~
+    |
+
+warning: casting `u128` to `u64` may truncate the value
+   --> src/framework.rs:179:26
+    |
+179 |         let elapsed_ms = start.elapsed().as_millis() as u64;
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+help: ... or use `try_from` and handle the error accordingly
+    |
+179 -         let elapsed_ms = start.elapsed().as_millis() as u64;
+179 +         let elapsed_ms = u64::try_from(start.elapsed().as_millis());
+    |
+
+warning: temporary with significant `Drop` can be early dropped
+   --> src/framework.rs:208:13
+    |
+198 |     #[instrument(err, skip(self, query, filter))]
+    |     --------------------------------------------- temporary `sing` is currently being dropped at the end of its contained scope
+...
+208 |         let sing = self.singularity.read().await;
+    |             ^^^^
+    |
+    = note: this might lead to unnecessary resource contention
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+help: merge the temporary construction with its single usage
+    |
+208 ~
+209 +         let results = self.singularity.read().await.find_similar_filtered(query, top_k, filter);
+210 ~
+    |
+
+warning: casting `u128` to `u64` may truncate the value
+   --> src/framework.rs:211:26
+    |
+211 |         let elapsed_ms = start.elapsed().as_millis() as u64;
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+help: ... or use `try_from` and handle the error accordingly
+    |
+211 -         let elapsed_ms = start.elapsed().as_millis() as u64;
+211 +         let elapsed_ms = u64::try_from(start.elapsed().as_millis());
+    |
+
+warning: temporary with significant `Drop` can be early dropped
+   --> src/framework.rs:244:17
+    |
+241 |     #[instrument(err, skip(self, sequence))]
+    |     ---------------------------------------- temporary `reservoir` is currently being dropped at the end of its contained scope
+...
+244 |         let mut reservoir = self.reservoir.write().await;
+    |                 ^^^^^^^^^
+    |
+    = note: this might lead to unnecessary resource contention
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+help: drop the temporary after the end of its last usage
+    |
+258 ~             ))?;
+259 +         drop(reservoir);
+    |
+
+warning: temporary with significant `Drop` can be early dropped
+   --> src/framework.rs:478:13
+    |
+477 |       pub async fn stats(&self) -> Result<FrameworkStats> {
+    |  _________________________________________________________-
+478 | |         let sing = self.singularity.read().await;
+    | |             ^^^^
+479 | |         let concept_count = sing.len();
+...   |
+490 | |         })
+491 | |     }
+    | |_____- temporary `sing` is currently being dropped at the end of its contained scope
+    |
+    = note: this might lead to unnecessary resource contention
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+help: merge the temporary construction with its single usage
+    |
+478 ~
+479 +         let concept_count = self.singularity.read().await.len();
+480 ~
+    |
+
+warning: temporary with significant `Drop` can be early dropped
+  --> src/framework_bridge.rs:54:13
+   |
+52 |       ) -> Result<Vec<BridgeHit>> {
+   |  _________________________________-
+53 | |         self.validate_top_k(top_k)?;
+54 | |         let singularity = self.singularity.read().await;
+   | |             ^^^^^^^^^^^
+...  |
+72 | |         Ok(filtered_hits)
+73 | |     }
+   | |_____- temporary `singularity` is currently being dropped at the end of its contained scope
+   |
+   = note: this might lead to unnecessary resource contention
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+help: drop the temporary after the end of its last usage
+   |
+66 ~         let hits = bridge.query(&singularity, query, top_k, None)?;
+67 +         drop(singularity);
+   |
+
+warning: this could be a `const fn`
+  --> src/framework_builder.rs:96:5
+   |
+96 | /     pub fn with_reservoir_size(mut self, size: usize) -> Self {
+97 | |         self.config.reservoir_size = size;
+98 | |         self
+99 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+   |
+96 |     pub const fn with_reservoir_size(mut self, size: usize) -> Self {
+   |         +++++
+
+warning: this could be a `const fn`
+   --> src/framework_builder.rs:101:5
+    |
+101 | /     pub fn with_reservoir_input_size(mut self, size: usize) -> Self {
+102 | |         self.config.reservoir_input_size = size;
+103 | |         self
+104 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+101 |     pub const fn with_reservoir_input_size(mut self, size: usize) -> Self {
+    |         +++++
+
+warning: this could be a `const fn`
+   --> src/framework_builder.rs:106:5
+    |
+106 | /     pub fn with_chaos_strength(mut self, strength: f32) -> Self {
+107 | |         self.config.chaos_strength = strength;
+108 | |         self
+109 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+106 |     pub const fn with_chaos_strength(mut self, strength: f32) -> Self {
+    |         +++++
+
+warning: this could be a `const fn`
+   --> src/framework_builder.rs:111:5
+    |
+111 | /     pub fn with_max_concepts(mut self, max_concepts: usize) -> Self {
+112 | |         self.config.max_concepts = Some(max_concepts);
+113 | |         self
+114 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+111 |     pub const fn with_max_concepts(mut self, max_concepts: usize) -> Self {
+    |         +++++
+
+warning: this could be a `const fn`
+   --> src/framework_builder.rs:116:5
+    |
+116 | /     pub fn with_max_associations_per_concept(mut self, max_associatio...
+117 | |         self.config.max_associations_per_concept = Some(max_associati...
+118 | |         self
+119 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+116 |     pub const fn with_max_associations_per_concept(mut self, max_associations: usize) -> Self {
+    |         +++++
+
+warning: this could be a `const fn`
+   --> src/framework_builder.rs:140:5
+    |
+140 | /     pub fn with_max_metadata_bytes(mut self, max_metadata_bytes: usiz...
+141 | |         self.config.max_metadata_bytes = Some(max_metadata_bytes);
+142 | |         self
+143 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+140 |     pub const fn with_max_metadata_bytes(mut self, max_metadata_bytes: usize) -> Self {
+    |         +++++
+
+warning: this could be a `const fn`
+   --> src/framework_builder.rs:193:5
+    |
+193 | /     pub fn without_persistence(mut self) -> Self {
+194 | |         self.config.enable_persistence = false;
+195 | |         self
+196 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+193 |     pub const fn without_persistence(mut self) -> Self {
+    |         +++++
+
+warning: temporary with significant `Drop` can be early dropped
+   --> src/framework_ops.rs:95:21
+    |
+ 94 | /         {
+ 95 | |             let mut sing = self.singularity.write().await;
+    | |                     ^^^^
+ 96 | |             for (id, vector) in concepts {
+ 97 | |                 Self::validate_concept_id(id)?;
+...   |
+104 | |         }
+    | |_________- temporary `sing` is currently being dropped at the end of its contained scope
+    |
+    = note: this might lead to unnecessary resource contention
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+help: merge the temporary construction with its single usage
+    |
+ 95 ~
+ 96 +                 self.singularity.write().await.;
+ 97 |             for (id, vector) in concepts {
+...
+101 |                     .build()?;
+102 ~
+    |
+
+warning: temporary with significant `Drop` can be early dropped
+   --> src/framework_ops.rs:151:13
+    |
+143 |     #[instrument(err, skip(self, queries))]
+    |     --------------------------------------- temporary `sing` is currently being dropped at the end of its contained scope
+...
+151 |         let sing = self.singularity.read().await;
+    |             ^^^^
+    |
+    = note: this might lead to unnecessary resource contention
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+help: merge the temporary construction with its single usage
+    |
+151 ~
+152 +             self.singularity.read().await.push(sing.find_similar(query, top_k));
+153 |         let mut out = Vec::with_capacity(queries.len());
+154 |         for query in queries {
+155 ~
+    |
+
+warning: temporary with significant `Drop` can be early dropped
+   --> src/framework_ops.rs:169:13
+    |
+161 |     #[instrument(err, skip(self, queries))]
+    |     --------------------------------------- temporary `sing` is currently being dropped at the end of its contained scope
+...
+169 |         let sing = self.singularity.read().await;
+    |             ^^^^
+    |
+    = note: this might lead to unnecessary resource contention
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+help: merge the temporary construction with its single usage
+    |
+169 ~
+170 +             self.singularity.read().await.push(sing.find_similar_cached(query, top_k));
+171 |         let mut out = Vec::with_capacity(queries.len());
+172 |         for query in queries {
+173 ~
+    |
+
+warning: casting `u64` to `usize` may truncate the value on targets with 32-bit wide pointers
+   --> src/framework_ops.rs:200:26
+    |
+200 |         if bytes.len() > MAX_IMPORT_SIZE as usize {
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+help: ... or use `try_from` and handle the error accordingly
+    |
+200 -         if bytes.len() > MAX_IMPORT_SIZE as usize {
+200 +         if bytes.len() > usize::try_from(MAX_IMPORT_SIZE) {
+    |
+
+warning: temporary with significant `Drop` can be early dropped
+   --> src/framework_ops.rs:259:17
+    |
+258 |           let payload = {
+    |  _______________________-
+259 | |             let sing = self.singularity.read().await;
+    | |                 ^^^^
+260 | |             let json_payload = ExportPayload {
+261 | |                 version: env!("CARGO_PKG_VERSION").to_string(),
+...   |
+267 | |             BinaryExportPayload::from(json_payload)
+268 | |         };
+    | |_________- temporary `sing` is currently being dropped at the end of its contained scope
+    |
+    = note: this might lead to unnecessary resource contention
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+help: drop the temporary after the end of its last usage
+    |
+265 ~             };
+266 +             drop(sing);
+    |
+
+warning: casting `u64` to `usize` may truncate the value on targets with 32-bit wide pointers
+   --> src/framework_ops.rs:286:26
+    |
+286 |         if bytes.len() > MAX_IMPORT_SIZE as usize {
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+help: ... or use `try_from` and handle the error accordingly
+    |
+286 -         if bytes.len() > MAX_IMPORT_SIZE as usize {
+286 +         if bytes.len() > usize::try_from(MAX_IMPORT_SIZE) {
+    |
+
+warning: temporary with significant `Drop` can be early dropped
+  --> src/framework_ttl.rs:59:17
+   |
+57 |     #[instrument(err, skip(self))]
+   |     ------------------------------ temporary `sing` is currently being dropped at the end of its contained scope
+58 |     pub async fn purge_expired(&self) -> Result<usize> {
+59 |         let mut sing = self.singularity.write().await;
+   |                 ^^^^
+   |
+   = note: this might lead to unnecessary resource contention
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+help: merge the temporary construction with its single usage
+   |
+59 ~
+60 +         let count = self.singularity.write().await.purge_expired();
+61 ~
+   |
+
+warning: this could be a `const fn`
+  --> src/hyperdim.rs:41:5
+   |
+41 | /     pub fn zero() -> Self {
+42 | |         Self { data: [0u128; 80] }
+43 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+   |
+41 |     pub const fn zero() -> Self {
+   |         +++++
+
+warning: casting `f32` to `usize` may truncate the value
+  --> src/hyperdim.rs:74:27
+   |
+74 |         let bits_to_set = (Self::DIMENSION as f32 * density) as usize;
+   |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+
+warning: casting `usize` to `f32` may cause a loss of precision (`usize` can be up to 64 bits wide depending on the target architecture, but `f32`'s mantissa is only 23 bits wide)
+  --> src/hyperdim.rs:74:28
+   |
+74 |         let bits_to_set = (Self::DIMENSION as f32 * density) as usize;
+   |                            ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `u32` to `f32` may cause a loss of precision (`u32` is 32 bits wide, but `f32`'s mantissa is only 23 bits wide)
+   --> src/hyperdim.rs:245:16
+    |
+245 |         1.0 - (distance as f32 / 5120.0)
+    |                ^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: this could be a `const fn`
+  --> src/metadata_filter.rs:44:5
+   |
+44 | /     pub fn and(filters: Vec<MetadataFilter>) -> Self {
+45 | |         Self::And(filters)
+46 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+   |
+44 |     pub const fn and(filters: Vec<MetadataFilter>) -> Self {
+   |         +++++
+
+warning: this could be a `const fn`
+  --> src/metadata_filter.rs:49:5
+   |
+49 | /     pub fn or(filters: Vec<MetadataFilter>) -> Self {
+50 | |         Self::Or(filters)
+51 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+   |
+49 |     pub const fn or(filters: Vec<MetadataFilter>) -> Self {
+   |         +++++
+
+warning: casting `f64` to `f32` may truncate the value
+   --> src/persistence.rs:442:39
+    |
+442 |             associations.push((to_id, strength as f32));
+    |                                       ^^^^^^^^^^^^^^^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+
+warning: casting `u64` to `f64` may cause a loss of precision (`u64` is 64 bits wide, but `f64`'s mantissa is only 52 bits wide)
+  --> src/reservoir.rs:43:13
+   |
+43 |             total as f64 / count as f64
+   |             ^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `u64` to `f64` may cause a loss of precision (`u64` is 64 bits wide, but `f64`'s mantissa is only 52 bits wide)
+  --> src/reservoir.rs:43:28
+   |
+43 |             total as f64 / count as f64
+   |                            ^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `u128` to `u64` may truncate the value
+   --> src/reservoir.rs:203:26
+    |
+203 |         let latency_us = started.elapsed().as_micros() as u64;
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+help: ... or use `try_from` and handle the error accordingly
+    |
+203 -         let latency_us = started.elapsed().as_micros() as u64;
+203 +         let latency_us = u64::try_from(started.elapsed().as_micros());
+    |
+
+warning: this could be a `const fn`
+   --> src/reservoir.rs:318:5
+    |
+318 | /     pub fn size(&self) -> usize {
+319 | |         self.size
+320 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+318 |     pub const fn size(&self) -> usize {
+    |         +++++
+
+warning: casting `usize` to `f32` may cause a loss of precision (`usize` can be up to 64 bits wide depending on the target architecture, but `f32`'s mantissa is only 23 bits wide)
+   --> src/reservoir.rs:328:35
+    |
+328 |         let mut v = vec![1.0f32 / size as f32; size];
+    |                                   ^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: this could be a `const fn`
+  --> src/reservoir_inertial.rs:31:5
+   |
+31 | /     pub fn beta(&self) -> f32 {
+32 | |         self.beta
+33 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+   |
+31 |     pub const fn beta(&self) -> f32 {
+   |         +++++
+
+warning: casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  --> src/reservoir_sparse.rs:37:28
+   |
+37 |                     index: rng.random_range(0..cols) as u32,
+   |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+help: ... or use `try_from` and handle the error accordingly
+   |
+37 -                     index: rng.random_range(0..cols) as u32,
+37 +                     index: u32::try_from(rng.random_range(0..cols)),
+   |
+
+warning: casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  --> src/reservoir_sparse.rs:71:28
+   |
+71 |                     index: idx as u32,
+   |                            ^^^^^^^^^^
+   |
+   = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+help: ... or use `try_from` and handle the error accordingly
+   |
+71 -                     index: idx as u32,
+71 +                     index: u32::try_from(idx),
+   |
+
+warning: casting `usize` to `f32` may cause a loss of precision (`usize` can be up to 64 bits wide depending on the target architecture, but `f32`'s mantissa is only 23 bits wide)
+   --> src/retrieval/bm25.rs:162:17
+    |
+162 |         let n = self.documents.len() as f32;
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `usize` to `f32` may cause a loss of precision (`usize` can be up to 64 bits wide depending on the target architecture, but `f32`'s mantissa is only 23 bits wide)
+   --> src/retrieval/bm25.rs:163:21
+    |
+163 |         let avgdl = self.total_length as f32 / n;
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `u32` to `f32` may cause a loss of precision (`u32` is 32 bits wide, but `f32`'s mantissa is only 23 bits wide)
+   --> src/retrieval/bm25.rs:186:30
+    |
+186 |                     let df = df as f32;
+    |                              ^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `usize` to `f32` may cause a loss of precision (`usize` can be up to 64 bits wide depending on the target architecture, but `f32`'s mantissa is only 23 bits wide)
+   --> src/retrieval/bm25.rs:257:23
+    |
+257 |         let doc_len = doc.length as f32;
+    |                       ^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `u32` to `f32` may cause a loss of precision (`u32` is 32 bits wide, but `f32`'s mantissa is only 23 bits wide)
+   --> src/retrieval/bm25.rs:266:30
+    |
+266 |                 Some(&tf) => tf as f32,
+    |                              ^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `usize` to `f32` may cause a loss of precision (`usize` can be up to 64 bits wide depending on the target architecture, but `f32`'s mantissa is only 23 bits wide)
+   --> src/retrieval/bm25.rs:306:13
+    |
+306 |             self.total_length as f32 / self.documents.len() as f32
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `usize` to `f32` may cause a loss of precision (`usize` can be up to 64 bits wide depending on the target architecture, but `f32`'s mantissa is only 23 bits wide)
+   --> src/retrieval/bm25.rs:306:40
+    |
+306 |             self.total_length as f32 / self.documents.len() as f32
+    |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: this could be a `const fn`
+  --> src/retrieval/hybrid.rs:18:1
+   |
+18 | / pub fn compute_weights(token_count: usize) -> (f32, f32) {
+19 | |     match token_count {
+20 | |         1..=2 => (0.9, 0.1),
+21 | |         3..=4 => (0.7, 0.3),
+...  |
+25 | | }
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+   |
+18 | pub const fn compute_weights(token_count: usize) -> (f32, f32) {
+   |     +++++
+
+warning: casting `f32` to `usize` may truncate the value
+   --> src/semantic_bridge.rs:142:9
+    |
+142 |         (word_count as f32 / 0.75).ceil() as usize
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+
+warning: casting `usize` to `f32` may cause a loss of precision (`usize` can be up to 64 bits wide depending on the target architecture, but `f32`'s mantissa is only 23 bits wide)
+   --> src/semantic_bridge.rs:142:10
+    |
+142 |         (word_count as f32 / 0.75).ceil() as usize
+    |          ^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `u128` to `u64` may truncate the value
+   --> src/singularity.rs:415:5
+    |
+415 | /     std::time::SystemTime::now()
+416 | |         .duration_since(std::time::UNIX_EPOCH)
+417 | |         .unwrap_or_default()
+418 | |         .as_nanos() as u64
+    | |__________________________^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+help: ... or use `try_from` and handle the error accordingly
+    |
+415 ~     u64::try_from(std::time::SystemTime::now()
+416 +         .duration_since(std::time::UNIX_EPOCH)
+417 +         .unwrap_or_default()
+418 +         .as_nanos())
+    |
+
+warning: casting `usize` to `f32` may cause a loss of precision (`usize` can be up to 64 bits wide depending on the target architecture, but `f32`'s mantissa is only 23 bits wide)
+   --> src/singularity_ext.rs:130:27
+    |
+130 |         let selectivity = matching_count as f32 / total_count as f32;
+    |                           ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `usize` to `f32` may cause a loss of precision (`usize` can be up to 64 bits wide depending on the target architecture, but `f32`'s mantissa is only 23 bits wide)
+   --> src/singularity_ext.rs:130:51
+    |
+130 |         let selectivity = matching_count as f32 / total_count as f32;
+    |                                                   ^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: this could be a `const fn`
+   --> src/singularity_retrieval.rs:106:5
+    |
+106 | /     pub fn retrieval_config(&self) -> &RetrievalConfig {
+107 | |         &self.retrieval_config
+108 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#missing_const_for_fn
+help: make the function `const`
+    |
+106 |     pub const fn retrieval_config(&self) -> &RetrievalConfig {
+    |         +++++
+
+warning: casting `u32` to `f32` may cause a loss of precision (`u32` is 32 bits wide, but `f32`'s mantissa is only 23 bits wide)
+   --> src/singularity_retrieval.rs:233:41
+    |
+233 |                 let similarity = 1.0 - (dist as f32 / 5120.0);
+    |                                         ^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `u32` to `f32` may cause a loss of precision (`u32` is 32 bits wide, but `f32`'s mantissa is only 23 bits wide)
+   --> src/singularity_retrieval.rs:304:41
+    |
+304 |                 let similarity = 1.0 - (dist as f32 / 5120.0);
+    |                                         ^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `u32` to `f32` may cause a loss of precision (`u32` is 32 bits wide, but `f32`'s mantissa is only 23 bits wide)
+   --> src/singularity_retrieval.rs:405:41
+    |
+405 |                 let similarity = 1.0 - (dist as f32 / 5120.0);
+    |                                         ^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: `chaotic_semantic_memory` (lib) generated 80 warnings (run `cargo clippy --fix --lib -p chaotic_semantic_memory` to apply 26 suggestions)
+warning: strict comparison of `f32` or `f64`
+   --> tests/edge_case_coverage.rs:105:5
+    |
+105 |     assert_eq!(links[0].1, 0.9);
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: requested on the command line with `-W clippy::float-cmp`
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: temporary with significant `Drop` can be early dropped
+  --> tests/api_completeness.rs:32:9
+   |
+15 |   async fn test_update_concept_vector() {
+   |  _______________________________________-
+16 | |     let framework = create_test_framework().await;
+17 | |     let id = "test-concept";
+18 | |     let vector1 = HVec10240::random();
+...  |
+32 | |     let guard = sing.read().await;
+   | |         ^^^^^
+33 | |     let concept = guard.get(id).unwrap();
+34 | |     assert_eq!(concept.vector, vector2);
+35 | | }
+   | |_- temporary `guard` is currently being dropped at the end of its contained scope
+   |
+   = note: this might lead to unnecessary resource contention
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+   = note: requested on the command line with `-W clippy::significant-drop-tightening`
+help: merge the temporary construction with its single usage
+   |
+32 ~
+33 +     let concept = sing.read().await.unwrap();
+34 ~
+   |
+
+warning: temporary with significant `Drop` can be early dropped
+  --> tests/api_completeness.rs:64:9
+   |
+47 |   async fn test_update_concept_metadata() {
+   |  _________________________________________-
+48 | |     let framework = create_test_framework().await;
+49 | |     let id = "test-concept";
+50 | |     let vector = HVec10240::random();
+...  |
+64 | |     let guard = sing.read().await;
+   | |         ^^^^^
+...  |
+69 | |     );
+70 | | }
+   | |_- temporary `guard` is currently being dropped at the end of its contained scope
+   |
+   = note: this might lead to unnecessary resource contention
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+help: merge the temporary construction with its single usage
+   |
+64 ~
+65 +     let concept = sing.read().await.unwrap();
+66 ~
+   |
+
+warning: `chaotic_semantic_memory` (test "edge_case_coverage") generated 1 warning
+warning: `chaotic_semantic_memory` (test "api_completeness") generated 2 warnings
+warning: strict comparison of `f32` or `f64`
+  --> tests/persistence_ops_coverage.rs:84:5
+   |
+84 |     assert_eq!(assocs[0].1, 0.8);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+   = note: requested on the command line with `-W clippy::float-cmp`
+   = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: casting `u128` to `f64` may cause a loss of precision (`u128` is 128 bits wide, but `f64`'s mantissa is only 52 bits wide)
+  --> examples/proof_of_concept.rs:91:9
+   |
+91 |         elapsed.as_micros() as f64 / 1000.0
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+   = note: requested on the command line with `-W clippy::cast-precision-loss`
+
+warning: `chaotic_semantic_memory` (test "persistence_ops_coverage") generated 1 warning
+warning: `chaotic_semantic_memory` (example "proof_of_concept") generated 1 warning
+warning: strict comparison of `f32` or `f64`
+  --> tests/property_based.rs:76:9
+   |
+76 |         prop_assert_eq!(links[0].1, strength);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+   = note: requested on the command line with `-W clippy::float-cmp`
+   = note: this warning originates in the macro `prop_assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: `chaotic_semantic_memory` (test "property_based") generated 1 warning
+warning: strict comparison of `f32` or `f64`
+  --> tests/retrieval_config.rs:63:5
+   |
+63 |     assert_eq!(stats.selectivity_ratio, 0.0);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+   = note: requested on the command line with `-W clippy::float-cmp`
+   = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: `chaotic_semantic_memory` (test "retrieval_config") generated 1 warning
+warning: casting `i32` to `f32` may cause a loss of precision (`i32` is 32 bits wide, but `f32`'s mantissa is only 23 bits wide)
+  --> examples/streaming_temporal.rs:24:36
+   |
+24 |                         .map(|i| ((t as f32 + i as f32) * 0.1).sin())
+   |                                    ^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+   = note: requested on the command line with `-W clippy::cast-precision-loss`
+
+warning: casting `i32` to `f32` may cause a loss of precision (`i32` is 32 bits wide, but `f32`'s mantissa is only 23 bits wide)
+  --> examples/streaming_temporal.rs:24:47
+   |
+24 |                         .map(|i| ((t as f32 + i as f32) * 0.1).sin())
+   |                                               ^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `i32` to `f32` may cause a loss of precision (`i32` is 32 bits wide, but `f32`'s mantissa is only 23 bits wide)
+  --> examples/streaming_temporal.rs:34:36
+   |
+34 |                         .map(|i| ((t as f32 + i as f32) * 0.1).cos())
+   |                                    ^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `i32` to `f32` may cause a loss of precision (`i32` is 32 bits wide, but `f32`'s mantissa is only 23 bits wide)
+  --> examples/streaming_temporal.rs:34:47
+   |
+34 |                         .map(|i| ((t as f32 + i as f32) * 0.1).cos())
+   |                                               ^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `i32` to `f32` may cause a loss of precision (`i32` is 32 bits wide, but `f32`'s mantissa is only 23 bits wide)
+  --> examples/streaming_temporal.rs:44:36
+   |
+44 |                         .map(|i| ((t as f32 + i as f32) * 0.05) % 1.0)
+   |                                    ^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `i32` to `f32` may cause a loss of precision (`i32` is 32 bits wide, but `f32`'s mantissa is only 23 bits wide)
+  --> examples/streaming_temporal.rs:44:47
+   |
+44 |                         .map(|i| ((t as f32 + i as f32) * 0.05) % 1.0)
+   |                                               ^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `i32` to `f32` may cause a loss of precision (`i32` is 32 bits wide, but `f32`'s mantissa is only 23 bits wide)
+  --> examples/streaming_temporal.rs:66:28
+   |
+66 |                 .map(|i| ((t as f32 + i as f32) * 0.1 + 0.01).sin())
+   |                            ^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `i32` to `f32` may cause a loss of precision (`i32` is 32 bits wide, but `f32`'s mantissa is only 23 bits wide)
+  --> examples/streaming_temporal.rs:66:39
+   |
+66 |                 .map(|i| ((t as f32 + i as f32) * 0.1 + 0.01).sin())
+   |                                       ^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: `chaotic_semantic_memory` (example "streaming_temporal") generated 8 warnings
+warning: casting `usize` to `u8` may truncate the value
+   --> tests/batch_operations.rs:754:44
+    |
+754 |             format!("workflow_{}", (b'a' + i as u8) as char)
+    |                                            ^^^^^^^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+    = note: requested on the command line with `-W clippy::cast-possible-truncation`
+help: ... or use `try_from` and handle the error accordingly
+    |
+754 -             format!("workflow_{}", (b'a' + i as u8) as char)
+754 +             format!("workflow_{}", (b'a' + u8::try_from(i)) as char)
+    |
+
+warning: `chaotic_semantic_memory` (test "batch_operations") generated 1 warning
+warning: casting `i32` to `f32` may cause a loss of precision (`i32` is 32 bits wide, but `f32`'s mantissa is only 23 bits wide)
+   --> benches/benchmark.rs:124:30
+    |
+124 |         .map(|i| vec![0.1 * (i as f32 + 1.0); 10240])
+    |                              ^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+    = note: requested on the command line with `-W clippy::cast-precision-loss`
+
+warning: redundant clone
+   --> benches/benchmark.rs:533:49
+    |
+533 | ...etrieval::new(encoder.clone(), graph_1k, config.clone());
+    |                         ^^^^^^^^ help: remove this
+    |
+note: this value is dropped without further use
+   --> benches/benchmark.rs:533:42
+    |
+533 |     let bridge_1k = BridgeRetrieval::new(encoder.clone(), graph_1k, con...
+    |                                          ^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_clone
+    = note: requested on the command line with `-W clippy::redundant-clone`
+
+warning: redundant clone
+   --> benches/benchmark.rs:533:75
+    |
+533 | ...e(), graph_1k, config.clone());
+    |                         ^^^^^^^^ help: remove this
+    |
+note: this value is dropped without further use
+   --> benches/benchmark.rs:533:69
+    |
+533 | ...new(encoder.clone(), graph_1k, config.clone());
+    |                                   ^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_clone
+
+warning: casting `i32` to `f32` may cause a loss of precision (`i32` is 32 bits wide, but `f32`'s mantissa is only 23 bits wide)
+   --> benches/benchmark.rs:561:63
+    |
+561 | ...   scores: ScoreBreakdown::deterministic_only(0.9 - (i as f32 * 0.03)),
+    |                                                         ^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: casting `usize` to `f32` may cause a loss of precision (`usize` can be up to 64 bits wide depending on the target architecture, but `f32`'s mantissa is only 23 bits wide)
+   --> benches/benchmark.rs:590:23
+    |
+590 |                     / config.max_packet_facts as f32,
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_precision_loss
+
+warning: `chaotic_semantic_memory` (bench "benchmark") generated 5 warnings (run `cargo clippy --fix --bench "benchmark" -p chaotic_semantic_memory` to apply 2 suggestions)
+warning: strict comparison of `f32` or `f64`
+   --> src/bridge_retrieval.rs:309:9
+    |
+309 |         assert_eq!(results[0].scores.concept, 0.0);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: requested on the command line with `-W clippy::float-cmp`
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/bridge_retrieval.rs:359:9
+    |
+359 |         assert_eq!(packet.confidence, 0.0);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/framework_bridge.rs:140:9
+    |
+140 |         assert_eq!(packet.confidence, 0.0);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: redundant clone
+   --> src/framework_events.rs:138:30
+    |
+138 |         let cloned = injected.clone();
+    |                              ^^^^^^^^ help: remove this
+    |
+note: this value is dropped without further use
+   --> src/framework_events.rs:138:22
+    |
+138 |         let cloned = injected.clone();
+    |                      ^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_clone
+
+warning: redundant clone
+   --> src/framework_events.rs:165:26
+    |
+165 |         sender.send(event.clone()).unwrap();
+    |                          ^^^^^^^^ help: remove this
+    |
+note: this value is dropped without further use
+   --> src/framework_events.rs:165:21
+    |
+165 |         sender.send(event.clone()).unwrap();
+    |                     ^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_clone
+
+warning: temporary with significant `Drop` can be early dropped
+   --> src/framework_ttl.rs:121:13
+    |
+105 |       async fn inject_concept_with_ttl_sets_expires_at() {
+    |  ________________________________________________________-
+106 | |         let framework = ChaoticSemanticFramework::builder()
+107 | |             .without_persistence()
+108 | |             .build()
+...   |
+121 | |         let sing = framework.singularity.read().await;
+    | |             ^^^^
+...   |
+132 | |         );
+133 | |     }
+    | |_____- temporary `sing` is currently being dropped at the end of its contained scope
+    |
+    = note: this might lead to unnecessary resource contention
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+help: merge the temporary construction with its single usage
+    |
+121 ~
+122 +         let concept = framework.singularity.read().await.expect("concept should exist");
+123 ~
+    |
+
+warning: temporary with significant `Drop` can be early dropped
+   --> src/framework_ttl.rs:149:13
+    |
+136 |       async fn inject_text_with_ttl_encodes_and_stores() {
+    |  ________________________________________________________-
+137 | |         let framework = ChaoticSemanticFramework::builder()
+138 | |             .without_persistence()
+139 | |             .build()
+...   |
+149 | |         let sing = framework.singularity.read().await;
+    | |             ^^^^
+150 | |         let concept = sing.get("text-ttl").expect("concept should exi...
+151 | |         assert!(concept.expires_at.is_some(), "expires_at should be s...
+152 | |     }
+    | |_____- temporary `sing` is currently being dropped at the end of its contained scope
+    |
+    = note: this might lead to unnecessary resource contention
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+help: merge the temporary construction with its single usage
+    |
+149 ~
+150 +         let concept = framework.singularity.read().await.expect("concept should exist");
+151 ~
+    |
+
+warning: temporary with significant `Drop` can be early dropped
+   --> src/framework_ttl.rs:167:13
+    |
+155 |       async fn inject_text_without_ttl_no_expiration() {
+    |  ______________________________________________________-
+156 | |         let framework = ChaoticSemanticFramework::builder()
+157 | |             .without_persistence()
+158 | |             .build()
+...   |
+167 | |         let sing = framework.singularity.read().await;
+    | |             ^^^^
+...   |
+172 | |         );
+173 | |     }
+    | |_____- temporary `sing` is currently being dropped at the end of its contained scope
+    |
+    = note: this might lead to unnecessary resource contention
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+help: merge the temporary construction with its single usage
+    |
+167 ~
+168 +         let concept = framework.singularity.read().await.expect("concept should exist");
+169 ~
+    |
+
+warning: temporary with significant `Drop` can be early dropped
+   --> src/framework_ttl.rs:192:13
+    |
+176 |       async fn inject_text_with_metadata_no_ttl() {
+    |  _________________________________________________-
+177 | |         let framework = ChaoticSemanticFramework::builder()
+178 | |             .without_persistence()
+179 | |             .build()
+...   |
+192 | |         let sing = framework.singularity.read().await;
+    | |             ^^^^
+...   |
+205 | |         );
+206 | |     }
+    | |_____- temporary `sing` is currently being dropped at the end of its contained scope
+    |
+    = note: this might lead to unnecessary resource contention
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+help: merge the temporary construction with its single usage
+    |
+192 ~
+193 +         let concept = framework.singularity.read().await.expect("concept should exist");
+194 ~
+    |
+
+warning: temporary with significant `Drop` can be early dropped
+   --> src/framework_ttl.rs:275:13
+    |
+241 |       async fn purge_expired_removes_only_expired() {
+    |  ___________________________________________________-
+242 | |         let framework = ChaoticSemanticFramework::builder()
+243 | |             .without_persistence()
+244 | |             .build()
+...   |
+275 | |         let sing = framework.singularity.read().await;
+    | |             ^^^^
+...   |
+287 | |         );
+288 | |     }
+    | |_____- temporary `sing` is currently being dropped at the end of its contained scope
+    |
+    = note: this might lead to unnecessary resource contention
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+help: drop the temporary after the end of its last usage
+    |
+287 ~         )
+288 ~         drop(sing);;
+    |
+
+warning: temporary with significant `Drop` can be early dropped
+   --> src/framework_ttl.rs:307:13
+    |
+291 |       async fn concept_expires_at_serialization() {
+    |  _________________________________________________-
+292 | |         let framework = ChaoticSemanticFramework::builder()
+293 | |             .without_persistence()
+294 | |             .build()
+...   |
+307 | |         let sing = framework.singularity.read().await;
+    | |             ^^^^
+...   |
+332 | |         );
+333 | |     }
+    | |_____- temporary `sing` is currently being dropped at the end of its contained scope
+    |
+    = note: this might lead to unnecessary resource contention
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+help: merge the temporary construction with its single usage
+    |
+307 ~
+308 +         let concept = framework.singularity.read().await.unwrap();
+309 ~
+    |
+
+warning: temporary with significant `Drop` can be early dropped
+   --> src/framework_ttl.rs:370:13
+    |
+336 |       async fn multiple_ttl_concepts_independent_expiry() {
+    |  _________________________________________________________-
+337 | |         let framework = ChaoticSemanticFramework::builder()
+338 | |             .without_persistence()
+339 | |             .build()
+...   |
+370 | |         let sing = framework.singularity.read().await;
+    | |             ^^^^
+...   |
+374 | |         );
+375 | |     }
+    | |_____- temporary `sing` is currently being dropped at the end of its contained scope
+    |
+    = note: this might lead to unnecessary resource contention
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+help: merge the temporary construction with its single usage
+    |
+370 ~
+371 +         framework.singularity.read().await.;
+372 ~         ;
+    |
+
+warning: temporary with significant `Drop` can be early dropped
+   --> src/framework_ttl.rs:391:13
+    |
+378 |       async fn zero_ttl_still_sets_expiration() {
+    |  _______________________________________________-
+379 | |         let framework = ChaoticSemanticFramework::builder()
+380 | |             .without_persistence()
+381 | |             .build()
+...   |
+391 | |         let sing = framework.singularity.read().await;
+    | |             ^^^^
+...   |
+402 | |         );
+403 | |     }
+    | |_____- temporary `sing` is currently being dropped at the end of its contained scope
+    |
+    = note: this might lead to unnecessary resource contention
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#significant_drop_tightening
+help: merge the temporary construction with its single usage
+    |
+391 ~
+392 +         let concept = framework.singularity.read().await.unwrap();
+393 ~
+    |
+
+warning: casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+   --> src/reservoir_sparse.rs:171:35
+    |
+171 |             assert!(entry.index < size as u32);
+    |                                   ^^^^^^^^^^^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#cast_possible_truncation
+help: ... or use `try_from` and handle the error accordingly
+    |
+171 -             assert!(entry.index < size as u32);
+171 +             assert!(entry.index < u32::try_from(size));
+    |
+
+warning: strict comparison of `f32` or `f64`
+   --> src/reservoir_sparse.rs:211:13
+    |
+211 |             assert_eq!(result, 0.0);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/reservoir_sparse.rs:239:9
+    |
+239 |         assert_eq!(sparse.dot_row(0, &values), 5.0);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/reservoir_sparse.rs:242:9
+    |
+242 |         assert_eq!(sparse.dot_row(1, &values), 20.0);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/reservoir_sparse.rs:245:9
+    |
+245 |         assert_eq!(sparse.dot_row(2, &values), 60.0);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/reservoir_sparse.rs:276:9
+    |
+276 |         assert_eq!(sparse.dot_row(1, &values), 0.0);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/reservoir_sparse.rs:279:9
+    |
+279 |         assert_eq!(sparse.dot_row(0, &values), 50.0);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/reservoir_sparse.rs:282:9
+    |
+282 |         assert_eq!(sparse.dot_row(2, &values), 250.0);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/reservoir_sparse.rs:312:13
+    |
+312 |             assert_eq!(entry.weight, 0.0);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/reservoir_sparse.rs:339:9
+    |
+339 |         assert_eq!(sparse.dot_row(0, &values), -60.0);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/reservoir_sparse.rs:361:9
+    |
+361 |         assert_eq!(sparse.dot_row(0, &values), 10.0);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/retrieval/bm25.rs:459:9
+    |
+459 |         assert_eq!(index.avg_doc_length(), 2.5);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/retrieval/bm25.rs:466:9
+    |
+466 |         assert_eq!(index.config.k1, 2.0);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/retrieval/bm25.rs:467:9
+    |
+467 |         assert_eq!(index.config.b, 0.5);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/retrieval/hybrid.rs:133:9
+    |
+133 |         assert_eq!(kw, 0.9);
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/retrieval/hybrid.rs:134:9
+    |
+134 |         assert_eq!(sem, 0.1);
+    |         ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/retrieval/hybrid.rs:137:9
+    |
+137 |         assert_eq!(kw, 0.9);
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/retrieval/hybrid.rs:138:9
+    |
+138 |         assert_eq!(sem, 0.1);
+    |         ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/retrieval/hybrid.rs:144:9
+    |
+144 |         assert_eq!(kw, 0.7);
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/retrieval/hybrid.rs:145:9
+    |
+145 |         assert_eq!(sem, 0.3);
+    |         ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/retrieval/hybrid.rs:148:9
+    |
+148 |         assert_eq!(kw, 0.7);
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/retrieval/hybrid.rs:149:9
+    |
+149 |         assert_eq!(sem, 0.3);
+    |         ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/retrieval/hybrid.rs:155:9
+    |
+155 |         assert_eq!(kw, 0.4);
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/retrieval/hybrid.rs:156:9
+    |
+156 |         assert_eq!(sem, 0.6);
+    |         ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/retrieval/hybrid.rs:159:9
+    |
+159 |         assert_eq!(kw, 0.4);
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/retrieval/hybrid.rs:160:9
+    |
+160 |         assert_eq!(sem, 0.6);
+    |         ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/retrieval/hybrid.rs:166:9
+    |
+166 |         assert_eq!(kw, 0.2);
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/retrieval/hybrid.rs:167:9
+    |
+167 |         assert_eq!(sem, 0.8);
+    |         ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/retrieval/hybrid.rs:170:9
+    |
+170 |         assert_eq!(kw, 0.2);
+    |         ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/retrieval/hybrid.rs:171:9
+    |
+171 |         assert_eq!(sem, 0.8);
+    |         ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/wasm_ext.rs:381:9
+    |
+381 |         assert_eq!(config.min_strength, 0.0);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+   --> src/wasm_ext.rs:394:9
+    |
+394 |         assert_eq!(config.min_strength, 0.7);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+    = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: redundant clone
+   --> src/wasm_ext.rs:454:21
+    |
+454 |             injected.clone(),
+    |                     ^^^^^^^^ help: remove this
+    |
+note: this value is dropped without further use
+   --> src/wasm_ext.rs:454:13
+    |
+454 |             injected.clone(),
+    |             ^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_clone
+
+warning: redundant clone
+   --> src/wasm_ext.rs:472:27
+    |
+472 |         let cloned = event.clone();
+    |                           ^^^^^^^^ help: remove this
+    |
+note: this value is dropped without further use
+   --> src/wasm_ext.rs:472:22
+    |
+472 |         let cloned = event.clone();
+    |                      ^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#redundant_clone
+
+warning: `chaotic_semantic_memory` (lib test) generated 127 warnings (80 duplicates) (run `cargo clippy --fix --lib -p chaotic_semantic_memory --tests` to apply 4 suggestions)
+warning: strict comparison of `f32` or `f64`
+  --> tests/reservoir_inertial_tests.rs:10:5
+   |
+10 |     assert_eq!(r0.unwrap().beta(), 0.0);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+   = note: requested on the command line with `-W clippy::float-cmp`
+   = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+  --> tests/reservoir_inertial_tests.rs:14:5
+   |
+14 |     assert_eq!(r_mid.unwrap().beta(), 0.25);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+   = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+  --> tests/reservoir_inertial_tests.rs:18:5
+   |
+18 |     assert_eq!(r_max.unwrap().beta(), 0.5);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+   = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+  --> tests/reservoir_inertial_tests.rs:42:5
+   |
+42 |     assert_eq!(r.beta(), 0.3);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+   = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+  --> tests/reservoir_inertial_tests.rs:49:5
+   |
+49 |     assert_eq!(r.beta(), 0.0);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+   = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: strict comparison of `f32` or `f64`
+  --> tests/reservoir_inertial_tests.rs:90:5
+   |
+90 |     assert_eq!(r.beta(), 0.1);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.94.0/index.html#float_cmp
+   = note: this warning originates in the macro `assert_eq` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: `chaotic_semantic_memory` (test "reservoir_inertial_tests") generated 6 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.31s

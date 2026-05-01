@@ -56,8 +56,10 @@ impl crate::framework::ChaoticSemanticFramework {
     /// Returns the number of concepts removed.
     #[instrument(err, skip(self))]
     pub async fn purge_expired(&self) -> Result<usize> {
-        let mut sing = self.singularity.write().await;
-        let count = sing.purge_expired();
+        let count = {
+            let mut sing = self.singularity.write().await;
+            sing.purge_expired()
+        };
         Ok(count)
     }
 

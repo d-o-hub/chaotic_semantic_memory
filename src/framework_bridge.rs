@@ -51,19 +51,24 @@ impl ChaoticSemanticFramework {
         filter: &MetadataFilter,
     ) -> Result<Vec<BridgeHit>> {
         self.validate_top_k(top_k)?;
-        let singularity = self.singularity.read().await;
+        let filtered_ids: std::collections::HashSet<String> = {
+            let singularity = self.singularity.read().await;
 
-        // Get filtered concept IDs first
-        let query_hv = bridge.encoder().encode(query);
-        let filtered_results = singularity.find_similar_filtered(&query_hv, top_k, filter);
-        let filtered_ids: std::collections::HashSet<String> = filtered_results
-            .as_ref()
-            .iter()
-            .map(|(id, _)| id.clone())
-            .collect();
+            // Get filtered concept IDs first
+            let query_hv = bridge.encoder().encode(query);
+            let filtered_results = singularity.find_similar_filtered(&query_hv, top_k, filter);
+            filtered_results
+                .as_ref()
+                .iter()
+                .map(|(id, _)| id.clone())
+                .collect()
+        };
 
         // Run full bridge query and filter results
-        let hits = bridge.query(&singularity, query, top_k, None)?;
+        let hits = {
+            let singularity = self.singularity.read().await;
+            bridge.query(&singularity, query, top_k, None)?
+        };
         let filtered_hits: Vec<BridgeHit> = hits
             .into_iter()
             .filter(|hit| filtered_ids.contains(&hit.id))
