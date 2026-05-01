@@ -36,7 +36,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/bin/csm.rs
 
-- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch}
 - pub use native::clap::Parser
 - pub use native::colored::Colorize
 - pub use native::tracing::Level
@@ -79,6 +79,17 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct VersionArgs
 - pub struct CompletionsArgs
 - pub struct IndexJsonlArgs
+- pub struct DeleteArgs
+- pub struct GetArgs
+- pub struct UpdateArgs
+- pub struct DisassociateArgs
+- pub struct AssociationsArgs
+- pub struct TraverseArgs
+- pub struct PathArgs
+- pub struct ProbeFilteredArgs
+- pub struct StatsArgs
+- pub struct MetricsArgs
+- pub struct WatchArgs
 - pub struct IndexDirArgs
 
 ### src/cli/commands/associate.rs
@@ -86,13 +97,29 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn run_associate
 - pub fn run_associate_batch
 
+### src/cli/commands/associations.rs
+
+- pub fn run_associations
+
 ### src/cli/commands/completions.rs
 
 - pub fn run_completions
 
+### src/cli/commands/delete.rs
+
+- pub fn run_delete
+
+### src/cli/commands/disassociate.rs
+
+- pub fn run_disassociate
+
 ### src/cli/commands/export.rs
 
 - pub fn run_export
+
+### src/cli/commands/get.rs
+
+- pub fn run_get
 
 ### src/cli/commands/import.rs
 
@@ -112,40 +139,90 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub fn run_inject
 
+### src/cli/commands/metrics.rs
+
+- pub fn run_metrics
+
 ### src/cli/commands/mod.rs
 
 - pub mod associate
+- pub mod associations
 - pub mod completions
+- pub mod delete
+- pub mod disassociate
 - pub mod export
+- pub mod get
 - pub mod import
 - pub mod index_dir
 - pub mod index_jsonl
 - pub mod inject
+- pub mod metrics
+- pub mod path
 - pub mod probe
+- pub mod probe_filtered
 - pub mod query
+- pub mod stats
+- pub mod traverse
+- pub mod update
+- pub mod watch
 - pub use associate::run_associate
+- pub use associations::run_associations
 - pub use completions::run_completions
+- pub use delete::run_delete
+- pub use disassociate::run_disassociate
 - pub use export::run_export
+- pub use get::run_get
 - pub use import::run_import
 - pub use index_dir::run_index_dir
 - pub use index_jsonl::run_index_jsonl
 - pub use inject::run_inject
+- pub use metrics::run_metrics
+- pub use path::run_path
 - pub use probe::run_probe
+- pub use probe_filtered::run_probe_filtered
 - pub use query::run_query
+- pub use stats::run_stats
+- pub use traverse::run_traverse
+- pub use update::run_update
+- pub use watch::run_watch
 - pub fn print_success
 - pub fn print_error
 - pub fn print_warning
 - pub fn truncate_preview
 - pub fn create_framework
 
+### src/cli/commands/path.rs
+
+- pub fn run_path
+
 ### src/cli/commands/probe.rs
 
 - pub fn run_probe
 - pub fn run_probe_with_vector
 
+### src/cli/commands/probe_filtered.rs
+
+- pub fn run_probe_filtered
+
 ### src/cli/commands/query.rs
 
 - pub fn run_query
+
+### src/cli/commands/stats.rs
+
+- pub fn run_stats
+
+### src/cli/commands/traverse.rs
+
+- pub fn run_traverse
+
+### src/cli/commands/update.rs
+
+- pub fn run_update
+
+### src/cli/commands/watch.rs
+
+- pub fn run_watch
 
 ### src/cli/error.rs
 
@@ -170,7 +247,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod error
 - pub mod git_local
 - pub use args::*
-- pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+- pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch}
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
 
@@ -204,10 +281,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/framework.rs
 
+- pub use crate::framework_metrics::{FrameworkMetrics, FrameworkMetricsSnapshot}
 - pub struct ChaoticSemanticFramework
-- pub struct FrameworkMetrics
-- pub struct FrameworkMetricsSnapshot
-- impl FrameworkMetrics
 - impl ChaoticSemanticFramework
 
 ### src/framework_bridge.rs
@@ -226,6 +301,12 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub enum MemoryEvent
 - impl ChaoticSemanticFramework
+
+### src/framework_metrics.rs
+
+- pub struct FrameworkMetrics
+- pub struct FrameworkMetricsSnapshot
+- impl FrameworkMetrics
 
 ### src/framework_ops.rs
 
@@ -279,6 +360,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod error
 - pub mod framework
 - pub mod framework_builder
+- pub mod framework_metrics
 - pub mod graph_traversal
 - pub mod hyperdim
 - pub mod metadata_filter
@@ -421,6 +503,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/singularity_ext.rs
 
+- pub use crate::singularity_cache::CacheMetricsSnapshot
 - impl Singularity
 
 ### src/singularity_retrieval.rs
@@ -979,10 +1062,10 @@ The `csm` binary provides command-line access:
 ```bash
 ## src/bin/csm.rs
 
-### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch}
 
 ```rust
-pub use chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query};
+pub use chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch};
 ```
 
 ### clap::Parser
@@ -1138,6 +1221,16 @@ pub struct AssociateArgs {
 }
 ```
 
+### AssociationsArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct AssociationsArgs {
+    pub id: String,
+    pub reverse: bool,
+}
+```
+
 ### CliArgs
 
 ```rust
@@ -1167,6 +1260,17 @@ pub enum Commands {
     Completions(CompletionsArgs),
     IndexJsonl(IndexJsonlArgs),
     IndexDir(IndexDirArgs),
+    Delete(DeleteArgs),
+    Get(GetArgs),
+    Update(UpdateArgs),
+    Disassociate(DisassociateArgs),
+    Associations(AssociationsArgs),
+    Traverse(TraverseArgs),
+    Path(PathArgs),
+    ProbeFiltered(ProbeFilteredArgs),
+    Stats(StatsArgs),
+    Metrics(MetricsArgs),
+    Watch(WatchArgs),
 }
 ```
 
@@ -1177,6 +1281,26 @@ pub enum Commands {
 pub struct CompletionsArgs {
     pub shell: clap_complete::Shell,
     pub output: Option<PathBuf>,
+}
+```
+
+### DeleteArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct DeleteArgs {
+    pub id: String,
+    pub force: bool,
+}
+```
+
+### DisassociateArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct DisassociateArgs {
+    pub from: String,
+    pub to: Option<String>,
 }
 ```
 
@@ -1197,6 +1321,15 @@ pub struct ExportArgs {
 pub enum ExportFormat {
     Json,
     Binary,
+}
+```
+
+### GetArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct GetArgs {
+    pub id: String,
 }
 ```
 
@@ -1262,6 +1395,15 @@ pub struct InjectArgs {
 }
 ```
 
+### MetricsArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct MetricsArgs {
+    pub reset: bool,
+}
+```
+
 ### OutputFormat
 
 ```rust
@@ -1273,6 +1415,17 @@ pub enum OutputFormat {
 }
 ```
 
+### PathArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct PathArgs {
+    pub from: String,
+    pub to: String,
+    pub weighted: bool,
+}
+```
+
 ### ProbeArgs
 
 ```rust
@@ -1281,6 +1434,17 @@ pub struct ProbeArgs {
     pub concept_id: String,
     pub top_k: usize,
     pub threshold: Option<f64>,
+}
+```
+
+### ProbeFilteredArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct ProbeFilteredArgs {
+    pub concept_id: String,
+    pub top_k: usize,
+    pub filter: String,
 }
 ```
 
@@ -1302,6 +1466,36 @@ pub struct QueryArgs {
 
 Arguments for text-based similarity query.
 
+### StatsArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct StatsArgs {
+}
+```
+
+### TraverseArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct TraverseArgs {
+    pub start: String,
+    pub depth: usize,
+    pub min_strength: f64,
+}
+```
+
+### UpdateArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct UpdateArgs {
+    pub id: String,
+    pub vector_from_text: Option<String>,
+    pub metadata: Option<String>,
+}
+```
+
 ### VectorSource
 
 ```rust
@@ -1322,6 +1516,15 @@ pub struct VersionArgs {
 }
 ```
 
+### WatchArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct WatchArgs {
+    pub filter: Option<String>,
+}
+```
+
 ## src/cli/commands/associate.rs
 
 ### run_associate
@@ -1336,6 +1539,14 @@ pub fn run_associate(args: AssociateArgs, db_path: Option<&Path>, format: Output
 pub fn run_associate_batch(associations: Vec<(String, String, f64)>, db_path: Option<&Path>, format: OutputFormat, continue_on_error: bool) -> Result<()>
 ```
 
+## src/cli/commands/associations.rs
+
+### run_associations
+
+```rust
+pub fn run_associations(args: AssociationsArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
 ## src/cli/commands/completions.rs
 
 ### run_completions
@@ -1344,12 +1555,36 @@ pub fn run_associate_batch(associations: Vec<(String, String, f64)>, db_path: Op
 pub fn run_completions(args: CompletionsArgs) -> Result<()>
 ```
 
+## src/cli/commands/delete.rs
+
+### run_delete
+
+```rust
+pub fn run_delete(args: DeleteArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/disassociate.rs
+
+### run_disassociate
+
+```rust
+pub fn run_disassociate(args: DisassociateArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
 ## src/cli/commands/export.rs
 
 ### run_export
 
 ```rust
 pub fn run_export(args: ExportArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/get.rs
+
+### run_get
+
+```rust
+pub fn run_get(args: GetArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
 ## src/cli/commands/import.rs
@@ -1408,12 +1643,26 @@ pub fn run_index_jsonl(args: IndexJsonlArgs, db_path: Option<&Path>, format: Out
 pub fn run_inject(args: InjectArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
+## src/cli/commands/metrics.rs
+
+### run_metrics
+
+```rust
+pub fn run_metrics(args: MetricsArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
 ## src/cli/commands/mod.rs
 
 ### associate::run_associate
 
 ```rust
 pub use associate::run_associate;
+```
+
+### associations::run_associations
+
+```rust
+pub use associations::run_associations;
 ```
 
 ### completions::run_completions
@@ -1428,10 +1677,28 @@ pub use completions::run_completions;
 pub fn create_framework(db_path: Option<&std::path::Path>) -> Result<ChaoticSemanticFramework>
 ```
 
+### delete::run_delete
+
+```rust
+pub use delete::run_delete;
+```
+
+### disassociate::run_disassociate
+
+```rust
+pub use disassociate::run_disassociate;
+```
+
 ### export::run_export
 
 ```rust
 pub use export::run_export;
+```
+
+### get::run_get
+
+```rust
+pub use get::run_get;
 ```
 
 ### import::run_import
@@ -1458,6 +1725,18 @@ pub use index_jsonl::run_index_jsonl;
 pub use inject::run_inject;
 ```
 
+### metrics::run_metrics
+
+```rust
+pub use metrics::run_metrics;
+```
+
+### path::run_path
+
+```rust
+pub use path::run_path;
+```
+
 ### print_error
 
 ```rust
@@ -1482,10 +1761,28 @@ pub fn print_warning(msg: &str, format: OutputFormat)
 pub use probe::run_probe;
 ```
 
+### probe_filtered::run_probe_filtered
+
+```rust
+pub use probe_filtered::run_probe_filtered;
+```
+
 ### query::run_query
 
 ```rust
 pub use query::run_query;
+```
+
+### stats::run_stats
+
+```rust
+pub use stats::run_stats;
+```
+
+### traverse::run_traverse
+
+```rust
+pub use traverse::run_traverse;
 ```
 
 ### truncate_preview
@@ -1497,6 +1794,26 @@ pub fn truncate_preview(s: &str, max_chars: usize) -> String
 Truncate a string to `max_chars` characters, appending "..." if truncated.
 
 Uses `char_indices` to avoid panicking on multi-byte UTF-8 boundaries.
+
+### update::run_update
+
+```rust
+pub use update::run_update;
+```
+
+### watch::run_watch
+
+```rust
+pub use watch::run_watch;
+```
+
+## src/cli/commands/path.rs
+
+### run_path
+
+```rust
+pub fn run_path(args: PathArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
 
 ## src/cli/commands/probe.rs
 
@@ -1512,12 +1829,52 @@ pub fn run_probe(args: ProbeArgs, db_path: Option<&Path>, format: OutputFormat) 
 pub fn run_probe_with_vector(query_vector: HVec10240, top_k: usize, threshold: Option<f64>, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
+## src/cli/commands/probe_filtered.rs
+
+### run_probe_filtered
+
+```rust
+pub fn run_probe_filtered(args: ProbeFilteredArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
 ## src/cli/commands/query.rs
 
 ### run_query
 
 ```rust
 pub fn run_query(args: QueryArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/stats.rs
+
+### run_stats
+
+```rust
+pub fn run_stats(_args: StatsArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/traverse.rs
+
+### run_traverse
+
+```rust
+pub fn run_traverse(args: TraverseArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/update.rs
+
+### run_update
+
+```rust
+pub fn run_update(args: UpdateArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/watch.rs
+
+### run_watch
+
+```rust
+pub fn run_watch(args: WatchArgs, db_path: Option<&Path>, _format: OutputFormat) -> Result<()>
 ```
 
 ## src/cli/error.rs
@@ -1649,10 +2006,10 @@ assert!(path.is_some() || path.is_none()); // Always passes, documents behavior
 pub use args::*;
 ```
 
-### commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+### commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch}
 
 ```rust
-pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query};
+pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch};
 ```
 
 ### error::{CliError, ExitCode, Result}
@@ -1858,30 +2215,10 @@ pub struct ChaoticSemanticFramework {
 
 Main framework for chaotic semantic memory
 
-### FrameworkMetrics
+### crate::framework_metrics::{FrameworkMetrics, FrameworkMetricsSnapshot}
 
 ```rust
-#[derive(Debug, Default)]
-pub struct FrameworkMetrics {
-}
-```
-
-### FrameworkMetricsSnapshot
-
-```rust
-#[derive(Debug, Clone)]
-pub struct FrameworkMetricsSnapshot {
-    pub concepts_injected_total: u64,
-    pub associations_created_total: u64,
-    pub probes_total: u64,
-    pub avg_probe_latency_ms: f64,
-    pub cache_hits_total: u64,
-    pub cache_misses_total: u64,
-    pub cache_evictions_total: u64,
-    pub reservoir_steps_total: u64,
-    pub avg_reservoir_step_latency_us: f64,
-    pub reservoir_nodes_active: u64,
-}
+pub use crate::framework_metrics::{FrameworkMetrics, FrameworkMetricsSnapshot};
 ```
 
 ### impl ChaoticSemanticFramework
@@ -1900,6 +2237,7 @@ impl ChaoticSemanticFramework {
     pub fn associate(&self, from: &str, to: &str, strength: f32) -> Result<()>;
     pub fn delete_concept(&self, id: &str) -> Result<()>;
     pub fn get_associations(&self, id: &str) -> Result<Vec<(String, f32)>>;
+    pub fn incoming_associations(&self, id: &str) -> Result<Vec<(String, f32)>>;
     pub fn get_concept(&self, id: &str) -> Result<Option<Concept>>;
     pub fn persist(&self) -> Result<()>;
     pub fn persistence_health_check(&self) -> Result<()>;
@@ -1907,14 +2245,8 @@ impl ChaoticSemanticFramework {
     pub fn load_merge(&self) -> Result<()>;
     pub fn load(&self) -> Result<()>;
     pub fn metrics_snapshot(&self) -> FrameworkMetricsSnapshot;
+    pub fn reset_metrics(&self);
     pub fn stats(&self) -> Result<FrameworkStats>;
-}
-```
-
-### impl FrameworkMetrics
-
-```rust
-impl FrameworkMetrics {
 }
 ```
 
@@ -1968,7 +2300,7 @@ Runtime configuration for [`ChaoticSemanticFramework`], tuned via [`FrameworkBui
 ### FrameworkStats
 
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, serde :: Serialize)]
 pub struct FrameworkStats {
     pub concept_count: usize,
     pub db_size_bytes: Option<u64>,
@@ -2032,6 +2364,41 @@ impl ChaoticSemanticFramework {
     pub fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()>;
     pub fn update_concept_metadata(&self, id: &str, metadata: HashMap<String, serde_json::Value>) -> Result<()>;
     pub fn disassociate(&self, from: &str, to: &str) -> Result<()>;
+}
+```
+
+## src/framework_metrics.rs
+
+### FrameworkMetrics
+
+```rust
+#[derive(Debug, Default)]
+pub struct FrameworkMetrics {
+}
+```
+
+### FrameworkMetricsSnapshot
+
+```rust
+#[derive(Debug, Clone, serde :: Serialize)]
+pub struct FrameworkMetricsSnapshot {
+    pub concepts_injected_total: u64,
+    pub associations_created_total: u64,
+    pub probes_total: u64,
+    pub avg_probe_latency_ms: f64,
+    pub cache_hits_total: u64,
+    pub cache_misses_total: u64,
+    pub cache_evictions_total: u64,
+    pub reservoir_steps_total: u64,
+    pub avg_reservoir_step_latency_us: f64,
+    pub reservoir_nodes_active: u64,
+}
+```
+
+### impl FrameworkMetrics
+
+```rust
+impl FrameworkMetrics {
 }
 ```
 
@@ -3081,12 +3448,6 @@ impl Singularity {
     pub fn associate(&mut self, from: &str, to: &str, strength: f32) -> Result<()>;
     pub fn get_associations(&self, id: &str) -> Vec<(String, f32)>;
     pub fn bundle_concepts(&self, ids: &[String]) -> Result<HVec10240>;
-    pub fn concept_ids(&self) -> Vec<String>;
-    pub fn all_concepts(&self) -> Vec<Concept>;
-    pub fn all_associations(&self) -> Vec<(String, String, f32)>;
-    pub fn len(&self) -> usize;
-    pub fn is_empty(&self) -> bool;
-    pub fn cache_metrics_snapshot(&self) -> CacheMetricsSnapshot;
 }
 ```
 
@@ -3119,6 +3480,12 @@ impl QueryCache {
 
 ## src/singularity_ext.rs
 
+### crate::singularity_cache::CacheMetricsSnapshot
+
+```rust
+pub use crate::singularity_cache::CacheMetricsSnapshot;
+```
+
 ### impl Singularity
 
 ```rust
@@ -3129,6 +3496,13 @@ impl Singularity {
     pub fn clear_similarity_cache(&self);
     pub fn update_metadata(&mut self, id: &str, metadata: HashMap<String, serde_json::Value>) -> Result<()>;
     pub fn find_similar_filtered(&self, query: &HVec10240, top_k: usize, filter: &MetadataFilter) -> Arc<[(String, f32)]>;
+    pub fn concept_ids(&self) -> Vec<String>;
+    pub fn all_concepts(&self) -> Vec<Concept>;
+    pub fn all_associations(&self) -> Vec<(String, String, f32)>;
+    pub fn len(&self) -> usize;
+    pub fn is_empty(&self) -> bool;
+    pub fn cache_metrics_snapshot(&self) -> CacheMetricsSnapshot;
+    pub fn reset_cache_metrics(&self);
 }
 ```
 

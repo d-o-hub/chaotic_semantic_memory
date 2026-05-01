@@ -9,7 +9,8 @@ use tracing::instrument;
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 use crate::metadata_filter::MetadataFilter;
-use crate::singularity::{Singularity, unix_now_secs};
+use crate::singularity::{Concept, Singularity, unix_now_secs};
+pub use crate::singularity_cache::CacheMetricsSnapshot;
 use crate::singularity_retrieval::{CandidateSource, FilterStrategy};
 
 impl Singularity {
@@ -235,6 +236,40 @@ impl Singularity {
                 Arc::from(filtered)
             }
         }
+    }
+
+    pub fn concept_ids(&self) -> Vec<String> {
+        self.concepts.keys().cloned().collect()
+    }
+
+    pub fn all_concepts(&self) -> Vec<Concept> {
+        self.concepts.values().cloned().collect()
+    }
+
+    pub fn all_associations(&self) -> Vec<(String, String, f32)> {
+        let mut output = Vec::new();
+        for (from, links) in &self.associations {
+            for (to, strength) in links {
+                output.push((from.clone(), to.clone(), *strength));
+            }
+        }
+        output
+    }
+
+    pub fn len(&self) -> usize {
+        self.concepts.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.concepts.is_empty()
+    }
+
+    pub fn cache_metrics_snapshot(&self) -> CacheMetricsSnapshot {
+        self.cache_metrics.snapshot()
+    }
+
+    pub fn reset_cache_metrics(&self) {
+        self.cache_metrics.reset();
     }
 }
 

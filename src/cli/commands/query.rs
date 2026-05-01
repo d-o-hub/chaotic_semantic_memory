@@ -264,13 +264,13 @@ async fn build_bm25_index(
             .metadata
             .get("text_preview")
             .or_else(|| concept.metadata.get("content_preview"))
-            .and_then(|v| v.as_str())
+            .and_then(|v: &serde_json::Value| v.as_str())
             .unwrap_or("");
 
         let tokens: Vec<String> = text
             .to_lowercase()
             .split_whitespace()
-            .map(|s| s.to_string())
+            .map(|s: &str| s.to_string())
             .collect();
 
         if !tokens.is_empty() {

@@ -36,7 +36,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/bin/csm.rs
 
-- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch}
 - pub use native::clap::Parser
 - pub use native::colored::Colorize
 - pub use native::tracing::Level
@@ -79,6 +79,17 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct VersionArgs
 - pub struct CompletionsArgs
 - pub struct IndexJsonlArgs
+- pub struct DeleteArgs
+- pub struct GetArgs
+- pub struct UpdateArgs
+- pub struct DisassociateArgs
+- pub struct AssociationsArgs
+- pub struct TraverseArgs
+- pub struct PathArgs
+- pub struct ProbeFilteredArgs
+- pub struct StatsArgs
+- pub struct MetricsArgs
+- pub struct WatchArgs
 - pub struct IndexDirArgs
 
 ### src/cli/commands/associate.rs
@@ -86,13 +97,29 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn run_associate
 - pub fn run_associate_batch
 
+### src/cli/commands/associations.rs
+
+- pub fn run_associations
+
 ### src/cli/commands/completions.rs
 
 - pub fn run_completions
 
+### src/cli/commands/delete.rs
+
+- pub fn run_delete
+
+### src/cli/commands/disassociate.rs
+
+- pub fn run_disassociate
+
 ### src/cli/commands/export.rs
 
 - pub fn run_export
+
+### src/cli/commands/get.rs
+
+- pub fn run_get
 
 ### src/cli/commands/import.rs
 
@@ -112,40 +139,90 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub fn run_inject
 
+### src/cli/commands/metrics.rs
+
+- pub fn run_metrics
+
 ### src/cli/commands/mod.rs
 
 - pub mod associate
+- pub mod associations
 - pub mod completions
+- pub mod delete
+- pub mod disassociate
 - pub mod export
+- pub mod get
 - pub mod import
 - pub mod index_dir
 - pub mod index_jsonl
 - pub mod inject
+- pub mod metrics
+- pub mod path
 - pub mod probe
+- pub mod probe_filtered
 - pub mod query
+- pub mod stats
+- pub mod traverse
+- pub mod update
+- pub mod watch
 - pub use associate::run_associate
+- pub use associations::run_associations
 - pub use completions::run_completions
+- pub use delete::run_delete
+- pub use disassociate::run_disassociate
 - pub use export::run_export
+- pub use get::run_get
 - pub use import::run_import
 - pub use index_dir::run_index_dir
 - pub use index_jsonl::run_index_jsonl
 - pub use inject::run_inject
+- pub use metrics::run_metrics
+- pub use path::run_path
 - pub use probe::run_probe
+- pub use probe_filtered::run_probe_filtered
 - pub use query::run_query
+- pub use stats::run_stats
+- pub use traverse::run_traverse
+- pub use update::run_update
+- pub use watch::run_watch
 - pub fn print_success
 - pub fn print_error
 - pub fn print_warning
 - pub fn truncate_preview
 - pub fn create_framework
 
+### src/cli/commands/path.rs
+
+- pub fn run_path
+
 ### src/cli/commands/probe.rs
 
 - pub fn run_probe
 - pub fn run_probe_with_vector
 
+### src/cli/commands/probe_filtered.rs
+
+- pub fn run_probe_filtered
+
 ### src/cli/commands/query.rs
 
 - pub fn run_query
+
+### src/cli/commands/stats.rs
+
+- pub fn run_stats
+
+### src/cli/commands/traverse.rs
+
+- pub fn run_traverse
+
+### src/cli/commands/update.rs
+
+- pub fn run_update
+
+### src/cli/commands/watch.rs
+
+- pub fn run_watch
 
 ### src/cli/error.rs
 
@@ -170,7 +247,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod error
 - pub mod git_local
 - pub use args::*
-- pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+- pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch}
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
 
@@ -204,10 +281,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/framework.rs
 
+- pub use crate::framework_metrics::{FrameworkMetrics, FrameworkMetricsSnapshot}
 - pub struct ChaoticSemanticFramework
-- pub struct FrameworkMetrics
-- pub struct FrameworkMetricsSnapshot
-- impl FrameworkMetrics
 - impl ChaoticSemanticFramework
 
 ### src/framework_bridge.rs
@@ -226,6 +301,12 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub enum MemoryEvent
 - impl ChaoticSemanticFramework
+
+### src/framework_metrics.rs
+
+- pub struct FrameworkMetrics
+- pub struct FrameworkMetricsSnapshot
+- impl FrameworkMetrics
 
 ### src/framework_ops.rs
 
@@ -279,6 +360,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod error
 - pub mod framework
 - pub mod framework_builder
+- pub mod framework_metrics
 - pub mod graph_traversal
 - pub mod hyperdim
 - pub mod metadata_filter
@@ -421,6 +503,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/singularity_ext.rs
 
+- pub use crate::singularity_cache::CacheMetricsSnapshot
 - impl Singularity
 
 ### src/singularity_retrieval.rs

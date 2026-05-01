@@ -1,13 +1,13 @@
 //! Main framework integrating all components
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::RwLock;
 use tracing::{instrument, warn};
 
 use crate::error::Result;
 use crate::framework_builder::{FrameworkBuilder, FrameworkConfig, FrameworkStats};
 use crate::framework_events::MemoryEvent;
+pub use crate::framework_metrics::{FrameworkMetrics, FrameworkMetricsSnapshot};
 use crate::graph_traversal::TraversalConfig;
 use crate::hyperdim::HVec10240;
 use crate::metadata_filter::MetadataFilter;
@@ -27,79 +27,6 @@ pub struct ChaoticSemanticFramework {
     pub(crate) config: FrameworkConfig,
     pub(crate) metrics: Arc<FrameworkMetrics>,
     pub(crate) event_sender: tokio::sync::broadcast::Sender<MemoryEvent>,
-}
-
-#[derive(Debug, Default)]
-pub struct FrameworkMetrics {
-    concepts_injected_total: AtomicU64,
-    associations_created_total: AtomicU64,
-    probes_total: AtomicU64,
-    probe_latency_ms_total: AtomicU64,
-    probe_latency_count: AtomicU64,
-}
-
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct FrameworkMetricsSnapshot {
-    pub concepts_injected_total: u64,
-    pub associations_created_total: u64,
-    pub probes_total: u64,
-    pub avg_probe_latency_ms: f64,
-    pub cache_hits_total: u64,
-    pub cache_misses_total: u64,
-    pub cache_evictions_total: u64,
-    pub reservoir_steps_total: u64,
-    pub avg_reservoir_step_latency_us: f64,
-    pub reservoir_nodes_active: u64,
-}
-
-impl FrameworkMetrics {
-    pub(crate) fn inc_concepts_injected(&self, count: u64) {
-        self.concepts_injected_total
-            .fetch_add(count, Ordering::Relaxed);
-    }
-
-    pub(crate) fn inc_associations_created(&self, count: u64) {
-        self.associations_created_total
-            .fetch_add(count, Ordering::Relaxed);
-    }
-
-    fn observe_probe_latency_ms(&self, latency_ms: u64) {
-        self.probes_total.fetch_add(1, Ordering::Relaxed);
-        self.probe_latency_ms_total
-            .fetch_add(latency_ms, Ordering::Relaxed);
-        self.probe_latency_count.fetch_add(1, Ordering::Relaxed);
-    }
-
-    fn reset(&self) {
-        self.concepts_injected_total.store(0, Ordering::Relaxed);
-        self.associations_created_total.store(0, Ordering::Relaxed);
-        self.probes_total.store(0, Ordering::Relaxed);
-        self.probe_latency_ms_total.store(0, Ordering::Relaxed);
-        self.probe_latency_count.store(0, Ordering::Relaxed);
-    }
-
-    fn snapshot(&self) -> FrameworkMetricsSnapshot {
-        let count = self.probe_latency_count.load(Ordering::Relaxed);
-        let total = self.probe_latency_ms_total.load(Ordering::Relaxed);
-        let avg = if count == 0 {
-            0.0
-        } else {
-            total as f64 / count as f64
-        };
-
-        FrameworkMetricsSnapshot {
-            concepts_injected_total: self.concepts_injected_total.load(Ordering::Relaxed),
-            associations_created_total: self.associations_created_total.load(Ordering::Relaxed),
-            probes_total: self.probes_total.load(Ordering::Relaxed),
-            avg_probe_latency_ms: avg,
-            cache_hits_total: 0,
-            cache_misses_total: 0,
-            cache_evictions_total: 0,
-            reservoir_steps_total: 0,
-            avg_reservoir_step_latency_us: 0.0,
-            reservoir_nodes_active: 0,
-        }
-    }
 }
 
 impl ChaoticSemanticFramework {

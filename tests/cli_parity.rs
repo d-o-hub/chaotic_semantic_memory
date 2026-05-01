@@ -75,7 +75,7 @@ fn test_cli_parity_graph() {
     let db_str = db_path.to_str().unwrap();
 
     // Inject nodes
-    for id in &["a", "b", "c"] {
+    for id in ["a", "b", "c"] {
         Command::cargo_bin("csm")
             .unwrap()
             .args(["--database", db_str, "inject", id])
