@@ -183,7 +183,8 @@ impl Reservoir {
             // We use scratch for the intermediate state to avoid affecting res_sum of other
             // nodes in the SAME phase (preserving original semantics where state is "old").
             self.prev_state[i] = current_val;
-            let new_val = current_val.mul_add(one_minus_alpha, activated.mul_add(self.alpha, inertial));
+            let new_val =
+                current_val.mul_add(one_minus_alpha, activated.mul_add(self.alpha, inertial));
             self.state[i] = new_val;
             self.scratch[i] = new_val; // Keep scratch in sync for other partial-update cycles
         }
