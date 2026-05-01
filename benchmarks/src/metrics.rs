@@ -23,30 +23,15 @@ pub fn aggregate(
         };
     }
 
-    // Calculate recall-based metrics only for cases with gold evidence
-    let (recall_at_1, recall_at_5, recall_at_10, mrr, ndcg_at_10) = {
-        let gold_cases: Vec<_> = results
-            .iter()
-            .filter(|r| !matches!(r.task_type, TaskType::Abstain | TaskType::Isolation))
-            .collect();
-        let gold_count = gold_cases.len();
-
-        if gold_count > 0 {
-            (
-                gold_cases.iter().filter(|r| r.recall_at_1).count() as f32 / gold_count as f32,
-                gold_cases.iter().filter(|r| r.recall_at_5).count() as f32 / gold_count as f32,
-                gold_cases.iter().filter(|r| r.recall_at_10).count() as f32 / gold_count as f32,
-                gold_cases.iter().map(|r| r.reciprocal_rank).sum::<f32>() / gold_count as f32,
-                gold_cases.iter().map(|r| r.ndcg_at_10).sum::<f32>() / gold_count as f32,
-            )
-        } else {
-            (0.0, 0.0, 0.0, 0.0, 0.0)
-        }
-    };
+    let recall_at_1 = results.iter().filter(|r| r.recall_at_1).count() as f32 / count as f32;
+    let recall_at_5 = results.iter().filter(|r| r.recall_at_5).count() as f32 / count as f32;
+    let recall_at_10 = results.iter().filter(|r| r.recall_at_10).count() as f32 / count as f32;
+    let mrr = results.iter().map(|r| r.reciprocal_rank).sum::<f32>() / count as f32;
+    let ndcg_at_10 = results.iter().map(|r| r.ndcg_at_10).sum::<f32>() / count as f32;
 
     let abstain_cases: Vec<_> = results
         .iter()
-        .filter(|r| matches!(r.task_type, TaskType::Abstain | TaskType::Isolation))
+        .filter(|r| matches!(r.task_type, TaskType::Abstain))
         .collect();
     let abstain_count = abstain_cases.len();
 
@@ -54,9 +39,7 @@ pub fn aggregate(
         let true_positives = abstain_cases.iter().filter(|r| r.abstained).count() as f32;
         let false_positives = results
             .iter()
-            .filter(|r| {
-                !matches!(r.task_type, TaskType::Abstain | TaskType::Isolation) && r.abstained
-            })
+            .filter(|r| !matches!(r.task_type, TaskType::Abstain) && r.abstained)
             .count() as f32;
 
         let precision = true_positives / (true_positives + false_positives).max(1.0);
@@ -95,10 +78,7 @@ pub fn aggregate(
     let session_isolation = if !isolation_cases.is_empty() {
         // For isolation, success means we correctly returned nothing (or below threshold)
         // because the query was for data in a different session.
-        isolation_cases
-            .iter()
-            .filter(|r| r.retrieved.is_empty() || r.abstained)
-            .count() as f32
+        isolation_cases.iter().filter(|r| r.retrieved.is_empty() || r.abstained).count() as f32
             / isolation_cases.len() as f32
     } else {
         0.0
@@ -107,10 +87,10 @@ pub fn aggregate(
     let mut latencies: Vec<_> = results.iter().map(|r| r.latency_ms).collect();
     latencies.sort_unstable();
     // Use floor-based indexing for percentiles (industry standard)
-    let p50 = latencies[(count - 1) / 2]; // True lower median
-    let p95_idx = ((count - 1) as f64 * 0.95) as usize; // Floor via truncation
+    let p50 = latencies[(count - 1) / 2];  // True lower median
+    let p95_idx = ((count - 1) as f64 * 0.95) as usize;  // Floor via truncation
     let p95 = latencies[p95_idx];
-    let p99_idx = ((count - 1) as f64 * 0.99) as usize; // Floor via truncation
+    let p99_idx = ((count - 1) as f64 * 0.99) as usize;  // Floor via truncation
     let p99 = latencies[p99_idx];
 
     // Compute microsecond latencies for sub-ms precision
@@ -165,7 +145,6 @@ mod tests {
     ) -> CaseResult {
         CaseResult {
             query_id: query_id.into(),
-            session_id: "test-session".into(),
             task_type,
             retrieved: vec![RetrievedItem {
                 memory_id: "test".into(),
@@ -181,7 +160,7 @@ mod tests {
             exact_match: None,
             abstained,
             latency_ms,
-            latency_us: latency_ms * 1000, // Simulate us from ms for tests
+            latency_us: latency_ms * 1000,  // Simulate us from ms for tests
             prompt_tokens: 0,
             completion_tokens: 0,
         }
@@ -226,10 +205,10 @@ mod tests {
     #[test]
     fn aggregate_abstention_metrics() {
         let results = vec![
-            make_result("q1", TaskType::Abstain, false, false, 10, true), // true positive
+            make_result("q1", TaskType::Abstain, false, false, 10, true),  // true positive
             make_result("q2", TaskType::Abstain, false, false, 10, false), // false negative
-            make_result("q3", TaskType::Recall, false, false, 10, true),  // false positive
-            make_result("q4", TaskType::Recall, false, false, 10, false), // true negative
+            make_result("q3", TaskType::Recall, false, false, 10, true),   // false positive
+            make_result("q4", TaskType::Recall, false, false, 10, false),  // true negative
         ];
         let summary = aggregate(&results, 100, 1024, 512);
         // 1 TP, 1 FP -> precision = 1/2 = 0.5
@@ -241,7 +220,7 @@ mod tests {
     #[test]
     fn aggregate_latency_percentiles() {
         let results: Vec<_> = (1..=10)
-            .map(|i| make_result(&format!("q{i}"), TaskType::Recall, false, false, i, false))
+            .map(|i| make_result(&format!("q{}", i), TaskType::Recall, false, false, i, false))
             .collect();
         let summary = aggregate(&results, 100, 1024, 512);
         // Sorted latencies: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]

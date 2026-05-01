@@ -4,12 +4,13 @@ use crate::{
     memory_adapter::MemoryAdapter,
     metrics,
     reader::Reader,
-    report, scorer,
+    report,
+    scorer,
     types::{BenchmarkMetadata, CaseResult, RetrievedItem, TaskType},
 };
 use anyhow::Result;
 use std::{process::Command, time::Instant};
-use sysinfo::{Pid, ProcessesToUpdate, System};
+use sysinfo::{System, Pid, ProcessesToUpdate};
 
 pub async fn run(cli: Cli) -> Result<()> {
     println!("Loading dataset from {}", cli.dataset_dir.display());
@@ -32,9 +33,7 @@ pub async fn run(cli: Cli) -> Result<()> {
     for session in &sessions {
         for turn in &session.turns {
             if let Some(id) = &turn.memory_id {
-                adapter
-                    .ingest_memory(id, &turn.text, turn.ttl_seconds)
-                    .await?;
+                adapter.ingest_memory(id, &turn.text).await?;
             }
         }
     }
@@ -50,62 +49,15 @@ pub async fn run(cli: Cli) -> Result<()> {
 
         // Use session-scoped retrieval for session-specific queries
         let hits = match query_case.task_type {
-            TaskType::Recall
-            | TaskType::Update
-            | TaskType::Temporal
-            | TaskType::Abstain
-            | TaskType::Isolation => {
-                adapter
-                    .query_in_session(&query_case.query, &query_case.session_id, cli.top_k)
-                    .await?
+            TaskType::Recall | TaskType::Update | TaskType::Temporal | TaskType::Abstain | TaskType::Isolation => {
+                adapter.query_in_session(&query_case.query, &query_case.session_id, cli.top_k).await?
             }
             TaskType::Association => {
                 if query_case.session_id == "cross-session" {
-                    adapter
-                        .query_association(&query_case.query, cli.top_k)
-                        .await?
+                    adapter.query_association(&query_case.query, cli.top_k).await?
                 } else {
-                    adapter
-                        .query_in_session_association(
-                            &query_case.query,
-                            &query_case.session_id,
-                            cli.top_k,
-                        )
-                        .await?
+                    adapter.query_in_session_association(&query_case.query, &query_case.session_id, cli.top_k).await?
                 }
-            }
-            TaskType::Bm25 => {
-                adapter
-                    .query_bm25(&query_case.query, Some(&query_case.session_id), cli.top_k)
-                    .await?
-            }
-            TaskType::Hybrid => {
-                adapter
-                    .query_hybrid(&query_case.query, Some(&query_case.session_id), cli.top_k)
-                    .await?
-            }
-            TaskType::Bridge => {
-                adapter
-                    .query_bridge(&query_case.query, Some(&query_case.session_id), cli.top_k)
-                    .await?
-            }
-            TaskType::History => {
-                let id = &query_case.gold_evidence_ids[0];
-                // Strip manual :v1/:v2 suffix from gold ID to get root ID if present
-                let root_id = id.split(":v").next().unwrap_or(id);
-                let versions = adapter.query_history(root_id, cli.top_k).await?;
-                // Map versions to hits for scoring (using version number as "score" for ranking check)
-                versions
-                    .into_iter()
-                    .map(|v| (format!("{}:v{}", root_id, v.version), v.version as f32))
-                    .collect()
-            }
-            TaskType::Ttl => {
-                // Benchmark purge_expired as well
-                let _ = adapter.purge_expired().await?;
-                adapter
-                    .query_in_session(&query_case.query, &query_case.session_id, cli.top_k)
-                    .await?
             }
             _ => {
                 // For other queries, search globally
@@ -128,7 +80,6 @@ pub async fn run(cli: Cli) -> Result<()> {
 
         let mut result = CaseResult {
             query_id: query_case.query_id.clone(),
-            session_id: query_case.session_id.clone(),
             task_type: query_case.task_type.clone(),
             retrieved,
             recall_at_1: false,
@@ -152,8 +103,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         result.ndcg_at_10 = scorer::ndcg_at_k(&query_case, &result, 10);
 
         // Simple abstention logic for retrieval-only: if top score < threshold or empty
-        result.abstained =
-            result.retrieved.is_empty() || result.retrieved[0].score < cli.abstain_threshold;
+        result.abstained = result.retrieved.is_empty() || result.retrieved[0].score < cli.abstain_threshold;
 
         if matches!(cli.mode, Mode::ReaderLite) {
             let mut retrieved_texts = Vec::new();
@@ -213,13 +163,7 @@ pub async fn run(cli: Cli) -> Result<()> {
     let report_path = cli.out_dir.join("report.md");
     report::write_summary(&summary_path, &summary)?;
     report::write_results_jsonl(&results_path, &results)?;
-    report::write_markdown(
-        &report_path,
-        &summary,
-        &metadata,
-        &summary_path,
-        &results_path,
-    )?;
+    report::write_markdown(&report_path, &summary, &metadata, &summary_path, &results_path)?;
 
     println!("Benchmark complete.");
     println!("Recall@1: {:.4}", summary.recall_at_1);
@@ -239,6 +183,9 @@ fn resolve_commit_sha() -> Option<String> {
         }
     }
 
+    // Filter PATH to exclude relative entries (CWE-426) to prevent path hijacking.
+    // If PATH is unset or results in an empty string after filtering, we fallback
+    // to letting the system attempt to find 'git' normally (standard behavior).
     let safe_path = std::env::var(ENV_PATH).ok().and_then(|p| {
         let joined = std::env::join_paths(
             std::env::split_paths(&p).filter(|p| p.is_absolute() && p.exists()),
@@ -255,7 +202,10 @@ fn resolve_commit_sha() -> Option<String> {
     if let Some(path) = safe_path {
         cmd.env(ENV_PATH, path);
     }
-    let output = cmd.args(["rev-parse", "HEAD"]).output().ok()?;
+    let output = cmd
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()?;
 
     if !output.status.success() {
         return None;

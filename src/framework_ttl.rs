@@ -429,26 +429,17 @@ mod tests {
             .unwrap();
 
         // Query in session 1
-        let results1 = framework
-            .query_in_session("apple", "session-1", 10)
-            .await
-            .unwrap();
+        let results1 = framework.query_in_session("apple", "session-1", 10).await.unwrap();
         assert_eq!(results1.len(), 1);
         assert_eq!(results1[0].0, "doc-1-1");
 
         // Query in session 2
-        let results2 = framework
-            .query_in_session("apple", "session-2", 10)
-            .await
-            .unwrap();
+        let results2 = framework.query_in_session("apple", "session-2", 10).await.unwrap();
         assert_eq!(results2.len(), 1);
         assert_eq!(results2[0].0, "doc-2-1");
 
         // Query in non-existent session
-        let results3 = framework
-            .query_in_session("apple", "session-3", 10)
-            .await
-            .unwrap();
+        let results3 = framework.query_in_session("apple", "session-3", 10).await.unwrap();
         assert!(results3.is_empty());
     }
 
