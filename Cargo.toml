@@ -45,6 +45,9 @@ anyhow = { version = "1.0.102", optional = true }
 colored = { version = "2.2.0", optional = true }
 glob = { version = "0.3.2", optional = true }
 rmcp = { version = "0.2.1", optional = true, features = ["server", "transport-io", "transport-sse-server"] }
+schemars = { version = "0.8", optional = true }
+async-trait = "0.1.89"
+futures = "0.3.31"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # CPU parallelism (opt-in via "parallel" feature)
@@ -164,7 +167,7 @@ path = "examples/streaming_temporal.rs"
 [features]
 default = ["cli", "persistence", "parallel"]
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
-mcp = ["dep:rmcp", "tokio/net", "tokio/rt-multi-thread", "cli"]
+mcp = ["dep:rmcp", "dep:schemars", "tokio/net", "tokio/rt-multi-thread", "cli"]
 persistence = ["dep:libsql"]
 parallel = ["dep:rayon"]
 wasm = []
