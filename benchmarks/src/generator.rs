@@ -15,8 +15,20 @@ const COLOR_MODIFIERS: &[&str] = &[
 
 /// Real pets for semantically meaningful test data
 const PETS: &[&str] = &[
-    "Golden Retriever", "Siamese Cat", "Hamster", "Parrot", "Iguana", "Rabbit", "Goldfish",
-    "Beagle", "Persian Cat", "Cockatiel", "Turtle", "Chinchilla", "Ferret", "Hedgehog",
+    "Golden Retriever",
+    "Siamese Cat",
+    "Hamster",
+    "Parrot",
+    "Iguana",
+    "Rabbit",
+    "Goldfish",
+    "Beagle",
+    "Persian Cat",
+    "Cockatiel",
+    "Turtle",
+    "Chinchilla",
+    "Ferret",
+    "Hedgehog",
 ];
 
 /// Real cities for semantically meaningful test data
@@ -75,7 +87,11 @@ pub fn generate_sessions_with_range(
 
         let color_v1 = COLORS[rng.random_range(0..COLORS.len())];
         let color_mod = COLOR_MODIFIERS[rng.random_range(0..COLOR_MODIFIERS.len())];
-        let color_v2 = format!("{} {}", color_mod, COLORS[rng.random_range(0..COLORS.len())]);
+        let color_v2 = format!(
+            "{} {}",
+            color_mod,
+            COLORS[rng.random_range(0..COLORS.len())]
+        );
         let city = CITIES[rng.random_range(0..CITIES.len())];
         let pet = PETS[rng.random_range(0..PETS.len())];
 
@@ -197,14 +213,15 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
 
             // Generate association query based on shared color or city if possible,
             // but for simplicity we'll just use colors from these two sessions.
+            // Note: color v1 is pruned if v2 exists, so we use v2.
             cases.push(QueryCase {
                 query_id: format!("association-{:03}", i),
                 session_id: "cross-session".into(),
                 task_type: TaskType::Association,
                 query: "What are the favorite colors I've mentioned in my different chats?".into(),
                 gold_evidence_ids: vec![
-                    format!("{}:favorite_color:v1", s1.session_id),
-                    format!("{}:favorite_color:v1", s2.session_id),
+                    format!("{}:favorite_color:v2", s1.session_id),
+                    format!("{}:favorite_color:v2", s2.session_id),
                 ],
                 expected_answer: None,
                 should_abstain: false,
@@ -215,9 +232,9 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
                 query_id: format!("association-internal-{:03}", i),
                 session_id: s1.session_id.clone(),
                 task_type: TaskType::Association,
-                query: "Show me items related to my location and interests in this session.".into(),
+                query: "Show me items related to my location city and favorite interests color in this session.".into(),
                 gold_evidence_ids: vec![
-                    format!("{}:favorite_color:v1", s1.session_id),
+                    format!("{}:favorite_color:v2", s1.session_id),
                     format!("{}:city:v1", s1.session_id),
                 ],
                 expected_answer: None,
@@ -230,15 +247,13 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             query_id: "cross-session:multisession-city".into(),
             session_id: "cross-session".into(),
             task_type: TaskType::MultiSession,
-            query: "Which cities have I lived in or moved to?".into(),
+            query: "Which cities have I lived in or moved to as a resident?".into(),
             gold_evidence_ids: sessions
                 .iter()
                 .filter_map(|s| {
-                    s.turns.iter().find(|t| {
-                        t.memory_id
-                            .as_ref()
-                            .is_some_and(|id| id.contains(":city:"))
-                    })
+                    s.turns
+                        .iter()
+                        .find(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":city:")))
                 })
                 .filter_map(|t| t.memory_id.clone())
                 .collect(),
@@ -254,11 +269,9 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             gold_evidence_ids: sessions
                 .iter()
                 .filter_map(|s| {
-                    s.turns.iter().find(|t| {
-                        t.memory_id
-                            .as_ref()
-                            .is_some_and(|id| id.contains(":pet:"))
-                    })
+                    s.turns
+                        .iter()
+                        .find(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":pet:")))
                 })
                 .filter_map(|t| t.memory_id.clone())
                 .collect(),
@@ -272,9 +285,10 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             let s_other = &sessions[(i + 1) % sessions.len()];
 
             // Find a unique pet from the OTHER session
-            let other_pet_turn = s_other.turns.iter().find(|t| {
-                t.memory_id.as_ref().is_some_and(|id| id.contains(":pet:"))
-            });
+            let other_pet_turn = s_other
+                .turns
+                .iter()
+                .find(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":pet:")));
 
             if let Some(turn) = other_pet_turn {
                 // Extract pet name from "I have a [pet] as a pet."
