@@ -178,15 +178,16 @@ impl Reservoir {
             let current_val = self.state[i];
             let inertial = beta * (current_val - self.prev_state[i]);
 
-            // Memory Optimization: Fused state update and sync.
-            // Update prev_state with current state BEFORE overwriting current state.
-            // We use scratch for the intermediate state to avoid affecting res_sum of other
-            // nodes in the SAME phase (preserving original semantics where state is "old").
-            self.prev_state[i] = current_val;
-            let new_val =
+            // Compute new state into scratch using a stable snapshot of `self.state`.
+            self.scratch[i] =
                 current_val.mul_add(one_minus_alpha, activated.mul_add(self.alpha, inertial));
-            self.state[i] = new_val;
-            self.scratch[i] = new_val; // Keep scratch in sync for other partial-update cycles
+        }
+
+        // Second pass: Commit the updates for this phase.
+        // This keeps semantics synchronous within the phase (no order dependency).
+        for i in (update_phase..self.size).step_by(self.update_stride) {
+            self.prev_state[i] = self.state[i];
+            self.state[i] = self.scratch[i];
         }
         self.update_phase = (update_phase + 1) % self.update_stride;
 
