@@ -77,6 +77,8 @@ pub struct RetrievedItem {
 pub struct CaseResult {
     /// Query ID this result corresponds to.
     pub query_id: String,
+    /// ID of the session this query relates to.
+    pub session_id: String,
     /// Task type of the query.
     pub task_type: TaskType,
     /// List of retrieved items.

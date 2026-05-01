@@ -93,6 +93,7 @@ pub async fn run(cli: Cli) -> Result<()> {
 
         let mut result = CaseResult {
             query_id: query_case.query_id.clone(),
+            session_id: query_case.session_id.clone(),
             task_type: query_case.task_type.clone(),
             retrieved,
             recall_at_1: false,
