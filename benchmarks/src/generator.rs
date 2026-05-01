@@ -14,6 +14,10 @@ const COLOR_MODIFIERS: &[&str] = &[
 ];
 
 /// Real cities for semantically meaningful test data
+const PETS: &[&str] = &[
+    "dog", "cat", "hamster", "parrot", "goldfish", "rabbit", "turtle", "iguana", "ferret", "hedgehog",
+];
+
 const CITIES: &[&str] = &[
     "New York",
     "Los Angeles",
@@ -108,15 +112,25 @@ pub fn generate_sessions_with_range(
         // Additional turns with filler content (for variable-length stress testing)
         for j in 3..turn_count {
             let filler_idx = j - 3;
-            turns.push(SessionTurn {
-                ts: format!("2026-01-{:02}T10:00:00Z", 5 + filler_idx),
-                speaker: "user".into(),
-                text: format!(
-                    "I also wanted to mention something about topic {}.",
-                    filler_idx + 1
-                ),
-                memory_id: Some(format!("{session_id}:topic:{}:v1", filler_idx + 1)),
-            });
+            if filler_idx == 0 {
+                let pet = PETS[rng.random_range(0..PETS.len())];
+                turns.push(SessionTurn {
+                    ts: format!("2026-01-{:02}T10:00:00Z", 5 + filler_idx),
+                    speaker: "user".into(),
+                    text: format!("I have a pet {pet}."),
+                    memory_id: Some(format!("{session_id}:pet:v1")),
+                });
+            } else {
+                turns.push(SessionTurn {
+                    ts: format!("2026-01-{:02}T10:00:00Z", 5 + filler_idx),
+                    speaker: "user".into(),
+                    text: format!(
+                        "I also wanted to mention something about topic {}.",
+                        filler_idx + 1
+                    ),
+                    memory_id: Some(format!("{session_id}:topic:{}:v1", filler_idx + 1)),
+                });
+            }
         }
 
         sessions.push(Session { session_id, turns });
@@ -170,30 +184,74 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
         });
     }
 
+    // Add session isolation queries
+    for (i, s) in sessions.iter().enumerate() {
+        // Find a session that is NOT the current one to target for isolation leak check
+        let other_session = if i > 0 {
+            &sessions[i - 1]
+        } else if sessions.len() > 1 {
+            &sessions[i + 1]
+        } else {
+            continue;
+        };
+
+        // Find a pet from the other session
+        let other_pet_turn = other_session.turns.iter().find(|t| {
+            t.memory_id
+                .as_ref()
+                .is_some_and(|id| id.contains(":pet:"))
+        });
+
+        // Ensure current session does NOT have a pet to avoid false positive "leaks"
+        let has_pet = s.turns.iter().any(|t| {
+            t.memory_id
+                .as_ref()
+                .is_some_and(|id| id.contains(":pet:"))
+        });
+
+        if other_pet_turn.is_some() {
+            if !has_pet {
+                // "I have a pet [Pet]." -> query "What kind of pet do I have?"
+                // If scoped to session s, it should NOT find the pet from other_session.
+                cases.push(QueryCase {
+                    query_id: format!("{}:isolation", s.session_id),
+                    session_id: s.session_id.clone(),
+                    task_type: TaskType::Isolation,
+                    query: "What kind of pet do I have?".into(),
+                    gold_evidence_ids: vec![], // Should NOT find anything in THIS session
+                    expected_answer: None,
+                    should_abstain: true,
+                });
+            }
+        }
+    }
+
     // Add cross-session query types (Association and MultiSession)
     if sessions.len() >= 2 {
         // Association: Link concepts across sessions
-        let s1 = &sessions[0];
-        let s2 = &sessions[1];
-        cases.push(QueryCase {
-            query_id: "cross-session:association".into(),
-            session_id: "cross-session".into(),
-            task_type: TaskType::Association,
-            query: "What colors have I mentioned across different conversations?".into(),
-            gold_evidence_ids: vec![
-                format!("{}:favorite_color:v1", s1.session_id),
-                format!("{}:favorite_color:v1", s2.session_id),
-            ],
-            expected_answer: None,
-            should_abstain: false,
-        });
+        for i in 0..(sessions.len() - 1) {
+            let s1 = &sessions[i];
+            let s2 = &sessions[i+1];
+            cases.push(QueryCase {
+                query_id: format!("cross-session:association:{}-{}", i, i+1),
+                session_id: "cross-session".into(),
+                task_type: TaskType::Association,
+                query: "What colors have I mentioned in my recent conversations?".into(),
+                gold_evidence_ids: vec![
+                    format!("{}:favorite_color:v1", s1.session_id),
+                    format!("{}:favorite_color:v1", s2.session_id),
+                ],
+                expected_answer: None,
+                should_abstain: false,
+            });
+        }
 
         // MultiSession: Aggregate across sessions
         cases.push(QueryCase {
-            query_id: "cross-session:multisession".into(),
+            query_id: "cross-session:multisession-all-cities".into(),
             session_id: "cross-session".into(),
             task_type: TaskType::MultiSession,
-            query: "Which cities have I lived in or moved to?".into(),
+            query: "Which cities have I lived in or moved to across all my sessions?".into(),
             gold_evidence_ids: sessions
                 .iter()
                 .filter_map(|s| {

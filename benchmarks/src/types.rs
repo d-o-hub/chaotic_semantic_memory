@@ -16,6 +16,8 @@ pub enum TaskType {
     Association,
     /// Multi-session task requiring aggregation across sessions.
     MultiSession,
+    /// Isolation task verifying data boundaries between sessions.
+    Isolation,
 }
 
 /// A single turn in a conversation session.
@@ -122,6 +124,9 @@ pub struct SummaryMetrics {
     /// Mean NDCG@10 across all cases.
     #[serde(default)]
     pub ndcg_at_10: f32,
+    /// Session isolation success rate.
+    #[serde(default)]
+    pub session_isolation: f32,
     /// Exact match accuracy (reader mode only).
     pub exact_match: Option<f32>,
     /// Precision of abstention decisions.

@@ -37,9 +37,13 @@ pub fn aggregate(
 
     let (abstain_precision, abstain_recall) = if abstain_count > 0 {
         let true_positives = abstain_cases.iter().filter(|r| r.abstained).count() as f32;
+        // False positives are cases where the system was NOT expected to abstain but did.
+        // We exclude Isolation tasks from this as they are expected to abstain.
         let false_positives = results
             .iter()
-            .filter(|r| !matches!(r.task_type, TaskType::Abstain) && r.abstained)
+            .filter(|r| {
+                !matches!(r.task_type, TaskType::Abstain | TaskType::Isolation) && r.abstained
+            })
             .count() as f32;
 
         let precision = true_positives / (true_positives + false_positives).max(1.0);
@@ -47,6 +51,23 @@ pub fn aggregate(
         (precision, recall)
     } else {
         (0.0, 0.0)
+    };
+
+    let isolation_cases: Vec<_> = results
+        .iter()
+        .filter(|r| matches!(r.task_type, TaskType::Isolation))
+        .collect();
+    let session_isolation = if !isolation_cases.is_empty() {
+        // For isolation queries, "success" means they correctly returned no results
+        // from other sessions, hence they should be "abstained" according to logic
+        // or have no results from other sessions.
+        // Given runner logic for Isolation will use query_in_session,
+        // it should only return results from THAT session.
+        // Since we generated isolation queries targeting data NOT in that session,
+        // it should have 0 results or low scores (below threshold).
+        isolation_cases.iter().filter(|r| r.abstained).count() as f32 / isolation_cases.len() as f32
+    } else {
+        1.0 // Default to 1.0 if no isolation cases tested (isolation preserved)
     };
 
     let mut latencies: Vec<_> = results.iter().map(|r| r.latency_ms).collect();
@@ -77,6 +98,7 @@ pub fn aggregate(
         recall_at_10,
         mrr,
         ndcg_at_10,
+        session_isolation,
         exact_match,
         abstain_precision,
         abstain_recall,
@@ -126,6 +148,16 @@ mod tests {
             prompt_tokens: 0,
             completion_tokens: 0,
         }
+    }
+
+    #[test]
+    fn aggregate_session_isolation_metrics() {
+        let results = vec![
+            make_result("q1", TaskType::Isolation, false, false, 10, true),  // success
+            make_result("q2", TaskType::Isolation, false, false, 10, false), // failure (leak)
+        ];
+        let summary = aggregate(&results, 100, 1024, 512);
+        assert_eq!(summary.session_isolation, 0.5);
     }
 
     #[test]
