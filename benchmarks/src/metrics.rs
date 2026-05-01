@@ -165,6 +165,7 @@ mod tests {
     ) -> CaseResult {
         CaseResult {
             query_id: query_id.into(),
+            session_id: "test-session".into(),
             task_type,
             retrieved: vec![RetrievedItem {
                 memory_id: "test".into(),
