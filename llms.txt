@@ -360,6 +360,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub enum MemoryEvent
 - impl ChaoticSemanticFramework
 
+### src/framework_graph_rag.rs
+
+- impl ChaoticSemanticFramework
+
 ### src/framework_metrics.rs
 
 - pub struct FrameworkMetrics
