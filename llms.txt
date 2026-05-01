@@ -15,9 +15,11 @@
 - clap (4.5.60) [features: derive, env, string]
 - clap_complete (4.5.42)
 - colored (2.2.0)
+- fastembed (4)
 - glob (0.3.2)
 - rand (0.10.1)
 - rand_chacha (0.10.0)
+- reqwest (0.12) [features: json, rustls-tls]
 - rmcp (0.2)
 - serde (1.0.219) [features: derive]
 - serde_json (1.0.149)
@@ -27,6 +29,9 @@
 **Features:**
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - default: [cli, persistence, parallel]
+- embed-fastembed: [dep:fastembed]
+- embed-openai: [dep:reqwest]
+- embed-voyage: [dep:reqwest]
 - mcp: [dep:rmcp, cli]
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
@@ -269,6 +274,12 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct ConceptBuilder
 - impl ConceptBuilder
 
+### src/embedding/fastembed.rs
+
+- pub struct FastEmbedProvider
+- impl FastEmbedProvider
+- impl EmbeddingProvider for FastEmbedProvider
+
 ### src/embedding/hdc_text.rs
 
 - pub struct HdcTextProvider
@@ -280,6 +291,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub use hdc_text::HdcTextProvider
 - pub use projection::{Projection, ProjectionConfig}
+- pub use fastembed::FastEmbedProvider
+- pub use remote_openai::OpenAiProvider
+- pub use remote_voyage::VoyageProvider
 - pub trait EmbeddingProvider
 
 ### src/embedding/projection.rs
@@ -288,6 +302,18 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Default for ProjectionConfig
 - pub struct Projection
 - impl Projection
+
+### src/embedding/remote_openai.rs
+
+- pub struct OpenAiProvider
+- impl OpenAiProvider
+- impl EmbeddingProvider for OpenAiProvider
+
+### src/embedding/remote_voyage.rs
+
+- pub struct VoyageProvider
+- impl VoyageProvider
+- impl EmbeddingProvider for VoyageProvider
 
 ### src/encoder.rs
 
@@ -1197,6 +1223,12 @@ rand_chacha = "0.10.0"
 # Async trait support
 async-trait = "0.1.83"
 
+# HTTP client for remote embedding providers (opt-in)
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], optional = true }
+
+# Local ONNX embeddings (opt-in via embed-fastembed feature)
+fastembed = { version = "4", optional = true }
+
 # CLI dependencies (gated behind "cli" feature)
 clap = { version = "4.5.60", features = ["derive", "env", "string"], optional = true }
 clap_complete = { version = "4.5.42", optional = true }
@@ -1349,6 +1381,11 @@ persistence = ["dep:libsql"]
 parallel = ["dep:rayon"]
 wasm = []
 mcp = ["dep:rmcp", "cli"]  # ADR-0067: MCP server requires CLI infrastructure
+
+# Embedding providers (ADR-0069)
+embed-fastembed = ["dep:fastembed"]
+embed-openai = ["dep:reqwest"]
+embed-voyage = ["dep:reqwest"]
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]

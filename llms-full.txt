@@ -15,9 +15,11 @@
 - clap (4.5.60) [features: derive, env, string]
 - clap_complete (4.5.42)
 - colored (2.2.0)
+- fastembed (4)
 - glob (0.3.2)
 - rand (0.10.1)
 - rand_chacha (0.10.0)
+- reqwest (0.12) [features: json, rustls-tls]
 - rmcp (0.2)
 - serde (1.0.219) [features: derive]
 - serde_json (1.0.149)
@@ -27,6 +29,9 @@
 **Features:**
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - default: [cli, persistence, parallel]
+- embed-fastembed: [dep:fastembed]
+- embed-openai: [dep:reqwest]
+- embed-voyage: [dep:reqwest]
 - mcp: [dep:rmcp, cli]
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
@@ -269,6 +274,12 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct ConceptBuilder
 - impl ConceptBuilder
 
+### src/embedding/fastembed.rs
+
+- pub struct FastEmbedProvider
+- impl FastEmbedProvider
+- impl EmbeddingProvider for FastEmbedProvider
+
 ### src/embedding/hdc_text.rs
 
 - pub struct HdcTextProvider
@@ -280,6 +291,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub use hdc_text::HdcTextProvider
 - pub use projection::{Projection, ProjectionConfig}
+- pub use fastembed::FastEmbedProvider
+- pub use remote_openai::OpenAiProvider
+- pub use remote_voyage::VoyageProvider
 - pub trait EmbeddingProvider
 
 ### src/embedding/projection.rs
@@ -288,6 +302,18 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Default for ProjectionConfig
 - pub struct Projection
 - impl Projection
+
+### src/embedding/remote_openai.rs
+
+- pub struct OpenAiProvider
+- impl OpenAiProvider
+- impl EmbeddingProvider for OpenAiProvider
+
+### src/embedding/remote_voyage.rs
+
+- pub struct VoyageProvider
+- impl VoyageProvider
+- impl EmbeddingProvider for VoyageProvider
 
 ### src/encoder.rs
 
@@ -2239,6 +2265,39 @@ impl ConceptBuilder {
 }
 ```
 
+## src/embedding/fastembed.rs
+
+### FastEmbedProvider
+
+```rust
+pub struct FastEmbedProvider {
+}
+```
+
+FastEmbed local embedding provider.
+
+Uses ONNX runtime with downloaded models. No API key required.
+Models are cached locally after first download.
+
+Note: Does not implement Debug because fastembed::TextEmbedding doesn't.
+
+### impl EmbeddingProvider for FastEmbedProvider
+
+```rust
+impl EmbeddingProvider for FastEmbedProvider {
+}
+```
+
+### impl FastEmbedProvider
+
+```rust
+impl FastEmbedProvider {
+    pub fn new() -> Result<Self>;
+    pub fn with_model(model_name: &str) -> Result<Self>;
+    pub fn model_name(&self) -> &str;
+}
+```
+
 ## src/embedding/hdc_text.rs
 
 ### HdcTextProvider
@@ -2300,6 +2359,12 @@ Implementations may be:
 
 All providers project their native dimensionality to HVec10240.
 
+### fastembed::FastEmbedProvider
+
+```rust
+pub use fastembed::FastEmbedProvider;
+```
+
 ### hdc_text::HdcTextProvider
 
 ```rust
@@ -2310,6 +2375,18 @@ pub use hdc_text::HdcTextProvider;
 
 ```rust
 pub use projection::{Projection, ProjectionConfig};
+```
+
+### remote_openai::OpenAiProvider
+
+```rust
+pub use remote_openai::OpenAiProvider;
+```
+
+### remote_voyage::VoyageProvider
+
+```rust
+pub use remote_voyage::VoyageProvider;
 ```
 
 ## src/embedding/projection.rs
@@ -2356,6 +2433,71 @@ impl Projection {
     pub fn project(&self, vec: &[f32]) -> HVec10240;
     pub fn nnz(&self) -> usize;
     pub fn sparsity_ratio(&self) -> f32;
+}
+```
+
+## src/embedding/remote_openai.rs
+
+### OpenAiProvider
+
+```rust
+#[derive(Debug)]
+pub struct OpenAiProvider {
+}
+```
+
+OpenAI embedding provider via HTTP API.
+
+Default model: text-embedding-3-small (1536 dimensions).
+API key must be set via environment or constructor.
+
+### impl EmbeddingProvider for OpenAiProvider
+
+```rust
+impl EmbeddingProvider for OpenAiProvider {
+}
+```
+
+### impl OpenAiProvider
+
+```rust
+impl OpenAiProvider {
+    pub fn from_env() -> Result<Self>;
+    pub fn new(api_key: String) -> Result<Self>;
+    pub fn with_model(self, model: impl Trait) -> Self;
+    pub fn with_base_url(self, url: impl Trait) -> Self;
+}
+```
+
+## src/embedding/remote_voyage.rs
+
+### VoyageProvider
+
+```rust
+#[derive(Debug)]
+pub struct VoyageProvider {
+}
+```
+
+Voyage embedding provider via HTTP API.
+
+Default model: voyage-2 (1024 dimensions).
+API key must be set via environment or constructor.
+
+### impl EmbeddingProvider for VoyageProvider
+
+```rust
+impl EmbeddingProvider for VoyageProvider {
+}
+```
+
+### impl VoyageProvider
+
+```rust
+impl VoyageProvider {
+    pub fn from_env() -> Result<Self>;
+    pub fn new(api_key: String) -> Result<Self>;
+    pub fn with_model(self, model: impl Trait) -> Self;
 }
 ```
 
@@ -2433,6 +2575,8 @@ pub enum MemoryError {
     UnsupportedOperation(String),
     Reservoir { message: String, source: Option<Box<dyn Trait>> },
     Persistence(String),
+    External(String),
+    Config(String),
     Io(std::io::Error),
     Serialization(serde_json::Error),
 }

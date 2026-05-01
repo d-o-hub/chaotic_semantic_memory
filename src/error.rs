@@ -33,6 +33,12 @@ pub enum MemoryError {
     #[error("Persistence error: {0}")]
     Persistence(String),
 
+    #[error("External service error: {0}")]
+    External(String),
+
+    #[error("Configuration error: {0}")]
+    Config(String),
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 

@@ -41,6 +41,12 @@ rand_chacha = "0.10.0"
 # Async trait support
 async-trait = "0.1.83"
 
+# HTTP client for remote embedding providers (opt-in)
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], optional = true }
+
+# Local ONNX embeddings (opt-in via embed-fastembed feature)
+fastembed = { version = "4", optional = true }
+
 # CLI dependencies (gated behind "cli" feature)
 clap = { version = "4.5.60", features = ["derive", "env", "string"], optional = true }
 clap_complete = { version = "4.5.42", optional = true }
@@ -193,6 +199,11 @@ persistence = ["dep:libsql"]
 parallel = ["dep:rayon"]
 wasm = []
 mcp = ["dep:rmcp", "cli"]  # ADR-0067: MCP server requires CLI infrastructure
+
+# Embedding providers (ADR-0069)
+embed-fastembed = ["dep:fastembed"]
+embed-openai = ["dep:reqwest"]
+embed-voyage = ["dep:reqwest"]
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]

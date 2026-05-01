@@ -2,9 +2,9 @@
 //!
 //! Provides an `EmbeddingProvider` trait with multiple backends:
 //! - HDC text encoder (default, semantically blind but fast)
-//! - FastEmbed (local ONNX models, opt-in)
-//! - OpenAI HTTP API (opt-in)
-//! - Voyage HTTP API (opt-in)
+//! - FastEmbed (local ONNX models, opt-in via `embed-fastembed` feature)
+//! - OpenAI HTTP API (opt-in via `embed-openai` feature)
+//! - Voyage HTTP API (opt-in via `embed-voyage` feature)
 //!
 //! All backends project native embeddings to HVec10240 via sparse random projection
 //! (Achlioptas method), preserving cosine similarity with Johnson-Lindenstrauss guarantees.
@@ -12,8 +12,22 @@
 mod hdc_text;
 mod projection;
 
+#[cfg(feature = "embed-fastembed")]
+mod fastembed;
+#[cfg(feature = "embed-openai")]
+mod remote_openai;
+#[cfg(feature = "embed-voyage")]
+mod remote_voyage;
+
 pub use hdc_text::HdcTextProvider;
 pub use projection::{Projection, ProjectionConfig};
+
+#[cfg(feature = "embed-fastembed")]
+pub use fastembed::FastEmbedProvider;
+#[cfg(feature = "embed-openai")]
+pub use remote_openai::OpenAiProvider;
+#[cfg(feature = "embed-voyage")]
+pub use remote_voyage::VoyageProvider;
 
 use crate::error::Result;
 use crate::hyperdim::HVec10240;
