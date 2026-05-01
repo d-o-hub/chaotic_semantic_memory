@@ -131,6 +131,38 @@ else
   echo "      Install with: npm install -g markdownlint-cli || gem install mdl"
 fi
 
+# ADR Registry consistency check (ADR-0076)
+echo "==> ADR Registry consistency check"
+ADR_REGISTRY="plans/ADR_REGISTRY.md"
+ADR_DIR="plans/adr"
+if [[ -f "${ADR_REGISTRY}" ]]; then
+  # Extract ADR numbers from registry table
+  REGISTRY_ADRS=$(grep -oE '\| [0-9]{4} \|' "${ADR_REGISTRY}" | sed 's/|//g' | tr -d ' ' | sort -u | grep -E '^[0-9]{4}$')
+  # Check for missing files
+  MISSING_COUNT=0
+  for adr_num in $REGISTRY_ADRS; do
+    # Skip superseded ADR-0003
+    if [[ "$adr_num" == "0003" ]]; then
+      continue
+    fi
+    # Find matching file (allow any suffix after number)
+    ADR_FILE=$(find "${ADR_DIR}" -name "${adr_num}-*.md" -type f 2>/dev/null | head -1)
+    if [[ -z "${ADR_FILE}" ]]; then
+      echo "Missing ADR file: ${adr_num}"
+      MISSING_COUNT=$((MISSING_COUNT + 1))
+    fi
+  done
+  if [[ $MISSING_COUNT -gt 0 ]]; then
+    echo "Error: ${MISSING_COUNT} ADR files missing from ${ADR_DIR}"
+    exit 1
+  fi
+  # Count ADR files and report
+  ADR_FILE_COUNT=$(find "${ADR_DIR}" -name '*.md' -type f | wc -l)
+  echo "ok: ${ADR_FILE_COUNT} ADR files in ${ADR_DIR}"
+else
+  echo "skip: ${ADR_REGISTRY} not found"
+fi
+
 # GitHub Actions SHA validation (optional - only if requested)
 # Note: Disabled by default as existing workflows use version tags
 # To enable: export CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true

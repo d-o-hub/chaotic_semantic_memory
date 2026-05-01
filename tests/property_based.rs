@@ -1,3 +1,9 @@
+//! Property-based tests for hypervector and singularity operations.
+//!
+//! Float comparisons allowed: proptest assertions for exact association strengths.
+
+#![allow(clippy::float_cmp)]
+
 use std::collections::HashMap;
 
 use chaotic_semantic_memory::hyperdim::HVec10240;

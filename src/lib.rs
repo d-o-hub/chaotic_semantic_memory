@@ -50,6 +50,7 @@ pub mod bundle;
 #[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]
 pub mod cli;
 pub mod concept_builder;
+pub mod embedding;
 pub mod encoder;
 pub mod error;
 mod export_payload;
@@ -57,6 +58,8 @@ pub mod framework;
 mod framework_bridge;
 pub mod framework_builder;
 mod framework_events;
+mod framework_graph_rag;
+mod framework_metrics;
 #[cfg(not(target_arch = "wasm32"))]
 mod framework_ops;
 mod framework_ttl;
@@ -65,6 +68,8 @@ pub mod graph_traversal;
 pub mod hyperdim;
 mod hyperdim_batch;
 mod hyperdim_simd; // AVX2/NEON SIMD paths
+#[cfg(all(not(target_arch = "wasm32"), feature = "mcp"))]
+pub mod mcp;
 pub mod metadata_filter;
 pub mod semantic_triples;
 pub use metadata_filter::MetadataFilter;

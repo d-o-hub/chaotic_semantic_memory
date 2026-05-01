@@ -1,5 +1,8 @@
 //! Singularity extension methods for API completeness.
 
+// Casts are intentional for similarity math
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+
 use std::collections::HashMap;
 use std::sync::Arc;
 

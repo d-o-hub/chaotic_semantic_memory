@@ -1,5 +1,8 @@
 //! Episode-free concept injection
 
+// Casts are intentional for similarity math
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
 use serde::{Deserialize, Serialize};
@@ -480,11 +483,8 @@ mod tests {
     }
     #[test]
     fn similar_empty() {
-        assert!(
-            Singularity::new()
-                .find_similar(&HVec10240::random(), 5)
-                .is_empty()
-        );
+        let empty = Singularity::new();
+        assert!(empty.find_similar(&HVec10240::random(), 5).is_empty());
         let mut s = Singularity::new();
         s.inject(c("x")).unwrap();
         assert!(s.find_similar(&HVec10240::random(), 0).is_empty());

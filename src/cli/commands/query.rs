@@ -3,6 +3,9 @@
 //! Encodes input text and searches for similar concepts.
 //! Supports hybrid retrieval combining BM25 keyword matching and HDC semantic search.
 
+// Casts are intentional for CLI output formatting
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+
 use crate::cli::args::{OutputFormat, QueryArgs};
 use crate::cli::commands::{create_framework, print_success, print_warning, truncate_preview};
 use crate::cli::error::{CliError, Result};
@@ -254,11 +257,15 @@ fn split_on_separators(word: &str) -> Vec<String> {
 async fn build_bm25_index(
     framework: &crate::framework::ChaoticSemanticFramework,
 ) -> Result<Bm25Index> {
-    let singularity = framework.singularity();
-    let sing = singularity.read().await;
-    let mut index = Bm25Index::new();
+    // Collect concepts with lock, build index without lock
+    let concepts = {
+        let singularity = framework.singularity();
+        let sing = singularity.read().await;
+        sing.all_concepts()
+    };
 
-    for concept in sing.all_concepts() {
+    let mut index = Bm25Index::new();
+    for concept in concepts {
         // Extract tokens from text_preview or content_preview
         let text = concept
             .metadata

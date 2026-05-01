@@ -1,3 +1,6 @@
+//! Tests for batch operations API.
+#![allow(clippy::cast_possible_truncation)] // Test index-to-char conversion for workflow names
+
 use chaotic_semantic_memory::MemoryError;
 use chaotic_semantic_memory::prelude::*;
 use std::sync::Arc;

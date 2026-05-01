@@ -1,5 +1,8 @@
 //! Temporal sequence processing with the chaotic reservoir
 
+// Casts are intentional for demonstration math
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+
 use chaotic_semantic_memory::prelude::*;
 
 #[tokio::main]

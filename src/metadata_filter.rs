@@ -44,12 +44,12 @@ impl MetadataFilter {
     }
 
     /// Combine filters with AND.
-    pub fn and(filters: Vec<MetadataFilter>) -> Self {
+    pub const fn and(filters: Vec<MetadataFilter>) -> Self {
         Self::And(filters)
     }
 
     /// Combine filters with OR.
-    pub fn or(filters: Vec<MetadataFilter>) -> Self {
+    pub const fn or(filters: Vec<MetadataFilter>) -> Self {
         Self::Or(filters)
     }
 

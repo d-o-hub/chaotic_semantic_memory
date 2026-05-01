@@ -9,14 +9,18 @@
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
 - anyhow (1.0.102)
+- async-trait (0.1.83)
 - base64 (0.22)
 - bincode (1.3.3)
 - clap (4.5.60) [features: derive, env, string]
 - clap_complete (4.5.42)
 - colored (2.2.0)
+- fastembed (4)
 - glob (0.3.2)
 - rand (0.10.1)
 - rand_chacha (0.10.0)
+- reqwest (0.12) [features: json, rustls-tls]
+- rmcp (0.2)
 - serde (1.0.219) [features: derive]
 - serde_json (1.0.149)
 - thiserror (2.0.11)
@@ -25,6 +29,10 @@
 **Features:**
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - default: [cli, persistence, parallel]
+- embed-fastembed: [dep:fastembed]
+- embed-openai: [dep:reqwest]
+- embed-voyage: [dep:reqwest]
+- mcp: [dep:rmcp, cli]
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
 - wasm: []
@@ -36,7 +44,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/bin/csm.rs
 
-- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+- pub use native::chaotic_semantic_memory::cli::commands::watch::EventFilter
+- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
 - pub use native::clap::Parser
 - pub use native::colored::Colorize
 - pub use native::tracing::Level
@@ -80,19 +89,47 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct CompletionsArgs
 - pub struct IndexJsonlArgs
 - pub struct IndexDirArgs
+- pub struct DeleteArgs
+- pub struct GetArgs
+- pub struct UpdateArgs
+- pub struct DisassociateArgs
+- pub struct AssociationsArgs
+- pub struct TraverseArgs
+- pub struct PathArgs
+- pub struct ProbeFilteredArgs
+- pub struct StatsArgs
+- pub struct MetricsArgs
+- pub struct WatchArgs
+- pub struct ProbeGraphArgs
 
 ### src/cli/commands/associate.rs
 
 - pub fn run_associate
 - pub fn run_associate_batch
 
+### src/cli/commands/associations.rs
+
+- pub fn run_associations
+
 ### src/cli/commands/completions.rs
 
 - pub fn run_completions
 
+### src/cli/commands/delete.rs
+
+- pub fn run_delete
+
+### src/cli/commands/disassociate.rs
+
+- pub fn run_disassociate
+
 ### src/cli/commands/export.rs
 
 - pub fn run_export
+
+### src/cli/commands/get.rs
+
+- pub fn run_get
 
 ### src/cli/commands/import.rs
 
@@ -112,40 +149,98 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub fn run_inject
 
+### src/cli/commands/metrics.rs
+
+- pub fn run_metrics
+
 ### src/cli/commands/mod.rs
 
 - pub mod associate
+- pub mod associations
 - pub mod completions
+- pub mod delete
+- pub mod disassociate
 - pub mod export
+- pub mod get
 - pub mod import
 - pub mod index_dir
 - pub mod index_jsonl
 - pub mod inject
+- pub mod metrics
+- pub mod path
 - pub mod probe
+- pub mod probe_filtered
+- pub mod probe_graph
 - pub mod query
+- pub mod stats
+- pub mod traverse
+- pub mod update
+- pub mod watch
 - pub use associate::run_associate
+- pub use associations::run_associations
 - pub use completions::run_completions
+- pub use delete::run_delete
+- pub use disassociate::run_disassociate
 - pub use export::run_export
+- pub use get::run_get
 - pub use import::run_import
 - pub use index_dir::run_index_dir
 - pub use index_jsonl::run_index_jsonl
 - pub use inject::run_inject
+- pub use metrics::run_metrics
+- pub use path::run_path
 - pub use probe::run_probe
+- pub use probe_filtered::run_probe_filtered
+- pub use probe_graph::run_probe_graph
 - pub use query::run_query
+- pub use stats::run_stats
+- pub use traverse::run_traverse
+- pub use update::run_update
+- pub use watch::run_watch
 - pub fn print_success
 - pub fn print_error
 - pub fn print_warning
 - pub fn truncate_preview
 - pub fn create_framework
 
+### src/cli/commands/path.rs
+
+- pub fn run_path
+
 ### src/cli/commands/probe.rs
 
 - pub fn run_probe
 - pub fn run_probe_with_vector
 
+### src/cli/commands/probe_filtered.rs
+
+- pub fn run_probe_filtered
+
+### src/cli/commands/probe_graph.rs
+
+- pub fn run_probe_graph
+
 ### src/cli/commands/query.rs
 
 - pub fn run_query
+
+### src/cli/commands/stats.rs
+
+- pub fn run_stats
+
+### src/cli/commands/traverse.rs
+
+- pub fn run_traverse
+
+### src/cli/commands/update.rs
+
+- pub fn run_update
+
+### src/cli/commands/watch.rs
+
+- pub enum EventFilter
+- impl EventFilter
+- pub fn run_watch
 
 ### src/cli/error.rs
 
@@ -170,7 +265,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod error
 - pub mod git_local
 - pub use args::*
-- pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+- pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
 
@@ -178,6 +273,47 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub struct ConceptBuilder
 - impl ConceptBuilder
+
+### src/embedding/fastembed.rs
+
+- pub struct FastEmbedProvider
+- impl FastEmbedProvider
+- impl EmbeddingProvider for FastEmbedProvider
+
+### src/embedding/hdc_text.rs
+
+- pub struct HdcTextProvider
+- impl Default for HdcTextProvider
+- impl HdcTextProvider
+- impl EmbeddingProvider for HdcTextProvider
+
+### src/embedding/mod.rs
+
+- pub use hdc_text::HdcTextProvider
+- pub use projection::{Projection, ProjectionConfig}
+- pub use fastembed::FastEmbedProvider
+- pub use remote_openai::OpenAiProvider
+- pub use remote_voyage::VoyageProvider
+- pub trait EmbeddingProvider
+
+### src/embedding/projection.rs
+
+- pub struct ProjectionConfig
+- impl Default for ProjectionConfig
+- pub struct Projection
+- impl Projection
+
+### src/embedding/remote_openai.rs
+
+- pub struct OpenAiProvider
+- impl OpenAiProvider
+- impl EmbeddingProvider for OpenAiProvider
+
+### src/embedding/remote_voyage.rs
+
+- pub struct VoyageProvider
+- impl VoyageProvider
+- impl EmbeddingProvider for VoyageProvider
 
 ### src/encoder.rs
 
@@ -205,9 +341,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/framework.rs
 
 - pub struct ChaoticSemanticFramework
-- pub struct FrameworkMetrics
-- pub struct FrameworkMetricsSnapshot
-- impl FrameworkMetrics
 - impl ChaoticSemanticFramework
 
 ### src/framework_bridge.rs
@@ -226,6 +359,16 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub enum MemoryEvent
 - impl ChaoticSemanticFramework
+
+### src/framework_graph_rag.rs
+
+- impl ChaoticSemanticFramework
+
+### src/framework_metrics.rs
+
+- pub struct FrameworkMetrics
+- pub struct FrameworkMetricsSnapshot
+- impl FrameworkMetrics
 
 ### src/framework_ops.rs
 
@@ -275,12 +418,14 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod bundle
 - pub mod cli
 - pub mod concept_builder
+- pub mod embedding
 - pub mod encoder
 - pub mod error
 - pub mod framework
 - pub mod framework_builder
 - pub mod graph_traversal
 - pub mod hyperdim
+- pub mod mcp
 - pub mod metadata_filter
 - pub mod semantic_triples
 - pub use metadata_filter::MetadataFilter
@@ -307,6 +452,46 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use prelude::crate::singularity::{Concept, ConceptBuilder}
 - pub use prelude::crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod wasm
+
+### src/mcp/mod.rs
+
+- pub use resources::McpResources
+- pub use server::serve
+- pub use tools::McpTools
+
+### src/mcp/resources.rs
+
+- pub struct McpResources
+- impl McpResources
+- pub struct ResourceDefinition
+
+### src/mcp/schema.rs
+
+- pub fn inject_schema
+- pub fn inject_text_schema
+- pub fn probe_schema
+- pub fn probe_text_schema
+- pub fn probe_filtered_schema
+- pub fn get_schema
+- pub fn delete_schema
+- pub fn associate_schema
+- pub fn traverse_schema
+- pub fn shortest_path_schema
+- pub fn stats_schema
+- pub fn export_schema
+
+### src/mcp/server.rs
+
+- pub enum Transport
+- pub struct McpConfig
+- impl Default for McpConfig
+- pub fn serve
+
+### src/mcp/tools.rs
+
+- pub struct McpTools
+- impl McpTools
+- pub struct ToolDefinition
 
 ### src/metadata_filter.rs
 
@@ -362,6 +547,13 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct Bm25Index
 - impl Bm25Index
 
+### src/retrieval/graph_rag.rs
+
+- pub struct GraphRagConfig
+- impl Default for GraphRagConfig
+- pub struct GraphRagResult
+- pub fn graph_rag_retrieve
+
 ### src/retrieval/hybrid.rs
 
 - pub fn compute_weights
@@ -374,8 +566,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/retrieval/mod.rs
 
 - pub mod bm25
+- pub mod graph_rag
 - pub mod hybrid
 - pub use bm25::{Bm25Config, Bm25Index}
+- pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve}
 - pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
 
 ### src/semantic_bridge.rs
@@ -979,10 +1173,16 @@ The `csm` binary provides command-line access:
 ```bash
 ## src/bin/csm.rs
 
-### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+### chaotic_semantic_memory::cli::commands::watch::EventFilter
 
 ```rust
-pub use chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query};
+pub use chaotic_semantic_memory::cli::commands::watch::EventFilter;
+```
+
+### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
+
+```rust
+pub use chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch};
 ```
 
 ### clap::Parser
@@ -1138,6 +1338,18 @@ pub struct AssociateArgs {
 }
 ```
 
+### AssociationsArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct AssociationsArgs {
+    pub concept_id: String,
+    pub reverse: bool,
+}
+```
+
+Arguments for listing associations of a concept.
+
 ### CliArgs
 
 ```rust
@@ -1167,6 +1379,18 @@ pub enum Commands {
     Completions(CompletionsArgs),
     IndexJsonl(IndexJsonlArgs),
     IndexDir(IndexDirArgs),
+    Delete(DeleteArgs),
+    Get(GetArgs),
+    Update(UpdateArgs),
+    Disassociate(DisassociateArgs),
+    Associations(AssociationsArgs),
+    Traverse(TraverseArgs),
+    Path(PathArgs),
+    ProbeFiltered(ProbeFilteredArgs),
+    Stats(StatsArgs),
+    Metrics(MetricsArgs),
+    Watch(WatchArgs),
+    ProbeGraph(ProbeGraphArgs),
 }
 ```
 
@@ -1179,6 +1403,30 @@ pub struct CompletionsArgs {
     pub output: Option<PathBuf>,
 }
 ```
+
+### DeleteArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct DeleteArgs {
+    pub concept_id: String,
+    pub force: bool,
+}
+```
+
+Arguments for the delete command.
+
+### DisassociateArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct DisassociateArgs {
+    pub from: String,
+    pub to: Option<String>,
+}
+```
+
+Arguments for the disassociate command.
 
 ### ExportArgs
 
@@ -1199,6 +1447,17 @@ pub enum ExportFormat {
     Binary,
 }
 ```
+
+### GetArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct GetArgs {
+    pub concept_id: String,
+}
+```
+
+Arguments for the get command.
 
 ### ImportArgs
 
@@ -1262,6 +1521,17 @@ pub struct InjectArgs {
 }
 ```
 
+### MetricsArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct MetricsArgs {
+    pub reset: bool,
+}
+```
+
+Arguments for metrics command.
+
 ### OutputFormat
 
 ```rust
@@ -1273,6 +1543,19 @@ pub enum OutputFormat {
 }
 ```
 
+### PathArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct PathArgs {
+    pub from: String,
+    pub to: String,
+    pub weighted: bool,
+}
+```
+
+Arguments for finding shortest path between two concepts.
+
 ### ProbeArgs
 
 ```rust
@@ -1283,6 +1566,36 @@ pub struct ProbeArgs {
     pub threshold: Option<f64>,
 }
 ```
+
+### ProbeFilteredArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct ProbeFilteredArgs {
+    pub concept_id: String,
+    pub top_k: usize,
+    pub filter: String,
+}
+```
+
+Arguments for filtered similarity probe.
+
+### ProbeGraphArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct ProbeGraphArgs {
+    pub text: String,
+    pub anchors: usize,
+    pub hops: usize,
+    pub min_strength: f32,
+    pub similarity_weight: f32,
+    pub graph_weight: f32,
+    pub top_k: usize,
+}
+```
+
+Arguments for GraphRAG retrieval.
 
 ### QueryArgs
 
@@ -1301,6 +1614,43 @@ pub struct QueryArgs {
 ```
 
 Arguments for text-based similarity query.
+
+### StatsArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct StatsArgs;
+```
+
+Arguments for stats command.
+
+### TraverseArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct TraverseArgs {
+    pub start: String,
+    pub depth: usize,
+    pub min_strength: f64,
+}
+```
+
+Arguments for BFS traversal from a starting concept.
+
+### UpdateArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct UpdateArgs {
+    pub concept_id: String,
+    pub vector_from_text: Option<String>,
+    pub code_aware: bool,
+    pub metadata: Option<String>,
+    pub replace_metadata: bool,
+}
+```
+
+Arguments for the update command.
 
 ### VectorSource
 
@@ -1322,6 +1672,17 @@ pub struct VersionArgs {
 }
 ```
 
+### WatchArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct WatchArgs {
+    pub filter: String,
+}
+```
+
+Arguments for watch command.
+
 ## src/cli/commands/associate.rs
 
 ### run_associate
@@ -1336,6 +1697,14 @@ pub fn run_associate(args: AssociateArgs, db_path: Option<&Path>, format: Output
 pub fn run_associate_batch(associations: Vec<(String, String, f64)>, db_path: Option<&Path>, format: OutputFormat, continue_on_error: bool) -> Result<()>
 ```
 
+## src/cli/commands/associations.rs
+
+### run_associations
+
+```rust
+pub fn run_associations(args: AssociationsArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
 ## src/cli/commands/completions.rs
 
 ### run_completions
@@ -1344,12 +1713,36 @@ pub fn run_associate_batch(associations: Vec<(String, String, f64)>, db_path: Op
 pub fn run_completions(args: CompletionsArgs) -> Result<()>
 ```
 
+## src/cli/commands/delete.rs
+
+### run_delete
+
+```rust
+pub fn run_delete(args: DeleteArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/disassociate.rs
+
+### run_disassociate
+
+```rust
+pub fn run_disassociate(args: DisassociateArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
 ## src/cli/commands/export.rs
 
 ### run_export
 
 ```rust
 pub fn run_export(args: ExportArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/get.rs
+
+### run_get
+
+```rust
+pub fn run_get(args: GetArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
 ## src/cli/commands/import.rs
@@ -1408,12 +1801,28 @@ pub fn run_index_jsonl(args: IndexJsonlArgs, db_path: Option<&Path>, format: Out
 pub fn run_inject(args: InjectArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
+## src/cli/commands/metrics.rs
+
+### run_metrics
+
+```rust
+pub fn run_metrics(db_path: Option<&Path>, format: OutputFormat, reset: bool) -> Result<()>
+```
+
+Run the metrics command.
+
 ## src/cli/commands/mod.rs
 
 ### associate::run_associate
 
 ```rust
 pub use associate::run_associate;
+```
+
+### associations::run_associations
+
+```rust
+pub use associations::run_associations;
 ```
 
 ### completions::run_completions
@@ -1428,10 +1837,28 @@ pub use completions::run_completions;
 pub fn create_framework(db_path: Option<&std::path::Path>) -> Result<ChaoticSemanticFramework>
 ```
 
+### delete::run_delete
+
+```rust
+pub use delete::run_delete;
+```
+
+### disassociate::run_disassociate
+
+```rust
+pub use disassociate::run_disassociate;
+```
+
 ### export::run_export
 
 ```rust
 pub use export::run_export;
+```
+
+### get::run_get
+
+```rust
+pub use get::run_get;
 ```
 
 ### import::run_import
@@ -1458,6 +1885,18 @@ pub use index_jsonl::run_index_jsonl;
 pub use inject::run_inject;
 ```
 
+### metrics::run_metrics
+
+```rust
+pub use metrics::run_metrics;
+```
+
+### path::run_path
+
+```rust
+pub use path::run_path;
+```
+
 ### print_error
 
 ```rust
@@ -1482,10 +1921,34 @@ pub fn print_warning(msg: &str, format: OutputFormat)
 pub use probe::run_probe;
 ```
 
+### probe_filtered::run_probe_filtered
+
+```rust
+pub use probe_filtered::run_probe_filtered;
+```
+
+### probe_graph::run_probe_graph
+
+```rust
+pub use probe_graph::run_probe_graph;
+```
+
 ### query::run_query
 
 ```rust
 pub use query::run_query;
+```
+
+### stats::run_stats
+
+```rust
+pub use stats::run_stats;
+```
+
+### traverse::run_traverse
+
+```rust
+pub use traverse::run_traverse;
 ```
 
 ### truncate_preview
@@ -1497,6 +1960,26 @@ pub fn truncate_preview(s: &str, max_chars: usize) -> String
 Truncate a string to `max_chars` characters, appending "..." if truncated.
 
 Uses `char_indices` to avoid panicking on multi-byte UTF-8 boundaries.
+
+### update::run_update
+
+```rust
+pub use update::run_update;
+```
+
+### watch::run_watch
+
+```rust
+pub use watch::run_watch;
+```
+
+## src/cli/commands/path.rs
+
+### run_path
+
+```rust
+pub fn run_path(args: PathArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
 
 ## src/cli/commands/probe.rs
 
@@ -1512,6 +1995,22 @@ pub fn run_probe(args: ProbeArgs, db_path: Option<&Path>, format: OutputFormat) 
 pub fn run_probe_with_vector(query_vector: HVec10240, top_k: usize, threshold: Option<f64>, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
+## src/cli/commands/probe_filtered.rs
+
+### run_probe_filtered
+
+```rust
+pub fn run_probe_filtered(args: ProbeFilteredArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/probe_graph.rs
+
+### run_probe_graph
+
+```rust
+pub fn run_probe_graph(args: ProbeGraphArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
 ## src/cli/commands/query.rs
 
 ### run_query
@@ -1519,6 +2018,67 @@ pub fn run_probe_with_vector(query_vector: HVec10240, top_k: usize, threshold: O
 ```rust
 pub fn run_query(args: QueryArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
+
+## src/cli/commands/stats.rs
+
+### run_stats
+
+```rust
+pub fn run_stats(db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+Run the stats command.
+
+## src/cli/commands/traverse.rs
+
+### run_traverse
+
+```rust
+pub fn run_traverse(args: TraverseArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/update.rs
+
+### run_update
+
+```rust
+pub fn run_update(args: UpdateArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/watch.rs
+
+### EventFilter
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EventFilter {
+    All,
+    ConceptInjected,
+    ConceptUpdated,
+    ConceptDeleted,
+    Associated,
+    Disassociated,
+}
+```
+
+Filter for event types.
+
+### impl EventFilter
+
+```rust
+impl EventFilter {
+    pub fn matches(&self, event: &MemoryEvent) -> bool;
+    pub fn parse(s: &str) -> Option<Self>;
+}
+```
+
+### run_watch
+
+```rust
+pub fn run_watch(db_path: Option<&Path>, filter: EventFilter) -> Result<()>
+```
+
+Run the watch command.
 
 ## src/cli/error.rs
 
@@ -1649,10 +2209,10 @@ assert!(path.is_some() || path.is_none()); // Always passes, documents behavior
 pub use args::*;
 ```
 
-### commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+### commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
 
 ```rust
-pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query};
+pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch};
 ```
 
 ### error::{CliError, ExitCode, Result}
@@ -1702,6 +2262,242 @@ impl ConceptBuilder {
     pub fn with_vector(self, vector: HVec10240) -> Self;
     pub fn with_metadata(self, key: impl Trait, value: impl Trait) -> Self;
     pub fn build(self) -> Result<Concept>;
+}
+```
+
+## src/embedding/fastembed.rs
+
+### FastEmbedProvider
+
+```rust
+pub struct FastEmbedProvider {
+}
+```
+
+FastEmbed local embedding provider.
+
+Uses ONNX runtime with downloaded models. No API key required.
+Models are cached locally after first download.
+
+Note: Does not implement Debug because fastembed::TextEmbedding doesn't.
+
+### impl EmbeddingProvider for FastEmbedProvider
+
+```rust
+impl EmbeddingProvider for FastEmbedProvider {
+}
+```
+
+### impl FastEmbedProvider
+
+```rust
+impl FastEmbedProvider {
+    pub fn new() -> Result<Self>;
+    pub fn with_model(model_name: &str) -> Result<Self>;
+    pub fn model_name(&self) -> &str;
+}
+```
+
+## src/embedding/hdc_text.rs
+
+### HdcTextProvider
+
+```rust
+#[derive(Debug, Clone)]
+pub struct HdcTextProvider {
+}
+```
+
+HDC text embedding provider using FNV-1a hashing.
+
+This is the default provider when no external embeddings are configured.
+It generates hypervectors directly without an intermediate f32 embedding,
+so the "native dimension" is 10240 and projection is identity.
+
+### impl Default for HdcTextProvider
+
+```rust
+impl Default for HdcTextProvider {
+}
+```
+
+### impl EmbeddingProvider for HdcTextProvider
+
+```rust
+impl EmbeddingProvider for HdcTextProvider {
+}
+```
+
+### impl HdcTextProvider
+
+```rust
+impl HdcTextProvider {
+    pub fn new() -> Self;
+    pub fn with_config(config: crate::encoder::TextEncoderConfig) -> Self;
+}
+```
+
+## src/embedding/mod.rs
+
+### EmbeddingProvider
+
+```rust
+pub trait EmbeddingProvider: Send + Sync {
+    fn name(&self) -> &str;
+    fn native_dim(&self) -> usize;
+    fn embed(&self, text: &str) -> Result<Vec<f32>>;
+    fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>>;
+    fn project(&self, vec: &[f32], projection: &Projection) -> HVec10240;
+}
+```
+
+Embedding provider trait for text-to-vector conversion.
+
+Implementations may be:
+- Local (HDC hash, FastEmbed ONNX)
+- Remote HTTP (OpenAI, Voyage)
+
+All providers project their native dimensionality to HVec10240.
+
+### fastembed::FastEmbedProvider
+
+```rust
+pub use fastembed::FastEmbedProvider;
+```
+
+### hdc_text::HdcTextProvider
+
+```rust
+pub use hdc_text::HdcTextProvider;
+```
+
+### projection::{Projection, ProjectionConfig}
+
+```rust
+pub use projection::{Projection, ProjectionConfig};
+```
+
+### remote_openai::OpenAiProvider
+
+```rust
+pub use remote_openai::OpenAiProvider;
+```
+
+### remote_voyage::VoyageProvider
+
+```rust
+pub use remote_voyage::VoyageProvider;
+```
+
+## src/embedding/projection.rs
+
+### Projection
+
+```rust
+#[derive(Debug, Clone)]
+pub struct Projection {
+}
+```
+
+Sparse random projection matrix for f32[native_dim] → HVec10240.
+
+Matrix is 10240 × native_dim with values in {-1, 0, +1}.
+Stored as flat array with indices for non-zero entries.
+
+### ProjectionConfig
+
+```rust
+#[derive(Debug, Clone)]
+pub struct ProjectionConfig {
+    pub seed: u64,
+    pub native_dim: usize,
+    pub target_dim: usize,
+    pub sparsity: f32,
+}
+```
+
+Configuration for projection matrix generation.
+
+### impl Default for ProjectionConfig
+
+```rust
+impl Default for ProjectionConfig {
+}
+```
+
+### impl Projection
+
+```rust
+impl Projection {
+    pub fn new(config: &ProjectionConfig) -> Self;
+    pub fn project(&self, vec: &[f32]) -> HVec10240;
+    pub fn nnz(&self) -> usize;
+    pub fn sparsity_ratio(&self) -> f32;
+}
+```
+
+## src/embedding/remote_openai.rs
+
+### OpenAiProvider
+
+```rust
+#[derive(Debug)]
+pub struct OpenAiProvider {
+}
+```
+
+OpenAI embedding provider via HTTP API.
+
+Default model: text-embedding-3-small (1536 dimensions).
+API key must be set via environment or constructor.
+
+### impl EmbeddingProvider for OpenAiProvider
+
+```rust
+impl EmbeddingProvider for OpenAiProvider {
+}
+```
+
+### impl OpenAiProvider
+
+```rust
+impl OpenAiProvider {
+    pub fn from_env() -> Result<Self>;
+    pub fn new(api_key: String) -> Result<Self>;
+    pub fn with_model(self, model: impl Trait) -> Self;
+    pub fn with_base_url(self, url: impl Trait) -> Self;
+}
+```
+
+## src/embedding/remote_voyage.rs
+
+### VoyageProvider
+
+```rust
+#[derive(Debug)]
+pub struct VoyageProvider {
+}
+```
+
+Voyage embedding provider via HTTP API.
+
+Default model: voyage-2 (1024 dimensions).
+API key must be set via environment or constructor.
+
+### impl EmbeddingProvider for VoyageProvider
+
+```rust
+impl EmbeddingProvider for VoyageProvider {
+}
+```
+
+### impl VoyageProvider
+
+```rust
+impl VoyageProvider {
+    pub fn from_env() -> Result<Self>;
+    pub fn new(api_key: String) -> Result<Self>;
+    pub fn with_model(self, model: impl Trait) -> Self;
 }
 ```
 
@@ -1779,6 +2575,8 @@ pub enum MemoryError {
     UnsupportedOperation(String),
     Reservoir { message: String, source: Option<Box<dyn Trait>> },
     Persistence(String),
+    External(String),
+    Config(String),
     Io(std::io::Error),
     Serialization(serde_json::Error),
 }
@@ -1858,32 +2656,6 @@ pub struct ChaoticSemanticFramework {
 
 Main framework for chaotic semantic memory
 
-### FrameworkMetrics
-
-```rust
-#[derive(Debug, Default)]
-pub struct FrameworkMetrics {
-}
-```
-
-### FrameworkMetricsSnapshot
-
-```rust
-#[derive(Debug, Clone)]
-pub struct FrameworkMetricsSnapshot {
-    pub concepts_injected_total: u64,
-    pub associations_created_total: u64,
-    pub probes_total: u64,
-    pub avg_probe_latency_ms: f64,
-    pub cache_hits_total: u64,
-    pub cache_misses_total: u64,
-    pub cache_evictions_total: u64,
-    pub reservoir_steps_total: u64,
-    pub avg_reservoir_step_latency_us: f64,
-    pub reservoir_nodes_active: u64,
-}
-```
-
 ### impl ChaoticSemanticFramework
 
 ```rust
@@ -1900,6 +2672,8 @@ impl ChaoticSemanticFramework {
     pub fn associate(&self, from: &str, to: &str, strength: f32) -> Result<()>;
     pub fn delete_concept(&self, id: &str) -> Result<()>;
     pub fn get_associations(&self, id: &str) -> Result<Vec<(String, f32)>>;
+    pub fn incoming_associations(&self, id: &str) -> Result<Vec<(String, f32)>>;
+    pub fn shortest_path_hops(&self, from: &str, to: &str) -> Result<Option<Vec<String>>>;
     pub fn get_concept(&self, id: &str) -> Result<Option<Concept>>;
     pub fn persist(&self) -> Result<()>;
     pub fn persistence_health_check(&self) -> Result<()>;
@@ -1908,13 +2682,6 @@ impl ChaoticSemanticFramework {
     pub fn load(&self) -> Result<()>;
     pub fn metrics_snapshot(&self) -> FrameworkMetricsSnapshot;
     pub fn stats(&self) -> Result<FrameworkStats>;
-}
-```
-
-### impl FrameworkMetrics
-
-```rust
-impl FrameworkMetrics {
 }
 ```
 
@@ -2032,6 +2799,52 @@ impl ChaoticSemanticFramework {
     pub fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()>;
     pub fn update_concept_metadata(&self, id: &str, metadata: HashMap<String, serde_json::Value>) -> Result<()>;
     pub fn disassociate(&self, from: &str, to: &str) -> Result<()>;
+}
+```
+
+## src/framework_graph_rag.rs
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
+    pub fn probe_with_graph(&self, query: HVec10240, config: GraphRagConfig) -> Result<Vec<GraphRagResult>>;
+    pub fn probe_text_with_graph(&self, text: &str, config: GraphRagConfig) -> Result<Vec<GraphRagResult>>;
+}
+```
+
+## src/framework_metrics.rs
+
+### FrameworkMetrics
+
+```rust
+#[derive(Debug, Default)]
+pub struct FrameworkMetrics {
+}
+```
+
+### FrameworkMetricsSnapshot
+
+```rust
+#[derive(Debug, Clone)]
+pub struct FrameworkMetricsSnapshot {
+    pub concepts_injected_total: u64,
+    pub associations_created_total: u64,
+    pub probes_total: u64,
+    pub avg_probe_latency_ms: f64,
+    pub cache_hits_total: u64,
+    pub cache_misses_total: u64,
+    pub cache_evictions_total: u64,
+    pub reservoir_steps_total: u64,
+    pub avg_reservoir_step_latency_us: f64,
+    pub reservoir_nodes_active: u64,
+}
+```
+
+### impl FrameworkMetrics
+
+```rust
+impl FrameworkMetrics {
 }
 ```
 
@@ -2380,6 +3193,239 @@ pub use singularity::{Concept, ConceptBuilder};
 pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats};
 ```
 
+## src/mcp/mod.rs
+
+### resources::McpResources
+
+```rust
+pub use resources::McpResources;
+```
+
+### server::serve
+
+```rust
+pub use server::serve;
+```
+
+### tools::McpTools
+
+```rust
+pub use tools::McpTools;
+```
+
+## src/mcp/resources.rs
+
+### McpResources
+
+```rust
+pub struct McpResources {
+}
+```
+
+MCP Resources handler for chaotic_semantic_memory.
+
+### ResourceDefinition
+
+```rust
+#[derive(Debug, Clone, serde :: Serialize)]
+pub struct ResourceDefinition {
+    pub uri: String,
+    pub name: String,
+    pub description: String,
+    pub mime_type: String,
+}
+```
+
+Resource definition for MCP resources/list response.
+
+### impl McpResources
+
+```rust
+impl McpResources {
+    pub fn new(database: Option<PathBuf>) -> Self;
+    pub fn list_resources() -> Vec<ResourceDefinition>;
+    pub fn read(&self, uri: &str) -> Result<Value>;
+}
+```
+
+## src/mcp/schema.rs
+
+### associate_schema
+
+```rust
+pub fn associate_schema() -> Value
+```
+
+Schema for memory_associate tool.
+
+### delete_schema
+
+```rust
+pub fn delete_schema() -> Value
+```
+
+Schema for memory_delete tool.
+
+### export_schema
+
+```rust
+pub fn export_schema() -> Value
+```
+
+Schema for memory_export tool.
+
+### get_schema
+
+```rust
+pub fn get_schema() -> Value
+```
+
+Schema for memory_get tool.
+
+### inject_schema
+
+```rust
+pub fn inject_schema() -> Value
+```
+
+Schema for memory_inject tool.
+
+### inject_text_schema
+
+```rust
+pub fn inject_text_schema() -> Value
+```
+
+Schema for memory_inject_text tool.
+
+### probe_filtered_schema
+
+```rust
+pub fn probe_filtered_schema() -> Value
+```
+
+Schema for memory_probe_filtered tool.
+
+### probe_schema
+
+```rust
+pub fn probe_schema() -> Value
+```
+
+Schema for memory_probe tool.
+
+### probe_text_schema
+
+```rust
+pub fn probe_text_schema() -> Value
+```
+
+Schema for memory_probe_text tool.
+
+### shortest_path_schema
+
+```rust
+pub fn shortest_path_schema() -> Value
+```
+
+Schema for memory_shortest_path tool.
+
+### stats_schema
+
+```rust
+pub fn stats_schema() -> Value
+```
+
+Schema for memory_stats tool.
+
+### traverse_schema
+
+```rust
+pub fn traverse_schema() -> Value
+```
+
+Schema for memory_traverse tool.
+
+## src/mcp/server.rs
+
+### McpConfig
+
+```rust
+#[derive(Debug, Clone)]
+pub struct McpConfig {
+    pub transport: Transport,
+    pub bind: Option<String>,
+    pub database: Option<std::path::PathBuf>,
+}
+```
+
+Configuration for MCP server.
+
+### Transport
+
+```rust
+#[derive(Debug, Clone, Copy, Default)]
+pub enum Transport {
+    Stdio,
+    Sse,
+}
+```
+
+Transport type for MCP server.
+
+### impl Default for McpConfig
+
+```rust
+impl Default for McpConfig {
+}
+```
+
+### serve
+
+```rust
+pub fn serve(config: McpConfig) -> Result<()>
+```
+
+Start the MCP server.
+
+#### Errors
+
+Returns error if server fails to start or transport initialization fails.
+
+## src/mcp/tools.rs
+
+### McpTools
+
+```rust
+pub struct McpTools {
+}
+```
+
+MCP Tools handler for chaotic_semantic_memory operations.
+
+### ToolDefinition
+
+```rust
+#[derive(Debug, Clone, serde :: Serialize)]
+pub struct ToolDefinition {
+    pub name: String,
+    pub description: String,
+    pub input_schema: Value,
+}
+```
+
+Tool definition for MCP tools/list response.
+
+### impl McpTools
+
+```rust
+impl McpTools {
+    pub fn new(database: Option<PathBuf>) -> Self;
+    pub fn list_tools() -> Vec<ToolDefinition>;
+    pub fn execute(&self, tool_name: &str, arguments: Value) -> Result<Value>;
+}
+```
+
 ## src/metadata_filter.rs
 
 ### MetadataFilter
@@ -2692,6 +3738,61 @@ impl Default for Bm25Config {
 }
 ```
 
+## src/retrieval/graph_rag.rs
+
+### GraphRagConfig
+
+```rust
+#[derive(Debug, Clone)]
+pub struct GraphRagConfig {
+    pub anchor_top_k: usize,
+    pub max_hops: usize,
+    pub min_assoc_strength: f32,
+    pub similarity_weight: f32,
+    pub graph_weight: f32,
+    pub final_top_k: usize,
+}
+```
+
+Configuration for GraphRAG retrieval.
+
+### GraphRagResult
+
+```rust
+#[derive(Debug, Clone)]
+pub struct GraphRagResult {
+    pub id: String,
+    pub score: f32,
+    pub similarity: f32,
+    pub anchor_id: Option<String>,
+    pub hop_distance: usize,
+    pub assoc_strength: f32,
+}
+```
+
+Result from GraphRAG retrieval.
+
+### graph_rag_retrieve
+
+```rust
+pub fn graph_rag_retrieve(query: &HVec10240, concepts: &[Concept], associations: &[(String, String, f32)], config: &GraphRagConfig) -> Result<Vec<GraphRagResult>>
+```
+
+Execute GraphRAG retrieval.
+
+Algorithm:
+1. Anchor: probe(query, anchor_top_k) → seed set
+2. Expand: traverse from each anchor
+3. Score: similarity_weight * cosine + graph_weight * (1/(1+hops)) * strength
+4. Dedupe + rank by score
+
+### impl Default for GraphRagConfig
+
+```rust
+impl Default for GraphRagConfig {
+}
+```
+
 ## src/retrieval/hybrid.rs
 
 ### HybridConfig
@@ -2773,6 +3874,12 @@ If all scores are equal, returns 0.5 for all.
 
 ```rust
 pub use bm25::{Bm25Config, Bm25Index};
+```
+
+### graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve}
+
+```rust
+pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
 ```
 
 ### hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}

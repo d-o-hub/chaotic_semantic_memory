@@ -2,6 +2,9 @@
 //!
 //! Split from `wasm.rs` to keep each file under the 500-LOC project limit.
 
+// Redundant clones are intentional for WASM ownership semantics
+#![allow(clippy::redundant_clone)]
+
 #[cfg(target_arch = "wasm32")]
 use js_sys::{Array, Function};
 #[cfg(target_arch = "wasm32")]
@@ -271,26 +274,18 @@ fn memory_event_to_js_value(event: &crate::framework_events::MemoryEvent) -> JsV
     obj.into()
 }
 
-// ============================================================================
-// TESTS
-// ============================================================================
-//
-// These tests verify the underlying data patterns used by WASM bindings.
-// They run on native targets to ensure JSON serialization, byte conversion,
-// and filter logic work correctly before WASM consumers use them.
+// TESTS - verify WASM binding data patterns on native targets
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // Exact float comparisons for test assertions
+
     use crate::framework_events::MemoryEvent;
     use crate::graph_traversal::TraversalConfig;
     use crate::hyperdim::HVec10240;
     use crate::metadata_filter::MetadataFilter;
     use serde_json::json;
     use std::collections::HashMap;
-
-    // -------------------------------------------------------------------------
-    // MetadataFilter JSON serialization tests (used by probe_filtered)
-    // -------------------------------------------------------------------------
 
     #[test]
     fn metadata_filter_eq_json_roundtrip() {
@@ -348,7 +343,6 @@ mod tests {
 
     #[test]
     fn metadata_filter_nested_complex_json_roundtrip() {
-        // (type == "document" AND tag in ["rust", "python"]) AND NOT private
         let filter = MetadataFilter::and(vec![
             MetadataFilter::eq("type", "document"),
             MetadataFilter::in_("tag", vec![json!("rust"), json!("python")]),
@@ -361,18 +355,10 @@ mod tests {
 
     #[test]
     fn metadata_filter_json_string_format() {
-        // Verify the JSON format matches what WASM users would pass
         let filter = MetadataFilter::eq("category", "science");
         let json = serde_json::to_string(&filter).unwrap();
-        // Expected format: {"Eq":["category","science"]}
-        assert!(json.contains("Eq"));
-        assert!(json.contains("category"));
-        assert!(json.contains("science"));
+        assert!(json.contains("Eq") && json.contains("category") && json.contains("science"));
     }
-
-    // -------------------------------------------------------------------------
-    // TraversalConfig tests (used by bfs, shortest_path, traverse)
-    // -------------------------------------------------------------------------
 
     #[test]
     fn traversal_config_defaults() {
@@ -384,7 +370,6 @@ mod tests {
 
     #[test]
     fn traversal_config_custom_values() {
-        // Simulate what WASM traverse() does with custom params
         let config = TraversalConfig {
             max_depth: 5,
             min_strength: 0.7,
@@ -393,10 +378,6 @@ mod tests {
         assert_eq!(config.max_depth, 5);
         assert_eq!(config.min_strength, 0.7);
     }
-
-    // -------------------------------------------------------------------------
-    // HVec10240 byte conversion tests (used by probe_filtered)
-    // -------------------------------------------------------------------------
 
     #[test]
     fn hvec_bytes_roundtrip() {
@@ -410,20 +391,14 @@ mod tests {
     fn hvec_bytes_length() {
         let hvec = HVec10240::random();
         let bytes = hvec.to_bytes();
-        // 10240 bits / 8 = 1280 bytes
-        assert_eq!(bytes.len(), 1280);
+        assert_eq!(bytes.len(), 1280); // 10240 bits / 8 = 1280 bytes
     }
 
     #[test]
     fn hvec_from_bytes_invalid_length() {
         let short_bytes = vec![0u8; 100];
-        let result = HVec10240::from_bytes(&short_bytes);
-        assert!(result.is_err());
+        assert!(HVec10240::from_bytes(&short_bytes).is_err());
     }
-
-    // -------------------------------------------------------------------------
-    // MemoryEvent tests (used by on_event callback)
-    // -------------------------------------------------------------------------
 
     #[test]
     fn memory_event_variants_construct() {
@@ -449,13 +424,10 @@ mod tests {
             to: "b".to_string(),
         };
 
-        // Verify Clone works
         assert!(matches!(
             injected.clone(),
             MemoryEvent::ConceptInjected { .. }
         ));
-
-        // Verify Debug works
         assert!(format!("{:?}", updated).contains("ConceptUpdated"));
         assert!(format!("{:?}", deleted).contains("ConceptDeleted"));
         assert!(format!("{:?}", associated).contains("Associated"));
@@ -479,10 +451,6 @@ mod tests {
             _ => panic!("Expected Associated variant"),
         }
     }
-
-    // -------------------------------------------------------------------------
-    // MetadataFilter matching tests (probe_filtered uses filter.matches)
-    // -------------------------------------------------------------------------
 
     #[test]
     fn metadata_filter_matches_empty_metadata() {
