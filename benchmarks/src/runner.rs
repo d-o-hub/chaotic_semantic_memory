@@ -52,6 +52,13 @@ pub async fn run(cli: Cli) -> Result<()> {
             TaskType::Recall | TaskType::Update | TaskType::Temporal | TaskType::Abstain => {
                 adapter.query_in_session(&query_case.query, &query_case.session_id, cli.top_k).await?
             }
+            TaskType::Association => {
+                if query_case.session_id == "cross-session" {
+                    adapter.query_association(&query_case.query, cli.top_k).await?
+                } else {
+                    adapter.query_in_session_association(&query_case.query, &query_case.session_id, cli.top_k).await?
+                }
+            }
             TaskType::Bm25 => {
                 adapter.query_bm25(&query_case.query, cli.top_k).await?
             }

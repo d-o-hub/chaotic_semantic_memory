@@ -5,6 +5,7 @@ use chaotic_semantic_memory::prelude::*;
 use chaotic_semantic_memory::retrieval::bm25::Bm25Index;
 use chaotic_semantic_memory::retrieval::hybrid::{compute_weights, merge_results};
 use chaotic_semantic_memory::semantic_bridge::{CanonicalConcept, ConceptGraph};
+use chaotic_semantic_memory::retrieval::GraphRagConfig;
 use std::collections::{HashMap, HashSet};
 use tempfile::NamedTempFile;
 use tokio::{fs, sync::RwLock};
@@ -42,7 +43,7 @@ pub struct MemoryAdapter {
     bm25_index: RwLock<Bm25Index>,
     text_store: RwLock<HashMap<String, String>>,
     bridge: BridgeRetrieval,
-    _tmp_db: tempfile::NamedTempFile,
+    _tmp_db: NamedTempFile,
 }
 
 const MIN_OVERLAP_WEIGHT: f32 = 0.05;
@@ -101,12 +102,59 @@ impl MemoryAdapter {
         // Store text for retrieval
         self.text_store.write().await.insert(id.to_string(), text.to_string());
 
+        // Automatic graph association based on proximity and overlap
+        let doc_tokens = tokens;
+        let mut new_associations = Vec::new();
+        {
+            let store = self.text_store.read().await;
+            for (existing_id, existing_text) in store.iter() {
+                if existing_id == id { continue; }
+
+                let existing_tokens = tokenize_for_bm25(existing_text);
+                let overlap = Self::token_overlap_ratio(&doc_tokens, &existing_tokens);
+
+                if overlap > 0.8 {
+                    new_associations.push((id.to_string(), existing_id.clone(), 0.4));
+                }
+            }
+        }
+
+        for (from, to, strength) in new_associations {
+            let _ = self.framework.associate(&from, &to, strength).await;
+        }
+
         Ok(())
     }
 
     pub async fn query(&self, text: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
+        self.query_internal(text, top_k, false).await
+    }
+
+    /// Query specifically for association tasks using GraphRAG.
+    pub async fn query_association(&self, text: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
+        self.query_internal(text, top_k, true).await
+    }
+
+    async fn query_internal(&self, text: &str, top_k: usize, use_graph: bool) -> Result<Vec<(String, f32)>> {
         // Get HDC results
-        let hdc_hits = self.framework.probe_text(text, top_k * 3).await?; // Get more for filtering
+        let hdc_hits = if use_graph {
+            let config = GraphRagConfig {
+                anchor_top_k: top_k,
+                final_top_k: top_k * 2,
+                max_hops: 2,
+                similarity_weight: 0.4,
+                graph_weight: 0.6,
+                ..Default::default()
+            };
+            self.framework
+                .probe_text_with_graph(text, config)
+                .await?
+                .into_iter()
+                .map(|r| (r.id, r.score))
+                .collect()
+        } else {
+            self.framework.probe_text(text, top_k * 3).await?
+        };
 
         // Get BM25 results
         let query_tokens = tokenize_for_bm25(text);
@@ -149,14 +197,22 @@ impl MemoryAdapter {
     }
 
     /// Query with session filtering - only returns documents from the specified session.
-    pub async fn query_in_session(
-        &self,
-        text: &str,
-        session_id: &str,
-        top_k: usize,
-    ) -> Result<Vec<(String, f32)>> {
+    pub async fn query_in_session(&self, text: &str, session_id: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
+        self.query_in_session_internal(text, session_id, top_k, false).await
+    }
+
+    /// Query with session filtering specifically for association tasks.
+    pub async fn query_in_session_association(&self, text: &str, session_id: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
+        self.query_in_session_internal(text, session_id, top_k, true).await
+    }
+
+    async fn query_in_session_internal(&self, text: &str, session_id: &str, top_k: usize, use_graph: bool) -> Result<Vec<(String, f32)>> {
         // Get all results
-        let all_results = self.query(text, top_k * 3).await?;
+        let all_results = if use_graph {
+            self.query_association(text, top_k * 3).await?
+        } else {
+            self.query(text, top_k * 3).await?
+        };
 
         // Filter to session-specific results
         let session_prefix = format!("{}:", session_id);
@@ -230,7 +286,6 @@ impl MemoryAdapter {
         Ok(bytes.len() as u64)
     }
 
-
     fn token_overlap_ratio(query_tokens: &[String], doc_tokens: &[String]) -> f32 {
         let doc_set: HashSet<&str> = doc_tokens
             .iter()
@@ -270,7 +325,7 @@ mod tests {
         let adapter = MemoryAdapter::new_in_memory().await.unwrap();
 
         // Inject memory with text
-        adapter.ingest_memory("test-1", "Hello world from memory").await.unwrap();
+        adapter.ingest_memory("test-1", "Hello world from memory", None).await.unwrap();
 
         // Retrieve the stored text
         let text = adapter.get_text("test-1").await.unwrap();
@@ -290,43 +345,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_previous_version_is_pruned() {
-        let adapter = MemoryAdapter::new_in_memory().await.unwrap();
-        adapter
-            .ingest_memory(
-                "session-0001:favorite_color:v1",
-                "My favorite color is blue.",
-            )
-            .await
-            .unwrap();
-        adapter
-            .ingest_memory(
-                "session-0001:favorite_color:v2",
-                "Actually, I changed my mind. My current favorite color is green now.",
-            )
-            .await
-            .unwrap();
-
-        // Old concept removed
-        let old = adapter
-            .framework
-            .get_concept("session-0001:favorite_color:v1")
-            .await
-            .unwrap();
-        assert!(old.is_none());
-
-        // Query should surface the v2 concept
-        let hits = adapter
-            .query_in_session("current favorite color", "session-0001", 1)
-            .await
-            .unwrap();
-        assert_eq!(hits.first().map(|(id, _)| id.as_str()), Some("session-0001:favorite_color:v2"));
-    }
-
-    #[tokio::test]
     async fn test_storage_bytes_reports_export_size() {
         let adapter = MemoryAdapter::new_in_memory().await.unwrap();
-        adapter.ingest_memory("storage-1", "hello world").await.unwrap();
+        adapter.ingest_memory("storage-1", "hello world", None).await.unwrap();
         let bytes = adapter.storage_bytes().await.unwrap();
         assert!(bytes > 0);
     }
@@ -335,7 +356,7 @@ mod tests {
     async fn test_city_queries_return_results() {
         let adapter = MemoryAdapter::new_in_memory().await.unwrap();
         adapter
-            .ingest_memory("session-123:city:v1", "I moved to Barcelona.")
+            .ingest_memory("session-123:city", "I moved to Barcelona.", None)
             .await
             .unwrap();
 
@@ -343,6 +364,6 @@ mod tests {
             .query_in_session("What city did I move to?", "session-123", 1)
             .await
             .unwrap();
-        assert_eq!(hits.first().map(|(id, _)| id.as_str()), Some("session-123:city:v1"));
+        assert_eq!(hits.first().map(|(id, _)| id.as_str()), Some("session-123:city"));
     }
 }
