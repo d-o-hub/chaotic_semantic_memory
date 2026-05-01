@@ -174,7 +174,7 @@ pub fn chunk_by_heading(content: &str, min_level: usize) -> Vec<MarkdownChunk> {
     if let Some(level) = current_level {
         if level >= min_level && !current_content.trim().is_empty() {
             chunks.push(MarkdownChunk {
-                heading: current_heading.clone().unwrap_or_default(),
+                heading: current_heading.unwrap_or_default(),
                 level,
                 content: current_content.trim().to_string(),
             });

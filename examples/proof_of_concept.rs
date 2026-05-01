@@ -1,5 +1,8 @@
 //! Proof of concept: Build working binary demonstrating all features
 
+// Casts are intentional for demonstration math
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+
 use std::io::Write;
 
 use chaotic_semantic_memory::prelude::*;

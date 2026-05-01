@@ -1,87 +1,21 @@
-use crate::error::{MemoryError, Result};
+use crate::error::Result;
 use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
 use crate::framework_events::MemoryEvent;
+use crate::framework_validation::validate_path;
 use crate::hyperdim::HVec10240;
 use crate::singularity::ConceptBuilder;
 use bincode::Options;
-use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::fs;
 use tracing::{instrument, warn};
 
 const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024; // 100 MB default
-const MAX_PATH_LENGTH: usize = 4096;
 const MAX_HISTORY_LIMIT: usize = 1000;
-
-fn validate_path(path: &str) -> Result<PathBuf> {
-    if path.len() > MAX_PATH_LENGTH {
-        return Err(MemoryError::InvalidInput {
-            field: "path".to_string(),
-            reason: format!(
-                "path exceeds maximum length of {} characters",
-                MAX_PATH_LENGTH
-            ),
-        });
-    }
-
-    let path = PathBuf::from(path);
-
-    if path
-        .components()
-        .any(|c| c == std::path::Component::ParentDir)
-    {
-        return Err(MemoryError::InvalidInput {
-            field: "path".to_string(),
-            reason: "path traversal '..' components are not allowed".to_string(),
-        });
-    }
-
-    if path.is_absolute() {
-        let normalized = if path.exists() {
-            path.canonicalize().map_err(|_| MemoryError::InvalidInput {
-                field: "path".to_string(),
-                reason: "absolute path cannot be accessed".to_string(),
-            })?
-        } else {
-            let parent = path.parent().ok_or_else(|| MemoryError::InvalidInput {
-                field: "path".to_string(),
-                reason: "absolute path has no parent directory".to_string(),
-            })?;
-            let file_name = path.file_name().ok_or_else(|| MemoryError::InvalidInput {
-                field: "path".to_string(),
-                reason: "absolute path must include a file name".to_string(),
-            })?;
-            let parent_normalized =
-                parent
-                    .canonicalize()
-                    .map_err(|_| MemoryError::InvalidInput {
-                        field: "path".to_string(),
-                        reason: "absolute path parent does not exist or cannot be accessed"
-                            .to_string(),
-                    })?;
-            parent_normalized.join(file_name)
-        };
-
-        let current_dir = std::env::current_dir().map_err(|e| MemoryError::InvalidInput {
-            field: "path".to_string(),
-            reason: format!("cannot determine current working directory: {}", e),
-        })?;
-
-        if !normalized.starts_with(&current_dir) && !normalized.starts_with("/tmp") {
-            return Err(MemoryError::InvalidInput {
-                field: "path".to_string(),
-                reason: "absolute paths must be within current working directory or /tmp"
-                    .to_string(),
-            });
-        }
-    }
-
-    Ok(path)
-}
 
 impl ChaoticSemanticFramework {
     /// Batch inject multiple concepts into memory.
+    #[allow(clippy::significant_drop_tightening)] // Singularity write lock needed for batch inject
     #[instrument(err, skip(self, concepts))]
     pub async fn inject_concepts(&self, concepts: &[(String, HVec10240)]) -> Result<()> {
         self.validate_batch_size(concepts.len())?;
@@ -148,11 +82,13 @@ impl ChaoticSemanticFramework {
     ) -> Result<Vec<Vec<(String, f32)>>> {
         self.validate_top_k(top_k)?;
         self.validate_batch_size(queries.len())?;
-        let sing = self.singularity.read().await;
-        let mut out = Vec::with_capacity(queries.len());
-        for query in queries {
-            out.push(sing.find_similar(query, top_k));
-        }
+        let out = {
+            let sing = self.singularity.read().await;
+            queries
+                .iter()
+                .map(|q| sing.find_similar(q, top_k))
+                .collect()
+        };
         Ok(out)
     }
 
@@ -166,11 +102,13 @@ impl ChaoticSemanticFramework {
     ) -> Result<Vec<Arc<[(String, f32)]>>> {
         self.validate_top_k(top_k)?;
         self.validate_batch_size(queries.len())?;
-        let sing = self.singularity.read().await;
-        let mut out = Vec::with_capacity(queries.len());
-        for query in queries {
-            out.push(sing.find_similar_cached(query, top_k));
-        }
+        let out = {
+            let sing = self.singularity.read().await;
+            queries
+                .iter()
+                .map(|q| sing.find_similar_cached(q, top_k))
+                .collect()
+        };
         Ok(out)
     }
 
@@ -197,6 +135,7 @@ impl ChaoticSemanticFramework {
     pub async fn import_json(&self, path: &str, merge: bool) -> Result<usize> {
         let validated_path = validate_path(path)?;
         let bytes = fs::read(validated_path).await?;
+        #[allow(clippy::cast_possible_truncation)] // MAX_IMPORT_SIZE fits in usize on 64-bit
         if bytes.len() > MAX_IMPORT_SIZE as usize {
             return Err(crate::error::MemoryError::InvalidInput {
                 field: "import_data".to_string(),
@@ -251,6 +190,7 @@ impl ChaoticSemanticFramework {
         Ok(payload.concepts.len())
     }
     /// Export memory state to binary file.
+    #[allow(clippy::significant_drop_tightening)] // Singularity read lock needed for binary export
     #[instrument(err, skip(self), fields(path))]
     pub async fn export_binary(&self, path: &str) -> Result<()> {
         let validated_path = validate_path(path)?;
@@ -283,6 +223,7 @@ impl ChaoticSemanticFramework {
         let validated_path = validate_path(path)?;
         let bytes = fs::read(validated_path).await?;
 
+        #[allow(clippy::cast_possible_truncation)] // MAX_IMPORT_SIZE fits in usize on 64-bit
         if bytes.len() > MAX_IMPORT_SIZE as usize {
             return Err(crate::error::MemoryError::InvalidInput {
                 field: "import_data".to_string(),
@@ -476,23 +417,5 @@ impl ChaoticSemanticFramework {
     pub async fn bundle_concepts_strict(&self, ids: &[String]) -> Result<HVec10240> {
         let sing = self.singularity.read().await;
         sing.bundle_concepts_strict(ids)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn path_traversal_blocked() {
-        assert!(validate_path("../etc/passwd").is_err());
-    }
-    #[test]
-    fn path_too_long() {
-        let long = "a".repeat(5000);
-        assert!(validate_path(&long).is_err());
-    }
-    #[test]
-    fn path_relative_ok() {
-        assert!(validate_path("test.json").is_ok());
     }
 }

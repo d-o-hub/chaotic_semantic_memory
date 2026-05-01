@@ -1,5 +1,8 @@
 //! Compact sparse row storage (CSR-like) for fast row-wise dot products.
 
+// Casts are intentional for sparse matrix indices (usize -> u32 for compact storage)
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+
 use rand::RngExt;
 use rand::rngs::StdRng;
 
@@ -134,6 +137,8 @@ impl SparseWeights {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // Exact float comparisons for mathematical test assertions
+
     use super::*;
     use rand::SeedableRng;
 

@@ -1,5 +1,8 @@
 //! Echo State Network for temporal dynamics.
 
+// Casts are intentional for reservoir math (node counts, dimension sizes)
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 use crate::reservoir_sparse::SparseWeights;
@@ -307,7 +310,7 @@ impl Reservoir {
         Ok(HVec10240 { data })
     }
 
-    pub fn size(&self) -> usize {
+    pub const fn size(&self) -> usize {
         self.size
     }
 

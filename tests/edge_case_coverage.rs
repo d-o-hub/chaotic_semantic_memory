@@ -1,3 +1,9 @@
+//! Edge case coverage tests for framework boundaries.
+//!
+//! Float comparisons allowed: association strength test assertions.
+
+#![allow(clippy::float_cmp)]
+
 use chaotic_semantic_memory::prelude::*;
 use chaotic_semantic_memory::reservoir::Reservoir;
 use chaotic_semantic_memory::singularity::{Concept, Singularity, SingularityConfig};

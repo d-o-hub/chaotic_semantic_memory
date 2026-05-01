@@ -205,9 +205,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/framework.rs
 
 - pub struct ChaoticSemanticFramework
-- pub struct FrameworkMetrics
-- pub struct FrameworkMetricsSnapshot
-- impl FrameworkMetrics
 - impl ChaoticSemanticFramework
 
 ### src/framework_bridge.rs
@@ -226,6 +223,12 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub enum MemoryEvent
 - impl ChaoticSemanticFramework
+
+### src/framework_metrics.rs
+
+- pub struct FrameworkMetrics
+- pub struct FrameworkMetricsSnapshot
+- impl FrameworkMetrics
 
 ### src/framework_ops.rs
 
@@ -1858,32 +1861,6 @@ pub struct ChaoticSemanticFramework {
 
 Main framework for chaotic semantic memory
 
-### FrameworkMetrics
-
-```rust
-#[derive(Debug, Default)]
-pub struct FrameworkMetrics {
-}
-```
-
-### FrameworkMetricsSnapshot
-
-```rust
-#[derive(Debug, Clone)]
-pub struct FrameworkMetricsSnapshot {
-    pub concepts_injected_total: u64,
-    pub associations_created_total: u64,
-    pub probes_total: u64,
-    pub avg_probe_latency_ms: f64,
-    pub cache_hits_total: u64,
-    pub cache_misses_total: u64,
-    pub cache_evictions_total: u64,
-    pub reservoir_steps_total: u64,
-    pub avg_reservoir_step_latency_us: f64,
-    pub reservoir_nodes_active: u64,
-}
-```
-
 ### impl ChaoticSemanticFramework
 
 ```rust
@@ -1908,13 +1885,6 @@ impl ChaoticSemanticFramework {
     pub fn load(&self) -> Result<()>;
     pub fn metrics_snapshot(&self) -> FrameworkMetricsSnapshot;
     pub fn stats(&self) -> Result<FrameworkStats>;
-}
-```
-
-### impl FrameworkMetrics
-
-```rust
-impl FrameworkMetrics {
 }
 ```
 
@@ -2032,6 +2002,41 @@ impl ChaoticSemanticFramework {
     pub fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()>;
     pub fn update_concept_metadata(&self, id: &str, metadata: HashMap<String, serde_json::Value>) -> Result<()>;
     pub fn disassociate(&self, from: &str, to: &str) -> Result<()>;
+}
+```
+
+## src/framework_metrics.rs
+
+### FrameworkMetrics
+
+```rust
+#[derive(Debug, Default)]
+pub struct FrameworkMetrics {
+}
+```
+
+### FrameworkMetricsSnapshot
+
+```rust
+#[derive(Debug, Clone)]
+pub struct FrameworkMetricsSnapshot {
+    pub concepts_injected_total: u64,
+    pub associations_created_total: u64,
+    pub probes_total: u64,
+    pub avg_probe_latency_ms: f64,
+    pub cache_hits_total: u64,
+    pub cache_misses_total: u64,
+    pub cache_evictions_total: u64,
+    pub reservoir_steps_total: u64,
+    pub avg_reservoir_step_latency_us: f64,
+    pub reservoir_nodes_active: u64,
+}
+```
+
+### impl FrameworkMetrics
+
+```rust
+impl FrameworkMetrics {
 }
 ```
 

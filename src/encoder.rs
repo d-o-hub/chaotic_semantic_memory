@@ -109,7 +109,7 @@ impl TextEncoder {
     }
 
     /// Create an encoder with custom configuration.
-    pub fn with_config(config: TextEncoderConfig) -> Self {
+    pub const fn with_config(config: TextEncoderConfig) -> Self {
         Self { config }
     }
 
@@ -126,7 +126,7 @@ impl TextEncoder {
     }
 
     /// Get the encoder configuration.
-    pub fn config(&self) -> &TextEncoderConfig {
+    pub const fn config(&self) -> &TextEncoderConfig {
         &self.config
     }
 

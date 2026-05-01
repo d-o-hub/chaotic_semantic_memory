@@ -57,6 +57,7 @@ pub mod framework;
 mod framework_bridge;
 pub mod framework_builder;
 mod framework_events;
+mod framework_metrics;
 #[cfg(not(target_arch = "wasm32"))]
 mod framework_ops;
 mod framework_ttl;

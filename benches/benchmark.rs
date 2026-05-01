@@ -1,3 +1,13 @@
+//! Benchmarks for chaotic_semantic_memory crate.
+
+// Casts are intentional for benchmark metrics
+// Clones needed for benchmark measurement isolation
+#![allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::redundant_clone
+)]
+
 use chaotic_semantic_memory::HVec10240;
 use chaotic_semantic_memory::bridge_retrieval::BridgeRetrieval;
 use chaotic_semantic_memory::bundle::BundleAccumulator;
