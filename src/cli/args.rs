@@ -52,6 +52,8 @@ pub enum Commands {
     IndexJsonl(IndexJsonlArgs),
     /// Index Markdown files from directory into memory.
     IndexDir(IndexDirArgs),
+    /// Model Context Protocol (MCP) server.
+    Mcp(McpArgs),
 }
 
 #[derive(Args, Debug, Clone)]
@@ -212,6 +214,35 @@ pub struct IndexJsonlArgs {
 }
 
 /// Arguments for indexing Markdown directory.
+#[derive(Args, Debug, Clone)]
+pub struct McpArgs {
+    #[command(subcommand)]
+    pub command: McpCommands,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum McpCommands {
+    /// Start the MCP server.
+    Serve(McpServeArgs),
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct McpServeArgs {
+    /// Transport to use (stdio or sse).
+    #[arg(short, long, value_enum, default_value = "stdio")]
+    pub transport: McpTransport,
+
+    /// Bind address for SSE transport (e.g. 127.0.0.1:3030).
+    #[arg(short, long, default_value = "127.0.0.1:3030")]
+    pub bind: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum McpTransport {
+    Stdio,
+    Sse,
+}
+
 #[derive(Args, Debug, Clone)]
 pub struct IndexDirArgs {
     /// Glob pattern(s) for files to index (can be repeated).

@@ -62,6 +62,8 @@ mod framework_ops;
 mod framework_ttl;
 mod framework_validation;
 pub mod graph_traversal;
+#[cfg(feature = "mcp")]
+pub mod mcp;
 pub mod hyperdim;
 mod hyperdim_batch;
 mod hyperdim_simd; // AVX2/NEON SIMD paths

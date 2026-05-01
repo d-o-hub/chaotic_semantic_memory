@@ -11,6 +11,7 @@
 - [Semantic Bridge](./semantic-bridge.md)
 - [CLI Usage](./cli.md)
 - [WASM Bindings](./wasm.md)
+- [MCP Server](./mcp.md)
 - [Configuration](./configuration.md)
 - [Concept TTL](./ttl.md)
 - [Performance](./performance.md)

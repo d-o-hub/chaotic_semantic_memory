@@ -5,6 +5,7 @@ pub mod import;
 pub mod index_dir;
 pub mod index_jsonl;
 pub mod inject;
+pub mod mcp;
 pub mod probe;
 pub mod query;
 
@@ -15,6 +16,7 @@ pub use import::run_import;
 pub use index_dir::run_index_dir;
 pub use index_jsonl::run_index_jsonl;
 pub use inject::run_inject;
+pub use mcp::run_mcp;
 pub use probe::run_probe;
 pub use query::run_query;
 
