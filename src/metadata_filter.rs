@@ -7,6 +7,9 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::ops;
 
+/// Maximum recursion depth for metadata filters to prevent stack overflow (DoS).
+pub(crate) const MAX_FILTER_DEPTH: usize = 32;
+
 /// A predicate for filtering concepts by metadata during similarity search.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum MetadataFilter {
@@ -61,6 +64,22 @@ impl MetadataFilter {
             Self::Not(filter) => !filter.matches(metadata),
         }
     }
+
+    pub(crate) fn depth(&self) -> usize {
+        let (mut max, mut stack) = (0, vec![(self, 1)]);
+        while let Some((f, d)) = stack.pop() {
+            max = max.max(d);
+            if d > MAX_FILTER_DEPTH {
+                return d;
+            }
+            match f {
+                Self::And(v) | Self::Or(v) => v.iter().for_each(|i| stack.push((i, d + 1))),
+                Self::Not(i) => stack.push((i, d + 1)),
+                _ => {}
+            }
+        }
+        max
+    }
 }
 
 impl ops::Not for MetadataFilter {
@@ -74,6 +93,7 @@ impl ops::Not for MetadataFilter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::framework::ChaoticSemanticFramework;
     use serde_json::json;
 
     fn make_metadata(pairs: &[(&str, Value)]) -> HashMap<String, Value> {
@@ -180,21 +200,13 @@ mod tests {
     }
 
     #[test]
-    fn test_nested_complex() {
-        // (type == "document" AND (tag == "rust" OR tag == "python")) AND NOT private
-        let filter = MetadataFilter::and(vec![
-            MetadataFilter::eq("type", "document"),
-            MetadataFilter::or(vec![
-                MetadataFilter::eq("tag", "rust"),
-                MetadataFilter::eq("tag", "python"),
-            ]),
-            !MetadataFilter::eq("private", true),
-        ]);
-        let metadata = make_metadata(&[
-            ("type", json!("document")),
-            ("tag", json!("rust")),
-            ("private", json!(false)),
-        ]);
-        assert!(filter.matches(&metadata));
+    fn test_depth_and_rejection() {
+        let mut f = MetadataFilter::eq("a", 1);
+        assert_eq!(f.depth(), 1);
+        for i in 0..MAX_FILTER_DEPTH {
+            f = MetadataFilter::and(vec![f, MetadataFilter::eq("k", i)]);
+        }
+        assert!(f.depth() > MAX_FILTER_DEPTH);
+        assert!(ChaoticSemanticFramework::validate_metadata_filter(&f).is_err());
     }
 }

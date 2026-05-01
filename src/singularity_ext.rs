@@ -115,6 +115,11 @@ impl Singularity {
         top_k: usize,
         filter: &MetadataFilter,
     ) -> Arc<[(String, f32)]> {
+        // Defensive depth check (CWE-674)
+        if filter.depth() > crate::metadata_filter::MAX_FILTER_DEPTH {
+            return Arc::from(Vec::new());
+        }
+
         let start_ns = crate::singularity::unix_now_ns();
         if top_k == 0 || self.concepts.is_empty() {
             return Arc::from(Vec::new());

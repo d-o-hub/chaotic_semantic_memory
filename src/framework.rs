@@ -203,6 +203,7 @@ impl ChaoticSemanticFramework {
         filter: &MetadataFilter,
     ) -> Result<Vec<(String, f32)>> {
         self.validate_top_k(top_k)?;
+        Self::validate_metadata_filter(filter)?;
         #[cfg(not(target_arch = "wasm32"))]
         let start = std::time::Instant::now();
         let sing = self.singularity.read().await;
