@@ -2,9 +2,9 @@ use crate::framework::ChaoticSemanticFramework;
 use crate::hyperdim::HVec10240;
 use crate::metadata_filter::MetadataFilter;
 use crate::mcp::schema::*;
-use rmcp::model::{ErrorData, CallToolResult, ServerInfo, ListToolsResult, ListResourcesResult, ReadResourceResult, Tool, Content, Implementation};
+use rmcp::model::{ErrorData, CallToolResult, ListToolsResult, ListResourcesResult, ReadResourceResult, Tool, Content, Implementation, InitializeResult, ProtocolVersion, ServerCapabilities};
 use std::sync::Arc;
-use futures::{Future, FutureExt};
+use futures::Future;
 
 pub struct MemoryTools {
     pub framework: Arc<ChaoticSemanticFramework>,
@@ -154,10 +154,15 @@ impl rmcp::ServerHandler for MemoryTools {
         }
     }
 
-    fn get_info(&self) -> rmcp::model::ServerInfo {
-        Implementation {
-            name: "chaotic-semantic-memory".to_string(),
-            version: env!("CARGO_PKG_VERSION").to_string(),
+    fn get_info(&self) -> InitializeResult {
+        InitializeResult {
+            protocol_version: ProtocolVersion::V_2024_11_05,
+            capabilities: ServerCapabilities::builder().enable_tools().build(),
+            server_info: Implementation {
+                name: "chaotic-semantic-memory".to_string(),
+                version: env!("CARGO_PKG_VERSION").to_string(),
+            },
+            instructions: None,
         }
     }
 

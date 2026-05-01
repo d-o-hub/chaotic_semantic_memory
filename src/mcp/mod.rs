@@ -1,32 +1,24 @@
-pub mod resources;
-pub mod schema;
+use crate::framework::ChaoticSemanticFramework;
+use crate::mcp::server::McpServer;
+
 pub mod server;
 pub mod tools;
+pub mod resources;
+pub mod schema;
 
-use crate::cli::args::McpTransport;
-use crate::framework::ChaoticSemanticFramework;
-
-/// Start the MCP server with the given framework and transport.
-pub async fn serve(
-    framework: ChaoticSemanticFramework,
-    transport: McpTransport,
-    bind: &str,
-) -> crate::error::Result<()> {
-    let server = server::McpServer::new(framework);
+pub async fn serve(framework: ChaoticSemanticFramework, transport: &str, bind: &str) -> crate::error::Result<()> {
+    let server = McpServer::new(framework);
 
     match transport {
-        McpTransport::Stdio => {
-            server
-                .run_stdio()
-                .await
-                .map_err(|e| crate::error::MemoryError::internal_error(e.to_string()))?;
+        "stdio" => {
+            server.run_stdio().await
+                .map_err(|e| crate::error::MemoryError::database(format!("MCP server error: {}", e.message)))?;
         }
-        McpTransport::Sse => {
-            server
-                .run_sse(bind)
-                .await
-                .map_err(|e| crate::error::MemoryError::internal_error(e.to_string()))?;
+        "sse" => {
+            server.run_sse(bind).await
+                .map_err(|e| crate::error::MemoryError::database(format!("MCP server error: {}", e.message)))?;
         }
+        _ => return Err(crate::error::MemoryError::database(format!("Unsupported transport: {}", transport))),
     }
 
     Ok(())

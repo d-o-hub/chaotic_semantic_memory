@@ -138,7 +138,7 @@ mod native {
                 run_index_jsonl(cmd.clone(), db_path.as_deref(), fmt).await
             }
             Commands::IndexDir(cmd) => run_index_dir(cmd.clone(), db_path.as_deref(), fmt).await,
-            Commands::Mcp(cmd) => run_mcp(cmd.clone(), db_path.as_deref()).await,
+            Commands::Mcp(cmd) => run_mcp(cmd.clone(), db_path.as_deref()).await.map_err(CliError::from),
         };
         result.map(|_| ((), fmt))
     }
