@@ -1,9 +1,9 @@
-use std::path::Path;
-use tracing::instrument;
-use crate::cli::args::{WatchArgs, OutputFormat};
-use crate::cli::error::Result;
 use super::create_framework;
+use crate::cli::args::{OutputFormat, WatchArgs};
+use crate::cli::error::Result;
+use std::path::Path;
 use tokio::io::AsyncWriteExt;
+use tracing::instrument;
 
 #[instrument(name = "cli_watch")]
 pub async fn run_watch(
@@ -23,11 +23,19 @@ pub async fn run_watch(
                 // Honor filter if provided
                 if let Some(ref filter_kind) = args.filter {
                     let kind = match event {
-                        crate::framework_events::MemoryEvent::ConceptInjected { .. } => "ConceptInjected",
-                        crate::framework_events::MemoryEvent::ConceptUpdated { .. } => "ConceptUpdated",
-                        crate::framework_events::MemoryEvent::ConceptDeleted { .. } => "ConceptDeleted",
+                        crate::framework_events::MemoryEvent::ConceptInjected { .. } => {
+                            "ConceptInjected"
+                        }
+                        crate::framework_events::MemoryEvent::ConceptUpdated { .. } => {
+                            "ConceptUpdated"
+                        }
+                        crate::framework_events::MemoryEvent::ConceptDeleted { .. } => {
+                            "ConceptDeleted"
+                        }
                         crate::framework_events::MemoryEvent::Associated { .. } => "Associated",
-                        crate::framework_events::MemoryEvent::Disassociated { .. } => "Disassociated",
+                        crate::framework_events::MemoryEvent::Disassociated { .. } => {
+                            "Disassociated"
+                        }
                     };
                     if kind != filter_kind {
                         continue;

@@ -1,10 +1,10 @@
-use std::path::Path;
-use tracing::instrument;
-use crate::cli::args::{TraverseArgs, OutputFormat};
+use super::{create_framework, validate_concept_id};
+use crate::cli::args::{OutputFormat, TraverseArgs};
 use crate::cli::error::{CliError, Result};
 use crate::graph_traversal::TraversalConfig;
 use colored::Colorize;
-use super::{create_framework, validate_concept_id};
+use std::path::Path;
+use tracing::instrument;
 
 #[instrument(name = "cli_traverse")]
 pub async fn run_traverse(

@@ -1,10 +1,10 @@
-use std::path::Path;
-use tracing::instrument;
-use crate::cli::args::{ProbeFilteredArgs, OutputFormat};
+use super::{create_framework, validate_concept_id, validate_top_k};
+use crate::cli::args::{OutputFormat, ProbeFilteredArgs};
 use crate::cli::error::{CliError, Result};
 use crate::metadata_filter::MetadataFilter;
 use colored::Colorize;
-use super::{create_framework, validate_concept_id, validate_top_k};
+use std::path::Path;
+use tracing::instrument;
 
 #[instrument(name = "cli_probe_filtered")]
 pub async fn run_probe_filtered(

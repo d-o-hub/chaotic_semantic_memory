@@ -1,9 +1,9 @@
-use std::path::Path;
-use tracing::instrument;
+use super::{create_framework, validate_concept_id};
 use crate::cli::args::{AssociationsArgs, OutputFormat};
 use crate::cli::error::{CliError, Result};
 use colored::Colorize;
-use super::{create_framework, validate_concept_id};
+use std::path::Path;
+use tracing::instrument;
 
 #[instrument(name = "cli_associations")]
 pub async fn run_associations(
@@ -18,7 +18,8 @@ pub async fn run_associations(
         framework.incoming_associations(&args.id).await
     } else {
         framework.get_associations(&args.id).await
-    }.map_err(|e| CliError::Persistence(format!("failed to get associations: {e}")))?;
+    }
+    .map_err(|e| CliError::Persistence(format!("failed to get associations: {e}")))?;
 
     match format {
         OutputFormat::Json => {

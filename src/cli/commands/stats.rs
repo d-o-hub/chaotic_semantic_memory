@@ -1,8 +1,8 @@
+use super::create_framework;
+use crate::cli::args::{OutputFormat, StatsArgs};
+use crate::cli::error::{CliError, Result};
 use std::path::Path;
 use tracing::instrument;
-use crate::cli::args::{StatsArgs, OutputFormat};
-use crate::cli::error::{CliError, Result};
-use super::create_framework;
 
 #[instrument(name = "cli_stats")]
 pub async fn run_stats(

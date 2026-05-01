@@ -1,8 +1,8 @@
-use std::path::Path;
-use tracing::instrument;
+use super::create_framework;
 use crate::cli::args::{MetricsArgs, OutputFormat};
 use crate::cli::error::Result;
-use super::create_framework;
+use std::path::Path;
+use tracing::instrument;
 
 #[instrument(name = "cli_metrics")]
 pub async fn run_metrics(
@@ -19,7 +19,10 @@ pub async fn run_metrics(
         }
         OutputFormat::Table | OutputFormat::Quiet => {
             println!("Concepts Injected: {}", metrics.concepts_injected_total);
-            println!("Associations Created: {}", metrics.associations_created_total);
+            println!(
+                "Associations Created: {}",
+                metrics.associations_created_total
+            );
             println!("Total Probes: {}", metrics.probes_total);
             println!("Avg Probe Latency: {:.2}ms", metrics.avg_probe_latency_ms);
             println!("Cache Hits: {}", metrics.cache_hits_total);
