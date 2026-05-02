@@ -2347,7 +2347,7 @@ impl FrameworkBuilder {
 ### MemoryEvent
 
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde :: Serialize, serde :: Deserialize)]
 pub enum MemoryEvent {
     ConceptInjected { id: String, timestamp: u64 },
     ConceptUpdated { id: String, timestamp: u64 },

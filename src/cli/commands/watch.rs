@@ -19,8 +19,6 @@ pub async fn run_watch(
     loop {
         match rx.recv().await {
             Ok(event) => {
-                // ADR-0066 says: csm watch streams JSONL (one event per line, flushed per write).
-                // Honor filter if provided
                 if let Some(ref filter_kind) = args.filter {
                     let kind = match event {
                         crate::framework_events::MemoryEvent::ConceptInjected { .. } => {
@@ -42,30 +40,18 @@ pub async fn run_watch(
                     }
                 }
 
-                let json = match event {
-                    crate::framework_events::MemoryEvent::ConceptInjected { id, timestamp } => {
-                        serde_json::json!({"event": "ConceptInjected", "id": id, "timestamp": timestamp})
-                    }
-                    crate::framework_events::MemoryEvent::ConceptUpdated { id, timestamp } => {
-                        serde_json::json!({"event": "ConceptUpdated", "id": id, "timestamp": timestamp})
-                    }
-                    crate::framework_events::MemoryEvent::ConceptDeleted { id, timestamp } => {
-                        serde_json::json!({"event": "ConceptDeleted", "id": id, "timestamp": timestamp})
-                    }
-                    crate::framework_events::MemoryEvent::Associated { from, to, strength } => {
-                        serde_json::json!({"event": "Associated", "from": from, "to": to, "strength": strength})
-                    }
-                    crate::framework_events::MemoryEvent::Disassociated { from, to } => {
-                        serde_json::json!({"event": "Disassociated", "from": from, "to": to})
-                    }
-                };
-
-                let mut line = serde_json::to_vec(&json).unwrap();
+                let mut line = serde_json::to_vec(&event).unwrap();
                 line.push(b'\n');
                 if let Err(e) = stdout.write_all(&line).await {
+                    if e.kind() == std::io::ErrorKind::BrokenPipe {
+                        return Ok(());
+                    }
                     return Err(CliError::Io(e));
                 }
                 if let Err(e) = stdout.flush().await {
+                    if e.kind() == std::io::ErrorKind::BrokenPipe {
+                        return Ok(());
+                    }
                     return Err(CliError::Io(e));
                 }
             }

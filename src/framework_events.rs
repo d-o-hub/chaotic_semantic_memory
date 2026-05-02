@@ -12,7 +12,7 @@ use std::collections::HashMap;
 
 const DEFAULT_EVENT_CHANNEL_CAPACITY: usize = 1024;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum MemoryEvent {
     ConceptInjected {
         id: String,
