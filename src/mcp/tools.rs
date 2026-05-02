@@ -229,7 +229,7 @@ impl rmcp::ServerHandler for MemoryHandler {
         let arguments = request
             .arguments
             .map(serde_json::Value::Object)
-            .unwrap_or_else(|| serde_json::Value::Object(Default::default()));
+            .unwrap_or_else(|| serde_json::Value::Object(serde_json::Map::default()));
 
         match name.as_str() {
             "memory_inject" => self.handle_memory_inject(arguments).await,

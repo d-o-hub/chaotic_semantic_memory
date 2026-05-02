@@ -1,6 +1,6 @@
 # Learnings
 
-## 2024-05-02 — PR #159: MCP Server Implementation
+## 2026-05-02 — PR #159: MCP Server Implementation
 
 ### What was fixed
 - MCP Server now remains active on stdio by awaiting `.waiting()` on the service handle.
