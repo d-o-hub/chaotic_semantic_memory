@@ -8,7 +8,6 @@
     clippy::redundant_clone
 )]
 
-use chaotic_semantic_memory::ChaoticSemanticFramework;
 use chaotic_semantic_memory::HVec10240;
 use chaotic_semantic_memory::bridge_retrieval::BridgeRetrieval;
 use chaotic_semantic_memory::bundle::BundleAccumulator;
@@ -16,7 +15,6 @@ use chaotic_semantic_memory::encoder::TextEncoder;
 use chaotic_semantic_memory::graph_traversal::TraversalConfig;
 use chaotic_semantic_memory::metadata_filter::MetadataFilter;
 use chaotic_semantic_memory::reservoir::Reservoir;
-use chaotic_semantic_memory::retrieval::GraphRagConfig;
 use chaotic_semantic_memory::retrieval::bm25::Bm25Index;
 use chaotic_semantic_memory::semantic_bridge::{
     BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown,
@@ -607,62 +605,6 @@ fn bench_memory_packet_compilation(c: &mut Criterion) {
     group.finish();
 }
 
-// ─── GraphRAG benchmarks ─────────────────────────────────────────────────────
-
-fn bench_probe_graph(c: &mut Criterion) {
-    let mut group = c.benchmark_group("graph_rag");
-    group.sample_size(PROBE_BENCH_SAMPLE_SIZE);
-    group.warm_up_time(Duration::from_secs(PROBE_BENCH_WARMUP_SECS));
-    group.measurement_time(Duration::from_secs(PROBE_BENCH_MEASUREMENT_SECS));
-
-    let rt = tokio::runtime::Runtime::new().unwrap();
-
-    let (framework, query_vector) = rt.block_on(async {
-        let fw = ChaoticSemanticFramework::builder()
-            .without_persistence()
-            .build()
-            .await
-            .unwrap();
-
-        // 1k concepts
-        for i in 0..1000 {
-            fw.inject_concept(format!("c{i}"), HVec10240::new_seeded(i as u64))
-                .await
-                .unwrap();
-        }
-
-        // Chain associations for 5 hops
-        for i in 0..5 {
-            fw.associate(&format!("c{i}"), &format!("c{}", i + 1), 0.9)
-                .await
-                .unwrap();
-        }
-
-        (fw, HVec10240::new_seeded(0))
-    });
-
-    let config = GraphRagConfig {
-        anchor_top_k: 5,
-        max_hops: 5,
-        ..Default::default()
-    };
-
-    group.bench_function("probe_graph_1k_concepts_5_hops", |b| {
-        b.iter(|| {
-            rt.block_on(async {
-                black_box(
-                    framework
-                        .probe_with_graph(black_box(query_vector), black_box(config.clone()))
-                        .await
-                        .unwrap(),
-                )
-            })
-        })
-    });
-
-    group.finish();
-}
-
 // ─── BM25 keyword search benchmarks ───────────────────────────────────────────
 
 fn bench_bm25_search(c: &mut Criterion) {
@@ -729,7 +671,6 @@ criterion_group!(
     bench_concept_expansion,
     bench_bridge_retrieval,
     bench_memory_packet_compilation,
-    bench_probe_graph,
     bench_bm25_search,
     bench_singularity_scalability
 );

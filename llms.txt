@@ -645,10 +645,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - impl WasmFramework
 
-### src/wasm_graph_rag.rs
-
-- impl WasmFramework
-
 ## Core Documentation
 
 - [Complete API Documentation](llms-full.txt): Full public API documentation with detailed descriptions
