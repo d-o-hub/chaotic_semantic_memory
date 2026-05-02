@@ -15,7 +15,7 @@ impl Persistence {
         let conn = self.connect().await?;
         conn.execute("BEGIN", ())
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {e}")))?;
 
         let stmt = conn
             .prepare(
@@ -23,7 +23,7 @@ impl Persistence {
                  VALUES (?1, ?2, ?3)",
             )
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to prepare statement: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to prepare statement: {e}")))?;
 
         let mut first_error: Option<MemoryError> = None;
         for (from, to, strength) in associations {
@@ -33,8 +33,7 @@ impl Persistence {
                 .await
             {
                 first_error = Some(MemoryError::database(format!(
-                    "Failed to batch save association: {}",
-                    e
+                    "Failed to batch save association: {e}"
                 )));
                 break;
             }
@@ -47,7 +46,7 @@ impl Persistence {
 
         conn.execute("COMMIT", ())
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to commit transaction: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to commit transaction: {e}")))?;
 
         Ok(())
     }
@@ -63,7 +62,7 @@ impl Persistence {
              COMMIT;",
         )
         .await
-        .map_err(|e| MemoryError::database(format!("Failed to clear all data: {}", e)))?;
+        .map_err(|e| MemoryError::database(format!("Failed to clear all data: {e}")))?;
         Ok(())
     }
 
@@ -81,27 +80,27 @@ impl Persistence {
                 libsql::params![id, limit as i64],
             )
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to load concept history: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to load concept history: {e}")))?;
 
         let mut history = Vec::new();
         while let Some(row) = rows.next().await.map_err(|e| {
-            MemoryError::database(format!("Failed to fetch concept history row: {}", e))
+            MemoryError::database(format!("Failed to fetch concept history row: {e}"))
         })? {
             let concept_id: String = row
                 .get(0)
-                .map_err(|e| MemoryError::database(format!("Failed to get concept_id: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to get concept_id: {e}")))?;
             let version: i64 = row
                 .get(1)
-                .map_err(|e| MemoryError::database(format!("Failed to get version: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to get version: {e}")))?;
             let vector_bytes: Vec<u8> = row
                 .get(2)
-                .map_err(|e| MemoryError::database(format!("Failed to get vector: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to get vector: {e}")))?;
             let metadata_json: String = row
                 .get(3)
-                .map_err(|e| MemoryError::database(format!("Failed to get metadata: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to get metadata: {e}")))?;
             let modified_at: i64 = row
                 .get(4)
-                .map_err(|e| MemoryError::database(format!("Failed to get modified_at: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to get modified_at: {e}")))?;
 
             history.push(ConceptVersion {
                 concept_id,
@@ -124,13 +123,13 @@ impl Persistence {
                 (),
             )
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to get schema version: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to get schema version: {e}")))?;
 
         if let Some(row) = rows.next().await.map_err(|e| {
-            MemoryError::database(format!("Failed to fetch schema version row: {}", e))
+            MemoryError::database(format!("Failed to fetch schema version row: {e}"))
         })? {
             let version: i64 = row.get(0).map_err(|e| {
-                MemoryError::database(format!("Failed to parse schema version: {}", e))
+                MemoryError::database(format!("Failed to parse schema version: {e}"))
             })?;
             Ok(version)
         } else {
@@ -160,7 +159,7 @@ impl Persistence {
         let conn = self.connect().await?;
         conn.execute("VACUUM INTO ?1", params![path])
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to create backup: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to create backup: {e}")))?;
         Ok(())
     }
 
@@ -176,13 +175,13 @@ impl Persistence {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
         conn.execute("BEGIN IMMEDIATE", ()).await.map_err(|e| {
-            MemoryError::database(format!("Failed to begin restore transaction: {}", e))
+            MemoryError::database(format!("Failed to begin restore transaction: {e}"))
         })?;
 
         if let Err(error) = async {
             conn.execute("ATTACH DATABASE ?1 AS restore_db", params![path])
                 .await
-                .map_err(|e| MemoryError::database(format!("Failed to attach backup DB: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to attach backup DB: {e}")))?;
 
             conn.execute_batch(
                 "DELETE FROM csm_associations;
@@ -191,7 +190,7 @@ impl Persistence {
                  DELETE FROM csm_schema_version;",
             )
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to clear current database: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to clear current database: {e}")))?;
 
             conn.execute_batch(
                 "INSERT INTO csm_concepts (id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
@@ -204,7 +203,7 @@ impl Persistence {
                  SELECT version FROM restore_db.csm_schema_version;",
             )
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to import backup data: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to import backup data: {e}")))?;
 
             Ok::<(), MemoryError>(())
         }
@@ -216,7 +215,7 @@ impl Persistence {
 
         conn.execute("COMMIT", ())
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to commit restore: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to commit restore: {e}")))?;
         if let Err(error) = conn.execute_batch("DETACH DATABASE restore_db;").await {
             warn!(error = %error, "failed to detach restore_db after restore");
         }
@@ -228,9 +227,9 @@ impl Persistence {
     pub async fn health_check(&self) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
-        conn.query("SELECT 1", ()).await.map_err(|e| {
-            MemoryError::database(format!("Failed persistence health check: {}", e))
-        })?;
+        conn.query("SELECT 1", ())
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed persistence health check: {e}")))?;
         Ok(())
     }
 
@@ -243,7 +242,7 @@ impl Persistence {
             params![from, to],
         )
         .await
-        .map_err(|e| MemoryError::database(format!("Failed to delete association: {}", e)))?;
+        .map_err(|e| MemoryError::database(format!("Failed to delete association: {e}")))?;
         Ok(())
     }
 
@@ -256,9 +255,7 @@ impl Persistence {
             params![id],
         )
         .await
-        .map_err(|e| {
-            MemoryError::database(format!("Failed to clear concept associations: {}", e))
-        })?;
+        .map_err(|e| MemoryError::database(format!("Failed to clear concept associations: {e}")))?;
         Ok(())
     }
 
@@ -275,7 +272,7 @@ impl Persistence {
         }
 
         conn.execute("BEGIN", ()).await.map_err(|e| {
-            MemoryError::database(format!("Failed to begin migration transaction: {}", e))
+            MemoryError::database(format!("Failed to begin migration transaction: {e}"))
         })?;
 
         for version in (current + 1)..=target_version {
@@ -286,7 +283,7 @@ impl Persistence {
                      ON csm_versions(modified_at);",
                 )
                 .await
-                .map_err(|e| MemoryError::database(format!("Failed migration v2: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed migration v2: {e}")))?;
             }
 
             if version == 3 {
@@ -297,9 +294,7 @@ impl Persistence {
                 {
                     conn.execute_batch("ALTER TABLE csm_concepts ADD COLUMN expires_at INTEGER;")
                         .await
-                        .map_err(|e| {
-                            MemoryError::database(format!("Failed migration v3: {}", e))
-                        })?;
+                        .map_err(|e| MemoryError::database(format!("Failed migration v3: {e}")))?;
                 }
             }
 
@@ -314,7 +309,7 @@ impl Persistence {
                     );",
                 )
                 .await
-                .map_err(|e| MemoryError::database(format!("Failed migration v4: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed migration v4: {e}")))?;
             }
 
             if version == 5 {
@@ -331,7 +326,7 @@ impl Persistence {
                         "ALTER TABLE csm_concepts ADD COLUMN canonical_concept_ids_json TEXT;",
                     )
                     .await
-                    .map_err(|e| MemoryError::database(format!("Failed migration v6: {}", e)))?;
+                    .map_err(|e| MemoryError::database(format!("Failed migration v6: {e}")))?;
                 }
             }
 
@@ -340,14 +335,12 @@ impl Persistence {
                 libsql::params![version],
             )
             .await
-            .map_err(|e| {
-                MemoryError::database(format!("Failed to record schema version: {}", e))
-            })?;
+            .map_err(|e| MemoryError::database(format!("Failed to record schema version: {e}")))?;
         }
 
         conn.execute("COMMIT", ())
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to commit migrations: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to commit migrations: {e}")))?;
 
         Ok(())
     }
@@ -360,13 +353,13 @@ impl Persistence {
                 (),
             )
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to get schema version: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to get schema version: {e}")))?;
 
         if let Some(row) = rows.next().await.map_err(|e| {
-            MemoryError::database(format!("Failed to fetch schema version row: {}", e))
+            MemoryError::database(format!("Failed to fetch schema version row: {e}"))
         })? {
             let version: i64 = row.get(0).map_err(|e| {
-                MemoryError::database(format!("Failed to parse schema version: {}", e))
+                MemoryError::database(format!("Failed to parse schema version: {e}"))
             })?;
             Ok(version)
         } else {

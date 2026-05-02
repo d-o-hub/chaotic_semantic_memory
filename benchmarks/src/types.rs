@@ -16,6 +16,8 @@ pub enum TaskType {
     Association,
     /// Multi-session task requiring aggregation across sessions.
     MultiSession,
+    /// Isolation task where a session should NOT have access to other session data.
+    Isolation,
 }
 
 /// A single turn in a conversation session.
@@ -75,6 +77,8 @@ pub struct RetrievedItem {
 pub struct CaseResult {
     /// Query ID this result corresponds to.
     pub query_id: String,
+    /// ID of the session this query relates to.
+    pub session_id: String,
     /// Task type of the query.
     pub task_type: TaskType,
     /// List of retrieved items.
@@ -128,6 +132,15 @@ pub struct SummaryMetrics {
     pub abstain_precision: f32,
     /// Recall of abstention decisions.
     pub abstain_recall: f32,
+    /// Success rate of association tasks.
+    #[serde(default)]
+    pub association_success_rate: f32,
+    /// Success rate of multi-session aggregation tasks.
+    #[serde(default)]
+    pub multisession_recall: f32,
+    /// Success rate of session isolation verification.
+    #[serde(default)]
+    pub session_isolation: f32,
     /// Total ingestion time in milliseconds.
     pub ingest_ms: u128,
     /// Median (p50) query latency in milliseconds.

@@ -94,12 +94,18 @@ impl HVec10240 {
     /// 3. It parallelizes over hypervector words rather than over vectors to minimize
     ///    memory traffic and synchronization overhead.
     pub fn bundle(vectors: &[Self]) -> Result<Self> {
-        if vectors.is_empty() { return Ok(Self::zero()); }
+        if vectors.is_empty() {
+            return Ok(Self::zero());
+        }
         let num_vectors = vectors.len();
-        if num_vectors == 1 { return Ok(vectors[0]); }
+        if num_vectors == 1 {
+            return Ok(vectors[0]);
+        }
         if num_vectors == 2 {
             let mut res = Self::zero();
-            for i in 0..80 { res.data[i] = vectors[0].data[i] & vectors[1].data[i]; }
+            for i in 0..80 {
+                res.data[i] = vectors[0].data[i] & vectors[1].data[i];
+            }
             return Ok(res);
         }
         let threshold = num_vectors / 2 + 1;
@@ -115,13 +121,19 @@ impl HVec10240 {
                         let next_carry = *plane & carry;
                         *plane ^= carry;
                         carry = next_carry;
-                        if carry == 0 { break; }
+                        if carry == 0 {
+                            break;
+                        }
                     }
                 }
                 let (mut current_eq, mut current_gt) = (!0u128, 0u128);
                 for p in (0..num_planes).rev() {
-                    if ((threshold >> p) & 1) == 1 { current_eq &= planes[p]; }
-                    else { current_gt |= current_eq & planes[p]; current_eq &= !planes[p]; }
+                    if ((threshold >> p) & 1) == 1 {
+                        current_eq &= planes[p];
+                    } else {
+                        current_gt |= current_eq & planes[p];
+                        current_eq &= !planes[p];
+                    }
                 }
                 *word = current_gt | current_eq;
             });
@@ -135,13 +147,19 @@ impl HVec10240 {
                     let next_carry = *plane & carry;
                     *plane ^= carry;
                     carry = next_carry;
-                    if carry == 0 { break; }
+                    if carry == 0 {
+                        break;
+                    }
                 }
             }
             let (mut current_eq, mut current_gt) = (!0u128, 0u128);
             for p in (0..num_planes).rev() {
-                if ((threshold >> p) & 1) == 1 { current_eq &= planes[p]; }
-                else { current_gt |= current_eq & planes[p]; current_eq &= !planes[p]; }
+                if ((threshold >> p) & 1) == 1 {
+                    current_eq &= planes[p];
+                } else {
+                    current_gt |= current_eq & planes[p];
+                    current_eq &= !planes[p];
+                }
             }
             data[i] = current_gt | current_eq;
         }
@@ -441,11 +459,10 @@ mod tests {
         let v = HVec10240::random();
         let json = serde_json::to_string(&v).unwrap();
         // Should be a base64 string, not an array
-        assert!(json.starts_with('"'), "Expected string, got: {}", json);
+        assert!(json.starts_with('"'), "Expected string, got: {json}");
         assert!(
             !json.starts_with('['),
-            "Expected base64 string, not array: {}",
-            json
+            "Expected base64 string, not array: {json}"
         );
         // Verify roundtrip
         let decoded: HVec10240 = serde_json::from_str(&json).unwrap();

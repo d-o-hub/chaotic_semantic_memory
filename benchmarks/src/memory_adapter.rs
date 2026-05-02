@@ -2,6 +2,7 @@ use anyhow::Result;
 use chaotic_semantic_memory::prelude::*;
 use chaotic_semantic_memory::retrieval::bm25::Bm25Index;
 use chaotic_semantic_memory::retrieval::hybrid::{compute_weights, merge_results};
+use chaotic_semantic_memory::retrieval::GraphRagConfig;
 use std::collections::{HashMap, HashSet};
 use tempfile::NamedTempFile;
 use tokio::{fs, sync::RwLock};
@@ -45,7 +46,7 @@ const MIN_OVERLAP_WEIGHT: f32 = 0.05;
 const MIN_ADJUSTED_SCORE: f32 = 0.05;
 const STOPWORDS: &[&str] = &[
     "a", "an", "the", "is", "am", "are", "my", "me", "i", "you", "your", "what", "which",
-    "did", "do", "does", "after", "where", "number", "favorite", "current", "should",
+    "did", "do", "does", "after", "where", "number", "should",
 ];
 
 impl MemoryAdapter {
@@ -64,7 +65,19 @@ impl MemoryAdapter {
     pub async fn ingest_memory(&self, id: &str, text: &str) -> Result<()> {
         // Store text metadata for HDC
         let mut metadata = HashMap::new();
-        metadata.insert("_text".to_string(), serde_json::Value::String(text.to_string()));
+        metadata.insert(
+            "_text".to_string(),
+            serde_json::Value::String(text.to_string()),
+        );
+
+        // Add session_id to metadata for framework-level filtering
+        if let Some((session_id, _)) = id.split_once(':') {
+            metadata.insert(
+                "session_id".to_string(),
+                serde_json::Value::String(session_id.to_string()),
+            );
+        }
+
         self.framework
             .inject_text_with_metadata(id, text, metadata)
             .await?;
@@ -74,7 +87,10 @@ impl MemoryAdapter {
         self.bm25_index.write().await.add_document(id, &tokens);
 
         // Store text for retrieval
-        self.text_store.write().await.insert(id.to_string(), text.to_string());
+        self.text_store
+            .write()
+            .await
+            .insert(id.to_string(), text.to_string());
 
         if let Some(previous_id) = Self::previous_version_id(id) {
             if let Err(err) = self.framework.delete_concept(&previous_id).await {
@@ -89,12 +105,43 @@ impl MemoryAdapter {
     }
 
     pub async fn query(&self, text: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
+        self.query_internal(text, top_k, false).await
+    }
+
+    /// Query specifically for association tasks using GraphRAG.
+    pub async fn query_association(&self, text: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
+        self.query_internal(text, top_k, true).await
+    }
+
+    async fn query_internal(
+        &self,
+        text: &str,
+        top_k: usize,
+        use_graph: bool,
+    ) -> Result<Vec<(String, f32)>> {
         // Get HDC results
-        let hdc_hits = self.framework.probe_text(text, top_k * 3).await?; // Get more for filtering
+        let hdc_hits = if use_graph {
+            let config = GraphRagConfig {
+                anchor_top_k: 5,
+                max_hops: 2,
+                min_assoc_strength: 0.0,
+                similarity_weight: 0.7,
+                graph_weight: 0.3,
+                final_top_k: top_k * 3,
+            };
+            let graph_results = self.framework.probe_text_with_graph(text, config).await?;
+            graph_results.into_iter().map(|r| (r.id, r.score)).collect()
+        } else {
+            self.framework.probe_text(text, top_k * 3).await?
+        };
 
         // Get BM25 results
         let query_tokens = tokenize_for_bm25(text);
-        let bm25_hits = self.bm25_index.read().await.search(&query_tokens, top_k * 3);
+        let bm25_hits = self
+            .bm25_index
+            .read()
+            .await
+            .search(&query_tokens, top_k * 3);
 
         // Compute weights based on query length
         let weights = compute_weights(query_tokens.len());
@@ -119,7 +166,8 @@ impl MemoryAdapter {
                         Self::token_overlap_ratio(&query_tokens, &doc_tokens)
                     })?;
 
-                    let adjusted = score * (MIN_OVERLAP_WEIGHT + (1.0 - MIN_OVERLAP_WEIGHT) * overlap);
+                    let adjusted =
+                        score * (MIN_OVERLAP_WEIGHT + (1.0 - MIN_OVERLAP_WEIGHT) * overlap);
                     if adjusted < MIN_ADJUSTED_SCORE {
                         None
                     } else {
@@ -133,19 +181,92 @@ impl MemoryAdapter {
     }
 
     /// Query with session filtering - only returns documents from the specified session.
-    pub async fn query_in_session(&self, text: &str, session_id: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
-        // Get all results
-        let all_results = self.query(text, top_k * 3).await?;
+    pub async fn query_in_session(
+        &self,
+        text: &str,
+        session_id: &str,
+        top_k: usize,
+    ) -> Result<Vec<(String, f32)>> {
+        self.query_in_session_internal(text, session_id, top_k, false)
+            .await
+    }
 
-        // Filter to session-specific results
+    /// Query with session filtering specifically for association tasks.
+    pub async fn query_in_session_association(
+        &self,
+        text: &str,
+        session_id: &str,
+        top_k: usize,
+    ) -> Result<Vec<(String, f32)>> {
+        self.query_in_session_internal(text, session_id, top_k, true)
+            .await
+    }
+
+    async fn query_in_session_internal(
+        &self,
+        text: &str,
+        session_id: &str,
+        top_k: usize,
+        use_graph: bool,
+    ) -> Result<Vec<(String, f32)>> {
+        if use_graph {
+            // GraphRAG doesn't yet support framework-level metadata filtering in this adapter's wrapper,
+            // so we still use post-filtering for association queries.
+            let all_results = self.query_association(text, top_k * 10).await?;
+            let session_prefix = format!("{}:", session_id);
+            let filtered: Vec<_> = all_results
+                .into_iter()
+                .filter(|(id, _)| id.starts_with(&session_prefix))
+                .take(top_k)
+                .collect();
+            return Ok(filtered);
+        }
+
+        // For standard queries, use framework-level session filtering
+        let hdc_hits = self
+            .framework
+            .query_in_session(text, session_id, top_k * 3)
+            .await?;
+
+        // Get BM25 results (BM25 still needs manual session filtering here as it's a separate index)
+        let query_tokens = tokenize_for_bm25(text);
+        let bm25_hits = self
+            .bm25_index
+            .read()
+            .await
+            .search(&query_tokens, top_k * 10);
         let session_prefix = format!("{}:", session_id);
-        let filtered: Vec<_> = all_results
+        let bm25_filtered: Vec<_> = bm25_hits
             .into_iter()
             .filter(|(id, _)| id.starts_with(&session_prefix))
-            .take(top_k)
             .collect();
 
-        Ok(filtered)
+        // Merge results
+        let weights = compute_weights(query_tokens.len());
+        let merged = merge_results(&bm25_filtered, &hdc_hits, weights);
+
+        let reweighted = {
+            let text_store = self.text_store.read().await;
+            merged
+                .into_iter()
+                .filter_map(|(id, score)| {
+                    let overlap = text_store.get(&id).map(|text| {
+                        let doc_tokens = tokenize_for_bm25(text);
+                        Self::token_overlap_ratio(&query_tokens, &doc_tokens)
+                    })?;
+
+                    let adjusted =
+                        score * (MIN_OVERLAP_WEIGHT + (1.0 - MIN_OVERLAP_WEIGHT) * overlap);
+                    if adjusted < MIN_ADJUSTED_SCORE {
+                        None
+                    } else {
+                        Some((id, adjusted))
+                    }
+                })
+                .collect::<Vec<_>>()
+        };
+
+        Ok(reweighted.into_iter().take(top_k).collect())
     }
 
     pub async fn get_text(&self, id: &str) -> Result<Option<String>> {
@@ -225,7 +346,10 @@ mod tests {
         let adapter = MemoryAdapter::new_in_memory().await.unwrap();
 
         // Inject memory with text
-        adapter.ingest_memory("test-1", "Hello world from memory").await.unwrap();
+        adapter
+            .ingest_memory("test-1", "Hello world from memory")
+            .await
+            .unwrap();
 
         // Retrieve the stored text
         let text = adapter.get_text("test-1").await.unwrap();
@@ -275,13 +399,19 @@ mod tests {
             .query_in_session("current favorite color", "session-0001", 1)
             .await
             .unwrap();
-        assert_eq!(hits.first().map(|(id, _)| id.as_str()), Some("session-0001:favorite_color:v2"));
+        assert_eq!(
+            hits.first().map(|(id, _)| id.as_str()),
+            Some("session-0001:favorite_color:v2")
+        );
     }
 
     #[tokio::test]
     async fn test_storage_bytes_reports_export_size() {
         let adapter = MemoryAdapter::new_in_memory().await.unwrap();
-        adapter.ingest_memory("storage-1", "hello world").await.unwrap();
+        adapter
+            .ingest_memory("storage-1", "hello world")
+            .await
+            .unwrap();
         let bytes = adapter.storage_bytes().await.unwrap();
         assert!(bytes > 0);
     }
@@ -298,6 +428,9 @@ mod tests {
             .query_in_session("What city did I move to?", "session-123", 1)
             .await
             .unwrap();
-        assert_eq!(hits.first().map(|(id, _)| id.as_str()), Some("session-123:city:v1"));
+        assert_eq!(
+            hits.first().map(|(id, _)| id.as_str()),
+            Some("session-123:city:v1")
+        );
     }
 }

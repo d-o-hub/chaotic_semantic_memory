@@ -2886,6 +2886,8 @@ impl crate::framework::ChaoticSemanticFramework {
     pub fn inject_text(&self, id: &str, text: &str) -> Result<()>;
     pub fn inject_text_with_metadata(&self, id: &str, text: &str, metadata: HashMap<String, serde_json::Value>) -> Result<()>;
     pub fn probe_text(&self, query: &str, top_k: usize) -> Result<Vec<(String, f32)>>;
+    pub fn probe_text_filtered(&self, query: &str, top_k: usize, filter: &MetadataFilter) -> Result<Vec<(String, f32)>>;
+    pub fn query_in_session(&self, query: &str, session_id: &str, top_k: usize) -> Result<Vec<(String, f32)>>;
 }
 ```
 

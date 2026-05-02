@@ -115,8 +115,7 @@ fn validate_top_k(top_k: usize) -> Result<()> {
     }
     if top_k > 10_000 {
         return Err(CliError::Validation(format!(
-            "top_k exceeds limit (max 10000, got {})",
-            top_k
+            "top_k exceeds limit (max 10000, got {top_k})"
         )));
     }
     Ok(())
@@ -125,14 +124,12 @@ fn validate_top_k(top_k: usize) -> Result<()> {
 fn validate_strength(strength: f64) -> Result<()> {
     if !strength.is_finite() {
         return Err(CliError::Validation(format!(
-            "strength must be finite (got {})",
-            strength
+            "strength must be finite (got {strength})"
         )));
     }
     if strength < 0.0 {
         return Err(CliError::Validation(format!(
-            "strength must be >= 0 (got {})",
-            strength
+            "strength must be >= 0 (got {strength})"
         )));
     }
     Ok(())

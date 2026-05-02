@@ -13,6 +13,24 @@ const COLOR_MODIFIERS: &[&str] = &[
     "light", "dark", "bright", "pale", "vibrant", "soft", "deep", "muted",
 ];
 
+/// Real pets for semantically meaningful test data
+const PETS: &[&str] = &[
+    "Golden Retriever",
+    "Siamese Cat",
+    "Hamster",
+    "Parrot",
+    "Iguana",
+    "Rabbit",
+    "Goldfish",
+    "Beagle",
+    "Persian Cat",
+    "Cockatiel",
+    "Turtle",
+    "Chinchilla",
+    "Ferret",
+    "Hedgehog",
+];
+
 /// Real cities for semantically meaningful test data
 const CITIES: &[&str] = &[
     "New York",
@@ -69,8 +87,13 @@ pub fn generate_sessions_with_range(
 
         let color_v1 = COLORS[rng.random_range(0..COLORS.len())];
         let color_mod = COLOR_MODIFIERS[rng.random_range(0..COLOR_MODIFIERS.len())];
-        let color_v2 = format!("{} {}", color_mod, COLORS[rng.random_range(0..COLORS.len())]);
+        let color_v2 = format!(
+            "{} {}",
+            color_mod,
+            COLORS[rng.random_range(0..COLORS.len())]
+        );
         let city = CITIES[rng.random_range(0..CITIES.len())];
+        let pet = PETS[rng.random_range(0..PETS.len())];
 
         // Build turns based on turn_count (minimum 1 turn)
         let mut turns = Vec::with_capacity(turn_count);
@@ -93,6 +116,16 @@ pub fn generate_sessions_with_range(
             });
         }
 
+        // Mention a pet (if we have at least 4 turns)
+        if turn_count >= 4 {
+            turns.push(SessionTurn {
+                ts: "2026-01-05T10:00:00Z".into(),
+                speaker: "user".into(),
+                text: format!("I have a {pet} as a pet."),
+                memory_id: Some(format!("{session_id}:pet:v1")),
+            });
+        }
+
         // Third turn updates color (if we have at least 3 turns)
         if turn_count >= 3 {
             turns.push(SessionTurn {
@@ -106,8 +139,9 @@ pub fn generate_sessions_with_range(
         }
 
         // Additional turns with filler content (for variable-length stress testing)
-        for j in 3..turn_count {
-            let filler_idx = j - 3;
+        let start_filler = if turn_count >= 4 { 4 } else { 3 };
+        for j in start_filler..turn_count {
+            let filler_idx = j - start_filler;
             turns.push(SessionTurn {
                 ts: format!("2026-01-{:02}T10:00:00Z", 5 + filler_idx),
                 speaker: "user".into(),
@@ -172,42 +206,105 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
 
     // Add cross-session query types (Association and MultiSession)
     if sessions.len() >= 2 {
-        // Association: Link concepts across sessions
-        let s1 = &sessions[0];
-        let s2 = &sessions[1];
-        cases.push(QueryCase {
-            query_id: "cross-session:association".into(),
-            session_id: "cross-session".into(),
-            task_type: TaskType::Association,
-            query: "What colors have I mentioned across different conversations?".into(),
-            gold_evidence_ids: vec![
-                format!("{}:favorite_color:v1", s1.session_id),
-                format!("{}:favorite_color:v1", s2.session_id),
-            ],
-            expected_answer: None,
-            should_abstain: false,
-        });
+        // Association: Link concepts across sessions by finding common themes
+        for i in 0..sessions.len().min(10) {
+            let s1 = &sessions[i];
+            let s2 = &sessions[(i + 1) % sessions.len()];
+
+            // Generate association query based on shared color or city if possible,
+            // but for simplicity we'll just use colors from these two sessions.
+            // Note: color v1 is pruned if v2 exists, so we use v2.
+            cases.push(QueryCase {
+                query_id: format!("association-{:03}", i),
+                session_id: "cross-session".into(),
+                task_type: TaskType::Association,
+                query: "What are the favorite colors I've mentioned in my different chats?".into(),
+                gold_evidence_ids: vec![
+                    format!("{}:favorite_color:v2", s1.session_id),
+                    format!("{}:favorite_color:v2", s2.session_id),
+                ],
+                expected_answer: None,
+                should_abstain: false,
+            });
+
+            // Add a query that targets explicit associations between city and color in a session
+            cases.push(QueryCase {
+                query_id: format!("association-internal-{:03}", i),
+                session_id: s1.session_id.clone(),
+                task_type: TaskType::Association,
+                query: "Show me items related to my location city and favorite interests color in this session.".into(),
+                gold_evidence_ids: vec![
+                    format!("{}:favorite_color:v2", s1.session_id),
+                    format!("{}:city:v1", s1.session_id),
+                ],
+                expected_answer: None,
+                should_abstain: false,
+            });
+        }
 
         // MultiSession: Aggregate across sessions
         cases.push(QueryCase {
-            query_id: "cross-session:multisession".into(),
+            query_id: "cross-session:multisession-city".into(),
             session_id: "cross-session".into(),
             task_type: TaskType::MultiSession,
-            query: "Which cities have I lived in or moved to?".into(),
+            query: "Which cities have I lived in or moved to as a resident?".into(),
             gold_evidence_ids: sessions
                 .iter()
                 .filter_map(|s| {
-                    s.turns.iter().find(|t| {
-                        t.memory_id
-                            .as_ref()
-                            .is_some_and(|id| id.contains(":city:"))
-                    })
+                    s.turns
+                        .iter()
+                        .find(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":city:")))
                 })
                 .filter_map(|t| t.memory_id.clone())
                 .collect(),
             expected_answer: None,
             should_abstain: false,
         });
+
+        cases.push(QueryCase {
+            query_id: "cross-session:multisession-pet".into(),
+            session_id: "cross-session".into(),
+            task_type: TaskType::MultiSession,
+            query: "What pets have I mentioned having?".into(),
+            gold_evidence_ids: sessions
+                .iter()
+                .filter_map(|s| {
+                    s.turns
+                        .iter()
+                        .find(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":pet:")))
+                })
+                .filter_map(|t| t.memory_id.clone())
+                .collect(),
+            expected_answer: None,
+            should_abstain: false,
+        });
+
+        // Isolation: Query a session for data that belongs to another session
+        for i in 0..sessions.len().min(5) {
+            let s_target = &sessions[i];
+            let s_other = &sessions[(i + 1) % sessions.len()];
+
+            // Find a unique pet from the OTHER session
+            let other_pet_turn = s_other
+                .turns
+                .iter()
+                .find(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":pet:")));
+
+            if let Some(turn) = other_pet_turn {
+                // Extract pet name from "I have a [pet] as a pet."
+                let pet_name = turn.text.replace("I have a ", "").replace(" as a pet.", "");
+
+                cases.push(QueryCase {
+                    query_id: format!("isolation-{:03}", i),
+                    session_id: s_target.session_id.clone(),
+                    task_type: TaskType::Isolation,
+                    query: format!("Do I have a {}?", pet_name),
+                    gold_evidence_ids: vec![], // Should NOT find anything
+                    expected_answer: None,
+                    should_abstain: true,
+                });
+            }
+        }
     }
 
     cases
