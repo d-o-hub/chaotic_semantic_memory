@@ -241,7 +241,7 @@ mod tests {
     #[test]
     fn aggregate_latency_percentiles() {
         let results: Vec<_> = (1..=10)
-            .map(|i| make_result(&format!("q{}", i), TaskType::Recall, false, false, i, false))
+            .map(|i| make_result(&format!("q{i}"), TaskType::Recall, false, false, i, false))
             .collect();
         let summary = aggregate(&results, 100, 1024, 512);
         // Sorted latencies: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
