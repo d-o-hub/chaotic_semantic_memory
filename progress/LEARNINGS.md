@@ -41,3 +41,8 @@
 - **Schema Drift**: Always update all persistence surfaces (single, batch, export, WASM) when adding concept fields.
 - **Dense Matrices**: Avoid dense matrices for reservoirs > 2000 nodes; use CSR.
 - **Archived Deps**: Never use archived GitHub repositories as dependencies.
+
+## Benchmarking & Versioning (Root Cause Analysis - May 2026)
+- **Versioning Mismatch**: Manually appending ':v1', ':v2' suffixes to concept IDs during benchmark ingestion bypasses the framework's native versioning system. This results in distinct concepts instead of a unified concept lineage.
+- **Lesson**: Always use stable, unchanging IDs for updates to trigger native version tracking. Benchmark scoring for lineage (e.g., TaskType::History) must coordinate with the runner's ID mapping (e.g., id:vN) to ensure gold evidence matches correctly.
+- **Merge Coordination**: When multiple benchmark features are implemented in parallel (e.g., Association tasks vs. Coverage expansion), coordinate stable ID usage across all task types to avoid regression in shared metrics like Recall@k.

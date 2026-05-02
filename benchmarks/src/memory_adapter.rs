@@ -207,22 +207,47 @@ impl MemoryAdapter {
     }
 
     async fn query_in_session_internal(&self, text: &str, session_id: &str, top_k: usize, use_graph: bool) -> Result<Vec<(String, f32)>> {
-        // Get all results
-        let all_results = if use_graph {
-            self.query_association(text, top_k * 3).await?
-        } else {
-            self.query(text, top_k * 3).await?
+        if use_graph {
+            let all_results = self.query_association(text, top_k * 10).await?;
+            let session_prefix = format!("{}:", session_id);
+            let filtered: Vec<_> = all_results
+                .into_iter()
+                .filter(|(id, _)| id.starts_with(&session_prefix))
+                .take(top_k)
+                .collect();
+            return Ok(filtered);
+        }
+
+        let hdc_hits = self.framework.query_in_session(text, session_id, top_k * 3).await?;
+        let query_tokens = tokenize_for_bm25(text);
+        let bm25_hits = self.bm25_index.read().await.search(&query_tokens, top_k * 10);
+        let session_prefix = format!("{}:", session_id);
+        let bm25_filtered: Vec<_> = bm25_hits.into_iter().filter(|(id, _)| id.starts_with(&session_prefix)).collect();
+
+        let weights = compute_weights(query_tokens.len());
+        let merged = merge_results(&bm25_filtered, &hdc_hits, weights);
+
+        let reweighted = {
+            let text_store = self.text_store.read().await;
+            merged
+                .into_iter()
+                .filter_map(|(id, score)| {
+                    let overlap = text_store.get(&id).map(|text| {
+                        let doc_tokens = tokenize_for_bm25(text);
+                        Self::token_overlap_ratio(&query_tokens, &doc_tokens)
+                    })?;
+
+                    let adjusted = score * (MIN_OVERLAP_WEIGHT + (1.0 - MIN_OVERLAP_WEIGHT) * overlap);
+                    if adjusted < MIN_ADJUSTED_SCORE {
+                        None
+                    } else {
+                        Some((id, adjusted))
+                    }
+                })
+                .collect::<Vec<_>>()
         };
 
-        // Filter to session-specific results
-        let session_prefix = format!("{}:", session_id);
-        let filtered: Vec<_> = all_results
-            .into_iter()
-            .filter(|(id, _)| id.starts_with(&session_prefix))
-            .take(top_k)
-            .collect();
-
-        Ok(filtered)
+        Ok(reweighted.into_iter().take(top_k).collect())
     }
 
     pub async fn query_bm25(&self, text: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
