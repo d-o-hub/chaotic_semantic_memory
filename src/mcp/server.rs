@@ -15,24 +15,37 @@ impl McpServer {
     }
 
     pub async fn run_stdio(&self) -> Result<(), ErrorData> {
-        let service = MemoryHandler { framework: self.framework.clone() };
+        let service = MemoryHandler {
+            framework: self.framework.clone(),
+        };
         let transport = rmcp::transport::stdio();
-        rmcp::service::serve_server(service, transport).await
-            .map_err(|e| ErrorData::internal_error(format!("Stdio server execution failed: {:?}", e), None))?;
+        let handle = rmcp::service::serve_server(service, transport)
+            .await
+            .map_err(|e| {
+                ErrorData::internal_error(format!("Stdio server execution failed: {:?}", e), None)
+            })?;
+
+        handle.waiting().await.map_err(|e| {
+            ErrorData::internal_error(format!("Stdio server failed: {:?}", e), None)
+        })?;
+
         Ok(())
     }
 
     pub async fn run_sse(&self, bind: &str) -> Result<(), ErrorData> {
         let service_provider = {
             let framework = self.framework.clone();
-            move || MemoryHandler { framework: framework.clone() }
+            move || MemoryHandler {
+                framework: framework.clone(),
+            }
         };
 
         let addr: std::net::SocketAddr = bind.parse().map_err(|e: std::net::AddrParseError| {
             ErrorData::internal_error(e.to_string(), None)
         })?;
 
-        let sse_server = rmcp::transport::sse_server::SseServer::serve(addr).await
+        let sse_server = rmcp::transport::sse_server::SseServer::serve(addr)
+            .await
             .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
 
         sse_server.with_service(service_provider).cancelled().await;

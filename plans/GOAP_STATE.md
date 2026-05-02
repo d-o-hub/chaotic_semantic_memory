@@ -851,7 +851,7 @@ world_state:
 
   # Wave 21 P0 — Adoption Unblockers (queued, total cost 34)
   cli_framework_parity_complete: false        # ADR-0066 — 11 CLI subcommands missing
-  mcp_server_implemented: false               # ADR-0067 — `csm mcp serve` for LLM agents
+  mcp_server_implemented: true               # ADR-0067 — `csm mcp serve` for LLM agents
   adr_backfill_complete: false                # ADR-0076 — ~29 missing ADR files
 
   # Wave 22 P1 — Capability Ceiling (queued, total cost 40)
@@ -889,4 +889,4 @@ world_state:
   clippy_actionable_warnings: 110                             # float_cmp + drop_tightening + cast_* + const_fn + redundant_clone
   adr_0077_clippy_promotion_drafted: true                     # plans/adr/0077-clippy-pedantic-selective-promotion.md
   clippy_pedantic_promotion_complete: false                   # 5 themed PRs queued
-  action_last_completed: verification_and_clippy_audit_2026_04_30
+  action_last_completed: mcp_server_implemented

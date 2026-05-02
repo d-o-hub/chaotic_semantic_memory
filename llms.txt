@@ -9,14 +9,18 @@
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
 - anyhow (1.0.102)
+- async-trait (0.1.89)
 - base64 (0.22)
 - bincode (1.3.3)
 - clap (4.5.60) [features: derive, env, string]
 - clap_complete (4.5.42)
 - colored (2.2.0)
+- futures (0.3.31)
 - glob (0.3.2)
 - rand (0.10.1)
 - rand_chacha (0.10.0)
+- rmcp (0.2.1) [features: server, transport-io, transport-sse-server]
+- schemars (0.8)
 - serde (1.0.219) [features: derive]
 - serde_json (1.0.149)
 - thiserror (2.0.11)
@@ -25,6 +29,7 @@
 **Features:**
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - default: [cli, persistence, parallel]
+- mcp: [dep:rmcp, dep:schemars, tokio/net, tokio/rt-multi-thread, cli]
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
 - wasm: []
@@ -36,7 +41,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/bin/csm.rs
 
-- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_mcp, run_probe, run_query}
 - pub use native::clap::Parser
 - pub use native::colored::Colorize
 - pub use native::tracing::Level
@@ -79,6 +84,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct VersionArgs
 - pub struct CompletionsArgs
 - pub struct IndexJsonlArgs
+- pub struct McpArgs
+- pub enum McpCommands
+- pub struct McpServeArgs
+- pub enum McpTransport
 - pub struct IndexDirArgs
 
 ### src/cli/commands/associate.rs
@@ -112,6 +121,11 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub fn run_inject
 
+### src/cli/commands/mcp.rs
+
+- pub fn run_mcp
+- pub fn run_mcp
+
 ### src/cli/commands/mod.rs
 
 - pub mod associate
@@ -121,6 +135,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod index_dir
 - pub mod index_jsonl
 - pub mod inject
+- pub mod mcp
 - pub mod probe
 - pub mod query
 - pub use associate::run_associate
@@ -130,6 +145,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use index_dir::run_index_dir
 - pub use index_jsonl::run_index_jsonl
 - pub use inject::run_inject
+- pub use mcp::run_mcp
 - pub use probe::run_probe
 - pub use query::run_query
 - pub fn print_success
@@ -170,7 +186,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod error
 - pub mod git_local
 - pub use args::*
-- pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+- pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_mcp, run_probe, run_query}
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
 
@@ -281,6 +297,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod framework_builder
 - pub mod graph_traversal
 - pub mod hyperdim
+- pub mod mcp
 - pub mod metadata_filter
 - pub mod semantic_triples
 - pub use metadata_filter::MetadataFilter
@@ -307,6 +324,47 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use prelude::crate::singularity::{Concept, ConceptBuilder}
 - pub use prelude::crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod wasm
+
+### src/mcp/mod.rs
+
+- pub mod resources
+- pub mod schema
+- pub mod server
+- pub mod tools
+- pub fn serve
+
+### src/mcp/resources.rs
+
+- pub fn list_resources
+- pub fn list_resource_templates
+- pub fn read_resource
+
+### src/mcp/schema.rs
+
+- pub struct MemoryInjectInput
+- pub struct MemoryInjectTextInput
+- pub struct MemoryProbeInput
+- pub struct MemoryProbeTextInput
+- pub struct MemoryProbeFilteredInput
+- pub struct MemoryGetInput
+- pub struct MemoryDeleteInput
+- pub struct MemoryAssociateInput
+- pub struct MemoryTraverseInput
+- pub struct MemoryShortestPathInput
+- pub struct MemoryStatsInput
+- pub struct MemoryExportInput
+
+### src/mcp/server.rs
+
+- pub struct McpServer
+- impl McpServer
+
+### src/mcp/tools.rs
+
+- pub struct MemoryHandler
+- impl MemoryHandler
+- impl rmcp::ServerHandler for MemoryHandler
+- impl ChaoticSemanticFramework
 
 ### src/metadata_filter.rs
 
@@ -1032,6 +1090,10 @@ clap_complete = { version = "4.5.42", optional = true }
 anyhow = { version = "1.0.102", optional = true }
 colored = { version = "2.2.0", optional = true }
 glob = { version = "0.3.2", optional = true }
+rmcp = { version = "0.2.1", optional = true, features = ["server", "transport-io", "transport-sse-server"] }
+schemars = { version = "0.8", optional = true }
+async-trait = "0.1.89"
+futures = "0.3.31"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # CPU parallelism (opt-in via "parallel" feature)
@@ -1151,6 +1213,7 @@ path = "examples/streaming_temporal.rs"
 [features]
 default = ["cli", "persistence", "parallel"]
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
+mcp = ["dep:rmcp", "dep:schemars", "tokio/net", "tokio/rt-multi-thread", "cli"]
 persistence = ["dep:libsql"]
 parallel = ["dep:rayon"]
 wasm = []

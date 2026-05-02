@@ -9,14 +9,18 @@
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
 - anyhow (1.0.102)
+- async-trait (0.1.89)
 - base64 (0.22)
 - bincode (1.3.3)
 - clap (4.5.60) [features: derive, env, string]
 - clap_complete (4.5.42)
 - colored (2.2.0)
+- futures (0.3.31)
 - glob (0.3.2)
 - rand (0.10.1)
 - rand_chacha (0.10.0)
+- rmcp (0.2.1) [features: server, transport-io, transport-sse-server]
+- schemars (0.8)
 - serde (1.0.219) [features: derive]
 - serde_json (1.0.149)
 - thiserror (2.0.11)
@@ -25,6 +29,7 @@
 **Features:**
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - default: [cli, persistence, parallel]
+- mcp: [dep:rmcp, dep:schemars, tokio/net, tokio/rt-multi-thread, cli]
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
 - wasm: []
@@ -36,7 +41,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/bin/csm.rs
 
-- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_mcp, run_probe, run_query}
 - pub use native::clap::Parser
 - pub use native::colored::Colorize
 - pub use native::tracing::Level
@@ -79,6 +84,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct VersionArgs
 - pub struct CompletionsArgs
 - pub struct IndexJsonlArgs
+- pub struct McpArgs
+- pub enum McpCommands
+- pub struct McpServeArgs
+- pub enum McpTransport
 - pub struct IndexDirArgs
 
 ### src/cli/commands/associate.rs
@@ -112,6 +121,11 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub fn run_inject
 
+### src/cli/commands/mcp.rs
+
+- pub fn run_mcp
+- pub fn run_mcp
+
 ### src/cli/commands/mod.rs
 
 - pub mod associate
@@ -121,6 +135,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod index_dir
 - pub mod index_jsonl
 - pub mod inject
+- pub mod mcp
 - pub mod probe
 - pub mod query
 - pub use associate::run_associate
@@ -130,6 +145,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use index_dir::run_index_dir
 - pub use index_jsonl::run_index_jsonl
 - pub use inject::run_inject
+- pub use mcp::run_mcp
 - pub use probe::run_probe
 - pub use query::run_query
 - pub fn print_success
@@ -170,7 +186,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod error
 - pub mod git_local
 - pub use args::*
-- pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+- pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_mcp, run_probe, run_query}
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
 
@@ -281,6 +297,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod framework_builder
 - pub mod graph_traversal
 - pub mod hyperdim
+- pub mod mcp
 - pub mod metadata_filter
 - pub mod semantic_triples
 - pub use metadata_filter::MetadataFilter
@@ -307,6 +324,47 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use prelude::crate::singularity::{Concept, ConceptBuilder}
 - pub use prelude::crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod wasm
+
+### src/mcp/mod.rs
+
+- pub mod resources
+- pub mod schema
+- pub mod server
+- pub mod tools
+- pub fn serve
+
+### src/mcp/resources.rs
+
+- pub fn list_resources
+- pub fn list_resource_templates
+- pub fn read_resource
+
+### src/mcp/schema.rs
+
+- pub struct MemoryInjectInput
+- pub struct MemoryInjectTextInput
+- pub struct MemoryProbeInput
+- pub struct MemoryProbeTextInput
+- pub struct MemoryProbeFilteredInput
+- pub struct MemoryGetInput
+- pub struct MemoryDeleteInput
+- pub struct MemoryAssociateInput
+- pub struct MemoryTraverseInput
+- pub struct MemoryShortestPathInput
+- pub struct MemoryStatsInput
+- pub struct MemoryExportInput
+
+### src/mcp/server.rs
+
+- pub struct McpServer
+- impl McpServer
+
+### src/mcp/tools.rs
+
+- pub struct MemoryHandler
+- impl MemoryHandler
+- impl rmcp::ServerHandler for MemoryHandler
+- impl ChaoticSemanticFramework
 
 ### src/metadata_filter.rs
 
@@ -979,10 +1037,10 @@ The `csm` binary provides command-line access:
 ```bash
 ## src/bin/csm.rs
 
-### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_mcp, run_probe, run_query}
 
 ```rust
-pub use chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query};
+pub use chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_mcp, run_probe, run_query};
 ```
 
 ### clap::Parser
@@ -1167,6 +1225,7 @@ pub enum Commands {
     Completions(CompletionsArgs),
     IndexJsonl(IndexJsonlArgs),
     IndexDir(IndexDirArgs),
+    Mcp(McpArgs),
 }
 ```
 
@@ -1233,8 +1292,6 @@ pub struct IndexDirArgs {
 }
 ```
 
-Arguments for indexing Markdown directory.
-
 ### IndexJsonlArgs
 
 ```rust
@@ -1259,6 +1316,46 @@ pub struct InjectArgs {
     pub from_file: Option<PathBuf>,
     pub vector_source: VectorSource,
     pub metadata: Option<String>,
+}
+```
+
+### McpArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct McpArgs {
+    pub command: McpCommands,
+}
+```
+
+Arguments for indexing Markdown directory.
+
+### McpCommands
+
+```rust
+#[derive(Subcommand, Debug, Clone)]
+pub enum McpCommands {
+    Serve(McpServeArgs),
+}
+```
+
+### McpServeArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct McpServeArgs {
+    pub transport: McpTransport,
+    pub bind: String,
+}
+```
+
+### McpTransport
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum McpTransport {
+    Stdio,
+    Sse,
 }
 ```
 
@@ -1408,6 +1505,20 @@ pub fn run_index_jsonl(args: IndexJsonlArgs, db_path: Option<&Path>, format: Out
 pub fn run_inject(args: InjectArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
+## src/cli/commands/mcp.rs
+
+### run_mcp
+
+```rust
+pub fn run_mcp(_args: McpArgs, _db_path: Option<&std::path::Path>) -> Result<()>
+```
+
+### run_mcp
+
+```rust
+pub fn run_mcp(args: McpArgs, db_path: Option<&std::path::Path>) -> Result<()>
+```
+
 ## src/cli/commands/mod.rs
 
 ### associate::run_associate
@@ -1456,6 +1567,12 @@ pub use index_jsonl::run_index_jsonl;
 
 ```rust
 pub use inject::run_inject;
+```
+
+### mcp::run_mcp
+
+```rust
+pub use mcp::run_mcp;
 ```
 
 ### print_error
@@ -1649,10 +1766,10 @@ assert!(path.is_some() || path.is_none()); // Always passes, documents behavior
 pub use args::*;
 ```
 
-### commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query}
+### commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_mcp, run_probe, run_query}
 
 ```rust
-pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_probe, run_query};
+pub use commands::{run_associate, run_completions, run_export, run_import, run_index_dir, run_index_jsonl, run_inject, run_mcp, run_probe, run_query};
 ```
 
 ### error::{CliError, ExitCode, Result}
@@ -1968,7 +2085,7 @@ Runtime configuration for [`ChaoticSemanticFramework`], tuned via [`FrameworkBui
 ### FrameworkStats
 
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde :: Serialize)]
 pub struct FrameworkStats {
     pub concept_count: usize,
     pub db_size_bytes: Option<u64>,
@@ -2378,6 +2495,232 @@ pub use singularity::{Concept, ConceptBuilder};
 
 ```rust
 pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats};
+```
+
+## src/mcp/mod.rs
+
+### serve
+
+```rust
+pub fn serve(framework: ChaoticSemanticFramework, transport: &str, bind: &str) -> crate::error::Result<()>
+```
+
+## src/mcp/resources.rs
+
+### list_resource_templates
+
+```rust
+pub fn list_resource_templates() -> Vec<ResourceTemplate>
+```
+
+### list_resources
+
+```rust
+pub fn list_resources() -> Vec<Resource>
+```
+
+### read_resource
+
+```rust
+pub fn read_resource(framework: &ChaoticSemanticFramework, uri: &str) -> Result<ReadResourceResult, ErrorData>
+```
+
+## src/mcp/schema.rs
+
+### MemoryAssociateInput
+
+```rust
+#[derive(Deserialize, Serialize, JsonSchema, Debug)]
+pub struct MemoryAssociateInput {
+    pub from: String,
+    pub to: String,
+    pub strength: f32,
+}
+```
+
+Input for memory_associate tool.
+
+### MemoryDeleteInput
+
+```rust
+#[derive(Deserialize, Serialize, JsonSchema, Debug)]
+pub struct MemoryDeleteInput {
+    pub id: String,
+}
+```
+
+Input for memory_delete tool.
+
+### MemoryExportInput
+
+```rust
+#[derive(Deserialize, Serialize, JsonSchema, Debug)]
+pub struct MemoryExportInput {
+    pub path: String,
+}
+```
+
+Input for memory_export tool.
+
+### MemoryGetInput
+
+```rust
+#[derive(Deserialize, Serialize, JsonSchema, Debug)]
+pub struct MemoryGetInput {
+    pub id: String,
+}
+```
+
+Input for memory_get tool.
+
+### MemoryInjectInput
+
+```rust
+#[derive(Deserialize, Serialize, JsonSchema, Debug)]
+pub struct MemoryInjectInput {
+    pub id: String,
+    pub vector: Vec<u8>,
+    pub metadata: HashMap<String, serde_json::Value>,
+}
+```
+
+Input for memory_inject tool.
+
+### MemoryInjectTextInput
+
+```rust
+#[derive(Deserialize, Serialize, JsonSchema, Debug)]
+pub struct MemoryInjectTextInput {
+    pub id: String,
+    pub text: String,
+    pub metadata: HashMap<String, serde_json::Value>,
+}
+```
+
+Input for memory_inject_text tool.
+
+### MemoryProbeFilteredInput
+
+```rust
+#[derive(Deserialize, Serialize, JsonSchema, Debug)]
+pub struct MemoryProbeFilteredInput {
+    pub query: String,
+    pub top_k: usize,
+    pub filter: serde_json::Value,
+}
+```
+
+Input for memory_probe_filtered tool.
+
+### MemoryProbeInput
+
+```rust
+#[derive(Deserialize, Serialize, JsonSchema, Debug)]
+pub struct MemoryProbeInput {
+    pub vector: Vec<u8>,
+    pub top_k: usize,
+}
+```
+
+Input for memory_probe tool.
+
+### MemoryProbeTextInput
+
+```rust
+#[derive(Deserialize, Serialize, JsonSchema, Debug)]
+pub struct MemoryProbeTextInput {
+    pub query: String,
+    pub top_k: usize,
+}
+```
+
+Input for memory_probe_text tool.
+
+### MemoryShortestPathInput
+
+```rust
+#[derive(Deserialize, Serialize, JsonSchema, Debug)]
+pub struct MemoryShortestPathInput {
+    pub from: String,
+    pub to: String,
+}
+```
+
+Input for memory_shortest_path tool.
+
+### MemoryStatsInput
+
+```rust
+#[derive(Deserialize, Serialize, JsonSchema, Debug)]
+pub struct MemoryStatsInput {
+}
+```
+
+Input for memory_stats tool.
+
+### MemoryTraverseInput
+
+```rust
+#[derive(Deserialize, Serialize, JsonSchema, Debug)]
+pub struct MemoryTraverseInput {
+    pub start_id: String,
+    pub max_depth: u32,
+    pub min_strength: f32,
+}
+```
+
+Input for memory_traverse tool.
+
+## src/mcp/server.rs
+
+### McpServer
+
+```rust
+pub struct McpServer {
+    pub framework: Arc<ChaoticSemanticFramework>,
+}
+```
+
+### impl McpServer
+
+```rust
+impl McpServer {
+    pub fn new(framework: ChaoticSemanticFramework) -> Self;
+    pub fn run_stdio(&self) -> Result<(), ErrorData>;
+    pub fn run_sse(&self, bind: &str) -> Result<(), ErrorData>;
+}
+```
+
+## src/mcp/tools.rs
+
+### MemoryHandler
+
+```rust
+pub struct MemoryHandler {
+    pub framework: Arc<ChaoticSemanticFramework>,
+}
+```
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
+    pub fn probe_filtered_text(&self, query: &str, top_k: usize, filter: &MetadataFilter) -> crate::error::Result<Vec<(String, f32)>>;
+}
+```
+
+### impl MemoryHandler
+
+```rust
+impl MemoryHandler {
+}
+```
+
+### impl rmcp::ServerHandler for MemoryHandler
+
+```rust
+impl rmcp::ServerHandler for MemoryHandler {
+}
 ```
 
 ## src/metadata_filter.rs
