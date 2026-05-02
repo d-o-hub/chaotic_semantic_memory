@@ -60,10 +60,10 @@ fn test_retrieval_stats_contains_selectivity_ratio() {
 
     // Create 10 concepts: 3 matching filter (30% selectivity)
     for i in 0..3 {
-        inject_concept(&mut sing, &format!("match{i}"), "type", json!("match"));
+        inject_concept(&mut sing, &format!("match{}", i), "type", json!("match"));
     }
     for i in 0..7 {
-        inject_concept(&mut sing, &format!("other{i}"), "type", json!("other"));
+        inject_concept(&mut sing, &format!("other{}", i), "type", json!("other"));
     }
 
     let query = HVec10240::random();
@@ -82,7 +82,7 @@ fn test_small_dataset_uses_pre_filter() {
 
     // Only 5 concepts (< 20 threshold)
     for i in 0..5 {
-        inject_concept(&mut sing, &format!("c{i}"), "tag", json!(i % 2));
+        inject_concept(&mut sing, &format!("c{}", i), "tag", json!(i % 2));
     }
 
     let query = HVec10240::random();
@@ -101,10 +101,10 @@ fn test_low_selectivity_uses_pre_filter() {
 
     // 25 concepts, only 3 match (< 0.3 selectivity threshold for datasets > 20)
     for i in 0..3 {
-        inject_concept(&mut sing, &format!("match{i}"), "rare", json!("yes"));
+        inject_concept(&mut sing, &format!("match{}", i), "rare", json!("yes"));
     }
     for i in 0..22 {
-        inject_concept(&mut sing, &format!("common{i}"), "rare", json!("no"));
+        inject_concept(&mut sing, &format!("common{}", i), "rare", json!("no"));
     }
 
     let query = HVec10240::random();
@@ -123,10 +123,10 @@ fn test_medium_selectivity_uses_bucket_post() {
 
     // 25 concepts, 10 match (0.4 selectivity, in 0.3-0.8 range)
     for i in 0..10 {
-        inject_concept(&mut sing, &format!("match{i}"), "level", json!("high"));
+        inject_concept(&mut sing, &format!("match{}", i), "level", json!("high"));
     }
     for i in 0..15 {
-        inject_concept(&mut sing, &format!("low{i}"), "level", json!("low"));
+        inject_concept(&mut sing, &format!("low{}", i), "level", json!("low"));
     }
 
     let query = HVec10240::random();
@@ -145,10 +145,10 @@ fn test_high_selectivity_uses_scan_post() {
 
     // 25 concepts, 22 match (> 0.8 selectivity threshold)
     for i in 0..22 {
-        inject_concept(&mut sing, &format!("major{i}"), "group", json!("a"));
+        inject_concept(&mut sing, &format!("major{}", i), "group", json!("a"));
     }
     for i in 0..3 {
-        inject_concept(&mut sing, &format!("minor{i}"), "group", json!("b"));
+        inject_concept(&mut sing, &format!("minor{}", i), "group", json!("b"));
     }
 
     let query = HVec10240::random();
@@ -211,7 +211,7 @@ fn test_find_similar_filtered_respects_top_k() {
 
     // 10 matching concepts
     for i in 0..10 {
-        inject_concept(&mut sing, &format!("doc{i}"), "type", json!("doc"));
+        inject_concept(&mut sing, &format!("doc{}", i), "type", json!("doc"));
     }
 
     let query = HVec10240::random();

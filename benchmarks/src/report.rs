@@ -47,9 +47,6 @@ pub fn write_markdown(
 - Recall@10: {:.4}\n\
 - MRR: {:.4}\n\
 - NDCG@10: {:.4}\n\
-- Association Success: {:.4}\n\
-- Multi-session Recall: {:.4}\n\
-- Session Isolation: {:.4}\n\
 - Abstain precision: {:.4}\n\
 - Abstain recall: {:.4}\n\
 - Ingest ms: {}\n\
@@ -78,9 +75,6 @@ pub fn write_markdown(
         summary.recall_at_10,
         summary.mrr,
         summary.ndcg_at_10,
-        summary.association_success_rate,
-        summary.multisession_recall,
-        summary.session_isolation,
         summary.abstain_precision,
         summary.abstain_recall,
         summary.ingest_ms,

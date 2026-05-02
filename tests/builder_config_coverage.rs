@@ -81,7 +81,7 @@ async fn builder_with_max_batch_size_configured() {
 
     // Small batch should work
     let concepts: Vec<(String, HVec10240)> = (0..3)
-        .map(|i| (format!("batch-{i}"), HVec10240::random()))
+        .map(|i| (format!("batch-{}", i), HVec10240::random()))
         .collect();
     framework.inject_concepts(&concepts).await.unwrap();
 

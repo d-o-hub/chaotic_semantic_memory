@@ -110,7 +110,7 @@ impl McpTools {
             "memory_shortest_path" => self.handle_shortest_path(arguments).await,
             "memory_stats" => self.handle_stats(arguments).await,
             "memory_export" => self.handle_export(arguments).await,
-            _ => Err(anyhow::anyhow!("Unknown tool: {tool_name}")),
+            _ => Err(anyhow::anyhow!("Unknown tool: {}", tool_name)),
         }
     }
 

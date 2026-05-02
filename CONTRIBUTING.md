@@ -20,7 +20,6 @@ scripts/setup-hooks.sh
 
 - Format: `cargo fmt`
 - Lint: `cargo clippy --all-targets --all-features -- -D warnings`
-- Strict Compliance: The linter must output zero warnings or errors. No exceptions for unused variables or functions; they must be removed or properly utilized.
 - Max 500 LOC per source file
 - All public APIs return `Result<T, Error>`
 - Use `libsql` (never `turso-client`)

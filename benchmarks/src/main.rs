@@ -35,8 +35,7 @@ async fn main() -> Result<()> {
             );
             std::fs::create_dir_all(&out_dir)?;
 
-            let sessions =
-                generator::generate_sessions_with_range(seed, count, min_turns, max_turns);
+            let sessions = generator::generate_sessions_with_range(seed, count, min_turns, max_turns);
             let queries = generator::generate_queries(&sessions);
 
             let sessions_path = out_dir.join("sessions.jsonl");

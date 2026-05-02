@@ -185,7 +185,7 @@ fn retrieval_config_with_bucket_enabled() {
     // Inject multiple concepts
     for i in 0..10 {
         sing.inject(chaotic_semantic_memory::singularity::Concept {
-            id: format!("bucket-{i}"),
+            id: format!("bucket-{}", i),
             vector: HVec10240::random(),
             metadata: std::collections::HashMap::new(),
             created_at: 1,

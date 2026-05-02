@@ -68,6 +68,7 @@ impl From<BinaryMetadataValue> for serde_json::Value {
 
 /// Concept representation for binary export (bincode-compatible)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub(crate) struct BinaryConcept {
     pub(crate) id: String,
     /// Raw bytes of the HVec10240 (1280 bytes)
@@ -97,6 +98,7 @@ impl From<crate::singularity::Concept> for BinaryConcept {
     }
 }
 
+#[allow(dead_code)]
 impl BinaryConcept {
     pub(crate) fn to_concept(&self) -> crate::error::Result<crate::singularity::Concept> {
         Ok(crate::singularity::Concept {
@@ -117,6 +119,7 @@ impl BinaryConcept {
 
 /// Payload for binary export/import (bincode-compatible)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub(crate) struct BinaryExportPayload {
     pub(crate) version: String,
     pub(crate) exported_at: u64,
@@ -139,6 +142,7 @@ impl From<ExportPayload> for BinaryExportPayload {
     }
 }
 
+#[allow(dead_code)]
 impl BinaryExportPayload {
     pub(crate) fn to_export_payload(&self) -> crate::error::Result<ExportPayload> {
         let mut concepts = Vec::with_capacity(self.concepts.len());

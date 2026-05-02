@@ -188,7 +188,8 @@ fn test_golden_vector_stability() {
     for i in 1..5 {
         assert!(
             vectors[0].cosine_similarity(&vectors[i]) > 0.999,
-            "vectors[0] and vectors[{i}] should be nearly identical"
+            "vectors[0] and vectors[{}] should be nearly identical",
+            i
         );
     }
 }
