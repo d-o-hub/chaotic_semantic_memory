@@ -184,67 +184,6 @@ impl Persistence {
         Ok(())
     }
 
-    /// Save concepts in a single transaction
-    pub async fn save_concepts(&self, concepts: &[Concept]) -> Result<()> {
-        if concepts.is_empty() {
-            return Ok(());
-        }
-
-        let _permit = self.acquire_remote_slot().await?;
-        let conn = self.connect().await?;
-        conn.execute("BEGIN", ())
-            .await
-            .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {}", e)))?;
-
-        let mut first_error: Option<MemoryError> = None;
-        for concept in concepts {
-            let vector_bytes = concept.vector.to_bytes();
-            let metadata_json = serde_json::to_string(&concept.metadata)?;
-            let expires_at: Option<i64> = concept.expires_at.map(|t| t as i64);
-            let canonical_concept_ids_json = serde_json::to_string(&concept.canonical_concept_ids)?;
-
-            if let Err(e) = conn
-                .execute(
-                    "INSERT OR REPLACE INTO csm_concepts
-                     (id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                    params![
-                        concept.id.clone(),
-                        vector_bytes,
-                        metadata_json,
-                        concept.created_at as i64,
-                        concept.modified_at as i64,
-                        expires_at,
-                        canonical_concept_ids_json
-                    ],
-                )
-                .await
-            {
-                first_error = Some(MemoryError::database(format!(
-                    "Failed to batch save concept: {}",
-                    e
-                )));
-                break;
-            }
-
-            if let Err(e) = self.record_concept_version(&conn, concept).await {
-                first_error = Some(e);
-                break;
-            }
-        }
-
-        if let Some(error) = first_error {
-            let _ = conn.execute("ROLLBACK", ()).await;
-            return Err(error);
-        }
-
-        conn.execute("COMMIT", ())
-            .await
-            .map_err(|e| MemoryError::database(format!("Failed to commit transaction: {}", e)))?;
-
-        Ok(())
-    }
-
     /// Load a concept from the database
     pub async fn load_concept(&self, id: &str) -> Result<Option<Concept>> {
         let _permit = self.acquire_remote_slot().await?;
@@ -299,66 +238,6 @@ impl Persistence {
         } else {
             Ok(None)
         }
-    }
-
-    /// Load all concepts from the database
-    pub async fn load_all_concepts(&self) -> Result<Vec<Concept>> {
-        let _permit = self.acquire_remote_slot().await?;
-        let conn = self.connect().await?;
-
-        let mut rows = conn
-            .query(
-                "SELECT id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json
-                 FROM csm_concepts",
-                (),
-            )
-            .await
-            .map_err(|e| MemoryError::database(format!("Failed to load concepts: {}", e)))?;
-
-        let mut concepts = Vec::new();
-        while let Some(row) = rows
-            .next()
-            .await
-            .map_err(|e| MemoryError::database(format!("Failed to fetch row: {}", e)))?
-        {
-            let id: String = row
-                .get(0)
-                .map_err(|e| MemoryError::database(format!("Failed to get id: {}", e)))?;
-            let vector_bytes: Vec<u8> = row
-                .get(1)
-                .map_err(|e| MemoryError::database(format!("Failed to get vector: {}", e)))?;
-            let metadata_json: String = row
-                .get(2)
-                .map_err(|e| MemoryError::database(format!("Failed to get metadata: {}", e)))?;
-            let created_at: i64 = row
-                .get(3)
-                .map_err(|e| MemoryError::database(format!("Failed to get created_at: {}", e)))?;
-            let modified_at: i64 = row
-                .get(4)
-                .map_err(|e| MemoryError::database(format!("Failed to get modified_at: {}", e)))?;
-            let expires_at: Option<i64> = row.get(5).ok();
-            let canonical_concept_ids_json: Option<String> = row.get(6).ok();
-
-            let vector = HVec10240::from_bytes(&vector_bytes)?;
-            let metadata = serde_json::from_str(&metadata_json)?;
-            let canonical_concept_ids = canonical_concept_ids_json
-                .as_deref()
-                .map(serde_json::from_str)
-                .transpose()?
-                .unwrap_or_default();
-
-            concepts.push(Concept {
-                id,
-                vector,
-                metadata,
-                created_at: created_at as u64,
-                modified_at: modified_at as u64,
-                expires_at: expires_at.map(|t| t as u64),
-                canonical_concept_ids,
-            });
-        }
-
-        Ok(concepts)
     }
 
     /// Delete a concept from the database
@@ -491,5 +370,59 @@ impl Persistence {
         } else {
             Ok(0)
         }
+    }
+
+    pub async fn health_check(&self) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        let mut rows = conn
+            .query("SELECT 1", ())
+            .await
+            .map_err(|e| MemoryError::database(format!("Health check query failed: {}", e)))?;
+        let _ = rows.next().await;
+        Ok(())
+    }
+
+    pub async fn save_metric(&self, key: &str, value: u64) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        conn.execute(
+            "INSERT OR REPLACE INTO csm_metrics (key, value) VALUES (?1, ?2)",
+            params![key, value as i64],
+        )
+        .await
+        .map_err(|e| MemoryError::database(format!("Failed to save metric: {}", e)))?;
+        Ok(())
+    }
+
+    pub async fn load_metric(&self, key: &str) -> Result<u64> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        let mut rows = conn
+            .query("SELECT value FROM csm_metrics WHERE key = ?1", params![key])
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to load metric: {}", e)))?;
+
+        if let Some(row) = rows
+            .next()
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to fetch row: {}", e)))?
+        {
+            let val: i64 = row
+                .get(0)
+                .map_err(|e| MemoryError::database(format!("Failed to parse value: {}", e)))?;
+            Ok(val as u64)
+        } else {
+            Ok(0)
+        }
+    }
+
+    pub async fn clear_metrics(&self) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        conn.execute("DELETE FROM csm_metrics", ())
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to clear metrics: {}", e)))?;
+        Ok(())
     }
 }
