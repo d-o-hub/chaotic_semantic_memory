@@ -279,6 +279,36 @@ impl Singularity {
                 .fetch_add(1, Ordering::Relaxed);
         }
 
+        // ADR-0068: Route through AnnIndex if it's not BruteForce.
+        // We check stats to see backend name as we don't want to bypass
+        // the specialized heuristic generation (graph/bucket) if we are in BruteForce mode
+        // which IS the fallback.
+        let index_stats = self.index.stats();
+        if index_stats.backend != "BruteForce" {
+             if let Ok(results) = self.index.search(query, top_k) {
+                let results_arc: Arc<[(String, f32)]> = Arc::from(results);
+
+                // ADR-0068: Update stats for ANN search
+                if let Ok(mut s) = self.last_retrieval_stats.write() {
+                    s.scored_count = results_arc.len();
+                    s.candidate_count = index_stats.count;
+                    s.scoring_ns = unix_now_ns().saturating_sub(start_ns);
+                }
+
+                if !bypass_cache {
+                    if let Ok(mut cache) = self.query_cache.write() {
+                        let cache_key = similarity_cache_key(query, top_k);
+                        if cache.put(cache_key, Arc::clone(&results_arc)) {
+                            self.cache_metrics
+                                .evictions_total
+                                .fetch_add(1, Ordering::Relaxed);
+                        }
+                    }
+                }
+                return results_arc;
+            }
+        }
+
         // Generate candidates based on RetrievalConfig
         let candidate_start = unix_now_ns();
         let mut candidates = Vec::new();
@@ -300,16 +330,15 @@ impl Singularity {
         let cand_ns = unix_now_ns().saturating_sub(candidate_start);
 
         if candidates.is_empty() {
-            // ADR-0068: Route through AnnIndex
+            // BruteForce backend fallback
             if let Ok(results) = self.index.search(query, top_k) {
-                let results_arc: Arc<[(String, f32)]> = Arc::from(results.into_boxed_slice());
+                let results_arc: Arc<[(String, f32)]> = Arc::from(results);
 
-                // ADR-0068: Update stats for ANN search
-                let stats = self.index.stats();
                 if let Ok(mut s) = self.last_retrieval_stats.write() {
                     s.scored_count = results_arc.len();
-                    s.candidate_count = stats.count;
+                    s.candidate_count = index_stats.count;
                     s.scoring_ns = unix_now_ns().saturating_sub(start_ns);
+                    s.fell_back_to_exact_scan = true;
                 }
 
                 if !bypass_cache {

@@ -57,6 +57,15 @@ pub trait AnnIndex: Send + Sync + Debug {
     /// Search for the top-k nearest neighbors.
     fn search(&self, query: &HVec10240, top_k: usize) -> Result<Vec<(String, f32)>>;
 
+    /// Search for the nearest neighbors with a metadata filter.
+    fn search_filtered(
+        &self,
+        query: &HVec10240,
+        top_k: usize,
+        filter: &crate::metadata_filter::MetadataFilter,
+        concepts: &std::collections::HashMap<String, crate::singularity::Concept>,
+    ) -> Result<Vec<(String, f32)>>;
+
     /// Rebuild the index from scratch using all concepts.
     fn rebuild(&mut self, concepts: &HashMap<String, Concept>) -> Result<()>;
 

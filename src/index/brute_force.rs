@@ -80,6 +80,49 @@ impl AnnIndex for BruteForce {
         Ok(results)
     }
 
+    fn search_filtered(
+        &self,
+        query: &HVec10240,
+        top_k: usize,
+        filter: &crate::metadata_filter::MetadataFilter,
+        concepts: &HashMap<String, Concept>,
+    ) -> Result<Vec<(String, f32)>> {
+        if top_k == 0 || self.indices.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut scores: Vec<(usize, u32)> = self
+            .indices
+            .iter()
+            .enumerate()
+            .filter(|(_, id)| {
+                concepts
+                    .get(*id)
+                    .map(|c| filter.matches(&c.metadata))
+                    .unwrap_or(false)
+            })
+            .map(|(idx, _)| (idx, query.hamming_distance(&self.vectors[idx])))
+            .collect();
+
+        if scores.len() <= top_k {
+            scores.sort_unstable_by_key(|&(_, dist)| dist);
+        } else {
+            scores.select_nth_unstable_by(top_k - 1, |a, b| a.1.cmp(&b.1));
+            scores.truncate(top_k);
+            scores.sort_unstable_by_key(|&(_, dist)| dist);
+        }
+
+        let results: Vec<(String, f32)> = scores
+            .into_iter()
+            .map(|(idx, dist)| {
+                let similarity = 1.0 - (dist as f32 / 5120.0);
+                (self.indices[idx].clone(), similarity)
+            })
+            .collect();
+
+        Ok(results)
+    }
+
     fn rebuild(&mut self, concepts: &HashMap<String, Concept>) -> Result<()> {
         self.indices.clear();
         self.vectors.clear();

@@ -141,6 +141,28 @@ impl Singularity {
             return Arc::from(Vec::new());
         }
 
+        // ADR-0068: Integrate ANN index with filtering
+        // If we have an ANN index and it's not BruteForce, use it.
+        // BruteForce backend in singularity.index is functionally equivalent to ScanPost
+        // but uses the AnnIndex trait.
+
+        if let Ok(results) = self.index.search_filtered(query, top_k, filter, &self.concepts) {
+            let results_arc: Arc<[(String, f32)]> = Arc::from(results);
+
+            if let Ok(mut s) = self.last_retrieval_stats.write() {
+                *s = crate::singularity_retrieval::RetrievalStats {
+                    candidate_count: total_count, // rough estimate
+                    scored_count: results_arc.len(),
+                    fell_back_to_exact_scan: false,
+                    candidate_ns: 0,
+                    scoring_ns: crate::singularity::unix_now_ns().saturating_sub(start_ns),
+                    selectivity_ratio: selectivity,
+                    filter_strategy: None, // ANN handled it
+                };
+            }
+            return results_arc;
+        }
+
         // ADR-0065: Route based on selectivity
         // For small datasets (<20 concepts), always use PreFilter for correctness
         let strategy = if total_count < 20 || selectivity < 0.3 {

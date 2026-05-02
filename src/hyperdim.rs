@@ -54,6 +54,15 @@ impl HVec10240 {
         }
     }
 
+    /// Flip a bit at the given position.
+    pub fn flip_bit(&mut self, pos: usize) {
+        if pos < Self::DIMENSION {
+            let word = pos / 128;
+            let bit = pos % 128;
+            self.data[word] ^= 1u128 << bit;
+        }
+    }
+
     /// Create a random hypervector (each bit has 50% probability)
     pub fn random() -> Self {
         let mut rng = rand::rng();

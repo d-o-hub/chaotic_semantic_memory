@@ -119,6 +119,62 @@ impl AnnIndex for LshIndex {
         Ok(scores)
     }
 
+    fn search_filtered(
+        &self,
+        query: &HVec10240,
+        top_k: usize,
+        filter: &crate::metadata_filter::MetadataFilter,
+        concepts: &HashMap<String, Concept>,
+    ) -> Result<Vec<(String, f32)>> {
+        if top_k == 0 || self.concepts.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut candidates = HashMap::new();
+        for i in 0..self.num_tables {
+            let hash = self.compute_hash(query, i);
+            if let Some(bucket) = self.tables[i].get(&hash) {
+                for id in bucket {
+                    if let Some(concept) = concepts.get(id) {
+                        if filter.matches(&concept.metadata) {
+                            candidates.entry(id).or_insert(());
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut scores = Vec::with_capacity(candidates.len());
+        for id in candidates.keys() {
+            if let Some(vec) = self.concepts.get(*id) {
+                let dist = query.hamming_distance(vec);
+                let similarity = 1.0 - (dist as f32 / 5120.0);
+                scores.push(((*id).clone(), similarity));
+            }
+        }
+
+        scores.sort_by(|a, b| b.1.total_cmp(&a.1));
+        scores.truncate(top_k);
+
+        // Fallback for correctness: if we have few candidates, check all filtered concepts
+        if scores.len() < top_k {
+            let mut all_filtered: Vec<(String, f32)> = concepts
+                .iter()
+                .filter(|(_, c)| filter.matches(&c.metadata))
+                .map(|(id, c)| {
+                    let dist = query.hamming_distance(&c.vector);
+                    let similarity = 1.0 - (dist as f32 / 5120.0);
+                    (id.clone(), similarity)
+                })
+                .collect();
+            all_filtered.sort_by(|a, b| b.1.total_cmp(&a.1));
+            all_filtered.truncate(top_k);
+            return Ok(all_filtered);
+        }
+
+        Ok(scores)
+    }
+
     fn rebuild(&mut self, concepts: &HashMap<String, Concept>) -> Result<()> {
         for table in &mut self.tables {
             table.clear();
