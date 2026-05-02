@@ -103,83 +103,99 @@ impl HVec10240 {
     /// 3. It parallelizes over hypervector words rather than over vectors to minimize
     ///    memory traffic and synchronization overhead.
     pub fn bundle(vectors: &[Self]) -> Result<Self> {
-        if vectors.is_empty() {
-            return Ok(Self::zero());
-        }
-
         let num_vectors = vectors.len();
-        // Threshold: strictly greater than half
-        let threshold = num_vectors / 2 + 1;
-        // Number of bit-planes needed to represent a sum up to num_vectors
-        let num_planes = (usize::BITS - num_vectors.leading_zeros()) as usize;
+        match num_vectors {
+            0 => Ok(Self::zero()),
+            // Fast-path: single vector bundle is the vector itself
+            1 => Ok(vectors[0]),
+            // Fast-path: majority rule for 2 vectors requires both bits set (AND)
+            2 => {
+                let mut data = [0u128; 80];
+                for i in 0..80 {
+                    data[i] = vectors[0].data[i] & vectors[1].data[i];
+                }
+                Ok(Self { data })
+            }
+            _ => {
+                // Threshold: strictly greater than half
+                let threshold = num_vectors / 2 + 1;
+                // Number of bit-planes needed to represent a sum up to num_vectors
+                let num_planes = (usize::BITS - num_vectors.leading_zeros()) as usize;
 
-        let mut data = [0u128; 80];
+                let mut data = [0u128; 80];
 
-        #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        {
-            data.par_iter_mut().enumerate().for_each(|(i, word)| {
-                // Use bit-sliced adder to count bits for each position in the word
-                let mut planes = [0u128; 32];
-                for v in vectors {
-                    let mut carry = v.data[i];
-                    for plane in planes.iter_mut().take(num_planes) {
-                        let next_carry = *plane & carry;
-                        *plane ^= carry;
-                        carry = next_carry;
-                        if carry == 0 {
-                            break;
+                // Optimization: Use sequential path for small vector sets to avoid Rayon overhead.
+                // Task scheduling for 80 words is only profitable when the work per word
+                // (proportional to num_vectors) outweighs the synchronization cost.
+                #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
+                let use_parallel = num_vectors >= 32;
+                #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
+                let use_parallel = false;
+
+                if use_parallel {
+                    #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
+                    {
+                        data.par_iter_mut().enumerate().for_each(|(i, word)| {
+                            let mut planes = [0u128; 32];
+                            for v in vectors {
+                                let mut carry = v.data[i];
+                                for plane in planes.iter_mut().take(num_planes) {
+                                    let next_carry = *plane & carry;
+                                    *plane ^= carry;
+                                    carry = next_carry;
+                                    if carry == 0 {
+                                        break;
+                                    }
+                                }
+                            }
+
+                            let mut current_eq = !0u128;
+                            let mut current_gt = 0u128;
+                            for p in (0..num_planes).rev() {
+                                let bit = (threshold >> p) & 1;
+                                if bit == 1 {
+                                    current_eq &= planes[p];
+                                } else {
+                                    current_gt |= current_eq & planes[p];
+                                    current_eq &= !planes[p];
+                                }
+                            }
+                            *word = current_gt | current_eq;
+                        });
+                    }
+                } else {
+                    for i in 0..80 {
+                        let mut planes = [0u128; 32];
+                        for v in vectors {
+                            let mut carry = v.data[i];
+                            for plane in planes.iter_mut().take(num_planes) {
+                                let next_carry = *plane & carry;
+                                *plane ^= carry;
+                                carry = next_carry;
+                                if carry == 0 {
+                                    break;
+                                }
+                            }
                         }
-                    }
-                }
 
-                // Reconstruct the resulting word using bit-sliced comparison: count >= threshold
-                let mut current_eq = !0u128;
-                let mut current_gt = 0u128;
-                for p in (0..num_planes).rev() {
-                    let bit = (threshold >> p) & 1;
-                    if bit == 1 {
-                        current_eq &= planes[p];
-                    } else {
-                        current_gt |= current_eq & planes[p];
-                        current_eq &= !planes[p];
-                    }
-                }
-                *word = current_gt | current_eq;
-            });
-        }
-
-        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-        {
-            for i in 0..80 {
-                let mut planes = [0u128; 32];
-                for v in vectors {
-                    let mut carry = v.data[i];
-                    for plane in planes.iter_mut().take(num_planes) {
-                        let next_carry = *plane & carry;
-                        *plane ^= carry;
-                        carry = next_carry;
-                        if carry == 0 {
-                            break;
+                        let mut current_eq = !0u128;
+                        let mut current_gt = 0u128;
+                        for p in (0..num_planes).rev() {
+                            let bit = (threshold >> p) & 1;
+                            if bit == 1 {
+                                current_eq &= planes[p];
+                            } else {
+                                current_gt |= current_eq & planes[p];
+                                current_eq &= !planes[p];
+                            }
                         }
+                        data[i] = current_gt | current_eq;
                     }
                 }
 
-                let mut current_eq = !0u128;
-                let mut current_gt = 0u128;
-                for p in (0..num_planes).rev() {
-                    let bit = (threshold >> p) & 1;
-                    if bit == 1 {
-                        current_eq &= planes[p];
-                    } else {
-                        current_gt |= current_eq & planes[p];
-                        current_eq &= !planes[p];
-                    }
-                }
-                data[i] = current_gt | current_eq;
+                Ok(Self { data })
             }
         }
-
-        Ok(Self { data })
     }
 
     /// XOR binding of two hypervectors.
@@ -413,86 +429,4 @@ impl<'de> Deserialize<'de> for HVec10240 {
 // Re-export BundleAccumulator from bundle module
 pub use crate::bundle::BundleAccumulator;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_hvec_creation() {
-        let vec = HVec10240::zero();
-        assert_eq!(vec.data.iter().sum::<u128>(), 0);
-    }
-
-    #[test]
-    fn test_random_generation() {
-        let vec1 = HVec10240::random();
-        let vec2 = HVec10240::random();
-        assert_ne!(vec1.data, vec2.data);
-    }
-
-    #[test]
-    fn test_self_similarity() {
-        let vec = HVec10240::random();
-        let similarity = vec.cosine_similarity(&vec);
-        assert!(similarity > 0.99);
-    }
-
-    #[test]
-    fn test_binding() {
-        let a = HVec10240::random();
-        let b = HVec10240::random();
-        let bound = a.bind(&b);
-        let recovered = bound.bind(&b);
-        let similarity = a.cosine_similarity(&recovered);
-        assert!(similarity > 0.95);
-    }
-
-    #[test]
-    fn test_serialization() {
-        let v = HVec10240::random();
-        let bytes = v.to_bytes();
-        assert_eq!(v.data, HVec10240::from_bytes(&bytes).unwrap().data);
-    }
-
-    #[test]
-    fn test_bundle() {
-        let v: Vec<_> = (0..10).map(|_| HVec10240::random()).collect();
-        assert_eq!(HVec10240::bundle(&v).unwrap().data.len(), 80);
-    }
-
-    #[test]
-    fn test_permute() {
-        let v = HVec10240::random();
-        assert_eq!(v, v.permute(0));
-        let s = v.permute(128);
-        for i in 0..80 {
-            assert_eq!(s.data[i], v.data[(i + 1) % 80]);
-        }
-    }
-
-    #[test]
-    fn test_json_serialize_is_base64() {
-        let v = HVec10240::random();
-        let json = serde_json::to_string(&v).unwrap();
-        // Should be a base64 string, not an array
-        assert!(json.starts_with('"'), "Expected string, got: {}", json);
-        assert!(
-            !json.starts_with('['),
-            "Expected base64 string, not array: {}",
-            json
-        );
-        // Verify roundtrip
-        let decoded: HVec10240 = serde_json::from_str(&json).unwrap();
-        assert_eq!(v.data, decoded.data);
-    }
-
-    #[test]
-    fn test_json_array_deserialize_fallback() {
-        // Legacy format: array of bytes (for backward compatibility)
-        let v = HVec10240::random();
-        let bytes = v.to_bytes();
-        let array_json: String = serde_json::to_string(&bytes).unwrap();
-        let decoded: HVec10240 = serde_json::from_str(&array_json).unwrap();
-        assert_eq!(v.data, decoded.data);
-    }
-}
+include!("hyperdim_tests.rs");
