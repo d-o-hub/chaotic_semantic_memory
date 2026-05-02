@@ -428,10 +428,10 @@ mod tests {
             injected.clone(),
             MemoryEvent::ConceptInjected { .. }
         ));
-        assert!(format!("{:?}", updated).contains("ConceptUpdated"));
-        assert!(format!("{:?}", deleted).contains("ConceptDeleted"));
-        assert!(format!("{:?}", associated).contains("Associated"));
-        assert!(format!("{:?}", disassociated).contains("Disassociated"));
+        assert!(format!("{updated:?}").contains("ConceptUpdated"));
+        assert!(format!("{deleted:?}").contains("ConceptDeleted"));
+        assert!(format!("{associated:?}").contains("Associated"));
+        assert!(format!("{disassociated:?}").contains("Disassociated"));
     }
 
     #[test]

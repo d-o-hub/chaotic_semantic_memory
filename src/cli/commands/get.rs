@@ -79,7 +79,7 @@ pub async fn run_get(args: GetArgs, db_path: Option<&Path>, format: OutputFormat
                     } else {
                         serde_json::to_string(value).unwrap_or_default()
                     };
-                    println!("  {}: {}", key, value_str);
+                    println!("  {key}: {value_str}");
                 }
             }
 
@@ -91,7 +91,7 @@ pub async fn run_get(args: GetArgs, db_path: Option<&Path>, format: OutputFormat
                     associations.len()
                 );
                 for (target_id, strength) in &associations {
-                    println!("  -> {} (strength: {:.2})", target_id, strength);
+                    println!("  -> {target_id} (strength: {strength:.2})");
                 }
             }
 
@@ -120,8 +120,8 @@ fn format_timestamp(ts: u64) -> String {
     let hours = (ts / 3600) % 24;
     let days = ts / 86400;
     if days > 0 {
-        format!("{}d {:02}:{:02}:{:02}", days, hours, mins, secs)
+        format!("{days}d {hours:02}:{mins:02}:{secs:02}")
     } else {
-        format!("{:02}:{:02}:{:02}", hours, mins, secs)
+        format!("{hours:02}:{mins:02}:{secs:02}")
     }
 }

@@ -283,7 +283,7 @@ mod tests {
     fn make_test_concepts() -> Vec<Concept> {
         let mut concepts = Vec::new();
         for i in 0..10 {
-            let id = format!("concept_{}", i);
+            let id = format!("concept_{i}");
             concepts.push(Concept {
                 id: id.clone(),
                 vector: HVec10240::random(),

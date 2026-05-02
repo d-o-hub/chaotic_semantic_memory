@@ -50,7 +50,7 @@ const MIN_OVERLAP_WEIGHT: f32 = 0.05;
 const MIN_ADJUSTED_SCORE: f32 = 0.05;
 const STOPWORDS: &[&str] = &[
     "a", "an", "the", "is", "am", "are", "my", "me", "i", "you", "your", "what", "which",
-    "did", "do", "does", "after", "where", "number", "favorite", "current", "should",
+    "did", "do", "does", "after", "where", "number", "should",
 ];
 
 impl MemoryAdapter {
@@ -85,10 +85,22 @@ impl MemoryAdapter {
         let mut metadata = HashMap::new();
         metadata.insert("_text".to_string(), serde_json::Value::String(text.to_string()));
 
+        // Add session_id to metadata for framework-level filtering
+        if let Some((session_id, _)) = id.split_once(':') {
+            metadata.insert(
+                "session_id".to_string(),
+                serde_json::Value::String(session_id.to_string()),
+            );
+        }
+
         if let Some(ttl) = ttl_seconds {
             self.framework
                 .inject_text_with_ttl(id, text, ttl)
                 .await?;
+            // We still want the _text and session_id metadata if possible, 
+            // but currently inject_text_with_ttl might not support passing metadata.
+            // If the framework supports it, we should use that. 
+            // For now, follow the existing pattern in HEAD.
         } else {
             self.framework
                 .inject_text_with_metadata(id, text, metadata)
@@ -100,27 +112,45 @@ impl MemoryAdapter {
         self.bm25_index.write().await.add_document(id, &tokens);
 
         // Store text for retrieval
-        self.text_store.write().await.insert(id.to_string(), text.to_string());
+        self.text_store
+            .write()
+            .await
+            .insert(id.to_string(), text.to_string());
 
-        // Automatic graph association based on proximity and overlap
-        let doc_tokens = tokens;
-        let mut new_associations = Vec::new();
-        {
-            let store = self.text_store.read().await;
-            for (existing_id, existing_text) in store.iter() {
-                if existing_id == id { continue; }
+        // Create automatic associations for cross-session linking
+        if let Some((session_id, _)) = id.split_once(':') {
+            let text_store = self.text_store.read().await;
+            for (other_id, other_text) in text_store.iter() {
+                if other_id == id {
+                    continue;
+                }
 
-                let existing_tokens = tokenize_for_bm25(existing_text);
-                let overlap = Self::token_overlap_ratio(&doc_tokens, &existing_tokens);
+                let mut strength = 0.0;
+                if other_id.starts_with(session_id) {
+                    // Intra-session association
+                    strength = 0.8;
+                } else {
+                    // Cross-session association based on token overlap
+                    let other_tokens = tokenize_for_bm25(other_text);
+                    let overlap = Self::token_overlap_ratio(&tokens, &other_tokens);
+                    if overlap > 0.3 {
+                        strength = overlap * 0.5;
+                    }
+                }
 
-                if overlap > 0.8 {
-                    new_associations.push((id.to_string(), existing_id.clone(), 0.4));
+                if strength > 0.0 {
+                    self.framework.associate(id, other_id, strength).await?;
                 }
             }
         }
 
-        for (from, to, strength) in new_associations {
-            let _ = self.framework.associate(&from, &to, strength).await;
+        if let Some(previous_id) = Self::previous_version_id(id) {
+            if let Err(err) = self.framework.delete_concept(&previous_id).await {
+                tracing::debug!(target: "benchmark", %previous_id, ?err, "failed to delete prior version");
+            }
+
+            self.bm25_index.write().await.remove_document(&previous_id);
+            self.text_store.write().await.remove(&previous_id);
         }
 
         Ok(())
@@ -135,7 +165,12 @@ impl MemoryAdapter {
         self.query_internal(text, top_k, true).await
     }
 
-    async fn query_internal(&self, text: &str, top_k: usize, use_graph: bool) -> Result<Vec<(String, f32)>> {
+    async fn query_internal(
+        &self,
+        text: &str,
+        top_k: usize,
+        use_graph: bool,
+    ) -> Result<Vec<(String, f32)>> {
         // Get HDC results
         let hdc_hits = if use_graph {
             let config = GraphRagConfig {
@@ -158,7 +193,11 @@ impl MemoryAdapter {
 
         // Get BM25 results
         let query_tokens = tokenize_for_bm25(text);
-        let bm25_hits = self.bm25_index.read().await.search(&query_tokens, top_k * 3);
+        let bm25_hits = self
+            .bm25_index
+            .read()
+            .await
+            .search(&query_tokens, top_k * 3);
 
         // Compute weights based on query length
         let weights = compute_weights(query_tokens.len());
@@ -183,7 +222,8 @@ impl MemoryAdapter {
                         Self::token_overlap_ratio(&query_tokens, &doc_tokens)
                     })?;
 
-                    let adjusted = score * (MIN_OVERLAP_WEIGHT + (1.0 - MIN_OVERLAP_WEIGHT) * overlap);
+                    let adjusted =
+                        score * (MIN_OVERLAP_WEIGHT + (1.0 - MIN_OVERLAP_WEIGHT) * overlap);
                     if adjusted < MIN_ADJUSTED_SCORE {
                         None
                     } else {
@@ -197,17 +237,37 @@ impl MemoryAdapter {
     }
 
     /// Query with session filtering - only returns documents from the specified session.
-    pub async fn query_in_session(&self, text: &str, session_id: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
-        self.query_in_session_internal(text, session_id, top_k, false).await
+    pub async fn query_in_session(
+        &self,
+        text: &str,
+        session_id: &str,
+        top_k: usize,
+    ) -> Result<Vec<(String, f32)>> {
+        self.query_in_session_internal(text, session_id, top_k, false)
+            .await
     }
 
     /// Query with session filtering specifically for association tasks.
-    pub async fn query_in_session_association(&self, text: &str, session_id: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
-        self.query_in_session_internal(text, session_id, top_k, true).await
+    pub async fn query_in_session_association(
+        &self,
+        text: &str,
+        session_id: &str,
+        top_k: usize,
+    ) -> Result<Vec<(String, f32)>> {
+        self.query_in_session_internal(text, session_id, top_k, true)
+            .await
     }
 
-    async fn query_in_session_internal(&self, text: &str, session_id: &str, top_k: usize, use_graph: bool) -> Result<Vec<(String, f32)>> {
+    async fn query_in_session_internal(
+        &self,
+        text: &str,
+        session_id: &str,
+        top_k: usize,
+        use_graph: bool,
+    ) -> Result<Vec<(String, f32)>> {
         if use_graph {
+            // GraphRAG doesn't yet support framework-level metadata filtering in this adapter's wrapper,
+            // so we still use post-filtering for association queries.
             let all_results = self.query_association(text, top_k * 10).await?;
             let session_prefix = format!("{}:", session_id);
             let filtered: Vec<_> = all_results
@@ -218,12 +278,26 @@ impl MemoryAdapter {
             return Ok(filtered);
         }
 
-        let hdc_hits = self.framework.query_in_session(text, session_id, top_k * 3).await?;
-        let query_tokens = tokenize_for_bm25(text);
-        let bm25_hits = self.bm25_index.read().await.search(&query_tokens, top_k * 10);
-        let session_prefix = format!("{}:", session_id);
-        let bm25_filtered: Vec<_> = bm25_hits.into_iter().filter(|(id, _)| id.starts_with(&session_prefix)).collect();
+        // For standard queries, use framework-level session filtering
+        let hdc_hits = self
+            .framework
+            .query_in_session(text, session_id, top_k * 3)
+            .await?;
 
+        // Get BM25 results (BM25 still needs manual session filtering here as it's a separate index)
+        let query_tokens = tokenize_for_bm25(text);
+        let bm25_hits = self
+            .bm25_index
+            .read()
+            .await
+            .search(&query_tokens, top_k * 10);
+        let session_prefix = format!("{}:", session_id);
+        let bm25_filtered: Vec<_> = bm25_hits
+            .into_iter()
+            .filter(|(id, _)| id.starts_with(&session_prefix))
+            .collect();
+
+        // Merge results
         let weights = compute_weights(query_tokens.len());
         let merged = merge_results(&bm25_filtered, &hdc_hits, weights);
 
@@ -237,7 +311,8 @@ impl MemoryAdapter {
                         Self::token_overlap_ratio(&query_tokens, &doc_tokens)
                     })?;
 
-                    let adjusted = score * (MIN_OVERLAP_WEIGHT + (1.0 - MIN_OVERLAP_WEIGHT) * overlap);
+                    let adjusted =
+                        score * (MIN_OVERLAP_WEIGHT + (1.0 - MIN_OVERLAP_WEIGHT) * overlap);
                     if adjusted < MIN_ADJUSTED_SCORE {
                         None
                     } else {
@@ -311,6 +386,15 @@ impl MemoryAdapter {
         Ok(bytes.len() as u64)
     }
 
+    fn previous_version_id(id: &str) -> Option<String> {
+        let (prefix, version) = id.rsplit_once(":v")?;
+        let version_num: u32 = version.parse().ok()?;
+        if version_num == 0 || version_num == 1 {
+            return None;
+        }
+        Some(format!("{}:v{}", prefix, version_num - 1))
+    }
+
     fn token_overlap_ratio(query_tokens: &[String], doc_tokens: &[String]) -> f32 {
         let doc_set: HashSet<&str> = doc_tokens
             .iter()
@@ -350,7 +434,10 @@ mod tests {
         let adapter = MemoryAdapter::new_in_memory().await.unwrap();
 
         // Inject memory with text
-        adapter.ingest_memory("test-1", "Hello world from memory", None).await.unwrap();
+        adapter
+            .ingest_memory("test-1", "Hello world from memory", None)
+            .await
+            .unwrap();
 
         // Retrieve the stored text
         let text = adapter.get_text("test-1").await.unwrap();
@@ -370,9 +457,51 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_previous_version_is_pruned() {
+        let adapter = MemoryAdapter::new_in_memory().await.unwrap();
+        adapter
+            .ingest_memory(
+                "session-0001:favorite_color:v1",
+                "My favorite color is blue.",
+                None,
+            )
+            .await
+            .unwrap();
+        adapter
+            .ingest_memory(
+                "session-0001:favorite_color:v2",
+                "Actually, I changed my mind. My current favorite color is green now.",
+                None,
+            )
+            .await
+            .unwrap();
+
+        // Old concept removed
+        let old = adapter
+            .framework
+            .get_concept("session-0001:favorite_color:v1")
+            .await
+            .unwrap();
+        assert!(old.is_none());
+
+        // Query should surface the v2 concept
+        let hits = adapter
+            .query_in_session("current favorite color", "session-0001", 1)
+            .await
+            .unwrap();
+        assert_eq!(
+            hits.first().map(|(id, _)| id.as_str()),
+            Some("session-0001:favorite_color:v2")
+        );
+    }
+
+    #[tokio::test]
     async fn test_storage_bytes_reports_export_size() {
         let adapter = MemoryAdapter::new_in_memory().await.unwrap();
-        adapter.ingest_memory("storage-1", "hello world", None).await.unwrap();
+        adapter
+            .ingest_memory("storage-1", "hello world", None)
+            .await
+            .unwrap();
         let bytes = adapter.storage_bytes().await.unwrap();
         assert!(bytes > 0);
     }
@@ -381,7 +510,7 @@ mod tests {
     async fn test_city_queries_return_results() {
         let adapter = MemoryAdapter::new_in_memory().await.unwrap();
         adapter
-            .ingest_memory("session-123:city", "I moved to Barcelona.", None)
+            .ingest_memory("session-123:city:v1", "I moved to Barcelona.", None)
             .await
             .unwrap();
 
@@ -389,6 +518,9 @@ mod tests {
             .query_in_session("What city did I move to?", "session-123", 1)
             .await
             .unwrap();
-        assert_eq!(hits.first().map(|(id, _)| id.as_str()), Some("session-123:city"));
+        assert_eq!(
+            hits.first().map(|(id, _)| id.as_str()),
+            Some("session-123:city:v1")
+        );
     }
 }

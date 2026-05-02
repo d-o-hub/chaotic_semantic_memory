@@ -52,7 +52,7 @@ pub async fn run_disassociate(
                 .is_some();
 
             if !target_exists {
-                return Err(CliError::Input(format!("concept '{}' not found", to_id)));
+                return Err(CliError::Input(format!("concept '{to_id}' not found")));
             }
 
             // Check if association exists

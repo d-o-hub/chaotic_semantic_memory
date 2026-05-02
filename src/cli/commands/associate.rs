@@ -131,15 +131,11 @@ pub async fn run_associate_batch(
                 failed += 1;
                 if !continue_on_error {
                     return Err(CliError::Persistence(format!(
-                        "batch failed at {} -> {}: {}",
-                        source_id, target_id, e
+                        "batch failed at {source_id} -> {target_id}: {e}"
                     )));
                 }
                 if matches!(format, OutputFormat::Table) {
-                    print_warning(
-                        &format!("skipped {} -> {}: {}", source_id, target_id, e),
-                        format,
-                    );
+                    print_warning(&format!("skipped {source_id} -> {target_id}: {e}"), format);
                 }
             }
             Ok(()) => {
@@ -157,7 +153,7 @@ pub async fn run_associate_batch(
         }
         OutputFormat::Table => {
             print_success(
-                &format!("batch complete: {} created, {} failed", created, failed),
+                &format!("batch complete: {created} created, {failed} failed"),
                 format,
             );
         }

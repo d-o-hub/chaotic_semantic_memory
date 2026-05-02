@@ -134,7 +134,7 @@ pub async fn run_index_jsonl(
         framework
             .inject_concept_with_metadata(&id, hv, metadata)
             .await
-            .map_err(|e| CliError::Persistence(format!("Failed to store concept: {}", e)))?;
+            .map_err(|e| CliError::Persistence(format!("Failed to store concept: {e}")))?;
 
         indexed_count += 1;
     }
