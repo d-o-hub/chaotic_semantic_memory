@@ -17,13 +17,13 @@ fn run(cmd: &mut Command) -> Output {
 fn assert_success(output: &Output, context: &str) {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        panic!("{} failed: {}", context, stderr);
+        panic!("{context} failed: {stderr}");
     }
 }
 
 fn assert_failure(output: &Output, context: &str) {
     if output.status.success() {
-        panic!("{} should have failed but succeeded", context);
+        panic!("{context} should have failed but succeeded");
     }
 }
 
@@ -43,8 +43,8 @@ fn temp_file() -> PathBuf {
 
 fn inject_with_random_vector(db: &PathBuf, concept_id: &str) {
     let output = run(csm(db).arg("inject").arg(concept_id));
-    assert_success(&output, &format!("inject {}", concept_id));
-    println!("[OK] Injected concept '{}' with random vector", concept_id);
+    assert_success(&output, &format!("inject {concept_id}"));
+    println!("[OK] Injected concept '{concept_id}' with random vector");
 }
 
 fn inject_from_file(db: &PathBuf, concept_id: &str, vector_file: &PathBuf) {
@@ -53,8 +53,8 @@ fn inject_from_file(db: &PathBuf, concept_id: &str, vector_file: &PathBuf) {
         .arg(concept_id)
         .arg("--from-file")
         .arg(vector_file));
-    assert_success(&output, &format!("inject {} from file", concept_id));
-    println!("[OK] Injected concept '{}' from file", concept_id);
+    assert_success(&output, &format!("inject {concept_id} from file"));
+    println!("[OK] Injected concept '{concept_id}' from file");
 }
 
 fn probe(db: &PathBuf, concept_id: &str, top_k: usize, threshold: Option<f64>) -> Output {
@@ -67,11 +67,8 @@ fn probe(db: &PathBuf, concept_id: &str, top_k: usize, threshold: Option<f64>) -
         cmd.arg("--threshold").arg(t.to_string());
     }
     let output = run(&mut cmd);
-    assert_success(&output, &format!("probe {}", concept_id));
-    println!(
-        "[OK] Probed for '{}' (top_k={}, threshold={:?})",
-        concept_id, top_k, threshold
-    );
+    assert_success(&output, &format!("probe {concept_id}"));
+    println!("[OK] Probed for '{concept_id}' (top_k={top_k}, threshold={threshold:?})");
     output
 }
 
@@ -82,11 +79,8 @@ fn associate(db: &PathBuf, source: &str, target: &str, strength: f64) {
         .arg(target)
         .arg("-s")
         .arg(strength.to_string()));
-    assert_success(&output, &format!("associate {} -> {}", source, target));
-    println!(
-        "[OK] Associated '{}' -> '{}' (strength={})",
-        source, target, strength
-    );
+    assert_success(&output, &format!("associate {source} -> {target}"));
+    println!("[OK] Associated '{source}' -> '{target}' (strength={strength})");
 }
 
 fn export_to_json(db: &PathBuf, output_path: &PathBuf) {

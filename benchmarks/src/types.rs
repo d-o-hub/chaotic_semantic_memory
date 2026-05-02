@@ -18,6 +18,16 @@ pub enum TaskType {
     MultiSession,
     /// Isolation task where a session should NOT have access to other session data.
     Isolation,
+    /// TTL expiration task.
+    Ttl,
+    /// Semantic bridge expansion task.
+    Bridge,
+    /// Version history retrieval task.
+    History,
+    /// BM25 keyword search task.
+    Bm25,
+    /// Hybrid semantic/keyword search task.
+    Hybrid,
 }
 
 /// A single turn in a conversation session.
@@ -31,6 +41,8 @@ pub struct SessionTurn {
     pub text: String,
     /// Optional memory ID assigned to this turn.
     pub memory_id: Option<String>,
+    /// Optional TTL in seconds for this memory.
+    pub ttl_seconds: Option<u64>,
 }
 
 /// A conversation session containing multiple turns.
