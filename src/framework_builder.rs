@@ -87,13 +87,7 @@ pub struct FrameworkBuilder {
 
 impl Default for FrameworkBuilder {
     fn default() -> Self {
-        Self {
-            config: FrameworkConfig::default(),
-            db_path: None,
-            db_token: None,
-            concept_cache_size: SingularityConfig::default().concept_cache_size,
-            version_retention: 10,
-        }
+        Self::new()
     }
 }
 

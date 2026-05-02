@@ -433,6 +433,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod lsh
 - pub struct IndexStats
 - pub enum IndexBackend
+- impl Default for IndexBackend
 - pub trait AnnIndex
 
 ### src/lib.rs
@@ -462,13 +463,13 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod metadata_filter
 - pub mod semantic_triples
 - pub use metadata_filter::MetadataFilter
-- pub mod index
 - pub mod persistence
 - pub mod persistence_wasm
 - pub mod reservoir
 - pub mod retrieval
 - pub mod semantic_bridge
 - pub mod singularity
+- pub mod index
 - pub use crate::persistence_wasm as persistence
 - pub mod persistence
 - pub struct persistence::Persistence
@@ -537,10 +538,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub struct Persistence
 - pub struct ConceptVersion
-- impl Persistence
-
-### src/persistence_index.rs
-
 - impl Persistence
 
 ### src/persistence_migrations.rs
