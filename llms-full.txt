@@ -3009,6 +3009,8 @@ Batch similarity computation tuned for cache locality and Rayon overhead.
 
 ## src/hyperdim_simd.rs
 
+## src/hyperdim_tests.rs
+
 ## src/lib.rs
 
 ### ConceptVersion
