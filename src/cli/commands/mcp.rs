@@ -1,8 +1,11 @@
-use crate::cli::args::{McpArgs, McpCommands, McpTransport};
+use crate::cli::args::McpArgs;
+#[cfg(feature = "mcp")]
+use crate::cli::args::{McpCommands, McpTransport};
+#[cfg(feature = "mcp")]
 use crate::cli::commands::create_framework;
-use crate::cli::error::Result;
+use crate::cli::error::{CliError, Result};
 
-
+#[cfg(feature = "mcp")]
 pub async fn run_mcp(
     args: McpArgs,
     db_path: Option<&std::path::Path>,
@@ -16,7 +19,15 @@ pub async fn run_mcp(
                 McpTransport::Sse => "sse",
             };
             crate::mcp::serve(framework, transport_str, &serve_args.bind).await
-                .map_err(|e| crate::cli::error::CliError::Persistence(e.to_string()))
+                .map_err(|e| CliError::Persistence(e.to_string()))
         }
     }
+}
+
+#[cfg(not(feature = "mcp"))]
+pub async fn run_mcp(
+    _args: McpArgs,
+    _db_path: Option<&std::path::Path>,
+) -> Result<()> {
+    Err(CliError::Persistence("MCP feature is not enabled in this build. Recompile with --features mcp".into()))
 }

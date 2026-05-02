@@ -2,15 +2,15 @@ use crate::framework::ChaoticSemanticFramework;
 use crate::hyperdim::HVec10240;
 use crate::metadata_filter::MetadataFilter;
 use crate::mcp::schema::*;
-use rmcp::model::{ErrorData, CallToolResult, ListToolsResult, ListResourcesResult, ReadResourceResult, Tool, Content, Implementation, InitializeResult, ProtocolVersion, ServerCapabilities};
+use rmcp::model::{ErrorData, CallToolResult, ListToolsResult, ListResourcesResult, ListResourceTemplatesResult, ReadResourceResult, Tool, Content, Implementation, InitializeResult, ProtocolVersion, ServerCapabilities};
 use std::sync::Arc;
 use futures::Future;
 
-pub struct MemoryTools {
+pub struct MemoryHandler {
     pub framework: Arc<ChaoticSemanticFramework>,
 }
 
-impl rmcp::ServerHandler for MemoryTools {
+impl rmcp::ServerHandler for MemoryHandler {
     fn call_tool(
         &self,
         request: rmcp::model::CallToolRequestParam,
@@ -157,7 +157,7 @@ impl rmcp::ServerHandler for MemoryTools {
     fn get_info(&self) -> InitializeResult {
         InitializeResult {
             protocol_version: ProtocolVersion::V_2024_11_05,
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
+            capabilities: ServerCapabilities::builder().enable_tools().enable_resources().build(),
             server_info: Implementation {
                 name: "chaotic-semantic-memory".to_string(),
                 version: env!("CARGO_PKG_VERSION").to_string(),
@@ -173,7 +173,20 @@ impl rmcp::ServerHandler for MemoryTools {
     ) -> impl Future<Output = Result<ListResourcesResult, ErrorData>> + Send + '_ {
         async move {
             Ok(ListResourcesResult {
-                resources: vec![],
+                resources: crate::mcp::resources::list_resources().await,
+                next_cursor: None,
+            })
+        }
+    }
+
+    fn list_resource_templates(
+        &self,
+        _request: Option<rmcp::model::PaginatedRequestParam>,
+        _context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> impl Future<Output = Result<ListResourceTemplatesResult, ErrorData>> + Send + '_ {
+        async move {
+            Ok(ListResourceTemplatesResult {
+                resource_templates: crate::mcp::resources::list_resource_templates().await,
                 next_cursor: None,
             })
         }
@@ -181,13 +194,12 @@ impl rmcp::ServerHandler for MemoryTools {
 
     fn read_resource(
         &self,
-        _request: rmcp::model::ReadResourceRequestParam,
+        request: rmcp::model::ReadResourceRequestParam,
         _context: rmcp::service::RequestContext<rmcp::RoleServer>,
     ) -> impl Future<Output = Result<ReadResourceResult, ErrorData>> + Send + '_ {
+        let framework = self.framework.clone();
         async move {
-            Ok(ReadResourceResult {
-                contents: vec![],
-            })
+            crate::mcp::resources::read_resource(&framework, request.uri.as_ref()).await
         }
     }
 }

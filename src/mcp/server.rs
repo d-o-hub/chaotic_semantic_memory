@@ -1,5 +1,5 @@
 use crate::framework::ChaoticSemanticFramework;
-use crate::mcp::tools::MemoryTools;
+use crate::mcp::tools::MemoryHandler;
 use rmcp::model::ErrorData;
 use std::sync::Arc;
 
@@ -15,7 +15,7 @@ impl McpServer {
     }
 
     pub async fn run_stdio(&self) -> Result<(), ErrorData> {
-        let service = MemoryTools { framework: self.framework.clone() };
+        let service = MemoryHandler { framework: self.framework.clone() };
         let transport = rmcp::transport::stdio();
         rmcp::service::serve_server(service, transport).await
             .map_err(|e| ErrorData::internal_error(format!("Stdio server execution failed: {:?}", e), None))?;
@@ -25,7 +25,7 @@ impl McpServer {
     pub async fn run_sse(&self, bind: &str) -> Result<(), ErrorData> {
         let service_provider = {
             let framework = self.framework.clone();
-            move || MemoryTools { framework: framework.clone() }
+            move || MemoryHandler { framework: framework.clone() }
         };
 
         let addr: std::net::SocketAddr = bind.parse().map_err(|e: std::net::AddrParseError| {
