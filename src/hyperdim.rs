@@ -6,6 +6,9 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use rand::RngExt;
+use serde::de::{self, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
@@ -40,24 +43,6 @@ impl HVec10240 {
     /// Create a new hypervector with all zeros
     pub const fn zero() -> Self {
         Self { data: [0u128; 80] }
-    }
-
-    /// Set a bit at the given position.
-    pub const fn set_bit(&mut self, pos: usize) {
-        if pos < Self::DIMENSION {
-            let word = pos / 128;
-            let bit = pos % 128;
-            self.data[word] |= 1u128 << bit;
-        }
-    }
-
-    /// Flip a bit at the given position.
-    pub const fn flip_bit(&mut self, pos: usize) {
-        if pos < Self::DIMENSION {
-            let word = pos / 128;
-            let bit = pos % 128;
-            self.data[word] ^= 1u128 << bit;
-        }
     }
 
     /// Create a random hypervector (each bit has 50% probability)
@@ -109,28 +94,23 @@ impl HVec10240 {
     /// 3. It parallelizes over hypervector words rather than over vectors to minimize
     ///    memory traffic and synchronization overhead.
     pub fn bundle(vectors: &[Self]) -> Result<Self> {
-        let num_vectors = vectors.len();
-        if num_vectors == 0 {
+        if vectors.is_empty() {
             return Ok(Self::zero());
         }
+
         let num_vectors = vectors.len();
-        if num_vectors == 1 {
-            return Ok(vectors[0]);
-        }
-        if num_vectors == 2 {
-            let mut res = Self::zero();
-            for i in 0..80 {
-                res.data[i] = vectors[0].data[i] & vectors[1].data[i];
-            }
-            return Ok(res);
-        }
+        // Threshold: strictly greater than half
         let threshold = num_vectors / 2 + 1;
+        // Number of bit-planes needed to represent a sum up to num_vectors
         let num_planes = (usize::BITS - num_vectors.leading_zeros()) as usize;
+
         let mut data = [0u128; 80];
+
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        if num_vectors >= 32 {
+        {
             data.par_iter_mut().enumerate().for_each(|(i, word)| {
-                let mut planes = [0u128; 64];
+                // Use bit-sliced adder to count bits for each position in the word
+                let mut planes = [0u128; 32];
                 for v in vectors {
                     let mut carry = v.data[i];
                     for plane in planes.iter_mut().take(num_planes) {
@@ -142,9 +122,13 @@ impl HVec10240 {
                         }
                     }
                 }
-                let (mut current_eq, mut current_gt) = (!0u128, 0u128);
+
+                // Reconstruct the resulting word using bit-sliced comparison: count >= threshold
+                let mut current_eq = !0u128;
+                let mut current_gt = 0u128;
                 for p in (0..num_planes).rev() {
-                    if ((threshold >> p) & 1) == 1 {
+                    let bit = (threshold >> p) & 1;
+                    if bit == 1 {
                         current_eq &= planes[p];
                     } else {
                         current_gt |= current_eq & planes[p];
@@ -153,32 +137,39 @@ impl HVec10240 {
                 }
                 *word = current_gt | current_eq;
             });
-            return Ok(Self { data });
         }
-        for i in 0..80 {
-            let mut planes = [0u128; 64];
-            for v in vectors {
-                let mut carry = v.data[i];
-                for plane in planes.iter_mut().take(num_planes) {
-                    let next_carry = *plane & carry;
-                    *plane ^= carry;
-                    carry = next_carry;
-                    if carry == 0 {
-                        break;
+
+        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
+        {
+            for i in 0..80 {
+                let mut planes = [0u128; 32];
+                for v in vectors {
+                    let mut carry = v.data[i];
+                    for plane in planes.iter_mut().take(num_planes) {
+                        let next_carry = *plane & carry;
+                        *plane ^= carry;
+                        carry = next_carry;
+                        if carry == 0 {
+                            break;
+                        }
                     }
                 }
-            }
-            let (mut current_eq, mut current_gt) = (!0u128, 0u128);
-            for p in (0..num_planes).rev() {
-                if ((threshold >> p) & 1) == 1 {
-                    current_eq &= planes[p];
-                } else {
-                    current_gt |= current_eq & planes[p];
-                    current_eq &= !planes[p];
+
+                let mut current_eq = !0u128;
+                let mut current_gt = 0u128;
+                for p in (0..num_planes).rev() {
+                    let bit = (threshold >> p) & 1;
+                    if bit == 1 {
+                        current_eq &= planes[p];
+                    } else {
+                        current_gt |= current_eq & planes[p];
+                        current_eq &= !planes[p];
+                    }
                 }
+                data[i] = current_gt | current_eq;
             }
-            data[i] = current_gt | current_eq;
         }
+
         Ok(Self { data })
     }
 
@@ -335,6 +326,81 @@ impl HVec10240 {
     }
 }
 
+impl Serialize for HVec10240 {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if serializer.is_human_readable() {
+            // Use base64 for JSON and other human-readable formats
+            use base64::Engine;
+            use base64::engine::general_purpose::STANDARD;
+            let bytes = self.to_bytes();
+            let b64 = STANDARD.encode(&bytes);
+            serializer.serialize_str(&b64)
+        } else {
+            // Use fixed-size array for binary formats (bincode compatible)
+            let bytes = self.to_bytes();
+            serializer.serialize_bytes(&bytes)
+        }
+    }
+}
+
+struct HVecVisitor;
+
+impl<'de> Visitor<'de> for HVecVisitor {
+    type Value = HVec10240;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a base64-encoded string or byte array of length 1280")
+    }
+
+    fn visit_str<E>(self, v: &str) -> std::result::Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        use base64::Engine;
+        use base64::engine::general_purpose::STANDARD;
+        let bytes = STANDARD.decode(v).map_err(de::Error::custom)?;
+        HVec10240::from_bytes(&bytes).map_err(de::Error::custom)
+    }
+
+    fn visit_bytes<E>(self, v: &[u8]) -> std::result::Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        HVec10240::from_bytes(v).map_err(de::Error::custom)
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Self::Value, A::Error>
+    where
+        A: de::SeqAccess<'de>,
+    {
+        // Handle JSON array of numbers (legacy format)
+        let mut bytes = Vec::with_capacity(1280);
+        while let Some(byte) = seq.next_element::<u8>()? {
+            bytes.push(byte);
+        }
+        if bytes.len() != 1280 {
+            return Err(de::Error::custom(format!(
+                "expected 1280 bytes, got {}",
+                bytes.len()
+            )));
+        }
+        HVec10240::from_bytes(&bytes).map_err(de::Error::custom)
+    }
+}
+
+impl<'de> Deserialize<'de> for HVec10240 {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // Use deserialize_any to handle both string (base64) and bytes formats
+        deserializer.deserialize_any(HVecVisitor)
+    }
+}
+
 // Re-export BundleAccumulator from bundle module
 pub use crate::bundle::BundleAccumulator;
 
@@ -400,10 +466,11 @@ mod tests {
         let v = HVec10240::random();
         let json = serde_json::to_string(&v).unwrap();
         // Should be a base64 string, not an array
-        assert!(json.starts_with('"'), "Expected string, got: {json}");
+        assert!(json.starts_with('"'), "Expected string, got: {}", json);
         assert!(
             !json.starts_with('['),
-            "Expected base64 string, not array: {json}"
+            "Expected base64 string, not array: {}",
+            json
         );
         // Verify roundtrip
         let decoded: HVec10240 = serde_json::from_str(&json).unwrap();

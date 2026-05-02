@@ -17,7 +17,6 @@
 - colored (2.2.0)
 - fastembed (4)
 - glob (0.3.2)
-- hnsw_rs (0.3.4)
 - rand (0.10.1)
 - rand_chacha (0.10.0)
 - reqwest (0.12) [features: json, rustls-tls]
@@ -28,8 +27,6 @@
 - tracing (0.1.41)
 - tracing-subscriber (0.3.19)
 **Features:**
-- ann-hnsw: [dep:hnsw_rs]
-- ann-lsh: []
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - default: [cli, persistence, parallel]
 - embed-fastembed: [dep:fastembed]
@@ -323,6 +320,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct TextEncoderConfig
 - impl Default for TextEncoderConfig
 - pub struct TextEncoder
+- impl Default for TextEncoder
 - impl TextEncoder
 
 ### src/error.rs
@@ -355,7 +353,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Default for FrameworkConfig
 - pub struct FrameworkStats
 - pub struct FrameworkBuilder
-- impl Default for FrameworkBuilder
 - impl FrameworkBuilder
 
 ### src/framework_events.rs
@@ -374,10 +371,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl FrameworkMetrics
 
 ### src/framework_ops.rs
-
-- impl ChaoticSemanticFramework
-
-### src/framework_persistence.rs
 
 - impl ChaoticSemanticFramework
 
@@ -400,46 +393,14 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use crate::hyperdim_batch::batch_cosine_similarity
 - pub struct HVec10240
 - impl HVec10240
+- impl Serialize for HVec10240
+- impl Visitor for HVecVisitor
+- impl Deserialize for HVec10240
 - pub use crate::bundle::BundleAccumulator
 
 ### src/hyperdim_batch.rs
 
 - pub fn batch_cosine_similarity
-
-### src/hyperdim_serde.rs
-
-- impl Serialize for HVec10240
-- impl Visitor for HVecVisitor
-- impl Deserialize for HVec10240
-
-### src/index/brute_force.rs
-
-- pub struct BruteForce
-- impl BruteForce
-- impl AnnIndex for BruteForce
-
-### src/index/hnsw.rs
-
-- impl Distance for HammingDist
-- pub struct HnswIndex
-- impl HnswIndex
-- impl std::fmt::Debug for HnswIndex
-- impl AnnIndex for HnswIndex
-
-### src/index/lsh.rs
-
-- pub struct LshIndex
-- impl LshIndex
-- impl AnnIndex for LshIndex
-
-### src/index/mod.rs
-
-- pub mod brute_force
-- pub mod hnsw
-- pub mod lsh
-- pub struct IndexStats
-- pub enum IndexBackend
-- pub trait AnnIndex
 
 ### src/lib.rs
 
@@ -468,7 +429,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod metadata_filter
 - pub mod semantic_triples
 - pub use metadata_filter::MetadataFilter
-- pub mod index
 - pub mod persistence
 - pub mod persistence_wasm
 - pub mod reservoir
@@ -543,10 +503,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub struct Persistence
 - pub struct ConceptVersion
-- impl Persistence
-
-### src/persistence_index.rs
-
 - impl Persistence
 
 ### src/persistence_migrations.rs
@@ -671,10 +627,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Default for RetrievalConfig
 - impl Singularity
 
-### src/singularity_search.rs
-
-- impl Singularity
-
 ### src/singularity_ttl.rs
 
 - impl Default for Concept
@@ -690,10 +642,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn cosine_similarity
 
 ### src/wasm_ext.rs
-
-- impl WasmFramework
-
-### src/wasm_graph_rag.rs
 
 - impl WasmFramework
 
@@ -2558,7 +2506,7 @@ impl VoyageProvider {
 ### TextEncoder
 
 ```rust
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct TextEncoder {
 }
 ```
@@ -2584,6 +2532,13 @@ pub struct TextEncoderConfig {
 ```
 
 Configuration for the text encoder.
+
+### impl Default for TextEncoder
+
+```rust
+impl Default for TextEncoder {
+}
+```
 
 ### impl Default for TextEncoderConfig
 
@@ -2720,6 +2675,10 @@ impl ChaoticSemanticFramework {
     pub fn incoming_associations(&self, id: &str) -> Result<Vec<(String, f32)>>;
     pub fn shortest_path_hops(&self, from: &str, to: &str) -> Result<Option<Vec<String>>>;
     pub fn get_concept(&self, id: &str) -> Result<Option<Concept>>;
+    pub fn persist(&self) -> Result<()>;
+    pub fn persistence_health_check(&self) -> Result<()>;
+    pub fn load_replace(&self) -> Result<()>;
+    pub fn load_merge(&self) -> Result<()>;
     pub fn load(&self) -> Result<()>;
     pub fn metrics_snapshot(&self) -> FrameworkMetricsSnapshot;
     pub fn stats(&self) -> Result<FrameworkStats>;
@@ -2768,7 +2727,6 @@ pub struct FrameworkConfig {
     pub max_cached_top_k: usize,
     pub max_batch_size: usize,
     pub max_sequence_length: usize,
-    pub index_backend: crate::index::IndexBackend,
 }
 ```
 
@@ -2786,13 +2744,6 @@ pub struct FrameworkStats {
 
 Framework statistics
 
-### impl Default for FrameworkBuilder
-
-```rust
-impl Default for FrameworkBuilder {
-}
-```
-
 ### impl Default for FrameworkConfig
 
 ```rust
@@ -2804,7 +2755,6 @@ impl Default for FrameworkConfig {
 
 ```rust
 impl FrameworkBuilder {
-    pub fn new() -> Self;
     pub fn with_reservoir_size(self, size: usize) -> Self;
     pub fn with_reservoir_input_size(self, size: usize) -> Self;
     pub fn with_chaos_strength(self, strength: f32) -> Self;
@@ -2817,7 +2767,6 @@ impl FrameworkBuilder {
     pub fn with_max_cached_top_k(self, max_cached_top_k: usize) -> Self;
     pub fn with_max_batch_size(self, max_batch_size: usize) -> Self;
     pub fn with_max_sequence_length(self, max_sequence_length: usize) -> Self;
-    pub fn with_index_backend(self, backend: crate::index::IndexBackend) -> Self;
     pub fn with_version_retention(self, retention: usize) -> Self;
     pub fn with_local_db(self, path: impl Trait) -> Self;
     pub fn with_turso(self, url: impl Trait, token: impl Trait) -> Self;
@@ -2925,19 +2874,6 @@ impl ChaoticSemanticFramework {
 }
 ```
 
-## src/framework_persistence.rs
-
-### impl ChaoticSemanticFramework
-
-```rust
-impl ChaoticSemanticFramework {
-    pub fn persist(&self) -> Result<()>;
-    pub fn persistence_health_check(&self) -> Result<()>;
-    pub fn load_replace(&self) -> Result<()>;
-    pub fn load_merge(&self) -> Result<()>;
-}
-```
-
 ## src/framework_ttl.rs
 
 ### impl crate::framework::ChaoticSemanticFramework
@@ -3022,6 +2958,13 @@ pub use crate::bundle::BundleAccumulator;
 pub use crate::hyperdim_batch::batch_cosine_similarity;
 ```
 
+### impl Deserialize<'de> for HVec10240
+
+```rust
+impl<'de> Deserialize<'de> for HVec10240 {
+}
+```
+
 ### impl HVec10240
 
 ```rust
@@ -3029,8 +2972,6 @@ impl HVec10240 {
     pub const DIMENSION: Type;
     pub const WORDS: Type;
     pub fn zero() -> Self;
-    pub fn set_bit(&mut self, pos: usize);
-    pub fn flip_bit(&mut self, pos: usize);
     pub fn random() -> Self;
     pub fn new_seeded(seed: u64) -> Self;
     pub fn sparse(density: f32) -> Self;
@@ -3041,25 +2982,6 @@ impl HVec10240 {
     pub fn permute(&self, shift: usize) -> Self;
     pub fn to_bytes(&self) -> Vec<u8>;
     pub fn from_bytes(bytes: &[u8]) -> Result<Self>;
-}
-```
-
-## src/hyperdim_batch.rs
-
-### batch_cosine_similarity
-
-```rust
-pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> Vec<f32>
-```
-
-Batch similarity computation tuned for cache locality and Rayon overhead.
-
-## src/hyperdim_serde.rs
-
-### impl Deserialize<'de> for HVec10240
-
-```rust
-impl<'de> Deserialize<'de> for HVec10240 {
 }
 ```
 
@@ -3077,145 +2999,17 @@ impl<'de> Visitor<'de> for HVecVisitor {
 }
 ```
 
+## src/hyperdim_batch.rs
+
+### batch_cosine_similarity
+
+```rust
+pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> Vec<f32>
+```
+
+Batch similarity computation tuned for cache locality and Rayon overhead.
+
 ## src/hyperdim_simd.rs
-
-## src/index/brute_force.rs
-
-### BruteForce
-
-```rust
-#[derive(Debug, Default)]
-pub struct BruteForce {
-}
-```
-
-Exact search via linear scan.
-
-### impl AnnIndex for BruteForce
-
-```rust
-impl AnnIndex for BruteForce {
-}
-```
-
-### impl BruteForce
-
-```rust
-impl BruteForce {
-    pub fn new() -> Self;
-}
-```
-
-## src/index/hnsw.rs
-
-### HnswIndex
-
-```rust
-#[cfg(feature = "ann-hnsw")]
-pub struct HnswIndex {
-}
-```
-
-### impl AnnIndex for HnswIndex
-
-```rust
-impl AnnIndex for HnswIndex {
-}
-```
-
-### impl Distance<HVec10240> for HammingDist
-
-```rust
-impl Distance<HVec10240> for HammingDist {
-}
-```
-
-### impl HnswIndex
-
-```rust
-impl HnswIndex {
-    pub fn new(m: usize, ef_construction: usize, ef_search: usize) -> Self;
-}
-```
-
-### impl std::fmt::Debug for HnswIndex
-
-```rust
-impl std::fmt::Debug for HnswIndex {
-}
-```
-
-## src/index/lsh.rs
-
-### LshIndex
-
-```rust
-#[derive(Debug, Serialize, Deserialize)]
-pub struct LshIndex {
-}
-```
-
-Locality-Sensitive Hashing (LSH) for hypervectors using bit-sampling.
-
-### impl AnnIndex for LshIndex
-
-```rust
-impl AnnIndex for LshIndex {
-}
-```
-
-### impl LshIndex
-
-```rust
-impl LshIndex {
-    pub fn new(num_tables: usize, hash_bits: usize) -> Self;
-}
-```
-
-## src/index/mod.rs
-
-### AnnIndex
-
-```rust
-pub trait AnnIndex: Send + Sync + Debug {
-    fn insert(&mut self, id: String, vec: &HVec10240) -> Result<()>;
-    fn delete(&mut self, id: &str) -> Result<()>;
-    fn search(&self, query: &HVec10240, top_k: usize) -> Result<Vec<(String, f32)>>;
-    fn search_filtered(&self, query: &HVec10240, top_k: usize, filter: &crate::metadata_filter::MetadataFilter, concepts: &std::collections::HashMap<String, crate::singularity::Concept>) -> Result<Vec<(String, f32)>>;
-    fn rebuild(&mut self, concepts: &HashMap<String, Concept>) -> Result<()>;
-    fn stats(&self) -> IndexStats;
-    fn serialize(&self) -> Result<Vec<u8>>;
-    fn deserialize(&mut self, data: &[u8]) -> Result<()>;
-}
-```
-
-Trait for Approximate Nearest Neighbor (ANN) indices.
-
-### IndexBackend
-
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
-pub enum IndexBackend {
-    BruteForce,
-    Hnsw { m: usize, ef_construction: usize, ef_search: usize },
-    Lsh { num_tables: usize, hash_bits: usize },
-}
-```
-
-Supported ANN index backends.
-
-### IndexStats
-
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IndexStats {
-    pub backend: String,
-    pub count: usize,
-    pub memory_usage_bytes: usize,
-}
-```
-
-Statistics for an ANN index.
 
 ## src/lib.rs
 
@@ -3373,8 +3167,6 @@ impl Persistence {
     pub fn restore(&self, _path: &str) -> Result<()>;
     pub fn get_concept_history(&self, _id: &str, _limit: usize) -> Result<Vec<ConceptVersion>>;
     pub fn schema_version(&self) -> Result<i64>;
-    pub fn save_index(&self, _id: &str, _data: &[u8]) -> Result<()>;
-    pub fn load_index(&self, _id: &str) -> Result<Option<Vec<u8>>>;
     pub fn apply_migrations(&self, _target_version: i64) -> Result<()>;
 }
 ```
@@ -3718,17 +3510,6 @@ impl Persistence {
 }
 ```
 
-## src/persistence_index.rs
-
-### impl Persistence
-
-```rust
-impl Persistence {
-    pub fn save_index(&self, id: &str, data: &[u8]) -> Result<()>;
-    pub fn load_index(&self, id: &str) -> Result<Option<Vec<u8>>>;
-}
-```
-
 ## src/persistence_migrations.rs
 
 ### impl Persistence
@@ -3815,8 +3596,6 @@ impl Persistence {
     pub fn checkpoint(&self) -> Result<()>;
     pub fn health_check(&self) -> Result<()>;
     pub fn size(&self) -> Result<u64>;
-    pub fn save_index(&self, _id: &str, _data: &[u8]) -> Result<()>;
-    pub fn load_index(&self, _id: &str) -> Result<Option<Vec<u8>>>;
 }
 ```
 
@@ -4002,6 +3781,12 @@ pub fn graph_rag_retrieve(query: &HVec10240, concepts: &[Concept], associations:
 ```
 
 Execute GraphRAG retrieval.
+
+Algorithm:
+1. Anchor: probe(query, anchor_top_k) → seed set
+2. Expand: traverse from each anchor
+3. Score: similarity_weight * cosine + graph_weight * (1/(1+hops)) * strength
+4. Dedupe + rank by score
 
 ### impl Default for GraphRagConfig
 
@@ -4394,12 +4179,14 @@ impl Default for SingularityConfig {
 impl Singularity {
     pub fn new() -> Self;
     pub fn with_config(config: SingularityConfig) -> Self;
-    pub fn with_config_and_backend(config: SingularityConfig, backend: IndexBackend) -> Self;
     pub fn inject(&mut self, concept: Concept) -> Result<()>;
     pub fn get(&self, id: &str) -> Option<&Concept>;
     pub fn delete(&mut self, id: &str) -> Result<()>;
     pub fn clear(&mut self);
     pub fn update(&mut self, id: &str, new_vector: HVec10240) -> Result<()>;
+    pub fn find_similar(&self, query: &HVec10240, top_k: usize) -> Vec<(String, f32)>;
+    pub fn find_similar_arc(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]>;
+    pub fn find_similar_cached(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]>;
     pub fn associate(&mut self, from: &str, to: &str, strength: f32) -> Result<()>;
     pub fn get_associations(&self, id: &str) -> Vec<(String, f32)>;
     pub fn bundle_concepts(&self, ids: &[String]) -> Result<HVec10240>;
@@ -4542,18 +4329,6 @@ impl Singularity {
 }
 ```
 
-## src/singularity_search.rs
-
-### impl Singularity
-
-```rust
-impl Singularity {
-    pub fn find_similar(&self, query: &HVec10240, top_k: usize) -> Vec<(String, f32)>;
-    pub fn find_similar_arc(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]>;
-    pub fn find_similar_cached(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]>;
-}
-```
-
 ## src/singularity_ttl.rs
 
 ### impl Default for Concept
@@ -4655,17 +4430,6 @@ impl WasmFramework {
     pub fn on_event(&self, callback: Function);
     pub fn inject_text(&self, id: String, text: String) -> Result<(), JsValue>;
     pub fn probe_text(&self, query: String, top_k: usize) -> Result<Array, JsValue>;
-}
-```
-
-## src/wasm_graph_rag.rs
-
-### impl WasmFramework
-
-```rust
-impl WasmFramework {
-    pub fn probe_with_graph(&self, vector: &[u8], anchor_top_k: usize, max_hops: usize, min_assoc_strength: f32, similarity_weight: f32, graph_weight: f32, final_top_k: usize) -> Result<Array, JsValue>;
-    pub fn probe_text_with_graph(&self, text: String, anchor_top_k: usize, max_hops: usize, min_assoc_strength: f32, similarity_weight: f32, graph_weight: f32, final_top_k: usize) -> Result<Array, JsValue>;
 }
 ```
 
