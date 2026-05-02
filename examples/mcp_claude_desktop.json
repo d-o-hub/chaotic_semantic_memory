@@ -2,10 +2,12 @@
   "mcpServers": {
     "csm": {
       "command": "csm",
-      "args": ["mcp", "serve"],
-      "env": {
-        "DATABASE_URL": "file:csm.db"
-      }
+      "args": [
+        "--database",
+        "memory.db",
+        "mcp",
+        "serve"
+      ]
     }
   }
 }

@@ -43,9 +43,9 @@ pub async fn read_resource(framework: &ChaoticSemanticFramework, uri: &str) -> R
     }
 
     if uri == "health://current" {
-        let health = framework.persistence_health_check().await
+        framework.persistence_health_check().await
             .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
-        let content = serde_json::to_string_pretty(&health)
+        let content = serde_json::to_string_pretty(&())
             .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
         return Ok(ReadResourceResult {
             contents: vec![ResourceContents::text(content, uri)],
