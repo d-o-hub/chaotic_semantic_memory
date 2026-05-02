@@ -339,24 +339,71 @@ impl MemoryAdapter {
         Ok(reweighted.into_iter().take(top_k).collect())
     }
 
-    pub async fn query_bm25(&self, text: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
+    pub async fn query_bm25(
+        &self,
+        text: &str,
+        session_id: Option<&str>,
+        top_k: usize,
+    ) -> Result<Vec<(String, f32)>> {
         let query_tokens = tokenize_for_bm25(text);
-        let bm25_hits = self.bm25_index.read().await.search(&query_tokens, top_k);
-        Ok(bm25_hits)
+        let bm25_hits = self
+            .bm25_index
+            .read()
+            .await
+            .search(&query_tokens, top_k * 10);
+
+        let filtered = if let Some(sid) = session_id {
+            let prefix = format!("{sid}:");
+            bm25_hits
+                .into_iter()
+                .filter(|(id, _)| id.starts_with(&prefix))
+                .take(top_k)
+                .collect()
+        } else {
+            bm25_hits.into_iter().take(top_k).collect()
+        };
+
+        Ok(filtered)
     }
 
-    pub async fn query_hybrid(&self, text: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
-        self.query(text, top_k).await
+    pub async fn query_hybrid(
+        &self,
+        text: &str,
+        session_id: Option<&str>,
+        top_k: usize,
+    ) -> Result<Vec<(String, f32)>> {
+        if let Some(sid) = session_id {
+            self.query_in_session(text, sid, top_k).await
+        } else {
+            self.query(text, top_k).await
+        }
     }
 
-    pub async fn query_bridge(&self, text: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
+    pub async fn query_bridge(
+        &self,
+        text: &str,
+        session_id: Option<&str>,
+        top_k: usize,
+    ) -> Result<Vec<(String, f32)>> {
         let sing_lock = self.framework.singularity();
         let sing = sing_lock.read().await;
-        let hits = self.bridge.query(&sing, text, top_k, None)?;
-        Ok(hits
-            .into_iter()
-            .map(|h| (h.id, h.scores.final_score))
-            .collect())
+        let hits = self.bridge.query(&sing, text, top_k * 10, None)?;
+
+        let filtered = if let Some(sid) = session_id {
+            let prefix = format!("{sid}:");
+            hits.into_iter()
+                .filter(|h| h.id.starts_with(&prefix))
+                .take(top_k)
+                .map(|h| (h.id, h.scores.final_score))
+                .collect()
+        } else {
+            hits.into_iter()
+                .take(top_k)
+                .map(|h| (h.id, h.scores.final_score))
+                .collect()
+        };
+
+        Ok(filtered)
     }
 
     pub async fn query_history(
@@ -371,7 +418,34 @@ impl MemoryAdapter {
     }
 
     pub async fn purge_expired(&self) -> Result<usize> {
-        self.framework.purge_expired().await.map_err(Into::into)
+        // Find expired IDs first if possible, or just sync after purge.
+        // For benchmarks, it's easier to just reconcile after the fact
+        // or accept a slight inaccuracy.
+        // But the comment specifically asks for auxiliary index cleanup.
+        // Let's perform the purge and then check for missing concepts.
+
+        let count = self.framework.purge_expired().await?;
+
+        if count > 0 {
+            // Reconcile BM25 and text store
+            let mut bm25 = self.bm25_index.write().await;
+            let mut text_store = self.text_store.write().await;
+
+            // This is heavy, but purge is infrequent in benchmarks.
+            let mut to_remove = Vec::new();
+            for id in text_store.keys() {
+                if self.framework.get_concept(id).await?.is_none() {
+                    to_remove.push(id.clone());
+                }
+            }
+
+            for id in to_remove {
+                bm25.remove_document(&id);
+                text_store.remove(&id);
+            }
+        }
+
+        Ok(count)
     }
 
     pub async fn get_text(&self, id: &str) -> Result<Option<String>> {

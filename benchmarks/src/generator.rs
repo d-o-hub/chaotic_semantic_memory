@@ -248,60 +248,66 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             should_abstain: false,
         });
 
-        cases.push(QueryCase {
-            query_id: format!("{}:history", s.session_id),
-            session_id: s.session_id.clone(),
-            task_type: TaskType::History,
-            query: "Show me the history of my favorite color.".into(),
-            gold_evidence_ids: vec![
-                format!("{}:favorite_color:v1", s.session_id),
-                format!("{}:favorite_color:v2", s.session_id),
-            ],
-            expected_answer: None,
-            should_abstain: false,
-        });
+        if s.turns.iter().any(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":favorite_color:v1"))) {
+            let mut gold_ids = vec![format!("{}:favorite_color:v1", s.session_id)];
+            if s.turns.iter().any(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":favorite_color:v2"))) {
+                gold_ids.push(format!("{}:favorite_color:v2", s.session_id));
+            }
 
-        cases.push(QueryCase {
-            query_id: format!("{}:bm25", s.session_id),
-            session_id: s.session_id.clone(),
-            task_type: TaskType::Bm25,
-            query: s
-                .turns
-                .iter()
-                .find(|t| {
-                    t.memory_id
-                        .as_ref()
-                        .is_some_and(|id| id.contains(":city:v1"))
-                })
-                .map(|t| t.text.clone())
-                .unwrap_or_else(|| "Chicago".into()),
-            gold_evidence_ids: vec![format!("{}:city:v1", s.session_id)],
-            expected_answer: None,
-            should_abstain: false,
-        });
+            cases.push(QueryCase {
+                query_id: format!("{}:history", s.session_id),
+                session_id: s.session_id.clone(),
+                task_type: TaskType::History,
+                query: "Show me the history of my favorite color.".into(),
+                gold_evidence_ids: gold_ids,
+                expected_answer: None,
+                should_abstain: false,
+            });
+        }
 
-        cases.push(QueryCase {
-            query_id: format!("{}:hybrid", s.session_id),
-            session_id: s.session_id.clone(),
-            task_type: TaskType::Hybrid,
-            query: format!(
-                "favorite color in {}",
-                s.turns
+        if s.turns.iter().any(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":city:v1"))) {
+            cases.push(QueryCase {
+                query_id: format!("{}:bm25", s.session_id),
+                session_id: s.session_id.clone(),
+                task_type: TaskType::Bm25,
+                query: s
+                    .turns
                     .iter()
-                    .find(|t| t
-                        .memory_id
-                        .as_ref()
-                        .is_some_and(|id| id.contains(":city:v1")))
+                    .find(|t| {
+                        t.memory_id
+                            .as_ref()
+                            .is_some_and(|id| id.contains(":city:v1"))
+                    })
                     .map(|t| t.text.clone())
-                    .unwrap_or_else(|| "Chicago".into())
-            ),
-            gold_evidence_ids: vec![
-                format!("{}:favorite_color:v2", s.session_id),
-                format!("{}:city:v1", s.session_id),
-            ],
-            expected_answer: None,
-            should_abstain: false,
-        });
+                    .unwrap_or_else(|| "Chicago".into()),
+                gold_evidence_ids: vec![format!("{}:city:v1", s.session_id)],
+                expected_answer: None,
+                should_abstain: false,
+            });
+
+            cases.push(QueryCase {
+                query_id: format!("{}:hybrid", s.session_id),
+                session_id: s.session_id.clone(),
+                task_type: TaskType::Hybrid,
+                query: format!(
+                    "favorite color in {}",
+                    s.turns
+                        .iter()
+                        .find(|t| t
+                            .memory_id
+                            .as_ref()
+                            .is_some_and(|id| id.contains(":city:v1")))
+                        .map(|t| t.text.clone())
+                        .unwrap_or_else(|| "Chicago".into())
+                ),
+                gold_evidence_ids: vec![
+                    format!("{}:favorite_color:v2", s.session_id),
+                    format!("{}:city:v1", s.session_id),
+                ],
+                expected_answer: None,
+                should_abstain: false,
+            });
+        }
     }
 
     // Add cross-session query types (Association and MultiSession)
@@ -328,18 +334,21 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             });
 
             // Add a query that targets explicit associations between city and color in a session
-            cases.push(QueryCase {
-                query_id: format!("association-internal-{i:03}"),
-                session_id: s1.session_id.clone(),
-                task_type: TaskType::Association,
-                query: "Show me items related to my location city and favorite interests color in this session.".into(),
-                gold_evidence_ids: vec![
-                    format!("{}:favorite_color:v2", s1.session_id),
-                    format!("{}:city:v1", s1.session_id),
-                ],
-                expected_answer: None,
-                should_abstain: false,
-            });
+            // only if city turn exists
+            if s1.turns.iter().any(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":city:v1"))) {
+                cases.push(QueryCase {
+                    query_id: format!("association-internal-{i:03}"),
+                    session_id: s1.session_id.clone(),
+                    task_type: TaskType::Association,
+                    query: "Show me items related to my location city and favorite interests color in this session.".into(),
+                    gold_evidence_ids: vec![
+                        format!("{}:favorite_color:v2", s1.session_id),
+                        format!("{}:city:v1", s1.session_id),
+                    ],
+                    expected_answer: None,
+                    should_abstain: false,
+                });
+            }
         }
 
         // MultiSession: Aggregate across sessions

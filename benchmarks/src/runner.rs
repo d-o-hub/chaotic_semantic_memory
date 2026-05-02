@@ -74,14 +74,26 @@ pub async fn run(cli: Cli) -> Result<()> {
                         .await?
                 }
             }
-            TaskType::Bm25 => adapter.query_bm25(&query_case.query, cli.top_k).await?,
-            TaskType::Hybrid => adapter.query_hybrid(&query_case.query, cli.top_k).await?,
-            TaskType::Bridge => adapter.query_bridge(&query_case.query, cli.top_k).await?,
+            TaskType::Bm25 => {
+                adapter
+                    .query_bm25(&query_case.query, Some(&query_case.session_id), cli.top_k)
+                    .await?
+            }
+            TaskType::Hybrid => {
+                adapter
+                    .query_hybrid(&query_case.query, Some(&query_case.session_id), cli.top_k)
+                    .await?
+            }
+            TaskType::Bridge => {
+                adapter
+                    .query_bridge(&query_case.query, Some(&query_case.session_id), cli.top_k)
+                    .await?
+            }
             TaskType::History => {
                 let id = &query_case.gold_evidence_ids[0];
                 // Strip manual :v1/:v2 suffix from gold ID to get root ID if present
                 let root_id = id.split(":v").next().unwrap_or(id);
-                let versions = adapter.query_history(root_id, 10).await?;
+                let versions = adapter.query_history(root_id, cli.top_k).await?;
                 // Map versions to hits for scoring (using version number as "score" for ranking check)
                 versions
                     .into_iter()
