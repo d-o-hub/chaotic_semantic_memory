@@ -21,12 +21,38 @@ const PETS: &[&str] = &[
 
 /// Real cities for semantically meaningful test data
 const CITIES: &[&str] = &[
-    "New York", "Los Angeles", "Chicago", "Houston", "Phoenix", "Philadelphia",
-    "San Antonio", "San Diego", "Dallas", "San Jose", "Austin", "Jacksonville",
-    "Fort Worth", "Columbus", "Charlotte", "Seattle", "Denver", "Boston",
-    "Nashville", "Baltimore", "Oklahoma City", "Louisville", "Portland", "Vegas",
-    "Milwaukee", "Albuquerque", "Tucson", "Fresno", "Sacramento", "Kansas City",
-    "Atlanta", "Miami",
+    "New York",
+    "Los Angeles",
+    "Chicago",
+    "Houston",
+    "Phoenix",
+    "Philadelphia",
+    "San Antonio",
+    "San Diego",
+    "Dallas",
+    "San Jose",
+    "Austin",
+    "Jacksonville",
+    "Fort Worth",
+    "Columbus",
+    "Charlotte",
+    "Seattle",
+    "Denver",
+    "Boston",
+    "Nashville",
+    "Baltimore",
+    "Oklahoma City",
+    "Louisville",
+    "Portland",
+    "Vegas",
+    "Milwaukee",
+    "Albuquerque",
+    "Tucson",
+    "Fresno",
+    "Sacramento",
+    "Kansas City",
+    "Atlanta",
+    "Miami",
 ];
 
 /// Generate sessions with variable turn count between min and max (inclusive)
@@ -256,6 +282,7 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
                 should_abstain: false,
             });
 
+            // Add a query that targets explicit associations between city and color in a session
             cases.push(QueryCase {
                 query_id: format!("association-internal-{:03}", i),
                 session_id: s1.session_id.clone(),

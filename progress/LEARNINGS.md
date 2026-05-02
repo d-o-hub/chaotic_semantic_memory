@@ -42,7 +42,7 @@
 - **Dense Matrices**: Avoid dense matrices for reservoirs > 2000 nodes; use CSR.
 - **Archived Deps**: Never use archived GitHub repositories as dependencies.
 
-## Benchmarking & Versioning (Root Cause Analysis - May 2026)
-- **Versioning Mismatch**: Manually appending ':v1', ':v2' suffixes to concept IDs during benchmark ingestion bypasses the framework's native versioning system. This results in distinct concepts instead of a unified concept lineage.
-- **Lesson**: Always use stable, unchanging IDs for updates to trigger native version tracking. Benchmark scoring for lineage (e.g., TaskType::History) must coordinate with the runner's ID mapping (e.g., id:vN) to ensure gold evidence matches correctly.
-- **Merge Coordination**: When multiple benchmark features are implemented in parallel (e.g., Association tasks vs. Coverage expansion), coordinate stable ID usage across all task types to avoid regression in shared metrics like Recall@k.
+## Autonomous PR Repair (Root Cause Analysis - May 2026)
+- **Versioning Logic**: Native framework versioning (v1, v2) is triggered by updating a concept with a stable ID. Manually appending suffixes like `:v1` in the benchmark generator creates separate concepts and breaks lineage evaluation.
+- **Merge Conflict Strategy**: When rebasing or merging, prioritize preserving functional logic from both sides. In this task, Association/Isolation tasks from main were successfully integrated with the expanded coverage areas (TTL, Bridge, History).
+- **Tool Discipline**: Use `git checkout origin/main -- <file>` to restore files lost during complex merges or rebases.
