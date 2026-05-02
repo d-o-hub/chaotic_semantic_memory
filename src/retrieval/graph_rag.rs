@@ -236,7 +236,8 @@ fn traverse_from(
                 let is_better = if let Some(&(_, _, prev_score)) = best_paths.get(neighbor) {
                     new_graph_score > prev_score
                 } else {
-                    best_paths.len() < config.max_results
+                    // Start node is in best_paths but not in results
+                    (best_paths.len() - 1) < config.max_results
                 };
 
                 if is_better {

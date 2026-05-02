@@ -99,6 +99,17 @@ impl HVec10240 {
         }
 
         let num_vectors = vectors.len();
+        if num_vectors == 1 {
+            return Ok(vectors[0]);
+        }
+        if num_vectors == 2 {
+            let mut res = Self::zero();
+            for i in 0..80 {
+                res.data[i] = vectors[0].data[i] & vectors[1].data[i];
+            }
+            return Ok(res);
+        }
+
         // Threshold: strictly greater than half
         let threshold = num_vectors / 2 + 1;
         // Number of bit-planes needed to represent a sum up to num_vectors
@@ -107,7 +118,7 @@ impl HVec10240 {
         let mut data = [0u128; 80];
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        {
+        if num_vectors >= 32 {
             data.par_iter_mut().enumerate().for_each(|(i, word)| {
                 // Use bit-sliced adder to count bits for each position in the word
                 let mut planes = [0u128; 32];
@@ -137,6 +148,7 @@ impl HVec10240 {
                 }
                 *word = current_gt | current_eq;
             });
+            return Ok(Self { data });
         }
 
         #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
