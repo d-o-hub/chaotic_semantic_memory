@@ -3,9 +3,8 @@ use tokio::fs;
 use tracing::info;
 
 use crate::error::{MemoryError, Result};
-use crate::persistence::{ConceptVersion, Persistence};
-use crate::singularity::Concept;
 use crate::hyperdim::HVec10240;
+use crate::persistence::{ConceptVersion, Persistence};
 
 impl Persistence {
     pub async fn save_associations(&self, associations: &[(String, String, f32)]) -> Result<()> {
@@ -25,9 +24,7 @@ impl Persistence {
                 params![from.clone(), to.clone(), *strength],
             )
             .await
-            .map_err(|e| {
-                MemoryError::database(format!("Failed to execute statement: {}", e))
-            })?;
+            .map_err(|e| MemoryError::database(format!("Failed to execute statement: {}", e)))?;
         }
 
         conn.execute("COMMIT", ())
@@ -104,11 +101,7 @@ impl Persistence {
         Ok(())
     }
 
-    pub async fn get_concept_history(
-        &self,
-        id: &str,
-        limit: usize,
-    ) -> Result<Vec<ConceptVersion>> {
+    pub async fn get_concept_history(&self, id: &str, limit: usize) -> Result<Vec<ConceptVersion>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
@@ -195,7 +188,10 @@ impl Persistence {
                 }
                 2 => {
                     // Added expires_at to concepts
-                    if !self.column_exists(conn, "csm_concepts", "expires_at").await? {
+                    if !self
+                        .column_exists(conn, "csm_concepts", "expires_at")
+                        .await?
+                    {
                         conn.execute("ALTER TABLE csm_concepts ADD COLUMN expires_at INTEGER", ())
                             .await
                             .map_err(|e| {

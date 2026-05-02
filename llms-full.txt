@@ -409,7 +409,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/persistence_ops.rs
 
 - impl Persistence
-- impl Persistence
 
 ### src/persistence_versions.rs
 
@@ -2819,14 +2818,18 @@ impl Persistence {
     pub fn new_turso_with_pool(url: &str, token: &str, pool_size: usize) -> Result<Self>;
     pub fn new_turso_with_pool_and_retention(url: &str, token: &str, pool_size: usize, version_retention: usize) -> Result<Self>;
     pub fn save_concept(&self, concept: &Concept) -> Result<()>;
-    pub fn save_concepts(&self, concepts: &[Concept]) -> Result<()>;
     pub fn load_concept(&self, id: &str) -> Result<Option<Concept>>;
-    pub fn load_all_concepts(&self) -> Result<Vec<Concept>>;
     pub fn delete_concept(&self, id: &str) -> Result<()>;
     pub fn save_association(&self, from: &str, to: &str, strength: f32) -> Result<()>;
     pub fn load_associations(&self, id: &str) -> Result<Vec<(String, f32)>>;
     pub fn checkpoint(&self) -> Result<()>;
     pub fn size(&self) -> Result<u64>;
+    pub fn health_check(&self) -> Result<()>;
+    pub fn save_metric(&self, key: &str, value: u64) -> Result<()>;
+    pub fn load_metric(&self, key: &str) -> Result<u64>;
+    pub fn clear_metrics(&self) -> Result<()>;
+    pub fn save_concepts(&self, concepts: &[Concept]) -> Result<()>;
+    pub fn load_all_concepts(&self) -> Result<Vec<Concept>>;
 }
 ```
 
@@ -2846,25 +2849,14 @@ impl Persistence {
 ```rust
 impl Persistence {
     pub fn save_associations(&self, associations: &[(String, String, f32)]) -> Result<()>;
+    pub fn delete_association(&self, from: &str, to: &str) -> Result<()>;
+    pub fn clear_concept_associations(&self, id: &str) -> Result<()>;
     pub fn clear_all(&self) -> Result<()>;
+    pub fn backup(&self, path: &str) -> Result<()>;
+    pub fn restore(&self, path: &str) -> Result<()>;
     pub fn get_concept_history(&self, id: &str, limit: usize) -> Result<Vec<ConceptVersion>>;
     pub fn schema_version(&self) -> Result<i64>;
     pub fn apply_migrations(&self, target_version: i64) -> Result<()>;
-    pub fn backup(&self, path: &str) -> Result<()>;
-    pub fn restore(&self, path: &str) -> Result<()>;
-    pub fn health_check(&self) -> Result<()>;
-    pub fn delete_association(&self, from: &str, to: &str) -> Result<()>;
-    pub fn clear_concept_associations(&self, id: &str) -> Result<()>;
-}
-```
-
-### impl Persistence
-
-```rust
-impl Persistence {
-    pub fn save_metric(&self, key: &str, value: u64) -> Result<()>;
-    pub fn load_metric(&self, key: &str) -> Result<u64>;
-    pub fn clear_metrics(&self) -> Result<()>;
 }
 ```
 
