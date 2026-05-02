@@ -1,0 +1,11 @@
+                    best_paths.insert(neighbor.clone(), (new_depth, new_strength, new_graph_score));
+                    queue.push_back((neighbor.clone(), new_depth, new_strength));
+                }
+            }
+        }
+<<<<<<< HEAD
+=======
+        return 0.5;
+    }
+    // Multi-hop: use decay factor
+    0.5 / (hops as f32)

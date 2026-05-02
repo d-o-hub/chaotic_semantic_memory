@@ -32,7 +32,9 @@ pub async fn run(cli: Cli) -> Result<()> {
     for session in &sessions {
         for turn in &session.turns {
             if let Some(id) = &turn.memory_id {
-                adapter.ingest_memory(id, &turn.text).await?;
+                adapter
+                    .ingest_memory(id, &turn.text, turn.ttl_seconds)
+                    .await?;
             }
         }
     }
@@ -71,6 +73,39 @@ pub async fn run(cli: Cli) -> Result<()> {
                         )
                         .await?
                 }
+            }
+            TaskType::Bm25 => {
+                adapter
+                    .query_bm25(&query_case.query, Some(&query_case.session_id), cli.top_k)
+                    .await?
+            }
+            TaskType::Hybrid => {
+                adapter
+                    .query_hybrid(&query_case.query, Some(&query_case.session_id), cli.top_k)
+                    .await?
+            }
+            TaskType::Bridge => {
+                adapter
+                    .query_bridge(&query_case.query, Some(&query_case.session_id), cli.top_k)
+                    .await?
+            }
+            TaskType::History => {
+                let id = &query_case.gold_evidence_ids[0];
+                // Strip manual :v1/:v2 suffix from gold ID to get root ID if present
+                let root_id = id.split(":v").next().unwrap_or(id);
+                let versions = adapter.query_history(root_id, cli.top_k).await?;
+                // Map versions to hits for scoring (using version number as "score" for ranking check)
+                versions
+                    .into_iter()
+                    .map(|v| (format!("{}:v{}", root_id, v.version), v.version as f32))
+                    .collect()
+            }
+            TaskType::Ttl => {
+                // Benchmark purge_expired as well
+                let _ = adapter.purge_expired().await?;
+                adapter
+                    .query_in_session(&query_case.query, &query_case.session_id, cli.top_k)
+                    .await?
             }
             _ => {
                 // For other queries, search globally
@@ -204,9 +239,6 @@ fn resolve_commit_sha() -> Option<String> {
         }
     }
 
-    // Filter PATH to exclude relative entries (CWE-426) to prevent path hijacking.
-    // If PATH is unset or results in an empty string after filtering, we fallback
-    // to letting the system attempt to find 'git' normally (standard behavior).
     let safe_path = std::env::var(ENV_PATH).ok().and_then(|p| {
         let joined = std::env::join_paths(
             std::env::split_paths(&p).filter(|p| p.is_absolute() && p.exists()),

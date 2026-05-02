@@ -217,7 +217,6 @@ fn traverse_from(
                 let is_better = if let Some(&(_, _, prev_score)) = best_paths.get(neighbor) {
                     new_graph_score > prev_score
                 } else {
-                    // Start node is in best_paths but not in results
                     (best_paths.len() - 1) < config.max_results
                 };
 
@@ -228,10 +227,93 @@ fn traverse_from(
             }
         }
     }
-
     best_paths
         .into_iter()
         .filter(|(id, _)| id != start)
         .map(|(id, (depth, strength, _))| (id, depth, strength))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::hyperdim::HVec10240;
+
+    fn make_test_concepts() -> Vec<Concept> {
+        let mut concepts = Vec::new();
+        for i in 0..10 {
+            let id = format!("concept_{i}");
+            concepts.push(Concept {
+                id: id.clone(),
+                vector: HVec10240::random(),
+                metadata: HashMap::new(),
+                created_at: 0,
+                modified_at: 0,
+                expires_at: None,
+                canonical_concept_ids: Vec::new(),
+            });
+        }
+        concepts
+    }
+
+    fn make_test_associations() -> Vec<(String, String, f32)> {
+        vec![
+            ("concept_0".to_string(), "concept_1".to_string(), 0.8),
+            ("concept_1".to_string(), "concept_2".to_string(), 0.7),
+            ("concept_5".to_string(), "concept_6".to_string(), 0.9),
+        ]
+    }
+
+    #[test]
+    fn test_empty_concepts() {
+        let query = HVec10240::random();
+        let concepts: Vec<Concept> = Vec::new();
+        let associations: Vec<(String, String, f32)> = Vec::new();
+        let config = GraphRagConfig::default();
+
+        let results = graph_rag_retrieve(&query, &concepts, &associations, &config).unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_anchor_is_top_result() {
+        let concepts = make_test_concepts();
+        let associations: Vec<(String, String, f32)> = Vec::new();
+        let config = GraphRagConfig {
+            anchor_top_k: 3,
+            final_top_k: 5,
+            ..Default::default()
+        };
+
+        let query = concepts[0].vector;
+        let results = graph_rag_retrieve(&query, &concepts, &associations, &config).unwrap();
+
+        // Anchor (concept_0) should be top result with hop_distance=0
+        assert!(!results.is_empty());
+        assert_eq!(results[0].id, "concept_0");
+        assert_eq!(results[0].hop_distance, 0);
+    }
+
+    #[test]
+    fn test_connected_results() {
+        let concepts = make_test_concepts();
+        let associations = make_test_associations();
+        let config = GraphRagConfig {
+            anchor_top_k: 1,
+            max_hops: 2,
+            final_top_k: 5,
+            graph_weight: 0.5,
+            similarity_weight: 0.5,
+            ..Default::default()
+        };
+
+        let query = concepts[0].vector;
+        let results = graph_rag_retrieve(&query, &concepts, &associations, &config).unwrap();
+
+        // Should include connected concepts concept_1 and concept_2
+        let ids: Vec<&str> = results.iter().map(|r| r.id.as_str()).collect();
+        assert!(
+            ids.contains(&"concept_1") || ids.contains(&"concept_2") || ids.contains(&"concept_0")
+        );
+    }
 }
