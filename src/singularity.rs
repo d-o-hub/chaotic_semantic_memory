@@ -302,7 +302,7 @@ impl Singularity {
         if candidates.is_empty() {
             // ADR-0068: Route through AnnIndex
             if let Ok(results) = self.index.search(query, top_k) {
-                let results_arc: Arc<[(String, f32)]> = results.into_iter().collect();
+                let results_arc: Arc<[(String, f32)]> = Arc::from(results.into_boxed_slice());
 
                 // ADR-0068: Update stats for ANN search
                 let stats = self.index.stats();
