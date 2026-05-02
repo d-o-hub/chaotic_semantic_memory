@@ -16,6 +16,7 @@ use chaotic_semantic_memory::graph_traversal::TraversalConfig;
 use chaotic_semantic_memory::metadata_filter::MetadataFilter;
 use chaotic_semantic_memory::reservoir::Reservoir;
 use chaotic_semantic_memory::retrieval::bm25::Bm25Index;
+use chaotic_semantic_memory::retrieval::{GraphRagConfig, graph_rag_retrieve};
 use chaotic_semantic_memory::semantic_bridge::{
     BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown,
 };
@@ -672,6 +673,51 @@ criterion_group!(
     bench_bridge_retrieval,
     bench_memory_packet_compilation,
     bench_bm25_search,
-    bench_singularity_scalability
+    bench_singularity_scalability,
+    bench_graph_rag
 );
 criterion_main!(benches);
+
+fn bench_graph_rag(c: &mut Criterion) {
+    let mut group = c.benchmark_group("graph_rag");
+    group.sample_size(10);
+
+    // Build a graph with 1000 concepts
+    let mut sing = Singularity::new();
+    for i in 0..1000 {
+        sing.inject(make_concept(&format!("concept_{i}"))).unwrap();
+    }
+
+    // Create 5-hop chains
+    for i in 0..1000 {
+        if i % 5 != 4 {
+            sing.associate(&format!("concept_{i}"), &format!("concept_{}", i+1), 0.8).unwrap();
+        }
+    }
+
+    let config = GraphRagConfig {
+        anchor_top_k: 5,
+        max_hops: 5,
+        min_assoc_strength: 0.1,
+        similarity_weight: 0.6,
+        graph_weight: 0.4,
+        final_top_k: 20,
+    };
+
+    let query = HVec10240::random();
+    let concepts = sing.all_concepts();
+    let associations = sing.all_associations();
+
+    group.bench_function("probe_graph_1k_concepts_5_hops", |b| {
+        b.iter(|| {
+            black_box(graph_rag_retrieve(
+                black_box(&query),
+                black_box(&concepts),
+                black_box(&associations),
+                black_box(&config)
+            ).unwrap())
+        })
+    });
+
+    group.finish();
+}
