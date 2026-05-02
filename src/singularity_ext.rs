@@ -280,7 +280,7 @@ mod tests {
                 assert_eq!(entity, "Concept");
                 assert_eq!(id, "missing_id");
             }
-            _ => panic!("Expected NotFound error, got {:?}", result),
+            _ => panic!("Expected NotFound error, got {result:?}"),
         }
     }
 
@@ -296,7 +296,7 @@ mod tests {
                 assert_eq!(entity, "Concept");
                 assert_eq!(id, "non-existent-id");
             }
-            _ => panic!("Expected MemoryError::NotFound, got {:?}", result),
+            _ => panic!("Expected MemoryError::NotFound, got {result:?}"),
         }
     }
 
