@@ -4,8 +4,8 @@ use chaotic_semantic_memory::encoder::TextEncoder;
 use chaotic_semantic_memory::prelude::*;
 use chaotic_semantic_memory::retrieval::bm25::Bm25Index;
 use chaotic_semantic_memory::retrieval::hybrid::{compute_weights, merge_results};
-use chaotic_semantic_memory::semantic_bridge::{CanonicalConcept, ConceptGraph};
 use chaotic_semantic_memory::retrieval::GraphRagConfig;
+use chaotic_semantic_memory::semantic_bridge::{CanonicalConcept, ConceptGraph};
 use std::collections::{HashMap, HashSet};
 use tempfile::NamedTempFile;
 use tokio::{fs, sync::RwLock};
@@ -29,7 +29,7 @@ fn stem_token(token: &str) -> String {
     if let Some(stripped) = token.strip_suffix("ed") {
         if stripped.len() > 2 {
             if stripped.ends_with('v') {
-                return format!("{}e", stripped);
+                return format!("{stripped}e");
             }
             return stripped.to_string();
         }
@@ -49,8 +49,8 @@ pub struct MemoryAdapter {
 const MIN_OVERLAP_WEIGHT: f32 = 0.05;
 const MIN_ADJUSTED_SCORE: f32 = 0.05;
 const STOPWORDS: &[&str] = &[
-    "a", "an", "the", "is", "am", "are", "my", "me", "i", "you", "your", "what", "which",
-    "did", "do", "does", "after", "where", "number", "should",
+    "a", "an", "the", "is", "am", "are", "my", "me", "i", "you", "your", "what", "which", "did",
+    "do", "does", "after", "where", "number", "should",
 ];
 
 impl MemoryAdapter {
@@ -65,8 +65,16 @@ impl MemoryAdapter {
 
         let mut graph = ConceptGraph::new();
         // Add expansion labels for bridge retrieval
-        graph.add_concept(CanonicalConcept::new("bridge.color").with_label("color").with_label("hue"));
-        graph.add_concept(CanonicalConcept::new("bridge.city").with_label("city").with_label("location"));
+        graph.add_concept(
+            CanonicalConcept::new("bridge.color")
+                .with_label("color")
+                .with_label("hue"),
+        );
+        graph.add_concept(
+            CanonicalConcept::new("bridge.city")
+                .with_label("city")
+                .with_label("location"),
+        );
 
         let encoder = TextEncoder::new();
         let bridge = BridgeRetrieval::with_defaults(encoder, graph);
@@ -80,10 +88,18 @@ impl MemoryAdapter {
         })
     }
 
-    pub async fn ingest_memory(&self, id: &str, text: &str, ttl_seconds: Option<u64>) -> Result<()> {
+    pub async fn ingest_memory(
+        &self,
+        id: &str,
+        text: &str,
+        ttl_seconds: Option<u64>,
+    ) -> Result<()> {
         // Store text metadata for HDC
         let mut metadata = HashMap::new();
-        metadata.insert("_text".to_string(), serde_json::Value::String(text.to_string()));
+        metadata.insert(
+            "_text".to_string(),
+            serde_json::Value::String(text.to_string()),
+        );
 
         // Add session_id to metadata for framework-level filtering
         if let Some((session_id, _)) = id.split_once(':') {
@@ -94,12 +110,10 @@ impl MemoryAdapter {
         }
 
         if let Some(ttl) = ttl_seconds {
-            self.framework
-                .inject_text_with_ttl(id, text, ttl)
-                .await?;
-            // We still want the _text and session_id metadata if possible, 
+            self.framework.inject_text_with_ttl(id, text, ttl).await?;
+            // We still want the _text and session_id metadata if possible,
             // but currently inject_text_with_ttl might not support passing metadata.
-            // If the framework supports it, we should use that. 
+            // If the framework supports it, we should use that.
             // For now, follow the existing pattern in HEAD.
         } else {
             self.framework
@@ -269,7 +283,7 @@ impl MemoryAdapter {
             // GraphRAG doesn't yet support framework-level metadata filtering in this adapter's wrapper,
             // so we still use post-filtering for association queries.
             let all_results = self.query_association(text, top_k * 10).await?;
-            let session_prefix = format!("{}:", session_id);
+            let session_prefix = format!("{session_id}:");
             let filtered: Vec<_> = all_results
                 .into_iter()
                 .filter(|(id, _)| id.starts_with(&session_prefix))
@@ -291,7 +305,7 @@ impl MemoryAdapter {
             .read()
             .await
             .search(&query_tokens, top_k * 10);
-        let session_prefix = format!("{}:", session_id);
+        let session_prefix = format!("{session_id}:");
         let bm25_filtered: Vec<_> = bm25_hits
             .into_iter()
             .filter(|(id, _)| id.starts_with(&session_prefix))
@@ -350,7 +364,10 @@ impl MemoryAdapter {
         id: &str,
         limit: usize,
     ) -> Result<Vec<chaotic_semantic_memory::persistence::ConceptVersion>> {
-        self.framework.concept_history(id, limit).await.map_err(Into::into)
+        self.framework
+            .concept_history(id, limit)
+            .await
+            .map_err(Into::into)
     }
 
     pub async fn purge_expired(&self) -> Result<usize> {

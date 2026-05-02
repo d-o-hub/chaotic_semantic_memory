@@ -155,7 +155,13 @@ pub fn generate_sessions_with_range(
         }
 
         // Additional turns with filler content
-        let start_filler = if turn_count >= 5 { 5 } else if turn_count >= 4 { 4 } else { 3 };
+        let start_filler = if turn_count >= 5 {
+            5
+        } else if turn_count >= 4 {
+            4
+        } else {
+            3
+        };
         for j in start_filler..turn_count {
             let filler_idx = j - start_filler;
             turns.push(SessionTurn {
@@ -259,7 +265,16 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             query_id: format!("{}:bm25", s.session_id),
             session_id: s.session_id.clone(),
             task_type: TaskType::Bm25,
-            query: s.turns.iter().find(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":city:v1"))).map(|t| t.text.clone()).unwrap_or_else(|| "Chicago".into()),
+            query: s
+                .turns
+                .iter()
+                .find(|t| {
+                    t.memory_id
+                        .as_ref()
+                        .is_some_and(|id| id.contains(":city:v1"))
+                })
+                .map(|t| t.text.clone())
+                .unwrap_or_else(|| "Chicago".into()),
             gold_evidence_ids: vec![format!("{}:city:v1", s.session_id)],
             expected_answer: None,
             should_abstain: false,
@@ -269,7 +284,17 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             query_id: format!("{}:hybrid", s.session_id),
             session_id: s.session_id.clone(),
             task_type: TaskType::Hybrid,
-            query: format!("favorite color in {}", s.turns.iter().find(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":city:v1"))).map(|t| t.text.clone()).unwrap_or_else(|| "Chicago".into())),
+            query: format!(
+                "favorite color in {}",
+                s.turns
+                    .iter()
+                    .find(|t| t
+                        .memory_id
+                        .as_ref()
+                        .is_some_and(|id| id.contains(":city:v1")))
+                    .map(|t| t.text.clone())
+                    .unwrap_or_else(|| "Chicago".into())
+            ),
             gold_evidence_ids: vec![
                 format!("{}:favorite_color:v2", s.session_id),
                 format!("{}:city:v1", s.session_id),
@@ -290,7 +315,7 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             // but for simplicity we'll just use colors from these two sessions.
             // Note: color v1 is pruned if v2 exists, so we use v2.
             cases.push(QueryCase {
-                query_id: format!("association-{:03}", i),
+                query_id: format!("association-{i:03}"),
                 session_id: "cross-session".into(),
                 task_type: TaskType::Association,
                 query: "What are the favorite colors I've mentioned in my different chats?".into(),
@@ -304,7 +329,7 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
 
             // Add a query that targets explicit associations between city and color in a session
             cases.push(QueryCase {
-                query_id: format!("association-internal-{:03}", i),
+                query_id: format!("association-internal-{i:03}"),
                 session_id: s1.session_id.clone(),
                 task_type: TaskType::Association,
                 query: "Show me items related to my location city and favorite interests color in this session.".into(),
@@ -326,9 +351,11 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             gold_evidence_ids: sessions
                 .iter()
                 .filter_map(|s| {
-                    s.turns
-                        .iter()
-                        .find(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":city:v1")))
+                    s.turns.iter().find(|t| {
+                        t.memory_id
+                            .as_ref()
+                            .is_some_and(|id| id.contains(":city:v1"))
+                    })
                 })
                 .filter_map(|t| t.memory_id.clone())
                 .collect(),
@@ -344,9 +371,11 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             gold_evidence_ids: sessions
                 .iter()
                 .filter_map(|s| {
-                    s.turns
-                        .iter()
-                        .find(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":pet:v1")))
+                    s.turns.iter().find(|t| {
+                        t.memory_id
+                            .as_ref()
+                            .is_some_and(|id| id.contains(":pet:v1"))
+                    })
                 })
                 .filter_map(|t| t.memory_id.clone())
                 .collect(),
@@ -360,20 +389,21 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             let s_other = &sessions[(i + 1) % sessions.len()];
 
             // Find a unique pet from the OTHER session
-            let other_pet_turn = s_other
-                .turns
-                .iter()
-                .find(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":pet:v1")));
+            let other_pet_turn = s_other.turns.iter().find(|t| {
+                t.memory_id
+                    .as_ref()
+                    .is_some_and(|id| id.contains(":pet:v1"))
+            });
 
             if let Some(turn) = other_pet_turn {
                 // Extract pet name from "I have a [pet] as a pet."
                 let pet_name = turn.text.replace("I have a ", "").replace(" as a pet.", "");
 
                 cases.push(QueryCase {
-                    query_id: format!("isolation-{:03}", i),
+                    query_id: format!("isolation-{i:03}"),
                     session_id: s_target.session_id.clone(),
                     task_type: TaskType::Isolation,
-                    query: format!("Do I have a {}?", pet_name),
+                    query: format!("Do I have a {pet_name}?"),
                     gold_evidence_ids: vec![], // Should NOT find anything
                     expected_answer: None,
                     should_abstain: true,
