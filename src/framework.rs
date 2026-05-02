@@ -376,17 +376,7 @@ impl ChaoticSemanticFramework {
                         );
                     }
                 }
-
-                // ADR-0068: Load ANN index state
-                if let Some(ref persistence) = self.persistence {
-                    if let Ok(Some(index_data)) = persistence.load_index("main").await {
-                        let _ = sing.index.deserialize(&index_data);
-                    } else {
-                        // Fallback: rebuild index from concepts
-                        let concepts = sing.concepts.clone();
-                        let _ = sing.index.rebuild(&concepts);
-                    }
-                }
+                self.rebuild_index_after_load(&mut sing, "load_replace");
             }
         }
         Ok(())
@@ -442,17 +432,7 @@ impl ChaoticSemanticFramework {
                         );
                     }
                 }
-
-                // ADR-0068: Load ANN index state
-                if let Some(ref persistence) = self.persistence {
-                    if let Ok(Some(index_data)) = persistence.load_index("main").await {
-                        let _ = sing.index.deserialize(&index_data);
-                    } else {
-                        // Fallback: rebuild index from concepts
-                        let concepts = sing.concepts.clone();
-                        let _ = sing.index.rebuild(&concepts);
-                    }
-                }
+                self.rebuild_index_after_load(&mut sing, "load_merge");
             }
         }
         Ok(())
@@ -461,6 +441,13 @@ impl ChaoticSemanticFramework {
     /// Backward-compatible alias for replace semantics
     pub async fn load(&self) -> Result<()> {
         self.load_replace().await
+    }
+
+    fn rebuild_index_after_load(&self, sing: &mut Singularity, mode: &'static str) {
+        let concepts = sing.concepts.clone();
+        if let Err(error) = sing.index.rebuild(&concepts) {
+            warn!(mode, error = %error, "failed to rebuild ANN index after persistence load");
+        }
     }
 
     pub async fn metrics_snapshot(&self) -> FrameworkMetricsSnapshot {

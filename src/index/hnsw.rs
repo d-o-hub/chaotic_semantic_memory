@@ -28,7 +28,7 @@ struct HnswData {
 }
 
 #[cfg(feature = "ann-hnsw")]
-#[derive(Clone)]
+#[derive(Clone, Default)]
 struct HammingDist;
 
 #[cfg(feature = "ann-hnsw")]
@@ -45,28 +45,72 @@ impl Distance<[u128; 80]> for HammingDist {
 }
 
 #[cfg(feature = "ann-hnsw")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct HnswSnapshot {
+    config: HnswData,
+    vectors: HashMap<String, HVec10240>,
+}
+
+#[cfg(feature = "ann-hnsw")]
 pub struct HnswIndex {
     hnsw: Hnsw<'static, [u128; 80], HammingDist>,
     id_to_idx: HashMap<String, usize>,
     idx_to_id: HashMap<usize, String>,
+    vectors: HashMap<String, HVec10240>,
     config: HnswData,
 }
 
 #[cfg(feature = "ann-hnsw")]
 impl HnswIndex {
+    fn new_hnsw(
+        config: &HnswData,
+        expected_count: usize,
+    ) -> Hnsw<'static, [u128; 80], HammingDist> {
+        Hnsw::new(
+            config.m,
+            expected_count.max(100),
+            16,
+            config.ef_construction,
+            HammingDist,
+        )
+    }
+
     pub fn new(m: usize, ef_construction: usize, ef_search: usize) -> Self {
+        let config = HnswData {
+            m,
+            ef_construction,
+            ef_search,
+        };
+
         // ADR-0068: Default to 1M elements to support scale goal
-        let hnsw = Hnsw::new(m, 1_000_000, 16, ef_construction, HammingDist);
+        let hnsw = Self::new_hnsw(&config, 1_000_000);
         Self {
             hnsw,
             id_to_idx: HashMap::new(),
             idx_to_id: HashMap::new(),
-            config: HnswData {
-                m,
-                ef_construction,
-                ef_search,
-            },
+            vectors: HashMap::new(),
+            config,
         }
+    }
+
+    fn rebuild_from_vectors(&mut self) -> Result<()> {
+        self.hnsw = Self::new_hnsw(&self.config, self.vectors.len());
+        self.id_to_idx.clear();
+        self.idx_to_id.clear();
+
+        let mut entries: Vec<(String, HVec10240)> = self
+            .vectors
+            .iter()
+            .map(|(id, vec)| (id.clone(), *vec))
+            .collect();
+        entries.sort_unstable_by(|left, right| left.0.cmp(&right.0));
+
+        for (idx, (id, vec)) in entries.into_iter().enumerate() {
+            self.hnsw.insert((std::slice::from_ref(&vec.data), idx));
+            self.id_to_idx.insert(id.clone(), idx);
+            self.idx_to_id.insert(idx, id);
+        }
+        Ok(())
     }
 }
 
@@ -83,16 +127,22 @@ impl std::fmt::Debug for HnswIndex {
 #[cfg(feature = "ann-hnsw")]
 impl AnnIndex for HnswIndex {
     fn insert(&mut self, id: String, vec: &HVec10240) -> Result<()> {
+        if self.id_to_idx.contains_key(&id) {
+            self.vectors.insert(id, *vec);
+            return self.rebuild_from_vectors();
+        }
+
         let idx = self.id_to_idx.len();
         self.hnsw.insert((std::slice::from_ref(&vec.data), idx));
+        self.vectors.insert(id.clone(), *vec);
         self.id_to_idx.insert(id.clone(), idx);
         self.idx_to_id.insert(idx, id);
         Ok(())
     }
 
     fn delete(&mut self, id: &str) -> Result<()> {
-        if let Some(idx) = self.id_to_idx.remove(id) {
-            self.idx_to_id.remove(&idx);
+        if self.vectors.remove(id).is_some() {
+            self.rebuild_from_vectors()?;
         }
         Ok(())
     }
@@ -115,20 +165,12 @@ impl AnnIndex for HnswIndex {
     }
 
     fn rebuild(&mut self, concepts: &HashMap<String, Concept>) -> Result<()> {
-        self.hnsw = Hnsw::new(
-            self.config.m,
-            concepts.len().max(100),
-            16,
-            self.config.ef_construction,
-            HammingDist,
-        );
-        self.id_to_idx.clear();
-        self.idx_to_id.clear();
+        self.vectors.clear();
 
         for (id, concept) in concepts {
-            self.insert(id.clone(), &concept.vector)?;
+            self.vectors.insert(id.clone(), concept.vector);
         }
-        Ok(())
+        self.rebuild_from_vectors()
     }
 
     fn stats(&self) -> IndexStats {
@@ -141,10 +183,21 @@ impl AnnIndex for HnswIndex {
     }
 
     fn serialize(&self) -> Result<Vec<u8>> {
-        Ok(Vec::new())
+        let snapshot = HnswSnapshot {
+            config: self.config.clone(),
+            vectors: self.vectors.clone(),
+        };
+        bincode::serialize(&snapshot).map_err(|e| {
+            crate::error::MemoryError::Persistence(format!("Serialization error: {}", e))
+        })
     }
 
-    fn deserialize(&mut self, _data: &[u8]) -> Result<()> {
-        Ok(())
+    fn deserialize(&mut self, data: &[u8]) -> Result<()> {
+        let snapshot: HnswSnapshot = bincode::deserialize(data).map_err(|e| {
+            crate::error::MemoryError::Persistence(format!("Deserialization error: {}", e))
+        })?;
+        self.config = snapshot.config;
+        self.vectors = snapshot.vectors;
+        self.rebuild_from_vectors()
     }
 }

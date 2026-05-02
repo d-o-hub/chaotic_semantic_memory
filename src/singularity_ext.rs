@@ -5,17 +5,108 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::RwLock;
 
 #[cfg(not(target_arch = "wasm32"))]
 use tracing::instrument;
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
+use crate::index::AnnIndex;
+use crate::index::IndexBackend;
+use crate::index::brute_force::BruteForce;
 use crate::metadata_filter::MetadataFilter;
-use crate::singularity::{Singularity, unix_now_secs};
-use crate::singularity_retrieval::{CandidateSource, FilterStrategy};
+use crate::singularity::{Singularity, SingularityConfig, unix_now_secs};
+use crate::singularity_cache::{CacheMetrics, QueryCache};
+use crate::singularity_retrieval::{
+    CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats,
+};
 
 impl Singularity {
+    pub fn with_config_and_backend(config: SingularityConfig, backend: IndexBackend) -> Self {
+        let index: Box<dyn AnnIndex> = match backend {
+            IndexBackend::BruteForce => Box::new(BruteForce::new()),
+            #[cfg(feature = "ann-hnsw")]
+            IndexBackend::Hnsw {
+                m,
+                ef_construction,
+                ef_search,
+            } => Box::new(crate::index::hnsw::HnswIndex::new(
+                m,
+                ef_construction,
+                ef_search,
+            )),
+            #[cfg(not(feature = "ann-hnsw"))]
+            IndexBackend::Hnsw { .. } => Box::new(BruteForce::new()),
+            #[cfg(feature = "ann-lsh")]
+            IndexBackend::Lsh {
+                num_tables,
+                hash_bits,
+            } => Box::new(crate::index::lsh::LshIndex::new(num_tables, hash_bits)),
+            #[cfg(not(feature = "ann-lsh"))]
+            IndexBackend::Lsh { .. } => Box::new(BruteForce::new()),
+        };
+
+        Self {
+            concepts: HashMap::new(),
+            associations: HashMap::new(),
+            concept_indices: Vec::new(),
+            concept_vectors: Vec::new(),
+            id_to_index: HashMap::new(),
+            query_cache: RwLock::new(QueryCache::with_capacity(config.concept_cache_size)),
+            cache_metrics: CacheMetrics::default(),
+            last_retrieval_stats: RwLock::new(RetrievalStats::default()),
+            config,
+            retrieval_config: RetrievalConfig::default(),
+            index,
+        }
+    }
+
+    /// Clear all concepts and associations.
+    pub fn clear(&mut self) {
+        self.concepts.clear();
+        self.associations.clear();
+        self.concept_indices.clear();
+        self.concept_vectors.clear();
+        self.id_to_index.clear();
+        let _ = self.index.rebuild(&self.concepts);
+        self.invalidate_cache();
+    }
+
+    /// Update concept vector.
+    pub fn update(&mut self, id: &str, new_vector: HVec10240) -> Result<()> {
+        if let Some(&idx) = self.id_to_index.get(id) {
+            self.concept_vectors[idx] = new_vector;
+        }
+
+        if let Some(concept) = self.concepts.get_mut(id) {
+            concept.vector = new_vector;
+            concept.modified_at = unix_now_secs();
+            self.index.insert(id.to_string(), &new_vector)?;
+            self.invalidate_cache();
+            Ok(())
+        } else {
+            Err(MemoryError::NotFound {
+                entity: "Concept".to_string(),
+                id: id.to_string(),
+            })
+        }
+    }
+
+    /// Find similar concepts using cosine similarity.
+    #[cfg_attr(
+        not(target_arch = "wasm32"),
+        instrument(skip(self, query), fields(top_k = top_k))
+    )]
+    pub fn find_similar(&self, query: &HVec10240, top_k: usize) -> Vec<(String, f32)> {
+        self.find_similar_arc(query, top_k).as_ref().to_vec()
+    }
+
+    /// Find similar concepts and return cached results as `Arc<[_]>`.
+    pub fn find_similar_arc(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]> {
+        self.find_similar_cached(query, top_k)
+    }
+
     /// Bundle multiple concepts into a single hypervector (strict version).
     /// Returns `NotFound` error if any concept ID is missing.
     #[cfg_attr(

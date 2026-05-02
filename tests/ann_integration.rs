@@ -33,6 +33,46 @@ async fn test_hnsw_index_integration() {
 }
 
 #[tokio::test]
+async fn test_hnsw_update_replaces_previous_vector() {
+    let framework = FrameworkBuilder::new()
+        .with_index_backend(IndexBackend::Hnsw {
+            m: 16,
+            ef_construction: 200,
+            ef_search: 50,
+        })
+        .without_persistence()
+        .build()
+        .await
+        .unwrap();
+
+    let mut original = HVec10240::zero();
+    for bit in 0..4000 {
+        original.set_bit(bit);
+    }
+
+    let mut near_original = HVec10240::zero();
+    for bit in 0..3999 {
+        near_original.set_bit(bit);
+    }
+
+    let mut updated = HVec10240::zero();
+    for bit in 6000..10000 {
+        updated.set_bit(bit);
+    }
+
+    framework.inject_concept("target", original).await.unwrap();
+    framework
+        .inject_concept("decoy", near_original)
+        .await
+        .unwrap();
+    framework.inject_concept("target", updated).await.unwrap();
+
+    let results = framework.probe(original, 2).await.unwrap();
+    assert!(!results.is_empty());
+    assert_eq!(results[0].0, "decoy");
+}
+
+#[tokio::test]
 async fn test_lsh_index_integration() {
     let framework = FrameworkBuilder::new()
         .with_index_backend(IndexBackend::Lsh {
