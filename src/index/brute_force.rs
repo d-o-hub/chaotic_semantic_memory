@@ -98,8 +98,7 @@ impl AnnIndex for BruteForce {
             .filter(|(_, id)| {
                 concepts
                     .get(*id)
-                    .map(|c| filter.matches(&c.metadata))
-                    .unwrap_or(false)
+                    .is_some_and(|c| filter.matches(&c.metadata))
             })
             .map(|(idx, _)| (idx, query.hamming_distance(&self.vectors[idx])))
             .collect();

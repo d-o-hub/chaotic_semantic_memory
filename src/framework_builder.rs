@@ -87,12 +87,6 @@ pub struct FrameworkBuilder {
 
 impl Default for FrameworkBuilder {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl FrameworkBuilder {
-    pub fn new() -> Self {
         Self {
             config: FrameworkConfig::default(),
             db_path: None,
@@ -100,6 +94,12 @@ impl FrameworkBuilder {
             concept_cache_size: SingularityConfig::default().concept_cache_size,
             version_retention: 10,
         }
+    }
+}
+
+impl FrameworkBuilder {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub const fn with_reservoir_size(mut self, size: usize) -> Self {
