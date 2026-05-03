@@ -143,7 +143,9 @@ mod tests {
         // Allow 10% variance due to randomness
         assert!(
             actual > expected_nnz * 9 / 10 && actual < expected_nnz * 11 / 10,
-            "nnz {actual} not close to expected {expected_nnz}"
+            "nnz {} not close to expected {}",
+            actual,
+            expected_nnz
         );
     }
 
@@ -181,6 +183,6 @@ mod tests {
 
         // Similarity should be preserved (not exact due to binarization)
         let sim = HVec10240::cosine_similarity(&h1, &h2);
-        assert!(sim > 0.5, "similarity {sim} too low after projection");
+        assert!(sim > 0.5, "similarity {} too low after projection", sim);
     }
 }

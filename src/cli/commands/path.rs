@@ -98,7 +98,7 @@ pub async fn run_path(args: PathArgs, db_path: Option<&Path>, format: OutputForm
                     } else if i == nodes.len() - 1 {
                         println!("  {} {}", "END".green(), node);
                     } else {
-                        println!("  {:>5} {}", format!("→{i}").yellow(), node);
+                        println!("  {:>5} {}", format!("→{}", i).yellow(), node);
                     }
                 }
             }
@@ -106,7 +106,7 @@ pub async fn run_path(args: PathArgs, db_path: Option<&Path>, format: OutputForm
         OutputFormat::Quiet => {
             if let Some(nodes) = &path {
                 for node in nodes {
-                    println!("{node}");
+                    println!("{}", node);
                 }
             }
         }

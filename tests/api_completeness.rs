@@ -177,7 +177,7 @@ async fn test_bundle_concepts_strict_missing() {
             assert_eq!(entity, "Concept");
             assert_eq!(id, "nonexistent");
         }
-        _ => panic!("Expected NotFound error, got {result:?}"),
+        _ => panic!("Expected NotFound error, got {:?}", result),
     }
 }
 

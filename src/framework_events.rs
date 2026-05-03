@@ -146,7 +146,7 @@ mod tests {
         assert!(matches!(cloned, MemoryEvent::ConceptInjected { .. }));
 
         // Verify Debug works
-        let debug_str = format!("{updated:?}");
+        let debug_str = format!("{:?}", updated);
         assert!(debug_str.contains("ConceptUpdated"));
     }
 

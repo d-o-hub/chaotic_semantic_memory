@@ -23,26 +23,11 @@ pub fn aggregate(
         };
     }
 
-    // Calculate recall-based metrics only for cases with gold evidence (P1 fix)
-    let (recall_at_1, recall_at_5, recall_at_10, mrr, ndcg_at_10) = {
-        let gold_cases: Vec<_> = results
-            .iter()
-            .filter(|r| !matches!(r.task_type, TaskType::Abstain))
-            .collect();
-        let gold_count = gold_cases.len();
-
-        if gold_count > 0 {
-            (
-                gold_cases.iter().filter(|r| r.recall_at_1).count() as f32 / gold_count as f32,
-                gold_cases.iter().filter(|r| r.recall_at_5).count() as f32 / gold_count as f32,
-                gold_cases.iter().filter(|r| r.recall_at_10).count() as f32 / gold_count as f32,
-                gold_cases.iter().map(|r| r.reciprocal_rank).sum::<f32>() / gold_count as f32,
-                gold_cases.iter().map(|r| r.ndcg_at_10).sum::<f32>() / gold_count as f32,
-            )
-        } else {
-            (0.0, 0.0, 0.0, 0.0, 0.0)
-        }
-    };
+    let recall_at_1 = results.iter().filter(|r| r.recall_at_1).count() as f32 / count as f32;
+    let recall_at_5 = results.iter().filter(|r| r.recall_at_5).count() as f32 / count as f32;
+    let recall_at_10 = results.iter().filter(|r| r.recall_at_10).count() as f32 / count as f32;
+    let mrr = results.iter().map(|r| r.reciprocal_rank).sum::<f32>() / count as f32;
+    let ndcg_at_10 = results.iter().map(|r| r.ndcg_at_10).sum::<f32>() / count as f32;
 
     let abstain_cases: Vec<_> = results
         .iter()
@@ -197,7 +182,7 @@ mod tests {
     #[test]
     fn aggregate_latency_percentiles() {
         let results: Vec<_> = (1..=10)
-            .map(|i| make_result(&format!("q{i}"), TaskType::Recall, false, false, i, false))
+            .map(|i| make_result(&format!("q{}", i), TaskType::Recall, false, false, i, false))
             .collect();
         let summary = aggregate(&results, 100, 1024, 512);
         // Sorted latencies: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]

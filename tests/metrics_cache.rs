@@ -38,7 +38,7 @@ async fn metrics_snapshot_tracks_concepts_injected() {
 
     for i in 0..5 {
         framework
-            .inject_concept(&format!("metrics-inject-{i}"), HVec10240::random())
+            .inject_concept(&format!("metrics-inject-{}", i), HVec10240::random())
             .await
             .unwrap();
     }

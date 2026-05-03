@@ -19,7 +19,7 @@ fn make_concept(id: &str) -> Concept {
 
 fn make_concepts(count: usize, prefix: &str) -> Vec<Concept> {
     (0..count)
-        .map(|i| make_concept(&format!("{prefix}-{i}")))
+        .map(|i| make_concept(&format!("{}-{}", prefix, i)))
         .collect()
 }
 
@@ -130,7 +130,7 @@ fn bench_delete_concept_with_cascade(c: &mut Criterion) {
                 persistence.save_concepts(&concepts).await.unwrap();
                 for i in 0..9 {
                     persistence
-                        .save_association("cascade-0", &format!("cascade-{i}"), 0.5)
+                        .save_association("cascade-0", &format!("cascade-{}", i), 0.5)
                         .await
                         .unwrap();
                 }
@@ -149,7 +149,7 @@ fn bench_save_concepts_batch(c: &mut Criterion) {
     let mut group = c.benchmark_group("save_concepts_batch");
 
     for size in [10, 100, 1000] {
-        group.bench_function(format!("{size}_concepts"), |b| {
+        group.bench_function(format!("{}_concepts", size), |b| {
             b.iter(|| {
                 let concepts = make_concepts(size, "batch");
                 let temp = NamedTempFile::new().unwrap();
@@ -174,7 +174,7 @@ fn bench_load_all_concepts(c: &mut Criterion) {
     let mut group = c.benchmark_group("load_all_concepts");
 
     for size in [10, 100, 1000] {
-        group.bench_function(format!("{size}_concepts"), |b| {
+        group.bench_function(format!("{}_concepts", size), |b| {
             b.iter(|| {
                 let temp = NamedTempFile::new().unwrap();
                 let path = temp.path().to_str().unwrap();
@@ -228,7 +228,7 @@ fn bench_load_associations(c: &mut Criterion) {
     let mut group = c.benchmark_group("load_associations");
 
     for assoc_count in [1, 10, 50] {
-        group.bench_function(format!("{assoc_count}_associations"), |b| {
+        group.bench_function(format!("{}_associations", assoc_count), |b| {
             b.iter(|| {
                 let temp = NamedTempFile::new().unwrap();
                 let path = temp.path().to_str().unwrap();
@@ -240,13 +240,13 @@ fn bench_load_associations(c: &mut Criterion) {
                         .unwrap();
                     for i in 0..assoc_count {
                         persistence
-                            .save_concept(&make_concept(&format!("spoke-{i}")))
+                            .save_concept(&make_concept(&format!("spoke-{}", i)))
                             .await
                             .unwrap();
                     }
                     for i in 0..assoc_count {
                         persistence
-                            .save_association("hub", &format!("spoke-{i}"), 0.5)
+                            .save_association("hub", &format!("spoke-{}", i), 0.5)
                             .await
                             .unwrap();
                     }
@@ -369,15 +369,15 @@ fn bench_persistence_concurrency(c: &mut Criterion) {
                 for i in 0..10 {
                     let p = std::sync::Arc::clone(&persistence);
                     handles.push(tokio::spawn(async move {
-                        let concept = make_concept(&format!("concurrent-{i}"));
+                        let concept = make_concept(&format!("concurrent-{}", i));
                         // Retry loop for bench stability
                         loop {
                             match p.save_concept(&concept).await {
                                 Ok(_) => break,
-                                Err(e) if format!("{e:?}").contains("database is locked") => {
+                                Err(e) if format!("{:?}", e).contains("database is locked") => {
                                     tokio::time::sleep(std::time::Duration::from_millis(1)).await;
                                 }
-                                Err(e) => panic!("Unexpected error: {e:?}"),
+                                Err(e) => panic!("Unexpected error: {:?}", e),
                             }
                         }
                     }));
