@@ -113,25 +113,50 @@ impl HVec10240 {
         if num_vectors == 0 {
             return Ok(Self::zero());
         }
+        let num_vectors = vectors.len();
         if num_vectors == 1 {
             return Ok(vectors[0]);
         }
-
-        // Majority rule for N=2 is bitwise AND (Threshold = 2/2 + 1 = 2)
         if num_vectors == 2 {
-            let mut data = [0u128; 80];
+            let mut res = Self::zero();
             for i in 0..80 {
-                data[i] = vectors[0].data[i] & vectors[1].data[i];
+                res.data[i] = vectors[0].data[i] & vectors[1].data[i];
             }
-            return Ok(Self { data });
+            return Ok(res);
         }
-
         let threshold = num_vectors / 2 + 1;
         let num_planes = (usize::BITS - num_vectors.leading_zeros()) as usize;
         let mut data = [0u128; 80];
-
-        let compute_word = |i: usize| {
-            let mut planes = [0u128; 32];
+        #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
+        if num_vectors >= 32 {
+            data.par_iter_mut().enumerate().for_each(|(i, word)| {
+                let mut planes = [0u128; 64];
+                for v in vectors {
+                    let mut carry = v.data[i];
+                    for plane in planes.iter_mut().take(num_planes) {
+                        let next_carry = *plane & carry;
+                        *plane ^= carry;
+                        carry = next_carry;
+                        if carry == 0 {
+                            break;
+                        }
+                    }
+                }
+                let (mut current_eq, mut current_gt) = (!0u128, 0u128);
+                for p in (0..num_planes).rev() {
+                    if ((threshold >> p) & 1) == 1 {
+                        current_eq &= planes[p];
+                    } else {
+                        current_gt |= current_eq & planes[p];
+                        current_eq &= !planes[p];
+                    }
+                }
+                *word = current_gt | current_eq;
+            });
+            return Ok(Self { data });
+        }
+        for i in 0..80 {
+            let mut planes = [0u128; 64];
             for v in vectors {
                 let mut carry = v.data[i];
                 for plane in planes.iter_mut().take(num_planes) {
@@ -145,35 +170,15 @@ impl HVec10240 {
             }
             let (mut current_eq, mut current_gt) = (!0u128, 0u128);
             for p in (0..num_planes).rev() {
-                let bit = (threshold >> p) & 1;
-                if bit == 1 {
+                if ((threshold >> p) & 1) == 1 {
                     current_eq &= planes[p];
                 } else {
                     current_gt |= current_eq & planes[p];
                     current_eq &= !planes[p];
                 }
             }
-            current_gt | current_eq
-        };
-
-        #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        {
-            // Gate Rayon parallelization by threshold to avoid overhead on small vector sets.
-            if num_vectors >= 32 {
-                data.par_iter_mut()
-                    .enumerate()
-                    .for_each(|(i, word)| *word = compute_word(i));
-            } else {
-                for i in 0..80 {
-                    data[i] = compute_word(i);
-                }
-            }
+            data[i] = current_gt | current_eq;
         }
-        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-        for i in 0..80 {
-            data[i] = compute_word(i);
-        }
-
         Ok(Self { data })
     }
 

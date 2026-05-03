@@ -42,8 +42,7 @@ pub struct MemoryAdapter {
     framework: ChaoticSemanticFramework,
     bm25_index: RwLock<Bm25Index>,
     text_store: RwLock<HashMap<String, String>>,
-    bridge: BridgeRetrieval,
-    _tmp_db: NamedTempFile,
+    last_session_mem: RwLock<HashMap<String, String>>,
 }
 
 const MIN_OVERLAP_WEIGHT: f32 = 0.05;
@@ -83,17 +82,13 @@ impl MemoryAdapter {
             framework,
             bm25_index: RwLock::new(Bm25Index::new()),
             text_store: RwLock::new(HashMap::new()),
-            bridge,
-            _tmp_db,
+            last_session_mem: RwLock::new(HashMap::new()),
         })
     }
 
-    pub async fn ingest_memory(
-        &self,
-        id: &str,
-        text: &str,
-        ttl_seconds: Option<u64>,
-    ) -> Result<()> {
+    pub async fn ingest_memory(&self, id: &str, text: &str) -> Result<()> {
+        let session_id = id.split(':').next().unwrap_or("default");
+
         // Store text metadata for HDC
         let mut metadata = HashMap::new();
         metadata.insert(
@@ -158,6 +153,17 @@ impl MemoryAdapter {
             }
         }
 
+        // Create sequential association within session for GraphRAG traversal
+        {
+            let mut last_mems = self.last_session_mem.write().await;
+            if let Some(last_id) = last_mems.get(session_id) {
+                // Bi-directional sequential link
+                let _ = self.framework.associate(last_id, id, 0.8).await;
+                let _ = self.framework.associate(id, last_id, 0.4).await;
+            }
+            last_mems.insert(session_id.to_string(), id.to_string());
+        }
+
         if let Some(previous_id) = Self::previous_version_id(id) {
             if let Err(err) = self.framework.delete_concept(&previous_id).await {
                 tracing::debug!(target: "benchmark", %previous_id, ?err, "failed to delete prior version");
@@ -171,39 +177,19 @@ impl MemoryAdapter {
     }
 
     pub async fn query(&self, text: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
-        self.query_internal(text, top_k, false).await
-    }
-
-    /// Query specifically for association tasks using GraphRAG.
-    pub async fn query_association(&self, text: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
-        self.query_internal(text, top_k, true).await
-    }
-
-    async fn query_internal(
-        &self,
-        text: &str,
-        top_k: usize,
-        use_graph: bool,
-    ) -> Result<Vec<(String, f32)>> {
-        // Get HDC results
-        let hdc_hits = if use_graph {
-            let config = GraphRagConfig {
-                anchor_top_k: top_k,
-                final_top_k: top_k * 2,
-                max_hops: 2,
-                similarity_weight: 0.4,
-                graph_weight: 0.6,
-                ..Default::default()
-            };
-            self.framework
-                .probe_text_with_graph(text, config)
-                .await?
-                .into_iter()
-                .map(|r| (r.id, r.score))
-                .collect()
-        } else {
-            self.framework.probe_text(text, top_k * 3).await?
+        // Get HDC results using GraphRAG hybrid expansion
+        let config = chaotic_semantic_memory::retrieval::graph_rag::GraphRagConfig {
+            anchor_top_k: top_k,
+            max_hops: 2,
+            min_assoc_strength: 0.1,
+            similarity_weight: 0.7,
+            graph_weight: 0.3,
         };
+
+        let hdc_hits = self
+            .framework
+            .probe_text_with_graph(text, top_k * 3, config)
+            .await?;
 
         // Get BM25 results
         let query_tokens = tokenize_for_bm25(text);
