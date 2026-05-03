@@ -1,6 +1,9 @@
 # Hard Constraints
 
-- Source files: `<= 500 LOC` each.
+- Source files: `<= 500 LOC` each. Pre-check before every session:
+  ```bash
+  find src -name '*.rs' -exec wc -l {} + | sort -rn | head -20
+  ```
 - `SKILL.md` (`.agents/skills/` folder): `<= 250 LOC`; detailed references in `reference/`, `scripts/`, or `assets/`.
 - Use `libsql` (never `turso-client`).
 - Use Tokio async/await for I/O.

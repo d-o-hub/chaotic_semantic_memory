@@ -34,10 +34,22 @@
 - **WASM Compliance**: Always gate `rayon` and I/O paths with `#[cfg(not(target_arch = "wasm32"))]`. Use `wasm-bindgen-futures` for async WASM exports.
 - **Sandbox Limits**: Intermittent network timeouts during `cargo fetch` are common. Verify core logic using standalone `rustc` scripts if dependencies are minimal.
 
+## LOC Gate & Extraction Patterns
+
+- **Pre-commit LOC Cascade**: The pre-commit hook checks ALL source files, not just modified ones. Pre-existing violations block new commits one at a time, creating a frustrating feedback loop where each commit attempt reveals a new violation. Always run a proactive LOC check before starting work:
+  ```bash
+  find src -name '*.rs' -exec wc -l {} + | sort -rn | head -20
+  ```
+- **Extraction Convention**: To satisfy the 500 LOC gate, extract `impl` blocks into separate modules within the same crate. The codebase has established extraction files: `hyperdim_batch.rs`, `hyperdim_simd.rs`, `hyperdim_serde.rs`, `framework_bridge.rs`, `framework_events.rs`, `framework_graph_rag.rs`, `framework_metrics.rs`, `framework_ops.rs`, `framework_persistence.rs`, `framework_ttl.rs`, `framework_validation.rs`, `singularity_cache.rs`, `singularity_ext.rs`, `singularity_retrieval.rs`, `singularity_search.rs`, `singularity_ttl.rs`, `reservoir_inertial.rs`, `reservoir_sparse.rs`, `persistence_migrations.rs`, `persistence_ops.rs`, `persistence_versions.rs`, `persistence_index.rs`.
+- **Module Registration**: Extracted modules are declared in `lib.rs` with `#[cfg]` gates matching the parent module. The pattern is `mod new_module; // Extracted from parent.rs for LOC gate`.
+- **Dead Code on Stubs**: Partially implemented features (e.g., MCP tool handlers with TODO stubs) leave fields unused. Use `#[allow(dead_code)]` on planned-use fields following the convention established in `export_payload.rs`.
+
 ## What to Avoid
 - **Unqualified Commands**: Never use bare command names like `Command::new("git")`.
 - **Insecure PATH**: Never trust `PATH` to contain only absolute, trusted directories.
 - **Floating Point Comparison**: Never use `partial_cmp().unwrap()` on floats; NaN will panic. Use `f32::total_cmp()`.
 - **Schema Drift**: Always update all persistence surfaces (single, batch, export, WASM) when adding concept fields.
+- **Skipping LOC Pre-check**: Never start work without first checking that all source files are ≤ 500 LOC. Pre-existing violations will cascade on commit, wasting iterations.
+- **Guessing LOC counts**: Always measure with `wc -l`, never estimate. Files like `singularity.rs` can silently grow to 600+ LOC between sessions.
 - **Dense Matrices**: Avoid dense matrices for reservoirs > 2000 nodes; use CSR.
 - **Archived Deps**: Never use archived GitHub repositories as dependencies.
