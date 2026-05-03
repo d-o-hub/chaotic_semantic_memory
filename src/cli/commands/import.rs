@@ -71,9 +71,7 @@ pub async fn run_import(
         Err(e) => {
             let err_str = e.to_string();
             let msg = if err_str.contains("version") || err_str.contains("deserialize") {
-                format!(
-                    "import failed: incompatible or corrupted file - {err_str}"
-                )
+                format!("import failed: incompatible or corrupted file - {err_str}")
             } else if err_str.contains("permission") || err_str.contains("denied") {
                 format!("permission denied: {}", args.input.display())
             } else {

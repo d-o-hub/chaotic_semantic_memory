@@ -17,9 +17,7 @@ pub(crate) fn validate_path(path: &str) -> Result<PathBuf> {
     if path.len() > MAX_PATH_LENGTH {
         return Err(MemoryError::InvalidInput {
             field: "path".to_string(),
-            reason: format!(
-                "path exceeds maximum length of {MAX_PATH_LENGTH} characters"
-            ),
+            reason: format!("path exceeds maximum length of {MAX_PATH_LENGTH} characters"),
         });
     }
 

@@ -135,10 +135,7 @@ pub async fn run_associate_batch(
                     )));
                 }
                 if matches!(format, OutputFormat::Table) {
-                    print_warning(
-                        &format!("skipped {source_id} -> {target_id}: {e}"),
-                        format,
-                    );
+                    print_warning(&format!("skipped {source_id} -> {target_id}: {e}"), format);
                 }
             }
             Ok(()) => {

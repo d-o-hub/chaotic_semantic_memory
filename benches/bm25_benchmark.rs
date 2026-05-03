@@ -3,7 +3,8 @@ use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_bm25_search(c: &mut Criterion) {
     let mut index = Bm25Index::new();
-    let tokens = ["hello",
+    let tokens = [
+        "hello",
         "world",
         "rust",
         "performance",
@@ -12,7 +13,8 @@ fn bench_bm25_search(c: &mut Criterion) {
         "index",
         "bm25",
         "algorithm",
-        "ranking"];
+        "ranking",
+    ];
 
     // Index 1000 documents
     for i in 0..1000 {

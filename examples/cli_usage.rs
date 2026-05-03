@@ -68,9 +68,7 @@ fn probe(db: &PathBuf, concept_id: &str, top_k: usize, threshold: Option<f64>) -
     }
     let output = run(&mut cmd);
     assert_success(&output, &format!("probe {concept_id}"));
-    println!(
-        "[OK] Probed for '{concept_id}' (top_k={top_k}, threshold={threshold:?})"
-    );
+    println!("[OK] Probed for '{concept_id}' (top_k={top_k}, threshold={threshold:?})");
     output
 }
 
@@ -82,9 +80,7 @@ fn associate(db: &PathBuf, source: &str, target: &str, strength: f64) {
         .arg("-s")
         .arg(strength.to_string()));
     assert_success(&output, &format!("associate {source} -> {target}"));
-    println!(
-        "[OK] Associated '{source}' -> '{target}' (strength={strength})"
-    );
+    println!("[OK] Associated '{source}' -> '{target}' (strength={strength})");
 }
 
 fn export_to_json(db: &PathBuf, output_path: &PathBuf) {

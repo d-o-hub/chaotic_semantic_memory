@@ -14,18 +14,16 @@ impl Persistence {
                 params![table_name],
             )
             .await
-            .map_err(|e| {
-                MemoryError::database(format!("Failed to check table existence: {e}"))
-            })?;
+            .map_err(|e| MemoryError::database(format!("Failed to check table existence: {e}")))?;
 
         if let Some(row) = rows
             .next()
             .await
             .map_err(|e| MemoryError::database(format!("Failed to fetch table existence: {e}")))?
         {
-            let count: i64 = row.get(0).map_err(|e| {
-                MemoryError::database(format!("Failed to parse table count: {e}"))
-            })?;
+            let count: i64 = row
+                .get(0)
+                .map_err(|e| MemoryError::database(format!("Failed to parse table count: {e}")))?;
             Ok(count > 0)
         } else {
             Ok(false)
@@ -49,20 +47,21 @@ impl Persistence {
             });
         }
 
-        let sql = format!(
-            "SELECT COUNT(*) FROM pragma_table_info('{table_name}') WHERE name = ?1"
-        );
+        let sql = format!("SELECT COUNT(*) FROM pragma_table_info('{table_name}') WHERE name = ?1");
 
-        let mut rows = conn.query(&sql, params![column_name]).await.map_err(|e| {
-            MemoryError::database(format!("Failed to check column existence: {e}"))
-        })?;
+        let mut rows = conn
+            .query(&sql, params![column_name])
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to check column existence: {e}")))?;
 
-        if let Some(row) = rows.next().await.map_err(|e| {
-            MemoryError::database(format!("Failed to fetch column existence: {e}"))
-        })? {
-            let count: i64 = row.get(0).map_err(|e| {
-                MemoryError::database(format!("Failed to parse column count: {e}"))
-            })?;
+        if let Some(row) = rows
+            .next()
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to fetch column existence: {e}")))?
+        {
+            let count: i64 = row
+                .get(0)
+                .map_err(|e| MemoryError::database(format!("Failed to parse column count: {e}")))?;
             Ok(count > 0)
         } else {
             Ok(false)
@@ -150,9 +149,7 @@ impl Persistence {
                 conn.execute_batch("ALTER TABLE canonical_concepts RENAME TO csm_canonical;")
                     .await
                     .map_err(|e| {
-                        MemoryError::database(format!(
-                            "Failed migration v5 canonical rename: {e}"
-                        ))
+                        MemoryError::database(format!("Failed migration v5 canonical rename: {e}"))
                     })?;
             }
         }

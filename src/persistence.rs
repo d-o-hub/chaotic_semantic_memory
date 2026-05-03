@@ -100,11 +100,12 @@ impl Persistence {
 
     pub(crate) async fn acquire_remote_slot(&self) -> Result<Option<OwnedSemaphorePermit>> {
         match &self.remote_limit {
-            Some(limit) => {
-                limit.clone().acquire_owned().await.map(Some).map_err(|e| {
-                    MemoryError::database(format!("Failed to acquire pool slot: {e}"))
-                })
-            }
+            Some(limit) => limit
+                .clone()
+                .acquire_owned()
+                .await
+                .map(Some)
+                .map_err(|e| MemoryError::database(format!("Failed to acquire pool slot: {e}"))),
             None => Ok(None),
         }
     }

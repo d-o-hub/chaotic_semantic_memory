@@ -29,9 +29,8 @@ pub async fn run_index_dir(
     let mut file_count = 0;
 
     for pattern in &args.glob {
-        let paths = glob::glob(pattern).map_err(|e| {
-            CliError::Validation(format!("Invalid glob pattern '{pattern}': {e}"))
-        })?;
+        let paths = glob::glob(pattern)
+            .map_err(|e| CliError::Validation(format!("Invalid glob pattern '{pattern}': {e}")))?;
 
         for path_result in paths {
             let path = path_result
@@ -102,9 +101,7 @@ pub async fn run_index_dir(
                 framework
                     .inject_concept_with_metadata(&id, hv, metadata)
                     .await
-                    .map_err(|e| {
-                        CliError::Persistence(format!("Failed to store concept: {e}"))
-                    })?;
+                    .map_err(|e| CliError::Persistence(format!("Failed to store concept: {e}")))?;
 
                 indexed_count += 1;
             }

@@ -15,9 +15,7 @@ impl Persistence {
                 params![concept.id.clone()],
             )
             .await
-            .map_err(|e| {
-                MemoryError::database(format!("Failed to query concept version: {e}"))
-            })?;
+            .map_err(|e| MemoryError::database(format!("Failed to query concept version: {e}")))?;
 
         let current = if let Some(row) = rows.next().await.map_err(|e| {
             MemoryError::database(format!("Failed to fetch concept version row: {e}"))

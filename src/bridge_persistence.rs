@@ -61,9 +61,7 @@ impl Persistence {
                 params![id],
             )
             .await
-            .map_err(|e| {
-                MemoryError::database(format!("Failed to load canonical concept: {e}"))
-            })?;
+            .map_err(|e| MemoryError::database(format!("Failed to load canonical concept: {e}")))?;
 
         if let Some(row) = rows.next().await.map_err(|e| {
             MemoryError::database(format!("Failed to read canonical concept row: {e}"))

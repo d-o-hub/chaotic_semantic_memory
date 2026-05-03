@@ -123,10 +123,9 @@ pub async fn run_query(
             for (id, score) in &filtered {
                 // Get concept metadata if available
                 let concept = framework.get_concept(id).await.ok().flatten();
-                let metadata_json = concept
-                    .as_ref()
-                    .map(|c| serde_json::to_value(&c.metadata).unwrap_or(serde_json::json!({})))
-                    .unwrap_or(serde_json::json!({}));
+                let metadata_json = concept.as_ref().map_or(serde_json::json!({}), |c| {
+                    serde_json::to_value(&c.metadata).unwrap_or(serde_json::json!({}))
+                });
 
                 let text = metadata_json
                     .get("text_preview")

@@ -521,8 +521,7 @@ async fn concurrent_writes_are_safe() {
             tokio::spawn(async move {
                 let p = Persistence::new_local(&path).await.unwrap();
                 for j in 0..5 {
-                    let concept =
-                        make_concept(&format!("concurrent-{i}-{j}"), i as u64, j as u64);
+                    let concept = make_concept(&format!("concurrent-{i}-{j}"), i as u64, j as u64);
                     p.save_concept(&concept).await.unwrap();
                 }
             })

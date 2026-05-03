@@ -227,9 +227,9 @@ impl Persistence {
     pub async fn health_check(&self) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
-        conn.query("SELECT 1", ()).await.map_err(|e| {
-            MemoryError::database(format!("Failed persistence health check: {e}"))
-        })?;
+        conn.query("SELECT 1", ())
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed persistence health check: {e}")))?;
         Ok(())
     }
 
@@ -255,9 +255,7 @@ impl Persistence {
             params![id],
         )
         .await
-        .map_err(|e| {
-            MemoryError::database(format!("Failed to clear concept associations: {e}"))
-        })?;
+        .map_err(|e| MemoryError::database(format!("Failed to clear concept associations: {e}")))?;
         Ok(())
     }
 
@@ -296,9 +294,7 @@ impl Persistence {
                 {
                     conn.execute_batch("ALTER TABLE csm_concepts ADD COLUMN expires_at INTEGER;")
                         .await
-                        .map_err(|e| {
-                            MemoryError::database(format!("Failed migration v3: {e}"))
-                        })?;
+                        .map_err(|e| MemoryError::database(format!("Failed migration v3: {e}")))?;
                 }
             }
 
@@ -339,9 +335,7 @@ impl Persistence {
                 libsql::params![version],
             )
             .await
-            .map_err(|e| {
-                MemoryError::database(format!("Failed to record schema version: {e}"))
-            })?;
+            .map_err(|e| MemoryError::database(format!("Failed to record schema version: {e}")))?;
         }
 
         conn.execute("COMMIT", ())
