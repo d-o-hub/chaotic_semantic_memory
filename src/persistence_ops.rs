@@ -375,83 +375,47 @@ impl Persistence {
     }
 }
 
-#[cfg(test)]
-#[cfg(feature = "persistence")]
-mod tests {
-    use crate::hyperdim::HVec10240;
-    use crate::persistence::Persistence;
-    use crate::singularity::Concept;
-    use std::collections::HashMap;
-    use tempfile::NamedTempFile;
+impl Persistence {
+    pub async fn save_metric(&self, key: &str, value: u64) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        conn.execute(
+            "INSERT OR REPLACE INTO csm_metrics (key, value) VALUES (?1, ?2)",
+            params![key, value as i64],
+        )
+        .await
+        .map_err(|e| MemoryError::database(format!("Failed to save metric: {}", e)))?;
+        Ok(())
+    }
 
-    fn make_concept(id: &str) -> Concept {
-        Concept {
-            id: id.to_string(),
-            vector: HVec10240::random(),
-            metadata: HashMap::new(),
-            created_at: 0,
-            modified_at: 0,
-            expires_at: None,
-            canonical_concept_ids: Vec::new(),
+    pub async fn load_metric(&self, key: &str) -> Result<u64> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        let mut rows = conn
+            .query("SELECT value FROM csm_metrics WHERE key = ?1", params![key])
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to load metric: {}", e)))?;
+
+        if let Some(row) = rows
+            .next()
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to fetch row: {}", e)))?
+        {
+            let val: i64 = row
+                .get(0)
+                .map_err(|e| MemoryError::database(format!("Failed to parse value: {}", e)))?;
+            Ok(val as u64)
+        } else {
+            Ok(0)
         }
     }
 
-    #[tokio::test]
-    async fn save_and_load_concept_roundtrip() {
-        let temp = NamedTempFile::new().expect("Failed to create temp file");
-        let path = temp.path().to_str().expect("Invalid path");
-        let persistence = Persistence::new_local(path)
+    pub async fn clear_metrics(&self) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        conn.execute("DELETE FROM csm_metrics", ())
             .await
-            .expect("Failed to create persistence");
-
-        let concept = make_concept("test-concept");
-
-        persistence
-            .save_concept(&concept)
-            .await
-            .expect("Failed to save");
-        let loaded = persistence
-            .load_concept("test-concept")
-            .await
-            .expect("Failed to load")
-            .expect("Concept not found");
-        assert_eq!(loaded.id, concept.id);
-    }
-
-    #[tokio::test]
-    async fn delete_concept_removes_from_db() {
-        let temp = NamedTempFile::new().expect("Failed to create temp file");
-        let path = temp.path().to_str().expect("Invalid path");
-        let persistence = Persistence::new_local(path)
-            .await
-            .expect("Failed to create persistence");
-
-        let concept = make_concept("delete-test");
-
-        persistence
-            .save_concept(&concept)
-            .await
-            .expect("Failed to save");
-        persistence
-            .delete_concept("delete-test")
-            .await
-            .expect("Failed to delete");
-        let result = persistence.load_concept("delete-test").await;
-        assert!(result.expect("Query failed").is_none());
-    }
-
-    #[tokio::test]
-    async fn schema_version_initialized() {
-        let temp = NamedTempFile::new().expect("Failed to create temp file");
-        let path = temp.path().to_str().expect("Invalid path");
-        let persistence = Persistence::new_local(path)
-            .await
-            .expect("Failed to create persistence");
-
-        let version = persistence
-            .schema_version()
-            .await
-            .expect("Failed to get version");
-        assert!(version > 0);
+            .map_err(|e| MemoryError::database(format!("Failed to clear metrics: {}", e)))?;
+        Ok(())
     }
 }

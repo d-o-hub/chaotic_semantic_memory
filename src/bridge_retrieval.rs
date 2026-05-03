@@ -3,9 +3,6 @@
 //! Provides a query pipeline that expands queries through the concept graph
 //! and combines deterministic HDC recall with concept-expanded results.
 
-// Casts are intentional for bridge score math
-#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-
 use crate::encoder::TextEncoder;
 use crate::error::Result;
 use crate::hyperdim::HVec10240;
@@ -28,11 +25,7 @@ pub struct BridgeRetrieval {
 
 impl BridgeRetrieval {
     /// Create a new bridge retrieval pipeline.
-    pub const fn new(
-        encoder: TextEncoder,
-        concept_graph: ConceptGraph,
-        config: BridgeConfig,
-    ) -> Self {
+    pub fn new(encoder: TextEncoder, concept_graph: ConceptGraph, config: BridgeConfig) -> Self {
         Self {
             encoder,
             concept_graph,
@@ -264,25 +257,23 @@ impl BridgeRetrieval {
     }
 
     /// Get the underlying concept graph.
-    pub const fn concept_graph(&self) -> &ConceptGraph {
+    pub fn concept_graph(&self) -> &ConceptGraph {
         &self.concept_graph
     }
 
     /// Get the underlying encoder.
-    pub const fn encoder(&self) -> &TextEncoder {
+    pub fn encoder(&self) -> &TextEncoder {
         &self.encoder
     }
 
     /// Get the configuration.
-    pub const fn config(&self) -> &BridgeConfig {
+    pub fn config(&self) -> &BridgeConfig {
         &self.config
     }
 }
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparisons for score test assertions
-
     use super::*;
     use crate::semantic_bridge::CanonicalConcept;
     use crate::singularity::Singularity;

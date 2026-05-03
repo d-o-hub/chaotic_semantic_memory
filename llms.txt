@@ -9,18 +9,14 @@
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
 - anyhow (1.0.102)
-- async-trait (0.1.83)
 - base64 (0.22)
 - bincode (1.3.3)
 - clap (4.5.60) [features: derive, env, string]
 - clap_complete (4.5.42)
 - colored (2.2.0)
-- fastembed (4)
 - glob (0.3.2)
 - rand (0.10.1)
 - rand_chacha (0.10.0)
-- reqwest (0.12) [features: json, rustls-tls]
-- rmcp (0.2)
 - serde (1.0.219) [features: derive]
 - serde_json (1.0.149)
 - thiserror (2.0.11)
@@ -29,10 +25,6 @@
 **Features:**
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - default: [cli, persistence, parallel]
-- embed-fastembed: [dep:fastembed]
-- embed-openai: [dep:reqwest]
-- embed-voyage: [dep:reqwest]
-- mcp: [dep:rmcp, cli]
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
 - wasm: []
@@ -44,8 +36,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/bin/csm.rs
 
-- pub use native::chaotic_semantic_memory::cli::commands::watch::EventFilter
-- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
+- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch}
 - pub use native::clap::Parser
 - pub use native::colored::Colorize
 - pub use native::tracing::Level
@@ -88,7 +79,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct VersionArgs
 - pub struct CompletionsArgs
 - pub struct IndexJsonlArgs
-- pub struct IndexDirArgs
 - pub struct DeleteArgs
 - pub struct GetArgs
 - pub struct UpdateArgs
@@ -100,7 +90,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct StatsArgs
 - pub struct MetricsArgs
 - pub struct WatchArgs
-- pub struct ProbeGraphArgs
+- pub struct IndexDirArgs
 
 ### src/cli/commands/associate.rs
 
@@ -170,7 +160,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod path
 - pub mod probe
 - pub mod probe_filtered
-- pub mod probe_graph
 - pub mod query
 - pub mod stats
 - pub mod traverse
@@ -191,7 +180,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use path::run_path
 - pub use probe::run_probe
 - pub use probe_filtered::run_probe_filtered
-- pub use probe_graph::run_probe_graph
 - pub use query::run_query
 - pub use stats::run_stats
 - pub use traverse::run_traverse
@@ -216,10 +204,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub fn run_probe_filtered
 
-### src/cli/commands/probe_graph.rs
-
-- pub fn run_probe_graph
-
 ### src/cli/commands/query.rs
 
 - pub fn run_query
@@ -238,8 +222,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/cli/commands/watch.rs
 
-- pub enum EventFilter
-- impl EventFilter
 - pub fn run_watch
 
 ### src/cli/error.rs
@@ -265,7 +247,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod error
 - pub mod git_local
 - pub use args::*
-- pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
+- pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats, run_traverse, run_update, run_watch}
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
 
@@ -273,47 +255,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub struct ConceptBuilder
 - impl ConceptBuilder
-
-### src/embedding/fastembed.rs
-
-- pub struct FastEmbedProvider
-- impl FastEmbedProvider
-- impl EmbeddingProvider for FastEmbedProvider
-
-### src/embedding/hdc_text.rs
-
-- pub struct HdcTextProvider
-- impl Default for HdcTextProvider
-- impl HdcTextProvider
-- impl EmbeddingProvider for HdcTextProvider
-
-### src/embedding/mod.rs
-
-- pub use hdc_text::HdcTextProvider
-- pub use projection::{Projection, ProjectionConfig}
-- pub use fastembed::FastEmbedProvider
-- pub use remote_openai::OpenAiProvider
-- pub use remote_voyage::VoyageProvider
-- pub trait EmbeddingProvider
-
-### src/embedding/projection.rs
-
-- pub struct ProjectionConfig
-- impl Default for ProjectionConfig
-- pub struct Projection
-- impl Projection
-
-### src/embedding/remote_openai.rs
-
-- pub struct OpenAiProvider
-- impl OpenAiProvider
-- impl EmbeddingProvider for OpenAiProvider
-
-### src/embedding/remote_voyage.rs
-
-- pub struct VoyageProvider
-- impl VoyageProvider
-- impl EmbeddingProvider for VoyageProvider
 
 ### src/encoder.rs
 
@@ -340,6 +281,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/framework.rs
 
+- pub use crate::framework_metrics::{FrameworkMetrics, FrameworkMetricsSnapshot}
 - pub struct ChaoticSemanticFramework
 - impl ChaoticSemanticFramework
 
@@ -358,10 +300,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/framework_events.rs
 
 - pub enum MemoryEvent
-- impl ChaoticSemanticFramework
-
-### src/framework_graph_rag.rs
-
 - impl ChaoticSemanticFramework
 
 ### src/framework_metrics.rs
@@ -418,14 +356,13 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod bundle
 - pub mod cli
 - pub mod concept_builder
-- pub mod embedding
 - pub mod encoder
 - pub mod error
 - pub mod framework
 - pub mod framework_builder
+- pub mod framework_metrics
 - pub mod graph_traversal
 - pub mod hyperdim
-- pub mod mcp
 - pub mod metadata_filter
 - pub mod semantic_triples
 - pub use metadata_filter::MetadataFilter
@@ -453,46 +390,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use prelude::crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod wasm
 
-### src/mcp/mod.rs
-
-- pub use resources::McpResources
-- pub use server::serve
-- pub use tools::McpTools
-
-### src/mcp/resources.rs
-
-- pub struct McpResources
-- impl McpResources
-- pub struct ResourceDefinition
-
-### src/mcp/schema.rs
-
-- pub fn inject_schema
-- pub fn inject_text_schema
-- pub fn probe_schema
-- pub fn probe_text_schema
-- pub fn probe_filtered_schema
-- pub fn get_schema
-- pub fn delete_schema
-- pub fn associate_schema
-- pub fn traverse_schema
-- pub fn shortest_path_schema
-- pub fn stats_schema
-- pub fn export_schema
-
-### src/mcp/server.rs
-
-- pub enum Transport
-- pub struct McpConfig
-- impl Default for McpConfig
-- pub fn serve
-
-### src/mcp/tools.rs
-
-- pub struct McpTools
-- impl McpTools
-- pub struct ToolDefinition
-
 ### src/metadata_filter.rs
 
 - pub enum MetadataFilter
@@ -511,6 +408,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/persistence_ops.rs
 
+- impl Persistence
 - impl Persistence
 
 ### src/persistence_versions.rs
@@ -547,13 +445,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct Bm25Index
 - impl Bm25Index
 
-### src/retrieval/graph_rag.rs
-
-- pub struct GraphRagConfig
-- impl Default for GraphRagConfig
-- pub struct GraphRagResult
-- pub fn graph_rag_retrieve
-
 ### src/retrieval/hybrid.rs
 
 - pub fn compute_weights
@@ -566,10 +457,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/retrieval/mod.rs
 
 - pub mod bm25
-- pub mod graph_rag
 - pub mod hybrid
 - pub use bm25::{Bm25Config, Bm25Index}
-- pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve}
 - pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
 
 ### src/semantic_bridge.rs
@@ -615,6 +504,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/singularity_ext.rs
 
+- pub use crate::singularity_cache::CacheMetricsSnapshot
 - impl Singularity
 
 ### src/singularity_retrieval.rs
@@ -1220,24 +1110,12 @@ tracing-subscriber = "0.3.19"
 rand = "0.10.1"
 rand_chacha = "0.10.0"
 
-# Async trait support
-async-trait = "0.1.83"
-
-# HTTP client for remote embedding providers (opt-in)
-reqwest = { version = "0.12", features = ["json", "rustls-tls"], optional = true }
-
-# Local ONNX embeddings (opt-in via embed-fastembed feature)
-fastembed = { version = "4", optional = true }
-
 # CLI dependencies (gated behind "cli" feature)
 clap = { version = "4.5.60", features = ["derive", "env", "string"], optional = true }
 clap_complete = { version = "4.5.42", optional = true }
 anyhow = { version = "1.0.102", optional = true }
 colored = { version = "2.2.0", optional = true }
 glob = { version = "0.3.2", optional = true }
-
-# MCP server dependencies (gated behind "mcp" feature - ADR-0067)
-rmcp = { version = "0.2", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # CPU parallelism (opt-in via "parallel" feature)
@@ -1302,26 +1180,6 @@ all = { level = "warn", priority = -1 }
 pedantic = { level = "allow", priority = -1 }
 nursery = { level = "allow", priority = -1 }
 
-# ============================================================================
-# ADR-0077: Promoted from pedantic — correctness signal (Phase A)
-# ============================================================================
-float_cmp = "warn"                      # Strict f32/f64 == almost always a bug
-significant_drop_tightening = "warn"    # Lock held longer than needed
-cast_precision_loss = "warn"            # usize as f32 losing bits
-cast_possible_truncation = "warn"       # i64 as u32 truncation risk
-redundant_clone = "warn"                # Free perf wins
-
-# ============================================================================
-# ADR-0077: Promoted from pedantic — library DX (Phase A allow, Phase C warn)
-# ============================================================================
-missing_errors_doc = "allow"            # Phase C: flip to warn after docs added
-must_use_candidate = "allow"            # Phase C: flip to warn after audit
-
-# ============================================================================
-# ADR-0077: Promoted from nursery — free perf wins
-# ============================================================================
-missing_const_for_fn = "warn"           # Const fn free perf
-
 # Explicit overrides for justified allows in source
 too_many_arguments = "allow"  # Internal hot paths documented in GOAP_STATE
 type_complexity = "allow"     # Complex generics in framework
@@ -1380,12 +1238,6 @@ cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
 persistence = ["dep:libsql"]
 parallel = ["dep:rayon"]
 wasm = []
-mcp = ["dep:rmcp", "cli"]  # ADR-0067: MCP server requires CLI infrastructure
-
-# Embedding providers (ADR-0069)
-embed-fastembed = ["dep:fastembed"]
-embed-openai = ["dep:reqwest"]
-embed-voyage = ["dep:reqwest"]
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]

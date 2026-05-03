@@ -7,7 +7,7 @@ use tracing::{instrument, warn};
 use crate::error::Result;
 use crate::framework_builder::{FrameworkBuilder, FrameworkConfig, FrameworkStats};
 use crate::framework_events::MemoryEvent;
-use crate::framework_metrics::{FrameworkMetrics, FrameworkMetricsSnapshot};
+pub use crate::framework_metrics::{FrameworkMetrics, FrameworkMetricsSnapshot};
 use crate::graph_traversal::TraversalConfig;
 use crate::hyperdim::HVec10240;
 use crate::metadata_filter::MetadataFilter;
@@ -103,42 +103,27 @@ impl ChaoticSemanticFramework {
     }
 
     /// Query for similar concepts
-    #[allow(clippy::significant_drop_tightening)] // Lock needed for expired concept filtering
     #[instrument(err, skip(self, query))]
     pub async fn probe(&self, query: HVec10240, top_k: usize) -> Result<Vec<(String, f32)>> {
         self.validate_top_k(top_k)?;
         #[cfg(not(target_arch = "wasm32"))]
         let start = std::time::Instant::now();
-
-        // Acquire lock, get results, release immediately
-        let (results, expired_ids) = {
-            let sing = self.singularity.read().await;
-            let results = sing.find_similar(&query, top_k);
-
-            // Collect expired IDs while holding lock
-            let now = crate::singularity::unix_now_secs();
-            let expired_ids: std::collections::HashSet<String> = results
-                .iter()
-                .filter_map(|(id, _)| {
-                    sing.get(id)
-                        .and_then(|c| c.expires_at.filter(|exp| *exp <= now))
-                        .map(|_| id.clone())
-                })
-                .collect();
-            (results, expired_ids)
-        };
-
+        let sing = self.singularity.read().await;
+        let results = sing.find_similar(&query, top_k);
         #[cfg(not(target_arch = "wasm32"))]
-        #[allow(clippy::cast_possible_truncation)] // Duration millis to u64 for metrics
         let elapsed_ms = start.elapsed().as_millis() as u64;
         #[cfg(target_arch = "wasm32")]
         let elapsed_ms = 0;
         self.metrics.observe_probe_latency_ms(elapsed_ms);
 
-        // Filter expired concepts without lock
+        // Filter expired concepts
+        let now = crate::singularity::unix_now_secs();
         let filtered: Vec<(String, f32)> = results
             .into_iter()
-            .filter(|(id, _)| !expired_ids.contains(id))
+            .filter(|(id, _)| {
+                sing.get(id)
+                    .is_none_or(|c| c.expires_at.is_none_or(|exp| exp > now))
+            })
             .collect();
 
         Ok(filtered)
@@ -156,15 +141,9 @@ impl ChaoticSemanticFramework {
         Self::validate_metadata_filter(filter)?;
         #[cfg(not(target_arch = "wasm32"))]
         let start = std::time::Instant::now();
-
-        // Acquire lock, get results, release immediately
-        let results = {
-            let sing = self.singularity.read().await;
-            sing.find_similar_filtered(query, top_k, filter)
-        };
-
+        let sing = self.singularity.read().await;
+        let results = sing.find_similar_filtered(query, top_k, filter);
         #[cfg(not(target_arch = "wasm32"))]
-        #[allow(clippy::cast_possible_truncation)] // Duration millis to u64 for metrics
         let elapsed_ms = start.elapsed().as_millis() as u64;
         #[cfg(target_arch = "wasm32")]
         let elapsed_ms = 0;
@@ -195,7 +174,6 @@ impl ChaoticSemanticFramework {
     }
 
     /// Process temporal sequence through reservoir
-    #[allow(clippy::significant_drop_tightening)] // Reservoir lock needed for sequence processing
     #[instrument(err, skip(self, sequence))]
     pub async fn process_sequence(&self, sequence: &[Vec<f32>]) -> Result<HVec10240> {
         self.validate_sequence_length(sequence.len())?;
@@ -267,7 +245,7 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
-    /// Get associations for a concept (outbound edges).
+    /// Get associations for a concept
     #[instrument(err, skip(self))]
     pub async fn get_associations(&self, id: &str) -> Result<Vec<(String, f32)>> {
         Self::validate_concept_id(id)?;
@@ -275,31 +253,16 @@ impl ChaoticSemanticFramework {
         Ok(sing.get_associations(id))
     }
 
-    /// Get incoming associations for a concept (inbound edges).
-    ///
-    /// Returns concepts that have associations pointing to this concept,
-    /// sorted by strength descending.
+    /// Get incoming associations for a concept.
     #[instrument(err, skip(self))]
     pub async fn incoming_associations(&self, id: &str) -> Result<Vec<(String, f32)>> {
         Self::validate_concept_id(id)?;
         let sing = self.singularity.read().await;
-        Ok(sing
-            .incoming_associations(id)
+        let incoming = sing.incoming_associations(id);
+        Ok(incoming
             .into_iter()
-            .map(|(s, f)| (s.to_string(), f))
+            .map(|(id, strength)| (id.to_string(), strength))
             .collect())
-    }
-
-    /// Find the fewest-hop path between two concepts (unweighted BFS).
-    ///
-    /// Returns the path with the minimum number of hops, ignoring edge strengths.
-    /// Use [`Self::shortest_path`] for strength-weighted (Dijkstra) traversal.
-    #[instrument(err, skip(self))]
-    pub async fn shortest_path_hops(&self, from: &str, to: &str) -> Result<Option<Vec<String>>> {
-        Self::validate_concept_id(from)?;
-        Self::validate_concept_id(to)?;
-        let sing = self.singularity.read().await;
-        sing.shortest_path_hops(from, to, &TraversalConfig::default())
     }
 
     /// Get a concept by ID.
@@ -458,13 +421,25 @@ impl ChaoticSemanticFramework {
         snapshot
     }
 
+    /// Reset all metrics.
+    pub async fn reset_metrics(&self) {
+        self.metrics.reset();
+        {
+            let sing = self.singularity.read().await;
+            sing.reset_cache_metrics();
+        }
+        {
+            let mut reservoir = self.reservoir.write().await;
+            if let Some(ref mut r) = *reservoir {
+                r.reset_metrics();
+            }
+        }
+    }
+
     /// Get framework statistics
     pub async fn stats(&self) -> Result<FrameworkStats> {
-        // Get concept count without holding lock during persistence call
-        let concept_count = {
-            let sing = self.singularity.read().await;
-            sing.len()
-        };
+        let sing = self.singularity.read().await;
+        let concept_count = sing.len();
 
         let db_size = if let Some(ref persistence) = self.persistence {
             Some(persistence.size().await.unwrap_or(0))

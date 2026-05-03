@@ -2,9 +2,6 @@
 //!
 //! Implements 10240-bit hypervectors using `[u128; 80]`.
 
-// Casts are intentional for HDC dimension math (10240-bit operations)
-#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-
 use rand::RngExt;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -41,7 +38,7 @@ impl HVec10240 {
     pub const WORDS: usize = 80;
 
     /// Create a new hypervector with all zeros
-    pub const fn zero() -> Self {
+    pub fn zero() -> Self {
         Self { data: [0u128; 80] }
     }
 

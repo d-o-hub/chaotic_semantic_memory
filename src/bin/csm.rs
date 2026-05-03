@@ -3,13 +3,12 @@ use std::process::ExitCode as StdExitCode;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]
 mod native {
-    pub use chaotic_semantic_memory::cli::commands::watch::EventFilter;
     pub use chaotic_semantic_memory::cli::{
         CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir,
         resolve_git_local_path, run_associate, run_associations, run_completions, run_delete,
         run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl,
-        run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph,
-        run_query, run_stats, run_traverse, run_update, run_watch,
+        run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_query, run_stats,
+        run_traverse, run_update, run_watch,
     };
     pub use clap::Parser;
     pub use colored::Colorize;
@@ -155,20 +154,9 @@ mod native {
             Commands::ProbeFiltered(cmd) => {
                 run_probe_filtered(cmd.clone(), db_path.as_deref(), fmt).await
             }
-            Commands::Stats(_cmd) => run_stats(db_path.as_deref(), fmt).await,
-            Commands::Metrics(cmd) => run_metrics(db_path.as_deref(), fmt, cmd.reset).await,
-            Commands::Watch(cmd) => {
-                let filter = EventFilter::parse(&cmd.filter).ok_or_else(|| {
-                    CliError::Validation(format!(
-                        "invalid filter '{}': use all, injected, updated, deleted, associated, or disassociated",
-                        cmd.filter
-                    ))
-                })?;
-                run_watch(db_path.as_deref(), filter).await
-            }
-            Commands::ProbeGraph(cmd) => {
-                run_probe_graph(cmd.clone(), db_path.as_deref(), fmt).await
-            }
+            Commands::Stats(cmd) => run_stats(cmd.clone(), db_path.as_deref(), fmt).await,
+            Commands::Metrics(cmd) => run_metrics(cmd.clone(), db_path.as_deref(), fmt).await,
+            Commands::Watch(cmd) => run_watch(cmd.clone(), db_path.as_deref(), fmt).await,
         };
         result.map(|_| ((), fmt))
     }

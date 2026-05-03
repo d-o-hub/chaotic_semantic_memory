@@ -28,7 +28,7 @@ impl Reservoir {
     }
 
     /// Get current beta coefficient.
-    pub const fn beta(&self) -> f32 {
+    pub fn beta(&self) -> f32 {
         self.beta
     }
 }

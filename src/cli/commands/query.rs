@@ -3,9 +3,6 @@
 //! Encodes input text and searches for similar concepts.
 //! Supports hybrid retrieval combining BM25 keyword matching and HDC semantic search.
 
-// Casts are intentional for CLI output formatting
-#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-
 use crate::cli::args::{OutputFormat, QueryArgs};
 use crate::cli::commands::{create_framework, print_success, print_warning, truncate_preview};
 use crate::cli::error::{CliError, Result};
@@ -257,27 +254,23 @@ fn split_on_separators(word: &str) -> Vec<String> {
 async fn build_bm25_index(
     framework: &crate::framework::ChaoticSemanticFramework,
 ) -> Result<Bm25Index> {
-    // Collect concepts with lock, build index without lock
-    let concepts = {
-        let singularity = framework.singularity();
-        let sing = singularity.read().await;
-        sing.all_concepts()
-    };
-
+    let singularity = framework.singularity();
+    let sing = singularity.read().await;
     let mut index = Bm25Index::new();
-    for concept in concepts {
+
+    for concept in sing.all_concepts() {
         // Extract tokens from text_preview or content_preview
         let text = concept
             .metadata
             .get("text_preview")
             .or_else(|| concept.metadata.get("content_preview"))
-            .and_then(|v| v.as_str())
+            .and_then(|v: &serde_json::Value| v.as_str())
             .unwrap_or("");
 
         let tokens: Vec<String> = text
             .to_lowercase()
             .split_whitespace()
-            .map(|s| s.to_string())
+            .map(|s: &str| s.to_string())
             .collect();
 
         if !tokens.is_empty() {

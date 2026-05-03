@@ -2,7 +2,7 @@
 
 ## Status
 
-Phase A+B Implemented (2026-05-01) — Phase C deferred
+Proposed (2026-04-30)
 
 ## Context and Problem Statement
 
@@ -137,8 +137,8 @@ cargo test --all-features --quiet
 
 ## Acceptance Criteria
 
-- [x] Phase A `Cargo.toml` change merged
-- [x] Phase B PRs 1-5 merged, all sites fixed or annotated
-- [x] `cargo clippy --all-features --all-targets -- -D warnings` green throughout
-- [x] No test regressions
+- [ ] Phase A `Cargo.toml` change merged
+- [ ] Phase B PRs 1-5 merged, all sites fixed or annotated
+- [ ] `cargo clippy --all-features --all-targets -- -D warnings` green throughout
+- [ ] No test regressions
 - [ ] Phase C (`missing_errors_doc`, `must_use_candidate`) tracked as Wave 23 follow-up

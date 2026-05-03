@@ -82,7 +82,7 @@ impl CliError {
 }
 
 impl ExitCode {
-    pub const fn as_i32(self) -> i32 {
+    pub fn as_i32(self) -> i32 {
         self as i32
     }
 }

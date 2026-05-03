@@ -1,8 +1,3 @@
-//! Framework event broadcasting.
-
-// Casts are intentional for event timestamp math
-#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-
 use tokio::sync::broadcast;
 
 #[cfg(target_arch = "wasm32")]
@@ -113,8 +108,6 @@ pub(crate) fn build_event_sender() -> broadcast::Sender<MemoryEvent> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::redundant_clone)] // Clone needed for event ownership testing
-
     use super::*;
 
     #[test]

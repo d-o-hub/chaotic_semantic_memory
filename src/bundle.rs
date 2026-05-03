@@ -107,12 +107,12 @@ impl BundleAccumulator {
     }
 
     /// Get the number of hypervectors in the accumulator.
-    pub const fn len(&self) -> u32 {
+    pub fn len(&self) -> u32 {
         self.n
     }
 
     /// Check if the accumulator is empty.
-    pub const fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.n == 0
     }
 

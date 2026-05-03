@@ -57,14 +57,14 @@ impl ConceptBuilder {
     /// The concept will expire after `ttl_seconds` from creation.
     /// If not set, the concept never expires.
     #[must_use]
-    pub const fn with_ttl(mut self, ttl_seconds: u64) -> Self {
+    pub fn with_ttl(mut self, ttl_seconds: u64) -> Self {
         self.ttl_seconds = Some(ttl_seconds);
         self
     }
 
     /// Sets the vector for this concept.
     #[must_use]
-    pub const fn with_vector(mut self, vector: HVec10240) -> Self {
+    pub fn with_vector(mut self, vector: HVec10240) -> Self {
         self.vector = Some(vector);
         self
     }

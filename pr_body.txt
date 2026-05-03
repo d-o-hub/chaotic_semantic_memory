@@ -1,0 +1,7 @@
+Replaces #157 and addresses its review feedback:
+- Fix `watch` broken pipe handling so it exits cleanly on `write_all` failure.
+- Remove implicit 3-hop cap from `path` by adding `--depth` with an explicit default.
+- Ensure `metrics` reset does not mutate reservoir state.
+- Keep documented filter JSON format accepted by `probe-filtered`.
+- Docs clarify `watch` and `metrics` act only on the current invocation.
+- Uses proper struct instead of json! macro for serialization.

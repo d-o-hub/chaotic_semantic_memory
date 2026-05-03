@@ -1,10 +1,6 @@
 //! Additional persistence operations tests for coverage gap.
 //!
 //! Covers: persistence_ops.rs error paths, association operations
-//!
-//! Float comparisons allowed: test assertions for exact association strengths.
-
-#![allow(clippy::float_cmp)]
 
 use chaotic_semantic_memory::HVec10240;
 use chaotic_semantic_memory::persistence::Persistence;

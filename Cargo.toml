@@ -38,24 +38,12 @@ tracing-subscriber = "0.3.19"
 rand = "0.10.1"
 rand_chacha = "0.10.0"
 
-# Async trait support
-async-trait = "0.1.83"
-
-# HTTP client for remote embedding providers (opt-in)
-reqwest = { version = "0.12", features = ["json", "rustls-tls"], optional = true }
-
-# Local ONNX embeddings (opt-in via embed-fastembed feature)
-fastembed = { version = "4", optional = true }
-
 # CLI dependencies (gated behind "cli" feature)
 clap = { version = "4.5.60", features = ["derive", "env", "string"], optional = true }
 clap_complete = { version = "4.5.42", optional = true }
 anyhow = { version = "1.0.102", optional = true }
 colored = { version = "2.2.0", optional = true }
 glob = { version = "0.3.2", optional = true }
-
-# MCP server dependencies (gated behind "mcp" feature - ADR-0067)
-rmcp = { version = "0.2", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # CPU parallelism (opt-in via "parallel" feature)
@@ -120,26 +108,6 @@ all = { level = "warn", priority = -1 }
 pedantic = { level = "allow", priority = -1 }
 nursery = { level = "allow", priority = -1 }
 
-# ============================================================================
-# ADR-0077: Promoted from pedantic — correctness signal (Phase A)
-# ============================================================================
-float_cmp = "warn"                      # Strict f32/f64 == almost always a bug
-significant_drop_tightening = "warn"    # Lock held longer than needed
-cast_precision_loss = "warn"            # usize as f32 losing bits
-cast_possible_truncation = "warn"       # i64 as u32 truncation risk
-redundant_clone = "warn"                # Free perf wins
-
-# ============================================================================
-# ADR-0077: Promoted from pedantic — library DX (Phase A allow, Phase C warn)
-# ============================================================================
-missing_errors_doc = "allow"            # Phase C: flip to warn after docs added
-must_use_candidate = "allow"            # Phase C: flip to warn after audit
-
-# ============================================================================
-# ADR-0077: Promoted from nursery — free perf wins
-# ============================================================================
-missing_const_for_fn = "warn"           # Const fn free perf
-
 # Explicit overrides for justified allows in source
 too_many_arguments = "allow"  # Internal hot paths documented in GOAP_STATE
 type_complexity = "allow"     # Complex generics in framework
@@ -198,12 +166,6 @@ cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
 persistence = ["dep:libsql"]
 parallel = ["dep:rayon"]
 wasm = []
-mcp = ["dep:rmcp", "cli"]  # ADR-0067: MCP server requires CLI infrastructure
-
-# Embedding providers (ADR-0069)
-embed-fastembed = ["dep:fastembed"]
-embed-openai = ["dep:reqwest"]
-embed-voyage = ["dep:reqwest"]
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]

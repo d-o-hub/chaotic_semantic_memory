@@ -1,8 +1,5 @@
 //! Echo State Network for temporal dynamics.
 
-// Casts are intentional for reservoir math (node counts, dimension sizes)
-#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 use crate::reservoir_sparse::SparseWeights;
@@ -310,8 +307,16 @@ impl Reservoir {
         Ok(HVec10240 { data })
     }
 
-    pub const fn size(&self) -> usize {
+    pub fn size(&self) -> usize {
         self.size
+    }
+
+    pub fn reset_metrics(&self) {
+        self.metrics.steps_total.store(0, Ordering::Relaxed);
+        self.metrics
+            .step_latency_us_total
+            .store(0, Ordering::Relaxed);
+        self.metrics.step_latency_count.store(0, Ordering::Relaxed);
     }
 
     pub fn metrics_snapshot(&self) -> ReservoirMetricsSnapshot {
@@ -426,6 +431,9 @@ impl ChaoticReservoir {
     }
     pub fn to_hypervector(&self) -> Result<HVec10240> {
         self.base.to_hypervector()
+    }
+    pub fn reset_metrics(&self) {
+        self.base.reset_metrics();
     }
     pub fn metrics_snapshot(&self) -> ReservoirMetricsSnapshot {
         self.base.metrics_snapshot()

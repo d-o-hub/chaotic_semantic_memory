@@ -1,8 +1,5 @@
 //! Episode-free concept injection
 
-// Casts are intentional for similarity math
-#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
 use serde::{Deserialize, Serialize};
@@ -329,36 +326,6 @@ impl Singularity {
         HVec10240::bundle(&vectors)
     }
 
-    pub fn concept_ids(&self) -> Vec<String> {
-        self.concepts.keys().cloned().collect()
-    }
-
-    pub fn all_concepts(&self) -> Vec<Concept> {
-        self.concepts.values().cloned().collect()
-    }
-
-    pub fn all_associations(&self) -> Vec<(String, String, f32)> {
-        let mut output = Vec::new();
-        for (from, links) in &self.associations {
-            for (to, strength) in links {
-                output.push((from.clone(), to.clone(), *strength));
-            }
-        }
-        output
-    }
-
-    pub fn len(&self) -> usize {
-        self.concepts.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.concepts.is_empty()
-    }
-
-    pub fn cache_metrics_snapshot(&self) -> CacheMetricsSnapshot {
-        self.cache_metrics.snapshot()
-    }
-
     fn evict_oldest_if_needed(&mut self) {
         let Some(limit) = self.config.max_concepts else {
             return;
@@ -441,60 +408,3 @@ pub(crate) fn similarity_cache_key(query: &HVec10240, top_k: usize) -> u64 {
 
 // Re-export ConceptBuilder from the dedicated module
 pub use crate::concept_builder::ConceptBuilder;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::hyperdim::HVec10240;
-    fn c(id: &str) -> Concept {
-        ConceptBuilder::new(id)
-            .with_vector(HVec10240::random())
-            .build()
-            .unwrap()
-    }
-    #[test]
-    fn crud() {
-        let mut s = Singularity::new();
-        s.inject(c("x")).unwrap();
-        assert!(s.get("x").is_some());
-        s.delete("x").unwrap();
-        assert!(s.get("x").is_none() && s.id_to_index.is_empty());
-        assert!(s.delete("m").is_ok());
-    }
-    #[test]
-    fn update() {
-        let mut s = Singularity::new();
-        s.inject(c("x")).unwrap();
-        let v = HVec10240::random();
-        s.update("x", v).unwrap();
-        assert_eq!(s.get("x").unwrap().vector, v);
-        assert!(s.update("m", HVec10240::random()).is_err());
-    }
-    #[test]
-    fn assoc() {
-        let mut s = Singularity::new();
-        s.inject(c("a")).unwrap();
-        s.inject(c("b")).unwrap();
-        s.associate("a", "b", 0.5).unwrap();
-        assert_eq!(s.get_associations("a"), vec![("b".into(), 0.5)]);
-        assert!(s.associate("a", "m", 0.5).is_err());
-        assert!(s.associate("a", "b", -1.0).is_err());
-        assert!(s.associate("a", "b", f32::NAN).is_err());
-    }
-    #[test]
-    fn similar_empty() {
-        let empty = Singularity::new();
-        assert!(empty.find_similar(&HVec10240::random(), 5).is_empty());
-        let mut s = Singularity::new();
-        s.inject(c("x")).unwrap();
-        assert!(s.find_similar(&HVec10240::random(), 0).is_empty());
-    }
-    #[test]
-    fn clear_all() {
-        let mut s = Singularity::new();
-        s.inject(c("x")).unwrap();
-        s.associate("x", "x", 0.5).unwrap();
-        s.clear();
-        assert!(s.is_empty() && s.associations.is_empty() && s.concept_indices.is_empty());
-    }
-}

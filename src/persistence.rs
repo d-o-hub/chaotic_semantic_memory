@@ -1,8 +1,4 @@
 //! Persistence layer using libSQL (SQLite/Turso). Auto-migrations, version retention, FK enabled.
-
-// Casts are intentional for schema version math
-#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 use crate::singularity::Concept;
@@ -139,6 +135,10 @@ impl Persistence {
                 modified_at INTEGER NOT NULL,
                 PRIMARY KEY (concept_id, version),
                 FOREIGN KEY (concept_id) REFERENCES csm_concepts(id) ON DELETE CASCADE
+            );
+            CREATE TABLE IF NOT EXISTS csm_metrics (
+                key TEXT PRIMARY KEY,
+                value INTEGER NOT NULL
             );
             CREATE TABLE IF NOT EXISTS csm_schema_version (
                 version INTEGER PRIMARY KEY

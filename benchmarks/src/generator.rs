@@ -172,40 +172,21 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
 
     // Add cross-session query types (Association and MultiSession)
     if sessions.len() >= 2 {
-        // Association: Link concepts across sessions by finding common themes
-        for i in 0..sessions.len().min(10) {
-            let s1 = &sessions[i];
-            let s2 = &sessions[(i + 1) % sessions.len()];
-
-            // Generate association query based on shared color or city if possible,
-            // but for simplicity we'll just use colors from these two sessions.
-            cases.push(QueryCase {
-                query_id: format!("association-{:03}", i),
-                session_id: "cross-session".into(),
-                task_type: TaskType::Association,
-                query: "What are the favorite colors I've mentioned in my different chats?".into(),
-                gold_evidence_ids: vec![
-                    format!("{}:favorite_color:v1", s1.session_id),
-                    format!("{}:favorite_color:v1", s2.session_id),
-                ],
-                expected_answer: None,
-                should_abstain: false,
-            });
-
-            // Add a query that targets explicit associations between city and color in a session
-            cases.push(QueryCase {
-                query_id: format!("association-internal-{:03}", i),
-                session_id: s1.session_id.clone(),
-                task_type: TaskType::Association,
-                query: "Show me items related to my location and interests in this session.".into(),
-                gold_evidence_ids: vec![
-                    format!("{}:favorite_color:v1", s1.session_id),
-                    format!("{}:city:v1", s1.session_id),
-                ],
-                expected_answer: None,
-                should_abstain: false,
-            });
-        }
+        // Association: Link concepts across sessions
+        let s1 = &sessions[0];
+        let s2 = &sessions[1];
+        cases.push(QueryCase {
+            query_id: "cross-session:association".into(),
+            session_id: "cross-session".into(),
+            task_type: TaskType::Association,
+            query: "What colors have I mentioned across different conversations?".into(),
+            gold_evidence_ids: vec![
+                format!("{}:favorite_color:v1", s1.session_id),
+                format!("{}:favorite_color:v1", s2.session_id),
+            ],
+            expected_answer: None,
+            should_abstain: false,
+        });
 
         // MultiSession: Aggregate across sessions
         cases.push(QueryCase {

@@ -1,10 +1,6 @@
 //! Retrieval config validation tests for coverage gap in singularity_retrieval.rs.
 //!
 //! Covers: RetrievalConfig::validate, set_retrieval_config, FilterStrategy branches
-//!
-//! Float comparisons allowed: test assertions for exact default values.
-
-#![allow(clippy::float_cmp)]
 
 use chaotic_semantic_memory::prelude::*;
 use chaotic_semantic_memory::singularity::Singularity;
