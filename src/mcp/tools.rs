@@ -11,13 +11,13 @@ use super::schema;
 
 /// MCP Tools handler for chaotic_semantic_memory operations.
 pub struct McpTools {
-    database: Option<PathBuf>,
+    _database: Option<PathBuf>,
 }
 
 impl McpTools {
     /// Create new MCP tools handler.
     pub const fn new(database: Option<PathBuf>) -> Self {
-        Self { database }
+        Self { _database: database }
     }
 
     /// List all available tools.
@@ -110,7 +110,7 @@ impl McpTools {
             "memory_shortest_path" => self.handle_shortest_path(arguments).await,
             "memory_stats" => self.handle_stats(arguments).await,
             "memory_export" => self.handle_export(arguments).await,
-            _ => Err(anyhow::anyhow!("Unknown tool: {}", tool_name)),
+            _ => Err(anyhow::anyhow!("Unknown tool: {tool_name}")),
         }
     }
 

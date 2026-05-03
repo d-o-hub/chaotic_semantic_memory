@@ -44,9 +44,7 @@ fn projected_10m_concepts_memory_stays_under_12mb() {
     let projected = projected_compressed_index_bytes(concepts);
     assert!(
         projected < threshold,
-        "projected={} bytes exceeds {} bytes",
-        projected,
-        threshold
+        "projected={projected} bytes exceeds {threshold} bytes"
     );
 }
 

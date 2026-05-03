@@ -691,7 +691,8 @@ fn bench_graph_rag(c: &mut Criterion) {
     // Create 5-hop chains
     for i in 0..1000 {
         if i % 5 != 4 {
-            sing.associate(&format!("concept_{i}"), &format!("concept_{}", i+1), 0.8).unwrap();
+            sing.associate(&format!("concept_{i}"), &format!("concept_{}", i + 1), 0.8)
+                .unwrap();
         }
     }
 
@@ -710,12 +711,15 @@ fn bench_graph_rag(c: &mut Criterion) {
 
     group.bench_function("probe_graph_1k_concepts_5_hops", |b| {
         b.iter(|| {
-            black_box(graph_rag_retrieve(
-                black_box(&query),
-                black_box(&concepts),
-                black_box(&associations),
-                black_box(&config)
-            ).unwrap())
+            black_box(
+                graph_rag_retrieve(
+                    black_box(&query),
+                    black_box(&concepts),
+                    black_box(&associations),
+                    black_box(&config),
+                )
+                .unwrap(),
+            )
         })
     });
 

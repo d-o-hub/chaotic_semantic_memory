@@ -8,7 +8,7 @@ use tempfile::NamedTempFile;
 
 fn make_concept_batch(n: usize) -> Vec<(String, HVec10240)> {
     (0..n)
-        .map(|i| (format!("concept_{}", i), HVec10240::random()))
+        .map(|i| (format!("concept_{i}"), HVec10240::random()))
         .collect()
 }
 
@@ -337,14 +337,14 @@ async fn associate_many_large_batch() {
 
     let mut concepts = Vec::new();
     for i in 0..50 {
-        concepts.push((format!("a_{}", i), HVec10240::random()));
-        concepts.push((format!("b_{}", i), HVec10240::random()));
+        concepts.push((format!("a_{i}"), HVec10240::random()));
+        concepts.push((format!("b_{i}"), HVec10240::random()));
     }
     framework.inject_concepts(&concepts).await.unwrap();
 
     let mut associations = Vec::new();
     for i in 0..50 {
-        associations.push((format!("a_{}", i), format!("b_{}", i), 0.6));
+        associations.push((format!("a_{i}"), format!("b_{i}"), 0.6));
     }
     framework.associate_many(&associations).await.unwrap();
 
@@ -707,7 +707,7 @@ async fn batch_operations_concurrent_access() {
     for i in 0..4 {
         let fw = Arc::clone(&framework);
         handles.push(tokio::spawn(async move {
-            let concepts = vec![(format!("concurrent_{}", i), HVec10240::random())];
+            let concepts = vec![(format!("concurrent_{i}"), HVec10240::random())];
             fw.inject_concepts(&concepts).await.unwrap();
 
             let queries = make_query_batch(2);

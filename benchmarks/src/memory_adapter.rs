@@ -1,4 +1,5 @@
 use anyhow::Result;
+use chaotic_semantic_memory::MetadataFilter;
 use chaotic_semantic_memory::bridge_retrieval::BridgeRetrieval;
 use chaotic_semantic_memory::encoder::TextEncoder;
 use chaotic_semantic_memory::prelude::*;
@@ -277,9 +278,12 @@ impl MemoryAdapter {
         }
 
         // For standard queries, use framework-level session filtering
+        let encoder = TextEncoder::new();
+        let query_vec = encoder.encode(text);
+        let filter = MetadataFilter::eq("session_id", session_id);
         let hdc_hits = self
             .framework
-            .query_in_session(text, session_id, top_k * 3)
+            .probe_filtered(&query_vec, top_k * 3, &filter)
             .await?;
 
         // Get BM25 results (BM25 still needs manual session filtering here as it's a separate index)

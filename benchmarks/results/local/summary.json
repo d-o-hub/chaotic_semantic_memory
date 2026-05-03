@@ -1,0 +1,23 @@
+{
+  "cases": 67,
+  "recall_at_1": 0.7307692,
+  "recall_at_5": 0.78846157,
+  "recall_at_10": 0.78846157,
+  "mrr": 0.7564103,
+  "ndcg_at_10": 0.6968334,
+  "exact_match": null,
+  "abstain_precision": 0.4,
+  "abstain_recall": 0.6666667,
+  "association_success_rate": 0.45,
+  "multisession_recall": 1.0,
+  "session_isolation": 0.0,
+  "ingest_ms": 4655,
+  "p50_latency_ms": 1,
+  "p50_latency_us": 1555,
+  "p95_latency_ms": 6,
+  "p99_latency_ms": 7,
+  "storage_bytes": 124526,
+  "peak_memory_bytes": 18087936,
+  "prompt_tokens": 0,
+  "completion_tokens": 0
+}

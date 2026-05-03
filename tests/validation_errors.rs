@@ -143,7 +143,7 @@ async fn batch_size_exceeded_fails() {
 
     // Create a batch larger than the limit
     let concepts: Vec<(String, HVec10240)> = (0..10)
-        .map(|i| (format!("batch-{}", i), HVec10240::random()))
+        .map(|i| (format!("batch-{i}"), HVec10240::random()))
         .collect();
 
     let result = framework.inject_concepts(&concepts).await;
