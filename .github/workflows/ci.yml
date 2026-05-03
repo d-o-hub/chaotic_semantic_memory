@@ -110,3 +110,11 @@ jobs:
       run: cargo clippy --all-targets --all-features -- -D warnings
     - name: LOC gate
       run: bash scripts/validate.sh
+    - name: Validate llms.txt sync
+      run: |
+        bash scripts/gen-llms-txt.sh
+        if ! git diff --quiet llms.txt llms-full.txt; then
+          echo "❌ llms.txt or llms-full.txt is out of sync. Please run scripts/gen-llms-txt.sh locally and commit the changes."
+          git diff llms.txt llms-full.txt
+          exit 1
+        fi

@@ -221,36 +221,11 @@ if [[ -f "wasm/README.md" ]]; then
 fi
 
 # =============================================================================
-# 6. Regenerate llms.txt files
+# 6. Regenerate llms.txt files (SKIPPED - runs in GitHub workflows)
 # =============================================================================
 echo ""
 echo -e "${BLUE}→ Regenerating llms.txt files${NC}"
-if [[ -f "scripts/gen-llms-txt.sh" ]]; then
-    if $CHECK_ONLY; then
-        # Check if llms.txt has correct version
-        if grep -q "Version.*${CARGO_VERSION}" llms.txt 2>/dev/null; then
-            echo -e "${GREEN}✓${NC} llms.txt: version is current"
-            ((SKIPPED++)) || true
-        else
-            echo -e "${YELLOW}!${NC} llms.txt: needs regeneration"
-            ((UPDATED++)) || true
-        fi
-    elif $DRY_RUN; then
-        echo -e "${BLUE}○${NC} llms.txt: would regenerate"
-        ((UPDATED++)) || true
-    else
-        if bash scripts/gen-llms-txt.sh 2>/dev/null; then
-            echo -e "${GREEN}✓${NC} llms.txt files regenerated"
-            ((UPDATED++)) || true
-        else
-            echo -e "${YELLOW}⊘${NC} llms.txt: cargo-llms-txt not available, skipping"
-            ((SKIPPED++)) || true
-        fi
-    fi
-else
-    echo -e "${YELLOW}⊘${NC} gen-llms-txt.sh not found, skipping"
-    ((SKIPPED++)) || true
-fi
+echo -e "${YELLOW}○${NC} llms.txt: skipping local generation (handled by CI)"
 
 # =============================================================================
 # Summary
