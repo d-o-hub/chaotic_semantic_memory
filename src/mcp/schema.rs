@@ -42,7 +42,7 @@ pub struct MemoryProbeFilteredInput {
     pub query: String,
     #[serde(default = "default_top_k")]
     pub top_k: usize,
-    pub filter: serde_json::Value, // MetadataFilter JSON representation
+    pub filter: crate::metadata_filter::MetadataFilter,
 }
 
 /// Input for memory_get tool.

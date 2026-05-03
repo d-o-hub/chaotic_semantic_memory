@@ -62,10 +62,14 @@ pub async fn read_resource(
             .persistence_health_check()
             .await
             .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
-        let content = serde_json::to_string_pretty(&())
+        let content = serde_json::json!({
+            "status": "healthy",
+            "message": "Persistence is operational"
+        });
+        let content_str = serde_json::to_string_pretty(&content)
             .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
         return Ok(ReadResourceResult {
-            contents: vec![ResourceContents::text(content, uri)],
+            contents: vec![ResourceContents::text(content_str, uri)],
         });
     }
 

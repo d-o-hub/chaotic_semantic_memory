@@ -88,11 +88,9 @@ impl MemoryHandler {
     ) -> Result<CallToolResult, ErrorData> {
         let input: MemoryProbeFilteredInput = serde_json::from_value(arguments)
             .map_err(|e| ErrorData::invalid_params(e.to_string(), None))?;
-        let filter: MetadataFilter = serde_json::from_value(input.filter)
-            .map_err(|e| ErrorData::invalid_params(e.to_string(), None))?;
         let results = self
             .framework
-            .probe_filtered_text(&input.query, input.top_k, &filter)
+            .probe_filtered_text(&input.query, input.top_k, &input.filter)
             .await
             .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![Content::text(

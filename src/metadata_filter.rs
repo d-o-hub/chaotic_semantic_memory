@@ -12,6 +12,7 @@ pub(crate) const MAX_FILTER_DEPTH: usize = 32;
 
 /// A predicate for filtering concepts by metadata during similarity search.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
 pub enum MetadataFilter {
     /// Key equals value: `key == value`
     Eq(String, Value),
