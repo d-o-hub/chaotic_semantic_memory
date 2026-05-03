@@ -27,7 +27,7 @@ impl FastEmbedProvider {
                 fastembed::InitOptions::new(fastembed::EmbeddingModel::BGESmallENV15)
                     .with_cache_dir(std::path::PathBuf::from(".fastembed_cache")),
             )
-            .map_err(|e| MemoryError::External(format!("fastembed init failed: {e}")))?;
+            .map_err(|e| MemoryError::External(format!("fastembed init failed: {}", e)))?;
 
             Ok(Self {
                 model: std::sync::Arc::new(model),
@@ -60,7 +60,7 @@ impl FastEmbedProvider {
                 fastembed::InitOptions::new(model_type)
                     .with_cache_dir(std::path::PathBuf::from(".fastembed_cache")),
             )
-            .map_err(|e| MemoryError::External(format!("fastembed init failed: {e}")))?;
+            .map_err(|e| MemoryError::External(format!("fastembed init failed: {}", e)))?;
 
             Ok(Self {
                 model: std::sync::Arc::new(embedding),
@@ -115,7 +115,7 @@ impl EmbeddingProvider for FastEmbedProvider {
             let result: Result<Vec<f32>> = tokio::task::spawn_blocking(move || {
                 let embeddings = model
                     .embed(vec![text_owned], None)
-                    .map_err(|e| MemoryError::External(format!("fastembed embed failed: {e}")))?;
+                    .map_err(|e| MemoryError::External(format!("fastembed embed failed: {}", e)))?;
 
                 embeddings
                     .first()
@@ -123,7 +123,7 @@ impl EmbeddingProvider for FastEmbedProvider {
                     .ok_or_else(|| MemoryError::External("no embedding returned".into()))
             })
             .await
-            .map_err(|e| MemoryError::External(format!("blocking task failed: {e}")))?;
+            .map_err(|e| MemoryError::External(format!("blocking task failed: {}", e)))?;
 
             result
         }
@@ -144,11 +144,11 @@ impl EmbeddingProvider for FastEmbedProvider {
 
             let result: Result<Vec<Vec<f32>>> = tokio::task::spawn_blocking(move || {
                 model.embed(texts_owned, None).map_err(|e| {
-                    MemoryError::External(format!("fastembed embed_batch failed: {e}"))
+                    MemoryError::External(format!("fastembed embed_batch failed: {}", e))
                 })
             })
             .await
-            .map_err(|e| MemoryError::External(format!("blocking task failed: {e}")))?;
+            .map_err(|e| MemoryError::External(format!("blocking task failed: {}", e)))?;
 
             result
         }

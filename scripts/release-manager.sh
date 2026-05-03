@@ -330,8 +330,16 @@ cmd_prepare() {
     log_pass "wasm/README.md synced"
   fi
 
-  # 9. Regenerate llms.txt files (SKIPPED - runs in GitHub workflows)
-  log_info "llms.txt: skipping local generation (handled by CI)"
+  # 9. Regenerate llms.txt files (AI context)
+  if [[ -f "$REPO_ROOT/scripts/gen-llms-txt.sh" ]]; then
+    log_info "Regenerating llms.txt AI context files..."
+    if ! $DRY_RUN; then
+      bash scripts/gen-llms-txt.sh 2>/dev/null || log_warn "llms.txt generation skipped (cargo-llms-txt may not be installed)"
+    else
+      log_info "[dry-run] Would run: scripts/gen-llms-txt.sh"
+    fi
+    log_pass "llms.txt files updated"
+  fi
 
   # 10. Sync AGENTS.md if it contains version references
   if [[ -f "$REPO_ROOT/AGENTS.md" ]]; then

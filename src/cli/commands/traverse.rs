@@ -17,12 +17,14 @@ use super::{create_framework, print_warning, validate_concept_id};
 fn validate_min_strength(min_strength: f64) -> Result<()> {
     if !min_strength.is_finite() {
         return Err(CliError::Validation(format!(
-            "min_strength must be finite (got {min_strength})"
+            "min_strength must be finite (got {})",
+            min_strength
         )));
     }
     if !(0.0..=1.0).contains(&min_strength) {
         return Err(CliError::Validation(format!(
-            "min_strength must be in range [0.0, 1.0] (got {min_strength})"
+            "min_strength must be in range [0.0, 1.0] (got {})",
+            min_strength
         )));
     }
     Ok(())
@@ -105,13 +107,13 @@ pub async fn run_traverse(
                         2 => depth_str.yellow(),
                         _ => depth_str.normal(),
                     };
-                    println!("{id:<40} {colored:>8}");
+                    println!("{:<40} {:>8}", id, colored);
                 }
             }
         }
         OutputFormat::Quiet => {
             for (id, _) in &results {
-                println!("{id}");
+                println!("{}", id);
             }
         }
     }

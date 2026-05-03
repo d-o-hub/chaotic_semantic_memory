@@ -33,7 +33,7 @@ pub async fn run(cli: Cli) -> Result<()> {
     for session in &sessions {
         for turn in &session.turns {
             if let Some(id) = &turn.memory_id {
-                adapter.ingest_memory(id, &turn.text, None).await?;
+                adapter.ingest_memory(id, &turn.text).await?;
             }
         }
     }

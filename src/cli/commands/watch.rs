@@ -77,7 +77,7 @@ pub async fn run_watch(db_path: Option<&Path>, filter: EventFilter) -> Result<()
             Ok(event) => {
                 if filter.matches(&event) {
                     let json = event_to_json(&event);
-                    writeln!(writer, "{json}")
+                    writeln!(writer, "{}", json)
                         .map_err(|e| CliError::Output(format!("failed to write event: {e}")))?;
                     writer
                         .flush()
@@ -91,7 +91,7 @@ pub async fn run_watch(db_path: Option<&Path>, filter: EventFilter) -> Result<()
             }
             Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
                 // Lagged behind - warn but continue
-                eprintln!("Warning: Lagged {n} events, continuing...");
+                eprintln!("Warning: Lagged {} events, continuing...", n);
             }
         }
     }

@@ -17,7 +17,10 @@ pub(crate) fn validate_path(path: &str) -> Result<PathBuf> {
     if path.len() > MAX_PATH_LENGTH {
         return Err(MemoryError::InvalidInput {
             field: "path".to_string(),
-            reason: format!("path exceeds maximum length of {MAX_PATH_LENGTH} characters"),
+            reason: format!(
+                "path exceeds maximum length of {} characters",
+                MAX_PATH_LENGTH
+            ),
         });
     }
 
@@ -61,7 +64,7 @@ pub(crate) fn validate_path(path: &str) -> Result<PathBuf> {
 
         let current_dir = std::env::current_dir().map_err(|e| MemoryError::InvalidInput {
             field: "path".to_string(),
-            reason: format!("cannot determine current working directory: {e}"),
+            reason: format!("cannot determine current working directory: {}", e),
         })?;
 
         if !normalized.starts_with(&current_dir) && !normalized.starts_with("/tmp") {
@@ -81,7 +84,7 @@ impl ChaoticSemanticFramework {
         if config.bucket_probe_width > MAX_BUCKET_PROBE_WIDTH {
             return Err(MemoryError::InvalidInput {
                 field: "bucket_probe_width".to_string(),
-                reason: format!("bucket_probe_width exceeds {MAX_BUCKET_PROBE_WIDTH}"),
+                reason: format!("bucket_probe_width exceeds {}", MAX_BUCKET_PROBE_WIDTH),
             });
         }
         Ok(())
@@ -140,7 +143,7 @@ impl ChaoticSemanticFramework {
         if size > limit {
             return Err(MemoryError::InvalidInput {
                 field: "metadata".to_string(),
-                reason: format!("metadata exceeds {limit} bytes (got {size})"),
+                reason: format!("metadata exceeds {} bytes (got {})", limit, size),
             });
         }
         Ok(())
@@ -226,7 +229,8 @@ impl ChaoticSemanticFramework {
             return Err(MemoryError::InvalidInput {
                 field: "filter".to_string(),
                 reason: format!(
-                    "metadata filter depth exceeds maximum allowed {MAX_FILTER_DEPTH} (got {depth})"
+                    "metadata filter depth exceeds maximum allowed {} (got {})",
+                    MAX_FILTER_DEPTH, depth
                 ),
             });
         }

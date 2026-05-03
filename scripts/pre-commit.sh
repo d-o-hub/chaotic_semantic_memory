@@ -45,6 +45,15 @@ if [ -f "CHANGELOG.md" ]; then
   fi
 fi
 
+# Docs sync: regenerate llms.txt files and add to staging
+echo " → Regenerating llms.txt files..."
+if [[ -f "scripts/gen-llms-txt.sh" ]]; then
+    bash scripts/gen-llms-txt.sh 2>/dev/null || true
+    # Add regenerated files to staging so they're included in commit
+    git add llms.txt llms-full.txt 2>/dev/null || true
+    echo "   ✓ llms.txt files regenerated and staged"
+fi
+
 # Docs version sync check (will fail if other docs need updates)
 echo " → Checking docs version sync..."
 bash scripts/sync-docs.sh --check

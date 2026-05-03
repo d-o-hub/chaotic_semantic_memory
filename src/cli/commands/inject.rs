@@ -136,7 +136,8 @@ fn bytes_to_hseq(values: &[f32]) -> Result<[u8; 1280]> {
     for (i, chunk) in values.chunks(4).enumerate() {
         if chunk.len() != 4 {
             return Err(CliError::Validation(format!(
-                "incomplete float at position {i}"
+                "incomplete float at position {}",
+                i
             )));
         }
         let f0 = chunk[0].to_le_bytes();

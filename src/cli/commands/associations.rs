@@ -86,7 +86,7 @@ pub async fn run_associations(
                 println!("{:<40} {:>12}", "CONCEPT ID", "STRENGTH");
                 println!("{:-<40} {:->12}", "", "");
                 for (id, strength) in &associations {
-                    let strength_str = format!("{strength:.4}");
+                    let strength_str = format!("{:.4}", strength);
                     let colored = if *strength > 0.8 {
                         strength_str.green()
                     } else if *strength > 0.5 {
@@ -94,13 +94,13 @@ pub async fn run_associations(
                     } else {
                         strength_str.normal()
                     };
-                    println!("{id:<40} {colored:>12}");
+                    println!("{:<40} {:>12}", id, colored);
                 }
             }
         }
         OutputFormat::Quiet => {
             for (id, _) in &associations {
-                println!("{id}");
+                println!("{}", id);
             }
         }
     }

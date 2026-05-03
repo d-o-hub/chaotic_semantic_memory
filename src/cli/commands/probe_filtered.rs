@@ -90,7 +90,7 @@ pub async fn run_probe_filtered(
                 println!("{:<40} {:>12}", "CONCEPT ID", "SIMILARITY");
                 println!("{:-<40} {:->12}", "", "");
                 for (id, score) in &filtered {
-                    let score_str = format!("{score:.4}");
+                    let score_str = format!("{:.4}", score);
                     let colored = if *score > 0.8 {
                         score_str.green()
                     } else if *score > 0.5 {
@@ -98,13 +98,13 @@ pub async fn run_probe_filtered(
                     } else {
                         score_str.normal()
                     };
-                    println!("{id:<40} {colored:>12}");
+                    println!("{:<40} {:>12}", id, colored);
                 }
             }
         }
         OutputFormat::Quiet => {
             for (id, _) in &filtered {
-                println!("{id}");
+                println!("{}", id);
             }
         }
     }

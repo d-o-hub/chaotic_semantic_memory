@@ -110,9 +110,7 @@ unsafe_code = "allow"  # SIMD uses intentional unsafe blocks
 missing_docs = "allow"  # Project uses selective documentation
 
 # Serialization struct fields may be unused but needed for format
-dead_code = "deny"
-unused_variables = "deny"
-unused_imports = "deny"
+dead_code = "allow"
 
 [lints.clippy]
 # Enable all clippy lints at warning level

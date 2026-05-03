@@ -61,6 +61,14 @@ if [ -x scripts/wasm_size_gate.sh ]; then
   scripts/wasm_size_gate.sh
 fi
 
+echo "==> Generating/validating llms.txt and llms-full.txt"
+scripts/gen-llms-txt.sh
+if ! git diff --quiet llms.txt llms-full.txt 2>/dev/null; then
+  echo "❌ llms.txt or llms-full.txt was modified. Run scripts/gen-llms-txt.sh and commit the changes."
+  git diff llms.txt llms-full.txt
+  exit 1
+fi
+
 if command -v npm >/dev/null 2>&1; then
   echo "==> CLI npm pack smoke test"
   cargo build --release --bin csm

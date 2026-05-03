@@ -189,11 +189,13 @@ mod tests {
         let path = path.unwrap();
         assert!(
             path.ends_with("csm.db"),
-            "Path should end with csm.db: {path:?}"
+            "Path should end with csm.db: {:?}",
+            path
         );
         assert!(
             path.to_string_lossy().contains("memory-index"),
-            "Path should contain memory-index: {path:?}"
+            "Path should contain memory-index: {:?}",
+            path
         );
     }
 
@@ -214,7 +216,8 @@ mod tests {
         if let Some(path) = path {
             assert!(
                 path.ends_with("csm.db"),
-                "If path is returned, it should end with csm.db: {path:?}"
+                "If path is returned, it should end with csm.db: {:?}",
+                path
             );
         }
 
