@@ -285,7 +285,7 @@ impl Singularity {
         // which IS the fallback.
         let index_stats = self.index.stats();
         if index_stats.backend != "BruteForce" {
-             if let Ok(results) = self.index.search(query, top_k) {
+            if let Ok(results) = self.index.search(query, top_k) {
                 let results_arc: Arc<[(String, f32)]> = Arc::from(results);
 
                 // ADR-0068: Update stats for ANN search

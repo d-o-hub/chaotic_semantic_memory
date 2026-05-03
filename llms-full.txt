@@ -433,7 +433,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod lsh
 - pub struct IndexStats
 - pub enum IndexBackend
-- impl Default for IndexBackend
 - pub trait AnnIndex
 
 ### src/lib.rs
@@ -463,13 +462,13 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod metadata_filter
 - pub mod semantic_triples
 - pub use metadata_filter::MetadataFilter
+- pub mod index
 - pub mod persistence
 - pub mod persistence_wasm
 - pub mod reservoir
 - pub mod retrieval
 - pub mod semantic_bridge
 - pub mod singularity
-- pub mod index
 - pub use crate::persistence_wasm as persistence
 - pub mod persistence
 - pub struct persistence::Persistence
@@ -3016,6 +3015,7 @@ impl HVec10240 {
     pub const WORDS: Type;
     pub fn zero() -> Self;
     pub fn set_bit(&mut self, pos: usize);
+    pub fn flip_bit(&mut self, pos: usize);
     pub fn random() -> Self;
     pub fn new_seeded(seed: u64) -> Self;
     pub fn sparse(density: f32) -> Self;
@@ -3099,10 +3099,10 @@ impl AnnIndex for HnswIndex {
 }
 ```
 
-### impl Distance<[u128; N]> for HammingDist
+### impl Distance<HVec10240> for HammingDist
 
 ```rust
-impl Distance<[u128; N]> for HammingDist {
+impl Distance<HVec10240> for HammingDist {
 }
 ```
 
@@ -3126,7 +3126,7 @@ impl std::fmt::Debug for HnswIndex {
 ### LshIndex
 
 ```rust
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct LshIndex {
 }
 ```
@@ -3157,6 +3157,7 @@ pub trait AnnIndex: Send + Sync + Debug {
     fn insert(&mut self, id: String, vec: &HVec10240) -> Result<()>;
     fn delete(&mut self, id: &str) -> Result<()>;
     fn search(&self, query: &HVec10240, top_k: usize) -> Result<Vec<(String, f32)>>;
+    fn search_filtered(&self, query: &HVec10240, top_k: usize, filter: &crate::metadata_filter::MetadataFilter, concepts: &std::collections::HashMap<String, crate::singularity::Concept>) -> Result<Vec<(String, f32)>>;
     fn rebuild(&mut self, concepts: &HashMap<String, Concept>) -> Result<()>;
     fn stats(&self) -> IndexStats;
     fn serialize(&self) -> Result<Vec<u8>>;
@@ -3169,7 +3170,7 @@ Trait for Approximate Nearest Neighbor (ANN) indices.
 ### IndexBackend
 
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum IndexBackend {
     BruteForce,
     Hnsw { m: usize, ef_construction: usize, ef_search: usize },
@@ -3191,13 +3192,6 @@ pub struct IndexStats {
 ```
 
 Statistics for an ANN index.
-
-### impl Default for IndexBackend
-
-```rust
-impl Default for IndexBackend {
-}
-```
 
 ## src/lib.rs
 
@@ -3355,6 +3349,8 @@ impl Persistence {
     pub fn restore(&self, _path: &str) -> Result<()>;
     pub fn get_concept_history(&self, _id: &str, _limit: usize) -> Result<Vec<ConceptVersion>>;
     pub fn schema_version(&self) -> Result<i64>;
+    pub fn save_index(&self, _id: &str, _data: &[u8]) -> Result<()>;
+    pub fn load_index(&self, _id: &str) -> Result<Option<Vec<u8>>>;
     pub fn apply_migrations(&self, _target_version: i64) -> Result<()>;
 }
 ```
@@ -3786,6 +3782,8 @@ impl Persistence {
     pub fn checkpoint(&self) -> Result<()>;
     pub fn health_check(&self) -> Result<()>;
     pub fn size(&self) -> Result<u64>;
+    pub fn save_index(&self, _id: &str, _data: &[u8]) -> Result<()>;
+    pub fn load_index(&self, _id: &str) -> Result<Option<Vec<u8>>>;
 }
 ```
 

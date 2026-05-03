@@ -127,9 +127,11 @@ impl AnnIndex for HnswIndex {
         // HNSW doesn't support pre-filtering natively.
         // We'll search a larger set and post-filter.
         let expanded_k = top_k * 5;
-        let results = self
-            .hnsw
-            .search(std::slice::from_ref(query), expanded_k, self.config.ef_search);
+        let results = self.hnsw.search(
+            std::slice::from_ref(query),
+            expanded_k,
+            self.config.ef_search,
+        );
 
         let mut filtered_results = Vec::new();
         for neighbor in results {
@@ -152,10 +154,17 @@ impl AnnIndex for HnswIndex {
             let mut all_filtered: Vec<(String, f32)> = concepts
                 .iter()
                 .filter(|(_, c)| filter.matches(&c.metadata))
-                .map(|(id, c)| (id.clone(), 1.0 - (query.hamming_distance(&c.vector) as f32 / 5120.0)))
+                .map(|(id, c)| {
+                    (
+                        id.clone(),
+                        1.0 - (query.hamming_distance(&c.vector) as f32 / 5120.0),
+                    )
+                })
                 .collect();
 
-            all_filtered.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+            all_filtered.sort_unstable_by(|a, b| {
+                b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+            });
             all_filtered.truncate(top_k);
             return Ok(all_filtered);
         }
@@ -164,7 +173,13 @@ impl AnnIndex for HnswIndex {
     }
 
     fn rebuild(&mut self, concepts: &HashMap<String, Concept>) -> Result<()> {
-        self.hnsw = Hnsw::new(self.config.m, concepts.len().max(100), 16, self.config.ef_construction, HammingDist);
+        self.hnsw = Hnsw::new(
+            self.config.m,
+            concepts.len().max(100),
+            16,
+            self.config.ef_construction,
+            HammingDist,
+        );
         self.id_to_idx.clear();
         self.idx_to_id.clear();
 
@@ -178,7 +193,8 @@ impl AnnIndex for HnswIndex {
         IndexStats {
             backend: "HNSW".to_string(),
             count: self.id_to_idx.len(),
-            memory_usage_bytes: self.id_to_idx.len() * (std::mem::size_of::<String>() + std::mem::size_of::<HVec10240>() + 32),
+            memory_usage_bytes: self.id_to_idx.len()
+                * (std::mem::size_of::<String>() + std::mem::size_of::<HVec10240>() + 32),
         }
     }
 
@@ -244,20 +260,23 @@ impl AnnIndex for HnswIndex {
         let data_bytes = &data[data_start..graph_start];
         let graph_bytes = &data[graph_start..];
 
-        let temp_dir = std::env::temp_dir().join(format!("csm_hnsw_load_{}", rand::random::<u64>()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("csm_hnsw_load_{}", rand::random::<u64>()));
         fs::create_dir_all(&temp_dir).map_err(MemoryError::Io)?;
 
         fs::write(temp_dir.join("index.hnsw.data"), data_bytes).map_err(MemoryError::Io)?;
         fs::write(temp_dir.join("index.hnsw.graph"), graph_bytes).map_err(MemoryError::Io)?;
 
         let loader = HnswIo::new(&temp_dir, "index");
-        let hnsw = loader.load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist)
+        let hnsw = loader
+            .load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist)
             .map_err(|e| MemoryError::database(format!("HNSW load failed: {}", e)))?;
 
         // SAFETY: We are not using mmap (datamap_opt is false), so the Hnsw struct
         // only contains owned data (PointData::V variants). The lifetime 'b is
         // only needed for PointData::S (mmap), which we don't use.
-        let static_hnsw: Hnsw<'static, HVec10240, HammingDist> = unsafe { std::mem::transmute(hnsw) };
+        let static_hnsw: Hnsw<'static, HVec10240, HammingDist> =
+            unsafe { std::mem::transmute(hnsw) };
 
         self.hnsw = static_hnsw;
         self.id_to_idx = meta.id_to_idx;

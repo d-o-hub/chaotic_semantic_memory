@@ -147,7 +147,10 @@ impl Singularity {
         // to maintain backward compatibility with selectivity-aware tests.
         let index_stats = self.index.stats();
         if index_stats.backend != "BruteForce" {
-            if let Ok(results) = self.index.search_filtered(query, top_k, filter, &self.concepts) {
+            if let Ok(results) = self
+                .index
+                .search_filtered(query, top_k, filter, &self.concepts)
+            {
                 let results_arc: Arc<[(String, f32)]> = Arc::from(results);
 
                 if let Ok(mut s) = self.last_retrieval_stats.write() {
