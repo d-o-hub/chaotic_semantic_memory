@@ -3,8 +3,7 @@ use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_bm25_search(c: &mut Criterion) {
     let mut index = Bm25Index::new();
-    let tokens = vec![
-        "hello",
+    let tokens = ["hello",
         "world",
         "rust",
         "performance",
@@ -13,8 +12,7 @@ fn bench_bm25_search(c: &mut Criterion) {
         "index",
         "bm25",
         "algorithm",
-        "ranking",
-    ];
+        "ranking"];
 
     // Index 1000 documents
     for i in 0..1000 {
@@ -24,7 +22,7 @@ fn bench_bm25_search(c: &mut Criterion) {
                 doc_tokens.push(token);
             }
         }
-        index.add_document(&format!("doc_{}", i), &doc_tokens);
+        index.add_document(&format!("doc_{i}"), &doc_tokens);
     }
 
     let query = vec!["hello", "rust", "bm25"];
@@ -40,7 +38,7 @@ fn bench_bm25_replacement(c: &mut Criterion) {
 
     // Index 1000 documents
     for i in 0..1000 {
-        index.add_document(&format!("doc_{}", i), &tokens);
+        index.add_document(&format!("doc_{i}"), &tokens);
     }
 
     c.bench_function("bm25_replace_doc_1000", |b| {

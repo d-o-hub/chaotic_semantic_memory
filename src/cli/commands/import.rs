@@ -72,13 +72,12 @@ pub async fn run_import(
             let err_str = e.to_string();
             let msg = if err_str.contains("version") || err_str.contains("deserialize") {
                 format!(
-                    "import failed: incompatible or corrupted file - {}",
-                    err_str
+                    "import failed: incompatible or corrupted file - {err_str}"
                 )
             } else if err_str.contains("permission") || err_str.contains("denied") {
                 format!("permission denied: {}", args.input.display())
             } else {
-                format!("import failed: {}", err_str)
+                format!("import failed: {err_str}")
             };
             print_error(&msg);
             return Err(CliError::Input(msg));

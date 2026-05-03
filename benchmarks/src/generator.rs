@@ -175,15 +175,24 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
         // Association: Link concepts across sessions
         let s1 = &sessions[0];
         let s2 = &sessions[1];
+
+        let s1_color_id = if s1.turns.len() >= 3 {
+            format!("{}:favorite_color:v2", s1.session_id)
+        } else {
+            format!("{}:favorite_color:v1", s1.session_id)
+        };
+        let s2_color_id = if s2.turns.len() >= 3 {
+            format!("{}:favorite_color:v2", s2.session_id)
+        } else {
+            format!("{}:favorite_color:v1", s2.session_id)
+        };
+
         cases.push(QueryCase {
             query_id: "cross-session:association".into(),
             session_id: "cross-session".into(),
             task_type: TaskType::Association,
             query: "What colors have I mentioned across different conversations?".into(),
-            gold_evidence_ids: vec![
-                format!("{}:favorite_color:v1", s1.session_id),
-                format!("{}:favorite_color:v1", s2.session_id),
-            ],
+            gold_evidence_ids: vec![s1_color_id, s2_color_id],
             expected_answer: None,
             should_abstain: false,
         });

@@ -645,6 +645,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - impl WasmFramework
 
+### src/wasm_graph_rag.rs
+
+- impl WasmFramework
+
 ## README.md
 
 ### CLI workflow test (inject → probe → export → import)
@@ -3780,12 +3784,6 @@ pub fn graph_rag_retrieve(query: &HVec10240, concepts: &[Concept], associations:
 
 Execute GraphRAG retrieval.
 
-Algorithm:
-1. Anchor: probe(query, anchor_top_k) → seed set
-2. Expand: traverse from each anchor
-3. Score: similarity_weight * cosine + graph_weight * (1/(1+hops)) * strength
-4. Dedupe + rank by score
-
 ### impl Default for GraphRagConfig
 
 ```rust
@@ -4428,6 +4426,17 @@ impl WasmFramework {
     pub fn on_event(&self, callback: Function);
     pub fn inject_text(&self, id: String, text: String) -> Result<(), JsValue>;
     pub fn probe_text(&self, query: String, top_k: usize) -> Result<Array, JsValue>;
+}
+```
+
+## src/wasm_graph_rag.rs
+
+### impl WasmFramework
+
+```rust
+impl WasmFramework {
+    pub fn probe_with_graph(&self, vector: &[u8], anchor_top_k: usize, max_hops: usize, min_assoc_strength: f32, similarity_weight: f32, graph_weight: f32, final_top_k: usize) -> Result<Array, JsValue>;
+    pub fn probe_text_with_graph(&self, text: String, anchor_top_k: usize, max_hops: usize, min_assoc_strength: f32, similarity_weight: f32, graph_weight: f32, final_top_k: usize) -> Result<Array, JsValue>;
 }
 ```
 

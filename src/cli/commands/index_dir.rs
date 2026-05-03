@@ -30,12 +30,12 @@ pub async fn run_index_dir(
 
     for pattern in &args.glob {
         let paths = glob::glob(pattern).map_err(|e| {
-            CliError::Validation(format!("Invalid glob pattern '{}': {}", pattern, e))
+            CliError::Validation(format!("Invalid glob pattern '{pattern}': {e}"))
         })?;
 
         for path_result in paths {
             let path = path_result
-                .map_err(|e| CliError::Io(std::io::Error::other(format!("Glob error: {}", e))))?;
+                .map_err(|e| CliError::Io(std::io::Error::other(format!("Glob error: {e}"))))?;
 
             if !path.exists() || !path.is_file() {
                 continue;
@@ -103,7 +103,7 @@ pub async fn run_index_dir(
                     .inject_concept_with_metadata(&id, hv, metadata)
                     .await
                     .map_err(|e| {
-                        CliError::Persistence(format!("Failed to store concept: {}", e))
+                        CliError::Persistence(format!("Failed to store concept: {e}"))
                     })?;
 
                 indexed_count += 1;
@@ -113,8 +113,7 @@ pub async fn run_index_dir(
 
     print_success(
         &format!(
-            "Indexed {} chunks from {} files ({} skipped)",
-            indexed_count, file_count, skipped_count
+            "Indexed {indexed_count} chunks from {file_count} files ({skipped_count} skipped)"
         ),
         format,
     );

@@ -459,11 +459,10 @@ mod tests {
         let v = HVec10240::random();
         let json = serde_json::to_string(&v).unwrap();
         // Should be a base64 string, not an array
-        assert!(json.starts_with('"'), "Expected string, got: {}", json);
+        assert!(json.starts_with('"'), "Expected string, got: {json}");
         assert!(
             !json.starts_with('['),
-            "Expected base64 string, not array: {}",
-            json
+            "Expected base64 string, not array: {json}"
         );
         // Verify roundtrip
         let decoded: HVec10240 = serde_json::from_str(&json).unwrap();

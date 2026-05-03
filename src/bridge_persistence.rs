@@ -31,7 +31,7 @@ impl Persistence {
             ],
         )
         .await
-        .map_err(|e| MemoryError::database(format!("Failed to save canonical concept: {}", e)))?;
+        .map_err(|e| MemoryError::database(format!("Failed to save canonical concept: {e}")))?;
 
         Ok(())
     }
@@ -44,7 +44,7 @@ impl Persistence {
         conn.execute("DELETE FROM csm_canonical WHERE id = ?1", params![id])
             .await
             .map_err(|e| {
-                MemoryError::database(format!("Failed to delete canonical concept: {}", e))
+                MemoryError::database(format!("Failed to delete canonical concept: {e}"))
             })?;
 
         Ok(())
@@ -62,23 +62,23 @@ impl Persistence {
             )
             .await
             .map_err(|e| {
-                MemoryError::database(format!("Failed to load canonical concept: {}", e))
+                MemoryError::database(format!("Failed to load canonical concept: {e}"))
             })?;
 
         if let Some(row) = rows.next().await.map_err(|e| {
-            MemoryError::database(format!("Failed to read canonical concept row: {}", e))
+            MemoryError::database(format!("Failed to read canonical concept row: {e}"))
         })? {
             let id: String = row.get(0).map_err(|e| {
-                MemoryError::database(format!("Failed to read canonical concept id: {}", e))
+                MemoryError::database(format!("Failed to read canonical concept id: {e}"))
             })?;
             let version: i64 = row.get(1).map_err(|e| {
-                MemoryError::database(format!("Failed to read canonical concept version: {}", e))
+                MemoryError::database(format!("Failed to read canonical concept version: {e}"))
             })?;
             let labels_json: String = row.get(2).map_err(|e| {
-                MemoryError::database(format!("Failed to read canonical concept labels: {}", e))
+                MemoryError::database(format!("Failed to read canonical concept labels: {e}"))
             })?;
             let related_json: String = row.get(3).map_err(|e| {
-                MemoryError::database(format!("Failed to read canonical concept related: {}", e))
+                MemoryError::database(format!("Failed to read canonical concept related: {e}"))
             })?;
 
             let labels: Vec<String> = serde_json::from_str(&labels_json)?;
@@ -107,24 +107,24 @@ impl Persistence {
             )
             .await
             .map_err(|e| {
-                MemoryError::database(format!("Failed to load canonical concepts: {}", e))
+                MemoryError::database(format!("Failed to load canonical concepts: {e}"))
             })?;
 
         let mut concepts = Vec::new();
         while let Some(row) = rows.next().await.map_err(|e| {
-            MemoryError::database(format!("Failed to read canonical concept row: {}", e))
+            MemoryError::database(format!("Failed to read canonical concept row: {e}"))
         })? {
             let id: String = row.get(0).map_err(|e| {
-                MemoryError::database(format!("Failed to read canonical concept id: {}", e))
+                MemoryError::database(format!("Failed to read canonical concept id: {e}"))
             })?;
             let version: i64 = row.get(1).map_err(|e| {
-                MemoryError::database(format!("Failed to read canonical concept version: {}", e))
+                MemoryError::database(format!("Failed to read canonical concept version: {e}"))
             })?;
             let labels_json: String = row.get(2).map_err(|e| {
-                MemoryError::database(format!("Failed to read canonical concept labels: {}", e))
+                MemoryError::database(format!("Failed to read canonical concept labels: {e}"))
             })?;
             let related_json: String = row.get(3).map_err(|e| {
-                MemoryError::database(format!("Failed to read canonical concept related: {}", e))
+                MemoryError::database(format!("Failed to read canonical concept related: {e}"))
             })?;
 
             let labels: Vec<String> = serde_json::from_str(&labels_json)?;
@@ -148,14 +148,13 @@ impl Persistence {
 
         conn.execute("BEGIN", ())
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {e}")))?;
 
         // Clear existing concepts
         if let Err(e) = conn.execute("DELETE FROM csm_canonical", params![]).await {
             let _ = conn.execute("ROLLBACK", ()).await;
             return Err(MemoryError::database(format!(
-                "Failed to clear canonical concepts: {}",
-                e
+                "Failed to clear canonical concepts: {e}"
             )));
         }
 
@@ -191,8 +190,7 @@ impl Persistence {
                 .await
             {
                 first_error = Some(MemoryError::database(format!(
-                    "Failed to save canonical concept: {}",
-                    e
+                    "Failed to save canonical concept: {e}"
                 )));
                 break;
             }
@@ -205,7 +203,7 @@ impl Persistence {
 
         conn.execute("COMMIT", ())
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to commit transaction: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to commit transaction: {e}")))?;
 
         Ok(())
     }

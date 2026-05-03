@@ -240,13 +240,13 @@ impl ChaoticSemanticFramework {
                 .deserialize(&bytes)
                 .map_err(|e| crate::error::MemoryError::InvalidInput {
                     field: "import_data".to_string(),
-                    reason: format!("bincode deserialization failed: {}", e),
+                    reason: format!("bincode deserialization failed: {e}"),
                 })?;
         // Convert to regular payload
         let payload = binary_payload.to_export_payload().map_err(|e| {
             crate::error::MemoryError::InvalidInput {
                 field: "import_data".to_string(),
-                reason: format!("failed to convert binary payload: {}", e),
+                reason: format!("failed to convert binary payload: {e}"),
             }
         })?;
         if !merge {

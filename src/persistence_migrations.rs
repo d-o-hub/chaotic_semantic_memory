@@ -15,16 +15,16 @@ impl Persistence {
             )
             .await
             .map_err(|e| {
-                MemoryError::database(format!("Failed to check table existence: {}", e))
+                MemoryError::database(format!("Failed to check table existence: {e}"))
             })?;
 
         if let Some(row) = rows
             .next()
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to fetch table existence: {}", e)))?
+            .map_err(|e| MemoryError::database(format!("Failed to fetch table existence: {e}")))?
         {
             let count: i64 = row.get(0).map_err(|e| {
-                MemoryError::database(format!("Failed to parse table count: {}", e))
+                MemoryError::database(format!("Failed to parse table count: {e}"))
             })?;
             Ok(count > 0)
         } else {
@@ -50,19 +50,18 @@ impl Persistence {
         }
 
         let sql = format!(
-            "SELECT COUNT(*) FROM pragma_table_info('{}') WHERE name = ?1",
-            table_name
+            "SELECT COUNT(*) FROM pragma_table_info('{table_name}') WHERE name = ?1"
         );
 
         let mut rows = conn.query(&sql, params![column_name]).await.map_err(|e| {
-            MemoryError::database(format!("Failed to check column existence: {}", e))
+            MemoryError::database(format!("Failed to check column existence: {e}"))
         })?;
 
         if let Some(row) = rows.next().await.map_err(|e| {
-            MemoryError::database(format!("Failed to fetch column existence: {}", e))
+            MemoryError::database(format!("Failed to fetch column existence: {e}"))
         })? {
             let count: i64 = row.get(0).map_err(|e| {
-                MemoryError::database(format!("Failed to parse column count: {}", e))
+                MemoryError::database(format!("Failed to parse column count: {e}"))
             })?;
             Ok(count > 0)
         } else {
@@ -83,13 +82,13 @@ impl Persistence {
                 )
                 .await
                 .map_err(|e| {
-                    MemoryError::database(format!("Failed migration v5 concepts merge: {}", e))
+                    MemoryError::database(format!("Failed migration v5 concepts merge: {e}"))
                 })?;
             } else {
                 conn.execute_batch("ALTER TABLE concepts RENAME TO csm_concepts;")
                     .await
                     .map_err(|e| {
-                        MemoryError::database(format!("Failed migration v5 concepts rename: {}", e))
+                        MemoryError::database(format!("Failed migration v5 concepts rename: {e}"))
                     })?;
             }
         }
@@ -103,15 +102,14 @@ impl Persistence {
                 )
                 .await
                 .map_err(|e| {
-                    MemoryError::database(format!("Failed migration v5 associations merge: {}", e))
+                    MemoryError::database(format!("Failed migration v5 associations merge: {e}"))
                 })?;
             } else {
                 conn.execute_batch("ALTER TABLE associations RENAME TO csm_associations;")
                     .await
                     .map_err(|e| {
                         MemoryError::database(format!(
-                            "Failed migration v5 associations rename: {}",
-                            e
+                            "Failed migration v5 associations rename: {e}"
                         ))
                     })?;
             }
@@ -126,13 +124,13 @@ impl Persistence {
                 )
                 .await
                 .map_err(|e| {
-                    MemoryError::database(format!("Failed migration v5 versions merge: {}", e))
+                    MemoryError::database(format!("Failed migration v5 versions merge: {e}"))
                 })?;
             } else {
                 conn.execute_batch("ALTER TABLE concept_versions RENAME TO csm_versions;")
                     .await
                     .map_err(|e| {
-                        MemoryError::database(format!("Failed migration v5 versions rename: {}", e))
+                        MemoryError::database(format!("Failed migration v5 versions rename: {e}"))
                     })?;
             }
         }
@@ -146,15 +144,14 @@ impl Persistence {
                 )
                 .await
                 .map_err(|e| {
-                    MemoryError::database(format!("Failed migration v5 canonical merge: {}", e))
+                    MemoryError::database(format!("Failed migration v5 canonical merge: {e}"))
                 })?;
             } else {
                 conn.execute_batch("ALTER TABLE canonical_concepts RENAME TO csm_canonical;")
                     .await
                     .map_err(|e| {
                         MemoryError::database(format!(
-                            "Failed migration v5 canonical rename: {}",
-                            e
+                            "Failed migration v5 canonical rename: {e}"
                         ))
                     })?;
             }
@@ -164,7 +161,7 @@ impl Persistence {
             conn.execute_batch("DROP TABLE __schema_version;")
                 .await
                 .map_err(|e| {
-                    MemoryError::database(format!("Failed migration v5 schema cleanup: {}", e))
+                    MemoryError::database(format!("Failed migration v5 schema cleanup: {e}"))
                 })?;
         }
 

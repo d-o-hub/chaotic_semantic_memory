@@ -38,7 +38,7 @@ impl Persistence {
         let db = Builder::new_local(path)
             .build()
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to open database: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to open database: {e}")))?;
 
         let persistence = Self {
             db: Arc::new(db),
@@ -68,7 +68,7 @@ impl Persistence {
         let db = Builder::new_remote(url.to_string(), token.to_string())
             .build()
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to open remote database: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to open remote database: {e}")))?;
 
         let persistence = Self {
             db: Arc::new(db),
@@ -102,7 +102,7 @@ impl Persistence {
         match &self.remote_limit {
             Some(limit) => {
                 limit.clone().acquire_owned().await.map(Some).map_err(|e| {
-                    MemoryError::database(format!("Failed to acquire pool slot: {}", e))
+                    MemoryError::database(format!("Failed to acquire pool slot: {e}"))
                 })
             }
             None => Ok(None),
@@ -147,7 +147,7 @@ impl Persistence {
             COMMIT;",
         )
         .await
-        .map_err(|e| MemoryError::database(format!("Failed to initialize schema: {}", e)))?;
+        .map_err(|e| MemoryError::database(format!("Failed to initialize schema: {e}")))?;
         // Use internal method that reuses the connection to avoid semaphore deadlock
         self.apply_migrations_with_conn(&conn, LATEST_SCHEMA_VERSION)
             .await?;
@@ -178,7 +178,7 @@ impl Persistence {
             ],
         )
         .await
-        .map_err(|e| MemoryError::database(format!("Failed to save concept: {}", e)))?;
+        .map_err(|e| MemoryError::database(format!("Failed to save concept: {e}")))?;
 
         self.record_concept_version(&conn, concept).await?;
         Ok(())
@@ -194,7 +194,7 @@ impl Persistence {
         let conn = self.connect().await?;
         conn.execute("BEGIN", ())
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {e}")))?;
 
         let mut first_error: Option<MemoryError> = None;
         for concept in concepts {
@@ -221,8 +221,7 @@ impl Persistence {
                 .await
             {
                 first_error = Some(MemoryError::database(format!(
-                    "Failed to batch save concept: {}",
-                    e
+                    "Failed to batch save concept: {e}"
                 )));
                 break;
             }
@@ -240,7 +239,7 @@ impl Persistence {
 
         conn.execute("COMMIT", ())
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to commit transaction: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to commit transaction: {e}")))?;
 
         Ok(())
     }
@@ -257,25 +256,25 @@ impl Persistence {
                 params![id],
             )
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to load concept: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to load concept: {e}")))?;
 
         if let Some(row) = rows
             .next()
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to fetch row: {}", e)))?
+            .map_err(|e| MemoryError::database(format!("Failed to fetch row: {e}")))?
         {
             let vector_bytes: Vec<u8> = row
                 .get(0)
-                .map_err(|e| MemoryError::database(format!("Failed to get vector: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to get vector: {e}")))?;
             let metadata_json: String = row
                 .get(1)
-                .map_err(|e| MemoryError::database(format!("Failed to get metadata: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to get metadata: {e}")))?;
             let created_at: i64 = row
                 .get(2)
-                .map_err(|e| MemoryError::database(format!("Failed to get created_at: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to get created_at: {e}")))?;
             let modified_at: i64 = row
                 .get(3)
-                .map_err(|e| MemoryError::database(format!("Failed to get modified_at: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to get modified_at: {e}")))?;
             let expires_at: Option<i64> = row.get(4).ok();
             let canonical_concept_ids_json: Option<String> = row.get(5).ok();
 
@@ -313,29 +312,29 @@ impl Persistence {
                 (),
             )
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to load concepts: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to load concepts: {e}")))?;
 
         let mut concepts = Vec::new();
         while let Some(row) = rows
             .next()
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to fetch row: {}", e)))?
+            .map_err(|e| MemoryError::database(format!("Failed to fetch row: {e}")))?
         {
             let id: String = row
                 .get(0)
-                .map_err(|e| MemoryError::database(format!("Failed to get id: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to get id: {e}")))?;
             let vector_bytes: Vec<u8> = row
                 .get(1)
-                .map_err(|e| MemoryError::database(format!("Failed to get vector: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to get vector: {e}")))?;
             let metadata_json: String = row
                 .get(2)
-                .map_err(|e| MemoryError::database(format!("Failed to get metadata: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to get metadata: {e}")))?;
             let created_at: i64 = row
                 .get(3)
-                .map_err(|e| MemoryError::database(format!("Failed to get created_at: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to get created_at: {e}")))?;
             let modified_at: i64 = row
                 .get(4)
-                .map_err(|e| MemoryError::database(format!("Failed to get modified_at: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to get modified_at: {e}")))?;
             let expires_at: Option<i64> = row.get(5).ok();
             let canonical_concept_ids_json: Option<String> = row.get(6).ok();
 
@@ -368,7 +367,7 @@ impl Persistence {
 
         conn.execute("BEGIN", ())
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {e}")))?;
 
         if let Err(e) = conn
             .execute(
@@ -379,8 +378,7 @@ impl Persistence {
         {
             let _ = conn.execute("ROLLBACK", ()).await;
             return Err(MemoryError::database(format!(
-                "Failed to delete associations: {}",
-                e
+                "Failed to delete associations: {e}"
             )));
         }
 
@@ -390,14 +388,13 @@ impl Persistence {
         {
             let _ = conn.execute("ROLLBACK", ()).await;
             return Err(MemoryError::database(format!(
-                "Failed to delete concept: {}",
-                e
+                "Failed to delete concept: {e}"
             )));
         }
 
         conn.execute("COMMIT", ())
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to commit transaction: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to commit transaction: {e}")))?;
 
         Ok(())
     }
@@ -413,7 +410,7 @@ impl Persistence {
             params![from, to, strength],
         )
         .await
-        .map_err(|e| MemoryError::database(format!("Failed to save association: {}", e)))?;
+        .map_err(|e| MemoryError::database(format!("Failed to save association: {e}")))?;
 
         Ok(())
     }
@@ -429,20 +426,20 @@ impl Persistence {
                 params![id],
             )
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to load associations: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to load associations: {e}")))?;
 
         let mut associations = Vec::new();
         while let Some(row) = rows
             .next()
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to fetch row: {}", e)))?
+            .map_err(|e| MemoryError::database(format!("Failed to fetch row: {e}")))?
         {
             let to_id: String = row
                 .get(0)
-                .map_err(|e| MemoryError::database(format!("Failed to get to_id: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to get to_id: {e}")))?;
             let strength: f64 = row
                 .get(1)
-                .map_err(|e| MemoryError::database(format!("Failed to get strength: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to get strength: {e}")))?;
             associations.push((to_id, strength as f32));
         }
 
@@ -457,11 +454,11 @@ impl Persistence {
         let mut rows = conn
             .query("PRAGMA wal_checkpoint(TRUNCATE);", ())
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to checkpoint: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to checkpoint: {e}")))?;
         let _ = rows
             .next()
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to read checkpoint row: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to read checkpoint row: {e}")))?;
 
         Ok(())
     }
@@ -477,16 +474,16 @@ impl Persistence {
                 (),
             )
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to get size: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to get size: {e}")))?;
 
         if let Some(row) = rows
             .next()
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to fetch row: {}", e)))?
+            .map_err(|e| MemoryError::database(format!("Failed to fetch row: {e}")))?
         {
             let size: i64 = row
                 .get(0)
-                .map_err(|e| MemoryError::database(format!("Failed to get size value: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to get size value: {e}")))?;
             Ok(size as u64)
         } else {
             Ok(0)
