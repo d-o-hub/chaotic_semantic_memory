@@ -3,6 +3,9 @@
 //! Encodes input text and searches for similar concepts.
 //! Supports hybrid retrieval combining BM25 keyword matching and HDC semantic search.
 
+// Casts are intentional for CLI output formatting
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+
 use crate::cli::args::{OutputFormat, QueryArgs};
 use crate::cli::commands::{create_framework, print_success, print_warning, truncate_preview};
 use crate::cli::error::{CliError, Result};
@@ -34,8 +37,7 @@ pub async fn run_query(
     if let Some(kw) = args.keyword_weight {
         if !(0.0..=1.0).contains(&kw) {
             return Err(CliError::Validation(format!(
-                "keyword-weight must be between 0.0 and 1.0, got {}",
-                kw
+                "keyword-weight must be between 0.0 and 1.0, got {kw}"
             )));
         }
     }
@@ -73,7 +75,7 @@ pub async fn run_query(
             framework
                 .probe(query_vector, args.top_k)
                 .await
-                .map_err(|e| CliError::Persistence(format!("query operation failed: {}", e)))?,
+                .map_err(|e| CliError::Persistence(format!("query operation failed: {e}")))?,
         )
     } else {
         None
@@ -157,7 +159,7 @@ pub async fn run_query(
             println!(
                 "{}",
                 serde_json::to_string(&results_json)
-                    .map_err(|e| CliError::Output(format!("failed to serialize results: {}", e)))?
+                    .map_err(|e| CliError::Output(format!("failed to serialize results: {e}")))?
             );
         }
         OutputFormat::Table => {
@@ -168,13 +170,13 @@ pub async fn run_query(
                 println!("{:<40} {:>12}", "CONCEPT ID", "SCORE");
                 println!("{:-<40} {:-<12}", "", "");
                 for (id, score) in &filtered {
-                    println!("{:<40} {:>12.4}", id, score);
+                    println!("{id:<40} {score:>12.4}");
                 }
             }
         }
         OutputFormat::Quiet => {
             for (id, _) in &filtered {
-                println!("{}", id);
+                println!("{id}");
             }
         }
     }
@@ -254,11 +256,15 @@ fn split_on_separators(word: &str) -> Vec<String> {
 async fn build_bm25_index(
     framework: &crate::framework::ChaoticSemanticFramework,
 ) -> Result<Bm25Index> {
-    let singularity = framework.singularity();
-    let sing = singularity.read().await;
-    let mut index = Bm25Index::new();
+    // Collect concepts with lock, build index without lock
+    let concepts = {
+        let singularity = framework.singularity();
+        let sing = singularity.read().await;
+        sing.all_concepts()
+    };
 
-    for concept in sing.all_concepts() {
+    let mut index = Bm25Index::new();
+    for concept in concepts {
         // Extract tokens from text_preview or content_preview
         let text = concept
             .metadata

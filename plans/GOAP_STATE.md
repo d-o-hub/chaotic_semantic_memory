@@ -879,6 +879,8 @@ world_state:
   verification_2026_04_30_dist_channels_aligned: true         # crates.io + npm CLI + npm WASM all 0.3.5
   verification_2026_04_30_clippy_audit: true
   verification_2026_04_30_bm25_search_1000_us: 47.1           # was 64.4 µs (PR #129); now 47.1 µs (-27%)
+  verification_2026_04_30_hvec_bundle_10_us: 5.5              # was 67.2 µs (-91%)
+  verification_2026_04_30_text_encoder_encode_short_us: 2.4   # was 11.5 µs (-79%)
   verification_2026_04_30_singularity_probe_50000_ms: 3.73    # < 10 ms target
   verification_2026_04_30_persistence_cold_start_us: 700      # ~705 µs
   verification_2026_04_30_archive_phase_skipped: true         # no native CLI command — tracked in ADR-0066

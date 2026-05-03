@@ -15,7 +15,7 @@ use std::collections::HashMap;
 /// | 3-4 | 0.7 | 0.3 | Keyword still strong |
 /// | 5-8 | 0.4 | 0.6 | Semantic takes over |
 /// | 9+ | 0.2 | 0.8 | Full semantic mode |
-pub fn compute_weights(token_count: usize) -> (f32, f32) {
+pub const fn compute_weights(token_count: usize) -> (f32, f32) {
     match token_count {
         1..=2 => (0.9, 0.1),
         3..=4 => (0.7, 0.3),
@@ -125,6 +125,8 @@ impl Default for HybridConfig {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // Exact float comparisons for weight test assertions
+
     use super::*;
 
     #[test]

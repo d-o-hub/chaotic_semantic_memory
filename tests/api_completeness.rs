@@ -1,5 +1,8 @@
 //! Tests for Phase 33 API completeness features.
 
+// Locks held during test assertions for framework state verification
+#![allow(clippy::significant_drop_tightening)]
+
 use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240, error::MemoryError};
 use std::collections::HashMap;
 
@@ -174,7 +177,7 @@ async fn test_bundle_concepts_strict_missing() {
             assert_eq!(entity, "Concept");
             assert_eq!(id, "nonexistent");
         }
-        _ => panic!("Expected NotFound error, got {:?}", result),
+        _ => panic!("Expected NotFound error, got {result:?}"),
     }
 }
 

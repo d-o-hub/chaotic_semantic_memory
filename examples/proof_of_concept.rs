@@ -1,5 +1,8 @@
 //! Proof of concept: Build working binary demonstrating all features
 
+// Casts are intentional for demonstration math
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+
 use std::io::Write;
 
 use chaotic_semantic_memory::prelude::*;
@@ -40,7 +43,7 @@ async fn main() -> Result<()> {
     let results = framework.probe(concept_vec, 3).await?;
     println!("✅ Query completed:");
     for (id, score) in &results {
-        println!("   - {}: {:.4}", id, score);
+        println!("   - {id}: {score:.4}");
     }
 
     // 4. Create associations
@@ -56,7 +59,7 @@ async fn main() -> Result<()> {
     let associations = framework.get_associations("rust-programming").await?;
     println!("✅ Associations for 'rust-programming':");
     for (id, strength) in associations {
-        println!("   - {}: {:.2}", id, strength);
+        println!("   - {id}: {strength:.2}");
     }
 
     // 6. Persist
@@ -68,7 +71,7 @@ async fn main() -> Result<()> {
     println!("\n📊 Framework Statistics:");
     println!("   - Concepts: {}", stats.concept_count);
     if let Some(size) = stats.db_size_bytes {
-        println!("   - Database size: {} bytes", size);
+        println!("   - Database size: {size} bytes");
     } else {
         println!("   - Database size: N/A (persistence disabled)");
     }

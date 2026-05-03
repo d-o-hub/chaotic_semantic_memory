@@ -1,3 +1,8 @@
+//! Probe commands for similarity search.
+
+// Casts are intentional for CLI output formatting
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+
 use std::path::Path;
 
 use tracing::instrument;
@@ -67,7 +72,7 @@ pub async fn run_probe(
                 println!("{:<40} {:>12}", "CONCEPT ID", "SIMILARITY");
                 println!("{:-<40} {:->12}", "", "");
                 for (id, score) in &filtered {
-                    let score_str = format!("{:.4}", score);
+                    let score_str = format!("{score:.4}");
                     let colored = if *score > 0.8 {
                         score_str.green()
                     } else if *score > 0.5 {
@@ -75,13 +80,13 @@ pub async fn run_probe(
                     } else {
                         score_str.normal()
                     };
-                    println!("{:<40} {:>12}", id, colored);
+                    println!("{id:<40} {colored:>12}");
                 }
             }
         }
         OutputFormat::Quiet => {
             for (id, _) in &filtered {
-                println!("{}", id);
+                println!("{id}");
             }
         }
     }
@@ -139,13 +144,13 @@ pub async fn run_probe_with_vector(
                 println!("{:<40} {:>12}", "CONCEPT ID", "SIMILARITY");
                 println!("{:-<40} {:->12}", "", "");
                 for (id, score) in &filtered {
-                    println!("{:<40} {:>12.4}", id, score);
+                    println!("{id:<40} {score:>12.4}");
                 }
             }
         }
         OutputFormat::Quiet => {
             for (id, _) in &filtered {
-                println!("{}", id);
+                println!("{id}");
             }
         }
     }

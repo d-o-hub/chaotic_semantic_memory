@@ -16,6 +16,18 @@ pub enum TaskType {
     Association,
     /// Multi-session task requiring aggregation across sessions.
     MultiSession,
+    /// Isolation task where a session should NOT have access to other session data.
+    Isolation,
+    /// TTL expiration task.
+    Ttl,
+    /// Semantic bridge expansion task.
+    Bridge,
+    /// Version history retrieval task.
+    History,
+    /// BM25 keyword search task.
+    Bm25,
+    /// Hybrid semantic/keyword search task.
+    Hybrid,
 }
 
 /// A single turn in a conversation session.
@@ -29,6 +41,8 @@ pub struct SessionTurn {
     pub text: String,
     /// Optional memory ID assigned to this turn.
     pub memory_id: Option<String>,
+    /// Optional TTL in seconds for this memory.
+    pub ttl_seconds: Option<u64>,
 }
 
 /// A conversation session containing multiple turns.
@@ -75,6 +89,8 @@ pub struct RetrievedItem {
 pub struct CaseResult {
     /// Query ID this result corresponds to.
     pub query_id: String,
+    /// ID of the session this query relates to.
+    pub session_id: String,
     /// Task type of the query.
     pub task_type: TaskType,
     /// List of retrieved items.
@@ -128,6 +144,15 @@ pub struct SummaryMetrics {
     pub abstain_precision: f32,
     /// Recall of abstention decisions.
     pub abstain_recall: f32,
+    /// Success rate of association tasks.
+    #[serde(default)]
+    pub association_success_rate: f32,
+    /// Success rate of multi-session aggregation tasks.
+    #[serde(default)]
+    pub multisession_recall: f32,
+    /// Success rate of session isolation verification.
+    #[serde(default)]
+    pub session_isolation: f32,
     /// Total ingestion time in milliseconds.
     pub ingest_ms: u128,
     /// Median (p50) query latency in milliseconds.

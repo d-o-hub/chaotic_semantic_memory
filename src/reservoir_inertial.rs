@@ -19,8 +19,7 @@ impl Reservoir {
     pub fn with_beta(mut self, beta: f32) -> Result<Self> {
         if !(0.0..=0.5).contains(&beta) {
             return Err(MemoryError::reservoir(format!(
-                "Beta must be in [0.0, 0.5], got {}",
-                beta
+                "Beta must be in [0.0, 0.5], got {beta}"
             )));
         }
         self.beta = beta;
@@ -28,7 +27,7 @@ impl Reservoir {
     }
 
     /// Get current beta coefficient.
-    pub fn beta(&self) -> f32 {
+    pub const fn beta(&self) -> f32 {
         self.beta
     }
 }

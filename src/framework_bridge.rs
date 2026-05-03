@@ -43,6 +43,7 @@ impl ChaoticSemanticFramework {
     /// Execute bridge retrieval query with metadata filtering.
     ///
     /// Pre-filters concepts by metadata before bridge retrieval.
+    #[allow(clippy::significant_drop_tightening)] // Singularity lock needed for filtered retrieval
     pub async fn probe_bridge_text_filtered(
         &self,
         query: &str,
@@ -107,6 +108,8 @@ impl ChaoticSemanticFramework {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // Exact float comparisons for confidence test assertions
+
     use crate::encoder::TextEncoder;
     use crate::framework_builder::FrameworkBuilder;
     use crate::semantic_bridge::{CanonicalConcept, ConceptGraph};

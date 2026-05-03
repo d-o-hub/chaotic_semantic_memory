@@ -15,15 +15,13 @@ impl Persistence {
                 params![concept.id.clone()],
             )
             .await
-            .map_err(|e| {
-                MemoryError::database(format!("Failed to query concept version: {}", e))
-            })?;
+            .map_err(|e| MemoryError::database(format!("Failed to query concept version: {e}")))?;
 
         let current = if let Some(row) = rows.next().await.map_err(|e| {
-            MemoryError::database(format!("Failed to fetch concept version row: {}", e))
+            MemoryError::database(format!("Failed to fetch concept version row: {e}"))
         })? {
             row.get::<i64>(0).map_err(|e| {
-                MemoryError::database(format!("Failed to read version from row: {}", e))
+                MemoryError::database(format!("Failed to read version from row: {e}"))
             })?
         } else {
             0
@@ -44,7 +42,7 @@ impl Persistence {
             ],
         )
         .await
-        .map_err(|e| MemoryError::database(format!("Failed to save concept version: {}", e)))?;
+        .map_err(|e| MemoryError::database(format!("Failed to save concept version: {e}")))?;
 
         conn.execute(
             "DELETE FROM csm_versions
@@ -55,7 +53,7 @@ impl Persistence {
             params![concept.id.clone(), self.version_retention as i64],
         )
         .await
-        .map_err(|e| MemoryError::database(format!("Failed to prune concept versions: {}", e)))?;
+        .map_err(|e| MemoryError::database(format!("Failed to prune concept versions: {e}")))?;
 
         Ok(())
     }

@@ -23,6 +23,9 @@
 //! assert_eq!(results[0].0, "doc1"); // Exact match ranks first
 //! ```
 
+// Casts are intentional for BM25 math (document counts, term frequencies)
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
@@ -314,6 +317,8 @@ fn score_cmp_desc(a: &(usize, f32), b: &(usize, f32)) -> Ordering {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // Exact float comparisons for BM25 score test assertions
+
     use super::*;
 
     #[test]
@@ -444,10 +449,8 @@ mod tests {
         let mut index = Bm25Index::new();
         index.add_document("doc1", &["hello", "world"]);
         index.clear();
-
         assert!(index.is_empty());
-        let results = index.search(&["hello"], 10);
-        assert!(results.is_empty());
+        assert!(index.search(&["hello"], 10).is_empty());
     }
 
     #[test]
@@ -491,7 +494,6 @@ mod tests {
     fn test_no_matching_terms() {
         let mut index = Bm25Index::new();
         index.add_document("doc1", &["hello", "world"]);
-        let results = index.search(&["rust"], 10);
-        assert!(results.is_empty());
+        assert!(index.search(&["rust"], 10).is_empty());
     }
 }

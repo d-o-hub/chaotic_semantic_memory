@@ -2,6 +2,9 @@
 //!
 //! Implements 10240-bit hypervectors using `[u128; 80]`.
 
+// Casts are intentional for HDC dimension math (10240-bit operations)
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+
 use rand::RngExt;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -38,7 +41,7 @@ impl HVec10240 {
     pub const WORDS: usize = 80;
 
     /// Create a new hypervector with all zeros
-    pub fn zero() -> Self {
+    pub const fn zero() -> Self {
         Self { data: [0u128; 80] }
     }
 
@@ -91,80 +94,69 @@ impl HVec10240 {
     /// 3. It parallelizes over hypervector words rather than over vectors to minimize
     ///    memory traffic and synchronization overhead.
     pub fn bundle(vectors: &[Self]) -> Result<Self> {
-        if vectors.is_empty() {
+        let num_vectors = vectors.len();
+        if num_vectors == 0 {
             return Ok(Self::zero());
         }
+        if num_vectors == 1 {
+            return Ok(vectors[0]);
+        }
 
-        let num_vectors = vectors.len();
-        // Threshold: strictly greater than half
+        // Majority rule for N=2 is bitwise AND (Threshold = 2/2 + 1 = 2)
+        if num_vectors == 2 {
+            let mut data = [0u128; 80];
+            for i in 0..80 {
+                data[i] = vectors[0].data[i] & vectors[1].data[i];
+            }
+            return Ok(Self { data });
+        }
+
         let threshold = num_vectors / 2 + 1;
-        // Number of bit-planes needed to represent a sum up to num_vectors
         let num_planes = (usize::BITS - num_vectors.leading_zeros()) as usize;
-
         let mut data = [0u128; 80];
+
+        let compute_word = |i: usize| {
+            let mut planes = [0u128; 32];
+            for v in vectors {
+                let mut carry = v.data[i];
+                for plane in planes.iter_mut().take(num_planes) {
+                    let next_carry = *plane & carry;
+                    *plane ^= carry;
+                    carry = next_carry;
+                    if carry == 0 {
+                        break;
+                    }
+                }
+            }
+            let (mut current_eq, mut current_gt) = (!0u128, 0u128);
+            for p in (0..num_planes).rev() {
+                let bit = (threshold >> p) & 1;
+                if bit == 1 {
+                    current_eq &= planes[p];
+                } else {
+                    current_gt |= current_eq & planes[p];
+                    current_eq &= !planes[p];
+                }
+            }
+            current_gt | current_eq
+        };
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         {
-            data.par_iter_mut().enumerate().for_each(|(i, word)| {
-                // Use bit-sliced adder to count bits for each position in the word
-                let mut planes = [0u128; 32];
-                for v in vectors {
-                    let mut carry = v.data[i];
-                    for plane in planes.iter_mut().take(num_planes) {
-                        let next_carry = *plane & carry;
-                        *plane ^= carry;
-                        carry = next_carry;
-                        if carry == 0 {
-                            break;
-                        }
-                    }
+            // Gate Rayon parallelization by threshold to avoid overhead on small vector sets.
+            if num_vectors >= 32 {
+                data.par_iter_mut()
+                    .enumerate()
+                    .for_each(|(i, word)| *word = compute_word(i));
+            } else {
+                for i in 0..80 {
+                    data[i] = compute_word(i);
                 }
-
-                // Reconstruct the resulting word using bit-sliced comparison: count >= threshold
-                let mut current_eq = !0u128;
-                let mut current_gt = 0u128;
-                for p in (0..num_planes).rev() {
-                    let bit = (threshold >> p) & 1;
-                    if bit == 1 {
-                        current_eq &= planes[p];
-                    } else {
-                        current_gt |= current_eq & planes[p];
-                        current_eq &= !planes[p];
-                    }
-                }
-                *word = current_gt | current_eq;
-            });
-        }
-
-        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-        {
-            for i in 0..80 {
-                let mut planes = [0u128; 32];
-                for v in vectors {
-                    let mut carry = v.data[i];
-                    for plane in planes.iter_mut().take(num_planes) {
-                        let next_carry = *plane & carry;
-                        *plane ^= carry;
-                        carry = next_carry;
-                        if carry == 0 {
-                            break;
-                        }
-                    }
-                }
-
-                let mut current_eq = !0u128;
-                let mut current_gt = 0u128;
-                for p in (0..num_planes).rev() {
-                    let bit = (threshold >> p) & 1;
-                    if bit == 1 {
-                        current_eq &= planes[p];
-                    } else {
-                        current_gt |= current_eq & planes[p];
-                        current_eq &= !planes[p];
-                    }
-                }
-                data[i] = current_gt | current_eq;
             }
+        }
+        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
+        for i in 0..80 {
+            data[i] = compute_word(i);
         }
 
         Ok(Self { data })
@@ -463,11 +455,10 @@ mod tests {
         let v = HVec10240::random();
         let json = serde_json::to_string(&v).unwrap();
         // Should be a base64 string, not an array
-        assert!(json.starts_with('"'), "Expected string, got: {}", json);
+        assert!(json.starts_with('"'), "Expected string, got: {json}");
         assert!(
             !json.starts_with('['),
-            "Expected base64 string, not array: {}",
-            json
+            "Expected base64 string, not array: {json}"
         );
         // Verify roundtrip
         let decoded: HVec10240 = serde_json::from_str(&json).unwrap();

@@ -72,7 +72,7 @@ async fn main() -> Result<()> {
 
     for (id, text) in &memories {
         framework.inject_text(id, text).await?;
-        println!("Injected: {} -> {}", id, text);
+        println!("Injected: {id} -> {text}");
     }
 
     // Create bridge retrieval pipeline

@@ -3,6 +3,7 @@
 use crate::error::Result;
 use crate::framework_events::MemoryEvent;
 use crate::hyperdim::HVec10240;
+use crate::metadata_filter::MetadataFilter;
 use crate::singularity::ConceptBuilder;
 use std::collections::HashMap;
 use tracing::instrument;
@@ -56,8 +57,10 @@ impl crate::framework::ChaoticSemanticFramework {
     /// Returns the number of concepts removed.
     #[instrument(err, skip(self))]
     pub async fn purge_expired(&self) -> Result<usize> {
-        let mut sing = self.singularity.write().await;
-        let count = sing.purge_expired();
+        let count = {
+            let mut sing = self.singularity.write().await;
+            sing.purge_expired()
+        };
         Ok(count)
     }
 
@@ -93,10 +96,38 @@ impl crate::framework::ChaoticSemanticFramework {
         let vector = encoder.encode(query);
         self.probe(vector, top_k).await
     }
+
+    /// Probe for similar concepts using text input and metadata filtering.
+    pub async fn probe_text_filtered(
+        &self,
+        query: &str,
+        top_k: usize,
+        filter: &MetadataFilter,
+    ) -> Result<Vec<(String, f32)>> {
+        let encoder = crate::encoder::TextEncoder::new();
+        let vector = encoder.encode(query);
+        self.probe_filtered(&vector, top_k, filter).await
+    }
+
+    /// Query specifically for a session using text input.
+    ///
+    /// This is a convenience method that filters results to only those
+    /// with a `session_id` metadata field matching the provided ID.
+    pub async fn query_in_session(
+        &self,
+        query: &str,
+        session_id: &str,
+        top_k: usize,
+    ) -> Result<Vec<(String, f32)>> {
+        let filter = MetadataFilter::eq("session_id", session_id);
+        self.probe_text_filtered(query, top_k, &filter).await
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::significant_drop_tightening)] // Locks held during test assertions
+
     use super::*;
     use crate::framework::ChaoticSemanticFramework;
     use crate::singularity::unix_now_secs;
@@ -372,6 +403,53 @@ mod tests {
             sing.concepts.contains_key("third"),
             "long TTL concept should remain"
         );
+    }
+
+    #[tokio::test]
+    async fn test_query_in_session_filtering() {
+        let framework = ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .build()
+            .await
+            .unwrap();
+
+        // Inject concepts for two different sessions
+        let mut meta1 = HashMap::new();
+        meta1.insert("session_id".to_string(), serde_json::json!("session-1"));
+        framework
+            .inject_text_with_metadata("doc-1-1", "apple fruit red", meta1)
+            .await
+            .unwrap();
+
+        let mut meta2 = HashMap::new();
+        meta2.insert("session_id".to_string(), serde_json::json!("session-2"));
+        framework
+            .inject_text_with_metadata("doc-2-1", "apple fruit green", meta2)
+            .await
+            .unwrap();
+
+        // Query in session 1
+        let results1 = framework
+            .query_in_session("apple", "session-1", 10)
+            .await
+            .unwrap();
+        assert_eq!(results1.len(), 1);
+        assert_eq!(results1[0].0, "doc-1-1");
+
+        // Query in session 2
+        let results2 = framework
+            .query_in_session("apple", "session-2", 10)
+            .await
+            .unwrap();
+        assert_eq!(results2.len(), 1);
+        assert_eq!(results2[0].0, "doc-2-1");
+
+        // Query in non-existent session
+        let results3 = framework
+            .query_in_session("apple", "session-3", 10)
+            .await
+            .unwrap();
+        assert!(results3.is_empty());
     }
 
     #[tokio::test]

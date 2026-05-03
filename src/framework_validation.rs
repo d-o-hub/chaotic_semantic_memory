@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use crate::error::{MemoryError, Result};
 use crate::framework::ChaoticSemanticFramework;
@@ -10,13 +11,77 @@ const MAX_CONCEPT_ID_BYTES: usize = 256;
 const MAX_BUCKET_PROBE_WIDTH: usize = 16;
 const MAX_TRAVERSAL_DEPTH: usize = 32;
 const MAX_TRAVERSAL_RESULTS: usize = 10_000;
+pub(crate) const MAX_PATH_LENGTH: usize = 4096;
+
+pub(crate) fn validate_path(path: &str) -> Result<PathBuf> {
+    if path.len() > MAX_PATH_LENGTH {
+        return Err(MemoryError::InvalidInput {
+            field: "path".to_string(),
+            reason: format!("path exceeds maximum length of {MAX_PATH_LENGTH} characters"),
+        });
+    }
+
+    let path = PathBuf::from(path);
+
+    if path
+        .components()
+        .any(|c| c == std::path::Component::ParentDir)
+    {
+        return Err(MemoryError::InvalidInput {
+            field: "path".to_string(),
+            reason: "path traversal '..' components are not allowed".to_string(),
+        });
+    }
+
+    if path.is_absolute() {
+        let normalized = if path.exists() {
+            path.canonicalize().map_err(|_| MemoryError::InvalidInput {
+                field: "path".to_string(),
+                reason: "absolute path cannot be accessed".to_string(),
+            })?
+        } else {
+            let parent = path.parent().ok_or_else(|| MemoryError::InvalidInput {
+                field: "path".to_string(),
+                reason: "absolute path has no parent directory".to_string(),
+            })?;
+            let file_name = path.file_name().ok_or_else(|| MemoryError::InvalidInput {
+                field: "path".to_string(),
+                reason: "absolute path must include a file name".to_string(),
+            })?;
+            let parent_normalized =
+                parent
+                    .canonicalize()
+                    .map_err(|_| MemoryError::InvalidInput {
+                        field: "path".to_string(),
+                        reason: "absolute path parent does not exist or cannot be accessed"
+                            .to_string(),
+                    })?;
+            parent_normalized.join(file_name)
+        };
+
+        let current_dir = std::env::current_dir().map_err(|e| MemoryError::InvalidInput {
+            field: "path".to_string(),
+            reason: format!("cannot determine current working directory: {e}"),
+        })?;
+
+        if !normalized.starts_with(&current_dir) && !normalized.starts_with("/tmp") {
+            return Err(MemoryError::InvalidInput {
+                field: "path".to_string(),
+                reason: "absolute paths must be within current working directory or /tmp"
+                    .to_string(),
+            });
+        }
+    }
+
+    Ok(path)
+}
 
 impl ChaoticSemanticFramework {
     pub(crate) fn validate_retrieval_config(config: &RetrievalConfig) -> Result<()> {
         if config.bucket_probe_width > MAX_BUCKET_PROBE_WIDTH {
             return Err(MemoryError::InvalidInput {
                 field: "bucket_probe_width".to_string(),
-                reason: format!("bucket_probe_width exceeds {}", MAX_BUCKET_PROBE_WIDTH),
+                reason: format!("bucket_probe_width exceeds {MAX_BUCKET_PROBE_WIDTH}"),
             });
         }
         Ok(())
@@ -75,7 +140,7 @@ impl ChaoticSemanticFramework {
         if size > limit {
             return Err(MemoryError::InvalidInput {
                 field: "metadata".to_string(),
-                reason: format!("metadata exceeds {} bytes (got {})", limit, size),
+                reason: format!("metadata exceeds {limit} bytes (got {size})"),
             });
         }
         Ok(())
@@ -161,8 +226,7 @@ impl ChaoticSemanticFramework {
             return Err(MemoryError::InvalidInput {
                 field: "filter".to_string(),
                 reason: format!(
-                    "metadata filter depth exceeds maximum allowed {} (got {})",
-                    MAX_FILTER_DEPTH, depth
+                    "metadata filter depth exceeds maximum allowed {MAX_FILTER_DEPTH} (got {depth})"
                 ),
             });
         }
@@ -221,5 +285,21 @@ mod tests {
             ..RetrievalConfig::default()
         };
         assert!(ChaoticSemanticFramework::validate_retrieval_config(&config).is_err());
+    }
+
+    #[test]
+    fn path_traversal_blocked() {
+        assert!(validate_path("../etc/passwd").is_err());
+    }
+
+    #[test]
+    fn path_too_long() {
+        let long = "a".repeat(5000);
+        assert!(validate_path(&long).is_err());
+    }
+
+    #[test]
+    fn path_relative_ok() {
+        assert!(validate_path("test.json").is_ok());
     }
 }
