@@ -211,8 +211,7 @@ impl BridgeRetrieval {
                     .metadata
                     .get("_text")
                     .and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| hit.id.clone());
+                    .map_or_else(|| hit.id.clone(), |s| s.to_string());
 
                 facts.push((text, hit.scores.final_score));
                 sources.push(hit.id.clone());

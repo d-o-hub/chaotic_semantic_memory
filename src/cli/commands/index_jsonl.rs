@@ -98,8 +98,7 @@ pub async fn run_index_jsonl(
             .as_ref()
             .and_then(|f| json.get(f))
             .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| format!("jsonl:{}", line_num + 1));
+            .map_or_else(|| format!("jsonl:{}", line_num + 1), |s| s.to_string());
 
         let tags: Vec<String> = args
             .tag_field

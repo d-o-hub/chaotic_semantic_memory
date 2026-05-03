@@ -227,8 +227,7 @@ impl Singularity {
                     .filter(|(id, _)| {
                         self.concepts
                             .get(id)
-                            .map(|c| filter.matches(&c.metadata))
-                            .unwrap_or(false)
+                            .is_some_and(|c| filter.matches(&c.metadata))
                     })
                     .take(top_k)
                     .map(|(id, score)| (id.clone(), *score))
@@ -243,8 +242,7 @@ impl Singularity {
                     .filter(|(id, _)| {
                         self.concepts
                             .get(id)
-                            .map(|c| filter.matches(&c.metadata))
-                            .unwrap_or(false)
+                            .is_some_and(|c| filter.matches(&c.metadata))
                     })
                     .take(top_k)
                     .map(|(id, score)| (id.clone(), *score))

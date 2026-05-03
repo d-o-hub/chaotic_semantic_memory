@@ -60,3 +60,40 @@ Reservoir uses `StdRng::seed_from_u64(seed)`:
 pub fn new_seeded(input_size: usize, size: usize, seed: u64) -> Result<Self>
 ```
 Tests should use `new_seeded(..., 42)` for determinism.
+
+## Default/New Pattern (DeepSource BUG_RISK Prevention)
+
+Construct directly in `Default::default()`, have `new()` delegate to `default()`.
+This avoids DeepSource "Found call returning Self in default()" BUG_RISK violations.
+
+```rust
+// ✅ CORRECT: default() constructs directly; new() delegates
+impl Default for MyBuilder {
+    fn default() -> Self {
+        Self { field: Default::default() }
+    }
+}
+impl MyBuilder {
+    pub fn new() -> Self { Self::default() }
+}
+
+// ❌ WRONG: triggers DeepSource BUG_RISK
+impl Default for MyBuilder {
+    fn default() -> Self { Self::new() }
+}
+```
+
+## Map/Unwrap Pattern (DeepSource ANTI_PATTERN Prevention)
+
+Prefer `.is_some_and()` / `.map_or()` / `.map_or_else()` over `.map().unwrap_or()`.
+Enforced by `clippy::map_unwrap_or` (promoted to `warn` in `Cargo.toml`).
+
+```rust
+// ✅ CORRECT
+concepts.get(id).is_some_and(|c| filter.matches(&c.metadata))
+value.map_or_else(|| default(), |s| s.to_string())
+
+// ❌ WRONG: triggers DeepSource ANTI_PATTERN + clippy::map_unwrap_or
+concepts.get(id).map(|c| filter.matches(&c.metadata)).unwrap_or(false)
+value.map(|s| s.to_string()).unwrap_or_else(|| default())
+```

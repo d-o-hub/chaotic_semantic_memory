@@ -1362,6 +1362,8 @@ significant_drop_tightening = "warn"    # Lock held longer than needed
 cast_precision_loss = "warn"            # usize as f32 losing bits
 cast_possible_truncation = "warn"       # i64 as u32 truncation risk
 redundant_clone = "warn"                # Free perf wins
+map_unwrap_or = "warn"                # Prefer map_or/map_or_else (DeepSource parity)
+unnecessary_map_or = "warn"           # Then prefer is_some_and() or map_or_else()
 
 # ============================================================================
 # ADR-0077: Promoted from pedantic — library DX (Phase A allow, Phase C warn)
