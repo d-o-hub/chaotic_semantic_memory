@@ -378,6 +378,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - impl ChaoticSemanticFramework
 
+### src/framework_persistence.rs
+
+- impl ChaoticSemanticFramework
+
 ### src/framework_ttl.rs
 
 - impl crate::framework::ChaoticSemanticFramework
@@ -397,14 +401,17 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use crate::hyperdim_batch::batch_cosine_similarity
 - pub struct HVec10240
 - impl HVec10240
-- impl Serialize for HVec10240
-- impl Visitor for HVecVisitor
-- impl Deserialize for HVec10240
 - pub use crate::bundle::BundleAccumulator
 
 ### src/hyperdim_batch.rs
 
 - pub fn batch_cosine_similarity
+
+### src/hyperdim_serde.rs
+
+- impl Serialize for HVec10240
+- impl Visitor for HVecVisitor
+- impl Deserialize for HVec10240
 
 ### src/index/brute_force.rs
 
@@ -539,6 +546,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct ConceptVersion
 - impl Persistence
 
+### src/persistence_index.rs
+
+- impl Persistence
+
 ### src/persistence_migrations.rs
 
 - impl Persistence
@@ -659,6 +670,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct RetrievalConfig
 - impl RetrievalConfig
 - impl Default for RetrievalConfig
+- impl Singularity
+
+### src/singularity_search.rs
+
 - impl Singularity
 
 ### src/singularity_ttl.rs
@@ -2709,10 +2724,6 @@ impl ChaoticSemanticFramework {
     pub fn incoming_associations(&self, id: &str) -> Result<Vec<(String, f32)>>;
     pub fn shortest_path_hops(&self, from: &str, to: &str) -> Result<Option<Vec<String>>>;
     pub fn get_concept(&self, id: &str) -> Result<Option<Concept>>;
-    pub fn persist(&self) -> Result<()>;
-    pub fn persistence_health_check(&self) -> Result<()>;
-    pub fn load_replace(&self) -> Result<()>;
-    pub fn load_merge(&self) -> Result<()>;
     pub fn load(&self) -> Result<()>;
     pub fn metrics_snapshot(&self) -> FrameworkMetricsSnapshot;
     pub fn stats(&self) -> Result<FrameworkStats>;
@@ -2918,6 +2929,19 @@ impl ChaoticSemanticFramework {
 }
 ```
 
+## src/framework_persistence.rs
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
+    pub fn persist(&self) -> Result<()>;
+    pub fn persistence_health_check(&self) -> Result<()>;
+    pub fn load_replace(&self) -> Result<()>;
+    pub fn load_merge(&self) -> Result<()>;
+}
+```
+
 ## src/framework_ttl.rs
 
 ### impl crate::framework::ChaoticSemanticFramework
@@ -3000,13 +3024,6 @@ pub use crate::bundle::BundleAccumulator;
 pub use crate::hyperdim_batch::batch_cosine_similarity;
 ```
 
-### impl Deserialize<'de> for HVec10240
-
-```rust
-impl<'de> Deserialize<'de> for HVec10240 {
-}
-```
-
 ### impl HVec10240
 
 ```rust
@@ -3029,6 +3046,25 @@ impl HVec10240 {
 }
 ```
 
+## src/hyperdim_batch.rs
+
+### batch_cosine_similarity
+
+```rust
+pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> Vec<f32>
+```
+
+Batch similarity computation tuned for cache locality and Rayon overhead.
+
+## src/hyperdim_serde.rs
+
+### impl Deserialize<'de> for HVec10240
+
+```rust
+impl<'de> Deserialize<'de> for HVec10240 {
+}
+```
+
 ### impl Serialize for HVec10240
 
 ```rust
@@ -3042,16 +3078,6 @@ impl Serialize for HVec10240 {
 impl<'de> Visitor<'de> for HVecVisitor {
 }
 ```
-
-## src/hyperdim_batch.rs
-
-### batch_cosine_similarity
-
-```rust
-pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> Vec<f32>
-```
-
-Batch similarity computation tuned for cache locality and Rayon overhead.
 
 ## src/hyperdim_simd.rs
 
@@ -3690,9 +3716,18 @@ impl Persistence {
     pub fn save_association(&self, from: &str, to: &str, strength: f32) -> Result<()>;
     pub fn load_associations(&self, id: &str) -> Result<Vec<(String, f32)>>;
     pub fn checkpoint(&self) -> Result<()>;
+    pub fn size(&self) -> Result<u64>;
+}
+```
+
+## src/persistence_index.rs
+
+### impl Persistence
+
+```rust
+impl Persistence {
     pub fn save_index(&self, id: &str, data: &[u8]) -> Result<()>;
     pub fn load_index(&self, id: &str) -> Result<Option<Vec<u8>>>;
-    pub fn size(&self) -> Result<u64>;
 }
 ```
 
@@ -4373,9 +4408,6 @@ impl Singularity {
     pub fn delete(&mut self, id: &str) -> Result<()>;
     pub fn clear(&mut self);
     pub fn update(&mut self, id: &str, new_vector: HVec10240) -> Result<()>;
-    pub fn find_similar(&self, query: &HVec10240, top_k: usize) -> Vec<(String, f32)>;
-    pub fn find_similar_arc(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]>;
-    pub fn find_similar_cached(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]>;
     pub fn associate(&mut self, from: &str, to: &str, strength: f32) -> Result<()>;
     pub fn get_associations(&self, id: &str) -> Vec<(String, f32)>;
     pub fn bundle_concepts(&self, ids: &[String]) -> Result<HVec10240>;
@@ -4515,6 +4547,18 @@ impl Singularity {
     pub fn set_retrieval_config(&mut self, config: RetrievalConfig) -> Result<()>;
     pub fn retrieval_config(&self) -> &RetrievalConfig;
     pub fn last_retrieval_stats(&self) -> RetrievalStats;
+}
+```
+
+## src/singularity_search.rs
+
+### impl Singularity
+
+```rust
+impl Singularity {
+    pub fn find_similar(&self, query: &HVec10240, top_k: usize) -> Vec<(String, f32)>;
+    pub fn find_similar_arc(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]>;
+    pub fn find_similar_cached(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]>;
 }
 ```
 

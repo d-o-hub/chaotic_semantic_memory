@@ -378,6 +378,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - impl ChaoticSemanticFramework
 
+### src/framework_persistence.rs
+
+- impl ChaoticSemanticFramework
+
 ### src/framework_ttl.rs
 
 - impl crate::framework::ChaoticSemanticFramework
@@ -397,14 +401,17 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use crate::hyperdim_batch::batch_cosine_similarity
 - pub struct HVec10240
 - impl HVec10240
-- impl Serialize for HVec10240
-- impl Visitor for HVecVisitor
-- impl Deserialize for HVec10240
 - pub use crate::bundle::BundleAccumulator
 
 ### src/hyperdim_batch.rs
 
 - pub fn batch_cosine_similarity
+
+### src/hyperdim_serde.rs
+
+- impl Serialize for HVec10240
+- impl Visitor for HVecVisitor
+- impl Deserialize for HVec10240
 
 ### src/index/brute_force.rs
 
@@ -539,6 +546,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct ConceptVersion
 - impl Persistence
 
+### src/persistence_index.rs
+
+- impl Persistence
+
 ### src/persistence_migrations.rs
 
 - impl Persistence
@@ -659,6 +670,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct RetrievalConfig
 - impl RetrievalConfig
 - impl Default for RetrievalConfig
+- impl Singularity
+
+### src/singularity_search.rs
+
 - impl Singularity
 
 ### src/singularity_ttl.rs

@@ -62,11 +62,13 @@ mod framework_graph_rag;
 mod framework_metrics;
 #[cfg(not(target_arch = "wasm32"))]
 mod framework_ops;
+mod framework_persistence; // Extracted from framework.rs for LOC gate
 mod framework_ttl;
 mod framework_validation;
 pub mod graph_traversal;
 pub mod hyperdim;
 mod hyperdim_batch;
+mod hyperdim_serde; // Extracted from hyperdim.rs for LOC gate
 mod hyperdim_simd; // AVX2/NEON SIMD paths
 #[cfg(all(not(target_arch = "wasm32"), feature = "mcp"))]
 pub mod mcp;
@@ -76,6 +78,8 @@ pub use metadata_filter::MetadataFilter;
 pub mod index;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 pub mod persistence;
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+mod persistence_index; // Extracted from persistence.rs for LOC gate (ADR-0068)
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_migrations;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
@@ -93,6 +97,7 @@ pub mod singularity;
 mod singularity_cache;
 mod singularity_ext;
 mod singularity_retrieval;
+mod singularity_search; // Extracted from singularity.rs for LOC gate
 mod singularity_ttl;
 
 #[cfg(target_arch = "wasm32")]
