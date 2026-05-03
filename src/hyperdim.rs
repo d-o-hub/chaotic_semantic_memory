@@ -94,7 +94,8 @@ impl HVec10240 {
     /// 3. It parallelizes over hypervector words rather than over vectors to minimize
     ///    memory traffic and synchronization overhead.
     pub fn bundle(vectors: &[Self]) -> Result<Self> {
-        if vectors.is_empty() {
+        let num_vectors = vectors.len();
+        if num_vectors == 0 {
             return Ok(Self::zero());
         }
         let num_vectors = vectors.len();
@@ -114,7 +115,7 @@ impl HVec10240 {
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         if num_vectors >= 32 {
             data.par_iter_mut().enumerate().for_each(|(i, word)| {
-                let mut planes = [0u128; 32];
+                let mut planes = [0u128; 64];
                 for v in vectors {
                     let mut carry = v.data[i];
                     for plane in planes.iter_mut().take(num_planes) {
@@ -140,7 +141,7 @@ impl HVec10240 {
             return Ok(Self { data });
         }
         for i in 0..80 {
-            let mut planes = [0u128; 32];
+            let mut planes = [0u128; 64];
             for v in vectors {
                 let mut carry = v.data[i];
                 for plane in planes.iter_mut().take(num_planes) {
@@ -459,11 +460,10 @@ mod tests {
         let v = HVec10240::random();
         let json = serde_json::to_string(&v).unwrap();
         // Should be a base64 string, not an array
-        assert!(json.starts_with('"'), "Expected string, got: {}", json);
+        assert!(json.starts_with('"'), "Expected string, got: {json}");
         assert!(
             !json.starts_with('['),
-            "Expected base64 string, not array: {}",
-            json
+            "Expected base64 string, not array: {json}"
         );
         // Verify roundtrip
         let decoded: HVec10240 = serde_json::from_str(&json).unwrap();

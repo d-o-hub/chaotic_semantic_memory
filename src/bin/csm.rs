@@ -90,7 +90,7 @@ mod native {
                 )
             })?;
             ensure_git_local_dir(&path).map_err(|e| {
-                CliError::Config(format!("Failed to create git-local directory: {}", e))
+                CliError::Config(format!("Failed to create git-local directory: {e}"))
             })?;
             return Ok(Some(path));
         }
@@ -99,7 +99,7 @@ mod native {
         if let Some(path) = resolve_git_local_path() {
             // Found a git repo, use git-local storage by default
             ensure_git_local_dir(&path).map_err(|e| {
-                CliError::Config(format!("Failed to create git-local directory: {}", e))
+                CliError::Config(format!("Failed to create git-local directory: {e}"))
             })?;
             return Ok(Some(path));
         }

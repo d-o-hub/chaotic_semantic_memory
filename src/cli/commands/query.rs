@@ -37,8 +37,7 @@ pub async fn run_query(
     if let Some(kw) = args.keyword_weight {
         if !(0.0..=1.0).contains(&kw) {
             return Err(CliError::Validation(format!(
-                "keyword-weight must be between 0.0 and 1.0, got {}",
-                kw
+                "keyword-weight must be between 0.0 and 1.0, got {kw}"
             )));
         }
     }
@@ -76,7 +75,7 @@ pub async fn run_query(
             framework
                 .probe(query_vector, args.top_k)
                 .await
-                .map_err(|e| CliError::Persistence(format!("query operation failed: {}", e)))?,
+                .map_err(|e| CliError::Persistence(format!("query operation failed: {e}")))?,
         )
     } else {
         None
@@ -160,7 +159,7 @@ pub async fn run_query(
             println!(
                 "{}",
                 serde_json::to_string(&results_json)
-                    .map_err(|e| CliError::Output(format!("failed to serialize results: {}", e)))?
+                    .map_err(|e| CliError::Output(format!("failed to serialize results: {e}")))?
             );
         }
         OutputFormat::Table => {
@@ -171,13 +170,13 @@ pub async fn run_query(
                 println!("{:<40} {:>12}", "CONCEPT ID", "SCORE");
                 println!("{:-<40} {:-<12}", "", "");
                 for (id, score) in &filtered {
-                    println!("{:<40} {:>12.4}", id, score);
+                    println!("{id:<40} {score:>12.4}");
                 }
             }
         }
         OutputFormat::Quiet => {
             for (id, _) in &filtered {
-                println!("{}", id);
+                println!("{id}");
             }
         }
     }

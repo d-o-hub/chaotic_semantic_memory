@@ -50,7 +50,7 @@ async fn builder_with_max_concepts_sets_limit() {
     // Inject concepts up to limit
     for i in 0..3 {
         framework
-            .inject_concept(&format!("max-concept-{}", i), HVec10240::random())
+            .inject_concept(&format!("max-concept-{i}"), HVec10240::random())
             .await
             .unwrap();
     }

@@ -54,7 +54,7 @@ impl McpResources {
         } else if uri == "health://current" {
             self.read_health().await
         } else {
-            Err(anyhow::anyhow!("Unknown resource URI: {}", uri))
+            Err(anyhow::anyhow!("Unknown resource URI: {uri}"))
         }
     }
 

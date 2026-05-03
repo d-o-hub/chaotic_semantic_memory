@@ -99,10 +99,7 @@ fn test_batch_similarity_odd_count() {
     {
         assert!(
             (batch - individual).abs() < SIMILARITY_EPSILON,
-            "Batch result {} doesn't match individual {} at index {} (odd count)",
-            batch,
-            individual,
-            i
+            "Batch result {batch} doesn't match individual {individual} at index {i} (odd count)"
         );
     }
 }
