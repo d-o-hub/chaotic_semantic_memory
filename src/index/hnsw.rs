@@ -186,7 +186,7 @@ impl AnnIndex for HnswIndex {
         use std::fs;
 
         let temp_dir = std::env::temp_dir().join(format!("csm_hnsw_{}", rand::random::<u64>()));
-        fs::create_dir_all(&temp_dir).map_err(|e| MemoryError::Io(e))?;
+        fs::create_dir_all(&temp_dir).map_err(MemoryError::Io)?;
 
         self.hnsw
             .file_dump(&temp_dir, "index")
@@ -195,8 +195,8 @@ impl AnnIndex for HnswIndex {
         let data_path = temp_dir.join("index.hnsw.data");
         let graph_path = temp_dir.join("index.hnsw.graph");
 
-        let data_bytes = fs::read(data_path).map_err(|e| MemoryError::Io(e))?;
-        let graph_bytes = fs::read(graph_path).map_err(|e| MemoryError::Io(e))?;
+        let data_bytes = fs::read(data_path).map_err(MemoryError::Io)?;
+        let graph_bytes = fs::read(graph_path).map_err(MemoryError::Io)?;
 
         let meta = HnswPersistenceMeta {
             id_to_idx: self.id_to_idx.clone(),
@@ -234,9 +234,10 @@ impl AnnIndex for HnswIndex {
         let meta: HnswPersistenceMeta = bincode::deserialize(data)
             .map_err(|e| MemoryError::database(format!("Bincode deserialize fail: {}", e)))?;
 
-        let meta_serialized_size = bincode::serialized_size(&meta)
+        let meta_serialized_size: usize = bincode::serialized_size(&meta)
             .map_err(|e| MemoryError::database(format!("Bincode size fail: {}", e)))?
-            as usize;
+            .try_into()
+            .map_err(|e| MemoryError::database(format!("Bincode size truncation: {}", e)))?;
 
         let graph_start = data.len() - meta.graph_len;
         let data_start = meta_serialized_size;
@@ -244,10 +245,10 @@ impl AnnIndex for HnswIndex {
         let graph_bytes = &data[graph_start..];
 
         let temp_dir = std::env::temp_dir().join(format!("csm_hnsw_load_{}", rand::random::<u64>()));
-        fs::create_dir_all(&temp_dir).map_err(|e| MemoryError::Io(e))?;
+        fs::create_dir_all(&temp_dir).map_err(MemoryError::Io)?;
 
-        fs::write(temp_dir.join("index.hnsw.data"), data_bytes).map_err(|e| MemoryError::Io(e))?;
-        fs::write(temp_dir.join("index.hnsw.graph"), graph_bytes).map_err(|e| MemoryError::Io(e))?;
+        fs::write(temp_dir.join("index.hnsw.data"), data_bytes).map_err(MemoryError::Io)?;
+        fs::write(temp_dir.join("index.hnsw.graph"), graph_bytes).map_err(MemoryError::Io)?;
 
         let loader = HnswIo::new(&temp_dir, "index");
         let hnsw = loader.load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist)

@@ -55,7 +55,7 @@ impl HVec10240 {
     }
 
     /// Flip a bit at the given position.
-    pub fn flip_bit(&mut self, pos: usize) {
+    pub const fn flip_bit(&mut self, pos: usize) {
         if pos < Self::DIMENSION {
             let word = pos / 128;
             let bit = pos % 128;
