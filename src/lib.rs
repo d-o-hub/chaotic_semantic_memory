@@ -229,3 +229,7 @@ mod wasm_ext;
 // Include wasm_ext for tests to run underlying data pattern tests on native
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod wasm_ext;
+#[cfg(target_arch = "wasm32")]
+mod wasm_graph_rag;
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod wasm_graph_rag;
