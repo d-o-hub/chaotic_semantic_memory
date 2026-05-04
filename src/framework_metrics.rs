@@ -33,6 +33,7 @@ impl FrameworkMetrics {
             .fetch_add(count, Ordering::Relaxed);
         #[cfg(feature = "prometheus")]
         {
+            #[allow(clippy::cast_precision_loss)]
             crate::observability::prom::INJECT_TOTAL
                 .with_label_values(&[&_with_metadata.to_string()])
                 .inc_by(count as f64);
@@ -44,6 +45,7 @@ impl FrameworkMetrics {
             .fetch_add(count, Ordering::Relaxed);
         #[cfg(feature = "prometheus")]
         {
+            #[allow(clippy::cast_precision_loss)]
             crate::observability::prom::ASSOCIATIONS_TOTAL.inc_by(count as f64);
         }
     }
@@ -60,6 +62,7 @@ impl FrameworkMetrics {
             crate::observability::prom::PROBE_TOTAL
                 .with_label_values(&[result_str])
                 .inc();
+            #[allow(clippy::cast_precision_loss)]
             crate::observability::prom::PROBE_LATENCY
                 .with_label_values(&[&_top_k.to_string()])
                 .observe(latency_ms as f64);
@@ -73,16 +76,24 @@ impl FrameworkMetrics {
 
         #[cfg(feature = "prometheus")]
         {
+            #[allow(clippy::cast_precision_loss)]
             crate::observability::prom::PERSIST_LATENCY
                 .with_label_values(&[_op])
                 .observe(latency_ms as f64);
         }
     }
 
-    pub(crate) fn update_gauges(&self, _concept_count: u64, _association_count: u64, _cache_hit_ratio: f64) {
+    pub(crate) fn update_gauges(
+        &self,
+        _concept_count: u64,
+        _association_count: u64,
+        _cache_hit_ratio: f64,
+    ) {
         #[cfg(feature = "prometheus")]
         {
+            #[allow(clippy::cast_precision_loss)]
             crate::observability::prom::CONCEPTS_COUNT.set(_concept_count as f64);
+            #[allow(clippy::cast_precision_loss)]
             crate::observability::prom::ASSOCIATIONS_COUNT.set(_association_count as f64);
             crate::observability::prom::CACHE_HIT_RATIO.set(_cache_hit_ratio);
         }
