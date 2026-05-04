@@ -292,7 +292,6 @@ impl ChaoticSemanticFramework {
         Ok(sing
             .incoming_associations(&self.namespace, id)
             .into_iter()
-            .map(|(s, f)| (s.to_string(), f))
             .collect())
     }
 

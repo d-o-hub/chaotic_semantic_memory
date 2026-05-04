@@ -7,7 +7,7 @@ use crate::cli::args::{InjectArgs, OutputFormat, VectorSource};
 use crate::cli::error::{CliError, Result};
 use crate::hyperdim::HVec10240;
 
-use super::{create_framework, create_framework_with_namespace, print_success, print_warning, validate_concept_id};
+use super::{create_framework_with_namespace, print_success, print_warning, validate_concept_id};
 
 #[instrument(name = "cli_inject")]
 pub async fn run_inject(

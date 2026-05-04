@@ -15,7 +15,7 @@ pub mod hnsw;
 pub mod lsh;
 
 /// Statistics for an ANN index.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct IndexStats {
     pub backend: String,
     pub count: usize,
@@ -29,6 +29,7 @@ pub enum IndexBackend {
     #[default]
     BruteForce,
     /// Hierarchical Navigable Small Worlds (HNSW) index.
+    #[cfg(feature = "ann-hnsw")]
     Hnsw {
         /// Number of bi-directional links for each element (default: 16).
         m: usize,
@@ -38,6 +39,7 @@ pub enum IndexBackend {
         ef_search: usize,
     },
     /// Locality-Sensitive Hashing (LSH) index.
+    #[cfg(feature = "ann-lsh")]
     Lsh {
         /// Number of hash tables.
         num_tables: usize,
@@ -77,4 +79,21 @@ pub trait AnnIndex: Send + Sync + Debug {
 
     /// Deserialize the index state from persistence.
     fn deserialize(&mut self, data: &[u8]) -> Result<()>;
+}
+
+/// Create an ANN index backend based on configuration.
+pub fn create_index(backend: &IndexBackend) -> Box<dyn AnnIndex> {
+    match backend {
+        IndexBackend::BruteForce => Box::new(brute_force::BruteForce::new()),
+        #[cfg(feature = "ann-hnsw")]
+        IndexBackend::Hnsw { m, ef_construction, ef_search } => {
+            Box::new(hnsw::HnswIndex::new(*m, *ef_construction, *ef_search))
+        }
+        #[cfg(feature = "ann-lsh")]
+        IndexBackend::Lsh { num_tables, hash_bits } => {
+            Box::new(lsh::LshIndex::new(*num_tables, *hash_bits))
+        }
+        #[allow(unreachable_patterns)]
+        _ => Box::new(brute_force::BruteForce::new()),
+    }
 }

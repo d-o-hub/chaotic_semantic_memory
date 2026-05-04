@@ -7,7 +7,7 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use crate::cli::args::{OutputFormat, QueryArgs};
-use crate::cli::commands::{create_framework, create_framework_with_namespace, print_success, print_warning, truncate_preview};
+use crate::cli::commands::{create_framework_with_namespace, print_success, print_warning, truncate_preview};
 use crate::cli::error::{CliError, Result};
 use crate::encoder::TextEncoder;
 use crate::retrieval::bm25::Bm25Index;

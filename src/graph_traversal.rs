@@ -51,19 +51,6 @@ impl Singularity {
     /// Get incoming associations for a concept.
     ///
     /// Returns concepts that have associations pointing to this concept.
-    pub fn incoming_associations(&self, ns: &str, id: &str) -> Vec<(String, f32)> {
-        let Some(ns_state) = self.get_namespace(ns) else {
-            return Vec::new();
-        };
-        let mut incoming = Vec::new();
-        for (from_id, links) in &ns_state.associations {
-            if let Some(&strength) = links.get(id) {
-                incoming.push((from_id.clone(), strength));
-            }
-        }
-        incoming.sort_by(|a, b| b.1.total_cmp(&a.1));
-        incoming
-    }
 
     /// Breadth-first traversal from a starting concept.
     ///
@@ -295,28 +282,28 @@ mod tests {
 
     #[test]
     fn test_neighbors() {
-        let mut sing = Singularity::new();
-        sing.inject(make_concept("a")).unwrap();
-        sing.inject(make_concept("b")).unwrap();
-        sing.inject(make_concept("c")).unwrap();
-        sing.associate("a", "b", 0.8).unwrap();
-        sing.associate("a", "c", 0.3).unwrap();
+        let mut sing = Singularity::new(SingularityConfig::default());
+        sing.inject("_default", make_concept("a")).unwrap();
+        sing.inject("_default", make_concept("b")).unwrap();
+        sing.inject("_default", make_concept("c")).unwrap();
+        sing.associate("_default", "a", "b", 0.8).unwrap();
+        sing.associate("_default", "a", "c", 0.3).unwrap();
 
-        let neighbors = sing.neighbors("a", 0.5);
+        let neighbors = sing.neighbors("_default", "a", 0.5);
         assert_eq!(neighbors.len(), 1);
         assert_eq!(neighbors[0].0, "b");
     }
 
     #[test]
     fn test_incoming_associations() {
-        let mut sing = Singularity::new();
-        sing.inject(make_concept("a")).unwrap();
-        sing.inject(make_concept("b")).unwrap();
-        sing.inject(make_concept("c")).unwrap();
-        sing.associate("a", "c", 0.8).unwrap();
-        sing.associate("b", "c", 0.5).unwrap();
+        let mut sing = Singularity::new(SingularityConfig::default());
+        sing.inject("_default", make_concept("a")).unwrap();
+        sing.inject("_default", make_concept("b")).unwrap();
+        sing.inject("_default", make_concept("c")).unwrap();
+        sing.associate("_default", "a", "c", 0.8).unwrap();
+        sing.associate("_default", "b", "c", 0.5).unwrap();
 
-        let incoming = sing.incoming_associations("c");
+        let incoming = sing.incoming_associations("_default", "c");
         assert_eq!(incoming.len(), 2);
         // Sorted by strength descending
         assert_eq!(incoming[0].0, "a");
@@ -325,15 +312,15 @@ mod tests {
 
     #[test]
     fn test_bfs_simple() {
-        let mut sing = Singularity::new();
-        sing.inject(make_concept("a")).unwrap();
-        sing.inject(make_concept("b")).unwrap();
-        sing.inject(make_concept("c")).unwrap();
-        sing.associate("a", "b", 0.5).unwrap();
-        sing.associate("b", "c", 0.5).unwrap();
+        let mut sing = Singularity::new(SingularityConfig::default());
+        sing.inject("_default", make_concept("a")).unwrap();
+        sing.inject("_default", make_concept("b")).unwrap();
+        sing.inject("_default", make_concept("c")).unwrap();
+        sing.associate("_default", "a", "b", 0.5).unwrap();
+        sing.associate("_default", "b", "c", 0.5).unwrap();
 
         let config = TraversalConfig::default();
-        let results = sing.bfs("a", &config).unwrap();
+        let results = sing.bfs("_default", "a", &config).unwrap();
 
         assert_eq!(results.len(), 3);
         assert_eq!(results[0], ("a".to_string(), 0));
@@ -343,53 +330,53 @@ mod tests {
 
     #[test]
     fn test_bfs_max_depth() {
-        let mut sing = Singularity::new();
-        sing.inject(make_concept("a")).unwrap();
-        sing.inject(make_concept("b")).unwrap();
-        sing.inject(make_concept("c")).unwrap();
-        sing.associate("a", "b", 0.5).unwrap();
-        sing.associate("b", "c", 0.5).unwrap();
+        let mut sing = Singularity::new(SingularityConfig::default());
+        sing.inject("_default", make_concept("a")).unwrap();
+        sing.inject("_default", make_concept("b")).unwrap();
+        sing.inject("_default", make_concept("c")).unwrap();
+        sing.associate("_default", "a", "b", 0.5).unwrap();
+        sing.associate("_default", "b", "c", 0.5).unwrap();
 
         let config = TraversalConfig {
             max_depth: 1,
             ..Default::default()
         };
-        let results = sing.bfs("a", &config).unwrap();
+        let results = sing.bfs("_default", "a", &config).unwrap();
 
         assert_eq!(results.len(), 2);
     }
 
     #[test]
     fn test_bfs_missing_concept() {
-        let sing = Singularity::new();
+        let sing = Singularity::new(SingularityConfig::default());
         let config = TraversalConfig::default();
-        let result = sing.bfs("nonexistent", &config);
+        let result = sing.bfs("_default", "nonexistent", &config);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_shortest_path_direct() {
-        let mut sing = Singularity::new();
-        sing.inject(make_concept("a")).unwrap();
-        sing.inject(make_concept("b")).unwrap();
-        sing.associate("a", "b", 0.9).unwrap();
+        let mut sing = Singularity::new(SingularityConfig::default());
+        sing.inject("_default", make_concept("a")).unwrap();
+        sing.inject("_default", make_concept("b")).unwrap();
+        sing.associate("_default", "a", "b", 0.9).unwrap();
 
         let config = TraversalConfig::default();
-        let path = sing.shortest_path("a", "b", &config).unwrap();
+        let path = sing.shortest_path("_default", "a", "b", &config).unwrap();
         assert_eq!(path, Some(vec!["a".to_string(), "b".to_string()]));
     }
 
     #[test]
     fn test_shortest_path_indirect() {
-        let mut sing = Singularity::new();
-        sing.inject(make_concept("a")).unwrap();
-        sing.inject(make_concept("b")).unwrap();
-        sing.inject(make_concept("c")).unwrap();
-        sing.associate("a", "b", 0.9).unwrap();
-        sing.associate("b", "c", 0.9).unwrap();
+        let mut sing = Singularity::new(SingularityConfig::default());
+        sing.inject("_default", make_concept("a")).unwrap();
+        sing.inject("_default", make_concept("b")).unwrap();
+        sing.inject("_default", make_concept("c")).unwrap();
+        sing.associate("_default", "a", "b", 0.9).unwrap();
+        sing.associate("_default", "b", "c", 0.9).unwrap();
 
         let config = TraversalConfig::default();
-        let path = sing.shortest_path("a", "c", &config).unwrap();
+        let path = sing.shortest_path("_default", "a", "c", &config).unwrap();
         assert_eq!(
             path,
             Some(vec!["a".to_string(), "b".to_string(), "c".to_string()])
@@ -398,69 +385,69 @@ mod tests {
 
     #[test]
     fn test_shortest_path_no_path() {
-        let mut sing = Singularity::new();
-        sing.inject(make_concept("a")).unwrap();
-        sing.inject(make_concept("b")).unwrap();
+        let mut sing = Singularity::new(SingularityConfig::default());
+        sing.inject("_default", make_concept("a")).unwrap();
+        sing.inject("_default", make_concept("b")).unwrap();
         // No association
 
         let config = TraversalConfig::default();
-        let path = sing.shortest_path("a", "b", &config).unwrap();
+        let path = sing.shortest_path("_default", "a", "b", &config).unwrap();
         assert!(path.is_none());
     }
 
     #[test]
     fn test_shortest_path_same_node() {
-        let mut sing = Singularity::new();
-        sing.inject(make_concept("a")).unwrap();
+        let mut sing = Singularity::new(SingularityConfig::default());
+        sing.inject("_default", make_concept("a")).unwrap();
 
         let config = TraversalConfig::default();
-        let path = sing.shortest_path("a", "a", &config).unwrap();
+        let path = sing.shortest_path("_default", "a", "a", &config).unwrap();
         assert_eq!(path, Some(vec!["a".to_string()]));
     }
 
     /// Dijkstra prefers the high-strength path (lower cost = -ln(strength)).
     #[test]
     fn test_shortest_path_dijkstra_prefers_strong_edge() {
-        let mut sing = Singularity::new();
+        let mut sing = Singularity::new(SingularityConfig::default());
         // a --0.9--> b --0.9--> d  (strong path, 2 hops)
         // a --0.1--> c --0.1--> d  (weak path, 2 hops)
         for id in ["a", "b", "c", "d"] {
-            sing.inject(make_concept(id)).unwrap();
+            sing.inject("_default", make_concept(id)).unwrap();
         }
-        sing.associate("a", "b", 0.9).unwrap();
-        sing.associate("b", "d", 0.9).unwrap();
-        sing.associate("a", "c", 0.1).unwrap();
-        sing.associate("c", "d", 0.1).unwrap();
+        sing.associate("_default", "a", "b", 0.9).unwrap();
+        sing.associate("_default", "b", "d", 0.9).unwrap();
+        sing.associate("_default", "a", "c", 0.1).unwrap();
+        sing.associate("_default", "c", "d", 0.1).unwrap();
 
         let config = TraversalConfig::default();
-        let path = sing.shortest_path("a", "d", &config).unwrap().unwrap();
+        let path = sing.shortest_path("_default", "a", "d", &config).unwrap().unwrap();
         // Strong path a→b→d has lower cost than weak path a→c→d
         assert_eq!(path, vec!["a", "b", "d"]);
     }
 
     #[test]
     fn test_shortest_path_hops_direct() {
-        let mut sing = Singularity::new();
-        sing.inject(make_concept("a")).unwrap();
-        sing.inject(make_concept("b")).unwrap();
-        sing.associate("a", "b", 0.5).unwrap();
+        let mut sing = Singularity::new(SingularityConfig::default());
+        sing.inject("_default", make_concept("a")).unwrap();
+        sing.inject("_default", make_concept("b")).unwrap();
+        sing.associate("_default", "a", "b", 0.5).unwrap();
 
         let config = TraversalConfig::default();
-        let path = sing.shortest_path_hops("a", "b", &config).unwrap();
+        let path = sing.shortest_path_hops("_default", "a", "b", &config).unwrap();
         assert_eq!(path, Some(vec!["a".to_string(), "b".to_string()]));
     }
 
     #[test]
     fn test_shortest_path_hops_indirect() {
-        let mut sing = Singularity::new();
-        sing.inject(make_concept("a")).unwrap();
-        sing.inject(make_concept("b")).unwrap();
-        sing.inject(make_concept("c")).unwrap();
-        sing.associate("a", "b", 0.5).unwrap();
-        sing.associate("b", "c", 0.5).unwrap();
+        let mut sing = Singularity::new(SingularityConfig::default());
+        sing.inject("_default", make_concept("a")).unwrap();
+        sing.inject("_default", make_concept("b")).unwrap();
+        sing.inject("_default", make_concept("c")).unwrap();
+        sing.associate("_default", "a", "b", 0.5).unwrap();
+        sing.associate("_default", "b", "c", 0.5).unwrap();
 
         let config = TraversalConfig::default();
-        let path = sing.shortest_path_hops("a", "c", &config).unwrap();
+        let path = sing.shortest_path_hops("_default", "a", "c", &config).unwrap();
         assert_eq!(
             path,
             Some(vec!["a".to_string(), "b".to_string(), "c".to_string()])
@@ -469,12 +456,12 @@ mod tests {
 
     #[test]
     fn test_shortest_path_hops_no_path() {
-        let mut sing = Singularity::new();
-        sing.inject(make_concept("a")).unwrap();
-        sing.inject(make_concept("b")).unwrap();
+        let mut sing = Singularity::new(SingularityConfig::default());
+        sing.inject("_default", make_concept("a")).unwrap();
+        sing.inject("_default", make_concept("b")).unwrap();
 
         let config = TraversalConfig::default();
-        let path = sing.shortest_path_hops("a", "b", &config).unwrap();
+        let path = sing.shortest_path_hops("_default", "a", "b", &config).unwrap();
         assert!(path.is_none());
     }
 }

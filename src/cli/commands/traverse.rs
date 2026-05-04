@@ -12,7 +12,7 @@ use crate::cli::args::{OutputFormat, TraverseArgs};
 use crate::cli::error::{CliError, Result};
 use crate::graph_traversal::TraversalConfig;
 
-use super::{create_framework, create_framework_with_namespace, print_warning, validate_concept_id};
+use super::{create_framework_with_namespace, print_warning, validate_concept_id};
 
 fn validate_min_strength(min_strength: f64) -> Result<()> {
     if !min_strength.is_finite() {

@@ -3,7 +3,7 @@
 //! Streams JSONL line-by-line, extracts text field, preserves metadata.
 
 use crate::cli::args::{IndexJsonlArgs, OutputFormat};
-use crate::cli::commands::{create_framework, create_framework_with_namespace, print_success, print_warning, truncate_preview};
+use crate::cli::commands::{create_framework_with_namespace, print_success, print_warning, truncate_preview};
 use crate::cli::error::{CliError, Result};
 use crate::encoder::TextEncoder;
 

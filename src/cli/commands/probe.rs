@@ -12,7 +12,7 @@ use crate::cli::error::{CliError, Result};
 use crate::hyperdim::HVec10240;
 use colored::Colorize;
 
-use super::{create_framework, create_framework_with_namespace, print_success, print_warning, validate_concept_id, validate_top_k};
+use super::{create_framework_with_namespace, print_success, print_warning, validate_concept_id, validate_top_k};
 
 #[instrument(name = "cli_probe")]
 pub async fn run_probe(

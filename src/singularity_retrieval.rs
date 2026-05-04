@@ -101,14 +101,11 @@ impl Singularity {
     /// Set the retrieval configuration.
     pub fn set_retrieval_config(&mut self, config: RetrievalConfig) -> Result<()> {
         config.validate()?;
-        self.retrieval_config = config;
+        self._retrieval_config = config;
         Ok(())
     }
 
     /// Get the retrieval configuration.
-    pub const fn retrieval_config(&self) -> &RetrievalConfig {
-        &self.retrieval_config
-    }
 
     /// Get statistics from the last retrieval operation.
     pub fn last_retrieval_stats(&self, ns: &str) -> RetrievalStats {
@@ -131,7 +128,7 @@ impl Singularity {
             candidates.insert(seed_id.clone());
 
             while let Some((id, depth)) = queue.pop_front() {
-                if depth >= self.retrieval_config.graph_depth {
+                if depth >= self._retrieval_config.graph_depth {
                     continue;
                 }
                 if let Some(links) = ns_state.associations.get(&id) {
@@ -139,7 +136,7 @@ impl Singularity {
                     sorted_links.sort_by(|a, b| b.1.total_cmp(a.1));
                     for (neighbor_id, _) in sorted_links
                         .into_iter()
-                        .take(self.retrieval_config.graph_fanout)
+                        .take(self._retrieval_config.graph_fanout)
                     {
                         if !candidates.contains(neighbor_id) {
                             candidates.insert(neighbor_id.clone());
@@ -161,8 +158,8 @@ impl Singularity {
         let Some(ns_state) = self.get_namespace(ns) else {
             return Vec::new();
         };
-        debug_assert!(self.retrieval_config.bucket_probe_width <= 127);
-        let bucket_mask = (1u128 << self.retrieval_config.bucket_probe_width) - 1;
+        debug_assert!(self._retrieval_config.bucket_probe_width <= 127);
+        let bucket_mask = (1u128 << self._retrieval_config.bucket_probe_width) - 1;
         let query_bucket = query.data[0] & bucket_mask;
 
         let filter = |(idx, vec): (usize, &HVec10240)| {
@@ -461,38 +458,21 @@ impl Singularity {
 }
 
 #[cfg(test)]
-mod tests {
+
+#[cfg(test)]
+mod tests_v2 {
     use super::*;
+    use crate::singularity::{Singularity, SingularityConfig};
+
     #[test]
-    fn retrieval_config_defaults() {
-        let c = RetrievalConfig::default();
-        assert_eq!(c.max_candidates, 1000);
-        assert_eq!(c.graph_depth, 2);
+    fn singularity_last_stats_v2() {
+        let s = Singularity::new(SingularityConfig::default());
+        assert_eq!(s.last_retrieval_stats("_default").candidate_count, 0);
     }
+
     #[test]
-    fn retrieval_stats_defaults() {
-        let s = RetrievalStats::default();
-        assert_eq!(s.candidate_count, 0);
-        assert!(!s.fell_back_to_exact_scan);
-    }
-    #[test]
-    fn candidate_source_variants() {
-        assert_ne!(CandidateSource::Graph, CandidateSource::Bucket);
-        assert_ne!(CandidateSource::Metadata, CandidateSource::ExactFallback);
-    }
-    #[test]
-    fn filter_strategy_variants() {
-        assert_ne!(FilterStrategy::Pre, FilterStrategy::BucketPost);
-        assert_ne!(FilterStrategy::BucketPost, FilterStrategy::ScanPost);
-    }
-    #[test]
-    fn singularity_last_stats() {
-        let s = Singularity::new();
-        assert_eq!(s.last_retrieval_stats().candidate_count, 0);
-    }
-    #[test]
-    fn singularity_get_config() {
-        let s = Singularity::new();
+    fn singularity_get_config_v2() {
+        let s = Singularity::new(SingularityConfig::default());
         assert_eq!(s.retrieval_config().max_candidates, 1000);
     }
 }

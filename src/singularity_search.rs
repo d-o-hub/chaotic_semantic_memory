@@ -68,15 +68,11 @@ impl Singularity {
         }
 
         // ADR-0068: Route through AnnIndex if it's not BruteForce.
-        // We check stats to see backend name as we don't want to bypass
-        // the specialized heuristic generation (graph/bucket) if we are in BruteForce mode
-        // which IS the fallback.
         let index_stats = ns_state.index.stats();
         if index_stats.backend != "BruteForce" {
             if let Ok(results) = ns_state.index.search(query, top_k) {
                 let results_arc: Arc<[(String, f32)]> = Arc::from(results);
 
-                // ADR-0068: Update stats for ANN search
                 if let Ok(mut s) = ns_state.last_retrieval_stats.write() {
                     s.scored_count = results_arc.len();
                     s.candidate_count = index_stats.count;
@@ -102,13 +98,13 @@ impl Singularity {
         let mut candidates = Vec::new();
         let mut source = CandidateSource::ExactFallback;
 
-        if self.retrieval_config.enable_graph_candidates {
+        if self._retrieval_config.enable_graph_candidates {
             candidates = self.generate_graph_candidates(ns, query);
             if !candidates.is_empty() {
                 source = CandidateSource::Graph;
             }
         }
-        if candidates.is_empty() && self.retrieval_config.enable_bucket_candidates {
+        if candidates.is_empty() && self._retrieval_config.enable_bucket_candidates {
             candidates = self.generate_bucket_candidates(ns, query);
             if !candidates.is_empty() {
                 source = CandidateSource::Bucket;
@@ -118,30 +114,7 @@ impl Singularity {
         let cand_ns = unix_now_ns().saturating_sub(candidate_start);
 
         if candidates.is_empty() {
-            // BruteForce backend fallback
-            if let Ok(results) = ns_state.index.search(query, top_k) {
-                let results_arc: Arc<[(String, f32)]> = Arc::from(results);
-
-                if let Ok(mut s) = ns_state.last_retrieval_stats.write() {
-                    s.scored_count = results_arc.len();
-                    s.candidate_count = index_stats.count;
-                    s.scoring_ns = unix_now_ns().saturating_sub(start_ns);
-                    s.fell_back_to_exact_scan = true;
-                }
-
-                if !bypass_cache {
-                    if let Ok(mut cache) = ns_state.query_cache.write() {
-                        let cache_key = similarity_cache_key(query, top_k);
-                        if cache.put(cache_key, Arc::clone(&results_arc)) {
-                            ns_state.cache_metrics
-                                .evictions_total
-                                .fetch_add(1, Ordering::Relaxed);
-                        }
-                    }
-                }
-                return results_arc;
-            }
-            return self.exact_similarity_scan(ns, query, top_k, start_ns, bypass_cache);
+             return self.exact_similarity_scan(ns, query, top_k, start_ns, bypass_cache);
         }
 
         // Reduced-candidate path
@@ -154,5 +127,18 @@ impl Singularity {
             source,
             bypass_cache,
         })
+    }
+
+    /// Find similar concepts with metadata filtering.
+    pub fn find_similar_filtered(
+        &self,
+        ns: &str,
+        query: &HVec10240,
+        top_k: usize,
+        filter: &crate::metadata_filter::MetadataFilter,
+    ) -> Arc<[(String, f32)]> {
+        let ns_state = self.get_namespace(ns).expect("Namespace must exist");
+        let results = ns_state.index.search_filtered(query, top_k, filter, &ns_state.concepts).unwrap_or_default();
+        Arc::from(results)
     }
 }

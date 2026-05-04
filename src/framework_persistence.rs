@@ -13,12 +13,13 @@ impl ChaoticSemanticFramework {
     pub async fn persist(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
             // ADR-0068: Persist ANN index state
-            let sing = self.singularity.read().await;
-            if let Some(ns_state) = sing.get_namespace(&self.namespace) {
-                let data = ns_state.index.serialize();
-                if let Ok(index_data) = data {
-                    if !index_data.is_empty() {
-                        persistence.save_index(&self.namespace, "main", &index_data).await?;
+            {
+                let sing = self.singularity.read().await;
+                if let Some(ns_state) = sing.get_namespace(&self.namespace) {
+                    if let Ok(index_data) = ns_state.index.serialize() {
+                        if !index_data.is_empty() {
+                            persistence.save_index(&self.namespace, "main", &index_data).await?;
+                        }
                     }
                 }
             }
@@ -46,17 +47,15 @@ impl ChaoticSemanticFramework {
         if let Some(ref persistence) = self.persistence {
             let concepts = persistence.load_all_concepts(&self.namespace).await?;
 
-            let mut concept_ids = Vec::with_capacity(concepts.len());
             for concept in &concepts {
                 self.validate_concept(concept)?;
-                concept_ids.push(concept.id.clone());
             }
 
             let mut all_associations: Vec<(String, String, f32)> = Vec::new();
-            for concept_id in &concept_ids {
-                let links = persistence.load_associations(&self.namespace, concept_id).await?;
+            for concept in &concepts {
+                let links = persistence.load_associations(&self.namespace, &concept.id).await?;
                 for (to_id, strength) in links {
-                    all_associations.push((concept_id.clone(), to_id, strength));
+                    all_associations.push((concept.id.clone(), to_id, strength));
                 }
             }
 
@@ -79,16 +78,14 @@ impl ChaoticSemanticFramework {
                 }
 
                 // ADR-0068: Load ANN index state
-                if let Some(ref persistence) = self.persistence {
-                    if let Ok(Some(index_data)) = persistence.load_index(&self.namespace, "main").await {
-                        let ns_state = sing.get_namespace_mut(&self.namespace);
-                        let _ = ns_state.index.deserialize(&index_data);
-                    } else {
-                        // Fallback: rebuild index from concepts
-                        let ns_state = sing.get_namespace_mut(&self.namespace);
-                        let concepts = ns_state.concepts.clone();
-                        let _ = ns_state.index.rebuild(&concepts);
-                    }
+                if let Ok(Some(index_data)) = persistence.load_index(&self.namespace, "main").await {
+                    let ns_state = sing.get_namespace_mut(&self.namespace);
+                    let _ = ns_state.index.deserialize(&index_data);
+                } else {
+                    // Fallback: rebuild index from concepts
+                    let ns_state = sing.get_namespace_mut(&self.namespace);
+                    let concepts_map = ns_state.concepts.clone();
+                    let _ = ns_state.index.rebuild(&concepts_map);
                 }
             }
         }
@@ -108,11 +105,9 @@ impl ChaoticSemanticFramework {
                 self.validate_concept(concept)?;
             }
 
-            let concept_ids: Vec<String> = concepts.iter().map(|c| c.id.clone()).collect();
-
             {
                 let mut sing = self.singularity.write().await;
-                for concept in concepts {
+                for concept in &concepts {
                     if sing.get(&self.namespace, &concept.id).is_some() {
                         warn!(
                             concept_id = %concept.id,
@@ -120,15 +115,15 @@ impl ChaoticSemanticFramework {
                         );
                         continue;
                     }
-                    sing.inject(&self.namespace, concept)?;
+                    sing.inject(&self.namespace, concept.clone())?;
                 }
             }
 
             let mut all_associations: Vec<(String, String, f32)> = Vec::new();
-            for concept_id in &concept_ids {
-                let links = persistence.load_associations(&self.namespace, concept_id).await?;
+            for concept in &concepts {
+                let links = persistence.load_associations(&self.namespace, &concept.id).await?;
                 for (to_id, strength) in links {
-                    all_associations.push((concept_id.clone(), to_id, strength));
+                    all_associations.push((concept.id.clone(), to_id, strength));
                 }
             }
 
@@ -147,16 +142,14 @@ impl ChaoticSemanticFramework {
                 }
 
                 // ADR-0068: Load ANN index state
-                if let Some(ref persistence) = self.persistence {
-                    if let Ok(Some(index_data)) = persistence.load_index(&self.namespace, "main").await {
-                        let ns_state = sing.get_namespace_mut(&self.namespace);
-                        let _ = ns_state.index.deserialize(&index_data);
-                    } else {
-                        // Fallback: rebuild index from concepts
-                        let ns_state = sing.get_namespace_mut(&self.namespace);
-                        let concepts = ns_state.concepts.clone();
-                        let _ = ns_state.index.rebuild(&concepts);
-                    }
+                if let Ok(Some(index_data)) = persistence.load_index(&self.namespace, "main").await {
+                    let ns_state = sing.get_namespace_mut(&self.namespace);
+                    let _ = ns_state.index.deserialize(&index_data);
+                } else {
+                    // Fallback: rebuild index from concepts
+                    let ns_state = sing.get_namespace_mut(&self.namespace);
+                    let concepts_map = ns_state.concepts.clone();
+                    let _ = ns_state.index.rebuild(&concepts_map);
                 }
             }
         }

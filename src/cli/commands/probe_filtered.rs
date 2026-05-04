@@ -12,7 +12,7 @@ use crate::cli::args::{OutputFormat, ProbeFilteredArgs};
 use crate::cli::error::{CliError, Result};
 use crate::metadata_filter::MetadataFilter;
 
-use super::{create_framework, create_framework_with_namespace, print_warning, validate_concept_id, validate_top_k};
+use super::{create_framework_with_namespace, print_warning, validate_concept_id, validate_top_k};
 
 #[instrument(name = "cli_probe_filtered")]
 pub async fn run_probe_filtered(

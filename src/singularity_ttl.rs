@@ -73,7 +73,7 @@ mod tests {
 
     #[test]
     fn test_purge_expired() {
-        let mut sing = Singularity::new();
+        let mut sing = Singularity::new(SingularityConfig::default());
         let now = unix_now_secs();
 
         let concept1 = Concept {
@@ -95,13 +95,13 @@ mod tests {
         };
 
         let ns = "_default";
-        sing.inject(ns, concept1).unwrap();
-        sing.inject(ns, concept2).unwrap();
-        sing.inject(ns, concept3).unwrap();
+        sing.inject("_default", concept1).unwrap();
+        sing.inject("_default", concept2).unwrap();
+        sing.inject("_default", concept3).unwrap();
 
         assert_eq!(sing.active_concept_ids(ns).len(), 2);
 
-        let purged = sing.purge_expired(ns);
+        let purged = sing.purge_expired("_default");
         assert_eq!(purged, 1);
 
         assert!(!sing.get_namespace(ns).unwrap().concepts.contains_key("expired"));
@@ -111,7 +111,7 @@ mod tests {
 
     #[test]
     fn test_is_expired() {
-        let mut sing = Singularity::new();
+        let mut sing = Singularity::new(SingularityConfig::default());
         let now = unix_now_secs();
 
         let concept1 = Concept {
@@ -139,10 +139,10 @@ mod tests {
         };
 
         let ns = "_default";
-        sing.inject(ns, concept1).unwrap();
-        sing.inject(ns, concept2).unwrap();
-        sing.inject(ns, concept3).unwrap();
-        sing.inject(ns, concept4).unwrap();
+        sing.inject("_default", concept1).unwrap();
+        sing.inject("_default", concept2).unwrap();
+        sing.inject("_default", concept3).unwrap();
+        sing.inject("_default", concept4).unwrap();
 
         assert!(sing.is_expired(ns, "expired"));
         assert!(!sing.is_expired(ns, "active"));
@@ -153,7 +153,7 @@ mod tests {
 
     #[test]
     fn test_active_concept_ids() {
-        let mut sing = Singularity::new();
+        let mut sing = Singularity::new(SingularityConfig::default());
         let now = unix_now_secs();
 
         let concept1 = Concept {
@@ -175,9 +175,9 @@ mod tests {
         };
 
         let ns = "_default";
-        sing.inject(ns, concept1).unwrap();
-        sing.inject(ns, concept2).unwrap();
-        sing.inject(ns, concept3).unwrap();
+        sing.inject("_default", concept1).unwrap();
+        sing.inject("_default", concept2).unwrap();
+        sing.inject("_default", concept3).unwrap();
 
         let mut active = sing.active_concept_ids(ns);
         active.sort();

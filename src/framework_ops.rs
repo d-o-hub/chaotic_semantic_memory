@@ -410,7 +410,7 @@ impl ChaoticSemanticFramework {
     /// Clear the similarity query cache.
     pub async fn clear_similarity_cache(&self) {
         let sing = self.singularity.read().await;
-        sing.clear_similarity_cache(&self.namespace);
+        sing.invalidate_cache(&self.namespace);
     }
 
     /// Bundle multiple concepts into a single hypervector (strict version).

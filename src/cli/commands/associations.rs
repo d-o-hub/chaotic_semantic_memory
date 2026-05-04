@@ -11,7 +11,7 @@ use tracing::instrument;
 use crate::cli::args::{AssociationsArgs, OutputFormat};
 use crate::cli::error::{CliError, Result};
 
-use super::{create_framework, create_framework_with_namespace, print_warning, validate_concept_id};
+use super::{create_framework_with_namespace, print_warning, validate_concept_id};
 
 #[instrument(name = "cli_associations")]
 pub async fn run_associations(

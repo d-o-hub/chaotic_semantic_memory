@@ -92,7 +92,7 @@ impl Default for FrameworkBuilder {
             config: FrameworkConfig::default(),
             db_path: None,
             db_token: None,
-            concept_cache_size: SingularityConfig::default().concept_cache_size,
+            concept_cache_size: 1000,
             version_retention: 10,
             namespace: "_default".to_string(),
         }
@@ -233,6 +233,7 @@ impl FrameworkBuilder {
                 max_concepts: self.config.max_concepts,
                 max_associations_per_concept: self.config.max_associations_per_concept,
                 concept_cache_size: self.concept_cache_size,
+                index_backend: self.config.index_backend.clone(),
                 max_cached_top_k: self.config.max_cached_top_k,
             },
             self.config.index_backend.clone(),

@@ -294,9 +294,9 @@ mod tests {
         let encoder = TextEncoder::new();
         let graph = ConceptGraph::new();
         let bridge = BridgeRetrieval::with_defaults(encoder, graph);
-        let singularity = Singularity::new();
+        let singularity = Singularity::new(SingularityConfig::default());
 
-        let results = bridge.query(&singularity, "test query", 10, None).unwrap();
+        let results = bridge.query("_default", &singularity, "test query", 10, None).unwrap();
         assert!(results.is_empty());
     }
 
@@ -306,14 +306,14 @@ mod tests {
         let graph = ConceptGraph::new();
         let bridge = BridgeRetrieval::with_defaults(encoder.clone(), graph);
 
-        let mut singularity = Singularity::new();
+        let mut singularity = Singularity::new(SingularityConfig::default());
         let concept = crate::singularity::ConceptBuilder::new("test-concept")
             .with_vector(encoder.encode("test content"))
             .build()
             .unwrap();
-        singularity.inject(concept).unwrap();
+        singularity.inject("_default", concept).unwrap();
 
-        let results = bridge.query(&singularity, "test query", 10, None).unwrap();
+        let results = bridge.query("_default", &singularity, "test query", 10, None).unwrap();
         // Should return deterministic results even without graph expansion
         assert!(!results.is_empty());
         assert!(results[0].scores.deterministic > 0.0);
@@ -334,15 +334,15 @@ mod tests {
 
         let bridge = BridgeRetrieval::with_defaults(encoder.clone(), graph);
 
-        let mut singularity = Singularity::new();
+        let mut singularity = Singularity::new(SingularityConfig::default());
         let concept = crate::singularity::ConceptBuilder::new("mem-1")
             .with_vector(encoder.encode("session context for AI agent"))
             .build()
             .unwrap();
-        singularity.inject(concept).unwrap();
+        singularity.inject("_default", concept).unwrap();
 
         let results = bridge
-            .query(&singularity, "agent memory session", 10, None)
+            .query("_default", &singularity, "agent memory session", 10, None)
             .unwrap();
 
         assert!(!results.is_empty());
@@ -360,10 +360,10 @@ mod tests {
         let encoder = TextEncoder::new();
         let graph = ConceptGraph::new();
         let bridge = BridgeRetrieval::with_defaults(encoder, graph);
-        let singularity = Singularity::new();
+        let singularity = Singularity::new(SingularityConfig::default());
 
         let packet = bridge
-            .memory_packet(&singularity, "test query", 10, None)
+            .memory_packet("_default", &singularity, "test query", 10, None)
             .unwrap();
         assert!(packet.facts.is_empty());
         assert!(packet.sources.is_empty());
@@ -393,5 +393,24 @@ mod tests {
 
         let final_score = bridge.compute_final_score(&scores);
         assert!((final_score - 1.0).abs() < 1e-6); // All weights sum to 1.0
+    }
+}
+
+#[cfg(test)]
+mod tests_v2 {
+    use super::*;
+    use crate::singularity::{Singularity, SingularityConfig, ConceptBuilder};
+    use crate::hyperdim::HVec10240;
+
+    #[tokio::test]
+    async fn test_bridge_retrieval_query_v2() {
+        let singularity = Singularity::new(SingularityConfig::default());
+        let mut sing_mut = singularity; // Need mut for inject
+        let concept = ConceptBuilder::new("c1").with_vector(HVec10240::random()).build().unwrap();
+        sing_mut.inject("_default", concept).unwrap();
+
+        let bridge = BridgeRetrieval::new(BridgeConfig::default());
+        let results = bridge.query("_default", &sing_mut, "test", 10, None);
+        assert!(results.is_ok());
     }
 }

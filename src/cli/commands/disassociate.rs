@@ -7,7 +7,7 @@ use tracing::instrument;
 use crate::cli::args::{DisassociateArgs, OutputFormat};
 use crate::cli::error::{CliError, Result};
 
-use super::{create_framework, create_framework_with_namespace, print_success, print_warning, validate_concept_id};
+use super::{create_framework_with_namespace, print_success, print_warning, validate_concept_id};
 
 #[instrument(name = "cli_disassociate")]
 pub async fn run_disassociate(

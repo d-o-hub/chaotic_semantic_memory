@@ -3,7 +3,7 @@
 //! Supports glob patterns, heading-based chunking, and code-aware encoding.
 
 use crate::cli::args::{IndexDirArgs, OutputFormat};
-use crate::cli::commands::{create_framework, create_framework_with_namespace, print_success, truncate_preview};
+use crate::cli::commands::{create_framework_with_namespace, print_success, truncate_preview};
 use crate::cli::error::{CliError, Result};
 use crate::encoder::TextEncoder;
 

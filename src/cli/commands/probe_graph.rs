@@ -9,7 +9,7 @@ use crate::cli::args::{OutputFormat, ProbeGraphArgs};
 use crate::cli::error::{CliError, Result};
 use crate::retrieval::GraphRagConfig;
 
-use super::{create_framework, create_framework_with_namespace, print_warning};
+use super::{create_framework_with_namespace, print_warning};
 
 #[instrument(name = "cli_probe_graph")]
 pub async fn run_probe_graph(

@@ -5,7 +5,7 @@ use tracing::instrument;
 use crate::cli::args::{ImportArgs, ImportFormat, OutputFormat};
 use crate::cli::error::{CliError, Result};
 
-use super::{create_framework, create_framework_with_namespace, print_error, print_success, print_warning};
+use super::{create_framework_with_namespace, print_error, print_success, print_warning};
 
 #[instrument(name = "cli_import")]
 pub async fn run_import(

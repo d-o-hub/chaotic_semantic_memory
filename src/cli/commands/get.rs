@@ -8,7 +8,7 @@ use crate::cli::args::{GetArgs, OutputFormat};
 use crate::cli::error::{CliError, Result};
 use colored::Colorize;
 
-use super::{create_framework, create_framework_with_namespace, validate_concept_id};
+use super::{create_framework_with_namespace, validate_concept_id};
 
 #[instrument(name = "cli_get")]
 pub async fn run_get(args: GetArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()> {

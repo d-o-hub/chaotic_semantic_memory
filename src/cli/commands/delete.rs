@@ -9,7 +9,7 @@ use crate::cli::args::{DeleteArgs, OutputFormat};
 use crate::cli::error::{CliError, Result};
 use colored::Colorize;
 
-use super::{create_framework, create_framework_with_namespace, print_success, validate_concept_id};
+use super::{create_framework_with_namespace, print_success, validate_concept_id};
 
 #[instrument(name = "cli_delete")]
 pub async fn run_delete(
