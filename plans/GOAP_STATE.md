@@ -847,7 +847,7 @@ world_state:
   gap_analysis_2026_04_30_findings: 10
   gap_analysis_2026_04_30_adrs_drafted: 11
   gap_analysis_2026_04_30_total_cost: 116
-  action_last_completed: gap_analysis_2026_04_30
+  action_last_completed: rebase_deepsource_fix_2026_06
 
   # Wave 21 P0 — Adoption Unblockers (queued, total cost 34)
   cli_framework_parity_complete: false        # ADR-0066 — 11 CLI subcommands missing
@@ -891,4 +891,25 @@ world_state:
   clippy_actionable_warnings: 110                             # float_cmp + drop_tightening + cast_* + const_fn + redundant_clone
   adr_0077_clippy_promotion_drafted: true                     # plans/adr/0077-clippy-pedantic-selective-promotion.md
   clippy_pedantic_promotion_complete: false                   # 5 themed PRs queued
-  action_last_completed: verification_and_clippy_audit_2026_04_30
+  action_last_completed: rebase_deepsource_fix_2026_06
+
+  # ═══════════════════════════════════════════════════════
+  # Rebase + DeepSource Fix (June 2026)
+  # Branch: fix/pr169-feedback → PR #173
+  # ═══════════════════════════════════════════════════════
+  rebase_deepsource_fix_completed: true
+  rebase_deepsource_changes:
+    - "Rebased fix/pr169-feedback onto origin/main (GraphRAG, hyperdim parallel bundling, benchmark features)"
+    - "Fixed Self::new() in Default::default() → direct construction (singularity, bundle, hdc_text, encoder)"
+    - "Fixed .map().unwrap_or(false) → .is_ok_and() in git_local.rs"
+    - "Fixed #[derive(Default)] on TextEncoder instead of manual impl"
+    - "Removed duplicate Serialize/Deserialize impls from hyperdim.rs (moved to hyperdim_serde.rs)"
+    - "Added set_bit(&mut self, pos) method to HVec10240 (needed by ann_integration/ann_persistence tests)"
+    - "Resolved 11 merge conflicts across benchmarks/**, src/, docs"
+  rebase_gates:
+    clippy: passing
+    tests: "542 passed, 0 failures"
+    fmt: clean
+    loc_gate: satisfied
+  rebase_commit: b771317
+  pr_173_status: "OPEN, MERGEABLE, BLOCKED (old CI: benchmark-small failed, waiting for new CI run on b771317)"
