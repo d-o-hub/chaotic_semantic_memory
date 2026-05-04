@@ -191,12 +191,12 @@ pub fn parse_rerankers(s: &str) -> crate::error::Result<Vec<Box<dyn Reranker>>> 
                 })?;
 
                 let blend = if let Some(blend_str) = recency_split.next() {
-                    blend_str
-                        .parse::<f32>()
-                        .map_err(|_| crate::error::MemoryError::InvalidInput {
+                    blend_str.parse::<f32>().map_err(|_| {
+                        crate::error::MemoryError::InvalidInput {
                             field: "rerank".to_string(),
                             reason: format!("invalid recency blend: {}", blend_str),
-                        })?
+                        }
+                    })?
                 } else {
                     0.5
                 };
