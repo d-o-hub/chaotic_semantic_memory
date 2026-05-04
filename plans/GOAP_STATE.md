@@ -14,7 +14,20 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-   action_last_completed: inline_tests_93_coverage_2026_04_30
+   action_last_completed: open_pr_triage_and_merge_2026_05_04
+  # 2026-05-04 PR triage:
+  #   #173 (PR169 feedback) — squash-merged → main 7d4dfaa
+  #   #174 (hyperdim perf)  — rebased clean onto main (kept hyperdim.rs only;
+  #                           benchmarks/memory_adapter.rs restored from main),
+  #                           CI all-green, squash-merged
+  #   #172 (CLI parity follow-ups) — CLOSED as obsolete; watch.rs and
+  #                           probe_filtered.rs feedback already in main via
+  #                           Wave 21 P0 (6e7bb17)
+  #   #157 (CLI parity ADR-0066)   — CLOSED as obsolete; landed via Wave 21 P0
+  #   #169 (HNSW/LSH ADR-0068)     — CLOSED; ANN code in main, PR would
+  #                           regress 7044 LOC including #167 GraphRAG tests
+  #   #159 (MCP Server ADR-0067)   — CLOSED; MCP in main, PR would delete
+  #                           graph_rag/ann_*/wasm_graph_rag/singularity_search
   orchestrator_last_run: goap_orchestrator_analysis_2026_04_30
   orchestrator_last_run_at_utc: 2026-04-30T18:30:00Z
   goap_orchestrator_analysis_complete: true         # 2026-04-30: All actionable items verified complete
