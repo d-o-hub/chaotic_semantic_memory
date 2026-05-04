@@ -77,11 +77,6 @@ mod hyperdim_simd; // AVX2/NEON SIMD paths
 #[cfg(all(not(target_arch = "wasm32"), feature = "mcp"))]
 pub mod mcp;
 pub mod metadata_filter;
-#[cfg(all(
-    not(target_arch = "wasm32"),
-    any(feature = "otlp", feature = "prometheus")
-))]
-pub mod observability;
 pub mod semantic_triples;
 pub use metadata_filter::MetadataFilter;
 pub mod index;

@@ -13,7 +13,7 @@ def safe_urlopen(url):
 
 if not pr_number:
     # Try to find the PR
-    url = f'https://api.github.com/repos/{repo}/pulls?head=d-o-hub:add-bundle-concepts-strict-tests'
+    url = f'https://api.github.com/repos/{repo}/pulls?head=d-o-hub:feat/reranking-pipeline-v2'
     try:
         with safe_urlopen(url) as response:
             data = json.loads(response.read().decode())

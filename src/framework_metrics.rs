@@ -9,8 +9,6 @@ pub struct FrameworkMetrics {
     pub(crate) probes_total: AtomicU64,
     pub(crate) probe_latency_ms_total: AtomicU64,
     pub(crate) probe_latency_count: AtomicU64,
-    pub(crate) persist_latency_ms_total: AtomicU64,
-    pub(crate) persist_latency_count: AtomicU64,
 }
 
 #[derive(Debug, Clone)]
@@ -28,75 +26,21 @@ pub struct FrameworkMetricsSnapshot {
 }
 
 impl FrameworkMetrics {
-    pub(crate) fn inc_concepts_injected(&self, count: u64, _with_metadata: bool) {
+    pub(crate) fn inc_concepts_injected(&self, count: u64) {
         self.concepts_injected_total
             .fetch_add(count, Ordering::Relaxed);
-        #[cfg(feature = "prometheus")]
-        {
-            #[allow(clippy::cast_precision_loss)]
-            crate::observability::prom::INJECT_TOTAL
-                .with_label_values(&[&_with_metadata.to_string()])
-                .inc_by(count as f64);
-        }
     }
 
     pub(crate) fn inc_associations_created(&self, count: u64) {
         self.associations_created_total
             .fetch_add(count, Ordering::Relaxed);
-        #[cfg(feature = "prometheus")]
-        {
-            #[allow(clippy::cast_precision_loss)]
-            crate::observability::prom::ASSOCIATIONS_TOTAL.inc_by(count as f64);
-        }
     }
 
-    pub(crate) fn observe_probe_latency_ms(&self, latency_ms: u64, _top_k: usize, _success: bool) {
+    pub(crate) fn observe_probe_latency_ms(&self, latency_ms: u64) {
         self.probes_total.fetch_add(1, Ordering::Relaxed);
         self.probe_latency_ms_total
             .fetch_add(latency_ms, Ordering::Relaxed);
         self.probe_latency_count.fetch_add(1, Ordering::Relaxed);
-
-        #[cfg(feature = "prometheus")]
-        {
-            let result_str = if _success { "ok" } else { "error" };
-            crate::observability::prom::PROBE_TOTAL
-                .with_label_values(&[result_str])
-                .inc();
-            #[allow(clippy::cast_precision_loss)]
-            crate::observability::prom::PROBE_LATENCY
-                .with_label_values(&[&_top_k.to_string()])
-                .observe(latency_ms as f64);
-        }
-    }
-
-    pub(crate) fn observe_persist_latency_ms(&self, latency_ms: u64, _op: &str) {
-        self.persist_latency_ms_total
-            .fetch_add(latency_ms, Ordering::Relaxed);
-        self.persist_latency_count.fetch_add(1, Ordering::Relaxed);
-
-        #[cfg(feature = "prometheus")]
-        {
-            #[allow(clippy::cast_precision_loss)]
-            crate::observability::prom::PERSIST_LATENCY
-                .with_label_values(&[_op])
-                .observe(latency_ms as f64);
-        }
-    }
-
-    pub(crate) fn update_gauges(
-        &self,
-        _concept_count: u64,
-        _association_count: u64,
-        _cache_hit_ratio: f64,
-    ) {
-        #[cfg(feature = "prometheus")]
-        {
-            #[allow(clippy::cast_precision_loss)]
-            crate::observability::prom::CONCEPTS_COUNT.set(_concept_count as f64);
-            #[allow(clippy::cast_precision_loss)]
-            crate::observability::prom::ASSOCIATIONS_COUNT.set(_association_count as f64);
-            crate::observability::prom::CACHE_HIT_RATIO.set(_cache_hit_ratio);
-        }
     }
 
     pub(crate) fn snapshot(&self) -> FrameworkMetricsSnapshot {

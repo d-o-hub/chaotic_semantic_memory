@@ -18,7 +18,7 @@ pub struct RerankCandidate {
 }
 
 /// Trait for reranking retrieval results.
-pub trait Reranker: Send + Sync {
+pub trait Reranker: Send + Sync + std::fmt::Debug {
     /// Returns the name of the reranker.
     fn name(&self) -> &str;
 
@@ -32,6 +32,7 @@ pub trait Reranker: Send + Sync {
 }
 
 /// Maximal Marginal Relevance (MMR) reranker for diversity.
+#[derive(Debug)]
 pub struct MmrReranker {
     /// Diversity vs similarity trade-off (0.0 = full diversity, 1.0 = pure similarity).
     pub lambda: f32,
@@ -87,6 +88,7 @@ impl Reranker for MmrReranker {
 }
 
 /// Recency decay reranker to favor newer concepts.
+#[derive(Debug)]
 pub struct RecencyDecayReranker {
     /// Time period after which weight is halved (in days).
     pub half_life_days: f32,
@@ -125,6 +127,7 @@ impl Reranker for RecencyDecayReranker {
 
 /// Cross-encoder reranker using ONNX (opt-in).
 #[cfg(feature = "rerank-cross")]
+#[derive(Debug)]
 pub struct CrossEncoderReranker {
     pub model: Arc<candle_onnx::onnx::ModelProto>,
     pub model_path: String,
@@ -157,7 +160,7 @@ pub fn parse_rerankers(s: &str) -> crate::error::Result<Vec<Box<dyn Reranker>>> 
         if part.is_empty() {
             continue;
         }
-        let mut split = part.split(':');
+        let mut split = part.splitn(2, ':');
         let name = split.next().unwrap_or("");
         let value = split.next().unwrap_or("");
 
@@ -173,21 +176,31 @@ pub fn parse_rerankers(s: &str) -> crate::error::Result<Vec<Box<dyn Reranker>>> 
                 rerankers.push(Box::new(MmrReranker { lambda }));
             }
             "recency" => {
-                let val_str = if let Some(stripped) = value.strip_suffix('d') {
+                let mut recency_split = value.split(':');
+                let half_life_str = recency_split.next().unwrap_or("");
+                let val_str = if let Some(stripped) = half_life_str.strip_suffix('d') {
                     stripped
                 } else {
-                    value
+                    half_life_str
                 };
                 let half_life = val_str.parse::<f32>().map_err(|_| {
                     crate::error::MemoryError::InvalidInput {
                         field: "rerank".to_string(),
-                        reason: format!("invalid recency half-life: {}", value),
+                        reason: format!("invalid recency half-life: {}", half_life_str),
                     }
                 })?;
-                let blend = split
-                    .next()
-                    .and_then(|b| b.parse::<f32>().ok())
-                    .unwrap_or(0.5);
+
+                let blend = if let Some(blend_str) = recency_split.next() {
+                    blend_str
+                        .parse::<f32>()
+                        .map_err(|_| crate::error::MemoryError::InvalidInput {
+                            field: "rerank".to_string(),
+                            reason: format!("invalid recency blend: {}", blend_str),
+                        })?
+                } else {
+                    0.5
+                };
+
                 rerankers.push(Box::new(RecencyDecayReranker {
                     half_life_days: half_life,
                     blend,
@@ -294,5 +307,25 @@ mod tests {
         assert_eq!(rers.len(), 2);
         assert_eq!(rers[0].name(), "mmr");
         assert_eq!(rers[1].name(), "recency");
+    }
+
+    #[test]
+    #[cfg(feature = "rerank-cross")]
+    fn test_parse_rerankers_windows_path() {
+        // We need a file that exists or mock the loading.
+        // For testing the parser's string splitting logic, we can check if it attempts to load the right path.
+        // Since we can't easily mock candle_onnx::read_file, we'll just test that it doesn't fail on name parsing.
+        let err = parse_rerankers("cross:C:\\nonexistent\\model.onnx").unwrap_err();
+        if let crate::error::MemoryError::InvalidInput { reason, .. } = err {
+            assert!(reason.contains("C:\\nonexistent\\model.onnx"));
+        } else {
+            panic!("Expected InvalidInput error with the full path");
+        }
+    }
+
+    #[test]
+    fn test_parse_rerankers_invalid_blend() {
+        let err = parse_rerankers("recency:30d:not-a-number").unwrap_err();
+        assert!(format!("{}", err).contains("invalid recency blend"));
     }
 }
