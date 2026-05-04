@@ -111,17 +111,20 @@ impl Singularity {
     }
 
     /// Get statistics from the last retrieval operation.
-    pub fn last_retrieval_stats(&self) -> RetrievalStats {
-        self.last_retrieval_stats
-            .read()
+    pub fn last_retrieval_stats(&self, ns: &str) -> RetrievalStats {
+        self.get_namespace(ns)
+            .and_then(|n| n.last_retrieval_stats.read().ok())
             .map(|s| s.clone())
             .unwrap_or_default()
     }
 
     /// Generate candidates by expanding the association graph.
-    pub(crate) fn generate_graph_candidates(&self, query: &HVec10240) -> Vec<usize> {
+    pub(crate) fn generate_graph_candidates(&self, ns: &str, query: &HVec10240) -> Vec<usize> {
+        let Some(ns_state) = self.get_namespace(ns) else {
+            return Vec::new();
+        };
         let mut candidates = std::collections::HashSet::new();
-        let results = self.exact_similarity_scan(query, 1, unix_now_ns(), true);
+        let results = self.exact_similarity_scan(ns, query, 1, unix_now_ns(), true);
         if let Some((seed_id, _)) = results.first() {
             let mut queue = VecDeque::new();
             queue.push_back((seed_id.clone(), 0u8));
@@ -131,7 +134,7 @@ impl Singularity {
                 if depth >= self.retrieval_config.graph_depth {
                     continue;
                 }
-                if let Some(links) = self.associations.get(&id) {
+                if let Some(links) = ns_state.associations.get(&id) {
                     let mut sorted_links: Vec<_> = links.iter().collect();
                     sorted_links.sort_by(|a, b| b.1.total_cmp(a.1));
                     for (neighbor_id, _) in sorted_links
@@ -149,12 +152,15 @@ impl Singularity {
 
         candidates
             .into_iter()
-            .filter_map(|id| self.id_to_index.get(&id).copied())
+            .filter_map(|id| ns_state.id_to_index.get(&id).copied())
             .collect()
     }
 
     /// Generate candidates by coarse bucketing.
-    pub(crate) fn generate_bucket_candidates(&self, query: &HVec10240) -> Vec<usize> {
+    pub(crate) fn generate_bucket_candidates(&self, ns: &str, query: &HVec10240) -> Vec<usize> {
+        let Some(ns_state) = self.get_namespace(ns) else {
+            return Vec::new();
+        };
         debug_assert!(self.retrieval_config.bucket_probe_width <= 127);
         let bucket_mask = (1u128 << self.retrieval_config.bucket_probe_width) - 1;
         let query_bucket = query.data[0] & bucket_mask;
@@ -171,7 +177,7 @@ impl Singularity {
         // Reduces latency from O(N) to O(N/P) where P is the number of execution units.
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         {
-            self.concept_vectors
+            ns_state.concept_vectors
                 .par_iter()
                 .enumerate()
                 .filter_map(filter)
@@ -180,7 +186,7 @@ impl Singularity {
 
         #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
         {
-            self.concept_vectors
+            ns_state.concept_vectors
                 .iter()
                 .enumerate()
                 .filter_map(filter)
@@ -191,17 +197,21 @@ impl Singularity {
     /// Perform exact similarity scan over all vectors.
     pub(crate) fn exact_similarity_scan(
         &self,
+        ns: &str,
         query: &HVec10240,
         top_k: usize,
         start_ns: u64,
         bypass_cache: bool,
     ) -> Arc<[(String, f32)]> {
+        let Some(ns_state) = self.get_namespace(ns) else {
+            return Arc::from(Vec::new());
+        };
         let scoring_start = unix_now_ns();
 
         // Algorithmic Optimization: Use integer Hamming distance for ranking to avoid floating-point
         // overhead and use a fused allocation to improve cache locality.
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        let mut scores: Vec<(usize, u32)> = self
+        let mut scores: Vec<(usize, u32)> = ns_state
             .concept_vectors
             .par_iter()
             .enumerate()
@@ -210,7 +220,7 @@ impl Singularity {
             .collect();
 
         #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-        let mut scores: Vec<(usize, u32)> = self
+        let mut scores: Vec<(usize, u32)> = ns_state
             .concept_vectors
             .iter()
             .enumerate()
@@ -234,22 +244,23 @@ impl Singularity {
             .map(|(idx, dist)| {
                 // Defer cosine similarity calculation until the final top_k results
                 let similarity = 1.0 - (dist as f32 / 5120.0);
-                (self.concept_indices[idx].clone(), similarity)
+                (ns_state.concept_indices[idx].clone(), similarity)
             })
             .collect();
 
         let results_arc = Arc::from(results);
         if !bypass_cache {
-            if let Ok(mut cache) = self.query_cache.write() {
+            if let Ok(mut cache) = ns_state.query_cache.write() {
                 let cache_key = crate::singularity::similarity_cache_key(query, top_k);
                 if cache.put(cache_key, Arc::clone(&results_arc)) {
-                    self.cache_metrics
+                    ns_state.cache_metrics
                         .evictions_total
                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 }
             }
         }
         self.update_stats(
+            ns,
             scored_count,
             scored_count,
             true,
@@ -264,8 +275,12 @@ impl Singularity {
     /// Score a subset of candidates for reduced-candidate retrieval.
     pub(crate) fn scored_candidate_retrieval(
         &self,
+        ns: &str,
         params: ScoredCandidateParams,
     ) -> Arc<[(String, f32)]> {
+        let Some(ns_state) = self.get_namespace(ns) else {
+            return Arc::from(Vec::new());
+        };
         let ScoredCandidateParams {
             query,
             top_k,
@@ -281,13 +296,13 @@ impl Singularity {
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         let mut scores: Vec<(usize, u32)> = candidates
             .into_par_iter()
-            .map(|idx| (idx, query.hamming_distance(&self.concept_vectors[idx])))
+            .map(|idx| (idx, query.hamming_distance(&ns_state.concept_vectors[idx])))
             .collect();
 
         #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
         let mut scores: Vec<(usize, u32)> = candidates
             .into_iter()
-            .map(|idx| (idx, query.hamming_distance(&self.concept_vectors[idx])))
+            .map(|idx| (idx, query.hamming_distance(&ns_state.concept_vectors[idx])))
             .collect();
 
         let scoring_ns = unix_now_ns().saturating_sub(scoring_start);
@@ -305,16 +320,16 @@ impl Singularity {
             .into_iter()
             .map(|(idx, dist)| {
                 let similarity = 1.0 - (dist as f32 / 5120.0);
-                (self.concept_indices[idx].clone(), similarity)
+                (ns_state.concept_indices[idx].clone(), similarity)
             })
             .collect();
 
         let results_arc = Arc::from(results);
         if !bypass_cache {
-            if let Ok(mut cache) = self.query_cache.write() {
+            if let Ok(mut cache) = ns_state.query_cache.write() {
                 let cache_key = crate::singularity::similarity_cache_key(query, top_k);
                 if cache.put(cache_key, Arc::clone(&results_arc)) {
-                    self.cache_metrics
+                    ns_state.cache_metrics
                         .evictions_total
                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 }
@@ -322,6 +337,7 @@ impl Singularity {
         }
 
         self.update_stats(
+            ns,
             candidate_count,
             scored_count,
             false,
@@ -338,6 +354,7 @@ impl Singularity {
     #[allow(clippy::too_many_arguments)]
     fn update_stats(
         &self,
+        ns: &str,
         candidates: usize,
         scored: usize,
         fallback: bool,
@@ -346,27 +363,33 @@ impl Singularity {
         selectivity: f32,
         strategy: Option<FilterStrategy>,
     ) {
-        let stats = RetrievalStats {
-            candidate_count: candidates,
-            scored_count: scored,
-            fell_back_to_exact_scan: fallback,
-            candidate_ns: cand_ns,
-            scoring_ns: score_ns,
-            selectivity_ratio: selectivity,
-            filter_strategy: strategy,
-        };
-        if let Ok(mut s) = self.last_retrieval_stats.write() {
-            *s = stats;
+        if let Some(ns_state) = self.get_namespace(ns) {
+            let stats = RetrievalStats {
+                candidate_count: candidates,
+                scored_count: scored,
+                fell_back_to_exact_scan: fallback,
+                candidate_ns: cand_ns,
+                scoring_ns: score_ns,
+                selectivity_ratio: selectivity,
+                filter_strategy: strategy,
+            };
+            if let Ok(mut s) = ns_state.last_retrieval_stats.write() {
+                *s = stats;
+            }
         }
     }
 
     /// Score candidates with explicit selectivity stats (ADR-0065).
     pub(crate) fn scored_candidate_retrieval_with_stats(
         &self,
+        ns: &str,
         params: ScoredCandidateParams,
         selectivity: f32,
         strategy: Option<FilterStrategy>,
     ) -> Arc<[(String, f32)]> {
+        let Some(ns_state) = self.get_namespace(ns) else {
+            return Arc::from(Vec::new());
+        };
         let ScoredCandidateParams {
             query,
             top_k,
@@ -382,13 +405,13 @@ impl Singularity {
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         let mut scores: Vec<(usize, u32)> = candidates
             .into_par_iter()
-            .map(|idx| (idx, query.hamming_distance(&self.concept_vectors[idx])))
+            .map(|idx| (idx, query.hamming_distance(&ns_state.concept_vectors[idx])))
             .collect();
 
         #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
         let mut scores: Vec<(usize, u32)> = candidates
             .into_iter()
-            .map(|idx| (idx, query.hamming_distance(&self.concept_vectors[idx])))
+            .map(|idx| (idx, query.hamming_distance(&ns_state.concept_vectors[idx])))
             .collect();
 
         let scoring_ns = unix_now_ns().saturating_sub(scoring_start);
@@ -406,16 +429,16 @@ impl Singularity {
             .into_iter()
             .map(|(idx, dist)| {
                 let similarity = 1.0 - (dist as f32 / 5120.0);
-                (self.concept_indices[idx].clone(), similarity)
+                (ns_state.concept_indices[idx].clone(), similarity)
             })
             .collect();
 
         let results_arc = Arc::from(results);
         if !bypass_cache {
-            if let Ok(mut cache) = self.query_cache.write() {
+            if let Ok(mut cache) = ns_state.query_cache.write() {
                 let cache_key = crate::singularity::similarity_cache_key(query, top_k);
                 if cache.put(cache_key, Arc::clone(&results_arc)) {
-                    self.cache_metrics
+                    ns_state.cache_metrics
                         .evictions_total
                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 }
@@ -423,6 +446,7 @@ impl Singularity {
         }
 
         self.update_stats(
+            ns,
             candidate_count,
             scored_count,
             false,

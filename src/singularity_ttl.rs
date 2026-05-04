@@ -23,9 +23,12 @@ impl Singularity {
     /// Purge all expired concepts from memory.
     ///
     /// Returns the number of concepts removed.
-    pub fn purge_expired(&mut self) -> usize {
+    pub fn purge_expired(&mut self, ns: &str) -> usize {
         let now = unix_now_secs();
-        let expired: Vec<String> = self
+        let Some(ns_state) = self.get_namespace(ns) else {
+            return 0;
+        };
+        let expired: Vec<String> = ns_state
             .concepts
             .iter()
             .filter(|(_, c)| c.expires_at.is_some_and(|exp| exp <= now))
@@ -34,30 +37,33 @@ impl Singularity {
 
         let count = expired.len();
         for id in expired {
-            self.delete(&id).ok();
+            self.delete(ns, &id).ok();
         }
         if count > 0 {
-            self.invalidate_cache();
+            self.invalidate_cache(ns);
         }
         count
     }
 
     /// Check if a concept is expired.
-    pub fn is_expired(&self, id: &str) -> bool {
+    pub fn is_expired(&self, ns: &str, id: &str) -> bool {
         let now = unix_now_secs();
-        self.concepts
-            .get(id)
+        self.get(ns, id)
             .is_some_and(|c| c.expires_at.is_some_and(|exp| exp <= now))
     }
 
     /// Get all non-expired concept IDs.
-    pub fn active_concept_ids(&self) -> Vec<String> {
+    pub fn active_concept_ids(&self, ns: &str) -> Vec<String> {
         let now = unix_now_secs();
-        self.concepts
-            .iter()
-            .filter(|(_, c)| c.expires_at.is_none_or(|exp| exp > now))
-            .map(|(id, _)| id.clone())
-            .collect()
+        self.get_namespace(ns)
+            .map(|n| {
+                n.concepts
+                    .iter()
+                    .filter(|(_, c)| c.expires_at.is_none_or(|exp| exp > now))
+                    .map(|(id, _)| id.clone())
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 }
 
@@ -88,18 +94,19 @@ mod tests {
             ..Default::default()
         };
 
-        sing.inject(concept1).unwrap();
-        sing.inject(concept2).unwrap();
-        sing.inject(concept3).unwrap();
+        let ns = "_default";
+        sing.inject(ns, concept1).unwrap();
+        sing.inject(ns, concept2).unwrap();
+        sing.inject(ns, concept3).unwrap();
 
-        assert_eq!(sing.active_concept_ids().len(), 2);
+        assert_eq!(sing.active_concept_ids(ns).len(), 2);
 
-        let purged = sing.purge_expired();
+        let purged = sing.purge_expired(ns);
         assert_eq!(purged, 1);
 
-        assert!(!sing.concepts.contains_key("expired"));
-        assert!(sing.concepts.contains_key("active"));
-        assert!(sing.concepts.contains_key("no_exp"));
+        assert!(!sing.get_namespace(ns).unwrap().concepts.contains_key("expired"));
+        assert!(sing.get_namespace(ns).unwrap().concepts.contains_key("active"));
+        assert!(sing.get_namespace(ns).unwrap().concepts.contains_key("no_exp"));
     }
 
     #[test]
@@ -131,16 +138,17 @@ mod tests {
             ..Default::default()
         };
 
-        sing.inject(concept1).unwrap();
-        sing.inject(concept2).unwrap();
-        sing.inject(concept3).unwrap();
-        sing.inject(concept4).unwrap();
+        let ns = "_default";
+        sing.inject(ns, concept1).unwrap();
+        sing.inject(ns, concept2).unwrap();
+        sing.inject(ns, concept3).unwrap();
+        sing.inject(ns, concept4).unwrap();
 
-        assert!(sing.is_expired("expired"));
-        assert!(!sing.is_expired("active"));
-        assert!(!sing.is_expired("no_exp"));
-        assert!(sing.is_expired("just_expired"));
-        assert!(!sing.is_expired("nonexistent"));
+        assert!(sing.is_expired(ns, "expired"));
+        assert!(!sing.is_expired(ns, "active"));
+        assert!(!sing.is_expired(ns, "no_exp"));
+        assert!(sing.is_expired(ns, "just_expired"));
+        assert!(!sing.is_expired(ns, "nonexistent"));
     }
 
     #[test]
@@ -166,11 +174,12 @@ mod tests {
             ..Default::default()
         };
 
-        sing.inject(concept1).unwrap();
-        sing.inject(concept2).unwrap();
-        sing.inject(concept3).unwrap();
+        let ns = "_default";
+        sing.inject(ns, concept1).unwrap();
+        sing.inject(ns, concept2).unwrap();
+        sing.inject(ns, concept3).unwrap();
 
-        let mut active = sing.active_concept_ids();
+        let mut active = sing.active_concept_ids(ns);
         active.sort();
 
         let mut expected = vec!["active".to_string(), "no_exp".to_string()];

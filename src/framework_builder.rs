@@ -263,6 +263,7 @@ impl FrameworkBuilder {
             config: self.config,
             metrics: Default::default(),
             event_sender: build_event_sender(),
+            namespace: "_default".to_string(),
         };
 
         framework.load_replace().await?;

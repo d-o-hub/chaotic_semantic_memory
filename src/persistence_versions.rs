@@ -9,10 +9,19 @@ impl Persistence {
         conn: &Connection,
         concept: &Concept,
     ) -> Result<()> {
+        self.record_concept_version_scoped(conn, "_default", concept).await
+    }
+
+    pub(crate) async fn record_concept_version_scoped(
+        &self,
+        conn: &Connection,
+        ns: &str,
+        concept: &Concept,
+    ) -> Result<()> {
         let mut rows = conn
             .query(
-                "SELECT COALESCE(MAX(version), 0) FROM csm_versions WHERE concept_id = ?1",
-                params![concept.id.clone()],
+                "SELECT COALESCE(MAX(version), 0) FROM csm_versions WHERE namespace = ?1 AND concept_id = ?2",
+                params![ns.to_string(), concept.id.clone()],
             )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to query concept version: {e}")))?;
@@ -31,9 +40,10 @@ impl Persistence {
         let metadata_json = serde_json::to_string(&concept.metadata)?;
 
         conn.execute(
-            "INSERT INTO csm_versions (concept_id, version, vector, metadata, modified_at)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO csm_versions (namespace, concept_id, version, vector, metadata, modified_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
+                ns.to_string(),
                 concept.id.clone(),
                 next_version,
                 vector_bytes,
@@ -46,11 +56,11 @@ impl Persistence {
 
         conn.execute(
             "DELETE FROM csm_versions
-             WHERE concept_id = ?1
+             WHERE namespace = ?1 AND concept_id = ?2
              AND version <= (
-                SELECT MAX(version) - ?2 FROM csm_versions WHERE concept_id = ?1
+                SELECT MAX(version) - ?3 FROM csm_versions WHERE namespace = ?1 AND concept_id = ?2
              )",
-            params![concept.id.clone(), self.version_retention as i64],
+            params![ns.to_string(), concept.id.clone(), self.version_retention as i64],
         )
         .await
         .map_err(|e| MemoryError::database(format!("Failed to prune concept versions: {e}")))?;

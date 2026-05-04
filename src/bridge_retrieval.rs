@@ -56,12 +56,13 @@ impl BridgeRetrieval {
     /// 6. Optional reranking
     pub fn query(
         &self,
+        ns: &str,
         singularity: &Singularity,
         query_text: &str,
         top_k: usize,
         reranker: Option<&dyn SemanticReranker>,
     ) -> Result<Vec<BridgeHit>> {
-        if top_k == 0 || singularity.is_empty() {
+        if top_k == 0 || singularity.is_empty(ns) {
             return Ok(Vec::new());
         }
 
@@ -70,7 +71,7 @@ impl BridgeRetrieval {
         let query_hv = self.encoder.encode(query_text);
 
         // Step 2: First recall - deterministic HDC scores
-        let primary_results = singularity.find_similar(&query_hv, top_k);
+        let primary_results = singularity.find_similar(ns, &query_hv, top_k);
         let primary_normalized = normalize_scores(&primary_results);
 
         // Step 3: Concept expansion
@@ -90,7 +91,7 @@ impl BridgeRetrieval {
                 .collect();
 
             let expanded_hv = HVec10240::bundle(&label_hvs).unwrap_or_else(|_| HVec10240::zero());
-            let results = singularity.find_similar(&expanded_hv, top_k);
+            let results = singularity.find_similar(ns, &expanded_hv, top_k);
             normalize_scores(&results)
         };
 
@@ -120,13 +121,14 @@ impl BridgeRetrieval {
     /// suitable for LLM context injection.
     pub fn memory_packet(
         &self,
+        ns: &str,
         singularity: &Singularity,
         query_text: &str,
         top_k: usize,
         reranker: Option<&dyn SemanticReranker>,
     ) -> Result<MemoryPacket> {
-        let hits = self.query(singularity, query_text, top_k, reranker)?;
-        self.compile_packet(query_text, &hits, singularity)
+        let hits = self.query(ns, singularity, query_text, top_k, reranker)?;
+        self.compile_packet(ns, query_text, &hits, singularity)
     }
 
     /// Merge primary and expanded results with score breakdown.
@@ -195,6 +197,7 @@ impl BridgeRetrieval {
     /// Compile hits into a memory packet with token budget.
     fn compile_packet(
         &self,
+        ns: &str,
         query_text: &str,
         hits: &[BridgeHit],
         singularity: &Singularity,
@@ -205,7 +208,7 @@ impl BridgeRetrieval {
 
         for hit in hits {
             // Get concept for text preview
-            if let Some(concept) = singularity.get(&hit.id) {
+            if let Some(concept) = singularity.get(ns, &hit.id) {
                 // Extract text from metadata or use ID
                 let text = concept
                     .metadata

@@ -74,6 +74,7 @@ mod hyperdim_simd; // AVX2/NEON SIMD paths
 pub mod mcp;
 pub mod metadata_filter;
 pub mod semantic_triples;
+mod persistence_concepts;
 pub use metadata_filter::MetadataFilter;
 pub mod index;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
@@ -94,6 +95,7 @@ mod reservoir_sparse; // LOC gate extraction
 pub mod retrieval;
 pub mod semantic_bridge;
 pub mod singularity;
+pub mod singularity_state;
 mod singularity_cache;
 mod singularity_ext;
 mod singularity_retrieval;

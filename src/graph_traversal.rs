@@ -41,8 +41,8 @@ impl Singularity {
     /// Get direct neighbors of a concept with edge strengths.
     ///
     /// Returns outbound associations with strength >= `min_strength`.
-    pub fn neighbors(&self, id: &str, min_strength: f32) -> Vec<(String, f32)> {
-        self.get_associations(id)
+    pub fn neighbors(&self, ns: &str, id: &str, min_strength: f32) -> Vec<(String, f32)> {
+        self.get_associations(ns, id)
             .into_iter()
             .filter(|(_, strength)| *strength >= min_strength)
             .collect()
@@ -51,11 +51,14 @@ impl Singularity {
     /// Get incoming associations for a concept.
     ///
     /// Returns concepts that have associations pointing to this concept.
-    pub fn incoming_associations(&self, id: &str) -> Vec<(&str, f32)> {
+    pub fn incoming_associations(&self, ns: &str, id: &str) -> Vec<(String, f32)> {
+        let Some(ns_state) = self.get_namespace(ns) else {
+            return Vec::new();
+        };
         let mut incoming = Vec::new();
-        for (from_id, links) in &self.associations {
+        for (from_id, links) in &ns_state.associations {
             if let Some(&strength) = links.get(id) {
-                incoming.push((from_id.as_str(), strength));
+                incoming.push((from_id.clone(), strength));
             }
         }
         incoming.sort_by(|a, b| b.1.total_cmp(&a.1));
@@ -66,9 +69,13 @@ impl Singularity {
     ///
     /// Returns nodes reachable within `config.max_depth` hops, along with their depths.
     /// Nodes are returned in BFS order.
-    pub fn bfs(&self, start: &str, config: &TraversalConfig) -> Result<Vec<(String, u32)>> {
+    pub fn bfs(&self, ns: &str, start: &str, config: &TraversalConfig) -> Result<Vec<(String, u32)>> {
         crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
-        if !self.concepts.contains_key(start) {
+        let ns_state = self.get_namespace(ns).ok_or_else(|| MemoryError::NotFound {
+            entity: "Namespace".to_string(),
+            id: ns.to_string(),
+        })?;
+        if !ns_state.concepts.contains_key(start) {
             return Err(MemoryError::NotFound {
                 entity: "Concept".to_string(),
                 id: start.to_string(),
@@ -93,7 +100,7 @@ impl Singularity {
                 continue;
             }
 
-            let neighbors = self.neighbors(&current, config.min_strength);
+            let neighbors = self.neighbors(ns, &current, config.min_strength);
             for (neighbor, _) in neighbors {
                 if visited.insert(neighbor.clone()) {
                     queue.push_back((neighbor, depth + 1));
@@ -114,18 +121,23 @@ impl Singularity {
     /// Use [`Self::shortest_path_hops`] for unweighted (fewest-hop) traversal.
     pub fn shortest_path(
         &self,
+        ns: &str,
         from: &str,
         to: &str,
         config: &TraversalConfig,
     ) -> Result<Option<Vec<String>>> {
         crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
-        if !self.concepts.contains_key(from) {
+        let ns_state = self.get_namespace(ns).ok_or_else(|| MemoryError::NotFound {
+            entity: "Namespace".to_string(),
+            id: ns.to_string(),
+        })?;
+        if !ns_state.concepts.contains_key(from) {
             return Err(MemoryError::NotFound {
                 entity: "Concept".to_string(),
                 id: from.to_string(),
             });
         }
-        if !self.concepts.contains_key(to) {
+        if !ns_state.concepts.contains_key(to) {
             return Err(MemoryError::NotFound {
                 entity: "Concept".to_string(),
                 id: to.to_string(),
@@ -173,7 +185,7 @@ impl Singularity {
                 continue;
             }
 
-            let neighbors = self.neighbors(&current, config.min_strength);
+            let neighbors = self.neighbors(ns, &current, config.min_strength);
             for (neighbor, strength) in neighbors {
                 // Cost: -ln(strength), guarding against strength <= 0
                 let edge_cost = if strength > 0.0 {
@@ -202,18 +214,23 @@ impl Singularity {
     /// Returns `None` if no path exists within `config.max_depth` hops.
     pub fn shortest_path_hops(
         &self,
+        ns: &str,
         from: &str,
         to: &str,
         config: &TraversalConfig,
     ) -> Result<Option<Vec<String>>> {
         crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
-        if !self.concepts.contains_key(from) {
+        let ns_state = self.get_namespace(ns).ok_or_else(|| MemoryError::NotFound {
+            entity: "Namespace".to_string(),
+            id: ns.to_string(),
+        })?;
+        if !ns_state.concepts.contains_key(from) {
             return Err(MemoryError::NotFound {
                 entity: "Concept".to_string(),
                 id: from.to_string(),
             });
         }
-        if !self.concepts.contains_key(to) {
+        if !ns_state.concepts.contains_key(to) {
             return Err(MemoryError::NotFound {
                 entity: "Concept".to_string(),
                 id: to.to_string(),
@@ -236,7 +253,7 @@ impl Singularity {
                 continue;
             }
 
-            let neighbors = self.neighbors(&current, config.min_strength);
+            let neighbors = self.neighbors(ns, &current, config.min_strength);
             for (neighbor, _) in neighbors {
                 if visited.insert(neighbor.clone()) {
                     parent.insert(neighbor.clone(), current.clone());

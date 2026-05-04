@@ -20,12 +20,16 @@ impl Singularity {
     /// Returns `NotFound` error if any concept ID is missing.
     #[cfg_attr(
         not(target_arch = "wasm32"),
-        instrument(skip(self), fields(ids_count = ids.len()))
+        instrument(skip(self, ns), fields(ids_count = ids.len()))
     )]
-    pub fn bundle_concepts_strict(&self, ids: &[String]) -> Result<HVec10240> {
+    pub fn bundle_concepts_strict(&self, ns: &str, ids: &[String]) -> Result<HVec10240> {
+        let ns_state = self.get_namespace(ns).ok_or_else(|| MemoryError::NotFound {
+            entity: "Namespace".to_string(),
+            id: ns.to_string(),
+        })?;
         let mut vectors = Vec::with_capacity(ids.len());
         for id in ids {
-            match self.concepts.get(id) {
+            match ns_state.concepts.get(id) {
                 Some(concept) => vectors.push(concept.vector),
                 None => {
                     return Err(MemoryError::NotFound {
@@ -42,55 +46,59 @@ impl Singularity {
     /// Returns Ok(()) even if the association didn't exist.
     #[cfg_attr(
         not(target_arch = "wasm32"),
-        instrument(skip(self), fields(from_id = %from, to_id = %to))
+        instrument(skip(self, ns), fields(from_id = %from, to_id = %to))
     )]
-    pub fn disassociate(&mut self, from: &str, to: &str) -> Result<()> {
-        if !self.concepts.contains_key(from) {
+    pub fn disassociate(&mut self, ns: &str, from: &str, to: &str) -> Result<()> {
+        let ns_state = self.get_namespace_mut(ns);
+        if !ns_state.concepts.contains_key(from) {
             return Err(MemoryError::NotFound {
                 entity: "Concept".to_string(),
                 id: from.to_string(),
             });
         }
-        if let Some(links) = self.associations.get_mut(from) {
+        if let Some(links) = ns_state.associations.get_mut(from) {
             links.remove(to);
         }
-        self.invalidate_cache();
+        self.invalidate_cache(ns);
         Ok(())
     }
 
     /// Clear all outbound associations for a concept.
     #[cfg_attr(
         not(target_arch = "wasm32"),
-        instrument(skip(self), fields(concept_id = %id))
+        instrument(skip(self, ns), fields(concept_id = %id))
     )]
-    pub fn clear_associations(&mut self, id: &str) -> Result<()> {
-        if !self.concepts.contains_key(id) {
+    pub fn clear_associations(&mut self, ns: &str, id: &str) -> Result<()> {
+        let ns_state = self.get_namespace_mut(ns);
+        if !ns_state.concepts.contains_key(id) {
             return Err(MemoryError::NotFound {
                 entity: "Concept".to_string(),
                 id: id.to_string(),
             });
         }
-        self.associations.remove(id);
-        self.invalidate_cache();
+        ns_state.associations.remove(id);
+        self.invalidate_cache(ns);
         Ok(())
     }
 
     /// Clear the similarity query cache.
-    pub fn clear_similarity_cache(&self) {
-        self.invalidate_cache();
+    pub fn clear_similarity_cache(&self, ns: &str) {
+        self.invalidate_cache(ns);
     }
 
     /// Update concept metadata.
     #[cfg_attr(
         not(target_arch = "wasm32"),
-        instrument(skip(self), fields(concept_id = %id))
+        instrument(skip(self, ns), fields(concept_id = %id))
     )]
     pub fn update_metadata(
         &mut self,
+        ns: &str,
         id: &str,
         metadata: HashMap<String, serde_json::Value>,
     ) -> Result<()> {
-        if let Some(concept) = self.concepts.get_mut(id) {
+        let ns_state = self.get_namespace_mut(ns);
+        if let Some(concept) = ns_state.concepts.get_mut(id) {
             concept.metadata = metadata;
             concept.modified_at = unix_now_secs();
             Ok(())
@@ -110,10 +118,11 @@ impl Singularity {
     /// - selectivity >= 0.8: Full scan, score, post-filter
     #[cfg_attr(
         not(target_arch = "wasm32"),
-        instrument(skip(self, query), fields(top_k = top_k))
+        instrument(skip(self, ns, query), fields(top_k = top_k))
     )]
     pub fn find_similar_filtered(
         &self,
+        ns: &str,
         query: &HVec10240,
         top_k: usize,
         filter: &MetadataFilter,
@@ -123,14 +132,15 @@ impl Singularity {
             return Arc::from(Vec::new());
         }
 
-        let start_ns = crate::singularity::unix_now_ns();
-        if top_k == 0 || self.concepts.is_empty() {
+        if top_k == 0 || self.is_empty(ns) {
             return Arc::from(Vec::new());
         }
+        let ns_state = self.get_namespace(ns).expect("Namespace checked by is_empty");
+        let start_ns = crate::singularity::unix_now_ns();
 
         // ADR-0065: Compute selectivity ratio
-        let total_count = self.concepts.len();
-        let matching_count = self
+        let total_count = ns_state.concepts.len();
+        let matching_count = ns_state
             .concepts
             .values()
             .filter(|c| filter.matches(&c.metadata))
@@ -145,15 +155,15 @@ impl Singularity {
         // If we have an ANN index and it's not BruteForce, use it.
         // BruteForce backend in singularity.index is handled by the heuristic routing below
         // to maintain backward compatibility with selectivity-aware tests.
-        let index_stats = self.index.stats();
+        let index_stats = ns_state.index.stats();
         if index_stats.backend != "BruteForce" {
-            if let Ok(results) = self
+            if let Ok(results) = ns_state
                 .index
-                .search_filtered(query, top_k, filter, &self.concepts)
+                .search_filtered(query, top_k, filter, &ns_state.concepts)
             {
                 let results_arc: Arc<[(String, f32)]> = Arc::from(results);
 
-                if let Ok(mut s) = self.last_retrieval_stats.write() {
+                if let Ok(mut s) = ns_state.last_retrieval_stats.write() {
                     *s = crate::singularity_retrieval::RetrievalStats {
                         candidate_count: total_count,
                         scored_count: results_arc.len(),
@@ -181,15 +191,16 @@ impl Singularity {
         match strategy {
             FilterStrategy::Pre => {
                 let cand_start = crate::singularity::unix_now_ns();
-                let candidates: Vec<usize> = self
+                let candidates: Vec<usize> = ns_state
                     .concepts
                     .iter()
                     .filter(|(_, concept)| filter.matches(&concept.metadata))
-                    .filter_map(|(id, _)| self.id_to_index.get(id).copied())
+                    .filter_map(|(id, _)| ns_state.id_to_index.get(id).copied())
                     .collect();
                 let cand_ns = crate::singularity::unix_now_ns().saturating_sub(cand_start);
 
                 self.scored_candidate_retrieval_with_stats(
+                    ns,
                     crate::singularity_retrieval::ScoredCandidateParams {
                         query,
                         top_k,
@@ -205,10 +216,11 @@ impl Singularity {
             }
             FilterStrategy::BucketPost => {
                 let cand_start = crate::singularity::unix_now_ns();
-                let candidates = self.generate_bucket_candidates(query);
+                let candidates = self.generate_bucket_candidates(ns, query);
                 let cand_ns = crate::singularity::unix_now_ns().saturating_sub(cand_start);
 
                 let all_results = self.scored_candidate_retrieval_with_stats(
+                    ns,
                     crate::singularity_retrieval::ScoredCandidateParams {
                         query,
                         top_k: top_k * 2,
@@ -225,7 +237,7 @@ impl Singularity {
                 let filtered: Vec<(String, f32)> = all_results
                     .iter()
                     .filter(|(id, _)| {
-                        self.concepts
+                        ns_state.concepts
                             .get(id)
                             .is_some_and(|c| filter.matches(&c.metadata))
                     })
@@ -235,12 +247,12 @@ impl Singularity {
                 Arc::from(filtered)
             }
             FilterStrategy::ScanPost => {
-                let all_results = self.exact_similarity_scan(query, top_k * 2, start_ns, true);
+                let all_results = self.exact_similarity_scan(ns, query, top_k * 2, start_ns, true);
 
                 let filtered: Vec<(String, f32)> = all_results
                     .iter()
                     .filter(|(id, _)| {
-                        self.concepts
+                        ns_state.concepts
                             .get(id)
                             .is_some_and(|c| filter.matches(&c.metadata))
                     })
@@ -249,7 +261,7 @@ impl Singularity {
                     .collect();
 
                 // Update stats via direct call
-                if let Ok(mut s) = self.last_retrieval_stats.write() {
+                if let Ok(mut s) = ns_state.last_retrieval_stats.write() {
                     *s = crate::singularity_retrieval::RetrievalStats {
                         candidate_count: matching_count,
                         scored_count: filtered.len(),
@@ -333,17 +345,18 @@ mod tests {
             .build()
             .expect("Failed to build concept");
 
-        sing.concepts.insert("test-id".to_string(), concept);
+        let ns = "_default";
+        sing.inject(ns, concept).unwrap();
 
         let mut new_metadata = HashMap::new();
         new_metadata.insert("updated".to_string(), serde_json::Value::Bool(true));
 
         let time_before = crate::singularity::unix_now_secs();
 
-        let result = sing.update_metadata("test-id", new_metadata.clone());
+        let result = sing.update_metadata(ns, "test-id", new_metadata.clone());
         assert!(result.is_ok());
 
-        let updated_concept = sing.concepts.get("test-id").unwrap();
+        let updated_concept = sing.get(ns, "test-id").unwrap();
         assert_eq!(updated_concept.metadata, new_metadata);
         assert!(updated_concept.modified_at >= time_before);
     }
