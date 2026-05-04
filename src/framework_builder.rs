@@ -44,6 +44,8 @@ pub struct FrameworkConfig {
     pub max_batch_size: usize,
     /// Maximum steps in a temporal sequence (default: `1024`).
     pub max_sequence_length: usize,
+    /// ANN index backend (default: `BruteForce`).
+    pub index_backend: crate::index::IndexBackend,
 }
 
 impl Default for FrameworkConfig {
@@ -61,6 +63,7 @@ impl Default for FrameworkConfig {
             max_cached_top_k: DEFAULT_MAX_CACHED_TOP_K,
             max_batch_size: DEFAULT_MAX_BATCH_SIZE,
             max_sequence_length: DEFAULT_MAX_SEQUENCE_LENGTH,
+            index_backend: crate::index::IndexBackend::BruteForce,
         }
     }
 }
@@ -82,8 +85,8 @@ pub struct FrameworkBuilder {
     pub(crate) version_retention: usize,
 }
 
-impl FrameworkBuilder {
-    pub(crate) fn new() -> Self {
+impl Default for FrameworkBuilder {
+    fn default() -> Self {
         Self {
             config: FrameworkConfig::default(),
             db_path: None,
@@ -91,6 +94,12 @@ impl FrameworkBuilder {
             concept_cache_size: SingularityConfig::default().concept_cache_size,
             version_retention: 10,
         }
+    }
+}
+
+impl FrameworkBuilder {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub const fn with_reservoir_size(mut self, size: usize) -> Self {
@@ -157,6 +166,11 @@ impl FrameworkBuilder {
         self
     }
 
+    pub const fn with_index_backend(mut self, backend: crate::index::IndexBackend) -> Self {
+        self.config.index_backend = backend;
+        self
+    }
+
     /// Keep the last N historical versions per concept in persistence.
     ///
     /// Values less than 1 are coerced to 1. Default is 10.
@@ -207,12 +221,15 @@ impl FrameworkBuilder {
             self.config.reservoir_input_size,
             self.config.chaos_strength,
         )?;
-        let singularity = Arc::new(RwLock::new(Singularity::with_config(SingularityConfig {
-            max_concepts: self.config.max_concepts,
-            max_associations_per_concept: self.config.max_associations_per_concept,
-            concept_cache_size: self.concept_cache_size,
-            max_cached_top_k: self.config.max_cached_top_k,
-        })));
+        let singularity = Arc::new(RwLock::new(Singularity::with_config_and_backend(
+            SingularityConfig {
+                max_concepts: self.config.max_concepts,
+                max_associations_per_concept: self.config.max_associations_per_concept,
+                concept_cache_size: self.concept_cache_size,
+                max_cached_top_k: self.config.max_cached_top_k,
+            },
+            self.config.index_backend.clone(),
+        )));
 
         #[cfg(feature = "persistence")]
         let persistence = if self.config.enable_persistence {

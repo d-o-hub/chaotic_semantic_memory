@@ -9,7 +9,7 @@ use crate::singularity::Concept;
 use libsql::{Builder, Connection, Database, params};
 use std::sync::Arc;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-pub(crate) const LATEST_SCHEMA_VERSION: i64 = 6;
+pub(crate) const LATEST_SCHEMA_VERSION: i64 = 7;
 
 #[derive(Debug)]
 pub struct Persistence {

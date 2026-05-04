@@ -15,7 +15,10 @@ pub struct BundleAccumulator {
 
 impl Default for BundleAccumulator {
     fn default() -> Self {
-        Self::new()
+        Self {
+            counts: Box::new([0i32; HVec10240::DIMENSION]),
+            n: 0,
+        }
     }
 }
 

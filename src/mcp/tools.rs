@@ -11,6 +11,7 @@ use super::schema;
 
 /// MCP Tools handler for chaotic_semantic_memory operations.
 pub struct McpTools {
+    #[allow(dead_code)]
     database: Option<PathBuf>,
 }
 

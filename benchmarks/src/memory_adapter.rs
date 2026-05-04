@@ -4,7 +4,6 @@ use chaotic_semantic_memory::encoder::TextEncoder;
 use chaotic_semantic_memory::prelude::*;
 use chaotic_semantic_memory::retrieval::bm25::Bm25Index;
 use chaotic_semantic_memory::retrieval::hybrid::{compute_weights, merge_results};
-use chaotic_semantic_memory::retrieval::GraphRagConfig;
 use chaotic_semantic_memory::semantic_bridge::{CanonicalConcept, ConceptGraph};
 use std::collections::{HashMap, HashSet};
 use tempfile::NamedTempFile;
@@ -39,7 +38,9 @@ fn stem_token(token: &str) -> String {
 }
 
 pub struct MemoryAdapter {
+    _tmp_db: NamedTempFile,
     framework: ChaoticSemanticFramework,
+    bridge: BridgeRetrieval,
     bm25_index: RwLock<Bm25Index>,
     text_store: RwLock<HashMap<String, String>>,
     last_session_mem: RwLock<HashMap<String, String>>,
@@ -79,14 +80,16 @@ impl MemoryAdapter {
         let bridge = BridgeRetrieval::with_defaults(encoder, graph);
 
         Ok(Self {
+            _tmp_db,
             framework,
+            bridge,
             bm25_index: RwLock::new(Bm25Index::new()),
             text_store: RwLock::new(HashMap::new()),
             last_session_mem: RwLock::new(HashMap::new()),
         })
     }
 
-    pub async fn ingest_memory(&self, id: &str, text: &str) -> Result<()> {
+    pub async fn ingest_memory(&self, id: &str, text: &str, ttl_seconds: Option<u64>) -> Result<()> {
         let session_id = id.split(':').next().unwrap_or("default");
 
         // Store text metadata for HDC
@@ -184,12 +187,18 @@ impl MemoryAdapter {
             min_assoc_strength: 0.1,
             similarity_weight: 0.7,
             graph_weight: 0.3,
+            final_top_k: top_k * 3,
         };
 
-        let hdc_hits = self
+        let graph_rag_results = self
             .framework
-            .probe_text_with_graph(text, top_k * 3, config)
+            .probe_text_with_graph(text, config)
             .await?;
+
+        let hdc_hits: Vec<(String, f32)> = graph_rag_results
+            .into_iter()
+            .map(|r| (r.id, r.score))
+            .collect();
 
         // Get BM25 results
         let query_tokens = tokenize_for_bm25(text);
@@ -350,6 +359,15 @@ impl MemoryAdapter {
         };
 
         Ok(filtered)
+    }
+
+    /// Query across all sessions for association tasks.
+    pub async fn query_association(
+        &self,
+        text: &str,
+        top_k: usize,
+    ) -> Result<Vec<(String, f32)>> {
+        self.query(text, top_k).await
     }
 
     pub async fn query_hybrid(

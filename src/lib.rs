@@ -62,19 +62,24 @@ mod framework_graph_rag;
 mod framework_metrics;
 #[cfg(not(target_arch = "wasm32"))]
 mod framework_ops;
+mod framework_persistence; // Extracted from framework.rs for LOC gate
 mod framework_ttl;
 mod framework_validation;
 pub mod graph_traversal;
 pub mod hyperdim;
 mod hyperdim_batch;
+mod hyperdim_serde; // Extracted from hyperdim.rs for LOC gate
 mod hyperdim_simd; // AVX2/NEON SIMD paths
 #[cfg(all(not(target_arch = "wasm32"), feature = "mcp"))]
 pub mod mcp;
 pub mod metadata_filter;
 pub mod semantic_triples;
 pub use metadata_filter::MetadataFilter;
+pub mod index;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 pub mod persistence;
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+mod persistence_index; // Extracted from persistence.rs for LOC gate (ADR-0068)
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_migrations;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
@@ -92,6 +97,7 @@ pub mod singularity;
 mod singularity_cache;
 mod singularity_ext;
 mod singularity_retrieval;
+mod singularity_search; // Extracted from singularity.rs for LOC gate
 mod singularity_ttl;
 
 #[cfg(target_arch = "wasm32")]
@@ -199,6 +205,14 @@ pub mod persistence {
 
         pub async fn schema_version(&self) -> Result<i64> {
             Ok(0)
+        }
+
+        pub async fn save_index(&self, _id: &str, _data: &[u8]) -> Result<()> {
+            Ok(())
+        }
+
+        pub async fn load_index(&self, _id: &str) -> Result<Option<Vec<u8>>> {
+            Ok(None)
         }
 
         pub async fn apply_migrations(&self, _target_version: i64) -> Result<()> {

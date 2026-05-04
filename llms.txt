@@ -17,6 +17,7 @@
 - colored (2.2.0)
 - fastembed (4)
 - glob (0.3.2)
+- hnsw_rs (0.3.4)
 - rand (0.10.1)
 - rand_chacha (0.10.0)
 - reqwest (0.12) [features: json, rustls-tls]
@@ -27,6 +28,8 @@
 - tracing (0.1.41)
 - tracing-subscriber (0.3.19)
 **Features:**
+- ann-hnsw: [dep:hnsw_rs]
+- ann-lsh: []
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - default: [cli, persistence, parallel]
 - embed-fastembed: [dep:fastembed]
@@ -320,7 +323,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct TextEncoderConfig
 - impl Default for TextEncoderConfig
 - pub struct TextEncoder
-- impl Default for TextEncoder
 - impl TextEncoder
 
 ### src/error.rs
@@ -353,6 +355,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Default for FrameworkConfig
 - pub struct FrameworkStats
 - pub struct FrameworkBuilder
+- impl Default for FrameworkBuilder
 - impl FrameworkBuilder
 
 ### src/framework_events.rs
@@ -371,6 +374,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl FrameworkMetrics
 
 ### src/framework_ops.rs
+
+- impl ChaoticSemanticFramework
+
+### src/framework_persistence.rs
 
 - impl ChaoticSemanticFramework
 
@@ -393,14 +400,46 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use crate::hyperdim_batch::batch_cosine_similarity
 - pub struct HVec10240
 - impl HVec10240
-- impl Serialize for HVec10240
-- impl Visitor for HVecVisitor
-- impl Deserialize for HVec10240
 - pub use crate::bundle::BundleAccumulator
 
 ### src/hyperdim_batch.rs
 
 - pub fn batch_cosine_similarity
+
+### src/hyperdim_serde.rs
+
+- impl Serialize for HVec10240
+- impl Visitor for HVecVisitor
+- impl Deserialize for HVec10240
+
+### src/index/brute_force.rs
+
+- pub struct BruteForce
+- impl BruteForce
+- impl AnnIndex for BruteForce
+
+### src/index/hnsw.rs
+
+- impl Distance for HammingDist
+- pub struct HnswIndex
+- impl HnswIndex
+- impl std::fmt::Debug for HnswIndex
+- impl AnnIndex for HnswIndex
+
+### src/index/lsh.rs
+
+- pub struct LshIndex
+- impl LshIndex
+- impl AnnIndex for LshIndex
+
+### src/index/mod.rs
+
+- pub mod brute_force
+- pub mod hnsw
+- pub mod lsh
+- pub struct IndexStats
+- pub enum IndexBackend
+- pub trait AnnIndex
 
 ### src/lib.rs
 
@@ -429,6 +468,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod metadata_filter
 - pub mod semantic_triples
 - pub use metadata_filter::MetadataFilter
+- pub mod index
 - pub mod persistence
 - pub mod persistence_wasm
 - pub mod reservoir
@@ -503,6 +543,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub struct Persistence
 - pub struct ConceptVersion
+- impl Persistence
+
+### src/persistence_index.rs
+
 - impl Persistence
 
 ### src/persistence_migrations.rs
@@ -625,6 +669,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct RetrievalConfig
 - impl RetrievalConfig
 - impl Default for RetrievalConfig
+- impl Singularity
+
+### src/singularity_search.rs
+
 - impl Singularity
 
 ### src/singularity_ttl.rs
@@ -1233,6 +1281,9 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"], optional = true
 # Local ONNX embeddings (opt-in via embed-fastembed feature)
 fastembed = { version = "4", optional = true }
 
+# HNSW ANN index (opt-in via ann-hnsw feature)
+hnsw_rs = { version = "0.3.4", optional = true }
+
 # CLI dependencies (gated behind "cli" feature)
 clap = { version = "4.5.60", features = ["derive", "env", "string"], optional = true }
 clap_complete = { version = "4.5.42", optional = true }
@@ -1314,6 +1365,8 @@ significant_drop_tightening = "warn"    # Lock held longer than needed
 cast_precision_loss = "warn"            # usize as f32 losing bits
 cast_possible_truncation = "warn"       # i64 as u32 truncation risk
 redundant_clone = "warn"                # Free perf wins
+map_unwrap_or = "warn"                # Prefer map_or/map_or_else (DeepSource parity)
+unnecessary_map_or = "warn"           # Then prefer is_some_and() or map_or_else()
 
 # ============================================================================
 # ADR-0077: Promoted from pedantic — library DX (Phase A allow, Phase C warn)
@@ -1390,6 +1443,10 @@ mcp = ["dep:rmcp", "cli"]  # ADR-0067: MCP server requires CLI infrastructure
 embed-fastembed = ["dep:fastembed"]
 embed-openai = ["dep:reqwest"]
 embed-voyage = ["dep:reqwest"]
+
+# ANN backends (ADR-0068)
+ann-hnsw = ["dep:hnsw_rs"]
+ann-lsh = []
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]

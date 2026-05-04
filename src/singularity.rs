@@ -8,16 +8,17 @@ use js_sys::Date;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::sync::atomic::Ordering;
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 #[cfg(not(target_arch = "wasm32"))]
 use tracing::instrument;
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
+use crate::index::AnnIndex;
+use crate::index::IndexBackend;
+use crate::index::brute_force::BruteForce;
 pub use crate::singularity_cache::CacheMetricsSnapshot;
 use crate::singularity_cache::{CacheMetrics, QueryCache};
-use crate::singularity_retrieval::ScoredCandidateParams;
 pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats};
 
 const DEFAULT_CONCEPT_CACHE_SIZE: usize = 128;
@@ -78,6 +79,7 @@ pub struct Singularity {
     pub(crate) query_cache: RwLock<QueryCache>,
     pub(crate) cache_metrics: CacheMetrics,
     pub(crate) last_retrieval_stats: RwLock<RetrievalStats>,
+    pub(crate) index: Box<dyn AnnIndex>,
 }
 impl Singularity {
     #[must_use]
@@ -86,6 +88,7 @@ impl Singularity {
     }
 
     pub fn with_config(config: SingularityConfig) -> Self {
+        let index = Box::new(BruteForce::new());
         Self {
             concepts: HashMap::new(),
             associations: HashMap::new(),
@@ -97,6 +100,46 @@ impl Singularity {
             last_retrieval_stats: RwLock::new(RetrievalStats::default()),
             config,
             retrieval_config: RetrievalConfig::default(),
+            index,
+        }
+    }
+
+    pub fn with_config_and_backend(config: SingularityConfig, backend: IndexBackend) -> Self {
+        let index: Box<dyn AnnIndex> = match backend {
+            IndexBackend::BruteForce => Box::new(BruteForce::new()),
+            #[cfg(feature = "ann-hnsw")]
+            IndexBackend::Hnsw {
+                m,
+                ef_construction,
+                ef_search,
+            } => Box::new(crate::index::hnsw::HnswIndex::new(
+                m,
+                ef_construction,
+                ef_search,
+            )),
+            #[cfg(not(feature = "ann-hnsw"))]
+            IndexBackend::Hnsw { .. } => Box::new(BruteForce::new()),
+            #[cfg(feature = "ann-lsh")]
+            IndexBackend::Lsh {
+                num_tables,
+                hash_bits,
+            } => Box::new(crate::index::lsh::LshIndex::new(num_tables, hash_bits)),
+            #[cfg(not(feature = "ann-lsh"))]
+            IndexBackend::Lsh { .. } => Box::new(BruteForce::new()),
+        };
+
+        Self {
+            concepts: HashMap::new(),
+            associations: HashMap::new(),
+            concept_indices: Vec::new(),
+            concept_vectors: Vec::new(),
+            id_to_index: HashMap::new(),
+            query_cache: RwLock::new(QueryCache::with_capacity(config.concept_cache_size)),
+            cache_metrics: CacheMetrics::default(),
+            last_retrieval_stats: RwLock::new(RetrievalStats::default()),
+            config,
+            retrieval_config: RetrievalConfig::default(),
+            index,
         }
     }
     /// Inject a concept directly into memory
@@ -116,7 +159,10 @@ impl Singularity {
             self.concept_vectors.push(concept.vector);
         }
 
-        self.concepts.insert(concept.id.clone(), concept);
+        let concept_id = concept.id.clone();
+        let concept_vector = concept.vector;
+        self.concepts.insert(concept_id.clone(), concept);
+        self.index.insert(concept_id, &concept_vector)?;
         self.invalidate_cache();
         Ok(())
     }
@@ -140,6 +186,7 @@ impl Singularity {
         }
 
         self.concepts.remove(id);
+        let _ = self.index.delete(id);
         self.associations.remove(id);
         for links in self.associations.values_mut() {
             links.remove(id);
@@ -155,6 +202,7 @@ impl Singularity {
         self.concept_indices.clear();
         self.concept_vectors.clear();
         self.id_to_index.clear();
+        let _ = self.index.rebuild(&self.concepts);
         self.invalidate_cache();
     }
 
@@ -167,6 +215,7 @@ impl Singularity {
         if let Some(concept) = self.concepts.get_mut(id) {
             concept.vector = new_vector;
             concept.modified_at = unix_now_secs();
+            self.index.insert(id.to_string(), &new_vector)?;
             self.invalidate_cache();
             Ok(())
         } else {
@@ -175,93 +224,6 @@ impl Singularity {
                 id: id.to_string(),
             })
         }
-    }
-
-    /// Find similar concepts using cosine similarity
-    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self, query), fields(top_k = top_k)))]
-    pub fn find_similar(&self, query: &HVec10240, top_k: usize) -> Vec<(String, f32)> {
-        self.find_similar_arc(query, top_k).as_ref().to_vec()
-    }
-
-    /// Find similar concepts and return cached results as `Arc<[_]>`.
-    pub fn find_similar_arc(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]> {
-        self.find_similar_cached(query, top_k)
-    }
-
-    /// Find similar concepts and return cached results as `Arc<[_]>`.
-    pub fn find_similar_cached(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]> {
-        let start_ns = unix_now_ns();
-        if top_k == 0 || self.concepts.is_empty() {
-            let stats = RetrievalStats {
-                fell_back_to_exact_scan: true,
-                ..Default::default()
-            };
-            if let Ok(mut s) = self.last_retrieval_stats.write() {
-                *s = stats;
-            }
-            return Arc::from(Vec::new());
-        }
-
-        let bypass_cache = top_k > self.config.max_cached_top_k;
-
-        if !bypass_cache {
-            let cache_key = similarity_cache_key(query, top_k);
-            if let Ok(mut cache) = self.query_cache.write() {
-                if let Some(results) = cache.get(cache_key) {
-                    self.cache_metrics
-                        .hits_total
-                        .fetch_add(1, Ordering::Relaxed);
-                    let stats = RetrievalStats {
-                        candidate_count: results.len(),
-                        scored_count: 0,
-                        scoring_ns: unix_now_ns().saturating_sub(start_ns),
-                        ..Default::default()
-                    };
-                    if let Ok(mut s) = self.last_retrieval_stats.write() {
-                        *s = stats;
-                    }
-                    return results;
-                }
-            }
-            self.cache_metrics
-                .misses_total
-                .fetch_add(1, Ordering::Relaxed);
-        }
-
-        // Generate candidates based on RetrievalConfig
-        let candidate_start = unix_now_ns();
-        let mut candidates = Vec::new();
-        let mut source = CandidateSource::ExactFallback;
-
-        if self.retrieval_config.enable_graph_candidates {
-            candidates = self.generate_graph_candidates(query);
-            if !candidates.is_empty() {
-                source = CandidateSource::Graph;
-            }
-        }
-        if candidates.is_empty() && self.retrieval_config.enable_bucket_candidates {
-            candidates = self.generate_bucket_candidates(query);
-            if !candidates.is_empty() {
-                source = CandidateSource::Bucket;
-            }
-        }
-
-        let cand_ns = unix_now_ns().saturating_sub(candidate_start);
-
-        if candidates.is_empty() {
-            return self.exact_similarity_scan(query, top_k, start_ns, bypass_cache);
-        }
-
-        // Reduced-candidate path
-        self.scored_candidate_retrieval(ScoredCandidateParams {
-            query,
-            top_k,
-            candidates,
-            start_ns,
-            cand_ns,
-            source,
-            bypass_cache,
-        })
     }
 
     /// Create or update association between concepts
@@ -389,7 +351,7 @@ impl Singularity {
 
 impl Default for Singularity {
     fn default() -> Self {
-        Self::new()
+        Self::with_config(SingularityConfig::default())
     }
 }
 

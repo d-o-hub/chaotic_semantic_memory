@@ -70,7 +70,7 @@
 | 0063 | Database Table Prefix | Implemented | [adr/0063-database-table-prefix.md](adr/0063-database-table-prefix.md) |
 | 0066 | CLI ↔ Framework API Parity | Implemented | [adr/0066-cli-framework-api-parity.md](adr/0066-cli-framework-api-parity.md) |
 | 0067 | MCP Server | Implemented | [adr/0067-mcp-server.md](adr/0067-mcp-server.md) |
-| 0068 | HNSW ANN Index | Proposed | [adr/0068-hnsw-ann-index.md](adr/0068-hnsw-ann-index.md) |
+| 0068 | HNSW ANN Index | Implemented | [adr/0068-hnsw-ann-index.md](adr/0068-hnsw-ann-index.md) |
 | 0069 | Embedding Model Bridge | Proposed | [adr/0069-embedding-model-bridge.md](adr/0069-embedding-model-bridge.md) |
 | 0070 | GraphRAG Hybrid Retrieval | Proposed | [adr/0070-graphrag-hybrid-retrieval.md](adr/0070-graphrag-hybrid-retrieval.md) |
 | 0071 | Reranking MMR Pipeline | Proposed | [adr/0071-reranking-mmr-pipeline.md](adr/0071-reranking-mmr-pipeline.md) |

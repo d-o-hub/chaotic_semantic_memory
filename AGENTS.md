@@ -23,21 +23,27 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
    - If unrelated changes exist, either commit them first or explicitly scope them out
    - Document which pending changes are intentionally excluded from this session
 
-3. **Understand the codebase structure** — Know where files live before editing:
+3. **Run proactive LOC gate check** — Pre-existing violations cascade on commit, wasting iterations:
+   ```bash
+   find src -name '*.rs' -exec wc -l {} + | sort -rn | head -20
+   # Verify every file is ≤ 500 LOC. Fix violations BEFORE starting work.
+   ```
+
+4. **Understand the codebase structure** — Know where files live before editing:
    - Core modules: `src/singularity.rs`, `src/reservoir.rs`, `src/framework.rs`
    - Persistence: `src/persistence.rs`, `src/persistence_ops.rs`
    - Retrieval: `src/retrieval/bm25.rs`, `src/retrieval/hybrid.rs`
    - Bridge: `src/semantic_bridge.rs`, `src/bridge_retrieval.rs`
    - CLI: `src/cli/commands/*.rs`
 
-3. **Check CI status** — Verify baseline before changes:
+5. **Check CI status** — Verify baseline before changes:
    ```bash
    gh run list --workflow=ci.yml --limit 3
    ```
 
 ### Phase 2: Planning (WHY)
 
-4. **Plan before implementing** — For non-trivial tasks (3+ steps):
+6. **Plan before implementing** — For non-trivial tasks (3+ steps):
    - Explore codebase before proposing changes
    - Identify affected files and dependencies
    - Document approach in `plans/` directory
@@ -45,7 +51,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
    - **TRIZ Integration**: Use `triz-analysis` skill for architectural decisions
    - **Problem Solving**: Use `triz-solver` skill when stuck on complex problems
 
-5. **Use parallel execution for complex changes** — For multi-file tasks:
+7. **Use parallel execution for complex changes** — For multi-file tasks:
    - Create task list for each subtask
    - Spawn specialized workers with clear prompts
    - Assign tasks and monitor progress
@@ -53,20 +59,20 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 
 ### Phase 3: Implementation (HOW)
 
-6. **Edit files with precision** — Never bulk-edit without reading first:
+8. **Edit files with precision** — Never bulk-edit without reading first:
    - Read before editing — understand existing code
    - Match existing style, naming, patterns
    - Preserve comments and docstrings unless explicitly removing
 
-7. **Run validation gates after changes** — Verify before proceeding:
+9. **Run validation gates after changes** — Verify before proceeding:
    ```bash
    cargo check --quiet                      # Compile check
    cargo test --all-features --quiet        # Unit + integration tests
    cargo fmt --check --quiet                # Format check
-   cargo clippy --quiet -- -D warnings      # Lint check
+   cargo clippy --quiet -- -D warnings      # Lint check (includes dead_code, unused_imports, unused_variables)
    ```
 
-8. **Coverage validation** — Ensure test coverage meets target:
+10. **Coverage validation** — Ensure test coverage meets target:
    ```bash
    # Calculate test:source ratio
    test_loc=$(wc -l tests/*.rs | tail -1 | awk '{print $1}')
@@ -75,7 +81,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
    # Target: >= 90% coverage
    ```
 
-9. **Real usage validation** — Test production scenarios:
+11. **Real usage validation** — Test production scenarios:
    ```bash
    # CLI workflow test
    csm inject test-1 --database /tmp/validate.db
@@ -88,55 +94,55 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
    ls -la .agents/csm-memory/skill-memory.db  # Verify db exists
    ```
 
-10. **Update state after completion** — Record what changed:
+12. **Update state after completion** — Record what changed:
    - Update `GOAP_STATE.md`: `action_last_completed`, module LOC, test counts
    - Add learnings to `progress/LEARNINGS.md` if new patterns discovered
 
 ### Phase 4: Verification (Compound Engineering)
 
-11. **Run full validation before claiming completion**:
+13. **Run full validation before claiming completion**:
    ```bash
    ./scripts/validate.sh                    # All gates in one command
    ```
 
-12. **If errors occur, encode corrections** — Compound engineering principle:
+14. **If errors occur, encode corrections** — Compound engineering principle:
     - Fix the immediate error
     - Add rule/constraint to prevent recurrence
     - Update AGENTS.md or hard-constraints.md if systemic
 
 ### Phase 5: Atomic Commit & CI Gate (GOAP Orchestration)
 
-13. **Create feature branch FIRST** — `main` is protected, never commit directly:
+15. **Create feature branch FIRST** — `main` is protected, never commit directly:
     ```bash
     git checkout -b <type>/<scope>-<description>
     # Examples: test/inline-tests-clippy-config, fix/persistence-fk, feat/reservoir-simd
     ```
 
-14. **Atomic commits** — One logical change per commit, never mix unrelated changes:
+16. **Atomic commits** — One logical change per commit, never mix unrelated changes:
     ```bash
     git add src/singularity.rs src/singularity_cache.rs
     git commit -m "feat(singularity): add similarity cache"
     ```
 
-15. **Push branch and create PR** — Never push directly to `main`:
+17. **Push branch and create PR** — Never push directly to `main`:
     ```bash
     git push origin <branch>
     gh pr create --title "<type>(<scope>): <summary>" --body "..."
     gh pr checks --watch  # Wait for CI to pass
     ```
 
-16. **Merge after CI passes** — Only merge when all checks are green:
+18. **Merge after CI passes** — Only merge when all checks are green:
     ```bash
     gh pr merge  # Squash merge preferred
     ```
 
-17. **Fix ALL issues (including pre-existing)** — CI must pass completely:
+19. **Fix ALL issues (including pre-existing)** — CI must pass completely:
     - New failures: Fix immediately
     - Pre-existing warnings: Fix before claiming completion
     - Use `goap-planning` skill to track fix actions in GOAP_STATE
     - Update `action_last_completed` and `world_state` after each fix
 
-18. **Document in GOAP_STATE** — Record completion state:
+20. **Document in GOAP_STATE** — Record completion state:
     ```yaml
     world_state:
       action_last_completed: <action_name>
@@ -151,7 +157,8 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 Before starting any task, verify:
 - [ ] GOAP_STATE.md loaded — know current state
 - [ ] ALL uncommitted changes reviewed via `git status --short`
-- [ ] Hard constraints understood — LOC <=500, spectral radius [0.9, 1.1]
+- [ ] **LOC gate pre-check**: all source files ≤ 500 LOC (`find src -name '*.rs' -exec wc -l {} + | sort -rn | head -20`)
+- [ ] Hard constraints understood — spectral radius [0.9, 1.1]
 - [ ] CI baseline confirmed via `gh run list`
 
 Before completing any task, verify:
@@ -185,6 +192,60 @@ Before completing any task, verify:
 7. **Reference, don't duplicate** — Point to source files, don't restate contents.
 
 8. **Never push directly to `main`** — Create branch → commit → PR → merge after CI passes.
+
+---
+
+## DeepSource Parity (Coding Standards)
+
+These patterns mirror DeepSource's Rust analyzer rules. Violations block CI.
+
+### DO: Construct directly in `Default::default()`
+
+```rust
+// ✅ CORRECT: default() constructs the struct directly; new() delegates to default()
+impl Default for FrameworkBuilder {
+    fn default() -> Self {
+        Self {
+            config: FrameworkConfig::default(),
+            db_path: None,
+            // ...
+        }
+    }
+}
+
+impl FrameworkBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+// ❌ WRONG: default() calling Self::new() triggers DeepSource BUG_RISK
+impl Default for FrameworkBuilder {
+    fn default() -> Self {
+        Self::new()  // DeepSource: "Found call returning Self in default()"
+    }
+}
+```
+
+### DO: Use `.map_or()` / `.is_some_and()` instead of `.map().unwrap_or()`
+
+```rust
+// ✅ CORRECT
+concepts.get(id).is_some_and(|c| filter.matches(&c.metadata))
+value.map_or_else(|| default(), |s| s.to_string())
+
+// ❌ WRONG: triggers DeepSource ANTI_PATTERN + clippy::map_unwrap_or
+concepts.get(id).map(|c| filter.matches(&c.metadata)).unwrap_or(false)
+value.map(|s| s.to_string()).unwrap_or_else(|| default())
+```
+
+### Clippy Lints Enforcing These
+
+| Pattern | Clippy Lint | Active? |
+|---------|-------------|---------|
+| `.map(f).unwrap_or(g)` | `clippy::map_unwrap_or` (pedantic) | ✅ Promoted to `warn` in Cargo.toml |
+| `.map_or(false, f)` | `clippy::unnecessary_map_or` (in `all`) | ✅ Implied by `-D warnings` |
+| `Self::new()` in `default()` | No clippy equivalent | 📋 Documented above |
 
 ---
 

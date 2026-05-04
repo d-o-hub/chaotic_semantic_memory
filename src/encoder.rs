@@ -89,15 +89,9 @@ impl Default for TextEncoderConfig {
 /// - **Deterministic**: Same input always produces same output
 /// - **Similarity-preserving**: Similar texts produce similar vectors
 /// - **WASM-compatible**: No external dependencies
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TextEncoder {
     config: TextEncoderConfig,
-}
-
-impl Default for TextEncoder {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl TextEncoder {

@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{instrument, warn};
+use tracing::instrument;
 
 use crate::error::Result;
 use crate::framework_builder::{FrameworkBuilder, FrameworkConfig, FrameworkStats};
@@ -310,125 +310,9 @@ impl ChaoticSemanticFramework {
         Ok(sing.get(id).cloned())
     }
 
-    /// Persist all data to storage
-    #[instrument(err, skip(self))]
-    pub async fn persist(&self) -> Result<()> {
-        if let Some(ref persistence) = self.persistence {
-            persistence.checkpoint().await?;
-        }
-        Ok(())
-    }
-
-    /// Verify persistence connectivity.
-    #[instrument(err, skip(self))]
-    pub async fn persistence_health_check(&self) -> Result<()> {
-        if let Some(ref persistence) = self.persistence {
-            persistence.health_check().await?;
-        }
-        Ok(())
-    }
-
-    /// Load and replace all in-memory state from persistence.
+    /// Backward-compatible alias for replace semantics.
     ///
-    /// Clears existing state, loads persisted state. Use for fresh starts.
-    /// See also: [`load_merge`](Self::load_merge) for additive semantics.
-    #[instrument(err, skip(self))]
-    pub async fn load_replace(&self) -> Result<()> {
-        if let Some(ref persistence) = self.persistence {
-            let concepts = persistence.load_all_concepts().await?;
-
-            let mut concept_ids = Vec::with_capacity(concepts.len());
-            for concept in &concepts {
-                self.validate_concept(concept)?;
-                concept_ids.push(concept.id.clone());
-            }
-
-            let mut all_associations: Vec<(String, String, f32)> = Vec::new();
-            for concept_id in &concept_ids {
-                let links = persistence.load_associations(concept_id).await?;
-                for (to_id, strength) in links {
-                    all_associations.push((concept_id.clone(), to_id, strength));
-                }
-            }
-
-            {
-                let mut sing = self.singularity.write().await;
-                sing.clear();
-                for concept in concepts {
-                    sing.inject(concept)?;
-                }
-                for (from_id, to_id, strength) in all_associations {
-                    if let Err(error) = sing.associate(&from_id, &to_id, strength) {
-                        warn!(
-                            from_id = %from_id,
-                            to_id = %to_id,
-                            strength,
-                            error = %error,
-                            "skipping invalid association during load_replace"
-                        );
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
-
-    /// Load and merge persisted state into in-memory state.
-    ///
-    /// Preserves existing state, adds persisted state on top.
-    /// See also: [`load_replace`](Self::load_replace) for replacement semantics.
-    #[instrument(err, skip(self))]
-    pub async fn load_merge(&self) -> Result<()> {
-        if let Some(ref persistence) = self.persistence {
-            let concepts = persistence.load_all_concepts().await?;
-
-            for concept in &concepts {
-                self.validate_concept(concept)?;
-            }
-
-            let concept_ids: Vec<String> = concepts.iter().map(|c| c.id.clone()).collect();
-
-            {
-                let mut sing = self.singularity.write().await;
-                for concept in concepts {
-                    if sing.get(&concept.id).is_some() {
-                        warn!(
-                            concept_id = %concept.id,
-                            "skipping persisted concept during load_merge because id already exists in memory"
-                        );
-                        continue;
-                    }
-                    sing.inject(concept)?;
-                }
-            }
-
-            let mut all_associations: Vec<(String, String, f32)> = Vec::new();
-            for concept_id in &concept_ids {
-                let links = persistence.load_associations(concept_id).await?;
-                for (to_id, strength) in links {
-                    all_associations.push((concept_id.clone(), to_id, strength));
-                }
-            }
-
-            {
-                let mut sing = self.singularity.write().await;
-                for (from_id, to_id, strength) in all_associations {
-                    if let Err(error) = sing.associate(&from_id, &to_id, strength) {
-                        warn!(
-                            from_id = %from_id,
-                            to_id = %to_id,
-                            strength,
-                            error = %error,
-                            "skipping invalid association during load_merge"
-                        );
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
-
-    /// Backward-compatible alias for replace semantics
+    /// Delegates to [`load_replace`](Self::load_replace).
     pub async fn load(&self) -> Result<()> {
         self.load_replace().await
     }
