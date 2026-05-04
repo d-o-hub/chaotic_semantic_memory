@@ -5,7 +5,6 @@
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
-use crate::singularity::Concept;
 use libsql::{Builder, Connection, Database, params};
 use std::sync::Arc;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};

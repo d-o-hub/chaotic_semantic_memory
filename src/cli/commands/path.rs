@@ -8,14 +8,14 @@ use tracing::instrument;
 use crate::cli::args::{OutputFormat, PathArgs};
 use crate::cli::error::{CliError, Result};
 
-use super::{create_framework, print_warning, validate_concept_id};
+use super::{create_framework, create_framework_with_namespace, print_warning, validate_concept_id};
 
 #[instrument(name = "cli_path")]
 pub async fn run_path(args: PathArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()> {
     validate_concept_id(&args.from)?;
     validate_concept_id(&args.to)?;
 
-    let framework = create_framework(db_path).await?;
+    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
 
     // Verify both concepts exist
     let _from_concept = framework

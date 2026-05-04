@@ -3,7 +3,7 @@
 //! Streams JSONL line-by-line, extracts text field, preserves metadata.
 
 use crate::cli::args::{IndexJsonlArgs, OutputFormat};
-use crate::cli::commands::{create_framework, print_success, print_warning, truncate_preview};
+use crate::cli::commands::{create_framework, create_framework_with_namespace, print_success, print_warning, truncate_preview};
 use crate::cli::error::{CliError, Result};
 use crate::encoder::TextEncoder;
 
@@ -24,7 +24,7 @@ pub async fn run_index_jsonl(
         )));
     }
 
-    let framework = create_framework(db_path).await?;
+    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
 
     // Create encoder based on code_aware flag
     let encoder = if args.code_aware {

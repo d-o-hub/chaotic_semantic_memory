@@ -5,7 +5,7 @@ use tracing::instrument;
 use crate::cli::args::{ExportArgs, ExportFormat, OutputFormat};
 use crate::cli::error::{CliError, Result};
 
-use super::{create_framework, print_success, print_warning};
+use super::{create_framework, create_framework_with_namespace, print_success, print_warning};
 
 #[instrument(name = "cli_export")]
 pub async fn run_export(
@@ -13,7 +13,7 @@ pub async fn run_export(
     db_path: Option<&Path>,
     format: OutputFormat,
 ) -> Result<()> {
-    let framework = create_framework(db_path).await?;
+    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
 
     let path_str = args.output.to_string_lossy();
     let stats = framework

@@ -8,7 +8,6 @@ use js_sys::Date;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::sync::RwLock;
 #[cfg(not(target_arch = "wasm32"))]
 use tracing::instrument;
 

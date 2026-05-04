@@ -25,7 +25,7 @@ pub async fn run_associate(
     validate_concept_id(&args.target_id)?;
     validate_strength(args.strength)?;
 
-    let framework = create_framework(db_path).await?;
+    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
 
     let source_exists = framework
         .get_concept(&args.source_id)
@@ -103,12 +103,13 @@ pub async fn run_associate(
 }
 
 pub async fn run_associate_batch(
+    ns: &str,
     associations: Vec<(String, String, f64)>,
     db_path: Option<&Path>,
     format: OutputFormat,
     continue_on_error: bool,
 ) -> Result<()> {
-    let framework = create_framework(db_path).await?;
+    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
 
     let mut created = 0usize;
     let mut failed = 0usize;

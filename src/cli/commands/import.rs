@@ -5,7 +5,7 @@ use tracing::instrument;
 use crate::cli::args::{ImportArgs, ImportFormat, OutputFormat};
 use crate::cli::error::{CliError, Result};
 
-use super::{create_framework, print_error, print_success, print_warning};
+use super::{create_framework, create_framework_with_namespace, print_error, print_success, print_warning};
 
 #[instrument(name = "cli_import")]
 pub async fn run_import(
@@ -21,7 +21,7 @@ pub async fn run_import(
         )));
     }
 
-    let framework = create_framework(db_path).await?;
+    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
 
     let path_str = args.input.to_string_lossy();
     let detected_format = detect_format(&args);

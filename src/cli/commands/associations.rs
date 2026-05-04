@@ -11,7 +11,7 @@ use tracing::instrument;
 use crate::cli::args::{AssociationsArgs, OutputFormat};
 use crate::cli::error::{CliError, Result};
 
-use super::{create_framework, print_warning, validate_concept_id};
+use super::{create_framework, create_framework_with_namespace, print_warning, validate_concept_id};
 
 #[instrument(name = "cli_associations")]
 pub async fn run_associations(
@@ -21,7 +21,7 @@ pub async fn run_associations(
 ) -> Result<()> {
     validate_concept_id(&args.concept_id)?;
 
-    let framework = create_framework(db_path).await?;
+    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
 
     // Verify concept exists
     let _concept = framework

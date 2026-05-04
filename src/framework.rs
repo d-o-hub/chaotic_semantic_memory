@@ -42,6 +42,11 @@ impl ChaoticSemanticFramework {
         self.singularity.clone()
     }
 
+    /// Get the current namespace.
+    pub fn namespace(&self) -> &str {
+        &self.namespace
+    }
+
     /// Inject a concept into memory
     #[instrument(err, skip(self, id, vector))]
     pub async fn inject_concept(&self, id: impl Into<String>, vector: HVec10240) -> Result<()> {

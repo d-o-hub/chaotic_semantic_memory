@@ -12,7 +12,7 @@ use crate::cli::args::{OutputFormat, ProbeFilteredArgs};
 use crate::cli::error::{CliError, Result};
 use crate::metadata_filter::MetadataFilter;
 
-use super::{create_framework, print_warning, validate_concept_id, validate_top_k};
+use super::{create_framework, create_framework_with_namespace, print_warning, validate_concept_id, validate_top_k};
 
 #[instrument(name = "cli_probe_filtered")]
 pub async fn run_probe_filtered(
@@ -27,7 +27,7 @@ pub async fn run_probe_filtered(
     let filter: MetadataFilter = serde_json::from_str(&args.filter)
         .map_err(|e| CliError::Validation(format!("invalid filter JSON: {e}")))?;
 
-    let framework = create_framework(db_path).await?;
+    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
 
     // Get concept to use its vector as query
     let concept = framework

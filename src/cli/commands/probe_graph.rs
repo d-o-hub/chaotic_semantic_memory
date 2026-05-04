@@ -9,7 +9,7 @@ use crate::cli::args::{OutputFormat, ProbeGraphArgs};
 use crate::cli::error::{CliError, Result};
 use crate::retrieval::GraphRagConfig;
 
-use super::{create_framework, print_warning};
+use super::{create_framework, create_framework_with_namespace, print_warning};
 
 #[instrument(name = "cli_probe_graph")]
 pub async fn run_probe_graph(
@@ -26,7 +26,7 @@ pub async fn run_probe_graph(
         final_top_k: args.top_k,
     };
 
-    let framework = create_framework(db_path).await?;
+    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
 
     let results = framework
         .probe_text_with_graph(&args.text, config)

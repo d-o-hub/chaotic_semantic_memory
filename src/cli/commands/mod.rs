@@ -92,12 +92,20 @@ pub fn truncate_preview(s: &str, max_chars: usize) -> String {
 pub async fn create_framework(
     db_path: Option<&std::path::Path>,
 ) -> Result<ChaoticSemanticFramework> {
+    create_framework_with_namespace(db_path, "_default").await
+}
+
+pub async fn create_framework_with_namespace(
+    db_path: Option<&std::path::Path>,
+    ns: &str,
+) -> Result<ChaoticSemanticFramework> {
     let mut builder = ChaoticSemanticFramework::builder();
     if let Some(path) = db_path {
         builder = builder.with_local_db(path.to_string_lossy());
     } else {
         builder = builder.without_persistence();
     }
+    builder = builder.with_namespace(ns);
     builder
         .build()
         .await
