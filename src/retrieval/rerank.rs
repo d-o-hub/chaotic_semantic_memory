@@ -184,7 +184,10 @@ pub fn parse_rerankers(s: &str) -> crate::error::Result<Vec<Box<dyn Reranker>>> 
                         reason: format!("invalid recency half-life: {}", value),
                     }
                 })?;
-                let blend = split.next().and_then(|b| b.parse::<f32>().ok()).unwrap_or(0.5);
+                let blend = split
+                    .next()
+                    .and_then(|b| b.parse::<f32>().ok())
+                    .unwrap_or(0.5);
                 rerankers.push(Box::new(RecencyDecayReranker {
                     half_life_days: half_life,
                     blend,
