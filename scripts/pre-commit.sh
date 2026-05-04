@@ -26,10 +26,10 @@ done
 
 # CHANGELOG duplicate header guardrail (prevents release workflow failures)
 echo " → Checking CHANGELOG format..."
-if [ -f "CHANGELOG.md" ]; then
+if [[ -f "CHANGELOG.md" ]]; then
   # Check for duplicate version headers (each version should appear exactly once)
   DUPLICATES=$(grep "^## \\[" CHANGELOG.md | cut -d'[' -f2 | cut -d']' -f1 | sort | uniq -d)
-  if [ -n "$DUPLICATES" ]; then
+  if [[ -n "$DUPLICATES" ]]; then
     echo "❌ Duplicate CHANGELOG headers found: $DUPLICATES"
     echo "   Each version should have exactly one '## [VERSION] - YYYY-MM-DD' header"
     exit 1
@@ -37,7 +37,7 @@ if [ -f "CHANGELOG.md" ]; then
   
   # Check that version headers have dates
   NO_DATE=$(grep "^## \\[" CHANGELOG.md | grep -v " - [0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}" | grep -v "\\[Unreleased\\]" || true)
-  if [ -n "$NO_DATE" ]; then
+  if [[ -n "$NO_DATE" ]]; then
     echo "❌ CHANGELOG headers missing dates:"
     echo "$NO_DATE"
     echo "   Format: ## [VERSION] - YYYY-MM-DD"
