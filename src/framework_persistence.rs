@@ -12,6 +12,7 @@ impl ChaoticSemanticFramework {
     #[tracing::instrument(err, skip(self))]
     pub async fn persist(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
+            let p_start = std::time::Instant::now();
             // ADR-0068: Persist ANN index state
             let data = self.singularity.read().await.index.serialize();
             if let Ok(index_data) = data {
@@ -21,6 +22,7 @@ impl ChaoticSemanticFramework {
             }
 
             persistence.checkpoint().await?;
+            self.metrics.observe_persist_latency_ms(p_start.elapsed().as_millis() as u64, "persist");
         }
         Ok(())
     }
@@ -41,6 +43,7 @@ impl ChaoticSemanticFramework {
     #[tracing::instrument(err, skip(self))]
     pub async fn load_replace(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
+            let p_start = std::time::Instant::now();
             let concepts = persistence.load_all_concepts().await?;
 
             let mut concept_ids = Vec::with_capacity(concepts.len());
@@ -86,6 +89,7 @@ impl ChaoticSemanticFramework {
                     }
                 }
             }
+            self.metrics.observe_persist_latency_ms(p_start.elapsed().as_millis() as u64, "load");
         }
         Ok(())
     }
