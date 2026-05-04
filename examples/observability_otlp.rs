@@ -3,8 +3,8 @@
 //! Run with:
 //! cargo run --example observability_otlp --features otlp,prometheus,cli
 
-use chaotic_semantic_memory::prelude::*;
 use chaotic_semantic_memory::observability::{self, LogFormat, ObservabilityConfig};
+use chaotic_semantic_memory::prelude::*;
 use std::net::SocketAddr;
 use std::time::Duration;
 
@@ -27,9 +27,7 @@ async fn main() -> Result<()> {
     let _guard = observability::init(config)?;
 
     // 3. Build framework
-    let framework = FrameworkBuilder::new()
-        .build()
-        .await?;
+    let framework = FrameworkBuilder::new().build().await?;
 
     // 4. Perform some operations to generate spans and metrics
     println!("Injecting concepts...");

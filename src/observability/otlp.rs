@@ -16,7 +16,7 @@ pub fn init_otlp<S>(
     endpoint: &str,
 ) -> crate::error::Result<(Box<dyn Layer<S> + Send + Sync>, OtlpGuard)>
 where
-    S: tracing::Subscriber + for<'a> LookupSpan<'a> + Send + Sync
+    S: tracing::Subscriber + for<'a> LookupSpan<'a> + Send + Sync,
 {
     let resource = Resource::builder()
         .with_service_name(service_name.to_string())
@@ -26,7 +26,9 @@ where
         .with_tonic()
         .with_endpoint(endpoint)
         .build()
-        .map_err(|e| crate::error::MemoryError::Config(format!("Failed to create OTLP exporter: {}", e)))?;
+        .map_err(|e| {
+            crate::error::MemoryError::Config(format!("Failed to create OTLP exporter: {}", e))
+        })?;
 
     let tracer_provider = sdktrace::SdkTracerProvider::builder()
         .with_batch_exporter(exporter)
@@ -36,7 +38,12 @@ where
     let tracer = opentelemetry::trace::TracerProvider::tracer(&tracer_provider, "csm");
     let otlp_layer = OpenTelemetryLayer::new(tracer);
 
-    Ok((Box::new(otlp_layer), OtlpGuard { _provider: tracer_provider }))
+    Ok((
+        Box::new(otlp_layer),
+        OtlpGuard {
+            _provider: tracer_provider,
+        },
+    ))
 }
 
 impl Drop for OtlpGuard {

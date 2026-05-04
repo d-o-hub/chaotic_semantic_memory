@@ -35,7 +35,9 @@ impl crate::framework::ChaoticSemanticFramework {
         if let Some(ref persistence) = self.persistence {
             let p_start = std::time::Instant::now();
             persistence.save_concept(&concept).await?;
-            self.metrics.observe_persist_latency_ms(p_start.elapsed().as_millis() as u64, "save");
+            #[allow(clippy::cast_possible_truncation)]
+            self.metrics
+                .observe_persist_latency_ms(p_start.elapsed().as_millis() as u64, "save");
         }
         self.metrics.inc_concepts_injected(1, false);
         self.emit_event(MemoryEvent::ConceptInjected {

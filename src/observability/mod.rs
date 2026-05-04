@@ -58,8 +58,8 @@ pub struct ObservabilityGuard {
 ///
 /// This should be called once at application startup.
 pub fn init(config: ObservabilityConfig) -> crate::error::Result<ObservabilityGuard> {
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(&config.log_level));
+    let env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&config.log_level));
 
     // Setup logging layer based on format
     let log_layer = match config.log_format {
@@ -86,18 +86,21 @@ pub fn init(config: ObservabilityConfig) -> crate::error::Result<ObservabilityGu
     let otlp_guard = if let Some(endpoint) = config.otlp_endpoint {
         let (otlp_layer, guard) = otlp::init_otlp(&config.service_name, &endpoint)?;
         let subscriber = registry.with(otlp_layer);
-        tracing::subscriber::set_global_default(subscriber)
-            .map_err(|e| crate::error::MemoryError::Config(format!("Failed to set global subscriber: {}", e)))?;
+        tracing::subscriber::set_global_default(subscriber).map_err(|e| {
+            crate::error::MemoryError::Config(format!("Failed to set global subscriber: {}", e))
+        })?;
         Some(guard)
     } else {
-        tracing::subscriber::set_global_default(registry)
-            .map_err(|e| crate::error::MemoryError::Config(format!("Failed to set global subscriber: {}", e)))?;
+        tracing::subscriber::set_global_default(registry).map_err(|e| {
+            crate::error::MemoryError::Config(format!("Failed to set global subscriber: {}", e))
+        })?;
         None
     };
 
     #[cfg(not(feature = "otlp"))]
-    tracing::subscriber::set_global_default(registry)
-        .map_err(|e| crate::error::MemoryError::Config(format!("Failed to set global subscriber: {}", e)))?;
+    tracing::subscriber::set_global_default(registry).map_err(|e| {
+        crate::error::MemoryError::Config(format!("Failed to set global subscriber: {}", e))
+    })?;
 
     #[cfg(feature = "prometheus")]
     if let Some(bind_addr) = config.prometheus_bind {
