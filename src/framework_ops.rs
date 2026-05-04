@@ -38,10 +38,15 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(ref persistence) = self.persistence {
+            let p_start = std::time::Instant::now();
             persistence.save_concepts(&to_save).await?;
+            #[allow(clippy::cast_possible_truncation)]
+            self.metrics
+                .observe_persist_latency_ms(p_start.elapsed().as_millis() as u64, "save");
         }
 
-        self.metrics.inc_concepts_injected(to_save.len() as u64);
+        self.metrics
+            .inc_concepts_injected(to_save.len() as u64, false);
         Ok(())
     }
 

@@ -29,6 +29,14 @@ pub struct CliArgs {
 
     #[arg(long, global = true, value_enum, default_value = "table")]
     pub output_format: OutputFormat,
+
+    /// OTLP gRPC endpoint (e.g., http://localhost:4317).
+    #[arg(long, global = true, env = "CSM_OTLP_ENDPOINT")]
+    pub otlp_endpoint: Option<String>,
+
+    /// Prometheus scrape bind address (e.g., 127.0.0.1:9090).
+    #[arg(long, global = true, env = "CSM_PROMETHEUS_BIND")]
+    pub prometheus_bind: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
