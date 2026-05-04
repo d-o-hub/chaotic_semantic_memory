@@ -323,7 +323,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct TextEncoderConfig
 - impl Default for TextEncoderConfig
 - pub struct TextEncoder
-- impl Default for TextEncoder
 - impl TextEncoder
 
 ### src/error.rs
@@ -691,6 +690,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn cosine_similarity
 
 ### src/wasm_ext.rs
+
+- impl WasmFramework
+
+### src/wasm_graph_rag.rs
 
 - impl WasmFramework
 

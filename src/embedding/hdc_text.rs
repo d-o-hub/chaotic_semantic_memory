@@ -23,7 +23,9 @@ pub struct HdcTextProvider {
 
 impl Default for HdcTextProvider {
     fn default() -> Self {
-        Self::new()
+        Self {
+            encoder: TextEncoder::new(),
+        }
     }
 }
 

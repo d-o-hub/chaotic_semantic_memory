@@ -351,7 +351,7 @@ impl Singularity {
 
 impl Default for Singularity {
     fn default() -> Self {
-        Self::new()
+        Self::with_config(SingularityConfig::default())
     }
 }
 
