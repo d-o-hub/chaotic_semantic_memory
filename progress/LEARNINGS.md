@@ -59,3 +59,43 @@
 - **Merge Conflict Strategy**: When rebasing or merging, prioritize preserving functional logic from both sides. In this task, Association/Isolation tasks from main were successfully integrated with the expanded coverage areas (TTL, Bridge, History).
 - **Tool Discipline**: Use `git checkout origin/main -- <file>` to restore files lost during complex merges or rebases.
 - **Optimization Strategy**: Gating parallelization (e.g., Rayon) with a minimum workload threshold (N >= 32) prevents task scheduling overhead from dominating small operations, yielding order-of-magnitude gains in hot paths like hypervector bundling.
+
+## DeepSource Parity: Preventing Recurrent Feedback (June 2026)
+
+### `Self::new()` in `Default::default()` (BUG_RISK)
+- **Pattern**: `Default::default()` must construct structs directly, NEVER delegate to `Self::new()`. DeepSource flags this as BUG_RISK.
+- **Fix**: Mirror the body of `new()` inside `default()`. Example:
+  ```rust
+  // ❌ WRONG
+  impl Default for Foo {
+      fn default() -> Self { Self::new() }
+  }
+  // ✅ CORRECT
+  impl Default for Foo {
+      fn default() -> Self {
+          Self { field: Default::default() }
+      }
+  }
+  ```
+- **Verification**: After fixing, run `rg 'Self::new\(\)' -g '*.rs'` on all source files and check each match is NOT inside `fn default()`.
+
+### `.map().unwrap_or(false)` → `.is_ok_and()` / `.is_some_and()` (ANTI_PATTERN)
+- **Pattern**: Replace `.map(f).unwrap_or(false)` with `.is_some_and(f)` for `Option` or `.is_ok_and(f)` for `Result`.
+- **Fix**: Direct replacement:
+  ```rust
+  // ❌ WRONG
+  path.metadata().map(|m| condition).unwrap_or(false)
+  // ✅ CORRECT
+  path.metadata().is_ok_and(|m| condition)
+  ```
+- **Verification**: Run `rg '\.map\(.*\)\.unwrap_or\(false\)' -g '*.rs'` to find remaining instances.
+
+### `#[derive(Default)]` over manual impl (Clippy)
+- **Pattern**: When all struct fields implement `Default`, prefer `#[derive(Default)]` over a manual `impl Default`.
+- **Fix**: Add `Default` to the derive list and remove the manual impl block.
+- **Verification**: Clippy with `-D warnings` catches this automatically.
+
+### Merge Artifact Cleanup
+- **Pattern**: When resolving merge conflicts programmatically (e.g., with Python scripts), the helper scripts must be removed before committing.
+- **Prevention**: Always run `git status --short` after conflict resolution and check for unexpected `.py`, `.sh`, or `.patch` files. Remove them with `git rm --cached` if already staged.
+- **Note**: `git merge --no-commit --no-ff` stages merged changes immediately. Additional edits go to the unstaged area. Use `git add` to bring everything together before committing.
