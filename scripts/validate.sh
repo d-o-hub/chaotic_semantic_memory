@@ -36,7 +36,7 @@ cargo test --all-targets
 echo "==> Source file LOC gate (< ${MAX_SRC_LOC})"
 for file in $(find src -name '*.rs'); do
   loc="$(wc -l < "${file}")"
-  if [ "${loc}" -gt "${MAX_SRC_LOC}" ]; then
+  if [[ "${loc}" -gt "${MAX_SRC_LOC}" ]]; then
     echo "LOC gate failed: ${file} has ${loc} lines"
     exit 1
   fi
@@ -56,7 +56,7 @@ else
   echo "skip: ${WASM_TARGET} target not installed"
 fi
 
-if [ -x scripts/wasm_size_gate.sh ]; then
+if [[ -x scripts/wasm_size_gate.sh ]]; then
   echo "==> scripts/wasm_size_gate.sh"
   scripts/wasm_size_gate.sh
 fi
@@ -68,7 +68,7 @@ LOC=$(grep -cE '^\s*(pub |fn |struct |enum |trait |impl )' llms-full.txt || true
 echo "Public API surface: $LOC symbols"
 
 THRESHOLD=5000
-if [ "$LOC" -gt "$THRESHOLD" ]; then
+if [[ "$LOC" -gt "$THRESHOLD" ]]; then
   echo "❌ API surface $LOC exceeds threshold of $THRESHOLD"
   exit 1
 fi
