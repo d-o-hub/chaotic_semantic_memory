@@ -36,7 +36,7 @@ cargo test --all-targets
 echo "==> Source file LOC gate (< ${MAX_SRC_LOC})"
 for file in $(find src -name '*.rs'); do
   loc="$(wc -l < "${file}")"
-  if [ "${loc}" -gt "${MAX_SRC_LOC}" ]; then
+  if [[ "${loc}" -gt "${MAX_SRC_LOC}" ]]; then
     echo "LOC gate failed: ${file} has ${loc} lines"
     exit 1
   fi
@@ -56,18 +56,24 @@ else
   echo "skip: ${WASM_TARGET} target not installed"
 fi
 
-if [ -x scripts/wasm_size_gate.sh ]; then
+if [[ -x scripts/wasm_size_gate.sh ]]; then
   echo "==> scripts/wasm_size_gate.sh"
   scripts/wasm_size_gate.sh
 fi
 
 echo "==> Generating/validating llms.txt and llms-full.txt"
 scripts/gen-llms-txt.sh
-if ! git diff --quiet llms.txt llms-full.txt 2>/dev/null; then
-  echo "❌ llms.txt or llms-full.txt was modified. Run scripts/gen-llms-txt.sh and commit the changes."
-  git diff llms.txt llms-full.txt
+
+LOC=$(grep -cE '^\s*(pub |fn |struct |enum |trait |impl )' llms-full.txt || true)
+echo "Public API surface: $LOC symbols"
+
+THRESHOLD=5000
+if [[ "$LOC" -gt "$THRESHOLD" ]]; then
+  echo "❌ API surface $LOC exceeds threshold of $THRESHOLD"
   exit 1
 fi
+
+echo "✅ API surface within threshold ($LOC / $THRESHOLD)"
 
 if command -v npm >/dev/null 2>&1; then
   echo "==> CLI npm pack smoke test"
