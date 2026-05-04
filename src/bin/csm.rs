@@ -21,11 +21,38 @@ mod native {
     /// Environment variable for target platform.
     const ENV_TARGET: &str = "TARGET";
 
-    pub fn init_tracing(verbose: u8) {
+    pub fn init_tracing(verbose: u8, _otlp_endpoint: Option<String>, _prometheus_bind: Option<String>) -> Option<Box<dyn std::any::Any>> {
         if std::env::var(ENV_NO_COLOR).is_ok() {
             colored::control::set_override(false);
         }
-        let level = match verbose {
+        let _level = match verbose {
+            0 => "error",
+            1 => "warn",
+            2 => "info",
+            3 => "debug",
+            _ => "trace",
+        };
+
+        #[cfg(any(feature = "otlp", feature = "prometheus"))]
+        {
+            use chaotic_semantic_memory::observability::{LogFormat, ObservabilityConfig, init};
+            use std::net::SocketAddr;
+
+            let prom_addr = _prometheus_bind.and_then(|s| s.parse::<SocketAddr>().ok());
+            let config = ObservabilityConfig {
+                service_name: "csm-cli".to_string(),
+                otlp_endpoint: _otlp_endpoint,
+                prometheus_bind: prom_addr,
+                log_format: LogFormat::Pretty,
+                log_level: _level.to_string(),
+            };
+
+            if let Ok(guard) = init(config) {
+                return Some(Box::new(guard));
+            }
+        }
+
+        let tracing_level = match verbose {
             0 => Level::ERROR,
             1 => Level::WARN,
             2 => Level::INFO,
@@ -34,10 +61,11 @@ mod native {
         };
         let _ = tracing::subscriber::set_global_default(
             FmtSubscriber::builder()
-                .with_max_level(level)
+                .with_max_level(tracing_level)
                 .with_target(false)
                 .finish(),
         );
+        None
     }
 
     pub fn format_error(err: &CliError, format: OutputFormat) -> String {
@@ -179,7 +207,7 @@ fn main() -> StdExitCode {
     use native::*;
     let args = CliArgs::parse();
     let output_format = args.output_format;
-    init_tracing(args.verbose);
+    let _guard = init_tracing(args.verbose, args.otlp_endpoint.clone(), args.prometheus_bind.clone());
     match run_async(args) {
         Ok(_) => StdExitCode::from(ExitCode::Success as u8),
         Err(ref e) => {
