@@ -52,7 +52,7 @@ impl Projection {
     /// Create an empty projection (identity or zero).
     /// Used when the provider doesn't need a projection matrix (e.g., HDC).
     #[must_use]
-    pub fn empty() -> Self {
+    pub const fn empty() -> Self {
         Self {
             entries: Vec::new(),
             native_dim: 0,

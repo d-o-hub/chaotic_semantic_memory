@@ -29,7 +29,7 @@ pub async fn run_inject(
                     .embedding_provider
                     .embed(text)
                     .await
-                    .map_err(|e| CliError::Memory(e))?,
+                    .map_err(CliError::Memory)?,
                 &framework.projection,
             )
         }

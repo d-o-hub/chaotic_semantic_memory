@@ -29,30 +29,6 @@ impl Default for HdcTextProvider {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::embedding::Projection;
-
-    #[tokio::test]
-    async fn test_hdc_provider_roundtrip() {
-        let provider = HdcTextProvider::new();
-        let projection = Projection::empty();
-        let text = "hello world";
-
-        let embedding = provider.embed(text).await.unwrap();
-        assert_eq!(embedding.len(), 10240);
-
-        let vector = provider.project(&embedding, &projection);
-        let zero = HVec10240::zero();
-        assert_ne!(vector, zero, "HDC vector should not be zero");
-
-        // Verify it matches direct encoding
-        let direct = TextEncoder::new().encode(text);
-        assert_eq!(vector, direct);
-    }
-}
-
 impl HdcTextProvider {
     /// Create a new HDC text provider with default encoder config.
     #[must_use]
@@ -124,5 +100,29 @@ impl EmbeddingProvider for HdcTextProvider {
         } else {
             projection.project(vec)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::embedding::Projection;
+
+    #[tokio::test]
+    async fn test_hdc_provider_roundtrip() {
+        let provider = HdcTextProvider::new();
+        let projection = Projection::empty();
+        let text = "hello world";
+
+        let embedding = provider.embed(text).await.unwrap();
+        assert_eq!(embedding.len(), 10240);
+
+        let vector = provider.project(&embedding, &projection);
+        let zero = HVec10240::zero();
+        assert_ne!(vector, zero, "HDC vector should not be zero");
+
+        // Verify it matches direct encoding
+        let direct = TextEncoder::new().encode(text);
+        assert_eq!(vector, direct);
     }
 }

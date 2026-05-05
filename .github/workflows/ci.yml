@@ -15,6 +15,7 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  PROTOC: /usr/bin/protoc
 
 jobs:
   test:
