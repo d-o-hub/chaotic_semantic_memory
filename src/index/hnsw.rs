@@ -44,14 +44,23 @@ pub struct HnswIndex {
     id_to_idx: HashMap<String, usize>,
     idx_to_id: HashMap<usize, String>,
     config: HnswData,
+    deleted_count: usize,
 }
 
 #[cfg(feature = "ann-hnsw")]
 impl HnswIndex {
-    pub fn new(m: usize, ef_construction: usize, ef_search: usize) -> Self {
+    pub fn new(m: usize, ef_construction: usize, ef_search: usize) -> Result<Self> {
+        // #7: Validate m (max_nb_connection). hnsw_rs aborts if > 256.
+        if m == 0 || m > 256 {
+            return Err(MemoryError::InvalidInput {
+                field: "m".to_string(),
+                reason: "m must be between 1 and 256".to_string(),
+            });
+        }
+
         // ADR-0068: Default to 1M elements to support scale goal
         let hnsw = Hnsw::new(m, 1_000_000, 16, ef_construction, HammingDist);
-        Self {
+        Ok(Self {
             hnsw,
             id_to_idx: HashMap::new(),
             idx_to_id: HashMap::new(),
@@ -60,7 +69,8 @@ impl HnswIndex {
                 ef_construction,
                 ef_search,
             },
-        }
+            deleted_count: 0,
+        })
     }
 }
 
@@ -83,12 +93,24 @@ struct HnswPersistenceMeta {
     ef_construction: usize,
     ef_search: usize,
     graph_len: usize,
+    #[serde(default)]
+    deleted_count: usize,
 }
 
 #[cfg(feature = "ann-hnsw")]
 impl AnnIndex for HnswIndex {
     fn insert(&mut self, id: String, vec: &HVec10240) -> Result<()> {
-        let idx = self.id_to_idx.len();
+        // #6: Handle updates to existing IDs.
+        // If it already exists, we must "delete" the old one from our mapping
+        // and insert a new one. Since hnsw_rs doesn't support true deletion,
+        // we just mark it as deleted in our mappings and insert the new vector.
+        if self.id_to_idx.contains_key(&id) {
+            self.delete(&id)?;
+        }
+
+        // We use a monotonically increasing index to avoid reuse of IDs that might
+        // still be in the HNSW graph but were deleted from our mappings.
+        let idx = self.hnsw.get_nb_point();
         self.hnsw.insert((std::slice::from_ref(vec), idx));
         self.id_to_idx.insert(id.clone(), idx);
         self.idx_to_id.insert(idx, id);
@@ -96,22 +118,38 @@ impl AnnIndex for HnswIndex {
     }
 
     fn delete(&mut self, id: &str) -> Result<()> {
+        // #5: HnswIndex::delete only removes mappings.
         if let Some(idx) = self.id_to_idx.remove(id) {
             self.idx_to_id.remove(&idx);
+            self.deleted_count += 1;
+
+            // Optional: trigger rebuild if tombstone count is too high (e.g. > 50% of elements)
+            if self.deleted_count > 100 && self.deleted_count > self.id_to_idx.len() {
+                // We can't easily rebuild here without access to all concepts.
+                // Rebuild will happen via Singularity if needed, or we just rely
+                // on expanded search budget.
+            }
         }
         Ok(())
     }
 
     fn search(&self, query: &HVec10240, top_k: usize) -> Result<Vec<(String, f32)>> {
-        let results = self
-            .hnsw
-            .search(std::slice::from_ref(query), top_k, self.config.ef_search);
+        // #5: Increase search budget to account for deleted nodes.
+        let expanded_k = top_k + self.deleted_count.min(top_k * 10);
+        let results = self.hnsw.search(
+            std::slice::from_ref(query),
+            expanded_k,
+            self.config.ef_search,
+        );
 
         let mut final_results = Vec::with_capacity(results.len());
         for neighbor in results {
             if let Some(id) = self.idx_to_id.get(&neighbor.d_id) {
                 let similarity = 1.0 - (neighbor.distance / 5120.0);
                 final_results.push((id.clone(), similarity));
+                if final_results.len() >= top_k {
+                    break;
+                }
             }
         }
         Ok(final_results)
@@ -182,6 +220,7 @@ impl AnnIndex for HnswIndex {
         );
         self.id_to_idx.clear();
         self.idx_to_id.clear();
+        self.deleted_count = 0;
 
         for (id, concept) in concepts {
             self.insert(id.clone(), &concept.vector)?;
@@ -221,6 +260,7 @@ impl AnnIndex for HnswIndex {
             ef_construction: self.config.ef_construction,
             ef_search: self.config.ef_search,
             graph_len: graph_bytes.len(),
+            deleted_count: self.deleted_count,
         };
 
         let mut payload = bincode::serialize(&meta)
@@ -241,12 +281,7 @@ impl AnnIndex for HnswIndex {
             return Ok(());
         }
 
-        let meta_size = std::mem::size_of::<HnswPersistenceMeta>();
-        if data.len() < meta_size {
-            return Err(MemoryError::database("Index data too small".to_string()));
-        }
-
-        // We don't know the exact size of the bincode header, so we let bincode tell us
+        // #8: Validate meta data and offsets
         let meta: HnswPersistenceMeta = bincode::deserialize(data)
             .map_err(|e| MemoryError::database(format!("Bincode deserialize fail: {}", e)))?;
 
@@ -255,8 +290,24 @@ impl AnnIndex for HnswIndex {
             .try_into()
             .map_err(|e| MemoryError::database(format!("Bincode size truncation: {}", e)))?;
 
+        if data.len() < meta_serialized_size + meta.graph_len {
+            return Err(MemoryError::database(format!(
+                "Index data truncated: got {}, expected at least {}",
+                data.len(),
+                meta_serialized_size + meta.graph_len
+            )));
+        }
+
         let graph_start = data.len() - meta.graph_len;
         let data_start = meta_serialized_size;
+
+        if graph_start < data_start {
+            return Err(MemoryError::database(format!(
+                "Invalid index data offsets: graph_start {} < data_start {}",
+                graph_start, data_start
+            )));
+        }
+
         let data_bytes = &data[data_start..graph_start];
         let graph_bytes = &data[graph_start..];
 
@@ -284,6 +335,7 @@ impl AnnIndex for HnswIndex {
         self.config.m = meta.m;
         self.config.ef_construction = meta.ef_construction;
         self.config.ef_search = meta.ef_search;
+        self.deleted_count = meta.deleted_count;
 
         // Cleanup
         let _ = fs::remove_dir_all(temp_dir);

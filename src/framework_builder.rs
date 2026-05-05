@@ -229,7 +229,7 @@ impl FrameworkBuilder {
                 max_cached_top_k: self.config.max_cached_top_k,
             },
             self.config.index_backend.clone(),
-        )));
+        )?));
 
         #[cfg(feature = "persistence")]
         let persistence = if self.config.enable_persistence {

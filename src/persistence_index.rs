@@ -25,8 +25,14 @@ impl Persistence {
     pub async fn load_index(&self, id: &str) -> Result<Option<Vec<u8>>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
+
+        // #3: Freshness check. We also want the modified_at timestamp to verify
+        // if the persisted index matches the concepts in the database.
         let mut rows = conn
-            .query("SELECT data FROM csm_hnsw_graph WHERE id = ?1", params![id])
+            .query(
+                "SELECT data, modified_at FROM csm_hnsw_graph WHERE id = ?1",
+                params![id],
+            )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to load index: {}", e)))?;
 
@@ -38,6 +44,30 @@ impl Persistence {
             let data: Vec<u8> = row
                 .get(0)
                 .map_err(|e| MemoryError::database(format!("Failed to get index data: {}", e)))?;
+
+            let modified_at: i64 = row.get(1).map_err(|e| {
+                MemoryError::database(format!("Failed to get index modified_at: {}", e))
+            })?;
+
+            // Check if there are any concepts modified AFTER the index was last saved.
+            // If so, the index is stale and we should return None to trigger a rebuild.
+            let mut stale_check = conn
+                .query(
+                    "SELECT 1 FROM csm_concepts WHERE modified_at > ?1 LIMIT 1",
+                    params![modified_at],
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed stale check: {}", e)))?;
+
+            if stale_check
+                .next()
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed fetch stale row: {}", e)))?
+                .is_some()
+            {
+                return Ok(None);
+            }
+
             Ok(Some(data))
         } else {
             Ok(None)

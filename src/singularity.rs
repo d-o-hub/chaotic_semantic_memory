@@ -104,7 +104,10 @@ impl Singularity {
         }
     }
 
-    pub fn with_config_and_backend(config: SingularityConfig, backend: IndexBackend) -> Self {
+    pub fn with_config_and_backend(
+        config: SingularityConfig,
+        backend: IndexBackend,
+    ) -> Result<Self> {
         let index: Box<dyn AnnIndex> = match backend {
             IndexBackend::BruteForce => Box::new(BruteForce::new()),
             #[cfg(feature = "ann-hnsw")]
@@ -116,19 +119,27 @@ impl Singularity {
                 m,
                 ef_construction,
                 ef_search,
-            )),
+            )?),
             #[cfg(not(feature = "ann-hnsw"))]
-            IndexBackend::Hnsw { .. } => Box::new(BruteForce::new()),
+            IndexBackend::Hnsw { .. } => {
+                return Err(MemoryError::UnsupportedOperation(
+                    "HNSW index requires 'ann-hnsw' feature".to_string(),
+                ));
+            }
             #[cfg(feature = "ann-lsh")]
             IndexBackend::Lsh {
                 num_tables,
                 hash_bits,
-            } => Box::new(crate::index::lsh::LshIndex::new(num_tables, hash_bits)),
+            } => Box::new(crate::index::lsh::LshIndex::new(num_tables, hash_bits)?),
             #[cfg(not(feature = "ann-lsh"))]
-            IndexBackend::Lsh { .. } => Box::new(BruteForce::new()),
+            IndexBackend::Lsh { .. } => {
+                return Err(MemoryError::UnsupportedOperation(
+                    "LSH index requires 'ann-lsh' feature".to_string(),
+                ));
+            }
         };
 
-        Self {
+        Ok(Self {
             concepts: HashMap::new(),
             associations: HashMap::new(),
             concept_indices: Vec::new(),
@@ -140,7 +151,7 @@ impl Singularity {
             config,
             retrieval_config: RetrievalConfig::default(),
             index,
-        }
+        })
     }
     /// Inject a concept directly into memory
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self, concept), fields(concept_id = %concept.id)))]

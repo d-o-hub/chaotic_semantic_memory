@@ -59,6 +59,7 @@ impl Persistence {
              DELETE FROM csm_associations;
              DELETE FROM csm_versions;
              DELETE FROM csm_concepts;
+             DELETE FROM csm_hnsw_graph;
              COMMIT;",
         )
         .await
@@ -187,6 +188,7 @@ impl Persistence {
                 "DELETE FROM csm_associations;
                  DELETE FROM csm_versions;
                  DELETE FROM csm_concepts;
+                 DELETE FROM csm_hnsw_graph;
                  DELETE FROM csm_schema_version;",
             )
             .await
@@ -199,6 +201,8 @@ impl Persistence {
                  SELECT from_id, to_id, strength FROM restore_db.csm_associations;
                  INSERT INTO csm_versions (concept_id, version, vector, metadata, modified_at)
                  SELECT concept_id, version, vector, metadata, modified_at FROM restore_db.csm_versions;
+                 INSERT INTO csm_hnsw_graph (id, data, modified_at)
+                 SELECT id, data, modified_at FROM restore_db.csm_hnsw_graph;
                  INSERT INTO csm_schema_version(version)
                  SELECT version FROM restore_db.csm_schema_version;",
             )

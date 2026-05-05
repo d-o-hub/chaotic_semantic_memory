@@ -14,11 +14,10 @@ impl ChaoticSemanticFramework {
         if let Some(ref persistence) = self.persistence {
             let p_start = std::time::Instant::now();
             // ADR-0068: Persist ANN index state
-            let data = self.singularity.read().await.index.serialize();
-            if let Ok(index_data) = data {
-                if !index_data.is_empty() {
-                    persistence.save_index("main", &index_data).await?;
-                }
+            // #13: Propagate serialization errors
+            let index_data = self.singularity.read().await.index.serialize()?;
+            if !index_data.is_empty() {
+                persistence.save_index("main", &index_data).await?;
             }
 
             persistence.checkpoint().await?;
@@ -46,28 +45,42 @@ impl ChaoticSemanticFramework {
     pub async fn load_replace(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
             let p_start = std::time::Instant::now();
+            // #12: Fetch data outside of singularity lock
             let concepts = persistence.load_all_concepts().await?;
 
-            let mut concept_ids = Vec::with_capacity(concepts.len());
+            let mut all_associations: Vec<(String, String, f32)> = Vec::new();
             for concept in &concepts {
                 self.validate_concept(concept)?;
-                concept_ids.push(concept.id.clone());
-            }
-
-            let mut all_associations: Vec<(String, String, f32)> = Vec::new();
-            for concept_id in &concept_ids {
-                let links = persistence.load_associations(concept_id).await?;
+                let links = persistence.load_associations(&concept.id).await?;
                 for (to_id, strength) in links {
-                    all_associations.push((concept_id.clone(), to_id, strength));
+                    all_associations.push((concept.id.clone(), to_id, strength));
                 }
             }
+
+            // #12: Load index outside of singularity lock
+            let index_data = persistence.load_index("main").await.ok().flatten();
 
             {
                 let mut sing = self.singularity.write().await;
                 sing.clear();
+
+                // #11: Avoid cloning the entire concepts map by moving/processing them directly
                 for concept in concepts {
-                    sing.inject(concept)?;
+                    let concept_id = concept.id.clone();
+                    let concept_vector = concept.vector;
+
+                    // Manual inject to avoid redundant index inserts if we're about to deserialize
+                    if let Some(&idx) = sing.id_to_index.get(&concept_id) {
+                        sing.concept_vectors[idx] = concept_vector;
+                    } else {
+                        let idx = sing.concept_indices.len();
+                        sing.id_to_index.insert(concept_id.clone(), idx);
+                        sing.concept_indices.push(concept_id.clone());
+                        sing.concept_vectors.push(concept_vector);
+                    }
+                    sing.concepts.insert(concept_id, concept);
                 }
+
                 for (from_id, to_id, strength) in all_associations {
                     if let Err(error) = sing.associate(&from_id, &to_id, strength) {
                         warn!(
@@ -81,15 +94,16 @@ impl ChaoticSemanticFramework {
                 }
 
                 // ADR-0068: Load ANN index state
-                if let Some(ref persistence) = self.persistence {
-                    if let Ok(Some(index_data)) = persistence.load_index("main").await {
-                        let _ = sing.index.deserialize(&index_data);
-                    } else {
-                        // Fallback: rebuild index from concepts
-                        let concepts = sing.concepts.clone();
-                        let _ = sing.index.rebuild(&concepts);
-                    }
+                // #2, #3: Prefer deserialize over rebuild if data is fresh
+                if let Some(data) = index_data {
+                    let _ = sing.index.deserialize(&data);
+                } else {
+                    // Fallback: rebuild index from concepts
+                    // We must clone because rebuild takes &HashMap but we have &mut Singularity
+                    let concepts = sing.concepts.clone();
+                    let _ = sing.index.rebuild(&concepts);
                 }
+                sing.invalidate_cache();
             }
             #[allow(clippy::cast_possible_truncation)]
             self.metrics
@@ -105,13 +119,20 @@ impl ChaoticSemanticFramework {
     #[tracing::instrument(err, skip(self))]
     pub async fn load_merge(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
+            // #12: Fetch data outside of singularity lock
             let concepts = persistence.load_all_concepts().await?;
 
             for concept in &concepts {
                 self.validate_concept(concept)?;
             }
 
-            let concept_ids: Vec<String> = concepts.iter().map(|c| c.id.clone()).collect();
+            let mut all_associations: Vec<(String, String, f32)> = Vec::new();
+            for concept in &concepts {
+                let links = persistence.load_associations(&concept.id).await?;
+                for (to_id, strength) in links {
+                    all_associations.push((concept.id.clone(), to_id, strength));
+                }
+            }
 
             {
                 let mut sing = self.singularity.write().await;
@@ -125,18 +146,7 @@ impl ChaoticSemanticFramework {
                     }
                     sing.inject(concept)?;
                 }
-            }
 
-            let mut all_associations: Vec<(String, String, f32)> = Vec::new();
-            for concept_id in &concept_ids {
-                let links = persistence.load_associations(concept_id).await?;
-                for (to_id, strength) in links {
-                    all_associations.push((concept_id.clone(), to_id, strength));
-                }
-            }
-
-            {
-                let mut sing = self.singularity.write().await;
                 for (from_id, to_id, strength) in all_associations {
                     if let Err(error) = sing.associate(&from_id, &to_id, strength) {
                         warn!(
@@ -149,16 +159,12 @@ impl ChaoticSemanticFramework {
                     }
                 }
 
-                // ADR-0068: Load ANN index state
-                if let Some(ref persistence) = self.persistence {
-                    if let Ok(Some(index_data)) = persistence.load_index("main").await {
-                        let _ = sing.index.deserialize(&index_data);
-                    } else {
-                        // Fallback: rebuild index from concepts
-                        let concepts = sing.concepts.clone();
-                        let _ = sing.index.rebuild(&concepts);
-                    }
-                }
+                // #4: load_merge should rebuild/merge instead of blind deserialize
+                // We just injected new concepts into the index via sing.inject(),
+                // so the index is already updated with merged concepts.
+                // Rebuilding ensures optimal structure if many concepts were merged.
+                let concepts = sing.concepts.clone();
+                let _ = sing.index.rebuild(&concepts);
             }
         }
         Ok(())

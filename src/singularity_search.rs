@@ -71,26 +71,31 @@ impl Singularity {
         let index_stats = self.index.stats();
         if index_stats.backend != "BruteForce" {
             if let Ok(results) = self.index.search(query, top_k) {
-                let results_arc: Arc<[(String, f32)]> = Arc::from(results);
+                // #10: Guard: when results are empty but concepts are not, fall back to exact scan.
+                if results.is_empty() && !self.concepts.is_empty() {
+                    // Fall through to heuristic generation or exact scan
+                } else {
+                    let results_arc: Arc<[(String, f32)]> = Arc::from(results);
 
-                // ADR-0068: Update stats for ANN search
-                if let Ok(mut s) = self.last_retrieval_stats.write() {
-                    s.scored_count = results_arc.len();
-                    s.candidate_count = index_stats.count;
-                    s.scoring_ns = unix_now_ns().saturating_sub(start_ns);
-                }
+                    // ADR-0068: Update stats for ANN search
+                    if let Ok(mut s) = self.last_retrieval_stats.write() {
+                        s.scored_count = results_arc.len();
+                        s.candidate_count = index_stats.count;
+                        s.scoring_ns = unix_now_ns().saturating_sub(start_ns);
+                    }
 
-                if !bypass_cache {
-                    if let Ok(mut cache) = self.query_cache.write() {
-                        let cache_key = similarity_cache_key(query, top_k);
-                        if cache.put(cache_key, Arc::clone(&results_arc)) {
-                            self.cache_metrics
-                                .evictions_total
-                                .fetch_add(1, Ordering::Relaxed);
+                    if !bypass_cache {
+                        if let Ok(mut cache) = self.query_cache.write() {
+                            let cache_key = similarity_cache_key(query, top_k);
+                            if cache.put(cache_key, Arc::clone(&results_arc)) {
+                                self.cache_metrics
+                                    .evictions_total
+                                    .fetch_add(1, Ordering::Relaxed);
+                            }
                         }
                     }
+                    return results_arc;
                 }
-                return results_arc;
             }
         }
 
