@@ -51,8 +51,8 @@ impl crate::framework::ChaoticSemanticFramework {
     /// Inject a concept from text with TTL.
     #[instrument(err, skip(self, text))]
     pub async fn inject_text_with_ttl(&self, id: &str, text: &str, ttl_seconds: u64) -> Result<()> {
-        let encoder = crate::encoder::TextEncoder::new();
-        let vector = encoder.encode(text);
+        let embedding = self.embedding_provider.embed(text).await?;
+        let vector = self.embedding_provider.project(&embedding, &self.projection);
         self.inject_concept_with_ttl(id, vector, ttl_seconds).await
     }
 
@@ -68,14 +68,14 @@ impl crate::framework::ChaoticSemanticFramework {
         Ok(count)
     }
 
-    /// Inject a concept from text using the built-in encoder.
+    /// Inject a concept from text using the configured embedding provider.
     ///
-    /// The text is encoded to a hypervector using `TextEncoder` and stored
+    /// The text is encoded to a hypervector using `EmbeddingProvider` and stored
     /// with the given ID. This is a convenience method for the common case
     /// of storing text-based concepts.
     pub async fn inject_text(&self, id: &str, text: &str) -> Result<()> {
-        let encoder = crate::encoder::TextEncoder::new();
-        let vector = encoder.encode(text);
+        let embedding = self.embedding_provider.embed(text).await?;
+        let vector = self.embedding_provider.project(&embedding, &self.projection);
         self.inject_concept(id, vector).await
     }
 
@@ -86,8 +86,8 @@ impl crate::framework::ChaoticSemanticFramework {
         text: &str,
         metadata: HashMap<String, serde_json::Value>,
     ) -> Result<()> {
-        let encoder = crate::encoder::TextEncoder::new();
-        let vector = encoder.encode(text);
+        let embedding = self.embedding_provider.embed(text).await?;
+        let vector = self.embedding_provider.project(&embedding, &self.projection);
         self.inject_concept_with_metadata(id, vector, metadata)
             .await
     }
@@ -96,8 +96,8 @@ impl crate::framework::ChaoticSemanticFramework {
     ///
     /// Encodes the query text and finds the most similar concepts.
     pub async fn probe_text(&self, query: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
-        let encoder = crate::encoder::TextEncoder::new();
-        let vector = encoder.encode(query);
+        let embedding = self.embedding_provider.embed(query).await?;
+        let vector = self.embedding_provider.project(&embedding, &self.projection);
         self.probe(vector, top_k).await
     }
 
@@ -108,8 +108,8 @@ impl crate::framework::ChaoticSemanticFramework {
         top_k: usize,
         filter: &MetadataFilter,
     ) -> Result<Vec<(String, f32)>> {
-        let encoder = crate::encoder::TextEncoder::new();
-        let vector = encoder.encode(query);
+        let embedding = self.embedding_provider.embed(query).await?;
+        let vector = self.embedding_provider.project(&embedding, &self.projection);
         self.probe_filtered(&vector, top_k, filter).await
     }
 

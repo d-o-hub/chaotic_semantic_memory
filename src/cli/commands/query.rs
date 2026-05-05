@@ -7,9 +7,10 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use crate::cli::args::{OutputFormat, QueryArgs};
-use crate::cli::commands::{create_framework, print_success, print_warning, truncate_preview};
+use crate::cli::commands::{
+    create_framework_advanced, print_success, print_warning, truncate_preview,
+};
 use crate::cli::error::{CliError, Result};
-use crate::encoder::TextEncoder;
 use crate::retrieval::bm25::Bm25Index;
 use crate::retrieval::hybrid::{compute_weights, merge_results};
 
@@ -49,14 +50,8 @@ pub async fn run_query(
         ));
     }
 
-    let framework = create_framework(db_path).await?;
-
-    // Create encoder based on code_aware flag
-    let encoder = if args.code_aware {
-        TextEncoder::new_code_aware()
-    } else {
-        TextEncoder::new()
-    };
+    let framework =
+        create_framework_advanced(db_path, args.provider.as_deref(), args.code_aware).await?;
 
     // Tokenize query for BM25
     let query_tokens = tokenize_query(&args.text, args.code_aware);
@@ -67,13 +62,10 @@ pub async fn run_query(
 
     // Collect results from both search methods
     let hdc_results = if use_hdc {
-        // Encode the query text for HDC
-        let query_vector = encoder.encode(&args.text);
-
-        // Search for similar concepts
+        // Search for similar concepts using framework's probe_text (which uses configured provider)
         Some(
             framework
-                .probe(query_vector, args.top_k)
+                .probe_text(&args.text, args.top_k)
                 .await
                 .map_err(|e| CliError::Persistence(format!("query operation failed: {e}")))?,
         )
