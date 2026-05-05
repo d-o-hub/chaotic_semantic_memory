@@ -20,8 +20,11 @@ impl ChaoticSemanticFramework {
         self.validate_top_k(initial_top_k)?;
         self.validate_top_k(final_top_k)?;
 
+        // ADR-0071: initial_top_k must not be smaller than final_top_k to avoid under-fetching
+        let actual_initial_k = initial_top_k.max(final_top_k);
+
         // 1. Initial probe
-        let initial_results = self.probe(query, initial_top_k).await?;
+        let initial_results = self.probe(query, actual_initial_k).await?;
 
         if rerankers.is_empty() {
             let mut results = initial_results;
@@ -48,7 +51,7 @@ impl ChaoticSemanticFramework {
 
         // 3. Apply rerankers in sequence
         for reranker in rerankers {
-            candidates = reranker.rerank(&query, candidates, initial_top_k);
+            candidates = reranker.rerank(&query, candidates, actual_initial_k);
         }
 
         // 4. Truncate and format final results

@@ -37,9 +37,6 @@ pub use framework::ChaoticSemanticFramework;
 pub use framework_builder::FrameworkBuilder;
 pub use framework_events::MemoryEvent;
 pub use hyperdim::{HVec10240, batch_cosine_similarity};
-pub use retrieval::{
-    MmrReranker, RecencyDecayReranker, RerankCandidate, Reranker, parse_rerankers,
-};
 pub use semantic_bridge::{
     BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown,
 };

@@ -45,7 +45,7 @@ impl Reranker for MmrReranker {
 
     fn rerank(
         &self,
-        _query: &HVec10240,
+        query: &HVec10240,
         mut candidates: Vec<RerankCandidate>,
         top_k: usize,
     ) -> Vec<RerankCandidate> {
@@ -70,8 +70,9 @@ impl Reranker for MmrReranker {
                 }
 
                 // MMR Formula: lambda * sim(query, cand) - (1 - lambda) * max_sim(cand, selected)
+                let similarity = query.cosine_similarity(&cand.vector);
                 let mmr_score =
-                    self.lambda * cand.score - (1.0 - self.lambda) * max_sim_to_selected;
+                    self.lambda * similarity - (1.0 - self.lambda) * max_sim_to_selected;
                 if mmr_score > max_mmr {
                     max_mmr = mmr_score;
                     best_idx = idx;
@@ -160,19 +161,24 @@ pub fn parse_rerankers(s: &str) -> crate::error::Result<Vec<Box<dyn Reranker>>> 
         if part.is_empty() {
             continue;
         }
-        let mut split = part.splitn(2, ':');
-        let name = split.next().unwrap_or("");
-        let value = split.next().unwrap_or("");
+        let (name, value) = part.split_once(':').unwrap_or((part, ""));
 
         match name {
             "mmr" => {
-                let lambda =
-                    value
-                        .parse::<f32>()
-                        .map_err(|_| crate::error::MemoryError::InvalidInput {
-                            field: "rerank".to_string(),
-                            reason: format!("invalid MMR lambda: {}", value),
-                        })?;
+                let lambda = value.parse::<f32>().map_err(|_| {
+                    crate::error::MemoryError::InvalidInput {
+                        field: "rerank".to_string(),
+                        reason: format!("invalid MMR lambda: {}", value),
+                    }
+                })?;
+
+                if !(0.0..=1.0).contains(&lambda) {
+                    return Err(crate::error::MemoryError::InvalidInput {
+                        field: "rerank".to_string(),
+                        reason: format!("MMR lambda must be between 0.0 and 1.0: {}", lambda),
+                    });
+                }
+
                 rerankers.push(Box::new(MmrReranker { lambda }));
             }
             "recency" => {
@@ -190,16 +196,37 @@ pub fn parse_rerankers(s: &str) -> crate::error::Result<Vec<Box<dyn Reranker>>> 
                     }
                 })?;
 
+                if half_life <= 0.0 {
+                    return Err(crate::error::MemoryError::InvalidInput {
+                        field: "rerank".to_string(),
+                        reason: format!("recency half-life must be positive: {}", half_life),
+                    });
+                }
+
                 let blend = if let Some(blend_str) = recency_split.next() {
-                    blend_str.parse::<f32>().map_err(|_| {
+                    let b = blend_str.parse::<f32>().map_err(|_| {
                         crate::error::MemoryError::InvalidInput {
                             field: "rerank".to_string(),
                             reason: format!("invalid recency blend: {}", blend_str),
                         }
-                    })?
+                    })?;
+                    if !(0.0..=1.0).contains(&b) {
+                        return Err(crate::error::MemoryError::InvalidInput {
+                            field: "rerank".to_string(),
+                            reason: format!("recency blend must be between 0.0 and 1.0: {}", b),
+                        });
+                    }
+                    b
                 } else {
                     0.5
                 };
+
+                if recency_split.next().is_some() {
+                    return Err(crate::error::MemoryError::InvalidInput {
+                        field: "rerank".to_string(),
+                        reason: format!("extra segments in recency reranker: {}", value),
+                    });
+                }
 
                 rerankers.push(Box::new(RecencyDecayReranker {
                     half_life_days: half_life,
@@ -250,16 +277,21 @@ mod tests {
 
     #[test]
     fn test_mmr_reranker() {
-        let query = HVec10240::random();
-        let v1 = Arc::new(HVec10240::random());
-        // v2 is very similar to v1
-        let v2 = Arc::new(*v1.as_ref());
+        // Use a zero vector as query for deterministic (and low) similarity
+        let query = HVec10240::zero();
+        // Use seeded vectors for deterministic similarity
+        // v1 will be the anchor
+        let v1 = Arc::new(HVec10240::new_seeded(1));
+        // v2 is identical to v1
+        let v2 = Arc::new(HVec10240::new_seeded(1));
+        // v3 is different
+        let v3 = Arc::new(HVec10240::new_seeded(2));
 
         let c1 = RerankCandidate {
             id: "c1".into(),
             vector: v1,
             metadata: HashMap::new(),
-            score: 0.9,
+            score: 0.9, // Higher initial score
             created_at_unix: 0,
         };
         let c2 = RerankCandidate {
@@ -271,18 +303,34 @@ mod tests {
         };
         let c3 = RerankCandidate {
             id: "c3".into(),
-            vector: Arc::new(HVec10240::random()),
+            vector: v3,
             metadata: HashMap::new(),
             score: 0.7,
             created_at_unix: 0,
         };
 
+        // If lambda is 1.0, it should be pure similarity: c1, c2
+        let reranker_sim = MmrReranker { lambda: 1.0 };
+        let results_sim = reranker_sim.rerank(&query, vec![c1.clone(), c2.clone(), c3.clone()], 2);
+        assert_eq!(results_sim[0].id, "c1");
+        assert_eq!(results_sim[1].id, "c2");
+
+        // If lambda is 0.5, diversity should kick in.
+        // Step 1: Selection.
+        // MMR(c1) = 0.5 * sim(query, c1) - 0.5 * 0.0 = 0.5 * sim(query, c1)
+        // MMR(c2) = 0.5 * sim(query, c2)
+        // MMR(c3) = 0.5 * sim(query, c3)
+        // Since sim(query, c1) is highest (initially we use query.cosine_similarity), c1 is selected.
+
+        // Step 2:
+        // MMR(c2) = 0.5 * sim(query, c2) - 0.5 * sim(c2, c1) = 0.5 * sim(query, c2) - 0.5 * 1.0
+        // MMR(c3) = 0.5 * sim(query, c3) - 0.5 * sim(c3, c1)
+        // Since sim(c3, c1) < 1.0, MMR(c3) will be greater than MMR(c2).
         let reranker = MmrReranker { lambda: 0.5 };
         let results = reranker.rerank(&query, vec![c1, c2, c3], 2);
 
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].id, "c1");
-        // c2 should be penalized for being identical to c1, so c3 should be preferred
         assert_eq!(results[1].id, "c3");
     }
 
@@ -312,12 +360,9 @@ mod tests {
     #[test]
     #[cfg(feature = "rerank-cross")]
     fn test_parse_rerankers_windows_path() {
-        // We need a file that exists or mock the loading.
-        // For testing the parser's string splitting logic, we can check if it attempts to load the right path.
-        // Since we can't easily mock candle_onnx::read_file, we'll just test that it doesn't fail on name parsing.
-        let err = parse_rerankers("cross:C:\\nonexistent\\model.onnx").unwrap_err();
+        let err = parse_rerankers(r"cross:C:\nonexistent\model.onnx").unwrap_err();
         if let crate::error::MemoryError::InvalidInput { reason, .. } = err {
-            assert!(reason.contains("C:\\nonexistent\\model.onnx"));
+            assert!(reason.contains(r"C:\nonexistent\model.onnx"));
         } else {
             panic!("Expected InvalidInput error with the full path");
         }
