@@ -1,8 +1,10 @@
 use chaotic_semantic_memory::MetadataFilter;
+#[cfg(any(feature = "ann-hnsw", feature = "ann-lsh"))]
 use chaotic_semantic_memory::index::IndexBackend;
 use chaotic_semantic_memory::prelude::*;
 
 #[tokio::test]
+#[cfg(feature = "ann-hnsw")]
 async fn test_hnsw_filter_bug_prevention() {
     let framework = FrameworkBuilder::default()
         .without_persistence()
@@ -57,6 +59,7 @@ async fn test_hnsw_filter_bug_prevention() {
 }
 
 #[tokio::test]
+#[cfg(feature = "ann-hnsw")]
 async fn test_hnsw_empty_filter_results() {
     let framework = FrameworkBuilder::default()
         .without_persistence()
@@ -89,6 +92,7 @@ async fn test_hnsw_empty_filter_results() {
 }
 
 #[tokio::test]
+#[cfg(feature = "ann-lsh")]
 async fn test_lsh_filter_bug_prevention() {
     let framework = FrameworkBuilder::default()
         .without_persistence()

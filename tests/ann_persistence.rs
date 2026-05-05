@@ -1,8 +1,11 @@
+#[cfg(feature = "ann-lsh")]
 use chaotic_semantic_memory::index::IndexBackend;
 use chaotic_semantic_memory::prelude::*;
+#[cfg(feature = "ann-lsh")]
 use tempfile::NamedTempFile;
 
 #[tokio::test]
+#[cfg(feature = "ann-lsh")]
 async fn test_index_persistence_roundtrip() {
     let temp = NamedTempFile::new().unwrap();
     let db_path = temp.path().to_str().unwrap();
