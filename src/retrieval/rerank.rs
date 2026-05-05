@@ -165,12 +165,13 @@ pub fn parse_rerankers(s: &str) -> crate::error::Result<Vec<Box<dyn Reranker>>> 
 
         match name {
             "mmr" => {
-                let lambda = value.parse::<f32>().map_err(|_| {
-                    crate::error::MemoryError::InvalidInput {
-                        field: "rerank".to_string(),
-                        reason: format!("invalid MMR lambda: {}", value),
-                    }
-                })?;
+                let lambda =
+                    value
+                        .parse::<f32>()
+                        .map_err(|_| crate::error::MemoryError::InvalidInput {
+                            field: "rerank".to_string(),
+                            reason: format!("invalid MMR lambda: {}", value),
+                        })?;
 
                 if !(0.0..=1.0).contains(&lambda) {
                     return Err(crate::error::MemoryError::InvalidInput {
