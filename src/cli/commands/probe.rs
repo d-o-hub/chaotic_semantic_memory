@@ -35,10 +35,19 @@ pub async fn run_probe(
         .map_err(|e| CliError::Persistence(format!("failed to get concept: {e}")))?
         .ok_or_else(|| CliError::Input(format!("concept '{}' not found", args.concept_id)))?;
 
-    let results = framework
-        .probe(concept.vector, args.top_k)
-        .await
-        .map_err(|e| CliError::Persistence(format!("probe operation failed: {e}")))?;
+    let results = if let Some(pipeline) = &args.rerank {
+        let rerankers = crate::retrieval::rerank::parse_rerankers(pipeline)
+            .map_err(|e| CliError::Input(format!("failed to parse rerankers: {e}")))?;
+        framework
+            .probe_with_rerankers(concept.vector, args.initial_k, &rerankers, args.top_k)
+            .await
+            .map_err(|e| CliError::Persistence(format!("probe with rerankers failed: {e}")))?
+    } else {
+        framework
+            .probe(concept.vector, args.top_k)
+            .await
+            .map_err(|e| CliError::Persistence(format!("probe operation failed: {e}")))?
+    };
 
     let filtered: Vec<_> = results
         .into_iter()

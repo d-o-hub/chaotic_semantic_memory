@@ -58,6 +58,10 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"], optional = true
 # Local ONNX embeddings (opt-in via embed-fastembed feature)
 fastembed = { version = "4", optional = true }
 
+# Candle for cross-encoders (opt-in via rerank-cross feature)
+candle-core = { version = "0.8.2", optional = true }
+candle-onnx = { version = "0.8.2", optional = true }
+
 # HNSW ANN index (opt-in via ann-hnsw feature)
 hnsw_rs = { version = "0.3.4", optional = true }
 
@@ -233,6 +237,9 @@ ann-lsh = []
 # Observability (ADR-0072)
 otlp = ["dep:opentelemetry", "dep:opentelemetry-otlp", "dep:opentelemetry_sdk", "dep:tracing-opentelemetry", "dep:opentelemetry-semantic-conventions"]
 prometheus = ["dep:prometheus", "dep:hyper", "dep:hyper-util", "dep:http-body-util"]
+
+# Reranking pipeline (ADR-0071)
+rerank-cross = ["dep:candle-core", "dep:candle-onnx"]
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]
