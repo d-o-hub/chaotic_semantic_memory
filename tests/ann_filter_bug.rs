@@ -2,6 +2,7 @@ use chaotic_semantic_memory::MetadataFilter;
 use chaotic_semantic_memory::index::IndexBackend;
 use chaotic_semantic_memory::prelude::*;
 
+#[cfg(feature = "ann-hnsw")]
 #[tokio::test]
 async fn test_hnsw_filter_bug_prevention() {
     let framework = FrameworkBuilder::default()
@@ -56,6 +57,7 @@ async fn test_hnsw_filter_bug_prevention() {
     assert!(!results.iter().any(|(id, _)| id == "no-match"));
 }
 
+#[cfg(feature = "ann-hnsw")]
 #[tokio::test]
 async fn test_hnsw_empty_filter_results() {
     let framework = FrameworkBuilder::default()
@@ -88,6 +90,7 @@ async fn test_hnsw_empty_filter_results() {
     );
 }
 
+#[cfg(feature = "ann-lsh")]
 #[tokio::test]
 async fn test_lsh_filter_bug_prevention() {
     let framework = FrameworkBuilder::default()
