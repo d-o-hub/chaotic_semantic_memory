@@ -1,0 +1,5 @@
+🔒 Fix unsafe unwrap in concept builder
+
+🎯 **What:** The `src/singularity_ext.rs` test module contained unsafe `.unwrap()` calls and `.expect()` calls, particularly when building and injecting concepts, which could result in unhandled thread panics.
+⚠️ **Risk:** Though primarily residing in test code, such unbounded panic potential during critical concept building and injection functions can lead to abrupt crashes affecting developer tooling and CI stability. When building out the agent memory architecture securely, maintaining a zero-panic philosophy via error forwarding improves code reliability.
+🛡️ **Solution:** Altered the test function signatures to return `crate::error::Result<()>` and converted `.unwrap()`/`.expect()` calls into `?` operations where applicable. When an element extraction like `HashMap::get` fails, explicitly mapped it to a descriptive `MemoryError::NotFound` before `?` propagation instead of using `.unwrap()`.
