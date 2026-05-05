@@ -6,6 +6,7 @@
 //! as dense Gaussian projections, with ~3x speedup.
 
 // Casts are intentional for dimension math (usize to f32 for sparsity ratio)
+#![allow(clippy::cast_precision_loss)]
 
 use crate::hyperdim::HVec10240;
 

@@ -3,6 +3,7 @@
 //! Implements 10240-bit hypervectors using `[u128; 80]`.
 
 // Casts are intentional for HDC dimension math (10240-bit operations)
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use rand::RngExt;
 
