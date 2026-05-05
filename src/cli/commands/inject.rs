@@ -19,7 +19,7 @@ pub async fn run_inject(
 
     let framework = create_framework_with_provider(db_path, args.provider.as_deref()).await?;
 
-    let source = if args.use_embeddings && args.text.is_some() {
+    let source = if args.text.is_some() {
         VectorSource::Text
     } else {
         args.vector_source
