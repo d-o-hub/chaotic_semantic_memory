@@ -268,7 +268,6 @@ impl Singularity {
 
 #[cfg(test)]
 mod tests {
-    use crate::singularity::SingularityConfig;
     use super::*;
     use crate::hyperdim::HVec10240;
     use crate::singularity::{Concept, ConceptBuilder, Singularity};

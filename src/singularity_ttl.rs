@@ -69,7 +69,6 @@ impl Singularity {
 
 #[cfg(test)]
 mod tests {
-    use crate::singularity::SingularityConfig;
     use super::*;
 
     #[test]

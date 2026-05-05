@@ -47,20 +47,6 @@ impl ChaoticSemanticFramework {
         &self.namespace
     }
 
-    /// Create a new framework instance pointing to a different namespace.
-    /// This shares the same underlying singularity, persistence and reservoir.
-    pub fn with_namespace(&self, ns: impl Into<String>) -> Self {
-        Self {
-            singularity: self.singularity.clone(),
-            persistence: self.persistence.clone(),
-            reservoir: self.reservoir.clone(),
-            config: self.config.clone(),
-            metrics: self.metrics.clone(),
-            event_sender: self.event_sender.clone(),
-            namespace: ns.into(),
-        }
-    }
-
     /// Inject a concept into memory
     #[instrument(err, skip(self, id, vector))]
     pub async fn inject_concept(&self, id: impl Into<String>, vector: HVec10240) -> Result<()> {
@@ -254,9 +240,7 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(ref persistence) = self.persistence {
-            persistence
-                .save_association(&self.namespace, from, to, strength)
-                .await?;
+            persistence.save_association(&self.namespace, from, to, strength).await?;
         }
         self.metrics.inc_associations_created(1);
         self.emit_event(MemoryEvent::Associated {
@@ -306,7 +290,9 @@ impl ChaoticSemanticFramework {
         Self::validate_concept_id(id)?;
         let sing = self.singularity.read().await;
         Ok(sing
-            .incoming_associations(&self.namespace, id))
+            .incoming_associations(&self.namespace, id)
+            .into_iter()
+            .collect())
     }
 
     /// Find the fewest-hop path between two concepts (unweighted BFS).

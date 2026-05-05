@@ -1,4 +1,3 @@
-#![cfg(all(feature = "ann-hnsw", feature = "ann-lsh"))]
 use chaotic_semantic_memory::index::IndexBackend;
 use chaotic_semantic_memory::prelude::*;
 

@@ -50,9 +50,9 @@ async fn concept_lifecycle_save_load_delete() {
     let concept = make_concept("test-concept", 100, 200);
     let original_vector = concept.vector;
 
-    persistence.save_concept("_default", &concept).await.unwrap();
+    persistence.save_concept(&concept).await.unwrap();
 
-    let loaded = persistence.load_concept("_default", "test-concept").await.unwrap();
+    let loaded = persistence.load_concept("test-concept").await.unwrap();
     assert!(loaded.is_some());
     let loaded = loaded.unwrap();
     assert_eq!(loaded.id, "test-concept");
@@ -60,9 +60,9 @@ async fn concept_lifecycle_save_load_delete() {
     assert_eq!(loaded.modified_at, 200);
     assert!((loaded.vector.cosine_similarity(&original_vector) - 1.0).abs() < 0.001);
 
-    persistence.delete_concept("_default", "test-concept").await.unwrap();
+    persistence.delete_concept("test-concept").await.unwrap();
 
-    let missing = persistence.load_concept("_default", "test-concept").await.unwrap();
+    let missing = persistence.load_concept("test-concept").await.unwrap();
     assert!(missing.is_none());
 }
 
@@ -73,10 +73,10 @@ async fn concept_update_replaces_existing() {
     let persistence = Persistence::new_local(path).await.unwrap();
 
     let concept_v1 = make_concept("updatable", 1, 1);
-    persistence.save_concept("_default", &concept_v1).await.unwrap();
+    persistence.save_concept(&concept_v1).await.unwrap();
 
     let concept_v2 = make_concept_with_meta("updatable", "version", "2");
-    persistence.save_concept("_default", &concept_v2).await.unwrap();
+    persistence.save_concept(&concept_v2).await.unwrap();
 
     let loaded = persistence
         .load_concept("updatable")
@@ -93,7 +93,7 @@ async fn load_nonexistent_concept_returns_none() {
     let path = temp.path().to_str().unwrap();
     let persistence = Persistence::new_local(path).await.unwrap();
 
-    let result = persistence.load_concept("_default", "does-not-exist").await.unwrap();
+    let result = persistence.load_concept("does-not-exist").await.unwrap();
     assert!(result.is_none());
 }
 
@@ -109,14 +109,14 @@ async fn batch_save_concepts_saves_all() {
         make_concept("batch-3", 3, 3),
     ];
 
-    persistence.save_concepts("_default", &concepts).await.unwrap();
+    persistence.save_concepts(&concepts).await.unwrap();
 
     for (i, id) in ["batch-1", "batch-2", "batch-3"].iter().enumerate() {
-        let loaded = persistence.load_concept("_default", id).await.unwrap().unwrap();
+        let loaded = persistence.load_concept(id).await.unwrap().unwrap();
         assert_eq!(loaded.created_at, (i + 1) as u64);
     }
 
-    let all = persistence.load_all_concepts("_default")"_default").await.unwrap();
+    let all = persistence.load_all_concepts().await.unwrap();
     assert_eq!(all.len(), 3);
 }
 
@@ -136,7 +136,7 @@ async fn batch_save_concepts_preserves_ttl_and_canonical_ids() {
         canonical_concept_ids: vec!["concept.alpha".to_string(), "concept.beta".to_string()],
     };
 
-    persistence.save_concepts("_default", &[concept]).await.unwrap();
+    persistence.save_concepts(&[concept]).await.unwrap();
 
     let loaded = persistence
         .load_concept("batch-ttl-canonical")
@@ -156,7 +156,7 @@ async fn batch_save_empty_vec_is_noop() {
     let path = temp.path().to_str().unwrap();
     let persistence = Persistence::new_local(path).await.unwrap();
 
-    let result = persistence.save_concepts("_default", &[]).await;
+    let result = persistence.save_concepts(&[]).await;
     assert!(result.is_ok());
 }
 
@@ -180,7 +180,7 @@ async fn association_lifecycle_save_load() {
         .await
         .unwrap();
 
-    let associations = persistence.load_associations("_default", "from-id").await.unwrap();
+    let associations = persistence.load_associations("from-id").await.unwrap();
     assert_eq!(associations.len(), 1);
     assert_eq!(associations[0].0, "to-id");
     assert!((associations[0].1 - 0.75).abs() < 0.001);
@@ -189,7 +189,7 @@ async fn association_lifecycle_save_load() {
         .save_association("from-id", "to-id", 0.5)
         .await
         .unwrap();
-    let updated = persistence.load_associations("_default", "from-id").await.unwrap();
+    let updated = persistence.load_associations("from-id").await.unwrap();
     assert_eq!(updated.len(), 1);
     assert!((updated[0].1 - 0.5).abs() < 0.001);
 }
@@ -205,10 +205,10 @@ async fn association_rejected_for_missing_concept() {
         .await
         .unwrap();
 
-    let result = persistence.save_association("_default", "exists", "missing", 0.5).await;
+    let result = persistence.save_association("exists", "missing", 0.5).await;
     assert!(result.is_err());
 
-    let result = persistence.save_association("_default", "missing", "exists", 0.5).await;
+    let result = persistence.save_association("missing", "exists", 0.5).await;
     assert!(result.is_err());
 }
 
@@ -218,7 +218,7 @@ async fn load_associations_empty_for_unknown_concept() {
     let path = temp.path().to_str().unwrap();
     let persistence = Persistence::new_local(path).await.unwrap();
 
-    let associations = persistence.load_associations("_default", "unknown").await.unwrap();
+    let associations = persistence.load_associations("unknown").await.unwrap();
     assert!(associations.is_empty());
 }
 
@@ -247,12 +247,12 @@ async fn batch_save_associations() {
         ("b".to_string(), "c".to_string(), 0.5f32),
     ];
 
-    persistence.save_associations("_default", &associations).await.unwrap();
+    persistence.save_associations(&associations).await.unwrap();
 
-    let from_a = persistence.load_associations("_default", "a").await.unwrap();
+    let from_a = persistence.load_associations("a").await.unwrap();
     assert_eq!(from_a.len(), 2);
 
-    let from_b = persistence.load_associations("_default", "b").await.unwrap();
+    let from_b = persistence.load_associations("b").await.unwrap();
     assert_eq!(from_b.len(), 1);
     assert_eq!(from_b[0].0, "c");
 }
@@ -263,7 +263,7 @@ async fn batch_save_associations_empty_is_noop() {
     let path = temp.path().to_str().unwrap();
     let persistence = Persistence::new_local(path).await.unwrap();
 
-    let result = persistence.save_associations("_default", &[]).await;
+    let result = persistence.save_associations(&[]).await;
     assert!(result.is_ok());
 }
 
@@ -299,15 +299,15 @@ async fn cascade_delete_removes_associations() {
         .await
         .unwrap();
 
-    persistence.delete_concept("_default", "target").await.unwrap();
+    persistence.delete_concept("target").await.unwrap();
 
-    let from_target = persistence.load_associations("_default", "target").await.unwrap();
+    let from_target = persistence.load_associations("target").await.unwrap();
     assert!(from_target.is_empty());
 
-    let from_other = persistence.load_associations("_default", "other").await.unwrap();
+    let from_other = persistence.load_associations("other").await.unwrap();
     assert!(from_other.is_empty());
 
-    let from_third = persistence.load_associations("_default", "third").await.unwrap();
+    let from_third = persistence.load_associations("third").await.unwrap();
     assert!(from_third.is_empty());
 }
 
@@ -329,10 +329,10 @@ async fn clear_all_removes_everything() {
 
     persistence.clear_all().await.unwrap();
 
-    let all_concepts = persistence.load_all_concepts("_default")"_default").await.unwrap();
+    let all_concepts = persistence.load_all_concepts().await.unwrap();
     assert!(all_concepts.is_empty());
 
-    let associations = persistence.load_associations("_default", "clear-1").await.unwrap();
+    let associations = persistence.load_associations("clear-1").await.unwrap();
     assert!(associations.is_empty());
 }
 
@@ -343,13 +343,13 @@ async fn concept_history_tracks_versions() {
     let persistence = Persistence::new_local(path).await.unwrap();
 
     let v1 = make_concept("history-test", 1, 1);
-    persistence.save_concept("_default", &v1).await.unwrap();
+    persistence.save_concept(&v1).await.unwrap();
 
     let v2 = make_concept_with_meta("history-test", "v", "2");
-    persistence.save_concept("_default", &v2).await.unwrap();
+    persistence.save_concept(&v2).await.unwrap();
 
     let v3 = make_concept_with_meta("history-test", "v", "3");
-    persistence.save_concept("_default", &v3).await.unwrap();
+    persistence.save_concept(&v3).await.unwrap();
 
     let history = persistence
         .get_concept_history("history-test", 10)
@@ -370,7 +370,7 @@ async fn concept_history_respects_limit() {
 
     for i in 0..5 {
         let concept = make_concept("limited-history", 1, i);
-        persistence.save_concept("_default", &concept).await.unwrap();
+        persistence.save_concept(&concept).await.unwrap();
     }
 
     let history = persistence
@@ -441,7 +441,7 @@ async fn metadata_preserved_across_roundtrip() {
         canonical_concept_ids: Vec::new(),
     };
 
-    persistence.save_concept("_default", &concept).await.unwrap();
+    persistence.save_concept(&concept).await.unwrap();
 
     let loaded = persistence
         .load_concept("meta-test")
@@ -470,7 +470,7 @@ async fn vector_integrity_preserved() {
         canonical_concept_ids: Vec::new(),
     };
 
-    persistence.save_concept("_default", &concept).await.unwrap();
+    persistence.save_concept(&concept).await.unwrap();
 
     let loaded = persistence
         .load_concept("vector-test")
@@ -532,7 +532,7 @@ async fn concurrent_writes_are_safe() {
         handle.await.unwrap();
     }
 
-    let all = persistence.load_all_concepts("_default")"_default").await.unwrap();
+    let all = persistence.load_all_concepts().await.unwrap();
     assert_eq!(all.len(), 25);
 }
 
@@ -561,7 +561,7 @@ async fn multiple_associations_for_single_concept() {
         .await
         .unwrap();
 
-    let associations = persistence.load_associations("_default", "hub").await.unwrap();
+    let associations = persistence.load_associations("hub").await.unwrap();
     assert_eq!(associations.len(), 3);
 
     let ids: std::collections::HashSet<_> =
@@ -587,7 +587,7 @@ async fn self_association_allowed() {
         .await;
     assert!(result.is_ok());
 
-    let associations = persistence.load_associations("_default", "self-ref").await.unwrap();
+    let associations = persistence.load_associations("self-ref").await.unwrap();
     assert_eq!(associations.len(), 1);
     assert_eq!(associations[0].0, "self-ref");
 }
@@ -598,7 +598,7 @@ async fn delete_nonexistent_concept_succeeds() {
     let path = temp.path().to_str().unwrap();
     let persistence = Persistence::new_local(path).await.unwrap();
 
-    let result = persistence.delete_concept("_default", "nonexistent").await;
+    let result = persistence.delete_concept("nonexistent").await;
     assert!(result.is_ok());
 }
 
@@ -648,7 +648,7 @@ async fn version_history_deleted_with_concept() {
     let persistence = Persistence::new_local(path).await.unwrap();
 
     let concept = make_concept("version-delete-test", 1, 1);
-    persistence.save_concept("_default", &concept).await.unwrap();
+    persistence.save_concept(&concept).await.unwrap();
     persistence
         .save_concept(&make_concept("version-delete-test", 1, 2))
         .await
@@ -689,8 +689,8 @@ async fn batch_save_with_duplicate_ids_updates() {
         make_concept_with_meta("dup", "v", "updated"),
     ];
 
-    persistence.save_concepts("_default", &concepts).await.unwrap();
+    persistence.save_concepts(&concepts).await.unwrap();
 
-    let loaded = persistence.load_concept("_default", "dup").await.unwrap().unwrap();
+    let loaded = persistence.load_concept("dup").await.unwrap().unwrap();
     assert_eq!(loaded.metadata.get("v").unwrap(), "updated");
 }

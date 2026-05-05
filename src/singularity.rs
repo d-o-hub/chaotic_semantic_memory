@@ -257,7 +257,7 @@ impl Singularity {
     pub fn get_associations(&self, ns: &str, id: &str) -> Vec<(String, f32)> {
         self.get_namespace(ns)
             .and_then(|n| n.associations.get(id))
-            .map(|m| m.iter().map(|(k, v)| (k.clone(), *v)).collect())
+            .map(|m| m.iter().map(|(k, v)| (k.clone(), *v)).collect::<Vec<_>>())
             .unwrap_or_default()
     }
 
@@ -355,12 +355,11 @@ pub fn unix_now_secs() -> u64 {
 }
 
 pub fn unix_now_ns() -> u64 {
-    #[allow(clippy::cast_possible_truncation)]
-    let ns = std::time::SystemTime::now()
+    let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
-    u64::try_from(ns).unwrap_or_default()
+    u64::try_from(nanos).unwrap_or(u64::MAX)
 }
 
 pub(crate) fn similarity_cache_key(query: &HVec10240, top_k: usize) -> u64 {

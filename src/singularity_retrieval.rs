@@ -456,10 +456,11 @@ impl Singularity {
     }
 }
 
+#[cfg(test)]
 
 #[cfg(test)]
 mod tests_v2 {
-
+    use super::*;
     use crate::singularity::{Singularity, SingularityConfig};
 
     #[test]

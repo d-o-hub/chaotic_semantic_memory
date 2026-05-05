@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 
 use chaotic_semantic_memory::hyperdim::HVec10240;
-use chaotic_semantic_memory::singularity::{Concept, Singularity, SingularityConfig};
+use chaotic_semantic_memory::singularity::{Concept, Singularity};
 use proptest::prelude::*;
 
 fn hvec_from_bytes(bytes: &[u8]) -> HVec10240 {
@@ -52,7 +52,7 @@ proptest! {
 
     #[test]
     fn associate_creates_queryable_link(strength in 0.0f32..=1.0f32) {
-        let mut singularity = Singularity::new(SingularityConfig::default());
+        let mut singularity = Singularity::new();
         let concept_a = Concept {
             id: "a".to_string(),
             vector: HVec10240::random(),

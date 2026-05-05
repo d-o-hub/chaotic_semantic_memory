@@ -43,7 +43,6 @@ impl Default for GraphRagConfig {
 
 /// Result from GraphRAG retrieval.
 #[derive(Debug, Clone)]
-#[derive(serde::Serialize)]
 pub struct GraphRagResult {
     /// Concept ID.
     pub id: String,

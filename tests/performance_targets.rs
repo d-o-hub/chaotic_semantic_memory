@@ -76,7 +76,7 @@ async fn local_persistence_roundtrip_p50_under_20ms() {
             .save_concept(&concept)
             .await
             .expect("save_concept");
-        let loaded = persistence.load_concept("_default", &id).await.expect("load_concept");
+        let loaded = persistence.load_concept(&id).await.expect("load_concept");
         let elapsed = start.elapsed().as_secs_f64() * 1000.0;
         assert!(loaded.is_some(), "concept should roundtrip");
         durations_ms.push(elapsed);
