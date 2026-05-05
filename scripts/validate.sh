@@ -56,6 +56,17 @@ else
   echo "skip: ${WASM_TARGET} target not installed"
 fi
 
+# benchmarks/ is a SEPARATE crate (not a workspace member). It must be
+# checked explicitly or CI's `benchmark-small` job will fail on errors that
+# never appeared during root-level `cargo check --workspace`.
+# See: 2026-05-04 PR #174 incident in progress/LEARNINGS.md.
+if [[ -f benchmarks/Cargo.toml ]]; then
+  echo "==> cargo check (benchmarks/ standalone crate)"
+  ( cd benchmarks && cargo check --quiet )
+  echo "==> cargo clippy (benchmarks/ standalone crate) -D warnings"
+  ( cd benchmarks && cargo clippy --quiet -- -D warnings )
+fi
+
 if [[ -x scripts/wasm_size_gate.sh ]]; then
   echo "==> scripts/wasm_size_gate.sh"
   scripts/wasm_size_gate.sh

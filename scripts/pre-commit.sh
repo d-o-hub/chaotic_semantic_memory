@@ -10,9 +10,12 @@ MAX_SRC_LOC=500
 
 echo "Running pre-commit checks..."
 
-# Check formatting
+# Check formatting (root + benchmarks/ standalone crate)
 echo " → Checking formatting..."
 cargo fmt -- --check
+if [[ -f benchmarks/Cargo.toml ]]; then
+  ( cd benchmarks && cargo fmt -- --check )
+fi
 
 # LOC gate (fast)
 echo " → Checking LOC limits (< ${MAX_SRC_LOC})..."
