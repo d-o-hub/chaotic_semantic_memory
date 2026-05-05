@@ -274,28 +274,29 @@ mod tests {
     use std::collections::HashMap;
 
     #[test]
-    fn test_bundle_concepts_strict_success() {
+    fn test_bundle_concepts_strict_success() -> crate::error::Result<()> {
         let mut singularity = Singularity::with_config(SingularityConfig::default());
         let vec1 = HVec10240::random();
         let vec2 = HVec10240::random();
 
-        let c1 = ConceptBuilder::new("c1").with_vector(vec1).build().unwrap();
-        let c2 = ConceptBuilder::new("c2").with_vector(vec2).build().unwrap();
+        let c1 = ConceptBuilder::new("c1").with_vector(vec1).build()?;
+        let c2 = ConceptBuilder::new("c2").with_vector(vec2).build()?;
 
-        singularity.inject(c1).unwrap();
-        singularity.inject(c2).unwrap();
+        singularity.inject(c1)?;
+        singularity.inject(c2)?;
 
         let result = singularity.bundle_concepts_strict(&["c1".to_string(), "c2".to_string()]);
         assert!(result.is_ok());
+        Ok(())
     }
 
     #[test]
-    fn test_bundle_concepts_strict_missing_id() {
+    fn test_bundle_concepts_strict_missing_id() -> crate::error::Result<()> {
         let mut singularity = Singularity::with_config(SingularityConfig::default());
         let vec1 = HVec10240::random();
 
-        let c1 = ConceptBuilder::new("c1").with_vector(vec1).build().unwrap();
-        singularity.inject(c1).unwrap();
+        let c1 = ConceptBuilder::new("c1").with_vector(vec1).build()?;
+        singularity.inject(c1)?;
 
         let result =
             singularity.bundle_concepts_strict(&["c1".to_string(), "missing_id".to_string()]);
@@ -307,6 +308,7 @@ mod tests {
             }
             _ => panic!("Expected NotFound error, got {result:?}"),
         }
+        Ok(())
     }
 
     #[test]
@@ -326,12 +328,11 @@ mod tests {
     }
 
     #[test]
-    fn test_update_metadata_success() {
+    fn test_update_metadata_success() -> crate::error::Result<()> {
         let mut sing = Singularity::new();
         let concept = ConceptBuilder::new("test-id")
             .with_metadata("original", serde_json::Value::Bool(true))
-            .build()
-            .expect("Failed to build concept");
+            .build()?;
 
         sing.concepts.insert("test-id".to_string(), concept);
 
@@ -343,8 +344,15 @@ mod tests {
         let result = sing.update_metadata("test-id", new_metadata.clone());
         assert!(result.is_ok());
 
-        let updated_concept = sing.concepts.get("test-id").unwrap();
+        let updated_concept =
+            sing.concepts
+                .get("test-id")
+                .ok_or_else(|| MemoryError::NotFound {
+                    entity: "Concept".to_string(),
+                    id: "test-id".to_string(),
+                })?;
         assert_eq!(updated_concept.metadata, new_metadata);
         assert!(updated_concept.modified_at >= time_before);
+        Ok(())
     }
 }
