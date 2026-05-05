@@ -50,15 +50,21 @@ pub async fn run_query(
         ));
     }
 
-    let framework =
-        create_framework_advanced(db_path, args.provider.as_deref(), args.code_aware).await?;
-
-    // Tokenize query for BM25
-    let query_tokens = tokenize_query(&args.text, args.code_aware);
-
     // Determine hybrid mode
     let use_bm25 = !args.semantic_only;
     let use_hdc = !args.keyword_only;
+
+    // Load framework with provider only if semantic search is enabled
+    let provider_name = if use_hdc {
+        args.provider.as_deref()
+    } else {
+        None
+    };
+
+    let framework = create_framework_advanced(db_path, provider_name, args.code_aware).await?;
+
+    // Tokenize query for BM25
+    let query_tokens = tokenize_query(&args.text, args.code_aware);
 
     // Collect results from both search methods
     let hdc_results = if use_hdc {
