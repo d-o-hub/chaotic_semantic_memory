@@ -12,6 +12,8 @@
 - async-trait (0.1.83)
 - base64 (0.22)
 - bincode (1.3.3)
+- candle-core (0.8.2)
+- candle-onnx (0.8.2)
 - clap (4.5.60) [features: derive, env, string]
 - clap_complete (4.5.42)
 - colored (2.2.0)
@@ -49,6 +51,7 @@
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
 - prometheus: [dep:prometheus, dep:hyper, dep:hyper-util, dep:http-body-util]
+- rerank-cross: [dep:candle-core, dep:candle-onnx]
 - wasm: []
 
 Generated: [TIMESTAMP REMOVED FOR DETERMINISM]
@@ -416,6 +419,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - impl ChaoticSemanticFramework
 
+### src/framework_rerank.rs
+
+- impl ChaoticSemanticFramework
+
 ### src/framework_ttl.rs
 
 - impl crate::framework::ChaoticSemanticFramework
@@ -687,9 +694,23 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod bm25
 - pub mod graph_rag
 - pub mod hybrid
+- pub mod rerank
 - pub use bm25::{Bm25Config, Bm25Index}
 - pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve}
 - pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
+- pub use rerank::{MmrReranker, RecencyDecayReranker, RerankCandidate, Reranker, parse_rerankers}
+
+### src/retrieval/rerank.rs
+
+- pub struct RerankCandidate
+- pub trait Reranker
+- pub struct MmrReranker
+- impl Reranker for MmrReranker
+- pub struct RecencyDecayReranker
+- impl Reranker for RecencyDecayReranker
+- pub struct CrossEncoderReranker
+- impl Reranker for CrossEncoderReranker
+- pub fn parse_rerankers
 
 ### src/semantic_bridge.rs
 
@@ -1710,6 +1731,8 @@ pub struct ProbeArgs {
     pub namespace: String,
     pub concept_id: String,
     pub top_k: usize,
+    pub initial_k: usize,
+    pub rerank: Option<String>,
     pub threshold: Option<f64>,
 }
 ```
@@ -3160,6 +3183,16 @@ impl ChaoticSemanticFramework {
 }
 ```
 
+## src/framework_rerank.rs
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
+    pub fn probe_with_rerankers(&self, query: HVec10240, initial_top_k: usize, rerankers: &[Box<dyn Trait>], final_top_k: usize) -> Result<Vec<(String, f32)>>;
+}
+```
+
 ## src/framework_ttl.rs
 
 ### impl crate::framework::ChaoticSemanticFramework
@@ -3585,26 +3618,27 @@ pub use hyperdim::{HVec10240, batch_cosine_similarity};
 
 ```rust
 impl Persistence {
-    pub fn save_concept(&self, _concept: &Concept) -> Result<()>;
-    pub fn save_concepts(&self, _concepts: &[Concept]) -> Result<()>;
-    pub fn load_concept(&self, _id: &str) -> Result<Option<Concept>>;
-    pub fn load_all_concepts(&self) -> Result<Vec<Concept>>;
-    pub fn delete_concept(&self, _id: &str) -> Result<()>;
-    pub fn save_association(&self, _from: &str, _to: &str, _strength: f32) -> Result<()>;
-    pub fn save_associations(&self, _associations: &[(String, String, f32)]) -> Result<()>;
-    pub fn load_associations(&self, _id: &str) -> Result<Vec<(String, f32)>>;
-    pub fn delete_association(&self, _from: &str, _to: &str) -> Result<()>;
-    pub fn clear_concept_associations(&self, _id: &str) -> Result<()>;
+    pub fn save_concept(&self, _ns: &str, _concept: &Concept) -> Result<()>;
+    pub fn save_concepts(&self, _ns: &str, _concepts: &[Concept]) -> Result<()>;
+    pub fn load_concept(&self, _ns: &str, _id: &str) -> Result<Option<Concept>>;
+    pub fn load_all_concepts(&self, _ns: &str) -> Result<Vec<Concept>>;
+    pub fn delete_concept(&self, _ns: &str, _id: &str) -> Result<()>;
+    pub fn save_association(&self, _ns: &str, _from: &str, _to: &str, _strength: f32) -> Result<()>;
+    pub fn save_associations(&self, _ns: &str, _associations: &[(String, String, f32)]) -> Result<()>;
+    pub fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32)>>;
+    pub fn delete_association(&self, _ns: &str, _from: &str, _to: &str) -> Result<()>;
+    pub fn clear_concept_associations(&self, _ns: &str, _id: &str) -> Result<()>;
+    pub fn clear_namespace(&self, _ns: &str) -> Result<()>;
     pub fn clear_all(&self) -> Result<()>;
     pub fn checkpoint(&self) -> Result<()>;
     pub fn health_check(&self) -> Result<()>;
     pub fn size(&self) -> Result<u64>;
     pub fn backup(&self, _path: &str) -> Result<()>;
     pub fn restore(&self, _path: &str) -> Result<()>;
-    pub fn get_concept_history(&self, _id: &str, _limit: usize) -> Result<Vec<ConceptVersion>>;
+    pub fn get_concept_history(&self, _ns: &str, _id: &str, _limit: usize) -> Result<Vec<ConceptVersion>>;
     pub fn schema_version(&self) -> Result<i64>;
-    pub fn save_index(&self, _id: &str, _data: &[u8]) -> Result<()>;
-    pub fn load_index(&self, _id: &str) -> Result<Option<Vec<u8>>>;
+    pub fn save_index(&self, _ns: &str, _id: &str, _data: &[u8]) -> Result<()>;
+    pub fn load_index(&self, _ns: &str, _id: &str) -> Result<Option<Vec<u8>>>;
     pub fn apply_migrations(&self, _target_version: i64) -> Result<()>;
 }
 ```
@@ -4520,6 +4554,105 @@ pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
 ```rust
 pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores};
 ```
+
+### rerank::{MmrReranker, RecencyDecayReranker, RerankCandidate, Reranker, parse_rerankers}
+
+```rust
+pub use rerank::{MmrReranker, RecencyDecayReranker, RerankCandidate, Reranker, parse_rerankers};
+```
+
+## src/retrieval/rerank.rs
+
+### CrossEncoderReranker
+
+```rust
+#[derive(Debug)]
+#[cfg(feature = "rerank-cross")]
+pub struct CrossEncoderReranker {
+    pub model: Arc<candle_onnx::onnx::ModelProto>,
+    pub model_path: String,
+}
+```
+
+Cross-encoder reranker using ONNX (opt-in).
+
+### MmrReranker
+
+```rust
+#[derive(Debug)]
+pub struct MmrReranker {
+    pub lambda: f32,
+}
+```
+
+Maximal Marginal Relevance (MMR) reranker for diversity.
+
+### RecencyDecayReranker
+
+```rust
+#[derive(Debug)]
+pub struct RecencyDecayReranker {
+    pub half_life_days: f32,
+    pub blend: f32,
+}
+```
+
+Recency decay reranker to favor newer concepts.
+
+### RerankCandidate
+
+```rust
+#[derive(Debug, Clone)]
+pub struct RerankCandidate {
+    pub id: String,
+    pub vector: Arc<HVec10240>,
+    pub metadata: HashMap<String, serde_json::Value>,
+    pub score: f32,
+    pub created_at_unix: u64,
+}
+```
+
+A candidate for reranking.
+
+### Reranker
+
+```rust
+pub trait Reranker: Send + Sync + std::fmt::Debug {
+    fn name(&self) -> &str;
+    fn rerank(&self, query: &HVec10240, candidates: Vec<RerankCandidate>, top_k: usize) -> Vec<RerankCandidate>;
+}
+```
+
+Trait for reranking retrieval results.
+
+### impl Reranker for CrossEncoderReranker
+
+```rust
+impl Reranker for CrossEncoderReranker {
+}
+```
+
+### impl Reranker for MmrReranker
+
+```rust
+impl Reranker for MmrReranker {
+}
+```
+
+### impl Reranker for RecencyDecayReranker
+
+```rust
+impl Reranker for RecencyDecayReranker {
+}
+```
+
+### parse_rerankers
+
+```rust
+pub fn parse_rerankers(s: &str) -> crate::error::Result<Vec<Box<dyn Trait>>>
+```
+
+Parses a list of rerankers from a string flag (e.g., "mmr:0.7,recency:30d").
 
 ## src/semantic_bridge.rs
 

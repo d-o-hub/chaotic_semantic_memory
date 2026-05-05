@@ -48,7 +48,7 @@ impl WasmFramework {
     /// Get concept count (convenience method)
     pub async fn concept_count(&self) -> Result<usize, JsValue> {
         let sing = self.framework.singularity.read().await;
-        Ok(sing.len())
+        Ok(sing.len(&self.framework.namespace()))
     }
 
     /// Create a new WasmFramework scoped to a different namespace.
@@ -108,7 +108,8 @@ impl WasmFramework {
     /// Clear all outbound associations for a concept.
     pub async fn clear_associations(&self, id: String) -> Result<(), JsValue> {
         let mut sing = self.framework.singularity.write().await;
-        sing.clear_associations(&id).map_err(to_js_error)
+        sing.clear_associations(&self.framework.namespace(), &id)
+            .map_err(to_js_error)
     }
 
     /// Get direct neighbors of a concept with edge strengths.
@@ -116,7 +117,7 @@ impl WasmFramework {
     /// Returns an Array of `{to: string, strength: number}` objects.
     pub async fn neighbors(&self, id: String, min_strength: f32) -> Result<Array, JsValue> {
         let sing = self.framework.singularity.read().await;
-        let neighbors = sing.neighbors(&id, min_strength);
+        let neighbors = sing.neighbors(&self.framework.namespace(), &id, min_strength);
         let array = Array::new();
         for (to, strength) in neighbors {
             let obj = js_sys::Object::new();
@@ -137,7 +138,9 @@ impl WasmFramework {
         use crate::graph_traversal::TraversalConfig;
         let sing = self.framework.singularity.read().await;
         let config = TraversalConfig::default();
-        let results = sing.bfs(&start, &config).map_err(to_js_error)?;
+        let results = sing
+            .bfs(&self.framework.namespace(), &start, &config)
+            .map_err(to_js_error)?;
         let array = Array::new();
         for (id, depth) in results {
             let obj = js_sys::Object::new();
