@@ -35,8 +35,10 @@ impl crate::framework::ChaoticSemanticFramework {
         if let Some(ref persistence) = self.persistence {
             let p_start = std::time::Instant::now();
             persistence.save_concept(&concept).await?;
-            self.metrics
-                .observe_persist_latency_ms(p_start.elapsed().as_millis() as u64, "save");
+            self.metrics.observe_persist_latency_ms(
+                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                "save",
+            );
         }
         self.metrics.inc_concepts_injected(1, false);
         self.emit_event(MemoryEvent::ConceptInjected {
@@ -139,6 +141,9 @@ impl crate::framework::ChaoticSemanticFramework {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::significant_drop_tightening)]
+    // Locks held during test assertions
+
     use super::*;
     use crate::framework::ChaoticSemanticFramework;
     use crate::singularity::unix_now_secs;
@@ -160,10 +165,11 @@ mod tests {
         let after = unix_now_secs();
 
         // Verify concept was stored and has correct expires_at
-        let expires_at = {
-            let sing = framework.singularity.read().await;
-            sing.get("ttl-concept").expect("concept should exist").expires_at.unwrap()
-        };
+        let sing = framework.singularity.read().await;
+        let concept = sing.get("ttl-concept").expect("concept should exist");
+        assert!(concept.expires_at.is_some(), "expires_at should be set");
+
+        let expires_at = concept.expires_at.unwrap();
         // expires_at should be approximately now + 3600
         let expected_min = before + 3600;
         let expected_max = after + 3600;
@@ -187,11 +193,9 @@ mod tests {
             .unwrap();
 
         // Verify concept exists with TTL
-        let expires_at = {
-            let sing = framework.singularity.read().await;
-            sing.get("text-ttl").expect("concept should exist").expires_at
-        };
-        assert!(expires_at.is_some(), "expires_at should be set");
+        let sing = framework.singularity.read().await;
+        let concept = sing.get("text-ttl").expect("concept should exist");
+        assert!(concept.expires_at.is_some(), "expires_at should be set");
     }
 
     #[tokio::test]
@@ -478,20 +482,17 @@ mod tests {
             .await
             .unwrap();
 
-        let expires_at = {
-            let sing = framework.singularity.read().await;
-            let concept = sing.get("zero-ttl").unwrap();
-            assert!(
-                concept.expires_at.is_some(),
-                "zero TTL should still set expires_at"
-            );
-            concept.expires_at.unwrap()
-        };
+        let sing = framework.singularity.read().await;
+        let concept = sing.get("zero-ttl").unwrap();
+        assert!(
+            concept.expires_at.is_some(),
+            "zero TTL should still set expires_at"
+        );
         // expires_at should be approximately now
         let now = unix_now_secs();
         assert!(
-            expires_at <= now,
-            "zero TTL should result in immediate or past expiration"
+            concept.expires_at.unwrap() <= now,
+            "zero TTL should expire immediately or already be expired"
         );
     }
 }
