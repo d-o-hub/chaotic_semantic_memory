@@ -12,6 +12,8 @@
 - async-trait (0.1.83)
 - base64 (0.22)
 - bincode (1.3.3)
+- candle-core (0.8.2)
+- candle-onnx (0.8.2)
 - clap (4.5.60) [features: derive, env, string]
 - clap_complete (4.5.42)
 - colored (2.2.0)
@@ -49,6 +51,7 @@
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
 - prometheus: [dep:prometheus, dep:hyper, dep:hyper-util, dep:http-body-util]
+- rerank-cross: [dep:candle-core, dep:candle-onnx]
 - wasm: []
 
 Generated: [TIMESTAMP REMOVED FOR DETERMINISM]
@@ -59,7 +62,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/bin/csm.rs
 
 - pub use native::chaotic_semantic_memory::cli::commands::watch::EventFilter
-- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
+- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, NamespaceCommand, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_namespaces_delete, run_namespaces_export, run_namespaces_list, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
 - pub use native::clap::Parser
 - pub use native::colored::Colorize
 - pub use native::tracing::Level
@@ -87,6 +90,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/cli/args.rs
 
+- pub use super::namespace_args::{NamespaceArgs, NamespaceCommand, NamespaceDeleteArgs, NamespaceExportArgs}
 - pub struct CliArgs
 - pub enum OutputFormat
 - pub enum Commands
@@ -181,6 +185,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod index_jsonl
 - pub mod inject
 - pub mod metrics
+- pub mod namespaces
 - pub mod path
 - pub mod probe
 - pub mod probe_filtered
@@ -202,6 +207,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use index_jsonl::run_index_jsonl
 - pub use inject::run_inject
 - pub use metrics::run_metrics
+- pub use namespaces::run_namespaces_delete
+- pub use namespaces::run_namespaces_export
+- pub use namespaces::run_namespaces_list
 - pub use path::run_path
 - pub use probe::run_probe
 - pub use probe_filtered::run_probe_filtered
@@ -216,6 +224,13 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn print_warning
 - pub fn truncate_preview
 - pub fn create_framework
+- pub fn create_framework_with_namespace
+
+### src/cli/commands/namespaces.rs
+
+- pub fn run_namespaces_list
+- pub fn run_namespaces_delete
+- pub fn run_namespaces_export
 
 ### src/cli/commands/path.rs
 
@@ -278,10 +293,18 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod commands
 - pub mod error
 - pub mod git_local
+- pub mod namespace_args
 - pub use args::*
-- pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
+- pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_namespaces_delete, run_namespaces_export, run_namespaces_list, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
+
+### src/cli/namespace_args.rs
+
+- pub enum NamespaceCommand
+- pub struct NamespaceArgs
+- pub struct NamespaceDeleteArgs
+- pub struct NamespaceExportArgs
 
 ### src/concept_builder.rs
 
@@ -384,11 +407,19 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct FrameworkMetricsSnapshot
 - impl FrameworkMetrics
 
+### src/framework_namespaces.rs
+
+- impl ChaoticSemanticFramework
+
 ### src/framework_ops.rs
 
 - impl ChaoticSemanticFramework
 
 ### src/framework_persistence.rs
+
+- impl ChaoticSemanticFramework
+
+### src/framework_rerank.rs
 
 - impl ChaoticSemanticFramework
 
@@ -451,6 +482,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct IndexStats
 - pub enum IndexBackend
 - pub trait AnnIndex
+- pub fn create_index
 
 ### src/lib.rs
 
@@ -487,6 +519,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod retrieval
 - pub mod semantic_bridge
 - pub mod singularity
+- pub mod singularity_state
 - pub use crate::persistence_wasm as persistence
 - pub mod persistence
 - pub struct persistence::Persistence
@@ -586,6 +619,14 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct ConceptVersion
 - impl Persistence
 
+### src/persistence_clear.rs
+
+- impl Persistence
+
+### src/persistence_concepts.rs
+
+- impl Persistence
+
 ### src/persistence_index.rs
 
 - impl Persistence
@@ -653,9 +694,23 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod bm25
 - pub mod graph_rag
 - pub mod hybrid
+- pub mod rerank
 - pub use bm25::{Bm25Config, Bm25Index}
 - pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve}
 - pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
+- pub use rerank::{MmrReranker, RecencyDecayReranker, RerankCandidate, Reranker, parse_rerankers}
+
+### src/retrieval/rerank.rs
+
+- pub struct RerankCandidate
+- pub trait Reranker
+- pub struct MmrReranker
+- impl Reranker for MmrReranker
+- pub struct RecencyDecayReranker
+- impl Reranker for RecencyDecayReranker
+- pub struct CrossEncoderReranker
+- impl Reranker for CrossEncoderReranker
+- pub fn parse_rerankers
 
 ### src/semantic_bridge.rs
 
@@ -681,16 +736,15 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/singularity.rs
 
-- pub use crate::singularity_cache::CacheMetricsSnapshot
-- pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
-- pub const DEFAULT_MAX_CACHED_TOP_K
-- pub struct Concept
 - pub struct SingularityConfig
 - impl Default for SingularityConfig
+- pub struct Concept
+- pub struct ConceptBuilder
+- impl ConceptBuilder
 - pub struct Singularity
 - impl Singularity
-- impl Default for Singularity
-- pub use crate::concept_builder::ConceptBuilder
+- pub fn unix_now_secs
+- pub fn unix_now_ns
 
 ### src/singularity_cache.rs
 
@@ -715,6 +769,11 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/singularity_search.rs
 
 - impl Singularity
+
+### src/singularity_state.rs
+
+- pub struct NamespaceState
+- impl NamespaceState
 
 ### src/singularity_ttl.rs
 
@@ -1333,6 +1392,10 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"], optional = true
 # Local ONNX embeddings (opt-in via embed-fastembed feature)
 fastembed = { version = "4", optional = true }
 
+# Candle for cross-encoders (opt-in via rerank-cross feature)
+candle-core = { version = "0.8.2", optional = true }
+candle-onnx = { version = "0.8.2", optional = true }
+
 # HNSW ANN index (opt-in via ann-hnsw feature)
 hnsw_rs = { version = "0.3.4", optional = true }
 
@@ -1508,6 +1571,9 @@ ann-lsh = []
 # Observability (ADR-0072)
 otlp = ["dep:opentelemetry", "dep:opentelemetry-otlp", "dep:opentelemetry_sdk", "dep:tracing-opentelemetry", "dep:opentelemetry-semantic-conventions"]
 prometheus = ["dep:prometheus", "dep:hyper", "dep:hyper-util", "dep:http-body-util"]
+
+# Reranking pipeline (ADR-0071)
+rerank-cross = ["dep:candle-core", "dep:candle-onnx"]
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]

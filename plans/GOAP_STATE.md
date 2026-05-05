@@ -869,7 +869,19 @@ world_state:
   gap_analysis_2026_04_30_findings: 10
   gap_analysis_2026_04_30_adrs_drafted: 11
   gap_analysis_2026_04_30_total_cost: 116
-  action_last_completed: rebase_deepsource_fix_2026_06
+  action_last_completed: pr_178_namespace_isolation_feedback_fixes
+
+  # PR #178 — Namespace Isolation (ADR-0073) — issue #149
+  pr_178_merge_conflicts_resolved: true                  # 5 files: args.rs, framework.rs, framework_ops.rs, framework_persistence.rs, framework_ttl.rs
+  pr_178_p1_restore_namespace_columns: true              # persistence_ops.rs: restore INSERT includes namespace column
+  pr_178_p1_clear_namespace_transactional: true         # persistence_ops.rs: BEGIN/DELETE/COMMIT with rollback on failure
+  pr_178_p1_find_similar_filtered_no_panic: true        # singularity_search.rs: returns empty Arc for missing namespace
+  pr_178_p2_delete_namespace_persist_first: true         # framework_namespaces.rs: persist deletion before in-memory drop
+  pr_178_deepsource_complexity_refactor: true            # singularity_search.rs: extracted try_cache_hit, try_ann_search, generate_candidates
+  pr_178_cli_namespaces_command: true                    # namespaces list/delete/export CLI subcommand
+  pr_178_wasm_with_namespace: true                        # wasm_ext.rs: withNamespace + newWithNamespace bindings
+  pr_178_namespace_isolation_test: true                   # tests/namespace_isolation.rs: 12 integration tests
+  pr_178_benchmark_namespace_fix: true                    # benchmarks: bridge.query() takes namespace param
 
   # Wave 21 P0 — Adoption Unblockers (queued, total cost 34)
   cli_framework_parity_complete: false        # ADR-0066 — 11 CLI subcommands missing
@@ -882,10 +894,10 @@ world_state:
   embedding_model_bridge_implemented: false   # ADR-0069 — fastembed/openai/voyage
   graphrag_retrieval_implemented: false       # ADR-0070 — anchor + BFS + joint score
 
-  # Wave 23 P2 — Production Polish (queued, total cost 28)
+  # Wave 23 P2 — Production Polish (queued, cost 28)
   reranking_pipeline_implemented: false       # ADR-0071 — MMR + recency + cross-encoder
   otlp_exporter_implemented: false            # ADR-0072 — opentelemetry + prometheus
-  namespace_isolation_implemented: false      # ADR-0073 — supersedes deferred ADR-0026
+  namespace_isolation_implemented: true       # ADR-0073 — PR #178 resolves all feedback + acceptance criteria
   version_history_surface_implemented: false  # ADR-0074 — activate dormant version table
 
   # Wave 24 P3 — Future Scale (queued, cost 14, depends on Wave 22)

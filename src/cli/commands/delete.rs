@@ -9,7 +9,7 @@ use crate::cli::args::{DeleteArgs, OutputFormat};
 use crate::cli::error::{CliError, Result};
 use colored::Colorize;
 
-use super::{create_framework, print_success, validate_concept_id};
+use super::{create_framework_with_namespace, print_success, validate_concept_id};
 
 #[instrument(name = "cli_delete")]
 pub async fn run_delete(
@@ -19,7 +19,8 @@ pub async fn run_delete(
 ) -> Result<()> {
     validate_concept_id(&args.concept_id)?;
 
-    let framework = create_framework(db_path).await?;
+    let framework: crate::framework::ChaoticSemanticFramework =
+        create_framework_with_namespace(db_path, &args.namespace).await?;
 
     // Check if concept exists before deletion
     let existing = framework

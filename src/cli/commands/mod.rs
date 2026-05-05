@@ -10,6 +10,7 @@ pub mod index_dir;
 pub mod index_jsonl;
 pub mod inject;
 pub mod metrics;
+pub mod namespaces;
 pub mod path;
 pub mod probe;
 pub mod probe_filtered;
@@ -32,6 +33,9 @@ pub use index_dir::run_index_dir;
 pub use index_jsonl::run_index_jsonl;
 pub use inject::run_inject;
 pub use metrics::run_metrics;
+pub use namespaces::run_namespaces_delete;
+pub use namespaces::run_namespaces_export;
+pub use namespaces::run_namespaces_list;
 pub use path::run_path;
 pub use probe::run_probe;
 pub use probe_filtered::run_probe_filtered;
@@ -92,12 +96,20 @@ pub fn truncate_preview(s: &str, max_chars: usize) -> String {
 pub async fn create_framework(
     db_path: Option<&std::path::Path>,
 ) -> Result<ChaoticSemanticFramework> {
+    create_framework_with_namespace(db_path, "_default").await
+}
+
+pub async fn create_framework_with_namespace(
+    db_path: Option<&std::path::Path>,
+    ns: &str,
+) -> Result<ChaoticSemanticFramework> {
     let mut builder = ChaoticSemanticFramework::builder();
     if let Some(path) = db_path {
         builder = builder.with_local_db(path.to_string_lossy());
     } else {
         builder = builder.without_persistence();
     }
+    builder = builder.with_namespace(ns);
     builder
         .build()
         .await

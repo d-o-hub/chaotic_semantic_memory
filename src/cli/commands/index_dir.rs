@@ -3,7 +3,7 @@
 //! Supports glob patterns, heading-based chunking, and code-aware encoding.
 
 use crate::cli::args::{IndexDirArgs, OutputFormat};
-use crate::cli::commands::{create_framework, print_success, truncate_preview};
+use crate::cli::commands::{create_framework_with_namespace, print_success, truncate_preview};
 use crate::cli::error::{CliError, Result};
 use crate::encoder::TextEncoder;
 
@@ -15,7 +15,8 @@ pub async fn run_index_dir(
     db_path: Option<&Path>,
     format: OutputFormat,
 ) -> Result<()> {
-    let framework = create_framework(db_path).await?;
+    let framework: crate::framework::ChaoticSemanticFramework =
+        create_framework_with_namespace(db_path, &args.namespace).await?;
 
     // Create encoder based on code_aware flag
     let encoder = if args.code_aware {

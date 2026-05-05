@@ -6,7 +6,9 @@ use chaotic_semantic_memory::encoder::TextEncoder;
 use chaotic_semantic_memory::graph_traversal::TraversalConfig;
 use chaotic_semantic_memory::hyperdim::HVec10240;
 use chaotic_semantic_memory::metadata_filter::MetadataFilter;
-use chaotic_semantic_memory::singularity::{Concept, ConceptBuilder, Singularity};
+use chaotic_semantic_memory::singularity::{
+    Concept, ConceptBuilder, Singularity, SingularityConfig,
+};
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -115,17 +117,17 @@ fn test_encoder_ngram_deterministic() {
 
 #[test]
 fn test_bfs_cycle_does_not_loop() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
     // a → b → c → a (cycle)
     for id in ["a", "b", "c"] {
-        sing.inject(make_concept(id)).unwrap();
+        sing.inject("_default", make_concept(id)).unwrap();
     }
-    sing.associate("a", "b", 0.9).unwrap();
-    sing.associate("b", "c", 0.9).unwrap();
-    sing.associate("c", "a", 0.9).unwrap(); // back-edge
+    sing.associate("_default", "a", "b", 0.9).unwrap();
+    sing.associate("_default", "b", "c", 0.9).unwrap();
+    sing.associate("_default", "c", "a", 0.9).unwrap(); // back-edge
 
     let config = TraversalConfig::default();
-    let results = sing.bfs("a", &config).unwrap();
+    let results = sing.bfs("_default", "a", &config).unwrap();
 
     // Must visit each node exactly once despite the cycle
     let ids: Vec<&str> = results.iter().map(|(id, _)| id.as_str()).collect();
@@ -137,17 +139,17 @@ fn test_bfs_cycle_does_not_loop() {
 
 #[test]
 fn test_bfs_disconnected_graph() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
     // Component 1: a → b
     // Component 2: c → d (disconnected)
     for id in ["a", "b", "c", "d"] {
-        sing.inject(make_concept(id)).unwrap();
+        sing.inject("_default", make_concept(id)).unwrap();
     }
-    sing.associate("a", "b", 0.9).unwrap();
-    sing.associate("c", "d", 0.9).unwrap();
+    sing.associate("_default", "a", "b", 0.9).unwrap();
+    sing.associate("_default", "c", "d", 0.9).unwrap();
 
     let config = TraversalConfig::default();
-    let results = sing.bfs("a", &config).unwrap();
+    let results = sing.bfs("_default", "a", &config).unwrap();
 
     // BFS from "a" should only reach "a" and "b", not "c" or "d"
     let ids: Vec<&str> = results.iter().map(|(id, _)| id.as_str()).collect();
@@ -159,40 +161,40 @@ fn test_bfs_disconnected_graph() {
 
 #[test]
 fn test_bfs_max_results_limit() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
     // Chain: a → b → c → d → e
     for id in ["a", "b", "c", "d", "e"] {
-        sing.inject(make_concept(id)).unwrap();
+        sing.inject("_default", make_concept(id)).unwrap();
     }
-    sing.associate("a", "b", 0.9).unwrap();
-    sing.associate("b", "c", 0.9).unwrap();
-    sing.associate("c", "d", 0.9).unwrap();
-    sing.associate("d", "e", 0.9).unwrap();
+    sing.associate("_default", "a", "b", 0.9).unwrap();
+    sing.associate("_default", "b", "c", 0.9).unwrap();
+    sing.associate("_default", "c", "d", 0.9).unwrap();
+    sing.associate("_default", "d", "e", 0.9).unwrap();
 
     let config = TraversalConfig {
         max_results: 3,
         max_depth: 10,
         ..Default::default()
     };
-    let results = sing.bfs("a", &config).unwrap();
+    let results = sing.bfs("_default", "a", &config).unwrap();
     assert_eq!(results.len(), 3, "max_results must be respected");
 }
 
 #[test]
 fn test_shortest_path_cycle_terminates() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
     // a → b → c → a (cycle), also a → c directly
     for id in ["a", "b", "c"] {
-        sing.inject(make_concept(id)).unwrap();
+        sing.inject("_default", make_concept(id)).unwrap();
     }
-    sing.associate("a", "b", 0.9).unwrap();
-    sing.associate("b", "c", 0.9).unwrap();
-    sing.associate("c", "a", 0.9).unwrap();
-    sing.associate("a", "c", 0.5).unwrap(); // direct weak edge
+    sing.associate("_default", "a", "b", 0.9).unwrap();
+    sing.associate("_default", "b", "c", 0.9).unwrap();
+    sing.associate("_default", "c", "a", 0.9).unwrap();
+    sing.associate("_default", "a", "c", 0.5).unwrap(); // direct weak edge
 
     let config = TraversalConfig::default();
     // Must terminate and find a path
-    let path = sing.shortest_path("a", "c", &config).unwrap();
+    let path = sing.shortest_path("_default", "a", "c", &config).unwrap();
     assert!(path.is_some(), "path must be found in cyclic graph");
     let path = path.unwrap();
     assert_eq!(path[0], "a");
@@ -201,16 +203,18 @@ fn test_shortest_path_cycle_terminates() {
 
 #[test]
 fn test_shortest_path_hops_cycle_terminates() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
     for id in ["a", "b", "c"] {
-        sing.inject(make_concept(id)).unwrap();
+        sing.inject("_default", make_concept(id)).unwrap();
     }
-    sing.associate("a", "b", 0.9).unwrap();
-    sing.associate("b", "c", 0.9).unwrap();
-    sing.associate("c", "a", 0.9).unwrap();
+    sing.associate("_default", "a", "b", 0.9).unwrap();
+    sing.associate("_default", "b", "c", 0.9).unwrap();
+    sing.associate("_default", "c", "a", 0.9).unwrap();
 
     let config = TraversalConfig::default();
-    let path = sing.shortest_path_hops("a", "c", &config).unwrap();
+    let path = sing
+        .shortest_path_hops("_default", "a", "c", &config)
+        .unwrap();
     assert!(path.is_some());
 }
 
@@ -285,28 +289,34 @@ fn test_bundle_accumulator_add_remove_finalize_matches_single() {
 
 #[test]
 fn test_filtered_search_empty_filter_returns_all() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
     let query = HVec10240::random();
 
     for i in 0..5 {
-        sing.inject(make_concept_with_meta(&format!("c{i}"), "tag", "science"))
-            .unwrap();
+        sing.inject(
+            "_default",
+            make_concept_with_meta(&format!("c{i}"), "tag", "science"),
+        )
+        .unwrap();
     }
 
     // Exists("tag") matches all 5 concepts
     let filter = MetadataFilter::Exists("tag".to_string());
-    let results = sing.find_similar_filtered(&query, 10, &filter);
+    let results = sing.find_similar_filtered("_default", &query, 10, &filter);
     assert_eq!(results.len(), 5, "all concepts should match Exists filter");
 }
 
 #[test]
 fn test_filtered_search_no_match_returns_empty() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
     let query = HVec10240::random();
 
     for i in 0..5 {
-        sing.inject(make_concept_with_meta(&format!("c{i}"), "tag", "science"))
-            .unwrap();
+        sing.inject(
+            "_default",
+            make_concept_with_meta(&format!("c{i}"), "tag", "science"),
+        )
+        .unwrap();
     }
 
     // Filter for "art" — no concepts have this tag
@@ -314,7 +324,7 @@ fn test_filtered_search_no_match_returns_empty() {
         "tag".to_string(),
         serde_json::Value::String("art".to_string()),
     );
-    let results = sing.find_similar_filtered(&query, 10, &filter);
+    let results = sing.find_similar_filtered("_default", &query, 10, &filter);
     assert!(
         results.is_empty(),
         "no-match filter must return empty results"
@@ -323,24 +333,30 @@ fn test_filtered_search_no_match_returns_empty() {
 
 #[test]
 fn test_filtered_search_subset_match() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
     let query = HVec10240::random();
 
     // 3 science, 2 art
     for i in 0..3 {
-        sing.inject(make_concept_with_meta(&format!("sci{i}"), "tag", "science"))
-            .unwrap();
+        sing.inject(
+            "_default",
+            make_concept_with_meta(&format!("sci{i}"), "tag", "science"),
+        )
+        .unwrap();
     }
     for i in 0..2 {
-        sing.inject(make_concept_with_meta(&format!("art{i}"), "tag", "art"))
-            .unwrap();
+        sing.inject(
+            "_default",
+            make_concept_with_meta(&format!("art{i}"), "tag", "art"),
+        )
+        .unwrap();
     }
 
     let filter = MetadataFilter::Eq(
         "tag".to_string(),
         serde_json::Value::String("science".to_string()),
     );
-    let results = sing.find_similar_filtered(&query, 10, &filter);
+    let results = sing.find_similar_filtered("_default", &query, 10, &filter);
     assert_eq!(results.len(), 3, "only science concepts should match");
     for (id, _) in results.iter() {
         assert!(
@@ -352,15 +368,18 @@ fn test_filtered_search_subset_match() {
 
 #[test]
 fn test_filtered_search_top_k_respected() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
     let query = HVec10240::random();
 
     for i in 0..10 {
-        sing.inject(make_concept_with_meta(&format!("c{i}"), "tag", "science"))
-            .unwrap();
+        sing.inject(
+            "_default",
+            make_concept_with_meta(&format!("c{i}"), "tag", "science"),
+        )
+        .unwrap();
     }
 
     let filter = MetadataFilter::Exists("tag".to_string());
-    let results = sing.find_similar_filtered(&query, 3, &filter);
+    let results = sing.find_similar_filtered("_default", &query, 3, &filter);
     assert_eq!(results.len(), 3, "top_k must be respected");
 }

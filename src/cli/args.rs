@@ -1,6 +1,10 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
+pub use super::namespace_args::{
+    NamespaceArgs, NamespaceCommand, NamespaceDeleteArgs, NamespaceExportArgs,
+};
+
 #[derive(Parser, Debug)]
 #[command(name = "csm")]
 #[command(about = "Chaotic Semantic Memory CLI", long_about = None)]
@@ -84,10 +88,14 @@ pub enum Commands {
     Watch(WatchArgs),
     /// GraphRAG retrieval: similarity + graph traversal hybrid.
     ProbeGraph(ProbeGraphArgs),
+    /// Manage namespaces.
+    Namespaces(NamespaceArgs),
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct InjectArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     #[arg(required = true)]
     pub concept_id: String,
 
@@ -110,6 +118,8 @@ pub enum VectorSource {
 
 #[derive(Args, Debug, Clone)]
 pub struct ProbeArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     #[arg(required = true)]
     pub concept_id: String,
 
@@ -131,6 +141,8 @@ pub struct ProbeArgs {
 /// Arguments for text-based similarity query.
 #[derive(Args, Debug, Clone)]
 pub struct QueryArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Text to encode and search for similar concepts.
     #[arg(required = true)]
     pub text: String,
@@ -168,6 +180,8 @@ pub struct QueryArgs {
 
 #[derive(Args, Debug, Clone)]
 pub struct AssociateArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     #[arg(required = true)]
     pub source_id: String,
 
@@ -186,6 +200,8 @@ pub enum ExportFormat {
 
 #[derive(Args, Debug, Clone)]
 pub struct ExportArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     #[arg(short, long, default_value = "export.json")]
     pub output: PathBuf,
 
@@ -202,6 +218,8 @@ pub enum ImportFormat {
 
 #[derive(Args, Debug, Clone)]
 pub struct ImportArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     #[arg(required = true)]
     pub input: PathBuf,
 
@@ -230,6 +248,8 @@ pub struct CompletionsArgs {
 /// Arguments for indexing JSONL files.
 #[derive(Args, Debug, Clone)]
 pub struct IndexJsonlArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Path to JSONL file to index.
     #[arg(short = 'F', long, value_name = "FILE")]
     pub file: PathBuf,
@@ -254,6 +274,8 @@ pub struct IndexJsonlArgs {
 /// Arguments for indexing Markdown directory.
 #[derive(Args, Debug, Clone)]
 pub struct IndexDirArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Glob pattern(s) for files to index (can be repeated).
     #[arg(short, long, required = true, value_name = "PATTERN")]
     pub glob: Vec<String>,
@@ -270,6 +292,8 @@ pub struct IndexDirArgs {
 /// Arguments for the delete command.
 #[derive(Args, Debug, Clone)]
 pub struct DeleteArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Concept ID to delete.
     #[arg(required = true)]
     pub concept_id: String,
@@ -282,6 +306,8 @@ pub struct DeleteArgs {
 /// Arguments for the get command.
 #[derive(Args, Debug, Clone)]
 pub struct GetArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Concept ID to retrieve.
     #[arg(required = true)]
     pub concept_id: String,
@@ -290,6 +316,8 @@ pub struct GetArgs {
 /// Arguments for the update command.
 #[derive(Args, Debug, Clone)]
 pub struct UpdateArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Concept ID to update.
     #[arg(required = true)]
     pub concept_id: String,
@@ -314,6 +342,8 @@ pub struct UpdateArgs {
 /// Arguments for the disassociate command.
 #[derive(Args, Debug, Clone)]
 pub struct DisassociateArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Source concept ID (association owner).
     #[arg(required = true)]
     pub from: String,
@@ -327,6 +357,8 @@ pub struct DisassociateArgs {
 /// Arguments for listing associations of a concept.
 #[derive(Args, Debug, Clone)]
 pub struct AssociationsArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Concept ID to query associations for.
     #[arg(required = true)]
     pub concept_id: String,
@@ -339,6 +371,8 @@ pub struct AssociationsArgs {
 /// Arguments for BFS traversal from a starting concept.
 #[derive(Args, Debug, Clone)]
 pub struct TraverseArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Starting concept ID for traversal.
     #[arg(required = true)]
     pub start: String,
@@ -355,6 +389,8 @@ pub struct TraverseArgs {
 /// Arguments for finding shortest path between two concepts.
 #[derive(Args, Debug, Clone)]
 pub struct PathArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Starting concept ID.
     #[arg(required = true)]
     pub from: String,
@@ -371,6 +407,8 @@ pub struct PathArgs {
 /// Arguments for filtered similarity probe.
 #[derive(Args, Debug, Clone)]
 pub struct ProbeFilteredArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Concept ID to use as query vector.
     #[arg(required = true)]
     pub concept_id: String,
@@ -387,7 +425,10 @@ pub struct ProbeFilteredArgs {
 
 /// Arguments for stats command.
 #[derive(Args, Debug, Clone)]
-pub struct StatsArgs;
+pub struct StatsArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
+}
 
 /// Arguments for metrics command.
 #[derive(Args, Debug, Clone)]
@@ -395,6 +436,8 @@ pub struct MetricsArgs {
     /// Reset metrics counters (not yet implemented).
     #[arg(long)]
     pub reset: bool,
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
 }
 
 /// Arguments for watch command.
@@ -408,6 +451,8 @@ pub struct WatchArgs {
 /// Arguments for GraphRAG retrieval.
 #[derive(Args, Debug, Clone)]
 pub struct ProbeGraphArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Text query for similarity search.
     #[arg(required = true)]
     pub text: String,

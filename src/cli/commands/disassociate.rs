@@ -7,7 +7,7 @@ use tracing::instrument;
 use crate::cli::args::{DisassociateArgs, OutputFormat};
 use crate::cli::error::{CliError, Result};
 
-use super::{create_framework, print_success, print_warning, validate_concept_id};
+use super::{create_framework_with_namespace, print_success, print_warning, validate_concept_id};
 
 #[instrument(name = "cli_disassociate")]
 pub async fn run_disassociate(
@@ -20,7 +20,8 @@ pub async fn run_disassociate(
         validate_concept_id(to)?;
     }
 
-    let framework = create_framework(db_path).await?;
+    let framework: crate::framework::ChaoticSemanticFramework =
+        create_framework_with_namespace(db_path, &args.namespace).await?;
 
     // Check if source concept exists
     let source_exists = framework

@@ -37,7 +37,7 @@ impl ChaoticSemanticFramework {
         {
             let sing = self.singularity.read().await;
             for (id, score) in initial_results {
-                if let Some(concept) = sing.get(&id) {
+                if let Some(concept) = sing.get(&self.namespace, &id) {
                     candidates.push(RerankCandidate {
                         id: concept.id.clone(),
                         vector: Arc::new(concept.vector),

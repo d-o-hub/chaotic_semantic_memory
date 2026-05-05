@@ -164,4 +164,98 @@ impl Persistence {
 
         Ok(())
     }
+
+    pub(crate) async fn apply_v8_namespace_migration(
+        &self,
+        conn: &libsql::Connection,
+    ) -> Result<()> {
+        // v8: Namespace isolation. Update PKs and FKs to include namespace.
+        conn.execute_batch(
+            "-- 1. Concepts
+             ALTER TABLE csm_concepts RENAME TO csm_concepts_old;
+             CREATE TABLE csm_concepts (
+                 namespace TEXT NOT NULL DEFAULT '_default',
+                 id TEXT NOT NULL,
+                 vector BLOB NOT NULL,
+                 metadata TEXT NOT NULL,
+                 created_at INTEGER NOT NULL,
+                 modified_at INTEGER NOT NULL,
+                 expires_at INTEGER,
+                 canonical_concept_ids_json TEXT,
+                 PRIMARY KEY (namespace, id)
+             );
+             INSERT INTO csm_concepts (id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
+             SELECT id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json FROM csm_concepts_old;
+             DROP TABLE csm_concepts_old;
+             CREATE INDEX idx_csm_concepts_namespace ON csm_concepts(namespace);
+
+             -- 2. Associations
+             ALTER TABLE csm_associations RENAME TO csm_associations_old;
+             CREATE TABLE csm_associations (
+                 namespace TEXT NOT NULL DEFAULT '_default',
+                 from_id TEXT NOT NULL,
+                 to_id TEXT NOT NULL,
+                 strength REAL NOT NULL,
+                 PRIMARY KEY (namespace, from_id, to_id),
+                 FOREIGN KEY (namespace, from_id) REFERENCES csm_concepts(namespace, id) ON DELETE CASCADE,
+                 FOREIGN KEY (namespace, to_id) REFERENCES csm_concepts(namespace, id) ON DELETE CASCADE
+             );
+             INSERT INTO csm_associations (from_id, to_id, strength)
+             SELECT from_id, to_id, strength FROM csm_associations_old;
+             DROP TABLE csm_associations_old;
+             CREATE INDEX idx_csm_associations_namespace ON csm_associations(namespace);
+             CREATE INDEX idx_csm_associations_from ON csm_associations(namespace, from_id);
+
+             -- 3. Versions
+             ALTER TABLE csm_versions RENAME TO csm_versions_old;
+             CREATE TABLE csm_versions (
+                 namespace TEXT NOT NULL DEFAULT '_default',
+                 concept_id TEXT NOT NULL,
+                 version INTEGER NOT NULL,
+                 vector BLOB NOT NULL,
+                 metadata TEXT NOT NULL,
+                 modified_at INTEGER NOT NULL,
+                 PRIMARY KEY (namespace, concept_id, version),
+                 FOREIGN KEY (namespace, concept_id) REFERENCES csm_concepts(namespace, id) ON DELETE CASCADE
+             );
+             INSERT INTO csm_versions (concept_id, version, vector, metadata, modified_at)
+             SELECT concept_id, version, vector, metadata, modified_at FROM csm_versions_old;
+             DROP TABLE csm_versions_old;
+             CREATE INDEX idx_csm_versions_namespace ON csm_versions(namespace);
+             CREATE INDEX idx_csm_versions_modified_at ON csm_versions(namespace, modified_at);
+
+             -- 4. HNSW Graph
+             ALTER TABLE csm_hnsw_graph RENAME TO csm_hnsw_graph_old;
+             CREATE TABLE csm_hnsw_graph (
+                 namespace TEXT NOT NULL DEFAULT '_default',
+                 id TEXT NOT NULL,
+                 data BLOB NOT NULL,
+                 modified_at INTEGER NOT NULL,
+                 PRIMARY KEY (namespace, id)
+             );
+             INSERT INTO csm_hnsw_graph (id, data, modified_at)
+             SELECT id, data, modified_at FROM csm_hnsw_graph_old;
+             DROP TABLE csm_hnsw_graph_old;
+             CREATE INDEX idx_csm_hnsw_graph_namespace ON csm_hnsw_graph(namespace);
+
+             -- 5. Canonical Concepts
+             ALTER TABLE csm_canonical RENAME TO csm_canonical_old;
+             CREATE TABLE csm_canonical (
+                 namespace TEXT NOT NULL DEFAULT '_default',
+                 id TEXT NOT NULL,
+                 version INTEGER NOT NULL,
+                 labels_json TEXT NOT NULL,
+                 related_json TEXT NOT NULL,
+                 PRIMARY KEY (namespace, id)
+             );
+             INSERT INTO csm_canonical (id, version, labels_json, related_json)
+             SELECT id, version, labels_json, related_json FROM csm_canonical_old;
+             DROP TABLE csm_canonical_old;
+             CREATE INDEX idx_csm_canonical_namespace ON csm_canonical(namespace);",
+        )
+        .await
+        .map_err(|e| MemoryError::database(format!("Failed migration v8 namespace isolation: {e}")))?;
+
+        Ok(())
+    }
 }

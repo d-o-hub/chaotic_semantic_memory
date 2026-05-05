@@ -7,15 +7,20 @@ use std::path::Path;
 
 use tracing::instrument;
 
-use crate::cli::args::OutputFormat;
+use crate::cli::args::{OutputFormat, StatsArgs};
 use crate::cli::error::{CliError, Result};
 
-use super::create_framework;
+use super::create_framework_with_namespace;
 
 /// Run the stats command.
 #[instrument(name = "cli_stats")]
-pub async fn run_stats(db_path: Option<&Path>, format: OutputFormat) -> Result<()> {
-    let framework = create_framework(db_path).await?;
+pub async fn run_stats(
+    args: StatsArgs,
+    db_path: Option<&Path>,
+    format: OutputFormat,
+) -> Result<()> {
+    let framework: crate::framework::ChaoticSemanticFramework =
+        create_framework_with_namespace(db_path, &args.namespace).await?;
 
     let stats = framework
         .stats()

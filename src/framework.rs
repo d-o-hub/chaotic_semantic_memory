@@ -27,6 +27,7 @@ pub struct ChaoticSemanticFramework {
     pub(crate) config: FrameworkConfig,
     pub(crate) metrics: Arc<FrameworkMetrics>,
     pub(crate) event_sender: tokio::sync::broadcast::Sender<MemoryEvent>,
+    pub(crate) namespace: String,
 }
 
 impl ChaoticSemanticFramework {
@@ -41,6 +42,11 @@ impl ChaoticSemanticFramework {
         self.singularity.clone()
     }
 
+    /// Get the current namespace.
+    pub fn namespace(&self) -> &str {
+        &self.namespace
+    }
+
     /// Inject a concept into memory
     #[instrument(err, skip(self, id, vector))]
     pub async fn inject_concept(&self, id: impl Into<String>, vector: HVec10240) -> Result<()> {
@@ -52,12 +58,12 @@ impl ChaoticSemanticFramework {
 
         {
             let mut sing = self.singularity.write().await;
-            sing.inject(concept.clone())?;
+            sing.inject(&self.namespace, concept.clone())?;
         }
 
         if let Some(ref persistence) = self.persistence {
             let p_start = std::time::Instant::now();
-            persistence.save_concept(&concept).await?;
+            persistence.save_concept(&self.namespace, &concept).await?;
             #[allow(clippy::cast_possible_truncation)]
             self.metrics
                 .observe_persist_latency_ms(p_start.elapsed().as_millis() as u64, "save");
@@ -91,12 +97,12 @@ impl ChaoticSemanticFramework {
 
         {
             let mut sing = self.singularity.write().await;
-            sing.inject(concept.clone())?;
+            sing.inject(&self.namespace, concept.clone())?;
         }
 
         if let Some(ref persistence) = self.persistence {
             let p_start = std::time::Instant::now();
-            persistence.save_concept(&concept).await?;
+            persistence.save_concept(&self.namespace, &concept).await?;
             #[allow(clippy::cast_possible_truncation)]
             self.metrics
                 .observe_persist_latency_ms(p_start.elapsed().as_millis() as u64, "save");
@@ -121,14 +127,14 @@ impl ChaoticSemanticFramework {
         // Acquire lock, get results, release immediately
         let (results, expired_ids) = {
             let sing = self.singularity.read().await;
-            let results = sing.find_similar(&query, top_k);
+            let results = sing.find_similar(&self.namespace, &query, top_k);
 
             // Collect expired IDs while holding lock
             let now = crate::singularity::unix_now_secs();
             let expired_ids: std::collections::HashSet<String> = results
                 .iter()
                 .filter_map(|(id, _)| {
-                    sing.get(id)
+                    sing.get(&self.namespace, id)
                         .and_then(|c| c.expires_at.filter(|exp| *exp <= now))
                         .map(|_| id.clone())
                 })
@@ -169,7 +175,7 @@ impl ChaoticSemanticFramework {
         // Acquire lock, get results, release immediately
         let results = {
             let sing = self.singularity.read().await;
-            sing.find_similar_filtered(query, top_k, filter)
+            sing.find_similar_filtered(&self.namespace, query, top_k, filter)
         };
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -192,7 +198,7 @@ impl ChaoticSemanticFramework {
         Self::validate_concept_id(start)?;
         Self::validate_traversal_config(&config)?;
         let sing = self.singularity.read().await;
-        sing.bfs(start, &config)
+        sing.bfs(&self.namespace, start, &config)
     }
 
     /// Find shortest weighted path between two concepts.
@@ -201,7 +207,7 @@ impl ChaoticSemanticFramework {
         Self::validate_concept_id(from)?;
         Self::validate_concept_id(to)?;
         let sing = self.singularity.read().await;
-        sing.shortest_path(from, to, &TraversalConfig::default())
+        sing.shortest_path(&self.namespace, from, to, &TraversalConfig::default())
     }
 
     /// Process temporal sequence through reservoir
@@ -240,12 +246,14 @@ impl ChaoticSemanticFramework {
         Self::validate_association_strength(strength)?;
         {
             let mut sing = self.singularity.write().await;
-            sing.associate(from, to, strength)?;
+            sing.associate(&self.namespace, from, to, strength)?;
         }
 
         if let Some(ref persistence) = self.persistence {
             let p_start = std::time::Instant::now();
-            persistence.save_association(from, to, strength).await?;
+            persistence
+                .save_association(&self.namespace, from, to, strength)
+                .await?;
             #[allow(clippy::cast_possible_truncation)]
             self.metrics.observe_persist_latency_ms(
                 p_start.elapsed().as_millis() as u64,
@@ -268,11 +276,11 @@ impl ChaoticSemanticFramework {
         Self::validate_concept_id(id)?;
         {
             let mut sing = self.singularity.write().await;
-            sing.delete(id)?;
+            sing.delete(&self.namespace, id)?;
         }
 
         if let Some(ref persistence) = self.persistence {
-            persistence.delete_concept(id).await?;
+            persistence.delete_concept(&self.namespace, id).await?;
         }
 
         self.emit_event(MemoryEvent::ConceptDeleted {
@@ -288,7 +296,7 @@ impl ChaoticSemanticFramework {
     pub async fn get_associations(&self, id: &str) -> Result<Vec<(String, f32)>> {
         Self::validate_concept_id(id)?;
         let sing = self.singularity.read().await;
-        Ok(sing.get_associations(id))
+        Ok(sing.get_associations(&self.namespace, id))
     }
 
     /// Get incoming associations for a concept (inbound edges).
@@ -300,9 +308,8 @@ impl ChaoticSemanticFramework {
         Self::validate_concept_id(id)?;
         let sing = self.singularity.read().await;
         Ok(sing
-            .incoming_associations(id)
+            .incoming_associations(&self.namespace, id)
             .into_iter()
-            .map(|(s, f)| (s.to_string(), f))
             .collect())
     }
 
@@ -315,7 +322,7 @@ impl ChaoticSemanticFramework {
         Self::validate_concept_id(from)?;
         Self::validate_concept_id(to)?;
         let sing = self.singularity.read().await;
-        sing.shortest_path_hops(from, to, &TraversalConfig::default())
+        sing.shortest_path_hops(&self.namespace, from, to, &TraversalConfig::default())
     }
 
     /// Get a concept by ID.
@@ -323,7 +330,7 @@ impl ChaoticSemanticFramework {
     pub async fn get_concept(&self, id: &str) -> Result<Option<Concept>> {
         Self::validate_concept_id(id)?;
         let sing = self.singularity.read().await;
-        Ok(sing.get(id).cloned())
+        Ok(sing.get(&self.namespace, id).cloned())
     }
 
     /// Backward-compatible alias for replace semantics.
@@ -339,7 +346,7 @@ impl ChaoticSemanticFramework {
 
         let cache_snapshot = {
             let sing = self.singularity.read().await;
-            sing.cache_metrics_snapshot()
+            sing.cache_metrics_snapshot(&self.namespace)
         };
 
         let reservoir_snapshot = {
@@ -381,7 +388,7 @@ impl ChaoticSemanticFramework {
         // Get concept count without holding lock during persistence call
         let concept_count = {
             let sing = self.singularity.read().await;
-            sing.len()
+            sing.len(&self.namespace)
         };
 
         let db_size = if let Some(ref persistence) = self.persistence {

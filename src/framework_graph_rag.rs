@@ -25,8 +25,8 @@ impl ChaoticSemanticFramework {
         self.validate_top_k(config.final_top_k)?;
 
         let sing = self.singularity.read().await;
-        let concepts = sing.all_concepts();
-        let associations = sing.all_associations();
+        let concepts = sing.all_concepts(&self.namespace);
+        let associations = sing.all_associations(&self.namespace);
 
         graph_rag_retrieve(&query, &concepts, &associations, &config)
     }

@@ -15,6 +15,8 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
 #[cfg(target_arch = "wasm32")]
+use crate::framework::ChaoticSemanticFramework;
+#[cfg(target_arch = "wasm32")]
 use crate::wasm::{WasmFramework, to_js_error};
 
 #[cfg(target_arch = "wasm32")]
@@ -46,7 +48,40 @@ impl WasmFramework {
     /// Get concept count (convenience method)
     pub async fn concept_count(&self) -> Result<usize, JsValue> {
         let sing = self.framework.singularity.read().await;
-        Ok(sing.len())
+        Ok(sing.len(&self.framework.namespace()))
+    }
+
+    /// Create a new WasmFramework scoped to a different namespace.
+    ///
+    /// The new framework inherits all configuration from this instance
+    /// (persistence mode, reservoir settings, etc.) but operates under
+    /// the specified namespace for concept isolation.
+    #[wasm_bindgen(js_name = withNamespace)]
+    pub async fn with_namespace(&self, ns: String) -> Result<WasmFramework, JsValue> {
+        let framework = ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .with_namespace(&ns)
+            .build()
+            .await
+            .map_err(to_js_error)?;
+        Ok(WasmFramework { framework })
+    }
+
+    /// Create a new WasmFramework scoped to a specific namespace.
+    ///
+    /// Namespaces provide isolation: concepts in different namespaces are
+    /// stored separately even within the same framework instance.
+    /// This is a static constructor alternative to `new()` that accepts
+    /// a namespace parameter.
+    #[wasm_bindgen(js_name = newWithNamespace)]
+    pub async fn new_with_namespace(ns: String) -> Result<WasmFramework, JsValue> {
+        let framework = ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .with_namespace(&ns)
+            .build()
+            .await
+            .map_err(to_js_error)?;
+        Ok(WasmFramework { framework })
     }
 
     /// Update a concept's metadata from a JSON string.
@@ -73,7 +108,8 @@ impl WasmFramework {
     /// Clear all outbound associations for a concept.
     pub async fn clear_associations(&self, id: String) -> Result<(), JsValue> {
         let mut sing = self.framework.singularity.write().await;
-        sing.clear_associations(&id).map_err(to_js_error)
+        sing.clear_associations(&self.framework.namespace(), &id)
+            .map_err(to_js_error)
     }
 
     /// Get direct neighbors of a concept with edge strengths.
@@ -81,7 +117,7 @@ impl WasmFramework {
     /// Returns an Array of `{to: string, strength: number}` objects.
     pub async fn neighbors(&self, id: String, min_strength: f32) -> Result<Array, JsValue> {
         let sing = self.framework.singularity.read().await;
-        let neighbors = sing.neighbors(&id, min_strength);
+        let neighbors = sing.neighbors(&self.framework.namespace(), &id, min_strength);
         let array = Array::new();
         for (to, strength) in neighbors {
             let obj = js_sys::Object::new();
@@ -102,7 +138,9 @@ impl WasmFramework {
         use crate::graph_traversal::TraversalConfig;
         let sing = self.framework.singularity.read().await;
         let config = TraversalConfig::default();
-        let results = sing.bfs(&start, &config).map_err(to_js_error)?;
+        let results = sing
+            .bfs(&self.framework.namespace(), &start, &config)
+            .map_err(to_js_error)?;
         let array = Array::new();
         for (id, depth) in results {
             let obj = js_sys::Object::new();
@@ -274,195 +312,7 @@ fn memory_event_to_js_value(event: &crate::framework_events::MemoryEvent) -> JsV
     obj.into()
 }
 
-// TESTS - verify WASM binding data patterns on native targets
-
+// INLINE TESTS moved to wasm_ext_tests.rs for LOC gate compliance
 #[cfg(test)]
-mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparisons for test assertions
-
-    use crate::framework_events::MemoryEvent;
-    use crate::graph_traversal::TraversalConfig;
-    use crate::hyperdim::HVec10240;
-    use crate::metadata_filter::MetadataFilter;
-    use serde_json::json;
-    use std::collections::HashMap;
-
-    #[test]
-    fn metadata_filter_eq_json_roundtrip() {
-        let filter = MetadataFilter::eq("type", "document");
-        let json = serde_json::to_string(&filter).unwrap();
-        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
-        assert_eq!(filter, parsed);
-    }
-
-    #[test]
-    fn metadata_filter_in_json_roundtrip() {
-        let filter = MetadataFilter::in_("tag", vec![json!("rust"), json!("python")]);
-        let json = serde_json::to_string(&filter).unwrap();
-        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
-        assert_eq!(filter, parsed);
-    }
-
-    #[test]
-    fn metadata_filter_exists_json_roundtrip() {
-        let filter = MetadataFilter::exists("title");
-        let json = serde_json::to_string(&filter).unwrap();
-        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
-        assert_eq!(filter, parsed);
-    }
-
-    #[test]
-    fn metadata_filter_and_json_roundtrip() {
-        let filter = MetadataFilter::and(vec![
-            MetadataFilter::eq("type", "document"),
-            MetadataFilter::exists("author"),
-        ]);
-        let json = serde_json::to_string(&filter).unwrap();
-        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
-        assert_eq!(filter, parsed);
-    }
-
-    #[test]
-    fn metadata_filter_or_json_roundtrip() {
-        let filter = MetadataFilter::or(vec![
-            MetadataFilter::eq("status", "active"),
-            MetadataFilter::eq("status", "pending"),
-        ]);
-        let json = serde_json::to_string(&filter).unwrap();
-        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
-        assert_eq!(filter, parsed);
-    }
-
-    #[test]
-    fn metadata_filter_not_json_roundtrip() {
-        let filter = MetadataFilter::Not(Box::new(MetadataFilter::eq("private", true)));
-        let json = serde_json::to_string(&filter).unwrap();
-        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
-        assert_eq!(filter, parsed);
-    }
-
-    #[test]
-    fn metadata_filter_nested_complex_json_roundtrip() {
-        let filter = MetadataFilter::and(vec![
-            MetadataFilter::eq("type", "document"),
-            MetadataFilter::in_("tag", vec![json!("rust"), json!("python")]),
-            MetadataFilter::Not(Box::new(MetadataFilter::eq("private", true))),
-        ]);
-        let json = serde_json::to_string(&filter).unwrap();
-        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
-        assert_eq!(filter, parsed);
-    }
-
-    #[test]
-    fn metadata_filter_json_string_format() {
-        let filter = MetadataFilter::eq("category", "science");
-        let json = serde_json::to_string(&filter).unwrap();
-        assert!(json.contains("Eq") && json.contains("category") && json.contains("science"));
-    }
-
-    #[test]
-    fn traversal_config_defaults() {
-        let config = TraversalConfig::default();
-        assert_eq!(config.max_depth, 3);
-        assert_eq!(config.min_strength, 0.0);
-        assert_eq!(config.max_results, 100);
-    }
-
-    #[test]
-    fn traversal_config_custom_values() {
-        let config = TraversalConfig {
-            max_depth: 5,
-            min_strength: 0.7,
-            ..Default::default()
-        };
-        assert_eq!(config.max_depth, 5);
-        assert_eq!(config.min_strength, 0.7);
-    }
-
-    #[test]
-    fn hvec_bytes_roundtrip() {
-        let original = HVec10240::random();
-        let bytes = original.to_bytes();
-        let restored = HVec10240::from_bytes(&bytes).unwrap();
-        assert_eq!(original, restored);
-    }
-
-    #[test]
-    fn hvec_bytes_length() {
-        let hvec = HVec10240::random();
-        let bytes = hvec.to_bytes();
-        assert_eq!(bytes.len(), 1280); // 10240 bits / 8 = 1280 bytes
-    }
-
-    #[test]
-    fn hvec_from_bytes_invalid_length() {
-        let short_bytes = vec![0u8; 100];
-        assert!(HVec10240::from_bytes(&short_bytes).is_err());
-    }
-
-    #[test]
-    fn memory_event_variants_construct() {
-        let injected = MemoryEvent::ConceptInjected {
-            id: "test-id".to_string(),
-            timestamp: 12345,
-        };
-        let updated = MemoryEvent::ConceptUpdated {
-            id: "test-id".to_string(),
-            timestamp: 12346,
-        };
-        let deleted = MemoryEvent::ConceptDeleted {
-            id: "test-id".to_string(),
-            timestamp: 12347,
-        };
-        let associated = MemoryEvent::Associated {
-            from: "a".to_string(),
-            to: "b".to_string(),
-            strength: 0.8,
-        };
-        let disassociated = MemoryEvent::Disassociated {
-            from: "a".to_string(),
-            to: "b".to_string(),
-        };
-
-        assert!(matches!(
-            injected.clone(),
-            MemoryEvent::ConceptInjected { .. }
-        ));
-        assert!(format!("{updated:?}").contains("ConceptUpdated"));
-        assert!(format!("{deleted:?}").contains("ConceptDeleted"));
-        assert!(format!("{associated:?}").contains("Associated"));
-        assert!(format!("{disassociated:?}").contains("Disassociated"));
-    }
-
-    #[test]
-    fn memory_event_clone_preserves_data() {
-        let event = MemoryEvent::Associated {
-            from: "source".to_string(),
-            to: "target".to_string(),
-            strength: 0.95,
-        };
-        let cloned = event.clone();
-        match cloned {
-            MemoryEvent::Associated { from, to, strength } => {
-                assert_eq!(from, "source");
-                assert_eq!(to, "target");
-                assert!((strength - 0.95).abs() < 0.001);
-            }
-            _ => panic!("Expected Associated variant"),
-        }
-    }
-
-    #[test]
-    fn metadata_filter_matches_empty_metadata() {
-        let filter = MetadataFilter::eq("type", "document");
-        let empty_metadata = HashMap::new();
-        assert!(!filter.matches(&empty_metadata));
-    }
-
-    #[test]
-    fn metadata_filter_exists_on_empty_metadata() {
-        let filter = MetadataFilter::exists("field");
-        let empty_metadata = HashMap::new();
-        assert!(!filter.matches(&empty_metadata));
-    }
-}
+#[path = "wasm_ext_tests.rs"]
+mod wasm_ext_tests;

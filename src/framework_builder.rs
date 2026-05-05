@@ -83,6 +83,7 @@ pub struct FrameworkBuilder {
     pub(crate) db_token: Option<String>,
     pub(crate) concept_cache_size: usize,
     pub(crate) version_retention: usize,
+    pub(crate) namespace: String,
 }
 
 impl Default for FrameworkBuilder {
@@ -91,8 +92,9 @@ impl Default for FrameworkBuilder {
             config: FrameworkConfig::default(),
             db_path: None,
             db_token: None,
-            concept_cache_size: SingularityConfig::default().concept_cache_size,
+            concept_cache_size: 1000,
             version_retention: 10,
+            namespace: "_default".to_string(),
         }
     }
 }
@@ -100,6 +102,11 @@ impl Default for FrameworkBuilder {
 impl FrameworkBuilder {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn with_namespace(mut self, ns: impl Into<String>) -> Self {
+        self.namespace = ns.into();
+        self
     }
 
     pub const fn with_reservoir_size(mut self, size: usize) -> Self {
@@ -226,6 +233,7 @@ impl FrameworkBuilder {
                 max_concepts: self.config.max_concepts,
                 max_associations_per_concept: self.config.max_associations_per_concept,
                 concept_cache_size: self.concept_cache_size,
+                index_backend: self.config.index_backend.clone(),
                 max_cached_top_k: self.config.max_cached_top_k,
             },
             self.config.index_backend.clone(),
@@ -263,6 +271,7 @@ impl FrameworkBuilder {
             config: self.config,
             metrics: Default::default(),
             event_sender: build_event_sender(),
+            namespace: self.namespace,
         };
 
         framework.load_replace().await?;

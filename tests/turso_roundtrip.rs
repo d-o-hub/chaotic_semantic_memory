@@ -44,14 +44,17 @@ async fn turso_roundtrip_p50_under_20ms_when_configured() {
         .build()
         .expect("concept");
     persistence
-        .save_concept(&concept)
+        .save_concept("_default", &concept)
         .await
         .expect("save_concept");
 
     let mut durations_ms = Vec::with_capacity(sample_count);
     for _ in 0..sample_count {
         let start = Instant::now();
-        let loaded = persistence.load_concept(&id).await.expect("load_concept");
+        let loaded = persistence
+            .load_concept("_default", &id)
+            .await
+            .expect("load_concept");
         let elapsed = start.elapsed().as_secs_f64() * 1000.0;
         assert!(loaded.is_some(), "concept should exist");
         durations_ms.push(elapsed);
