@@ -116,6 +116,14 @@ pub struct ProbeArgs {
     #[arg(short = 'k', long, default_value = "10")]
     pub top_k: usize,
 
+    /// Initial number of candidates to retrieve before reranking.
+    #[arg(long, default_value = "50")]
+    pub initial_k: usize,
+
+    /// Reranking pipeline (e.g., "mmr:0.7,recency:30d").
+    #[arg(long, value_name = "PIPELINE")]
+    pub rerank: Option<String>,
+
     #[arg(short, long)]
     pub threshold: Option<f64>,
 }

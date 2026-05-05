@@ -63,6 +63,7 @@ mod framework_metrics;
 #[cfg(not(target_arch = "wasm32"))]
 mod framework_ops;
 mod framework_persistence; // Extracted from framework.rs for LOC gate
+mod framework_rerank;
 mod framework_ttl;
 mod framework_validation;
 pub mod graph_traversal;
