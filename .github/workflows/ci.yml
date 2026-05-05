@@ -15,12 +15,13 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  PROTOC: /usr/bin/protoc
 
 jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      PROTOC: /usr/bin/protoc
     steps:
     - uses: actions/checkout@v6
     - name: Install protoc
@@ -99,6 +100,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      PROTOC: /usr/bin/protoc
     steps:
     - uses: actions/checkout@v6
     - name: Install protoc
