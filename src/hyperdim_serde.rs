@@ -21,9 +21,8 @@ impl Serialize for HVec10240 {
             let b64 = STANDARD.encode(&bytes);
             serializer.serialize_str(&b64)
         } else {
-            // Use fixed-size array for binary formats (bincode compatible)
-            let bytes = self.to_bytes();
-            serializer.serialize_bytes(&bytes)
+            // Use binary format for non-human-readable (like bincode)
+            serializer.serialize_bytes(&self.to_bytes())
         }
     }
 }
@@ -78,7 +77,10 @@ impl<'de> Deserialize<'de> for HVec10240 {
     where
         D: Deserializer<'de>,
     {
-        // Use deserialize_any to handle both string (base64) and bytes formats
-        deserializer.deserialize_any(HVecVisitor)
+        if deserializer.is_human_readable() {
+            deserializer.deserialize_any(HVecVisitor)
+        } else {
+            deserializer.deserialize_bytes(HVecVisitor)
+        }
     }
 }
