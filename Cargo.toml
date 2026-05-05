@@ -1,6 +1,6 @@
 [package]
 name = "chaotic_semantic_memory"
-version = "0.3.5"
+version = "0.4.0"
 edition = "2024"
 rust-version = "1.85"
 description = "AI memory systems with hyperdimensional vectors and chaotic reservoirs"
@@ -240,6 +240,10 @@ prometheus = ["dep:prometheus", "dep:hyper", "dep:hyper-util", "dep:http-body-ut
 
 # Reranking pipeline (ADR-0071)
 rerank-cross = ["dep:candle-core", "dep:candle-onnx"]
+
+# Federation-ready API enhancements (ADR-055 downstream)
+signing = []
+serde = []
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]
