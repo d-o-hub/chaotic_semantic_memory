@@ -1,7 +1,6 @@
 //! Framework event broadcasting.
 
 // Casts are intentional for event timestamp math
-#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use tokio::sync::broadcast;
 

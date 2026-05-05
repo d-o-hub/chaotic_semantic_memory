@@ -3,7 +3,6 @@
 //! Combines vector similarity with graph traversal for unified retrieval.
 
 // Casts are intentional for scoring formula
-#![allow(clippy::cast_precision_loss)]
 
 use crate::error::Result;
 use crate::graph_traversal::TraversalConfig;

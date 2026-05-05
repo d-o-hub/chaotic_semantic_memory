@@ -1,7 +1,6 @@
 //! Echo State Network for temporal dynamics.
 
 // Casts are intentional for reservoir math (node counts, dimension sizes)
-#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
@@ -333,7 +332,7 @@ impl Reservoir {
                 norm += val * val;
             }
             norm = norm.sqrt();
-            if norm == 0.0 {
+            if norm.abs() < f32::EPSILON {
                 return 0.0;
             }
 
@@ -354,7 +353,7 @@ impl Reservoir {
             denominator += v[i] * v[i];
         }
 
-        if denominator == 0.0 {
+        if denominator.abs() < f32::EPSILON {
             0.0
         } else {
             (numerator / denominator).abs()

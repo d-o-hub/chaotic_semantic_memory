@@ -1,7 +1,6 @@
 //! Persistence layer using libSQL (SQLite/Turso). Auto-migrations, version retention, FK enabled.
 
 // Casts are intentional for schema version math
-#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;

@@ -1,7 +1,6 @@
 //! Association query commands for listing concept associations.
 
 // Casts are intentional for CLI output formatting
-#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use std::path::Path;
 

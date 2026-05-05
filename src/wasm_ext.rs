@@ -278,7 +278,6 @@ fn memory_event_to_js_value(event: &crate::framework_events::MemoryEvent) -> JsV
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparisons for test assertions
 
     use crate::framework_events::MemoryEvent;
     use crate::graph_traversal::TraversalConfig;
@@ -364,7 +363,7 @@ mod tests {
     fn traversal_config_defaults() {
         let config = TraversalConfig::default();
         assert_eq!(config.max_depth, 3);
-        assert_eq!(config.min_strength, 0.0);
+        assert!((config.min_strength - 0.0).abs() < f32::EPSILON);
         assert_eq!(config.max_results, 100);
     }
 
@@ -376,7 +375,7 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(config.max_depth, 5);
-        assert_eq!(config.min_strength, 0.7);
+        assert!((config.min_strength - 0.7).abs() < f32::EPSILON);
     }
 
     #[test]

@@ -1,7 +1,6 @@
 //! HNSW ANN index backend (ADR-0068).
 
 // Casts are intentional for similarity math
-#![allow(clippy::cast_precision_loss)]
 
 #[cfg(feature = "ann-hnsw")]
 use hnsw_rs::prelude::*;

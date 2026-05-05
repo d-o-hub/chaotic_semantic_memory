@@ -1,7 +1,6 @@
 //! LSH ANN index backend (ADR-0068).
 
 // Casts are intentional for similarity math
-#![allow(clippy::cast_precision_loss)]
 
 use rand::RngExt;
 use rand::SeedableRng;
