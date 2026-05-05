@@ -72,19 +72,13 @@ if [[ -x scripts/wasm_size_gate.sh ]]; then
   scripts/wasm_size_gate.sh
 fi
 
-echo "==> Generating/validating llms.txt and llms-full.txt"
-scripts/gen-llms-txt.sh
-
-LOC=$(grep -cE '^\s*(pub |fn |struct |enum |trait |impl )' llms-full.txt || true)
-echo "Public API surface: $LOC symbols"
-
-THRESHOLD=5000
-if [[ "$LOC" -gt "$THRESHOLD" ]]; then
-  echo "❌ API surface $LOC exceeds threshold of $THRESHOLD"
-  exit 1
-fi
-
-echo "✅ API surface within threshold ($LOC / $THRESHOLD)"
+# NOTE: llms.txt / llms-full.txt regeneration and the API surface threshold
+# check have been moved EXCLUSIVELY to the release workflow
+# (.github/workflows/release.yml step "Regenerate & commit llms.txt").
+# Local validation no longer regenerates these artifacts; they are also
+# .gitignored. To check the API surface manually, run:
+#   bash scripts/gen-llms-txt.sh
+#   grep -cE '^\s*(pub |fn |struct |enum |trait |impl )' llms-full.txt
 
 if command -v npm >/dev/null 2>&1; then
   echo "==> CLI npm pack smoke test"
