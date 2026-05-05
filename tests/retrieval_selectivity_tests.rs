@@ -1,7 +1,8 @@
 //! Tests for selectivity-aware filtered retrieval (ADR-0065).
 
 use chaotic_semantic_memory::{
-    ConceptBuilder, FilterStrategy, HVec10240, MetadataFilter, singularity::Singularity,
+    ConceptBuilder, FilterStrategy, HVec10240, MetadataFilter,
+    singularity::{Singularity, SingularityConfig},
 };
 use serde_json::json;
 
@@ -17,12 +18,12 @@ fn inject_concept(
         .with_metadata(metadata_key, metadata_val)
         .build()
         .unwrap();
-    sing.inject(concept).unwrap();
+    sing.inject("_default", concept).unwrap();
 }
 
 #[test]
 fn test_find_similar_filtered_returns_matching_only() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     // Inject concepts with different categories
     inject_concept(&mut sing, "doc1", "category", json!("document"));
@@ -32,31 +33,31 @@ fn test_find_similar_filtered_returns_matching_only() {
     let query = HVec10240::random();
     let filter = MetadataFilter::eq("category", "document");
 
-    let results = sing.find_similar_filtered(&query, 10, &filter);
+    let results = sing.find_similar_filtered("_default", &query, 10, &filter);
 
     // All results should be documents - check via get()
     for (id, _) in results.iter() {
-        let concept = sing.get(id).unwrap();
+        let concept = sing.get("_default", id).unwrap();
         assert_eq!(concept.metadata.get("category"), Some(&json!("document")));
     }
 }
 
 #[test]
 fn test_find_similar_filtered_empty_result() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     inject_concept(&mut sing, "doc1", "category", json!("document"));
 
     let query = HVec10240::random();
     let filter = MetadataFilter::eq("category", "video"); // No videos exist
 
-    let results = sing.find_similar_filtered(&query, 10, &filter);
+    let results = sing.find_similar_filtered("_default", &query, 10, &filter);
     assert!(results.is_empty());
 }
 
 #[test]
 fn test_retrieval_stats_contains_selectivity_ratio() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     // Create 10 concepts: 3 matching filter (30% selectivity)
     for i in 0..3 {
@@ -69,16 +70,16 @@ fn test_retrieval_stats_contains_selectivity_ratio() {
     let query = HVec10240::random();
     let filter = MetadataFilter::eq("type", "match");
 
-    let _ = sing.find_similar_filtered(&query, 5, &filter);
+    let _ = sing.find_similar_filtered("_default", &query, 5, &filter);
 
-    let stats = sing.last_retrieval_stats();
+    let stats = sing.last_retrieval_stats("_default");
     // 3 matching out of 10 total = 0.3 selectivity
     assert!((stats.selectivity_ratio - 0.3).abs() < 0.01);
 }
 
 #[test]
 fn test_small_dataset_uses_pre_filter() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     // Only 5 concepts (< 20 threshold)
     for i in 0..5 {
@@ -88,16 +89,16 @@ fn test_small_dataset_uses_pre_filter() {
     let query = HVec10240::random();
     let filter = MetadataFilter::eq("tag", 1);
 
-    let _ = sing.find_similar_filtered(&query, 3, &filter);
+    let _ = sing.find_similar_filtered("_default", &query, 3, &filter);
 
-    let stats = sing.last_retrieval_stats();
+    let stats = sing.last_retrieval_stats("_default");
     // Small dataset should always use Pre strategy regardless of selectivity
     assert_eq!(stats.filter_strategy, Some(FilterStrategy::Pre));
 }
 
 #[test]
 fn test_low_selectivity_uses_pre_filter() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     // 25 concepts, only 3 match (< 0.3 selectivity threshold for datasets > 20)
     for i in 0..3 {
@@ -110,16 +111,16 @@ fn test_low_selectivity_uses_pre_filter() {
     let query = HVec10240::random();
     let filter = MetadataFilter::eq("rare", "yes");
 
-    let _ = sing.find_similar_filtered(&query, 5, &filter);
+    let _ = sing.find_similar_filtered("_default", &query, 5, &filter);
 
-    let stats = sing.last_retrieval_stats();
+    let stats = sing.last_retrieval_stats("_default");
     // 3/25 = 0.12 selectivity, should use Pre
     assert_eq!(stats.filter_strategy, Some(FilterStrategy::Pre));
 }
 
 #[test]
 fn test_medium_selectivity_uses_bucket_post() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     // 25 concepts, 10 match (0.4 selectivity, in 0.3-0.8 range)
     for i in 0..10 {
@@ -132,16 +133,16 @@ fn test_medium_selectivity_uses_bucket_post() {
     let query = HVec10240::random();
     let filter = MetadataFilter::eq("level", "high");
 
-    let _ = sing.find_similar_filtered(&query, 5, &filter);
+    let _ = sing.find_similar_filtered("_default", &query, 5, &filter);
 
-    let stats = sing.last_retrieval_stats();
+    let stats = sing.last_retrieval_stats("_default");
     // 10/25 = 0.4 selectivity, should use BucketPost
     assert_eq!(stats.filter_strategy, Some(FilterStrategy::BucketPost));
 }
 
 #[test]
 fn test_high_selectivity_uses_scan_post() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     // 25 concepts, 22 match (> 0.8 selectivity threshold)
     for i in 0..22 {
@@ -154,16 +155,16 @@ fn test_high_selectivity_uses_scan_post() {
     let query = HVec10240::random();
     let filter = MetadataFilter::eq("group", "a");
 
-    let _ = sing.find_similar_filtered(&query, 5, &filter);
+    let _ = sing.find_similar_filtered("_default", &query, 5, &filter);
 
-    let stats = sing.last_retrieval_stats();
+    let stats = sing.last_retrieval_stats("_default");
     // 22/25 = 0.88 selectivity, should use ScanPost
     assert_eq!(stats.filter_strategy, Some(FilterStrategy::ScanPost));
 }
 
 #[test]
 fn test_complex_filter_with_nested_predicates() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     // Create concepts with multiple metadata fields
     let c1 = ConceptBuilder::new("c1")
@@ -172,7 +173,7 @@ fn test_complex_filter_with_nested_predicates() {
         .with_metadata("public", json!(true))
         .build()
         .unwrap();
-    sing.inject(c1).unwrap();
+    sing.inject("_default", c1).unwrap();
 
     let c2 = ConceptBuilder::new("c2")
         .with_vector(HVec10240::random())
@@ -180,7 +181,7 @@ fn test_complex_filter_with_nested_predicates() {
         .with_metadata("public", json!(false))
         .build()
         .unwrap();
-    sing.inject(c2).unwrap();
+    sing.inject("_default", c2).unwrap();
 
     let c3 = ConceptBuilder::new("c3")
         .with_vector(HVec10240::random())
@@ -188,7 +189,7 @@ fn test_complex_filter_with_nested_predicates() {
         .with_metadata("public", json!(true))
         .build()
         .unwrap();
-    sing.inject(c3).unwrap();
+    sing.inject("_default", c3).unwrap();
 
     let query = HVec10240::random();
 
@@ -198,7 +199,7 @@ fn test_complex_filter_with_nested_predicates() {
         MetadataFilter::eq("public", true),
     ]);
 
-    let results = sing.find_similar_filtered(&query, 10, &filter);
+    let results = sing.find_similar_filtered("_default", &query, 10, &filter);
 
     // Only c1 matches
     assert_eq!(results.len(), 1);
@@ -207,7 +208,7 @@ fn test_complex_filter_with_nested_predicates() {
 
 #[test]
 fn test_find_similar_filtered_respects_top_k() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     // 10 matching concepts
     for i in 0..10 {
@@ -217,6 +218,6 @@ fn test_find_similar_filtered_respects_top_k() {
     let query = HVec10240::random();
     let filter = MetadataFilter::eq("type", "doc");
 
-    let results = sing.find_similar_filtered(&query, 3, &filter);
+    let results = sing.find_similar_filtered("_default", &query, 3, &filter);
     assert!(results.len() <= 3);
 }

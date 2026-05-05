@@ -26,7 +26,8 @@ pub async fn run_probe_graph(
         final_top_k: args.top_k,
     };
 
-    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
+    let framework: crate::framework::ChaoticSemanticFramework =
+        create_framework_with_namespace(db_path, &args.namespace).await?;
 
     let results = framework
         .probe_text_with_graph(&args.text, config)

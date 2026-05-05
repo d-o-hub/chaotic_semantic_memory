@@ -38,10 +38,15 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(ref persistence) = self.persistence {
+            let p_start = std::time::Instant::now();
             persistence.save_concepts(&self.namespace, &to_save).await?;
+            #[allow(clippy::cast_possible_truncation)]
+            self.metrics
+                .observe_persist_latency_ms(p_start.elapsed().as_millis() as u64, "save");
         }
 
-        self.metrics.inc_concepts_injected(to_save.len() as u64);
+        self.metrics
+            .inc_concepts_injected(to_save.len() as u64, false);
         Ok(())
     }
 
@@ -65,7 +70,9 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(ref persistence) = self.persistence {
-            persistence.save_associations(&self.namespace, associations).await?;
+            persistence
+                .save_associations(&self.namespace, associations)
+                .await?;
         }
 
         self.metrics
@@ -184,8 +191,12 @@ impl ChaoticSemanticFramework {
         }; // Lock released here
         // Persist concepts and associations (no lock needed)
         if let Some(ref persistence) = self.persistence {
-            persistence.save_concepts(&self.namespace, &payload.concepts).await?;
-            persistence.save_associations(&self.namespace, &valid_associations).await?;
+            persistence
+                .save_concepts(&self.namespace, &payload.concepts)
+                .await?;
+            persistence
+                .save_associations(&self.namespace, &valid_associations)
+                .await?;
         }
         Ok(payload.concepts.len())
     }
@@ -285,8 +296,12 @@ impl ChaoticSemanticFramework {
 
         // Persist concepts and associations (no lock needed)
         if let Some(ref persistence) = self.persistence {
-            persistence.save_concepts(&self.namespace, &payload.concepts).await?;
-            persistence.save_associations(&self.namespace, &valid_associations).await?;
+            persistence
+                .save_concepts(&self.namespace, &payload.concepts)
+                .await?;
+            persistence
+                .save_associations(&self.namespace, &valid_associations)
+                .await?;
         }
 
         Ok(payload.concepts.len())
@@ -328,7 +343,9 @@ impl ChaoticSemanticFramework {
             limit = MAX_HISTORY_LIMIT;
         }
         if let Some(ref persistence) = self.persistence {
-            return persistence.get_concept_history(&self.namespace, id, limit).await;
+            return persistence
+                .get_concept_history(&self.namespace, id, limit)
+                .await;
         }
         Ok(Vec::new())
     }
@@ -384,7 +401,9 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(persistence) = &self.persistence {
-            persistence.delete_association(&self.namespace, from, to).await?;
+            persistence
+                .delete_association(&self.namespace, from, to)
+                .await?;
         }
         self.emit_event(MemoryEvent::Disassociated {
             from: from.to_string(),
@@ -402,7 +421,9 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(persistence) = &self.persistence {
-            persistence.clear_concept_associations(&self.namespace, id).await?;
+            persistence
+                .clear_concept_associations(&self.namespace, id)
+                .await?;
         }
         Ok(())
     }

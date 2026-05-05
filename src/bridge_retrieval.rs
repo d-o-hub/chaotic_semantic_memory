@@ -287,7 +287,7 @@ mod tests {
 
     use super::*;
     use crate::semantic_bridge::CanonicalConcept;
-    use crate::singularity::Singularity;
+    use crate::singularity::{Singularity, SingularityConfig};
 
     #[test]
     fn test_bridge_retrieval_empty_singularity() {
@@ -296,7 +296,9 @@ mod tests {
         let bridge = BridgeRetrieval::with_defaults(encoder, graph);
         let singularity = Singularity::new(SingularityConfig::default());
 
-        let results = bridge.query("_default", &singularity, "test query", 10, None).unwrap();
+        let results = bridge
+            .query("_default", &singularity, "test query", 10, None)
+            .unwrap();
         assert!(results.is_empty());
     }
 
@@ -313,7 +315,9 @@ mod tests {
             .unwrap();
         singularity.inject("_default", concept).unwrap();
 
-        let results = bridge.query("_default", &singularity, "test query", 10, None).unwrap();
+        let results = bridge
+            .query("_default", &singularity, "test query", 10, None)
+            .unwrap();
         // Should return deterministic results even without graph expansion
         assert!(!results.is_empty());
         assert!(results[0].scores.deterministic > 0.0);
@@ -399,17 +403,22 @@ mod tests {
 #[cfg(test)]
 mod tests_v2 {
     use super::*;
-    use crate::singularity::{Singularity, SingularityConfig, ConceptBuilder};
     use crate::hyperdim::HVec10240;
+    use crate::singularity::{ConceptBuilder, Singularity, SingularityConfig};
 
     #[tokio::test]
     async fn test_bridge_retrieval_query_v2() {
         let singularity = Singularity::new(SingularityConfig::default());
         let mut sing_mut = singularity; // Need mut for inject
-        let concept = ConceptBuilder::new("c1").with_vector(HVec10240::random()).build().unwrap();
+        let concept = ConceptBuilder::new("c1")
+            .with_vector(HVec10240::random())
+            .build()
+            .unwrap();
         sing_mut.inject("_default", concept).unwrap();
 
-        let bridge = BridgeRetrieval::new(BridgeConfig::default());
+        let encoder = TextEncoder::new();
+        let graph = ConceptGraph::new();
+        let bridge = BridgeRetrieval::new(encoder, graph, BridgeConfig::default());
         let results = bridge.query("_default", &sing_mut, "test", 10, None);
         assert!(results.is_ok());
     }

@@ -12,19 +12,25 @@ impl ChaoticSemanticFramework {
     #[tracing::instrument(err, skip(self))]
     pub async fn persist(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
+            let p_start = std::time::Instant::now();
             // ADR-0068: Persist ANN index state
             {
                 let sing = self.singularity.read().await;
                 if let Some(ns_state) = sing.get_namespace(&self.namespace) {
                     if let Ok(index_data) = ns_state.index.serialize() {
                         if !index_data.is_empty() {
-                            persistence.save_index(&self.namespace, "main", &index_data).await?;
+                            persistence
+                                .save_index(&self.namespace, "main", &index_data)
+                                .await?;
                         }
                     }
                 }
             }
 
             persistence.checkpoint().await?;
+            #[allow(clippy::cast_possible_truncation)]
+            self.metrics
+                .observe_persist_latency_ms(p_start.elapsed().as_millis() as u64, "persist");
         }
         Ok(())
     }
@@ -45,6 +51,7 @@ impl ChaoticSemanticFramework {
     #[tracing::instrument(err, skip(self))]
     pub async fn load_replace(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
+            let p_start = std::time::Instant::now();
             let concepts = persistence.load_all_concepts(&self.namespace).await?;
 
             for concept in &concepts {
@@ -53,7 +60,9 @@ impl ChaoticSemanticFramework {
 
             let mut all_associations: Vec<(String, String, f32)> = Vec::new();
             for concept in &concepts {
-                let links = persistence.load_associations(&self.namespace, &concept.id).await?;
+                let links = persistence
+                    .load_associations(&self.namespace, &concept.id)
+                    .await?;
                 for (to_id, strength) in links {
                     all_associations.push((concept.id.clone(), to_id, strength));
                 }
@@ -66,7 +75,8 @@ impl ChaoticSemanticFramework {
                     sing.inject(&self.namespace, concept)?;
                 }
                 for (from_id, to_id, strength) in all_associations {
-                    if let Err(error) = sing.associate(&self.namespace, &from_id, &to_id, strength) {
+                    if let Err(error) = sing.associate(&self.namespace, &from_id, &to_id, strength)
+                    {
                         warn!(
                             from_id = %from_id,
                             to_id = %to_id,
@@ -78,7 +88,8 @@ impl ChaoticSemanticFramework {
                 }
 
                 // ADR-0068: Load ANN index state
-                if let Ok(Some(index_data)) = persistence.load_index(&self.namespace, "main").await {
+                if let Ok(Some(index_data)) = persistence.load_index(&self.namespace, "main").await
+                {
                     let ns_state = sing.get_namespace_mut(&self.namespace);
                     let _ = ns_state.index.deserialize(&index_data);
                 } else {
@@ -87,7 +98,11 @@ impl ChaoticSemanticFramework {
                     let concepts_map = ns_state.concepts.clone();
                     let _ = ns_state.index.rebuild(&concepts_map);
                 }
+                drop(sing);
             }
+            #[allow(clippy::cast_possible_truncation)]
+            self.metrics
+                .observe_persist_latency_ms(p_start.elapsed().as_millis() as u64, "load");
         }
         Ok(())
     }
@@ -121,7 +136,9 @@ impl ChaoticSemanticFramework {
 
             let mut all_associations: Vec<(String, String, f32)> = Vec::new();
             for concept in &concepts {
-                let links = persistence.load_associations(&self.namespace, &concept.id).await?;
+                let links = persistence
+                    .load_associations(&self.namespace, &concept.id)
+                    .await?;
                 for (to_id, strength) in links {
                     all_associations.push((concept.id.clone(), to_id, strength));
                 }
@@ -130,7 +147,8 @@ impl ChaoticSemanticFramework {
             {
                 let mut sing = self.singularity.write().await;
                 for (from_id, to_id, strength) in all_associations {
-                    if let Err(error) = sing.associate(&self.namespace, &from_id, &to_id, strength) {
+                    if let Err(error) = sing.associate(&self.namespace, &from_id, &to_id, strength)
+                    {
                         warn!(
                             from_id = %from_id,
                             to_id = %to_id,
@@ -142,7 +160,8 @@ impl ChaoticSemanticFramework {
                 }
 
                 // ADR-0068: Load ANN index state
-                if let Ok(Some(index_data)) = persistence.load_index(&self.namespace, "main").await {
+                if let Ok(Some(index_data)) = persistence.load_index(&self.namespace, "main").await
+                {
                     let ns_state = sing.get_namespace_mut(&self.namespace);
                     let _ = ns_state.index.deserialize(&index_data);
                 } else {
@@ -151,6 +170,7 @@ impl ChaoticSemanticFramework {
                     let concepts_map = ns_state.concepts.clone();
                     let _ = ns_state.index.rebuild(&concepts_map);
                 }
+                drop(sing);
             }
         }
         Ok(())

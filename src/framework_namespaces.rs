@@ -9,6 +9,11 @@ impl ChaoticSemanticFramework {
     }
 
     pub async fn delete_namespace(&self, ns: &str) -> Result<usize> {
+        // Persist deletion first so DB failure doesn't leave orphaned data
+        if let Some(ref persistence) = self.persistence {
+            persistence.clear_namespace(ns).await?;
+        }
+
         let count = {
             let mut sing = self.singularity.write().await;
             let count = sing.len(ns);
@@ -16,20 +21,16 @@ impl ChaoticSemanticFramework {
             count
         };
 
-        if let Some(ref persistence) = self.persistence {
-            persistence.clear_namespace(ns).await?;
-        }
-
         Ok(count)
     }
 
     pub async fn export_namespace(&self, ns: &str, path: &Path) -> Result<()> {
-        let path_str = path.to_str().ok_or_else(|| {
-            crate::error::MemoryError::InvalidInput {
+        let path_str = path
+            .to_str()
+            .ok_or_else(|| crate::error::MemoryError::InvalidInput {
                 field: "path".to_string(),
                 reason: "Invalid path".to_string(),
-            }
-        })?;
+            })?;
 
         // We temporarily switch the framework's namespace to export a specific one
         // using the existing export_json logic.

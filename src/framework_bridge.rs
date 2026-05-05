@@ -57,7 +57,8 @@ impl ChaoticSemanticFramework {
 
         // Get filtered concept IDs first
         let query_hv = bridge.encoder().encode(query);
-        let filtered_results = singularity.find_similar_filtered(&self.namespace, &query_hv, top_k, filter);
+        let filtered_results =
+            singularity.find_similar_filtered(&self.namespace, &query_hv, top_k, filter);
         let filtered_ids: std::collections::HashSet<String> = filtered_results
             .as_ref()
             .iter()

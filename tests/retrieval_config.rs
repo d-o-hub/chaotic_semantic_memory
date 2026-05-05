@@ -7,7 +7,7 @@
 #![allow(clippy::float_cmp)]
 
 use chaotic_semantic_memory::prelude::*;
-use chaotic_semantic_memory::singularity::Singularity;
+use chaotic_semantic_memory::singularity::{Singularity, SingularityConfig};
 
 #[test]
 fn retrieval_config_default_is_valid() {
@@ -40,7 +40,7 @@ fn retrieval_config_valid_custom_values() {
 
 #[test]
 fn singularity_set_retrieval_config_accepts_valid() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
     let config = RetrievalConfig {
         max_candidates: 2000,
         ..Default::default()
@@ -50,7 +50,7 @@ fn singularity_set_retrieval_config_accepts_valid() {
 
 #[test]
 fn singularity_set_retrieval_config_rejects_invalid_bucket_width() {
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
     let config = RetrievalConfig {
         bucket_probe_width: 1000, // Invalid
         ..Default::default()

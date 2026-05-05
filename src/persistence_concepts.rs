@@ -1,9 +1,9 @@
 #![cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-use libsql::params;
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
-use crate::singularity::Concept;
 use crate::persistence::Persistence;
+use crate::singularity::Concept;
+use libsql::params;
 
 impl Persistence {
     /// Save a concept to the database
@@ -33,7 +33,8 @@ impl Persistence {
         .await
         .map_err(|e| MemoryError::database(format!("Failed to save concept: {e}")))?;
 
-        self.record_concept_version_scoped(&conn, ns, concept).await?;
+        self.record_concept_version_scoped(&conn, ns, concept)
+            .await?;
         Ok(())
     }
 
@@ -237,7 +238,10 @@ impl Persistence {
         }
 
         if let Err(e) = conn
-            .execute("DELETE FROM csm_concepts WHERE namespace = ?1 AND id = ?2", params![ns.to_string(), id.to_string()])
+            .execute(
+                "DELETE FROM csm_concepts WHERE namespace = ?1 AND id = ?2",
+                params![ns.to_string(), id.to_string()],
+            )
             .await
         {
             let _ = conn.execute("ROLLBACK", ()).await;

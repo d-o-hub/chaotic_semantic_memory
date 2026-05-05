@@ -6,7 +6,11 @@ use crate::error::{MemoryError, Result};
 use crate::persistence::{ConceptVersion, Persistence};
 
 impl Persistence {
-    pub async fn save_associations(&self, ns: &str, associations: &[(String, String, f32)]) -> Result<()> {
+    pub async fn save_associations(
+        &self,
+        ns: &str,
+        associations: &[(String, String, f32)],
+    ) -> Result<()> {
         if associations.is_empty() {
             return Ok(());
         }
@@ -51,42 +55,12 @@ impl Persistence {
         Ok(())
     }
 
-    pub async fn clear_namespace(&self, ns: &str) -> Result<()> {
-        let _permit = self.acquire_remote_slot().await?;
-        let conn = self.connect().await?;
-        conn.execute(
-            "BEGIN;
-             DELETE FROM csm_associations WHERE namespace = ?1;
-             DELETE FROM csm_versions WHERE namespace = ?1;
-             DELETE FROM csm_concepts WHERE namespace = ?1;
-             DELETE FROM csm_hnsw_graph WHERE namespace = ?1;
-             DELETE FROM csm_canonical WHERE namespace = ?1;
-             COMMIT;",
-            params![ns.to_string()],
-        )
-        .await
-        .map_err(|e| MemoryError::database(format!("Failed to clear namespace data: {e}")))?;
-        Ok(())
-    }
-
-    pub async fn clear_all(&self) -> Result<()> {
-        let _permit = self.acquire_remote_slot().await?;
-        let conn = self.connect().await?;
-        conn.execute_batch(
-            "BEGIN;
-             DELETE FROM csm_associations;
-             DELETE FROM csm_versions;
-             DELETE FROM csm_concepts;
-             DELETE FROM csm_hnsw_graph;
-             DELETE FROM csm_canonical;
-             COMMIT;",
-        )
-        .await
-        .map_err(|e| MemoryError::database(format!("Failed to clear all data: {e}")))?;
-        Ok(())
-    }
-
-    pub async fn get_concept_history(&self, ns: &str, id: &str, limit: usize) -> Result<Vec<ConceptVersion>> {
+    pub async fn get_concept_history(
+        &self,
+        ns: &str,
+        id: &str,
+        limit: usize,
+    ) -> Result<Vec<ConceptVersion>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
@@ -213,12 +187,12 @@ impl Persistence {
             .map_err(|e| MemoryError::database(format!("Failed to clear current database: {e}")))?;
 
             conn.execute_batch(
-                "INSERT INTO csm_concepts (id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
-                 SELECT id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json FROM restore_db.csm_concepts;
-                 INSERT INTO csm_associations (from_id, to_id, strength)
-                 SELECT from_id, to_id, strength FROM restore_db.csm_associations;
-                 INSERT INTO csm_versions (concept_id, version, vector, metadata, modified_at)
-                 SELECT concept_id, version, vector, metadata, modified_at FROM restore_db.csm_versions;
+                "INSERT INTO csm_concepts (id, namespace, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
+                 SELECT id, namespace, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json FROM restore_db.csm_concepts;
+                 INSERT INTO csm_associations (namespace, from_id, to_id, strength)
+                 SELECT namespace, from_id, to_id, strength FROM restore_db.csm_associations;
+                 INSERT INTO csm_versions (namespace, concept_id, version, vector, metadata, modified_at)
+                 SELECT namespace, concept_id, version, vector, metadata, modified_at FROM restore_db.csm_versions;
                  INSERT INTO csm_schema_version(version)
                  SELECT version FROM restore_db.csm_schema_version;",
             )
@@ -250,32 +224,6 @@ impl Persistence {
         conn.query("SELECT 1", ())
             .await
             .map_err(|e| MemoryError::database(format!("Failed persistence health check: {e}")))?;
-        Ok(())
-    }
-
-    /// Delete a single association between two concepts.
-    pub async fn delete_association(&self, ns: &str, from: &str, to: &str) -> Result<()> {
-        let _permit = self.acquire_remote_slot().await?;
-        let conn = self.connect().await?;
-        conn.execute(
-            "DELETE FROM csm_associations WHERE namespace = ?1 AND from_id = ?2 AND to_id = ?3",
-            params![ns.to_string(), from, to],
-        )
-        .await
-        .map_err(|e| MemoryError::database(format!("Failed to delete association: {e}")))?;
-        Ok(())
-    }
-
-    /// Clear all outbound associations for a concept.
-    pub async fn clear_concept_associations(&self, ns: &str, id: &str) -> Result<()> {
-        let _permit = self.acquire_remote_slot().await?;
-        let conn = self.connect().await?;
-        conn.execute(
-            "DELETE FROM csm_associations WHERE namespace = ?1 AND from_id = ?2",
-            params![ns.to_string(), id],
-        )
-        .await
-        .map_err(|e| MemoryError::database(format!("Failed to clear concept associations: {e}")))?;
         Ok(())
     }
 

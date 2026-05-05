@@ -15,7 +15,8 @@ pub async fn run_path(args: PathArgs, db_path: Option<&Path>, format: OutputForm
     validate_concept_id(&args.from)?;
     validate_concept_id(&args.to)?;
 
-    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
+    let framework: crate::framework::ChaoticSemanticFramework =
+        create_framework_with_namespace(db_path, &args.namespace).await?;
 
     // Verify both concepts exist
     let _from_concept = framework

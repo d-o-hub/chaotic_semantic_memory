@@ -89,7 +89,12 @@ impl MemoryAdapter {
         })
     }
 
-    pub async fn ingest_memory(&self, id: &str, text: &str, ttl_seconds: Option<u64>) -> Result<()> {
+    pub async fn ingest_memory(
+        &self,
+        id: &str,
+        text: &str,
+        ttl_seconds: Option<u64>,
+    ) -> Result<()> {
         let session_id = id.split(':').next().unwrap_or("default");
 
         // Store text metadata for HDC
@@ -190,10 +195,7 @@ impl MemoryAdapter {
             final_top_k: top_k * 3,
         };
 
-        let graph_rag_results = self
-            .framework
-            .probe_text_with_graph(text, config)
-            .await?;
+        let graph_rag_results = self.framework.probe_text_with_graph(text, config).await?;
 
         let hdc_hits: Vec<(String, f32)> = graph_rag_results
             .into_iter()
@@ -362,11 +364,7 @@ impl MemoryAdapter {
     }
 
     /// Query across all sessions for association tasks.
-    pub async fn query_association(
-        &self,
-        text: &str,
-        top_k: usize,
-    ) -> Result<Vec<(String, f32)>> {
+    pub async fn query_association(&self, text: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
         self.query(text, top_k).await
     }
 
@@ -391,7 +389,7 @@ impl MemoryAdapter {
     ) -> Result<Vec<(String, f32)>> {
         let sing_lock = self.framework.singularity();
         let sing = sing_lock.read().await;
-        let hits = self.bridge.query(&sing, text, top_k * 10, None)?;
+        let hits = self.bridge.query("_default", &sing, text, top_k * 10, None)?;
 
         let filtered = if let Some(sid) = session_id {
             let prefix = format!("{sid}:");

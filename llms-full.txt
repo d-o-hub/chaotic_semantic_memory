@@ -18,6 +18,14 @@
 - fastembed (4)
 - glob (0.3.2)
 - hnsw_rs (0.3.4)
+- http-body-util (0.1)
+- hyper (1.5) [features: server, http1]
+- hyper-util (0.1) [features: server, tokio]
+- opentelemetry (0.31)
+- opentelemetry-otlp (0.31) [features: grpc-tonic]
+- opentelemetry-semantic-conventions (0.31)
+- opentelemetry_sdk (0.31) [features: rt-tokio]
+- prometheus (0.13)
 - rand (0.10.1)
 - rand_chacha (0.10.0)
 - reqwest (0.12) [features: json, rustls-tls]
@@ -26,7 +34,8 @@
 - serde_json (1.0.149)
 - thiserror (2.0.11)
 - tracing (0.1.41)
-- tracing-subscriber (0.3.19)
+- tracing-opentelemetry (0.32)
+- tracing-subscriber (0.3.19) [features: json, env-filter]
 **Features:**
 - ann-hnsw: [dep:hnsw_rs]
 - ann-lsh: []
@@ -36,8 +45,10 @@
 - embed-openai: [dep:reqwest]
 - embed-voyage: [dep:reqwest]
 - mcp: [dep:rmcp, cli]
+- otlp: [dep:opentelemetry, dep:opentelemetry-otlp, dep:opentelemetry_sdk, dep:tracing-opentelemetry, dep:opentelemetry-semantic-conventions]
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
+- prometheus: [dep:prometheus, dep:hyper, dep:hyper-util, dep:http-body-util]
 - wasm: []
 
 Generated: [TIMESTAMP REMOVED FOR DETERMINISM]
@@ -48,7 +59,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/bin/csm.rs
 
 - pub use native::chaotic_semantic_memory::cli::commands::watch::EventFilter
-- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
+- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, NamespaceCommand, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_namespaces_delete, run_namespaces_export, run_namespaces_list, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
 - pub use native::clap::Parser
 - pub use native::colored::Colorize
 - pub use native::tracing::Level
@@ -76,6 +87,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/cli/args.rs
 
+- pub use super::namespace_args::{NamespaceArgs, NamespaceCommand, NamespaceDeleteArgs, NamespaceExportArgs}
 - pub struct CliArgs
 - pub enum OutputFormat
 - pub enum Commands
@@ -170,6 +182,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod index_jsonl
 - pub mod inject
 - pub mod metrics
+- pub mod namespaces
 - pub mod path
 - pub mod probe
 - pub mod probe_filtered
@@ -191,6 +204,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use index_jsonl::run_index_jsonl
 - pub use inject::run_inject
 - pub use metrics::run_metrics
+- pub use namespaces::run_namespaces_delete
+- pub use namespaces::run_namespaces_export
+- pub use namespaces::run_namespaces_list
 - pub use path::run_path
 - pub use probe::run_probe
 - pub use probe_filtered::run_probe_filtered
@@ -205,6 +221,13 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn print_warning
 - pub fn truncate_preview
 - pub fn create_framework
+- pub fn create_framework_with_namespace
+
+### src/cli/commands/namespaces.rs
+
+- pub fn run_namespaces_list
+- pub fn run_namespaces_delete
+- pub fn run_namespaces_export
 
 ### src/cli/commands/path.rs
 
@@ -267,10 +290,18 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod commands
 - pub mod error
 - pub mod git_local
+- pub mod namespace_args
 - pub use args::*
-- pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
+- pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_namespaces_delete, run_namespaces_export, run_namespaces_list, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
+
+### src/cli/namespace_args.rs
+
+- pub enum NamespaceCommand
+- pub struct NamespaceArgs
+- pub struct NamespaceDeleteArgs
+- pub struct NamespaceExportArgs
 
 ### src/concept_builder.rs
 
@@ -373,6 +404,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct FrameworkMetricsSnapshot
 - impl FrameworkMetrics
 
+### src/framework_namespaces.rs
+
+- impl ChaoticSemanticFramework
+
 ### src/framework_ops.rs
 
 - impl ChaoticSemanticFramework
@@ -440,6 +475,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct IndexStats
 - pub enum IndexBackend
 - pub trait AnnIndex
+- pub fn create_index
 
 ### src/lib.rs
 
@@ -466,6 +502,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod hyperdim
 - pub mod mcp
 - pub mod metadata_filter
+- pub mod observability
 - pub mod semantic_triples
 - pub use metadata_filter::MetadataFilter
 - pub mod index
@@ -475,6 +512,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod retrieval
 - pub mod semantic_bridge
 - pub mod singularity
+- pub mod singularity_state
 - pub use crate::persistence_wasm as persistence
 - pub mod persistence
 - pub struct persistence::Persistence
@@ -539,10 +577,47 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl MetadataFilter
 - impl ops::Not for MetadataFilter
 
+### src/observability/mod.rs
+
+- pub mod otlp
+- pub mod prom
+- pub enum LogFormat
+- pub struct ObservabilityConfig
+- impl Default for ObservabilityConfig
+- pub struct ObservabilityGuard
+- pub fn init
+
+### src/observability/otlp.rs
+
+- pub struct OtlpGuard
+- pub fn init_otlp
+- impl Drop for OtlpGuard
+
+### src/observability/prom.rs
+
+- pub static REGISTRY
+- pub static PROBE_TOTAL
+- pub static PROBE_LATENCY
+- pub static INJECT_TOTAL
+- pub static PERSIST_LATENCY
+- pub static ASSOCIATIONS_TOTAL
+- pub static CONCEPTS_COUNT
+- pub static ASSOCIATIONS_COUNT
+- pub static CACHE_HIT_RATIO
+- pub fn init_prometheus
+
 ### src/persistence.rs
 
 - pub struct Persistence
 - pub struct ConceptVersion
+- impl Persistence
+
+### src/persistence_clear.rs
+
+- impl Persistence
+
+### src/persistence_concepts.rs
+
 - impl Persistence
 
 ### src/persistence_index.rs
@@ -640,16 +715,15 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/singularity.rs
 
-- pub use crate::singularity_cache::CacheMetricsSnapshot
-- pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
-- pub const DEFAULT_MAX_CACHED_TOP_K
-- pub struct Concept
 - pub struct SingularityConfig
 - impl Default for SingularityConfig
+- pub struct Concept
+- pub struct ConceptBuilder
+- impl ConceptBuilder
 - pub struct Singularity
 - impl Singularity
-- impl Default for Singularity
-- pub use crate::concept_builder::ConceptBuilder
+- pub fn unix_now_secs
+- pub fn unix_now_ns
 
 ### src/singularity_cache.rs
 
@@ -674,6 +748,11 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/singularity_search.rs
 
 - impl Singularity
+
+### src/singularity_state.rs
+
+- pub struct NamespaceState
+- impl NamespaceState
 
 ### src/singularity_ttl.rs
 
@@ -1231,10 +1310,10 @@ The `csm` binary provides command-line access:
 pub use chaotic_semantic_memory::cli::commands::watch::EventFilter;
 ```
 
-### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
+### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, NamespaceCommand, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_namespaces_delete, run_namespaces_export, run_namespaces_list, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
 
 ```rust
-pub use chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch};
+pub use chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, NamespaceCommand, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_namespaces_delete, run_namespaces_export, run_namespaces_list, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch};
 ```
 
 ### clap::Parser
@@ -1264,7 +1343,7 @@ pub fn handle_completions(args: &CompletionsArgs) -> Result<(), CliError>
 ### init_tracing
 
 ```rust
-pub fn init_tracing(verbose: u8)
+pub fn init_tracing(verbose: u8, _otlp_endpoint: Option<String>, _prometheus_bind: Option<String>) -> Option<Box<dyn Trait>>
 ```
 
 ### resolve_database_path
@@ -1332,8 +1411,8 @@ Bridge retrieval orchestrator combining concept expansion with HDC recall.
 impl BridgeRetrieval {
     pub fn new(encoder: TextEncoder, concept_graph: ConceptGraph, config: BridgeConfig) -> Self;
     pub fn with_defaults(encoder: TextEncoder, concept_graph: ConceptGraph) -> Self;
-    pub fn query(&self, singularity: &Singularity, query_text: &str, top_k: usize, reranker: Option<&dyn Trait>) -> Result<Vec<BridgeHit>>;
-    pub fn memory_packet(&self, singularity: &Singularity, query_text: &str, top_k: usize, reranker: Option<&dyn Trait>) -> Result<MemoryPacket>;
+    pub fn query(&self, ns: &str, singularity: &Singularity, query_text: &str, top_k: usize, reranker: Option<&dyn Trait>) -> Result<Vec<BridgeHit>>;
+    pub fn memory_packet(&self, ns: &str, singularity: &Singularity, query_text: &str, top_k: usize, reranker: Option<&dyn Trait>) -> Result<MemoryPacket>;
     pub fn concept_graph(&self) -> &ConceptGraph;
     pub fn encoder(&self) -> &TextEncoder;
     pub fn config(&self) -> &BridgeConfig;
@@ -1384,6 +1463,7 @@ impl Default for BundleAccumulator {
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct AssociateArgs {
+    pub namespace: String,
     pub source_id: String,
     pub target_id: String,
     pub strength: f64,
@@ -1395,6 +1475,7 @@ pub struct AssociateArgs {
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct AssociationsArgs {
+    pub namespace: String,
     pub concept_id: String,
     pub reverse: bool,
 }
@@ -1413,6 +1494,8 @@ pub struct CliArgs {
     pub git_local: bool,
     pub index_path: Option<PathBuf>,
     pub output_format: OutputFormat,
+    pub otlp_endpoint: Option<String>,
+    pub prometheus_bind: Option<String>,
 }
 ```
 
@@ -1443,6 +1526,7 @@ pub enum Commands {
     Metrics(MetricsArgs),
     Watch(WatchArgs),
     ProbeGraph(ProbeGraphArgs),
+    Namespaces(NamespaceArgs),
 }
 ```
 
@@ -1461,6 +1545,7 @@ pub struct CompletionsArgs {
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct DeleteArgs {
+    pub namespace: String,
     pub concept_id: String,
     pub force: bool,
 }
@@ -1473,6 +1558,7 @@ Arguments for the delete command.
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct DisassociateArgs {
+    pub namespace: String,
     pub from: String,
     pub to: Option<String>,
 }
@@ -1485,6 +1571,7 @@ Arguments for the disassociate command.
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct ExportArgs {
+    pub namespace: String,
     pub output: PathBuf,
     pub format: ExportFormat,
 }
@@ -1505,6 +1592,7 @@ pub enum ExportFormat {
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct GetArgs {
+    pub namespace: String,
     pub concept_id: String,
 }
 ```
@@ -1516,6 +1604,7 @@ Arguments for the get command.
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct ImportArgs {
+    pub namespace: String,
     pub input: PathBuf,
     pub format: ImportFormat,
     pub merge: bool,
@@ -1538,6 +1627,7 @@ pub enum ImportFormat {
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct IndexDirArgs {
+    pub namespace: String,
     pub glob: Vec<String>,
     pub heading_level: usize,
     pub code_aware: bool,
@@ -1551,6 +1641,7 @@ Arguments for indexing Markdown directory.
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct IndexJsonlArgs {
+    pub namespace: String,
     pub file: PathBuf,
     pub field: String,
     pub id_field: Option<String>,
@@ -1566,6 +1657,7 @@ Arguments for indexing JSONL files.
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct InjectArgs {
+    pub namespace: String,
     pub concept_id: String,
     pub from_file: Option<PathBuf>,
     pub vector_source: VectorSource,
@@ -1579,6 +1671,7 @@ pub struct InjectArgs {
 #[derive(Args, Debug, Clone)]
 pub struct MetricsArgs {
     pub reset: bool,
+    pub namespace: String,
 }
 ```
 
@@ -1600,6 +1693,7 @@ pub enum OutputFormat {
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct PathArgs {
+    pub namespace: String,
     pub from: String,
     pub to: String,
     pub weighted: bool,
@@ -1613,6 +1707,7 @@ Arguments for finding shortest path between two concepts.
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct ProbeArgs {
+    pub namespace: String,
     pub concept_id: String,
     pub top_k: usize,
     pub threshold: Option<f64>,
@@ -1624,6 +1719,7 @@ pub struct ProbeArgs {
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct ProbeFilteredArgs {
+    pub namespace: String,
     pub concept_id: String,
     pub top_k: usize,
     pub filter: String,
@@ -1637,6 +1733,7 @@ Arguments for filtered similarity probe.
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct ProbeGraphArgs {
+    pub namespace: String,
     pub text: String,
     pub anchors: usize,
     pub hops: usize,
@@ -1654,6 +1751,7 @@ Arguments for GraphRAG retrieval.
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct QueryArgs {
+    pub namespace: String,
     pub text: String,
     pub top_k: usize,
     pub min_score: f64,
@@ -1671,7 +1769,9 @@ Arguments for text-based similarity query.
 
 ```rust
 #[derive(Args, Debug, Clone)]
-pub struct StatsArgs;
+pub struct StatsArgs {
+    pub namespace: String,
+}
 ```
 
 Arguments for stats command.
@@ -1681,6 +1781,7 @@ Arguments for stats command.
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct TraverseArgs {
+    pub namespace: String,
     pub start: String,
     pub depth: usize,
     pub min_strength: f64,
@@ -1694,6 +1795,7 @@ Arguments for BFS traversal from a starting concept.
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct UpdateArgs {
+    pub namespace: String,
     pub concept_id: String,
     pub vector_from_text: Option<String>,
     pub code_aware: bool,
@@ -1735,6 +1837,12 @@ pub struct WatchArgs {
 
 Arguments for watch command.
 
+### super::namespace_args::{NamespaceArgs, NamespaceCommand, NamespaceDeleteArgs, NamespaceExportArgs}
+
+```rust
+pub use super::namespace_args::{NamespaceArgs, NamespaceCommand, NamespaceDeleteArgs, NamespaceExportArgs};
+```
+
 ## src/cli/commands/associate.rs
 
 ### run_associate
@@ -1746,7 +1854,7 @@ pub fn run_associate(args: AssociateArgs, db_path: Option<&Path>, format: Output
 ### run_associate_batch
 
 ```rust
-pub fn run_associate_batch(associations: Vec<(String, String, f64)>, db_path: Option<&Path>, format: OutputFormat, continue_on_error: bool) -> Result<()>
+pub fn run_associate_batch(ns: &str, associations: Vec<(String, String, f64)>, db_path: Option<&Path>, format: OutputFormat, continue_on_error: bool) -> Result<()>
 ```
 
 ## src/cli/commands/associations.rs
@@ -1858,7 +1966,7 @@ pub fn run_inject(args: InjectArgs, db_path: Option<&Path>, format: OutputFormat
 ### run_metrics
 
 ```rust
-pub fn run_metrics(db_path: Option<&Path>, format: OutputFormat, reset: bool) -> Result<()>
+pub fn run_metrics(args: MetricsArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
 Run the metrics command.
@@ -1887,6 +1995,12 @@ pub use completions::run_completions;
 
 ```rust
 pub fn create_framework(db_path: Option<&std::path::Path>) -> Result<ChaoticSemanticFramework>
+```
+
+### create_framework_with_namespace
+
+```rust
+pub fn create_framework_with_namespace(db_path: Option<&std::path::Path>, ns: &str) -> Result<ChaoticSemanticFramework>
 ```
 
 ### delete::run_delete
@@ -1941,6 +2055,24 @@ pub use inject::run_inject;
 
 ```rust
 pub use metrics::run_metrics;
+```
+
+### namespaces::run_namespaces_delete
+
+```rust
+pub use namespaces::run_namespaces_delete;
+```
+
+### namespaces::run_namespaces_export
+
+```rust
+pub use namespaces::run_namespaces_export;
+```
+
+### namespaces::run_namespaces_list
+
+```rust
+pub use namespaces::run_namespaces_list;
 ```
 
 ### path::run_path
@@ -2025,6 +2157,32 @@ pub use update::run_update;
 pub use watch::run_watch;
 ```
 
+## src/cli/commands/namespaces.rs
+
+### run_namespaces_delete
+
+```rust
+pub fn run_namespaces_delete(args: NamespaceDeleteArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+Delete a namespace and all its concepts.
+
+### run_namespaces_export
+
+```rust
+pub fn run_namespaces_export(args: NamespaceExportArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+Export a namespace to a file.
+
+### run_namespaces_list
+
+```rust
+pub fn run_namespaces_list(db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+List all namespaces in the database.
+
 ## src/cli/commands/path.rs
 
 ### run_path
@@ -2044,7 +2202,7 @@ pub fn run_probe(args: ProbeArgs, db_path: Option<&Path>, format: OutputFormat) 
 ### run_probe_with_vector
 
 ```rust
-pub fn run_probe_with_vector(query_vector: HVec10240, top_k: usize, threshold: Option<f64>, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+pub fn run_probe_with_vector(ns: &str, query_vector: HVec10240, top_k: usize, threshold: Option<f64>, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
 ## src/cli/commands/probe_filtered.rs
@@ -2076,7 +2234,7 @@ pub fn run_query(args: QueryArgs, db_path: Option<&Path>, format: OutputFormat) 
 ### run_stats
 
 ```rust
-pub fn run_stats(db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+pub fn run_stats(args: StatsArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
 Run the stats command.
@@ -2261,10 +2419,10 @@ assert!(path.is_some() || path.is_none()); // Always passes, documents behavior
 pub use args::*;
 ```
 
-### commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
+### commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_namespaces_delete, run_namespaces_export, run_namespaces_list, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
 
 ```rust
-pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch};
+pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_namespaces_delete, run_namespaces_export, run_namespaces_list, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch};
 ```
 
 ### error::{CliError, ExitCode, Result}
@@ -2278,6 +2436,56 @@ pub use error::{CliError, ExitCode, Result};
 ```rust
 pub use git_local::{ensure_git_local_dir, resolve_git_local_path};
 ```
+
+## src/cli/namespace_args.rs
+
+### NamespaceArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct NamespaceArgs {
+    pub command: NamespaceCommand,
+}
+```
+
+Arguments for the namespaces command group.
+
+### NamespaceCommand
+
+```rust
+#[derive(Subcommand, Debug, Clone)]
+pub enum NamespaceCommand {
+    List,
+    Delete(NamespaceDeleteArgs),
+    Export(NamespaceExportArgs),
+}
+```
+
+Namespace management subcommands.
+
+### NamespaceDeleteArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct NamespaceDeleteArgs {
+    pub ns: String,
+    pub force: bool,
+}
+```
+
+Arguments for namespace delete subcommand.
+
+### NamespaceExportArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct NamespaceExportArgs {
+    pub ns: String,
+    pub output: PathBuf,
+}
+```
+
+Arguments for namespace export subcommand.
 
 ## src/concept_builder.rs
 
@@ -2707,6 +2915,7 @@ Main framework for chaotic semantic memory
 impl ChaoticSemanticFramework {
     pub fn builder() -> FrameworkBuilder;
     pub fn singularity(&self) -> Arc<RwLock<Singularity>>;
+    pub fn namespace(&self) -> &str;
     pub fn inject_concept(&self, id: impl Trait, vector: HVec10240) -> Result<()>;
     pub fn inject_concept_with_metadata(&self, id: impl Trait, vector: HVec10240, metadata: std::collections::HashMap<String, serde_json::Value>) -> Result<()>;
     pub fn probe(&self, query: HVec10240, top_k: usize) -> Result<Vec<(String, f32)>>;
@@ -2777,7 +2986,7 @@ Runtime configuration for [`ChaoticSemanticFramework`], tuned via [`FrameworkBui
 ### FrameworkStats
 
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct FrameworkStats {
     pub concept_count: usize,
     pub db_size_bytes: Option<u64>,
@@ -2805,6 +3014,7 @@ impl Default for FrameworkConfig {
 ```rust
 impl FrameworkBuilder {
     pub fn new() -> Self;
+    pub fn with_namespace(self, ns: impl Trait) -> Self;
     pub fn with_reservoir_size(self, size: usize) -> Self;
     pub fn with_reservoir_input_size(self, size: usize) -> Self;
     pub fn with_chaos_strength(self, strength: f32) -> Self;
@@ -2899,6 +3109,18 @@ impl FrameworkMetrics {
 }
 ```
 
+## src/framework_namespaces.rs
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
+    pub fn list_namespaces(&self) -> Result<Vec<String>>;
+    pub fn delete_namespace(&self, ns: &str) -> Result<usize>;
+    pub fn export_namespace(&self, ns: &str, path: &Path) -> Result<()>;
+}
+```
+
 ## src/framework_ops.rs
 
 ### impl ChaoticSemanticFramework
@@ -2990,11 +3212,10 @@ impl Default for TraversalConfig {
 
 ```rust
 impl Singularity {
-    pub fn neighbors(&self, id: &str, min_strength: f32) -> Vec<(String, f32)>;
-    pub fn incoming_associations(&self, id: &str) -> Vec<(&str, f32)>;
-    pub fn bfs(&self, start: &str, config: &TraversalConfig) -> Result<Vec<(String, u32)>>;
-    pub fn shortest_path(&self, from: &str, to: &str, config: &TraversalConfig) -> Result<Option<Vec<String>>>;
-    pub fn shortest_path_hops(&self, from: &str, to: &str, config: &TraversalConfig) -> Result<Option<Vec<String>>>;
+    pub fn neighbors(&self, ns: &str, id: &str, min_strength: f32) -> Vec<(String, f32)>;
+    pub fn bfs(&self, ns: &str, start: &str, config: &TraversalConfig) -> Result<Vec<(String, u32)>>;
+    pub fn shortest_path(&self, ns: &str, from: &str, to: &str, config: &TraversalConfig) -> Result<Option<Vec<String>>>;
+    pub fn shortest_path_hops(&self, ns: &str, from: &str, to: &str, config: &TraversalConfig) -> Result<Option<Vec<String>>>;
 }
 ```
 
@@ -3196,7 +3417,9 @@ Trait for Approximate Nearest Neighbor (ANN) indices.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub enum IndexBackend {
     BruteForce,
+    #[cfg(feature = "ann-hnsw")]
     Hnsw { m: usize, ef_construction: usize, ef_search: usize },
+    #[cfg(feature = "ann-lsh")]
     Lsh { num_tables: usize, hash_bits: usize },
 }
 ```
@@ -3206,7 +3429,7 @@ Supported ANN index backends.
 ### IndexStats
 
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct IndexStats {
     pub backend: String,
     pub count: usize,
@@ -3215,6 +3438,14 @@ pub struct IndexStats {
 ```
 
 Statistics for an ANN index.
+
+### create_index
+
+```rust
+pub fn create_index(backend: &IndexBackend) -> Box<dyn Trait>
+```
+
+Create an ANN index backend based on configuration.
 
 ## src/lib.rs
 
@@ -3673,6 +3904,172 @@ impl ops::Not for MetadataFilter {
 }
 ```
 
+## src/observability/mod.rs
+
+### LogFormat
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LogFormat {
+    Pretty,
+    Json,
+    Compact,
+}
+```
+
+Log format for the tracing subscriber.
+
+### ObservabilityConfig
+
+```rust
+#[derive(Debug, Clone)]
+pub struct ObservabilityConfig {
+    pub service_name: String,
+    pub otlp_endpoint: Option<String>,
+    pub prometheus_bind: Option<SocketAddr>,
+    pub log_format: LogFormat,
+    pub log_level: String,
+}
+```
+
+Configuration for the observability stack.
+
+### ObservabilityGuard
+
+```rust
+pub struct ObservabilityGuard {
+}
+```
+
+Guard to keep the observability stack alive.
+
+### impl Default for ObservabilityConfig
+
+```rust
+impl Default for ObservabilityConfig {
+}
+```
+
+### init
+
+```rust
+pub fn init(config: ObservabilityConfig) -> crate::error::Result<ObservabilityGuard>
+```
+
+Initialize the observability stack.
+
+This should be called once at application startup.
+
+## src/observability/otlp.rs
+
+### OtlpGuard
+
+```rust
+pub struct OtlpGuard {
+}
+```
+
+Guard for OTLP resources.
+
+### impl Drop for OtlpGuard
+
+```rust
+impl Drop for OtlpGuard {
+}
+```
+
+### init_otlp
+
+```rust
+pub fn init_otlp<S>(service_name: &str, endpoint: &str) -> crate::error::Result<(Box<dyn Trait>, OtlpGuard)>
+where
+    S: tracing::Subscriber + LookupSpan + Send + Sync
+```
+
+Initialize OTLP tracer and return a tracing layer and guard.
+
+## src/observability/prom.rs
+
+### ASSOCIATIONS_COUNT
+
+```rust
+pub static ASSOCIATIONS_COUNT: LazyLock<Gauge>
+```
+
+Gauge for association count: csm_associations_count
+
+### ASSOCIATIONS_TOTAL
+
+```rust
+pub static ASSOCIATIONS_TOTAL: LazyLock<Counter>
+```
+
+Counter for associations: csm_associations_total
+
+### CACHE_HIT_RATIO
+
+```rust
+pub static CACHE_HIT_RATIO: LazyLock<Gauge>
+```
+
+Gauge for cache hit ratio: csm_cache_hit_ratio
+
+### CONCEPTS_COUNT
+
+```rust
+pub static CONCEPTS_COUNT: LazyLock<Gauge>
+```
+
+Gauge for concept count: csm_concepts_count
+
+### INJECT_TOTAL
+
+```rust
+pub static INJECT_TOTAL: LazyLock<CounterVec>
+```
+
+Counter for injections: csm_inject_total{with_metadata="true|false"}
+
+### PERSIST_LATENCY
+
+```rust
+pub static PERSIST_LATENCY: LazyLock<HistogramVec>
+```
+
+Histogram for persistence latency: csm_persist_latency_ms{op="load|save|migrate"}
+
+### PROBE_LATENCY
+
+```rust
+pub static PROBE_LATENCY: LazyLock<HistogramVec>
+```
+
+Histogram for probe latency: csm_probe_latency_ms
+
+### PROBE_TOTAL
+
+```rust
+pub static PROBE_TOTAL: LazyLock<CounterVec>
+```
+
+Counter for probes: csm_probe_total{result="ok|error"}
+
+### REGISTRY
+
+```rust
+pub static REGISTRY: LazyLock<Registry>
+```
+
+Global Prometheus registry.
+
+### init_prometheus
+
+```rust
+pub fn init_prometheus(bind_addr: SocketAddr)
+```
+
+Initialize Prometheus exporter.
+
 ## src/persistence.rs
 
 ### ConceptVersion
@@ -3705,15 +4102,37 @@ impl Persistence {
     pub fn new_turso(url: &str, token: &str) -> Result<Self>;
     pub fn new_turso_with_pool(url: &str, token: &str, pool_size: usize) -> Result<Self>;
     pub fn new_turso_with_pool_and_retention(url: &str, token: &str, pool_size: usize, version_retention: usize) -> Result<Self>;
-    pub fn save_concept(&self, concept: &Concept) -> Result<()>;
-    pub fn save_concepts(&self, concepts: &[Concept]) -> Result<()>;
-    pub fn load_concept(&self, id: &str) -> Result<Option<Concept>>;
-    pub fn load_all_concepts(&self) -> Result<Vec<Concept>>;
-    pub fn delete_concept(&self, id: &str) -> Result<()>;
-    pub fn save_association(&self, from: &str, to: &str, strength: f32) -> Result<()>;
-    pub fn load_associations(&self, id: &str) -> Result<Vec<(String, f32)>>;
+    pub fn save_association(&self, ns: &str, from: &str, to: &str, strength: f32) -> Result<()>;
+    pub fn load_associations(&self, ns: &str, id: &str) -> Result<Vec<(String, f32)>>;
     pub fn checkpoint(&self) -> Result<()>;
     pub fn size(&self) -> Result<u64>;
+}
+```
+
+## src/persistence_clear.rs
+
+### impl Persistence
+
+```rust
+impl Persistence {
+    pub fn clear_namespace(&self, ns: &str) -> Result<()>;
+    pub fn clear_all(&self) -> Result<()>;
+    pub fn delete_association(&self, ns: &str, from: &str, to: &str) -> Result<()>;
+    pub fn clear_concept_associations(&self, ns: &str, id: &str) -> Result<()>;
+}
+```
+
+## src/persistence_concepts.rs
+
+### impl Persistence
+
+```rust
+impl Persistence {
+    pub fn save_concept(&self, ns: &str, concept: &Concept) -> Result<()>;
+    pub fn save_concepts(&self, ns: &str, concepts: &[Concept]) -> Result<()>;
+    pub fn load_concept(&self, ns: &str, id: &str) -> Result<Option<Concept>>;
+    pub fn load_all_concepts(&self, ns: &str) -> Result<Vec<Concept>>;
+    pub fn delete_concept(&self, ns: &str, id: &str) -> Result<()>;
 }
 ```
 
@@ -3723,8 +4142,8 @@ impl Persistence {
 
 ```rust
 impl Persistence {
-    pub fn save_index(&self, id: &str, data: &[u8]) -> Result<()>;
-    pub fn load_index(&self, id: &str) -> Result<Option<Vec<u8>>>;
+    pub fn save_index(&self, ns: &str, id: &str, data: &[u8]) -> Result<()>;
+    pub fn load_index(&self, ns: &str, id: &str) -> Result<Option<Vec<u8>>>;
 }
 ```
 
@@ -3743,16 +4162,13 @@ impl Persistence {
 
 ```rust
 impl Persistence {
-    pub fn save_associations(&self, associations: &[(String, String, f32)]) -> Result<()>;
-    pub fn clear_all(&self) -> Result<()>;
-    pub fn get_concept_history(&self, id: &str, limit: usize) -> Result<Vec<ConceptVersion>>;
+    pub fn save_associations(&self, ns: &str, associations: &[(String, String, f32)]) -> Result<()>;
+    pub fn get_concept_history(&self, ns: &str, id: &str, limit: usize) -> Result<Vec<ConceptVersion>>;
     pub fn schema_version(&self) -> Result<i64>;
     pub fn apply_migrations(&self, target_version: i64) -> Result<()>;
     pub fn backup(&self, path: &str) -> Result<()>;
     pub fn restore(&self, path: &str) -> Result<()>;
     pub fn health_check(&self) -> Result<()>;
-    pub fn delete_association(&self, from: &str, to: &str) -> Result<()>;
-    pub fn clear_concept_associations(&self, id: &str) -> Result<()>;
 }
 ```
 
@@ -3797,16 +4213,17 @@ impl Persistence {
     pub fn new_turso(_url: &str, _token: &str) -> Result<Self>;
     pub fn new_turso_with_pool(_url: &str, _token: &str, _pool_size: usize) -> Result<Self>;
     pub fn new_turso_with_pool_and_retention(_url: &str, _token: &str, _pool_size: usize, _retention: usize) -> Result<Self>;
-    pub fn save_concept(&self, _concept: &Concept) -> Result<()>;
-    pub fn save_concepts(&self, _concepts: &[Concept]) -> Result<()>;
-    pub fn load_concept(&self, _id: &str) -> Result<Option<Concept>>;
-    pub fn load_all_concepts(&self) -> Result<Vec<Concept>>;
-    pub fn delete_concept(&self, _id: &str) -> Result<()>;
-    pub fn save_association(&self, _from: &str, _to: &str, _strength: f32) -> Result<()>;
-    pub fn save_associations(&self, _associations: &[(String, String, f32)]) -> Result<()>;
-    pub fn load_associations(&self, _id: &str) -> Result<Vec<(String, f32)>>;
+    pub fn save_concept(&self, _ns: &str, _concept: &Concept) -> Result<()>;
+    pub fn save_concepts(&self, _ns: &str, _concepts: &[Concept]) -> Result<()>;
+    pub fn load_concept(&self, _ns: &str, _id: &str) -> Result<Option<Concept>>;
+    pub fn load_all_concepts(&self, _ns: &str) -> Result<Vec<Concept>>;
+    pub fn delete_concept(&self, _ns: &str, _id: &str) -> Result<()>;
+    pub fn save_association(&self, _ns: &str, _from: &str, _to: &str, _strength: f32) -> Result<()>;
+    pub fn save_associations(&self, _ns: &str, _associations: &[(String, String, f32)]) -> Result<()>;
+    pub fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32)>>;
+    pub fn clear_namespace(&self, _ns: &str) -> Result<()>;
     pub fn clear_all(&self) -> Result<()>;
-    pub fn get_concept_history(&self, _id: &str, _limit: usize) -> Result<Vec<ConceptVersion>>;
+    pub fn get_concept_history(&self, _ns: &str, _id: &str, _limit: usize) -> Result<Vec<ConceptVersion>>;
     pub fn schema_version(&self) -> Result<i64>;
     pub fn apply_migrations(&self, _target_version: i64) -> Result<()>;
     pub fn backup(&self, _path: &str) -> Result<()>;
@@ -3814,8 +4231,8 @@ impl Persistence {
     pub fn checkpoint(&self) -> Result<()>;
     pub fn health_check(&self) -> Result<()>;
     pub fn size(&self) -> Result<u64>;
-    pub fn save_index(&self, _id: &str, _data: &[u8]) -> Result<()>;
-    pub fn load_index(&self, _id: &str) -> Result<Option<Vec<u8>>>;
+    pub fn save_index(&self, _ns: &str, _id: &str, _data: &[u8]) -> Result<()>;
+    pub fn load_index(&self, _ns: &str, _id: &str) -> Result<Option<Vec<u8>>>;
 }
 ```
 
@@ -4307,7 +4724,7 @@ impl StructuredMemoryPayload {
 ### Concept
 
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Concept {
     pub id: String,
     pub vector: HVec10240,
@@ -4319,64 +4736,47 @@ pub struct Concept {
 }
 ```
 
-A concept in semantic memory.
+Represents a single memory concept
 
-Use [`ConceptBuilder`] to construct instances with proper defaults.
-Direct struct construction is supported but the `expires_at` field should
-default to `None` for backward compatibility.
-
-### DEFAULT_MAX_CACHED_TOP_K
+### ConceptBuilder
 
 ```rust
-pub const DEFAULT_MAX_CACHED_TOP_K: usize
+#[derive(Debug, Clone)]
+pub struct ConceptBuilder {
+}
 ```
 
 ### Singularity
 
 ```rust
-#[derive(Debug)]
 pub struct Singularity {
 }
 ```
 
-Episode-free singularity engine
-
 ### SingularityConfig
 
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SingularityConfig {
     pub max_concepts: Option<usize>,
     pub max_associations_per_concept: Option<usize>,
     pub concept_cache_size: usize,
     pub max_cached_top_k: usize,
+    pub index_backend: IndexBackend,
 }
 ```
 
-Runtime configuration for [`Singularity`].
+Configuration for the Singularity engine.
 
-### crate::concept_builder::ConceptBuilder
-
-```rust
-pub use crate::concept_builder::ConceptBuilder;
-```
-
-### crate::singularity_cache::CacheMetricsSnapshot
+### impl ConceptBuilder
 
 ```rust
-pub use crate::singularity_cache::CacheMetricsSnapshot;
-```
-
-### crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
-
-```rust
-pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats};
-```
-
-### impl Default for Singularity
-
-```rust
-impl Default for Singularity {
+impl ConceptBuilder {
+    pub fn new(id: impl Trait) -> Self;
+    pub fn with_vector(self, vector: HVec10240) -> Self;
+    pub fn with_metadata(self, key: impl Trait, value: impl Trait) -> Self;
+    pub fn with_ttl(self, ttl_secs: u64) -> Self;
+    pub fn build(self) -> Result<Concept>;
 }
 ```
 
@@ -4391,24 +4791,39 @@ impl Default for SingularityConfig {
 
 ```rust
 impl Singularity {
-    pub fn new() -> Self;
+    pub fn new(config: SingularityConfig) -> Self;
     pub fn with_config(config: SingularityConfig) -> Self;
     pub fn with_config_and_backend(config: SingularityConfig, backend: IndexBackend) -> Self;
-    pub fn inject(&mut self, concept: Concept) -> Result<()>;
-    pub fn get(&self, id: &str) -> Option<&Concept>;
-    pub fn delete(&mut self, id: &str) -> Result<()>;
-    pub fn clear(&mut self);
-    pub fn update(&mut self, id: &str, new_vector: HVec10240) -> Result<()>;
-    pub fn associate(&mut self, from: &str, to: &str, strength: f32) -> Result<()>;
-    pub fn get_associations(&self, id: &str) -> Vec<(String, f32)>;
-    pub fn bundle_concepts(&self, ids: &[String]) -> Result<HVec10240>;
-    pub fn concept_ids(&self) -> Vec<String>;
-    pub fn all_concepts(&self) -> Vec<Concept>;
-    pub fn all_associations(&self) -> Vec<(String, String, f32)>;
-    pub fn len(&self) -> usize;
-    pub fn is_empty(&self) -> bool;
-    pub fn cache_metrics_snapshot(&self) -> CacheMetricsSnapshot;
+    pub fn inject(&mut self, ns: &str, concept: Concept) -> Result<()>;
+    pub fn update(&mut self, ns: &str, id: &str, vector: HVec10240) -> Result<()>;
+    pub fn delete(&mut self, ns: &str, id: &str) -> Result<()>;
+    pub fn clear(&mut self, ns: &str);
+    pub fn get(&self, ns: &str, id: &str) -> Option<&Concept>;
+    pub fn associate(&mut self, ns: &str, from: &str, to: &str, strength: f32) -> Result<()>;
+    pub fn disassociate(&mut self, ns: &str, from: &str, to: &str) -> Result<()>;
+    pub fn get_associations(&self, ns: &str, id: &str) -> Vec<(String, f32)>;
+    pub fn incoming_associations(&self, ns: &str, id: &str) -> Vec<(String, f32)>;
+    pub fn all_concepts(&self, ns: &str) -> Vec<Concept>;
+    pub fn all_associations(&self, ns: &str) -> Vec<(String, String, f32)>;
+    pub fn len(&self, ns: &str) -> usize;
+    pub fn is_empty(&self, ns: &str) -> bool;
+    pub fn cache_metrics_snapshot(&self, ns: &str) -> CacheMetricsSnapshot;
+    pub fn invalidate_cache(&self, ns: &str);
+    pub fn index_stats(&self, ns: &str) -> IndexStats;
+    pub fn retrieval_config(&self) -> &RetrievalConfig;
 }
+```
+
+### unix_now_ns
+
+```rust
+pub fn unix_now_ns() -> u64
+```
+
+### unix_now_secs
+
+```rust
+pub fn unix_now_secs() -> u64
 ```
 
 ## src/singularity_cache.rs
@@ -4444,12 +4859,9 @@ impl QueryCache {
 
 ```rust
 impl Singularity {
-    pub fn bundle_concepts_strict(&self, ids: &[String]) -> Result<HVec10240>;
-    pub fn disassociate(&mut self, from: &str, to: &str) -> Result<()>;
-    pub fn clear_associations(&mut self, id: &str) -> Result<()>;
-    pub fn clear_similarity_cache(&self);
-    pub fn update_metadata(&mut self, id: &str, metadata: HashMap<String, serde_json::Value>) -> Result<()>;
-    pub fn find_similar_filtered(&self, query: &HVec10240, top_k: usize, filter: &MetadataFilter) -> Arc<[(String, f32)]>;
+    pub fn bundle_concepts_strict(&self, ns: &str, ids: &[String]) -> Result<HVec10240>;
+    pub fn update_metadata(&mut self, ns: &str, id: &str, metadata: std::collections::HashMap<String, serde_json::Value>) -> Result<()>;
+    pub fn clear_associations(&mut self, ns: &str, id: &str) -> Result<()>;
 }
 ```
 
@@ -4536,8 +4948,7 @@ impl RetrievalConfig {
 ```rust
 impl Singularity {
     pub fn set_retrieval_config(&mut self, config: RetrievalConfig) -> Result<()>;
-    pub fn retrieval_config(&self) -> &RetrievalConfig;
-    pub fn last_retrieval_stats(&self) -> RetrievalStats;
+    pub fn last_retrieval_stats(&self, ns: &str) -> RetrievalStats;
 }
 ```
 
@@ -4547,9 +4958,30 @@ impl Singularity {
 
 ```rust
 impl Singularity {
-    pub fn find_similar(&self, query: &HVec10240, top_k: usize) -> Vec<(String, f32)>;
-    pub fn find_similar_arc(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]>;
-    pub fn find_similar_cached(&self, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]>;
+    pub fn find_similar(&self, ns: &str, query: &HVec10240, top_k: usize) -> Vec<(String, f32)>;
+    pub fn find_similar_arc(&self, ns: &str, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]>;
+    pub fn find_similar_cached(&self, ns: &str, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]>;
+    pub fn find_similar_filtered(&self, ns: &str, query: &HVec10240, top_k: usize, filter: &crate::metadata_filter::MetadataFilter) -> Arc<[(String, f32)]>;
+}
+```
+
+## src/singularity_state.rs
+
+### NamespaceState
+
+```rust
+#[derive(Debug)]
+pub struct NamespaceState {
+}
+```
+
+State for a single namespace in the singularity engine.
+
+### impl NamespaceState
+
+```rust
+impl NamespaceState {
+    pub fn new(config: &SingularityConfig, index: Box<dyn Trait>) -> Self;
 }
 ```
 
@@ -4566,9 +4998,9 @@ impl Default for Concept {
 
 ```rust
 impl Singularity {
-    pub fn purge_expired(&mut self) -> usize;
-    pub fn is_expired(&self, id: &str) -> bool;
-    pub fn active_concept_ids(&self) -> Vec<String>;
+    pub fn purge_expired(&mut self, ns: &str) -> usize;
+    pub fn is_expired(&self, ns: &str, id: &str) -> bool;
+    pub fn active_concept_ids(&self, ns: &str) -> Vec<String>;
 }
 ```
 
@@ -4644,6 +5076,8 @@ Create a random hypervector (1280 bytes)
 impl WasmFramework {
     pub fn stats(&self) -> Result<JsValue, JsValue>;
     pub fn concept_count(&self) -> Result<usize, JsValue>;
+    pub fn with_namespace(&self, ns: String) -> Result<WasmFramework, JsValue>;
+    pub fn new_with_namespace(ns: String) -> Result<WasmFramework, JsValue>;
     pub fn update_concept_metadata(&self, id: String, metadata_json: String) -> Result<(), JsValue>;
     pub fn clear_associations(&self, id: String) -> Result<(), JsValue>;
     pub fn neighbors(&self, id: String, min_strength: f32) -> Result<Array, JsValue>;
@@ -4656,6 +5090,8 @@ impl WasmFramework {
     pub fn probe_text(&self, query: String, top_k: usize) -> Result<Array, JsValue>;
 }
 ```
+
+## src/wasm_ext_tests.rs
 
 ## src/wasm_graph_rag.rs
 

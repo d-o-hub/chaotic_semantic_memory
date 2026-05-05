@@ -74,14 +74,21 @@ mod hyperdim_simd; // AVX2/NEON SIMD paths
 #[cfg(all(not(target_arch = "wasm32"), feature = "mcp"))]
 pub mod mcp;
 pub mod metadata_filter;
-pub mod semantic_triples;
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "otlp", feature = "prometheus")
+))]
+pub mod observability;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_concepts;
+pub mod semantic_triples;
 pub use metadata_filter::MetadataFilter;
 pub mod index;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 pub mod persistence;
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+mod persistence_clear;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_index; // Extracted from persistence.rs for LOC gate (ADR-0068)
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
@@ -99,11 +106,11 @@ mod reservoir_sparse; // LOC gate extraction
 pub mod retrieval;
 pub mod semantic_bridge;
 pub mod singularity;
-pub mod singularity_state;
 mod singularity_cache;
 mod singularity_ext;
 mod singularity_retrieval;
 mod singularity_search; // Extracted from singularity.rs for LOC gate
+pub mod singularity_state;
 mod singularity_ttl;
 
 #[cfg(target_arch = "wasm32")]

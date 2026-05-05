@@ -21,7 +21,8 @@ pub async fn run_import(
         )));
     }
 
-    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
+    let framework: crate::framework::ChaoticSemanticFramework =
+        create_framework_with_namespace(db_path, &args.namespace).await?;
 
     let path_str = args.input.to_string_lossy();
     let detected_format = detect_format(&args);
