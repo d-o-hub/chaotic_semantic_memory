@@ -21,8 +21,8 @@ impl Serialize for HVec10240 {
             let b64 = STANDARD.encode(&bytes);
             serializer.serialize_str(&b64)
         } else {
-            // Use binary format for non-human-readable (like bincode)
-            serializer.serialize_bytes(&self.to_bytes())
+            // Use fixed-size array for binary formats (bincode compatible)
+            self.data.serialize(serializer)
         }
     }
 }
@@ -33,7 +33,7 @@ impl<'de> Visitor<'de> for HVecVisitor {
     type Value = HVec10240;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a base64-encoded string or byte array of length 1280")
+        formatter.write_str("a base64-encoded string, byte array, or a sequence of 80 u128 values")
     }
 
     fn visit_str<E>(self, v: &str) -> std::result::Result<Self::Value, E>
@@ -57,18 +57,27 @@ impl<'de> Visitor<'de> for HVecVisitor {
     where
         A: de::SeqAccess<'de>,
     {
-        // Handle JSON array of numbers (legacy format)
-        let mut bytes = Vec::with_capacity(1280);
-        while let Some(byte) = seq.next_element::<u8>()? {
-            bytes.push(byte);
+        // This could be 1280 bytes (legacy) or 80 u128s (bincode)
+        // We'll try to decode as u128s.
+        let mut words = Vec::with_capacity(80);
+        while let Some(word) = seq.next_element::<u128>()? {
+            words.push(word);
+            if words.len() > 1280 {
+                return Err(de::Error::custom("sequence too long for HVec10240"));
+            }
         }
-        if bytes.len() != 1280 {
-            return Err(de::Error::custom(format!(
-                "expected 1280 bytes, got {}",
-                bytes.len()
-            )));
+
+        if words.len() == 80 {
+            let mut data = [0u128; 80];
+            data.copy_from_slice(&words);
+            Ok(HVec10240 { data })
+        } else if words.len() == 1280 {
+            // Legacy byte sequence
+            let bytes: Vec<u8> = words.into_iter().map(|w| w as u8).collect();
+            HVec10240::from_bytes(&bytes).map_err(de::Error::custom)
+        } else {
+             Err(de::Error::custom(format!("expected 80 or 1280 elements, got {}", words.len())))
         }
-        HVec10240::from_bytes(&bytes).map_err(de::Error::custom)
     }
 }
 
@@ -77,10 +86,7 @@ impl<'de> Deserialize<'de> for HVec10240 {
     where
         D: Deserializer<'de>,
     {
-        if deserializer.is_human_readable() {
-            deserializer.deserialize_any(HVecVisitor)
-        } else {
-            deserializer.deserialize_bytes(HVecVisitor)
-        }
+        // Use deserialize_any to support various underlying formats
+        deserializer.deserialize_any(HVecVisitor)
     }
 }

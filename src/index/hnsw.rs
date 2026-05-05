@@ -86,30 +86,25 @@ impl std::fmt::Debug for HnswIndex {
 
 #[cfg(feature = "ann-hnsw")]
 #[derive(Serialize, Deserialize)]
-struct HnswPersistenceMeta {
+struct HnswPersistenceWrapper {
     id_to_idx: HashMap<String, usize>,
     idx_to_id: HashMap<usize, String>,
     m: usize,
     ef_construction: usize,
     ef_search: usize,
-    graph_len: usize,
-    #[serde(default)]
     deleted_count: usize,
+    data: Vec<u8>,
+    graph: Vec<u8>,
 }
 
 #[cfg(feature = "ann-hnsw")]
 impl AnnIndex for HnswIndex {
     fn insert(&mut self, id: String, vec: &HVec10240) -> Result<()> {
         // #6: Handle updates to existing IDs.
-        // If it already exists, we must "delete" the old one from our mapping
-        // and insert a new one. Since hnsw_rs doesn't support true deletion,
-        // we just mark it as deleted in our mappings and insert the new vector.
         if self.id_to_idx.contains_key(&id) {
             self.delete(&id)?;
         }
 
-        // We use a monotonically increasing index to avoid reuse of IDs that might
-        // still be in the HNSW graph but were deleted from our mappings.
         let idx = self.hnsw.get_nb_point();
         self.hnsw.insert((std::slice::from_ref(vec), idx));
         self.id_to_idx.insert(id.clone(), idx);
@@ -122,13 +117,6 @@ impl AnnIndex for HnswIndex {
         if let Some(idx) = self.id_to_idx.remove(id) {
             self.idx_to_id.remove(&idx);
             self.deleted_count += 1;
-
-            // Optional: trigger rebuild if tombstone count is too high (e.g. > 50% of elements)
-            if self.deleted_count > 100 && self.deleted_count > self.id_to_idx.len() {
-                // We can't easily rebuild here without access to all concepts.
-                // Rebuild will happen via Singularity if needed, or we just rely
-                // on expanded search budget.
-            }
         }
         Ok(())
     }
@@ -162,9 +150,7 @@ impl AnnIndex for HnswIndex {
         filter: &crate::metadata_filter::MetadataFilter,
         concepts: &HashMap<String, Concept>,
     ) -> Result<Vec<(String, f32)>> {
-        // HNSW doesn't support pre-filtering natively.
-        // We'll search a larger set and post-filter.
-        let expanded_k = top_k * 5;
+        let expanded_k = top_k * 5 + self.deleted_count.min(top_k * 10);
         let results = self.hnsw.search(
             std::slice::from_ref(query),
             expanded_k,
@@ -186,8 +172,6 @@ impl AnnIndex for HnswIndex {
             }
         }
 
-        // If we didn't get enough results, we fall back to a full scan of the filtered set
-        // to ensure we don't return fewer than top_k if they exist.
         if filtered_results.len() < top_k {
             let mut all_filtered: Vec<(String, f32)> = concepts
                 .iter()
@@ -253,24 +237,21 @@ impl AnnIndex for HnswIndex {
         let data_bytes = fs::read(data_path).map_err(MemoryError::Io)?;
         let graph_bytes = fs::read(graph_path).map_err(MemoryError::Io)?;
 
-        let meta = HnswPersistenceMeta {
+        let wrapper = HnswPersistenceWrapper {
             id_to_idx: self.id_to_idx.clone(),
             idx_to_id: self.idx_to_id.clone(),
             m: self.config.m,
             ef_construction: self.config.ef_construction,
             ef_search: self.config.ef_search,
-            graph_len: graph_bytes.len(),
             deleted_count: self.deleted_count,
+            data: data_bytes,
+            graph: graph_bytes,
         };
 
-        let mut payload = bincode::serialize(&meta)
+        let payload = bincode::serialize(&wrapper)
             .map_err(|e| MemoryError::database(format!("Bincode fail: {}", e)))?;
-        payload.extend_from_slice(&data_bytes);
-        payload.extend_from_slice(&graph_bytes);
 
-        // Cleanup temp files
         let _ = fs::remove_dir_all(temp_dir);
-
         Ok(payload)
     }
 
@@ -281,65 +262,33 @@ impl AnnIndex for HnswIndex {
             return Ok(());
         }
 
-        // #8: Validate meta data and offsets
-        let meta: HnswPersistenceMeta = bincode::deserialize(data)
+        let wrapper: HnswPersistenceWrapper = bincode::deserialize(data)
             .map_err(|e| MemoryError::database(format!("Bincode deserialize fail: {}", e)))?;
-
-        let meta_serialized_size: usize = bincode::serialized_size(&meta)
-            .map_err(|e| MemoryError::database(format!("Bincode size fail: {}", e)))?
-            .try_into()
-            .map_err(|e| MemoryError::database(format!("Bincode size truncation: {}", e)))?;
-
-        if data.len() < meta_serialized_size + meta.graph_len {
-            return Err(MemoryError::database(format!(
-                "Index data truncated: got {}, expected at least {}",
-                data.len(),
-                meta_serialized_size + meta.graph_len
-            )));
-        }
-
-        let graph_start = data.len() - meta.graph_len;
-        let data_start = meta_serialized_size;
-
-        if graph_start < data_start {
-            return Err(MemoryError::database(format!(
-                "Invalid index data offsets: graph_start {} < data_start {}",
-                graph_start, data_start
-            )));
-        }
-
-        let data_bytes = &data[data_start..graph_start];
-        let graph_bytes = &data[graph_start..];
 
         let temp_dir =
             std::env::temp_dir().join(format!("csm_hnsw_load_{}", rand::random::<u64>()));
         fs::create_dir_all(&temp_dir).map_err(MemoryError::Io)?;
 
-        fs::write(temp_dir.join("index.hnsw.data"), data_bytes).map_err(MemoryError::Io)?;
-        fs::write(temp_dir.join("index.hnsw.graph"), graph_bytes).map_err(MemoryError::Io)?;
+        fs::write(temp_dir.join("index.hnsw.data"), &wrapper.data).map_err(MemoryError::Io)?;
+        fs::write(temp_dir.join("index.hnsw.graph"), &wrapper.graph).map_err(MemoryError::Io)?;
 
         let loader = HnswIo::new(&temp_dir, "index");
         let hnsw = loader
             .load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist)
             .map_err(|e| MemoryError::database(format!("HNSW load failed: {}", e)))?;
 
-        // SAFETY: We are not using mmap (datamap_opt is false), so the Hnsw struct
-        // only contains owned data (PointData::V variants). The lifetime 'b is
-        // only needed for PointData::S (mmap), which we don't use.
         let static_hnsw: Hnsw<'static, HVec10240, HammingDist> =
             unsafe { std::mem::transmute(hnsw) };
 
         self.hnsw = static_hnsw;
-        self.id_to_idx = meta.id_to_idx;
-        self.idx_to_id = meta.idx_to_id;
-        self.config.m = meta.m;
-        self.config.ef_construction = meta.ef_construction;
-        self.config.ef_search = meta.ef_search;
-        self.deleted_count = meta.deleted_count;
+        self.id_to_idx = wrapper.id_to_idx;
+        self.idx_to_id = wrapper.idx_to_id;
+        self.config.m = wrapper.m;
+        self.config.ef_construction = wrapper.ef_construction;
+        self.config.ef_search = wrapper.ef_search;
+        self.deleted_count = wrapper.deleted_count;
 
-        // Cleanup
         let _ = fs::remove_dir_all(temp_dir);
-
         Ok(())
     }
 }
