@@ -19,10 +19,16 @@ pub async fn run_inject(
 
     let framework = create_framework_with_provider(db_path, args.provider.as_deref()).await?;
 
-    let vector = match args.vector_source {
+    let source = if args.use_embeddings && args.text.is_some() {
+        VectorSource::Text
+    } else {
+        args.vector_source
+    };
+
+    let vector = match source {
         VectorSource::Text => {
             let text = args.text.as_ref().ok_or_else(|| {
-                CliError::Validation("--text is required when --vector-source=text".into())
+                CliError::Validation("--text is required when encoding a vector".into())
             })?;
             framework.embedding_provider.project(
                 &framework

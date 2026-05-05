@@ -53,7 +53,11 @@ impl FastEmbedProvider {
                 "bge-large-en-v1.5" => fastembed::EmbeddingModel::BGELargeENV15,
                 "all-minilm-l6-v2" => fastembed::EmbeddingModel::AllMiniLML6V2,
                 "nomic-embed-text-v1" => fastembed::EmbeddingModel::NomicEmbedTextV1,
-                _ => fastembed::EmbeddingModel::BGESmallENV15, // default fallback
+                _ => {
+                    return Err(MemoryError::Config(format!(
+                        "unknown FastEmbed model: {model_name}"
+                    )));
+                }
             };
 
             let embedding = fastembed::TextEmbedding::try_new(
