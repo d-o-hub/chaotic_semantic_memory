@@ -111,7 +111,6 @@ impl ChaoticSemanticFramework {
     }
 
     /// Query for similar concepts
-    #[allow(clippy::significant_drop_tightening)] // Lock needed for expired concept filtering
     #[instrument(err, skip(self, query))]
     pub async fn probe(&self, query: HVec10240, top_k: usize) -> Result<Vec<(String, f32)>> {
         self.validate_top_k(top_k)?;
@@ -133,7 +132,7 @@ impl ChaoticSemanticFramework {
                         .map(|_| id.clone())
                 })
                 .collect();
-            (results, expired_ids)
+            { let res = (results, expired_ids); drop(sing); res }
         };
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -205,7 +204,6 @@ impl ChaoticSemanticFramework {
     }
 
     /// Process temporal sequence through reservoir
-    #[allow(clippy::significant_drop_tightening)] // Reservoir lock needed for sequence processing
     #[instrument(err, skip(self, sequence))]
     pub async fn process_sequence(&self, sequence: &[Vec<f32>]) -> Result<HVec10240> {
         self.validate_sequence_length(sequence.len())?;
@@ -229,7 +227,7 @@ impl ChaoticSemanticFramework {
             r.step(input)?;
         }
 
-        r.to_hypervector()
+         { let res = r.to_hypervector(); drop(reservoir); res }
     }
 
     /// Associate two concepts

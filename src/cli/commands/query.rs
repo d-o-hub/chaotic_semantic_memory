@@ -4,7 +4,6 @@
 //! Supports hybrid retrieval combining BM25 keyword matching and HDC semantic search.
 
 // Casts are intentional for CLI output formatting
-#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use crate::cli::args::{OutputFormat, QueryArgs};
 use crate::cli::commands::{create_framework, print_success, print_warning, truncate_preview};

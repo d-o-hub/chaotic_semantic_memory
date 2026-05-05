@@ -4,7 +4,6 @@
 //! used by the bridge retrieval pipeline.
 
 // Casts are intentional for version serialization
-#![allow(clippy::cast_possible_truncation)]
 
 use crate::error::{MemoryError, Result};
 use crate::persistence::Persistence;

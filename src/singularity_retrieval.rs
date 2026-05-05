@@ -7,7 +7,6 @@
 //! - Extension trait for reduced-candidate retrieval
 
 // Casts are intentional for retrieval similarity math
-#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;

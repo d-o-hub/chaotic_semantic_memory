@@ -1,7 +1,6 @@
 //! Episode-free concept injection
 
 // Casts are intentional for similarity math
-#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;

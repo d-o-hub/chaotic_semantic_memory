@@ -4,7 +4,6 @@
 //! and combines deterministic HDC recall with concept-expanded results.
 
 // Casts are intentional for bridge score math
-#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use crate::encoder::TextEncoder;
 use crate::error::Result;
@@ -280,7 +279,6 @@ impl BridgeRetrieval {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparisons for score test assertions
 
     use super::*;
     use crate::semantic_bridge::CanonicalConcept;
@@ -314,7 +312,7 @@ mod tests {
         // Should return deterministic results even without graph expansion
         assert!(!results.is_empty());
         assert!(results[0].scores.deterministic > 0.0);
-        assert_eq!(results[0].scores.concept, 0.0);
+        assert!((results[0].scores.concept - 0.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -364,7 +362,7 @@ mod tests {
             .unwrap();
         assert!(packet.facts.is_empty());
         assert!(packet.sources.is_empty());
-        assert_eq!(packet.confidence, 0.0);
+        assert!((packet.confidence - 0.0).abs() < f32::EPSILON);
     }
 
     #[test]
