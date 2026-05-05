@@ -83,6 +83,7 @@ impl FrameworkMetrics {
         }
     }
 
+    #[allow(clippy::missing_const_for_fn)]
     pub(crate) fn update_gauges(
         &self,
         _concept_count: u64,
