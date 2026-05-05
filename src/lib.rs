@@ -47,8 +47,6 @@ pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig
 mod bridge_persistence;
 pub mod bridge_retrieval;
 pub mod bundle;
-#[cfg(feature = "serde")]
-mod bundle_serde;
 #[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]
 pub mod cli;
 pub mod concept_builder;
