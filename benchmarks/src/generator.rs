@@ -248,9 +248,17 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             should_abstain: false,
         });
 
-        if s.turns.iter().any(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":favorite_color:v1"))) {
+        if s.turns.iter().any(|t| {
+            t.memory_id
+                .as_ref()
+                .is_some_and(|id| id.contains(":favorite_color:v1"))
+        }) {
             let mut gold_ids = vec![format!("{}:favorite_color:v1", s.session_id)];
-            if s.turns.iter().any(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":favorite_color:v2"))) {
+            if s.turns.iter().any(|t| {
+                t.memory_id
+                    .as_ref()
+                    .is_some_and(|id| id.contains(":favorite_color:v2"))
+            }) {
                 gold_ids.push(format!("{}:favorite_color:v2", s.session_id));
             }
 
@@ -265,7 +273,11 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
             });
         }
 
-        if s.turns.iter().any(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":city:v1"))) {
+        if s.turns.iter().any(|t| {
+            t.memory_id
+                .as_ref()
+                .is_some_and(|id| id.contains(":city:v1"))
+        }) {
             cases.push(QueryCase {
                 query_id: format!("{}:bm25", s.session_id),
                 session_id: s.session_id.clone(),
@@ -335,7 +347,11 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
 
             // Add a query that targets explicit associations between city and color in a session
             // only if city turn exists
-            if s1.turns.iter().any(|t| t.memory_id.as_ref().is_some_and(|id| id.contains(":city:v1"))) {
+            if s1.turns.iter().any(|t| {
+                t.memory_id
+                    .as_ref()
+                    .is_some_and(|id| id.contains(":city:v1"))
+            }) {
                 cases.push(QueryCase {
                     query_id: format!("association-internal-{i:03}"),
                     session_id: s1.session_id.clone(),
