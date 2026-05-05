@@ -52,7 +52,9 @@ impl crate::framework::ChaoticSemanticFramework {
     #[instrument(err, skip(self, text))]
     pub async fn inject_text_with_ttl(&self, id: &str, text: &str, ttl_seconds: u64) -> Result<()> {
         let embedding = self.embedding_provider.embed(text).await?;
-        let vector = self.embedding_provider.project(&embedding, &self.projection);
+        let vector = self
+            .embedding_provider
+            .project(&embedding, &self.projection);
         self.inject_concept_with_ttl(id, vector, ttl_seconds).await
     }
 
@@ -75,7 +77,9 @@ impl crate::framework::ChaoticSemanticFramework {
     /// of storing text-based concepts.
     pub async fn inject_text(&self, id: &str, text: &str) -> Result<()> {
         let embedding = self.embedding_provider.embed(text).await?;
-        let vector = self.embedding_provider.project(&embedding, &self.projection);
+        let vector = self
+            .embedding_provider
+            .project(&embedding, &self.projection);
         self.inject_concept(id, vector).await
     }
 
@@ -87,7 +91,9 @@ impl crate::framework::ChaoticSemanticFramework {
         metadata: HashMap<String, serde_json::Value>,
     ) -> Result<()> {
         let embedding = self.embedding_provider.embed(text).await?;
-        let vector = self.embedding_provider.project(&embedding, &self.projection);
+        let vector = self
+            .embedding_provider
+            .project(&embedding, &self.projection);
         self.inject_concept_with_metadata(id, vector, metadata)
             .await
     }
@@ -97,7 +103,9 @@ impl crate::framework::ChaoticSemanticFramework {
     /// Encodes the query text and finds the most similar concepts.
     pub async fn probe_text(&self, query: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
         let embedding = self.embedding_provider.embed(query).await?;
-        let vector = self.embedding_provider.project(&embedding, &self.projection);
+        let vector = self
+            .embedding_provider
+            .project(&embedding, &self.projection);
         self.probe(vector, top_k).await
     }
 
@@ -109,7 +117,9 @@ impl crate::framework::ChaoticSemanticFramework {
         filter: &MetadataFilter,
     ) -> Result<Vec<(String, f32)>> {
         let embedding = self.embedding_provider.embed(query).await?;
-        let vector = self.embedding_provider.project(&embedding, &self.projection);
+        let vector = self
+            .embedding_provider
+            .project(&embedding, &self.projection);
         self.probe_filtered(&vector, top_k, filter).await
     }
 

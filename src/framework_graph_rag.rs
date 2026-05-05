@@ -39,7 +39,9 @@ impl ChaoticSemanticFramework {
         config: GraphRagConfig,
     ) -> Result<Vec<GraphRagResult>> {
         let embedding = self.embedding_provider.embed(text).await?;
-        let query = self.embedding_provider.project(&embedding, &self.projection);
+        let query = self
+            .embedding_provider
+            .project(&embedding, &self.projection);
         self.probe_with_graph(query, config).await
     }
 }
