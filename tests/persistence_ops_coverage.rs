@@ -31,10 +31,7 @@ async fn persistence_save_concept_overwrites_existing() {
     let persistence = Persistence::new_local(path).await.unwrap();
 
     let concept = make_concept("overwrite-test");
-    persistence
-        .save_concept("_default", &concept)
-        .await
-        .unwrap();
+    persistence.save_concept("_default", &concept).await.unwrap();
 
     // Update with different vector
     let updated = Concept {
@@ -46,15 +43,9 @@ async fn persistence_save_concept_overwrites_existing() {
         expires_at: None,
         canonical_concept_ids: Vec::new(),
     };
-    persistence
-        .save_concept("_default", &updated)
-        .await
-        .unwrap();
+    persistence.save_concept("_default", &updated).await.unwrap();
 
-    let loaded = persistence
-        .load_concept("_default", "overwrite-test")
-        .await
-        .unwrap();
+    let loaded = persistence.load_concept("_default", "overwrite-test").await.unwrap();
     assert!(loaded.is_some());
 }
 
@@ -65,10 +56,7 @@ async fn persistence_delete_nonexistent_concept() {
     let persistence = Persistence::new_local(path).await.unwrap();
 
     // Delete concept that doesn't exist - should succeed
-    persistence
-        .delete_concept("_default", "nonexistent")
-        .await
-        .unwrap();
+    persistence.delete_concept("_default", "nonexistent").await.unwrap();
 }
 
 #[tokio::test]
@@ -79,39 +67,33 @@ async fn persistence_association_lifecycle() {
 
     // Create concepts first
     persistence
-        .save_concept("_default", &make_concept("from-id"))
+        .save_concept(&make_concept("from-id"))
         .await
         .unwrap();
     persistence
-        .save_concept("_default", &make_concept("to-id"))
+        .save_concept(&make_concept("to-id"))
         .await
         .unwrap();
 
     // Save association
     persistence
-        .save_association("_default", "from-id", "to-id", 0.8)
+        .save_association("from-id", "to-id", 0.8)
         .await
         .unwrap();
 
     // Load associations (returns Vec<(String, f32)>)
-    let assocs = persistence
-        .load_associations("_default", "from-id")
-        .await
-        .unwrap();
+    let assocs = persistence.load_associations("_default", "from-id").await.unwrap();
     assert_eq!(assocs.len(), 1);
     assert_eq!(assocs[0].0, "to-id");
     assert_eq!(assocs[0].1, 0.8);
 
     // Delete association
     persistence
-        .delete_association("_default", "from-id", "to-id")
+        .delete_association("from-id", "to-id")
         .await
         .unwrap();
 
-    let assocs_after = persistence
-        .load_associations("_default", "from-id")
-        .await
-        .unwrap();
+    let assocs_after = persistence.load_associations("_default", "from-id").await.unwrap();
     assert!(assocs_after.is_empty());
 }
 
@@ -122,37 +104,34 @@ async fn persistence_clear_associations() {
     let persistence = Persistence::new_local(path).await.unwrap();
 
     persistence
-        .save_concept("_default", &make_concept("clear-from"))
+        .save_concept(&make_concept("clear-from"))
         .await
         .unwrap();
     persistence
-        .save_concept("_default", &make_concept("clear-to1"))
+        .save_concept(&make_concept("clear-to1"))
         .await
         .unwrap();
     persistence
-        .save_concept("_default", &make_concept("clear-to2"))
+        .save_concept(&make_concept("clear-to2"))
         .await
         .unwrap();
 
     persistence
-        .save_association("_default", "clear-from", "clear-to1", 0.5)
+        .save_association("clear-from", "clear-to1", 0.5)
         .await
         .unwrap();
     persistence
-        .save_association("_default", "clear-from", "clear-to2", 0.6)
+        .save_association("clear-from", "clear-to2", 0.6)
         .await
         .unwrap();
 
     // Clear all associations
     persistence
-        .clear_concept_associations("_default", "clear-from")
+        .clear_concept_associations("clear-from")
         .await
         .unwrap();
 
-    let assocs = persistence
-        .load_associations("_default", "clear-from")
-        .await
-        .unwrap();
+    let assocs = persistence.load_associations("_default", "clear-from").await.unwrap();
     assert!(assocs.is_empty());
 }
 
@@ -163,19 +142,19 @@ async fn persistence_list_all_concepts() {
     let persistence = Persistence::new_local(path).await.unwrap();
 
     persistence
-        .save_concept("_default", &make_concept("list-1"))
+        .save_concept(&make_concept("list-1"))
         .await
         .unwrap();
     persistence
-        .save_concept("_default", &make_concept("list-2"))
+        .save_concept(&make_concept("list-2"))
         .await
         .unwrap();
     persistence
-        .save_concept("_default", &make_concept("list-3"))
+        .save_concept(&make_concept("list-3"))
         .await
         .unwrap();
 
-    let concepts = persistence.load_all_concepts("_default").await.unwrap();
+    let concepts = persistence.load_all_concepts("_default")"_default").await.unwrap();
     assert_eq!(concepts.len(), 3);
 }
 
@@ -185,9 +164,6 @@ async fn persistence_load_nonexistent_concept() {
     let path = temp.path().to_str().unwrap();
     let persistence = Persistence::new_local(path).await.unwrap();
 
-    let result = persistence
-        .load_concept("_default", "does-not-exist")
-        .await
-        .unwrap();
+    let result = persistence.load_concept("_default", "does-not-exist").await.unwrap();
     assert!(result.is_none());
 }

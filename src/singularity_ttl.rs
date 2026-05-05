@@ -69,8 +69,8 @@ impl Singularity {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::singularity::SingularityConfig;
+    use super::*;
 
     #[test]
     fn test_purge_expired() {
@@ -105,25 +105,9 @@ mod tests {
         let purged = sing.purge_expired("_default");
         assert_eq!(purged, 1);
 
-        assert!(
-            !sing
-                .get_namespace(ns)
-                .unwrap()
-                .concepts
-                .contains_key("expired")
-        );
-        assert!(
-            sing.get_namespace(ns)
-                .unwrap()
-                .concepts
-                .contains_key("active")
-        );
-        assert!(
-            sing.get_namespace(ns)
-                .unwrap()
-                .concepts
-                .contains_key("no_exp")
-        );
+        assert!(!sing.get_namespace(ns).unwrap().concepts.contains_key("expired"));
+        assert!(sing.get_namespace(ns).unwrap().concepts.contains_key("active"));
+        assert!(sing.get_namespace(ns).unwrap().concepts.contains_key("no_exp"));
     }
 
     #[test]

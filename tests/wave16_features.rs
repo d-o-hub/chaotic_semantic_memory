@@ -6,9 +6,7 @@ use chaotic_semantic_memory::encoder::TextEncoder;
 use chaotic_semantic_memory::graph_traversal::TraversalConfig;
 use chaotic_semantic_memory::hyperdim::HVec10240;
 use chaotic_semantic_memory::metadata_filter::MetadataFilter;
-use chaotic_semantic_memory::singularity::{
-    Concept, ConceptBuilder, Singularity, SingularityConfig,
-};
+use chaotic_semantic_memory::singularity::{Concept, ConceptBuilder, Singularity, SingularityConfig};
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -212,9 +210,7 @@ fn test_shortest_path_hops_cycle_terminates() {
     sing.associate("_default", "c", "a", 0.9).unwrap();
 
     let config = TraversalConfig::default();
-    let path = sing
-        .shortest_path_hops("_default", "a", "c", &config)
-        .unwrap();
+    let path = sing.shortest_path_hops("_default", "a", "c", &config).unwrap();
     assert!(path.is_some());
 }
 
@@ -293,11 +289,8 @@ fn test_filtered_search_empty_filter_returns_all() {
     let query = HVec10240::random();
 
     for i in 0..5 {
-        sing.inject(
-            "_default",
-            make_concept_with_meta(&format!("c{i}"), "tag", "science"),
-        )
-        .unwrap();
+        sing.inject("_default", make_concept_with_meta(&format!("c{i}"), "tag", "science"))
+            .unwrap();
     }
 
     // Exists("tag") matches all 5 concepts
@@ -312,11 +305,8 @@ fn test_filtered_search_no_match_returns_empty() {
     let query = HVec10240::random();
 
     for i in 0..5 {
-        sing.inject(
-            "_default",
-            make_concept_with_meta(&format!("c{i}"), "tag", "science"),
-        )
-        .unwrap();
+        sing.inject("_default", make_concept_with_meta(&format!("c{i}"), "tag", "science"))
+            .unwrap();
     }
 
     // Filter for "art" — no concepts have this tag
@@ -338,18 +328,12 @@ fn test_filtered_search_subset_match() {
 
     // 3 science, 2 art
     for i in 0..3 {
-        sing.inject(
-            "_default",
-            make_concept_with_meta(&format!("sci{i}"), "tag", "science"),
-        )
-        .unwrap();
+        sing.inject("_default", make_concept_with_meta(&format!("sci{i}"), "tag", "science"))
+            .unwrap();
     }
     for i in 0..2 {
-        sing.inject(
-            "_default",
-            make_concept_with_meta(&format!("art{i}"), "tag", "art"),
-        )
-        .unwrap();
+        sing.inject("_default", make_concept_with_meta(&format!("art{i}"), "tag", "art"))
+            .unwrap();
     }
 
     let filter = MetadataFilter::Eq(
@@ -372,11 +356,8 @@ fn test_filtered_search_top_k_respected() {
     let query = HVec10240::random();
 
     for i in 0..10 {
-        sing.inject(
-            "_default",
-            make_concept_with_meta(&format!("c{i}"), "tag", "science"),
-        )
-        .unwrap();
+        sing.inject("_default", make_concept_with_meta(&format!("c{i}"), "tag", "science"))
+            .unwrap();
     }
 
     let filter = MetadataFilter::Exists("tag".to_string());

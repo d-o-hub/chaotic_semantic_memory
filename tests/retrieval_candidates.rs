@@ -3,7 +3,7 @@
 //! Covers: RetrievalConfig getter, last_retrieval_stats, Singularity retrieval paths
 
 use chaotic_semantic_memory::prelude::*;
-use chaotic_semantic_memory::singularity::{Singularity, SingularityConfig};
+use chaotic_semantic_memory::singularity::Singularity, SingularityConfig;
 
 #[test]
 fn singularity_retrieval_config_getter() {
@@ -16,7 +16,7 @@ fn singularity_retrieval_config_getter() {
 #[test]
 fn singularity_last_retrieval_stats_default() {
     let sing = Singularity::new(SingularityConfig::default());
-    let stats = sing.last_retrieval_stats("_default");
+    let stats = sing.last_retrieval_stats("_default"));
     assert_eq!(stats.candidate_count, 0);
     assert_eq!(stats.scored_count, 0);
 }
@@ -25,25 +25,22 @@ fn singularity_last_retrieval_stats_default() {
 fn find_similar_populates_stats() {
     let mut sing = Singularity::new(SingularityConfig::default());
 
-    sing.inject(
-        "_default",
-        chaotic_semantic_memory::singularity::Concept {
-            id: "find-stats-1".to_string(),
-            vector: HVec10240::random(),
-            metadata: std::collections::HashMap::new(),
-            created_at: 1,
-            modified_at: 1,
-            expires_at: None,
-            canonical_concept_ids: Vec::new(),
-        },
-    )
+    sing.inject("_default", chaotic_semantic_memory::singularity::Concept {
+        id: "find-stats-1".to_string(),
+        vector: HVec10240::random(),
+        metadata: std::collections::HashMap::new(),
+        created_at: 1,
+        modified_at: 1,
+        expires_at: None,
+        canonical_concept_ids: Vec::new(),
+    })
     .unwrap();
 
     let query = HVec10240::random();
     let _results = sing.find_similar("_default", &query, 5);
 
     // Stats should be populated (exact scan path)
-    let stats = sing.last_retrieval_stats("_default");
+    let stats = sing.last_retrieval_stats("_default"));
     assert!(stats.scored_count > 0);
 }
 
@@ -51,24 +48,21 @@ fn find_similar_populates_stats() {
 fn find_similar_cached_populates_stats() {
     let mut sing = Singularity::new(SingularityConfig::default());
 
-    sing.inject(
-        "_default",
-        chaotic_semantic_memory::singularity::Concept {
-            id: "cached-stats-1".to_string(),
-            vector: HVec10240::random(),
-            metadata: std::collections::HashMap::new(),
-            created_at: 1,
-            modified_at: 1,
-            expires_at: None,
-            canonical_concept_ids: Vec::new(),
-        },
-    )
+    sing.inject("_default", chaotic_semantic_memory::singularity::Concept {
+        id: "cached-stats-1".to_string(),
+        vector: HVec10240::random(),
+        metadata: std::collections::HashMap::new(),
+        created_at: 1,
+        modified_at: 1,
+        expires_at: None,
+        canonical_concept_ids: Vec::new(),
+    })
     .unwrap();
 
     let query = HVec10240::random();
     let _results = sing.find_similar_cached("_default", &query, 5);
 
-    let stats = sing.last_retrieval_stats("_default");
+    let stats = sing.last_retrieval_stats("_default"));
     assert!(stats.scored_count > 0);
 }
 
@@ -96,51 +90,40 @@ fn find_similar_with_associations() {
     let v2 = HVec10240::random();
     let v3 = HVec10240::random();
 
-    sing.inject(
-        "_default",
-        chaotic_semantic_memory::singularity::Concept {
-            id: "assoc-1".to_string(),
-            vector: v1,
-            metadata: std::collections::HashMap::new(),
-            created_at: 1,
-            modified_at: 1,
-            expires_at: None,
-            canonical_concept_ids: Vec::new(),
-        },
-    )
+    sing.inject("_default", chaotic_semantic_memory::singularity::Concept {
+        id: "assoc-1".to_string(),
+        vector: v1,
+        metadata: std::collections::HashMap::new(),
+        created_at: 1,
+        modified_at: 1,
+        expires_at: None,
+        canonical_concept_ids: Vec::new(),
+    })
     .unwrap();
-    sing.inject(
-        "_default",
-        chaotic_semantic_memory::singularity::Concept {
-            id: "assoc-2".to_string(),
-            vector: v2,
-            metadata: std::collections::HashMap::new(),
-            created_at: 1,
-            modified_at: 1,
-            expires_at: None,
-            canonical_concept_ids: Vec::new(),
-        },
-    )
+    sing.inject("_default", chaotic_semantic_memory::singularity::Concept {
+        id: "assoc-2".to_string(),
+        vector: v2,
+        metadata: std::collections::HashMap::new(),
+        created_at: 1,
+        modified_at: 1,
+        expires_at: None,
+        canonical_concept_ids: Vec::new(),
+    })
     .unwrap();
-    sing.inject(
-        "_default",
-        chaotic_semantic_memory::singularity::Concept {
-            id: "assoc-3".to_string(),
-            vector: v3,
-            metadata: std::collections::HashMap::new(),
-            created_at: 1,
-            modified_at: 1,
-            expires_at: None,
-            canonical_concept_ids: Vec::new(),
-        },
-    )
+    sing.inject("_default", chaotic_semantic_memory::singularity::Concept {
+        id: "assoc-3".to_string(),
+        vector: v3,
+        metadata: std::collections::HashMap::new(),
+        created_at: 1,
+        modified_at: 1,
+        expires_at: None,
+        canonical_concept_ids: Vec::new(),
+    })
     .unwrap();
 
     // Create associations
-    sing.associate("_default", "assoc-1", "assoc-2", 0.8)
-        .unwrap();
-    sing.associate("_default", "assoc-2", "assoc-3", 0.6)
-        .unwrap();
+    sing.associate("_default", "assoc-1", "assoc-2", 0.8).unwrap();
+    sing.associate("_default", "assoc-2", "assoc-3", 0.6).unwrap();
 
     // Query with the first vector should find concepts
     let results = sing.find_similar("_default", &v1, 5);
@@ -160,39 +143,32 @@ fn retrieval_config_with_graph_enabled() {
 
     let v1 = HVec10240::random();
     let v2 = HVec10240::random();
-    sing.inject(
-        "_default",
-        chaotic_semantic_memory::singularity::Concept {
-            id: "graph-1".to_string(),
-            vector: v1,
-            metadata: std::collections::HashMap::new(),
-            created_at: 1,
-            modified_at: 1,
-            expires_at: None,
-            canonical_concept_ids: Vec::new(),
-        },
-    )
+    sing.inject("_default", chaotic_semantic_memory::singularity::Concept {
+        id: "graph-1".to_string(),
+        vector: v1,
+        metadata: std::collections::HashMap::new(),
+        created_at: 1,
+        modified_at: 1,
+        expires_at: None,
+        canonical_concept_ids: Vec::new(),
+    })
     .unwrap();
-    sing.inject(
-        "_default",
-        chaotic_semantic_memory::singularity::Concept {
-            id: "graph-2".to_string(),
-            vector: v2,
-            metadata: std::collections::HashMap::new(),
-            created_at: 1,
-            modified_at: 1,
-            expires_at: None,
-            canonical_concept_ids: Vec::new(),
-        },
-    )
+    sing.inject("_default", chaotic_semantic_memory::singularity::Concept {
+        id: "graph-2".to_string(),
+        vector: v2,
+        metadata: std::collections::HashMap::new(),
+        created_at: 1,
+        modified_at: 1,
+        expires_at: None,
+        canonical_concept_ids: Vec::new(),
+    })
     .unwrap();
-    sing.associate("_default", "graph-1", "graph-2", 0.9)
-        .unwrap();
+    sing.associate("_default", "graph-1", "graph-2", 0.9).unwrap();
 
     // This should trigger graph candidate generation path
     let _results = sing.find_similar_cached("_default", &v1, 5);
     // Stats should reflect retrieval occurred
-    let stats = sing.last_retrieval_stats("_default");
+    let stats = sing.last_retrieval_stats("_default"));
     assert!(stats.scored_count > 0);
 }
 
@@ -208,18 +184,15 @@ fn retrieval_config_with_bucket_enabled() {
 
     // Inject multiple concepts
     for i in 0..10 {
-        sing.inject(
-            "_default",
-            chaotic_semantic_memory::singularity::Concept {
-                id: format!("bucket-{i}"),
-                vector: HVec10240::random(),
-                metadata: std::collections::HashMap::new(),
-                created_at: 1,
-                modified_at: 1,
-                expires_at: None,
-                canonical_concept_ids: Vec::new(),
-            },
-        )
+        sing.inject("_default", chaotic_semantic_memory::singularity::Concept {
+            id: format!("bucket-{i}"),
+            vector: HVec10240::random(),
+            metadata: std::collections::HashMap::new(),
+            created_at: 1,
+            modified_at: 1,
+            expires_at: None,
+            canonical_concept_ids: Vec::new(),
+        })
         .unwrap();
     }
 
@@ -228,6 +201,6 @@ fn retrieval_config_with_bucket_enabled() {
     let _results = sing.find_similar_cached("_default", &query, 5);
 
     // Stats should reflect retrieval occurred
-    let stats = sing.last_retrieval_stats("_default");
+    let stats = sing.last_retrieval_stats("_default"));
     assert!(stats.scored_count > 0);
 }

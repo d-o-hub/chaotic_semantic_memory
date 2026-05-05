@@ -14,12 +14,7 @@ impl Persistence {
         conn.execute(
             "INSERT OR REPLACE INTO csm_hnsw_graph (namespace, id, data, modified_at)
              VALUES (?1, ?2, ?3, ?4)",
-            params![
-                ns.to_string(),
-                id,
-                data,
-                crate::singularity::unix_now_secs() as i64
-            ],
+            params![ns.to_string(), id, data, crate::singularity::unix_now_secs() as i64],
         )
         .await
         .map_err(|e| MemoryError::database(format!("Failed to save index: {}", e)))?;
@@ -31,10 +26,7 @@ impl Persistence {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
         let mut rows = conn
-            .query(
-                "SELECT data FROM csm_hnsw_graph WHERE namespace = ?1 AND id = ?2",
-                params![ns.to_string(), id],
-            )
+            .query("SELECT data FROM csm_hnsw_graph WHERE namespace = ?1 AND id = ?2", params![ns.to_string(), id])
             .await
             .map_err(|e| MemoryError::database(format!("Failed to load index: {}", e)))?;
 

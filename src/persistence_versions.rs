@@ -9,8 +9,7 @@ impl Persistence {
         conn: &Connection,
         concept: &Concept,
     ) -> Result<()> {
-        self.record_concept_version_scoped(conn, "_default", concept)
-            .await
+        self.record_concept_version_scoped(conn, "_default", concept).await
     }
 
     pub(crate) async fn record_concept_version_scoped(
@@ -61,11 +60,7 @@ impl Persistence {
              AND version <= (
                 SELECT MAX(version) - ?3 FROM csm_versions WHERE namespace = ?1 AND concept_id = ?2
              )",
-            params![
-                ns.to_string(),
-                concept.id.clone(),
-                self.version_retention as i64
-            ],
+            params![ns.to_string(), concept.id.clone(), self.version_retention as i64],
         )
         .await
         .map_err(|e| MemoryError::database(format!("Failed to prune concept versions: {e}")))?;

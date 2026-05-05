@@ -1,10 +1,10 @@
-use crate::hyperdim::HVec10240;
-use crate::index::AnnIndex;
-use crate::singularity::{Concept, SingularityConfig};
-use crate::singularity_cache::{CacheMetrics, QueryCache};
-use crate::singularity_retrieval::RetrievalStats;
 use std::collections::HashMap;
 use std::sync::RwLock;
+use crate::singularity::{Concept, SingularityConfig};
+use crate::hyperdim::HVec10240;
+use crate::index::AnnIndex;
+use crate::singularity_cache::{CacheMetrics, QueryCache};
+use crate::singularity_retrieval::RetrievalStats;
 
 /// State for a single namespace in the singularity engine.
 #[derive(Debug)]

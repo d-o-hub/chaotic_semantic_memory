@@ -36,7 +36,6 @@ fn concept_and_association_limits_enforced() {
         max_associations_per_concept: Some(1),
         concept_cache_size: 64,
         max_cached_top_k: 100,
-        index_backend: chaotic_semantic_memory::index::IndexBackend::BruteForce,
     });
 
     let mk = |id: &str, created_at: u64| Concept {
@@ -49,18 +48,18 @@ fn concept_and_association_limits_enforced() {
         canonical_concept_ids: Vec::new(),
     };
 
-    singularity.inject("_default", mk("a", 1)).unwrap();
-    singularity.inject("_default", mk("b", 2)).unwrap();
-    singularity.inject("_default", mk("c", 3)).unwrap();
+    singularity.inject(mk("a", 1)).unwrap();
+    singularity.inject(mk("b", 2)).unwrap();
+    singularity.inject(mk("c", 3)).unwrap();
 
-    assert_eq!(singularity.len("_default"), 2);
-    assert!(singularity.get("_default", "a").is_none());
-    assert!(singularity.get("_default", "b").is_some());
-    assert!(singularity.get("_default", "c").is_some());
+    assert_eq!(singularity.len(), 2);
+    assert!(singularity.get("a").is_none());
+    assert!(singularity.get("b").is_some());
+    assert!(singularity.get("c").is_some());
 
-    singularity.associate("_default", "b", "c", 0.9).unwrap();
-    singularity.associate("_default", "b", "b", 0.1).unwrap();
-    let links = singularity.get_associations("_default", "b");
+    singularity.associate("b", "c", 0.9).unwrap();
+    singularity.associate("b", "b", 0.1).unwrap();
+    let links = singularity.get_associations("b");
     assert_eq!(links.len(), 1);
     assert_eq!(links[0].0, "c");
 }
@@ -78,21 +77,13 @@ fn singularity_association_strength_is_validated() {
         canonical_concept_ids: Vec::new(),
     };
 
-    singularity.inject("_default", mk("a")).unwrap();
-    singularity.inject("_default", mk("b")).unwrap();
+    singularity.inject(mk("a")).unwrap();
+    singularity.inject(mk("b")).unwrap();
 
-    assert!(
-        singularity
-            .associate("_default", "a", "b", f32::NAN)
-            .is_err()
-    );
-    assert!(
-        singularity
-            .associate("_default", "a", "b", f32::INFINITY)
-            .is_err()
-    );
-    assert!(singularity.associate("_default", "a", "b", -0.1).is_err());
-    assert!(singularity.associate("_default", "a", "b", 1.1).is_err());
+    assert!(singularity.associate("a", "b", f32::NAN).is_err());
+    assert!(singularity.associate("a", "b", f32::INFINITY).is_err());
+    assert!(singularity.associate("a", "b", -0.1).is_err());
+    assert!(singularity.associate("a", "b", 1.1).is_err());
 }
 
 #[test]
@@ -108,13 +99,13 @@ fn singularity_association_updates_instead_of_duplicating() {
         canonical_concept_ids: Vec::new(),
     };
 
-    singularity.inject("_default", mk("a")).unwrap();
-    singularity.inject("_default", mk("b")).unwrap();
+    singularity.inject(mk("a")).unwrap();
+    singularity.inject(mk("b")).unwrap();
 
-    singularity.associate("_default", "a", "b", 0.2).unwrap();
-    singularity.associate("_default", "a", "b", 0.9).unwrap();
+    singularity.associate("a", "b", 0.2).unwrap();
+    singularity.associate("a", "b", 0.9).unwrap();
 
-    let links = singularity.get_associations("_default", "a");
+    let links = singularity.get_associations("a");
     assert_eq!(links.len(), 1);
     assert_eq!(links[0].0, "b");
     assert_eq!(links[0].1, 0.9);

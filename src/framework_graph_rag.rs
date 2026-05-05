@@ -3,7 +3,7 @@
 use crate::error::Result;
 use crate::framework::ChaoticSemanticFramework;
 use crate::hyperdim::HVec10240;
-use crate::retrieval::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
+use crate::retrieval::graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
 use tracing::instrument;
 
 impl ChaoticSemanticFramework {

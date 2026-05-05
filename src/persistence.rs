@@ -155,13 +155,7 @@ impl Persistence {
     }
 
     /// Save an association
-    pub async fn save_association(
-        &self,
-        ns: &str,
-        from: &str,
-        to: &str,
-        strength: f32,
-    ) -> Result<()> {
+    pub async fn save_association(&self, ns: &str, from: &str, to: &str, strength: f32) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 

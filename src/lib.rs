@@ -80,15 +80,13 @@ pub mod metadata_filter;
     any(feature = "otlp", feature = "prometheus")
 ))]
 pub mod observability;
-#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-mod persistence_concepts;
 pub mod semantic_triples;
 pub use metadata_filter::MetadataFilter;
 pub mod index;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 pub mod persistence;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-mod persistence_clear;
+mod persistence_concepts;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_index; // Extracted from persistence.rs for LOC gate (ADR-0068)
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
@@ -109,7 +107,7 @@ mod singularity_cache;
 mod singularity_ext;
 mod singularity_retrieval;
 mod singularity_search; // Extracted from singularity.rs for LOC gate
-pub mod singularity_state;
+mod singularity_state;
 mod singularity_ttl;
 
 #[cfg(target_arch = "wasm32")]
@@ -160,13 +158,7 @@ pub mod persistence {
             Ok(())
         }
 
-        pub async fn save_association(
-            &self,
-            _ns: &str,
-            _from: &str,
-            _to: &str,
-            _strength: f32,
-        ) -> Result<()> {
+        pub async fn save_association(&self, _ns: &str, _from: &str, _to: &str, _strength: f32) -> Result<()> {
             Ok(())
         }
 
@@ -191,10 +183,6 @@ pub mod persistence {
         }
 
         pub async fn clear_namespace(&self, _ns: &str) -> Result<()> {
-            Ok(())
-        }
-
-        pub async fn clear_all(&self) -> Result<()> {
             Ok(())
         }
 
@@ -241,6 +229,10 @@ pub mod persistence {
 
         pub async fn apply_migrations(&self, _target_version: i64) -> Result<()> {
             Ok(())
+        }
+
+        pub async fn load_all_canonical_concepts(&self) -> Result<Vec<crate::semantic_bridge::CanonicalConcept>> {
+            Ok(Vec::new())
         }
     }
 }

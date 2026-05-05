@@ -48,23 +48,19 @@ impl Singularity {
             .collect()
     }
 
+    /// Get incoming associations for a concept.
+    ///
+    /// Returns concepts that have associations pointing to this concept.
     /// Breadth-first traversal from a starting concept.
     ///
     /// Returns nodes reachable within `config.max_depth` hops, along with their depths.
     /// Nodes are returned in BFS order.
-    pub fn bfs(
-        &self,
-        ns: &str,
-        start: &str,
-        config: &TraversalConfig,
-    ) -> Result<Vec<(String, u32)>> {
+    pub fn bfs(&self, ns: &str, start: &str, config: &TraversalConfig) -> Result<Vec<(String, u32)>> {
         crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
-        let ns_state = self
-            .get_namespace(ns)
-            .ok_or_else(|| MemoryError::NotFound {
-                entity: "Namespace".to_string(),
-                id: ns.to_string(),
-            })?;
+        let ns_state = self.get_namespace(ns).ok_or_else(|| MemoryError::NotFound {
+            entity: "Namespace".to_string(),
+            id: ns.to_string(),
+        })?;
         if !ns_state.concepts.contains_key(start) {
             return Err(MemoryError::NotFound {
                 entity: "Concept".to_string(),
@@ -117,12 +113,10 @@ impl Singularity {
         config: &TraversalConfig,
     ) -> Result<Option<Vec<String>>> {
         crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
-        let ns_state = self
-            .get_namespace(ns)
-            .ok_or_else(|| MemoryError::NotFound {
-                entity: "Namespace".to_string(),
-                id: ns.to_string(),
-            })?;
+        let ns_state = self.get_namespace(ns).ok_or_else(|| MemoryError::NotFound {
+            entity: "Namespace".to_string(),
+            id: ns.to_string(),
+        })?;
         if !ns_state.concepts.contains_key(from) {
             return Err(MemoryError::NotFound {
                 entity: "Concept".to_string(),
@@ -212,12 +206,10 @@ impl Singularity {
         config: &TraversalConfig,
     ) -> Result<Option<Vec<String>>> {
         crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
-        let ns_state = self
-            .get_namespace(ns)
-            .ok_or_else(|| MemoryError::NotFound {
-                entity: "Namespace".to_string(),
-                id: ns.to_string(),
-            })?;
+        let ns_state = self.get_namespace(ns).ok_or_else(|| MemoryError::NotFound {
+            entity: "Namespace".to_string(),
+            id: ns.to_string(),
+        })?;
         if !ns_state.concepts.contains_key(from) {
             return Err(MemoryError::NotFound {
                 entity: "Concept".to_string(),
@@ -276,9 +268,10 @@ impl Singularity {
 
 #[cfg(test)]
 mod tests {
+    use crate::singularity::SingularityConfig;
     use super::*;
     use crate::hyperdim::HVec10240;
-    use crate::singularity::{Concept, ConceptBuilder, Singularity, SingularityConfig};
+    use crate::singularity::{Concept, ConceptBuilder, Singularity};
 
     fn make_concept(id: &str) -> Concept {
         ConceptBuilder::new(id)
@@ -427,10 +420,7 @@ mod tests {
         sing.associate("_default", "c", "d", 0.1).unwrap();
 
         let config = TraversalConfig::default();
-        let path = sing
-            .shortest_path("_default", "a", "d", &config)
-            .unwrap()
-            .unwrap();
+        let path = sing.shortest_path("_default", "a", "d", &config).unwrap().unwrap();
         // Strong path a→b→d has lower cost than weak path a→c→d
         assert_eq!(path, vec!["a", "b", "d"]);
     }
@@ -443,9 +433,7 @@ mod tests {
         sing.associate("_default", "a", "b", 0.5).unwrap();
 
         let config = TraversalConfig::default();
-        let path = sing
-            .shortest_path_hops("_default", "a", "b", &config)
-            .unwrap();
+        let path = sing.shortest_path_hops("_default", "a", "b", &config).unwrap();
         assert_eq!(path, Some(vec!["a".to_string(), "b".to_string()]));
     }
 
@@ -459,9 +447,7 @@ mod tests {
         sing.associate("_default", "b", "c", 0.5).unwrap();
 
         let config = TraversalConfig::default();
-        let path = sing
-            .shortest_path_hops("_default", "a", "c", &config)
-            .unwrap();
+        let path = sing.shortest_path_hops("_default", "a", "c", &config).unwrap();
         assert_eq!(
             path,
             Some(vec!["a".to_string(), "b".to_string(), "c".to_string()])
@@ -475,9 +461,7 @@ mod tests {
         sing.inject("_default", make_concept("b")).unwrap();
 
         let config = TraversalConfig::default();
-        let path = sing
-            .shortest_path_hops("_default", "a", "b", &config)
-            .unwrap();
+        let path = sing.shortest_path_hops("_default", "a", "b", &config).unwrap();
         assert!(path.is_none());
     }
 }

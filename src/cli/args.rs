@@ -1,10 +1,6 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
-pub use super::namespace_args::{
-    NamespaceArgs, NamespaceCommand, NamespaceDeleteArgs, NamespaceExportArgs,
-};
-
 #[derive(Parser, Debug)]
 #[command(name = "csm")]
 #[command(about = "Chaotic Semantic Memory CLI", long_about = None)]
@@ -34,13 +30,9 @@ pub struct CliArgs {
     #[arg(long, global = true, value_enum, default_value = "table")]
     pub output_format: OutputFormat,
 
-    /// OTLP gRPC endpoint (e.g., http://localhost:4317).
-    #[arg(long, global = true, env = "CSM_OTLP_ENDPOINT")]
-    pub otlp_endpoint: Option<String>,
-
-    /// Prometheus scrape bind address (e.g., 127.0.0.1:9090).
-    #[arg(long, global = true, env = "CSM_PROMETHEUS_BIND")]
-    pub prometheus_bind: Option<String>,
+    /// Namespace for isolation (default: _default).
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -88,8 +80,6 @@ pub enum Commands {
     Watch(WatchArgs),
     /// GraphRAG retrieval: similarity + graph traversal hybrid.
     ProbeGraph(ProbeGraphArgs),
-    /// Manage namespaces.
-    Namespaces(NamespaceArgs),
 }
 
 #[derive(Args, Debug, Clone)]
@@ -125,14 +115,6 @@ pub struct ProbeArgs {
 
     #[arg(short = 'k', long, default_value = "10")]
     pub top_k: usize,
-
-    /// Initial number of candidates to retrieve before reranking.
-    #[arg(long, default_value = "50")]
-    pub initial_k: usize,
-
-    /// Reranking pipeline (e.g., "mmr:0.7,recency:30d").
-    #[arg(long, value_name = "PIPELINE")]
-    pub rerank: Option<String>,
 
     #[arg(short, long)]
     pub threshold: Option<f64>,
@@ -425,10 +407,7 @@ pub struct ProbeFilteredArgs {
 
 /// Arguments for stats command.
 #[derive(Args, Debug, Clone)]
-pub struct StatsArgs {
-    #[arg(long, global = true, default_value = "_default")]
-    pub namespace: String,
-}
+pub struct StatsArgs;
 
 /// Arguments for metrics command.
 #[derive(Args, Debug, Clone)]
@@ -436,8 +415,6 @@ pub struct MetricsArgs {
     /// Reset metrics counters (not yet implemented).
     #[arg(long)]
     pub reset: bool,
-    #[arg(long, global = true, default_value = "_default")]
-    pub namespace: String,
 }
 
 /// Arguments for watch command.

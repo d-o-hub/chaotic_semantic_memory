@@ -327,14 +327,13 @@ impl WasmFramework {
     /// Export all concepts and associations to bytes for in-browser storage.
     #[wasm_bindgen(js_name = exportToBytes)]
     pub async fn export_to_bytes(&self) -> Result<Uint8Array, JsValue> {
-        let ns = self.framework.namespace();
         let payload = {
             let singularity = self.framework.singularity.read().await;
             ExportPayload {
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 exported_at: unix_now_secs(),
-                concepts: singularity.all_concepts(ns),
-                associations: singularity.all_associations(ns),
+                concepts: singularity.all_concepts(),
+                associations: singularity.all_associations(),
             }
         };
 
@@ -347,7 +346,6 @@ impl WasmFramework {
     /// Import state from bytes previously produced by `exportToBytes`.
     #[wasm_bindgen(js_name = importFromBytes)]
     pub async fn import_from_bytes(&self, data: Uint8Array, merge: bool) -> Result<usize, JsValue> {
-        let ns = self.framework.namespace();
         let bytes = data.to_vec();
 
         if bytes.len() > MAX_IMPORT_SIZE as usize {
@@ -363,21 +361,22 @@ impl WasmFramework {
         let binary_payload: BinaryExportPayload =
             options.deserialize(&bytes).map_err(to_js_error)?;
         let payload = binary_payload.to_export_payload().map_err(to_js_error)?;
-        let mut singularity = self.framework.singularity.write().await;
+
         if !merge {
-            singularity.clear(ns);
+            let mut singularity = self.framework.singularity.write().await;
+            singularity.clear();
         }
+
+        let mut singularity = self.framework.singularity.write().await;
         for concept in &payload.concepts {
             self.framework
                 .validate_concept(concept)
                 .map_err(to_js_error)?;
-            singularity
-                .inject(ns, concept.clone())
-                .map_err(to_js_error)?;
+            singularity.inject(concept.clone()).map_err(to_js_error)?;
         }
 
         for (from, to, strength) in &payload.associations {
-            if let Err(error) = singularity.associate(ns, from, to, *strength) {
+            if let Err(error) = singularity.associate(from, to, *strength) {
                 warn!(
                     from_id = %from,
                     to_id = %to,

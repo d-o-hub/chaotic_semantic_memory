@@ -19,8 +19,7 @@ pub async fn run_delete(
 ) -> Result<()> {
     validate_concept_id(&args.concept_id)?;
 
-    let framework: crate::framework::ChaoticSemanticFramework =
-        create_framework_with_namespace(db_path, &args.namespace).await?;
+    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
 
     // Check if concept exists before deletion
     let existing = framework

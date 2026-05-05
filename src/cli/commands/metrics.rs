@@ -4,22 +4,17 @@ use std::path::Path;
 
 use tracing::instrument;
 
-use crate::cli::args::{MetricsArgs, OutputFormat};
+use crate::cli::args::OutputFormat;
 use crate::cli::error::{CliError, Result};
 
-use super::create_framework_with_namespace;
+use super::create_framework;
 
 /// Run the metrics command.
 #[instrument(name = "cli_metrics")]
-pub async fn run_metrics(
-    args: MetricsArgs,
-    db_path: Option<&Path>,
-    format: OutputFormat,
-) -> Result<()> {
-    let framework: crate::framework::ChaoticSemanticFramework =
-        create_framework_with_namespace(db_path, &args.namespace).await?;
+pub async fn run_metrics(db_path: Option<&Path>, format: OutputFormat, reset: bool) -> Result<()> {
+    let framework: crate::framework::ChaoticSemanticFramework = create_framework(db_path).await?;
 
-    if args.reset {
+    if reset {
         // Note: Metrics reset is not currently supported at the framework level.
         // This is a placeholder for future implementation.
         return Err(CliError::Validation(

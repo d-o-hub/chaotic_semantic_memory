@@ -86,16 +86,13 @@ pub fn create_index(backend: &IndexBackend) -> Box<dyn AnnIndex> {
     match backend {
         IndexBackend::BruteForce => Box::new(brute_force::BruteForce::new()),
         #[cfg(feature = "ann-hnsw")]
-        IndexBackend::Hnsw {
-            m,
-            ef_construction,
-            ef_search,
-        } => Box::new(hnsw::HnswIndex::new(*m, *ef_construction, *ef_search)),
+        IndexBackend::Hnsw { m, ef_construction, ef_search } => {
+            Box::new(hnsw::HnswIndex::new(*m, *ef_construction, *ef_search))
+        }
         #[cfg(feature = "ann-lsh")]
-        IndexBackend::Lsh {
-            num_tables,
-            hash_bits,
-        } => Box::new(lsh::LshIndex::new(*num_tables, *hash_bits)),
+        IndexBackend::Lsh { num_tables, hash_bits } => {
+            Box::new(lsh::LshIndex::new(*num_tables, *hash_bits))
+        }
         #[allow(unreachable_patterns)]
         _ => Box::new(brute_force::BruteForce::new()),
     }

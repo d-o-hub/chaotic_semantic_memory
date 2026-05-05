@@ -70,10 +70,7 @@ fn bench_persistence_warm(c: &mut Criterion) {
         b.iter(|| {
             let concept = make_concept_with_metadata("bench-save");
             rt.block_on(async {
-                persistence
-                    .save_concept("_default", black_box(&concept))
-                    .await
-                    .unwrap();
+                persistence.save_concept(black_box(&concept)).await.unwrap();
             })
         })
     });
@@ -81,15 +78,12 @@ fn bench_persistence_warm(c: &mut Criterion) {
     group.bench_function("load_concept", |b| {
         let concept = make_concept_with_metadata("bench-load");
         rt.block_on(async {
-            persistence
-                .save_concept("_default", &concept)
-                .await
-                .unwrap();
+            persistence.save_concept(&concept).await.unwrap();
         });
         b.iter(|| {
             rt.block_on(async {
                 let loaded = persistence
-                    .load_concept("_default", black_box("bench-load"))
+                    .load_concept(black_box("bench-load"))
                     .await
                     .unwrap();
                 black_box(loaded)
@@ -110,11 +104,11 @@ fn bench_delete_concept(c: &mut Criterion) {
             rt.block_on(async {
                 let persistence = Persistence::new_local(path).await.unwrap();
                 persistence
-                    .save_concept("_default", &make_concept("to-delete"))
+                    .save_concept(&make_concept("to-delete"))
                     .await
                     .unwrap();
                 persistence
-                    .delete_concept("_default", black_box("to-delete"))
+                    .delete_concept(black_box("to-delete"))
                     .await
                     .unwrap();
                 black_box(persistence)
@@ -133,18 +127,15 @@ fn bench_delete_concept_with_cascade(c: &mut Criterion) {
             rt.block_on(async {
                 let persistence = Persistence::new_local(path).await.unwrap();
                 let concepts = make_concepts(10, "cascade");
-                persistence
-                    .save_concepts("_default", &concepts)
-                    .await
-                    .unwrap();
+                persistence.save_concepts(&concepts).await.unwrap();
                 for i in 0..9 {
                     persistence
-                        .save_association("_default", "cascade-0", &format!("cascade-{i}"), 0.5)
+                        .save_association("cascade-0", &format!("cascade-{i}"), 0.5)
                         .await
                         .unwrap();
                 }
                 persistence
-                    .delete_concept("_default", black_box("cascade-0"))
+                    .delete_concept(black_box("cascade-0"))
                     .await
                     .unwrap();
                 black_box(persistence)
@@ -166,7 +157,7 @@ fn bench_save_concepts_batch(c: &mut Criterion) {
                 rt.block_on(async {
                     let persistence = Persistence::new_local(path).await.unwrap();
                     persistence
-                        .save_concepts("_default", black_box(&concepts))
+                        .save_concepts(black_box(&concepts))
                         .await
                         .unwrap();
                     black_box(persistence)
@@ -190,11 +181,8 @@ fn bench_load_all_concepts(c: &mut Criterion) {
                 rt.block_on(async {
                     let persistence = Persistence::new_local(path).await.unwrap();
                     let concepts = make_concepts(size, "load-all");
-                    persistence
-                        .save_concepts("_default", &concepts)
-                        .await
-                        .unwrap();
-                    let loaded = persistence.load_all_concepts("_default").await.unwrap();
+                    persistence.save_concepts(&concepts).await.unwrap();
+                    let loaded = persistence.load_all_concepts().await.unwrap();
                     black_box(loaded)
                 })
             })
@@ -214,16 +202,15 @@ fn bench_save_association(c: &mut Criterion) {
             rt.block_on(async {
                 let persistence = Persistence::new_local(path).await.unwrap();
                 persistence
-                    .save_concept("_default", &make_concept("assoc-from"))
+                    .save_concept(&make_concept("assoc-from"))
                     .await
                     .unwrap();
                 persistence
-                    .save_concept("_default", &make_concept("assoc-to"))
+                    .save_concept(&make_concept("assoc-to"))
                     .await
                     .unwrap();
                 persistence
                     .save_association(
-                        "_default",
                         black_box("assoc-from"),
                         black_box("assoc-to"),
                         black_box(0.75),
@@ -248,23 +235,23 @@ fn bench_load_associations(c: &mut Criterion) {
                 rt.block_on(async {
                     let persistence = Persistence::new_local(path).await.unwrap();
                     persistence
-                        .save_concept("_default", &make_concept("hub"))
+                        .save_concept(&make_concept("hub"))
                         .await
                         .unwrap();
                     for i in 0..assoc_count {
                         persistence
-                            .save_concept("_default", &make_concept(&format!("spoke-{i}")))
+                            .save_concept(&make_concept(&format!("spoke-{i}")))
                             .await
                             .unwrap();
                     }
                     for i in 0..assoc_count {
                         persistence
-                            .save_association("_default", "hub", &format!("spoke-{i}"), 0.5)
+                            .save_association("hub", &format!("spoke-{i}"), 0.5)
                             .await
                             .unwrap();
                     }
                     let associations = persistence
-                        .load_associations("_default", black_box("hub"))
+                        .load_associations(black_box("hub"))
                         .await
                         .unwrap();
                     black_box(associations)
@@ -287,24 +274,18 @@ fn bench_crud_roundtrip(c: &mut Criterion) {
             rt.block_on(async {
                 let persistence = Persistence::new_local(path).await.unwrap();
 
-                persistence
-                    .save_concept("_default", black_box(&concept))
-                    .await
-                    .unwrap();
+                persistence.save_concept(black_box(&concept)).await.unwrap();
                 let loaded = persistence
-                    .load_concept("_default", black_box("roundtrip"))
+                    .load_concept(black_box("roundtrip"))
                     .await
                     .unwrap()
                     .unwrap();
                 black_box(&loaded);
                 persistence
-                    .delete_concept("_default", black_box("roundtrip"))
+                    .delete_concept(black_box("roundtrip"))
                     .await
                     .unwrap();
-                let gone = persistence
-                    .load_concept("_default", "roundtrip")
-                    .await
-                    .unwrap();
+                let gone = persistence.load_concept("roundtrip").await.unwrap();
                 black_box(gone)
             })
         })
@@ -323,42 +304,32 @@ fn bench_crud_roundtrip_with_associations(c: &mut Criterion) {
 
                 let concepts = make_concepts(5, "rt");
                 persistence
-                    .save_concepts("_default", black_box(&concepts))
+                    .save_concepts(black_box(&concepts))
                     .await
                     .unwrap();
 
                 persistence
-                    .save_association("_default", "rt-0", "rt-1", 0.8)
+                    .save_association("rt-0", "rt-1", 0.8)
                     .await
                     .unwrap();
                 persistence
-                    .save_association("_default", "rt-0", "rt-2", 0.6)
+                    .save_association("rt-0", "rt-2", 0.6)
                     .await
                     .unwrap();
                 persistence
-                    .save_association("_default", "rt-1", "rt-3", 0.4)
+                    .save_association("rt-1", "rt-3", 0.4)
                     .await
                     .unwrap();
 
-                let loaded = persistence
-                    .load_concept("_default", "rt-0")
-                    .await
-                    .unwrap()
-                    .unwrap();
+                let loaded = persistence.load_concept("rt-0").await.unwrap().unwrap();
                 black_box(&loaded);
 
-                let associations = persistence
-                    .load_associations("_default", "rt-0")
-                    .await
-                    .unwrap();
+                let associations = persistence.load_associations("rt-0").await.unwrap();
                 black_box(&associations);
 
-                persistence
-                    .delete_concept("_default", "rt-0")
-                    .await
-                    .unwrap();
+                persistence.delete_concept("rt-0").await.unwrap();
 
-                let remaining = persistence.load_all_concepts("_default").await.unwrap();
+                let remaining = persistence.load_all_concepts().await.unwrap();
                 black_box(remaining.len())
             })
         })
@@ -375,10 +346,7 @@ fn bench_checkpoint(c: &mut Criterion) {
             rt.block_on(async {
                 let persistence = Persistence::new_local(path).await.unwrap();
                 let concepts = make_concepts(100, "ckpt");
-                persistence
-                    .save_concepts("_default", &concepts)
-                    .await
-                    .unwrap();
+                persistence.save_concepts(&concepts).await.unwrap();
                 persistence.checkpoint().await.unwrap();
                 black_box(persistence)
             })
@@ -404,7 +372,7 @@ fn bench_persistence_concurrency(c: &mut Criterion) {
                         let concept = make_concept(&format!("concurrent-{i}"));
                         // Retry loop for bench stability
                         loop {
-                            match p.save_concept("_default", &concept).await {
+                            match p.save_concept(&concept).await {
                                 Ok(_) => break,
                                 Err(e) if format!("{e:?}").contains("database is locked") => {
                                     tokio::time::sleep(std::time::Duration::from_millis(1)).await;

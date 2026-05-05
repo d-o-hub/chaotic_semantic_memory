@@ -13,8 +13,7 @@ pub async fn run_export(
     db_path: Option<&Path>,
     format: OutputFormat,
 ) -> Result<()> {
-    let framework: crate::framework::ChaoticSemanticFramework =
-        create_framework_with_namespace(db_path, &args.namespace).await?;
+    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
 
     let path_str = args.output.to_string_lossy();
     let stats = framework

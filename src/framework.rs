@@ -47,6 +47,20 @@ impl ChaoticSemanticFramework {
         &self.namespace
     }
 
+    /// Create a new framework instance pointing to a different namespace.
+    /// This shares the same underlying singularity, persistence and reservoir.
+    pub fn with_namespace(&self, ns: impl Into<String>) -> Self {
+        Self {
+            singularity: self.singularity.clone(),
+            persistence: self.persistence.clone(),
+            reservoir: self.reservoir.clone(),
+            config: self.config.clone(),
+            metrics: self.metrics.clone(),
+            event_sender: self.event_sender.clone(),
+            namespace: ns.into(),
+        }
+    }
+
     /// Inject a concept into memory
     #[instrument(err, skip(self, id, vector))]
     pub async fn inject_concept(&self, id: impl Into<String>, vector: HVec10240) -> Result<()> {
@@ -62,13 +76,9 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(ref persistence) = self.persistence {
-            let p_start = std::time::Instant::now();
             persistence.save_concept(&self.namespace, &concept).await?;
-            #[allow(clippy::cast_possible_truncation)]
-            self.metrics
-                .observe_persist_latency_ms(p_start.elapsed().as_millis() as u64, "save");
         }
-        self.metrics.inc_concepts_injected(1, false);
+        self.metrics.inc_concepts_injected(1);
         self.emit_event(MemoryEvent::ConceptInjected {
             id,
             timestamp: concept.modified_at,
@@ -101,13 +111,9 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(ref persistence) = self.persistence {
-            let p_start = std::time::Instant::now();
             persistence.save_concept(&self.namespace, &concept).await?;
-            #[allow(clippy::cast_possible_truncation)]
-            self.metrics
-                .observe_persist_latency_ms(p_start.elapsed().as_millis() as u64, "save");
         }
-        self.metrics.inc_concepts_injected(1, true);
+        self.metrics.inc_concepts_injected(1);
         self.emit_event(MemoryEvent::ConceptInjected {
             id: concept.id.clone(),
             timestamp: concept.modified_at,
@@ -147,6 +153,7 @@ impl ChaoticSemanticFramework {
         let elapsed_ms = start.elapsed().as_millis() as u64;
         #[cfg(target_arch = "wasm32")]
         let elapsed_ms = 0;
+        self.metrics.observe_probe_latency_ms(elapsed_ms);
 
         // Filter expired concepts without lock
         let filtered: Vec<(String, f32)> = results
@@ -154,8 +161,6 @@ impl ChaoticSemanticFramework {
             .filter(|(id, _)| !expired_ids.contains(id))
             .collect();
 
-        self.metrics
-            .observe_probe_latency_ms(elapsed_ms, top_k, true);
         Ok(filtered)
     }
 
@@ -183,8 +188,7 @@ impl ChaoticSemanticFramework {
         let elapsed_ms = start.elapsed().as_millis() as u64;
         #[cfg(target_arch = "wasm32")]
         let elapsed_ms = 0;
-        self.metrics
-            .observe_probe_latency_ms(elapsed_ms, top_k, true);
+        self.metrics.observe_probe_latency_ms(elapsed_ms);
         Ok(results.as_ref().to_vec())
     }
 
@@ -250,15 +254,9 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(ref persistence) = self.persistence {
-            let p_start = std::time::Instant::now();
             persistence
                 .save_association(&self.namespace, from, to, strength)
                 .await?;
-            #[allow(clippy::cast_possible_truncation)]
-            self.metrics.observe_persist_latency_ms(
-                p_start.elapsed().as_millis() as u64,
-                "save_association",
-            );
         }
         self.metrics.inc_associations_created(1);
         self.emit_event(MemoryEvent::Associated {
@@ -308,9 +306,7 @@ impl ChaoticSemanticFramework {
         Self::validate_concept_id(id)?;
         let sing = self.singularity.read().await;
         Ok(sing
-            .incoming_associations(&self.namespace, id)
-            .into_iter()
-            .collect())
+            .incoming_associations(&self.namespace, id))
     }
 
     /// Find the fewest-hop path between two concepts (unweighted BFS).
@@ -341,7 +337,6 @@ impl ChaoticSemanticFramework {
     }
 
     pub async fn metrics_snapshot(&self) -> FrameworkMetricsSnapshot {
-        let stats = self.stats().await.unwrap_or_default();
         let mut snapshot = self.metrics.snapshot();
 
         let cache_snapshot = {
@@ -363,23 +358,6 @@ impl ChaoticSemanticFramework {
         snapshot.reservoir_steps_total = reservoir_snapshot.reservoir_steps_total;
         snapshot.avg_reservoir_step_latency_us = reservoir_snapshot.avg_reservoir_step_latency_us;
         snapshot.reservoir_nodes_active = reservoir_snapshot.reservoir_nodes_active;
-
-        let association_count = 0; // We don't have a direct way to get this without iterating if not tracked
-        #[allow(clippy::cast_precision_loss)]
-        let cache_hit_ratio =
-            if (cache_snapshot.cache_hits_total + cache_snapshot.cache_misses_total) > 0 {
-                cache_snapshot.cache_hits_total as f64
-                    / (cache_snapshot.cache_hits_total + cache_snapshot.cache_misses_total) as f64
-            } else {
-                0.0
-            };
-        #[allow(clippy::cast_possible_truncation)]
-        self.metrics.update_gauges(
-            stats.concept_count as u64,
-            association_count,
-            cache_hit_ratio,
-        );
-
         snapshot
     }
 

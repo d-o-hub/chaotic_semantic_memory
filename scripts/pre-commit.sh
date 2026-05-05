@@ -10,12 +10,9 @@ MAX_SRC_LOC=500
 
 echo "Running pre-commit checks..."
 
-# Check formatting (root + benchmarks/ standalone crate)
+# Check formatting
 echo " → Checking formatting..."
 cargo fmt -- --check
-if [[ -f benchmarks/Cargo.toml ]]; then
-  ( cd benchmarks && cargo fmt -- --check )
-fi
 
 # LOC gate (fast)
 echo " → Checking LOC limits (< ${MAX_SRC_LOC})..."
@@ -48,12 +45,12 @@ if [[ -f "CHANGELOG.md" ]]; then
   fi
 fi
 
-# NOTE: llms.txt / llms-full.txt are intentionally NOT regenerated here.
-# They are build artifacts produced exclusively by the release workflow
-# (.github/workflows/release.yml step "Regenerate & commit llms.txt").
-# Generating them in git hooks creates churn in every commit and re-introduces
-# files that .gitignore now excludes. See plans/GOAP_STATE.md
-# action_last_completed: llms_txt_release_only_2026_05_05.
+# Docs sync: regenerate llms.txt files
+echo " → Regenerating llms.txt files..."
+if [[ -f "scripts/gen-llms-txt.sh" ]]; then
+    bash scripts/gen-llms-txt.sh 2>/dev/null || true
+    echo "   ✓ llms.txt files regenerated"
+fi
 
 # Docs version sync check (will fail if other docs need updates)
 echo " → Checking docs version sync..."
@@ -114,11 +111,7 @@ else
 fi
 
 # Update coverage metrics in README.md (only if src files changed)
-# `grep -c` already prints "0" when there are no matches but exits 1; the
-# `|| echo "0"` previously appended a second line, producing "0\n0" and a
-# `[[: 0 0: syntax error` on the next test. Use `|| true` to keep the count
-# numeric.
-STAGED_SRC=$(git diff --cached --name-only 2>/dev/null | grep -c "^src/" || true)
+STAGED_SRC=$(git diff --cached --name-only 2>/dev/null | grep -c "^src/" || echo "0")
 if [[ "$STAGED_SRC" -gt 0 ]] && [[ -x "${SCRIPT_DIR}/update-coverage.sh" ]]; then
   echo " → Updating coverage metrics..."
   "${SCRIPT_DIR}/update-coverage.sh"

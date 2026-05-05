@@ -20,8 +20,7 @@ pub async fn run_disassociate(
         validate_concept_id(to)?;
     }
 
-    let framework: crate::framework::ChaoticSemanticFramework =
-        create_framework_with_namespace(db_path, &args.namespace).await?;
+    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
 
     // Check if source concept exists
     let source_exists = framework

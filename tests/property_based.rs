@@ -72,11 +72,11 @@ proptest! {
             canonical_concept_ids: Vec::new(),
         };
 
-        singularity.inject("_default", concept_a).unwrap();
-        singularity.inject("_default", concept_b).unwrap();
-        singularity.associate("_default", "a", "b", strength).unwrap();
+        singularity.inject(concept_a).unwrap();
+        singularity.inject(concept_b).unwrap();
+        singularity.associate("a", "b", strength).unwrap();
 
-        let links = singularity.get_associations("_default", "a");
+        let links = singularity.get_associations("a");
         prop_assert_eq!(links.len(), 1);
         prop_assert_eq!(links[0].0.as_str(), "b");
         prop_assert_eq!(links[0].1, strength);

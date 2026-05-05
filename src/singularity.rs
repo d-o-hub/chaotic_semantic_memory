@@ -2,10 +2,10 @@
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
-use crate::index::{AnnIndex, IndexBackend, IndexStats};
+use crate::index::{AnnIndex, IndexStats, IndexBackend};
 use crate::singularity_cache::CacheMetricsSnapshot;
-use crate::singularity_retrieval::RetrievalConfig;
 use crate::singularity_state::NamespaceState;
+use crate::singularity_retrieval::RetrievalConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::instrument;
@@ -71,11 +71,7 @@ impl ConceptBuilder {
         self
     }
 
-    pub fn with_metadata(
-        mut self,
-        key: impl Into<String>,
-        value: impl Into<serde_json::Value>,
-    ) -> Self {
+    pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<serde_json::Value>) -> Self {
         self.metadata.insert(key.into(), value.into());
         self
     }
@@ -229,44 +225,24 @@ impl Singularity {
     }
 
     pub fn associate(&mut self, ns: &str, from: &str, to: &str, strength: f32) -> Result<()> {
-        let max_assoc = self.config.max_associations_per_concept;
         let ns_state = self.get_namespace_mut(ns);
-        if !strength.is_finite() || !(0.0..=1.0).contains(&strength) {
-            return Err(MemoryError::InvalidInput {
-                field: "strength".to_string(),
-                reason: "must be finite and between 0.0 and 1.0".to_string(),
-            });
-        }
-        if !ns_state.concepts.contains_key(from) || !ns_state.concepts.contains_key(to) {
-            let missing = if !ns_state.concepts.contains_key(from) {
-                from
-            } else {
-                to
-            };
+        if !ns_state.concepts.contains_key(from) {
             return Err(MemoryError::NotFound {
                 entity: "Concept".to_string(),
-                id: missing.to_string(),
+                id: from.to_string(),
+            });
+        }
+        if !ns_state.concepts.contains_key(to) {
+            return Err(MemoryError::NotFound {
+                entity: "Concept".to_string(),
+                id: to.to_string(),
             });
         }
 
-        let links = ns_state.associations.entry(from.to_string()).or_default();
-        links.insert(to.to_string(), strength);
-
-        if let Some(limit) = max_assoc {
-            while links.len() > limit {
-                if let Some((weakest, _)) = links
-                    .iter()
-                    .min_by(|a, b| a.1.total_cmp(b.1))
-                    .map(|(k, v)| (k.clone(), *v))
-                {
-                    links.remove(&weakest);
-                } else {
-                    break;
-                }
-            }
-        }
-
-        self.invalidate_cache(ns);
+        ns_state.associations
+            .entry(from.to_string())
+            .or_default()
+            .insert(to.to_string(), strength);
         Ok(())
     }
 
@@ -279,16 +255,10 @@ impl Singularity {
     }
 
     pub fn get_associations(&self, ns: &str, id: &str) -> Vec<(String, f32)> {
-        let Some(ns_state) = self.get_namespace(ns) else {
-            return Vec::new();
-        };
-        let mut results: Vec<(String, f32)> = ns_state
-            .associations
-            .get(id)
+        self.get_namespace(ns)
+            .and_then(|n| n.associations.get(id))
             .map(|m| m.iter().map(|(k, v)| (k.clone(), *v)).collect())
-            .unwrap_or_default();
-        results.sort_by(|a, b| b.1.total_cmp(&a.1));
-        results
+            .unwrap_or_default()
     }
 
     pub fn incoming_associations(&self, ns: &str, id: &str) -> Vec<(String, f32)> {
@@ -332,9 +302,7 @@ impl Singularity {
 
     pub fn cache_metrics_snapshot(&self, ns: &str) -> CacheMetricsSnapshot {
         self.get_namespace(ns)
-            .map_or(CacheMetricsSnapshot::default(), |n| {
-                n.cache_metrics.snapshot()
-            })
+            .map_or(CacheMetricsSnapshot::default(), |n| n.cache_metrics.snapshot())
     }
 
     fn evict_oldest_if_needed(&mut self, ns: &str) {
@@ -386,13 +354,13 @@ pub fn unix_now_secs() -> u64 {
         .as_secs()
 }
 
-#[allow(clippy::cast_possible_truncation)]
 pub fn unix_now_ns() -> u64 {
+    #[allow(clippy::cast_possible_truncation)]
     let ns = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
-    ns as u64
+    u64::try_from(ns).unwrap_or_default()
 }
 
 pub(crate) fn similarity_cache_key(query: &HVec10240, top_k: usize) -> u64 {

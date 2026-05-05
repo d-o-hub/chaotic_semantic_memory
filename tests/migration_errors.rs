@@ -61,10 +61,7 @@ async fn persistence_save_and_load_triggers_version_recording() {
         .unwrap();
 
     let concept = make_concept("versioned-concept");
-    persistence
-        .save_concept("_default", &concept)
-        .await
-        .unwrap();
+    persistence.save_concept("_default", &concept).await.unwrap();
 
     // Update concept to create new version
     let updated = Concept {
@@ -76,16 +73,10 @@ async fn persistence_save_and_load_triggers_version_recording() {
         expires_at: None,
         canonical_concept_ids: Vec::new(),
     };
-    persistence
-        .save_concept("_default", &updated)
-        .await
-        .unwrap();
+    persistence.save_concept("_default", &updated).await.unwrap();
 
     // Load should succeed
-    let loaded = persistence
-        .load_concept("_default", "versioned-concept")
-        .await
-        .unwrap();
+    let loaded = persistence.load_concept("_default", "versioned-concept").await.unwrap();
     assert!(loaded.is_some());
 }
 
@@ -99,10 +90,7 @@ async fn persistence_prune_old_versions() {
         .unwrap();
 
     let concept = make_concept("prune-test");
-    persistence
-        .save_concept("_default", &concept)
-        .await
-        .unwrap();
+    persistence.save_concept("_default", &concept).await.unwrap();
 
     // Save multiple versions
     for i in 1..5 {
@@ -115,16 +103,10 @@ async fn persistence_prune_old_versions() {
             expires_at: None,
             canonical_concept_ids: Vec::new(),
         };
-        persistence
-            .save_concept("_default", &updated)
-            .await
-            .unwrap();
+        persistence.save_concept("_default", &updated).await.unwrap();
     }
 
     // Only latest version should remain
-    let loaded = persistence
-        .load_concept("_default", "prune-test")
-        .await
-        .unwrap();
+    let loaded = persistence.load_concept("_default", "prune-test").await.unwrap();
     assert!(loaded.is_some());
 }

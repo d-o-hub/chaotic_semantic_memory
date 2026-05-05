@@ -1,20 +1,18 @@
 //! Extension methods for Singularity (extracted to satisfy LOC gate)
 
+use tracing::instrument;
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 use crate::singularity::Singularity;
-use tracing::instrument;
 
 impl Singularity {
     /// Bundle multiple concepts into a single hypervector.
     #[instrument(skip(self, ns), fields(ids_count = ids.len()))]
     pub fn bundle_concepts_strict(&self, ns: &str, ids: &[String]) -> Result<HVec10240> {
-        let ns_state = self
-            .get_namespace(ns)
-            .ok_or_else(|| MemoryError::NotFound {
-                entity: "Namespace".to_string(),
-                id: ns.to_string(),
-            })?;
+        let ns_state = self.get_namespace(ns).ok_or_else(|| MemoryError::NotFound {
+            entity: "Namespace".to_string(),
+            id: ns.to_string(),
+        })?;
         let mut vectors = Vec::with_capacity(ids.len());
         for id in ids {
             match ns_state.concepts.get(id) {
@@ -23,7 +21,7 @@ impl Singularity {
                     return Err(MemoryError::NotFound {
                         entity: "Concept".to_string(),
                         id: id.clone(),
-                    });
+                    })
                 }
             }
         }

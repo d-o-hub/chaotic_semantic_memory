@@ -17,8 +17,7 @@ pub async fn run_inject(
 ) -> Result<()> {
     validate_concept_id(&args.concept_id)?;
 
-    let framework: crate::framework::ChaoticSemanticFramework =
-        create_framework_with_namespace(db_path, &args.namespace).await?;
+    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
 
     let vector = match args.vector_source {
         VectorSource::Random => HVec10240::random(),

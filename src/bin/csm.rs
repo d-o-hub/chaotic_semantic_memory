@@ -5,12 +5,11 @@ use std::process::ExitCode as StdExitCode;
 mod native {
     pub use chaotic_semantic_memory::cli::commands::watch::EventFilter;
     pub use chaotic_semantic_memory::cli::{
-        CliArgs, CliError, Commands, CompletionsArgs, ExitCode, NamespaceCommand, OutputFormat,
-        ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations,
-        run_completions, run_delete, run_disassociate, run_export, run_get, run_import,
-        run_index_dir, run_index_jsonl, run_inject, run_metrics, run_namespaces_delete,
-        run_namespaces_export, run_namespaces_list, run_path, run_probe, run_probe_filtered,
-        run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch,
+        CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir,
+        resolve_git_local_path, run_associate, run_associations, run_completions, run_delete,
+        run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl,
+        run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph,
+        run_query, run_stats, run_traverse, run_update, run_watch,
     };
     pub use clap::Parser;
     pub use colored::Colorize;
@@ -22,42 +21,11 @@ mod native {
     /// Environment variable for target platform.
     const ENV_TARGET: &str = "TARGET";
 
-    pub fn init_tracing(
-        verbose: u8,
-        _otlp_endpoint: Option<String>,
-        _prometheus_bind: Option<String>,
-    ) -> Option<Box<dyn std::any::Any>> {
+    pub fn init_tracing(verbose: u8) {
         if std::env::var(ENV_NO_COLOR).is_ok() {
             colored::control::set_override(false);
         }
-        let _level = match verbose {
-            0 => "error",
-            1 => "warn",
-            2 => "info",
-            3 => "debug",
-            _ => "trace",
-        };
-
-        #[cfg(any(feature = "otlp", feature = "prometheus"))]
-        {
-            use chaotic_semantic_memory::observability::{LogFormat, ObservabilityConfig, init};
-            use std::net::SocketAddr;
-
-            let prom_addr = _prometheus_bind.and_then(|s| s.parse::<SocketAddr>().ok());
-            let config = ObservabilityConfig {
-                service_name: "csm-cli".to_string(),
-                otlp_endpoint: _otlp_endpoint,
-                prometheus_bind: prom_addr,
-                log_format: LogFormat::Pretty,
-                log_level: _level.to_string(),
-            };
-
-            if let Ok(guard) = init(config) {
-                return Some(Box::new(guard));
-            }
-        }
-
-        let tracing_level = match verbose {
+        let level = match verbose {
             0 => Level::ERROR,
             1 => Level::WARN,
             2 => Level::INFO,
@@ -66,11 +34,10 @@ mod native {
         };
         let _ = tracing::subscriber::set_global_default(
             FmtSubscriber::builder()
-                .with_max_level(tracing_level)
+                .with_max_level(level)
                 .with_target(false)
                 .finish(),
         );
-        None
     }
 
     pub fn format_error(err: &CliError, format: OutputFormat) -> String {
@@ -188,8 +155,8 @@ mod native {
             Commands::ProbeFiltered(cmd) => {
                 run_probe_filtered(cmd.clone(), db_path.as_deref(), fmt).await
             }
-            Commands::Stats(cmd) => run_stats(cmd.clone(), db_path.as_deref(), fmt).await,
-            Commands::Metrics(cmd) => run_metrics(cmd.clone(), db_path.as_deref(), fmt).await,
+            Commands::Stats(_cmd) => run_stats(db_path.as_deref(), fmt).await,
+            Commands::Metrics(cmd) => run_metrics(db_path.as_deref(), fmt, cmd.reset).await,
             Commands::Watch(cmd) => {
                 let filter = EventFilter::parse(&cmd.filter).ok_or_else(|| {
                     CliError::Validation(format!(
@@ -202,15 +169,6 @@ mod native {
             Commands::ProbeGraph(cmd) => {
                 run_probe_graph(cmd.clone(), db_path.as_deref(), fmt).await
             }
-            Commands::Namespaces(args) => match &args.command {
-                NamespaceCommand::List => run_namespaces_list(db_path.as_deref(), fmt).await,
-                NamespaceCommand::Delete(delete_args) => {
-                    run_namespaces_delete(delete_args.clone(), db_path.as_deref(), fmt).await
-                }
-                NamespaceCommand::Export(export_args) => {
-                    run_namespaces_export(export_args.clone(), db_path.as_deref(), fmt).await
-                }
-            },
         };
         result.map(|_| ((), fmt))
     }
@@ -221,11 +179,7 @@ fn main() -> StdExitCode {
     use native::*;
     let args = CliArgs::parse();
     let output_format = args.output_format;
-    let _guard = init_tracing(
-        args.verbose,
-        args.otlp_endpoint.clone(),
-        args.prometheus_bind.clone(),
-    );
+    init_tracing(args.verbose);
     match run_async(args) {
         Ok(_) => StdExitCode::from(ExitCode::Success as u8),
         Err(ref e) => {

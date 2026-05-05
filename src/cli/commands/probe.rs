@@ -12,10 +12,7 @@ use crate::cli::error::{CliError, Result};
 use crate::hyperdim::HVec10240;
 use colored::Colorize;
 
-use super::{
-    create_framework_with_namespace, print_success, print_warning, validate_concept_id,
-    validate_top_k,
-};
+use super::{create_framework_with_namespace, print_success, print_warning, validate_concept_id, validate_top_k};
 
 #[instrument(name = "cli_probe")]
 pub async fn run_probe(
@@ -26,8 +23,7 @@ pub async fn run_probe(
     validate_concept_id(&args.concept_id)?;
     validate_top_k(args.top_k)?;
 
-    let framework: crate::framework::ChaoticSemanticFramework =
-        create_framework_with_namespace(db_path, &args.namespace).await?;
+    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
 
     let concept = framework
         .get_concept(&args.concept_id)
@@ -35,19 +31,10 @@ pub async fn run_probe(
         .map_err(|e| CliError::Persistence(format!("failed to get concept: {e}")))?
         .ok_or_else(|| CliError::Input(format!("concept '{}' not found", args.concept_id)))?;
 
-    let results = if let Some(pipeline) = &args.rerank {
-        let rerankers = crate::retrieval::rerank::parse_rerankers(pipeline)
-            .map_err(|e| CliError::Input(format!("failed to parse rerankers: {e}")))?;
-        framework
-            .probe_with_rerankers(concept.vector, args.initial_k, &rerankers, args.top_k)
-            .await
-            .map_err(|e| CliError::Persistence(format!("probe with rerankers failed: {e}")))?
-    } else {
-        framework
-            .probe(concept.vector, args.top_k)
-            .await
-            .map_err(|e| CliError::Persistence(format!("probe operation failed: {e}")))?
-    };
+    let results = framework
+        .probe(concept.vector, args.top_k)
+        .await
+        .map_err(|e| CliError::Persistence(format!("probe operation failed: {e}")))?;
 
     let filtered: Vec<_> = results
         .into_iter()
@@ -117,8 +104,7 @@ pub async fn run_probe_with_vector(
 ) -> Result<()> {
     validate_top_k(top_k)?;
 
-    let framework: crate::framework::ChaoticSemanticFramework =
-        create_framework_with_namespace(db_path, ns).await?;
+    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, ns).await?;
 
     let results = framework
         .probe(query_vector, top_k)

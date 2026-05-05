@@ -73,13 +73,10 @@ async fn local_persistence_roundtrip_p50_under_20ms() {
 
         let start = Instant::now();
         persistence
-            .save_concept("_default", &concept)
+            .save_concept(&concept)
             .await
             .expect("save_concept");
-        let loaded = persistence
-            .load_concept("_default", &id)
-            .await
-            .expect("load_concept");
+        let loaded = persistence.load_concept("_default", &id).await.expect("load_concept");
         let elapsed = start.elapsed().as_secs_f64() * 1000.0;
         assert!(loaded.is_some(), "concept should roundtrip");
         durations_ms.push(elapsed);
@@ -106,7 +103,7 @@ async fn local_wal_checkpoint_roundtrip_stays_consistent() {
             .build()
             .expect("concept");
         persistence
-            .save_concept("_default", &concept)
+            .save_concept(&concept)
             .await
             .expect("save_concept");
     }

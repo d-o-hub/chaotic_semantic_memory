@@ -69,7 +69,8 @@ impl Default for FrameworkConfig {
 }
 
 /// Framework statistics
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct FrameworkStats {
     pub concept_count: usize,
     /// Database size in bytes. `None` if persistence is disabled or size unavailable.

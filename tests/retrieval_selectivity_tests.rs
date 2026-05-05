@@ -1,8 +1,7 @@
 //! Tests for selectivity-aware filtered retrieval (ADR-0065).
 
 use chaotic_semantic_memory::{
-    ConceptBuilder, FilterStrategy, HVec10240, MetadataFilter,
-    singularity::{Singularity, SingularityConfig},
+    ConceptBuilder, FilterStrategy, HVec10240, MetadataFilter, singularity::Singularity,
 };
 use serde_json::json;
 
@@ -72,7 +71,7 @@ fn test_retrieval_stats_contains_selectivity_ratio() {
 
     let _ = sing.find_similar_filtered("_default", &query, 5, &filter);
 
-    let stats = sing.last_retrieval_stats("_default");
+    let stats = sing.last_retrieval_stats("_default"));
     // 3 matching out of 10 total = 0.3 selectivity
     assert!((stats.selectivity_ratio - 0.3).abs() < 0.01);
 }
@@ -91,7 +90,7 @@ fn test_small_dataset_uses_pre_filter() {
 
     let _ = sing.find_similar_filtered("_default", &query, 3, &filter);
 
-    let stats = sing.last_retrieval_stats("_default");
+    let stats = sing.last_retrieval_stats("_default"));
     // Small dataset should always use Pre strategy regardless of selectivity
     assert_eq!(stats.filter_strategy, Some(FilterStrategy::Pre));
 }
@@ -113,7 +112,7 @@ fn test_low_selectivity_uses_pre_filter() {
 
     let _ = sing.find_similar_filtered("_default", &query, 5, &filter);
 
-    let stats = sing.last_retrieval_stats("_default");
+    let stats = sing.last_retrieval_stats("_default"));
     // 3/25 = 0.12 selectivity, should use Pre
     assert_eq!(stats.filter_strategy, Some(FilterStrategy::Pre));
 }
@@ -135,7 +134,7 @@ fn test_medium_selectivity_uses_bucket_post() {
 
     let _ = sing.find_similar_filtered("_default", &query, 5, &filter);
 
-    let stats = sing.last_retrieval_stats("_default");
+    let stats = sing.last_retrieval_stats("_default"));
     // 10/25 = 0.4 selectivity, should use BucketPost
     assert_eq!(stats.filter_strategy, Some(FilterStrategy::BucketPost));
 }
@@ -157,7 +156,7 @@ fn test_high_selectivity_uses_scan_post() {
 
     let _ = sing.find_similar_filtered("_default", &query, 5, &filter);
 
-    let stats = sing.last_retrieval_stats("_default");
+    let stats = sing.last_retrieval_stats("_default"));
     // 22/25 = 0.88 selectivity, should use ScanPost
     assert_eq!(stats.filter_strategy, Some(FilterStrategy::ScanPost));
 }
