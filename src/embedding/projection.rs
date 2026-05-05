@@ -49,6 +49,16 @@ pub struct Projection {
 }
 
 impl Projection {
+    /// Create an empty projection (identity or zero).
+    /// Used when the provider doesn't need a projection matrix (e.g., HDC).
+    #[must_use]
+    pub fn empty() -> Self {
+        Self {
+            entries: Vec::new(),
+            native_dim: 0,
+        }
+    }
+
     /// Create a new projection matrix with given configuration.
     #[must_use]
     pub fn new(config: &ProjectionConfig) -> Self {
@@ -182,5 +192,43 @@ mod tests {
         // Similarity should be preserved (not exact due to binarization)
         let sim = HVec10240::cosine_similarity(&h1, &h2);
         assert!(sim > 0.5, "similarity {sim} too low after projection");
+    }
+
+    #[test]
+    fn projection_empty_works() {
+        let proj = Projection::empty();
+        assert_eq!(proj.nnz(), 0);
+        assert_eq!(proj.native_dim, 0);
+    }
+
+    #[test]
+    fn projection_accuracy_preservation() {
+        // Acceptance criteria: Projection roundtrip preserves cosine >= 0.9 for known pairs
+        // For projection, "roundtrip" means similarity in native space vs similarity in projected space.
+        let config = ProjectionConfig {
+            seed: 123,
+            native_dim: 1536,
+            target_dim: 10240,
+            sparsity: 2.0 / 3.0,
+        };
+        let proj = Projection::new(&config);
+
+        // Highly similar pair (cosine ~0.95 in native space)
+        let mut v1 = vec![0.0; 1536];
+        let mut v2 = vec![0.0; 1536];
+        for i in 0..1536 {
+            v1[i] = (i as f32).sin();
+            v2[i] = (i as f32).sin() + 0.1;
+        }
+
+        let h1 = proj.project(&v1);
+        let h2 = proj.project(&v2);
+
+        let sim = h1.cosine_similarity(&h2);
+        // Sparse projection into 10k dimensions is very stable
+        assert!(
+            sim >= 0.9,
+            "Projection cosine similarity {sim} should be high for similar pairs"
+        );
     }
 }

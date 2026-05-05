@@ -97,6 +97,18 @@ pub struct InjectArgs {
     #[arg(long, default_value = "random", value_enum)]
     pub vector_source: VectorSource,
 
+    /// Text to encode into a vector.
+    #[arg(short, long)]
+    pub text: Option<String>,
+
+    /// Use external embedding model if configured.
+    #[arg(long)]
+    pub use_embeddings: bool,
+
+    /// Embedding provider: 'hdc', 'fastembed[:model]', 'openai[:model]', 'voyage[:model]'.
+    #[arg(long, value_name = "PROVIDER")]
+    pub provider: Option<String>,
+
     #[arg(short, long, value_name = "JSON")]
     pub metadata: Option<String>,
 }
@@ -106,6 +118,7 @@ pub enum VectorSource {
     Random,
     File,
     Stdin,
+    Text,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -130,6 +143,7 @@ pub struct ProbeArgs {
 
 /// Arguments for text-based similarity query.
 #[derive(Args, Debug, Clone)]
+#[command(alias = "probe-text")]
 pub struct QueryArgs {
     /// Text to encode and search for similar concepts.
     #[arg(required = true)]
@@ -164,6 +178,10 @@ pub struct QueryArgs {
     /// 0.4 for 5-8, 0.2 for 9+.
     #[arg(long, value_name = "WEIGHT")]
     pub keyword_weight: Option<f64>,
+
+    /// Embedding provider: 'hdc', 'fastembed[:model]', 'openai[:model]', 'voyage[:model]'.
+    #[arg(long, value_name = "PROVIDER")]
+    pub provider: Option<String>,
 }
 
 #[derive(Args, Debug, Clone)]

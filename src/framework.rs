@@ -27,6 +27,10 @@ pub struct ChaoticSemanticFramework {
     pub(crate) config: FrameworkConfig,
     pub(crate) metrics: Arc<FrameworkMetrics>,
     pub(crate) event_sender: tokio::sync::broadcast::Sender<MemoryEvent>,
+    /// Embedding provider for text-to-vector conversion.
+    pub(crate) embedding_provider: Arc<dyn crate::embedding::EmbeddingProvider>,
+    /// Random projection layer for embedding → HVec mapping.
+    pub(crate) projection: Arc<crate::embedding::Projection>,
 }
 
 impl ChaoticSemanticFramework {
