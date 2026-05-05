@@ -7,9 +7,7 @@ use crate::cli::args::{InjectArgs, OutputFormat, VectorSource};
 use crate::cli::error::{CliError, Result};
 use crate::hyperdim::HVec10240;
 
-use super::{
-    create_framework_with_provider, print_success, print_warning, validate_concept_id,
-};
+use super::{create_framework_with_provider, print_success, print_warning, validate_concept_id};
 
 #[instrument(name = "cli_inject")]
 pub async fn run_inject(
@@ -26,9 +24,14 @@ pub async fn run_inject(
             let text = args.text.as_ref().ok_or_else(|| {
                 CliError::Validation("--text is required when --vector-source=text".into())
             })?;
-            framework
-                .embedding_provider
-                .project(&framework.embedding_provider.embed(text).await.map_err(|e| CliError::Memory(e))?, &framework.projection)
+            framework.embedding_provider.project(
+                &framework
+                    .embedding_provider
+                    .embed(text)
+                    .await
+                    .map_err(|e| CliError::Memory(e))?,
+                &framework.projection,
+            )
         }
         VectorSource::Random => HVec10240::random(),
         VectorSource::File | VectorSource::Stdin => {
