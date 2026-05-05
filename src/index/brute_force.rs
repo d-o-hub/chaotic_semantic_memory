@@ -1,6 +1,7 @@
 //! Exact search via linear scan.
 
 // Casts are intentional for similarity math
+#![allow(clippy::cast_precision_loss)]
 
 use std::collections::HashMap;
 

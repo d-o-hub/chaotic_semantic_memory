@@ -6,6 +6,7 @@
 //! See ADR-0061 for architecture decisions.
 
 // Casts are intentional for bridge version math
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};

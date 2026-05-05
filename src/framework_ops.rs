@@ -15,6 +15,7 @@ const MAX_HISTORY_LIMIT: usize = 1000;
 
 impl ChaoticSemanticFramework {
     /// Batch inject multiple concepts into memory.
+    #[allow(clippy::significant_drop_tightening)] // Singularity write lock needed for batch inject
     #[instrument(err, skip(self, concepts))]
     pub async fn inject_concepts(&self, concepts: &[(String, HVec10240)]) -> Result<()> {
         self.validate_batch_size(concepts.len())?;
@@ -24,16 +25,17 @@ impl ChaoticSemanticFramework {
         }
 
         let mut to_save = Vec::with_capacity(concepts.len());
-        let mut sing = self.singularity.write().await;
-        for (id, vector) in concepts {
-            Self::validate_concept_id(id)?;
-            let concept = ConceptBuilder::new(id.clone())
-                .with_vector(*vector)
-                .build()?;
-            sing.inject(concept.clone())?;
-            to_save.push(concept);
+        {
+            let mut sing = self.singularity.write().await;
+            for (id, vector) in concepts {
+                Self::validate_concept_id(id)?;
+                let concept = ConceptBuilder::new(id.clone())
+                    .with_vector(*vector)
+                    .build()?;
+                sing.inject(concept.clone())?;
+                to_save.push(concept);
+            }
         }
-        drop(sing);
 
         if let Some(ref persistence) = self.persistence {
             let p_start = std::time::Instant::now();
@@ -193,6 +195,7 @@ impl ChaoticSemanticFramework {
         Ok(payload.concepts.len())
     }
     /// Export memory state to binary file.
+    #[allow(clippy::significant_drop_tightening)] // Singularity read lock needed for binary export
     #[instrument(err, skip(self), fields(path))]
     pub async fn export_binary(&self, path: &str) -> Result<()> {
         let validated_path = validate_path(path)?;
@@ -205,7 +208,6 @@ impl ChaoticSemanticFramework {
                 concepts: sing.all_concepts(),
                 associations: sing.all_associations(),
             };
-            drop(sing);
             // Convert to binary-compatible format
             BinaryExportPayload::from(json_payload)
         };
