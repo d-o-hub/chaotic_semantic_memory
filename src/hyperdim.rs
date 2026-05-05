@@ -27,13 +27,16 @@ use crate::hyperdim_simd::bind_simd_x86;
 use crate::hyperdim_simd::hamming_distance_optimized;
 
 /// 10240-bit hypervector (80 x 128-bit words)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[must_use]
 pub struct HVec10240 {
     pub(crate) data: [u128; 80],
 }
 
 impl HVec10240 {
+    /// Wire-format version. Bump when `to_bytes` layout changes.
+    pub const WIRE_VERSION: u32 = 1;
+
     pub const DIMENSION: usize = 10240;
     pub const WORDS: usize = 80;
 
@@ -311,6 +314,15 @@ impl HVec10240 {
         for word in &self.data {
             bytes.extend_from_slice(&word.to_le_bytes());
         }
+        bytes
+    }
+
+    /// Stable signing input. Format: WIRE_VERSION (LE u32) || to_bytes().
+    #[cfg(feature = "signing")]
+    pub fn canonical_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(4 + 1280);
+        bytes.extend_from_slice(&Self::WIRE_VERSION.to_le_bytes());
+        bytes.extend_from_slice(&self.to_bytes());
         bytes
     }
 
