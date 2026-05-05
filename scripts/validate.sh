@@ -56,24 +56,29 @@ else
   echo "skip: ${WASM_TARGET} target not installed"
 fi
 
+# benchmarks/ is a SEPARATE crate (not a workspace member). It must be
+# checked explicitly or CI's `benchmark-small` job will fail on errors that
+# never appeared during root-level `cargo check --workspace`.
+# See: 2026-05-04 PR #174 incident in progress/LEARNINGS.md.
+if [[ -f benchmarks/Cargo.toml ]]; then
+  echo "==> cargo check (benchmarks/ standalone crate)"
+  ( cd benchmarks && cargo check --quiet )
+  echo "==> cargo clippy (benchmarks/ standalone crate) -D warnings"
+  ( cd benchmarks && cargo clippy --quiet -- -D warnings )
+fi
+
 if [[ -x scripts/wasm_size_gate.sh ]]; then
   echo "==> scripts/wasm_size_gate.sh"
   scripts/wasm_size_gate.sh
 fi
 
-echo "==> Generating/validating llms.txt and llms-full.txt"
-scripts/gen-llms-txt.sh
-
-LOC=$(grep -cE '^\s*(pub |fn |struct |enum |trait |impl )' llms-full.txt || true)
-echo "Public API surface: $LOC symbols"
-
-THRESHOLD=5000
-if [[ "$LOC" -gt "$THRESHOLD" ]]; then
-  echo "❌ API surface $LOC exceeds threshold of $THRESHOLD"
-  exit 1
-fi
-
-echo "✅ API surface within threshold ($LOC / $THRESHOLD)"
+# NOTE: llms.txt / llms-full.txt regeneration and the API surface threshold
+# check have been moved EXCLUSIVELY to the release workflow
+# (.github/workflows/release.yml step "Regenerate & commit llms.txt").
+# Local validation no longer regenerates these artifacts; they are also
+# .gitignored. To check the API surface manually, run:
+#   bash scripts/gen-llms-txt.sh
+#   grep -cE '^\s*(pub |fn |struct |enum |trait |impl )' llms-full.txt
 
 if command -v npm >/dev/null 2>&1; then
   echo "==> CLI npm pack smoke test"

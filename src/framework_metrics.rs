@@ -83,6 +83,8 @@ impl FrameworkMetrics {
         }
     }
 
+    // No-op without `prometheus` feature; cannot be `const fn` because the
+    // feature-gated branch calls non-const Prometheus setters.
     #[allow(clippy::missing_const_for_fn)]
     pub(crate) fn update_gauges(
         &self,

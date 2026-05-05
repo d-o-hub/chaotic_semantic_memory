@@ -70,7 +70,15 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
    cargo test --all-features --quiet        # Unit + integration tests
    cargo fmt --check --quiet                # Format check
    cargo clippy --quiet -- -D warnings      # Lint check (includes dead_code, unused_imports, unused_variables)
+
+   # benchmarks/ is a SEPARATE crate (NOT a workspace member). Root-level
+   # `cargo check --workspace` does NOT cover it. Validate explicitly when
+   # any file under benchmarks/ or a public API used by it changes.
+   # See: progress/LEARNINGS.md "Open-PR Triage (2026-05-04)".
+   ( cd benchmarks && cargo check --quiet )
+   ( cd benchmarks && cargo clippy --quiet -- -D warnings )
    ```
+   `scripts/validate.sh` and `scripts/pre-commit.sh` enforce this automatically; prefer them over running each gate by hand.
 
 10. **Coverage validation** — Ensure test coverage meets target:
    ```bash
