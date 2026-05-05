@@ -280,7 +280,7 @@ impl BridgeRetrieval {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparisons for score test assertions
+    // Exact float comparisons for score test assertions
 
     use super::*;
     use crate::semantic_bridge::CanonicalConcept;

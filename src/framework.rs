@@ -1,3 +1,4 @@
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 //! Main framework integrating all components
 
 use std::sync::Arc;
@@ -58,9 +59,10 @@ impl ChaoticSemanticFramework {
         if let Some(ref persistence) = self.persistence {
             let p_start = std::time::Instant::now();
             persistence.save_concept(&concept).await?;
-            #[allow(clippy::cast_possible_truncation)]
-            self.metrics
-                .observe_persist_latency_ms(p_start.elapsed().as_millis() as u64, "save");
+            self.metrics.observe_persist_latency_ms(
+                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                "save",
+            );
         }
         self.metrics.inc_concepts_injected(1, false);
         self.emit_event(MemoryEvent::ConceptInjected {
@@ -97,9 +99,10 @@ impl ChaoticSemanticFramework {
         if let Some(ref persistence) = self.persistence {
             let p_start = std::time::Instant::now();
             persistence.save_concept(&concept).await?;
-            #[allow(clippy::cast_possible_truncation)]
-            self.metrics
-                .observe_persist_latency_ms(p_start.elapsed().as_millis() as u64, "save");
+            self.metrics.observe_persist_latency_ms(
+                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                "save",
+            );
         }
         self.metrics.inc_concepts_injected(1, true);
         self.emit_event(MemoryEvent::ConceptInjected {
@@ -111,7 +114,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Query for similar concepts
-    #[allow(clippy::significant_drop_tightening)] // Lock needed for expired concept filtering
+    // Lock needed for expired concept filtering
     #[instrument(err, skip(self, query))]
     pub async fn probe(&self, query: HVec10240, top_k: usize) -> Result<Vec<(String, f32)>> {
         self.validate_top_k(top_k)?;
@@ -123,7 +126,6 @@ impl ChaoticSemanticFramework {
             let sing = self.singularity.read().await;
             let results = sing.find_similar(&query, top_k);
 
-            // Collect expired IDs while holding lock
             let now = crate::singularity::unix_now_secs();
             let expired_ids: std::collections::HashSet<String> = results
                 .iter()
@@ -133,12 +135,14 @@ impl ChaoticSemanticFramework {
                         .map(|_| id.clone())
                 })
                 .collect();
-            (results, expired_ids)
+            let res = (results, expired_ids);
+            drop(sing);
+            res
         };
 
         #[cfg(not(target_arch = "wasm32"))]
-        #[allow(clippy::cast_possible_truncation)] // Duration millis to u64 for metrics
-        let elapsed_ms = start.elapsed().as_millis() as u64;
+        // Duration millis to u64 for metrics
+        let elapsed_ms = u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX);
         #[cfg(target_arch = "wasm32")]
         let elapsed_ms = 0;
 
@@ -173,8 +177,8 @@ impl ChaoticSemanticFramework {
         };
 
         #[cfg(not(target_arch = "wasm32"))]
-        #[allow(clippy::cast_possible_truncation)] // Duration millis to u64 for metrics
-        let elapsed_ms = start.elapsed().as_millis() as u64;
+        // Duration millis to u64 for metrics
+        let elapsed_ms = u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX);
         #[cfg(target_arch = "wasm32")]
         let elapsed_ms = 0;
         self.metrics
@@ -205,7 +209,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Process temporal sequence through reservoir
-    #[allow(clippy::significant_drop_tightening)] // Reservoir lock needed for sequence processing
+    // Reservoir lock needed for sequence processing
     #[instrument(err, skip(self, sequence))]
     pub async fn process_sequence(&self, sequence: &[Vec<f32>]) -> Result<HVec10240> {
         self.validate_sequence_length(sequence.len())?;
@@ -229,7 +233,11 @@ impl ChaoticSemanticFramework {
             r.step(input)?;
         }
 
-        r.to_hypervector()
+        {
+            let hv = r.to_hypervector();
+            drop(reservoir);
+            hv
+        }
     }
 
     /// Associate two concepts
@@ -246,9 +254,8 @@ impl ChaoticSemanticFramework {
         if let Some(ref persistence) = self.persistence {
             let p_start = std::time::Instant::now();
             persistence.save_association(from, to, strength).await?;
-            #[allow(clippy::cast_possible_truncation)]
             self.metrics.observe_persist_latency_ms(
-                p_start.elapsed().as_millis() as u64,
+                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
                 "save_association",
             );
         }
@@ -358,7 +365,6 @@ impl ChaoticSemanticFramework {
         snapshot.reservoir_nodes_active = reservoir_snapshot.reservoir_nodes_active;
 
         let association_count = 0; // We don't have a direct way to get this without iterating if not tracked
-        #[allow(clippy::cast_precision_loss)]
         let cache_hit_ratio =
             if (cache_snapshot.cache_hits_total + cache_snapshot.cache_misses_total) > 0 {
                 cache_snapshot.cache_hits_total as f64
@@ -366,7 +372,6 @@ impl ChaoticSemanticFramework {
             } else {
                 0.0
             };
-        #[allow(clippy::cast_possible_truncation)]
         self.metrics.update_gauges(
             stats.concept_count as u64,
             association_count,

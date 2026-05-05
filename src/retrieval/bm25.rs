@@ -317,7 +317,7 @@ fn score_cmp_desc(a: &(usize, f32), b: &(usize, f32)) -> Ordering {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparisons for BM25 score test assertions
+    // Exact float comparisons for BM25 score test assertions
 
     use super::*;
 

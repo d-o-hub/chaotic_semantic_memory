@@ -1,9 +1,9 @@
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 //! GraphRAG Hybrid Retrieval (ADR-0070)
 //!
 //! Combines vector similarity with graph traversal for unified retrieval.
 
 // Casts are intentional for scoring formula
-#![allow(clippy::cast_precision_loss)]
 
 use crate::error::Result;
 use crate::graph_traversal::TraversalConfig;

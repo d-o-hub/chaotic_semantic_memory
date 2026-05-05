@@ -1,7 +1,7 @@
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 //! Stats command for framework statistics.
 
 // Cast is intentional for CLI output formatting
-#![allow(clippy::cast_precision_loss)]
 
 use std::path::Path;
 
