@@ -99,6 +99,7 @@ impl ChaoticSemanticFramework {
             config: self.config.clone(),
             metrics: self.metrics.clone(),
             event_sender: self.event_sender.clone(),
+            emitters: self.emitters.clone(),
             namespace: Arc::new(RwLock::new(ns.to_string())),
             embedding_provider: self.embedding_provider.clone(),
             projection: self.projection.clone(),
