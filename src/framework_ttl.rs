@@ -146,4 +146,3 @@ impl crate::framework::ChaoticSemanticFramework {
         self.probe_text_filtered(query, top_k, &filter).await
     }
 }
-
