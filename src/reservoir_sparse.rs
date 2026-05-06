@@ -137,7 +137,7 @@ impl SparseWeights {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparisons for mathematical test assertions
+    // Exact float comparisons for mathematical test assertions
 
     use super::*;
     use rand::SeedableRng;
@@ -213,7 +213,7 @@ mod tests {
         // Any dot product with zeros should be zero
         for row in 0..5 {
             let result = weights.dot_row(row, &values);
-            assert_eq!(result, 0.0);
+            assert!(result.abs() < f32::EPSILON);
         }
     }
 
@@ -241,13 +241,13 @@ mod tests {
         let values = [10.0, 20.0, 30.0, 40.0];
 
         // Row 0: weight 0.5 at index 0, value 10.0 → 5.0
-        assert_eq!(sparse.dot_row(0, &values), 5.0);
+        assert!((sparse.dot_row(0, &values) - (5.0)).abs() < 1e-6);
 
         // Row 1: weight 1.0 at index 1, value 20.0 → 20.0
-        assert_eq!(sparse.dot_row(1, &values), 20.0);
+        assert!((sparse.dot_row(1, &values) - (20.0)).abs() < 1e-6);
 
         // Row 2: weight 2.0 at index 2, value 30.0 → 60.0
-        assert_eq!(sparse.dot_row(2, &values), 60.0);
+        assert!((sparse.dot_row(2, &values) - (60.0)).abs() < 1e-6);
     }
 
     #[test]
@@ -278,13 +278,13 @@ mod tests {
         let values = [10.0, 20.0, 30.0, 40.0];
 
         // Row 1 is empty → dot product should be 0
-        assert_eq!(sparse.dot_row(1, &values), 0.0);
+        assert!((sparse.dot_row(1, &values) - (0.0)).abs() < 1e-6);
 
         // Row 0: (1.0 * 10.0) + (2.0 * 20.0) = 50.0
-        assert_eq!(sparse.dot_row(0, &values), 50.0);
+        assert!((sparse.dot_row(0, &values) - (50.0)).abs() < 1e-6);
 
         // Row 2: (3.0 * 30.0) + (4.0 * 40.0) = 250.0
-        assert_eq!(sparse.dot_row(2, &values), 250.0);
+        assert!((sparse.dot_row(2, &values) - (250.0)).abs() < 1e-6);
     }
 
     #[test]
@@ -314,7 +314,7 @@ mod tests {
 
         // All weights should be zero
         for entry in &weights.entries {
-            assert_eq!(entry.weight, 0.0);
+            assert!(entry.weight.abs() < f32::EPSILON);
         }
     }
 
@@ -341,7 +341,7 @@ mod tests {
         let values = [10.0, 20.0, 30.0];
 
         // Row 0: (-1.0 * 10.0) + (2.0 * 20.0) + (-3.0 * 30.0) = -10 + 40 - 90 = -60
-        assert_eq!(sparse.dot_row(0, &values), -60.0);
+        assert!((sparse.dot_row(0, &values) - (-60.0)).abs() < 1e-6);
     }
 
     #[test]
@@ -363,6 +363,6 @@ mod tests {
         let values = [-10.0, -20.0];
 
         // Row 0: (1.0 * -10.0) + (-1.0 * -20.0) = -10 + 20 = 10
-        assert_eq!(sparse.dot_row(0, &values), 10.0);
+        assert!((sparse.dot_row(0, &values) - (10.0)).abs() < 1e-6);
     }
 }

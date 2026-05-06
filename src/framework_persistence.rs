@@ -21,9 +21,10 @@ impl ChaoticSemanticFramework {
             }
 
             persistence.checkpoint().await?;
-            #[allow(clippy::cast_possible_truncation)]
-            self.metrics
-                .observe_persist_latency_ms(p_start.elapsed().as_millis() as u64, "persist");
+            self.metrics.observe_persist_latency_ms(
+                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                "persist",
+            );
         }
         Ok(())
     }
@@ -105,9 +106,10 @@ impl ChaoticSemanticFramework {
                 }
                 sing.invalidate_cache();
             }
-            #[allow(clippy::cast_possible_truncation)]
-            self.metrics
-                .observe_persist_latency_ms(p_start.elapsed().as_millis() as u64, "load");
+            self.metrics.observe_persist_latency_ms(
+                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                "load",
+            );
         }
         Ok(())
     }
