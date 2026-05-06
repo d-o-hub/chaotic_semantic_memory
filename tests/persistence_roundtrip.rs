@@ -30,14 +30,20 @@ async fn persistence_roundtrip_crud() {
         .await
         .unwrap();
 
-    let loaded = persistence.load_concept::<HVec10240>(NS, "alpha").await.unwrap();
+    let loaded = persistence
+        .load_concept::<HVec10240>(NS, "alpha")
+        .await
+        .unwrap();
     assert!(loaded.is_some());
 
     let associations = persistence.load_associations(NS, "alpha").await.unwrap();
     assert_eq!(associations.len(), 1);
 
     persistence.delete_concept(NS, "alpha").await.unwrap();
-    let missing = persistence.load_concept::<HVec10240>(NS, "alpha").await.unwrap();
+    let missing = persistence
+        .load_concept::<HVec10240>(NS, "alpha")
+        .await
+        .unwrap();
     assert!(missing.is_none());
 }
 
@@ -99,7 +105,10 @@ async fn save_and_load_concept_preserves_ttl_and_canonical_concept_ids() {
         .unwrap()
         .unwrap();
     assert_eq!(loaded.expires_at, Some(777));
-    assert_eq!(loaded.canonical_concept_ids, vec!["concept.anchor".to_string()]);
+    assert_eq!(
+        loaded.canonical_concept_ids,
+        vec!["concept.anchor".to_string()]
+    );
 }
 
 #[tokio::test]
@@ -134,8 +143,14 @@ async fn backup_and_restore_roundtrip_state() {
     persistence.save_concept(NS, &concept_beta).await.unwrap();
 
     persistence.restore(backup_path).await.unwrap();
-    let alpha = persistence.load_concept::<HVec10240>(NS, "alpha").await.unwrap();
-    let beta = persistence.load_concept::<HVec10240>(NS, "beta").await.unwrap();
+    let alpha = persistence
+        .load_concept::<HVec10240>(NS, "alpha")
+        .await
+        .unwrap();
+    let beta = persistence
+        .load_concept::<HVec10240>(NS, "beta")
+        .await
+        .unwrap();
     assert!(alpha.is_some());
     assert!(beta.is_none());
 }
@@ -261,7 +276,10 @@ async fn v5_namespace_migration_handles_legacy_and_prefixed_tables() {
 
     persistence.apply_migrations(6).await.unwrap();
 
-    let loaded = persistence.load_concept::<HVec10240>(NS, "legacy-alpha").await.unwrap();
+    let loaded = persistence
+        .load_concept::<HVec10240>(NS, "legacy-alpha")
+        .await
+        .unwrap();
     assert!(loaded.is_some());
     assert_eq!(persistence.schema_version().await.unwrap(), 6);
 

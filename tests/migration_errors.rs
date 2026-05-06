@@ -112,6 +112,9 @@ async fn persistence_prune_old_versions() {
     }
 
     // Only latest version should remain
-    let loaded = persistence.load_concept::<HVec10240>(NS, "prune-test").await.unwrap();
+    let loaded = persistence
+        .load_concept::<HVec10240>(NS, "prune-test")
+        .await
+        .unwrap();
     assert!(loaded.is_some());
 }

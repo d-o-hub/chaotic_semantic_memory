@@ -54,7 +54,10 @@ async fn concept_lifecycle_save_load_delete() {
 
     persistence.save_concept(NS, &concept).await.unwrap();
 
-    let loaded = persistence.load_concept::<HVec10240>(NS, "test-concept").await.unwrap();
+    let loaded = persistence
+        .load_concept::<HVec10240>(NS, "test-concept")
+        .await
+        .unwrap();
     assert!(loaded.is_some());
     let loaded = loaded.unwrap();
     assert_eq!(loaded.id, "test-concept");
@@ -67,7 +70,10 @@ async fn concept_lifecycle_save_load_delete() {
         .await
         .unwrap();
 
-    let missing = persistence.load_concept::<HVec10240>(NS, "test-concept").await.unwrap();
+    let missing = persistence
+        .load_concept::<HVec10240>(NS, "test-concept")
+        .await
+        .unwrap();
     assert!(missing.is_none());
 }
 
@@ -120,11 +126,18 @@ async fn batch_save_concepts_saves_all() {
     persistence.save_concepts(NS, &concepts).await.unwrap();
 
     for (i, id) in ["batch-1", "batch-2", "batch-3"].iter().enumerate() {
-        let loaded = persistence.load_concept::<HVec10240>(NS, id).await.unwrap().unwrap();
+        let loaded = persistence
+            .load_concept::<HVec10240>(NS, id)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(loaded.created_at, (i + 1) as u64);
     }
 
-    let all = persistence.load_all_concepts::<HVec10240>(NS).await.unwrap();
+    let all = persistence
+        .load_all_concepts::<HVec10240>(NS)
+        .await
+        .unwrap();
     assert_eq!(all.len(), 3);
 }
 
@@ -347,7 +360,10 @@ async fn clear_all_removes_everything() {
 
     persistence.clear_all().await.unwrap();
 
-    let all_concepts = persistence.load_all_concepts::<HVec10240>(NS).await.unwrap();
+    let all_concepts = persistence
+        .load_all_concepts::<HVec10240>(NS)
+        .await
+        .unwrap();
     assert!(all_concepts.is_empty());
 
     let associations = persistence.load_associations(NS, "clear-1").await.unwrap();
@@ -515,7 +531,10 @@ async fn concurrent_reads_are_safe() {
             tokio::spawn(async move {
                 let p = Persistence::new_local(&path).await.unwrap();
                 for _ in 0..5 {
-                    let result = p.load_concept::<HVec10240>(NS, "concurrent-read").await.unwrap();
+                    let result = p
+                        .load_concept::<HVec10240>(NS, "concurrent-read")
+                        .await
+                        .unwrap();
                     assert!(result.is_some());
                 }
             })
@@ -550,7 +569,10 @@ async fn concurrent_writes_are_safe() {
         handle.await.unwrap();
     }
 
-    let all = persistence.load_all_concepts::<HVec10240>(NS).await.unwrap();
+    let all = persistence
+        .load_all_concepts::<HVec10240>(NS)
+        .await
+        .unwrap();
     assert_eq!(all.len(), 25);
 }
 
@@ -715,6 +737,10 @@ async fn batch_save_with_duplicate_ids_updates() {
 
     persistence.save_concepts(NS, &concepts).await.unwrap();
 
-    let loaded = persistence.load_concept::<HVec10240>(NS, "dup").await.unwrap().unwrap();
+    let loaded = persistence
+        .load_concept::<HVec10240>(NS, "dup")
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(loaded.metadata.get("v").unwrap(), "updated");
 }

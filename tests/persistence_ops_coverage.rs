@@ -162,7 +162,10 @@ async fn persistence_list_all_concepts() {
         .await
         .unwrap();
 
-    let concepts = persistence.load_all_concepts::<HVec10240>(NS).await.unwrap();
+    let concepts = persistence
+        .load_all_concepts::<HVec10240>(NS)
+        .await
+        .unwrap();
     assert_eq!(concepts.len(), 3);
 }
 

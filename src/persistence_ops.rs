@@ -372,7 +372,9 @@ mod tests {
             .delete_concept(ns, "delete-test")
             .await
             .expect("Failed to delete");
-        let result = persistence.load_concept::<HVec10240>(ns, "delete-test").await;
+        let result = persistence
+            .load_concept::<HVec10240>(ns, "delete-test")
+            .await;
         assert!(result.expect("Query failed").is_none());
     }
 
