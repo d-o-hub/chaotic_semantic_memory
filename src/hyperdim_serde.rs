@@ -21,8 +21,11 @@ impl Serialize for HVec10240 {
             let b64 = STANDARD.encode(&bytes);
             serializer.serialize_str(&b64)
         } else {
-            // Use fixed-size array for binary formats (bincode compatible)
-            self.data.serialize(serializer)
+            // Use byte array for binary formats (bincode compatible).
+            // Bincode does not support deserialize_any, so we must use
+            // serialize_bytes, which bincode handles natively.
+            let bytes = self.to_bytes();
+            serializer.serialize_bytes(&bytes)
         }
     }
 }
@@ -76,7 +79,10 @@ impl<'de> Visitor<'de> for HVecVisitor {
             let bytes: Vec<u8> = words.into_iter().map(|w| w as u8).collect();
             HVec10240::from_bytes(&bytes).map_err(de::Error::custom)
         } else {
-             Err(de::Error::custom(format!("expected 80 or 1280 elements, got {}", words.len())))
+            Err(de::Error::custom(format!(
+                "expected 80 or 1280 elements, got {}",
+                words.len()
+            )))
         }
     }
 }
@@ -86,7 +92,15 @@ impl<'de> Deserialize<'de> for HVec10240 {
     where
         D: Deserializer<'de>,
     {
-        // Use deserialize_any to support various underlying formats
-        deserializer.deserialize_any(HVecVisitor)
+        // Bincode does not support deserialize_any, so we branch on format.
+        // Human-readable (JSON): use deserialize_any to support base64 strings,
+        // byte arrays, and legacy sequence formats.
+        // Binary (bincode): deserialize as Vec<u8> and convert.
+        if deserializer.is_human_readable() {
+            deserializer.deserialize_any(HVecVisitor)
+        } else {
+            let bytes = <Vec<u8>>::deserialize(deserializer)?;
+            Self::from_bytes(&bytes).map_err(de::Error::custom)
+        }
     }
 }

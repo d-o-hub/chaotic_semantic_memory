@@ -65,21 +65,8 @@ impl ChaoticSemanticFramework {
                 let mut sing = self.singularity.write().await;
                 sing.clear();
 
-                // #11: Avoid cloning the entire concepts map by moving/processing them directly
                 for concept in concepts {
-                    let concept_id = concept.id.clone();
-                    let concept_vector = concept.vector;
-
-                    // Manual inject to avoid redundant index inserts if we're about to deserialize
-                    if let Some(&idx) = sing.id_to_index.get(&concept_id) {
-                        sing.concept_vectors[idx] = concept_vector;
-                    } else {
-                        let idx = sing.concept_indices.len();
-                        sing.id_to_index.insert(concept_id.clone(), idx);
-                        sing.concept_indices.push(concept_id.clone());
-                        sing.concept_vectors.push(concept_vector);
-                    }
-                    sing.concepts.insert(concept_id, concept);
+                    sing.inject(concept)?;
                 }
 
                 for (from_id, to_id, strength) in all_associations {
@@ -97,12 +84,11 @@ impl ChaoticSemanticFramework {
                 // ADR-0068: Load ANN index state
                 // #2, #3: Prefer deserialize over rebuild if data is fresh
                 if let Some(data) = index_data {
-                    let _ = sing.index.deserialize(&data);
+                    sing.index.deserialize(&data)?;
                 } else {
                     // Fallback: rebuild index from concepts
-                    // We must clone because rebuild takes &HashMap but we have &mut Singularity
                     let concepts = sing.concepts.clone();
-                    let _ = sing.index.rebuild(&concepts);
+                    sing.index.rebuild(&concepts)?;
                 }
                 sing.invalidate_cache();
             }
@@ -166,7 +152,7 @@ impl ChaoticSemanticFramework {
                 // so the index is already updated with merged concepts.
                 // Rebuilding ensures optimal structure if many concepts were merged.
                 let concepts = sing.concepts.clone();
-                let _ = sing.index.rebuild(&concepts);
+                sing.index.rebuild(&concepts)?;
             }
         }
         Ok(())

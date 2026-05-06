@@ -12,6 +12,8 @@
 - async-trait (0.1.83)
 - base64 (0.22)
 - bincode (1.3.3)
+- candle-core (0.8.2)
+- candle-onnx (0.8.2)
 - clap (4.5.60) [features: derive, env, string]
 - clap_complete (4.5.42)
 - colored (2.2.0)
@@ -49,6 +51,7 @@
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
 - prometheus: [dep:prometheus, dep:hyper, dep:hyper-util, dep:http-body-util]
+- rerank-cross: [dep:candle-core, dep:candle-onnx]
 - wasm: []
 
 Generated: [TIMESTAMP REMOVED FOR DETERMINISM]
@@ -216,6 +219,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn print_warning
 - pub fn truncate_preview
 - pub fn create_framework
+- pub fn create_framework_with_provider
+- pub fn create_framework_advanced
 
 ### src/cli/commands/path.rs
 
@@ -309,6 +314,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use remote_openai::OpenAiProvider
 - pub use remote_voyage::VoyageProvider
 - pub trait EmbeddingProvider
+- pub fn get_provider
 
 ### src/embedding/projection.rs
 
@@ -389,6 +395,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl ChaoticSemanticFramework
 
 ### src/framework_persistence.rs
+
+- impl ChaoticSemanticFramework
+
+### src/framework_rerank.rs
 
 - impl ChaoticSemanticFramework
 
@@ -653,9 +663,23 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod bm25
 - pub mod graph_rag
 - pub mod hybrid
+- pub mod rerank
 - pub use bm25::{Bm25Config, Bm25Index}
 - pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve}
 - pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
+- pub use rerank::{MmrReranker, RecencyDecayReranker, RerankCandidate, Reranker, parse_rerankers}
+
+### src/retrieval/rerank.rs
+
+- pub struct RerankCandidate
+- pub trait Reranker
+- pub struct MmrReranker
+- impl Reranker for MmrReranker
+- pub struct RecencyDecayReranker
+- impl Reranker for RecencyDecayReranker
+- pub struct CrossEncoderReranker
+- impl Reranker for CrossEncoderReranker
+- pub fn parse_rerankers
 
 ### src/semantic_bridge.rs
 
@@ -1612,6 +1636,9 @@ pub struct InjectArgs {
     pub concept_id: String,
     pub from_file: Option<PathBuf>,
     pub vector_source: VectorSource,
+    pub text: Option<String>,
+    pub use_embeddings: bool,
+    pub provider: Option<String>,
     pub metadata: Option<String>,
 }
 ```
@@ -1658,6 +1685,8 @@ Arguments for finding shortest path between two concepts.
 pub struct ProbeArgs {
     pub concept_id: String,
     pub top_k: usize,
+    pub initial_k: usize,
+    pub rerank: Option<String>,
     pub threshold: Option<f64>,
 }
 ```
@@ -1705,6 +1734,7 @@ pub struct QueryArgs {
     pub semantic_only: bool,
     pub keyword_only: bool,
     pub keyword_weight: Option<f64>,
+    pub provider: Option<String>,
 }
 ```
 
@@ -1755,6 +1785,7 @@ pub enum VectorSource {
     Random,
     File,
     Stdin,
+    Text,
 }
 ```
 
@@ -1930,6 +1961,18 @@ pub use completions::run_completions;
 
 ```rust
 pub fn create_framework(db_path: Option<&std::path::Path>) -> Result<ChaoticSemanticFramework>
+```
+
+### create_framework_advanced
+
+```rust
+pub fn create_framework_advanced(db_path: Option<&std::path::Path>, provider_name: Option<&str>, code_aware: bool) -> Result<ChaoticSemanticFramework>
+```
+
+### create_framework_with_provider
+
+```rust
+pub fn create_framework_with_provider(db_path: Option<&std::path::Path>, provider_name: Option<&str>) -> Result<ChaoticSemanticFramework>
 ```
 
 ### delete::run_delete
@@ -2460,6 +2503,16 @@ All providers project their native dimensionality to HVec10240.
 pub use fastembed::FastEmbedProvider;
 ```
 
+### get_provider
+
+```rust
+pub fn get_provider(name: &str) -> Result<std::sync::Arc<dyn Trait>>
+```
+
+Factory to get an embedding provider by name.
+
+Format: "provider_name" or "provider_name:model_name"
+
 ### hdc_text::HdcTextProvider
 
 ```rust
@@ -2524,6 +2577,7 @@ impl Default for ProjectionConfig {
 
 ```rust
 impl Projection {
+    pub fn empty() -> Self;
     pub fn new(config: &ProjectionConfig) -> Self;
     pub fn project(&self, vec: &[f32]) -> HVec10240;
     pub fn nnz(&self) -> usize;
@@ -2866,6 +2920,8 @@ impl FrameworkBuilder {
     pub fn with_turso(self, url: impl Trait, token: impl Trait) -> Self;
     pub fn without_persistence(self) -> Self;
     pub fn without_persistence(self) -> Self;
+    pub fn with_embedding_provider<P: crate::embedding::EmbeddingProvider + 'static>(self, provider: P) -> Self;
+    pub fn with_embedding_provider_arc(self, provider: Arc<dyn Trait>) -> Self;
     pub fn build(self) -> Result<ChaoticSemanticFramework>;
 }
 ```
@@ -2978,6 +3034,16 @@ impl ChaoticSemanticFramework {
     pub fn persistence_health_check(&self) -> Result<()>;
     pub fn load_replace(&self) -> Result<()>;
     pub fn load_merge(&self) -> Result<()>;
+}
+```
+
+## src/framework_rerank.rs
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
+    pub fn probe_with_rerankers(&self, query: HVec10240, initial_top_k: usize, rerankers: &[Box<dyn Trait>], final_top_k: usize) -> Result<Vec<(String, f32)>>;
 }
 ```
 
@@ -3176,7 +3242,7 @@ impl Distance<HVec10240> for HammingDist {
 
 ```rust
 impl HnswIndex {
-    pub fn new(m: usize, ef_construction: usize, ef_search: usize) -> Self;
+    pub fn new(m: usize, ef_construction: usize, ef_search: usize) -> Result<Self>;
 }
 ```
 
@@ -3210,7 +3276,7 @@ impl AnnIndex for LshIndex {
 
 ```rust
 impl LshIndex {
-    pub fn new(num_tables: usize, hash_bits: usize) -> Self;
+    pub fn new(num_tables: usize, hash_bits: usize) -> Result<Self>;
 }
 ```
 
@@ -4313,6 +4379,105 @@ pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
 pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores};
 ```
 
+### rerank::{MmrReranker, RecencyDecayReranker, RerankCandidate, Reranker, parse_rerankers}
+
+```rust
+pub use rerank::{MmrReranker, RecencyDecayReranker, RerankCandidate, Reranker, parse_rerankers};
+```
+
+## src/retrieval/rerank.rs
+
+### CrossEncoderReranker
+
+```rust
+#[derive(Debug)]
+#[cfg(feature = "rerank-cross")]
+pub struct CrossEncoderReranker {
+    pub model: Arc<candle_onnx::onnx::ModelProto>,
+    pub model_path: String,
+}
+```
+
+Cross-encoder reranker using ONNX (opt-in).
+
+### MmrReranker
+
+```rust
+#[derive(Debug)]
+pub struct MmrReranker {
+    pub lambda: f32,
+}
+```
+
+Maximal Marginal Relevance (MMR) reranker for diversity.
+
+### RecencyDecayReranker
+
+```rust
+#[derive(Debug)]
+pub struct RecencyDecayReranker {
+    pub half_life_days: f32,
+    pub blend: f32,
+}
+```
+
+Recency decay reranker to favor newer concepts.
+
+### RerankCandidate
+
+```rust
+#[derive(Debug, Clone)]
+pub struct RerankCandidate {
+    pub id: String,
+    pub vector: Arc<HVec10240>,
+    pub metadata: HashMap<String, serde_json::Value>,
+    pub score: f32,
+    pub created_at_unix: u64,
+}
+```
+
+A candidate for reranking.
+
+### Reranker
+
+```rust
+pub trait Reranker: Send + Sync + std::fmt::Debug {
+    fn name(&self) -> &str;
+    fn rerank(&self, query: &HVec10240, candidates: Vec<RerankCandidate>, top_k: usize) -> Vec<RerankCandidate>;
+}
+```
+
+Trait for reranking retrieval results.
+
+### impl Reranker for CrossEncoderReranker
+
+```rust
+impl Reranker for CrossEncoderReranker {
+}
+```
+
+### impl Reranker for MmrReranker
+
+```rust
+impl Reranker for MmrReranker {
+}
+```
+
+### impl Reranker for RecencyDecayReranker
+
+```rust
+impl Reranker for RecencyDecayReranker {
+}
+```
+
+### parse_rerankers
+
+```rust
+pub fn parse_rerankers(s: &str) -> crate::error::Result<Vec<Box<dyn Trait>>>
+```
+
+Parses a list of rerankers from a string flag (e.g., "mmr:0.7,recency:30d").
+
 ## src/semantic_bridge.rs
 
 ### BridgeConfig
@@ -4602,7 +4767,7 @@ impl Default for SingularityConfig {
 impl Singularity {
     pub fn new() -> Self;
     pub fn with_config(config: SingularityConfig) -> Self;
-    pub fn with_config_and_backend(config: SingularityConfig, backend: IndexBackend) -> Self;
+    pub fn with_config_and_backend(config: SingularityConfig, backend: IndexBackend) -> Result<Self>;
     pub fn inject(&mut self, concept: Concept) -> Result<()>;
     pub fn get(&self, id: &str) -> Option<&Concept>;
     pub fn delete(&mut self, id: &str) -> Result<()>;
