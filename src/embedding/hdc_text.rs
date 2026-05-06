@@ -1,10 +1,10 @@
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 //! HDC text encoder as an embedding provider backend.
 //!
 //! Wraps the existing `TextEncoder` to implement `EmbeddingProvider`.
 //! This is the default backend - semantically blind but deterministic and fast.
 
 // Casts are intentional for HDC conversion (u128 words to f32 representation)
-#![allow(clippy::cast_precision_loss)]
 
 use crate::embedding::{EmbeddingProvider, Projection};
 use crate::encoder::TextEncoder;

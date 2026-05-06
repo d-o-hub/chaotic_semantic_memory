@@ -1,3 +1,4 @@
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 //! Sparse random projection (Achlioptas method) for embedding → HVec10240.
 //!
 //! Johnson-Lindenstrauss lemma guarantees that random projection preserves
@@ -6,7 +7,6 @@
 //! as dense Gaussian projections, with ~3x speedup.
 
 // Casts are intentional for dimension math (usize to f32 for sparsity ratio)
-#![allow(clippy::cast_precision_loss)]
 
 use crate::hyperdim::HVec10240;
 

@@ -317,7 +317,7 @@ fn score_cmp_desc(a: &(usize, f32), b: &(usize, f32)) -> Ordering {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparisons for BM25 score test assertions
+    // Exact float comparisons for BM25 score test assertions
 
     use super::*;
 
@@ -459,15 +459,15 @@ mod tests {
         index.add_document("doc1", &["a", "b", "c"]);
         index.add_document("doc2", &["x", "y"]);
 
-        assert_eq!(index.avg_doc_length(), 2.5);
+        assert!((index.avg_doc_length() - 2.5).abs() < 1e-6);
     }
 
     #[test]
     fn test_custom_config() {
         let config = Bm25Config { k1: 2.0, b: 0.5 };
         let index = Bm25Index::with_config(config);
-        assert_eq!(index.config.k1, 2.0);
-        assert_eq!(index.config.b, 0.5);
+        assert!((index.config.k1 - 2.0).abs() < 1e-6);
+        assert!((index.config.b - 0.5).abs() < 1e-6);
     }
 
     #[test]

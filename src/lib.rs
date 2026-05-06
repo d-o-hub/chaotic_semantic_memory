@@ -1,4 +1,8 @@
-//! # Chaotic Semantic Memory
+#![allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::missing_const_for_fn
+)]
 //!
 //! High-performance memory system using **Hyperdimensional Computing** (HDC) and
 //! chaotic echo-state reservoir dynamics.
