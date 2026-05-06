@@ -391,7 +391,7 @@ impl MemoryAdapter {
     ) -> Result<Vec<(String, f32)>> {
         let sing_lock = self.framework.singularity();
         let sing = sing_lock.read().await;
-        let hits = self.bridge.query(&sing, text, top_k * 10, None)?;
+        let hits = self.bridge.query("_default", &sing, text, top_k * 10, None)?;
 
         let filtered = if let Some(sid) = session_id {
             let prefix = format!("{sid}:");
