@@ -8,6 +8,8 @@ use chaotic_semantic_memory::singularity::Concept;
 use std::collections::HashMap;
 use tempfile::NamedTempFile;
 
+const NS: &str = "_default";
+
 fn make_concept(id: &str) -> Concept {
     Concept {
         id: id.to_string(),
@@ -61,7 +63,7 @@ async fn persistence_save_and_load_triggers_version_recording() {
         .unwrap();
 
     let concept = make_concept("versioned-concept");
-    persistence.save_concept(&concept).await.unwrap();
+    persistence.save_concept(NS, &concept).await.unwrap();
 
     // Update concept to create new version
     let updated = Concept {
@@ -73,10 +75,13 @@ async fn persistence_save_and_load_triggers_version_recording() {
         expires_at: None,
         canonical_concept_ids: Vec::new(),
     };
-    persistence.save_concept(&updated).await.unwrap();
+    persistence.save_concept(NS, &updated).await.unwrap();
 
     // Load should succeed
-    let loaded = persistence.load_concept("versioned-concept").await.unwrap();
+    let loaded = persistence
+        .load_concept(NS, "versioned-concept")
+        .await
+        .unwrap();
     assert!(loaded.is_some());
 }
 
@@ -90,7 +95,7 @@ async fn persistence_prune_old_versions() {
         .unwrap();
 
     let concept = make_concept("prune-test");
-    persistence.save_concept(&concept).await.unwrap();
+    persistence.save_concept(NS, &concept).await.unwrap();
 
     // Save multiple versions
     for i in 1..5 {
@@ -103,10 +108,10 @@ async fn persistence_prune_old_versions() {
             expires_at: None,
             canonical_concept_ids: Vec::new(),
         };
-        persistence.save_concept(&updated).await.unwrap();
+        persistence.save_concept(NS, &updated).await.unwrap();
     }
 
     // Only latest version should remain
-    let loaded = persistence.load_concept("prune-test").await.unwrap();
+    let loaded = persistence.load_concept(NS, "prune-test").await.unwrap();
     assert!(loaded.is_some());
 }

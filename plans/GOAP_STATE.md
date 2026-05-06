@@ -14,16 +14,7 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-   action_last_completed: llms_txt_release_only_2026_05_05
-  # 2026-05-05 llms.txt regeneration moved to release workflow only:
-  #   - Removed `bash scripts/gen-llms-txt.sh` from scripts/pre-commit.sh
-  #   - Removed regeneration + API-surface threshold check from
-  #     scripts/validate.sh (both moved to .github/workflows/release.yml
-  #     step "Regenerate & commit llms.txt" only)
-  #   - Rationale: hooks regenerated on every commit, creating churn and
-  #     re-introducing 6000+ line diffs. Release workflow already handles
-  #     regen + threshold guard + commit + push with [skip ci].
-  llms_txt_release_only: true                     # 2026-05-05
+   action_last_completed: open_pr_triage_and_merge_2026_05_04
   # 2026-05-04 PR triage:
   #   #173 (PR169 feedback) — squash-merged → main 7d4dfaa
   #   #174 (hyperdim perf)  — rebased clean onto main (kept hyperdim.rs only;

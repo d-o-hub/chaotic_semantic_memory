@@ -93,3 +93,7 @@ csm_test*
 .claude/skills
 *.tgz
 csm_memory.db
+
+
+commit_messages.txt
+*.log

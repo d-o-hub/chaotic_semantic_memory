@@ -1,9 +1,9 @@
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 //! GraphRAG Hybrid Retrieval (ADR-0070)
 //!
 //! Combines vector similarity with graph traversal for unified retrieval.
 
 // Casts are intentional for scoring formula
-#![allow(clippy::cast_precision_loss)]
 
 use crate::error::Result;
 use crate::graph_traversal::TraversalConfig;
@@ -150,9 +150,10 @@ pub fn graph_rag_retrieve(
             hop_distance: candidate.hop_distance,
             assoc_strength: candidate.path_strength,
         };
-
-        let existing = best_by_id.get(&candidate.id);
-        if existing.is_none() || existing.unwrap().score < combined {
+        if best_by_id
+            .get(&candidate.id)
+            .is_none_or(|e| e.score < combined)
+        {
             best_by_id.insert(candidate.id.clone(), result);
         }
     }

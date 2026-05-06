@@ -1,5 +1,7 @@
 use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240};
 
+const NS: &str = "_default";
+
 #[tokio::test]
 async fn concept_id_enforces_256_byte_limit() {
     let framework = ChaoticSemanticFramework::builder()
@@ -42,7 +44,7 @@ async fn associate_rejects_negative_strength() {
 
     let err = framework.associate("a", "b", -0.1).await.unwrap_err();
     let text = err.to_string();
-    assert!(text.contains("non-negative"));
+    assert!(text.contains("must be in [0.0, 1.0]"));
 }
 
 #[test]

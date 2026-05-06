@@ -1,3 +1,4 @@
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 use crate::hyperdim::HVec10240;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -112,7 +113,6 @@ impl Reranker for RecencyDecayReranker {
         let half_life_secs = self.half_life_days * 86400.0;
 
         for cand in &mut candidates {
-            #[allow(clippy::cast_precision_loss)]
             let age_secs = now.saturating_sub(cand.created_at_unix) as f32;
             let recency = 0.5f32.powf(age_secs / half_life_secs);
 
@@ -265,7 +265,6 @@ mod tests {
 
     fn create_candidate(id: &str, score: f32, age_days: f32) -> RerankCandidate {
         let now = crate::singularity::unix_now_secs();
-        #[allow(clippy::cast_possible_truncation)]
         let created_at_unix = now - (age_days * 86400.0) as u64;
         RerankCandidate {
             id: id.to_string(),

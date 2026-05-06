@@ -45,35 +45,49 @@ impl Persistence {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn save_concept(&self, _concept: &Concept) -> Result<()> {
+    pub async fn save_concept(&self, _ns: &str, _concept: &Concept) -> Result<()> {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn save_concepts(&self, _concepts: &[Concept]) -> Result<()> {
+    pub async fn save_concepts(&self, _ns: &str, _concepts: &[Concept]) -> Result<()> {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn load_concept(&self, _id: &str) -> Result<Option<Concept>> {
+    pub async fn load_concept(&self, _ns: &str, _id: &str) -> Result<Option<Concept>> {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn load_all_concepts(&self) -> Result<Vec<Concept>> {
+    pub async fn load_all_concepts(&self, _ns: &str) -> Result<Vec<Concept>> {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn delete_concept(&self, _id: &str) -> Result<()> {
+    pub async fn delete_concept(&self, _ns: &str, _id: &str) -> Result<()> {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn save_association(&self, _from: &str, _to: &str, _strength: f32) -> Result<()> {
+    pub async fn save_association(
+        &self,
+        _ns: &str,
+        _from: &str,
+        _to: &str,
+        _strength: f32,
+    ) -> Result<()> {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn save_associations(&self, _associations: &[(String, String, f32)]) -> Result<()> {
+    pub async fn save_associations(
+        &self,
+        _ns: &str,
+        _associations: &[(String, String, f32)],
+    ) -> Result<()> {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn load_associations(&self, _id: &str) -> Result<Vec<(String, f32)>> {
+    pub async fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32)>> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn clear_namespace(&self, _ns: &str) -> Result<()> {
         Err(wasm_persistence_unavailable())
     }
 
@@ -83,6 +97,7 @@ impl Persistence {
 
     pub async fn get_concept_history(
         &self,
+        _ns: &str,
         _id: &str,
         _limit: usize,
     ) -> Result<Vec<ConceptVersion>> {
@@ -117,11 +132,15 @@ impl Persistence {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn save_index(&self, _id: &str, _data: &[u8]) -> Result<()> {
+    pub async fn save_index(&self, _ns: &str, _id: &str, _data: &[u8]) -> Result<()> {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn load_index(&self, _id: &str) -> Result<Option<Vec<u8>>> {
+    pub async fn list_namespaces(&self) -> Result<Vec<String>> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn load_index(&self, _ns: &str, _id: &str) -> Result<Option<Vec<u8>>> {
         Err(wasm_persistence_unavailable())
     }
 }

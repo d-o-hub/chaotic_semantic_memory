@@ -92,12 +92,64 @@ pub fn truncate_preview(s: &str, max_chars: usize) -> String {
 pub async fn create_framework(
     db_path: Option<&std::path::Path>,
 ) -> Result<ChaoticSemanticFramework> {
+    create_framework_advanced(db_path, None, false, "_default").await
+}
+
+pub async fn create_framework_with_namespace(
+    db_path: Option<&std::path::Path>,
+    ns: &str,
+) -> Result<ChaoticSemanticFramework> {
+    create_framework_advanced(db_path, None, false, ns).await
+}
+
+pub async fn create_framework_with_provider(
+    db_path: Option<&std::path::Path>,
+    provider_name: Option<&str>,
+) -> Result<ChaoticSemanticFramework> {
+    create_framework_advanced(db_path, provider_name, false, "_default").await
+}
+
+pub async fn create_framework_advanced(
+    db_path: Option<&std::path::Path>,
+    provider_name: Option<&str>,
+    code_aware: bool,
+    ns: &str,
+) -> Result<ChaoticSemanticFramework> {
     let mut builder = ChaoticSemanticFramework::builder();
     if let Some(path) = db_path {
         builder = builder.with_local_db(path.to_string_lossy());
     } else {
         builder = builder.without_persistence();
     }
+    builder = builder.with_namespace(ns);
+
+    if let Some(name) = provider_name {
+        let provider = crate::embedding::get_provider(name)
+            .map_err(|e| CliError::Config(format!("failed to load embedding provider: {e}")))?;
+
+        // If provider is HDC and code-aware is requested, apply config
+        if provider.name() == "hdc-text" && code_aware {
+            builder = builder.with_embedding_provider(
+                crate::embedding::HdcTextProvider::with_config(crate::encoder::TextEncoderConfig {
+                    ngram_size: Some(3),
+                    code_aware: true,
+                    ..Default::default()
+                }),
+            );
+        } else {
+            builder = builder.with_embedding_provider_arc(provider);
+        }
+    } else if code_aware {
+        // Default HDC provider with code-aware config
+        builder = builder.with_embedding_provider(crate::embedding::HdcTextProvider::with_config(
+            crate::encoder::TextEncoderConfig {
+                ngram_size: Some(3),
+                code_aware: true,
+                ..Default::default()
+            },
+        ));
+    }
+
     builder
         .build()
         .await
@@ -127,9 +179,9 @@ fn validate_strength(strength: f64) -> Result<()> {
             "strength must be finite (got {strength})"
         )));
     }
-    if strength < 0.0 {
+    if !(0.0..=1.0).contains(&strength) {
         return Err(CliError::Validation(format!(
-            "strength must be >= 0 (got {strength})"
+            "strength must be in [0.0, 1.0] (got {strength})"
         )));
     }
     Ok(())

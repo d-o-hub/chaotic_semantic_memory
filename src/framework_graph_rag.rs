@@ -15,7 +15,7 @@ impl ChaoticSemanticFramework {
     /// 3. Score: similarity_weight * cosine + graph_weight * (1/(1+hops)) * strength
     /// 4. Dedupe + rank by score
     #[instrument(err, skip(self, query, config))]
-    #[allow(clippy::significant_drop_tightening)] // Lock needed for concept and association access
+    // Lock needed for concept and association access
     pub async fn probe_with_graph(
         &self,
         query: HVec10240,
@@ -24,22 +24,28 @@ impl ChaoticSemanticFramework {
         self.validate_top_k(config.anchor_top_k)?;
         self.validate_top_k(config.final_top_k)?;
 
-        let sing = self.singularity.read().await;
-        let concepts = sing.all_concepts();
-        let associations = sing.all_associations();
+        let (concepts, associations) = {
+            let sing = self.singularity.read().await;
+            (
+                sing.all_concepts(&self.namespace),
+                sing.all_associations(&self.namespace),
+            )
+        };
 
         graph_rag_retrieve(&query, &concepts, &associations, &config)
     }
 
-    /// GraphRAG retrieval using encoder for text query.
+    /// GraphRAG retrieval using configured embedding provider for text query.
     #[instrument(err, skip(self, text, config))]
     pub async fn probe_text_with_graph(
         &self,
         text: &str,
         config: GraphRagConfig,
     ) -> Result<Vec<GraphRagResult>> {
-        let encoder = crate::encoder::TextEncoder::new();
-        let query = encoder.encode(text);
+        let embedding = self.embedding_provider.embed(text).await?;
+        let query = self
+            .embedding_provider
+            .project(&embedding, &self.projection);
         self.probe_with_graph(query, config).await
     }
 }

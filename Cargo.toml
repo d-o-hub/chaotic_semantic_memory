@@ -1,6 +1,6 @@
 [package]
 name = "chaotic_semantic_memory"
-version = "0.4.0"
+version = "0.3.5"
 edition = "2024"
 rust-version = "1.85"
 description = "AI memory systems with hyperdimensional vectors and chaotic reservoirs"
@@ -32,18 +32,7 @@ base64 = "0.22"
 # Error handling
 thiserror = "2.0.11"
 tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.19", features = ["json", "env-filter"] }
-
-# Observability (ADR-0072)
-opentelemetry = { version = "0.31", optional = true }
-opentelemetry-otlp = { version = "0.31", features = ["grpc-tonic"], optional = true }
-opentelemetry_sdk = { version = "0.31", features = ["rt-tokio"], optional = true }
-tracing-opentelemetry = { version = "0.32", optional = true }
-opentelemetry-semantic-conventions = { version = "0.31", optional = true }
-prometheus = { version = "0.13", optional = true }
-hyper = { version = "1.5", features = ["server", "http1"], optional = true }
-hyper-util = { version = "0.1", features = ["server", "tokio"], optional = true }
-http-body-util = { version = "0.1", optional = true }
+tracing-subscriber = "0.3.19"
 
 # Random number generation
 rand = "0.10.1"
@@ -57,10 +46,6 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"], optional = true
 
 # Local ONNX embeddings (opt-in via embed-fastembed feature)
 fastembed = { version = "4", optional = true }
-
-# Candle for cross-encoders (opt-in via rerank-cross feature)
-candle-core = { version = "0.8.2", optional = true }
-candle-onnx = { version = "0.8.2", optional = true }
 
 # HNSW ANN index (opt-in via ann-hnsw feature)
 hnsw_rs = { version = "0.3.4", optional = true }
@@ -81,7 +66,7 @@ rayon = { version = "1.10.0", optional = true }
 
 # Database - Use libsql NOT turso-client (opt-in via "persistence" feature)
 libsql = { version = "0.9.30", default-features = false, features = ["sync", "hrana", "remote"], optional = true }
-tokio = { version = "1.43.0", features = ["rt-multi-thread", "macros", "sync", "fs", "net"] }
+tokio = { version = "1.43.0", features = ["rt-multi-thread", "macros", "sync", "fs"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.4.2", features = ["wasm_js"] }
@@ -212,11 +197,6 @@ path = "examples/knowledge_graph.rs"
 name = "streaming_temporal"
 path = "examples/streaming_temporal.rs"
 
-[[example]]
-name = "observability_otlp"
-path = "examples/observability_otlp.rs"
-required-features = ["otlp", "prometheus", "cli"]
-
 [features]
 default = ["cli", "persistence", "parallel"]
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
@@ -234,12 +214,6 @@ embed-voyage = ["dep:reqwest"]
 ann-hnsw = ["dep:hnsw_rs"]
 ann-lsh = []
 
-# Observability (ADR-0072)
-otlp = ["dep:opentelemetry", "dep:opentelemetry-otlp", "dep:opentelemetry_sdk", "dep:tracing-opentelemetry", "dep:opentelemetry-semantic-conventions"]
-prometheus = ["dep:prometheus", "dep:hyper", "dep:hyper-util", "dep:http-body-util"]
-
-# Reranking pipeline (ADR-0071)
-rerank-cross = ["dep:candle-core", "dep:candle-onnx"]
 
 # Federation-ready API enhancements (ADR-055 downstream)
 signing = []

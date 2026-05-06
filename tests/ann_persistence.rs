@@ -1,6 +1,10 @@
+#![cfg(feature = "ann-lsh")]
+
 use chaotic_semantic_memory::index::IndexBackend;
 use chaotic_semantic_memory::prelude::*;
 use tempfile::NamedTempFile;
+
+const NS: &str = "_default";
 
 #[tokio::test]
 async fn test_index_persistence_roundtrip() {

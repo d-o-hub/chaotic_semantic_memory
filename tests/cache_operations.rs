@@ -8,6 +8,7 @@
 use chaotic_semantic_memory::prelude::*;
 
 #[tokio::test]
+
 async fn cache_put_existing_key_updates_value() {
     let framework = ChaoticSemanticFramework::builder()
         .without_persistence()

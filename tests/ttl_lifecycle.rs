@@ -4,6 +4,8 @@
 
 use chaotic_semantic_memory::prelude::*;
 
+const NS: &str = "_default";
+
 #[tokio::test]
 async fn inject_concept_with_ttl_stores_concept() {
     let framework = ChaoticSemanticFramework::builder()

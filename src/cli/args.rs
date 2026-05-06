@@ -30,13 +30,9 @@ pub struct CliArgs {
     #[arg(long, global = true, value_enum, default_value = "table")]
     pub output_format: OutputFormat,
 
-    /// OTLP gRPC endpoint (e.g., http://localhost:4317).
-    #[arg(long, global = true, env = "CSM_OTLP_ENDPOINT")]
-    pub otlp_endpoint: Option<String>,
-
-    /// Prometheus scrape bind address (e.g., 127.0.0.1:9090).
-    #[arg(long, global = true, env = "CSM_PROMETHEUS_BIND")]
-    pub prometheus_bind: Option<String>,
+    /// Namespace for isolation (default: _default).
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -88,6 +84,8 @@ pub enum Commands {
 
 #[derive(Args, Debug, Clone)]
 pub struct InjectArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     #[arg(required = true)]
     pub concept_id: String,
 
@@ -96,6 +94,18 @@ pub struct InjectArgs {
 
     #[arg(long, default_value = "random", value_enum)]
     pub vector_source: VectorSource,
+
+    /// Text to encode into a vector.
+    #[arg(short, long)]
+    pub text: Option<String>,
+
+    /// Use external embedding model if configured.
+    #[arg(long)]
+    pub use_embeddings: bool,
+
+    /// Embedding provider: 'hdc', 'fastembed[:model]', 'openai[:model]', 'voyage[:model]'.
+    #[arg(long, value_name = "PROVIDER")]
+    pub provider: Option<String>,
 
     #[arg(short, long, value_name = "JSON")]
     pub metadata: Option<String>,
@@ -106,23 +116,18 @@ pub enum VectorSource {
     Random,
     File,
     Stdin,
+    Text,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct ProbeArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     #[arg(required = true)]
     pub concept_id: String,
 
     #[arg(short = 'k', long, default_value = "10")]
     pub top_k: usize,
-
-    /// Initial number of candidates to retrieve before reranking.
-    #[arg(long, default_value = "50")]
-    pub initial_k: usize,
-
-    /// Reranking pipeline (e.g., "mmr:0.7,recency:30d").
-    #[arg(long, value_name = "PIPELINE")]
-    pub rerank: Option<String>,
 
     #[arg(short, long)]
     pub threshold: Option<f64>,
@@ -130,7 +135,10 @@ pub struct ProbeArgs {
 
 /// Arguments for text-based similarity query.
 #[derive(Args, Debug, Clone)]
+#[command(alias = "probe-text")]
 pub struct QueryArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Text to encode and search for similar concepts.
     #[arg(required = true)]
     pub text: String,
@@ -164,10 +172,16 @@ pub struct QueryArgs {
     /// 0.4 for 5-8, 0.2 for 9+.
     #[arg(long, value_name = "WEIGHT")]
     pub keyword_weight: Option<f64>,
+
+    /// Embedding provider: 'hdc', 'fastembed[:model]', 'openai[:model]', 'voyage[:model]'.
+    #[arg(long, value_name = "PROVIDER")]
+    pub provider: Option<String>,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct AssociateArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     #[arg(required = true)]
     pub source_id: String,
 
@@ -186,6 +200,8 @@ pub enum ExportFormat {
 
 #[derive(Args, Debug, Clone)]
 pub struct ExportArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     #[arg(short, long, default_value = "export.json")]
     pub output: PathBuf,
 
@@ -202,6 +218,8 @@ pub enum ImportFormat {
 
 #[derive(Args, Debug, Clone)]
 pub struct ImportArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     #[arg(required = true)]
     pub input: PathBuf,
 
@@ -230,6 +248,8 @@ pub struct CompletionsArgs {
 /// Arguments for indexing JSONL files.
 #[derive(Args, Debug, Clone)]
 pub struct IndexJsonlArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Path to JSONL file to index.
     #[arg(short = 'F', long, value_name = "FILE")]
     pub file: PathBuf,
@@ -254,6 +274,8 @@ pub struct IndexJsonlArgs {
 /// Arguments for indexing Markdown directory.
 #[derive(Args, Debug, Clone)]
 pub struct IndexDirArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Glob pattern(s) for files to index (can be repeated).
     #[arg(short, long, required = true, value_name = "PATTERN")]
     pub glob: Vec<String>,
@@ -270,6 +292,8 @@ pub struct IndexDirArgs {
 /// Arguments for the delete command.
 #[derive(Args, Debug, Clone)]
 pub struct DeleteArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Concept ID to delete.
     #[arg(required = true)]
     pub concept_id: String,
@@ -282,6 +306,8 @@ pub struct DeleteArgs {
 /// Arguments for the get command.
 #[derive(Args, Debug, Clone)]
 pub struct GetArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Concept ID to retrieve.
     #[arg(required = true)]
     pub concept_id: String,
@@ -290,6 +316,8 @@ pub struct GetArgs {
 /// Arguments for the update command.
 #[derive(Args, Debug, Clone)]
 pub struct UpdateArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Concept ID to update.
     #[arg(required = true)]
     pub concept_id: String,
@@ -314,6 +342,8 @@ pub struct UpdateArgs {
 /// Arguments for the disassociate command.
 #[derive(Args, Debug, Clone)]
 pub struct DisassociateArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Source concept ID (association owner).
     #[arg(required = true)]
     pub from: String,
@@ -327,6 +357,8 @@ pub struct DisassociateArgs {
 /// Arguments for listing associations of a concept.
 #[derive(Args, Debug, Clone)]
 pub struct AssociationsArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Concept ID to query associations for.
     #[arg(required = true)]
     pub concept_id: String,
@@ -339,6 +371,8 @@ pub struct AssociationsArgs {
 /// Arguments for BFS traversal from a starting concept.
 #[derive(Args, Debug, Clone)]
 pub struct TraverseArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Starting concept ID for traversal.
     #[arg(required = true)]
     pub start: String,
@@ -355,6 +389,8 @@ pub struct TraverseArgs {
 /// Arguments for finding shortest path between two concepts.
 #[derive(Args, Debug, Clone)]
 pub struct PathArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Starting concept ID.
     #[arg(required = true)]
     pub from: String,
@@ -371,6 +407,8 @@ pub struct PathArgs {
 /// Arguments for filtered similarity probe.
 #[derive(Args, Debug, Clone)]
 pub struct ProbeFilteredArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Concept ID to use as query vector.
     #[arg(required = true)]
     pub concept_id: String,
@@ -408,6 +446,8 @@ pub struct WatchArgs {
 /// Arguments for GraphRAG retrieval.
 #[derive(Args, Debug, Clone)]
 pub struct ProbeGraphArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
     /// Text query for similarity search.
     #[arg(required = true)]
     pub text: String,

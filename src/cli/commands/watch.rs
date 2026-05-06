@@ -61,7 +61,7 @@ impl EventFilter {
 /// Run the watch command.
 #[instrument(name = "cli_watch")]
 pub async fn run_watch(db_path: Option<&Path>, filter: EventFilter) -> Result<()> {
-    let framework = create_framework(db_path).await?;
+    let framework: crate::framework::ChaoticSemanticFramework = create_framework(db_path).await?;
     let mut receiver = framework.subscribe();
 
     // Use buffered stdout for efficient line-by-line output

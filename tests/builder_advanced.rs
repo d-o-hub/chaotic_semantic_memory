@@ -5,6 +5,8 @@
 
 use chaotic_semantic_memory::prelude::*;
 
+const NS: &str = "_default";
+
 #[tokio::test]
 async fn builder_with_reservoir_size_custom() {
     let framework = ChaoticSemanticFramework::builder()

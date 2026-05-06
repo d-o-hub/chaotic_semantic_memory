@@ -12,7 +12,7 @@ use super::create_framework;
 /// Run the metrics command.
 #[instrument(name = "cli_metrics")]
 pub async fn run_metrics(db_path: Option<&Path>, format: OutputFormat, reset: bool) -> Result<()> {
-    let framework = create_framework(db_path).await?;
+    let framework: crate::framework::ChaoticSemanticFramework = create_framework(db_path).await?;
 
     if reset {
         // Note: Metrics reset is not currently supported at the framework level.

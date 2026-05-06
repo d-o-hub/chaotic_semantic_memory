@@ -1,3 +1,4 @@
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 use crate::error::Result;
 use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
@@ -15,7 +16,7 @@ const MAX_HISTORY_LIMIT: usize = 1000;
 
 impl ChaoticSemanticFramework {
     /// Batch inject multiple concepts into memory.
-    #[allow(clippy::significant_drop_tightening)] // Singularity write lock needed for batch inject
+    // Singularity write lock needed for batch inject
     #[instrument(err, skip(self, concepts))]
     pub async fn inject_concepts(&self, concepts: &[(String, HVec10240)]) -> Result<()> {
         self.validate_batch_size(concepts.len())?;
@@ -32,21 +33,22 @@ impl ChaoticSemanticFramework {
                 let concept = ConceptBuilder::new(id.clone())
                     .with_vector(*vector)
                     .build()?;
-                sing.inject(concept.clone())?;
+                sing.inject(&self.namespace, concept.clone())?;
                 to_save.push(concept);
             }
+            drop(sing);
         }
 
         if let Some(ref persistence) = self.persistence {
             let p_start = std::time::Instant::now();
-            persistence.save_concepts(&to_save).await?;
-            #[allow(clippy::cast_possible_truncation)]
-            self.metrics
-                .observe_persist_latency_ms(p_start.elapsed().as_millis() as u64, "save");
+            persistence.save_concepts(&self.namespace, &to_save).await?;
+            self.metrics.observe_persist_latency_ms(
+                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                "save",
+            );
         }
 
-        self.metrics
-            .inc_concepts_injected(to_save.len() as u64, false);
+        self.metrics.inc_concepts_injected(to_save.len() as u64);
         Ok(())
     }
 
@@ -65,12 +67,14 @@ impl ChaoticSemanticFramework {
                 Self::validate_concept_id(from)?;
                 Self::validate_concept_id(to)?;
                 Self::validate_association_strength(*strength)?;
-                sing.associate(from, to, *strength)?;
+                sing.associate(&self.namespace, from, to, *strength)?;
             }
         }
 
         if let Some(ref persistence) = self.persistence {
-            persistence.save_associations(associations).await?;
+            persistence
+                .save_associations(&self.namespace, associations)
+                .await?;
         }
 
         self.metrics
@@ -91,7 +95,7 @@ impl ChaoticSemanticFramework {
             let sing = self.singularity.read().await;
             queries
                 .iter()
-                .map(|q| sing.find_similar(q, top_k))
+                .map(|q| sing.find_similar(&self.namespace, q, top_k))
                 .collect()
         };
         Ok(out)
@@ -111,7 +115,7 @@ impl ChaoticSemanticFramework {
             let sing = self.singularity.read().await;
             queries
                 .iter()
-                .map(|q| sing.find_similar_cached(q, top_k))
+                .map(|q| sing.find_similar_cached(&self.namespace, q, top_k))
                 .collect()
         };
         Ok(out)
@@ -127,8 +131,8 @@ impl ChaoticSemanticFramework {
             ExportPayload {
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 exported_at: unix_now_secs(),
-                concepts: sing.all_concepts(),
-                associations: sing.all_associations(),
+                concepts: sing.all_concepts(&self.namespace),
+                associations: sing.all_associations(&self.namespace),
             }
         };
         let data = serde_json::to_vec_pretty(&payload)?;
@@ -140,7 +144,7 @@ impl ChaoticSemanticFramework {
     pub async fn import_json(&self, path: &str, merge: bool) -> Result<usize> {
         let validated_path = validate_path(path)?;
         let bytes = fs::read(validated_path).await?;
-        #[allow(clippy::cast_possible_truncation)] // MAX_IMPORT_SIZE fits in usize on 64-bit
+        // MAX_IMPORT_SIZE fits in usize on 64-bit
         if bytes.len() > MAX_IMPORT_SIZE as usize {
             return Err(crate::error::MemoryError::InvalidInput {
                 field: "import_data".to_string(),
@@ -156,10 +160,10 @@ impl ChaoticSemanticFramework {
         if !merge {
             {
                 let mut sing = self.singularity.write().await;
-                sing.clear();
+                sing.clear(&self.namespace);
             }
             if let Some(ref persistence) = self.persistence {
-                persistence.clear_all().await?;
+                persistence.clear_namespace(&self.namespace).await?;
             }
         }
 
@@ -169,10 +173,10 @@ impl ChaoticSemanticFramework {
             let mut associations = Vec::with_capacity(payload.associations.len());
             for concept in &payload.concepts {
                 self.validate_concept(concept)?;
-                sing.inject(concept.clone())?;
+                sing.inject(&self.namespace, concept.clone())?;
             }
             for (from, to, strength) in &payload.associations {
-                match sing.associate(from, to, *strength) {
+                match sing.associate(&self.namespace, from, to, *strength) {
                     Ok(()) => associations.push((from.clone(), to.clone(), *strength)),
                     Err(error) => {
                         warn!(
@@ -189,13 +193,17 @@ impl ChaoticSemanticFramework {
         }; // Lock released here
         // Persist concepts and associations (no lock needed)
         if let Some(ref persistence) = self.persistence {
-            persistence.save_concepts(&payload.concepts).await?;
-            persistence.save_associations(&valid_associations).await?;
+            persistence
+                .save_concepts(&self.namespace, &payload.concepts)
+                .await?;
+            persistence
+                .save_associations(&self.namespace, &valid_associations)
+                .await?;
         }
         Ok(payload.concepts.len())
     }
     /// Export memory state to binary file.
-    #[allow(clippy::significant_drop_tightening)] // Singularity read lock needed for binary export
+    // Singularity read lock needed for binary export
     #[instrument(err, skip(self), fields(path))]
     pub async fn export_binary(&self, path: &str) -> Result<()> {
         let validated_path = validate_path(path)?;
@@ -205,11 +213,12 @@ impl ChaoticSemanticFramework {
             let json_payload = ExportPayload {
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 exported_at: unix_now_secs(),
-                concepts: sing.all_concepts(),
-                associations: sing.all_associations(),
+                concepts: sing.all_concepts(&self.namespace),
+                associations: sing.all_associations(&self.namespace),
             };
-            // Convert to binary-compatible format
-            BinaryExportPayload::from(json_payload)
+            let res = BinaryExportPayload::from(json_payload);
+            drop(sing);
+            res
         };
 
         let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
@@ -228,7 +237,7 @@ impl ChaoticSemanticFramework {
         let validated_path = validate_path(path)?;
         let bytes = fs::read(validated_path).await?;
 
-        #[allow(clippy::cast_possible_truncation)] // MAX_IMPORT_SIZE fits in usize on 64-bit
+        // MAX_IMPORT_SIZE fits in usize on 64-bit
         if bytes.len() > MAX_IMPORT_SIZE as usize {
             return Err(crate::error::MemoryError::InvalidInput {
                 field: "import_data".to_string(),
@@ -257,10 +266,10 @@ impl ChaoticSemanticFramework {
         if !merge {
             {
                 let mut sing = self.singularity.write().await;
-                sing.clear();
+                sing.clear(&self.namespace);
             }
             if let Some(ref persistence) = self.persistence {
-                persistence.clear_all().await?;
+                persistence.clear_namespace(&self.namespace).await?;
             }
         }
         // Acquire write lock, inject concepts + build associations list, then release
@@ -269,10 +278,10 @@ impl ChaoticSemanticFramework {
             let mut associations = Vec::with_capacity(payload.associations.len());
             for concept in &payload.concepts {
                 self.validate_concept(concept)?;
-                sing.inject(concept.clone())?;
+                sing.inject(&self.namespace, concept.clone())?;
             }
             for (from, to, strength) in &payload.associations {
-                match sing.associate(from, to, *strength) {
+                match sing.associate(&self.namespace, from, to, *strength) {
                     Ok(()) => associations.push((from.clone(), to.clone(), *strength)),
                     Err(error) => {
                         warn!(
@@ -290,8 +299,12 @@ impl ChaoticSemanticFramework {
 
         // Persist concepts and associations (no lock needed)
         if let Some(ref persistence) = self.persistence {
-            persistence.save_concepts(&payload.concepts).await?;
-            persistence.save_associations(&valid_associations).await?;
+            persistence
+                .save_concepts(&self.namespace, &payload.concepts)
+                .await?;
+            persistence
+                .save_associations(&self.namespace, &valid_associations)
+                .await?;
         }
 
         Ok(payload.concepts.len())
@@ -333,7 +346,9 @@ impl ChaoticSemanticFramework {
             limit = MAX_HISTORY_LIMIT;
         }
         if let Some(ref persistence) = self.persistence {
-            return persistence.get_concept_history(id, limit).await;
+            return persistence
+                .get_concept_history(&self.namespace, id, limit)
+                .await;
         }
         Ok(Vec::new())
     }
@@ -343,12 +358,12 @@ impl ChaoticSemanticFramework {
     pub async fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()> {
         let concept = {
             let mut sing = self.singularity.write().await;
-            sing.update(id, vector)?;
-            sing.get(id).cloned()
+            sing.update(&self.namespace, id, vector)?;
+            sing.get(&self.namespace, id).cloned()
         };
 
         if let (Some(concept), Some(persistence)) = (concept, &self.persistence) {
-            persistence.save_concept(&concept).await?;
+            persistence.save_concept(&self.namespace, &concept).await?;
         }
         self.emit_event(MemoryEvent::ConceptUpdated {
             id: id.to_string(),
@@ -366,12 +381,12 @@ impl ChaoticSemanticFramework {
     ) -> Result<()> {
         let concept = {
             let mut sing = self.singularity.write().await;
-            sing.update_metadata(id, metadata)?;
-            sing.get(id).cloned()
+            sing.update_metadata(&self.namespace, id, metadata)?;
+            sing.get(&self.namespace, id).cloned()
         };
 
         if let (Some(concept), Some(persistence)) = (concept, &self.persistence) {
-            persistence.save_concept(&concept).await?;
+            persistence.save_concept(&self.namespace, &concept).await?;
         }
         self.emit_event(MemoryEvent::ConceptUpdated {
             id: id.to_string(),
@@ -385,11 +400,13 @@ impl ChaoticSemanticFramework {
     pub async fn disassociate(&self, from: &str, to: &str) -> Result<()> {
         {
             let mut sing = self.singularity.write().await;
-            sing.disassociate(from, to)?;
+            sing.disassociate(&self.namespace, from, to)?;
         }
 
         if let Some(persistence) = &self.persistence {
-            persistence.delete_association(from, to).await?;
+            persistence
+                .delete_association(&self.namespace, from, to)
+                .await?;
         }
         self.emit_event(MemoryEvent::Disassociated {
             from: from.to_string(),
@@ -403,11 +420,13 @@ impl ChaoticSemanticFramework {
     pub async fn clear_associations(&self, id: &str) -> Result<()> {
         {
             let mut sing = self.singularity.write().await;
-            sing.clear_associations(id)?;
+            sing.clear_associations(&self.namespace, id)?;
         }
 
         if let Some(persistence) = &self.persistence {
-            persistence.clear_concept_associations(id).await?;
+            persistence
+                .clear_concept_associations(&self.namespace, id)
+                .await?;
         }
         Ok(())
     }
@@ -415,12 +434,12 @@ impl ChaoticSemanticFramework {
     /// Clear the similarity query cache.
     pub async fn clear_similarity_cache(&self) {
         let sing = self.singularity.read().await;
-        sing.clear_similarity_cache();
+        sing.invalidate_cache(&self.namespace);
     }
 
     /// Bundle multiple concepts into a single hypervector (strict version).
     pub async fn bundle_concepts_strict(&self, ids: &[String]) -> Result<HVec10240> {
         let sing = self.singularity.read().await;
-        sing.bundle_concepts_strict(ids)
+        sing.bundle_concepts_strict(&self.namespace, ids)
     }
 }

@@ -69,7 +69,7 @@ impl Default for FrameworkConfig {
 }
 
 /// Framework statistics
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct FrameworkStats {
     pub concept_count: usize,
     /// Database size in bytes. `None` if persistence is disabled or size unavailable.
@@ -83,6 +83,8 @@ pub struct FrameworkBuilder {
     pub(crate) db_token: Option<String>,
     pub(crate) concept_cache_size: usize,
     pub(crate) version_retention: usize,
+    pub(crate) namespace: String,
+    pub(crate) embedding_provider: Option<Arc<dyn crate::embedding::EmbeddingProvider>>,
 }
 
 impl Default for FrameworkBuilder {
@@ -91,8 +93,10 @@ impl Default for FrameworkBuilder {
             config: FrameworkConfig::default(),
             db_path: None,
             db_token: None,
-            concept_cache_size: SingularityConfig::default().concept_cache_size,
+            concept_cache_size: 1000,
             version_retention: 10,
+            namespace: "_default".to_string(),
+            embedding_provider: None,
         }
     }
 }
@@ -100,6 +104,11 @@ impl Default for FrameworkBuilder {
 impl FrameworkBuilder {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn with_namespace(mut self, ns: impl Into<String>) -> Self {
+        self.namespace = ns.into();
+        self
     }
 
     pub const fn with_reservoir_size(mut self, size: usize) -> Self {
@@ -215,6 +224,24 @@ impl FrameworkBuilder {
         self
     }
 
+    /// Configure an external embedding provider.
+    pub fn with_embedding_provider<P: crate::embedding::EmbeddingProvider + 'static>(
+        mut self,
+        provider: P,
+    ) -> Self {
+        self.embedding_provider = Some(Arc::new(provider));
+        self
+    }
+
+    /// Configure an external embedding provider using an existing Arc'd trait object.
+    pub fn with_embedding_provider_arc(
+        mut self,
+        provider: Arc<dyn crate::embedding::EmbeddingProvider>,
+    ) -> Self {
+        self.embedding_provider = Some(provider);
+        self
+    }
+
     pub async fn build(self) -> Result<ChaoticSemanticFramework> {
         Reservoir::validate_params(
             self.config.reservoir_size,
@@ -226,6 +253,7 @@ impl FrameworkBuilder {
                 max_concepts: self.config.max_concepts,
                 max_associations_per_concept: self.config.max_associations_per_concept,
                 concept_cache_size: self.concept_cache_size,
+                index_backend: self.config.index_backend.clone(),
                 max_cached_top_k: self.config.max_cached_top_k,
             },
             self.config.index_backend.clone(),
@@ -256,6 +284,19 @@ impl FrameworkBuilder {
         #[cfg(not(feature = "persistence"))]
         let persistence: Option<Arc<crate::persistence::Persistence>> = None;
 
+        let provider = self
+            .embedding_provider
+            .unwrap_or_else(|| Arc::new(crate::embedding::HdcTextProvider::new()));
+
+        let projection = if provider.name() == "hdc-text" {
+            crate::embedding::Projection::empty()
+        } else {
+            crate::embedding::Projection::new(&crate::embedding::ProjectionConfig {
+                native_dim: provider.native_dim(),
+                ..Default::default()
+            })
+        };
+
         let framework = ChaoticSemanticFramework {
             singularity,
             persistence,
@@ -263,6 +304,9 @@ impl FrameworkBuilder {
             config: self.config,
             metrics: Default::default(),
             event_sender: build_event_sender(),
+            namespace: self.namespace,
+            embedding_provider: provider,
+            projection: Arc::new(projection),
         };
 
         framework.load_replace().await?;

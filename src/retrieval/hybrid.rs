@@ -125,52 +125,52 @@ impl Default for HybridConfig {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparisons for weight test assertions
+    // Exact float comparisons for weight test assertions
 
     use super::*;
 
     #[test]
     fn test_compute_weights_short_query() {
         let (kw, sem) = compute_weights(1);
-        assert_eq!(kw, 0.9);
-        assert_eq!(sem, 0.1);
+        assert!((kw - (0.9)).abs() < 1e-6);
+        assert!((sem - (0.1)).abs() < 1e-6);
 
         let (kw, sem) = compute_weights(2);
-        assert_eq!(kw, 0.9);
-        assert_eq!(sem, 0.1);
+        assert!((kw - (0.9)).abs() < 1e-6);
+        assert!((sem - (0.1)).abs() < 1e-6);
     }
 
     #[test]
     fn test_compute_weights_medium_query() {
         let (kw, sem) = compute_weights(3);
-        assert_eq!(kw, 0.7);
-        assert_eq!(sem, 0.3);
+        assert!((kw - (0.7)).abs() < 1e-6);
+        assert!((sem - (0.3)).abs() < 1e-6);
 
         let (kw, sem) = compute_weights(4);
-        assert_eq!(kw, 0.7);
-        assert_eq!(sem, 0.3);
+        assert!((kw - (0.7)).abs() < 1e-6);
+        assert!((sem - (0.3)).abs() < 1e-6);
     }
 
     #[test]
     fn test_compute_weights_long_query() {
         let (kw, sem) = compute_weights(5);
-        assert_eq!(kw, 0.4);
-        assert_eq!(sem, 0.6);
+        assert!((kw - (0.4)).abs() < 1e-6);
+        assert!((sem - (0.6)).abs() < 1e-6);
 
         let (kw, sem) = compute_weights(8);
-        assert_eq!(kw, 0.4);
-        assert_eq!(sem, 0.6);
+        assert!((kw - (0.4)).abs() < 1e-6);
+        assert!((sem - (0.6)).abs() < 1e-6);
     }
 
     #[test]
     fn test_compute_weights_very_long_query() {
         let (kw, sem) = compute_weights(9);
-        assert_eq!(kw, 0.2);
-        assert_eq!(sem, 0.8);
+        assert!((kw - (0.2)).abs() < 1e-6);
+        assert!((sem - (0.8)).abs() < 1e-6);
 
         let (kw, sem) = compute_weights(100);
-        assert_eq!(kw, 0.2);
-        assert_eq!(sem, 0.8);
+        assert!((kw - (0.2)).abs() < 1e-6);
+        assert!((sem - (0.8)).abs() < 1e-6);
     }
 
     #[test]

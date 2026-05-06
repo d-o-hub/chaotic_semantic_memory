@@ -1,0 +1,37 @@
+{
+  "version": "0.3.2",
+  "exported_at": 1776844694,
+  "concepts": [
+    {
+      "id": "test::lifecycle::alpha",
+      "vector": "6k4FzRTfve5qVtlZ72OapH9cRMUBVbL8VrnY5ZQXlktGy9kWbjtsUQ2HoeIZjLJLXgwupRdFN4kx6fWudHoSb5QHlHFMLTp9/e4WbjDgFgWA5d3JvlfPq7kXx7OcRQ4wntH2Uj1QmGG9YhNLpPGpO9mI7CU8bNIQd4ngIJ8EUnFro8yF3CPv0+Kl7aj5ZZo4RTUOV3KXGj5LupJD/SvjU/BP6FL4rXyII6AQvJ3LbS7uyjMyD7EsOZSZLWdQlxjaTm4y0x29jYax0qkvAJk8t51dOD6W4m+bSR69+/4dvoW2MYAFXdMLwswWmfxrri3MwrToYT+8b58ESx3jNvOP6nFCHBu4DnaN3u8VTctvzeaN1R4g4V5G5wAEnxAbxFtIKxD+tre83B4V+slBngLjaAvh/DHiUMxZakqVUHTjNSncus4McAhy6WBWtvEHD1j4g1iwKzZCDrquLRkcuCbnd7mt/GugpNV2dVz7IftP7zGnrN/10byDP/Jnl6Eo9w4u5Jd1e0/FBSxFejv7VaoX2SbZ9tl/1oOE3kD/Rm9cqsc+d1a/60709koq83quYnXDHvGff1HtMiGWCtLr0ns9xytPER9p6tYr+v1dF/mlkSuI3YNqzySQ7glny1nFGd+nAsaZl+Mt5MQjCEfvbmuQat/UzZ+q6RWLixgcgSgY6KayWYL4uy+TUEOlwTvUrcu+frge2fqJeaWYKc/5HhxKE2jekXKAxI5DIy4nVFNc38b/f6bnnmpm8lIEQlVfjXu1JzlHaY8cRNcOTRapXTr0Xb37V7Sho5f6ZF+B0RSRU5L3IyIwpJT1G2zqGXV8QxG9JWpNv8MFWNWt36XOeOVlQ/cUMLn9JrU8EhBRXBxsU4Tiw6Xy6jOTfZMKu1mp/PzEPEl/JdMAvgVK+eYIQRXZpUON+Z7ECKC9YlLtaQeYfZc5QnCehEsr2tapU1ZV70xGWP5PxUx/mtmNw3KEjWPYFDRNQr/xJEC+ht5OfT/DiDkvibyGj5vzBtH5uvMlWJ5txxj2guIZENHOCP/MQe9pYcDlCCmOIADLLTrdSl/ZENBOOgWe+5sLu9FVEMLMihsSNquGY93qZBNTa1SY2OKsUASS7L0om4FeWvzbD+HiEWCFhS7xa92uQ0dxRdhEiwteRndoJ+0Ye1l0b5drXvKErdbP1VYS//dWJKw62hlfkWQS8Aj893cuI9gNs4tFc4/RVt9tbg88JkdWpeBRYetIyA5Ol488Y8stkBOQAuFD5EIACE9fPiTvKt2J3nDBk+wq+hebtrzWH3Tn7nSMbn3rh5tUkX7qMicHZ1utY4HxxqLC+kMr2O5JoSm+q59HWYqAwNy7DWfE5Vk8gDWSO2mf4INyjfXrsTREuib/LTpDqW4RSETLzkWDgB+eJ9hkQk6vfL7MBsZbWtztQsccFCJMga8Quu6lZl1ht1kl7/M9gV2pT7mG5+zzR9TAqpaDVnV5hyd1gUWXGGXu1sCvDgoULHIooGTMicD4E+rh4s9kAQtJLO19z4HxzgMOik9NBD7GfOfASELpA8XcZSN7JTHilhbOOjFKwepO0iSFl9oNImjlH6rIlvtn9omz2IPpVCduCoyUnBXTHuDkfnxJreXHe1Ip0Qql3ZcdyHdRBjSX1QwjotyMpGoAzeP6IX/bNjamiyCsgA6lhwreQ3pOtVsKyPNEmzrkLdtCTC9czpcftyM=",
+      "metadata": {
+        "phase": "save",
+        "v": 1
+      },
+      "created_at": 1776844668,
+      "modified_at": 1776844668,
+      "expires_at": null,
+      "canonical_concept_ids": []
+    },
+    {
+      "id": "test::lifecycle::beta",
+      "vector": "RPDMghFWglfHxe5fbjXAK/5+YJ25WYBV2Gz/3rdl9f20eClQtqn9QsKzA/2DRYWRNwQ1rBsZvFxNzhMb0HSjuPSzU0Ku8EjBehhyt+XzkEF/wAhS5WMb7GpTqsZ/IOlQlFyKryyyjKp4yCukaGj3FjLJaRZlgBxSJ04A4fPOEau1JlhS1dTHXq0qf1t618LRDhf69ZLHIysAFbkJVD7jcNxEqXPTiGo5vnXJgoomxygQmdGDgIO1dxeC8KXj56knafC6ooa9nLxfVZo1igdcFxEW+cNMIu93kiaz/gGMFvdvsoATqFf9pbfALl04z11Dr2o3Afs8JibSYNma1tQY0a/2wyBGOA8YXl0R+tz/IrdYmvFnp2CT18wCoFj6oJbMoZLxXQIOIVVZ/o6AjfTWRr3olKvAy2j5e1xQZgB5mROjcRKaJC6DIQHe2ol6zt/MTMm6Zys7MLVcxFCDlALnYbA/j+c2wX4Y+8YYL1LU/b2pLLAqtSkBFY1oPT9RFTi4tJMEwnvwm4oQruVNzab9MJqnTcbQe9E97WRwFOyOWL09BZ7omKJuLZI9AP3OTDkBMQTXRkfLdYPbit1xTQ+4WtIcd+6KnA47fWnRf0xv8gKjjUaHdpFfp4wAbzRDDVOvKLjWa7fnj8qULGhCApMC2qbnASzhW+LhkggKWfc++CqjqSuSgZvAAUB5Gvvk6BJmFSApWteYSTs2rz65rM4xxT6ce28Fw+XlDeaZVSfVJUZ5ZZ8YqaFPbacNavM46TXrs79RmexWgsXxDDLt8c96ljfTvRHLjHyLciYumRWjn69snYiyg8rxKV+EuUJ5nZ12k7hCGFV/bSqxwHWzY+YcmgQD0RZ4aE1YP0PXsrfKadzEFRmtMbbiih8OM+ARmbtFcafoOOguu1tzHOHDsBjS9viWozAsra31pnwd6lK73lA3TuLBW08TZK/S3u8aef9CdndZtPqxZ5XY7lTIAkkTmNWJDdu55MP2m/B7F16KX4ZMSnYWpjXWoJievE9ex6e4iHY/5oF69HRk90A/SpsXvb2M+Pv+JxtTa301914RDkW5CAm0fcQm2k72XNPb64SliWHNO71v/y6+Dy1Y6dTA1l0eAHg0TYv1Hzl0YQJV7lZ3O57qPGszjGfCU/ubOiTFihnEJEVnU7NpTmPSRl4M7Exa9iBC52qmIY7acnIpY3aOLqXD9HEBhrg1tyhh8gYEssMIHj03yfVUmC/nihkD8lKfeY317lvqbwkoyXx0KLD0DtEgvP88lwM8GJccgU3z1xdyK1h+866wUtyAyxYlCoCKTRfRAc4C40BFmufqc6UTXhWHfK92da4GwIkaMsn/gAk6gizuHKTZnTM6RfFSPAmXk6jcRg4EU5KvQZ+mC6aBxf2398dpHJBQ4S/SFmB8JmRY3fh2faMfAGZSDlzjXJSp4Re44hv1Kj1KsBcwRnIOyUBRxol2VEGBtb0TkvYT/Wd3iCB2pUxJ+/6q5hcFqVPeMB6FHA90wPpswkd0oSxdPRKL6wngFx27OjlR3QypVRwbKVU93AD/M/4Mz7oJsECcj4nDtzmbSfAHiUh0tkk7lzZal8ZvwRwUepcvix46MehHRVK0uViIpM3reBQxzStJ5qbNFncYooJLYjzyz7M679Y4UDF0grgyEQzNGI2FNhBkjHdbAgsxO9ihpoFj8Tnpyh15nY1TI7s0EkNvvvg=",
+      "metadata": {
+        "v": 1,
+        "phase": "save"
+      },
+      "created_at": 1776844668,
+      "modified_at": 1776844668,
+      "expires_at": null,
+      "canonical_concept_ids": []
+    }
+  ],
+  "associations": [
+    [
+      "test::lifecycle::alpha",
+      "test::lifecycle::beta",
+      0.9
+    ]
+  ]
+}
