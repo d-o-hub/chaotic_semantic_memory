@@ -37,6 +37,18 @@ impl WasmFramework {
         Ok(WasmFramework { framework })
     }
 
+    /// Set the current namespace
+    #[wasm_bindgen(js_name = setNamespace)]
+    pub async fn set_namespace(&self, ns: String) {
+        self.framework.set_namespace(ns).await;
+    }
+
+    /// Get the current namespace
+    #[wasm_bindgen(js_name = getNamespace)]
+    pub async fn get_namespace(&self) -> String {
+        self.framework.namespace().await
+    }
+
     /// Inject a concept
     pub async fn inject_concept(&self, id: String, vector: &[u8]) -> Result<(), JsValue> {
         let hvec = HVec10240::from_bytes(vector).map_err(to_js_error)?;
@@ -329,7 +341,7 @@ impl WasmFramework {
     pub async fn export_to_bytes(&self) -> Result<Uint8Array, JsValue> {
         let payload = {
             let singularity = self.framework.singularity.read().await;
-            let ns = self.framework.namespace().to_string();
+            let ns = self.framework.namespace().await;
             ExportPayload {
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 exported_at: unix_now_secs(),
@@ -363,7 +375,7 @@ impl WasmFramework {
             options.deserialize(&bytes).map_err(to_js_error)?;
         let payload = binary_payload.to_export_payload().map_err(to_js_error)?;
 
-        let ns = self.framework.namespace().to_string();
+        let ns = self.framework.namespace().await;
 
         if !merge {
             let mut singularity = self.framework.singularity.write().await;

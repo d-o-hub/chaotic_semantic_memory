@@ -113,6 +113,76 @@ impl WasmFramework {
 
         Ok(array)
     }
+
+    /// Breadth-first traversal from a starting concept.
+    ///
+    /// Returns an Array of `{id: string, depth: number}` objects.
+    /// Uses default `TraversalConfig`.
+    pub async fn bfs(&self, start: String) -> Result<Array, JsValue> {
+        use crate::graph_traversal::TraversalConfig;
+        let sing = self.framework.singularity.read().await;
+        let ns = self.framework.namespace().await;
+        let config = TraversalConfig::default();
+        let results = sing.bfs(&ns, &start, &config).map_err(to_js_error)?;
+        let array = Array::new();
+        for (id, depth) in results {
+            let obj = js_sys::Object::new();
+            js_sys::Reflect::set(&obj, &"id".into(), &id.into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+            js_sys::Reflect::set(&obj, &"depth".into(), &(depth as f64).into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+            array.push(&obj);
+        }
+        Ok(array)
+    }
+
+    /// Find the minimum-cost path between two concepts (weighted Dijkstra).
+    ///
+    /// Returns an Array of concept ID strings, or an empty Array if no path exists.
+    /// Uses default `TraversalConfig`.
+    pub async fn shortest_path(&self, from: String, to: String) -> Result<Array, JsValue> {
+        let path = self
+            .framework
+            .shortest_path(&from, &to)
+            .await
+            .map_err(to_js_error)?;
+        let array = Array::new();
+        if let Some(nodes) = path {
+            for id in nodes {
+                array.push(&id.into());
+            }
+        }
+        Ok(array)
+    }
+
+    /// Breadth-first traversal from a starting concept with custom config.
+    pub async fn traverse(
+        &self,
+        start: String,
+        max_depth: u32,
+        min_strength: f32,
+    ) -> Result<Array, JsValue> {
+        let mut config = crate::graph_traversal::TraversalConfig::default();
+        config.max_depth = max_depth as usize;
+        config.min_strength = min_strength;
+
+        let results = self
+            .framework
+            .traverse(&start, config)
+            .await
+            .map_err(to_js_error)?;
+
+        let array = Array::new();
+        for (id, depth) in results {
+            let obj = js_sys::Object::new();
+            js_sys::Reflect::set(&obj, &"id".into(), &id.into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+            js_sys::Reflect::set(&obj, &"depth".into(), &(depth as f64).into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+            array.push(&obj);
+        }
+        Ok(array)
+    }
 }
 
 // Ensure tests can use the wasm_graph_rag logic on native if needed

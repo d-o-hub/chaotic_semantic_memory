@@ -2795,7 +2795,7 @@ Main framework for chaotic semantic memory
 impl ChaoticSemanticFramework {
     pub fn builder() -> FrameworkBuilder;
     pub fn singularity(&self) -> Arc<RwLock<Singularity>>;
-    pub fn namespace(&self) -> &str;
+    pub fn namespace(&self) -> String;
     pub fn inject_concept(&self, id: impl Trait, vector: HVec10240) -> Result<()>;
     pub fn inject_concept_with_metadata(&self, id: impl Trait, vector: HVec10240, metadata: std::collections::HashMap<String, serde_json::Value>) -> Result<()>;
     pub fn probe(&self, query: HVec10240, top_k: usize) -> Result<Vec<(String, f32)>>;
@@ -2997,6 +2997,7 @@ impl FrameworkMetrics {
 
 ```rust
 impl ChaoticSemanticFramework {
+    pub fn set_namespace(&self, ns: impl Trait);
     pub fn list_namespaces(&self) -> Result<Vec<String>>;
     pub fn delete_namespace(&self, ns: &str) -> Result<usize>;
     pub fn export_namespace(&self, ns: &str, path: &Path) -> Result<()>;
@@ -4848,6 +4849,8 @@ Encode text to a hypervector using HDC encoding
 ```rust
 impl WasmFramework {
     pub fn new() -> Result<WasmFramework, JsValue>;
+    pub fn set_namespace(&self, ns: String);
+    pub fn get_namespace(&self) -> String;
     pub fn inject_concept(&self, id: String, vector: &[u8]) -> Result<(), JsValue>;
     pub fn probe(&self, vector: &[u8], top_k: usize) -> Result<Array, JsValue>;
     pub fn associate(&self, from: String, to: String, strength: f32) -> Result<(), JsValue>;
@@ -4891,10 +4894,7 @@ impl WasmFramework {
     pub fn update_concept_metadata(&self, id: String, metadata_json: String) -> Result<(), JsValue>;
     pub fn clear_associations(&self, id: String) -> Result<(), JsValue>;
     pub fn neighbors(&self, id: String, min_strength: f32) -> Result<Array, JsValue>;
-    pub fn bfs(&self, start: String) -> Result<Array, JsValue>;
-    pub fn shortest_path(&self, from: String, to: String) -> Result<Array, JsValue>;
     pub fn probe_filtered(&self, vector: &[u8], top_k: usize, filter_json: String) -> Result<Array, JsValue>;
-    pub fn traverse(&self, start: String, max_depth: u32, min_strength: f32) -> Result<Array, JsValue>;
     pub fn on_event(&self, callback: Function);
     pub fn inject_text(&self, id: String, text: String) -> Result<(), JsValue>;
     pub fn probe_text(&self, query: String, top_k: usize) -> Result<Array, JsValue>;
@@ -4909,6 +4909,9 @@ impl WasmFramework {
 impl WasmFramework {
     pub fn probe_with_graph(&self, vector: &[u8], anchor_top_k: usize, max_hops: usize, min_assoc_strength: f32, similarity_weight: f32, graph_weight: f32, final_top_k: usize) -> Result<Array, JsValue>;
     pub fn probe_text_with_graph(&self, text: String, anchor_top_k: usize, max_hops: usize, min_assoc_strength: f32, similarity_weight: f32, graph_weight: f32, final_top_k: usize) -> Result<Array, JsValue>;
+    pub fn bfs(&self, start: String) -> Result<Array, JsValue>;
+    pub fn shortest_path(&self, from: String, to: String) -> Result<Array, JsValue>;
+    pub fn traverse(&self, start: String, max_depth: u32, min_strength: f32) -> Result<Array, JsValue>;
 }
 ```
 

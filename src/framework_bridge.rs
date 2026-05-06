@@ -21,7 +21,8 @@ impl ChaoticSemanticFramework {
     ) -> Result<Vec<BridgeHit>> {
         self.validate_top_k(top_k)?;
         let singularity = self.singularity.read().await;
-        bridge.query(&self.namespace, &singularity, query, top_k, None)
+        let ns = self.namespace.read().await;
+        bridge.query(&ns, &singularity, query, top_k, None)
     }
 
     /// Execute bridge retrieval query with optional reranker.
@@ -37,13 +38,15 @@ impl ChaoticSemanticFramework {
     ) -> Result<Vec<BridgeHit>> {
         self.validate_top_k(top_k)?;
         let singularity = self.singularity.read().await;
-        bridge.query(&self.namespace, &singularity, query, top_k, Some(reranker))
+        let ns = self.namespace.read().await;
+        bridge.query(&ns, &singularity, query, top_k, Some(reranker))
     }
 
     /// Execute bridge retrieval query with metadata filtering.
     ///
     /// Pre-filters concepts by metadata before bridge retrieval.
     // Singularity lock needed for filtered retrieval
+    #[allow(clippy::significant_drop_tightening)]
     pub async fn probe_bridge_text_filtered(
         &self,
         query: &str,
@@ -54,11 +57,11 @@ impl ChaoticSemanticFramework {
         self.validate_top_k(top_k)?;
         Self::validate_metadata_filter(filter)?;
         let singularity = self.singularity.read().await;
+        let ns = self.namespace.read().await;
 
         // Get filtered concept IDs first
         let query_hv = bridge.encoder().encode(query);
-        let filtered_results =
-            singularity.find_similar_filtered(&self.namespace, &query_hv, top_k, filter);
+        let filtered_results = singularity.find_similar_filtered(&ns, &query_hv, top_k, filter);
         let filtered_ids: std::collections::HashSet<String> = filtered_results
             .as_ref()
             .iter()
@@ -66,7 +69,7 @@ impl ChaoticSemanticFramework {
             .collect();
 
         // Run full bridge query and filter results
-        let hits = bridge.query(&self.namespace, &singularity, query, top_k, None)?;
+        let hits = bridge.query(&ns, &singularity, query, top_k, None)?;
         drop(singularity);
         let filtered_hits: Vec<BridgeHit> = hits
             .into_iter()
@@ -88,7 +91,8 @@ impl ChaoticSemanticFramework {
     ) -> Result<MemoryPacket> {
         self.validate_top_k(top_k)?;
         let singularity = self.singularity.read().await;
-        bridge.memory_packet(&self.namespace, &singularity, query, top_k, None)
+        let ns = self.namespace.read().await;
+        bridge.memory_packet(&ns, &singularity, query, top_k, None)
     }
 
     /// Compile memory packet with optional reranker.
@@ -104,7 +108,8 @@ impl ChaoticSemanticFramework {
     ) -> Result<MemoryPacket> {
         self.validate_top_k(top_k)?;
         let singularity = self.singularity.read().await;
-        bridge.memory_packet(&self.namespace, &singularity, query, top_k, Some(reranker))
+        let ns = self.namespace.read().await;
+        bridge.memory_packet(&ns, &singularity, query, top_k, Some(reranker))
     }
 }
 

@@ -260,7 +260,8 @@ async fn build_bm25_index(
     let concepts = {
         let singularity = framework.singularity();
         let sing = singularity.read().await;
-        sing.all_concepts(framework.namespace())
+        let ns = framework.namespace().await;
+        sing.all_concepts(&ns)
     };
 
     let mut index = Bm25Index::new();

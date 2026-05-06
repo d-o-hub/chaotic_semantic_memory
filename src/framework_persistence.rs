@@ -16,12 +16,11 @@ impl ChaoticSemanticFramework {
             // ADR-0068: Persist ANN index state
             {
                 let sing = self.singularity.read().await;
-                if let Some(ns_state) = sing.get_namespace(&self.namespace) {
+                let ns = self.namespace.read().await;
+                if let Some(ns_state) = sing.get_namespace(&ns) {
                     if let Ok(index_data) = ns_state.index.serialize() {
                         if !index_data.is_empty() {
-                            persistence
-                                .save_index(&self.namespace, "main", &index_data)
-                                .await?;
+                            persistence.save_index(&ns, "main", &index_data).await?;
                         }
                     }
                 }
@@ -54,7 +53,8 @@ impl ChaoticSemanticFramework {
     pub async fn load_replace(&self) -> Result<()> {
         let p_start = std::time::Instant::now();
         if let Some(ref persistence) = self.persistence {
-            let concepts = persistence.load_all_concepts(&self.namespace).await?;
+            let ns = self.namespace.read().await;
+            let concepts = persistence.load_all_concepts(&ns).await?;
 
             for concept in &concepts {
                 self.validate_concept(concept)?;
@@ -62,9 +62,7 @@ impl ChaoticSemanticFramework {
 
             let mut all_associations: Vec<(String, String, f32)> = Vec::new();
             for concept in &concepts {
-                let links = persistence
-                    .load_associations(&self.namespace, &concept.id)
-                    .await?;
+                let links = persistence.load_associations(&ns, &concept.id).await?;
                 for (to_id, strength) in links {
                     all_associations.push((concept.id.clone(), to_id, strength));
                 }
@@ -72,14 +70,13 @@ impl ChaoticSemanticFramework {
 
             {
                 let mut sing = self.singularity.write().await;
-                sing.clear(&self.namespace);
+                sing.clear(&ns);
                 for concept in concepts {
-                    sing.inject(&self.namespace, concept)?;
+                    sing.inject(&ns, concept)?;
                 }
 
                 for (from_id, to_id, strength) in all_associations {
-                    if let Err(error) = sing.associate(&self.namespace, &from_id, &to_id, strength)
-                    {
+                    if let Err(error) = sing.associate(&ns, &from_id, &to_id, strength) {
                         warn!(
                             from_id = %from_id,
                             to_id = %to_id,
@@ -94,17 +91,17 @@ impl ChaoticSemanticFramework {
             // ADR-0068: Load ANN index state
             // Prefer deserialize over rebuild if data is fresh.
             // Propagate errors instead of silently ignoring (fixes test regression).
-            if let Ok(Some(index_data)) = persistence.load_index(&self.namespace, "main").await {
+            if let Ok(Some(index_data)) = persistence.load_index(&ns, "main").await {
                 {
                     let mut sing = self.singularity.write().await;
-                    let ns_state = sing.get_namespace_mut(&self.namespace);
+                    let ns_state = sing.get_namespace_mut(&ns);
                     ns_state.index.deserialize(&index_data)?;
                 }
             } else {
                 // Fallback: rebuild index from concepts
                 {
                     let mut sing = self.singularity.write().await;
-                    let ns_state = sing.get_namespace_mut(&self.namespace);
+                    let ns_state = sing.get_namespace_mut(&ns);
                     let concepts_map = ns_state.concepts.clone();
                     ns_state.index.rebuild(&concepts_map)?;
                 }
@@ -125,7 +122,8 @@ impl ChaoticSemanticFramework {
     #[tracing::instrument(err, skip(self))]
     pub async fn load_merge(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
-            let concepts = persistence.load_all_concepts(&self.namespace).await?;
+            let ns = self.namespace.read().await;
+            let concepts = persistence.load_all_concepts(&ns).await?;
 
             for concept in &concepts {
                 self.validate_concept(concept)?;
@@ -134,22 +132,20 @@ impl ChaoticSemanticFramework {
             {
                 let mut sing = self.singularity.write().await;
                 for concept in &concepts {
-                    if sing.get(&self.namespace, &concept.id).is_some() {
+                    if sing.get(&ns, &concept.id).is_some() {
                         warn!(
                             concept_id = %concept.id,
                             "skipping persisted concept during load_merge because id already exists in memory"
                         );
                         continue;
                     }
-                    sing.inject(&self.namespace, (*concept).clone())?;
+                    sing.inject(&ns, (*concept).clone())?;
                 }
             }
 
             let mut all_associations: Vec<(String, String, f32)> = Vec::new();
             for concept in &concepts {
-                let links = persistence
-                    .load_associations(&self.namespace, &concept.id)
-                    .await?;
+                let links = persistence.load_associations(&ns, &concept.id).await?;
                 for (to_id, strength) in links {
                     all_associations.push((concept.id.clone(), to_id, strength));
                 }
@@ -158,8 +154,7 @@ impl ChaoticSemanticFramework {
             {
                 let mut sing = self.singularity.write().await;
                 for (from_id, to_id, strength) in all_associations {
-                    if let Err(error) = sing.associate(&self.namespace, &from_id, &to_id, strength)
-                    {
+                    if let Err(error) = sing.associate(&ns, &from_id, &to_id, strength) {
                         warn!(
                             from_id = %from_id,
                             to_id = %to_id,
@@ -176,17 +171,17 @@ impl ChaoticSemanticFramework {
             // so the index is already updated with merged concepts.
             // Rebuilding ensures optimal structure if many concepts were merged.
             // Propagate errors instead of silently ignoring.
-            if let Ok(Some(index_data)) = persistence.load_index(&self.namespace, "main").await {
+            if let Ok(Some(index_data)) = persistence.load_index(&ns, "main").await {
                 {
                     let mut sing = self.singularity.write().await;
-                    let ns_state = sing.get_namespace_mut(&self.namespace);
+                    let ns_state = sing.get_namespace_mut(&ns);
                     ns_state.index.deserialize(&index_data)?;
                 }
             } else {
                 // Fallback: rebuild index from concepts
                 {
                     let mut sing = self.singularity.write().await;
-                    let ns_state = sing.get_namespace_mut(&self.namespace);
+                    let ns_state = sing.get_namespace_mut(&ns);
                     let concepts_map = ns_state.concepts.clone();
                     ns_state.index.rebuild(&concepts_map)?;
                 }
