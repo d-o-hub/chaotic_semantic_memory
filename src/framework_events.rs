@@ -8,6 +8,7 @@ use tokio::sync::broadcast;
 #[cfg(target_arch = "wasm32")]
 use crate::error::Result;
 use crate::framework::ChaoticSemanticFramework;
+use crate::hyperdim::Hypervector;
 #[cfg(target_arch = "wasm32")]
 use crate::hyperdim::HVec10240;
 #[cfg(target_arch = "wasm32")]
@@ -42,7 +43,7 @@ pub enum MemoryEvent {
     },
 }
 
-impl ChaoticSemanticFramework {
+impl<H: Hypervector> ChaoticSemanticFramework<H> {
     /// Subscribe to memory change events.
     pub fn subscribe(&self) -> broadcast::Receiver<MemoryEvent> {
         self.event_sender.subscribe()
@@ -54,7 +55,7 @@ impl ChaoticSemanticFramework {
 
     /// Update a concept's vector (WASM-only, memory-only).
     #[cfg(target_arch = "wasm32")]
-    pub async fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()> {
+    pub async fn update_concept_vector(&self, id: &str, vector: H) -> Result<()> {
         let ns = self.namespace.read().await;
         self.singularity.write().await.update(&ns, id, vector)?;
         self.emit_event(MemoryEvent::ConceptUpdated {

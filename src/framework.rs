@@ -10,7 +10,7 @@ use crate::framework_builder::{FrameworkBuilder, FrameworkConfig, FrameworkStats
 use crate::framework_events::MemoryEvent;
 use crate::framework_metrics::{FrameworkMetrics, FrameworkMetricsSnapshot};
 use crate::graph_traversal::TraversalConfig;
-use crate::hyperdim::HVec10240;
+use crate::hyperdim::{HVec10240, Hypervector};
 use crate::metadata_filter::MetadataFilter;
 #[cfg(feature = "persistence")]
 use crate::persistence::Persistence;
@@ -18,8 +18,8 @@ use crate::reservoir::ChaoticReservoir;
 use crate::singularity::{Concept, ConceptBuilder, Singularity, unix_now_secs};
 
 /// Main framework for chaotic semantic memory
-pub struct ChaoticSemanticFramework {
-    pub(crate) singularity: Arc<RwLock<Singularity>>,
+pub struct ChaoticSemanticFramework<H: Hypervector = HVec10240> {
+    pub(crate) singularity: Arc<RwLock<Singularity<H>>>,
     #[cfg(feature = "persistence")]
     pub(crate) persistence: Option<Arc<Persistence>>,
     #[cfg(not(feature = "persistence"))]
@@ -35,7 +35,7 @@ pub struct ChaoticSemanticFramework {
     pub(crate) projection: Arc<crate::embedding::Projection>,
 }
 
-impl ChaoticSemanticFramework {
+impl<H: Hypervector> ChaoticSemanticFramework<H> {
     /// Create a new framework builder
     #[must_use]
     pub fn builder() -> FrameworkBuilder {
@@ -43,7 +43,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Get the singularity (concept store)
-    pub fn singularity(&self) -> Arc<RwLock<Singularity>> {
+    pub fn singularity(&self) -> Arc<RwLock<Singularity<H>>> {
         self.singularity.clone()
     }
 
@@ -54,7 +54,7 @@ impl ChaoticSemanticFramework {
 
     /// Inject a concept into memory
     #[instrument(err, skip(self, id, vector))]
-    pub async fn inject_concept(&self, id: impl Into<String>, vector: HVec10240) -> Result<()> {
+    pub async fn inject_concept(&self, id: impl Into<String>, vector: H) -> Result<()> {
         let id = id.into();
         Self::validate_concept_id(&id)?;
         let concept = ConceptBuilder::new(id.clone())
@@ -90,7 +90,7 @@ impl ChaoticSemanticFramework {
     pub async fn inject_concept_with_metadata(
         &self,
         id: impl Into<String>,
-        vector: HVec10240,
+        vector: H,
         metadata: std::collections::HashMap<String, serde_json::Value>,
     ) -> Result<()> {
         let id = id.into();
@@ -131,7 +131,7 @@ impl ChaoticSemanticFramework {
     // Lock needed for expired concept filtering
     #[allow(clippy::significant_drop_tightening)]
     #[instrument(err, skip(self, query))]
-    pub async fn probe(&self, query: HVec10240, top_k: usize) -> Result<Vec<(String, f32)>> {
+    pub async fn probe(&self, query: H, top_k: usize) -> Result<Vec<(String, f32)>> {
         self.validate_top_k(top_k)?;
         #[cfg(not(target_arch = "wasm32"))]
         let start = std::time::Instant::now();
@@ -176,7 +176,7 @@ impl ChaoticSemanticFramework {
     #[instrument(err, skip(self, query, filter))]
     pub async fn probe_filtered(
         &self,
-        query: &HVec10240,
+        query: &H,
         top_k: usize,
         filter: &MetadataFilter,
     ) -> Result<Vec<(String, f32)>> {
@@ -228,7 +228,7 @@ impl ChaoticSemanticFramework {
     /// Process temporal sequence through reservoir
     // Reservoir lock needed for sequence processing
     #[instrument(err, skip(self, sequence))]
-    pub async fn process_sequence(&self, sequence: &[Vec<f32>]) -> Result<HVec10240> {
+    pub async fn process_sequence(&self, sequence: &[Vec<f32>]) -> Result<H> {
         self.validate_sequence_length(sequence.len())?;
         let mut reservoir = self.reservoir.write().await;
 
@@ -349,7 +349,7 @@ impl ChaoticSemanticFramework {
 
     /// Get a concept by ID.
     #[instrument(err, skip(self))]
-    pub async fn get_concept(&self, id: &str) -> Result<Option<Concept<HVec10240>>> {
+    pub async fn get_concept(&self, id: &str) -> Result<Option<Concept<H>>> {
         Self::validate_concept_id(id)?;
         let sing = self.singularity.read().await;
         let ns = self.namespace.read().await;

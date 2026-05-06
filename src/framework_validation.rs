@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use crate::error::{MemoryError, Result};
 use crate::framework::ChaoticSemanticFramework;
+use crate::hyperdim::Hypervector;
 use crate::metadata_filter::{MAX_FILTER_DEPTH, MetadataFilter};
 use crate::singularity::Concept;
 use crate::singularity_retrieval::RetrievalConfig;
@@ -76,7 +77,7 @@ pub(crate) fn validate_path(path: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
-impl ChaoticSemanticFramework {
+impl<H: Hypervector> ChaoticSemanticFramework<H> {
     pub(crate) fn validate_retrieval_config(config: &RetrievalConfig) -> Result<()> {
         if config.bucket_probe_width > MAX_BUCKET_PROBE_WIDTH {
             return Err(MemoryError::InvalidInput {
@@ -146,7 +147,7 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
-    pub(crate) fn validate_concept(&self, concept: &Concept) -> Result<()> {
+    pub(crate) fn validate_concept(&self, concept: &Concept<H>) -> Result<()> {
         Self::validate_concept_id(&concept.id)?;
         Self::validate_metadata_bytes(&concept.metadata, self.config.max_metadata_bytes)
     }
