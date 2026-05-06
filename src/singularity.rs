@@ -34,6 +34,7 @@ impl Default for SingularityConfig {
 
 /// Represents a single memory concept
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(bound = "H: Hypervector")]
 pub struct Concept<H: Hypervector = HVec10240> {
     pub id: String,
     pub vector: H,

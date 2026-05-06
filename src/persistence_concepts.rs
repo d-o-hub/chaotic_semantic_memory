@@ -1,13 +1,17 @@
 #![cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::{BHVec10240, HVec10240, Hypervector};
+use crate::hyperdim::{BHVec10240, Hypervector};
 use crate::persistence::Persistence;
 use crate::singularity::Concept;
 use libsql::params;
 
 impl Persistence {
     /// Save a concept to the database
-    pub async fn save_concept<H: Hypervector + 'static>(&self, ns: &str, concept: &Concept<H>) -> Result<()> {
+    pub async fn save_concept<H: Hypervector + 'static>(
+        &self,
+        ns: &str,
+        concept: &Concept<H>,
+    ) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
         let vector_bytes = concept.vector.to_bytes();
@@ -52,7 +56,11 @@ impl Persistence {
     }
 
     /// Save concepts in a single transaction
-    pub async fn save_concepts<H: Hypervector + 'static>(&self, ns: &str, concepts: &[Concept<H>]) -> Result<()> {
+    pub async fn save_concepts<H: Hypervector + 'static>(
+        &self,
+        ns: &str,
+        concepts: &[Concept<H>],
+    ) -> Result<()> {
         if concepts.is_empty() {
             return Ok(());
         }
@@ -127,7 +135,11 @@ impl Persistence {
     }
 
     /// Load a concept from the database
-    pub async fn load_concept<H: Hypervector + 'static>(&self, ns: &str, id: &str) -> Result<Option<Concept<H>>> {
+    pub async fn load_concept<H: Hypervector + 'static>(
+        &self,
+        ns: &str,
+        id: &str,
+    ) -> Result<Option<Concept<H>>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
@@ -198,7 +210,10 @@ impl Persistence {
     }
 
     /// Load all concepts from the database for a specific namespace
-    pub async fn load_all_concepts<H: Hypervector + 'static>(&self, ns: &str) -> Result<Vec<Concept<H>>> {
+    pub async fn load_all_concepts<H: Hypervector + 'static>(
+        &self,
+        ns: &str,
+    ) -> Result<Vec<Concept<H>>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 

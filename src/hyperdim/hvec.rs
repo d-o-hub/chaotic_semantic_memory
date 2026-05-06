@@ -10,8 +10,8 @@ use rand::RngExt;
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
 
-use crate::error::Result;
 use super::Hypervector;
+use crate::error::Result;
 
 // Import SIMD functions from extension module
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]

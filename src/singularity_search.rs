@@ -105,12 +105,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
     }
 
     /// Find similar concepts and return cached results as `Arc<[_]>`.
-    pub fn find_similar_arc(
-        &self,
-        ns: &str,
-        query: &H,
-        top_k: usize,
-    ) -> Arc<[(String, f32)]> {
+    pub fn find_similar_arc(&self, ns: &str, query: &H, top_k: usize) -> Arc<[(String, f32)]> {
         self.find_similar_cached(ns, query, top_k)
     }
 
@@ -120,12 +115,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
     /// 1. Cache lookup (bypassed when `top_k > max_cached_top_k`)
     /// 2. ANN index lookup (skipped for BruteForce backend)
     /// 3. Candidate generation (graph → bucket → exact scan fallback)
-    pub fn find_similar_cached(
-        &self,
-        ns: &str,
-        query: &H,
-        top_k: usize,
-    ) -> Arc<[(String, f32)]> {
+    pub fn find_similar_cached(&self, ns: &str, query: &H, top_k: usize) -> Arc<[(String, f32)]> {
         let start_ns = unix_now_ns();
         if top_k == 0 || self.is_empty(ns) {
             let stats = RetrievalStats {

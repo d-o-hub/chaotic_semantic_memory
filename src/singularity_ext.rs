@@ -69,8 +69,8 @@ impl<H: Hypervector + 'static> Singularity<H> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::error::MemoryError;
+    use crate::hyperdim::HVec10240;
     use crate::singularity::{ConceptBuilder, Singularity, SingularityConfig};
     use std::collections::HashMap;
 
@@ -82,8 +82,8 @@ mod tests {
         let vec1 = HVec10240::random();
         let vec2 = HVec10240::random();
 
-        let c1 = ConceptBuilder::new("c1").with_vector(vec1).build().unwrap();
-        let c2 = ConceptBuilder::new("c2").with_vector(vec2).build().unwrap();
+        let c1 = ConceptBuilder::<HVec10240>::new("c1").with_vector(vec1).build().unwrap();
+        let c2 = ConceptBuilder::<HVec10240>::new("c2").with_vector(vec2).build().unwrap();
 
         singularity.inject(NS, c1)?;
         singularity.inject(NS, c2)?;
@@ -98,7 +98,7 @@ mod tests {
         let mut singularity = Singularity::<HVec10240>::with_config(SingularityConfig::default());
         let vec1 = HVec10240::random();
 
-        let c1 = ConceptBuilder::new("c1").with_vector(vec1).build()?;
+        let c1 = ConceptBuilder::<HVec10240>::new("c1").with_vector(vec1).build()?;
         singularity.inject(NS, c1)?;
 
         let result =

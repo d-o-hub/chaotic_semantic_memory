@@ -1,7 +1,7 @@
 //! 10240-bit binary hypervector implementation (ADR-0075)
 
-use crate::error::{MemoryError, Result};
 use super::Hypervector;
+use crate::error::{MemoryError, Result};
 use crate::hyperdim::hvec::HVec10240;
 
 /// 10240-bit binary hypervector (160 x 64-bit words)
@@ -29,6 +29,49 @@ impl BHVec10240 {
             data[i] = (self.bits[i * 2] as u128) | ((self.bits[i * 2 + 1] as u128) << 64);
         }
         HVec10240 { data }
+    }
+}
+
+impl serde::Serialize for BHVec10240 {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeTuple;
+        let mut seq = serializer.serialize_tuple(160)?;
+        for bit in &self.bits {
+            seq.serialize_element(bit)?;
+        }
+        seq.end()
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for BHVec10240 {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct BitsVisitor;
+        impl<'de> serde::de::Visitor<'de> for BitsVisitor {
+            type Value = [u64; 160];
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a sequence of 160 u64s")
+            }
+            fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Self::Value, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                let mut bits = [0u64; 160];
+                for (i, bit) in bits.iter_mut().enumerate() {
+                    *bit = seq
+                        .next_element()?
+                        .ok_or_else(|| serde::de::Error::invalid_length(i, &self))?;
+                }
+                Ok(bits)
+            }
+        }
+        let bits = deserializer.deserialize_tuple(160, BitsVisitor)?;
+        Ok(BHVec10240 { bits })
     }
 }
 

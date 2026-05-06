@@ -16,6 +16,7 @@ use crate::singularity::Concept;
 
 /// Locality-Sensitive Hashing (LSH) for hypervectors using bit-sampling.
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(bound = "H: Hypervector")]
 pub struct LshIndex<H: Hypervector = HVec10240> {
     num_tables: usize,
     hash_bits: usize,
@@ -72,7 +73,10 @@ impl<H: Hypervector> LshIndex<H> {
     }
 }
 
-impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
+impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H>
+where
+    H: serde::Serialize + serde::de::DeserializeOwned,
+{
     fn insert(&mut self, id: String, vec: &H) -> Result<()> {
         if self.concepts.contains_key(&id) {
             self.delete(&id)?;

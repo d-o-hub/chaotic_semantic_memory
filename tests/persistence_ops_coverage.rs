@@ -48,7 +48,7 @@ async fn persistence_save_concept_overwrites_existing() {
     persistence.save_concept(NS, &updated).await.unwrap();
 
     let loaded = persistence
-        .load_concept(NS, "overwrite-test")
+        .load_concept::<HVec10240>(NS, "overwrite-test")
         .await
         .unwrap();
     assert!(loaded.is_some());
@@ -162,7 +162,7 @@ async fn persistence_list_all_concepts() {
         .await
         .unwrap();
 
-    let concepts = persistence.load_all_concepts(NS).await.unwrap();
+    let concepts = persistence.load_all_concepts::<HVec10240>(NS).await.unwrap();
     assert_eq!(concepts.len(), 3);
 }
 
@@ -173,7 +173,7 @@ async fn persistence_load_nonexistent_concept() {
     let persistence = Persistence::new_local(path).await.unwrap();
 
     let result = persistence
-        .load_concept(NS, "does-not-exist")
+        .load_concept::<HVec10240>(NS, "does-not-exist")
         .await
         .unwrap();
     assert!(result.is_none());

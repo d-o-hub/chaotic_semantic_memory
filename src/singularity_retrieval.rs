@@ -160,11 +160,13 @@ impl<H: Hypervector + 'static> Singularity<H> {
         debug_assert!(self._retrieval_config.bucket_probe_width <= 64);
         let bucket_mask = (1u64 << self._retrieval_config.bucket_probe_width) - 1;
         let query_bytes = query.to_bytes();
-        let query_bucket = u64::from_le_bytes(query_bytes[0..8].try_into().unwrap_or([0u8; 8])) & bucket_mask;
+        let query_bucket =
+            u64::from_le_bytes(query_bytes[0..8].try_into().unwrap_or([0u8; 8])) & bucket_mask;
 
         let filter = |(idx, vec): (usize, &H)| {
             let vec_bytes = vec.to_bytes();
-            let vec_bucket = u64::from_le_bytes(vec_bytes[0..8].try_into().unwrap_or([0u8; 8])) & bucket_mask;
+            let vec_bucket =
+                u64::from_le_bytes(vec_bytes[0..8].try_into().unwrap_or([0u8; 8])) & bucket_mask;
             if vec_bucket == query_bucket {
                 Some(idx)
             } else {
@@ -466,8 +468,8 @@ impl<H: Hypervector + 'static> Singularity<H> {
 
 #[cfg(test)]
 mod tests_v2 {
-    use crate::singularity::{Singularity, SingularityConfig};
     use crate::hyperdim::HVec10240;
+    use crate::singularity::{Singularity, SingularityConfig};
 
     #[test]
     fn singularity_last_stats_v2() {

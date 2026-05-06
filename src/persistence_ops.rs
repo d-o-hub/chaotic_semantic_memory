@@ -346,7 +346,7 @@ mod tests {
             .await
             .expect("Failed to save");
         let loaded = persistence
-            .load_concept(ns, "test-concept")
+            .load_concept::<HVec10240>(ns, "test-concept")
             .await
             .expect("Failed to load")
             .expect("Concept not found");
@@ -372,7 +372,7 @@ mod tests {
             .delete_concept(ns, "delete-test")
             .await
             .expect("Failed to delete");
-        let result = persistence.load_concept(ns, "delete-test").await;
+        let result = persistence.load_concept::<HVec10240>(ns, "delete-test").await;
         assert!(result.expect("Query failed").is_none());
     }
 

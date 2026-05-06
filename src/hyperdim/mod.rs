@@ -4,21 +4,31 @@
 //! - [`HVec10240`]: 10240-bit f32-mapped hypervector (default)
 //! - [`BHVec10240`]: 10240-bit binary-packed hypervector (opt-in)
 
-pub mod hvec;
 pub mod batch;
+pub mod binary;
+pub mod hvec;
 pub mod serde;
 pub mod simd;
-pub mod binary;
 
-pub use hvec::HVec10240;
-pub use binary::BHVec10240;
 pub use batch::batch_cosine_similarity;
+pub use binary::BHVec10240;
+pub use hvec::HVec10240;
 
 use crate::error::Result;
 use std::fmt::Debug;
 
 /// Trait for hyperdimensional vectors.
-pub trait Hypervector: Sized + Clone + Copy + Debug + Send + Sync + PartialEq {
+pub trait Hypervector:
+    Sized
+    + Clone
+    + Copy
+    + Debug
+    + Send
+    + Sync
+    + PartialEq
+    + ::serde::Serialize
+    + for<'de> ::serde::Deserialize<'de>
+{
     /// Dimension of the hypervector.
     const DIMENSION: usize;
 
