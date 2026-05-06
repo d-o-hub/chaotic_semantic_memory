@@ -2,6 +2,7 @@
 
 #[cfg(all(feature = "events-http", not(target_arch = "wasm32")))]
 use crate::error::MemoryError;
+#[cfg(feature = "cloudevents")]
 use crate::error::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
