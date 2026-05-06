@@ -96,3 +96,4 @@ csm_memory.db
 
 
 commit_messages.txt
+*.log
