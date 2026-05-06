@@ -3,6 +3,9 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use crate::hyperdim::{HVec10240, Hypervector};
+#[cfg(feature = "hv-binary")]
+use crate::hyperdim::BHVec10240;
 use crate::ChaoticSemanticFramework;
 use crate::error::Result;
 use crate::framework_events::build_event_sender;
@@ -242,13 +245,59 @@ impl FrameworkBuilder {
         self
     }
 
-    pub async fn build(self) -> Result<ChaoticSemanticFramework> {
+    /// Use binary hypervectors (10240-bit bit-packed).
+    ///
+    /// This provides 32x memory compression but ~5% recall loss.
+    #[cfg(feature = "hv-binary")]
+    pub fn with_binary_vectors(self) -> FrameworkBuilderGeneric<BHVec10240> {
+        FrameworkBuilderGeneric {
+            config: self.config,
+            db_path: self.db_path,
+            db_token: self.db_token,
+            concept_cache_size: self.concept_cache_size,
+            version_retention: self.version_retention,
+            namespace: self.namespace,
+            embedding_provider: self.embedding_provider,
+            _phantom: std::marker::PhantomData,
+        }
+    }
+
+    pub async fn build(self) -> Result<ChaoticSemanticFramework<HVec10240>> {
+        FrameworkBuilderGeneric::<HVec10240> {
+            config: self.config,
+            db_path: self.db_path,
+            db_token: self.db_token,
+            concept_cache_size: self.concept_cache_size,
+            version_retention: self.version_retention,
+            namespace: self.namespace,
+            embedding_provider: self.embedding_provider,
+            _phantom: std::marker::PhantomData,
+        }
+        .build()
+        .await
+    }
+}
+
+/// Generic framework builder supporting both f32 and binary hypervectors.
+pub struct FrameworkBuilderGeneric<H: Hypervector> {
+    pub(crate) config: FrameworkConfig,
+    pub(crate) db_path: Option<String>,
+    pub(crate) db_token: Option<String>,
+    pub(crate) concept_cache_size: usize,
+    pub(crate) version_retention: usize,
+    pub(crate) namespace: String,
+    pub(crate) embedding_provider: Option<Arc<dyn crate::embedding::EmbeddingProvider>>,
+    pub(crate) _phantom: std::marker::PhantomData<H>,
+}
+
+impl<H: Hypervector> FrameworkBuilderGeneric<H> {
+    pub async fn build(self) -> Result<ChaoticSemanticFramework<H>> {
         Reservoir::validate_params(
             self.config.reservoir_size,
             self.config.reservoir_input_size,
             self.config.chaos_strength,
         )?;
-        let singularity = Arc::new(RwLock::new(Singularity::with_config_and_backend(
+        let singularity = Arc::new(RwLock::new(Singularity::<H>::with_config_and_backend(
             SingularityConfig {
                 max_concepts: self.config.max_concepts,
                 max_associations_per_concept: self.config.max_associations_per_concept,
@@ -297,7 +346,7 @@ impl FrameworkBuilder {
             })
         };
 
-        let framework = ChaoticSemanticFramework {
+        let framework = ChaoticSemanticFramework::<H> {
             singularity,
             persistence,
             reservoir: Arc::new(RwLock::new(None)),

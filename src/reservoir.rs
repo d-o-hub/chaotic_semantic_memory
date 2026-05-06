@@ -8,8 +8,6 @@ use crate::hyperdim::HVec10240;
 use crate::reservoir_sparse::SparseWeights;
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
-#[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-use rayon::prelude::*;
 use std::sync::atomic::{AtomicU64, Ordering};
 #[cfg(not(target_arch = "wasm32"))]
 use {std::time::Instant, tracing::instrument};
@@ -259,28 +257,13 @@ impl Reservoir {
             });
         }
         let chunk_size = self.size / HVec10240::DIMENSION;
-        let data: Vec<u128> = (0..80)
-            .into_par_iter()
-            .map(|i| {
-                let mut word = 0u128;
-                for j in 0..128 {
-                    let bit_index = i * 128 + j;
-                    let sum: f32 = self.state
-                        [(bit_index * chunk_size)..(bit_index * chunk_size + chunk_size)]
-                        .iter()
-                        .sum();
-                    if sum > 0.0 {
-                        word |= 1u128 << j;
-                    }
-                }
-                word
-            })
-            .collect();
-        let data: [u128; 80] = data.try_into().map_err(|_| {
-            MemoryError::reservoir(
-                "internal: par_iter produced unexpected element count".to_string(),
-            )
-        })?;
+        let mut data = [0.0f32; 10240];
+        for (i, val) in data.iter_mut().enumerate() {
+            let sum: f32 = self.state[(i * chunk_size)..(i * chunk_size + chunk_size)]
+                .iter()
+                .sum();
+            *val = sum / chunk_size as f32;
+        }
         Ok(HVec10240 { data })
     }
 
@@ -294,18 +277,12 @@ impl Reservoir {
             });
         }
         let chunk_size = self.size / HVec10240::DIMENSION;
-        let mut data = [0u128; 80];
-        for (i, word) in data.iter_mut().enumerate() {
-            for j in 0..128 {
-                let bit_index = i * 128 + j;
-                let sum: f32 = self.state
-                    [(bit_index * chunk_size)..(bit_index * chunk_size + chunk_size)]
-                    .iter()
-                    .sum();
-                if sum > 0.0 {
-                    *word |= 1u128 << j;
-                }
-            }
+        let mut data = [0.0f32; 10240];
+        for (i, val) in data.iter_mut().enumerate() {
+            let sum: f32 = self.state[(i * chunk_size)..(i * chunk_size + chunk_size)]
+                .iter()
+                .sum();
+            *val = sum / chunk_size as f32;
         }
         Ok(HVec10240 { data })
     }

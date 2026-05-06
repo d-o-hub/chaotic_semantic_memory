@@ -5,12 +5,13 @@
 //! - [`BHVec10240`]: 10240-bit binary-packed hypervector (opt-in)
 
 pub mod batch;
+#[cfg(feature = "hv-binary")]
 pub mod binary;
 pub mod hvec;
-pub mod serde;
 pub mod simd;
 
 pub use batch::batch_cosine_similarity;
+#[cfg(feature = "hv-binary")]
 pub use binary::BHVec10240;
 pub use hvec::HVec10240;
 
@@ -28,9 +29,13 @@ pub trait Hypervector:
     + PartialEq
     + ::serde::Serialize
     + for<'de> ::serde::Deserialize<'de>
+    + 'static
 {
     /// Dimension of the hypervector.
     const DIMENSION: usize;
+
+    /// Unique name for the vector format (e.g., "f32", "binary").
+    fn format_name() -> &'static str;
 
     /// Create a zero hypervector.
     fn zero() -> Self;
@@ -38,7 +43,7 @@ pub trait Hypervector:
     /// Create a random hypervector.
     fn random() -> Self;
 
-    /// XOR binding of two hypervectors.
+    /// XOR binding (binary) or element-wise multiplication (float) of two hypervectors.
     fn bind(&self, other: &Self) -> Self;
 
     /// Bundle multiple hypervectors.

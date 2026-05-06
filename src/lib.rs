@@ -40,7 +40,9 @@ pub use error::{MemoryError, Result};
 pub use framework::ChaoticSemanticFramework;
 pub use framework_builder::FrameworkBuilder;
 pub use framework_events::MemoryEvent;
-pub use hyperdim::{BHVec10240, HVec10240, Hypervector, batch_cosine_similarity};
+pub use hyperdim::{HVec10240, Hypervector, batch_cosine_similarity};
+#[cfg(feature = "hv-binary")]
+pub use hyperdim::BHVec10240;
 pub use semantic_bridge::{
     BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown,
 };
@@ -118,7 +120,7 @@ pub mod persistence {
     //! Enable the "persistence" feature for full libSQL-backed persistence.
 
     use crate::error::Result;
-    use crate::hyperdim::HVec10240;
+    use crate::hyperdim::{HVec10240, Hypervector};
     use crate::singularity::Concept;
 
     /// Stub persistence type when persistence feature is disabled.
@@ -127,6 +129,7 @@ pub mod persistence {
 
     /// Stub concept version type when persistence feature is disabled.
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+    #[serde(bound = "H: Hypervector")]
     pub struct ConceptVersion<H: Hypervector = HVec10240> {
         pub concept_id: String,
         pub version: i64,

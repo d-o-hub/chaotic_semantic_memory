@@ -1,5 +1,6 @@
 use crate::error::Result;
 use crate::framework::ChaoticSemanticFramework;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::hyperdim::HVec10240;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;

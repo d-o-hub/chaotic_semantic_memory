@@ -91,31 +91,19 @@ impl Projection {
 
     /// Project a native embedding to HVec10240.
     ///
-    /// Computes: output[row] = sign(sum_{col} projection[row,col] * input[col])
+    /// Computes: output[row] = sum_{col} projection[row,col] * input[col]
     /// Using sparse matrix multiplication.
     pub fn project(&self, vec: &[f32]) -> HVec10240 {
         assert!(vec.len() == self.native_dim, "input dimension mismatch");
 
         // Accumulate sparse dot products for each row.
-        let mut sums = vec![0.0_f32; 10240];
+        let mut data = [0.0_f32; 10240];
 
         for &(row, col, value) in &self.entries {
-            sums[row] += value as f32 * vec[col];
+            data[row] += value as f32 * vec[col];
         }
 
-        // Convert to bipolar HVec: sign of each sum.
-        // bit = 1 if sum >= 0, bit = 0 if sum < 0
-        let mut hv = HVec10240::zero();
-        for (i, &sum) in sums.iter().enumerate() {
-            if sum >= 0.0 {
-                // Set bit at position i
-                let word = i / 128;
-                let bit = i % 128;
-                hv.data[word] |= 1u128 << bit;
-            }
-        }
-
-        hv
+        HVec10240 { data }
     }
 
     /// Get the number of non-zero entries in the projection matrix.

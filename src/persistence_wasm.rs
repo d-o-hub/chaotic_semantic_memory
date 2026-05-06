@@ -4,13 +4,14 @@
 //! All operations return `MemoryError::UnsupportedOperation`.
 
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::{BHVec10240, HVec10240, Hypervector};
+use crate::hyperdim::{HVec10240, Hypervector};
 use crate::singularity::Concept;
 
 /// Persistence stub for wasm32 builds.
 pub struct Persistence;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(bound = "H: Hypervector")]
 pub struct ConceptVersion<H: Hypervector = HVec10240> {
     pub concept_id: String,
     pub version: i64,

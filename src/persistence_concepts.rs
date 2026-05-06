@@ -1,6 +1,8 @@
 #![cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::{BHVec10240, Hypervector};
+#[cfg(feature = "hv-binary")]
+use crate::hyperdim::BHVec10240;
+use crate::hyperdim::Hypervector;
 use crate::persistence::Persistence;
 use crate::singularity::Concept;
 use libsql::params;
@@ -18,11 +20,7 @@ impl Persistence {
         let metadata_json = serde_json::to_string(&concept.metadata)?;
         let expires_at: Option<i64> = concept.expires_at.map(|t| t as i64);
         let canonical_concept_ids_json = serde_json::to_string(&concept.canonical_concept_ids)?;
-        let format = if std::any::TypeId::of::<H>() == std::any::TypeId::of::<BHVec10240>() {
-            "binary"
-        } else {
-            "f32"
-        };
+        let format = H::format_name();
 
         conn.execute(
             "INSERT INTO csm_concepts
@@ -71,11 +69,7 @@ impl Persistence {
             .await
             .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {e}")))?;
 
-        let format = if std::any::TypeId::of::<H>() == std::any::TypeId::of::<BHVec10240>() {
-            "binary"
-        } else {
-            "f32"
-        };
+        let format = H::format_name();
 
         let mut first_error: Option<MemoryError> = None;
         for concept in concepts {
@@ -174,16 +168,22 @@ impl Persistence {
             let vector_format: String = row.get(6).unwrap_or_else(|_| "f32".to_string());
 
             let vector = if vector_format == "binary" {
-                if std::any::TypeId::of::<H>() == std::any::TypeId::of::<BHVec10240>() {
-                    H::from_bytes(&vector_bytes)?
-                } else {
-                    // Up-convert stored binary to f32 if requested type is f32
-                    let bhv = BHVec10240::from_bytes(&vector_bytes)?;
-                    let fhv = bhv.to_f32();
-                    // This is tricky because H might not be HVec10240.
-                    // We'll assume H is HVec10240 if not BHVec10240 for this simple conversion.
-                    // SAFE: We only do this if TypeId matches what we expect.
-                    H::from_bytes(&fhv.to_bytes())?
+                #[cfg(feature = "hv-binary")]
+                {
+                    if std::any::TypeId::of::<H>() == std::any::TypeId::of::<BHVec10240>() {
+                        H::from_bytes(&vector_bytes)?
+                    } else {
+                        // Up-convert stored binary to f32 if requested type is f32
+                        let bhv = BHVec10240::from_bytes(&vector_bytes)?;
+                        let fhv = bhv.to_f32();
+                        H::from_bytes(&fhv.to_bytes())?
+                    }
+                }
+                #[cfg(not(feature = "hv-binary"))]
+                {
+                    return Err(MemoryError::UnsupportedOperation(
+                        "binary hypervectors not enabled (hv-binary feature)".to_string(),
+                    ));
                 }
             } else {
                 H::from_bytes(&vector_bytes)?
@@ -252,12 +252,21 @@ impl Persistence {
             let vector_format: String = row.get(7).unwrap_or_else(|_| "f32".to_string());
 
             let vector = if vector_format == "binary" {
-                if std::any::TypeId::of::<H>() == std::any::TypeId::of::<BHVec10240>() {
-                    H::from_bytes(&vector_bytes)?
-                } else {
-                    let bhv = BHVec10240::from_bytes(&vector_bytes)?;
-                    let fhv = bhv.to_f32();
-                    H::from_bytes(&fhv.to_bytes())?
+                #[cfg(feature = "hv-binary")]
+                {
+                    if std::any::TypeId::of::<H>() == std::any::TypeId::of::<BHVec10240>() {
+                        H::from_bytes(&vector_bytes)?
+                    } else {
+                        let bhv = BHVec10240::from_bytes(&vector_bytes)?;
+                        let fhv = bhv.to_f32();
+                        H::from_bytes(&fhv.to_bytes())?
+                    }
+                }
+                #[cfg(not(feature = "hv-binary"))]
+                {
+                    return Err(MemoryError::UnsupportedOperation(
+                        "binary hypervectors not enabled (hv-binary feature)".to_string(),
+                    ));
                 }
             } else {
                 H::from_bytes(&vector_bytes)?
