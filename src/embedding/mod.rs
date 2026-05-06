@@ -60,3 +60,65 @@ pub trait EmbeddingProvider: Send + Sync {
         projection.project(vec)
     }
 }
+
+/// Factory to get an embedding provider by name.
+///
+/// Format: "provider_name" or "provider_name:model_name"
+pub fn get_provider(name: &str) -> Result<std::sync::Arc<dyn EmbeddingProvider>> {
+    let parts: Vec<&str> = name.splitn(2, ':').collect();
+    let provider_name = parts[0];
+    let _model_name = parts.get(1).copied();
+
+    match provider_name {
+        "hdc-text" | "hdc" => Ok(std::sync::Arc::new(HdcTextProvider::new())),
+
+        "fastembed" => {
+            #[cfg(feature = "embed-fastembed")]
+            {
+                if let Some(model) = _model_name {
+                    Ok(std::sync::Arc::new(FastEmbedProvider::with_model(model)?))
+                } else {
+                    Ok(std::sync::Arc::new(FastEmbedProvider::new()?))
+                }
+            }
+            #[cfg(not(feature = "embed-fastembed"))]
+            Err(crate::error::MemoryError::Config(
+                "embed-fastembed feature not enabled".into(),
+            ))
+        }
+
+        "openai" => {
+            #[cfg(feature = "embed-openai")]
+            {
+                let mut provider = OpenAiProvider::from_env()?;
+                if let Some(model) = _model_name {
+                    provider = provider.with_model(model);
+                }
+                Ok(std::sync::Arc::new(provider))
+            }
+            #[cfg(not(feature = "embed-openai"))]
+            Err(crate::error::MemoryError::Config(
+                "embed-openai feature not enabled".into(),
+            ))
+        }
+
+        "voyage" => {
+            #[cfg(feature = "embed-voyage")]
+            {
+                let mut provider = VoyageProvider::from_env()?;
+                if let Some(model) = _model_name {
+                    provider = provider.with_model(model);
+                }
+                Ok(std::sync::Arc::new(provider))
+            }
+            #[cfg(not(feature = "embed-voyage"))]
+            Err(crate::error::MemoryError::Config(
+                "embed-voyage feature not enabled".into(),
+            ))
+        }
+
+        _ => Err(crate::error::MemoryError::Config(format!(
+            "unknown embedding provider: {provider_name}"
+        ))),
+    }
+}

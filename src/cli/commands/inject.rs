@@ -7,7 +7,7 @@ use crate::cli::args::{InjectArgs, OutputFormat, VectorSource};
 use crate::cli::error::{CliError, Result};
 use crate::hyperdim::HVec10240;
 
-use super::{create_framework, print_success, print_warning, validate_concept_id};
+use super::{create_framework_with_provider, print_success, print_warning, validate_concept_id};
 
 #[instrument(name = "cli_inject")]
 pub async fn run_inject(
@@ -17,9 +17,28 @@ pub async fn run_inject(
 ) -> Result<()> {
     validate_concept_id(&args.concept_id)?;
 
-    let framework = create_framework(db_path).await?;
+    let framework = create_framework_with_provider(db_path, args.provider.as_deref()).await?;
 
-    let vector = match args.vector_source {
+    let source = if args.text.is_some() || args.use_embeddings {
+        VectorSource::Text
+    } else {
+        args.vector_source
+    };
+
+    let vector = match source {
+        VectorSource::Text => {
+            let text = args.text.as_ref().ok_or_else(|| {
+                CliError::Validation("--text is required when encoding a vector".into())
+            })?;
+            framework.embedding_provider.project(
+                &framework
+                    .embedding_provider
+                    .embed(text)
+                    .await
+                    .map_err(CliError::Memory)?,
+                &framework.projection,
+            )
+        }
         VectorSource::Random => HVec10240::random(),
         VectorSource::File | VectorSource::Stdin => {
             if let Some(ref file_path) = args.from_file {

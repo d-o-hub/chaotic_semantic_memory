@@ -32,15 +32,17 @@ impl ChaoticSemanticFramework {
         graph_rag_retrieve(&query, &concepts, &associations, &config)
     }
 
-    /// GraphRAG retrieval using encoder for text query.
+    /// GraphRAG retrieval using configured embedding provider for text query.
     #[instrument(err, skip(self, text, config))]
     pub async fn probe_text_with_graph(
         &self,
         text: &str,
         config: GraphRagConfig,
     ) -> Result<Vec<GraphRagResult>> {
-        let encoder = crate::encoder::TextEncoder::new();
-        let query = encoder.encode(text);
+        let embedding = self.embedding_provider.embed(text).await?;
+        let query = self
+            .embedding_provider
+            .project(&embedding, &self.projection);
         self.probe_with_graph(query, config).await
     }
 }
