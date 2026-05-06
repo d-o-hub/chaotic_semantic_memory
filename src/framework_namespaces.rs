@@ -25,8 +25,13 @@ impl ChaoticSemanticFramework {
         Ok(namespaces)
     }
 
-    /// Delete a namespace: remove from memory first (infallible), then persist.
-    /// Memory-first order ensures DB failures don't leave memory in an inconsistent state.
+    /// Delete a namespace: remove from memory first, then persist.
+    ///
+    /// Memory-first order is intentional: if the persistence deletion fails,
+    /// the data still exists in the database and will be reloaded on the next
+    /// framework access (no data loss). The reverse order (persist-then-memory)
+    /// could leave data in memory that no longer has a persistence backing,
+    /// causing inconsistency on process restart.
     pub async fn delete_namespace(&self, ns: &str) -> Result<usize> {
         let count = {
             let mut sing = self.singularity.write().await;

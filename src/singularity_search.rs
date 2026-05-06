@@ -13,6 +13,89 @@ use crate::singularity::{Singularity, similarity_cache_key, unix_now_ns};
 use crate::singularity_retrieval::{
     CandidateSource, FilterStrategy, RetrievalStats, ScoredCandidateParams,
 };
+use crate::singularity_state::NamespaceState;
+
+// ── Helper functions for find_similar_cached ──────────────────────────
+// Extracted to reduce cyclomatic complexity (Deepsource).
+
+/// Try to retrieve results from the similarity cache.
+/// Returns `Some(results)` on cache hit, `None` on miss or cache bypass.
+fn try_cache_lookup(
+    ns_state: &NamespaceState,
+    query: &HVec10240,
+    top_k: usize,
+    bypass_cache: bool,
+    start_ns: u64,
+) -> Option<Arc<[(String, f32)]>> {
+    if bypass_cache {
+        return None;
+    }
+
+    let cache_key = similarity_cache_key(query, top_k);
+    if let Ok(mut cache) = ns_state.query_cache.write() {
+        if let Some(results) = cache.get(cache_key) {
+            ns_state
+                .cache_metrics
+                .hits_total
+                .fetch_add(1, Ordering::Relaxed);
+            let stats = RetrievalStats {
+                candidate_count: results.len(),
+                scored_count: 0,
+                scoring_ns: unix_now_ns().saturating_sub(start_ns),
+                ..Default::default()
+            };
+            if let Ok(mut s) = ns_state.last_retrieval_stats.write() {
+                *s = stats;
+            }
+            return Some(results);
+        }
+    }
+    ns_state
+        .cache_metrics
+        .misses_total
+        .fetch_add(1, Ordering::Relaxed);
+    None
+}
+
+/// Try to retrieve results from the ANN index.
+/// Returns `Some(results)` on ANN hit, `None` for BruteForce backend or
+/// ANN search failure (falls through to exact scan).
+fn try_ann_lookup(
+    ns_state: &NamespaceState,
+    query: &HVec10240,
+    top_k: usize,
+    bypass_cache: bool,
+    start_ns: u64,
+) -> Option<Arc<[(String, f32)]>> {
+    let index_stats = ns_state.index.stats();
+    if index_stats.backend == "BruteForce" {
+        return None;
+    }
+
+    if let Ok(results) = ns_state.index.search(query, top_k) {
+        let results_arc: Arc<[(String, f32)]> = Arc::from(results);
+
+        if let Ok(mut s) = ns_state.last_retrieval_stats.write() {
+            s.scored_count = results_arc.len();
+            s.candidate_count = index_stats.count;
+            s.scoring_ns = unix_now_ns().saturating_sub(start_ns);
+        }
+
+        if !bypass_cache {
+            if let Ok(mut cache) = ns_state.query_cache.write() {
+                let cache_key = similarity_cache_key(query, top_k);
+                if cache.put(cache_key, Arc::clone(&results_arc)) {
+                    ns_state
+                        .cache_metrics
+                        .evictions_total
+                        .fetch_add(1, Ordering::Relaxed);
+                }
+            }
+        }
+        return Some(results_arc);
+    }
+    None
+}
 
 impl Singularity {
     /// Find similar concepts using cosine similarity
@@ -31,7 +114,12 @@ impl Singularity {
         self.find_similar_cached(ns, query, top_k)
     }
 
-    /// Find similar concepts and return cached results as `Arc<[_]>`.
+    /// Find similar concepts, returning cached results as `Arc<[_]>`.
+    ///
+    /// Retrieval pipeline:
+    /// 1. Cache lookup (bypassed when `top_k > max_cached_top_k`)
+    /// 2. ANN index lookup (skipped for BruteForce backend)
+    /// 3. Candidate generation (graph → bucket → exact scan fallback)
     pub fn find_similar_cached(
         &self,
         ns: &str,
@@ -57,60 +145,17 @@ impl Singularity {
 
         let bypass_cache = top_k > self.config.max_cached_top_k;
 
-        if !bypass_cache {
-            let cache_key = similarity_cache_key(query, top_k);
-            if let Ok(mut cache) = ns_state.query_cache.write() {
-                if let Some(results) = cache.get(cache_key) {
-                    ns_state
-                        .cache_metrics
-                        .hits_total
-                        .fetch_add(1, Ordering::Relaxed);
-                    let stats = RetrievalStats {
-                        candidate_count: results.len(),
-                        scored_count: 0,
-                        scoring_ns: unix_now_ns().saturating_sub(start_ns),
-                        ..Default::default()
-                    };
-                    if let Ok(mut s) = ns_state.last_retrieval_stats.write() {
-                        *s = stats;
-                    }
-                    return results;
-                }
-            }
-            ns_state
-                .cache_metrics
-                .misses_total
-                .fetch_add(1, Ordering::Relaxed);
+        // Step 1: Cache lookup
+        if let Some(results) = try_cache_lookup(ns_state, query, top_k, bypass_cache, start_ns) {
+            return results;
         }
 
-        // ADR-0068: Route through AnnIndex if it's not BruteForce.
-        let index_stats = ns_state.index.stats();
-        if index_stats.backend != "BruteForce" {
-            if let Ok(results) = ns_state.index.search(query, top_k) {
-                let results_arc: Arc<[(String, f32)]> = Arc::from(results);
-
-                if let Ok(mut s) = ns_state.last_retrieval_stats.write() {
-                    s.scored_count = results_arc.len();
-                    s.candidate_count = index_stats.count;
-                    s.scoring_ns = unix_now_ns().saturating_sub(start_ns);
-                }
-
-                if !bypass_cache {
-                    if let Ok(mut cache) = ns_state.query_cache.write() {
-                        let cache_key = similarity_cache_key(query, top_k);
-                        if cache.put(cache_key, Arc::clone(&results_arc)) {
-                            ns_state
-                                .cache_metrics
-                                .evictions_total
-                                .fetch_add(1, Ordering::Relaxed);
-                        }
-                    }
-                }
-                return results_arc;
-            }
+        // Step 2: ANN index lookup (ADR-0068)
+        if let Some(results) = try_ann_lookup(ns_state, query, top_k, bypass_cache, start_ns) {
+            return results;
         }
 
-        // Generate candidates based on RetrievalConfig
+        // Step 3: Candidate generation based on RetrievalConfig
         let candidate_start = unix_now_ns();
         let mut candidates = Vec::new();
         let mut source = CandidateSource::ExactFallback;
