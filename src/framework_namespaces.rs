@@ -2,8 +2,16 @@ use crate::error::Result;
 use crate::framework::ChaoticSemanticFramework;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 impl ChaoticSemanticFramework {
+    /// Set the current namespace.
+    pub async fn set_namespace(&self, ns: impl Into<String>) {
+        let mut namespace = self.namespace.write().await;
+        *namespace = ns.into();
+    }
+
     /// List all namespaces, querying persistence if available for complete results.
     pub async fn list_namespaces(&self) -> Result<Vec<String>> {
         let mut namespaces: Vec<String> = {
@@ -91,7 +99,7 @@ impl ChaoticSemanticFramework {
             config: self.config.clone(),
             metrics: self.metrics.clone(),
             event_sender: self.event_sender.clone(),
-            namespace: ns.to_string(),
+            namespace: Arc::new(RwLock::new(ns.to_string())),
             embedding_provider: self.embedding_provider.clone(),
             projection: self.projection.clone(),
         }

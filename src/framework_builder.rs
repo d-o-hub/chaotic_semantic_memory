@@ -304,7 +304,7 @@ impl FrameworkBuilder {
             config: self.config,
             metrics: Default::default(),
             event_sender: build_event_sender(),
-            namespace: self.namespace,
+            namespace: Arc::new(RwLock::new(self.namespace)),
             embedding_provider: provider,
             projection: Arc::new(projection),
         };

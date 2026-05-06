@@ -55,10 +55,8 @@ impl ChaoticSemanticFramework {
     /// Update a concept's vector (WASM-only, memory-only).
     #[cfg(target_arch = "wasm32")]
     pub async fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()> {
-        self.singularity
-            .write()
-            .await
-            .update(&self.namespace, id, vector)?;
+        let ns = self.namespace.read().await;
+        self.singularity.write().await.update(&ns, id, vector)?;
         self.emit_event(MemoryEvent::ConceptUpdated {
             id: id.to_string(),
             timestamp: unix_now_secs(),
@@ -73,10 +71,11 @@ impl ChaoticSemanticFramework {
         id: &str,
         metadata: HashMap<String, serde_json::Value>,
     ) -> Result<()> {
+        let ns = self.namespace.read().await;
         self.singularity
             .write()
             .await
-            .update_metadata(&self.namespace, id, metadata)?;
+            .update_metadata(&ns, id, metadata)?;
         self.emit_event(MemoryEvent::ConceptUpdated {
             id: id.to_string(),
             timestamp: unix_now_secs(),
@@ -87,10 +86,8 @@ impl ChaoticSemanticFramework {
     /// Remove an association (WASM-only, memory-only).
     #[cfg(target_arch = "wasm32")]
     pub async fn disassociate(&self, from: &str, to: &str) -> Result<()> {
-        self.singularity
-            .write()
-            .await
-            .disassociate(&self.namespace, from, to)?;
+        let ns = self.namespace.read().await;
+        self.singularity.write().await.disassociate(&ns, from, to)?;
         self.emit_event(MemoryEvent::Disassociated {
             from: from.to_string(),
             to: to.to_string(),

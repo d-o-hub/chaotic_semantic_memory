@@ -45,7 +45,8 @@ impl WasmFramework {
     /// Get concept count (convenience method)
     pub async fn concept_count(&self) -> Result<usize, JsValue> {
         let sing = self.framework.singularity.read().await;
-        Ok(sing.len(&self.framework.namespace()))
+        let ns = self.framework.namespace().await;
+        Ok(sing.len(&ns))
     }
 
     /// Update a concept's metadata from a JSON string.
@@ -72,8 +73,8 @@ impl WasmFramework {
     /// Clear all outbound associations for a concept.
     pub async fn clear_associations(&self, id: String) -> Result<(), JsValue> {
         let mut sing = self.framework.singularity.write().await;
-        sing.clear_associations(&self.framework.namespace(), &id)
-            .map_err(to_js_error)
+        let ns = self.framework.namespace().await;
+        sing.clear_associations(&ns, &id).map_err(to_js_error)
     }
 
     /// Get direct neighbors of a concept with edge strengths.
@@ -81,7 +82,8 @@ impl WasmFramework {
     /// Returns an Array of `{to: string, strength: number}` objects.
     pub async fn neighbors(&self, id: String, min_strength: f32) -> Result<Array, JsValue> {
         let sing = self.framework.singularity.read().await;
-        let neighbors = sing.neighbors(&self.framework.namespace(), &id, min_strength);
+        let ns = self.framework.namespace().await;
+        let neighbors = sing.neighbors(&ns, &id, min_strength);
         let array = Array::new();
         for (to, strength) in neighbors {
             let obj = js_sys::Object::new();
@@ -90,48 +92,6 @@ impl WasmFramework {
             js_sys::Reflect::set(&obj, &"strength".into(), &strength.into())
                 .map_err(|_| JsValue::from_str("failed to set JS property"))?;
             array.push(&obj);
-        }
-        Ok(array)
-    }
-
-    /// Breadth-first traversal from a starting concept.
-    ///
-    /// Returns an Array of `{id: string, depth: number}` objects.
-    /// Uses default `TraversalConfig`.
-    pub async fn bfs(&self, start: String) -> Result<Array, JsValue> {
-        use crate::graph_traversal::TraversalConfig;
-        let sing = self.framework.singularity.read().await;
-        let config = TraversalConfig::default();
-        let results = sing
-            .bfs(&self.framework.namespace(), &start, &config)
-            .map_err(to_js_error)?;
-        let array = Array::new();
-        for (id, depth) in results {
-            let obj = js_sys::Object::new();
-            js_sys::Reflect::set(&obj, &"id".into(), &id.into())
-                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
-            js_sys::Reflect::set(&obj, &"depth".into(), &(depth as f64).into())
-                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
-            array.push(&obj);
-        }
-        Ok(array)
-    }
-
-    /// Find the minimum-cost path between two concepts (weighted Dijkstra).
-    ///
-    /// Returns an Array of concept ID strings, or an empty Array if no path exists.
-    /// Uses default `TraversalConfig`.
-    pub async fn shortest_path(&self, from: String, to: String) -> Result<Array, JsValue> {
-        let path = self
-            .framework
-            .shortest_path(&from, &to)
-            .await
-            .map_err(to_js_error)?;
-        let array = Array::new();
-        if let Some(nodes) = path {
-            for id in nodes {
-                array.push(&id.into());
-            }
         }
         Ok(array)
     }
@@ -163,35 +123,6 @@ impl WasmFramework {
             array.push(&obj);
         }
 
-        Ok(array)
-    }
-
-    /// Breadth-first traversal from a starting concept with custom config.
-    pub async fn traverse(
-        &self,
-        start: String,
-        max_depth: u32,
-        min_strength: f32,
-    ) -> Result<Array, JsValue> {
-        let mut config = crate::graph_traversal::TraversalConfig::default();
-        config.max_depth = max_depth as usize;
-        config.min_strength = min_strength;
-
-        let results = self
-            .framework
-            .traverse(&start, config)
-            .await
-            .map_err(to_js_error)?;
-
-        let array = Array::new();
-        for (id, depth) in results {
-            let obj = js_sys::Object::new();
-            js_sys::Reflect::set(&obj, &"id".into(), &id.into())
-                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
-            js_sys::Reflect::set(&obj, &"depth".into(), &(depth as f64).into())
-                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
-            array.push(&obj);
-        }
         Ok(array)
     }
 
@@ -282,7 +213,7 @@ fn memory_event_to_js_value(event: &crate::framework_events::MemoryEvent) -> JsV
 mod tests {
     // Exact float comparisons for test assertions
 
-    use crate::export_payload::unix_now_secs;
+    use crate::framework_builder::FrameworkBuilder;
     use crate::framework_events::MemoryEvent;
     use crate::graph_traversal::TraversalConfig;
     use crate::hyperdim::HVec10240;
@@ -485,12 +416,48 @@ mod tests {
     }
 
     #[test]
-    fn wasm_unix_now_secs_positive() {
-        assert!(unix_now_secs() > 0);
-    }
-
-    #[test]
     fn wasm_to_js_error_msg() {
         assert!(to_js_error_test("test error"));
+    }
+
+    #[tokio::test]
+    async fn wasm_namespace_switching_isolates_concepts() {
+        let framework = FrameworkBuilder::new()
+            .without_persistence()
+            .build()
+            .await
+            .unwrap();
+
+        // 1. Inject into default namespace
+        framework
+            .inject_concept("default-concept", HVec10240::random())
+            .await
+            .unwrap();
+
+        // 2. Switch namespace
+        framework.set_namespace("tenant-a").await;
+        assert_eq!(framework.namespace().await, "tenant-a");
+
+        // 3. Verify default concept is not visible in tenant-a
+        let results = framework.probe(HVec10240::random(), 10).await.unwrap();
+        assert!(results.is_empty());
+
+        // 4. Inject into tenant-a
+        framework
+            .inject_concept("tenant-concept", HVec10240::random())
+            .await
+            .unwrap();
+        let results = framework.probe(HVec10240::random(), 10).await.unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, "tenant-concept");
+
+        // 5. Switch back to default
+        framework.set_namespace("_default").await;
+        assert_eq!(framework.namespace().await, "_default");
+
+        // 6. Verify only default concept is visible
+        let results = framework.probe(HVec10240::random(), 10).await.unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, "default-concept");
     }
 }
