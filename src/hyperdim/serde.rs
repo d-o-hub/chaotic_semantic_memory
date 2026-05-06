@@ -6,7 +6,7 @@ use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
-use crate::hyperdim::HVec10240;
+use super::hvec::HVec10240;
 
 impl Serialize for HVec10240 {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>

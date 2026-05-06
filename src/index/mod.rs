@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 use crate::error::Result;
-use crate::hyperdim::HVec10240;
+use crate::hyperdim::{HVec10240, Hypervector};
 use crate::singularity::Concept;
 
 pub mod brute_force;
@@ -49,27 +49,27 @@ pub enum IndexBackend {
 }
 
 /// Trait for Approximate Nearest Neighbor (ANN) indices.
-pub trait AnnIndex: Send + Sync + Debug {
+pub trait AnnIndex<H: Hypervector = HVec10240>: Send + Sync + Debug + 'static {
     /// Insert a concept into the index.
-    fn insert(&mut self, id: String, vec: &HVec10240) -> Result<()>;
+    fn insert(&mut self, id: String, vec: &H) -> Result<()>;
 
     /// Delete a concept from the index.
     fn delete(&mut self, id: &str) -> Result<()>;
 
     /// Search for the top-k nearest neighbors.
-    fn search(&self, query: &HVec10240, top_k: usize) -> Result<Vec<(String, f32)>>;
+    fn search(&self, query: &H, top_k: usize) -> Result<Vec<(String, f32)>>;
 
     /// Search for the nearest neighbors with a metadata filter.
     fn search_filtered(
         &self,
-        query: &HVec10240,
+        query: &H,
         top_k: usize,
         filter: &crate::metadata_filter::MetadataFilter,
-        concepts: &std::collections::HashMap<String, crate::singularity::Concept>,
+        concepts: &std::collections::HashMap<String, crate::singularity::Concept<H>>,
     ) -> Result<Vec<(String, f32)>>;
 
     /// Rebuild the index from scratch using all concepts.
-    fn rebuild(&mut self, concepts: &HashMap<String, Concept>) -> Result<()>;
+    fn rebuild(&mut self, concepts: &HashMap<String, Concept<H>>) -> Result<()>;
 
     /// Get statistics for the index.
     fn stats(&self) -> IndexStats;
@@ -82,8 +82,8 @@ pub trait AnnIndex: Send + Sync + Debug {
 }
 
 /// Create an ANN index backend based on configuration.
-pub fn create_index(backend: &IndexBackend) -> Result<Box<dyn AnnIndex>> {
-    let index: Box<dyn AnnIndex> = match backend {
+pub fn create_index<H: Hypervector + 'static>(backend: &IndexBackend) -> Result<Box<dyn AnnIndex<H>>> {
+    let index: Box<dyn AnnIndex<H>> = match backend {
         IndexBackend::BruteForce => Box::new(brute_force::BruteForce::new()),
         #[cfg(feature = "ann-hnsw")]
         IndexBackend::Hnsw {

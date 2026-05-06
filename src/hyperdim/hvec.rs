@@ -11,20 +11,19 @@ use rand::RngExt;
 use rayon::prelude::*;
 
 use crate::error::Result;
-
-pub use crate::hyperdim_batch::batch_cosine_similarity;
+use super::Hypervector;
 
 // Import SIMD functions from extension module
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-use crate::hyperdim_simd::bind_simd_avx2;
+use super::simd::bind_simd_avx2;
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-use crate::hyperdim_simd::bind_simd_neon;
+use super::simd::bind_simd_neon;
 #[cfg(all(
     not(target_arch = "wasm32"),
     any(target_arch = "x86_64", target_arch = "x86")
 ))]
-use crate::hyperdim_simd::bind_simd_x86;
-use crate::hyperdim_simd::hamming_distance_optimized;
+use super::simd::bind_simd_x86;
+use super::simd::hamming_distance_optimized;
 
 /// 10240-bit hypervector (80 x 128-bit words)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,20 +37,8 @@ impl HVec10240 {
     pub const WORDS: usize = 80;
 
     /// Create a new hypervector with all zeros
-    pub const fn zero() -> Self {
+    pub const fn zero_const() -> Self {
         Self { data: [0u128; 80] }
-    }
-
-    /// Create a random hypervector (each bit has 50% probability)
-    ///
-    /// Performance Optimization: Uses `rng.fill()` for bulk data generation, reducing
-    /// per-word overhead and allowing the RNG to use vectorized memory-filling paths.
-    /// Expected speedup: ~15% for random generation.
-    pub fn random() -> Self {
-        let mut rng = rand::rng();
-        let mut data = [0u128; 80];
-        rng.fill(&mut data);
-        Self { data }
     }
 
     /// Create a deterministic random hypervector from a seed.
@@ -88,13 +75,134 @@ impl HVec10240 {
     /// Panics if `pos >= DIMENSION` (10240).
     pub fn set_bit(&mut self, pos: usize) {
         assert!(
-            pos < Self::DIMENSION,
+            pos < <Self as Hypervector>::DIMENSION,
             "bit position {pos} out of range (max {})",
-            Self::DIMENSION
+            <Self as Hypervector>::DIMENSION
         );
         let word = pos / 128;
         let bit = pos % 128;
         self.data[word] |= 1u128 << bit;
+    }
+
+    /// Create a zero hypervector.
+    pub fn zero() -> Self {
+        <Self as Hypervector>::zero()
+    }
+
+    /// Create a random hypervector.
+    pub fn random() -> Self {
+        <Self as Hypervector>::random()
+    }
+
+    /// XOR binding of two hypervectors.
+    pub fn bind(&self, other: &Self) -> Self {
+        <Self as Hypervector>::bind(self, other)
+    }
+
+    /// Bundle multiple hypervectors.
+    pub fn bundle(vectors: &[Self]) -> Result<Self> {
+        <Self as Hypervector>::bundle(vectors)
+    }
+
+    /// Cyclic permutation.
+    pub fn permute(&self, shift: usize) -> Self {
+        <Self as Hypervector>::permute(self, shift)
+    }
+
+    /// Cosine similarity.
+    pub fn cosine_similarity(&self, other: &Self) -> f32 {
+        <Self as Hypervector>::cosine_similarity(self, other)
+    }
+
+    /// Hamming distance.
+    pub fn hamming_distance(&self, other: &Self) -> u32 {
+        <Self as Hypervector>::hamming_distance(self, other)
+    }
+
+    /// Convert to bytes.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        <Self as Hypervector>::to_bytes(self)
+    }
+
+    /// Create from bytes.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        <Self as Hypervector>::from_bytes(bytes)
+    }
+}
+
+impl Hypervector for HVec10240 {
+    const DIMENSION: usize = 10240;
+
+    fn zero() -> Self {
+        Self::zero_const()
+    }
+
+    fn random() -> Self {
+        let mut rng = rand::rng();
+        let mut data = [0u128; 80];
+        rng.fill(&mut data);
+        Self { data }
+    }
+
+    /// XOR binding of two hypervectors.
+    ///
+    /// Dispatches to optimized SIMD paths based on platform:
+    /// - x86_64: AVX2 (runtime detection) or SSE fallback
+    /// - aarch64: NEON
+    /// - Other: scalar XOR
+    fn bind(&self, other: &Self) -> Self {
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+        {
+            // Runtime dispatch: AVX2 if available, else SSE fallback
+            if is_x86_feature_detected!("avx2") {
+                // SAFETY: AVX2 feature detected at runtime.
+                Self {
+                    data: unsafe { bind_simd_avx2(&self.data, &other.data) },
+                }
+            } else {
+                Self {
+                    data: bind_simd_x86(&self.data, &other.data),
+                }
+            }
+        }
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86"))]
+        {
+            Self {
+                data: bind_simd_x86(&self.data, &other.data),
+            }
+        }
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+        {
+            // SAFETY: bind_simd_neon requires unsafe due to NEON intrinsics.
+            // The function is marked #[target_feature(enable = "neon")] which
+            // is always available on aarch64, making this call safe.
+            Self {
+                data: unsafe { bind_simd_neon(&self.data, &other.data) },
+            }
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            let mut result = [0u128; 80];
+            for i in 0..80 {
+                result[i] = self.data[i] ^ other.data[i];
+            }
+            Self { data: result }
+        }
+
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            not(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64"))
+        ))]
+        {
+            let mut result = [0u128; 80];
+            for i in 0..80 {
+                result[i] = self.data[i] ^ other.data[i];
+            }
+            Self { data: result }
+        }
     }
 
     /// Bundle (sum) multiple hypervectors using bit-sliced addition.
@@ -104,7 +212,7 @@ impl HVec10240 {
     /// 2. It eliminates the large heap-allocated counter array and bit-by-bit loops.
     /// 3. It parallelizes over hypervector words rather than over vectors to minimize
     ///    memory traffic and synchronization overhead.
-    pub fn bundle(vectors: &[Self]) -> Result<Self> {
+    fn bundle(vectors: &[Self]) -> Result<Self> {
         let num_vectors = vectors.len();
         if num_vectors == 0 {
             return Ok(Self::zero());
@@ -181,74 +289,12 @@ impl HVec10240 {
         Ok(Self { data })
     }
 
-    /// XOR binding of two hypervectors.
-    ///
-    /// Dispatches to optimized SIMD paths based on platform:
-    /// - x86_64: AVX2 (runtime detection) or SSE fallback
-    /// - aarch64: NEON
-    /// - Other: scalar XOR
-    pub fn bind(&self, other: &Self) -> Self {
-        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-        {
-            // Runtime dispatch: AVX2 if available, else SSE fallback
-            if is_x86_feature_detected!("avx2") {
-                // SAFETY: AVX2 feature detected at runtime.
-                Self {
-                    data: unsafe { bind_simd_avx2(&self.data, &other.data) },
-                }
-            } else {
-                Self {
-                    data: bind_simd_x86(&self.data, &other.data),
-                }
-            }
-        }
-
-        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86"))]
-        {
-            Self {
-                data: bind_simd_x86(&self.data, &other.data),
-            }
-        }
-
-        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-        {
-            // SAFETY: bind_simd_neon requires unsafe due to NEON intrinsics.
-            // The function is marked #[target_feature(enable = "neon")] which
-            // is always available on aarch64, making this call safe.
-            Self {
-                data: unsafe { bind_simd_neon(&self.data, &other.data) },
-            }
-        }
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            let mut result = [0u128; 80];
-            for i in 0..80 {
-                result[i] = self.data[i] ^ other.data[i];
-            }
-            Self { data: result }
-        }
-
-        #[cfg(all(
-            not(target_arch = "wasm32"),
-            not(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64"))
-        ))]
-        {
-            let mut result = [0u128; 80];
-            for i in 0..80 {
-                result[i] = self.data[i] ^ other.data[i];
-            }
-            Self { data: result }
-        }
-    }
-
     /// Cosine similarity between two hypervectors.
     ///
     /// Calculated as `1.0 - (HammingDistance / 5120.0)` for 10240-bit vectors.
     /// This implementation is unified across all platforms and uses an unrolled
     /// GPR popcount loop for maximum performance.
-    #[must_use]
-    pub fn cosine_similarity(&self, other: &Self) -> f32 {
+    fn cosine_similarity(&self, other: &Self) -> f32 {
         let distance = hamming_distance_optimized(&self.data, &other.data);
         // Similarity = (Matches - Mismatches) / Dimension
         // Similarity = (Dimension - 2 * HammingDistance) / Dimension
@@ -257,8 +303,7 @@ impl HVec10240 {
     }
 
     /// Hamming distance
-    #[must_use]
-    pub fn hamming_distance(&self, other: &Self) -> u32 {
+    fn hamming_distance(&self, other: &Self) -> u32 {
         hamming_distance_optimized(&self.data, &other.data)
     }
 
@@ -267,7 +312,7 @@ impl HVec10240 {
     /// Optimized implementation that eliminates modulo operations and branches
     /// from the hot loop by splitting the rotation into two contiguous segments.
     #[allow(clippy::needless_range_loop)]
-    pub fn permute(&self, shift: usize) -> Self {
+    fn permute(&self, shift: usize) -> Self {
         let mut result = [0u128; 80];
         let bit_shift = shift % 128;
         let word_shift = (shift / 128) % 80;
@@ -306,7 +351,7 @@ impl HVec10240 {
     }
 
     /// Serialize to bytes
-    pub fn to_bytes(&self) -> Vec<u8> {
+    fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(1280);
         for word in &self.data {
             bytes.extend_from_slice(&word.to_le_bytes());
@@ -315,7 +360,7 @@ impl HVec10240 {
     }
 
     /// Deserialize from bytes
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    fn from_bytes(bytes: &[u8]) -> Result<Self> {
         if bytes.len() != 1280 {
             return Err(crate::error::MemoryError::InvalidDimension {
                 expected: 1280,
@@ -334,7 +379,7 @@ impl HVec10240 {
     }
 }
 
-// Serde impls are in hyperdim_serde.rs (LOC gate extraction)
+// Serde impls are in hyperdim/serde.rs (LOC gate extraction)
 
 // Re-export BundleAccumulator from bundle module
 pub use crate::bundle::BundleAccumulator;

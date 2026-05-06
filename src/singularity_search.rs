@@ -8,7 +8,7 @@ use std::sync::atomic::Ordering;
 #[cfg(not(target_arch = "wasm32"))]
 use tracing::instrument;
 
-use crate::hyperdim::HVec10240;
+use crate::hyperdim::Hypervector;
 use crate::singularity::{Singularity, similarity_cache_key, unix_now_ns};
 use crate::singularity_retrieval::{
     CandidateSource, FilterStrategy, RetrievalStats, ScoredCandidateParams,
@@ -20,9 +20,9 @@ use crate::singularity_state::NamespaceState;
 
 /// Try to retrieve results from the similarity cache.
 /// Returns `Some(results)` on cache hit, `None` on miss or cache bypass.
-fn try_cache_lookup(
-    ns_state: &NamespaceState,
-    query: &HVec10240,
+fn try_cache_lookup<H: Hypervector>(
+    ns_state: &NamespaceState<H>,
+    query: &H,
     top_k: usize,
     bypass_cache: bool,
     start_ns: u64,
@@ -60,9 +60,9 @@ fn try_cache_lookup(
 /// Try to retrieve results from the ANN index.
 /// Returns `Some(results)` on ANN hit, `None` for BruteForce backend or
 /// ANN search failure (falls through to exact scan).
-fn try_ann_lookup(
-    ns_state: &NamespaceState,
-    query: &HVec10240,
+fn try_ann_lookup<H: Hypervector + 'static>(
+    ns_state: &NamespaceState<H>,
+    query: &H,
     top_k: usize,
     bypass_cache: bool,
     start_ns: u64,
@@ -97,10 +97,10 @@ fn try_ann_lookup(
     None
 }
 
-impl Singularity {
+impl<H: Hypervector + 'static> Singularity<H> {
     /// Find similar concepts using cosine similarity
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self, ns, query), fields(top_k = top_k)))]
-    pub fn find_similar(&self, ns: &str, query: &HVec10240, top_k: usize) -> Vec<(String, f32)> {
+    pub fn find_similar(&self, ns: &str, query: &H, top_k: usize) -> Vec<(String, f32)> {
         self.find_similar_arc(ns, query, top_k).as_ref().to_vec()
     }
 
@@ -108,7 +108,7 @@ impl Singularity {
     pub fn find_similar_arc(
         &self,
         ns: &str,
-        query: &HVec10240,
+        query: &H,
         top_k: usize,
     ) -> Arc<[(String, f32)]> {
         self.find_similar_cached(ns, query, top_k)
@@ -123,7 +123,7 @@ impl Singularity {
     pub fn find_similar_cached(
         &self,
         ns: &str,
-        query: &HVec10240,
+        query: &H,
         top_k: usize,
     ) -> Arc<[(String, f32)]> {
         let start_ns = unix_now_ns();
@@ -198,7 +198,7 @@ impl Singularity {
     pub fn find_similar_filtered(
         &self,
         ns: &str,
-        query: &HVec10240,
+        query: &H,
         top_k: usize,
         filter: &crate::metadata_filter::MetadataFilter,
     ) -> Arc<[(String, f32)]> {

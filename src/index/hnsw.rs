@@ -13,7 +13,7 @@ use std::collections::HashMap;
 #[cfg(feature = "ann-hnsw")]
 use crate::error::{MemoryError, Result};
 #[cfg(feature = "ann-hnsw")]
-use crate::hyperdim::HVec10240;
+use crate::hyperdim::{HVec10240, Hypervector};
 #[cfg(feature = "ann-hnsw")]
 use crate::index::{AnnIndex, IndexStats};
 #[cfg(feature = "ann-hnsw")]
@@ -29,18 +29,18 @@ struct HnswData {
 
 #[cfg(feature = "ann-hnsw")]
 #[derive(Clone)]
-struct HammingDist;
+struct HammingDist<H: Hypervector>(std::marker::PhantomData<H>);
 
 #[cfg(feature = "ann-hnsw")]
-impl Distance<HVec10240> for HammingDist {
-    fn eval(&self, va: &[HVec10240], vb: &[HVec10240]) -> f32 {
+impl<H: Hypervector> Distance<H> for HammingDist<H> {
+    fn eval(&self, va: &[H], vb: &[H]) -> f32 {
         va[0].hamming_distance(&vb[0]) as f32
     }
 }
 
 #[cfg(feature = "ann-hnsw")]
-pub struct HnswIndex {
-    hnsw: Hnsw<'static, HVec10240, HammingDist>,
+pub struct HnswIndex<H: Hypervector = HVec10240> {
+    hnsw: Hnsw<'static, H, HammingDist<H>>,
     id_to_idx: HashMap<String, usize>,
     idx_to_id: HashMap<usize, String>,
     config: HnswData,
@@ -48,7 +48,7 @@ pub struct HnswIndex {
 }
 
 #[cfg(feature = "ann-hnsw")]
-impl HnswIndex {
+impl<H: Hypervector> HnswIndex<H> {
     pub fn new(m: usize, ef_construction: usize, ef_search: usize) -> Result<Self> {
         // #7: Validate m (max_nb_connection). hnsw_rs aborts if > 256.
         if m == 0 || m > 256 {
@@ -59,7 +59,7 @@ impl HnswIndex {
         }
 
         // ADR-0068: Default to 1M elements to support scale goal
-        let hnsw = Hnsw::new(m, 1_000_000, 16, ef_construction, HammingDist);
+        let hnsw = Hnsw::new(m, 1_000_000, 16, ef_construction, HammingDist(std::marker::PhantomData));
         Ok(Self {
             hnsw,
             id_to_idx: HashMap::new(),
@@ -75,7 +75,7 @@ impl HnswIndex {
 }
 
 #[cfg(feature = "ann-hnsw")]
-impl std::fmt::Debug for HnswIndex {
+impl<H: Hypervector> std::fmt::Debug for HnswIndex<H> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("HnswIndex")
             .field("config", &self.config)
@@ -98,8 +98,8 @@ struct HnswPersistenceWrapper {
 }
 
 #[cfg(feature = "ann-hnsw")]
-impl AnnIndex for HnswIndex {
-    fn insert(&mut self, id: String, vec: &HVec10240) -> Result<()> {
+impl<H: Hypervector + 'static> AnnIndex<H> for HnswIndex<H> {
+    fn insert(&mut self, id: String, vec: &H) -> Result<()> {
         // #6: Handle updates to existing IDs.
         if self.id_to_idx.contains_key(&id) {
             self.delete(&id)?;
@@ -121,7 +121,7 @@ impl AnnIndex for HnswIndex {
         Ok(())
     }
 
-    fn search(&self, query: &HVec10240, top_k: usize) -> Result<Vec<(String, f32)>> {
+    fn search(&self, query: &H, top_k: usize) -> Result<Vec<(String, f32)>> {
         // #5: Increase search budget to account for deleted nodes.
         let expanded_k = top_k + self.deleted_count.min(top_k * 10);
         let results = self.hnsw.search(
@@ -145,10 +145,10 @@ impl AnnIndex for HnswIndex {
 
     fn search_filtered(
         &self,
-        query: &HVec10240,
+        query: &H,
         top_k: usize,
         filter: &crate::metadata_filter::MetadataFilter,
-        concepts: &HashMap<String, Concept>,
+        concepts: &HashMap<String, Concept<H>>,
     ) -> Result<Vec<(String, f32)>> {
         let expanded_k = top_k * 5 + self.deleted_count.min(top_k * 10);
         let results = self.hnsw.search(
@@ -194,13 +194,13 @@ impl AnnIndex for HnswIndex {
         Ok(filtered_results)
     }
 
-    fn rebuild(&mut self, concepts: &HashMap<String, Concept>) -> Result<()> {
+    fn rebuild(&mut self, concepts: &HashMap<String, Concept<H>>) -> Result<()> {
         self.hnsw = Hnsw::new(
             self.config.m,
             concepts.len().max(100),
             16,
             self.config.ef_construction,
-            HammingDist,
+            HammingDist(std::marker::PhantomData),
         );
         self.id_to_idx.clear();
         self.idx_to_id.clear();
@@ -217,7 +217,7 @@ impl AnnIndex for HnswIndex {
             backend: "HNSW".to_string(),
             count: self.id_to_idx.len(),
             memory_usage_bytes: self.id_to_idx.len()
-                * (std::mem::size_of::<String>() + std::mem::size_of::<HVec10240>() + 32),
+                * (std::mem::size_of::<String>() + std::mem::size_of::<H>() + 32),
         }
     }
 
@@ -274,10 +274,10 @@ impl AnnIndex for HnswIndex {
 
         let loader = HnswIo::new(&temp_dir, "index");
         let hnsw = loader
-            .load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist)
+            .load_hnsw_with_dist::<H, HammingDist<H>>(HammingDist(std::marker::PhantomData))
             .map_err(|e| MemoryError::database(format!("HNSW load failed: {}", e)))?;
 
-        let static_hnsw: Hnsw<'static, HVec10240, HammingDist> =
+        let static_hnsw: Hnsw<'static, H, HammingDist<H>> =
             unsafe { std::mem::transmute(hnsw) };
 
         self.hnsw = static_hnsw;

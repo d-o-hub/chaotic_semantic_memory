@@ -1,7 +1,7 @@
 //! Core concept storage and indexing engine
 
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::HVec10240;
+use crate::hyperdim::{HVec10240, Hypervector};
 use crate::index::{AnnIndex, IndexBackend, IndexStats};
 use crate::singularity_cache::CacheMetricsSnapshot;
 use crate::singularity_retrieval::RetrievalConfig;
@@ -34,9 +34,9 @@ impl Default for SingularityConfig {
 
 /// Represents a single memory concept
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Concept {
+pub struct Concept<H: Hypervector = HVec10240> {
     pub id: String,
-    pub vector: HVec10240,
+    pub vector: H,
     pub metadata: HashMap<String, serde_json::Value>,
     pub created_at: u64,
     pub modified_at: u64,
@@ -47,15 +47,15 @@ pub struct Concept {
 }
 
 #[derive(Debug, Clone)]
-pub struct ConceptBuilder {
+pub struct ConceptBuilder<H: Hypervector = HVec10240> {
     id: String,
-    vector: Option<HVec10240>,
+    vector: Option<H>,
     metadata: HashMap<String, serde_json::Value>,
     expires_at: Option<u64>,
     canonical_concept_ids: Vec<String>,
 }
 
-impl ConceptBuilder {
+impl<H: Hypervector> ConceptBuilder<H> {
     pub fn new(id: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -66,7 +66,7 @@ impl ConceptBuilder {
         }
     }
 
-    pub const fn with_vector(mut self, vector: HVec10240) -> Self {
+    pub fn with_vector(mut self, vector: H) -> Self {
         self.vector = Some(vector);
         self
     }
@@ -85,11 +85,11 @@ impl ConceptBuilder {
         self
     }
 
-    pub fn build(self) -> Result<Concept> {
+    pub fn build(self) -> Result<Concept<H>> {
         let now = unix_now_secs();
         Ok(Concept {
             id: self.id,
-            vector: self.vector.unwrap_or_else(HVec10240::random),
+            vector: self.vector.unwrap_or_else(H::random),
             metadata: self.metadata,
             created_at: now,
             modified_at: now,
@@ -99,13 +99,13 @@ impl ConceptBuilder {
     }
 }
 
-pub struct Singularity {
+pub struct Singularity<H: Hypervector = HVec10240> {
     pub(crate) config: SingularityConfig,
-    pub(crate) namespaces: HashMap<String, NamespaceState>,
+    pub(crate) namespaces: HashMap<String, NamespaceState<H>>,
     pub(crate) _retrieval_config: RetrievalConfig,
 }
 
-impl Singularity {
+impl<H: Hypervector + 'static> Singularity<H> {
     pub fn new(config: SingularityConfig) -> Self {
         Self {
             config,
@@ -124,16 +124,16 @@ impl Singularity {
         Self::new(cfg)
     }
 
-    fn create_index(&self) -> Box<dyn AnnIndex> {
+    fn create_index(&self) -> Box<dyn AnnIndex<H>> {
         crate::index::create_index(&self.config.index_backend)
             .expect("ANN index creation failed; check feature flags and configuration")
     }
 
-    pub(crate) fn get_namespace(&self, ns: &str) -> Option<&NamespaceState> {
+    pub(crate) fn get_namespace(&self, ns: &str) -> Option<&NamespaceState<H>> {
         self.namespaces.get(ns)
     }
 
-    pub(crate) fn get_namespace_mut(&mut self, ns: &str) -> &mut NamespaceState {
+    pub(crate) fn get_namespace_mut(&mut self, ns: &str) -> &mut NamespaceState<H> {
         if !self.namespaces.contains_key(ns) {
             let index = self.create_index();
             self.namespaces
@@ -143,7 +143,7 @@ impl Singularity {
     }
 
     #[instrument(skip(self, concept))]
-    pub fn inject(&mut self, ns: &str, concept: Concept) -> Result<()> {
+    pub fn inject(&mut self, ns: &str, concept: Concept<H>) -> Result<()> {
         self.evict_oldest_if_needed(ns);
         let id = concept.id.clone();
         let vector = concept.vector;
@@ -168,7 +168,7 @@ impl Singularity {
         Ok(())
     }
 
-    pub fn update(&mut self, ns: &str, id: &str, vector: HVec10240) -> Result<()> {
+    pub fn update(&mut self, ns: &str, id: &str, vector: H) -> Result<()> {
         let ns_state = self.get_namespace_mut(ns);
         if let Some(concept) = ns_state.concepts.get_mut(id) {
             concept.vector = vector;
@@ -225,7 +225,7 @@ impl Singularity {
         }
     }
 
-    pub fn get(&self, ns: &str, id: &str) -> Option<&Concept> {
+    pub fn get(&self, ns: &str, id: &str) -> Option<&Concept<H>> {
         self.get_namespace(ns).and_then(|n| n.concepts.get(id))
     }
     pub fn associate(&mut self, ns: &str, from: &str, to: &str, strength: f32) -> Result<()> {
@@ -309,7 +309,7 @@ impl Singularity {
         incoming
     }
 
-    pub fn all_concepts(&self, ns: &str) -> Vec<Concept> {
+    pub fn all_concepts(&self, ns: &str) -> Vec<Concept<H>> {
         self.get_namespace(ns)
             .map(|n| n.concepts.values().cloned().collect())
             .unwrap_or_default()
@@ -401,10 +401,10 @@ pub fn unix_now_ns() -> u64 {
     u64::try_from(nanos).unwrap_or(u64::MAX)
 }
 
-pub(crate) fn similarity_cache_key(query: &HVec10240, top_k: usize) -> u64 {
+pub(crate) fn similarity_cache_key<H: Hypervector>(query: &H, top_k: usize) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut s = std::collections::hash_map::DefaultHasher::new();
-    query.data.hash(&mut s);
+    query.to_bytes().hash(&mut s);
     top_k.hash(&mut s);
     s.finish()
 }

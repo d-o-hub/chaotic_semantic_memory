@@ -40,7 +40,7 @@ pub use error::{MemoryError, Result};
 pub use framework::ChaoticSemanticFramework;
 pub use framework_builder::FrameworkBuilder;
 pub use framework_events::MemoryEvent;
-pub use hyperdim::{HVec10240, batch_cosine_similarity};
+pub use hyperdim::{BHVec10240, HVec10240, Hypervector, batch_cosine_similarity};
 pub use semantic_bridge::{
     BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown,
 };
@@ -72,9 +72,6 @@ mod framework_ttl;
 mod framework_validation;
 pub mod graph_traversal;
 pub mod hyperdim;
-mod hyperdim_batch;
-mod hyperdim_serde; // Extracted from hyperdim.rs for LOC gate
-mod hyperdim_simd; // AVX2/NEON SIMD paths
 #[cfg(all(not(target_arch = "wasm32"), feature = "mcp"))]
 pub mod mcp;
 pub mod metadata_filter;

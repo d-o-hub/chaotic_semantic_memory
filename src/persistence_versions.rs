@@ -1,23 +1,24 @@
 use crate::error::{MemoryError, Result};
+use crate::hyperdim::Hypervector;
 use crate::persistence::Persistence;
 use crate::singularity::Concept;
 use libsql::{Connection, params};
 
 impl Persistence {
-    pub(crate) async fn record_concept_version(
+    pub(crate) async fn record_concept_version<H: Hypervector + 'static>(
         &self,
         conn: &Connection,
-        concept: &Concept,
+        concept: &Concept<H>,
     ) -> Result<()> {
         self.record_concept_version_scoped(conn, "_default", concept)
             .await
     }
 
-    pub(crate) async fn record_concept_version_scoped(
+    pub(crate) async fn record_concept_version_scoped<H: Hypervector + 'static>(
         &self,
         conn: &Connection,
         ns: &str,
-        concept: &Concept,
+        concept: &Concept<H>,
     ) -> Result<()> {
         let mut rows = conn
             .query(

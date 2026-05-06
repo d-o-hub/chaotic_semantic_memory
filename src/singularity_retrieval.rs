@@ -17,7 +17,7 @@ use std::sync::Arc;
 use rayon::prelude::*;
 
 use crate::error::Result;
-use crate::hyperdim::HVec10240;
+use crate::hyperdim::{HVec10240, Hypervector};
 use crate::singularity::{Singularity, unix_now_ns};
 
 /// Statistics from the last retrieval operation.
@@ -55,8 +55,8 @@ pub enum FilterStrategy {
 }
 
 /// Parameters for scored candidate retrieval.
-pub(crate) struct ScoredCandidateParams<'a> {
-    pub query: &'a HVec10240,
+pub(crate) struct ScoredCandidateParams<'a, H: Hypervector = HVec10240> {
+    pub query: &'a H,
     pub top_k: usize,
     pub candidates: Vec<usize>,
     pub start_ns: u64,
@@ -97,7 +97,7 @@ impl Default for RetrievalConfig {
     }
 }
 
-impl Singularity {
+impl<H: Hypervector + 'static> Singularity<H> {
     /// Set the retrieval configuration.
     pub fn set_retrieval_config(&mut self, config: RetrievalConfig) -> Result<()> {
         config.validate()?;
@@ -115,7 +115,7 @@ impl Singularity {
     }
 
     /// Generate candidates by expanding the association graph.
-    pub(crate) fn generate_graph_candidates(&self, ns: &str, query: &HVec10240) -> Vec<usize> {
+    pub(crate) fn generate_graph_candidates(&self, ns: &str, query: &H) -> Vec<usize> {
         let Some(ns_state) = self.get_namespace(ns) else {
             return Vec::new();
         };
@@ -153,16 +153,19 @@ impl Singularity {
     }
 
     /// Generate candidates by coarse bucketing.
-    pub(crate) fn generate_bucket_candidates(&self, ns: &str, query: &HVec10240) -> Vec<usize> {
+    pub(crate) fn generate_bucket_candidates(&self, ns: &str, query: &H) -> Vec<usize> {
         let Some(ns_state) = self.get_namespace(ns) else {
             return Vec::new();
         };
-        debug_assert!(self._retrieval_config.bucket_probe_width <= 127);
-        let bucket_mask = (1u128 << self._retrieval_config.bucket_probe_width) - 1;
-        let query_bucket = query.data[0] & bucket_mask;
+        debug_assert!(self._retrieval_config.bucket_probe_width <= 64);
+        let bucket_mask = (1u64 << self._retrieval_config.bucket_probe_width) - 1;
+        let query_bytes = query.to_bytes();
+        let query_bucket = u64::from_le_bytes(query_bytes[0..8].try_into().unwrap_or([0u8; 8])) & bucket_mask;
 
-        let filter = |(idx, vec): (usize, &HVec10240)| {
-            if (vec.data[0] & bucket_mask) == query_bucket {
+        let filter = |(idx, vec): (usize, &H)| {
+            let vec_bytes = vec.to_bytes();
+            let vec_bucket = u64::from_le_bytes(vec_bytes[0..8].try_into().unwrap_or([0u8; 8])) & bucket_mask;
+            if vec_bucket == query_bucket {
                 Some(idx)
             } else {
                 None
@@ -196,7 +199,7 @@ impl Singularity {
     pub(crate) fn exact_similarity_scan(
         &self,
         ns: &str,
-        query: &HVec10240,
+        query: &H,
         top_k: usize,
         start_ns: u64,
         bypass_cache: bool,
@@ -275,7 +278,7 @@ impl Singularity {
     pub(crate) fn scored_candidate_retrieval(
         &self,
         ns: &str,
-        params: ScoredCandidateParams,
+        params: ScoredCandidateParams<H>,
     ) -> Arc<[(String, f32)]> {
         let Some(ns_state) = self.get_namespace(ns) else {
             return Arc::from(Vec::new());
@@ -383,7 +386,7 @@ impl Singularity {
     pub(crate) fn scored_candidate_retrieval_with_stats(
         &self,
         ns: &str,
-        params: ScoredCandidateParams,
+        params: ScoredCandidateParams<H>,
         selectivity: f32,
         strategy: Option<FilterStrategy>,
     ) -> Arc<[(String, f32)]> {
@@ -464,16 +467,17 @@ impl Singularity {
 #[cfg(test)]
 mod tests_v2 {
     use crate::singularity::{Singularity, SingularityConfig};
+    use crate::hyperdim::HVec10240;
 
     #[test]
     fn singularity_last_stats_v2() {
-        let s = Singularity::new(SingularityConfig::default());
+        let s = Singularity::<HVec10240>::new(SingularityConfig::default());
         assert_eq!(s.last_retrieval_stats("_default").candidate_count, 0);
     }
 
     #[test]
     fn singularity_get_config_v2() {
-        let s = Singularity::new(SingularityConfig::default());
+        let s = Singularity::<HVec10240>::new(SingularityConfig::default());
         assert_eq!(s.retrieval_config().max_candidates, 1000);
     }
 }
