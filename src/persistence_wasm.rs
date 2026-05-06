@@ -136,6 +136,10 @@ impl Persistence {
         Err(wasm_persistence_unavailable())
     }
 
+    pub async fn list_namespaces(&self) -> Result<Vec<String>> {
+        Err(wasm_persistence_unavailable())
+    }
+
     pub async fn load_index(&self, _ns: &str, _id: &str) -> Result<Option<Vec<u8>>> {
         Err(wasm_persistence_unavailable())
     }

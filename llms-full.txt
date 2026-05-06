@@ -3950,6 +3950,7 @@ impl Persistence {
     pub fn health_check(&self) -> Result<()>;
     pub fn size(&self) -> Result<u64>;
     pub fn save_index(&self, _ns: &str, _id: &str, _data: &[u8]) -> Result<()>;
+    pub fn list_namespaces(&self) -> Result<Vec<String>>;
     pub fn load_index(&self, _ns: &str, _id: &str) -> Result<Option<Vec<u8>>>;
 }
 ```

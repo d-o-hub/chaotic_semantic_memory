@@ -1,5 +1,6 @@
 use crate::error::Result;
 use crate::framework::ChaoticSemanticFramework;
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 
 impl ChaoticSemanticFramework {
@@ -47,6 +48,7 @@ impl ChaoticSemanticFramework {
     ///
     /// Loads the namespace data from persistence if not currently in memory,
     /// then exports using the existing `export_json` logic.
+    #[cfg(not(target_arch = "wasm32"))]
     pub async fn export_namespace(&self, ns: &str, path: &Path) -> Result<()> {
         let path_str = path
             .to_str()
