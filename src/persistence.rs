@@ -138,7 +138,7 @@ impl Persistence {
                 metadata TEXT NOT NULL,
                 modified_at INTEGER NOT NULL,
                 PRIMARY KEY (concept_id, version),
-                FOREIGN KEY (concept_id) REFERENCES csm_concepts(id) ON DELETE CASCADE
+                FOREIGN KEY (concept_id) REFERENCES csm_concepts(id)
             );
             CREATE TABLE IF NOT EXISTS csm_schema_version (
                 version INTEGER PRIMARY KEY
