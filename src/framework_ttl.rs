@@ -1,25 +1,26 @@
 //! TTL (Time-To-Live) and text convenience operations for ChaoticSemanticFramework.
 
 use crate::error::Result;
+use crate::hyperdim::Hypervector;
 use crate::framework_events::MemoryEvent;
 use crate::hyperdim::HVec10240;
 use crate::metadata_filter::MetadataFilter;
-use crate::singularity::ConceptBuilder;
+use crate::singularity::Concept<H>Builder;
 use std::collections::HashMap;
 use tracing::instrument;
 
-impl crate::framework::ChaoticSemanticFramework {
+impl<H: Hypervector> crate::framework::ChaoticSemanticFramework<H> {
     /// Inject a concept with TTL. The concept expires after `ttl_seconds`; expired concepts are filtered during probe.
     #[instrument(err, skip(self, id, vector))]
     pub async fn inject_concept_with_ttl(
         &self,
         id: impl Into<String>,
-        vector: HVec10240,
+        vector: H,
         ttl_seconds: u64,
     ) -> Result<()> {
         let id = id.into();
         Self::validate_concept_id(&id)?;
-        let concept = ConceptBuilder::new(id.clone())
+        let concept = Concept<H>Builder::new(id.clone())
             .with_vector(vector)
             .with_ttl(ttl_seconds)
             .build()?;
@@ -40,7 +41,7 @@ impl crate::framework::ChaoticSemanticFramework {
             );
         }
         self.metrics.inc_concepts_injected(1);
-        self.emit_event(MemoryEvent::ConceptInjected {
+        self.emit_event(MemoryEvent::Concept<H>Injected {
             id,
             timestamp: concept.modified_at,
         });
@@ -367,7 +368,7 @@ mod tests {
         );
 
         // Verify deserialization
-        let deserialized: crate::singularity::Concept =
+        let deserialized: crate::singularity::Concept<H> =
             serde_json::from_str(&json).expect("should deserialize concept");
         assert_eq!(
             deserialized.expires_at, concept.expires_at,

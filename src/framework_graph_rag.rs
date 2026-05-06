@@ -1,12 +1,13 @@
 //! GraphRAG retrieval extension for framework.
 
 use crate::error::Result;
+use crate::hyperdim::Hypervector;
 use crate::framework::ChaoticSemanticFramework;
 use crate::hyperdim::HVec10240;
 use crate::retrieval::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
 use tracing::instrument;
 
-impl ChaoticSemanticFramework {
+impl<H: Hypervector> ChaoticSemanticFramework<H> {
     /// GraphRAG retrieval: similarity + graph traversal hybrid.
     ///
     /// Combines vector similarity with graph traversal for unified retrieval:

@@ -1,4 +1,5 @@
 use crate::error::Result;
+use crate::hyperdim::Hypervector;
 use crate::framework::ChaoticSemanticFramework;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::hyperdim::HVec10240;
@@ -7,7 +8,7 @@ use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-impl ChaoticSemanticFramework {
+impl<H: Hypervector> ChaoticSemanticFramework<H> {
     /// Set the current namespace.
     pub async fn set_namespace(&self, ns: impl Into<String>) {
         let mut namespace = self.namespace.write().await;

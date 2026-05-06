@@ -1,13 +1,14 @@
 //! Framework extensions for reranking retrieval results.
 
 use crate::error::Result;
+use crate::hyperdim::Hypervector;
 use crate::framework::ChaoticSemanticFramework;
 use crate::hyperdim::HVec10240;
 use crate::retrieval::rerank::{RerankCandidate, Reranker};
 use std::sync::Arc;
 use tracing::instrument;
 
-impl ChaoticSemanticFramework {
+impl<H: Hypervector> ChaoticSemanticFramework<H> {
     /// Query for similar concepts and apply a pipeline of rerankers.
     #[instrument(err, skip(self, query, rerankers))]
     pub async fn probe_with_rerankers(

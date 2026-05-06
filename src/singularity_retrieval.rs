@@ -79,7 +79,7 @@ pub struct RetrievalConfig {
 
 impl RetrievalConfig {
     pub fn validate(&self) -> Result<()> {
-        crate::framework::ChaoticSemanticFramework::validate_retrieval_config(self)
+        crate::framework::ChaoticSemanticFramework::<crate::hyperdim::HVec10240>::validate_retrieval_config(self)
     }
 }
 

@@ -18,7 +18,7 @@ use crate::reservoir::ChaoticReservoir;
 use crate::singularity::{Concept, ConceptBuilder, Singularity, unix_now_secs};
 
 /// Main framework for chaotic semantic memory
-pub struct ChaoticSemanticFramework<H: Hypervector = HVec10240> {
+pub struct ChaoticSemanticFramework<H: Hypervector> {
     pub(crate) singularity: Arc<RwLock<Singularity<H>>>,
     #[cfg(feature = "persistence")]
     pub(crate) persistence: Option<Arc<Persistence>>,
@@ -225,10 +225,11 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         sing.shortest_path(&ns, from, to, &TraversalConfig::default())
     }
 
-    /// Process temporal sequence through reservoir
+    /// Process temporal sequence through reservoir.
+    /// Returns a high-fidelity float hypervector.
     // Reservoir lock needed for sequence processing
     #[instrument(err, skip(self, sequence))]
-    pub async fn process_sequence(&self, sequence: &[Vec<f32>]) -> Result<H> {
+    pub async fn process_sequence(&self, sequence: &[Vec<f32>]) -> Result<HVec10240> {
         self.validate_sequence_length(sequence.len())?;
         let mut reservoir = self.reservoir.write().await;
 

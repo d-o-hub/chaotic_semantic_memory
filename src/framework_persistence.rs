@@ -5,10 +5,10 @@
 use tracing::warn;
 
 use crate::error::Result;
-use crate::hyperdim::HVec10240;
+use crate::hyperdim::Hypervector;
 use crate::framework::ChaoticSemanticFramework;
 
-impl ChaoticSemanticFramework {
+impl<H: Hypervector> ChaoticSemanticFramework<H> {
     /// Persist all data to storage
     #[tracing::instrument(err, skip(self))]
     pub async fn persist(&self) -> Result<()> {
@@ -55,7 +55,7 @@ impl ChaoticSemanticFramework {
         let p_start = std::time::Instant::now();
         if let Some(ref persistence) = self.persistence {
             let ns = self.namespace.read().await;
-            let concepts = persistence.load_all_concepts::<HVec10240>(&ns).await?;
+            let concepts = persistence.load_all_concepts::<H>(&ns).await?;
 
             for concept in &concepts {
                 self.validate_concept(concept)?;
@@ -124,7 +124,7 @@ impl ChaoticSemanticFramework {
     pub async fn load_merge(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
             let ns = self.namespace.read().await;
-            let concepts = persistence.load_all_concepts::<HVec10240>(&ns).await?;
+            let concepts = persistence.load_all_concepts::<H>(&ns).await?;
 
             for concept in &concepts {
                 self.validate_concept(concept)?;

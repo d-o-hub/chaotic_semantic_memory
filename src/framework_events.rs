@@ -20,15 +20,15 @@ const DEFAULT_EVENT_CHANNEL_CAPACITY: usize = 1024;
 
 #[derive(Debug, Clone)]
 pub enum MemoryEvent {
-    ConceptInjected {
+    Concept<H>Injected {
         id: String,
         timestamp: u64,
     },
-    ConceptUpdated {
+    Concept<H>Updated {
         id: String,
         timestamp: u64,
     },
-    ConceptDeleted {
+    Concept<H>Deleted {
         id: String,
         timestamp: u64,
     },
@@ -58,7 +58,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
     pub async fn update_concept_vector(&self, id: &str, vector: H) -> Result<()> {
         let ns = self.namespace.read().await;
         self.singularity.write().await.update(&ns, id, vector)?;
-        self.emit_event(MemoryEvent::ConceptUpdated {
+        self.emit_event(MemoryEvent::Concept<H>Updated {
             id: id.to_string(),
             timestamp: unix_now_secs(),
         });
@@ -77,7 +77,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
             .write()
             .await
             .update_metadata(&ns, id, metadata)?;
-        self.emit_event(MemoryEvent::ConceptUpdated {
+        self.emit_event(MemoryEvent::Concept<H>Updated {
             id: id.to_string(),
             timestamp: unix_now_secs(),
         });
@@ -123,15 +123,15 @@ mod tests {
 
     #[test]
     fn memory_event_variants_construct() {
-        let injected = MemoryEvent::ConceptInjected {
+        let injected = MemoryEvent::Concept<H>Injected {
             id: "test-id".to_string(),
             timestamp: 12345,
         };
-        let updated = MemoryEvent::ConceptUpdated {
+        let updated = MemoryEvent::Concept<H>Updated {
             id: "test-id".to_string(),
             timestamp: 12346,
         };
-        let _deleted = MemoryEvent::ConceptDeleted {
+        let _deleted = MemoryEvent::Concept<H>Deleted {
             id: "test-id".to_string(),
             timestamp: 12347,
         };
@@ -147,11 +147,11 @@ mod tests {
 
         // Verify Clone works
         let cloned = injected;
-        assert!(matches!(cloned, MemoryEvent::ConceptInjected { .. }));
+        assert!(matches!(cloned, MemoryEvent::Concept<H>Injected { .. }));
 
         // Verify Debug works
         let debug_str = format!("{updated:?}");
-        assert!(debug_str.contains("ConceptUpdated"));
+        assert!(debug_str.contains("Concept<H>Updated"));
     }
 
     #[test]
@@ -168,7 +168,7 @@ mod tests {
         let mut rx1 = sender.subscribe();
         let mut rx2 = sender.subscribe();
 
-        let event = MemoryEvent::ConceptInjected {
+        let event = MemoryEvent::Concept<H>Injected {
             id: "broadcast-test".to_string(),
             timestamp: 99999,
         };
@@ -180,10 +180,10 @@ mod tests {
         let recv2 = rx2.try_recv().unwrap();
 
         assert!(
-            matches!(recv1, MemoryEvent::ConceptInjected { id, timestamp } if id == "broadcast-test" && timestamp == 99999)
+            matches!(recv1, MemoryEvent::Concept<H>Injected { id, timestamp } if id == "broadcast-test" && timestamp == 99999)
         );
         assert!(
-            matches!(recv2, MemoryEvent::ConceptInjected { id, timestamp } if id == "broadcast-test" && timestamp == 99999)
+            matches!(recv2, MemoryEvent::Concept<H>Injected { id, timestamp } if id == "broadcast-test" && timestamp == 99999)
         );
     }
 
@@ -197,7 +197,7 @@ mod tests {
         // Send multiple events - broadcast channel doesn't block on overflow
         for i in 0..200 {
             sender
-                .send(MemoryEvent::ConceptInjected {
+                .send(MemoryEvent::Concept<H>Injected {
                     id: format!("id-{i}"),
                     timestamp: i,
                 })
@@ -206,7 +206,7 @@ mod tests {
 
         // Sender should still be functional
         sender
-            .send(MemoryEvent::ConceptDeleted {
+            .send(MemoryEvent::Concept<H>Deleted {
                 id: "final".to_string(),
                 timestamp: 999,
             })
