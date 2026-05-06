@@ -95,7 +95,7 @@ TEST_DB="/tmp/csm_test_$$.db"
 TEST_JSON="/tmp/csm_test_$$.json"
 
 cleanup() {
-    rm -f "${TEST_DB}" "${TEST_JSON}" backup.json /tmp/csm_test_*.db /tmp/csm_test_*.json 2>/dev/null || true
+    rm -f "${TEST_DB}" "${TEST_JSON}" backup.json 2>/dev/null || true
 }
 trap cleanup EXIT
 

@@ -2,10 +2,9 @@ use chaotic_semantic_memory::persistence::Persistence;
 
 #[tokio::main]
 async fn main() {
-    let db_path = "/tmp/test_migration.db";
-    if std::path::Path::new(db_path).exists() {
-        std::fs::remove_file(db_path).unwrap();
-    }
+    let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let db_path_buf = temp_dir.path().join("test_migration.db");
+    let db_path = db_path_buf.to_str().unwrap();
 
     // Creating persistence with current code should initialize it to latest version (8)
     let p = Persistence::new_local(db_path)
