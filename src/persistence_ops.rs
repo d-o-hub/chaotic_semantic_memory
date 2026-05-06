@@ -3,6 +3,7 @@ use tokio::fs;
 use tracing::warn;
 
 use crate::error::{MemoryError, Result};
+use crate::hyperdim::Hypervector;
 use crate::persistence::{ConceptVersion, Persistence};
 
 impl Persistence {
@@ -104,12 +105,12 @@ impl Persistence {
         Ok(())
     }
 
-    pub async fn get_concept_history(
+    pub async fn get_concept_history<H: Hypervector + 'static>(
         &self,
         ns: &str,
         id: &str,
         limit: usize,
-    ) -> Result<Vec<ConceptVersion>> {
+    ) -> Result<Vec<ConceptVersion<H>>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
@@ -148,7 +149,7 @@ impl Persistence {
             history.push(ConceptVersion {
                 concept_id,
                 version,
-                vector: crate::hyperdim::HVec10240::from_bytes(&vector_bytes)?,
+                vector: H::from_bytes(&vector_bytes)?,
                 metadata: serde_json::from_str(&metadata_json)?,
                 modified_at: modified_at as u64,
             });

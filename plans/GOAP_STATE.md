@@ -926,10 +926,3 @@ world_state:
     loc_gate: satisfied
   rebase_commit: b771317
   pr_173_status: "OPEN, MERGEABLE, BLOCKED (old CI: benchmark-small failed, waiting for new CI run on b771317)"
-
-  # ═══════════════════════════════════════════════════════
-  # Wave 25: CloudEvents Event Emitter (P2)
-  # ═══════════════════════════════════════════════════════
-  cloudevents_adr_written: true
-  cloudevents_implemented: false
-  cloudevents_tested: false

@@ -5,6 +5,7 @@
 use tracing::warn;
 
 use crate::error::Result;
+use crate::hyperdim::HVec10240;
 use crate::framework::ChaoticSemanticFramework;
 
 impl ChaoticSemanticFramework {
@@ -54,7 +55,7 @@ impl ChaoticSemanticFramework {
         let p_start = std::time::Instant::now();
         if let Some(ref persistence) = self.persistence {
             let ns = self.namespace.read().await;
-            let concepts = persistence.load_all_concepts(&ns).await?;
+            let concepts = persistence.load_all_concepts::<HVec10240>(&ns).await?;
 
             for concept in &concepts {
                 self.validate_concept(concept)?;
@@ -123,7 +124,7 @@ impl ChaoticSemanticFramework {
     pub async fn load_merge(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
             let ns = self.namespace.read().await;
-            let concepts = persistence.load_all_concepts(&ns).await?;
+            let concepts = persistence.load_all_concepts::<HVec10240>(&ns).await?;
 
             for concept in &concepts {
                 self.validate_concept(concept)?;

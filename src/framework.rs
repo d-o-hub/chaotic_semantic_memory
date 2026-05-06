@@ -349,7 +349,7 @@ impl ChaoticSemanticFramework {
 
     /// Get a concept by ID.
     #[instrument(err, skip(self))]
-    pub async fn get_concept(&self, id: &str) -> Result<Option<Concept>> {
+    pub async fn get_concept(&self, id: &str) -> Result<Option<Concept<HVec10240>>> {
         Self::validate_concept_id(id)?;
         let sing = self.singularity.read().await;
         let ns = self.namespace.read().await;

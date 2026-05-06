@@ -1,5 +1,6 @@
 use crate::error::Result;
 use crate::framework::ChaoticSemanticFramework;
+use crate::hyperdim::HVec10240;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 use std::sync::Arc;
@@ -77,7 +78,7 @@ impl ChaoticSemanticFramework {
         };
         if needs_load {
             if let Some(ref persistence) = self.persistence {
-                if let Ok(concepts) = persistence.load_all_concepts(ns).await {
+                if let Ok(concepts) = persistence.load_all_concepts::<HVec10240>(ns).await {
                     let mut sing = self.singularity.write().await;
                     for concept in concepts {
                         let _ = sing.inject(ns, concept);

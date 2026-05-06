@@ -127,28 +127,28 @@ pub mod persistence {
 
     /// Stub concept version type when persistence feature is disabled.
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-    pub struct ConceptVersion {
+    pub struct ConceptVersion<H: Hypervector = HVec10240> {
         pub concept_id: String,
         pub version: i64,
-        pub vector: HVec10240,
+        pub vector: H,
         pub metadata: serde_json::Value,
         pub modified_at: u64,
     }
 
     impl Persistence {
-        pub async fn save_concept(&self, _concept: &Concept) -> Result<()> {
+        pub async fn save_concept<H: Hypervector + 'static>(&self, _concept: &Concept<H>) -> Result<()> {
             Ok(())
         }
 
-        pub async fn save_concepts(&self, _concepts: &[Concept]) -> Result<()> {
+        pub async fn save_concepts<H: Hypervector + 'static>(&self, _concepts: &[Concept<H>]) -> Result<()> {
             Ok(())
         }
 
-        pub async fn load_concept(&self, _id: &str) -> Result<Option<Concept>> {
+        pub async fn load_concept<H: Hypervector + 'static>(&self, _ns: &str, _id: &str) -> Result<Option<Concept<H>>> {
             Ok(None)
         }
 
-        pub async fn load_all_concepts(&self) -> Result<Vec<Concept>> {
+        pub async fn load_all_concepts<H: Hypervector + 'static>(&self, _ns: &str) -> Result<Vec<Concept<H>>> {
             Ok(Vec::new())
         }
 
@@ -203,11 +203,12 @@ pub mod persistence {
             Ok(())
         }
 
-        pub async fn get_concept_history(
+        pub async fn get_concept_history<H: Hypervector + 'static>(
             &self,
+            _ns: &str,
             _id: &str,
             _limit: usize,
-        ) -> Result<Vec<ConceptVersion>> {
+        ) -> Result<Vec<ConceptVersion<H>>> {
             Ok(Vec::new())
         }
 

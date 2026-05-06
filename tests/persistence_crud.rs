@@ -386,7 +386,7 @@ async fn concept_history_tracks_versions() {
     persistence.save_concept(NS, &v3).await.unwrap();
 
     let history = persistence
-        .get_concept_history(NS, "history-test", 10)
+        .get_concept_history::<HVec10240>(NS, "history-test", 10)
         .await
         .unwrap();
     assert!(!history.is_empty(), "Version history should not be empty");
@@ -408,7 +408,7 @@ async fn concept_history_respects_limit() {
     }
 
     let history = persistence
-        .get_concept_history(NS, "limited-history", 2)
+        .get_concept_history::<HVec10240>(NS, "limited-history", 2)
         .await
         .unwrap();
     assert!(!history.is_empty());
@@ -422,7 +422,7 @@ async fn concept_history_empty_for_unknown() {
     let persistence = Persistence::new_local(path).await.unwrap();
 
     let history = persistence
-        .get_concept_history(NS, "unknown", 10)
+        .get_concept_history::<HVec10240>(NS, "unknown", 10)
         .await
         .unwrap();
     assert!(history.is_empty());
@@ -701,7 +701,7 @@ async fn version_history_deleted_with_concept() {
         .unwrap();
 
     let history_before = persistence
-        .get_concept_history(NS, "version-delete-test", 10)
+        .get_concept_history::<HVec10240>(NS, "version-delete-test", 10)
         .await
         .unwrap();
     assert!(
@@ -715,7 +715,7 @@ async fn version_history_deleted_with_concept() {
         .unwrap();
 
     let history_after = persistence
-        .get_concept_history(NS, "version-delete-test", 10)
+        .get_concept_history::<HVec10240>(NS, "version-delete-test", 10)
         .await
         .unwrap();
     assert!(
