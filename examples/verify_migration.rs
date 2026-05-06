@@ -2,7 +2,7 @@ use chaotic_semantic_memory::persistence::Persistence;
 
 #[tokio::main]
 async fn main() {
-    let db_path = "test_migration.db";
+    let db_path = "/tmp/test_migration.db";
     if std::path::Path::new(db_path).exists() {
         std::fs::remove_file(db_path).unwrap();
     }

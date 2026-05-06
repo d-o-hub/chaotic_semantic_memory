@@ -97,3 +97,11 @@ csm_memory.db
 
 commit_messages.txt
 *.log
+# Prevent root-level text, db, and log files
+/*.txt
+!/llms.txt
+!/llms-full.txt
+!/CMakeLists.txt
+!/commit_messages.txt
+/*.db
+/*.log
