@@ -11,8 +11,8 @@ use crate::cli::args::{AssociateArgs, OutputFormat};
 use crate::cli::error::{CliError, Result};
 
 use super::{
-    create_framework, print_error, print_success, print_warning, validate_concept_id,
-    validate_strength,
+    create_framework_with_namespace, print_error, print_success, print_warning,
+    validate_concept_id, validate_strength,
 };
 
 #[instrument(name = "cli_associate")]
@@ -25,7 +25,8 @@ pub async fn run_associate(
     validate_concept_id(&args.target_id)?;
     validate_strength(args.strength)?;
 
-    let framework = create_framework(db_path).await?;
+    let framework: crate::framework::ChaoticSemanticFramework =
+        create_framework_with_namespace(db_path, &args.namespace).await?;
 
     let source_exists = framework
         .get_concept(&args.source_id)
@@ -103,12 +104,14 @@ pub async fn run_associate(
 }
 
 pub async fn run_associate_batch(
+    ns: &str,
     associations: Vec<(String, String, f64)>,
     db_path: Option<&Path>,
     format: OutputFormat,
     continue_on_error: bool,
 ) -> Result<()> {
-    let framework = create_framework(db_path).await?;
+    let framework: crate::framework::ChaoticSemanticFramework =
+        create_framework_with_namespace(db_path, ns).await?;
 
     let mut created = 0usize;
     let mut failed = 0usize;

@@ -5,3 +5,11 @@
 !*.log
 !.*.db
 !.json
+!*.csv
+!*.txt
+!.md
+!.py
+!.ipynb
+!.yaml
+!.yml
+!.log

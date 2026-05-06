@@ -64,10 +64,10 @@ pub mod framework_builder;
 mod framework_events;
 mod framework_graph_rag;
 mod framework_metrics;
+mod framework_namespaces;
 #[cfg(not(target_arch = "wasm32"))]
 mod framework_ops;
 mod framework_persistence; // Extracted from framework.rs for LOC gate
-mod framework_rerank;
 mod framework_ttl;
 mod framework_validation;
 pub mod graph_traversal;
@@ -78,11 +78,9 @@ mod hyperdim_simd; // AVX2/NEON SIMD paths
 #[cfg(all(not(target_arch = "wasm32"), feature = "mcp"))]
 pub mod mcp;
 pub mod metadata_filter;
-#[cfg(all(
-    not(target_arch = "wasm32"),
-    any(feature = "otlp", feature = "prometheus")
-))]
-pub mod observability;
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+mod persistence_concepts;
 pub mod semantic_triples;
 pub use metadata_filter::MetadataFilter;
 pub mod index;
@@ -97,6 +95,7 @@ mod persistence_ops;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_versions;
 #[cfg(target_arch = "wasm32")]
+#[cfg(target_arch = "wasm32")]
 pub mod persistence_wasm;
 pub mod reservoir;
 mod reservoir_inertial; // ADR-0064
@@ -108,8 +107,10 @@ mod singularity_cache;
 mod singularity_ext;
 mod singularity_retrieval;
 mod singularity_search; // Extracted from singularity.rs for LOC gate
+pub mod singularity_state;
 mod singularity_ttl;
 
+#[cfg(target_arch = "wasm32")]
 #[cfg(target_arch = "wasm32")]
 pub use crate::persistence_wasm as persistence;
 

@@ -6,6 +6,8 @@ use chaotic_semantic_memory::prelude::*;
 use std::sync::Arc;
 use tempfile::NamedTempFile;
 
+const NS: &str = "_default";
+
 fn make_concept_batch(n: usize) -> Vec<(String, HVec10240)> {
     (0..n)
         .map(|i| (format!("concept_{i}"), HVec10240::random()))

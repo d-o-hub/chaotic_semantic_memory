@@ -56,12 +56,13 @@ impl BridgeRetrieval {
     /// 6. Optional reranking
     pub fn query(
         &self,
+        ns: &str,
         singularity: &Singularity,
         query_text: &str,
         top_k: usize,
         reranker: Option<&dyn SemanticReranker>,
     ) -> Result<Vec<BridgeHit>> {
-        if top_k == 0 || singularity.is_empty() {
+        if top_k == 0 || singularity.is_empty(ns) {
             return Ok(Vec::new());
         }
 
@@ -70,7 +71,7 @@ impl BridgeRetrieval {
         let query_hv = self.encoder.encode(query_text);
 
         // Step 2: First recall - deterministic HDC scores
-        let primary_results = singularity.find_similar(&query_hv, top_k);
+        let primary_results = singularity.find_similar(ns, &query_hv, top_k);
         let primary_normalized = normalize_scores(&primary_results);
 
         // Step 3: Concept expansion
@@ -90,7 +91,7 @@ impl BridgeRetrieval {
                 .collect();
 
             let expanded_hv = HVec10240::bundle(&label_hvs).unwrap_or_else(|_| HVec10240::zero());
-            let results = singularity.find_similar(&expanded_hv, top_k);
+            let results = singularity.find_similar(ns, &expanded_hv, top_k);
             normalize_scores(&results)
         };
 
@@ -120,13 +121,14 @@ impl BridgeRetrieval {
     /// suitable for LLM context injection.
     pub fn memory_packet(
         &self,
+        ns: &str,
         singularity: &Singularity,
         query_text: &str,
         top_k: usize,
         reranker: Option<&dyn SemanticReranker>,
     ) -> Result<MemoryPacket> {
-        let hits = self.query(singularity, query_text, top_k, reranker)?;
-        self.compile_packet(query_text, &hits, singularity)
+        let hits = self.query(ns, singularity, query_text, top_k, reranker)?;
+        self.compile_packet(ns, query_text, &hits, singularity)
     }
 
     /// Merge primary and expanded results with score breakdown.
@@ -195,6 +197,7 @@ impl BridgeRetrieval {
     /// Compile hits into a memory packet with token budget.
     fn compile_packet(
         &self,
+        ns: &str,
         query_text: &str,
         hits: &[BridgeHit],
         singularity: &Singularity,
@@ -205,7 +208,7 @@ impl BridgeRetrieval {
 
         for hit in hits {
             // Get concept for text preview
-            if let Some(concept) = singularity.get(&hit.id) {
+            if let Some(concept) = singularity.get(ns, &hit.id) {
                 // Extract text from metadata or use ID
                 let text = concept
                     .metadata
@@ -284,16 +287,18 @@ mod tests {
 
     use super::*;
     use crate::semantic_bridge::CanonicalConcept;
-    use crate::singularity::Singularity;
+    use crate::singularity::{Singularity, SingularityConfig};
 
     #[test]
     fn test_bridge_retrieval_empty_singularity() {
         let encoder = TextEncoder::new();
         let graph = ConceptGraph::new();
         let bridge = BridgeRetrieval::with_defaults(encoder, graph);
-        let singularity = Singularity::new();
+        let singularity = Singularity::new(SingularityConfig::default());
 
-        let results = bridge.query(&singularity, "test query", 10, None).unwrap();
+        let results = bridge
+            .query("_default", &singularity, "test query", 10, None)
+            .unwrap();
         assert!(results.is_empty());
     }
 
@@ -303,14 +308,16 @@ mod tests {
         let graph = ConceptGraph::new();
         let bridge = BridgeRetrieval::with_defaults(encoder.clone(), graph);
 
-        let mut singularity = Singularity::new();
+        let mut singularity = Singularity::new(SingularityConfig::default());
         let concept = crate::singularity::ConceptBuilder::new("test-concept")
             .with_vector(encoder.encode("test content"))
             .build()
             .unwrap();
-        singularity.inject(concept).unwrap();
+        singularity.inject("_default", concept).unwrap();
 
-        let results = bridge.query(&singularity, "test query", 10, None).unwrap();
+        let results = bridge
+            .query("_default", &singularity, "test query", 10, None)
+            .unwrap();
         // Should return deterministic results even without graph expansion
         assert!(!results.is_empty());
         assert!(results[0].scores.deterministic > 0.0);
@@ -331,15 +338,15 @@ mod tests {
 
         let bridge = BridgeRetrieval::with_defaults(encoder.clone(), graph);
 
-        let mut singularity = Singularity::new();
+        let mut singularity = Singularity::new(SingularityConfig::default());
         let concept = crate::singularity::ConceptBuilder::new("mem-1")
             .with_vector(encoder.encode("session context for AI agent"))
             .build()
             .unwrap();
-        singularity.inject(concept).unwrap();
+        singularity.inject("_default", concept).unwrap();
 
         let results = bridge
-            .query(&singularity, "agent memory session", 10, None)
+            .query("_default", &singularity, "agent memory session", 10, None)
             .unwrap();
 
         assert!(!results.is_empty());
@@ -357,10 +364,10 @@ mod tests {
         let encoder = TextEncoder::new();
         let graph = ConceptGraph::new();
         let bridge = BridgeRetrieval::with_defaults(encoder, graph);
-        let singularity = Singularity::new();
+        let singularity = Singularity::new(SingularityConfig::default());
 
         let packet = bridge
-            .memory_packet(&singularity, "test query", 10, None)
+            .memory_packet("_default", &singularity, "test query", 10, None)
             .unwrap();
         assert!(packet.facts.is_empty());
         assert!(packet.sources.is_empty());
@@ -390,5 +397,30 @@ mod tests {
 
         let final_score = bridge.compute_final_score(&scores);
         assert!((final_score - 1.0).abs() < 1e-6); // All weights sum to 1.0
+    }
+}
+
+#[cfg(test)]
+mod tests_v2 {
+    use super::*;
+    use crate::hyperdim::HVec10240;
+    use crate::singularity::{ConceptBuilder, Singularity, SingularityConfig};
+
+    #[test]
+    fn test_bridge_retrieval_query_v2() {
+        let mut singularity = Singularity::new(SingularityConfig::default());
+        let concept = ConceptBuilder::new("c1")
+            .with_vector(HVec10240::random())
+            .build()
+            .unwrap();
+        singularity.inject("_default", concept).unwrap();
+
+        let bridge = BridgeRetrieval::new(
+            TextEncoder::new(),
+            ConceptGraph::new(),
+            BridgeConfig::default(),
+        );
+        let results = bridge.query("_default", &singularity, "test", 10, None);
+        assert!(results.is_ok());
     }
 }

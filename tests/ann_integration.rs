@@ -1,6 +1,11 @@
+#![cfg(any(feature = "ann-hnsw", feature = "ann-lsh"))]
+
 use chaotic_semantic_memory::index::IndexBackend;
 use chaotic_semantic_memory::prelude::*;
 
+const NS: &str = "_default";
+
+#[cfg(feature = "ann-hnsw")]
 #[tokio::test]
 async fn test_hnsw_index_integration() {
     let framework = FrameworkBuilder::new()
@@ -32,6 +37,7 @@ async fn test_hnsw_index_integration() {
     assert!(results[0].1 > 0.99);
 }
 
+#[cfg(feature = "ann-lsh")]
 #[tokio::test]
 async fn test_lsh_index_integration() {
     let framework = FrameworkBuilder::new()

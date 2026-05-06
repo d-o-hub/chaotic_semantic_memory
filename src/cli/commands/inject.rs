@@ -7,7 +7,7 @@ use crate::cli::args::{InjectArgs, OutputFormat, VectorSource};
 use crate::cli::error::{CliError, Result};
 use crate::hyperdim::HVec10240;
 
-use super::{create_framework_with_provider, print_success, print_warning, validate_concept_id};
+use super::{create_framework_advanced, print_success, print_warning, validate_concept_id};
 
 #[instrument(name = "cli_inject")]
 pub async fn run_inject(
@@ -17,7 +17,9 @@ pub async fn run_inject(
 ) -> Result<()> {
     validate_concept_id(&args.concept_id)?;
 
-    let framework = create_framework_with_provider(db_path, args.provider.as_deref()).await?;
+    let framework =
+        create_framework_advanced(db_path, args.provider.as_deref(), false, &args.namespace)
+            .await?;
 
     let source = if args.text.is_some() || args.use_embeddings {
         VectorSource::Text

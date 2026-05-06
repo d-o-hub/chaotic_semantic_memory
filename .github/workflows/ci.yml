@@ -24,8 +24,6 @@ jobs:
       PROTOC: /usr/bin/protoc
     steps:
     - uses: actions/checkout@v6
-    - name: Install protoc
-      run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7 # v1
     - name: Cache Rust dependencies
@@ -104,8 +102,6 @@ jobs:
       PROTOC: /usr/bin/protoc
     steps:
     - uses: actions/checkout@v6
-    - name: Install protoc
-      run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7 # v1
       with:

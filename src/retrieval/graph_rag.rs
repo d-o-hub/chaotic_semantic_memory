@@ -150,9 +150,10 @@ pub fn graph_rag_retrieve(
             hop_distance: candidate.hop_distance,
             assoc_strength: candidate.path_strength,
         };
-
-        let existing = best_by_id.get(&candidate.id);
-        if existing.is_none() || existing.unwrap().score < combined {
+        if best_by_id
+            .get(&candidate.id)
+            .is_none_or(|e| e.score < combined)
+        {
             best_by_id.insert(candidate.id.clone(), result);
         }
     }

@@ -12,7 +12,7 @@ use libsql::params;
 
 impl Persistence {
     /// Save a canonical concept to the database.
-    pub async fn save_canonical_concept(&self, concept: &CanonicalConcept) -> Result<()> {
+    pub async fn save_canonical_concept(&self, ns: &str, concept: &CanonicalConcept) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
@@ -20,9 +20,14 @@ impl Persistence {
         let related_json = serde_json::to_string(&concept.related)?;
 
         conn.execute(
-            "INSERT OR REPLACE INTO csm_canonical (id, version, labels_json, related_json)
-             VALUES (?1, ?2, ?3, ?4)",
+            "INSERT INTO csm_canonical (namespace, id, version, labels_json, related_json)
+             VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT(namespace, id) DO UPDATE SET
+             version = excluded.version,
+             labels_json = excluded.labels_json,
+             related_json = excluded.related_json",
             params![
+                ns.to_string(),
                 concept.id.clone(),
                 concept.version as i64,
                 labels_json,
@@ -36,28 +41,33 @@ impl Persistence {
     }
 
     /// Delete a canonical concept from the database.
-    pub async fn delete_canonical_concept(&self, id: &str) -> Result<()> {
+    pub async fn delete_canonical_concept(&self, ns: &str, id: &str) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
-        conn.execute("DELETE FROM csm_canonical WHERE id = ?1", params![id])
-            .await
-            .map_err(|e| {
-                MemoryError::database(format!("Failed to delete canonical concept: {e}"))
-            })?;
+        conn.execute(
+            "DELETE FROM csm_canonical WHERE namespace = ?1 AND id = ?2",
+            params![ns.to_string(), id],
+        )
+        .await
+        .map_err(|e| MemoryError::database(format!("Failed to delete canonical concept: {e}")))?;
 
         Ok(())
     }
 
-    /// Load a canonical concept by ID.
-    pub async fn load_canonical_concept(&self, id: &str) -> Result<Option<CanonicalConcept>> {
+    /// Load a canonical concept by namespace and ID.
+    pub async fn load_canonical_concept(
+        &self,
+        ns: &str,
+        id: &str,
+    ) -> Result<Option<CanonicalConcept>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
         let mut rows = conn
             .query(
-                "SELECT id, version, labels_json, related_json FROM csm_canonical WHERE id = ?1",
-                params![id],
+                "SELECT id, version, labels_json, related_json FROM csm_canonical WHERE namespace = ?1 AND id = ?2",
+                params![ns.to_string(), id],
             )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to load canonical concept: {e}")))?;
@@ -92,15 +102,15 @@ impl Persistence {
         }
     }
 
-    /// Load all canonical concepts from the database.
-    pub async fn load_all_canonical_concepts(&self) -> Result<Vec<CanonicalConcept>> {
+    /// Load all canonical concepts for a namespace from the database.
+    pub async fn load_all_canonical_concepts(&self, ns: &str) -> Result<Vec<CanonicalConcept>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
         let mut rows = conn
             .query(
-                "SELECT id, version, labels_json, related_json FROM csm_canonical",
-                params![],
+                "SELECT id, version, labels_json, related_json FROM csm_canonical WHERE namespace = ?1",
+                params![ns.to_string()],
             )
             .await
             .map_err(|e| {
@@ -138,8 +148,8 @@ impl Persistence {
         Ok(concepts)
     }
 
-    /// Save an entire concept graph to the database.
-    pub async fn save_concept_graph(&self, graph: &ConceptGraph) -> Result<()> {
+    /// Save an entire concept graph to the database for a namespace.
+    pub async fn save_concept_graph(&self, ns: &str, graph: &ConceptGraph) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
@@ -147,8 +157,14 @@ impl Persistence {
             .await
             .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {e}")))?;
 
-        // Clear existing concepts
-        if let Err(e) = conn.execute("DELETE FROM csm_canonical", params![]).await {
+        // Clear existing concepts for this namespace
+        if let Err(e) = conn
+            .execute(
+                "DELETE FROM csm_canonical WHERE namespace = ?1",
+                params![ns.to_string()],
+            )
+            .await
+        {
             let _ = conn.execute("ROLLBACK", ()).await;
             return Err(MemoryError::database(format!(
                 "Failed to clear canonical concepts: {e}"
@@ -175,9 +191,10 @@ impl Persistence {
 
             if let Err(e) = conn
                 .execute(
-                    "INSERT INTO csm_canonical (id, version, labels_json, related_json)
-                     VALUES (?1, ?2, ?3, ?4)",
+                    "INSERT INTO csm_canonical (namespace, id, version, labels_json, related_json)
+                     VALUES (?1, ?2, ?3, ?4, ?5)",
                     params![
+                        ns.to_string(),
                         concept.id.clone(),
                         concept.version as i64,
                         labels_json,
@@ -205,9 +222,9 @@ impl Persistence {
         Ok(())
     }
 
-    /// Load an entire concept graph from the database.
-    pub async fn load_concept_graph(&self) -> Result<ConceptGraph> {
-        let concepts = self.load_all_canonical_concepts().await?;
+    /// Load an entire concept graph from the database for a namespace.
+    pub async fn load_concept_graph(&self, ns: &str) -> Result<ConceptGraph> {
+        let concepts = self.load_all_canonical_concepts(ns).await?;
         let mut graph = ConceptGraph::new();
         for concept in concepts {
             graph.add_concept(concept);
@@ -233,10 +250,13 @@ mod tests {
             .with_label("label2")
             .with_related("related-concept");
 
-        persistence.save_canonical_concept(&concept).await.unwrap();
+        persistence
+            .save_canonical_concept("_default", &concept)
+            .await
+            .unwrap();
 
         let loaded = persistence
-            .load_canonical_concept("test-concept")
+            .load_canonical_concept("_default", "test-concept")
             .await
             .unwrap();
         assert!(loaded.is_some());
@@ -254,15 +274,18 @@ mod tests {
         let persistence = Persistence::new_local(path).await.unwrap();
 
         let concept = CanonicalConcept::new("to-delete");
-        persistence.save_canonical_concept(&concept).await.unwrap();
+        persistence
+            .save_canonical_concept("_default", &concept)
+            .await
+            .unwrap();
 
         persistence
-            .delete_canonical_concept("to-delete")
+            .delete_canonical_concept("_default", "to-delete")
             .await
             .unwrap();
 
         let loaded = persistence
-            .load_canonical_concept("to-delete")
+            .load_canonical_concept("_default", "to-delete")
             .await
             .unwrap();
         assert!(loaded.is_none());
@@ -282,9 +305,12 @@ mod tests {
         );
         graph.add_concept(CanonicalConcept::new("c2").with_label("label2"));
 
-        persistence.save_concept_graph(&graph).await.unwrap();
+        persistence
+            .save_concept_graph("_default", &graph)
+            .await
+            .unwrap();
 
-        let loaded = persistence.load_concept_graph().await.unwrap();
+        let loaded = persistence.load_concept_graph("_default").await.unwrap();
         assert_eq!(loaded.concept_count(), 2);
         assert_eq!(loaded.label_count(), 2);
     }

@@ -1,6 +1,8 @@
 use chaotic_semantic_memory::prelude::*;
 use chaotic_semantic_memory::retrieval::GraphRagConfig;
 
+const NS: &str = "_default";
+
 async fn setup_framework() -> ChaoticSemanticFramework {
     ChaoticSemanticFramework::builder()
         .without_persistence()

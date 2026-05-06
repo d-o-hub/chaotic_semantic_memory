@@ -6,6 +6,8 @@ use chaotic_semantic_memory::singularity::Concept;
 use libsql::Builder;
 use tempfile::NamedTempFile;
 
+const NS: &str = "_default";
+
 #[tokio::test]
 async fn persistence_roundtrip_crud() {
     let temp = NamedTempFile::new().unwrap();
@@ -22,20 +24,20 @@ async fn persistence_roundtrip_crud() {
         canonical_concept_ids: Vec::new(),
     };
 
-    persistence.save_concept(&concept).await.unwrap();
+    persistence.save_concept(NS, &concept).await.unwrap();
     persistence
-        .save_association("alpha", "alpha", 0.5)
+        .save_association(NS, "alpha", "alpha", 0.5)
         .await
         .unwrap();
 
-    let loaded = persistence.load_concept("alpha").await.unwrap();
+    let loaded = persistence.load_concept(NS, "alpha").await.unwrap();
     assert!(loaded.is_some());
 
-    let associations = persistence.load_associations("alpha").await.unwrap();
+    let associations = persistence.load_associations(NS, "alpha").await.unwrap();
     assert_eq!(associations.len(), 1);
 
-    persistence.delete_concept("alpha").await.unwrap();
-    let missing = persistence.load_concept("alpha").await.unwrap();
+    persistence.delete_concept(NS, "alpha").await.unwrap();
+    let missing = persistence.load_concept(NS, "alpha").await.unwrap();
     assert!(missing.is_none());
 }
 
@@ -54,9 +56,11 @@ async fn persistence_rejects_association_for_missing_concept_when_fk_enabled() {
         expires_at: None,
         canonical_concept_ids: Vec::new(),
     };
-    persistence.save_concept(&concept).await.unwrap();
+    persistence.save_concept(NS, &concept).await.unwrap();
 
-    let result = persistence.save_association("alpha", "missing", 0.5).await;
+    let result = persistence
+        .save_association(NS, "alpha", "missing", 0.5)
+        .await;
     assert!(result.is_err());
 }
 
@@ -87,10 +91,10 @@ async fn save_and_load_concept_preserves_ttl_and_canonical_concept_ids() {
         canonical_concept_ids: vec!["concept.anchor".to_string()],
     };
 
-    persistence.save_concept(&concept).await.unwrap();
+    persistence.save_concept(NS, &concept).await.unwrap();
 
     let loaded = persistence
-        .load_concept("alpha-ttl")
+        .load_concept(NS, "alpha-ttl")
         .await
         .unwrap()
         .unwrap();
@@ -118,7 +122,7 @@ async fn backup_and_restore_roundtrip_state() {
         expires_at: None,
         canonical_concept_ids: Vec::new(),
     };
-    persistence.save_concept(&concept_alpha).await.unwrap();
+    persistence.save_concept(NS, &concept_alpha).await.unwrap();
     persistence.backup(backup_path).await.unwrap();
 
     let concept_beta = Concept {
@@ -130,11 +134,11 @@ async fn backup_and_restore_roundtrip_state() {
         expires_at: None,
         canonical_concept_ids: Vec::new(),
     };
-    persistence.save_concept(&concept_beta).await.unwrap();
+    persistence.save_concept(NS, &concept_beta).await.unwrap();
 
     persistence.restore(backup_path).await.unwrap();
-    let alpha = persistence.load_concept("alpha").await.unwrap();
-    let beta = persistence.load_concept("beta").await.unwrap();
+    let alpha = persistence.load_concept(NS, "alpha").await.unwrap();
+    let beta = persistence.load_concept(NS, "beta").await.unwrap();
     assert!(alpha.is_some());
     assert!(beta.is_none());
 }
@@ -157,7 +161,7 @@ async fn backup_and_restore_preserves_ttl_and_canonical_concept_ids() {
         canonical_concept_ids: vec!["concept.alpha".to_string(), "concept.beta".to_string()],
     };
 
-    persistence.save_concept(&concept).await.unwrap();
+    persistence.save_concept(NS, &concept).await.unwrap();
     persistence.backup(backup_path).await.unwrap();
 
     // Mutate live DB after backup so restore must recover original fields.
@@ -170,11 +174,11 @@ async fn backup_and_restore_preserves_ttl_and_canonical_concept_ids() {
         expires_at: None,
         canonical_concept_ids: Vec::new(),
     };
-    persistence.save_concept(&replacement).await.unwrap();
+    persistence.save_concept(NS, &replacement).await.unwrap();
 
     persistence.restore(backup_path).await.unwrap();
     let restored = persistence
-        .load_concept("semantic-bridge-anchor")
+        .load_concept(NS, "semantic-bridge-anchor")
         .await
         .unwrap()
         .unwrap();
@@ -260,7 +264,7 @@ async fn v5_namespace_migration_handles_legacy_and_prefixed_tables() {
 
     persistence.apply_migrations(6).await.unwrap();
 
-    let loaded = persistence.load_concept("legacy-alpha").await.unwrap();
+    let loaded = persistence.load_concept(NS, "legacy-alpha").await.unwrap();
     assert!(loaded.is_some());
     assert_eq!(persistence.schema_version().await.unwrap(), 6);
 

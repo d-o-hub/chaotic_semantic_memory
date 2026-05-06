@@ -120,10 +120,10 @@ impl ChaoticSemanticFramework {
                 reason: "association strength must be finite".to_string(),
             });
         }
-        if strength < 0.0 {
+        if !(0.0..=1.0).contains(&strength) {
             return Err(MemoryError::InvalidInput {
                 field: "strength".to_string(),
-                reason: "association strength must be non-negative".to_string(),
+                reason: format!("association strength must be in [0.0, 1.0], got {strength}"),
             });
         }
         Ok(())

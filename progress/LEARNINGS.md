@@ -44,11 +44,6 @@
 
 ## Autonomous PR Repair (Root Cause Analysis - May 2026)
 - **Versioning Logic**: Native framework versioning (v1, v2) is triggered by updating a concept with a stable ID. Manually appending suffixes like `:v1` in the benchmark generator creates separate concepts and breaks lineage evaluation.
-- **Merge Conflict Strategy**: When rebasing or merging, prioritize preserving functional logic from both sides. Use `git checkout origin/main -- <file>` to restore files lost during complex merges/rebases.
+- **Merge Conflict Strategy**: When rebasing or merging, prioritize preserving functional logic from both sides. In this task, Association/Isolation tasks from main were successfully integrated with the expanded coverage areas (TTL, Bridge, History).
+- **Tool Discipline**: Use `git checkout origin/main -- <file>` to restore files lost during complex merges or rebases.
 - **Optimization Strategy**: Gating parallelization (e.g., Rayon) with a minimum workload threshold (N >= 32) prevents task scheduling overhead from dominating small operations, yielding order-of-magnitude gains in hot paths like hypervector bundling.
-
-## Open-PR Triage (2026-05-04)
-- **`benchmarks/` is NOT a workspace member**: it's a separate crate with its own `Cargo.toml`/`Cargo.lock`. Root-level `cargo check --workspace --all-targets` does **NOT** compile it. Validation must explicitly run `( cd benchmarks && cargo check )` or CI's `benchmark-small` job will surface errors (e.g., missing imports, duplicate fns) that never appeared locally. Encoded into `scripts/validate.sh` and `scripts/pre-commit.sh`.
-- **Squash-merging across diverged branches yields broken trees**: `git merge --squash` on a long-lived branch can produce a worktree with unresolved conflict semantics (duplicate `query_association`, missing `NamedTempFile`/`GraphRagConfig` imports, repeated struct fields) even when conflict markers are removed. After squash-merge, run **all** validation gates including the standalone `benchmarks/` check before pushing. If broken, restore the affected file from main with `git checkout main -- path/to/file.rs` and reapply only the targeted change.
-- **Triage stale PRs by diff direction, not by feedback count**: If a PR's branch would *delete* lines that are valuable on `main` (e.g., #169 wanted to remove 7044 LOC including #167 GraphRAG tests; #159 would delete `singularity_search.rs` from #173), close it. Re-rebasing such PRs through cascading conflicts is more expensive than re-filing the residual feedback as fresh issues against current `main`.
-- **Auto-merge gotcha**: `gh pr merge --auto` returns silently and does not block. Use `--admin` (when authorized) or `gh pr checks --watch` + explicit `gh pr merge` for deterministic completion.

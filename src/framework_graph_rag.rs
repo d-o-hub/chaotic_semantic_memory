@@ -26,7 +26,10 @@ impl ChaoticSemanticFramework {
 
         let (concepts, associations) = {
             let sing = self.singularity.read().await;
-            (sing.all_concepts(), sing.all_associations())
+            (
+                sing.all_concepts(&self.namespace),
+                sing.all_associations(&self.namespace),
+            )
         };
 
         graph_rag_retrieve(&query, &concepts, &associations, &config)

@@ -9,10 +9,7 @@ use std::collections::HashMap;
 use tracing::instrument;
 
 impl crate::framework::ChaoticSemanticFramework {
-    /// Inject a concept with TTL (time to live) into memory.
-    ///
-    /// The concept will expire after `ttl_seconds` from creation.
-    /// Expired concepts are automatically filtered during probe operations.
+    /// Inject a concept with TTL. The concept expires after `ttl_seconds`; expired concepts are filtered during probe.
     #[instrument(err, skip(self, id, vector))]
     pub async fn inject_concept_with_ttl(
         &self,
@@ -29,18 +26,18 @@ impl crate::framework::ChaoticSemanticFramework {
 
         {
             let mut sing = self.singularity.write().await;
-            sing.inject(concept.clone())?;
+            sing.inject(&self.namespace, concept.clone())?;
         }
 
         if let Some(ref persistence) = self.persistence {
             let p_start = std::time::Instant::now();
-            persistence.save_concept(&concept).await?;
+            persistence.save_concept(&self.namespace, &concept).await?;
             self.metrics.observe_persist_latency_ms(
                 u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
                 "save",
             );
         }
-        self.metrics.inc_concepts_injected(1, false);
+        self.metrics.inc_concepts_injected(1);
         self.emit_event(MemoryEvent::ConceptInjected {
             id,
             timestamp: concept.modified_at,
@@ -59,23 +56,17 @@ impl crate::framework::ChaoticSemanticFramework {
         self.inject_concept_with_ttl(id, vector, ttl_seconds).await
     }
 
-    /// Purge all expired concepts from memory.
-    ///
-    /// Returns the number of concepts removed.
+    /// Purge all expired concepts. Returns the count of concepts removed.
     #[instrument(err, skip(self))]
     pub async fn purge_expired(&self) -> Result<usize> {
         let count = {
             let mut sing = self.singularity.write().await;
-            sing.purge_expired()
+            sing.purge_expired(&self.namespace)
         };
         Ok(count)
     }
 
-    /// Inject a concept from text using the configured embedding provider.
-    ///
-    /// The text is encoded to a hypervector using `EmbeddingProvider` and stored
-    /// with the given ID. This is a convenience method for the common case
-    /// of storing text-based concepts.
+    /// Inject a concept from text using the embedding provider. Convenience for storing text-based concepts.
     pub async fn inject_text(&self, id: &str, text: &str) -> Result<()> {
         let embedding = self.embedding_provider.embed(text).await?;
         let vector = self
@@ -99,9 +90,7 @@ impl crate::framework::ChaoticSemanticFramework {
             .await
     }
 
-    /// Probe for similar concepts using text input.
-    ///
-    /// Encodes the query text and finds the most similar concepts.
+    /// Probe for similar concepts using text input. Encodes the query text via the embedding provider.
     pub async fn probe_text(&self, query: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
         let embedding = self.embedding_provider.embed(query).await?;
         let vector = self
@@ -124,10 +113,7 @@ impl crate::framework::ChaoticSemanticFramework {
         self.probe_filtered(&vector, top_k, filter).await
     }
 
-    /// Query specifically for a session using text input.
-    ///
-    /// This is a convenience method that filters results to only those
-    /// with a `session_id` metadata field matching the provided ID.
+    /// Query for a session using text input. Filters results to those with matching `session_id` metadata.
     pub async fn query_in_session(
         &self,
         query: &str,
@@ -164,13 +150,15 @@ mod tests {
             .unwrap();
         let after = unix_now_secs();
 
-        // Verify concept was stored and has correct expires_at
+        // Verify stored with correct expires_at
         let sing = framework.singularity.read().await;
-        let concept = sing.get("ttl-concept").expect("concept should exist");
+        let concept = sing
+            .get(&framework.namespace, "ttl-concept")
+            .expect("concept should exist");
         assert!(concept.expires_at.is_some(), "expires_at should be set");
 
         let expires_at = concept.expires_at.unwrap();
-        // expires_at should be approximately now + 3600
+        // expires_at ≈ now + 3600
         let expected_min = before + 3600;
         let expected_max = after + 3600;
         assert!(
@@ -194,7 +182,9 @@ mod tests {
 
         // Verify concept exists with TTL
         let sing = framework.singularity.read().await;
-        let concept = sing.get("text-ttl").expect("concept should exist");
+        let concept = sing
+            .get(&framework.namespace, "text-ttl")
+            .expect("concept should exist");
         assert!(concept.expires_at.is_some(), "expires_at should be set");
     }
 
@@ -212,7 +202,9 @@ mod tests {
             .unwrap();
 
         let sing = framework.singularity.read().await;
-        let concept = sing.get("no-ttl-text").expect("concept should exist");
+        let concept = sing
+            .get(&framework.namespace, "no-ttl-text")
+            .expect("concept should exist");
         assert!(
             concept.expires_at.is_none(),
             "concept without TTL should not have expires_at"
@@ -237,7 +229,9 @@ mod tests {
             .unwrap();
 
         let sing = framework.singularity.read().await;
-        let concept = sing.get("meta-concept").expect("concept should exist");
+        let concept = sing
+            .get(&framework.namespace, "meta-concept")
+            .expect("concept should exist");
         assert!(
             concept.expires_at.is_none(),
             "inject_text_with_metadata should not set TTL"
@@ -292,26 +286,26 @@ mod tests {
             .await
             .unwrap();
 
-        // Inject concept with short TTL (1 second)
+        // Short TTL (1 second)
         let vector = HVec10240::random();
         framework
             .inject_concept_with_ttl("short-ttl", vector, 1)
             .await
             .unwrap();
 
-        // Inject concept with long TTL
+        // Long TTL
         framework
             .inject_concept_with_ttl("long-ttl", HVec10240::random(), 3600)
             .await
             .unwrap();
 
-        // Inject concept without TTL
+        // No TTL
         framework
             .inject_text("no-ttl", "persistent content")
             .await
             .unwrap();
 
-        // Wait for expiration
+        // Wait for expiry
         tokio::time::sleep(tokio::time::Duration::from_millis(1100)).await;
 
         // Purge expired
@@ -320,16 +314,17 @@ mod tests {
 
         // Verify remaining concepts
         let sing = framework.singularity.read().await;
+        let ns_state = sing.get_namespace(&framework.namespace).unwrap();
         assert!(
-            !sing.concepts.contains_key("short-ttl"),
+            !ns_state.concepts.contains_key("short-ttl"),
             "expired concept should be purged"
         );
         assert!(
-            sing.concepts.contains_key("long-ttl"),
+            ns_state.concepts.contains_key("long-ttl"),
             "long TTL concept should remain"
         );
         assert!(
-            sing.concepts.contains_key("no-ttl"),
+            ns_state.concepts.contains_key("no-ttl"),
             "concept without TTL should remain"
         );
     }
@@ -352,7 +347,7 @@ mod tests {
             .unwrap();
 
         let sing = framework.singularity.read().await;
-        let concept = sing.get("serial-test").unwrap();
+        let concept = sing.get(&framework.namespace, "serial-test").unwrap();
 
         // Verify expires_at was computed correctly
         let expected_min = now + ttl;
@@ -415,8 +410,9 @@ mod tests {
 
         // Third should still exist
         let sing = framework.singularity.read().await;
+        let ns_state = sing.get_namespace(&framework.namespace).unwrap();
         assert!(
-            sing.concepts.contains_key("third"),
+            ns_state.concepts.contains_key("third"),
             "long TTL concept should remain"
         );
     }
@@ -483,7 +479,7 @@ mod tests {
             .unwrap();
 
         let sing = framework.singularity.read().await;
-        let concept = sing.get("zero-ttl").unwrap();
+        let concept = sing.get(&framework.namespace, "zero-ttl").unwrap();
         assert!(
             concept.expires_at.is_some(),
             "zero TTL should still set expires_at"

@@ -4,6 +4,8 @@
 
 use chaotic_semantic_memory::prelude::*;
 
+const NS: &str = "_default";
+
 #[tokio::test]
 async fn inject_concepts_batch() {
     let framework = ChaoticSemanticFramework::builder()

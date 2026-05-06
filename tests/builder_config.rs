@@ -2,6 +2,8 @@ use chaotic_semantic_memory::MemoryError;
 use chaotic_semantic_memory::prelude::*;
 use std::sync::Arc;
 
+const NS: &str = "_default";
+
 #[tokio::test]
 async fn max_cached_top_k_propagates_to_singularity() {
     let framework = ChaoticSemanticFramework::builder()
