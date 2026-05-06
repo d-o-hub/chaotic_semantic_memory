@@ -36,8 +36,9 @@ impl ChaoticSemanticFramework {
         let mut candidates = Vec::with_capacity(initial_results.len());
         {
             let sing = self.singularity.read().await;
+            let ns = self.namespace.read().await;
             for (id, score) in initial_results {
-                if let Some(concept) = sing.get(&self.namespace, &id) {
+                if let Some(concept) = sing.get(&ns, &id) {
                     candidates.push(RerankCandidate {
                         id: concept.id.clone(),
                         vector: Arc::new(concept.vector),
