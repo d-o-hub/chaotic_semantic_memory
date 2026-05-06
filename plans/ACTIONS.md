@@ -3550,3 +3550,44 @@ actions:
     description: |
       Remove 7 redundant_clone sites. Mostly tests and small surface code.
       Verify cargo test --all-features stays green throughout.
+
+  # ─────────────────────────────────────────────────────────
+  # Wave 25: P2 — CloudEvents Event Emitter (cost: 12)
+  # ─────────────────────────────────────────────────────────
+
+  - name: write_adr_cloudevents_emitter
+    preconditions:
+      gap_analysis_2026_04_30_completed: true
+    effects:
+      cloudevents_adr_written: true
+    cost: 2
+    status: complete
+    file: plans/adr/0078-cloudevents-event-emitter.md
+    description: |
+      Write ADR for CloudEvents emitter integration. Must cover mapping
+      logic, trait-based pluggable emitters, and sink options (Log, HTTP).
+
+  - name: implement_cloudevents_emitter
+    preconditions:
+      cloudevents_adr_written: true
+    effects:
+      cloudevents_implemented: true
+    cost: 6
+    status: queued
+    file: src/framework_events_ce.rs
+    description: |
+      Implement EventEmitter trait and CloudEvents mapping logic.
+      Provide LogEmitter and HttpEmitter (opt-in) implementations.
+      Integrate into ChaoticSemanticFramework event pipeline.
+
+  - name: test_cloudevents_emitter
+    preconditions:
+      cloudevents_implemented: true
+    effects:
+      cloudevents_tested: true
+    cost: 4
+    status: queued
+    file: tests/cloudevents_integration.rs
+    description: |
+      Test CloudEvents emission across all MemoryEvent variants.
+      Verify LogEmitter output and HttpEmitter payload structure.

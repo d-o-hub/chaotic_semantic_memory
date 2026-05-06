@@ -80,6 +80,7 @@
 | 0075 | Quantized Binary Hypervectors | Proposed | [adr/0075-quantized-binary-hypervectors.md](adr/0075-quantized-binary-hypervectors.md) |
 | 0076 | ADR Backfill | Implemented | [adr/0076-adr-backfill.md](adr/0076-adr-backfill.md) |
 | 0077 | Clippy Pedantic Selective Promotion | Phase A+B Implemented | [adr/0077-clippy-pedantic-selective-promotion.md](adr/0077-clippy-pedantic-selective-promotion.md) |
+| 0078 | CloudEvents Event Emitter | Proposed | [adr/0078-cloudevents-event-emitter.md](adr/0078-cloudevents-event-emitter.md) |
 
 ## Status Definitions
 
