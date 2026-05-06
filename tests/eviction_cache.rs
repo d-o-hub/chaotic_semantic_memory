@@ -1,6 +1,8 @@
 use chaotic_semantic_memory::prelude::*;
 use std::sync::Arc;
 
+const NS: &str = "_default";
+
 #[tokio::test]
 async fn eviction_invalidates_query_cache() {
     let framework = ChaoticSemanticFramework::builder()

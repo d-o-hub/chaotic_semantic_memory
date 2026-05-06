@@ -4,6 +4,8 @@ use std::time::Instant;
 use chaotic_semantic_memory::persistence::Persistence;
 use chaotic_semantic_memory::{ConceptBuilder, HVec10240};
 
+const NS: &str = "_default";
+
 const DEFAULT_TURSO_POOL_SIZE: usize = 4;
 const DEFAULT_TURSO_ROUNDTRIP_SAMPLES: usize = 25;
 const DEFAULT_TURSO_ROUNDTRIP_MAX_P50_MS: f64 = 20.0;
@@ -44,14 +46,17 @@ async fn turso_roundtrip_p50_under_20ms_when_configured() {
         .build()
         .expect("concept");
     persistence
-        .save_concept(&concept)
+        .save_concept(NS, &concept)
         .await
         .expect("save_concept");
 
     let mut durations_ms = Vec::with_capacity(sample_count);
     for _ in 0..sample_count {
         let start = Instant::now();
-        let loaded = persistence.load_concept(&id).await.expect("load_concept");
+        let loaded = persistence
+            .load_concept(NS, &id)
+            .await
+            .expect("load_concept");
         let elapsed = start.elapsed().as_secs_f64() * 1000.0;
         assert!(loaded.is_some(), "concept should exist");
         durations_ms.push(elapsed);

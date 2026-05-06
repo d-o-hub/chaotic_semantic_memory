@@ -4,6 +4,8 @@ use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240, MemoryEvent};
 use serde_json::json;
 use std::collections::HashMap;
 
+const NS: &str = "_default";
+
 #[tokio::test]
 async fn framework_probe_filtered_traverse_and_shortest_path_work() {
     let framework = ChaoticSemanticFramework::builder()

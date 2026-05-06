@@ -15,7 +15,7 @@ use super::create_framework;
 /// Run the stats command.
 #[instrument(name = "cli_stats")]
 pub async fn run_stats(db_path: Option<&Path>, format: OutputFormat) -> Result<()> {
-    let framework = create_framework(db_path).await?;
+    let framework: crate::framework::ChaoticSemanticFramework = create_framework(db_path).await?;
 
     let stats = framework
         .stats()

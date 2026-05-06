@@ -6,6 +6,8 @@
 use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240, error::MemoryError};
 use std::collections::HashMap;
 
+const NS: &str = "_default";
+
 async fn create_test_framework() -> ChaoticSemanticFramework {
     ChaoticSemanticFramework::builder()
         .without_persistence()
@@ -25,7 +27,7 @@ async fn test_update_concept_vector() {
     framework.inject_concept(id, vector1).await.unwrap();
     let sing = framework.singularity();
     let guard = sing.read().await;
-    let concept = guard.get(id).unwrap();
+    let concept = guard.get(NS, id).unwrap();
     assert_eq!(concept.vector, vector1);
     drop(guard);
 
@@ -33,7 +35,7 @@ async fn test_update_concept_vector() {
     framework.update_concept_vector(id, vector2).await.unwrap();
     let sing = framework.singularity();
     let guard = sing.read().await;
-    let concept = guard.get(id).unwrap();
+    let concept = guard.get(NS, id).unwrap();
     assert_eq!(concept.vector, vector2);
 }
 
@@ -65,7 +67,7 @@ async fn test_update_concept_metadata() {
 
     let sing = framework.singularity();
     let guard = sing.read().await;
-    let concept = guard.get(id).unwrap();
+    let concept = guard.get(NS, id).unwrap();
     assert_eq!(
         concept.metadata.get("key").unwrap(),
         &serde_json::json!("value")
@@ -90,14 +92,18 @@ async fn test_disassociate() {
 
     // Verify association exists
     let sing = framework.singularity();
-    let associations = sing.read().await.get_associations(id1);
+    let associations = sing.read().await.get_associations(NS, id1);
     assert_eq!(associations.len(), 1);
 
     // Disassociate
     framework.disassociate(id1, id2).await.unwrap();
 
     // Verify association removed
-    let associations = framework.singularity().read().await.get_associations(id1);
+    let associations = framework
+        .singularity()
+        .read()
+        .await
+        .get_associations(NS, id1);
     assert!(associations.is_empty());
 }
 
@@ -125,14 +131,18 @@ async fn test_clear_associations() {
 
     // Verify associations exist
     let sing = framework.singularity();
-    let associations = sing.read().await.get_associations(id1);
+    let associations = sing.read().await.get_associations(NS, id1);
     assert_eq!(associations.len(), 2);
 
     // Clear all associations
     framework.clear_associations(id1).await.unwrap();
 
     // Verify all associations removed
-    let associations = framework.singularity().read().await.get_associations(id1);
+    let associations = framework
+        .singularity()
+        .read()
+        .await
+        .get_associations(NS, id1);
     assert!(associations.is_empty());
 }
 

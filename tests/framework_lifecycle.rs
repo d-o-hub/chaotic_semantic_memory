@@ -3,6 +3,8 @@ use chaotic_semantic_memory::prelude::*;
 use std::sync::Arc;
 use tempfile::NamedTempFile;
 
+const NS: &str = "_default";
+
 #[tokio::test]
 async fn framework_lifecycle_with_persistence() {
     let temp = NamedTempFile::new().unwrap();
@@ -38,7 +40,9 @@ async fn framework_lifecycle_with_persistence() {
     let stats = framework2.stats().await.unwrap();
     assert!(stats.concept_count >= 2);
 
-    framework2.delete_concept("b").await.unwrap();
+    framework.delete_concept("b").await.unwrap();
+    // Reload framework2 from persistence to see the deletion
+    framework2.load_replace().await.unwrap();
     let links = framework2.get_associations("a").await.unwrap();
     assert!(links.is_empty());
 }

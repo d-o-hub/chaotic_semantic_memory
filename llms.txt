@@ -12,22 +12,12 @@
 - async-trait (0.1.83)
 - base64 (0.22)
 - bincode (1.3.3)
-- candle-core (0.8.2)
-- candle-onnx (0.8.2)
 - clap (4.5.60) [features: derive, env, string]
 - clap_complete (4.5.42)
 - colored (2.2.0)
 - fastembed (4)
 - glob (0.3.2)
 - hnsw_rs (0.3.4)
-- http-body-util (0.1)
-- hyper (1.5) [features: server, http1]
-- hyper-util (0.1) [features: server, tokio]
-- opentelemetry (0.31)
-- opentelemetry-otlp (0.31) [features: grpc-tonic]
-- opentelemetry-semantic-conventions (0.31)
-- opentelemetry_sdk (0.31) [features: rt-tokio]
-- prometheus (0.13)
 - rand (0.10.1)
 - rand_chacha (0.10.0)
 - reqwest (0.12) [features: json, rustls-tls]
@@ -36,8 +26,7 @@
 - serde_json (1.0.149)
 - thiserror (2.0.11)
 - tracing (0.1.41)
-- tracing-opentelemetry (0.32)
-- tracing-subscriber (0.3.19) [features: json, env-filter]
+- tracing-subscriber (0.3.19)
 **Features:**
 - ann-hnsw: [dep:hnsw_rs]
 - ann-lsh: []
@@ -47,11 +36,10 @@
 - embed-openai: [dep:reqwest]
 - embed-voyage: [dep:reqwest]
 - mcp: [dep:rmcp, cli]
-- otlp: [dep:opentelemetry, dep:opentelemetry-otlp, dep:opentelemetry_sdk, dep:tracing-opentelemetry, dep:opentelemetry-semantic-conventions]
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
-- prometheus: [dep:prometheus, dep:hyper, dep:hyper-util, dep:http-body-util]
-- rerank-cross: [dep:candle-core, dep:candle-onnx]
+- serde: []
+- signing: []
 - wasm: []
 
 Generated: [TIMESTAMP REMOVED FOR DETERMINISM]
@@ -219,6 +207,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn print_warning
 - pub fn truncate_preview
 - pub fn create_framework
+- pub fn create_framework_with_namespace
 - pub fn create_framework_with_provider
 - pub fn create_framework_advanced
 
@@ -390,6 +379,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct FrameworkMetricsSnapshot
 - impl FrameworkMetrics
 
+### src/framework_namespaces.rs
+
+- impl ChaoticSemanticFramework
+
 ### src/framework_ops.rs
 
 - impl ChaoticSemanticFramework
@@ -461,6 +454,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct IndexStats
 - pub enum IndexBackend
 - pub trait AnnIndex
+- pub fn create_index
 
 ### src/lib.rs
 
@@ -487,7 +481,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod hyperdim
 - pub mod mcp
 - pub mod metadata_filter
-- pub mod observability
 - pub mod semantic_triples
 - pub use metadata_filter::MetadataFilter
 - pub mod index
@@ -497,6 +490,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod retrieval
 - pub mod semantic_bridge
 - pub mod singularity
+- pub mod singularity_state
 - pub use crate::persistence_wasm as persistence
 - pub mod persistence
 - pub struct persistence::Persistence
@@ -561,39 +555,14 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl MetadataFilter
 - impl ops::Not for MetadataFilter
 
-### src/observability/mod.rs
-
-- pub mod otlp
-- pub mod prom
-- pub enum LogFormat
-- pub struct ObservabilityConfig
-- impl Default for ObservabilityConfig
-- pub struct ObservabilityGuard
-- pub fn init
-
-### src/observability/otlp.rs
-
-- pub struct OtlpGuard
-- pub fn init_otlp
-- impl Drop for OtlpGuard
-
-### src/observability/prom.rs
-
-- pub static REGISTRY
-- pub static PROBE_TOTAL
-- pub static PROBE_LATENCY
-- pub static INJECT_TOTAL
-- pub static PERSIST_LATENCY
-- pub static ASSOCIATIONS_TOTAL
-- pub static CONCEPTS_COUNT
-- pub static ASSOCIATIONS_COUNT
-- pub static CACHE_HIT_RATIO
-- pub fn init_prometheus
-
 ### src/persistence.rs
 
 - pub struct Persistence
 - pub struct ConceptVersion
+- impl Persistence
+
+### src/persistence_concepts.rs
+
 - impl Persistence
 
 ### src/persistence_index.rs
@@ -663,11 +632,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod bm25
 - pub mod graph_rag
 - pub mod hybrid
-- pub mod rerank
 - pub use bm25::{Bm25Config, Bm25Index}
 - pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve}
 - pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
-- pub use rerank::{MmrReranker, RecencyDecayReranker, RerankCandidate, Reranker, parse_rerankers}
 
 ### src/retrieval/rerank.rs
 
@@ -705,16 +672,15 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/singularity.rs
 
-- pub use crate::singularity_cache::CacheMetricsSnapshot
-- pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
-- pub const DEFAULT_MAX_CACHED_TOP_K
-- pub struct Concept
 - pub struct SingularityConfig
 - impl Default for SingularityConfig
+- pub struct Concept
+- pub struct ConceptBuilder
+- impl ConceptBuilder
 - pub struct Singularity
 - impl Singularity
-- impl Default for Singularity
-- pub use crate::concept_builder::ConceptBuilder
+- pub fn unix_now_secs
+- pub fn unix_now_ns
 
 ### src/singularity_cache.rs
 
@@ -739,6 +705,11 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/singularity_search.rs
 
 - impl Singularity
+
+### src/singularity_state.rs
+
+- pub struct NamespaceState
+- impl NamespaceState
 
 ### src/singularity_ttl.rs
 
@@ -1142,7 +1113,7 @@ For library-only consumers who don't need the CLI binary or its dependencies:
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.3", default-features = false }
+chaotic_semantic_memory = { version = "0.4", default-features = false }
 ```
 
 ##### WASM npm Package (for JS/TS)
@@ -1331,18 +1302,7 @@ base64 = "0.22"
 # Error handling
 thiserror = "2.0.11"
 tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.19", features = ["json", "env-filter"] }
-
-# Observability (ADR-0072)
-opentelemetry = { version = "0.31", optional = true }
-opentelemetry-otlp = { version = "0.31", features = ["grpc-tonic"], optional = true }
-opentelemetry_sdk = { version = "0.31", features = ["rt-tokio"], optional = true }
-tracing-opentelemetry = { version = "0.32", optional = true }
-opentelemetry-semantic-conventions = { version = "0.31", optional = true }
-prometheus = { version = "0.13", optional = true }
-hyper = { version = "1.5", features = ["server", "http1"], optional = true }
-hyper-util = { version = "0.1", features = ["server", "tokio"], optional = true }
-http-body-util = { version = "0.1", optional = true }
+tracing-subscriber = "0.3.19"
 
 # Random number generation
 rand = "0.10.1"
@@ -1356,10 +1316,6 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"], optional = true
 
 # Local ONNX embeddings (opt-in via embed-fastembed feature)
 fastembed = { version = "4", optional = true }
-
-# Candle for cross-encoders (opt-in via rerank-cross feature)
-candle-core = { version = "0.8.2", optional = true }
-candle-onnx = { version = "0.8.2", optional = true }
 
 # HNSW ANN index (opt-in via ann-hnsw feature)
 hnsw_rs = { version = "0.3.4", optional = true }
@@ -1380,7 +1336,7 @@ rayon = { version = "1.10.0", optional = true }
 
 # Database - Use libsql NOT turso-client (opt-in via "persistence" feature)
 libsql = { version = "0.9.30", default-features = false, features = ["sync", "hrana", "remote"], optional = true }
-tokio = { version = "1.43.0", features = ["rt-multi-thread", "macros", "sync", "fs", "net"] }
+tokio = { version = "1.43.0", features = ["rt-multi-thread", "macros", "sync", "fs"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.4.2", features = ["wasm_js"] }
@@ -1511,11 +1467,6 @@ path = "examples/knowledge_graph.rs"
 name = "streaming_temporal"
 path = "examples/streaming_temporal.rs"
 
-[[example]]
-name = "observability_otlp"
-path = "examples/observability_otlp.rs"
-required-features = ["otlp", "prometheus", "cli"]
-
 [features]
 default = ["cli", "persistence", "parallel"]
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
@@ -1533,12 +1484,9 @@ embed-voyage = ["dep:reqwest"]
 ann-hnsw = ["dep:hnsw_rs"]
 ann-lsh = []
 
-# Observability (ADR-0072)
-otlp = ["dep:opentelemetry", "dep:opentelemetry-otlp", "dep:opentelemetry_sdk", "dep:tracing-opentelemetry", "dep:opentelemetry-semantic-conventions"]
-prometheus = ["dep:prometheus", "dep:hyper", "dep:hyper-util", "dep:http-body-util"]
-
-# Reranking pipeline (ADR-0071)
-rerank-cross = ["dep:candle-core", "dep:candle-onnx"]
+# Federation-ready API enhancements (ADR-055 downstream)
+signing = []
+serde = []
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]

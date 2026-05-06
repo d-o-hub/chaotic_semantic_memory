@@ -61,7 +61,9 @@ pub async fn run_query(
         None
     };
 
-    let framework = create_framework_advanced(db_path, provider_name, args.code_aware).await?;
+    // Load framework with provider and namespace
+    let framework =
+        create_framework_advanced(db_path, provider_name, args.code_aware, &args.namespace).await?;
 
     // Tokenize query for BM25
     let query_tokens = tokenize_query(&args.text, args.code_aware);
@@ -258,7 +260,7 @@ async fn build_bm25_index(
     let concepts = {
         let singularity = framework.singularity();
         let sing = singularity.read().await;
-        sing.all_concepts()
+        sing.all_concepts(framework.namespace())
     };
 
     let mut index = Bm25Index::new();

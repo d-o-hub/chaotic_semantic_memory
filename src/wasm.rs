@@ -329,11 +329,12 @@ impl WasmFramework {
     pub async fn export_to_bytes(&self) -> Result<Uint8Array, JsValue> {
         let payload = {
             let singularity = self.framework.singularity.read().await;
+            let ns = self.framework.namespace().to_string();
             ExportPayload {
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 exported_at: unix_now_secs(),
-                concepts: singularity.all_concepts(),
-                associations: singularity.all_associations(),
+                concepts: singularity.all_concepts(&ns),
+                associations: singularity.all_associations(&ns),
             }
         };
 
@@ -362,9 +363,11 @@ impl WasmFramework {
             options.deserialize(&bytes).map_err(to_js_error)?;
         let payload = binary_payload.to_export_payload().map_err(to_js_error)?;
 
+        let ns = self.framework.namespace().to_string();
+
         if !merge {
             let mut singularity = self.framework.singularity.write().await;
-            singularity.clear();
+            singularity.clear(&ns);
         }
 
         let mut singularity = self.framework.singularity.write().await;
@@ -372,11 +375,13 @@ impl WasmFramework {
             self.framework
                 .validate_concept(concept)
                 .map_err(to_js_error)?;
-            singularity.inject(concept.clone()).map_err(to_js_error)?;
+            singularity
+                .inject(&ns, concept.clone())
+                .map_err(to_js_error)?;
         }
 
         for (from, to, strength) in &payload.associations {
-            if let Err(error) = singularity.associate(from, to, *strength) {
+            if let Err(error) = singularity.associate(&ns, from, to, *strength) {
                 warn!(
                     from_id = %from,
                     to_id = %to,
@@ -471,29 +476,4 @@ fn concept_to_js_value(concept: &Concept) -> Result<JsValue, JsValue> {
 
 pub(crate) fn to_js_error<E: std::fmt::Display>(error: E) -> JsValue {
     JsValue::from_str(&error.to_string())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn hvec_bytes_roundtrip() {
-        let v = HVec10240::random();
-        let bytes = v.to_bytes();
-        let v2 = HVec10240::from_bytes(&bytes).unwrap();
-        assert_eq!(v, v2);
-    }
-    #[test]
-    fn hvec_bytes_invalid_len() {
-        assert!(HVec10240::from_bytes(&[0u8; 100]).is_err());
-    }
-    #[test]
-    fn unix_now_secs_positive() {
-        assert!(unix_now_secs() > 0);
-    }
-    #[test]
-    fn to_js_error_msg() {
-        let err = to_js_error("test error");
-        assert!(err.is_string());
-    }
 }

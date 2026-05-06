@@ -128,7 +128,7 @@ impl TextEncoder {
     ///
     /// Splits on: `_`, `-`, `.`, `/`, `::` in addition to whitespace.
     /// This improves retrieval for identifiers like `my_function_name`, `MyClass.method`.
-    fn tokenize_code(text: &str) -> Vec<String> {
+    fn tokenize_code(text: &str) -> Vec<&str> {
         let mut tokens = Vec::new();
 
         // First split on whitespace
@@ -143,40 +143,40 @@ impl TextEncoder {
     }
 
     /// Split a single word on code separators.
-    fn split_on_separators(word: &str) -> Vec<String> {
+    fn split_on_separators(word: &str) -> Vec<&str> {
         let mut result = Vec::new();
-        let mut current = String::new();
-        let chars: Vec<char> = word.chars().collect();
-        let mut i = 0;
+        let mut start = 0;
+        let mut char_indices = word.char_indices().peekable();
 
-        while i < chars.len() {
-            // Check for `::` (double colon)
-            if i + 1 < chars.len() && chars[i] == ':' && chars[i + 1] == ':' {
-                if !current.is_empty() {
-                    result.push(current.clone());
-                    current.clear();
+        while let Some((i, c)) = char_indices.next() {
+            let is_sep = match c {
+                ':' => {
+                    if let Some(&(_, next_c)) = char_indices.peek() {
+                        if next_c == ':' {
+                            char_indices.next(); // consume second ':'
+                            if i > start {
+                                result.push(&word[start..i]);
+                            }
+                            start = i + 2; // '::' is 2 bytes
+                            continue;
+                        }
+                    }
+                    false
                 }
-                i += 2;
-                continue;
-            }
+                '_' | '-' | '.' | '/' => true,
+                _ => false,
+            };
 
-            // Check for single-char separators: `_`, `-`, `.`, `/`
-            let c = chars[i];
-            if c == '_' || c == '-' || c == '.' || c == '/' {
-                if !current.is_empty() {
-                    result.push(current.clone());
-                    current.clear();
+            if is_sep {
+                if i > start {
+                    result.push(&word[start..i]);
                 }
-                i += 1;
-                continue;
+                start = i + 1; // these are all 1-byte ASCII
             }
-
-            current.push(c);
-            i += 1;
         }
 
-        if !current.is_empty() {
-            result.push(current);
+        if start < word.len() {
+            result.push(&word[start..]);
         }
 
         result
@@ -191,19 +191,20 @@ impl TextEncoder {
     /// 4. Bundle all position-encoded vectors
     /// 5. Optionally add n-gram overlay
     pub fn encode(&self, text: &str) -> HVec10240 {
+        let processed_owned: Option<String>;
         let processed = if self.config.lowercase {
-            text.to_lowercase()
+            processed_owned = Some(text.to_lowercase());
+            processed_owned.as_ref().expect("owned string must be set")
         } else {
-            text.to_string()
+            processed_owned = None;
+            text
         };
+        let _ = &processed_owned; // Silence unused warning
 
         let tokens = if self.config.code_aware {
-            Self::tokenize_code(&processed)
+            Self::tokenize_code(processed)
         } else {
-            processed
-                .split_whitespace()
-                .map(|s| s.to_string())
-                .collect()
+            processed.split_whitespace().collect()
         };
 
         if tokens.is_empty() {
@@ -214,7 +215,7 @@ impl TextEncoder {
         let encoded_vectors: Vec<HVec10240> = tokens
             .iter()
             .enumerate()
-            .map(|(pos, token)| {
+            .map(|(pos, &token)| {
                 let base = self.token_to_hvec(token);
                 base.permute(pos * self.config.position_stride)
             })
@@ -229,7 +230,7 @@ impl TextEncoder {
         // Optionally add n-gram overlay.
         // Same reasoning: bundle of non-empty slice is infallible in practice.
         if let Some(n) = self.config.ngram_size {
-            let ngram_hv = self.encode_ngrams(&processed, n);
+            let ngram_hv = self.encode_ngrams(processed, n);
             // Blend n-gram encoding with token encoding
             result = HVec10240::bundle(&[result, ngram_hv]).unwrap_or_else(|_| HVec10240::zero());
         }
@@ -259,14 +260,21 @@ impl TextEncoder {
     /// * `code_aware` - Enable code-aware splitting (on `_`, `-`, `.`, `/`, `::`)
     /// * `lowercase` - Convert tokens to lowercase
     pub fn tokenize(text: &str, code_aware: bool, lowercase: bool) -> Vec<String> {
+        let processed_owned: Option<String>;
         let processed = if lowercase {
-            text.to_lowercase()
+            processed_owned = Some(text.to_lowercase());
+            processed_owned.as_ref().expect("owned string must be set")
         } else {
-            text.to_string()
+            processed_owned = None;
+            text
         };
+        let _ = &processed_owned; // Silence unused warning
 
         if code_aware {
-            Self::tokenize_code(&processed)
+            Self::tokenize_code(processed)
+                .into_iter()
+                .map(|s| s.to_string())
+                .collect()
         } else {
             processed
                 .split_whitespace()
@@ -298,24 +306,19 @@ impl TextEncoder {
     ///
     /// Generates n-grams, encodes each, and bundles them together.
     fn encode_ngrams(&self, text: &str, n: usize) -> HVec10240 {
-        let chars: Vec<char> = text.chars().collect();
+        let char_indices: Vec<(usize, char)> = text.char_indices().collect();
 
-        if chars.len() < n {
+        if char_indices.len() < n {
             return HVec10240::zero();
         }
 
-        let ngrams: Vec<String> = chars
+        let ngram_vectors: Vec<HVec10240> = char_indices
             .windows(n)
-            .map(|window| window.iter().collect::<String>())
-            .collect();
-
-        if ngrams.is_empty() {
-            return HVec10240::zero();
-        }
-
-        let ngram_vectors: Vec<HVec10240> = ngrams
-            .iter()
-            .map(|ngram| self.token_to_hvec(ngram))
+            .map(|window| {
+                let start = window[0].0;
+                let end = window[n - 1].0 + window[n - 1].1.len_utf8();
+                self.token_to_hvec(&text[start..end])
+            })
             .collect();
 
         HVec10240::bundle(&ngram_vectors).unwrap_or_else(|_| HVec10240::zero())

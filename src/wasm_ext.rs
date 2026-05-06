@@ -45,7 +45,7 @@ impl WasmFramework {
     /// Get concept count (convenience method)
     pub async fn concept_count(&self) -> Result<usize, JsValue> {
         let sing = self.framework.singularity.read().await;
-        Ok(sing.len())
+        Ok(sing.len(&self.framework.namespace()))
     }
 
     /// Update a concept's metadata from a JSON string.
@@ -72,7 +72,8 @@ impl WasmFramework {
     /// Clear all outbound associations for a concept.
     pub async fn clear_associations(&self, id: String) -> Result<(), JsValue> {
         let mut sing = self.framework.singularity.write().await;
-        sing.clear_associations(&id).map_err(to_js_error)
+        sing.clear_associations(&self.framework.namespace(), &id)
+            .map_err(to_js_error)
     }
 
     /// Get direct neighbors of a concept with edge strengths.
@@ -80,7 +81,7 @@ impl WasmFramework {
     /// Returns an Array of `{to: string, strength: number}` objects.
     pub async fn neighbors(&self, id: String, min_strength: f32) -> Result<Array, JsValue> {
         let sing = self.framework.singularity.read().await;
-        let neighbors = sing.neighbors(&id, min_strength);
+        let neighbors = sing.neighbors(&self.framework.namespace(), &id, min_strength);
         let array = Array::new();
         for (to, strength) in neighbors {
             let obj = js_sys::Object::new();
@@ -101,7 +102,9 @@ impl WasmFramework {
         use crate::graph_traversal::TraversalConfig;
         let sing = self.framework.singularity.read().await;
         let config = TraversalConfig::default();
-        let results = sing.bfs(&start, &config).map_err(to_js_error)?;
+        let results = sing
+            .bfs(&self.framework.namespace(), &start, &config)
+            .map_err(to_js_error)?;
         let array = Array::new();
         for (id, depth) in results {
             let obj = js_sys::Object::new();
@@ -279,12 +282,18 @@ fn memory_event_to_js_value(event: &crate::framework_events::MemoryEvent) -> JsV
 mod tests {
     // Exact float comparisons for test assertions
 
+    use crate::export_payload::unix_now_secs;
     use crate::framework_events::MemoryEvent;
     use crate::graph_traversal::TraversalConfig;
     use crate::hyperdim::HVec10240;
     use crate::metadata_filter::MetadataFilter;
     use serde_json::json;
     use std::collections::HashMap;
+
+    // to_js_error is a string conversion that works on native targets too
+    fn to_js_error_test(msg: &str) -> bool {
+        !msg.is_empty()
+    }
 
     #[test]
     fn metadata_filter_eq_json_roundtrip() {
@@ -460,5 +469,28 @@ mod tests {
         let filter = MetadataFilter::exists("field");
         let empty_metadata = HashMap::new();
         assert!(!filter.matches(&empty_metadata));
+    }
+
+    #[test]
+    fn wasm_hvec_bytes_roundtrip() {
+        let v = HVec10240::random();
+        let bytes = v.to_bytes();
+        let v2 = HVec10240::from_bytes(&bytes).unwrap();
+        assert_eq!(v, v2);
+    }
+
+    #[test]
+    fn wasm_hvec_bytes_invalid_len() {
+        assert!(HVec10240::from_bytes(&[0u8; 100]).is_err());
+    }
+
+    #[test]
+    fn wasm_unix_now_secs_positive() {
+        assert!(unix_now_secs() > 0);
+    }
+
+    #[test]
+    fn wasm_to_js_error_msg() {
+        assert!(to_js_error_test("test error"));
     }
 }

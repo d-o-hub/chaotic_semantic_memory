@@ -221,14 +221,36 @@ if [[ -f "wasm/README.md" ]]; then
 fi
 
 # =============================================================================
-# 6. llms.txt files — RELEASE-ONLY (handled by .github/workflows/release.yml)
+# 6. Regenerate llms.txt files
 # =============================================================================
-# llms.txt and llms-full.txt are regenerated EXCLUSIVELY at release time by
-# the "Regenerate & commit llms.txt" step in .github/workflows/release.yml
-# (and via scripts/release-manager.sh during release execution). They are
-# intentionally NOT part of the local sync-docs flow to avoid commit churn
-# from every developer regenerating them on every save/commit.
-# See plans/GOAP_STATE.md `llms_txt_release_only`.
+echo ""
+echo -e "${BLUE}→ Regenerating llms.txt files${NC}"
+if [[ -f "scripts/gen-llms-txt.sh" ]]; then
+    if $CHECK_ONLY; then
+        # Check if llms.txt has correct version
+        if grep -q "Version.*${CARGO_VERSION}" llms.txt 2>/dev/null; then
+            echo -e "${GREEN}✓${NC} llms.txt: version is current"
+            ((SKIPPED++)) || true
+        else
+            echo -e "${YELLOW}!${NC} llms.txt: needs regeneration"
+            ((UPDATED++)) || true
+        fi
+    elif $DRY_RUN; then
+        echo -e "${BLUE}○${NC} llms.txt: would regenerate"
+        ((UPDATED++)) || true
+    else
+        if bash scripts/gen-llms-txt.sh 2>/dev/null; then
+            echo -e "${GREEN}✓${NC} llms.txt files regenerated"
+            ((UPDATED++)) || true
+        else
+            echo -e "${YELLOW}⊘${NC} llms.txt: cargo-llms-txt not available, skipping"
+            ((SKIPPED++)) || true
+        fi
+    fi
+else
+    echo -e "${YELLOW}⊘${NC} gen-llms-txt.sh not found, skipping"
+    ((SKIPPED++)) || true
+fi
 
 # =============================================================================
 # Summary

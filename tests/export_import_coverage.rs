@@ -5,6 +5,8 @@
 use chaotic_semantic_memory::prelude::*;
 use tempfile::NamedTempFile;
 
+const NS: &str = "_default";
+
 #[tokio::test]
 async fn export_and_import_json_roundtrip() {
     let framework = ChaoticSemanticFramework::builder()

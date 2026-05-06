@@ -8,13 +8,18 @@ use libsql::params;
 
 impl Persistence {
     /// Save the serialized index state to the database.
-    pub async fn save_index(&self, id: &str, data: &[u8]) -> Result<()> {
+    pub async fn save_index(&self, ns: &str, id: &str, data: &[u8]) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
         conn.execute(
-            "INSERT OR REPLACE INTO csm_hnsw_graph (id, data, modified_at)
-             VALUES (?1, ?2, ?3)",
-            params![id, data, crate::singularity::unix_now_secs() as i64],
+            "INSERT OR REPLACE INTO csm_hnsw_graph (namespace, id, data, modified_at)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![
+                ns.to_string(),
+                id,
+                data,
+                crate::singularity::unix_now_secs() as i64
+            ],
         )
         .await
         .map_err(|e| MemoryError::database(format!("Failed to save index: {}", e)))?;
@@ -22,16 +27,13 @@ impl Persistence {
     }
 
     /// Load the serialized index state from the database.
-    pub async fn load_index(&self, id: &str) -> Result<Option<Vec<u8>>> {
+    pub async fn load_index(&self, ns: &str, id: &str) -> Result<Option<Vec<u8>>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
-
-        // #3: Freshness check. We also want the modified_at timestamp to verify
-        // if the persisted index matches the concepts in the database.
         let mut rows = conn
             .query(
-                "SELECT data, modified_at FROM csm_hnsw_graph WHERE id = ?1",
-                params![id],
+                "SELECT data FROM csm_hnsw_graph WHERE namespace = ?1 AND id = ?2",
+                params![ns.to_string(), id],
             )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to load index: {}", e)))?;
@@ -44,30 +46,6 @@ impl Persistence {
             let data: Vec<u8> = row
                 .get(0)
                 .map_err(|e| MemoryError::database(format!("Failed to get index data: {}", e)))?;
-
-            let modified_at: i64 = row.get(1).map_err(|e| {
-                MemoryError::database(format!("Failed to get index modified_at: {}", e))
-            })?;
-
-            // Check if there are any concepts modified AFTER the index was last saved.
-            // If so, the index is stale and we should return None to trigger a rebuild.
-            let mut stale_check = conn
-                .query(
-                    "SELECT 1 FROM csm_concepts WHERE modified_at > ?1 LIMIT 1",
-                    params![modified_at],
-                )
-                .await
-                .map_err(|e| MemoryError::database(format!("Failed stale check: {}", e)))?;
-
-            if stale_check
-                .next()
-                .await
-                .map_err(|e| MemoryError::database(format!("Failed fetch stale row: {}", e)))?
-                .is_some()
-            {
-                return Ok(None);
-            }
-
             Ok(Some(data))
         } else {
             Ok(None)

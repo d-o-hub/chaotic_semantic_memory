@@ -72,7 +72,7 @@ For library-only consumers who don't need the CLI binary or its dependencies:
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.3", default-features = false }
+chaotic_semantic_memory = { version = "0.4", default-features = false }
 ```
 
 ### WASM npm Package (for JS/TS)
