@@ -181,11 +181,6 @@ impl FrameworkBuilder {
         self
     }
 
-    pub const fn with_index_backend(mut self, backend: crate::index::IndexBackend) -> Self {
-        self.config.index_backend = backend;
-        self
-    }
-
     /// Set the cosine similarity threshold for pattern recognition events.
     pub fn with_pattern_recognition_threshold(mut self, threshold: f64) -> Self {
         self.config.pattern_recognition_threshold = threshold;
@@ -195,6 +190,11 @@ impl FrameworkBuilder {
     /// Add an event emitter to the framework.
     pub fn with_emitter(mut self, emitter: Arc<dyn EventEmitter>) -> Self {
         self.emitters.push(emitter);
+        self
+    }
+
+    pub const fn with_index_backend(mut self, backend: crate::index::IndexBackend) -> Self {
+        self.config.index_backend = backend;
         self
     }
 
