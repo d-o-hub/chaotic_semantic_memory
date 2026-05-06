@@ -197,8 +197,8 @@ impl Persistence {
                  to_id TEXT NOT NULL,
                  strength REAL NOT NULL,
                  PRIMARY KEY (namespace, from_id, to_id),
-                 FOREIGN KEY (namespace, from_id) REFERENCES csm_concepts(namespace, id) ON DELETE CASCADE,
-                 FOREIGN KEY (namespace, to_id) REFERENCES csm_concepts(namespace, id) ON DELETE CASCADE
+                 FOREIGN KEY (namespace, from_id) REFERENCES csm_concepts(namespace, id),
+                 FOREIGN KEY (namespace, to_id) REFERENCES csm_concepts(namespace, id)
              );
              INSERT INTO csm_associations (from_id, to_id, strength)
              SELECT from_id, to_id, strength FROM csm_associations_old;
@@ -216,7 +216,7 @@ impl Persistence {
                  metadata TEXT NOT NULL,
                  modified_at INTEGER NOT NULL,
                  PRIMARY KEY (namespace, concept_id, version),
-                 FOREIGN KEY (namespace, concept_id) REFERENCES csm_concepts(namespace, id) ON DELETE CASCADE
+                 FOREIGN KEY (namespace, concept_id) REFERENCES csm_concepts(namespace, id)
              );
              INSERT INTO csm_versions (concept_id, version, vector, metadata, modified_at)
              SELECT concept_id, version, vector, metadata, modified_at FROM csm_versions_old;

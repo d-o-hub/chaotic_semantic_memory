@@ -155,13 +155,20 @@ impl Persistence {
     }
 
     /// Save an association
-    pub async fn save_association(&self, ns: &str, from: &str, to: &str, strength: f32) -> Result<()> {
+    pub async fn save_association(
+        &self,
+        ns: &str,
+        from: &str,
+        to: &str,
+        strength: f32,
+    ) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
         conn.execute(
-            "INSERT OR REPLACE INTO csm_associations (namespace, from_id, to_id, strength)
-             VALUES (?1, ?2, ?3, ?4)",
+            "INSERT INTO csm_associations (namespace, from_id, to_id, strength)
+             VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(namespace, from_id, to_id) DO UPDATE SET strength = excluded.strength",
             params![ns.to_string(), from, to, strength],
         )
         .await
@@ -216,6 +223,41 @@ impl Persistence {
             .map_err(|e| MemoryError::database(format!("Failed to read checkpoint row: {e}")))?;
 
         Ok(())
+    }
+
+    /// List all distinct namespaces present in the database.
+    pub async fn list_namespaces(&self) -> Result<Vec<String>> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+
+        let mut rows = conn
+            .query(
+                "SELECT DISTINCT namespace FROM csm_concepts
+                 UNION
+                 SELECT DISTINCT namespace FROM csm_canonical
+                 ORDER BY namespace",
+                params![],
+            )
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to list namespaces: {e}")))?;
+
+        let mut namespaces = Vec::new();
+        while let Some(row) = rows
+            .next()
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to fetch namespace row: {e}")))?
+        {
+            let ns: String = row
+                .get(0)
+                .map_err(|e| MemoryError::database(format!("Failed to get namespace: {e}")))?;
+            namespaces.push(ns);
+        }
+
+        if namespaces.is_empty() {
+            namespaces.push("_default".to_string());
+        }
+
+        Ok(namespaces)
     }
 
     /// Get database size in bytes

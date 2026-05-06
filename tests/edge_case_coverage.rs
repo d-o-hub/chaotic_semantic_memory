@@ -4,10 +4,13 @@
 
 #![allow(clippy::float_cmp)]
 
+use chaotic_semantic_memory::index::IndexBackend;
 use chaotic_semantic_memory::prelude::*;
 use chaotic_semantic_memory::reservoir::Reservoir;
 use chaotic_semantic_memory::singularity::{Concept, Singularity, SingularityConfig};
 use std::collections::HashMap;
+
+const NS: &str = "_default";
 
 #[tokio::test]
 async fn empty_sequence_returns_zero_hypervector() {
@@ -36,6 +39,7 @@ fn concept_and_association_limits_enforced() {
         max_associations_per_concept: Some(1),
         concept_cache_size: 64,
         max_cached_top_k: 100,
+        index_backend: IndexBackend::BruteForce,
     });
 
     let mk = |id: &str, created_at: u64| Concept {
@@ -48,25 +52,25 @@ fn concept_and_association_limits_enforced() {
         canonical_concept_ids: Vec::new(),
     };
 
-    singularity.inject(mk("a", 1)).unwrap();
-    singularity.inject(mk("b", 2)).unwrap();
-    singularity.inject(mk("c", 3)).unwrap();
+    singularity.inject(NS, mk("a", 1)).unwrap();
+    singularity.inject(NS, mk("b", 2)).unwrap();
+    singularity.inject(NS, mk("c", 3)).unwrap();
 
-    assert_eq!(singularity.len(), 2);
-    assert!(singularity.get("a").is_none());
-    assert!(singularity.get("b").is_some());
-    assert!(singularity.get("c").is_some());
+    assert_eq!(singularity.len(NS), 2);
+    assert!(singularity.get(NS, "a").is_none());
+    assert!(singularity.get(NS, "b").is_some());
+    assert!(singularity.get(NS, "c").is_some());
 
-    singularity.associate("b", "c", 0.9).unwrap();
-    singularity.associate("b", "b", 0.1).unwrap();
-    let links = singularity.get_associations("b");
+    singularity.associate(NS, "b", "c", 0.9).unwrap();
+    singularity.associate(NS, "b", "b", 0.1).unwrap();
+    let links = singularity.get_associations(NS, "b");
     assert_eq!(links.len(), 1);
     assert_eq!(links[0].0, "c");
 }
 
 #[test]
 fn singularity_association_strength_is_validated() {
-    let mut singularity = Singularity::new();
+    let mut singularity = Singularity::new(SingularityConfig::default());
     let mk = |id: &str| Concept {
         id: id.to_string(),
         vector: HVec10240::random(),
@@ -77,18 +81,18 @@ fn singularity_association_strength_is_validated() {
         canonical_concept_ids: Vec::new(),
     };
 
-    singularity.inject(mk("a")).unwrap();
-    singularity.inject(mk("b")).unwrap();
+    singularity.inject(NS, mk("a")).unwrap();
+    singularity.inject(NS, mk("b")).unwrap();
 
-    assert!(singularity.associate("a", "b", f32::NAN).is_err());
-    assert!(singularity.associate("a", "b", f32::INFINITY).is_err());
-    assert!(singularity.associate("a", "b", -0.1).is_err());
-    assert!(singularity.associate("a", "b", 1.1).is_err());
+    assert!(singularity.associate(NS, "a", "b", f32::NAN).is_err());
+    assert!(singularity.associate(NS, "a", "b", f32::INFINITY).is_err());
+    assert!(singularity.associate(NS, "a", "b", -0.1).is_err());
+    assert!(singularity.associate(NS, "a", "b", 1.1).is_err());
 }
 
 #[test]
 fn singularity_association_updates_instead_of_duplicating() {
-    let mut singularity = Singularity::new();
+    let mut singularity = Singularity::new(SingularityConfig::default());
     let mk = |id: &str| Concept {
         id: id.to_string(),
         vector: HVec10240::random(),
@@ -99,13 +103,13 @@ fn singularity_association_updates_instead_of_duplicating() {
         canonical_concept_ids: Vec::new(),
     };
 
-    singularity.inject(mk("a")).unwrap();
-    singularity.inject(mk("b")).unwrap();
+    singularity.inject(NS, mk("a")).unwrap();
+    singularity.inject(NS, mk("b")).unwrap();
 
-    singularity.associate("a", "b", 0.2).unwrap();
-    singularity.associate("a", "b", 0.9).unwrap();
+    singularity.associate(NS, "a", "b", 0.2).unwrap();
+    singularity.associate(NS, "a", "b", 0.9).unwrap();
 
-    let links = singularity.get_associations("a");
+    let links = singularity.get_associations(NS, "a");
     assert_eq!(links.len(), 1);
     assert_eq!(links[0].0, "b");
     assert_eq!(links[0].1, 0.9);

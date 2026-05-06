@@ -1,18 +1,20 @@
 //! Extension methods for Singularity (extracted to satisfy LOC gate)
 
-use tracing::instrument;
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 use crate::singularity::Singularity;
+use tracing::instrument;
 
 impl Singularity {
     /// Bundle multiple concepts into a single hypervector.
     #[instrument(skip(self, ns), fields(ids_count = ids.len()))]
     pub fn bundle_concepts_strict(&self, ns: &str, ids: &[String]) -> Result<HVec10240> {
-        let ns_state = self.get_namespace(ns).ok_or_else(|| MemoryError::NotFound {
-            entity: "Namespace".to_string(),
-            id: ns.to_string(),
-        })?;
+        let ns_state = self
+            .get_namespace(ns)
+            .ok_or_else(|| MemoryError::NotFound {
+                entity: "Namespace".to_string(),
+                id: ns.to_string(),
+            })?;
         let mut vectors = Vec::with_capacity(ids.len());
         for id in ids {
             match ns_state.concepts.get(id) {
@@ -21,7 +23,7 @@ impl Singularity {
                     return Err(MemoryError::NotFound {
                         entity: "Concept".to_string(),
                         id: id.clone(),
-                    })
+                    });
                 }
             }
         }
@@ -61,6 +63,98 @@ impl Singularity {
         if let Some(neighbors) = ns_state.associations.get_mut(id) {
             neighbors.clear();
         }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::MemoryError;
+    use crate::singularity::{ConceptBuilder, Singularity, SingularityConfig};
+    use std::collections::HashMap;
+
+    const NS: &str = "_default";
+
+    #[test]
+    fn test_bundle_concepts_strict_success() -> crate::error::Result<()> {
+        let mut singularity = Singularity::with_config(SingularityConfig::default());
+        let vec1 = HVec10240::random();
+        let vec2 = HVec10240::random();
+
+        let c1 = ConceptBuilder::new("c1").with_vector(vec1).build()?;
+        let c2 = ConceptBuilder::new("c2").with_vector(vec2).build()?;
+
+        singularity.inject(NS, c1)?;
+        singularity.inject(NS, c2)?;
+
+        let result = singularity.bundle_concepts_strict(NS, &["c1".to_string(), "c2".to_string()]);
+        assert!(result.is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_bundle_concepts_strict_missing_id() -> crate::error::Result<()> {
+        let mut singularity = Singularity::with_config(SingularityConfig::default());
+        let vec1 = HVec10240::random();
+
+        let c1 = ConceptBuilder::new("c1").with_vector(vec1).build()?;
+        singularity.inject(NS, c1)?;
+
+        let result =
+            singularity.bundle_concepts_strict(NS, &["c1".to_string(), "missing_id".to_string()]);
+
+        match result {
+            Err(MemoryError::NotFound { entity, id }) => {
+                assert_eq!(entity, "Concept");
+                assert_eq!(id, "missing_id");
+            }
+            _ => panic!("Expected NotFound error, got {result:?}"),
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_update_metadata_not_found() {
+        let mut sing = Singularity::new(SingularityConfig::default());
+        let metadata = HashMap::new();
+
+        let result = sing.update_metadata(NS, "non-existent-id", metadata);
+
+        match result {
+            Err(MemoryError::NotFound { entity, id }) => {
+                assert_eq!(entity, "Concept");
+                assert_eq!(id, "non-existent-id");
+            }
+            _ => panic!("Expected MemoryError::NotFound, got {result:?}"),
+        }
+    }
+
+    #[test]
+    fn test_update_metadata_success() -> crate::error::Result<()> {
+        let mut sing = Singularity::new(SingularityConfig::default());
+        let concept = ConceptBuilder::new("test-id")
+            .with_metadata("original", serde_json::Value::Bool(true))
+            .build()?;
+
+        sing.inject(NS, concept)?;
+
+        let mut new_metadata = HashMap::new();
+        new_metadata.insert("updated".to_string(), serde_json::Value::Bool(true));
+
+        let time_before = crate::singularity::unix_now_secs();
+
+        let result = sing.update_metadata(NS, "test-id", new_metadata.clone());
+        assert!(result.is_ok());
+
+        let updated_concept = sing
+            .get(NS, "test-id")
+            .ok_or_else(|| MemoryError::NotFound {
+                entity: "Concept".to_string(),
+                id: "test-id".to_string(),
+            })?;
+        assert_eq!(updated_concept.metadata, new_metadata);
+        assert!(updated_concept.modified_at >= time_before);
         Ok(())
     }
 }

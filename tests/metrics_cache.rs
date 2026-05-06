@@ -4,6 +4,8 @@
 
 use chaotic_semantic_memory::prelude::*;
 
+const NS: &str = "_default";
+
 #[tokio::test]
 async fn metrics_snapshot_tracks_cache_hits() {
     let framework = ChaoticSemanticFramework::builder()

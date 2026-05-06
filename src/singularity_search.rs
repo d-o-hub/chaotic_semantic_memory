@@ -10,7 +10,9 @@ use tracing::instrument;
 
 use crate::hyperdim::HVec10240;
 use crate::singularity::{Singularity, similarity_cache_key, unix_now_ns};
-use crate::singularity_retrieval::{CandidateSource, RetrievalStats, ScoredCandidateParams};
+use crate::singularity_retrieval::{
+    CandidateSource, FilterStrategy, RetrievalStats, ScoredCandidateParams,
+};
 
 impl Singularity {
     /// Find similar concepts using cosine similarity
@@ -20,12 +22,22 @@ impl Singularity {
     }
 
     /// Find similar concepts and return cached results as `Arc<[_]>`.
-    pub fn find_similar_arc(&self, ns: &str, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]> {
+    pub fn find_similar_arc(
+        &self,
+        ns: &str,
+        query: &HVec10240,
+        top_k: usize,
+    ) -> Arc<[(String, f32)]> {
         self.find_similar_cached(ns, query, top_k)
     }
 
     /// Find similar concepts and return cached results as `Arc<[_]>`.
-    pub fn find_similar_cached(&self, ns: &str, query: &HVec10240, top_k: usize) -> Arc<[(String, f32)]> {
+    pub fn find_similar_cached(
+        &self,
+        ns: &str,
+        query: &HVec10240,
+        top_k: usize,
+    ) -> Arc<[(String, f32)]> {
         let start_ns = unix_now_ns();
         if top_k == 0 || self.is_empty(ns) {
             let stats = RetrievalStats {
@@ -39,7 +51,9 @@ impl Singularity {
             }
             return Arc::from(Vec::new());
         }
-        let ns_state = self.get_namespace(ns).expect("Namespace checked by is_empty");
+        let Some(ns_state) = self.get_namespace(ns) else {
+            return Arc::from(Vec::new());
+        };
 
         let bypass_cache = top_k > self.config.max_cached_top_k;
 
@@ -47,7 +61,8 @@ impl Singularity {
             let cache_key = similarity_cache_key(query, top_k);
             if let Ok(mut cache) = ns_state.query_cache.write() {
                 if let Some(results) = cache.get(cache_key) {
-                    ns_state.cache_metrics
+                    ns_state
+                        .cache_metrics
                         .hits_total
                         .fetch_add(1, Ordering::Relaxed);
                     let stats = RetrievalStats {
@@ -62,7 +77,8 @@ impl Singularity {
                     return results;
                 }
             }
-            ns_state.cache_metrics
+            ns_state
+                .cache_metrics
                 .misses_total
                 .fetch_add(1, Ordering::Relaxed);
         }
@@ -83,7 +99,8 @@ impl Singularity {
                     if let Ok(mut cache) = ns_state.query_cache.write() {
                         let cache_key = similarity_cache_key(query, top_k);
                         if cache.put(cache_key, Arc::clone(&results_arc)) {
-                            ns_state.cache_metrics
+                            ns_state
+                                .cache_metrics
                                 .evictions_total
                                 .fetch_add(1, Ordering::Relaxed);
                         }
@@ -114,19 +131,22 @@ impl Singularity {
         let cand_ns = unix_now_ns().saturating_sub(candidate_start);
 
         if candidates.is_empty() {
-             return self.exact_similarity_scan(ns, query, top_k, start_ns, bypass_cache);
+            return self.exact_similarity_scan(ns, query, top_k, start_ns, bypass_cache);
         }
 
         // Reduced-candidate path
-        self.scored_candidate_retrieval(ns, ScoredCandidateParams {
-            query,
-            top_k,
-            candidates,
-            start_ns,
-            cand_ns,
-            source,
-            bypass_cache,
-        })
+        self.scored_candidate_retrieval(
+            ns,
+            ScoredCandidateParams {
+                query,
+                top_k,
+                candidates,
+                start_ns,
+                cand_ns,
+                source,
+                bypass_cache,
+            },
+        )
     }
 
     /// Find similar concepts with metadata filtering.
@@ -137,8 +157,52 @@ impl Singularity {
         top_k: usize,
         filter: &crate::metadata_filter::MetadataFilter,
     ) -> Arc<[(String, f32)]> {
-        let ns_state = self.get_namespace(ns).expect("Namespace must exist");
-        let results = ns_state.index.search_filtered(query, top_k, filter, &ns_state.concepts).unwrap_or_default();
-        Arc::from(results)
+        let Some(ns_state) = self.get_namespace(ns) else {
+            return Arc::from(Vec::new());
+        };
+
+        let total = ns_state.concepts.len();
+        let matching = ns_state
+            .concepts
+            .values()
+            .filter(|c| filter.matches(&c.metadata))
+            .count();
+
+        #[allow(clippy::cast_precision_loss)] // concept counts fit in f32 for selectivity
+        let selectivity = if total > 0 {
+            matching as f32 / total as f32
+        } else {
+            0.0
+        };
+
+        // ADR-0065: Select strategy based on selectivity
+        #[allow(clippy::cast_precision_loss)] // concept counts fit in f32 for selectivity
+        let strategy = if total < 20 || selectivity < 0.3 {
+            Some(FilterStrategy::Pre)
+        } else if selectivity <= 0.8 {
+            Some(FilterStrategy::BucketPost)
+        } else {
+            Some(FilterStrategy::ScanPost)
+        };
+
+        let results = ns_state
+            .index
+            .search_filtered(query, top_k, filter, &ns_state.concepts)
+            .unwrap_or_default();
+
+        let results_arc: Arc<[(String, f32)]> = Arc::from(results);
+
+        let stats = RetrievalStats {
+            candidate_count: matching,
+            scored_count: results_arc.len(),
+            selectivity_ratio: selectivity,
+            filter_strategy: strategy,
+            ..Default::default()
+        };
+        if let Ok(mut s) = ns_state.last_retrieval_stats.write() {
+            *s = stats;
+        }
+
+        results_arc
     }
 }

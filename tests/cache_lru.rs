@@ -4,6 +4,8 @@
 
 use chaotic_semantic_memory::prelude::*;
 
+const NS: &str = "_default";
+
 #[tokio::test]
 async fn cache_hit_updates_lru_order() {
     let framework = ChaoticSemanticFramework::builder()

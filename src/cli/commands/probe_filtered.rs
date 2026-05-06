@@ -27,7 +27,8 @@ pub async fn run_probe_filtered(
     let filter: MetadataFilter = serde_json::from_str(&args.filter)
         .map_err(|e| CliError::Validation(format!("invalid filter JSON: {e}")))?;
 
-    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
+    let framework: crate::framework::ChaoticSemanticFramework =
+        create_framework_with_namespace(db_path, &args.namespace).await?;
 
     // Get concept to use its vector as query
     let concept = framework

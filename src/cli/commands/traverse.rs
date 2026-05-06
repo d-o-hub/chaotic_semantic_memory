@@ -37,7 +37,8 @@ pub async fn run_traverse(
     validate_concept_id(&args.start)?;
     validate_min_strength(args.min_strength)?;
 
-    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
+    let framework: crate::framework::ChaoticSemanticFramework =
+        create_framework_with_namespace(db_path, &args.namespace).await?;
 
     // Verify starting concept exists
     let _concept = framework

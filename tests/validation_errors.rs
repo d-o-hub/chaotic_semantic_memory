@@ -6,6 +6,8 @@
 
 use chaotic_semantic_memory::prelude::*;
 
+const NS: &str = "_default";
+
 #[tokio::test]
 async fn concept_id_empty_fails() {
     let framework = ChaoticSemanticFramework::builder()

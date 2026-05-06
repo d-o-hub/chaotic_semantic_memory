@@ -5,6 +5,7 @@ use chaotic_semantic_memory::{ConceptBuilder, HVec10240};
 use libsql::Builder;
 use tempfile::NamedTempFile;
 
+const NS: &str = "_default";
 const DEFAULT_MEMORY_MODEL_BYTES_PER_CONCEPT: u64 = 1;
 const DEFAULT_MEMORY_MODEL_CODEBOOK_BYTES: u64 = 2 * 1024 * 1024;
 const DEFAULT_MEMORY_MODEL_METADATA_BYTES: u64 = 256 * 1024;
@@ -73,10 +74,13 @@ async fn local_persistence_roundtrip_p50_under_20ms() {
 
         let start = Instant::now();
         persistence
-            .save_concept(&concept)
+            .save_concept(NS, &concept)
             .await
             .expect("save_concept");
-        let loaded = persistence.load_concept(&id).await.expect("load_concept");
+        let loaded = persistence
+            .load_concept(NS, &id)
+            .await
+            .expect("load_concept");
         let elapsed = start.elapsed().as_secs_f64() * 1000.0;
         assert!(loaded.is_some(), "concept should roundtrip");
         durations_ms.push(elapsed);
@@ -103,7 +107,7 @@ async fn local_wal_checkpoint_roundtrip_stays_consistent() {
             .build()
             .expect("concept");
         persistence
-            .save_concept(&concept)
+            .save_concept(NS, &concept)
             .await
             .expect("save_concept");
     }

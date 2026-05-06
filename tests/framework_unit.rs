@@ -2,6 +2,8 @@
 
 use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240};
 
+const NS: &str = "_default";
+
 async fn create_framework() -> ChaoticSemanticFramework {
     ChaoticSemanticFramework::builder()
         .without_persistence()

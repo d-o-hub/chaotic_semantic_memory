@@ -15,7 +15,8 @@ pub async fn run_index_dir(
     db_path: Option<&Path>,
     format: OutputFormat,
 ) -> Result<()> {
-    let framework: crate::framework::ChaoticSemanticFramework = create_framework_with_namespace(db_path, &args.namespace).await?;
+    let framework: crate::framework::ChaoticSemanticFramework =
+        create_framework_with_namespace(db_path, &args.namespace).await?;
 
     // Create encoder based on code_aware flag
     let encoder = if args.code_aware {

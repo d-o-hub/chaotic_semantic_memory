@@ -21,7 +21,11 @@ mod native {
     /// Environment variable for target platform.
     const ENV_TARGET: &str = "TARGET";
 
-    pub fn init_tracing(verbose: u8) {
+    pub fn init_tracing(
+        verbose: u8,
+        _otlp_endpoint: Option<String>,
+        _prometheus_bind: Option<String>,
+    ) -> Option<Box<dyn std::any::Any>> {
         if std::env::var(ENV_NO_COLOR).is_ok() {
             colored::control::set_override(false);
         }
@@ -38,6 +42,8 @@ mod native {
                 .with_target(false)
                 .finish(),
         );
+
+        None
     }
 
     pub fn format_error(err: &CliError, format: OutputFormat) -> String {
@@ -179,7 +185,7 @@ fn main() -> StdExitCode {
     use native::*;
     let args = CliArgs::parse();
     let output_format = args.output_format;
-    init_tracing(args.verbose);
+    init_tracing(args.verbose, None, None);
     match run_async(args) {
         Ok(_) => StdExitCode::from(ExitCode::Success as u8),
         Err(ref e) => {

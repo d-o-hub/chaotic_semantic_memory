@@ -1,5 +1,7 @@
 use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240};
 
+const NS: &str = "_default";
+
 #[tokio::test]
 async fn framework_creation_starts_empty() {
     let framework = ChaoticSemanticFramework::builder()

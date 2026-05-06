@@ -173,7 +173,8 @@ impl Singularity {
         // Reduces latency from O(N) to O(N/P) where P is the number of execution units.
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         {
-            ns_state.concept_vectors
+            ns_state
+                .concept_vectors
                 .par_iter()
                 .enumerate()
                 .filter_map(filter)
@@ -182,7 +183,8 @@ impl Singularity {
 
         #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
         {
-            ns_state.concept_vectors
+            ns_state
+                .concept_vectors
                 .iter()
                 .enumerate()
                 .filter_map(filter)
@@ -249,7 +251,8 @@ impl Singularity {
             if let Ok(mut cache) = ns_state.query_cache.write() {
                 let cache_key = crate::singularity::similarity_cache_key(query, top_k);
                 if cache.put(cache_key, Arc::clone(&results_arc)) {
-                    ns_state.cache_metrics
+                    ns_state
+                        .cache_metrics
                         .evictions_total
                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 }
@@ -325,7 +328,8 @@ impl Singularity {
             if let Ok(mut cache) = ns_state.query_cache.write() {
                 let cache_key = crate::singularity::similarity_cache_key(query, top_k);
                 if cache.put(cache_key, Arc::clone(&results_arc)) {
-                    ns_state.cache_metrics
+                    ns_state
+                        .cache_metrics
                         .evictions_total
                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 }
@@ -434,7 +438,8 @@ impl Singularity {
             if let Ok(mut cache) = ns_state.query_cache.write() {
                 let cache_key = crate::singularity::similarity_cache_key(query, top_k);
                 if cache.put(cache_key, Arc::clone(&results_arc)) {
-                    ns_state.cache_metrics
+                    ns_state
+                        .cache_metrics
                         .evictions_total
                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 }
@@ -457,10 +462,7 @@ impl Singularity {
 }
 
 #[cfg(test)]
-
-#[cfg(test)]
 mod tests_v2 {
-    use super::*;
     use crate::singularity::{Singularity, SingularityConfig};
 
     #[test]

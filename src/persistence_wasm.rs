@@ -65,11 +65,21 @@ impl Persistence {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn save_association(&self, _ns: &str, _from: &str, _to: &str, _strength: f32) -> Result<()> {
+    pub async fn save_association(
+        &self,
+        _ns: &str,
+        _from: &str,
+        _to: &str,
+        _strength: f32,
+    ) -> Result<()> {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn save_associations(&self, _ns: &str, _associations: &[(String, String, f32)]) -> Result<()> {
+    pub async fn save_associations(
+        &self,
+        _ns: &str,
+        _associations: &[(String, String, f32)],
+    ) -> Result<()> {
         Err(wasm_persistence_unavailable())
     }
 

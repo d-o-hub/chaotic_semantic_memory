@@ -171,6 +171,7 @@ pub trait SemanticReranker: Send + Sync {
 
 /// In-memory canonical concept graph for symbolic semantic expansion.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ConceptGraph {
     /// Concepts indexed by ID.
     concepts: std::collections::HashMap<String, CanonicalConcept>,
@@ -179,6 +180,9 @@ pub struct ConceptGraph {
 }
 
 impl ConceptGraph {
+    /// Wire-format version. Bump when `serde` layout changes.
+    pub const WIRE_VERSION: u32 = 1;
+
     /// Create an empty concept graph.
     pub fn new() -> Self {
         Self::default()

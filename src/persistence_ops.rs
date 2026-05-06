@@ -6,7 +6,11 @@ use crate::error::{MemoryError, Result};
 use crate::persistence::{ConceptVersion, Persistence};
 
 impl Persistence {
-    pub async fn save_associations(&self, ns: &str, associations: &[(String, String, f32)]) -> Result<()> {
+    pub async fn save_associations(
+        &self,
+        ns: &str,
+        associations: &[(String, String, f32)],
+    ) -> Result<()> {
         if associations.is_empty() {
             return Ok(());
         }
@@ -19,8 +23,9 @@ impl Persistence {
 
         let stmt = conn
             .prepare(
-                "INSERT OR REPLACE INTO csm_associations (namespace, from_id, to_id, strength)
-                 VALUES (?1, ?2, ?3, ?4)",
+                "INSERT INTO csm_associations (namespace, from_id, to_id, strength)
+                 VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT(namespace, from_id, to_id) DO UPDATE SET strength = excluded.strength",
             )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to prepare statement: {e}")))?;
@@ -54,16 +59,16 @@ impl Persistence {
     pub async fn clear_namespace(&self, ns: &str) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
-        conn.execute(
+        let ns_param = ns.to_string();
+        conn.execute_batch(&format!(
             "BEGIN;
-             DELETE FROM csm_associations WHERE namespace = ?1;
-             DELETE FROM csm_versions WHERE namespace = ?1;
-             DELETE FROM csm_concepts WHERE namespace = ?1;
-             DELETE FROM csm_hnsw_graph WHERE namespace = ?1;
-             DELETE FROM csm_canonical WHERE namespace = ?1;
-             COMMIT;",
-            params![ns.to_string()],
-        )
+                 DELETE FROM csm_associations WHERE namespace = '{ns_param}';
+                 DELETE FROM csm_versions WHERE namespace = '{ns_param}';
+                 DELETE FROM csm_concepts WHERE namespace = '{ns_param}';
+                 DELETE FROM csm_hnsw_graph WHERE namespace = '{ns_param}';
+                 DELETE FROM csm_canonical WHERE namespace = '{ns_param}';
+                 COMMIT;",
+        ))
         .await
         .map_err(|e| MemoryError::database(format!("Failed to clear namespace data: {e}")))?;
         Ok(())
@@ -86,7 +91,12 @@ impl Persistence {
         Ok(())
     }
 
-    pub async fn get_concept_history(&self, ns: &str, id: &str, limit: usize) -> Result<Vec<ConceptVersion>> {
+    pub async fn get_concept_history(
+        &self,
+        ns: &str,
+        id: &str,
+        limit: usize,
+    ) -> Result<Vec<ConceptVersion>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
@@ -213,12 +223,12 @@ impl Persistence {
             .map_err(|e| MemoryError::database(format!("Failed to clear current database: {e}")))?;
 
             conn.execute_batch(
-                "INSERT INTO csm_concepts (id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
-                 SELECT id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json FROM restore_db.csm_concepts;
-                 INSERT INTO csm_associations (from_id, to_id, strength)
-                 SELECT from_id, to_id, strength FROM restore_db.csm_associations;
-                 INSERT INTO csm_versions (concept_id, version, vector, metadata, modified_at)
-                 SELECT concept_id, version, vector, metadata, modified_at FROM restore_db.csm_versions;
+                "INSERT INTO csm_concepts (namespace, id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
+                 SELECT namespace, id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json FROM restore_db.csm_concepts;
+                 INSERT INTO csm_associations (namespace, from_id, to_id, strength)
+                 SELECT namespace, from_id, to_id, strength FROM restore_db.csm_associations;
+                 INSERT INTO csm_versions (namespace, concept_id, version, vector, metadata, modified_at)
+                 SELECT namespace, concept_id, version, vector, metadata, modified_at FROM restore_db.csm_versions;
                  INSERT INTO csm_schema_version(version)
                  SELECT version FROM restore_db.csm_schema_version;",
             )

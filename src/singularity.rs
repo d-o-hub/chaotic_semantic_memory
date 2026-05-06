@@ -2,10 +2,10 @@
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
-use crate::index::{AnnIndex, IndexStats, IndexBackend};
+use crate::index::{AnnIndex, IndexBackend, IndexStats};
 use crate::singularity_cache::CacheMetricsSnapshot;
-use crate::singularity_state::NamespaceState;
 use crate::singularity_retrieval::RetrievalConfig;
+use crate::singularity_state::NamespaceState;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::instrument;
@@ -71,7 +71,11 @@ impl ConceptBuilder {
         self
     }
 
-    pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<serde_json::Value>) -> Self {
+    pub fn with_metadata(
+        mut self,
+        key: impl Into<String>,
+        value: impl Into<serde_json::Value>,
+    ) -> Self {
         self.metadata.insert(key.into(), value.into());
         self
     }
@@ -223,8 +227,24 @@ impl Singularity {
     pub fn get(&self, ns: &str, id: &str) -> Option<&Concept> {
         self.get_namespace(ns).and_then(|n| n.concepts.get(id))
     }
-
     pub fn associate(&mut self, ns: &str, from: &str, to: &str, strength: f32) -> Result<()> {
+        // Validate strength before any other checks
+        if !strength.is_finite() {
+            return Err(MemoryError::InvalidInput {
+                field: "strength".to_string(),
+                reason: "association strength must be finite".to_string(),
+            });
+        }
+        if !(0.0..=1.0).contains(&strength) {
+            return Err(MemoryError::InvalidInput {
+                field: "strength".to_string(),
+                reason: format!("association strength must be in [0.0, 1.0], got {strength}"),
+            });
+        }
+
+        // Read config limit before borrowing ns_state mutably
+        let max_assoc = self.config.max_associations_per_concept;
+
         let ns_state = self.get_namespace_mut(ns);
         if !ns_state.concepts.contains_key(from) {
             return Err(MemoryError::NotFound {
@@ -239,10 +259,24 @@ impl Singularity {
             });
         }
 
-        ns_state.associations
-            .entry(from.to_string())
-            .or_default()
-            .insert(to.to_string(), strength);
+        let neighbors = ns_state.associations.entry(from.to_string()).or_default();
+        neighbors.insert(to.to_string(), strength);
+
+        // Enforce max_associations_per_concept: evict weakest if over limit
+        if let Some(limit) = max_assoc {
+            while neighbors.len() > limit {
+                if let Some(weakest) = neighbors
+                    .iter()
+                    .min_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
+                    .map(|(k, _)| k.clone())
+                {
+                    neighbors.remove(&weakest);
+                } else {
+                    break;
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -302,7 +336,9 @@ impl Singularity {
 
     pub fn cache_metrics_snapshot(&self, ns: &str) -> CacheMetricsSnapshot {
         self.get_namespace(ns)
-            .map_or(CacheMetricsSnapshot::default(), |n| n.cache_metrics.snapshot())
+            .map_or(CacheMetricsSnapshot::default(), |n| {
+                n.cache_metrics.snapshot()
+            })
     }
 
     fn evict_oldest_if_needed(&mut self, ns: &str) {

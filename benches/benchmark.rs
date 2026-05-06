@@ -20,9 +20,13 @@ use chaotic_semantic_memory::retrieval::{GraphRagConfig, graph_rag_retrieve};
 use chaotic_semantic_memory::semantic_bridge::{
     BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown,
 };
-use chaotic_semantic_memory::singularity::{Concept, ConceptBuilder, Singularity};
+use chaotic_semantic_memory::singularity::{
+    Concept, ConceptBuilder, Singularity, SingularityConfig,
+};
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use std::time::Duration;
+
+const NS: &str = "_default";
 
 const PROBE_BENCH_TOP_K: usize = 10;
 const PROBE_BENCH_SAMPLE_SIZE: usize = 10;
@@ -215,6 +219,7 @@ fn build_probe_benchmark_singularity(concept_count: usize, worst_case: bool) -> 
         };
         singularity
             .inject(
+                NS,
                 ConceptBuilder::new(format!("p{i}"))
                     .with_vector(vector)
                     .build()
@@ -267,19 +272,19 @@ fn bench_filtered_search(c: &mut Criterion) {
     let mut group = c.benchmark_group("filtered_search");
 
     // Build singularities of different sizes
-    let mut sing_100 = Singularity::new();
+    let mut sing_100 = Singularity::new(SingularityConfig::default());
     for i in 0..100 {
         let tag = if i % 2 == 0 { "science" } else { "art" };
         sing_100
-            .inject(make_concept_with_tag(&format!("c{i}"), tag))
+            .inject(NS, make_concept_with_tag(&format!("c{i}"), tag))
             .unwrap();
     }
 
-    let mut sing_1k = Singularity::new();
+    let mut sing_1k = Singularity::new(SingularityConfig::default());
     for i in 0..1000 {
         let tag = if i % 2 == 0 { "science" } else { "art" };
         sing_1k
-            .inject(make_concept_with_tag(&format!("c{i}"), tag))
+            .inject(NS, make_concept_with_tag(&format!("c{i}"), tag))
             .unwrap();
     }
 
@@ -290,11 +295,11 @@ fn bench_filtered_search(c: &mut Criterion) {
     );
 
     group.bench_function("filtered_100", |b| {
-        b.iter(|| sing_100.find_similar_filtered(black_box(&query), 10, black_box(&filter)))
+        b.iter(|| sing_100.find_similar_filtered(NS, black_box(&query), 10, black_box(&filter)))
     });
 
     group.bench_function("filtered_1k", |b| {
-        b.iter(|| sing_1k.find_similar_filtered(black_box(&query), 10, black_box(&filter)))
+        b.iter(|| sing_1k.find_similar_filtered(NS, black_box(&query), 10, black_box(&filter)))
     });
 
     group.finish();
@@ -306,26 +311,30 @@ fn bench_graph_traversal(c: &mut Criterion) {
     let mut group = c.benchmark_group("graph_traversal");
 
     // Build a sparse graph: chain of 50 nodes
-    let mut sing_sparse = Singularity::new();
+    let mut sing_sparse = Singularity::new(SingularityConfig::default());
     for i in 0..50usize {
-        sing_sparse.inject(make_concept(&format!("n{i}"))).unwrap();
+        sing_sparse
+            .inject(NS, make_concept(&format!("n{i}")))
+            .unwrap();
     }
     for i in 0..49usize {
         sing_sparse
-            .associate(&format!("n{i}"), &format!("n{}", i + 1), 0.9)
+            .associate(NS, &format!("n{i}"), &format!("n{}", i + 1), 0.9)
             .unwrap();
     }
 
     // Build a denser graph: each node connects to next 3
-    let mut sing_dense = Singularity::new();
+    let mut sing_dense = Singularity::new(SingularityConfig::default());
     for i in 0..50usize {
-        sing_dense.inject(make_concept(&format!("d{i}"))).unwrap();
+        sing_dense
+            .inject(NS, make_concept(&format!("d{i}")))
+            .unwrap();
     }
     for i in 0..50usize {
         for j in 1..=3usize {
             if i + j < 50 {
                 sing_dense
-                    .associate(&format!("d{i}"), &format!("d{}", i + j), 0.9)
+                    .associate(NS, &format!("d{i}"), &format!("d{}", i + j), 0.9)
                     .unwrap();
             }
         }
@@ -336,19 +345,23 @@ fn bench_graph_traversal(c: &mut Criterion) {
     group.bench_function("bfs_sparse_50", |b| {
         b.iter(|| {
             sing_sparse
-                .bfs(black_box("n0"), black_box(&config))
+                .bfs(NS, black_box("n0"), black_box(&config))
                 .unwrap()
         })
     });
 
     group.bench_function("bfs_dense_50", |b| {
-        b.iter(|| sing_dense.bfs(black_box("d0"), black_box(&config)).unwrap())
+        b.iter(|| {
+            sing_dense
+                .bfs(NS, black_box("d0"), black_box(&config))
+                .unwrap()
+        })
     });
 
     group.bench_function("shortest_path_sparse", |b| {
         b.iter(|| {
             sing_sparse
-                .shortest_path(black_box("n0"), black_box("n49"), black_box(&config))
+                .shortest_path(NS, black_box("n0"), black_box("n49"), black_box(&config))
                 .unwrap()
         })
     });
@@ -356,7 +369,7 @@ fn bench_graph_traversal(c: &mut Criterion) {
     group.bench_function("shortest_path_hops_sparse", |b| {
         b.iter(|| {
             sing_sparse
-                .shortest_path_hops(black_box("n0"), black_box("n49"), black_box(&config))
+                .shortest_path_hops(NS, black_box("n0"), black_box("n49"), black_box(&config))
                 .unwrap()
         })
     });
@@ -415,10 +428,11 @@ fn bench_retrieval_baseline(c: &mut Criterion) {
         let query = HVec10240::new_seeded(999);
         group.bench_function(format!("exact_worst_case_{concept_count}"), |b| {
             b.iter(|| {
-                black_box(
-                    singularity_worst
-                        .find_similar_cached(black_box(&query), black_box(PROBE_BENCH_TOP_K)),
-                )
+                black_box(singularity_worst.find_similar_cached(
+                    NS,
+                    black_box(&query),
+                    black_box(PROBE_BENCH_TOP_K),
+                ))
             })
         });
 
@@ -433,18 +447,20 @@ fn bench_retrieval_baseline(c: &mut Criterion) {
 
         group.bench_function(format!("reduced_bucket_{concept_count}"), |b| {
             b.iter(|| {
-                black_box(
-                    singularity_bucket
-                        .find_similar_cached(black_box(&query), black_box(PROBE_BENCH_TOP_K)),
-                )
+                black_box(singularity_bucket.find_similar_cached(
+                    NS,
+                    black_box(&query),
+                    black_box(PROBE_BENCH_TOP_K),
+                ))
             })
         });
         group.bench_function(format!("exact_realistic_{concept_count}"), |b| {
             b.iter(|| {
-                black_box(
-                    singularity_realistic
-                        .find_similar_cached(black_box(&query), black_box(PROBE_BENCH_TOP_K)),
-                )
+                black_box(singularity_realistic.find_similar_cached(
+                    NS,
+                    black_box(&query),
+                    black_box(PROBE_BENCH_TOP_K),
+                ))
             })
         });
     }
@@ -469,10 +485,11 @@ fn build_bridge_concept_graph(label_count: usize) -> ConceptGraph {
 }
 
 fn build_bridge_singularity(concept_count: usize) -> Singularity {
-    let mut singularity = Singularity::new();
+    let mut singularity = Singularity::new(SingularityConfig::default());
     for i in 0..concept_count {
         singularity
             .inject(
+                NS,
                 ConceptBuilder::new(format!("mem_{i}"))
                     .with_vector(HVec10240::new_seeded(i as u64))
                     .with_metadata("_text", format!("memory content {i}"))
@@ -528,6 +545,7 @@ fn bench_bridge_retrieval(c: &mut Criterion) {
             black_box(
                 bridge_100
                     .query(
+                        NS,
                         black_box(&singularity_100),
                         black_box("memory content"),
                         10,
@@ -548,6 +566,7 @@ fn bench_bridge_retrieval(c: &mut Criterion) {
             black_box(
                 bridge_1k
                     .query(
+                        NS,
                         black_box(&singularity_1k),
                         black_box("memory content"),
                         10,
@@ -647,7 +666,9 @@ fn bench_singularity_scalability(c: &mut Criterion) {
         let query = HVec10240::new_seeded(999);
 
         group.bench_function(format!("probe_{concept_count}_concepts"), |b| {
-            b.iter(|| black_box(singularity.find_similar_cached(black_box(&query), black_box(10))))
+            b.iter(|| {
+                black_box(singularity.find_similar_cached(NS, black_box(&query), black_box(10)))
+            })
         });
     }
 
@@ -683,16 +704,22 @@ fn bench_graph_rag(c: &mut Criterion) {
     group.sample_size(10);
 
     // Build a graph with 1000 concepts
-    let mut sing = Singularity::new();
+    let mut sing = Singularity::new(SingularityConfig::default());
     for i in 0..1000 {
-        sing.inject(make_concept(&format!("concept_{i}"))).unwrap();
+        sing.inject(NS, make_concept(&format!("concept_{i}")))
+            .unwrap();
     }
 
     // Create 5-hop chains
     for i in 0..1000 {
         if i % 5 != 4 {
-            sing.associate(&format!("concept_{i}"), &format!("concept_{}", i + 1), 0.8)
-                .unwrap();
+            sing.associate(
+                NS,
+                &format!("concept_{i}"),
+                &format!("concept_{}", i + 1),
+                0.8,
+            )
+            .unwrap();
         }
     }
 
@@ -706,8 +733,8 @@ fn bench_graph_rag(c: &mut Criterion) {
     };
 
     let query = HVec10240::random();
-    let concepts = sing.all_concepts();
-    let associations = sing.all_associations();
+    let concepts = sing.all_concepts(NS);
+    let associations = sing.all_associations(NS);
 
     group.bench_function("probe_graph_1k_concepts_5_hops", |b| {
         b.iter(|| {

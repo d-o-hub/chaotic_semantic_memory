@@ -18,7 +18,9 @@ impl ChaoticSemanticFramework {
                 if let Some(ns_state) = sing.get_namespace(&self.namespace) {
                     if let Ok(index_data) = ns_state.index.serialize() {
                         if !index_data.is_empty() {
-                            persistence.save_index(&self.namespace, "main", &index_data).await?;
+                            persistence
+                                .save_index(&self.namespace, "main", &index_data)
+                                .await?;
                         }
                     }
                 }
@@ -42,6 +44,7 @@ impl ChaoticSemanticFramework {
     ///
     /// Clears existing state, loads persisted state. Use for fresh starts.
     /// See also: [`load_merge`](Self::load_merge) for additive semantics.
+    #[allow(clippy::significant_drop_tightening)] // Lock held for concept injection and index rebuild
     #[tracing::instrument(err, skip(self))]
     pub async fn load_replace(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
@@ -53,7 +56,9 @@ impl ChaoticSemanticFramework {
 
             let mut all_associations: Vec<(String, String, f32)> = Vec::new();
             for concept in &concepts {
-                let links = persistence.load_associations(&self.namespace, &concept.id).await?;
+                let links = persistence
+                    .load_associations(&self.namespace, &concept.id)
+                    .await?;
                 for (to_id, strength) in links {
                     all_associations.push((concept.id.clone(), to_id, strength));
                 }
@@ -66,7 +71,8 @@ impl ChaoticSemanticFramework {
                     sing.inject(&self.namespace, concept)?;
                 }
                 for (from_id, to_id, strength) in all_associations {
-                    if let Err(error) = sing.associate(&self.namespace, &from_id, &to_id, strength) {
+                    if let Err(error) = sing.associate(&self.namespace, &from_id, &to_id, strength)
+                    {
                         warn!(
                             from_id = %from_id,
                             to_id = %to_id,
@@ -80,15 +86,19 @@ impl ChaoticSemanticFramework {
 
             // ADR-0068: Load ANN index state
             if let Ok(Some(index_data)) = persistence.load_index(&self.namespace, "main").await {
-                let mut sing = self.singularity.write().await;
-                let ns_state = sing.get_namespace_mut(&self.namespace);
-                let _ = ns_state.index.deserialize(&index_data);
+                {
+                    let mut sing = self.singularity.write().await;
+                    let ns_state = sing.get_namespace_mut(&self.namespace);
+                    let _ = ns_state.index.deserialize(&index_data);
+                }
             } else {
                 // Fallback: rebuild index from concepts
-                let mut sing = self.singularity.write().await;
-                let ns_state = sing.get_namespace_mut(&self.namespace);
-                let concepts_map = ns_state.concepts.clone();
-                let _ = ns_state.index.rebuild(&concepts_map);
+                {
+                    let mut sing = self.singularity.write().await;
+                    let ns_state = sing.get_namespace_mut(&self.namespace);
+                    let concepts_map = ns_state.concepts.clone();
+                    let _ = ns_state.index.rebuild(&concepts_map);
+                }
             }
         }
         Ok(())
@@ -98,6 +108,7 @@ impl ChaoticSemanticFramework {
     ///
     /// Preserves existing state, adds persisted state on top.
     /// See also: [`load_replace`](Self::load_replace) for replacement semantics.
+    #[allow(clippy::significant_drop_tightening)] // Lock held for concept injection and index rebuild
     #[tracing::instrument(err, skip(self))]
     pub async fn load_merge(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
@@ -123,7 +134,9 @@ impl ChaoticSemanticFramework {
 
             let mut all_associations: Vec<(String, String, f32)> = Vec::new();
             for concept in &concepts {
-                let links = persistence.load_associations(&self.namespace, &concept.id).await?;
+                let links = persistence
+                    .load_associations(&self.namespace, &concept.id)
+                    .await?;
                 for (to_id, strength) in links {
                     all_associations.push((concept.id.clone(), to_id, strength));
                 }
@@ -132,7 +145,8 @@ impl ChaoticSemanticFramework {
             {
                 let mut sing = self.singularity.write().await;
                 for (from_id, to_id, strength) in all_associations {
-                    if let Err(error) = sing.associate(&self.namespace, &from_id, &to_id, strength) {
+                    if let Err(error) = sing.associate(&self.namespace, &from_id, &to_id, strength)
+                    {
                         warn!(
                             from_id = %from_id,
                             to_id = %to_id,
@@ -146,15 +160,19 @@ impl ChaoticSemanticFramework {
 
             // ADR-0068: Load ANN index state
             if let Ok(Some(index_data)) = persistence.load_index(&self.namespace, "main").await {
-                let mut sing = self.singularity.write().await;
-                let ns_state = sing.get_namespace_mut(&self.namespace);
-                let _ = ns_state.index.deserialize(&index_data);
+                {
+                    let mut sing = self.singularity.write().await;
+                    let ns_state = sing.get_namespace_mut(&self.namespace);
+                    let _ = ns_state.index.deserialize(&index_data);
+                }
             } else {
                 // Fallback: rebuild index from concepts
-                let mut sing = self.singularity.write().await;
-                let ns_state = sing.get_namespace_mut(&self.namespace);
-                let concepts_map = ns_state.concepts.clone();
-                let _ = ns_state.index.rebuild(&concepts_map);
+                {
+                    let mut sing = self.singularity.write().await;
+                    let ns_state = sing.get_namespace_mut(&self.namespace);
+                    let concepts_map = ns_state.concepts.clone();
+                    let _ = ns_state.index.rebuild(&concepts_map);
+                }
             }
         }
         Ok(())

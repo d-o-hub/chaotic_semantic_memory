@@ -240,7 +240,9 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(ref persistence) = self.persistence {
-            persistence.save_association(&self.namespace, from, to, strength).await?;
+            persistence
+                .save_association(&self.namespace, from, to, strength)
+                .await?;
         }
         self.metrics.inc_associations_created(1);
         self.emit_event(MemoryEvent::Associated {

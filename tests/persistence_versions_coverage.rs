@@ -5,6 +5,8 @@
 use chaotic_semantic_memory::prelude::*;
 use tempfile::NamedTempFile;
 
+const NS: &str = "_default";
+
 #[tokio::test]
 async fn version_history_after_multiple_updates() {
     let temp = NamedTempFile::new().unwrap();

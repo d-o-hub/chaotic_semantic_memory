@@ -47,6 +47,8 @@ pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig
 mod bridge_persistence;
 pub mod bridge_retrieval;
 pub mod bundle;
+#[cfg(feature = "serde")]
+mod bundle_serde;
 #[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]
 pub mod cli;
 pub mod concept_builder;
@@ -74,10 +76,10 @@ mod hyperdim_simd; // AVX2/NEON SIMD paths
 #[cfg(all(not(target_arch = "wasm32"), feature = "mcp"))]
 pub mod mcp;
 pub mod metadata_filter;
-pub mod semantic_triples;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_concepts;
+pub mod semantic_triples;
 pub use metadata_filter::MetadataFilter;
 pub mod index;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
@@ -99,11 +101,11 @@ mod reservoir_sparse; // LOC gate extraction
 pub mod retrieval;
 pub mod semantic_bridge;
 pub mod singularity;
-pub mod singularity_state;
 mod singularity_cache;
 mod singularity_ext;
 mod singularity_retrieval;
 mod singularity_search; // Extracted from singularity.rs for LOC gate
+pub mod singularity_state;
 mod singularity_ttl;
 
 #[cfg(target_arch = "wasm32")]

@@ -6,6 +6,8 @@
 use chaotic_semantic_memory::prelude::*;
 use tempfile::NamedTempFile;
 
+const NS: &str = "_default";
+
 #[tokio::test]
 async fn inject_concepts_empty_batch_returns_ok() {
     let framework = ChaoticSemanticFramework::builder()

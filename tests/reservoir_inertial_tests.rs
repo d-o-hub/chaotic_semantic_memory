@@ -6,6 +6,8 @@
 
 use chaotic_semantic_memory::reservoir::{ChaoticReservoir, Reservoir};
 
+const NS: &str = "_default";
+
 #[test]
 fn test_with_beta_valid_range() {
     // Test beta at boundaries and middle of valid range [0.0, 0.5]

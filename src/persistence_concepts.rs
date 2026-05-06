@@ -1,9 +1,9 @@
 #![cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-use libsql::params;
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
-use crate::singularity::Concept;
 use crate::persistence::Persistence;
+use crate::singularity::Concept;
+use libsql::params;
 
 impl Persistence {
     /// Save a concept to the database
@@ -16,9 +16,15 @@ impl Persistence {
         let canonical_concept_ids_json = serde_json::to_string(&concept.canonical_concept_ids)?;
 
         conn.execute(
-            "INSERT OR REPLACE INTO csm_concepts
+            "INSERT INTO csm_concepts
              (namespace, id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+             ON CONFLICT(namespace, id) DO UPDATE SET
+             vector = excluded.vector,
+             metadata = excluded.metadata,
+             modified_at = excluded.modified_at,
+             expires_at = excluded.expires_at,
+             canonical_concept_ids_json = excluded.canonical_concept_ids_json",
             params![
                 ns.to_string(),
                 concept.id.clone(),
@@ -33,7 +39,8 @@ impl Persistence {
         .await
         .map_err(|e| MemoryError::database(format!("Failed to save concept: {e}")))?;
 
-        self.record_concept_version_scoped(&conn, ns, concept).await?;
+        self.record_concept_version_scoped(&conn, ns, concept)
+            .await?;
         Ok(())
     }
 
@@ -58,9 +65,15 @@ impl Persistence {
 
             if let Err(e) = conn
                 .execute(
-                    "INSERT OR REPLACE INTO csm_concepts
+                    "INSERT INTO csm_concepts
                      (namespace, id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+                     ON CONFLICT(namespace, id) DO UPDATE SET
+                     vector = excluded.vector,
+                     metadata = excluded.metadata,
+                     modified_at = excluded.modified_at,
+                     expires_at = excluded.expires_at,
+                     canonical_concept_ids_json = excluded.canonical_concept_ids_json",
                     params![
                         ns.to_string(),
                         concept.id.clone(),
@@ -223,6 +236,21 @@ impl Persistence {
             .await
             .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {e}")))?;
 
+        // Delete in FK order: versions first (FK → concepts), then associations (FK → concepts),
+        // then the concept itself
+        if let Err(e) = conn
+            .execute(
+                "DELETE FROM csm_versions WHERE namespace = ?1 AND concept_id = ?2",
+                params![ns.to_string(), id.to_string()],
+            )
+            .await
+        {
+            let _ = conn.execute("ROLLBACK", ()).await;
+            return Err(MemoryError::database(format!(
+                "Failed to delete concept versions: {e}"
+            )));
+        }
+
         if let Err(e) = conn
             .execute(
                 "DELETE FROM csm_associations WHERE namespace = ?1 AND (from_id = ?2 OR to_id = ?2)",
@@ -237,7 +265,10 @@ impl Persistence {
         }
 
         if let Err(e) = conn
-            .execute("DELETE FROM csm_concepts WHERE namespace = ?1 AND id = ?2", params![ns.to_string(), id.to_string()])
+            .execute(
+                "DELETE FROM csm_concepts WHERE namespace = ?1 AND id = ?2",
+                params![ns.to_string(), id.to_string()],
+            )
             .await
         {
             let _ = conn.execute("ROLLBACK", ()).await;

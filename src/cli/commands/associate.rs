@@ -11,8 +11,8 @@ use crate::cli::args::{AssociateArgs, OutputFormat};
 use crate::cli::error::{CliError, Result};
 
 use super::{
-    create_framework_with_namespace, print_error, print_success, print_warning, validate_concept_id,
-    validate_strength,
+    create_framework_with_namespace, print_error, print_success, print_warning,
+    validate_concept_id, validate_strength,
 };
 
 #[instrument(name = "cli_associate")]

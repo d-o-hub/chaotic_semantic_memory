@@ -150,7 +150,9 @@ mod tests {
 
         // Verify concept was stored and has correct expires_at
         let sing = framework.singularity.read().await;
-        let concept = sing.get(&framework.namespace, "ttl-concept").expect("concept should exist");
+        let concept = sing
+            .get(&framework.namespace, "ttl-concept")
+            .expect("concept should exist");
         assert!(concept.expires_at.is_some(), "expires_at should be set");
 
         let expires_at = concept.expires_at.unwrap();
@@ -178,7 +180,9 @@ mod tests {
 
         // Verify concept exists with TTL
         let sing = framework.singularity.read().await;
-        let concept = sing.get(&framework.namespace, "text-ttl").expect("concept should exist");
+        let concept = sing
+            .get(&framework.namespace, "text-ttl")
+            .expect("concept should exist");
         assert!(concept.expires_at.is_some(), "expires_at should be set");
     }
 
@@ -196,7 +200,9 @@ mod tests {
             .unwrap();
 
         let sing = framework.singularity.read().await;
-        let concept = sing.get(&framework.namespace, "no-ttl-text").expect("concept should exist");
+        let concept = sing
+            .get(&framework.namespace, "no-ttl-text")
+            .expect("concept should exist");
         assert!(
             concept.expires_at.is_none(),
             "concept without TTL should not have expires_at"
@@ -221,7 +227,9 @@ mod tests {
             .unwrap();
 
         let sing = framework.singularity.read().await;
-        let concept = sing.get(&framework.namespace, "meta-concept").expect("concept should exist");
+        let concept = sing
+            .get(&framework.namespace, "meta-concept")
+            .expect("concept should exist");
         assert!(
             concept.expires_at.is_none(),
             "inject_text_with_metadata should not set TTL"

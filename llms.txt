@@ -2,7 +2,7 @@
 
 > AI memory systems with hyperdimensional vectors and chaotic reservoirs
 
-**Version:** 0.3.5
+**Version:** 0.4.0
 **License:** MIT
 **Repository:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
@@ -38,6 +38,8 @@
 - mcp: [dep:rmcp, cli]
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
+- serde: []
+- signing: []
 - wasm: []
 
 Generated: [TIMESTAMP REMOVED FOR DETERMINISM]
@@ -73,6 +75,12 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct BundleAccumulator
 - impl Default for BundleAccumulator
 - impl BundleAccumulator
+
+### src/bundle_serde.rs
+
+- impl Serialize for BundleAccumulator
+- impl Visitor for BundleVisitor
+- impl Deserialize for BundleAccumulator
 
 ### src/cli/args.rs
 
@@ -205,6 +213,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn print_warning
 - pub fn truncate_preview
 - pub fn create_framework
+- pub fn create_framework_with_namespace
 
 ### src/cli/commands/path.rs
 
@@ -373,11 +382,19 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct FrameworkMetricsSnapshot
 - impl FrameworkMetrics
 
+### src/framework_namespaces.rs
+
+- impl ChaoticSemanticFramework
+
 ### src/framework_ops.rs
 
 - impl ChaoticSemanticFramework
 
 ### src/framework_persistence.rs
+
+- impl ChaoticSemanticFramework
+
+### src/framework_rerank.rs
 
 - impl ChaoticSemanticFramework
 
@@ -440,6 +457,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct IndexStats
 - pub enum IndexBackend
 - pub trait AnnIndex
+- pub fn create_index
 
 ### src/lib.rs
 
@@ -475,6 +493,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod retrieval
 - pub mod semantic_bridge
 - pub mod singularity
+- pub mod singularity_state
 - pub use crate::persistence_wasm as persistence
 - pub mod persistence
 - pub struct persistence::Persistence
@@ -543,6 +562,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub struct Persistence
 - pub struct ConceptVersion
+- impl Persistence
+
+### src/persistence_concepts.rs
+
 - impl Persistence
 
 ### src/persistence_index.rs
@@ -640,16 +663,15 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/singularity.rs
 
-- pub use crate::singularity_cache::CacheMetricsSnapshot
-- pub use crate::singularity_retrieval::{CandidateSource, RetrievalConfig, RetrievalStats}
-- pub const DEFAULT_MAX_CACHED_TOP_K
-- pub struct Concept
 - pub struct SingularityConfig
 - impl Default for SingularityConfig
+- pub struct Concept
+- pub struct ConceptBuilder
+- impl ConceptBuilder
 - pub struct Singularity
 - impl Singularity
-- impl Default for Singularity
-- pub use crate::concept_builder::ConceptBuilder
+- pub fn unix_now_secs
+- pub fn unix_now_ns
 
 ### src/singularity_cache.rs
 
@@ -674,6 +696,11 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/singularity_search.rs
 
 - impl Singularity
+
+### src/singularity_state.rs
+
+- pub struct NamespaceState
+- impl NamespaceState
 
 ### src/singularity_ttl.rs
 
@@ -938,12 +965,12 @@ Reports are written under `progress/mutation/`.
 
 | Metric | Current |
 |--------|---------|
-| Total tests | 592 |
+| Total tests | 613 |
 | Test files | 46 |
 | Test LOC | 8,501 |
 | Source LOC | 12,140 (excluding inline tests) |
-| Inline test LOC | 2684 (in src modules) |
-| Test:Source ratio | **93%** (target: 90%) ✅ |
+| Inline test LOC | 2708 (in src modules) |
+| Test:Source ratio | **66%** (target: 90%) |
 
 ##### Test Types
 
@@ -1070,14 +1097,14 @@ WASM support is enabled automatically when compiling for the `wasm32` target arc
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.3" }
+chaotic_semantic_memory = { version = "0.4" }
 ```
 
 For library-only consumers who don't need the CLI binary or its dependencies:
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.3", default-features = false }
+chaotic_semantic_memory = { version = "0.4", default-features = false }
 ```
 
 ##### WASM npm Package (for JS/TS)
@@ -1234,7 +1261,7 @@ The `csm` binary provides command-line access:
 ```toml
 [package]
 name = "chaotic_semantic_memory"
-version = "0.3.5"
+version = "0.4.0"
 edition = "2024"
 rust-version = "1.85"
 description = "AI memory systems with hyperdimensional vectors and chaotic reservoirs"
@@ -1448,6 +1475,9 @@ embed-voyage = ["dep:reqwest"]
 ann-hnsw = ["dep:hnsw_rs"]
 ann-lsh = []
 
+# Federation-ready API enhancements (ADR-055 downstream)
+signing = []
+serde = []
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]
 ```
