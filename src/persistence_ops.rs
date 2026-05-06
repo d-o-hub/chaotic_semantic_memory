@@ -1,6 +1,6 @@
 use libsql::params;
 use tokio::fs;
-use tracing::{info, warn};
+use tracing::warn;
 
 use crate::error::{MemoryError, Result};
 use crate::persistence::{ConceptVersion, Persistence};
@@ -60,17 +60,30 @@ impl Persistence {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
         let ns_param = ns.to_string();
-        conn.execute_batch(&format!(
-            "BEGIN;
-                 DELETE FROM csm_associations WHERE namespace = '{ns_param}';
-                 DELETE FROM csm_versions WHERE namespace = '{ns_param}';
-                 DELETE FROM csm_concepts WHERE namespace = '{ns_param}';
-                 DELETE FROM csm_hnsw_graph WHERE namespace = '{ns_param}';
-                 DELETE FROM csm_canonical WHERE namespace = '{ns_param}';
-                 COMMIT;",
-        ))
-        .await
-        .map_err(|e| MemoryError::database(format!("Failed to clear namespace data: {e}")))?;
+        conn.execute("BEGIN", ())
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {e}")))?;
+
+        let tables = [
+            "DELETE FROM csm_associations WHERE namespace = ?1",
+            "DELETE FROM csm_versions WHERE namespace = ?1",
+            "DELETE FROM csm_concepts WHERE namespace = ?1",
+            "DELETE FROM csm_hnsw_graph WHERE namespace = ?1",
+            "DELETE FROM csm_canonical WHERE namespace = ?1",
+        ];
+
+        for sql in &tables {
+            if let Err(e) = conn.execute(sql, params![ns_param.clone()]).await {
+                let _ = conn.execute("ROLLBACK", ()).await;
+                return Err(MemoryError::database(format!(
+                    "Failed to clear namespace data: {e}"
+                )));
+            }
+        }
+
+        conn.execute("COMMIT", ())
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to commit namespace clear: {e}")))?;
         Ok(())
     }
 
@@ -217,6 +230,8 @@ impl Persistence {
                 "DELETE FROM csm_associations;
                  DELETE FROM csm_versions;
                  DELETE FROM csm_concepts;
+                 DELETE FROM csm_hnsw_graph;
+                 DELETE FROM csm_canonical;
                  DELETE FROM csm_schema_version;",
             )
             .await
@@ -229,6 +244,10 @@ impl Persistence {
                  SELECT namespace, from_id, to_id, strength FROM restore_db.csm_associations;
                  INSERT INTO csm_versions (namespace, concept_id, version, vector, metadata, modified_at)
                  SELECT namespace, concept_id, version, vector, metadata, modified_at FROM restore_db.csm_versions;
+                 INSERT INTO csm_hnsw_graph (namespace, id, data, modified_at)
+                 SELECT namespace, id, data, modified_at FROM restore_db.csm_hnsw_graph;
+                 INSERT INTO csm_canonical (namespace, id, version, labels_json, related_json)
+                 SELECT namespace, id, version, labels_json, related_json FROM restore_db.csm_canonical;
                  INSERT INTO csm_schema_version(version)
                  SELECT version FROM restore_db.csm_schema_version;",
             )
@@ -287,131 +306,6 @@ impl Persistence {
         .await
         .map_err(|e| MemoryError::database(format!("Failed to clear concept associations: {e}")))?;
         Ok(())
-    }
-
-    /// Internal migration method that reuses an existing connection.
-    /// Used by init_schema() to avoid semaphore deadlock from nested permit acquisition.
-    pub(crate) async fn apply_migrations_with_conn(
-        &self,
-        conn: &libsql::Connection,
-        target_version: i64,
-    ) -> Result<()> {
-        let current = self.schema_version_with_conn(conn).await?;
-        if target_version <= current {
-            return Ok(());
-        }
-
-        conn.execute("BEGIN", ()).await.map_err(|e| {
-            MemoryError::database(format!("Failed to begin migration transaction: {e}"))
-        })?;
-
-        for version in (current + 1)..=target_version {
-            info!(version, "applying schema migration");
-            if version == 2 {
-                conn.execute_batch(
-                    "CREATE INDEX IF NOT EXISTS idx_csm_versions_modified_at
-                     ON csm_versions(modified_at);",
-                )
-                .await
-                .map_err(|e| MemoryError::database(format!("Failed migration v2: {e}")))?;
-            }
-
-            if version == 3 {
-                // Add expires_at column for TTL support
-                if !self
-                    .column_exists(conn, "csm_concepts", "expires_at")
-                    .await?
-                {
-                    conn.execute_batch("ALTER TABLE csm_concepts ADD COLUMN expires_at INTEGER;")
-                        .await
-                        .map_err(|e| MemoryError::database(format!("Failed migration v3: {e}")))?;
-                }
-            }
-
-            if version == 4 {
-                // Add canonical_concepts table for semantic bridge
-                conn.execute_batch(
-                    "CREATE TABLE IF NOT EXISTS csm_canonical (
-                        id TEXT PRIMARY KEY,
-                        version INTEGER NOT NULL,
-                        labels_json TEXT NOT NULL,
-                        related_json TEXT NOT NULL
-                    );",
-                )
-                .await
-                .map_err(|e| MemoryError::database(format!("Failed migration v4: {e}")))?;
-            }
-
-            if version == 5 {
-                self.apply_v5_namespace_migration(conn).await?;
-            }
-
-            if version == 6 {
-                // Preserve semantic-bridge linkage IDs on concepts
-                if !self
-                    .column_exists(conn, "csm_concepts", "canonical_concept_ids_json")
-                    .await?
-                {
-                    conn.execute_batch(
-                        "ALTER TABLE csm_concepts ADD COLUMN canonical_concept_ids_json TEXT;",
-                    )
-                    .await
-                    .map_err(|e| MemoryError::database(format!("Failed migration v6: {e}")))?;
-                }
-            }
-
-            if version == 7 {
-                // Add HNSW graph table for index persistence
-                conn.execute_batch(
-                    "CREATE TABLE IF NOT EXISTS csm_hnsw_graph (
-                        id TEXT PRIMARY KEY,
-                        data BLOB NOT NULL,
-                        modified_at INTEGER NOT NULL
-                    );",
-                )
-                .await
-                .map_err(|e| MemoryError::database(format!("Failed migration v7: {}", e)))?;
-            }
-
-            if version == 8 {
-                self.apply_v8_namespace_migration(conn).await?;
-            }
-
-            conn.execute(
-                "INSERT INTO csm_schema_version(version) VALUES (?1)",
-                libsql::params![version],
-            )
-            .await
-            .map_err(|e| MemoryError::database(format!("Failed to record schema version: {e}")))?;
-        }
-
-        conn.execute("COMMIT", ())
-            .await
-            .map_err(|e| MemoryError::database(format!("Failed to commit migrations: {e}")))?;
-
-        Ok(())
-    }
-
-    /// Internal schema version query that reuses an existing connection.
-    async fn schema_version_with_conn(&self, conn: &libsql::Connection) -> Result<i64> {
-        let mut rows = conn
-            .query(
-                "SELECT COALESCE(MAX(version), 0) FROM csm_schema_version",
-                (),
-            )
-            .await
-            .map_err(|e| MemoryError::database(format!("Failed to get schema version: {e}")))?;
-
-        if let Some(row) = rows.next().await.map_err(|e| {
-            MemoryError::database(format!("Failed to fetch schema version row: {e}"))
-        })? {
-            let version: i64 = row.get(0).map_err(|e| {
-                MemoryError::database(format!("Failed to parse schema version: {e}"))
-            })?;
-            Ok(version)
-        } else {
-            Ok(0)
-        }
     }
 }
 

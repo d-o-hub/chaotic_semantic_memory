@@ -1,6 +1,7 @@
 use crate::error::{MemoryError, Result};
 use crate::persistence::Persistence;
 use libsql::params;
+use tracing::info;
 
 impl Persistence {
     pub(crate) async fn table_exists(
@@ -257,5 +258,124 @@ impl Persistence {
         .map_err(|e| MemoryError::database(format!("Failed migration v8 namespace isolation: {e}")))?;
 
         Ok(())
+    }
+
+    /// Internal migration method that reuses an existing connection.
+    /// Used by init_schema() to avoid semaphore deadlock from nested permit acquisition.
+    pub(crate) async fn apply_migrations_with_conn(
+        &self,
+        conn: &libsql::Connection,
+        target_version: i64,
+    ) -> Result<()> {
+        let current = self.schema_version_with_conn(conn).await?;
+        if target_version <= current {
+            return Ok(());
+        }
+
+        conn.execute("BEGIN", ()).await.map_err(|e| {
+            MemoryError::database(format!("Failed to begin migration transaction: {e}"))
+        })?;
+
+        for version in (current + 1)..=target_version {
+            info!(version, "applying schema migration");
+            if version == 2 {
+                conn.execute_batch(
+                    "CREATE INDEX IF NOT EXISTS idx_csm_versions_modified_at
+                     ON csm_versions(modified_at);",
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v2: {e}")))?;
+            }
+
+            if version == 3
+                && !self
+                    .column_exists(conn, "csm_concepts", "expires_at")
+                    .await?
+            {
+                conn.execute_batch("ALTER TABLE csm_concepts ADD COLUMN expires_at INTEGER;")
+                    .await
+                    .map_err(|e| MemoryError::database(format!("Failed migration v3: {e}")))?;
+            }
+
+            if version == 4 {
+                conn.execute_batch(
+                    "CREATE TABLE IF NOT EXISTS csm_canonical (
+                        id TEXT PRIMARY KEY,
+                        version INTEGER NOT NULL,
+                        labels_json TEXT NOT NULL,
+                        related_json TEXT NOT NULL
+                    );",
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v4: {e}")))?;
+            }
+
+            if version == 5 {
+                self.apply_v5_namespace_migration(conn).await?;
+            }
+
+            if version == 6
+                && !self
+                    .column_exists(conn, "csm_concepts", "canonical_concept_ids_json")
+                    .await?
+            {
+                conn.execute_batch(
+                    "ALTER TABLE csm_concepts ADD COLUMN canonical_concept_ids_json TEXT;",
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v6: {e}")))?;
+            }
+
+            if version == 7 {
+                conn.execute_batch(
+                    "CREATE TABLE IF NOT EXISTS csm_hnsw_graph (
+                        id TEXT PRIMARY KEY,
+                        data BLOB NOT NULL,
+                        modified_at INTEGER NOT NULL
+                    );",
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v7: {}", e)))?;
+            }
+
+            if version == 8 {
+                self.apply_v8_namespace_migration(conn).await?;
+            }
+
+            conn.execute(
+                "INSERT INTO csm_schema_version(version) VALUES (?1)",
+                libsql::params![version],
+            )
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to record schema version: {e}")))?;
+        }
+
+        conn.execute("COMMIT", ())
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to commit migrations: {e}")))?;
+
+        Ok(())
+    }
+
+    /// Internal schema version query that reuses an existing connection.
+    async fn schema_version_with_conn(&self, conn: &libsql::Connection) -> Result<i64> {
+        let mut rows = conn
+            .query(
+                "SELECT COALESCE(MAX(version), 0) FROM csm_schema_version",
+                (),
+            )
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to get schema version: {e}")))?;
+
+        if let Some(row) = rows.next().await.map_err(|e| {
+            MemoryError::database(format!("Failed to fetch schema version row: {e}"))
+        })? {
+            let version: i64 = row.get(0).map_err(|e| {
+                MemoryError::database(format!("Failed to parse schema version: {e}"))
+            })?;
+            Ok(version)
+        } else {
+            Ok(0)
+        }
     }
 }

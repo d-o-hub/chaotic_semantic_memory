@@ -348,7 +348,9 @@ impl Singularity {
 
         while self.len(ns) >= limit {
             let oldest = {
-                let ns_state = self.get_namespace(ns).unwrap();
+                let Some(ns_state) = self.get_namespace(ns) else {
+                    break;
+                };
                 ns_state
                     .concepts
                     .values()

@@ -65,7 +65,7 @@ WASM support is enabled automatically when compiling for the `wasm32` target arc
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.4" }
+chaotic_semantic_memory = { version = "0.3" }
 ```
 
 For library-only consumers who don't need the CLI binary or its dependencies:
@@ -457,12 +457,12 @@ Reports are written under `progress/mutation/`.
 
 | Metric | Current |
 |--------|---------|
-| Total tests | 613 |
+| Total tests | 592 |
 | Test files | 46 |
 | Test LOC | 8,501 |
 | Source LOC | 12,140 (excluding inline tests) |
-| Inline test LOC | 2708 (in src modules) |
-| Test:Source ratio | **66%** (target: 90%) |
+| Inline test LOC | 2684 (in src modules) |
+| Test:Source ratio | **93%** (target: 90%) ✅ |
 
 ### Test Types
 

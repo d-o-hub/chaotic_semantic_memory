@@ -43,7 +43,7 @@ impl ChaoticSemanticFramework {
     /// Execute bridge retrieval query with metadata filtering.
     ///
     /// Pre-filters concepts by metadata before bridge retrieval.
-    #[allow(clippy::significant_drop_tightening)] // Singularity lock needed for filtered retrieval
+    // Singularity lock needed for filtered retrieval
     pub async fn probe_bridge_text_filtered(
         &self,
         query: &str,
@@ -67,6 +67,7 @@ impl ChaoticSemanticFramework {
 
         // Run full bridge query and filter results
         let hits = bridge.query(&self.namespace, &singularity, query, top_k, None)?;
+        drop(singularity);
         let filtered_hits: Vec<BridgeHit> = hits
             .into_iter()
             .filter(|hit| filtered_ids.contains(&hit.id))
@@ -109,7 +110,7 @@ impl ChaoticSemanticFramework {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::float_cmp)] // Exact float comparisons for confidence test assertions
+    // Exact float comparisons for confidence test assertions
 
     use crate::encoder::TextEncoder;
     use crate::framework_builder::FrameworkBuilder;
@@ -142,7 +143,7 @@ mod tests {
             .await
             .unwrap();
         assert!(packet.facts.is_empty());
-        assert_eq!(packet.confidence, 0.0);
+        assert!((packet.confidence).abs() < f32::EPSILON);
     }
 
     #[tokio::test]

@@ -84,6 +84,7 @@ pub struct FrameworkBuilder {
     pub(crate) concept_cache_size: usize,
     pub(crate) version_retention: usize,
     pub(crate) namespace: String,
+    pub(crate) embedding_provider: Option<Arc<dyn crate::embedding::EmbeddingProvider>>,
 }
 
 impl Default for FrameworkBuilder {
@@ -95,6 +96,7 @@ impl Default for FrameworkBuilder {
             concept_cache_size: 1000,
             version_retention: 10,
             namespace: "_default".to_string(),
+            embedding_provider: None,
         }
     }
 }
@@ -222,6 +224,24 @@ impl FrameworkBuilder {
         self
     }
 
+    /// Configure an external embedding provider.
+    pub fn with_embedding_provider<P: crate::embedding::EmbeddingProvider + 'static>(
+        mut self,
+        provider: P,
+    ) -> Self {
+        self.embedding_provider = Some(Arc::new(provider));
+        self
+    }
+
+    /// Configure an external embedding provider using an existing Arc'd trait object.
+    pub fn with_embedding_provider_arc(
+        mut self,
+        provider: Arc<dyn crate::embedding::EmbeddingProvider>,
+    ) -> Self {
+        self.embedding_provider = Some(provider);
+        self
+    }
+
     pub async fn build(self) -> Result<ChaoticSemanticFramework> {
         Reservoir::validate_params(
             self.config.reservoir_size,
@@ -264,6 +284,19 @@ impl FrameworkBuilder {
         #[cfg(not(feature = "persistence"))]
         let persistence: Option<Arc<crate::persistence::Persistence>> = None;
 
+        let provider = self
+            .embedding_provider
+            .unwrap_or_else(|| Arc::new(crate::embedding::HdcTextProvider::new()));
+
+        let projection = if provider.name() == "hdc-text" {
+            crate::embedding::Projection::empty()
+        } else {
+            crate::embedding::Projection::new(&crate::embedding::ProjectionConfig {
+                native_dim: provider.native_dim(),
+                ..Default::default()
+            })
+        };
+
         let framework = ChaoticSemanticFramework {
             singularity,
             persistence,
@@ -272,6 +305,8 @@ impl FrameworkBuilder {
             metrics: Default::default(),
             event_sender: build_event_sender(),
             namespace: self.namespace,
+            embedding_provider: provider,
+            projection: Arc::new(projection),
         };
 
         framework.load_replace().await?;

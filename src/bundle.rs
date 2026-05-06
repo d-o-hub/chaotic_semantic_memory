@@ -9,8 +9,8 @@ use crate::hyperdim::HVec10240;
 /// Finalize applies majority threshold to produce a bundled hypervector.
 #[derive(Debug, Clone)]
 pub struct BundleAccumulator {
-    pub(crate) counts: Box<[i32; HVec10240::DIMENSION]>,
-    pub(crate) n: u32,
+    counts: Box<[i32; HVec10240::DIMENSION]>,
+    n: u32,
 }
 
 impl Default for BundleAccumulator {
@@ -23,9 +23,6 @@ impl Default for BundleAccumulator {
 }
 
 impl BundleAccumulator {
-    /// Wire-format version. Bump when `serde` layout changes.
-    pub const WIRE_VERSION: u32 = 1;
-
     /// Create a new empty accumulator.
     pub fn new() -> Self {
         Self {

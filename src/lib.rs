@@ -1,4 +1,8 @@
-//! # Chaotic Semantic Memory
+#![allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::missing_const_for_fn
+)]
 //!
 //! High-performance memory system using **Hyperdimensional Computing** (HDC) and
 //! chaotic echo-state reservoir dynamics.
@@ -47,8 +51,6 @@ pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig
 mod bridge_persistence;
 pub mod bridge_retrieval;
 pub mod bundle;
-#[cfg(feature = "serde")]
-mod bundle_serde;
 #[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]
 pub mod cli;
 pub mod concept_builder;

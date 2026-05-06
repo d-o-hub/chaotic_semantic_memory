@@ -9,10 +9,7 @@ use std::collections::HashMap;
 use tracing::instrument;
 
 impl crate::framework::ChaoticSemanticFramework {
-    /// Inject a concept with TTL (time to live) into memory.
-    ///
-    /// The concept will expire after `ttl_seconds` from creation.
-    /// Expired concepts are automatically filtered during probe operations.
+    /// Inject a concept with TTL. The concept expires after `ttl_seconds`; expired concepts are filtered during probe.
     #[instrument(err, skip(self, id, vector))]
     pub async fn inject_concept_with_ttl(
         &self,
@@ -33,7 +30,12 @@ impl crate::framework::ChaoticSemanticFramework {
         }
 
         if let Some(ref persistence) = self.persistence {
+            let p_start = std::time::Instant::now();
             persistence.save_concept(&self.namespace, &concept).await?;
+            self.metrics.observe_persist_latency_ms(
+                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                "save",
+            );
         }
         self.metrics.inc_concepts_injected(1);
         self.emit_event(MemoryEvent::ConceptInjected {
@@ -47,14 +49,14 @@ impl crate::framework::ChaoticSemanticFramework {
     /// Inject a concept from text with TTL.
     #[instrument(err, skip(self, text))]
     pub async fn inject_text_with_ttl(&self, id: &str, text: &str, ttl_seconds: u64) -> Result<()> {
-        let encoder = crate::encoder::TextEncoder::new();
-        let vector = encoder.encode(text);
+        let embedding = self.embedding_provider.embed(text).await?;
+        let vector = self
+            .embedding_provider
+            .project(&embedding, &self.projection);
         self.inject_concept_with_ttl(id, vector, ttl_seconds).await
     }
 
-    /// Purge all expired concepts from memory.
-    ///
-    /// Returns the number of concepts removed.
+    /// Purge all expired concepts. Returns the count of concepts removed.
     #[instrument(err, skip(self))]
     pub async fn purge_expired(&self) -> Result<usize> {
         let count = {
@@ -64,14 +66,12 @@ impl crate::framework::ChaoticSemanticFramework {
         Ok(count)
     }
 
-    /// Inject a concept from text using the built-in encoder.
-    ///
-    /// The text is encoded to a hypervector using `TextEncoder` and stored
-    /// with the given ID. This is a convenience method for the common case
-    /// of storing text-based concepts.
+    /// Inject a concept from text using the embedding provider. Convenience for storing text-based concepts.
     pub async fn inject_text(&self, id: &str, text: &str) -> Result<()> {
-        let encoder = crate::encoder::TextEncoder::new();
-        let vector = encoder.encode(text);
+        let embedding = self.embedding_provider.embed(text).await?;
+        let vector = self
+            .embedding_provider
+            .project(&embedding, &self.projection);
         self.inject_concept(id, vector).await
     }
 
@@ -82,18 +82,20 @@ impl crate::framework::ChaoticSemanticFramework {
         text: &str,
         metadata: HashMap<String, serde_json::Value>,
     ) -> Result<()> {
-        let encoder = crate::encoder::TextEncoder::new();
-        let vector = encoder.encode(text);
+        let embedding = self.embedding_provider.embed(text).await?;
+        let vector = self
+            .embedding_provider
+            .project(&embedding, &self.projection);
         self.inject_concept_with_metadata(id, vector, metadata)
             .await
     }
 
-    /// Probe for similar concepts using text input.
-    ///
-    /// Encodes the query text and finds the most similar concepts.
+    /// Probe for similar concepts using text input. Encodes the query text via the embedding provider.
     pub async fn probe_text(&self, query: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
-        let encoder = crate::encoder::TextEncoder::new();
-        let vector = encoder.encode(query);
+        let embedding = self.embedding_provider.embed(query).await?;
+        let vector = self
+            .embedding_provider
+            .project(&embedding, &self.projection);
         self.probe(vector, top_k).await
     }
 
@@ -104,15 +106,14 @@ impl crate::framework::ChaoticSemanticFramework {
         top_k: usize,
         filter: &MetadataFilter,
     ) -> Result<Vec<(String, f32)>> {
-        let encoder = crate::encoder::TextEncoder::new();
-        let vector = encoder.encode(query);
+        let embedding = self.embedding_provider.embed(query).await?;
+        let vector = self
+            .embedding_provider
+            .project(&embedding, &self.projection);
         self.probe_filtered(&vector, top_k, filter).await
     }
 
-    /// Query specifically for a session using text input.
-    ///
-    /// This is a convenience method that filters results to only those
-    /// with a `session_id` metadata field matching the provided ID.
+    /// Query for a session using text input. Filters results to those with matching `session_id` metadata.
     pub async fn query_in_session(
         &self,
         query: &str,
@@ -126,7 +127,8 @@ impl crate::framework::ChaoticSemanticFramework {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::significant_drop_tightening)] // Locks held during test assertions
+    #![allow(clippy::significant_drop_tightening)]
+    // Locks held during test assertions
 
     use super::*;
     use crate::framework::ChaoticSemanticFramework;
@@ -148,7 +150,7 @@ mod tests {
             .unwrap();
         let after = unix_now_secs();
 
-        // Verify concept was stored and has correct expires_at
+        // Verify stored with correct expires_at
         let sing = framework.singularity.read().await;
         let concept = sing
             .get(&framework.namespace, "ttl-concept")
@@ -156,7 +158,7 @@ mod tests {
         assert!(concept.expires_at.is_some(), "expires_at should be set");
 
         let expires_at = concept.expires_at.unwrap();
-        // expires_at should be approximately now + 3600
+        // expires_at ≈ now + 3600
         let expected_min = before + 3600;
         let expected_max = after + 3600;
         assert!(
@@ -284,26 +286,26 @@ mod tests {
             .await
             .unwrap();
 
-        // Inject concept with short TTL (1 second)
+        // Short TTL (1 second)
         let vector = HVec10240::random();
         framework
             .inject_concept_with_ttl("short-ttl", vector, 1)
             .await
             .unwrap();
 
-        // Inject concept with long TTL
+        // Long TTL
         framework
             .inject_concept_with_ttl("long-ttl", HVec10240::random(), 3600)
             .await
             .unwrap();
 
-        // Inject concept without TTL
+        // No TTL
         framework
             .inject_text("no-ttl", "persistent content")
             .await
             .unwrap();
 
-        // Wait for expiration
+        // Wait for expiry
         tokio::time::sleep(tokio::time::Duration::from_millis(1100)).await;
 
         // Purge expired

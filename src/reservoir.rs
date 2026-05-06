@@ -195,7 +195,7 @@ impl Reservoir {
         self.update_phase = (update_phase + 1) % self.update_stride;
 
         #[cfg(not(target_arch = "wasm32"))]
-        let latency_us = started.elapsed().as_micros() as u64;
+        let latency_us = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
         #[cfg(target_arch = "wasm32")]
         let latency_us = 0;
         self.metrics.observe_step(latency_us, self.size as u64);
@@ -333,7 +333,7 @@ impl Reservoir {
                 norm += val * val;
             }
             norm = norm.sqrt();
-            if norm == 0.0 {
+            if norm.abs() < f32::EPSILON {
                 return 0.0;
             }
 
@@ -354,7 +354,7 @@ impl Reservoir {
             denominator += v[i] * v[i];
         }
 
-        if denominator == 0.0 {
+        if denominator.abs() < f32::EPSILON {
             0.0
         } else {
             (numerator / denominator).abs()

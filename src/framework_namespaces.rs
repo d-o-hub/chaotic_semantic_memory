@@ -85,6 +85,8 @@ impl ChaoticSemanticFramework {
             metrics: self.metrics.clone(),
             event_sender: self.event_sender.clone(),
             namespace: ns.to_string(),
+            embedding_provider: self.embedding_provider.clone(),
+            projection: self.projection.clone(),
         }
     }
 }

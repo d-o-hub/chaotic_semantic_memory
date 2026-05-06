@@ -8,10 +8,9 @@
 
 use crate::cli::args::{OutputFormat, QueryArgs};
 use crate::cli::commands::{
-    create_framework_with_namespace, print_success, print_warning, truncate_preview,
+    create_framework_advanced, print_success, print_warning, truncate_preview,
 };
 use crate::cli::error::{CliError, Result};
-use crate::encoder::TextEncoder;
 use crate::retrieval::bm25::Bm25Index;
 use crate::retrieval::hybrid::{compute_weights, merge_results};
 
@@ -51,32 +50,30 @@ pub async fn run_query(
         ));
     }
 
-    let framework: crate::framework::ChaoticSemanticFramework =
-        create_framework_with_namespace(db_path, &args.namespace).await?;
-
-    // Create encoder based on code_aware flag
-    let encoder = if args.code_aware {
-        TextEncoder::new_code_aware()
-    } else {
-        TextEncoder::new()
-    };
-
-    // Tokenize query for BM25
-    let query_tokens = tokenize_query(&args.text, args.code_aware);
-
     // Determine hybrid mode
     let use_bm25 = !args.semantic_only;
     let use_hdc = !args.keyword_only;
 
+    // Load framework with provider only if semantic search is enabled
+    let provider_name = if use_hdc {
+        args.provider.as_deref()
+    } else {
+        None
+    };
+
+    // Load framework with provider and namespace
+    let framework =
+        create_framework_advanced(db_path, provider_name, args.code_aware, &args.namespace).await?;
+
+    // Tokenize query for BM25
+    let query_tokens = tokenize_query(&args.text, args.code_aware);
+
     // Collect results from both search methods
     let hdc_results = if use_hdc {
-        // Encode the query text for HDC
-        let query_vector = encoder.encode(&args.text);
-
-        // Search for similar concepts
+        // Search for similar concepts using framework's probe_text (which uses configured provider)
         Some(
             framework
-                .probe(query_vector, args.top_k)
+                .probe_text(&args.text, args.top_k)
                 .await
                 .map_err(|e| CliError::Persistence(format!("query operation failed: {e}")))?,
         )

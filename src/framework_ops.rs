@@ -1,3 +1,4 @@
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 use crate::error::Result;
 use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
@@ -15,7 +16,7 @@ const MAX_HISTORY_LIMIT: usize = 1000;
 
 impl ChaoticSemanticFramework {
     /// Batch inject multiple concepts into memory.
-    #[allow(clippy::significant_drop_tightening)] // Singularity write lock needed for batch inject
+    // Singularity write lock needed for batch inject
     #[instrument(err, skip(self, concepts))]
     pub async fn inject_concepts(&self, concepts: &[(String, HVec10240)]) -> Result<()> {
         self.validate_batch_size(concepts.len())?;
@@ -35,10 +36,16 @@ impl ChaoticSemanticFramework {
                 sing.inject(&self.namespace, concept.clone())?;
                 to_save.push(concept);
             }
+            drop(sing);
         }
 
         if let Some(ref persistence) = self.persistence {
+            let p_start = std::time::Instant::now();
             persistence.save_concepts(&self.namespace, &to_save).await?;
+            self.metrics.observe_persist_latency_ms(
+                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                "save",
+            );
         }
 
         self.metrics.inc_concepts_injected(to_save.len() as u64);
@@ -137,7 +144,7 @@ impl ChaoticSemanticFramework {
     pub async fn import_json(&self, path: &str, merge: bool) -> Result<usize> {
         let validated_path = validate_path(path)?;
         let bytes = fs::read(validated_path).await?;
-        #[allow(clippy::cast_possible_truncation)] // MAX_IMPORT_SIZE fits in usize on 64-bit
+        // MAX_IMPORT_SIZE fits in usize on 64-bit
         if bytes.len() > MAX_IMPORT_SIZE as usize {
             return Err(crate::error::MemoryError::InvalidInput {
                 field: "import_data".to_string(),
@@ -196,7 +203,7 @@ impl ChaoticSemanticFramework {
         Ok(payload.concepts.len())
     }
     /// Export memory state to binary file.
-    #[allow(clippy::significant_drop_tightening)] // Singularity read lock needed for binary export
+    // Singularity read lock needed for binary export
     #[instrument(err, skip(self), fields(path))]
     pub async fn export_binary(&self, path: &str) -> Result<()> {
         let validated_path = validate_path(path)?;
@@ -209,8 +216,9 @@ impl ChaoticSemanticFramework {
                 concepts: sing.all_concepts(&self.namespace),
                 associations: sing.all_associations(&self.namespace),
             };
-            // Convert to binary-compatible format
-            BinaryExportPayload::from(json_payload)
+            let res = BinaryExportPayload::from(json_payload);
+            drop(sing);
+            res
         };
 
         let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
@@ -229,7 +237,7 @@ impl ChaoticSemanticFramework {
         let validated_path = validate_path(path)?;
         let bytes = fs::read(validated_path).await?;
 
-        #[allow(clippy::cast_possible_truncation)] // MAX_IMPORT_SIZE fits in usize on 64-bit
+        // MAX_IMPORT_SIZE fits in usize on 64-bit
         if bytes.len() > MAX_IMPORT_SIZE as usize {
             return Err(crate::error::MemoryError::InvalidInput {
                 field: "import_data".to_string(),

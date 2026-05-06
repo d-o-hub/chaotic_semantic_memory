@@ -2,7 +2,7 @@
 
 > AI memory systems with hyperdimensional vectors and chaotic reservoirs
 
-**Version:** 0.4.0
+**Version:** 0.3.5
 **License:** MIT
 **Repository:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
@@ -75,12 +75,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct BundleAccumulator
 - impl Default for BundleAccumulator
 - impl BundleAccumulator
-
-### src/bundle_serde.rs
-
-- impl Serialize for BundleAccumulator
-- impl Visitor for BundleVisitor
-- impl Deserialize for BundleAccumulator
 
 ### src/cli/args.rs
 
@@ -214,6 +208,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn truncate_preview
 - pub fn create_framework
 - pub fn create_framework_with_namespace
+- pub fn create_framework_with_provider
+- pub fn create_framework_advanced
 
 ### src/cli/commands/path.rs
 
@@ -307,6 +303,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use remote_openai::OpenAiProvider
 - pub use remote_voyage::VoyageProvider
 - pub trait EmbeddingProvider
+- pub fn get_provider
 
 ### src/embedding/projection.rs
 
@@ -639,6 +636,18 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve}
 - pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
 
+### src/retrieval/rerank.rs
+
+- pub struct RerankCandidate
+- pub trait Reranker
+- pub struct MmrReranker
+- impl Reranker for MmrReranker
+- pub struct RecencyDecayReranker
+- impl Reranker for RecencyDecayReranker
+- pub struct CrossEncoderReranker
+- impl Reranker for CrossEncoderReranker
+- pub fn parse_rerankers
+
 ### src/semantic_bridge.rs
 
 - pub struct CanonicalConcept
@@ -959,12 +968,12 @@ Reports are written under `progress/mutation/`.
 
 | Metric | Current |
 |--------|---------|
-| Total tests | 613 |
+| Total tests | 592 |
 | Test files | 46 |
 | Test LOC | 8,501 |
 | Source LOC | 12,140 (excluding inline tests) |
-| Inline test LOC | 2708 (in src modules) |
-| Test:Source ratio | **66%** (target: 90%) |
+| Inline test LOC | 2684 (in src modules) |
+| Test:Source ratio | **93%** (target: 90%) ✅ |
 
 ##### Test Types
 
@@ -1091,7 +1100,7 @@ WASM support is enabled automatically when compiling for the `wasm32` target arc
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.4" }
+chaotic_semantic_memory = { version = "0.3" }
 ```
 
 For library-only consumers who don't need the CLI binary or its dependencies:
@@ -1386,7 +1395,6 @@ Finalize applies majority threshold to produce a bundled hypervector.
 
 ```rust
 impl BundleAccumulator {
-    pub const WIRE_VERSION: Type;
     pub fn new() -> Self;
     pub fn add(&mut self, hv: &HVec10240);
     pub fn remove(&mut self, hv: &HVec10240);
@@ -1402,29 +1410,6 @@ impl BundleAccumulator {
 
 ```rust
 impl Default for BundleAccumulator {
-}
-```
-
-## src/bundle_serde.rs
-
-### impl Deserialize<'de> for BundleAccumulator
-
-```rust
-impl<'de> Deserialize<'de> for BundleAccumulator {
-}
-```
-
-### impl Serialize for BundleAccumulator
-
-```rust
-impl Serialize for BundleAccumulator {
-}
-```
-
-### impl Visitor<'de> for BundleVisitor
-
-```rust
-impl<'de> Visitor<'de> for BundleVisitor {
 }
 ```
 
@@ -1631,6 +1616,9 @@ pub struct InjectArgs {
     pub concept_id: String,
     pub from_file: Option<PathBuf>,
     pub vector_source: VectorSource,
+    pub text: Option<String>,
+    pub use_embeddings: bool,
+    pub provider: Option<String>,
     pub metadata: Option<String>,
 }
 ```
@@ -1729,6 +1717,7 @@ pub struct QueryArgs {
     pub semantic_only: bool,
     pub keyword_only: bool,
     pub keyword_weight: Option<f64>,
+    pub provider: Option<String>,
 }
 ```
 
@@ -1781,6 +1770,7 @@ pub enum VectorSource {
     Random,
     File,
     Stdin,
+    Text,
 }
 ```
 
@@ -1958,10 +1948,22 @@ pub use completions::run_completions;
 pub fn create_framework(db_path: Option<&std::path::Path>) -> Result<ChaoticSemanticFramework>
 ```
 
+### create_framework_advanced
+
+```rust
+pub fn create_framework_advanced(db_path: Option<&std::path::Path>, provider_name: Option<&str>, code_aware: bool, ns: &str) -> Result<ChaoticSemanticFramework>
+```
+
 ### create_framework_with_namespace
 
 ```rust
 pub fn create_framework_with_namespace(db_path: Option<&std::path::Path>, ns: &str) -> Result<ChaoticSemanticFramework>
+```
+
+### create_framework_with_provider
+
+```rust
+pub fn create_framework_with_provider(db_path: Option<&std::path::Path>, provider_name: Option<&str>) -> Result<ChaoticSemanticFramework>
 ```
 
 ### delete::run_delete
@@ -2492,6 +2494,16 @@ All providers project their native dimensionality to HVec10240.
 pub use fastembed::FastEmbedProvider;
 ```
 
+### get_provider
+
+```rust
+pub fn get_provider(name: &str) -> Result<std::sync::Arc<dyn Trait>>
+```
+
+Factory to get an embedding provider by name.
+
+Format: "provider_name" or "provider_name:model_name"
+
 ### hdc_text::HdcTextProvider
 
 ```rust
@@ -2556,6 +2568,7 @@ impl Default for ProjectionConfig {
 
 ```rust
 impl Projection {
+    pub fn empty() -> Self;
     pub fn new(config: &ProjectionConfig) -> Self;
     pub fn project(&self, vec: &[f32]) -> HVec10240;
     pub fn nnz(&self) -> usize;
@@ -2900,6 +2913,8 @@ impl FrameworkBuilder {
     pub fn with_turso(self, url: impl Trait, token: impl Trait) -> Self;
     pub fn without_persistence(self) -> Self;
     pub fn without_persistence(self) -> Self;
+    pub fn with_embedding_provider<P: crate::embedding::EmbeddingProvider + 'static>(self, provider: P) -> Self;
+    pub fn with_embedding_provider_arc(self, provider: Arc<dyn Trait>) -> Self;
     pub fn build(self) -> Result<ChaoticSemanticFramework>;
 }
 ```
@@ -3101,7 +3116,7 @@ impl Singularity {
 ### HVec10240
 
 ```rust
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HVec10240 {
 }
 ```
@@ -3124,7 +3139,6 @@ pub use crate::hyperdim_batch::batch_cosine_similarity;
 
 ```rust
 impl HVec10240 {
-    pub const WIRE_VERSION: Type;
     pub const DIMENSION: Type;
     pub const WORDS: Type;
     pub fn zero() -> Self;
@@ -3138,7 +3152,6 @@ impl HVec10240 {
     pub fn hamming_distance(&self, other: &Self) -> u32;
     pub fn permute(&self, shift: usize) -> Self;
     pub fn to_bytes(&self) -> Vec<u8>;
-    pub fn canonical_bytes(&self) -> Vec<u8>;
     pub fn from_bytes(bytes: &[u8]) -> Result<Self>;
 }
 ```
@@ -4226,6 +4239,99 @@ pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
 pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores};
 ```
 
+## src/retrieval/rerank.rs
+
+### CrossEncoderReranker
+
+```rust
+#[derive(Debug)]
+#[cfg(feature = "rerank-cross")]
+pub struct CrossEncoderReranker {
+    pub model: Arc<candle_onnx::onnx::ModelProto>,
+    pub model_path: String,
+}
+```
+
+Cross-encoder reranker using ONNX (opt-in).
+
+### MmrReranker
+
+```rust
+#[derive(Debug)]
+pub struct MmrReranker {
+    pub lambda: f32,
+}
+```
+
+Maximal Marginal Relevance (MMR) reranker for diversity.
+
+### RecencyDecayReranker
+
+```rust
+#[derive(Debug)]
+pub struct RecencyDecayReranker {
+    pub half_life_days: f32,
+    pub blend: f32,
+}
+```
+
+Recency decay reranker to favor newer concepts.
+
+### RerankCandidate
+
+```rust
+#[derive(Debug, Clone)]
+pub struct RerankCandidate {
+    pub id: String,
+    pub vector: Arc<HVec10240>,
+    pub metadata: HashMap<String, serde_json::Value>,
+    pub score: f32,
+    pub created_at_unix: u64,
+}
+```
+
+A candidate for reranking.
+
+### Reranker
+
+```rust
+pub trait Reranker: Send + Sync + std::fmt::Debug {
+    fn name(&self) -> &str;
+    fn rerank(&self, query: &HVec10240, candidates: Vec<RerankCandidate>, top_k: usize) -> Vec<RerankCandidate>;
+}
+```
+
+Trait for reranking retrieval results.
+
+### impl Reranker for CrossEncoderReranker
+
+```rust
+impl Reranker for CrossEncoderReranker {
+}
+```
+
+### impl Reranker for MmrReranker
+
+```rust
+impl Reranker for MmrReranker {
+}
+```
+
+### impl Reranker for RecencyDecayReranker
+
+```rust
+impl Reranker for RecencyDecayReranker {
+}
+```
+
+### parse_rerankers
+
+```rust
+pub fn parse_rerankers(s: &str) -> crate::error::Result<Vec<Box<dyn Trait>>>
+```
+
+Parses a list of rerankers from a string flag (e.g., "mmr:0.7,recency:30d").
+
 ## src/semantic_bridge.rs
 
 ### BridgeConfig
@@ -4341,7 +4447,6 @@ impl CanonicalConcept {
 
 ```rust
 impl ConceptGraph {
-    pub const WIRE_VERSION: Type;
     pub fn new() -> Self;
     pub fn add_concept(&mut self, concept: CanonicalConcept);
     pub fn remove_concept(&mut self, id: &str) -> Option<CanonicalConcept>;

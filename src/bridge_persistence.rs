@@ -4,7 +4,6 @@
 //! used by the bridge retrieval pipeline.
 
 // Casts are intentional for version serialization
-#![allow(clippy::cast_possible_truncation)]
 
 use crate::error::{MemoryError, Result};
 use crate::persistence::Persistence;
@@ -94,7 +93,7 @@ impl Persistence {
 
             Ok(Some(CanonicalConcept {
                 id,
-                version: version as u32,
+                version: u32::try_from(version).unwrap_or(0),
                 labels,
                 related,
             }))
@@ -140,7 +139,7 @@ impl Persistence {
 
             concepts.push(CanonicalConcept {
                 id,
-                version: version as u32,
+                version: u32::try_from(version).unwrap_or(0),
                 labels,
                 related,
             });

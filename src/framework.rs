@@ -1,3 +1,4 @@
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 //! Main framework integrating all components
 
 use std::sync::Arc;
@@ -28,6 +29,10 @@ pub struct ChaoticSemanticFramework {
     pub(crate) metrics: Arc<FrameworkMetrics>,
     pub(crate) event_sender: tokio::sync::broadcast::Sender<MemoryEvent>,
     pub(crate) namespace: String,
+    /// Embedding provider for text-to-vector conversion.
+    pub(crate) embedding_provider: Arc<dyn crate::embedding::EmbeddingProvider>,
+    /// Random projection layer for embedding → HVec mapping.
+    pub(crate) projection: Arc<crate::embedding::Projection>,
 }
 
 impl ChaoticSemanticFramework {
@@ -62,7 +67,12 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(ref persistence) = self.persistence {
+            let p_start = std::time::Instant::now();
             persistence.save_concept(&self.namespace, &concept).await?;
+            self.metrics.observe_persist_latency_ms(
+                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                "save",
+            );
         }
         self.metrics.inc_concepts_injected(1);
         self.emit_event(MemoryEvent::ConceptInjected {
@@ -97,7 +107,12 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(ref persistence) = self.persistence {
+            let p_start = std::time::Instant::now();
             persistence.save_concept(&self.namespace, &concept).await?;
+            self.metrics.observe_persist_latency_ms(
+                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                "save",
+            );
         }
         self.metrics.inc_concepts_injected(1);
         self.emit_event(MemoryEvent::ConceptInjected {
@@ -109,7 +124,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Query for similar concepts
-    #[allow(clippy::significant_drop_tightening)] // Lock needed for expired concept filtering
+    // Lock needed for expired concept filtering
     #[instrument(err, skip(self, query))]
     pub async fn probe(&self, query: HVec10240, top_k: usize) -> Result<Vec<(String, f32)>> {
         self.validate_top_k(top_k)?;
@@ -121,7 +136,6 @@ impl ChaoticSemanticFramework {
             let sing = self.singularity.read().await;
             let results = sing.find_similar(&self.namespace, &query, top_k);
 
-            // Collect expired IDs while holding lock
             let now = crate::singularity::unix_now_secs();
             let expired_ids: std::collections::HashSet<String> = results
                 .iter()
@@ -131,12 +145,14 @@ impl ChaoticSemanticFramework {
                         .map(|_| id.clone())
                 })
                 .collect();
-            (results, expired_ids)
+            let res = (results, expired_ids);
+            drop(sing);
+            res
         };
 
         #[cfg(not(target_arch = "wasm32"))]
-        #[allow(clippy::cast_possible_truncation)] // Duration millis to u64 for metrics
-        let elapsed_ms = start.elapsed().as_millis() as u64;
+        // Duration millis to u64 for metrics
+        let elapsed_ms = u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX);
         #[cfg(target_arch = "wasm32")]
         let elapsed_ms = 0;
         self.metrics.observe_probe_latency_ms(elapsed_ms);
@@ -170,8 +186,8 @@ impl ChaoticSemanticFramework {
         };
 
         #[cfg(not(target_arch = "wasm32"))]
-        #[allow(clippy::cast_possible_truncation)] // Duration millis to u64 for metrics
-        let elapsed_ms = start.elapsed().as_millis() as u64;
+        // Duration millis to u64 for metrics
+        let elapsed_ms = u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX);
         #[cfg(target_arch = "wasm32")]
         let elapsed_ms = 0;
         self.metrics.observe_probe_latency_ms(elapsed_ms);
@@ -201,7 +217,7 @@ impl ChaoticSemanticFramework {
     }
 
     /// Process temporal sequence through reservoir
-    #[allow(clippy::significant_drop_tightening)] // Reservoir lock needed for sequence processing
+    // Reservoir lock needed for sequence processing
     #[instrument(err, skip(self, sequence))]
     pub async fn process_sequence(&self, sequence: &[Vec<f32>]) -> Result<HVec10240> {
         self.validate_sequence_length(sequence.len())?;
@@ -225,7 +241,11 @@ impl ChaoticSemanticFramework {
             r.step(input)?;
         }
 
-        r.to_hypervector()
+        {
+            let hv = r.to_hypervector();
+            drop(reservoir);
+            hv
+        }
     }
 
     /// Associate two concepts
@@ -240,9 +260,14 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(ref persistence) = self.persistence {
+            let p_start = std::time::Instant::now();
             persistence
                 .save_association(&self.namespace, from, to, strength)
                 .await?;
+            self.metrics.observe_persist_latency_ms(
+                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                "save_association",
+            );
         }
         self.metrics.inc_associations_created(1);
         self.emit_event(MemoryEvent::Associated {

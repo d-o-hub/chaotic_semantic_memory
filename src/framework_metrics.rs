@@ -1,3 +1,4 @@
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 //! Framework metrics for performance monitoring
 
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -9,6 +10,8 @@ pub struct FrameworkMetrics {
     pub(crate) probes_total: AtomicU64,
     pub(crate) probe_latency_ms_total: AtomicU64,
     pub(crate) probe_latency_count: AtomicU64,
+    pub(crate) persist_latency_ms_total: AtomicU64,
+    pub(crate) persist_latency_count: AtomicU64,
 }
 
 #[derive(Debug, Clone)]
@@ -43,10 +46,16 @@ impl FrameworkMetrics {
         self.probe_latency_count.fetch_add(1, Ordering::Relaxed);
     }
 
+    pub(crate) fn observe_persist_latency_ms(&self, latency_ms: u64, _op: &str) {
+        self.persist_latency_ms_total
+            .fetch_add(latency_ms, Ordering::Relaxed);
+        self.persist_latency_count.fetch_add(1, Ordering::Relaxed);
+    }
+
     pub(crate) fn snapshot(&self) -> FrameworkMetricsSnapshot {
         let count = self.probe_latency_count.load(Ordering::Relaxed);
         let total = self.probe_latency_ms_total.load(Ordering::Relaxed);
-        #[allow(clippy::cast_precision_loss)] // Atomic u64 to f64 for average latency
+        // Atomic u64 to f64 for average latency
         let avg = if count == 0 {
             0.0
         } else {

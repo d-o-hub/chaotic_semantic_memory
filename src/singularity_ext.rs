@@ -82,8 +82,8 @@ mod tests {
         let vec1 = HVec10240::random();
         let vec2 = HVec10240::random();
 
-        let c1 = ConceptBuilder::new("c1").with_vector(vec1).build()?;
-        let c2 = ConceptBuilder::new("c2").with_vector(vec2).build()?;
+        let c1 = ConceptBuilder::new("c1").with_vector(vec1).build().unwrap();
+        let c2 = ConceptBuilder::new("c2").with_vector(vec2).build().unwrap();
 
         singularity.inject(NS, c1)?;
         singularity.inject(NS, c2)?;
@@ -135,7 +135,8 @@ mod tests {
         let mut sing = Singularity::new(SingularityConfig::default());
         let concept = ConceptBuilder::new("test-id")
             .with_metadata("original", serde_json::Value::Bool(true))
-            .build()?;
+            .build()
+            .expect("Failed to build concept");
 
         sing.inject(NS, concept)?;
 

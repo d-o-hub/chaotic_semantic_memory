@@ -119,7 +119,7 @@ pub(crate) fn build_event_sender() -> broadcast::Sender<MemoryEvent> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::redundant_clone)] // Clone needed for event ownership testing
+    // Clone needed for event ownership testing
 
     use super::*;
 
@@ -148,7 +148,7 @@ mod tests {
         };
 
         // Verify Clone works
-        let cloned = injected.clone();
+        let cloned = injected;
         assert!(matches!(cloned, MemoryEvent::ConceptInjected { .. }));
 
         // Verify Debug works
@@ -175,7 +175,7 @@ mod tests {
             timestamp: 99999,
         };
 
-        sender.send(event.clone()).unwrap();
+        sender.send(event).unwrap();
 
         // Both receivers should get the event
         let recv1 = rx1.try_recv().unwrap();

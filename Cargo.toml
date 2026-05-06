@@ -1,6 +1,6 @@
 [package]
 name = "chaotic_semantic_memory"
-version = "0.4.0"
+version = "0.3.5"
 edition = "2024"
 rust-version = "1.85"
 description = "AI memory systems with hyperdimensional vectors and chaotic reservoirs"
@@ -215,11 +215,9 @@ ann-hnsw = ["dep:hnsw_rs"]
 ann-lsh = []
 
 
-
-
-
 # Federation-ready API enhancements (ADR-055 downstream)
 signing = []
 serde = []
+
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]
