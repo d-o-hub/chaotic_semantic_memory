@@ -8,6 +8,7 @@ use tracing::instrument;
 use crate::error::Result;
 use crate::framework_builder::{FrameworkBuilder, FrameworkConfig, FrameworkStats};
 use crate::framework_events::MemoryEvent;
+use crate::framework_events_ce::{ChaoticEvent, EventEmitter};
 use crate::framework_metrics::{FrameworkMetrics, FrameworkMetricsSnapshot};
 use crate::graph_traversal::TraversalConfig;
 use crate::hyperdim::HVec10240;
@@ -28,6 +29,7 @@ pub struct ChaoticSemanticFramework {
     pub(crate) config: FrameworkConfig,
     pub(crate) metrics: Arc<FrameworkMetrics>,
     pub(crate) event_sender: tokio::sync::broadcast::Sender<MemoryEvent>,
+    pub(crate) emitters: Vec<Arc<dyn EventEmitter>>,
     pub(crate) namespace: Arc<RwLock<String>>,
     /// Embedding provider for text-to-vector conversion.
     pub(crate) embedding_provider: Arc<dyn crate::embedding::EmbeddingProvider>,
@@ -78,9 +80,20 @@ impl ChaoticSemanticFramework {
         }
         self.metrics.inc_concepts_injected(1);
         self.emit_event(MemoryEvent::ConceptInjected {
-            id,
+            id: id.clone(),
             timestamp: concept.modified_at,
         });
+
+        self.emit_chaotic_event(ChaoticEvent::BindingCreated {
+            key: id,
+            dim: HVec10240::DIMENSION,
+            target: if self.persistence.is_some() {
+                crate::framework_events_ce::StorageTarget::LibSql
+            } else {
+                crate::framework_events_ce::StorageTarget::Memory
+            },
+        })
+        .await;
 
         Ok(())
     }
@@ -123,6 +136,17 @@ impl ChaoticSemanticFramework {
             id: concept.id.clone(),
             timestamp: concept.modified_at,
         });
+
+        self.emit_chaotic_event(ChaoticEvent::BindingCreated {
+            key: concept.id.clone(),
+            dim: HVec10240::DIMENSION,
+            target: if self.persistence.is_some() {
+                crate::framework_events_ce::StorageTarget::LibSql
+            } else {
+                crate::framework_events_ce::StorageTarget::Memory
+            },
+        })
+        .await;
 
         Ok(())
     }
@@ -169,6 +193,17 @@ impl ChaoticSemanticFramework {
             .filter(|(id, _)| !expired_ids.contains(id))
             .collect();
 
+        for (id, similarity) in &filtered {
+            if (*similarity as f64) >= self.config.pattern_recognition_threshold {
+                self.emit_chaotic_event(ChaoticEvent::PatternRecognized {
+                    query_vector: query.to_bytes(),
+                    matched_key: id.clone(),
+                    similarity: *similarity as f64,
+                })
+                .await;
+            }
+        }
+
         Ok(filtered)
     }
 
@@ -198,7 +233,20 @@ impl ChaoticSemanticFramework {
         #[cfg(target_arch = "wasm32")]
         let elapsed_ms = 0;
         self.metrics.observe_probe_latency_ms(elapsed_ms);
-        Ok(results.as_ref().to_vec())
+
+        let results_vec = results.as_ref().to_vec();
+        for (id, similarity) in &results_vec {
+            if (*similarity as f64) >= self.config.pattern_recognition_threshold {
+                self.emit_chaotic_event(ChaoticEvent::PatternRecognized {
+                    query_vector: query.to_bytes(),
+                    matched_key: id.clone(),
+                    similarity: *similarity as f64,
+                })
+                .await;
+            }
+        }
+
+        Ok(results_vec)
     }
 
     /// Traverse graph using breadth-first search.
@@ -246,8 +294,24 @@ impl ChaoticSemanticFramework {
                 "reservoir failed to initialize".to_string(),
             ))?;
         r.reset();
-        for input in sequence {
-            r.step(input)?;
+        for (step_idx, input) in sequence.iter().enumerate() {
+            let out = r.step(input)?;
+            self.emit_chaotic_event(ChaoticEvent::EchoComputed {
+                input_dim: input.len(),
+                state_norm: out.state_norm,
+            })
+            .await;
+
+            // Convergence detection: if change_norm is very small, we've hit an attractor basin.
+            // Using a threshold of 1e-4 relative to the state norm or absolute.
+            if out.change_norm < 1e-5 {
+                self.emit_chaotic_event(ChaoticEvent::AttractorFired {
+                    attractor_id: step_idx as u32,
+                    basin_energy: out.change_norm,
+                    reservoir_dim: self.config.reservoir_size,
+                })
+                .await;
+            }
         }
 
         {

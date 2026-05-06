@@ -6,6 +6,7 @@ use tokio::sync::RwLock;
 use crate::ChaoticSemanticFramework;
 use crate::error::Result;
 use crate::framework_events::build_event_sender;
+use crate::framework_events_ce::EventEmitter;
 #[cfg(feature = "persistence")]
 use crate::persistence::Persistence;
 use crate::reservoir::Reservoir;
@@ -46,6 +47,8 @@ pub struct FrameworkConfig {
     pub max_sequence_length: usize,
     /// ANN index backend (default: `BruteForce`).
     pub index_backend: crate::index::IndexBackend,
+    /// Cosine similarity threshold for pattern recognition events (default: `0.9`).
+    pub pattern_recognition_threshold: f64,
 }
 
 impl Default for FrameworkConfig {
@@ -64,6 +67,7 @@ impl Default for FrameworkConfig {
             max_batch_size: DEFAULT_MAX_BATCH_SIZE,
             max_sequence_length: DEFAULT_MAX_SEQUENCE_LENGTH,
             index_backend: crate::index::IndexBackend::BruteForce,
+            pattern_recognition_threshold: 0.9,
         }
     }
 }
@@ -85,6 +89,7 @@ pub struct FrameworkBuilder {
     pub(crate) version_retention: usize,
     pub(crate) namespace: String,
     pub(crate) embedding_provider: Option<Arc<dyn crate::embedding::EmbeddingProvider>>,
+    pub(crate) emitters: Vec<Arc<dyn EventEmitter>>,
 }
 
 impl Default for FrameworkBuilder {
@@ -97,6 +102,7 @@ impl Default for FrameworkBuilder {
             version_retention: 10,
             namespace: "_default".to_string(),
             embedding_provider: None,
+            emitters: Vec::new(),
         }
     }
 }
@@ -177,6 +183,18 @@ impl FrameworkBuilder {
 
     pub const fn with_index_backend(mut self, backend: crate::index::IndexBackend) -> Self {
         self.config.index_backend = backend;
+        self
+    }
+
+    /// Set the cosine similarity threshold for pattern recognition events.
+    pub fn with_pattern_recognition_threshold(mut self, threshold: f64) -> Self {
+        self.config.pattern_recognition_threshold = threshold;
+        self
+    }
+
+    /// Add an event emitter to the framework.
+    pub fn with_emitter(mut self, emitter: Arc<dyn EventEmitter>) -> Self {
+        self.emitters.push(emitter);
         self
     }
 
@@ -304,6 +322,7 @@ impl FrameworkBuilder {
             config: self.config,
             metrics: Default::default(),
             event_sender: build_event_sender(),
+            emitters: self.emitters,
             namespace: Arc::new(RwLock::new(self.namespace)),
             embedding_provider: provider,
             projection: Arc::new(projection),

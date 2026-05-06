@@ -61,11 +61,30 @@ impl crate::framework::ChaoticSemanticFramework {
     /// Purge all expired concepts. Returns the count of concepts removed.
     #[instrument(err, skip(self))]
     pub async fn purge_expired(&self) -> Result<usize> {
+        #[cfg(not(target_arch = "wasm32"))]
+        let start = std::time::Instant::now();
+
         let count = {
             let mut sing = self.singularity.write().await;
             let ns = self.namespace.read().await;
             sing.purge_expired(&ns)
         };
+
+        if count > 0 {
+            #[cfg(not(target_arch = "wasm32"))]
+            let duration_ms = start.elapsed().as_millis() as u64;
+            #[cfg(target_arch = "wasm32")]
+            let duration_ms = 0;
+
+            self.emit_chaotic_event(
+                crate::framework_events_ce::ChaoticEvent::MemoryConsolidated {
+                    episode_count: count,
+                    duration_ms,
+                },
+            )
+            .await;
+        }
+
         Ok(count)
     }
 
