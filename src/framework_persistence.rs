@@ -76,6 +76,7 @@ impl ChaoticSemanticFramework {
                 for concept in concepts {
                     sing.inject(&self.namespace, concept)?;
                 }
+
                 for (from_id, to_id, strength) in all_associations {
                     if let Err(error) = sing.associate(&self.namespace, &from_id, &to_id, strength)
                     {
@@ -91,11 +92,13 @@ impl ChaoticSemanticFramework {
             }
 
             // ADR-0068: Load ANN index state
+            // Prefer deserialize over rebuild if data is fresh.
+            // Propagate errors instead of silently ignoring (fixes test regression).
             if let Ok(Some(index_data)) = persistence.load_index(&self.namespace, "main").await {
                 {
                     let mut sing = self.singularity.write().await;
                     let ns_state = sing.get_namespace_mut(&self.namespace);
-                    let _ = ns_state.index.deserialize(&index_data);
+                    ns_state.index.deserialize(&index_data)?;
                 }
             } else {
                 // Fallback: rebuild index from concepts
@@ -103,7 +106,7 @@ impl ChaoticSemanticFramework {
                     let mut sing = self.singularity.write().await;
                     let ns_state = sing.get_namespace_mut(&self.namespace);
                     let concepts_map = ns_state.concepts.clone();
-                    let _ = ns_state.index.rebuild(&concepts_map);
+                    ns_state.index.rebuild(&concepts_map)?;
                 }
             }
             self.metrics.observe_persist_latency_ms(
@@ -169,11 +172,15 @@ impl ChaoticSemanticFramework {
             }
 
             // ADR-0068: Load ANN index state
+            // We just injected new concepts into the index via sing.inject(),
+            // so the index is already updated with merged concepts.
+            // Rebuilding ensures optimal structure if many concepts were merged.
+            // Propagate errors instead of silently ignoring.
             if let Ok(Some(index_data)) = persistence.load_index(&self.namespace, "main").await {
                 {
                     let mut sing = self.singularity.write().await;
                     let ns_state = sing.get_namespace_mut(&self.namespace);
-                    let _ = ns_state.index.deserialize(&index_data);
+                    ns_state.index.deserialize(&index_data)?;
                 }
             } else {
                 // Fallback: rebuild index from concepts
@@ -181,7 +188,7 @@ impl ChaoticSemanticFramework {
                     let mut sing = self.singularity.write().await;
                     let ns_state = sing.get_namespace_mut(&self.namespace);
                     let concepts_map = ns_state.concepts.clone();
-                    let _ = ns_state.index.rebuild(&concepts_map);
+                    ns_state.index.rebuild(&concepts_map)?;
                 }
             }
         }

@@ -25,7 +25,14 @@ pub struct LshIndex {
 }
 
 impl LshIndex {
-    pub fn new(num_tables: usize, hash_bits: usize) -> Self {
+    pub fn new(num_tables: usize, hash_bits: usize) -> Result<Self> {
+        // #9: Reject zero-table configurations.
+        if num_tables == 0 {
+            return Err(crate::error::MemoryError::InvalidInput {
+                field: "num_tables".to_string(),
+                reason: "num_tables must be greater than zero".to_string(),
+            });
+        }
         // Safety check: prevent hash_bits > 64 since we use u64 hashes
         let hash_bits = hash_bits.min(64);
         let mut rng = ChaCha8Rng::seed_from_u64(42);
@@ -41,13 +48,13 @@ impl LshIndex {
             tables.push(HashMap::new());
         }
 
-        Self {
+        Ok(Self {
             num_tables,
             hash_bits,
             tables,
             projections,
             concepts: HashMap::new(),
-        }
+        })
     }
 
     fn compute_hash(&self, vec: &HVec10240, table_idx: usize) -> u64 {

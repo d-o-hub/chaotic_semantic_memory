@@ -3246,7 +3246,7 @@ impl Distance<HVec10240> for HammingDist {
 
 ```rust
 impl HnswIndex {
-    pub fn new(m: usize, ef_construction: usize, ef_search: usize) -> Self;
+    pub fn new(m: usize, ef_construction: usize, ef_search: usize) -> Result<Self>;
 }
 ```
 
@@ -3280,7 +3280,7 @@ impl AnnIndex for LshIndex {
 
 ```rust
 impl LshIndex {
-    pub fn new(num_tables: usize, hash_bits: usize) -> Self;
+    pub fn new(num_tables: usize, hash_bits: usize) -> Result<Self>;
 }
 ```
 
@@ -3334,7 +3334,7 @@ Statistics for an ANN index.
 ### create_index
 
 ```rust
-pub fn create_index(backend: &IndexBackend) -> Box<dyn Trait>
+pub fn create_index(backend: &IndexBackend) -> Result<Box<dyn Trait>>
 ```
 
 Create an ANN index backend based on configuration.

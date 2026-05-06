@@ -44,14 +44,23 @@ pub struct HnswIndex {
     id_to_idx: HashMap<String, usize>,
     idx_to_id: HashMap<usize, String>,
     config: HnswData,
+    deleted_count: usize,
 }
 
 #[cfg(feature = "ann-hnsw")]
 impl HnswIndex {
-    pub fn new(m: usize, ef_construction: usize, ef_search: usize) -> Self {
+    pub fn new(m: usize, ef_construction: usize, ef_search: usize) -> Result<Self> {
+        // #7: Validate m (max_nb_connection). hnsw_rs aborts if > 256.
+        if m == 0 || m > 256 {
+            return Err(MemoryError::InvalidInput {
+                field: "m".to_string(),
+                reason: "m must be between 1 and 256".to_string(),
+            });
+        }
+
         // ADR-0068: Default to 1M elements to support scale goal
         let hnsw = Hnsw::new(m, 1_000_000, 16, ef_construction, HammingDist);
-        Self {
+        Ok(Self {
             hnsw,
             id_to_idx: HashMap::new(),
             idx_to_id: HashMap::new(),
@@ -60,7 +69,8 @@ impl HnswIndex {
                 ef_construction,
                 ef_search,
             },
-        }
+            deleted_count: 0,
+        })
     }
 }
 
@@ -76,19 +86,26 @@ impl std::fmt::Debug for HnswIndex {
 
 #[cfg(feature = "ann-hnsw")]
 #[derive(Serialize, Deserialize)]
-struct HnswPersistenceMeta {
+struct HnswPersistenceWrapper {
     id_to_idx: HashMap<String, usize>,
     idx_to_id: HashMap<usize, String>,
     m: usize,
     ef_construction: usize,
     ef_search: usize,
-    graph_len: usize,
+    deleted_count: usize,
+    data: Vec<u8>,
+    graph: Vec<u8>,
 }
 
 #[cfg(feature = "ann-hnsw")]
 impl AnnIndex for HnswIndex {
     fn insert(&mut self, id: String, vec: &HVec10240) -> Result<()> {
-        let idx = self.id_to_idx.len();
+        // #6: Handle updates to existing IDs.
+        if self.id_to_idx.contains_key(&id) {
+            self.delete(&id)?;
+        }
+
+        let idx = self.hnsw.get_nb_point();
         self.hnsw.insert((std::slice::from_ref(vec), idx));
         self.id_to_idx.insert(id.clone(), idx);
         self.idx_to_id.insert(idx, id);
@@ -96,22 +113,31 @@ impl AnnIndex for HnswIndex {
     }
 
     fn delete(&mut self, id: &str) -> Result<()> {
+        // #5: HnswIndex::delete only removes mappings.
         if let Some(idx) = self.id_to_idx.remove(id) {
             self.idx_to_id.remove(&idx);
+            self.deleted_count += 1;
         }
         Ok(())
     }
 
     fn search(&self, query: &HVec10240, top_k: usize) -> Result<Vec<(String, f32)>> {
-        let results = self
-            .hnsw
-            .search(std::slice::from_ref(query), top_k, self.config.ef_search);
+        // #5: Increase search budget to account for deleted nodes.
+        let expanded_k = top_k + self.deleted_count.min(top_k * 10);
+        let results = self.hnsw.search(
+            std::slice::from_ref(query),
+            expanded_k,
+            self.config.ef_search,
+        );
 
         let mut final_results = Vec::with_capacity(results.len());
         for neighbor in results {
             if let Some(id) = self.idx_to_id.get(&neighbor.d_id) {
                 let similarity = 1.0 - (neighbor.distance / 5120.0);
                 final_results.push((id.clone(), similarity));
+                if final_results.len() >= top_k {
+                    break;
+                }
             }
         }
         Ok(final_results)
@@ -124,9 +150,7 @@ impl AnnIndex for HnswIndex {
         filter: &crate::metadata_filter::MetadataFilter,
         concepts: &HashMap<String, Concept>,
     ) -> Result<Vec<(String, f32)>> {
-        // HNSW doesn't support pre-filtering natively.
-        // We'll search a larger set and post-filter.
-        let expanded_k = top_k * 5;
+        let expanded_k = top_k * 5 + self.deleted_count.min(top_k * 10);
         let results = self.hnsw.search(
             std::slice::from_ref(query),
             expanded_k,
@@ -148,8 +172,6 @@ impl AnnIndex for HnswIndex {
             }
         }
 
-        // If we didn't get enough results, we fall back to a full scan of the filtered set
-        // to ensure we don't return fewer than top_k if they exist.
         if filtered_results.len() < top_k {
             let mut all_filtered: Vec<(String, f32)> = concepts
                 .iter()
@@ -182,6 +204,7 @@ impl AnnIndex for HnswIndex {
         );
         self.id_to_idx.clear();
         self.idx_to_id.clear();
+        self.deleted_count = 0;
 
         for (id, concept) in concepts {
             self.insert(id.clone(), &concept.vector)?;
@@ -214,23 +237,21 @@ impl AnnIndex for HnswIndex {
         let data_bytes = fs::read(data_path).map_err(MemoryError::Io)?;
         let graph_bytes = fs::read(graph_path).map_err(MemoryError::Io)?;
 
-        let meta = HnswPersistenceMeta {
+        let wrapper = HnswPersistenceWrapper {
             id_to_idx: self.id_to_idx.clone(),
             idx_to_id: self.idx_to_id.clone(),
             m: self.config.m,
             ef_construction: self.config.ef_construction,
             ef_search: self.config.ef_search,
-            graph_len: graph_bytes.len(),
+            deleted_count: self.deleted_count,
+            data: data_bytes,
+            graph: graph_bytes,
         };
 
-        let mut payload = bincode::serialize(&meta)
+        let payload = bincode::serialize(&wrapper)
             .map_err(|e| MemoryError::database(format!("Bincode fail: {}", e)))?;
-        payload.extend_from_slice(&data_bytes);
-        payload.extend_from_slice(&graph_bytes);
 
-        // Cleanup temp files
         let _ = fs::remove_dir_all(temp_dir);
-
         Ok(payload)
     }
 
@@ -241,53 +262,33 @@ impl AnnIndex for HnswIndex {
             return Ok(());
         }
 
-        let meta_size = std::mem::size_of::<HnswPersistenceMeta>();
-        if data.len() < meta_size {
-            return Err(MemoryError::database("Index data too small".to_string()));
-        }
-
-        // We don't know the exact size of the bincode header, so we let bincode tell us
-        let meta: HnswPersistenceMeta = bincode::deserialize(data)
+        let wrapper: HnswPersistenceWrapper = bincode::deserialize(data)
             .map_err(|e| MemoryError::database(format!("Bincode deserialize fail: {}", e)))?;
-
-        let meta_serialized_size: usize = bincode::serialized_size(&meta)
-            .map_err(|e| MemoryError::database(format!("Bincode size fail: {}", e)))?
-            .try_into()
-            .map_err(|e| MemoryError::database(format!("Bincode size truncation: {}", e)))?;
-
-        let graph_start = data.len() - meta.graph_len;
-        let data_start = meta_serialized_size;
-        let data_bytes = &data[data_start..graph_start];
-        let graph_bytes = &data[graph_start..];
 
         let temp_dir =
             std::env::temp_dir().join(format!("csm_hnsw_load_{}", rand::random::<u64>()));
         fs::create_dir_all(&temp_dir).map_err(MemoryError::Io)?;
 
-        fs::write(temp_dir.join("index.hnsw.data"), data_bytes).map_err(MemoryError::Io)?;
-        fs::write(temp_dir.join("index.hnsw.graph"), graph_bytes).map_err(MemoryError::Io)?;
+        fs::write(temp_dir.join("index.hnsw.data"), &wrapper.data).map_err(MemoryError::Io)?;
+        fs::write(temp_dir.join("index.hnsw.graph"), &wrapper.graph).map_err(MemoryError::Io)?;
 
         let loader = HnswIo::new(&temp_dir, "index");
         let hnsw = loader
             .load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist)
             .map_err(|e| MemoryError::database(format!("HNSW load failed: {}", e)))?;
 
-        // SAFETY: We are not using mmap (datamap_opt is false), so the Hnsw struct
-        // only contains owned data (PointData::V variants). The lifetime 'b is
-        // only needed for PointData::S (mmap), which we don't use.
         let static_hnsw: Hnsw<'static, HVec10240, HammingDist> =
             unsafe { std::mem::transmute(hnsw) };
 
         self.hnsw = static_hnsw;
-        self.id_to_idx = meta.id_to_idx;
-        self.idx_to_id = meta.idx_to_id;
-        self.config.m = meta.m;
-        self.config.ef_construction = meta.ef_construction;
-        self.config.ef_search = meta.ef_search;
+        self.id_to_idx = wrapper.id_to_idx;
+        self.idx_to_id = wrapper.idx_to_id;
+        self.config.m = wrapper.m;
+        self.config.ef_construction = wrapper.ef_construction;
+        self.config.ef_search = wrapper.ef_search;
+        self.deleted_count = wrapper.deleted_count;
 
-        // Cleanup
         let _ = fs::remove_dir_all(temp_dir);
-
         Ok(())
     }
 }

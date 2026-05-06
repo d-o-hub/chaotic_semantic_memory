@@ -126,6 +126,7 @@ impl Singularity {
 
     fn create_index(&self) -> Box<dyn AnnIndex> {
         crate::index::create_index(&self.config.index_backend)
+            .expect("ANN index creation failed; check feature flags and configuration")
     }
 
     pub(crate) fn get_namespace(&self, ns: &str) -> Option<&NamespaceState> {
