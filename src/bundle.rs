@@ -108,36 +108,31 @@ impl BundleAccumulator {
         }
 
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-        {
-            // SAFETY: NEON always available on aarch64.
-            return HVec10240 {
-                data: unsafe { crate::hyperdim_simd::finalize_simd_neon(&self.counts) },
-            };
-        }
+        // SAFETY: NEON always available on aarch64.
+        return HVec10240 {
+            data: unsafe { crate::hyperdim_simd::finalize_simd_neon(&self.counts) },
+        };
 
-        // Scalar fallback for:
-        // 1. WASM
-        // 2. x86_64 without AVX2
-        // 3. All other architectures
         #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
         {
+            // Scalar fallback for:
+            // 1. WASM
+            // 2. x86_64 without AVX2
+            // 3. All other architectures
             let mut data = [0u128; 80];
             let threshold = 0; // Majority threshold: count > 0
 
             for (i, word) in data.iter_mut().enumerate() {
-            let offset = i * 128;
-            for j in 0..128 {
-                // Branchless bit construction to reduce misprediction penalties
-                let condition = self.counts[offset + j] > threshold;
-                *word |= (condition as u128) << j;
+                let offset = i * 128;
+                for j in 0..128 {
+                    // Branchless bit construction to reduce misprediction penalties
+                    let condition = self.counts[offset + j] > threshold;
+                    *word |= (condition as u128) << j;
+                }
             }
-        }
 
             HVec10240 { data }
         }
-
-        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-        unreachable!("NEON path should have returned");
     }
 
     /// Get the number of hypervectors in the accumulator.
