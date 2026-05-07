@@ -105,3 +105,8 @@ commit_messages.txt
 !/commit_messages.txt
 /*.db
 /*.log
+
+# Prevent temporary python and rust scripts in the root directory
+/*.rs
+/*.py
+!/build.rs
