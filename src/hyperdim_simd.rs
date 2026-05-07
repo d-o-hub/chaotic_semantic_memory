@@ -128,6 +128,81 @@ pub(crate) unsafe fn bind_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
     out
 }
 
+/// AVX2-optimized finalize (processes 8 bit-counts at a time).
+///
+/// Uses `_mm256_cmpgt_epi32` to compare counts against 0 and `_mm256_movemask_ps`
+/// to extract the resulting bits into a mask.
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+#[inline]
+#[target_feature(enable = "avx2")]
+/// # Safety
+/// Caller must ensure AVX2 support.
+pub(crate) unsafe fn finalize_simd_avx2(counts: &[i32; 10240]) -> [u128; 80] {
+    use std::arch::x86_64::{
+        __m256i, _mm256_castsi256_ps, _mm256_cmpgt_epi32, _mm256_loadu_si256, _mm256_movemask_ps,
+        _mm256_setzero_si256,
+    };
+
+    let mut out = [0u128; 80];
+    let zero = _mm256_setzero_si256();
+
+    for i in 0..80 {
+        let mut word = 0u128;
+        // 128 bits per word / 8 bits per AVX2 movemask = 16 iterations
+        for j in 0..16 {
+            let offset = i * 128 + j * 8;
+            // SAFETY: Array size is 10240. Max offset is 79*128 + 15*8 = 10112 + 120 = 10232.
+            // 10232 + 8 = 10240, which is within bounds.
+            unsafe {
+                let v = _mm256_loadu_si256(counts.as_ptr().add(offset).cast::<__m256i>());
+                let mask = _mm256_cmpgt_epi32(v, zero);
+                // Movemask extracts 1 bit from each 32-bit lane.
+                let bits = _mm256_movemask_ps(_mm256_castsi256_ps(mask)) as u128;
+                word |= bits << (j * 8);
+            }
+        }
+        out[i] = word;
+    }
+    out
+}
+
+/// NEON-optimized finalize (processes 4 bit-counts at a time).
+///
+/// Uses `vcgtq_s32` for comparison and bit-manipulation to pack results.
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+#[inline]
+#[target_feature(enable = "neon")]
+/// # Safety
+/// NEON is always available on aarch64.
+pub(crate) unsafe fn finalize_simd_neon(counts: &[i32; 10240]) -> [u128; 80] {
+    use std::arch::aarch64::{vaddvq_u32, vandq_u32, vcgtq_s32, vdupq_n_s32, vld1q_s32, vld1q_u32};
+
+    let mut out = [0u128; 80];
+    let zero = vdupq_n_s32(0);
+    // Weights for bit-packing: [2^0, 2^1, 2^2, 2^3]
+    // SAFETY: weights array is local and constant.
+    let weights = unsafe { vld1q_u32([1u32, 2, 4, 8].as_ptr()) };
+
+    for i in 0..80 {
+        let mut word = 0u128;
+        // 128 bits per word / 4 bits per NEON iteration = 32 iterations
+        for j in 0..32 {
+            let offset = i * 128 + j * 4;
+            unsafe {
+                let v = vld1q_s32(counts.as_ptr().add(offset));
+                let mask = vcgtq_s32(v, zero);
+                // Result of comparison is 0 or 0xFFFFFFFF. Bitwise AND with weights.
+                let packed = vandq_u32(mask, weights);
+                // Sum lanes to get the 4-bit value.
+                let bits = vaddvq_u32(packed) as u128;
+                word |= bits << (j * 4);
+            }
+        }
+        out[i] = word;
+    }
+    out
+}
+
 // ============================================================================
 // TESTS
 // ============================================================================
@@ -237,5 +312,51 @@ mod tests {
             .sum();
 
         assert_eq!(distance, expected);
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+    #[test]
+    fn test_finalize_simd_avx2_correctness() {
+        if std::arch::is_x86_feature_detected!("avx2") {
+            let mut counts = [0i32; 10240];
+            for i in 0..10240 {
+                counts[i] = if i % 3 == 0 { 1 } else { -1 };
+            }
+
+            // Scalar reference
+            let mut expected = [0u128; 80];
+            for i in 0..80 {
+                for j in 0..128 {
+                    if counts[i * 128 + j] > 0 {
+                        expected[i] |= 1u128 << j;
+                    }
+                }
+            }
+
+            let result = unsafe { finalize_simd_avx2(&counts) };
+            assert_eq!(result, expected);
+        }
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+    #[test]
+    fn test_finalize_simd_neon_correctness() {
+        let mut counts = [0i32; 10240];
+        for i in 0..10240 {
+            counts[i] = if i % 3 == 0 { 1 } else { -1 };
+        }
+
+        // Scalar reference
+        let mut expected = [0u128; 80];
+        for i in 0..80 {
+            for j in 0..128 {
+                if counts[i * 128 + j] > 0 {
+                    expected[i] |= 1u128 << j;
+                }
+            }
+        }
+
+        let result = unsafe { finalize_simd_neon(&counts) };
+        assert_eq!(result, expected);
     }
 }

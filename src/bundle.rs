@@ -89,24 +89,50 @@ impl BundleAccumulator {
     ///
     /// Applies majority threshold: bits with count > 0 are set to 1.
     /// Returns zero vector if accumulator is empty.
+    ///
+    /// Performance Optimization: Dispatches to SIMD implementations (AVX2/NEON)
+    /// based on platform and runtime feature detection.
     pub fn finalize(&self) -> HVec10240 {
         if self.n == 0 {
             return HVec10240::zero();
         }
 
-        let mut data = [0u128; 80];
-        let threshold = 0; // Majority threshold: count > 0
-
-        for (i, word) in data.iter_mut().enumerate() {
-            let offset = i * 128;
-            for j in 0..128 {
-                // Branchless bit construction to reduce misprediction penalties
-                let condition = self.counts[offset + j] > threshold;
-                *word |= (condition as u128) << j;
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+        {
+            if is_x86_feature_detected!("avx2") {
+                // SAFETY: AVX2 detected at runtime.
+                return HVec10240 {
+                    data: unsafe { crate::hyperdim_simd::finalize_simd_avx2(&self.counts) },
+                };
             }
         }
 
-        HVec10240 { data }
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+        // SAFETY: NEON always available on aarch64.
+        return HVec10240 {
+            data: unsafe { crate::hyperdim_simd::finalize_simd_neon(&self.counts) },
+        };
+
+        #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
+        {
+            // Scalar fallback for:
+            // 1. WASM
+            // 2. x86_64 without AVX2
+            // 3. All other architectures
+            let mut data = [0u128; 80];
+            let threshold = 0; // Majority threshold: count > 0
+
+            for (i, word) in data.iter_mut().enumerate() {
+                let offset = i * 128;
+                for j in 0..128 {
+                    // Branchless bit construction to reduce misprediction penalties
+                    let condition = self.counts[offset + j] > threshold;
+                    *word |= (condition as u128) << j;
+                }
+            }
+
+            HVec10240 { data }
+        }
     }
 
     /// Get the number of hypervectors in the accumulator.
