@@ -119,10 +119,12 @@ impl BundleAccumulator {
         // 1. WASM
         // 2. x86_64 without AVX2
         // 3. All other architectures
-        let mut data = [0u128; 80];
-        let threshold = 0; // Majority threshold: count > 0
+        #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
+        {
+            let mut data = [0u128; 80];
+            let threshold = 0; // Majority threshold: count > 0
 
-        for (i, word) in data.iter_mut().enumerate() {
+            for (i, word) in data.iter_mut().enumerate() {
             let offset = i * 128;
             for j in 0..128 {
                 // Branchless bit construction to reduce misprediction penalties
@@ -131,7 +133,11 @@ impl BundleAccumulator {
             }
         }
 
-        HVec10240 { data }
+            HVec10240 { data }
+        }
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+        unreachable!("NEON path should have returned");
     }
 
     /// Get the number of hypervectors in the accumulator.
