@@ -28,6 +28,13 @@ pub struct ReservoirMetricsSnapshot {
     pub avg_reservoir_step_latency_us: f64,
     pub reservoir_nodes_active: u64,
 }
+
+/// Output of a reservoir step (ADR-0078)
+pub struct ReservoirStepOutput<'a> {
+    pub state: &'a [f32],
+    pub state_norm: f64,
+    pub change_norm: f64,
+}
 impl ReservoirMetrics {
     fn observe_step(&self, latency_us: u64, nodes_active: u64) {
         self.steps_total.fetch_add(1, Ordering::Relaxed);
@@ -150,7 +157,7 @@ impl Reservoir {
 
     /// Single reservoir step
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
-    pub fn step(&mut self, input: &[f32]) -> Result<&[f32]> {
+    pub fn step(&mut self, input: &[f32]) -> Result<ReservoirStepOutput<'_>> {
         #[cfg(not(target_arch = "wasm32"))]
         let started = Instant::now();
         if input.len() != self.input_size {
@@ -169,6 +176,7 @@ impl Reservoir {
         let one_minus_alpha = 1.0 - self.alpha;
         let beta = self.beta;
         let update_phase = self.update_phase;
+        let mut change_norm_sq = 0.0;
         for i in (update_phase..self.size).step_by(self.update_stride) {
             // Algorithmic Optimization: Lazy partial input projection.
             if self.node_versions[i] != self.input_version {
@@ -184,13 +192,21 @@ impl Reservoir {
             // Compute new state into scratch using a stable snapshot of `self.state`.
             self.scratch[i] =
                 current_val.mul_add(one_minus_alpha, activated.mul_add(self.alpha, inertial));
+
+            let diff = self.scratch[i] - current_val;
+            change_norm_sq += diff * diff;
         }
 
         // Second pass: Commit the updates for this phase.
         // This keeps semantics synchronous within the phase (no order dependency).
+        let mut state_norm_sq = 0.0;
         for i in (update_phase..self.size).step_by(self.update_stride) {
             self.prev_state[i] = self.state[i];
             self.state[i] = self.scratch[i];
+        }
+        // Calculate norm on full state for consistency
+        for val in &self.state {
+            state_norm_sq += val * val;
         }
         self.update_phase = (update_phase + 1) % self.update_stride;
 
@@ -199,7 +215,12 @@ impl Reservoir {
         #[cfg(target_arch = "wasm32")]
         let latency_us = 0;
         self.metrics.observe_step(latency_us, self.size as u64);
-        Ok(&self.state)
+
+        Ok(ReservoirStepOutput {
+            state: &self.state,
+            state_norm: (state_norm_sq as f64).sqrt(),
+            change_norm: (change_norm_sq as f64).sqrt(),
+        })
     }
 
     /// Run reservoir for multiple steps
@@ -399,7 +420,7 @@ impl ChaoticReservoir {
             noisy_input: vec![0.0; input_size],
         })
     }
-    pub fn step(&mut self, input: &[f32]) -> Result<&[f32]> {
+    pub fn step(&mut self, input: &[f32]) -> Result<ReservoirStepOutput<'_>> {
         if input.len() != self.noisy_input.len() {
             return Err(MemoryError::reservoir(format!(
                 "Input size mismatch: expected {}, got {}",
@@ -448,8 +469,8 @@ mod tests {
     #[test]
     fn step_ok() {
         let mut r = Reservoir::new(1024, 10240).unwrap();
-        let s = r.step(&[0.0; 1024]).unwrap();
-        assert_eq!(s.len(), 10240);
+        let out = r.step(&[0.0; 1024]).unwrap();
+        assert_eq!(out.state.len(), 10240);
     }
     #[test]
     fn reset_clears() {

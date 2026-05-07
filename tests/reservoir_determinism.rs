@@ -25,7 +25,7 @@ fn test_reservoir_creation() {
 #[test]
 fn test_reservoir_step() {
     let mut r = Reservoir::new_seeded(10, 256, 42).unwrap();
-    assert_eq!(r.step(&[0.5; 10]).unwrap().len(), 256);
+    assert_eq!(r.step(&[0.5; 10]).unwrap().state.len(), 256);
 }
 
 #[test]
@@ -38,7 +38,7 @@ fn test_spectral_radius_constraint() {
 #[test]
 fn test_chaotic_reservoir() {
     let mut r = ChaoticReservoir::new_seeded(10, 256, 0.1, 42).unwrap();
-    assert_eq!(r.step(&[0.5; 10]).unwrap().len(), 256);
+    assert_eq!(r.step(&[0.5; 10]).unwrap().state.len(), 256);
 }
 
 #[test]

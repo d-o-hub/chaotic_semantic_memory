@@ -8,6 +8,7 @@ use tracing::instrument;
 use crate::error::Result;
 use crate::framework_builder::{FrameworkBuilder, FrameworkConfig, FrameworkStats};
 use crate::framework_events::MemoryEvent;
+use crate::framework_events_ce::{ChaoticEvent, EventEmitter};
 use crate::framework_metrics::{FrameworkMetrics, FrameworkMetricsSnapshot};
 use crate::graph_traversal::TraversalConfig;
 use crate::hyperdim::{HVec10240, Hypervector};
@@ -28,6 +29,7 @@ pub struct ChaoticSemanticFramework<H: Hypervector = HVec10240> {
     pub(crate) config: FrameworkConfig,
     pub(crate) metrics: Arc<FrameworkMetrics>,
     pub(crate) event_sender: tokio::sync::broadcast::Sender<MemoryEvent>,
+    pub(crate) emitters: Vec<Arc<dyn EventEmitter>>,
     pub(crate) namespace: Arc<RwLock<String>>,
     /// Embedding provider for text-to-vector conversion.
     pub(crate) embedding_provider: Arc<dyn crate::embedding::EmbeddingProvider>,
@@ -69,7 +71,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
 
         if let Some(ref persistence) = self.persistence {
             let p_start = std::time::Instant::now();
-            let ns = self.namespace.read().await;
+            let ns = self.namespace().await;
             persistence.save_concept(&ns, &concept).await?;
             self.metrics.observe_persist_latency_ms(
                 u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
@@ -78,9 +80,20 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         }
         self.metrics.inc_concepts_injected(1);
         self.emit_event(MemoryEvent::ConceptInjected {
-            id,
+            id: id.clone(),
             timestamp: concept.modified_at,
         });
+
+        self.emit_chaotic_event(ChaoticEvent::BindingCreated {
+            key: id,
+            dim: HVec10240::DIMENSION,
+            target: if self.persistence.is_some() {
+                crate::framework_events_ce::StorageTarget::LibSql
+            } else {
+                crate::framework_events_ce::StorageTarget::Memory
+            },
+        })
+        .await;
 
         Ok(())
     }
@@ -111,7 +124,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
 
         if let Some(ref persistence) = self.persistence {
             let p_start = std::time::Instant::now();
-            let ns = self.namespace.read().await;
+            let ns = self.namespace().await;
             persistence.save_concept(&ns, &concept).await?;
             self.metrics.observe_persist_latency_ms(
                 u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
@@ -123,6 +136,17 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
             id: concept.id.clone(),
             timestamp: concept.modified_at,
         });
+
+        self.emit_chaotic_event(ChaoticEvent::BindingCreated {
+            key: concept.id.clone(),
+            dim: HVec10240::DIMENSION,
+            target: if self.persistence.is_some() {
+                crate::framework_events_ce::StorageTarget::LibSql
+            } else {
+                crate::framework_events_ce::StorageTarget::Memory
+            },
+        })
+        .await;
 
         Ok(())
     }
@@ -169,6 +193,21 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
             .filter(|(id, _)| !expired_ids.contains(id))
             .collect();
 
+        let mut events = Vec::new();
+        for (id, similarity) in &filtered {
+            if (*similarity as f64) >= self.config.pattern_recognition_threshold {
+                events.push(ChaoticEvent::PatternRecognized {
+                    query_vector: query.to_bytes(),
+                    matched_key: id.clone(),
+                    similarity: *similarity as f64,
+                });
+            }
+        }
+
+        for event in events {
+            self.emit_chaotic_event(event).await;
+        }
+
         Ok(filtered)
     }
 
@@ -198,7 +237,24 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         #[cfg(target_arch = "wasm32")]
         let elapsed_ms = 0;
         self.metrics.observe_probe_latency_ms(elapsed_ms);
-        Ok(results.as_ref().to_vec())
+
+        let results_vec = results.as_ref().to_vec();
+        let mut events = Vec::new();
+        for (id, similarity) in &results_vec {
+            if (*similarity as f64) >= self.config.pattern_recognition_threshold {
+                events.push(ChaoticEvent::PatternRecognized {
+                    query_vector: query.to_bytes(),
+                    matched_key: id.clone(),
+                    similarity: *similarity as f64,
+                });
+            }
+        }
+
+        for event in events {
+            self.emit_chaotic_event(event).await;
+        }
+
+        Ok(results_vec)
     }
 
     /// Traverse graph using breadth-first search.
@@ -231,31 +287,49 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
     #[instrument(err, skip(self, sequence))]
     pub async fn process_sequence(&self, sequence: &[Vec<f32>]) -> Result<HVec10240> {
         self.validate_sequence_length(sequence.len())?;
-        let mut reservoir = self.reservoir.write().await;
 
-        if reservoir.is_none() {
-            *reservoir = Some(ChaoticReservoir::new(
+        let mut events = Vec::new();
+        let mut reservoir_guard = self.reservoir.write().await;
+
+        if reservoir_guard.is_none() {
+            *reservoir_guard = Some(ChaoticReservoir::new(
                 self.config.reservoir_input_size,
                 self.config.reservoir_size,
                 self.config.chaos_strength,
             )?);
         }
 
-        let r = reservoir
+        let r = reservoir_guard
             .as_mut()
             .ok_or(crate::error::MemoryError::reservoir(
                 "reservoir failed to initialize".to_string(),
             ))?;
         r.reset();
-        for input in sequence {
-            r.step(input)?;
+
+        for (step_idx, input) in sequence.iter().enumerate() {
+            let out = r.step(input)?;
+            events.push(ChaoticEvent::EchoComputed {
+                input_dim: input.len(),
+                state_norm: out.state_norm,
+            });
+
+            // Convergence detection: if change_norm is very small, we've hit an attractor basin.
+            if out.change_norm < 1e-5 {
+                events.push(ChaoticEvent::AttractorFired {
+                    attractor_id: step_idx as u32,
+                    basin_energy: out.change_norm,
+                    reservoir_dim: self.config.reservoir_size,
+                });
+            }
+        }
+        let hv = r.to_hypervector()?;
+        drop(reservoir_guard);
+
+        for event in events {
+            self.emit_chaotic_event(event).await;
         }
 
-        {
-            let hv = r.to_hypervector();
-            drop(reservoir);
-            hv
-        }
+        Ok(hv)
     }
 
     /// Associate two concepts
@@ -272,7 +346,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
 
         if let Some(ref persistence) = self.persistence {
             let p_start = std::time::Instant::now();
-            let ns = self.namespace.read().await;
+            let ns = self.namespace().await;
             persistence
                 .save_association(&ns, from, to, strength)
                 .await?;
@@ -302,7 +376,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         }
 
         if let Some(ref persistence) = self.persistence {
-            let ns = self.namespace.read().await;
+            let ns = self.namespace().await;
             persistence.delete_concept(&ns, id).await?;
         }
 
