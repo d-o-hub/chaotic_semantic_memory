@@ -183,7 +183,11 @@ impl FrameworkBuilder {
 
     /// Set the cosine similarity threshold for pattern recognition events.
     pub fn with_pattern_recognition_threshold(mut self, threshold: f64) -> Self {
-        self.config.pattern_recognition_threshold = threshold;
+        if threshold.is_finite() {
+            self.config.pattern_recognition_threshold = threshold.clamp(0.0, 1.0);
+        } else {
+            self.config.pattern_recognition_threshold = 0.0;
+        }
         self
     }
 
