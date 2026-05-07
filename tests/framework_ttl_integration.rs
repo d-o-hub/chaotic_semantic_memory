@@ -21,9 +21,8 @@ async fn inject_concept_with_ttl_sets_expires_at() {
 
     // Verify stored with correct expires_at
     let singularity = framework.singularity();
-    let sing = singularity.read().await;
     let ns = framework.namespace().await;
-    let concept = sing.get(&ns, "ttl-concept").expect("concept should exist");
+    let concept = singularity.read().await.get(&ns, "ttl-concept").expect("concept should exist").clone();
     assert!(concept.expires_at.is_some(), "expires_at should be set");
 
     let expires_at = concept.expires_at.unwrap();
@@ -51,9 +50,8 @@ async fn inject_text_with_ttl_encodes_and_stores() {
 
     // Verify concept exists with TTL
     let singularity = framework.singularity();
-    let sing = singularity.read().await;
     let ns = framework.namespace().await;
-    let concept = sing.get(&ns, "text-ttl").expect("concept should exist");
+    let concept = singularity.read().await.get(&ns, "text-ttl").expect("concept should exist").clone();
     assert!(concept.expires_at.is_some(), "expires_at should be set");
 }
 
@@ -112,9 +110,8 @@ async fn inject_text_with_metadata_no_ttl() {
         .unwrap();
 
     let singularity = framework.singularity();
-    let sing = singularity.read().await;
     let ns = framework.namespace().await;
-    let concept = sing.get(&ns, "meta-concept").expect("concept should exist");
+    let concept = singularity.read().await.get(&ns, "meta-concept").expect("concept should exist").clone();
     assert!(
         concept.expires_at.is_none(),
         "inject_text_with_metadata should not set TTL"
@@ -179,9 +176,8 @@ async fn concept_expires_at_serialization() {
         .unwrap();
 
     let singularity = framework.singularity();
-    let sing = singularity.read().await;
     let ns = framework.namespace().await;
-    let concept = sing.get(&ns, "serial-test").expect("concept should exist");
+    let concept = singularity.read().await.get(&ns, "serial-test").expect("concept should exist").clone();
 
     // Verify expires_at was computed correctly
     let expected_min = now + ttl;
@@ -192,7 +188,7 @@ async fn concept_expires_at_serialization() {
     );
 
     // Verify JSON serialization of expires_at
-    let json = serde_json::to_string(concept).unwrap();
+    let json = serde_json::to_string(&concept).unwrap();
     assert!(
         json.contains("expires_at"),
         "JSON should contain expires_at field"
@@ -307,9 +303,8 @@ async fn zero_ttl_still_sets_expiration() {
         .unwrap();
 
     let singularity = framework.singularity();
-    let sing = singularity.read().await;
     let ns = framework.namespace().await;
-    let concept = sing.get(&ns, "zero-ttl").unwrap();
+    let concept = singularity.read().await.get(&ns, "zero-ttl").unwrap().clone();
     assert!(
         concept.expires_at.is_some(),
         "zero TTL should still set expires_at"
