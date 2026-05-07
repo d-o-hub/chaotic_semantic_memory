@@ -97,8 +97,8 @@ fn bench_reservoir_step_50k(c: &mut Criterion) {
 
     c.bench_function("reservoir_step_50k", |bencher| {
         bencher.iter(|| {
-            let out = reservoir.step(black_box(&input)).unwrap();
-            black_box(out.state[0])
+            let state = reservoir.step(black_box(&input)).unwrap();
+            black_box(state[0])
         })
     });
 }
@@ -117,8 +117,8 @@ fn bench_inertial_reservoir(c: &mut Criterion) {
     let mut reservoir_beta0 = Reservoir::new_seeded(10240, 50000, 42).unwrap();
     group.bench_function("step_50k_beta0", |b| {
         b.iter(|| {
-            let out = reservoir_beta0.step(black_box(&input)).unwrap();
-            black_box(out.state[0])
+            let state = reservoir_beta0.step(black_box(&input)).unwrap();
+            black_box(state[0])
         })
     });
 
@@ -129,8 +129,8 @@ fn bench_inertial_reservoir(c: &mut Criterion) {
         .unwrap();
     group.bench_function("step_50k_beta015", |b| {
         b.iter(|| {
-            let out = reservoir_beta015.step(black_box(&input)).unwrap();
-            black_box(out.state[0])
+            let state = reservoir_beta015.step(black_box(&input)).unwrap();
+            black_box(state[0])
         })
     });
 
@@ -144,8 +144,8 @@ fn bench_inertial_reservoir(c: &mut Criterion) {
         b.iter(|| {
             seq_beta0.reset();
             for inp in &inputs {
-                let out = seq_beta0.step(black_box(inp)).unwrap();
-                black_box(out.state[0]);
+                let state = seq_beta0.step(black_box(inp)).unwrap();
+                black_box(state[0]);
             }
         })
     });
@@ -158,8 +158,8 @@ fn bench_inertial_reservoir(c: &mut Criterion) {
         b.iter(|| {
             seq_beta015.reset();
             for inp in &inputs {
-                let out = seq_beta015.step(black_box(inp)).unwrap();
-                black_box(out.state[0]);
+                let state = seq_beta015.step(black_box(inp)).unwrap();
+                black_box(state[0]);
             }
         })
     });

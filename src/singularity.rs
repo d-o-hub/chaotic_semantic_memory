@@ -33,6 +33,7 @@ impl Default for SingularityConfig {
 }
 
 /// Represents a single memory concept
+#[serde(bound = "H: Hypervector")]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Concept<H: Hypervector = HVec10240> {
     pub id: String,
@@ -66,7 +67,7 @@ impl<H: Hypervector> ConceptBuilder<H> {
         }
     }
 
-    pub const fn with_vector(mut self, vector: HVec10240) -> Self {
+    pub const fn with_vector(mut self, vector: H) -> Self {
         self.vector = Some(vector);
         self
     }
@@ -89,7 +90,7 @@ impl<H: Hypervector> ConceptBuilder<H> {
         let now = unix_now_secs();
         Ok(Concept {
             id: self.id,
-            vector: self.vector.unwrap_or_else(HVec10240::random),
+            vector: self.vector.unwrap_or_else(H::random),
             metadata: self.metadata,
             created_at: now,
             modified_at: now,
@@ -225,7 +226,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
         }
     }
 
-    pub fn get(&self, ns: &str, id: &str) -> Option<&Concept> {
+    pub fn get(&self, ns: &str, id: &str) -> Option<&Concept<H>> {
         self.get_namespace(ns).and_then(|n| n.concepts.get(id))
     }
     pub fn associate(&mut self, ns: &str, from: &str, to: &str, strength: f32) -> Result<()> {
@@ -404,7 +405,7 @@ pub fn unix_now_ns() -> u64 {
 pub(crate) fn similarity_cache_key<H: Hypervector>(query: &H, top_k: usize) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut s = std::collections::hash_map::DefaultHasher::new();
-    query.data.hash(&mut s);
+    query.to_bytes().hash(&mut s);
     top_k.hash(&mut s);
     s.finish()
 }

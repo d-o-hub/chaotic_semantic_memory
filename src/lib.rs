@@ -37,7 +37,6 @@ pub mod framework;
 mod framework_bridge;
 pub mod framework_builder;
 mod framework_events;
-pub mod framework_events_ce;
 mod framework_graph_rag;
 mod framework_metrics;
 mod framework_namespaces;

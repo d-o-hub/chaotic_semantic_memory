@@ -21,7 +21,7 @@ use crate::singularity_state::NamespaceState;
 /// Try to retrieve results from the similarity cache.
 /// Returns `Some(results)` on cache hit, `None` on miss or cache bypass.
 fn try_cache_lookup<H: Hypervector>(
-    ns_state: &NamespaceState,
+    ns_state: &NamespaceState<H>,
     query: &H,
     top_k: usize,
     bypass_cache: bool,
@@ -61,7 +61,7 @@ fn try_cache_lookup<H: Hypervector>(
 /// Returns `Some(results)` on ANN hit, `None` for BruteForce backend or
 /// ANN search failure (falls through to exact scan).
 fn try_ann_lookup<H: Hypervector>(
-    ns_state: &NamespaceState,
+    ns_state: &NamespaceState<H>,
     query: &H,
     top_k: usize,
     bypass_cache: bool,

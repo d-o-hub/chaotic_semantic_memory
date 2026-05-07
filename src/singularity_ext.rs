@@ -8,7 +8,7 @@ use tracing::instrument;
 impl<H: Hypervector + \'static> Singularity<H> {
     /// Bundle multiple concepts into a single hypervector.
     #[instrument(skip(self, ns), fields(ids_count = ids.len()))]
-    pub fn bundle_concepts_strict(&self, ns: &str, ids: &[String]) -> Result<HVec10240> {
+    pub fn bundle_concepts_strict(&self, ns: &str, ids: &[String]) -> Result<H> {
         let ns_state = self
             .get_namespace(ns)
             .ok_or_else(|| MemoryError::NotFound {
@@ -35,7 +35,7 @@ impl<H: Hypervector + \'static> Singularity<H> {
             });
         }
 
-        HVec10240::bundle(&vectors)
+        H::bundle(&vectors)
     }
 
     pub fn update_metadata(

@@ -9,7 +9,6 @@ use tokio::sync::broadcast;
 use crate::error::Result;
 use crate::hyperdim::Hypervector;
 use crate::framework::ChaoticSemanticFramework;
-use crate::framework_events_ce::ChaoticEvent;
 #[cfg(target_arch = "wasm32")]
 use crate::hyperdim::HVec10240;
 #[cfg(target_arch = "wasm32")]
@@ -52,19 +51,6 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
 
     pub(crate) fn emit_event(&self, event: MemoryEvent) {
         let _ = self.event_sender.send(event);
-    }
-
-    /// Emit a CloudEvent if the feature is enabled.
-    #[allow(unused_variables)]
-    pub(crate) async fn emit_chaotic_event(&self, event: ChaoticEvent) {
-        #[cfg(feature = "cloudevents")]
-        {
-            let source = format!("chaotic-semantic-memory://{}", *self.namespace.read().await);
-            let ce = event.to_cloud_event(&source);
-            for emitter in &self.emitters {
-                let _ = emitter.emit(ce.clone()).await;
-            }
-        }
     }
 
     /// Update a concept's vector (WASM-only, memory-only).

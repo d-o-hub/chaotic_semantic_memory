@@ -2,14 +2,14 @@
 
 use std::collections::HashMap;
 
-use crate::hyperdim::HVec10240;
+use crate::hyperdim::{HVec10240, Hypervector};
 use crate::singularity::{Concept, Singularity, unix_now_secs};
 
-impl Default for Concept {
+impl<H: Hypervector> Default for Concept<H> {
     fn default() -> Self {
         Self {
             id: String::new(),
-            vector: HVec10240::zero(),
+            vector: H::zero(),
             metadata: HashMap::new(),
             created_at: 0,
             modified_at: 0,
@@ -19,7 +19,7 @@ impl Default for Concept {
     }
 }
 
-impl Singularity {
+impl<H: Hypervector + \'static> Singularity<H> {
     /// Purge all expired concepts from memory.
     ///
     /// Returns the number of concepts removed.
