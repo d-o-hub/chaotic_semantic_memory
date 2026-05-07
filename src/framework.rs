@@ -71,7 +71,7 @@ impl ChaoticSemanticFramework {
 
         if let Some(ref persistence) = self.persistence {
             let p_start = std::time::Instant::now();
-            let ns = self.namespace.read().await;
+            let ns = self.namespace().await;
             persistence.save_concept(&ns, &concept).await?;
             self.metrics.observe_persist_latency_ms(
                 u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
@@ -124,7 +124,7 @@ impl ChaoticSemanticFramework {
 
         if let Some(ref persistence) = self.persistence {
             let p_start = std::time::Instant::now();
-            let ns = self.namespace.read().await;
+            let ns = self.namespace().await;
             persistence.save_concept(&ns, &concept).await?;
             self.metrics.observe_persist_latency_ms(
                 u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
@@ -193,15 +193,19 @@ impl ChaoticSemanticFramework {
             .filter(|(id, _)| !expired_ids.contains(id))
             .collect();
 
+        let mut events = Vec::new();
         for (id, similarity) in &filtered {
             if (*similarity as f64) >= self.config.pattern_recognition_threshold {
-                self.emit_chaotic_event(ChaoticEvent::PatternRecognized {
+                events.push(ChaoticEvent::PatternRecognized {
                     query_vector: query.to_bytes(),
                     matched_key: id.clone(),
                     similarity: *similarity as f64,
-                })
-                .await;
+                });
             }
+        }
+
+        for event in events {
+            self.emit_chaotic_event(event).await;
         }
 
         Ok(filtered)
@@ -235,15 +239,19 @@ impl ChaoticSemanticFramework {
         self.metrics.observe_probe_latency_ms(elapsed_ms);
 
         let results_vec = results.as_ref().to_vec();
+        let mut events = Vec::new();
         for (id, similarity) in &results_vec {
             if (*similarity as f64) >= self.config.pattern_recognition_threshold {
-                self.emit_chaotic_event(ChaoticEvent::PatternRecognized {
+                events.push(ChaoticEvent::PatternRecognized {
                     query_vector: query.to_bytes(),
                     matched_key: id.clone(),
                     similarity: *similarity as f64,
-                })
-                .await;
+                });
             }
+        }
+
+        for event in events {
+            self.emit_chaotic_event(event).await;
         }
 
         Ok(results_vec)
@@ -278,47 +286,49 @@ impl ChaoticSemanticFramework {
     #[instrument(err, skip(self, sequence))]
     pub async fn process_sequence(&self, sequence: &[Vec<f32>]) -> Result<HVec10240> {
         self.validate_sequence_length(sequence.len())?;
-        let mut reservoir = self.reservoir.write().await;
 
-        if reservoir.is_none() {
-            *reservoir = Some(ChaoticReservoir::new(
+        let mut events = Vec::new();
+        let mut reservoir_guard = self.reservoir.write().await;
+
+        if reservoir_guard.is_none() {
+            *reservoir_guard = Some(ChaoticReservoir::new(
                 self.config.reservoir_input_size,
                 self.config.reservoir_size,
                 self.config.chaos_strength,
             )?);
         }
 
-        let r = reservoir
+        let r = reservoir_guard
             .as_mut()
             .ok_or(crate::error::MemoryError::reservoir(
                 "reservoir failed to initialize".to_string(),
             ))?;
         r.reset();
+
         for (step_idx, input) in sequence.iter().enumerate() {
             let out = r.step(input)?;
-            self.emit_chaotic_event(ChaoticEvent::EchoComputed {
+            events.push(ChaoticEvent::EchoComputed {
                 input_dim: input.len(),
                 state_norm: out.state_norm,
-            })
-            .await;
+            });
 
             // Convergence detection: if change_norm is very small, we've hit an attractor basin.
-            // Using a threshold of 1e-4 relative to the state norm or absolute.
             if out.change_norm < 1e-5 {
-                self.emit_chaotic_event(ChaoticEvent::AttractorFired {
+                events.push(ChaoticEvent::AttractorFired {
                     attractor_id: step_idx as u32,
                     basin_energy: out.change_norm,
                     reservoir_dim: self.config.reservoir_size,
-                })
-                .await;
+                });
             }
         }
+        let hv = r.to_hypervector()?;
+        drop(reservoir_guard);
 
-        {
-            let hv = r.to_hypervector();
-            drop(reservoir);
-            hv
+        for event in events {
+            self.emit_chaotic_event(event).await;
         }
+
+        Ok(hv)
     }
 
     /// Associate two concepts
@@ -335,7 +345,7 @@ impl ChaoticSemanticFramework {
 
         if let Some(ref persistence) = self.persistence {
             let p_start = std::time::Instant::now();
-            let ns = self.namespace.read().await;
+            let ns = self.namespace().await;
             persistence
                 .save_association(&ns, from, to, strength)
                 .await?;
@@ -365,7 +375,7 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(ref persistence) = self.persistence {
-            let ns = self.namespace.read().await;
+            let ns = self.namespace().await;
             persistence.delete_concept(&ns, id).await?;
         }
 
