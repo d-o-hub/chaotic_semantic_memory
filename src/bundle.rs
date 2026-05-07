@@ -115,6 +115,10 @@ impl BundleAccumulator {
             };
         }
 
+        // Scalar fallback for:
+        // 1. WASM
+        // 2. x86_64 without AVX2
+        // 3. All other architectures
         let mut data = [0u128; 80];
         let threshold = 0; // Majority threshold: count > 0
 
