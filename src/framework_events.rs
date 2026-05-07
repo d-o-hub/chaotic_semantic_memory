@@ -7,8 +7,8 @@ use tokio::sync::broadcast;
 
 #[cfg(target_arch = "wasm32")]
 use crate::error::Result;
-use crate::framework::ChaoticSemanticFramework;
 use crate::hyperdim::Hypervector;
+use crate::framework::ChaoticSemanticFramework;
 #[cfg(target_arch = "wasm32")]
 use crate::hyperdim::HVec10240;
 #[cfg(target_arch = "wasm32")]
@@ -20,15 +20,15 @@ const DEFAULT_EVENT_CHANNEL_CAPACITY: usize = 1024;
 
 #[derive(Debug, Clone)]
 pub enum MemoryEvent {
-    Concept<H>Injected {
+    ConceptInjected {
         id: String,
         timestamp: u64,
     },
-    Concept<H>Updated {
+    ConceptUpdated {
         id: String,
         timestamp: u64,
     },
-    Concept<H>Deleted {
+    ConceptDeleted {
         id: String,
         timestamp: u64,
     },
@@ -55,10 +55,10 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
 
     /// Update a concept's vector (WASM-only, memory-only).
     #[cfg(target_arch = "wasm32")]
-    pub async fn update_concept_vector(&self, id: &str, vector: H) -> Result<()> {
+    pub async fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()> {
         let ns = self.namespace.read().await;
         self.singularity.write().await.update(&ns, id, vector)?;
-        self.emit_event(MemoryEvent::Concept<H>Updated {
+        self.emit_event(MemoryEvent::ConceptUpdated {
             id: id.to_string(),
             timestamp: unix_now_secs(),
         });
@@ -77,7 +77,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
             .write()
             .await
             .update_metadata(&ns, id, metadata)?;
-        self.emit_event(MemoryEvent::Concept<H>Updated {
+        self.emit_event(MemoryEvent::ConceptUpdated {
             id: id.to_string(),
             timestamp: unix_now_secs(),
         });
@@ -123,15 +123,15 @@ mod tests {
 
     #[test]
     fn memory_event_variants_construct() {
-        let injected = MemoryEvent::Concept<H>Injected {
+        let injected = MemoryEvent::ConceptInjected {
             id: "test-id".to_string(),
             timestamp: 12345,
         };
-        let updated = MemoryEvent::Concept<H>Updated {
+        let updated = MemoryEvent::ConceptUpdated {
             id: "test-id".to_string(),
             timestamp: 12346,
         };
-        let _deleted = MemoryEvent::Concept<H>Deleted {
+        let _deleted = MemoryEvent::ConceptDeleted {
             id: "test-id".to_string(),
             timestamp: 12347,
         };
@@ -147,11 +147,11 @@ mod tests {
 
         // Verify Clone works
         let cloned = injected;
-        assert!(matches!(cloned, MemoryEvent::Concept<H>Injected { .. }));
+        assert!(matches!(cloned, MemoryEvent::ConceptInjected { .. }));
 
         // Verify Debug works
         let debug_str = format!("{updated:?}");
-        assert!(debug_str.contains("Concept<H>Updated"));
+        assert!(debug_str.contains("ConceptUpdated"));
     }
 
     #[test]
@@ -168,7 +168,7 @@ mod tests {
         let mut rx1 = sender.subscribe();
         let mut rx2 = sender.subscribe();
 
-        let event = MemoryEvent::Concept<H>Injected {
+        let event = MemoryEvent::ConceptInjected {
             id: "broadcast-test".to_string(),
             timestamp: 99999,
         };
@@ -180,10 +180,10 @@ mod tests {
         let recv2 = rx2.try_recv().unwrap();
 
         assert!(
-            matches!(recv1, MemoryEvent::Concept<H>Injected { id, timestamp } if id == "broadcast-test" && timestamp == 99999)
+            matches!(recv1, MemoryEvent::ConceptInjected { id, timestamp } if id == "broadcast-test" && timestamp == 99999)
         );
         assert!(
-            matches!(recv2, MemoryEvent::Concept<H>Injected { id, timestamp } if id == "broadcast-test" && timestamp == 99999)
+            matches!(recv2, MemoryEvent::ConceptInjected { id, timestamp } if id == "broadcast-test" && timestamp == 99999)
         );
     }
 
@@ -197,7 +197,7 @@ mod tests {
         // Send multiple events - broadcast channel doesn't block on overflow
         for i in 0..200 {
             sender
-                .send(MemoryEvent::Concept<H>Injected {
+                .send(MemoryEvent::ConceptInjected {
                     id: format!("id-{i}"),
                     timestamp: i,
                 })
@@ -206,7 +206,7 @@ mod tests {
 
         // Sender should still be functional
         sender
-            .send(MemoryEvent::Concept<H>Deleted {
+            .send(MemoryEvent::ConceptDeleted {
                 id: "final".to_string(),
                 timestamp: 999,
             })

@@ -6,7 +6,7 @@ use crate::framework::ChaoticSemanticFramework;
 use crate::framework_events::MemoryEvent;
 use crate::framework_validation::validate_path;
 use crate::hyperdim::HVec10240;
-use crate::singularity::Concept<H>Builder;
+use crate::singularity::ConceptBuilder;
 use bincode::Options;
 use std::sync::Arc;
 use tokio::fs;
@@ -19,7 +19,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
     /// Batch inject multiple concepts into memory.
     // Singularity write lock needed for batch inject
     #[instrument(err, skip(self, concepts))]
-    pub async fn inject_concepts(&self, concepts: &[(String, HVec10240)]) -> Result<()> {
+    pub async fn inject_concepts(&self, concepts: &[(String, H)]) -> Result<()> {
         self.validate_batch_size(concepts.len())?;
 
         if concepts.is_empty() {
@@ -32,7 +32,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
             let ns = self.namespace.read().await;
             for (id, vector) in concepts {
                 Self::validate_concept_id(id)?;
-                let concept = Concept<H>Builder::new(id.clone())
+                let concept = ConceptBuilder::new(id.clone())
                     .with_vector(*vector)
                     .build()?;
                 sing.inject(&ns, concept.clone())?;
@@ -353,7 +353,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         &self,
         id: &str,
         mut limit: usize,
-    ) -> Result<Vec<crate::persistence::Concept<H>Version>> {
+    ) -> Result<Vec<crate::persistence::ConceptVersion>> {
         if limit > MAX_HISTORY_LIMIT {
             limit = MAX_HISTORY_LIMIT;
         }
@@ -366,7 +366,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
 
     /// Update a concept's vector.
     #[instrument(err, skip(self), fields(id))]
-    pub async fn update_concept_vector(&self, id: &str, vector: H) -> Result<()> {
+    pub async fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()> {
         let concept = {
             let mut sing = self.singularity.write().await;
             let ns = self.namespace.read().await;
@@ -378,7 +378,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
             let ns = self.namespace.read().await;
             persistence.save_concept(&ns, &concept).await?;
         }
-        self.emit_event(MemoryEvent::Concept<H>Updated {
+        self.emit_event(MemoryEvent::ConceptUpdated {
             id: id.to_string(),
             timestamp: unix_now_secs(),
         });
@@ -403,7 +403,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
             let ns = self.namespace.read().await;
             persistence.save_concept(&ns, &concept).await?;
         }
-        self.emit_event(MemoryEvent::Concept<H>Updated {
+        self.emit_event(MemoryEvent::ConceptUpdated {
             id: id.to_string(),
             timestamp: unix_now_secs(),
         });
@@ -454,7 +454,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
     }
 
     /// Bundle multiple concepts into a single hypervector (strict version).
-    pub async fn bundle_concepts_strict(&self, ids: &[String]) -> Result<H> {
+    pub async fn bundle_concepts_strict(&self, ids: &[String]) -> Result<HVec10240> {
         let sing = self.singularity.read().await;
         let ns = self.namespace.read().await;
         sing.bundle_concepts_strict(&ns, ids)

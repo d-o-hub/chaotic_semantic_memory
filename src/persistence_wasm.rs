@@ -4,18 +4,17 @@
 //! All operations return `MemoryError::UnsupportedOperation`.
 
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::{HVec10240, Hypervector};
+use crate::hyperdim::HVec10240;
 use crate::singularity::Concept;
 
 /// Persistence stub for wasm32 builds.
 pub struct Persistence;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(bound = "H: Hypervector")]
-pub struct ConceptVersion<H: Hypervector = HVec10240> {
+pub struct ConceptVersion {
     pub concept_id: String,
     pub version: i64,
-    pub vector: H,
+    pub vector: HVec10240,
     pub metadata: serde_json::Value,
     pub modified_at: u64,
 }
@@ -46,34 +45,19 @@ impl Persistence {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn save_concept<H: Hypervector + 'static>(
-        &self,
-        _ns: &str,
-        _concept: &Concept<H>,
-    ) -> Result<()> {
+    pub async fn save_concept(&self, _ns: &str, _concept: &Concept) -> Result<()> {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn save_concepts<H: Hypervector + 'static>(
-        &self,
-        _ns: &str,
-        _concepts: &[Concept<H>],
-    ) -> Result<()> {
+    pub async fn save_concepts(&self, _ns: &str, _concepts: &[Concept]) -> Result<()> {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn load_concept<H: Hypervector + 'static>(
-        &self,
-        _ns: &str,
-        _id: &str,
-    ) -> Result<Option<Concept<H>>> {
+    pub async fn load_concept(&self, _ns: &str, _id: &str) -> Result<Option<Concept>> {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn load_all_concepts<H: Hypervector + 'static>(
-        &self,
-        _ns: &str,
-    ) -> Result<Vec<Concept<H>>> {
+    pub async fn load_all_concepts(&self, _ns: &str) -> Result<Vec<Concept>> {
         Err(wasm_persistence_unavailable())
     }
 
@@ -111,12 +95,12 @@ impl Persistence {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn get_concept_history<H: Hypervector + 'static>(
+    pub async fn get_concept_history(
         &self,
         _ns: &str,
         _id: &str,
         _limit: usize,
-    ) -> Result<Vec<ConceptVersion<H>>> {
+    ) -> Result<Vec<ConceptVersion>> {
         Err(wasm_persistence_unavailable())
     }
 
@@ -208,7 +192,7 @@ mod tests {
     #[test]
     fn concept_version_serialization_roundtrip() {
         // ConceptVersion is used in WASM builds for version serialization
-        let version = ConceptVersion::<HVec10240> {
+        let version = ConceptVersion {
             concept_id: "test-id".to_string(),
             version: 1,
             vector: HVec10240::zero(),
@@ -220,7 +204,7 @@ mod tests {
         let json = serde_json::to_string(&version).unwrap();
 
         // Deserialize back
-        let recovered: ConceptVersion<HVec10240> = serde_json::from_str(&json).unwrap();
+        let recovered: ConceptVersion = serde_json::from_str(&json).unwrap();
 
         assert_eq!(recovered.concept_id, version.concept_id);
         assert_eq!(recovered.version, version.version);

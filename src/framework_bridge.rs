@@ -120,14 +120,14 @@ mod tests {
 
     use crate::encoder::TextEncoder;
     use crate::framework_builder::FrameworkBuilder;
-    use crate::semantic_bridge::{CanonicalConcept<H>, Concept<H>Graph};
-    use crate::singularity::Concept<H>Builder;
+    use crate::semantic_bridge::{CanonicalConcept, ConceptGraph};
+    use crate::singularity::ConceptBuilder;
 
     #[tokio::test]
     async fn test_probe_bridge_text_empty() {
         let framework = FrameworkBuilder::new().build().await.unwrap();
         let encoder = TextEncoder::new();
-        let graph = Concept<H>Graph::new();
+        let graph = ConceptGraph::new();
         let bridge = crate::bridge_retrieval::BridgeRetrieval::with_defaults(encoder, graph);
 
         let results = framework
@@ -141,7 +141,7 @@ mod tests {
     async fn test_memory_packet_text_empty() {
         let framework = FrameworkBuilder::new().build().await.unwrap();
         let encoder = TextEncoder::new();
-        let graph = Concept<H>Graph::new();
+        let graph = ConceptGraph::new();
         let bridge = crate::bridge_retrieval::BridgeRetrieval::with_defaults(encoder, graph);
 
         let packet = framework
@@ -158,7 +158,7 @@ mod tests {
         let encoder = TextEncoder::new();
 
         // Add concept to framework
-        let concept = Concept<H>Builder::new("test-concept")
+        let concept = ConceptBuilder::new("test-concept")
             .with_vector(encoder.encode("agent memory system"))
             .build()
             .unwrap();
@@ -168,9 +168,9 @@ mod tests {
             .unwrap();
 
         // Create bridge with matching canonical concept
-        let mut graph = Concept<H>Graph::new();
+        let mut graph = ConceptGraph::new();
         graph.add_concept(
-            CanonicalConcept<H>::new("c1")
+            CanonicalConcept::new("c1")
                 .with_label("agent-memory")
                 .with_label("ai-memory"),
         );

@@ -199,7 +199,6 @@ path = "examples/streaming_temporal.rs"
 
 [features]
 default = ["cli", "persistence", "parallel"]
-hv-binary = []   # pure Rust, no extra deps
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
 persistence = ["dep:libsql"]
 parallel = ["dep:rayon"]

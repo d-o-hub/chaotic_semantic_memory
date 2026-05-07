@@ -5,18 +5,18 @@ use crate::hyperdim::HVec10240;
 
 /// Incremental bundle accumulator for streaming/sliding-window memory.
 ///
-/// Maintains cumulative sums for efficient add/remove operations.
-/// Finalize produces a bundled float hypervector.
+/// Maintains signed bit counts for efficient add/remove operations.
+/// Finalize applies majority threshold to produce a bundled hypervector.
 #[derive(Debug, Clone)]
 pub struct BundleAccumulator {
-    counts: Box<[f32; HVec10240::DIMENSION]>,
+    counts: Box<[i32; HVec10240::DIMENSION]>,
     n: u32,
 }
 
 impl Default for BundleAccumulator {
     fn default() -> Self {
         Self {
-            counts: Box::new([0.0f32; HVec10240::DIMENSION]),
+            counts: Box::new([0i32; HVec10240::DIMENSION]),
             n: 0,
         }
     }
@@ -26,15 +26,20 @@ impl BundleAccumulator {
     /// Create a new empty accumulator.
     pub fn new() -> Self {
         Self {
-            counts: Box::new([0.0f32; HVec10240::DIMENSION]),
+            counts: Box::new([0i32; HVec10240::DIMENSION]),
             n: 0,
         }
     }
 
     /// Add a hypervector to the accumulator.
     pub fn add(&mut self, hv: &HVec10240) {
-        for i in 0..HVec10240::DIMENSION {
-            self.counts[i] += hv.data[i];
+        for i in 0..80 {
+            let mut val = hv.data[i];
+            while val != 0 {
+                let j = val.trailing_zeros() as usize;
+                self.counts[i * 128 + j] += 1;
+                val &= val - 1;
+            }
         }
         self.n += 1;
     }
@@ -47,8 +52,13 @@ impl BundleAccumulator {
         if self.n == 0 {
             return;
         }
-        for i in 0..HVec10240::DIMENSION {
-            self.counts[i] -= hv.data[i];
+        for i in 0..80 {
+            let mut val = hv.data[i];
+            while val != 0 {
+                let j = val.trailing_zeros() as usize;
+                self.counts[i * 128 + j] -= 1;
+                val &= val - 1;
+            }
         }
         self.n -= 1;
     }
@@ -63,21 +73,39 @@ impl BundleAccumulator {
                 reason: "cannot remove from empty BundleAccumulator".to_string(),
             });
         }
-        for i in 0..HVec10240::DIMENSION {
-            self.counts[i] -= hv.data[i];
+        for i in 0..80 {
+            let mut val = hv.data[i];
+            while val != 0 {
+                let j = val.trailing_zeros() as usize;
+                self.counts[i * 128 + j] -= 1;
+                val &= val - 1;
+            }
         }
         self.n -= 1;
         Ok(())
     }
 
     /// Finalize the accumulator into a bundled hypervector.
+    ///
+    /// Applies majority threshold: bits with count > 0 are set to 1.
+    /// Returns zero vector if accumulator is empty.
     pub fn finalize(&self) -> HVec10240 {
         if self.n == 0 {
             return HVec10240::zero();
         }
 
-        let mut data = [0.0f32; 10240];
-        data.copy_from_slice(self.counts.as_ref());
+        let mut data = [0u128; 80];
+        let threshold = 0; // Majority threshold: count > 0
+
+        for (i, word) in data.iter_mut().enumerate() {
+            let offset = i * 128;
+            for j in 0..128 {
+                // Branchless bit construction to reduce misprediction penalties
+                let condition = self.counts[offset + j] > threshold;
+                *word |= (condition as u128) << j;
+            }
+        }
+
         HVec10240 { data }
     }
 
@@ -93,7 +121,7 @@ impl BundleAccumulator {
 
     /// Clear the accumulator.
     pub fn clear(&mut self) {
-        *self.counts = [0.0f32; HVec10240::DIMENSION];
+        *self.counts = [0i32; HVec10240::DIMENSION];
         self.n = 0;
     }
 }

@@ -29,18 +29,18 @@ struct HnswData {
 
 #[cfg(feature = "ann-hnsw")]
 #[derive(Clone)]
-struct HammingDist<H: Hypervector>(std::marker::PhantomData<H>);
+struct HammingDist;
 
 #[cfg(feature = "ann-hnsw")]
-impl<H: Hypervector> Distance<H> for HammingDist<H> {
-    fn eval(&self, va: &[H], vb: &[H]) -> f32 {
+impl Distance<HVec10240> for HammingDist {
+    fn eval(&self, va: &[HVec10240], vb: &[HVec10240]) -> f32 {
         va[0].hamming_distance(&vb[0]) as f32
     }
 }
 
 #[cfg(feature = "ann-hnsw")]
-pub struct HnswIndex<H: Hypervector + 'static = HVec10240> {
-    hnsw: Hnsw<'static, H, HammingDist<H>>,
+pub struct HnswIndex<H: Hypervector> {
+    hnsw: Hnsw<'static, HVec10240, HammingDist>,
     id_to_idx: HashMap<String, usize>,
     idx_to_id: HashMap<usize, String>,
     config: HnswData,
@@ -48,7 +48,7 @@ pub struct HnswIndex<H: Hypervector + 'static = HVec10240> {
 }
 
 #[cfg(feature = "ann-hnsw")]
-impl<H: Hypervector + 'static> HnswIndex<H> {
+impl<H: Hypervector> HnswIndex<H> {
     pub fn new(m: usize, ef_construction: usize, ef_search: usize) -> Result<Self> {
         // #7: Validate m (max_nb_connection). hnsw_rs aborts if > 256.
         if m == 0 || m > 256 {
@@ -59,13 +59,7 @@ impl<H: Hypervector + 'static> HnswIndex<H> {
         }
 
         // ADR-0068: Default to 1M elements to support scale goal
-        let hnsw = Hnsw::new(
-            m,
-            1_000_000,
-            16,
-            ef_construction,
-            HammingDist(std::marker::PhantomData),
-        );
+        let hnsw = Hnsw::new(m, 1_000_000, 16, ef_construction, HammingDist);
         Ok(Self {
             hnsw,
             id_to_idx: HashMap::new(),
@@ -104,10 +98,7 @@ struct HnswPersistenceWrapper {
 }
 
 #[cfg(feature = "ann-hnsw")]
-impl<H: Hypervector + 'static> AnnIndex<H> for HnswIndex<H>
-where
-    H: serde::Serialize + serde::de::DeserializeOwned,
-{
+impl<H: Hypervector> AnnIndex<H> for HnswIndex<H> {
     fn insert(&mut self, id: String, vec: &H) -> Result<()> {
         // #6: Handle updates to existing IDs.
         if self.id_to_idx.contains_key(&id) {
@@ -209,7 +200,7 @@ where
             concepts.len().max(100),
             16,
             self.config.ef_construction,
-            HammingDist(std::marker::PhantomData),
+            HammingDist,
         );
         self.id_to_idx.clear();
         self.idx_to_id.clear();
@@ -226,7 +217,7 @@ where
             backend: "HNSW".to_string(),
             count: self.id_to_idx.len(),
             memory_usage_bytes: self.id_to_idx.len()
-                * (std::mem::size_of::<String>() + std::mem::size_of::<H>() + 32),
+                * (std::mem::size_of::<String>() + std::mem::size_of::<HVec10240>() + 32),
         }
     }
 
@@ -283,10 +274,11 @@ where
 
         let loader = HnswIo::new(&temp_dir, "index");
         let hnsw = loader
-            .load_hnsw_with_dist::<H, HammingDist<H>>(HammingDist(std::marker::PhantomData))
+            .load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist)
             .map_err(|e| MemoryError::database(format!("HNSW load failed: {}", e)))?;
 
-        let static_hnsw: Hnsw<'static, H, HammingDist<H>> = unsafe { std::mem::transmute(hnsw) };
+        let static_hnsw: Hnsw<'static, HVec10240, HammingDist> =
+            unsafe { std::mem::transmute(hnsw) };
 
         self.hnsw = static_hnsw;
         self.id_to_idx = wrapper.id_to_idx;

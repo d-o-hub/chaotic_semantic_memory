@@ -7,7 +7,7 @@
 
 use crate::error::Result;
 use crate::graph_traversal::TraversalConfig;
-use crate::hyperdim::HVec10240;
+use crate::hyperdim::{HVec10240, Hypervector};
 use crate::singularity::Concept;
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -68,9 +68,9 @@ struct Candidate {
 }
 
 /// Execute GraphRAG retrieval.
-pub fn graph_rag_retrieve(
-    query: &HVec10240,
-    concepts: &[Concept],
+pub fn graph_rag_retrieve_generic<H: Hypervector>(
+    query: &H,
+    concepts: &[Concept<H>],
     associations: &[(String, String, f32)],
     config: &GraphRagConfig,
 ) -> Result<Vec<GraphRagResult>> {
@@ -78,7 +78,7 @@ pub fn graph_rag_retrieve(
         return Ok(Vec::new());
     }
 
-    let concept_map: HashMap<String, &Concept> =
+    let concept_map: HashMap<String, &Concept<H>> =
         concepts.iter().map(|c| (c.id.clone(), c)).collect();
 
     let assoc_map: HashMap<String, Vec<(String, f32)>> = {
@@ -91,7 +91,7 @@ pub fn graph_rag_retrieve(
         map
     };
 
-    let anchors = find_anchors(query, &concept_map, config.anchor_top_k);
+    let anchors = find_anchors_generic(query, &concept_map, config.anchor_top_k);
     let mut candidates: Vec<Candidate> = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
 
@@ -170,9 +170,9 @@ pub fn graph_rag_retrieve(
 }
 
 /// Find anchor concepts via brute-force similarity.
-fn find_anchors(
-    query: &HVec10240,
-    concepts: &HashMap<String, &Concept>,
+fn find_anchors_generic<H: Hypervector>(
+    query: &H,
+    concepts: &HashMap<String, &Concept<H>>,
     top_k: usize,
 ) -> Vec<(String, f32)> {
     let mut scored: Vec<(String, f32)> = concepts

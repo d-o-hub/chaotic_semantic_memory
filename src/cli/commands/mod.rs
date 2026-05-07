@@ -45,7 +45,6 @@ pub use watch::run_watch;
 use crate::cli::args::OutputFormat;
 use crate::cli::error::{CliError, Result};
 use crate::framework::ChaoticSemanticFramework;
-use crate::hyperdim::HVec10240;
 use colored::Colorize;
 
 pub fn print_success(msg: &str, format: OutputFormat) {
@@ -92,21 +91,21 @@ pub fn truncate_preview(s: &str, max_chars: usize) -> String {
 
 pub async fn create_framework(
     db_path: Option<&std::path::Path>,
-) -> Result<ChaoticSemanticFramework<HVec10240>> {
+) -> Result<ChaoticSemanticFramework> {
     create_framework_advanced(db_path, None, false, "_default").await
 }
 
 pub async fn create_framework_with_namespace(
     db_path: Option<&std::path::Path>,
     ns: &str,
-) -> Result<ChaoticSemanticFramework<HVec10240>> {
+) -> Result<ChaoticSemanticFramework> {
     create_framework_advanced(db_path, None, false, ns).await
 }
 
 pub async fn create_framework_with_provider(
     db_path: Option<&std::path::Path>,
     provider_name: Option<&str>,
-) -> Result<ChaoticSemanticFramework<HVec10240>> {
+) -> Result<ChaoticSemanticFramework> {
     create_framework_advanced(db_path, provider_name, false, "_default").await
 }
 
@@ -115,8 +114,8 @@ pub async fn create_framework_advanced(
     provider_name: Option<&str>,
     code_aware: bool,
     ns: &str,
-) -> Result<ChaoticSemanticFramework<HVec10240>> {
-    let mut builder = ChaoticSemanticFramework::<HVec10240>::builder();
+) -> Result<ChaoticSemanticFramework> {
+    let mut builder = ChaoticSemanticFramework::builder();
     if let Some(path) = db_path {
         builder = builder.with_local_db(path.to_string_lossy());
     } else {
@@ -158,7 +157,7 @@ pub async fn create_framework_advanced(
 }
 
 fn validate_concept_id(id: &str) -> Result<()> {
-    ChaoticSemanticFramework::<HVec10240>::validate_concept_id(id)
+    ChaoticSemanticFramework::validate_concept_id(id)
         .map_err(|e| CliError::Validation(e.to_string()))
 }
 

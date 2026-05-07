@@ -1,14 +1,14 @@
 //! Extension methods for Singularity (extracted to satisfy LOC gate)
 
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::Hypervector;
+use crate::hyperdim::{HVec10240, Hypervector};
 use crate::singularity::Singularity;
 use tracing::instrument;
 
-impl<H: Hypervector + 'static> Singularity<H> {
+impl<H: Hypervector + \'static> Singularity<H> {
     /// Bundle multiple concepts into a single hypervector.
     #[instrument(skip(self, ns), fields(ids_count = ids.len()))]
-    pub fn bundle_concepts_strict(&self, ns: &str, ids: &[String]) -> Result<H> {
+    pub fn bundle_concepts_strict(&self, ns: &str, ids: &[String]) -> Result<HVec10240> {
         let ns_state = self
             .get_namespace(ns)
             .ok_or_else(|| MemoryError::NotFound {
@@ -21,7 +21,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
                 Some(concept) => vectors.push(concept.vector),
                 None => {
                     return Err(MemoryError::NotFound {
-                        entity: "Concept<H>".to_string(),
+                        entity: "Concept".to_string(),
                         id: id.clone(),
                     });
                 }
@@ -35,7 +35,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
             });
         }
 
-        H::bundle(&vectors)
+        HVec10240::bundle(&vectors)
     }
 
     pub fn update_metadata(
@@ -52,7 +52,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
             Ok(())
         } else {
             Err(MemoryError::NotFound {
-                entity: "Concept<H>".to_string(),
+                entity: "Concept".to_string(),
                 id: id.to_string(),
             })
         }
@@ -69,27 +69,21 @@ impl<H: Hypervector + 'static> Singularity<H> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::error::MemoryError;
-    use crate::hyperdim::HVec10240;
-    use crate::singularity::{Concept<H>Builder, Singularity, SingularityConfig};
+    use crate::singularity::{ConceptBuilder, Singularity, SingularityConfig};
     use std::collections::HashMap;
 
     const NS: &str = "_default";
 
     #[test]
     fn test_bundle_concepts_strict_success() -> crate::error::Result<()> {
-        let mut singularity = Singularity::<HVec10240>::with_config(SingularityConfig::default());
+        let mut singularity = Singularity::with_config(SingularityConfig::default());
         let vec1 = HVec10240::random();
         let vec2 = HVec10240::random();
 
-        let c1 = Concept<H>Builder::<HVec10240>::new("c1")
-            .with_vector(vec1)
-            .build()
-            .unwrap();
-        let c2 = Concept<H>Builder::<HVec10240>::new("c2")
-            .with_vector(vec2)
-            .build()
-            .unwrap();
+        let c1 = ConceptBuilder::new("c1").with_vector(vec1).build().unwrap();
+        let c2 = ConceptBuilder::new("c2").with_vector(vec2).build().unwrap();
 
         singularity.inject(NS, c1)?;
         singularity.inject(NS, c2)?;
@@ -101,12 +95,10 @@ mod tests {
 
     #[test]
     fn test_bundle_concepts_strict_missing_id() -> crate::error::Result<()> {
-        let mut singularity = Singularity::<HVec10240>::with_config(SingularityConfig::default());
+        let mut singularity = Singularity::with_config(SingularityConfig::default());
         let vec1 = HVec10240::random();
 
-        let c1 = Concept<H>Builder::<HVec10240>::new("c1")
-            .with_vector(vec1)
-            .build()?;
+        let c1 = ConceptBuilder::new("c1").with_vector(vec1).build()?;
         singularity.inject(NS, c1)?;
 
         let result =
@@ -114,7 +106,7 @@ mod tests {
 
         match result {
             Err(MemoryError::NotFound { entity, id }) => {
-                assert_eq!(entity, "Concept<H>");
+                assert_eq!(entity, "Concept");
                 assert_eq!(id, "missing_id");
             }
             _ => panic!("Expected NotFound error, got {result:?}"),
@@ -124,14 +116,14 @@ mod tests {
 
     #[test]
     fn test_update_metadata_not_found() {
-        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+        let mut sing = Singularity::new(SingularityConfig::default());
         let metadata = HashMap::new();
 
         let result = sing.update_metadata(NS, "non-existent-id", metadata);
 
         match result {
             Err(MemoryError::NotFound { entity, id }) => {
-                assert_eq!(entity, "Concept<H>");
+                assert_eq!(entity, "Concept");
                 assert_eq!(id, "non-existent-id");
             }
             _ => panic!("Expected MemoryError::NotFound, got {result:?}"),
@@ -140,8 +132,8 @@ mod tests {
 
     #[test]
     fn test_update_metadata_success() -> crate::error::Result<()> {
-        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
-        let concept = Concept<H>Builder::<HVec10240>::new("test-id")
+        let mut sing = Singularity::new(SingularityConfig::default());
+        let concept = ConceptBuilder::new("test-id")
             .with_metadata("original", serde_json::Value::Bool(true))
             .build()
             .expect("Failed to build concept");
@@ -159,7 +151,7 @@ mod tests {
         let updated_concept = sing
             .get(NS, "test-id")
             .ok_or_else(|| MemoryError::NotFound {
-                entity: "Concept<H>".to_string(),
+                entity: "Concept".to_string(),
                 id: "test-id".to_string(),
             })?;
         assert_eq!(updated_concept.metadata, new_metadata);

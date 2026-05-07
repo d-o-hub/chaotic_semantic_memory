@@ -5,7 +5,7 @@ use crate::hyperdim::Hypervector;
 use crate::framework_events::MemoryEvent;
 use crate::hyperdim::HVec10240;
 use crate::metadata_filter::MetadataFilter;
-use crate::singularity::Concept<H>Builder;
+use crate::singularity::ConceptBuilder;
 use std::collections::HashMap;
 use tracing::instrument;
 
@@ -15,12 +15,12 @@ impl<H: Hypervector> crate::framework::ChaoticSemanticFramework<H> {
     pub async fn inject_concept_with_ttl(
         &self,
         id: impl Into<String>,
-        vector: H,
+        vector: HVec10240,
         ttl_seconds: u64,
     ) -> Result<()> {
         let id = id.into();
         Self::validate_concept_id(&id)?;
-        let concept = Concept<H>Builder::new(id.clone())
+        let concept = ConceptBuilder::new(id.clone())
             .with_vector(vector)
             .with_ttl(ttl_seconds)
             .build()?;
@@ -41,7 +41,7 @@ impl<H: Hypervector> crate::framework::ChaoticSemanticFramework<H> {
             );
         }
         self.metrics.inc_concepts_injected(1);
-        self.emit_event(MemoryEvent::Concept<H>Injected {
+        self.emit_event(MemoryEvent::ConceptInjected {
             id,
             timestamp: concept.modified_at,
         });
@@ -368,7 +368,7 @@ mod tests {
         );
 
         // Verify deserialization
-        let deserialized: crate::singularity::Concept<H> =
+        let deserialized: crate::singularity::Concept =
             serde_json::from_str(&json).expect("should deserialize concept");
         assert_eq!(
             deserialized.expires_at, concept.expires_at,

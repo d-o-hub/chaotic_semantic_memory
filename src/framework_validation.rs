@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use crate::error::{MemoryError, Result};
-use crate::framework::ChaoticSemanticFramework;
 use crate::hyperdim::Hypervector;
+use crate::framework::ChaoticSemanticFramework;
 use crate::metadata_filter::{MAX_FILTER_DEPTH, MetadataFilter};
-use crate::singularity::Concept<H>;
+use crate::singularity::Concept;
 use crate::singularity_retrieval::RetrievalConfig;
 
 const MAX_CONCEPT_ID_BYTES: usize = 256;

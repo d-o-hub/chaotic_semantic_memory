@@ -11,21 +11,11 @@ use crate::index::{AnnIndex, IndexStats};
 use crate::singularity::Concept;
 
 /// Exact search via linear scan.
-#[derive(Debug)]
-pub struct BruteForce<H: Hypervector = HVec10240> {
+#[derive(Debug, Default)]
+pub struct BruteForce<H: Hypervector> {
     indices: Vec<String>,
-    vectors: Vec<H>,
+    vectors: Vec<HVec10240>,
     id_to_index: HashMap<String, usize>,
-}
-
-impl<H: Hypervector> Default for BruteForce<H> {
-    fn default() -> Self {
-        Self {
-            indices: Vec::new(),
-            vectors: Vec::new(),
-            id_to_index: HashMap::new(),
-        }
-    }
 }
 
 impl<H: Hypervector> BruteForce<H> {
@@ -34,7 +24,7 @@ impl<H: Hypervector> BruteForce<H> {
     }
 }
 
-impl<H: Hypervector + 'static> AnnIndex<H> for BruteForce<H> {
+impl<H: Hypervector> AnnIndex<H> for BruteForce<H> {
     fn insert(&mut self, id: String, vec: &H) -> Result<()> {
         if let Some(&idx) = self.id_to_index.get(&id) {
             self.vectors[idx] = *vec;
@@ -148,7 +138,7 @@ impl<H: Hypervector + 'static> AnnIndex<H> for BruteForce<H> {
             backend: "BruteForce".to_string(),
             count: self.indices.len(),
             memory_usage_bytes: self.indices.len()
-                * (std::mem::size_of::<String>() + std::mem::size_of::<H>() + 16),
+                * (std::mem::size_of::<String>() + std::mem::size_of::<HVec10240>() + 16),
         }
     }
 

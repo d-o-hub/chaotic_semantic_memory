@@ -3,7 +3,7 @@
 use crate::error::Result;
 use crate::hyperdim::Hypervector;
 use crate::framework::ChaoticSemanticFramework;
-use crate::hyperdim::HVec10240;
+use crate::hyperdim::{HVec10240, Hypervector};
 use crate::retrieval::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
 use tracing::instrument;
 
@@ -19,7 +19,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
     // Lock needed for concept and association access
     pub async fn probe_with_graph(
         &self,
-        query: HVec10240,
+        query: H,
         config: GraphRagConfig,
     ) -> Result<Vec<GraphRagResult>> {
         self.validate_top_k(config.anchor_top_k)?;
@@ -31,7 +31,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
             (sing.all_concepts(&ns), sing.all_associations(&ns))
         };
 
-        graph_rag_retrieve(&query, &concepts, &associations, &config)
+        graph_rag_retrieve_generic(&query, &concepts, &associations, &config)
     }
 
     /// GraphRAG retrieval using configured embedding provider for text query.

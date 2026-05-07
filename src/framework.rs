@@ -18,7 +18,7 @@ use crate::reservoir::ChaoticReservoir;
 use crate::singularity::{Concept, ConceptBuilder, Singularity, unix_now_secs};
 
 /// Main framework for chaotic semantic memory
-pub struct ChaoticSemanticFramework<H: Hypervector> {
+pub struct ChaoticSemanticFramework<H: Hypervector = HVec10240> {
     pub(crate) singularity: Arc<RwLock<Singularity<H>>>,
     #[cfg(feature = "persistence")]
     pub(crate) persistence: Option<Arc<Persistence>>,
@@ -338,7 +338,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
     /// Find the fewest-hop path between two concepts (unweighted BFS).
     ///
     /// Returns the path with the minimum number of hops, ignoring edge strengths.
-    /// Use [`Self::shortest_path`] for strength-weighted (Dijkstra) traversal.
+    /// Use [] for strength-weighted (Dijkstra) traversal.
     #[instrument(err, skip(self))]
     pub async fn shortest_path_hops(&self, from: &str, to: &str) -> Result<Option<Vec<String>>> {
         Self::validate_concept_id(from)?;
@@ -359,7 +359,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
 
     /// Backward-compatible alias for replace semantics.
     ///
-    /// Delegates to [`load_replace`](Self::load_replace).
+    /// Delegates to [](Self::load_replace).
     pub async fn load(&self) -> Result<()> {
         self.load_replace().await
     }
@@ -409,5 +409,33 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
             concept_count,
             db_size_bytes: db_size,
         })
+    }
+
+    pub(crate) fn validate_concept_id(id: &str) -> Result<()> {
+        crate::ChaoticSemanticFramework::<H>::validate_concept_id(id)
+    }
+    pub(crate) fn validate_metadata_bytes(metadata: &std::collections::HashMap<String, serde_json::Value>, max_metadata_bytes: Option<usize>) -> Result<()> {
+        crate::ChaoticSemanticFramework::<H>::validate_metadata_bytes(metadata, max_metadata_bytes)
+    }
+    pub(crate) fn validate_top_k(&self, top_k: usize) -> Result<()> {
+        crate::ChaoticSemanticFramework::<H>::validate_top_k(self, top_k)
+    }
+    pub(crate) fn validate_concept(&self, concept: &Concept<H>) -> Result<()> {
+        crate::ChaoticSemanticFramework::<H>::validate_concept(self, concept)
+    }
+    pub(crate) fn validate_sequence_length(&self, length: usize) -> Result<()> {
+        crate::ChaoticSemanticFramework::<H>::validate_sequence_length(self, length)
+    }
+    pub(crate) fn validate_batch_size(&self, batch_size: usize) -> Result<()> {
+        crate::ChaoticSemanticFramework::<H>::validate_batch_size(self, batch_size)
+    }
+    pub(crate) fn validate_traversal_config(config: &TraversalConfig) -> Result<()> {
+        crate::ChaoticSemanticFramework::<H>::validate_traversal_config(config)
+    }
+    pub(crate) fn validate_metadata_filter(filter: &MetadataFilter) -> Result<()> {
+        crate::ChaoticSemanticFramework::<H>::validate_metadata_filter(filter)
+    }
+    pub(crate) fn emit_event(&self, event: MemoryEvent) {
+        let _ = self.event_sender.send(event);
     }
 }

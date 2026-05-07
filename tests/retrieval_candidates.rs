@@ -9,7 +9,7 @@ const NS: &str = "_default";
 
 #[test]
 fn singularity_retrieval_config_getter() {
-    let sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let sing = Singularity::new(SingularityConfig::default());
     let config = sing.retrieval_config();
     assert_eq!(config.max_candidates, 1000);
     assert_eq!(config.bucket_probe_width, 2);
@@ -17,7 +17,7 @@ fn singularity_retrieval_config_getter() {
 
 #[test]
 fn singularity_last_retrieval_stats_default() {
-    let sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let sing = Singularity::new(SingularityConfig::default());
     let stats = sing.last_retrieval_stats(NS);
     assert_eq!(stats.candidate_count, 0);
     assert_eq!(stats.scored_count, 0);
@@ -25,7 +25,7 @@ fn singularity_last_retrieval_stats_default() {
 
 #[test]
 fn find_similar_populates_stats() {
-    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     sing.inject(
         NS,
@@ -51,7 +51,7 @@ fn find_similar_populates_stats() {
 
 #[test]
 fn find_similar_cached_populates_stats() {
-    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     sing.inject(
         NS,
@@ -76,7 +76,7 @@ fn find_similar_cached_populates_stats() {
 
 #[test]
 fn find_similar_empty_returns_empty_vec() {
-    let sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let sing = Singularity::new(SingularityConfig::default());
     let query = HVec10240::random();
     let results = sing.find_similar(NS, &query, 5);
     assert!(results.is_empty());
@@ -84,7 +84,7 @@ fn find_similar_empty_returns_empty_vec() {
 
 #[test]
 fn find_similar_cached_empty_returns_empty_arc() {
-    let sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let sing = Singularity::new(SingularityConfig::default());
     let query = HVec10240::random();
     let results = sing.find_similar_cached(NS, &query, 5);
     assert!(results.is_empty());
@@ -92,7 +92,7 @@ fn find_similar_cached_empty_returns_empty_arc() {
 
 #[test]
 fn find_similar_with_associations() {
-    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     let v1 = HVec10240::random();
     let v2 = HVec10240::random();
@@ -149,7 +149,7 @@ fn find_similar_with_associations() {
 
 #[test]
 fn retrieval_config_with_graph_enabled() {
-    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let mut sing = Singularity::new(SingularityConfig::default());
     let config = RetrievalConfig {
         enable_graph_candidates: true,
         graph_depth: 2,
@@ -197,7 +197,7 @@ fn retrieval_config_with_graph_enabled() {
 
 #[test]
 fn retrieval_config_with_bucket_enabled() {
-    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let mut sing = Singularity::new(SingularityConfig::default());
     let config = RetrievalConfig {
         enable_bucket_candidates: true,
         bucket_probe_width: 4,

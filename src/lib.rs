@@ -6,33 +6,6 @@
 //!
 //! High-performance memory system using **Hyperdimensional Computing** (HDC) and
 //! chaotic echo-state reservoir dynamics.
-//!
-//! ## Encoding Model
-//!
-//! This crate uses HDC (not transformer embeddings) for text-to-vector encoding.
-//! [`encoder::TextEncoder`] converts text via token-level FNV-1a hashing, positional
-//! permutation, and majority-rule bundling into 10240-bit binary hypervectors.
-//! Similar tokens in similar positions produce similar vectors. For true semantic
-//! similarity (synonyms, paraphrases), inject vectors from an external embedding
-//! model via [`ChaoticSemanticFramework::inject_concept`].
-//!
-//! **Turso Vector Alternative**: This crate uses libSQL (local SQLite or remote Turso)
-//! for persistence. You can add Turso's native vector search tables (`F32_BLOB` with
-//! `vector_top_k()`) alongside the crate's HDC storage in the same database. The crate
-//! manages `concepts` and `associations` tables; you manage `semantic_vectors` for
-//! float-vector similarity search.
-//!
-//! ## Concurrency
-//!
-//! The framework uses `tokio::sync::RwLock` internally and is safe to share
-//! across async tasks via `Arc`. SQLite persistence uses WAL mode for concurrent
-//! reads. All public APIs are async — do not wrap in `block_on` inside a Tokio runtime.
-//!
-//! ## WASM Parity
-//!
-//! Most APIs are available in WASM. Exceptions:
-//! - `Persistence`: Replaced with stubs in `persistence_wasm`
-//! - `process_sequence`: No Rayon parallelization in WASM
 
 pub use bridge_retrieval::BridgeRetrieval;
 pub use bundle::BundleAccumulator;
@@ -69,7 +42,7 @@ mod framework_metrics;
 mod framework_namespaces;
 #[cfg(not(target_arch = "wasm32"))]
 mod framework_ops;
-mod framework_persistence; // Extracted from framework.rs for LOC gate
+mod framework_persistence;
 mod framework_ttl;
 mod framework_validation;
 pub mod graph_traversal;
@@ -78,7 +51,6 @@ pub mod hyperdim;
 pub mod mcp;
 pub mod metadata_filter;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_concepts;
 pub mod semantic_triples;
 pub use metadata_filter::MetadataFilter;
@@ -86,7 +58,7 @@ pub mod index;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 pub mod persistence;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-mod persistence_index; // Extracted from persistence.rs for LOC gate (ADR-0068)
+mod persistence_index;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_migrations;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
@@ -94,40 +66,33 @@ mod persistence_ops;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_versions;
 #[cfg(target_arch = "wasm32")]
-#[cfg(target_arch = "wasm32")]
 pub mod persistence_wasm;
 pub mod reservoir;
-mod reservoir_inertial; // ADR-0064
-mod reservoir_sparse; // LOC gate extraction
+mod reservoir_inertial;
+mod reservoir_sparse;
 pub mod retrieval;
 pub mod semantic_bridge;
 pub mod singularity;
 mod singularity_cache;
 mod singularity_ext;
 mod singularity_retrieval;
-mod singularity_search; // Extracted from singularity.rs for LOC gate
+mod singularity_search;
 pub mod singularity_state;
 mod singularity_ttl;
 
-#[cfg(target_arch = "wasm32")]
 #[cfg(target_arch = "wasm32")]
 pub use crate::persistence_wasm as persistence;
 
 // Stub persistence module when persistence feature is disabled on non-WASM
 #[cfg(all(not(target_arch = "wasm32"), not(feature = "persistence")))]
 pub mod persistence {
-    //! Stub persistence module when the "persistence" feature is disabled.
-    //! Enable the "persistence" feature for full libSQL-backed persistence.
-
     use crate::error::Result;
     use crate::hyperdim::{HVec10240, Hypervector};
     use crate::singularity::Concept;
 
-    /// Stub persistence type when persistence feature is disabled.
     #[derive(Debug)]
     pub struct Persistence;
 
-    /// Stub concept version type when persistence feature is disabled.
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     #[serde(bound = "H: Hypervector")]
     pub struct ConceptVersion<H: Hypervector = HVec10240> {
@@ -139,97 +104,23 @@ pub mod persistence {
     }
 
     impl Persistence {
-        pub async fn save_concept<H: Hypervector + 'static>(&self, _concept: &Concept<H>) -> Result<()> {
-            Ok(())
-        }
-
-        pub async fn save_concepts<H: Hypervector + 'static>(&self, _concepts: &[Concept<H>]) -> Result<()> {
-            Ok(())
-        }
-
-        pub async fn load_concept<H: Hypervector + 'static>(&self, _ns: &str, _id: &str) -> Result<Option<Concept<H>>> {
-            Ok(None)
-        }
-
-        pub async fn load_all_concepts<H: Hypervector + 'static>(&self, _ns: &str) -> Result<Vec<Concept<H>>> {
-            Ok(Vec::new())
-        }
-
-        pub async fn delete_concept(&self, _id: &str) -> Result<()> {
-            Ok(())
-        }
-
-        pub async fn save_association(&self, _from: &str, _to: &str, _strength: f32) -> Result<()> {
-            Ok(())
-        }
-
-        pub async fn save_associations(
-            &self,
-            _associations: &[(String, String, f32)],
-        ) -> Result<()> {
-            Ok(())
-        }
-
-        pub async fn load_associations(&self, _id: &str) -> Result<Vec<(String, f32)>> {
-            Ok(Vec::new())
-        }
-
-        pub async fn delete_association(&self, _from: &str, _to: &str) -> Result<()> {
-            Ok(())
-        }
-
-        pub async fn clear_concept_associations(&self, _id: &str) -> Result<()> {
-            Ok(())
-        }
-
-        pub async fn clear_all(&self) -> Result<()> {
-            Ok(())
-        }
-
-        pub async fn checkpoint(&self) -> Result<()> {
-            Ok(())
-        }
-
-        pub async fn health_check(&self) -> Result<()> {
-            Ok(())
-        }
-
-        pub async fn size(&self) -> Result<u64> {
-            Ok(0)
-        }
-
-        pub async fn backup(&self, _path: &str) -> Result<()> {
-            Ok(())
-        }
-
-        pub async fn restore(&self, _path: &str) -> Result<()> {
-            Ok(())
-        }
-
-        pub async fn get_concept_history<H: Hypervector + 'static>(
-            &self,
-            _ns: &str,
-            _id: &str,
-            _limit: usize,
-        ) -> Result<Vec<ConceptVersion<H>>> {
-            Ok(Vec::new())
-        }
-
-        pub async fn schema_version(&self) -> Result<i64> {
-            Ok(0)
-        }
-
-        pub async fn save_index(&self, _id: &str, _data: &[u8]) -> Result<()> {
-            Ok(())
-        }
-
-        pub async fn load_index(&self, _id: &str) -> Result<Option<Vec<u8>>> {
-            Ok(None)
-        }
-
-        pub async fn apply_migrations(&self, _target_version: i64) -> Result<()> {
-            Ok(())
-        }
+        pub async fn save_concept<H: Hypervector + 'static>(&self, _ns: &str, _concept: &Concept<H>) -> Result<()> { Ok(()) }
+        pub async fn save_concepts<H: Hypervector + 'static>(&self, _ns: &str, _concepts: &[Concept<H>]) -> Result<()> { Ok(()) }
+        pub async fn load_concept<H: Hypervector + 'static>(&self, _ns: &str, _id: &str) -> Result<Option<Concept<H>>> { Ok(None) }
+        pub async fn load_all_concepts<H: Hypervector + 'static>(&self, _ns: &str) -> Result<Vec<Concept<H>>> { Ok(Vec::new()) }
+        pub async fn delete_concept(&self, _ns: &str, _id: &str) -> Result<()> { Ok(()) }
+        pub async fn save_association(&self, _ns: &str, _from: &str, _to: &str, _strength: f32) -> Result<()> { Ok(()) }
+        pub async fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32)>> { Ok(Vec::new()) }
+        pub async fn clear_all(&self) -> Result<()> { Ok(()) }
+        pub async fn checkpoint(&self) -> Result<()> { Ok(()) }
+        pub async fn health_check(&self) -> Result<()> { Ok(()) }
+        pub async fn size(&self) -> Result<u64> { Ok(0) }
+        pub async fn get_concept_history<H: Hypervector + 'static>(&self, _ns: &str, _id: &str, _limit: usize) -> Result<Vec<ConceptVersion<H>>> { Ok(Vec::new()) }
+        pub async fn schema_version(&self) -> Result<i64> { Ok(0) }
+        pub async fn save_index(&self, _ns: &str, _id: &str, _data: &[u8]) -> Result<()> { Ok(()) }
+        pub async fn load_index(&self, _ns: &str, _id: &str) -> Result<Option<Vec<u8>>> { Ok(None) }
+        pub async fn list_namespaces(&self) -> Result<Vec<String>> { Ok(vec!["_default".to_string()]) }
+        pub async fn clear_namespace(&self, _ns: &str) -> Result<()> { Ok(()) }
     }
 }
 
@@ -240,7 +131,9 @@ pub mod prelude {
     pub use crate::framework::ChaoticSemanticFramework;
     pub use crate::framework_builder::FrameworkBuilder;
     pub use crate::framework_events::MemoryEvent;
-    pub use crate::hyperdim::HVec10240;
+    pub use crate::hyperdim::{HVec10240, Hypervector};
+    #[cfg(feature = "hv-binary")]
+    pub use crate::hyperdim::BHVec10240;
     pub use crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket};
     pub use crate::singularity::{Concept, ConceptBuilder};
     pub use crate::singularity_retrieval::{
@@ -250,12 +143,7 @@ pub mod prelude {
 
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
-#[cfg(target_arch = "wasm32")]
+#[cfg(any(target_arch = "wasm32", test))]
 mod wasm_ext;
-// Include wasm_ext for tests to run underlying data pattern tests on native
-#[cfg(all(test, not(target_arch = "wasm32")))]
-mod wasm_ext;
-#[cfg(target_arch = "wasm32")]
-mod wasm_graph_rag;
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(any(target_arch = "wasm32", test))]
 mod wasm_graph_rag;

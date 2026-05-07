@@ -254,7 +254,7 @@ fn split_on_separators(word: &str) -> Vec<String> {
 
 /// Build BM25 index from concepts in the framework.
 async fn build_bm25_index(
-    framework: &crate::framework::ChaoticSemanticFramework<crate::hyperdim::HVec10240>,
+    framework: &crate::framework::ChaoticSemanticFramework,
 ) -> Result<Bm25Index> {
     // Collect concepts with lock, build index without lock
     let concepts = {

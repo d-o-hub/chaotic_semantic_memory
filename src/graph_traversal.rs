@@ -14,7 +14,6 @@ use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::Hypervector;
 use crate::singularity::Singularity;
 
 /// Configuration for graph traversal operations.
@@ -38,7 +37,7 @@ impl Default for TraversalConfig {
     }
 }
 
-impl<H: Hypervector> Singularity<H> {
+impl Singularity {
     /// Get direct neighbors of a concept with edge strengths.
     ///
     /// Returns outbound associations with strength >= `min_strength`.
@@ -62,7 +61,7 @@ impl<H: Hypervector> Singularity<H> {
         start: &str,
         config: &TraversalConfig,
     ) -> Result<Vec<(String, u32)>> {
-        crate::framework::ChaoticSemanticFramework::<H>::validate_traversal_config(config)?;
+        crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
         let ns_state = self
             .get_namespace(ns)
             .ok_or_else(|| MemoryError::NotFound {
@@ -120,7 +119,7 @@ impl<H: Hypervector> Singularity<H> {
         to: &str,
         config: &TraversalConfig,
     ) -> Result<Option<Vec<String>>> {
-        crate::framework::ChaoticSemanticFramework::<H>::validate_traversal_config(config)?;
+        crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
         let ns_state = self
             .get_namespace(ns)
             .ok_or_else(|| MemoryError::NotFound {
@@ -215,7 +214,7 @@ impl<H: Hypervector> Singularity<H> {
         to: &str,
         config: &TraversalConfig,
     ) -> Result<Option<Vec<String>>> {
-        crate::framework::ChaoticSemanticFramework::<H>::validate_traversal_config(config)?;
+        crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
         let ns_state = self
             .get_namespace(ns)
             .ok_or_else(|| MemoryError::NotFound {

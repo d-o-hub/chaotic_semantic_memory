@@ -1,38 +1,30 @@
 #![cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 use crate::error::{MemoryError, Result};
-#[cfg(feature = "hv-binary")]
-use crate::hyperdim::BHVec10240;
-use crate::hyperdim::Hypervector;
+use crate::hyperdim::HVec10240;
 use crate::persistence::Persistence;
 use crate::singularity::Concept;
 use libsql::params;
 
 impl Persistence {
     /// Save a concept to the database
-    pub async fn save_concept<H: Hypervector + 'static>(
-        &self,
-        ns: &str,
-        concept: &Concept<H>,
-    ) -> Result<()> {
+    pub async fn save_concept(&self, ns: &str, concept: &Concept) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
         let vector_bytes = concept.vector.to_bytes();
         let metadata_json = serde_json::to_string(&concept.metadata)?;
         let expires_at: Option<i64> = concept.expires_at.map(|t| t as i64);
         let canonical_concept_ids_json = serde_json::to_string(&concept.canonical_concept_ids)?;
-        let format = H::format_name();
 
         conn.execute(
             "INSERT INTO csm_concepts
-             (namespace, id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json, vector_format)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+             (namespace, id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
              ON CONFLICT(namespace, id) DO UPDATE SET
              vector = excluded.vector,
              metadata = excluded.metadata,
              modified_at = excluded.modified_at,
              expires_at = excluded.expires_at,
-             canonical_concept_ids_json = excluded.canonical_concept_ids_json,
-             vector_format = excluded.vector_format",
+             canonical_concept_ids_json = excluded.canonical_concept_ids_json",
             params![
                 ns.to_string(),
                 concept.id.clone(),
@@ -41,8 +33,7 @@ impl Persistence {
                 concept.created_at as i64,
                 concept.modified_at as i64,
                 expires_at,
-                canonical_concept_ids_json,
-                format
+                canonical_concept_ids_json
             ],
         )
         .await
@@ -54,11 +45,7 @@ impl Persistence {
     }
 
     /// Save concepts in a single transaction
-    pub async fn save_concepts<H: Hypervector + 'static>(
-        &self,
-        ns: &str,
-        concepts: &[Concept<H>],
-    ) -> Result<()> {
+    pub async fn save_concepts(&self, ns: &str, concepts: &[Concept]) -> Result<()> {
         if concepts.is_empty() {
             return Ok(());
         }
@@ -68,8 +55,6 @@ impl Persistence {
         conn.execute("BEGIN", ())
             .await
             .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {e}")))?;
-
-        let format = H::format_name();
 
         let mut first_error: Option<MemoryError> = None;
         for concept in concepts {
@@ -81,15 +66,14 @@ impl Persistence {
             if let Err(e) = conn
                 .execute(
                     "INSERT INTO csm_concepts
-                     (namespace, id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json, vector_format)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+                     (namespace, id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
                      ON CONFLICT(namespace, id) DO UPDATE SET
                      vector = excluded.vector,
                      metadata = excluded.metadata,
                      modified_at = excluded.modified_at,
                      expires_at = excluded.expires_at,
-                     canonical_concept_ids_json = excluded.canonical_concept_ids_json,
-                     vector_format = excluded.vector_format",
+                     canonical_concept_ids_json = excluded.canonical_concept_ids_json",
                     params![
                         ns.to_string(),
                         concept.id.clone(),
@@ -98,8 +82,7 @@ impl Persistence {
                         concept.created_at as i64,
                         concept.modified_at as i64,
                         expires_at,
-                        canonical_concept_ids_json,
-                        format
+                        canonical_concept_ids_json
                     ],
                 )
                 .await
@@ -129,17 +112,13 @@ impl Persistence {
     }
 
     /// Load a concept from the database
-    pub async fn load_concept<H: Hypervector + 'static>(
-        &self,
-        ns: &str,
-        id: &str,
-    ) -> Result<Option<Concept<H>>> {
+    pub async fn load_concept(&self, ns: &str, id: &str) -> Result<Option<Concept>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
         let mut rows = conn
             .query(
-                "SELECT vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json, vector_format
+                "SELECT vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json
                  FROM csm_concepts WHERE namespace = ?1 AND id = ?2",
                 params![ns.to_string(), id.to_string()],
             )
@@ -165,29 +144,8 @@ impl Persistence {
                 .map_err(|e| MemoryError::database(format!("Failed to get modified_at: {e}")))?;
             let expires_at: Option<i64> = row.get(4).ok();
             let canonical_concept_ids_json: Option<String> = row.get(5).ok();
-            let vector_format: String = row.get(6).unwrap_or_else(|_| "f32".to_string());
 
-            let vector = if vector_format == "binary" {
-                #[cfg(feature = "hv-binary")]
-                {
-                    if std::any::TypeId::of::<H>() == std::any::TypeId::of::<BHVec10240>() {
-                        H::from_bytes(&vector_bytes)?
-                    } else {
-                        // Up-convert stored binary to f32 if requested type is f32
-                        let bhv = BHVec10240::from_bytes(&vector_bytes)?;
-                        let fhv = bhv.to_f32();
-                        H::from_bytes(&fhv.to_bytes())?
-                    }
-                }
-                #[cfg(not(feature = "hv-binary"))]
-                {
-                    return Err(MemoryError::UnsupportedOperation(
-                        "binary hypervectors not enabled (hv-binary feature)".to_string(),
-                    ));
-                }
-            } else {
-                H::from_bytes(&vector_bytes)?
-            };
+            let vector = HVec10240::from_bytes(&vector_bytes)?;
             let metadata = serde_json::from_str(&metadata_json)?;
             let canonical_concept_ids = canonical_concept_ids_json
                 .as_deref()
@@ -210,16 +168,13 @@ impl Persistence {
     }
 
     /// Load all concepts from the database for a specific namespace
-    pub async fn load_all_concepts<H: Hypervector + 'static>(
-        &self,
-        ns: &str,
-    ) -> Result<Vec<Concept<H>>> {
+    pub async fn load_all_concepts(&self, ns: &str) -> Result<Vec<Concept>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
         let mut rows = conn
             .query(
-                "SELECT id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json, vector_format
+                "SELECT id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json
                  FROM csm_concepts WHERE namespace = ?1",
                 params![ns.to_string()],
             )
@@ -249,28 +204,8 @@ impl Persistence {
                 .map_err(|e| MemoryError::database(format!("Failed to get modified_at: {e}")))?;
             let expires_at: Option<i64> = row.get(5).ok();
             let canonical_concept_ids_json: Option<String> = row.get(6).ok();
-            let vector_format: String = row.get(7).unwrap_or_else(|_| "f32".to_string());
 
-            let vector = if vector_format == "binary" {
-                #[cfg(feature = "hv-binary")]
-                {
-                    if std::any::TypeId::of::<H>() == std::any::TypeId::of::<BHVec10240>() {
-                        H::from_bytes(&vector_bytes)?
-                    } else {
-                        let bhv = BHVec10240::from_bytes(&vector_bytes)?;
-                        let fhv = bhv.to_f32();
-                        H::from_bytes(&fhv.to_bytes())?
-                    }
-                }
-                #[cfg(not(feature = "hv-binary"))]
-                {
-                    return Err(MemoryError::UnsupportedOperation(
-                        "binary hypervectors not enabled (hv-binary feature)".to_string(),
-                    ));
-                }
-            } else {
-                H::from_bytes(&vector_bytes)?
-            };
+            let vector = HVec10240::from_bytes(&vector_bytes)?;
             let metadata = serde_json::from_str(&metadata_json)?;
             let canonical_concept_ids = canonical_concept_ids_json
                 .as_deref()

@@ -16,13 +16,12 @@ use crate::singularity::Concept;
 
 /// Locality-Sensitive Hashing (LSH) for hypervectors using bit-sampling.
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(bound = "H: Hypervector")]
-pub struct LshIndex<H: Hypervector = HVec10240> {
+pub struct LshIndex<H: Hypervector> {
     num_tables: usize,
     hash_bits: usize,
     tables: Vec<HashMap<u64, Vec<String>>>,
     projections: Vec<Vec<usize>>, // indices of bits to sample for each table
-    concepts: HashMap<String, H>,
+    concepts: HashMap<String, HVec10240>,
 }
 
 impl<H: Hypervector> LshIndex<H> {
@@ -58,14 +57,13 @@ impl<H: Hypervector> LshIndex<H> {
         })
     }
 
-    fn compute_hash(&self, vec: &H, table_idx: usize) -> u64 {
+    fn compute_hash(&self, vec: &HVec10240, table_idx: usize) -> u64 {
         let mut hash = 0u64;
         let bits = &self.projections[table_idx];
-        let bytes = vec.to_bytes();
         for (i, &bit_pos) in bits.iter().enumerate() {
-            let byte_idx = bit_pos / 8;
-            let bit_idx = bit_pos % 8;
-            if (bytes[byte_idx] & (1u8 << bit_idx)) != 0 {
+            let word = bit_pos / 128;
+            let bit = bit_pos % 128;
+            if (vec.data[word] & (1u128 << bit)) != 0 {
                 hash |= 1u64 << i;
             }
         }
@@ -73,10 +71,7 @@ impl<H: Hypervector> LshIndex<H> {
     }
 }
 
-impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H>
-where
-    H: serde::Serialize + serde::de::DeserializeOwned,
-{
+impl<H: Hypervector> AnnIndex<H> for LshIndex<H> {
     fn insert(&mut self, id: String, vec: &H) -> Result<()> {
         if self.concepts.contains_key(&id) {
             self.delete(&id)?;
@@ -209,7 +204,7 @@ where
             backend: "LSH".to_string(),
             count: self.concepts.len(),
             memory_usage_bytes: self.concepts.len()
-                * (std::mem::size_of::<String>() + std::mem::size_of::<H>())
+                * (std::mem::size_of::<String>() + std::mem::size_of::<HVec10240>())
                 + total_buckets * std::mem::size_of::<Vec<String>>(),
         }
     }

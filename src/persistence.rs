@@ -4,11 +4,11 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::{HVec10240, Hypervector};
+use crate::hyperdim::HVec10240;
 use libsql::{Builder, Connection, Database, params};
 use std::sync::Arc;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-pub(crate) const LATEST_SCHEMA_VERSION: i64 = 9;
+pub(crate) const LATEST_SCHEMA_VERSION: i64 = 8;
 
 #[derive(Debug)]
 pub struct Persistence {
@@ -19,11 +19,10 @@ pub struct Persistence {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(bound = "H: Hypervector")]
-pub struct ConceptVersion<H: Hypervector = HVec10240> {
+pub struct ConceptVersion {
     pub concept_id: String,
     pub version: i64,
-    pub vector: H,
+    pub vector: HVec10240,
     pub metadata: serde_json::Value,
     pub modified_at: u64,
 }
@@ -121,8 +120,7 @@ impl Persistence {
                 vector BLOB NOT NULL,
                 metadata TEXT NOT NULL,
                 created_at INTEGER NOT NULL,
-                modified_at INTEGER NOT NULL,
-                vector_format TEXT NOT NULL DEFAULT 'f32'
+                modified_at INTEGER NOT NULL
             );
             CREATE TABLE IF NOT EXISTS csm_associations (
                 from_id TEXT NOT NULL,

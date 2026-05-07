@@ -55,7 +55,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         let p_start = std::time::Instant::now();
         if let Some(ref persistence) = self.persistence {
             let ns = self.namespace.read().await;
-            let concepts = persistence.load_all_concepts::<H>(&ns).await?;
+            let concepts = persistence.load_all_concepts(&ns).await?;
 
             for concept in &concepts {
                 self.validate_concept(concept)?;
@@ -124,7 +124,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
     pub async fn load_merge(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
             let ns = self.namespace.read().await;
-            let concepts = persistence.load_all_concepts::<H>(&ns).await?;
+            let concepts = persistence.load_all_concepts(&ns).await?;
 
             for concept in &concepts {
                 self.validate_concept(concept)?;
