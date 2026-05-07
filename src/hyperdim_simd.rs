@@ -178,7 +178,7 @@ pub(crate) unsafe fn finalize_simd_neon(counts: &[i32; 10240]) -> [u128; 80] {
     use std::arch::aarch64::{vaddvq_u32, vandq_u32, vcgtq_s32, vdupq_n_s32, vld1q_s32, vld1q_u32};
 
     let mut out = [0u128; 80];
-    let zero = unsafe { vdupq_n_s32(0) };
+    let zero = vdupq_n_s32(0);
     // Weights for bit-packing: [2^0, 2^1, 2^2, 2^3]
     // SAFETY: weights array is local and constant.
     let weights = unsafe { vld1q_u32([1u32, 2, 4, 8].as_ptr()) };
