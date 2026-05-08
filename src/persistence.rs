@@ -169,7 +169,7 @@ impl Persistence {
             "INSERT INTO csm_associations (namespace, from_id, to_id, strength)
              VALUES (?1, ?2, ?3, ?4)
              ON CONFLICT(namespace, from_id, to_id) DO UPDATE SET strength = excluded.strength",
-            params![ns.to_string(), from, to, strength],
+            params![ns, from, to, strength],
         )
         .await
         .map_err(|e| MemoryError::database(format!("Failed to save association: {e}")))?;
@@ -185,7 +185,7 @@ impl Persistence {
         let mut rows = conn
             .query(
                 "SELECT to_id, strength FROM csm_associations WHERE namespace = ?1 AND from_id = ?2",
-                params![ns.to_string(), id],
+                params![ns, id],
             )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to load associations: {e}")))?;
