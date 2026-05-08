@@ -904,7 +904,7 @@ world_state:
   clippy_actionable_warnings: 110                             # float_cmp + drop_tightening + cast_* + const_fn + redundant_clone
   adr_0077_clippy_promotion_drafted: true                     # plans/adr/0077-clippy-pedantic-selective-promotion.md
   clippy_pedantic_promotion_complete: false                   # 5 themed PRs queued
-  action_last_completed: rebase_deepsource_fix_2026_06
+  action_last_completed: optimize_persistence_allocations_2026_06
 
   # ═══════════════════════════════════════════════════════
   # Rebase + DeepSource Fix (June 2026)
