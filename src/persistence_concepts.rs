@@ -26,8 +26,8 @@ impl Persistence {
              expires_at = excluded.expires_at,
              canonical_concept_ids_json = excluded.canonical_concept_ids_json",
             params![
-                ns.to_string(),
-                concept.id.clone(),
+                ns,
+                concept.id.as_str(),
                 vector_bytes,
                 metadata_json,
                 concept.created_at as i64,
@@ -79,8 +79,8 @@ impl Persistence {
                      expires_at = excluded.expires_at,
                      canonical_concept_ids_json = excluded.canonical_concept_ids_json",
                     params![
-                        ns.to_string(),
-                        concept.id.clone(),
+                        ns,
+                        concept.id.as_str(),
                         vector_bytes,
                         metadata_json,
                         concept.created_at as i64,
@@ -128,7 +128,7 @@ impl Persistence {
             .query(
                 "SELECT vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json
                  FROM csm_concepts WHERE namespace = ?1 AND id = ?2",
-                params![ns.to_string(), id.to_string()],
+                params![ns, id],
             )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to load concept: {e}")))?;
@@ -184,7 +184,7 @@ impl Persistence {
             .query(
                 "SELECT id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json
                  FROM csm_concepts WHERE namespace = ?1",
-                params![ns.to_string()],
+                params![ns],
             )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to load concepts: {e}")))?;
@@ -249,7 +249,7 @@ impl Persistence {
         if let Err(e) = conn
             .execute(
                 "DELETE FROM csm_versions WHERE namespace = ?1 AND concept_id = ?2",
-                params![ns.to_string(), id.to_string()],
+                params![ns, id],
             )
             .await
         {
@@ -262,7 +262,7 @@ impl Persistence {
         if let Err(e) = conn
             .execute(
                 "DELETE FROM csm_associations WHERE namespace = ?1 AND (from_id = ?2 OR to_id = ?2)",
-                params![ns.to_string(), id.to_string()],
+                params![ns, id],
             )
             .await
         {
@@ -275,7 +275,7 @@ impl Persistence {
         if let Err(e) = conn
             .execute(
                 "DELETE FROM csm_concepts WHERE namespace = ?1 AND id = ?2",
-                params![ns.to_string(), id.to_string()],
+                params![ns, id],
             )
             .await
         {
