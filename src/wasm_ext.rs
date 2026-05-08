@@ -460,4 +460,31 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].0, "default-concept");
     }
+
+    fn native_enc(t: &str) -> Box<[u8]> {
+        crate::encoder::TextEncoder::new()
+            .encode(t)
+            .to_bytes()
+            .into_boxed_slice()
+    }
+
+    #[test]
+    fn wasm_encode_text_consistency() {
+        assert_eq!(native_enc("Test"), native_enc("Test"));
+    }
+
+    #[test]
+    fn wasm_encode_text_length() {
+        assert_eq!(native_enc("Len").len(), 1280);
+    }
+
+    #[test]
+    fn wasm_encode_text_difference() {
+        assert_ne!(native_enc("A"), native_enc("B"));
+    }
+
+    #[test]
+    fn wasm_encode_text_empty() {
+        assert_eq!(native_enc("").len(), 1280);
+    }
 }
