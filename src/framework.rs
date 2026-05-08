@@ -411,31 +411,5 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         })
     }
 
-    pub(crate) fn validate_concept_id(id: &str) -> Result<()> {
-        crate::ChaoticSemanticFramework::<H>::validate_concept_id(id)
-    }
-    pub(crate) fn validate_metadata_bytes(metadata: &std::collections::HashMap<String, serde_json::Value>, max_metadata_bytes: Option<usize>) -> Result<()> {
-        crate::ChaoticSemanticFramework::<H>::validate_metadata_bytes(metadata, max_metadata_bytes)
-    }
-    pub(crate) fn validate_top_k(&self, top_k: usize) -> Result<()> {
-        crate::ChaoticSemanticFramework::<H>::validate_top_k(self, top_k)
-    }
-    pub(crate) fn validate_concept(&self, concept: &Concept<H>) -> Result<()> {
-        crate::ChaoticSemanticFramework::<H>::validate_concept(self, concept)
-    }
-    pub(crate) fn validate_sequence_length(&self, length: usize) -> Result<()> {
-        crate::ChaoticSemanticFramework::<H>::validate_sequence_length(self, length)
-    }
-    pub(crate) fn validate_batch_size(&self, batch_size: usize) -> Result<()> {
-        crate::ChaoticSemanticFramework::<H>::validate_batch_size(self, batch_size)
-    }
-    pub(crate) fn validate_traversal_config(config: &TraversalConfig) -> Result<()> {
-        crate::ChaoticSemanticFramework::<H>::validate_traversal_config(config)
-    }
-    pub(crate) fn validate_metadata_filter(filter: &MetadataFilter) -> Result<()> {
-        crate::ChaoticSemanticFramework::<H>::validate_metadata_filter(filter)
-    }
-    pub(crate) fn emit_event(&self, event: MemoryEvent) {
-        let _ = self.event_sender.send(event);
-    }
+
 }

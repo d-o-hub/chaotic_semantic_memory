@@ -3,8 +3,8 @@
 use crate::error::Result;
 use crate::hyperdim::Hypervector;
 use crate::framework::ChaoticSemanticFramework;
-use crate::hyperdim::{HVec10240, Hypervector};
-use crate::retrieval::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
+use crate::hyperdim::Hypervector;
+use crate::retrieval::{GraphRagConfig, GraphRagResult, graph_rag_retrieve_generic};
 use tracing::instrument;
 
 impl<H: Hypervector> ChaoticSemanticFramework<H> {

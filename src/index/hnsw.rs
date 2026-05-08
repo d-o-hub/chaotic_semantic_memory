@@ -29,18 +29,19 @@ struct HnswData {
 
 #[cfg(feature = "ann-hnsw")]
 #[derive(Clone)]
-struct HammingDist;
+struct HammingDist<H: Hypervector>(std::marker::PhantomData<H>);
 
 #[cfg(feature = "ann-hnsw")]
-impl Distance<HVec10240> for HammingDist {
-    fn eval(&self, va: &[HVec10240], vb: &[HVec10240]) -> f32 {
+impl<H: Hypervector> Distance<H> for HammingDist<H> {
+    fn eval(&self, va: &[H], vb: &[H]) -> f32 {
         va[0].hamming_distance(&vb[0]) as f32
     }
 }
 
 #[cfg(feature = "ann-hnsw")]
 pub struct HnswIndex<H: Hypervector> {
-    hnsw: Hnsw<'static, HVec10240, HammingDist>,
+    _temp_dir: Option<tempfile::TempDir>,
+    hnsw: Hnsw<'static, H, HammingDist<H>>,
     id_to_idx: HashMap<String, usize>,
     idx_to_id: HashMap<usize, String>,
     config: HnswData,
@@ -48,7 +49,7 @@ pub struct HnswIndex<H: Hypervector> {
 }
 
 #[cfg(feature = "ann-hnsw")]
-impl<H: Hypervector> HnswIndex<H> {
+impl<H: Hypervector + 'static> HnswIndex<H> {
     pub fn new(m: usize, ef_construction: usize, ef_search: usize) -> Result<Self> {
         // #7: Validate m (max_nb_connection). hnsw_rs aborts if > 256.
         if m == 0 || m > 256 {
@@ -59,9 +60,10 @@ impl<H: Hypervector> HnswIndex<H> {
         }
 
         // ADR-0068: Default to 1M elements to support scale goal
-        let hnsw = Hnsw::new(m, 1_000_000, 16, ef_construction, HammingDist);
+        let hnsw = Hnsw::new(m, 1_000_000, 16, ef_construction, HammingDist::<H>);
         Ok(Self {
             hnsw,
+            _temp_dir: None,
             id_to_idx: HashMap::new(),
             idx_to_id: HashMap::new(),
             config: HnswData {
@@ -75,7 +77,7 @@ impl<H: Hypervector> HnswIndex<H> {
 }
 
 #[cfg(feature = "ann-hnsw")]
-impl<H: Hypervector> std::fmt::Debug for HnswIndex<H> {
+impl<H: Hypervector + 'static> std::fmt::Debug for HnswIndex<H> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("HnswIndex")
             .field("config", &self.config)
@@ -200,7 +202,7 @@ impl<H: Hypervector> AnnIndex<H> for HnswIndex<H> {
             concepts.len().max(100),
             16,
             self.config.ef_construction,
-            HammingDist,
+            HammingDist(std::marker::PhantomData),
         );
         self.id_to_idx.clear();
         self.idx_to_id.clear();
@@ -255,40 +257,27 @@ impl<H: Hypervector> AnnIndex<H> for HnswIndex<H> {
         Ok(payload)
     }
 
+
     fn deserialize(&mut self, data: &[u8]) -> Result<()> {
         use std::fs;
-
-        if data.is_empty() {
-            return Ok(());
-        }
-
-        let wrapper: HnswPersistenceWrapper = bincode::deserialize(data)
-            .map_err(|e| MemoryError::database(format!("Bincode deserialize fail: {}", e)))?;
-
-        let temp_dir =
-            std::env::temp_dir().join(format!("csm_hnsw_load_{}", rand::random::<u64>()));
-        fs::create_dir_all(&temp_dir).map_err(MemoryError::Io)?;
-
-        fs::write(temp_dir.join("index.hnsw.data"), &wrapper.data).map_err(MemoryError::Io)?;
-        fs::write(temp_dir.join("index.hnsw.graph"), &wrapper.graph).map_err(MemoryError::Io)?;
-
-        let loader = HnswIo::new(&temp_dir, "index");
-        let hnsw = loader
-            .load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist)
+        if data.is_empty() { return Ok(()); }
+        let wrapper: HnswPersistenceWrapper = bincode::deserialize(data).map_err(|e| MemoryError::database(format!("Bincode deserialize fail: {}", e)))?;
+        let temp_dir = tempfile::tempdir().map_err(MemoryError::Io)?;
+        fs::write(temp_dir.path().join("index.hnsw.data"), &wrapper.data).map_err(MemoryError::Io)?;
+        fs::write(temp_dir.path().join("index.hnsw.graph"), &wrapper.graph).map_err(MemoryError::Io)?;
+        let loader = HnswIo::new(temp_dir.path(), "index");
+        let hnsw = loader.load_hnsw_with_dist::<H, HammingDist<H>>(HammingDist(std::marker::PhantomData))
             .map_err(|e| MemoryError::database(format!("HNSW load failed: {}", e)))?;
 
-        let static_hnsw: Hnsw<'static, HVec10240, HammingDist> =
-            unsafe { std::mem::transmute(hnsw) };
-
+        let static_hnsw: Hnsw<'static, H, HammingDist<H>> = unsafe { std::mem::transmute(hnsw) };
         self.hnsw = static_hnsw;
+        self._temp_dir = Some(temp_dir);
         self.id_to_idx = wrapper.id_to_idx;
         self.idx_to_id = wrapper.idx_to_id;
         self.config.m = wrapper.m;
         self.config.ef_construction = wrapper.ef_construction;
         self.config.ef_search = wrapper.ef_search;
         self.deleted_count = wrapper.deleted_count;
-
-        let _ = fs::remove_dir_all(temp_dir);
         Ok(())
     }
 }

@@ -5,6 +5,11 @@ pub mod simd;
 pub use batch::batch_cosine_similarity;
 pub use hvec::HVec10240;
 
+#[cfg(feature = "hv-binary")]
+pub mod binary;
+#[cfg(feature = "hv-binary")]
+pub use binary::BHVec10240;
+
 use crate::error::Result;
 use std::fmt::Debug;
 
@@ -32,7 +37,3 @@ pub trait Hypervector:
     fn to_bytes(&self) -> Vec<u8>;
     fn from_bytes(bytes: &[u8]) -> Result<Self>;
 }
-#[cfg(feature = "hv-binary")]
-pub mod binary;
-#[cfg(feature = "hv-binary")]
-pub use binary::BHVec10240;

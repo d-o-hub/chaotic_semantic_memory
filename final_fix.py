@@ -1,34 +1,39 @@
-import re
 import os
+import re
 
-def fix_lsh():
-    with open('src/index/lsh.rs', 'r') as f:
+def fix_file(path, replacements):
+    if not os.path.exists(path): return
+    with open(path, 'r') as f:
         content = f.read()
-
-    # Correct generic usage in LshIndex
-    content = content.replace('concepts: HashMap<String, HVec10240>,', 'concepts: HashMap<String, H>,')
-    content = content.replace('fn compute_hash(&self, vec: &HVec10240,', 'fn compute_hash(&self, vec: &H,')
-    content = content.replace('memory_usage_bytes: self.concepts.len()\n                * (std::mem::size_of::<String>() + std::mem::size_of::<HVec10240>())',
-                              'memory_usage_bytes: self.concepts.len()\n                * (std::mem::size_of::<String>() + std::mem::size_of::<H>())')
-
-    # Generic hash computation - use to_bytes() for portability across hypervector formats
-    # LSH typically samples bits. We'll sample bytes for generic.
-    new_compute_hash = """    fn compute_hash(&self, vec: &H, table_idx: usize) -> u64 {
-        let mut hash = 0u64;
-        let bits = &self.projections[table_idx];
-        let bytes = vec.to_bytes();
-        for (i, &bit_pos) in bits.iter().enumerate() {
-            let byte_idx = (bit_pos / 8).min(bytes.len() - 1);
-            let bit_in_byte = bit_pos % 8;
-            if (bytes[byte_idx] & (1u8 << bit_in_byte)) != 0 {
-                hash |= 1u64 << i;
-            }
-        }
-        hash
-    }"""
-    content = re.sub(r'fn compute_hash.*?\}', new_compute_hash, content, flags=re.DOTALL)
-
-    with open('src/index/lsh.rs', 'w') as f:
+    for src, dst in replacements:
+        content = content.replace(src, dst)
+    with open(path, 'w') as f:
         f.write(content)
 
-fix_lsh()
+# Correct Hamming distance and similarity in brute_force.rs
+fix_file('src/index/brute_force.rs', [
+    ('query.hamming_distance(v)', 'query.hamming_distance(v)'), # No change needed if types match
+    ('let similarity = 1.0 - (dist as f32 / 5120.0);', 'let similarity = query.cosine_similarity(&self.vectors[idx]);')
+])
+
+# Ensure Hypervector is imported in all framework extensions
+framework_extensions = [
+    'src/framework_bridge.rs', 'src/framework_events.rs', 'src/framework_graph_rag.rs',
+    'src/framework_namespaces.rs', 'src/framework_ops.rs', 'src/framework_persistence.rs',
+    'src/framework_rerank.rs', 'src/framework_validation.rs', 'src/framework_ttl.rs'
+]
+for p in framework_extensions:
+    if not os.path.exists(p): continue
+    with open(p, 'r') as f:
+        content = f.read()
+    if 'use crate::hyperdim::Hypervector;' not in content and 'Hypervector' not in content:
+        content = content.replace('use crate::hyperdim::HVec10240;', 'use crate::hyperdim::{HVec10240, Hypervector};')
+    with open(p, 'w') as f:
+        f.write(content)
+
+# Fix singularity_search helpers to be generic
+fix_file('src/singularity_search.rs', [
+    ('query: &HVec10240,', 'query: &H,'),
+    ('fn try_cache_lookup<H: Hypervector>(', 'fn try_cache_lookup<H: Hypervector>('),
+    ('fn try_ann_lookup<H: Hypervector>(', 'fn try_ann_lookup<H: Hypervector>(')
+])

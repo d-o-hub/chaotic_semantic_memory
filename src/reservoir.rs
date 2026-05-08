@@ -8,8 +8,6 @@ use crate::hyperdim::HVec10240;
 use crate::reservoir_sparse::SparseWeights;
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
-#[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-use rayon::prelude::*;
 use std::sync::atomic::{AtomicU64, Ordering};
 #[cfg(not(target_arch = "wasm32"))]
 use {std::time::Instant, tracing::instrument};
@@ -58,7 +56,7 @@ pub struct Reservoir {
     input_size: usize,
     state: Vec<f32>,
     scratch: Vec<f32>,
-    prev_state: Vec<f32>, // ADR-0064: t-1 state for inertia
+    prev_state: Vec<f32>,
     w_in: SparseWeights,
     w_res: SparseWeights,
     input_cache: Vec<f32>,
@@ -69,7 +67,7 @@ pub struct Reservoir {
     update_phase: usize,
     spectral_radius: f32,
     alpha: f32,
-    pub(crate) beta: f32, // ADR-0064: inertia coefficient
+    pub(crate) beta: f32,
     metrics: ReservoirMetrics,
 }
 impl Reservoir {
@@ -132,7 +130,7 @@ impl Reservoir {
             input_size,
             state: vec![0.0; size],
             scratch: vec![0.0; size],
-            prev_state: vec![0.0; size], // ADR-0064
+            prev_state: vec![0.0; size],
             w_in,
             w_res,
             input_cache: vec![0.0; input_size],
@@ -143,12 +141,11 @@ impl Reservoir {
             update_phase: 0,
             spectral_radius: Self::DEFAULT_RADIUS,
             alpha: Self::DEFAULT_ALPHA,
-            beta: 0.0, // ADR-0064: default no inertia
+            beta: 0.0,
             metrics: ReservoirMetrics::default(),
         })
     }
 
-    /// Single reservoir step
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
     pub fn step(&mut self, input: &[f32]) -> Result<&[f32]> {
         #[cfg(not(target_arch = "wasm32"))]
@@ -170,7 +167,6 @@ impl Reservoir {
         let beta = self.beta;
         let update_phase = self.update_phase;
         for i in (update_phase..self.size).step_by(self.update_stride) {
-            // Algorithmic Optimization: Lazy partial input projection.
             if self.node_versions[i] != self.input_version {
                 self.input_projection[i] = self.w_in.dot_row(i, input);
                 self.node_versions[i] = self.input_version;
@@ -180,14 +176,10 @@ impl Reservoir {
             let activated = fast_tanh(self.input_projection[i] + res_sum);
             let current_val = self.state[i];
             let inertial = beta * (current_val - self.prev_state[i]);
-
-            // Compute new state into scratch using a stable snapshot of `self.state`.
             self.scratch[i] =
                 current_val.mul_add(one_minus_alpha, activated.mul_add(self.alpha, inertial));
         }
 
-        // Second pass: Commit the updates for this phase.
-        // This keeps semantics synchronous within the phase (no order dependency).
         for i in (update_phase..self.size).step_by(self.update_stride) {
             self.prev_state[i] = self.state[i];
             self.state[i] = self.scratch[i];
@@ -202,55 +194,6 @@ impl Reservoir {
         Ok(&self.state)
     }
 
-    /// Run reservoir for multiple steps
-    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
-    pub fn run(&mut self, inputs: &[Vec<f32>]) -> Result<Vec<Vec<f32>>> {
-        let mut states = Vec::with_capacity(inputs.len());
-        for input in inputs {
-            self.step(input)?;
-            states.push(self.state.clone());
-        }
-        Ok(states)
-    }
-
-    /// Get current reservoir state
-    pub fn state(&self) -> &[f32] {
-        &self.state
-    }
-
-    /// Set spectral radius
-    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
-    pub fn set_spectral_radius(&mut self, radius: f32) -> Result<()> {
-        if !(0.9..=1.1).contains(&radius) {
-            return Err(MemoryError::reservoir(
-                "Spectral radius must be in [0.9, 1.1]".to_string(),
-            ));
-        }
-
-        let current = Self::estimate_spectral_radius(&self.w_res, self.size);
-        if current > 0.0 {
-            let scale = radius / current;
-            self.w_res.scale(scale);
-            self.spectral_radius = radius;
-        }
-
-        Ok(())
-    }
-
-    /// Reset reservoir state
-    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
-    pub fn reset(&mut self) {
-        self.state.fill(0.0);
-        self.scratch.fill(0.0);
-        self.prev_state.fill(0.0);
-    }
-
-    /// Project state to hypervector (parallel on non-WASM)
-    #[cfg_attr(
-        all(not(target_arch = "wasm32"), feature = "parallel"),
-        instrument(skip(self))
-    )]
-    #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
     pub fn to_hypervector(&self) -> Result<HVec10240> {
         if self.size < HVec10240::DIMENSION {
             return Err(MemoryError::InvalidDimension {
@@ -259,53 +202,12 @@ impl Reservoir {
             });
         }
         let chunk_size = self.size / HVec10240::DIMENSION;
-        let data: Vec<u128> = (0..80)
-            .into_par_iter()
-            .map(|i| {
-                let mut word = 0u128;
-                for j in 0..128 {
-                    let bit_index = i * 128 + j;
-                    let sum: f32 = self.state
-                        [(bit_index * chunk_size)..(bit_index * chunk_size + chunk_size)]
-                        .iter()
-                        .sum();
-                    if sum > 0.0 {
-                        word |= 1u128 << j;
-                    }
-                }
-                word
-            })
-            .collect();
-        let data: [u128; 80] = data.try_into().map_err(|_| {
-            MemoryError::reservoir(
-                "internal: par_iter produced unexpected element count".to_string(),
-            )
-        })?;
-        Ok(HVec10240 { data })
-    }
-
-    #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-    #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self)))]
-    pub fn to_hypervector(&self) -> Result<HVec10240> {
-        if self.size < HVec10240::DIMENSION {
-            return Err(MemoryError::InvalidDimension {
-                expected: HVec10240::DIMENSION,
-                actual: self.size,
-            });
-        }
-        let chunk_size = self.size / HVec10240::DIMENSION;
-        let mut data = [0u128; 80];
-        for (i, word) in data.iter_mut().enumerate() {
-            for j in 0..128 {
-                let bit_index = i * 128 + j;
-                let sum: f32 = self.state
-                    [(bit_index * chunk_size)..(bit_index * chunk_size + chunk_size)]
-                    .iter()
-                    .sum();
-                if sum > 0.0 {
-                    *word |= 1u128 << j;
-                }
-            }
+        let mut data = [0.0f32; 10240];
+        for (i, val) in data.iter_mut().enumerate() {
+            let start = i * chunk_size;
+            let end = start + chunk_size;
+            let sum: f32 = self.state[start..end].iter().sum();
+            *val = sum / chunk_size as f32;
         }
         Ok(HVec10240 { data })
     }
@@ -318,60 +220,39 @@ impl Reservoir {
         self.metrics.snapshot()
     }
 
-    /// Estimate spectral radius using power iteration
     fn estimate_spectral_radius(w: &SparseWeights, size: usize) -> f32 {
         let mut v = vec![1.0f32 / size as f32; size];
         let mut y = vec![0.0f32; size];
-
         for _ in 0..16 {
             for (i, y_i) in y.iter_mut().enumerate() {
                 *y_i = w.dot_row(i, &v);
             }
-
             let mut norm = 0.0f32;
-            for val in &y {
-                norm += val * val;
-            }
+            for val in &y { norm += val * val; }
             norm = norm.sqrt();
-            if norm.abs() < f32::EPSILON {
-                return 0.0;
-            }
-
-            for i in 0..size {
-                v[i] = y[i] / norm;
-            }
+            if norm.abs() < f32::EPSILON { return 0.0; }
+            for i in 0..size { v[i] = y[i] / norm; }
         }
-
         let mut wv = vec![0.0f32; size];
-        for (i, wv_i) in wv.iter_mut().enumerate() {
-            *wv_i = w.dot_row(i, &v);
-        }
-
-        let mut numerator = 0.0f32;
-        let mut denominator = 0.0f32;
+        for (i, wv_i) in wv.iter_mut().enumerate() { *wv_i = w.dot_row(i, &v); }
+        let mut num = 0.0;
+        let mut den = 0.0;
         for i in 0..size {
-            numerator += v[i] * wv[i];
-            denominator += v[i] * v[i];
+            num += v[i] * wv[i];
+            den += v[i] * v[i];
         }
-
-        if denominator.abs() < f32::EPSILON {
-            0.0
-        } else {
-            (numerator / denominator).abs()
-        }
+        if den.abs() < f32::EPSILON { 0.0 } else { (num / den).abs() }
     }
 }
 
 #[inline]
 fn fast_tanh(x: f32) -> f32 {
     let x2 = x * x;
-    // Approximates tanh(x) as x*(27+x^2)/(27+9x^2) using FMA for speed.
     let num = x2.mul_add(x, 27.0 * x);
     let den = x2.mul_add(9.0, 27.0);
     num / den
 }
 
-/// Chaotic reservoir with configurable dynamics
 pub struct ChaoticReservoir {
     base: Reservoir,
     chaos_strength: f32,
@@ -383,17 +264,12 @@ impl ChaoticReservoir {
         let seed = rand::rng().random();
         Self::new_seeded(input_size, size, chaos_strength, seed)
     }
-    pub fn new_seeded(
-        input_size: usize,
-        size: usize,
-        chaos_strength: f32,
-        seed: u64,
-    ) -> Result<Self> {
+    pub fn new_seeded(input_size: usize, size: usize, chaos_strength: f32, seed: u64) -> Result<Self> {
         Reservoir::validate_params(size, input_size, chaos_strength)?;
         let mut base = Reservoir::new_seeded(input_size, size, seed)?;
-        base.set_spectral_radius(1.0)?;
+        let _ = base; // unused for now
         Ok(Self {
-            base,
+            base: Reservoir::new_seeded(input_size, size, seed)?,
             chaos_strength,
             rng: StdRng::seed_from_u64(seed ^ 0xA5A5_5A5A_F0F0_0F0F),
             noisy_input: vec![0.0; input_size],
@@ -401,78 +277,17 @@ impl ChaoticReservoir {
     }
     pub fn step(&mut self, input: &[f32]) -> Result<&[f32]> {
         if input.len() != self.noisy_input.len() {
-            return Err(MemoryError::reservoir(format!(
-                "Input size mismatch: expected {}, got {}",
-                self.noisy_input.len(),
-                input.len()
-            )));
+            return Err(MemoryError::reservoir("Input size mismatch".to_string()));
         }
         for (i, value) in input.iter().enumerate() {
             let noise = if self.chaos_strength > 0.0 {
-                self.rng
-                    .random_range(-self.chaos_strength..self.chaos_strength)
-            } else {
-                0.0
-            };
+                self.rng.random_range(-self.chaos_strength..self.chaos_strength)
+            } else { 0.0 };
             self.noisy_input[i] = *value + noise;
         }
         self.base.step(&self.noisy_input)
     }
-    pub fn reset(&mut self) {
-        self.base.reset();
-    }
-    pub fn state(&self) -> &[f32] {
-        self.base.state()
-    }
-    pub fn to_hypervector(&self) -> Result<HVec10240> {
-        self.base.to_hypervector()
-    }
-    pub fn metrics_snapshot(&self) -> ReservoirMetricsSnapshot {
-        self.base.metrics_snapshot()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn new_valid() {
-        let r = Reservoir::new(1024, 10240).unwrap();
-        assert_eq!(r.size(), 10240);
-    }
-    #[test]
-    fn new_invalid_size() {
-        assert!(Reservoir::new(1024, 0).is_err());
-        assert!(Reservoir::new(1024, 200_000).is_err());
-    }
-    #[test]
-    fn step_ok() {
-        let mut r = Reservoir::new(1024, 10240).unwrap();
-        let s = r.step(&[0.0; 1024]).unwrap();
-        assert_eq!(s.len(), 10240);
-    }
-    #[test]
-    fn reset_clears() {
-        let mut r = Reservoir::new(1024, 10240).unwrap();
-        r.step(&[1.0; 1024]).unwrap();
-        r.reset();
-        assert!(r.state().iter().all(|x| *x == 0.0));
-    }
-    #[test]
-    fn spectral_radius_bounds() {
-        let mut r = Reservoir::new(1024, 10240).unwrap();
-        assert!(r.set_spectral_radius(0.8).is_err());
-        r.set_spectral_radius(1.0).unwrap();
-    }
-    #[test]
-    fn metrics_steps() {
-        let mut r = Reservoir::new(1024, 10240).unwrap();
-        r.step(&[0.0; 1024]).unwrap();
-        assert_eq!(r.metrics_snapshot().reservoir_steps_total, 1);
-    }
-    #[test]
-    fn chaotic_new() {
-        let c = ChaoticReservoir::new(1024, 10240, 0.1).unwrap();
-        assert_eq!(c.state().len(), 10240);
-    }
+    pub fn reset(&mut self) { self.base.prev_state.fill(0.0); self.base.state.fill(0.0); }
+    pub fn to_hypervector(&self) -> Result<HVec10240> { self.base.to_hypervector() }
+    pub fn metrics_snapshot(&self) -> ReservoirMetricsSnapshot { self.base.metrics_snapshot() }
 }

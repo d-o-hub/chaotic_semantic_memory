@@ -245,7 +245,7 @@ mod tests {
 
     #[test]
     fn test_chunk_by_heading_basic() {
-        let content = "\
+        let content = "'
 # Document Title
 
 ## Introduction
@@ -275,7 +275,7 @@ Detailed methods here.
 
     #[test]
     fn test_chunk_by_heading_min_level() {
-        let content = "\
+        let content = "'
 # Title
 
 ## Section 1

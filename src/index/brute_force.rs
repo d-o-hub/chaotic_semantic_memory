@@ -11,10 +11,10 @@ use crate::index::{AnnIndex, IndexStats};
 use crate::singularity::Concept;
 
 /// Exact search via linear scan.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct BruteForce<H: Hypervector> {
     indices: Vec<String>,
-    vectors: Vec<HVec10240>,
+    vectors: Vec<H>,
     id_to_index: HashMap<String, usize>,
 }
 
@@ -72,7 +72,7 @@ impl<H: Hypervector> AnnIndex<H> for BruteForce<H> {
         let results: Vec<(String, f32)> = scores
             .into_iter()
             .map(|(idx, dist)| {
-                let similarity = 1.0 - (dist as f32 / 5120.0);
+                let similarity = query.cosine_similarity(&self.vectors[idx]);
                 (self.indices[idx].clone(), similarity)
             })
             .collect();
@@ -114,7 +114,7 @@ impl<H: Hypervector> AnnIndex<H> for BruteForce<H> {
         let results: Vec<(String, f32)> = scores
             .into_iter()
             .map(|(idx, dist)| {
-                let similarity = 1.0 - (dist as f32 / 5120.0);
+                let similarity = query.cosine_similarity(&self.vectors[idx]);
                 (self.indices[idx].clone(), similarity)
             })
             .collect();
@@ -138,7 +138,7 @@ impl<H: Hypervector> AnnIndex<H> for BruteForce<H> {
             backend: "BruteForce".to_string(),
             count: self.indices.len(),
             memory_usage_bytes: self.indices.len()
-                * (std::mem::size_of::<String>() + std::mem::size_of::<HVec10240>() + 16),
+                * (std::mem::size_of::<String>() + std::mem::size_of::<H>() + 16),
         }
     }
 
@@ -152,3 +152,5 @@ impl<H: Hypervector> AnnIndex<H> for BruteForce<H> {
         Ok(())
     }
 }
+
+impl<H: Hypervector> Default for BruteForce<H> { fn default() -> Self { Self { indices: Vec::new(), vectors: Vec::new(), id_to_index: std::collections::HashMap::new() } } }

@@ -97,7 +97,7 @@ impl Default for RetrievalConfig {
     }
 }
 
-impl<H: Hypervector + \'static> Singularity<H> {
+impl<H: Hypervector + 'static> Singularity<H> {
     /// Set the retrieval configuration.
     pub fn set_retrieval_config(&mut self, config: RetrievalConfig) -> Result<()> {
         config.validate()?;
@@ -152,14 +152,11 @@ impl<H: Hypervector + \'static> Singularity<H> {
             .collect()
     }
 
-    /// Generate candidates by coarse bucketing.
         /// Generate candidates by coarse bucketing.
     pub(crate) fn generate_bucket_candidates(&self, ns: &str, _query: &H) -> Vec<usize> {
         let Some(ns_state) = self.get_namespace(ns) else {
             return Vec::new();
         };
-        // Coarse bucketing currently assumes specific internal representation.
-        // Return all indices as fallback for generic Hypervector trait.
         (0..ns_state.concept_vectors.len()).collect()
     }
 
