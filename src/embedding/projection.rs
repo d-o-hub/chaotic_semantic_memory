@@ -67,7 +67,6 @@ impl Projection {
         use rand::rngs::StdRng;
 
         let mut rng = StdRng::seed_from_u64(config.seed);
-                assert!(config.target_dim == 10240, "target_dim must be 10240 for HVec10240, got {}", config.target_dim);
         let mut entries = Vec::new();
 
         // Generate sparse entries: for each (row, col), 1/3 chance of non-zero.
@@ -112,7 +111,7 @@ impl Projection {
                 // Set bit at position i
                 let word = i / 128;
                 let bit = i % 128;
-                hv.data[word] |= 1u128 << bit;
+                hv.data[word * 128 + bit] = 1.0;
             }
         }
 

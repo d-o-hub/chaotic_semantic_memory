@@ -42,6 +42,7 @@ impl VoyageProvider {
 
 #[async_trait::async_trait]
 impl EmbeddingProvider for VoyageProvider {
+    fn dimension(&self) -> usize { 1024 }
     fn name(&self) -> &str {
         "voyage"
     }

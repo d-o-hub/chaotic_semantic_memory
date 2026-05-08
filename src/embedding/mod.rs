@@ -1,124 +1,62 @@
-//! External embedding model bridge for semantic accuracy.
-//!
-//! Provides an `EmbeddingProvider` trait with multiple backends:
-//! - HDC text encoder (default, semantically blind but fast)
-//! - FastEmbed (local ONNX models, opt-in via `embed-fastembed` feature)
-//! - OpenAI HTTP API (opt-in via `embed-openai` feature)
-//! - Voyage HTTP API (opt-in via `embed-voyage` feature)
-//!
-//! All backends project native embeddings to HVec10240 via sparse random projection
-//! (Achlioptas method), preserving cosine similarity with Johnson-Lindenstrauss guarantees.
+//! Embedding provider abstraction and random projection (ADR-0069).
 
-mod hdc_text;
-mod projection;
+pub mod projection;
+pub mod remote_openai;
+pub mod remote_voyage;
 
 #[cfg(feature = "embed-fastembed")]
-mod fastembed;
-#[cfg(feature = "embed-openai")]
-mod remote_openai;
-#[cfg(feature = "embed-voyage")]
-mod remote_voyage;
-
-pub use hdc_text::HdcTextProvider;
-pub use projection::{Projection, ProjectionConfig};
-
-#[cfg(feature = "embed-fastembed")]
-pub use fastembed::FastEmbedProvider;
-#[cfg(feature = "embed-openai")]
-pub use remote_openai::OpenAiProvider;
-#[cfg(feature = "embed-voyage")]
-pub use remote_voyage::VoyageProvider;
+pub mod fastembed;
+pub mod hdc_text;
 
 use crate::error::Result;
-use crate::hyperdim::HVec10240;
+use crate::hyperdim::{HVec10240, Hypervector};
+pub use projection::Projection;
+use std::sync::Arc;
 
-/// Embedding provider trait for text-to-vector conversion.
-///
-/// Implementations may be:
-/// - Local (HDC hash, FastEmbed ONNX)
-/// - Remote HTTP (OpenAI, Voyage)
-///
-/// All providers project their native dimensionality to HVec10240.
+/// Trait for external embedding models.
 #[async_trait::async_trait]
 pub trait EmbeddingProvider: Send + Sync {
-    /// Provider name for logging and CLI.
+    /// Dimension of the source embeddings (e.g. 1536 for OpenAI)
+    fn dimension(&self) -> usize;
+
+    /// Provider name
     fn name(&self) -> &str;
 
-    /// Native embedding dimension before projection.
-    fn native_dim(&self) -> usize;
-
-    /// Embed a single text string.
+    /// Embed text into high-dimensional float vector
     async fn embed(&self, text: &str) -> Result<Vec<f32>>;
 
-    /// Embed multiple texts in batch (more efficient for remote providers).
-    async fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>>;
-
-    /// Project a native embedding to HVec10240.
-    ///
-    /// Default implementation uses the provider's projection matrix.
+    /// Project float embedding to 10k-bit hypervector
     fn project(&self, vec: &[f32], projection: &Projection) -> HVec10240 {
         projection.project(vec)
     }
 }
 
 /// Factory to get an embedding provider by name.
-///
-/// Format: "provider_name" or "provider_name:model_name"
-pub fn get_provider(name: &str) -> Result<std::sync::Arc<dyn EmbeddingProvider>> {
-    let parts: Vec<&str> = name.splitn(2, ':').collect();
-    let provider_name = parts[0];
-    let _model_name = parts.get(1).copied();
-
-    match provider_name {
-        "hdc-text" | "hdc" => Ok(std::sync::Arc::new(HdcTextProvider::new())),
-
-        "fastembed" => {
-            #[cfg(feature = "embed-fastembed")]
-            {
-                if let Some(model) = _model_name {
-                    Ok(std::sync::Arc::new(FastEmbedProvider::with_model(model)?))
-                } else {
-                    Ok(std::sync::Arc::new(FastEmbedProvider::new()?))
-                }
-            }
-            #[cfg(not(feature = "embed-fastembed"))]
-            Err(crate::error::MemoryError::Config(
-                "embed-fastembed feature not enabled".into(),
-            ))
-        }
-
+pub fn get_embedding_provider(
+    name: &str,
+    api_key: Option<String>,
+) -> Result<Arc<dyn EmbeddingProvider>> {
+    match name {
+        "hdc" => Ok(Arc::new(hdc_text::HdcTextProvider::new())),
         "openai" => {
-            #[cfg(feature = "embed-openai")]
-            {
-                let mut provider = OpenAiProvider::from_env()?;
-                if let Some(model) = _model_name {
-                    provider = provider.with_model(model);
-                }
-                Ok(std::sync::Arc::new(provider))
-            }
-            #[cfg(not(feature = "embed-openai"))]
-            Err(crate::error::MemoryError::Config(
-                "embed-openai feature not enabled".into(),
-            ))
+            let key = api_key.ok_or_else(|| crate::error::MemoryError::InvalidInput {
+                field: "api_key".to_string(),
+                reason: "OpenAI provider requires an API key".to_string(),
+            })?;
+            Ok(Arc::new(remote_openai::OpenAiProvider::new(key)))
         }
-
         "voyage" => {
-            #[cfg(feature = "embed-voyage")]
-            {
-                let mut provider = VoyageProvider::from_env()?;
-                if let Some(model) = _model_name {
-                    provider = provider.with_model(model);
-                }
-                Ok(std::sync::Arc::new(provider))
-            }
-            #[cfg(not(feature = "embed-voyage"))]
-            Err(crate::error::MemoryError::Config(
-                "embed-voyage feature not enabled".into(),
-            ))
+            let key = api_key.ok_or_else(|| crate::error::MemoryError::InvalidInput {
+                field: "api_key".to_string(),
+                reason: "Voyage provider requires an API key".to_string(),
+            })?;
+            Ok(Arc::new(remote_voyage::VoyageProvider::new(key)))
         }
-
-        _ => Err(crate::error::MemoryError::Config(format!(
-            "unknown embedding provider: {provider_name}"
-        ))),
+        #[cfg(feature = "embed-fastembed")]
+        "fastembed" => Ok(Arc::new(fastembed::FastEmbedProvider::new()?)),
+        _ => Err(crate::error::MemoryError::InvalidInput {
+            field: "provider".to_string(),
+            reason: format!("Unknown embedding provider: {name}"),
+        }),
     }
 }

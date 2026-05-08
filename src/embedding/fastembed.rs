@@ -89,6 +89,7 @@ impl FastEmbedProvider {
 
 #[async_trait::async_trait]
 impl EmbeddingProvider for FastEmbedProvider {
+    fn dimension(&self) -> usize { 384 }
     fn name(&self) -> &str {
         "fastembed"
     }

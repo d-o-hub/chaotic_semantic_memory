@@ -1,6 +1,7 @@
 use crate::error::{MemoryError, Result};
 use crate::persistence::Persistence;
-use crate::singularity::{Concept, ConceptVersion};
+use crate::singularity::Concept;
+use crate::persistence::ConceptVersion;
 use crate::hyperdim::Hypervector;
 use libsql::{Connection, params};
 

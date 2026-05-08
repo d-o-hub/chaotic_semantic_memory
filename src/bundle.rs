@@ -35,11 +35,7 @@ impl BundleAccumulator {
     pub fn add(&mut self, hv: &HVec10240) {
         for i in 0..80 {
             let mut val = hv.data[i];
-            while val != 0 {
-                let j = val.trailing_zeros() as usize;
-                self.counts[i * 128 + j] += 1;
-                val &= val - 1;
-            }
+            for bit in 0..128 { if val >= 0.0 { data[i * 128 + bit] = 1.0; } }
         }
         self.n += 1;
     }
@@ -54,11 +50,7 @@ impl BundleAccumulator {
         }
         for i in 0..80 {
             let mut val = hv.data[i];
-            while val != 0 {
-                let j = val.trailing_zeros() as usize;
-                self.counts[i * 128 + j] -= 1;
-                val &= val - 1;
-            }
+            for bit in 0..128 { if val >= 0.0 { data[i * 128 + bit] = 1.0; } }
         }
         self.n -= 1;
     }
@@ -75,11 +67,7 @@ impl BundleAccumulator {
         }
         for i in 0..80 {
             let mut val = hv.data[i];
-            while val != 0 {
-                let j = val.trailing_zeros() as usize;
-                self.counts[i * 128 + j] -= 1;
-                val &= val - 1;
-            }
+            for bit in 0..128 { if val >= 0.0 { data[i * 128 + bit] = 1.0; } }
         }
         self.n -= 1;
         Ok(())
@@ -106,7 +94,7 @@ impl BundleAccumulator {
             }
         }
 
-        HVec10240 { data }
+        HVec10240 { data: convert_bits_to_floats_bundle(data) }
     }
 
     /// Get the number of hypervectors in the accumulator.
@@ -178,4 +166,18 @@ mod tests {
         acc.clear();
         assert!(acc.is_empty());
     }
+}
+
+fn convert_bits_to_floats_bundle(bits: [u128; 80]) -> [f32; 10240] {
+    let mut data = [0.0f32; 10240];
+    for (i, word) in bits.iter().enumerate() {
+        for j in 0..128 {
+            if (word & (1u128 << j)) != 0 {
+                data[i * 128 + j] = 1.0;
+            } else {
+                data[i * 128 + j] = -1.0;
+            }
+        }
+    }
+    data
 }

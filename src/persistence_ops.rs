@@ -97,27 +97,6 @@ impl Persistence {
              DELETE FROM csm_concepts;
              DELETE FROM csm_hnsw_graph;
              DELETE FROM csm_canonical;
-             COMMIT;",
-        )
-        .await
-        .map_err(|e| MemoryError::database(format!("Failed to clear all data: {e}")))?;
-        Ok(())
-    }
-
-    pub async fn get_concept_history(
-        &self,
-        ns: &str,
-        id: &str,
-        limit: usize,
-    ) -> Result<Vec<ConceptVersion>> {
-        let _permit = self.acquire_remote_slot().await?;
-        let conn = self.connect().await?;
-
-        let mut rows = conn
-            .query(
-                "SELECT concept_id, version, vector, metadata, modified_at
-                 FROM csm_versions
-                 WHERE namespace = ?1 AND concept_id = ?2
                  ORDER BY version DESC
                  LIMIT ?3",
                 libsql::params![ns.to_string(), id, limit as i64],

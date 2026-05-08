@@ -23,6 +23,7 @@ include = [
 ]
 
 [dependencies]
+tempfile = "3.26.0"
 # Serialization
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.149"
@@ -78,7 +79,6 @@ console_error_panic_hook = { version = "0.1", optional = false }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }
-tempfile = "3.26.0"
 proptest = "1.6.0"
 # CLI testing
 assert_cmd = "2.0.16"
@@ -213,6 +213,7 @@ embed-voyage = ["dep:reqwest"]
 # ANN backends (ADR-0068)
 ann-hnsw = ["dep:hnsw_rs"]
 ann-lsh = []
+hv-binary = []
 
 
 # Federation-ready API enhancements (ADR-055 downstream)

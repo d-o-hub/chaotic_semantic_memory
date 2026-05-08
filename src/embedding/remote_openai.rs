@@ -51,6 +51,7 @@ impl OpenAiProvider {
 
 #[async_trait::async_trait]
 impl EmbeddingProvider for OpenAiProvider {
+    fn dimension(&self) -> usize { 1536 }
     fn name(&self) -> &str {
         "openai"
     }

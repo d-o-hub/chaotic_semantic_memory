@@ -5,11 +5,6 @@ pub mod simd;
 pub use batch::batch_cosine_similarity;
 pub use hvec::HVec10240;
 
-#[cfg(feature = "hv-binary")]
-pub mod binary;
-#[cfg(feature = "hv-binary")]
-pub use binary::BHVec10240;
-
 use crate::error::Result;
 use std::fmt::Debug;
 
@@ -36,4 +31,11 @@ pub trait Hypervector:
     fn hamming_distance(&self, other: &Self) -> u32;
     fn to_bytes(&self) -> Vec<u8>;
     fn from_bytes(bytes: &[u8]) -> Result<Self>;
+    fn from_hvec(v: &crate::hyperdim::HVec10240) -> Self;
+    fn get_bit(&self, pos: usize) -> bool;
+    fn fast_hash(&self) -> u64;
 }
+#[cfg(feature = "hv-binary")]
+pub mod binary;
+#[cfg(feature = "hv-binary")]
+pub use binary::BHVec10240;

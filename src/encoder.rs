@@ -1,3 +1,4 @@
+use crate::hyperdim::Hypervector;
 //! Text-to-Hypervector Encoding using Hyperdimensional Computing (HDC) principles.
 //!
 //! This module provides a deterministic text encoder that converts text strings into

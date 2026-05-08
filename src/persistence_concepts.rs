@@ -39,7 +39,7 @@ impl Persistence {
         .await
         .map_err(|e| MemoryError::database(format!("Failed to save concept: {e}")))?;
 
-        self.record_concept_version_scoped(&conn, ns, concept)
+        self.record_concept_version(&conn, ns, concept)
             .await?;
         Ok(())
     }
@@ -93,7 +93,7 @@ impl Persistence {
                 break;
             }
 
-            if let Err(e) = self.record_concept_version_scoped(&conn, ns, concept).await {
+            if let Err(e) = self.record_concept_version(&conn, ns, concept).await {
                 first_error = Some(e);
                 break;
             }

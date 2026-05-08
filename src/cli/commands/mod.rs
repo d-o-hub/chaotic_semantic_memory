@@ -157,7 +157,7 @@ pub async fn create_framework_advanced(
 }
 
 fn validate_concept_id(id: &str) -> Result<()> {
-    ChaoticSemanticFramework::validate_concept_id(id)
+    ChaoticSemanticFramework::<crate::hyperdim::HVec10240>::validate_concept_id(id)
         .map_err(|e| CliError::Validation(e.to_string()))
 }
 

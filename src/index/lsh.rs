@@ -16,6 +16,7 @@ use crate::singularity::Concept;
 
 /// Locality-Sensitive Hashing (LSH) for hypervectors using bit-sampling.
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(bound(deserialize = "H: Hypervector"))]
 pub struct LshIndex<H: Hypervector> {
     num_tables: usize,
     hash_bits: usize,
@@ -57,14 +58,11 @@ impl<H: Hypervector> LshIndex<H> {
         })
     }
 
-            fn compute_hash(&self, vec: &H, table_idx: usize) -> u64 {
+    fn compute_hash(&self, vec: &H, table_idx: usize) -> u64 {
         let mut hash = 0u64;
         let bits = &self.projections[table_idx];
-        let bytes = vec.to_bytes();
         for (i, &bit_pos) in bits.iter().enumerate() {
-            let byte_idx = (bit_pos / 8).min(bytes.len() - 1);
-            let bit_in_byte = bit_pos % 8;
-            if (bytes[byte_idx] & (1u8 << bit_in_byte)) != 0 {
+            if vec.get_bit(bit_pos) {
                 hash |= 1u64 << i;
             }
         }

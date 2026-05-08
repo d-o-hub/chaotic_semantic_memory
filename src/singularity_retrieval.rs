@@ -55,8 +55,8 @@ pub enum FilterStrategy {
 }
 
 /// Parameters for scored candidate retrieval.
-pub(crate) struct ScoredCandidateParams<'a> {
-    pub query: &'a HVec10240,
+pub(crate) struct ScoredCandidateParams<'a, H: Hypervector> {
+    pub query: &'a H,
     pub top_k: usize,
     pub candidates: Vec<usize>,
     pub start_ns: u64,
@@ -79,7 +79,7 @@ pub struct RetrievalConfig {
 
 impl RetrievalConfig {
     pub fn validate(&self) -> Result<()> {
-        crate::framework::ChaoticSemanticFramework::validate_retrieval_config(self)
+        crate::framework::ChaoticSemanticFramework::<crate::hyperdim::HVec10240>::validate_retrieval_config(self)
     }
 }
 
@@ -97,7 +97,7 @@ impl Default for RetrievalConfig {
     }
 }
 
-impl<H: Hypervector + 'static> Singularity<H> {
+impl<H: Hypervector + \'static> Singularity<H> {
     /// Set the retrieval configuration.
     pub fn set_retrieval_config(&mut self, config: RetrievalConfig) -> Result<()> {
         config.validate()?;
@@ -152,11 +152,14 @@ impl<H: Hypervector + 'static> Singularity<H> {
             .collect()
     }
 
+    /// Generate candidates by coarse bucketing.
         /// Generate candidates by coarse bucketing.
     pub(crate) fn generate_bucket_candidates(&self, ns: &str, _query: &H) -> Vec<usize> {
         let Some(ns_state) = self.get_namespace(ns) else {
             return Vec::new();
         };
+        // Coarse bucketing currently assumes specific internal representation.
+        // Return all indices as fallback for generic Hypervector trait.
         (0..ns_state.concept_vectors.len()).collect()
     }
 
@@ -243,7 +246,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
     pub(crate) fn scored_candidate_retrieval(
         &self,
         ns: &str,
-        params: ScoredCandidateParams,
+        params: ScoredCandidateParams<'_, H>,
     ) -> Arc<[(String, f32)]> {
         let Some(ns_state) = self.get_namespace(ns) else {
             return Arc::from(Vec::new());
@@ -263,13 +266,13 @@ impl<H: Hypervector + 'static> Singularity<H> {
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         let mut scores: Vec<(usize, u32)> = candidates
             .into_par_iter()
-            .map(|idx| (idx, query.hamming_distance(&ns_state.concept_vectors[idx])))
+            .map(|idx| (idx, Hypervector::hamming_distance(query, &ns_state.concept_vectors[idx])))
             .collect();
 
         #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
         let mut scores: Vec<(usize, u32)> = candidates
             .into_iter()
-            .map(|idx| (idx, query.hamming_distance(&ns_state.concept_vectors[idx])))
+            .map(|idx| (idx, Hypervector::hamming_distance(query, &ns_state.concept_vectors[idx])))
             .collect();
 
         let scoring_ns = unix_now_ns().saturating_sub(scoring_start);
@@ -351,7 +354,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
     pub(crate) fn scored_candidate_retrieval_with_stats(
         &self,
         ns: &str,
-        params: ScoredCandidateParams,
+        params: ScoredCandidateParams<'_, H>,
         selectivity: f32,
         strategy: Option<FilterStrategy>,
     ) -> Arc<[(String, f32)]> {
@@ -373,13 +376,13 @@ impl<H: Hypervector + 'static> Singularity<H> {
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         let mut scores: Vec<(usize, u32)> = candidates
             .into_par_iter()
-            .map(|idx| (idx, query.hamming_distance(&ns_state.concept_vectors[idx])))
+            .map(|idx| (idx, Hypervector::hamming_distance(query, &ns_state.concept_vectors[idx])))
             .collect();
 
         #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
         let mut scores: Vec<(usize, u32)> = candidates
             .into_iter()
-            .map(|idx| (idx, query.hamming_distance(&ns_state.concept_vectors[idx])))
+            .map(|idx| (idx, Hypervector::hamming_distance(query, &ns_state.concept_vectors[idx])))
             .collect();
 
         let scoring_ns = unix_now_ns().saturating_sub(scoring_start);

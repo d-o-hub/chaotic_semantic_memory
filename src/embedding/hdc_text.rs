@@ -49,6 +49,7 @@ impl HdcTextProvider {
 
 #[async_trait::async_trait]
 impl EmbeddingProvider for HdcTextProvider {
+    fn dimension(&self) -> usize { 10240 }
     fn name(&self) -> &str {
         "hdc-text"
     }
@@ -64,7 +65,7 @@ impl EmbeddingProvider for HdcTextProvider {
         let mut result = Vec::with_capacity(10240);
         for word in &hv.data {
             for i in 0..128 {
-                if (word >> i) & 1 == 1 {
+                if *word >= 0.0 {
                     result.push(1.0);
                 } else {
                     result.push(0.0);
@@ -93,7 +94,7 @@ impl EmbeddingProvider for HdcTextProvider {
                 if v > 0.5 {
                     let word = i / 128;
                     let bit = i % 128;
-                    hv.data[word] |= 1u128 << bit;
+                    hv.data[word * 128 + bit] = 1.0;
                 }
             }
             hv

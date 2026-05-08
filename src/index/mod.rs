@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 use crate::error::Result;
-use crate::hyperdim::{HVec10240, Hypervector};
+use crate::hyperdim::Hypervector;
 use crate::singularity::Concept;
 
 pub mod brute_force;

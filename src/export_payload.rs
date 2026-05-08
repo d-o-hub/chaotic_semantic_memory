@@ -1,3 +1,4 @@
+use crate::hyperdim::Hypervector;
 #[cfg(test)]
 mod export_payload_tests;
 

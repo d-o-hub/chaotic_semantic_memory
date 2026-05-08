@@ -19,7 +19,7 @@ impl<H: Hypervector> Default for Concept<H> {
     }
 }
 
-impl<H: Hypervector + 'static> Singularity<H> {
+impl<H: Hypervector + \'static> Singularity<H> {
     /// Purge all expired concepts from memory.
     ///
     /// Returns the number of concepts removed.

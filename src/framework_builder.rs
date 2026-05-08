@@ -111,27 +111,27 @@ impl FrameworkBuilder {
         self
     }
 
-    pub fn with_reservoir_size(mut self, size: usize) -> Self {
+    pub const fn with_reservoir_size(mut self, size: usize) -> Self {
         self.config.reservoir_size = size;
         self
     }
 
-    pub fn with_reservoir_input_size(mut self, size: usize) -> Self {
+    pub const fn with_reservoir_input_size(mut self, size: usize) -> Self {
         self.config.reservoir_input_size = size;
         self
     }
 
-    pub fn with_chaos_strength(mut self, strength: f32) -> Self {
+    pub const fn with_chaos_strength(mut self, strength: f32) -> Self {
         self.config.chaos_strength = strength;
         self
     }
 
-    pub fn with_max_concepts(mut self, max_concepts: usize) -> Self {
+    pub const fn with_max_concepts(mut self, max_concepts: usize) -> Self {
         self.config.max_concepts = Some(max_concepts);
         self
     }
 
-    pub fn with_max_associations_per_concept(mut self, max_associations: usize) -> Self {
+    pub const fn with_max_associations_per_concept(mut self, max_associations: usize) -> Self {
         self.config.max_associations_per_concept = Some(max_associations);
         self
     }
@@ -155,7 +155,7 @@ impl FrameworkBuilder {
         self
     }
 
-    pub fn with_max_metadata_bytes(mut self, max_metadata_bytes: usize) -> Self {
+    pub const fn with_max_metadata_bytes(mut self, max_metadata_bytes: usize) -> Self {
         self.config.max_metadata_bytes = Some(max_metadata_bytes);
         self
     }
@@ -175,7 +175,7 @@ impl FrameworkBuilder {
         self
     }
 
-    pub fn with_index_backend(mut self, backend: crate::index::IndexBackend) -> Self {
+    pub const fn with_index_backend(mut self, backend: crate::index::IndexBackend) -> Self {
         self.config.index_backend = backend;
         self
     }
@@ -213,7 +213,7 @@ impl FrameworkBuilder {
     /// When the `persistence` feature is disabled, this method is a no-op
     /// since persistence is already unavailable.
     #[cfg(feature = "persistence")]
-    pub fn without_persistence(mut self) -> Self {
+    pub const fn without_persistence(mut self) -> Self {
         self.config.enable_persistence = false;
         self
     }

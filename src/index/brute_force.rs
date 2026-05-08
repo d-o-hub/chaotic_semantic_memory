@@ -1,16 +1,12 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 //! Exact search via linear scan.
 
-// Casts are intentional for similarity math
-
 use std::collections::HashMap;
-
 use crate::error::Result;
-use crate::hyperdim::{HVec10240, Hypervector};
+use crate::hyperdim::Hypervector;
 use crate::index::{AnnIndex, IndexStats};
 use crate::singularity::Concept;
 
-/// Exact search via linear scan.
 #[derive(Debug)]
 pub struct BruteForce<H: Hypervector> {
     indices: Vec<String>,
@@ -50,107 +46,38 @@ impl<H: Hypervector> AnnIndex<H> for BruteForce<H> {
     }
 
     fn search(&self, query: &H, top_k: usize) -> Result<Vec<(String, f32)>> {
-        if top_k == 0 || self.indices.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let mut scores: Vec<(usize, u32)> = self
-            .vectors
-            .iter()
-            .enumerate()
-            .map(|(idx, v)| (idx, query.hamming_distance(v)))
-            .collect();
-
-        if scores.len() <= top_k {
-            scores.sort_unstable_by_key(|&(_, dist)| dist);
-        } else {
-            scores.select_nth_unstable_by(top_k - 1, |a, b| a.1.cmp(&b.1));
-            scores.truncate(top_k);
-            scores.sort_unstable_by_key(|&(_, dist)| dist);
-        }
-
-        let results: Vec<(String, f32)> = scores
-            .into_iter()
-            .map(|(idx, dist)| {
-                let similarity = query.cosine_similarity(&self.vectors[idx]);
-                (self.indices[idx].clone(), similarity)
-            })
-            .collect();
-
-        Ok(results)
+        if top_k == 0 || self.indices.is_empty() { return Ok(Vec::new()); }
+        let mut scores: Vec<(usize, f32)> = self.vectors.iter().enumerate()
+            .map(|(idx, v)| (idx, query.cosine_similarity(v))).collect();
+        scores.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        scores.truncate(top_k);
+        Ok(scores.into_iter().map(|(idx, sim)| (self.indices[idx].clone(), sim)).collect())
     }
 
-    fn search_filtered(
-        &self,
-        query: &H,
-        top_k: usize,
-        filter: &crate::metadata_filter::MetadataFilter,
-        concepts: &HashMap<String, Concept<H>>,
-    ) -> Result<Vec<(String, f32)>> {
-        if top_k == 0 || self.indices.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let mut scores: Vec<(usize, u32)> = self
-            .indices
-            .iter()
-            .enumerate()
-            .filter(|(_, id)| {
-                concepts
-                    .get(*id)
-                    .is_some_and(|c| filter.matches(&c.metadata))
-            })
-            .map(|(idx, _)| (idx, query.hamming_distance(&self.vectors[idx])))
-            .collect();
-
-        if scores.len() <= top_k {
-            scores.sort_unstable_by_key(|&(_, dist)| dist);
-        } else {
-            scores.select_nth_unstable_by(top_k - 1, |a, b| a.1.cmp(&b.1));
-            scores.truncate(top_k);
-            scores.sort_unstable_by_key(|&(_, dist)| dist);
-        }
-
-        let results: Vec<(String, f32)> = scores
-            .into_iter()
-            .map(|(idx, dist)| {
-                let similarity = query.cosine_similarity(&self.vectors[idx]);
-                (self.indices[idx].clone(), similarity)
-            })
-            .collect();
-
-        Ok(results)
+    fn search_filtered(&self, query: &H, top_k: usize, filter: &crate::metadata_filter::MetadataFilter, concepts: &HashMap<String, Concept<H>>) -> Result<Vec<(String, f32)>> {
+        if top_k == 0 || self.indices.is_empty() { return Ok(Vec::new()); }
+        let mut scores: Vec<(usize, f32)> = self.indices.iter().enumerate()
+            .filter(|(_, id)| concepts.get(*id).is_some_and(|c| filter.matches(&c.metadata)))
+            .map(|(idx, _)| (idx, query.cosine_similarity(&self.vectors[idx]))).collect();
+        scores.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        scores.truncate(top_k);
+        Ok(scores.into_iter().map(|(idx, sim)| (self.indices[idx].clone(), sim)).collect())
     }
 
     fn rebuild(&mut self, concepts: &HashMap<String, Concept<H>>) -> Result<()> {
-        self.indices.clear();
-        self.vectors.clear();
-        self.id_to_index.clear();
-
-        for (id, concept) in concepts {
-            self.insert(id.clone(), &concept.vector)?;
-        }
+        self.indices.clear(); self.vectors.clear(); self.id_to_index.clear();
+        for (id, concept) in concepts { self.insert(id.clone(), &concept.vector)?; }
         Ok(())
     }
 
     fn stats(&self) -> IndexStats {
-        IndexStats {
-            backend: "BruteForce".to_string(),
-            count: self.indices.len(),
-            memory_usage_bytes: self.indices.len()
-                * (std::mem::size_of::<String>() + std::mem::size_of::<H>() + 16),
-        }
+        IndexStats { backend: "BruteForce".to_string(), count: self.indices.len(), memory_usage_bytes: self.indices.len() * (std::mem::size_of::<String>() + std::mem::size_of::<H>() + 16) }
     }
 
-    fn serialize(&self) -> Result<Vec<u8>> {
-        // BruteForce doesn't need to serialize its state independently as it can be rebuilt from concepts.
-        // However, for trait consistency, we return an empty vec or a simple marker.
-        Ok(Vec::new())
-    }
-
-    fn deserialize(&mut self, _data: &[u8]) -> Result<()> {
-        Ok(())
-    }
+    fn serialize(&self) -> Result<Vec<u8>> { Ok(Vec::new()) }
+    fn deserialize(&mut self, _data: &[u8]) -> Result<()> { Ok(()) }
 }
 
-impl<H: Hypervector> Default for BruteForce<H> { fn default() -> Self { Self { indices: Vec::new(), vectors: Vec::new(), id_to_index: std::collections::HashMap::new() } } }
+impl<H: Hypervector> Default for BruteForce<H> {
+    fn default() -> Self { Self { indices: Vec::new(), vectors: Vec::new(), id_to_index: HashMap::new() } }
+}

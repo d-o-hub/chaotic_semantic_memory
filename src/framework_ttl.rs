@@ -3,7 +3,7 @@
 use crate::error::Result;
 use crate::hyperdim::Hypervector;
 use crate::framework_events::MemoryEvent;
-use crate::hyperdim::HVec10240;
+use crate::hyperdim::{HVec10240, Hypervector as H};
 use crate::metadata_filter::MetadataFilter;
 use crate::singularity::ConceptBuilder;
 use std::collections::HashMap;
@@ -15,7 +15,7 @@ impl<H: Hypervector> crate::framework::ChaoticSemanticFramework<H> {
     pub async fn inject_concept_with_ttl(
         &self,
         id: impl Into<String>,
-        vector: HVec10240,
+        vector: H,
         ttl_seconds: u64,
     ) -> Result<()> {
         let id = id.into();
@@ -56,7 +56,7 @@ impl<H: Hypervector> crate::framework::ChaoticSemanticFramework<H> {
         let vector = self
             .embedding_provider
             .project(&embedding, &self.projection);
-        self.inject_concept_with_ttl(id, vector, ttl_seconds).await
+        self.inject_concept_with_ttl(id, H::from_hvec(&vector), ttl_seconds).await
     }
 
     /// Purge all expired concepts. Returns the count of concepts removed.
@@ -147,7 +147,7 @@ mod tests {
             .unwrap();
 
         let before = unix_now_secs();
-        let vector = HVec10240::random();
+        let vector = H::random();
         framework
             .inject_concept_with_ttl("ttl-concept", vector, 3600)
             .await
@@ -287,7 +287,7 @@ mod tests {
             .unwrap();
 
         // Short TTL (1 second)
-        let vector = HVec10240::random();
+        let vector = H::random();
         framework
             .inject_concept_with_ttl("short-ttl", vector, 1)
             .await
@@ -295,7 +295,7 @@ mod tests {
 
         // Long TTL
         framework
-            .inject_concept_with_ttl("long-ttl", HVec10240::random(), 3600)
+            .inject_concept_with_ttl("long-ttl", H::random(), 3600)
             .await
             .unwrap();
 
@@ -340,7 +340,7 @@ mod tests {
 
         let now = unix_now_secs();
         let ttl = 7200;
-        let vector = HVec10240::random();
+        let vector = H::random();
 
         framework
             .inject_concept_with_ttl("serial-test", vector, ttl)
@@ -386,15 +386,15 @@ mod tests {
 
         // Inject multiple concepts with different TTLs (using larger margins for test stability)
         framework
-            .inject_concept_with_ttl("first", HVec10240::random(), 1)
+            .inject_concept_with_ttl("first", H::random(), 1)
             .await
             .unwrap();
         framework
-            .inject_concept_with_ttl("second", HVec10240::random(), 3)
+            .inject_concept_with_ttl("second", H::random(), 3)
             .await
             .unwrap();
         framework
-            .inject_concept_with_ttl("third", HVec10240::random(), 3600)
+            .inject_concept_with_ttl("third", H::random(), 3600)
             .await
             .unwrap();
 
@@ -477,7 +477,7 @@ mod tests {
 
         // Zero TTL should still set expires_at (immediate expiration)
         framework
-            .inject_concept_with_ttl("zero-ttl", HVec10240::random(), 0)
+            .inject_concept_with_ttl("zero-ttl", H::random(), 0)
             .await
             .unwrap();
 

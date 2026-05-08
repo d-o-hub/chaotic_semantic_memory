@@ -342,6 +342,10 @@ impl Persistence {
                 self.apply_v8_namespace_migration(conn).await?;
             }
 
+            if version == 9 {
+                self.apply_v9_vector_format_migration(conn).await?;
+            }
+
             conn.execute(
                 "INSERT INTO csm_schema_version(version) VALUES (?1)",
                 libsql::params![version],
@@ -377,5 +381,20 @@ impl Persistence {
         } else {
             Ok(0)
         }
+    }
+}
+
+impl Persistence {
+    pub(crate) async fn apply_v9_vector_format_migration(
+        &self,
+        conn: &libsql::Connection,
+    ) -> Result<()> {
+        if !self.column_exists(conn, "csm_concepts", "vector_format").await? {
+            conn.execute_batch(
+                "ALTER TABLE csm_concepts ADD COLUMN vector_format TEXT NOT NULL DEFAULT 'f32';
+                 ALTER TABLE csm_versions ADD COLUMN vector_format TEXT NOT NULL DEFAULT 'f32';"
+            ).await.map_err(|e| MemoryError::database(format!("Failed migration v9 vector_format: {e}")))?;
+        }
+        Ok(())
     }
 }

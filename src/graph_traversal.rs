@@ -1,3 +1,4 @@
+use crate::hyperdim::Hypervector;
 //! Graph traversal operations on the association graph.
 //!
 //! Provides BFS, shortest path, and neighbor queries on the concept association graph.
@@ -37,7 +38,7 @@ impl Default for TraversalConfig {
     }
 }
 
-impl Singularity {
+impl<H: Hypervector> Singularity<H> {
     /// Get direct neighbors of a concept with edge strengths.
     ///
     /// Returns outbound associations with strength >= `min_strength`.
@@ -61,7 +62,7 @@ impl Singularity {
         start: &str,
         config: &TraversalConfig,
     ) -> Result<Vec<(String, u32)>> {
-        crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
+        crate::framework::ChaoticSemanticFramework::<H>::validate_traversal_config(config)?;
         let ns_state = self
             .get_namespace(ns)
             .ok_or_else(|| MemoryError::NotFound {
@@ -119,7 +120,7 @@ impl Singularity {
         to: &str,
         config: &TraversalConfig,
     ) -> Result<Option<Vec<String>>> {
-        crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
+        crate::framework::ChaoticSemanticFramework::<H>::validate_traversal_config(config)?;
         let ns_state = self
             .get_namespace(ns)
             .ok_or_else(|| MemoryError::NotFound {
@@ -214,7 +215,7 @@ impl Singularity {
         to: &str,
         config: &TraversalConfig,
     ) -> Result<Option<Vec<String>>> {
-        crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
+        crate::framework::ChaoticSemanticFramework::<H>::validate_traversal_config(config)?;
         let ns_state = self
             .get_namespace(ns)
             .ok_or_else(|| MemoryError::NotFound {

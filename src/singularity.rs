@@ -35,6 +35,7 @@ impl Default for SingularityConfig {
 /// Represents a single memory concept
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "H: Hypervector")]
+
 pub struct Concept<H: Hypervector = HVec10240> {
     pub id: String,
     pub vector: H,
@@ -67,7 +68,7 @@ impl<H: Hypervector> ConceptBuilder<H> {
         }
     }
 
-    pub fn with_vector(mut self, vector: H) -> Self {
+    pub const fn with_vector(mut self, vector: H) -> Self {
         self.vector = Some(vector);
         self
     }

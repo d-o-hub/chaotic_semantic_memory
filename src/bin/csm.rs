@@ -90,7 +90,7 @@ mod native {
         if git_local {
             let path = resolve_git_local_path().ok_or_else(|| {
                 CliError::Config(
-                    "--git-local specified but not in a git repository. '
+                    "--git-local specified but not in a git repository. \
                      Run this command inside a git repo or use --database to specify a path."
                         .to_string(),
                 )

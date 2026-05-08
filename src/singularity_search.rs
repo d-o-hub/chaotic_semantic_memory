@@ -20,7 +20,7 @@ use crate::singularity_state::NamespaceState;
 
 /// Try to retrieve results from the similarity cache.
 /// Returns `Some(results)` on cache hit, `None` on miss or cache bypass.
-fn try_cache_lookup<H: Hypervector + 'static>(
+fn try_cache_lookup<H: Hypervector>(
     ns_state: &NamespaceState<H>,
     query: &H,
     top_k: usize,
@@ -60,7 +60,7 @@ fn try_cache_lookup<H: Hypervector + 'static>(
 /// Try to retrieve results from the ANN index.
 /// Returns `Some(results)` on ANN hit, `None` for BruteForce backend or
 /// ANN search failure (falls through to exact scan).
-fn try_ann_lookup<H: Hypervector + 'static>(
+fn try_ann_lookup<H: Hypervector>(
     ns_state: &NamespaceState<H>,
     query: &H,
     top_k: usize,
@@ -97,7 +97,7 @@ fn try_ann_lookup<H: Hypervector + 'static>(
     None
 }
 
-impl<H: Hypervector + 'static> Singularity<H> {
+impl<H: Hypervector + \'static> Singularity<H> {
     /// Find similar concepts using cosine similarity
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self, ns, query), fields(top_k = top_k)))]
     pub fn find_similar(&self, ns: &str, query: &H, top_k: usize) -> Vec<(String, f32)> {

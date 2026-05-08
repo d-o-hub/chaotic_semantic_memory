@@ -1,10 +1,10 @@
+use crate::retrieval::graph_rag::graph_rag_retrieve_generic;
 //! GraphRAG retrieval extension for framework.
 
 use crate::error::Result;
 use crate::hyperdim::Hypervector;
 use crate::framework::ChaoticSemanticFramework;
-use crate::hyperdim::Hypervector;
-use crate::retrieval::{GraphRagConfig, GraphRagResult, graph_rag_retrieve_generic};
+use crate::retrieval::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
 use tracing::instrument;
 
 impl<H: Hypervector> ChaoticSemanticFramework<H> {

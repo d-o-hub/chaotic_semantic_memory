@@ -407,9 +407,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
 
         Ok(FrameworkStats {
             concept_count,
-            db_size_bytes: db_size,
+            db_size,
         })
     }
-
-
 }
