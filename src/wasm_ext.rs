@@ -461,51 +461,30 @@ mod tests {
         assert_eq!(results[0].0, "default-concept");
     }
 
-    // encode_text functionality without WASM target
-    fn native_encode_text(text: &str) -> Box<[u8]> {
-        let encoder = crate::encoder::TextEncoder::new();
-        encoder.encode(text).to_bytes().into_boxed_slice()
+    fn native_enc(t: &str) -> Box<[u8]> {
+        crate::encoder::TextEncoder::new()
+            .encode(t)
+            .to_bytes()
+            .into_boxed_slice()
     }
 
     #[test]
     fn wasm_encode_text_consistency() {
-        let text = "Consistency is key in HDC.";
-        let encoded1 = native_encode_text(text);
-        let encoded2 = native_encode_text(text);
-        assert_eq!(
-            encoded1, encoded2,
-            "Encoding the same string should produce identical hypervectors"
-        );
+        assert_eq!(native_enc("Test"), native_enc("Test"));
     }
 
     #[test]
     fn wasm_encode_text_length() {
-        let text = "Check length constraints.";
-        let encoded = native_encode_text(text);
-        assert_eq!(
-            encoded.len(),
-            1280,
-            "Encoded hypervector must be exactly 1280 bytes"
-        );
+        assert_eq!(native_enc("Len").len(), 1280);
     }
 
     #[test]
     fn wasm_encode_text_difference() {
-        let encoded1 = native_encode_text("First unique string");
-        let encoded2 = native_encode_text("Second unique string");
-        assert_ne!(
-            encoded1, encoded2,
-            "Different strings should produce different hypervectors"
-        );
+        assert_ne!(native_enc("A"), native_enc("B"));
     }
 
     #[test]
     fn wasm_encode_text_empty() {
-        let encoded = native_encode_text("");
-        assert_eq!(
-            encoded.len(),
-            1280,
-            "Empty string should produce a valid 1280-byte hypervector"
-        );
+        assert_eq!(native_enc("").len(), 1280);
     }
 }
