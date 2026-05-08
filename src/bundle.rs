@@ -98,12 +98,14 @@ impl BundleAccumulator {
             return HVec10240::zero();
         }
 
+        let threshold = (self.n / 2) as i32;
+
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
         {
             if is_x86_feature_detected!("avx2") {
                 // SAFETY: AVX2 feature detected at runtime.
                 return HVec10240 {
-                    data: unsafe { finalize_simd_avx2(&self.counts) },
+                    data: unsafe { finalize_simd_avx2(&self.counts, threshold) },
                 };
             }
         }
@@ -112,14 +114,13 @@ impl BundleAccumulator {
         {
             // SAFETY: finalize_simd_neon is safe on aarch64.
             return HVec10240 {
-                data: unsafe { finalize_simd_neon(&self.counts) },
+                data: unsafe { finalize_simd_neon(&self.counts, threshold) },
             };
         }
 
         #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
         {
             let mut data = [0u128; 80];
-            let threshold = 0; // Majority threshold: count > 0
 
             for (i, word) in data.iter_mut().enumerate() {
                 let offset = i * 128;
