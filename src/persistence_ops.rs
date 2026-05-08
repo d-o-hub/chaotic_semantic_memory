@@ -34,7 +34,7 @@ impl Persistence {
         for (from, to, strength) in associations {
             stmt.reset();
             if let Err(e) = stmt
-                .execute(params![ns.to_string(), from.clone(), to.clone(), *strength])
+                .execute(params![ns, from, to, *strength])
                 .await
             {
                 first_error = Some(MemoryError::database(format!(
@@ -59,7 +59,6 @@ impl Persistence {
     pub async fn clear_namespace(&self, ns: &str) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
-        let ns_param = ns.to_string();
         conn.execute("BEGIN", ())
             .await
             .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {e}")))?;
@@ -73,7 +72,7 @@ impl Persistence {
         ];
 
         for sql in &tables {
-            if let Err(e) = conn.execute(sql, params![ns_param.clone()]).await {
+            if let Err(e) = conn.execute(sql, params![ns]).await {
                 let _ = conn.execute("ROLLBACK", ()).await;
                 return Err(MemoryError::database(format!(
                     "Failed to clear namespace data: {e}"
@@ -120,7 +119,7 @@ impl Persistence {
                  WHERE namespace = ?1 AND concept_id = ?2
                  ORDER BY version DESC
                  LIMIT ?3",
-                libsql::params![ns.to_string(), id, limit as i64],
+                libsql::params![ns, id, limit as i64],
             )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to load concept history: {e}")))?;
@@ -288,7 +287,7 @@ impl Persistence {
         let conn = self.connect().await?;
         conn.execute(
             "DELETE FROM csm_associations WHERE namespace = ?1 AND from_id = ?2 AND to_id = ?3",
-            params![ns.to_string(), from, to],
+            params![ns, from, to],
         )
         .await
         .map_err(|e| MemoryError::database(format!("Failed to delete association: {e}")))?;
@@ -301,7 +300,7 @@ impl Persistence {
         let conn = self.connect().await?;
         conn.execute(
             "DELETE FROM csm_associations WHERE namespace = ?1 AND from_id = ?2",
-            params![ns.to_string(), id],
+            params![ns, id],
         )
         .await
         .map_err(|e| MemoryError::database(format!("Failed to clear concept associations: {e}")))?;
