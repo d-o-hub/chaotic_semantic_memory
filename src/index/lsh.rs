@@ -141,7 +141,7 @@ impl<H: Hypervector> AnnIndex<H> for LshIndex<H> {
                 let bytes = stored_vec.to_bytes();
                 let converted: H = H::from_bytes(&bytes).unwrap_or_else(|_| H::zero());
                 let dist = query.hamming_distance(&converted);
-                let similarity = 1.0 - (dist as f32 / 5120.0);
+                let similarity = 1.0 - (dist as f32 / (H::DIMENSION as f32 / 2.0));
                 scores.push(((*id).clone(), similarity));
             }
         }
@@ -183,7 +183,7 @@ impl<H: Hypervector> AnnIndex<H> for LshIndex<H> {
                 let bytes = stored_vec.to_bytes();
                 let converted: H = H::from_bytes(&bytes).unwrap_or_else(|_| H::zero());
                 let dist = query.hamming_distance(&converted);
-                let similarity = 1.0 - (dist as f32 / 5120.0);
+                let similarity = 1.0 - (dist as f32 / (H::DIMENSION as f32 / 2.0));
                 scores.push(((*id).clone(), similarity));
             }
         }
@@ -198,7 +198,7 @@ impl<H: Hypervector> AnnIndex<H> for LshIndex<H> {
                 .filter(|(_, c)| filter.matches(&c.metadata))
                 .map(|(id, c)| {
                     let dist = query.hamming_distance(&c.vector);
-                    let similarity = 1.0 - (dist as f32 / 5120.0);
+                    let similarity = 1.0 - (dist as f32 / (H::DIMENSION as f32 / 2.0));
                     (id.clone(), similarity)
                 })
                 .collect();

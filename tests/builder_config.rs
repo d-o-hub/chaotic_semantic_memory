@@ -91,10 +91,10 @@ async fn max_probe_top_k_rejects_excess() {
             .unwrap();
     }
 
-    let err = framework.probe(HVec10240::random(), 10).await;
+    let err = framework.probe(&HVec10240::random(), 10).await;
     assert!(matches!(err, Err(MemoryError::InvalidInput { .. })));
 
-    let ok = framework.probe(HVec10240::random(), 5).await;
+    let ok = framework.probe(&HVec10240::random(), 5).await;
     assert!(ok.is_ok());
 }
 

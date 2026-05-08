@@ -30,7 +30,7 @@ async fn test_hnsw_index_integration() {
 
     // Probe with a copy of one of the injected vectors
     let query = injected[5];
-    let results = framework.probe(query, 5).await.unwrap();
+    let results = framework.probe(&query, 5).await.unwrap();
 
     assert!(!results.is_empty());
     assert_eq!(results[0].0, "concept-5");
@@ -61,7 +61,7 @@ async fn test_lsh_index_integration() {
 
     // Probe with a copy of one of the injected vectors
     let query = injected[10];
-    let results = framework.probe(query, 5).await.unwrap();
+    let results = framework.probe(&query, 5).await.unwrap();
 
     assert!(!results.is_empty());
     // LSH might not be as perfect as HNSW on this tiny set if bits aren't sampled,

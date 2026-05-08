@@ -1,6 +1,6 @@
 import re
 
-with open('src/singularity.rs', 'r') as f:
+with open('src/singularity.rs') as f:
     content = f.read()
 
 content = content.replace('Option<&Concept>', 'Option<&Concept<H>>')

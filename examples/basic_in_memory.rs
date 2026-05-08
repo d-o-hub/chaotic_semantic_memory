@@ -17,7 +17,7 @@ async fn main() -> Result<()> {
     framework.associate("rust", "memory", 0.8).await?;
 
     let query = HVec10240::random();
-    let hits = framework.probe(query, 3).await?;
+    let hits = framework.probe(&query, 3).await?;
     println!("top hits: {hits:?}");
 
     Ok(())

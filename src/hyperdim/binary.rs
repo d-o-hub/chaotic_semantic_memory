@@ -75,7 +75,11 @@ impl Hypervector for BHVec10240 {
         Ok(Self { bits })
     }
     fn permute(&self, shift: usize) -> Self {
-        // Simple word-level for now
+        // Guard: permute with zero shift returns self (no change)
+        if shift == 0 {
+            return *self;
+        }
+        // Simple word-level shift
         let mut bits = [0u64; 160];
         let s = (shift / 64) % 160;
         for i in 0..160 {

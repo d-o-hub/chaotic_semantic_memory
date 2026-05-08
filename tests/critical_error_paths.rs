@@ -71,7 +71,7 @@ async fn probe_respects_configured_top_k_limit() {
         .await
         .unwrap();
 
-    let err = framework.probe(HVec10240::random(), 4).await.unwrap_err();
+    let err = framework.probe(&HVec10240::random(), 4).await.unwrap_err();
     let text = err.to_string();
     assert!(text.contains("configured limit"));
 }

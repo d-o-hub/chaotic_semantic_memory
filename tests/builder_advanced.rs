@@ -126,7 +126,7 @@ async fn builder_with_max_probe_top_k_custom() {
         .unwrap();
 
     // Probe with valid top_k
-    let results = framework.probe(HVec10240::random(), 10).await.unwrap();
+    let results = framework.probe(&HVec10240::random(), 10).await.unwrap();
     assert!(results.len() <= 1);
 }
 

@@ -62,7 +62,7 @@ async fn main() -> Result<()> {
 
     // Query for similar messages
     let query = HVec10240::random();
-    let hits = framework.probe(query, 3).await?;
+    let hits = framework.probe(&query, 3).await?;
     println!("🔍 Top 3 messages by similarity:");
     for (id, score) in &hits {
         let concept = framework.get_concept(id).await?.unwrap();

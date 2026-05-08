@@ -202,7 +202,7 @@ async fn test_clear_similarity_cache() {
     framework.inject_concept(id, vector).await.unwrap();
 
     // Query to populate cache
-    let _ = framework.probe(vector, 10).await.unwrap();
+    let _ = framework.probe(&vector, 10).await.unwrap();
 
     // Clear cache (should not error)
     framework.clear_similarity_cache().await;

@@ -131,7 +131,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
     // Lock needed for expired concept filtering
     #[allow(clippy::significant_drop_tightening)]
     #[instrument(err, skip(self, query))]
-    pub async fn probe(&self, query: H, top_k: usize) -> Result<Vec<(String, f32)>> {
+    pub async fn probe(&self, query: &H, top_k: usize) -> Result<Vec<(String, f32)>> {
         self.validate_top_k(top_k)?;
         #[cfg(not(target_arch = "wasm32"))]
         let start = std::time::Instant::now();
@@ -140,7 +140,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         let (results, expired_ids) = {
             let sing = self.singularity.read().await;
             let ns = self.namespace.read().await;
-            let results = sing.find_similar(&ns, &query, top_k);
+            let results = sing.find_similar(&ns, query, top_k);
 
             let now = crate::singularity::unix_now_secs();
             let expired_ids: std::collections::HashSet<String> = results

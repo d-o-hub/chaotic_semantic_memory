@@ -86,7 +86,7 @@ impl<H: Hypervector> AnnIndex<H> for BruteForce<H> {
         let results: Vec<(String, f32)> = scores
             .into_iter()
             .map(|(idx, dist)| {
-                let similarity = 1.0 - (dist as f32 / 5120.0);
+                let similarity = 1.0 - (dist as f32 / (H::DIMENSION as f32 / 2.0));
                 (self.indices[idx].clone(), similarity)
             })
             .collect();
@@ -128,7 +128,7 @@ impl<H: Hypervector> AnnIndex<H> for BruteForce<H> {
         let results: Vec<(String, f32)> = scores
             .into_iter()
             .map(|(idx, dist)| {
-                let similarity = 1.0 - (dist as f32 / 5120.0);
+                let similarity = 1.0 - (dist as f32 / (H::DIMENSION as f32 / 2.0));
                 (self.indices[idx].clone(), similarity)
             })
             .collect();

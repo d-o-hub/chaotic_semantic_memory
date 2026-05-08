@@ -115,7 +115,7 @@ impl Persistence {
 
         let mut rows = conn
             .query(
-                "SELECT concept_id, version, vector, metadata, modified_at
+                "SELECT concept_id, version, vector, metadata, modified_at, COALESCE(vector_format, 'float')
                  FROM csm_versions
                  WHERE namespace = ?1 AND concept_id = ?2
                  ORDER BY version DESC
@@ -144,6 +144,9 @@ impl Persistence {
             let modified_at: i64 = row
                 .get(4)
                 .map_err(|e| MemoryError::database(format!("Failed to get modified_at: {e}")))?;
+            let vector_format: String = row
+                .get(5)
+                .map_err(|e| MemoryError::database(format!("Failed to get vector_format: {e}")))?;
 
             history.push(ConceptVersion {
                 concept_id,
@@ -151,6 +154,7 @@ impl Persistence {
                 vector: crate::hyperdim::HVec10240::from_bytes(&vector_bytes)?,
                 metadata: serde_json::from_str(&metadata_json)?,
                 modified_at: modified_at as u64,
+                vector_format,
             });
         }
 
@@ -242,8 +246,8 @@ impl Persistence {
                  SELECT namespace, id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json FROM restore_db.csm_concepts;
                  INSERT INTO csm_associations (namespace, from_id, to_id, strength)
                  SELECT namespace, from_id, to_id, strength FROM restore_db.csm_associations;
-                 INSERT INTO csm_versions (namespace, concept_id, version, vector, metadata, modified_at)
-                 SELECT namespace, concept_id, version, vector, metadata, modified_at FROM restore_db.csm_versions;
+                 INSERT INTO csm_versions (namespace, concept_id, version, vector, metadata, modified_at, vector_format)
+                 SELECT namespace, concept_id, version, vector, metadata, modified_at, COALESCE(vector_format, 'float') FROM restore_db.csm_versions;
                  INSERT INTO csm_hnsw_graph (namespace, id, data, modified_at)
                  SELECT namespace, id, data, modified_at FROM restore_db.csm_hnsw_graph;
                  INSERT INTO csm_canonical (namespace, id, version, labels_json, related_json)

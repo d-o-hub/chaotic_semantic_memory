@@ -127,7 +127,7 @@ impl<H: Hypervector> crate::framework::ChaoticSemanticFramework<H> {
                 reason: format!("failed to convert vector: {e}"),
             }
         })?;
-        self.probe(vector, top_k).await
+        self.probe(&vector, top_k).await
     }
 
     /// Probe for similar concepts using text input and metadata filtering.

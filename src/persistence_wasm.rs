@@ -17,6 +17,8 @@ pub struct ConceptVersion {
     pub vector: HVec10240,
     pub metadata: serde_json::Value,
     pub modified_at: u64,
+    /// Format of the stored vector (e.g., "float", "binary")
+    pub vector_format: String,
 }
 
 impl Persistence {

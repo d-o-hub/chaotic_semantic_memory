@@ -42,15 +42,16 @@ impl Persistence {
         let metadata_json = serde_json::to_string(&concept.metadata)?;
 
         conn.execute(
-            "INSERT INTO csm_versions (namespace, concept_id, version, vector, metadata, modified_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            "INSERT INTO csm_versions (namespace, concept_id, version, vector, metadata, modified_at, vector_format)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
                 ns.to_string(),
                 concept.id.clone(),
                 next_version,
                 vector_bytes,
                 metadata_json,
-                concept.modified_at as i64
+                concept.modified_at as i64,
+                H::format_name()
             ],
         )
         .await

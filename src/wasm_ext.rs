@@ -439,7 +439,7 @@ mod tests {
         assert_eq!(framework.namespace().await, "tenant-a");
 
         // 3. Verify default concept is not visible in tenant-a
-        let results = framework.probe(HVec10240::random(), 10).await.unwrap();
+        let results = framework.probe(&HVec10240::random(), 10).await.unwrap();
         assert!(results.is_empty());
 
         // 4. Inject into tenant-a
@@ -447,7 +447,7 @@ mod tests {
             .inject_concept("tenant-concept", HVec10240::random())
             .await
             .unwrap();
-        let results = framework.probe(HVec10240::random(), 10).await.unwrap();
+        let results = framework.probe(&HVec10240::random(), 10).await.unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].0, "tenant-concept");
 
@@ -456,7 +456,7 @@ mod tests {
         assert_eq!(framework.namespace().await, "_default");
 
         // 6. Verify only default concept is visible
-        let results = framework.probe(HVec10240::random(), 10).await.unwrap();
+        let results = framework.probe(&HVec10240::random(), 10).await.unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].0, "default-concept");
     }

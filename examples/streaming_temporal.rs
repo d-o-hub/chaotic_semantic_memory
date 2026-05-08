@@ -75,7 +75,7 @@ async fn main() -> Result<()> {
     println!("\n🔍 Query: slightly shifted sine wave");
 
     // Probe for similar temporal patterns
-    let hits = framework.probe(query_hvec, 3).await?;
+    let hits = framework.probe(&query_hvec, 3).await?;
     println!("\n📊 Temporal similarity results:");
     for (id, score) in &hits {
         println!("   {id}: {score:.4}");

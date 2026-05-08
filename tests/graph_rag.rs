@@ -41,7 +41,7 @@ async fn test_graph_rag_synthetic_structure() {
         final_top_k: 10,
     };
 
-    let results = framework.probe_with_graph(v0, config).await.unwrap();
+    let results = framework.probe_with_graph(&v0, config).await.unwrap();
 
     // Expected results:
     // c0: similarity=1.0, hops=0, score = 0.5*1.0 + 0.5*(1/1)*1.0 = 1.0
@@ -101,7 +101,7 @@ async fn test_graph_rag_connected_outranks_similarity() {
         ..Default::default()
     };
 
-    let results = framework.probe_with_graph(v_query, config).await.unwrap();
+    let results = framework.probe_with_graph(&v_query, config).await.unwrap();
     let ids: Vec<String> = results.iter().map(|r| r.id.clone()).collect();
 
     // If "anchor" was chosen as the anchor, "neighbor" should be present.
@@ -136,7 +136,7 @@ async fn test_graph_rag_cycles() {
     };
 
     let results = framework
-        .probe_with_graph(HVec10240::random(), config)
+        .probe_with_graph(&HVec10240::random(), config)
         .await
         .unwrap();
     // Should not hang and should have both concepts
@@ -149,7 +149,7 @@ async fn test_graph_rag_empty_isolated() {
 
     // Empty
     let results = framework
-        .probe_with_graph(HVec10240::random(), GraphRagConfig::default())
+        .probe_with_graph(&HVec10240::random(), GraphRagConfig::default())
         .await
         .unwrap();
     assert!(results.is_empty());
@@ -160,7 +160,7 @@ async fn test_graph_rag_empty_isolated() {
         .await
         .unwrap();
     let results = framework
-        .probe_with_graph(HVec10240::random(), GraphRagConfig::default())
+        .probe_with_graph(&HVec10240::random(), GraphRagConfig::default())
         .await
         .unwrap();
     assert_eq!(results.len(), 1);

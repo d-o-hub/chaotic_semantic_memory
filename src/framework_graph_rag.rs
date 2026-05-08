@@ -19,7 +19,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
     #[allow(clippy::significant_drop_tightening)]
     pub async fn probe_with_graph(
         &self,
-        query: H,
+        query: &H,
         config: GraphRagConfig,
     ) -> Result<Vec<GraphRagResult>> {
         self.validate_top_k(config.anchor_top_k)?;
@@ -31,7 +31,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
             (sing.all_concepts(&ns), sing.all_associations(&ns))
         };
 
-        graph_rag_retrieve_generic(&query, &concepts, &associations, &config)
+        graph_rag_retrieve_generic(query, &concepts, &associations, &config)
     }
 
     /// GraphRAG retrieval using configured embedding provider for text query.
@@ -52,6 +52,6 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
                 field: "query".to_string(),
                 reason: format!("failed to convert hypervector: {e}"),
             })?;
-        self.probe_with_graph(query, config).await
+        self.probe_with_graph(&query, config).await
     }
 }

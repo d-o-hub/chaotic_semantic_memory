@@ -8,7 +8,7 @@ use crate::hyperdim::HVec10240;
 use libsql::{Builder, Connection, Database, params};
 use std::sync::Arc;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-pub(crate) const LATEST_SCHEMA_VERSION: i64 = 8;
+pub(crate) const LATEST_SCHEMA_VERSION: i64 = 9;
 
 #[derive(Debug)]
 pub struct Persistence {
@@ -25,6 +25,8 @@ pub struct ConceptVersion {
     pub vector: HVec10240,
     pub metadata: serde_json::Value,
     pub modified_at: u64,
+    /// Format of the stored vector (e.g., "float", "binary")
+    pub vector_format: String,
 }
 
 impl Persistence {
@@ -137,6 +139,7 @@ impl Persistence {
                 vector BLOB NOT NULL,
                 metadata TEXT NOT NULL,
                 modified_at INTEGER NOT NULL,
+                vector_format TEXT NOT NULL DEFAULT 'float',
                 PRIMARY KEY (concept_id, version),
                 FOREIGN KEY (concept_id) REFERENCES csm_concepts(id)
             );

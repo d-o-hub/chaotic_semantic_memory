@@ -79,7 +79,7 @@ async fn main() -> Result<()> {
 
     // Simulate a user query
     let query_vec = HVec10240::random();
-    let all_hits = framework.probe(query_vec, 8).await?;
+    let all_hits = framework.probe(&query_vec, 8).await?;
 
     println!("🔍 All results ranked by similarity:");
     for (id, score) in &all_hits {

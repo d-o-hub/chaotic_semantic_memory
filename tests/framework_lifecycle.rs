@@ -26,7 +26,7 @@ async fn framework_lifecycle_with_persistence() {
         .unwrap();
     framework.associate("a", "b", 0.7).await.unwrap();
 
-    let probe = framework.probe(vec_a, 2).await.unwrap();
+    let probe = framework.probe(&vec_a, 2).await.unwrap();
     assert!(!probe.is_empty());
 
     framework.persist().await.unwrap();
@@ -64,7 +64,7 @@ async fn framework_input_validation_rejects_invalid_public_inputs() {
         Err(MemoryError::InvalidInput { .. })
     ));
 
-    let bad_top_k = framework.probe(HVec10240::random(), 0).await;
+    let bad_top_k = framework.probe(&HVec10240::random(), 0).await;
     assert!(matches!(bad_top_k, Err(MemoryError::InvalidInput { .. })));
 }
 
@@ -117,7 +117,7 @@ async fn concurrent_access_with_persistence() {
             framework
                 .inject_concept(id.clone(), HVec10240::random())
                 .await?;
-            framework.probe(HVec10240::random(), 5).await?;
+            framework.probe(&HVec10240::random(), 5).await?;
             framework.get_associations(&id).await?;
             Ok::<(), MemoryError>(())
         }));

@@ -20,7 +20,7 @@ async fn inject_concept_with_ttl_stores_concept() {
         .await
         .unwrap();
 
-    let results = framework.probe(vector, 10).await.unwrap();
+    let results = framework.probe(&vector, 10).await.unwrap();
     assert!(results.iter().any(|(id, _)| id == "ttl-concept"));
 }
 
@@ -70,7 +70,7 @@ async fn purge_expired_removes_expired_concepts() {
     assert!(purged >= 1, "At least one concept should be purged");
 
     // Verify long-ttl still exists
-    let results = framework.probe(HVec10240::random(), 10).await.unwrap();
+    let results = framework.probe(&HVec10240::random(), 10).await.unwrap();
     let ids: Vec<&str> = results.iter().map(|(id, _)| id.as_str()).collect();
     assert!(ids.contains(&"long-ttl"), "Long TTL concept should remain");
 }

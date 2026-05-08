@@ -44,7 +44,7 @@ async fn test_index_persistence_roundtrip() {
 
         // Re-generate the same vector for query (random seed not deterministic across scopes)
         let query_vec = HVec10240::random();
-        let results = framework.probe(query_vec, 1).await.unwrap();
+        let results = framework.probe(&query_vec, 1).await.unwrap();
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].0, "persist-test");

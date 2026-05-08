@@ -1,7 +1,6 @@
 //! Incremental bundle accumulator for streaming/sliding-window memory.
 
 use crate::error::{MemoryError, Result};
-<<<<<<< HEAD
 use crate::hyperdim::{HVec10240, Hypervector};
 
 /// Incremental bundle accumulator for streaming/sliding-window memory.
@@ -92,6 +91,9 @@ impl BundleAccumulator {
             } else {
                 data[i] = -1.0;
             }
+        }
+
+        HVec10240 { data }
     }
 
     /// Get the number of hypervectors in the accumulator.

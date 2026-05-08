@@ -37,7 +37,7 @@ impl WasmFramework {
 
         let results = self
             .framework
-            .probe_with_graph(query, config)
+            .probe_with_graph(&query, config)
             .await
             .map_err(to_js_error)?;
 

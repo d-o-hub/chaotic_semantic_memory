@@ -106,7 +106,7 @@ async fn inject_concepts_with_persistence() {
     assert_eq!(stats.concept_count, 3);
 
     for (id, vec) in concepts {
-        let probe = framework2.probe(vec, 1).await.unwrap();
+        let probe = framework2.probe(&vec, 1).await.unwrap();
         assert!(!probe.is_empty());
         assert_eq!(probe[0].0, id);
     }

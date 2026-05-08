@@ -117,8 +117,8 @@ impl Persistence {
         if self.table_exists(conn, "concept_versions").await? {
             if self.table_exists(conn, "csm_versions").await? {
                 conn.execute_batch(
-                    "INSERT OR IGNORE INTO csm_versions (concept_id, version, vector, metadata, modified_at)
-                     SELECT concept_id, version, vector, metadata, modified_at FROM concept_versions;
+                    "INSERT OR IGNORE INTO csm_versions (concept_id, version, vector, metadata, modified_at, vector_format)
+                     SELECT concept_id, version, vector, metadata, modified_at, 'float' FROM concept_versions;
                      DROP TABLE concept_versions;",
                 )
                 .await
@@ -215,11 +215,12 @@ impl Persistence {
                  vector BLOB NOT NULL,
                  metadata TEXT NOT NULL,
                  modified_at INTEGER NOT NULL,
+                 vector_format TEXT NOT NULL DEFAULT 'float',
                  PRIMARY KEY (namespace, concept_id, version),
                  FOREIGN KEY (namespace, concept_id) REFERENCES csm_concepts(namespace, id)
              );
-             INSERT INTO csm_versions (concept_id, version, vector, metadata, modified_at)
-             SELECT concept_id, version, vector, metadata, modified_at FROM csm_versions_old;
+             INSERT INTO csm_versions (concept_id, version, vector, metadata, modified_at, vector_format)
+             SELECT concept_id, version, vector, metadata, modified_at, 'float' FROM csm_versions_old;
              DROP TABLE csm_versions_old;
              CREATE INDEX idx_csm_versions_namespace ON csm_versions(namespace);
              CREATE INDEX idx_csm_versions_modified_at ON csm_versions(namespace, modified_at);
@@ -339,6 +340,18 @@ impl Persistence {
 
             if version == 8 {
                 self.apply_v8_namespace_migration(conn).await?;
+            }
+
+            if version == 9
+                && !self
+                    .column_exists(conn, "csm_versions", "vector_format")
+                    .await?
+            {
+                conn.execute_batch(
+                    "ALTER TABLE csm_versions ADD COLUMN vector_format TEXT NOT NULL DEFAULT 'float';",
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v9: {e}")))?;
             }
 
             conn.execute(

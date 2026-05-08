@@ -141,7 +141,7 @@ impl<H: Hypervector> AnnIndex<H> for HnswIndex<H> {
         let mut final_results = Vec::with_capacity(results.len());
         for neighbor in results {
             if let Some(id) = self.idx_to_id.get(&neighbor.d_id) {
-                let similarity = 1.0 - (neighbor.distance / 5120.0);
+                let similarity = 1.0 - (neighbor.distance / (HVec10240::DIMENSION as f32 / 2.0));
                 final_results.push((id.clone(), similarity));
                 if final_results.len() >= top_k {
                     break;
@@ -173,7 +173,8 @@ impl<H: Hypervector> AnnIndex<H> for HnswIndex<H> {
             if let Some(id) = self.idx_to_id.get(&neighbor.d_id) {
                 if let Some(concept) = concepts.get(id) {
                     if filter.matches(&concept.metadata) {
-                        let similarity = 1.0 - (neighbor.distance / 5120.0);
+                        let similarity =
+                            1.0 - (neighbor.distance / (HVec10240::DIMENSION as f32 / 2.0));
                         filtered_results.push((id.clone(), similarity));
                         if filtered_results.len() >= top_k {
                             break;
@@ -190,7 +191,8 @@ impl<H: Hypervector> AnnIndex<H> for HnswIndex<H> {
                 .map(|(id, c)| {
                     (
                         id.clone(),
-                        1.0 - (query.hamming_distance(&c.vector) as f32 / 5120.0),
+                        1.0 - (query.hamming_distance(&c.vector) as f32
+                            / (H::DIMENSION as f32 / 2.0)),
                     )
                 })
                 .collect();

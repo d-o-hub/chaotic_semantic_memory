@@ -101,6 +101,8 @@ pub mod persistence {
         pub vector: H,
         pub metadata: serde_json::Value,
         pub modified_at: u64,
+        /// Format of the stored vector (e.g., "float", "binary")
+        pub vector_format: String,
     }
 
     impl Persistence {

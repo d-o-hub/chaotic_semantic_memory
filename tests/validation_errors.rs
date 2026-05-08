@@ -130,7 +130,7 @@ async fn top_k_zero_fails() {
         .await
         .unwrap();
 
-    let result = framework.probe(HVec10240::random(), 0).await;
+    let result = framework.probe(&HVec10240::random(), 0).await;
     assert!(result.is_err());
 }
 

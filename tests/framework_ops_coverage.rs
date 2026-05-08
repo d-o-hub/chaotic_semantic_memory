@@ -128,7 +128,7 @@ async fn update_concept_vector_changes_vector() {
         .unwrap();
 
     // Probe with new vector should find it
-    let results = framework.probe(new_vector, 5).await.unwrap();
+    let results = framework.probe(&new_vector, 5).await.unwrap();
     assert!(results.iter().any(|(id, _)| id == "update-vector"));
 }
 
