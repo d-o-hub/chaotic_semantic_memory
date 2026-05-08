@@ -116,19 +116,22 @@ impl BundleAccumulator {
             };
         }
 
-        let mut data = [0u128; 80];
-        let threshold = 0; // Majority threshold: count > 0
+        #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
+        {
+            let mut data = [0u128; 80];
+            let threshold = 0; // Majority threshold: count > 0
 
-        for (i, word) in data.iter_mut().enumerate() {
-            let offset = i * 128;
-            for j in 0..128 {
-                // Branchless bit construction to reduce misprediction penalties
-                let condition = self.counts[offset + j] > threshold;
-                *word |= (condition as u128) << j;
+            for (i, word) in data.iter_mut().enumerate() {
+                let offset = i * 128;
+                for j in 0..128 {
+                    // Branchless bit construction to reduce misprediction penalties
+                    let condition = self.counts[offset + j] > threshold;
+                    *word |= (condition as u128) << j;
+                }
             }
-        }
 
-        HVec10240 { data }
+            HVec10240 { data }
+        }
     }
 
     /// Get the number of hypervectors in the accumulator.
