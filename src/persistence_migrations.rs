@@ -37,21 +37,20 @@ impl Persistence {
         table_name: &str,
         column_name: &str,
     ) -> Result<bool> {
-        // Validate table_name to prevent SQL injection in pragma_table_info (CWE-89)
-        if !table_name
-            .chars()
-            .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
-        {
+        // Validate table_name to prevent potential issues in pragma_table_info (CWE-89)
+        if table_name.is_empty() {
             return Err(MemoryError::InvalidInput {
                 field: "table_name".to_string(),
-                reason: "Table name contains invalid characters".to_string(),
+                reason: "Table name cannot be empty".to_string(),
             });
         }
 
-        let sql = format!("SELECT COUNT(*) FROM pragma_table_info('{table_name}') WHERE name = ?1");
+        // Use parameter binding for both the table name and the column name.
+        // pragma_table_info supports parameter binding for its argument.
+        let sql = "SELECT COUNT(*) FROM pragma_table_info(?1) WHERE name = ?2";
 
         let mut rows = conn
-            .query(&sql, params![column_name])
+            .query(sql, params![table_name, column_name])
             .await
             .map_err(|e| MemoryError::database(format!("Failed to check column existence: {e}")))?;
 

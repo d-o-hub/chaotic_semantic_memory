@@ -2,6 +2,10 @@
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+use crate::hyperdim_simd::finalize_simd_avx2;
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+use crate::hyperdim_simd::finalize_simd_neon;
 
 /// Incremental bundle accumulator for streaming/sliding-window memory.
 ///
@@ -94,19 +98,41 @@ impl BundleAccumulator {
             return HVec10240::zero();
         }
 
-        let mut data = [0u128; 80];
-        let threshold = 0; // Majority threshold: count > 0
+        let threshold = (self.n / 2) as i32;
 
-        for (i, word) in data.iter_mut().enumerate() {
-            let offset = i * 128;
-            for j in 0..128 {
-                // Branchless bit construction to reduce misprediction penalties
-                let condition = self.counts[offset + j] > threshold;
-                *word |= (condition as u128) << j;
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+        {
+            if is_x86_feature_detected!("avx2") {
+                // SAFETY: AVX2 feature detected at runtime.
+                return HVec10240 {
+                    data: unsafe { finalize_simd_avx2(&self.counts, threshold) },
+                };
             }
         }
 
-        HVec10240 { data }
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+        {
+            // SAFETY: finalize_simd_neon is safe on aarch64.
+            return HVec10240 {
+                data: unsafe { finalize_simd_neon(&self.counts, threshold) },
+            };
+        }
+
+        #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
+        {
+            let mut data = [0u128; 80];
+
+            for (i, word) in data.iter_mut().enumerate() {
+                let offset = i * 128;
+                for j in 0..128 {
+                    // Branchless bit construction to reduce misprediction penalties
+                    let condition = self.counts[offset + j] > threshold;
+                    *word |= (condition as u128) << j;
+                }
+            }
+
+            HVec10240 { data }
+        }
     }
 
     /// Get the number of hypervectors in the accumulator.
