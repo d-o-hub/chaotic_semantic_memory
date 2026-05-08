@@ -27,7 +27,7 @@ impl Persistence {
              canonical_concept_ids_json = excluded.canonical_concept_ids_json",
             params![
                 ns,
-                &concept.id,
+                concept.id.as_str(),
                 vector_bytes,
                 metadata_json,
                 concept.created_at as i64,
@@ -76,7 +76,7 @@ impl Persistence {
                      canonical_concept_ids_json = excluded.canonical_concept_ids_json",
                     params![
                         ns,
-                        &concept.id,
+                        concept.id.as_str(),
                         vector_bytes,
                         metadata_json,
                         concept.created_at as i64,
