@@ -381,12 +381,13 @@ mod tests {
         }
 
         // Special patterns for lane/order boundaries (31/32, 63/64, 127/0)
-        let boundaries = [31, 32, 63, 64, 127];
+        // These exercise the 32-bit float boundary for movemask_ps and 64-bit word boundaries
+        let boundaries = [0, 31, 32, 63, 64, 95, 96, 127];
         for w in 0..80 {
             let offset = w * 128;
             for &b in &boundaries {
-                // Ensure some boundary flips
-                counts[offset + b] = if rng.random_bool(0.5) { 1 } else { -1 };
+                // Ensure boundary flips around various thresholds
+                counts[offset + b] = rng.random_range(-2..3);
             }
         }
 
@@ -402,7 +403,10 @@ mod tests {
                 for threshold in [-2, -1, 0, 1, 2] {
                     let scalar = finalize_scalar(&counts, threshold);
                     let simd = unsafe { finalize_simd_avx2(&counts, threshold) };
-                    assert_eq!(simd, scalar, "Mismatch at seed {seed}, threshold {threshold}");
+                    assert_eq!(
+                        simd, scalar,
+                        "Mismatch at seed {seed}, threshold {threshold}"
+                    );
                 }
             }
         }
@@ -416,7 +420,10 @@ mod tests {
             for threshold in [-2, -1, 0, 1, 2] {
                 let scalar = finalize_scalar(&counts, threshold);
                 let simd = unsafe { finalize_simd_neon(&counts, threshold) };
-                assert_eq!(simd, scalar, "Mismatch at seed {seed}, threshold {threshold}");
+                assert_eq!(
+                    simd, scalar,
+                    "Mismatch at seed {seed}, threshold {threshold}"
+                );
             }
         }
     }
