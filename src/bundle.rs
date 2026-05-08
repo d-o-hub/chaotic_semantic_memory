@@ -2,6 +2,10 @@
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+use crate::hyperdim_simd::finalize_simd_avx2;
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+use crate::hyperdim_simd::finalize_simd_neon;
 
 /// Incremental bundle accumulator for streaming/sliding-window memory.
 ///
@@ -92,6 +96,24 @@ impl BundleAccumulator {
     pub fn finalize(&self) -> HVec10240 {
         if self.n == 0 {
             return HVec10240::zero();
+        }
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+        {
+            if is_x86_feature_detected!("avx2") {
+                // SAFETY: AVX2 feature detected at runtime.
+                return HVec10240 {
+                    data: unsafe { finalize_simd_avx2(&self.counts) },
+                };
+            }
+        }
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+        {
+            // SAFETY: finalize_simd_neon is safe on aarch64.
+            return HVec10240 {
+                data: unsafe { finalize_simd_neon(&self.counts) },
+            };
         }
 
         let mut data = [0u128; 80];
