@@ -10,7 +10,7 @@ async fn framework_lifecycle_with_persistence() {
     let temp = NamedTempFile::new().unwrap();
     let path = temp.path().to_str().unwrap().to_string();
 
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .with_local_db(path.clone())
         .with_max_concepts(10)
         .with_max_associations_per_concept(2)
@@ -26,12 +26,12 @@ async fn framework_lifecycle_with_persistence() {
         .unwrap();
     framework.associate("a", "b", 0.7).await.unwrap();
 
-    let probe = framework.probe(&vec_a, 2).await.unwrap();
+    let probe = framework.probe(vec_a, 2).await.unwrap();
     assert!(!probe.is_empty());
 
     framework.persist().await.unwrap();
 
-    let framework2: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework2 = ChaoticSemanticFramework::builder()
         .with_local_db(path)
         .build()
         .await
@@ -49,7 +49,7 @@ async fn framework_lifecycle_with_persistence() {
 
 #[tokio::test]
 async fn framework_input_validation_rejects_invalid_public_inputs() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -64,7 +64,7 @@ async fn framework_input_validation_rejects_invalid_public_inputs() {
         Err(MemoryError::InvalidInput { .. })
     ));
 
-    let bad_top_k = framework.probe(&HVec10240::random(), 0).await;
+    let bad_top_k = framework.probe(HVec10240::random(), 0).await;
     assert!(matches!(bad_top_k, Err(MemoryError::InvalidInput { .. })));
 }
 
@@ -85,7 +85,7 @@ async fn framework_import_skips_orphan_associations_without_failing() {
         .await
         .unwrap();
 
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .with_local_db(path)
         .build()
         .await
@@ -102,7 +102,7 @@ async fn concurrent_access_with_persistence() {
     let path = temp.path().to_str().unwrap().to_string();
 
     let framework = Arc::new(
-        ChaoticSemanticFramework::<HVec10240>::builder()
+        ChaoticSemanticFramework::builder()
             .with_local_db(path)
             .build()
             .await
@@ -117,7 +117,7 @@ async fn concurrent_access_with_persistence() {
             framework
                 .inject_concept(id.clone(), HVec10240::random())
                 .await?;
-            framework.probe(&HVec10240::random(), 5).await?;
+            framework.probe(HVec10240::random(), 5).await?;
             framework.get_associations(&id).await?;
             Ok::<(), MemoryError>(())
         }));
@@ -130,7 +130,7 @@ async fn concurrent_access_with_persistence() {
 
 #[tokio::test]
 async fn probe_batch_cached_reuses_cached_results() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(8)
         .build()
@@ -177,7 +177,7 @@ async fn binary_import_export_preserves_ttl_and_canonical_links() {
         .await
         .unwrap();
 
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .with_local_db(db_path)
         .build()
         .await
@@ -186,7 +186,7 @@ async fn binary_import_export_preserves_ttl_and_canonical_links() {
     framework.import_json(&import_path, false).await.unwrap();
     framework.export_binary(&export_path).await.unwrap();
 
-    let reload: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let reload = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -206,12 +206,12 @@ async fn load_merge_does_not_silently_overwrite_existing_concepts() {
     let temp = NamedTempFile::new().unwrap();
     let path = temp.path().to_str().unwrap().to_string();
 
-    let framework_a: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework_a = ChaoticSemanticFramework::builder()
         .with_local_db(path.clone())
         .build()
         .await
         .unwrap();
-    let framework_b: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework_b = ChaoticSemanticFramework::builder()
         .with_local_db(path)
         .build()
         .await

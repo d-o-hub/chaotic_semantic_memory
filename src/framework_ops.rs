@@ -1,10 +1,11 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 use crate::error::Result;
+use crate::hyperdim::Hypervector;
 use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
 use crate::framework_events::MemoryEvent;
 use crate::framework_validation::validate_path;
-use crate::hyperdim::Hypervector;
+use crate::hyperdim::HVec10240;
 use crate::singularity::ConceptBuilder;
 use bincode::Options;
 use std::sync::Arc;
@@ -88,7 +89,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
     #[instrument(err, skip(self, queries))]
     pub async fn probe_batch(
         &self,
-        queries: &[H],
+        queries: &[HVec10240],
         top_k: usize,
     ) -> Result<Vec<Vec<(String, f32)>>> {
         self.validate_top_k(top_k)?;
@@ -109,7 +110,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
     #[instrument(err, skip(self, queries))]
     pub async fn probe_batch_cached(
         &self,
-        queries: &[H],
+        queries: &[HVec10240],
         top_k: usize,
     ) -> Result<Vec<Arc<[(String, f32)]>>> {
         self.validate_top_k(top_k)?;
@@ -160,7 +161,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
                 ),
             });
         }
-        let payload: ExportPayload<H> = serde_json::from_slice(&bytes)?;
+        let payload: ExportPayload = serde_json::from_slice(&bytes)?;
 
         if !merge {
             {
@@ -258,7 +259,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
             });
         }
         let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
-        let binary_payload: BinaryExportPayload<H> =
+        let binary_payload: BinaryExportPayload =
             options
                 .deserialize(&bytes)
                 .map_err(|e| crate::error::MemoryError::InvalidInput {
@@ -365,7 +366,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
 
     /// Update a concept's vector.
     #[instrument(err, skip(self), fields(id))]
-    pub async fn update_concept_vector(&self, id: &str, vector: H) -> Result<()> {
+    pub async fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()> {
         let concept = {
             let mut sing = self.singularity.write().await;
             let ns = self.namespace.read().await;
@@ -453,7 +454,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
     }
 
     /// Bundle multiple concepts into a single hypervector (strict version).
-    pub async fn bundle_concepts_strict(&self, ids: &[String]) -> Result<H> {
+    pub async fn bundle_concepts_strict(&self, ids: &[String]) -> Result<HVec10240> {
         let sing = self.singularity.read().await;
         let ns = self.namespace.read().await;
         sing.bundle_concepts_strict(&ns, ids)

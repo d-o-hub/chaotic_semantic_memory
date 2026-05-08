@@ -10,7 +10,7 @@ const NS: &str = "_default";
 
 #[tokio::test]
 async fn concept_id_empty_fails() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -22,7 +22,7 @@ async fn concept_id_empty_fails() {
 
 #[tokio::test]
 async fn concept_id_too_long_fails() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -38,7 +38,7 @@ async fn concept_id_too_long_fails() {
 
 #[tokio::test]
 async fn concept_id_control_characters_fails() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -52,7 +52,7 @@ async fn concept_id_control_characters_fails() {
 
 #[tokio::test]
 async fn association_strength_negative_fails() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -75,7 +75,7 @@ async fn association_strength_negative_fails() {
 
 #[tokio::test]
 async fn association_strength_infinite_fails() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -98,7 +98,7 @@ async fn association_strength_infinite_fails() {
 
 #[tokio::test]
 async fn metadata_size_exceeded_fails() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_max_metadata_bytes(10) // Very small limit
         .build()
@@ -119,7 +119,7 @@ async fn metadata_size_exceeded_fails() {
 
 #[tokio::test]
 async fn top_k_zero_fails() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -130,13 +130,13 @@ async fn top_k_zero_fails() {
         .await
         .unwrap();
 
-    let result = framework.probe(&HVec10240::random(), 0).await;
+    let result = framework.probe(HVec10240::random(), 0).await;
     assert!(result.is_err());
 }
 
 #[tokio::test]
 async fn batch_size_exceeded_fails() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_max_batch_size(2)
         .build()

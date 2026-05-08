@@ -94,7 +94,6 @@ impl ops::Not for MetadataFilter {
 mod tests {
     use super::*;
     use crate::framework::ChaoticSemanticFramework;
-    use crate::hyperdim::HVec10240;
     use serde_json::json;
 
     fn make_metadata(pairs: &[(&str, Value)]) -> HashMap<String, Value> {
@@ -208,6 +207,6 @@ mod tests {
             f = MetadataFilter::and(vec![f, MetadataFilter::eq("k", i)]);
         }
         assert!(f.depth() > MAX_FILTER_DEPTH);
-        assert!(ChaoticSemanticFramework::<HVec10240>::validate_metadata_filter(&f).is_err());
+        assert!(ChaoticSemanticFramework::validate_metadata_filter(&f).is_err());
     }
 }

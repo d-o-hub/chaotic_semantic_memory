@@ -28,7 +28,7 @@ impl SemanticReranker for TestReranker {
 async fn probe_bridge_text_filtered_returns_matching() {
     let encoder = TextEncoder::new();
 
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -83,7 +83,7 @@ async fn probe_bridge_text_filtered_returns_matching() {
 async fn memory_packet_text_with_reranker_applies_reranking() {
     let encoder = TextEncoder::new();
 
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -116,7 +116,7 @@ async fn memory_packet_text_with_reranker_applies_reranking() {
 async fn probe_bridge_text_with_reranker_applies_reranking() {
     let encoder = TextEncoder::new();
 
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await

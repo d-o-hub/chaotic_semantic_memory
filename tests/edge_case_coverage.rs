@@ -14,7 +14,7 @@ const NS: &str = "_default";
 
 #[tokio::test]
 async fn empty_sequence_returns_zero_hypervector() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_reservoir_size(HVec10240::DIMENSION)
         .build()
@@ -34,7 +34,7 @@ fn zero_length_inputs_are_rejected() {
 
 #[test]
 fn concept_and_association_limits_enforced() {
-    let mut singularity: Singularity<HVec10240> = Singularity::with_config(SingularityConfig {
+    let mut singularity = Singularity::with_config(SingularityConfig {
         max_concepts: Some(2),
         max_associations_per_concept: Some(1),
         concept_cache_size: 64,
@@ -70,7 +70,7 @@ fn concept_and_association_limits_enforced() {
 
 #[test]
 fn singularity_association_strength_is_validated() {
-    let mut singularity: Singularity<HVec10240> = Singularity::new(SingularityConfig::default());
+    let mut singularity = Singularity::new(SingularityConfig::default());
     let mk = |id: &str| Concept {
         id: id.to_string(),
         vector: HVec10240::random(),
@@ -92,7 +92,7 @@ fn singularity_association_strength_is_validated() {
 
 #[test]
 fn singularity_association_updates_instead_of_duplicating() {
-    let mut singularity: Singularity<HVec10240> = Singularity::new(SingularityConfig::default());
+    let mut singularity = Singularity::new(SingularityConfig::default());
     let mk = |id: &str| Concept {
         id: id.to_string(),
         vector: HVec10240::random(),

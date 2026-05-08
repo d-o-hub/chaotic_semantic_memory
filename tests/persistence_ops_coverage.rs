@@ -6,15 +6,15 @@
 
 #![allow(clippy::float_cmp)]
 
+use chaotic_semantic_memory::HVec10240;
 use chaotic_semantic_memory::persistence::Persistence;
 use chaotic_semantic_memory::singularity::Concept;
-use chaotic_semantic_memory::{HVec10240, Hypervector};
 use std::collections::HashMap;
 use tempfile::NamedTempFile;
 
 const NS: &str = "_default";
 
-fn make_concept(id: &str) -> Concept<HVec10240> {
+fn make_concept(id: &str) -> Concept {
     Concept {
         id: id.to_string(),
         vector: HVec10240::random(),
@@ -36,7 +36,7 @@ async fn persistence_save_concept_overwrites_existing() {
     persistence.save_concept(NS, &concept).await.unwrap();
 
     // Update with different vector
-    let updated: Concept<HVec10240> = Concept {
+    let updated = Concept {
         id: "overwrite-test".to_string(),
         vector: HVec10240::random(),
         metadata: HashMap::new(),
@@ -48,7 +48,7 @@ async fn persistence_save_concept_overwrites_existing() {
     persistence.save_concept(NS, &updated).await.unwrap();
 
     let loaded = persistence
-        .load_concept::<HVec10240>(NS, "overwrite-test")
+        .load_concept(NS, "overwrite-test")
         .await
         .unwrap();
     assert!(loaded.is_some());
@@ -162,10 +162,7 @@ async fn persistence_list_all_concepts() {
         .await
         .unwrap();
 
-    let concepts = persistence
-        .load_all_concepts::<HVec10240>(NS)
-        .await
-        .unwrap();
+    let concepts = persistence.load_all_concepts(NS).await.unwrap();
     assert_eq!(concepts.len(), 3);
 }
 
@@ -176,7 +173,7 @@ async fn persistence_load_nonexistent_concept() {
     let persistence = Persistence::new_local(path).await.unwrap();
 
     let result = persistence
-        .load_concept::<HVec10240>(NS, "does-not-exist")
+        .load_concept(NS, "does-not-exist")
         .await
         .unwrap();
     assert!(result.is_none());

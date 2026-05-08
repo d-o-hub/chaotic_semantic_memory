@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use crate::error::{MemoryError, Result};
-use crate::framework::ChaoticSemanticFramework;
 use crate::hyperdim::Hypervector;
+use crate::framework::ChaoticSemanticFramework;
 use crate::metadata_filter::{MAX_FILTER_DEPTH, MetadataFilter};
 use crate::singularity::Concept;
 use crate::singularity_retrieval::RetrievalConfig;
@@ -238,44 +238,39 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hyperdim::HVec10240;
 
     #[test]
     fn test_validate_concept_id_dangerous_chars() {
         // Null byte
-        assert!(ChaoticSemanticFramework::<HVec10240>::validate_concept_id("test\0id").is_err());
+        assert!(ChaoticSemanticFramework::validate_concept_id("test\0id").is_err());
         // Newline
-        assert!(ChaoticSemanticFramework::<HVec10240>::validate_concept_id("test\nid").is_err());
+        assert!(ChaoticSemanticFramework::validate_concept_id("test\nid").is_err());
         // Carriage return
-        assert!(ChaoticSemanticFramework::<HVec10240>::validate_concept_id("test\rid").is_err());
+        assert!(ChaoticSemanticFramework::validate_concept_id("test\rid").is_err());
         // Tab
-        assert!(ChaoticSemanticFramework::<HVec10240>::validate_concept_id("test\tid").is_err());
+        assert!(ChaoticSemanticFramework::validate_concept_id("test\tid").is_err());
         // ESC
-        assert!(ChaoticSemanticFramework::<HVec10240>::validate_concept_id("test\x1bid").is_err());
+        assert!(ChaoticSemanticFramework::validate_concept_id("test\x1bid").is_err());
         // DEL
-        assert!(ChaoticSemanticFramework::<HVec10240>::validate_concept_id("test\x7fid").is_err());
+        assert!(ChaoticSemanticFramework::validate_concept_id("test\x7fid").is_err());
 
         // Valid IDs
-        assert!(ChaoticSemanticFramework::<HVec10240>::validate_concept_id("valid-id_123").is_ok());
-        assert!(
-            ChaoticSemanticFramework::<HVec10240>::validate_concept_id("id:with:colons").is_ok()
-        );
-        assert!(
-            ChaoticSemanticFramework::<HVec10240>::validate_concept_id("path/to/resource").is_ok()
-        );
+        assert!(ChaoticSemanticFramework::validate_concept_id("valid-id_123").is_ok());
+        assert!(ChaoticSemanticFramework::validate_concept_id("id:with:colons").is_ok());
+        assert!(ChaoticSemanticFramework::validate_concept_id("path/to/resource").is_ok());
     }
 
     #[test]
     fn test_validate_concept_id_empty() {
-        assert!(ChaoticSemanticFramework::<HVec10240>::validate_concept_id("").is_err());
+        assert!(ChaoticSemanticFramework::validate_concept_id("").is_err());
     }
 
     #[test]
     fn test_validate_concept_id_too_long() {
         let long_id = "a".repeat(257);
-        assert!(ChaoticSemanticFramework::<HVec10240>::validate_concept_id(&long_id).is_err());
+        assert!(ChaoticSemanticFramework::validate_concept_id(&long_id).is_err());
         let edge_id = "a".repeat(256);
-        assert!(ChaoticSemanticFramework::<HVec10240>::validate_concept_id(&edge_id).is_ok());
+        assert!(ChaoticSemanticFramework::validate_concept_id(&edge_id).is_ok());
     }
 
     #[test]
@@ -284,13 +279,13 @@ mod tests {
             bucket_probe_width: 16,
             ..RetrievalConfig::default()
         };
-        assert!(ChaoticSemanticFramework::<HVec10240>::validate_retrieval_config(&config).is_ok());
+        assert!(ChaoticSemanticFramework::validate_retrieval_config(&config).is_ok());
 
         let config = RetrievalConfig {
             bucket_probe_width: 17,
             ..RetrievalConfig::default()
         };
-        assert!(ChaoticSemanticFramework::<HVec10240>::validate_retrieval_config(&config).is_err());
+        assert!(ChaoticSemanticFramework::validate_retrieval_config(&config).is_err());
     }
 
     #[test]

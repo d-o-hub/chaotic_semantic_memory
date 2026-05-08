@@ -1,7 +1,7 @@
 //! Incremental bundle accumulator for streaming/sliding-window memory.
 
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::{HVec10240, Hypervector};
+use crate::hyperdim::HVec10240;
 
 /// Incremental bundle accumulator for streaming/sliding-window memory.
 ///
@@ -9,14 +9,14 @@ use crate::hyperdim::{HVec10240, Hypervector};
 /// Finalize applies majority threshold to produce a bundled hypervector.
 #[derive(Debug, Clone)]
 pub struct BundleAccumulator {
-    counts: Vec<i32>,
+    counts: Box<[i32; HVec10240::DIMENSION]>,
     n: u32,
 }
 
 impl Default for BundleAccumulator {
     fn default() -> Self {
         Self {
-            counts: vec![0i32; HVec10240::DIMENSION],
+            counts: Box::new([0i32; HVec10240::DIMENSION]),
             n: 0,
         }
     }
@@ -25,20 +25,23 @@ impl Default for BundleAccumulator {
 impl BundleAccumulator {
     /// Create a new empty accumulator.
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            counts: Box::new([0i32; HVec10240::DIMENSION]),
+            n: 0,
+        }
     }
 
     /// Add a hypervector to the accumulator.
     pub fn add(&mut self, hv: &HVec10240) {
-        for (i, &val) in hv.data.iter().enumerate() {
-            // Convert f32 to binary: positive -> 1, negative/zero -> 0
-            if val >= 0.0 {
-                self.counts[i] += 1;
-            } else {
-                self.counts[i] -= 1;
+        for i in 0..80 {
+            let mut val = hv.data[i];
+            while val != 0 {
+                let j = val.trailing_zeros() as usize;
+                self.counts[i * 128 + j] += 1;
+                val &= val - 1;
             }
         }
-        self.n = self.n.saturating_add(1);
+        self.n += 1;
     }
 
     /// Remove a hypervector from the accumulator.
@@ -49,15 +52,15 @@ impl BundleAccumulator {
         if self.n == 0 {
             return;
         }
-        for (i, &val) in hv.data.iter().enumerate() {
-            // Convert f32 to binary: positive -> 1, negative/zero -> 0
-            if val >= 0.0 {
-                self.counts[i] -= 1;
-            } else {
-                self.counts[i] += 1;
+        for i in 0..80 {
+            let mut val = hv.data[i];
+            while val != 0 {
+                let j = val.trailing_zeros() as usize;
+                self.counts[i * 128 + j] -= 1;
+                val &= val - 1;
             }
         }
-        self.n = self.n.saturating_sub(1);
+        self.n -= 1;
     }
 
     /// Remove a hypervector from the accumulator, returning an error if empty.
@@ -70,7 +73,15 @@ impl BundleAccumulator {
                 reason: "cannot remove from empty BundleAccumulator".to_string(),
             });
         }
-        self.remove(hv);
+        for i in 0..80 {
+            let mut val = hv.data[i];
+            while val != 0 {
+                let j = val.trailing_zeros() as usize;
+                self.counts[i * 128 + j] -= 1;
+                val &= val - 1;
+            }
+        }
+        self.n -= 1;
         Ok(())
     }
 
@@ -83,13 +94,15 @@ impl BundleAccumulator {
             return HVec10240::zero();
         }
 
-        let mut data = [0.0f32; HVec10240::DIMENSION];
-        for (i, count) in self.counts.iter().enumerate() {
-            // Majority threshold: count > 0 means more positives than negatives
-            if *count > 0 {
-                data[i] = 1.0;
-            } else {
-                data[i] = -1.0;
+        let mut data = [0u128; 80];
+        let threshold = 0; // Majority threshold: count > 0
+
+        for (i, word) in data.iter_mut().enumerate() {
+            let offset = i * 128;
+            for j in 0..128 {
+                // Branchless bit construction to reduce misprediction penalties
+                let condition = self.counts[offset + j] > threshold;
+                *word |= (condition as u128) << j;
             }
         }
 
@@ -108,7 +121,7 @@ impl BundleAccumulator {
 
     /// Clear the accumulator.
     pub fn clear(&mut self) {
-        self.counts.fill(0i32);
+        *self.counts = [0i32; HVec10240::DIMENSION];
         self.n = 0;
     }
 }
@@ -147,9 +160,8 @@ mod tests {
 
         assert_eq!(acc.len(), 1);
         let bundled = acc.finalize();
-        // Single vector bundle captures sign pattern, yielding high cosine similarity
-        // For random vectors uniformly in [-1,1), expected cosine ≈ 0.866
-        assert!(bundled.cosine_similarity(&v1) > 0.8);
+        // Single vector bundle should be close to the original
+        assert!(bundled.cosine_similarity(&v1) > 0.9);
     }
 
     #[test]

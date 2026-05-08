@@ -72,8 +72,8 @@ pub async fn serve(config: McpConfig) -> Result<()> {
 }
 
 async fn serve_stdio(config: McpConfig) -> Result<()> {
-    let _tools = McpTools::new(config.database.clone());
-    let _resources = McpResources::new(config.database);
+    let _tools = McpTools::new(config.database);
+    let _resources = McpResources::new(None); // TODO: use config.database when wired
 
     // Stub: actual rmcp integration would be:
     // let server = rmcp::ServerBuilder::new()
@@ -88,8 +88,8 @@ async fn serve_stdio(config: McpConfig) -> Result<()> {
 }
 
 async fn serve_sse(config: McpConfig, bind: &str) -> Result<()> {
-    let _tools = McpTools::new(config.database.clone());
-    let _resources = McpResources::new(config.database);
+    let _tools = McpTools::new(config.database);
+    let _resources = McpResources::new(None); // TODO: use config.database when wired
 
     // Stub: actual rmcp integration would be:
     // let server = rmcp::ServerBuilder::new()

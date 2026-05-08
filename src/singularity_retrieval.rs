@@ -17,7 +17,7 @@ use std::sync::Arc;
 use rayon::prelude::*;
 
 use crate::error::Result;
-use crate::hyperdim::Hypervector;
+use crate::hyperdim::{HVec10240, Hypervector};
 use crate::singularity::{Singularity, unix_now_ns};
 
 /// Statistics from the last retrieval operation.
@@ -55,8 +55,8 @@ pub enum FilterStrategy {
 }
 
 /// Parameters for scored candidate retrieval.
-pub(crate) struct ScoredCandidateParams<'a, H: Hypervector> {
-    pub query: &'a H,
+pub(crate) struct ScoredCandidateParams<'a> {
+    pub query: &'a HVec10240,
     pub top_k: usize,
     pub candidates: Vec<usize>,
     pub start_ns: u64,
@@ -79,7 +79,7 @@ pub struct RetrievalConfig {
 
 impl RetrievalConfig {
     pub fn validate(&self) -> Result<()> {
-        crate::framework::ChaoticSemanticFramework::<crate::hyperdim::HVec10240>::validate_retrieval_config(self)
+        crate::framework::ChaoticSemanticFramework::validate_retrieval_config(self)
     }
 }
 
@@ -97,7 +97,7 @@ impl Default for RetrievalConfig {
     }
 }
 
-impl<H: Hypervector + 'static> Singularity<H> {
+impl<H: Hypervector + \'static> Singularity<H> {
     /// Set the retrieval configuration.
     pub fn set_retrieval_config(&mut self, config: RetrievalConfig) -> Result<()> {
         config.validate()?;
@@ -153,7 +153,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
     }
 
     /// Generate candidates by coarse bucketing.
-    /// Generate candidates by coarse bucketing.
+        /// Generate candidates by coarse bucketing.
     pub(crate) fn generate_bucket_candidates(&self, ns: &str, _query: &H) -> Vec<usize> {
         let Some(ns_state) = self.get_namespace(ns) else {
             return Vec::new();
@@ -246,7 +246,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
     pub(crate) fn scored_candidate_retrieval(
         &self,
         ns: &str,
-        params: ScoredCandidateParams<H>,
+        params: ScoredCandidateParams,
     ) -> Arc<[(String, f32)]> {
         let Some(ns_state) = self.get_namespace(ns) else {
             return Arc::from(Vec::new());
@@ -354,7 +354,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
     pub(crate) fn scored_candidate_retrieval_with_stats(
         &self,
         ns: &str,
-        params: ScoredCandidateParams<H>,
+        params: ScoredCandidateParams,
         selectivity: f32,
         strategy: Option<FilterStrategy>,
     ) -> Arc<[(String, f32)]> {
@@ -434,18 +434,17 @@ impl<H: Hypervector + 'static> Singularity<H> {
 
 #[cfg(test)]
 mod tests_v2 {
-    use crate::hyperdim::HVec10240;
     use crate::singularity::{Singularity, SingularityConfig};
 
     #[test]
     fn singularity_last_stats_v2() {
-        let s: Singularity<HVec10240> = Singularity::new(SingularityConfig::default());
+        let s = Singularity::new(SingularityConfig::default());
         assert_eq!(s.last_retrieval_stats("_default").candidate_count, 0);
     }
 
     #[test]
     fn singularity_get_config_v2() {
-        let s: Singularity<HVec10240> = Singularity::new(SingularityConfig::default());
+        let s = Singularity::new(SingularityConfig::default());
         assert_eq!(s.retrieval_config().max_candidates, 1000);
     }
 }

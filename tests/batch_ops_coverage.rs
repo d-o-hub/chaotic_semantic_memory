@@ -10,7 +10,7 @@ const NS: &str = "_default";
 
 #[tokio::test]
 async fn inject_concepts_empty_batch_returns_ok() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -25,7 +25,7 @@ async fn inject_concepts_empty_batch_returns_ok() {
 
 #[tokio::test]
 async fn associate_many_empty_batch_returns_ok() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -37,7 +37,7 @@ async fn associate_many_empty_batch_returns_ok() {
 
 #[tokio::test]
 async fn probe_batch_returns_multiple_results() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -63,7 +63,7 @@ async fn probe_batch_returns_multiple_results() {
 
 #[tokio::test]
 async fn probe_batch_cached_returns_arc_results() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(4)
         .build()
@@ -86,7 +86,7 @@ async fn concept_history_limit_clamped_to_max() {
     let temp = NamedTempFile::new().unwrap();
     let db_path = temp.path().to_str().unwrap().to_string();
 
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .with_local_db(db_path)
         .build()
         .await
@@ -109,7 +109,7 @@ async fn concept_history_limit_clamped_to_max() {
 
 #[tokio::test]
 async fn disassociate_removes_association() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -144,7 +144,7 @@ async fn disassociate_removes_association() {
 
 #[tokio::test]
 async fn clear_associations_removes_all_for_concept() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -181,7 +181,7 @@ async fn clear_associations_removes_all_for_concept() {
 
 #[tokio::test]
 async fn update_concept_metadata_persists() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await

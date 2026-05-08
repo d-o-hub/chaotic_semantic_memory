@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::hyperdim::Hypervector;
+use crate::hyperdim::{HVec10240, Hypervector};
 use crate::singularity::{Concept, Singularity, unix_now_secs};
 
 impl<H: Hypervector> Default for Concept<H> {
@@ -19,7 +19,7 @@ impl<H: Hypervector> Default for Concept<H> {
     }
 }
 
-impl<H: Hypervector + 'static> Singularity<H> {
+impl<H: Hypervector + \'static> Singularity<H> {
     /// Purge all expired concepts from memory.
     ///
     /// Returns the number of concepts removed.
@@ -70,12 +70,11 @@ impl<H: Hypervector + 'static> Singularity<H> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hyperdim::HVec10240;
     use crate::singularity::SingularityConfig;
 
     #[test]
     fn test_purge_expired() {
-        let mut sing: Singularity<HVec10240> = Singularity::new(SingularityConfig::default());
+        let mut sing = Singularity::new(SingularityConfig::default());
         let now = unix_now_secs();
 
         let concept1 = Concept {
@@ -129,7 +128,7 @@ mod tests {
 
     #[test]
     fn test_is_expired() {
-        let mut sing: Singularity<HVec10240> = Singularity::new(SingularityConfig::default());
+        let mut sing = Singularity::new(SingularityConfig::default());
         let now = unix_now_secs();
 
         let concept1 = Concept {
@@ -171,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_active_concept_ids() {
-        let mut sing: Singularity<HVec10240> = Singularity::new(SingularityConfig::default());
+        let mut sing = Singularity::new(SingularityConfig::default());
         let now = unix_now_secs();
 
         let concept1 = Concept {

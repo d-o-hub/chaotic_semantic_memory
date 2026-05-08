@@ -6,39 +6,31 @@
 
 use std::collections::HashMap;
 
-use chaotic_semantic_memory::hyperdim::{HVec10240, Hypervector};
+use chaotic_semantic_memory::hyperdim::HVec10240;
 use chaotic_semantic_memory::singularity::{Concept, Singularity, SingularityConfig};
 use proptest::prelude::*;
 
 const NS: &str = "_default";
 
-/// Generate 10240 f32 values in [-1.0, 1.0) to avoid NaN and maintain valid HVec semantics.
-fn valid_f32s() -> impl Strategy<Value = Vec<f32>> {
-    proptest::collection::vec(-1.0f32..1.0f32, 10240)
-}
-
-fn hvec_from_f32s(data: &[f32; 10240]) -> HVec10240 {
-    HVec10240::from_f32_array(data)
+fn hvec_from_bytes(bytes: &[u8]) -> HVec10240 {
+    HVec10240::from_bytes(bytes).expect("strategy always yields 1280-byte vectors")
 }
 
 proptest! {
     #[test]
-    fn hypervector_roundtrip_from_and_to_bytes(data in valid_f32s()) {
-        let data: [f32; 10240] = data.try_into().unwrap();
-        let vector = hvec_from_f32s(&data);
+    fn hypervector_roundtrip_from_and_to_bytes(bytes in proptest::collection::vec(any::<u8>(), 1280)) {
+        let vector = hvec_from_bytes(&bytes);
         let recovered = HVec10240::from_bytes(&vector.to_bytes()).unwrap();
         prop_assert_eq!(recovered, vector);
     }
 
     #[test]
     fn cosine_similarity_stays_within_bounds(
-        a_data in valid_f32s(),
-        b_data in valid_f32s(),
+        a_bytes in proptest::collection::vec(any::<u8>(), 1280),
+        b_bytes in proptest::collection::vec(any::<u8>(), 1280),
     ) {
-        let a_data: [f32; 10240] = a_data.try_into().unwrap();
-        let b_data: [f32; 10240] = b_data.try_into().unwrap();
-        let a = hvec_from_f32s(&a_data);
-        let b = hvec_from_f32s(&b_data);
+        let a = hvec_from_bytes(&a_bytes);
+        let b = hvec_from_bytes(&b_bytes);
 
         let similarity = a.cosine_similarity(&b);
         prop_assert!(similarity >= -1.0);
@@ -47,28 +39,17 @@ proptest! {
 
     #[test]
     fn bundling_is_order_invariant_for_three_vectors(
-        a_data in valid_f32s(),
-        b_data in valid_f32s(),
-        c_data in valid_f32s(),
+        a_bytes in proptest::collection::vec(any::<u8>(), 1280),
+        b_bytes in proptest::collection::vec(any::<u8>(), 1280),
+        c_bytes in proptest::collection::vec(any::<u8>(), 1280),
     ) {
-        let a_data: [f32; 10240] = a_data.try_into().unwrap();
-        let b_data: [f32; 10240] = b_data.try_into().unwrap();
-        let c_data: [f32; 10240] = c_data.try_into().unwrap();
-        let a = hvec_from_f32s(&a_data);
-        let b = hvec_from_f32s(&b_data);
-        let c = hvec_from_f32s(&c_data);
+        let a = hvec_from_bytes(&a_bytes);
+        let b = hvec_from_bytes(&b_bytes);
+        let c = hvec_from_bytes(&c_bytes);
 
-        // f32 addition is commutative but not associative, so three-element
-        // bundles may differ by ~2e-7 due to summation order. Use cosine
-        // similarity to verify near-equality instead of exact comparison.
         let abc = HVec10240::bundle(&[a, b, c]).unwrap();
         let bca = HVec10240::bundle(&[b, c, a]).unwrap();
-        let cos = abc.cosine_similarity(&bca);
-        prop_assert!(
-            cos > 0.9999,
-            "reordered bundles should be nearly identical, got cos={}",
-            cos
-        );
+        prop_assert_eq!(abc, bca);
     }
 
     #[test]

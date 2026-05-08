@@ -9,7 +9,7 @@ const NS: &str = "_default";
 
 #[tokio::test]
 async fn import_json_invalid_json_data_fails() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -26,7 +26,7 @@ async fn import_json_invalid_json_data_fails() {
 
 #[tokio::test]
 async fn import_binary_invalid_data_fails() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -43,7 +43,7 @@ async fn import_binary_invalid_data_fails() {
 
 #[tokio::test]
 async fn import_json_empty_file_fails() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -60,7 +60,7 @@ async fn import_json_empty_file_fails() {
 
 #[tokio::test]
 async fn import_json_with_associations_to_nonexistent_concepts() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -91,7 +91,7 @@ async fn import_json_with_associations_to_nonexistent_concepts() {
 
 #[tokio::test]
 async fn import_binary_with_associations_to_nonexistent_concepts() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -114,7 +114,7 @@ async fn import_binary_with_associations_to_nonexistent_concepts() {
 
 #[tokio::test]
 async fn export_and_import_cycle_preserves_data() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -139,7 +139,7 @@ async fn export_and_import_cycle_preserves_data() {
     framework.export_json(json_path).await.unwrap();
 
     // Create new framework and import
-    let framework2: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework2 = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -154,7 +154,7 @@ async fn export_and_import_cycle_preserves_data() {
 
 #[tokio::test]
 async fn export_and_import_binary_cycle_preserves_data() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -171,7 +171,7 @@ async fn export_and_import_binary_cycle_preserves_data() {
     framework.export_binary(binary_path).await.unwrap();
 
     // Create new framework and import
-    let framework2: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework2 = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await

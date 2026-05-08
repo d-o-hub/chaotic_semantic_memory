@@ -4,7 +4,7 @@
 use chaotic_semantic_memory::bundle::BundleAccumulator;
 use chaotic_semantic_memory::encoder::TextEncoder;
 use chaotic_semantic_memory::graph_traversal::TraversalConfig;
-use chaotic_semantic_memory::hyperdim::{HVec10240, Hypervector};
+use chaotic_semantic_memory::hyperdim::HVec10240;
 use chaotic_semantic_memory::metadata_filter::MetadataFilter;
 use chaotic_semantic_memory::singularity::{
     Concept, ConceptBuilder, Singularity, SingularityConfig,
@@ -14,14 +14,14 @@ const NS: &str = "_default";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-fn make_concept(id: &str) -> Concept<HVec10240> {
+fn make_concept(id: &str) -> Concept {
     ConceptBuilder::new(id)
         .with_vector(HVec10240::random())
         .build()
         .unwrap()
 }
 
-fn make_concept_with_meta(id: &str, key: &str, val: &str) -> Concept<HVec10240> {
+fn make_concept_with_meta(id: &str, key: &str, val: &str) -> Concept {
     ConceptBuilder::new(id)
         .with_vector(HVec10240::random())
         .with_metadata(key, serde_json::Value::String(val.to_string()))
@@ -278,10 +278,9 @@ fn test_bundle_accumulator_add_remove_finalize_matches_single() {
 
     let bundled = acc.finalize();
     // After removing v2, the accumulator holds only v1.
-    // With f32-based HVec, finalize produces the sign pattern (±1.0),
-    // not the original values. Expected cosine ~0.866 for random vectors.
+    // A single-vector bundle should be identical to the original.
     assert!(
-        bundled.cosine_similarity(&v1) > 0.8,
+        bundled.cosine_similarity(&v1) > 0.99,
         "single-vector bundle must match original"
     );
 }

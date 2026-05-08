@@ -7,7 +7,7 @@ use tempfile::NamedTempFile;
 
 #[tokio::test]
 async fn export_json_path_too_long_fails() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -26,7 +26,7 @@ async fn export_json_path_too_long_fails() {
 
 #[tokio::test]
 async fn export_json_path_traversal_fails() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -45,7 +45,7 @@ async fn export_json_path_traversal_fails() {
 
 #[tokio::test]
 async fn import_json_absolute_path_outside_allowed_fails() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -64,7 +64,7 @@ async fn backup_with_persistence_succeeds() {
     let temp = NamedTempFile::new().unwrap();
     let db_path = temp.path().to_str().unwrap().to_string();
 
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .with_local_db(&db_path)
         .build()
         .await
@@ -87,7 +87,7 @@ async fn restore_with_persistence_succeeds() {
     let temp = NamedTempFile::new().unwrap();
     let db_path = temp.path().to_str().unwrap().to_string();
 
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .with_local_db(&db_path)
         .build()
         .await
@@ -110,7 +110,7 @@ async fn restore_with_persistence_succeeds() {
 
 #[tokio::test]
 async fn export_binary_path_traversal_fails() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await

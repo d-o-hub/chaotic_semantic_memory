@@ -114,8 +114,8 @@ pub async fn create_framework_advanced(
     provider_name: Option<&str>,
     code_aware: bool,
     ns: &str,
-) -> Result<ChaoticSemanticFramework<crate::hyperdim::HVec10240>> {
-    let mut builder = ChaoticSemanticFramework::<crate::hyperdim::HVec10240>::builder();
+) -> Result<ChaoticSemanticFramework> {
+    let mut builder = ChaoticSemanticFramework::builder();
     if let Some(path) = db_path {
         builder = builder.with_local_db(path.to_string_lossy());
     } else {
@@ -157,7 +157,7 @@ pub async fn create_framework_advanced(
 }
 
 fn validate_concept_id(id: &str) -> Result<()> {
-    ChaoticSemanticFramework::<crate::hyperdim::HVec10240>::validate_concept_id(id)
+    ChaoticSemanticFramework::validate_concept_id(id)
         .map_err(|e| CliError::Validation(e.to_string()))
 }
 

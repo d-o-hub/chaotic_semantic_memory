@@ -8,7 +8,7 @@ const NS: &str = "_default";
 
 #[tokio::test]
 async fn inject_concepts_batch() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -28,7 +28,7 @@ async fn inject_concepts_batch() {
 
 #[tokio::test]
 async fn associate_many_creates_associations() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -61,7 +61,7 @@ async fn associate_many_creates_associations() {
 
 #[tokio::test]
 async fn probe_batch_multiple_queries() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -87,7 +87,7 @@ async fn probe_batch_multiple_queries() {
 
 #[tokio::test]
 async fn probe_batch_cached_caches_results() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(16)
         .build()
@@ -109,7 +109,7 @@ async fn probe_batch_cached_caches_results() {
 
 #[tokio::test]
 async fn update_concept_vector_changes_vector() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -128,13 +128,13 @@ async fn update_concept_vector_changes_vector() {
         .unwrap();
 
     // Probe with new vector should find it
-    let results = framework.probe(&new_vector, 5).await.unwrap();
+    let results = framework.probe(new_vector, 5).await.unwrap();
     assert!(results.iter().any(|(id, _)| id == "update-vector"));
 }
 
 #[tokio::test]
 async fn update_concept_metadata_changes_metadata() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -158,7 +158,7 @@ async fn update_concept_metadata_changes_metadata() {
 
 #[tokio::test]
 async fn disassociate_removes_single_association() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -188,7 +188,7 @@ async fn disassociate_removes_single_association() {
 
 #[tokio::test]
 async fn clear_associations_removes_all() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -221,7 +221,7 @@ async fn clear_associations_removes_all() {
 
 #[tokio::test]
 async fn bundle_concepts_strict_valid_ids() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await

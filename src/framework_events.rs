@@ -7,10 +7,10 @@ use tokio::sync::broadcast;
 
 #[cfg(target_arch = "wasm32")]
 use crate::error::Result;
+use crate::hyperdim::Hypervector;
 use crate::framework::ChaoticSemanticFramework;
 #[cfg(target_arch = "wasm32")]
 use crate::hyperdim::HVec10240;
-use crate::hyperdim::Hypervector;
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
 #[cfg(target_arch = "wasm32")]

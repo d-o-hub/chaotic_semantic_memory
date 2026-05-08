@@ -3,7 +3,6 @@ use tokio::fs;
 use tracing::warn;
 
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::Hypervector;
 use crate::persistence::{ConceptVersion, Persistence};
 
 impl Persistence {
@@ -35,7 +34,7 @@ impl Persistence {
         for (from, to, strength) in associations {
             stmt.reset();
             if let Err(e) = stmt
-                .execute(params![ns, from.as_str(), to.as_str(), *strength])
+                .execute(params![ns.to_string(), from.clone(), to.clone(), *strength])
                 .await
             {
                 first_error = Some(MemoryError::database(format!(
@@ -60,6 +59,7 @@ impl Persistence {
     pub async fn clear_namespace(&self, ns: &str) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
+        let ns_param = ns.to_string();
         conn.execute("BEGIN", ())
             .await
             .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {e}")))?;
@@ -73,7 +73,7 @@ impl Persistence {
         ];
 
         for sql in &tables {
-            if let Err(e) = conn.execute(sql, params![ns]).await {
+            if let Err(e) = conn.execute(sql, params![ns_param.clone()]).await {
                 let _ = conn.execute("ROLLBACK", ()).await;
                 return Err(MemoryError::database(format!(
                     "Failed to clear namespace data: {e}"
@@ -115,12 +115,12 @@ impl Persistence {
 
         let mut rows = conn
             .query(
-                "SELECT concept_id, version, vector, metadata, modified_at, COALESCE(vector_format, 'float')
+                "SELECT concept_id, version, vector, metadata, modified_at
                  FROM csm_versions
                  WHERE namespace = ?1 AND concept_id = ?2
                  ORDER BY version DESC
                  LIMIT ?3",
-                libsql::params![ns, id, limit as i64],
+                libsql::params![ns.to_string(), id, limit as i64],
             )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to load concept history: {e}")))?;
@@ -144,9 +144,6 @@ impl Persistence {
             let modified_at: i64 = row
                 .get(4)
                 .map_err(|e| MemoryError::database(format!("Failed to get modified_at: {e}")))?;
-            let vector_format: String = row
-                .get(5)
-                .map_err(|e| MemoryError::database(format!("Failed to get vector_format: {e}")))?;
 
             history.push(ConceptVersion {
                 concept_id,
@@ -154,7 +151,6 @@ impl Persistence {
                 vector: crate::hyperdim::HVec10240::from_bytes(&vector_bytes)?,
                 metadata: serde_json::from_str(&metadata_json)?,
                 modified_at: modified_at as u64,
-                vector_format,
             });
         }
 
@@ -246,8 +242,8 @@ impl Persistence {
                  SELECT namespace, id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json FROM restore_db.csm_concepts;
                  INSERT INTO csm_associations (namespace, from_id, to_id, strength)
                  SELECT namespace, from_id, to_id, strength FROM restore_db.csm_associations;
-                 INSERT INTO csm_versions (namespace, concept_id, version, vector, metadata, modified_at, vector_format)
-                 SELECT namespace, concept_id, version, vector, metadata, modified_at, COALESCE(vector_format, 'float') FROM restore_db.csm_versions;
+                 INSERT INTO csm_versions (namespace, concept_id, version, vector, metadata, modified_at)
+                 SELECT namespace, concept_id, version, vector, metadata, modified_at FROM restore_db.csm_versions;
                  INSERT INTO csm_hnsw_graph (namespace, id, data, modified_at)
                  SELECT namespace, id, data, modified_at FROM restore_db.csm_hnsw_graph;
                  INSERT INTO csm_canonical (namespace, id, version, labels_json, related_json)
@@ -292,7 +288,7 @@ impl Persistence {
         let conn = self.connect().await?;
         conn.execute(
             "DELETE FROM csm_associations WHERE namespace = ?1 AND from_id = ?2 AND to_id = ?3",
-            params![ns, from, to],
+            params![ns.to_string(), from, to],
         )
         .await
         .map_err(|e| MemoryError::database(format!("Failed to delete association: {e}")))?;
@@ -305,7 +301,7 @@ impl Persistence {
         let conn = self.connect().await?;
         conn.execute(
             "DELETE FROM csm_associations WHERE namespace = ?1 AND from_id = ?2",
-            params![ns, id],
+            params![ns.to_string(), id],
         )
         .await
         .map_err(|e| MemoryError::database(format!("Failed to clear concept associations: {e}")))?;
@@ -316,13 +312,13 @@ impl Persistence {
 #[cfg(test)]
 #[cfg(feature = "persistence")]
 mod tests {
-    use crate::hyperdim::{HVec10240, Hypervector};
+    use crate::hyperdim::HVec10240;
     use crate::persistence::Persistence;
     use crate::singularity::Concept;
     use std::collections::HashMap;
     use tempfile::NamedTempFile;
 
-    fn make_concept(id: &str) -> Concept<HVec10240> {
+    fn make_concept(id: &str) -> Concept {
         Concept {
             id: id.to_string(),
             vector: HVec10240::random(),
@@ -350,7 +346,7 @@ mod tests {
             .await
             .expect("Failed to save");
         let loaded = persistence
-            .load_concept::<HVec10240>(ns, "test-concept")
+            .load_concept(ns, "test-concept")
             .await
             .expect("Failed to load")
             .expect("Concept not found");
@@ -376,9 +372,7 @@ mod tests {
             .delete_concept(ns, "delete-test")
             .await
             .expect("Failed to delete");
-        let result = persistence
-            .load_concept::<HVec10240>(ns, "delete-test")
-            .await;
+        let result = persistence.load_concept(ns, "delete-test").await;
         assert!(result.expect("Query failed").is_none());
     }
 

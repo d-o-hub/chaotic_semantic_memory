@@ -36,7 +36,7 @@ pub async fn run_probe(
         .ok_or_else(|| CliError::Input(format!("concept '{}' not found", args.concept_id)))?;
 
     let results = framework
-        .probe(&concept.vector, args.top_k)
+        .probe(concept.vector, args.top_k)
         .await
         .map_err(|e| CliError::Persistence(format!("probe operation failed: {e}")))?;
 
@@ -112,7 +112,7 @@ pub async fn run_probe_with_vector(
         create_framework_with_namespace(db_path, ns).await?;
 
     let results = framework
-        .probe(&query_vector, top_k)
+        .probe(query_vector, top_k)
         .await
         .map_err(|e| CliError::Persistence(format!("probe operation failed: {e}")))?;
 

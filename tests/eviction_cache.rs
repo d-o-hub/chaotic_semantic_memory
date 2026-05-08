@@ -5,7 +5,7 @@ const NS: &str = "_default";
 
 #[tokio::test]
 async fn eviction_invalidates_query_cache() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_max_concepts(3)
         .with_concept_cache_size(16)
@@ -24,7 +24,7 @@ async fn eviction_invalidates_query_cache() {
         .await
         .unwrap();
 
-    let before = framework.probe(&vec_a, 3).await.unwrap();
+    let before = framework.probe(vec_a, 3).await.unwrap();
     assert_eq!(before.len(), 3);
 
     // Inject d → triggers eviction of one concept to stay at limit
@@ -37,7 +37,7 @@ async fn eviction_invalidates_query_cache() {
     assert_eq!(stats.concept_count, 3);
 
     // The new concept must exist; one of the originals was evicted
-    let after = framework.probe(&vec_a, 3).await.unwrap();
+    let after = framework.probe(vec_a, 3).await.unwrap();
     let ids: Vec<&str> = after.iter().map(|(id, _)| id.as_str()).collect();
     assert!(ids.contains(&"d"));
     assert_eq!(after.len(), 3);
@@ -45,7 +45,7 @@ async fn eviction_invalidates_query_cache() {
 
 #[tokio::test]
 async fn delete_invalidates_query_cache() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(16)
         .build()
@@ -63,12 +63,12 @@ async fn delete_invalidates_query_cache() {
         .await
         .unwrap();
 
-    let before = framework.probe(&query, 3).await.unwrap();
+    let before = framework.probe(query, 3).await.unwrap();
     assert_eq!(before.len(), 3);
 
     framework.delete_concept("y").await.unwrap();
 
-    let after = framework.probe(&query, 3).await.unwrap();
+    let after = framework.probe(query, 3).await.unwrap();
     let ids: Vec<&str> = after.iter().map(|(id, _)| id.as_str()).collect();
     assert!(!ids.contains(&"y"));
     assert_eq!(after.len(), 2);
@@ -77,7 +77,7 @@ async fn delete_invalidates_query_cache() {
 #[tokio::test]
 async fn concurrent_inject_and_probe_no_panic() {
     let framework = Arc::new(
-        ChaoticSemanticFramework::<HVec10240>::builder()
+        ChaoticSemanticFramework::builder()
             .without_persistence()
             .build()
             .await
@@ -98,7 +98,7 @@ async fn concurrent_inject_and_probe_no_panic() {
     for _ in 0..5 {
         let fw = Arc::clone(&framework);
         handles.push(tokio::spawn(async move {
-            let _ = fw.probe(&HVec10240::random(), 5).await;
+            let _ = fw.probe(HVec10240::random(), 5).await;
         }));
     }
 

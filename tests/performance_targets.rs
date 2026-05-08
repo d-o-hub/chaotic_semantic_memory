@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use chaotic_semantic_memory::persistence::Persistence;
-use chaotic_semantic_memory::{ConceptBuilder, HVec10240, Hypervector};
+use chaotic_semantic_memory::{ConceptBuilder, HVec10240};
 use libsql::Builder;
 use tempfile::NamedTempFile;
 
@@ -78,7 +78,7 @@ async fn local_persistence_roundtrip_p50_under_20ms() {
             .await
             .expect("save_concept");
         let loaded = persistence
-            .load_concept::<HVec10240>(NS, &id)
+            .load_concept(NS, &id)
             .await
             .expect("load_concept");
         let elapsed = start.elapsed().as_secs_f64() * 1000.0;

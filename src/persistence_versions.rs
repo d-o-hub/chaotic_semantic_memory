@@ -1,28 +1,27 @@
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::Hypervector;
 use crate::persistence::Persistence;
 use crate::singularity::Concept;
 use libsql::{Connection, params};
 
 impl Persistence {
-    pub(crate) async fn record_concept_version<H: Hypervector>(
+    pub(crate) async fn record_concept_version(
         &self,
         conn: &Connection,
-        concept: &Concept<H>,
+        concept: &Concept,
     ) -> Result<()> {
         self.record_concept_version_scoped(conn, "_default", concept)
             .await
     }
 
-    pub(crate) async fn record_concept_version_scoped<H: Hypervector>(
+    pub(crate) async fn record_concept_version_scoped(
         &self,
         conn: &Connection,
         ns: &str,
-        concept: &Concept<H>,
+        concept: &Concept,
     ) -> Result<()> {
         let mut rows = conn
             .query(
-                "SELECT COALESCE(MAX(version),0) FROM csm_versions WHERE namespace = ?1 AND concept_id = ?2",
+                "SELECT COALESCE(MAX(version), 0) FROM csm_versions WHERE namespace = ?1 AND concept_id = ?2",
                 params![ns.to_string(), concept.id.clone()],
             )
             .await
@@ -42,16 +41,15 @@ impl Persistence {
         let metadata_json = serde_json::to_string(&concept.metadata)?;
 
         conn.execute(
-            "INSERT INTO csm_versions (namespace, concept_id, version, vector, metadata, modified_at, vector_format)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT INTO csm_versions (namespace, concept_id, version, vector, metadata, modified_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
                 ns.to_string(),
                 concept.id.clone(),
                 next_version,
                 vector_bytes,
                 metadata_json,
-                concept.modified_at as i64,
-                H::format_name()
+                concept.modified_at as i64
             ],
         )
         .await

@@ -1,7 +1,7 @@
 //! Tests for selectivity-aware filtered retrieval (ADR-0065).
 
 use chaotic_semantic_memory::{
-    ConceptBuilder, FilterStrategy, HVec10240, Hypervector, MetadataFilter,
+    ConceptBuilder, FilterStrategy, HVec10240, MetadataFilter,
     singularity::{Singularity, SingularityConfig},
 };
 use serde_json::json;
@@ -9,7 +9,7 @@ use serde_json::json;
 const NS: &str = "_default";
 
 fn inject_concept(
-    sing: &mut Singularity<HVec10240>,
+    sing: &mut Singularity,
     id: &str,
     metadata_key: &str,
     metadata_val: serde_json::Value,
@@ -25,7 +25,7 @@ fn inject_concept(
 
 #[test]
 fn test_find_similar_filtered_returns_matching_only() {
-    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     // Inject concepts with different categories
     inject_concept(&mut sing, "doc1", "category", json!("document"));
@@ -46,7 +46,7 @@ fn test_find_similar_filtered_returns_matching_only() {
 
 #[test]
 fn test_find_similar_filtered_empty_result() {
-    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     inject_concept(&mut sing, "doc1", "category", json!("document"));
 
@@ -59,7 +59,7 @@ fn test_find_similar_filtered_empty_result() {
 
 #[test]
 fn test_retrieval_stats_contains_selectivity_ratio() {
-    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     // Create 10 concepts: 3 matching filter (30% selectivity)
     for i in 0..3 {
@@ -81,7 +81,7 @@ fn test_retrieval_stats_contains_selectivity_ratio() {
 
 #[test]
 fn test_small_dataset_uses_pre_filter() {
-    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     // Only 5 concepts (< 20 threshold)
     for i in 0..5 {
@@ -100,7 +100,7 @@ fn test_small_dataset_uses_pre_filter() {
 
 #[test]
 fn test_low_selectivity_uses_pre_filter() {
-    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     // 25 concepts, only 3 match (< 0.3 selectivity threshold for datasets > 20)
     for i in 0..3 {
@@ -122,7 +122,7 @@ fn test_low_selectivity_uses_pre_filter() {
 
 #[test]
 fn test_medium_selectivity_uses_bucket_post() {
-    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     // 25 concepts, 10 match (0.4 selectivity, in 0.3-0.8 range)
     for i in 0..10 {
@@ -144,7 +144,7 @@ fn test_medium_selectivity_uses_bucket_post() {
 
 #[test]
 fn test_high_selectivity_uses_scan_post() {
-    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     // 25 concepts, 22 match (> 0.8 selectivity threshold)
     for i in 0..22 {
@@ -166,7 +166,7 @@ fn test_high_selectivity_uses_scan_post() {
 
 #[test]
 fn test_complex_filter_with_nested_predicates() {
-    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     // Create concepts with multiple metadata fields
     let c1 = ConceptBuilder::new("c1")
@@ -210,7 +210,7 @@ fn test_complex_filter_with_nested_predicates() {
 
 #[test]
 fn test_find_similar_filtered_respects_top_k() {
-    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let mut sing = Singularity::new(SingularityConfig::default());
 
     // 10 matching concepts
     for i in 0..10 {

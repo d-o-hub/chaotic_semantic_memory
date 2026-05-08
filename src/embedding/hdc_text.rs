@@ -59,9 +59,19 @@ impl EmbeddingProvider for HdcTextProvider {
 
     async fn embed(&self, text: &str) -> Result<Vec<f32>> {
         // HDC encoder produces HVec10240 directly.
-        // Preserve the full f32 values for lossless roundtrip.
+        // Convert to 10240-dimensional f32 vector for API consistency.
         let hv = self.encoder.encode(text);
-        Ok(hv.data.to_vec())
+        let mut result = Vec::with_capacity(10240);
+        for word in &hv.data {
+            for i in 0..128 {
+                if (word >> i) & 1 == 1 {
+                    result.push(1.0);
+                } else {
+                    result.push(0.0);
+                }
+            }
+        }
+        Ok(result)
     }
 
     async fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>> {
@@ -75,13 +85,18 @@ impl EmbeddingProvider for HdcTextProvider {
 
     fn project(&self, vec: &[f32], projection: &Projection) -> HVec10240 {
         if projection.nnz() == 0 {
-            // HDC provider outputs 10240-dim f32; preserve full values for roundtrip.
+            // HDC provider outputs 10240-dim f32; convert back to HVec.
             // No projection matrix needed since native_dim == 10240.
-            let mut data = [0.0; 10240];
+            // bit = 1 if value > 0.5, bit = 0 otherwise
+            let mut hv = HVec10240::zero();
             for (i, &v) in vec.iter().take(10240).enumerate() {
-                data[i] = v;
+                if v > 0.5 {
+                    let word = i / 128;
+                    let bit = i % 128;
+                    hv.data[word] |= 1u128 << bit;
+                }
             }
-            HVec10240 { data }
+            hv
         } else {
             projection.project(vec)
         }
@@ -92,7 +107,6 @@ impl EmbeddingProvider for HdcTextProvider {
 mod tests {
     use super::*;
     use crate::embedding::Projection;
-    use crate::hyperdim::Hypervector;
 
     #[tokio::test]
     async fn test_hdc_provider_roundtrip() {

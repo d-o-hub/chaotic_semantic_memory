@@ -6,7 +6,7 @@ use chaotic_semantic_memory::prelude::*;
 async fn main() -> Result<()> {
     println!("🕸️  Knowledge Graph\n");
 
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await?;

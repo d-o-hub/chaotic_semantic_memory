@@ -14,7 +14,6 @@ use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::Hypervector;
 use crate::singularity::Singularity;
 
 /// Configuration for graph traversal operations.
@@ -38,7 +37,7 @@ impl Default for TraversalConfig {
     }
 }
 
-impl<H: Hypervector> Singularity<H> {
+impl Singularity {
     /// Get direct neighbors of a concept with edge strengths.
     ///
     /// Returns outbound associations with strength >= `min_strength`.
@@ -62,7 +61,7 @@ impl<H: Hypervector> Singularity<H> {
         start: &str,
         config: &TraversalConfig,
     ) -> Result<Vec<(String, u32)>> {
-        crate::framework::ChaoticSemanticFramework::<H>::validate_traversal_config(config)?;
+        crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
         let ns_state = self
             .get_namespace(ns)
             .ok_or_else(|| MemoryError::NotFound {
@@ -120,7 +119,7 @@ impl<H: Hypervector> Singularity<H> {
         to: &str,
         config: &TraversalConfig,
     ) -> Result<Option<Vec<String>>> {
-        crate::framework::ChaoticSemanticFramework::<H>::validate_traversal_config(config)?;
+        crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
         let ns_state = self
             .get_namespace(ns)
             .ok_or_else(|| MemoryError::NotFound {
@@ -215,7 +214,7 @@ impl<H: Hypervector> Singularity<H> {
         to: &str,
         config: &TraversalConfig,
     ) -> Result<Option<Vec<String>>> {
-        crate::framework::ChaoticSemanticFramework::<H>::validate_traversal_config(config)?;
+        crate::framework::ChaoticSemanticFramework::validate_traversal_config(config)?;
         let ns_state = self
             .get_namespace(ns)
             .ok_or_else(|| MemoryError::NotFound {
@@ -281,10 +280,10 @@ impl<H: Hypervector> Singularity<H> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hyperdim::{HVec10240, Hypervector};
+    use crate::hyperdim::HVec10240;
     use crate::singularity::{Concept, ConceptBuilder, Singularity, SingularityConfig};
 
-    fn make_concept(id: &str) -> Concept<HVec10240> {
+    fn make_concept(id: &str) -> Concept {
         ConceptBuilder::new(id)
             .with_vector(HVec10240::random())
             .build()
@@ -293,7 +292,7 @@ mod tests {
 
     #[test]
     fn test_neighbors() {
-        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+        let mut sing = Singularity::new(SingularityConfig::default());
         sing.inject("_default", make_concept("a")).unwrap();
         sing.inject("_default", make_concept("b")).unwrap();
         sing.inject("_default", make_concept("c")).unwrap();
@@ -307,7 +306,7 @@ mod tests {
 
     #[test]
     fn test_incoming_associations() {
-        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+        let mut sing = Singularity::new(SingularityConfig::default());
         sing.inject("_default", make_concept("a")).unwrap();
         sing.inject("_default", make_concept("b")).unwrap();
         sing.inject("_default", make_concept("c")).unwrap();
@@ -323,7 +322,7 @@ mod tests {
 
     #[test]
     fn test_bfs_simple() {
-        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+        let mut sing = Singularity::new(SingularityConfig::default());
         sing.inject("_default", make_concept("a")).unwrap();
         sing.inject("_default", make_concept("b")).unwrap();
         sing.inject("_default", make_concept("c")).unwrap();
@@ -341,7 +340,7 @@ mod tests {
 
     #[test]
     fn test_bfs_max_depth() {
-        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+        let mut sing = Singularity::new(SingularityConfig::default());
         sing.inject("_default", make_concept("a")).unwrap();
         sing.inject("_default", make_concept("b")).unwrap();
         sing.inject("_default", make_concept("c")).unwrap();
@@ -359,7 +358,7 @@ mod tests {
 
     #[test]
     fn test_bfs_missing_concept() {
-        let sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+        let sing = Singularity::new(SingularityConfig::default());
         let config = TraversalConfig::default();
         let result = sing.bfs("_default", "nonexistent", &config);
         assert!(result.is_err());
@@ -367,7 +366,7 @@ mod tests {
 
     #[test]
     fn test_shortest_path_direct() {
-        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+        let mut sing = Singularity::new(SingularityConfig::default());
         sing.inject("_default", make_concept("a")).unwrap();
         sing.inject("_default", make_concept("b")).unwrap();
         sing.associate("_default", "a", "b", 0.9).unwrap();
@@ -379,7 +378,7 @@ mod tests {
 
     #[test]
     fn test_shortest_path_indirect() {
-        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+        let mut sing = Singularity::new(SingularityConfig::default());
         sing.inject("_default", make_concept("a")).unwrap();
         sing.inject("_default", make_concept("b")).unwrap();
         sing.inject("_default", make_concept("c")).unwrap();
@@ -396,7 +395,7 @@ mod tests {
 
     #[test]
     fn test_shortest_path_no_path() {
-        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+        let mut sing = Singularity::new(SingularityConfig::default());
         sing.inject("_default", make_concept("a")).unwrap();
         sing.inject("_default", make_concept("b")).unwrap();
         // No association
@@ -408,7 +407,7 @@ mod tests {
 
     #[test]
     fn test_shortest_path_same_node() {
-        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+        let mut sing = Singularity::new(SingularityConfig::default());
         sing.inject("_default", make_concept("a")).unwrap();
 
         let config = TraversalConfig::default();
@@ -419,7 +418,7 @@ mod tests {
     /// Dijkstra prefers the high-strength path (lower cost = -ln(strength)).
     #[test]
     fn test_shortest_path_dijkstra_prefers_strong_edge() {
-        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+        let mut sing = Singularity::new(SingularityConfig::default());
         // a --0.9--> b --0.9--> d  (strong path, 2 hops)
         // a --0.1--> c --0.1--> d  (weak path, 2 hops)
         for id in ["a", "b", "c", "d"] {
@@ -441,7 +440,7 @@ mod tests {
 
     #[test]
     fn test_shortest_path_hops_direct() {
-        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+        let mut sing = Singularity::new(SingularityConfig::default());
         sing.inject("_default", make_concept("a")).unwrap();
         sing.inject("_default", make_concept("b")).unwrap();
         sing.associate("_default", "a", "b", 0.5).unwrap();
@@ -455,7 +454,7 @@ mod tests {
 
     #[test]
     fn test_shortest_path_hops_indirect() {
-        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+        let mut sing = Singularity::new(SingularityConfig::default());
         sing.inject("_default", make_concept("a")).unwrap();
         sing.inject("_default", make_concept("b")).unwrap();
         sing.inject("_default", make_concept("c")).unwrap();
@@ -474,7 +473,7 @@ mod tests {
 
     #[test]
     fn test_shortest_path_hops_no_path() {
-        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+        let mut sing = Singularity::new(SingularityConfig::default());
         sing.inject("_default", make_concept("a")).unwrap();
         sing.inject("_default", make_concept("b")).unwrap();
 

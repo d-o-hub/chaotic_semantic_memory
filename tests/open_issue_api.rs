@@ -1,6 +1,6 @@
 use chaotic_semantic_memory::graph_traversal::TraversalConfig;
 use chaotic_semantic_memory::metadata_filter::MetadataFilter;
-use chaotic_semantic_memory::prelude::*;
+use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240, MemoryEvent};
 use serde_json::json;
 use std::collections::HashMap;
 
@@ -8,7 +8,7 @@ const NS: &str = "_default";
 
 #[tokio::test]
 async fn framework_probe_filtered_traverse_and_shortest_path_work() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -74,7 +74,7 @@ async fn framework_probe_filtered_traverse_and_shortest_path_work() {
 
 #[tokio::test]
 async fn framework_subscribe_emits_events() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -98,7 +98,7 @@ async fn builder_with_version_retention_limits_saved_versions() {
     let db_path = format!("/tmp/csm_version_retention_{}.db", std::process::id());
     let _ = tokio::fs::remove_file(&db_path).await;
 
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .with_local_db(db_path.clone())
         .with_version_retention(1)
         .build()

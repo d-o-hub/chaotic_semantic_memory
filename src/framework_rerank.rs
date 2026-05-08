@@ -3,6 +3,7 @@
 use crate::error::Result;
 use crate::hyperdim::Hypervector;
 use crate::framework::ChaoticSemanticFramework;
+use crate::hyperdim::HVec10240;
 use crate::retrieval::rerank::{RerankCandidate, Reranker};
 use std::sync::Arc;
 use tracing::instrument;
@@ -12,9 +13,9 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
     #[instrument(err, skip(self, query, rerankers))]
     pub async fn probe_with_rerankers(
         &self,
-        query: &H,
+        query: HVec10240,
         initial_top_k: usize,
-        rerankers: &[Box<dyn Reranker<H>>],
+        rerankers: &[Box<dyn Reranker>],
         final_top_k: usize,
     ) -> Result<Vec<(String, f32)>> {
         self.validate_top_k(initial_top_k)?;
@@ -33,7 +34,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         }
 
         // 2. Fetch full concept data for reranking
-        let mut candidates: Vec<RerankCandidate<H>> = Vec::with_capacity(initial_results.len());
+        let mut candidates = Vec::with_capacity(initial_results.len());
         {
             let sing = self.singularity.read().await;
             let ns = self.namespace.read().await;
@@ -52,7 +53,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
 
         // 3. Apply rerankers in sequence
         for reranker in rerankers {
-            candidates = reranker.rerank(query, candidates, actual_initial_k);
+            candidates = reranker.rerank(&query, candidates, actual_initial_k);
         }
 
         // 4. Truncate and format final results

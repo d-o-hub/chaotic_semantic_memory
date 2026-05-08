@@ -12,7 +12,7 @@ async fn main() -> Result<()> {
     println!("🧠 Chaotic Semantic Memory - Proof of Concept\n");
 
     // 1. Initialize with libSQL
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .with_reservoir_size(50000)
         .with_local_db("csm_memory.db")
         .build()
@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
     println!("✅ Additional concepts injected");
 
     // 3. Query
-    let results = framework.probe(&concept_vec, 3).await?;
+    let results = framework.probe(concept_vec, 3).await?;
     println!("✅ Query completed:");
     for (id, score) in &results {
         println!("   - {id}: {score:.4}");
@@ -80,7 +80,7 @@ async fn main() -> Result<()> {
     println!("\n⚡ Running benchmark...");
     let start = std::time::Instant::now();
     for i in 0..1000 {
-        framework.probe(&HVec10240::random(), 5).await?;
+        framework.probe(HVec10240::random(), 5).await?;
         if i % 100 == 0 {
             print!(".");
             std::io::stdout().flush()?;

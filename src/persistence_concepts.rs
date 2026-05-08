@@ -1,13 +1,13 @@
 #![cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::Hypervector;
+use crate::hyperdim::HVec10240;
 use crate::persistence::Persistence;
 use crate::singularity::Concept;
 use libsql::params;
 
 impl Persistence {
     /// Save a concept to the database
-    pub async fn save_concept<H: Hypervector>(&self, ns: &str, concept: &Concept<H>) -> Result<()> {
+    pub async fn save_concept(&self, ns: &str, concept: &Concept) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
         let vector_bytes = concept.vector.to_bytes();
@@ -26,8 +26,8 @@ impl Persistence {
              expires_at = excluded.expires_at,
              canonical_concept_ids_json = excluded.canonical_concept_ids_json",
             params![
-                ns,
-                concept.id.as_str(),
+                ns.to_string(),
+                concept.id.clone(),
                 vector_bytes,
                 metadata_json,
                 concept.created_at as i64,
@@ -45,11 +45,7 @@ impl Persistence {
     }
 
     /// Save concepts in a single transaction
-    pub async fn save_concepts<H: Hypervector>(
-        &self,
-        ns: &str,
-        concepts: &[Concept<H>],
-    ) -> Result<()> {
+    pub async fn save_concepts(&self, ns: &str, concepts: &[Concept]) -> Result<()> {
         if concepts.is_empty() {
             return Ok(());
         }
@@ -79,8 +75,8 @@ impl Persistence {
                      expires_at = excluded.expires_at,
                      canonical_concept_ids_json = excluded.canonical_concept_ids_json",
                     params![
-                        ns,
-                        concept.id.as_str(),
+                        ns.to_string(),
+                        concept.id.clone(),
                         vector_bytes,
                         metadata_json,
                         concept.created_at as i64,
@@ -116,11 +112,7 @@ impl Persistence {
     }
 
     /// Load a concept from the database
-    pub async fn load_concept<H: Hypervector>(
-        &self,
-        ns: &str,
-        id: &str,
-    ) -> Result<Option<Concept<H>>> {
+    pub async fn load_concept(&self, ns: &str, id: &str) -> Result<Option<Concept>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
@@ -128,7 +120,7 @@ impl Persistence {
             .query(
                 "SELECT vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json
                  FROM csm_concepts WHERE namespace = ?1 AND id = ?2",
-                params![ns, id],
+                params![ns.to_string(), id.to_string()],
             )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to load concept: {e}")))?;
@@ -153,7 +145,7 @@ impl Persistence {
             let expires_at: Option<i64> = row.get(4).ok();
             let canonical_concept_ids_json: Option<String> = row.get(5).ok();
 
-            let vector = H::from_bytes(&vector_bytes)?;
+            let vector = HVec10240::from_bytes(&vector_bytes)?;
             let metadata = serde_json::from_str(&metadata_json)?;
             let canonical_concept_ids = canonical_concept_ids_json
                 .as_deref()
@@ -176,7 +168,7 @@ impl Persistence {
     }
 
     /// Load all concepts from the database for a specific namespace
-    pub async fn load_all_concepts<H: Hypervector>(&self, ns: &str) -> Result<Vec<Concept<H>>> {
+    pub async fn load_all_concepts(&self, ns: &str) -> Result<Vec<Concept>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
@@ -184,7 +176,7 @@ impl Persistence {
             .query(
                 "SELECT id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json
                  FROM csm_concepts WHERE namespace = ?1",
-                params![ns],
+                params![ns.to_string()],
             )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to load concepts: {e}")))?;
@@ -213,7 +205,7 @@ impl Persistence {
             let expires_at: Option<i64> = row.get(5).ok();
             let canonical_concept_ids_json: Option<String> = row.get(6).ok();
 
-            let vector = H::from_bytes(&vector_bytes)?;
+            let vector = HVec10240::from_bytes(&vector_bytes)?;
             let metadata = serde_json::from_str(&metadata_json)?;
             let canonical_concept_ids = canonical_concept_ids_json
                 .as_deref()
@@ -249,7 +241,7 @@ impl Persistence {
         if let Err(e) = conn
             .execute(
                 "DELETE FROM csm_versions WHERE namespace = ?1 AND concept_id = ?2",
-                params![ns, id],
+                params![ns.to_string(), id.to_string()],
             )
             .await
         {
@@ -262,7 +254,7 @@ impl Persistence {
         if let Err(e) = conn
             .execute(
                 "DELETE FROM csm_associations WHERE namespace = ?1 AND (from_id = ?2 OR to_id = ?2)",
-                params![ns, id],
+                params![ns.to_string(), id.to_string()],
             )
             .await
         {
@@ -275,7 +267,7 @@ impl Persistence {
         if let Err(e) = conn
             .execute(
                 "DELETE FROM csm_concepts WHERE namespace = ?1 AND id = ?2",
-                params![ns, id],
+                params![ns.to_string(), id.to_string()],
             )
             .await
         {

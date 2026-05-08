@@ -45,7 +45,6 @@ pub struct HnswIndex<H: Hypervector> {
     idx_to_id: HashMap<usize, String>,
     config: HnswData,
     deleted_count: usize,
-    _marker: std::marker::PhantomData<H>,
 }
 
 #[cfg(feature = "ann-hnsw")]
@@ -71,7 +70,6 @@ impl<H: Hypervector> HnswIndex<H> {
                 ef_search,
             },
             deleted_count: 0,
-            _marker: std::marker::PhantomData,
         })
     }
 }
@@ -108,10 +106,7 @@ impl<H: Hypervector> AnnIndex<H> for HnswIndex<H> {
         }
 
         let idx = self.hnsw.get_nb_point();
-        // Convert generic H to HVec10240 for HNSW library compatibility
-        let bytes = vec.to_bytes();
-        let hvec = HVec10240::from_bytes(&bytes).unwrap_or_else(|_| HVec10240::zero());
-        self.hnsw.insert((std::slice::from_ref(&hvec), idx));
+        self.hnsw.insert((std::slice::from_ref(vec), idx));
         self.id_to_idx.insert(id.clone(), idx);
         self.idx_to_id.insert(idx, id);
         Ok(())
@@ -129,11 +124,8 @@ impl<H: Hypervector> AnnIndex<H> for HnswIndex<H> {
     fn search(&self, query: &H, top_k: usize) -> Result<Vec<(String, f32)>> {
         // #5: Increase search budget to account for deleted nodes.
         let expanded_k = top_k + self.deleted_count.min(top_k * 10);
-        // Convert generic H to HVec10240 for HNSW library compatibility
-        let bytes = query.to_bytes();
-        let hvec = HVec10240::from_bytes(&bytes).unwrap_or_else(|_| HVec10240::zero());
         let results = self.hnsw.search(
-            std::slice::from_ref(&hvec),
+            std::slice::from_ref(query),
             expanded_k,
             self.config.ef_search,
         );
@@ -141,7 +133,7 @@ impl<H: Hypervector> AnnIndex<H> for HnswIndex<H> {
         let mut final_results = Vec::with_capacity(results.len());
         for neighbor in results {
             if let Some(id) = self.idx_to_id.get(&neighbor.d_id) {
-                let similarity = 1.0 - (neighbor.distance / (HVec10240::DIMENSION as f32 / 2.0));
+                let similarity = 1.0 - (neighbor.distance / 5120.0);
                 final_results.push((id.clone(), similarity));
                 if final_results.len() >= top_k {
                     break;
@@ -159,11 +151,8 @@ impl<H: Hypervector> AnnIndex<H> for HnswIndex<H> {
         concepts: &HashMap<String, Concept<H>>,
     ) -> Result<Vec<(String, f32)>> {
         let expanded_k = top_k * 5 + self.deleted_count.min(top_k * 10);
-        // Convert generic H to HVec10240 for HNSW library compatibility
-        let bytes = query.to_bytes();
-        let hvec = HVec10240::from_bytes(&bytes).unwrap_or_else(|_| HVec10240::zero());
         let results = self.hnsw.search(
-            std::slice::from_ref(&hvec),
+            std::slice::from_ref(query),
             expanded_k,
             self.config.ef_search,
         );
@@ -173,8 +162,7 @@ impl<H: Hypervector> AnnIndex<H> for HnswIndex<H> {
             if let Some(id) = self.idx_to_id.get(&neighbor.d_id) {
                 if let Some(concept) = concepts.get(id) {
                     if filter.matches(&concept.metadata) {
-                        let similarity =
-                            1.0 - (neighbor.distance / (HVec10240::DIMENSION as f32 / 2.0));
+                        let similarity = 1.0 - (neighbor.distance / 5120.0);
                         filtered_results.push((id.clone(), similarity));
                         if filtered_results.len() >= top_k {
                             break;
@@ -191,8 +179,7 @@ impl<H: Hypervector> AnnIndex<H> for HnswIndex<H> {
                 .map(|(id, c)| {
                     (
                         id.clone(),
-                        1.0 - (query.hamming_distance(&c.vector) as f32
-                            / (H::DIMENSION as f32 / 2.0)),
+                        1.0 - (query.hamming_distance(&c.vector) as f32 / 5120.0),
                     )
                 })
                 .collect();
@@ -242,7 +229,7 @@ impl<H: Hypervector> AnnIndex<H> for HnswIndex<H> {
 
         self.hnsw
             .file_dump(&temp_dir, "index")
-            .map_err(|e| MemoryError::database(format!("HNSW dump failed: {e}")))?;
+            .map_err(|e| MemoryError::database(format!("HNSW dump failed: {}", e)))?;
 
         let data_path = temp_dir.join("index.hnsw.data");
         let graph_path = temp_dir.join("index.hnsw.graph");
@@ -262,7 +249,7 @@ impl<H: Hypervector> AnnIndex<H> for HnswIndex<H> {
         };
 
         let payload = bincode::serialize(&wrapper)
-            .map_err(|e| MemoryError::database(format!("Bincode fail: {e}")))?;
+            .map_err(|e| MemoryError::database(format!("Bincode fail: {}", e)))?;
 
         let _ = fs::remove_dir_all(temp_dir);
         Ok(payload)
@@ -276,7 +263,7 @@ impl<H: Hypervector> AnnIndex<H> for HnswIndex<H> {
         }
 
         let wrapper: HnswPersistenceWrapper = bincode::deserialize(data)
-            .map_err(|e| MemoryError::database(format!("Bincode deserialize fail: {e}")))?;
+            .map_err(|e| MemoryError::database(format!("Bincode deserialize fail: {}", e)))?;
 
         let temp_dir =
             std::env::temp_dir().join(format!("csm_hnsw_load_{}", rand::random::<u64>()));
@@ -288,7 +275,7 @@ impl<H: Hypervector> AnnIndex<H> for HnswIndex<H> {
         let loader = HnswIo::new(&temp_dir, "index");
         let hnsw = loader
             .load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist)
-            .map_err(|e| MemoryError::database(format!("HNSW load failed: {e}")))?;
+            .map_err(|e| MemoryError::database(format!("HNSW load failed: {}", e)))?;
 
         let static_hnsw: Hnsw<'static, HVec10240, HammingDist> =
             unsafe { std::mem::transmute(hnsw) };

@@ -104,17 +104,18 @@ impl Projection {
         }
 
         // Convert to bipolar HVec: sign of each sum.
-        // positive = 1.0, non-positive = -1.0
-        let mut data = [0.0; 10240];
+        // bit = 1 if sum >= 0, bit = 0 if sum < 0
+        let mut hv = HVec10240::zero();
         for (i, &sum) in sums.iter().enumerate() {
             if sum >= 0.0 {
-                data[i] = 1.0;
-            } else {
-                data[i] = -1.0;
+                // Set bit at position i
+                let word = i / 128;
+                let bit = i % 128;
+                hv.data[word] |= 1u128 << bit;
             }
         }
 
-        HVec10240 { data }
+        hv
     }
 
     /// Get the number of non-zero entries in the projection matrix.
@@ -134,7 +135,6 @@ impl Projection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hyperdim::Hypervector;
 
     #[test]
     fn projection_sparsity_is_correct() {

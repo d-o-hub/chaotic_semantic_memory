@@ -9,7 +9,7 @@ const NS: &str = "_default";
 
 #[tokio::test]
 async fn export_and_import_json_roundtrip() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -35,7 +35,7 @@ async fn export_and_import_json_roundtrip() {
     framework.export_json(export_path).await.unwrap();
 
     // Create new framework and import
-    let framework2: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework2 = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -50,7 +50,7 @@ async fn export_and_import_json_roundtrip() {
 
 #[tokio::test]
 async fn export_and_import_binary_roundtrip() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -72,7 +72,7 @@ async fn export_and_import_binary_roundtrip() {
     framework.export_binary(export_path).await.unwrap();
 
     // Import into new framework
-    let framework2: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework2 = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -84,7 +84,7 @@ async fn export_and_import_binary_roundtrip() {
 
 #[tokio::test]
 async fn import_json_merge_mode() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -97,7 +97,7 @@ async fn import_json_merge_mode() {
         .unwrap();
 
     // Export from another framework
-    let framework2: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework2 = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -121,7 +121,7 @@ async fn import_json_merge_mode() {
 
 #[tokio::test]
 async fn concept_history_returns_versions() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await

@@ -6,7 +6,6 @@ use tracing::instrument;
 
 use crate::cli::args::{GetArgs, OutputFormat};
 use crate::cli::error::{CliError, Result};
-use crate::hyperdim::Hypervector;
 use colored::Colorize;
 
 use super::{create_framework_with_namespace, validate_concept_id};

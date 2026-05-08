@@ -8,7 +8,7 @@ use std::sync::atomic::Ordering;
 #[cfg(not(target_arch = "wasm32"))]
 use tracing::instrument;
 
-use crate::hyperdim::Hypervector;
+use crate::hyperdim::{HVec10240, Hypervector};
 use crate::singularity::{Singularity, similarity_cache_key, unix_now_ns};
 use crate::singularity_retrieval::{
     CandidateSource, FilterStrategy, RetrievalStats, ScoredCandidateParams,
@@ -73,12 +73,6 @@ fn try_ann_lookup<H: Hypervector>(
     }
 
     if let Ok(results) = ns_state.index.search(query, top_k) {
-        // Fall through to exact scan when ANN returns empty results.
-        // LSH may return no candidates when the query hash doesn't collide
-        // with any stored bucket (common with f32-based hypervectors).
-        if results.is_empty() {
-            return None;
-        }
         let results_arc: Arc<[(String, f32)]> = Arc::from(results);
 
         if let Ok(mut s) = ns_state.last_retrieval_stats.write() {
@@ -103,7 +97,7 @@ fn try_ann_lookup<H: Hypervector>(
     None
 }
 
-impl<H: Hypervector + 'static> Singularity<H> {
+impl<H: Hypervector + \'static> Singularity<H> {
     /// Find similar concepts using cosine similarity
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self, ns, query), fields(top_k = top_k)))]
     pub fn find_similar(&self, ns: &str, query: &H, top_k: usize) -> Vec<(String, f32)> {
@@ -111,7 +105,12 @@ impl<H: Hypervector + 'static> Singularity<H> {
     }
 
     /// Find similar concepts and return cached results as `Arc<[_]>`.
-    pub fn find_similar_arc(&self, ns: &str, query: &H, top_k: usize) -> Arc<[(String, f32)]> {
+    pub fn find_similar_arc(
+        &self,
+        ns: &str,
+        query: &H,
+        top_k: usize,
+    ) -> Arc<[(String, f32)]> {
         self.find_similar_cached(ns, query, top_k)
     }
 
@@ -121,7 +120,12 @@ impl<H: Hypervector + 'static> Singularity<H> {
     /// 1. Cache lookup (bypassed when `top_k > max_cached_top_k`)
     /// 2. ANN index lookup (skipped for BruteForce backend)
     /// 3. Candidate generation (graph → bucket → exact scan fallback)
-    pub fn find_similar_cached(&self, ns: &str, query: &H, top_k: usize) -> Arc<[(String, f32)]> {
+    pub fn find_similar_cached(
+        &self,
+        ns: &str,
+        query: &H,
+        top_k: usize,
+    ) -> Arc<[(String, f32)]> {
         let start_ns = unix_now_ns();
         if top_k == 0 || self.is_empty(ns) {
             let stats = RetrievalStats {
@@ -178,7 +182,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
         // Reduced-candidate path
         self.scored_candidate_retrieval(
             ns,
-            ScoredCandidateParams::<H> {
+            ScoredCandidateParams {
                 query,
                 top_k,
                 candidates,

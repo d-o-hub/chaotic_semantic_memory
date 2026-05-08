@@ -8,7 +8,7 @@ const NS: &str = "_default";
 
 #[tokio::test]
 async fn inject_concept_with_ttl_stores_concept() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -20,13 +20,13 @@ async fn inject_concept_with_ttl_stores_concept() {
         .await
         .unwrap();
 
-    let results = framework.probe(&vector, 10).await.unwrap();
+    let results = framework.probe(vector, 10).await.unwrap();
     assert!(results.iter().any(|(id, _)| id == "ttl-concept"));
 }
 
 #[tokio::test]
 async fn inject_text_with_ttl_stores_concept() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -43,7 +43,7 @@ async fn inject_text_with_ttl_stores_concept() {
 
 #[tokio::test]
 async fn purge_expired_removes_expired_concepts() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -70,14 +70,14 @@ async fn purge_expired_removes_expired_concepts() {
     assert!(purged >= 1, "At least one concept should be purged");
 
     // Verify long-ttl still exists
-    let results = framework.probe(&HVec10240::random(), 10).await.unwrap();
+    let results = framework.probe(HVec10240::random(), 10).await.unwrap();
     let ids: Vec<&str> = results.iter().map(|(id, _)| id.as_str()).collect();
     assert!(ids.contains(&"long-ttl"), "Long TTL concept should remain");
 }
 
 #[tokio::test]
 async fn inject_text_with_metadata_works() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -99,7 +99,7 @@ async fn inject_text_with_metadata_works() {
 
 #[tokio::test]
 async fn probe_text_encodes_and_searches() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await

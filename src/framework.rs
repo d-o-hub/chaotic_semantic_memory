@@ -38,7 +38,7 @@ pub struct ChaoticSemanticFramework<H: Hypervector = HVec10240> {
 impl<H: Hypervector> ChaoticSemanticFramework<H> {
     /// Create a new framework builder
     #[must_use]
-    pub fn builder() -> FrameworkBuilder<H> {
+    pub fn builder() -> FrameworkBuilder {
         FrameworkBuilder::new()
     }
 
@@ -131,7 +131,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
     // Lock needed for expired concept filtering
     #[allow(clippy::significant_drop_tightening)]
     #[instrument(err, skip(self, query))]
-    pub async fn probe(&self, query: &H, top_k: usize) -> Result<Vec<(String, f32)>> {
+    pub async fn probe(&self, query: H, top_k: usize) -> Result<Vec<(String, f32)>> {
         self.validate_top_k(top_k)?;
         #[cfg(not(target_arch = "wasm32"))]
         let start = std::time::Instant::now();
@@ -140,7 +140,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         let (results, expired_ids) = {
             let sing = self.singularity.read().await;
             let ns = self.namespace.read().await;
-            let results = sing.find_similar(&ns, query, top_k);
+            let results = sing.find_similar(&ns, &query, top_k);
 
             let now = crate::singularity::unix_now_secs();
             let expired_ids: std::collections::HashSet<String> = results
@@ -409,5 +409,33 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
             concept_count,
             db_size_bytes: db_size,
         })
+    }
+
+    pub(crate) fn validate_concept_id(id: &str) -> Result<()> {
+        crate::ChaoticSemanticFramework::<H>::validate_concept_id(id)
+    }
+    pub(crate) fn validate_metadata_bytes(metadata: &std::collections::HashMap<String, serde_json::Value>, max_metadata_bytes: Option<usize>) -> Result<()> {
+        crate::ChaoticSemanticFramework::<H>::validate_metadata_bytes(metadata, max_metadata_bytes)
+    }
+    pub(crate) fn validate_top_k(&self, top_k: usize) -> Result<()> {
+        crate::ChaoticSemanticFramework::<H>::validate_top_k(self, top_k)
+    }
+    pub(crate) fn validate_concept(&self, concept: &Concept<H>) -> Result<()> {
+        crate::ChaoticSemanticFramework::<H>::validate_concept(self, concept)
+    }
+    pub(crate) fn validate_sequence_length(&self, length: usize) -> Result<()> {
+        crate::ChaoticSemanticFramework::<H>::validate_sequence_length(self, length)
+    }
+    pub(crate) fn validate_batch_size(&self, batch_size: usize) -> Result<()> {
+        crate::ChaoticSemanticFramework::<H>::validate_batch_size(self, batch_size)
+    }
+    pub(crate) fn validate_traversal_config(config: &TraversalConfig) -> Result<()> {
+        crate::ChaoticSemanticFramework::<H>::validate_traversal_config(config)
+    }
+    pub(crate) fn validate_metadata_filter(filter: &MetadataFilter) -> Result<()> {
+        crate::ChaoticSemanticFramework::<H>::validate_metadata_filter(filter)
+    }
+    pub(crate) fn emit_event(&self, event: MemoryEvent) {
+        let _ = self.event_sender.send(event);
     }
 }

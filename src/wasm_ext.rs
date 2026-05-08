@@ -216,7 +216,7 @@ mod tests {
     use crate::framework_builder::FrameworkBuilder;
     use crate::framework_events::MemoryEvent;
     use crate::graph_traversal::TraversalConfig;
-    use crate::hyperdim::{HVec10240, Hypervector};
+    use crate::hyperdim::HVec10240;
     use crate::metadata_filter::MetadataFilter;
     use serde_json::json;
     use std::collections::HashMap;
@@ -330,7 +330,7 @@ mod tests {
     fn hvec_bytes_length() {
         let hvec = HVec10240::random();
         let bytes = hvec.to_bytes();
-        assert_eq!(bytes.len(), 40960); // 10240 f32s × 4 bytes
+        assert_eq!(bytes.len(), 1280); // 10240 bits / 8 = 1280 bytes
     }
 
     #[test]
@@ -439,7 +439,7 @@ mod tests {
         assert_eq!(framework.namespace().await, "tenant-a");
 
         // 3. Verify default concept is not visible in tenant-a
-        let results = framework.probe(&HVec10240::random(), 10).await.unwrap();
+        let results = framework.probe(HVec10240::random(), 10).await.unwrap();
         assert!(results.is_empty());
 
         // 4. Inject into tenant-a
@@ -447,7 +447,7 @@ mod tests {
             .inject_concept("tenant-concept", HVec10240::random())
             .await
             .unwrap();
-        let results = framework.probe(&HVec10240::random(), 10).await.unwrap();
+        let results = framework.probe(HVec10240::random(), 10).await.unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].0, "tenant-concept");
 
@@ -456,7 +456,7 @@ mod tests {
         assert_eq!(framework.namespace().await, "_default");
 
         // 6. Verify only default concept is visible
-        let results = framework.probe(&HVec10240::random(), 10).await.unwrap();
+        let results = framework.probe(HVec10240::random(), 10).await.unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].0, "default-concept");
     }

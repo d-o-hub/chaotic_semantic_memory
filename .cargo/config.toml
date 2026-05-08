@@ -1,7 +1,2 @@
-# Increase default stack size for tests to accommodate large hypervectors
-# (HVec10240 uses 40KB [f32; 10240] inline, which overflows tokio's ~2MB task stack)
-[env]
-RUST_MIN_STACK = "8388608"
-
 [target.wasm32-unknown-unknown]
 rustflags = ["--cfg", "getrandom_backend=\"wasm_js\""]

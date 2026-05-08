@@ -219,8 +219,5 @@ ann-lsh = []
 signing = []
 serde = []
 
-# Quantized binary hypervectors (ADR-0075)
-hv-binary = []
-
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]

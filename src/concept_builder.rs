@@ -4,7 +4,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::{HVec10240, Hypervector};
+use crate::hyperdim::HVec10240;
 use crate::singularity::Concept;
 
 /// Builder for constructing [`Concept`] instances with a fluent API.
@@ -12,7 +12,6 @@ use crate::singularity::Concept;
 /// # Example
 ///
 /// ```
-/// use chaotic_semantic_memory::hyperdim::Hypervector;
 /// use chaotic_semantic_memory::singularity::ConceptBuilder;
 /// use chaotic_semantic_memory::HVec10240;
 ///

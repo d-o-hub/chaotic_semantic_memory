@@ -7,7 +7,7 @@ use tempfile::NamedTempFile;
 
 #[tokio::test]
 async fn export_json_path_too_long_rejected() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -26,7 +26,7 @@ async fn export_json_path_too_long_rejected() {
 
 #[tokio::test]
 async fn export_json_path_traversal_rejected() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -45,22 +45,26 @@ async fn export_json_path_traversal_rejected() {
 
 #[tokio::test]
 async fn import_json_skips_invalid_association() {
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
         .unwrap();
 
-    // Construct a JSON payload with an invalid association (negative strength).
-    // HVec10240 serializes as a JSON byte array (via serialize_bytes).
+    // Create a JSON payload with an invalid association (negative strength)
     let vector1 = HVec10240::random();
     let vector2 = HVec10240::random();
     let vector3 = HVec10240::random();
 
-    // Get the JSON representation of each HVec10240 (array of 40960 u8 values)
-    let v1_json = serde_json::to_value(&vector1).unwrap();
-    let v2_json = serde_json::to_value(&vector2).unwrap();
-    let v3_json = serde_json::to_value(&vector3).unwrap();
+    // HVec10240 serializes to base64 when using serde_json
+    let v1_b64 = serde_json::to_string(&vector1).unwrap();
+    let v2_b64 = serde_json::to_string(&vector2).unwrap();
+    let v3_b64 = serde_json::to_string(&vector3).unwrap();
+
+    // Remove the quotes from the JSON string since we're embedding in another JSON
+    let v1_b64 = v1_b64.trim_matches('"');
+    let v2_b64 = v2_b64.trim_matches('"');
+    let v3_b64 = v3_b64.trim_matches('"');
 
     let payload_json = serde_json::json!({
         "version": "0.3.5",
@@ -68,21 +72,21 @@ async fn import_json_skips_invalid_association() {
         "concepts": [
             {
                 "id": "import-invalid-0",
-                "vector": v1_json,
+                "vector": v1_b64,
                 "metadata": {},
                 "created_at": 1,
                 "modified_at": 1
             },
             {
                 "id": "import-invalid-1",
-                "vector": v2_json,
+                "vector": v2_b64,
                 "metadata": {},
                 "created_at": 1,
                 "modified_at": 1
             },
             {
                 "id": "import-invalid-2",
-                "vector": v3_json,
+                "vector": v3_b64,
                 "metadata": {},
                 "created_at": 1,
                 "modified_at": 1
@@ -90,7 +94,7 @@ async fn import_json_skips_invalid_association() {
         ],
         "associations": [
             ["import-invalid-0", "import-invalid-1", 0.5],
-            ["import-invalid-0", "import-invalid-2", -0.5]
+            ["import-invalid-0", "import-invalid-2", -0.5]  // Invalid: negative
         ]
     });
 
@@ -108,7 +112,7 @@ async fn backup_and_restore_with_persistence() {
     let temp = NamedTempFile::new().unwrap();
     let db_path = temp.path().to_str().unwrap().to_string();
 
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .with_local_db(db_path.clone())
         .build()
         .await
@@ -132,7 +136,7 @@ async fn backup_and_restore_with_persistence() {
     // Restore into new framework
     let restore_temp = NamedTempFile::new().unwrap();
     let restore_path = restore_temp.path().to_str().unwrap().to_string();
-    let framework2: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework2 = ChaoticSemanticFramework::builder()
         .with_local_db(restore_path)
         .build()
         .await
@@ -149,7 +153,7 @@ async fn concept_history_with_limit_clamping() {
     let temp = NamedTempFile::new().unwrap();
     let db_path = temp.path().to_str().unwrap().to_string();
 
-    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
+    let framework = ChaoticSemanticFramework::builder()
         .with_local_db(db_path)
         .build()
         .await
