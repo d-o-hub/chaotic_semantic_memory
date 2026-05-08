@@ -135,14 +135,14 @@ pub(crate) unsafe fn bind_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
 #[inline]
 #[target_feature(enable = "avx2")]
-pub(crate) unsafe fn finalize_simd_avx2(counts: &[i32; 10240]) -> [u128; 80] {
+pub(crate) unsafe fn finalize_simd_avx2(counts: &[i32; 10240], threshold: i32) -> [u128; 80] {
     use std::arch::x86_64::{
         _mm256_castsi256_ps, _mm256_cmpgt_epi32, _mm256_loadu_si256, _mm256_movemask_ps,
-        _mm256_setzero_si256,
+        _mm256_set1_epi32,
     };
 
     let mut data = [0u128; 80];
-    let zero = _mm256_setzero_si256();
+    let threshold_vec = _mm256_set1_epi32(threshold);
 
     for i in 0..80 {
         let offset = i * 128;
@@ -157,7 +157,7 @@ pub(crate) unsafe fn finalize_simd_avx2(counts: &[i32; 10240]) -> [u128; 80] {
             let packed = unsafe {
                 let ptr = counts.as_ptr().add(offset + j * 8);
                 let chunk = _mm256_loadu_si256(ptr.cast());
-                let mask = _mm256_cmpgt_epi32(chunk, zero);
+                let mask = _mm256_cmpgt_epi32(chunk, threshold_vec);
                 // _mm256_movemask_ps treats each 32-bit lane as a float and takes the sign bit
                 // Since our mask is all 1s (negative in float) or all 0s, this works perfectly.
                 _mm256_movemask_ps(_mm256_castsi256_ps(mask)) as u64
@@ -172,7 +172,7 @@ pub(crate) unsafe fn finalize_simd_avx2(counts: &[i32; 10240]) -> [u128; 80] {
             let packed = unsafe {
                 let ptr = counts.as_ptr().add(offset + 64 + j * 8);
                 let chunk = _mm256_loadu_si256(ptr.cast());
-                let mask = _mm256_cmpgt_epi32(chunk, zero);
+                let mask = _mm256_cmpgt_epi32(chunk, threshold_vec);
                 _mm256_movemask_ps(_mm256_castsi256_ps(mask)) as u64
             };
             word_high |= packed << (j * 8);
@@ -191,7 +191,7 @@ pub(crate) unsafe fn finalize_simd_avx2(counts: &[i32; 10240]) -> [u128; 80] {
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
 #[inline]
 #[target_feature(enable = "neon")]
-pub(crate) unsafe fn finalize_simd_neon(counts: &[i32; 10240]) -> [u128; 80] {
+pub(crate) unsafe fn finalize_simd_neon(counts: &[i32; 10240], threshold: i32) -> [u128; 80] {
     use std::arch::aarch64::{vaddvq_u32, vandq_u32, vcgtq_s32, vdupq_n_s32, vld1q_s32};
 
     let mut data = [0u128; 80];
@@ -215,7 +215,7 @@ pub(crate) unsafe fn finalize_simd_neon(counts: &[i32; 10240]) -> [u128; 80] {
             let packed = unsafe {
                 let ptr = counts.as_ptr().add(offset + j * 4);
                 let chunk = vld1q_s32(ptr);
-                let mask = vcgtq_s32(chunk, vdupq_n_s32(0));
+                let mask = vcgtq_s32(chunk, vdupq_n_s32(threshold));
                 // Apply weights to the mask (0xFFFFFFFF for set bits, 0 for clear)
                 let weighted = vandq_u32(mask, weights);
                 // Sum to pack the 4 bits into the bottom of a u32
@@ -231,7 +231,7 @@ pub(crate) unsafe fn finalize_simd_neon(counts: &[i32; 10240]) -> [u128; 80] {
             let packed = unsafe {
                 let ptr = counts.as_ptr().add(offset + 64 + j * 4);
                 let chunk = vld1q_s32(ptr);
-                let mask = vcgtq_s32(chunk, vdupq_n_s32(0));
+                let mask = vcgtq_s32(chunk, vdupq_n_s32(threshold));
                 let weighted = vandq_u32(mask, weights);
                 vaddvq_u32(weighted) as u64
             };
@@ -353,5 +353,71 @@ mod tests {
             .sum();
 
         assert_eq!(distance, expected);
+    }
+
+    /// Reference scalar implementation for consistency testing
+    fn finalize_scalar(counts: &[i32; 10240], threshold: i32) -> [u128; 80] {
+        let mut data = [0u128; 80];
+        for (i, word) in data.iter_mut().enumerate() {
+            let offset = i * 128;
+            for j in 0..128 {
+                if counts[offset + j] > threshold {
+                    *word |= 1u128 << j;
+                }
+            }
+        }
+        data
+    }
+
+    /// Generates a test counts array with boundary conditions and mixed values
+    fn make_test_counts(seed: u64) -> [i32; 10240] {
+        use rand::{RngExt, SeedableRng};
+        let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+        let mut counts = [0i32; 10240];
+
+        for i in 0..10240 {
+            // Mixed negative, zero, and positive values
+            counts[i] = rng.random_range(-10..10);
+        }
+
+        // Special patterns for lane/order boundaries (31/32, 63/64, 127/0)
+        let boundaries = [31, 32, 63, 64, 127];
+        for w in 0..80 {
+            let offset = w * 128;
+            for &b in &boundaries {
+                // Ensure some boundary flips
+                counts[offset + b] = if rng.random_bool(0.5) { 1 } else { -1 };
+            }
+        }
+
+        counts
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+    #[test]
+    fn test_finalize_simd_avx2_consistency() {
+        if std::arch::is_x86_feature_detected!("avx2") {
+            for seed in 0..10 {
+                let counts = make_test_counts(seed);
+                for threshold in [-2, -1, 0, 1, 2] {
+                    let scalar = finalize_scalar(&counts, threshold);
+                    let simd = unsafe { finalize_simd_avx2(&counts, threshold) };
+                    assert_eq!(simd, scalar, "Mismatch at seed {seed}, threshold {threshold}");
+                }
+            }
+        }
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+    #[test]
+    fn test_finalize_simd_neon_consistency() {
+        for seed in 0..10 {
+            let counts = make_test_counts(seed);
+            for threshold in [-2, -1, 0, 1, 2] {
+                let scalar = finalize_scalar(&counts, threshold);
+                let simd = unsafe { finalize_simd_neon(&counts, threshold) };
+                assert_eq!(simd, scalar, "Mismatch at seed {seed}, threshold {threshold}");
+            }
+        }
     }
 }
