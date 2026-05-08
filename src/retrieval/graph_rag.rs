@@ -7,7 +7,7 @@
 
 use crate::error::Result;
 use crate::graph_traversal::TraversalConfig;
-use crate::hyperdim::{HVec10240, Hypervector};
+use crate::hyperdim::Hypervector;
 use crate::singularity::Concept;
 use std::collections::{HashMap, HashSet, VecDeque};
 

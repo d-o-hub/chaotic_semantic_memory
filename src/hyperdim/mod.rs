@@ -31,6 +31,8 @@ pub trait Hypervector:
     fn hamming_distance(&self, other: &Self) -> u32;
     fn to_bytes(&self) -> Vec<u8>;
     fn from_bytes(bytes: &[u8]) -> Result<Self>;
+    /// Convert from a f32-based HVec10240 array (zero-copy for HVec10240).
+    fn from_f32_array(arr: &[f32; 10240]) -> Self;
 }
 #[cfg(feature = "hv-binary")]
 pub mod binary;

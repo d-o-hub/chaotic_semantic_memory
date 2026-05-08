@@ -1,10 +1,10 @@
-use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240};
+use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240, Hypervector};
 
 const NS: &str = "_default";
 
 #[tokio::test]
 async fn framework_creation_starts_empty() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -16,7 +16,7 @@ async fn framework_creation_starts_empty() {
 
 #[tokio::test]
 async fn concept_lifecycle_updates_associations() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await

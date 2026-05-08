@@ -2,15 +2,15 @@
 //!
 //! Tests that exercise migration paths indirectly through Persistence initialization.
 
-use chaotic_semantic_memory::HVec10240;
 use chaotic_semantic_memory::persistence::Persistence;
 use chaotic_semantic_memory::singularity::Concept;
+use chaotic_semantic_memory::{HVec10240, Hypervector};
 use std::collections::HashMap;
 use tempfile::NamedTempFile;
 
 const NS: &str = "_default";
 
-fn make_concept(id: &str) -> Concept {
+fn make_concept(id: &str) -> Concept<HVec10240> {
     Concept {
         id: id.to_string(),
         vector: HVec10240::random(),
@@ -79,7 +79,7 @@ async fn persistence_save_and_load_triggers_version_recording() {
 
     // Load should succeed
     let loaded = persistence
-        .load_concept(NS, "versioned-concept")
+        .load_concept::<HVec10240>(NS, "versioned-concept")
         .await
         .unwrap();
     assert!(loaded.is_some());
@@ -112,6 +112,9 @@ async fn persistence_prune_old_versions() {
     }
 
     // Only latest version should remain
-    let loaded = persistence.load_concept(NS, "prune-test").await.unwrap();
+    let loaded = persistence
+        .load_concept::<HVec10240>(NS, "prune-test")
+        .await
+        .unwrap();
     assert!(loaded.is_some());
 }

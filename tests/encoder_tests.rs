@@ -2,8 +2,8 @@
 //!
 //! These tests verify determinism, similarity preservation, and code-aware tokenization.
 
-use chaotic_semantic_memory::HVec10240;
 use chaotic_semantic_memory::encoder::{TextEncoder, TextEncoderConfig};
+use chaotic_semantic_memory::{HVec10240, Hypervector};
 
 #[test]
 fn test_encode_deterministic() {

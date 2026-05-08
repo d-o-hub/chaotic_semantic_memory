@@ -3,7 +3,7 @@ mod tests {
     use crate::export_payload::{
         BinaryConcept, BinaryExportPayload, BinaryMetadataValue, ExportPayload, unix_now_secs,
     };
-    use crate::hyperdim::HVec10240;
+    use crate::hyperdim::{HVec10240, Hypervector};
     use crate::singularity::Concept;
     use serde_json::json;
     use std::collections::HashMap;
@@ -130,7 +130,7 @@ mod tests {
         let mut metadata = HashMap::new();
         metadata.insert("source".to_string(), json!("test_source"));
 
-        let concept = Concept {
+        let concept = Concept::<HVec10240> {
             id: "concept-123".to_string(),
             vector: original_vector,
             metadata: metadata.clone(),
@@ -141,7 +141,7 @@ mod tests {
         };
 
         // Convert to BinaryConcept
-        let bin_concept = BinaryConcept::from(concept.clone());
+        let bin_concept = BinaryConcept::<HVec10240>::from(concept.clone());
         assert_eq!(bin_concept.id, "concept-123");
         assert_eq!(bin_concept.vector_bytes, original_vector.to_bytes());
         assert_eq!(bin_concept.created_at, 1000);
@@ -175,7 +175,7 @@ mod tests {
 
     #[test]
     fn test_binary_export_payload_conversion() {
-        let concept = Concept {
+        let concept = Concept::<HVec10240> {
             id: "concept-1".to_string(),
             vector: HVec10240::zero(),
             metadata: HashMap::new(),
@@ -185,7 +185,7 @@ mod tests {
             canonical_concept_ids: vec![],
         };
 
-        let payload = ExportPayload {
+        let payload = ExportPayload::<HVec10240> {
             version: "1.0".to_string(),
             exported_at: 123456789,
             concepts: vec![concept],
@@ -193,7 +193,7 @@ mod tests {
         };
 
         // Convert to BinaryExportPayload
-        let bin_payload = BinaryExportPayload::from(payload.clone());
+        let bin_payload = BinaryExportPayload::<HVec10240>::from(payload.clone());
         assert_eq!(bin_payload.version, "1.0");
         assert_eq!(bin_payload.exported_at, 123456789);
         assert_eq!(bin_payload.concepts.len(), 1);
@@ -204,7 +204,7 @@ mod tests {
         );
 
         // Convert back to ExportPayload
-        let restored_payload = bin_payload
+        let restored_payload: ExportPayload<HVec10240> = bin_payload
             .to_export_payload()
             .expect("Failed to restore payload");
         assert_eq!(restored_payload.version, payload.version);
@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn test_export_payload_json_serialization() {
-        let concept = Concept {
+        let concept = Concept::<HVec10240> {
             id: "concept-json".to_string(),
             vector: HVec10240::zero(),
             metadata: HashMap::new(),
@@ -226,7 +226,7 @@ mod tests {
             canonical_concept_ids: vec![],
         };
 
-        let payload = ExportPayload {
+        let payload = ExportPayload::<HVec10240> {
             version: "1.0".to_string(),
             exported_at: 100,
             concepts: vec![concept],
@@ -234,7 +234,7 @@ mod tests {
         };
 
         let json_str = serde_json::to_string(&payload).expect("Failed to serialize to JSON");
-        let deserialized: ExportPayload =
+        let deserialized: ExportPayload<HVec10240> =
             serde_json::from_str(&json_str).expect("Failed to deserialize from JSON");
 
         assert_eq!(deserialized.version, payload.version);
@@ -246,7 +246,7 @@ mod tests {
 
     #[test]
     fn test_binary_export_payload_bincode_serialization() {
-        let concept = Concept {
+        let concept = Concept::<HVec10240> {
             id: "concept-bin".to_string(),
             vector: HVec10240::zero(),
             metadata: HashMap::new(),
@@ -256,16 +256,16 @@ mod tests {
             canonical_concept_ids: vec![],
         };
 
-        let payload = ExportPayload {
+        let payload = ExportPayload::<HVec10240> {
             version: "1.0".to_string(),
             exported_at: 200,
             concepts: vec![concept],
             associations: vec![("c".to_string(), "d".to_string(), 0.8)],
         };
 
-        let bin_payload = BinaryExportPayload::from(payload);
+        let bin_payload = BinaryExportPayload::<HVec10240>::from(payload);
         let encoded = bincode::serialize(&bin_payload).expect("Failed to serialize to bincode");
-        let decoded: BinaryExportPayload =
+        let decoded: BinaryExportPayload<HVec10240> =
             bincode::deserialize(&encoded).expect("Failed to deserialize from bincode");
 
         assert_eq!(decoded.version, bin_payload.version);
@@ -303,7 +303,7 @@ mod tests {
             }),
         );
 
-        let concept1 = Concept {
+        let concept1 = Concept::<HVec10240> {
             id: "concept-complex-1".to_string(),
             vector: HVec10240::random(),
             metadata: metadata1,
@@ -323,7 +323,7 @@ mod tests {
             ]),
         );
 
-        let concept2 = Concept {
+        let concept2 = Concept::<HVec10240> {
             id: "concept-complex-2".to_string(),
             vector: HVec10240::random(),
             metadata: metadata2,
@@ -334,7 +334,7 @@ mod tests {
         };
 
         // Create ExportPayload (uses serde_json::Value which is incompatible with bincode)
-        let original_payload = ExportPayload {
+        let original_payload = ExportPayload::<HVec10240> {
             version: "0.3.5".to_string(),
             exported_at: 1700001000,
             concepts: vec![concept1, concept2],
@@ -346,14 +346,14 @@ mod tests {
         };
 
         // Convert to BinaryExportPayload (bincode-compatible)
-        let binary_payload = BinaryExportPayload::from(original_payload.clone());
+        let binary_payload = BinaryExportPayload::<HVec10240>::from(original_payload.clone());
 
         // Serialize with bincode (this would fail with ExportPayload directly)
         let encoded =
             bincode::serialize(&binary_payload).expect("bincode serialization should succeed");
 
         // Deserialize back to BinaryExportPayload
-        let decoded: BinaryExportPayload =
+        let decoded: BinaryExportPayload<HVec10240> =
             bincode::deserialize(&encoded).expect("bincode deserialization should succeed");
 
         // Convert back to ExportPayload
@@ -432,7 +432,7 @@ mod tests {
         let mut metadata = HashMap::new();
         metadata.insert("key".to_string(), json!("value"));
 
-        let concept = Concept {
+        let concept = Concept::<HVec10240> {
             id: "test-concept".to_string(),
             vector: HVec10240::zero(),
             metadata,
@@ -442,7 +442,7 @@ mod tests {
             canonical_concept_ids: vec![],
         };
 
-        let payload = ExportPayload {
+        let payload = ExportPayload::<HVec10240> {
             version: "1.0".to_string(),
             exported_at: 100,
             concepts: vec![concept],
@@ -456,7 +456,8 @@ mod tests {
         // This test documents the issue and verifies BinaryExportPayload is the correct solution
         if let Ok(encoded) = result {
             // If serialization succeeded, deserialization should fail
-            let decode_result: Result<ExportPayload, _> = bincode::deserialize(&encoded);
+            let decode_result: std::result::Result<ExportPayload<HVec10240>, _> =
+                bincode::deserialize(&encoded);
             // Either way, using BinaryExportPayload is the correct approach
             assert!(
                 decode_result.is_err() || decode_result.is_ok(),

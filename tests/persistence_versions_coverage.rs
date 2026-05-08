@@ -12,7 +12,7 @@ async fn version_history_after_multiple_updates() {
     let temp = NamedTempFile::new().unwrap();
     let db_path = temp.path().to_str().unwrap().to_string();
 
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .with_local_db(db_path)
         .with_version_retention(5)
         .build()
@@ -49,7 +49,7 @@ async fn version_retention_prunes_old_versions() {
     let temp = NamedTempFile::new().unwrap();
     let db_path = temp.path().to_str().unwrap().to_string();
 
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .with_local_db(db_path)
         .with_version_retention(2) // Keep only 2 versions
         .build()
@@ -85,7 +85,7 @@ async fn version_history_empty_for_nonexistent_concept() {
     let temp = NamedTempFile::new().unwrap();
     let db_path = temp.path().to_str().unwrap().to_string();
 
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .with_local_db(db_path)
         .build()
         .await
@@ -104,7 +104,7 @@ async fn version_metadata_update_creates_version() {
     let temp = NamedTempFile::new().unwrap();
     let db_path = temp.path().to_str().unwrap().to_string();
 
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .with_local_db(db_path)
         .build()
         .await
@@ -141,7 +141,7 @@ async fn version_persist_after_injection() {
     let temp = NamedTempFile::new().unwrap();
     let db_path = temp.path().to_str().unwrap().to_string();
 
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .with_local_db(&db_path)
         .build()
         .await
@@ -156,7 +156,7 @@ async fn version_persist_after_injection() {
     framework.persist().await.unwrap();
 
     // Create a new framework with same database
-    let framework2 = ChaoticSemanticFramework::builder()
+    let framework2: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .with_local_db(&db_path)
         .build()
         .await

@@ -1,10 +1,10 @@
-use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240};
+use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240, Hypervector};
 
 const NS: &str = "_default";
 
 #[tokio::test]
 async fn concept_id_enforces_256_byte_limit() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -27,7 +27,7 @@ async fn concept_id_enforces_256_byte_limit() {
 
 #[tokio::test]
 async fn associate_rejects_negative_strength() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -59,7 +59,7 @@ fn reservoir_to_hypervector_dimension_boundary() {
 
 #[tokio::test]
 async fn probe_respects_configured_top_k_limit() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_max_probe_top_k(3)
         .build()

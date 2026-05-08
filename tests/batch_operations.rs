@@ -20,7 +20,7 @@ fn make_query_batch(n: usize) -> Vec<HVec10240> {
 
 #[tokio::test]
 async fn inject_concepts_happy_path_in_memory() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -35,7 +35,7 @@ async fn inject_concepts_happy_path_in_memory() {
 
 #[tokio::test]
 async fn inject_concepts_empty_batch_returns_ok() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -50,7 +50,7 @@ async fn inject_concepts_empty_batch_returns_ok() {
 
 #[tokio::test]
 async fn inject_concepts_rejects_empty_id() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -67,7 +67,7 @@ async fn inject_concepts_rejects_empty_id() {
 
 #[tokio::test]
 async fn inject_concepts_rejects_oversized_id() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -85,7 +85,7 @@ async fn inject_concepts_with_persistence() {
     let temp = NamedTempFile::new().unwrap();
     let path = temp.path().to_str().unwrap().to_string();
 
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .with_local_db(path.clone())
         .build()
         .await
@@ -96,7 +96,7 @@ async fn inject_concepts_with_persistence() {
     framework.inject_concepts(&concepts).await.unwrap();
     framework.persist().await.unwrap();
 
-    let framework2 = ChaoticSemanticFramework::builder()
+    let framework2: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .with_local_db(path)
         .build()
         .await
@@ -114,7 +114,7 @@ async fn inject_concepts_with_persistence() {
 
 #[tokio::test]
 async fn inject_concepts_large_batch() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_max_concepts(200)
         .build()
@@ -130,7 +130,7 @@ async fn inject_concepts_large_batch() {
 
 #[tokio::test]
 async fn inject_concepts_updates_replaces_existing() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -154,7 +154,7 @@ async fn inject_concepts_updates_replaces_existing() {
 
 #[tokio::test]
 async fn associate_many_happy_path_in_memory() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -185,7 +185,7 @@ async fn associate_many_happy_path_in_memory() {
 
 #[tokio::test]
 async fn associate_many_empty_batch_returns_ok() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -197,7 +197,7 @@ async fn associate_many_empty_batch_returns_ok() {
 
 #[tokio::test]
 async fn associate_many_rejects_nan_strength() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -218,7 +218,7 @@ async fn associate_many_rejects_nan_strength() {
 
 #[tokio::test]
 async fn associate_many_rejects_infinity_strength() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -239,7 +239,7 @@ async fn associate_many_rejects_infinity_strength() {
 
 #[tokio::test]
 async fn associate_many_rejects_negative_strength() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -260,7 +260,7 @@ async fn associate_many_rejects_negative_strength() {
 
 #[tokio::test]
 async fn associate_many_rejects_empty_from_id() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -278,7 +278,7 @@ async fn associate_many_rejects_empty_from_id() {
 
 #[tokio::test]
 async fn associate_many_rejects_empty_to_id() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -299,7 +299,7 @@ async fn associate_many_with_persistence() {
     let temp = NamedTempFile::new().unwrap();
     let path = temp.path().to_str().unwrap().to_string();
 
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .with_local_db(path.clone())
         .build()
         .await
@@ -317,7 +317,7 @@ async fn associate_many_with_persistence() {
     framework.associate_many(&associations).await.unwrap();
     framework.persist().await.unwrap();
 
-    let framework2 = ChaoticSemanticFramework::builder()
+    let framework2: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .with_local_db(path)
         .build()
         .await
@@ -330,7 +330,7 @@ async fn associate_many_with_persistence() {
 
 #[tokio::test]
 async fn associate_many_large_batch() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_max_associations_per_concept(100)
         .build()
@@ -356,7 +356,7 @@ async fn associate_many_large_batch() {
 
 #[tokio::test]
 async fn probe_batch_happy_path_in_memory() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -380,7 +380,7 @@ async fn probe_batch_happy_path_in_memory() {
 
 #[tokio::test]
 async fn probe_batch_empty_returns_empty_results() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -397,7 +397,7 @@ async fn probe_batch_empty_returns_empty_results() {
 
 #[tokio::test]
 async fn probe_batch_rejects_zero_top_k() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -415,7 +415,7 @@ async fn probe_batch_rejects_zero_top_k() {
 
 #[tokio::test]
 async fn probe_batch_rejects_top_k_exceeding_limit() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_max_probe_top_k(10)
         .build()
@@ -434,7 +434,7 @@ async fn probe_batch_rejects_top_k_exceeding_limit() {
 
 #[tokio::test]
 async fn probe_batch_finds_exact_match_first() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -463,7 +463,7 @@ async fn probe_batch_with_persistence() {
     let temp = NamedTempFile::new().unwrap();
     let path = temp.path().to_str().unwrap().to_string();
 
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .with_local_db(path.clone())
         .build()
         .await
@@ -477,7 +477,7 @@ async fn probe_batch_with_persistence() {
         .unwrap();
     framework.persist().await.unwrap();
 
-    let framework2 = ChaoticSemanticFramework::builder()
+    let framework2: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .with_local_db(path)
         .build()
         .await
@@ -493,7 +493,7 @@ async fn probe_batch_with_persistence() {
 
 #[tokio::test]
 async fn probe_batch_large_batch() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_max_concepts(500)
         .build()
@@ -514,7 +514,7 @@ async fn probe_batch_large_batch() {
 
 #[tokio::test]
 async fn probe_batch_cached_happy_path_in_memory() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -539,7 +539,7 @@ async fn probe_batch_cached_happy_path_in_memory() {
 
 #[tokio::test]
 async fn probe_batch_cached_empty_returns_empty_results() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -556,7 +556,7 @@ async fn probe_batch_cached_empty_returns_empty_results() {
 
 #[tokio::test]
 async fn probe_batch_cached_rejects_zero_top_k() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -574,7 +574,7 @@ async fn probe_batch_cached_rejects_zero_top_k() {
 
 #[tokio::test]
 async fn probe_batch_cached_reuses_results() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(16)
         .build()
@@ -605,7 +605,7 @@ async fn probe_batch_cached_with_persistence() {
     let temp = NamedTempFile::new().unwrap();
     let path = temp.path().to_str().unwrap().to_string();
 
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .with_local_db(path.clone())
         .build()
         .await
@@ -634,7 +634,7 @@ async fn probe_batch_cached_with_persistence() {
 
 #[tokio::test]
 async fn probe_batch_cached_multiple_distinct_queries() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(16)
         .build()
@@ -664,7 +664,7 @@ async fn probe_batch_cached_multiple_distinct_queries() {
 
 #[tokio::test]
 async fn probe_batch_cached_large_corpus_keeps_exact_semantics() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(64)
         .with_max_batch_size(2001)
@@ -695,8 +695,8 @@ async fn probe_batch_cached_large_corpus_keeps_exact_semantics() {
 
 #[tokio::test]
 async fn batch_operations_concurrent_access() {
-    let framework = Arc::new(
-        ChaoticSemanticFramework::builder()
+    let framework: Arc<ChaoticSemanticFramework<HVec10240>> = Arc::new(
+        ChaoticSemanticFramework::<HVec10240>::builder()
             .without_persistence()
             .with_max_concepts(200)
             .build()
@@ -729,7 +729,7 @@ async fn batch_operations_concurrent_access() {
 
 #[tokio::test]
 async fn batch_operations_combined_workflow() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await

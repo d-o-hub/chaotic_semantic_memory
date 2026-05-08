@@ -4,27 +4,15 @@
 
 use chaotic_semantic_memory::prelude::*;
 
-#[test]
-fn hvec_sparse_creates_sparse_vector() {
-    let sparse_vec = HVec10240::sparse(0.1); // 10% density
-    // Verify it's not zero
-    let zero = HVec10240::zero();
-    assert_ne!(sparse_vec, zero);
-}
+// Skip sparse tests - HVec10240 is now f32-based, not sparse by default
+// The sparse functionality was for the old u128-based representation
 
 #[test]
-fn hvec_sparse_zero_density_returns_zero_vector() {
-    let zero_vec = HVec10240::sparse(0.0);
+fn hvec_random_is_different_from_zero() {
+    let random_vec = HVec10240::random();
     let zero = HVec10240::zero();
-    assert_eq!(zero_vec, zero);
-}
-
-#[test]
-fn hvec_sparse_high_density_is_different_from_zero() {
-    let dense_vec = HVec10240::sparse(0.8);
-    let zero = HVec10240::zero();
-    // High density vector should be different from zero
-    assert_ne!(dense_vec, zero);
+    // Verify random is not zero
+    assert_ne!(random_vec, zero);
 }
 
 #[test]
@@ -53,7 +41,8 @@ fn hvec_zero_different_from_random() {
 fn hvec_to_bytes_and_from_bytes_roundtrip() {
     let original = HVec10240::random();
     let bytes = original.to_bytes();
-    assert_eq!(bytes.len(), 1280);
+    // f32-based HVec10240: 10240 elements × 4 bytes = 40960 bytes
+    assert_eq!(bytes.len(), 40960);
 
     let restored = HVec10240::from_bytes(&bytes).unwrap();
     assert_eq!(original, restored);
@@ -83,14 +72,13 @@ fn hvec_hamming_distance_different_vectors() {
 }
 
 #[test]
-fn hvec_bind_xor_operation() {
+fn hvec_bind_commutative() {
     let v1 = HVec10240::random();
     let v2 = HVec10240::random();
-    let bound = v1.bind(&v2);
-
-    // Binding should be reversible (XOR twice returns original)
-    let unbound = bound.bind(&v2);
-    assert_eq!(unbound, v1);
+    // f32 bind is element-wise multiplication, which is commutative
+    let bound_12 = v1.bind(&v2);
+    let bound_21 = v2.bind(&v1);
+    assert_eq!(bound_12, bound_21);
 }
 
 #[test]

@@ -6,6 +6,7 @@ use tokio::sync::RwLock;
 use crate::ChaoticSemanticFramework;
 use crate::error::Result;
 use crate::framework_events::build_event_sender;
+use crate::hyperdim::{HVec10240, Hypervector};
 #[cfg(feature = "persistence")]
 use crate::persistence::Persistence;
 use crate::reservoir::Reservoir;
@@ -77,7 +78,7 @@ pub struct FrameworkStats {
 }
 
 /// Builder for ChaoticSemanticFramework
-pub struct FrameworkBuilder {
+pub struct FrameworkBuilder<H: Hypervector = HVec10240> {
     pub(crate) config: FrameworkConfig,
     pub(crate) db_path: Option<String>,
     pub(crate) db_token: Option<String>,
@@ -85,9 +86,10 @@ pub struct FrameworkBuilder {
     pub(crate) version_retention: usize,
     pub(crate) namespace: String,
     pub(crate) embedding_provider: Option<Arc<dyn crate::embedding::EmbeddingProvider>>,
+    _phantom: std::marker::PhantomData<H>,
 }
 
-impl Default for FrameworkBuilder {
+impl<H: Hypervector> Default for FrameworkBuilder<H> {
     fn default() -> Self {
         Self {
             config: FrameworkConfig::default(),
@@ -97,11 +99,12 @@ impl Default for FrameworkBuilder {
             version_retention: 10,
             namespace: "_default".to_string(),
             embedding_provider: None,
+            _phantom: std::marker::PhantomData,
         }
     }
 }
 
-impl FrameworkBuilder {
+impl<H: Hypervector> FrameworkBuilder<H> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -242,7 +245,7 @@ impl FrameworkBuilder {
         self
     }
 
-    pub async fn build(self) -> Result<ChaoticSemanticFramework> {
+    pub async fn build(self) -> Result<ChaoticSemanticFramework<H>> {
         Reservoir::validate_params(
             self.config.reservoir_size,
             self.config.reservoir_input_size,

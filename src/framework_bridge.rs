@@ -5,8 +5,8 @@
 
 use crate::bridge_retrieval::BridgeRetrieval;
 use crate::error::Result;
-use crate::hyperdim::Hypervector;
 use crate::framework::ChaoticSemanticFramework;
+use crate::hyperdim::Hypervector;
 use crate::metadata_filter::MetadataFilter;
 use crate::semantic_bridge::{BridgeHit, MemoryPacket, SemanticReranker};
 
@@ -18,7 +18,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         &self,
         query: &str,
         top_k: usize,
-        bridge: &BridgeRetrieval,
+        bridge: &BridgeRetrieval<H>,
     ) -> Result<Vec<BridgeHit>> {
         self.validate_top_k(top_k)?;
         let singularity = self.singularity.read().await;
@@ -34,7 +34,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         &self,
         query: &str,
         top_k: usize,
-        bridge: &BridgeRetrieval,
+        bridge: &BridgeRetrieval<H>,
         reranker: &dyn SemanticReranker,
     ) -> Result<Vec<BridgeHit>> {
         self.validate_top_k(top_k)?;
@@ -52,7 +52,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         &self,
         query: &str,
         top_k: usize,
-        bridge: &BridgeRetrieval,
+        bridge: &BridgeRetrieval<H>,
         filter: &MetadataFilter,
     ) -> Result<Vec<BridgeHit>> {
         self.validate_top_k(top_k)?;
@@ -61,7 +61,8 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         let ns = self.namespace.read().await;
 
         // Get filtered concept IDs first
-        let query_hv = bridge.encoder().encode(query);
+        let query_hvec = bridge.encoder().encode(query);
+        let query_hv: H = H::from_f32_array(&query_hvec.data);
         let filtered_results = singularity.find_similar_filtered(&ns, &query_hv, top_k, filter);
         let filtered_ids: std::collections::HashSet<String> = filtered_results
             .as_ref()
@@ -88,7 +89,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         &self,
         query: &str,
         top_k: usize,
-        bridge: &BridgeRetrieval,
+        bridge: &BridgeRetrieval<H>,
     ) -> Result<MemoryPacket> {
         self.validate_top_k(top_k)?;
         let singularity = self.singularity.read().await;
@@ -104,7 +105,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         &self,
         query: &str,
         top_k: usize,
-        bridge: &BridgeRetrieval,
+        bridge: &BridgeRetrieval<H>,
         reranker: &dyn SemanticReranker,
     ) -> Result<MemoryPacket> {
         self.validate_top_k(top_k)?;
@@ -120,12 +121,13 @@ mod tests {
 
     use crate::encoder::TextEncoder;
     use crate::framework_builder::FrameworkBuilder;
+    use crate::hyperdim::HVec10240;
     use crate::semantic_bridge::{CanonicalConcept, ConceptGraph};
     use crate::singularity::ConceptBuilder;
 
     #[tokio::test]
     async fn test_probe_bridge_text_empty() {
-        let framework = FrameworkBuilder::new().build().await.unwrap();
+        let framework = FrameworkBuilder::<HVec10240>::new().build().await.unwrap();
         let encoder = TextEncoder::new();
         let graph = ConceptGraph::new();
         let bridge = crate::bridge_retrieval::BridgeRetrieval::with_defaults(encoder, graph);
@@ -139,7 +141,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_memory_packet_text_empty() {
-        let framework = FrameworkBuilder::new().build().await.unwrap();
+        let framework = FrameworkBuilder::<HVec10240>::new().build().await.unwrap();
         let encoder = TextEncoder::new();
         let graph = ConceptGraph::new();
         let bridge = crate::bridge_retrieval::BridgeRetrieval::with_defaults(encoder, graph);
@@ -154,7 +156,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_probe_bridge_text_with_concepts() {
-        let framework = FrameworkBuilder::new().build().await.unwrap();
+        let framework = FrameworkBuilder::<HVec10240>::new().build().await.unwrap();
         let encoder = TextEncoder::new();
 
         // Add concept to framework

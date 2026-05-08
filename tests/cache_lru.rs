@@ -8,7 +8,7 @@ const NS: &str = "_default";
 
 #[tokio::test]
 async fn cache_hit_updates_lru_order() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(4)
         .build()
@@ -52,7 +52,7 @@ async fn cache_hit_updates_lru_order() {
 
 #[tokio::test]
 async fn cache_capacity_eviction() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(2) // Very small cache
         .build()
@@ -78,7 +78,7 @@ async fn cache_capacity_eviction() {
 
 #[tokio::test]
 async fn cache_clear_removes_all_entries() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(16)
         .build()

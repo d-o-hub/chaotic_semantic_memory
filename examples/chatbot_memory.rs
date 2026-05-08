@@ -8,7 +8,7 @@ use chaotic_semantic_memory::prelude::*;
 async fn main() -> Result<()> {
     println!("💬 Chatbot Session Memory\n");
 
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await?;

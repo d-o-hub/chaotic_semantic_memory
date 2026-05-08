@@ -7,7 +7,7 @@ use tempfile::NamedTempFile;
 
 #[tokio::test]
 async fn export_json_absolute_path_in_current_dir() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -29,7 +29,7 @@ async fn export_json_absolute_path_in_current_dir() {
 
 #[tokio::test]
 async fn backup_without_persistence_is_ok() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -48,7 +48,7 @@ async fn backup_without_persistence_is_ok() {
 
 #[tokio::test]
 async fn restore_without_persistence_is_ok() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -62,7 +62,7 @@ async fn restore_without_persistence_is_ok() {
 
 #[tokio::test]
 async fn concept_history_without_persistence_returns_empty() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -86,7 +86,7 @@ async fn import_json_merge_with_existing_concepts() {
     let temp = NamedTempFile::new().unwrap();
     let db_path = temp.path().to_str().unwrap().to_string();
 
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .with_local_db(db_path)
         .build()
         .await
@@ -128,7 +128,7 @@ async fn import_binary_merge_with_existing_concepts() {
     let temp = NamedTempFile::new().unwrap();
     let db_path = temp.path().to_str().unwrap().to_string();
 
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .with_local_db(db_path)
         .build()
         .await

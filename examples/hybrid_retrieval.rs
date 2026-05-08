@@ -13,7 +13,7 @@ async fn main() -> Result<()> {
     println!("Bridge Hybrid Retrieval via Semantic Bridge Layer\n");
 
     // Build framework with persistence
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await?;

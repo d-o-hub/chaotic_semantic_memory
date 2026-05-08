@@ -1,11 +1,11 @@
 //! Extension methods for Singularity (extracted to satisfy LOC gate)
 
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::{HVec10240, Hypervector};
+use crate::hyperdim::Hypervector;
 use crate::singularity::Singularity;
 use tracing::instrument;
 
-impl<H: Hypervector + \'static> Singularity<H> {
+impl<H: Hypervector + 'static> Singularity<H> {
     /// Bundle multiple concepts into a single hypervector.
     #[instrument(skip(self, ns), fields(ids_count = ids.len()))]
     pub fn bundle_concepts_strict(&self, ns: &str, ids: &[String]) -> Result<H> {
@@ -71,6 +71,7 @@ impl<H: Hypervector + \'static> Singularity<H> {
 mod tests {
     use super::*;
     use crate::error::MemoryError;
+    use crate::hyperdim::HVec10240;
     use crate::singularity::{ConceptBuilder, Singularity, SingularityConfig};
     use std::collections::HashMap;
 
@@ -78,7 +79,8 @@ mod tests {
 
     #[test]
     fn test_bundle_concepts_strict_success() -> crate::error::Result<()> {
-        let mut singularity = Singularity::with_config(SingularityConfig::default());
+        let mut singularity: Singularity<HVec10240> =
+            Singularity::with_config(SingularityConfig::default());
         let vec1 = HVec10240::random();
         let vec2 = HVec10240::random();
 
@@ -95,7 +97,8 @@ mod tests {
 
     #[test]
     fn test_bundle_concepts_strict_missing_id() -> crate::error::Result<()> {
-        let mut singularity = Singularity::with_config(SingularityConfig::default());
+        let mut singularity: Singularity<HVec10240> =
+            Singularity::with_config(SingularityConfig::default());
         let vec1 = HVec10240::random();
 
         let c1 = ConceptBuilder::new("c1").with_vector(vec1).build()?;
@@ -116,7 +119,7 @@ mod tests {
 
     #[test]
     fn test_update_metadata_not_found() {
-        let mut sing = Singularity::new(SingularityConfig::default());
+        let mut sing: Singularity<HVec10240> = Singularity::new(SingularityConfig::default());
         let metadata = HashMap::new();
 
         let result = sing.update_metadata(NS, "non-existent-id", metadata);
@@ -132,7 +135,7 @@ mod tests {
 
     #[test]
     fn test_update_metadata_success() -> crate::error::Result<()> {
-        let mut sing = Singularity::new(SingularityConfig::default());
+        let mut sing: Singularity<HVec10240> = Singularity::new(SingularityConfig::default());
         let concept = ConceptBuilder::new("test-id")
             .with_metadata("original", serde_json::Value::Bool(true))
             .build()

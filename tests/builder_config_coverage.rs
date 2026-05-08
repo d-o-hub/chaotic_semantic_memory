@@ -7,7 +7,7 @@ use tempfile::NamedTempFile;
 
 #[tokio::test]
 async fn builder_with_max_sequence_length_configured() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_max_sequence_length(100)
         .build()
@@ -21,7 +21,7 @@ async fn builder_with_max_sequence_length_configured() {
 
 #[tokio::test]
 async fn builder_with_max_metadata_bytes_configured() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_max_metadata_bytes(1024)
         .build()
@@ -42,7 +42,7 @@ async fn builder_with_version_retention_configured() {
     let temp = NamedTempFile::new().unwrap();
     let db_path = temp.path().to_str().unwrap().to_string();
 
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .with_local_db(db_path)
         .with_version_retention(3)
         .build()
@@ -72,7 +72,7 @@ async fn builder_with_version_retention_configured() {
 
 #[tokio::test]
 async fn builder_with_max_batch_size_configured() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_max_batch_size(5)
         .build()
@@ -94,7 +94,7 @@ async fn builder_with_connection_pool_size_configured() {
     let temp = NamedTempFile::new().unwrap();
     let db_path = temp.path().to_str().unwrap().to_string();
 
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .with_local_db(db_path)
         .with_connection_pool_size(5)
         .build()
@@ -112,7 +112,7 @@ async fn builder_with_connection_pool_size_configured() {
 
 #[tokio::test]
 async fn builder_with_chaos_strength_configured() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_chaos_strength(0.5)
         .with_reservoir_size(1000)

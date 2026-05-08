@@ -8,7 +8,7 @@ const NS: &str = "_default";
 
 #[tokio::test]
 async fn metrics_snapshot_tracks_cache_hits() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(4)
         .build()
@@ -32,7 +32,7 @@ async fn metrics_snapshot_tracks_cache_hits() {
 
 #[tokio::test]
 async fn metrics_snapshot_tracks_concepts_injected() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -51,7 +51,7 @@ async fn metrics_snapshot_tracks_concepts_injected() {
 
 #[tokio::test]
 async fn metrics_snapshot_tracks_associations() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -76,7 +76,7 @@ async fn metrics_snapshot_tracks_associations() {
 
 #[tokio::test]
 async fn metrics_snapshot_tracks_probes() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -97,7 +97,7 @@ async fn metrics_snapshot_tracks_probes() {
 
 #[tokio::test]
 async fn cache_eviction_on_capacity_exceeded() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(2) // Small cache to force eviction
         .build()
@@ -123,7 +123,7 @@ async fn cache_eviction_on_capacity_exceeded() {
 
 #[tokio::test]
 async fn clear_similarity_cache_removes_entries() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(16)
         .build()

@@ -1,4 +1,4 @@
-use crate::hyperdim::HVec10240;
+use crate::hyperdim::{HVec10240, Hypervector};
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;

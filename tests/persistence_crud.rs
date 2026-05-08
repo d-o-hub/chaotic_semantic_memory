@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 
-use chaotic_semantic_memory::HVec10240;
 use chaotic_semantic_memory::persistence::Persistence;
 use chaotic_semantic_memory::singularity::Concept;
+use chaotic_semantic_memory::{HVec10240, Hypervector};
 use libsql::Builder;
 use tempfile::NamedTempFile;
 
 const NS: &str = "_default";
 
-fn make_concept(id: &str, created_at: u64, modified_at: u64) -> Concept {
+fn make_concept(id: &str, created_at: u64, modified_at: u64) -> Concept<HVec10240> {
     Concept {
         id: id.to_string(),
         vector: HVec10240::random(),
@@ -20,7 +20,7 @@ fn make_concept(id: &str, created_at: u64, modified_at: u64) -> Concept {
     }
 }
 
-fn make_concept_with_meta(id: &str, meta_key: &str, meta_value: &str) -> Concept {
+fn make_concept_with_meta(id: &str, meta_key: &str, meta_value: &str) -> Concept<HVec10240> {
     let mut metadata = HashMap::new();
     metadata.insert(meta_key.to_string(), serde_json::json!(meta_value));
     Concept {
@@ -54,7 +54,10 @@ async fn concept_lifecycle_save_load_delete() {
 
     persistence.save_concept(NS, &concept).await.unwrap();
 
-    let loaded = persistence.load_concept(NS, "test-concept").await.unwrap();
+    let loaded = persistence
+        .load_concept::<HVec10240>(NS, "test-concept")
+        .await
+        .unwrap();
     assert!(loaded.is_some());
     let loaded = loaded.unwrap();
     assert_eq!(loaded.id, "test-concept");
@@ -67,7 +70,10 @@ async fn concept_lifecycle_save_load_delete() {
         .await
         .unwrap();
 
-    let missing = persistence.load_concept(NS, "test-concept").await.unwrap();
+    let missing = persistence
+        .load_concept::<HVec10240>(NS, "test-concept")
+        .await
+        .unwrap();
     assert!(missing.is_none());
 }
 
@@ -84,7 +90,7 @@ async fn concept_update_replaces_existing() {
     persistence.save_concept(NS, &concept_v2).await.unwrap();
 
     let loaded = persistence
-        .load_concept(NS, "updatable")
+        .load_concept::<HVec10240>(NS, "updatable")
         .await
         .unwrap()
         .unwrap();
@@ -99,7 +105,7 @@ async fn load_nonexistent_concept_returns_none() {
     let persistence = Persistence::new_local(path).await.unwrap();
 
     let result = persistence
-        .load_concept(NS, "does-not-exist")
+        .load_concept::<HVec10240>(NS, "does-not-exist")
         .await
         .unwrap();
     assert!(result.is_none());
@@ -120,11 +126,18 @@ async fn batch_save_concepts_saves_all() {
     persistence.save_concepts(NS, &concepts).await.unwrap();
 
     for (i, id) in ["batch-1", "batch-2", "batch-3"].iter().enumerate() {
-        let loaded = persistence.load_concept(NS, id).await.unwrap().unwrap();
+        let loaded = persistence
+            .load_concept::<HVec10240>(NS, id)
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(loaded.created_at, (i + 1) as u64);
     }
 
-    let all = persistence.load_all_concepts(NS).await.unwrap();
+    let all = persistence
+        .load_all_concepts::<HVec10240>(NS)
+        .await
+        .unwrap();
     assert_eq!(all.len(), 3);
 }
 
@@ -134,7 +147,7 @@ async fn batch_save_concepts_preserves_ttl_and_canonical_ids() {
     let path = temp.path().to_str().unwrap();
     let persistence = Persistence::new_local(path).await.unwrap();
 
-    let concept = Concept {
+    let concept = Concept::<HVec10240> {
         id: "batch-ttl-canonical".to_string(),
         vector: HVec10240::random(),
         metadata: HashMap::new(),
@@ -147,7 +160,7 @@ async fn batch_save_concepts_preserves_ttl_and_canonical_ids() {
     persistence.save_concepts(NS, &[concept]).await.unwrap();
 
     let loaded = persistence
-        .load_concept(NS, "batch-ttl-canonical")
+        .load_concept::<HVec10240>(NS, "batch-ttl-canonical")
         .await
         .unwrap()
         .unwrap();
@@ -164,7 +177,7 @@ async fn batch_save_empty_vec_is_noop() {
     let path = temp.path().to_str().unwrap();
     let persistence = Persistence::new_local(path).await.unwrap();
 
-    let result = persistence.save_concepts(NS, &[]).await;
+    let result = persistence.save_concepts::<HVec10240>(NS, &[]).await;
     assert!(result.is_ok());
 }
 
@@ -347,7 +360,10 @@ async fn clear_all_removes_everything() {
 
     persistence.clear_all().await.unwrap();
 
-    let all_concepts = persistence.load_all_concepts(NS).await.unwrap();
+    let all_concepts = persistence
+        .load_all_concepts::<HVec10240>(NS)
+        .await
+        .unwrap();
     assert!(all_concepts.is_empty());
 
     let associations = persistence.load_associations(NS, "clear-1").await.unwrap();
@@ -449,7 +465,7 @@ async fn metadata_preserved_across_roundtrip() {
     metadata.insert("number".to_string(), serde_json::json!(42));
     metadata.insert("nested".to_string(), serde_json::json!({"key": "val"}));
 
-    let concept = Concept {
+    let concept = Concept::<HVec10240> {
         id: "meta-test".to_string(),
         vector: HVec10240::random(),
         metadata,
@@ -462,7 +478,7 @@ async fn metadata_preserved_across_roundtrip() {
     persistence.save_concept(NS, &concept).await.unwrap();
 
     let loaded = persistence
-        .load_concept(NS, "meta-test")
+        .load_concept::<HVec10240>(NS, "meta-test")
         .await
         .unwrap()
         .unwrap();
@@ -478,7 +494,7 @@ async fn vector_integrity_preserved() {
     let persistence = Persistence::new_local(path).await.unwrap();
 
     let original = HVec10240::random();
-    let concept = Concept {
+    let concept = Concept::<HVec10240> {
         id: "vector-test".to_string(),
         vector: original,
         metadata: HashMap::new(),
@@ -491,7 +507,7 @@ async fn vector_integrity_preserved() {
     persistence.save_concept(NS, &concept).await.unwrap();
 
     let loaded = persistence
-        .load_concept(NS, "vector-test")
+        .load_concept::<HVec10240>(NS, "vector-test")
         .await
         .unwrap()
         .unwrap();
@@ -515,7 +531,10 @@ async fn concurrent_reads_are_safe() {
             tokio::spawn(async move {
                 let p = Persistence::new_local(&path).await.unwrap();
                 for _ in 0..5 {
-                    let result = p.load_concept(NS, "concurrent-read").await.unwrap();
+                    let result = p
+                        .load_concept::<HVec10240>(NS, "concurrent-read")
+                        .await
+                        .unwrap();
                     assert!(result.is_some());
                 }
             })
@@ -550,7 +569,10 @@ async fn concurrent_writes_are_safe() {
         handle.await.unwrap();
     }
 
-    let all = persistence.load_all_concepts(NS).await.unwrap();
+    let all = persistence
+        .load_all_concepts::<HVec10240>(NS)
+        .await
+        .unwrap();
     assert_eq!(all.len(), 25);
 }
 
@@ -715,6 +737,10 @@ async fn batch_save_with_duplicate_ids_updates() {
 
     persistence.save_concepts(NS, &concepts).await.unwrap();
 
-    let loaded = persistence.load_concept(NS, "dup").await.unwrap().unwrap();
+    let loaded = persistence
+        .load_concept::<HVec10240>(NS, "dup")
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(loaded.metadata.get("v").unwrap(), "updated");
 }

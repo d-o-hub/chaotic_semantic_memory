@@ -3,12 +3,14 @@
 // Locks held during test assertions for framework state verification
 #![allow(clippy::significant_drop_tightening)]
 
-use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240, error::MemoryError};
+use chaotic_semantic_memory::{
+    ChaoticSemanticFramework, HVec10240, Hypervector, error::MemoryError,
+};
 use std::collections::HashMap;
 
 const NS: &str = "_default";
 
-async fn create_test_framework() -> ChaoticSemanticFramework {
+async fn create_test_framework() -> ChaoticSemanticFramework<HVec10240> {
     ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()

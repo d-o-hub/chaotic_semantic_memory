@@ -9,7 +9,7 @@ const NS: &str = "_default";
 
 #[tokio::test]
 async fn builder_with_reservoir_size_custom() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_reservoir_size(10000)
         .build()
@@ -27,7 +27,7 @@ async fn builder_with_reservoir_size_custom() {
 
 #[tokio::test]
 async fn builder_with_reservoir_input_size_custom() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_reservoir_input_size(1024)
         .build()
@@ -42,7 +42,7 @@ async fn builder_with_reservoir_input_size_custom() {
 
 #[tokio::test]
 async fn builder_with_max_concepts_sets_limit() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_max_concepts(3)
         .build()
@@ -70,7 +70,7 @@ async fn builder_with_max_concepts_sets_limit() {
 
 #[tokio::test]
 async fn builder_with_max_associations_per_concept_sets_limit() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_max_associations_per_concept(2)
         .build()
@@ -113,7 +113,7 @@ async fn builder_with_max_associations_per_concept_sets_limit() {
 
 #[tokio::test]
 async fn builder_with_max_probe_top_k_custom() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_max_probe_top_k(50)
         .build()
@@ -132,7 +132,7 @@ async fn builder_with_max_probe_top_k_custom() {
 
 #[tokio::test]
 async fn builder_with_max_cached_top_k_custom() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(16)
         .with_max_cached_top_k(10)
@@ -155,7 +155,7 @@ async fn builder_with_max_cached_top_k_custom() {
 
 #[tokio::test]
 async fn builder_with_max_sequence_length_custom() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_max_sequence_length(512)
         .build()
@@ -170,7 +170,7 @@ async fn builder_with_max_sequence_length_custom() {
 
 #[tokio::test]
 async fn builder_with_reservoir_size_invalid_fails() {
-    let result = ChaoticSemanticFramework::builder()
+    let result: Result<ChaoticSemanticFramework<HVec10240>> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_reservoir_size(0) // Invalid: must be > 0
         .build()
@@ -181,7 +181,7 @@ async fn builder_with_reservoir_size_invalid_fails() {
 
 #[tokio::test]
 async fn builder_with_chaos_strength_invalid_fails() {
-    let result = ChaoticSemanticFramework::builder()
+    let result: Result<ChaoticSemanticFramework<HVec10240>> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_reservoir_size(1000)
         .with_chaos_strength(-0.5) // Invalid: negative chaos strength

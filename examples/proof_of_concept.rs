@@ -12,7 +12,7 @@ async fn main() -> Result<()> {
     println!("🧠 Chaotic Semantic Memory - Proof of Concept\n");
 
     // 1. Initialize with libSQL
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .with_reservoir_size(50000)
         .with_local_db("csm_memory.db")
         .build()

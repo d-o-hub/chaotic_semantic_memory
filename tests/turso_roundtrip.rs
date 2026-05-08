@@ -2,7 +2,7 @@ use std::env;
 use std::time::Instant;
 
 use chaotic_semantic_memory::persistence::Persistence;
-use chaotic_semantic_memory::{ConceptBuilder, HVec10240};
+use chaotic_semantic_memory::{ConceptBuilder, HVec10240, Hypervector};
 
 const NS: &str = "_default";
 
@@ -54,7 +54,7 @@ async fn turso_roundtrip_p50_under_20ms_when_configured() {
     for _ in 0..sample_count {
         let start = Instant::now();
         let loaded = persistence
-            .load_concept(NS, &id)
+            .load_concept::<HVec10240>(NS, &id)
             .await
             .expect("load_concept");
         let elapsed = start.elapsed().as_secs_f64() * 1000.0;

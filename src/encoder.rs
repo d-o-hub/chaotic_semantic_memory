@@ -23,6 +23,7 @@
 //!
 //! ```
 //! use chaotic_semantic_memory::encoder::{TextEncoder, TextEncoderConfig};
+//! use chaotic_semantic_memory::hyperdim::Hypervector;
 //! use chaotic_semantic_memory::HVec10240;
 //!
 //! let encoder = TextEncoder::new();
@@ -31,7 +32,7 @@
 //! assert!(hv1.cosine_similarity(&hv2) > 0.99); // Deterministic
 //! ```
 
-use crate::hyperdim::HVec10240;
+use crate::hyperdim::{HVec10240, Hypervector};
 
 /// FNV-1a 64-bit offset basis and prime (Fowler–Noll–Vo).
 const FNV1A_OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
@@ -217,7 +218,7 @@ impl TextEncoder {
             .enumerate()
             .map(|(pos, &token)| {
                 let base = self.token_to_hvec(token);
-                base.permute(pos * self.config.position_stride)
+                Hypervector::permute(&base, pos * self.config.position_stride)
             })
             .collect();
 

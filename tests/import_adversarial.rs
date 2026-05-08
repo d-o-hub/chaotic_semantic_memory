@@ -9,7 +9,7 @@ async fn import_json_rejects_corrupt_data() {
         .await
         .unwrap();
 
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -27,7 +27,7 @@ async fn import_binary_rejects_corrupt_data() {
         .await
         .unwrap();
 
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -51,7 +51,7 @@ async fn import_json_empty_payload_succeeds() {
         .await
         .unwrap();
 
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await
@@ -70,7 +70,7 @@ async fn import_binary_rejects_oversized_payload() {
     let big = vec![0xABu8; 101 * 1024 * 1024];
     tokio::fs::write(&path, &big).await.unwrap();
 
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
         .await

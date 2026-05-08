@@ -1,10 +1,10 @@
 //! Unit tests for framework module
 
-use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240};
+use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240, Hypervector};
 
 const NS: &str = "_default";
 
-async fn create_framework() -> ChaoticSemanticFramework {
+async fn create_framework() -> ChaoticSemanticFramework<HVec10240> {
     ChaoticSemanticFramework::builder()
         .without_persistence()
         .build()
@@ -31,7 +31,7 @@ async fn test_inject_concept_with_metadata_success() {
 
 #[tokio::test]
 async fn test_inject_concept_with_metadata_exceeds_limit() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_max_metadata_bytes(10)
         .build()
@@ -52,7 +52,7 @@ async fn test_inject_concept_with_metadata_exceeds_limit() {
 #[tokio::test]
 async fn test_framework_builder_with_reservoir_input_size() {
     // Verify builder accepts reservoir config options
-    let _framework = ChaoticSemanticFramework::builder()
+    let _framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_reservoir_size(1000)
         .with_reservoir_input_size(512)

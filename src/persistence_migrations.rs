@@ -335,7 +335,7 @@ impl Persistence {
                     );",
                 )
                 .await
-                .map_err(|e| MemoryError::database(format!("Failed migration v7: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed migration v7: {e}")))?;
             }
 
             if version == 8 {

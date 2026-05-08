@@ -3,6 +3,7 @@ use tokio::fs;
 use tracing::warn;
 
 use crate::error::{MemoryError, Result};
+use crate::hyperdim::Hypervector;
 use crate::persistence::{ConceptVersion, Persistence};
 
 impl Persistence {
@@ -312,13 +313,13 @@ impl Persistence {
 #[cfg(test)]
 #[cfg(feature = "persistence")]
 mod tests {
-    use crate::hyperdim::HVec10240;
+    use crate::hyperdim::{HVec10240, Hypervector};
     use crate::persistence::Persistence;
     use crate::singularity::Concept;
     use std::collections::HashMap;
     use tempfile::NamedTempFile;
 
-    fn make_concept(id: &str) -> Concept {
+    fn make_concept(id: &str) -> Concept<HVec10240> {
         Concept {
             id: id.to_string(),
             vector: HVec10240::random(),
@@ -346,7 +347,7 @@ mod tests {
             .await
             .expect("Failed to save");
         let loaded = persistence
-            .load_concept(ns, "test-concept")
+            .load_concept::<HVec10240>(ns, "test-concept")
             .await
             .expect("Failed to load")
             .expect("Concept not found");
@@ -372,7 +373,9 @@ mod tests {
             .delete_concept(ns, "delete-test")
             .await
             .expect("Failed to delete");
-        let result = persistence.load_concept(ns, "delete-test").await;
+        let result = persistence
+            .load_concept::<HVec10240>(ns, "delete-test")
+            .await;
         assert!(result.expect("Query failed").is_none());
     }
 

@@ -6,7 +6,7 @@ use chaotic_semantic_memory::prelude::*;
 
 #[tokio::test]
 async fn cache_get_updates_lru_order() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(4)
         .build()
@@ -41,7 +41,7 @@ async fn cache_get_updates_lru_order() {
 
 #[tokio::test]
 async fn cache_put_same_key_updates_value() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(4)
         .build()
@@ -75,7 +75,7 @@ async fn cache_put_same_key_updates_value() {
 
 #[tokio::test]
 async fn cache_capacity_boundary() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(2)
         .build()

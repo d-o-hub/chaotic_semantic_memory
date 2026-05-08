@@ -216,7 +216,7 @@ mod tests {
     use crate::framework_builder::FrameworkBuilder;
     use crate::framework_events::MemoryEvent;
     use crate::graph_traversal::TraversalConfig;
-    use crate::hyperdim::HVec10240;
+    use crate::hyperdim::{HVec10240, Hypervector};
     use crate::metadata_filter::MetadataFilter;
     use serde_json::json;
     use std::collections::HashMap;
@@ -330,7 +330,7 @@ mod tests {
     fn hvec_bytes_length() {
         let hvec = HVec10240::random();
         let bytes = hvec.to_bytes();
-        assert_eq!(bytes.len(), 1280); // 10240 bits / 8 = 1280 bytes
+        assert_eq!(bytes.len(), 40960); // 10240 f32s × 4 bytes
     }
 
     #[test]

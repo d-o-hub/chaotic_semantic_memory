@@ -1,13 +1,13 @@
 #![cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::HVec10240;
+use crate::hyperdim::Hypervector;
 use crate::persistence::Persistence;
 use crate::singularity::Concept;
 use libsql::params;
 
 impl Persistence {
     /// Save a concept to the database
-    pub async fn save_concept(&self, ns: &str, concept: &Concept) -> Result<()> {
+    pub async fn save_concept<H: Hypervector>(&self, ns: &str, concept: &Concept<H>) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
         let vector_bytes = concept.vector.to_bytes();
@@ -45,7 +45,11 @@ impl Persistence {
     }
 
     /// Save concepts in a single transaction
-    pub async fn save_concepts(&self, ns: &str, concepts: &[Concept]) -> Result<()> {
+    pub async fn save_concepts<H: Hypervector>(
+        &self,
+        ns: &str,
+        concepts: &[Concept<H>],
+    ) -> Result<()> {
         if concepts.is_empty() {
             return Ok(());
         }
@@ -112,7 +116,11 @@ impl Persistence {
     }
 
     /// Load a concept from the database
-    pub async fn load_concept(&self, ns: &str, id: &str) -> Result<Option<Concept>> {
+    pub async fn load_concept<H: Hypervector>(
+        &self,
+        ns: &str,
+        id: &str,
+    ) -> Result<Option<Concept<H>>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
@@ -145,7 +153,7 @@ impl Persistence {
             let expires_at: Option<i64> = row.get(4).ok();
             let canonical_concept_ids_json: Option<String> = row.get(5).ok();
 
-            let vector = HVec10240::from_bytes(&vector_bytes)?;
+            let vector = H::from_bytes(&vector_bytes)?;
             let metadata = serde_json::from_str(&metadata_json)?;
             let canonical_concept_ids = canonical_concept_ids_json
                 .as_deref()
@@ -168,7 +176,7 @@ impl Persistence {
     }
 
     /// Load all concepts from the database for a specific namespace
-    pub async fn load_all_concepts(&self, ns: &str) -> Result<Vec<Concept>> {
+    pub async fn load_all_concepts<H: Hypervector>(&self, ns: &str) -> Result<Vec<Concept<H>>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
@@ -205,7 +213,7 @@ impl Persistence {
             let expires_at: Option<i64> = row.get(5).ok();
             let canonical_concept_ids_json: Option<String> = row.get(6).ok();
 
-            let vector = HVec10240::from_bytes(&vector_bytes)?;
+            let vector = H::from_bytes(&vector_bytes)?;
             let metadata = serde_json::from_str(&metadata_json)?;
             let canonical_concept_ids = canonical_concept_ids_json
                 .as_deref()

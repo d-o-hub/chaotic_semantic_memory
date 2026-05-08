@@ -1,9 +1,8 @@
 //! TTL (Time-To-Live) and text convenience operations for ChaoticSemanticFramework.
 
 use crate::error::Result;
-use crate::hyperdim::Hypervector;
 use crate::framework_events::MemoryEvent;
-use crate::hyperdim::HVec10240;
+use crate::hyperdim::Hypervector;
 use crate::metadata_filter::MetadataFilter;
 use crate::singularity::ConceptBuilder;
 use std::collections::HashMap;
@@ -15,7 +14,7 @@ impl<H: Hypervector> crate::framework::ChaoticSemanticFramework<H> {
     pub async fn inject_concept_with_ttl(
         &self,
         id: impl Into<String>,
-        vector: HVec10240,
+        vector: H,
         ttl_seconds: u64,
     ) -> Result<()> {
         let id = id.into();
@@ -53,9 +52,16 @@ impl<H: Hypervector> crate::framework::ChaoticSemanticFramework<H> {
     #[instrument(err, skip(self, text))]
     pub async fn inject_text_with_ttl(&self, id: &str, text: &str, ttl_seconds: u64) -> Result<()> {
         let embedding = self.embedding_provider.embed(text).await?;
-        let vector = self
+        let hvec = self
             .embedding_provider
             .project(&embedding, &self.projection);
+        // Convert HVec10240 to generic H using Hypervector trait
+        let vector = H::from_bytes(&hvec.to_bytes()).map_err(|e| {
+            crate::error::MemoryError::InvalidInput {
+                field: "vector".to_string(),
+                reason: format!("failed to convert vector: {e}"),
+            }
+        })?;
         self.inject_concept_with_ttl(id, vector, ttl_seconds).await
     }
 
@@ -73,9 +79,16 @@ impl<H: Hypervector> crate::framework::ChaoticSemanticFramework<H> {
     /// Inject a concept from text using the embedding provider. Convenience for storing text-based concepts.
     pub async fn inject_text(&self, id: &str, text: &str) -> Result<()> {
         let embedding = self.embedding_provider.embed(text).await?;
-        let vector = self
+        let hvec = self
             .embedding_provider
             .project(&embedding, &self.projection);
+        // Convert HVec10240 to generic H using Hypervector trait
+        let vector = H::from_bytes(&hvec.to_bytes()).map_err(|e| {
+            crate::error::MemoryError::InvalidInput {
+                field: "vector".to_string(),
+                reason: format!("failed to convert vector: {e}"),
+            }
+        })?;
         self.inject_concept(id, vector).await
     }
 
@@ -87,9 +100,16 @@ impl<H: Hypervector> crate::framework::ChaoticSemanticFramework<H> {
         metadata: HashMap<String, serde_json::Value>,
     ) -> Result<()> {
         let embedding = self.embedding_provider.embed(text).await?;
-        let vector = self
+        let hvec = self
             .embedding_provider
             .project(&embedding, &self.projection);
+        // Convert HVec10240 to generic H using Hypervector trait
+        let vector = H::from_bytes(&hvec.to_bytes()).map_err(|e| {
+            crate::error::MemoryError::InvalidInput {
+                field: "vector".to_string(),
+                reason: format!("failed to convert vector: {e}"),
+            }
+        })?;
         self.inject_concept_with_metadata(id, vector, metadata)
             .await
     }
@@ -97,9 +117,16 @@ impl<H: Hypervector> crate::framework::ChaoticSemanticFramework<H> {
     /// Probe for similar concepts using text input. Encodes the query text via the embedding provider.
     pub async fn probe_text(&self, query: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
         let embedding = self.embedding_provider.embed(query).await?;
-        let vector = self
+        let hvec = self
             .embedding_provider
             .project(&embedding, &self.projection);
+        // Convert HVec10240 to generic H using Hypervector trait
+        let vector = H::from_bytes(&hvec.to_bytes()).map_err(|e| {
+            crate::error::MemoryError::InvalidInput {
+                field: "vector".to_string(),
+                reason: format!("failed to convert vector: {e}"),
+            }
+        })?;
         self.probe(vector, top_k).await
     }
 
@@ -111,9 +138,16 @@ impl<H: Hypervector> crate::framework::ChaoticSemanticFramework<H> {
         filter: &MetadataFilter,
     ) -> Result<Vec<(String, f32)>> {
         let embedding = self.embedding_provider.embed(query).await?;
-        let vector = self
+        let hvec = self
             .embedding_provider
             .project(&embedding, &self.projection);
+        // Convert HVec10240 to generic H using Hypervector trait
+        let vector = H::from_bytes(&hvec.to_bytes()).map_err(|e| {
+            crate::error::MemoryError::InvalidInput {
+                field: "vector".to_string(),
+                reason: format!("failed to convert vector: {e}"),
+            }
+        })?;
         self.probe_filtered(&vector, top_k, filter).await
     }
 
@@ -136,11 +170,12 @@ mod tests {
 
     use super::*;
     use crate::framework::ChaoticSemanticFramework;
+    use crate::hyperdim::HVec10240;
     use crate::singularity::unix_now_secs;
 
     #[tokio::test]
     async fn inject_concept_with_ttl_sets_expires_at() {
-        let framework = ChaoticSemanticFramework::builder()
+        let framework = ChaoticSemanticFramework::<HVec10240>::builder()
             .without_persistence()
             .build()
             .await
@@ -172,7 +207,7 @@ mod tests {
 
     #[tokio::test]
     async fn inject_text_with_ttl_encodes_and_stores() {
-        let framework = ChaoticSemanticFramework::builder()
+        let framework = ChaoticSemanticFramework::<HVec10240>::builder()
             .without_persistence()
             .build()
             .await
@@ -192,7 +227,7 @@ mod tests {
 
     #[tokio::test]
     async fn inject_text_without_ttl_no_expiration() {
-        let framework = ChaoticSemanticFramework::builder()
+        let framework = ChaoticSemanticFramework::<HVec10240>::builder()
             .without_persistence()
             .build()
             .await
@@ -214,7 +249,7 @@ mod tests {
 
     #[tokio::test]
     async fn inject_text_with_metadata_no_ttl() {
-        let framework = ChaoticSemanticFramework::builder()
+        let framework = ChaoticSemanticFramework::<HVec10240>::builder()
             .without_persistence()
             .build()
             .await
@@ -248,7 +283,7 @@ mod tests {
 
     #[tokio::test]
     async fn probe_text_returns_similar_concepts() {
-        let framework = ChaoticSemanticFramework::builder()
+        let framework = ChaoticSemanticFramework::<HVec10240>::builder()
             .without_persistence()
             .build()
             .await
@@ -280,7 +315,7 @@ mod tests {
 
     #[tokio::test]
     async fn purge_expired_removes_only_expired() {
-        let framework = ChaoticSemanticFramework::builder()
+        let framework = ChaoticSemanticFramework::<HVec10240>::builder()
             .without_persistence()
             .build()
             .await
@@ -332,7 +367,7 @@ mod tests {
 
     #[tokio::test]
     async fn concept_expires_at_serialization() {
-        let framework = ChaoticSemanticFramework::builder()
+        let framework = ChaoticSemanticFramework::<HVec10240>::builder()
             .without_persistence()
             .build()
             .await
@@ -368,7 +403,7 @@ mod tests {
         );
 
         // Verify deserialization
-        let deserialized: crate::singularity::Concept =
+        let deserialized: crate::singularity::Concept<crate::hyperdim::HVec10240> =
             serde_json::from_str(&json).expect("should deserialize concept");
         assert_eq!(
             deserialized.expires_at, concept.expires_at,
@@ -378,7 +413,7 @@ mod tests {
 
     #[tokio::test]
     async fn multiple_ttl_concepts_independent_expiry() {
-        let framework = ChaoticSemanticFramework::builder()
+        let framework = ChaoticSemanticFramework::<HVec10240>::builder()
             .without_persistence()
             .build()
             .await
@@ -422,7 +457,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_query_in_session_filtering() {
-        let framework = ChaoticSemanticFramework::builder()
+        let framework = ChaoticSemanticFramework::<HVec10240>::builder()
             .without_persistence()
             .build()
             .await
@@ -469,7 +504,7 @@ mod tests {
 
     #[tokio::test]
     async fn zero_ttl_still_sets_expiration() {
-        let framework = ChaoticSemanticFramework::builder()
+        let framework = ChaoticSemanticFramework::<HVec10240>::builder()
             .without_persistence()
             .build()
             .await

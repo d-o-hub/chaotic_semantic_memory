@@ -5,7 +5,7 @@ const NS: &str = "_default";
 
 #[tokio::test]
 async fn eviction_invalidates_query_cache() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_max_concepts(3)
         .with_concept_cache_size(16)
@@ -45,7 +45,7 @@ async fn eviction_invalidates_query_cache() {
 
 #[tokio::test]
 async fn delete_invalidates_query_cache() {
-    let framework = ChaoticSemanticFramework::builder()
+    let framework: ChaoticSemanticFramework<HVec10240> = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_concept_cache_size(16)
         .build()
@@ -77,7 +77,7 @@ async fn delete_invalidates_query_cache() {
 #[tokio::test]
 async fn concurrent_inject_and_probe_no_panic() {
     let framework = Arc::new(
-        ChaoticSemanticFramework::builder()
+        ChaoticSemanticFramework::<HVec10240>::builder()
             .without_persistence()
             .build()
             .await

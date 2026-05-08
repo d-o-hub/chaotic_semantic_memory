@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use chaotic_semantic_memory::HVec10240;
 use chaotic_semantic_memory::persistence::Persistence;
 use chaotic_semantic_memory::singularity::Concept;
+use chaotic_semantic_memory::{HVec10240, Hypervector};
 use libsql::Builder;
 use tempfile::NamedTempFile;
 
@@ -30,14 +30,20 @@ async fn persistence_roundtrip_crud() {
         .await
         .unwrap();
 
-    let loaded = persistence.load_concept(NS, "alpha").await.unwrap();
+    let loaded = persistence
+        .load_concept::<HVec10240>(NS, "alpha")
+        .await
+        .unwrap();
     assert!(loaded.is_some());
 
     let associations = persistence.load_associations(NS, "alpha").await.unwrap();
     assert_eq!(associations.len(), 1);
 
     persistence.delete_concept(NS, "alpha").await.unwrap();
-    let missing = persistence.load_concept(NS, "alpha").await.unwrap();
+    let missing = persistence
+        .load_concept::<HVec10240>(NS, "alpha")
+        .await
+        .unwrap();
     assert!(missing.is_none());
 }
 
@@ -94,7 +100,7 @@ async fn save_and_load_concept_preserves_ttl_and_canonical_concept_ids() {
     persistence.save_concept(NS, &concept).await.unwrap();
 
     let loaded = persistence
-        .load_concept(NS, "alpha-ttl")
+        .load_concept::<HVec10240>(NS, "alpha-ttl")
         .await
         .unwrap()
         .unwrap();
@@ -137,8 +143,14 @@ async fn backup_and_restore_roundtrip_state() {
     persistence.save_concept(NS, &concept_beta).await.unwrap();
 
     persistence.restore(backup_path).await.unwrap();
-    let alpha = persistence.load_concept(NS, "alpha").await.unwrap();
-    let beta = persistence.load_concept(NS, "beta").await.unwrap();
+    let alpha = persistence
+        .load_concept::<HVec10240>(NS, "alpha")
+        .await
+        .unwrap();
+    let beta = persistence
+        .load_concept::<HVec10240>(NS, "beta")
+        .await
+        .unwrap();
     assert!(alpha.is_some());
     assert!(beta.is_none());
 }
@@ -178,7 +190,7 @@ async fn backup_and_restore_preserves_ttl_and_canonical_concept_ids() {
 
     persistence.restore(backup_path).await.unwrap();
     let restored = persistence
-        .load_concept(NS, "semantic-bridge-anchor")
+        .load_concept::<HVec10240>(NS, "semantic-bridge-anchor")
         .await
         .unwrap()
         .unwrap();
@@ -264,7 +276,10 @@ async fn v5_namespace_migration_handles_legacy_and_prefixed_tables() {
 
     persistence.apply_migrations(6).await.unwrap();
 
-    let loaded = persistence.load_concept(NS, "legacy-alpha").await.unwrap();
+    let loaded = persistence
+        .load_concept::<HVec10240>(NS, "legacy-alpha")
+        .await
+        .unwrap();
     assert!(loaded.is_some());
     assert_eq!(persistence.schema_version().await.unwrap(), 6);
 

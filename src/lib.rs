@@ -13,9 +13,9 @@ pub use error::{MemoryError, Result};
 pub use framework::ChaoticSemanticFramework;
 pub use framework_builder::FrameworkBuilder;
 pub use framework_events::MemoryEvent;
-pub use hyperdim::{HVec10240, Hypervector, batch_cosine_similarity};
 #[cfg(feature = "hv-binary")]
 pub use hyperdim::BHVec10240;
+pub use hyperdim::{HVec10240, Hypervector, batch_cosine_similarity};
 pub use semantic_bridge::{
     BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown,
 };
@@ -104,23 +104,83 @@ pub mod persistence {
     }
 
     impl Persistence {
-        pub async fn save_concept<H: Hypervector + 'static>(&self, _ns: &str, _concept: &Concept<H>) -> Result<()> { Ok(()) }
-        pub async fn save_concepts<H: Hypervector + 'static>(&self, _ns: &str, _concepts: &[Concept<H>]) -> Result<()> { Ok(()) }
-        pub async fn load_concept<H: Hypervector + 'static>(&self, _ns: &str, _id: &str) -> Result<Option<Concept<H>>> { Ok(None) }
-        pub async fn load_all_concepts<H: Hypervector + 'static>(&self, _ns: &str) -> Result<Vec<Concept<H>>> { Ok(Vec::new()) }
-        pub async fn delete_concept(&self, _ns: &str, _id: &str) -> Result<()> { Ok(()) }
-        pub async fn save_association(&self, _ns: &str, _from: &str, _to: &str, _strength: f32) -> Result<()> { Ok(()) }
-        pub async fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32)>> { Ok(Vec::new()) }
-        pub async fn clear_all(&self) -> Result<()> { Ok(()) }
-        pub async fn checkpoint(&self) -> Result<()> { Ok(()) }
-        pub async fn health_check(&self) -> Result<()> { Ok(()) }
-        pub async fn size(&self) -> Result<u64> { Ok(0) }
-        pub async fn get_concept_history<H: Hypervector + 'static>(&self, _ns: &str, _id: &str, _limit: usize) -> Result<Vec<ConceptVersion<H>>> { Ok(Vec::new()) }
-        pub async fn schema_version(&self) -> Result<i64> { Ok(0) }
-        pub async fn save_index(&self, _ns: &str, _id: &str, _data: &[u8]) -> Result<()> { Ok(()) }
-        pub async fn load_index(&self, _ns: &str, _id: &str) -> Result<Option<Vec<u8>>> { Ok(None) }
-        pub async fn list_namespaces(&self) -> Result<Vec<String>> { Ok(vec!["_default".to_string()]) }
-        pub async fn clear_namespace(&self, _ns: &str) -> Result<()> { Ok(()) }
+        pub async fn save_concept<H: Hypervector + 'static>(
+            &self,
+            _ns: &str,
+            _concept: &Concept<H>,
+        ) -> Result<()> {
+            Ok(())
+        }
+        pub async fn save_concepts<H: Hypervector + 'static>(
+            &self,
+            _ns: &str,
+            _concepts: &[Concept<H>],
+        ) -> Result<()> {
+            Ok(())
+        }
+        pub async fn load_concept<H: Hypervector + 'static>(
+            &self,
+            _ns: &str,
+            _id: &str,
+        ) -> Result<Option<Concept<H>>> {
+            Ok(None)
+        }
+        pub async fn load_all_concepts<H: Hypervector + 'static>(
+            &self,
+            _ns: &str,
+        ) -> Result<Vec<Concept<H>>> {
+            Ok(Vec::new())
+        }
+        pub async fn delete_concept(&self, _ns: &str, _id: &str) -> Result<()> {
+            Ok(())
+        }
+        pub async fn save_association(
+            &self,
+            _ns: &str,
+            _from: &str,
+            _to: &str,
+            _strength: f32,
+        ) -> Result<()> {
+            Ok(())
+        }
+        pub async fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32)>> {
+            Ok(Vec::new())
+        }
+        pub async fn clear_all(&self) -> Result<()> {
+            Ok(())
+        }
+        pub async fn checkpoint(&self) -> Result<()> {
+            Ok(())
+        }
+        pub async fn health_check(&self) -> Result<()> {
+            Ok(())
+        }
+        pub async fn size(&self) -> Result<u64> {
+            Ok(0)
+        }
+        pub async fn get_concept_history<H: Hypervector + 'static>(
+            &self,
+            _ns: &str,
+            _id: &str,
+            _limit: usize,
+        ) -> Result<Vec<ConceptVersion<H>>> {
+            Ok(Vec::new())
+        }
+        pub async fn schema_version(&self) -> Result<i64> {
+            Ok(0)
+        }
+        pub async fn save_index(&self, _ns: &str, _id: &str, _data: &[u8]) -> Result<()> {
+            Ok(())
+        }
+        pub async fn load_index(&self, _ns: &str, _id: &str) -> Result<Option<Vec<u8>>> {
+            Ok(None)
+        }
+        pub async fn list_namespaces(&self) -> Result<Vec<String>> {
+            Ok(vec!["_default".to_string()])
+        }
+        pub async fn clear_namespace(&self, _ns: &str) -> Result<()> {
+            Ok(())
+        }
     }
 }
 
@@ -131,9 +191,9 @@ pub mod prelude {
     pub use crate::framework::ChaoticSemanticFramework;
     pub use crate::framework_builder::FrameworkBuilder;
     pub use crate::framework_events::MemoryEvent;
-    pub use crate::hyperdim::{HVec10240, Hypervector};
     #[cfg(feature = "hv-binary")]
     pub use crate::hyperdim::BHVec10240;
+    pub use crate::hyperdim::{HVec10240, Hypervector};
     pub use crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket};
     pub use crate::singularity::{Concept, ConceptBuilder};
     pub use crate::singularity_retrieval::{

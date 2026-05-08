@@ -5,8 +5,8 @@
 use tracing::warn;
 
 use crate::error::Result;
-use crate::hyperdim::Hypervector;
 use crate::framework::ChaoticSemanticFramework;
+use crate::hyperdim::Hypervector;
 
 impl<H: Hypervector> ChaoticSemanticFramework<H> {
     /// Persist all data to storage

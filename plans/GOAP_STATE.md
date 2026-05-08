@@ -14,7 +14,7 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-   action_last_completed: open_pr_triage_and_merge_2026_05_04
+   action_last_completed: pr199_all_tasks_complete_2026_06
   # 2026-05-04 PR triage:
   #   #173 (PR169 feedback) — squash-merged → main 7d4dfaa
   #   #174 (hyperdim perf)  — rebased clean onto main (kept hyperdim.rs only;
@@ -860,7 +860,7 @@ world_state:
   gap_analysis_2026_04_30_findings: 10
   gap_analysis_2026_04_30_adrs_drafted: 11
   gap_analysis_2026_04_30_total_cost: 116
-  action_last_completed: rebase_deepsource_fix_2026_06
+  action_last_completed: pr199_all_tasks_complete_2026_06
 
   # Wave 21 P0 — Adoption Unblockers (queued, total cost 34)
   cli_framework_parity_complete: false        # ADR-0066 — 11 CLI subcommands missing
@@ -904,7 +904,7 @@ world_state:
   clippy_actionable_warnings: 110                             # float_cmp + drop_tightening + cast_* + const_fn + redundant_clone
   adr_0077_clippy_promotion_drafted: true                     # plans/adr/0077-clippy-pedantic-selective-promotion.md
   clippy_pedantic_promotion_complete: false                   # 5 themed PRs queued
-  action_last_completed: rebase_deepsource_fix_2026_06
+  action_last_completed: pr199_all_tasks_complete_2026_06
 
   # ═══════════════════════════════════════════════════════
   # Rebase + DeepSource Fix (June 2026)
