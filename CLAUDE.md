@@ -37,8 +37,8 @@ Loaded on-demand via `/skill-name` or auto-triggered by description.
 
 | Swarm Skills | Focus |
 |--------------|-------|
-| `swarm-testing-quality` | Proptest, fuzzing |
-| `swarm-performance` | SIMD, pooling |
+| `testing-validation` | Proptest, fuzzing, coverage |
+| `benchmarking-perf` | SIMD, pooling, caching |
 | `swarm-observability` | Tracing, metrics |
 
 ---
