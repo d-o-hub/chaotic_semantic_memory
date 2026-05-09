@@ -1,146 +1,56 @@
-# Quick Reference Commands
+# Quick Reference — Unique Commands
+
+Commands NOT covered by skill files or `./scripts/validate.sh`.
 
 ## Build Performance
 ```bash
-# sccache can be enabled for local builds (not in CI):
-# Add to .cargo/config.toml:
-# [build]
-# rustc-wrapper = "sccache"
-# Start server: sccache --start-server
-# Check stats: sccache --stats
-
-# Free disk space (removes ~35GB from target/)
-cargo clean
-
-# Rebuild faster with sccache
+# sccache (optional local; not in CI)
+# Add to .cargo/config.toml: [build] rustc-wrapper = "sccache"
+cargo clean  # frees ~35GB from target/
 ```
 
-## Version Sync (Before Release)
+## Version Sync
 ```bash
-# Check version synchronization (runs in CI)
-./scripts/verify-version-sync.sh
-
-# Sync version across all files (prevents stale docs)
-./scripts/sync-version.sh 0.2.5
+./scripts/verify-version-sync.sh          # runs in CI
+./scripts/sync-version.sh 0.2.5           # sync all files
+./scripts/check-docs-links.sh             # link + version check
+./scripts/check-docs-links.sh --fix       # auto-fix version mismatches
+./scripts/check-docs-links.sh --check-urls  # full URL validation
 ```
 
-**Version must match in:**
-- `Cargo.toml` - `version = "X.Y.Z"`
-- `wasm/package.json` - `"version": "X.Y.Z"`
-- Test fixtures (grep `"version":` in tests/ and examples/)
-- npm registry (after publishing WASM package)
-
-## Release Checklist
-1. Update version in `Cargo.toml` and `wasm/package.json`
-2. Run `./scripts/verify-version-sync.sh`
-3. Build WASM: `cargo build --target wasm32-unknown-unknown --release --features wasm`
-4. Publish crates.io: `cargo publish`
-5. Publish npm: `cd wasm && npm publish`
-6. Create GitHub release: `gh release create vX.Y.Z`
-
-## Validation Gates
-Run before commit (see `git-workflow` skill for details):
+## Pre-Release
 ```bash
-scripts/validate.sh
+./scripts/pre-release-validate.sh              # full validation
+./scripts/pre-release-validate.sh --skip-bench  # faster
 ```
 
-## Documentation Link Check
-Validate links, commands, and version references in docs:
+## AI Docs Generation
 ```bash
-scripts/check-docs-links.sh # Quick check (links + versions)
-scripts/check-docs-links.sh --fix # Auto-fix version mismatches
-scripts/check-docs-links.sh --check-urls # Full URL validation
+./scripts/gen-llms-txt.sh  # generates llms.txt + llms-full.txt
 ```
 
-## Pre-Release Validation
-Run before every git tag / release:
+## Memory Storage
+- **git-local mode** (default): `.csm/memory.db` in repo root
+- **Custom path**: `CSM_DB_PATH` env var
+
+## Skill Management
 ```bash
-./scripts/pre-release-validate.sh # Full validation
-./scripts/pre-release-validate.sh --skip-bench # Skip benchmarks (faster)
+./scripts/setup-skills.sh            # symlinks to ~/.claude/skills/
+./scripts/validate-skills.sh         # check required files
+./scripts/validate-skill-format.sh   # frontmatter + section check
+./scripts/validate-links.sh          # validate links in skills
 ```
 
-## Auto-generate AI docs
+## CI Scripts
 ```bash
-scripts/gen-llms-txt.sh # generates llms.txt and llms-full.txt
+./scripts/validate-github-actions-shas.sh  # SHA pinning check
+./scripts/validate-git-hooks.sh            # hook installation check
+./scripts/validate-workflows.sh            # workflow validation
 ```
-This runs automatically on post-commit when source files change.
 
 ## Performance Gate
 ```bash
 cargo bench --bench benchmark -- --save-baseline main
 cargo bench --bench benchmark -- --baseline main
-```
-Target: `reservoir_step_50k < 100μs`
-
-## Commit Format
-Use Conventional Commits (see `git-workflow` skill):
-```
-<type>(<scope>): <description>
-
-<body>
-```
-
-## CLI Commands
-```bash
-# Ingest content into memory
-csm index-jsonl <file.jsonl>     # Index JSONL file
-csm index-dir <directory>        # Index directory of files
-
-# Query memory
-csm query "search terms"         # Text-based similarity search
-
-# Concept operations
-csm inject <id> --from-text "content"
-csm probe <id> --top-k 10
-csm associate <from> <to> --strength 0.8
-
-# Export/Import
-csm export > backup.json
-csm import backup.json
-```
-
-## Memory Storage Paths
-- **git-local mode** (default): `.csm/memory.db` in repo root
-- **Custom path**: Set `CSM_DB_PATH` environment variable
-
-## Skill Management Scripts
-```bash
-# Setup symlinks for skills in ~/.claude/skills/
-./scripts/setup-skills.sh
-
-# Validate all skills have required files
-./scripts/validate-skills.sh
-
-# Validate skill.md format (frontmatter, sections)
-./scripts/validate-skill-format.sh
-
-# Validate links in skill files
-./scripts/validate-links.sh
-```
-
-## Validation Scripts
-```bash
-# Validate GitHub Actions use SHA-pinned actions
-./scripts/validate-github-actions-shas.sh
-
-# Validate git hooks are properly installed
-./scripts/validate-git-hooks.sh
-
-# Validate GitHub workflows
-./scripts/validate-workflows.sh
-
-# Lint caching library for scripts
-source scripts/lib/lint_cache.sh
-```
-
-## Automation Scripts
-```bash
-# Self-fix loop - run validation and auto-fix issues
-./scripts/self-fix-loop.sh
-
-# AI-assisted commit with conventional format
-./scripts/ai-commit.sh
-
-# Propagate version changes to all files
-./scripts/propagate-version.sh
+# Target: reservoir_step_50k < 100μs
 ```

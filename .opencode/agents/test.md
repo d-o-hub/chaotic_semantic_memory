@@ -24,7 +24,7 @@ Focus on:
 
 Skills available:
 - testing-validation: Core testing and validation
-- swarm-testing-quality: Property-based testing and fuzzing
+- testing-validation: Property-based testing and fuzzing
 
 When testing:
 1. Identify invariants and properties to test

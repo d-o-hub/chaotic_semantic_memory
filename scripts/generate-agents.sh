@@ -139,9 +139,8 @@ Focus on:
 - Identifying and eliminating performance bottlenecks
 
 Skills available:
-- benchmarking-perf: Criterion benchmark analysis
+- benchmarking-perf: Criterion benchmark analysis, SIMD, pooling, caching
 - debugging-reservoir: Reservoir-specific performance tuning
-- swarm-performance: SIMD, pooling, caching strategies
 
 When optimizing:
 1. Establish baseline with criterion benchmarks
@@ -179,8 +178,7 @@ Focus on:
 - Test organization and maintainability
 
 Skills available:
-- testing-validation: Core testing and validation
-- swarm-testing-quality: Property-based testing and fuzzing
+- testing-validation: Core testing, validation, proptest and fuzzing
 
 When testing:
 1. Identify invariants and properties to test
