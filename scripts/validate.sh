@@ -62,6 +62,8 @@ delta_check() {
         return 0
     fi
 
+    # Ensure baseline directory exists for writing current output
+    mkdir -p "$BASELINE_DIR"
     cat > "$current_file"
 
     if [[ ! -f "$baseline_file" ]]; then
