@@ -1,51 +1,25 @@
 ---
 name: testing-validation
-description: "Validate the chaotic_semantic_memory crate: compile, test, lint, LOC caps, property-based testing, fuzzing, and benchmarks. Use when asked to validate, check, or verify the build."
+description: "Validate the chaotic_semantic_memory crate: compile, test, lint, LOC caps, and benchmarks. Use when asked to validate, check, or verify the build."
 ---
 
-# Testing & Validation
-
-Comprehensive validation including property-based testing, fuzzing, and edge case coverage.
+# Testing Validation
 
 ## Quick Validation
 Run `scripts/validate.sh` for the full gate sequence.
 
 ## Gate Sequence (manual)
 ```bash
+# Minimal output mode (2026 best practice)
 export CARGO_TERM_PROGRESS_WHEN=never
+
 cargo check --message-format=short
-cargo test --all-features --quiet
+cargo test --all-features --quiet  # or: cargo nextest run --all-features
 cargo fmt --check
 cargo clippy -- -D warnings
 ```
 
 Then check LOC limits with `scripts/loc-check.sh`.
-
-## Property-Based Testing (proptest)
-
-### Key Properties to Test
-
-**HVec10240:**
-- `from_bytes(to_bytes(v)) == v` (roundtrip)
-- `cosine_similarity(v, v) == 1.0` (self-similarity)
-- `cosine_similarity(a, b) == cosine_similarity(b, a)` (symmetry)
-- `cosine_similarity(a, b)` in `[-1.0, 1.0]` (bounds)
-
-**Reservoir:**
-- `reset()` clears state to zeros
-- `step()` with same input produces same output after `reset()`
-- `to_hypervector()` fails if `size < 10240`
-
-**Persistence:**
-- `save_concept(c); load_concept(c.id) == Some(c)` (roundtrip)
-- `delete_concept(id); load_concept(id) == None` (deletion)
-- FK constraints reject invalid associations
-
-### Commands
-```bash
-cargo test --test property_based
-cargo fuzz run fuzz_hvec_from_bytes   # requires cargo-fuzz
-```
 
 ## Benchmark Validation
 ```bash
@@ -64,11 +38,11 @@ cargo bench --bench benchmark -- --baseline main
 |---|---|---|
 | Unit | `src/*.rs` `#[cfg(test)]` | Core logic, edge cases, error paths |
 | Integration | `tests/*.rs` | Public API behavior, persistence roundtrips |
-| Property | `tests/property_based.rs` | Invariants, roundtrips, bounds |
-| Fuzz | `fuzz/` | Adversarial inputs, edge cases |
 | Benchmarks | `benches/benchmark.rs` | Performance targets (reservoir_step < 100μs @ 50k) |
 
 ## Integration Test Files
+
+Run tests by file:
 ```bash
 cargo test --test <test_name>
 ```
@@ -84,6 +58,16 @@ Use separate test files in `tests/` for:
 Every file in `src/*.rs` must be ≤ 500 lines. Run `scripts/loc-check.sh` to verify.
 
 ## Documentation Link & Command Validation
+Run `scripts/check-docs-links.sh` to validate:
+- Internal file links (`@file.md` and `[text](./path.md)` style)
+- External URLs (with `--check-urls` flag)
+- Code block commands in bash/shell blocks
+- Version references consistency across ALL files:
+  - Core: Cargo.toml, Cargo.lock, wasm/package.json
+  - Docs: README.md, book/src/getting-started.md, CHANGELOG.md, llms.txt
+  - Tests: examples/cli/*.sh, tests/*.rs
+  - Generated: export.json, csm_test.json
+
 ```bash
 ./scripts/check-docs-links.sh           # Quick check (no URL validation)
 ./scripts/check-docs-links.sh --fix     # Auto-fix version mismatches
@@ -92,7 +76,7 @@ Every file in `src/*.rs` must be ≤ 500 lines. Run `scripts/loc-check.sh` to ve
 
 ## Configurability Check
 - Reject hardcoded tunables in new code paths.
-- Require named constants and/or env/config-backed settings.
+- Require named constants and/or env/config-backed settings for thresholds, limits, and sample sizes.
 
 ## Known Test Gotchas
 - Reservoir tests use `new_seeded(..., 42)` for determinism — don't use `new()` in tests.
