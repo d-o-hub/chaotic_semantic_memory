@@ -59,7 +59,7 @@ fn bench_my_operation(c: &mut Criterion) {
     c.bench_function("my_operation", |b| {
         b.iter(|| {
             // Only the measured code here
-            my_operation(black_box(&data))
+            black_box(my_operation(black_box(&data)))
         })
     });
 }
