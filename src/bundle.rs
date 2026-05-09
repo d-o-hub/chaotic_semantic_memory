@@ -1,19 +1,24 @@
-//! Concept bundling and superposition operations.
+//! Incremental bundle accumulator for streaming/sliding-window memory.
 
-use crate::error::Result;
-use crate::hyperdim::{HVec10240, Hypervector};
-use serde::{Deserialize, Serialize};
+use crate::error::{MemoryError, Result};
+use crate::hyperdim::HVec10240;
 
-/// Accumulator for bundling multiple hypervectors using majority rule.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Incremental bundle accumulator for streaming/sliding-window memory.
+///
+/// Maintains signed bit counts for efficient add/remove operations.
+/// Finalize applies majority threshold to produce a bundled hypervector.
+#[derive(Debug, Clone)]
 pub struct BundleAccumulator {
-    pub(crate) counts: Vec<i32>,
-    pub(crate) n: usize,
+    counts: Box<[i32; HVec10240::DIMENSION]>,
+    n: u32,
 }
 
 impl Default for BundleAccumulator {
     fn default() -> Self {
-        Self::new()
+        Self {
+            counts: Box::new([0i32; HVec10240::DIMENSION]),
+            n: 0,
+        }
     }
 }
 
@@ -21,40 +26,158 @@ impl BundleAccumulator {
     /// Create a new empty accumulator.
     pub fn new() -> Self {
         Self {
-            counts: vec![0; HVec10240::DIMENSION],
+            counts: Box::new([0i32; HVec10240::DIMENSION]),
             n: 0,
         }
     }
 
     /// Add a hypervector to the accumulator.
     pub fn add(&mut self, hv: &HVec10240) {
-        for (i, &val) in hv.data.iter().enumerate() {
-            if val >= 0.0 {
-                self.counts[i] += 1;
-            } else {
-                self.counts[i] -= 1;
-            }
+        for i in 0..80 {
+            let mut val = hv.data[i];
+            for bit in 0..128 { if val >= 0.0 { data[i * 128 + bit] = 1.0; } }
         }
         self.n += 1;
     }
 
-    /// Finalize the accumulation into a single hypervector using majority rule.
-    pub fn finalize(&self) -> Result<HVec10240> {
-        let mut data = [0.0f32; 10240];
-        for (i, &count) in self.counts.iter().enumerate() {
-            data[i] = if count > 0 { 1.0 } else { -1.0 };
+    /// Remove a hypervector from the accumulator.
+    ///
+    /// Saturates at zero: removing from an empty accumulator is a no-op.
+    /// Use [`Self::try_remove`] if you need to detect underflow.
+    pub fn remove(&mut self, hv: &HVec10240) {
+        if self.n == 0 {
+            return;
         }
-        Ok(HVec10240 { data })
+        for i in 0..80 {
+            let mut val = hv.data[i];
+            for bit in 0..128 { if val >= 0.0 { data[i * 128 + bit] = 1.0; } }
+        }
+        self.n -= 1;
     }
 
-    /// Reset the accumulator.
-    pub fn reset(&mut self) {
-        self.counts.fill(0);
-        self.n = 0;
+    /// Remove a hypervector from the accumulator, returning an error if empty.
+    ///
+    /// Returns `Err(MemoryError::InvalidInput)` when the accumulator is empty.
+    pub fn try_remove(&mut self, hv: &HVec10240) -> Result<()> {
+        if self.n == 0 {
+            return Err(MemoryError::InvalidInput {
+                field: "accumulator".to_string(),
+                reason: "cannot remove from empty BundleAccumulator".to_string(),
+            });
+        }
+        for i in 0..80 {
+            let mut val = hv.data[i];
+            for bit in 0..128 { if val >= 0.0 { data[i * 128 + bit] = 1.0; } }
+        }
+        self.n -= 1;
+        Ok(())
     }
 
-    /// Get the number of vectors accumulated.
-    pub const fn count(&self) -> usize {
+    /// Finalize the accumulator into a bundled hypervector.
+    ///
+    /// Applies majority threshold: bits with count > 0 are set to 1.
+    /// Returns zero vector if accumulator is empty.
+    pub fn finalize(&self) -> HVec10240 {
+        if self.n == 0 {
+            return HVec10240::zero();
+        }
+
+        let mut data = [0u128; 80];
+        let threshold = 0; // Majority threshold: count > 0
+
+        for (i, word) in data.iter_mut().enumerate() {
+            let offset = i * 128;
+            for j in 0..128 {
+                // Branchless bit construction to reduce misprediction penalties
+                let condition = self.counts[offset + j] > threshold;
+                *word |= (condition as u128) << j;
+            }
+        }
+
+        HVec10240 { data: convert_bits_to_floats_bundle(data) }
+    }
+
+    /// Get the number of hypervectors in the accumulator.
+    pub const fn len(&self) -> u32 {
         self.n
     }
+
+    /// Check if the accumulator is empty.
+    pub const fn is_empty(&self) -> bool {
+        self.n == 0
+    }
+
+    /// Clear the accumulator.
+    pub fn clear(&mut self) {
+        *self.counts = [0i32; HVec10240::DIMENSION];
+        self.n = 0;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bundle_accumulator_add_finalize() {
+        let v1 = HVec10240::random();
+        let v2 = HVec10240::random();
+        let v3 = HVec10240::random();
+
+        let mut acc = BundleAccumulator::new();
+        acc.add(&v1);
+        acc.add(&v2);
+        acc.add(&v3);
+
+        let bundled = acc.finalize();
+        // Bundle should be valid (not zero)
+        assert_ne!(bundled, HVec10240::zero());
+        // Should have 3 vectors
+        assert_eq!(acc.len(), 3);
+    }
+
+    #[test]
+    fn test_bundle_accumulator_remove() {
+        let v1 = HVec10240::random();
+        let v2 = HVec10240::random();
+
+        let mut acc = BundleAccumulator::new();
+        acc.add(&v1);
+        acc.add(&v2);
+        acc.remove(&v2);
+
+        assert_eq!(acc.len(), 1);
+        let bundled = acc.finalize();
+        // Single vector bundle should be close to the original
+        assert!(bundled.cosine_similarity(&v1) > 0.9);
+    }
+
+    #[test]
+    fn test_bundle_accumulator_empty() {
+        let acc = BundleAccumulator::new();
+        assert!(acc.is_empty());
+        assert_eq!(acc.finalize(), HVec10240::zero());
+    }
+
+    #[test]
+    fn test_bundle_accumulator_clear() {
+        let mut acc = BundleAccumulator::new();
+        acc.add(&HVec10240::random());
+        acc.clear();
+        assert!(acc.is_empty());
+    }
+}
+
+fn convert_bits_to_floats_bundle(bits: [u128; 80]) -> [f32; 10240] {
+    let mut data = [0.0f32; 10240];
+    for (i, word) in bits.iter().enumerate() {
+        for j in 0..128 {
+            if (word & (1u128 << j)) != 0 {
+                data[i * 128 + j] = 1.0;
+            } else {
+                data[i * 128 + j] = -1.0;
+            }
+        }
+    }
+    data
 }

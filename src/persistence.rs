@@ -8,6 +8,7 @@ use crate::hyperdim::{HVec10240, Hypervector};
 use libsql::{Builder, Connection, Database};
 use std::sync::Arc;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+
 pub(crate) const LATEST_SCHEMA_VERSION: i64 = 9;
 
 #[derive(Debug)]
@@ -19,7 +20,7 @@ pub struct Persistence {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[serde(bound = "H: Hypervector")]
+#[serde(bound(deserialize = "H: Hypervector"))]
 pub struct ConceptVersion<H: Hypervector = HVec10240> {
     pub concept_id: String,
     pub version: i64,

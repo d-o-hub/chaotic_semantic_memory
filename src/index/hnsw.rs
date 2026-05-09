@@ -2,7 +2,6 @@
 //! HNSW ANN index backend (ADR-0068).
 
 #[cfg(feature = "ann-hnsw")]
-use crate::hyperdim::Hypervector;
 use hnsw_rs::prelude::*;
 #[cfg(feature = "ann-hnsw")]
 use serde::{Deserialize, Serialize};
@@ -12,6 +11,7 @@ use std::collections::HashMap;
 #[cfg(feature = "ann-hnsw")]
 use crate::error::{MemoryError, Result};
 #[cfg(feature = "ann-hnsw")]
+use crate::hyperdim::{HVec10240, Hypervector};
 #[cfg(feature = "ann-hnsw")]
 use crate::index::{AnnIndex, IndexStats};
 #[cfg(feature = "ann-hnsw")]
@@ -114,7 +114,7 @@ impl<H: Hypervector> AnnIndex<H> for HnswIndex<H> {
         let mut final_results = Vec::with_capacity(results.len());
         for neighbor in results {
             if let Some(id) = self.idx_to_id.get(&neighbor.d_id) {
-                final_results.push((id.clone(), query.cosine_similarity(&self.hnsw.get_point_indexation().get_point_data(&neighbor.p_id).unwrap()[0])));
+                final_results.push((id.clone(), query.cosine_similarity(&self.hnsw.get_point_data(&neighbor.p_id).unwrap()[0])));
                 if final_results.len() >= top_k { break; }
             }
         }

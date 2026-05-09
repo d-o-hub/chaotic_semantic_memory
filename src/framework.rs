@@ -15,8 +15,7 @@ use crate::metadata_filter::MetadataFilter;
 #[cfg(feature = "persistence")]
 use crate::persistence::Persistence;
 use crate::reservoir::ChaoticReservoir;
-use crate::singularity::{Concept, Singularity, unix_now_secs};
-use crate::concept_builder::ConceptBuilder;
+use crate::singularity::{Concept, ConceptBuilder, Singularity, unix_now_secs};
 
 /// Main framework for chaotic semantic memory
 pub struct ChaoticSemanticFramework<H: Hypervector = HVec10240> {
@@ -39,8 +38,8 @@ pub struct ChaoticSemanticFramework<H: Hypervector = HVec10240> {
 impl<H: Hypervector> ChaoticSemanticFramework<H> {
     /// Create a new framework builder
     #[must_use]
-    pub fn builder() -> FrameworkBuilder<H> {
-        FrameworkBuilder::<H>::new()
+    pub fn builder() -> FrameworkBuilder {
+        FrameworkBuilder::new()
     }
 
     /// Get the singularity (concept store)

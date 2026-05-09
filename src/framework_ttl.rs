@@ -1,12 +1,11 @@
-use crate::hyperdim::Hypervector as H;
-/// TTL (Time-To-Live) and text convenience operations for ChaoticSemanticFramework.
+//! TTL (Time-To-Live) and text convenience operations for ChaoticSemanticFramework.
 
 use crate::error::Result;
 use crate::hyperdim::Hypervector;
 use crate::framework_events::MemoryEvent;
-
+use crate::hyperdim::{HVec10240, Hypervector as H};
 use crate::metadata_filter::MetadataFilter;
-use crate::concept_builder::ConceptBuilder;
+use crate::singularity::ConceptBuilder;
 use std::collections::HashMap;
 use tracing::instrument;
 

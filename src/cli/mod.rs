@@ -5,9 +5,13 @@ pub mod args;
 pub mod git_local;
 pub mod error;
 
+pub use args::{CliArgs, Commands, OutputFormat, CompletionsArgs};
+pub use error::{CliError, ExitCode};
+pub use git_local::{ensure_git_local_dir, resolve_git_local_path};
+pub use commands::*;
+
 use crate::error::Result;
 use clap::Parser;
-use args::{CliArgs, Commands};
 
 pub async fn run() -> Result<()> {
     let cli = CliArgs::parse();

@@ -35,7 +35,7 @@ impl Persistence {
         let format = H::format_name();
 
         conn.execute(
-            "INSERT INTO csm_versions (namespace, concept_id, version, vector, metadata, modified_at, vector_format)
+            "INSERT INTO csm_versions (namespace, concept_id, version, vector: vector, metadata, modified_at, vector_format)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
                 ns.to_string(),
@@ -79,7 +79,7 @@ impl Persistence {
 
         let mut rows = conn
             .query(
-                "SELECT version, vector, metadata, modified_at, vector_format
+                "SELECT version, vector: vector, metadata, modified_at, vector_format
                  FROM csm_versions WHERE namespace = ?1 AND concept_id = ?2
                  ORDER BY version DESC LIMIT ?3",
                 params![ns.to_string(), id.to_string(), limit as i64],
@@ -102,9 +102,9 @@ impl Persistence {
                     if std::any::TypeId::of::<H>() == std::any::TypeId::of::<BHVec10240>() {
                         H::from_bytes(&vector_bytes)?
                     } else {
-                        let bhv = BHVec10240::from_bytes(&vector_bytes)?;
+                        let bhv = BH::from_bytes(&vector_bytes)?;
                         let fhv = bhv.to_f32();
-                        H::from_hvec(&fhv)
+                        H::from_bytes(&fhv.to_bytes())?
                     }
                 }
                 #[cfg(not(feature = "hv-binary"))]
@@ -115,8 +115,8 @@ impl Persistence {
 
             history.push(ConceptVersion {
                 concept_id: id.to_string(),
-                version,
-                vector,
+                version: version as i64,
+                vector: vector,
                 metadata: serde_json::from_str(&metadata_json)?,
                 modified_at: modified_at as u64,
             });

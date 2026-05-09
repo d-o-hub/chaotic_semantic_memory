@@ -7,6 +7,7 @@ pub use hvec::HVec10240;
 
 use crate::error::Result;
 use std::fmt::Debug;
+use serde::{Serialize, Deserialize};
 
 pub trait Hypervector:
     Sized
@@ -16,8 +17,8 @@ pub trait Hypervector:
     + Send
     + Sync
     + PartialEq
-    + ::serde::Serialize
-    + for<'de> ::serde::Deserialize<'de>
+    + Serialize
+    + for<'de> Deserialize<'de>
     + 'static
 {
     const DIMENSION: usize;
@@ -31,11 +32,17 @@ pub trait Hypervector:
     fn hamming_distance(&self, other: &Self) -> u32;
     fn to_bytes(&self) -> Vec<u8>;
     fn from_bytes(bytes: &[u8]) -> Result<Self>;
-    fn from_hvec(v: &crate::hyperdim::HVec10240) -> Self;
-    fn to_hvec(&self) -> crate::hyperdim::HVec10240;
+
+    /// Convert from the standard f32 hypervector representation.
+    fn from_hvec(v: &HVec10240) -> Self;
+
+    /// Convert to the standard f32 hypervector representation.
+    fn to_hvec(&self) -> HVec10240;
+
+    /// Get bit at position (used by LSH).
     fn get_bit(&self, pos: usize) -> bool;
-    fn fast_hash(&self) -> u64;
 }
+
 #[cfg(feature = "hv-binary")]
 pub mod binary;
 #[cfg(feature = "hv-binary")]

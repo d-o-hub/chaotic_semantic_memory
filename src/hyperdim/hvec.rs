@@ -1,24 +1,21 @@
 use crate::error::Result;
 use super::Hypervector;
 use rand::RngExt;
+use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct HVec10240 {
-    pub(crate) data: [f32; 10240],
+    pub data: [f32; 10240],
 }
 
 impl Eq for HVec10240 {}
 
 impl HVec10240 {
-    pub fn zero() -> Self { <Self as Hypervector>::zero() }
-    pub fn random() -> Self { <Self as Hypervector>::random() }
-    pub fn bundle(vectors: &[Self]) -> Result<Self> { <Self as Hypervector>::bundle(vectors) }
-    fn from_hvec(v: &HVec10240) -> Self { *v }
-    fn to_hvec(&self) -> HVec10240 { *self }
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> { <Self as Hypervector>::from_bytes(bytes) }
-    pub fn to_bytes(&self) -> Vec<u8> { <Self as Hypervector>::to_bytes(self) }
     pub const DIMENSION: usize = 10240;
     pub const fn zero_const() -> Self { Self { data: [0.0; 10240] } }
+    pub fn zero() -> Self { <Self as Hypervector>::zero() }
+    pub fn random() -> Self { <Self as Hypervector>::random() }
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> { <Self as Hypervector>::from_bytes(bytes) }
     pub fn new_seeded(seed: u64) -> Self {
         use rand::SeedableRng;
         use rand::rngs::StdRng;
@@ -69,7 +66,7 @@ impl Hypervector for HVec10240 {
             n1 += self.data[i] * self.data[i];
             n2 += other.data[i] * other.data[i];
         }
-        if n1 == 0.0 || n2 == 0.0 { return 0.0; }
+        if n1 <= 0.0 || n2 <= 0.0 { return 0.0; }
         dot / (n1.sqrt() * n2.sqrt())
     }
     fn hamming_distance(&self, other: &Self) -> u32 {
@@ -84,15 +81,6 @@ impl Hypervector for HVec10240 {
         for &v in &self.data { b.extend_from_slice(&v.to_le_bytes()); }
         b
     }
-    fn fast_hash(&self) -> u64 {
-        use std::hash::Hasher;
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        for &v in &self.data { hasher.write_u32(v.to_bits()); }
-        hasher.finish()
-    }
-    fn get_bit(&self, pos: usize) -> bool { self.data[pos] >= 0.0 }
-    fn from_hvec(v: &HVec10240) -> Self { *v }
-    fn to_hvec(&self) -> HVec10240 { *self }
     fn from_bytes(bytes: &[u8]) -> Result<Self> {
         if bytes.len() != 40960 { return Err(crate::error::MemoryError::InvalidDimension { expected: 40960, actual: bytes.len() }); }
         let mut data = [0.0; 10240];
@@ -103,15 +91,18 @@ impl Hypervector for HVec10240 {
         }
         Ok(Self { data })
     }
+    fn from_hvec(v: &HVec10240) -> Self { *v }
+    fn to_hvec(&self) -> HVec10240 { *self }
+    fn get_bit(&self, pos: usize) -> bool { self.data[pos] >= 0.0 }
 }
 
-impl serde::Serialize for HVec10240 {
+impl Serialize for HVec10240 {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> where S: serde::Serializer {
         serializer.serialize_bytes(&self.to_bytes())
     }
 }
 
-impl<'de> serde::Deserialize<'de> for HVec10240 {
+impl<'de> Deserialize<'de> for HVec10240 {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error> where D: serde::Deserializer<'de> {
         let b = <Vec<u8>>::deserialize(deserializer)?;
         Self::from_bytes(&b).map_err(serde::de::Error::custom)

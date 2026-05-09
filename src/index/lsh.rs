@@ -113,9 +113,9 @@ impl<H: Hypervector> AnnIndex<H> for LshIndex<H> {
 
         let mut scores = Vec::with_capacity(candidates.len());
         for id in candidates.keys() {
-            if let Some(concept_vec) = self.concepts.get(*id) {
-                let dist = query.hamming_distance(concept_vec);
-                let similarity = query.cosine_similarity(concept_vec);
+            if let Some(vec) = self.concepts.get(*id) {
+                let dist = query.hamming_distance(vec);
+                let similarity = query.cosine_similarity(vec);
                 scores.push(((*id).clone(), similarity));
             }
         }
@@ -152,9 +152,9 @@ impl<H: Hypervector> AnnIndex<H> for LshIndex<H> {
 
         let mut scores = Vec::with_capacity(candidates.len());
         for id in candidates.keys() {
-            if let Some(concept_vec) = self.concepts.get(*id) {
-                let dist = query.hamming_distance(concept_vec);
-                let similarity = query.cosine_similarity(concept_vec);
+            if let Some(vec) = self.concepts.get(*id) {
+                let dist = query.hamming_distance(vec);
+                let similarity = query.cosine_similarity(vec);
                 scores.push(((*id).clone(), similarity));
             }
         }
@@ -167,7 +167,11 @@ impl<H: Hypervector> AnnIndex<H> for LshIndex<H> {
             let mut all_filtered: Vec<(String, f32)> = concepts
                 .iter()
                 .filter(|(_, c)| filter.matches(&c.metadata))
-                .map(|(id, c)| { let similarity = query.cosine_similarity(&c.vector); (id.clone(), similarity) })
+                .map(|(id, c)| {
+                    let dist = query.hamming_distance(&c.vector);
+                    let similarity = query.cosine_similarity(vec);
+                    (id.clone(), similarity)
+                })
                 .collect();
             all_filtered.sort_by(|a, b| b.1.total_cmp(&a.1));
             all_filtered.truncate(top_k);

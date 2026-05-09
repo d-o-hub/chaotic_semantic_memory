@@ -5,7 +5,6 @@ use crate::error::{MemoryError, Result};
 #[cfg(feature = "embed-voyage")]
 use serde::Deserialize;
 
-/// Voyage AI embedding provider.
 #[derive(Debug)]
 pub struct VoyageProvider {
     api_key: String,
@@ -14,15 +13,7 @@ pub struct VoyageProvider {
 
 impl VoyageProvider {
     pub fn new(api_key: String) -> Result<Self> {
-        Ok(Self {
-            api_key,
-            model: "voyage-3".into(),
-        })
-    }
-
-    pub fn with_model(mut self, model: impl Into<String>) -> Self {
-        self.model = model.into();
-        self
+        Ok(Self { api_key, model: "voyage-3".into() })
     }
 }
 
@@ -38,41 +29,22 @@ impl EmbeddingProvider for VoyageProvider {
             let response = client
                 .post("https://api.voyageai.com/v1/embeddings")
                 .header("Authorization", format!("Bearer {}", self.api_key))
-                .json(&serde_json::json!({
-                    "input": text,
-                    "model": self.model
-                }))
+                .json(&serde_json::json!({ "input": text, "model": self.model }))
                 .send()
                 .await
                 .map_err(|e| MemoryError::External(e.to_string()))?;
 
-            let data: VoyageResponse = response
-                .json()
-                .await
-                .map_err(|e| MemoryError::External(e.to_string()))?;
-
-            data.data
-                .first()
-                .map(|d| d.embedding.clone())
-                .ok_or_else(|| MemoryError::External("no embedding returned".into()))
+            let data: VoyageResponse = response.json().await.map_err(|e| MemoryError::External(e.to_string()))?;
+            data.data.first().map(|d| d.embedding.clone()).ok_or_else(|| MemoryError::External("no embedding".into()))
         }
-
         #[cfg(not(feature = "embed-voyage"))]
-        {
-            let _ = text;
-            Err(MemoryError::Config("embed-voyage feature not enabled".into()))
-        }
+        { let _ = text; Err(MemoryError::Config("embed-voyage disabled".into())) }
     }
 }
 
 #[cfg(feature = "embed-voyage")]
 #[derive(Deserialize)]
-struct VoyageResponse {
-    data: Vec<VoyageEmbedding>,
-}
-
+struct VoyageResponse { data: Vec<VoyageEmbedding> }
 #[cfg(feature = "embed-voyage")]
 #[derive(Deserialize)]
-struct VoyageEmbedding {
-    embedding: Vec<f32>,
-}
+struct VoyageEmbedding { embedding: Vec<f32> }

@@ -4,21 +4,16 @@ use crate::embedding::EmbeddingProvider;
 use crate::error::Result;
 use crate::encoder::TextEncoder;
 
-/// Native HDC text provider (default).
 pub struct HdcTextProvider {
     encoder: TextEncoder,
 }
 
 impl HdcTextProvider {
-    pub fn new() -> Self {
-        Self { encoder: TextEncoder::new() }
-    }
+    pub fn new() -> Self { Self { encoder: TextEncoder::new() } }
 }
 
 impl Default for HdcTextProvider {
-    fn default() -> Self {
-        Self::new()
-    }
+    fn default() -> Self { Self::new() }
 }
 
 #[async_trait::async_trait]

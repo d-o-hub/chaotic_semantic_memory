@@ -260,19 +260,6 @@ impl Persistence {
         Ok(())
     }
 
-    pub(crate) async fn apply_v9_vector_format_migration(
-        &self,
-        conn: &libsql::Connection,
-    ) -> Result<()> {
-        if !self.column_exists(conn, "csm_concepts", "vector_format").await? {
-            conn.execute_batch(
-                "ALTER TABLE csm_concepts ADD COLUMN vector_format TEXT NOT NULL DEFAULT 'f32';
-                 ALTER TABLE csm_versions ADD COLUMN vector_format TEXT NOT NULL DEFAULT 'f32';"
-            ).await.map_err(|e| MemoryError::database(format!("Failed migration v9 vector_format: {e}")))?;
-        }
-        Ok(())
-    }
-
     /// Internal migration method that reuses an existing connection.
     /// Used by init_schema() to avoid semaphore deadlock from nested permit acquisition.
     pub(crate) async fn apply_migrations_with_conn(
@@ -394,5 +381,20 @@ impl Persistence {
         } else {
             Ok(0)
         }
+    }
+}
+
+impl Persistence {
+    pub(crate) async fn apply_v9_vector_format_migration(
+        &self,
+        conn: &libsql::Connection,
+    ) -> Result<()> {
+        if !self.column_exists(conn, "csm_concepts", "vector_format").await? {
+            conn.execute_batch(
+                "ALTER TABLE csm_concepts ADD COLUMN vector_format TEXT NOT NULL DEFAULT 'f32';
+                 ALTER TABLE csm_versions ADD COLUMN vector_format TEXT NOT NULL DEFAULT 'f32';"
+            ).await.map_err(|e| MemoryError::database(format!("Failed migration v9 vector_format: {e}")))?;
+        }
+        Ok(())
     }
 }

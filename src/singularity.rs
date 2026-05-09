@@ -34,7 +34,8 @@ impl Default for SingularityConfig {
 
 /// Represents a single memory concept
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(bound(deserialize = "H: Hypervector"))]
+#[serde(bound = "H: Hypervector")]
+
 pub struct Concept<H: Hypervector = HVec10240> {
     pub id: String,
     pub vector: H,
@@ -45,6 +46,59 @@ pub struct Concept<H: Hypervector = HVec10240> {
     /// IDs of concepts that are "canonical" versions of this one (ADR-0044)
     #[serde(default)]
     pub canonical_concept_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ConceptBuilder<H: Hypervector = HVec10240> {
+    id: String,
+    vector: Option<H>,
+    metadata: HashMap<String, serde_json::Value>,
+    expires_at: Option<u64>,
+    canonical_concept_ids: Vec<String>,
+}
+
+impl<H: Hypervector> ConceptBuilder<H> {
+    pub fn new(id: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            vector: None,
+            metadata: HashMap::new(),
+            expires_at: None,
+            canonical_concept_ids: Vec::new(),
+        }
+    }
+
+    pub const fn with_vector(mut self, vector: H) -> Self {
+        self.vector = Some(vector);
+        self
+    }
+
+    pub fn with_metadata(
+        mut self,
+        key: impl Into<String>,
+        value: impl Into<serde_json::Value>,
+    ) -> Self {
+        self.metadata.insert(key.into(), value.into());
+        self
+    }
+
+    pub fn with_ttl(mut self, ttl_secs: u64) -> Self {
+        self.expires_at = Some(unix_now_secs() + ttl_secs);
+        self
+    }
+
+    pub fn build(self) -> Result<Concept<H>> {
+        let now = unix_now_secs();
+        Ok(Concept {
+            id: self.id,
+            vector: self.vector.unwrap_or_else(H::random),
+            metadata: self.metadata,
+            created_at: now,
+            modified_at: now,
+            expires_at: self.expires_at,
+            canonical_concept_ids: self.canonical_concept_ids,
+        })
+    }
 }
 
 pub struct Singularity<H: Hypervector = HVec10240> {

@@ -18,7 +18,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         &self,
         query: &str,
         top_k: usize,
-        bridge: &BridgeRetrieval<H>,
+        bridge: &BridgeRetrieval,
     ) -> Result<Vec<BridgeHit>> {
         self.validate_top_k(top_k)?;
         let singularity = self.singularity.read().await;
@@ -34,7 +34,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         &self,
         query: &str,
         top_k: usize,
-        bridge: &BridgeRetrieval<H>,
+        bridge: &BridgeRetrieval,
         reranker: &dyn SemanticReranker,
     ) -> Result<Vec<BridgeHit>> {
         self.validate_top_k(top_k)?;
@@ -52,7 +52,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         &self,
         query: &str,
         top_k: usize,
-        bridge: &BridgeRetrieval<H>,
+        bridge: &BridgeRetrieval,
         filter: &MetadataFilter,
     ) -> Result<Vec<BridgeHit>> {
         self.validate_top_k(top_k)?;
@@ -62,7 +62,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
 
         // Get filtered concept IDs first
         let query_hv = bridge.encoder().encode(query);
-        let filtered_results = singularity.find_similar_filtered(&ns, &H::from_hvec(&query_hv), top_k, filter);
+        let filtered_results = singularity.find_similar_filtered(&ns, &query_hv, top_k, filter);
         let filtered_ids: std::collections::HashSet<String> = filtered_results
             .as_ref()
             .iter()
@@ -88,7 +88,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         &self,
         query: &str,
         top_k: usize,
-        bridge: &BridgeRetrieval<H>,
+        bridge: &BridgeRetrieval,
     ) -> Result<MemoryPacket> {
         self.validate_top_k(top_k)?;
         let singularity = self.singularity.read().await;
@@ -104,7 +104,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         &self,
         query: &str,
         top_k: usize,
-        bridge: &BridgeRetrieval<H>,
+        bridge: &BridgeRetrieval,
         reranker: &dyn SemanticReranker,
     ) -> Result<MemoryPacket> {
         self.validate_top_k(top_k)?;

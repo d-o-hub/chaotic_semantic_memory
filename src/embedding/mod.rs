@@ -1,6 +1,5 @@
 //! Embedding provider abstraction and random projection (ADR-0069).
 
-use crate::hyperdim::HVec10240;
 pub mod projection;
 pub mod remote_openai;
 pub mod remote_voyage;
@@ -9,8 +8,11 @@ pub mod remote_voyage;
 pub mod fastembed;
 pub mod hdc_text;
 
-use crate::error::Result;
 pub use projection::Projection;
+pub use projection::ProjectionConfig;
+
+use crate::error::Result;
+use crate::hyperdim::HVec10240;
 use std::sync::Arc;
 
 /// Trait for external embedding models.
@@ -39,24 +41,15 @@ pub fn get_embedding_provider(
     match name {
         "hdc" => Ok(Arc::new(hdc_text::HdcTextProvider::new())),
         "openai" => {
-            let key = api_key.ok_or_else(|| crate::error::MemoryError::InvalidInput {
-                field: "api_key".to_string(),
-                reason: "OpenAI provider requires an API key".to_string(),
-            })?;
+            let key = api_key.ok_or_else(|| crate::error::MemoryError::Config("OpenAI provider requires an API key".to_string()))?;
             Ok(Arc::new(remote_openai::OpenAiProvider::new(key)?))
         }
         "voyage" => {
-            let key = api_key.ok_or_else(|| crate::error::MemoryError::InvalidInput {
-                field: "api_key".to_string(),
-                reason: "Voyage provider requires an API key".to_string(),
-            })?;
+            let key = api_key.ok_or_else(|| crate::error::MemoryError::Config("Voyage provider requires an API key".to_string()))?;
             Ok(Arc::new(remote_voyage::VoyageProvider::new(key)?))
         }
         #[cfg(feature = "embed-fastembed")]
         "fastembed" => Ok(Arc::new(fastembed::FastEmbedProvider::new()?)),
-        _ => Err(crate::error::MemoryError::InvalidInput {
-            field: "provider".to_string(),
-            reason: format!("Unknown embedding provider: {name}"),
-        }),
+        _ => Err(crate::error::MemoryError::Config(format!("Unknown embedding provider: {name}"))),
     }
 }

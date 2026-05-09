@@ -19,35 +19,21 @@ const DEFAULT_MAX_CACHED_TOP_K: usize = 100;
 const DEFAULT_MAX_BATCH_SIZE: usize = 1000;
 const DEFAULT_MAX_SEQUENCE_LENGTH: usize = 1024;
 
-/// Runtime configuration for [`ChaoticSemanticFramework`], tuned via [`FrameworkBuilder`].
+/// Runtime configuration for ChaoticSemanticFramework, tuned via FrameworkBuilder.
 #[derive(Clone, Debug)]
 pub struct FrameworkConfig {
-    /// Reservoir node count (default: `50_000`, must be `> 0`).
     pub reservoir_size: usize,
-    /// Input width per sequence step (default: `10_240`, must be `> 0`).
     pub reservoir_input_size: usize,
-    /// Chaotic noise magnitude (default: `0.1`, recommended: `0.0..=1.0`).
     pub chaos_strength: f32,
-    /// Enables persistence setup at build time (default: `true`).
     pub enable_persistence: bool,
-    /// Maximum concept count before oldest-concept eviction (default: `None`).
     pub max_concepts: Option<usize>,
-    /// Maximum outbound associations per concept (default: `None`).
     pub max_associations_per_concept: Option<usize>,
-    /// Remote libSQL pool size (default: `10`, coerced to `>= 1`).
     pub connection_pool_size: usize,
-    /// Upper bound for `top_k` in probes (default: `10_000`, coerced to `>= 1`).
     pub max_probe_top_k: usize,
-    /// Optional metadata size limit in bytes per concept (default: `None`).
     pub max_metadata_bytes: Option<usize>,
-    /// Maximum top_k for cache eligibility (default: `100`).
-    /// Queries with top_k > this value bypass the cache.
     pub max_cached_top_k: usize,
-    /// Maximum items in a batch operation (default: `1000`).
     pub max_batch_size: usize,
-    /// Maximum steps in a temporal sequence (default: `1024`).
     pub max_sequence_length: usize,
-    /// ANN index backend (default: `BruteForce`).
     pub index_backend: crate::index::IndexBackend,
 }
 
@@ -75,7 +61,6 @@ impl Default for FrameworkConfig {
 #[derive(Debug, Clone)]
 pub struct FrameworkStats {
     pub concept_count: usize,
-    /// Database size in bytes. `None` if persistence is disabled or size unavailable.
     pub db_size_bytes: Option<u64>,
 }
 
@@ -106,7 +91,7 @@ impl<H: Hypervector> Default for FrameworkBuilder<H> {
     }
 }
 
-impl<H: Hypervector> FrameworkBuilder<H> {
+impl<H: Hypervector + 'static> FrameworkBuilder<H> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -146,9 +131,6 @@ impl<H: Hypervector> FrameworkBuilder<H> {
         self
     }
 
-    /// Configure the connection pool size for remote Turso databases.
-    ///
-    /// Only available when the `persistence` feature is enabled.
     #[cfg(feature = "persistence")]
     pub fn with_connection_pool_size(mut self, pool_size: usize) -> Self {
         self.config.connection_pool_size = pool_size.max(1);
@@ -185,17 +167,11 @@ impl<H: Hypervector> FrameworkBuilder<H> {
         self
     }
 
-    /// Keep the last N historical versions per concept in persistence.
-    ///
-    /// Values less than 1 are coerced to 1. Default is 10.
     pub fn with_version_retention(mut self, retention: usize) -> Self {
         self.version_retention = retention.max(1);
         self
     }
 
-    /// Configure a local SQLite database for persistence.
-    ///
-    /// Only available when the `persistence` feature is enabled.
     #[cfg(feature = "persistence")]
     pub fn with_local_db(mut self, path: impl Into<String>) -> Self {
         self.db_path = Some(path.into());
@@ -203,9 +179,6 @@ impl<H: Hypervector> FrameworkBuilder<H> {
         self
     }
 
-    /// Configure a remote Turso database for persistence.
-    ///
-    /// Only available when the `persistence` feature is enabled.
     #[cfg(feature = "persistence")]
     pub fn with_turso(mut self, url: impl Into<String>, token: impl Into<String>) -> Self {
         self.db_path = Some(url.into());
@@ -213,23 +186,17 @@ impl<H: Hypervector> FrameworkBuilder<H> {
         self
     }
 
-    /// Disable persistence even when the feature is enabled.
-    ///
-    /// When the `persistence` feature is disabled, this method is a no-op
-    /// since persistence is already unavailable.
     #[cfg(feature = "persistence")]
     pub const fn without_persistence(mut self) -> Self {
         self.config.enable_persistence = false;
         self
     }
 
-    /// Disable persistence (no-op when `persistence` feature is disabled).
     #[cfg(not(feature = "persistence"))]
     pub fn without_persistence(self) -> Self {
         self
     }
 
-    /// Configure an external embedding provider.
     pub fn with_embedding_provider<P: crate::embedding::EmbeddingProvider + 'static>(
         mut self,
         provider: P,
@@ -238,7 +205,6 @@ impl<H: Hypervector> FrameworkBuilder<H> {
         self
     }
 
-    /// Configure an external embedding provider using an existing Arc'd trait object.
     pub fn with_embedding_provider_arc(
         mut self,
         provider: Arc<dyn crate::embedding::EmbeddingProvider>,

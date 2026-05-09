@@ -1,5 +1,3 @@
-//! CLI subcommands implementation.
-
 pub mod associate;
 pub mod associations;
 pub mod completions;
@@ -44,44 +42,147 @@ pub use traverse::run_traverse;
 pub use update::run_update;
 pub use watch::run_watch;
 
-use crate::error::Result;
+use crate::cli::args::OutputFormat;
+use crate::cli::error::{CliError, Result};
 use crate::framework::ChaoticSemanticFramework;
-use crate::hyperdim::{HVec10240, Hypervector};
+use colored::Colorize;
 
-pub async fn create_framework_with_namespace<H: Hypervector + 'static>(ns: &str) -> Result<ChaoticSemanticFramework<H>> {
-    let framework = ChaoticSemanticFramework::<H>::builder()
-        .build()
-        .await?;
-    {
-        let mut n = framework.namespace.write().await;
-        *n = ns.to_string();
+pub fn print_success(msg: &str, format: OutputFormat) {
+    if matches!(format, OutputFormat::Quiet) {
+        return;
     }
-    Ok(framework)
+    if matches!(format, OutputFormat::Json) {
+        println!(
+            "{}",
+            serde_json::json!({"status": "success", "message": msg})
+        );
+    } else {
+        eprintln!("{} {}", "✓".green(), msg);
+    }
 }
 
-pub async fn create_framework<H: Hypervector + 'static>() -> Result<ChaoticSemanticFramework<H>> {
-    ChaoticSemanticFramework::<H>::builder().build().await
+pub fn print_error(msg: &str) {
+    eprintln!("{} {}", "✗".red(), msg);
 }
 
-pub fn print_success(msg: &str) {
-    println!("✓ {}", msg);
+pub fn print_warning(msg: &str, format: OutputFormat) {
+    if matches!(format, OutputFormat::Quiet) {
+        return;
+    }
+    if matches!(format, OutputFormat::Json) {
+        println!(
+            "{}",
+            serde_json::json!({"status": "warning", "message": msg})
+        );
+    } else {
+        eprintln!("{} {}", "⚠".yellow(), msg);
+    }
 }
 
-pub fn print_warning(msg: &str) {
-    println!("! {}", msg);
+/// Truncate a string to `max_chars` characters, appending "..." if truncated.
+///
+/// Uses `char_indices` to avoid panicking on multi-byte UTF-8 boundaries.
+pub fn truncate_preview(s: &str, max_chars: usize) -> String {
+    match s.char_indices().nth(max_chars) {
+        Some((idx, _)) => format!("{}...", &s[..idx]),
+        None => s.to_string(),
+    }
 }
 
-pub fn truncate_preview(text: &str, _len: usize) -> String {
-    text.to_string()
+pub async fn create_framework(
+    db_path: Option<&std::path::Path>,
+) -> Result<ChaoticSemanticFramework> {
+    create_framework_advanced(db_path, None, false, "_default").await
 }
 
-pub fn validate_concept_id(id: &str) -> Result<()> {
-    ChaoticSemanticFramework::<HVec10240>::validate_concept_id(id)
+pub async fn create_framework_with_namespace(
+    db_path: Option<&std::path::Path>,
+    ns: &str,
+) -> Result<ChaoticSemanticFramework> {
+    create_framework_advanced(db_path, None, false, ns).await
 }
 
-pub fn validate_top_k(top_k: usize) -> Result<()> {
+pub async fn create_framework_with_provider(
+    db_path: Option<&std::path::Path>,
+    provider_name: Option<&str>,
+) -> Result<ChaoticSemanticFramework> {
+    create_framework_advanced(db_path, provider_name, false, "_default").await
+}
+
+pub async fn create_framework_advanced(
+    db_path: Option<&std::path::Path>,
+    provider_name: Option<&str>,
+    code_aware: bool,
+    ns: &str,
+) -> Result<ChaoticSemanticFramework> {
+    let mut builder = ChaoticSemanticFramework::builder();
+    if let Some(path) = db_path {
+        builder = builder.with_local_db(path.to_string_lossy());
+    } else {
+        builder = builder.without_persistence();
+    }
+    builder = builder.with_namespace(ns);
+
+    if let Some(name) = provider_name {
+        let provider = crate::embedding::get_provider(name)
+            .map_err(|e| CliError::Config(format!("failed to load embedding provider: {e}")))?;
+
+        // If provider is HDC and code-aware is requested, apply config
+        if provider.name() == "hdc-text" && code_aware {
+            builder = builder.with_embedding_provider(
+                crate::embedding::HdcTextProvider::with_config(crate::encoder::TextEncoderConfig {
+                    ngram_size: Some(3),
+                    code_aware: true,
+                    ..Default::default()
+                }),
+            );
+        } else {
+            builder = builder.with_embedding_provider_arc(provider);
+        }
+    } else if code_aware {
+        // Default HDC provider with code-aware config
+        builder = builder.with_embedding_provider(crate::embedding::HdcTextProvider::with_config(
+            crate::encoder::TextEncoderConfig {
+                ngram_size: Some(3),
+                code_aware: true,
+                ..Default::default()
+            },
+        ));
+    }
+
+    builder
+        .build()
+        .await
+        .map_err(|e| CliError::Persistence(format!("failed to initialize framework: {e}")))
+}
+
+fn validate_concept_id(id: &str) -> Result<()> {
+    ChaoticSemanticFramework::<crate::hyperdim::HVec10240>::validate_concept_id(id)
+        .map_err(|e| CliError::Validation(e.to_string()))
+}
+
+fn validate_top_k(top_k: usize) -> Result<()> {
     if top_k == 0 {
-         return Err(crate::error::MemoryError::InvalidInput { field: "top_k".to_string(), reason: "must be > 0".to_string() });
+        return Err(CliError::Validation("top_k must be at least 1".into()));
+    }
+    if top_k > 10_000 {
+        return Err(CliError::Validation(format!(
+            "top_k exceeds limit (max 10000, got {top_k})"
+        )));
+    }
+    Ok(())
+}
+
+fn validate_strength(strength: f64) -> Result<()> {
+    if !strength.is_finite() {
+        return Err(CliError::Validation(format!(
+            "strength must be finite (got {strength})"
+        )));
+    }
+    if !(0.0..=1.0).contains(&strength) {
+        return Err(CliError::Validation(format!(
+            "strength must be in [0.0, 1.0] (got {strength})"
+        )));
     }
     Ok(())
 }

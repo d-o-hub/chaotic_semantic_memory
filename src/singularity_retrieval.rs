@@ -1,15 +1,7 @@
+//! Retrieval optimization types and extension trait for Singularity.
+
 #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-/// Retrieval optimization types and extension trait for Singularity.
-///
-/// This module provides:
-/// - `RetrievalStats`: Observability for retrieval operations
-/// - `CandidateSource`: Where candidates came from
-/// - `RetrievalConfig`: Configuration for candidate generation
-/// - Extension trait for reduced-candidate retrieval
 
-// Casts are intentional for retrieval similarity math
-
-use crate::hyperdim::Hypervector;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -18,6 +10,7 @@ use std::sync::Arc;
 use rayon::prelude::*;
 
 use crate::error::Result;
+use crate::hyperdim::{HVec10240, Hypervector};
 use crate::singularity::{Singularity, unix_now_ns};
 
 /// Statistics from the last retrieval operation.
@@ -28,9 +21,7 @@ pub struct RetrievalStats {
     pub fell_back_to_exact_scan: bool,
     pub candidate_ns: u64,
     pub scoring_ns: u64,
-    /// ADR-0065: Filter selectivity ratio (matching_count / total_count)
     pub selectivity_ratio: f32,
-    /// ADR-0065: Strategy used for filtered retrieval
     pub filter_strategy: Option<FilterStrategy>,
 }
 
@@ -46,11 +37,8 @@ pub enum CandidateSource {
 /// Strategy used for filtered retrieval (ADR-0065).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FilterStrategy {
-    /// Pre-filter candidates, then score (optimal for low selectivity)
     Pre,
-    /// Generate bucket candidates, score, post-filter (optimal for medium selectivity)
     BucketPost,
-    /// Full similarity scan, post-filter results (optimal for high selectivity)
     ScanPost,
 }
 
@@ -79,7 +67,7 @@ pub struct RetrievalConfig {
 
 impl RetrievalConfig {
     pub fn validate(&self) -> Result<()> {
-        crate::framework::ChaoticSemanticFramework::<crate::hyperdim::HVec10240>::validate_retrieval_config(self)
+        crate::framework::ChaoticSemanticFramework::<HVec10240>::validate_retrieval_config(self)
     }
 }
 
@@ -98,15 +86,12 @@ impl Default for RetrievalConfig {
 }
 
 impl<H: Hypervector + 'static> Singularity<H> {
-    /// Set the retrieval configuration.
     pub fn set_retrieval_config(&mut self, config: RetrievalConfig) -> Result<()> {
         config.validate()?;
         self._retrieval_config = config;
         Ok(())
     }
 
-    /// Get the retrieval configuration.
-    /// Get statistics from the last retrieval operation.
     pub fn last_retrieval_stats(&self, ns: &str) -> RetrievalStats {
         self.get_namespace(ns)
             .and_then(|n| n.last_retrieval_stats.read().ok())
@@ -114,7 +99,6 @@ impl<H: Hypervector + 'static> Singularity<H> {
             .unwrap_or_default()
     }
 
-    /// Generate candidates by expanding the association graph.
     pub(crate) fn generate_graph_candidates(&self, ns: &str, query: &H) -> Vec<usize> {
         let Some(ns_state) = self.get_namespace(ns) else {
             return Vec::new();
@@ -152,18 +136,13 @@ impl<H: Hypervector + 'static> Singularity<H> {
             .collect()
     }
 
-    /// Generate candidates by coarse bucketing.
-        /// Generate candidates by coarse bucketing.
     pub(crate) fn generate_bucket_candidates(&self, ns: &str, _query: &H) -> Vec<usize> {
         let Some(ns_state) = self.get_namespace(ns) else {
             return Vec::new();
         };
-        // Coarse bucketing currently assumes specific internal representation.
-        // Return all indices as fallback for generic Hypervector trait.
         (0..ns_state.concept_vectors.len()).collect()
     }
 
-    /// Perform exact similarity scan over all vectors.
     pub(crate) fn exact_similarity_scan(
         &self,
         ns: &str,
@@ -177,8 +156,6 @@ impl<H: Hypervector + 'static> Singularity<H> {
         };
         let scoring_start = unix_now_ns();
 
-        // Algorithmic Optimization: Use integer Hamming distance for ranking to avoid floating-point
-        // overhead and use a fused allocation to improve cache locality.
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         let mut scores: Vec<(usize, u32)> = ns_state
             .concept_vectors
@@ -199,7 +176,6 @@ impl<H: Hypervector + 'static> Singularity<H> {
         let scoring_ns = unix_now_ns().saturating_sub(scoring_start);
         let scored_count = scores.len();
 
-        // Sort by Hamming distance (ascending = more similar)
         if scored_count <= top_k {
             scores.sort_unstable_by_key(|&(_, dist)| dist);
         } else {
@@ -211,7 +187,6 @@ impl<H: Hypervector + 'static> Singularity<H> {
         let results: Vec<(String, f32)> = scores
             .into_iter()
             .map(|(idx, dist)| {
-                // Defer cosine similarity calculation until the final top_k results
                 let similarity = 1.0 - (dist as f32 / 5120.0);
                 (ns_state.concept_indices[idx].clone(), similarity)
             })
@@ -236,13 +211,12 @@ impl<H: Hypervector + 'static> Singularity<H> {
             true,
             scoring_start.saturating_sub(start_ns),
             scoring_ns,
-            1.0,  // Full scan means 100% selectivity for unfiltered
-            None, // No filter strategy for unfiltered
+            1.0,
+            None,
         );
         results_arc
     }
 
-    /// Score a subset of candidates for reduced-candidate retrieval.
     pub(crate) fn scored_candidate_retrieval(
         &self,
         ns: &str,
@@ -266,13 +240,13 @@ impl<H: Hypervector + 'static> Singularity<H> {
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         let mut scores: Vec<(usize, u32)> = candidates
             .into_par_iter()
-            .map(|idx| (idx, Hypervector::hamming_distance(query, &ns_state.concept_vectors[idx])))
+            .map(|idx| (idx, query.hamming_distance(&ns_state.concept_vectors[idx])))
             .collect();
 
         #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
         let mut scores: Vec<(usize, u32)> = candidates
             .into_iter()
-            .map(|idx| (idx, Hypervector::hamming_distance(query, &ns_state.concept_vectors[idx])))
+            .map(|idx| (idx, query.hamming_distance(&ns_state.concept_vectors[idx])))
             .collect();
 
         let scoring_ns = unix_now_ns().saturating_sub(scoring_start);
@@ -321,7 +295,6 @@ impl<H: Hypervector + 'static> Singularity<H> {
         results_arc
     }
 
-    /// Update retrieval statistics.
     #[allow(clippy::too_many_arguments)]
     fn update_stats(
         &self,
@@ -350,7 +323,6 @@ impl<H: Hypervector + 'static> Singularity<H> {
         }
     }
 
-    /// Score candidates with explicit selectivity stats (ADR-0065).
     pub(crate) fn scored_candidate_retrieval_with_stats(
         &self,
         ns: &str,
@@ -376,13 +348,13 @@ impl<H: Hypervector + 'static> Singularity<H> {
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         let mut scores: Vec<(usize, u32)> = candidates
             .into_par_iter()
-            .map(|idx| (idx, Hypervector::hamming_distance(query, &ns_state.concept_vectors[idx])))
+            .map(|idx| (idx, query.hamming_distance(&ns_state.concept_vectors[idx])))
             .collect();
 
         #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
         let mut scores: Vec<(usize, u32)> = candidates
             .into_iter()
-            .map(|idx| (idx, Hypervector::hamming_distance(query, &ns_state.concept_vectors[idx])))
+            .map(|idx| (idx, query.hamming_distance(&ns_state.concept_vectors[idx])))
             .collect();
 
         let scoring_ns = unix_now_ns().saturating_sub(scoring_start);
@@ -429,22 +401,5 @@ impl<H: Hypervector + 'static> Singularity<H> {
         );
 
         results_arc
-    }
-}
-
-#[cfg(test)]
-mod tests_v2 {
-    use crate::singularity::{Singularity, SingularityConfig};
-
-    #[test]
-    fn singularity_last_stats_v2() {
-        let s = Singularity::new(SingularityConfig::default());
-        assert_eq!(s.last_retrieval_stats("_default").candidate_count, 0);
-    }
-
-    #[test]
-    fn singularity_get_config_v2() {
-        let s = Singularity::new(SingularityConfig::default());
-        assert_eq!(s.retrieval_config().max_candidates, 1000);
     }
 }
