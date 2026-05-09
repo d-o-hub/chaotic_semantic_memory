@@ -55,12 +55,11 @@ See `@.agents/skills/release-management/SKILL.md`. Critical: never release with 
 **State**: `plans/GOAP_STATE.md`, `plans/ACTIONS.md`
 
 ## Skills (27 Total)
-**Core**: rust-development, testing-validation, goap-planning, adr-creation, github-ci-guardrails, git-workflow, release-management, dist-channel-selection, benchmarking-perf, debugging-reservoir, skill-memory-internal, memory-lifecycle-verification, turso-memory-verification, drawio, npm-trusted-publishers
-**Swarm**: swarm-observability, swarm-advanced-features, analysis-swarm
-**Workflow**: learn, task-decomposition, shell-script-quality
-**Automation**: self-fix-loop, skill-creator, skill-evaluator
+**Core**: adr-creation, benchmarking-perf, debugging-reservoir, dist-channel-selection, drawio, git-workflow, github-ci-guardrails, goap-planning, memory-lifecycle-verification, npm-trusted-publishers, release-management, rust-development, testing-validation, turso-memory-verification
+**Swarm**: analysis-swarm, swarm-advanced-features, swarm-observability
+**Workflow**: learn, shell-script-quality, task-decomposition
+**Automation**: jules-orchestration, self-fix-loop, skill-creator, skill-evaluator, skill-memory-internal
 **TRIZ**: triz-analysis, triz-solver
-
 ## External References
 - `@agents-docs/hard-constraints.md` — LOC limits, spectral radius
 - `@agents-docs/accuracy-guardrails.md` — API verification, crate vetting
