@@ -394,9 +394,7 @@ impl Reservoir {
 fn fast_tanh(x: f32) -> f32 {
     let x2 = x * x;
     // Approximates tanh(x) as x*(27+x^2)/(27+9x^2) using FMA for speed.
-    let num = x2.mul_add(x, 27.0 * x);
-    let den = x2.mul_add(9.0, 27.0);
-    num / den
+    x2.mul_add(x, 27.0 * x) / x2.mul_add(9.0, 27.0)
 }
 
 /// Chaotic reservoir with configurable dynamics
