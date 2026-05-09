@@ -4135,7 +4135,7 @@ Output of a reservoir step (ADR-0078)
 ```rust
 impl ChaoticReservoir {
     pub fn new(input_size: usize, size: usize, chaos_strength: f32) -> Result<Self>;
-    pub fn new_seeded(input_size: usize, size: usize, chaos: f32, seed: u64) -> Result<Self>;
+    pub fn new_seeded(input_size: usize, size: usize, chaos_strength: f32, seed: u64) -> Result<Self>;
     pub fn step(&mut self, input: &[f32]) -> Result<ReservoirStepOutput<'_>>;
     pub fn reset(&mut self);
     pub fn state(&self) -> &[f32];

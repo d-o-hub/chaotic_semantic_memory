@@ -21,7 +21,7 @@ Automated CI failure remediation with iterative repair attempts.
 
 ## Process
 
-```
+```text
 ┌─────────────────────────────────────────────────┐
 │  1. DETECT: Fetch CI logs, identify failure      │
 │  2. CLASSIFY: Categorize error type             │
@@ -89,7 +89,7 @@ Stop the loop and escalate when:
 
 ## Example Usage
 
-```
+```text
 User: "The CI is failing, fix it automatically"
 
 Agent: [Self-Fix Loop activated]

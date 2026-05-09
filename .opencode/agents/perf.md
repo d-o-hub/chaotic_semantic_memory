@@ -25,7 +25,7 @@ Focus on:
 Skills available:
 - benchmarking-perf: Criterion benchmark analysis
 - debugging-reservoir: Reservoir-specific performance tuning
-- swarm-performance: SIMD, pooling, caching strategies
+- benchmarking-perf: SIMD, pooling, caching strategies
 
 When optimizing:
 1. Establish baseline with criterion benchmarks

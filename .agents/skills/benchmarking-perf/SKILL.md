@@ -26,7 +26,7 @@ description: "Run and analyze criterion benchmarks for performance-sensitive cha
 | 10,000 | ~1.6ms |
 | 50,000 | ~3.7ms |
 
-Excellent scalability: 50x more concepts only 3x slower.
+Excellent scalability: 500x more concepts only 3x slower.
 
 ## Workflow
 

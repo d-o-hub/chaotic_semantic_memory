@@ -409,13 +409,18 @@ impl ChaoticReservoir {
         let seed = rand::rng().random();
         Self::new_seeded(input_size, size, chaos_strength, seed)
     }
-    pub fn new_seeded(input_size: usize, size: usize, chaos: f32, seed: u64) -> Result<Self> {
-        Reservoir::validate_params(size, input_size, chaos)?;
+    pub fn new_seeded(
+        input_size: usize,
+        size: usize,
+        chaos_strength: f32,
+        seed: u64,
+    ) -> Result<Self> {
+        Reservoir::validate_params(size, input_size, chaos_strength)?;
         let mut base = Reservoir::new_seeded(input_size, size, seed)?;
         base.set_spectral_radius(1.0)?;
         Ok(Self {
             base,
-            chaos_strength: chaos,
+            chaos_strength,
             rng: StdRng::seed_from_u64(seed ^ 0xA5A5_5A5A_F0F0_0F0F),
             noisy_input: vec![0.0; input_size],
         })

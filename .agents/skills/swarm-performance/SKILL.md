@@ -6,6 +6,7 @@ description: "SIMD optimization, connection pooling, batch APIs, and caching. Us
 # Swarm: Performance
 
 ## Workflow
+
 1. Profile current performance with `cargo bench --bench benchmark`
 2. Identify hot path from flamegraph or benchmark results
 3. Implement optimization behind feature flag if experimental
@@ -45,6 +46,7 @@ pub async fn inject_concepts(
 ```
 
 ## Caching Pattern
+
 - Prefer cached values stored as `Arc<[T]>` so cache hits are cheap (`Arc::clone`).
 - Avoid keying caches via temporary `Vec` materializations; hash fixed-size words/arrays directly.
 
@@ -58,9 +60,11 @@ pub async fn inject_concepts(
 ## Test Files
 
 Run performance tests:
+
 ```bash
 cargo test --test <test_name>
 ```
 
 ## LOC Constraint
+
 All files must remain ≤ 500 lines. Refactor to new modules if needed.

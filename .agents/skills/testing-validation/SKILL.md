@@ -6,9 +6,11 @@ description: "Validate the chaotic_semantic_memory crate: compile, test, lint, L
 # Testing Validation
 
 ## Quick Validation
+
 Run `scripts/validate.sh` for the full gate sequence.
 
 ## Gate Sequence (manual)
+
 ```bash
 # Minimal output mode (2026 best practice)
 export CARGO_TERM_PROGRESS_WHEN=never
@@ -22,6 +24,7 @@ cargo clippy -- -D warnings
 Then check LOC limits with `scripts/loc-check.sh`.
 
 ## Benchmark Validation
+
 ```bash
 # First run: save a baseline
 cargo bench --bench benchmark -- --save-baseline main
@@ -43,6 +46,7 @@ cargo bench --bench benchmark -- --baseline main
 ## Integration Test Files
 
 Run tests by file:
+
 ```bash
 cargo test --test <test_name>
 ```
@@ -55,9 +59,11 @@ Use separate test files in `tests/` for:
 - Edge case coverage
 
 ## LOC Enforcement
+
 Every file in `src/*.rs` must be ≤ 500 lines. Run `scripts/loc-check.sh` to verify.
 
 ## Documentation Link & Command Validation
+
 Run `scripts/check-docs-links.sh` to validate:
 - Internal file links (`@file.md` and `[text](./path.md)` style)
 - External URLs (with `--check-urls` flag)
@@ -75,10 +81,12 @@ Run `scripts/check-docs-links.sh` to validate:
 ```
 
 ## Configurability Check
+
 - Reject hardcoded tunables in new code paths.
 - Require named constants and/or env/config-backed settings for thresholds, limits, and sample sizes.
 
 ## Known Test Gotchas
+
 - Reservoir tests use `new_seeded(..., 42)` for determinism — don't use `new()` in tests.
 - Persistence tests need `tempfile::NamedTempFile` for DB path.
 - Criterion closures must not capture mutable state by reference.
