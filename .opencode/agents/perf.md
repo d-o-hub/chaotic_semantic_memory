@@ -23,9 +23,8 @@ Focus on:
 - Identifying and eliminating performance bottlenecks
 
 Skills available:
-- benchmarking-perf: Criterion benchmark analysis
+- benchmarking-perf: Criterion benchmark analysis, SIMD, pooling, caching
 - debugging-reservoir: Reservoir-specific performance tuning
-- swarm-performance: SIMD, pooling, caching strategies
 
 When optimizing:
 1. Establish baseline with criterion benchmarks

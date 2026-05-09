@@ -19,6 +19,14 @@ Use this skill when you want agents to persist operational context while impleme
 - Fast write/read cycles during coding sessions.
 - Not intended as a portability or compliance skill.
 
+## Relation to memory-lifecycle-verification
+
+This repository uses two memory skills:
+- **skill-memory-internal** (this one): daily dogfooding for agent development workflows
+- **memory-lifecycle-verification**: portable verification for save/load/archive/delete across files and DB
+
+Use `memory-lifecycle-verification` before release or when onboarding memory behavior into another codebase.
+
 ## Required Environment
 
 ```bash
