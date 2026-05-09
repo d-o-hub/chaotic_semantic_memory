@@ -1,5 +1,6 @@
 //! Embedding provider abstraction and random projection (ADR-0069).
 
+use crate::hyperdim::HVec10240;
 pub mod projection;
 pub mod remote_openai;
 pub mod remote_voyage;
@@ -9,7 +10,6 @@ pub mod fastembed;
 pub mod hdc_text;
 
 use crate::error::Result;
-use crate::hyperdim::{HVec10240, Hypervector};
 pub use projection::Projection;
 use std::sync::Arc;
 
@@ -43,14 +43,14 @@ pub fn get_embedding_provider(
                 field: "api_key".to_string(),
                 reason: "OpenAI provider requires an API key".to_string(),
             })?;
-            Ok(Arc::new(remote_openai::OpenAiProvider::new(key)))
+            Ok(Arc::new(remote_openai::OpenAiProvider::new(key)?))
         }
         "voyage" => {
             let key = api_key.ok_or_else(|| crate::error::MemoryError::InvalidInput {
                 field: "api_key".to_string(),
                 reason: "Voyage provider requires an API key".to_string(),
             })?;
-            Ok(Arc::new(remote_voyage::VoyageProvider::new(key)))
+            Ok(Arc::new(remote_voyage::VoyageProvider::new(key)?))
         }
         #[cfg(feature = "embed-fastembed")]
         "fastembed" => Ok(Arc::new(fastembed::FastEmbedProvider::new()?)),

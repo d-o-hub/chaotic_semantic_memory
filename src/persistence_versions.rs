@@ -104,7 +104,7 @@ impl Persistence {
                     } else {
                         let bhv = BHVec10240::from_bytes(&vector_bytes)?;
                         let fhv = bhv.to_f32();
-                        H::from_bytes(&fhv.to_bytes())?
+                        H::from_hvec(&fhv)
                     }
                 }
                 #[cfg(not(feature = "hv-binary"))]
@@ -115,7 +115,7 @@ impl Persistence {
 
             history.push(ConceptVersion {
                 concept_id: id.to_string(),
-                version: version as u32,
+                version,
                 vector,
                 metadata: serde_json::from_str(&metadata_json)?,
                 modified_at: modified_at as u64,

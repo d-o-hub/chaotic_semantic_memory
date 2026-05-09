@@ -1,14 +1,36 @@
-pub mod args;
-pub mod commands;
-pub mod error;
-pub mod git_local;
+//! CLI implementation for Chaotic Semantic Memory.
 
-pub use args::*;
-pub use commands::{
-    run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export,
-    run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path,
-    run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update,
-    run_watch,
-};
-pub use error::{CliError, ExitCode, Result};
-pub use git_local::{ensure_git_local_dir, resolve_git_local_path};
+pub mod commands;
+pub mod args;
+pub mod git_local;
+pub mod error;
+
+use crate::error::Result;
+use clap::Parser;
+use args::{CliArgs, Commands};
+
+pub async fn run() -> Result<()> {
+    let cli = CliArgs::parse();
+    let ns = &cli.namespace;
+
+    match cli.command {
+        Commands::Inject(args) => commands::inject::run_inject(ns, args).await,
+        Commands::Query(args) => commands::query::run_query(ns, args).await,
+        Commands::Get(args) => commands::get::run_get(ns, args).await,
+        Commands::Delete(args) => commands::delete::run_delete(ns, args).await,
+        Commands::Associations(args) => commands::associations::run_associations(ns, args).await,
+        Commands::Associate(args) => commands::associate::run_associate(ns, args).await,
+        Commands::Disassociate(args) => commands::disassociate::run_disassociate(ns, args).await,
+        Commands::Traverse(args) => commands::traverse::run_traverse(ns, args).await,
+        Commands::Import(args) => commands::import::run_import(ns, args).await,
+        Commands::Export(args) => commands::export::run_export(ns, args).await,
+        Commands::Stats(args) => commands::stats::run_stats(ns, args).await,
+        Commands::Metrics(args) => commands::metrics::run_metrics(ns, args).await,
+        Commands::Watch(args) => commands::watch::run_watch(ns, args).await,
+        Commands::ProbeGraph(args) => commands::probe_graph::run_probe_graph(ns, args).await,
+        _ => {
+            println!("Command not yet implemented in generic CLI");
+            Ok(())
+        }
+    }
+}

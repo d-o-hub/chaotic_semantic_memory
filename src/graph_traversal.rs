@@ -1,15 +1,15 @@
 use crate::hyperdim::Hypervector;
-//! Graph traversal operations on the association graph.
-//!
-//! Provides BFS, shortest path, and neighbor queries on the concept association graph.
-//!
-//! # Shortest Path
-//!
-//! Two variants are provided:
-//! - [`Singularity::shortest_path`]: Weighted Dijkstra using `-ln(strength)` as edge cost.
-//!   Prefers paths through stronger associations. Returns the minimum-cost path.
-//! - [`Singularity::shortest_path_hops`]: Unweighted BFS. Returns the fewest-hop path
-//!   regardless of edge strength. Use when hop count matters more than association strength.
+/// Graph traversal operations on the association graph.
+///
+/// Provides BFS, shortest path, and neighbor queries on the concept association graph.
+///
+/// # Shortest Path
+///
+/// Two variants are provided:
+/// - [`Singularity::shortest_path`]: Weighted Dijkstra using `-ln(strength)` as edge cost.
+///   Prefers paths through stronger associations. Returns the minimum-cost path.
+/// - [`Singularity::shortest_path_hops`]: Unweighted BFS. Returns the fewest-hop path
+///   regardless of edge strength. Use when hop count matters more than association strength.
 
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};

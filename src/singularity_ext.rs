@@ -1,11 +1,11 @@
-//! Extension methods for Singularity (extracted to satisfy LOC gate)
+/// Extension methods for Singularity (extracted to satisfy LOC gate)
 
+use crate::hyperdim::Hypervector;
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::{HVec10240, Hypervector};
 use crate::singularity::Singularity;
 use tracing::instrument;
 
-impl<H: Hypervector + \'static> Singularity<H> {
+impl<H: Hypervector + 'static> Singularity<H> {
     /// Bundle multiple concepts into a single hypervector.
     #[instrument(skip(self, ns), fields(ids_count = ids.len()))]
     pub fn bundle_concepts_strict(&self, ns: &str, ids: &[String]) -> Result<H> {

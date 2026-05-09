@@ -32,6 +32,7 @@ pub trait Hypervector:
     fn to_bytes(&self) -> Vec<u8>;
     fn from_bytes(bytes: &[u8]) -> Result<Self>;
     fn from_hvec(v: &crate::hyperdim::HVec10240) -> Self;
+    fn to_hvec(&self) -> crate::hyperdim::HVec10240;
     fn get_bit(&self, pos: usize) -> bool;
     fn fast_hash(&self) -> u64;
 }

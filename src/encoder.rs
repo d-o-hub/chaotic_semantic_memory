@@ -1,4 +1,3 @@
-use crate::hyperdim::Hypervector;
 //! Text-to-Hypervector Encoding using Hyperdimensional Computing (HDC) principles.
 //!
 //! This module provides a deterministic text encoder that converts text strings into
@@ -33,6 +32,7 @@ use crate::hyperdim::Hypervector;
 //! ```
 
 use crate::hyperdim::HVec10240;
+use crate::hyperdim::Hypervector;
 
 /// FNV-1a 64-bit offset basis and prime (Fowler–Noll–Vo).
 const FNV1A_OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;

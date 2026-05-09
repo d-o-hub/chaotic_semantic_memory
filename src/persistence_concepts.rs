@@ -1,13 +1,13 @@
 #![cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::HVec10240;
+use crate::hyperdim::Hypervector;
 use crate::persistence::Persistence;
 use crate::singularity::Concept;
 use libsql::params;
 
 impl Persistence {
     /// Save a concept to the database
-    pub async fn save_concept(&self, ns: &str, concept: &Concept) -> Result<()> {
+    pub async fn save_concept<H: Hypervector + 'static>(&self, ns: &str, concept: &Concept<H>) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
         let vector_bytes = concept.vector.to_bytes();
@@ -17,14 +17,15 @@ impl Persistence {
 
         conn.execute(
             "INSERT INTO csm_concepts
-             (namespace, id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+             (namespace, id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json, vector_format)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
              ON CONFLICT(namespace, id) DO UPDATE SET
              vector = excluded.vector,
              metadata = excluded.metadata,
              modified_at = excluded.modified_at,
              expires_at = excluded.expires_at,
-             canonical_concept_ids_json = excluded.canonical_concept_ids_json",
+             canonical_concept_ids_json = excluded.canonical_concept_ids_json,
+             vector_format = excluded.vector_format",
             params![
                 ns.to_string(),
                 concept.id.clone(),
@@ -33,7 +34,8 @@ impl Persistence {
                 concept.created_at as i64,
                 concept.modified_at as i64,
                 expires_at,
-                canonical_concept_ids_json
+                canonical_concept_ids_json,
+                H::format_name()
             ],
         )
         .await
@@ -45,7 +47,7 @@ impl Persistence {
     }
 
     /// Save concepts in a single transaction
-    pub async fn save_concepts(&self, ns: &str, concepts: &[Concept]) -> Result<()> {
+    pub async fn save_concepts<H: Hypervector + 'static>(&self, ns: &str, concepts: &[Concept<H>]) -> Result<()> {
         if concepts.is_empty() {
             return Ok(());
         }
@@ -66,14 +68,15 @@ impl Persistence {
             if let Err(e) = conn
                 .execute(
                     "INSERT INTO csm_concepts
-                     (namespace, id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+                     (namespace, id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json, vector_format)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
                      ON CONFLICT(namespace, id) DO UPDATE SET
                      vector = excluded.vector,
                      metadata = excluded.metadata,
                      modified_at = excluded.modified_at,
                      expires_at = excluded.expires_at,
-                     canonical_concept_ids_json = excluded.canonical_concept_ids_json",
+                     canonical_concept_ids_json = excluded.canonical_concept_ids_json,
+                     vector_format = excluded.vector_format",
                     params![
                         ns.to_string(),
                         concept.id.clone(),
@@ -82,7 +85,8 @@ impl Persistence {
                         concept.created_at as i64,
                         concept.modified_at as i64,
                         expires_at,
-                        canonical_concept_ids_json
+                        canonical_concept_ids_json,
+                        H::format_name()
                     ],
                 )
                 .await
@@ -112,7 +116,7 @@ impl Persistence {
     }
 
     /// Load a concept from the database
-    pub async fn load_concept(&self, ns: &str, id: &str) -> Result<Option<Concept>> {
+    pub async fn load_concept<H: Hypervector + 'static>(&self, ns: &str, id: &str) -> Result<Option<Concept<H>>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
@@ -145,7 +149,7 @@ impl Persistence {
             let expires_at: Option<i64> = row.get(4).ok();
             let canonical_concept_ids_json: Option<String> = row.get(5).ok();
 
-            let vector = HVec10240::from_bytes(&vector_bytes)?;
+            let vector = H::from_bytes(&vector_bytes)?;
             let metadata = serde_json::from_str(&metadata_json)?;
             let canonical_concept_ids = canonical_concept_ids_json
                 .as_deref()
@@ -168,7 +172,7 @@ impl Persistence {
     }
 
     /// Load all concepts from the database for a specific namespace
-    pub async fn load_all_concepts(&self, ns: &str) -> Result<Vec<Concept>> {
+    pub async fn load_all_concepts<H: Hypervector + 'static>(&self, ns: &str) -> Result<Vec<Concept<H>>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
@@ -205,7 +209,7 @@ impl Persistence {
             let expires_at: Option<i64> = row.get(5).ok();
             let canonical_concept_ids_json: Option<String> = row.get(6).ok();
 
-            let vector = HVec10240::from_bytes(&vector_bytes)?;
+            let vector = H::from_bytes(&vector_bytes)?;
             let metadata = serde_json::from_str(&metadata_json)?;
             let canonical_concept_ids = canonical_concept_ids_json
                 .as_deref()

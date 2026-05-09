@@ -1,14 +1,15 @@
-//! Retrieval optimization types and extension trait for Singularity.
-//!
-//! This module provides:
-//! - `RetrievalStats`: Observability for retrieval operations
-//! - `CandidateSource`: Where candidates came from
-//! - `RetrievalConfig`: Configuration for candidate generation
-//! - Extension trait for reduced-candidate retrieval
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+/// Retrieval optimization types and extension trait for Singularity.
+///
+/// This module provides:
+/// - `RetrievalStats`: Observability for retrieval operations
+/// - `CandidateSource`: Where candidates came from
+/// - `RetrievalConfig`: Configuration for candidate generation
+/// - Extension trait for reduced-candidate retrieval
 
 // Casts are intentional for retrieval similarity math
-#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
+use crate::hyperdim::Hypervector;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -17,7 +18,6 @@ use std::sync::Arc;
 use rayon::prelude::*;
 
 use crate::error::Result;
-use crate::hyperdim::{HVec10240, Hypervector};
 use crate::singularity::{Singularity, unix_now_ns};
 
 /// Statistics from the last retrieval operation.
@@ -97,7 +97,7 @@ impl Default for RetrievalConfig {
     }
 }
 
-impl<H: Hypervector + \'static> Singularity<H> {
+impl<H: Hypervector + 'static> Singularity<H> {
     /// Set the retrieval configuration.
     pub fn set_retrieval_config(&mut self, config: RetrievalConfig) -> Result<()> {
         config.validate()?;

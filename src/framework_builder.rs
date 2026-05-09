@@ -1,4 +1,6 @@
-//! Framework builder and configuration
+use crate::embedding::projection::{Projection, ProjectionConfig};
+use crate::embedding::hdc_text::HdcTextProvider;
+/// Framework builder and configuration
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -10,6 +12,7 @@ use crate::framework_events::build_event_sender;
 use crate::persistence::Persistence;
 use crate::reservoir::Reservoir;
 use crate::singularity::{Singularity, SingularityConfig};
+use crate::hyperdim::{HVec10240, Hypervector};
 
 const DEFAULT_MAX_PROBE_TOP_K: usize = 10_000;
 const DEFAULT_MAX_CACHED_TOP_K: usize = 100;
@@ -77,7 +80,7 @@ pub struct FrameworkStats {
 }
 
 /// Builder for ChaoticSemanticFramework
-pub struct FrameworkBuilder {
+pub struct FrameworkBuilder<H: Hypervector = HVec10240> {
     pub(crate) config: FrameworkConfig,
     pub(crate) db_path: Option<String>,
     pub(crate) db_token: Option<String>,
@@ -85,9 +88,10 @@ pub struct FrameworkBuilder {
     pub(crate) version_retention: usize,
     pub(crate) namespace: String,
     pub(crate) embedding_provider: Option<Arc<dyn crate::embedding::EmbeddingProvider>>,
+    _phantom: std::marker::PhantomData<H>,
 }
 
-impl Default for FrameworkBuilder {
+impl<H: Hypervector> Default for FrameworkBuilder<H> {
     fn default() -> Self {
         Self {
             config: FrameworkConfig::default(),
@@ -97,11 +101,12 @@ impl Default for FrameworkBuilder {
             version_retention: 10,
             namespace: "_default".to_string(),
             embedding_provider: None,
+            _phantom: std::marker::PhantomData,
         }
     }
 }
 
-impl FrameworkBuilder {
+impl<H: Hypervector> FrameworkBuilder<H> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -242,13 +247,13 @@ impl FrameworkBuilder {
         self
     }
 
-    pub async fn build(self) -> Result<ChaoticSemanticFramework> {
+    pub async fn build(self) -> Result<ChaoticSemanticFramework<H>> {
         Reservoir::validate_params(
             self.config.reservoir_size,
             self.config.reservoir_input_size,
             self.config.chaos_strength,
         )?;
-        let singularity = Arc::new(RwLock::new(Singularity::with_config_and_backend(
+        let singularity = Arc::new(RwLock::new(Singularity::<H>::with_config_and_backend(
             SingularityConfig {
                 max_concepts: self.config.max_concepts,
                 max_associations_per_concept: self.config.max_associations_per_concept,
@@ -282,17 +287,17 @@ impl FrameworkBuilder {
         };
 
         #[cfg(not(feature = "persistence"))]
-        let persistence: Option<Arc<crate::persistence::Persistence>> = None;
+        let persistence: Option<Arc<Persistence>> = None;
 
         let provider = self
             .embedding_provider
-            .unwrap_or_else(|| Arc::new(crate::embedding::HdcTextProvider::new()));
+            .unwrap_or_else(|| Arc::new(HdcTextProvider::new()));
 
-        let projection = if provider.name() == "hdc-text" {
-            crate::embedding::Projection::empty()
+        let projection = if provider.name() == "hdc" {
+            Projection::empty()
         } else {
-            crate::embedding::Projection::new(&crate::embedding::ProjectionConfig {
-                native_dim: provider.native_dim(),
+            Projection::new(&ProjectionConfig {
+                native_dim: provider.dimension(),
                 ..Default::default()
             })
         };
@@ -302,7 +307,7 @@ impl FrameworkBuilder {
             persistence,
             reservoir: Arc::new(RwLock::new(None)),
             config: self.config,
-            metrics: Default::default(),
+            metrics: Arc::new(crate::framework_metrics::FrameworkMetrics::default()),
             event_sender: build_event_sender(),
             namespace: Arc::new(RwLock::new(self.namespace)),
             embedding_provider: provider,

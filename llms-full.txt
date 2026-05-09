@@ -14,7 +14,6 @@
 - bincode (1.3.3)
 - clap (4.5.60) [features: derive, env, string]
 - clap_complete (4.5.42)
-- cloudevents-sdk (0.9.0)
 - colored (2.2.0)
 - fastembed (4)
 - glob (0.3.2)
@@ -28,17 +27,14 @@
 - thiserror (2.0.11)
 - tracing (0.1.41)
 - tracing-subscriber (0.3.19)
-- uuid (1.23.1) [features: v4, serde]
 **Features:**
 - ann-hnsw: [dep:hnsw_rs]
 - ann-lsh: []
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
-- cloudevents: [dep:cloudevents-sdk, dep:uuid, uuid/js]
 - default: [cli, persistence, parallel]
 - embed-fastembed: [dep:fastembed]
 - embed-openai: [dep:reqwest]
 - embed-voyage: [dep:reqwest]
-- events-http: [cloudevents, cloudevents-sdk/http-binding, dep:reqwest]
 - mcp: [dep:rmcp, cli]
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
@@ -373,20 +369,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub enum MemoryEvent
 - impl ChaoticSemanticFramework
 
-### src/framework_events_ce.rs
-
-- pub enum StorageTarget
-- pub enum ChaoticEvent
-- impl ChaoticEvent
-- pub trait EventEmitter
-- pub struct NullEmitter
-- impl EventEmitter for NullEmitter
-- pub struct LogEmitter
-- impl EventEmitter for LogEmitter
-- pub struct HttpEmitter
-- impl HttpEmitter
-- impl EventEmitter for HttpEmitter
-
 ### src/framework_graph_rag.rs
 
 - impl ChaoticSemanticFramework
@@ -495,7 +477,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod error
 - pub mod framework
 - pub mod framework_builder
-- pub mod framework_events_ce
 - pub mod graph_traversal
 - pub mod hyperdim
 - pub mod mcp
@@ -609,7 +590,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/reservoir.rs
 
 - pub struct ReservoirMetricsSnapshot
-- pub struct ReservoirStepOutput
 - impl ReservoirMetrics
 - pub struct Reservoir
 - impl Reservoir
@@ -1053,15 +1033,13 @@ Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md)
 - Pull request process
 - ADR submission for architectural changes
 
-### d.o. chaotic semantic memory
+### chaotic_semantic_memory
 
 [![CI](https://github.com/d-o-hub/chaotic_semantic_memory/actions/workflows/ci.yml/badge.svg)](https://github.com/d-o-hub/chaotic_semantic_memory/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/chaotic_semantic_memory.svg)](https://crates.io/crates/chaotic_semantic_memory)
 [![docs.rs](https://img.shields.io/docsrs/chaotic_semantic_memory)](https://docs.rs/chaotic_semantic_memory)
 [![npm](https://img.shields.io/npm/v/@d-o-hub/chaotic_semantic_memory)](https://www.npmjs.com/package/@d-o-hub/chaotic_semantic_memory)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-<img width="1456" height="720" alt="1000046937" src="https://github.com/user-attachments/assets/d698a304-9b36-4aad-a2d1-5668157a26f7" />
 
 `chaotic_semantic_memory` is a Rust crate for AI memory systems built on
 **Hyperdimensional Computing (HDC)** — not transformer embeddings:
@@ -2880,7 +2858,6 @@ pub struct FrameworkConfig {
     pub max_batch_size: usize,
     pub max_sequence_length: usize,
     pub index_backend: crate::index::IndexBackend,
-    pub pattern_recognition_threshold: f64,
 }
 ```
 
@@ -2930,8 +2907,6 @@ impl FrameworkBuilder {
     pub fn with_max_cached_top_k(self, max_cached_top_k: usize) -> Self;
     pub fn with_max_batch_size(self, max_batch_size: usize) -> Self;
     pub fn with_max_sequence_length(self, max_sequence_length: usize) -> Self;
-    pub fn with_pattern_recognition_threshold(self, threshold: f64) -> Self;
-    pub fn with_emitter(self, emitter: Arc<dyn Trait>) -> Self;
     pub fn with_index_backend(self, backend: crate::index::IndexBackend) -> Self;
     pub fn with_version_retention(self, retention: usize) -> Self;
     pub fn with_local_db(self, path: impl Trait) -> Self;
@@ -2967,112 +2942,6 @@ impl ChaoticSemanticFramework {
     pub fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()>;
     pub fn update_concept_metadata(&self, id: &str, metadata: HashMap<String, serde_json::Value>) -> Result<()>;
     pub fn disassociate(&self, from: &str, to: &str) -> Result<()>;
-}
-```
-
-## src/framework_events_ce.rs
-
-### ChaoticEvent
-
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ChaoticEvent {
-    AttractorFired { attractor_id: u32, basin_energy: f64, reservoir_dim: usize },
-    PatternRecognized { query_vector: Vec<u8>, matched_key: String, similarity: f64 },
-    MemoryConsolidated { episode_count: usize, duration_ms: u64 },
-    EchoComputed { input_dim: usize, state_norm: f64 },
-    BindingCreated { key: String, dim: usize, target: StorageTarget },
-}
-```
-
-Events emitted by the chaotic semantic memory framework.
-
-### EventEmitter
-
-```rust
-pub trait EventEmitter: Send + Sync + Debug {
-    fn name(&self) -> &str;
-    fn emit(&self, event: Event) -> Result<()>;
-}
-```
-
-Pluggable event emitter trait.
-
-### HttpEmitter
-
-```rust
-#[derive(Debug)]
-#[cfg(all, all (feature = "events-http" , not (target_arch = "wasm32")))]
-pub struct HttpEmitter {
-}
-```
-
-Emitter that sends events via HTTP POST.
-
-### LogEmitter
-
-```rust
-#[derive(Debug, Default)]
-pub struct LogEmitter;
-```
-
-Emitter that logs events using the tracing crate.
-
-### NullEmitter
-
-```rust
-#[derive(Debug, Default)]
-pub struct NullEmitter;
-```
-
-Emitter that drops all events.
-
-### StorageTarget
-
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum StorageTarget {
-    LibSql,
-    Memory,
-}
-```
-
-Storage target for binding events.
-
-### impl ChaoticEvent
-
-```rust
-impl ChaoticEvent {
-    pub fn to_cloud_event(&self, source: &str) -> Event;
-}
-```
-
-### impl EventEmitter for HttpEmitter
-
-```rust
-impl EventEmitter for HttpEmitter {
-}
-```
-
-### impl EventEmitter for LogEmitter
-
-```rust
-impl EventEmitter for LogEmitter {
-}
-```
-
-### impl EventEmitter for NullEmitter
-
-```rust
-impl EventEmitter for NullEmitter {
-}
-```
-
-### impl HttpEmitter
-
-```rust
-impl HttpEmitter {
-    pub fn new(url: String) -> Self;
 }
 ```
 
@@ -4118,25 +3987,13 @@ pub struct ReservoirMetricsSnapshot {
 }
 ```
 
-### ReservoirStepOutput
-
-```rust
-pub struct ReservoirStepOutput<'a> {
-    pub state: &'a [f32],
-    pub state_norm: f64,
-    pub change_norm: f64,
-}
-```
-
-Output of a reservoir step (ADR-0078)
-
 ### impl ChaoticReservoir
 
 ```rust
 impl ChaoticReservoir {
     pub fn new(input_size: usize, size: usize, chaos_strength: f32) -> Result<Self>;
     pub fn new_seeded(input_size: usize, size: usize, chaos_strength: f32, seed: u64) -> Result<Self>;
-    pub fn step(&mut self, input: &[f32]) -> Result<ReservoirStepOutput<'_>>;
+    pub fn step(&mut self, input: &[f32]) -> Result<&[f32]>;
     pub fn reset(&mut self);
     pub fn state(&self) -> &[f32];
     pub fn to_hypervector(&self) -> Result<HVec10240>;
@@ -4154,7 +4011,7 @@ impl Reservoir {
     pub const MAX_SIZE: Type;
     pub fn new(input_size: usize, size: usize) -> Result<Self>;
     pub fn new_seeded(input_size: usize, size: usize, seed: u64) -> Result<Self>;
-    pub fn step(&mut self, input: &[f32]) -> Result<ReservoirStepOutput<'_>>;
+    pub fn step(&mut self, input: &[f32]) -> Result<&[f32]>;
     pub fn run(&mut self, inputs: &[Vec<f32>]) -> Result<Vec<Vec<f32>>>;
     pub fn state(&self) -> &[f32];
     pub fn set_spectral_radius(&mut self, radius: f32) -> Result<()>;

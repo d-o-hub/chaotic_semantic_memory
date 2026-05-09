@@ -14,7 +14,6 @@
 - bincode (1.3.3)
 - clap (4.5.60) [features: derive, env, string]
 - clap_complete (4.5.42)
-- cloudevents-sdk (0.9.0)
 - colored (2.2.0)
 - fastembed (4)
 - glob (0.3.2)
@@ -28,17 +27,14 @@
 - thiserror (2.0.11)
 - tracing (0.1.41)
 - tracing-subscriber (0.3.19)
-- uuid (1.23.1) [features: v4, serde]
 **Features:**
 - ann-hnsw: [dep:hnsw_rs]
 - ann-lsh: []
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
-- cloudevents: [dep:cloudevents-sdk, dep:uuid, uuid/js]
 - default: [cli, persistence, parallel]
 - embed-fastembed: [dep:fastembed]
 - embed-openai: [dep:reqwest]
 - embed-voyage: [dep:reqwest]
-- events-http: [cloudevents, cloudevents-sdk/http-binding, dep:reqwest]
 - mcp: [dep:rmcp, cli]
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
@@ -373,20 +369,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub enum MemoryEvent
 - impl ChaoticSemanticFramework
 
-### src/framework_events_ce.rs
-
-- pub enum StorageTarget
-- pub enum ChaoticEvent
-- impl ChaoticEvent
-- pub trait EventEmitter
-- pub struct NullEmitter
-- impl EventEmitter for NullEmitter
-- pub struct LogEmitter
-- impl EventEmitter for LogEmitter
-- pub struct HttpEmitter
-- impl HttpEmitter
-- impl EventEmitter for HttpEmitter
-
 ### src/framework_graph_rag.rs
 
 - impl ChaoticSemanticFramework
@@ -495,7 +477,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod error
 - pub mod framework
 - pub mod framework_builder
-- pub mod framework_events_ce
 - pub mod graph_traversal
 - pub mod hyperdim
 - pub mod mcp
@@ -609,7 +590,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/reservoir.rs
 
 - pub struct ReservoirMetricsSnapshot
-- pub struct ReservoirStepOutput
 - impl ReservoirMetrics
 - pub struct Reservoir
 - impl Reservoir
@@ -1059,15 +1039,13 @@ Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md)
 - Pull request process
 - ADR submission for architectural changes
 
-### d.o. chaotic semantic memory
+### chaotic_semantic_memory
 
 [![CI](https://github.com/d-o-hub/chaotic_semantic_memory/actions/workflows/ci.yml/badge.svg)](https://github.com/d-o-hub/chaotic_semantic_memory/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/chaotic_semantic_memory.svg)](https://crates.io/crates/chaotic_semantic_memory)
 [![docs.rs](https://img.shields.io/docsrs/chaotic_semantic_memory)](https://docs.rs/chaotic_semantic_memory)
 [![npm](https://img.shields.io/npm/v/@d-o-hub/chaotic_semantic_memory)](https://www.npmjs.com/package/@d-o-hub/chaotic_semantic_memory)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-<img width="1456" height="720" alt="1000046937" src="https://github.com/user-attachments/assets/d698a304-9b36-4aad-a2d1-5668157a26f7" />
 
 `chaotic_semantic_memory` is a Rust crate for AI memory systems built on
 **Hyperdimensional Computing (HDC)** — not transformer embeddings:
@@ -1318,8 +1296,6 @@ include = [
 # Serialization
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.149"
-cloudevents-sdk = { version = "0.9.0", optional = true }
-uuid = { version = "1.23.1", features = ["v4", "serde"], optional = true }
 bincode = "1.3.3"
 base64 = "0.22"
 
@@ -1511,10 +1487,6 @@ ann-lsh = []
 # Federation-ready API enhancements (ADR-055 downstream)
 signing = []
 serde = []
-
-# CloudEvents integration (ADR-0078)
-cloudevents = ["dep:cloudevents-sdk", "dep:uuid", "uuid/js"]
-events-http = ["cloudevents", "cloudevents-sdk/http-binding", "dep:reqwest"]
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]

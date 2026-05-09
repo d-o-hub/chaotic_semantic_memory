@@ -14,6 +14,7 @@ impl HVec10240 {
     pub fn random() -> Self { <Self as Hypervector>::random() }
     pub fn bundle(vectors: &[Self]) -> Result<Self> { <Self as Hypervector>::bundle(vectors) }
     fn from_hvec(v: &HVec10240) -> Self { *v }
+    fn to_hvec(&self) -> HVec10240 { *self }
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> { <Self as Hypervector>::from_bytes(bytes) }
     pub fn to_bytes(&self) -> Vec<u8> { <Self as Hypervector>::to_bytes(self) }
     pub const DIMENSION: usize = 10240;
@@ -91,6 +92,7 @@ impl Hypervector for HVec10240 {
     }
     fn get_bit(&self, pos: usize) -> bool { self.data[pos] >= 0.0 }
     fn from_hvec(v: &HVec10240) -> Self { *v }
+    fn to_hvec(&self) -> HVec10240 { *self }
     fn from_bytes(bytes: &[u8]) -> Result<Self> {
         if bytes.len() != 40960 { return Err(crate::error::MemoryError::InvalidDimension { expected: 40960, actual: bytes.len() }); }
         let mut data = [0.0; 10240];

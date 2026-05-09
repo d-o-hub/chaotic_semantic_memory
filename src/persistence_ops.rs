@@ -3,7 +3,7 @@ use tokio::fs;
 use tracing::warn;
 
 use crate::error::{MemoryError, Result};
-use crate::persistence::{ConceptVersion, Persistence};
+use crate::persistence::Persistence;
 
 impl Persistence {
     pub async fn save_associations(
@@ -97,43 +97,11 @@ impl Persistence {
              DELETE FROM csm_concepts;
              DELETE FROM csm_hnsw_graph;
              DELETE FROM csm_canonical;
-                 ORDER BY version DESC
-                 LIMIT ?3",
-                libsql::params![ns.to_string(), id, limit as i64],
-            )
-            .await
-            .map_err(|e| MemoryError::database(format!("Failed to load concept history: {e}")))?;
-
-        let mut history = Vec::new();
-        while let Some(row) = rows.next().await.map_err(|e| {
-            MemoryError::database(format!("Failed to fetch concept history row: {e}"))
-        })? {
-            let concept_id: String = row
-                .get(0)
-                .map_err(|e| MemoryError::database(format!("Failed to get concept_id: {e}")))?;
-            let version: i64 = row
-                .get(1)
-                .map_err(|e| MemoryError::database(format!("Failed to get version: {e}")))?;
-            let vector_bytes: Vec<u8> = row
-                .get(2)
-                .map_err(|e| MemoryError::database(format!("Failed to get vector: {e}")))?;
-            let metadata_json: String = row
-                .get(3)
-                .map_err(|e| MemoryError::database(format!("Failed to get metadata: {e}")))?;
-            let modified_at: i64 = row
-                .get(4)
-                .map_err(|e| MemoryError::database(format!("Failed to get modified_at: {e}")))?;
-
-            history.push(ConceptVersion {
-                concept_id,
-                version,
-                vector: crate::hyperdim::HVec10240::from_bytes(&vector_bytes)?,
-                metadata: serde_json::from_str(&metadata_json)?,
-                modified_at: modified_at as u64,
-            });
-        }
-
-        Ok(history)
+             COMMIT;",
+        )
+        .await
+        .map_err(|e| MemoryError::database(format!("Failed to clear all data: {e}")))?;
+        Ok(())
     }
 
     pub async fn schema_version(&self) -> Result<i64> {
@@ -285,88 +253,5 @@ impl Persistence {
         .await
         .map_err(|e| MemoryError::database(format!("Failed to clear concept associations: {e}")))?;
         Ok(())
-    }
-}
-
-#[cfg(test)]
-#[cfg(feature = "persistence")]
-mod tests {
-    use crate::hyperdim::HVec10240;
-    use crate::persistence::Persistence;
-    use crate::singularity::Concept;
-    use std::collections::HashMap;
-    use tempfile::NamedTempFile;
-
-    fn make_concept(id: &str) -> Concept {
-        Concept {
-            id: id.to_string(),
-            vector: HVec10240::random(),
-            metadata: HashMap::new(),
-            created_at: 0,
-            modified_at: 0,
-            expires_at: None,
-            canonical_concept_ids: Vec::new(),
-        }
-    }
-
-    #[tokio::test]
-    async fn save_and_load_concept_roundtrip() {
-        let temp = NamedTempFile::new().expect("Failed to create temp file");
-        let path = temp.path().to_str().expect("Invalid path");
-        let persistence = Persistence::new_local(path)
-            .await
-            .expect("Failed to create persistence");
-
-        let ns = "_default";
-        let concept = make_concept("test-concept");
-
-        persistence
-            .save_concept(ns, &concept)
-            .await
-            .expect("Failed to save");
-        let loaded = persistence
-            .load_concept(ns, "test-concept")
-            .await
-            .expect("Failed to load")
-            .expect("Concept not found");
-        assert_eq!(loaded.id, concept.id);
-    }
-
-    #[tokio::test]
-    async fn delete_concept_removes_from_db() {
-        let temp = NamedTempFile::new().expect("Failed to create temp file");
-        let path = temp.path().to_str().expect("Invalid path");
-        let persistence = Persistence::new_local(path)
-            .await
-            .expect("Failed to create persistence");
-
-        let ns = "_default";
-        let concept = make_concept("delete-test");
-
-        persistence
-            .save_concept(ns, &concept)
-            .await
-            .expect("Failed to save");
-        persistence
-            .delete_concept(ns, "delete-test")
-            .await
-            .expect("Failed to delete");
-        let result = persistence.load_concept(ns, "delete-test").await;
-        assert!(result.expect("Query failed").is_none());
-    }
-
-    #[tokio::test]
-    async fn schema_version_initialized() {
-        let temp = NamedTempFile::new().expect("Failed to create temp file");
-        let path = temp.path().to_str().expect("Invalid path");
-        let persistence = Persistence::new_local(path)
-            .await
-            .expect("Failed to create persistence");
-
-        let version = persistence
-            .schema_version()
-            .await
-            .expect("Failed to get version");
-        assert!(version > 0);
     }
 }

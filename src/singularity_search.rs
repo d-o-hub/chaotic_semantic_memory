@@ -1,14 +1,14 @@
-//! Similarity search and cached retrieval methods for Singularity.
-//!
-//! Extracted from singularity.rs to satisfy the 500 LOC gate.
+/// Similarity search and cached retrieval methods for Singularity.
+///
+/// Extracted from singularity.rs to satisfy the 500 LOC gate.
 
+use crate::hyperdim::Hypervector;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
 #[cfg(not(target_arch = "wasm32"))]
 use tracing::instrument;
 
-use crate::hyperdim::{HVec10240, Hypervector};
 use crate::singularity::{Singularity, similarity_cache_key, unix_now_ns};
 use crate::singularity_retrieval::{
     CandidateSource, FilterStrategy, RetrievalStats, ScoredCandidateParams,
@@ -97,7 +97,7 @@ fn try_ann_lookup<H: Hypervector>(
     None
 }
 
-impl<H: Hypervector + \'static> Singularity<H> {
+impl<H: Hypervector + 'static> Singularity<H> {
     /// Find similar concepts using cosine similarity
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self, ns, query), fields(top_k = top_k)))]
     pub fn find_similar(&self, ns: &str, query: &H, top_k: usize) -> Vec<(String, f32)> {

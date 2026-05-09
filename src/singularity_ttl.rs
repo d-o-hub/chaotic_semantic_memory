@@ -1,207 +1,94 @@
-//! TTL (Time-To-Live) operations for Singularity.
+//! Time-To-Live (TTL) and concept expiration for Singularity.
+//!
+//! Extracted from singularity.rs to satisfy the 500 LOC gate.
 
-use std::collections::HashMap;
 
-use crate::hyperdim::{HVec10240, Hypervector};
-use crate::singularity::{Concept, Singularity, unix_now_secs};
-
-impl<H: Hypervector> Default for Concept<H> {
-    fn default() -> Self {
-        Self {
-            id: String::new(),
-            vector: H::zero(),
-            metadata: HashMap::new(),
-            created_at: 0,
-            modified_at: 0,
-            expires_at: None,
-            canonical_concept_ids: Vec::new(),
-        }
-    }
-}
-
-impl<H: Hypervector + \'static> Singularity<H> {
-    /// Purge all expired concepts from memory.
-    ///
+use crate::hyperdim::Hypervector;
+use crate::singularity::Singularity;
+use crate::singularity::unix_now_secs;
+impl<H: Hypervector + 'static> Singularity<H> {
+    /// Remove expired concepts from the given namespace.
     /// Returns the number of concepts removed.
     pub fn purge_expired(&mut self, ns: &str) -> usize {
         let now = unix_now_secs();
-        let Some(ns_state) = self.get_namespace(ns) else {
+        let expired_ids: Vec<String> = if let Some(ns_state) = self.get_namespace(ns) {
+            ns_state
+                .concepts
+                .values()
+                .filter(|c| c.expires_at.is_some_and(|t| t <= now))
+                .map(|c| c.id.clone())
+                .collect()
+        } else {
             return 0;
         };
-        let expired: Vec<String> = ns_state
-            .concepts
-            .iter()
-            .filter(|(_, c)| c.expires_at.is_some_and(|exp| exp <= now))
-            .map(|(id, _)| id.clone())
-            .collect();
 
-        let count = expired.len();
-        for id in expired {
-            self.delete(ns, &id).ok();
-        }
-        if count > 0 {
-            self.invalidate_cache(ns);
+        let count = expired_ids.len();
+        for id in expired_ids {
+            let _ = self.delete(ns, &id);
         }
         count
-    }
-
-    /// Check if a concept is expired.
-    pub fn is_expired(&self, ns: &str, id: &str) -> bool {
-        let now = unix_now_secs();
-        self.get(ns, id)
-            .is_some_and(|c| c.expires_at.is_some_and(|exp| exp <= now))
-    }
-
-    /// Get all non-expired concept IDs.
-    pub fn active_concept_ids(&self, ns: &str) -> Vec<String> {
-        let now = unix_now_secs();
-        self.get_namespace(ns)
-            .map(|n| {
-                n.concepts
-                    .iter()
-                    .filter(|(_, c)| c.expires_at.is_none_or(|exp| exp > now))
-                    .map(|(id, _)| id.clone())
-                    .collect()
-            })
-            .unwrap_or_default()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::singularity::SingularityConfig;
+    use crate::singularity::{Singularity, SingularityConfig};
+    use std::collections::HashMap;
 
     #[test]
-    fn test_purge_expired() {
-        let mut sing = Singularity::new(SingularityConfig::default());
+    fn purge_expired_concepts() {
+        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
         let now = unix_now_secs();
 
+        // Expired
         let concept1 = Concept {
-            id: "expired".to_string(),
-            expires_at: Some(now - 100),
-            ..Default::default()
+            id: "c1".to_string(),
+            vector: HVec10240::random(),
+            metadata: HashMap::new(),
+            created_at: now,
+            modified_at: now,
+            expires_at: Some(now - 10),
+            canonical_concept_ids: Vec::new(),
         };
 
+        // Not expired
         let concept2 = Concept {
-            id: "active".to_string(),
-            expires_at: Some(now + 100),
-            ..Default::default()
+            id: "c2".to_string(),
+            vector: HVec10240::random(),
+            metadata: HashMap::new(),
+            created_at: now,
+            modified_at: now,
+            expires_at: Some(now + 10),
+            canonical_concept_ids: Vec::new(),
         };
 
+        // No TTL
         let concept3 = Concept {
-            id: "no_exp".to_string(),
+            id: "c3".to_string(),
+            vector: HVec10240::random(),
+            metadata: HashMap::new(),
+            created_at: now,
+            modified_at: now,
             expires_at: None,
-            ..Default::default()
+            canonical_concept_ids: Vec::new(),
         };
 
-        let ns = "_default";
         sing.inject("_default", concept1).unwrap();
         sing.inject("_default", concept2).unwrap();
         sing.inject("_default", concept3).unwrap();
 
-        assert_eq!(sing.active_concept_ids(ns).len(), 2);
-
+        assert_eq!(sing.len("_default"), 3);
         let purged = sing.purge_expired("_default");
         assert_eq!(purged, 1);
-
-        assert!(
-            !sing
-                .get_namespace(ns)
-                .unwrap()
-                .concepts
-                .contains_key("expired")
-        );
-        assert!(
-            sing.get_namespace(ns)
-                .unwrap()
-                .concepts
-                .contains_key("active")
-        );
-        assert!(
-            sing.get_namespace(ns)
-                .unwrap()
-                .concepts
-                .contains_key("no_exp")
-        );
+        assert_eq!(sing.len("_default"), 2);
+        assert!(sing.get("_default", "c1").is_none());
     }
 
     #[test]
-    fn test_is_expired() {
-        let mut sing = Singularity::new(SingularityConfig::default());
-        let now = unix_now_secs();
-
-        let concept1 = Concept {
-            id: "expired".to_string(),
-            expires_at: Some(now - 100),
-            ..Default::default()
-        };
-
-        let concept2 = Concept {
-            id: "active".to_string(),
-            expires_at: Some(now + 100),
-            ..Default::default()
-        };
-
-        let concept3 = Concept {
-            id: "no_exp".to_string(),
-            expires_at: None,
-            ..Default::default()
-        };
-
-        let concept4 = Concept {
-            id: "just_expired".to_string(),
-            expires_at: Some(now),
-            ..Default::default()
-        };
-
-        let ns = "_default";
-        sing.inject("_default", concept1).unwrap();
-        sing.inject("_default", concept2).unwrap();
-        sing.inject("_default", concept3).unwrap();
-        sing.inject("_default", concept4).unwrap();
-
-        assert!(sing.is_expired(ns, "expired"));
-        assert!(!sing.is_expired(ns, "active"));
-        assert!(!sing.is_expired(ns, "no_exp"));
-        assert!(sing.is_expired(ns, "just_expired"));
-        assert!(!sing.is_expired(ns, "nonexistent"));
-    }
-
-    #[test]
-    fn test_active_concept_ids() {
-        let mut sing = Singularity::new(SingularityConfig::default());
-        let now = unix_now_secs();
-
-        let concept1 = Concept {
-            id: "expired".to_string(),
-            expires_at: Some(now - 100),
-            ..Default::default()
-        };
-
-        let concept2 = Concept {
-            id: "active".to_string(),
-            expires_at: Some(now + 100),
-            ..Default::default()
-        };
-
-        let concept3 = Concept {
-            id: "no_exp".to_string(),
-            expires_at: None,
-            ..Default::default()
-        };
-
-        let ns = "_default";
-        sing.inject("_default", concept1).unwrap();
-        sing.inject("_default", concept2).unwrap();
-        sing.inject("_default", concept3).unwrap();
-
-        let mut active = sing.active_concept_ids(ns);
-        active.sort();
-
-        let mut expected = vec!["active".to_string(), "no_exp".to_string()];
-        expected.sort();
-
-        assert_eq!(active, expected);
+    fn purge_expired_empty_or_missing_ns() {
+        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+        assert_eq!(sing.purge_expired("_default"), 0);
+        assert_eq!(sing.purge_expired("missing"), 0);
     }
 }

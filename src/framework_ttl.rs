@@ -1,11 +1,12 @@
-//! TTL (Time-To-Live) and text convenience operations for ChaoticSemanticFramework.
+use crate::hyperdim::Hypervector as H;
+/// TTL (Time-To-Live) and text convenience operations for ChaoticSemanticFramework.
 
 use crate::error::Result;
 use crate::hyperdim::Hypervector;
 use crate::framework_events::MemoryEvent;
-use crate::hyperdim::{HVec10240, Hypervector as H};
+
 use crate::metadata_filter::MetadataFilter;
-use crate::singularity::ConceptBuilder;
+use crate::concept_builder::ConceptBuilder;
 use std::collections::HashMap;
 use tracing::instrument;
 
@@ -76,7 +77,7 @@ impl<H: Hypervector> crate::framework::ChaoticSemanticFramework<H> {
         let vector = self
             .embedding_provider
             .project(&embedding, &self.projection);
-        self.inject_concept(id, vector).await
+        self.inject_concept(id, H::from_hvec(&vector)).await
     }
 
     /// Inject a concept from text with metadata.
@@ -90,7 +91,7 @@ impl<H: Hypervector> crate::framework::ChaoticSemanticFramework<H> {
         let vector = self
             .embedding_provider
             .project(&embedding, &self.projection);
-        self.inject_concept_with_metadata(id, vector, metadata)
+        self.inject_concept_with_metadata(id, H::from_hvec(&vector), metadata)
             .await
     }
 
@@ -100,7 +101,7 @@ impl<H: Hypervector> crate::framework::ChaoticSemanticFramework<H> {
         let vector = self
             .embedding_provider
             .project(&embedding, &self.projection);
-        self.probe(vector, top_k).await
+        self.probe(H::from_hvec(&vector), top_k).await
     }
 
     /// Probe for similar concepts using text input and metadata filtering.
@@ -114,7 +115,7 @@ impl<H: Hypervector> crate::framework::ChaoticSemanticFramework<H> {
         let vector = self
             .embedding_provider
             .project(&embedding, &self.projection);
-        self.probe_filtered(&vector, top_k, filter).await
+        self.probe_filtered(&H::from_hvec(&vector), top_k, filter).await
     }
 
     /// Query for a session using text input. Filters results to those with matching `session_id` metadata.

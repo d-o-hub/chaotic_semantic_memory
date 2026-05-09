@@ -4,6 +4,7 @@
 
 use crate::embedding::EmbeddingProvider;
 use crate::error::{MemoryError, Result};
+#[cfg(feature = "embed-openai")]
 use serde::Deserialize;
 
 /// OpenAI embedding provider via HTTP API.
@@ -51,19 +52,15 @@ impl OpenAiProvider {
 
 #[async_trait::async_trait]
 impl EmbeddingProvider for OpenAiProvider {
-    fn dimension(&self) -> usize { 1536 }
-    fn name(&self) -> &str {
-        "openai"
-    }
-
-    fn native_dim(&self) -> usize {
-        // text-embedding-3-small: 1536
-        // text-embedding-3-large: 3072
+    fn dimension(&self) -> usize {
         if self.model.contains("large") {
             3072
         } else {
             1536
         }
+    }
+    fn name(&self) -> &str {
+        "openai"
     }
 
     async fn embed(&self, text: &str) -> Result<Vec<f32>> {
@@ -94,37 +91,7 @@ impl EmbeddingProvider for OpenAiProvider {
 
         #[cfg(not(feature = "embed-openai"))]
         {
-            Err(MemoryError::Config(
-                "embed-openai feature not enabled".into(),
-            ))
-        }
-    }
-
-    async fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>> {
-        #[cfg(feature = "embed-openai")]
-        {
-            let client = reqwest::Client::new();
-            let response = client
-                .post(format!("{}/embeddings", self.base_url))
-                .header("Authorization", format!("Bearer {}", self.api_key))
-                .json(&serde_json::json!({
-                    "input": texts,
-                    "model": self.model
-                }))
-                .send()
-                .await
-                .map_err(|e: reqwest::Error| MemoryError::External(e.to_string()))?;
-
-            let data: OpenAiResponse = response
-                .json()
-                .await
-                .map_err(|e: reqwest::Error| MemoryError::External(e.to_string()))?;
-
-            Ok(data.data.into_iter().map(|d| d.embedding).collect())
-        }
-
-        #[cfg(not(feature = "embed-openai"))]
-        {
+            let _ = text;
             Err(MemoryError::Config(
                 "embed-openai feature not enabled".into(),
             ))

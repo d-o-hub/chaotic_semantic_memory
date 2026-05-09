@@ -1,4 +1,5 @@
-#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+use crate::hyperdim::Hypervector;
+#[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 use crate::hyperdim::HVec10240;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -64,14 +65,14 @@ impl Reranker for MmrReranker {
             for (idx, cand) in candidates.iter().enumerate() {
                 let mut max_sim_to_selected = 0.0f32;
                 for sel in &selected {
-                    let sim = cand.vector.cosine_similarity(&sel.vector);
+                    let sim = cand.vector.cosine_similarity(sel.vector.as_ref());
                     if sim > max_sim_to_selected {
                         max_sim_to_selected = sim;
                     }
                 }
 
                 // MMR Formula: lambda * sim(query, cand) - (1 - lambda) * max_sim(cand, selected)
-                let similarity = query.cosine_similarity(&cand.vector);
+                let similarity = query.cosine_similarity(cand.vector.as_ref());
                 let mmr_score =
                     self.lambda * similarity - (1.0 - self.lambda) * max_sim_to_selected;
                 if mmr_score > max_mmr {
