@@ -97,7 +97,7 @@ fn try_ann_lookup<H: Hypervector>(
     None
 }
 
-impl<H: Hypervector + \'static> Singularity<H> {
+impl<H: Hypervector + 'static> Singularity<H> {
     /// Find similar concepts using cosine similarity
     #[cfg_attr(not(target_arch = "wasm32"), instrument(skip(self, ns, query), fields(top_k = top_k)))]
     pub fn find_similar(&self, ns: &str, query: &H, top_k: usize) -> Vec<(String, f32)> {

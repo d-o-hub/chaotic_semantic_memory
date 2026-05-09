@@ -1,13 +1,14 @@
 #![cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
+use crate::hyperdim::Hypervector;
 use crate::persistence::Persistence;
 use crate::singularity::Concept;
 use libsql::params;
 
-impl Persistence {
+impl<H: Hypervector> Persistence {
     /// Save a concept to the database
-    pub async fn save_concept<H: Hypervector + 'static>(&self, ns: &str, concept: &Concept<H>) -> Result<()> {
+    pub async fn save_concept(&self, ns: &str, concept: &Concept<H>) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
         let vector_bytes = concept.vector.to_bytes();
@@ -45,7 +46,7 @@ impl Persistence {
     }
 
     /// Save concepts in a single transaction
-    pub async fn save_concepts(&self, ns: &str, concepts: &[Concept]) -> Result<()> {
+    pub async fn save_concepts(&self, ns: &str, concepts: &[Concept<H>]) -> Result<()> {
         if concepts.is_empty() {
             return Ok(());
         }

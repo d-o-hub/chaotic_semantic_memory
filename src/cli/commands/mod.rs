@@ -124,13 +124,13 @@ pub async fn create_framework_advanced(
     builder = builder.with_namespace(ns);
 
     if let Some(name) = provider_name {
-        let provider = crate::embedding::get_provider(name)
+        let provider = crate::embedding::get_embedding_provider(name)
             .map_err(|e| CliError::Config(format!("failed to load embedding provider: {e}")))?;
 
         // If provider is HDC and code-aware is requested, apply config
         if provider.name() == "hdc-text" && code_aware {
             builder = builder.with_embedding_provider(
-                crate::embedding::HdcTextProvider::with_config(crate::encoder::TextEncoderConfig {
+                crate::embedding::hdc_text::HdcTextProvider::with_config(crate::encoder::TextEncoderConfig {
                     ngram_size: Some(3),
                     code_aware: true,
                     ..Default::default()
@@ -141,7 +141,7 @@ pub async fn create_framework_advanced(
         }
     } else if code_aware {
         // Default HDC provider with code-aware config
-        builder = builder.with_embedding_provider(crate::embedding::HdcTextProvider::with_config(
+        builder = builder.with_embedding_provider(crate::embedding::hdc_text::HdcTextProvider::with_config(
             crate::encoder::TextEncoderConfig {
                 ngram_size: Some(3),
                 code_aware: true,

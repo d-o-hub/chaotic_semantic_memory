@@ -68,7 +68,7 @@ struct Candidate {
 }
 
 /// Execute GraphRAG retrieval.
-pub fn graph_rag_retrieve_generic<H: Hypervector>(
+pub fn graph_rag_retrieve<H: Hypervector>(
     query: &H,
     concepts: &[Concept<H>],
     associations: &[(String, String, f32)],
@@ -91,7 +91,7 @@ pub fn graph_rag_retrieve_generic<H: Hypervector>(
         map
     };
 
-    let anchors = find_anchors_generic(query, &concept_map, config.anchor_top_k);
+    let anchors = find_anchors(query, &concept_map, config.anchor_top_k);
     let mut candidates: Vec<Candidate> = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
 
@@ -170,7 +170,7 @@ pub fn graph_rag_retrieve_generic<H: Hypervector>(
 }
 
 /// Find anchor concepts via brute-force similarity.
-fn find_anchors_generic<H: Hypervector>(
+fn find_anchors<H: Hypervector>(
     query: &H,
     concepts: &HashMap<String, &Concept<H>>,
     top_k: usize,

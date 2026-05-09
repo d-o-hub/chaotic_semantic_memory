@@ -303,7 +303,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
 
         if let Some(ref persistence) = self.persistence {
             let ns = self.namespace.read().await;
-            persistence.delete_concept(&ns, id).await?;
+            persistence.delete_concept::<H>(&ns, id).await?;
         }
 
         self.emit_event(MemoryEvent::ConceptDeleted {

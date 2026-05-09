@@ -1,5 +1,4 @@
-use crate::retrieval::graph_rag::graph_rag_retrieve_generic;
-/// GraphRAG retrieval extension for framework.
+//! GraphRAG retrieval extension for framework.
 
 use crate::error::Result;
 use crate::hyperdim::Hypervector;
@@ -31,7 +30,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
             (sing.all_concepts(&ns), sing.all_associations(&ns))
         };
 
-        graph_rag_retrieve_generic(&query, &concepts, &associations, &config)
+        graph_rag_retrieve(&query, &concepts, &associations, &config)
     }
 
     /// GraphRAG retrieval using configured embedding provider for text query.
@@ -42,9 +41,10 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         config: GraphRagConfig,
     ) -> Result<Vec<GraphRagResult>> {
         let embedding = self.embedding_provider.embed(text).await?;
-        let query = self
+        let query_hvec = self
             .embedding_provider
             .project(&embedding, &self.projection);
+        let query = H::from_hvec(&query_hvec);
         self.probe_with_graph(query, config).await
     }
 }

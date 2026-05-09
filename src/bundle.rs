@@ -9,16 +9,13 @@ use crate::hyperdim::HVec10240;
 /// Finalize applies majority threshold to produce a bundled hypervector.
 #[derive(Debug, Clone)]
 pub struct BundleAccumulator {
-    counts: Box<[i32; HVec10240::DIMENSION]>,
+    counts: Box<[i32; 10240]>,
     n: u32,
 }
 
 impl Default for BundleAccumulator {
     fn default() -> Self {
-        Self {
-            counts: Box::new([0i32; HVec10240::DIMENSION]),
-            n: 0,
-        }
+        Self::new()
     }
 }
 
@@ -26,16 +23,19 @@ impl BundleAccumulator {
     /// Create a new empty accumulator.
     pub fn new() -> Self {
         Self {
-            counts: Box::new([0i32; HVec10240::DIMENSION]),
+            counts: Box::new([0i32; 10240]),
             n: 0,
         }
     }
 
     /// Add a hypervector to the accumulator.
     pub fn add(&mut self, hv: &HVec10240) {
-        for i in 0..80 {
-            let mut val = hv.data[i];
-            for bit in 0..128 { if val >= 0.0 { data[i * 128 + bit] = 1.0; } }
+        for i in 0..10240 {
+            if hv.data[i] >= 0.0 {
+                self.counts[i] += 1;
+            } else {
+                self.counts[i] -= 1;
+            }
         }
         self.n += 1;
     }
@@ -48,9 +48,12 @@ impl BundleAccumulator {
         if self.n == 0 {
             return;
         }
-        for i in 0..80 {
-            let mut val = hv.data[i];
-            for bit in 0..128 { if val >= 0.0 { data[i * 128 + bit] = 1.0; } }
+        for i in 0..10240 {
+            if hv.data[i] >= 0.0 {
+                self.counts[i] -= 1;
+            } else {
+                self.counts[i] += 1;
+            }
         }
         self.n -= 1;
     }
@@ -65,11 +68,7 @@ impl BundleAccumulator {
                 reason: "cannot remove from empty BundleAccumulator".to_string(),
             });
         }
-        for i in 0..80 {
-            let mut val = hv.data[i];
-            for bit in 0..128 { if val >= 0.0 { data[i * 128 + bit] = 1.0; } }
-        }
-        self.n -= 1;
+        self.remove(hv);
         Ok(())
     }
 
@@ -82,19 +81,12 @@ impl BundleAccumulator {
             return HVec10240::zero();
         }
 
-        let mut data = [0u128; 80];
-        let threshold = 0; // Majority threshold: count > 0
-
-        for (i, word) in data.iter_mut().enumerate() {
-            let offset = i * 128;
-            for j in 0..128 {
-                // Branchless bit construction to reduce misprediction penalties
-                let condition = self.counts[offset + j] > threshold;
-                *word |= (condition as u128) << j;
-            }
+        let mut data = [0.0f32; 10240];
+        for i in 0..10240 {
+            data[i] = if self.counts[i] > 0 { 1.0 } else { -1.0 };
         }
 
-        HVec10240 { data: convert_bits_to_floats_bundle(data) }
+        HVec10240 { data }
     }
 
     /// Get the number of hypervectors in the accumulator.
@@ -109,7 +101,7 @@ impl BundleAccumulator {
 
     /// Clear the accumulator.
     pub fn clear(&mut self) {
-        *self.counts = [0i32; HVec10240::DIMENSION];
+        self.counts = Box::new([0i32; 10240]);
         self.n = 0;
     }
 }
@@ -149,7 +141,7 @@ mod tests {
         assert_eq!(acc.len(), 1);
         let bundled = acc.finalize();
         // Single vector bundle should be close to the original
-        assert!(bundled.cosine_similarity(&v1) > 0.9);
+        assert!(bundled.cosine_similarity(&v1) > 0.99);
     }
 
     #[test]
@@ -166,18 +158,4 @@ mod tests {
         acc.clear();
         assert!(acc.is_empty());
     }
-}
-
-fn convert_bits_to_floats_bundle(bits: [u128; 80]) -> [f32; 10240] {
-    let mut data = [0.0f32; 10240];
-    for (i, word) in bits.iter().enumerate() {
-        for j in 0..128 {
-            if (word & (1u128 << j)) != 0 {
-                data[i * 128 + j] = 1.0;
-            } else {
-                data[i * 128 + j] = -1.0;
-            }
-        }
-    }
-    data
 }

@@ -99,7 +99,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
             let ns = self.namespace.read().await;
             queries
                 .iter()
-                .map(|q| sing.find_similar(&ns, q, top_k))
+                .map(|q| sing.find_similar(&ns, &H::from_hvec(q), top_k))
                 .collect()
         };
         Ok(out)
@@ -120,7 +120,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
             let ns = self.namespace.read().await;
             queries
                 .iter()
-                .map(|q| sing.find_similar_cached(&ns, q, top_k))
+                .map(|q| sing.find_similar_cached(&ns, &H::from_hvec(q), top_k))
                 .collect()
         };
         Ok(out)
@@ -134,7 +134,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         let payload = {
             let sing = self.singularity.read().await;
             let ns = self.namespace.read().await;
-            ExportPayload {
+            ExportPayload::<H> {
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 exported_at: unix_now_secs(),
                 concepts: sing.all_concepts(&ns),
@@ -161,7 +161,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
                 ),
             });
         }
-        let payload: ExportPayload = serde_json::from_slice(&bytes)?;
+        let payload: ExportPayload<H> = serde_json::from_slice(&bytes)?;
 
         if !merge {
             {
@@ -220,7 +220,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         let payload = {
             let sing = self.singularity.read().await;
             let ns = self.namespace.read().await;
-            let json_payload = ExportPayload {
+            let json_payload = ExportPayload::<H> {
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 exported_at: unix_now_secs(),
                 concepts: sing.all_concepts(&ns),
@@ -267,7 +267,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
                     reason: format!("bincode deserialization failed: {e}"),
                 })?;
         // Convert to regular payload
-        let payload = binary_payload.to_export_payload().map_err(|e| {
+        let payload = binary_payload.to_export_payload::<H>().map_err(|e| {
             crate::error::MemoryError::InvalidInput {
                 field: "import_data".to_string(),
                 reason: format!("failed to convert binary payload: {e}"),
@@ -353,7 +353,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         &self,
         id: &str,
         mut limit: usize,
-    ) -> Result<Vec<crate::persistence::ConceptVersion>> {
+    ) -> Result<Vec<crate::persistence::ConceptVersion<H>>> {
         if limit > MAX_HISTORY_LIMIT {
             limit = MAX_HISTORY_LIMIT;
         }
@@ -366,7 +366,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
 
     /// Update a concept's vector.
     #[instrument(err, skip(self), fields(id))]
-    pub async fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()> {
+    pub async fn update_concept_vector(&self, id: &str, vector: H) -> Result<()> {
         let concept = {
             let mut sing = self.singularity.write().await;
             let ns = self.namespace.read().await;
@@ -454,7 +454,7 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
     }
 
     /// Bundle multiple concepts into a single hypervector (strict version).
-    pub async fn bundle_concepts_strict(&self, ids: &[String]) -> Result<HVec10240> {
+    pub async fn bundle_concepts_strict(&self, ids: &[String]) -> Result<H> {
         let sing = self.singularity.read().await;
         let ns = self.namespace.read().await;
         sing.bundle_concepts_strict(&ns, ids)
