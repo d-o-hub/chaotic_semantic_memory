@@ -92,6 +92,10 @@ pub(crate) fn and_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
 }
 
 /// AVX2-optimized bitwise AND (256-bit).
+///
+/// # Safety
+/// This function is unsafe because it uses AVX2 intrinsics. The caller must ensure that
+/// AVX2 is supported by the CPU at runtime.
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
 #[inline]
 #[target_feature(enable = "avx2")]
@@ -115,6 +119,10 @@ pub(crate) unsafe fn and_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128;
 }
 
 /// ARM NEON-optimized bitwise AND (128-bit).
+///
+/// # Safety
+/// This function is unsafe because it uses NEON intrinsics. The caller must ensure that
+/// NEON is supported by the CPU (always true for aarch64).
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
 #[inline]
 #[target_feature(enable = "neon")]
