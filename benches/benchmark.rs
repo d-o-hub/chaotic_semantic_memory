@@ -38,6 +38,16 @@ fn bench_hvec_creation(c: &mut Criterion) {
     c.bench_function("hvec_random", |b| b.iter(HVec10240::random));
 }
 
+fn bench_hvec_serialization(c: &mut Criterion) {
+    let v = HVec10240::random();
+    let bytes = v.to_bytes();
+
+    c.bench_function("hvec_to_bytes", |b| b.iter(|| black_box(&v).to_bytes()));
+    c.bench_function("hvec_from_bytes", |b| {
+        b.iter(|| HVec10240::from_bytes(black_box(&bytes)).unwrap())
+    });
+}
+
 fn bench_cosine_similarity(c: &mut Criterion) {
     let a = HVec10240::random();
     let other = HVec10240::random();
@@ -72,6 +82,11 @@ fn bench_binding(c: &mut Criterion) {
 
 fn bench_hvec_bundle(c: &mut Criterion) {
     let mut group = c.benchmark_group("hvec_bundle");
+
+    let vectors_2: Vec<_> = (0..2).map(|_| HVec10240::random()).collect();
+    group.bench_function("hvec_bundle_2", |b| {
+        b.iter(|| HVec10240::bundle(black_box(&vectors_2)).unwrap())
+    });
 
     let vectors_10: Vec<_> = (0..10).map(|_| HVec10240::random()).collect();
     group.bench_function("hvec_bundle_10", |b| {
@@ -678,6 +693,7 @@ fn bench_singularity_scalability(c: &mut Criterion) {
 criterion_group!(
     benches,
     bench_hvec_creation,
+    bench_hvec_serialization,
     bench_cosine_similarity,
     bench_batch_similarity,
     bench_binding,
