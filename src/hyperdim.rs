@@ -15,16 +15,16 @@ use crate::error::Result;
 pub use crate::hyperdim_batch::batch_cosine_similarity;
 
 // Import SIMD functions from extension module
+use crate::hyperdim_simd::hamming_distance_optimized;
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-use crate::hyperdim_simd::bind_simd_avx2;
+use crate::hyperdim_simd::{and_simd_avx2, bind_simd_avx2};
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-use crate::hyperdim_simd::bind_simd_neon;
+use crate::hyperdim_simd::{and_simd_neon, bind_simd_neon};
 #[cfg(all(
     not(target_arch = "wasm32"),
     any(target_arch = "x86_64", target_arch = "x86")
 ))]
-use crate::hyperdim_simd::bind_simd_x86;
-use crate::hyperdim_simd::hamming_distance_optimized;
+use crate::hyperdim_simd::{and_simd_x86, bind_simd_x86};
 
 /// 10240-bit hypervector (80 x 128-bit words)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -113,11 +113,51 @@ impl HVec10240 {
             return Ok(vectors[0]);
         }
         if num_vectors == 2 {
-            let mut res = Self::zero();
-            for i in 0..80 {
-                res.data[i] = vectors[0].data[i] & vectors[1].data[i];
+            #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+            {
+                if is_x86_feature_detected!("avx2") {
+                    return Ok(Self {
+                        data: unsafe { and_simd_avx2(&vectors[0].data, &vectors[1].data) },
+                    });
+                } else {
+                    return Ok(Self {
+                        data: and_simd_x86(&vectors[0].data, &vectors[1].data),
+                    });
+                }
             }
-            return Ok(res);
+
+            #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86"))]
+            {
+                return Ok(Self {
+                    data: and_simd_x86(&vectors[0].data, &vectors[1].data),
+                });
+            }
+
+            #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+            {
+                return Ok(Self {
+                    data: unsafe { and_simd_neon(&vectors[0].data, &vectors[1].data) },
+                });
+            }
+
+            #[cfg(any(
+                target_arch = "wasm32",
+                all(
+                    not(target_arch = "wasm32"),
+                    not(any(
+                        target_arch = "x86_64",
+                        target_arch = "x86",
+                        target_arch = "aarch64"
+                    ))
+                )
+            ))]
+            {
+                let mut res = Self::zero();
+                for i in 0..80 {
+                    res.data[i] = vectors[0].data[i] & vectors[1].data[i];
+                }
+                return Ok(res);
+            }
         }
         let threshold = num_vectors / 2 + 1;
         let num_planes = (usize::BITS - num_vectors.leading_zeros()) as usize;
