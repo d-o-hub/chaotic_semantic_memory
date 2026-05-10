@@ -87,7 +87,8 @@ async fn test_hnsw_empty_filter_results() {
     // Should be empty, NOT containing c1
     assert!(
         results.is_empty(),
-        "Results should be empty when filter matches nothing, but got {results:?}"
+        "Results should be empty when filter matches nothing, but got {:?}",
+        results
     );
 }
 

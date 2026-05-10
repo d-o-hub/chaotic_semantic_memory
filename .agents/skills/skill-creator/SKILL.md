@@ -136,7 +136,7 @@ ls -la .agents/skills/<skill-name>/
 |---------|---------|----------|
 | `<domain>-<action>` | `rust-development` | Domain-specific work |
 | `<tool>-<task>` | `github-ci-guardrails` | Tool-specific tasks |
-| `swarm-<focus>` | `swarm-observability` | Swarm coordination |
+| `swarm-<focus>` | `swarm-testing-quality` | Swarm coordination |
 | `self-<action>` | `self-fix-loop` | Automation loops |
 
 ## Example: Creating a Skill
