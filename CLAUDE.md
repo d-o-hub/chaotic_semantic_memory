@@ -22,27 +22,27 @@ TeamCreate → TaskCreate → Agent (spawn) → TaskUpdate (assign) → Monitor 
 
 ---
 
+<!-- SKILLS_TABLE_START -->
 ## Specialist Skills
 
 Loaded on-demand via `/skill-name` or auto-triggered by description.
 
 | Core Skills | Purpose |
 |-------------|---------|
-| `rust-development` | Implement/refactor modules |
-| `testing-validation` | Compile/test/lint/LOC gates |
-| `goap-planning` | Action plans from GOAP_STATE |
-| `adr-creation` | ADR documents |
-| `github-ci-guardrails` | CI via gh CLI |
-| `git-workflow` | Commit conventions |
+| `adr-creation` | Write or update ADRs for architecture-impacting ch |
+| `benchmarking-perf` | Run and analyze criterion benchmarks for performan |
+| `debugging-reservoir` | Debug and tune the echo state network reservoir |
+| `dist-channel-selection` | Artifact-aware decision logic for selecting the co |
+| `drawio` | Create high-level architecture diagrams using draw |
+| `git-workflow` | Git commit conventions, validation gates, and CI/C |
 
 | Swarm Skills | Focus |
 |--------------|-------|
-| `swarm-testing-quality` | Proptest, fuzzing |
-| `swarm-performance` | SIMD, pooling |
-| `swarm-observability` | Tracing, metrics |
+| `analysis-swarm` | Multi-persona code analysis orchestrator using RYA |
+| `swarm-advanced-features` | Export/import, versioning, migrations, and backup/ |
+| `swarm-observability` | Tracing, metrics, derive macros, and error context |
 
----
-
+<!-- SKILLS_TABLE_END -->
 ## Hooks System
 
 Mandatory callbacks in `.claude/settings.json` (AGENTS.md is advisory ~70%).

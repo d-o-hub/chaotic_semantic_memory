@@ -24,8 +24,8 @@ Focus on:
 - Features swarm: Export/import, versioning, migrations, backup/restore
 
 Skills available:
-- testing-validation: Comprehensive test coverage
-- benchmarking-perf: Throughput and latency optimization
+- swarm-testing-quality: Comprehensive test coverage
+- swarm-performance: Throughput and latency optimization
 - swarm-observability: Tracing and metrics
 - swarm-advanced-features: Enterprise features
 
