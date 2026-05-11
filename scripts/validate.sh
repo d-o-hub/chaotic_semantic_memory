@@ -45,7 +45,25 @@ normalize_errors() {
         -e '/^= help: /d' \
         -e '/^For more information/d' \
         -e '/^Some errors have detailed/d' \
-        -e '/^note: /d'
+        -e '/^note: /d' \
+        | grep -vE '^[[:space:]]*Finished `.*` profile' \
+        | grep -vE '^[[:space:]]*Updating crates.io' \
+        | grep -vE '^[[:space:]]*Checking ' \
+        | grep -vE '^[[:space:]]*Compiling ' \
+        | grep -vE '^[[:space:]]*Downloading crates' \
+        | grep -vE '^[[:space:]]*Downloaded ' \
+        | grep -vE '^[[:space:]]*Running unittests ' \
+        | grep -vE '^[[:space:]]*Running tests/' \
+        | grep -vE '^[[:space:]]*Running benches/' \
+        | grep -vE '^[[:space:]]*Doc-tests ' \
+        | grep -vE '^[[:space:]]*test result: ok.' \
+        | grep -vE '^running [0-9]+ tests?$' \
+        | grep -vE '^test [a-zA-Z_0-9\/\.\:-]+ \.\.\. ok$' \
+        | grep -vE '^[[:space:]]*all doctests ran in' \
+        | grep -vE '^Gnuplot not found' \
+        | grep -vE '^Testing ' \
+        | grep -vE '^Success' \
+        | awk 'NF' || true
 }
 
 # ── Delta check: only fail if NEW errors appear ─────────────────────
@@ -64,7 +82,23 @@ delta_check() {
 
     # Ensure baseline directory exists for writing current output
     mkdir -p "$BASELINE_DIR"
-    cat > "$current_file"
+
+    # Write from stdin to current_file, filter out known OK lines
+    cat | grep -vE '^test [a-zA-Z_0-9\/\.\:-]+ \.\.\. ok$' \
+        | grep -vE '^test result: ok\.' \
+        | grep -vE '^running [0-9]+ tests?$' \
+        | grep -vE '^[[:space:]]*all doctests ran in' \
+        | grep -vE '^Gnuplot not found' \
+        | grep -vE '^Testing ' \
+        | grep -vE '^Success' \
+        | grep -vE '^[[:space:]]*$' \
+        > "$current_file" || true
+
+    # If the file is just whitespaces or empty, consider it empty and exit 0
+    if [ ! -s "$current_file" ]; then
+        rm -f "$current_file"
+        return 0
+    fi
 
     if [[ ! -f "$baseline_file" ]]; then
         # No baseline: use current output as-is for std error checking
@@ -80,6 +114,10 @@ delta_check() {
     rm -f "$current_file"
 
     if [[ -n "$new_errors" ]]; then
+        if [ -z "$(echo "$new_errors" | tr -d '
+')" ]; then
+            return 0
+        fi
         echo "$new_errors" >&2
         return 1
     fi
