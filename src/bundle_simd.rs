@@ -129,7 +129,7 @@ pub(crate) unsafe fn update_counts_simd_neon(
     sign: i32,
 ) {
     use std::arch::aarch64::{
-        vaddq_s32, vandq_s32, vceqq_s32, vdupq_n_s32, vld1q_s32, vst1q_s32,
+        vaddq_s32, vandq_s32, vceqq_s32, vdupq_n_s32, vld1q_s32, vreinterpretq_s32_u32, vst1q_s32,
     };
 
     let sign_vec = vdupq_n_s32(sign);
@@ -153,7 +153,7 @@ pub(crate) unsafe fn update_counts_simd_neon(
             // Lower 4 bits
             let v_and_l = vandq_s32(v_byte, masks_low);
             let v_cmp_l = vceqq_s32(v_and_l, masks_low);
-            let inc_l = vandq_s32(v_cmp_l, sign_vec);
+            let inc_l = vandq_s32(vreinterpretq_s32_u32(v_cmp_l), sign_vec);
 
             let target_ptr_l = unsafe { counts_ptr.add(j * 8) };
             let current_l = unsafe { vld1q_s32(target_ptr_l) };
@@ -162,7 +162,7 @@ pub(crate) unsafe fn update_counts_simd_neon(
             // Upper 4 bits
             let v_and_h = vandq_s32(v_byte, masks_high);
             let v_cmp_h = vceqq_s32(v_and_h, masks_high);
-            let inc_h = vandq_s32(v_cmp_h, sign_vec);
+            let inc_h = vandq_s32(vreinterpretq_s32_u32(v_cmp_h), sign_vec);
 
             let target_ptr_h = unsafe { counts_ptr.add(j * 8 + 4) };
             let current_h = unsafe { vld1q_s32(target_ptr_h) };
