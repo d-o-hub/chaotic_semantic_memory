@@ -51,6 +51,7 @@ pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig
 mod bridge_persistence;
 pub mod bridge_retrieval;
 pub mod bundle;
+mod bundle_simd; // SIMD paths for BundleAccumulator
 #[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]
 pub mod cli;
 pub mod concept_builder;
@@ -76,7 +77,6 @@ pub mod hyperdim;
 mod hyperdim_batch;
 mod hyperdim_serde; // Extracted from hyperdim.rs for LOC gate
 mod hyperdim_simd; // AVX2/NEON SIMD paths
-mod bundle_simd; // SIMD paths for BundleAccumulator
 #[cfg(all(not(target_arch = "wasm32"), feature = "mcp"))]
 pub mod mcp;
 pub mod metadata_filter;

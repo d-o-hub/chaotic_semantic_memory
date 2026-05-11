@@ -1,11 +1,11 @@
 //! Incremental bundle accumulator for streaming/sliding-window memory.
 
-use crate::error::{MemoryError, Result};
-use crate::hyperdim::HVec10240;
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
 use crate::bundle_simd::{finalize_simd_avx2, update_counts_simd_avx2};
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
 use crate::bundle_simd::{finalize_simd_neon, update_counts_simd_neon};
+use crate::error::{MemoryError, Result};
+use crate::hyperdim::HVec10240;
 
 /// Incremental bundle accumulator for streaming/sliding-window memory.
 ///
@@ -52,18 +52,20 @@ impl BundleAccumulator {
             // SAFETY: update_counts_simd_neon is safe on aarch64.
             unsafe { update_counts_simd_neon(&mut self.counts, &hv.data, 1) };
             self.n += 1;
-            return;
         }
 
-        for i in 0..80 {
-            let mut val = hv.data[i];
-            while val != 0 {
-                let j = val.trailing_zeros() as usize;
-                self.counts[i * 128 + j] += 1;
-                val &= val - 1;
+        #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
+        {
+            for i in 0..80 {
+                let mut val = hv.data[i];
+                while val != 0 {
+                    let j = val.trailing_zeros() as usize;
+                    self.counts[i * 128 + j] += 1;
+                    val &= val - 1;
+                }
             }
+            self.n += 1;
         }
-        self.n += 1;
     }
 
     /// Remove a hypervector from the accumulator.
@@ -90,18 +92,20 @@ impl BundleAccumulator {
             // SAFETY: update_counts_simd_neon is safe on aarch64.
             unsafe { update_counts_simd_neon(&mut self.counts, &hv.data, -1) };
             self.n -= 1;
-            return;
         }
 
-        for i in 0..80 {
-            let mut val = hv.data[i];
-            while val != 0 {
-                let j = val.trailing_zeros() as usize;
-                self.counts[i * 128 + j] -= 1;
-                val &= val - 1;
+        #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
+        {
+            for i in 0..80 {
+                let mut val = hv.data[i];
+                while val != 0 {
+                    let j = val.trailing_zeros() as usize;
+                    self.counts[i * 128 + j] -= 1;
+                    val &= val - 1;
+                }
             }
+            self.n -= 1;
         }
-        self.n -= 1;
     }
 
     /// Remove a hypervector from the accumulator, returning an error if empty.
@@ -130,18 +134,23 @@ impl BundleAccumulator {
             // SAFETY: update_counts_simd_neon is safe on aarch64.
             unsafe { update_counts_simd_neon(&mut self.counts, &hv.data, -1) };
             self.n -= 1;
-            return Ok(());
         }
 
-        for i in 0..80 {
-            let mut val = hv.data[i];
-            while val != 0 {
-                let j = val.trailing_zeros() as usize;
-                self.counts[i * 128 + j] -= 1;
-                val &= val - 1;
+        #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
+        {
+            for i in 0..80 {
+                let mut val = hv.data[i];
+                while val != 0 {
+                    let j = val.trailing_zeros() as usize;
+                    self.counts[i * 128 + j] -= 1;
+                    val &= val - 1;
+                }
             }
+            self.n -= 1;
+            Ok(())
         }
-        self.n -= 1;
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
         Ok(())
     }
 
