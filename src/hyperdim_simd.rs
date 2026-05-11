@@ -5,6 +5,7 @@
 //! - aarch64: NEON (128-bit)
 //!
 //! Also provides optimized Hamming distance calculation.
+
 /// Optimized Hamming distance calculation using unrolled loop.
 ///
 /// This implementation uses a 4x unrolled loop with independent accumulators
@@ -31,6 +32,7 @@ pub(crate) fn hamming_distance_optimized(lhs: &[u128; 80], rhs: &[u128; 80]) -> 
     }
     distance
 }
+
 /// SSE-optimized bind (128-bit XOR).
 #[cfg(all(
     not(target_arch = "wasm32"),
@@ -53,6 +55,7 @@ pub(crate) fn bind_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
     }
     out
 }
+
 /// SSE-optimized bitwise AND (128-bit).
 #[cfg(all(
     not(target_arch = "wasm32"),
@@ -75,11 +78,8 @@ pub(crate) fn and_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
     }
     out
 }
+
 /// AVX2-optimized bitwise AND (256-bit).
-///
-/// # Safety
-/// This function is unsafe because it uses AVX2 intrinsics. The caller must ensure that
-/// AVX2 is supported by the CPU at runtime.
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
 #[inline]
 #[target_feature(enable = "avx2")]
@@ -99,11 +99,8 @@ pub(crate) unsafe fn and_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128;
     }
     out
 }
+
 /// ARM NEON-optimized bitwise AND (128-bit).
-///
-/// # Safety
-/// This function is unsafe because it uses NEON intrinsics. The caller must ensure that
-/// NEON is supported by the CPU (always true for aarch64).
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
 #[inline]
 #[target_feature(enable = "neon")]
@@ -123,14 +120,11 @@ pub(crate) unsafe fn and_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128;
     }
     out
 }
+
 /// AVX2-optimized bind (256-bit XOR, processes 2 words per instruction).
-/// Uses runtime feature detection to dispatch when AVX2 is available.
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
 #[inline]
 #[target_feature(enable = "avx2")]
-/// # Safety
-/// This function is unsafe because it uses AVX2 intrinsics. The caller must ensure that
-/// AVX2 is supported by the CPU at runtime.
 pub(crate) unsafe fn bind_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
     use std::arch::x86_64::{__m256i, _mm256_loadu_si256, _mm256_storeu_si256, _mm256_xor_si256};
     let mut out = [0u128; 80];
@@ -147,15 +141,11 @@ pub(crate) unsafe fn bind_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
     }
     out
 }
+
 /// ARM NEON-optimized bind (128-bit XOR).
-/// Uses uint64x2_t to process each 128-bit word as two 64-bit halves.
-/// NEON is always available on aarch64.
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
 #[inline]
 #[target_feature(enable = "neon")]
-/// # Safety
-/// This function is unsafe because it uses NEON intrinsics. The caller must ensure that
-/// NEON is supported by the CPU (always true for aarch64).
 pub(crate) unsafe fn bind_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
     use std::arch::aarch64::{veorq_u64, vld1q_u64, vst1q_u64};
     let mut out = [0u128; 80];
@@ -172,94 +162,15 @@ pub(crate) unsafe fn bind_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
     }
     out
 }
-/// AVX2-optimized bit-packing for bundle finalize.
-///
-/// Processes 8 bit-counts at once using 256-bit registers.
-/// Compares each count against zero and packs the results into an 8-bit mask.
-#[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-#[inline]
-#[target_feature(enable = "avx2")]
-pub(crate) unsafe fn finalize_simd_avx2(counts: &[i32; 10240], threshold: i32) -> [u128; 80] {
-    use std::arch::x86_64::{
-        _mm256_castsi256_ps, _mm256_cmpgt_epi32, _mm256_loadu_si256, _mm256_movemask_ps,
-        _mm256_set1_epi32,
-    };
-    let mut data = [0u128; 80];
-    let threshold_vec = _mm256_set1_epi32(threshold);
-    for i in 0..80 {
-        let offset = i * 128;
-        let mut word_low = 0u64;
-        let mut word_high = 0u64;
-        for j in 0..8 {
-            let packed = unsafe {
-                let ptr = counts.as_ptr().add(offset + j * 8);
-                let chunk = _mm256_loadu_si256(ptr.cast());
-                let mask = _mm256_cmpgt_epi32(chunk, threshold_vec);
-                _mm256_movemask_ps(_mm256_castsi256_ps(mask)) as u64
-            };
-            word_low |= packed << (j * 8);
-        }
-        for j in 0..8 {
-            let packed = unsafe {
-                let ptr = counts.as_ptr().add(offset + 64 + j * 8);
-                let chunk = _mm256_loadu_si256(ptr.cast());
-                let mask = _mm256_cmpgt_epi32(chunk, threshold_vec);
-                _mm256_movemask_ps(_mm256_castsi256_ps(mask)) as u64
-            };
-            word_high |= packed << (j * 8);
-        }
-        data[i] = (word_low as u128) | ((word_high as u128) << 64);
-    }
-    data
-}
-/// ARM NEON-optimized bit-packing for bundle finalize.
-///
-/// Processes 4 bit-counts at once using 128-bit registers.
-/// Compares each count against zero and packs the results using bit-shifts and additions.
-#[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-#[inline]
-#[target_feature(enable = "neon")]
-pub(crate) unsafe fn finalize_simd_neon(counts: &[i32; 10240], threshold: i32) -> [u128; 80] {
-    use std::arch::aarch64::{vaddvq_u32, vandq_u32, vcgtq_s32, vdupq_n_s32, vld1q_s32};
-    let mut data = [0u128; 80];
-    let weights = unsafe {
-        let w = [1u32, 2, 4, 8];
-        std::arch::aarch64::vld1q_u32(w.as_ptr())
-    };
-    for i in 0..80 {
-        let offset = i * 128;
-        let mut word_low = 0u64;
-        let mut word_high = 0u64;
-        for j in 0..16 {
-            let packed = unsafe {
-                let ptr = counts.as_ptr().add(offset + j * 4);
-                let chunk = vld1q_s32(ptr);
-                let mask = vcgtq_s32(chunk, vdupq_n_s32(threshold));
-                let weighted = vandq_u32(mask, weights);
-                vaddvq_u32(weighted) as u64
-            };
-            word_low |= packed << (j * 4);
-        }
-        for j in 0..16 {
-            let packed = unsafe {
-                let ptr = counts.as_ptr().add(offset + 64 + j * 4);
-                let chunk = vld1q_s32(ptr);
-                let mask = vcgtq_s32(chunk, vdupq_n_s32(threshold));
-                let weighted = vandq_u32(mask, weights);
-                vaddvq_u32(weighted) as u64
-            };
-            word_high |= packed << (j * 4);
-        }
-        data[i] = (word_low as u128) | ((word_high as u128) << 64);
-    }
-    data
-}
+
 // ============================================================================
 // TESTS
 // ============================================================================
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
     fn make_test_vectors() -> ([u128; 80], [u128; 80]) {
         let mut lhs = [0u128; 80];
         let mut rhs = [0u128; 80];
@@ -269,6 +180,7 @@ mod tests {
         }
         (lhs, rhs)
     }
+
     #[test]
     fn hamming_distance_optimized_correctness() {
         let lhs = [0xFFFFFFFFFFFFFFFF_FFFFFFFFFFFFFFFFu128; 80];
@@ -276,12 +188,14 @@ mod tests {
         let distance = hamming_distance_optimized(&lhs, &rhs);
         assert_eq!(distance, 10240);
     }
+
     #[test]
     fn hamming_distance_optimized_identical_vectors() {
         let v = [0x123456789ABCDEF_0FEDCBA987654321u128; 80];
         let distance = hamming_distance_optimized(&v, &v);
         assert_eq!(distance, 0);
     }
+
     #[test]
     fn hamming_distance_optimized_complements() {
         let lhs = [0xAAAAAAAAAAAAAAAA_AAAAAAAAAAAAAAAAu128; 80];
@@ -289,6 +203,7 @@ mod tests {
         let distance = hamming_distance_optimized(&lhs, &rhs);
         assert_eq!(distance, 10240);
     }
+
     #[cfg(all(
         not(target_arch = "wasm32"),
         any(target_arch = "x86_64", target_arch = "x86")
@@ -301,6 +216,7 @@ mod tests {
             assert_eq!(result[i], lhs[i] ^ rhs[i]);
         }
     }
+
     #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
     #[test]
     fn bind_simd_avx2_correctness() {
@@ -314,6 +230,7 @@ mod tests {
             assert_eq!(result, sse_result);
         }
     }
+
     #[cfg(all(
         not(target_arch = "wasm32"),
         any(target_arch = "x86_64", target_arch = "x86")
@@ -326,6 +243,7 @@ mod tests {
             assert_eq!(result[i], lhs[i] & rhs[i]);
         }
     }
+
     #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
     #[test]
     fn and_simd_avx2_correctness() {
@@ -339,6 +257,7 @@ mod tests {
             assert_eq!(result, sse_result);
         }
     }
+
     #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
     #[test]
     fn and_simd_neon_correctness() {
@@ -348,6 +267,7 @@ mod tests {
             assert_eq!(result[i], lhs[i] & rhs[i]);
         }
     }
+
     #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
     #[test]
     fn bind_simd_neon_correctness() {
@@ -357,6 +277,7 @@ mod tests {
             assert_eq!(result[i], lhs[i] ^ rhs[i]);
         }
     }
+
     #[test]
     fn hamming_distance_matches_bit_count() {
         let lhs: [u128; 80] = std::array::from_fn(|i| 1u128 << (i % 128));
@@ -368,52 +289,5 @@ mod tests {
             .map(|(l, r)| (l ^ r).count_ones())
             .sum();
         assert_eq!(distance, expected);
-    }
-    fn finalize_scalar(counts: &[i32; 10240], threshold: i32) -> [u128; 80] {
-        let mut data = [0u128; 80];
-        for (i, word) in data.iter_mut().enumerate() {
-            let offset = i * 128;
-            for j in 0..128 {
-                if counts[offset + j] > threshold {
-                    *word |= 1u128 << j;
-                }
-            }
-        }
-        data
-    }
-    fn make_test_counts(seed: u64) -> [i32; 10240] {
-        use rand::{RngExt, SeedableRng};
-        let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
-        let mut counts = [0i32; 10240];
-        for i in 0..10240 {
-            counts[i] = rng.random_range(-10..10);
-        }
-        counts
-    }
-    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-    #[test]
-    fn test_finalize_simd_avx2_consistency() {
-        if std::arch::is_x86_feature_detected!("avx2") {
-            for seed in 0..10 {
-                let counts = make_test_counts(seed);
-                for threshold in [-2, -1, 0, 1, 2] {
-                    let scalar = finalize_scalar(&counts, threshold);
-                    let simd = unsafe { finalize_simd_avx2(&counts, threshold) };
-                    assert_eq!(simd, scalar);
-                }
-            }
-        }
-    }
-    #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-    #[test]
-    fn test_finalize_simd_neon_consistency() {
-        for seed in 0..10 {
-            let counts = make_test_counts(seed);
-            for threshold in [-2, -1, 0, 1, 2] {
-                let scalar = finalize_scalar(&counts, threshold);
-                let simd = unsafe { finalize_simd_neon(&counts, threshold) };
-                assert_eq!(simd, scalar);
-            }
-        }
     }
 }
