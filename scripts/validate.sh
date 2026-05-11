@@ -84,15 +84,7 @@ delta_check() {
     mkdir -p "$BASELINE_DIR"
 
     # Write from stdin to current_file, filter out known OK lines
-    cat | grep -vE '^test [a-zA-Z_0-9\/\.\:-]+ \.\.\. ok$' \
-        | grep -vE '^test result: ok\.' \
-        | grep -vE '^running [0-9]+ tests?$' \
-        | grep -vE '^[[:space:]]*all doctests ran in' \
-        | grep -vE '^Gnuplot not found' \
-        | grep -vE '^Testing ' \
-        | grep -vE '^Success' \
-        | grep -vE '^[[:space:]]*$' \
-        > "$current_file" || true
+    cat > "$current_file"
 
     # If the file is just whitespaces or empty, consider it empty and exit 0
     if [ ! -s "$current_file" ]; then
