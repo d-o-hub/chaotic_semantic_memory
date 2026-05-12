@@ -79,6 +79,57 @@ pub(crate) fn and_simd_x86(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
     out
 }
 
+/// AVX2-optimized batch Hamming distance.
+///
+/// Computes Hamming distances between a single query and a batch of candidates.
+/// Uses AVX2 to XOR 256 bits (2 x u128) at a time.
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) unsafe fn batch_hamming_distance_avx2(
+    query: &[u128; 80],
+    candidates: &[crate::hyperdim::HVec10240],
+    out: &mut [u32],
+) {
+    use std::arch::x86_64::{_mm256_loadu_si256, _mm256_xor_si256};
+
+    for (candidate, distance) in candidates.iter().zip(out.iter_mut()) {
+        let qptr = query.as_ptr() as *const std::arch::x86_64::__m256i;
+        let cptr = candidate.data.as_ptr() as *const std::arch::x86_64::__m256i;
+        let mut s0 = 0u64;
+        let mut s1 = 0u64;
+
+        // Process 80 u128 words = 40 u256 blocks
+        for i in (0..40).step_by(2) {
+            let (x0, x1) = unsafe {
+                let q0 = _mm256_loadu_si256(qptr.add(i));
+                let c0 = _mm256_loadu_si256(cptr.add(i));
+                let x0 = _mm256_xor_si256(q0, c0);
+
+                let q1 = _mm256_loadu_si256(qptr.add(i + 1));
+                let c1 = _mm256_loadu_si256(cptr.add(i + 1));
+                let x1 = _mm256_xor_si256(q1, c1);
+                (x0, x1)
+            };
+
+            // Extract to u64 for popcount
+            let v0: [u64; 4] = unsafe { std::mem::transmute(x0) };
+            let v1: [u64; 4] = unsafe { std::mem::transmute(x1) };
+
+            s0 += v0[0].count_ones() as u64;
+            s1 += v0[1].count_ones() as u64;
+            s0 += v0[2].count_ones() as u64;
+            s1 += v0[3].count_ones() as u64;
+
+            s0 += v1[0].count_ones() as u64;
+            s1 += v1[1].count_ones() as u64;
+            s0 += v1[2].count_ones() as u64;
+            s1 += v1[3].count_ones() as u64;
+        }
+        *distance = (s0 + s1) as u32;
+    }
+}
+
 /// AVX2-optimized bitwise AND (256-bit).
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
 #[inline]
@@ -170,6 +221,26 @@ pub(crate) unsafe fn bind_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hyperdim::HVec10240;
+
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+    #[test]
+    fn test_batch_hamming_distance_avx2_consistency() {
+        if std::arch::is_x86_feature_detected!("avx2") {
+            let query = HVec10240::random();
+            let candidates: Vec<HVec10240> = (0..10).map(|i| HVec10240::new_seeded(i)).collect();
+            let mut distances = vec![0u32; candidates.len()];
+
+            unsafe {
+                batch_hamming_distance_avx2(&query.data, &candidates, &mut distances);
+            }
+
+            for (i, candidate) in candidates.iter().enumerate() {
+                let expected = query.hamming_distance(candidate);
+                assert_eq!(distances[i], expected, "Distance mismatch at index {}", i);
+            }
+        }
+    }
 
     fn make_test_vectors() -> ([u128; 80], [u128; 80]) {
         let mut lhs = [0u128; 80];
