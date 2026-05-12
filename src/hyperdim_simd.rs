@@ -228,7 +228,7 @@ mod tests {
     fn test_batch_hamming_distance_avx2_consistency() {
         if std::arch::is_x86_feature_detected!("avx2") {
             let query = HVec10240::random();
-            let candidates: Vec<HVec10240> = (0..10).map(|i| HVec10240::new_seeded(i)).collect();
+            let candidates: Vec<HVec10240> = (0..10u64).map(HVec10240::new_seeded).collect();
             let mut distances = vec![0u32; candidates.len()];
 
             unsafe {
