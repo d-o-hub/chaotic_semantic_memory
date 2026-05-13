@@ -348,8 +348,24 @@ impl HVec10240 {
     /// Serialize to bytes
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(1280);
-        for word in &self.data {
-            bytes.extend_from_slice(&word.to_le_bytes());
+        #[cfg(target_endian = "little")]
+        {
+            // Performance Optimization: Direct memcpy for little-endian platforms.
+            // Avoids 80 calls to extend_from_slice and associated bounds checks.
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    self.data.as_ptr().cast::<u8>(),
+                    bytes.as_mut_ptr(),
+                    1280,
+                );
+                bytes.set_len(1280);
+            }
+        }
+        #[cfg(not(target_endian = "little"))]
+        {
+            for word in &self.data {
+                bytes.extend_from_slice(&word.to_le_bytes());
+            }
         }
         bytes
     }
@@ -364,10 +380,21 @@ impl HVec10240 {
         }
 
         let mut data = [0u128; 80];
-        for i in 0..80 {
-            let mut word_bytes = [0u8; 16];
-            word_bytes.copy_from_slice(&bytes[i * 16..(i + 1) * 16]);
-            data[i] = u128::from_le_bytes(word_bytes);
+        #[cfg(target_endian = "little")]
+        {
+            // Performance Optimization: Direct memcpy for little-endian platforms.
+            // Avoids 80 loop iterations and multiple bounds checks per word.
+            unsafe {
+                std::ptr::copy_nonoverlapping(bytes.as_ptr(), data.as_mut_ptr().cast::<u8>(), 1280);
+            }
+        }
+        #[cfg(not(target_endian = "little"))]
+        {
+            for i in 0..80 {
+                let mut word_bytes = [0u8; 16];
+                word_bytes.copy_from_slice(&bytes[i * 16..(i + 1) * 16]);
+                data[i] = u128::from_le_bytes(word_bytes);
+            }
         }
 
         Ok(Self { data })
