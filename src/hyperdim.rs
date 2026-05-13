@@ -350,16 +350,12 @@ impl HVec10240 {
         let mut bytes = Vec::with_capacity(1280);
         #[cfg(target_endian = "little")]
         {
-            // Performance Optimization: Direct memcpy for little-endian platforms.
-            // Avoids 80 calls to extend_from_slice and associated bounds checks.
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    self.data.as_ptr().cast::<u8>(),
-                    bytes.as_mut_ptr(),
-                    1280,
-                );
-                bytes.set_len(1280);
-            }
+            // Performance Optimization: [u128; 80] is bit-compatible with [u8; 1280]
+            // on little-endian platforms. Using extend_from_slice with a casted
+            // byte reference avoids 80 bounds checks and word-by-word serialization.
+            // SAFETY: Alignment of u128 is stricter than u8.
+            let data_bytes: &[u8; 1280] = unsafe { &*(self.data.as_ptr() as *const [u8; 1280]) };
+            bytes.extend_from_slice(data_bytes);
         }
         #[cfg(not(target_endian = "little"))]
         {
@@ -384,8 +380,10 @@ impl HVec10240 {
         {
             // Performance Optimization: Direct memcpy for little-endian platforms.
             // Avoids 80 loop iterations and multiple bounds checks per word.
+            // SAFETY: bytes length is verified to be 1280. [u128; 80] is bit-compatible
+            // with [u8; 1280] on little-endian.
             unsafe {
-                std::ptr::copy_nonoverlapping(bytes.as_ptr(), data.as_mut_ptr().cast::<u8>(), 1280);
+                std::ptr::copy_nonoverlapping(bytes.as_ptr(), data.as_mut_ptr() as *mut u8, 1280);
             }
         }
         #[cfg(not(target_endian = "little"))]

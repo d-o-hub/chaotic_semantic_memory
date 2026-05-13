@@ -229,7 +229,7 @@ impl AnnIndex for HnswIndex {
 
         self.hnsw
             .file_dump(&temp_dir, "index")
-            .map_err(|e| MemoryError::database(format!("HNSW dump failed: {e}")))?;
+            .map_err(|e| MemoryError::database(format!("HNSW dump failed: {}", e)))?;
 
         let data_path = temp_dir.join("index.hnsw.data");
         let graph_path = temp_dir.join("index.hnsw.graph");
@@ -249,7 +249,7 @@ impl AnnIndex for HnswIndex {
         };
 
         let payload = bincode::serialize(&wrapper)
-            .map_err(|e| MemoryError::database(format!("Bincode fail: {e}")))?;
+            .map_err(|e| MemoryError::database(format!("Bincode fail: {}", e)))?;
 
         let _ = fs::remove_dir_all(temp_dir);
         Ok(payload)
@@ -263,7 +263,7 @@ impl AnnIndex for HnswIndex {
         }
 
         let wrapper: HnswPersistenceWrapper = bincode::deserialize(data)
-            .map_err(|e| MemoryError::database(format!("Bincode deserialize fail: {e}")))?;
+            .map_err(|e| MemoryError::database(format!("Bincode deserialize fail: {}", e)))?;
 
         let temp_dir =
             std::env::temp_dir().join(format!("csm_hnsw_load_{}", rand::random::<u64>()));
@@ -275,7 +275,7 @@ impl AnnIndex for HnswIndex {
         let loader = HnswIo::new(&temp_dir, "index");
         let hnsw = loader
             .load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist)
-            .map_err(|e| MemoryError::database(format!("HNSW load failed: {e}")))?;
+            .map_err(|e| MemoryError::database(format!("HNSW load failed: {}", e)))?;
 
         let static_hnsw: Hnsw<'static, HVec10240, HammingDist> =
             unsafe { std::mem::transmute(hnsw) };
