@@ -17,12 +17,13 @@ description: "SIMD optimization, connection pooling, batch APIs, and caching. Us
 ## SIMD Implementation
 
 ```rust
-#[cfg(feature = "simd")]
+// Note: std::simd requires nightly Rust and #![feature(portable_simd)]
+#[cfg(all(feature = "simd", nightly))]
 use std::simd::u128x2;
 
 pub fn cosine_similarity_simd(&self, other: &Self) -> f32 {
-    // Use u128x2 for parallel operations
-    // Fall back to scalar for WASM/non-SIMD targets
+    // For stable Rust, use platform-specific intrinsics (AVX2/NEON)
+    // as seen in src/hyperdim_simd.rs or src/bundle_simd.rs.
 }
 ```
 
