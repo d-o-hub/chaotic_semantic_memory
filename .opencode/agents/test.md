@@ -23,8 +23,7 @@ Focus on:
 - Test organization and maintainability
 
 Skills available:
-- testing-validation: Core testing and validation
-- testing-validation: Property-based testing and fuzzing
+- testing-validation: Core testing, validation, property-based testing, and fuzzing
 
 When testing:
 1. Identify invariants and properties to test
