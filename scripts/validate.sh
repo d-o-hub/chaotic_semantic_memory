@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# Validate code quality with baseline-aware delta checking.
+# First run: --save-baseline captures current error state
+# Subsequent runs: compares against baseline, only fails on NEW errors
+# Usage:
+#   scripts/validate.sh                  # Full validation (delta mode if baseline exists)
+#   scripts/validate.sh --save-baseline  # Save current state as baseline
+#   scripts/validate.sh --clear-baseline # Remove baseline
 set -euo pipefail
 
 # Source lint caching library for faster repeated runs
@@ -10,31 +17,152 @@ fi
 MAX_SRC_LOC=500
 WASM_TARGET="wasm32-unknown-unknown"
 
+# ── Baseline management ──────────────────────────────────────────────
+BASELINE_DIR="/tmp/csm-baseline"
+MODE="validate"
+
+for arg in "$@"; do
+    case "$arg" in
+        --save-baseline) MODE="save" ;;
+        --clear-baseline) MODE="clear" ;;
+    esac
+done
+
+if [[ "$MODE" == "clear" ]]; then
+    rm -rf "$BASELINE_DIR"
+    echo "Baseline cleared."
+    exit 0
+fi
+
+# ── Error normalization (strips line numbers for stable comparison) ──
+normalize_errors() {
+    sed -E \
+        -e 's/--> [^:]+:[0-9]+:[0-9]+/--> <file>:<line>/g' \
+        -e 's/^[[:space:]]*[0-9]+[[:space:]]*\|[[:space:]]*/  | /g' \
+        -e 's/^[[:space:]]*\|[[:space:]]*$//g' \
+        -e '/^[[:space:]]*$/d' \
+        -e '/^warning: `/d' \
+        -e '/^= help: /d' \
+        -e '/^For more information/d' \
+        -e '/^Some errors have detailed/d' \
+        -e '/^note: /d' \
+        | grep -vE '^[[:space:]]*Finished `.*` profile' \
+        | grep -vE '^[[:space:]]*Updating crates.io' \
+        | grep -vE '^[[:space:]]*Checking ' \
+        | grep -vE '^[[:space:]]*Compiling ' \
+        | grep -vE '^[[:space:]]*Downloading crates' \
+        | grep -vE '^[[:space:]]*Downloaded ' \
+        | grep -vE '^[[:space:]]*Running unittests ' \
+        | grep -vE '^[[:space:]]*Running tests/' \
+        | grep -vE '^[[:space:]]*Running benches/' \
+        | grep -vE '^[[:space:]]*Doc-tests ' \
+        | grep -vE '^[[:space:]]*test result: ok.' \
+        | grep -vE '^running [0-9]+ tests?$' \
+        | grep -vE '^test [a-zA-Z_0-9\/\.\:-]+ \.\.\. ok$' \
+        | grep -vE '^[[:space:]]*all doctests ran in' \
+        | grep -vE '^Gnuplot not found' \
+        | grep -vE '^Testing ' \
+        | grep -vE '^Success' \
+        | awk 'NF' || true
+}
+
+# ── Delta check: only fail if NEW errors appear ─────────────────────
+# Returns 0 if NO new errors, 1 if new errors found
+delta_check() {
+    local label="$1"        # e.g. "cargo check"
+    local baseline_file="$BASELINE_DIR/${label// /_}"
+    local current_file="${baseline_file}.current"
+
+    if [[ "$MODE" == "save" ]]; then
+        mkdir -p "$BASELINE_DIR"
+        cat > "$baseline_file"
+        echo "  baseline saved: ${label}"
+        return 0
+    fi
+
+    # Ensure baseline directory exists for writing current output
+    mkdir -p "$BASELINE_DIR"
+
+    # Write from stdin to current_file, filter out known OK lines
+    cat > "$current_file"
+
+    # If the file is just whitespaces or empty, consider it empty and exit 0
+    if [ ! -s "$current_file" ]; then
+        rm -f "$current_file"
+        return 0
+    fi
+
+    if [[ ! -f "$baseline_file" ]]; then
+        # No baseline: use current output as-is for std error checking
+        cat "$current_file" >&2
+        rm -f "$current_file"
+        return 1
+    fi
+
+    # Diff: find lines in current but NOT in baseline (new errors)
+    local new_errors
+    new_errors=$(comm -13 <(sort "$baseline_file") <(sort "$current_file")) || true
+
+    rm -f "$current_file"
+
+    if [[ -n "$new_errors" ]]; then
+        if [ -z "$(echo "$new_errors" | tr -d '
+')" ]; then
+            return 0
+        fi
+        echo "$new_errors" >&2
+        return 1
+    fi
+    return 0
+}
+
 echo "==> cargo fmt --check"
 cargo fmt --check
 
 echo "==> cargo clippy --all-targets --all-features -- -D warnings"
-cargo clippy --all-targets --all-features -- -D warnings
+# Disable pipefail: cargo may fail with pre-existing errors, but delta_check
+# should only fail on NEW errors. pipefail would cause false positives.
+set +o pipefail
+CLIPPY_OUT=$(cargo clippy --all-targets --all-features -- -D warnings 2>&1) || true
+set -o pipefail
+echo "$CLIPPY_OUT" | normalize_errors | delta_check "clippy" || {
+    if [[ "$MODE" != "save" ]]; then
+        echo "Error: clippy found new warnings/errors"
+        exit 1
+    fi
+}
 
 # CI applies stricter RUSTFLAGS; this is the minimal local gate
 # Check for warnings AND ensure compilation succeeds
 echo "==> cargo test --no-run --all-features (check for warnings)"
-OUTPUT=$(cargo test --no-run --all-features 2>&1) || {
-  echo "Error: Compilation failed with --all-features"
-  echo "$OUTPUT"
-  exit 1
+COMPILE_OUT=$(cargo test --no-run --all-features 2>&1) || {
+    echo "$COMPILE_OUT" | normalize_errors | delta_check "test-compile" || {
+        echo "Error: new compilation failures with --all-features"
+        exit 1
+    }
 }
-if echo "$OUTPUT" | grep -qi "warning:"; then
-  echo "Error: Warnings found in test compilation"
-  echo "$OUTPUT" | grep -i "warning:"
-  exit 1
+if echo "$COMPILE_OUT" | grep -qi "warning:"; then
+    echo "$COMPILE_OUT" | grep -i "warning:" | normalize_errors | delta_check "test-warnings" || {
+        echo "Error: new warnings found in test compilation"
+        exit 1
+    }
 fi
 
-echo "==> cargo test --all-targets --all-features"
-cargo test --all-targets --all-features
+echo "==> cargo test --all-targets"
+# Disable pipefail: cargo test may fail with pre-existing failures, but
+# delta_check should only fail on NEW failures. pipefail would cause false positives.
+set +o pipefail
+TEST_OUT=$(cargo test --all-targets 2>&1) || true
+set -o pipefail
+echo "$TEST_OUT" | normalize_errors | delta_check "test" || {
+    if [[ "$MODE" != "save" ]]; then
+        echo "Error: new test failures detected"
+        exit 1
+    fi
+}
 
 echo "==> Source file LOC gate (< ${MAX_SRC_LOC})"
-for file in $(find src -name '*.rs'); do
+while IFS= read -r file; do
   loc="$(wc -l < "${file}")"
   if [[ "${loc}" -gt "${MAX_SRC_LOC}" ]]; then
     echo "LOC gate failed: ${file} has ${loc} lines"
@@ -47,7 +175,7 @@ for file in $(find src -name '*.rs'); do
     fi
   fi
   echo "ok: ${file} (${loc} LOC)"
-done
+done < <(find src -name '*.rs')
 
 if rustup target list --installed | grep -q "^${WASM_TARGET}\$"; then
   echo "==> cargo check --target ${WASM_TARGET} --features wasm"

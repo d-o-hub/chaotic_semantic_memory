@@ -1,6 +1,8 @@
 //! Echo State Network for temporal dynamics.
+
 // Casts are intentional for reservoir math (node counts, dimension sizes)
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 use crate::reservoir_sparse::SparseWeights;
@@ -11,6 +13,7 @@ use rayon::prelude::*;
 use std::sync::atomic::{AtomicU64, Ordering};
 #[cfg(not(target_arch = "wasm32"))]
 use {std::time::Instant, tracing::instrument};
+
 #[derive(Debug, Default)]
 struct ReservoirMetrics {
     steps_total: AtomicU64,
@@ -393,6 +396,7 @@ fn fast_tanh(x: f32) -> f32 {
     // Approximates tanh(x) as x*(27+x^2)/(27+9x^2) using FMA for speed.
     x2.mul_add(x, 27.0 * x) / x2.mul_add(9.0, 27.0)
 }
+
 /// Chaotic reservoir with configurable dynamics
 pub struct ChaoticReservoir {
     base: Reservoir,
@@ -405,18 +409,13 @@ impl ChaoticReservoir {
         let seed = rand::rng().random();
         Self::new_seeded(input_size, size, chaos_strength, seed)
     }
-    pub fn new_seeded(
-        input_size: usize,
-        size: usize,
-        chaos_strength: f32,
-        seed: u64,
-    ) -> Result<Self> {
-        Reservoir::validate_params(size, input_size, chaos_strength)?;
+    pub fn new_seeded(input_size: usize, size: usize, chaos: f32, seed: u64) -> Result<Self> {
+        Reservoir::validate_params(size, input_size, chaos)?;
         let mut base = Reservoir::new_seeded(input_size, size, seed)?;
         base.set_spectral_radius(1.0)?;
         Ok(Self {
             base,
-            chaos_strength,
+            chaos_strength: chaos,
             rng: StdRng::seed_from_u64(seed ^ 0xA5A5_5A5A_F0F0_0F0F),
             noisy_input: vec![0.0; input_size],
         })
@@ -453,6 +452,7 @@ impl ChaoticReservoir {
         self.base.metrics_snapshot()
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
