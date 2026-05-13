@@ -21,7 +21,7 @@ async fn test_hnsw_index_integration() {
 
     // Inject some concepts
     for i in 0..100 {
-        let id = format!("concept-{i}");
+        let id = format!("concept-{}", i);
         let mut vec = HVec10240::zero();
         vec.set_bit(i);
         framework.inject_concept(id, vec).await.unwrap();
@@ -52,7 +52,7 @@ async fn test_lsh_index_integration() {
 
     // Inject some concepts
     for i in 0..100 {
-        let id = format!("concept-{i}");
+        let id = format!("concept-{}", i);
         let mut vec = HVec10240::zero();
         vec.set_bit(i);
         framework.inject_concept(id, vec).await.unwrap();

@@ -145,10 +145,10 @@ Group B -> Group C: <performance findings>
 Categorize IMPLEMENTATION_QUEUE using combined agents:
 - **needs_code**: @impl agent (rust-development + testing-validation)
 - **needs_fix**: @fix agent (rust-development + testing-validation + debugging-reservoir)
-- **needs_test**: @test agent (testing-validation + testing-validation)
+- **needs_test**: @test agent (testing-validation)
 - **needs_plan**: @plan agent (goap-planning + adr-creation)
 - **needs_ci**: @ci agent (github-ci-guardrails + git-workflow)
-- **needs_perf**: @perf agent (benchmarking-perf + debugging-reservoir + benchmarking-perf)
+- **needs_perf**: @perf agent (benchmarking-perf + debugging-reservoir)
 - **needs_swarm**: @swarm agent (all swarm skills)
 - **needs_research**: websearch + general agent
 

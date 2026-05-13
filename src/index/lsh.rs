@@ -211,13 +211,13 @@ impl AnnIndex for LshIndex {
 
     fn serialize(&self) -> Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| {
-            crate::error::MemoryError::Persistence(format!("Serialization error: {e}"))
+            crate::error::MemoryError::Persistence(format!("Serialization error: {}", e))
         })
     }
 
     fn deserialize(&mut self, data: &[u8]) -> Result<()> {
         let decoded: Self = bincode::deserialize(data).map_err(|e| {
-            crate::error::MemoryError::Persistence(format!("Deserialization error: {e}"))
+            crate::error::MemoryError::Persistence(format!("Deserialization error: {}", e))
         })?;
         *self = decoded;
         Ok(())
