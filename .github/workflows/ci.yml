@@ -81,6 +81,24 @@ jobs:
     - name: Build CLI
       run: cargo build --release --bin csm --features cli --target ${{ matrix.target }} --locked
 
+  mcp-feature:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PROTOC: /usr/bin/protoc
+    steps:
+    - uses: actions/checkout@v6
+    - name: Install Protobuf Compiler
+      run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7 # v1
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
+    - name: Build MCP feature
+      run: cargo build --features mcp --locked
+    - name: Test MCP feature
+      run: cargo test --features mcp --locked -- --quiet
+
   wasm:
     runs-on: ubuntu-latest
     timeout-minutes: 20
