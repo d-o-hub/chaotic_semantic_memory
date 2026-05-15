@@ -303,7 +303,6 @@ impl Persistence {
 #[cfg(test)]
 #[cfg(feature = "persistence")]
 mod tests {
-    use super::*;
     use crate::hyperdim::HVec10240;
     use crate::persistence::Persistence;
     use crate::singularity::Concept;
