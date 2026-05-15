@@ -9,20 +9,26 @@ async fn test_security_input_validation() {
         .await
         .unwrap();
     let invalid = "a".repeat(300);
-    assert!(
-        framework
-            .update_concept_vector(&invalid, HVec10240::random())
-            .await
-            .is_err()
-    );
-    assert!(
-        framework
-            .update_concept_metadata(&invalid, HashMap::new())
-            .await
-            .is_err()
-    );
-    assert!(framework.disassociate(&invalid, "v").await.is_err());
-    assert!(framework.disassociate("v", &invalid).await.is_err());
-    assert!(framework.clear_associations(&invalid).await.is_err());
-    assert!(framework.concept_history(&invalid, 1).await.is_err());
+
+    let res = framework
+        .update_concept_vector(&invalid, HVec10240::random())
+        .await;
+    assert!(format!("{:?}", res).contains("InvalidInput"));
+
+    let res = framework
+        .update_concept_metadata(&invalid, HashMap::new())
+        .await;
+    assert!(format!("{:?}", res).contains("InvalidInput"));
+
+    let res = framework.disassociate(&invalid, "v").await;
+    assert!(format!("{:?}", res).contains("InvalidInput"));
+
+    let res = framework.disassociate("v", &invalid).await;
+    assert!(format!("{:?}", res).contains("InvalidInput"));
+
+    let res = framework.clear_associations(&invalid).await;
+    assert!(format!("{:?}", res).contains("InvalidInput"));
+
+    let res = framework.concept_history(&invalid, 1).await;
+    assert!(format!("{:?}", res).contains("InvalidInput"));
 }
