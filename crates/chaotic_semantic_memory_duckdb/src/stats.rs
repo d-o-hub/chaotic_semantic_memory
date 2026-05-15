@@ -69,3 +69,23 @@ impl Analytics {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::schema::SCHEMA_DDL;
+    use duckdb::Connection;
+
+    #[test]
+    fn test_stats_minimal() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA_DDL).unwrap();
+        let analytics = Analytics { conn };
+
+        let c_summary = analytics.concept_summary().unwrap();
+        assert_eq!(c_summary.total_concepts, 0);
+
+        let b_summary = analytics.benchmark_summary().unwrap();
+        assert_eq!(b_summary.total_runs, 0);
+    }
+}

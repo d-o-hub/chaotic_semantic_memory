@@ -22,3 +22,19 @@ pub enum AnalyticsError {
 }
 
 pub type Result<T> = std::result::Result<T, AnalyticsError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_conversions() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::Other, "test");
+        let err: AnalyticsError = io_err.into();
+        assert!(matches!(err, AnalyticsError::Io(_)));
+
+        let anyhow_err = anyhow::anyhow!("test");
+        let err: AnalyticsError = anyhow_err.into();
+        assert!(matches!(err, AnalyticsError::Anyhow(_)));
+    }
+}

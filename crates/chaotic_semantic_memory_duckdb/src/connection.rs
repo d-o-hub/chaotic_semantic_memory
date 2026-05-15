@@ -29,3 +29,21 @@ impl Analytics {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_open_in_memory() {
+        let analytics = Analytics::open_in_memory();
+        assert!(analytics.is_ok());
+    }
+
+    #[test]
+    fn test_open_file() {
+        let temp = tempfile::NamedTempFile::new().unwrap();
+        let analytics = Analytics::open(temp.path());
+        assert!(analytics.is_ok());
+    }
+}

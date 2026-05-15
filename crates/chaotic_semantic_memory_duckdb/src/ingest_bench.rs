@@ -1,7 +1,6 @@
 use crate::Analytics;
 use crate::error::Result;
 use crate::ingest_export::IngestReport;
-use serde::Deserialize;
 use std::path::Path;
 
 impl Analytics {
@@ -45,5 +44,28 @@ impl Analytics {
             benchmarks_loaded,
             ..Default::default()
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::schema::SCHEMA_DDL;
+    use duckdb::Connection;
+    use std::io::Write;
+
+    #[test]
+    fn test_load_benchmarks_minimal() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA_DDL).unwrap();
+        let mut analytics = Analytics { conn };
+
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("test.jsonl");
+        let mut file = std::fs::File::create(file_path).unwrap();
+        writeln!(file, r#"{{"query_id": "b1", "latency_ms": 1.0}}"#).unwrap();
+
+        let report = analytics.load_benchmarks_dir(dir.path()).unwrap();
+        assert_eq!(report.benchmarks_loaded, 1);
     }
 }

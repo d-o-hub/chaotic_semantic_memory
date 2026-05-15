@@ -64,3 +64,37 @@ impl Analytics {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::schema::SCHEMA_DDL;
+    use duckdb::Connection;
+    use std::io::Write;
+
+    #[test]
+    fn test_load_export_minimal() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA_DDL).unwrap();
+        let mut analytics = Analytics { conn };
+
+        let mut temp = tempfile::NamedTempFile::new().unwrap();
+        writeln!(
+            temp,
+            r#"{{"concepts": [{"id": "t1", "metadata": {}}], "associations": []}}"#
+        )
+        .unwrap();
+
+        let report = analytics.load_export_json(temp.path()).unwrap();
+        assert_eq!(report.concepts_loaded, 1);
+    }
+
+    #[test]
+    fn test_load_export_invalid_json() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        let mut analytics = Analytics { conn };
+        let mut temp = tempfile::NamedTempFile::new().unwrap();
+        writeln!(temp, "invalid").unwrap();
+        assert!(analytics.load_export_json(temp.path()).is_err());
+    }
+}

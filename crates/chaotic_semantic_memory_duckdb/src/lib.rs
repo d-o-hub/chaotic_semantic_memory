@@ -17,8 +17,7 @@ impl Analytics {
     pub fn query(&self, sql: &str) -> Result<Vec<duckdb::arrow::array::RecordBatch>> {
         let mut stmt = self.conn.prepare(sql)?;
         let batches = stmt.query_arrow([])?;
-        let result: std::result::Result<Vec<_>, _> = batches.collect();
-        Ok(result?)
+        Ok(batches.collect())
     }
 }
 
