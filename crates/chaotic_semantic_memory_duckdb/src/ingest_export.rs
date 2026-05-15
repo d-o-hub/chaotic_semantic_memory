@@ -78,7 +78,7 @@ mod tests {
         conn.execute_batch(SCHEMA_DDL).unwrap();
         let mut analytics = Analytics { conn };
 
-        let mut temp = tempfile::NamedTempFile::new().unwrap();
+        let mut temp = ::tempfile::NamedTempFile::new().unwrap();
         temp.as_file_mut()
             .write_all(br#"{"concepts": [{"id": "t1", "metadata": {}}], "associations": []}"#)
             .unwrap();
@@ -89,10 +89,10 @@ mod tests {
 
     #[test]
     fn test_load_export_invalid_json() {
-        let mut conn = Connection::open_in_memory().unwrap();
+        let conn = Connection::open_in_memory().unwrap();
         let mut analytics = Analytics { conn };
-        let mut temp = tempfile::NamedTempFile::new().unwrap();
-        writeln!(temp, "invalid").unwrap();
+        let mut temp = ::tempfile::NamedTempFile::new().unwrap();
+        temp.as_file_mut().write_all(b"invalid").unwrap();
         assert!(analytics.load_export_json(temp.path()).is_err());
     }
 }

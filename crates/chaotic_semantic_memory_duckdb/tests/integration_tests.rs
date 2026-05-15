@@ -66,7 +66,7 @@ fn test_query() {
 
 #[test]
 fn test_open_file_backed() {
-    let temp = tempfile::tempdir().unwrap();
+    let temp = ::tempfile::tempdir().unwrap();
     let db_path = temp.path().join("test.duckdb");
     {
         let _analytics = Analytics::open(&db_path).unwrap();
@@ -84,7 +84,7 @@ fn test_error_missing_file() {
 #[test]
 fn test_error_invalid_json() {
     let mut analytics = Analytics::open_in_memory().unwrap();
-    let temp = tempfile::NamedTempFile::new().unwrap();
+    let temp = ::tempfile::NamedTempFile::new().unwrap();
     std::fs::write(temp.path(), "{ invalid json").unwrap();
     let res = analytics.load_export_json(temp.path());
     assert!(matches!(res, Err(AnalyticsError::Json(_))));
@@ -93,7 +93,7 @@ fn test_error_invalid_json() {
 #[test]
 fn test_empty_benchmarks_dir() {
     let mut analytics = Analytics::open_in_memory().unwrap();
-    let temp = tempfile::tempdir().unwrap();
+    let temp = ::tempfile::tempdir().unwrap();
     let report = analytics.load_benchmarks_dir(temp.path()).unwrap();
     assert_eq!(report.benchmarks_loaded, 0);
 }

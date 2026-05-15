@@ -42,7 +42,7 @@ mod tests {
 
     #[test]
     fn test_open_file() {
-        let temp = tempfile::NamedTempFile::new().unwrap();
+        let temp = ::tempfile::NamedTempFile::new().unwrap();
         let analytics = Analytics::open(temp.path());
         assert!(analytics.is_ok());
     }
