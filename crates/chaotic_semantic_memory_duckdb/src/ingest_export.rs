@@ -74,16 +74,14 @@ mod tests {
 
     #[test]
     fn test_load_export_minimal() {
-        let mut conn = Connection::open_in_memory().unwrap();
+        let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch(SCHEMA_DDL).unwrap();
         let mut analytics = Analytics { conn };
 
         let mut temp = tempfile::NamedTempFile::new().unwrap();
-        writeln!(
-            temp,
-            r#"{{"concepts": [{"id": "t1", "metadata": {}}], "associations": []}}"#
-        )
-        .unwrap();
+        temp.as_file_mut()
+            .write_all(br#"{"concepts": [{"id": "t1", "metadata": {}}], "associations": []}"#)
+            .unwrap();
 
         let report = analytics.load_export_json(temp.path()).unwrap();
         assert_eq!(report.concepts_loaded, 1);

@@ -11,7 +11,9 @@ fn get_fixture(name: &str) -> PathBuf {
 #[test]
 fn test_load_export_json() {
     let mut analytics = Analytics::open_in_memory().unwrap();
-    let report = analytics.load_export_json(get_fixture("export.json")).unwrap();
+    let report = analytics
+        .load_export_json(get_fixture("export.json"))
+        .unwrap();
 
     assert_eq!(report.concepts_loaded, 2);
     assert_eq!(report.associations_loaded, 1);
@@ -99,7 +101,9 @@ fn test_empty_benchmarks_dir() {
 #[test]
 fn test_query_no_results() {
     let analytics = Analytics::open_in_memory().unwrap();
-    let batches = analytics.query("SELECT * FROM concepts WHERE id = 'none'").unwrap();
+    let batches = analytics
+        .query("SELECT * FROM concepts WHERE id = 'none'")
+        .unwrap();
     assert!(batches.is_empty());
 }
 
@@ -149,11 +153,19 @@ fn test_version() {
 #[test]
 fn test_metadata_consistency() {
     let mut analytics = Analytics::open_in_memory().unwrap();
-    analytics.load_export_json(get_fixture("export.json")).unwrap();
+    analytics
+        .load_export_json(get_fixture("export.json"))
+        .unwrap();
 
-    let batches = analytics.query("SELECT metadata_json FROM concepts WHERE id = 'c1'").unwrap();
+    let batches = analytics
+        .query("SELECT metadata_json FROM concepts WHERE id = 'c1'")
+        .unwrap();
     let batch = &batches[0];
-    let col = batch.column(0).as_any().downcast_ref::<duckdb::arrow::array::StringArray>().unwrap();
+    let col = batch
+        .column(0)
+        .as_any()
+        .downcast_ref::<duckdb::arrow::array::StringArray>()
+        .unwrap();
     let val = col.value(0);
     assert!(val.contains("\"tag\":\"test\""));
 }
@@ -161,11 +173,19 @@ fn test_metadata_consistency() {
 #[test]
 fn test_associations_integrity() {
     let mut analytics = Analytics::open_in_memory().unwrap();
-    analytics.load_export_json(get_fixture("export.json")).unwrap();
+    analytics
+        .load_export_json(get_fixture("export.json"))
+        .unwrap();
 
-    let batches = analytics.query("SELECT strength FROM associations WHERE src_id = 'c1' AND dst_id = 'c2'").unwrap();
+    let batches = analytics
+        .query("SELECT strength FROM associations WHERE src_id = 'c1' AND dst_id = 'c2'")
+        .unwrap();
     let batch = &batches[0];
-    let col = batch.column(0).as_any().downcast_ref::<duckdb::arrow::array::Float64Array>().unwrap();
+    let col = batch
+        .column(0)
+        .as_any()
+        .downcast_ref::<duckdb::arrow::array::Float64Array>()
+        .unwrap();
     assert_eq!(col.value(0), 0.8);
 }
 
@@ -183,10 +203,13 @@ fn test_multiple_batches_simulated() {
     // Insert many concepts to potentially trigger multiple batches in some environments,
     // though for 100 rows it likely stays in one.
     for i in 0..100 {
-        analytics.conn.execute(
-            "INSERT INTO concepts (id, namespace) VALUES (?, ?)",
-            duckdb::params![format!("idx_{}", i), "batch_test"],
-        ).unwrap();
+        analytics
+            .conn
+            .execute(
+                "INSERT INTO concepts (id, namespace) VALUES (?, ?)",
+                duckdb::params![format!("idx_{}", i), "batch_test"],
+            )
+            .unwrap();
     }
     let batches = analytics.query("SELECT * FROM concepts").unwrap();
     let total_rows: usize = batches.iter().map(|b| b.num_rows()).sum();
