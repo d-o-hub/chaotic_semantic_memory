@@ -21,30 +21,30 @@ impl Analytics {
         )?;
 
         // Copy concepts
-        let res = self.conn.execute(
+        let concepts_loaded = match self.conn.execute(
             "INSERT OR REPLACE INTO concepts (id, namespace, created_at_us, updated_at_us, expires_at_us, metadata_json)
              SELECT id, 'default', created_at, modified_at, expires_at, metadata FROM csm_src.concepts",
             [],
-        );
-
-        if let Err(e) = res {
-            let _ = self.conn.execute("DETACH csm_src", []);
-            return Err(e.into());
-        }
-        let concepts_loaded = self.conn.changes();
+        ) {
+            Ok(n) => n,
+            Err(e) => {
+                let _ = self.conn.execute("DETACH csm_src", []);
+                return Err(e.into());
+            }
+        };
 
         // Copy associations
-        let res = self.conn.execute(
+        let associations_loaded = match self.conn.execute(
             "INSERT OR REPLACE INTO associations (src_id, dst_id, strength)
              SELECT from_id, to_id, strength FROM csm_src.associations",
             [],
-        );
-
-        if let Err(e) = res {
-            let _ = self.conn.execute("DETACH csm_src", []);
-            return Err(e.into());
-        }
-        let associations_loaded = self.conn.changes();
+        ) {
+            Ok(n) => n,
+            Err(e) => {
+                let _ = self.conn.execute("DETACH csm_src", []);
+                return Err(e.into());
+            }
+        };
 
         self.conn.execute("DETACH csm_src", [])?;
 
