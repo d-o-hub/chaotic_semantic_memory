@@ -60,7 +60,7 @@ mod tests {
         conn.execute_batch(SCHEMA_DDL).unwrap();
         let mut analytics = Analytics { conn };
 
-        let dir = tempfile::tempdir().unwrap();
+        let dir = ::tempfile::tempdir().unwrap();
         let file_path = dir.path().join("test.jsonl");
         let mut file = std::fs::File::create(file_path).unwrap();
         writeln!(file, r#"{{"query_id": "b1", "latency_ms": 1.0}}"#).unwrap();

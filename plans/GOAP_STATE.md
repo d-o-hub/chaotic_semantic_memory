@@ -77,13 +77,13 @@ world_state:
   # Remaining observations addressed (2026-04-29)
   latency_reporting_uses_us_for_sub_ms: true    # p50_latency_us field added to benchmarks
   hybrid_retrieval_example_exists: true         # examples/hybrid_retrieval.rs created
-  ci_all_checks_passed: true                  # 2026-05-15: Fixed Release CI by adding Unreleased section
-  ci_release_workflow_blocked: false          # 2026-05-15: Fixed
+  ci_all_checks_passed: true                  # 2026-04-28: Release workflow fixed + v0.3.5 published
+  ci_release_workflow_blocked: false           # 2026-04-28: Fixed - checkout + retry logic
   ci_release_workflow_fix_applied: true        # 2026-04-28: actions: read + null guards
   ci_pages_workflow_fix_applied: true          # 2026-04-28: heredoc terminator de-indented
-  ci_pre_release_gate_failing: false           # 2026-05-15: Validated locally
+  ci_pre_release_gate_failing: true            # version triad + security audit + planning
   changelog_v033_yanked_recorded: true         # 2026-04-28: backfilled CHANGELOG
-  changelog_unreleased_section: true           # 2026-05-15: Restored [Unreleased] section
+  changelog_unreleased_section: true           # 2026-04-28: added Unreleased
   goap_actions_md_synced: true                 # 2026-04-28: 3 queued -> complete
 
   # GitHub Actions Security Audit (2026-04-21)

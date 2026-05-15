@@ -5,22 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Added
-- **CloudEvents**: Integrated CloudEvents event emitter for framework operations (ADR-0078).
-- **DuckDB**: Initialized `chaotic_semantic_memory_duckdb` companion crate and workspace restructure (ADR-0079).
-- **MCP**: Added `csm mcp serve` command to expose memory tools via Model Context Protocol (ADR-0067).
-- **ANN**: Hierarchical Navigable Small Worlds (HNSW) index for sub-linear similarity search (ADR-0068).
-- **Embeddings**: Pluggable `EmbeddingProvider` with FastEmbed, OpenAI, and Voyage backends (ADR-0069).
-- **Retrieval**: GraphRAG hybrid retrieval combining vector search with graph traversal (ADR-0070).
-- **Reranking**: MMR diversity and recency-weighted reranking pipelines (ADR-0071).
-- **Namespaces**: Isolated memory namespaces with list/delete/export support (ADR-0073).
-- **CLI**: Achieved 100% parity with Framework public API via 22 new subcommands (ADR-0066).
-
-### Changed
-- **Clippy**: Promoted 7 pedantic lints to `warn` and resolved all warnings across the workspace (ADR-0077).
-
 ## [0.3.5] - 2026-04-28
 
 ### Fixed
