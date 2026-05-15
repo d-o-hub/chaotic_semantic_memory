@@ -168,7 +168,7 @@ mod tests {
 
     #[tokio::test]
     async fn new_turso_returns_unsupported() {
-        let result = Persistence::new_turso("https://example.com", "token").await;
+        let result = Persistence::new_turso("", "").await;
         assert!(result.is_err());
 
         let err = result.unwrap_err();
