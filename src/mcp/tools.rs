@@ -5,20 +5,37 @@
 use anyhow::Result;
 use serde_json::Value;
 use std::path::PathBuf;
+use tokio::sync::OnceCell;
 use tracing::info;
+
+use crate::framework::ChaoticSemanticFramework;
 
 use super::schema;
 
 /// MCP Tools handler for chaotic_semantic_memory operations.
 pub struct McpTools {
-    #[allow(dead_code)]
     database: Option<PathBuf>,
+    framework: OnceCell<ChaoticSemanticFramework>,
 }
 
 impl McpTools {
     /// Create new MCP tools handler.
     pub const fn new(database: Option<PathBuf>) -> Self {
-        Self { database }
+        Self {
+            database,
+            framework: OnceCell::const_new(),
+        }
+    }
+
+    /// Get or initialize the framework instance.
+    async fn framework(&self) -> Result<&ChaoticSemanticFramework> {
+        self.framework
+            .get_or_try_init(|| async {
+                crate::cli::commands::create_framework(self.database.as_deref())
+                    .await
+                    .map_err(|e| anyhow::anyhow!("Failed to initialize framework: {e}"))
+            })
+            .await
     }
 
     /// List all available tools.
@@ -150,9 +167,24 @@ impl McpTools {
         Ok(serde_json::json!({"status": "ok", "deleted": false}))
     }
 
-    async fn handle_associate(&self, _args: Value) -> Result<Value> {
-        // TODO: Wire to framework.associate
-        Ok(serde_json::json!({"status": "ok", "message": "associate stub"}))
+    async fn handle_associate(&self, args: Value) -> Result<Value> {
+        let from_id = args["from_id"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("Missing from_id"))?;
+        let to_id = args["to_id"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("Missing to_id"))?;
+        let strength = args["strength"].as_f64().unwrap_or(0.5);
+
+        let framework = self.framework().await?;
+        framework.associate(from_id, to_id, strength as f32).await?;
+
+        Ok(serde_json::json!({
+            "status": "ok",
+            "from_id": from_id,
+            "to_id": to_id,
+            "strength": strength
+        }))
     }
 
     async fn handle_traverse(&self, _args: Value) -> Result<Value> {
@@ -185,4 +217,57 @@ pub struct ToolDefinition {
     pub description: String,
     /// JSON Schema for input validation
     pub input_schema: Value,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn test_handle_associate() -> Result<()> {
+        let tools = McpTools::new(None);
+        let args = json!({
+            "from_id": "concept-a",
+            "to_id": "concept-b",
+            "strength": 0.8
+        });
+
+        // First call will initialize the framework
+        let response = tools.handle_associate(args).await?;
+
+        assert_eq!(response["status"], "ok");
+        assert_eq!(response["from_id"], "concept-a");
+        assert_eq!(response["to_id"], "concept-b");
+        assert_eq!(response["strength"], 0.8);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_handle_associate_default_strength() -> Result<()> {
+        let tools = McpTools::new(None);
+        let args = json!({
+            "from_id": "concept-a",
+            "to_id": "concept-b"
+        });
+
+        let response = tools.handle_associate(args).await?;
+
+        assert_eq!(response["status"], "ok");
+        assert_eq!(response["strength"], 0.5);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_handle_associate_missing_args() {
+        let tools = McpTools::new(None);
+        let args = json!({
+            "from_id": "concept-a"
+        });
+
+        let result = tools.handle_associate(args).await;
+        assert!(result.is_err());
+    }
 }
