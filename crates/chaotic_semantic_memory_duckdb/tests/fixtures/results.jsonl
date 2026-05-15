@@ -1,0 +1,2 @@
+{"query_id":"bench1","latency_ms":10.5,"recall_at_1":true}
+{"query_id":"bench2","latency_ms":20.0,"recall_at_1":false}

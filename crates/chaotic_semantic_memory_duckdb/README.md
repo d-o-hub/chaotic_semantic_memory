@@ -2,6 +2,18 @@
 
 Optional analytics, Parquet export, and SQL inspection for `chaotic_semantic_memory`.
 
+## Usage
+
+```rust
+use chaotic_semantic_memory_duckdb::Analytics;
+
+let mut analytics = Analytics::open_in_memory()?;
+analytics.load_export_json("export.json")?;
+
+let batch = analytics.query("SELECT count(*) FROM concepts")?;
+println!("Concepts: {:?}", batch);
+```
+
 ## Planned Features
 
 - **Planned:** **DuckDB Integration**: Run SQL queries over your semantic memory.
