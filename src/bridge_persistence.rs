@@ -27,8 +27,8 @@ impl Persistence {
              labels_json = excluded.labels_json,
              related_json = excluded.related_json",
             params![
-                ns,
-                concept.id.as_str(),
+                ns.to_string(),
+                concept.id.clone(),
                 concept.version as i64,
                 labels_json,
                 related_json
@@ -47,7 +47,7 @@ impl Persistence {
 
         conn.execute(
             "DELETE FROM csm_canonical WHERE namespace = ?1 AND id = ?2",
-            params![ns, id],
+            params![ns.to_string(), id],
         )
         .await
         .map_err(|e| MemoryError::database(format!("Failed to delete canonical concept: {e}")))?;
@@ -67,7 +67,7 @@ impl Persistence {
         let mut rows = conn
             .query(
                 "SELECT id, version, labels_json, related_json FROM csm_canonical WHERE namespace = ?1 AND id = ?2",
-                params![ns, id],
+                params![ns.to_string(), id],
             )
             .await
             .map_err(|e| MemoryError::database(format!("Failed to load canonical concept: {e}")))?;
@@ -110,7 +110,7 @@ impl Persistence {
         let mut rows = conn
             .query(
                 "SELECT id, version, labels_json, related_json FROM csm_canonical WHERE namespace = ?1",
-                params![ns],
+                params![ns.to_string()],
             )
             .await
             .map_err(|e| {
@@ -161,7 +161,7 @@ impl Persistence {
         if let Err(e) = conn
             .execute(
                 "DELETE FROM csm_canonical WHERE namespace = ?1",
-                params![ns],
+                params![ns.to_string()],
             )
             .await
         {
@@ -170,14 +170,6 @@ impl Persistence {
                 "Failed to clear canonical concepts: {e}"
             )));
         }
-
-        let stmt = conn
-            .prepare(
-                "INSERT INTO csm_canonical (namespace, id, version, labels_json, related_json)
-                 VALUES (?1, ?2, ?3, ?4, ?5)",
-            )
-            .await
-            .map_err(|e| MemoryError::database(format!("Failed to prepare statement: {e}")))?;
 
         // Insert all concepts
         let mut first_error: Option<MemoryError> = None;
@@ -197,15 +189,18 @@ impl Persistence {
                 }
             };
 
-            stmt.reset();
-            if let Err(e) = stmt
-                .execute(params![
-                    ns,
-                    concept.id.as_str(),
-                    concept.version as i64,
-                    labels_json,
-                    related_json
-                ])
+            if let Err(e) = conn
+                .execute(
+                    "INSERT INTO csm_canonical (namespace, id, version, labels_json, related_json)
+                     VALUES (?1, ?2, ?3, ?4, ?5)",
+                    params![
+                        ns.to_string(),
+                        concept.id.clone(),
+                        concept.version as i64,
+                        labels_json,
+                        related_json
+                    ],
+                )
                 .await
             {
                 first_error = Some(MemoryError::database(format!(
