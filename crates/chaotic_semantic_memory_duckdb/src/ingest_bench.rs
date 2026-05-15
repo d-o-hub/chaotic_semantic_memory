@@ -56,7 +56,7 @@ mod tests {
 
     #[test]
     fn test_load_benchmarks_minimal() {
-        let mut conn = Connection::open_in_memory().unwrap();
+        let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch(SCHEMA_DDL).unwrap();
         let mut analytics = Analytics { conn };
 
