@@ -2,11 +2,11 @@
 
 Optional analytics, Parquet export, and SQL inspection for `chaotic_semantic_memory`.
 
-## Features
+## Planned Features
 
-- **DuckDB Integration**: Run SQL queries over your semantic memory.
-- **Parquet Export**: Export concepts and associations to Apache Parquet for external OLAP processing.
-- **Analytic Views**: Pre-defined SQL views for centrality, connectivity, and pattern analysis.
+- **Planned:** **DuckDB Integration**: Run SQL queries over your semantic memory.
+- **Planned:** **Parquet Export**: Export concepts and associations to Apache Parquet for external OLAP processing.
+- **Planned:** **Analytic Views**: Pre-defined SQL views for centrality, connectivity, and pattern analysis.
 
 ## Usage
 
