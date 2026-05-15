@@ -4,7 +4,7 @@ use duckdb::Connection;
 use std::path::Path;
 
 pub struct Analytics {
-    pub conn: Connection,
+    pub(crate) conn: Connection,
 }
 
 impl Analytics {
