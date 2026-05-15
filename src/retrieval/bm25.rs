@@ -205,9 +205,9 @@ impl Bm25Index {
         let mut scores: Vec<(usize, f32)> = self
             .documents
             .par_iter()
-            // Optimization: Increase Rayon task granularity to 1024 documents.
-            // Scoring is lightweight; larger chunks reduce task scheduling overhead.
-            .with_min_len(1024)
+            // Performance Optimization: Task granularity set to 128 documents to ensure
+            // multi-core utilization on 1k-10k doc corpora while maintaining low overhead.
+            .with_min_len(128)
             .enumerate()
             .filter_map(|(idx, doc)| {
                 let score = self.score_document(doc, &query_weights, c1, c2);

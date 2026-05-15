@@ -7,7 +7,9 @@ use rayon::prelude::*;
 pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> Vec<f32> {
     #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
     {
-        const CHUNK_SIZE: usize = 512;
+        // Performance Optimization: Reduced chunk size from 512 to 128 to improve
+        // parallelism on medium batches (e.g. 1k candidates) on multi-core systems.
+        const CHUNK_SIZE: usize = 128;
         let mut results = vec![0.0f32; candidates.len()];
         candidates
             .par_chunks(CHUNK_SIZE)
