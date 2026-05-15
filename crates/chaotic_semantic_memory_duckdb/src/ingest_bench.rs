@@ -11,6 +11,7 @@ impl Analytics {
             return Ok(IngestReport::default());
         }
 
+        let tx = self.conn.transaction()?;
         for entry in std::fs::read_dir(dir)? {
             let entry = entry?;
             let path = entry.path();
@@ -30,7 +31,7 @@ impl Analytics {
                     let p50_us = res["latency_ms"].as_f64().unwrap_or(0.0) * 1000.0;
                     let extras = serde_json::to_string(&res)?;
 
-                    self.conn.execute(
+                    tx.execute(
                         "INSERT INTO benchmarks (suite, name, run_at_us, p50_us, extras)
                          VALUES (?, ?, ?, ?, ?)",
                         duckdb::params![suite, name, 0, p50_us, extras],
@@ -39,6 +40,7 @@ impl Analytics {
                 }
             }
         }
+        tx.commit()?;
 
         Ok(IngestReport {
             benchmarks_loaded,
@@ -63,7 +65,7 @@ mod tests {
         let dir = ::tempfile::tempdir().unwrap();
         let file_path = dir.path().join("test.jsonl");
         let mut file = std::fs::File::create(file_path).unwrap();
-        writeln!(file, r#"{{"query_id": "b1", "latency_ms": 1.0}}"#).unwrap();
+        writeln!(file, r#"{"query_id": "b1", "latency_ms": 1.0}"#).unwrap();
 
         let report = analytics.load_benchmarks_dir(dir.path()).unwrap();
         assert_eq!(report.benchmarks_loaded, 1);

@@ -12,13 +12,52 @@ pub use ingest_export::IngestReport;
 pub use stats::{BenchmarkSummary, ConceptSummary};
 
 impl Analytics {
-    /// Run an arbitrary read-only SELECT query and return all record batches.
-    /// Returns arrow RecordBatches.
-    pub fn query(&self, sql: &str) -> Result<Vec<duckdb::arrow::array::RecordBatch>> {
+    /// Run an arbitrary read-only SELECT query.
+    /// Returns data as JSON rows for cross-crate compatibility (no DuckDB/Arrow types in API).
+    pub fn query(&self, sql: &str) -> Result<Vec<serde_json::Value>> {
+        let sql_lower = sql.trim().to_lowercase();
+        if !sql_lower.starts_with("select") && !sql_lower.starts_with("with") {
+            return Err(AnalyticsError::InvalidInput(
+                "Only SELECT queries are allowed".to_string(),
+            ));
+        }
+
         let mut stmt = self.conn.prepare(sql)?;
-        let batches = stmt.query_arrow([])?;
-        let res: Vec<_> = batches.collect();
-        Ok(res)
+        let rows = stmt.query_map([], |row| {
+            let mut map = serde_json::Map::new();
+            for i in 0..row.as_ref().column_count() {
+                let name = row.as_ref().column_name(i).unwrap_or("unknown");
+                let val = match row.get_ref(i)? {
+                    duckdb::types::ValueRef::Null => serde_json::Value::Null,
+                    duckdb::types::ValueRef::Boolean(b) => serde_json::Value::Bool(b),
+                    duckdb::types::ValueRef::TinyInt(n) => serde_json::Value::Number(n.into()),
+                    duckdb::types::ValueRef::SmallInt(n) => serde_json::Value::Number(n.into()),
+                    duckdb::types::ValueRef::Int(n) => serde_json::Value::Number(n.into()),
+                    duckdb::types::ValueRef::BigInt(n) => serde_json::Value::Number(n.into()),
+                    duckdb::types::ValueRef::Float(n) => serde_json::Number::from_f64(n as f64)
+                        .map(serde_json::Value::Number)
+                        .unwrap_or(serde_json::Value::Null),
+                    duckdb::types::ValueRef::Double(n) => serde_json::Number::from_f64(n)
+                        .map(serde_json::Value::Number)
+                        .unwrap_or(serde_json::Value::Null),
+                    duckdb::types::ValueRef::Text(s) => {
+                        serde_json::Value::String(String::from_utf8_lossy(s).into_owned())
+                    }
+                    duckdb::types::ValueRef::Blob(b) => {
+                        serde_json::Value::String(::base64::encode(b))
+                    }
+                    _ => serde_json::Value::Null,
+                };
+                map.insert(name.to_string(), val);
+            }
+            Ok(serde_json::Value::Object(map))
+        })?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            results.push(row?);
+        }
+        Ok(results)
     }
 }
 
