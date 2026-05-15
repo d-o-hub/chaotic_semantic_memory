@@ -353,6 +353,7 @@ impl ChaoticSemanticFramework {
         id: &str,
         mut limit: usize,
     ) -> Result<Vec<crate::persistence::ConceptVersion>> {
+        Self::validate_concept_id(id)?;
         if limit > MAX_HISTORY_LIMIT {
             limit = MAX_HISTORY_LIMIT;
         }
@@ -366,6 +367,7 @@ impl ChaoticSemanticFramework {
     /// Update a concept's vector.
     #[instrument(err, skip(self), fields(id))]
     pub async fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()> {
+        Self::validate_concept_id(id)?;
         let concept = {
             let mut sing = self.singularity.write().await;
             let ns = self.namespace.read().await;
@@ -391,6 +393,8 @@ impl ChaoticSemanticFramework {
         id: &str,
         metadata: std::collections::HashMap<String, serde_json::Value>,
     ) -> Result<()> {
+        Self::validate_concept_id(id)?;
+        Self::validate_metadata_bytes(&metadata, self.config.max_metadata_bytes)?;
         let concept = {
             let mut sing = self.singularity.write().await;
             let ns = self.namespace.read().await;
@@ -412,6 +416,8 @@ impl ChaoticSemanticFramework {
     /// Remove an association between two concepts.
     #[instrument(err, skip(self), fields(from, to))]
     pub async fn disassociate(&self, from: &str, to: &str) -> Result<()> {
+        Self::validate_concept_id(from)?;
+        Self::validate_concept_id(to)?;
         {
             let mut sing = self.singularity.write().await;
             let ns = self.namespace.read().await;
@@ -432,6 +438,7 @@ impl ChaoticSemanticFramework {
     /// Clear all outbound associations for a concept.
     #[instrument(err, skip(self), fields(id))]
     pub async fn clear_associations(&self, id: &str) -> Result<()> {
+        Self::validate_concept_id(id)?;
         {
             let mut sing = self.singularity.write().await;
             let ns = self.namespace.read().await;
@@ -454,6 +461,9 @@ impl ChaoticSemanticFramework {
 
     /// Bundle multiple concepts into a single hypervector (strict version).
     pub async fn bundle_concepts_strict(&self, ids: &[String]) -> Result<HVec10240> {
+        for id in ids {
+            Self::validate_concept_id(id)?;
+        }
         let sing = self.singularity.read().await;
         let ns = self.namespace.read().await;
         sing.bundle_concepts_strict(&ns, ids)
