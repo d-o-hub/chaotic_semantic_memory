@@ -313,9 +313,9 @@ mod tests {
         restored_payload
     }
 
-  /// Tests for WASM export/import bug fix: serde_json::Value is incompatible with bincode.
-  /// These tests verify that concepts with complex metadata can be serialized via
-  /// BinaryExportPayload and deserialized correctly.
+    /// Tests for WASM export/import bug fix: serde_json::Value is incompatible with bincode.
+    /// These tests verify that concepts with complex metadata can be serialized via
+    /// BinaryExportPayload and deserialized correctly.
 
     #[test]
     fn test_wasm_export_import_nested_metadata() {
