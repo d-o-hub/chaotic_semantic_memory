@@ -79,7 +79,7 @@ jobs:
         echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
     - name: Build CLI
-      run: rustup run stable cargo build --release --bin csm --features cli --target ${{ matrix.target }} --locked
+      run: cargo build --release --bin csm --features cli --target ${{ matrix.target }} --locked
 
   mcp-feature:
     runs-on: ubuntu-latest
