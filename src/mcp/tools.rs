@@ -227,13 +227,24 @@ mod tests {
     #[tokio::test]
     async fn test_handle_associate() -> Result<()> {
         let tools = McpTools::new(None);
+
+        // Inject concepts first
+        {
+            let framework = tools.framework().await?;
+            framework
+                .inject_concept("concept-a", crate::hyperdim::HVec10240::random())
+                .await?;
+            framework
+                .inject_concept("concept-b", crate::hyperdim::HVec10240::random())
+                .await?;
+        }
+
         let args = json!({
             "from_id": "concept-a",
             "to_id": "concept-b",
             "strength": 0.8
         });
 
-        // First call will initialize the framework
         let response = tools.handle_associate(args).await?;
 
         assert_eq!(response["status"], "ok");
@@ -247,6 +258,18 @@ mod tests {
     #[tokio::test]
     async fn test_handle_associate_default_strength() -> Result<()> {
         let tools = McpTools::new(None);
+
+        // Inject concepts first
+        {
+            let framework = tools.framework().await?;
+            framework
+                .inject_concept("concept-a", crate::hyperdim::HVec10240::random())
+                .await?;
+            framework
+                .inject_concept("concept-b", crate::hyperdim::HVec10240::random())
+                .await?;
+        }
+
         let args = json!({
             "from_id": "concept-a",
             "to_id": "concept-b"
