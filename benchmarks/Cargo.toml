@@ -1,10 +1,10 @@
 [package]
 name = "do-chaotic-semantic-memory-bench"
 version = "0.1.0"
-edition.workspace = true
-rust-version.workspace = true
-license.workspace = true
-repository.workspace = true
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
 publish = false
 
 [dependencies]
