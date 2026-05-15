@@ -53,7 +53,7 @@ validate_changelog() {
 
 # Get current version from Cargo.toml first
 # Use quotes for the filename to satisfy linting
-CURRENT_VERSION=$(grep -m1 'version = ' "Cargo.toml" | sed 's/version = "\(.*\)"/\1/')
+CURRENT_VERSION=$(grep -m1 '^version = ' "Cargo.toml" | sed 's/version = "\(.*\)"/\1/')
 
 # If version unchanged, skip validation and exit early
 if [ "$VERSION" = "$CURRENT_VERSION" ]; then
