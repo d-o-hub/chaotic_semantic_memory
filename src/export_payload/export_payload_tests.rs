@@ -298,7 +298,7 @@ mod tests {
             .to_export_payload()
             .expect("conversion back to ExportPayload should succeed");
 
-        // Verify basic structure is preserved
+        // Verify basic structure and data integrity
         assert_eq!(restored_payload.version, original_payload.version);
         assert_eq!(restored_payload.exported_at, original_payload.exported_at);
         assert_eq!(
@@ -309,6 +309,26 @@ mod tests {
             restored_payload.associations.len(),
             original_payload.associations.len()
         );
+
+        // Verify associations (handling f32 precision)
+        for (orig, rest) in original_payload
+            .associations
+            .iter()
+            .zip(restored_payload.associations.iter())
+        {
+            assert_eq!(orig.0, rest.0);
+            assert_eq!(orig.1, rest.1);
+            assert!((orig.2 - rest.2).abs() < f32::EPSILON);
+        }
+
+        // Deep equality check for all concepts
+        for (original, restored) in original_payload
+            .concepts
+            .iter()
+            .zip(restored_payload.concepts.iter())
+        {
+            assert_eq!(original, restored);
+        }
 
         restored_payload
     }
@@ -348,16 +368,7 @@ mod tests {
             associations: vec![],
         };
 
-        let restored_payload = assert_export_import_roundtrip(&original_payload);
-
-        let restored_c = &restored_payload.concepts[0];
-        let original_c = &original_payload.concepts[0];
-
-        assert_eq!(restored_c.id, original_c.id);
-        assert_eq!(
-            restored_c.metadata.get("nested"),
-            original_c.metadata.get("nested")
-        );
+        assert_export_import_roundtrip(&original_payload);
     }
 
     #[test]
@@ -390,26 +401,7 @@ mod tests {
             associations: vec![],
         };
 
-        let restored_payload = assert_export_import_roundtrip(&original_payload);
-
-        let restored_c = &restored_payload.concepts[0];
-        let original_c = &original_payload.concepts[0];
-
-        assert_eq!(restored_c.id, original_c.id);
-        assert_eq!(restored_c.expires_at, original_c.expires_at);
-        assert_eq!(
-            restored_c.canonical_concept_ids,
-            original_c.canonical_concept_ids
-        );
-        assert!(restored_c.metadata.get("null_value").unwrap().is_null());
-        assert_eq!(
-            restored_c.metadata.get("tags"),
-            original_c.metadata.get("tags")
-        );
-        assert_eq!(
-            restored_c.metadata.get("array_of_objects"),
-            original_c.metadata.get("array_of_objects")
-        );
+        assert_export_import_roundtrip(&original_payload);
     }
 
     #[test]
@@ -444,15 +436,7 @@ mod tests {
             ],
         };
 
-        let restored_payload = assert_export_import_roundtrip(&original_payload);
-
-        assert_eq!(restored_payload.associations.len(), 2);
-        assert_eq!(restored_payload.associations[0].0, "concept-1");
-        assert_eq!(restored_payload.associations[0].1, "concept-2");
-        assert!((restored_payload.associations[0].2 - 0.85).abs() < f32::EPSILON);
-        assert_eq!(restored_payload.associations[1].0, "concept-2");
-        assert_eq!(restored_payload.associations[1].1, "concept-1");
-        assert!((restored_payload.associations[1].2 - 0.42).abs() < f32::EPSILON);
+        assert_export_import_roundtrip(&original_payload);
     }
 
     /// Regression test: verify that direct bincode serialization of ExportPayload
