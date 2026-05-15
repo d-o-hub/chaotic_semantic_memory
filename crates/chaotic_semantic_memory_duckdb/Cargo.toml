@@ -1,0 +1,22 @@
+[package]
+name = "chaotic_semantic_memory_duckdb"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
+description = "Optional analytics, Parquet export, and SQL inspection for chaotic_semantic_memory"
+
+[dependencies]
+chaotic_semantic_memory = { path = "../..", default-features = false, features = ["persistence"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+duckdb = { version = "1.1", features = ["bundled"] }
+
+[features]
+default = []
+parquet = []   # toggles Phase 2 export utilities

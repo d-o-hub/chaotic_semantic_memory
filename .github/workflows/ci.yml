@@ -31,6 +31,19 @@ jobs:
     - name: Run tests
       run: cargo test --all-features --locked -- --quiet
 
+  test-duckdb:
+    name: Test DuckDB Companion
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v6
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7 # v1
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
+    - name: Run DuckDB tests
+      run: cargo test -p chaotic_semantic_memory_duckdb --locked -- --quiet
+
   build-cli:
     name: Build CLI (${{ matrix.platform }}-${{ matrix.arch }})
     needs: test
