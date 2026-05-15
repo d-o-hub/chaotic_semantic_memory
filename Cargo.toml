@@ -98,6 +98,10 @@ harness = false
 name = "bm25_benchmark"
 harness = false
 
+[[bench]]
+name = "bridge_persistence_bench"
+harness = false
+
 [profile.release]
 opt-level = 3
 lto = "fat"
