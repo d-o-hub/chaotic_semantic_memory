@@ -31,9 +31,18 @@ impl McpTools {
     async fn framework(&self) -> Result<&ChaoticSemanticFramework> {
         self.framework
             .get_or_try_init(|| async {
-                crate::cli::commands::create_framework(self.database.as_deref())
-                    .await
-                    .map_err(|e| anyhow::anyhow!("Failed to initialize framework: {e}"))
+                info!("Initializing ChaoticSemanticFramework");
+                match crate::cli::commands::create_framework(self.database.as_deref()).await {
+                    Ok(fw) => {
+                        info!("ChaoticSemanticFramework initialized");
+                        Ok(fw)
+                    }
+                    Err(e) => {
+                        let err_msg = format!("Failed to initialize framework: {e}");
+                        tracing::error!("{}", err_msg);
+                        Err(anyhow::anyhow!(err_msg))
+                    }
+                }
             })
             .await
     }
@@ -252,6 +261,14 @@ mod tests {
         assert_eq!(response["to_id"], "concept-b");
         assert_eq!(response["strength"], 0.8);
 
+        // Verify persistence
+        let framework = tools.framework().await?;
+        let associations = framework.get_associations("concept-a").await?;
+        let found = associations
+            .iter()
+            .any(|(id, strength)| id == "concept-b" && (*strength - 0.8).abs() < 1e-6);
+        assert!(found, "Association not found in framework");
+
         Ok(())
     }
 
@@ -292,5 +309,6 @@ mod tests {
 
         let result = tools.handle_associate(args).await;
         assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "Missing to_id");
     }
 }
