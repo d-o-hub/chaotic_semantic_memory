@@ -212,6 +212,37 @@ pub(crate) unsafe fn bundle_block_avx2(
     out
 }
 
+/// Scalar implementation of bit-sliced bundling for a single word.
+pub(crate) fn bundle_word_scalar(
+    vectors: &[crate::hyperdim::HVec10240],
+    threshold: usize,
+    num_planes: usize,
+    i: usize,
+) -> u128 {
+    let mut planes = [0u128; 64];
+    for v in vectors {
+        let mut carry = v.data[i];
+        for plane in planes.iter_mut().take(num_planes) {
+            let next_carry = *plane & carry;
+            *plane ^= carry;
+            carry = next_carry;
+            if carry == 0 {
+                break;
+            }
+        }
+    }
+    let (mut current_eq, mut current_gt) = (!0u128, 0u128);
+    for p in (0..num_planes).rev() {
+        if ((threshold >> p) & 1) == 1 {
+            current_eq &= planes[p];
+        } else {
+            current_gt |= current_eq & planes[p];
+            current_eq &= !planes[p];
+        }
+    }
+    current_gt | current_eq
+}
+
 // ============================================================================
 // TESTS
 // ============================================================================

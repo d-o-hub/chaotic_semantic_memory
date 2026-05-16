@@ -187,8 +187,12 @@ impl HVec10240 {
                         return;
                     }
                     for (offset, word) in chunk.iter_mut().enumerate() {
-                        *word =
-                            Self::bundle_word_scalar(vectors, threshold, num_planes, i + offset);
+                        *word = crate::hyperdim_simd::bundle_word_scalar(
+                            vectors,
+                            threshold,
+                            num_planes,
+                            i + offset,
+                        );
                     }
                 });
             return Ok(Self { data });
@@ -208,35 +212,9 @@ impl HVec10240 {
         }
 
         for (i, word) in data.iter_mut().enumerate() {
-            *word = Self::bundle_word_scalar(vectors, threshold, num_planes, i);
+            *word = crate::hyperdim_simd::bundle_word_scalar(vectors, threshold, num_planes, i);
         }
         Ok(Self { data })
-    }
-
-    /// Scalar implementation of bit-sliced bundling for a single word.
-    fn bundle_word_scalar(vectors: &[Self], threshold: usize, num_planes: usize, i: usize) -> u128 {
-        let mut planes = [0u128; 64];
-        for v in vectors {
-            let mut carry = v.data[i];
-            for plane in planes.iter_mut().take(num_planes) {
-                let next_carry = *plane & carry;
-                *plane ^= carry;
-                carry = next_carry;
-                if carry == 0 {
-                    break;
-                }
-            }
-        }
-        let (mut current_eq, mut current_gt) = (!0u128, 0u128);
-        for p in (0..num_planes).rev() {
-            if ((threshold >> p) & 1) == 1 {
-                current_eq &= planes[p];
-            } else {
-                current_gt |= current_eq & planes[p];
-                current_eq &= !planes[p];
-            }
-        }
-        current_gt | current_eq
     }
 
     /// XOR binding of two hypervectors.
