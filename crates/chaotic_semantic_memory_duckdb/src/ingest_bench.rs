@@ -65,7 +65,7 @@ mod tests {
         let dir = ::tempfile::tempdir().unwrap();
         let file_path = dir.path().join("test.jsonl");
         let mut file = std::fs::File::create(file_path).unwrap();
-        writeln!(file, r#"{"query_id": "b1", "latency_ms": 1.0}"#).unwrap();
+        writeln!(file, r#"{{"query_id": "b1", "latency_ms": 1.0}}"#).unwrap();
 
         let report = analytics.load_benchmarks_dir(dir.path()).unwrap();
         assert_eq!(report.benchmarks_loaded, 1);

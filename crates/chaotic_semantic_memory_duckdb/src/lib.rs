@@ -26,7 +26,7 @@ impl Analytics {
         let rows = stmt.query_map([], |row| {
             let mut map = serde_json::Map::new();
             for i in 0..row.as_ref().column_count() {
-                let name = row.as_ref().column_name(i).unwrap_or("unknown");
+                let name = row.as_ref().column_name(i).unwrap_or_else(|_| "unknown");
                 let val = match row.get_ref(i)? {
                     duckdb::types::ValueRef::Null => serde_json::Value::Null,
                     duckdb::types::ValueRef::Boolean(b) => serde_json::Value::Bool(b),
@@ -44,7 +44,7 @@ impl Analytics {
                         serde_json::Value::String(String::from_utf8_lossy(s).into_owned())
                     }
                     duckdb::types::ValueRef::Blob(b) => {
-                        serde_json::Value::String(::base64::encode(b))
+                        serde_json::Value::String(::base64::engine::general_purpose::STANDARD.encode(b))
                     }
                     _ => serde_json::Value::Null,
                 };
