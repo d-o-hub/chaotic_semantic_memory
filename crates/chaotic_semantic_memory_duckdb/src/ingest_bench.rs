@@ -27,8 +27,14 @@ impl Analytics {
                         .file_stem()
                         .and_then(|s| s.to_str())
                         .unwrap_or("unknown");
-                    let name = res["query_id"].as_str().unwrap_or("unknown");
-                    let p50_us = res["latency_ms"].as_f64().unwrap_or(0.0) * 1000.0;
+                    let name = res["query_id"].as_str().ok_or_else(|| {
+                        crate::error::AnalyticsError::InvalidInput("Missing query_id".to_string())
+                    })?;
+                    let p50_us = res["latency_ms"].as_f64().ok_or_else(|| {
+                        crate::error::AnalyticsError::InvalidInput(
+                            "Missing or invalid latency_ms".to_string(),
+                        )
+                    })? * 1000.0;
                     let extras = serde_json::to_string(&res)?;
 
                     tx.execute(
