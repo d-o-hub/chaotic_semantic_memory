@@ -25,11 +25,19 @@ impl Analytics {
         }
 
         let mut stmt = self.conn.prepare(sql)?;
+        let column_count = stmt.column_count();
+        let column_names: Vec<String> = (0..column_count)
+            .map(|i| {
+                stmt.column_name(i)
+                    .unwrap_or_else(|_| format!("col_{}", i))
+                    .to_string()
+            })
+            .collect();
+
         let rows = stmt.query_map([], |row| {
             let mut map = serde_json::Map::new();
-            for i in 0..row.as_ref().column_count() {
-                let name_res = row.as_ref().column_name(i);
-                let name = name_res.as_ref().map(|s| s.as_str()).unwrap_or("unknown");
+            for i in 0..column_count {
+                let name = &column_names[i];
                 let val = match row.get_ref(i)? {
                     duckdb::types::ValueRef::Null => serde_json::Value::Null,
                     duckdb::types::ValueRef::Boolean(b) => serde_json::Value::Bool(b),
@@ -51,7 +59,7 @@ impl Analytics {
                     ),
                     _ => serde_json::Value::Null,
                 };
-                map.insert(name.to_string(), val);
+                map.insert(name.clone(), val);
             }
             Ok(serde_json::Value::Object(map))
         })?;
