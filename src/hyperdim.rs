@@ -17,7 +17,7 @@ pub use crate::hyperdim_batch::batch_cosine_similarity;
 // Import SIMD functions from extension module
 use crate::hyperdim_simd::hamming_distance_optimized;
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-use crate::hyperdim_simd::{and_simd_avx2, bind_simd_avx2};
+use crate::hyperdim_simd::{and_simd_avx2, bind_simd_avx2, bundle_block_avx2};
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
 use crate::hyperdim_simd::{and_simd_neon, bind_simd_neon};
 #[cfg(all(
@@ -119,11 +119,10 @@ impl HVec10240 {
                     return Ok(Self {
                         data: unsafe { and_simd_avx2(&vectors[0].data, &vectors[1].data) },
                     });
-                } else {
-                    return Ok(Self {
-                        data: and_simd_x86(&vectors[0].data, &vectors[1].data),
-                    });
                 }
+                return Ok(Self {
+                    data: and_simd_x86(&vectors[0].data, &vectors[1].data),
+                });
             }
 
             #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86"))]
@@ -159,66 +158,75 @@ impl HVec10240 {
                 return Ok(res);
             }
         }
+
         let threshold = num_vectors / 2 + 1;
         let num_planes = (usize::BITS - num_vectors.leading_zeros()) as usize;
         let mut data = [0u128; 80];
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+        let use_avx2 = is_x86_feature_detected!("avx2");
+        #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "x86_64")))]
+        let use_avx2 = false;
+
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         // Performance Optimization: Increased threshold (32 -> 256) for Rayon
         // parallelization to minimize task scheduling overhead on smaller vector sets.
-        // Mathematical impact: Prevents ~80us overhead on bundles where scalar cost
-        // is < 200us (N < 256).
         if num_vectors >= 256 {
-            data.par_iter_mut().enumerate().for_each(|(i, word)| {
-                let mut planes = [0u128; 64];
-                for v in vectors {
-                    let mut carry = v.data[i];
-                    for plane in planes.iter_mut().take(num_planes) {
-                        let next_carry = *plane & carry;
-                        *plane ^= carry;
-                        carry = next_carry;
-                        if carry == 0 {
-                            break;
-                        }
+            data.par_chunks_mut(2).enumerate().for_each(|(chunk_idx, chunk)| {
+                let i = chunk_idx * 2;
+                if use_avx2 {
+                    // SAFETY: AVX2 feature detected at runtime.
+                    let res = unsafe { bundle_block_avx2(vectors, threshold, num_planes, i) };
+                    chunk.copy_from_slice(&res);
+                } else {
+                    for (offset, word) in chunk.iter_mut().enumerate() {
+                        *word = Self::bundle_word_scalar(vectors, threshold, num_planes, i + offset);
                     }
                 }
-                let (mut current_eq, mut current_gt) = (!0u128, 0u128);
-                for p in (0..num_planes).rev() {
-                    if ((threshold >> p) & 1) == 1 {
-                        current_eq &= planes[p];
-                    } else {
-                        current_gt |= current_eq & planes[p];
-                        current_eq &= !planes[p];
-                    }
-                }
-                *word = current_gt | current_eq;
             });
             return Ok(Self { data });
         }
-        for i in 0..80 {
-            let mut planes = [0u128; 64];
-            for v in vectors {
-                let mut carry = v.data[i];
-                for plane in planes.iter_mut().take(num_planes) {
-                    let next_carry = *plane & carry;
-                    *plane ^= carry;
-                    carry = next_carry;
-                    if carry == 0 {
-                        break;
-                    }
-                }
+
+        if use_avx2 {
+            for i in (0..80).step_by(2) {
+                // SAFETY: AVX2 feature detected at runtime.
+                let res = unsafe { bundle_block_avx2(vectors, threshold, num_planes, i) };
+                data[i] = res[0];
+                data[i + 1] = res[1];
             }
-            let (mut current_eq, mut current_gt) = (!0u128, 0u128);
-            for p in (0..num_planes).rev() {
-                if ((threshold >> p) & 1) == 1 {
-                    current_eq &= planes[p];
-                } else {
-                    current_gt |= current_eq & planes[p];
-                    current_eq &= !planes[p];
-                }
-            }
-            data[i] = current_gt | current_eq;
+            return Ok(Self { data });
+        }
+
+        for (i, word) in data.iter_mut().enumerate() {
+            *word = Self::bundle_word_scalar(vectors, threshold, num_planes, i);
         }
         Ok(Self { data })
+    }
+
+    /// Scalar implementation of bit-sliced bundling for a single word.
+    fn bundle_word_scalar(vectors: &[Self], threshold: usize, num_planes: usize, i: usize) -> u128 {
+        let mut planes = [0u128; 64];
+        for v in vectors {
+            let mut carry = v.data[i];
+            for plane in planes.iter_mut().take(num_planes) {
+                let next_carry = *plane & carry;
+                *plane ^= carry;
+                carry = next_carry;
+                if carry == 0 {
+                    break;
+                }
+            }
+        }
+        let (mut current_eq, mut current_gt) = (!0u128, 0u128);
+        for p in (0..num_planes).rev() {
+            if ((threshold >> p) & 1) == 1 {
+                current_eq &= planes[p];
+            } else {
+                current_gt |= current_eq & planes[p];
+                current_eq &= !planes[p];
+            }
+        }
+        current_gt | current_eq
     }
 
     /// XOR binding of two hypervectors.
