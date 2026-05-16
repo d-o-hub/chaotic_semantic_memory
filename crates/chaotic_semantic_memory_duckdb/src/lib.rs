@@ -29,8 +29,8 @@ impl Analytics {
         let column_names: Vec<String> = (0..column_count)
             .map(|i| {
                 stmt.column_name(i)
+                    .map(|s| s.to_string())
                     .unwrap_or_else(|_| format!("col_{}", i))
-                    .to_string()
             })
             .collect();
 
