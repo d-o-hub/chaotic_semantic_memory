@@ -17,7 +17,7 @@ pub use crate::hyperdim_batch::batch_cosine_similarity;
 // Import SIMD functions from extension module
 use crate::hyperdim_simd::hamming_distance_optimized;
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-use crate::hyperdim_simd::{and_simd_avx2, bind_simd_avx2, bundle_block_avx2};
+use crate::hyperdim_simd::{and_simd_avx2, bind_simd_avx2};
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
 use crate::hyperdim_simd::{and_simd_neon, bind_simd_neon};
 #[cfg(all(
@@ -119,10 +119,11 @@ impl HVec10240 {
                     return Ok(Self {
                         data: unsafe { and_simd_avx2(&vectors[0].data, &vectors[1].data) },
                     });
+                } else {
+                    return Ok(Self {
+                        data: and_simd_x86(&vectors[0].data, &vectors[1].data),
+                    });
                 }
-                return Ok(Self {
-                    data: and_simd_x86(&vectors[0].data, &vectors[1].data),
-                });
             }
 
             #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86"))]
@@ -165,28 +166,30 @@ impl HVec10240 {
 
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
         let use_avx2 = is_x86_feature_detected!("avx2");
-        #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "x86_64")))]
-        let use_avx2 = false;
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         // Performance Optimization: Increased threshold (32 -> 256) for Rayon
         // parallelization to minimize task scheduling overhead on smaller vector sets.
         if num_vectors >= 256 {
-            data.par_chunks_mut(2).enumerate().for_each(|(chunk_idx, chunk)| {
-                let i = chunk_idx * 2;
-                if use_avx2 {
-                    // SAFETY: AVX2 feature detected at runtime.
-                    let res = unsafe { bundle_block_avx2(vectors, threshold, num_planes, i) };
-                    chunk.copy_from_slice(&res);
-                } else {
+            data.par_chunks_mut(2)
+                .enumerate()
+                .for_each(|(chunk_idx, chunk)| {
+                    let i = chunk_idx * 2;
+                    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+                    if use_avx2 {
+                        // SAFETY: AVX2 feature detected at runtime.
+                        let res = unsafe { bundle_block_avx2(vectors, threshold, num_planes, i) };
+                        chunk.copy_from_slice(&res);
+                        return;
+                    }
                     for (offset, word) in chunk.iter_mut().enumerate() {
                         *word = Self::bundle_word_scalar(vectors, threshold, num_planes, i + offset);
                     }
-                }
-            });
+                });
             return Ok(Self { data });
         }
 
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
         if use_avx2 {
             for i in (0..80).step_by(2) {
                 // SAFETY: AVX2 feature detected at runtime.
