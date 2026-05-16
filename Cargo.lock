@@ -847,7 +847,7 @@ name = "chaotic_semantic_memory_duckdb"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base64 0.21.7",
+ "base64 0.22.1",
  "chaotic_semantic_memory",
  "duckdb",
  "serde",

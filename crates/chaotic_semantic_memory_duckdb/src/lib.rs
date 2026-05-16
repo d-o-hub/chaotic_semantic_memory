@@ -11,6 +11,8 @@ pub use error::{AnalyticsError, Result};
 pub use ingest_export::IngestReport;
 pub use stats::{BenchmarkSummary, ConceptSummary};
 
+use base64::Engine as _;
+
 impl Analytics {
     /// Run an arbitrary read-only SELECT query.
     /// Returns data as JSON rows for cross-crate compatibility (no DuckDB/Arrow types in API).
@@ -34,17 +36,21 @@ impl Analytics {
                     duckdb::types::ValueRef::SmallInt(n) => serde_json::Value::Number(n.into()),
                     duckdb::types::ValueRef::Int(n) => serde_json::Value::Number(n.into()),
                     duckdb::types::ValueRef::BigInt(n) => serde_json::Value::Number(n.into()),
-                    duckdb::types::ValueRef::Float(n) => serde_json::Number::from_f64(n as f64)
-                        .map(serde_json::Value::Number)
-                        .unwrap_or(serde_json::Value::Null),
-                    duckdb::types::ValueRef::Double(n) => serde_json::Number::from_f64(n)
-                        .map(serde_json::Value::Number)
-                        .unwrap_or(serde_json::Value::Null),
+                    duckdb::types::ValueRef::Float(n) => {
+                        serde_json::Number::from_f64(n as f64)
+                            .map(serde_json::Value::Number)
+                            .unwrap_or(serde_json::Value::Null)
+                    }
+                    duckdb::types::ValueRef::Double(n) => {
+                        serde_json::Number::from_f64(n)
+                            .map(serde_json::Value::Number)
+                            .unwrap_or(serde_json::Value::Null)
+                    }
                     duckdb::types::ValueRef::Text(s) => {
                         serde_json::Value::String(String::from_utf8_lossy(s).into_owned())
                     }
                     duckdb::types::ValueRef::Blob(b) => {
-                        serde_json::Value::String(::base64::engine::general_purpose::STANDARD.encode(b))
+                        serde_json::Value::String(base64::engine::general_purpose::STANDARD.encode(b))
                     }
                     _ => serde_json::Value::Null,
                 };
