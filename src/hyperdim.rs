@@ -158,60 +158,64 @@ impl HVec10240 {
                 return Ok(res);
             }
         }
-
         let threshold = num_vectors / 2 + 1;
         let num_planes = (usize::BITS - num_vectors.leading_zeros()) as usize;
         let mut data = [0u128; 80];
-
-        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-        let use_avx2 = is_x86_feature_detected!("avx2");
-
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         // Performance Optimization: Increased threshold (32 -> 256) for Rayon
         // parallelization to minimize task scheduling overhead on smaller vector sets.
+        // Mathematical impact: Prevents ~80us overhead on bundles where scalar cost
+        // is < 200us (N < 256).
         if num_vectors >= 256 {
-            data.par_chunks_mut(2)
-                .enumerate()
-                .for_each(|(chunk_idx, chunk)| {
-                    let i = chunk_idx * 2;
-                    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-                    if use_avx2 {
-                        // SAFETY: AVX2 feature detected at runtime.
-                        let res = unsafe {
-                            crate::hyperdim_simd::bundle_block_avx2(
-                                vectors, threshold, num_planes, i,
-                            )
-                        };
-                        chunk.copy_from_slice(&res);
-                        return;
+            data.par_iter_mut().enumerate().for_each(|(i, word)| {
+                let mut planes = [0u128; 64];
+                for v in vectors {
+                    let mut carry = v.data[i];
+                    for plane in planes.iter_mut().take(num_planes) {
+                        let next_carry = *plane & carry;
+                        *plane ^= carry;
+                        carry = next_carry;
+                        if carry == 0 {
+                            break;
+                        }
                     }
-                    for (offset, word) in chunk.iter_mut().enumerate() {
-                        *word = crate::hyperdim_simd::bundle_word_scalar(
-                            vectors,
-                            threshold,
-                            num_planes,
-                            i + offset,
-                        );
+                }
+                let (mut current_eq, mut current_gt) = (!0u128, 0u128);
+                for p in (0..num_planes).rev() {
+                    if ((threshold >> p) & 1) == 1 {
+                        current_eq &= planes[p];
+                    } else {
+                        current_gt |= current_eq & planes[p];
+                        current_eq &= !planes[p];
                     }
-                });
+                }
+                *word = current_gt | current_eq;
+            });
             return Ok(Self { data });
         }
-
-        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-        if use_avx2 {
-            for i in (0..80).step_by(2) {
-                // SAFETY: AVX2 feature detected at runtime.
-                let res = unsafe {
-                    crate::hyperdim_simd::bundle_block_avx2(vectors, threshold, num_planes, i)
-                };
-                data[i] = res[0];
-                data[i + 1] = res[1];
+        for i in 0..80 {
+            let mut planes = [0u128; 64];
+            for v in vectors {
+                let mut carry = v.data[i];
+                for plane in planes.iter_mut().take(num_planes) {
+                    let next_carry = *plane & carry;
+                    *plane ^= carry;
+                    carry = next_carry;
+                    if carry == 0 {
+                        break;
+                    }
+                }
             }
-            return Ok(Self { data });
-        }
-
-        for (i, word) in data.iter_mut().enumerate() {
-            *word = crate::hyperdim_simd::bundle_word_scalar(vectors, threshold, num_planes, i);
+            let (mut current_eq, mut current_gt) = (!0u128, 0u128);
+            for p in (0..num_planes).rev() {
+                if ((threshold >> p) & 1) == 1 {
+                    current_eq &= planes[p];
+                } else {
+                    current_gt |= current_eq & planes[p];
+                    current_eq &= !planes[p];
+                }
+            }
+            data[i] = current_gt | current_eq;
         }
         Ok(Self { data })
     }
