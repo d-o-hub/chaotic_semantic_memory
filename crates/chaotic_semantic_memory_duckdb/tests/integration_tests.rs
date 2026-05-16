@@ -1,4 +1,4 @@
-use chaotic_semantic_memory_duckdb::{Analytics, AnalyticsError, IngestReport};
+use chaotic_semantic_memory_duckdb::{Analytics, AnalyticsError};
 use std::path::PathBuf;
 
 fn get_fixture(name: &str) -> PathBuf {
