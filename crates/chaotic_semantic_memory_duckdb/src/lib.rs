@@ -28,7 +28,8 @@ impl Analytics {
         let rows = stmt.query_map([], |row| {
             let mut map = serde_json::Map::new();
             for i in 0..row.as_ref().column_count() {
-                let name = row.as_ref().column_name(i).unwrap_or_else(|_| "unknown");
+                let name_res = row.as_ref().column_name(i);
+                let name = name_res.as_ref().map(|s| s.as_str()).unwrap_or("unknown");
                 let val = match row.get_ref(i)? {
                     duckdb::types::ValueRef::Null => serde_json::Value::Null,
                     duckdb::types::ValueRef::Boolean(b) => serde_json::Value::Bool(b),
