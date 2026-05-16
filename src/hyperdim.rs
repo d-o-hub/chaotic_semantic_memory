@@ -178,12 +178,17 @@ impl HVec10240 {
                     #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
                     if use_avx2 {
                         // SAFETY: AVX2 feature detected at runtime.
-                        let res = unsafe { bundle_block_avx2(vectors, threshold, num_planes, i) };
+                        let res = unsafe {
+                            crate::hyperdim_simd::bundle_block_avx2(
+                                vectors, threshold, num_planes, i,
+                            )
+                        };
                         chunk.copy_from_slice(&res);
                         return;
                     }
                     for (offset, word) in chunk.iter_mut().enumerate() {
-                        *word = Self::bundle_word_scalar(vectors, threshold, num_planes, i + offset);
+                        *word =
+                            Self::bundle_word_scalar(vectors, threshold, num_planes, i + offset);
                     }
                 });
             return Ok(Self { data });
@@ -193,7 +198,9 @@ impl HVec10240 {
         if use_avx2 {
             for i in (0..80).step_by(2) {
                 // SAFETY: AVX2 feature detected at runtime.
-                let res = unsafe { bundle_block_avx2(vectors, threshold, num_planes, i) };
+                let res = unsafe {
+                    crate::hyperdim_simd::bundle_block_avx2(vectors, threshold, num_planes, i)
+                };
                 data[i] = res[0];
                 data[i + 1] = res[1];
             }
