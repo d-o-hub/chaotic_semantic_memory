@@ -82,17 +82,19 @@ pub(crate) unsafe fn hamming_distance_simd_neon(lhs: &[u128; 80], rhs: &[u128; 8
     use std::arch::aarch64::{
         vaddq_u32, vaddvq_u32, vcntq_u8, vdupq_n_u32, veorq_u8, vld1q_u8, vpaddlq_u8, vpaddlq_u16,
     };
-    let mut total = vdupq_n_u32(0);
+    let mut total = unsafe { vdupq_n_u32(0) };
     for i in 0..80 {
-        let a = vld1q_u8(lhs.as_ptr().add(i).cast());
-        let b = vld1q_u8(rhs.as_ptr().add(i).cast());
-        let x = veorq_u8(a, b);
-        let pop = vcntq_u8(x);
-        let sum = vpaddlq_u8(pop);
-        let sum2 = vpaddlq_u16(sum);
-        total = vaddq_u32(total, sum2);
+        unsafe {
+            let a = vld1q_u8(lhs.as_ptr().add(i).cast());
+            let b = vld1q_u8(rhs.as_ptr().add(i).cast());
+            let x = veorq_u8(a, b);
+            let pop = vcntq_u8(x);
+            let sum = vpaddlq_u8(pop);
+            let sum2 = vpaddlq_u16(sum);
+            total = vaddq_u32(total, sum2);
+        }
     }
-    vaddvq_u32(total)
+    unsafe { vaddvq_u32(total) }
 }
 
 /// SSE-optimized bind (128-bit XOR).
