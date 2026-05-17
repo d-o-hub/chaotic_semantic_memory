@@ -21,6 +21,7 @@ tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 tokio = "1.43.0"
 anyhow = "1.0.102"
+sha2 = "0.10.9"
 rand = "0.10.1"
 rand_chacha = "0.10.0"
 uuid = { version = "1.23.1", features = ["v4", "serde"] }

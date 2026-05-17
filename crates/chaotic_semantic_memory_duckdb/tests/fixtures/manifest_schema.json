@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generator",
+    "core_crate_version",
+    "run_id",
+    "exported_at",
+    "files",
+    "options"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer" },
+    "generator": { "type": "string" },
+    "core_crate_version": { "type": "string" },
+    "run_id": { "type": "string" },
+    "exported_at": { "type": "string" },
+    "files": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["rows", "bytes", "sha256"],
+        "properties": {
+          "rows": { "type": "integer" },
+          "bytes": { "type": "integer" },
+          "sha256": { "type": "string" }
+        }
+      }
+    },
+    "options": {
+      "type": "object",
+      "required": ["compression", "row_group_size", "partition_by", "include_manifest"],
+      "properties": {
+        "compression": { "enum": ["Zstd", "Snappy", "None"] },
+        "row_group_size": { "type": "integer" },
+        "partition_by": { "type": ["string", "null"] },
+        "include_manifest": { "type": "boolean" }
+      }
+    }
+  }
+}
