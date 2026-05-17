@@ -118,6 +118,12 @@ impl Analytics {
         ];
 
         if let Some(ref part) = opts.partition_by {
+            // Basic validation to prevent SQL injection in PARTITION_BY clause
+            if !part.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                return Err(crate::error::AnalyticsError::InvalidInput(
+                    "Invalid partition_by column name".to_string(),
+                ));
+            }
             copy_opts.push(format!("PARTITION_BY ({})", part));
         }
 
