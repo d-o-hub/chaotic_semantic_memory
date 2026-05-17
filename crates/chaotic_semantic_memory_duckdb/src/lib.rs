@@ -75,3 +75,49 @@ impl Analytics {
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::schema::SCHEMA_DDL;
+    use duckdb::Connection;
+
+    #[test]
+    fn test_query_validation() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA_DDL).unwrap();
+        let analytics = Analytics { conn };
+
+        assert!(analytics.query("SELECT 1").is_ok());
+        assert!(
+            analytics
+                .query("WITH t AS (SELECT 1) SELECT * FROM t")
+                .is_ok()
+        );
+        assert!(analytics.query("DROP TABLE concepts").is_err());
+        assert!(
+            analytics
+                .query("INSERT INTO concepts DEFAULT VALUES")
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn test_query_result_mapping() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA_DDL).unwrap();
+        conn.execute(
+            "INSERT INTO concepts (id, namespace) VALUES ('c1', 'ns1')",
+            [],
+        )
+        .unwrap();
+        let analytics = Analytics { conn };
+
+        let rows = analytics
+            .query("SELECT id, namespace FROM concepts")
+            .unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], "c1");
+        assert_eq!(rows[0]["namespace"], "ns1");
+    }
+}

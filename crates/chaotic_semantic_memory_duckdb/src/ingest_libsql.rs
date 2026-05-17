@@ -55,3 +55,20 @@ impl Analytics {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::schema::SCHEMA_DDL;
+    use duckdb::Connection;
+
+    #[test]
+    fn test_attach_libsql_missing() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA_DDL).unwrap();
+        let mut analytics = Analytics { conn };
+
+        let res = analytics.attach_libsql("nonexistent.db");
+        assert!(res.is_err());
+    }
+}
