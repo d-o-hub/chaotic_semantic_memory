@@ -50,7 +50,7 @@ top_connected = (
 print(top_connected)
 ```
 
-## Usage
+## Installation
 
 Add this to your `Cargo.toml`:
 

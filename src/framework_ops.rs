@@ -380,7 +380,8 @@ impl ChaoticSemanticFramework {
         self.emit_event(MemoryEvent::ConceptUpdated {
             id: id.to_string(),
             timestamp: unix_now_secs(),
-        });
+        })
+        .await;
         Ok(())
     }
 
@@ -405,7 +406,8 @@ impl ChaoticSemanticFramework {
         self.emit_event(MemoryEvent::ConceptUpdated {
             id: id.to_string(),
             timestamp: unix_now_secs(),
-        });
+        })
+        .await;
         Ok(())
     }
 
@@ -425,7 +427,8 @@ impl ChaoticSemanticFramework {
         self.emit_event(MemoryEvent::Disassociated {
             from: from.to_string(),
             to: to.to_string(),
-        });
+        })
+        .await;
         Ok(())
     }
 

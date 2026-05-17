@@ -36,13 +36,11 @@ mod tests {
 
         // Re-ingest into a fresh DuckDB
         let analytics2 = Analytics::open_in_memory().unwrap();
+        let safe_path = report.path.to_string_lossy().replace("'", "''");
         analytics2
             .conn
             .execute(
-                &format!(
-                    "COPY concepts FROM '{}' (FORMAT PARQUET)",
-                    report.path.to_string_lossy()
-                ),
+                &format!("COPY concepts FROM '{}' (FORMAT PARQUET)", safe_path),
                 [],
             )
             .unwrap();
@@ -209,7 +207,7 @@ mod tests {
     #[test]
     fn test_manifest_determinism() {
         let analytics = Analytics::open_in_memory().unwrap();
-        let mut reports = std::collections::HashMap::new();
+        let mut reports = std::collections::BTreeMap::new();
         reports.insert(
             "test.parquet".to_string(),
             chaotic_semantic_memory_duckdb::ExportReport {

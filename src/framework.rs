@@ -82,7 +82,8 @@ impl ChaoticSemanticFramework {
         self.emit_event(MemoryEvent::ConceptInjected {
             id: id.clone(),
             timestamp: concept.modified_at,
-        });
+        })
+        .await;
 
         self.emit_chaotic_event(ChaoticEvent::BindingCreated {
             key: id,
@@ -135,7 +136,8 @@ impl ChaoticSemanticFramework {
         self.emit_event(MemoryEvent::ConceptInjected {
             id: concept.id.clone(),
             timestamp: concept.modified_at,
-        });
+        })
+        .await;
 
         self.emit_chaotic_event(ChaoticEvent::BindingCreated {
             key: concept.id.clone(),
@@ -359,7 +361,8 @@ impl ChaoticSemanticFramework {
             from: from.to_string(),
             to: to.to_string(),
             strength,
-        });
+        })
+        .await;
 
         Ok(())
     }
@@ -382,7 +385,8 @@ impl ChaoticSemanticFramework {
         self.emit_event(MemoryEvent::ConceptDeleted {
             id: id.to_string(),
             timestamp: unix_now_secs(),
-        });
+        })
+        .await;
 
         Ok(())
     }
