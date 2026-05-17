@@ -43,7 +43,8 @@ impl crate::framework::ChaoticSemanticFramework {
         self.emit_event(MemoryEvent::ConceptInjected {
             id,
             timestamp: concept.modified_at,
-        });
+        })
+        .await;
 
         Ok(())
     }

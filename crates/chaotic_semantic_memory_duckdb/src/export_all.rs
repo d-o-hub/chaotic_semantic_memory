@@ -1,7 +1,7 @@
 use crate::connection::Analytics;
 use crate::error::Result;
-use crate::export_parquet::{BundleReport, ExportReport, ParquetExportOptions};
-use std::collections::HashMap;
+use crate::export_parquet::{BundleReport, ParquetExportOptions};
+use std::collections::BTreeMap;
 use std::path::Path;
 
 impl Analytics {
@@ -12,6 +12,11 @@ impl Analytics {
         opts: &ParquetExportOptions,
     ) -> Result<BundleReport> {
         let out_dir = out_dir.as_ref();
+        if out_dir.exists() && !out_dir.is_dir() {
+            return Err(crate::error::AnalyticsError::InvalidInput(
+                "Output path exists and is not a directory".to_string(),
+            ));
+        }
         if !out_dir.exists() {
             std::fs::create_dir_all(out_dir)?;
         }
@@ -24,7 +29,7 @@ impl Analytics {
             self.export_benchmarks_parquet(out_dir.join("benchmarks.parquet"), opts)?;
 
         let manifest_path = if opts.include_manifest {
-            let mut reports = HashMap::new();
+            let mut reports = BTreeMap::new();
             // We use the file name as the key in the manifest
             reports.insert("concepts.parquet".to_string(), concepts.clone());
             reports.insert("associations.parquet".to_string(), associations.clone());

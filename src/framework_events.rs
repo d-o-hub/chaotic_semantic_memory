@@ -3,6 +3,7 @@
 // Casts are intentional for event timestamp math
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
+use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 
 #[cfg(target_arch = "wasm32")]
@@ -18,7 +19,7 @@ use std::collections::HashMap;
 
 const DEFAULT_EVENT_CHANNEL_CAPACITY: usize = 1024;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MemoryEvent {
     ConceptInjected {
         id: String,
@@ -49,8 +50,17 @@ impl ChaoticSemanticFramework {
         self.event_sender.subscribe()
     }
 
-    pub(crate) fn emit_event(&self, event: MemoryEvent) {
-        let _ = self.event_sender.send(event);
+    pub(crate) async fn emit_event(&self, event: MemoryEvent) {
+        let _ = self.event_sender.send(event.clone());
+
+        #[cfg(feature = "cloudevents")]
+        {
+            let source = format!("chaotic-semantic-memory://{}", *self.namespace.read().await);
+            let ce = event.to_cloud_event(&source);
+            for emitter in &self.emitters {
+                let _ = emitter.emit(ce.clone()).await;
+            }
+        }
     }
 
     /// Emit a CloudEvent if the feature is enabled.
@@ -74,7 +84,8 @@ impl ChaoticSemanticFramework {
         self.emit_event(MemoryEvent::ConceptUpdated {
             id: id.to_string(),
             timestamp: unix_now_secs(),
-        });
+        })
+        .await;
         Ok(())
     }
 
@@ -93,7 +104,8 @@ impl ChaoticSemanticFramework {
         self.emit_event(MemoryEvent::ConceptUpdated {
             id: id.to_string(),
             timestamp: unix_now_secs(),
-        });
+        })
+        .await;
         Ok(())
     }
 
@@ -105,7 +117,8 @@ impl ChaoticSemanticFramework {
         self.emit_event(MemoryEvent::Disassociated {
             from: from.to_string(),
             to: to.to_string(),
-        });
+        })
+        .await;
         Ok(())
     }
 }

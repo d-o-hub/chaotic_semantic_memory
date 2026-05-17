@@ -10,7 +10,7 @@
 **Dependencies:**
 - anyhow
 - async-trait (0.1.83)
-- base64 (0.22)
+- base64
 - bincode (1.3.3)
 - clap (4.5.60) [features: derive, env, string]
 - clap_complete (4.5.42)
@@ -378,6 +378,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub enum StorageTarget
 - pub enum ChaoticEvent
 - impl ChaoticEvent
+- impl MemoryEvent
 - pub trait EventEmitter
 - pub struct NullEmitter
 - impl EventEmitter for NullEmitter
@@ -2951,7 +2952,7 @@ impl FrameworkBuilder {
 ### MemoryEvent
 
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MemoryEvent {
     ConceptInjected { id: String, timestamp: u64 },
     ConceptUpdated { id: String, timestamp: u64 },
@@ -3075,6 +3076,14 @@ impl EventEmitter for NullEmitter {
 ```rust
 impl HttpEmitter {
     pub fn new(url: String) -> Self;
+}
+```
+
+### impl MemoryEvent
+
+```rust
+impl MemoryEvent {
+    pub fn to_cloud_event(&self, source: &str) -> Event;
 }
 ```
 
@@ -3324,6 +3333,8 @@ impl<'de> Visitor<'de> for HVecVisitor {
 ```
 
 ## src/hyperdim_simd.rs
+
+## src/hyperdim_tests.rs
 
 ## src/index/brute_force.rs
 

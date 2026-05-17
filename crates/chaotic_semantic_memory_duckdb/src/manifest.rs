@@ -2,7 +2,7 @@ use crate::connection::Analytics;
 use crate::error::Result;
 use crate::export_parquet::{ExportReport, ParquetExportOptions};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileInfo {
@@ -18,17 +18,17 @@ pub struct ExportManifest {
     pub core_crate_version: String,
     pub run_id: String,
     pub exported_at: String,
-    pub files: HashMap<String, FileInfo>,
+    pub files: BTreeMap<String, FileInfo>,
     pub options: ParquetExportOptions,
 }
 
 impl Analytics {
     pub fn create_manifest(
         &self,
-        reports: HashMap<String, ExportReport>,
+        reports: BTreeMap<String, ExportReport>,
         opts: ParquetExportOptions,
     ) -> Result<ExportManifest> {
-        let mut files = HashMap::new();
+        let mut files = BTreeMap::new();
         for (name, report) in reports {
             files.insert(
                 name,
@@ -40,11 +40,11 @@ impl Analytics {
             );
         }
 
-        let exported_at: String =
-            self.conn
-                .query_row("SELECT strftime(now(), '%Y-%m-%dT%H:%M:%SZ')", [], |row| {
-                    row.get(0)
-                })?;
+        let exported_at: String = self.conn.query_row(
+            "SELECT strftime(now()::TIMESTAMP, '%Y-%m-%dT%H:%M:%SZ')",
+            [],
+            |row| row.get(0),
+        )?;
 
         Ok(ExportManifest {
             schema_version: 1,

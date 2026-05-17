@@ -134,7 +134,13 @@ impl Analytics {
             let mut validated_parts = Vec::new();
             for p in part_trimmed.split(',') {
                 let p = p.trim();
-                if p.is_empty() || !p.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                let is_valid = !p.is_empty()
+                    && p.chars()
+                        .next()
+                        .map_or(false, |c| c.is_ascii_alphabetic() || c == '_')
+                    && p.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+
+                if !is_valid {
                     return Err(crate::error::AnalyticsError::InvalidInput(
                         "Invalid partition_by identifier".to_string(),
                     ));

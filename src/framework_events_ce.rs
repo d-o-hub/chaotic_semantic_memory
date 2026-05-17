@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 #[cfg(feature = "cloudevents")]
+use crate::framework_events::MemoryEvent;
+#[cfg(feature = "cloudevents")]
 use cloudevents::{AttributesReader, Event, EventBuilder, EventBuilderV10};
 #[cfg(feature = "cloudevents")]
 use uuid::Uuid;
@@ -78,7 +80,7 @@ impl ChaoticEvent {
                 basin_energy,
                 reservoir_dim,
             } => (
-                "dev.d-o-hub.chaotic.attractor.fired",
+                "io.d-o-hub.csm.attractor.fired",
                 serde_json::json!({
                     "attractor_id": attractor_id,
                     "basin_energy": basin_energy,
@@ -90,7 +92,7 @@ impl ChaoticEvent {
                 matched_key,
                 similarity,
             } => (
-                "dev.d-o-hub.chaotic.pattern.recognized",
+                "io.d-o-hub.csm.pattern.recognized",
                 serde_json::json!({
                     "query_vector": query_vector,
                     "matched_key": matched_key,
@@ -101,7 +103,7 @@ impl ChaoticEvent {
                 episode_count,
                 duration_ms,
             } => (
-                "dev.d-o-hub.chaotic.memory.consolidated",
+                "io.d-o-hub.csm.memory.consolidated",
                 serde_json::json!({
                     "episode_count": episode_count,
                     "duration_ms": duration_ms,
@@ -111,14 +113,14 @@ impl ChaoticEvent {
                 input_dim,
                 state_norm,
             } => (
-                "dev.d-o-hub.chaotic.echo.computed",
+                "io.d-o-hub.csm.echo.computed",
                 serde_json::json!({
                     "input_dim": input_dim,
                     "state_norm": state_norm,
                 }),
             ),
             Self::BindingCreated { key, dim, target } => (
-                "dev.d-o-hub.chaotic.binding.created",
+                "io.d-o-hub.csm.binding.created",
                 serde_json::json!({
                     "key": key,
                     "dim": dim,
@@ -134,6 +136,54 @@ impl ChaoticEvent {
             .data("application/json", data)
             .build()
             .expect("valid CloudEvent")
+    }
+}
+
+#[cfg(feature = "cloudevents")]
+impl MemoryEvent {
+    /// Map this memory event to a CloudEvent.
+    pub fn to_cloud_event(&self, source: &str) -> Event {
+        let (variant, subject, data) = match self {
+            Self::ConceptInjected { id, .. } => (
+                "injected",
+                Some(id.clone()),
+                serde_json::to_value(self).unwrap_or_default(),
+            ),
+            Self::ConceptUpdated { id, .. } => (
+                "updated",
+                Some(id.clone()),
+                serde_json::to_value(self).unwrap_or_default(),
+            ),
+            Self::ConceptDeleted { id, .. } => (
+                "deleted",
+                Some(id.clone()),
+                serde_json::to_value(self).unwrap_or_default(),
+            ),
+            Self::Associated { from, .. } => (
+                "associated",
+                Some(from.clone()),
+                serde_json::to_value(self).unwrap_or_default(),
+            ),
+            Self::Disassociated { from, .. } => (
+                "disassociated",
+                Some(from.clone()),
+                serde_json::to_value(self).unwrap_or_default(),
+            ),
+        };
+
+        let ce_type = format!("io.d-o-hub.csm.memory.{}", variant);
+
+        let mut builder = EventBuilderV10::new()
+            .id(Uuid::new_v4().to_string())
+            .source(source)
+            .ty(ce_type)
+            .data("application/json", data);
+
+        if let Some(sub) = subject {
+            builder = builder.subject(sub);
+        }
+
+        builder.build().expect("valid CloudEvent")
     }
 }
 
