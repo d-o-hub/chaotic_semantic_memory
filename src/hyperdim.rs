@@ -17,9 +17,9 @@ pub use crate::hyperdim_batch::batch_cosine_similarity;
 // Import SIMD functions from extension module
 use crate::hyperdim_simd::hamming_distance_optimized;
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-use crate::hyperdim_simd::{and_simd_avx2, bind_simd_avx2};
+use crate::hyperdim_simd::{and_simd_avx2, bind_simd_avx2, hamming_distance_simd_avx2};
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-use crate::hyperdim_simd::{and_simd_neon, bind_simd_neon};
+use crate::hyperdim_simd::{and_simd_neon, bind_simd_neon, hamming_distance_simd_neon};
 #[cfg(all(
     not(target_arch = "wasm32"),
     any(target_arch = "x86_64", target_arch = "x86")
@@ -218,11 +218,6 @@ impl HVec10240 {
     }
 
     /// XOR binding of two hypervectors.
-    ///
-    /// Dispatches to optimized SIMD paths based on platform:
-    /// - x86_64: AVX2 (runtime detection) or SSE fallback
-    /// - aarch64: NEON
-    /// - Other: scalar XOR
     pub fn bind(&self, other: &Self) -> Self {
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
         {
@@ -281,11 +276,9 @@ impl HVec10240 {
     /// Cosine similarity between two hypervectors.
     ///
     /// Calculated as `1.0 - (HammingDistance / 5120.0)` for 10240-bit vectors.
-    /// This implementation is unified across all platforms and uses an unrolled
-    /// GPR popcount loop for maximum performance.
     #[must_use]
     pub fn cosine_similarity(&self, other: &Self) -> f32 {
-        let distance = hamming_distance_optimized(&self.data, &other.data);
+        let distance = self.hamming_distance(other);
         // Similarity = (Matches - Mismatches) / Dimension
         // Similarity = (Dimension - 2 * HammingDistance) / Dimension
         // Similarity = 1.0 - (2.0 * HammingDistance / 10240.0) = 1.0 - (HammingDistance / 5120.0)
@@ -293,8 +286,27 @@ impl HVec10240 {
     }
 
     /// Hamming distance
+    ///
+    /// Dispatches to optimized SIMD paths based on platform:
+    /// - x86_64: AVX2 (runtime detection) or unrolled scalar GPR popcount fallback
+    /// - aarch64: NEON
+    /// - Other: unrolled scalar GPR popcount
     #[must_use]
     pub fn hamming_distance(&self, other: &Self) -> u32 {
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+        {
+            if is_x86_feature_detected!("avx2") {
+                // SAFETY: AVX2 feature detected at runtime.
+                return unsafe { hamming_distance_simd_avx2(&self.data, &other.data) };
+            }
+        }
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+        {
+            // SAFETY: aarch64 always has NEON.
+            return unsafe { hamming_distance_simd_neon(&self.data, &other.data) };
+        }
+
         hamming_distance_optimized(&self.data, &other.data)
     }
 
