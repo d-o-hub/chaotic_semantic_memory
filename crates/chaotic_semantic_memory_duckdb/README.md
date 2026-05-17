@@ -14,11 +14,41 @@ let batch = analytics.query("SELECT count(*) FROM concepts")?;
 println!("Concepts: {:?}", batch);
 ```
 
-## Planned Features
+## Features
 
-- **Planned:** **DuckDB Integration**: Run SQL queries over your semantic memory.
-- **Planned:** **Parquet Export**: Export concepts and associations to Apache Parquet for external OLAP processing.
-- **Planned:** **Analytic Views**: Pre-defined SQL views for centrality, connectivity, and pattern analysis.
+- **DuckDB Integration**: Run SQL queries over your semantic memory.
+- **Parquet Export**: Export concepts and associations to Apache Parquet for external OLAP processing (Polars, Spark, BI).
+- **Analytic Views**: Pre-defined SQL views for centrality, connectivity, and pattern analysis.
+
+### Parquet Export Example (Polars + Python)
+
+Once you've exported your memory to Parquet:
+
+```rust
+let opts = ParquetExportOptions::default();
+analytics.export_all_parquet("./export_dir", &opts)?;
+```
+
+You can read it in Python using Polars:
+
+```python
+import polars as pl
+
+# Read concepts and join with associations
+concepts = pl.read_parquet("export_dir/concepts.parquet")
+associations = pl.read_parquet("export_dir/associations.parquet")
+
+# Example: find top-10 most connected concepts
+top_connected = (
+    associations
+    .group_by("src_id")
+    .count()
+    .sort("count", descending=True)
+    .limit(10)
+    .join(concepts, left_on="src_id", right_on="id")
+)
+print(top_connected)
+```
 
 ## Usage
 

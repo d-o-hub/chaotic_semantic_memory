@@ -6,10 +6,24 @@ pub mod ingest_libsql;
 pub mod schema;
 pub mod stats;
 
+#[cfg(feature = "parquet")]
+pub mod export_parquet;
+#[cfg(feature = "parquet")]
+pub mod manifest;
+#[cfg(feature = "parquet")]
+mod export_all;
+
 pub use connection::Analytics;
 pub use error::{AnalyticsError, Result};
 pub use ingest_export::IngestReport;
 pub use stats::{BenchmarkSummary, ConceptSummary};
+
+#[cfg(feature = "parquet")]
+pub use export_parquet::{
+    BundleReport, ExportReport, ParquetCompression, ParquetExportOptions,
+};
+#[cfg(feature = "parquet")]
+pub use manifest::{ExportManifest, FileInfo};
 
 use base64::Engine as _;
 
