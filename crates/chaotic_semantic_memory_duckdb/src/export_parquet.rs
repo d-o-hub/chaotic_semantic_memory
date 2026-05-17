@@ -109,22 +109,40 @@ impl Analytics {
         opts: &ParquetExportOptions,
     ) -> Result<ExportReport> {
         let out_path = out_path.as_ref();
-        let out_path_str = out_path.to_string_lossy().replace("'", "''");
+        let out_path_str = out_path
+            .to_str()
+            .ok_or_else(|| {
+                crate::error::AnalyticsError::InvalidInput("Path must be valid UTF-8".to_string())
+            })?
+            .replace("'", "''");
 
         let mut copy_opts = vec![
-            format!("FORMAT PARQUET"),
+            "FORMAT PARQUET".to_string(),
             format!("COMPRESSION {}", opts.compression),
             format!("ROW_GROUP_SIZE {}", opts.row_group_size),
         ];
 
         if let Some(ref part) = opts.partition_by {
-            // Basic validation to prevent SQL injection in PARTITION_BY clause
-            if !part.chars().all(|c| c.is_alphanumeric() || c == '_') {
+            let part_trimmed = part.trim();
+            if part_trimmed.is_empty() {
                 return Err(crate::error::AnalyticsError::InvalidInput(
-                    "Invalid partition_by column name".to_string(),
+                    "partition_by cannot be empty".to_string(),
                 ));
             }
-            copy_opts.push(format!("PARTITION_BY ({})", part));
+
+            // Support comma-separated identifiers
+            let mut validated_parts = Vec::new();
+            for p in part_trimmed.split(',') {
+                let p = p.trim();
+                if p.is_empty() || !p.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                    return Err(crate::error::AnalyticsError::InvalidInput(
+                        "Invalid partition_by identifier".to_string(),
+                    ));
+                }
+                validated_parts.push(p);
+            }
+
+            copy_opts.push(format!("PARTITION_BY ({})", validated_parts.join(", ")));
         }
 
         let sql = format!(
