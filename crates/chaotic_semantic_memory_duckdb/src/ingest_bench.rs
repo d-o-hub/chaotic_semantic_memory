@@ -76,4 +76,21 @@ mod tests {
         let report = analytics.load_benchmarks_dir(dir.path()).unwrap();
         assert_eq!(report.benchmarks_loaded, 1);
     }
+
+    #[test]
+    fn test_load_benchmarks_invalid() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA_DDL).unwrap();
+        let mut analytics = Analytics { conn };
+
+        let dir = ::tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("invalid.jsonl");
+        let mut file = std::fs::File::create(file_path).unwrap();
+        // Missing latency_ms
+        writeln!(file, r#"{"query_id": "b1"}"#).unwrap();
+
+        let res = analytics.load_benchmarks_dir(dir.path());
+        assert!(res.is_err());
+        assert!(format!("{:?}", res).contains("Missing or invalid latency_ms"));
+    }
 }
