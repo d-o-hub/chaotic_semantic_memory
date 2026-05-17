@@ -1,6 +1,6 @@
 use crate::Analytics;
-use crate::error::Result;
 use crate::cli::ExportArgs;
+use crate::error::Result;
 
 pub async fn run(analytics: &Analytics, args: ExportArgs) -> Result<()> {
     #[cfg(not(feature = "parquet"))]

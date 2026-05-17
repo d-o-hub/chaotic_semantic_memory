@@ -23,6 +23,9 @@ pub use export_parquet::{BundleReport, ExportReport, ParquetCompression, Parquet
 #[cfg(feature = "parquet")]
 pub use manifest::{ExportManifest, FileInfo};
 
+#[cfg(feature = "cli")]
+pub mod cli;
+
 use base64::Engine as _;
 
 impl Analytics {

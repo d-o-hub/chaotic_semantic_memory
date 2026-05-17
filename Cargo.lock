@@ -811,6 +811,7 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "bincode",
+ "chaotic_semantic_memory_duckdb",
  "clap",
  "clap_complete",
  "cloudevents-sdk",
@@ -848,7 +849,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
- "chaotic_semantic_memory",
  "clap",
  "duckdb",
  "insta",

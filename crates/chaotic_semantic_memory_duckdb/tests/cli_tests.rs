@@ -1,0 +1,70 @@
+use crate::schema::SCHEMA_DDL;
+use duckdb::Connection;
+use std::io::Write;
+use tempfile::NamedTempFile;
+
+#[test]
+fn test_help_snapshots() {
+    use clap::CommandFactory;
+
+    #[derive(clap::Parser)]
+    #[command(name = "csm-analytics")]
+    struct Cli {
+        #[command(subcommand)]
+        command: crate::cli::AnalyticsCommand,
+    }
+
+    let mut cmd = Cli::command();
+    let help = cmd.render_help().to_string();
+    insta::assert_snapshot!(help);
+}
+
+#[tokio::test]
+async fn test_stats_command() {
+    let mut temp = NamedTempFile::new().unwrap();
+    let conn = Connection::open(temp.path()).unwrap();
+    conn.execute_batch(SCHEMA_DDL).unwrap();
+    drop(conn);
+
+    let analytics = crate::Analytics::open(temp.path()).unwrap();
+    // Just verify it doesn't crash and returns OK
+    crate::cli::stats::run(&analytics, "table").await.unwrap();
+    crate::cli::stats::run(&analytics, "json").await.unwrap();
+}
+
+#[tokio::test]
+async fn test_query_command() {
+    let mut temp = NamedTempFile::new().unwrap();
+    let conn = Connection::open(temp.path()).unwrap();
+    conn.execute_batch(SCHEMA_DDL).unwrap();
+    conn.execute(
+        "INSERT INTO concepts (id, namespace) VALUES ('c1', 'ns1')",
+        [],
+    )
+    .unwrap();
+    drop(conn);
+
+    let analytics = crate::Analytics::open(temp.path()).unwrap();
+    crate::cli::query::run(&analytics, "SELECT * FROM concepts", "table")
+        .await
+        .unwrap();
+    crate::cli::query::run(&analytics, "SELECT * FROM concepts", "json")
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn test_export_json_input() {
+    let mut temp = NamedTempFile::new().unwrap();
+    temp.as_file_mut()
+        .write_all(br#"{"concepts": [{"id": "t1", "metadata": {}}], "associations": []}"#)
+        .unwrap();
+
+    // Test open_analytics helper implicitly via run_analytics
+    let cmd = crate::cli::AnalyticsCommand::Stats(crate::cli::StatsArgs {
+        input: temp.path().to_path_buf(),
+        format: "json".to_string(),
+    });
+
+    crate::cli::run_analytics(cmd).await.unwrap();
+}

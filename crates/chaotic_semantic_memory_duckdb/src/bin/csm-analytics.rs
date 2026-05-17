@@ -1,5 +1,5 @@
-use clap::Parser;
 use chaotic_semantic_memory_duckdb::cli::{AnalyticsCommand, run_analytics};
+use clap::Parser;
 
 #[derive(Parser)]
 #[command(name = "csm-analytics")]
@@ -13,6 +13,8 @@ struct Cli {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
-    run_analytics(cli.command).await.map_err(|e| anyhow::anyhow!(e))?;
+    run_analytics(cli.command)
+        .await
+        .map_err(|e| anyhow::anyhow!(e))?;
     Ok(())
 }

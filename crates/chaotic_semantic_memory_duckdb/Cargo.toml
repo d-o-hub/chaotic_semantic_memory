@@ -8,7 +8,6 @@ repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
 description = "Optional analytics, Parquet export, and SQL inspection for chaotic_semantic_memory"
 
 [dependencies]
-chaotic_semantic_memory = { path = "../..", default-features = false, features = ["persistence"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
