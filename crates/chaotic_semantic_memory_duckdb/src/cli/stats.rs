@@ -16,7 +16,10 @@ pub async fn run(analytics: &Analytics, format: &str) -> Result<()> {
         println!("---------------");
         println!("Total Concepts:     {}", concept_summary.total_concepts);
         println!("Total Associations: {}", concept_summary.total_associations);
-        println!("Namespaces:         {}", concept_summary.namespaces.join(", "));
+        println!(
+            "Namespaces:         {}",
+            concept_summary.namespaces.join(", ")
+        );
         println!();
         println!("Benchmark Summary");
         println!("-----------------");

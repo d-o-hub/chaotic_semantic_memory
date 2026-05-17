@@ -63,13 +63,13 @@ pub struct ExportArgs {
 }
 
 #[cfg(feature = "cli")]
+pub mod export;
+#[cfg(feature = "cli")]
 pub mod inspect;
 #[cfg(feature = "cli")]
 pub mod query;
 #[cfg(feature = "cli")]
 pub mod stats;
-#[cfg(feature = "cli")]
-pub mod export;
 
 use crate::Analytics;
 use crate::error::Result;
