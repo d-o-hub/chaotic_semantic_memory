@@ -46,14 +46,11 @@ impl Analytics {
 
         while let Some(row) = rows.next()? {
             if !meta_done {
-                column_count = row.column_count();
-                for i in 0..column_count {
-                    column_names.push(
-                        row.column_name(i)
-                            .map(|s| s.to_string())
-                            .unwrap_or_else(|_| format!("col_{}", i)),
-                    );
-                }
+                // Access Statement from Row via AsRef to get column metadata.
+                // This ensures the statement is executed before accessing metadata.
+                let stmt_ref: &duckdb::Statement = row.as_ref();
+                column_names = stmt_ref.column_names();
+                column_count = column_names.len();
                 meta_done = true;
             }
 
