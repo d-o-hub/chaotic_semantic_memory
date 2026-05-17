@@ -20,7 +20,8 @@ impl Analytics {
         let associations =
             self.export_associations_parquet(out_dir.join("associations.parquet"), opts)?;
         let versions = self.export_versions_parquet(out_dir.join("versions.parquet"), opts)?;
-        let benchmarks = self.export_benchmarks_parquet(out_dir.join("benchmarks.parquet"), opts)?;
+        let benchmarks =
+            self.export_benchmarks_parquet(out_dir.join("benchmarks.parquet"), opts)?;
 
         let manifest_path = if opts.include_manifest {
             let mut reports = HashMap::new();

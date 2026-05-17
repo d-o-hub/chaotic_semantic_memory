@@ -89,7 +89,7 @@ mod tests {
 
     #[test]
     fn test_load_export_invalid_json() {
-        let mut conn = Connection::open_in_memory().unwrap();
+        let conn = Connection::open_in_memory().unwrap();
         let mut analytics = Analytics { conn };
         let mut temp = ::tempfile::NamedTempFile::new().unwrap();
         temp.as_file_mut().write_all(b"invalid").unwrap();

@@ -87,7 +87,7 @@ mod tests {
         let file_path = dir.path().join("invalid.jsonl");
         let mut file = std::fs::File::create(file_path).unwrap();
         // Missing latency_ms
-        writeln!(file, r#"{"query_id": "b1"}"#).unwrap();
+        writeln!(file, r#"{{"query_id": "b1"}}"#).unwrap();
 
         let res = analytics.load_benchmarks_dir(dir.path());
         assert!(res.is_err());
