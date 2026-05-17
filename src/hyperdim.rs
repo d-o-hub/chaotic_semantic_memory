@@ -297,17 +297,25 @@ impl HVec10240 {
         {
             if is_x86_feature_detected!("avx2") {
                 // SAFETY: AVX2 feature detected at runtime.
-                return unsafe { hamming_distance_simd_avx2(&self.data, &other.data) };
+                unsafe { hamming_distance_simd_avx2(&self.data, &other.data) }
+            } else {
+                hamming_distance_optimized(&self.data, &other.data)
             }
         }
 
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
         {
             // SAFETY: aarch64 always has NEON.
-            return unsafe { hamming_distance_simd_neon(&self.data, &other.data) };
+            unsafe { hamming_distance_simd_neon(&self.data, &other.data) }
         }
 
-        hamming_distance_optimized(&self.data, &other.data)
+        #[cfg(any(
+            target_arch = "wasm32",
+            not(any(target_arch = "x86_64", target_arch = "aarch64"))
+        ))]
+        {
+            hamming_distance_optimized(&self.data, &other.data)
+        }
     }
 
     /// Permute the hypervector (cyclic rotation)
