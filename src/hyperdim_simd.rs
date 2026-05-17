@@ -33,6 +33,72 @@ pub(crate) fn hamming_distance_optimized(lhs: &[u128; 80], rhs: &[u128; 80]) -> 
     distance
 }
 
+/// AVX2-optimized Hamming distance.
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) unsafe fn hamming_distance_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
+    use std::arch::x86_64::{
+        _mm256_add_epi8, _mm256_add_epi64, _mm256_and_si256, _mm256_loadu_si256, _mm256_sad_epu8,
+        _mm256_set1_epi8, _mm256_setr_epi8, _mm256_setzero_si256, _mm256_shuffle_epi8,
+        _mm256_srli_epi16, _mm256_storeu_si256, _mm256_xor_si256,
+    };
+
+    let mut total_count = _mm256_setzero_si256();
+    let low_mask = _mm256_set1_epi8(0x0F);
+    let lookup = _mm256_setr_epi8(
+        0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3,
+        3, 4,
+    );
+
+    for i in (0..80).step_by(2) {
+        let a = unsafe { _mm256_loadu_si256(lhs.as_ptr().add(i).cast()) };
+        let b = unsafe { _mm256_loadu_si256(rhs.as_ptr().add(i).cast()) };
+        let x = _mm256_xor_si256(a, b);
+
+        let low = _mm256_and_si256(x, low_mask);
+        let high = _mm256_and_si256(_mm256_srli_epi16(x, 4), low_mask);
+
+        let pop_low = _mm256_shuffle_epi8(lookup, low);
+        let pop_high = _mm256_shuffle_epi8(lookup, high);
+
+        let combined = _mm256_add_epi8(pop_low, pop_high);
+        total_count = _mm256_add_epi64(
+            total_count,
+            _mm256_sad_epu8(combined, _mm256_setzero_si256()),
+        );
+    }
+
+    let mut out = [0u64; 4];
+    unsafe { _mm256_storeu_si256(out.as_mut_ptr().cast(), total_count) };
+    (out[0] + out[1] + out[2] + out[3]) as u32
+}
+
+/// ARM NEON-optimized Hamming distance.
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+#[inline]
+#[target_feature(enable = "neon")]
+pub(crate) unsafe fn hamming_distance_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
+    use std::arch::aarch64::{
+        vaddq_u32, vaddvq_u32, vcntq_u8, vdupq_n_u32, veorq_u8, vld1q_u8, vpaddlq_u8, vpaddlq_u16,
+    };
+    let mut total = vdupq_n_u32(0);
+    for i in 0..80 {
+        let (a, b) = unsafe {
+            (
+                vld1q_u8(lhs.as_ptr().add(i).cast()),
+                vld1q_u8(rhs.as_ptr().add(i).cast()),
+            )
+        };
+        let x = veorq_u8(a, b);
+        let pop = vcntq_u8(x);
+        let sum = vpaddlq_u8(pop);
+        let sum2 = vpaddlq_u16(sum);
+        total = vaddq_u32(total, sum2);
+    }
+    vaddvq_u32(total)
+}
+
 /// SSE-optimized bind (128-bit XOR).
 #[cfg(all(
     not(target_arch = "wasm32"),
@@ -275,6 +341,27 @@ mod tests {
         let result = unsafe { bind_simd_neon(&lhs, &rhs) };
         for i in 0..80 {
             assert_eq!(result[i], lhs[i] ^ rhs[i]);
+        }
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+    #[test]
+    fn hamming_distance_simd_avx2_correctness() {
+        if std::arch::is_x86_feature_detected!("avx2") {
+            let (lhs, rhs) = make_test_vectors();
+            let scalar = hamming_distance_optimized(&lhs, &rhs);
+            let simd = unsafe { hamming_distance_simd_avx2(&lhs, &rhs) };
+            assert_eq!(simd, scalar);
+
+            // Test with random vectors
+            use crate::hyperdim::HVec10240;
+            for i in 0..10 {
+                let v1 = HVec10240::new_seeded(i);
+                let v2 = HVec10240::new_seeded(i + 100);
+                let scalar_r = hamming_distance_optimized(&v1.data, &v2.data);
+                let simd_r = unsafe { hamming_distance_simd_avx2(&v1.data, &v2.data) };
+                assert_eq!(simd_r, scalar_r, "Failed on iteration {}", i);
+            }
         }
     }
 
