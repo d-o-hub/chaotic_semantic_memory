@@ -37,16 +37,19 @@ impl Analytics {
         }
 
         let mut stmt = self.conn.prepare(sql)?;
-        let column_count = stmt.column_count();
+        let mut rows = stmt.query([])?;
+
+        let column_count = rows.column_count();
         let column_names: Vec<String> = (0..column_count)
             .map(|i| {
-                stmt.column_name(i)
+                rows.column_name(i)
                     .map(|s| s.to_string())
                     .unwrap_or_else(|_| format!("col_{}", i))
             })
             .collect();
 
-        let rows = stmt.query_map([], |row| {
+        let mut results = Vec::new();
+        while let Some(row) = rows.next()? {
             let mut map = serde_json::Map::new();
             for i in 0..column_count {
                 let name = &column_names[i];
@@ -73,12 +76,7 @@ impl Analytics {
                 };
                 map.insert(name.clone(), val);
             }
-            Ok(serde_json::Value::Object(map))
-        })?;
-
-        let mut results = Vec::new();
-        for row in rows {
-            results.push(row?);
+            results.push(serde_json::Value::Object(map));
         }
         Ok(results)
     }

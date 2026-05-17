@@ -156,7 +156,9 @@ mod tests {
                 compression: compression.clone(),
                 ..Default::default()
             };
-            let path = dir.path().join(format!("concepts_{:?}.parquet", compression));
+            let path = dir
+                .path()
+                .join(format!("concepts_{:?}.parquet", compression));
             let report = analytics.export_concepts_parquet(&path, &opts).unwrap();
             assert_eq!(report.rows_written, 1);
             assert!(path.exists());
@@ -219,7 +221,9 @@ mod tests {
         );
 
         let opts = ParquetExportOptions::default();
-        let manifest1 = analytics.create_manifest(reports.clone(), opts.clone()).unwrap();
+        let manifest1 = analytics
+            .create_manifest(reports.clone(), opts.clone())
+            .unwrap();
         let manifest2 = analytics.create_manifest(reports, opts).unwrap();
 
         // run_id and exported_at will differ, but other fields should be stable
