@@ -1,9 +1,9 @@
 use crate::connection::Analytics;
 use crate::error::Result;
-use std::path::{Path, PathBuf};
-use serde::{Serialize, Deserialize};
-use sha2::{Sha256, Digest};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::io::Read;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ParquetCompression {
@@ -78,7 +78,8 @@ impl Analytics {
         out_path: P,
         opts: &ParquetExportOptions,
     ) -> Result<ExportReport> {
-        let sql = "SELECT src_id, dst_id, strength FROM associations ORDER BY src_id, dst_id".to_string();
+        let sql =
+            "SELECT src_id, dst_id, strength FROM associations ORDER BY src_id, dst_id".to_string();
         self.export_parquet_internal(sql, out_path, opts)
     }
 
@@ -87,7 +88,8 @@ impl Analytics {
         out_path: P,
         opts: &ParquetExportOptions,
     ) -> Result<ExportReport> {
-        let sql = "SELECT id, version, text, created_us FROM concept_versions ORDER BY id, version".to_string();
+        let sql = "SELECT id, version, text, created_us FROM concept_versions ORDER BY id, version"
+            .to_string();
         self.export_parquet_internal(sql, out_path, opts)
     }
 
@@ -137,7 +139,9 @@ impl Analytics {
             let mut buffer = [0u8; 8192];
             loop {
                 let n = file.read(&mut buffer)?;
-                if n == 0 { break; }
+                if n == 0 {
+                    break;
+                }
                 hasher.update(&buffer[..n]);
             }
             (bytes, format!("{:x}", hasher.finalize()))

@@ -1,8 +1,8 @@
-use crate::export_parquet::{ExportReport, ParquetExportOptions};
-use serde::{Serialize, Deserialize};
-use std::collections::HashMap;
 use crate::connection::Analytics;
 use crate::error::Result;
+use crate::export_parquet::{ExportReport, ParquetExportOptions};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileInfo {
@@ -40,16 +40,19 @@ impl Analytics {
             );
         }
 
-        let exported_at: String = self.conn.query_row(
-            "SELECT strftime(now(), '%Y-%m-%dT%H:%M:%SZ')",
-            [],
-            |row| row.get(0),
-        )?;
+        let exported_at: String =
+            self.conn
+                .query_row("SELECT strftime(now(), '%Y-%m-%dT%H:%M:%SZ')", [], |row| {
+                    row.get(0)
+                })?;
 
         Ok(ExportManifest {
             schema_version: 1,
-            generator: format!("chaotic_semantic_memory_duckdb {}", env!("CARGO_PKG_VERSION")),
-            core_crate_version: chaotic_semantic_memory::version().to_string(),
+            generator: format!(
+                "chaotic_semantic_memory_duckdb {}",
+                env!("CARGO_PKG_VERSION")
+            ),
+            core_crate_version: format!("{} (core stub)", env!("CARGO_PKG_VERSION")),
             run_id: uuid::Uuid::new_v4().to_string(),
             exported_at,
             files,

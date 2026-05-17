@@ -14,7 +14,8 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 base64 = { workspace = true }
-sha2 = { workspace = true }
+sha2 = { workspace = true, optional = true }
+uuid = { workspace = true, optional = true, features = ["v4"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 duckdb = { version = "1.1", features = ["bundled"] }
@@ -24,4 +25,4 @@ tempfile = { workspace = true }
 
 [features]
 default = []
-parquet = []   # toggles Phase 2 export utilities
+parquet = ["dep:sha2", "dep:uuid"]
