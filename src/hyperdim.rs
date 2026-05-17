@@ -419,9 +419,6 @@ impl HVec10240 {
 // Re-export BundleAccumulator from bundle module
 pub use crate::bundle::BundleAccumulator;
 
-
-#[cfg(test)]
-
 #[cfg(test)]
 #[path = "hyperdim_tests.rs"]
 mod hyperdim_tests;
