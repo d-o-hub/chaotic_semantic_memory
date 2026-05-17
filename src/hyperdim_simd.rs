@@ -424,6 +424,7 @@ mod tests {
         }
     }
 
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
     #[test]
     fn hamming_distance_simd_avx2_correctness() {
         if std::arch::is_x86_feature_detected!("avx2") {
