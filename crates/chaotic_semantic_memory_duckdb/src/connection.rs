@@ -42,8 +42,9 @@ mod tests {
 
     #[test]
     fn test_open_file() {
-        let temp = ::tempfile::NamedTempFile::new().unwrap();
-        let analytics = Analytics::open(temp.path());
+        let temp_dir = ::tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("test.db");
+        let analytics = Analytics::open(&db_path);
         assert!(analytics.is_ok());
     }
 }
