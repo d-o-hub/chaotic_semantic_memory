@@ -81,7 +81,7 @@ examples/tmp/
 *.skill-memory.log
 
 # Temporary exports from demos
-/tmp/*-
+/tmp/*-export*
 /tmp/*-memory.json
 csm_test*
 .blackboxcli/
