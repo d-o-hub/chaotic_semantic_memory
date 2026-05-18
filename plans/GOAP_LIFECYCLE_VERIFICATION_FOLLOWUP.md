@@ -7,6 +7,7 @@ codebase. It revealed 4 concrete gaps in the skill's reference files
 and in `plans/GOAP_STATE.md`:
 
 ### Gap 1: `sql_checks.sql` — Wrong Table Names
+
 - Table `concepts` → actual name is `csm_concepts`
 - Table `associations` → actual name is `csm_associations`
 - Column `source_id` → actual column is `from_id`
@@ -14,10 +15,12 @@ and in `plans/GOAP_STATE.md`:
 - **Risk**: Anyone running these reference queries gets "no such table"
 
 ### Gap 2: VALIDATION_CHECKLIST.md — Unmarked Checkboxes
+
 - All checkboxes are `[ ]` — never been filled for any run
 - No way to trace which verification run covered which items
 
 ### Gap 3: GOAP_STATE.md — Stale Flags
+
 - `verification_2026_04_30_archive_phase_skipped: true` — reason
   was "no native CLI command" but archive markers are now a working pattern.
   Flag is misleading: the archive phase IS possible, just not via a
@@ -26,6 +29,7 @@ and in `plans/GOAP_STATE.md`:
   but `csm delete` command exists and works. Flag is outright wrong.
 
 ### Gap 4: Export JSON Associations Format (ADR-0083)
+
 - `csm export` serializes associations as flat arrays:
   `["from_id", "to_id", 0.9]`
 - This is fragile: no field names, position-dependent

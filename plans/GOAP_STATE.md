@@ -871,8 +871,8 @@ world_state:
                                               #   in src/cli/args.rs + src/bin/csm.rs;
                                               #   tests/cli_parity.rs locks the surface.
   cli_parity_smoke_test_added: true           # 2026-05-18: tests/cli_parity.rs
-  adr_backfill_complete: true                 # ADR-0076 — 77/78 on disk; ADR-0003
-                                              #   marked superseded (N/A) per registry.
+  adr_backfill_complete: true                 # ADR-0076 — 79 registry, 78 on disk; ADR-0003
+                                               #   marked superseded (N/A) per registry.
   adr_parity_script_added: true               # 2026-05-18: scripts/check-adr-parity.sh
   mcp_server_implemented: false               # ADR-0067 — delegated to Jules
   mcp_server_jules_issue: 246                 # github.com/d-o-hub/chaotic_semantic_memory/issues/246
