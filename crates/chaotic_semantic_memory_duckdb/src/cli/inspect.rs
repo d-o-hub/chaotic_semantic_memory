@@ -11,7 +11,10 @@ pub async fn run(analytics: &mut Analytics) -> Result<()> {
         io::stdout().flush()?;
 
         let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
+        if io::stdin().read_line(&mut input)? == 0 {
+            println!();
+            break;
+        }
         let sql = input.trim();
 
         if sql.is_empty() {
