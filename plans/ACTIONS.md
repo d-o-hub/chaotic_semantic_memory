@@ -3666,6 +3666,88 @@ actions:
       cli_tests.rs covers help snapshots, export/inspect/query/stats.
 
   # ─────────────────────────────────────────────────────────
+  # Memory Lifecycle Verification (2026-05-18)
+  # Dogfood: memory-lifecycle-verification skill
+  # ─────────────────────────────────────────────────────────
+
+  - name: verify_memory_lifecycle
+    preconditions:
+      cli_framework_parity_complete: true
+    effects:
+      memory_lifecycle_verification_completed: true
+    cost: 2
+    status: complete
+    file: plans/GOAP_STATE.md
+    description: |
+      Ran the memory-lifecycle-verification skill as dogfood:
+      Phase 1 (save): inject 2 concepts, associate, probe — OK
+      Phase 2 (load): export→import→roundtrip with identical
+        similarity scores (0.006055) and metadata — OK
+      Phase 3 (archive): archive marker concepts with full
+        metadata — OK
+      Phase 4 (delete): delete concept, verify removed from
+        active probe results, verify not-found error — OK
+      DB verified via sqld HTTP API & Python sqlite3 — OK
+      All validation gates pass (check, test, fmt, clippy).
+
+  # ─────────────────────────────────────────────────────────
+  # Memory Lifecycle Verification Follow-up (2026-05-18)
+  # Cost: 5 — all items are documentation/skill-reference fixes
+  # ADR-0083: Export format contract
+  # ─────────────────────────────────────────────────────────
+
+  - name: fix_sql_checks_table_names
+    preconditions:
+      memory_lifecycle_verification_completed: true
+    effects:
+      memory_lifecycle_sql_checks_fixed: true
+    cost: 1
+    status: complete
+    file: .agents/skills/memory-lifecycle-verification/references/sql_checks.sql
+    description: |
+      Fix table names: concepts→csm_concepts, associations→csm_associations,
+      source_id→from_id, target_id→to_id. Add docstring about csm_ prefix.
+
+  - name: mark_validation_checklist
+    preconditions:
+      memory_lifecycle_verification_completed: true
+    effects:
+      memory_lifecycle_checklist_marked: true
+    cost: 1
+    status: complete
+    file: .agents/skills/memory-lifecycle-verification/references/VALIDATION_CHECKLIST.md
+    description: |
+      Fill all checkboxes for 2026-05-18 verification run. Record
+      actual commands, outputs, checksums, and timestamps for audit trail.
+
+  - name: fix_goap_stale_flags
+    preconditions:
+      memory_lifecycle_verification_completed: true
+    effects:
+      memory_lifecycle_stale_flags_fixed: true
+    cost: 1
+    status: complete
+    file: plans/GOAP_STATE.md
+    description: |
+      Annotate verification_2026_04_30_archive_phase_skipped and
+      delete_phase_skipped as "2026-05-18: Resolved" since delete
+      command exists and archive marker pattern works.
+
+  - name: write_adr_0083
+    preconditions:
+      memory_lifecycle_verification_completed: true
+    effects:
+      adr_0083_export_format_documented: true
+    cost: 2
+    status: complete
+    file: plans/adr/0083-memory-lifecycle-verification-and-export-format.md
+    description: |
+      Document decision to keep export JSON associations as
+      array-of-tuples (not named objects). Chose Option 2 for
+      backward compatibility. Records all 4 gaps found during
+      verification and their resolutions.
+
+  # ─────────────────────────────────────────────────────────
   # Release prep — v0.3.6 (queued, cost 4)
   # ─────────────────────────────────────────────────────────
 
