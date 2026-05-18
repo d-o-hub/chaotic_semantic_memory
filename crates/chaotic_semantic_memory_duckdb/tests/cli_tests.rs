@@ -1,4 +1,4 @@
-use crate::schema::SCHEMA_DDL;
+use chaotic_semantic_memory_duckdb::schema::SCHEMA_DDL;
 use duckdb::Connection;
 use std::io::Write;
 use tempfile::NamedTempFile;
@@ -11,7 +11,7 @@ fn test_help_snapshots() {
     #[command(name = "csm-analytics")]
     struct Cli {
         #[command(subcommand)]
-        command: crate::cli::AnalyticsCommand,
+        command: chaotic_semantic_memory_duckdb::cli::AnalyticsCommand,
     }
 
     let mut cmd = Cli::command();
@@ -26,10 +26,14 @@ async fn test_stats_command() {
     conn.execute_batch(SCHEMA_DDL).unwrap();
     drop(conn);
 
-    let analytics = crate::Analytics::open(temp.path()).unwrap();
+    let analytics = chaotic_semantic_memory_duckdb::Analytics::open(temp.path()).unwrap();
     // Just verify it doesn't crash and returns OK
-    crate::cli::stats::run(&analytics, "table").await.unwrap();
-    crate::cli::stats::run(&analytics, "json").await.unwrap();
+    chaotic_semantic_memory_duckdb::cli::stats::run(&analytics, "table")
+        .await
+        .unwrap();
+    chaotic_semantic_memory_duckdb::cli::stats::run(&analytics, "json")
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -44,11 +48,11 @@ async fn test_query_command() {
     .unwrap();
     drop(conn);
 
-    let analytics = crate::Analytics::open(temp.path()).unwrap();
-    crate::cli::query::run(&analytics, "SELECT * FROM concepts", "table")
+    let analytics = chaotic_semantic_memory_duckdb::Analytics::open(temp.path()).unwrap();
+    chaotic_semantic_memory_duckdb::cli::query::run(&analytics, "SELECT * FROM concepts", "table")
         .await
         .unwrap();
-    crate::cli::query::run(&analytics, "SELECT * FROM concepts", "json")
+    chaotic_semantic_memory_duckdb::cli::query::run(&analytics, "SELECT * FROM concepts", "json")
         .await
         .unwrap();
 }
@@ -61,10 +65,14 @@ async fn test_export_json_input() {
         .unwrap();
 
     // Test open_analytics helper implicitly via run_analytics
-    let cmd = crate::cli::AnalyticsCommand::Stats(crate::cli::StatsArgs {
-        input: temp.path().to_path_buf(),
-        format: "json".to_string(),
-    });
+    let cmd = chaotic_semantic_memory_duckdb::cli::AnalyticsCommand::Stats(
+        chaotic_semantic_memory_duckdb::cli::StatsArgs {
+            input: temp.path().to_path_buf(),
+            format: "json".to_string(),
+        },
+    );
 
-    crate::cli::run_analytics(cmd).await.unwrap();
+    chaotic_semantic_memory_duckdb::cli::run_analytics(cmd)
+        .await
+        .unwrap();
 }
