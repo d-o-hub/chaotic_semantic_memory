@@ -5,7 +5,8 @@ use sha2::{Digest, Sha256};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-#[derive(Clone, Debug, Serialize, Deserialize, clap::ValueEnum)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum ParquetCompression {
     Zstd,
     Snappy,

@@ -54,6 +54,18 @@ vectors directly via `inject_concept`.
 - **CLI**: Full-featured command-line interface with shell completions
 - **Production-Ready**: Structured logging, metrics, input validation, memory guardrails
 
+## Optional Analytics (DuckDB)
+
+For advanced OLAP workloads, SQL inspection, and Parquet export, see the [`chaotic_semantic_memory_duckdb`](crates/chaotic_semantic_memory_duckdb) companion crate.
+
+**Two-Crate Decision Tree:**
+
+| Want... | Use... | Features |
+|---|---|---|
+| Just core memory/search | `chaotic_semantic_memory` | Lean, no C++ toolchain |
+| SQL queries + CLI analytics | `csm` + `analytics` feature | Integrated experience |
+| Standalone analytics binary | `csm-analytics` | Specialized for data engineers |
+
 ## Installation
 
 ### Rust Library

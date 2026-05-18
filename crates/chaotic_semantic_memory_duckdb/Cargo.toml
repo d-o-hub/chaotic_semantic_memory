@@ -11,8 +11,8 @@ description = "Optional analytics, Parquet export, and SQL inspection for chaoti
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-anyhow = { workspace = true, optional = true }
-clap = { version = "4.5.60", features = ["derive", "env"], optional = true }
+anyhow = { workspace = true }
+clap = { version = "4.5", features = ["derive", "env"], optional = true }
 base64 = { workspace = true }
 sha2 = { workspace = true, optional = true }
 uuid = { workspace = true, optional = true, features = ["v4"] }
@@ -22,16 +22,16 @@ tokio = { workspace = true, optional = true, features = ["rt-multi-thread", "mac
 duckdb = { version = "1.1", features = ["bundled"] }
 
 [dev-dependencies]
+chaotic_semantic_memory = { path = "../../", default-features = false, features = ["persistence"] }
 tempfile = { workspace = true }
 insta = "1.40.0"
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
-clap = { version = "4.5.60", features = ["derive"] }
-anyhow = { workspace = true }
+clap = { version = "4.5", features = ["derive"] }
 
 [features]
 default = []
 parquet = ["dep:sha2", "dep:uuid"]
-cli = ["dep:anyhow", "dep:clap", "dep:tokio"]
+cli = ["dep:clap", "dep:tokio"]
 
 [[bin]]
 name = "csm-analytics"
