@@ -175,13 +175,6 @@ mod native {
             Commands::ProbeGraph(cmd) => {
                 run_probe_graph(cmd.clone(), db_path.as_deref(), fmt).await
             }
-            #[cfg(feature = "analytics")]
-            Commands::Analytics(cmd) => {
-                chaotic_semantic_memory_duckdb::cli::run_analytics(cmd.clone())
-                    .await
-                    .map_err(|e| CliError::Persistence(e.to_string()))?;
-                Ok(())
-            }
         };
         result.map(|_| ((), fmt))
     }

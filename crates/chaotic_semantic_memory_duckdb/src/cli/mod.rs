@@ -1,8 +1,14 @@
-use clap::{Args, Subcommand};
+use clap::{Args, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
 #[cfg(feature = "parquet")]
 use crate::export_parquet::ParquetCompression;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum CliOutputFormat {
+    Table,
+    Json,
+}
 
 /// SQL Analytics for Chaotic Semantic Memory.
 #[derive(Subcommand, Debug, Clone)]
@@ -29,18 +35,18 @@ pub struct QueryArgs {
     pub input: PathBuf,
     /// SQL SELECT query to execute.
     pub sql: String,
-    /// Output format: table or json.
-    #[arg(long, default_value = "table")]
-    pub format: String,
+    /// Output format.
+    #[arg(long, default_value = "table", value_enum)]
+    pub format: CliOutputFormat,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct StatsArgs {
     /// Path to a DuckDB database or a CSM export.json file.
     pub input: PathBuf,
-    /// Output format: table or json.
-    #[arg(long, default_value = "table")]
-    pub format: String,
+    /// Output format.
+    #[arg(long, default_value = "table", value_enum)]
+    pub format: CliOutputFormat,
 }
 
 #[derive(Args, Debug, Clone)]

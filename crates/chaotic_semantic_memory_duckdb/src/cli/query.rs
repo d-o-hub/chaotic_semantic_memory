@@ -1,10 +1,11 @@
 use crate::Analytics;
+use crate::cli::CliOutputFormat;
 use crate::error::Result;
 
-pub async fn run(analytics: &Analytics, sql: &str, format: &str) -> Result<()> {
+pub async fn run(analytics: &Analytics, sql: &str, format: &CliOutputFormat) -> Result<()> {
     let rows = analytics.query(sql)?;
 
-    if format == "json" {
+    if matches!(format, CliOutputFormat::Json) {
         println!("{}", serde_json::to_string_pretty(&rows)?);
     } else {
         if rows.is_empty() {
@@ -53,9 +54,9 @@ pub fn print_table(rows: &[serde_json::Value]) {
                     serde_json::Value::Null => "NULL".to_string(),
                     _ => val.to_string(),
                 };
-                // Truncate if too long
-                let display = if val_str.len() > 19 {
-                    format!("{}...", &val_str[..16])
+                let display = if val_str.chars().count() > 19 {
+                    let truncated: String = val_str.chars().take(16).collect();
+                    format!("{}...", truncated)
                 } else {
                     val_str
                 };

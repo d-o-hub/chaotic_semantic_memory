@@ -80,9 +80,6 @@ pub enum Commands {
     Watch(WatchArgs),
     /// GraphRAG retrieval: similarity + graph traversal hybrid.
     ProbeGraph(ProbeGraphArgs),
-    /// SQL Analytics (DuckDB).
-    #[cfg(feature = "analytics")]
-    Analytics(chaotic_semantic_memory_duckdb::cli::AnalyticsCommand),
 }
 
 #[derive(Args, Debug, Clone)]

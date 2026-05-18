@@ -12,7 +12,7 @@
 - async-trait (0.1.83)
 - base64
 - bincode (1.3.3)
-- clap (4.5.60) [features: derive, env, string]
+- clap (4.5) [features: derive, env, string]
 - clap_complete (4.5.42)
 - cloudevents-sdk (0.9.0)
 - colored (2.2.0)
@@ -1109,6 +1109,18 @@ vectors directly via `inject_concept`.
 - **WASM Support**: Browser-compatible with memory-based import/export
 - **CLI**: Full-featured command-line interface with shell completions
 - **Production-Ready**: Structured logging, metrics, input validation, memory guardrails
+
+#### Optional Analytics (DuckDB)
+
+For advanced OLAP workloads, SQL inspection, and Parquet export, see the [`chaotic_semantic_memory_duckdb`](crates/chaotic_semantic_memory_duckdb) companion crate.
+
+**Two-Crate Decision Tree:**
+
+| Want... | Use... | Features |
+|---|---|---|
+| Just core memory/search | `chaotic_semantic_memory` | Lean, no C++ toolchain |
+| SQL queries + CLI analytics | `csm` + `analytics` feature | Integrated experience |
+| Standalone analytics binary | `csm-analytics` | Specialized for data engineers |
 
 #### Installation
 
