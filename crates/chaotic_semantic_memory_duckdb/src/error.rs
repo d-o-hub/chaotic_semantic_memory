@@ -11,7 +11,6 @@ pub enum AnalyticsError {
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
 
-    #[cfg(feature = "cli")]
     #[error("Anyhow error: {0}")]
     Anyhow(#[from] anyhow::Error),
 
@@ -34,11 +33,8 @@ mod tests {
         let err: AnalyticsError = io_err.into();
         assert!(matches!(err, AnalyticsError::Io(_)));
 
-        #[cfg(feature = "cli")]
-        {
-            let anyhow_err = anyhow::anyhow!("test");
-            let err: AnalyticsError = anyhow_err.into();
-            assert!(matches!(err, AnalyticsError::Anyhow(_)));
-        }
+        let anyhow_err = anyhow::anyhow!("test");
+        let err: AnalyticsError = anyhow_err.into();
+        assert!(matches!(err, AnalyticsError::Anyhow(_)));
     }
 }

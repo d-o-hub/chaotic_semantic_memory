@@ -1,3 +1,5 @@
+#![cfg(feature = "cli")]
+
 use chaotic_semantic_memory_duckdb::schema::SCHEMA_DDL;
 use duckdb::Connection;
 use std::io::Write;
@@ -42,8 +44,8 @@ async fn test_query_command() {
     let conn = Connection::open(temp.path()).unwrap();
     conn.execute_batch(SCHEMA_DDL).unwrap();
     conn.execute(
-        "INSERT INTO concepts (id, namespace) VALUES ('c1', 'ns1')",
-        [],
+        "INSERT INTO concepts (id, namespace) VALUES (?, ?)",
+        duckdb::params!["c1", "ns1"],
     )
     .unwrap();
     drop(conn);
