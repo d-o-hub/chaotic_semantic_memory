@@ -97,7 +97,6 @@ rayon = { version = "1.10.0", optional = true }
 
 # Database - Use libsql NOT turso-client (opt-in via "persistence" feature)
 libsql = { version = "0.9.30", default-features = false, features = ["sync", "hrana", "remote"], optional = true }
-chaotic_semantic_memory_duckdb = { path = "crates/chaotic_semantic_memory_duckdb", optional = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -254,8 +253,6 @@ serde = []
 # CloudEvents integration (ADR-0078)
 cloudevents = ["dep:cloudevents-sdk", "dep:uuid", "uuid/js"]
 events-http = ["cloudevents", "cloudevents-sdk/http-binding", "dep:reqwest"]
-
-analytics = ["cli", "chaotic_semantic_memory_duckdb/cli", "chaotic_semantic_memory_duckdb/parquet"]
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]

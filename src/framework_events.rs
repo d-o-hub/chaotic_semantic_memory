@@ -51,8 +51,6 @@ impl ChaoticSemanticFramework {
     }
 
     pub(crate) async fn emit_event(&self, event: MemoryEvent) {
-        let _ = self.event_sender.send(event.clone());
-
         #[cfg(feature = "cloudevents")]
         {
             let source = format!("chaotic-semantic-memory://{}", *self.namespace.read().await);
@@ -61,6 +59,8 @@ impl ChaoticSemanticFramework {
                 let _ = emitter.emit(ce.clone()).await;
             }
         }
+
+        let _ = self.event_sender.send(event);
     }
 
     /// Emit a CloudEvent if the feature is enabled.

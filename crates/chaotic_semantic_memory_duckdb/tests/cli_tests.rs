@@ -1,5 +1,6 @@
 #![cfg(feature = "cli")]
 
+use chaotic_semantic_memory_duckdb::cli::CliOutputFormat;
 use chaotic_semantic_memory_duckdb::schema::SCHEMA_DDL;
 use duckdb::Connection;
 use std::io::Write;
@@ -23,24 +24,24 @@ fn test_help_snapshots() {
 
 #[tokio::test]
 async fn test_stats_command() {
-    let mut temp = NamedTempFile::new().unwrap();
+    let temp = NamedTempFile::new().unwrap();
     let conn = Connection::open(temp.path()).unwrap();
     conn.execute_batch(SCHEMA_DDL).unwrap();
     drop(conn);
 
     let analytics = chaotic_semantic_memory_duckdb::Analytics::open(temp.path()).unwrap();
     // Just verify it doesn't crash and returns OK
-    chaotic_semantic_memory_duckdb::cli::stats::run(&analytics, "table")
+    chaotic_semantic_memory_duckdb::cli::stats::run(&analytics, &CliOutputFormat::Table)
         .await
         .unwrap();
-    chaotic_semantic_memory_duckdb::cli::stats::run(&analytics, "json")
+    chaotic_semantic_memory_duckdb::cli::stats::run(&analytics, &CliOutputFormat::Json)
         .await
         .unwrap();
 }
 
 #[tokio::test]
 async fn test_export_command() {
-    let mut temp_db = NamedTempFile::new().unwrap();
+    let temp_db = NamedTempFile::new().unwrap();
     let conn = Connection::open(temp_db.path()).unwrap();
     conn.execute_batch(SCHEMA_DDL).unwrap();
     drop(conn);
@@ -68,7 +69,7 @@ async fn test_export_command() {
 
 #[tokio::test]
 async fn test_query_command() {
-    let mut temp = NamedTempFile::new().unwrap();
+    let temp = NamedTempFile::new().unwrap();
     let conn = Connection::open(temp.path()).unwrap();
     conn.execute_batch(SCHEMA_DDL).unwrap();
     conn.execute(
@@ -79,12 +80,20 @@ async fn test_query_command() {
     drop(conn);
 
     let analytics = chaotic_semantic_memory_duckdb::Analytics::open(temp.path()).unwrap();
-    chaotic_semantic_memory_duckdb::cli::query::run(&analytics, "SELECT * FROM concepts", "table")
-        .await
-        .unwrap();
-    chaotic_semantic_memory_duckdb::cli::query::run(&analytics, "SELECT * FROM concepts", "json")
-        .await
-        .unwrap();
+    chaotic_semantic_memory_duckdb::cli::query::run(
+        &analytics,
+        "SELECT * FROM concepts",
+        &CliOutputFormat::Table,
+    )
+    .await
+    .unwrap();
+    chaotic_semantic_memory_duckdb::cli::query::run(
+        &analytics,
+        "SELECT * FROM concepts",
+        &CliOutputFormat::Json,
+    )
+    .await
+    .unwrap();
 }
 
 #[tokio::test]
@@ -98,7 +107,7 @@ async fn test_export_json_input() {
     let cmd = chaotic_semantic_memory_duckdb::cli::AnalyticsCommand::Stats(
         chaotic_semantic_memory_duckdb::cli::StatsArgs {
             input: temp.path().to_path_buf(),
-            format: "json".to_string(),
+            format: CliOutputFormat::Json,
         },
     );
 

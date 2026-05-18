@@ -16,6 +16,12 @@ pub async fn run(analytics: &Analytics, args: ExportArgs) -> Result<()> {
     {
         use crate::export_parquet::ParquetExportOptions;
 
+        if args.row_group_size == 0 {
+            return Err(crate::error::AnalyticsError::InvalidInput(
+                "row_group_size must be positive".to_string(),
+            ));
+        }
+
         let opts = ParquetExportOptions {
             compression: args.compression,
             row_group_size: args.row_group_size,

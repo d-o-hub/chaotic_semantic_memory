@@ -1,11 +1,12 @@
 use crate::Analytics;
+use crate::cli::CliOutputFormat;
 use crate::error::Result;
 
-pub async fn run(analytics: &Analytics, format: &str) -> Result<()> {
+pub async fn run(analytics: &Analytics, format: &CliOutputFormat) -> Result<()> {
     let concept_summary = analytics.concept_summary()?;
     let benchmark_summary = analytics.benchmark_summary()?;
 
-    if format == "json" {
+    if matches!(format, CliOutputFormat::Json) {
         let out = serde_json::json!({
             "concepts": concept_summary,
             "benchmarks": benchmark_summary,
