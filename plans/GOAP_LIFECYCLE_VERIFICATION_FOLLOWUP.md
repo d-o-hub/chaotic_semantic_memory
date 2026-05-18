@@ -35,7 +35,7 @@ and in `plans/GOAP_STATE.md`:
 
 ## Target State
 
-```
+```yaml
 sql_checks_table_names_fixed: true
 validation_checklist_2026_05_18_marked: true
 goap_stale_archive_flag_fixed: true

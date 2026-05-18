@@ -56,6 +56,7 @@
 - **Jules delegation pattern**: Long actions (`cost ≥ 12` in ACTIONS.md) belong in a GitHub issue labeled `jules` rather than an interactive session. Mark the action `status: delegated` with `jules_issue: <num>` so the planner sees the dependency satisfied via remote execution. Wave 21 MCP server (ADR-0067) was delegated this way to issue #246.
 
 ## Memory Lifecycle Verification (2026-05-18)
+
 - **sqld HTTP API for local DB verification**: The `sqld` binary from Turso (`~/.turso/sqld`) can serve local `.db` files and expose them via an HTTP API at `/v1/query`. However, it binds to the grpc port (50051) by default and may fail with "File exists" on stale sockets. Use `--http-listen-addr 127.0.0.1:<port>` and ensure no stale sqld processes remain (`pkill -9 sqld`). For simple SELECT queries, Python's `sqlite3` module works on libSQL databases (table names are prefixed with `csm_`).
 - **CLI table name prefix**: The persistence layer uses `csm_`-prefixed table names (`csm_concepts`, `csm_associations`, `csm_schema_version`). Direct SQL access must account for this prefix.
 - **No native archive command**: The CLI has `delete` but no `archive`. Archive is handled via marker concepts with metadata `{"status":"archived","target":"<id>"}`. If archive becomes a common workflow, consider adding a native `csm archive <id>` command.

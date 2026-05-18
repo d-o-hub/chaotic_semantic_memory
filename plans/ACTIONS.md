@@ -3321,13 +3321,13 @@ actions:
     file: plans/ADR_REGISTRY.md, plans/adr/, scripts/check-adr-parity.sh
     description: |
       Backfill landed in main on 2026-05-01 (note at top of
-      plans/ADR_REGISTRY.md). 77 ADR files now on disk vs 78 registry
-      entries; the single delta is ADR-0003 which the registry marks
-      "_Superseded by ADR-0008_, N/A". 2026-05-18 added
-      scripts/check-adr-parity.sh which enforces registry ↔ disk parity
-      (warns on orphan files, errors on missing-with-backing). Inline
-      check in scripts/validate.sh already enforced this — the new
-      script extends to docs/adr/ and reports orphans.
+      plans/ADR_REGISTRY.md). 78 ADR files now on disk vs 79 registry
+      entries (ADR-0003 is N/A on disk, marked Superseded in registry).
+      2026-05-18 added scripts/check-adr-parity.sh which enforces
+      registry ↔ disk parity (warns on orphan files, errors on
+      missing-with-backing). Inline check in scripts/validate.sh already
+      enforced this — the new script extends to docs/adr/ and reports
+      orphans.
 
   # ─────────────────────────────────────────────────────────
   # Wave 22: P1 — Capability Ceiling Removal (cost: 40)
@@ -3607,12 +3607,9 @@ actions:
       Test CloudEvents emission across all MemoryEvent variants.
       Verify LogEmitter output and HttpEmitter payload structure.
 
-  # ─────────────────────────────────────────────────────────
-  # Wave 26: DuckDB Companion Crate (ADRs 0079-0082)
-  # Backfilled 2026-05-18 — code already merged in main but
-  # was missing from ACTIONS.md. Each row marked `complete`
-  # to reflect on-disk truth (see crates/chaotic_semantic_memory_duckdb/).
-  # ─────────────────────────────────────────────────────────
+  <!-- Wave 26: DuckDB Companion Crate (ADRs 0079-0082) -->
+  <!-- Backfilled 2026-05-18 — code already merged in main but -->
+  <!-- was missing from ACTIONS.md. Each row marked `complete` -->
 
   - name: duckdb_workspace_restructure
     preconditions: []

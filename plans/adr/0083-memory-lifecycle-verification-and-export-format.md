@@ -44,9 +44,11 @@ The verification revealed four gaps:
 ### Option 1: Change export format to named objects + document
 
 Change `csm export` to emit objects:
+
 ```json
 {"from_id": "alpha", "to_id": "beta", "strength": 0.9}
 ```
+
 Update documentation and import parser to handle both formats
 during a deprecation window.
 

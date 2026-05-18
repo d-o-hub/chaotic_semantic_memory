@@ -16,14 +16,17 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
    - `@plans/ACTIONS.md` — Queued actions and their preconditions
 
 2. **Review ALL uncommitted changes** — Never start implementation without knowing the full scope:
+
    ```bash
    git status --short           # List ALL modified/untracked files
    git diff HEAD                # Review content of pending changes
    ```
+
    - If unrelated changes exist, either commit them first or explicitly scope them out
    - Document which pending changes are intentionally excluded from this session
 
 3. **Run proactive LOC gate check** — Pre-existing violations cascade on commit, wasting iterations:
+
    ```bash
    find src -name '*.rs' -exec wc -l {} + | sort -rn | head -20
    # Verify every file is ≤ 500 LOC. Fix violations BEFORE starting work.
@@ -37,6 +40,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
    - CLI: `src/cli/commands/*.rs`
 
 5. **Check CI status** — Verify baseline before changes:
+
    ```bash
    gh run list --workflow=ci.yml --limit 3
    ```
@@ -44,15 +48,18 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 6. **Verify built binary, not stale install** — `~/.local/bin/csm` (or any global
    install) may lag the source tree by multiple releases. Before claiming a CLI
    surface is missing a command, always confirm against a fresh build:
+
    ```bash
    cargo build --bin csm --features cli --quiet
    ./target/debug/csm --help                     # source truth
    csm --help | head -1                          # installed truth (may be stale)
    ```
+
    If they disagree, the gap is in distribution, not source.
 
 7. **Verify ADR registry ↔ disk parity** — Stops state drift between
    `plans/ADR_REGISTRY.md` and the actual ADR files:
+
    ```bash
    ./scripts/check-adr-parity.sh                 # exits 0 when in sync
    ```
@@ -77,11 +84,13 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
    `plans/ACTIONS.md`, or anything spanning a new protocol/transport/large
    surface, should become a GitHub issue with the `jules` label rather than
    blocking the interactive session:
+
    ```bash
    gh issue create --label jules \
        --title "Wave XX: <ADR-NNNN> <short summary>" \
        --body "<context, current state, TODO list, acceptance criteria>"
    ```
+
    Then mark the action `status: delegated` and record `jules_issue: <num>`
    in `plans/ACTIONS.md`. See the [jules-orchestration](.agents/skills/jules-orchestration/SKILL.md) skill.
 
@@ -93,6 +102,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
    - Preserve comments and docstrings unless explicitly removing
 
 9. **Run validation gates after changes** — Verify before proceeding:
+
    ```bash
    cargo check --quiet                              # Compile check
    cargo test --all-features --quiet                # Unit + integration tests
@@ -101,34 +111,38 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
    ./scripts/check-adr-parity.sh                    # ADR registry ↔ disk parity
    shellcheck scripts/*.sh                          # Shell hygiene
    ```
+
    When touching CLI surface (`src/cli/**` or `src/bin/csm.rs`), also:
+
    ```bash
    cargo test --test cli_parity --features cli      # 22-command surface lock
    ```
 
 10. **Coverage validation** — Ensure test coverage meets target:
-   ```bash
-   # Calculate test:source ratio
-   test_loc=$(wc -l tests/*.rs | tail -1 | awk '{print $1}')
-   src_loc=$(wc -l src/*.rs src/**/*.rs | tail -1 | awk '{print $1}')
-   ratio=$((test_loc * 100 / src_loc))
-   # Target: >= 90% coverage
-   ```
+
+    ```bash
+    # Calculate test:source ratio
+    test_loc=$(wc -l tests/*.rs | tail -1 | awk '{print $1}')
+    src_loc=$(wc -l src/*.rs src/**/*.rs | tail -1 | awk '{print $1}')
+    ratio=$((test_loc * 100 / src_loc))
+    # Target: >= 90% coverage
+    ```
 
 11. **Real usage validation** — Test production scenarios. Always use the
     freshly built binary (`./target/debug/csm`), never the globally installed
     `csm` which may be multiple releases behind:
-   ```bash
-   CSM=./target/debug/csm   # NOT the stale ~/.local/bin/csm
-   $CSM inject test-1 --database /tmp/validate.db
-   $CSM probe test-1 -k 5 --database /tmp/validate.db
-   $CSM export -o /tmp/validate.json --database /tmp/validate.db
-   $CSM import /tmp/validate.json --database /tmp/validate.db
-   rm /tmp/validate.db /tmp/validate.json
 
-   # Skill-memory integration
-   ls -la .agents/csm-memory/skill-memory.db  # Verify db exists
-   ```
+    ```bash
+    CSM=./target/debug/csm   # NOT the stale ~/.local/bin/csm
+    $CSM inject test-1 --database /tmp/validate.db
+    $CSM probe test-1 -k 5 --database /tmp/validate.db
+    $CSM export -o /tmp/validate.json --database /tmp/validate.db
+    $CSM import /tmp/validate.json --database /tmp/validate.db
+    rm /tmp/validate.db /tmp/validate.json
+
+    # Skill-memory integration
+    ls -la .agents/csm-memory/skill-memory.db  # Verify db exists
+    ```
 
 12. **Update state after completion** — Record what changed:
    - Update `plans/GOAP_STATE.md`: `action_last_completed`, module LOC, test counts.

@@ -906,8 +906,8 @@ world_state:
   verification_2026_04_30_text_encoder_encode_short_us: 2.4   # was 11.5 µs (-79%)
   verification_2026_04_30_singularity_probe_50000_ms: 3.73    # < 10 ms target
   verification_2026_04_30_persistence_cold_start_us: 700      # ~705 µs
-  verification_2026_04_30_archive_phase_skipped: true         # 2026-05-18: Resolved — archive markers work (see ADR-0083)
-  verification_2026_04_30_delete_phase_skipped: true          # 2026-05-18: Resolved — `csm delete` command confirmed working
+  verification_2026_04_30_archive_phase_skipped: false        # 2026-05-18: Resolved — archive markers work (see ADR-0083)
+  verification_2026_04_30_delete_phase_skipped: false         # 2026-05-18: Resolved — `csm delete` command confirmed working
 
   # Clippy pedantic / nursery audit
   clippy_pedantic_surface_warnings: 936
