@@ -47,7 +47,7 @@ pkg/
 /progress/mutation/*-latest.md
 
 # Auto-generated exports
-export.json
+
 
 # IDE / editor tooling
 .opencode/node_modules/
@@ -81,7 +81,7 @@ examples/tmp/
 *.skill-memory.log
 
 # Temporary exports from demos
-/tmp/*-export.json
+/tmp/*-
 /tmp/*-memory.json
 csm_test*
 .blackboxcli/
