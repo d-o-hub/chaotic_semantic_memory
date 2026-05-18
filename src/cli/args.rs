@@ -81,16 +81,18 @@ pub enum Commands {
     /// GraphRAG retrieval: similarity + graph traversal hybrid.
     ProbeGraph(ProbeGraphArgs),
     /// MCP server commands.
+    #[cfg(feature = "mcp")]
     #[command(subcommand)]
     Mcp(McpCommands),
 }
 
+#[cfg(feature = "mcp")]
 #[derive(Subcommand, Debug, Clone)]
 pub enum McpCommands {
     /// Start MCP server.
     Serve(McpServeArgs),
 }
-
+#[cfg(feature = "mcp")]
 #[derive(Args, Debug, Clone)]
 pub struct McpServeArgs {
     /// Transport to use: stdio or sse.

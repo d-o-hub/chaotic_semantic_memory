@@ -85,6 +85,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct CliArgs
 - pub enum OutputFormat
 - pub enum Commands
+- pub enum McpCommands
+- pub struct McpServeArgs
 - pub struct InjectArgs
 - pub enum VectorSource
 - pub struct ProbeArgs
@@ -532,7 +534,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/mcp/mod.rs
 
 - pub use resources::McpResources
-- pub use server::serve
+- pub use server::{McpConfig, Transport, serve}
 - pub use tools::McpTools
 
 ### src/mcp/resources.rs

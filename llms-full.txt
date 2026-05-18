@@ -85,6 +85,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct CliArgs
 - pub enum OutputFormat
 - pub enum Commands
+- pub enum McpCommands
+- pub struct McpServeArgs
 - pub struct InjectArgs
 - pub enum VectorSource
 - pub struct ProbeArgs
@@ -532,7 +534,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/mcp/mod.rs
 
 - pub use resources::McpResources
-- pub use server::serve
+- pub use server::{McpConfig, Transport, serve}
 - pub use tools::McpTools
 
 ### src/mcp/resources.rs
@@ -1519,6 +1521,8 @@ pub enum Commands {
     Metrics(MetricsArgs),
     Watch(WatchArgs),
     ProbeGraph(ProbeGraphArgs),
+    #[cfg(feature = "mcp")]
+    Mcp(McpCommands),
 }
 ```
 
@@ -1657,6 +1661,27 @@ pub struct InjectArgs {
     pub use_embeddings: bool,
     pub provider: Option<String>,
     pub metadata: Option<String>,
+}
+```
+
+### McpCommands
+
+```rust
+#[derive(Subcommand, Debug, Clone)]
+#[cfg(feature = "mcp")]
+pub enum McpCommands {
+    Serve(McpServeArgs),
+}
+```
+
+### McpServeArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+#[cfg(feature = "mcp")]
+pub struct McpServeArgs {
+    pub transport: crate::mcp::Transport,
+    pub bind: Option<String>,
 }
 ```
 
@@ -3690,10 +3715,10 @@ pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig
 pub use resources::McpResources;
 ```
 
-### server::serve
+### server::{McpConfig, Transport, serve}
 
 ```rust
-pub use server::serve;
+pub use server::{McpConfig, Transport, serve};
 ```
 
 ### tools::McpTools
@@ -3853,7 +3878,7 @@ Configuration for MCP server.
 ### Transport
 
 ```rust
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, clap :: ValueEnum)]
 pub enum Transport {
     Stdio,
     Sse,
