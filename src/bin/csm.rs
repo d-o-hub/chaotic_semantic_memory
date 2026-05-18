@@ -175,6 +175,18 @@ mod native {
             Commands::ProbeGraph(cmd) => {
                 run_probe_graph(cmd.clone(), db_path.as_deref(), fmt).await
             }
+            Commands::Mcp(cmd) => match cmd {
+                chaotic_semantic_memory::cli::McpCommands::Serve(args) => {
+                    let config = chaotic_semantic_memory::mcp::McpConfig {
+                        transport: args.transport,
+                        bind: args.bind.clone(),
+                        database: db_path,
+                    };
+                    chaotic_semantic_memory::mcp::serve(config)
+                        .await
+                        .map_err(|e| chaotic_semantic_memory::cli::CliError::Persistence(e.to_string()))
+                }
+            },
         };
         result.map(|_| ((), fmt))
     }

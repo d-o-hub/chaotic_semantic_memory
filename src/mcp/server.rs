@@ -9,7 +9,7 @@ use super::resources::McpResources;
 use super::tools::McpTools;
 
 /// Transport type for MCP server.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, clap::ValueEnum)]
 pub enum Transport {
     /// Standard input/output (default for desktop apps)
     #[default]
