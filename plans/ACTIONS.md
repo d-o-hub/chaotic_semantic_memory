@@ -3606,3 +3606,87 @@ actions:
     description: |
       Test CloudEvents emission across all MemoryEvent variants.
       Verify LogEmitter output and HttpEmitter payload structure.
+
+  # ─────────────────────────────────────────────────────────
+  # Wave 26: DuckDB Companion Crate (ADRs 0079-0082)
+  # Backfilled 2026-05-18 — code already merged in main but
+  # was missing from ACTIONS.md. Each row marked `complete`
+  # to reflect on-disk truth (see crates/chaotic_semantic_memory_duckdb/).
+  # ─────────────────────────────────────────────────────────
+
+  - name: duckdb_workspace_restructure
+    preconditions: []
+    effects:
+      duckdb_workspace_restructure_complete: true
+    cost: 4
+    status: complete
+    file: Cargo.toml, crates/chaotic_semantic_memory_duckdb/Cargo.toml
+    description: |
+      ADR-0079. Moved DuckDB-dependent code to a workspace member
+      crate (crates/chaotic_semantic_memory_duckdb/) to keep the core
+      crate slim and DuckDB-free.
+
+  - name: duckdb_phase1_readonly_analytics
+    preconditions:
+      duckdb_workspace_restructure_complete: true
+    effects:
+      duckdb_phase1_readonly_analytics_complete: true
+    cost: 8
+    status: complete
+    file: crates/chaotic_semantic_memory_duckdb/src/{connection,schema,stats,ingest_libsql}.rs
+    description: |
+      ADR-0080. Read-only DuckDB connector over libSQL exports.
+      Implements connection, schema, stats, libsql ingest. Tested via
+      crates/chaotic_semantic_memory_duckdb/tests/integration_tests.rs.
+
+  - name: duckdb_phase2_parquet_export
+    preconditions:
+      duckdb_phase1_readonly_analytics_complete: true
+    effects:
+      duckdb_phase2_parquet_export_complete: true
+    cost: 6
+    status: complete
+    file: crates/chaotic_semantic_memory_duckdb/src/{export_parquet,export_all,manifest}.rs
+    description: |
+      ADR-0081. Parquet export with manifest tracking and
+      bench/export ingest paths. Snapshot-tested in
+      tests/parquet_export_tests.rs (261 LOC).
+
+  - name: duckdb_phase3_cli_integration
+    preconditions:
+      duckdb_phase2_parquet_export_complete: true
+    effects:
+      duckdb_phase3_cli_integration_complete: true
+    cost: 8
+    status: complete
+    file: crates/chaotic_semantic_memory_duckdb/src/{bin/csm-analytics.rs,cli/**}
+    description: |
+      ADR-0082 (PR #242, merge 8ca0e75). `csm-analytics` standalone
+      binary plus optional integrated `csm analytics` subcommand.
+      cli_tests.rs covers help snapshots, export/inspect/query/stats.
+
+  # ─────────────────────────────────────────────────────────
+  # Release prep — v0.3.6 (queued, cost 4)
+  # ─────────────────────────────────────────────────────────
+
+  - name: release_v0_3_6
+    preconditions:
+      duckdb_phase3_cli_integration_complete: true
+      cli_framework_parity_complete: true
+      adr_backfill_complete: true
+    effects:
+      v036_released: true
+    cost: 4
+    status: queued
+    file: Cargo.toml, VERSION, CHANGELOG.md, wasm/package.json
+    description: |
+      Cut v0.3.6 to ship the merged-but-unreleased work since v0.3.5:
+      DuckDB companion Phase 1-3, hyperdim SIMD refactor, framework
+      events CloudEvents scaffolding, CLI parity smoke test, ADR parity
+      script. Follow release-management skill:
+        1. Add CHANGELOG.md [Unreleased] -> [0.3.6] section
+        2. scripts/sync-version.sh 0.3.6 (bumps Cargo.toml + wasm/package.json + VERSION)
+        3. cargo build --release to refresh Cargo.lock
+        4. Atomic commit, push, wait for CI green
+        5. gh release create v0.3.6 (triggers crates.io + npm trusted publishing)
+        6. Verify dist channels aligned (dist-channel-selection skill).
