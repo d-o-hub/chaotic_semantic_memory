@@ -862,10 +862,17 @@ world_state:
   gap_analysis_2026_04_30_total_cost: 116
   action_last_completed: rebase_deepsource_fix_2026_06
 
-  # Wave 21 P0 — Adoption Unblockers (queued, total cost 34)
-  cli_framework_parity_complete: false        # ADR-0066 — 11 CLI subcommands missing
-  mcp_server_implemented: false               # ADR-0067 — `csm mcp serve` for LLM agents
-  adr_backfill_complete: false                # ADR-0076 — ~29 missing ADR files
+  # Wave 21 P0 — Adoption Unblockers
+  # 2026-05-18: Wave 21 P0 status reconciled with codebase.
+  cli_framework_parity_complete: true         # ADR-0066 — all 22 commands wired
+                                              #   in src/cli/args.rs + src/bin/csm.rs;
+                                              #   tests/cli_parity.rs locks the surface.
+  cli_parity_smoke_test_added: true           # 2026-05-18: tests/cli_parity.rs
+  adr_backfill_complete: true                 # ADR-0076 — 77/78 on disk; ADR-0003
+                                              #   marked superseded (N/A) per registry.
+  adr_parity_script_added: true               # 2026-05-18: scripts/check-adr-parity.sh
+  mcp_server_implemented: false               # ADR-0067 — delegated to Jules
+  mcp_server_jules_issue: 246                 # github.com/d-o-hub/chaotic_semantic_memory/issues/246
 
   # Wave 22 P1 — Capability Ceiling (queued, total cost 40)
   hnsw_ann_index_implemented: false           # ADR-0068 — scale beyond 200k concepts
@@ -904,7 +911,7 @@ world_state:
   clippy_actionable_warnings: 110                             # float_cmp + drop_tightening + cast_* + const_fn + redundant_clone
   adr_0077_clippy_promotion_drafted: true                     # plans/adr/0077-clippy-pedantic-selective-promotion.md
   clippy_pedantic_promotion_complete: false                   # 5 themed PRs queued
-  action_last_completed: optimize_persistence_allocations_2026_06
+  action_last_completed: wave_21_p0_reconcile_and_delegate_mcp_2026_05_18
 
   # ═══════════════════════════════════════════════════════
   # Rebase + DeepSource Fix (June 2026)
