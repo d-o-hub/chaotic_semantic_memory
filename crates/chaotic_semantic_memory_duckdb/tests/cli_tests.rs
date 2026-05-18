@@ -39,6 +39,34 @@ async fn test_stats_command() {
 }
 
 #[tokio::test]
+async fn test_export_command() {
+    let mut temp_db = NamedTempFile::new().unwrap();
+    let conn = Connection::open(temp_db.path()).unwrap();
+    conn.execute_batch(SCHEMA_DDL).unwrap();
+    drop(conn);
+
+    let out_dir = tempfile::tempdir().unwrap();
+
+    let cmd = chaotic_semantic_memory_duckdb::cli::AnalyticsCommand::Export(
+        chaotic_semantic_memory_duckdb::cli::ExportArgs {
+            input: temp_db.path().to_path_buf(),
+            out: out_dir.path().to_path_buf(),
+            #[cfg(feature = "parquet")]
+            compression: chaotic_semantic_memory_duckdb::export_parquet::ParquetCompression::None,
+            row_group_size: 1000,
+            partition_by: None,
+        },
+    );
+
+    chaotic_semantic_memory_duckdb::cli::run_analytics(cmd)
+        .await
+        .unwrap();
+
+    // Verify some files were created
+    assert!(out_dir.path().join("concepts.parquet").exists());
+}
+
+#[tokio::test]
 async fn test_query_command() {
     let mut temp = NamedTempFile::new().unwrap();
     let conn = Connection::open(temp.path()).unwrap();

@@ -104,14 +104,3 @@ fn open_analytics(path: &std::path::Path) -> Result<Analytics> {
         Analytics::open(path)
     }
 }
-
-/// Helper for core CLI to build the analytics subcommand.
-pub fn build_subcommand() -> clap::Command {
-    use clap::CommandFactory;
-    #[derive(clap::Parser)]
-    struct Wrapper {
-        #[command(subcommand)]
-        command: AnalyticsCommand,
-    }
-    Wrapper::command()
-}

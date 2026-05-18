@@ -5,18 +5,13 @@ use sha2::{Digest, Sha256};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum ParquetCompression {
+    #[default]
     Zstd,
     Snappy,
     None,
-}
-
-impl Default for ParquetCompression {
-    fn default() -> Self {
-        Self::Zstd
-    }
 }
 
 impl std::fmt::Display for ParquetCompression {
@@ -138,7 +133,7 @@ impl Analytics {
                 let is_valid = !p.is_empty()
                     && p.chars()
                         .next()
-                        .map_or(false, |c| c.is_ascii_alphabetic() || c == '_')
+                        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
                     && p.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
 
                 if !is_valid {

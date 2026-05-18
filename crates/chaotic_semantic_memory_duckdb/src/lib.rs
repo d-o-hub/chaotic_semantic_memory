@@ -58,8 +58,7 @@ impl Analytics {
             }
 
             let mut map = serde_json::Map::new();
-            for i in 0..column_count {
-                let name = &column_names[i];
+            for (i, name) in column_names.iter().enumerate().take(column_count) {
                 let val = match row.get_ref(i)? {
                     duckdb::types::ValueRef::Null => serde_json::Value::Null,
                     duckdb::types::ValueRef::Boolean(b) => serde_json::Value::Bool(b),

@@ -255,7 +255,7 @@ serde = []
 cloudevents = ["dep:cloudevents-sdk", "dep:uuid", "uuid/js"]
 events-http = ["cloudevents", "cloudevents-sdk/http-binding", "dep:reqwest"]
 
-analytics = ["chaotic_semantic_memory_duckdb/cli", "chaotic_semantic_memory_duckdb/parquet"]
+analytics = ["cli", "chaotic_semantic_memory_duckdb/cli", "chaotic_semantic_memory_duckdb/parquet"]
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]
