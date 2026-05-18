@@ -44,6 +44,33 @@ Run before commit (see `git-workflow` skill for details):
 scripts/validate.sh
 ```
 
+## CLI Surface Lock (ADR-0066)
+After touching `src/cli/**` or `src/bin/csm.rs`:
+```bash
+cargo test --test cli_parity --features cli   # 2 smoke tests, must pass
+```
+Always test against the **built** binary, not the installed one:
+```bash
+cargo build --bin csm --features cli --quiet
+./target/debug/csm --help                     # source truth
+```
+
+## ADR Registry ↔ Disk Parity (ADR-0076)
+```bash
+./scripts/check-adr-parity.sh                 # errors on missing, warns on orphans
+```
+Run before any ADR-related PR; integrated into `scripts/validate.sh`.
+
+## Jules Delegation (Long-Running Actions)
+For `plans/ACTIONS.md` actions with `cost ≥ 12`, hand off to Jules:
+```bash
+gh issue create --label jules \
+    --title "Wave XX: <ADR-NNNN> <summary>" \
+    --body "<context, current state, TODO checklist, acceptance criteria>"
+```
+Then mark the action `status: delegated` with `jules_issue: <num>`. See the
+`jules-orchestration` skill.
+
 ## Documentation Link Check
 Validate links, commands, and version references in docs:
 ```bash

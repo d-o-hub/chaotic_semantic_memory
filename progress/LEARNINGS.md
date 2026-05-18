@@ -47,3 +47,10 @@
 - **Merge Conflict Strategy**: When rebasing or merging, prioritize preserving functional logic from both sides. In this task, Association/Isolation tasks from main were successfully integrated with the expanded coverage areas (TTL, Bridge, History).
 - **Tool Discipline**: Use `git checkout origin/main -- <file>` to restore files lost during complex merges or rebases.
 - **Optimization Strategy**: Gating parallelization (e.g., Rayon) with a minimum workload threshold (N >= 32) prevents task scheduling overhead from dominating small operations, yielding order-of-magnitude gains in hot paths like hypervector bundling.
+
+## State Drift Verification (Wave 21 P0 — May 2026)
+- **Built ≠ Installed**: `~/.local/bin/csm` (or any global install) frequently lags source by multiple releases. Before claiming a CLI surface is missing a command, build locally and check `./target/debug/csm --help`. The Wave 21 P0 gap analysis falsely reported missing CLI subcommands until this was verified — they were already wired in source since Wave 20.
+- **GOAP_STATE drift**: `plans/GOAP_STATE.md` is a flat YAML mapping. Duplicate keys (e.g. `action_last_completed` appearing 3×) are silently overwritten by the last one. Always `grep -c '^  action_last_completed' plans/GOAP_STATE.md` → must equal 1.
+- **ACTIONS.md drift**: Newly merged ADRs (e.g. DuckDB 0079-0082) can ship to `main` without corresponding rows in `plans/ACTIONS.md`. Backfill complete rows when discovered so the planner has accurate state.
+- **Registry ↔ Disk parity**: Added `scripts/check-adr-parity.sh` to enforce `plans/ADR_REGISTRY.md` ↔ `plans/adr/` + `docs/adr/`. Allow rows marked `Superseded` / `N/A`; warn on orphan files; error on missing-with-backing.
+- **Jules delegation pattern**: Long actions (`cost ≥ 12` in ACTIONS.md) belong in a GitHub issue labeled `jules` rather than an interactive session. Mark the action `status: delegated` with `jules_issue: <num>` so the planner sees the dependency satisfied via remote execution. Wave 21 MCP server (ADR-0067) was delegated this way to issue #246.
