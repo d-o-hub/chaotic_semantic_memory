@@ -14,7 +14,8 @@ world_state:
   result_contract_clarified: true
   architecture_docs_two_tier: true
   architecture_docs_canonical_source: "context.yaml"
-   action_last_completed: open_pr_triage_and_merge_2026_05_04
+  # action_last_completed is set ONCE near the end of the file (DRY).
+  # Earlier duplicates were stale and silently overwritten by the later entry.
   # 2026-05-04 PR triage:
   #   #173 (PR169 feedback) — squash-merged → main 7d4dfaa
   #   #174 (hyperdim perf)  — rebased clean onto main (kept hyperdim.rs only;
@@ -860,7 +861,9 @@ world_state:
   gap_analysis_2026_04_30_findings: 10
   gap_analysis_2026_04_30_adrs_drafted: 11
   gap_analysis_2026_04_30_total_cost: 116
-  action_last_completed: rebase_deepsource_fix_2026_06
+  # NOTE: prior `action_last_completed: rebase_deepsource_fix_2026_06`
+  # removed 2026-05-18 — duplicate key (YAML last-wins). Canonical entry
+  # is at the bottom of the file; see Wave 25 / 2026-05-18 reconciliation.
 
   # Wave 21 P0 — Adoption Unblockers
   # 2026-05-18: Wave 21 P0 status reconciled with codebase.
@@ -940,3 +943,38 @@ world_state:
   cloudevents_adr_written: true
   cloudevents_implemented: false
   cloudevents_tested: false
+
+  # ═══════════════════════════════════════════════════════
+  # Wave 26: DuckDB Companion Crate (P2) — backfilled 2026-05-18
+  # ADRs 0079-0082. Code merged in main; this section records
+  # state for the planner. All three phases shipped under
+  # crates/chaotic_semantic_memory_duckdb/.
+  # ═══════════════════════════════════════════════════════
+  duckdb_workspace_restructure_complete: true   # ADR-0079
+  duckdb_phase1_readonly_analytics_complete: true  # ADR-0080
+  duckdb_phase2_parquet_export_complete: true   # ADR-0081
+  duckdb_phase3_cli_integration_complete: true  # ADR-0082 (PR #242, merge 8ca0e75)
+  duckdb_companion_published: false             # not yet on crates.io
+  duckdb_companion_in_next_release: true        # ship in v0.3.6
+  duckdb_companion_tests_passing: true          # cli_tests, integration_tests, parquet_export_tests
+
+  # ═══════════════════════════════════════════════════════
+  # Release readiness (2026-05-18 snapshot)
+  # ═══════════════════════════════════════════════════════
+  unreleased_changes_present: true              # DuckDB + hyperdim SIMD + framework events
+  unreleased_changelog_section: false           # CHANGELOG.md still ends at [0.3.5]
+  next_release_planned: "v0.3.6"
+  next_release_blockers: 0                      # CI green on main (790fac9)
+
+  # ═══════════════════════════════════════════════════════
+  # Workflow learnings (2026-05-18)
+  # See: progress/LEARNINGS.md "State drift verification"
+  # ═══════════════════════════════════════════════════════
+  workflow_lesson_verify_built_binary: true     # don't trust stale installed binaries
+                                                # when assessing CLI surface gaps;
+                                                # always `cargo build --bin <name>` first.
+  workflow_lesson_delegate_long_actions: true   # actions with cost ≥ 12 should become
+                                                # Jules GitHub issues (label: jules)
+                                                # marked `status: delegated` in ACTIONS.md.
+  goap_state_duplicate_key_fixed: true          # action_last_completed now appears
+                                                # exactly once in GOAP_STATE.md.
