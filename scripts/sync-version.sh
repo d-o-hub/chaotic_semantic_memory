@@ -53,7 +53,7 @@ validate_changelog() {
 
 # Get current version from Cargo.toml first
 # Use quotes for the filename to satisfy linting
-CURRENT_VERSION=$(grep -m1 'version = ' "Cargo.toml" | sed 's/version = "\(.*\)"/\1/')
+CURRENT_VERSION=$(grep -m1 '^version = ' "Cargo.toml" | sed 's/^version = "\(.*\)"/\1/')
 
 # If version unchanged, skip validation and exit early
 if [ "$VERSION" = "$CURRENT_VERSION" ]; then
@@ -73,7 +73,7 @@ echo "=============================================="
 
 # Files that need version updates
 declare -A VERSION_FILES
-VERSION_FILES["Cargo.toml"]="s/version = \"$CURRENT_VERSION\"/version = \"$VERSION\"/"
+VERSION_FILES["Cargo.toml"]="s/^version = \"$CURRENT_VERSION\"/version = \"$VERSION\"/"
 VERSION_FILES["README.md"]="s/version = \"$CURRENT_VERSION\"/version = \"$MAJOR_MINOR\"/g"
 VERSION_FILES["book/src/getting-started.md"]="s/version = \"$CURRENT_VERSION\"/version = \"$MAJOR_MINOR\"/g"
 VERSION_FILES["CHANGELOG.md"]="s/\[Unreleased\]/\[$VERSION\]/; s/## \[Unreleased\]/## [$VERSION] - $(date +%Y-%m-%d)/"

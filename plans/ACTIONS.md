@@ -3277,14 +3277,18 @@ actions:
       gap_analysis_2026_04_30_completed: true
     effects:
       cli_framework_parity_complete: true
+      cli_parity_smoke_test_added: true
     cost: 12
-    status: queued
-    file: plans/adr/0066-cli-framework-api-parity.md
+    status: complete
+    file: src/cli/args.rs, src/bin/csm.rs, tests/cli_parity.rs
     description: |
-      Add 11 missing subcommands: delete, get, update, disassociate,
-      associations, traverse, path, probe-filtered, stats, metrics, watch.
-      Each command file ≤ 250 LOC. Wire into bin/csm.rs match block.
-      Add tests/cli_parity.rs verifying each subcommand.
+      All 11 missing subcommands (delete, get, update, disassociate,
+      associations, traverse, path, probe-filtered, stats, metrics, watch)
+      plus probe-graph (ADR-0070 scaffolding) are wired in src/cli/args.rs
+      and dispatched in src/bin/csm.rs (22 commands total).
+      tests/cli_parity.rs added 2026-05-18 — two smoke tests verify each
+      subcommand appears in --help and accepts <cmd> --help.
+      cargo test --test cli_parity --features cli => 2 passed.
 
   - name: implement_mcp_server
     preconditions:
@@ -3292,27 +3296,38 @@ actions:
     effects:
       mcp_server_implemented: true
     cost: 16
-    status: queued
-    file: plans/adr/0067-mcp-server.md
+    status: delegated
+    file: plans/adr/0067-mcp-server.md, src/mcp/
+    jules_issue: 246
     description: |
-      Add `csm mcp serve` subcommand using rmcp crate behind `mcp` feature.
-      12 tools (memory_inject, memory_probe, memory_traverse, etc.) +
-      3 resources (concept://, stats://, health://). Stdio + SSE transports.
-      Smoke test against Claude Desktop config.
+      Delegated to Jules on 2026-05-18 via GitHub issue #246
+      (label: jules). Scaffolding exists in src/mcp/ but 14 handle_*
+      methods are stubs (`TODO: Wire to framework.*`) and rmcp transport
+      is not started (server.rs:50). Jules will:
+        - wire 11 of 12 tool handlers + 3 resource handlers
+        - add stdio + SSE transports
+        - add `csm mcp serve` subcommand behind `mcp` feature
+        - add per-handler integration tests + Claude Desktop smoke test
+        - keep each file ≤ 500 LOC.
 
   - name: backfill_missing_adrs
     preconditions:
       gap_analysis_2026_04_30_completed: true
     effects:
       adr_backfill_complete: true
+      adr_parity_script_added: true
     cost: 6
-    status: queued
-    file: plans/adr/0076-adr-backfill.md
+    status: complete
+    file: plans/ADR_REGISTRY.md, plans/adr/, scripts/check-adr-parity.sh
     description: |
-      Reconstruct ~29 missing ADR files from registry IDs using commit history,
-      GOAP_STATE comments, and handoff notes. Each backfilled ADR ≤ 250 lines,
-      marked "Accepted (backfill)". Add scripts/validate.sh check enforcing
-      registry ↔ disk parity.
+      Backfill landed in main on 2026-05-01 (note at top of
+      plans/ADR_REGISTRY.md). 78 ADR files now on disk vs 79 registry
+      entries (ADR-0003 is N/A on disk, marked Superseded in registry).
+      2026-05-18 added scripts/check-adr-parity.sh which enforces
+      registry ↔ disk parity (warns on orphan files, errors on
+      missing-with-backing). Inline check in scripts/validate.sh already
+      enforced this — the new script extends to docs/adr/ and reports
+      orphans.
 
   # ─────────────────────────────────────────────────────────
   # Wave 22: P1 — Capability Ceiling Removal (cost: 40)
@@ -3591,3 +3606,166 @@ actions:
     description: |
       Test CloudEvents emission across all MemoryEvent variants.
       Verify LogEmitter output and HttpEmitter payload structure.
+
+  <!-- Wave 26: DuckDB Companion Crate (ADRs 0079-0082) -->
+  <!-- Backfilled 2026-05-18 — code already merged in main but -->
+  <!-- was missing from ACTIONS.md. Each row marked `complete` -->
+
+  - name: duckdb_workspace_restructure
+    preconditions: []
+    effects:
+      duckdb_workspace_restructure_complete: true
+    cost: 4
+    status: complete
+    file: Cargo.toml, crates/chaotic_semantic_memory_duckdb/Cargo.toml
+    description: |
+      ADR-0079. Moved DuckDB-dependent code to a workspace member
+      crate (crates/chaotic_semantic_memory_duckdb/) to keep the core
+      crate slim and DuckDB-free.
+
+  - name: duckdb_phase1_readonly_analytics
+    preconditions:
+      duckdb_workspace_restructure_complete: true
+    effects:
+      duckdb_phase1_readonly_analytics_complete: true
+    cost: 8
+    status: complete
+    file: crates/chaotic_semantic_memory_duckdb/src/{connection,schema,stats,ingest_libsql}.rs
+    description: |
+      ADR-0080. Read-only DuckDB connector over libSQL exports.
+      Implements connection, schema, stats, libsql ingest. Tested via
+      crates/chaotic_semantic_memory_duckdb/tests/integration_tests.rs.
+
+  - name: duckdb_phase2_parquet_export
+    preconditions:
+      duckdb_phase1_readonly_analytics_complete: true
+    effects:
+      duckdb_phase2_parquet_export_complete: true
+    cost: 6
+    status: complete
+    file: crates/chaotic_semantic_memory_duckdb/src/{export_parquet,export_all,manifest}.rs
+    description: |
+      ADR-0081. Parquet export with manifest tracking and
+      bench/export ingest paths. Snapshot-tested in
+      tests/parquet_export_tests.rs (261 LOC).
+
+  - name: duckdb_phase3_cli_integration
+    preconditions:
+      duckdb_phase2_parquet_export_complete: true
+    effects:
+      duckdb_phase3_cli_integration_complete: true
+    cost: 8
+    status: complete
+    file: crates/chaotic_semantic_memory_duckdb/src/{bin/csm-analytics.rs,cli/**}
+    description: |
+      ADR-0082 (PR #242, merge 8ca0e75). `csm-analytics` standalone
+      binary plus optional integrated `csm analytics` subcommand.
+      cli_tests.rs covers help snapshots, export/inspect/query/stats.
+
+  # ─────────────────────────────────────────────────────────
+  # Memory Lifecycle Verification (2026-05-18)
+  # Dogfood: memory-lifecycle-verification skill
+  # ─────────────────────────────────────────────────────────
+
+  - name: verify_memory_lifecycle
+    preconditions:
+      cli_framework_parity_complete: true
+    effects:
+      memory_lifecycle_verification_completed: true
+    cost: 2
+    status: complete
+    file: plans/GOAP_STATE.md
+    description: |
+      Ran the memory-lifecycle-verification skill as dogfood:
+      Phase 1 (save): inject 2 concepts, associate, probe — OK
+      Phase 2 (load): export→import→roundtrip with identical
+        similarity scores (0.006055) and metadata — OK
+      Phase 3 (archive): archive marker concepts with full
+        metadata — OK
+      Phase 4 (delete): delete concept, verify removed from
+        active probe results, verify not-found error — OK
+      DB verified via sqld HTTP API & Python sqlite3 — OK
+      All validation gates pass (check, test, fmt, clippy).
+
+  # ─────────────────────────────────────────────────────────
+  # Memory Lifecycle Verification Follow-up (2026-05-18)
+  # Cost: 5 — all items are documentation/skill-reference fixes
+  # ADR-0083: Export format contract
+  # ─────────────────────────────────────────────────────────
+
+  - name: fix_sql_checks_table_names
+    preconditions:
+      memory_lifecycle_verification_completed: true
+    effects:
+      memory_lifecycle_sql_checks_fixed: true
+    cost: 1
+    status: complete
+    file: .agents/skills/memory-lifecycle-verification/references/sql_checks.sql
+    description: |
+      Fix table names: concepts→csm_concepts, associations→csm_associations,
+      source_id→from_id, target_id→to_id. Add docstring about csm_ prefix.
+
+  - name: mark_validation_checklist
+    preconditions:
+      memory_lifecycle_verification_completed: true
+    effects:
+      memory_lifecycle_checklist_marked: true
+    cost: 1
+    status: complete
+    file: .agents/skills/memory-lifecycle-verification/references/VALIDATION_CHECKLIST.md
+    description: |
+      Fill all checkboxes for 2026-05-18 verification run. Record
+      actual commands, outputs, checksums, and timestamps for audit trail.
+
+  - name: fix_goap_stale_flags
+    preconditions:
+      memory_lifecycle_verification_completed: true
+    effects:
+      memory_lifecycle_stale_flags_fixed: true
+    cost: 1
+    status: complete
+    file: plans/GOAP_STATE.md
+    description: |
+      Annotate verification_2026_04_30_archive_phase_skipped and
+      delete_phase_skipped as "2026-05-18: Resolved" since delete
+      command exists and archive marker pattern works.
+
+  - name: write_adr_0083
+    preconditions:
+      memory_lifecycle_verification_completed: true
+    effects:
+      adr_0083_export_format_documented: true
+    cost: 2
+    status: complete
+    file: plans/adr/0083-memory-lifecycle-verification-and-export-format.md
+    description: |
+      Document decision to keep export JSON associations as
+      array-of-tuples (not named objects). Chose Option 2 for
+      backward compatibility. Records all 4 gaps found during
+      verification and their resolutions.
+
+  # ─────────────────────────────────────────────────────────
+  # Release prep — v0.3.6 (queued, cost 4)
+  # ─────────────────────────────────────────────────────────
+
+  - name: release_v0_3_6
+    preconditions:
+      duckdb_phase3_cli_integration_complete: true
+      cli_framework_parity_complete: true
+      adr_backfill_complete: true
+    effects:
+      v036_released: true
+    cost: 4
+    status: queued
+    file: Cargo.toml, VERSION, CHANGELOG.md, wasm/package.json
+    description: |
+      Cut v0.3.6 to ship the merged-but-unreleased work since v0.3.5:
+      DuckDB companion Phase 1-3, hyperdim SIMD refactor, framework
+      events CloudEvents scaffolding, CLI parity smoke test, ADR parity
+      script. Follow release-management skill:
+        1. Add CHANGELOG.md [Unreleased] -> [0.3.6] section
+        2. scripts/sync-version.sh 0.3.6 (bumps Cargo.toml + wasm/package.json + VERSION)
+        3. cargo build --release to refresh Cargo.lock
+        4. Atomic commit, push, wait for CI green
+        5. gh release create v0.3.6 (triggers crates.io + npm trusted publishing)
+        6. Verify dist channels aligned (dist-channel-selection skill).
