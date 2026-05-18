@@ -1,6 +1,21 @@
 {
-  "version": "0.3.5",
-  "exported_at": 1779084363,
-  "concepts": [],
-  "associations": []
+  "concepts": [
+    {
+      "id": "c1",
+      "namespace": "default",
+      "metadata": {"text": "default concept"},
+      "created_at": 1716000000,
+      "modified_at": 1716000000
+    },
+    {
+      "id": "c2",
+      "namespace": "science",
+      "metadata": {"text": "science concept"},
+      "created_at": 1716000001,
+      "modified_at": 1716000001
+    }
+  ],
+  "associations": [
+    ["c1", "c2", 0.8]
+  ]
 }
