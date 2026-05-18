@@ -15,6 +15,6 @@ mod tools;
 #[cfg(feature = "mcp")]
 pub use resources::McpResources;
 #[cfg(feature = "mcp")]
-pub use server::serve;
+pub use server::{McpConfig, Transport, serve};
 #[cfg(feature = "mcp")]
 pub use tools::McpTools;
