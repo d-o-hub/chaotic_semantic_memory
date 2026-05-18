@@ -3321,13 +3321,13 @@ actions:
     file: plans/ADR_REGISTRY.md, plans/adr/, scripts/check-adr-parity.sh
     description: |
       Backfill landed in main on 2026-05-01 (note at top of
-      plans/ADR_REGISTRY.md). 77 ADR files now on disk vs 78 registry
-      entries; the single delta is ADR-0003 which the registry marks
-      "_Superseded by ADR-0008_, N/A". 2026-05-18 added
-      scripts/check-adr-parity.sh which enforces registry ↔ disk parity
-      (warns on orphan files, errors on missing-with-backing). Inline
-      check in scripts/validate.sh already enforced this — the new
-      script extends to docs/adr/ and reports orphans.
+      plans/ADR_REGISTRY.md). 78 ADR files now on disk vs 79 registry
+      entries (ADR-0003 is N/A on disk, marked Superseded in registry).
+      2026-05-18 added scripts/check-adr-parity.sh which enforces
+      registry ↔ disk parity (warns on orphan files, errors on
+      missing-with-backing). Inline check in scripts/validate.sh already
+      enforced this — the new script extends to docs/adr/ and reports
+      orphans.
 
   # ─────────────────────────────────────────────────────────
   # Wave 22: P1 — Capability Ceiling Removal (cost: 40)
@@ -3607,12 +3607,9 @@ actions:
       Test CloudEvents emission across all MemoryEvent variants.
       Verify LogEmitter output and HttpEmitter payload structure.
 
-  # ─────────────────────────────────────────────────────────
-  # Wave 26: DuckDB Companion Crate (ADRs 0079-0082)
-  # Backfilled 2026-05-18 — code already merged in main but
-  # was missing from ACTIONS.md. Each row marked `complete`
-  # to reflect on-disk truth (see crates/chaotic_semantic_memory_duckdb/).
-  # ─────────────────────────────────────────────────────────
+  <!-- Wave 26: DuckDB Companion Crate (ADRs 0079-0082) -->
+  <!-- Backfilled 2026-05-18 — code already merged in main but -->
+  <!-- was missing from ACTIONS.md. Each row marked `complete` -->
 
   - name: duckdb_workspace_restructure
     preconditions: []
@@ -3664,6 +3661,88 @@ actions:
       ADR-0082 (PR #242, merge 8ca0e75). `csm-analytics` standalone
       binary plus optional integrated `csm analytics` subcommand.
       cli_tests.rs covers help snapshots, export/inspect/query/stats.
+
+  # ─────────────────────────────────────────────────────────
+  # Memory Lifecycle Verification (2026-05-18)
+  # Dogfood: memory-lifecycle-verification skill
+  # ─────────────────────────────────────────────────────────
+
+  - name: verify_memory_lifecycle
+    preconditions:
+      cli_framework_parity_complete: true
+    effects:
+      memory_lifecycle_verification_completed: true
+    cost: 2
+    status: complete
+    file: plans/GOAP_STATE.md
+    description: |
+      Ran the memory-lifecycle-verification skill as dogfood:
+      Phase 1 (save): inject 2 concepts, associate, probe — OK
+      Phase 2 (load): export→import→roundtrip with identical
+        similarity scores (0.006055) and metadata — OK
+      Phase 3 (archive): archive marker concepts with full
+        metadata — OK
+      Phase 4 (delete): delete concept, verify removed from
+        active probe results, verify not-found error — OK
+      DB verified via sqld HTTP API & Python sqlite3 — OK
+      All validation gates pass (check, test, fmt, clippy).
+
+  # ─────────────────────────────────────────────────────────
+  # Memory Lifecycle Verification Follow-up (2026-05-18)
+  # Cost: 5 — all items are documentation/skill-reference fixes
+  # ADR-0083: Export format contract
+  # ─────────────────────────────────────────────────────────
+
+  - name: fix_sql_checks_table_names
+    preconditions:
+      memory_lifecycle_verification_completed: true
+    effects:
+      memory_lifecycle_sql_checks_fixed: true
+    cost: 1
+    status: complete
+    file: .agents/skills/memory-lifecycle-verification/references/sql_checks.sql
+    description: |
+      Fix table names: concepts→csm_concepts, associations→csm_associations,
+      source_id→from_id, target_id→to_id. Add docstring about csm_ prefix.
+
+  - name: mark_validation_checklist
+    preconditions:
+      memory_lifecycle_verification_completed: true
+    effects:
+      memory_lifecycle_checklist_marked: true
+    cost: 1
+    status: complete
+    file: .agents/skills/memory-lifecycle-verification/references/VALIDATION_CHECKLIST.md
+    description: |
+      Fill all checkboxes for 2026-05-18 verification run. Record
+      actual commands, outputs, checksums, and timestamps for audit trail.
+
+  - name: fix_goap_stale_flags
+    preconditions:
+      memory_lifecycle_verification_completed: true
+    effects:
+      memory_lifecycle_stale_flags_fixed: true
+    cost: 1
+    status: complete
+    file: plans/GOAP_STATE.md
+    description: |
+      Annotate verification_2026_04_30_archive_phase_skipped and
+      delete_phase_skipped as "2026-05-18: Resolved" since delete
+      command exists and archive marker pattern works.
+
+  - name: write_adr_0083
+    preconditions:
+      memory_lifecycle_verification_completed: true
+    effects:
+      adr_0083_export_format_documented: true
+    cost: 2
+    status: complete
+    file: plans/adr/0083-memory-lifecycle-verification-and-export-format.md
+    description: |
+      Document decision to keep export JSON associations as
+      array-of-tuples (not named objects). Chose Option 2 for
+      backward compatibility. Records all 4 gaps found during
+      verification and their resolutions.
 
   # ─────────────────────────────────────────────────────────
   # Release prep — v0.3.6 (queued, cost 4)

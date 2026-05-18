@@ -85,6 +85,7 @@
 | 0080 | DuckDB Companion — Phase 1: Read-Only Analytics | Proposed | [adr/0080-duckdb-phase1-readonly-analytics.md](adr/0080-duckdb-phase1-readonly-analytics.md) |
 | 0081 | DuckDB Companion — Phase 2: Parquet Export | Proposed | [adr/0081-duckdb-phase2-parquet-export.md](adr/0081-duckdb-phase2-parquet-export.md) |
 | 0082 | DuckDB Companion — Phase 3: Optional CLI Integration | Proposed | [adr/0082-duckdb-phase3-cli-integration.md](adr/0082-duckdb-phase3-cli-integration.md) |
+| 0083 | Memory Lifecycle Verification & Export Format | Accepted | [adr/0083-memory-lifecycle-verification-and-export-format.md](adr/0083-memory-lifecycle-verification-and-export-format.md) |
 
 ## Status Definitions
 

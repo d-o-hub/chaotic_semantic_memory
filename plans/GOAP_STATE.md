@@ -871,8 +871,8 @@ world_state:
                                               #   in src/cli/args.rs + src/bin/csm.rs;
                                               #   tests/cli_parity.rs locks the surface.
   cli_parity_smoke_test_added: true           # 2026-05-18: tests/cli_parity.rs
-  adr_backfill_complete: true                 # ADR-0076 — 77/78 on disk; ADR-0003
-                                              #   marked superseded (N/A) per registry.
+  adr_backfill_complete: true                 # ADR-0076 — 79 registry, 78 on disk; ADR-0003
+                                               #   marked superseded (N/A) per registry.
   adr_parity_script_added: true               # 2026-05-18: scripts/check-adr-parity.sh
   mcp_server_implemented: false               # ADR-0067 — delegated to Jules
   mcp_server_jules_issue: 246                 # github.com/d-o-hub/chaotic_semantic_memory/issues/246
@@ -906,15 +906,15 @@ world_state:
   verification_2026_04_30_text_encoder_encode_short_us: 2.4   # was 11.5 µs (-79%)
   verification_2026_04_30_singularity_probe_50000_ms: 3.73    # < 10 ms target
   verification_2026_04_30_persistence_cold_start_us: 700      # ~705 µs
-  verification_2026_04_30_archive_phase_skipped: true         # no native CLI command — tracked in ADR-0066
-  verification_2026_04_30_delete_phase_skipped: true          # no native CLI command — tracked in ADR-0066
+  verification_2026_04_30_archive_phase_skipped: false        # 2026-05-18: Resolved — archive markers work (see ADR-0083)
+  verification_2026_04_30_delete_phase_skipped: false         # 2026-05-18: Resolved — `csm delete` command confirmed working
 
   # Clippy pedantic / nursery audit
   clippy_pedantic_surface_warnings: 936
   clippy_actionable_warnings: 110                             # float_cmp + drop_tightening + cast_* + const_fn + redundant_clone
   adr_0077_clippy_promotion_drafted: true                     # plans/adr/0077-clippy-pedantic-selective-promotion.md
   clippy_pedantic_promotion_complete: false                   # 5 themed PRs queued
-  action_last_completed: wave_21_p0_reconcile_and_delegate_mcp_2026_05_18
+  action_last_completed: memory_lifecycle_verification_2026_05_18
 
   # ═══════════════════════════════════════════════════════
   # Rebase + DeepSource Fix (June 2026)
@@ -977,4 +977,23 @@ world_state:
                                                 # Jules GitHub issues (label: jules)
                                                 # marked `status: delegated` in ACTIONS.md.
   goap_state_duplicate_key_fixed: true          # action_last_completed now appears
-                                                # exactly once in GOAP_STATE.md.
+                                                 # exactly once in GOAP_STATE.md.
+
+  # ═══════════════════════════════════════════════════════
+  # Memory Lifecycle Verification (2026-05-18)
+  # Dogfood: memory-lifecycle-verification skill
+  # ═══════════════════════════════════════════════════════
+  memory_lifecycle_verification_completed: true
+  memory_lifecycle_via_turso_cli: true                  # sqld verified DB row counts + schema
+  memory_lifecycle_phase1_save: true                    # inject 2 concepts, associate, probe
+  memory_lifecycle_phase2_load_roundtrip: true           # export→import→probe yields identical results
+  memory_lifecycle_phase3_archive: true                 # archive marker concepts with metadata
+  memory_lifecycle_phase4_delete: true                  # delete + verify removed from active memory
+  memory_lifecycle_db_checksum: 821d5a78240b2aadf69a00ae805d11b2c1579f00377481461306e0430639daf4
+  memory_lifecycle_roundtrip_fidelity: true             # identical similarity scores (0.006055) across export/import
+  memory_lifecycle_metadata_preserved: true             # {"phase":"save","v":1} survives roundtrip
+  memory_lifecycle_followup_goap_created: true          # plans/GOAP_LIFECYCLE_VERIFICATION_FOLLOWUP.md
+  memory_lifecycle_sql_checks_fixed: true               # csm_ prefix + correct column names
+  memory_lifecycle_checklist_marked: true               # VALIDATION_CHECKLIST.md filled for 2026-05-18
+  memory_lifecycle_stale_flags_fixed: true              # archive/delete phase skipped → resolved
+  adr_0083_export_format_documented: true               # array-of-tuples contract accepted

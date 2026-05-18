@@ -27,16 +27,16 @@ The installed `csm 0.3.5` binary on disk lacked the 11 promised
 subcommands, which made the gap appear open. The local source tree on
 `main` already wires all of them.
 
-- [src/cli/args.rs#L46-L83](file:///home/do/git/chaotic_semantic_memory/src/cli/args.rs#L46-L83) — `Commands` enum has 22 variants
-- [src/bin/csm.rs#L128-L177](file:///home/do/git/chaotic_semantic_memory/src/bin/csm.rs#L128-L177) — dispatch covers every variant
-- [src/cli/commands/mod.rs](file:///home/do/git/chaotic_semantic_memory/src/cli/commands/mod.rs) — re-exports every `run_*` handler
+- [src/cli/args.rs#L46-L83](../src/cli/args.rs#L46-L83) — `Commands` enum has 22 variants
+- [src/bin/csm.rs#L128-L177](../src/bin/csm.rs#L128-L177) — dispatch covers every variant
+- [src/cli/commands/mod.rs](../src/cli/commands/mod.rs) — re-exports every `run_*` handler
 - Verified locally:
   ```bash
   cargo build --bin csm --features cli
   ./target/debug/csm --help        # 22 commands listed
   ```
 
-**Action taken:** added [tests/cli_parity.rs](file:///home/do/git/chaotic_semantic_memory/tests/cli_parity.rs)
+**Action taken:** added [tests/cli_parity.rs](../tests/cli_parity.rs)
 with two smoke tests:
 
 1. `cli_help_lists_every_expected_subcommand` — fails if any of the 22
@@ -51,9 +51,9 @@ Result: `cargo test --test cli_parity --features cli` → **2 passed**.
 
 The MCP module exists but is mostly stubs:
 
-- [src/mcp/tools.rs](file:///home/do/git/chaotic_semantic_memory/src/mcp/tools.rs) — 11 of 12 `handle_*` methods return `{"status": "ok", "... stub"}`; only `handle_associate` is wired.
-- [src/mcp/resources.rs](file:///home/do/git/chaotic_semantic_memory/src/mcp/resources.rs) — all 3 resource handlers stubbed (`concept://`, `stats://`, `health://`).
-- [src/mcp/server.rs#L50](file:///home/do/git/chaotic_semantic_memory/src/mcp/server.rs#L50) — `TODO: Wire up rmcp server with tools and resources`.
+- [src/mcp/tools.rs](../src/mcp/tools.rs) — 11 of 12 `handle_*` methods return `{"status": "ok", "... stub"}`; only `handle_associate` is wired.
+- [src/mcp/resources.rs](../src/mcp/resources.rs) — all 3 resource handlers stubbed (`concept://`, `stats://`, `health://`).
+- [src/mcp/server.rs#L50](../src/mcp/server.rs#L50) — `TODO: Wire up rmcp server with tools and resources`.
 - No `csm mcp serve` subcommand.
 
 This is a 16-cost task spanning protocol transports (stdio + SSE), 14
@@ -62,7 +62,7 @@ the threshold for a single interactive session.
 
 **Delegated:** GitHub issue [#246](https://github.com/d-o-hub/chaotic_semantic_memory/issues/246)
 with label `jules`. Will be picked up by jules.google.com per the
-[jules-orchestration skill](file:///home/do/git/chaotic_semantic_memory/.agents/skills/jules-orchestration/SKILL.md).
+[jules-orchestration skill](../.agents/skills/jules-orchestration/SKILL.md).
 
 ### ✅ ADR backfill (ADR-0076) — already complete
 
@@ -74,7 +74,7 @@ with label `jules`. Will be picked up by jules.google.com per the
 Parity check confirms only ADR-0003 is missing on disk and the registry
 itself marks it `_Superseded by ADR-0008_, N/A`.
 
-**Action taken:** added [scripts/check-adr-parity.sh](file:///home/do/git/chaotic_semantic_memory/scripts/check-adr-parity.sh)
+**Action taken:** added [scripts/check-adr-parity.sh](../scripts/check-adr-parity.sh)
 which:
 
 - Cross-references registry IDs against files in `plans/adr/` and `docs/adr/`.
@@ -82,13 +82,13 @@ which:
 - Warns on orphan files present on disk but not yet in the registry.
 - Output today: `ok: ADR parity satisfied (registry=78, disk=77)`.
 
-The inline check in [scripts/validate.sh#L140-L170](file:///home/do/git/chaotic_semantic_memory/scripts/validate.sh#L140-L170)
+The inline check in [scripts/validate.sh#L140-L170](../scripts/validate.sh#L140-L170)
 already enforces the basic registry → disk direction. The new standalone
 script extends to `docs/adr/` and reports orphans for ad-hoc use.
 
 ## Files changed
 
-```
+```text
 plans/ACTIONS.md                  # marked 3 Wave 21 P0 actions complete/delegated
 plans/GOAP_STATE.md               # reconciled Wave 21 P0 booleans + action_last_completed
 plans/WAVE_21_P0_COMPLETION.md    # this note

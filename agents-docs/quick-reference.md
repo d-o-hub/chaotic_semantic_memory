@@ -1,6 +1,7 @@
 # Quick Reference Commands
 
 ## Build Performance
+
 ```bash
 # sccache can be enabled for local builds (not in CI):
 # Add to .cargo/config.toml:
@@ -16,6 +17,7 @@ cargo clean
 ```
 
 ## Version Sync (Before Release)
+
 ```bash
 # Check version synchronization (runs in CI)
 ./scripts/verify-version-sync.sh
@@ -45,6 +47,7 @@ scripts/validate.sh
 ```
 
 ## CLI Surface Lock (ADR-0066)
+
 After touching `src/cli/**` or `src/bin/csm.rs`:
 ```bash
 cargo test --test cli_parity --features cli   # 2 smoke tests, must pass
@@ -56,12 +59,14 @@ cargo build --bin csm --features cli --quiet
 ```
 
 ## ADR Registry ↔ Disk Parity (ADR-0076)
+
 ```bash
 ./scripts/check-adr-parity.sh                 # errors on missing, warns on orphans
 ```
 Run before any ADR-related PR; integrated into `scripts/validate.sh`.
 
 ## Jules Delegation (Long-Running Actions)
+
 For `plans/ACTIONS.md` actions with `cost ≥ 12`, hand off to Jules:
 ```bash
 gh issue create --label jules \
@@ -72,6 +77,7 @@ Then mark the action `status: delegated` with `jules_issue: <num>`. See the
 `jules-orchestration` skill.
 
 ## Documentation Link Check
+
 Validate links, commands, and version references in docs:
 ```bash
 scripts/check-docs-links.sh # Quick check (links + versions)
@@ -80,6 +86,7 @@ scripts/check-docs-links.sh --check-urls # Full URL validation
 ```
 
 ## Pre-Release Validation
+
 Run before every git tag / release:
 ```bash
 ./scripts/pre-release-validate.sh # Full validation
