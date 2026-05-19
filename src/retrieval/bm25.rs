@@ -187,9 +187,7 @@ impl Bm25Index {
             match self.doc_freqs.get(term) {
                 Some(&df) if df > 0 => {
                     let df = df as f32;
-                    // Optimization: Simplified IDF formula (log((N+1)/(df+0.5)))
-                    // This is mathematically equivalent to the Okapi BM25 IDF when using
-                    // the floor of 0.0 for terms that appear in more than half of documents.
+                    // Optimization: Simplified IDF formula log((N+1)/(df+0.5))
                     let idf = ((n + 1.0) / (df + 0.5)).ln();
                     if idf > 0.0 {
                         query_weights.push((term, idf * k1_plus_1));
