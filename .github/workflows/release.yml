@@ -146,20 +146,6 @@ jobs:
           exit 1
         fi
 
-    - name: Create pull request with regenerated llms.txt
-      uses: peter-evans/create-pull-request@v5
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        commit-message: "chore: regenerate llms.txt for release [skip ci]"
-        branch: regenerate-llms-${{ steps.version.outputs.version }}-${{ github.run_id }}
-        title: "chore: regenerate llms.txt for v${{ steps.version.outputs.version }}"
-        body: |
-          This PR updates llms.txt and llms-full.txt as part of the release workflow.
-          Files updated by scripts/gen-llms-txt.sh
-        labels: automated
-        paths: llms.txt,llms-full.txt
-        base: main
-
     - name: Ensure version sync is clean
       run: |
         # Exclude llms.txt and llms-full.txt from clean check as they may be mutated
@@ -187,6 +173,21 @@ jobs:
         git push origin "$TAG"
         echo "Created tag ${TAG}"
         echo "release-needed=true" >> $GITHUB_OUTPUT
+
+    - name: Create pull request with regenerated llms.txt
+      if: steps.tag.outputs.release-needed == 'true'
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "chore: regenerate llms.txt for release [skip ci]"
+        branch: regenerate-llms-${{ steps.version.outputs.version }}-${{ github.run_id }}
+        title: "chore: regenerate llms.txt for v${{ steps.version.outputs.version }}"
+        body: |
+          This PR updates llms.txt and llms-full.txt as part of the release workflow.
+          Files updated by scripts/gen-llms-txt.sh
+        labels: automated
+        paths: llms.txt,llms-full.txt
+        base: main
 
     - name: Validate publish dry-run
       run: cargo publish --dry-run --allow-dirty
