@@ -10,7 +10,7 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
-permissions: read-all
+permissions: {}
 
 env:
   CARGO_TERM_COLOR: always
