@@ -13,6 +13,7 @@ concurrency:
 permissions:
   contents: write
   id-token: write
+  pull-requests: write
 
 env:
   CARGO_TERM_COLOR: always
@@ -132,11 +133,11 @@ jobs:
         VERSION="${{ steps.version.outputs.version }}"
         bash scripts/sync-version.sh "$VERSION"
 
-    - name: Regenerate & commit llms.txt
+    - name: Regenerate llms files
       run: |
         bash scripts/gen-llms-txt.sh
 
-        # Verify API surface threshold before committing
+        # Verify API surface threshold
         LOC=$(grep -cE '^\s*(pub |fn |struct |enum |trait |impl )' llms-full.txt || true)
         echo "Public API surface: $LOC symbols"
         THRESHOLD=5000
@@ -145,10 +146,19 @@ jobs:
           exit 1
         fi
 
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add llms.txt llms-full.txt
-        git diff --cached --quiet || (git commit -m "chore: regenerate llms.txt for release [skip ci]" && git push)
+    - name: Create pull request with regenerated llms.txt
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "chore: regenerate llms.txt for release [skip ci]"
+        branch: regenerate-llms-${{ steps.version.outputs.version }}-${{ github.run_id }}
+        title: "chore: regenerate llms.txt for v${{ steps.version.outputs.version }}"
+        body: |
+          This PR updates llms.txt and llms-full.txt as part of the release workflow.
+          Files updated by scripts/gen-llms-txt.sh
+        labels: automated
+        paths: llms.txt,llms-full.txt
+        base: main
 
     - name: Ensure version sync is clean
       run: |
