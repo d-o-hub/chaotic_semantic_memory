@@ -10,9 +10,7 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
-permissions:
-  contents: write
-  id-token: write
+permissions: read-all
 
 env:
   CARGO_TERM_COLOR: always
@@ -380,6 +378,8 @@ jobs:
     if: needs.validate.outputs.release-needed == 'true'
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    permissions:
+      contents: write
     steps:
     - uses: actions/checkout@v6
       with:
@@ -457,6 +457,9 @@ jobs:
     needs: [validate, build-wasm]
     if: needs.validate.outputs.release-needed == 'true'
     environment: npm
+    permissions:
+      id-token: write
+      contents: read
     steps:
     - uses: actions/checkout@v6
 
@@ -540,6 +543,9 @@ jobs:
     needs: [validate, build-cli-matrix, create-github-release]
     if: needs.validate.outputs.release-needed == 'true'
     environment: npm-cli
+    permissions:
+      id-token: write
+      contents: read
     steps:
     - uses: actions/checkout@v6
 
