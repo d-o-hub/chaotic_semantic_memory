@@ -13,7 +13,6 @@ concurrency:
 permissions:
   contents: write
   id-token: write
-  pull-requests: write
 
 env:
   CARGO_TERM_COLOR: always
@@ -81,6 +80,9 @@ jobs:
     runs-on: ubuntu-24.04
     needs: wait-for-ci
     if: needs.wait-for-ci.outputs.ci-passed == 'true'
+    permissions:
+      contents: write
+      pull-requests: write
     outputs:
       version: ${{ steps.version.outputs.version }}
       release-needed: ${{ steps.tag.outputs.release-needed }}
