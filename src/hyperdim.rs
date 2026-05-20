@@ -177,22 +177,26 @@ impl HVec10240 {
         }
 
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-        {
-            if is_x86_feature_detected!("avx2") {
-                let d = unsafe { bundle_block_avx2(vectors, threshold, num_planes) };
-                return Ok(Self { data: d });
-            }
-        }
-        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-        {
-            let d = unsafe { bundle_block_neon(vectors, threshold, num_planes) };
-            return Ok(Self { data: d });
+        if is_x86_feature_detected!("avx2") {
+            return Ok(Self {
+                data: unsafe { bundle_block_avx2(vectors, threshold, num_planes) },
+            });
         }
 
-        for i in 0..80 {
-            data[i] = bundle_word_scalar(vectors, i, threshold, num_planes);
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+        {
+            return Ok(Self {
+                data: unsafe { bundle_block_neon(vectors, threshold, num_planes) },
+            });
         }
-        Ok(Self { data })
+
+        #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
+        {
+            for i in 0..80 {
+                data[i] = bundle_word_scalar(vectors, i, threshold, num_planes);
+            }
+            Ok(Self { data })
+        }
     }
 
     /// XOR binding of two hypervectors.
