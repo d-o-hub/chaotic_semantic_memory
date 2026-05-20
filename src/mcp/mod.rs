@@ -4,17 +4,13 @@
 //! Enabled via `mcp` feature flag.
 
 #[cfg(feature = "mcp")]
-mod resources;
+mod handler;
 #[cfg(feature = "mcp")]
 mod schema;
 #[cfg(feature = "mcp")]
 mod server;
-#[cfg(feature = "mcp")]
-mod tools;
 
 #[cfg(feature = "mcp")]
-pub use resources::McpResources;
+pub use handler::McpHandler;
 #[cfg(feature = "mcp")]
 pub use server::{McpConfig, Transport, serve};
-#[cfg(feature = "mcp")]
-pub use tools::McpTools;
