@@ -17,13 +17,11 @@ pub use crate::hyperdim_batch::batch_cosine_similarity;
 // Import SIMD functions from extension module
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
 use crate::hyperdim_simd::{
-    and_simd_avx2, bind_simd_avx2, bundle_block_avx2, bundle_block_avx2_single,
-    hamming_distance_simd_avx2,
+    and_simd_avx2, bind_simd_avx2, bundle_block_avx2, hamming_distance_simd_avx2,
 };
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
 use crate::hyperdim_simd::{
-    and_simd_neon, bind_simd_neon, bundle_block_neon, bundle_block_neon_single,
-    hamming_distance_simd_neon,
+    and_simd_neon, bind_simd_neon, bundle_block_neon, hamming_distance_simd_neon,
 };
 #[cfg(all(
     not(target_arch = "wasm32"),
@@ -170,57 +168,32 @@ impl HVec10240 {
         let mut data = [0u128; 80];
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        // Performance Optimization: Use parallel SIMD for large batches (N >= 256).
-        // Combines bit-sliced SIMD efficiency with multi-core scaling.
+        // Performance Optimization: Use parallel bit-sliced addition for large batches (N >= 256).
         if num_vectors >= 256 {
-            data.par_chunks_mut(2).enumerate().for_each(|(i, chunk)| {
-                let word_idx = i * 2;
-                #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-                {
-                    if is_x86_feature_detected!("avx2") {
-                        let res = unsafe {
-                            bundle_block_avx2_single(vectors, word_idx, threshold, num_planes)
-                        };
-                        chunk[0] = res[0];
-                        chunk[1] = res[1];
-                        return;
-                    }
-                }
-                #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-                {
-                    chunk[0] = unsafe {
-                        bundle_block_neon_single(vectors, word_idx, threshold, num_planes)
-                    };
-                    chunk[1] = unsafe {
-                        bundle_block_neon_single(vectors, word_idx + 1, threshold, num_planes)
-                    };
-                    return;
-                }
-
-                chunk[0] = bundle_word_scalar(vectors, word_idx, threshold, num_planes);
-                chunk[1] = bundle_word_scalar(vectors, word_idx + 1, threshold, num_planes);
+            data.par_iter_mut().enumerate().for_each(|(i, word)| {
+                *word = bundle_word_scalar(vectors, i, threshold, num_planes);
             });
             return Ok(Self { data });
         }
 
-        // SIMD path for N > 2
+        let mut handled = false;
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
         {
             if is_x86_feature_detected!("avx2") {
-                return Ok(Self {
-                    data: unsafe { bundle_block_avx2(vectors, threshold, num_planes) },
-                });
+                data = unsafe { bundle_block_avx2(vectors, threshold, num_planes) };
+                handled = true;
             }
         }
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
         {
-            return Ok(Self {
-                data: unsafe { bundle_block_neon(vectors, threshold, num_planes) },
-            });
+            data = unsafe { bundle_block_neon(vectors, threshold, num_planes) };
+            handled = true;
         }
 
-        for i in 0..80 {
-            data[i] = bundle_word_scalar(vectors, i, threshold, num_planes);
+        if !handled {
+            for i in 0..80 {
+                data[i] = bundle_word_scalar(vectors, i, threshold, num_planes);
+            }
         }
         Ok(Self { data })
     }
