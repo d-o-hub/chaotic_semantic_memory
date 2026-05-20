@@ -176,7 +176,7 @@ jobs:
 
     - name: Create pull request with regenerated llms.txt
       if: steps.tag.outputs.release-needed == 'true'
-      uses: peter-evans/create-pull-request@v5
+      uses: peter-evans/create-pull-request@v7
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         commit-message: "chore: regenerate llms.txt for release [skip ci]"
