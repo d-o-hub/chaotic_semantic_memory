@@ -186,7 +186,7 @@ jobs:
           This PR updates llms.txt and llms-full.txt as part of the release workflow.
           Files updated by scripts/gen-llms-txt.sh
         labels: automated
-        paths: llms.txt,llms-full.txt
+        add-paths: llms.txt,llms-full.txt
         base: main
 
     - name: Validate publish dry-run
