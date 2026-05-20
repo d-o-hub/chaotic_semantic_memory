@@ -3296,7 +3296,7 @@ actions:
     effects:
       mcp_server_implemented: true
     cost: 16
-    status: completed
+    status: complete
     file: src/mcp/handler.rs, src/mcp/server.rs, src/bin/csm.rs
     description: |
       Implemented consolidated rmcp 1.7 handler in src/mcp/handler.rs.
@@ -3749,7 +3749,7 @@ actions:
     effects:
       v036_released: true
     cost: 4
-    status: queued
+    status: complete
     file: Cargo.toml, VERSION, CHANGELOG.md, wasm/package.json
     description: |
       Cut v0.3.6 to ship the merged-but-unreleased work since v0.3.5:
