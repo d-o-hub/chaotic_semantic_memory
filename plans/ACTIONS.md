@@ -3333,7 +3333,7 @@ actions:
       hnsw_ann_index_implemented: true
       probe_scale_ceiling_lifted: true
     cost: 18
-    status: queued
+    status: complete
     file: plans/adr/0068-hnsw-ann-index.md
     description: |
       Add AnnIndex trait + 3 backends (BruteForce default, HNSW opt-in, LSH opt-in).
@@ -3347,7 +3347,7 @@ actions:
     effects:
       embedding_model_bridge_implemented: true
     cost: 14
-    status: queued
+    status: complete
     file: plans/adr/0069-embedding-model-bridge.md
     description: |
       Add EmbeddingProvider trait + 4 backends (HDC TextEncoder default,
@@ -3361,7 +3361,7 @@ actions:
     effects:
       graphrag_retrieval_implemented: true
     cost: 8
-    status: queued
+    status: complete
     file: plans/adr/0070-graphrag-hybrid-retrieval.md
     description: |
       Add probe_with_graph(query, GraphRagConfig) → anchor probe → BFS expand →
@@ -3378,7 +3378,7 @@ actions:
     effects:
       reranking_pipeline_implemented: true
     cost: 6
-    status: queued
+    status: complete
     file: plans/adr/0071-reranking-mmr-pipeline.md
     description: |
       Add Reranker trait + 3 implementations: MMR (lambda diversity),
@@ -3406,7 +3406,7 @@ actions:
       namespace_isolation_implemented: true
       deferred_namespace_isolation: true
     cost: 12
-    status: queued
+    status: complete
     file: plans/adr/0073-namespace-isolation.md
     description: |
       Migration 006_add_namespace.sql adds namespace column + index.
@@ -3488,7 +3488,7 @@ actions:
     effects:
       clippy_phase_a_complete: true
     cost: 1
-    status: queued
+    status: complete
     file: Cargo.toml
     description: |
       Promote 6 lints from pedantic/nursery blanket-allow to `warn`:
@@ -3503,7 +3503,7 @@ actions:
     effects:
       clippy_phase_b_pr1_complete: true
     cost: 3
-    status: queued
+    status: complete
     file: src/reservoir.rs, src/singularity_*.rs, src/hyperdim*.rs
     description: |
       Fix 44 float_cmp sites. Use approx_eq! macro or explicit epsilon
@@ -3515,7 +3515,7 @@ actions:
     effects:
       clippy_phase_b_pr2_complete: true
     cost: 2
-    status: queued
+    status: complete
     file: src/framework*.rs, src/singularity_cache.rs
     description: |
       Fix 21 significant_drop_tightening sites — release locks earlier in
@@ -3527,7 +3527,7 @@ actions:
     effects:
       clippy_phase_b_pr3_complete: true
     cost: 2
-    status: queued
+    status: complete
     file: src/hyperdim.rs, src/reservoir.rs, src/retrieval/bm25.rs
     description: |
       Fix 13 cast_precision_loss + 8 cast_possible_truncation sites.
@@ -3540,7 +3540,7 @@ actions:
     effects:
       clippy_phase_b_pr4_complete: true
     cost: 2
-    status: queued
+    status: complete
     file: src/framework_builder.rs, src/concept_builder.rs, others
     description: |
       Mark 25 candidate functions as `const fn` for compile-time evaluation
@@ -3553,7 +3553,7 @@ actions:
       clippy_phase_b_pr5_complete: true
       clippy_pedantic_promotion_complete: true
     cost: 2
-    status: queued
+    status: complete
     file: src/, tests/
     description: |
       Remove 7 redundant_clone sites. Mostly tests and small surface code.
@@ -3581,7 +3581,7 @@ actions:
     effects:
       cloudevents_implemented: true
     cost: 6
-    status: queued
+    status: complete
     file: src/framework_events_ce.rs
     description: |
       Implement EventEmitter trait and CloudEvents mapping logic.
@@ -3762,3 +3762,22 @@ actions:
         4. Atomic commit, push, wait for CI green
         5. gh release create v0.3.6 (triggers crates.io + npm trusted publishing)
         6. Verify dist channels aligned (dist-channel-selection skill).
+
+  # ─────────────────────────────────────────────────────────
+  # GOAP State Reconciliation (2026-05-20)
+  # Cost: 2
+  # ADR-0084: GOAP Reconciliation and Codebase Alignment
+  # ─────────────────────────────────────────────────────────
+
+  - name: goap_state_reconciliation_2026_05
+    preconditions:
+      v036_released: true
+    effects:
+      goap_state_reconciled: true
+    cost: 2
+    status: complete
+    file: plans/GOAP_STATE.md, plans/ACTIONS.md, plans/ADR_REGISTRY.md, plans/adr/0084-goap-reconciliation.md
+    description: |
+      Perform comprehensive codebase audit and reconcile the GOAP world state
+      and actions with implemented capabilities. Document the findings and alignment
+      in ADR-0084.
