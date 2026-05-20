@@ -42,7 +42,7 @@ jobs:
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
     - name: Run DuckDB tests
-      run: cargo test -p chaotic_semantic_memory_duckdb --locked -- --quiet
+      run: cargo test -p chaotic_semantic_memory_duckdb --locked -- --test-threads=1 --quiet
 
   build-cli:
     name: Build CLI (${{ matrix.platform }}-${{ matrix.arch }})
