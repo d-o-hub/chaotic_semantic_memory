@@ -2,6 +2,8 @@ pub mod args;
 pub mod commands;
 pub mod error;
 pub mod git_local;
+#[cfg(feature = "mcp")]
+pub mod mcp;
 
 pub use args::*;
 pub use commands::{
@@ -12,3 +14,5 @@ pub use commands::{
 };
 pub use error::{CliError, ExitCode, Result};
 pub use git_local::{ensure_git_local_dir, resolve_git_local_path};
+#[cfg(feature = "mcp")]
+pub use mcp::*;

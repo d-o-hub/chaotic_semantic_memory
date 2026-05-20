@@ -83,25 +83,7 @@ pub enum Commands {
     /// MCP server commands.
     #[cfg(feature = "mcp")]
     #[command(subcommand)]
-    Mcp(McpCommands),
-}
-
-#[cfg(feature = "mcp")]
-#[derive(Subcommand, Debug, Clone)]
-pub enum McpCommands {
-    /// Start MCP server.
-    Serve(McpServeArgs),
-}
-#[cfg(feature = "mcp")]
-#[derive(Args, Debug, Clone)]
-pub struct McpServeArgs {
-    /// Transport to use: stdio or sse.
-    #[arg(long, value_enum, default_value = "stdio")]
-    pub transport: crate::mcp::Transport,
-
-    /// Bind address for SSE transport (e.g. 127.0.0.1:8765).
-    #[arg(long)]
-    pub bind: Option<String>,
+    Mcp(crate::cli::mcp::McpCommands),
 }
 
 #[derive(Args, Debug, Clone)]

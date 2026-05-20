@@ -13,8 +13,6 @@ pub enum Transport {
     /// Standard input/output (default for desktop apps)
     #[default]
     Stdio,
-    /// Server-Sent Events for hosted deployments
-    Sse,
 }
 
 /// Configuration for MCP server.
@@ -56,11 +54,6 @@ pub async fn serve(config: McpConfig) -> Result<()> {
                 .waiting()
                 .await
                 .map_err(|e| anyhow::anyhow!("Server join error: {e}"))?;
-        }
-        Transport::Sse => {
-            return Err(anyhow::anyhow!(
-                "SSE transport not yet fully implemented in this version"
-            ));
         }
     }
 

@@ -85,8 +85,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct CliArgs
 - pub enum OutputFormat
 - pub enum Commands
-- pub enum McpCommands
-- pub struct McpServeArgs
 - pub struct InjectArgs
 - pub enum VectorSource
 - pub struct ProbeArgs
@@ -272,16 +270,23 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn resolve_git_local_path
 - pub fn ensure_git_local_dir
 
+### src/cli/mcp.rs
+
+- pub enum McpCommands
+- pub struct McpServeArgs
+
 ### src/cli/mod.rs
 
 - pub mod args
 - pub mod commands
 - pub mod error
 - pub mod git_local
+- pub mod mcp
 - pub use args::*
 - pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
+- pub use mcp::*
 
 ### src/concept_builder.rs
 
@@ -1516,7 +1521,7 @@ pub enum Commands {
     Watch(WatchArgs),
     ProbeGraph(ProbeGraphArgs),
     #[cfg(feature = "mcp")]
-    Mcp(McpCommands),
+    Mcp(crate::cli::mcp::McpCommands),
 }
 ```
 
@@ -1655,27 +1660,6 @@ pub struct InjectArgs {
     pub use_embeddings: bool,
     pub provider: Option<String>,
     pub metadata: Option<String>,
-}
-```
-
-### McpCommands
-
-```rust
-#[derive(Subcommand, Debug, Clone)]
-#[cfg(feature = "mcp")]
-pub enum McpCommands {
-    Serve(McpServeArgs),
-}
-```
-
-### McpServeArgs
-
-```rust
-#[derive(Args, Debug, Clone)]
-#[cfg(feature = "mcp")]
-pub struct McpServeArgs {
-    pub transport: crate::mcp::Transport,
-    pub bind: Option<String>,
 }
 ```
 
@@ -2386,6 +2370,29 @@ let path = resolve_git_local_path();
 assert!(path.is_some() || path.is_none()); // Always passes, documents behavior
 ```
 
+## src/cli/mcp.rs
+
+### McpCommands
+
+```rust
+#[derive(Subcommand, Debug, Clone)]
+#[cfg(feature = "mcp")]
+pub enum McpCommands {
+    Serve(McpServeArgs),
+}
+```
+
+### McpServeArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+#[cfg(feature = "mcp")]
+pub struct McpServeArgs {
+    pub transport: crate::mcp::Transport,
+    pub bind: Option<String>,
+}
+```
+
 ## src/cli/mod.rs
 
 ### args::*
@@ -2410,6 +2417,12 @@ pub use error::{CliError, ExitCode, Result};
 
 ```rust
 pub use git_local::{ensure_git_local_dir, resolve_git_local_path};
+```
+
+### mcp::*
+
+```rust
+pub use mcp::*;
 ```
 
 ## src/concept_builder.rs
@@ -3867,7 +3880,6 @@ Configuration for MCP server.
 #[derive(Debug, Clone, Copy, Default, clap :: ValueEnum)]
 pub enum Transport {
     Stdio,
-    Sse,
 }
 ```
 
