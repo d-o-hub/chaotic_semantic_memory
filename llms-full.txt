@@ -4242,6 +4242,8 @@ impl Default for Bm25Config {
 }
 ```
 
+## src/retrieval/bm25/tests.rs
+
 ## src/retrieval/graph_rag.rs
 
 ### GraphRagConfig
