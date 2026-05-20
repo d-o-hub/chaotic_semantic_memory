@@ -914,7 +914,7 @@ world_state:
   clippy_actionable_warnings: 110                             # float_cmp + drop_tightening + cast_* + const_fn + redundant_clone
   adr_0077_clippy_promotion_drafted: true                     # plans/adr/0077-clippy-pedantic-selective-promotion.md
   clippy_pedantic_promotion_complete: false                   # 5 themed PRs queued
-  action_last_completed: implement_mcp_server_2026_05_19
+  action_last_completed: release_v0_3_6
 
   # ═══════════════════════════════════════════════════════
   # Rebase + DeepSource Fix (June 2026)
@@ -961,8 +961,8 @@ world_state:
   # ═══════════════════════════════════════════════════════
   # Release readiness (2026-05-18 snapshot)
   # ═══════════════════════════════════════════════════════
-  unreleased_changes_present: true              # DuckDB + hyperdim SIMD + framework events
-  unreleased_changelog_section: false           # CHANGELOG.md still ends at [0.3.5]
+  unreleased_changes_present: false             # All shipped in v0.3.6
+  unreleased_changelog_section: true            # CHANGELOG.md updated to v0.3.6
   next_release_planned: "v0.3.6"
   next_release_blockers: 0                      # CI green on main (790fac9)
 
