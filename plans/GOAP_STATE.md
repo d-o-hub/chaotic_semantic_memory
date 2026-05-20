@@ -878,15 +878,15 @@ world_state:
   mcp_server_jules_issue: 246                 # github.com/d-o-hub/chaotic_semantic_memory/issues/246
 
   # Wave 22 P1 — Capability Ceiling (queued, total cost 40)
-  hnsw_ann_index_implemented: false           # ADR-0068 — scale beyond 200k concepts
-  probe_scale_ceiling_lifted: false           # ADR-0068 — current ceiling ~200k
-  embedding_model_bridge_implemented: false   # ADR-0069 — fastembed/openai/voyage
-  graphrag_retrieval_implemented: false       # ADR-0070 — anchor + BFS + joint score
+  hnsw_ann_index_implemented: true            # ADR-0068 — scale beyond 200k concepts (2026-05-20: complete)
+  probe_scale_ceiling_lifted: true            # ADR-0068 — current ceiling ~200k (2026-05-20: complete)
+  embedding_model_bridge_implemented: true    # ADR-0069 — fastembed/openai/voyage (2026-05-20: complete)
+  graphrag_retrieval_implemented: true        # ADR-0070 — anchor + BFS + joint score (2026-05-20: complete)
 
   # Wave 23 P2 — Production Polish (queued, total cost 28)
-  reranking_pipeline_implemented: false       # ADR-0071 — MMR + recency + cross-encoder
+  reranking_pipeline_implemented: true        # ADR-0071 — MMR + recency + cross-encoder (2026-05-20: complete)
   otlp_exporter_implemented: false            # ADR-0072 — opentelemetry + prometheus
-  namespace_isolation_implemented: false      # ADR-0073 — supersedes deferred ADR-0026
+  namespace_isolation_implemented: true       # ADR-0073 — supersedes deferred ADR-0026 (2026-05-20: complete)
   version_history_surface_implemented: false  # ADR-0074 — activate dormant version table
 
   # Wave 24 P3 — Future Scale (queued, cost 14, depends on Wave 22)
@@ -913,8 +913,8 @@ world_state:
   clippy_pedantic_surface_warnings: 936
   clippy_actionable_warnings: 110                             # float_cmp + drop_tightening + cast_* + const_fn + redundant_clone
   adr_0077_clippy_promotion_drafted: true                     # plans/adr/0077-clippy-pedantic-selective-promotion.md
-  clippy_pedantic_promotion_complete: false                   # 5 themed PRs queued
-  action_last_completed: release_v0_3_6
+  clippy_pedantic_promotion_complete: true                    # 2026-05-20: completed in ADR-0077 Phase A+B
+  action_last_completed: goap_state_reconciliation_2026_05
 
   # ═══════════════════════════════════════════════════════
   # Rebase + DeepSource Fix (June 2026)
@@ -941,7 +941,7 @@ world_state:
   # Wave 25: CloudEvents Event Emitter (P2)
   # ═══════════════════════════════════════════════════════
   cloudevents_adr_written: true
-  cloudevents_implemented: false
+  cloudevents_implemented: true               # 2026-05-20: complete in framework_events_ce.rs
   cloudevents_tested: false
 
   # ═══════════════════════════════════════════════════════
