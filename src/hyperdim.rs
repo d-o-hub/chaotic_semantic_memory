@@ -176,24 +176,21 @@ impl HVec10240 {
             return Ok(Self { data });
         }
 
-        let mut handled = false;
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
         {
             if is_x86_feature_detected!("avx2") {
-                data = unsafe { bundle_block_avx2(vectors, threshold, num_planes) };
-                handled = true;
+                let d = unsafe { bundle_block_avx2(vectors, threshold, num_planes) };
+                return Ok(Self { data: d });
             }
         }
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
         {
-            data = unsafe { bundle_block_neon(vectors, threshold, num_planes) };
-            handled = true;
+            let d = unsafe { bundle_block_neon(vectors, threshold, num_planes) };
+            return Ok(Self { data: d });
         }
 
-        if !handled {
-            for i in 0..80 {
-                data[i] = bundle_word_scalar(vectors, i, threshold, num_planes);
-            }
+        for i in 0..80 {
+            data[i] = bundle_word_scalar(vectors, i, threshold, num_planes);
         }
         Ok(Self { data })
     }
