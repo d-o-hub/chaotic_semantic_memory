@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.6] - 2026-05-20
+
+### Added
+- **MCP Server**: Implemented Model Context Protocol (MCP) server support with stdio transport, providing 12 tool and 3 resource handlers for LLM integration (ADR-0067).
+- **DuckDB Companion Crate**: Added workspace member crate `chaotic_semantic_memory_duckdb` providing parquet export, analytical queries, and a `csm-analytics` tool (ADR-0079 to ADR-0082).
+- **CLI**: Reached 100% feature-parity with the framework API across all 22 commands, locked with a new `cli_parity` smoke test suite (ADR-0066).
+- **Events**: Pluggable memory event subscriptions in the framework using the CloudEvents specification.
+
+### Changed
+- **Hyperdim**: Refactored Bit-Sliced Hypervector Bundling with target-specific SIMD optimization blocks (AVX2/NEON) and a clean fallback path.
+
+### Fixed
+- **CLI / MCP**: Fixed stdout tracing corruption issues, refactored MCP subcommands to a modular structure under `src/cli/mcp.rs`, and resolved a compilation warning.
+
 ## [0.3.5] - 2026-04-28
 
 ### Fixed
@@ -398,7 +412,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Trusted Publishing eliminates need for long-lived API tokens
 
 [0.3.5]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.4...v0.3.5
-[unreleased]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.5...HEAD
+[0.3.6]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.5...HEAD
 [0.3.4]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.2...v0.3.4
 [0.3.2]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.3.1
