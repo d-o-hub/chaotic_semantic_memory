@@ -16,9 +16,15 @@ pub use crate::hyperdim_batch::batch_cosine_similarity;
 
 // Import SIMD functions from extension module
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-use crate::hyperdim_simd::{and_simd_avx2, bind_simd_avx2, hamming_distance_simd_avx2};
+use crate::hyperdim_simd::{
+    and_simd_avx2, bind_simd_avx2, bundle_block_avx2, bundle_block_avx2_single,
+    hamming_distance_simd_avx2,
+};
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-use crate::hyperdim_simd::{and_simd_neon, bind_simd_neon, hamming_distance_simd_neon};
+use crate::hyperdim_simd::{
+    and_simd_neon, bind_simd_neon, bundle_block_neon, bundle_block_neon_single,
+    hamming_distance_simd_neon,
+};
 #[cfg(all(
     not(target_arch = "wasm32"),
     any(target_arch = "x86_64", target_arch = "x86")
@@ -158,64 +164,63 @@ impl HVec10240 {
                 return Ok(res);
             }
         }
+
         let threshold = num_vectors / 2 + 1;
         let num_planes = (usize::BITS - num_vectors.leading_zeros()) as usize;
         let mut data = [0u128; 80];
+
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        // Performance Optimization: Increased threshold (32 -> 256) for Rayon
-        // parallelization to minimize task scheduling overhead on smaller vector sets.
-        // Mathematical impact: Prevents ~80us overhead on bundles where scalar cost
-        // is < 200us (N < 256).
+        // Performance Optimization: Use parallel SIMD for large batches (N >= 256).
+        // Combines bit-sliced SIMD efficiency with multi-core scaling.
         if num_vectors >= 256 {
-            data.par_iter_mut().enumerate().for_each(|(i, word)| {
-                let mut planes = [0u128; 64];
-                for v in vectors {
-                    let mut carry = v.data[i];
-                    for plane in planes.iter_mut().take(num_planes) {
-                        let next_carry = *plane & carry;
-                        *plane ^= carry;
-                        carry = next_carry;
-                        if carry == 0 {
-                            break;
-                        }
+            data.par_chunks_mut(2).enumerate().for_each(|(i, chunk)| {
+                let word_idx = i * 2;
+                #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+                {
+                    if is_x86_feature_detected!("avx2") {
+                        let res = unsafe {
+                            bundle_block_avx2_single(vectors, word_idx, threshold, num_planes)
+                        };
+                        chunk[0] = res[0];
+                        chunk[1] = res[1];
+                        return;
                     }
                 }
-                let (mut current_eq, mut current_gt) = (!0u128, 0u128);
-                for p in (0..num_planes).rev() {
-                    if ((threshold >> p) & 1) == 1 {
-                        current_eq &= planes[p];
-                    } else {
-                        current_gt |= current_eq & planes[p];
-                        current_eq &= !planes[p];
-                    }
+                #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+                {
+                    chunk[0] = unsafe {
+                        bundle_block_neon_single(vectors, word_idx, threshold, num_planes)
+                    };
+                    chunk[1] = unsafe {
+                        bundle_block_neon_single(vectors, word_idx + 1, threshold, num_planes)
+                    };
+                    return;
                 }
-                *word = current_gt | current_eq;
+
+                chunk[0] = bundle_word_scalar(vectors, word_idx, threshold, num_planes);
+                chunk[1] = bundle_word_scalar(vectors, word_idx + 1, threshold, num_planes);
             });
             return Ok(Self { data });
         }
+
+        // SIMD path for N > 2
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+        {
+            if is_x86_feature_detected!("avx2") {
+                return Ok(Self {
+                    data: unsafe { bundle_block_avx2(vectors, threshold, num_planes) },
+                });
+            }
+        }
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+        {
+            return Ok(Self {
+                data: unsafe { bundle_block_neon(vectors, threshold, num_planes) },
+            });
+        }
+
         for i in 0..80 {
-            let mut planes = [0u128; 64];
-            for v in vectors {
-                let mut carry = v.data[i];
-                for plane in planes.iter_mut().take(num_planes) {
-                    let next_carry = *plane & carry;
-                    *plane ^= carry;
-                    carry = next_carry;
-                    if carry == 0 {
-                        break;
-                    }
-                }
-            }
-            let (mut current_eq, mut current_gt) = (!0u128, 0u128);
-            for p in (0..num_planes).rev() {
-                if ((threshold >> p) & 1) == 1 {
-                    current_eq &= planes[p];
-                } else {
-                    current_gt |= current_eq & planes[p];
-                    current_eq &= !planes[p];
-                }
-            }
-            data[i] = current_gt | current_eq;
+            data[i] = bundle_word_scalar(vectors, i, threshold, num_planes);
         }
         Ok(Self { data })
     }
@@ -416,6 +421,40 @@ impl HVec10240 {
 
         Ok(Self { data })
     }
+}
+
+/// Scalar bit-sliced addition for a single word.
+///
+/// Centralized helper for sequential and parallel fallback paths.
+#[inline(always)]
+fn bundle_word_scalar(
+    vectors: &[HVec10240],
+    word_idx: usize,
+    threshold: usize,
+    num_planes: usize,
+) -> u128 {
+    let mut planes = [0u128; 64];
+    for v in vectors {
+        let mut carry = v.data[word_idx];
+        for plane in planes.iter_mut().take(num_planes) {
+            let next_carry = *plane & carry;
+            *plane ^= carry;
+            carry = next_carry;
+            if carry == 0 {
+                break;
+            }
+        }
+    }
+    let (mut current_eq, mut current_gt) = (!0u128, 0u128);
+    for p in (0..num_planes).rev() {
+        if ((threshold >> p) & 1) == 1 {
+            current_eq &= planes[p];
+        } else {
+            current_gt |= current_eq & planes[p];
+            current_eq &= !planes[p];
+        }
+    }
+    current_gt | current_eq
 }
 
 // Serde impls are in hyperdim_serde.rs (LOC gate extraction)
