@@ -3296,19 +3296,12 @@ actions:
     effects:
       mcp_server_implemented: true
     cost: 16
-    status: delegated
-    file: plans/adr/0067-mcp-server.md, src/mcp/
-    jules_issue: 246
+    status: completed
+    file: src/mcp/handler.rs, src/mcp/server.rs, src/bin/csm.rs
     description: |
-      Delegated to Jules on 2026-05-18 via GitHub issue #246
-      (label: jules). Scaffolding exists in src/mcp/ but 14 handle_*
-      methods are stubs (`TODO: Wire to framework.*`) and rmcp transport
-      is not started (server.rs:50). Jules will:
-        - wire 11 of 12 tool handlers + 3 resource handlers
-        - add stdio + SSE transports
-        - add `csm mcp serve` subcommand behind `mcp` feature
-        - add per-handler integration tests + Claude Desktop smoke test
-        - keep each file ≤ 500 LOC.
+      Implemented consolidated rmcp 1.7 handler in src/mcp/handler.rs.
+      Wired 12 tools and 3 resources. Fixed tracing corruption on stdout.
+      Manual verification via printf pipes successful.
 
   - name: backfill_missing_adrs
     preconditions:

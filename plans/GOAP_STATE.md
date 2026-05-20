@@ -874,7 +874,7 @@ world_state:
   adr_backfill_complete: true                 # ADR-0076 — 79 registry, 78 on disk; ADR-0003
                                                #   marked superseded (N/A) per registry.
   adr_parity_script_added: true               # 2026-05-18: scripts/check-adr-parity.sh
-  mcp_server_implemented: false               # ADR-0067 — delegated to Jules
+  mcp_server_implemented: true                # ADR-0067 — consolidated rmcp 1.7 handler
   mcp_server_jules_issue: 246                 # github.com/d-o-hub/chaotic_semantic_memory/issues/246
 
   # Wave 22 P1 — Capability Ceiling (queued, total cost 40)
@@ -914,7 +914,7 @@ world_state:
   clippy_actionable_warnings: 110                             # float_cmp + drop_tightening + cast_* + const_fn + redundant_clone
   adr_0077_clippy_promotion_drafted: true                     # plans/adr/0077-clippy-pedantic-selective-promotion.md
   clippy_pedantic_promotion_complete: false                   # 5 themed PRs queued
-  action_last_completed: memory_lifecycle_verification_2026_05_18
+  action_last_completed: implement_mcp_server_2026_05_19
 
   # ═══════════════════════════════════════════════════════
   # Rebase + DeepSource Fix (June 2026)

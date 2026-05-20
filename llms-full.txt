@@ -22,7 +22,7 @@
 - rand
 - rand_chacha
 - reqwest (0.12) [features: json, rustls-tls]
-- rmcp (1.4)
+- rmcp (1.7) [features: server, macros, transport-io]
 - serde
 - serde_json
 - thiserror
@@ -531,17 +531,17 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use prelude::crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod wasm
 
+### src/mcp/handler.rs
+
+- pub struct McpHandler
+- impl McpHandler
+- impl ServerHandler for McpHandler
+- impl McpHandler
+
 ### src/mcp/mod.rs
 
-- pub use resources::McpResources
+- pub use handler::McpHandler
 - pub use server::{McpConfig, Transport, serve}
-- pub use tools::McpTools
-
-### src/mcp/resources.rs
-
-- pub struct McpResources
-- impl McpResources
-- pub struct ResourceDefinition
 
 ### src/mcp/schema.rs
 
@@ -564,12 +564,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct McpConfig
 - impl Default for McpConfig
 - pub fn serve
-
-### src/mcp/tools.rs
-
-- pub struct McpTools
-- impl McpTools
-- pub struct ToolDefinition
 
 ### src/metadata_filter.rs
 
@@ -2929,7 +2923,7 @@ Runtime configuration for [`ChaoticSemanticFramework`], tuned via [`FrameworkBui
 ### FrameworkStats
 
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, serde :: Serialize)]
 pub struct FrameworkStats {
     pub concept_count: usize,
     pub db_size_bytes: Option<u64>,
@@ -3707,59 +3701,51 @@ pub use singularity::{Concept, ConceptBuilder};
 pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats};
 ```
 
-## src/mcp/mod.rs
+## src/mcp/handler.rs
 
-### resources::McpResources
+### McpHandler
 
 ```rust
-pub use resources::McpResources;
+pub struct McpHandler {
+}
+```
+
+Combined MCP handler for chaotic_semantic_memory.
+
+### impl McpHandler
+
+```rust
+impl McpHandler {
+    pub fn new(database: Option<PathBuf>) -> Self;
+}
+```
+
+### impl McpHandler
+
+```rust
+impl McpHandler {
+}
+```
+
+### impl ServerHandler for McpHandler
+
+```rust
+impl ServerHandler for McpHandler {
+}
+```
+
+## src/mcp/mod.rs
+
+### handler::McpHandler
+
+```rust
+pub use handler::McpHandler;
 ```
 
 ### server::{McpConfig, Transport, serve}
 
 ```rust
 pub use server::{McpConfig, Transport, serve};
-```
-
-### tools::McpTools
-
-```rust
-pub use tools::McpTools;
-```
-
-## src/mcp/resources.rs
-
-### McpResources
-
-```rust
-pub struct McpResources {
-}
-```
-
-MCP Resources handler for chaotic_semantic_memory.
-
-### ResourceDefinition
-
-```rust
-#[derive(Debug, Clone, serde :: Serialize)]
-pub struct ResourceDefinition {
-    pub uri: String,
-    pub name: String,
-    pub description: String,
-    pub mime_type: String,
-}
-```
-
-Resource definition for MCP resources/list response.
-
-### impl McpResources
-
-```rust
-impl McpResources {
-    pub fn new(database: Option<PathBuf>) -> Self;
-    pub fn list_resources() -> Vec<ResourceDefinition>;
-    pub fn read(&self, uri: &str) -> Result<Value>;
-}
 ```
 
 ## src/mcp/schema.rs
@@ -3905,40 +3891,6 @@ Start the MCP server.
 #### Errors
 
 Returns error if server fails to start or transport initialization fails.
-
-## src/mcp/tools.rs
-
-### McpTools
-
-```rust
-pub struct McpTools {
-}
-```
-
-MCP Tools handler for chaotic_semantic_memory operations.
-
-### ToolDefinition
-
-```rust
-#[derive(Debug, Clone, serde :: Serialize)]
-pub struct ToolDefinition {
-    pub name: String,
-    pub description: String,
-    pub input_schema: Value,
-}
-```
-
-Tool definition for MCP tools/list response.
-
-### impl McpTools
-
-```rust
-impl McpTools {
-    pub fn new(database: Option<PathBuf>) -> Self;
-    pub fn list_tools() -> Vec<ToolDefinition>;
-    pub fn execute(&self, tool_name: &str, arguments: Value) -> Result<Value>;
-}
-```
 
 ## src/metadata_filter.rs
 

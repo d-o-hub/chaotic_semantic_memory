@@ -5,8 +5,7 @@
 use anyhow::Result;
 use tracing::info;
 
-use super::resources::McpResources;
-use super::tools::McpTools;
+use crate::mcp::handler::McpHandler;
 
 /// Transport type for MCP server.
 #[derive(Debug, Clone, Copy, Default, clap::ValueEnum)]
@@ -47,58 +46,23 @@ impl Default for McpConfig {
 pub async fn serve(config: McpConfig) -> Result<()> {
     info!("Starting MCP server with {:?} transport", config.transport);
 
-    // TODO: Wire up rmcp server with tools and resources
-    // This is a stub implementation - full rmcp integration requires:
-    // 1. ServerBuilder with tool/resource registration
-    // 2. Transport selection (stdio vs SSE)
-    // 3. Running the server loop
+    let handler = McpHandler::new(config.database);
 
     match config.transport {
         Transport::Stdio => {
-            // Stdio transport for Claude Desktop / Cursor
-            serve_stdio(config).await?;
+            let (stdin, stdout) = rmcp::transport::io::stdio();
+            let server = rmcp::serve_server(handler, (stdin, stdout)).await?;
+            server
+                .waiting()
+                .await
+                .map_err(|e| anyhow::anyhow!("Server join error: {e}"))?;
         }
         Transport::Sse => {
-            // SSE transport for hosted deployments
-            let bind = config
-                .bind
-                .clone()
-                .unwrap_or_else(|| "127.0.0.1:3030".to_string());
-            serve_sse(config, &bind).await?;
+            return Err(anyhow::anyhow!(
+                "SSE transport not yet fully implemented in this version"
+            ));
         }
     }
 
-    Ok(())
-}
-
-async fn serve_stdio(config: McpConfig) -> Result<()> {
-    let _tools = McpTools::new(config.database.clone());
-    let _resources = McpResources::new(config.database);
-
-    // Stub: actual rmcp integration would be:
-    // let server = rmcp::ServerBuilder::new()
-    //     .add_tools(&tools)
-    //     .add_resources(&resources)
-    //     .stdio_transport()
-    //     .serve()
-    //     .await?;
-
-    info!("MCP stdio server ready");
-    Ok(())
-}
-
-async fn serve_sse(config: McpConfig, bind: &str) -> Result<()> {
-    let _tools = McpTools::new(config.database.clone());
-    let _resources = McpResources::new(config.database);
-
-    // Stub: actual rmcp integration would be:
-    // let server = rmcp::ServerBuilder::new()
-    //     .add_tools(&tools)
-    //     .add_resources(&resources)
-    //     .sse_transport(bind)
-    //     .serve()
-    //     .await?;
-
-    info!("MCP SSE server listening on {}", bind);
     Ok(())
 }
