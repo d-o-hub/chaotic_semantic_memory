@@ -954,7 +954,7 @@ world_state:
     registry_count: 80
     disk_count: 79
     parity_satisfied: true
-  action_last_completed: goap_fix_pre_release_gate_2026_05_21
+  action_last_completed: goap_fix_pre_release_gate_bincode_revert_2026_05_21
 
   # ═══════════════════════════════════════════════════════
   # Pre-Release Gate Fixes (2026-05-21)
@@ -963,14 +963,23 @@ world_state:
   goap_pre_release_gate_fixes_completed: true
   goap_pre_release_gate_fix_files:
     - ".github/workflows/pre-release-gate.yml: CHANGELOG regex (grep -oP → sed), planning-state-check (tr -d '\\r'), security-audit (--deny warnings removed)"
-    - "plans/UNMAINTAINED_CRATES.md: documents bincode, number_prefix, paste with migration plans"
+    - "plans/UNMAINTAINED_CRATES.md: documents bincode, number_prefix, paste with migration plans and failed bincode 2.x/3.x migration attempt"
+    - "plans/DEPENDABOT_ALERTS.md: documents triaged dependabot alerts (rand dismissed, libsql-sqlite3-parser no patch)"
   goap_pre_release_gate_fix_validation:
     cargo_check: passing
     cargo_fmt: clean
     cargo_clippy: clean
-    cargo_audit: passing
-    cargo_test: passing
+    cargo_audit: "passing (3 visible warnings, exit 0)"
+    cargo_test: "733 tests passing (all features)"
     changelog_sed_regex_verified: "0.3.6 extracted correctly"
+  goap_bincode_migration_attempted: true
+  goap_bincode_migration_reverted: true
+  goap_bincode_migration_findings:
+    - "bincode 3.0.0 is a prank release (compile_error xkcd 2347)"
+    - "bincode 2.0.x has breaking API changes requiring 7-file refactor"
+    - "libsql v0.9.30 pins bincode 1.x transitively"
+    - "Decision: keep bincode 1.3.3; document in UNMAINTAINED_CRATES.md; evaluate postcard later"
+  goap_bincode_keep_1_3_3: true
 
   # ═══════════════════════════════════════════════════════
   # Rebase + DeepSource Fix (June 2026)

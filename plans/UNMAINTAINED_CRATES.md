@@ -20,14 +20,17 @@ indicates a **new real vulnerability** that needs immediate attention.
 - **Used by**: `chaotic_semantic_memory` (direct), `libsql v0.9.30` (transitive)
 - **Files**: `src/hyperdim_serde.rs`, `src/framework_ops.rs`, `src/wasm.rs`,
   `src/index/lsh.rs`, `src/index/hnsw.rs`, `src/export_payload.rs`
-- **Migration plan**: Upgrade to bincode 2.x. Key API changes:
-  - `bincode::serialize()` → `bincode::serde::encode_into_slice()` or `bincode::encode_to_vec()`
-  - `bincode::deserialize()` → `bincode::serde::decode_from_slice()`
-  - `bincode::DefaultOptions` → `bincode::config::standard()`
-  - `with_limit()` → `bincode::config::Configuration::with_limit()`
-- **Blockers**: `libsql v0.9.30` transitively depends on bincode 1.x;
-  need to verify libsql >=0.10 supports bincode 2.x, or wait for upstream.
-- **Estimated effort**: 4-6 hours (direct usage) + upstream coordination
+- **Migration plan**: Blocked. Attempted 2026-05-21:
+  - `bincode 3.0.0`: Prank release — `compile_error!("https://xkcd.com/2347/")`
+  - `bincode 2.0.1`: Breaking API changes (`serialize`/`deserialize` removed;
+    requires `encode_to_vec`/`decode_from_slice` with config-based API).
+    Feasible but requires 7-file refactor.
+  - `libsql v0.9.30` transitively pins bincode 1.x; both versions would coexist
+    in the lock file.
+- **Future direction**: Evaluate `postcard` as a replacement serialization format
+  (no_std, serde-compatible, actively maintained). Migration to postcard is a
+  separate planned effort.
+- **Estimated effort**: 4-6 hours (bincode 2.x migration) or 8-10 hours (postcard)
 
 ### 2. number_prefix 0.4.0 — RUSTSEC-2025-0119
 
