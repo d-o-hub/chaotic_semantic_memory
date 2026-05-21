@@ -5,12 +5,7 @@
 //! - aarch64: NEON (128-bit)
 //!
 //! Also provides optimized Hamming distance calculation.
-/// Optimized Hamming distance calculation using unrolled loop.
-///
-/// This implementation uses a 4x unrolled loop with independent accumulators
-/// to break the serial dependency chain of popcount operations, maximizing
-/// Instruction-Level Parallelism (ILP). It operates on 64-bit words to avoid
-/// the overhead of 128-bit operations on many architectures.
+/// Optimized Hamming distance calculation using a 4x unrolled loop with independent accumulators.
 #[inline]
 pub(crate) fn hamming_distance_optimized(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
     let distance: u32;
@@ -41,26 +36,43 @@ pub(crate) unsafe fn hamming_distance_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 8
         _mm256_set1_epi8, _mm256_setr_epi8, _mm256_setzero_si256, _mm256_shuffle_epi8,
         _mm256_srli_epi16, _mm256_storeu_si256, _mm256_xor_si256,
     };
-    let mut total_count = _mm256_setzero_si256();
+    // Performance Optimization: Hoist zero-vector intrinsic and use dual accumulators
+    // to break dependency chains, improving ILP and reducing loop control overhead.
+    let mut total_count0 = _mm256_setzero_si256();
+    let mut total_count1 = _mm256_setzero_si256();
+    let zero = _mm256_setzero_si256();
     let low_mask = _mm256_set1_epi8(0x0F);
     let lookup = _mm256_setr_epi8(
         0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3,
         3, 4,
     );
-    for i in (0..80).step_by(2) {
-        let a = unsafe { _mm256_loadu_si256(lhs.as_ptr().add(i).cast()) };
-        let b = unsafe { _mm256_loadu_si256(rhs.as_ptr().add(i).cast()) };
-        let x = _mm256_xor_si256(a, b);
-        let low = _mm256_and_si256(x, low_mask);
-        let high = _mm256_and_si256(_mm256_srli_epi16(x, 4), low_mask);
-        let pop_low = _mm256_shuffle_epi8(lookup, low);
-        let pop_high = _mm256_shuffle_epi8(lookup, high);
-        let combined = _mm256_add_epi8(pop_low, pop_high);
-        total_count = _mm256_add_epi64(
-            total_count,
-            _mm256_sad_epu8(combined, _mm256_setzero_si256()),
-        );
+
+    // Loop processes 4 words (512 bits) per iteration.
+    // Static verification: 80 words is exactly divisible by 4, so no tail processing is required.
+    for i in (0..80).step_by(4) {
+        unsafe {
+            let a0 = _mm256_loadu_si256(lhs.as_ptr().add(i).cast());
+            let b0 = _mm256_loadu_si256(rhs.as_ptr().add(i).cast());
+            let x0 = _mm256_xor_si256(a0, b0);
+            let low0 = _mm256_and_si256(x0, low_mask);
+            let high0 = _mm256_and_si256(_mm256_srli_epi16(x0, 4), low_mask);
+            let pop_low0 = _mm256_shuffle_epi8(lookup, low0);
+            let pop_high0 = _mm256_shuffle_epi8(lookup, high0);
+            let combined0 = _mm256_add_epi8(pop_low0, pop_high0);
+            total_count0 = _mm256_add_epi64(total_count0, _mm256_sad_epu8(combined0, zero));
+
+            let a1 = _mm256_loadu_si256(lhs.as_ptr().add(i + 2).cast());
+            let b1 = _mm256_loadu_si256(rhs.as_ptr().add(i + 2).cast());
+            let x1 = _mm256_xor_si256(a1, b1);
+            let low1 = _mm256_and_si256(x1, low_mask);
+            let high1 = _mm256_and_si256(_mm256_srli_epi16(x1, 4), low_mask);
+            let pop_low1 = _mm256_shuffle_epi8(lookup, low1);
+            let pop_high1 = _mm256_shuffle_epi8(lookup, high1);
+            let combined1 = _mm256_add_epi8(pop_low1, pop_high1);
+            total_count1 = _mm256_add_epi64(total_count1, _mm256_sad_epu8(combined1, zero));
+        }
     }
+    let total_count = _mm256_add_epi64(total_count0, total_count1);
     let mut out = [0u64; 4];
     unsafe { _mm256_storeu_si256(out.as_mut_ptr().cast(), total_count) };
     (out[0] + out[1] + out[2] + out[3]) as u32
@@ -411,14 +423,25 @@ mod tests {
             let scalar = hamming_distance_optimized(&lhs, &rhs);
             let simd = unsafe { hamming_distance_simd_avx2(&lhs, &rhs) };
             assert_eq!(simd, scalar);
-            // Test with random vectors
+            // Test with random vectors - expanded to 100 iterations for robust correctness verification
             use crate::hyperdim::HVec10240;
-            for i in 0..10 {
-                let v1 = HVec10240::new_seeded(i);
-                let v2 = HVec10240::new_seeded(i + 100);
+            for i in 0..100 {
+                let v1 = HVec10240::new_seeded(i as u64);
+                let v2 = HVec10240::new_seeded(i as u64 + 1000);
                 let scalar_r = hamming_distance_optimized(&v1.data, &v2.data);
                 let simd_r = unsafe { hamming_distance_simd_avx2(&v1.data, &v2.data) };
-                assert_eq!(simd_r, scalar_r, "Failed on iteration {}", i);
+                assert_eq!(simd_r, scalar_r, "SIMD mismatch on iteration {}", i);
+
+                let naive_dist: u32 = v1
+                    .data
+                    .iter()
+                    .zip(v2.data.iter())
+                    .map(|(a, b)| (a ^ b).count_ones())
+                    .sum();
+                assert_eq!(
+                    simd_r, naive_dist,
+                    "SIMD vs Naive mismatch on iteration {i}"
+                );
             }
         }
     }
