@@ -920,10 +920,10 @@ world_state:
   # ═══════════════════════════════════════════════════════
   # GitHub Actions + Security + Validation Audit (2026-05-21)
   # Orchestrator: goap_orchestrator_analysis_2026_05_21
-  # Main HEAD: 1efbc56 (fast-forward from 7a00de5)
+  # Main HEAD: e064927 (fast-forward from 7a00de5)
   # ═══════════════════════════════════════════════════════
   goap_2026_05_21_audit_completed: true
-  goap_2026_05_21_main_head: "1efbc56"
+  goap_2026_05_21_main_head: "e064927"
   goap_2026_05_21_validation_gates:
     cargo_check: passing
     cargo_test: passing  # 57 test binaries, all passing
@@ -937,7 +937,7 @@ world_state:
     version_integrity: passing
     codeql: active_no_open_alerts
     dependabot: active_3_open_low_severity
-    pre_release_gate: failing  # version-triad, security-audit, planning-state-check
+    pre_release_gate: passing
   ci_pre_release_gate_analysis:
     version_triad: "2026-05-21 FIXED: switched from grep -oP (YAML backslash hell) to sed extraction"
     security_audit: "2026-05-21 FIXED: removed --deny warnings; cargo audit reports visibly, unmaintained crates documented in plans/UNMAINTAINED_CRATES.md"
@@ -954,7 +954,7 @@ world_state:
     registry_count: 80
     disk_count: 79
     parity_satisfied: true
-  action_last_completed: goap_fix_pre_release_gate_bincode_revert_2026_05_21
+  action_last_completed: goap_orchestrator_verification_2026_05_21
 
   # ═══════════════════════════════════════════════════════
   # Pre-Release Gate Fixes (2026-05-21)
@@ -1007,7 +1007,7 @@ world_state:
   # ═══════════════════════════════════════════════════════
   cloudevents_adr_written: true
   cloudevents_implemented: true               # 2026-05-20: complete in framework_events_ce.rs
-  cloudevents_tested: false
+  cloudevents_tested: true
 
   # ═══════════════════════════════════════════════════════
   # Wave 26: DuckDB Companion Crate (P2) — backfilled 2026-05-18

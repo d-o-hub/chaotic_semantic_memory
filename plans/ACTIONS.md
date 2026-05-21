@@ -3594,7 +3594,7 @@ actions:
     effects:
       cloudevents_tested: true
     cost: 4
-    status: queued
+    status: complete
     file: tests/cloudevents_integration.rs
     description: |
       Test CloudEvents emission across all MemoryEvent variants.
