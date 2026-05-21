@@ -3420,7 +3420,7 @@ actions:
     effects:
       version_history_surface_implemented: true
     cost: 4
-    status: complete
+    status: queued
     file: plans/adr/0074-version-history-surface.md
     description: |
       Activate dormant concept_versions table: list_versions, get_version,

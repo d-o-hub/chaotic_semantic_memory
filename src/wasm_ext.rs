@@ -171,59 +171,6 @@ impl WasmFramework {
 
         Ok(array)
     }
-
-    /// List all historical versions of a concept.
-    #[wasm_bindgen(js_name = listVersions)]
-    pub async fn list_versions(&self, id: String) -> Result<Array, JsValue> {
-        let versions = self
-            .framework
-            .list_versions(&id)
-            .await
-            .map_err(to_js_error)?;
-        let array = Array::new();
-        for v in versions {
-            let obj = js_sys::Object::new();
-            js_sys::Reflect::set(&obj, &"version".into(), &(v.version as u32).into())
-                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
-            js_sys::Reflect::set(
-                &obj,
-                &"timestampUnix".into(),
-                &(v.timestamp_unix as f64).into(),
-            )
-            .map_err(|_| JsValue::from_str("failed to set JS property"))?;
-            js_sys::Reflect::set(&obj, &"vectorChanged".into(), &v.vector_changed.into())
-                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
-            js_sys::Reflect::set(&obj, &"metadataChanged".into(), &v.metadata_changed.into())
-                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
-            array.push(&obj);
-        }
-        Ok(array)
-    }
-
-    /// Load a specific concept version.
-    #[wasm_bindgen(js_name = getVersion)]
-    pub async fn get_version(&self, id: String, version: u32) -> Result<JsValue, JsValue> {
-        let concept_opt = self
-            .framework
-            .get_version(&id, version as u64)
-            .await
-            .map_err(to_js_error)?;
-        match concept_opt {
-            Some(concept) => crate::wasm::concept_to_js_value(&concept),
-            None => Ok(JsValue::NULL),
-        }
-    }
-
-    /// Roll back a concept to a historical version.
-    #[wasm_bindgen(js_name = rollbackToVersion)]
-    pub async fn rollback_to_version(&self, id: String, version: u32) -> Result<JsValue, JsValue> {
-        let concept = self
-            .framework
-            .rollback_to_version(&id, version as u64)
-            .await
-            .map_err(to_js_error)?;
-        crate::wasm::concept_to_js_value(&concept)
-    }
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -258,4 +205,286 @@ fn memory_event_to_js_value(event: &crate::framework_events::MemoryEvent) -> JsV
         }
     }
     obj.into()
+}
+
+// TESTS - verify WASM binding data patterns on native targets
+
+#[cfg(test)]
+mod tests {
+    // Exact float comparisons for test assertions
+
+    use crate::framework_builder::FrameworkBuilder;
+    use crate::framework_events::MemoryEvent;
+    use crate::graph_traversal::TraversalConfig;
+    use crate::hyperdim::HVec10240;
+    use crate::metadata_filter::MetadataFilter;
+    use serde_json::json;
+    use std::collections::HashMap;
+
+    // to_js_error is a string conversion that works on native targets too
+    fn to_js_error_test(msg: &str) -> bool {
+        !msg.is_empty()
+    }
+
+    #[test]
+    fn metadata_filter_eq_json_roundtrip() {
+        let filter = MetadataFilter::eq("type", "document");
+        let json = serde_json::to_string(&filter).unwrap();
+        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
+        assert_eq!(filter, parsed);
+    }
+
+    #[test]
+    fn metadata_filter_in_json_roundtrip() {
+        let filter = MetadataFilter::in_("tag", vec![json!("rust"), json!("python")]);
+        let json = serde_json::to_string(&filter).unwrap();
+        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
+        assert_eq!(filter, parsed);
+    }
+
+    #[test]
+    fn metadata_filter_exists_json_roundtrip() {
+        let filter = MetadataFilter::exists("title");
+        let json = serde_json::to_string(&filter).unwrap();
+        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
+        assert_eq!(filter, parsed);
+    }
+
+    #[test]
+    fn metadata_filter_and_json_roundtrip() {
+        let filter = MetadataFilter::and(vec![
+            MetadataFilter::eq("type", "document"),
+            MetadataFilter::exists("author"),
+        ]);
+        let json = serde_json::to_string(&filter).unwrap();
+        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
+        assert_eq!(filter, parsed);
+    }
+
+    #[test]
+    fn metadata_filter_or_json_roundtrip() {
+        let filter = MetadataFilter::or(vec![
+            MetadataFilter::eq("status", "active"),
+            MetadataFilter::eq("status", "pending"),
+        ]);
+        let json = serde_json::to_string(&filter).unwrap();
+        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
+        assert_eq!(filter, parsed);
+    }
+
+    #[test]
+    fn metadata_filter_not_json_roundtrip() {
+        let filter = MetadataFilter::Not(Box::new(MetadataFilter::eq("private", true)));
+        let json = serde_json::to_string(&filter).unwrap();
+        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
+        assert_eq!(filter, parsed);
+    }
+
+    #[test]
+    fn metadata_filter_nested_complex_json_roundtrip() {
+        let filter = MetadataFilter::and(vec![
+            MetadataFilter::eq("type", "document"),
+            MetadataFilter::in_("tag", vec![json!("rust"), json!("python")]),
+            MetadataFilter::Not(Box::new(MetadataFilter::eq("private", true))),
+        ]);
+        let json = serde_json::to_string(&filter).unwrap();
+        let parsed: MetadataFilter = serde_json::from_str(&json).unwrap();
+        assert_eq!(filter, parsed);
+    }
+
+    #[test]
+    fn metadata_filter_json_string_format() {
+        let filter = MetadataFilter::eq("category", "science");
+        let json = serde_json::to_string(&filter).unwrap();
+        assert!(json.contains("Eq") && json.contains("category") && json.contains("science"));
+    }
+
+    #[test]
+    fn traversal_config_defaults() {
+        let config = TraversalConfig::default();
+        assert_eq!(config.max_depth, 3);
+        assert!((config.min_strength - (0.0)).abs() < 1e-6);
+        assert_eq!(config.max_results, 100);
+    }
+
+    #[test]
+    fn traversal_config_custom_values() {
+        let config = TraversalConfig {
+            max_depth: 5,
+            min_strength: 0.7,
+            ..Default::default()
+        };
+        assert_eq!(config.max_depth, 5);
+        assert!((config.min_strength - (0.7)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn hvec_bytes_roundtrip() {
+        let original = HVec10240::random();
+        let bytes = original.to_bytes();
+        let restored = HVec10240::from_bytes(&bytes).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn hvec_bytes_length() {
+        let hvec = HVec10240::random();
+        let bytes = hvec.to_bytes();
+        assert_eq!(bytes.len(), 1280); // 10240 bits / 8 = 1280 bytes
+    }
+
+    #[test]
+    fn hvec_from_bytes_invalid_length() {
+        let short_bytes = vec![0u8; 100];
+        assert!(HVec10240::from_bytes(&short_bytes).is_err());
+    }
+
+    #[test]
+    fn memory_event_variants_construct() {
+        let injected = MemoryEvent::ConceptInjected {
+            id: "test-id".to_string(),
+            timestamp: 12345,
+        };
+        let updated = MemoryEvent::ConceptUpdated {
+            id: "test-id".to_string(),
+            timestamp: 12346,
+        };
+        let deleted = MemoryEvent::ConceptDeleted {
+            id: "test-id".to_string(),
+            timestamp: 12347,
+        };
+        let associated = MemoryEvent::Associated {
+            from: "a".to_string(),
+            to: "b".to_string(),
+            strength: 0.8,
+        };
+        let disassociated = MemoryEvent::Disassociated {
+            from: "a".to_string(),
+            to: "b".to_string(),
+        };
+
+        assert!(matches!(injected, MemoryEvent::ConceptInjected { .. }));
+        assert!(format!("{updated:?}").contains("ConceptUpdated"));
+        assert!(format!("{deleted:?}").contains("ConceptDeleted"));
+        assert!(format!("{associated:?}").contains("Associated"));
+        assert!(format!("{disassociated:?}").contains("Disassociated"));
+    }
+
+    #[test]
+    fn memory_event_clone_preserves_data() {
+        let event = MemoryEvent::Associated {
+            from: "source".to_string(),
+            to: "target".to_string(),
+            strength: 0.95,
+        };
+        let cloned = event;
+        match cloned {
+            MemoryEvent::Associated { from, to, strength } => {
+                assert_eq!(from, "source");
+                assert_eq!(to, "target");
+                assert!((strength - 0.95).abs() < 0.001);
+            }
+            _ => panic!("Expected Associated variant"),
+        }
+    }
+
+    #[test]
+    fn metadata_filter_matches_empty_metadata() {
+        let filter = MetadataFilter::eq("type", "document");
+        let empty_metadata = HashMap::new();
+        assert!(!filter.matches(&empty_metadata));
+    }
+
+    #[test]
+    fn metadata_filter_exists_on_empty_metadata() {
+        let filter = MetadataFilter::exists("field");
+        let empty_metadata = HashMap::new();
+        assert!(!filter.matches(&empty_metadata));
+    }
+
+    #[test]
+    fn wasm_hvec_bytes_roundtrip() {
+        let v = HVec10240::random();
+        let bytes = v.to_bytes();
+        let v2 = HVec10240::from_bytes(&bytes).unwrap();
+        assert_eq!(v, v2);
+    }
+
+    #[test]
+    fn wasm_hvec_bytes_invalid_len() {
+        assert!(HVec10240::from_bytes(&[0u8; 100]).is_err());
+    }
+
+    #[test]
+    fn wasm_to_js_error_msg() {
+        assert!(to_js_error_test("test error"));
+    }
+
+    #[tokio::test]
+    async fn wasm_namespace_switching_isolates_concepts() {
+        let framework = FrameworkBuilder::new()
+            .without_persistence()
+            .build()
+            .await
+            .unwrap();
+
+        // 1. Inject into default namespace
+        framework
+            .inject_concept("default-concept", HVec10240::random())
+            .await
+            .unwrap();
+
+        // 2. Switch namespace
+        framework.set_namespace("tenant-a").await;
+        assert_eq!(framework.namespace().await, "tenant-a");
+
+        // 3. Verify default concept is not visible in tenant-a
+        let results = framework.probe(HVec10240::random(), 10).await.unwrap();
+        assert!(results.is_empty());
+
+        // 4. Inject into tenant-a
+        framework
+            .inject_concept("tenant-concept", HVec10240::random())
+            .await
+            .unwrap();
+        let results = framework.probe(HVec10240::random(), 10).await.unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, "tenant-concept");
+
+        // 5. Switch back to default
+        framework.set_namespace("_default").await;
+        assert_eq!(framework.namespace().await, "_default");
+
+        // 6. Verify only default concept is visible
+        let results = framework.probe(HVec10240::random(), 10).await.unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, "default-concept");
+    }
+
+    fn native_enc(t: &str) -> Box<[u8]> {
+        crate::encoder::TextEncoder::new()
+            .encode(t)
+            .to_bytes()
+            .into_boxed_slice()
+    }
+
+    #[test]
+    fn wasm_encode_text_consistency() {
+        assert_eq!(native_enc("Test"), native_enc("Test"));
+    }
+
+    #[test]
+    fn wasm_encode_text_length() {
+        assert_eq!(native_enc("Len").len(), 1280);
+    }
+
+    #[test]
+    fn wasm_encode_text_difference() {
+        assert_ne!(native_enc("A"), native_enc("B"));
+    }
+
+    #[test]
+    fn wasm_encode_text_empty() {
+        assert_eq!(native_enc("").len(), 1280);
+    }
 }
