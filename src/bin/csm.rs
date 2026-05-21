@@ -7,9 +7,9 @@ mod native {
     pub use chaotic_semantic_memory::cli::{
         CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir,
         resolve_git_local_path, run_associate, run_associations, run_completions, run_delete,
-        run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl,
-        run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph,
-        run_query, run_stats, run_traverse, run_update, run_watch,
+        run_diff, run_disassociate, run_export, run_get, run_history, run_import, run_index_dir,
+        run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered,
+        run_probe_graph, run_query, run_rollback, run_stats, run_traverse, run_update, run_watch,
     };
     pub use clap::Parser;
     pub use colored::Colorize;
@@ -150,6 +150,9 @@ mod native {
             Commands::IndexDir(cmd) => run_index_dir(cmd.clone(), db_path.as_deref(), fmt).await,
             Commands::Delete(cmd) => run_delete(cmd.clone(), db_path.as_deref(), fmt).await,
             Commands::Get(cmd) => run_get(cmd.clone(), db_path.as_deref(), fmt).await,
+            Commands::History(cmd) => run_history(cmd.clone(), db_path.as_deref(), fmt).await,
+            Commands::Diff(cmd) => run_diff(cmd.clone(), db_path.as_deref(), fmt).await,
+            Commands::Rollback(cmd) => run_rollback(cmd.clone(), db_path.as_deref(), fmt).await,
             Commands::Update(cmd) => run_update(cmd.clone(), db_path.as_deref(), fmt).await,
             Commands::Disassociate(cmd) => {
                 run_disassociate(cmd.clone(), db_path.as_deref(), fmt).await

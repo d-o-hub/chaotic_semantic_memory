@@ -95,6 +95,23 @@ impl Persistence {
         Err(wasm_persistence_unavailable())
     }
 
+    pub async fn get_version_scoped(
+        &self,
+        _ns: &str,
+        _id: &str,
+        _version: u64,
+    ) -> Result<Option<Concept>> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn list_versions_scoped(
+        &self,
+        _ns: &str,
+        _id: &str,
+    ) -> Result<Vec<crate::singularity::ConceptVersion>> {
+        Err(wasm_persistence_unavailable())
+    }
+
     pub async fn get_concept_history(
         &self,
         _ns: &str,

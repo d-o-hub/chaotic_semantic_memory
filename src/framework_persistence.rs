@@ -4,8 +4,10 @@
 
 use tracing::warn;
 
-use crate::error::Result;
+use crate::error::{MemoryError, Result};
 use crate::framework::ChaoticSemanticFramework;
+use crate::framework_events::MemoryEvent;
+use crate::singularity::{Concept, ConceptDiff, ConceptVersion};
 
 impl ChaoticSemanticFramework {
     /// Persist all data to storage
@@ -188,5 +190,99 @@ impl ChaoticSemanticFramework {
             }
         }
         Ok(())
+    }
+
+    /// List all historical versions of a concept.
+    #[tracing::instrument(err, skip(self))]
+    pub async fn list_versions(&self, id: &str) -> Result<Vec<ConceptVersion>> {
+        if let Some(ref persistence) = self.persistence {
+            let ns = self.namespace.read().await;
+            persistence.list_versions_scoped(&ns, id).await
+        } else {
+            Err(MemoryError::UnsupportedOperation(
+                "Persistence is required for version history".to_string(),
+            ))
+        }
+    }
+
+    /// Load a specific concept version.
+    #[tracing::instrument(err, skip(self))]
+    pub async fn get_version(&self, id: &str, version: u64) -> Result<Option<Concept>> {
+        if let Some(ref persistence) = self.persistence {
+            let ns = self.namespace.read().await;
+            persistence.get_version_scoped(&ns, id, version).await
+        } else {
+            Err(MemoryError::UnsupportedOperation(
+                "Persistence is required to retrieve a concept version".to_string(),
+            ))
+        }
+    }
+
+    /// Calculate differences between two versions of a concept.
+    #[tracing::instrument(err, skip(self))]
+    pub async fn diff_versions(
+        &self,
+        id: &str,
+        from_version: u64,
+        to_version: u64,
+    ) -> Result<ConceptDiff> {
+        let from_concept =
+            self.get_version(id, from_version)
+                .await?
+                .ok_or_else(|| MemoryError::NotFound {
+                    entity: "ConceptVersion".to_string(),
+                    id: format!("{}@{}", id, from_version),
+                })?;
+        let to_concept =
+            self.get_version(id, to_version)
+                .await?
+                .ok_or_else(|| MemoryError::NotFound {
+                    entity: "ConceptVersion".to_string(),
+                    id: format!("{}@{}", id, to_version),
+                })?;
+        Ok(ConceptDiff::calculate(&from_concept, &to_concept))
+    }
+
+    /// Roll back a concept to a historical version.
+    /// Rollbacks must not delete history; they must inject the old concept state as a new head version.
+    #[tracing::instrument(err, skip(self))]
+    pub async fn rollback_to_version(&self, id: &str, version: u64) -> Result<Concept> {
+        let mut target_concept =
+            self.get_version(id, version)
+                .await?
+                .ok_or_else(|| MemoryError::NotFound {
+                    entity: "ConceptVersion".to_string(),
+                    id: format!("{}@{}", id, version),
+                })?;
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| MemoryError::database(format!("System clock error: {e}")))?
+            .as_secs();
+        target_concept.modified_at = now;
+
+        {
+            let mut sing = self.singularity.write().await;
+            let ns = self.namespace.read().await;
+            sing.inject(&ns, target_concept.clone())?;
+        }
+
+        if let Some(ref persistence) = self.persistence {
+            let p_start = std::time::Instant::now();
+            let ns = self.namespace().await;
+            persistence.save_concept(&ns, &target_concept).await?;
+            self.metrics.observe_persist_latency_ms(
+                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                "save",
+            );
+        }
+
+        self.emit_event(MemoryEvent::ConceptInjected {
+            id: target_concept.id.clone(),
+            timestamp: target_concept.modified_at,
+        })
+        .await;
+
+        Ok(target_concept)
     }
 }

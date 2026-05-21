@@ -58,7 +58,7 @@ world_state:
   verification_workspace_mrr: 0.75
   verification_bm25_search_1000_us: 64.4        # was 3030 µs pre PR #129 (47× faster)
   verification_bridge_retrieval_pipeline_1k_ms: 1.92
-  tests_count: 598                              # 2026-04-30: +27 inline tests (reservoir:7, singularity:5, retrieval:6, ops:3, wasm:4)
+  tests_count: 733                              # 2026-05-21: update tests count with version history surface tests
   skills_count: 29                              # 2026-04-30: All 29 skills have SKILL.md verified
   coverage_ratio_current: 93                   # Test:Source ratio (target: 90% - ACHIEVED)
   coverage_inline_tests_added: true             # encoder.rs (7), persistence_ops.rs (3), framework_ttl.rs (9), wasm_ext.rs (17)
@@ -439,10 +439,10 @@ world_state:
     cli/commands/completions.rs: 45
     bin/csm.rs: 160
 
-  # Test status - Updated 2026-04-21
-  tests_passing: 333
+  # Test status - Updated 2026-05-21
+  tests_passing: 733
   integration_tests_exist: true
-  total_tests: 333
+  total_tests: 733
 
   # Correctness issues (must fix)
   permute_shift_zero_bug: false
@@ -887,7 +887,7 @@ world_state:
   reranking_pipeline_implemented: true        # ADR-0071 — MMR + recency + cross-encoder (2026-05-20: complete)
   otlp_exporter_implemented: false            # ADR-0072 — opentelemetry + prometheus
   namespace_isolation_implemented: true       # ADR-0073 — supersedes deferred ADR-0026 (2026-05-20: complete)
-  version_history_surface_implemented: false  # ADR-0074 — activate dormant version table
+  version_history_surface_implemented: true   # ADR-0074 — activate dormant version table (2026-05-21: complete)
 
   # Wave 24 P3 — Future Scale (queued, cost 14, depends on Wave 22)
   quantized_binary_hypervectors_implemented: false  # ADR-0075 — 32× memory compression
@@ -914,7 +914,7 @@ world_state:
   clippy_actionable_warnings: 110                             # float_cmp + drop_tightening + cast_* + const_fn + redundant_clone
   adr_0077_clippy_promotion_drafted: true                     # plans/adr/0077-clippy-pedantic-selective-promotion.md
   clippy_pedantic_promotion_complete: true                    # 2026-05-20: completed in ADR-0077 Phase A+B
-  action_last_completed: goap_state_reconciliation_2026_05
+  action_last_completed: implement_version_history_surface
 
   # ═══════════════════════════════════════════════════════
   # Rebase + DeepSource Fix (June 2026)

@@ -46,6 +46,61 @@ pub struct Concept {
     pub canonical_concept_ids: Vec<String>,
 }
 
+/// Public summary of a historical version of a concept.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ConceptVersion {
+    pub version: u64,
+    pub timestamp_unix: i64,
+    pub vector_changed: bool,
+    pub metadata_changed: bool,
+}
+
+/// Description of differences between two versions of a concept.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ConceptDiff {
+    pub vector_cosine_distance: f32,
+    pub metadata_added: HashMap<String, serde_json::Value>,
+    pub metadata_removed: HashMap<String, serde_json::Value>,
+    pub metadata_changed: HashMap<String, (serde_json::Value, serde_json::Value)>,
+}
+
+impl ConceptDiff {
+    /// Calculate the differences between two versions of a concept.
+    pub fn calculate(from_concept: &Concept, to_concept: &Concept) -> Self {
+        let sim = from_concept.vector.cosine_similarity(&to_concept.vector);
+        let vector_cosine_distance = 1.0 - sim;
+
+        let mut metadata_added = HashMap::new();
+        let mut metadata_removed = HashMap::new();
+        let mut metadata_changed = HashMap::new();
+
+        // Find added and changed
+        for (k, v_to) in &to_concept.metadata {
+            if let Some(v_from) = from_concept.metadata.get(k) {
+                if v_from != v_to {
+                    metadata_changed.insert(k.clone(), (v_from.clone(), v_to.clone()));
+                }
+            } else {
+                metadata_added.insert(k.clone(), v_to.clone());
+            }
+        }
+
+        // Find removed
+        for (k, v_from) in &from_concept.metadata {
+            if !to_concept.metadata.contains_key(k) {
+                metadata_removed.insert(k.clone(), v_from.clone());
+            }
+        }
+
+        Self {
+            vector_cosine_distance,
+            metadata_added,
+            metadata_removed,
+            metadata_changed,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ConceptBuilder {
     id: String,

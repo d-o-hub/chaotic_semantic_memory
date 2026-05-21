@@ -208,6 +208,23 @@ pub mod persistence {
             Ok(())
         }
 
+        pub async fn get_version_scoped(
+            &self,
+            _ns: &str,
+            _id: &str,
+            _version: u64,
+        ) -> Result<Option<Concept>> {
+            Ok(None)
+        }
+
+        pub async fn list_versions_scoped(
+            &self,
+            _ns: &str,
+            _id: &str,
+        ) -> Result<Vec<crate::singularity::ConceptVersion>> {
+            Ok(Vec::new())
+        }
+
         pub async fn get_concept_history(
             &self,
             _id: &str,
@@ -243,7 +260,7 @@ pub mod prelude {
     pub use crate::framework_events::MemoryEvent;
     pub use crate::hyperdim::HVec10240;
     pub use crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket};
-    pub use crate::singularity::{Concept, ConceptBuilder};
+    pub use crate::singularity::{Concept, ConceptBuilder, ConceptDiff, ConceptVersion};
     pub use crate::singularity_retrieval::{
         CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats,
     };
@@ -256,6 +273,8 @@ mod wasm_ext;
 // Include wasm_ext for tests to run underlying data pattern tests on native
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod wasm_ext;
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod wasm_ext_tests;
 #[cfg(target_arch = "wasm32")]
 mod wasm_graph_rag;
 #[cfg(all(test, not(target_arch = "wasm32")))]

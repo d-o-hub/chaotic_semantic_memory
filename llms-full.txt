@@ -54,7 +54,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/bin/csm.rs
 
 - pub use native::chaotic_semantic_memory::cli::commands::watch::EventFilter
-- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
+- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_diff, run_disassociate, run_export, run_get, run_history, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_rollback, run_stats, run_traverse, run_update, run_watch}
 - pub use native::clap::Parser
 - pub use native::colored::Colorize
 - pub use native::tracing::Level
@@ -110,6 +110,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct MetricsArgs
 - pub struct WatchArgs
 - pub struct ProbeGraphArgs
+- pub struct HistoryArgs
+- pub struct DiffArgs
+- pub struct RollbackArgs
 
 ### src/cli/commands/associate.rs
 
@@ -128,6 +131,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub fn run_delete
 
+### src/cli/commands/diff.rs
+
+- pub fn run_diff
+
 ### src/cli/commands/disassociate.rs
 
 - pub fn run_disassociate
@@ -139,6 +146,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/cli/commands/get.rs
 
 - pub fn run_get
+
+### src/cli/commands/history.rs
+
+- pub fn run_history
 
 ### src/cli/commands/import.rs
 
@@ -168,9 +179,11 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod associations
 - pub mod completions
 - pub mod delete
+- pub mod diff
 - pub mod disassociate
 - pub mod export
 - pub mod get
+- pub mod history
 - pub mod import
 - pub mod index_dir
 - pub mod index_jsonl
@@ -181,6 +194,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod probe_filtered
 - pub mod probe_graph
 - pub mod query
+- pub mod rollback
 - pub mod stats
 - pub mod traverse
 - pub mod update
@@ -189,9 +203,11 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use associations::run_associations
 - pub use completions::run_completions
 - pub use delete::run_delete
+- pub use diff::run_diff
 - pub use disassociate::run_disassociate
 - pub use export::run_export
 - pub use get::run_get
+- pub use history::run_history
 - pub use import::run_import
 - pub use index_dir::run_index_dir
 - pub use index_jsonl::run_index_jsonl
@@ -202,6 +218,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use probe_filtered::run_probe_filtered
 - pub use probe_graph::run_probe_graph
 - pub use query::run_query
+- pub use rollback::run_rollback
 - pub use stats::run_stats
 - pub use traverse::run_traverse
 - pub use update::run_update
@@ -235,6 +252,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/cli/commands/query.rs
 
 - pub fn run_query
+
+### src/cli/commands/rollback.rs
+
+- pub fn run_rollback
 
 ### src/cli/commands/stats.rs
 
@@ -283,7 +304,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod git_local
 - pub mod mcp
 - pub use args::*
-- pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
+- pub use commands::{run_associate, run_associations, run_completions, run_delete, run_diff, run_disassociate, run_export, run_get, run_history, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_rollback, run_stats, run_traverse, run_update, run_watch}
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
 - pub use mcp::*
@@ -532,7 +553,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use prelude::crate::framework_events::MemoryEvent
 - pub use prelude::crate::hyperdim::HVec10240
 - pub use prelude::crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket}
-- pub use prelude::crate::singularity::{Concept, ConceptBuilder}
+- pub use prelude::crate::singularity::{Concept, ConceptBuilder, ConceptDiff, ConceptVersion}
 - pub use prelude::crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod wasm
 
@@ -697,6 +718,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct SingularityConfig
 - impl Default for SingularityConfig
 - pub struct Concept
+- pub struct ConceptVersion
+- pub struct ConceptDiff
+- impl ConceptDiff
 - pub struct ConceptBuilder
 - impl ConceptBuilder
 - pub struct Singularity
@@ -1303,10 +1327,10 @@ The `csm` binary provides command-line access:
 pub use chaotic_semantic_memory::cli::commands::watch::EventFilter;
 ```
 
-### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
+### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_diff, run_disassociate, run_export, run_get, run_history, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_rollback, run_stats, run_traverse, run_update, run_watch}
 
 ```rust
-pub use chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch};
+pub use chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_diff, run_disassociate, run_export, run_get, run_history, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_rollback, run_stats, run_traverse, run_update, run_watch};
 ```
 
 ### clap::Parser
@@ -1510,6 +1534,9 @@ pub enum Commands {
     IndexDir(IndexDirArgs),
     Delete(DeleteArgs),
     Get(GetArgs),
+    History(HistoryArgs),
+    Diff(DiffArgs),
+    Rollback(RollbackArgs),
     Update(UpdateArgs),
     Disassociate(DisassociateArgs),
     Associations(AssociationsArgs),
@@ -1547,6 +1574,20 @@ pub struct DeleteArgs {
 ```
 
 Arguments for the delete command.
+
+### DiffArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct DiffArgs {
+    pub namespace: String,
+    pub concept_id: String,
+    pub from: u64,
+    pub to: u64,
+}
+```
+
+Arguments for the diff command.
 
 ### DisassociateArgs
 
@@ -1589,10 +1630,23 @@ pub enum ExportFormat {
 pub struct GetArgs {
     pub namespace: String,
     pub concept_id: String,
+    pub version: Option<u64>,
 }
 ```
 
 Arguments for the get command.
+
+### HistoryArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct HistoryArgs {
+    pub namespace: String,
+    pub concept_id: String,
+}
+```
+
+Arguments for the history command.
 
 ### ImportArgs
 
@@ -1672,8 +1726,6 @@ pub struct MetricsArgs {
 }
 ```
 
-Arguments for metrics command.
-
 ### OutputFormat
 
 ```rust
@@ -1741,8 +1793,6 @@ pub struct ProbeGraphArgs {
 }
 ```
 
-Arguments for GraphRAG retrieval.
-
 ### QueryArgs
 
 ```rust
@@ -1763,14 +1813,26 @@ pub struct QueryArgs {
 
 Arguments for text-based similarity query.
 
+### RollbackArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct RollbackArgs {
+    pub namespace: String,
+    pub concept_id: String,
+    pub to: u64,
+    pub confirm: bool,
+}
+```
+
+Arguments for the rollback command.
+
 ### StatsArgs
 
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct StatsArgs;
 ```
-
-Arguments for stats command.
 
 ### TraverseArgs
 
@@ -1832,8 +1894,6 @@ pub struct WatchArgs {
 }
 ```
 
-Arguments for watch command.
-
 ## src/cli/commands/associate.rs
 
 ### run_associate
@@ -1872,6 +1932,14 @@ pub fn run_completions(args: CompletionsArgs) -> Result<()>
 pub fn run_delete(args: DeleteArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
+## src/cli/commands/diff.rs
+
+### run_diff
+
+```rust
+pub fn run_diff(args: DiffArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
 ## src/cli/commands/disassociate.rs
 
 ### run_disassociate
@@ -1894,6 +1962,14 @@ pub fn run_export(args: ExportArgs, db_path: Option<&Path>, format: OutputFormat
 
 ```rust
 pub fn run_get(args: GetArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/history.rs
+
+### run_history
+
+```rust
+pub fn run_history(args: HistoryArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
 ## src/cli/commands/import.rs
@@ -2012,6 +2088,12 @@ pub fn create_framework_with_provider(db_path: Option<&std::path::Path>, provide
 pub use delete::run_delete;
 ```
 
+### diff::run_diff
+
+```rust
+pub use diff::run_diff;
+```
+
 ### disassociate::run_disassociate
 
 ```rust
@@ -2028,6 +2110,12 @@ pub use export::run_export;
 
 ```rust
 pub use get::run_get;
+```
+
+### history::run_history
+
+```rust
+pub use history::run_history;
 ```
 
 ### import::run_import
@@ -2108,6 +2196,12 @@ pub use probe_graph::run_probe_graph;
 pub use query::run_query;
 ```
 
+### rollback::run_rollback
+
+```rust
+pub use rollback::run_rollback;
+```
+
 ### stats::run_stats
 
 ```rust
@@ -2186,6 +2280,14 @@ pub fn run_probe_graph(args: ProbeGraphArgs, db_path: Option<&Path>, format: Out
 
 ```rust
 pub fn run_query(args: QueryArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/rollback.rs
+
+### run_rollback
+
+```rust
+pub fn run_rollback(args: RollbackArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
 ## src/cli/commands/stats.rs
@@ -2401,10 +2503,10 @@ pub struct McpServeArgs {
 pub use args::*;
 ```
 
-### commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
+### commands::{run_associate, run_associations, run_completions, run_delete, run_diff, run_disassociate, run_export, run_get, run_history, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_rollback, run_stats, run_traverse, run_update, run_watch}
 
 ```rust
-pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch};
+pub use commands::{run_associate, run_associations, run_completions, run_delete, run_diff, run_disassociate, run_export, run_get, run_history, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_rollback, run_stats, run_traverse, run_update, run_watch};
 ```
 
 ### error::{CliError, ExitCode, Result}
@@ -3226,6 +3328,10 @@ impl ChaoticSemanticFramework {
     pub fn persistence_health_check(&self) -> Result<()>;
     pub fn load_replace(&self) -> Result<()>;
     pub fn load_merge(&self) -> Result<()>;
+    pub fn list_versions(&self, id: &str) -> Result<Vec<ConceptVersion>>;
+    pub fn get_version(&self, id: &str, version: u64) -> Result<Option<Concept>>;
+    pub fn diff_versions(&self, id: &str, from_version: u64, to_version: u64) -> Result<ConceptDiff>;
+    pub fn rollback_to_version(&self, id: &str, version: u64) -> Result<Concept>;
 }
 ```
 
@@ -3620,10 +3726,10 @@ pub use crate::persistence_wasm as persistence;
 pub use crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket};
 ```
 
-### crate::singularity::{Concept, ConceptBuilder}
+### crate::singularity::{Concept, ConceptBuilder, ConceptDiff, ConceptVersion}
 
 ```rust
-pub use crate::singularity::{Concept, ConceptBuilder};
+pub use crate::singularity::{Concept, ConceptBuilder, ConceptDiff, ConceptVersion};
 ```
 
 ### crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
@@ -3682,6 +3788,8 @@ impl Persistence {
     pub fn size(&self) -> Result<u64>;
     pub fn backup(&self, _path: &str) -> Result<()>;
     pub fn restore(&self, _path: &str) -> Result<()>;
+    pub fn get_version_scoped(&self, _ns: &str, _id: &str, _version: u64) -> Result<Option<Concept>>;
+    pub fn list_versions_scoped(&self, _ns: &str, _id: &str) -> Result<Vec<crate::singularity::ConceptVersion>>;
     pub fn get_concept_history(&self, _id: &str, _limit: usize) -> Result<Vec<ConceptVersion>>;
     pub fn schema_version(&self) -> Result<i64>;
     pub fn save_index(&self, _id: &str, _data: &[u8]) -> Result<()>;
@@ -4042,6 +4150,8 @@ impl Persistence {
 
 ```rust
 impl Persistence {
+    pub fn get_version_scoped(&self, ns: &str, id: &str, version: u64) -> Result<Option<Concept>>;
+    pub fn list_versions_scoped(&self, ns: &str, id: &str) -> Result<Vec<ConceptVersion>>;
 }
 ```
 
@@ -4087,6 +4197,8 @@ impl Persistence {
     pub fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32)>>;
     pub fn clear_namespace(&self, _ns: &str) -> Result<()>;
     pub fn clear_all(&self) -> Result<()>;
+    pub fn get_version_scoped(&self, _ns: &str, _id: &str, _version: u64) -> Result<Option<Concept>>;
+    pub fn list_versions_scoped(&self, _ns: &str, _id: &str) -> Result<Vec<crate::singularity::ConceptVersion>>;
     pub fn get_concept_history(&self, _ns: &str, _id: &str, _limit: usize) -> Result<Vec<ConceptVersion>>;
     pub fn schema_version(&self) -> Result<i64>;
     pub fn apply_migrations(&self, _target_version: i64) -> Result<()>;
@@ -4718,6 +4830,34 @@ pub struct ConceptBuilder {
 }
 ```
 
+### ConceptDiff
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ConceptDiff {
+    pub vector_cosine_distance: f32,
+    pub metadata_added: HashMap<String, serde_json::Value>,
+    pub metadata_removed: HashMap<String, serde_json::Value>,
+    pub metadata_changed: HashMap<String, (serde_json::Value, serde_json::Value)>,
+}
+```
+
+Description of differences between two versions of a concept.
+
+### ConceptVersion
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ConceptVersion {
+    pub version: u64,
+    pub timestamp_unix: i64,
+    pub vector_changed: bool,
+    pub metadata_changed: bool,
+}
+```
+
+Public summary of a historical version of a concept.
+
 ### Singularity
 
 ```rust
@@ -4749,6 +4889,14 @@ impl ConceptBuilder {
     pub fn with_metadata(self, key: impl Trait, value: impl Trait) -> Self;
     pub fn with_ttl(self, ttl_secs: u64) -> Self;
     pub fn build(self) -> Result<Concept>;
+}
+```
+
+### impl ConceptDiff
+
+```rust
+impl ConceptDiff {
+    pub fn calculate(from_concept: &Concept, to_concept: &Concept) -> Self;
 }
 ```
 
@@ -5057,8 +5205,13 @@ impl WasmFramework {
     pub fn on_event(&self, callback: Function);
     pub fn inject_text(&self, id: String, text: String) -> Result<(), JsValue>;
     pub fn probe_text(&self, query: String, top_k: usize) -> Result<Array, JsValue>;
+    pub fn list_versions(&self, id: String) -> Result<Array, JsValue>;
+    pub fn get_version(&self, id: String, version: u32) -> Result<JsValue, JsValue>;
+    pub fn rollback_to_version(&self, id: String, version: u32) -> Result<JsValue, JsValue>;
 }
 ```
+
+## src/wasm_ext_tests.rs
 
 ## src/wasm_graph_rag.rs
 
