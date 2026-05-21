@@ -40,9 +40,8 @@ jobs:
     - name: Verify version triad integrity
       run: |
         CARGO_VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d'"' -f2)
-        # CHANGELOG uses ## [version] - YYYY-MM-DD format (Keep a Changelog)
-        # Use sed to avoid grep -P backslash escaping across YAML layers
-        CHANGELOG_VERSION=$(sed -n 's/^## \[\([0-9.]*\)\].*/\1/p' CHANGELOG.md | head -1)
+        # Fixed regex: CHANGELOG uses ## [version] format (Keep a Changelog)
+        CHANGELOG_VERSION=$(grep -oP '^## \\[\\K[0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | head -1)
         WASM_VERSION=$(grep '"version"' wasm/package.json | cut -d'"' -f4)
 
         echo "Cargo.toml: $CARGO_VERSION"
@@ -67,11 +66,7 @@ jobs:
       run: cargo install cargo-audit
 
     - name: Run security audit
-      # cargo audit (no --deny warnings) reports advisories visibly in CI logs
-      # but does not fail the gate. Known unmaintained crates are documented
-      # in plans/UNMAINTAINED_CRATES.md with migration plans.
-      # If cargo audit ever exits non-zero, that indicates a NEW real vulnerability.
-      run: cargo audit
+      run: cargo audit --deny warnings
 
   wasm-smoke-build:
     runs-on: ubuntu-24.04
@@ -93,7 +88,7 @@ jobs:
 
     - name: Verify ADR-0042 is Accepted
       run: |
-        STATUS=$(grep -A1 "^## Status" plans/adr/0042-release-automation-v010.md | tail -1 | tr -d '\r')
+        STATUS=$(grep -A1 "^## Status" plans/adr/0042-release-automation-v010.md | tail -1)
         if [ "$STATUS" != "Accepted" ]; then
           echo "❌ ADR-0042 status is '$STATUS', expected 'Accepted'"
           exit 1
