@@ -442,7 +442,11 @@ mod tests {
                 for j in 0..80 {
                     naive_dist += (v1.data[j] ^ v2.data[j]).count_ones();
                 }
-                assert_eq!(simd_r, naive_dist, "SIMD vs Naive mismatch on iteration {}", i);
+                assert_eq!(
+                    simd_r, naive_dist,
+                    "SIMD vs Naive mismatch on iteration {}",
+                    i
+                );
             }
         }
     }
