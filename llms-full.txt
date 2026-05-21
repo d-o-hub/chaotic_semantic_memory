@@ -3484,6 +3484,8 @@ impl<'de> Visitor<'de> for HVecVisitor {
 
 ## src/hyperdim_simd.rs
 
+## src/hyperdim_simd_tests.rs
+
 ## src/hyperdim_tests.rs
 
 ## src/index/brute_force.rs

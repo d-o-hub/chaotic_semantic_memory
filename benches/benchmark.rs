@@ -34,6 +34,25 @@ const PROBE_BENCH_WARMUP_SECS: u64 = 1;
 const PROBE_BENCH_MEASUREMENT_SECS: u64 = 3;
 const PROBE_BENCH_COUNTS: [usize; 3] = [10_000, 100_000, 200_000];
 
+fn bench_hamming_distance(c: &mut Criterion) {
+    let mut group = c.benchmark_group("hamming_distance");
+    group.sample_size(100);
+    group.warm_up_time(Duration::from_millis(500));
+    group.measurement_time(Duration::from_secs(3));
+
+    // Use seeded vectors for reproducibility
+    let v1 = HVec10240::new_seeded(42);
+    let v2 = HVec10240::new_seeded(99);
+
+    // Public API path (uses runtime SIMD detection internally —
+    // dispatches to AVX2, NEON, or optimized scalar depending on hardware)
+    group.bench_function("public_api", |b| {
+        b.iter(|| v1.hamming_distance(black_box(&v2)))
+    });
+
+    group.finish();
+}
+
 fn bench_hvec_creation(c: &mut Criterion) {
     c.bench_function("hvec_random", |b| b.iter(HVec10240::random));
 }
@@ -692,6 +711,7 @@ fn bench_singularity_scalability(c: &mut Criterion) {
 
 criterion_group!(
     benches,
+    bench_hamming_distance,
     bench_hvec_creation,
     bench_hvec_serialization,
     bench_cosine_similarity,
