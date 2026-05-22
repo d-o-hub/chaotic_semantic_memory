@@ -80,7 +80,8 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         self.emit_event(MemoryEvent::ConceptInjected {
             id,
             timestamp: concept.modified_at,
-        });
+        })
+        .await;
 
         Ok(())
     }
@@ -122,7 +123,8 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         self.emit_event(MemoryEvent::ConceptInjected {
             id: concept.id.clone(),
             timestamp: concept.modified_at,
-        });
+        })
+        .await;
 
         Ok(())
     }
@@ -286,7 +288,8 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
             from: from.to_string(),
             to: to.to_string(),
             strength,
-        });
+        })
+        .await;
 
         Ok(())
     }
@@ -309,7 +312,8 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         self.emit_event(MemoryEvent::ConceptDeleted {
             id: id.to_string(),
             timestamp: unix_now_secs(),
-        });
+        })
+        .await;
 
         Ok(())
     }

@@ -33,14 +33,20 @@ impl Persistence {
                 concept.created_at as i64,
                 concept.modified_at as i64,
                 expires_at,
-                canonical_concept_ids_json
+                canonical_concept_ids_json.as_str()
             ],
         )
         .await
         .map_err(|e| MemoryError::database(format!("Failed to save concept: {e}")))?;
 
-        self.record_concept_version_scoped(&conn, ns, concept)
-            .await?;
+        self.record_concept_version_scoped(
+            &conn,
+            ns,
+            concept,
+            Some(&vector_bytes),
+            Some(&metadata_json),
+        )
+        .await?;
         Ok(())
     }
 
@@ -82,7 +88,7 @@ impl Persistence {
                         concept.created_at as i64,
                         concept.modified_at as i64,
                         expires_at,
-                        canonical_concept_ids_json
+                        canonical_concept_ids_json.as_str()
                     ],
                 )
                 .await
@@ -93,7 +99,16 @@ impl Persistence {
                 break;
             }
 
-            if let Err(e) = self.record_concept_version_scoped(&conn, ns, concept).await {
+            if let Err(e) = self
+                .record_concept_version_scoped(
+                    &conn,
+                    ns,
+                    concept,
+                    Some(&vector_bytes),
+                    Some(&metadata_json),
+                )
+                .await
+            {
                 first_error = Some(e);
                 break;
             }

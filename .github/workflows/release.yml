@@ -10,9 +10,7 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
-permissions:
-  contents: write
-  id-token: write
+permissions: {}
 
 env:
   CARGO_TERM_COLOR: always
@@ -80,6 +78,9 @@ jobs:
     runs-on: ubuntu-24.04
     needs: wait-for-ci
     if: needs.wait-for-ci.outputs.ci-passed == 'true'
+    permissions:
+      contents: write
+      pull-requests: write
     outputs:
       version: ${{ steps.version.outputs.version }}
       release-needed: ${{ steps.tag.outputs.release-needed }}
@@ -132,11 +133,11 @@ jobs:
         VERSION="${{ steps.version.outputs.version }}"
         bash scripts/sync-version.sh "$VERSION"
 
-    - name: Regenerate & commit llms.txt
+    - name: Regenerate llms files
       run: |
         bash scripts/gen-llms-txt.sh
 
-        # Verify API surface threshold before committing
+        # Verify API surface threshold
         LOC=$(grep -cE '^\s*(pub |fn |struct |enum |trait |impl )' llms-full.txt || true)
         echo "Public API surface: $LOC symbols"
         THRESHOLD=5000
@@ -144,11 +145,6 @@ jobs:
           echo "❌ API surface $LOC exceeds threshold of $THRESHOLD"
           exit 1
         fi
-
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add llms.txt llms-full.txt
-        git diff --cached --quiet || (git commit -m "chore: regenerate llms.txt for release [skip ci]" && git push)
 
     - name: Ensure version sync is clean
       run: |
@@ -177,6 +173,21 @@ jobs:
         git push origin "$TAG"
         echo "Created tag ${TAG}"
         echo "release-needed=true" >> $GITHUB_OUTPUT
+
+    - name: Create pull request with regenerated llms.txt
+      if: steps.tag.outputs.release-needed == 'true'
+      uses: peter-evans/create-pull-request@v7
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "chore: regenerate llms.txt for release [skip ci]"
+        branch: regenerate-llms-${{ steps.version.outputs.version }}-${{ github.run_id }}
+        title: "chore: regenerate llms.txt for v${{ steps.version.outputs.version }}"
+        body: |
+          This PR updates llms.txt and llms-full.txt as part of the release workflow.
+          Files updated by scripts/gen-llms-txt.sh
+        labels: automated
+        add-paths: llms.txt,llms-full.txt
+        base: main
 
     - name: Validate publish dry-run
       run: cargo publish --dry-run --allow-dirty
@@ -368,6 +379,8 @@ jobs:
     if: needs.validate.outputs.release-needed == 'true'
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    permissions:
+      contents: write
     steps:
     - uses: actions/checkout@v6
       with:
@@ -445,6 +458,9 @@ jobs:
     needs: [validate, build-wasm]
     if: needs.validate.outputs.release-needed == 'true'
     environment: npm
+    permissions:
+      id-token: write
+      contents: read
     steps:
     - uses: actions/checkout@v6
 
@@ -528,6 +544,9 @@ jobs:
     needs: [validate, build-cli-matrix, create-github-release]
     if: needs.validate.outputs.release-needed == 'true'
     environment: npm-cli
+    permissions:
+      id-token: write
+      contents: read
     steps:
     - uses: actions/checkout@v6
 
@@ -644,8 +663,8 @@ jobs:
         check_with_retry() {
           local name="$1"
           local check_cmd="$2"
-          local max_retries=3
-          local delays=(5 10 20)
+          local max_retries=6
+          local delays=(5 10 15 20 30 30)
           local attempt=0
 
           while [ $attempt -lt $max_retries ]; do
@@ -666,7 +685,7 @@ jobs:
 
         # Check crates.io (with retry)
         echo "Checking crates.io..."
-        check_with_retry "crates.io" "curl -s 'https://crates.io/api/v1/crates/chaotic_semantic_memory/$VERSION' | grep -q '\"version\"'"
+        check_with_retry "crates.io" "curl -s -H \"User-Agent: chaotic-semantic-memory-ci (github.com/d-o-hub/chaotic_semantic_memory)\" 'https://crates.io/api/v1/crates/chaotic_semantic_memory/$VERSION' | grep -q '\"version\"'"
 
         # Check npm WASM package (with retry)
         echo "Checking npm WASM package..."

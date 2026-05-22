@@ -2,39 +2,43 @@
 
 > AI memory systems with hyperdimensional vectors and chaotic reservoirs
 
-**Version:** 0.3.5
+**Version:** 0.3.6
 **License:** MIT
 **Repository:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
-- anyhow (1.0.102)
+- anyhow
 - async-trait (0.1.83)
-- base64 (0.22)
+- base64
 - bincode (1.3.3)
-- clap (4.5.60) [features: derive, env, string]
+- clap (4.5) [features: derive, env, string]
 - clap_complete (4.5.42)
+- cloudevents-sdk (0.9.0)
 - colored (2.2.0)
 - fastembed (4)
 - glob (0.3.2)
 - hnsw_rs (0.3.4)
-- rand (0.10.1)
-- rand_chacha (0.10.0)
+- rand
+- rand_chacha
 - reqwest (0.12) [features: json, rustls-tls]
-- rmcp (0.2)
-- serde (1.0.219) [features: derive]
-- serde_json (1.0.149)
-- thiserror (2.0.11)
-- tracing (0.1.41)
-- tracing-subscriber (0.3.19)
+- rmcp (1.7) [features: server, macros, transport-io]
+- serde
+- serde_json
+- thiserror
+- tracing
+- tracing-subscriber
+- uuid
 **Features:**
 - ann-hnsw: [dep:hnsw_rs]
 - ann-lsh: []
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
+- cloudevents: [dep:cloudevents-sdk, dep:uuid, uuid/js]
 - default: [cli, persistence, parallel]
 - embed-fastembed: [dep:fastembed]
 - embed-openai: [dep:reqwest]
 - embed-voyage: [dep:reqwest]
+- events-http: [cloudevents, cloudevents-sdk/http-binding, dep:reqwest]
 - mcp: [dep:rmcp, cli]
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
@@ -50,7 +54,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/bin/csm.rs
 
 - pub use native::chaotic_semantic_memory::cli::commands::watch::EventFilter
-- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
+- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_diff, run_disassociate, run_export, run_get, run_history, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_rollback, run_stats, run_traverse, run_update, run_watch}
 - pub use native::clap::Parser
 - pub use native::colored::Colorize
 - pub use native::tracing::Level
@@ -106,6 +110,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct MetricsArgs
 - pub struct WatchArgs
 - pub struct ProbeGraphArgs
+- pub struct HistoryArgs
+- pub struct DiffArgs
+- pub struct RollbackArgs
 
 ### src/cli/commands/associate.rs
 
@@ -124,6 +131,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub fn run_delete
 
+### src/cli/commands/diff.rs
+
+- pub fn run_diff
+
 ### src/cli/commands/disassociate.rs
 
 - pub fn run_disassociate
@@ -135,6 +146,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/cli/commands/get.rs
 
 - pub fn run_get
+
+### src/cli/commands/history.rs
+
+- pub fn run_history
 
 ### src/cli/commands/import.rs
 
@@ -164,9 +179,11 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod associations
 - pub mod completions
 - pub mod delete
+- pub mod diff
 - pub mod disassociate
 - pub mod export
 - pub mod get
+- pub mod history
 - pub mod import
 - pub mod index_dir
 - pub mod index_jsonl
@@ -177,6 +194,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod probe_filtered
 - pub mod probe_graph
 - pub mod query
+- pub mod rollback
 - pub mod stats
 - pub mod traverse
 - pub mod update
@@ -185,9 +203,11 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use associations::run_associations
 - pub use completions::run_completions
 - pub use delete::run_delete
+- pub use diff::run_diff
 - pub use disassociate::run_disassociate
 - pub use export::run_export
 - pub use get::run_get
+- pub use history::run_history
 - pub use import::run_import
 - pub use index_dir::run_index_dir
 - pub use index_jsonl::run_index_jsonl
@@ -198,6 +218,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use probe_filtered::run_probe_filtered
 - pub use probe_graph::run_probe_graph
 - pub use query::run_query
+- pub use rollback::run_rollback
 - pub use stats::run_stats
 - pub use traverse::run_traverse
 - pub use update::run_update
@@ -231,6 +252,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/cli/commands/query.rs
 
 - pub fn run_query
+
+### src/cli/commands/rollback.rs
+
+- pub fn run_rollback
 
 ### src/cli/commands/stats.rs
 
@@ -266,16 +291,23 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn resolve_git_local_path
 - pub fn ensure_git_local_dir
 
+### src/cli/mcp.rs
+
+- pub enum McpCommands
+- pub struct McpServeArgs
+
 ### src/cli/mod.rs
 
 - pub mod args
 - pub mod commands
 - pub mod error
 - pub mod git_local
+- pub mod mcp
 - pub use args::*
-- pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
+- pub use commands::{run_associate, run_associations, run_completions, run_delete, run_diff, run_disassociate, run_export, run_get, run_history, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_rollback, run_stats, run_traverse, run_update, run_watch}
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
+- pub use mcp::*
 
 ### src/concept_builder.rs
 
@@ -368,6 +400,21 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub enum MemoryEvent
 - impl ChaoticSemanticFramework
+
+### src/framework_events_ce.rs
+
+- pub enum StorageTarget
+- pub enum ChaoticEvent
+- impl ChaoticEvent
+- impl MemoryEvent
+- pub trait EventEmitter
+- pub struct NullEmitter
+- impl EventEmitter for NullEmitter
+- pub struct LogEmitter
+- impl EventEmitter for LogEmitter
+- pub struct HttpEmitter
+- impl HttpEmitter
+- impl EventEmitter for HttpEmitter
 
 ### src/framework_graph_rag.rs
 
@@ -477,6 +524,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod error
 - pub mod framework
 - pub mod framework_builder
+- pub mod framework_events_ce
 - pub mod graph_traversal
 - pub mod hyperdim
 - pub mod mcp
@@ -505,21 +553,21 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use prelude::crate::framework_events::MemoryEvent
 - pub use prelude::crate::hyperdim::HVec10240
 - pub use prelude::crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket}
-- pub use prelude::crate::singularity::{Concept, ConceptBuilder}
+- pub use prelude::crate::singularity::{Concept, ConceptBuilder, ConceptDiff, ConceptVersion}
 - pub use prelude::crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod wasm
 
+### src/mcp/handler.rs
+
+- pub struct McpHandler
+- impl McpHandler
+- impl ServerHandler for McpHandler
+- impl McpHandler
+
 ### src/mcp/mod.rs
 
-- pub use resources::McpResources
-- pub use server::serve
-- pub use tools::McpTools
-
-### src/mcp/resources.rs
-
-- pub struct McpResources
-- impl McpResources
-- pub struct ResourceDefinition
+- pub use handler::McpHandler
+- pub use server::{McpConfig, Transport, serve}
 
 ### src/mcp/schema.rs
 
@@ -542,12 +590,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct McpConfig
 - impl Default for McpConfig
 - pub fn serve
-
-### src/mcp/tools.rs
-
-- pub struct McpTools
-- impl McpTools
-- pub struct ToolDefinition
 
 ### src/metadata_filter.rs
 
@@ -590,6 +632,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/reservoir.rs
 
 - pub struct ReservoirMetricsSnapshot
+- pub struct ReservoirStepOutput
 - impl ReservoirMetrics
 - pub struct Reservoir
 - impl Reservoir
@@ -675,6 +718,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct SingularityConfig
 - impl Default for SingularityConfig
 - pub struct Concept
+- pub struct ConceptVersion
+- pub struct ConceptDiff
+- impl ConceptDiff
 - pub struct ConceptBuilder
 - impl ConceptBuilder
 - pub struct Singularity
@@ -1033,13 +1079,15 @@ Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md)
 - Pull request process
 - ADR submission for architectural changes
 
-### chaotic_semantic_memory
+### d.o. chaotic semantic memory
 
 [![CI](https://github.com/d-o-hub/chaotic_semantic_memory/actions/workflows/ci.yml/badge.svg)](https://github.com/d-o-hub/chaotic_semantic_memory/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/chaotic_semantic_memory.svg)](https://crates.io/crates/chaotic_semantic_memory)
 [![docs.rs](https://img.shields.io/docsrs/chaotic_semantic_memory)](https://docs.rs/chaotic_semantic_memory)
 [![npm](https://img.shields.io/npm/v/@d-o-hub/chaotic_semantic_memory)](https://www.npmjs.com/package/@d-o-hub/chaotic_semantic_memory)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+<img width="1456" height="720" alt="1000046937" src="https://github.com/user-attachments/assets/d698a304-9b36-4aad-a2d1-5668157a26f7" />
 
 `chaotic_semantic_memory` is a Rust crate for AI memory systems built on
 **Hyperdimensional Computing (HDC)** — not transformer embeddings:
@@ -1086,6 +1134,18 @@ vectors directly via `inject_concept`.
 - **WASM Support**: Browser-compatible with memory-based import/export
 - **CLI**: Full-featured command-line interface with shell completions
 - **Production-Ready**: Structured logging, metrics, input validation, memory guardrails
+
+#### Optional Analytics (DuckDB)
+
+For advanced OLAP workloads, SQL inspection, and Parquet export, see the [`chaotic_semantic_memory_duckdb`](crates/chaotic_semantic_memory_duckdb) companion crate.
+
+**Two-Crate Decision Tree:**
+
+| Want... | Use... | Features |
+|---|---|---|
+| Just core memory/search | `chaotic_semantic_memory` | Lean, no C++ toolchain |
+| SQL queries + CLI analytics | `csm` + `analytics` feature | Integrated experience |
+| Standalone analytics binary | `csm-analytics` | Specialized for data engineers |
 
 #### Installation
 
@@ -1267,10 +1327,10 @@ The `csm` binary provides command-line access:
 pub use chaotic_semantic_memory::cli::commands::watch::EventFilter;
 ```
 
-### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
+### chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_diff, run_disassociate, run_export, run_get, run_history, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_rollback, run_stats, run_traverse, run_update, run_watch}
 
 ```rust
-pub use chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch};
+pub use chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_diff, run_disassociate, run_export, run_get, run_history, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_rollback, run_stats, run_traverse, run_update, run_watch};
 ```
 
 ### clap::Parser
@@ -1413,6 +1473,8 @@ impl Default for BundleAccumulator {
 }
 ```
 
+## src/bundle_simd.rs
+
 ## src/cli/args.rs
 
 ### AssociateArgs
@@ -1472,6 +1534,9 @@ pub enum Commands {
     IndexDir(IndexDirArgs),
     Delete(DeleteArgs),
     Get(GetArgs),
+    History(HistoryArgs),
+    Diff(DiffArgs),
+    Rollback(RollbackArgs),
     Update(UpdateArgs),
     Disassociate(DisassociateArgs),
     Associations(AssociationsArgs),
@@ -1482,6 +1547,8 @@ pub enum Commands {
     Metrics(MetricsArgs),
     Watch(WatchArgs),
     ProbeGraph(ProbeGraphArgs),
+    #[cfg(feature = "mcp")]
+    Mcp(crate::cli::mcp::McpCommands),
 }
 ```
 
@@ -1507,6 +1574,20 @@ pub struct DeleteArgs {
 ```
 
 Arguments for the delete command.
+
+### DiffArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct DiffArgs {
+    pub namespace: String,
+    pub concept_id: String,
+    pub from: u64,
+    pub to: u64,
+}
+```
+
+Arguments for the diff command.
 
 ### DisassociateArgs
 
@@ -1549,10 +1630,23 @@ pub enum ExportFormat {
 pub struct GetArgs {
     pub namespace: String,
     pub concept_id: String,
+    pub version: Option<u64>,
 }
 ```
 
 Arguments for the get command.
+
+### HistoryArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct HistoryArgs {
+    pub namespace: String,
+    pub concept_id: String,
+}
+```
+
+Arguments for the history command.
 
 ### ImportArgs
 
@@ -1632,8 +1726,6 @@ pub struct MetricsArgs {
 }
 ```
 
-Arguments for metrics command.
-
 ### OutputFormat
 
 ```rust
@@ -1701,8 +1793,6 @@ pub struct ProbeGraphArgs {
 }
 ```
 
-Arguments for GraphRAG retrieval.
-
 ### QueryArgs
 
 ```rust
@@ -1723,14 +1813,26 @@ pub struct QueryArgs {
 
 Arguments for text-based similarity query.
 
+### RollbackArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct RollbackArgs {
+    pub namespace: String,
+    pub concept_id: String,
+    pub to: u64,
+    pub confirm: bool,
+}
+```
+
+Arguments for the rollback command.
+
 ### StatsArgs
 
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct StatsArgs;
 ```
-
-Arguments for stats command.
 
 ### TraverseArgs
 
@@ -1792,8 +1894,6 @@ pub struct WatchArgs {
 }
 ```
 
-Arguments for watch command.
-
 ## src/cli/commands/associate.rs
 
 ### run_associate
@@ -1832,6 +1932,14 @@ pub fn run_completions(args: CompletionsArgs) -> Result<()>
 pub fn run_delete(args: DeleteArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
+## src/cli/commands/diff.rs
+
+### run_diff
+
+```rust
+pub fn run_diff(args: DiffArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
 ## src/cli/commands/disassociate.rs
 
 ### run_disassociate
@@ -1854,6 +1962,14 @@ pub fn run_export(args: ExportArgs, db_path: Option<&Path>, format: OutputFormat
 
 ```rust
 pub fn run_get(args: GetArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/history.rs
+
+### run_history
+
+```rust
+pub fn run_history(args: HistoryArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
 ## src/cli/commands/import.rs
@@ -1972,6 +2088,12 @@ pub fn create_framework_with_provider(db_path: Option<&std::path::Path>, provide
 pub use delete::run_delete;
 ```
 
+### diff::run_diff
+
+```rust
+pub use diff::run_diff;
+```
+
 ### disassociate::run_disassociate
 
 ```rust
@@ -1988,6 +2110,12 @@ pub use export::run_export;
 
 ```rust
 pub use get::run_get;
+```
+
+### history::run_history
+
+```rust
+pub use history::run_history;
 ```
 
 ### import::run_import
@@ -2068,6 +2196,12 @@ pub use probe_graph::run_probe_graph;
 pub use query::run_query;
 ```
 
+### rollback::run_rollback
+
+```rust
+pub use rollback::run_rollback;
+```
+
 ### stats::run_stats
 
 ```rust
@@ -2146,6 +2280,14 @@ pub fn run_probe_graph(args: ProbeGraphArgs, db_path: Option<&Path>, format: Out
 
 ```rust
 pub fn run_query(args: QueryArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+```
+
+## src/cli/commands/rollback.rs
+
+### run_rollback
+
+```rust
+pub fn run_rollback(args: RollbackArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
 ```
 
 ## src/cli/commands/stats.rs
@@ -2330,6 +2472,29 @@ let path = resolve_git_local_path();
 assert!(path.is_some() || path.is_none()); // Always passes, documents behavior
 ```
 
+## src/cli/mcp.rs
+
+### McpCommands
+
+```rust
+#[derive(Subcommand, Debug, Clone)]
+#[cfg(feature = "mcp")]
+pub enum McpCommands {
+    Serve(McpServeArgs),
+}
+```
+
+### McpServeArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+#[cfg(feature = "mcp")]
+pub struct McpServeArgs {
+    pub transport: crate::mcp::Transport,
+    pub bind: Option<String>,
+}
+```
+
 ## src/cli/mod.rs
 
 ### args::*
@@ -2338,10 +2503,10 @@ assert!(path.is_some() || path.is_none()); // Always passes, documents behavior
 pub use args::*;
 ```
 
-### commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
+### commands::{run_associate, run_associations, run_completions, run_delete, run_diff, run_disassociate, run_export, run_get, run_history, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_rollback, run_stats, run_traverse, run_update, run_watch}
 
 ```rust
-pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch};
+pub use commands::{run_associate, run_associations, run_completions, run_delete, run_diff, run_disassociate, run_export, run_get, run_history, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_rollback, run_stats, run_traverse, run_update, run_watch};
 ```
 
 ### error::{CliError, ExitCode, Result}
@@ -2354,6 +2519,12 @@ pub use error::{CliError, ExitCode, Result};
 
 ```rust
 pub use git_local::{ensure_git_local_dir, resolve_git_local_path};
+```
+
+### mcp::*
+
+```rust
+pub use mcp::*;
 ```
 
 ## src/concept_builder.rs
@@ -2858,6 +3029,7 @@ pub struct FrameworkConfig {
     pub max_batch_size: usize,
     pub max_sequence_length: usize,
     pub index_backend: crate::index::IndexBackend,
+    pub pattern_recognition_threshold: f64,
 }
 ```
 
@@ -2866,7 +3038,7 @@ Runtime configuration for [`ChaoticSemanticFramework`], tuned via [`FrameworkBui
 ### FrameworkStats
 
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, serde :: Serialize)]
 pub struct FrameworkStats {
     pub concept_count: usize,
     pub db_size_bytes: Option<u64>,
@@ -2907,6 +3079,8 @@ impl FrameworkBuilder {
     pub fn with_max_cached_top_k(self, max_cached_top_k: usize) -> Self;
     pub fn with_max_batch_size(self, max_batch_size: usize) -> Self;
     pub fn with_max_sequence_length(self, max_sequence_length: usize) -> Self;
+    pub fn with_pattern_recognition_threshold(self, threshold: f64) -> Self;
+    pub fn with_emitter(self, emitter: Arc<dyn Trait>) -> Self;
     pub fn with_index_backend(self, backend: crate::index::IndexBackend) -> Self;
     pub fn with_version_retention(self, retention: usize) -> Self;
     pub fn with_local_db(self, path: impl Trait) -> Self;
@@ -2924,7 +3098,7 @@ impl FrameworkBuilder {
 ### MemoryEvent
 
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MemoryEvent {
     ConceptInjected { id: String, timestamp: u64 },
     ConceptUpdated { id: String, timestamp: u64 },
@@ -2942,6 +3116,120 @@ impl ChaoticSemanticFramework {
     pub fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()>;
     pub fn update_concept_metadata(&self, id: &str, metadata: HashMap<String, serde_json::Value>) -> Result<()>;
     pub fn disassociate(&self, from: &str, to: &str) -> Result<()>;
+}
+```
+
+## src/framework_events_ce.rs
+
+### ChaoticEvent
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ChaoticEvent {
+    AttractorFired { attractor_id: u32, basin_energy: f64, reservoir_dim: usize },
+    PatternRecognized { query_vector: Vec<u8>, matched_key: String, similarity: f64 },
+    MemoryConsolidated { episode_count: usize, duration_ms: u64 },
+    EchoComputed { input_dim: usize, state_norm: f64 },
+    BindingCreated { key: String, dim: usize, target: StorageTarget },
+}
+```
+
+Events emitted by the chaotic semantic memory framework.
+
+### EventEmitter
+
+```rust
+pub trait EventEmitter: Send + Sync + Debug {
+    fn name(&self) -> &str;
+    fn emit(&self, event: Event) -> Result<()>;
+}
+```
+
+Pluggable event emitter trait.
+
+### HttpEmitter
+
+```rust
+#[derive(Debug)]
+#[cfg(all, all (feature = "events-http" , not (target_arch = "wasm32")))]
+pub struct HttpEmitter {
+}
+```
+
+Emitter that sends events via HTTP POST.
+
+### LogEmitter
+
+```rust
+#[derive(Debug, Default)]
+pub struct LogEmitter;
+```
+
+Emitter that logs events using the tracing crate.
+
+### NullEmitter
+
+```rust
+#[derive(Debug, Default)]
+pub struct NullEmitter;
+```
+
+Emitter that drops all events.
+
+### StorageTarget
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum StorageTarget {
+    LibSql,
+    Memory,
+}
+```
+
+Storage target for binding events.
+
+### impl ChaoticEvent
+
+```rust
+impl ChaoticEvent {
+    pub fn to_cloud_event(&self, source: &str) -> Event;
+}
+```
+
+### impl EventEmitter for HttpEmitter
+
+```rust
+impl EventEmitter for HttpEmitter {
+}
+```
+
+### impl EventEmitter for LogEmitter
+
+```rust
+impl EventEmitter for LogEmitter {
+}
+```
+
+### impl EventEmitter for NullEmitter
+
+```rust
+impl EventEmitter for NullEmitter {
+}
+```
+
+### impl HttpEmitter
+
+```rust
+impl HttpEmitter {
+    pub fn new(url: String) -> Self;
+}
+```
+
+### impl MemoryEvent
+
+```rust
+impl MemoryEvent {
+    pub fn to_cloud_event(&self, source: &str) -> Event;
 }
 ```
 
@@ -3040,6 +3328,10 @@ impl ChaoticSemanticFramework {
     pub fn persistence_health_check(&self) -> Result<()>;
     pub fn load_replace(&self) -> Result<()>;
     pub fn load_merge(&self) -> Result<()>;
+    pub fn list_versions(&self, id: &str) -> Result<Vec<ConceptVersion>>;
+    pub fn get_version(&self, id: &str, version: u64) -> Result<Option<Concept>>;
+    pub fn diff_versions(&self, id: &str, from_version: u64, to_version: u64) -> Result<ConceptDiff>;
+    pub fn rollback_to_version(&self, id: &str, version: u64) -> Result<Concept>;
 }
 ```
 
@@ -3191,6 +3483,8 @@ impl<'de> Visitor<'de> for HVecVisitor {
 ```
 
 ## src/hyperdim_simd.rs
+
+## src/hyperdim_tests.rs
 
 ## src/index/brute_force.rs
 
@@ -3432,10 +3726,10 @@ pub use crate::persistence_wasm as persistence;
 pub use crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket};
 ```
 
-### crate::singularity::{Concept, ConceptBuilder}
+### crate::singularity::{Concept, ConceptBuilder, ConceptDiff, ConceptVersion}
 
 ```rust
-pub use crate::singularity::{Concept, ConceptBuilder};
+pub use crate::singularity::{Concept, ConceptBuilder, ConceptDiff, ConceptVersion};
 ```
 
 ### crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
@@ -3494,6 +3788,8 @@ impl Persistence {
     pub fn size(&self) -> Result<u64>;
     pub fn backup(&self, _path: &str) -> Result<()>;
     pub fn restore(&self, _path: &str) -> Result<()>;
+    pub fn get_version_scoped(&self, _ns: &str, _id: &str, _version: u64) -> Result<Option<Concept>>;
+    pub fn list_versions_scoped(&self, _ns: &str, _id: &str) -> Result<Vec<crate::singularity::ConceptVersion>>;
     pub fn get_concept_history(&self, _id: &str, _limit: usize) -> Result<Vec<ConceptVersion>>;
     pub fn schema_version(&self) -> Result<i64>;
     pub fn save_index(&self, _id: &str, _data: &[u8]) -> Result<()>;
@@ -3526,59 +3822,51 @@ pub use singularity::{Concept, ConceptBuilder};
 pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats};
 ```
 
+## src/mcp/handler.rs
+
+### McpHandler
+
+```rust
+pub struct McpHandler {
+}
+```
+
+Combined MCP handler for chaotic_semantic_memory.
+
+### impl McpHandler
+
+```rust
+impl McpHandler {
+    pub fn new(database: Option<PathBuf>) -> Self;
+}
+```
+
+### impl McpHandler
+
+```rust
+impl McpHandler {
+}
+```
+
+### impl ServerHandler for McpHandler
+
+```rust
+impl ServerHandler for McpHandler {
+}
+```
+
 ## src/mcp/mod.rs
 
-### resources::McpResources
+### handler::McpHandler
 
 ```rust
-pub use resources::McpResources;
+pub use handler::McpHandler;
 ```
 
-### server::serve
+### server::{McpConfig, Transport, serve}
 
 ```rust
-pub use server::serve;
-```
-
-### tools::McpTools
-
-```rust
-pub use tools::McpTools;
-```
-
-## src/mcp/resources.rs
-
-### McpResources
-
-```rust
-pub struct McpResources {
-}
-```
-
-MCP Resources handler for chaotic_semantic_memory.
-
-### ResourceDefinition
-
-```rust
-#[derive(Debug, Clone, serde :: Serialize)]
-pub struct ResourceDefinition {
-    pub uri: String,
-    pub name: String,
-    pub description: String,
-    pub mime_type: String,
-}
-```
-
-Resource definition for MCP resources/list response.
-
-### impl McpResources
-
-```rust
-impl McpResources {
-    pub fn new(database: Option<PathBuf>) -> Self;
-    pub fn list_resources() -> Vec<ResourceDefinition>;
-    pub fn read(&self, uri: &str) -> Result<Value>;
-}
+pub use server::{McpConfig, Transport, serve};
 ```
 
 ## src/mcp/schema.rs
@@ -3697,10 +3985,9 @@ Configuration for MCP server.
 ### Transport
 
 ```rust
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, clap :: ValueEnum)]
 pub enum Transport {
     Stdio,
-    Sse,
 }
 ```
 
@@ -3724,40 +4011,6 @@ Start the MCP server.
 #### Errors
 
 Returns error if server fails to start or transport initialization fails.
-
-## src/mcp/tools.rs
-
-### McpTools
-
-```rust
-pub struct McpTools {
-}
-```
-
-MCP Tools handler for chaotic_semantic_memory operations.
-
-### ToolDefinition
-
-```rust
-#[derive(Debug, Clone, serde :: Serialize)]
-pub struct ToolDefinition {
-    pub name: String,
-    pub description: String,
-    pub input_schema: Value,
-}
-```
-
-Tool definition for MCP tools/list response.
-
-### impl McpTools
-
-```rust
-impl McpTools {
-    pub fn new(database: Option<PathBuf>) -> Self;
-    pub fn list_tools() -> Vec<ToolDefinition>;
-    pub fn execute(&self, tool_name: &str, arguments: Value) -> Result<Value>;
-}
-```
 
 ## src/metadata_filter.rs
 
@@ -3897,6 +4150,8 @@ impl Persistence {
 
 ```rust
 impl Persistence {
+    pub fn get_version_scoped(&self, ns: &str, id: &str, version: u64) -> Result<Option<Concept>>;
+    pub fn list_versions_scoped(&self, ns: &str, id: &str) -> Result<Vec<ConceptVersion>>;
 }
 ```
 
@@ -3942,6 +4197,8 @@ impl Persistence {
     pub fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32)>>;
     pub fn clear_namespace(&self, _ns: &str) -> Result<()>;
     pub fn clear_all(&self) -> Result<()>;
+    pub fn get_version_scoped(&self, _ns: &str, _id: &str, _version: u64) -> Result<Option<Concept>>;
+    pub fn list_versions_scoped(&self, _ns: &str, _id: &str) -> Result<Vec<crate::singularity::ConceptVersion>>;
     pub fn get_concept_history(&self, _ns: &str, _id: &str, _limit: usize) -> Result<Vec<ConceptVersion>>;
     pub fn schema_version(&self) -> Result<i64>;
     pub fn apply_migrations(&self, _target_version: i64) -> Result<()>;
@@ -3987,13 +4244,25 @@ pub struct ReservoirMetricsSnapshot {
 }
 ```
 
+### ReservoirStepOutput
+
+```rust
+pub struct ReservoirStepOutput<'a> {
+    pub state: &'a [f32],
+    pub state_norm: f64,
+    pub change_norm: f64,
+}
+```
+
+Output of a reservoir step (ADR-0078)
+
 ### impl ChaoticReservoir
 
 ```rust
 impl ChaoticReservoir {
     pub fn new(input_size: usize, size: usize, chaos_strength: f32) -> Result<Self>;
     pub fn new_seeded(input_size: usize, size: usize, chaos_strength: f32, seed: u64) -> Result<Self>;
-    pub fn step(&mut self, input: &[f32]) -> Result<&[f32]>;
+    pub fn step(&mut self, input: &[f32]) -> Result<ReservoirStepOutput<'_>>;
     pub fn reset(&mut self);
     pub fn state(&self) -> &[f32];
     pub fn to_hypervector(&self) -> Result<HVec10240>;
@@ -4011,7 +4280,7 @@ impl Reservoir {
     pub const MAX_SIZE: Type;
     pub fn new(input_size: usize, size: usize) -> Result<Self>;
     pub fn new_seeded(input_size: usize, size: usize, seed: u64) -> Result<Self>;
-    pub fn step(&mut self, input: &[f32]) -> Result<&[f32]>;
+    pub fn step(&mut self, input: &[f32]) -> Result<ReservoirStepOutput<'_>>;
     pub fn run(&mut self, inputs: &[Vec<f32>]) -> Result<Vec<Vec<f32>>>;
     pub fn state(&self) -> &[f32];
     pub fn set_spectral_radius(&mut self, radius: f32) -> Result<()>;
@@ -4096,6 +4365,8 @@ impl Bm25Index {
 impl Default for Bm25Config {
 }
 ```
+
+## src/retrieval/bm25/tests.rs
 
 ## src/retrieval/graph_rag.rs
 
@@ -4559,6 +4830,34 @@ pub struct ConceptBuilder {
 }
 ```
 
+### ConceptDiff
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ConceptDiff {
+    pub vector_cosine_distance: f32,
+    pub metadata_added: HashMap<String, serde_json::Value>,
+    pub metadata_removed: HashMap<String, serde_json::Value>,
+    pub metadata_changed: HashMap<String, (serde_json::Value, serde_json::Value)>,
+}
+```
+
+Description of differences between two versions of a concept.
+
+### ConceptVersion
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ConceptVersion {
+    pub version: u64,
+    pub timestamp_unix: i64,
+    pub vector_changed: bool,
+    pub metadata_changed: bool,
+}
+```
+
+Public summary of a historical version of a concept.
+
 ### Singularity
 
 ```rust
@@ -4590,6 +4889,14 @@ impl ConceptBuilder {
     pub fn with_metadata(self, key: impl Trait, value: impl Trait) -> Self;
     pub fn with_ttl(self, ttl_secs: u64) -> Self;
     pub fn build(self) -> Result<Concept>;
+}
+```
+
+### impl ConceptDiff
+
+```rust
+impl ConceptDiff {
+    pub fn calculate(from_concept: &Concept, to_concept: &Concept) -> Self;
 }
 ```
 
@@ -4898,8 +5205,13 @@ impl WasmFramework {
     pub fn on_event(&self, callback: Function);
     pub fn inject_text(&self, id: String, text: String) -> Result<(), JsValue>;
     pub fn probe_text(&self, query: String, top_k: usize) -> Result<Array, JsValue>;
+    pub fn list_versions(&self, id: String) -> Result<Array, JsValue>;
+    pub fn get_version(&self, id: String, version: u32) -> Result<JsValue, JsValue>;
+    pub fn rollback_to_version(&self, id: String, version: u32) -> Result<JsValue, JsValue>;
 }
 ```
+
+## src/wasm_ext_tests.rs
 
 ## src/wasm_graph_rag.rs
 

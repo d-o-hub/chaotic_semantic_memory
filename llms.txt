@@ -2,39 +2,43 @@
 
 > AI memory systems with hyperdimensional vectors and chaotic reservoirs
 
-**Version:** 0.3.5
+**Version:** 0.3.6
 **License:** MIT
 **Repository:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Keywords:** ai, memory, hypervector, reservoir, wasm
 **Dependencies:**
-- anyhow (1.0.102)
+- anyhow
 - async-trait (0.1.83)
-- base64 (0.22)
+- base64
 - bincode (1.3.3)
-- clap (4.5.60) [features: derive, env, string]
+- clap (4.5) [features: derive, env, string]
 - clap_complete (4.5.42)
+- cloudevents-sdk (0.9.0)
 - colored (2.2.0)
 - fastembed (4)
 - glob (0.3.2)
 - hnsw_rs (0.3.4)
-- rand (0.10.1)
-- rand_chacha (0.10.0)
+- rand
+- rand_chacha
 - reqwest (0.12) [features: json, rustls-tls]
-- rmcp (0.2)
-- serde (1.0.219) [features: derive]
-- serde_json (1.0.149)
-- thiserror (2.0.11)
-- tracing (0.1.41)
-- tracing-subscriber (0.3.19)
+- rmcp (1.7) [features: server, macros, transport-io]
+- serde
+- serde_json
+- thiserror
+- tracing
+- tracing-subscriber
+- uuid
 **Features:**
 - ann-hnsw: [dep:hnsw_rs]
 - ann-lsh: []
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
+- cloudevents: [dep:cloudevents-sdk, dep:uuid, uuid/js]
 - default: [cli, persistence, parallel]
 - embed-fastembed: [dep:fastembed]
 - embed-openai: [dep:reqwest]
 - embed-voyage: [dep:reqwest]
+- events-http: [cloudevents, cloudevents-sdk/http-binding, dep:reqwest]
 - mcp: [dep:rmcp, cli]
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
@@ -50,7 +54,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/bin/csm.rs
 
 - pub use native::chaotic_semantic_memory::cli::commands::watch::EventFilter
-- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
+- pub use native::chaotic_semantic_memory::cli::{CliArgs, CliError, Commands, CompletionsArgs, ExitCode, OutputFormat, ensure_git_local_dir, resolve_git_local_path, run_associate, run_associations, run_completions, run_delete, run_diff, run_disassociate, run_export, run_get, run_history, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_rollback, run_stats, run_traverse, run_update, run_watch}
 - pub use native::clap::Parser
 - pub use native::colored::Colorize
 - pub use native::tracing::Level
@@ -106,6 +110,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct MetricsArgs
 - pub struct WatchArgs
 - pub struct ProbeGraphArgs
+- pub struct HistoryArgs
+- pub struct DiffArgs
+- pub struct RollbackArgs
 
 ### src/cli/commands/associate.rs
 
@@ -124,6 +131,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub fn run_delete
 
+### src/cli/commands/diff.rs
+
+- pub fn run_diff
+
 ### src/cli/commands/disassociate.rs
 
 - pub fn run_disassociate
@@ -135,6 +146,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/cli/commands/get.rs
 
 - pub fn run_get
+
+### src/cli/commands/history.rs
+
+- pub fn run_history
 
 ### src/cli/commands/import.rs
 
@@ -164,9 +179,11 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod associations
 - pub mod completions
 - pub mod delete
+- pub mod diff
 - pub mod disassociate
 - pub mod export
 - pub mod get
+- pub mod history
 - pub mod import
 - pub mod index_dir
 - pub mod index_jsonl
@@ -177,6 +194,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod probe_filtered
 - pub mod probe_graph
 - pub mod query
+- pub mod rollback
 - pub mod stats
 - pub mod traverse
 - pub mod update
@@ -185,9 +203,11 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use associations::run_associations
 - pub use completions::run_completions
 - pub use delete::run_delete
+- pub use diff::run_diff
 - pub use disassociate::run_disassociate
 - pub use export::run_export
 - pub use get::run_get
+- pub use history::run_history
 - pub use import::run_import
 - pub use index_dir::run_index_dir
 - pub use index_jsonl::run_index_jsonl
@@ -198,6 +218,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use probe_filtered::run_probe_filtered
 - pub use probe_graph::run_probe_graph
 - pub use query::run_query
+- pub use rollback::run_rollback
 - pub use stats::run_stats
 - pub use traverse::run_traverse
 - pub use update::run_update
@@ -231,6 +252,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/cli/commands/query.rs
 
 - pub fn run_query
+
+### src/cli/commands/rollback.rs
+
+- pub fn run_rollback
 
 ### src/cli/commands/stats.rs
 
@@ -266,16 +291,23 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn resolve_git_local_path
 - pub fn ensure_git_local_dir
 
+### src/cli/mcp.rs
+
+- pub enum McpCommands
+- pub struct McpServeArgs
+
 ### src/cli/mod.rs
 
 - pub mod args
 - pub mod commands
 - pub mod error
 - pub mod git_local
+- pub mod mcp
 - pub use args::*
-- pub use commands::{run_associate, run_associations, run_completions, run_delete, run_disassociate, run_export, run_get, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_stats, run_traverse, run_update, run_watch}
+- pub use commands::{run_associate, run_associations, run_completions, run_delete, run_diff, run_disassociate, run_export, run_get, run_history, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_rollback, run_stats, run_traverse, run_update, run_watch}
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
+- pub use mcp::*
 
 ### src/concept_builder.rs
 
@@ -368,6 +400,21 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub enum MemoryEvent
 - impl ChaoticSemanticFramework
+
+### src/framework_events_ce.rs
+
+- pub enum StorageTarget
+- pub enum ChaoticEvent
+- impl ChaoticEvent
+- impl MemoryEvent
+- pub trait EventEmitter
+- pub struct NullEmitter
+- impl EventEmitter for NullEmitter
+- pub struct LogEmitter
+- impl EventEmitter for LogEmitter
+- pub struct HttpEmitter
+- impl HttpEmitter
+- impl EventEmitter for HttpEmitter
 
 ### src/framework_graph_rag.rs
 
@@ -477,6 +524,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod error
 - pub mod framework
 - pub mod framework_builder
+- pub mod framework_events_ce
 - pub mod graph_traversal
 - pub mod hyperdim
 - pub mod mcp
@@ -505,21 +553,21 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use prelude::crate::framework_events::MemoryEvent
 - pub use prelude::crate::hyperdim::HVec10240
 - pub use prelude::crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket}
-- pub use prelude::crate::singularity::{Concept, ConceptBuilder}
+- pub use prelude::crate::singularity::{Concept, ConceptBuilder, ConceptDiff, ConceptVersion}
 - pub use prelude::crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod wasm
 
+### src/mcp/handler.rs
+
+- pub struct McpHandler
+- impl McpHandler
+- impl ServerHandler for McpHandler
+- impl McpHandler
+
 ### src/mcp/mod.rs
 
-- pub use resources::McpResources
-- pub use server::serve
-- pub use tools::McpTools
-
-### src/mcp/resources.rs
-
-- pub struct McpResources
-- impl McpResources
-- pub struct ResourceDefinition
+- pub use handler::McpHandler
+- pub use server::{McpConfig, Transport, serve}
 
 ### src/mcp/schema.rs
 
@@ -542,12 +590,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct McpConfig
 - impl Default for McpConfig
 - pub fn serve
-
-### src/mcp/tools.rs
-
-- pub struct McpTools
-- impl McpTools
-- pub struct ToolDefinition
 
 ### src/metadata_filter.rs
 
@@ -590,6 +632,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/reservoir.rs
 
 - pub struct ReservoirMetricsSnapshot
+- pub struct ReservoirStepOutput
 - impl ReservoirMetrics
 - pub struct Reservoir
 - impl Reservoir
@@ -675,6 +718,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct SingularityConfig
 - impl Default for SingularityConfig
 - pub struct Concept
+- pub struct ConceptVersion
+- pub struct ConceptDiff
+- impl ConceptDiff
 - pub struct ConceptBuilder
 - impl ConceptBuilder
 - pub struct Singularity
@@ -1039,13 +1085,15 @@ Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md)
 - Pull request process
 - ADR submission for architectural changes
 
-### chaotic_semantic_memory
+### d.o. chaotic semantic memory
 
 [![CI](https://github.com/d-o-hub/chaotic_semantic_memory/actions/workflows/ci.yml/badge.svg)](https://github.com/d-o-hub/chaotic_semantic_memory/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/chaotic_semantic_memory.svg)](https://crates.io/crates/chaotic_semantic_memory)
 [![docs.rs](https://img.shields.io/docsrs/chaotic_semantic_memory)](https://docs.rs/chaotic_semantic_memory)
 [![npm](https://img.shields.io/npm/v/@d-o-hub/chaotic_semantic_memory)](https://www.npmjs.com/package/@d-o-hub/chaotic_semantic_memory)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+<img width="1456" height="720" alt="1000046937" src="https://github.com/user-attachments/assets/d698a304-9b36-4aad-a2d1-5668157a26f7" />
 
 `chaotic_semantic_memory` is a Rust crate for AI memory systems built on
 **Hyperdimensional Computing (HDC)** — not transformer embeddings:
@@ -1092,6 +1140,18 @@ vectors directly via `inject_concept`.
 - **WASM Support**: Browser-compatible with memory-based import/export
 - **CLI**: Full-featured command-line interface with shell completions
 - **Production-Ready**: Structured logging, metrics, input validation, memory guardrails
+
+#### Optional Analytics (DuckDB)
+
+For advanced OLAP workloads, SQL inspection, and Parquet export, see the [`chaotic_semantic_memory_duckdb`](crates/chaotic_semantic_memory_duckdb) companion crate.
+
+**Two-Crate Decision Tree:**
+
+| Want... | Use... | Features |
+|---|---|---|
+| Just core memory/search | `chaotic_semantic_memory` | Lean, no C++ toolchain |
+| SQL queries + CLI analytics | `csm` + `analytics` feature | Integrated experience |
+| Standalone analytics binary | `csm-analytics` | Specialized for data engineers |
 
 #### Installation
 
@@ -1268,9 +1328,39 @@ The `csm` binary provides command-line access:
 ## Cargo.toml
 
 ```toml
+[workspace]
+members = [
+    ".",
+    "benchmarks",
+    "crates/chaotic_semantic_memory_duckdb",
+]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
+homepage = "https://github.com/d-o-hub/chaotic_semantic_memory"
+
+[workspace.dependencies]
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.149"
+thiserror = "2.0.11"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
+tokio = "1.43.0"
+anyhow = "1.0.102"
+sha2 = "0.10.9"
+rand = "0.10.1"
+rand_chacha = "0.10.0"
+uuid = { version = "1.23.1", features = ["v4", "serde"] }
+tempfile = "3.16.0"
+base64 = "0.22.1"
+
 [package]
 name = "chaotic_semantic_memory"
-version = "0.3.5"
+version = "0.3.6"
 edition = "2024"
 rust-version = "1.85"
 description = "AI memory systems with hyperdimensional vectors and chaotic reservoirs"
@@ -1281,7 +1371,6 @@ documentation = "https://docs.rs/chaotic_semantic_memory"
 readme = "README.md"
 keywords = ["ai", "memory", "hypervector", "reservoir", "wasm"]
 categories = ["data-structures", "algorithms", "wasm"]
-resolver = "3"
 include = [
     "/src",
     "/benches",
@@ -1294,19 +1383,21 @@ include = [
 
 [dependencies]
 # Serialization
-serde = { version = "1.0.219", features = ["derive"] }
-serde_json = "1.0.149"
+serde = { workspace = true }
+serde_json = { workspace = true }
+cloudevents-sdk = { version = "0.9.0", optional = true }
+uuid = { workspace = true, optional = true }
 bincode = "1.3.3"
-base64 = "0.22"
+base64 = { workspace = true }
 
 # Error handling
-thiserror = "2.0.11"
-tracing = "0.1.41"
-tracing-subscriber = "0.3.19"
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 # Random number generation
-rand = "0.10.1"
-rand_chacha = "0.10.0"
+rand = { workspace = true }
+rand_chacha = { workspace = true }
 
 # Async trait support
 async-trait = "0.1.83"
@@ -1321,14 +1412,14 @@ fastembed = { version = "4", optional = true }
 hnsw_rs = { version = "0.3.4", optional = true }
 
 # CLI dependencies (gated behind "cli" feature)
-clap = { version = "4.5.60", features = ["derive", "env", "string"], optional = true }
+clap = { version = "4.5", features = ["derive", "env", "string"], optional = true }
 clap_complete = { version = "4.5.42", optional = true }
-anyhow = { version = "1.0.102", optional = true }
+anyhow = { workspace = true, optional = true }
 colored = { version = "2.2.0", optional = true }
 glob = { version = "0.3.2", optional = true }
 
 # MCP server dependencies (gated behind "mcp" feature - ADR-0067)
-rmcp = { version = "0.2", optional = true }
+rmcp = { version = "1.7", optional = true, features = ["server", "macros", "transport-io"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # CPU parallelism (opt-in via "parallel" feature)
@@ -1336,11 +1427,11 @@ rayon = { version = "1.10.0", optional = true }
 
 # Database - Use libsql NOT turso-client (opt-in via "persistence" feature)
 libsql = { version = "0.9.30", default-features = false, features = ["sync", "hrana", "remote"], optional = true }
-tokio = { version = "1.43.0", features = ["rt-multi-thread", "macros", "sync", "fs"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.4.2", features = ["wasm_js"] }
-tokio = { version = "1.43.0", features = ["rt", "macros", "sync"] }
+tokio = { workspace = true, features = ["rt", "macros", "sync"] }
 wasm-bindgen = "0.2.100"
 wasm-bindgen-futures = "0.4.64"
 js-sys = "0.3.77"
@@ -1348,7 +1439,7 @@ console_error_panic_hook = { version = "0.1", optional = false }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }
-tempfile = "3.26.0"
+tempfile = { workspace = true }
 proptest = "1.6.0"
 # CLI testing
 assert_cmd = "2.0.16"
@@ -1487,6 +1578,10 @@ ann-lsh = []
 # Federation-ready API enhancements (ADR-055 downstream)
 signing = []
 serde = []
+
+# CloudEvents integration (ADR-0078)
+cloudevents = ["dep:cloudevents-sdk", "dep:uuid", "uuid/js"]
+events-http = ["cloudevents", "cloudevents-sdk/http-binding", "dep:reqwest"]
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]

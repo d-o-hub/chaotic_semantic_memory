@@ -3,6 +3,7 @@
 // Casts are intentional for event timestamp math
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
+use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 
 #[cfg(target_arch = "wasm32")]
@@ -18,7 +19,7 @@ use std::collections::HashMap;
 
 const DEFAULT_EVENT_CHANNEL_CAPACITY: usize = 1024;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MemoryEvent {
     ConceptInjected {
         id: String,
@@ -49,19 +50,30 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         self.event_sender.subscribe()
     }
 
-    pub(crate) fn emit_event(&self, event: MemoryEvent) {
+    pub(crate) async fn emit_event(&self, event: MemoryEvent) {
+        #[cfg(feature = "cloudevents")]
+        {
+            let source = format!("chaotic-semantic-memory://{}", *self.namespace.read().await);
+            let ce = event.to_cloud_event(&source);
+            for emitter in &self.emitters {
+                let _ = emitter.emit(ce.clone()).await;
+            }
+        }
+
         let _ = self.event_sender.send(event);
     }
 
     /// Update a concept's vector (WASM-only, memory-only).
     #[cfg(target_arch = "wasm32")]
     pub async fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()> {
+        Self::validate_concept_id(id)?;
         let ns = self.namespace.read().await;
         self.singularity.write().await.update(&ns, id, vector)?;
         self.emit_event(MemoryEvent::ConceptUpdated {
             id: id.to_string(),
             timestamp: unix_now_secs(),
-        });
+        })
+        .await;
         Ok(())
     }
 
@@ -72,6 +84,8 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         id: &str,
         metadata: HashMap<String, serde_json::Value>,
     ) -> Result<()> {
+        Self::validate_concept_id(id)?;
+        Self::validate_metadata_bytes(&metadata, self.config.max_metadata_bytes)?;
         let ns = self.namespace.read().await;
         self.singularity
             .write()
@@ -80,19 +94,23 @@ impl<H: Hypervector> ChaoticSemanticFramework<H> {
         self.emit_event(MemoryEvent::ConceptUpdated {
             id: id.to_string(),
             timestamp: unix_now_secs(),
-        });
+        })
+        .await;
         Ok(())
     }
 
     /// Remove an association (WASM-only, memory-only).
     #[cfg(target_arch = "wasm32")]
     pub async fn disassociate(&self, from: &str, to: &str) -> Result<()> {
+        Self::validate_concept_id(from)?;
+        Self::validate_concept_id(to)?;
         let ns = self.namespace.read().await;
         self.singularity.write().await.disassociate(&ns, from, to)?;
         self.emit_event(MemoryEvent::Disassociated {
             from: from.to_string(),
             to: to.to_string(),
-        });
+        })
+        .await;
         Ok(())
     }
 }

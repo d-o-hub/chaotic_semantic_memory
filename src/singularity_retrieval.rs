@@ -184,7 +184,7 @@ impl<H: Hypervector + \'static> Singularity<H> {
             .concept_vectors
             .par_iter()
             .enumerate()
-            .with_min_len(512)
+            .with_min_len(128)
             .map(|(idx, v)| (idx, query.hamming_distance(v)))
             .collect();
 

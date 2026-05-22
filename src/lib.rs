@@ -26,6 +26,7 @@ pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig
 mod bridge_persistence;
 pub mod bridge_retrieval;
 pub mod bundle;
+mod bundle_simd; // SIMD paths for BundleAccumulator
 #[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]
 pub mod cli;
 pub mod concept_builder;
@@ -47,6 +48,7 @@ mod framework_ttl;
 mod framework_validation;
 pub mod graph_traversal;
 pub mod hyperdim;
+
 #[cfg(all(not(target_arch = "wasm32"), feature = "mcp"))]
 pub mod mcp;
 pub mod metadata_filter;
@@ -110,15 +112,23 @@ pub mod persistence {
         pub async fn load_all_concepts<H: Hypervector + 'static>(&self, _ns: &str) -> Result<Vec<Concept<H>>> { Ok(Vec::new()) }
         pub async fn delete_concept(&self, _ns: &str, _id: &str) -> Result<()> { Ok(()) }
         pub async fn save_association(&self, _ns: &str, _from: &str, _to: &str, _strength: f32) -> Result<()> { Ok(()) }
+        pub async fn save_associations(&self, _ns: &str, _associations: &[(String, String, f32)]) -> Result<()> { Ok(()) }
         pub async fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32)>> { Ok(Vec::new()) }
+        pub async fn delete_association(&self, _ns: &str, _from: &str, _to: &str) -> Result<()> { Ok(()) }
+        pub async fn clear_concept_associations(&self, _ns: &str, _id: &str) -> Result<()> { Ok(()) }
         pub async fn clear_all(&self) -> Result<()> { Ok(()) }
         pub async fn checkpoint(&self) -> Result<()> { Ok(()) }
         pub async fn health_check(&self) -> Result<()> { Ok(()) }
         pub async fn size(&self) -> Result<u64> { Ok(0) }
+        pub async fn backup(&self, _path: &str) -> Result<()> { Ok(()) }
+        pub async fn restore(&self, _path: &str) -> Result<()> { Ok(()) }
+        pub async fn get_version_scoped<H: Hypervector + 'static>(&self, _ns: &str, _id: &str, _version: u64) -> Result<Option<Concept<H>>> { Ok(None) }
+        pub async fn list_versions_scoped<H: Hypervector + 'static>(&self, _ns: &str, _id: &str) -> Result<Vec<ConceptVersion<H>>> { Ok(Vec::new()) }
         pub async fn get_concept_history<H: Hypervector + 'static>(&self, _ns: &str, _id: &str, _limit: usize) -> Result<Vec<ConceptVersion<H>>> { Ok(Vec::new()) }
         pub async fn schema_version(&self) -> Result<i64> { Ok(0) }
         pub async fn save_index(&self, _ns: &str, _id: &str, _data: &[u8]) -> Result<()> { Ok(()) }
         pub async fn load_index(&self, _ns: &str, _id: &str) -> Result<Option<Vec<u8>>> { Ok(None) }
+        pub async fn apply_migrations(&self, _target_version: i64) -> Result<()> { Ok(()) }
         pub async fn list_namespaces(&self) -> Result<Vec<String>> { Ok(vec!["_default".to_string()]) }
         pub async fn clear_namespace(&self, _ns: &str) -> Result<()> { Ok(()) }
     }
@@ -135,7 +145,7 @@ pub mod prelude {
     #[cfg(feature = "hv-binary")]
     pub use crate::hyperdim::BHVec10240;
     pub use crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket};
-    pub use crate::singularity::{Concept, ConceptBuilder};
+    pub use crate::singularity::{Concept, ConceptBuilder, ConceptDiff, ConceptVersion};
     pub use crate::singularity_retrieval::{
         CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats,
     };
@@ -145,5 +155,7 @@ pub mod prelude {
 pub mod wasm;
 #[cfg(any(target_arch = "wasm32", test))]
 mod wasm_ext;
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod wasm_ext_tests;
 #[cfg(any(target_arch = "wasm32", test))]
 mod wasm_graph_rag;

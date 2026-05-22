@@ -14,6 +14,7 @@ cargo test --test <test_file_name>
 ```
 
 ## Workflow
+
 1. Check current test coverage in `tests/` directory
 2. Identify properties to test (invariants, roundtrips, bounds)
 3. Add `proptest` dependency to `Cargo.toml`
@@ -25,17 +26,20 @@ cargo test --test <test_file_name>
 ## Key Properties to Test
 
 ### HVec10240
+
 - `from_bytes(to_bytes(v)) == v` (roundtrip)
 - `cosine_similarity(v, v) == 1.0` (self-similarity)
 - `cosine_similarity(a, b) == cosine_similarity(b, a)` (symmetry)
 - `cosine_similarity(a, b)` in `[-1.0, 1.0]` (bounds)
 
 ### Reservoir
+
 - `reset()` clears state to zeros
 - `step()` with same input produces same output after `reset()`
 - `to_hypervector()` fails if `size < 10240`
 
 ### Persistence
+
 - `save_concept(c); load_concept(c.id) == Some(c)` (roundtrip)
 - `delete_concept(id); load_concept(id) == None` (deletion)
 - FK constraints reject invalid associations
@@ -44,11 +48,14 @@ cargo test --test <test_file_name>
 
 ```bash
 # Run property tests
+
 cargo test --test <test_name>
 
 # Run fuzzer (requires cargo-fuzz)
+
 cargo fuzz run fuzz_hvec_from_bytes
 ```
 
 ## LOC Constraint
+
 All files must remain ≤ 500 lines. Create new test files rather than inflating existing ones.

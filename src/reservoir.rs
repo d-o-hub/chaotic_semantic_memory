@@ -1,8 +1,6 @@
 //! Echo State Network for temporal dynamics.
-
 // Casts are intentional for reservoir math (node counts, dimension sizes)
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 use crate::reservoir_sparse::SparseWeights;
@@ -13,7 +11,6 @@ use rayon::prelude::*;
 use std::sync::atomic::{AtomicU64, Ordering};
 #[cfg(not(target_arch = "wasm32"))]
 use {std::time::Instant, tracing::instrument};
-
 #[derive(Debug, Default)]
 struct ReservoirMetrics {
     steps_total: AtomicU64,
@@ -36,7 +33,6 @@ impl ReservoirMetrics {
         self.step_latency_count.fetch_add(1, Ordering::Relaxed);
         self.nodes_active.store(nodes_active, Ordering::Relaxed);
     }
-
     fn snapshot(&self) -> ReservoirMetricsSnapshot {
         let count = self.step_latency_count.load(Ordering::Relaxed);
         let total = self.step_latency_us_total.load(Ordering::Relaxed);
@@ -70,6 +66,7 @@ pub struct Reservoir {
     spectral_radius: f32,
     alpha: f32,
     pub(crate) beta: f32, // ADR-0064: inertia coefficient
+    state_norm_sq: f64,   // Incremental state norm for performance
     metrics: ReservoirMetrics,
 }
 impl Reservoir {
@@ -105,8 +102,7 @@ impl Reservoir {
     }
 
     pub fn new(input_size: usize, size: usize) -> Result<Self> {
-        let seed = rand::rng().random();
-        Self::new_seeded(input_size, size, seed)
+        Self::new_seeded(input_size, size, rand::rng().random())
     }
 
     pub fn new_seeded(input_size: usize, size: usize, seed: u64) -> Result<Self> {
@@ -144,6 +140,7 @@ impl Reservoir {
             spectral_radius: Self::DEFAULT_RADIUS,
             alpha: Self::DEFAULT_ALPHA,
             beta: 0.0, // ADR-0064: default no inertia
+            state_norm_sq: 0.0,
             metrics: ReservoirMetrics::default(),
         })
     }
@@ -189,8 +186,18 @@ impl Reservoir {
         // Second pass: Commit the updates for this phase.
         // This keeps semantics synchronous within the phase (no order dependency).
         for i in (update_phase..self.size).step_by(self.update_stride) {
-            self.prev_state[i] = self.state[i];
-            self.state[i] = self.scratch[i];
+            let old_val = self.state[i];
+            let new_val = self.scratch[i];
+            self.prev_state[i] = old_val;
+            self.state[i] = new_val;
+            // Incremental norm update: subtract old square, add new square.
+            self.state_norm_sq +=
+                (f64::from(new_val)).mul_add(f64::from(new_val), -f64::from(old_val).powi(2));
+        }
+
+        // Periodic full re-calculation to prevent drift from precision errors.
+        if update_phase == 0 {
+            self.state_norm_sq = self.state.iter().map(|&x| f64::from(x).powi(2)).sum();
         }
         self.update_phase = (update_phase + 1) % self.update_stride;
 
@@ -243,6 +250,7 @@ impl Reservoir {
         self.state.fill(0.0);
         self.scratch.fill(0.0);
         self.prev_state.fill(0.0);
+        self.state_norm_sq = 0.0;
     }
 
     /// Project state to hypervector (parallel on non-WASM)
@@ -366,11 +374,8 @@ impl Reservoir {
 fn fast_tanh(x: f32) -> f32 {
     let x2 = x * x;
     // Approximates tanh(x) as x*(27+x^2)/(27+9x^2) using FMA for speed.
-    let num = x2.mul_add(x, 27.0 * x);
-    let den = x2.mul_add(9.0, 27.0);
-    num / den
+    x2.mul_add(x, 27.0 * x) / x2.mul_add(9.0, 27.0)
 }
-
 /// Chaotic reservoir with configurable dynamics
 pub struct ChaoticReservoir {
     base: Reservoir,
@@ -431,7 +436,6 @@ impl ChaoticReservoir {
         self.base.metrics_snapshot()
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;

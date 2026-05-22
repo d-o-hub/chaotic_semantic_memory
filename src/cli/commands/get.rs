@@ -17,17 +17,34 @@ pub async fn run_get(args: GetArgs, db_path: Option<&Path>, format: OutputFormat
     let framework: crate::framework::ChaoticSemanticFramework =
         create_framework_with_namespace(db_path, &args.namespace).await?;
 
-    let concept = framework
-        .get_concept(&args.concept_id)
-        .await
-        .map_err(|e| CliError::Persistence(format!("failed to get concept: {e}")))?
-        .ok_or_else(|| CliError::Input(format!("concept '{}' not found", args.concept_id)))?;
+    let concept = if let Some(version) = args.version {
+        framework
+            .get_version(&args.concept_id, version)
+            .await
+            .map_err(|e| CliError::Persistence(format!("failed to get concept version: {e}")))?
+            .ok_or_else(|| {
+                CliError::Input(format!(
+                    "concept '{}' version {} not found",
+                    args.concept_id, version
+                ))
+            })?
+    } else {
+        framework
+            .get_concept(&args.concept_id)
+            .await
+            .map_err(|e| CliError::Persistence(format!("failed to get concept: {e}")))?
+            .ok_or_else(|| CliError::Input(format!("concept '{}' not found", args.concept_id)))?
+    };
 
     // Get associations for this concept
-    let associations = framework
-        .get_associations(&args.concept_id)
-        .await
-        .map_err(|e| CliError::Persistence(format!("failed to get associations: {e}")))?;
+    let associations = if args.version.is_none() {
+        framework
+            .get_associations(&args.concept_id)
+            .await
+            .map_err(|e| CliError::Persistence(format!("failed to get associations: {e}")))?
+    } else {
+        Vec::new()
+    };
 
     match format {
         crate::cli::args::OutputFormat::Json => {

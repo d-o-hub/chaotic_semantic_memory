@@ -60,6 +60,12 @@ pub enum Commands {
     Delete(DeleteArgs),
     /// Get concept details by ID.
     Get(GetArgs),
+    /// Get history of versions for a concept.
+    History(HistoryArgs),
+    /// Diff two concept versions.
+    Diff(DiffArgs),
+    /// Rollback concept to a historical version.
+    Rollback(RollbackArgs),
     /// Update concept vector or metadata.
     Update(UpdateArgs),
     /// Remove association(s) from a concept.
@@ -80,6 +86,10 @@ pub enum Commands {
     Watch(WatchArgs),
     /// GraphRAG retrieval: similarity + graph traversal hybrid.
     ProbeGraph(ProbeGraphArgs),
+    /// MCP server commands.
+    #[cfg(feature = "mcp")]
+    #[command(subcommand)]
+    Mcp(crate::cli::mcp::McpCommands),
 }
 
 #[derive(Args, Debug, Clone)]
@@ -308,9 +318,11 @@ pub struct DeleteArgs {
 pub struct GetArgs {
     #[arg(long, global = true, default_value = "_default")]
     pub namespace: String,
-    /// Concept ID to retrieve.
     #[arg(required = true)]
     pub concept_id: String,
+    /// Retrieve a specific historical version of the concept.
+    #[arg(long)]
+    pub version: Option<u64>,
 }
 
 /// Arguments for the update command.
@@ -373,15 +385,10 @@ pub struct AssociationsArgs {
 pub struct TraverseArgs {
     #[arg(long, global = true, default_value = "_default")]
     pub namespace: String,
-    /// Starting concept ID for traversal.
     #[arg(required = true)]
     pub start: String,
-
-    /// Maximum number of hops to traverse.
     #[arg(long, default_value = "3")]
     pub depth: usize,
-
-    /// Minimum edge strength to follow (0.0-1.0).
     #[arg(short, long, default_value = "0.0")]
     pub min_strength: f64,
 }
@@ -391,15 +398,10 @@ pub struct TraverseArgs {
 pub struct PathArgs {
     #[arg(long, global = true, default_value = "_default")]
     pub namespace: String,
-    /// Starting concept ID.
     #[arg(required = true)]
     pub from: String,
-
-    /// Target concept ID.
     #[arg(required = true)]
     pub to: String,
-
-    /// Use weighted Dijkstra (stronger edges = lower cost) instead of hop count.
     #[arg(short, long)]
     pub weighted: bool,
 }
@@ -418,61 +420,76 @@ pub struct ProbeFilteredArgs {
     pub top_k: usize,
 
     /// JSON metadata filter expression.
-    /// Examples: '{"Eq":["type","document"]}' '{"And":[{"Eq":["tag","rust"]},{"Exists":["title"]}]}'
     #[arg(short, long, value_name = "JSON")]
     pub filter: String,
 }
 
-/// Arguments for stats command.
 #[derive(Args, Debug, Clone)]
 pub struct StatsArgs;
 
-/// Arguments for metrics command.
 #[derive(Args, Debug, Clone)]
 pub struct MetricsArgs {
-    /// Reset metrics counters (not yet implemented).
     #[arg(long)]
     pub reset: bool,
 }
 
-/// Arguments for watch command.
 #[derive(Args, Debug, Clone)]
 pub struct WatchArgs {
-    /// Event type filter: all, injected, updated, deleted, associated, disassociated.
     #[arg(short, long, default_value = "all")]
     pub filter: String,
 }
 
-/// Arguments for GraphRAG retrieval.
 #[derive(Args, Debug, Clone)]
 pub struct ProbeGraphArgs {
     #[arg(long, global = true, default_value = "_default")]
     pub namespace: String,
-    /// Text query for similarity search.
     #[arg(required = true)]
     pub text: String,
-
-    /// Number of anchor concepts from initial probe.
     #[arg(long, default_value = "5")]
     pub anchors: usize,
-
-    /// Maximum hops to traverse from each anchor.
     #[arg(long, default_value = "2")]
     pub hops: usize,
-
-    /// Minimum association strength to follow.
     #[arg(long, default_value = "0.0")]
     pub min_strength: f32,
-
-    /// Weight for similarity score component.
     #[arg(long, default_value = "0.6")]
     pub similarity_weight: f32,
-
-    /// Weight for graph distance component.
     #[arg(long, default_value = "0.4")]
     pub graph_weight: f32,
-
-    /// Final top-K results to return.
     #[arg(short = 'k', long, default_value = "20")]
     pub top_k: usize,
+}
+
+/// Arguments for the history command.
+#[derive(Args, Debug, Clone)]
+pub struct HistoryArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
+    #[arg(required = true)]
+    pub concept_id: String,
+}
+
+/// Arguments for the diff command.
+#[derive(Args, Debug, Clone)]
+pub struct DiffArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
+    #[arg(required = true)]
+    pub concept_id: String,
+    #[arg(long)]
+    pub from: u64,
+    #[arg(long)]
+    pub to: u64,
+}
+
+/// Arguments for the rollback command.
+#[derive(Args, Debug, Clone)]
+pub struct RollbackArgs {
+    #[arg(long, global = true, default_value = "_default")]
+    pub namespace: String,
+    #[arg(required = true)]
+    pub concept_id: String,
+    #[arg(long)]
+    pub to: u64,
+    #[arg(short, long)]
+    pub confirm: bool,
 }

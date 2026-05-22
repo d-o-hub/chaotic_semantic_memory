@@ -3277,14 +3277,18 @@ actions:
       gap_analysis_2026_04_30_completed: true
     effects:
       cli_framework_parity_complete: true
+      cli_parity_smoke_test_added: true
     cost: 12
-    status: queued
-    file: plans/adr/0066-cli-framework-api-parity.md
+    status: complete
+    file: src/cli/args.rs, src/bin/csm.rs, tests/cli_parity.rs
     description: |
-      Add 11 missing subcommands: delete, get, update, disassociate,
-      associations, traverse, path, probe-filtered, stats, metrics, watch.
-      Each command file ≤ 250 LOC. Wire into bin/csm.rs match block.
-      Add tests/cli_parity.rs verifying each subcommand.
+      All 11 missing subcommands (delete, get, update, disassociate,
+      associations, traverse, path, probe-filtered, stats, metrics, watch)
+      plus probe-graph (ADR-0070 scaffolding) are wired in src/cli/args.rs
+      and dispatched in src/bin/csm.rs (22 commands total).
+      tests/cli_parity.rs added 2026-05-18 — two smoke tests verify each
+      subcommand appears in --help and accepts <cmd> --help.
+      cargo test --test cli_parity --features cli => 2 passed.
 
   - name: implement_mcp_server
     preconditions:
@@ -3292,27 +3296,31 @@ actions:
     effects:
       mcp_server_implemented: true
     cost: 16
-    status: queued
-    file: plans/adr/0067-mcp-server.md
+    status: complete
+    file: src/mcp/handler.rs, src/mcp/server.rs, src/bin/csm.rs
     description: |
-      Add `csm mcp serve` subcommand using rmcp crate behind `mcp` feature.
-      12 tools (memory_inject, memory_probe, memory_traverse, etc.) +
-      3 resources (concept://, stats://, health://). Stdio + SSE transports.
-      Smoke test against Claude Desktop config.
+      Implemented consolidated rmcp 1.7 handler in src/mcp/handler.rs.
+      Wired 12 tools and 3 resources. Fixed tracing corruption on stdout.
+      Manual verification via printf pipes successful.
 
   - name: backfill_missing_adrs
     preconditions:
       gap_analysis_2026_04_30_completed: true
     effects:
       adr_backfill_complete: true
+      adr_parity_script_added: true
     cost: 6
-    status: queued
-    file: plans/adr/0076-adr-backfill.md
+    status: complete
+    file: plans/ADR_REGISTRY.md, plans/adr/, scripts/check-adr-parity.sh
     description: |
-      Reconstruct ~29 missing ADR files from registry IDs using commit history,
-      GOAP_STATE comments, and handoff notes. Each backfilled ADR ≤ 250 lines,
-      marked "Accepted (backfill)". Add scripts/validate.sh check enforcing
-      registry ↔ disk parity.
+      Backfill landed in main on 2026-05-01 (note at top of
+      plans/ADR_REGISTRY.md). 78 ADR files now on disk vs 79 registry
+      entries (ADR-0003 is N/A on disk, marked Superseded in registry).
+      2026-05-18 added scripts/check-adr-parity.sh which enforces
+      registry ↔ disk parity (warns on orphan files, errors on
+      missing-with-backing). Inline check in scripts/validate.sh already
+      enforced this — the new script extends to docs/adr/ and reports
+      orphans.
 
   # ─────────────────────────────────────────────────────────
   # Wave 22: P1 — Capability Ceiling Removal (cost: 40)
@@ -3325,7 +3333,7 @@ actions:
       hnsw_ann_index_implemented: true
       probe_scale_ceiling_lifted: true
     cost: 18
-    status: queued
+    status: complete
     file: plans/adr/0068-hnsw-ann-index.md
     description: |
       Add AnnIndex trait + 3 backends (BruteForce default, HNSW opt-in, LSH opt-in).
@@ -3339,7 +3347,7 @@ actions:
     effects:
       embedding_model_bridge_implemented: true
     cost: 14
-    status: queued
+    status: complete
     file: plans/adr/0069-embedding-model-bridge.md
     description: |
       Add EmbeddingProvider trait + 4 backends (HDC TextEncoder default,
@@ -3353,7 +3361,7 @@ actions:
     effects:
       graphrag_retrieval_implemented: true
     cost: 8
-    status: queued
+    status: complete
     file: plans/adr/0070-graphrag-hybrid-retrieval.md
     description: |
       Add probe_with_graph(query, GraphRagConfig) → anchor probe → BFS expand →
@@ -3370,7 +3378,7 @@ actions:
     effects:
       reranking_pipeline_implemented: true
     cost: 6
-    status: queued
+    status: complete
     file: plans/adr/0071-reranking-mmr-pipeline.md
     description: |
       Add Reranker trait + 3 implementations: MMR (lambda diversity),
@@ -3398,7 +3406,7 @@ actions:
       namespace_isolation_implemented: true
       deferred_namespace_isolation: true
     cost: 12
-    status: queued
+    status: complete
     file: plans/adr/0073-namespace-isolation.md
     description: |
       Migration 006_add_namespace.sql adds namespace column + index.
@@ -3412,7 +3420,7 @@ actions:
     effects:
       version_history_surface_implemented: true
     cost: 4
-    status: queued
+    status: complete
     file: plans/adr/0074-version-history-surface.md
     description: |
       Activate dormant concept_versions table: list_versions, get_version,
@@ -3480,7 +3488,7 @@ actions:
     effects:
       clippy_phase_a_complete: true
     cost: 1
-    status: queued
+    status: complete
     file: Cargo.toml
     description: |
       Promote 6 lints from pedantic/nursery blanket-allow to `warn`:
@@ -3495,7 +3503,7 @@ actions:
     effects:
       clippy_phase_b_pr1_complete: true
     cost: 3
-    status: queued
+    status: complete
     file: src/reservoir.rs, src/singularity_*.rs, src/hyperdim*.rs
     description: |
       Fix 44 float_cmp sites. Use approx_eq! macro or explicit epsilon
@@ -3507,7 +3515,7 @@ actions:
     effects:
       clippy_phase_b_pr2_complete: true
     cost: 2
-    status: queued
+    status: complete
     file: src/framework*.rs, src/singularity_cache.rs
     description: |
       Fix 21 significant_drop_tightening sites — release locks earlier in
@@ -3519,7 +3527,7 @@ actions:
     effects:
       clippy_phase_b_pr3_complete: true
     cost: 2
-    status: queued
+    status: complete
     file: src/hyperdim.rs, src/reservoir.rs, src/retrieval/bm25.rs
     description: |
       Fix 13 cast_precision_loss + 8 cast_possible_truncation sites.
@@ -3532,7 +3540,7 @@ actions:
     effects:
       clippy_phase_b_pr4_complete: true
     cost: 2
-    status: queued
+    status: complete
     file: src/framework_builder.rs, src/concept_builder.rs, others
     description: |
       Mark 25 candidate functions as `const fn` for compile-time evaluation
@@ -3545,7 +3553,7 @@ actions:
       clippy_phase_b_pr5_complete: true
       clippy_pedantic_promotion_complete: true
     cost: 2
-    status: queued
+    status: complete
     file: src/, tests/
     description: |
       Remove 7 redundant_clone sites. Mostly tests and small surface code.
@@ -3573,7 +3581,7 @@ actions:
     effects:
       cloudevents_implemented: true
     cost: 6
-    status: queued
+    status: complete
     file: src/framework_events_ce.rs
     description: |
       Implement EventEmitter trait and CloudEvents mapping logic.
@@ -3586,8 +3594,190 @@ actions:
     effects:
       cloudevents_tested: true
     cost: 4
-    status: queued
+    status: complete
     file: tests/cloudevents_integration.rs
     description: |
       Test CloudEvents emission across all MemoryEvent variants.
       Verify LogEmitter output and HttpEmitter payload structure.
+
+  <!-- Wave 26: DuckDB Companion Crate (ADRs 0079-0082) -->
+  <!-- Backfilled 2026-05-18 — code already merged in main but -->
+  <!-- was missing from ACTIONS.md. Each row marked `complete` -->
+
+  - name: duckdb_workspace_restructure
+    preconditions: []
+    effects:
+      duckdb_workspace_restructure_complete: true
+    cost: 4
+    status: complete
+    file: Cargo.toml, crates/chaotic_semantic_memory_duckdb/Cargo.toml
+    description: |
+      ADR-0079. Moved DuckDB-dependent code to a workspace member
+      crate (crates/chaotic_semantic_memory_duckdb/) to keep the core
+      crate slim and DuckDB-free.
+
+  - name: duckdb_phase1_readonly_analytics
+    preconditions:
+      duckdb_workspace_restructure_complete: true
+    effects:
+      duckdb_phase1_readonly_analytics_complete: true
+    cost: 8
+    status: complete
+    file: crates/chaotic_semantic_memory_duckdb/src/{connection,schema,stats,ingest_libsql}.rs
+    description: |
+      ADR-0080. Read-only DuckDB connector over libSQL exports.
+      Implements connection, schema, stats, libsql ingest. Tested via
+      crates/chaotic_semantic_memory_duckdb/tests/integration_tests.rs.
+
+  - name: duckdb_phase2_parquet_export
+    preconditions:
+      duckdb_phase1_readonly_analytics_complete: true
+    effects:
+      duckdb_phase2_parquet_export_complete: true
+    cost: 6
+    status: complete
+    file: crates/chaotic_semantic_memory_duckdb/src/{export_parquet,export_all,manifest}.rs
+    description: |
+      ADR-0081. Parquet export with manifest tracking and
+      bench/export ingest paths. Snapshot-tested in
+      tests/parquet_export_tests.rs (261 LOC).
+
+  - name: duckdb_phase3_cli_integration
+    preconditions:
+      duckdb_phase2_parquet_export_complete: true
+    effects:
+      duckdb_phase3_cli_integration_complete: true
+    cost: 8
+    status: complete
+    file: crates/chaotic_semantic_memory_duckdb/src/{bin/csm-analytics.rs,cli/**}
+    description: |
+      ADR-0082 (PR #242, merge 8ca0e75). `csm-analytics` standalone
+      binary plus optional integrated `csm analytics` subcommand.
+      cli_tests.rs covers help snapshots, export/inspect/query/stats.
+
+  # ─────────────────────────────────────────────────────────
+  # Memory Lifecycle Verification (2026-05-18)
+  # Dogfood: memory-lifecycle-verification skill
+  # ─────────────────────────────────────────────────────────
+
+  - name: verify_memory_lifecycle
+    preconditions:
+      cli_framework_parity_complete: true
+    effects:
+      memory_lifecycle_verification_completed: true
+    cost: 2
+    status: complete
+    file: plans/GOAP_STATE.md
+    description: |
+      Ran the memory-lifecycle-verification skill as dogfood:
+      Phase 1 (save): inject 2 concepts, associate, probe — OK
+      Phase 2 (load): export→import→roundtrip with identical
+        similarity scores (0.006055) and metadata — OK
+      Phase 3 (archive): archive marker concepts with full
+        metadata — OK
+      Phase 4 (delete): delete concept, verify removed from
+        active probe results, verify not-found error — OK
+      DB verified via sqld HTTP API & Python sqlite3 — OK
+      All validation gates pass (check, test, fmt, clippy).
+
+  # ─────────────────────────────────────────────────────────
+  # Memory Lifecycle Verification Follow-up (2026-05-18)
+  # Cost: 5 — all items are documentation/skill-reference fixes
+  # ADR-0083: Export format contract
+  # ─────────────────────────────────────────────────────────
+
+  - name: fix_sql_checks_table_names
+    preconditions:
+      memory_lifecycle_verification_completed: true
+    effects:
+      memory_lifecycle_sql_checks_fixed: true
+    cost: 1
+    status: complete
+    file: .agents/skills/memory-lifecycle-verification/references/sql_checks.sql
+    description: |
+      Fix table names: concepts→csm_concepts, associations→csm_associations,
+      source_id→from_id, target_id→to_id. Add docstring about csm_ prefix.
+
+  - name: mark_validation_checklist
+    preconditions:
+      memory_lifecycle_verification_completed: true
+    effects:
+      memory_lifecycle_checklist_marked: true
+    cost: 1
+    status: complete
+    file: .agents/skills/memory-lifecycle-verification/references/VALIDATION_CHECKLIST.md
+    description: |
+      Fill all checkboxes for 2026-05-18 verification run. Record
+      actual commands, outputs, checksums, and timestamps for audit trail.
+
+  - name: fix_goap_stale_flags
+    preconditions:
+      memory_lifecycle_verification_completed: true
+    effects:
+      memory_lifecycle_stale_flags_fixed: true
+    cost: 1
+    status: complete
+    file: plans/GOAP_STATE.md
+    description: |
+      Annotate verification_2026_04_30_archive_phase_skipped and
+      delete_phase_skipped as "2026-05-18: Resolved" since delete
+      command exists and archive marker pattern works.
+
+  - name: write_adr_0083
+    preconditions:
+      memory_lifecycle_verification_completed: true
+    effects:
+      adr_0083_export_format_documented: true
+    cost: 2
+    status: complete
+    file: plans/adr/0083-memory-lifecycle-verification-and-export-format.md
+    description: |
+      Document decision to keep export JSON associations as
+      array-of-tuples (not named objects). Chose Option 2 for
+      backward compatibility. Records all 4 gaps found during
+      verification and their resolutions.
+
+  # ─────────────────────────────────────────────────────────
+  # Release prep — v0.3.6 (queued, cost 4)
+  # ─────────────────────────────────────────────────────────
+
+  - name: release_v0_3_6
+    preconditions:
+      duckdb_phase3_cli_integration_complete: true
+      cli_framework_parity_complete: true
+      adr_backfill_complete: true
+    effects:
+      v036_released: true
+    cost: 4
+    status: complete
+    file: Cargo.toml, VERSION, CHANGELOG.md, wasm/package.json
+    description: |
+      Cut v0.3.6 to ship the merged-but-unreleased work since v0.3.5:
+      DuckDB companion Phase 1-3, hyperdim SIMD refactor, framework
+      events CloudEvents scaffolding, CLI parity smoke test, ADR parity
+      script. Follow release-management skill:
+        1. Add CHANGELOG.md [Unreleased] -> [0.3.6] section
+        2. scripts/sync-version.sh 0.3.6 (bumps Cargo.toml + wasm/package.json + VERSION)
+        3. cargo build --release to refresh Cargo.lock
+        4. Atomic commit, push, wait for CI green
+        5. gh release create v0.3.6 (triggers crates.io + npm trusted publishing)
+        6. Verify dist channels aligned (dist-channel-selection skill).
+
+  # ─────────────────────────────────────────────────────────
+  # GOAP State Reconciliation (2026-05-20)
+  # Cost: 2
+  # ADR-0084: GOAP Reconciliation and Codebase Alignment
+  # ─────────────────────────────────────────────────────────
+
+  - name: goap_state_reconciliation_2026_05
+    preconditions:
+      v036_released: true
+    effects:
+      goap_state_reconciled: true
+    cost: 2
+    status: complete
+    file: plans/GOAP_STATE.md, plans/ACTIONS.md, plans/ADR_REGISTRY.md, plans/adr/0084-goap-reconciliation.md
+    description: |
+      Perform comprehensive codebase audit and reconcile the GOAP world state
+      and actions with implemented capabilities. Document the findings and alignment
+      in ADR-0084.

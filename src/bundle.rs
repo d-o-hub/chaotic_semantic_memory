@@ -1,5 +1,9 @@
 //! Incremental bundle accumulator for streaming/sliding-window memory.
 
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+use crate::bundle_simd::{finalize_simd_avx2, update_counts_simd_avx2};
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+use crate::bundle_simd::{finalize_simd_neon, update_counts_simd_neon};
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 
@@ -33,15 +37,35 @@ impl BundleAccumulator {
 
     /// Add a hypervector to the accumulator.
     pub fn add(&mut self, hv: &HVec10240) {
-        for i in 0..80 {
-            let mut val = hv.data[i];
-            while val != 0 {
-                let j = val.trailing_zeros() as usize;
-                self.counts[i * 128 + j] += 1;
-                val &= val - 1;
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+        {
+            if is_x86_feature_detected!("avx2") {
+                // SAFETY: AVX2 feature detected at runtime.
+                unsafe { update_counts_simd_avx2(&mut self.counts, &hv.data, 1) };
+                self.n += 1;
+                return;
             }
         }
-        self.n += 1;
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+        {
+            // SAFETY: update_counts_simd_neon is safe on aarch64.
+            unsafe { update_counts_simd_neon(&mut self.counts, &hv.data, 1) };
+            self.n += 1;
+        }
+
+        #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
+        {
+            for i in 0..80 {
+                let mut val = hv.data[i];
+                while val != 0 {
+                    let j = val.trailing_zeros() as usize;
+                    self.counts[i * 128 + j] += 1;
+                    val &= val - 1;
+                }
+            }
+            self.n += 1;
+        }
     }
 
     /// Remove a hypervector from the accumulator.
@@ -52,15 +76,36 @@ impl BundleAccumulator {
         if self.n == 0 {
             return;
         }
-        for i in 0..80 {
-            let mut val = hv.data[i];
-            while val != 0 {
-                let j = val.trailing_zeros() as usize;
-                self.counts[i * 128 + j] -= 1;
-                val &= val - 1;
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+        {
+            if is_x86_feature_detected!("avx2") {
+                // SAFETY: AVX2 feature detected at runtime.
+                unsafe { update_counts_simd_avx2(&mut self.counts, &hv.data, -1) };
+                self.n -= 1;
+                return;
             }
         }
-        self.n -= 1;
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+        {
+            // SAFETY: update_counts_simd_neon is safe on aarch64.
+            unsafe { update_counts_simd_neon(&mut self.counts, &hv.data, -1) };
+            self.n -= 1;
+        }
+
+        #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
+        {
+            for i in 0..80 {
+                let mut val = hv.data[i];
+                while val != 0 {
+                    let j = val.trailing_zeros() as usize;
+                    self.counts[i * 128 + j] -= 1;
+                    val &= val - 1;
+                }
+            }
+            self.n -= 1;
+        }
     }
 
     /// Remove a hypervector from the accumulator, returning an error if empty.
@@ -73,15 +118,39 @@ impl BundleAccumulator {
                 reason: "cannot remove from empty BundleAccumulator".to_string(),
             });
         }
-        for i in 0..80 {
-            let mut val = hv.data[i];
-            while val != 0 {
-                let j = val.trailing_zeros() as usize;
-                self.counts[i * 128 + j] -= 1;
-                val &= val - 1;
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+        {
+            if is_x86_feature_detected!("avx2") {
+                // SAFETY: AVX2 feature detected at runtime.
+                unsafe { update_counts_simd_avx2(&mut self.counts, &hv.data, -1) };
+                self.n -= 1;
+                return Ok(());
             }
         }
-        self.n -= 1;
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+        {
+            // SAFETY: update_counts_simd_neon is safe on aarch64.
+            unsafe { update_counts_simd_neon(&mut self.counts, &hv.data, -1) };
+            self.n -= 1;
+        }
+
+        #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
+        {
+            for i in 0..80 {
+                let mut val = hv.data[i];
+                while val != 0 {
+                    let j = val.trailing_zeros() as usize;
+                    self.counts[i * 128 + j] -= 1;
+                    val &= val - 1;
+                }
+            }
+            self.n -= 1;
+            Ok(())
+        }
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
         Ok(())
     }
 

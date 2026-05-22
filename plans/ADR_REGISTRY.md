@@ -81,6 +81,12 @@
 | 0076 | ADR Backfill | Implemented | [adr/0076-adr-backfill.md](adr/0076-adr-backfill.md) |
 | 0077 | Clippy Pedantic Selective Promotion | Phase A+B Implemented | [adr/0077-clippy-pedantic-selective-promotion.md](adr/0077-clippy-pedantic-selective-promotion.md) |
 | 0078 | CloudEvents Event Emitter | Proposed | [adr/0078-cloudevents-event-emitter.md](adr/0078-cloudevents-event-emitter.md) |
+| 0079 | DuckDB Companion Crate — Workspace Restructure | Proposed | [adr/0079-duckdb-companion-crate-workspace.md](adr/0079-duckdb-companion-crate-workspace.md) |
+| 0080 | DuckDB Companion — Phase 1: Read-Only Analytics | Proposed | [adr/0080-duckdb-phase1-readonly-analytics.md](adr/0080-duckdb-phase1-readonly-analytics.md) |
+| 0081 | DuckDB Companion — Phase 2: Parquet Export | Proposed | [adr/0081-duckdb-phase2-parquet-export.md](adr/0081-duckdb-phase2-parquet-export.md) |
+| 0082 | DuckDB Companion — Phase 3: Optional CLI Integration | Proposed | [adr/0082-duckdb-phase3-cli-integration.md](adr/0082-duckdb-phase3-cli-integration.md) |
+| 0083 | Memory Lifecycle Verification & Export Format | Accepted | [adr/0083-memory-lifecycle-verification-and-export-format.md](adr/0083-memory-lifecycle-verification-and-export-format.md) |
+| 0084 | GOAP Reconciliation and Codebase Alignment | Accepted | [adr/0084-goap-reconciliation.md](adr/0084-goap-reconciliation.md) |
 
 ## Status Definitions
 
