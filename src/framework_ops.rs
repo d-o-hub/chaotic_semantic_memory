@@ -464,9 +464,6 @@ impl ChaoticSemanticFramework {
     /// Bundle multiple concepts into a single hypervector (strict version).
     pub async fn bundle_concepts_strict(&self, ids: &[String]) -> Result<HVec10240> {
         self.validate_batch_size(ids.len())?;
-        for id in ids {
-            Self::validate_concept_id(id)?;
-        }
         let sing = self.singularity.read().await;
         let ns = self.namespace.read().await;
         sing.bundle_concepts_strict(&ns, ids)
