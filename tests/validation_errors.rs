@@ -160,7 +160,9 @@ async fn update_concept_vector_id_validation_fails() {
         .await
         .unwrap();
 
-    let result = framework.update_concept_vector("", HVec10240::random()).await;
+    let result = framework
+        .update_concept_vector("", HVec10240::random())
+        .await;
     assert!(result.is_err());
 }
 
@@ -174,14 +176,17 @@ async fn update_concept_metadata_validation_fails() {
         .unwrap();
 
     // Invalid ID
-    let result = framework.update_concept_metadata("", std::collections::HashMap::new()).await;
+    let result = framework
+        .update_concept_metadata("", std::collections::HashMap::new())
+        .await;
     assert!(result.is_err());
 
     // Too large metadata
-    let large_metadata = std::collections::HashMap::from([
-        ("key1".to_string(), serde_json::json!("value1")),
-    ]);
-    let result = framework.update_concept_metadata("some-id", large_metadata).await;
+    let large_metadata =
+        std::collections::HashMap::from([("key1".to_string(), serde_json::json!("value1"))]);
+    let result = framework
+        .update_concept_metadata("some-id", large_metadata)
+        .await;
     assert!(result.is_err());
 }
 
