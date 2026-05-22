@@ -46,9 +46,9 @@ pub(crate) unsafe fn hamming_distance_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 8
     // 20 iterations and each byte popcount is at most 8, the maximum possible value
     // is 160 (20 * 8), which fits within a u8 (0..255). Horizontal sums are moved
     // outside the loop to minimize high-latency instructions.
+    let mut acc0 = _mm256_setzero_si256();
+    let mut acc1 = _mm256_setzero_si256();
     let zero = _mm256_setzero_si256();
-    let mut acc0 = zero;
-    let mut acc1 = zero;
     let low_mask = _mm256_set1_epi8(0x0F);
     let lookup = _mm256_setr_epi8(
         0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3,
