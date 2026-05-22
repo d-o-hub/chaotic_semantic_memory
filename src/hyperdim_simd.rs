@@ -385,4 +385,21 @@ mod tests {
             .sum();
         assert_eq!(distance, expected);
     }
+
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+    #[test]
+    fn hamming_distance_simd_avx2_edge_cases() {
+        if std::arch::is_x86_feature_detected!("avx2") {
+            let zero = [0u128; 80];
+            let ones = [u128::MAX; 80];
+
+            // Identity
+            assert_eq!(unsafe { hamming_distance_simd_avx2(&zero, &zero) }, 0);
+            assert_eq!(unsafe { hamming_distance_simd_avx2(&ones, &ones) }, 0);
+
+            // Max distance
+            assert_eq!(unsafe { hamming_distance_simd_avx2(&zero, &ones) }, 10240);
+            assert_eq!(unsafe { hamming_distance_simd_avx2(&ones, &zero) }, 10240);
+        }
+    }
 }
