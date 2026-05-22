@@ -151,3 +151,79 @@ async fn batch_size_exceeded_fails() {
     let result = framework.inject_concepts(&concepts).await;
     assert!(result.is_err());
 }
+
+#[tokio::test]
+async fn update_concept_vector_id_validation_fails() {
+    let framework = ChaoticSemanticFramework::builder()
+        .without_persistence()
+        .build()
+        .await
+        .unwrap();
+
+    let result = framework.update_concept_vector("", HVec10240::random()).await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn update_concept_metadata_validation_fails() {
+    let framework = ChaoticSemanticFramework::builder()
+        .without_persistence()
+        .with_max_metadata_bytes(10)
+        .build()
+        .await
+        .unwrap();
+
+    // Invalid ID
+    let result = framework.update_concept_metadata("", std::collections::HashMap::new()).await;
+    assert!(result.is_err());
+
+    // Too large metadata
+    let large_metadata = std::collections::HashMap::from([
+        ("key1".to_string(), serde_json::json!("value1")),
+    ]);
+    let result = framework.update_concept_metadata("some-id", large_metadata).await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn disassociate_id_validation_fails() {
+    let framework = ChaoticSemanticFramework::builder()
+        .without_persistence()
+        .build()
+        .await
+        .unwrap();
+
+    // Invalid 'from'
+    let result = framework.disassociate("", "to-id").await;
+    assert!(result.is_err());
+
+    // Invalid 'to'
+    let result = framework.disassociate("from-id", "").await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn clear_associations_id_validation_fails() {
+    let framework = ChaoticSemanticFramework::builder()
+        .without_persistence()
+        .build()
+        .await
+        .unwrap();
+
+    let result = framework.clear_associations("").await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn bundle_concepts_strict_batch_size_fails() {
+    let framework = ChaoticSemanticFramework::builder()
+        .without_persistence()
+        .with_max_batch_size(2)
+        .build()
+        .await
+        .unwrap();
+
+    let ids = vec!["c1".to_string(), "c2".to_string(), "c3".to_string()];
+    let result = framework.bundle_concepts_strict(&ids).await;
+    assert!(result.is_err());
+}
