@@ -41,10 +41,13 @@ pub(crate) unsafe fn hamming_distance_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 8
         _mm256_set1_epi8, _mm256_setr_epi8, _mm256_setzero_si256, _mm256_shuffle_epi8,
         _mm256_srli_epi16, _mm256_storeu_si256, _mm256_xor_si256,
     };
-    // Performance Optimization: Hoist zero-vector intrinsic and use dual accumulators
-    // to break dependency chains, improving ILP and reducing loop control overhead.
-    let mut total_count0 = _mm256_setzero_si256();
-    let mut total_count1 = _mm256_setzero_si256();
+    // Performance Optimization: Accumulate byte-wise popcounts using PADDB instead of
+    // performing PSADBW horizontal sums in every iteration. Since the loop runs for
+    // 20 iterations and each byte popcount is at most 8, the maximum possible value
+    // is 160 (20 * 8), which fits within a u8 (0..255). Horizontal sums are moved
+    // outside the loop to minimize high-latency instructions.
+    let mut acc0 = _mm256_setzero_si256();
+    let mut acc1 = _mm256_setzero_si256();
     let zero = _mm256_setzero_si256();
     let low_mask = _mm256_set1_epi8(0x0F);
     let lookup = _mm256_setr_epi8(
@@ -64,7 +67,7 @@ pub(crate) unsafe fn hamming_distance_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 8
             let pop_low0 = _mm256_shuffle_epi8(lookup, low0);
             let pop_high0 = _mm256_shuffle_epi8(lookup, high0);
             let combined0 = _mm256_add_epi8(pop_low0, pop_high0);
-            total_count0 = _mm256_add_epi64(total_count0, _mm256_sad_epu8(combined0, zero));
+            acc0 = _mm256_add_epi8(acc0, combined0);
 
             let a1 = _mm256_loadu_si256(lhs.as_ptr().add(i + 2).cast());
             let b1 = _mm256_loadu_si256(rhs.as_ptr().add(i + 2).cast());
@@ -74,9 +77,11 @@ pub(crate) unsafe fn hamming_distance_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 8
             let pop_low1 = _mm256_shuffle_epi8(lookup, low1);
             let pop_high1 = _mm256_shuffle_epi8(lookup, high1);
             let combined1 = _mm256_add_epi8(pop_low1, pop_high1);
-            total_count1 = _mm256_add_epi64(total_count1, _mm256_sad_epu8(combined1, zero));
+            acc1 = _mm256_add_epi8(acc1, combined1);
         }
     }
+    let total_count0 = _mm256_sad_epu8(acc0, zero);
+    let total_count1 = _mm256_sad_epu8(acc1, zero);
     let total_count = _mm256_add_epi64(total_count0, total_count1);
     let mut out = [0u64; 4];
     unsafe { _mm256_storeu_si256(out.as_mut_ptr().cast(), total_count) };
