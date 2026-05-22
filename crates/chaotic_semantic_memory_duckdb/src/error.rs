@@ -29,7 +29,7 @@ mod tests {
 
     #[test]
     fn test_error_conversions() {
-        let io_err = std::io::Error::new(std::io::ErrorKind::Other, "test");
+        let io_err = std::io::Error::other("test");
         let err: AnalyticsError = io_err.into();
         assert!(matches!(err, AnalyticsError::Io(_)));
 

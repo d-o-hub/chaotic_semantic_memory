@@ -79,6 +79,7 @@ impl ChaoticSemanticFramework {
     /// Update a concept's vector (WASM-only, memory-only).
     #[cfg(target_arch = "wasm32")]
     pub async fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()> {
+        Self::validate_concept_id(id)?;
         let ns = self.namespace.read().await;
         self.singularity.write().await.update(&ns, id, vector)?;
         self.emit_event(MemoryEvent::ConceptUpdated {
@@ -96,6 +97,8 @@ impl ChaoticSemanticFramework {
         id: &str,
         metadata: HashMap<String, serde_json::Value>,
     ) -> Result<()> {
+        Self::validate_concept_id(id)?;
+        Self::validate_metadata_bytes(&metadata, self.config.max_metadata_bytes)?;
         let ns = self.namespace.read().await;
         self.singularity
             .write()
@@ -112,6 +115,8 @@ impl ChaoticSemanticFramework {
     /// Remove an association (WASM-only, memory-only).
     #[cfg(target_arch = "wasm32")]
     pub async fn disassociate(&self, from: &str, to: &str) -> Result<()> {
+        Self::validate_concept_id(from)?;
+        Self::validate_concept_id(to)?;
         let ns = self.namespace.read().await;
         self.singularity.write().await.disassociate(&ns, from, to)?;
         self.emit_event(MemoryEvent::Disassociated {

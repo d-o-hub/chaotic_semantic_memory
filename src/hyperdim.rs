@@ -16,18 +16,20 @@ pub use crate::hyperdim_batch::batch_cosine_similarity;
 
 // Import SIMD functions from extension module
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-use crate::hyperdim_simd::{
-    and_simd_avx2, bind_simd_avx2, bundle_block_avx2, hamming_distance_simd_avx2,
-};
+use crate::hyperdim_simd::{and_simd_avx2, bind_simd_avx2, hamming_distance_simd_avx2};
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-use crate::hyperdim_simd::{
-    and_simd_neon, bind_simd_neon, bundle_block_neon, hamming_distance_simd_neon,
-};
+use crate::hyperdim_simd::{and_simd_neon, bind_simd_neon, hamming_distance_simd_neon};
 #[cfg(all(
     not(target_arch = "wasm32"),
     any(target_arch = "x86_64", target_arch = "x86")
 ))]
 use crate::hyperdim_simd::{and_simd_x86, bind_simd_x86};
+
+#[cfg(all(target_arch = "x86_64", not(target_arch = "wasm32")))]
+use crate::hyperdim_simd_bundle::bundle_block_avx2;
+
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+use crate::hyperdim_simd_bundle::bundle_block_neon;
 
 /// 10240-bit hypervector (80 x 128-bit words)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
