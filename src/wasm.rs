@@ -431,7 +431,7 @@ pub fn cosine_similarity(a: &[u8], b: &[u8]) -> Result<f32, JsValue> {
 }
 
 /// Convert a Concept to a JsValue object
-fn concept_to_js_value(concept: &Concept) -> Result<JsValue, JsValue> {
+pub(crate) fn concept_to_js_value(concept: &Concept) -> Result<JsValue, JsValue> {
     let obj = js_sys::Object::new();
 
     js_sys::Reflect::set(&obj, &"id".into(), &concept.id.clone().into())

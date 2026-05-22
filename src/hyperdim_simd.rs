@@ -5,12 +5,7 @@
 //! - aarch64: NEON (128-bit)
 //!
 //! Also provides optimized Hamming distance calculation.
-/// Optimized Hamming distance calculation using unrolled loop.
-///
-/// This implementation uses a 4x unrolled loop with independent accumulators
-/// to break the serial dependency chain of popcount operations, maximizing
-/// Instruction-Level Parallelism (ILP). It operates on 64-bit words to avoid
-/// the overhead of 128-bit operations on many architectures.
+/// Optimized Hamming distance calculation using a 4x unrolled loop with independent accumulators.
 #[inline]
 pub(crate) fn hamming_distance_optimized(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
     let distance: u32;

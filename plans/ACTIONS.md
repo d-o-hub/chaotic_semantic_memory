@@ -3420,7 +3420,7 @@ actions:
     effects:
       version_history_surface_implemented: true
     cost: 4
-    status: queued
+    status: complete
     file: plans/adr/0074-version-history-surface.md
     description: |
       Activate dormant concept_versions table: list_versions, get_version,
@@ -3594,7 +3594,7 @@ actions:
     effects:
       cloudevents_tested: true
     cost: 4
-    status: queued
+    status: complete
     file: tests/cloudevents_integration.rs
     description: |
       Test CloudEvents emission across all MemoryEvent variants.
