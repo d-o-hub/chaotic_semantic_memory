@@ -97,6 +97,17 @@ impl SparseWeights {
         // SAFETY: start and end are derived from row_offsets which are valid
         // indices into entries.
         let entries = unsafe { self.entries.get_unchecked(start..end) };
+
+        // Debug assertions to verify safety invariants during testing.
+        #[cfg(debug_assertions)]
+        for entry in entries {
+            debug_assert!(
+                (entry.index as usize) < values.len(),
+                "Index {} exceeds values length {}",
+                entry.index,
+                values.len()
+            );
+        }
         let mut i = 0;
 
         // Use multiple accumulators to break the serial dependency chain of mul_add.

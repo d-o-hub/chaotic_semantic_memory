@@ -297,8 +297,10 @@ impl Reservoir {
                 let mut word = 0u128;
                 for j in 0..128 {
                     let bit_index = i * 128 + j;
-                    let sum: f32 = self.state
-                        [(bit_index * chunk_size)..(bit_index * chunk_size + chunk_size)]
+                    let start = bit_index * chunk_size;
+                    // SAFETY: bit_index * chunk_size is guaranteed to be within bounds
+                    // since bit_index < 10240 and chunk_size = size / 10240.
+                    let sum: f32 = unsafe { self.state.get_unchecked(start..start + chunk_size) }
                         .iter()
                         .sum();
                     if sum > 0.0 {
@@ -330,8 +332,9 @@ impl Reservoir {
         for (i, word) in data.iter_mut().enumerate() {
             for j in 0..128 {
                 let bit_index = i * 128 + j;
-                let sum: f32 = self.state
-                    [(bit_index * chunk_size)..(bit_index * chunk_size + chunk_size)]
+                let start = bit_index * chunk_size;
+                // SAFETY: bit_index * chunk_size is guaranteed to be within bounds.
+                let sum: f32 = unsafe { self.state.get_unchecked(start..start + chunk_size) }
                     .iter()
                     .sum();
                 if sum > 0.0 {
@@ -443,7 +446,10 @@ impl ChaoticReservoir {
             } else {
                 0.0
             };
-            self.noisy_input[i] = *value + noise;
+            // SAFETY: noisy_input is sized to input_size, same as input.
+            unsafe {
+                *self.noisy_input.get_unchecked_mut(i) = *value + noise;
+            }
         }
         self.base.step(&self.noisy_input)
     }
