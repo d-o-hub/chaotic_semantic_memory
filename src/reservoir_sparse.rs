@@ -85,6 +85,9 @@ impl SparseWeights {
     }
 
     #[inline(always)]
+    /// # Safety
+    /// Caller must ensure `row` is within `0..row_offsets.len() - 1` and
+    /// `values` slice is large enough to satisfy all indices in the sparse row.
     pub(crate) unsafe fn dot_row(&self, row: usize, values: &[f32]) -> f32 {
         // SAFETY: row is guaranteed to be < rows (which is row_offsets.len() - 1)
         // by the caller (Reservoir::step loops).
@@ -225,7 +228,7 @@ mod tests {
         let values = [1.0_f32; 10];
 
         // Compute dot product for row 0
-        let result = weights.dot_row(0, &values);
+        let result = unsafe { weights.dot_row(0, &values) };
 
         // Result should be sum of weights for row 0
         let start = weights.row_offsets[0];
@@ -245,7 +248,7 @@ mod tests {
 
         // Any dot product with zeros should be zero
         for row in 0..5 {
-            let result = weights.dot_row(row, &values);
+            let result = unsafe { weights.dot_row(row, &values) };
             assert!(result.abs() < f32::EPSILON);
         }
     }
@@ -274,13 +277,13 @@ mod tests {
         let values = [10.0, 20.0, 30.0, 40.0];
 
         // Row 0: weight 0.5 at index 0, value 10.0 → 5.0
-        assert!((sparse.dot_row(0, &values) - (5.0)).abs() < 1e-6);
+        assert!((unsafe { sparse.dot_row(0, &values) } - 5.0).abs() < 1e-6);
 
         // Row 1: weight 1.0 at index 1, value 20.0 → 20.0
-        assert!((sparse.dot_row(1, &values) - (20.0)).abs() < 1e-6);
+        assert!((unsafe { sparse.dot_row(1, &values) } - 20.0).abs() < 1e-6);
 
         // Row 2: weight 2.0 at index 2, value 30.0 → 60.0
-        assert!((sparse.dot_row(2, &values) - (60.0)).abs() < 1e-6);
+        assert!((unsafe { sparse.dot_row(2, &values) } - 60.0).abs() < 1e-6);
     }
 
     #[test]
@@ -311,13 +314,13 @@ mod tests {
         let values = [10.0, 20.0, 30.0, 40.0];
 
         // Row 1 is empty → dot product should be 0
-        assert!((sparse.dot_row(1, &values) - (0.0)).abs() < 1e-6);
+        assert!((unsafe { sparse.dot_row(1, &values) } - 0.0).abs() < 1e-6);
 
         // Row 0: (1.0 * 10.0) + (2.0 * 20.0) = 50.0
-        assert!((sparse.dot_row(0, &values) - (50.0)).abs() < 1e-6);
+        assert!((unsafe { sparse.dot_row(0, &values) } - 50.0).abs() < 1e-6);
 
         // Row 2: (3.0 * 30.0) + (4.0 * 40.0) = 250.0
-        assert!((sparse.dot_row(2, &values) - (250.0)).abs() < 1e-6);
+        assert!((unsafe { sparse.dot_row(2, &values) } - 250.0).abs() < 1e-6);
     }
 
     #[test]
@@ -374,7 +377,7 @@ mod tests {
         let values = [10.0, 20.0, 30.0];
 
         // Row 0: (-1.0 * 10.0) + (2.0 * 20.0) + (-3.0 * 30.0) = -10 + 40 - 90 = -60
-        assert!((sparse.dot_row(0, &values) - (-60.0)).abs() < 1e-6);
+        assert!((unsafe { sparse.dot_row(0, &values) } - (-60.0)).abs() < 1e-6);
     }
 
     #[test]
@@ -396,7 +399,7 @@ mod tests {
         let values = [-10.0, -20.0];
 
         // Row 0: (1.0 * -10.0) + (-1.0 * -20.0) = -10 + 20 = 10
-        assert!((sparse.dot_row(0, &values) - (10.0)).abs() < 1e-6);
+        assert!((unsafe { sparse.dot_row(0, &values) } - 10.0).abs() < 1e-6);
     }
 
     #[test]
@@ -417,7 +420,7 @@ mod tests {
                 entries,
             };
             let values: Vec<f32> = vec![1.0; n];
-            let result = sparse.dot_row(0, &values);
+            let result = unsafe { sparse.dot_row(0, &values) };
             assert!((result - n as f32).abs() < 1e-6, "Failed for n={}", n);
         }
     }
@@ -436,7 +439,7 @@ mod tests {
         values[n - 1] = 5.0;
 
         // Should correctly access the last element
-        assert!((sparse.dot_row(0, &values) - 10.0).abs() < 1e-6);
+        assert!((unsafe { sparse.dot_row(0, &values) } - 10.0).abs() < 1e-6);
     }
 
     #[test]
@@ -452,6 +455,6 @@ mod tests {
         };
         // Providing shorter values slice than the entry index should panic in debug mode
         let values = vec![1.0; 5];
-        let _ = sparse.dot_row(0, &values);
+        let _ = unsafe { sparse.dot_row(0, &values) };
     }
 }

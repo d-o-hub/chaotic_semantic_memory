@@ -360,7 +360,8 @@ impl Reservoir {
 
         for _ in 0..16 {
             for (i, y_i) in y.iter_mut().enumerate() {
-                *y_i = w.dot_row(i, &v);
+                // SAFETY: i is within bounds, v is correct size.
+                *y_i = unsafe { w.dot_row(i, &v) };
             }
 
             let mut norm = 0.0f32;
@@ -379,7 +380,8 @@ impl Reservoir {
 
         let mut wv = vec![0.0f32; size];
         for (i, wv_i) in wv.iter_mut().enumerate() {
-            *wv_i = w.dot_row(i, &v);
+            // SAFETY: i is within bounds, v is correct size.
+            *wv_i = unsafe { w.dot_row(i, &v) };
         }
 
         let mut numerator = 0.0f32;
