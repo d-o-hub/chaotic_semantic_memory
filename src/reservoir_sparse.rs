@@ -85,7 +85,7 @@ impl SparseWeights {
     }
 
     #[inline(always)]
-    pub(crate) fn dot_row(&self, row: usize, values: &[f32]) -> f32 {
+    pub(crate) unsafe fn dot_row(&self, row: usize, values: &[f32]) -> f32 {
         // SAFETY: row is guaranteed to be < rows (which is row_offsets.len() - 1)
         // by the caller (Reservoir::step loops).
         let (start, end) = unsafe {
