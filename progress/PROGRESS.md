@@ -1,3 +1,8 @@
+## 2026-05-23: Documentation Audit
+
+### Summary
+Synchronized README, architecture docs, and books with current implementation state, explicitly detailing zero-allocation query caches and WASM limitations while removing outdated fluff.
+
 ## 2026-04-11: Persistence Field Integrity Hardening
 
 ### Summary

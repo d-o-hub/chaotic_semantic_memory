@@ -951,7 +951,7 @@ world_state:
     registry_count: 80
     disk_count: 79
     parity_satisfied: true
-  action_last_completed: goap_orchestrator_verification_2026_05_21
+  action_last_completed: synchronize_documentation_audit_2026_05
 
   # ═══════════════════════════════════════════════════════
   # Pre-Release Gate Fixes (2026-05-21)
