@@ -85,10 +85,32 @@ impl SparseWeights {
     }
 
     #[inline(always)]
-    pub(crate) fn dot_row(&self, row: usize, values: &[f32]) -> f32 {
-        let start = self.row_offsets[row];
-        let end = self.row_offsets[row + 1];
-        let entries = &self.entries[start..end];
+    /// # Safety
+    /// Caller must ensure `row` is within `0..row_offsets.len() - 1` and
+    /// `values` slice is large enough to satisfy all indices in the sparse row.
+    pub(crate) unsafe fn dot_row(&self, row: usize, values: &[f32]) -> f32 {
+        // SAFETY: row is guaranteed to be < rows (which is row_offsets.len() - 1)
+        // by the caller (Reservoir::step loops).
+        let (start, end) = unsafe {
+            (
+                *self.row_offsets.get_unchecked(row),
+                *self.row_offsets.get_unchecked(row + 1),
+            )
+        };
+        // SAFETY: start and end are derived from row_offsets which are valid
+        // indices into entries.
+        let entries = unsafe { self.entries.get_unchecked(start..end) };
+
+        // Debug assertions to verify safety invariants during testing.
+        #[cfg(debug_assertions)]
+        for entry in entries {
+            debug_assert!(
+                (entry.index as usize) < values.len(),
+                "Index {} exceeds values length {}",
+                entry.index,
+                values.len()
+            );
+        }
         let mut i = 0;
 
         // Use multiple accumulators to break the serial dependency chain of mul_add.
@@ -99,26 +121,40 @@ impl SparseWeights {
         let mut sum3 = 0.0;
 
         while i + 3 < entries.len() {
-            sum0 = entries[i]
-                .weight
-                .mul_add(values[entries[i].index as usize], sum0);
-            sum1 = entries[i + 1]
-                .weight
-                .mul_add(values[entries[i + 1].index as usize], sum1);
-            sum2 = entries[i + 2]
-                .weight
-                .mul_add(values[entries[i + 2].index as usize], sum2);
-            sum3 = entries[i + 3]
-                .weight
-                .mul_add(values[entries[i + 3].index as usize], sum3);
+            // SAFETY: indices are guaranteed to be within the `values` buffer range
+            // by construction in `build` and `build_local_reservoir`. Loop bounds
+            // are strictly checked against `entries.len()`.
+            unsafe {
+                let e0 = entries.get_unchecked(i);
+                let e1 = entries.get_unchecked(i + 1);
+                let e2 = entries.get_unchecked(i + 2);
+                let e3 = entries.get_unchecked(i + 3);
+
+                sum0 = e0
+                    .weight
+                    .mul_add(*values.get_unchecked(e0.index as usize), sum0);
+                sum1 = e1
+                    .weight
+                    .mul_add(*values.get_unchecked(e1.index as usize), sum1);
+                sum2 = e2
+                    .weight
+                    .mul_add(*values.get_unchecked(e2.index as usize), sum2);
+                sum3 = e3
+                    .weight
+                    .mul_add(*values.get_unchecked(e3.index as usize), sum3);
+            }
             i += 4;
         }
 
         let mut sum = (sum0 + sum1) + (sum2 + sum3);
         while i < entries.len() {
-            sum = entries[i]
-                .weight
-                .mul_add(values[entries[i].index as usize], sum);
+            // SAFETY: same as above.
+            unsafe {
+                let e = entries.get_unchecked(i);
+                sum = e
+                    .weight
+                    .mul_add(*values.get_unchecked(e.index as usize), sum);
+            }
             i += 1;
         }
         sum
@@ -192,7 +228,7 @@ mod tests {
         let values = [1.0_f32; 10];
 
         // Compute dot product for row 0
-        let result = weights.dot_row(0, &values);
+        let result = unsafe { weights.dot_row(0, &values) };
 
         // Result should be sum of weights for row 0
         let start = weights.row_offsets[0];
@@ -212,7 +248,7 @@ mod tests {
 
         // Any dot product with zeros should be zero
         for row in 0..5 {
-            let result = weights.dot_row(row, &values);
+            let result = unsafe { weights.dot_row(row, &values) };
             assert!(result.abs() < f32::EPSILON);
         }
     }
@@ -241,13 +277,13 @@ mod tests {
         let values = [10.0, 20.0, 30.0, 40.0];
 
         // Row 0: weight 0.5 at index 0, value 10.0 → 5.0
-        assert!((sparse.dot_row(0, &values) - (5.0)).abs() < 1e-6);
+        assert!((unsafe { sparse.dot_row(0, &values) } - 5.0).abs() < 1e-6);
 
         // Row 1: weight 1.0 at index 1, value 20.0 → 20.0
-        assert!((sparse.dot_row(1, &values) - (20.0)).abs() < 1e-6);
+        assert!((unsafe { sparse.dot_row(1, &values) } - 20.0).abs() < 1e-6);
 
         // Row 2: weight 2.0 at index 2, value 30.0 → 60.0
-        assert!((sparse.dot_row(2, &values) - (60.0)).abs() < 1e-6);
+        assert!((unsafe { sparse.dot_row(2, &values) } - 60.0).abs() < 1e-6);
     }
 
     #[test]
@@ -278,13 +314,13 @@ mod tests {
         let values = [10.0, 20.0, 30.0, 40.0];
 
         // Row 1 is empty → dot product should be 0
-        assert!((sparse.dot_row(1, &values) - (0.0)).abs() < 1e-6);
+        assert!((unsafe { sparse.dot_row(1, &values) } - 0.0).abs() < 1e-6);
 
         // Row 0: (1.0 * 10.0) + (2.0 * 20.0) = 50.0
-        assert!((sparse.dot_row(0, &values) - (50.0)).abs() < 1e-6);
+        assert!((unsafe { sparse.dot_row(0, &values) } - 50.0).abs() < 1e-6);
 
         // Row 2: (3.0 * 30.0) + (4.0 * 40.0) = 250.0
-        assert!((sparse.dot_row(2, &values) - (250.0)).abs() < 1e-6);
+        assert!((unsafe { sparse.dot_row(2, &values) } - 250.0).abs() < 1e-6);
     }
 
     #[test]
@@ -341,7 +377,7 @@ mod tests {
         let values = [10.0, 20.0, 30.0];
 
         // Row 0: (-1.0 * 10.0) + (2.0 * 20.0) + (-3.0 * 30.0) = -10 + 40 - 90 = -60
-        assert!((sparse.dot_row(0, &values) - (-60.0)).abs() < 1e-6);
+        assert!((unsafe { sparse.dot_row(0, &values) } - (-60.0)).abs() < 1e-6);
     }
 
     #[test]
@@ -363,6 +399,62 @@ mod tests {
         let values = [-10.0, -20.0];
 
         // Row 0: (1.0 * -10.0) + (-1.0 * -20.0) = -10 + 20 = 10
-        assert!((sparse.dot_row(0, &values) - (10.0)).abs() < 1e-6);
+        assert!((unsafe { sparse.dot_row(0, &values) } - 10.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn dot_row_residue_handling() {
+        // Test 1, 2, 3, 5 elements to verify unrolling and tail logic
+        for n in 1..=6 {
+            if n == 4 {
+                continue;
+            }
+            let entries: Vec<WeightEntry> = (0..n)
+                .map(|i| WeightEntry {
+                    index: i as u32,
+                    weight: 1.0,
+                })
+                .collect();
+            let sparse = SparseWeights {
+                row_offsets: vec![0, n],
+                entries,
+            };
+            let values: Vec<f32> = vec![1.0; n];
+            let result = unsafe { sparse.dot_row(0, &values) };
+            assert!((result - n as f32).abs() < 1e-6, "Failed for n={}", n);
+        }
+    }
+
+    #[test]
+    fn dot_row_boundary_test() {
+        let n = 10;
+        let sparse = SparseWeights {
+            row_offsets: vec![0, 1],
+            entries: vec![WeightEntry {
+                index: (n - 1) as u32,
+                weight: 2.0,
+            }],
+        };
+        let mut values = vec![0.0; n];
+        values[n - 1] = 5.0;
+
+        // Should correctly access the last element
+        assert!((unsafe { sparse.dot_row(0, &values) } - 10.0).abs() < 1e-6);
+    }
+
+    #[test]
+    #[should_panic(expected = "Index 9 exceeds values length 5")]
+    fn dot_row_short_input_panics() {
+        let n = 10;
+        let sparse = SparseWeights {
+            row_offsets: vec![0, 1],
+            entries: vec![WeightEntry {
+                index: (n - 1) as u32,
+                weight: 2.0,
+            }],
+        };
+        // Providing shorter values slice than the entry index should panic in debug mode
+        let values = vec![1.0; 5];
+        let _ = unsafe { sparse.dot_row(0, &values) };
     }
 }

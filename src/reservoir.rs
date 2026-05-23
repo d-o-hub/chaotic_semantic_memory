@@ -27,6 +27,7 @@ pub struct ReservoirMetricsSnapshot {
 }
 
 /// Output of a reservoir step (ADR-0078)
+#[derive(Debug)]
 pub struct ReservoirStepOutput<'a> {
     pub state: &'a [f32],
     pub state_norm: f64,
@@ -175,35 +176,41 @@ impl Reservoir {
         let update_phase = self.update_phase;
         let mut change_norm_sq = 0.0;
         for i in (update_phase..self.size).step_by(self.update_stride) {
-            // Algorithmic Optimization: Lazy partial input projection.
-            if self.node_versions[i] != self.input_version {
-                self.input_projection[i] = self.w_in.dot_row(i, input);
-                self.node_versions[i] = self.input_version;
+            // SAFETY: all buffers are sized to `self.size` and loop bounds are safe.
+            unsafe {
+                // Algorithmic Optimization: Lazy partial input projection.
+                if *self.node_versions.get_unchecked(i) != self.input_version {
+                    *self.input_projection.get_unchecked_mut(i) = self.w_in.dot_row(i, input);
+                    *self.node_versions.get_unchecked_mut(i) = self.input_version;
+                }
+
+                let res_sum = self.w_res.dot_row(i, &self.state);
+                let activated = fast_tanh(*self.input_projection.get_unchecked(i) + res_sum);
+                let current_val = *self.state.get_unchecked(i);
+                let inertial = beta * (current_val - *self.prev_state.get_unchecked(i));
+
+                // Compute new state into scratch using a stable snapshot of `self.state`.
+                *self.scratch.get_unchecked_mut(i) =
+                    current_val.mul_add(one_minus_alpha, activated.mul_add(self.alpha, inertial));
+
+                let diff = *self.scratch.get_unchecked(i) - current_val;
+                change_norm_sq += diff * diff;
             }
-
-            let res_sum = self.w_res.dot_row(i, &self.state);
-            let activated = fast_tanh(self.input_projection[i] + res_sum);
-            let current_val = self.state[i];
-            let inertial = beta * (current_val - self.prev_state[i]);
-
-            // Compute new state into scratch using a stable snapshot of `self.state`.
-            self.scratch[i] =
-                current_val.mul_add(one_minus_alpha, activated.mul_add(self.alpha, inertial));
-
-            let diff = self.scratch[i] - current_val;
-            change_norm_sq += diff * diff;
         }
 
         // Second pass: Commit the updates for this phase.
         // This keeps semantics synchronous within the phase (no order dependency).
         for i in (update_phase..self.size).step_by(self.update_stride) {
-            let old_val = self.state[i];
-            let new_val = self.scratch[i];
-            self.prev_state[i] = old_val;
-            self.state[i] = new_val;
-            // Incremental norm update: subtract old square, add new square.
-            self.state_norm_sq +=
-                (f64::from(new_val)).mul_add(f64::from(new_val), -f64::from(old_val).powi(2));
+            // SAFETY: same as above.
+            unsafe {
+                let old_val = *self.state.get_unchecked(i);
+                let new_val = *self.scratch.get_unchecked(i);
+                *self.prev_state.get_unchecked_mut(i) = old_val;
+                *self.state.get_unchecked_mut(i) = new_val;
+                // Incremental norm update: subtract old square, add new square.
+                self.state_norm_sq +=
+                    (f64::from(new_val)).mul_add(f64::from(new_val), -f64::from(old_val).powi(2));
+            }
         }
 
         // Periodic full re-calculation to prevent drift from precision errors.
@@ -290,8 +297,10 @@ impl Reservoir {
                 let mut word = 0u128;
                 for j in 0..128 {
                     let bit_index = i * 128 + j;
-                    let sum: f32 = self.state
-                        [(bit_index * chunk_size)..(bit_index * chunk_size + chunk_size)]
+                    let start = bit_index * chunk_size;
+                    // SAFETY: bit_index * chunk_size is guaranteed to be within bounds
+                    // since bit_index < 10240 and chunk_size = size / 10240.
+                    let sum: f32 = unsafe { self.state.get_unchecked(start..start + chunk_size) }
                         .iter()
                         .sum();
                     if sum > 0.0 {
@@ -323,8 +332,9 @@ impl Reservoir {
         for (i, word) in data.iter_mut().enumerate() {
             for j in 0..128 {
                 let bit_index = i * 128 + j;
-                let sum: f32 = self.state
-                    [(bit_index * chunk_size)..(bit_index * chunk_size + chunk_size)]
+                let start = bit_index * chunk_size;
+                // SAFETY: bit_index * chunk_size is guaranteed to be within bounds.
+                let sum: f32 = unsafe { self.state.get_unchecked(start..start + chunk_size) }
                     .iter()
                     .sum();
                 if sum > 0.0 {
@@ -350,7 +360,8 @@ impl Reservoir {
 
         for _ in 0..16 {
             for (i, y_i) in y.iter_mut().enumerate() {
-                *y_i = w.dot_row(i, &v);
+                // SAFETY: i is within bounds, v is correct size.
+                *y_i = unsafe { w.dot_row(i, &v) };
             }
 
             let mut norm = 0.0f32;
@@ -369,7 +380,8 @@ impl Reservoir {
 
         let mut wv = vec![0.0f32; size];
         for (i, wv_i) in wv.iter_mut().enumerate() {
-            *wv_i = w.dot_row(i, &v);
+            // SAFETY: i is within bounds, v is correct size.
+            *wv_i = unsafe { w.dot_row(i, &v) };
         }
 
         let mut numerator = 0.0f32;
@@ -436,7 +448,10 @@ impl ChaoticReservoir {
             } else {
                 0.0
             };
-            self.noisy_input[i] = *value + noise;
+            // SAFETY: noisy_input is sized to input_size, same as input.
+            unsafe {
+                *self.noisy_input.get_unchecked_mut(i) = *value + noise;
+            }
         }
         self.base.step(&self.noisy_input)
     }
@@ -454,46 +469,5 @@ impl ChaoticReservoir {
     }
 }
 #[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn new_valid() {
-        let r = Reservoir::new(1024, 10240).unwrap();
-        assert_eq!(r.size(), 10240);
-    }
-    #[test]
-    fn new_invalid_size() {
-        assert!(Reservoir::new(1024, 0).is_err());
-        assert!(Reservoir::new(1024, 200_000).is_err());
-    }
-    #[test]
-    fn step_ok() {
-        let mut r = Reservoir::new(1024, 10240).unwrap();
-        let out = r.step(&[0.0; 1024]).unwrap();
-        assert_eq!(out.state.len(), 10240);
-    }
-    #[test]
-    fn reset_clears() {
-        let mut r = Reservoir::new(1024, 10240).unwrap();
-        r.step(&[1.0; 1024]).unwrap();
-        r.reset();
-        assert!(r.state().iter().all(|x| *x == 0.0));
-    }
-    #[test]
-    fn spectral_radius_bounds() {
-        let mut r = Reservoir::new(1024, 10240).unwrap();
-        assert!(r.set_spectral_radius(0.8).is_err());
-        r.set_spectral_radius(1.0).unwrap();
-    }
-    #[test]
-    fn metrics_steps() {
-        let mut r = Reservoir::new(1024, 10240).unwrap();
-        r.step(&[0.0; 1024]).unwrap();
-        assert_eq!(r.metrics_snapshot().reservoir_steps_total, 1);
-    }
-    #[test]
-    fn chaotic_new() {
-        let c = ChaoticReservoir::new(1024, 10240, 0.1).unwrap();
-        assert_eq!(c.state().len(), 10240);
-    }
-}
+#[path = "reservoir_tests.rs"]
+mod reservoir_tests;
