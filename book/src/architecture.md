@@ -44,7 +44,7 @@ Concept storage and semantic search:
 
 - HashMap-based concept storage
 - Association graph (weighted edges)
-- LRU cache for similarity queries
+- Zero-allocation query cache for similarity queries
 - Rayon-parallel similarity search
 
 ### Framework (`framework.rs`)
@@ -91,3 +91,5 @@ process_sequence(inputs)
 | LOC per file | ≤500 | Maintainability |
 | Spectral radius | [0.9, 1.1] | Edge of chaos |
 | WASM threading | Gated | Browser compatibility |
+| Mutation testing | scripts/mutation_test.sh | Prevent regressions |
+| Fuzz testing | cargo +nightly fuzz run hvec_from_bytes | Prevent regressions |

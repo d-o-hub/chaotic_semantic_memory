@@ -250,6 +250,12 @@ validation:
     - name: wasm
       command: cargo check --target wasm32-unknown-unknown
       
+    - name: fuzz
+      command: cargo +nightly fuzz run hvec_from_bytes
+
+    - name: mutation
+      command: scripts/mutation_test.sh fast
+
   script: scripts/validate.sh
   description: Run before commit
   
