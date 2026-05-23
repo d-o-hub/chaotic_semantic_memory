@@ -44,7 +44,7 @@ Concept storage and semantic search:
 
 - HashMap-based concept storage
 - Association graph (weighted edges)
-- Zero-allocation query cache for similarity queries
+- Zero-copy query cache for similarity queries
 - Rayon-parallel similarity search
 
 ### Framework (`framework.rs`)
