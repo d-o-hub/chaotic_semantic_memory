@@ -175,35 +175,41 @@ impl Reservoir {
         let update_phase = self.update_phase;
         let mut change_norm_sq = 0.0;
         for i in (update_phase..self.size).step_by(self.update_stride) {
-            // Algorithmic Optimization: Lazy partial input projection.
-            if self.node_versions[i] != self.input_version {
-                self.input_projection[i] = self.w_in.dot_row(i, input);
-                self.node_versions[i] = self.input_version;
+            // SAFETY: all buffers are sized to `self.size` and loop bounds are safe.
+            unsafe {
+                // Algorithmic Optimization: Lazy partial input projection.
+                if *self.node_versions.get_unchecked(i) != self.input_version {
+                    *self.input_projection.get_unchecked_mut(i) = self.w_in.dot_row(i, input);
+                    *self.node_versions.get_unchecked_mut(i) = self.input_version;
+                }
+
+                let res_sum = self.w_res.dot_row(i, &self.state);
+                let activated = fast_tanh(*self.input_projection.get_unchecked(i) + res_sum);
+                let current_val = *self.state.get_unchecked(i);
+                let inertial = beta * (current_val - *self.prev_state.get_unchecked(i));
+
+                // Compute new state into scratch using a stable snapshot of `self.state`.
+                *self.scratch.get_unchecked_mut(i) =
+                    current_val.mul_add(one_minus_alpha, activated.mul_add(self.alpha, inertial));
+
+                let diff = *self.scratch.get_unchecked(i) - current_val;
+                change_norm_sq += diff * diff;
             }
-
-            let res_sum = self.w_res.dot_row(i, &self.state);
-            let activated = fast_tanh(self.input_projection[i] + res_sum);
-            let current_val = self.state[i];
-            let inertial = beta * (current_val - self.prev_state[i]);
-
-            // Compute new state into scratch using a stable snapshot of `self.state`.
-            self.scratch[i] =
-                current_val.mul_add(one_minus_alpha, activated.mul_add(self.alpha, inertial));
-
-            let diff = self.scratch[i] - current_val;
-            change_norm_sq += diff * diff;
         }
 
         // Second pass: Commit the updates for this phase.
         // This keeps semantics synchronous within the phase (no order dependency).
         for i in (update_phase..self.size).step_by(self.update_stride) {
-            let old_val = self.state[i];
-            let new_val = self.scratch[i];
-            self.prev_state[i] = old_val;
-            self.state[i] = new_val;
-            // Incremental norm update: subtract old square, add new square.
-            self.state_norm_sq +=
-                (f64::from(new_val)).mul_add(f64::from(new_val), -f64::from(old_val).powi(2));
+            // SAFETY: same as above.
+            unsafe {
+                let old_val = *self.state.get_unchecked(i);
+                let new_val = *self.scratch.get_unchecked(i);
+                *self.prev_state.get_unchecked_mut(i) = old_val;
+                *self.state.get_unchecked_mut(i) = new_val;
+                // Incremental norm update: subtract old square, add new square.
+                self.state_norm_sq +=
+                    (f64::from(new_val)).mul_add(f64::from(new_val), -f64::from(old_val).powi(2));
+            }
         }
 
         // Periodic full re-calculation to prevent drift from precision errors.

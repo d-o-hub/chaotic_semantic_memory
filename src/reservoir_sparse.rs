@@ -86,9 +86,17 @@ impl SparseWeights {
 
     #[inline(always)]
     pub(crate) fn dot_row(&self, row: usize, values: &[f32]) -> f32 {
-        let start = self.row_offsets[row];
-        let end = self.row_offsets[row + 1];
-        let entries = &self.entries[start..end];
+        // SAFETY: row is guaranteed to be < rows (which is row_offsets.len() - 1)
+        // by the caller (Reservoir::step loops).
+        let (start, end) = unsafe {
+            (
+                *self.row_offsets.get_unchecked(row),
+                *self.row_offsets.get_unchecked(row + 1),
+            )
+        };
+        // SAFETY: start and end are derived from row_offsets which are valid
+        // indices into entries.
+        let entries = unsafe { self.entries.get_unchecked(start..end) };
         let mut i = 0;
 
         // Use multiple accumulators to break the serial dependency chain of mul_add.
@@ -99,26 +107,39 @@ impl SparseWeights {
         let mut sum3 = 0.0;
 
         while i + 3 < entries.len() {
-            sum0 = entries[i]
-                .weight
-                .mul_add(values[entries[i].index as usize], sum0);
-            sum1 = entries[i + 1]
-                .weight
-                .mul_add(values[entries[i + 1].index as usize], sum1);
-            sum2 = entries[i + 2]
-                .weight
-                .mul_add(values[entries[i + 2].index as usize], sum2);
-            sum3 = entries[i + 3]
-                .weight
-                .mul_add(values[entries[i + 3].index as usize], sum3);
+            // SAFETY: indices are guaranteed to be within the `values` buffer range
+            // by construction in `build` and `build_local_reservoir`. Loop bounds
+            // are strictly checked against `entries.len()`.
+            unsafe {
+                sum0 = entries.get_unchecked(i).weight.mul_add(
+                    *values.get_unchecked(entries.get_unchecked(i).index as usize),
+                    sum0,
+                );
+                sum1 = entries.get_unchecked(i + 1).weight.mul_add(
+                    *values.get_unchecked(entries.get_unchecked(i + 1).index as usize),
+                    sum1,
+                );
+                sum2 = entries.get_unchecked(i + 2).weight.mul_add(
+                    *values.get_unchecked(entries.get_unchecked(i + 2).index as usize),
+                    sum2,
+                );
+                sum3 = entries.get_unchecked(i + 3).weight.mul_add(
+                    *values.get_unchecked(entries.get_unchecked(i + 3).index as usize),
+                    sum3,
+                );
+            }
             i += 4;
         }
 
         let mut sum = (sum0 + sum1) + (sum2 + sum3);
         while i < entries.len() {
-            sum = entries[i]
-                .weight
-                .mul_add(values[entries[i].index as usize], sum);
+            // SAFETY: same as above.
+            unsafe {
+                sum = entries.get_unchecked(i).weight.mul_add(
+                    *values.get_unchecked(entries.get_unchecked(i).index as usize),
+                    sum,
+                );
+            }
             i += 1;
         }
         sum
