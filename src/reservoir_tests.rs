@@ -55,7 +55,7 @@ fn step_mathematical_correctness() {
     // Verify each node calculation manually if possible, or just consistency
     assert_eq!(out.state.len(), 4);
     for &val in out.state {
-        assert!(val >= -1.0 && val <= 1.0); // tanh bounds
+        assert!((-1.0..=1.0).contains(&val)); // tanh bounds
     }
 
     // state_norm should match manual calculation
