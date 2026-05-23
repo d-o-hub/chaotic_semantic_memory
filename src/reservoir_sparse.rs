@@ -438,4 +438,20 @@ mod tests {
         // Should correctly access the last element
         assert!((sparse.dot_row(0, &values) - 10.0).abs() < 1e-6);
     }
+
+    #[test]
+    #[should_panic(expected = "Index 9 exceeds values length 5")]
+    fn dot_row_short_input_panics() {
+        let n = 10;
+        let sparse = SparseWeights {
+            row_offsets: vec![0, 1],
+            entries: vec![WeightEntry {
+                index: (n - 1) as u32,
+                weight: 2.0,
+            }],
+        };
+        // Providing shorter values slice than the entry index should panic in debug mode
+        let values = vec![1.0; 5];
+        let _ = sparse.dot_row(0, &values);
+    }
 }
