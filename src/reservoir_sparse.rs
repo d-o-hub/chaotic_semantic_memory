@@ -116,10 +116,18 @@ impl SparseWeights {
                 let e2 = entries.get_unchecked(i + 2);
                 let e3 = entries.get_unchecked(i + 3);
 
-                sum0 = e0.weight.mul_add(*values.get_unchecked(e0.index as usize), sum0);
-                sum1 = e1.weight.mul_add(*values.get_unchecked(e1.index as usize), sum1);
-                sum2 = e2.weight.mul_add(*values.get_unchecked(e2.index as usize), sum2);
-                sum3 = e3.weight.mul_add(*values.get_unchecked(e3.index as usize), sum3);
+                sum0 = e0
+                    .weight
+                    .mul_add(*values.get_unchecked(e0.index as usize), sum0);
+                sum1 = e1
+                    .weight
+                    .mul_add(*values.get_unchecked(e1.index as usize), sum1);
+                sum2 = e2
+                    .weight
+                    .mul_add(*values.get_unchecked(e2.index as usize), sum2);
+                sum3 = e3
+                    .weight
+                    .mul_add(*values.get_unchecked(e3.index as usize), sum3);
             }
             i += 4;
         }
@@ -129,7 +137,9 @@ impl SparseWeights {
             // SAFETY: same as above.
             unsafe {
                 let e = entries.get_unchecked(i);
-                sum = e.weight.mul_add(*values.get_unchecked(e.index as usize), sum);
+                sum = e
+                    .weight
+                    .mul_add(*values.get_unchecked(e.index as usize), sum);
             }
             i += 1;
         }

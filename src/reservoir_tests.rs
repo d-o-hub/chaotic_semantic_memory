@@ -59,7 +59,12 @@ fn step_mathematical_correctness() {
     }
 
     // state_norm should match manual calculation
-    let manual_norm: f64 = out.state.iter().map(|&x| (x as f64).powi(2)).sum::<f64>().sqrt();
+    let manual_norm: f64 = out
+        .state
+        .iter()
+        .map(|&x| (x as f64).powi(2))
+        .sum::<f64>()
+        .sqrt();
     assert!((out.state_norm - manual_norm).abs() < 1e-6);
 }
 
