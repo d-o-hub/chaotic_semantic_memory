@@ -111,22 +111,15 @@ impl SparseWeights {
             // by construction in `build` and `build_local_reservoir`. Loop bounds
             // are strictly checked against `entries.len()`.
             unsafe {
-                sum0 = entries.get_unchecked(i).weight.mul_add(
-                    *values.get_unchecked(entries.get_unchecked(i).index as usize),
-                    sum0,
-                );
-                sum1 = entries.get_unchecked(i + 1).weight.mul_add(
-                    *values.get_unchecked(entries.get_unchecked(i + 1).index as usize),
-                    sum1,
-                );
-                sum2 = entries.get_unchecked(i + 2).weight.mul_add(
-                    *values.get_unchecked(entries.get_unchecked(i + 2).index as usize),
-                    sum2,
-                );
-                sum3 = entries.get_unchecked(i + 3).weight.mul_add(
-                    *values.get_unchecked(entries.get_unchecked(i + 3).index as usize),
-                    sum3,
-                );
+                let e0 = entries.get_unchecked(i);
+                let e1 = entries.get_unchecked(i + 1);
+                let e2 = entries.get_unchecked(i + 2);
+                let e3 = entries.get_unchecked(i + 3);
+
+                sum0 = e0.weight.mul_add(*values.get_unchecked(e0.index as usize), sum0);
+                sum1 = e1.weight.mul_add(*values.get_unchecked(e1.index as usize), sum1);
+                sum2 = e2.weight.mul_add(*values.get_unchecked(e2.index as usize), sum2);
+                sum3 = e3.weight.mul_add(*values.get_unchecked(e3.index as usize), sum3);
             }
             i += 4;
         }
@@ -135,10 +128,8 @@ impl SparseWeights {
         while i < entries.len() {
             // SAFETY: same as above.
             unsafe {
-                sum = entries.get_unchecked(i).weight.mul_add(
-                    *values.get_unchecked(entries.get_unchecked(i).index as usize),
-                    sum,
-                );
+                let e = entries.get_unchecked(i);
+                sum = e.weight.mul_add(*values.get_unchecked(e.index as usize), sum);
             }
             i += 1;
         }
@@ -385,5 +376,45 @@ mod tests {
 
         // Row 0: (1.0 * -10.0) + (-1.0 * -20.0) = -10 + 20 = 10
         assert!((sparse.dot_row(0, &values) - (10.0)).abs() < 1e-6);
+    }
+
+    #[test]
+    fn dot_row_residue_handling() {
+        // Test 1, 2, 3, 5 elements to verify unrolling and tail logic
+        for n in 1..=6 {
+            if n == 4 {
+                continue;
+            }
+            let entries: Vec<WeightEntry> = (0..n)
+                .map(|i| WeightEntry {
+                    index: i as u32,
+                    weight: 1.0,
+                })
+                .collect();
+            let sparse = SparseWeights {
+                row_offsets: vec![0, n],
+                entries,
+            };
+            let values: Vec<f32> = vec![1.0; n];
+            let result = sparse.dot_row(0, &values);
+            assert!((result - n as f32).abs() < 1e-6, "Failed for n={}", n);
+        }
+    }
+
+    #[test]
+    fn dot_row_boundary_test() {
+        let n = 10;
+        let sparse = SparseWeights {
+            row_offsets: vec![0, 1],
+            entries: vec![WeightEntry {
+                index: (n - 1) as u32,
+                weight: 2.0,
+            }],
+        };
+        let mut values = vec![0.0; n];
+        values[n - 1] = 5.0;
+
+        // Should correctly access the last element
+        assert!((sparse.dot_row(0, &values) - 10.0).abs() < 1e-6);
     }
 }
