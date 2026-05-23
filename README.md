@@ -405,7 +405,7 @@ are never blocked by database writes.
 |---|---|---|
 | `inject_concept` | O(1) amortized | HashMap insert + dense vector append |
 | `associate` | O(1) amortized | HashMap insert with optional eviction |
-| `probe` (exact scan) | O(n) | Cosine similarity over all n concepts; parallelized via Rayon on native. Zero-allocation caching: uses hashed keys and `Arc` to share cache results. |
+ `probe` (exact scan) | O(n) | Cosine similarity over all n concepts; parallelized via Rayon on native. Zero-copy caching: uses hashed keys and `Arc` to share cache results. |
 | `probe` (bucket candidates) | O(n / 2^w) | w-bit bucket width narrows candidate set before exact scoring |
 | `probe` (graph candidates) | O(f^d) | BFS from nearest neighbor at depth d, fanout f |
 
