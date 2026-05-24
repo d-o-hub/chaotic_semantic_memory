@@ -6,6 +6,8 @@ use tokio::sync::RwLock;
 use tracing::instrument;
 
 use crate::error::Result;
+#[cfg(target_arch = "wasm32")]
+use js_sys::Date;
 use crate::framework_builder::{FrameworkBuilder, FrameworkConfig, FrameworkStats};
 use crate::framework_events::MemoryEvent;
 use crate::framework_events_ce::{ChaoticEvent, EventEmitter};
@@ -70,13 +72,20 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(ref persistence) = self.persistence {
+            #[cfg(not(target_arch = "wasm32"))]
             let p_start = std::time::Instant::now();
+            #[cfg(target_arch = "wasm32")]
+            let p_start = Date::now();
+
             let ns = self.namespace().await;
             persistence.save_concept(&ns, &concept).await?;
-            self.metrics.observe_persist_latency_ms(
-                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
-                "save",
-            );
+
+            #[cfg(not(target_arch = "wasm32"))]
+            let elapsed_ms = u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX);
+            #[cfg(target_arch = "wasm32")]
+            let elapsed_ms = (Date::now() - p_start) as u64;
+
+            self.metrics.observe_persist_latency_ms(elapsed_ms, "save");
         }
         self.metrics.inc_concepts_injected(1);
         self.emit_event(MemoryEvent::ConceptInjected {
@@ -124,13 +133,20 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(ref persistence) = self.persistence {
+            #[cfg(not(target_arch = "wasm32"))]
             let p_start = std::time::Instant::now();
+            #[cfg(target_arch = "wasm32")]
+            let p_start = Date::now();
+
             let ns = self.namespace().await;
             persistence.save_concept(&ns, &concept).await?;
-            self.metrics.observe_persist_latency_ms(
-                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
-                "save",
-            );
+
+            #[cfg(not(target_arch = "wasm32"))]
+            let elapsed_ms = u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX);
+            #[cfg(target_arch = "wasm32")]
+            let elapsed_ms = (Date::now() - p_start) as u64;
+
+            self.metrics.observe_persist_latency_ms(elapsed_ms, "save");
         }
         self.metrics.inc_concepts_injected(1);
         self.emit_event(MemoryEvent::ConceptInjected {
@@ -161,6 +177,8 @@ impl ChaoticSemanticFramework {
         self.validate_top_k(top_k)?;
         #[cfg(not(target_arch = "wasm32"))]
         let start = std::time::Instant::now();
+        #[cfg(target_arch = "wasm32")]
+        let start = Date::now();
 
         // Acquire lock, get results, release immediately
         let (results, expired_ids) = {
@@ -186,7 +204,7 @@ impl ChaoticSemanticFramework {
         // Duration millis to u64 for metrics
         let elapsed_ms = u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX);
         #[cfg(target_arch = "wasm32")]
-        let elapsed_ms = 0;
+        let elapsed_ms = (Date::now() - start) as u64;
         self.metrics.observe_probe_latency_ms(elapsed_ms);
 
         // Filter expired concepts without lock
@@ -225,6 +243,8 @@ impl ChaoticSemanticFramework {
         Self::validate_metadata_filter(filter)?;
         #[cfg(not(target_arch = "wasm32"))]
         let start = std::time::Instant::now();
+        #[cfg(target_arch = "wasm32")]
+        let start = Date::now();
 
         // Acquire lock, get results, release immediately
         let results = {
@@ -237,7 +257,7 @@ impl ChaoticSemanticFramework {
         // Duration millis to u64 for metrics
         let elapsed_ms = u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX);
         #[cfg(target_arch = "wasm32")]
-        let elapsed_ms = 0;
+        let elapsed_ms = (Date::now() - start) as u64;
         self.metrics.observe_probe_latency_ms(elapsed_ms);
 
         let results_vec = results.as_ref().to_vec();
@@ -347,15 +367,23 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(ref persistence) = self.persistence {
+            #[cfg(not(target_arch = "wasm32"))]
             let p_start = std::time::Instant::now();
+            #[cfg(target_arch = "wasm32")]
+            let p_start = Date::now();
+
             let ns = self.namespace().await;
             persistence
                 .save_association(&ns, from, to, strength)
                 .await?;
-            self.metrics.observe_persist_latency_ms(
-                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
-                "save_association",
-            );
+
+            #[cfg(not(target_arch = "wasm32"))]
+            let elapsed_ms = u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX);
+            #[cfg(target_arch = "wasm32")]
+            let elapsed_ms = (Date::now() - p_start) as u64;
+
+            self.metrics
+                .observe_persist_latency_ms(elapsed_ms, "save_association");
         }
         self.metrics.inc_associations_created(1);
         self.emit_event(MemoryEvent::Associated {

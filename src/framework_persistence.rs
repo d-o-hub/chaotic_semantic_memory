@@ -14,6 +14,7 @@ impl ChaoticSemanticFramework {
     #[tracing::instrument(err, skip(self))]
     pub async fn persist(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
+            #[cfg(not(target_arch = "wasm32"))]
             let p_start = std::time::Instant::now();
             // ADR-0068: Persist ANN index state
             {
@@ -29,10 +30,13 @@ impl ChaoticSemanticFramework {
             }
 
             persistence.checkpoint().await?;
-            self.metrics.observe_persist_latency_ms(
-                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
-                "persist",
-            );
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                self.metrics.observe_persist_latency_ms(
+                    u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                    "persist",
+                );
+            }
         }
         Ok(())
     }
@@ -53,8 +57,9 @@ impl ChaoticSemanticFramework {
     #[allow(clippy::significant_drop_tightening)] // Lock held for concept injection and index rebuild
     #[tracing::instrument(err, skip(self))]
     pub async fn load_replace(&self) -> Result<()> {
-        let p_start = std::time::Instant::now();
         if let Some(ref persistence) = self.persistence {
+            #[cfg(not(target_arch = "wasm32"))]
+            let p_start = std::time::Instant::now();
             let ns = self.namespace.read().await;
             let concepts = persistence.load_all_concepts(&ns).await?;
 
@@ -108,10 +113,13 @@ impl ChaoticSemanticFramework {
                     ns_state.index.rebuild(&concepts_map)?;
                 }
             }
-            self.metrics.observe_persist_latency_ms(
-                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
-                "load",
-            );
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                self.metrics.observe_persist_latency_ms(
+                    u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                    "load",
+                );
+            }
         }
         Ok(())
     }
@@ -268,13 +276,17 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(ref persistence) = self.persistence {
+            #[cfg(not(target_arch = "wasm32"))]
             let p_start = std::time::Instant::now();
             let ns = self.namespace().await;
             persistence.save_concept(&ns, &target_concept).await?;
-            self.metrics.observe_persist_latency_ms(
-                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
-                "save",
-            );
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                self.metrics.observe_persist_latency_ms(
+                    u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                    "save",
+                );
+            }
         }
 
         self.emit_event(MemoryEvent::ConceptInjected {

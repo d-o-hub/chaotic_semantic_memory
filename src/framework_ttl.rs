@@ -2,6 +2,8 @@
 
 use crate::error::Result;
 use crate::framework_events::MemoryEvent;
+#[cfg(target_arch = "wasm32")]
+use js_sys::Date;
 use crate::hyperdim::HVec10240;
 use crate::metadata_filter::MetadataFilter;
 use crate::singularity::ConceptBuilder;
@@ -31,13 +33,20 @@ impl crate::framework::ChaoticSemanticFramework {
         }
 
         if let Some(ref persistence) = self.persistence {
+            #[cfg(not(target_arch = "wasm32"))]
             let p_start = std::time::Instant::now();
+            #[cfg(target_arch = "wasm32")]
+            let p_start = Date::now();
+
             let ns = self.namespace.read().await;
             persistence.save_concept(&ns, &concept).await?;
-            self.metrics.observe_persist_latency_ms(
-                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
-                "save",
-            );
+
+            #[cfg(not(target_arch = "wasm32"))]
+            let elapsed_ms = u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX);
+            #[cfg(target_arch = "wasm32")]
+            let elapsed_ms = (Date::now() - p_start) as u64;
+
+            self.metrics.observe_persist_latency_ms(elapsed_ms, "save");
         }
         self.metrics.inc_concepts_injected(1);
         self.emit_event(MemoryEvent::ConceptInjected {
@@ -64,6 +73,8 @@ impl crate::framework::ChaoticSemanticFramework {
     pub async fn purge_expired(&self) -> Result<usize> {
         #[cfg(not(target_arch = "wasm32"))]
         let start = std::time::Instant::now();
+        #[cfg(target_arch = "wasm32")]
+        let start = Date::now();
 
         let count = {
             let mut sing = self.singularity.write().await;
@@ -75,7 +86,7 @@ impl crate::framework::ChaoticSemanticFramework {
             #[cfg(not(target_arch = "wasm32"))]
             let duration_ms = start.elapsed().as_millis() as u64;
             #[cfg(target_arch = "wasm32")]
-            let duration_ms = 0;
+            let duration_ms = (Date::now() - start) as u64;
 
             self.emit_chaotic_event(
                 crate::framework_events_ce::ChaoticEvent::MemoryConsolidated {
