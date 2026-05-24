@@ -283,6 +283,32 @@ impl Persistence {
         Ok(())
     }
 
+    /// Reclaim space by executing VACUUM.
+    pub async fn compact(&self) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        conn.execute("VACUUM", ())
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to compact database: {e}")))?;
+        Ok(())
+    }
+
+    /// Remove associations where concepts no longer exist.
+    pub async fn prune_orphans(&self) -> Result<u64> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        let rows_affected = conn
+            .execute(
+                "DELETE FROM csm_associations
+             WHERE (namespace, from_id) NOT IN (SELECT namespace, id FROM csm_concepts)
+                OR (namespace, to_id) NOT IN (SELECT namespace, id FROM csm_concepts)",
+                (),
+            )
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to prune orphans: {e}")))?;
+        Ok(rows_affected)
+    }
+
     /// Delete a single association between two concepts.
     pub async fn delete_association(&self, ns: &str, from: &str, to: &str) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
@@ -390,5 +416,57 @@ mod tests {
             .await
             .expect("Failed to get version");
         assert!(version > 0);
+    }
+
+    #[tokio::test]
+    async fn prune_orphans_removes_invalid_associations() {
+        let temp = NamedTempFile::new().expect("Failed to create temp file");
+        let path = temp.path().to_str().expect("Invalid path");
+        let persistence = Persistence::new_local(path)
+            .await
+            .expect("Failed to create persistence");
+
+        let ns = "_default";
+        let concept1 = make_concept("c1");
+        let concept2 = make_concept("c2");
+
+        persistence.save_concept(ns, &concept1).await.unwrap();
+        persistence.save_concept(ns, &concept2).await.unwrap();
+
+        persistence
+            .save_association(ns, "c1", "c2", 0.5)
+            .await
+            .unwrap();
+
+        // Verify association exists
+        let assocs = persistence.load_associations(ns, "c1").await.unwrap();
+        assert_eq!(assocs.len(), 1);
+
+        // Manually insert an orphan by disabling foreign keys temporarily
+        // or just deleting one concept.
+        // If FKs are ON, deleting a concept would normally fail if there are associations,
+        // BUT csm_associations has ON DELETE RESTRICT (default) or CASCADE?
+        // Let's check persistence.rs init_schema
+        // it says: FOREIGN KEY (from_id) REFERENCES csm_concepts(id)
+        // it doesn't specify ON DELETE, so it is RESTRICT in SQLite by default.
+
+        // Actually, delete_concept in persistence_concepts.rs manually deletes associations first.
+        // To create an orphan, we can bypass delete_concept or disable FKs.
+
+        let conn = persistence.connect().await.unwrap();
+        conn.execute("PRAGMA foreign_keys=OFF;", ()).await.unwrap();
+        conn.execute(
+            "DELETE FROM csm_concepts WHERE namespace = ?1 AND id = ?2",
+            libsql::params![ns, "c2"],
+        )
+        .await
+        .unwrap();
+
+        // Now c1 -> c2 is an orphan because c2 is gone.
+        let pruned = persistence.prune_orphans().await.unwrap();
+        assert_eq!(pruned, 1);
+
+        let assocs = persistence.load_associations(ns, "c1").await.unwrap();
+        assert_eq!(assocs.len(), 0);
     }
 }
