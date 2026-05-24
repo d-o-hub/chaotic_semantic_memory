@@ -15,7 +15,7 @@ use crate::hyperdim::HVec10240;
 use crate::metadata_filter::MetadataFilter;
 #[cfg(feature = "persistence")]
 use crate::persistence::Persistence;
-use crate::reservoir::ChaoticReservoir;
+use crate::reservoir_chaotic::ChaoticReservoir;
 use crate::singularity::{Concept, ConceptBuilder, Singularity, unix_now_secs};
 
 /// Main framework for chaotic semantic memory
@@ -25,7 +25,7 @@ pub struct ChaoticSemanticFramework {
     pub(crate) persistence: Option<Arc<Persistence>>,
     #[cfg(not(feature = "persistence"))]
     pub(crate) persistence: Option<Arc<crate::persistence::Persistence>>,
-    pub(crate) reservoir: Arc<RwLock<Option<ChaoticReservoir>>>,
+    pub(crate) reservoir: Arc<RwLock<Option<crate::reservoir_chaotic::ChaoticReservoir>>>,
     pub(crate) config: FrameworkConfig,
     pub(crate) metrics: Arc<FrameworkMetrics>,
     pub(crate) event_sender: tokio::sync::broadcast::Sender<MemoryEvent>,
