@@ -1,4 +1,5 @@
 use crate::error::Result;
+use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
@@ -71,24 +72,59 @@ impl ChaoticSemanticFramework {
             })?;
 
         // Ensure the namespace is loaded from persistence if available and not in memory
-        let needs_load = {
-            let sing = self.singularity.read().await;
-            !sing.namespaces.contains_key(ns)
-        };
+        let needs_load = self.needs_namespace_load(ns).await;
         if needs_load {
-            if let Some(ref persistence) = self.persistence {
-                if let Ok(concepts) = persistence.load_all_concepts(ns).await {
-                    let mut sing = self.singularity.write().await;
-                    for concept in concepts {
-                        let _ = sing.inject(ns, concept);
-                    }
-                }
-            }
+            self.load_namespace_from_persistence(ns).await;
         }
 
         // Use a temporary framework scoped to the target namespace for export
         let temp_fw = self.clone_with_namespace(ns);
         temp_fw.export_json(path_str).await
+    }
+
+    /// Export a namespace to bytes (in-memory, WASM-compatible).
+    ///
+    /// Loads the namespace data from persistence if not currently in memory,
+    /// then serializes to a binary payload using bincode.
+    pub async fn export_namespace_to_bytes(&self, ns: &str) -> Result<Vec<u8>> {
+        // Ensure the namespace is loaded from persistence if available and not in memory
+        let needs_load = self.needs_namespace_load(ns).await;
+        if needs_load {
+            self.load_namespace_from_persistence(ns).await;
+        }
+
+        // Build the export payload scoped to the target namespace
+        let payload = {
+            let sing = self.singularity.read().await;
+            ExportPayload {
+                version: env!("CARGO_PKG_VERSION").to_string(),
+                exported_at: unix_now_secs(),
+                concepts: sing.all_concepts(ns),
+                associations: sing.all_associations(ns),
+            }
+        };
+
+        let binary_payload = BinaryExportPayload::from(payload);
+        let data = bincode::serialize(&binary_payload).map_err(|e| {
+            crate::error::MemoryError::Persistence(format!("Serialization error: {}", e))
+        })?;
+        Ok(data)
+    }
+
+    async fn needs_namespace_load(&self, ns: &str) -> bool {
+        let sing = self.singularity.read().await;
+        !sing.namespaces.contains_key(ns)
+    }
+
+    async fn load_namespace_from_persistence(&self, ns: &str) {
+        if let Some(ref persistence) = self.persistence {
+            if let Ok(concepts) = persistence.load_all_concepts(ns).await {
+                let mut sing = self.singularity.write().await;
+                for concept in concepts {
+                    let _ = sing.inject(ns, concept);
+                }
+            }
+        }
     }
 
     fn clone_with_namespace(&self, ns: &str) -> Self {

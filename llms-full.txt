@@ -3304,6 +3304,7 @@ impl ChaoticSemanticFramework {
     pub fn list_namespaces(&self) -> Result<Vec<String>>;
     pub fn delete_namespace(&self, ns: &str) -> Result<usize>;
     pub fn export_namespace(&self, ns: &str, path: &Path) -> Result<()>;
+    pub fn export_namespace_to_bytes(&self, ns: &str) -> Result<Vec<u8>>;
 }
 ```
 
@@ -5245,6 +5246,7 @@ impl WasmFramework {
     pub fn list_versions(&self, id: String) -> Result<Array, JsValue>;
     pub fn get_version(&self, id: String, version: u32) -> Result<JsValue, JsValue>;
     pub fn rollback_to_version(&self, id: String, version: u32) -> Result<JsValue, JsValue>;
+    pub fn export_namespace_to_bytes(&self, ns: String) -> Result<Uint8Array, JsValue>;
 }
 ```
 
