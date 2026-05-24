@@ -17,7 +17,8 @@ pub(crate) unsafe fn bundle_block_avx2_single(
 
     let mut planes = [_mm256_setzero_si256(); 64];
     for v in vectors {
-        let mut carry = unsafe { _mm256_loadu_si256(v.data.as_ptr().add(word_idx).cast()) };
+// SAFETY: word_idx + 1 stays within array bounds; unaligned load is intentional.
+let mut carry = unsafe { _mm256_loadu_si256(v.data.as_ptr().add(word_idx).cast()) };
         for plane in planes.iter_mut().take(num_planes) {
             let next_carry = _mm256_and_si256(*plane, carry);
             *plane = _mm256_xor_si256(*plane, carry);
