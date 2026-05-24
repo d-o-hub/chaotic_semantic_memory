@@ -18,6 +18,75 @@ pub fn initialize_wasm() {
     console_error_panic_hook::set_once();
 }
 
+#[wasm_bindgen(typescript_custom_section)]
+const TS_APPEND_CONTENT: &'static str = r#"
+export interface ProbeResult {
+  id: string;
+  score: number;
+}
+
+export interface AssociationResult {
+  to: string;
+  strength: number;
+}
+
+export interface FrameworkMetrics {
+  concepts_injected_total: number;
+  associations_created_total: number;
+  probes_total: number;
+  avg_probe_latency_ms: number;
+  cache_hits_total: number;
+  cache_misses_total: number;
+  cache_evictions_total: number;
+  reservoir_steps_total: number;
+  avg_reservoir_step_latency_us: number;
+  reservoir_nodes_active: number;
+}
+
+export interface FrameworkStats {
+  concept_count: number;
+  db_size_bytes: number | null;
+}
+
+export interface Concept {
+  id: string;
+  vector: Uint8Array;
+  metadata: Record<string, any>;
+  created_at: number;
+  modified_at: number;
+  expires_at: number | null;
+  canonical_concept_ids: string[];
+}
+
+export interface VersionInfo {
+  version: number;
+  timestampUnix: number;
+  vectorChanged: boolean;
+  metadataChanged: boolean;
+}
+
+export interface GraphProbeResult {
+  id: string;
+  score: number;
+  similarity: number;
+  anchor_id: string | null;
+  hop_distance: number;
+  assoc_strength: number;
+}
+
+export interface TraversalResult {
+  id: string;
+  depth: number;
+}
+
+export type MemoryEvent =
+  | { type: "ConceptInjected"; id: string; timestamp: number }
+  | { type: "ConceptUpdated"; id: string; timestamp: number }
+  | { type: "ConceptDeleted"; id: string; timestamp: number }
+  | { type: "Associated"; from: string; to: string; strength: number }
+  | { type: "Disassociated"; from: string; to: string };
+"#;
+
 /// WASM-friendly wrapper for the framework
 #[wasm_bindgen]
 pub struct WasmFramework {
