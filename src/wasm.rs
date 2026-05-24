@@ -9,9 +9,9 @@ use wasm_bindgen::prelude::*;
 use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
 use crate::hyperdim::HVec10240;
-use crate::wasm_utils::{concept_to_js_value, to_js_error};
+use crate::singularity::Concept;
 
-const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024; // 100 MB default
+const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024;
 
 #[wasm_bindgen(start)]
 pub fn initialize_wasm() {
@@ -38,19 +38,18 @@ impl WasmFramework {
     }
 
     /// Set the current namespace
-    #[wasm_bindgen(js_name = set_namespace)]
+    #[wasm_bindgen(js_name = setNamespace)]
     pub async fn set_namespace(&self, ns: String) {
         self.framework.set_namespace(ns).await;
     }
 
     /// Get the current namespace
-    #[wasm_bindgen(js_name = get_namespace)]
+    #[wasm_bindgen(js_name = getNamespace)]
     pub async fn get_namespace(&self) -> String {
         self.framework.namespace().await
     }
 
     /// Inject a concept
-    #[wasm_bindgen(js_name = inject_concept)]
     pub async fn inject_concept(&self, id: String, vector: &[u8]) -> Result<(), JsValue> {
         let hvec = HVec10240::from_bytes(vector).map_err(to_js_error)?;
 
@@ -61,7 +60,6 @@ impl WasmFramework {
     }
 
     /// Query for similar concepts
-    #[wasm_bindgen(js_name = probe)]
     pub async fn probe(&self, vector: &[u8], top_k: usize) -> Result<Array, JsValue> {
         let hvec = HVec10240::from_bytes(vector).map_err(to_js_error)?;
 
@@ -85,7 +83,6 @@ impl WasmFramework {
     }
 
     /// Associate two concepts
-    #[wasm_bindgen(js_name = associate)]
     pub async fn associate(&self, from: String, to: String, strength: f32) -> Result<(), JsValue> {
         self.framework
             .associate(&from, &to, strength)
@@ -94,7 +91,6 @@ impl WasmFramework {
     }
 
     /// Delete concept by ID
-    #[wasm_bindgen(js_name = delete_concept)]
     pub async fn delete_concept(&self, id: String) -> Result<(), JsValue> {
         self.framework
             .delete_concept(&id)
@@ -103,7 +99,6 @@ impl WasmFramework {
     }
 
     /// Update a concept's vector
-    #[wasm_bindgen(js_name = update_concept)]
     pub async fn update_concept(&self, id: String, vector: &[u8]) -> Result<(), JsValue> {
         let hvec = HVec10240::from_bytes(vector).map_err(to_js_error)?;
         self.framework
@@ -113,7 +108,6 @@ impl WasmFramework {
     }
 
     /// Remove an association between two concepts
-    #[wasm_bindgen(js_name = disassociate)]
     pub async fn disassociate(&self, from: String, to: String) -> Result<(), JsValue> {
         self.framework
             .disassociate(&from, &to)
@@ -122,7 +116,6 @@ impl WasmFramework {
     }
 
     /// Get associations for a concept
-    #[wasm_bindgen(js_name = get_associations)]
     pub async fn get_associations(&self, id: String) -> Result<Array, JsValue> {
         let associations = self
             .framework
@@ -143,7 +136,6 @@ impl WasmFramework {
     }
 
     /// Get a concept by ID
-    #[wasm_bindgen(js_name = get_concept)]
     pub async fn get_concept(&self, id: String) -> Result<JsValue, JsValue> {
         let concept_opt = self.framework.get_concept(&id).await.map_err(to_js_error)?;
 
@@ -154,7 +146,6 @@ impl WasmFramework {
     }
 
     /// Inject multiple concepts in batch
-    #[wasm_bindgen(js_name = inject_concepts)]
     pub async fn inject_concepts(&self, ids: Array, vectors: Array) -> Result<(), JsValue> {
         self.framework
             .validate_batch_size(ids.length() as usize)
@@ -188,7 +179,6 @@ impl WasmFramework {
     }
 
     /// Create multiple associations in batch
-    #[wasm_bindgen(js_name = associate_many)]
     pub async fn associate_many(&self, associations: Array) -> Result<(), JsValue> {
         self.framework
             .validate_batch_size(associations.length() as usize)
@@ -220,7 +210,6 @@ impl WasmFramework {
     }
 
     /// Probe for similar concepts with multiple queries in batch
-    #[wasm_bindgen(js_name = probe_batch)]
     pub async fn probe_batch(&self, vectors: Array, top_k: usize) -> Result<Array, JsValue> {
         self.framework
             .validate_batch_size(vectors.length() as usize)
@@ -258,7 +247,6 @@ impl WasmFramework {
     }
 
     /// Get framework metrics snapshot
-    #[wasm_bindgen(js_name = metrics_snapshot)]
     pub async fn metrics_snapshot(&self) -> Result<JsValue, JsValue> {
         let metrics = self.framework.metrics_snapshot().await;
         let obj = js_sys::Object::new();
@@ -322,11 +310,23 @@ impl WasmFramework {
             &(metrics.reservoir_nodes_active as f64).into(),
         )
         .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+        js_sys::Reflect::set(
+            &obj,
+            &"persist_ops_total".into(),
+            &(metrics.persist_ops_total as f64).into(),
+        )
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+        js_sys::Reflect::set(
+            &obj,
+            &"avg_persist_latency_ms".into(),
+            &metrics.avg_persist_latency_ms.into(),
+        )
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
         Ok(obj.into())
     }
 
     /// Process a temporal sequence and return the resulting hypervector bytes.
-    #[wasm_bindgen(js_name = process_sequence)]
+    #[wasm_bindgen(js_name = processSequence)]
     pub async fn process_sequence(&self, sequence: Array) -> Result<Box<[u8]>, JsValue> {
         self.framework
             .validate_sequence_length(sequence.length() as usize)
@@ -349,7 +349,7 @@ impl WasmFramework {
     }
 
     /// Export all concepts and associations to bytes for in-browser storage.
-    #[wasm_bindgen(js_name = export_to_bytes)]
+    #[wasm_bindgen(js_name = exportToBytes)]
     pub async fn export_to_bytes(&self) -> Result<Uint8Array, JsValue> {
         let payload = {
             let singularity = self.framework.singularity.read().await;
@@ -368,8 +368,8 @@ impl WasmFramework {
         Ok(Uint8Array::from(data.as_slice()))
     }
 
-    /// Import state from bytes previously produced by `export_to_bytes`.
-    #[wasm_bindgen(js_name = import_from_bytes)]
+    /// Import state from bytes previously produced by `exportToBytes`.
+    #[wasm_bindgen(js_name = importFromBytes)]
     pub async fn import_from_bytes(&self, data: Uint8Array, merge: bool) -> Result<usize, JsValue> {
         let bytes = data.to_vec();
 
@@ -418,4 +418,83 @@ impl WasmFramework {
 
         Ok(payload.concepts.len())
     }
+}
+
+#[wasm_bindgen]
+pub fn random_hypervector() -> Box<[u8]> {
+    HVec10240::random().to_bytes().into_boxed_slice()
+}
+
+#[wasm_bindgen]
+pub fn encode_text(text: &str) -> Box<[u8]> {
+    let encoder = crate::encoder::TextEncoder::new();
+    encoder.encode(text).to_bytes().into_boxed_slice()
+}
+
+#[wasm_bindgen]
+pub fn cosine_similarity(a: &[u8], b: &[u8]) -> Result<f32, JsValue> {
+    let hvec_a = HVec10240::from_bytes(a).map_err(to_js_error)?;
+    let hvec_b = HVec10240::from_bytes(b).map_err(to_js_error)?;
+
+    Ok(hvec_a.cosine_similarity(&hvec_b))
+}
+
+/// Convert a Concept to a JsValue object
+pub(crate) fn concept_to_js_value(concept: &Concept) -> Result<JsValue, JsValue> {
+    let obj = js_sys::Object::new();
+
+    js_sys::Reflect::set(&obj, &"id".into(), &concept.id.clone().into())
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    js_sys::Reflect::set(
+        &obj,
+        &"vector".into(),
+        &Uint8Array::from(concept.vector.to_bytes().as_slice()),
+    )
+    .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    // Convert metadata HashMap to JS object
+    let metadata_obj = js_sys::Object::new();
+    for (key, value) in &concept.metadata {
+        let value_str = serde_json::to_string(value).map_err(to_js_error)?;
+        let js_value = js_sys::JSON::parse(&value_str)
+            .map_err(|_| JsValue::from_str("failed to parse metadata JSON"))?;
+        js_sys::Reflect::set(&metadata_obj, &key.clone().into(), &js_value)
+            .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+    }
+    js_sys::Reflect::set(&obj, &"metadata".into(), &metadata_obj.into())
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    js_sys::Reflect::set(
+        &obj,
+        &"created_at".into(),
+        &(concept.created_at as f64).into(),
+    )
+    .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    js_sys::Reflect::set(
+        &obj,
+        &"modified_at".into(),
+        &(concept.modified_at as f64).into(),
+    )
+    .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    let expires_at = concept
+        .expires_at
+        .map_or(JsValue::NULL, |v| (v as f64).into());
+    js_sys::Reflect::set(&obj, &"expires_at".into(), &expires_at)
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    let canonical_ids = Array::new();
+    for id in &concept.canonical_concept_ids {
+        canonical_ids.push(&JsValue::from_str(id));
+    }
+    js_sys::Reflect::set(&obj, &"canonical_concept_ids".into(), &canonical_ids.into())
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    Ok(obj.into())
+}
+
+pub(crate) fn to_js_error<E: std::fmt::Display>(error: E) -> JsValue {
+    JsValue::from_str(&error.to_string())
 }
