@@ -348,7 +348,7 @@ mod tests {
             .with_vector(vec)
             .build()
             .unwrap();
-        concepts.insert(id.clone(), concept);
+        concepts.insert(id, concept);
 
         index.rebuild(&concepts).unwrap();
 
