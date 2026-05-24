@@ -9,7 +9,7 @@ use wasm_bindgen::prelude::*;
 use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
 use crate::hyperdim::HVec10240;
-use crate::wasm_utils::{to_js_error, concept_to_js_value};
+use crate::wasm_utils::{concept_to_js_value, to_js_error};
 
 const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024; // 100 MB default
 

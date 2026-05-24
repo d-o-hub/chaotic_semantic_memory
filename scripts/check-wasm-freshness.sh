@@ -9,7 +9,7 @@ COMMITTED_DTS="wasm/chaotic_semantic_memory.d.ts"
 echo "==> Regenerating WASM bindings..."
 # Note: we use --target web as that is what was used for the current definitions
 # and it generates the most comprehensive .d.ts for our needs.
-wasm-pack build --target web --out-dir "${TMP_DIR}" -- --features wasm
+wasm-pack build --target web --out-dir "${TMP_DIR}" -- --features wasm > /dev/null 2>&1
 
 if [[ ! -f "${TMP_DIR}/chaotic_semantic_memory.d.ts" ]]; then
     echo "Error: wasm-pack failed to generate .d.ts file."

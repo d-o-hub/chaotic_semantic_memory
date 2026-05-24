@@ -1,10 +1,15 @@
 //! WASM utility functions for chaotic semantic memory
 
-use js_sys::{Array, Uint8Array};
-use wasm_bindgen::prelude::*;
+#[cfg(target_arch = "wasm32")]
 use crate::hyperdim::HVec10240;
+#[cfg(target_arch = "wasm32")]
 use crate::singularity::Concept;
+#[cfg(target_arch = "wasm32")]
+use js_sys::{Array, Uint8Array};
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
 
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen(typescript_custom_section)]
 const TS_APPEND_CONTENT: &'static str = r#"
 export interface ProbeResult {
@@ -75,12 +80,14 @@ export type MemoryEvent =
 "#;
 
 /// Create a random hypervector (1280 bytes)
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn random_hypervector() -> Box<[u8]> {
     HVec10240::random().to_bytes().into_boxed_slice()
 }
 
 /// Encode text to a hypervector using HDC encoding
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn encode_text(text: &str) -> Box<[u8]> {
     let encoder = crate::encoder::TextEncoder::new();
@@ -88,6 +95,7 @@ pub fn encode_text(text: &str) -> Box<[u8]> {
 }
 
 /// Compute cosine similarity between two hypervectors
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn cosine_similarity(a: &[u8], b: &[u8]) -> Result<f32, JsValue> {
     let hvec_a = HVec10240::from_bytes(a).map_err(to_js_error)?;
@@ -97,6 +105,7 @@ pub fn cosine_similarity(a: &[u8], b: &[u8]) -> Result<f32, JsValue> {
 }
 
 /// Convert a Concept to a JsValue object
+#[cfg(target_arch = "wasm32")]
 pub(crate) fn concept_to_js_value(concept: &Concept) -> Result<JsValue, JsValue> {
     let obj = js_sys::Object::new();
 
@@ -152,6 +161,7 @@ pub(crate) fn concept_to_js_value(concept: &Concept) -> Result<JsValue, JsValue>
     Ok(obj.into())
 }
 
+#[cfg(target_arch = "wasm32")]
 pub(crate) fn to_js_error<E: std::fmt::Display>(error: E) -> JsValue {
     JsValue::from_str(&error.to_string())
 }

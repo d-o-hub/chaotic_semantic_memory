@@ -16,7 +16,7 @@ use wasm_bindgen_futures::spawn_local;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm::WasmFramework;
 #[cfg(target_arch = "wasm32")]
-use crate::wasm_utils::{to_js_error, concept_to_js_value};
+use crate::wasm_utils::{concept_to_js_value, to_js_error};
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
