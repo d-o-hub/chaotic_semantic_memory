@@ -543,7 +543,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use crate::persistence_wasm as persistence
 - pub mod persistence
 - pub struct persistence::Persistence
-- pub struct persistence::ConceptVersion
+- pub use persistence::crate::singularity::ConceptVersion
 - impl persistence::Persistence
 - pub mod prelude
 - pub use prelude::crate::bridge_retrieval::BridgeRetrieval
@@ -601,7 +601,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/persistence.rs
 
 - pub struct Persistence
-- pub struct ConceptVersion
+- pub use crate::singularity::ConceptVersion
 - impl Persistence
 
 ### src/persistence_concepts.rs
@@ -627,7 +627,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/persistence_wasm.rs
 
 - pub struct Persistence
-- pub struct ConceptVersion
+- pub use crate::singularity::ConceptVersion
 - impl Persistence
 
 ### src/reservoir.rs

@@ -543,7 +543,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use crate::persistence_wasm as persistence
 - pub mod persistence
 - pub struct persistence::Persistence
-- pub struct persistence::ConceptVersion
+- pub use persistence::crate::singularity::ConceptVersion
 - impl persistence::Persistence
 - pub mod prelude
 - pub use prelude::crate::bridge_retrieval::BridgeRetrieval
@@ -601,7 +601,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/persistence.rs
 
 - pub struct Persistence
-- pub struct ConceptVersion
+- pub use crate::singularity::ConceptVersion
 - impl Persistence
 
 ### src/persistence_concepts.rs
@@ -627,7 +627,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/persistence_wasm.rs
 
 - pub struct Persistence
-- pub struct ConceptVersion
+- pub use crate::singularity::ConceptVersion
 - impl Persistence
 
 ### src/reservoir.rs
@@ -3322,7 +3322,7 @@ impl ChaoticSemanticFramework {
     pub fn import_binary(&self, path: &str, merge: bool) -> Result<usize>;
     pub fn backup(&self, path: &str) -> Result<()>;
     pub fn restore(&self, path: &str) -> Result<()>;
-    pub fn concept_history(&self, id: &str, limit: usize) -> Result<Vec<crate::persistence::ConceptVersion>>;
+    pub fn concept_history(&self, id: &str, limit: usize) -> Result<Vec<crate::singularity::ConceptVersion>>;
     pub fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()>;
     pub fn update_concept_metadata(&self, id: &str, metadata: std::collections::HashMap<String, serde_json::Value>) -> Result<()>;
     pub fn disassociate(&self, from: &str, to: &str) -> Result<()>;
@@ -3652,21 +3652,6 @@ Create an ANN index backend based on configuration.
 
 ## src/lib.rs
 
-### ConceptVersion
-
-```rust
-#[derive(Debug, Clone, serde :: Serialize, serde :: Deserialize)]
-pub struct ConceptVersion {
-    pub concept_id: String,
-    pub version: i64,
-    pub vector: HVec10240,
-    pub metadata: serde_json::Value,
-    pub modified_at: u64,
-}
-```
-
-Stub concept version type when persistence feature is disabled.
-
 ### Persistence
 
 ```rust
@@ -3741,6 +3726,14 @@ pub use crate::persistence_wasm as persistence;
 ```rust
 pub use crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket};
 ```
+
+### crate::singularity::ConceptVersion
+
+```rust
+pub use crate::singularity::ConceptVersion;
+```
+
+Stub concept version type when persistence feature is disabled.
 
 ### crate::singularity::{Concept, ConceptBuilder, ConceptDiff, ConceptVersion}
 
@@ -4068,25 +4061,18 @@ impl ops::Not for MetadataFilter {
 
 ## src/persistence.rs
 
-### ConceptVersion
-
-```rust
-#[derive(Debug, Clone, serde :: Serialize, serde :: Deserialize)]
-pub struct ConceptVersion {
-    pub concept_id: String,
-    pub version: i64,
-    pub vector: HVec10240,
-    pub metadata: serde_json::Value,
-    pub modified_at: u64,
-}
-```
-
 ### Persistence
 
 ```rust
 #[derive(Debug)]
 pub struct Persistence {
 }
+```
+
+### crate::singularity::ConceptVersion
+
+```rust
+pub use crate::singularity::ConceptVersion;
 ```
 
 ### impl Persistence
@@ -4173,19 +4159,6 @@ impl Persistence {
 
 ## src/persistence_wasm.rs
 
-### ConceptVersion
-
-```rust
-#[derive(Debug, Clone, serde :: Serialize, serde :: Deserialize)]
-pub struct ConceptVersion {
-    pub concept_id: String,
-    pub version: i64,
-    pub vector: HVec10240,
-    pub metadata: serde_json::Value,
-    pub modified_at: u64,
-}
-```
-
 ### Persistence
 
 ```rust
@@ -4193,6 +4166,12 @@ pub struct Persistence;
 ```
 
 Persistence stub for wasm32 builds.
+
+### crate::singularity::ConceptVersion
+
+```rust
+pub use crate::singularity::ConceptVersion;
+```
 
 ### impl Persistence
 
@@ -4894,14 +4873,18 @@ Description of differences between two versions of a concept.
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ConceptVersion {
+    pub concept_id: String,
     pub version: u64,
-    pub timestamp_unix: i64,
-    pub vector_changed: bool,
-    pub metadata_changed: bool,
+    pub timestamp_unix: u64,
+    pub vector: Option<HVec10240>,
+    pub metadata: Option<serde_json::Value>,
+    pub vector_changed: Option<bool>,
+    pub metadata_changed: Option<bool>,
 }
 ```
 
-Public summary of a historical version of a concept.
+Represents a historical version of a concept.
+Can be a summary (with change flags) or a full record (with vector/metadata).
 
 ### Singularity
 

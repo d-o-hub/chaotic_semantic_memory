@@ -36,8 +36,8 @@ async fn test_framework_version_history_flow() {
     let history = framework.list_versions(concept_id).await.unwrap();
     assert_eq!(history.len(), 1);
     assert_eq!(history[0].version, 1);
-    assert!(history[0].vector_changed);
-    assert!(history[0].metadata_changed);
+    assert!(history[0].vector_changed.unwrap_or(false));
+    assert!(history[0].metadata_changed.unwrap_or(false));
 
     // 3. Update concept vector only (Version 2)
     let v2 = HVec10240::random();
@@ -51,8 +51,8 @@ async fn test_framework_version_history_flow() {
     let history = framework.list_versions(concept_id).await.unwrap();
     assert_eq!(history.len(), 2);
     assert_eq!(history[1].version, 2);
-    assert!(history[1].vector_changed);
-    assert!(!history[1].metadata_changed); // Metadata unchanged
+    assert!(history[1].vector_changed.unwrap_or(false));
+    assert!(!history[1].metadata_changed.unwrap_or(false)); // Metadata unchanged
 
     // 4. Update concept metadata only (Version 3)
     let mut metadata_v3 = metadata.clone();
@@ -67,8 +67,8 @@ async fn test_framework_version_history_flow() {
     let history = framework.list_versions(concept_id).await.unwrap();
     assert_eq!(history.len(), 3);
     assert_eq!(history[2].version, 3);
-    assert!(!history[2].vector_changed); // Vector unchanged
-    assert!(history[2].metadata_changed);
+    assert!(!history[2].vector_changed.unwrap_or(false)); // Vector unchanged
+    assert!(history[2].metadata_changed.unwrap_or(false));
 
     // 5. Get specific versions and verify contents
     let c1 = framework.get_version(concept_id, 1).await.unwrap().unwrap();

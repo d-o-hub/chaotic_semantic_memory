@@ -4,7 +4,6 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::HVec10240;
 use libsql::{Builder, Connection, Database, params};
 use std::sync::Arc;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
@@ -18,14 +17,7 @@ pub struct Persistence {
     pub(crate) version_retention: usize,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct ConceptVersion {
-    pub concept_id: String,
-    pub version: i64,
-    pub vector: HVec10240,
-    pub metadata: serde_json::Value,
-    pub modified_at: u64,
-}
+pub use crate::singularity::ConceptVersion;
 
 impl Persistence {
     /// Create new persistence layer with local SQLite
