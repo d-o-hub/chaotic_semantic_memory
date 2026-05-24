@@ -49,16 +49,6 @@ pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod bridge_persistence;
-
-// Feature markers for metadata-only flags.
-#[cfg(feature = "wasm")]
-const _FEATURE_WASM: () = ();
-
-#[cfg(feature = "serde")]
-const _FEATURE_SERDE: () = ();
-
-#[cfg(feature = "signing")]
-const _FEATURE_SIGNING: () = ();
 pub mod bridge_retrieval;
 pub mod bundle;
 mod bundle_simd; // SIMD paths for BundleAccumulator
@@ -278,12 +268,17 @@ pub mod prelude {
 pub mod wasm;
 #[cfg(target_arch = "wasm32")]
 mod wasm_ext;
-// Include wasm_ext for tests to run underlying data pattern tests on native
+#[cfg(target_arch = "wasm32")]
+mod wasm_graph_rag;
+#[cfg(target_arch = "wasm32")]
+pub mod wasm_utils;
+
+// Include wasm modules for tests to run underlying data pattern tests on native
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod wasm_ext;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod wasm_ext_tests;
-#[cfg(target_arch = "wasm32")]
-mod wasm_graph_rag;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod wasm_graph_rag;
+#[cfg(all(test, not(target_arch = "wasm32")))]
+pub mod wasm_utils;
