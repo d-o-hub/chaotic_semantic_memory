@@ -326,4 +326,10 @@ mod tests {
         let err = parse_rerankers("recency:30d:not-a-number").unwrap_err();
         assert!(format!("{}", err).contains("invalid recency blend"));
     }
+
+    #[test]
+    fn test_parse_rerankers_cross_deferred() {
+        let err = parse_rerankers("cross:path/to/model.onnx").unwrap_err();
+        assert!(format!("{}", err).contains("deferred to post-1.0"));
+    }
 }
