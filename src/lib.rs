@@ -58,7 +58,7 @@ pub mod concept_builder;
 pub mod embedding;
 pub mod encoder;
 pub mod error;
-mod export_payload;
+pub mod export_payload;
 pub mod framework;
 mod framework_bridge;
 pub mod framework_builder;
