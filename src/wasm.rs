@@ -11,7 +11,7 @@ use crate::framework::ChaoticSemanticFramework;
 use crate::hyperdim::HVec10240;
 use crate::singularity::Concept;
 
-const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024; // 100 MB default
+const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024;
 
 #[wasm_bindgen(start)]
 pub fn initialize_wasm() {
@@ -420,20 +420,17 @@ impl WasmFramework {
     }
 }
 
-/// Create a random hypervector (1280 bytes)
 #[wasm_bindgen]
 pub fn random_hypervector() -> Box<[u8]> {
     HVec10240::random().to_bytes().into_boxed_slice()
 }
 
-/// Encode text to a hypervector using HDC encoding
 #[wasm_bindgen]
 pub fn encode_text(text: &str) -> Box<[u8]> {
     let encoder = crate::encoder::TextEncoder::new();
     encoder.encode(text).to_bytes().into_boxed_slice()
 }
 
-/// Compute cosine similarity between two hypervectors
 #[wasm_bindgen]
 pub fn cosine_similarity(a: &[u8], b: &[u8]) -> Result<f32, JsValue> {
     let hvec_a = HVec10240::from_bytes(a).map_err(to_js_error)?;

@@ -160,22 +160,17 @@ impl FrameworkMetrics {
         self.persist_latency_count.fetch_add(1, Ordering::Relaxed);
     }
 
-    fn calculate_avg(count: u64, total: u64) -> f64 {
-        if count == 0 {
-            0.0
-        } else {
-            total as f64 / count as f64
-        }
-    }
-
     pub fn snapshot(&self) -> FrameworkMetricsSnapshot {
-        let probe_count = self.probe_latency_count.load(Ordering::Relaxed);
-        let probe_total = self.probe_latency_ms_total.load(Ordering::Relaxed);
-        let avg_probe = Self::calculate_avg(probe_count, probe_total);
+        let avg_probe = calculate_avg(
+            self.probe_latency_ms_total.load(Ordering::Relaxed),
+            self.probe_latency_count.load(Ordering::Relaxed),
+        );
 
         let persist_count = self.persist_latency_count.load(Ordering::Relaxed);
-        let persist_total = self.persist_latency_ms_total.load(Ordering::Relaxed);
-        let avg_persist = Self::calculate_avg(persist_count, persist_total);
+        let avg_persist = calculate_avg(
+            self.persist_latency_ms_total.load(Ordering::Relaxed),
+            persist_count,
+        );
 
         let cache = self.cache_metrics.snapshot();
         let reservoir = self.reservoir_metrics.snapshot();
@@ -194,5 +189,13 @@ impl FrameworkMetrics {
             persist_ops_total: persist_count,
             avg_persist_latency_ms: avg_persist,
         }
+    }
+}
+
+fn calculate_avg(total: u64, count: u64) -> f64 {
+    if count == 0 {
+        0.0
+    } else {
+        total as f64 / count as f64
     }
 }
