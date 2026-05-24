@@ -207,10 +207,22 @@ impl HVec10240 {
                 return Ok(Self { data });
             }
 
-            data.par_iter_mut().enumerate().for_each(|(i, word)| {
-                *word = bundle_word_scalar(vectors, i, threshold, num_planes);
-            });
-            return Ok(Self { data });
+            #[cfg(target_arch = "x86_64")]
+            {
+                // Fallback for missing AVX2
+                data.par_iter_mut().enumerate().for_each(|(i, word)| {
+                    *word = bundle_word_scalar(vectors, i, threshold, num_planes);
+                });
+                return Ok(Self { data });
+            }
+
+            #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+            {
+                data.par_iter_mut().enumerate().for_each(|(i, word)| {
+                    *word = bundle_word_scalar(vectors, i, threshold, num_planes);
+                });
+                return Ok(Self { data });
+            }
         }
 
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
