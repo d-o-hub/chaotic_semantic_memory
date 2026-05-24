@@ -17,6 +17,7 @@ pub struct ExportPayload {
 
 /// Binary-compatible metadata value
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
 pub enum BinaryMetadataValue {
     Null,
     Bool(bool),
@@ -68,6 +69,7 @@ impl From<BinaryMetadataValue> for serde_json::Value {
 
 /// Concept representation for binary export (bincode-compatible)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
 #[allow(dead_code)]
 pub struct BinaryConcept {
     pub id: String,
@@ -119,6 +121,7 @@ impl BinaryConcept {
 
 /// Payload for binary export/import (bincode-compatible)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
 #[allow(dead_code)]
 pub struct BinaryExportPayload {
     pub version: String,

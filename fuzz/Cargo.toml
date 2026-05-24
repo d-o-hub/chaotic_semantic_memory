@@ -17,6 +17,7 @@ bincode = "1.3.3"
 
 [dependencies.chaotic_semantic_memory]
 path = ".."
+features = ["fuzzing"]
 
 [[bin]]
 name = "hvec_from_bytes"
@@ -28,6 +29,13 @@ bench = false
 [[bin]]
 name = "binary_import"
 path = "fuzz_targets/binary_import.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "binary_payload_logic"
+path = "fuzz_targets/binary_payload_logic.rs"
 test = false
 doc = false
 bench = false
