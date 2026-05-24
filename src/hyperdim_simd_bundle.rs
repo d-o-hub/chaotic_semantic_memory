@@ -71,7 +71,8 @@ pub(crate) unsafe fn bundle_block_neon_single(
 
     let mut planes = [vdupq_n_u8(0); 64];
     for v in vectors {
-        let mut carry = unsafe { vld1q_u8(v.data.as_ptr().add(word_idx).cast()) };
+// SAFETY: word_idx is within the 80-word bounds; NEON feature is enabled.
+let mut carry = unsafe { vld1q_u8(v.data.as_ptr().add(word_idx).cast()) };
         for plane in planes.iter_mut().take(num_planes) {
             let next_carry = vandq_u8(*plane, carry);
             *plane = veorq_u8(*plane, carry);
