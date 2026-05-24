@@ -17,8 +17,7 @@ pub(crate) unsafe fn bundle_block_avx2_single(
 
     let mut planes = [_mm256_setzero_si256(); 64];
     for v in vectors {
-// SAFETY: word_idx + 1 stays within array bounds; unaligned load is intentional.
-let mut carry = unsafe { _mm256_loadu_si256(v.data.as_ptr().add(word_idx).cast()) };
+        let mut carry = unsafe { _mm256_loadu_si256(v.data.as_ptr().add(word_idx).cast()) };
         for plane in planes.iter_mut().take(num_planes) {
             let next_carry = _mm256_and_si256(*plane, carry);
             *plane = _mm256_xor_si256(*plane, carry);
@@ -72,8 +71,7 @@ pub(crate) unsafe fn bundle_block_neon_single(
 
     let mut planes = [vdupq_n_u8(0); 64];
     for v in vectors {
-// SAFETY: word_idx is within the 80-word bounds; NEON feature is enabled.
-let mut carry = unsafe { vld1q_u8(v.data.as_ptr().add(word_idx).cast()) };
+        let mut carry = unsafe { vld1q_u8(v.data.as_ptr().add(word_idx).cast()) };
         for plane in planes.iter_mut().take(num_planes) {
             let next_carry = vandq_u8(*plane, carry);
             *plane = veorq_u8(*plane, carry);
@@ -150,5 +148,41 @@ mod tests {
             }
             assert_eq!(simd_res, expected);
         }
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+    #[test]
+    fn bundle_block_neon_correctness() {
+        use crate::hyperdim::HVec10240;
+        let vectors: Vec<HVec10240> = (0..10u64).map(HVec10240::new_seeded).collect();
+        let threshold = vectors.len() / 2 + 1;
+        let num_planes = (usize::BITS - vectors.len().leading_zeros()) as usize;
+        let simd_res = unsafe { bundle_block_neon(&vectors, threshold, num_planes) };
+        let mut expected = [0u128; 80];
+        for i in 0..80 {
+            let mut planes = [0u128; 64];
+            for v in &vectors {
+                let mut carry = v.data[i];
+                for p in 0..num_planes {
+                    let next_carry = planes[p] & carry;
+                    planes[p] ^= carry;
+                    carry = next_carry;
+                    if carry == 0 {
+                        break;
+                    }
+                }
+            }
+            let (mut current_eq, mut current_gt) = (!0u128, 0u128);
+            for p in (0..num_planes).rev() {
+                if ((threshold >> p) & 1) == 1 {
+                    current_eq &= planes[p];
+                } else {
+                    current_gt |= current_eq & planes[p];
+                    current_eq &= !planes[p];
+                }
+            }
+            expected[i] = current_gt | current_eq;
+        }
+        assert_eq!(simd_res, expected);
     }
 }
