@@ -2,7 +2,9 @@
 
 use crate::error::Result;
 use crate::hyperdim::HVec10240;
-use crate::reservoir::{Reservoir, ReservoirMetrics, ReservoirMetricsSnapshot, ReservoirStepOutput};
+use crate::reservoir::{
+    Reservoir, ReservoirMetrics, ReservoirMetricsSnapshot, ReservoirStepOutput,
+};
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 use std::sync::Arc;
