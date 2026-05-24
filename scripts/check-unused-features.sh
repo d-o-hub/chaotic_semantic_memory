@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-python - <<'PY'
+PYTHON=$(command -v python3 || command -v python) || {
+    echo "ERROR: python3/python not found" >&2
+    exit 1
+}
+"$PYTHON" - <<'PY'
 import glob
 import re
 import tomllib
