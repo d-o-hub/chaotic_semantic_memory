@@ -99,7 +99,7 @@ fn test_bundle_threshold_consistency() {
             }
             let mut word_res = 0u128;
             for j in 0..128 {
-                if bit_counts[j] >= threshold as i32 {
+                if bit_counts[j] >= threshold {
                     word_res |= 1u128 << j;
                 }
             }
