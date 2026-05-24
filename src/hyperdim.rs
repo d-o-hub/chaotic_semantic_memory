@@ -171,11 +171,54 @@ impl HVec10240 {
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         // Performance Optimization: Use parallel bit-sliced addition for large batches (N >= 256).
+        // For AVX2, we process 2 words (256 bits) per task to match register width.
+        // For NEON, we process 1 word (128 bits) per task to match register width.
         if num_vectors >= 256 {
-            data.par_iter_mut().enumerate().for_each(|(i, word)| {
-                *word = bundle_word_scalar(vectors, i, threshold, num_planes);
-            });
-            return Ok(Self { data });
+            #[cfg(target_arch = "x86_64")]
+            if is_x86_feature_detected!("avx2") {
+                data.par_chunks_mut(2).enumerate().for_each(|(i, chunk)| {
+                    let res = unsafe {
+                        crate::hyperdim_simd_bundle::bundle_block_avx2_single(
+                            vectors,
+                            i * 2,
+                            threshold,
+                            num_planes,
+                        )
+                    };
+                    // SAFETY: chunk length is 2, matching AVX2 256-bit block size.
+                    unsafe {
+                        std::arch::x86_64::_mm256_storeu_si256(chunk.as_mut_ptr().cast(), res);
+                    }
+                });
+                return Ok(Self { data });
+            }
+
+            #[cfg(target_arch = "aarch64")]
+            {
+                data.par_iter_mut().enumerate().for_each(|(i, word)| {
+                    let res = unsafe {
+                        crate::hyperdim_simd_bundle::bundle_block_neon_single(
+                            vectors, i, threshold, num_planes,
+                        )
+                    };
+                    // SAFETY: word is a single u128, matching NEON 128-bit block size.
+                    unsafe {
+                        std::arch::aarch64::vst1q_u8(word as *mut u128 as *mut u8, res);
+                    }
+                });
+                return Ok(Self { data });
+            }
+
+            // Parallel scalar fallback
+            // Note: explicit gate for aarch64 to avoid unreachable code warnings
+            // because the NEON path above returns unconditionally.
+            #[cfg(not(target_arch = "aarch64"))]
+            {
+                data.par_iter_mut().enumerate().for_each(|(i, word)| {
+                    *word = bundle_word_scalar(vectors, i, threshold, num_planes);
+                });
+                return Ok(Self { data });
+            }
         }
 
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]

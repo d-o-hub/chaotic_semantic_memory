@@ -77,3 +77,42 @@ fn test_json_array_deserialize_fallback() {
     let decoded: HVec10240 = serde_json::from_str(&array_json).unwrap();
     assert_eq!(v.data, decoded.data);
 }
+
+#[test]
+fn test_bundle_threshold_consistency() {
+    // Test sizes that span sequential scalar, sequential SIMD, and parallel SIMD boundaries
+    for n in [10, 255, 256, 1000] {
+        let vectors: Vec<HVec10240> = (0..n).map(|i| HVec10240::new_seeded(i as u64)).collect();
+
+        // 1. Get reference result using naive scalar majority (parity with sequential fallback)
+        let mut expected = [0u128; 80];
+        let threshold = n / 2 + 1;
+        for i in 0..80 {
+            let mut bit_counts = [0i32; 128];
+            for v in &vectors {
+                let word = v.data[i];
+                for j in 0..128 {
+                    if (word >> j) & 1 == 1 {
+                        bit_counts[j] += 1;
+                    }
+                }
+            }
+            let mut word_res = 0u128;
+            for j in 0..128 {
+                if bit_counts[j] >= threshold {
+                    word_res |= 1u128 << j;
+                }
+            }
+            expected[i] = word_res;
+        }
+
+        // 2. Get actual result from bundle()
+        let actual = HVec10240::bundle(&vectors).expect("bundling failed");
+
+        assert_eq!(
+            actual.data, expected,
+            "Bundling inconsistency at N={} vectors",
+            n
+        );
+    }
+}

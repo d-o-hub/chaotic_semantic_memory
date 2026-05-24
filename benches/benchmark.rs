@@ -103,6 +103,12 @@ fn bench_hvec_bundle(c: &mut Criterion) {
         b.iter(|| HVec10240::bundle(black_box(&vectors_1000)).unwrap())
     });
 
+    // Explicitly test boundary for parallel SIMD path (N=256)
+    let vectors_256: Vec<_> = (0..256).map(|_| HVec10240::random()).collect();
+    group.bench_function("hvec_bundle_256", |b| {
+        b.iter(|| HVec10240::bundle(black_box(&vectors_256)).unwrap())
+    });
+
     group.finish();
 }
 
