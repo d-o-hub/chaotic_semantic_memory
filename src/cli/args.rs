@@ -462,13 +462,13 @@ pub struct HistoryArgs {
     #[arg(required = true)]
     pub concept_id: String,
     /// Show a specific version of the concept.
-    #[arg(long, conflicts_with = "rollback")]
+    #[arg(long)]
     pub version: Option<u64>,
     /// Roll back to a specific version.
     #[arg(long)]
     pub rollback: Option<u64>,
     /// Skip confirmation prompt for rollback.
-    #[arg(short, long, requires = "rollback")]
+    #[arg(short, long)]
     pub confirm: bool,
 }
 
