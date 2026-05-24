@@ -83,14 +83,14 @@ export class WasmFramework {
     /**
      * Create multiple associations in batch
      */
-    associate_many(associations: Array<any>): Promise<void>;
+    associate_many(associations: Array<{ from: string; to: string; strength: number }>): Promise<void>;
     /**
      * Breadth-first traversal from a starting concept.
      *
      * Returns an Array of `{id: string, depth: number}` objects.
      * Uses default `TraversalConfig`.
      */
-    bfs(start: string): Promise<Array<any>>;
+    bfs(start: string): Promise<TraversalResult[]>;
     /**
      * Clear all outbound associations for a concept.
      */
@@ -110,27 +110,27 @@ export class WasmFramework {
     /**
      * Export all concepts and associations to bytes for in-browser storage.
      */
-    exportToBytes(): Promise<Uint8Array>;
-    /**
-     * Get the current namespace
-     */
-    getNamespace(): Promise<string>;
-    /**
-     * Load a specific concept version.
-     */
-    getVersion(id: string, version: number): Promise<any>;
+    export_to_bytes(): Promise<Uint8Array>;
     /**
      * Get associations for a concept
      */
-    get_associations(id: string): Promise<Array<any>>;
+    get_associations(id: string): Promise<AssociationResult[]>;
     /**
      * Get a concept by ID
      */
-    get_concept(id: string): Promise<any>;
+    get_concept(id: string): Promise<Concept | null>;
     /**
-     * Import state from bytes previously produced by `exportToBytes`.
+     * Get the current namespace
      */
-    importFromBytes(data: Uint8Array, merge: boolean): Promise<number>;
+    get_namespace(): Promise<string>;
+    /**
+     * Load a specific concept version.
+     */
+    get_version(id: string, version: number): Promise<Concept | null>;
+    /**
+     * Import state from bytes previously produced by `export_to_bytes`.
+     */
+    import_from_bytes(data: Uint8Array, merge: boolean): Promise<number>;
     /**
      * Inject a concept
      */
@@ -138,7 +138,7 @@ export class WasmFramework {
     /**
      * Inject multiple concepts in batch
      */
-    inject_concepts(ids: Array<any>, vectors: Array<any>): Promise<void>;
+    inject_concepts(ids: string[], vectors: Uint8Array[]): Promise<void>;
     /**
      * Inject a concept from text
      */
@@ -146,17 +146,17 @@ export class WasmFramework {
     /**
      * List all historical versions of a concept.
      */
-    listVersions(id: string): Promise<Array<any>>;
+    list_versions(id: string): Promise<VersionInfo[]>;
     /**
      * Get framework metrics snapshot
      */
-    metrics_snapshot(): Promise<any>;
+    metrics_snapshot(): Promise<FrameworkMetrics>;
     /**
      * Get direct neighbors of a concept with edge strengths.
      *
      * Returns an Array of `{to: string, strength: number}` objects.
      */
-    neighbors(id: string, min_strength: number): Promise<Array<any>>;
+    neighbors(id: string, min_strength: number): Promise<AssociationResult[]>;
     /**
      * Create a new framework instance (no persistence in WASM)
      */
@@ -164,58 +164,58 @@ export class WasmFramework {
     /**
      * Register a callback for memory events.
      */
-    on_event(callback: Function): void;
+    on_event(callback: (event: MemoryEvent) => void): void;
     /**
      * Query for similar concepts
      */
-    probe(vector: Uint8Array, top_k: number): Promise<Array<any>>;
+    probe(vector: Uint8Array, top_k: number): Promise<ProbeResult[]>;
     /**
      * Probe for similar concepts with multiple queries in batch
      */
-    probe_batch(vectors: Array<any>, top_k: number): Promise<Array<any>>;
+    probe_batch(vectors: Array<any>, top_k: number): Promise<ProbeResult[][]>;
     /**
      * Probe for similar concepts with metadata filtering.
      */
-    probe_filtered(vector: Uint8Array, top_k: number, filter_json: string): Promise<Array<any>>;
+    probe_filtered(vector: Uint8Array, top_k: number, filter_json: string): Promise<ProbeResult[]>;
     /**
      * Probe for similar concepts using text
      */
-    probe_text(query: string, top_k: number): Promise<Array<any>>;
+    probe_text(query: string, top_k: number): Promise<Array<{ id: string, similarity: number }>>;
     /**
      * GraphRAG retrieval: similarity + graph traversal hybrid using text query.
      */
-    probe_text_with_graph(text: string, anchor_top_k: number, max_hops: number, min_assoc_strength: number, similarity_weight: number, graph_weight: number, final_top_k: number): Promise<Array<any>>;
+    probe_text_with_graph(text: string, anchor_top_k: number, max_hops: number, min_assoc_strength: number, similarity_weight: number, graph_weight: number, final_top_k: number): Promise<GraphProbeResult[]>;
     /**
      * GraphRAG retrieval: similarity + graph traversal hybrid using vector query.
      */
-    probe_with_graph(vector: Uint8Array, anchor_top_k: number, max_hops: number, min_assoc_strength: number, similarity_weight: number, graph_weight: number, final_top_k: number): Promise<Array<any>>;
+    probe_with_graph(vector: Uint8Array, anchor_top_k: number, max_hops: number, min_assoc_strength: number, similarity_weight: number, graph_weight: number, final_top_k: number): Promise<GraphProbeResult[]>;
     /**
      * Process a temporal sequence and return the resulting hypervector bytes.
      */
-    processSequence(sequence: Array<any>): Promise<Uint8Array>;
+    process_sequence(sequence: Float32Array[]): Promise<Uint8Array>;
     /**
      * Roll back a concept to a historical version.
      */
-    rollbackToVersion(id: string, version: number): Promise<any>;
+    rollback_to_version(id: string, version: number): Promise<Concept>;
     /**
      * Set the current namespace
      */
-    setNamespace(ns: string): Promise<void>;
+    set_namespace(ns: string): Promise<void>;
     /**
      * Find the minimum-cost path between two concepts (weighted Dijkstra).
      *
      * Returns an Array of concept ID strings, or an empty Array if no path exists.
      * Uses default `TraversalConfig`.
      */
-    shortest_path(from: string, to: string): Promise<Array<any>>;
+    shortest_path(from: string, to: string): Promise<string[]>;
     /**
      * Get framework stats
      */
-    stats(): Promise<any>;
+    stats(): Promise<FrameworkStats>;
     /**
      * Breadth-first traversal from a starting concept with custom config.
      */
-    traverse(start: string, max_depth: number, min_strength: number): Promise<Array<any>>;
+    traverse(start: string, max_depth: number, min_strength: number): Promise<TraversalResult[]>;
     /**
      * Update a concept's vector
      */
@@ -226,7 +226,7 @@ export class WasmFramework {
      * The `metadata_json` argument must be a valid JSON object string,
      * e.g. `{"category":"science","score":0.9}`.
      *
-     * Note: In WASM, persistence is in-memory only. Use `exportToBytes` to
+     * Note: In WASM, persistence is in-memory only. Use `export_to_bytes` to
      * snapshot state to IndexedDB or other storage.
      */
     update_concept_metadata(id: string, metadata_json: string): Promise<void>;
@@ -264,16 +264,16 @@ export interface InitOutput {
     readonly wasmframework_concept_count: (a: number) => number;
     readonly wasmframework_delete_concept: (a: number, b: number, c: number) => number;
     readonly wasmframework_disassociate: (a: number, b: number, c: number, d: number, e: number) => number;
-    readonly wasmframework_exportToBytes: (a: number) => number;
-    readonly wasmframework_getNamespace: (a: number) => number;
-    readonly wasmframework_getVersion: (a: number, b: number, c: number, d: number) => number;
+    readonly wasmframework_export_to_bytes: (a: number) => number;
     readonly wasmframework_get_associations: (a: number, b: number, c: number) => number;
     readonly wasmframework_get_concept: (a: number, b: number, c: number) => number;
-    readonly wasmframework_importFromBytes: (a: number, b: number, c: number) => number;
+    readonly wasmframework_get_namespace: (a: number) => number;
+    readonly wasmframework_get_version: (a: number, b: number, c: number, d: number) => number;
+    readonly wasmframework_import_from_bytes: (a: number, b: number, c: number) => number;
     readonly wasmframework_inject_concept: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly wasmframework_inject_concepts: (a: number, b: number, c: number) => number;
     readonly wasmframework_inject_text: (a: number, b: number, c: number, d: number, e: number) => number;
-    readonly wasmframework_listVersions: (a: number, b: number, c: number) => number;
+    readonly wasmframework_list_versions: (a: number, b: number, c: number) => number;
     readonly wasmframework_metrics_snapshot: (a: number) => number;
     readonly wasmframework_neighbors: (a: number, b: number, c: number, d: number) => number;
     readonly wasmframework_new: () => number;
@@ -284,9 +284,9 @@ export interface InitOutput {
     readonly wasmframework_probe_text: (a: number, b: number, c: number, d: number) => number;
     readonly wasmframework_probe_text_with_graph: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => number;
     readonly wasmframework_probe_with_graph: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => number;
-    readonly wasmframework_processSequence: (a: number, b: number) => number;
-    readonly wasmframework_rollbackToVersion: (a: number, b: number, c: number, d: number) => number;
-    readonly wasmframework_setNamespace: (a: number, b: number, c: number) => number;
+    readonly wasmframework_process_sequence: (a: number, b: number) => number;
+    readonly wasmframework_rollback_to_version: (a: number, b: number, c: number, d: number) => number;
+    readonly wasmframework_set_namespace: (a: number, b: number, c: number) => number;
     readonly wasmframework_shortest_path: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly wasmframework_stats: (a: number) => number;
     readonly wasmframework_traverse: (a: number, b: number, c: number, d: number, e: number) => number;

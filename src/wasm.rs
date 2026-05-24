@@ -38,18 +38,19 @@ impl WasmFramework {
     }
 
     /// Set the current namespace
-    #[wasm_bindgen(js_name = setNamespace)]
+    #[wasm_bindgen(js_name = set_namespace)]
     pub async fn set_namespace(&self, ns: String) {
         self.framework.set_namespace(ns).await;
     }
 
     /// Get the current namespace
-    #[wasm_bindgen(js_name = getNamespace)]
+    #[wasm_bindgen(js_name = get_namespace)]
     pub async fn get_namespace(&self) -> String {
         self.framework.namespace().await
     }
 
     /// Inject a concept
+    #[wasm_bindgen(js_name = inject_concept)]
     pub async fn inject_concept(&self, id: String, vector: &[u8]) -> Result<(), JsValue> {
         let hvec = HVec10240::from_bytes(vector).map_err(to_js_error)?;
 
@@ -60,6 +61,7 @@ impl WasmFramework {
     }
 
     /// Query for similar concepts
+    #[wasm_bindgen(js_name = probe)]
     pub async fn probe(&self, vector: &[u8], top_k: usize) -> Result<Array, JsValue> {
         let hvec = HVec10240::from_bytes(vector).map_err(to_js_error)?;
 
@@ -83,6 +85,7 @@ impl WasmFramework {
     }
 
     /// Associate two concepts
+    #[wasm_bindgen(js_name = associate)]
     pub async fn associate(&self, from: String, to: String, strength: f32) -> Result<(), JsValue> {
         self.framework
             .associate(&from, &to, strength)
@@ -91,6 +94,7 @@ impl WasmFramework {
     }
 
     /// Delete concept by ID
+    #[wasm_bindgen(js_name = delete_concept)]
     pub async fn delete_concept(&self, id: String) -> Result<(), JsValue> {
         self.framework
             .delete_concept(&id)
@@ -99,6 +103,7 @@ impl WasmFramework {
     }
 
     /// Update a concept's vector
+    #[wasm_bindgen(js_name = update_concept)]
     pub async fn update_concept(&self, id: String, vector: &[u8]) -> Result<(), JsValue> {
         let hvec = HVec10240::from_bytes(vector).map_err(to_js_error)?;
         self.framework
@@ -108,6 +113,7 @@ impl WasmFramework {
     }
 
     /// Remove an association between two concepts
+    #[wasm_bindgen(js_name = disassociate)]
     pub async fn disassociate(&self, from: String, to: String) -> Result<(), JsValue> {
         self.framework
             .disassociate(&from, &to)
@@ -116,6 +122,7 @@ impl WasmFramework {
     }
 
     /// Get associations for a concept
+    #[wasm_bindgen(js_name = get_associations)]
     pub async fn get_associations(&self, id: String) -> Result<Array, JsValue> {
         let associations = self
             .framework
@@ -136,6 +143,7 @@ impl WasmFramework {
     }
 
     /// Get a concept by ID
+    #[wasm_bindgen(js_name = get_concept)]
     pub async fn get_concept(&self, id: String) -> Result<JsValue, JsValue> {
         let concept_opt = self.framework.get_concept(&id).await.map_err(to_js_error)?;
 
@@ -146,6 +154,7 @@ impl WasmFramework {
     }
 
     /// Inject multiple concepts in batch
+    #[wasm_bindgen(js_name = inject_concepts)]
     pub async fn inject_concepts(&self, ids: Array, vectors: Array) -> Result<(), JsValue> {
         self.framework
             .validate_batch_size(ids.length() as usize)
@@ -179,6 +188,7 @@ impl WasmFramework {
     }
 
     /// Create multiple associations in batch
+    #[wasm_bindgen(js_name = associate_many)]
     pub async fn associate_many(&self, associations: Array) -> Result<(), JsValue> {
         self.framework
             .validate_batch_size(associations.length() as usize)
@@ -210,6 +220,7 @@ impl WasmFramework {
     }
 
     /// Probe for similar concepts with multiple queries in batch
+    #[wasm_bindgen(js_name = probe_batch)]
     pub async fn probe_batch(&self, vectors: Array, top_k: usize) -> Result<Array, JsValue> {
         self.framework
             .validate_batch_size(vectors.length() as usize)
@@ -247,6 +258,7 @@ impl WasmFramework {
     }
 
     /// Get framework metrics snapshot
+    #[wasm_bindgen(js_name = metrics_snapshot)]
     pub async fn metrics_snapshot(&self) -> Result<JsValue, JsValue> {
         let metrics = self.framework.metrics_snapshot().await;
         let obj = js_sys::Object::new();
@@ -314,7 +326,7 @@ impl WasmFramework {
     }
 
     /// Process a temporal sequence and return the resulting hypervector bytes.
-    #[wasm_bindgen(js_name = processSequence)]
+    #[wasm_bindgen(js_name = process_sequence)]
     pub async fn process_sequence(&self, sequence: Array) -> Result<Box<[u8]>, JsValue> {
         self.framework
             .validate_sequence_length(sequence.length() as usize)
@@ -337,7 +349,7 @@ impl WasmFramework {
     }
 
     /// Export all concepts and associations to bytes for in-browser storage.
-    #[wasm_bindgen(js_name = exportToBytes)]
+    #[wasm_bindgen(js_name = export_to_bytes)]
     pub async fn export_to_bytes(&self) -> Result<Uint8Array, JsValue> {
         let payload = {
             let singularity = self.framework.singularity.read().await;
@@ -356,8 +368,8 @@ impl WasmFramework {
         Ok(Uint8Array::from(data.as_slice()))
     }
 
-    /// Import state from bytes previously produced by `exportToBytes`.
-    #[wasm_bindgen(js_name = importFromBytes)]
+    /// Import state from bytes previously produced by `export_to_bytes`.
+    #[wasm_bindgen(js_name = import_from_bytes)]
     pub async fn import_from_bytes(&self, data: Uint8Array, merge: bool) -> Result<usize, JsValue> {
         let bytes = data.to_vec();
 

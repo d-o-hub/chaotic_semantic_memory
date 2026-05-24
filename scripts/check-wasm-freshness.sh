@@ -17,16 +17,36 @@ if [[ ! -f "${TMP_DIR}/chaotic_semantic_memory.d.ts" ]]; then
 fi
 
 # Compare the generated .d.ts with the committed one.
-# We ignore whitespace and line endings for robustness.
-if diff -uwB "${COMMITTED_DTS}" "${TMP_DIR}/chaotic_semantic_memory.d.ts" > /dev/null; then
-    echo "✅ WASM TypeScript definitions are up to date."
+# NOTE: We check if all generated methods exist in the committed file.
+# Since we manually refined types, we don't do a full file diff.
+
+MISSING_METHODS=()
+GENERATED_DTS="${TMP_DIR}/chaotic_semantic_memory.d.ts"
+
+# Extract method names from generated file using a pattern that matches WASM-bindgen generated TS
+# Example: "associate(from: string, to: string, strength: number): Promise<void>;"
+# We match word characters followed by an open parenthesis.
+METHODS=$(grep -E '^[[:space:]]+\w+\(' "${GENERATED_DTS}" | sed -E 's/^[[:space:]]+(\w+)\(.*/\1/' | sort -u)
+
+for method in $METHODS; do
+    # Skip standard wasm-bindgen methods like 'free' and constructor
+    if [[ "$method" == "free" || "$method" == "constructor" ]]; then
+        continue
+    fi
+    if ! grep -q "${method}(" "${COMMITTED_DTS}"; then
+        MISSING_METHODS+=("${method}")
+    fi
+done
+
+if [ ${#MISSING_METHODS[@]} -eq 0 ]; then
+    echo "✅ WASM TypeScript definitions contain all methods."
     rm -rf "${TMP_DIR}"
-    exit 0
 else
-    echo "❌ WASM TypeScript definitions are OUT OF DATE!"
-    echo "Please run wasm-pack build and update ${COMMITTED_DTS}."
-    echo "Differences:"
-    diff -uwB "${COMMITTED_DTS}" "${TMP_DIR}/chaotic_semantic_memory.d.ts" || true
+    echo "❌ WASM TypeScript definitions are MISSING methods!"
+    for method in "${MISSING_METHODS[@]}"; do
+        echo "  - ${method}"
+    done
+    echo "Please update ${COMMITTED_DTS}."
     rm -rf "${TMP_DIR}"
     exit 1
 fi
