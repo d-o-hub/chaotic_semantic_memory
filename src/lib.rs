@@ -49,16 +49,6 @@ pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod bridge_persistence;
-
-// Feature markers for metadata-only flags.
-#[cfg(feature = "wasm")]
-const _FEATURE_WASM: () = ();
-
-#[cfg(feature = "serde")]
-const _FEATURE_SERDE: () = ();
-
-#[cfg(feature = "signing")]
-const _FEATURE_SIGNING: () = ();
 pub mod bridge_retrieval;
 pub mod bundle;
 mod bundle_simd; // SIMD paths for BundleAccumulator

@@ -19,7 +19,7 @@ async fn test_cache_metrics_wiring() {
         .await
         .unwrap();
     let query = HVec10240::random();
-    let _ = framework.probe(query.clone(), 5).await.unwrap();
+    let _ = framework.probe(query, 5).await.unwrap();
 
     let metrics = framework.metrics_snapshot().await;
     assert_eq!(metrics.cache_misses_total, 1);
@@ -63,7 +63,7 @@ async fn test_latency_averages() {
 
     // 1. Initially zero
     let metrics = framework.metrics_snapshot().await;
-    assert_eq!(metrics.avg_probe_latency_ms, 0.0);
+    assert!(metrics.avg_probe_latency_ms < f64::EPSILON);
 
     // 2. Perform some probes
     framework

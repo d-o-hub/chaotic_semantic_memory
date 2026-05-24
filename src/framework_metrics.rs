@@ -43,8 +43,8 @@ mod tests {
     fn test_avg_latency_no_division_by_zero() {
         let metrics = FrameworkMetrics::default();
         let snapshot = metrics.snapshot();
-        assert_eq!(snapshot.avg_probe_latency_ms, 0.0);
-        assert_eq!(snapshot.avg_persist_latency_ms, 0.0);
+        assert!(snapshot.avg_probe_latency_ms < f64::EPSILON);
+        assert!(snapshot.avg_persist_latency_ms < f64::EPSILON);
         assert_eq!(snapshot.persist_ops_total, 0);
         assert_eq!(snapshot.probes_total, 0);
     }
@@ -94,15 +94,15 @@ mod tests {
         assert_eq!(snapshot.concepts_injected_total, 1);
         assert_eq!(snapshot.associations_created_total, 2);
         assert_eq!(snapshot.probes_total, 4); // 3 + 1 from observe_probe_latency_ms
-        assert_eq!(snapshot.avg_probe_latency_ms, 100.0);
+        assert!((snapshot.avg_probe_latency_ms - 100.0).abs() < f64::EPSILON);
         assert_eq!(snapshot.cache_hits_total, 10);
         assert_eq!(snapshot.cache_misses_total, 5);
         assert_eq!(snapshot.cache_evictions_total, 2);
         assert_eq!(snapshot.reservoir_steps_total, 100);
-        assert_eq!(snapshot.avg_reservoir_step_latency_us, 50.0);
+        assert!((snapshot.avg_reservoir_step_latency_us - 50.0).abs() < f64::EPSILON);
         assert_eq!(snapshot.reservoir_nodes_active, 50000);
         assert_eq!(snapshot.persist_ops_total, 1);
-        assert_eq!(snapshot.avg_persist_latency_ms, 200.0);
+        assert!((snapshot.avg_persist_latency_ms - 200.0).abs() < f64::EPSILON);
 
         // Verify total field count (12)
         let _ = snapshot.concepts_injected_total;
