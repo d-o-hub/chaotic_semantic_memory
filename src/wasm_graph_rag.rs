@@ -8,7 +8,9 @@ use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm::{WasmFramework, to_js_error};
+use crate::wasm::WasmFramework;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_utils::to_js_error;
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]

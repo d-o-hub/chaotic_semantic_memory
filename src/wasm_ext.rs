@@ -14,7 +14,9 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm::{WasmFramework, to_js_error};
+use crate::wasm::WasmFramework;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_utils::{to_js_error, concept_to_js_value};
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
@@ -209,7 +211,7 @@ impl WasmFramework {
             .await
             .map_err(to_js_error)?;
         match concept_opt {
-            Some(concept) => crate::wasm::concept_to_js_value(&concept),
+            Some(concept) => concept_to_js_value(&concept),
             None => Ok(JsValue::NULL),
         }
     }
@@ -222,7 +224,7 @@ impl WasmFramework {
             .rollback_to_version(&id, version as u64)
             .await
             .map_err(to_js_error)?;
-        crate::wasm::concept_to_js_value(&concept)
+        concept_to_js_value(&concept)
     }
 }
 

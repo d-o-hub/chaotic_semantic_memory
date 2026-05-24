@@ -90,7 +90,7 @@ export class WasmFramework {
      * Returns an Array of `{id: string, depth: number}` objects.
      * Uses default `TraversalConfig`.
      */
-    bfs(start: string): Promise<TraversalResult[]>;
+    bfs(start: string): Promise<Array<any>>;
     /**
      * Clear all outbound associations for a concept.
      */
@@ -118,15 +118,15 @@ export class WasmFramework {
     /**
      * Load a specific concept version.
      */
-    getVersion(id: string, version: number): Promise<Concept | null>;
+    getVersion(id: string, version: number): Promise<any>;
     /**
      * Get associations for a concept
      */
-    get_associations(id: string): Promise<AssociationResult[]>;
+    get_associations(id: string): Promise<Array<any>>;
     /**
      * Get a concept by ID
      */
-    get_concept(id: string): Promise<Concept | null>;
+    get_concept(id: string): Promise<any>;
     /**
      * Import state from bytes previously produced by `exportToBytes`.
      */
@@ -146,17 +146,17 @@ export class WasmFramework {
     /**
      * List all historical versions of a concept.
      */
-    listVersions(id: string): Promise<VersionInfo[]>;
+    listVersions(id: string): Promise<Array<any>>;
     /**
      * Get framework metrics snapshot
      */
-    metrics_snapshot(): Promise<FrameworkMetrics>;
+    metrics_snapshot(): Promise<any>;
     /**
      * Get direct neighbors of a concept with edge strengths.
      *
      * Returns an Array of `{to: string, strength: number}` objects.
      */
-    neighbors(id: string, min_strength: number): Promise<AssociationResult[]>;
+    neighbors(id: string, min_strength: number): Promise<Array<any>>;
     /**
      * Create a new framework instance (no persistence in WASM)
      */
@@ -168,27 +168,27 @@ export class WasmFramework {
     /**
      * Query for similar concepts
      */
-    probe(vector: Uint8Array, top_k: number): Promise<ProbeResult[]>;
+    probe(vector: Uint8Array, top_k: number): Promise<Array<any>>;
     /**
      * Probe for similar concepts with multiple queries in batch
      */
-    probe_batch(vectors: Array<any>, top_k: number): Promise<ProbeResult[][]>;
+    probe_batch(vectors: Array<any>, top_k: number): Promise<Array<any>>;
     /**
      * Probe for similar concepts with metadata filtering.
      */
-    probe_filtered(vector: Uint8Array, top_k: number, filter_json: string): Promise<ProbeResult[]>;
+    probe_filtered(vector: Uint8Array, top_k: number, filter_json: string): Promise<Array<any>>;
     /**
      * Probe for similar concepts using text
      */
-    probe_text(query: string, top_k: number): Promise<Array<{ id: string, similarity: number }>>;
+    probe_text(query: string, top_k: number): Promise<Array<any>>;
     /**
      * GraphRAG retrieval: similarity + graph traversal hybrid using text query.
      */
-    probe_text_with_graph(text: string, anchor_top_k: number, max_hops: number, min_assoc_strength: number, similarity_weight: number, graph_weight: number, final_top_k: number): Promise<GraphProbeResult[]>;
+    probe_text_with_graph(text: string, anchor_top_k: number, max_hops: number, min_assoc_strength: number, similarity_weight: number, graph_weight: number, final_top_k: number): Promise<Array<any>>;
     /**
      * GraphRAG retrieval: similarity + graph traversal hybrid using vector query.
      */
-    probe_with_graph(vector: Uint8Array, anchor_top_k: number, max_hops: number, min_assoc_strength: number, similarity_weight: number, graph_weight: number, final_top_k: number): Promise<GraphProbeResult[]>;
+    probe_with_graph(vector: Uint8Array, anchor_top_k: number, max_hops: number, min_assoc_strength: number, similarity_weight: number, graph_weight: number, final_top_k: number): Promise<Array<any>>;
     /**
      * Process a temporal sequence and return the resulting hypervector bytes.
      */
@@ -196,7 +196,7 @@ export class WasmFramework {
     /**
      * Roll back a concept to a historical version.
      */
-    rollbackToVersion(id: string, version: number): Promise<Concept>;
+    rollbackToVersion(id: string, version: number): Promise<any>;
     /**
      * Set the current namespace
      */
@@ -207,15 +207,15 @@ export class WasmFramework {
      * Returns an Array of concept ID strings, or an empty Array if no path exists.
      * Uses default `TraversalConfig`.
      */
-    shortest_path(from: string, to: string): Promise<string[]>;
+    shortest_path(from: string, to: string): Promise<Array<any>>;
     /**
      * Get framework stats
      */
-    stats(): Promise<FrameworkStats>;
+    stats(): Promise<any>;
     /**
      * Breadth-first traversal from a starting concept with custom config.
      */
-    traverse(start: string, max_depth: number, min_strength: number): Promise<TraversalResult[]>;
+    traverse(start: string, max_depth: number, min_strength: number): Promise<Array<any>>;
     /**
      * Update a concept's vector
      */
