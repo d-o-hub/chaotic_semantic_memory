@@ -243,6 +243,14 @@ pub mod persistence {
         pub async fn apply_migrations(&self, _target_version: i64) -> Result<()> {
             Ok(())
         }
+
+        pub async fn compact(&self) -> Result<()> {
+            Ok(())
+        }
+
+        pub async fn prune_orphans(&self) -> Result<u64> {
+            Ok(0)
+        }
     }
 }
 
