@@ -171,6 +171,8 @@ impl HVec10240 {
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         // Performance Optimization: Use parallel bit-sliced addition for large batches (N >= 256).
+        // For AVX2, we process 2 words (256 bits) per task to match register width.
+        // For NEON, we process 1 word (128 bits) per task to match register width.
         if num_vectors >= 256 {
             #[cfg(target_arch = "x86_64")]
             {
@@ -184,6 +186,7 @@ impl HVec10240 {
                                 num_planes,
                             )
                         };
+                        // SAFETY: chunk length is 2, matching AVX2 256-bit block size.
                         unsafe {
                             std::arch::x86_64::_mm256_storeu_si256(chunk.as_mut_ptr().cast(), res);
                         }
@@ -200,6 +203,7 @@ impl HVec10240 {
                             vectors, i, threshold, num_planes,
                         )
                     };
+                    // SAFETY: word is a single u128, matching NEON 128-bit block size.
                     unsafe {
                         std::arch::aarch64::vst1q_u8(word as *mut u128 as *mut u8, res);
                     }
