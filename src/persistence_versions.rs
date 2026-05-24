@@ -204,10 +204,13 @@ impl Persistence {
             prev_metadata = Some(metadata_json);
 
             list.push(ConceptVersion {
+                concept_id: id.to_string(),
                 version: version as u64,
-                timestamp_unix: modified_at,
-                vector_changed,
-                metadata_changed,
+                timestamp_unix: modified_at as u64,
+                vector: None,
+                metadata: None,
+                vector_changed: Some(vector_changed),
+                metadata_changed: Some(metadata_changed),
             });
         }
 

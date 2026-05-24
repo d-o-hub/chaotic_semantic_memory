@@ -4,20 +4,12 @@
 //! All operations return `MemoryError::UnsupportedOperation`.
 
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::HVec10240;
 use crate::singularity::Concept;
 
 /// Persistence stub for wasm32 builds.
 pub struct Persistence;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct ConceptVersion {
-    pub concept_id: String,
-    pub version: i64,
-    pub vector: HVec10240,
-    pub metadata: serde_json::Value,
-    pub modified_at: u64,
-}
+pub use crate::singularity::ConceptVersion;
 
 impl Persistence {
     pub async fn new_local(_path: &str) -> Result<Self> {
@@ -173,6 +165,7 @@ fn wasm_persistence_unavailable() -> MemoryError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hyperdim::HVec10240;
 
     #[tokio::test]
     async fn new_local_returns_unsupported() {
@@ -212,9 +205,11 @@ mod tests {
         let version = ConceptVersion {
             concept_id: "test-id".to_string(),
             version: 1,
-            vector: HVec10240::zero(),
-            metadata: serde_json::json!({"key": "value"}),
-            modified_at: 12345,
+            timestamp_unix: 12345,
+            vector: Some(HVec10240::zero()),
+            metadata: Some(serde_json::json!({"key": "value"})),
+            vector_changed: None,
+            metadata_changed: None,
         };
 
         // Serialize to JSON
@@ -223,8 +218,6 @@ mod tests {
         // Deserialize back
         let recovered: ConceptVersion = serde_json::from_str(&json).unwrap();
 
-        assert_eq!(recovered.concept_id, version.concept_id);
-        assert_eq!(recovered.version, version.version);
-        assert_eq!(recovered.modified_at, version.modified_at);
+        assert_eq!(recovered, version);
     }
 }

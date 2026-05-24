@@ -194,6 +194,8 @@ impl WasmFramework {
         let array = Array::new();
         for v in versions {
             let obj = js_sys::Object::new();
+            js_sys::Reflect::set(&obj, &"conceptId".into(), &v.concept_id.into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
             js_sys::Reflect::set(&obj, &"version".into(), &(v.version as u32).into())
                 .map_err(|_| JsValue::from_str("failed to set JS property"))?;
             js_sys::Reflect::set(
@@ -202,10 +204,14 @@ impl WasmFramework {
                 &(v.timestamp_unix as f64).into(),
             )
             .map_err(|_| JsValue::from_str("failed to set JS property"))?;
-            js_sys::Reflect::set(&obj, &"vectorChanged".into(), &v.vector_changed.into())
-                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
-            js_sys::Reflect::set(&obj, &"metadataChanged".into(), &v.metadata_changed.into())
-                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+            if let Some(vc) = v.vector_changed {
+                js_sys::Reflect::set(&obj, &"vectorChanged".into(), &vc.into())
+                    .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+            }
+            if let Some(mc) = v.metadata_changed {
+                js_sys::Reflect::set(&obj, &"metadataChanged".into(), &mc.into())
+                    .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+            }
             array.push(&obj);
         }
         Ok(array)

@@ -378,6 +378,8 @@ async fn concept_history_tracks_versions() {
     let latest = &history[0];
     assert_eq!(latest.concept_id, "history-test");
     assert!(latest.version >= 1);
+    assert!(latest.vector.is_some());
+    assert!(latest.metadata.is_some());
 }
 
 #[tokio::test]

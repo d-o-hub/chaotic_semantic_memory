@@ -44,13 +44,13 @@ pub async fn run_history(
                 );
                 println!("{:-<10} {:-<24} {:-<16} {:-<16}", "", "", "", "");
                 for v in &versions {
-                    let ts_str = format_timestamp(v.timestamp_unix as u64);
-                    let vec_chg_str = if v.vector_changed {
+                    let ts_str = format_timestamp(v.timestamp_unix);
+                    let vec_chg_str = if v.vector_changed.unwrap_or(false) {
                         "yes".green()
                     } else {
                         "no".normal()
                     };
-                    let meta_chg_str = if v.metadata_changed {
+                    let meta_chg_str = if v.metadata_changed.unwrap_or(false) {
                         "yes".green()
                     } else {
                         "no".normal()
