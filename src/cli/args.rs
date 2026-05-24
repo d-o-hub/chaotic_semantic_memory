@@ -468,7 +468,7 @@ pub struct HistoryArgs {
     #[arg(long)]
     pub rollback: Option<u64>,
     /// Skip confirmation prompt for rollback.
-    #[arg(short, long)]
+    #[arg(short, long, requires = "rollback")]
     pub confirm: bool,
 }
 
