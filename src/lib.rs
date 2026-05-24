@@ -49,16 +49,6 @@ pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod bridge_persistence;
-
-// Feature markers for metadata-only flags.
-#[cfg(feature = "wasm")]
-const _FEATURE_WASM: () = ();
-
-#[cfg(feature = "serde")]
-const _FEATURE_SERDE: () = ();
-
-#[cfg(feature = "signing")]
-const _FEATURE_SIGNING: () = ();
 pub mod bridge_retrieval;
 pub mod bundle;
 mod bundle_simd; // SIMD paths for BundleAccumulator
@@ -92,6 +82,7 @@ mod hyperdim_simd_bundle;
 pub mod mcp;
 pub mod metadata_filter;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_concepts;
 pub mod semantic_triples;
 pub use metadata_filter::MetadataFilter;
@@ -107,8 +98,10 @@ mod persistence_ops;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_versions;
 #[cfg(target_arch = "wasm32")]
+#[cfg(target_arch = "wasm32")]
 pub mod persistence_wasm;
 pub mod reservoir;
+mod reservoir_chaotic;
 mod reservoir_inertial; // ADR-0064
 mod reservoir_sparse; // LOC gate extraction
 pub mod retrieval;
@@ -121,6 +114,7 @@ mod singularity_search; // Extracted from singularity.rs for LOC gate
 pub mod singularity_state;
 mod singularity_ttl;
 
+#[cfg(target_arch = "wasm32")]
 #[cfg(target_arch = "wasm32")]
 pub use crate::persistence_wasm as persistence;
 
@@ -139,14 +133,7 @@ pub mod persistence {
     pub struct Persistence;
 
     /// Stub concept version type when persistence feature is disabled.
-    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-    pub struct ConceptVersion {
-        pub concept_id: String,
-        pub version: i64,
-        pub vector: HVec10240,
-        pub metadata: serde_json::Value,
-        pub modified_at: u64,
-    }
+    pub use crate::singularity::ConceptVersion;
 
     impl Persistence {
         pub async fn save_concept(&self, _concept: &Concept) -> Result<()> {

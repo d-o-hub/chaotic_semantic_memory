@@ -12,7 +12,6 @@
 pub mod bm25;
 pub mod graph_rag;
 pub mod hybrid;
-pub mod rerank;
 
 pub use bm25::{Bm25Config, Bm25Index};
 pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};

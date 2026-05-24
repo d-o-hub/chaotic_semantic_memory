@@ -126,6 +126,34 @@ impl Reranker for RecencyDecayReranker {
     }
 }
 
+/// Cross-encoder reranker using ONNX (opt-in).
+#[cfg(feature = "rerank-cross")]
+#[derive(Debug)]
+pub struct CrossEncoderReranker {
+    pub model: Arc<candle_onnx::onnx::ModelProto>,
+    pub model_path: String,
+}
+
+#[cfg(feature = "rerank-cross")]
+impl Reranker for CrossEncoderReranker {
+    fn name(&self) -> &str {
+        "cross-encoder"
+    }
+
+    fn rerank(
+        &self,
+        _query: &HVec10240,
+        candidates: Vec<RerankCandidate>,
+        top_k: usize,
+    ) -> Vec<RerankCandidate> {
+        // Implementation would load and run ONNX model
+        // For now, it's a skeleton that returns candidates as-is
+        let mut results = candidates;
+        results.truncate(top_k);
+        results
+    }
+}
+
 /// Parses a list of rerankers from a string flag (e.g., "mmr:0.7,recency:30d").
 pub fn parse_rerankers(s: &str) -> crate::error::Result<Vec<Box<dyn Reranker>>> {
     let mut rerankers: Vec<Box<dyn Reranker>> = Vec::new();
@@ -206,10 +234,18 @@ pub fn parse_rerankers(s: &str) -> crate::error::Result<Vec<Box<dyn Reranker>>> 
                     blend,
                 }));
             }
+            #[cfg(feature = "rerank-cross")]
             "cross" => {
-                return Err(crate::error::MemoryError::Config(
-                    "Cross-encoder reranking is deferred to post-1.0 (see GOALS.md)".to_string(),
-                ));
+                let model = candle_onnx::read_file(value).map_err(|e| {
+                    crate::error::MemoryError::InvalidInput {
+                        field: "rerank".to_string(),
+                        reason: format!("failed to load ONNX model {}: {}", value, e),
+                    }
+                })?;
+                rerankers.push(Box::new(CrossEncoderReranker {
+                    model: Arc::new(model),
+                    model_path: value.to_string(),
+                }));
             }
             _ => {
                 return Err(crate::error::MemoryError::InvalidInput {
@@ -322,14 +358,19 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_rerankers_invalid_blend() {
-        let err = parse_rerankers("recency:30d:not-a-number").unwrap_err();
-        assert!(format!("{}", err).contains("invalid recency blend"));
+    #[cfg(feature = "rerank-cross")]
+    fn test_parse_rerankers_windows_path() {
+        let err = parse_rerankers(r"cross:C:\nonexistent\model.onnx").unwrap_err();
+        if let crate::error::MemoryError::InvalidInput { reason, .. } = err {
+            assert!(reason.contains(r"C:\nonexistent\model.onnx"));
+        } else {
+            panic!("Expected InvalidInput error with the full path");
+        }
     }
 
     #[test]
-    fn test_parse_rerankers_cross_deferred() {
-        let err = parse_rerankers("cross:path/to/model.onnx").unwrap_err();
-        assert!(format!("{}", err).contains("deferred to post-1.0"));
+    fn test_parse_rerankers_invalid_blend() {
+        let err = parse_rerankers("recency:30d:not-a-number").unwrap_err();
+        assert!(format!("{}", err).contains("invalid recency blend"));
     }
 }

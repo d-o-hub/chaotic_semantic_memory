@@ -68,8 +68,6 @@ enhancement_goals:
     - concept_ttl: true
     # ADR-0026: Multi-tenancy support
     - namespace_isolation: deferred
-    # ADR-0071: Cross-encoder reranking (ONNX-based)
-    - cross_encoder_reranking: deferred
 
 improvement_goals:
   name: "Continuous Improvement Program"

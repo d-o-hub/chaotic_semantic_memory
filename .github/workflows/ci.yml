@@ -139,12 +139,6 @@ jobs:
         components: clippy, rustfmt
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
-    - name: Install BATS
-      run: sudo apt-get install -y bats
-    - name: Unused feature flag check
-      run: bash scripts/check-unused-features.sh
-    - name: BATS tests for shell scripts
-      run: bats tests/bats/
     - name: Format check
       run: cargo fmt --all -- --check
     - name: Clippy

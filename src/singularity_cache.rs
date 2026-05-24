@@ -58,10 +58,10 @@ impl QueryCache {
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct CacheMetrics {
-    pub(crate) hits_total: AtomicU64,
-    pub(crate) misses_total: AtomicU64,
-    pub(crate) evictions_total: AtomicU64,
+pub struct CacheMetrics {
+    pub hits_total: AtomicU64,
+    pub misses_total: AtomicU64,
+    pub evictions_total: AtomicU64,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -72,7 +72,7 @@ pub struct CacheMetricsSnapshot {
 }
 
 impl CacheMetrics {
-    pub(crate) fn snapshot(&self) -> CacheMetricsSnapshot {
+    pub fn snapshot(&self) -> CacheMetricsSnapshot {
         CacheMetricsSnapshot {
             cache_hits_total: self.hits_total.load(Ordering::Relaxed),
             cache_misses_total: self.misses_total.load(Ordering::Relaxed),

@@ -3,11 +3,12 @@
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 use crate::index::{AnnIndex, IndexBackend, IndexStats};
-use crate::singularity_cache::CacheMetricsSnapshot;
+use crate::singularity_cache::{CacheMetrics, CacheMetricsSnapshot};
 use crate::singularity_retrieval::RetrievalConfig;
 use crate::singularity_state::NamespaceState;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use tracing::instrument;
 
 /// Configuration for the Singularity engine.
@@ -46,13 +47,21 @@ pub struct Concept {
     pub canonical_concept_ids: Vec<String>,
 }
 
-/// Public summary of a historical version of a concept.
+/// Represents a historical version of a concept.
+/// Can be a summary (with change flags) or a full record (with vector/metadata).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ConceptVersion {
+    pub concept_id: String,
     pub version: u64,
-    pub timestamp_unix: i64,
-    pub vector_changed: bool,
-    pub metadata_changed: bool,
+    pub timestamp_unix: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vector: Option<HVec10240>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vector_changed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_changed: Option<bool>,
 }
 
 /// Description of differences between two versions of a concept.
@@ -158,14 +167,20 @@ pub struct Singularity {
     pub(crate) config: SingularityConfig,
     pub(crate) namespaces: HashMap<String, NamespaceState>,
     pub(crate) _retrieval_config: RetrievalConfig,
+    pub(crate) cache_metrics: Arc<CacheMetrics>,
 }
 
 impl Singularity {
     pub fn new(config: SingularityConfig) -> Self {
+        Self::new_with_metrics(config, Arc::new(CacheMetrics::default()))
+    }
+
+    pub fn new_with_metrics(config: SingularityConfig, cache_metrics: Arc<CacheMetrics>) -> Self {
         Self {
             config,
             namespaces: HashMap::new(),
             _retrieval_config: RetrievalConfig::default(),
+            cache_metrics,
         }
     }
 
@@ -177,6 +192,16 @@ impl Singularity {
         let mut cfg = config;
         cfg.index_backend = backend;
         Self::new(cfg)
+    }
+
+    pub fn with_config_backend_and_metrics(
+        config: SingularityConfig,
+        backend: IndexBackend,
+        cache_metrics: Arc<CacheMetrics>,
+    ) -> Self {
+        let mut cfg = config;
+        cfg.index_backend = backend;
+        Self::new_with_metrics(cfg, cache_metrics)
     }
 
     fn create_index(&self) -> Box<dyn AnnIndex> {
@@ -191,8 +216,10 @@ impl Singularity {
     pub(crate) fn get_namespace_mut(&mut self, ns: &str) -> &mut NamespaceState {
         if !self.namespaces.contains_key(ns) {
             let index = self.create_index();
-            self.namespaces
-                .insert(ns.to_string(), NamespaceState::new(&self.config, index));
+            self.namespaces.insert(
+                ns.to_string(),
+                NamespaceState::new(&self.config, index, Arc::clone(&self.cache_metrics)),
+            );
         }
         self.namespaces.get_mut(ns).unwrap()
     }
