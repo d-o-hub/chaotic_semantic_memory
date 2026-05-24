@@ -35,6 +35,83 @@ impl Default for FrameworkMetrics {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_avg_latency_no_division_by_zero() {
+        let metrics = FrameworkMetrics::default();
+        let snapshot = metrics.snapshot();
+        assert_eq!(snapshot.avg_probe_latency_ms, 0.0);
+        assert_eq!(snapshot.avg_persist_latency_ms, 0.0);
+        assert_eq!(snapshot.persist_ops_total, 0);
+        assert_eq!(snapshot.probes_total, 0);
+    }
+
+    #[test]
+    fn test_snapshot_completeness() {
+        let metrics = FrameworkMetrics::default();
+        metrics.concepts_injected_total.store(1, Ordering::Relaxed);
+        metrics.associations_created_total.store(2, Ordering::Relaxed);
+        metrics.probes_total.store(3, Ordering::Relaxed);
+        metrics.observe_probe_latency_ms(100);
+        metrics.observe_persist_latency_ms(200, "test");
+
+        metrics.cache_metrics.hits_total.store(10, Ordering::Relaxed);
+        metrics.cache_metrics.misses_total.store(5, Ordering::Relaxed);
+        metrics
+            .cache_metrics
+            .evictions_total
+            .store(2, Ordering::Relaxed);
+
+        metrics
+            .reservoir_metrics
+            .steps_total
+            .store(100, Ordering::Relaxed);
+        metrics
+            .reservoir_metrics
+            .step_latency_us_total
+            .store(5000, Ordering::Relaxed);
+        metrics
+            .reservoir_metrics
+            .step_latency_count
+            .store(100, Ordering::Relaxed);
+        metrics
+            .reservoir_metrics
+            .nodes_active
+            .store(50000, Ordering::Relaxed);
+
+        let snapshot = metrics.snapshot();
+        assert_eq!(snapshot.concepts_injected_total, 1);
+        assert_eq!(snapshot.associations_created_total, 2);
+        assert_eq!(snapshot.probes_total, 4); // 3 + 1 from observe_probe_latency_ms
+        assert_eq!(snapshot.avg_probe_latency_ms, 100.0);
+        assert_eq!(snapshot.cache_hits_total, 10);
+        assert_eq!(snapshot.cache_misses_total, 5);
+        assert_eq!(snapshot.cache_evictions_total, 2);
+        assert_eq!(snapshot.reservoir_steps_total, 100);
+        assert_eq!(snapshot.avg_reservoir_step_latency_us, 50.0);
+        assert_eq!(snapshot.reservoir_nodes_active, 50000);
+        assert_eq!(snapshot.persist_ops_total, 1);
+        assert_eq!(snapshot.avg_persist_latency_ms, 200.0);
+
+        // Verify total field count (12)
+        let _ = snapshot.concepts_injected_total;
+        let _ = snapshot.associations_created_total;
+        let _ = snapshot.probes_total;
+        let _ = snapshot.avg_probe_latency_ms;
+        let _ = snapshot.cache_hits_total;
+        let _ = snapshot.cache_misses_total;
+        let _ = snapshot.cache_evictions_total;
+        let _ = snapshot.reservoir_steps_total;
+        let _ = snapshot.avg_reservoir_step_latency_us;
+        let _ = snapshot.reservoir_nodes_active;
+        let _ = snapshot.persist_ops_total;
+        let _ = snapshot.avg_persist_latency_ms;
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct FrameworkMetricsSnapshot {
     pub concepts_injected_total: u64,
