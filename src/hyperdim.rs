@@ -176,7 +176,8 @@ impl HVec10240 {
             {
                 if is_x86_feature_detected!("avx2") {
                     data.par_chunks_mut(2).enumerate().for_each(|(i, chunk)| {
-                        let res = unsafe {
+// SAFETY: AVX2 detection at line 177; par_chunks_mut(2) ensures 256-bit bounds.
+let res = unsafe {
                             crate::hyperdim_simd_bundle::bundle_block_avx2_single(
                                 vectors,
                                 i * 2,
