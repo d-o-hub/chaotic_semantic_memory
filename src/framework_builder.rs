@@ -270,7 +270,9 @@ impl FrameworkBuilder {
             self.config.reservoir_input_size,
             self.config.chaos_strength,
         )?;
-        let singularity = Arc::new(RwLock::new(Singularity::with_config_and_backend(
+        let metrics = Arc::new(crate::framework_metrics::FrameworkMetrics::default());
+
+        let singularity = Arc::new(RwLock::new(Singularity::with_config_backend_and_metrics(
             SingularityConfig {
                 max_concepts: self.config.max_concepts,
                 max_associations_per_concept: self.config.max_associations_per_concept,
@@ -279,6 +281,7 @@ impl FrameworkBuilder {
                 max_cached_top_k: self.config.max_cached_top_k,
             },
             self.config.index_backend.clone(),
+            Arc::clone(&metrics.cache_metrics),
         )));
 
         #[cfg(feature = "persistence")]
@@ -324,7 +327,7 @@ impl FrameworkBuilder {
             persistence,
             reservoir: Arc::new(RwLock::new(None)),
             config: self.config,
-            metrics: Default::default(),
+            metrics,
             event_sender: build_event_sender(),
             emitters: self.emitters,
             namespace: Arc::new(RwLock::new(self.namespace)),

@@ -19,11 +19,13 @@ export interface FrameworkMetrics {
   reservoir_steps_total: number;
   avg_reservoir_step_latency_us: number;
   reservoir_nodes_active: number;
+  persist_ops_total: number;
+  avg_persist_latency_ms: number;
 }
 
 export interface FrameworkStats {
   concept_count: number;
-  db_size_bytes: number;
+  db_size_bytes: number | null;
 }
 
 export class WasmFramework {

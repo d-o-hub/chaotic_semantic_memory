@@ -146,10 +146,12 @@ impl Persistence {
 
             history.push(ConceptVersion {
                 concept_id,
-                version,
-                vector: crate::hyperdim::HVec10240::from_bytes(&vector_bytes)?,
-                metadata: serde_json::from_str(&metadata_json)?,
-                modified_at: modified_at as u64,
+                version: version as u64,
+                timestamp_unix: modified_at as u64,
+                vector: Some(crate::hyperdim::HVec10240::from_bytes(&vector_bytes)?),
+                metadata: Some(serde_json::from_str(&metadata_json)?),
+                vector_changed: None,
+                metadata_changed: None,
             });
         }
 
