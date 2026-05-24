@@ -139,6 +139,8 @@ jobs:
         components: clippy, rustfmt
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
+    - name: Unused feature flag check
+      run: bash scripts/check-unused-features.sh
     - name: Format check
       run: cargo fmt --all -- --check
     - name: Clippy
