@@ -53,13 +53,21 @@ mod tests {
     fn test_snapshot_completeness() {
         let metrics = FrameworkMetrics::default();
         metrics.concepts_injected_total.store(1, Ordering::Relaxed);
-        metrics.associations_created_total.store(2, Ordering::Relaxed);
+        metrics
+            .associations_created_total
+            .store(2, Ordering::Relaxed);
         metrics.probes_total.store(3, Ordering::Relaxed);
         metrics.observe_probe_latency_ms(100);
         metrics.observe_persist_latency_ms(200, "test");
 
-        metrics.cache_metrics.hits_total.store(10, Ordering::Relaxed);
-        metrics.cache_metrics.misses_total.store(5, Ordering::Relaxed);
+        metrics
+            .cache_metrics
+            .hits_total
+            .store(10, Ordering::Relaxed);
+        metrics
+            .cache_metrics
+            .misses_total
+            .store(5, Ordering::Relaxed);
         metrics
             .cache_metrics
             .evictions_total

@@ -14,7 +14,10 @@ async fn test_cache_metrics_wiring() {
     assert_eq!(metrics.cache_misses_total, 0);
 
     // 2. Inject and probe to trigger cache miss
-    framework.inject_concept("c1", HVec10240::random()).await.unwrap();
+    framework
+        .inject_concept("c1", HVec10240::random())
+        .await
+        .unwrap();
     let query = HVec10240::random();
     let _ = framework.probe(query.clone(), 5).await.unwrap();
 
@@ -98,6 +101,9 @@ async fn test_persistence_metrics_wiring() {
         .unwrap();
 
     let metrics = framework.metrics_snapshot().await;
-    assert_eq!(metrics.persist_ops_total, initial_metrics.persist_ops_total + 1);
+    assert_eq!(
+        metrics.persist_ops_total,
+        initial_metrics.persist_ops_total + 1
+    );
     assert!(metrics.avg_persist_latency_ms >= 0.0);
 }
