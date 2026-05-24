@@ -1,8 +1,6 @@
 //! History command for listing concept version history.
 
-use super::{
-    create_framework_with_namespace, run_get, run_rollback, validate_concept_id,
-};
+use super::{create_framework_with_namespace, run_get, run_rollback, validate_concept_id};
 use crate::cli::args::{GetArgs, HistoryArgs, OutputFormat, RollbackArgs};
 use crate::cli::error::{CliError, Result};
 use colored::Colorize;
@@ -56,8 +54,11 @@ pub async fn run_history(
         OutputFormat::Json => {
             println!(
                 "{}",
-                serde_json::to_string(&versions)
-                    .map_err(|e| CliError::Output(format!("failed to serialize versions: {e}")))?
+                serde_json::to_string(&serde_json::json!({
+                    "concept_id": args.concept_id,
+                    "versions": versions
+                }))
+                .map_err(|e| CliError::Output(format!("failed to serialize versions: {e}")))?
             );
         }
         OutputFormat::Table => {
