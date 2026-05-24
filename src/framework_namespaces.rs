@@ -72,10 +72,7 @@ impl ChaoticSemanticFramework {
             })?;
 
         // Ensure the namespace is loaded from persistence if available and not in memory
-        let needs_load = self.needs_namespace_load(ns).await;
-        if needs_load {
-            self.load_namespace_from_persistence(ns).await;
-        }
+        self.ensure_namespace_loaded(ns).await?;
 
         // Use a temporary framework scoped to the target namespace for export
         let temp_fw = self.clone_with_namespace(ns);
@@ -88,10 +85,7 @@ impl ChaoticSemanticFramework {
     /// then serializes to a binary payload using bincode.
     pub async fn export_namespace_to_bytes(&self, ns: &str) -> Result<Vec<u8>> {
         // Ensure the namespace is loaded from persistence if available and not in memory
-        let needs_load = self.needs_namespace_load(ns).await;
-        if needs_load {
-            self.load_namespace_from_persistence(ns).await;
-        }
+        self.ensure_namespace_loaded(ns).await?;
 
         // Build the export payload scoped to the target namespace
         let payload = {
@@ -111,20 +105,34 @@ impl ChaoticSemanticFramework {
         Ok(data)
     }
 
-    async fn needs_namespace_load(&self, ns: &str) -> bool {
-        let sing = self.singularity.read().await;
-        !sing.namespaces.contains_key(ns)
-    }
+    /// Load namespace data into memory from persistence if not already loaded.
+    ///
+    /// Uses an atomic check-and-load pattern to avoid a TOCTOU race where two
+    /// concurrent calls both see the namespace as absent and attempt to load it.
+    /// The re-check under the write lock ensures only one caller performs the
+    /// injection. Persistence errors are propagated so callers do not silently
+    /// receive empty/incomplete exports.
+    async fn ensure_namespace_loaded(&self, ns: &str) -> Result<()> {
+        {
+            let sing = self.singularity.read().await;
+            if sing.namespaces.contains_key(ns) {
+                return Ok(());
+            }
+        }
 
-    async fn load_namespace_from_persistence(&self, ns: &str) {
         if let Some(ref persistence) = self.persistence {
-            if let Ok(concepts) = persistence.load_all_concepts(ns).await {
-                let mut sing = self.singularity.write().await;
+            let concepts = persistence.load_all_concepts(ns).await?;
+
+            let mut sing = self.singularity.write().await;
+            // Re-check under write lock (TOCTOU guard)
+            if !sing.namespaces.contains_key(ns) {
                 for concept in concepts {
-                    let _ = sing.inject(ns, concept);
+                    sing.inject(ns, concept)?;
                 }
             }
         }
+
+        Ok(())
     }
 
     fn clone_with_namespace(&self, ns: &str) -> Self {
@@ -140,5 +148,107 @@ impl ChaoticSemanticFramework {
             embedding_provider: self.embedding_provider.clone(),
             projection: self.projection.clone(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::export_payload::BinaryExportPayload;
+    use crate::hyperdim::HVec10240;
+    async fn empty_framework() -> ChaoticSemanticFramework {
+        ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .build()
+            .await
+            .expect("framework build should succeed")
+    }
+
+    #[tokio::test]
+    async fn test_export_namespace_to_bytes_serializes_concepts() {
+        let fw = empty_framework().await;
+        fw.set_namespace("test-ns").await;
+        let vector = HVec10240::random();
+
+        fw.inject_concept("c1", vector).await.unwrap();
+        fw.inject_concept("c2", HVec10240::random()).await.unwrap();
+        fw.associate("c1", "c2", 0.5_f32).await.unwrap();
+
+        let bytes = fw.export_namespace_to_bytes("test-ns").await.unwrap();
+        assert!(!bytes.is_empty(), "export bytes should not be empty");
+
+        let bin_payload: BinaryExportPayload =
+            bincode::deserialize(&bytes).expect("should deserialize bincode payload");
+        assert_eq!(bin_payload.concepts.len(), 2, "should have 2 concepts");
+        assert_eq!(
+            bin_payload.associations.len(),
+            1,
+            "should have 1 association"
+        );
+        assert_eq!(
+            bin_payload.associations[0],
+            ("c1".to_string(), "c2".to_string(), 0.5_f32)
+        );
+
+        let c1 = bin_payload
+            .concepts
+            .iter()
+            .find(|c| c.id == "c1")
+            .expect("c1 should exist in export");
+        let restored = HVec10240::from_bytes(&c1.vector_bytes).unwrap();
+        assert_eq!(
+            restored.to_bytes(),
+            vector.to_bytes(),
+            "vector should survive roundtrip"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_export_namespace_to_bytes_empty_namespace() {
+        let fw = empty_framework().await;
+
+        let bytes = fw.export_namespace_to_bytes("empty-ns").await.unwrap();
+        let bin_payload: BinaryExportPayload =
+            bincode::deserialize(&bytes).expect("should deserialize bincode payload");
+        assert!(
+            bin_payload.concepts.is_empty(),
+            "empty namespace should have no concepts"
+        );
+        assert!(
+            bin_payload.associations.is_empty(),
+            "empty namespace should have no associations"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_export_namespace_to_bytes_namespace_not_found() {
+        let fw = empty_framework().await;
+
+        let bytes = fw.export_namespace_to_bytes("nonexistent").await.unwrap();
+        let bin_payload: BinaryExportPayload =
+            bincode::deserialize(&bytes).expect("should deserialize bincode payload");
+        assert!(bin_payload.concepts.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_export_namespace_to_bytes_isolates_namespaces() {
+        let fw = empty_framework().await;
+        let vector_a = HVec10240::random();
+        let vector_b = HVec10240::random();
+
+        fw.set_namespace("ns-a").await;
+        fw.inject_concept("a1", vector_a).await.unwrap();
+
+        fw.set_namespace("ns-b").await;
+        fw.inject_concept("b1", vector_b).await.unwrap();
+
+        let bytes = fw.export_namespace_to_bytes("ns-a").await.unwrap();
+        let bin_payload: BinaryExportPayload =
+            bincode::deserialize(&bytes).expect("should deserialize");
+        assert_eq!(bin_payload.concepts.len(), 1, "ns-a should have 1 concept");
+        assert_eq!(
+            bin_payload.concepts[0].id, "a1",
+            "ns-a should contain a1 only"
+        );
     }
 }
