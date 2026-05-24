@@ -807,6 +807,7 @@ name = "chaotic_semantic_memory"
 version = "0.3.6"
 dependencies = [
  "anyhow",
+ "arbitrary",
  "assert_cmd",
  "async-trait",
  "base64 0.22.1",

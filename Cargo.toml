@@ -81,6 +81,8 @@ fastembed = { version = "4", optional = true }
 # HNSW ANN index (opt-in via ann-hnsw feature)
 hnsw_rs = { version = "0.3.4", optional = true }
 
+arbitrary = { version = "1.3", features = ["derive"], optional = true }
+
 # CLI dependencies (gated behind "cli" feature)
 clap = { version = "4.5", features = ["derive", "env", "string"], optional = true }
 clap_complete = { version = "4.5.42", optional = true }
@@ -245,6 +247,11 @@ embed-voyage = ["dep:reqwest"]
 ann-hnsw = ["dep:hnsw_rs"]
 ann-lsh = []
 
+
+# Federation-ready API enhancements (ADR-055 downstream)
+signing = []
+serde = []
+fuzzing = ["dep:arbitrary"]
 
 # CloudEvents integration (ADR-0078)
 cloudevents = ["dep:cloudevents-sdk", "dep:uuid", "uuid/js"]

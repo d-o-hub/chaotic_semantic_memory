@@ -42,6 +42,8 @@
 - mcp: [dep:rmcp, cli]
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
+- serde: []
+- signing: []
 - wasm: []
 
 Generated: [TIMESTAMP REMOVED FOR DETERMINISM]
@@ -1645,9 +1647,6 @@ Arguments for the get command.
 pub struct HistoryArgs {
     pub namespace: String,
     pub concept_id: String,
-    pub version: Option<u64>,
-    pub rollback: Option<u64>,
-    pub confirm: bool,
 }
 ```
 

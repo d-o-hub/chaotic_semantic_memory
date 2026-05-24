@@ -240,12 +240,9 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
-    /// Import memory state from binary file.
-    #[instrument(err, skip(self), fields(path, merge))]
-    pub async fn import_binary(&self, path: &str, merge: bool) -> Result<usize> {
-        let validated_path = validate_path(path)?;
-        let bytes = fs::read(validated_path).await?;
-
+    /// Import memory state from binary data.
+    #[instrument(err, skip(self, bytes), fields(bytes_len = bytes.len(), merge))]
+    pub async fn import_binary_from_bytes(&self, bytes: &[u8], merge: bool) -> Result<usize> {
         // MAX_IMPORT_SIZE fits in usize on 64-bit
         if bytes.len() > MAX_IMPORT_SIZE as usize {
             return Err(crate::error::MemoryError::InvalidInput {
@@ -260,7 +257,7 @@ impl ChaoticSemanticFramework {
         let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
         let binary_payload: BinaryExportPayload =
             options
-                .deserialize(&bytes)
+                .deserialize(bytes)
                 .map_err(|e| crate::error::MemoryError::InvalidInput {
                     field: "import_data".to_string(),
                     reason: format!("bincode deserialization failed: {e}"),
@@ -319,6 +316,14 @@ impl ChaoticSemanticFramework {
         }
 
         Ok(payload.concepts.len())
+    }
+
+    /// Import memory state from binary file.
+    #[instrument(err, skip(self), fields(path, merge))]
+    pub async fn import_binary(&self, path: &str, merge: bool) -> Result<usize> {
+        let validated_path = validate_path(path)?;
+        let bytes = fs::read(validated_path).await?;
+        self.import_binary_from_bytes(&bytes, merge).await
     }
 
     /// Create database backup (SQLite only).
