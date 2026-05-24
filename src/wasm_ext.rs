@@ -5,7 +5,7 @@
 // Redundant clones are intentional for WASM ownership semantics
 
 #[cfg(target_arch = "wasm32")]
-use js_sys::{Array, Function};
+use js_sys::{Array, Function, Uint8Array};
 #[cfg(target_arch = "wasm32")]
 use tokio::sync::broadcast::error::RecvError;
 #[cfg(target_arch = "wasm32")]
@@ -229,6 +229,17 @@ impl WasmFramework {
             .await
             .map_err(to_js_error)?;
         crate::wasm::concept_to_js_value(&concept)
+    }
+
+    /// Export a namespace to bytes for in-browser storage.
+    #[wasm_bindgen(js_name = exportNamespaceToBytes)]
+    pub async fn export_namespace_to_bytes(&self, ns: String) -> Result<Uint8Array, JsValue> {
+        let data = self
+            .framework
+            .export_namespace_to_bytes(&ns)
+            .await
+            .map_err(to_js_error)?;
+        Ok(Uint8Array::from(data.as_slice()))
     }
 }
 
