@@ -9,14 +9,15 @@ use rand::{RngExt, SeedableRng};
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 #[cfg(not(target_arch = "wasm32"))]
 use {std::time::Instant, tracing::instrument};
 #[derive(Debug, Default)]
-struct ReservoirMetrics {
-    steps_total: AtomicU64,
-    step_latency_us_total: AtomicU64,
-    step_latency_count: AtomicU64,
-    nodes_active: AtomicU64,
+pub struct ReservoirMetrics {
+    pub steps_total: AtomicU64,
+    pub step_latency_us_total: AtomicU64,
+    pub step_latency_count: AtomicU64,
+    pub nodes_active: AtomicU64,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -34,14 +35,14 @@ pub struct ReservoirStepOutput<'a> {
     pub change_norm: f64,
 }
 impl ReservoirMetrics {
-    fn observe_step(&self, latency_us: u64, nodes_active: u64) {
+    pub fn observe_step(&self, latency_us: u64, nodes_active: u64) {
         self.steps_total.fetch_add(1, Ordering::Relaxed);
         self.step_latency_us_total
             .fetch_add(latency_us, Ordering::Relaxed);
         self.step_latency_count.fetch_add(1, Ordering::Relaxed);
         self.nodes_active.store(nodes_active, Ordering::Relaxed);
     }
-    fn snapshot(&self) -> ReservoirMetricsSnapshot {
+    pub fn snapshot(&self) -> ReservoirMetricsSnapshot {
         let count = self.step_latency_count.load(Ordering::Relaxed);
         let total = self.step_latency_us_total.load(Ordering::Relaxed);
         let avg = if count == 0 {
@@ -75,7 +76,7 @@ pub struct Reservoir {
     alpha: f32,
     pub(crate) beta: f32, // ADR-0064: inertia coefficient
     state_norm_sq: f64,   // Incremental state norm for performance
-    metrics: ReservoirMetrics,
+    metrics: Arc<ReservoirMetrics>,
 }
 impl Reservoir {
     pub const DEFAULT_SIZE: usize = 50000;
@@ -110,10 +111,27 @@ impl Reservoir {
     }
 
     pub fn new(input_size: usize, size: usize) -> Result<Self> {
-        Self::new_seeded(input_size, size, rand::rng().random())
+        Self::new_with_metrics(input_size, size, Arc::new(ReservoirMetrics::default()))
+    }
+
+    pub fn new_with_metrics(
+        input_size: usize,
+        size: usize,
+        metrics: Arc<ReservoirMetrics>,
+    ) -> Result<Self> {
+        Self::new_seeded_with_metrics(input_size, size, rand::rng().random(), metrics)
     }
 
     pub fn new_seeded(input_size: usize, size: usize, seed: u64) -> Result<Self> {
+        Self::new_seeded_with_metrics(input_size, size, seed, Arc::new(ReservoirMetrics::default()))
+    }
+
+    pub fn new_seeded_with_metrics(
+        input_size: usize,
+        size: usize,
+        seed: u64,
+        metrics: Arc<ReservoirMetrics>,
+    ) -> Result<Self> {
         Self::validate_params(size, input_size, 0.0)?;
         let mut rng = StdRng::seed_from_u64(seed);
 
@@ -149,7 +167,7 @@ impl Reservoir {
             alpha: Self::DEFAULT_ALPHA,
             beta: 0.0, // ADR-0064: default no inertia
             state_norm_sq: 0.0,
-            metrics: ReservoirMetrics::default(),
+            metrics,
         })
     }
 
@@ -417,14 +435,38 @@ impl ChaoticReservoir {
         let seed = rand::rng().random();
         Self::new_seeded(input_size, size, chaos_strength, seed)
     }
+    pub fn new_with_metrics(
+        input_size: usize,
+        size: usize,
+        chaos_strength: f32,
+        metrics: Arc<ReservoirMetrics>,
+    ) -> Result<Self> {
+        let seed = rand::rng().random();
+        Self::new_seeded_with_metrics(input_size, size, chaos_strength, seed, metrics)
+    }
     pub fn new_seeded(
         input_size: usize,
         size: usize,
         chaos_strength: f32,
         seed: u64,
     ) -> Result<Self> {
+        Self::new_seeded_with_metrics(
+            input_size,
+            size,
+            chaos_strength,
+            seed,
+            Arc::new(ReservoirMetrics::default()),
+        )
+    }
+    pub fn new_seeded_with_metrics(
+        input_size: usize,
+        size: usize,
+        chaos_strength: f32,
+        seed: u64,
+        metrics: Arc<ReservoirMetrics>,
+    ) -> Result<Self> {
         Reservoir::validate_params(size, input_size, chaos_strength)?;
-        let mut base = Reservoir::new_seeded(input_size, size, seed)?;
+        let mut base = Reservoir::new_seeded_with_metrics(input_size, size, seed, metrics)?;
         base.set_spectral_radius(1.0)?;
         Ok(Self {
             base,

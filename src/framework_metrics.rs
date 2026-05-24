@@ -1,9 +1,12 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 //! Framework metrics for performance monitoring
 
+use crate::reservoir::ReservoirMetrics;
+use crate::singularity_cache::CacheMetrics;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct FrameworkMetrics {
     pub(crate) concepts_injected_total: AtomicU64,
     pub(crate) associations_created_total: AtomicU64,
@@ -12,6 +15,24 @@ pub struct FrameworkMetrics {
     pub(crate) probe_latency_count: AtomicU64,
     pub(crate) persist_latency_ms_total: AtomicU64,
     pub(crate) persist_latency_count: AtomicU64,
+    pub(crate) cache_metrics: Arc<CacheMetrics>,
+    pub(crate) reservoir_metrics: Arc<ReservoirMetrics>,
+}
+
+impl Default for FrameworkMetrics {
+    fn default() -> Self {
+        Self {
+            concepts_injected_total: AtomicU64::new(0),
+            associations_created_total: AtomicU64::new(0),
+            probes_total: AtomicU64::new(0),
+            probe_latency_ms_total: AtomicU64::new(0),
+            probe_latency_count: AtomicU64::new(0),
+            persist_latency_ms_total: AtomicU64::new(0),
+            persist_latency_count: AtomicU64::new(0),
+            cache_metrics: Arc::new(CacheMetrics::default()),
+            reservoir_metrics: Arc::new(ReservoirMetrics::default()),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -26,6 +47,8 @@ pub struct FrameworkMetricsSnapshot {
     pub reservoir_steps_total: u64,
     pub avg_reservoir_step_latency_us: f64,
     pub reservoir_nodes_active: u64,
+    pub persist_ops_total: u64,
+    pub avg_persist_latency_ms: f64,
 }
 
 impl FrameworkMetrics {
@@ -52,27 +75,39 @@ impl FrameworkMetrics {
         self.persist_latency_count.fetch_add(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn snapshot(&self) -> FrameworkMetricsSnapshot {
-        let count = self.probe_latency_count.load(Ordering::Relaxed);
-        let total = self.probe_latency_ms_total.load(Ordering::Relaxed);
-        // Atomic u64 to f64 for average latency
-        let avg = if count == 0 {
+    pub fn snapshot(&self) -> FrameworkMetricsSnapshot {
+        let probe_count = self.probe_latency_count.load(Ordering::Relaxed);
+        let probe_total = self.probe_latency_ms_total.load(Ordering::Relaxed);
+        let avg_probe = if probe_count == 0 {
             0.0
         } else {
-            total as f64 / count as f64
+            probe_total as f64 / probe_count as f64
         };
+
+        let persist_count = self.persist_latency_count.load(Ordering::Relaxed);
+        let persist_total = self.persist_latency_ms_total.load(Ordering::Relaxed);
+        let avg_persist = if persist_count == 0 {
+            0.0
+        } else {
+            persist_total as f64 / persist_count as f64
+        };
+
+        let cache = self.cache_metrics.snapshot();
+        let reservoir = self.reservoir_metrics.snapshot();
 
         FrameworkMetricsSnapshot {
             concepts_injected_total: self.concepts_injected_total.load(Ordering::Relaxed),
             associations_created_total: self.associations_created_total.load(Ordering::Relaxed),
             probes_total: self.probes_total.load(Ordering::Relaxed),
-            avg_probe_latency_ms: avg,
-            cache_hits_total: 0,
-            cache_misses_total: 0,
-            cache_evictions_total: 0,
-            reservoir_steps_total: 0,
-            avg_reservoir_step_latency_us: 0.0,
-            reservoir_nodes_active: 0,
+            avg_probe_latency_ms: avg_probe,
+            cache_hits_total: cache.cache_hits_total,
+            cache_misses_total: cache.cache_misses_total,
+            cache_evictions_total: cache.cache_evictions_total,
+            reservoir_steps_total: reservoir.reservoir_steps_total,
+            avg_reservoir_step_latency_us: reservoir.avg_reservoir_step_latency_us,
+            reservoir_nodes_active: reservoir.reservoir_nodes_active,
+            persist_ops_total: persist_count,
+            avg_persist_latency_ms: avg_persist,
         }
     }
 }

@@ -310,6 +310,18 @@ impl WasmFramework {
             &(metrics.reservoir_nodes_active as f64).into(),
         )
         .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+        js_sys::Reflect::set(
+            &obj,
+            &"persist_ops_total".into(),
+            &(metrics.persist_ops_total as f64).into(),
+        )
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+        js_sys::Reflect::set(
+            &obj,
+            &"avg_persist_latency_ms".into(),
+            &metrics.avg_persist_latency_ms.into(),
+        )
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
         Ok(obj.into())
     }
 
