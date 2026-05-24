@@ -94,6 +94,18 @@ else
   echo "skip: npm not found, skipping CLI pack smoke test"
 fi
 
+# BATS tests for shell scripts in tests/bats/
+echo "==> BATS tests for shell scripts"
+if command -v bats >/dev/null 2>&1; then
+    if ls tests/bats/*.bats >/dev/null 2>&1; then
+        bats tests/bats/
+    else
+        echo "skip: no BATS test files found in tests/bats/"
+    fi
+else
+    echo "skip: bats not installed (install with: sudo apt-get install bats)"
+fi
+
 # ShellCheck for all shell scripts (optional - only if installed)
 # Note: Disabled due to shellcheck crash on scripts with path references
 # Shellcheck bug: https://github.com/koalaman/shellcheck/issues/XXXX
