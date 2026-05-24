@@ -36,6 +36,9 @@ const EXPECTED_SUBCOMMANDS: &[&str] = &[
     "metrics",
     "watch",
     "probe-graph",
+    "history",
+    "diff",
+    "rollback",
 ];
 
 fn csm_bin() -> std::path::PathBuf {

@@ -1,7 +1,9 @@
 //! History command for listing concept version history.
 
-use super::{create_framework_with_namespace, validate_concept_id};
-use crate::cli::args::{HistoryArgs, OutputFormat};
+use super::{
+    create_framework_with_namespace, run_get, run_rollback, validate_concept_id,
+};
+use crate::cli::args::{GetArgs, HistoryArgs, OutputFormat, RollbackArgs};
 use crate::cli::error::{CliError, Result};
 use colored::Colorize;
 use std::path::Path;
@@ -14,6 +16,35 @@ pub async fn run_history(
     format: OutputFormat,
 ) -> Result<()> {
     validate_concept_id(&args.concept_id)?;
+
+    // Dispatch to get version if --version is specified
+    if let Some(version) = args.version {
+        return run_get(
+            GetArgs {
+                namespace: args.namespace,
+                concept_id: args.concept_id,
+                version: Some(version),
+            },
+            db_path,
+            format,
+        )
+        .await;
+    }
+
+    // Dispatch to rollback if --rollback is specified
+    if let Some(to_version) = args.rollback {
+        return run_rollback(
+            RollbackArgs {
+                namespace: args.namespace,
+                concept_id: args.concept_id,
+                to: to_version,
+                confirm: args.confirm,
+            },
+            db_path,
+            format,
+        )
+        .await;
+    }
 
     let framework = create_framework_with_namespace(db_path, &args.namespace).await?;
     let versions = framework
