@@ -352,7 +352,7 @@ impl ChaoticSemanticFramework {
         &self,
         id: &str,
         mut limit: usize,
-    ) -> Result<Vec<crate::persistence::ConceptVersion>> {
+    ) -> Result<Vec<crate::singularity::ConceptVersion>> {
         if limit > MAX_HISTORY_LIMIT {
             limit = MAX_HISTORY_LIMIT;
         }

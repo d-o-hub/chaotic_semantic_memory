@@ -129,14 +129,7 @@ pub mod persistence {
     pub struct Persistence;
 
     /// Stub concept version type when persistence feature is disabled.
-    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-    pub struct ConceptVersion {
-        pub concept_id: String,
-        pub version: i64,
-        pub vector: HVec10240,
-        pub metadata: serde_json::Value,
-        pub modified_at: u64,
-    }
+    pub use crate::singularity::ConceptVersion;
 
     impl Persistence {
         pub async fn save_concept(&self, _concept: &Concept) -> Result<()> {

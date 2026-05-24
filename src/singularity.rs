@@ -46,13 +46,21 @@ pub struct Concept {
     pub canonical_concept_ids: Vec<String>,
 }
 
-/// Public summary of a historical version of a concept.
+/// Represents a historical version of a concept.
+/// Can be a summary (with change flags) or a full record (with vector/metadata).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ConceptVersion {
+    pub concept_id: String,
     pub version: u64,
-    pub timestamp_unix: i64,
-    pub vector_changed: bool,
-    pub metadata_changed: bool,
+    pub timestamp_unix: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vector: Option<HVec10240>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vector_changed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_changed: Option<bool>,
 }
 
 /// Description of differences between two versions of a concept.
