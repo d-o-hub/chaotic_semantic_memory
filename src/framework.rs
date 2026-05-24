@@ -488,3 +488,13 @@ impl ChaoticSemanticFramework {
         })
     }
 }
+
+// Feature markers for architectural placeholder features.
+#[cfg(feature = "wasm")]
+const _FRAMEWORK_WASM: () = ();
+
+#[cfg(feature = "serde")]
+const _FRAMEWORK_SERDE: () = ();
+
+#[cfg(feature = "signing")]
+const _FRAMEWORK_SIGNING: () = ();

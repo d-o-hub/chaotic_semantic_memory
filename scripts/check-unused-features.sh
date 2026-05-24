@@ -6,7 +6,6 @@ PYTHON=$(command -v python3 || command -v python) || {
     exit 1
 }
 "$PYTHON" - <<'PY'
-import glob
 import re
 import tomllib
 from pathlib import Path
@@ -15,14 +14,14 @@ cargo = tomllib.loads(Path('Cargo.toml').read_text(encoding='utf-8'))
 features = sorted(k for k in cargo.get('features', {}).keys() if k != 'default')
 
 sources = []
-for pattern in ('src/**/*.rs', 'tests/**/*.rs', 'benches/**/*.rs', 'examples/**/*.rs'):
-    sources.extend(glob.glob(pattern, recursive=True))
+for folder in ('src', 'tests', 'benches', 'examples'):
+    sources.extend(Path(folder).rglob('*.rs'))
 
 text_chunks = []
 for path in sources:
     try:
-        text_chunks.append(Path(path).read_text(encoding='utf-8'))
-    except UnicodeDecodeError:
+        text_chunks.append(path.read_text(encoding='utf-8'))
+    except (UnicodeDecodeError, IsADirectoryError):
         continue
 
 haystack = '\n'.join(text_chunks)
