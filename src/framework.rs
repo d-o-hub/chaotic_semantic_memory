@@ -15,7 +15,7 @@ use crate::hyperdim::HVec10240;
 use crate::metadata_filter::MetadataFilter;
 #[cfg(feature = "persistence")]
 use crate::persistence::Persistence;
-use crate::reservoir::ChaoticReservoir;
+use crate::reservoir_chaotic::ChaoticReservoir;
 use crate::singularity::{Concept, ConceptBuilder, Singularity, unix_now_secs};
 
 /// Main framework for chaotic semantic memory
@@ -25,7 +25,7 @@ pub struct ChaoticSemanticFramework {
     pub(crate) persistence: Option<Arc<Persistence>>,
     #[cfg(not(feature = "persistence"))]
     pub(crate) persistence: Option<Arc<crate::persistence::Persistence>>,
-    pub(crate) reservoir: Arc<RwLock<Option<ChaoticReservoir>>>,
+    pub(crate) reservoir: Arc<RwLock<Option<crate::reservoir_chaotic::ChaoticReservoir>>>,
     pub(crate) config: FrameworkConfig,
     pub(crate) metrics: Arc<FrameworkMetrics>,
     pub(crate) event_sender: tokio::sync::broadcast::Sender<MemoryEvent>,
@@ -293,10 +293,11 @@ impl ChaoticSemanticFramework {
         let mut reservoir_guard = self.reservoir.write().await;
 
         if reservoir_guard.is_none() {
-            *reservoir_guard = Some(ChaoticReservoir::new(
+            *reservoir_guard = Some(ChaoticReservoir::new_with_metrics(
                 self.config.reservoir_input_size,
                 self.config.reservoir_size,
                 self.config.chaos_strength,
+                Arc::clone(&self.metrics.reservoir_metrics),
             )?);
         }
 
@@ -442,29 +443,7 @@ impl ChaoticSemanticFramework {
     }
 
     pub async fn metrics_snapshot(&self) -> FrameworkMetricsSnapshot {
-        let mut snapshot = self.metrics.snapshot();
-
-        let cache_snapshot = {
-            let sing = self.singularity.read().await;
-            let ns = self.namespace.read().await;
-            sing.cache_metrics_snapshot(&ns)
-        };
-
-        let reservoir_snapshot = {
-            let reservoir = self.reservoir.read().await;
-            reservoir
-                .as_ref()
-                .map(ChaoticReservoir::metrics_snapshot)
-                .unwrap_or_default()
-        };
-
-        snapshot.cache_hits_total = cache_snapshot.cache_hits_total;
-        snapshot.cache_misses_total = cache_snapshot.cache_misses_total;
-        snapshot.cache_evictions_total = cache_snapshot.cache_evictions_total;
-        snapshot.reservoir_steps_total = reservoir_snapshot.reservoir_steps_total;
-        snapshot.avg_reservoir_step_latency_us = reservoir_snapshot.avg_reservoir_step_latency_us;
-        snapshot.reservoir_nodes_active = reservoir_snapshot.reservoir_nodes_active;
-        snapshot
+        self.metrics.snapshot()
     }
 
     /// Get framework statistics
