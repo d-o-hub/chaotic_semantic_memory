@@ -272,17 +272,12 @@ pub mod prelude {
 pub mod wasm;
 #[cfg(target_arch = "wasm32")]
 mod wasm_ext;
-#[cfg(target_arch = "wasm32")]
-mod wasm_graph_rag;
-#[cfg(target_arch = "wasm32")]
-pub mod wasm_utils;
-
-// Include wasm modules for tests to run underlying data pattern tests on native
+// Include wasm_ext for tests to run underlying data pattern tests on native
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod wasm_ext;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod wasm_ext_tests;
-#[cfg(all(test, not(target_arch = "wasm32")))]
+#[cfg(target_arch = "wasm32")]
 mod wasm_graph_rag;
 #[cfg(all(test, not(target_arch = "wasm32")))]
-pub mod wasm_utils;
+mod wasm_graph_rag;

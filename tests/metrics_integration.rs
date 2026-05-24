@@ -107,3 +107,36 @@ async fn test_persistence_metrics_wiring() {
     );
     assert!(metrics.avg_persist_latency_ms >= 0.0);
 }
+
+#[tokio::test]
+async fn test_cache_metrics_multi_namespace() {
+    let framework = ChaoticSemanticFramework::builder()
+        .without_persistence()
+        .build()
+        .await
+        .unwrap();
+
+    // 1. Initially zero
+    let metrics = framework.metrics_snapshot().await;
+    assert_eq!(metrics.cache_misses_total, 0);
+
+    // 2. Namespace 1: trigger a miss
+    framework.set_namespace("ns1").await;
+    framework
+        .inject_concept("c1", HVec10240::random())
+        .await
+        .unwrap();
+    let _ = framework.probe(HVec10240::random(), 5).await.unwrap();
+
+    // 3. Namespace 2: trigger another miss
+    framework.set_namespace("ns2").await;
+    framework
+        .inject_concept("c2", HVec10240::random())
+        .await
+        .unwrap();
+    let _ = framework.probe(HVec10240::random(), 5).await.unwrap();
+
+    // 4. Verify aggregation across namespaces
+    let metrics = framework.metrics_snapshot().await;
+    assert_eq!(metrics.cache_misses_total, 2);
+}
