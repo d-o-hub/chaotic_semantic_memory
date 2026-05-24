@@ -14,12 +14,15 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm::{WasmFramework, to_js_error};
+use crate::wasm::WasmFramework;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_utils::{concept_to_js_value, to_js_error};
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 impl WasmFramework {
     /// Get framework stats
+    #[wasm_bindgen(js_name = stats)]
     pub async fn stats(&self) -> Result<JsValue, JsValue> {
         let stats = self.framework.stats().await.map_err(to_js_error)?;
 
@@ -43,6 +46,7 @@ impl WasmFramework {
     }
 
     /// Get concept count (convenience method)
+    #[wasm_bindgen(js_name = concept_count)]
     pub async fn concept_count(&self) -> Result<usize, JsValue> {
         let sing = self.framework.singularity.read().await;
         let ns = self.framework.namespace().await;
@@ -54,8 +58,9 @@ impl WasmFramework {
     /// The `metadata_json` argument must be a valid JSON object string,
     /// e.g. `{"category":"science","score":0.9}`.
     ///
-    /// Note: In WASM, persistence is in-memory only. Use `exportToBytes` to
+    /// Note: In WASM, persistence is in-memory only. Use `export_to_bytes` to
     /// snapshot state to IndexedDB or other storage.
+    #[wasm_bindgen(js_name = update_concept_metadata)]
     pub async fn update_concept_metadata(
         &self,
         id: String,
@@ -71,6 +76,7 @@ impl WasmFramework {
     }
 
     /// Clear all outbound associations for a concept.
+    #[wasm_bindgen(js_name = clear_associations)]
     pub async fn clear_associations(&self, id: String) -> Result<(), JsValue> {
         let mut sing = self.framework.singularity.write().await;
         let ns = self.framework.namespace().await;
@@ -80,6 +86,7 @@ impl WasmFramework {
     /// Get direct neighbors of a concept with edge strengths.
     ///
     /// Returns an Array of `{to: string, strength: number}` objects.
+    #[wasm_bindgen(js_name = neighbors)]
     pub async fn neighbors(&self, id: String, min_strength: f32) -> Result<Array, JsValue> {
         let sing = self.framework.singularity.read().await;
         let ns = self.framework.namespace().await;
@@ -97,6 +104,7 @@ impl WasmFramework {
     }
 
     /// Probe for similar concepts with metadata filtering.
+    #[wasm_bindgen(js_name = probe_filtered)]
     pub async fn probe_filtered(
         &self,
         vector: &[u8],
@@ -127,6 +135,7 @@ impl WasmFramework {
     }
 
     /// Register a callback for memory events.
+    #[wasm_bindgen(js_name = on_event)]
     pub fn on_event(&self, callback: Function) {
         let mut receiver = self.framework.subscribe();
         spawn_local(async move {
@@ -144,6 +153,7 @@ impl WasmFramework {
     }
 
     /// Inject a concept from text
+    #[wasm_bindgen(js_name = inject_text)]
     pub async fn inject_text(&self, id: String, text: String) -> Result<(), JsValue> {
         self.framework
             .inject_text(&id, &text)
@@ -152,6 +162,7 @@ impl WasmFramework {
     }
 
     /// Probe for similar concepts using text
+    #[wasm_bindgen(js_name = probe_text)]
     pub async fn probe_text(&self, query: String, top_k: usize) -> Result<Array, JsValue> {
         let results = self
             .framework
@@ -173,7 +184,7 @@ impl WasmFramework {
     }
 
     /// List all historical versions of a concept.
-    #[wasm_bindgen(js_name = listVersions)]
+    #[wasm_bindgen(js_name = list_versions)]
     pub async fn list_versions(&self, id: String) -> Result<Array, JsValue> {
         let versions = self
             .framework
@@ -201,7 +212,7 @@ impl WasmFramework {
     }
 
     /// Load a specific concept version.
-    #[wasm_bindgen(js_name = getVersion)]
+    #[wasm_bindgen(js_name = get_version)]
     pub async fn get_version(&self, id: String, version: u32) -> Result<JsValue, JsValue> {
         let concept_opt = self
             .framework
@@ -209,20 +220,20 @@ impl WasmFramework {
             .await
             .map_err(to_js_error)?;
         match concept_opt {
-            Some(concept) => crate::wasm::concept_to_js_value(&concept),
+            Some(concept) => concept_to_js_value(&concept),
             None => Ok(JsValue::NULL),
         }
     }
 
     /// Roll back a concept to a historical version.
-    #[wasm_bindgen(js_name = rollbackToVersion)]
+    #[wasm_bindgen(js_name = rollback_to_version)]
     pub async fn rollback_to_version(&self, id: String, version: u32) -> Result<JsValue, JsValue> {
         let concept = self
             .framework
             .rollback_to_version(&id, version as u64)
             .await
             .map_err(to_js_error)?;
-        crate::wasm::concept_to_js_value(&concept)
+        concept_to_js_value(&concept)
     }
 }
 
