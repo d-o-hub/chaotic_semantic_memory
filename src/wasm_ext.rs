@@ -183,6 +183,8 @@ impl WasmFramework {
         let array = Array::new();
         for v in versions {
             let obj = js_sys::Object::new();
+            js_sys::Reflect::set(&obj, &"conceptId".into(), &v.concept_id.into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
             js_sys::Reflect::set(&obj, &"version".into(), &(v.version as u32).into())
                 .map_err(|_| JsValue::from_str("failed to set JS property"))?;
             js_sys::Reflect::set(

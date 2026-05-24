@@ -3337,7 +3337,7 @@ actions:
     file: plans/adr/0068-hnsw-ann-index.md
     description: |
       Add AnnIndex trait + 3 backends (BruteForce default, HNSW opt-in, LSH opt-in).
-      Migration 007_add_hnsw_graph.sql for serialized index persistence.
+      Migration 005_add_hnsw_graph.sql for serialized index persistence.
       Bench targets at 50k/200k/1M concepts. Recall@10 ≥ 0.95 vs brute force.
       p50 ≤ 5 ms at 1M concepts.
 

@@ -218,10 +218,6 @@ mod tests {
         // Deserialize back
         let recovered: ConceptVersion = serde_json::from_str(&json).unwrap();
 
-        assert_eq!(recovered.concept_id, version.concept_id);
-        assert_eq!(recovered.version, version.version);
-        assert_eq!(recovered.timestamp_unix, version.timestamp_unix);
-        assert_eq!(recovered.vector, version.vector);
-        assert_eq!(recovered.metadata, version.metadata);
+        assert_eq!(recovered, version);
     }
 }

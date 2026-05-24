@@ -94,8 +94,8 @@ framework_builder.with_index_backend(IndexBackend::Hnsw {
 
 ### Persistence
 
-- HNSW graph serialized alongside concepts in libSQL (new table `csm_hnsw_graph`)
-- Migration `007_add_hnsw_graph.sql`
+- HNSW graph serialized alongside concepts in libSQL (new table `hnsw_graph`)
+- Migration `005_add_hnsw_graph.sql`
 - On load: detect serialized graph, deserialize; otherwise rebuild from concepts
 
 ### Cargo features
