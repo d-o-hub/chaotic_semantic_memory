@@ -82,6 +82,7 @@ mod hyperdim_simd_bundle;
 pub mod mcp;
 pub mod metadata_filter;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_concepts;
 pub mod semantic_triples;
 pub use metadata_filter::MetadataFilter;
@@ -96,6 +97,7 @@ mod persistence_migrations;
 mod persistence_ops;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_versions;
+#[cfg(target_arch = "wasm32")]
 #[cfg(target_arch = "wasm32")]
 pub mod persistence_wasm;
 pub mod reservoir;
@@ -112,6 +114,7 @@ mod singularity_search; // Extracted from singularity.rs for LOC gate
 pub mod singularity_state;
 mod singularity_ttl;
 
+#[cfg(target_arch = "wasm32")]
 #[cfg(target_arch = "wasm32")]
 pub use crate::persistence_wasm as persistence;
 
