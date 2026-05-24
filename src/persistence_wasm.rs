@@ -4,7 +4,6 @@
 //! All operations return `MemoryError::UnsupportedOperation`.
 
 use crate::error::{MemoryError, Result};
-use crate::hyperdim::HVec10240;
 use crate::singularity::Concept;
 
 /// Persistence stub for wasm32 builds.
@@ -166,6 +165,7 @@ fn wasm_persistence_unavailable() -> MemoryError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hyperdim::HVec10240;
 
     #[tokio::test]
     async fn new_local_returns_unsupported() {
