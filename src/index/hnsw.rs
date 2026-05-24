@@ -45,6 +45,10 @@ pub struct HnswIndex {
     idx_to_id: HashMap<usize, String>,
     config: HnswData,
     deleted_count: usize,
+    /// Owner of the underlying data if loaded from persistence.
+    /// This ensures that any potential (though in practice non-existent for owned data)
+    /// borrows in Hnsw remain valid for the lifetime of HnswIndex.
+    _owner: Option<Box<dyn std::any::Any + Send + Sync>>,
 }
 
 #[cfg(feature = "ann-hnsw")]
@@ -70,6 +74,7 @@ impl HnswIndex {
                 ef_search,
             },
             deleted_count: 0,
+            _owner: None,
         })
     }
 }
@@ -205,6 +210,7 @@ impl AnnIndex for HnswIndex {
         self.id_to_idx.clear();
         self.idx_to_id.clear();
         self.deleted_count = 0;
+        self._owner = None;
 
         for (id, concept) in concepts {
             self.insert(id.clone(), &concept.vector)?;
@@ -277,10 +283,18 @@ impl AnnIndex for HnswIndex {
             .load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist)
             .map_err(|e| MemoryError::database(format!("HNSW load failed: {}", e)))?;
 
+        // SAFETY: The `Hnsw` object returned by `load_hnsw_with_dist` has a lifetime tied to the `loader`.
+        // However, `HnswIo` is just a path wrapper and doesn't actually hold the data (the data is in the files).
+        // Since `hnsw_rs` is configured with `datamap_opt: false` (the default for this loader),
+        // it loads the data into owned `Vec`s. The lifetime tie in the API is an over-conservative
+        // artifact of `hnsw_rs` supporting both owned and memory-mapped data through the same struct.
+        // We keep the `loader` alive in `self._owner` to soundly satisfy any potential (though here non-existent)
+        // borrow requirements.
         let static_hnsw: Hnsw<'static, HVec10240, HammingDist> =
             unsafe { std::mem::transmute(hnsw) };
 
         self.hnsw = static_hnsw;
+        self._owner = Some(Box::new(loader));
         self.id_to_idx = wrapper.id_to_idx;
         self.idx_to_id = wrapper.idx_to_id;
         self.config.m = wrapper.m;
@@ -290,5 +304,55 @@ impl AnnIndex for HnswIndex {
 
         let _ = fs::remove_dir_all(temp_dir);
         Ok(())
+    }
+}
+
+#[cfg(all(test, feature = "ann-hnsw"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_persistence_roundtrip_miri() {
+        let mut index = HnswIndex::new(16, 200, 50).unwrap();
+        let id = "test-1".to_string();
+        let mut vec = HVec10240 { data: [0u128; 80] };
+        vec.data[0] = 0x1234567890ABCDEF;
+
+        index.insert(id.clone(), &vec).unwrap();
+
+        let serialized = index.serialize().unwrap();
+
+        let mut new_index = HnswIndex::new(16, 200, 50).unwrap();
+        new_index.deserialize(&serialized).unwrap();
+
+        let results = new_index.search(&vec, 1).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, id);
+    }
+
+    #[test]
+    fn test_rebuild_resets_owner() {
+        let mut index = HnswIndex::new(16, 200, 50).unwrap();
+        let id = "test-1".to_string();
+        let vec = HVec10240 { data: [0u128; 80] };
+        index.insert(id.clone(), &vec).unwrap();
+
+        let serialized = index.serialize().unwrap();
+        index.deserialize(&serialized).unwrap();
+
+        // After deserialize, _owner should be Some
+        assert!(index._owner.is_some());
+
+        let mut concepts = HashMap::new();
+        let concept = crate::singularity::ConceptBuilder::new(id.clone())
+            .with_vector(vec)
+            .build()
+            .unwrap();
+        concepts.insert(id, concept);
+
+        index.rebuild(&concepts).unwrap();
+
+        // After rebuild, _owner should be None
+        assert!(index._owner.is_none());
     }
 }
