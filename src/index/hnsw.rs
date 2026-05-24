@@ -329,4 +329,30 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].0, id);
     }
+
+    #[test]
+    fn test_rebuild_resets_owner() {
+        let mut index = HnswIndex::new(16, 200, 50).unwrap();
+        let id = "test-1".to_string();
+        let vec = HVec10240 { data: [0u128; 80] };
+        index.insert(id.clone(), &vec).unwrap();
+
+        let serialized = index.serialize().unwrap();
+        index.deserialize(&serialized).unwrap();
+
+        // After deserialize, _owner should be Some
+        assert!(index._owner.is_some());
+
+        let mut concepts = HashMap::new();
+        let concept = crate::singularity::ConceptBuilder::new(id.clone())
+            .with_vector(vec)
+            .build()
+            .unwrap();
+        concepts.insert(id.clone(), concept);
+
+        index.rebuild(&concepts).unwrap();
+
+        // After rebuild, _owner should be None
+        assert!(index._owner.is_none());
+    }
 }
