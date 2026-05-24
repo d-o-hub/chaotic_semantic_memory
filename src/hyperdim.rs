@@ -175,24 +175,22 @@ impl HVec10240 {
         // For NEON, we process 1 word (128 bits) per task to match register width.
         if num_vectors >= 256 {
             #[cfg(target_arch = "x86_64")]
-            {
-                if is_x86_feature_detected!("avx2") {
-                    data.par_chunks_mut(2).enumerate().for_each(|(i, chunk)| {
-                        let res = unsafe {
-                            crate::hyperdim_simd_bundle::bundle_block_avx2_single(
-                                vectors,
-                                i * 2,
-                                threshold,
-                                num_planes,
-                            )
-                        };
-                        // SAFETY: chunk length is 2, matching AVX2 256-bit block size.
-                        unsafe {
-                            std::arch::x86_64::_mm256_storeu_si256(chunk.as_mut_ptr().cast(), res);
-                        }
-                    });
-                    return Ok(Self { data });
-                }
+            if is_x86_feature_detected!("avx2") {
+                data.par_chunks_mut(2).enumerate().for_each(|(i, chunk)| {
+                    let res = unsafe {
+                        crate::hyperdim_simd_bundle::bundle_block_avx2_single(
+                            vectors,
+                            i * 2,
+                            threshold,
+                            num_planes,
+                        )
+                    };
+                    // SAFETY: chunk length is 2, matching AVX2 256-bit block size.
+                    unsafe {
+                        std::arch::x86_64::_mm256_storeu_si256(chunk.as_mut_ptr().cast(), res);
+                    }
+                });
+                return Ok(Self { data });
             }
 
             #[cfg(target_arch = "aarch64")]
@@ -211,16 +209,10 @@ impl HVec10240 {
                 return Ok(Self { data });
             }
 
-            #[cfg(target_arch = "x86_64")]
-            {
-                // Fallback for missing AVX2
-                data.par_iter_mut().enumerate().for_each(|(i, word)| {
-                    *word = bundle_word_scalar(vectors, i, threshold, num_planes);
-                });
-                return Ok(Self { data });
-            }
-
-            #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+            // Parallel scalar fallback
+            // Note: explicit gate for aarch64 to avoid unreachable code warnings
+            // because the NEON path above returns unconditionally.
+            #[cfg(not(target_arch = "aarch64"))]
             {
                 data.par_iter_mut().enumerate().for_each(|(i, word)| {
                     *word = bundle_word_scalar(vectors, i, threshold, num_planes);
