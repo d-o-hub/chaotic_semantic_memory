@@ -14,6 +14,7 @@ use serde::Deserialize;
 pub struct VoyageProvider {
     api_key: String,
     model: String,
+    base_url: String,
 }
 
 impl VoyageProvider {
@@ -29,6 +30,7 @@ impl VoyageProvider {
         Ok(Self {
             api_key,
             model: "voyage-2".into(),
+            base_url: "https://api.voyageai.com/v1".into(),
         })
     }
 
@@ -36,6 +38,13 @@ impl VoyageProvider {
     #[must_use]
     pub fn with_model(mut self, model: impl Into<String>) -> Self {
         self.model = model.into();
+        self
+    }
+
+    /// Override base URL.
+    #[must_use]
+    pub fn with_base_url(mut self, url: impl Into<String>) -> Self {
+        self.base_url = url.into();
         self
     }
 }
@@ -61,7 +70,7 @@ impl EmbeddingProvider for VoyageProvider {
         {
             let client = reqwest::Client::new();
             let response = client
-                .post("https://api.voyageai.com/v1/embeddings")
+                .post(format!("{}/embeddings", self.base_url))
                 .header("Authorization", format!("Bearer {}", self.api_key))
                 .json(&serde_json::json!({
                     "input": [text],
@@ -95,7 +104,7 @@ impl EmbeddingProvider for VoyageProvider {
         {
             let client = reqwest::Client::new();
             let response = client
-                .post("https://api.voyageai.com/v1/embeddings")
+                .post(format!("{}/embeddings", self.base_url))
                 .header("Authorization", format!("Bearer {}", self.api_key))
                 .json(&serde_json::json!({
                     "input": texts,

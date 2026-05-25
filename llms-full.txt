@@ -2814,6 +2814,7 @@ impl VoyageProvider {
     pub fn from_env() -> Result<Self>;
     pub fn new(api_key: String) -> Result<Self>;
     pub fn with_model(self, model: impl Trait) -> Self;
+    pub fn with_base_url(self, url: impl Trait) -> Self;
 }
 ```
 
