@@ -9,6 +9,8 @@ use hnsw_rs::prelude::*;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "ann-hnsw")]
 use std::collections::HashMap;
+#[cfg(feature = "ann-hnsw")]
+use std::mem::ManuallyDrop;
 
 #[cfg(feature = "ann-hnsw")]
 use crate::error::{MemoryError, Result};
@@ -42,7 +44,7 @@ impl Distance<HVec10240> for HammingDist {
 /// INVARIANT: `_owner` must outlive `hnsw`. Any code that sets
 /// `self.hnsw` MUST also update `self._owner` in the same expression.
 pub struct HnswIndex {
-    hnsw: Hnsw<'static, HVec10240, HammingDist>,
+    hnsw: ManuallyDrop<Hnsw<'static, HVec10240, HammingDist>>,
     _owner: Option<Box<dyn std::any::Any + Send + Sync>>,
     id_to_idx: HashMap<String, usize>,
     idx_to_id: HashMap<usize, String>,
@@ -64,7 +66,7 @@ impl HnswIndex {
         // ADR-0068: Default to 1M elements to support scale goal
         let hnsw = Hnsw::new(m, 1_000_000, 16, ef_construction, HammingDist);
         Ok(Self {
-            hnsw,
+            hnsw: ManuallyDrop::new(hnsw),
             _owner: None,
             id_to_idx: HashMap::new(),
             idx_to_id: HashMap::new(),
@@ -199,13 +201,19 @@ impl AnnIndex for HnswIndex {
     }
 
     fn rebuild(&mut self, concepts: &HashMap<String, Concept>) -> Result<()> {
-        self.hnsw = Hnsw::new(
+        let hnsw = Hnsw::new(
             self.config.m,
             concepts.len().max(100),
             16,
             self.config.ef_construction,
             HammingDist,
         );
+        #[cfg(not(miri))]
+        // SAFETY: Destructor triggers unsupported syscall in Miri.
+        unsafe {
+            ManuallyDrop::drop(&mut self.hnsw);
+        }
+        self.hnsw = ManuallyDrop::new(hnsw);
         self._owner = None;
         self.id_to_idx.clear();
         self.idx_to_id.clear();
@@ -261,8 +269,6 @@ impl AnnIndex for HnswIndex {
     }
 
     fn deserialize(&mut self, data: &[u8]) -> Result<()> {
-        use std::fs;
-
         if data.is_empty() {
             return Ok(());
         }
@@ -286,7 +292,12 @@ impl AnnIndex for HnswIndex {
             // SAFETY: We transmute to 'static; 'loader' in 'self._owner' ensures it outlives 'self.hnsw'.
             unsafe { std::mem::transmute(hnsw) };
 
-        self.hnsw = static_hnsw;
+        #[cfg(not(miri))]
+        // SAFETY: Destructor triggers unsupported syscall in Miri.
+        unsafe {
+            ManuallyDrop::drop(&mut self.hnsw);
+        }
+        self.hnsw = ManuallyDrop::new(static_hnsw);
         self._owner = Some(Box::new(loader));
         self.id_to_idx = wrapper.id_to_idx;
         self.idx_to_id = wrapper.idx_to_id;
@@ -297,5 +308,16 @@ impl AnnIndex for HnswIndex {
 
         let _ = fs::remove_dir_all(temp_dir);
         Ok(())
+    }
+}
+
+#[cfg(feature = "ann-hnsw")]
+impl Drop for HnswIndex {
+    fn drop(&mut self) {
+        #[cfg(not(miri))]
+        // SAFETY: Destructor triggers unsupported syscall in Miri.
+        unsafe {
+            ManuallyDrop::drop(&mut self.hnsw);
+        }
     }
 }

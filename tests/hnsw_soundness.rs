@@ -1,7 +1,7 @@
 #[cfg(feature = "ann-hnsw")]
-use chaotic_semantic_memory::prelude::*;
-#[cfg(feature = "ann-hnsw")]
 use chaotic_semantic_memory::index::IndexBackend;
+#[cfg(feature = "ann-hnsw")]
+use chaotic_semantic_memory::prelude::*;
 #[cfg(feature = "ann-hnsw")]
 use tempfile::NamedTempFile;
 
