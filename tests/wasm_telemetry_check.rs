@@ -1,5 +1,4 @@
 use chaotic_semantic_memory::prelude::*;
-use std::sync::Arc;
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen_test::wasm_bindgen_test]
