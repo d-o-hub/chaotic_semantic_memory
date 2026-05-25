@@ -194,8 +194,8 @@ impl Reservoir {
             self.input_version = self.input_version.wrapping_add(1);
         }
 
-        let one_minus_alpha = 1.0 - self.alpha;
-        let beta = self.beta;
+        let gamma = 1.0 - self.alpha + self.beta;
+        let neg_beta = -self.beta;
         let update_phase = self.update_phase;
         let mut change_norm_sq = 0.0;
         for i in (update_phase..self.size).step_by(self.update_stride) {
@@ -210,11 +210,14 @@ impl Reservoir {
                 let res_sum = self.w_res.dot_row(i, &self.state);
                 let activated = fast_tanh(*self.input_projection.get_unchecked(i) + res_sum);
                 let current_val = *self.state.get_unchecked(i);
-                let inertial = beta * (current_val - *self.prev_state.get_unchecked(i));
 
                 // Compute new state into scratch using a stable snapshot of `self.state`.
-                *self.scratch.get_unchecked_mut(i) =
-                    current_val.mul_add(one_minus_alpha, activated.mul_add(self.alpha, inertial));
+                // Optimized: Pre-calculated gamma (1.0 - alpha + beta) and neg_beta (-beta)
+                // reduces per-node subtraction in the hot loop.
+                *self.scratch.get_unchecked_mut(i) = activated.mul_add(
+                    self.alpha,
+                    current_val.mul_add(gamma, neg_beta * *self.prev_state.get_unchecked(i)),
+                );
 
                 let diff = *self.scratch.get_unchecked(i) - current_val;
                 change_norm_sq += diff * diff;
@@ -231,8 +234,10 @@ impl Reservoir {
                 *self.prev_state.get_unchecked_mut(i) = old_val;
                 *self.state.get_unchecked_mut(i) = new_val;
                 // Incremental norm update: subtract old square, add new square.
+                // Optimized: Use direct multiplication instead of powi(2).
+                let old_f64 = f64::from(old_val);
                 self.state_norm_sq +=
-                    (f64::from(new_val)).mul_add(f64::from(new_val), -f64::from(old_val).powi(2));
+                    (f64::from(new_val)).mul_add(f64::from(new_val), -(old_f64 * old_f64));
             }
         }
 
@@ -426,7 +431,8 @@ impl Reservoir {
 fn fast_tanh(x: f32) -> f32 {
     let x2 = x * x;
     // Approximates tanh(x) as x*(27+x^2)/(27+9x^2) using FMA for speed.
-    x2.mul_add(x, 27.0 * x) / x2.mul_add(9.0, 27.0)
+    // Optimized: Redundant multiplication removed.
+    x * (x2 + 27.0) / x2.mul_add(9.0, 27.0)
 }
 pub use crate::reservoir_chaotic::ChaoticReservoir;
 
