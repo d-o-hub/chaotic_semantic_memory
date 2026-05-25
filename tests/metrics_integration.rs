@@ -50,6 +50,8 @@ async fn test_reservoir_metrics_wiring() {
     let metrics = framework.metrics_snapshot().await;
     assert_eq!(metrics.reservoir_steps_total, 3);
     assert!(metrics.avg_reservoir_step_latency_us >= 0.0);
+    #[cfg(not(target_arch = "wasm32"))]
+    assert!(metrics.avg_reservoir_step_latency_us > 0.0);
     assert_eq!(metrics.reservoir_nodes_active, 50000);
 }
 
@@ -76,6 +78,8 @@ async fn test_latency_averages() {
 
     let metrics = framework.metrics_snapshot().await;
     assert!(metrics.avg_probe_latency_ms >= 0.0);
+    #[cfg(not(target_arch = "wasm32"))]
+    assert!(metrics.avg_probe_latency_ms > 0.0);
     assert_eq!(metrics.probes_total, 5);
 }
 
