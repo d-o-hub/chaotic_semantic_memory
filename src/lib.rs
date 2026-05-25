@@ -173,6 +173,14 @@ pub mod persistence {
             Ok(Vec::new())
         }
 
+        pub async fn concept_count(&self, _ns: &str) -> Result<usize> {
+            Ok(0)
+        }
+
+        pub async fn association_count(&self, _ns: &str) -> Result<usize> {
+            Ok(0)
+        }
+
         pub async fn association_count(&self, _ns: &str) -> Result<usize> {
             Ok(0)
         }

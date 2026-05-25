@@ -6,6 +6,33 @@ use crate::singularity::Concept;
 use libsql::params;
 
 impl Persistence {
+    /// Get the number of concepts in a namespace.
+    pub async fn concept_count(&self, ns: &str) -> Result<usize> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+
+        let mut rows = conn
+            .query(
+                "SELECT COUNT(*) FROM csm_concepts WHERE namespace = ?1",
+                params![ns],
+            )
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to count concepts: {e}")))?;
+
+        if let Some(row) = rows
+            .next()
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to fetch row: {e}")))?
+        {
+            let count: i64 = row
+                .get(0)
+                .map_err(|e| MemoryError::database(format!("Failed to get count: {e}")))?;
+            Ok(count as usize)
+        } else {
+            Ok(0)
+        }
+    }
+
     /// Save a concept to the database
     pub async fn save_concept(&self, ns: &str, concept: &Concept) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;

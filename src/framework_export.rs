@@ -121,7 +121,7 @@ impl ChaoticSemanticFramework {
             }
         }
 
-        writer.write_all(b"]}}").await?;
+        writer.write_all(b"]}").await?;
         writer.flush().await?;
         file.sync_all().await?;
 
@@ -267,7 +267,10 @@ impl ChaoticSemanticFramework {
                 for concept in ns_state.concepts.values() {
                     let binary_concept = BinaryConcept::from(concept.clone());
                     let data = options.serialize(&binary_concept).map_err(|e| {
-                        crate::error::MemoryError::Persistence(format!("Serialization error: {}", e))
+                        crate::error::MemoryError::Persistence(format!(
+                            "Serialization error: {}",
+                            e
+                        ))
                     })?;
                     writer.write_all(&data).await?;
                 }
@@ -308,12 +311,15 @@ impl ChaoticSemanticFramework {
             if let Some(ns_state) = sing.get_namespace(&ns) {
                 for (from_id, neighbors) in &ns_state.associations {
                     for (to_id, strength) in neighbors {
-                        let data = options.serialize(&(from_id, to_id, *strength)).map_err(|e| {
-                            crate::error::MemoryError::Persistence(format!(
-                                "Serialization error: {}",
-                                e
-                            ))
-                        })?;
+                        let data =
+                            options
+                                .serialize(&(from_id, to_id, *strength))
+                                .map_err(|e| {
+                                    crate::error::MemoryError::Persistence(format!(
+                                        "Serialization error: {}",
+                                        e
+                                    ))
+                                })?;
                         writer.write_all(&data).await?;
                     }
                 }

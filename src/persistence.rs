@@ -200,7 +200,6 @@ impl Persistence {
         Ok(associations)
     }
 
-    /// Process all associations in a namespace from the database using a callback.
     /// Get the number of associations in a namespace.
     pub async fn association_count(&self, ns: &str) -> Result<usize> {
         let _permit = self.acquire_remote_slot().await?;
