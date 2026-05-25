@@ -1,6 +1,8 @@
 //! WASM bindings for chaotic semantic memory
 
-use js_sys::{Array, Uint8Array};
+use bincode::Options;
+use js_sys::{Array, Float32Array, Uint8Array};
+use tracing::warn;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 
@@ -15,77 +17,6 @@ pub(crate) const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024;
 pub fn initialize_wasm() {
     console_error_panic_hook::set_once();
 }
-
-#[wasm_bindgen(typescript_custom_section)]
-const TS_APPEND_CONTENT: &'static str = r#"
-export interface ProbeResult {
-    id: string;
-    score: number;
-}
-
-export interface AssociationResult {
-    to: string;
-    strength: number;
-}
-
-export interface FrameworkMetrics {
-    concepts_injected_total: number;
-    associations_created_total: number;
-    probes_total: number;
-    avg_probe_latency_ms: number;
-    cache_hits_total: number;
-    cache_misses_total: number;
-    cache_evictions_total: number;
-    reservoir_steps_total: number;
-    avg_reservoir_step_latency_us: number;
-    reservoir_nodes_active: number;
-    persist_ops_total: number;
-    avg_persist_latency_ms: number;
-}
-
-export interface FrameworkStats {
-    concept_count: number;
-    db_size_bytes: number | null;
-}
-
-export interface Concept {
-    id: string;
-    vector: Uint8Array;
-    metadata: Record<string, any>;
-    created_at: number;
-    modified_at: number;
-    expires_at: number | null;
-    canonical_concept_ids: string[];
-}
-
-export interface Version {
-    conceptId: string;
-    version: number;
-    timestampUnix: number;
-    vectorChanged?: boolean;
-    metadataChanged?: boolean;
-}
-
-export interface GraphRagHit {
-    id: string;
-    score: number;
-    similarity: number;
-    anchor_id: string | null;
-    hop_distance: number;
-    assoc_strength: number;
-}
-
-export interface TraversalResult {
-    id: string;
-    depth: number;
-}
-
-export interface BatchAssociation {
-    from: string;
-    to: string;
-    strength: number;
-}
-"#;
 
 /// WASM-friendly wrapper for the framework
 #[wasm_bindgen]
@@ -129,9 +60,7 @@ impl WasmFramework {
     }
 
     /// Query for similar concepts
-    #[wasm_bindgen()]
-    #[wasm_bindgen(typescript_type = "Promise<ProbeResult[]>")]
-pub async fn probe(&self, vector: &[u8], top_k: usize) -> Result<Array, JsValue> {
+    pub async fn probe(&self, vector: &[u8], top_k: usize) -> Result<Array, JsValue> {
         let hvec = HVec10240::from_bytes(vector).map_err(to_js_error)?;
 
         let results = self
@@ -187,9 +116,7 @@ pub async fn probe(&self, vector: &[u8], top_k: usize) -> Result<Array, JsValue>
     }
 
     /// Get associations for a concept
-    #[wasm_bindgen()]
-    #[wasm_bindgen(typescript_type = "Promise<AssociationResult[]>")]
-pub async fn get_associations(&self, id: String) -> Result<Array, JsValue> {
+    pub async fn get_associations(&self, id: String) -> Result<Array, JsValue> {
         let associations = self
             .framework
             .get_associations(&id)
@@ -209,9 +136,7 @@ pub async fn get_associations(&self, id: String) -> Result<Array, JsValue> {
     }
 
     /// Get a concept by ID
-    #[wasm_bindgen()]
-    #[wasm_bindgen(typescript_type = "Promise<Concept | null>")]
-pub async fn get_concept(&self, id: String) -> Result<JsValue, JsValue> {
+    pub async fn get_concept(&self, id: String) -> Result<JsValue, JsValue> {
         let concept_opt = self.framework.get_concept(&id).await.map_err(to_js_error)?;
 
         match concept_opt {
@@ -221,9 +146,7 @@ pub async fn get_concept(&self, id: String) -> Result<JsValue, JsValue> {
     }
 
     /// Inject multiple concepts in batch
-    #[wasm_bindgen()]
-    #[wasm_bindgen(typescript_type = "(ids: string[], vectors: Uint8Array[]) => Promise<void>")]
-pub async fn inject_concepts(&self, ids: Array, vectors: Array) -> Result<(), JsValue> {
+    pub async fn inject_concepts(&self, ids: Array, vectors: Array) -> Result<(), JsValue> {
         self.framework
             .validate_batch_size(ids.length() as usize)
             .map_err(to_js_error)?;
@@ -256,9 +179,7 @@ pub async fn inject_concepts(&self, ids: Array, vectors: Array) -> Result<(), Js
     }
 
     /// Create multiple associations in batch
-    #[wasm_bindgen()]
-    #[wasm_bindgen(typescript_type = "(associations: BatchAssociation[]) => Promise<void>")]
-pub async fn associate_many(&self, associations: Array) -> Result<(), JsValue> {
+    pub async fn associate_many(&self, associations: Array) -> Result<(), JsValue> {
         self.framework
             .validate_batch_size(associations.length() as usize)
             .map_err(to_js_error)?;
@@ -289,9 +210,7 @@ pub async fn associate_many(&self, associations: Array) -> Result<(), JsValue> {
     }
 
     /// Probe for similar concepts with multiple queries in batch
-    #[wasm_bindgen()]
-    #[wasm_bindgen(typescript_type = "Promise<ProbeResult[][]>")]
-pub async fn probe_batch(&self, vectors: Array, top_k: usize) -> Result<Array, JsValue> {
+    pub async fn probe_batch(&self, vectors: Array, top_k: usize) -> Result<Array, JsValue> {
         self.framework
             .validate_batch_size(vectors.length() as usize)
             .map_err(to_js_error)?;
@@ -328,9 +247,7 @@ pub async fn probe_batch(&self, vectors: Array, top_k: usize) -> Result<Array, J
     }
 
     /// Get framework metrics snapshot
-    #[wasm_bindgen()]
-    #[wasm_bindgen(typescript_type = "Promise<FrameworkMetrics>")]
-pub async fn metrics_snapshot(&self) -> Result<JsValue, JsValue> {
+    pub async fn metrics_snapshot(&self) -> Result<JsValue, JsValue> {
         let metrics = self.framework.metrics_snapshot().await;
         let obj = js_sys::Object::new();
         js_sys::Reflect::set(
@@ -406,8 +323,103 @@ pub async fn metrics_snapshot(&self) -> Result<JsValue, JsValue> {
         )
         .map_err(|_| JsValue::from_str("failed to set JS property"))?;
         Ok(obj.into())
-}
     }
+
+    /// Process a temporal sequence and return the resulting hypervector bytes.
+    #[wasm_bindgen(js_name = processSequence)]
+    pub async fn process_sequence(&self, sequence: Array) -> Result<Box<[u8]>, JsValue> {
+        self.framework
+            .validate_sequence_length(sequence.length() as usize)
+            .map_err(to_js_error)?;
+
+        let mut parsed_sequence = Vec::with_capacity(sequence.length() as usize);
+        for item in sequence.iter() {
+            let step = item
+                .dyn_into::<Float32Array>()
+                .map_err(|_| JsValue::from_str("processSequence expects Float32Array items"))?;
+            parsed_sequence.push(step.to_vec());
+        }
+
+        let output = self
+            .framework
+            .process_sequence(&parsed_sequence)
+            .await
+            .map_err(to_js_error)?;
+        Ok(output.to_bytes().into_boxed_slice())
+    }
+
+    /// Export all concepts and associations to bytes for in-browser storage.
+    #[wasm_bindgen(js_name = exportToBytes)]
+    pub async fn export_to_bytes(&self) -> Result<Uint8Array, JsValue> {
+        let payload = {
+            let singularity = self.framework.singularity.read().await;
+            let ns = self.framework.namespace().await;
+            ExportPayload {
+                version: env!("CARGO_PKG_VERSION").to_string(),
+                exported_at: unix_now_secs(),
+                concepts: singularity.all_concepts(&ns),
+                associations: singularity.all_associations(&ns),
+            }
+        };
+
+        // Use BinaryExportPayload for bincode compatibility (serde_json::Value is incompatible with bincode)
+        let binary_payload = BinaryExportPayload::from(payload);
+        let data = bincode::serialize(&binary_payload).map_err(to_js_error)?;
+        Ok(Uint8Array::from(data.as_slice()))
+    }
+
+    /// Import state from bytes previously produced by `exportToBytes`.
+    #[wasm_bindgen(js_name = importFromBytes)]
+    pub async fn import_from_bytes(&self, data: Uint8Array, merge: bool) -> Result<usize, JsValue> {
+        let bytes = data.to_vec();
+
+        if bytes.len() > MAX_IMPORT_SIZE as usize {
+            return Err(JsValue::from_str(&format!(
+                "Import data size {} exceeds maximum allowed size {}",
+                bytes.len(),
+                MAX_IMPORT_SIZE
+            )));
+        }
+
+        // Deserialize as BinaryExportPayload (bincode-compatible), then convert to ExportPayload
+        let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
+        let binary_payload: BinaryExportPayload =
+            options.deserialize(&bytes).map_err(to_js_error)?;
+        let payload = binary_payload.to_export_payload().map_err(to_js_error)?;
+
+        let ns = self.framework.namespace().await;
+
+        if !merge {
+            let mut singularity = self.framework.singularity.write().await;
+            singularity.clear(&ns);
+        }
+
+        let mut singularity = self.framework.singularity.write().await;
+        for concept in &payload.concepts {
+            self.framework
+                .validate_concept(concept)
+                .map_err(to_js_error)?;
+            singularity
+                .inject(&ns, concept.clone())
+                .map_err(to_js_error)?;
+        }
+
+        for (from, to, strength) in &payload.associations {
+            if let Err(error) = singularity.associate(&ns, from, to, *strength) {
+                warn!(
+                    from_id = %from,
+                    to_id = %to,
+                    strength = *strength,
+                    error = %error,
+                    "skipping invalid association during wasm import"
+                );
+            }
+        }
+
+        Ok(payload.concepts.len())
+    }
+}
+
 #[wasm_bindgen]
 pub fn random_hypervector() -> Box<[u8]> {
     HVec10240::random().to_bytes().into_boxed_slice()
@@ -486,3 +498,9 @@ pub(crate) fn concept_to_js_value(concept: &Concept) -> Result<JsValue, JsValue>
 pub(crate) fn to_js_error<E: std::fmt::Display>(error: E) -> JsValue {
     JsValue::from_str(&error.to_string())
 }
+
+#[wasm_bindgen(typescript_custom_section)]
+const TS: &'static str = r#"
+export interface ProbeResult { id: string; score: number; }
+export interface AssociationResult { to: string; strength: number; }
+"#;

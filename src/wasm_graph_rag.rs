@@ -14,7 +14,6 @@ use crate::wasm::{WasmFramework, to_js_error};
 #[wasm_bindgen]
 impl WasmFramework {
     /// GraphRAG retrieval: similarity + graph traversal hybrid using vector query.
-    #[wasm_bindgen()]
     pub async fn probe_with_graph(
         &self,
         vector: &[u8],
@@ -66,7 +65,6 @@ impl WasmFramework {
     }
 
     /// GraphRAG retrieval: similarity + graph traversal hybrid using text query.
-    #[wasm_bindgen()]
     pub async fn probe_text_with_graph(
         &self,
         text: String,
@@ -120,9 +118,7 @@ impl WasmFramework {
     ///
     /// Returns an Array of `{id: string, depth: number}` objects.
     /// Uses default `TraversalConfig`.
-    #[wasm_bindgen()]
-    #[wasm_bindgen(typescript_type = "Promise<TraversalResult[]>")]
-pub async fn bfs(&self, start: String) -> Result<Array, JsValue> {
+    pub async fn bfs(&self, start: String) -> Result<Array, JsValue> {
         use crate::graph_traversal::TraversalConfig;
         let sing = self.framework.singularity.read().await;
         let ns = self.framework.namespace().await;
@@ -144,9 +140,7 @@ pub async fn bfs(&self, start: String) -> Result<Array, JsValue> {
     ///
     /// Returns an Array of concept ID strings, or an empty Array if no path exists.
     /// Uses default `TraversalConfig`.
-    #[wasm_bindgen()]
-    #[wasm_bindgen(typescript_type = "Promise<string[]>")]
-pub async fn shortest_path(&self, from: String, to: String) -> Result<Array, JsValue> {
+    pub async fn shortest_path(&self, from: String, to: String) -> Result<Array, JsValue> {
         let path = self
             .framework
             .shortest_path(&from, &to)
@@ -162,7 +156,6 @@ pub async fn shortest_path(&self, from: String, to: String) -> Result<Array, JsV
     }
 
     /// Breadth-first traversal from a starting concept with custom config.
-    #[wasm_bindgen()]
     pub async fn traverse(
         &self,
         start: String,

@@ -52,6 +52,7 @@ include = [
 ]
 
 [dependencies]
+tempfile = { workspace = true, optional = true }
 # Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -80,7 +81,6 @@ fastembed = { version = "4", optional = true }
 
 # HNSW ANN index (opt-in via ann-hnsw feature)
 hnsw_rs = { version = "0.3.4", optional = true }
-tempfile = { workspace = true, optional = true }
 
 # CLI dependencies (gated behind "cli" feature)
 clap = { version = "4.5", features = ["derive", "env", "string"], optional = true }
@@ -110,7 +110,6 @@ console_error_panic_hook = { version = "0.1", optional = false }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }
-tempfile = { workspace = true }
 proptest = "1.6.0"
 # CLI testing
 assert_cmd = "2.0.16"
