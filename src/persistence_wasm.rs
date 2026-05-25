@@ -79,6 +79,10 @@ impl Persistence {
         Err(wasm_persistence_unavailable())
     }
 
+    pub async fn association_count(&self, _ns: &str) -> Result<usize> {
+        Err(wasm_persistence_unavailable())
+    }
+
     pub async fn clear_namespace(&self, _ns: &str) -> Result<()> {
         Err(wasm_persistence_unavailable())
     }

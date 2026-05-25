@@ -63,6 +63,7 @@ pub mod framework;
 mod framework_bridge;
 pub mod framework_builder;
 mod framework_events;
+mod framework_export;
 pub mod framework_events_ce;
 mod framework_graph_rag;
 mod framework_metrics;
@@ -169,6 +170,10 @@ pub mod persistence {
 
         pub async fn load_associations(&self, _id: &str) -> Result<Vec<(String, f32)>> {
             Ok(Vec::new())
+        }
+
+        pub async fn association_count(&self, _ns: &str) -> Result<usize> {
+            Ok(0)
         }
 
         pub async fn delete_association(&self, _from: &str, _to: &str) -> Result<()> {
