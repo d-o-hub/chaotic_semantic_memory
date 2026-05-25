@@ -39,8 +39,11 @@ impl Distance<HVec10240> for HammingDist {
 }
 
 #[cfg(feature = "ann-hnsw")]
+/// INVARIANT: `_owner` must outlive `hnsw`. Any code that sets
+/// `self.hnsw` MUST also update `self._owner` in the same expression.
 pub struct HnswIndex {
     hnsw: Hnsw<'static, HVec10240, HammingDist>,
+    _owner: Option<Box<dyn std::any::Any + Send + Sync>>,
     id_to_idx: HashMap<String, usize>,
     idx_to_id: HashMap<usize, String>,
     config: HnswData,
@@ -62,6 +65,7 @@ impl HnswIndex {
         let hnsw = Hnsw::new(m, 1_000_000, 16, ef_construction, HammingDist);
         Ok(Self {
             hnsw,
+            _owner: None,
             id_to_idx: HashMap::new(),
             idx_to_id: HashMap::new(),
             config: HnswData {
@@ -202,6 +206,7 @@ impl AnnIndex for HnswIndex {
             self.config.ef_construction,
             HammingDist,
         );
+        self._owner = None;
         self.id_to_idx.clear();
         self.idx_to_id.clear();
         self.deleted_count = 0;
@@ -278,9 +283,11 @@ impl AnnIndex for HnswIndex {
             .map_err(|e| MemoryError::database(format!("HNSW load failed: {}", e)))?;
 
         let static_hnsw: Hnsw<'static, HVec10240, HammingDist> =
+            // SAFETY: We transmute to 'static; 'loader' in 'self._owner' ensures it outlives 'self.hnsw'.
             unsafe { std::mem::transmute(hnsw) };
 
         self.hnsw = static_hnsw;
+        self._owner = Some(Box::new(loader));
         self.id_to_idx = wrapper.id_to_idx;
         self.idx_to_id = wrapper.idx_to_id;
         self.config.m = wrapper.m;
