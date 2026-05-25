@@ -5,7 +5,7 @@
 // Redundant clones are intentional for WASM ownership semantics
 
 #[cfg(target_arch = "wasm32")]
-use js_sys::{Array, Function, Uint8Array};
+use js_sys::{Array, Float32Array, Function, Uint8Array};
 #[cfg(target_arch = "wasm32")]
 use tokio::sync::broadcast::error::RecvError;
 #[cfg(target_arch = "wasm32")]
@@ -14,13 +14,21 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm::{WasmFramework, to_js_error};
+use crate::wasm::{
+    to_js_error, BinaryExportPayload, ExportPayload, WasmFramework, MAX_IMPORT_SIZE, unix_now_secs,
+};
+#[cfg(target_arch = "wasm32")]
+use bincode::Options;
+#[cfg(target_arch = "wasm32")]
+use tracing::warn;
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 impl WasmFramework {
     /// Get framework stats
-    pub async fn stats(&self) -> Result<JsValue, JsValue> {
+    #[wasm_bindgen()]
+    #[wasm_bindgen(typescript_type = "Promise<FrameworkStats>")]
+pub async fn stats(&self) -> Result<JsValue, JsValue> {
         let stats = self.framework.stats().await.map_err(to_js_error)?;
 
         let obj = js_sys::Object::new();
@@ -80,7 +88,9 @@ impl WasmFramework {
     /// Get direct neighbors of a concept with edge strengths.
     ///
     /// Returns an Array of `{to: string, strength: number}` objects.
-    pub async fn neighbors(&self, id: String, min_strength: f32) -> Result<Array, JsValue> {
+    #[wasm_bindgen()]
+    #[wasm_bindgen(typescript_type = "Promise<AssociationResult[]>")]
+pub async fn neighbors(&self, id: String, min_strength: f32) -> Result<Array, JsValue> {
         let sing = self.framework.singularity.read().await;
         let ns = self.framework.namespace().await;
         let neighbors = sing.neighbors(&ns, &id, min_strength);
@@ -97,6 +107,7 @@ impl WasmFramework {
     }
 
     /// Probe for similar concepts with metadata filtering.
+    #[wasm_bindgen()]
     pub async fn probe_filtered(
         &self,
         vector: &[u8],
@@ -152,7 +163,9 @@ impl WasmFramework {
     }
 
     /// Probe for similar concepts using text
-    pub async fn probe_text(&self, query: String, top_k: usize) -> Result<Array, JsValue> {
+    #[wasm_bindgen()]
+    #[wasm_bindgen(typescript_type = "Promise<ProbeResult[]>")]
+pub async fn probe_text(&self, query: String, top_k: usize) -> Result<Array, JsValue> {
         let results = self
             .framework
             .probe_text(&query, top_k)
@@ -174,7 +187,8 @@ impl WasmFramework {
 
     /// List all historical versions of a concept.
     #[wasm_bindgen(js_name = listVersions)]
-    pub async fn list_versions(&self, id: String) -> Result<Array, JsValue> {
+    #[wasm_bindgen(js_name = listVersions, typescript_type = "Promise<Version[]>")]
+pub async fn list_versions(&self, id: String) -> Result<Array, JsValue> {
         let versions = self
             .framework
             .list_versions(&id)
@@ -208,7 +222,8 @@ impl WasmFramework {
 
     /// Load a specific concept version.
     #[wasm_bindgen(js_name = getVersion)]
-    pub async fn get_version(&self, id: String, version: u32) -> Result<JsValue, JsValue> {
+    #[wasm_bindgen(js_name = getVersion, typescript_type = "Promise<Concept | null>")]
+pub async fn get_version(&self, id: String, version: u32) -> Result<JsValue, JsValue> {
         let concept_opt = self
             .framework
             .get_version(&id, version as u64)
@@ -222,7 +237,8 @@ impl WasmFramework {
 
     /// Roll back a concept to a historical version.
     #[wasm_bindgen(js_name = rollbackToVersion)]
-    pub async fn rollback_to_version(&self, id: String, version: u32) -> Result<JsValue, JsValue> {
+    #[wasm_bindgen(js_name = rollbackToVersion, typescript_type = "Promise<Concept>")]
+pub async fn rollback_to_version(&self, id: String, version: u32) -> Result<JsValue, JsValue> {
         let concept = self
             .framework
             .rollback_to_version(&id, version as u64)
@@ -275,4 +291,103 @@ fn memory_event_to_js_value(event: &crate::framework_events::MemoryEvent) -> JsV
         }
     }
     obj.into()
+}
+
+    /// Process a temporal sequence and return the resulting hypervector bytes.
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+impl WasmFramework {
+    #[wasm_bindgen(js_name = processSequence)]
+    #[wasm_bindgen(js_name = processSequence, typescript_type = "(sequence: Float32Array[]) => Promise<Uint8Array>")]
+pub async fn process_sequence(&self, sequence: Array) -> Result<Box<[u8]>, JsValue> {
+        self.framework
+            .validate_sequence_length(sequence.length() as usize)
+            .map_err(to_js_error)?;
+
+        let mut parsed_sequence = Vec::with_capacity(sequence.length() as usize);
+        for item in sequence.iter() {
+            let step = item
+                .dyn_into::<Float32Array>()
+                .map_err(|_| JsValue::from_str("processSequence expects Float32Array items"))?;
+            parsed_sequence.push(step.to_vec());
+        }
+
+        let output = self
+            .framework
+            .process_sequence(&parsed_sequence)
+            .await
+            .map_err(to_js_error)?;
+        Ok(output.to_bytes().into_boxed_slice())
+    }
+
+    /// Export all concepts and associations to bytes for in-browser storage.
+    #[wasm_bindgen(js_name = exportToBytes)]
+    pub async fn export_to_bytes(&self) -> Result<Uint8Array, JsValue> {
+        let payload = {
+            let singularity = self.framework.singularity.read().await;
+            let ns = self.framework.namespace().await;
+            ExportPayload {
+                version: env!("CARGO_PKG_VERSION").to_string(),
+                exported_at: unix_now_secs(),
+                concepts: singularity.all_concepts(&ns),
+                associations: singularity.all_associations(&ns),
+            }
+        };
+
+        // Use BinaryExportPayload for bincode compatibility (serde_json::Value is incompatible with bincode)
+        let binary_payload = BinaryExportPayload::from(payload);
+        let data = bincode::serialize(&binary_payload).map_err(to_js_error)?;
+        Ok(Uint8Array::from(data.as_slice()))
+    }
+
+    /// Import state from bytes previously produced by `exportToBytes`.
+    #[wasm_bindgen(js_name = importFromBytes)]
+    pub async fn import_from_bytes(&self, data: Uint8Array, merge: bool) -> Result<usize, JsValue> {
+        let bytes = data.to_vec();
+
+        if bytes.len() > MAX_IMPORT_SIZE as usize {
+            return Err(JsValue::from_str(&format!(
+                "Import data size {} exceeds maximum allowed size {}",
+                bytes.len(),
+                MAX_IMPORT_SIZE
+            )));
+        }
+
+        // Deserialize as BinaryExportPayload (bincode-compatible), then convert to ExportPayload
+        let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
+        let binary_payload: BinaryExportPayload =
+            options.deserialize(&bytes).map_err(to_js_error)?;
+        let payload = binary_payload.to_export_payload().map_err(to_js_error)?;
+
+        let ns = self.framework.namespace().await;
+
+        if !merge {
+            let mut singularity = self.framework.singularity.write().await;
+            singularity.clear(&ns);
+        }
+
+        let mut singularity = self.framework.singularity.write().await;
+        for concept in &payload.concepts {
+            self.framework
+                .validate_concept(concept)
+                .map_err(to_js_error)?;
+            singularity
+                .inject(&ns, concept.clone())
+                .map_err(to_js_error)?;
+        }
+
+        for (from, to, strength) in &payload.associations {
+            if let Err(error) = singularity.associate(&ns, from, to, *strength) {
+                warn!(
+                    from_id = %from,
+                    to_id = %to,
+                    strength = *strength,
+                    error = %error,
+                    "skipping invalid association during wasm import"
+                );
+            }
+        }
+
+        Ok(payload.concepts.len())
+    }
 }
