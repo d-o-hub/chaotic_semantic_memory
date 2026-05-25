@@ -10,10 +10,14 @@ async fn test_streaming_export_json_roundtrip() -> Result<()> {
 
     // Inject some concepts and associations
     for i in 0..100 {
-        framework.inject_concept(format!("c{}", i), HVec10240::random()).await?;
+        framework
+            .inject_concept(format!("c{}", i), HVec10240::random())
+            .await?;
     }
     for i in 0..99 {
-        framework.associate(&format!("c{}", i), &format!("c{}", i+1), 0.5).await?;
+        framework
+            .associate(&format!("c{}", i), &format!("c{}", i + 1), 0.5)
+            .await?;
     }
 
     let temp = NamedTempFile::new().map_err(MemoryError::Io)?;
@@ -46,10 +50,14 @@ async fn test_streaming_export_binary_roundtrip() -> Result<()> {
 
     // Inject some concepts and associations
     for i in 0..100 {
-        framework.inject_concept(format!("c{}", i), HVec10240::random()).await?;
+        framework
+            .inject_concept(format!("c{}", i), HVec10240::random())
+            .await?;
     }
     for i in 0..99 {
-        framework.associate(&format!("c{}", i), &format!("c{}", i+1), 0.5).await?;
+        framework
+            .associate(&format!("c{}", i), &format!("c{}", i + 1), 0.5)
+            .await?;
     }
 
     let temp = NamedTempFile::new().map_err(MemoryError::Io)?;
@@ -86,10 +94,14 @@ async fn test_streaming_export_persistence_roundtrip() -> Result<()> {
 
     // Inject some concepts and associations
     for i in 0..50 {
-        framework.inject_concept(format!("p{}", i), HVec10240::random()).await?;
+        framework
+            .inject_concept(format!("p{}", i), HVec10240::random())
+            .await?;
     }
     for i in 0..49 {
-        framework.associate(&format!("p{}", i), &format!("p{}", i+1), 0.7).await?;
+        framework
+            .associate(&format!("p{}", i), &format!("p{}", i + 1), 0.7)
+            .await?;
     }
 
     let export_temp = NamedTempFile::new().map_err(MemoryError::Io)?;

@@ -1,9 +1,9 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 use crate::error::Result;
 use crate::export_payload::unix_now_secs;
-use crate::framework_validation::validate_path;
 use crate::framework::ChaoticSemanticFramework;
 use crate::framework_events::MemoryEvent;
+use crate::framework_validation::validate_path;
 use crate::hyperdim::HVec10240;
 use crate::singularity::ConceptBuilder;
 use std::sync::Arc;
@@ -128,7 +128,6 @@ impl ChaoticSemanticFramework {
         };
         Ok(out)
     }
-
 
     /// Create database backup (SQLite only).
     #[instrument(err, skip(self), fields(path))]
