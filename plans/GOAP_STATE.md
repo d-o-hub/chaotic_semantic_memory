@@ -951,7 +951,7 @@ world_state:
     registry_count: 80
     disk_count: 79
     parity_satisfied: true
-  action_last_completed: fix_framework_metrics_pr277_review_comments
+  action_last_completed: wasm_namespace_export
 
   # ═══════════════════════════════════════════════════════
   # Pre-Release Gate Fixes (2026-05-21)

@@ -136,46 +136,57 @@ pub mod persistence {
     pub use crate::singularity::ConceptVersion;
 
     impl Persistence {
-        pub async fn save_concept(&self, _concept: &Concept) -> Result<()> {
+        pub async fn save_concept(&self, _ns: &str, _concept: &Concept) -> Result<()> {
             Ok(())
         }
 
-        pub async fn save_concepts(&self, _concepts: &[Concept]) -> Result<()> {
+        pub async fn save_concepts(&self, _ns: &str, _concepts: &[Concept]) -> Result<()> {
             Ok(())
         }
 
-        pub async fn load_concept(&self, _id: &str) -> Result<Option<Concept>> {
+        pub async fn load_concept(&self, _ns: &str, _id: &str) -> Result<Option<Concept>> {
             Ok(None)
         }
 
-        pub async fn load_all_concepts(&self) -> Result<Vec<Concept>> {
+        pub async fn load_all_concepts(&self, _ns: &str) -> Result<Vec<Concept>> {
             Ok(Vec::new())
         }
 
-        pub async fn delete_concept(&self, _id: &str) -> Result<()> {
+        pub async fn delete_concept(&self, _ns: &str, _id: &str) -> Result<()> {
             Ok(())
         }
 
-        pub async fn save_association(&self, _from: &str, _to: &str, _strength: f32) -> Result<()> {
+        pub async fn save_association(
+            &self,
+            _ns: &str,
+            _from: &str,
+            _to: &str,
+            _strength: f32,
+        ) -> Result<()> {
             Ok(())
         }
 
         pub async fn save_associations(
             &self,
+            _ns: &str,
             _associations: &[(String, String, f32)],
         ) -> Result<()> {
             Ok(())
         }
 
-        pub async fn load_associations(&self, _id: &str) -> Result<Vec<(String, f32)>> {
+        pub async fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32)>> {
             Ok(Vec::new())
         }
 
-        pub async fn delete_association(&self, _from: &str, _to: &str) -> Result<()> {
+        pub async fn delete_association(&self, _ns: &str, _from: &str, _to: &str) -> Result<()> {
             Ok(())
         }
 
-        pub async fn clear_concept_associations(&self, _id: &str) -> Result<()> {
+        pub async fn clear_concept_associations(&self, _ns: &str, _id: &str) -> Result<()> {
+            Ok(())
+        }
+
+        pub async fn clear_namespace(&self, _ns: &str) -> Result<()> {
             Ok(())
         }
 
@@ -222,6 +233,7 @@ pub mod persistence {
 
         pub async fn get_concept_history(
             &self,
+            _ns: &str,
             _id: &str,
             _limit: usize,
         ) -> Result<Vec<ConceptVersion>> {
@@ -232,16 +244,20 @@ pub mod persistence {
             Ok(0)
         }
 
-        pub async fn save_index(&self, _id: &str, _data: &[u8]) -> Result<()> {
+        pub async fn save_index(&self, _ns: &str, _id: &str, _data: &[u8]) -> Result<()> {
             Ok(())
         }
 
-        pub async fn load_index(&self, _id: &str) -> Result<Option<Vec<u8>>> {
+        pub async fn load_index(&self, _ns: &str, _id: &str) -> Result<Option<Vec<u8>>> {
             Ok(None)
         }
 
         pub async fn apply_migrations(&self, _target_version: i64) -> Result<()> {
             Ok(())
+        }
+
+        pub async fn list_namespaces(&self) -> Result<Vec<String>> {
+            Ok(vec!["_default".to_string()])
         }
 
         pub async fn compact(&self) -> Result<()> {

@@ -300,8 +300,15 @@ impl Persistence {
         let rows_affected = conn
             .execute(
                 "DELETE FROM csm_associations
-             WHERE (namespace, from_id) NOT IN (SELECT namespace, id FROM csm_concepts)
-                OR (namespace, to_id) NOT IN (SELECT namespace, id FROM csm_concepts)",
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM csm_concepts
+                 WHERE csm_concepts.namespace = csm_associations.namespace
+                   AND csm_concepts.id = csm_associations.from_id
+             ) OR NOT EXISTS (
+                 SELECT 1 FROM csm_concepts
+                 WHERE csm_concepts.namespace = csm_associations.namespace
+                   AND csm_concepts.id = csm_associations.to_id
+             )",
                 (),
             )
             .await
@@ -345,6 +352,15 @@ mod tests {
     use std::collections::HashMap;
     use tempfile::NamedTempFile;
 
+    async fn setup_test_persistence() -> (Persistence, NamedTempFile) {
+        let temp = NamedTempFile::new().expect("Failed to create temp file");
+        let path = temp.path().to_str().expect("Invalid path");
+        let persistence = Persistence::new_local(path)
+            .await
+            .expect("Failed to create persistence");
+        (persistence, temp)
+    }
+
     fn make_concept(id: &str) -> Concept {
         Concept {
             id: id.to_string(),
@@ -359,11 +375,7 @@ mod tests {
 
     #[tokio::test]
     async fn save_and_load_concept_roundtrip() {
-        let temp = NamedTempFile::new().expect("Failed to create temp file");
-        let path = temp.path().to_str().expect("Invalid path");
-        let persistence = Persistence::new_local(path)
-            .await
-            .expect("Failed to create persistence");
+        let (persistence, _temp) = setup_test_persistence().await;
 
         let ns = "_default";
         let concept = make_concept("test-concept");
@@ -382,11 +394,7 @@ mod tests {
 
     #[tokio::test]
     async fn delete_concept_removes_from_db() {
-        let temp = NamedTempFile::new().expect("Failed to create temp file");
-        let path = temp.path().to_str().expect("Invalid path");
-        let persistence = Persistence::new_local(path)
-            .await
-            .expect("Failed to create persistence");
+        let (persistence, _temp) = setup_test_persistence().await;
 
         let ns = "_default";
         let concept = make_concept("delete-test");
@@ -405,11 +413,7 @@ mod tests {
 
     #[tokio::test]
     async fn schema_version_initialized() {
-        let temp = NamedTempFile::new().expect("Failed to create temp file");
-        let path = temp.path().to_str().expect("Invalid path");
-        let persistence = Persistence::new_local(path)
-            .await
-            .expect("Failed to create persistence");
+        let (persistence, _temp) = setup_test_persistence().await;
 
         let version = persistence
             .schema_version()
@@ -420,11 +424,7 @@ mod tests {
 
     #[tokio::test]
     async fn prune_orphans_removes_invalid_associations() {
-        let temp = NamedTempFile::new().expect("Failed to create temp file");
-        let path = temp.path().to_str().expect("Invalid path");
-        let persistence = Persistence::new_local(path)
-            .await
-            .expect("Failed to create persistence");
+        let (persistence, _temp) = setup_test_persistence().await;
 
         let ns = "_default";
         let concept1 = make_concept("c1");
@@ -472,11 +472,7 @@ mod tests {
 
     #[tokio::test]
     async fn compact_executes_without_error() {
-        let temp = NamedTempFile::new().expect("Failed to create temp file");
-        let path = temp.path().to_str().expect("Invalid path");
-        let persistence = Persistence::new_local(path)
-            .await
-            .expect("Failed to create persistence");
+        let (persistence, _temp) = setup_test_persistence().await;
 
         // Execute compact (VACUUM)
         persistence.compact().await.expect("Compact failed");

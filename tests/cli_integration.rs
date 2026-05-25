@@ -47,7 +47,7 @@ fn prune_json() {
         .arg("prune")
         .assert()
         .success()
-        .stdout(predicate::str::contains("\"status\":\"ok\""))
+        .stdout(predicate::str::contains("\"status\":\"success\""))
         .stdout(predicate::str::contains("\"pruned_count\":"));
 }
 

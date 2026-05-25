@@ -20,7 +20,7 @@ pub async fn run_prune(db_path: Option<&Path>, format: OutputFormat) -> Result<(
 
     if matches!(format, OutputFormat::Json) {
         let output = serde_json::json!({
-            "status": "ok",
+            "status": "success",
             "pruned_count": count,
         });
         println!(
