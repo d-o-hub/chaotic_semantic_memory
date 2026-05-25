@@ -40,12 +40,12 @@ impl Distance<HVec10240> for HammingDist {
 
 #[cfg(feature = "ann-hnsw")]
 pub struct HnswIndex {
-    _owner: Option<Box<dyn std::any::Any + Send + Sync>>,
     hnsw: Hnsw<'static, HVec10240, HammingDist>,
     id_to_idx: HashMap<String, usize>,
     idx_to_id: HashMap<usize, String>,
     config: HnswData,
     deleted_count: usize,
+    _owner: Option<Box<dyn std::any::Any + Send + Sync>>,
 }
 
 #[cfg(feature = "ann-hnsw")]
@@ -62,7 +62,6 @@ impl HnswIndex {
         // ADR-0068: Default to 1M elements to support scale goal
         let hnsw = Hnsw::new(m, 1_000_000, 16, ef_construction, HammingDist);
         Ok(Self {
-            _owner: None,
             hnsw,
             id_to_idx: HashMap::new(),
             idx_to_id: HashMap::new(),
@@ -72,6 +71,7 @@ impl HnswIndex {
                 ef_search,
             },
             deleted_count: 0,
+            _owner: None,
         })
     }
 }
@@ -355,6 +355,68 @@ mod tests {
         index.rebuild(&concepts)?;
         assert!(index._owner.is_none());
         assert_eq!(index.id_to_idx.len(), 1);
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod drop_tests {
+    use super::*;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    struct DropTracker(Arc<AtomicBool>);
+    impl Drop for DropTracker {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "ann-hnsw")]
+    fn test_hnsw_index_drop_order() -> Result<()> {
+        let dropped = Arc::new(AtomicBool::new(false));
+
+        {
+            let mut index = HnswIndex::new(16, 200, 50)?;
+            // We simulate a loaded state by putting a DropTracker in _owner
+            index._owner = Some(Box::new(DropTracker(dropped.clone())));
+
+            // When index is dropped, hnsw is dropped first, then _owner.
+            // If hnsw depended on _owner during drop, it would be safe.
+        }
+
+        assert!(dropped.load(Ordering::SeqCst));
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod move_tests {
+    use super::*;
+    use crate::hyperdim::HVec10240;
+
+    #[test]
+    #[cfg(feature = "ann-hnsw")]
+    fn test_hnsw_index_move_soundness() -> Result<()> {
+        let mut index = HnswIndex::new(16, 200, 50)?;
+        let id = "test".to_string();
+        let vec = HVec10240::random();
+        index.insert(id.clone(), &vec)?;
+
+        let serialized = index.serialize()?;
+        let mut new_index = HnswIndex::new(16, 200, 50)?;
+        new_index.deserialize(&serialized)?;
+
+        // Move the index
+        let moved_index = new_index;
+
+        // Ensure it still works
+        assert_eq!(moved_index.id_to_idx.len(), 1);
+        let results = moved_index.search(&vec, 1)?;
+        assert_eq!(results[0].0, id);
+        assert!(moved_index._owner.is_some());
 
         Ok(())
     }

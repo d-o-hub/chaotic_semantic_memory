@@ -68,3 +68,8 @@
 - **Solution**: Add an `_owner: Option<Box<dyn std::any::Any + Send + Sync>>` field to the index struct. When deserializing, wrap the `TempDir` (from `tempfile`) and the `HnswIo` loader in a tuple, box it, and store it in `_owner`. This ensures the backing data lives as long as the index.
 - **Safety**: A `// SAFETY:` comment should explain that the transmute is sound because the borrowed data is owned by the struct itself via `_owner`.
 - **Dependency**: `tempfile` should be an optional dependency gated by the same feature as the HNSW index (`ann-hnsw`).
+
+## HNSW Drop Order & Move Soundness (May 2026)
+
+- **Drop Order**: The `_owner` field must be placed AFTER the `hnsw` field in the `HnswIndex` struct. Rust drops fields in the order they are declared. Since `hnsw` (the `Hnsw` instance) may contain references (borrows) to data owned by `_owner`, `hnsw` must be dropped first to ensure those references are not used after the data they point to is freed.
+- **Move Soundness**: Moving `HnswIndex` is safe because `_owner` is a `Box` (heap-allocated), so its address remains stable even if the `HnswIndex` struct itself is moved on the stack. The `Hnsw` instance holds references to the heap-allocated data, which remain valid.
