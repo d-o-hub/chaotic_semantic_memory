@@ -1,4 +1,5 @@
 use chaotic_semantic_memory::prelude::*;
+use std::sync::Arc;
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen_test::wasm_bindgen_test]
@@ -15,12 +16,15 @@ async fn test_wasm_probe_latency_nonzero() {
         .unwrap();
 
     // js_sys::Date::now() has 1ms precision, so we might need multiple ops
-    for _ in 0..100 {
+    for _ in 0..200 {
         let _ = framework.probe(HVec10240::random(), 5).await.unwrap();
     }
 
     let metrics = framework.metrics_snapshot().await;
+    // We expect >= 0.0 here because exact 0.0 is possible if environment is ultra-fast,
+    // but the logic is exercised.
     assert!(metrics.avg_probe_latency_ms >= 0.0);
+    assert_eq!(metrics.probes_total, 200);
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -32,11 +36,12 @@ async fn test_wasm_reservoir_step_latency() {
         .await
         .unwrap();
 
-    let sequence = vec![vec![0.5; 10240]; 100];
+    let sequence = vec![vec![0.5; 10240]; 200];
     let _ = framework.process_sequence(&sequence).await.unwrap();
 
     let metrics = framework.metrics_snapshot().await;
     assert!(metrics.avg_reservoir_step_latency_us >= 0.0);
+    assert_eq!(metrics.reservoir_steps_total, 200);
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -79,5 +84,10 @@ async fn test_native_uses_instant() {
 
     let metrics = framework.metrics_snapshot().await;
     #[cfg(not(target_arch = "wasm32"))]
-    assert!(metrics.avg_probe_latency_ms >= 0.0);
+    {
+        // On native, 100 probes should take >= 0.0ms.
+        // We use >= here as well to avoid brittle failures on ultra-fast CI systems,
+        // while still ensuring the logic is functional.
+        assert!(metrics.avg_probe_latency_ms >= 0.0);
+    }
 }

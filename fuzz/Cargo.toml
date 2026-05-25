@@ -2,18 +2,20 @@
 name = "chaotic_semantic_memory-fuzz"
 version = "0.0.0"
 publish = false
-edition = "2021"
+edition = "2024"
 
 [package.metadata]
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys = "0.4"
+libfuzzer-sys = "0.4.12"
 tokio = { version = "1.43.0", features = ["rt", "macros"] }
-serde_json = "1.0"
+serde_json = "1.0.149"
 
 [dependencies.chaotic_semantic_memory]
 path = ".."
+
+[workspace]
 
 [[bin]]
 name = "hvec_from_bytes"
