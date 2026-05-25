@@ -46,6 +46,25 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
+    /// Reclaim space in the persistence layer.
+    #[tracing::instrument(err, skip(self))]
+    pub async fn compact(&self) -> Result<()> {
+        if let Some(ref persistence) = self.persistence {
+            persistence.compact().await?;
+        }
+        Ok(())
+    }
+
+    /// Remove orphaned associations from the persistence layer.
+    #[tracing::instrument(err, skip(self))]
+    pub async fn prune_orphans(&self) -> Result<u64> {
+        if let Some(ref persistence) = self.persistence {
+            persistence.prune_orphans().await
+        } else {
+            Ok(0)
+        }
+    }
+
     /// Load and replace all in-memory state from persistence.
     ///
     /// Clears existing state, loads persisted state. Use for fresh starts.
