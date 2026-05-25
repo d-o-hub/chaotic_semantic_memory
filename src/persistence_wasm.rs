@@ -152,6 +152,14 @@ impl Persistence {
     pub async fn load_index(&self, _ns: &str, _id: &str) -> Result<Option<Vec<u8>>> {
         Err(wasm_persistence_unavailable())
     }
+
+    pub async fn compact(&self) -> Result<()> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn prune_orphans(&self) -> Result<u64> {
+        Err(wasm_persistence_unavailable())
+    }
 }
 
 fn wasm_persistence_unavailable() -> MemoryError {

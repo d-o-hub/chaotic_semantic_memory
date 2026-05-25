@@ -37,6 +37,29 @@ fn inject_ok() {
         .assert()
         .success();
 }
+
+// Maintenance commands
+#[test]
+fn prune_json() {
+    csm()
+        .arg("--output-format")
+        .arg("json")
+        .arg("prune")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"status\":\"success\""))
+        .stdout(predicate::str::contains("\"pruned_count\":"));
+}
+
+#[test]
+fn compact_ok() {
+    csm()
+        .arg("--database")
+        .arg(db().path())
+        .arg("compact")
+        .assert()
+        .success();
+}
 #[test]
 fn inject_dup() {
     let d = db();

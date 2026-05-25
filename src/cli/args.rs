@@ -81,6 +81,10 @@ pub enum Commands {
     Watch(WatchArgs),
     /// GraphRAG retrieval: similarity + graph traversal hybrid.
     ProbeGraph(ProbeGraphArgs),
+    /// Prune orphaned associations from the database.
+    Prune(PruneArgs),
+    /// Compact the database to reclaim space.
+    Compact(CompactArgs),
     /// MCP server commands.
     #[cfg(feature = "mcp")]
     #[command(subcommand)]
@@ -93,25 +97,19 @@ pub struct InjectArgs {
     pub namespace: String,
     #[arg(required = true)]
     pub concept_id: String,
-
     #[arg(short, long)]
     pub from_file: Option<PathBuf>,
-
     #[arg(long, default_value = "random", value_enum)]
     pub vector_source: VectorSource,
-
     /// Text to encode into a vector.
     #[arg(short, long)]
     pub text: Option<String>,
-
     /// Use external embedding model if configured.
     #[arg(long)]
     pub use_embeddings: bool,
-
     /// Embedding provider: 'hdc', 'fastembed[:model]', 'openai[:model]', 'voyage[:model]'.
     #[arg(long, value_name = "PROVIDER")]
     pub provider: Option<String>,
-
     #[arg(short, long, value_name = "JSON")]
     pub metadata: Option<String>,
 }
@@ -130,10 +128,8 @@ pub struct ProbeArgs {
     pub namespace: String,
     #[arg(required = true)]
     pub concept_id: String,
-
     #[arg(short = 'k', long, default_value = "10")]
     pub top_k: usize,
-
     #[arg(short, long)]
     pub threshold: Option<f64>,
 }
@@ -497,3 +493,9 @@ pub struct RollbackArgs {
     #[arg(short, long)]
     pub confirm: bool,
 }
+
+#[derive(Args, Debug, Clone)]
+pub struct PruneArgs;
+
+#[derive(Args, Debug, Clone)]
+pub struct CompactArgs;
