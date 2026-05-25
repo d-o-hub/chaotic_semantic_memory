@@ -469,4 +469,16 @@ mod tests {
         let assocs = persistence.load_associations(ns, "c1").await.unwrap();
         assert_eq!(assocs.len(), 0);
     }
+
+    #[tokio::test]
+    async fn compact_executes_without_error() {
+        let temp = NamedTempFile::new().expect("Failed to create temp file");
+        let path = temp.path().to_str().expect("Invalid path");
+        let persistence = Persistence::new_local(path)
+            .await
+            .expect("Failed to create persistence");
+
+        // Execute compact (VACUUM)
+        persistence.compact().await.expect("Compact failed");
+    }
 }
