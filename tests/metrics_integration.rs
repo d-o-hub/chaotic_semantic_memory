@@ -144,3 +144,54 @@ async fn test_cache_metrics_multi_namespace() {
     let metrics = framework.metrics_snapshot().await;
     assert_eq!(metrics.cache_misses_total, 2);
 }
+
+#[tokio::test]
+async fn test_core_metrics_tracking() {
+    let framework = ChaoticSemanticFramework::builder()
+        .without_persistence()
+        .build()
+        .await
+        .unwrap();
+
+    // 1. Initially zero
+    let metrics = framework.metrics_snapshot().await;
+    assert_eq!(metrics.concepts_injected_total, 0);
+    assert_eq!(metrics.associations_created_total, 0);
+    assert_eq!(metrics.probes_total, 0);
+
+    // 2. Test inject_concept
+    framework
+        .inject_concept("c1", HVec10240::random())
+        .await
+        .unwrap();
+    let metrics = framework.metrics_snapshot().await;
+    assert_eq!(metrics.concepts_injected_total, 1);
+
+    // 3. Test inject_concepts (batch)
+    let batch = vec![
+        ("c2".to_string(), HVec10240::random()),
+        ("c3".to_string(), HVec10240::random()),
+    ];
+    framework.inject_concepts(&batch).await.unwrap();
+    let metrics = framework.metrics_snapshot().await;
+    assert_eq!(metrics.concepts_injected_total, 3);
+
+    // 4. Test associate
+    framework.associate("c1", "c2", 0.5).await.unwrap();
+    let metrics = framework.metrics_snapshot().await;
+    assert_eq!(metrics.associations_created_total, 1);
+
+    // 5. Test associate_many (batch)
+    let associations = vec![
+        ("c1".to_string(), "c3".to_string(), 0.8),
+        ("c2".to_string(), "c3".to_string(), 0.3),
+    ];
+    framework.associate_many(&associations).await.unwrap();
+    let metrics = framework.metrics_snapshot().await;
+    assert_eq!(metrics.associations_created_total, 3);
+
+    // 6. Test probe
+    let _ = framework.probe(HVec10240::random(), 5).await.unwrap();
+    let metrics = framework.metrics_snapshot().await;
+    assert_eq!(metrics.probes_total, 1);
+}
