@@ -1,10 +1,37 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+CI_MODE=false
+THRESHOLD="${MUTATION_THRESHOLD:-85}"
+POSITIONAL=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --ci)
+      CI_MODE=true
+      shift
+      ;;
+    --threshold=*)
+      THRESHOLD="${1#*=}"
+      shift
+      ;;
+    --threshold)
+      THRESHOLD="$2"
+      shift 2
+      ;;
+    *)
+      POSITIONAL+=("$1")
+      shift
+      ;;
+  esac
+done
+
+set -- "${POSITIONAL[@]}"
+
 PROFILE="${1:-fast}"
 shift || true
 
-if ! cargo --list | rg -q '^    mutants'; then
+if ! command -v cargo-mutants &>/dev/null && ! cargo mutants --version &>/dev/null; then
   cat <<'MSG' >&2
 cargo-mutants is not installed.
 Install it with:
@@ -23,17 +50,24 @@ HELP_TEXT="$(cargo mutants --help 2>/dev/null || true)"
 FAST_ARGS=()
 if [[ "${PROFILE}" == "fast" ]]; then
   if grep -q -- '--in-diff' <<<"${HELP_TEXT}"; then
-    FAST_ARGS+=(--in-diff)
+    DIFF_TARGET="${DIFF_TARGET:-origin/main}"
+    DIFF_FILE="$(mktemp)"
+    git diff "${DIFF_TARGET}" > "${DIFF_FILE}" 2>/dev/null || true
+    if [[ -s "${DIFF_FILE}" ]]; then
+      FAST_ARGS+=(--in-diff "${DIFF_FILE}")
+    else
+      echo "warning: no diff against ${DIFF_TARGET}; running full target set" >&2
+    fi
   else
     echo "warning: --in-diff is unsupported by installed cargo-mutants; running full target set" >&2
   fi
 elif [[ "${PROFILE}" != "full" ]]; then
-  echo "usage: scripts/mutation_test.sh [fast|full] [extra cargo-mutants args...]" >&2
+  echo "usage: scripts/mutation_test.sh [--ci] [--threshold=N] [fast|full] [extra cargo-mutants args...]" >&2
   exit 2
 fi
 
 set -o pipefail
-cargo mutants "${FAST_ARGS[@]}" "$@" 2>&1 | tee "${LOG_FILE}"
+RUSTFLAGS="" cargo mutants "${FAST_ARGS[@]}" "$@" 2>&1 | tee "${LOG_FILE}"
 RESULT="${PIPESTATUS[0]}"
 set +o pipefail
 
@@ -54,4 +88,20 @@ set +o pipefail
 } >"${REPORT_FILE}"
 
 echo "wrote ${REPORT_FILE}"
+
+if [[ "${CI_MODE}" == "true" ]]; then
+  SCORE="$(grep -oP '\d+(\.\d+)?(?=%)' "${LOG_FILE}" | tail -1 || true)"
+  if [[ -z "${SCORE}" ]]; then
+    echo "error: could not parse mutation score from ${LOG_FILE}" >&2
+    exit 1
+  fi
+  COMPARISON="$(echo "${SCORE} >= ${THRESHOLD}" | bc -l 2>/dev/null || echo "0")"
+  if [[ "${COMPARISON}" == "1" ]]; then
+    echo "mutation score ${SCORE}% >= ${THRESHOLD}%, CI check passed"
+  else
+    echo "mutation score ${SCORE}% < ${THRESHOLD}%, CI check failed" >&2
+    exit 1
+  fi
+fi
+
 exit "${RESULT}"

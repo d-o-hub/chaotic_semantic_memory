@@ -3781,3 +3781,19 @@ actions:
       Perform comprehensive codebase audit and reconcile the GOAP world state
       and actions with implemented capabilities. Document the findings and alignment
       in ADR-0084.
+
+  # ═══════════════════════════════════════════════════════
+  # PHASE 61: MUTATION TESTING CI GATE (cost: 3)
+  # ═══════════════════════════════════════════════════════
+  - name: enforce_mutation_testing_ci_gate
+    preconditions:
+      mutation_script_exists: true
+    effects:
+      mutation_ci_enforced: true
+    cost: 3
+    status: complete
+    file: scripts/mutation_test.sh, .github/workflows/ci.yml, .github/workflows/pre-release-gate.yml
+    description: |
+      Add --ci mode to mutation_test.sh with threshold parsing (default 85%),
+      add mutation-test job to ci.yml and pre-release-gate.yml that fails
+      if score drops below threshold. Closes #300.

@@ -100,9 +100,25 @@ jobs:
         fi
         echo "✅ ADR-0042 status is Accepted"
 
+  mutation-test:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+
+    - name: Install cargo-mutants
+      run: cargo install cargo-mutants
+
+    - name: Run mutation testing
+      env:
+        MUTATION_THRESHOLD: 85
+      run: bash scripts/mutation_test.sh fast --ci
+
   gate-summary:
     runs-on: ubuntu-24.04
-    needs: [pr-drain-check, version-triad, security-audit, wasm-smoke-build, planning-state-check]
+    needs: [pr-drain-check, version-triad, security-audit, wasm-smoke-build, planning-state-check, mutation-test]
     if: always()
     steps:
     - name: Gate summary
@@ -116,12 +132,14 @@ jobs:
         echo "| Security Audit | ${{ needs.security-audit.result }} |" >> $GITHUB_STEP_SUMMARY
         echo "| WASM Build | ${{ needs.wasm-smoke-build.result }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Planning State | ${{ needs.planning-state-check.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Mutation Score | ${{ needs.mutation-test.result }} |" >> $GITHUB_STEP_SUMMARY
 
         if [ "${{ needs.pr-drain-check.result }}" != "success" ] || \
            [ "${{ needs.version-triad.result }}" != "success" ] || \
            [ "${{ needs.security-audit.result }}" != "success" ] || \
            [ "${{ needs.wasm-smoke-build.result }}" != "success" ] || \
-           [ "${{ needs.planning-state-check.result }}" != "success" ]; then
+           [ "${{ needs.planning-state-check.result }}" != "success" ] || \
+           [ "${{ needs.mutation-test.result }}" != "success" ]; then
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "❌ **Gate failed** - one or more checks did not pass" >> $GITHUB_STEP_SUMMARY
           exit 1
