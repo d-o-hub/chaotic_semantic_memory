@@ -9,7 +9,6 @@ use crate::singularity::ConceptBuilder;
 use std::sync::Arc;
 use tracing::instrument;
 
-const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024; // 100 MB default
 const MAX_HISTORY_LIMIT: usize = 1000;
 
 impl ChaoticSemanticFramework {

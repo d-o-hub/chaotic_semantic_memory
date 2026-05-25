@@ -83,6 +83,22 @@ impl Persistence {
         Err(wasm_persistence_unavailable())
     }
 
+    pub async fn for_each_concept_scoped<F, Fut>(&self, _ns: &str, mut _f: F) -> Result<()>
+    where
+        F: FnMut(Concept) -> Fut,
+        Fut: std::future::Future<Output = Result<()>>,
+    {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn for_each_association_scoped<F, Fut>(&self, _ns: &str, mut _f: F) -> Result<()>
+    where
+        F: FnMut(String, String, f32) -> Fut,
+        Fut: std::future::Future<Output = Result<()>>,
+    {
+        Err(wasm_persistence_unavailable())
+    }
+
     pub async fn clear_namespace(&self, _ns: &str) -> Result<()> {
         Err(wasm_persistence_unavailable())
     }

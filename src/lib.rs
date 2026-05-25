@@ -63,6 +63,7 @@ pub mod framework;
 mod framework_bridge;
 pub mod framework_builder;
 mod framework_events;
+#[cfg(not(target_arch = "wasm32"))]
 mod framework_export;
 pub mod framework_events_ce;
 mod framework_graph_rag;

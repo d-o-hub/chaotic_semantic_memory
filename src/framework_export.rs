@@ -2,18 +2,15 @@
 //!
 //! Extracted from framework_ops.rs to satisfy the 500 LOC gate.
 
-use bincode::Options;
-use tokio::fs;
-use tracing::{instrument, warn};
-use std::io::BufWriter;
-use std::fs::File;
-
 use crate::error::Result;
 use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
-use crate::framework::ChaoticSemanticFramework;
+use crate::framework::{ChaoticSemanticFramework, MAX_IMPORT_SIZE};
 use crate::framework_validation::validate_path;
-
-pub(crate) const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024; // 100 MB default
+use bincode::Options;
+use std::fs::File;
+use std::io::BufWriter;
+use tokio::fs;
+use tracing::{instrument, warn};
 
 impl ChaoticSemanticFramework {
     /// Export memory state to JSON file using streaming to avoid OOM.
