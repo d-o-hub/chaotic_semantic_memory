@@ -42,8 +42,6 @@
 - mcp: [dep:rmcp, cli]
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
-- serde: []
-- signing: []
 - wasm: []
 
 Generated: [TIMESTAMP REMOVED FOR DETERMINISM]
@@ -1578,10 +1576,6 @@ embed-voyage = ["dep:reqwest"]
 # ANN backends (ADR-0068)
 ann-hnsw = ["dep:hnsw_rs"]
 ann-lsh = []
-
-# Federation-ready API enhancements (ADR-055 downstream)
-signing = []
-serde = []
 
 # CloudEvents integration (ADR-0078)
 cloudevents = ["dep:cloudevents-sdk", "dep:uuid", "uuid/js"]

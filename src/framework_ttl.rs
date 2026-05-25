@@ -2,11 +2,11 @@
 
 use crate::error::Result;
 use crate::framework_events::MemoryEvent;
-#[cfg(target_arch = "wasm32")]
-use js_sys::Date;
 use crate::hyperdim::HVec10240;
 use crate::metadata_filter::MetadataFilter;
 use crate::singularity::ConceptBuilder;
+#[cfg(target_arch = "wasm32")]
+use js_sys::Date;
 use std::collections::HashMap;
 use tracing::instrument;
 

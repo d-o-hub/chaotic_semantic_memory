@@ -81,8 +81,6 @@ fastembed = { version = "4", optional = true }
 # HNSW ANN index (opt-in via ann-hnsw feature)
 hnsw_rs = { version = "0.3.4", optional = true }
 
-arbitrary = { version = "1.3", features = ["derive"], optional = true }
-
 # CLI dependencies (gated behind "cli" feature)
 clap = { version = "4.5", features = ["derive", "env", "string"], optional = true }
 clap_complete = { version = "4.5.42", optional = true }
@@ -102,9 +100,7 @@ libsql = { version = "0.9.30", default-features = false, features = ["sync", "hr
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.4", features = ["wasm_js"] }
-getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
-getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
+getrandom = { version = "0.4.2", features = ["wasm_js"] }
 tokio = { workspace = true, features = ["rt", "macros", "sync"] }
 wasm-bindgen = "0.2.100"
 wasm-bindgen-futures = "0.4.64"
@@ -249,11 +245,6 @@ embed-voyage = ["dep:reqwest"]
 ann-hnsw = ["dep:hnsw_rs"]
 ann-lsh = []
 
-
-# Federation-ready API enhancements (ADR-055 downstream)
-signing = []
-serde = []
-fuzzing = ["dep:arbitrary"]
 
 # CloudEvents integration (ADR-0078)
 cloudevents = ["dep:cloudevents-sdk", "dep:uuid", "uuid/js"]

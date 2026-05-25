@@ -6,8 +6,6 @@ use tokio::sync::RwLock;
 use tracing::instrument;
 
 use crate::error::Result;
-#[cfg(target_arch = "wasm32")]
-use js_sys::Date;
 use crate::framework_builder::{FrameworkBuilder, FrameworkConfig, FrameworkStats};
 use crate::framework_events::MemoryEvent;
 use crate::framework_events_ce::{ChaoticEvent, EventEmitter};
@@ -19,6 +17,8 @@ use crate::metadata_filter::MetadataFilter;
 use crate::persistence::Persistence;
 use crate::reservoir_chaotic::ChaoticReservoir;
 use crate::singularity::{Concept, ConceptBuilder, Singularity, unix_now_secs};
+#[cfg(target_arch = "wasm32")]
+use js_sys::Date;
 
 /// Main framework for chaotic semantic memory
 pub struct ChaoticSemanticFramework {

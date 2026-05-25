@@ -4,14 +4,14 @@
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 use crate::reservoir_sparse::SparseWeights;
+#[cfg(target_arch = "wasm32")]
+use js_sys::Date;
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-#[cfg(target_arch = "wasm32")]
-use js_sys::Date;
 #[cfg(not(target_arch = "wasm32"))]
 use {std::time::Instant, tracing::instrument};
 #[derive(Debug, Default)]
