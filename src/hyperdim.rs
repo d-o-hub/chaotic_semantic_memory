@@ -33,7 +33,6 @@ use crate::hyperdim_simd_bundle::bundle_block_neon;
 
 /// 10240-bit hypervector (80 x 128-bit words)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
 #[must_use]
 pub struct HVec10240 {
     pub(crate) data: [u128; 80],

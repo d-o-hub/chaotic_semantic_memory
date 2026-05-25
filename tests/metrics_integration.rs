@@ -50,6 +50,8 @@ async fn test_reservoir_metrics_wiring() {
     let metrics = framework.metrics_snapshot().await;
     assert_eq!(metrics.reservoir_steps_total, 3);
     assert!(metrics.avg_reservoir_step_latency_us >= 0.0);
+    #[cfg(not(target_arch = "wasm32"))]
+    assert!(metrics.avg_reservoir_step_latency_us > 0.0);
     assert_eq!(metrics.reservoir_nodes_active, 50000);
 }
 
@@ -70,13 +72,15 @@ async fn test_latency_averages() {
         .inject_concept("c1", HVec10240::random())
         .await
         .unwrap();
-    for _ in 0..5 {
+    // Use more iterations to ensure non-zero millis on fast systems
+    for _ in 0..100 {
         let _ = framework.probe(HVec10240::random(), 5).await.unwrap();
     }
 
     let metrics = framework.metrics_snapshot().await;
+    // On extremely fast systems, avg latency might still be 0.0 ms due to truncation
     assert!(metrics.avg_probe_latency_ms >= 0.0);
-    assert_eq!(metrics.probes_total, 5);
+    assert_eq!(metrics.probes_total, 100);
 }
 
 #[tokio::test]

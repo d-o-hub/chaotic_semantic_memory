@@ -4,6 +4,8 @@
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::HVec10240;
 use crate::reservoir_sparse::SparseWeights;
+#[cfg(target_arch = "wasm32")]
+use js_sys::Date;
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
@@ -181,6 +183,9 @@ impl Reservoir {
     pub fn step(&mut self, input: &[f32]) -> Result<ReservoirStepOutput<'_>> {
         #[cfg(not(target_arch = "wasm32"))]
         let started = Instant::now();
+        #[cfg(target_arch = "wasm32")]
+        let started = Date::now();
+
         if input.len() != self.input_size {
             return Err(MemoryError::reservoir(format!(
                 "Input size mismatch: expected {}, got {}",
@@ -246,7 +251,7 @@ impl Reservoir {
         #[cfg(not(target_arch = "wasm32"))]
         let latency_us = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
         #[cfg(target_arch = "wasm32")]
-        let latency_us = 0;
+        let latency_us = ((Date::now() - started) * 1000.0) as u64;
         self.metrics.observe_step(latency_us, self.size as u64);
 
         Ok(ReservoirStepOutput {
