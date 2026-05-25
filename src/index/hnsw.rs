@@ -18,6 +18,8 @@ use hnsw_rs::prelude::*;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "ann-hnsw")]
 use std::collections::HashMap;
+#[cfg(all(feature = "ann-hnsw", test))]
+use std::sync::Arc;
 
 #[cfg(feature = "ann-hnsw")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,13 +30,28 @@ struct HnswData {
 }
 
 #[cfg(feature = "ann-hnsw")]
-#[derive(Clone)]
-struct HammingDist;
+#[derive(Clone, Default)]
+struct HammingDist {
+    #[cfg(test)]
+    drop_tracker: Option<Arc<std::sync::Mutex<Vec<String>>>>,
+}
 
 #[cfg(feature = "ann-hnsw")]
 impl Distance<HVec10240> for HammingDist {
     fn eval(&self, va: &[HVec10240], vb: &[HVec10240]) -> f32 {
         va[0].hamming_distance(&vb[0]) as f32
+    }
+}
+
+#[cfg(all(feature = "ann-hnsw", test))]
+impl Drop for HammingDist {
+    fn drop(&mut self) {
+        if let Some(tracker) = &self.drop_tracker {
+            if let Ok(mut drops) = tracker.lock() {
+                let d: &mut Vec<String> = &mut *drops;
+                d.push("distance".to_string());
+            }
+        }
     }
 }
 
@@ -60,7 +77,7 @@ impl HnswIndex {
         }
 
         // ADR-0068: Default to 1M elements to support scale goal
-        let hnsw = Hnsw::new(m, 1_000_000, 16, ef_construction, HammingDist);
+        let hnsw = Hnsw::new(m, 1_000_000, 16, ef_construction, HammingDist::default());
         Ok(Self {
             hnsw,
             id_to_idx: HashMap::new(),
@@ -203,7 +220,7 @@ impl AnnIndex for HnswIndex {
             concepts.len().max(100),
             16,
             self.config.ef_construction,
-            HammingDist,
+            HammingDist::default(),
         );
         self.id_to_idx.clear();
         self.idx_to_id.clear();
@@ -280,7 +297,7 @@ impl AnnIndex for HnswIndex {
 
         let loader = HnswIo::new(temp_dir.path(), "index");
         let hnsw = loader
-            .load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist)
+            .load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist::default())
             .map_err(|e| MemoryError::database(format!("HNSW load failed: {}", e)))?;
 
         // SAFETY: The Hnsw instance's referenced data is owned by self._owner, which lives as long as self.
@@ -375,19 +392,49 @@ mod drop_tests {
 
     #[test]
     #[cfg(feature = "ann-hnsw")]
-    fn test_hnsw_index_drop_order() -> Result<()> {
-        let dropped = Arc::new(AtomicBool::new(false));
+    fn test_hnsw_index_drop_order_sequenced() -> Result<()> {
+        use std::sync::Mutex;
+        let drops = Arc::new(Mutex::new(Vec::new()));
+
+        struct SequenceTracker(String, Arc<Mutex<Vec<String>>>);
+        impl Drop for SequenceTracker {
+            fn drop(&mut self) {
+                if let Ok(mut drops) = self.1.lock() {
+                    drops.push(self.0.clone());
+                }
+            }
+        }
 
         {
             let mut index = HnswIndex::new(16, 200, 50)?;
-            // We simulate a loaded state by putting a DropTracker in _owner
-            index._owner = Some(Box::new(DropTracker(dropped.clone())));
 
-            // When index is dropped, hnsw is dropped first, then _owner.
-            // If hnsw depended on _owner during drop, it would be safe.
+            // Re-initialize hnsw with our drop tracker
+            index.hnsw = Hnsw::new(
+                16,
+                100,
+                16,
+                200,
+                HammingDist {
+                    drop_tracker: Some(drops.clone()),
+                },
+            );
+
+            index._owner = Some(Box::new(SequenceTracker(
+                "owner".to_string(),
+                drops.clone(),
+            )));
+
+            // hnsw is dropped first, then _owner.
+            // hnsw contains HammingDist which we track.
         }
 
-        assert!(dropped.load(Ordering::SeqCst));
+        let order = drops.lock().unwrap();
+        // Distance might be dropped multiple times due to internal cloning in Hnsw,
+        // but the key is that "owner" must be LAST.
+        assert!(!order.is_empty());
+        assert_eq!(order.last().unwrap(), "owner");
+        assert!(order.contains(&"distance".to_string()));
+
         Ok(())
     }
 }
@@ -409,14 +456,20 @@ mod move_tests {
         let mut new_index = HnswIndex::new(16, 200, 50)?;
         new_index.deserialize(&serialized)?;
 
-        // Move the index
-        let moved_index = new_index;
+        // Multiple moves and stack depth changes
+        let moved_index = {
+            let mid_index = new_index;
+            mid_index
+        };
+
+        // Pin it to simulate more rigid memory constraints
+        let pinned_index = Box::pin(moved_index);
 
         // Ensure it still works
-        assert_eq!(moved_index.id_to_idx.len(), 1);
-        let results = moved_index.search(&vec, 1)?;
+        assert_eq!(pinned_index.id_to_idx.len(), 1);
+        let results = pinned_index.search(&vec, 1)?;
         assert_eq!(results[0].0, id);
-        assert!(moved_index._owner.is_some());
+        assert!(pinned_index._owner.is_some());
 
         Ok(())
     }

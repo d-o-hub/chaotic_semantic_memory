@@ -1,0 +1,17 @@
+<<<<<<< SEARCH
+        self.hnsw = Hnsw::new(
+            self.config.m,
+            concepts.len().max(100),
+            16,
+            self.config.ef_construction,
+            HammingDist,
+        );
+=======
+        self.hnsw = Hnsw::new(
+            self.config.m,
+            concepts.len().max(100),
+            16,
+            self.config.ef_construction,
+            HammingDist::default(),
+        );
+>>>>>>> REPLACE

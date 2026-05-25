@@ -1,0 +1,23 @@
+<<<<<<< SEARCH
+#[cfg(all(feature = "ann-hnsw", test))]
+impl Drop for HammingDist {
+    fn drop(&mut self) {
+        if let Some(tracker) = &self.drop_tracker {
+            if let Ok(mut drops) = tracker.lock() {
+                drops.push("distance".to_string());
+            }
+        }
+    }
+}
+=======
+#[cfg(all(feature = "ann-hnsw", test))]
+impl Drop for HammingDist {
+    fn drop(&mut self) {
+        if let Some(tracker) = &self.drop_tracker {
+            if let Ok(mut drops) = tracker.lock::<Vec<String>>() {
+                drops.push("distance".to_string());
+            }
+        }
+    }
+}
+>>>>>>> REPLACE

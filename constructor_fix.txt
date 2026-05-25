@@ -1,0 +1,7 @@
+<<<<<<< SEARCH
+        // ADR-0068: Default to 1M elements to support scale goal
+        let hnsw = Hnsw::new(m, 1_000_000, 16, ef_construction, HammingDist);
+=======
+        // ADR-0068: Default to 1M elements to support scale goal
+        let hnsw = Hnsw::new(m, 1_000_000, 16, ef_construction, HammingDist::default());
+>>>>>>> REPLACE

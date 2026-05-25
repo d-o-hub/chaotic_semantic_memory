@@ -1,0 +1,9 @@
+<<<<<<< SEARCH
+#[cfg(feature = "ann-hnsw")]
+use std::collections::HashMap;
+=======
+#[cfg(feature = "ann-hnsw")]
+use std::collections::HashMap;
+#[cfg(all(feature = "ann-hnsw", test))]
+use std::sync::Arc;
+>>>>>>> REPLACE
