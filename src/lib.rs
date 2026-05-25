@@ -125,7 +125,6 @@ pub mod persistence {
     //! Enable the "persistence" feature for full libSQL-backed persistence.
 
     use crate::error::Result;
-    use crate::hyperdim::HVec10240;
     use crate::singularity::Concept;
 
     /// Stub persistence type when persistence feature is disabled.
