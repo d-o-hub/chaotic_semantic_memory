@@ -8,16 +8,17 @@ use std::collections::HashMap;
 
 /// Payload for JSON export/import
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct ExportPayload {
-    pub(crate) version: String,
-    pub(crate) exported_at: u64,
-    pub(crate) concepts: Vec<crate::singularity::Concept>,
-    pub(crate) associations: Vec<(String, String, f32)>,
+pub struct ExportPayload {
+    pub version: String,
+    pub exported_at: u64,
+    pub concepts: Vec<crate::singularity::Concept>,
+    pub associations: Vec<(String, String, f32)>,
 }
 
 /// Binary-compatible metadata value
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) enum BinaryMetadataValue {
+#[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
+pub enum BinaryMetadataValue {
     Null,
     Bool(bool),
     Number(String), // Store numbers as strings to preserve precision
@@ -68,16 +69,17 @@ impl From<BinaryMetadataValue> for serde_json::Value {
 
 /// Concept representation for binary export (bincode-compatible)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
 #[allow(dead_code)]
-pub(crate) struct BinaryConcept {
-    pub(crate) id: String,
+pub struct BinaryConcept {
+    pub id: String,
     /// Raw bytes of the HVec10240 (1280 bytes)
-    pub(crate) vector_bytes: Vec<u8>,
-    pub(crate) metadata: HashMap<String, BinaryMetadataValue>,
-    pub(crate) created_at: u64,
-    pub(crate) modified_at: u64,
-    pub(crate) expires_at: Option<u64>,
-    pub(crate) canonical_concept_ids: Vec<String>,
+    pub vector_bytes: Vec<u8>,
+    pub metadata: HashMap<String, BinaryMetadataValue>,
+    pub created_at: u64,
+    pub modified_at: u64,
+    pub expires_at: Option<u64>,
+    pub canonical_concept_ids: Vec<String>,
 }
 
 impl From<crate::singularity::Concept> for BinaryConcept {
@@ -100,7 +102,7 @@ impl From<crate::singularity::Concept> for BinaryConcept {
 
 #[allow(dead_code)]
 impl BinaryConcept {
-    pub(crate) fn to_concept(&self) -> crate::error::Result<crate::singularity::Concept> {
+    pub fn to_concept(&self) -> crate::error::Result<crate::singularity::Concept> {
         Ok(crate::singularity::Concept {
             id: self.id.clone(),
             vector: crate::hyperdim::HVec10240::from_bytes(&self.vector_bytes)?,
@@ -119,12 +121,13 @@ impl BinaryConcept {
 
 /// Payload for binary export/import (bincode-compatible)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
 #[allow(dead_code)]
-pub(crate) struct BinaryExportPayload {
-    pub(crate) version: String,
-    pub(crate) exported_at: u64,
-    pub(crate) concepts: Vec<BinaryConcept>,
-    pub(crate) associations: Vec<(String, String, f32)>,
+pub struct BinaryExportPayload {
+    pub version: String,
+    pub exported_at: u64,
+    pub concepts: Vec<BinaryConcept>,
+    pub associations: Vec<(String, String, f32)>,
 }
 
 impl From<ExportPayload> for BinaryExportPayload {
@@ -144,7 +147,7 @@ impl From<ExportPayload> for BinaryExportPayload {
 
 #[allow(dead_code)]
 impl BinaryExportPayload {
-    pub(crate) fn to_export_payload(&self) -> crate::error::Result<ExportPayload> {
+    pub fn to_export_payload(&self) -> crate::error::Result<ExportPayload> {
         let mut concepts = Vec::with_capacity(self.concepts.len());
         for bc in &self.concepts {
             concepts.push(bc.to_concept()?);

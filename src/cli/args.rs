@@ -1,5 +1,6 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
+
 #[derive(Parser, Debug)]
 #[command(name = "csm")]
 #[command(about = "Chaotic Semantic Memory CLI", long_about = None)]
@@ -7,16 +8,20 @@ use std::path::PathBuf;
 pub struct CliArgs {
     #[command(subcommand)]
     pub command: Commands,
+
     #[arg(short, long, global = true, action = clap::ArgAction::Count)]
     pub verbose: u8,
+
     /// Path to database file. If not specified, uses git-local storage when in a git repo.
     #[arg(short, long, global = true, value_name = "PATH")]
     pub database: Option<PathBuf>,
+
     /// Force git-local storage (.git/memory-index/csm.db).
     /// Creates "never committed, per-clone" storage inside the .git directory.
     /// Error if not in a git repository.
     #[arg(long, global = true)]
     pub git_local: bool,
+
     /// Override the default git-local index path.
     /// Only used when --git-local is specified or no database is given in a git repo.
     #[arg(long, global = true, value_name = "PATH")]
@@ -461,15 +466,6 @@ pub struct HistoryArgs {
     pub namespace: String,
     #[arg(required = true)]
     pub concept_id: String,
-    /// Show a specific version of the concept.
-    #[arg(long, conflicts_with = "rollback")]
-    pub version: Option<u64>,
-    /// Roll back to a specific version.
-    #[arg(long, conflicts_with = "version")]
-    pub rollback: Option<u64>,
-    /// Skip confirmation prompt for rollback.
-    #[arg(short, long, requires = "rollback")]
-    pub confirm: bool,
 }
 
 /// Arguments for the diff command.

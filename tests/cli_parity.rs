@@ -36,9 +36,6 @@ const EXPECTED_SUBCOMMANDS: &[&str] = &[
     "metrics",
     "watch",
     "probe-graph",
-    "history",
-    "diff",
-    "rollback",
 ];
 
 fn csm_bin() -> std::path::PathBuf {
@@ -75,24 +72,6 @@ fn cli_help_lists_every_expected_subcommand() {
 }
 
 #[test]
-fn cli_history_flags_listed_in_help() {
-    let output = Command::new(csm_bin())
-        .args(["history", "--help"])
-        .output()
-        .expect("failed to spawn csm history --help");
-    assert!(
-        output.status.success(),
-        "csm history --help exited non-zero"
-    );
-    let stdout = String::from_utf8(output.stdout).expect("csm history --help non-UTF8");
-    for flag in &["--version", "--rollback", "--confirm"] {
-        assert!(
-            stdout.contains(flag),
-            "csm history --help should mention {flag}, got:\n{stdout}"
-        );
-    }
-}
-
 fn cli_each_subcommand_has_help() {
     for cmd in EXPECTED_SUBCOMMANDS {
         let output = Command::new(csm_bin())

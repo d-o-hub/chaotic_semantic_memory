@@ -807,6 +807,7 @@ name = "chaotic_semantic_memory"
 version = "0.3.6"
 dependencies = [
  "anyhow",
+ "arbitrary",
  "assert_cmd",
  "async-trait",
  "base64 0.22.1",
@@ -818,6 +819,8 @@ dependencies = [
  "console_error_panic_hook",
  "criterion",
  "fastembed",
+ "getrandom 0.2.17",
+ "getrandom 0.3.4",
  "getrandom 0.4.2",
  "glob",
  "hnsw_rs",
