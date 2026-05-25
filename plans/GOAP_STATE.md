@@ -861,7 +861,7 @@ world_state:
   gap_analysis_2026_04_30_findings: 10
   gap_analysis_2026_04_30_adrs_drafted: 11
   gap_analysis_2026_04_30_total_cost: 116
-  # NOTE: prior `action_last_completed: rebase_deepsource_fix_2026_06`
+  # NOTE: prior `action_last_completed: fix_hnsw_soundness_and_tests
   # removed 2026-05-18 — duplicate key (YAML last-wins). Canonical entry
   # is at the bottom of the file; see Wave 25 / 2026-05-18 reconciliation.
 
@@ -951,7 +951,7 @@ world_state:
     registry_count: 80
     disk_count: 79
     parity_satisfied: true
-  action_last_completed: wasm_namespace_export
+  action_last_completed: fix_hnsw_soundness_and_tests
 
   # ═══════════════════════════════════════════════════════
   # Pre-Release Gate Fixes (2026-05-21)
