@@ -51,11 +51,11 @@ async fn test_wasm_purge_expired_latency() {
     // Implement Mock Emitter if cloudevents is enabled to verify duration in event
     #[cfg(feature = "cloudevents")]
     {
-        use chaotic_semantic_memory::framework_events_ce::{EventEmitter};
+        use async_trait::async_trait;
+        use chaotic_semantic_memory::framework_events_ce::EventEmitter;
         use cloudevents::Event;
         use std::sync::Arc;
         use tokio::sync::Mutex;
-        use async_trait::async_trait;
 
         #[derive(Debug)]
         struct MockEmitter {
@@ -63,7 +63,9 @@ async fn test_wasm_purge_expired_latency() {
         }
         #[async_trait]
         impl EventEmitter for MockEmitter {
-            fn name(&self) -> &str { "mock" }
+            fn name(&self) -> &str {
+                "mock"
+            }
             async fn emit(&self, event: Event) -> chaotic_semantic_memory::Result<()> {
                 self.events.lock().await.push(event);
                 Ok(())
@@ -71,7 +73,9 @@ async fn test_wasm_purge_expired_latency() {
         }
 
         let events = Arc::new(Mutex::new(Vec::new()));
-        let emitter = Arc::new(MockEmitter { events: events.clone() });
+        let emitter = Arc::new(MockEmitter {
+            events: events.clone(),
+        });
 
         let framework = ChaoticSemanticFramework::builder()
             .without_persistence()
@@ -91,7 +95,9 @@ async fn test_wasm_purge_expired_latency() {
 
         let emitted = events.lock().await;
         // Verify MemoryConsolidated event was emitted and has duration
-        let consolidated = emitted.iter().find(|e| e.ty() == "io.d-o-hub.csm.memory.consolidated");
+        let consolidated = emitted
+            .iter()
+            .find(|e| e.ty() == "io.d-o-hub.csm.memory.consolidated");
         if let Some(_event) = consolidated {
             // Logic reached, duration was calculated.
             // Parsing the JSON data from CloudEvent is complex here, but existence proves the path.
