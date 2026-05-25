@@ -61,3 +61,10 @@
 - **CLI table name prefix**: The persistence layer uses `csm_`-prefixed table names (`csm_concepts`, `csm_associations`, `csm_schema_version`). Direct SQL access must account for this prefix.
 - **No native archive command**: The CLI has `delete` but no `archive`. Archive is handled via marker concepts with metadata `{"status":"archived","target":"<id>"}`. If archive becomes a common workflow, consider adding a native `csm archive <id>` command.
 - **Export/import roundtrip fidelity**: JSON export preserves metadata, vector data, and associations. Import into a fresh DB produces identical probe results (same similarity scores), confirming no precision loss in serialization.
+
+## HNSW Persistence Soundness (May 2026)
+
+- **Issue**: `hnsw_rs`'s `HnswIo` loader may return an `Hnsw` instance that borrows from the loader or the underlying files. Casting this to `Hnsw<'static, ...>` via `mem::transmute` is unsound if the loader or files are dropped.
+- **Solution**: Add an `_owner: Option<Box<dyn std::any::Any + Send + Sync>>` field to the index struct. When deserializing, wrap the `TempDir` (from `tempfile`) and the `HnswIo` loader in a tuple, box it, and store it in `_owner`. This ensures the backing data lives as long as the index.
+- **Safety**: A `// SAFETY:` comment should explain that the transmute is sound because the borrowed data is owned by the struct itself via `_owner`.
+- **Dependency**: `tempfile` should be an optional dependency gated by the same feature as the HNSW index (`ann-hnsw`).

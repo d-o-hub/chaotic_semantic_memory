@@ -4,12 +4,6 @@
 // Casts are intentional for similarity math
 
 #[cfg(feature = "ann-hnsw")]
-use hnsw_rs::prelude::*;
-#[cfg(feature = "ann-hnsw")]
-use serde::{Deserialize, Serialize};
-#[cfg(feature = "ann-hnsw")]
-use std::collections::HashMap;
-
 #[cfg(feature = "ann-hnsw")]
 use crate::error::{MemoryError, Result};
 #[cfg(feature = "ann-hnsw")]
@@ -18,6 +12,12 @@ use crate::hyperdim::HVec10240;
 use crate::index::{AnnIndex, IndexStats};
 #[cfg(feature = "ann-hnsw")]
 use crate::singularity::Concept;
+#[cfg(feature = "ann-hnsw")]
+use hnsw_rs::prelude::*;
+#[cfg(feature = "ann-hnsw")]
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "ann-hnsw")]
+use std::collections::HashMap;
 
 #[cfg(feature = "ann-hnsw")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,6 +40,7 @@ impl Distance<HVec10240> for HammingDist {
 
 #[cfg(feature = "ann-hnsw")]
 pub struct HnswIndex {
+    _owner: Option<Box<dyn std::any::Any + Send + Sync>>,
     hnsw: Hnsw<'static, HVec10240, HammingDist>,
     id_to_idx: HashMap<String, usize>,
     idx_to_id: HashMap<usize, String>,
@@ -61,6 +62,7 @@ impl HnswIndex {
         // ADR-0068: Default to 1M elements to support scale goal
         let hnsw = Hnsw::new(m, 1_000_000, 16, ef_construction, HammingDist);
         Ok(Self {
+            _owner: None,
             hnsw,
             id_to_idx: HashMap::new(),
             idx_to_id: HashMap::new(),
@@ -195,6 +197,7 @@ impl AnnIndex for HnswIndex {
     }
 
     fn rebuild(&mut self, concepts: &HashMap<String, Concept>) -> Result<()> {
+        self._owner = None;
         self.hnsw = Hnsw::new(
             self.config.m,
             concepts.len().max(100),
@@ -265,21 +268,27 @@ impl AnnIndex for HnswIndex {
         let wrapper: HnswPersistenceWrapper = bincode::deserialize(data)
             .map_err(|e| MemoryError::database(format!("Bincode deserialize fail: {}", e)))?;
 
-        let temp_dir =
-            std::env::temp_dir().join(format!("csm_hnsw_load_{}", rand::random::<u64>()));
-        fs::create_dir_all(&temp_dir).map_err(MemoryError::Io)?;
+        let temp_dir = tempfile::Builder::new()
+            .prefix("csm_hnsw_load_")
+            .tempdir()
+            .map_err(MemoryError::Io)?;
 
-        fs::write(temp_dir.join("index.hnsw.data"), &wrapper.data).map_err(MemoryError::Io)?;
-        fs::write(temp_dir.join("index.hnsw.graph"), &wrapper.graph).map_err(MemoryError::Io)?;
+        fs::write(temp_dir.path().join("index.hnsw.data"), &wrapper.data)
+            .map_err(MemoryError::Io)?;
+        fs::write(temp_dir.path().join("index.hnsw.graph"), &wrapper.graph)
+            .map_err(MemoryError::Io)?;
 
-        let loader = HnswIo::new(&temp_dir, "index");
+        let loader = HnswIo::new(temp_dir.path(), "index");
         let hnsw = loader
             .load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist)
             .map_err(|e| MemoryError::database(format!("HNSW load failed: {}", e)))?;
 
+        // SAFETY: The Hnsw instance's referenced data is owned by self._owner, which lives as long as self.
+        // The transmute to 'static is therefore sound.
         let static_hnsw: Hnsw<'static, HVec10240, HammingDist> =
             unsafe { std::mem::transmute(hnsw) };
 
+        self._owner = Some(Box::new((temp_dir, loader)));
         self.hnsw = static_hnsw;
         self.id_to_idx = wrapper.id_to_idx;
         self.idx_to_id = wrapper.idx_to_id;
@@ -288,7 +297,65 @@ impl AnnIndex for HnswIndex {
         self.config.ef_search = wrapper.ef_search;
         self.deleted_count = wrapper.deleted_count;
 
-        let _ = fs::remove_dir_all(temp_dir);
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::hyperdim::HVec10240;
+
+    #[test]
+    #[cfg(feature = "ann-hnsw")]
+    fn test_persistence_roundtrip_miri() -> Result<()> {
+        let mut index = HnswIndex::new(16, 200, 50)?;
+        let id = "test".to_string();
+        let vec = HVec10240::random();
+        index.insert(id.clone(), &vec)?;
+
+        let serialized = index.serialize()?;
+        let mut new_index = HnswIndex::new(16, 200, 50)?;
+        new_index.deserialize(&serialized)?;
+
+        assert_eq!(new_index.id_to_idx.len(), 1);
+        let results = new_index.search(&vec, 1)?;
+        assert_eq!(results[0].0, id);
+        assert!(new_index._owner.is_some());
+
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "ann-hnsw")]
+    fn test_rebuild_resets_owner() -> Result<()> {
+        let mut index = HnswIndex::new(16, 200, 50)?;
+        let id = "test".to_string();
+        let vec = HVec10240::random();
+        index.insert(id, &vec)?;
+
+        let serialized = index.serialize()?;
+        index.deserialize(&serialized)?;
+        assert!(index._owner.is_some());
+
+        let mut concepts = HashMap::new();
+        concepts.insert(
+            "test2".to_string(),
+            Concept {
+                id: "test2".to_string(),
+                vector: HVec10240::random(),
+                metadata: HashMap::new(),
+                created_at: 0,
+                modified_at: 0,
+                expires_at: None,
+                canonical_concept_ids: Vec::new(),
+            },
+        );
+
+        index.rebuild(&concepts)?;
+        assert!(index._owner.is_none());
+        assert_eq!(index.id_to_idx.len(), 1);
+
         Ok(())
     }
 }
