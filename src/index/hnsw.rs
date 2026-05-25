@@ -213,14 +213,15 @@ impl AnnIndex for HnswIndex {
     }
 
     fn rebuild(&mut self, concepts: &HashMap<String, Concept>) -> Result<()> {
-        self._owner = None;
-        self.hnsw = Hnsw::new(
+        let new_hnsw = Hnsw::new(
             self.config.m,
             concepts.len().max(100),
             16,
             self.config.ef_construction,
             HammingDist::default(),
         );
+        self.hnsw = new_hnsw;
+        self._owner = None;
         self.id_to_idx.clear();
         self.idx_to_id.clear();
         self.deleted_count = 0;
@@ -295,17 +296,21 @@ impl AnnIndex for HnswIndex {
             .map_err(MemoryError::Io)?;
 
         let loader = HnswIo::new(temp_dir.path(), "index");
-        let hnsw = loader
+        let owner = Box::new((temp_dir, loader));
+
+        // SAFETY: We borrow from the loader AFTER it has been boxed, ensuring a stable address.
+        let hnsw = owner
+            .1
             .load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist::default())
             .map_err(|e| MemoryError::database(format!("HNSW load failed: {}", e)))?;
 
-        // SAFETY: The Hnsw instance's referenced data is owned by self._owner, which lives as long as self.
-        // The transmute to 'static is therefore sound.
+        // SAFETY: The Hnsw instance's referenced data is owned by owner (and soon self._owner),
+        // which lives as long as self. The transmute to 'static is therefore sound.
         let static_hnsw: Hnsw<'static, HVec10240, HammingDist> =
             unsafe { std::mem::transmute(hnsw) };
 
-        self._owner = Some(Box::new((temp_dir, loader)));
         self.hnsw = static_hnsw;
+        self._owner = Some(owner);
         self.id_to_idx = wrapper.id_to_idx;
         self.idx_to_id = wrapper.idx_to_id;
         self.config.m = wrapper.m;
