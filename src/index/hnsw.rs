@@ -48,8 +48,7 @@ impl Drop for HammingDist {
     fn drop(&mut self) {
         if let Some(tracker) = &self.drop_tracker {
             if let Ok(mut drops) = tracker.lock() {
-                let d: &mut Vec<String> = &mut *drops;
-                d.push("distance".to_string());
+                drops.push("distance".to_string());
             }
         }
     }
@@ -435,6 +434,7 @@ mod drop_tests {
         assert_eq!(order.last().unwrap(), "owner");
         assert!(order.contains(&"distance".to_string()));
 
+        drop(order);
         Ok(())
     }
 }
@@ -457,10 +457,7 @@ mod move_tests {
         new_index.deserialize(&serialized)?;
 
         // Multiple moves and stack depth changes
-        let moved_index = {
-            let mid_index = new_index;
-            mid_index
-        };
+        let moved_index = { new_index };
 
         // Pin it to simulate more rigid memory constraints
         let pinned_index = Box::pin(moved_index);
