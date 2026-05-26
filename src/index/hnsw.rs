@@ -20,6 +20,14 @@ use crate::hyperdim::HVec10240;
 use crate::index::{AnnIndex, IndexStats};
 #[cfg(feature = "ann-hnsw")]
 use crate::singularity::Concept;
+#[cfg(feature = "ann-hnsw")]
+use hnsw_rs::prelude::*;
+#[cfg(feature = "ann-hnsw")]
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "ann-hnsw")]
+use std::collections::HashMap;
+#[cfg(all(feature = "ann-hnsw", test))]
+use std::sync::Arc;
 
 #[cfg(feature = "ann-hnsw")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,13 +38,27 @@ struct HnswData {
 }
 
 #[cfg(feature = "ann-hnsw")]
-#[derive(Clone)]
-struct HammingDist;
+#[derive(Clone, Default)]
+struct HammingDist {
+    #[cfg(test)]
+    drop_tracker: Option<Arc<std::sync::Mutex<Vec<String>>>>,
+}
 
 #[cfg(feature = "ann-hnsw")]
 impl Distance<HVec10240> for HammingDist {
     fn eval(&self, va: &[HVec10240], vb: &[HVec10240]) -> f32 {
         va[0].hamming_distance(&vb[0]) as f32
+    }
+}
+
+#[cfg(all(feature = "ann-hnsw", test))]
+impl Drop for HammingDist {
+    fn drop(&mut self) {
+        if let Some(tracker) = &self.drop_tracker {
+            if let Ok(mut drops) = tracker.lock() {
+                drops.push("distance".to_string());
+            }
+        }
     }
 }
 
@@ -50,6 +72,7 @@ pub struct HnswIndex {
     idx_to_id: HashMap<usize, String>,
     config: HnswData,
     deleted_count: usize,
+    _owner: Option<Box<dyn std::any::Any + Send + Sync>>,
 }
 
 #[cfg(feature = "ann-hnsw")]
@@ -64,7 +87,7 @@ impl HnswIndex {
         }
 
         // ADR-0068: Default to 1M elements to support scale goal
-        let hnsw = Hnsw::new(m, 1_000_000, 16, ef_construction, HammingDist);
+        let hnsw = Hnsw::new(m, 1_000_000, 16, ef_construction, HammingDist::default());
         Ok(Self {
             hnsw: ManuallyDrop::new(hnsw),
             _owner: None,
@@ -76,6 +99,7 @@ impl HnswIndex {
                 ef_search,
             },
             deleted_count: 0,
+            _owner: None,
         })
     }
 }
@@ -206,7 +230,7 @@ impl AnnIndex for HnswIndex {
             concepts.len().max(100),
             16,
             self.config.ef_construction,
-            HammingDist,
+            HammingDist::default(),
         );
         #[cfg(not(miri))]
         // SAFETY: Destructor triggers unsupported syscall in Miri.
@@ -276,18 +300,27 @@ impl AnnIndex for HnswIndex {
         let wrapper: HnswPersistenceWrapper = bincode::deserialize(data)
             .map_err(|e| MemoryError::database(format!("Bincode deserialize fail: {}", e)))?;
 
-        let temp_dir =
-            std::env::temp_dir().join(format!("csm_hnsw_load_{}", rand::random::<u64>()));
-        fs::create_dir_all(&temp_dir).map_err(MemoryError::Io)?;
+        let temp_dir = tempfile::Builder::new()
+            .prefix("csm_hnsw_load_")
+            .tempdir()
+            .map_err(MemoryError::Io)?;
 
-        fs::write(temp_dir.join("index.hnsw.data"), &wrapper.data).map_err(MemoryError::Io)?;
-        fs::write(temp_dir.join("index.hnsw.graph"), &wrapper.graph).map_err(MemoryError::Io)?;
+        fs::write(temp_dir.path().join("index.hnsw.data"), &wrapper.data)
+            .map_err(MemoryError::Io)?;
+        fs::write(temp_dir.path().join("index.hnsw.graph"), &wrapper.graph)
+            .map_err(MemoryError::Io)?;
 
-        let loader = HnswIo::new(&temp_dir, "index");
-        let hnsw = loader
-            .load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist)
+        let loader = HnswIo::new(temp_dir.path(), "index");
+        let owner = Box::new((temp_dir, loader));
+
+        // SAFETY: We borrow from the loader AFTER it has been boxed, ensuring a stable address.
+        let hnsw = owner
+            .1
+            .load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist::default())
             .map_err(|e| MemoryError::database(format!("HNSW load failed: {}", e)))?;
 
+        // SAFETY: The Hnsw instance's referenced data is owned by owner (and soon self._owner),
+        // which lives as long as self. The transmute to 'static is therefore sound.
         let static_hnsw: Hnsw<'static, HVec10240, HammingDist> =
             // SAFETY: We transmute to 'static; 'loader' in 'self._owner' ensures it outlives 'self.hnsw'.
             unsafe { std::mem::transmute(hnsw) };
@@ -306,7 +339,161 @@ impl AnnIndex for HnswIndex {
         self.config.ef_search = wrapper.ef_search;
         self.deleted_count = wrapper.deleted_count;
 
-        let _ = fs::remove_dir_all(temp_dir);
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::hyperdim::HVec10240;
+
+    #[test]
+    #[cfg(feature = "ann-hnsw")]
+    fn test_persistence_roundtrip_miri() -> Result<()> {
+        let mut index = HnswIndex::new(16, 200, 50)?;
+        let id = "test".to_string();
+        let vec = HVec10240::random();
+        index.insert(id.clone(), &vec)?;
+
+        let serialized = index.serialize()?;
+        let mut new_index = HnswIndex::new(16, 200, 50)?;
+        new_index.deserialize(&serialized)?;
+
+        assert_eq!(new_index.id_to_idx.len(), 1);
+        let results = new_index.search(&vec, 1)?;
+        assert_eq!(results[0].0, id);
+        assert!(new_index._owner.is_some());
+
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "ann-hnsw")]
+    fn test_rebuild_resets_owner() -> Result<()> {
+        let mut index = HnswIndex::new(16, 200, 50)?;
+        let id = "test".to_string();
+        let vec = HVec10240::random();
+        index.insert(id, &vec)?;
+
+        let serialized = index.serialize()?;
+        index.deserialize(&serialized)?;
+        assert!(index._owner.is_some());
+
+        let mut concepts = HashMap::new();
+        concepts.insert(
+            "test2".to_string(),
+            Concept {
+                id: "test2".to_string(),
+                vector: HVec10240::random(),
+                metadata: HashMap::new(),
+                created_at: 0,
+                modified_at: 0,
+                expires_at: None,
+                canonical_concept_ids: Vec::new(),
+            },
+        );
+
+        index.rebuild(&concepts)?;
+        assert!(index._owner.is_none());
+        assert_eq!(index.id_to_idx.len(), 1);
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod drop_tests {
+    use super::*;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    struct DropTracker(Arc<AtomicBool>);
+    impl Drop for DropTracker {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "ann-hnsw")]
+    fn test_hnsw_index_drop_order_sequenced() -> Result<()> {
+        use std::sync::Mutex;
+        let drops = Arc::new(Mutex::new(Vec::new()));
+
+        struct SequenceTracker(String, Arc<Mutex<Vec<String>>>);
+        impl Drop for SequenceTracker {
+            fn drop(&mut self) {
+                if let Ok(mut drops) = self.1.lock() {
+                    drops.push(self.0.clone());
+                }
+            }
+        }
+
+        {
+            let mut index = HnswIndex::new(16, 200, 50)?;
+
+            // Re-initialize hnsw with our drop tracker
+            index.hnsw = Hnsw::new(
+                16,
+                100,
+                16,
+                200,
+                HammingDist {
+                    drop_tracker: Some(drops.clone()),
+                },
+            );
+
+            index._owner = Some(Box::new(SequenceTracker(
+                "owner".to_string(),
+                drops.clone(),
+            )));
+
+            // hnsw is dropped first, then _owner.
+            // hnsw contains HammingDist which we track.
+        }
+
+        let order = drops.lock().unwrap();
+        // Distance might be dropped multiple times due to internal cloning in Hnsw,
+        // but the key is that "owner" must be LAST.
+        assert!(!order.is_empty());
+        assert_eq!(order.last().unwrap(), "owner");
+        assert!(order.contains(&"distance".to_string()));
+
+        drop(order);
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod move_tests {
+    use super::*;
+    use crate::hyperdim::HVec10240;
+
+    #[test]
+    #[cfg(feature = "ann-hnsw")]
+    fn test_hnsw_index_move_soundness() -> Result<()> {
+        let mut index = HnswIndex::new(16, 200, 50)?;
+        let id = "test".to_string();
+        let vec = HVec10240::random();
+        index.insert(id.clone(), &vec)?;
+
+        let serialized = index.serialize()?;
+        let mut new_index = HnswIndex::new(16, 200, 50)?;
+        new_index.deserialize(&serialized)?;
+
+        // Multiple moves and stack depth changes
+        let moved_index = { new_index };
+
+        // Pin it to simulate more rigid memory constraints
+        let pinned_index = Box::pin(moved_index);
+
+        // Ensure it still works
+        assert_eq!(pinned_index.id_to_idx.len(), 1);
+        let results = pinned_index.search(&vec, 1)?;
+        assert_eq!(results[0].0, id);
+        assert!(pinned_index._owner.is_some());
+
         Ok(())
     }
 }
