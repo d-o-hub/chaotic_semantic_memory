@@ -20,8 +20,6 @@ use crate::singularity::{Concept, ConceptBuilder, Singularity, unix_now_secs};
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
 
-pub const MAX_IMPORT_SIZE: u64 = 512 * 1024 * 1024; // 512 MB default
-
 /// Main framework for chaotic semantic memory
 pub struct ChaoticSemanticFramework {
     pub(crate) singularity: Arc<RwLock<Singularity>>,

@@ -65,32 +65,6 @@ impl Singularity {
         }
         Ok(())
     }
-
-    /// Process all concepts in a namespace using a callback.
-    pub fn for_each_concept<F>(&self, ns: &str, mut f: F)
-    where
-        F: FnMut(&crate::singularity::Concept),
-    {
-        if let Some(ns_state) = self.get_namespace(ns) {
-            for concept in ns_state.concepts.values() {
-                f(concept);
-            }
-        }
-    }
-
-    /// Process all associations in a namespace using a callback.
-    pub fn for_each_association<F>(&self, ns: &str, mut f: F)
-    where
-        F: FnMut(&String, &String, f32),
-    {
-        if let Some(ns_state) = self.get_namespace(ns) {
-            for (from_id, neighbors) in &ns_state.associations {
-                for (to_id, strength) in neighbors {
-                    f(from_id, to_id, *strength);
-                }
-            }
-        }
-    }
 }
 
 #[cfg(test)]

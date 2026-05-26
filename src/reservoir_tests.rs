@@ -72,9 +72,10 @@ fn step_mathematical_correctness() {
 #[allow(clippy::float_cmp)]
 fn norm_calculation_consistency() {
     // 1. Verify direct multiplication matches powi(2) for range of values
+    // Using to_bits() to bypass clippy::float_cmp while ensuring bit-identical results
     for i in -100..100 {
         let x = i as f64 * 0.01;
-        assert_eq!(x * x, x.powi(2));
+        assert_eq!((x * x).to_bits(), x.powi(2).to_bits());
     }
 
     // 2. Verify reservoir state_norm consistency over many steps

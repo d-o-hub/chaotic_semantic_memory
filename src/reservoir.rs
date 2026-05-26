@@ -231,33 +231,41 @@ impl Reservoir {
 
         // Second pass: Commit the updates for this phase.
         // This keeps semantics synchronous within the phase (no order dependency).
-        let mut delta_norm_sq = 0.0;
-        for i in (update_phase..self.size).step_by(self.update_stride) {
-            // SAFETY: same as above.
-            unsafe {
-                let old_val = *self.state.get_unchecked(i);
-                let new_val = *self.scratch.get_unchecked(i);
-                *self.prev_state.get_unchecked_mut(i) = old_val;
-                *self.state.get_unchecked_mut(i) = new_val;
-                // Incremental norm update: subtract old square, add new square.
-                // Optimized: Use direct multiplication instead of powi(2).
-                let old_f64 = f64::from(old_val);
-                let new_f64 = f64::from(new_val);
-                delta_norm_sq += new_f64.mul_add(new_f64, -(old_f64 * old_f64));
-            }
-        }
-        self.state_norm_sq += delta_norm_sq;
-
-        // Periodic full re-calculation to prevent drift from precision errors.
         if update_phase == 0 {
-            self.state_norm_sq = self
-                .state
-                .iter()
-                .map(|&x| {
-                    let x64 = f64::from(x);
-                    x64 * x64
-                })
-                .sum();
+            // Periodic full re-calculation to prevent drift from precision errors.
+            // Optimized: Use direct multiplication instead of powi(2).
+            let mut new_norm_sq = 0.0;
+            for i in 0..self.size {
+                unsafe {
+                    if (i % self.update_stride) == 0 {
+                        let old_val = *self.state.get_unchecked(i);
+                        let new_val = *self.scratch.get_unchecked(i);
+                        *self.prev_state.get_unchecked_mut(i) = old_val;
+                        *self.state.get_unchecked_mut(i) = new_val;
+                    }
+                    let val = f64::from(*self.state.get_unchecked(i));
+                    new_norm_sq += val * val;
+                }
+            }
+            self.state_norm_sq = new_norm_sq;
+        } else {
+            let mut delta_norm_sq = 0.0;
+            for i in (update_phase..self.size).step_by(self.update_stride) {
+                // SAFETY: same as above.
+                unsafe {
+                    let old_val = *self.state.get_unchecked(i);
+                    let new_val = *self.scratch.get_unchecked(i);
+                    *self.prev_state.get_unchecked_mut(i) = old_val;
+                    *self.state.get_unchecked_mut(i) = new_val;
+                    // Incremental norm update: subtract old square, add new square.
+                    // Optimized: Use direct multiplication instead of powi(2).
+                    // Using difference of squares (n^2 - o^2) = (n - o)(n + o) for numerical stability.
+                    let old_f64 = f64::from(old_val);
+                    let new_f64 = f64::from(new_val);
+                    delta_norm_sq += (new_f64 - old_f64) * (new_f64 + old_f64);
+                }
+            }
+            self.state_norm_sq += delta_norm_sq;
         }
 
         self.update_phase = (update_phase + 1) % self.update_stride;

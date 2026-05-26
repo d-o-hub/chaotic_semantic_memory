@@ -1,14 +1,17 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 use crate::error::Result;
-use crate::export_payload::unix_now_secs;
+use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
 use crate::framework_events::MemoryEvent;
 use crate::framework_validation::validate_path;
 use crate::hyperdim::HVec10240;
 use crate::singularity::ConceptBuilder;
+use bincode::Options;
 use std::sync::Arc;
-use tracing::instrument;
+use tokio::fs;
+use tracing::{instrument, warn};
 
+const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024; // 100 MB default
 const MAX_HISTORY_LIMIT: usize = 1000;
 
 impl ChaoticSemanticFramework {
@@ -127,6 +130,202 @@ impl ChaoticSemanticFramework {
                 .collect()
         };
         Ok(out)
+    }
+
+    /// Export memory state to JSON file.
+    #[instrument(err, skip(self), fields(path))]
+    pub async fn export_json(&self, path: &str) -> Result<()> {
+        let validated_path = validate_path(path)?;
+
+        let payload = {
+            let sing = self.singularity.read().await;
+            let ns = self.namespace.read().await;
+            ExportPayload {
+                version: env!("CARGO_PKG_VERSION").to_string(),
+                exported_at: unix_now_secs(),
+                concepts: sing.all_concepts(&ns),
+                associations: sing.all_associations(&ns),
+            }
+        };
+        let data = serde_json::to_vec_pretty(&payload)?;
+        fs::write(validated_path, data).await?;
+        Ok(())
+    }
+    /// Import memory state from JSON file.
+    #[instrument(err, skip(self), fields(path, merge))]
+    pub async fn import_json(&self, path: &str, merge: bool) -> Result<usize> {
+        let validated_path = validate_path(path)?;
+        let bytes = fs::read(validated_path).await?;
+        // MAX_IMPORT_SIZE fits in usize on 64-bit
+        if bytes.len() > MAX_IMPORT_SIZE as usize {
+            return Err(crate::error::MemoryError::InvalidInput {
+                field: "import_data".to_string(),
+                reason: format!(
+                    "JSON import data size {} exceeds maximum allowed size {}",
+                    bytes.len(),
+                    MAX_IMPORT_SIZE
+                ),
+            });
+        }
+        let payload: ExportPayload = serde_json::from_slice(&bytes)?;
+
+        if !merge {
+            {
+                let mut sing = self.singularity.write().await;
+                let ns = self.namespace.read().await;
+                sing.clear(&ns);
+            }
+            if let Some(ref persistence) = self.persistence {
+                let ns = self.namespace.read().await;
+                persistence.clear_namespace(&ns).await?;
+            }
+        }
+
+        // Acquire write lock, inject concepts + build associations list, then release
+        let valid_associations = {
+            let mut sing = self.singularity.write().await;
+            let ns = self.namespace.read().await;
+            let mut associations = Vec::with_capacity(payload.associations.len());
+            for concept in &payload.concepts {
+                self.validate_concept(concept)?;
+                sing.inject(&ns, concept.clone())?;
+            }
+            for (from, to, strength) in &payload.associations {
+                match sing.associate(&ns, from, to, *strength) {
+                    Ok(()) => associations.push((from.clone(), to.clone(), *strength)),
+                    Err(error) => {
+                        warn!(
+                            from_id = %from,
+                            to_id = %to,
+                            strength = *strength,
+                            error = %error,
+                            "skipping invalid association during import_json"
+                        );
+                    }
+                }
+            }
+            associations
+        }; // Lock released here
+        // Persist concepts and associations (no lock needed)
+        if let Some(ref persistence) = self.persistence {
+            let ns = self.namespace.read().await;
+            persistence.save_concepts(&ns, &payload.concepts).await?;
+            persistence
+                .save_associations(&ns, &valid_associations)
+                .await?;
+        }
+        Ok(payload.concepts.len())
+    }
+    /// Export memory state to binary file.
+    // Singularity read lock needed for binary export
+    #[allow(clippy::significant_drop_tightening)]
+    #[instrument(err, skip(self), fields(path))]
+    pub async fn export_binary(&self, path: &str) -> Result<()> {
+        let validated_path = validate_path(path)?;
+
+        let payload = {
+            let sing = self.singularity.read().await;
+            let ns = self.namespace.read().await;
+            let json_payload = ExportPayload {
+                version: env!("CARGO_PKG_VERSION").to_string(),
+                exported_at: unix_now_secs(),
+                concepts: sing.all_concepts(&ns),
+                associations: sing.all_associations(&ns),
+            };
+            let res = BinaryExportPayload::from(json_payload);
+            drop(sing);
+            res
+        };
+
+        let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
+        let data = options.serialize(&payload).map_err(|e| {
+            crate::error::MemoryError::Serialization(serde_json::Error::io(std::io::Error::other(
+                e.to_string(),
+            )))
+        })?;
+        fs::write(validated_path, data).await?;
+        Ok(())
+    }
+
+    /// Import memory state from binary file.
+    #[instrument(err, skip(self), fields(path, merge))]
+    pub async fn import_binary(&self, path: &str, merge: bool) -> Result<usize> {
+        let validated_path = validate_path(path)?;
+        let bytes = fs::read(validated_path).await?;
+
+        // MAX_IMPORT_SIZE fits in usize on 64-bit
+        if bytes.len() > MAX_IMPORT_SIZE as usize {
+            return Err(crate::error::MemoryError::InvalidInput {
+                field: "import_data".to_string(),
+                reason: format!(
+                    "import data size {} exceeds maximum allowed size {}",
+                    bytes.len(),
+                    MAX_IMPORT_SIZE
+                ),
+            });
+        }
+        let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
+        let binary_payload: BinaryExportPayload =
+            options
+                .deserialize(&bytes)
+                .map_err(|e| crate::error::MemoryError::InvalidInput {
+                    field: "import_data".to_string(),
+                    reason: format!("bincode deserialization failed: {e}"),
+                })?;
+        // Convert to regular payload
+        let payload = binary_payload.to_export_payload().map_err(|e| {
+            crate::error::MemoryError::InvalidInput {
+                field: "import_data".to_string(),
+                reason: format!("failed to convert binary payload: {e}"),
+            }
+        })?;
+        if !merge {
+            {
+                let mut sing = self.singularity.write().await;
+                let ns = self.namespace.read().await;
+                sing.clear(&ns);
+            }
+            if let Some(ref persistence) = self.persistence {
+                let ns = self.namespace.read().await;
+                persistence.clear_namespace(&ns).await?;
+            }
+        }
+        // Acquire write lock, inject concepts + build associations list, then release
+        let valid_associations = {
+            let mut sing = self.singularity.write().await;
+            let ns = self.namespace.read().await;
+            let mut associations = Vec::with_capacity(payload.associations.len());
+            for concept in &payload.concepts {
+                self.validate_concept(concept)?;
+                sing.inject(&ns, concept.clone())?;
+            }
+            for (from, to, strength) in &payload.associations {
+                match sing.associate(&ns, from, to, *strength) {
+                    Ok(()) => associations.push((from.clone(), to.clone(), *strength)),
+                    Err(error) => {
+                        warn!(
+                            from_id = %from,
+                            to_id = %to,
+                            strength = *strength,
+                            error = %error,
+                            "skipping invalid association during import_binary"
+                        );
+                    }
+                }
+            }
+            associations
+        }; // Lock released here
+
+        // Persist concepts and associations (no lock needed)
+        if let Some(ref persistence) = self.persistence {
+            let ns = self.namespace.read().await;
+            persistence.save_concepts(&ns, &payload.concepts).await?;
+            persistence
+                .save_associations(&ns, &valid_associations)
+                .await?;
+        }
+
+        Ok(payload.concepts.len())
     }
 
     /// Create database backup (SQLite only).
