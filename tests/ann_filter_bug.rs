@@ -57,6 +57,8 @@ async fn test_hnsw_filter_bug_prevention() {
     // Should only contain "match", not "no-match"
     assert!(results.iter().any(|(id, _)| id == "match"));
     assert!(!results.iter().any(|(id, _)| id == "no-match"));
+
+    drop(framework);
 }
 
 #[cfg(feature = "ann-hnsw")]
@@ -90,6 +92,8 @@ async fn test_hnsw_empty_filter_results() {
         "Results should be empty when filter matches nothing, but got {:?}",
         results
     );
+
+    drop(framework);
 }
 
 #[cfg(feature = "ann-lsh")]
@@ -140,4 +144,6 @@ async fn test_lsh_filter_bug_prevention() {
 
     assert!(results.iter().any(|(id, _)| id == "match"));
     assert!(!results.iter().any(|(id, _)| id == "no-match"));
+
+    drop(framework);
 }
