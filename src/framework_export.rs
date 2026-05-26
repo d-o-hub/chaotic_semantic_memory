@@ -3,7 +3,7 @@
 //!
 //! Extracted from framework_ops.rs to satisfy the 500 LOC gate.
 
-use crate::error::Result;
+use crate::error::{MemoryError, Result};
 use crate::export_payload::{BinaryConcept, BinaryExportPayload, ExportPayload, unix_now_secs};
 use crate::framework::{ChaoticSemanticFramework, MAX_IMPORT_SIZE};
 use crate::framework_validation::validate_path;
@@ -67,7 +67,7 @@ impl ChaoticSemanticFramework {
             }
             handle
                 .await
-                .map_err(|e| crate::error::MemoryError::Persistence(e.to_string()))??;
+                .map_err(|e| MemoryError::Persistence(e.to_string()))??;
         } else {
             let sing = self.singularity.read().await;
             if let Some(ns_state) = sing.get_namespace(&ns) {
@@ -113,7 +113,7 @@ impl ChaoticSemanticFramework {
             }
             handle
                 .await
-                .map_err(|e| crate::error::MemoryError::Persistence(e.to_string()))??;
+                .map_err(|e| MemoryError::Persistence(e.to_string()))??;
         } else {
             let sing = self.singularity.read().await;
             if let Some(ns_state) = sing.get_namespace(&ns) {
@@ -132,6 +132,7 @@ impl ChaoticSemanticFramework {
 
         writer.write_all(b"]}").await?;
         writer.flush().await?;
+        writer.flush().await?;
         file.sync_all().await?;
 
         Ok(())
@@ -144,7 +145,7 @@ impl ChaoticSemanticFramework {
         let bytes = tokio::fs::read(validated_path).await?;
         // MAX_IMPORT_SIZE fits in usize on 64-bit
         if bytes.len() > MAX_IMPORT_SIZE as usize {
-            return Err(crate::error::MemoryError::InvalidInput {
+            return Err(MemoryError::InvalidInput {
                 field: "import_data".to_string(),
                 reason: format!(
                     "JSON import data size {} exceeds maximum allowed size {}",
@@ -223,8 +224,7 @@ impl ChaoticSemanticFramework {
             let sing = self.singularity.read().await;
             let ns_state = sing.get_namespace(&ns);
             let c_count = ns_state.map_or(0, |n| n.concepts.len());
-            let a_count = ns_state
-                .map_or(0, |n| n.associations.values().map(|m| m.len()).sum());
+            let a_count = ns_state.map_or(0, |n| n.associations.values().map(|m| m.len()).sum());
             (c_count, a_count)
         };
 
@@ -233,13 +233,13 @@ impl ChaoticSemanticFramework {
         let mut header_buf = Vec::new();
         options
             .serialize_into(&mut header_buf, &version)
-            .map_err(|e| crate::error::MemoryError::database(e.to_string()))?;
+            .map_err(|e| MemoryError::database(e.to_string()))?;
         options
             .serialize_into(&mut header_buf, &exported_at)
-            .map_err(|e| crate::error::MemoryError::database(e.to_string()))?;
+            .map_err(|e| MemoryError::database(e.to_string()))?;
         options
             .serialize_into(&mut header_buf, &(concept_count as u64))
-            .map_err(|e| crate::error::MemoryError::database(e.to_string()))?;
+            .map_err(|e| MemoryError::database(e.to_string()))?;
         writer.write_all(&header_buf).await?;
 
         if let Some(ref persistence) = self.persistence {
@@ -262,21 +262,21 @@ impl ChaoticSemanticFramework {
             while let Some(res) = rx.recv().await {
                 let concept = res?;
                 let binary_concept = BinaryConcept::from(concept);
-                let data = options.serialize(&binary_concept).map_err(|e| {
-                    crate::error::MemoryError::Persistence(format!("Serialization error: {}", e))
-                })?;
+                let data = options
+                    .serialize(&binary_concept)
+                    .map_err(|e| MemoryError::Persistence(format!("Serialization error: {}", e)))?;
                 writer.write_all(&data).await?;
             }
             handle
                 .await
-                .map_err(|e| crate::error::MemoryError::Persistence(e.to_string()))??;
+                .map_err(|e| MemoryError::Persistence(e.to_string()))??;
         } else {
             let sing = self.singularity.read().await;
             if let Some(ns_state) = sing.get_namespace(&ns) {
                 for concept in ns_state.concepts.values() {
                     let binary_concept = BinaryConcept::from(concept.clone());
                     let data = options.serialize(&binary_concept).map_err(|e| {
-                        crate::error::MemoryError::Persistence(format!("Serialization error: {}", e))
+                        MemoryError::Persistence(format!("Serialization error: {}", e))
                     })?;
                     writer.write_all(&data).await?;
                 }
@@ -286,7 +286,7 @@ impl ChaoticSemanticFramework {
         let mut assoc_header = Vec::new();
         options
             .serialize_into(&mut assoc_header, &(assoc_count as u64))
-            .map_err(|e| crate::error::MemoryError::database(e.to_string()))?;
+            .map_err(|e| MemoryError::database(e.to_string()))?;
         writer.write_all(&assoc_header).await?;
 
         if let Some(ref persistence) = self.persistence {
@@ -308,25 +308,25 @@ impl ChaoticSemanticFramework {
 
             while let Some(res) = rx.recv().await {
                 let assoc = res?;
-                let data = options.serialize(&assoc).map_err(|e| {
-                    crate::error::MemoryError::Persistence(format!("Serialization error: {}", e))
-                })?;
+                let data = options
+                    .serialize(&assoc)
+                    .map_err(|e| MemoryError::Persistence(format!("Serialization error: {}", e)))?;
                 writer.write_all(&data).await?;
             }
             handle
                 .await
-                .map_err(|e| crate::error::MemoryError::Persistence(e.to_string()))??;
+                .map_err(|e| MemoryError::Persistence(e.to_string()))??;
         } else {
             let sing = self.singularity.read().await;
             if let Some(ns_state) = sing.get_namespace(&ns) {
                 for (from_id, neighbors) in &ns_state.associations {
                     for (to_id, strength) in neighbors {
-                        let data = options.serialize(&(from_id, to_id, *strength)).map_err(|e| {
-                            crate::error::MemoryError::Persistence(format!(
-                                "Serialization error: {}",
-                                e
-                            ))
-                        })?;
+                        let data =
+                            options
+                                .serialize(&(from_id, to_id, *strength))
+                                .map_err(|e| {
+                                    MemoryError::Persistence(format!("Serialization error: {}", e))
+                                })?;
                         writer.write_all(&data).await?;
                     }
                 }
@@ -346,7 +346,7 @@ impl ChaoticSemanticFramework {
 
         // MAX_IMPORT_SIZE fits in usize on 64-bit
         if bytes.len() > MAX_IMPORT_SIZE as usize {
-            return Err(crate::error::MemoryError::InvalidInput {
+            return Err(MemoryError::InvalidInput {
                 field: "import_data".to_string(),
                 reason: format!(
                     "import data size {} exceeds maximum allowed size {}",
@@ -359,17 +359,18 @@ impl ChaoticSemanticFramework {
         let binary_payload: BinaryExportPayload =
             options
                 .deserialize(&bytes)
-                .map_err(|e| crate::error::MemoryError::InvalidInput {
+                .map_err(|e| MemoryError::InvalidInput {
                     field: "import_data".to_string(),
                     reason: format!("bincode deserialization failed: {e}"),
                 })?;
         // Convert to regular payload
-        let payload = binary_payload.to_export_payload().map_err(|e| {
-            crate::error::MemoryError::InvalidInput {
-                field: "import_data".to_string(),
-                reason: format!("failed to convert binary payload: {e}"),
-            }
-        })?;
+        let payload =
+            binary_payload
+                .to_export_payload()
+                .map_err(|e| MemoryError::InvalidInput {
+                    field: "import_data".to_string(),
+                    reason: format!("failed to convert binary payload: {e}"),
+                })?;
         if !merge {
             {
                 let mut sing = self.singularity.write().await;
