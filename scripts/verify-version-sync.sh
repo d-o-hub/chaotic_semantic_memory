@@ -14,7 +14,7 @@ NPM_LOCAL_VERSION=$(grep '"version":' wasm/package.json | sed 's/.*"version": "\
 CLI_NPM_VERSION=$(grep '"version":' cli-npm/package.json | sed 's/.*"version": "\(.*\)".*/\1/')
 
 # Extract version from VERSION file
-VERSION_FILE_CONTENT=$(tr -d '[:space:]' < VERSION)
+VERSION_FILE_CONTENT=$(cat VERSION | tr -d '[:space:]')
 
 echo "Cargo.toml version: $CARGO_VERSION"
 echo "wasm/package.json version: $NPM_LOCAL_VERSION"
