@@ -44,8 +44,8 @@ impl ChaoticSemanticFramework {
             let persistence_clone = persistence.clone();
             let ns_clone = ns.clone();
 
-            tokio::spawn(async move {
-                let _ = persistence_clone
+            let handle = tokio::spawn(async move {
+                persistence_clone
                     .for_each_concept_scoped(&ns_clone, |concept| {
                         let tx = tx.clone();
                         async move {
@@ -53,7 +53,7 @@ impl ChaoticSemanticFramework {
                             Ok(())
                         }
                     })
-                    .await;
+                    .await
             });
 
             while let Some(res) = rx.recv().await {
@@ -65,6 +65,9 @@ impl ChaoticSemanticFramework {
                 let data = serde_json::to_vec(&concept)?;
                 writer.write_all(&data).await?;
             }
+            handle
+                .await
+                .map_err(|e| crate::error::MemoryError::Persistence(e.to_string()))??;
         } else {
             let sing = self.singularity.read().await;
             if let Some(ns_state) = sing.get_namespace(&ns) {
@@ -87,8 +90,8 @@ impl ChaoticSemanticFramework {
             let persistence_clone = persistence.clone();
             let ns_clone = ns.clone();
 
-            tokio::spawn(async move {
-                let _ = persistence_clone
+            let handle = tokio::spawn(async move {
+                persistence_clone
                     .for_each_association_scoped(&ns_clone, |from, to, strength| {
                         let tx = tx.clone();
                         async move {
@@ -96,7 +99,7 @@ impl ChaoticSemanticFramework {
                             Ok(())
                         }
                     })
-                    .await;
+                    .await
             });
 
             while let Some(res) = rx.recv().await {
@@ -108,6 +111,9 @@ impl ChaoticSemanticFramework {
                 let data = serde_json::to_vec(&assoc)?;
                 writer.write_all(&data).await?;
             }
+            handle
+                .await
+                .map_err(|e| crate::error::MemoryError::Persistence(e.to_string()))??;
         } else {
             let sing = self.singularity.read().await;
             if let Some(ns_state) = sing.get_namespace(&ns) {
@@ -125,18 +131,9 @@ impl ChaoticSemanticFramework {
         }
 
         writer.write_all(b"]}").await?;
-        writer.flush().await?; // Re-check this. It was {"version":..., "exported_at":..., "concepts": [...], "associations": [...] }
-        // Wait, format header was: {{"version":"{}","exported_at":{},"concepts":[
-        // So we have ONE open brace at start.
-        // We need ONE close brace at end.
-        // Array ends with ].
-        // So ]} is correct.
-        // Wait, why did I put ]}} again?
+        writer.flush().await?;
+        file.sync_all().await?;
 
-        // Let's re-read the header format: "{{\"version\":\"{}\",\"exported_at\":{},\"concepts\":["
-        // Yes, only one brace.
-
-        // I'll use ]} now.
         Ok(())
     }
 
@@ -227,8 +224,7 @@ impl ChaoticSemanticFramework {
             let ns_state = sing.get_namespace(&ns);
             let c_count = ns_state.map_or(0, |n| n.concepts.len());
             let a_count = ns_state
-                .map(|n| n.associations.values().map(|m| m.len()).sum())
-                .unwrap_or(0);
+                .map_or(0, |n| n.associations.values().map(|m| m.len()).sum());
             (c_count, a_count)
         };
 
@@ -251,8 +247,8 @@ impl ChaoticSemanticFramework {
             let persistence_clone = persistence.clone();
             let ns_clone = ns.clone();
 
-            tokio::spawn(async move {
-                let _ = persistence_clone
+            let handle = tokio::spawn(async move {
+                persistence_clone
                     .for_each_concept_scoped(&ns_clone, |concept| {
                         let tx = tx.clone();
                         async move {
@@ -260,7 +256,7 @@ impl ChaoticSemanticFramework {
                             Ok(())
                         }
                     })
-                    .await;
+                    .await
             });
 
             while let Some(res) = rx.recv().await {
@@ -271,16 +267,16 @@ impl ChaoticSemanticFramework {
                 })?;
                 writer.write_all(&data).await?;
             }
+            handle
+                .await
+                .map_err(|e| crate::error::MemoryError::Persistence(e.to_string()))??;
         } else {
             let sing = self.singularity.read().await;
             if let Some(ns_state) = sing.get_namespace(&ns) {
                 for concept in ns_state.concepts.values() {
                     let binary_concept = BinaryConcept::from(concept.clone());
                     let data = options.serialize(&binary_concept).map_err(|e| {
-                        crate::error::MemoryError::Persistence(format!(
-                            "Serialization error: {}",
-                            e
-                        ))
+                        crate::error::MemoryError::Persistence(format!("Serialization error: {}", e))
                     })?;
                     writer.write_all(&data).await?;
                 }
@@ -298,8 +294,8 @@ impl ChaoticSemanticFramework {
             let persistence_clone = persistence.clone();
             let ns_clone = ns.clone();
 
-            tokio::spawn(async move {
-                let _ = persistence_clone
+            let handle = tokio::spawn(async move {
+                persistence_clone
                     .for_each_association_scoped(&ns_clone, |from, to, strength| {
                         let tx = tx.clone();
                         async move {
@@ -307,7 +303,7 @@ impl ChaoticSemanticFramework {
                             Ok(())
                         }
                     })
-                    .await;
+                    .await
             });
 
             while let Some(res) = rx.recv().await {
@@ -317,20 +313,20 @@ impl ChaoticSemanticFramework {
                 })?;
                 writer.write_all(&data).await?;
             }
+            handle
+                .await
+                .map_err(|e| crate::error::MemoryError::Persistence(e.to_string()))??;
         } else {
             let sing = self.singularity.read().await;
             if let Some(ns_state) = sing.get_namespace(&ns) {
                 for (from_id, neighbors) in &ns_state.associations {
                     for (to_id, strength) in neighbors {
-                        let data =
-                            options
-                                .serialize(&(from_id, to_id, *strength))
-                                .map_err(|e| {
-                                    crate::error::MemoryError::Persistence(format!(
-                                        "Serialization error: {}",
-                                        e
-                                    ))
-                                })?;
+                        let data = options.serialize(&(from_id, to_id, *strength)).map_err(|e| {
+                            crate::error::MemoryError::Persistence(format!(
+                                "Serialization error: {}",
+                                e
+                            ))
+                        })?;
                         writer.write_all(&data).await?;
                     }
                 }

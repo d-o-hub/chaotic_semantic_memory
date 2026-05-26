@@ -415,8 +415,7 @@ impl Singularity {
 
     pub fn association_count(&self, ns: &str) -> usize {
         self.get_namespace(ns)
-            .map(|n| n.associations.values().map(|m| m.len()).sum())
-            .unwrap_or(0)
+            .map_or(0, |n| n.associations.values().map(|m| m.len()).sum())
     }
 
     pub fn is_empty(&self, ns: &str) -> bool {

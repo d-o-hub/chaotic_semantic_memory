@@ -50,6 +50,7 @@ async fn test_import_exceeds_max_size() -> Result<()> {
 
     // Create a dummy file that exceeds 100MB (but our new limit is 512MB)
     // Actually, let's just test the error path by providing a large dummy vec.
+    #[allow(clippy::cast_possible_truncation)]
     let large_data = vec![0u8; (MAX_IMPORT_SIZE + 1) as usize];
     let temp = NamedTempFile::new().map_err(MemoryError::Io)?;
     std::fs::write(temp.path(), large_data).map_err(MemoryError::Io)?;

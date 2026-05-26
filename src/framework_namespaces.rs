@@ -92,6 +92,7 @@ impl ChaoticSemanticFramework {
             let sing = self.singularity.read().await;
             let concepts = sing.all_concepts(ns);
             let associations = sing.all_associations(ns);
+            drop(sing);
             crate::export_payload::ExportPayload {
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 exported_at: unix_now_secs(),

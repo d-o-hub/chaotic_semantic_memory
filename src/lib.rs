@@ -181,10 +181,6 @@ pub mod persistence {
             Ok(0)
         }
 
-        pub async fn association_count(&self, _ns: &str) -> Result<usize> {
-            Ok(0)
-        }
-
         pub async fn delete_association(&self, _from: &str, _to: &str) -> Result<()> {
             Ok(())
         }

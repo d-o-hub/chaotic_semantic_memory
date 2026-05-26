@@ -87,10 +87,6 @@ impl Persistence {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn association_count(&self, _ns: &str) -> Result<usize> {
-        Err(wasm_persistence_unavailable())
-    }
-
     pub async fn for_each_concept_scoped<F, Fut>(&self, _ns: &str, mut _f: F) -> Result<()>
     where
         F: FnMut(Concept) -> Fut,
