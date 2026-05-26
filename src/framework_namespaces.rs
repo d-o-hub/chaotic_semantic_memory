@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
+use crate::export_payload::{BinaryExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
@@ -90,11 +90,14 @@ impl ChaoticSemanticFramework {
         // Build the export payload scoped to the target namespace
         let payload = {
             let sing = self.singularity.read().await;
-            ExportPayload {
+            let concepts = sing.all_concepts(ns);
+            let associations = sing.all_associations(ns);
+            drop(sing);
+            crate::export_payload::ExportPayload {
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 exported_at: unix_now_secs(),
-                concepts: sing.all_concepts(ns),
-                associations: sing.all_associations(ns),
+                concepts,
+                associations,
             }
         };
 

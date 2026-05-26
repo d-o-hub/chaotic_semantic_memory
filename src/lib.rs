@@ -64,6 +64,8 @@ mod framework_bridge;
 pub mod framework_builder;
 mod framework_events;
 pub mod framework_events_ce;
+#[cfg(not(target_arch = "wasm32"))]
+mod framework_export;
 mod framework_graph_rag;
 mod framework_metrics;
 mod framework_namespaces;
@@ -177,6 +179,14 @@ pub mod persistence {
             Ok(Vec::new())
         }
 
+        pub async fn concept_count(&self, _ns: &str) -> Result<usize> {
+            Ok(0)
+        }
+
+        pub async fn association_count(&self, _ns: &str) -> Result<usize> {
+            Ok(0)
+        }
+
         pub async fn delete_association(&self, _ns: &str, _from: &str, _to: &str) -> Result<()> {
             Ok(())
         }
@@ -265,7 +275,7 @@ pub mod prelude {
     pub use crate::bridge_retrieval::BridgeRetrieval;
     pub use crate::bundle::BundleAccumulator;
     pub use crate::error::{MemoryError, Result};
-    pub use crate::framework::ChaoticSemanticFramework;
+    pub use crate::framework::{ChaoticSemanticFramework, MAX_IMPORT_SIZE};
     pub use crate::framework_builder::FrameworkBuilder;
     pub use crate::framework_events::MemoryEvent;
     pub use crate::hyperdim::HVec10240;
