@@ -120,7 +120,7 @@ impl BinaryConcept {
 /// Payload for binary export/import (bincode-compatible)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[allow(dead_code)]
-pub(crate) struct BinaryExportPayload {
+pub struct BinaryExportPayload {
     pub(crate) version: String,
     pub(crate) exported_at: u64,
     pub(crate) concepts: Vec<BinaryConcept>,
