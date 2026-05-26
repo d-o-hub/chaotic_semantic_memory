@@ -6,10 +6,12 @@ use tracing::warn;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 
-use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
-use crate::framework::ChaoticSemanticFramework;
-use crate::hyperdim::HVec10240;
-use crate::singularity::Concept;
+pub(crate) use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
+pub(crate) use crate::framework::ChaoticSemanticFramework;
+pub(crate) use crate::hyperdim::HVec10240;
+pub(crate) use crate::singularity::Concept;
+
+pub(crate) const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024;
 
 const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024;
 
@@ -498,3 +500,9 @@ pub(crate) fn concept_to_js_value(concept: &Concept) -> Result<JsValue, JsValue>
 pub(crate) fn to_js_error<E: std::fmt::Display>(error: E) -> JsValue {
     JsValue::from_str(&error.to_string())
 }
+
+#[wasm_bindgen(typescript_custom_section)]
+const TS: &'static str = r#"
+export interface ProbeResult { id: string; score: number; }
+export interface AssociationResult { to: string; strength: number; }
+"#;
