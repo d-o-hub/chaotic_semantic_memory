@@ -13,6 +13,8 @@ pub(crate) use crate::singularity::Concept;
 
 pub(crate) const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024;
 
+const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024;
+
 #[wasm_bindgen(start)]
 pub fn initialize_wasm() {
     console_error_panic_hook::set_once();
