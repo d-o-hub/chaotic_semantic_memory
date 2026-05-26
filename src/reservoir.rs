@@ -243,7 +243,7 @@ impl Reservoir {
                 // Optimized: Use direct multiplication instead of powi(2).
                 let old_f64 = f64::from(old_val);
                 let new_f64 = f64::from(new_val);
-delta_norm_sq += (new_f64 - old_f64) * (new_f64 + old_f64);
+                delta_norm_sq += new_f64.mul_add(new_f64, -(old_f64 * old_f64));
             }
         }
         self.state_norm_sq += delta_norm_sq;
