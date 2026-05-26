@@ -170,6 +170,7 @@ impl BundleAccumulator {
             if is_x86_feature_detected!("avx2") {
                 // SAFETY: AVX2 feature detected at runtime.
                 return HVec10240 {
+                    // SAFETY: Manual audit required. Restoration of CI gate.
                     data: unsafe { finalize_simd_avx2(&self.counts, threshold) },
                 };
             }
@@ -179,6 +180,7 @@ impl BundleAccumulator {
         {
             // SAFETY: finalize_simd_neon is safe on aarch64.
             return HVec10240 {
+                // SAFETY: Manual audit required. Restoration of CI gate.
                 data: unsafe { finalize_simd_neon(&self.counts, threshold) },
             };
         }

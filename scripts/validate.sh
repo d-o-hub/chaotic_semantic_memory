@@ -179,4 +179,30 @@ else
   echo "skip: GitHub Actions SHA validation (use CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true to enable)"
 fi
 
+# Soundness audit: Fail if any unsafe block lacks a // SAFETY: comment
+echo "==> unsafe block audit"
+# We check src and tests for unsafe { without a preceding // SAFETY:
+ERROR_COUNT=0
+while read -r match; do
+    file=$(echo "$match" | cut -d: -f1)
+    line=$(echo "$match" | cut -d: -f2)
+    prev_line_num=$((line - 1))
+    if [ "$prev_line_num" -gt 0 ]; then
+        prev_line=$(sed -n "${prev_line_num}p" "$file")
+        if [[ ! "$prev_line" =~ "// SAFETY:" ]]; then
+            echo "ERROR: unsafe block at $file:$line missing // SAFETY: comment"
+            ERROR_COUNT=$((ERROR_COUNT + 1))
+        fi
+    else
+        echo "ERROR: unsafe block at $file:$line missing // SAFETY: comment (first line)"
+        ERROR_COUNT=$((ERROR_COUNT + 1))
+    fi
+done < <(grep -rn "unsafe {" src tests --include="*.rs")
+
+if [ "$ERROR_COUNT" -gt 0 ]; then
+    echo "Found $ERROR_COUNT unsafe blocks missing SAFETY comments"
+    exit 1
+fi
+echo "ok: all unsafe blocks have SAFETY comments"
+
 echo "Validation complete."
