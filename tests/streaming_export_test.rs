@@ -42,6 +42,31 @@ async fn test_streaming_export_json_roundtrip() -> Result<()> {
 }
 
 #[tokio::test]
+async fn test_import_exceeds_max_size() -> Result<()> {
+    let framework = FrameworkBuilder::new()
+        .without_persistence()
+        .build()
+        .await?;
+
+    // Create a dummy file that exceeds 100MB (but our new limit is 512MB)
+    // Actually, let's just test the error path by providing a large dummy vec.
+    let large_data = vec![0u8; (MAX_IMPORT_SIZE + 1) as usize];
+    let temp = NamedTempFile::new().map_err(MemoryError::Io)?;
+    std::fs::write(temp.path(), large_data).map_err(MemoryError::Io)?;
+
+    let result = framework
+        .import_json(temp.path().to_str().unwrap(), false)
+        .await;
+    assert!(result.is_err());
+    match result.unwrap_err() {
+        MemoryError::InvalidInput { field, .. } => assert_eq!(field, "import_data"),
+        e => panic!("Expected InvalidInput error, got {:?}", e),
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn test_streaming_export_binary_roundtrip() -> Result<()> {
     let framework = FrameworkBuilder::new()
         .without_persistence()

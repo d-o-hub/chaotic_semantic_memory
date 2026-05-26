@@ -7,6 +7,7 @@ use crate::error::Result;
 use crate::export_payload::{BinaryConcept, BinaryExportPayload, ExportPayload, unix_now_secs};
 use crate::framework::{ChaoticSemanticFramework, MAX_IMPORT_SIZE};
 use crate::framework_validation::validate_path;
+use crate::singularity::Concept;
 use bincode::Options;
 use tokio::fs::File;
 use tokio::io::{AsyncWriteExt, BufWriter};
@@ -39,7 +40,7 @@ impl ChaoticSemanticFramework {
         let mut first = true;
 
         if let Some(ref persistence) = self.persistence {
-            let (tx, mut rx) = mpsc::channel(32);
+            let (tx, mut rx) = mpsc::channel::<Result<Concept>>(32);
             let persistence_clone = persistence.clone();
             let ns_clone = ns.clone();
 
@@ -48,14 +49,15 @@ impl ChaoticSemanticFramework {
                     .for_each_concept_scoped(&ns_clone, |concept| {
                         let tx = tx.clone();
                         async move {
-                            let _ = tx.send(concept).await;
+                            let _ = tx.send(Ok(concept)).await;
                             Ok(())
                         }
                     })
                     .await;
             });
 
-            while let Some(concept) = rx.recv().await {
+            while let Some(res) = rx.recv().await {
+                let concept = res?;
                 if !first {
                     writer.write_all(b",").await?;
                 }
@@ -81,7 +83,7 @@ impl ChaoticSemanticFramework {
         first = true;
 
         if let Some(ref persistence) = self.persistence {
-            let (tx, mut rx) = mpsc::channel(32);
+            let (tx, mut rx) = mpsc::channel::<Result<(String, String, f32)>>(32);
             let persistence_clone = persistence.clone();
             let ns_clone = ns.clone();
 
@@ -90,14 +92,15 @@ impl ChaoticSemanticFramework {
                     .for_each_association_scoped(&ns_clone, |from, to, strength| {
                         let tx = tx.clone();
                         async move {
-                            let _ = tx.send((from, to, strength)).await;
+                            let _ = tx.send(Ok((from, to, strength))).await;
                             Ok(())
                         }
                     })
                     .await;
             });
 
-            while let Some(assoc) = rx.recv().await {
+            while let Some(res) = rx.recv().await {
+                let assoc = res?;
                 if !first {
                     writer.write_all(b",").await?;
                 }
@@ -122,9 +125,18 @@ impl ChaoticSemanticFramework {
         }
 
         writer.write_all(b"]}").await?;
-        writer.flush().await?;
-        file.sync_all().await?;
+        writer.flush().await?; // Re-check this. It was {"version":..., "exported_at":..., "concepts": [...], "associations": [...] }
+        // Wait, format header was: {{"version":"{}","exported_at":{},"concepts":[
+        // So we have ONE open brace at start.
+        // We need ONE close brace at end.
+        // Array ends with ].
+        // So ]} is correct.
+        // Wait, why did I put ]}} again?
 
+        // Let's re-read the header format: "{{\"version\":\"{}\",\"exported_at\":{},\"concepts\":["
+        // Yes, only one brace.
+
+        // I'll use ]} now.
         Ok(())
     }
 
@@ -207,20 +219,17 @@ impl ChaoticSemanticFramework {
 
         let ns = self.namespace.read().await.clone();
         let (concept_count, assoc_count) = if let Some(ref persistence) = self.persistence {
-            let c_count = {
-                let sing = self.singularity.read().await;
-                sing.len(&ns)
-            };
+            let c_count = persistence.concept_count(&ns).await?;
             let a_count = persistence.association_count(&ns).await?;
             (c_count, a_count)
         } else {
             let sing = self.singularity.read().await;
-            (
-                sing.len(&ns),
-                sing.get_namespace(&ns)
-                    .map(|n| n.associations.values().map(|m| m.len()).sum())
-                    .unwrap_or(0),
-            )
+            let ns_state = sing.get_namespace(&ns);
+            let c_count = ns_state.map_or(0, |n| n.concepts.len());
+            let a_count = ns_state
+                .map(|n| n.associations.values().map(|m| m.len()).sum())
+                .unwrap_or(0);
+            (c_count, a_count)
         };
 
         let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
@@ -238,7 +247,7 @@ impl ChaoticSemanticFramework {
         writer.write_all(&header_buf).await?;
 
         if let Some(ref persistence) = self.persistence {
-            let (tx, mut rx) = mpsc::channel(32);
+            let (tx, mut rx) = mpsc::channel::<Result<Concept>>(32);
             let persistence_clone = persistence.clone();
             let ns_clone = ns.clone();
 
@@ -247,14 +256,15 @@ impl ChaoticSemanticFramework {
                     .for_each_concept_scoped(&ns_clone, |concept| {
                         let tx = tx.clone();
                         async move {
-                            let _ = tx.send(concept).await;
+                            let _ = tx.send(Ok(concept)).await;
                             Ok(())
                         }
                     })
                     .await;
             });
 
-            while let Some(concept) = rx.recv().await {
+            while let Some(res) = rx.recv().await {
+                let concept = res?;
                 let binary_concept = BinaryConcept::from(concept);
                 let data = options.serialize(&binary_concept).map_err(|e| {
                     crate::error::MemoryError::Persistence(format!("Serialization error: {}", e))
@@ -284,7 +294,7 @@ impl ChaoticSemanticFramework {
         writer.write_all(&assoc_header).await?;
 
         if let Some(ref persistence) = self.persistence {
-            let (tx, mut rx) = mpsc::channel(32);
+            let (tx, mut rx) = mpsc::channel::<Result<(String, String, f32)>>(32);
             let persistence_clone = persistence.clone();
             let ns_clone = ns.clone();
 
@@ -293,14 +303,15 @@ impl ChaoticSemanticFramework {
                     .for_each_association_scoped(&ns_clone, |from, to, strength| {
                         let tx = tx.clone();
                         async move {
-                            let _ = tx.send((from, to, strength)).await;
+                            let _ = tx.send(Ok((from, to, strength))).await;
                             Ok(())
                         }
                     })
                     .await;
             });
 
-            while let Some(assoc) = rx.recv().await {
+            while let Some(res) = rx.recv().await {
+                let assoc = res?;
                 let data = options.serialize(&assoc).map_err(|e| {
                     crate::error::MemoryError::Persistence(format!("Serialization error: {}", e))
                 })?;

@@ -264,7 +264,7 @@ pub mod prelude {
     pub use crate::bridge_retrieval::BridgeRetrieval;
     pub use crate::bundle::BundleAccumulator;
     pub use crate::error::{MemoryError, Result};
-    pub use crate::framework::ChaoticSemanticFramework;
+    pub use crate::framework::{ChaoticSemanticFramework, MAX_IMPORT_SIZE};
     pub use crate::framework_builder::FrameworkBuilder;
     pub use crate::framework_events::MemoryEvent;
     pub use crate::hyperdim::HVec10240;

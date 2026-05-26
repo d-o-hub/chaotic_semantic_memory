@@ -20,7 +20,7 @@ use crate::singularity::{Concept, ConceptBuilder, Singularity, unix_now_secs};
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
 
-pub(crate) const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024; // 100 MB default
+pub const MAX_IMPORT_SIZE: u64 = 512 * 1024 * 1024; // 512 MB default
 
 /// Main framework for chaotic semantic memory
 pub struct ChaoticSemanticFramework {
