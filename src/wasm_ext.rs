@@ -5,13 +5,13 @@
 // Redundant clones are intentional for WASM ownership semantics
 
 #[cfg(target_arch = "wasm32")]
-use js_sys::{Array, Function, Float32Array, Uint8Array};
+use js_sys::{Array, Float32Array, Function, Uint8Array};
 #[cfg(target_arch = "wasm32")]
 use tokio::sync::broadcast::error::RecvError;
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_futures::spawn_local;
 

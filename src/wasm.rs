@@ -1,7 +1,7 @@
 //! WASM bindings for chaotic semantic memory
 
 use bincode::Options;
-use js_sys::{Array, Float32Array, Uint8Array};
+use js_sys::{Array, Uint8Array};
 use tracing::warn;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
