@@ -80,7 +80,6 @@ fastembed = { version = "4", optional = true }
 
 # HNSW ANN index (opt-in via ann-hnsw feature)
 hnsw_rs = { version = "0.3.4", optional = true }
-tempfile = { workspace = true, optional = true }
 
 # CLI dependencies (gated behind "cli" feature)
 clap = { version = "4.5", features = ["derive", "env", "string"], optional = true }
@@ -244,7 +243,7 @@ embed-openai = ["dep:reqwest"]
 embed-voyage = ["dep:reqwest"]
 
 # ANN backends (ADR-0068)
-ann-hnsw = ["dep:hnsw_rs", "dep:tempfile"]
+ann-hnsw = ["dep:hnsw_rs"]
 ann-lsh = []
 
 
