@@ -231,6 +231,7 @@ impl Reservoir {
 
         // Second pass: Commit the updates for this phase.
         // This keeps semantics synchronous within the phase (no order dependency).
+        let mut delta_norm_sq = 0.0;
         for i in (update_phase..self.size).step_by(self.update_stride) {
             // SAFETY: same as above.
             unsafe {
@@ -241,14 +242,22 @@ impl Reservoir {
                 // Incremental norm update: subtract old square, add new square.
                 // Optimized: Use direct multiplication instead of powi(2).
                 let old_f64 = f64::from(old_val);
-                self.state_norm_sq +=
-                    (f64::from(new_val)).mul_add(f64::from(new_val), -(old_f64 * old_f64));
+                let new_f64 = f64::from(new_val);
+                delta_norm_sq += new_f64.mul_add(new_f64, -(old_f64 * old_f64));
             }
         }
+        self.state_norm_sq += delta_norm_sq;
 
         // Periodic full re-calculation to prevent drift from precision errors.
         if update_phase == 0 {
-            self.state_norm_sq = self.state.iter().map(|&x| f64::from(x).powi(2)).sum();
+            self.state_norm_sq = self
+                .state
+                .iter()
+                .map(|&x| {
+                    let x64 = f64::from(x);
+                    x64 * x64
+                })
+                .sum();
         }
 
         self.update_phase = (update_phase + 1) % self.update_stride;
