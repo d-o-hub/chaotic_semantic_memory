@@ -145,3 +145,18 @@ jobs:
       run: cargo clippy --all-targets --all-features -- -D warnings
     - name: LOC gate
       run: bash scripts/validate.sh
+
+  miri:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v6
+    - name: Install Rust + Miri
+      uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7 # v1
+      with:
+        toolchain: nightly
+        components: miri
+    - name: Run Miri on unsafe HNSW path
+      run: cargo miri test --features ann-hnsw -- hnsw
+      env:
+        MIRIFLAGS: "-Zmiri-disable-isolation"
