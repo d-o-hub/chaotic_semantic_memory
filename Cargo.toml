@@ -110,6 +110,7 @@ console_error_panic_hook = { version = "0.1", optional = false }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }
+tempfile = { workspace = true }
 proptest = "1.6.0"
 # CLI testing
 assert_cmd = "2.0.16"
