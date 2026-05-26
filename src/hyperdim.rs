@@ -122,7 +122,6 @@ impl HVec10240 {
             {
                 if is_x86_feature_detected!("avx2") {
                     return Ok(Self {
-                        // SAFETY: Manual audit required. Restoration of CI gate.
                         data: unsafe { and_simd_avx2(&vectors[0].data, &vectors[1].data) },
                     });
                 } else {
@@ -142,7 +141,6 @@ impl HVec10240 {
             #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
             {
                 return Ok(Self {
-                    // SAFETY: Manual audit required. Restoration of CI gate.
                     data: unsafe { and_simd_neon(&vectors[0].data, &vectors[1].data) },
                 });
             }
@@ -179,7 +177,6 @@ impl HVec10240 {
             #[cfg(target_arch = "x86_64")]
             if is_x86_feature_detected!("avx2") {
                 data.par_chunks_mut(2).enumerate().for_each(|(i, chunk)| {
-                    // SAFETY: Manual audit required. Restoration of CI gate.
                     let res = unsafe {
                         crate::hyperdim_simd_bundle::bundle_block_avx2_single(
                             vectors,
@@ -199,7 +196,6 @@ impl HVec10240 {
             #[cfg(target_arch = "aarch64")]
             {
                 data.par_iter_mut().enumerate().for_each(|(i, word)| {
-                    // SAFETY: Manual audit required. Restoration of CI gate.
                     let res = unsafe {
                         crate::hyperdim_simd_bundle::bundle_block_neon_single(
                             vectors, i, threshold, num_planes,
@@ -228,7 +224,6 @@ impl HVec10240 {
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
         if is_x86_feature_detected!("avx2") {
             return Ok(Self {
-                // SAFETY: Manual audit required. Restoration of CI gate.
                 data: unsafe { bundle_block_avx2(vectors, threshold, num_planes) },
             });
         }
@@ -236,7 +231,6 @@ impl HVec10240 {
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
         {
             return Ok(Self {
-                // SAFETY: Manual audit required. Restoration of CI gate.
                 data: unsafe { bundle_block_neon(vectors, threshold, num_planes) },
             });
         }
@@ -258,7 +252,6 @@ impl HVec10240 {
             if is_x86_feature_detected!("avx2") {
                 // SAFETY: AVX2 feature detected at runtime.
                 Self {
-                    // SAFETY: Manual audit required. Restoration of CI gate.
                     data: unsafe { bind_simd_avx2(&self.data, &other.data) },
                 }
             } else {
@@ -281,7 +274,6 @@ impl HVec10240 {
             // The function is marked #[target_feature(enable = "neon")] which
             // is always available on aarch64, making this call safe.
             Self {
-                // SAFETY: Manual audit required. Restoration of CI gate.
                 data: unsafe { bind_simd_neon(&self.data, &other.data) },
             }
         }
@@ -433,7 +425,6 @@ impl HVec10240 {
             // Avoids 80 loop iterations and multiple bounds checks per word.
             // SAFETY: bytes length is verified to be 1280. [u128; 80] is bit-compatible
             // with [u8; 1280] on little-endian.
-            // SAFETY: Manual audit required. Restoration of CI gate.
             unsafe {
                 std::ptr::copy_nonoverlapping(bytes.as_ptr(), data.as_mut_ptr() as *mut u8, 1280);
             }

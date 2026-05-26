@@ -17,7 +17,6 @@ pub(crate) unsafe fn bundle_block_avx2_single(
 
     let mut planes = [_mm256_setzero_si256(); 64];
     for v in vectors {
-        // SAFETY: Manual audit required. Restoration of CI gate.
         let mut carry = unsafe { _mm256_loadu_si256(v.data.as_ptr().add(word_idx).cast()) };
         for plane in planes.iter_mut().take(num_planes) {
             let next_carry = _mm256_and_si256(*plane, carry);
@@ -49,9 +48,7 @@ pub(crate) unsafe fn bundle_block_avx2(
     use std::arch::x86_64::_mm256_storeu_si256;
     let mut out = [0u128; 80];
     for i in (0..80).step_by(2) {
-        // SAFETY: Manual audit required. Restoration of CI gate.
         let res = unsafe { bundle_block_avx2_single(vectors, i, threshold, num_planes) };
-        // SAFETY: Manual audit required. Restoration of CI gate.
         unsafe { _mm256_storeu_si256(out.as_mut_ptr().add(i).cast(), res) };
     }
     out
@@ -74,7 +71,6 @@ pub(crate) unsafe fn bundle_block_neon_single(
 
     let mut planes = [vdupq_n_u8(0); 64];
     for v in vectors {
-        // SAFETY: Manual audit required. Restoration of CI gate.
         let mut carry = unsafe { vld1q_u8(v.data.as_ptr().add(word_idx).cast()) };
         for plane in planes.iter_mut().take(num_planes) {
             let next_carry = vandq_u8(*plane, carry);
@@ -107,9 +103,7 @@ pub(crate) unsafe fn bundle_block_neon(
     use std::arch::aarch64::vst1q_u8;
     let mut out = [0u128; 80];
     for i in 0..80 {
-        // SAFETY: Manual audit required. Restoration of CI gate.
         let res = unsafe { bundle_block_neon_single(vectors, i, threshold, num_planes) };
-        // SAFETY: Manual audit required. Restoration of CI gate.
         unsafe { vst1q_u8(out.as_mut_ptr().add(i).cast(), res) };
     }
     out
@@ -126,7 +120,6 @@ mod tests {
             let vectors: Vec<HVec10240> = (0..10u64).map(HVec10240::new_seeded).collect();
             let threshold = vectors.len() / 2 + 1;
             let num_planes = (usize::BITS - vectors.len().leading_zeros()) as usize;
-            // SAFETY: Manual audit required. Restoration of CI gate.
             let simd_res = unsafe { bundle_block_avx2(&vectors, threshold, num_planes) };
             let mut expected = [0u128; 80];
             for i in 0..80 {
@@ -164,7 +157,6 @@ mod tests {
         let vectors: Vec<HVec10240> = (0..10u64).map(HVec10240::new_seeded).collect();
         let threshold = vectors.len() / 2 + 1;
         let num_planes = (usize::BITS - vectors.len().leading_zeros()) as usize;
-        // SAFETY: Manual audit required. Restoration of CI gate.
         let simd_res = unsafe { bundle_block_neon(&vectors, threshold, num_planes) };
         let mut expected = [0u128; 80];
         for i in 0..80 {

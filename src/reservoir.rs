@@ -333,7 +333,6 @@ impl Reservoir {
                     let start = bit_index * chunk_size;
                     // SAFETY: bit_index * chunk_size is guaranteed to be within bounds
                     // since bit_index < 10240 and chunk_size = size / 10240.
-                    // SAFETY: Manual audit required. Restoration of CI gate.
                     let sum: f32 = unsafe { self.state.get_unchecked(start..start + chunk_size) }
                         .iter()
                         .sum();
