@@ -69,6 +69,7 @@ fn step_mathematical_correctness() {
 }
 
 #[test]
+#[allow(clippy::float_cmp)]
 fn norm_calculation_consistency() {
     // 1. Verify direct multiplication matches powi(2) for range of values
     for i in -100..100 {
