@@ -10,9 +10,6 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "ann-hnsw")]
 use std::collections::HashMap;
 #[cfg(feature = "ann-hnsw")]
-use tempfile::TempDir;
-
-#[cfg(feature = "ann-hnsw")]
 use crate::error::{MemoryError, Result};
 #[cfg(feature = "ann-hnsw")]
 use crate::hyperdim::HVec10240;
@@ -270,18 +267,22 @@ impl AnnIndex for HnswIndex {
         let wrapper: HnswPersistenceWrapper = bincode::deserialize(data)
             .map_err(|e| MemoryError::database(format!("Bincode deserialize fail: {}", e)))?;
 
-        let temp_dir =
-            std::env::temp_dir().join(format!("csm_hnsw_load_{}", rand::random::<u64>()));
-        fs::create_dir_all(&temp_dir).map_err(MemoryError::Io)?;
+        let temp_dir = tempfile::tempdir().map_err(MemoryError::Io)?;
+        let path = temp_dir.path();
 
-        fs::write(temp_dir.join("index.hnsw.data"), &wrapper.data).map_err(MemoryError::Io)?;
-        fs::write(temp_dir.join("index.hnsw.graph"), &wrapper.graph).map_err(MemoryError::Io)?;
+        fs::write(path.join("index.hnsw.data"), &wrapper.data).map_err(MemoryError::Io)?;
+        fs::write(path.join("index.hnsw.graph"), &wrapper.graph).map_err(MemoryError::Io)?;
 
-        let loader = HnswIo::new(&temp_dir, "index");
+        let loader = HnswIo::new(path, "index");
         let hnsw = loader
             .load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist)
             .map_err(|e| MemoryError::database(format!("HNSW load failed: {}", e)))?;
 
+        // SAFETY: The Hnsw instance returned by load_hnsw_with_dist may contain references
+        // to the loader or the memory-mapped files. We transmute it to 'static to store it
+        // in our struct, but we must ensure the source of those references (the loader and
+        // the temp_dir) stays alive for the duration of the index's life. We do this by
+        // storing them in the `_owner` field below.
         let static_hnsw: Hnsw<'static, HVec10240, HammingDist> =
             unsafe { std::mem::transmute(hnsw) };
 
@@ -293,7 +294,61 @@ impl AnnIndex for HnswIndex {
         self.config.ef_search = wrapper.ef_search;
         self.deleted_count = wrapper.deleted_count;
 
-        let _ = fs::remove_dir_all(temp_dir);
+        // Keep the loader and temp_dir alive to prevent UAF if hnsw borrows from them
+        self._owner = Some(Box::new((loader, temp_dir)));
+
+        Ok(())
+    }
+}
+
+#[cfg(all(test, feature = "ann-hnsw"))]
+mod tests {
+    use super::*;
+    use crate::hyperdim::HVec10240;
+    use crate::singularity::Concept;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_persistence_roundtrip_miri() -> Result<()> {
+        let mut index = HnswIndex::new(16, 100, 10)?;
+        let id = "test".to_string();
+        let vec = HVec10240::random();
+        index.insert(id.clone(), &vec)?;
+
+        let serialized = index.serialize()?;
+        let mut new_index = HnswIndex::new(16, 100, 10)?;
+        new_index.deserialize(&serialized)?;
+
+        let results = new_index.search(&vec, 1)?;
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, id);
+        Ok(())
+    }
+
+    #[test]
+    fn test_rebuild_resets_owner() -> Result<()> {
+        let mut index = HnswIndex::new(16, 100, 10)?;
+        let id = "test".to_string();
+        let vec = HVec10240::random();
+        index.insert(id.clone(), &vec)?;
+
+        // Simulate a load that sets _owner
+        let serialized = index.serialize()?;
+        index.deserialize(&serialized)?;
+        assert!(index._owner.is_some());
+
+        let mut concepts = HashMap::new();
+        concepts.insert(
+            id.clone(),
+            Concept {
+                id,
+                vector: vec,
+                ..Default::default()
+            },
+        );
+
+        index.rebuild(&concepts)?;
+        assert!(index._owner.is_none());
         Ok(())
     }
 }
