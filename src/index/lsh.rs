@@ -176,8 +176,9 @@ impl AnnIndex for LshIndex {
         // Algorithmic Optimization: Parallelize candidate re-ranking via Rayon.
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         let mut scores: Vec<(String, f32)> = candidates
-            .keys()
-            .par_bridge()
+            .par_iter()
+            .with_min_len(128)
+            .map(|(id, _)| id)
             .filter_map(|id| {
                 self.concepts.get(*id).map(|vec| {
                     let dist = query.hamming_distance(vec);
