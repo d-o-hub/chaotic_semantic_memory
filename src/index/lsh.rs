@@ -118,34 +118,43 @@ impl AnnIndex for LshIndex {
         // Algorithmic Optimization: Parallelize candidate re-ranking via Rayon.
         // This accelerates the exhaustive similarity check of the candidate
         // set retrieved from LSH buckets.
+        // Optimized: Uses integer Hamming distance and references to avoid
+        // expensive string allocations in the parallel loop.
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        let mut scores: Vec<(String, f32)> = candidates
+        let mut scores: Vec<(&String, u32)> = candidates
             .keys()
             .par_bridge()
             .filter_map(|id| {
-                self.concepts.get(*id).map(|vec| {
-                    let dist = query.hamming_distance(vec);
-                    let similarity = 1.0 - (dist as f32 / 5120.0);
-                    ((*id).clone(), similarity)
-                })
+                self.concepts
+                    .get(*id)
+                    .map(|vec| (*id, query.hamming_distance(vec)))
             })
             .collect();
 
         #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-        let mut scores: Vec<(String, f32)> = candidates
+        let mut scores: Vec<(&String, u32)> = candidates
             .keys()
             .filter_map(|id| {
-                self.concepts.get(*id).map(|vec| {
-                    let dist = query.hamming_distance(vec);
-                    let similarity = 1.0 - (dist as f32 / 5120.0);
-                    ((*id).clone(), similarity)
-                })
+                self.concepts
+                    .get(*id)
+                    .map(|vec| (*id, query.hamming_distance(vec)))
             })
             .collect();
 
-        scores.sort_by(|a, b| b.1.total_cmp(&a.1));
-        scores.truncate(top_k);
-        Ok(scores)
+        // Optimized: Use O(N) partial selection instead of O(N log N) full sort.
+        if scores.len() <= top_k {
+            scores.sort_unstable_by_key(|&(_, dist)| dist);
+        } else {
+            scores.select_nth_unstable_by(top_k - 1, |a, b| a.1.cmp(&b.1));
+            scores.truncate(top_k);
+            scores.sort_unstable_by_key(|&(_, dist)| dist);
+        }
+
+        let results = scores
+            .into_iter()
+            .map(|(id, dist)| (id.clone(), 1.0 - (dist as f32 / 5120.0)))
+            .collect();
+        Ok(results)
     }
 
     fn search_filtered(
@@ -174,68 +183,78 @@ impl AnnIndex for LshIndex {
         }
 
         // Algorithmic Optimization: Parallelize candidate re-ranking via Rayon.
+        // Optimized: Uses integer Hamming distance and references to avoid
+        // expensive string allocations in the parallel loop.
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        let mut scores: Vec<(String, f32)> = candidates
-            .par_iter()
-            .with_min_len(128)
-            .map(|(id, _)| id)
+        let mut scores: Vec<(&String, u32)> = candidates
+            .keys()
+            .par_bridge()
             .filter_map(|id| {
-                self.concepts.get(*id).map(|vec| {
-                    let dist = query.hamming_distance(vec);
-                    let similarity = 1.0 - (dist as f32 / 5120.0);
-                    ((*id).clone(), similarity)
-                })
+                self.concepts
+                    .get(*id)
+                    .map(|vec| (*id, query.hamming_distance(vec)))
             })
             .collect();
 
         #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-        let mut scores: Vec<(String, f32)> = candidates
+        let mut scores: Vec<(&String, u32)> = candidates
             .keys()
             .filter_map(|id| {
-                self.concepts.get(*id).map(|vec| {
-                    let dist = query.hamming_distance(vec);
-                    let similarity = 1.0 - (dist as f32 / 5120.0);
-                    ((*id).clone(), similarity)
-                })
+                self.concepts
+                    .get(*id)
+                    .map(|vec| (*id, query.hamming_distance(vec)))
             })
             .collect();
 
-        scores.sort_by(|a, b| b.1.total_cmp(&a.1));
-        scores.truncate(top_k);
+        // Optimized: Use O(N) partial selection instead of O(N log N) full sort.
+        if scores.len() <= top_k {
+            scores.sort_unstable_by_key(|&(_, dist)| dist);
+        } else {
+            scores.select_nth_unstable_by(top_k - 1, |a, b| a.1.cmp(&b.1));
+            scores.truncate(top_k);
+            scores.sort_unstable_by_key(|&(_, dist)| dist);
+        }
+
+        let final_scores: Vec<(String, f32)> = scores
+            .into_iter()
+            .map(|(id, dist)| (id.clone(), 1.0 - (dist as f32 / 5120.0)))
+            .collect();
 
         // Fallback for correctness: if we have few candidates, check all filtered concepts
-        if scores.len() < top_k {
+        if final_scores.len() < top_k {
             // Algorithmic Optimization: Parallelize the full-scan fallback via Rayon.
             // This prevents a performance cliff when LSH buckets fail to yield enough
             // valid candidates for a specific filter.
             #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-            let mut all_filtered: Vec<(String, f32)> = concepts
+            let mut all_filtered: Vec<(&String, u32)> = concepts
                 .par_iter()
                 .filter(|(_, c)| filter.matches(&c.metadata))
-                .map(|(id, c)| {
-                    let dist = query.hamming_distance(&c.vector);
-                    let similarity = 1.0 - (dist as f32 / 5120.0);
-                    (id.clone(), similarity)
-                })
+                .map(|(id, c)| (id, query.hamming_distance(&c.vector)))
                 .collect();
 
             #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-            let mut all_filtered: Vec<(String, f32)> = concepts
+            let mut all_filtered: Vec<(&String, u32)> = concepts
                 .iter()
                 .filter(|(_, c)| filter.matches(&c.metadata))
-                .map(|(id, c)| {
-                    let dist = query.hamming_distance(&c.vector);
-                    let similarity = 1.0 - (dist as f32 / 5120.0);
-                    (id.clone(), similarity)
-                })
+                .map(|(id, c)| (id, query.hamming_distance(&c.vector)))
                 .collect();
 
-            all_filtered.sort_by(|a, b| b.1.total_cmp(&a.1));
-            all_filtered.truncate(top_k);
-            return Ok(all_filtered);
+            if all_filtered.len() <= top_k {
+                all_filtered.sort_unstable_by_key(|&(_, dist)| dist);
+            } else {
+                all_filtered.select_nth_unstable_by(top_k - 1, |a, b| a.1.cmp(&b.1));
+                all_filtered.truncate(top_k);
+                all_filtered.sort_unstable_by_key(|&(_, dist)| dist);
+            }
+
+            let results = all_filtered
+                .into_iter()
+                .map(|(id, dist)| (id.clone(), 1.0 - (dist as f32 / 5120.0)))
+                .collect();
+            return Ok(results);
         }
 
-        Ok(scores)
+        Ok(final_scores)
     }
 
     fn rebuild(&mut self, concepts: &HashMap<String, Concept>) -> Result<()> {
