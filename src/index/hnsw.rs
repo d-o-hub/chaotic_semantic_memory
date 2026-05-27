@@ -4,12 +4,6 @@
 // Casts are intentional for similarity math
 
 #[cfg(feature = "ann-hnsw")]
-use hnsw_rs::prelude::*;
-#[cfg(feature = "ann-hnsw")]
-use serde::{Deserialize, Serialize};
-#[cfg(feature = "ann-hnsw")]
-use std::collections::HashMap;
-#[cfg(feature = "ann-hnsw")]
 use crate::error::{MemoryError, Result};
 #[cfg(feature = "ann-hnsw")]
 use crate::hyperdim::HVec10240;
@@ -17,6 +11,12 @@ use crate::hyperdim::HVec10240;
 use crate::index::{AnnIndex, IndexStats};
 #[cfg(feature = "ann-hnsw")]
 use crate::singularity::Concept;
+#[cfg(feature = "ann-hnsw")]
+use hnsw_rs::prelude::*;
+#[cfg(feature = "ann-hnsw")]
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "ann-hnsw")]
+use std::collections::HashMap;
 
 #[cfg(feature = "ann-hnsw")]
 #[derive(Debug, Clone, Serialize, Deserialize)]

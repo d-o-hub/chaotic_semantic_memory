@@ -25,6 +25,7 @@
 - rmcp (1.7) [features: server, macros, transport-io]
 - serde
 - serde_json
+- tempfile
 - thiserror
 - tracing
 - tracing-subscriber
@@ -378,6 +379,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/framework.rs
 
+- pub const MAX_IMPORT_SIZE
 - pub struct ChaoticSemanticFramework
 - impl ChaoticSemanticFramework
 
@@ -2814,6 +2816,7 @@ impl VoyageProvider {
     pub fn from_env() -> Result<Self>;
     pub fn new(api_key: String) -> Result<Self>;
     pub fn with_model(self, model: impl Trait) -> Self;
+    pub fn with_base_url(self, url: impl Trait) -> Self;
 }
 ```
 
@@ -2963,7 +2966,14 @@ pub struct ChaoticSemanticFramework {
 }
 ```
 
+### MAX_IMPORT_SIZE
+
+```rust
+pub const MAX_IMPORT_SIZE: u64
+```
+
 Main framework for chaotic semantic memory
+Maximum allowed size for binary import (100MB)
 
 ### impl ChaoticSemanticFramework
 
@@ -3089,7 +3099,9 @@ impl FrameworkBuilder {
     pub fn with_index_backend(self, backend: crate::index::IndexBackend) -> Self;
     pub fn with_version_retention(self, retention: usize) -> Self;
     pub fn with_local_db(self, path: impl Trait) -> Self;
+    pub fn with_local_db(self, _path: impl Trait) -> Self;
     pub fn with_turso(self, url: impl Trait, token: impl Trait) -> Self;
+    pub fn with_turso(self, _url: impl Trait, _token: impl Trait) -> Self;
     pub fn without_persistence(self) -> Self;
     pub fn without_persistence(self) -> Self;
     pub fn with_embedding_provider<P: crate::embedding::EmbeddingProvider + 'static>(self, provider: P) -> Self;
@@ -3783,16 +3795,16 @@ pub use hyperdim::{HVec10240, batch_cosine_similarity};
 
 ```rust
 impl Persistence {
-    pub fn save_concept(&self, _concept: &Concept) -> Result<()>;
-    pub fn save_concepts(&self, _concepts: &[Concept]) -> Result<()>;
-    pub fn load_concept(&self, _id: &str) -> Result<Option<Concept>>;
-    pub fn load_all_concepts(&self) -> Result<Vec<Concept>>;
-    pub fn delete_concept(&self, _id: &str) -> Result<()>;
-    pub fn save_association(&self, _from: &str, _to: &str, _strength: f32) -> Result<()>;
-    pub fn save_associations(&self, _associations: &[(String, String, f32)]) -> Result<()>;
-    pub fn load_associations(&self, _id: &str) -> Result<Vec<(String, f32)>>;
-    pub fn delete_association(&self, _from: &str, _to: &str) -> Result<()>;
-    pub fn clear_concept_associations(&self, _id: &str) -> Result<()>;
+    pub fn save_concept(&self, _ns: &str, _concept: &Concept) -> Result<()>;
+    pub fn save_concepts(&self, _ns: &str, _concepts: &[Concept]) -> Result<()>;
+    pub fn load_concept(&self, _ns: &str, _id: &str) -> Result<Option<Concept>>;
+    pub fn load_all_concepts(&self, _ns: &str) -> Result<Vec<Concept>>;
+    pub fn delete_concept(&self, _ns: &str, _id: &str) -> Result<()>;
+    pub fn save_association(&self, _ns: &str, _from: &str, _to: &str, _strength: f32) -> Result<()>;
+    pub fn save_associations(&self, _ns: &str, _associations: &[(String, String, f32)]) -> Result<()>;
+    pub fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32)>>;
+    pub fn delete_association(&self, _ns: &str, _from: &str, _to: &str) -> Result<()>;
+    pub fn clear_concept_associations(&self, _ns: &str, _id: &str) -> Result<()>;
     pub fn clear_all(&self) -> Result<()>;
     pub fn checkpoint(&self) -> Result<()>;
     pub fn health_check(&self) -> Result<()>;
@@ -3801,11 +3813,13 @@ impl Persistence {
     pub fn restore(&self, _path: &str) -> Result<()>;
     pub fn get_version_scoped(&self, _ns: &str, _id: &str, _version: u64) -> Result<Option<Concept>>;
     pub fn list_versions_scoped(&self, _ns: &str, _id: &str) -> Result<Vec<crate::singularity::ConceptVersion>>;
-    pub fn get_concept_history(&self, _id: &str, _limit: usize) -> Result<Vec<ConceptVersion>>;
+    pub fn get_concept_history(&self, _ns: &str, _id: &str, _limit: usize) -> Result<Vec<ConceptVersion>>;
     pub fn schema_version(&self) -> Result<i64>;
-    pub fn save_index(&self, _id: &str, _data: &[u8]) -> Result<()>;
-    pub fn load_index(&self, _id: &str) -> Result<Option<Vec<u8>>>;
+    pub fn save_index(&self, _ns: &str, _id: &str, _data: &[u8]) -> Result<()>;
+    pub fn load_index(&self, _ns: &str, _id: &str) -> Result<Option<Vec<u8>>>;
     pub fn apply_migrations(&self, _target_version: i64) -> Result<()>;
+    pub fn list_namespaces(&self) -> Result<Vec<String>>;
+    pub fn clear_namespace(&self, _ns: &str) -> Result<()>;
 }
 ```
 

@@ -14,7 +14,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
 #[cfg(target_arch = "wasm32")]
-use crate::wasm::{WasmFramework, to_js_error};
+use crate::wasm::WasmFramework;
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
@@ -215,7 +215,7 @@ impl WasmFramework {
             .await
             .map_err(to_js_error)?;
         match concept_opt {
-            Some(concept) => crate::wasm::concept_to_js_value(&concept),
+            Some(concept) => concept_to_js_value(&concept),
             None => Ok(JsValue::NULL),
         }
     }
@@ -228,7 +228,7 @@ impl WasmFramework {
             .rollback_to_version(&id, version as u64)
             .await
             .map_err(to_js_error)?;
-        crate::wasm::concept_to_js_value(&concept)
+        concept_to_js_value(&concept)
     }
 
     /// Export a namespace to bytes for in-browser storage.
@@ -241,6 +241,70 @@ impl WasmFramework {
             .map_err(to_js_error)?;
         Ok(Uint8Array::from(data.as_slice()))
     }
+}
+
+/// Convert a Concept to a JsValue object
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn concept_to_js_value(
+    concept: &crate::singularity::Concept,
+) -> Result<JsValue, JsValue> {
+    let obj = js_sys::Object::new();
+
+    js_sys::Reflect::set(&obj, &"id".into(), &concept.id.clone().into())
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    js_sys::Reflect::set(
+        &obj,
+        &"vector".into(),
+        &Uint8Array::from(concept.vector.to_bytes().as_slice()),
+    )
+    .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    // Convert metadata HashMap to JS object
+    let metadata_obj = js_sys::Object::new();
+    for (key, value) in &concept.metadata {
+        let value_str = serde_json::to_string(value).map_err(to_js_error)?;
+        let js_value = js_sys::JSON::parse(&value_str)
+            .map_err(|_| JsValue::from_str("failed to parse metadata JSON"))?;
+        js_sys::Reflect::set(&metadata_obj, &key.clone().into(), &js_value)
+            .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+    }
+    js_sys::Reflect::set(&obj, &"metadata".into(), &metadata_obj.into())
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    js_sys::Reflect::set(
+        &obj,
+        &"created_at".into(),
+        &(concept.created_at as f64).into(),
+    )
+    .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    js_sys::Reflect::set(
+        &obj,
+        &"modified_at".into(),
+        &(concept.modified_at as f64).into(),
+    )
+    .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    let expires_at = concept
+        .expires_at
+        .map_or(JsValue::NULL, |v| (v as f64).into());
+    js_sys::Reflect::set(&obj, &"expires_at".into(), &expires_at)
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    let canonical_ids = Array::new();
+    for id in &concept.canonical_concept_ids {
+        canonical_ids.push(&JsValue::from_str(id));
+    }
+    js_sys::Reflect::set(&obj, &"canonical_concept_ids".into(), &canonical_ids.into())
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    Ok(obj.into())
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn to_js_error<E: std::fmt::Display>(error: E) -> JsValue {
+    JsValue::from_str(&error.to_string())
 }
 
 #[cfg(target_arch = "wasm32")]
