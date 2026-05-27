@@ -33,8 +33,8 @@ export CODACY_API_TOKEN=<your-api-token>
 ### PR Triage
 1. **Fetch Analysis**:
    `codacy pull-request gh <org> <repo> <prNumber> --output json > /tmp/codacy-pr.json`
-2. **Review Issues**:
-   Examine `newIssues` in the JSON. Note the `resultDataId` for any false positives.
+2. **Review Status & Issues**:
+   Check `qualityGateStatus` for the overall status (Passed, Warning, Failed). Examine `newIssues` in the JSON and note the `resultDataId` for any false positives.
 3. **Suppress False Positives**:
    `codacy pull-request gh <org> <repo> <prNumber> --ignore-issue <resultDataId> --ignore-reason FalsePositive`
 
