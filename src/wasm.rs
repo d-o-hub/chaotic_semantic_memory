@@ -7,9 +7,11 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 
 pub(crate) use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
-pub(crate) use crate::framework::{ChaoticSemanticFramework, MAX_IMPORT_SIZE};
+pub(crate) use crate::framework::ChaoticSemanticFramework;
 pub(crate) use crate::hyperdim::HVec10240;
-pub(crate) use crate::wasm_ext::{concept_to_js_value, to_js_error};
+pub(crate) use crate::singularity::Concept;
+
+pub(crate) const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024;
 
 #[wasm_bindgen(start)]
 pub fn initialize_wasm() {
@@ -333,6 +335,66 @@ pub fn cosine_similarity(a: &[u8], b: &[u8]) -> Result<f32, JsValue> {
     let hvec_b = HVec10240::from_bytes(b).map_err(to_js_error)?;
 
     Ok(hvec_a.cosine_similarity(&hvec_b))
+}
+
+/// Convert a Concept to a JsValue object
+pub(crate) fn concept_to_js_value(concept: &Concept) -> Result<JsValue, JsValue> {
+    let obj = js_sys::Object::new();
+
+    js_sys::Reflect::set(&obj, &"id".into(), &concept.id.clone().into())
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    js_sys::Reflect::set(
+        &obj,
+        &"vector".into(),
+        &Uint8Array::from(concept.vector.to_bytes().as_slice()),
+    )
+    .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    // Convert metadata HashMap to JS object
+    let metadata_obj = js_sys::Object::new();
+    for (key, value) in &concept.metadata {
+        let value_str = serde_json::to_string(value).map_err(to_js_error)?;
+        let js_value = js_sys::JSON::parse(&value_str)
+            .map_err(|_| JsValue::from_str("failed to parse metadata JSON"))?;
+        js_sys::Reflect::set(&metadata_obj, &key.clone().into(), &js_value)
+            .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+    }
+    js_sys::Reflect::set(&obj, &"metadata".into(), &metadata_obj.into())
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    js_sys::Reflect::set(
+        &obj,
+        &"created_at".into(),
+        &(concept.created_at as f64).into(),
+    )
+    .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    js_sys::Reflect::set(
+        &obj,
+        &"modified_at".into(),
+        &(concept.modified_at as f64).into(),
+    )
+    .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    let expires_at = concept
+        .expires_at
+        .map_or(JsValue::NULL, |v| (v as f64).into());
+    js_sys::Reflect::set(&obj, &"expires_at".into(), &expires_at)
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    let canonical_ids = Array::new();
+    for id in &concept.canonical_concept_ids {
+        canonical_ids.push(&JsValue::from_str(id));
+    }
+    js_sys::Reflect::set(&obj, &"canonical_concept_ids".into(), &canonical_ids.into())
+        .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+
+    Ok(obj.into())
+}
+
+pub(crate) fn to_js_error<E: std::fmt::Display>(error: E) -> JsValue {
+    JsValue::from_str(&error.to_string())
 }
 
 #[wasm_bindgen(typescript_custom_section)]

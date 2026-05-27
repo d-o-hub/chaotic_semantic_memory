@@ -5,9 +5,6 @@
 
 use std::collections::HashMap;
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-use rayon::prelude::*;
-
 use crate::error::Result;
 use crate::hyperdim::HVec10240;
 use crate::index::{AnnIndex, IndexStats};
@@ -57,19 +54,6 @@ impl AnnIndex for BruteForce {
             return Ok(Vec::new());
         }
 
-        // Algorithmic Optimization: Parallelize O(N) similarity scan via Rayon.
-        // Hamming distance calculations for 10240-bit vectors are CPU-bound and highly
-        // parallelizable, allowing for significant throughput gains on multi-core systems.
-        #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        let mut scores: Vec<(usize, u32)> = self
-            .vectors
-            .par_iter()
-            .enumerate()
-            .with_min_len(128)
-            .map(|(idx, v)| (idx, query.hamming_distance(v)))
-            .collect();
-
-        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
         let mut scores: Vec<(usize, u32)> = self
             .vectors
             .iter()
@@ -107,23 +91,6 @@ impl AnnIndex for BruteForce {
             return Ok(Vec::new());
         }
 
-        // Algorithmic Optimization: Parallelize filtered similarity scan via Rayon.
-        // This distributes both the metadata predicate matching and the Hamming distance
-        // calculations across available CPU cores.
-        #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        let mut scores: Vec<(usize, u32)> = self
-            .indices
-            .par_iter()
-            .enumerate()
-            .filter(|(_, id)| {
-                concepts
-                    .get(*id)
-                    .is_some_and(|c| filter.matches(&c.metadata))
-            })
-            .map(|(idx, _)| (idx, query.hamming_distance(&self.vectors[idx])))
-            .collect();
-
-        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
         let mut scores: Vec<(usize, u32)> = self
             .indices
             .iter()
