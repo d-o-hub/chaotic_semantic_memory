@@ -44,5 +44,5 @@ engines:
 
 Validate your configuration locally:
 ```bash
-codacy-analysis validate-configuration --directory .
+codacy-analysis-cli validate-configuration --directory .
 ```
