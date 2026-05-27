@@ -185,6 +185,11 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly wasmframework_bfs: (a: number, b: number, c: number) => any;
+    readonly wasmframework_probe_text_with_graph: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
+    readonly wasmframework_probe_with_graph: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
+    readonly wasmframework_shortest_path: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmframework_traverse: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly __wbg_wasmframework_free: (a: number, b: number) => void;
     readonly cosine_similarity: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly encode_text: (a: number, b: number) => [number, number];
@@ -208,11 +213,6 @@ export interface InitOutput {
     readonly wasmframework_processSequence: (a: number, b: any) => any;
     readonly wasmframework_setNamespace: (a: number, b: number, c: number) => any;
     readonly wasmframework_update_concept: (a: number, b: number, c: number, d: number, e: number) => any;
-    readonly wasmframework_bfs: (a: number, b: number, c: number) => any;
-    readonly wasmframework_probe_text_with_graph: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
-    readonly wasmframework_probe_with_graph: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
-    readonly wasmframework_shortest_path: (a: number, b: number, c: number, d: number, e: number) => any;
-    readonly wasmframework_traverse: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmframework_clear_associations: (a: number, b: number, c: number) => any;
     readonly wasmframework_concept_count: (a: number) => any;
     readonly wasmframework_exportNamespaceToBytes: (a: number, b: number, c: number) => any;
