@@ -23,9 +23,6 @@ use js_sys::Date;
 pub const MAX_IMPORT_SIZE: u64 = 512 * 1024 * 1024; // 512 MB default
 
 /// Main framework for chaotic semantic memory
-/// Maximum allowed size for binary import (100MB)
-pub const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024;
-
 pub struct ChaoticSemanticFramework {
     pub(crate) singularity: Arc<RwLock<Singularity>>,
     #[cfg(feature = "persistence")]
