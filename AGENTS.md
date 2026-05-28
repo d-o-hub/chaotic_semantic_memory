@@ -385,7 +385,7 @@ Refer to the `dist-channel-selection` skill for canonical commands.
 
 **Workflow**: `learn`, `task-decomposition`, `shell-script-quality`
 
-**Automation**: `self-fix-loop`, `iterative-refinement`, `skill-creator`, `skill-evaluator`, `codacy`
+**Automation**: `self-fix-loop`, `iterative-refinement`, `skill-creator`, `skill-evaluator`
 
 **TRIZ**: `triz-analysis`, `triz-solver`
 
