@@ -13,6 +13,16 @@ const MAX_TRAVERSAL_DEPTH: usize = 32;
 const MAX_TRAVERSAL_RESULTS: usize = 10_000;
 pub(crate) const MAX_PATH_LENGTH: usize = 4096;
 
+/// Hard security limits for framework parameters to prevent resource exhaustion (CWE-770).
+pub(crate) const MAX_TOP_K_LIMIT: usize = 100_000;
+pub(crate) const MAX_BATCH_SIZE_LIMIT: usize = 10_000;
+pub(crate) const MAX_SEQUENCE_LENGTH_LIMIT: usize = 100_000;
+pub(crate) const MAX_METADATA_BYTES_LIMIT: usize = 100 * 1024 * 1024; // 100MB
+pub(crate) const MAX_CONCEPT_CACHE_LIMIT: usize = 100_000;
+pub(crate) const MAX_VERSION_RETENTION_LIMIT: usize = 10_000;
+pub(crate) const MAX_CONNECTION_POOL_LIMIT: usize = 1_000;
+pub(crate) const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024; // 100MB
+
 pub(crate) fn validate_path(path: &str) -> Result<PathBuf> {
     if path.len() > MAX_PATH_LENGTH {
         return Err(MemoryError::InvalidInput {

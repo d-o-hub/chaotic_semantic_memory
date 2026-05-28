@@ -379,7 +379,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/framework.rs
 
-- pub const MAX_IMPORT_SIZE
 - pub struct ChaoticSemanticFramework
 - impl ChaoticSemanticFramework
 
@@ -2966,14 +2965,7 @@ pub struct ChaoticSemanticFramework {
 }
 ```
 
-### MAX_IMPORT_SIZE
-
-```rust
-pub const MAX_IMPORT_SIZE: u64
-```
-
 Main framework for chaotic semantic memory
-Maximum allowed size for binary import (100MB)
 
 ### impl ChaoticSemanticFramework
 

@@ -3,7 +3,7 @@ use crate::error::Result;
 use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
 use crate::framework_events::MemoryEvent;
-use crate::framework_validation::validate_path;
+use crate::framework_validation::{MAX_IMPORT_SIZE, validate_path};
 use crate::hyperdim::HVec10240;
 use crate::singularity::ConceptBuilder;
 use bincode::Options;
@@ -11,7 +11,6 @@ use std::sync::Arc;
 use tokio::fs;
 use tracing::{instrument, warn};
 
-const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024; // 100 MB default
 const MAX_HISTORY_LIMIT: usize = 1000;
 
 impl ChaoticSemanticFramework {
@@ -155,18 +154,19 @@ impl ChaoticSemanticFramework {
     #[instrument(err, skip(self), fields(path, merge))]
     pub async fn import_json(&self, path: &str, merge: bool) -> Result<usize> {
         let validated_path = validate_path(path)?;
-        let bytes = fs::read(validated_path).await?;
-        // MAX_IMPORT_SIZE fits in usize on 64-bit
-        if bytes.len() > MAX_IMPORT_SIZE as usize {
+        let metadata = fs::metadata(&validated_path).await?;
+        if metadata.len() > MAX_IMPORT_SIZE {
             return Err(crate::error::MemoryError::InvalidInput {
                 field: "import_data".to_string(),
                 reason: format!(
                     "JSON import data size {} exceeds maximum allowed size {}",
-                    bytes.len(),
+                    metadata.len(),
                     MAX_IMPORT_SIZE
                 ),
             });
         }
+
+        let bytes = fs::read(validated_path).await?;
         let payload: ExportPayload = serde_json::from_slice(&bytes)?;
 
         if !merge {
@@ -251,19 +251,19 @@ impl ChaoticSemanticFramework {
     #[instrument(err, skip(self), fields(path, merge))]
     pub async fn import_binary(&self, path: &str, merge: bool) -> Result<usize> {
         let validated_path = validate_path(path)?;
-        let bytes = fs::read(validated_path).await?;
-
-        // MAX_IMPORT_SIZE fits in usize on 64-bit
-        if bytes.len() > MAX_IMPORT_SIZE as usize {
+        let metadata = fs::metadata(&validated_path).await?;
+        if metadata.len() > MAX_IMPORT_SIZE {
             return Err(crate::error::MemoryError::InvalidInput {
                 field: "import_data".to_string(),
                 reason: format!(
                     "import data size {} exceeds maximum allowed size {}",
-                    bytes.len(),
+                    metadata.len(),
                     MAX_IMPORT_SIZE
                 ),
             });
         }
+
+        let bytes = fs::read(validated_path).await?;
         let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
         let binary_payload: BinaryExportPayload =
             options
