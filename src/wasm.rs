@@ -7,11 +7,10 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 
 pub(crate) use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
-pub(crate) use crate::framework::ChaoticSemanticFramework;
+pub(crate) use crate::framework::{ChaoticSemanticFramework, MAX_IMPORT_SIZE};
 pub(crate) use crate::hyperdim::HVec10240;
 pub(crate) use crate::singularity::Concept;
 
-pub(crate) const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024;
 
 #[wasm_bindgen(start)]
 pub fn initialize_wasm() {
