@@ -367,7 +367,7 @@ impl WasmFramework {
         Ok(Uint8Array::from(data.as_slice()))
     }
 
-    /// Import state from bytes previously produced by `exportToBytes`.
+    /// Import state from bytes previously produced by .
     #[wasm_bindgen(js_name = importFromBytes)]
     pub async fn import_from_bytes(&self, data: Uint8Array, merge: bool) -> Result<usize, JsValue> {
         let bytes = data.to_vec();
