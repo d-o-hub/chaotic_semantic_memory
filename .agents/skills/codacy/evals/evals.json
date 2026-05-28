@@ -35,9 +35,9 @@
     {
       "id": 4,
       "prompt": "I've updated the .codacy.yml file. How can I verify that the syntax is correct before committing?",
-      "expected_output": "The agent should suggest using the `codacy-analysis discover` command to check the configuration file locally.",
+      "expected_output": "The agent should suggest using the `codacy-analysis-cli validate-configuration` command to check the configuration file locally.",
       "assertions": [
-        "Mentions `codacy-analysis discover`",
+        "Mentions `codacy-analysis-cli validate-configuration`",
         "Specifies the `--directory` flag or implies running from root",
         "Correctly identifies the tool for configuration validation"
       ]

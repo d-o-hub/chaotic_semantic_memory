@@ -1,34 +1,48 @@
 # Codacy Configuration Format
 
-The repository uses `.codacy/codacy.config.json` for advanced configuration.
+The repository uses `.codacy.yml` or `.codacy.yaml` for advanced configuration.
 
 ## Basic Structure
 
-```json
-{
-  "tools": [
-    {
-      "name": "eslint-9",
-      "enabled": true
-    }
-  ],
-  "exclude_paths": [
-    "target/**",
-    "node_modules/**"
-  ]
-}
+```yaml
+---
+exclude_paths:
+  - "target/**"
+  - "node_modules/**"
+  - "benches/fixtures/**"
+
+languages:
+  rust:
+    enabled: true
+  shell:
+    enabled: true
+
+engines:
+  duplication:
+    enabled: true
+    exclude_paths:
+      - "tests/**"
 ```
 
-## Local Initialization
+## Tool-Specific Configuration
 
-Generate a default configuration based on repository discovery:
-```bash
-codacy-analysis init --default
+You can tune specific engines under the `engines` key:
+
+```yaml
+engines:
+  shellcheck:
+    exclude_paths:
+      - "scripts/legacy/**"
+  metric:
+    # Cyclomatic complexity thresholds
+    config:
+      languages:
+        - "rust"
 ```
 
 ## Validation
 
-Current versions of the Analysis CLI perform implicit validation during `analyze` or `discover`. To check for configuration-related issues:
+Validate your configuration locally using the Codacy Analysis CLI:
 ```bash
-codacy-analysis discover .
+codacy-analysis-cli validate-configuration --directory .
 ```
