@@ -101,8 +101,8 @@ echo "wrote ${REPORT_FILE}"
 if [[ "${CI_MODE}" == "true" ]]; then
   SCORE="$(awk '/%/{ gsub(/[^0-9.]/," "); for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\.?[0-9]*$/) s=$i } END { print s+0 }' "${LOG_FILE}")"
   if [[ "${SCORE}" == "0" ]]; then
-    if grep -q 'No mutants generated' "${LOG_FILE}" 2>/dev/null; then
-      echo "mutation score: no mutants generated (non-Rust changes), CI check skipped"
+    if grep -q -E 'No mutants generated|Diff changes no' "${LOG_FILE}" 2>/dev/null; then
+      echo "mutation score: no Rust source files changed, CI check skipped"
     else
       echo "error: could not parse mutation score from ${LOG_FILE}" >&2
       exit 1
