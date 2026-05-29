@@ -60,7 +60,6 @@ pub struct Bm25Index {
     config: Bm25Config,
     documents: Vec<Document>,
     doc_index: HashMap<String, usize>,
-    doc_freqs: HashMap<Arc<str>, u32>,
     total_length: usize,
     /// Inverted index mapping terms to (doc_index, term_frequency)
     postings: HashMap<Arc<str>, Vec<(usize, u32)>>,
@@ -98,7 +97,7 @@ impl Bm25Index {
             } else {
                 // If term exists in index, reuse its Arc to save memory
                 let term_arc = self
-                    .doc_freqs
+                    .postings
                     .get_key_value(term)
                     .map_or_else(|| Arc::from(term), |(k, _)| Arc::clone(k));
 
@@ -112,11 +111,6 @@ impl Bm25Index {
             term_freqs,
             length,
         };
-
-        // Update global document frequencies
-        for term in doc.term_freqs.keys() {
-            *self.doc_freqs.entry(Arc::clone(term)).or_insert(0) += 1;
-        }
 
         self.total_length += length;
         let idx = self.documents.len();
@@ -153,13 +147,6 @@ impl Bm25Index {
         let doc = self.documents.swap_remove(idx);
         let old_last_idx = self.documents.len();
 
-        // Update document frequencies
-        for term in doc.term_freqs.keys() {
-            if let Some(df) = self.doc_freqs.get_mut(term) {
-                *df = df.saturating_sub(1);
-            }
-        }
-
         self.total_length = self.total_length.saturating_sub(doc.length);
         // Use owned ID to avoid clone during removal from index
         self.doc_index.remove(&doc.id);
@@ -176,6 +163,7 @@ impl Bm25Index {
                     for (d_idx, _) in list.iter_mut() {
                         if *d_idx == old_last_idx {
                             *d_idx = idx;
+                            break;
                         }
                     }
                 }
@@ -217,15 +205,14 @@ impl Bm25Index {
             }
 
             // Optimization: Skip OOV terms. They contribute 0 to all scores.
-            match self.doc_freqs.get(term) {
-                Some(&df) if df > 0 => {
-                    let df = df as f32;
+            if let Some(postings) = self.postings.get(term) {
+                let df = postings.len() as f32;
+                if df > 0.0 {
                     let idf = ((n + 1.0) / (df + 0.5)).ln();
                     if idf > 0.0 {
                         query_weights.push((term, idf * k1_plus_1));
                     }
                 }
-                _ => continue,
             }
         }
 
@@ -240,8 +227,7 @@ impl Bm25Index {
         for (term, weighted_idf) in query_weights {
             if let Some(postings) = self.postings.get(term) {
                 for &(idx, tf) in postings {
-                    // SAFETY: doc_idx is guaranteed valid by index maintenance logic
-                    let doc = unsafe { self.documents.get_unchecked(idx) };
+                    let doc = &self.documents[idx];
                     let doc_len = doc.length as f32;
                     let den_base = c2.mul_add(doc_len, c1);
                     let tf = tf as f32;
@@ -279,7 +265,6 @@ impl Bm25Index {
     pub fn clear(&mut self) {
         self.documents.clear();
         self.doc_index.clear();
-        self.doc_freqs.clear();
         self.postings.clear();
         self.total_length = 0;
     }
