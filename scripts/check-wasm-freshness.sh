@@ -5,8 +5,8 @@ CHECKED_IN_DTS="${WASM_DIR}/chaotic_semantic_memory.d.ts"
 TEMP_PKG_DIR=$(mktemp -d)
 wasm-pack build --dev --target web --out-dir "${TEMP_PKG_DIR}" -- --features wasm > /dev/null 2>&1
 GENERATED_DTS="${TEMP_PKG_DIR}/chaotic_semantic_memory.d.ts"
-# Filter out wasm_bindgen closure hashes which are non-deterministic across builds
-filter_dts() { grep -v 'wasm_bindgen__convert__closures_____invoke__'; }
+# Filter out wasm_bindgen closure hashes and sort to handle non-deterministic ordering
+filter_dts() { grep -v 'wasm_bindgen__convert__closures_____invoke__' | sort; }
 if diff -u <(filter_dts < "${CHECKED_IN_DTS}") <(filter_dts < "${GENERATED_DTS}"); then
     echo "OK"
     rm -rf "${TEMP_PKG_DIR}"
