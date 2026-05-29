@@ -1059,8 +1059,13 @@ world_state:
   adr_0083_export_format_documented: true               # array-of-tuples contract accepted
 
   # ═══════════════════════════════════════════════════════
-  # Mutation Testing CI Gate (2026-05-25)
+  # Mutation Testing CI Gate (2026-05-29)
   # ═══════════════════════════════════════════════════════
   mutation_ci_enforced: true
   mutation_threshold: 85
-  action_last_completed: enforce_mutation_testing_ci_gate
+  mutation_ci_binstall_installed: true     # taiki-e/install-action for cargo-mutants
+  mutation_ci_in_place_enabled: true       # --in-place reuses target/ cache
+  mutation_ci_in_diff_enabled: true        # --in-diff scoped to PR changes
+  mutation_ci_fetch_depth_zero: true       # fetch-depth: 0 in checkout
+  wasm_freshness_sort_stable: true         # check-wasm-freshness.sh sorts lines before diff
+  action_last_completed: pr_322_codacy_feedback_review_resolution
