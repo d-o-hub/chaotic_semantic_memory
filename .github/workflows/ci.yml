@@ -112,6 +112,28 @@ jobs:
     - name: Test MCP feature
       run: cargo test --features mcp --locked -- --quiet
 
+  mutation-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: test
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7 # v1
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
+    - name: Install cargo-mutants
+      uses: taiki-e/install-action@873c7452cadb7c034694a1282227095d93fbdf92 # v2
+      with:
+        tool: cargo-mutants
+    - name: Run mutation tests
+      run: bash scripts/mutation_test.sh fast --ci
+      env:
+        MUTATION_THRESHOLD: 85
+        DIFF_TARGET: origin/${{ github.base_ref || 'main' }}
+
   wasm:
     runs-on: ubuntu-latest
     timeout-minutes: 20

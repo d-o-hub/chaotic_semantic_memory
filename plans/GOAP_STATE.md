@@ -951,8 +951,6 @@ world_state:
     registry_count: 80
     disk_count: 79
     parity_satisfied: true
-  action_last_completed: wasm_namespace_export
-
   # ═══════════════════════════════════════════════════════
   # Pre-Release Gate Fixes (2026-05-21)
   # Branch: fix/pre-release-gate-fixes
@@ -1059,3 +1057,15 @@ world_state:
   memory_lifecycle_checklist_marked: true               # VALIDATION_CHECKLIST.md filled for 2026-05-18
   memory_lifecycle_stale_flags_fixed: true              # archive/delete phase skipped → resolved
   adr_0083_export_format_documented: true               # array-of-tuples contract accepted
+
+  # ═══════════════════════════════════════════════════════
+  # Mutation Testing CI Gate (2026-05-29)
+  # ═══════════════════════════════════════════════════════
+  mutation_ci_enforced: true
+  mutation_threshold: 85
+  mutation_ci_binstall_installed: true     # taiki-e/install-action for cargo-mutants
+  mutation_ci_in_place_enabled: true       # --in-place reuses target/ cache
+  mutation_ci_in_diff_enabled: true        # --in-diff scoped to PR changes
+  mutation_ci_fetch_depth_zero: true       # fetch-depth: 0 in checkout
+  wasm_freshness_sort_stable: true         # check-wasm-freshness.sh sorts lines before diff
+  action_last_completed: pr_322_codacy_feedback_review_resolution
