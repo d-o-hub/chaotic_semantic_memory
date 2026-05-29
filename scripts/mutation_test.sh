@@ -36,6 +36,10 @@ if ! command -v cargo-mutants &>/dev/null && ! cargo mutants --version &>/dev/nu
 cargo-mutants is not installed.
 Install it with:
   cargo install cargo-mutants
+Or in CI with:
+  - uses: taiki-e/install-action@v2
+    with:
+      tool: cargo-mutants
 MSG
   exit 127
 fi
@@ -61,6 +65,10 @@ if [[ "${PROFILE}" == "fast" ]]; then
     fi
   else
     echo "warning: --in-diff is unsupported by installed cargo-mutants; running full target set" >&2
+  fi
+  # CI mode: reuse target/ cache (safe in disposable checkout) + deterministic order
+  if [[ "${CI_MODE}" == "true" ]]; then
+    FAST_ARGS+=(--in-place --no-shuffle)
   fi
 elif [[ "${PROFILE}" != "full" ]]; then
   echo "usage: scripts/mutation_test.sh [--ci] [--threshold=N] [fast|full] [extra cargo-mutants args...]" >&2
