@@ -90,7 +90,7 @@ impl Bm25Index {
         let mut term_freqs = HashMap::with_capacity(tokens.len().min(100));
         for token in tokens {
             let term = token.as_ref();
-            // Arc interning - share term strings between documents and doc_freqs
+            // Arc interning - share term strings between documents and postings
             // Double lookup pattern to bypass lack of get_key_value_mut
             if let Some(count) = term_freqs.get_mut(term) {
                 *count += 1;
@@ -296,7 +296,9 @@ impl Bm25Index {
 }
 
 fn score_cmp_desc(a: &(usize, f32), b: &(usize, f32)) -> Ordering {
-    b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal)
+    b.1.partial_cmp(&a.1)
+        .unwrap_or(Ordering::Equal)
+        .then_with(|| a.0.cmp(&b.0))
 }
 
 #[cfg(test)]

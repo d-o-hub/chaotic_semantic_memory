@@ -1,5 +1,6 @@
 // Exact float comparisons for BM25 score test assertions
 
+use std::cmp::Ordering;
 use std::sync::Arc;
 
 use super::super::*;
@@ -240,11 +241,42 @@ fn test_search_equivalence() {
     let query = ["a", "b"];
     let results = index.search(&query, 10);
 
-    // Since we can't easily run the old code, we verify that the results
-    // are consistent (sorted by score, positive scores).
-    assert!(!results.is_empty());
-    for i in 0..results.len() - 1 {
-        assert!(results[i].1 >= results[i + 1].1);
-        assert!(results[i].1 > 0.0);
+    // Naive linear scan implementation for equivalence verification
+    let mut expected_scores = Vec::new();
+    let n = index.documents.len() as f32;
+    let avgdl = index.total_length as f32 / n;
+    let k1 = index.config.k1;
+    let b = index.config.b;
+    let den_base_pre = k1 * (1.0 - b);
+    let den_base_per_len = k1 * b / avgdl;
+
+    for (idx, doc) in index.documents.iter().enumerate() {
+        let mut score = 0.0;
+        let den_base = den_base_per_len.mul_add(doc.length as f32, den_base_pre);
+        for term in &query {
+            if let Some(df) = index.postings.get(&Arc::from(*term)).map(|p| p.len()) {
+                if df > 0 {
+                    let idf = ((n + 1.0) / (df as f32 + 0.5)).ln();
+                    if let Some(&tf) = doc.term_freqs.get(&Arc::from(*term)) {
+                        score += (tf as f32 * idf * (k1 + 1.0)) / (tf as f32 + den_base);
+                    }
+                }
+            }
+        }
+        if score > 0.0 {
+            expected_scores.push((idx, score));
+        }
+    }
+    expected_scores.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1)
+            .unwrap_or(Ordering::Equal)
+            .then_with(|| a.0.cmp(&b.0))
+    });
+    expected_scores.truncate(10);
+
+    assert_eq!(results.len(), expected_scores.len());
+    for (res, exp) in results.iter().zip(expected_scores.iter()) {
+        assert_eq!(res.0, index.documents[exp.0].id);
+        assert!((res.1 - exp.1).abs() < 1e-5);
     }
 }
