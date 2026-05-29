@@ -7,6 +7,7 @@ use crate::framework_validation::{MAX_IMPORT_SIZE, validate_path};
 use crate::hyperdim::HVec10240;
 use crate::singularity::ConceptBuilder;
 use bincode::Options;
+use std::io::Read;
 use std::sync::Arc;
 use tokio::fs;
 use tracing::{instrument, warn};
@@ -150,23 +151,33 @@ impl ChaoticSemanticFramework {
         fs::write(validated_path, data).await?;
         Ok(())
     }
+
+    /// Securely read a file into bytes with size limit to prevent OOM/TOCTOU (CWE-770).
+    async fn secure_read_file(&self, path: &std::path::Path, limit: u64) -> Result<Vec<u8>> {
+        let mut file = std::fs::File::open(path)?;
+        let metadata = file.metadata()?;
+        if metadata.len() > limit {
+            return Err(crate::error::MemoryError::InvalidInput {
+                field: "file_size".to_string(),
+                reason: format!(
+                    "File size {} exceeds maximum allowed size {}",
+                    metadata.len(),
+                    limit
+                ),
+            });
+        }
+        let mut buffer = Vec::with_capacity(metadata.len() as usize);
+        file.read_to_end(&mut buffer)?;
+        Ok(buffer)
+    }
+
     /// Import memory state from JSON file.
     #[instrument(err, skip(self), fields(path, merge))]
     pub async fn import_json(&self, path: &str, merge: bool) -> Result<usize> {
         let validated_path = validate_path(path)?;
-        let metadata = fs::metadata(&validated_path).await?;
-        if metadata.len() > MAX_IMPORT_SIZE {
-            return Err(crate::error::MemoryError::InvalidInput {
-                field: "import_data".to_string(),
-                reason: format!(
-                    "JSON import data size {} exceeds maximum allowed size {}",
-                    metadata.len(),
-                    MAX_IMPORT_SIZE
-                ),
-            });
-        }
-
-        let bytes = fs::read(validated_path).await?;
+        let bytes = self
+            .secure_read_file(&validated_path, MAX_IMPORT_SIZE)
+            .await?;
         let payload: ExportPayload = serde_json::from_slice(&bytes)?;
 
         if !merge {
@@ -251,19 +262,9 @@ impl ChaoticSemanticFramework {
     #[instrument(err, skip(self), fields(path, merge))]
     pub async fn import_binary(&self, path: &str, merge: bool) -> Result<usize> {
         let validated_path = validate_path(path)?;
-        let metadata = fs::metadata(&validated_path).await?;
-        if metadata.len() > MAX_IMPORT_SIZE {
-            return Err(crate::error::MemoryError::InvalidInput {
-                field: "import_data".to_string(),
-                reason: format!(
-                    "import data size {} exceeds maximum allowed size {}",
-                    metadata.len(),
-                    MAX_IMPORT_SIZE
-                ),
-            });
-        }
-
-        let bytes = fs::read(validated_path).await?;
+        let bytes = self
+            .secure_read_file(&validated_path, MAX_IMPORT_SIZE)
+            .await?;
         let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
         let binary_payload: BinaryExportPayload =
             options

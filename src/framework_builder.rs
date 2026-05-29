@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tracing::warn;
 
 use crate::ChaoticSemanticFramework;
 use crate::error::Result;
@@ -117,12 +118,28 @@ impl FrameworkBuilder {
         self
     }
 
-    pub const fn with_reservoir_size(mut self, size: usize) -> Self {
+    pub fn with_reservoir_size(mut self, mut size: usize) -> Self {
+        if size > crate::framework_validation::MAX_RESERVOIR_SIZE_LIMIT {
+            warn!(
+                "reservoir size {} exceeds limit {}, clamping",
+                size,
+                crate::framework_validation::MAX_RESERVOIR_SIZE_LIMIT
+            );
+            size = crate::framework_validation::MAX_RESERVOIR_SIZE_LIMIT;
+        }
         self.config.reservoir_size = size;
         self
     }
 
-    pub const fn with_reservoir_input_size(mut self, size: usize) -> Self {
+    pub fn with_reservoir_input_size(mut self, mut size: usize) -> Self {
+        if size > crate::framework_validation::MAX_RESERVOIR_SIZE_LIMIT {
+            warn!(
+                "reservoir input size {} exceeds limit {}, clamping",
+                size,
+                crate::framework_validation::MAX_RESERVOIR_SIZE_LIMIT
+            );
+            size = crate::framework_validation::MAX_RESERVOIR_SIZE_LIMIT;
+        }
         self.config.reservoir_input_size = size;
         self
     }
@@ -132,7 +149,15 @@ impl FrameworkBuilder {
         self
     }
 
-    pub const fn with_max_concepts(mut self, max_concepts: usize) -> Self {
+    pub fn with_max_concepts(mut self, mut max_concepts: usize) -> Self {
+        if max_concepts > crate::framework_validation::MAX_STORE_CAPACITY_LIMIT {
+            warn!(
+                "max concepts {} exceeds limit {}, clamping",
+                max_concepts,
+                crate::framework_validation::MAX_STORE_CAPACITY_LIMIT
+            );
+            max_concepts = crate::framework_validation::MAX_STORE_CAPACITY_LIMIT;
+        }
         self.config.max_concepts = Some(max_concepts);
         self
     }
