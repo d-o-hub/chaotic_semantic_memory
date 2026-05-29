@@ -118,6 +118,8 @@ jobs:
     needs: test
     steps:
     - uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7 # v1
     - name: Cache Rust dependencies
@@ -130,6 +132,7 @@ jobs:
       run: bash scripts/mutation_test.sh fast --ci
       env:
         MUTATION_THRESHOLD: 85
+        DIFF_TARGET: origin/${{ github.base_ref || 'main' }}
 
   wasm:
     runs-on: ubuntu-latest
