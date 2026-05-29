@@ -20,7 +20,6 @@ use crate::singularity::{Concept, ConceptBuilder, Singularity, unix_now_secs};
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
 
-
 /// Main framework for chaotic semantic memory
 pub struct ChaoticSemanticFramework {
     pub(crate) singularity: Arc<RwLock<Singularity>>,

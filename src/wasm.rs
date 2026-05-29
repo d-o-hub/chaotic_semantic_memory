@@ -390,6 +390,7 @@ impl WasmFramework {
 
         if !merge {
             let mut singularity = self.framework.singularity.write().await;
+            let ns = self.framework.namespace().await;
             singularity.clear(&ns);
         }
 
