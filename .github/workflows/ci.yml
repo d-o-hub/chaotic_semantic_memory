@@ -123,7 +123,13 @@ jobs:
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
     - name: Install cargo-mutants
-      run: cargo install cargo-mutants
+      run: |
+        if command -v cargo-binstall &>/dev/null; then
+          cargo binstall -y cargo-mutants
+        else
+          curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+          cargo binstall -y cargo-mutants
+        fi
     - name: Run mutation tests
       run: bash scripts/mutation_test.sh fast --ci
       env:
