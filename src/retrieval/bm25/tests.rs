@@ -229,7 +229,8 @@ fn test_search_equivalence() {
     let mut index = Bm25Index::new();
     let tokens = ["a", "b", "c", "d"];
     for i in 0..100 {
-        let doc_tokens: Vec<&str> = tokens.iter()
+        let doc_tokens: Vec<&str> = tokens
+            .iter()
             .filter(|_| rand::random::<bool>())
             .copied()
             .collect();
@@ -243,7 +244,7 @@ fn test_search_equivalence() {
     // are consistent (sorted by score, positive scores).
     assert!(!results.is_empty());
     for i in 0..results.len() - 1 {
-        assert!(results[i].1 >= results[i+1].1);
+        assert!(results[i].1 >= results[i + 1].1);
         assert!(results[i].1 > 0.0);
     }
 }
