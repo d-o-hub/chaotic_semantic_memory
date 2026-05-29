@@ -125,7 +125,7 @@ jobs:
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
     - name: Install cargo-mutants
-      uses: taiki-e/install-action@v2
+      uses: taiki-e/install-action@873c7452cadb7c034694a1282227095d93fbdf92 # v2
       with:
         tool: cargo-mutants
     - name: Run mutation tests
