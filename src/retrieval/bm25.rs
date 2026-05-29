@@ -139,7 +139,9 @@ impl Bm25Index {
         let removed_doc = &self.documents[idx];
         for term in removed_doc.term_freqs.keys() {
             if let Some(list) = self.postings.get_mut(term) {
-                list.retain(|(d_idx, _)| *d_idx != idx);
+                if let Some(pos) = list.iter().position(|(d_idx, _)| *d_idx == idx) {
+                    list.swap_remove(pos);
+                }
             }
         }
 
@@ -220,8 +222,10 @@ impl Bm25Index {
             return Vec::new();
         }
 
-        // Use dense accumulator for scores to maximize cache locality
+        // Use dense accumulator for scores to maximize cache locality.
+        // Track hit indices to avoid O(N) scan during collection.
         let mut doc_scores = vec![0.0f32; self.documents.len()];
+        let mut hit_indices = Vec::with_capacity(top_k.max(128));
 
         // Iterate over query terms and accumulate scores from postings lists
         for (term, weighted_idf) in query_weights {
@@ -234,16 +238,18 @@ impl Bm25Index {
 
                     // BM25 term score: (tf * idf * (k1 + 1)) / (tf + k1 * (1 - b + b * doc_len / avgdl))
                     let score = (tf * weighted_idf) / (tf + den_base);
+                    if doc_scores[idx] == 0.0 {
+                        hit_indices.push(idx);
+                    }
                     doc_scores[idx] += score;
                 }
             }
         }
 
-        // Collect documents with non-zero scores
-        let mut scores: Vec<(usize, f32)> = doc_scores
+        // Collect documents with non-zero scores using tracked indices
+        let mut scores: Vec<(usize, f32)> = hit_indices
             .into_iter()
-            .enumerate()
-            .filter(|&(_, s)| s > 0.0)
+            .map(|idx| (idx, doc_scores[idx]))
             .collect();
 
         // Partial select keeps complexity near O(hits)
