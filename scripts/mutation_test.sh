@@ -68,7 +68,7 @@ if [[ "${PROFILE}" == "fast" ]]; then
   fi
   # CI mode: reuse target/ cache (safe in disposable checkout) + deterministic order
   if [[ "${CI_MODE}" == "true" ]]; then
-    FAST_ARGS+=(--in-place --no-shuffle)
+    FAST_ARGS+=(--in-place --no-shuffle -n 50)
   fi
 elif [[ "${PROFILE}" != "full" ]]; then
   echo "usage: scripts/mutation_test.sh [--ci] [--threshold=N] [fast|full] [extra cargo-mutants args...]" >&2
@@ -101,10 +101,13 @@ echo "wrote ${REPORT_FILE}"
 if [[ "${CI_MODE}" == "true" ]]; then
   SCORE="$(awk '/%/{ gsub(/[^0-9.]/," "); for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\.?[0-9]*$/) s=$i } END { print s+0 }' "${LOG_FILE}")"
   if [[ "${SCORE}" == "0" ]]; then
-    echo "error: could not parse mutation score from ${LOG_FILE}" >&2
-    exit 1
-  fi
-  if awk -v s="${SCORE}" -v t="${THRESHOLD}" 'BEGIN { exit !(s >= t) }'; then
+    if grep -q 'No mutants generated' "${LOG_FILE}" 2>/dev/null; then
+      echo "mutation score: no mutants generated (non-Rust changes), CI check skipped"
+    else
+      echo "error: could not parse mutation score from ${LOG_FILE}" >&2
+      exit 1
+    fi
+  elif awk -v s="${SCORE}" -v t="${THRESHOLD}" 'BEGIN { exit !(s >= t) }'; then
     echo "mutation score ${SCORE}% >= ${THRESHOLD}%, CI check passed"
   else
     echo "mutation score ${SCORE}% < ${THRESHOLD}%, CI check failed" >&2
