@@ -1,5 +1,7 @@
 // Exact float comparisons for BM25 score test assertions
 
+use std::sync::Arc;
+
 use super::super::*;
 
 #[test]
@@ -176,4 +178,72 @@ fn test_no_matching_terms() {
     let mut index = Bm25Index::new();
     index.add_document("doc1", &["hello", "world"]);
     assert!(index.search(&["rust"], 10).is_empty());
+}
+
+#[test]
+fn test_postings_integrity() {
+    let mut index = Bm25Index::new();
+    index.add_document("doc1", &["hello", "world", "hello"]);
+
+    let hello_arc: Arc<str> = Arc::from("hello");
+    let world_arc: Arc<str> = Arc::from("world");
+
+    let hello_postings = index.postings.get(&hello_arc).unwrap();
+    assert_eq!(hello_postings.len(), 1);
+    assert_eq!(hello_postings[0], (0, 2)); // doc_idx 0, tf 2
+
+    let world_postings = index.postings.get(&world_arc).unwrap();
+    assert_eq!(world_postings.len(), 1);
+    assert_eq!(world_postings[0], (0, 1)); // doc_idx 0, tf 1
+}
+
+#[test]
+fn test_postings_remove_integrity() {
+    let mut index = Bm25Index::new();
+    index.add_document("doc0", &["a"]);
+    index.add_document("doc1", &["b"]);
+    index.add_document("doc2", &["c"]);
+
+    // Remove doc1 (middle). doc2 (idx 2) should swap to idx 1.
+    index.remove_document("doc1");
+
+    let a_arc: Arc<str> = Arc::from("a");
+    let c_arc: Arc<str> = Arc::from("c");
+    let b_arc: Arc<str> = Arc::from("b");
+
+    assert_eq!(index.postings.get(&a_arc).unwrap()[0].0, 0);
+    assert_eq!(index.postings.get(&c_arc).unwrap()[0].0, 1); // doc2 moved to idx 1
+    assert!(index.postings.get(&b_arc).unwrap().is_empty());
+}
+
+#[test]
+fn test_postings_clear_integrity() {
+    let mut index = Bm25Index::new();
+    index.add_document("doc1", &["hello"]);
+    index.clear();
+    assert!(index.postings.is_empty());
+}
+
+#[test]
+fn test_search_equivalence() {
+    let mut index = Bm25Index::new();
+    let tokens = ["a", "b", "c", "d"];
+    for i in 0..100 {
+        let doc_tokens: Vec<&str> = tokens.iter()
+            .filter(|_| rand::random::<bool>())
+            .copied()
+            .collect();
+        index.add_document(&format!("doc{i}"), &doc_tokens);
+    }
+
+    let query = ["a", "b"];
+    let results = index.search(&query, 10);
+
+    // Since we can't easily run the old code, we verify that the results
+    // are consistent (sorted by score, positive scores).
+    assert!(!results.is_empty());
+    for i in 0..results.len() - 1 {
+        assert!(results[i].1 >= results[i+1].1);
+        assert!(results[i].1 > 0.0);
+    }
 }
