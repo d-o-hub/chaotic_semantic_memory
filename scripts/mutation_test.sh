@@ -52,6 +52,7 @@ if [[ "${PROFILE}" == "fast" ]]; then
   if grep -q -- '--in-diff' <<<"${HELP_TEXT}"; then
     DIFF_TARGET="${DIFF_TARGET:-origin/main}"
     DIFF_FILE="$(mktemp)"
+    trap 'rm -f "${DIFF_FILE}"' EXIT
     git diff "${DIFF_TARGET}" > "${DIFF_FILE}" 2>/dev/null || true
     if [[ -s "${DIFF_FILE}" ]]; then
       FAST_ARGS+=(--in-diff "${DIFF_FILE}")
@@ -90,13 +91,12 @@ set +o pipefail
 echo "wrote ${REPORT_FILE}"
 
 if [[ "${CI_MODE}" == "true" ]]; then
-  SCORE="$(grep -oP '\d+(\.\d+)?(?=%)' "${LOG_FILE}" | tail -1 || true)"
-  if [[ -z "${SCORE}" ]]; then
+  SCORE="$(awk '/%/{ gsub(/[^0-9.]/," "); for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\.?[0-9]*$/) s=$i } END { print s+0 }' "${LOG_FILE}")"
+  if [[ "${SCORE}" == "0" ]]; then
     echo "error: could not parse mutation score from ${LOG_FILE}" >&2
     exit 1
   fi
-  COMPARISON="$(echo "${SCORE} >= ${THRESHOLD}" | bc -l 2>/dev/null || echo "0")"
-  if [[ "${COMPARISON}" == "1" ]]; then
+  if awk -v s="${SCORE}" -v t="${THRESHOLD}" 'BEGIN { exit !(s >= t) }'; then
     echo "mutation score ${SCORE}% >= ${THRESHOLD}%, CI check passed"
   else
     echo "mutation score ${SCORE}% < ${THRESHOLD}%, CI check failed" >&2
