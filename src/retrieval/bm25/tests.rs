@@ -1,6 +1,7 @@
 // Exact float comparisons for BM25 score test assertions
 
 use super::super::*;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 #[test]
@@ -201,72 +202,85 @@ fn test_no_matching_terms() {
 }
 
 #[test]
-fn test_swap_remove_integrity_complex() {
+fn test_postings_integrity_strict() {
     let mut index = Bm25Index::new();
-    index.add_document("doc0", &["a", "b"]);
-    index.add_document("doc1", &["b", "c"]);
-    index.add_document("doc2", &["c", "d"]);
-    index.add_document("doc3", &["a", "d"]);
+    // doc0: "a" (tf=1)
+    // doc1: "a" (tf=2), "b" (tf=1)
+    // doc2: "a" (tf=3), "b" (tf=2), "c" (tf=1)
+    index.add_document("doc0", &["a"]);
+    index.add_document("doc1", &["a", "a", "b"]);
+    index.add_document("doc2", &["a", "a", "a", "b", "b", "c"]);
 
-    // Remove doc1 (index 1). doc3 (index 3) should move to index 1.
+    let a = Arc::from("a");
+    let b = Arc::from("b");
+    let c = Arc::from("c");
+
+    // Initial state
+    assert_eq!(index.postings.get(&a).unwrap().len(), 3);
+    assert_eq!(index.postings.get(&b).unwrap().len(), 2);
+    assert_eq!(index.postings.get(&c).unwrap().len(), 1);
+
+    // Remove doc1 (idx 1). doc2 (idx 2) moves to idx 1.
     index.remove_document("doc1");
 
-    assert_eq!(index.len(), 3);
-    assert_eq!(index.doc_index.get("doc3"), Some(&1));
-    assert_eq!(index.doc_lengths[1], 2);
+    // doc0: idx 0, "a" (tf=1)
+    // doc2: idx 1, "a" (tf=3), "b" (tf=2), "c" (tf=1)
 
-    // Verify doc3 postings point to new index 1
-    let a = Arc::from("a");
-    let d = Arc::from("d");
-    assert!(
-        index
-            .postings
-            .get(&a)
-            .unwrap()
-            .iter()
-            .any(|&(idx, _)| idx == 1)
-    );
-    assert!(
-        index
-            .postings
-            .get(&d)
-            .unwrap()
-            .iter()
-            .any(|&(idx, _)| idx == 1)
-    );
+    let a_list = index.postings.get(&a).unwrap();
+    assert_eq!(a_list.len(), 2);
+    let mut a_map: HashMap<u32, u32> = HashMap::new();
+    for &(idx, tf) in a_list {
+        a_map.insert(idx, tf);
+    }
+    assert_eq!(a_map.get(&0), Some(&1)); // doc0
+    assert_eq!(a_map.get(&1), Some(&3)); // doc2 relocated
+    assert!(!a_map.contains_key(&2));
 
-    // Search should still work for relocated doc3
-    let results = index.search(&["d"], 10);
-    assert_eq!(results[0].0, "doc3");
+    let b_list = index.postings.get(&b).unwrap();
+    assert_eq!(b_list.len(), 1);
+    assert_eq!(b_list[0], (1, 2)); // doc2 relocated
+
+    let c_list = index.postings.get(&c).unwrap();
+    assert_eq!(c_list.len(), 1);
+    assert_eq!(c_list[0], (1, 1)); // doc2 relocated
 }
 
 #[test]
-fn test_scoring_formula_exactness() {
-    let mut index = Bm25Index::with_config(Bm25Config { k1: 1.2, b: 0.75 });
-    index.add_document("doc1", &["hello", "world"]);
+fn test_search_score_exactness_hardened() {
+    let mut index = Bm25Index::with_config(Bm25Config { k1: 2.0, b: 0.5 });
+    // doc0: 10 "a"s, len 10
+    let tokens = vec!["a"; 10];
+    index.add_document("doc0", &tokens);
 
-    // n = 1, avgdl = 2.0
-    // query "hello": df("hello") = 1
-    // idf = ln((1+1)/(1+0.5)) = ln(2/1.5) = ln(1.333...) = 0.287682
-    // weighted_idf = idf * (1.2 + 1) = 0.287682 * 2.2 = 0.6329
-    // doc1: tf=1, len=2
-    // den_base = 1.2 * (1 - 0.75 + 0.75 * 2 / 2.0) = 1.2 * (0.25 + 0.75) = 1.2
-    // score = (1 * 0.6329) / (1 + 1.2) = 0.6329 / 2.2 = 0.287682
+    // n = 1, avgdl = 10.0
+    // query "a": df("a") = 1
+    // idf = ln((1+1)/(1+0.5)) = 0.287682
+    // weighted_idf = idf * (k1 + 1) = 0.287682 * 3.0 = 0.863046
+    // den_base = k1 * (1 - b + b * doc_len / avgdl) = 2.0 * (0.5 + 0.5 * 10 / 10.0) = 2.0 * 1.0 = 2.0
+    // score = (tf * weighted_idf) / (tf + den_base) = (10 * 0.863046) / (10 + 2.0) = 8.63046 / 12.0 = 0.719205
 
-    let results = index.search(&["hello"], 10);
-    assert!((results[0].1 - 0.287682).abs() < 1e-6);
+    let results = index.search(&["a"], 10);
+    assert!((results[0].1 - 0.719205).abs() < 1e-6);
 }
 
 #[test]
-fn test_multi_term_scoring() {
-    let mut index = Bm25Index::new();
-    index.add_document("doc1", &["apple", "banana"]);
-    index.add_document("doc2", &["apple", "cherry"]);
+fn test_complex_multi_doc_precise_scoring() {
+    let config = Bm25Config { k1: 1.2, b: 0.75 };
+    let mut index = Bm25Index::with_config(config);
 
-    // Both docs contain "apple". Only doc1 contains "banana".
-    // Score for doc1 should be higher for query ["apple", "banana"] than doc2.
-    let results = index.search(&["apple", "banana"], 10);
+    index.add_document("doc0", &["a", "b"]);
+    index.add_document("doc1", &["a", "c"]);
+
+    // query ["a", "b"]
+    // idf(a) = 0.1823215, idf(b) = 0.6931472
+    // weighted_idf(a) = 0.4011073, weighted_idf(b) = 1.5249238
+    // doc0: total = 0.1823215 + 0.6931472 = 0.8754687
+    // doc1: total = 0.1823215
+
+    let results = index.search(&["a", "b"], 10);
     assert_eq!(results.len(), 2);
-    assert_eq!(results[0].0, "doc1");
-    assert!(results[0].1 > results[1].1);
+    assert_eq!(results[0].0, "doc0");
+    assert!((results[0].1 - 0.8754687).abs() < 1e-6);
+    assert_eq!(results[1].0, "doc1");
+    assert!((results[1].1 - 0.1823215).abs() < 1e-6);
 }
