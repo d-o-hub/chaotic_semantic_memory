@@ -6,33 +6,6 @@ use crate::singularity::Concept;
 use libsql::params;
 
 impl Persistence {
-    /// Get the number of concepts in a namespace.
-    pub async fn concept_count(&self, ns: &str) -> Result<usize> {
-        let _permit = self.acquire_remote_slot().await?;
-        let conn = self.connect().await?;
-
-        let mut rows = conn
-            .query(
-                "SELECT COUNT(*) FROM csm_concepts WHERE namespace = ?1",
-                params![ns],
-            )
-            .await
-            .map_err(|e| MemoryError::database(format!("Failed to count concepts: {e}")))?;
-
-        if let Some(row) = rows
-            .next()
-            .await
-            .map_err(|e| MemoryError::database(format!("Failed to fetch row: {e}")))?
-        {
-            let count: i64 = row
-                .get(0)
-                .map_err(|e| MemoryError::database(format!("Failed to get count: {e}")))?;
-            Ok(count as usize)
-        } else {
-            Ok(0)
-        }
-    }
-
     /// Save a concept to the database
     pub async fn save_concept(&self, ns: &str, concept: &Concept) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
@@ -211,21 +184,6 @@ impl Persistence {
 
     /// Load all concepts from the database for a specific namespace
     pub async fn load_all_concepts(&self, ns: &str) -> Result<Vec<Concept>> {
-        let mut concepts = Vec::new();
-        self.for_each_concept_scoped(ns, |c| {
-            concepts.push(c);
-            async { Ok(()) }
-        })
-        .await?;
-        Ok(concepts)
-    }
-
-    /// Process all concepts in a namespace from the database using a callback.
-    pub async fn for_each_concept_scoped<F, Fut>(&self, ns: &str, mut f: F) -> Result<()>
-    where
-        F: FnMut(Concept) -> Fut,
-        Fut: std::future::Future<Output = Result<()>>,
-    {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
@@ -238,6 +196,7 @@ impl Persistence {
             .await
             .map_err(|e| MemoryError::database(format!("Failed to load concepts: {e}")))?;
 
+        let mut concepts = Vec::new();
         while let Some(row) = rows
             .next()
             .await
@@ -269,7 +228,7 @@ impl Persistence {
                 .transpose()?
                 .unwrap_or_default();
 
-            f(Concept {
+            concepts.push(Concept {
                 id,
                 vector,
                 metadata,
@@ -277,11 +236,10 @@ impl Persistence {
                 modified_at: modified_at as u64,
                 expires_at: expires_at.map(|t| t as u64),
                 canonical_concept_ids,
-            })
-            .await?;
+            });
         }
 
-        Ok(())
+        Ok(concepts)
     }
 
     /// Delete a concept from the database

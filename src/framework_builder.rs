@@ -220,6 +220,12 @@ impl FrameworkBuilder {
         self
     }
 
+    /// Stub for `with_local_db` when persistence is disabled.
+    #[cfg(not(feature = "persistence"))]
+    pub fn with_local_db(self, _path: impl Into<String>) -> Self {
+        self
+    }
+
     /// Configure a remote Turso database for persistence.
     ///
     /// Only available when the `persistence` feature is enabled.
@@ -227,6 +233,12 @@ impl FrameworkBuilder {
     pub fn with_turso(mut self, url: impl Into<String>, token: impl Into<String>) -> Self {
         self.db_path = Some(url.into());
         self.db_token = Some(token.into());
+        self
+    }
+
+    /// Stub for `with_turso` when persistence is disabled.
+    #[cfg(not(feature = "persistence"))]
+    pub fn with_turso(self, _url: impl Into<String>, _token: impl Into<String>) -> Self {
         self
     }
 
