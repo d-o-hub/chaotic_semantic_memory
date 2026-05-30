@@ -8,16 +8,44 @@ set -e
 CARGO_VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
 
 # Extract version from wasm/package.json
-NPM_LOCAL_VERSION=$(grep '"version":' wasm/package.json | sed 's/.*"version": "\(.*\)".*/\1/')
+NPM_LOCAL_VERSION=$(grep -m 1 '"version":' wasm/package.json | sed 's/.*"version": "\(.*\)".*/\1/')
+
+# Extract version from cli-npm/package.json
+CLI_NPM_VERSION=$(grep -m 1 '"version":' cli-npm/package.json | sed 's/.*"version": "\(.*\)".*/\1/')
+
+# Extract version from VERSION file
+VERSION_FILE_CONTENT=$(tr -d '[:space:]' < VERSION)
 
 echo "Cargo.toml version: $CARGO_VERSION"
 echo "wasm/package.json version: $NPM_LOCAL_VERSION"
+echo "cli-npm/package.json version: $CLI_NPM_VERSION"
+echo "VERSION file: $VERSION_FILE_CONTENT"
 
 # Check if versions match
+FAILED=0
+
 if [ "$CARGO_VERSION" != "$NPM_LOCAL_VERSION" ]; then
-    echo "ERROR: Version mismatch!"
+    echo "ERROR: Version mismatch in wasm/package.json!"
     echo "  Cargo.toml: $CARGO_VERSION"
     echo "  wasm/package.json: $NPM_LOCAL_VERSION"
+    FAILED=1
+fi
+
+if [ "$CARGO_VERSION" != "$CLI_NPM_VERSION" ]; then
+    echo "ERROR: Version mismatch in cli-npm/package.json!"
+    echo "  Cargo.toml: $CARGO_VERSION"
+    echo "  cli-npm/package.json: $CLI_NPM_VERSION"
+    FAILED=1
+fi
+
+if [ "$CARGO_VERSION" != "$VERSION_FILE_CONTENT" ]; then
+    echo "ERROR: Version mismatch in VERSION file!"
+    echo "  Cargo.toml: $CARGO_VERSION"
+    echo "  VERSION: $VERSION_FILE_CONTENT"
+    FAILED=1
+fi
+
+if [ $FAILED -ne 0 ]; then
     exit 1
 fi
 
