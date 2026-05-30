@@ -218,8 +218,22 @@ fn test_swap_remove_integrity_complex() {
     // Verify doc3 postings point to new index 1
     let a = Arc::from("a");
     let d = Arc::from("d");
-    assert!(index.postings.get(&a).unwrap().iter().any(|&(idx, _)| idx == 1));
-    assert!(index.postings.get(&d).unwrap().iter().any(|&(idx, _)| idx == 1));
+    assert!(
+        index
+            .postings
+            .get(&a)
+            .unwrap()
+            .iter()
+            .any(|&(idx, _)| idx == 1)
+    );
+    assert!(
+        index
+            .postings
+            .get(&d)
+            .unwrap()
+            .iter()
+            .any(|&(idx, _)| idx == 1)
+    );
 
     // Search should still work for relocated doc3
     let results = index.search(&["d"], 10);
