@@ -51,12 +51,24 @@ fn test_remove_document() {
     let mut index = Bm25Index::new();
     index.add_document("doc1", &["hello", "world"]);
     index.add_document("doc2", &["hello", "rust"]);
+    index.add_document("doc3", &["hello", "python"]);
 
+    // Removing "doc1" triggers swap_remove, doc3 moves to index 0
     index.remove_document("doc1");
-    assert_eq!(index.len(), 1);
+    assert_eq!(index.len(), 2);
 
+    // Verify removed doc is gone
     let results = index.search(&["world"], 10);
     assert!(results.is_empty());
+
+    // Verify swapped doc is still findable (this catches the postings index update mutation)
+    let results = index.search(&["python"], 10);
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].0, "doc3");
+
+    // Verify common term still works for both
+    let results = index.search(&["hello"], 10);
+    assert_eq!(results.len(), 2);
 }
 
 #[test]
@@ -111,11 +123,11 @@ fn test_doc_length_normalization() {
 
     // Short document with term
     index.add_document("short", &["hello"]);
-    // Long document with same term repeated
+    // Long document with same term but more other words
     index.add_document(
         "long",
         &[
-            "hello", "hello", "hello", "hello", "hello", "other", "words", "here",
+            "hello", "other", "words", "here", "and", "even", "more", "words",
         ],
     );
 
@@ -123,6 +135,19 @@ fn test_doc_length_normalization() {
     // (BM25 normalizes by document length)
     let results = index.search(&["hello"], 10);
     assert_eq!(results.len(), 2);
+    assert_eq!(results[0].0, "short");
+}
+
+#[test]
+fn test_scoring_impact_tf() {
+    let mut index = Bm25Index::new();
+    // Same length docs
+    index.add_document("doc1", &["hello", "a", "b", "c"]);
+    index.add_document("doc2", &["hello", "hello", "a", "b"]);
+
+    let results = index.search(&["hello"], 10);
+    assert_eq!(results[0].0, "doc2");
+    assert!(results[0].1 > results[1].1);
 }
 
 #[test]
@@ -176,4 +201,18 @@ fn test_no_matching_terms() {
     let mut index = Bm25Index::new();
     index.add_document("doc1", &["hello", "world"]);
     assert!(index.search(&["rust"], 10).is_empty());
+}
+
+#[test]
+fn test_exact_score_calculation() {
+    let mut index = Bm25Index::new();
+    index.add_document("doc1", &["hello"]);
+
+    let results = index.search(&["hello"], 10);
+    assert_eq!(results.len(), 1);
+
+    // For N=1, df=1, tf=1, dl=avgdl:
+    // score = ln((N+1)/(df+0.5)) = ln(2/1.5)
+    let expected = (2.0f32 / 1.5f32).ln();
+    assert!((results[0].1 - expected).abs() < 1e-6);
 }
