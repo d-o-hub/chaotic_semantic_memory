@@ -226,18 +226,18 @@ fn test_internal_alignment() {
 
     assert_eq!(index.documents.len(), 3);
     assert_eq!(index.doc_lengths.len(), 3);
-    assert_eq!(index.doc_lengths[0], 2.0);
-    assert_eq!(index.doc_lengths[1], 3.0);
-    assert_eq!(index.doc_lengths[2], 1.0);
+    assert!((index.doc_lengths[0] - 2.0).abs() < f32::EPSILON);
+    assert!((index.doc_lengths[1] - 3.0).abs() < f32::EPSILON);
+    assert!((index.doc_lengths[2] - 1.0).abs() < f32::EPSILON);
 
     // Swap remove doc1 (index 0). doc3 (index 2) should move to index 0.
     index.remove_document("doc1");
     assert_eq!(index.documents.len(), 2);
     assert_eq!(index.doc_lengths.len(), 2);
     assert_eq!(index.documents[0].id, "doc3");
-    assert_eq!(index.doc_lengths[0], 1.0);
+    assert!((index.doc_lengths[0] - 1.0).abs() < f32::EPSILON);
     assert_eq!(index.documents[1].id, "doc2");
-    assert_eq!(index.doc_lengths[1], 3.0);
+    assert!((index.doc_lengths[1] - 3.0).abs() < f32::EPSILON);
 
     index.clear();
     assert!(index.doc_lengths.is_empty());
