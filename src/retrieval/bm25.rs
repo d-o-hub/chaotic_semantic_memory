@@ -63,6 +63,8 @@ pub struct Bm25Index {
     doc_freqs: HashMap<Arc<str>, u32>,
     /// Inverted index mapping terms to (document_index, term_frequency)
     postings: HashMap<Arc<str>, Vec<(usize, u32)>>,
+    /// Document lengths for fast access in scoring loop
+    doc_lengths: Vec<f32>,
     total_length: usize,
 }
 
@@ -130,6 +132,7 @@ impl Bm25Index {
                 .push((idx, tf));
         }
 
+        self.doc_lengths.push(length as f32);
         self.documents.push(doc);
     }
 
@@ -145,6 +148,7 @@ impl Bm25Index {
 
         // Use swap_remove - gives ownership of the document
         let doc = self.documents.swap_remove(idx);
+        self.doc_lengths.swap_remove(idx);
 
         // Update document frequencies and postings
         for term in doc.term_freqs.keys() {
@@ -240,7 +244,7 @@ impl Bm25Index {
             if let Some(entries) = self.postings.get(term) {
                 for &(doc_idx, tf) in entries {
                     let tf = tf as f32;
-                    let doc_len = self.documents[doc_idx].length as f32;
+                    let doc_len = self.doc_lengths[doc_idx];
                     let denominator = tf + c2.mul_add(doc_len, c1);
                     doc_scores[doc_idx] += (tf * weighted_idf) / denominator;
                 }
@@ -271,6 +275,7 @@ impl Bm25Index {
     /// Clear all documents from the index.
     pub fn clear(&mut self) {
         self.documents.clear();
+        self.doc_lengths.clear();
         self.doc_index.clear();
         self.doc_freqs.clear();
         self.postings.clear();
