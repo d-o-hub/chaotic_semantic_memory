@@ -31,9 +31,6 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-use rayon::prelude::*;
-
 /// Configuration for BM25 ranking algorithm.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Bm25Config {
@@ -64,6 +61,10 @@ pub struct Bm25Index {
     documents: Vec<Document>,
     doc_index: HashMap<String, usize>,
     doc_freqs: HashMap<Arc<str>, u32>,
+    /// Inverted index mapping terms to (document_index, term_frequency)
+    postings: HashMap<Arc<str>, Vec<(usize, u32)>>,
+    /// Document lengths for fast access in scoring loop
+    doc_lengths: Vec<f32>,
     total_length: usize,
 }
 
@@ -122,6 +123,16 @@ impl Bm25Index {
         self.total_length += length;
         let idx = self.documents.len();
         self.doc_index.insert(id.to_string(), idx);
+
+        // Update postings list
+        for (term, &tf) in &doc.term_freqs {
+            self.postings
+                .entry(Arc::clone(term))
+                .or_default()
+                .push((idx, tf));
+        }
+
+        self.doc_lengths.push(length as f32);
         self.documents.push(doc);
     }
 
@@ -133,13 +144,23 @@ impl Bm25Index {
     }
 
     fn remove_document_at(&mut self, idx: usize) {
+        let last_idx = self.documents.len() - 1;
+
         // Use swap_remove - gives ownership of the document
         let doc = self.documents.swap_remove(idx);
+        self.doc_lengths.swap_remove(idx);
 
-        // Update document frequencies
+        // Update document frequencies and postings
         for term in doc.term_freqs.keys() {
             if let Some(df) = self.doc_freqs.get_mut(term) {
                 *df = df.saturating_sub(1);
+            }
+
+            // Remove entry from postings for the removed document
+            if let Some(entries) = self.postings.get_mut(term) {
+                if let Some(p_idx) = entries.iter().position(|&(d_idx, _)| d_idx == idx) {
+                    entries.swap_remove(p_idx);
+                }
             }
         }
 
@@ -151,6 +172,15 @@ impl Bm25Index {
         if idx < self.documents.len() {
             let swapped_id = &self.documents[idx].id;
             self.doc_index.insert(swapped_id.clone(), idx);
+
+            // Update indices in postings list for the swapped document
+            for term in self.documents[idx].term_freqs.keys() {
+                if let Some(entries) = self.postings.get_mut(term) {
+                    if let Some(p_idx) = entries.iter().position(|&(d_idx, _)| d_idx == last_idx) {
+                        entries[p_idx].0 = idx;
+                    }
+                }
+            }
         }
     }
 
@@ -206,38 +236,25 @@ impl Bm25Index {
             return Vec::new();
         }
 
-        // Score each document - store index to avoid String clones (parallel when available)
-        #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        let mut scores: Vec<(usize, f32)> = self
-            .documents
-            .par_iter()
-            // Optimization: Increase Rayon task granularity to 1024 documents.
-            // Scoring is lightweight; larger chunks reduce task scheduling overhead.
-            .with_min_len(1024)
-            .enumerate()
-            .filter_map(|(idx, doc)| {
-                let score = self.score_document(doc, &query_weights, c1, c2);
-                if score > 0.0 {
-                    Some((idx, score))
-                } else {
-                    None
-                }
-            })
-            .collect();
+        // Optimization: Use inverted index for sub-linear search complexity O(Q * avg_df).
+        // Scores are accumulated in a dense array to maximize cache locality.
+        let mut doc_scores = vec![0.0f32; self.documents.len()];
 
-        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-        let mut scores: Vec<(usize, f32)> = self
-            .documents
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, doc)| {
-                let score = self.score_document(doc, &query_weights, c1, c2);
-                if score > 0.0 {
-                    Some((idx, score))
-                } else {
-                    None
+        for (term, weighted_idf) in query_weights {
+            if let Some(entries) = self.postings.get(term) {
+                for &(doc_idx, tf) in entries {
+                    let tf = tf as f32;
+                    let doc_len = self.doc_lengths[doc_idx];
+                    let denominator = tf + c2.mul_add(doc_len, c1);
+                    doc_scores[doc_idx] += (tf * weighted_idf) / denominator;
                 }
-            })
+            }
+        }
+
+        let mut scores: Vec<(usize, f32)> = doc_scores
+            .into_iter()
+            .enumerate()
+            .filter(|&(_, score)| score > 0.0)
             .collect();
 
         // Partial select keeps complexity near O(n) for large corpora
@@ -255,45 +272,13 @@ impl Bm25Index {
             .collect()
     }
 
-    fn score_document(
-        &self,
-        doc: &Document,
-        query_weights: &[(&str, f32)],
-        c1: f32,
-        c2: f32,
-    ) -> f32 {
-        let mut score = 0.0;
-        let doc_len = doc.length as f32;
-
-        // Hoist document-level constant from the inner query-term loop.
-        // Uses f32::mul_add for performance where supported.
-        let den_base = c2.mul_add(doc_len, c1);
-
-        for (term, weighted_idf) in query_weights {
-            // Skip terms not in document
-            let tf = match doc.term_freqs.get(*term) {
-                Some(&tf) => tf as f32,
-                None => continue,
-            };
-
-            // BM25 term score using pre-calculated constants:
-            // score = idf * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * doc_len / avgdl))
-            // denominator = tf + k1 * (1 - b) + (k1 * b / avgdl) * doc_len
-            // Optimized: score = (tf * weighted_idf) / (tf + den_base)
-            let numerator = tf * weighted_idf;
-            let denominator = tf + den_base;
-
-            score += numerator / denominator;
-        }
-
-        score
-    }
-
     /// Clear all documents from the index.
     pub fn clear(&mut self) {
         self.documents.clear();
+        self.doc_lengths.clear();
         self.doc_index.clear();
         self.doc_freqs.clear();
+        self.postings.clear();
         self.total_length = 0;
     }
 
