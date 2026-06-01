@@ -216,3 +216,29 @@ fn test_exact_score_calculation() {
     let expected = (2.0f32 / 1.5f32).ln();
     assert!((results[0].1 - expected).abs() < 1e-6);
 }
+
+#[test]
+fn test_internal_alignment() {
+    let mut index = Bm25Index::new();
+    index.add_document("doc1", &["a", "b"]);
+    index.add_document("doc2", &["a", "b", "c"]);
+    index.add_document("doc3", &["a"]);
+
+    assert_eq!(index.documents.len(), 3);
+    assert_eq!(index.doc_lengths.len(), 3);
+    assert!((index.doc_lengths[0] - 2.0).abs() < f32::EPSILON);
+    assert!((index.doc_lengths[1] - 3.0).abs() < f32::EPSILON);
+    assert!((index.doc_lengths[2] - 1.0).abs() < f32::EPSILON);
+
+    // Swap remove doc1 (index 0). doc3 (index 2) should move to index 0.
+    index.remove_document("doc1");
+    assert_eq!(index.documents.len(), 2);
+    assert_eq!(index.doc_lengths.len(), 2);
+    assert_eq!(index.documents[0].id, "doc3");
+    assert!((index.doc_lengths[0] - 1.0).abs() < f32::EPSILON);
+    assert_eq!(index.documents[1].id, "doc2");
+    assert!((index.doc_lengths[1] - 3.0).abs() < f32::EPSILON);
+
+    index.clear();
+    assert!(index.doc_lengths.is_empty());
+}
