@@ -271,6 +271,21 @@ fn test_cache_consistency() {
 }
 
 #[test]
+fn test_clone_preserves_state() {
+    let mut index = Bm25Index::new();
+    index.add_document("doc1", &["a"]);
+
+    let cloned = index.clone();
+    assert_eq!(cloned.len(), 1);
+    assert_eq!(cloned.search(&["a"], 10).len(), 1);
+
+    // Mutation on original doesn't affect clone
+    index.add_document("doc2", &["b"]);
+    assert_eq!(index.len(), 2);
+    assert_eq!(cloned.len(), 1);
+}
+
+#[test]
 fn test_scoring_math_general_case() {
     let mut index = Bm25Index::new();
     // doc1: "a" (tf=2), len=2
