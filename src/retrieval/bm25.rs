@@ -30,8 +30,6 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::sync::RwLock;
-use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
 /// Configuration for BM25 ranking algorithm.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -56,8 +54,8 @@ struct Document {
     length: usize,
 }
 
-#[derive(Debug)]
 /// BM25-based document index for keyword search.
+#[derive(Debug, Clone, Default)]
 pub struct Bm25Index {
     config: Bm25Config,
     documents: Vec<Document>,
@@ -65,59 +63,9 @@ pub struct Bm25Index {
     doc_freqs: HashMap<Arc<str>, u32>,
     /// Inverted index mapping terms to (document_index, term_frequency)
     postings: HashMap<Arc<str>, Vec<(usize, u32)>>,
-    /// Document terms (c2 * doc_len + c1) for fast scoring.
-    doc_term_bs: RwLock<Vec<f32>>,
-    /// Reciprocals (1.0 / (1.0 + b_val)) for the tf=1 fast path.
-    tf1_recips: RwLock<Vec<f32>>,
-    /// True when scoring factors are stale due to index mutations.
-    norm_cache_dirty: AtomicBool,
     /// Document lengths for fast access in scoring loop
     doc_lengths: Vec<f32>,
     total_length: usize,
-}
-
-impl Default for Bm25Index {
-    fn default() -> Self {
-        Self {
-            config: Bm25Config::default(),
-            documents: Vec::new(),
-            doc_index: HashMap::new(),
-            doc_freqs: HashMap::new(),
-            postings: HashMap::new(),
-            doc_term_bs: RwLock::new(Vec::new()),
-            tf1_recips: RwLock::new(Vec::new()),
-            norm_cache_dirty: AtomicBool::new(true),
-            doc_lengths: Vec::new(),
-            total_length: 0,
-        }
-    }
-}
-
-impl Clone for Bm25Index {
-    fn clone(&self) -> Self {
-        Self {
-            config: self.config,
-            documents: self.documents.clone(),
-            doc_index: self.doc_index.clone(),
-            doc_freqs: self.doc_freqs.clone(),
-            postings: self.postings.clone(),
-            doc_term_bs: RwLock::new(
-                self.doc_term_bs
-                    .read()
-                    .expect("Bm25Index doc_term_bs lock poisoned")
-                    .clone(),
-            ),
-            tf1_recips: RwLock::new(
-                self.tf1_recips
-                    .read()
-                    .expect("Bm25Index tf1_recips lock poisoned")
-                    .clone(),
-            ),
-            norm_cache_dirty: AtomicBool::new(self.norm_cache_dirty.load(AtomicOrdering::Acquire)),
-            doc_lengths: self.doc_lengths.clone(),
-            total_length: self.total_length,
-        }
-    }
 }
 
 impl Bm25Index {
@@ -186,7 +134,6 @@ impl Bm25Index {
 
         self.doc_lengths.push(length as f32);
         self.documents.push(doc);
-        self.norm_cache_dirty.store(true, AtomicOrdering::Release);
     }
 
     /// Remove a document from the index.
@@ -235,26 +182,25 @@ impl Bm25Index {
                 }
             }
         }
-        self.norm_cache_dirty.store(true, AtomicOrdering::Release);
     }
 
     /// Search for documents matching the query.
     ///
     /// Returns up to `top_k` results sorted by BM25 score (descending).
-    // SAFETY: The read guard must span the entire scoring loop to guarantee
-    // cache vector stability. Tightening the drop would require re-acquiring
-    // the lock mid-loop, which is both slower and semantically incorrect.
-    #[allow(clippy::significant_drop_tightening)]
     pub fn search<T: AsRef<str>>(&self, query_tokens: &[T], top_k: usize) -> Vec<(String, f32)> {
-        if top_k == 0 || query_tokens.is_empty() || self.is_empty() {
+        if self.documents.is_empty() || query_tokens.is_empty() || top_k == 0 {
             return Vec::new();
         }
 
-        let n = self.len() as f32;
+        let n = self.documents.len() as f32;
+        let avgdl = self.total_length as f32 / n;
 
         // Pre-calculate constants for scoring (hoisted out of loop)
         let k1 = self.config.k1;
+        let b = self.config.b;
         let k1_plus_1 = k1 + 1.0;
+        let c1 = k1 * (1.0 - b);
+        let c2 = k1 * b / avgdl;
 
         // Compute unique query terms and their weighted IDFs once
         let mut query_weights = Vec::with_capacity(query_tokens.len());
@@ -294,30 +240,13 @@ impl Bm25Index {
         // Scores are accumulated in a dense array to maximize cache locality.
         let mut doc_scores = vec![0.0f32; self.documents.len()];
 
-        self.ensure_norm_cache();
-        {
-            let doc_term_bs = self
-                .doc_term_bs
-                .read()
-                .expect("Bm25Index doc_term_bs lock poisoned");
-            let tf1_recips = self
-                .tf1_recips
-                .read()
-                .expect("Bm25Index tf1_recips lock poisoned");
-
-            for (term, weighted_idf) in query_weights {
-                if let Some(entries) = self.postings.get(term) {
-                    for &(doc_idx, tf) in entries {
-                        if tf == 1 {
-                            // Fast path for the most common case: single term frequency.
-                            // Replaces division and mul_add with a single multiplication.
-                            doc_scores[doc_idx] += weighted_idf * tf1_recips[doc_idx];
-                        } else {
-                            let tf = tf as f32;
-                            let denominator = tf + doc_term_bs[doc_idx];
-                            doc_scores[doc_idx] += (tf * weighted_idf) / denominator;
-                        }
-                    }
+        for (term, weighted_idf) in query_weights {
+            if let Some(entries) = self.postings.get(term) {
+                for &(doc_idx, tf) in entries {
+                    let tf = tf as f32;
+                    let doc_len = self.doc_lengths[doc_idx];
+                    let denominator = tf + c2.mul_add(doc_len, c1);
+                    doc_scores[doc_idx] += (tf * weighted_idf) / denominator;
                 }
             }
         }
@@ -351,7 +280,6 @@ impl Bm25Index {
         self.doc_freqs.clear();
         self.postings.clear();
         self.total_length = 0;
-        self.norm_cache_dirty.store(true, AtomicOrdering::Release);
     }
 
     /// Get the number of documents in the index.
@@ -364,50 +292,9 @@ impl Bm25Index {
         self.documents.is_empty()
     }
 
-    #[allow(clippy::significant_drop_tightening)]
-    fn ensure_norm_cache(&self) {
-        if !self.norm_cache_dirty.load(AtomicOrdering::Acquire) {
-            return;
-        }
-
-        if self.is_empty() {
-            self.norm_cache_dirty.store(false, AtomicOrdering::Release);
-            return;
-        }
-
-        let n = self.len() as f32;
-        let avgdl = self.total_length as f32 / n;
-        let k1 = self.config.k1;
-        let b = self.config.b;
-        let c1 = k1 * (1.0 - b);
-        let c2 = k1 * b / avgdl;
-
-        {
-            let mut bs = self
-                .doc_term_bs
-                .write()
-                .expect("Bm25Index doc_term_bs lock poisoned");
-            let mut recips = self
-                .tf1_recips
-                .write()
-                .expect("Bm25Index tf1_recips lock poisoned");
-
-            bs.clear();
-            recips.clear();
-
-            for &doc_len in &self.doc_lengths {
-                let b_val = c2.mul_add(doc_len, c1);
-                bs.push(b_val);
-                recips.push(1.0 / (1.0 + b_val));
-            }
-        }
-
-        self.norm_cache_dirty.store(false, AtomicOrdering::Release);
-    }
-
     /// Get the average document length.
     pub fn avg_doc_length(&self) -> f32 {
-        if self.is_empty() {
+        if self.documents.is_empty() {
             0.0
         } else {
             self.total_length as f32 / self.documents.len() as f32
