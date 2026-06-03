@@ -27,6 +27,7 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use serde::{Deserialize, Serialize};
+use std::cell::{Cell, RefCell};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -63,6 +64,12 @@ pub struct Bm25Index {
     doc_freqs: HashMap<Arc<str>, u32>,
     /// Inverted index mapping terms to (document_index, term_frequency)
     postings: HashMap<Arc<str>, Vec<(usize, u32)>>,
+    /// Document terms (c2 * doc_len + c1) for fast scoring.
+    doc_term_bs: RefCell<Vec<f32>>,
+    /// Reciprocals (1.0 / (1.0 + b_val)) for the tf=1 fast path.
+    tf1_recips: RefCell<Vec<f32>>,
+    /// True when scoring factors are stale due to index mutations.
+    norm_cache_dirty: Cell<bool>,
     /// Document lengths for fast access in scoring loop
     doc_lengths: Vec<f32>,
     total_length: usize,
@@ -134,6 +141,7 @@ impl Bm25Index {
 
         self.doc_lengths.push(length as f32);
         self.documents.push(doc);
+        self.norm_cache_dirty.set(true);
     }
 
     /// Remove a document from the index.
@@ -182,6 +190,7 @@ impl Bm25Index {
                 }
             }
         }
+        self.norm_cache_dirty.set(true);
     }
 
     /// Search for documents matching the query.
@@ -193,14 +202,10 @@ impl Bm25Index {
         }
 
         let n = self.documents.len() as f32;
-        let avgdl = self.total_length as f32 / n;
 
         // Pre-calculate constants for scoring (hoisted out of loop)
         let k1 = self.config.k1;
-        let b = self.config.b;
         let k1_plus_1 = k1 + 1.0;
-        let c1 = k1 * (1.0 - b);
-        let c2 = k1 * b / avgdl;
 
         // Compute unique query terms and their weighted IDFs once
         let mut query_weights = Vec::with_capacity(query_tokens.len());
@@ -240,13 +245,22 @@ impl Bm25Index {
         // Scores are accumulated in a dense array to maximize cache locality.
         let mut doc_scores = vec![0.0f32; self.documents.len()];
 
+        self.ensure_norm_cache();
+        let doc_term_bs = self.doc_term_bs.borrow();
+        let tf1_recips = self.tf1_recips.borrow();
+
         for (term, weighted_idf) in query_weights {
             if let Some(entries) = self.postings.get(term) {
                 for &(doc_idx, tf) in entries {
-                    let tf = tf as f32;
-                    let doc_len = self.doc_lengths[doc_idx];
-                    let denominator = tf + c2.mul_add(doc_len, c1);
-                    doc_scores[doc_idx] += (tf * weighted_idf) / denominator;
+                    if tf == 1 {
+                        // Fast path for the most common case: single term frequency.
+                        // Replaces division and mul_add with a single multiplication.
+                        doc_scores[doc_idx] += weighted_idf * tf1_recips[doc_idx];
+                    } else {
+                        let tf = tf as f32;
+                        let denominator = tf + doc_term_bs[doc_idx];
+                        doc_scores[doc_idx] += (tf * weighted_idf) / denominator;
+                    }
                 }
             }
         }
@@ -280,6 +294,7 @@ impl Bm25Index {
         self.doc_freqs.clear();
         self.postings.clear();
         self.total_length = 0;
+        self.norm_cache_dirty.set(true);
     }
 
     /// Get the number of documents in the index.
@@ -290,6 +305,35 @@ impl Bm25Index {
     /// Check if the index is empty.
     pub fn is_empty(&self) -> bool {
         self.documents.is_empty()
+    }
+
+    fn ensure_norm_cache(&self) {
+        if !self.norm_cache_dirty.get() {
+            return;
+        }
+
+        let n = self.documents.len() as f32;
+        if n > 0.0 {
+            let avgdl = self.total_length as f32 / n;
+            let k1 = self.config.k1;
+            let b = self.config.b;
+            let c1 = k1 * (1.0 - b);
+            let c2 = k1 * b / avgdl;
+
+            let mut bs = self.doc_term_bs.borrow_mut();
+            let mut recips = self.tf1_recips.borrow_mut();
+
+            bs.clear();
+            recips.clear();
+
+            for &doc_len in &self.doc_lengths {
+                let b_val = c2.mul_add(doc_len, c1);
+                bs.push(b_val);
+                recips.push(1.0 / (1.0 + b_val));
+            }
+        }
+
+        self.norm_cache_dirty.set(false);
     }
 
     /// Get the average document length.
