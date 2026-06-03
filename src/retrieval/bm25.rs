@@ -312,25 +312,28 @@ impl Bm25Index {
             return;
         }
 
+        if self.documents.is_empty() {
+            self.norm_cache_dirty.set(false);
+            return;
+        }
+
         let n = self.documents.len() as f32;
-        if n > 0.0 {
-            let avgdl = self.total_length as f32 / n;
-            let k1 = self.config.k1;
-            let b = self.config.b;
-            let c1 = k1 * (1.0 - b);
-            let c2 = k1 * b / avgdl;
+        let avgdl = self.total_length as f32 / n;
+        let k1 = self.config.k1;
+        let b = self.config.b;
+        let c1 = k1 * (1.0 - b);
+        let c2 = k1 * b / avgdl;
 
-            let mut bs = self.doc_term_bs.borrow_mut();
-            let mut recips = self.tf1_recips.borrow_mut();
+        let mut bs = self.doc_term_bs.borrow_mut();
+        let mut recips = self.tf1_recips.borrow_mut();
 
-            bs.clear();
-            recips.clear();
+        bs.clear();
+        recips.clear();
 
-            for &doc_len in &self.doc_lengths {
-                let b_val = c2.mul_add(doc_len, c1);
-                bs.push(b_val);
-                recips.push(1.0 / (1.0 + b_val));
-            }
+        for &doc_len in &self.doc_lengths {
+            let b_val = c2.mul_add(doc_len, c1);
+            bs.push(b_val);
+            recips.push(1.0 / (1.0 + b_val));
         }
 
         self.norm_cache_dirty.set(false);
