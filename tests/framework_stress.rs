@@ -62,14 +62,22 @@ async fn stress_test_high_concurrency_in_memory() {
     }
 
     let stats = framework.stats().await.unwrap();
-    println!("In-memory stress test complete. Final concept count: {}", stats.concept_count);
+    println!(
+        "In-memory stress test complete. Final concept count: {}",
+        stats.concept_count
+    );
 }
 
 #[cfg(feature = "persistence")]
 #[tokio::test]
 async fn stress_test_high_concurrency_with_persistence() {
     let temp_dir = tempfile::tempdir().unwrap();
-    let db_path = temp_dir.path().join("stress.db").to_str().unwrap().to_string();
+    let db_path = temp_dir
+        .path()
+        .join("stress.db")
+        .to_str()
+        .unwrap()
+        .to_string();
 
     let framework = Arc::new(
         ChaoticSemanticFramework::builder()
@@ -123,6 +131,8 @@ async fn stress_test_high_concurrency_with_persistence() {
     }
 
     let stats = framework.stats().await.unwrap();
-    println!("Persistence stress test complete. Final concept count: {}, DB size: {:?}",
-             stats.concept_count, stats.db_size_bytes);
+    println!(
+        "Persistence stress test complete. Final concept count: {}, DB size: {:?}",
+        stats.concept_count, stats.db_size_bytes
+    );
 }
