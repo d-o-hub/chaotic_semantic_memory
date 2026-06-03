@@ -379,7 +379,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/framework.rs
 
-- pub const MAX_IMPORT_SIZE
 - pub struct ChaoticSemanticFramework
 - impl ChaoticSemanticFramework
 

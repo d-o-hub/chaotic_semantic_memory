@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tracing::warn;
 
 use crate::ChaoticSemanticFramework;
 use crate::error::Result;
@@ -117,12 +118,28 @@ impl FrameworkBuilder {
         self
     }
 
-    pub const fn with_reservoir_size(mut self, size: usize) -> Self {
+    pub fn with_reservoir_size(mut self, mut size: usize) -> Self {
+        if size > crate::framework_validation::MAX_RESERVOIR_SIZE_LIMIT {
+            warn!(
+                "reservoir size {} exceeds limit {}, clamping",
+                size,
+                crate::framework_validation::MAX_RESERVOIR_SIZE_LIMIT
+            );
+            size = crate::framework_validation::MAX_RESERVOIR_SIZE_LIMIT;
+        }
         self.config.reservoir_size = size;
         self
     }
 
-    pub const fn with_reservoir_input_size(mut self, size: usize) -> Self {
+    pub fn with_reservoir_input_size(mut self, mut size: usize) -> Self {
+        if size > crate::framework_validation::MAX_RESERVOIR_SIZE_LIMIT {
+            warn!(
+                "reservoir input size {} exceeds limit {}, clamping",
+                size,
+                crate::framework_validation::MAX_RESERVOIR_SIZE_LIMIT
+            );
+            size = crate::framework_validation::MAX_RESERVOIR_SIZE_LIMIT;
+        }
         self.config.reservoir_input_size = size;
         self
     }
@@ -132,7 +149,15 @@ impl FrameworkBuilder {
         self
     }
 
-    pub const fn with_max_concepts(mut self, max_concepts: usize) -> Self {
+    pub fn with_max_concepts(mut self, mut max_concepts: usize) -> Self {
+        if max_concepts > crate::framework_validation::MAX_STORE_CAPACITY_LIMIT {
+            warn!(
+                "max concepts {} exceeds limit {}, clamping",
+                max_concepts,
+                crate::framework_validation::MAX_STORE_CAPACITY_LIMIT
+            );
+            max_concepts = crate::framework_validation::MAX_STORE_CAPACITY_LIMIT;
+        }
         self.config.max_concepts = Some(max_concepts);
         self
     }
@@ -143,7 +168,8 @@ impl FrameworkBuilder {
     }
 
     pub fn with_concept_cache_size(mut self, size: usize) -> Self {
-        self.concept_cache_size = size.max(1);
+        self.concept_cache_size =
+            size.clamp(1, crate::framework_validation::MAX_CONCEPT_CACHE_LIMIT);
         self
     }
 
@@ -152,32 +178,42 @@ impl FrameworkBuilder {
     /// Only available when the `persistence` feature is enabled.
     #[cfg(feature = "persistence")]
     pub fn with_connection_pool_size(mut self, pool_size: usize) -> Self {
-        self.config.connection_pool_size = pool_size.max(1);
+        self.config.connection_pool_size =
+            pool_size.clamp(1, crate::framework_validation::MAX_CONNECTION_POOL_LIMIT);
         self
     }
 
     pub fn with_max_probe_top_k(mut self, max_probe_top_k: usize) -> Self {
-        self.config.max_probe_top_k = max_probe_top_k.max(1);
+        self.config.max_probe_top_k =
+            max_probe_top_k.clamp(1, crate::framework_validation::MAX_TOP_K_LIMIT);
         self
     }
 
     pub const fn with_max_metadata_bytes(mut self, max_metadata_bytes: usize) -> Self {
-        self.config.max_metadata_bytes = Some(max_metadata_bytes);
+        let limit = crate::framework_validation::MAX_METADATA_BYTES_LIMIT;
+        self.config.max_metadata_bytes = Some(if max_metadata_bytes > limit {
+            limit
+        } else {
+            max_metadata_bytes
+        });
         self
     }
 
     pub fn with_max_cached_top_k(mut self, max_cached_top_k: usize) -> Self {
-        self.config.max_cached_top_k = max_cached_top_k.max(1);
+        self.config.max_cached_top_k =
+            max_cached_top_k.clamp(1, crate::framework_validation::MAX_TOP_K_LIMIT);
         self
     }
 
     pub fn with_max_batch_size(mut self, max_batch_size: usize) -> Self {
-        self.config.max_batch_size = max_batch_size.max(1);
+        self.config.max_batch_size =
+            max_batch_size.clamp(1, crate::framework_validation::MAX_BATCH_SIZE_LIMIT);
         self
     }
 
     pub fn with_max_sequence_length(mut self, max_sequence_length: usize) -> Self {
-        self.config.max_sequence_length = max_sequence_length.max(1);
+        self.config.max_sequence_length =
+            max_sequence_length.clamp(1, crate::framework_validation::MAX_SEQUENCE_LENGTH_LIMIT);
         self
     }
 
@@ -206,7 +242,8 @@ impl FrameworkBuilder {
     ///
     /// Values less than 1 are coerced to 1. Default is 10.
     pub fn with_version_retention(mut self, retention: usize) -> Self {
-        self.version_retention = retention.max(1);
+        self.version_retention =
+            retention.clamp(1, crate::framework_validation::MAX_VERSION_RETENTION_LIMIT);
         self
     }
 

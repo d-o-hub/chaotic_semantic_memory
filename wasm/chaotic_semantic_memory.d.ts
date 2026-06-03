@@ -69,7 +69,7 @@ export class WasmFramework {
      */
     get_concept(id: string): Promise<any>;
     /**
-     * Import state from bytes previously produced by `exportToBytes`.
+     * Import state from bytes previously produced by .
      */
     importFromBytes(data: Uint8Array, merge: boolean): Promise<number>;
     /**
