@@ -109,7 +109,7 @@ if [[ "${CI_MODE}" == "true" ]]; then
   fi
 
   if [[ "${SCORE}" == "0" ]]; then
-    if grep -q -E 'No mutants generated|Diff changes no' "${LOG_FILE}" 2>/dev/null; then
+    if grep -q -E 'No mutants generated|Diff changes no|No mutants to filter' "${LOG_FILE}" 2>/dev/null; then
       echo "mutation score: no Rust source files changed, CI check skipped"
     else
       echo "error: could not parse mutation score from ${LOG_FILE}" >&2
