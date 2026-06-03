@@ -23,11 +23,11 @@ jobs:
     env:
       PROTOC: /usr/bin/protoc
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v4
     - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7 # v1
+      uses: actions-rust-lang/setup-rust-toolchain@v1 # v1
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
+      uses: Swatinem/rust-cache@v2 # v2
     - name: Run tests
       run: cargo test --all-features --locked -- --quiet
 
@@ -36,13 +36,30 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v4
     - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7 # v1
+      uses: actions-rust-lang/setup-rust-toolchain@v1 # v1
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
+      uses: Swatinem/rust-cache@v2 # v2
     - name: Run DuckDB tests
       run: cargo test -p chaotic_semantic_memory_duckdb --locked -- --test-threads=1 --quiet
+
+  miri:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install Rust nightly
+      uses: actions-rust-lang/setup-rust-toolchain@v1 # v1
+      with:
+        toolchain: nightly
+        components: miri
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2 # v2
+    - name: Run Miri tests
+      run: cargo miri test --features ann-hnsw,persistence --lib
+      env:
+        MIRIFLAGS: "-Zmiri-disable-isolation"
 
   build-cli:
     name: Build CLI (${{ matrix.platform }}-${{ matrix.arch }})
@@ -74,15 +91,15 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v4
 
     - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7 # v1
+      uses: actions-rust-lang/setup-rust-toolchain@v1 # v1
       with:
         target: ${{ matrix.target }}
 
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
+      uses: Swatinem/rust-cache@v2 # v2
 
     - name: Install cross-compilation linker (Linux arm64)
       if: matrix.target == 'aarch64-unknown-linux-gnu'
@@ -100,13 +117,13 @@ jobs:
     env:
       PROTOC: /usr/bin/protoc
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v4
     - name: Install Protobuf Compiler
       run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
     - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7 # v1
+      uses: actions-rust-lang/setup-rust-toolchain@v1 # v1
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
+      uses: Swatinem/rust-cache@v2 # v2
     - name: Build MCP feature
       run: cargo build --features mcp --locked
     - name: Test MCP feature
@@ -117,13 +134,13 @@ jobs:
     timeout-minutes: 30
     needs: test
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
     - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7 # v1
+      uses: actions-rust-lang/setup-rust-toolchain@v1 # v1
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
+      uses: Swatinem/rust-cache@v2 # v2
     - name: Install cargo-mutants
       uses: taiki-e/install-action@e49978b799e49ff429d162b7a30601a569ab6538 # v2
       with:
@@ -138,13 +155,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v4
     - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7 # v1
+      uses: actions-rust-lang/setup-rust-toolchain@v1 # v1
       with:
         target: wasm32-unknown-unknown
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
+      uses: Swatinem/rust-cache@v2 # v2
     - name: Install wasm-pack
       run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
     - name: Build WASM
@@ -160,13 +177,13 @@ jobs:
     env:
       PROTOC: /usr/bin/protoc
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v4
     - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@2b1f5e9b395427c92ee4e3331786ca3c37afe2d7 # v1
+      uses: actions-rust-lang/setup-rust-toolchain@v1 # v1
       with:
         components: clippy, rustfmt
     - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
+      uses: Swatinem/rust-cache@v2 # v2
     - name: Format check
       run: cargo fmt --all -- --check
     - name: Clippy
