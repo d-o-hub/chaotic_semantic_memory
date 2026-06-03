@@ -242,3 +242,63 @@ fn test_internal_alignment() {
     index.clear();
     assert!(index.doc_lengths.is_empty());
 }
+
+#[test]
+fn test_cache_consistency() {
+    let mut index = Bm25Index::new();
+    index.add_document("doc1", &["hello"]);
+    index.add_document("doc2", &["hello", "hello"]);
+
+    // Initial search populates cache
+    let results = index.search(&["hello"], 10);
+    assert_eq!(results.len(), 2);
+    let score1_initial = results.iter().find(|(id, _)| id == "doc1").unwrap().1;
+
+    // Mutation invalidates cache
+    index.add_document("doc3", &["world"]);
+
+    // Second search recomputes cache
+    let results2 = index.search(&["hello"], 10);
+    let score1_after = results2.iter().find(|(id, _)| id == "doc1").unwrap().1;
+
+    // Scores should change because avgdl changed
+    assert!((score1_initial - score1_after).abs() > 1e-6);
+
+    // Identity check for cached search
+    let results3 = index.search(&["hello"], 10);
+    let score1_cached = results3.iter().find(|(id, _)| id == "doc1").unwrap().1;
+    assert!((score1_after - score1_cached).abs() < f32::EPSILON);
+}
+
+#[test]
+fn test_scoring_math_general_case() {
+    let mut index = Bm25Index::new();
+    // doc1: "a" (tf=2), len=2
+    index.add_document("doc1", &["a", "a"]);
+    // doc2: "a" (tf=1), len=1
+    index.add_document("doc2", &["a"]);
+
+    let results = index.search(&["a"], 10);
+    assert_eq!(results.len(), 2);
+
+    let n = 2.0f32;
+    let df = 2.0f32;
+    let avgdl = 1.5f32;
+    let k1 = 1.2f32;
+    let b = 0.75f32;
+
+    let idf = ((n + 1.0) / (df + 0.5)).ln();
+    let weighted_idf = idf * (k1 + 1.0);
+
+    // doc2: tf=1, len=1
+    let b_doc2 = k1 * (1.0 - b) + (k1 * b / avgdl) * 1.0;
+    let expected_doc2 = weighted_idf / (1.0 + b_doc2);
+    let score_doc2 = results.iter().find(|(id, _)| id == "doc2").unwrap().1;
+    assert!((score_doc2 - expected_doc2).abs() < 1e-6);
+
+    // doc1: tf=2, len=2
+    let b_doc1 = k1 * (1.0 - b) + (k1 * b / avgdl) * 2.0;
+    let expected_doc1 = (2.0 * weighted_idf) / (2.0 + b_doc1);
+    let score_doc1 = results.iter().find(|(id, _)| id == "doc1").unwrap().1;
+    assert!((score_doc1 - expected_doc1).abs() < 1e-6);
+}
