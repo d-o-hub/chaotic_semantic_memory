@@ -7,7 +7,8 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 
 pub(crate) use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
-pub(crate) use crate::framework::{ChaoticSemanticFramework, MAX_IMPORT_SIZE};
+pub(crate) use crate::framework::ChaoticSemanticFramework;
+pub(crate) use crate::framework_validation::MAX_IMPORT_SIZE;
 pub(crate) use crate::hyperdim::HVec10240;
 pub(crate) use crate::wasm_ext::{concept_to_js_value, to_js_error};
 
@@ -366,7 +367,7 @@ impl WasmFramework {
         Ok(Uint8Array::from(data.as_slice()))
     }
 
-    /// Import state from bytes previously produced by `exportToBytes`.
+    /// Import state from bytes previously produced by .
     #[wasm_bindgen(js_name = importFromBytes)]
     pub async fn import_from_bytes(&self, data: Uint8Array, merge: bool) -> Result<usize, JsValue> {
         let bytes = data.to_vec();
@@ -389,6 +390,7 @@ impl WasmFramework {
 
         if !merge {
             let mut singularity = self.framework.singularity.write().await;
+            let ns = self.framework.namespace().await;
             singularity.clear(&ns);
         }
 

@@ -21,9 +21,6 @@ use crate::singularity::{Concept, ConceptBuilder, Singularity, unix_now_secs};
 use js_sys::Date;
 
 /// Main framework for chaotic semantic memory
-/// Maximum allowed size for binary import (100MB)
-pub const MAX_IMPORT_SIZE: u64 = 100 * 1024 * 1024;
-
 pub struct ChaoticSemanticFramework {
     pub(crate) singularity: Arc<RwLock<Singularity>>,
     #[cfg(feature = "persistence")]
@@ -447,7 +444,7 @@ impl ChaoticSemanticFramework {
     /// Find the fewest-hop path between two concepts (unweighted BFS).
     ///
     /// Returns the path with the minimum number of hops, ignoring edge strengths.
-    /// Use [`Self::shortest_path`] for strength-weighted (Dijkstra) traversal.
+    /// Use [] for strength-weighted (Dijkstra) traversal.
     #[instrument(err, skip(self))]
     pub async fn shortest_path_hops(&self, from: &str, to: &str) -> Result<Option<Vec<String>>> {
         Self::validate_concept_id(from)?;
@@ -468,7 +465,7 @@ impl ChaoticSemanticFramework {
 
     /// Backward-compatible alias for replace semantics.
     ///
-    /// Delegates to [`load_replace`](Self::load_replace).
+    /// Delegates to [](Self::load_replace).
     pub async fn load(&self) -> Result<()> {
         self.load_replace().await
     }
