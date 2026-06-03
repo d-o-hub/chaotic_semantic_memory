@@ -58,7 +58,7 @@ jobs:
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2
     - name: Run Miri tests
-      run: cargo miri test -p chaotic_semantic_memory --features ann-hnsw --lib
+      run: cargo miri test -p chaotic_semantic_memory --no-default-features --features ann-hnsw --lib
       env:
         MIRIFLAGS: "-Zmiri-disable-isolation"
 
