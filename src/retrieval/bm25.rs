@@ -246,11 +246,11 @@ impl Bm25Index {
     // the lock mid-loop, which is both slower and semantically incorrect.
     #[allow(clippy::significant_drop_tightening)]
     pub fn search<T: AsRef<str>>(&self, query_tokens: &[T], top_k: usize) -> Vec<(String, f32)> {
-        if self.documents.is_empty() || query_tokens.is_empty() || top_k == 0 {
+        if self.is_empty() || query_tokens.is_empty() || top_k == 0 {
             return Vec::new();
         }
 
-        let n = self.documents.len() as f32;
+        let n = self.len() as f32;
 
         // Pre-calculate constants for scoring (hoisted out of loop)
         let k1 = self.config.k1;
@@ -370,12 +370,12 @@ impl Bm25Index {
             return;
         }
 
-        if self.documents.is_empty() {
+        if self.is_empty() {
             self.norm_cache_dirty.store(false, AtomicOrdering::Release);
             return;
         }
 
-        let n = self.documents.len() as f32;
+        let n = self.len() as f32;
         let avgdl = self.total_length as f32 / n;
         let k1 = self.config.k1;
         let b = self.config.b;
@@ -407,7 +407,7 @@ impl Bm25Index {
 
     /// Get the average document length.
     pub fn avg_doc_length(&self) -> f32 {
-        if self.documents.is_empty() {
+        if self.is_empty() {
             0.0
         } else {
             self.total_length as f32 / self.documents.len() as f32
