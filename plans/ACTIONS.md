@@ -3797,3 +3797,14 @@ actions:
       Add --ci mode to mutation_test.sh with threshold parsing (default 85%),
       add mutation-test job to ci.yml and pre-release-gate.yml that fails
       if score drops below threshold. Closes #300.
+  - name: fix_ci_node_deprecations_and_miri_timeout
+    preconditions:
+      - ci_node_20_deprecations_identified: true
+    effects:
+      - ci_node_deprecations_resolved: true
+      - miri_job_timeout_increased: true
+    cost: 2
+    status: complete
+    description: |
+      Upgraded GitHub Actions in ci.yml to Node 24 native versions and increased
+      Miri timeout to 60 minutes to resolve deprecation warnings and job cancellations.
