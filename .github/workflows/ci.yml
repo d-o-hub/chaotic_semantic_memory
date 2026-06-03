@@ -27,6 +27,8 @@ jobs:
     - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
+      with:
+        cache: false
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@23869a5bd66c73db3c0ac40331f3206eb23791dc # v2.9.1
     - name: Run tests
@@ -40,6 +42,8 @@ jobs:
     - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
+      with:
+        cache: false
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@23869a5bd66c73db3c0ac40331f3206eb23791dc # v2.9.1
     - name: Run DuckDB tests
@@ -55,6 +59,7 @@ jobs:
     - name: Install Rust nightly
       uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
       with:
+        cache: false
         toolchain: nightly
         components: miri
     - name: Cache Rust dependencies
@@ -99,6 +104,7 @@ jobs:
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
       with:
+        cache: false
         target: ${{ matrix.target }}
 
     - name: Cache Rust dependencies
@@ -125,6 +131,8 @@ jobs:
       run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
+      with:
+        cache: false
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@23869a5bd66c73db3c0ac40331f3206eb23791dc # v2.9.1
     - name: Build MCP feature
@@ -142,6 +150,8 @@ jobs:
         fetch-depth: 0
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
+      with:
+        cache: false
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@23869a5bd66c73db3c0ac40331f3206eb23791dc # v2.9.1
     - name: Install cargo-mutants
@@ -162,6 +172,7 @@ jobs:
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
       with:
+        cache: false
         target: wasm32-unknown-unknown
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@23869a5bd66c73db3c0ac40331f3206eb23791dc # v2.9.1
@@ -184,6 +195,7 @@ jobs:
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
       with:
+        cache: false
         components: clippy, rustfmt
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@23869a5bd66c73db3c0ac40331f3206eb23791dc # v2.9.1

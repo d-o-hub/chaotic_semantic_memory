@@ -62,6 +62,8 @@ jobs:
 
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
+      with:
+        cache: false
 
     - name: Install cargo-audit
       run: cargo install cargo-audit
@@ -81,6 +83,7 @@ jobs:
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
       with:
+        cache: false
         target: wasm32-unknown-unknown
 
     - name: WASM smoke build
@@ -109,6 +112,8 @@ jobs:
 
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
+      with:
+        cache: false
 
     - name: Install cargo-mutants
       uses: taiki-e/install-action@25435dc8dd3baed7417e0c96d3fe89013a5b2e09 # v2.81.3

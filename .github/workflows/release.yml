@@ -92,6 +92,7 @@ jobs:
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
       with:
+        cache: false
         toolchain: stable
 
     - name: Extract version from Cargo.toml
@@ -268,6 +269,7 @@ jobs:
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
       with:
+        cache: false
         toolchain: stable
         target: ${{ matrix.target }}
 
@@ -321,6 +323,7 @@ jobs:
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
       with:
+        cache: false
         toolchain: stable
 
     - name: Install WASM target
@@ -354,6 +357,7 @@ jobs:
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
       with:
+        cache: false
         toolchain: stable
 
     - name: Check if version already published to crates.io
@@ -473,6 +477,7 @@ jobs:
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
       with:
+        cache: false
         toolchain: stable
         target: wasm32-unknown-unknown
 
