@@ -24,7 +24,7 @@ anyhow = "1.0.102"
 sha2 = "0.10.9"
 rand = "0.10.1"
 rand_chacha = "0.10.0"
-uuid = { version = "1.23.1", features = ["v4", "serde"] }
+uuid = { version = "1.23.2", features = ["v4", "serde"] }
 tempfile = "3.16.0"
 base64 = "0.22.1"
 
