@@ -246,7 +246,7 @@ impl Bm25Index {
     // the lock mid-loop, which is both slower and semantically incorrect.
     #[allow(clippy::significant_drop_tightening)]
     pub fn search<T: AsRef<str>>(&self, query_tokens: &[T], top_k: usize) -> Vec<(String, f32)> {
-        if self.is_empty() || query_tokens.is_empty() || top_k == 0 {
+        if top_k == 0 || query_tokens.is_empty() || self.is_empty() {
             return Vec::new();
         }
 

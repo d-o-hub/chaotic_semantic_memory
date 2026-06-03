@@ -317,3 +317,17 @@ fn test_scoring_math_general_case() {
     let score_doc1 = results.iter().find(|(id, _)| id == "doc1").unwrap().1;
     assert!((score_doc1 - expected_doc1).abs() < 1e-6);
 }
+
+#[test]
+fn test_search_mutant_prevention() {
+    let mut index = Bm25Index::new();
+    index.add_document("doc1", &["a"]);
+
+    // query_tokens is empty but index is NOT empty, top_k > 0
+    // If || was replaced with &&, this would NOT return empty
+    assert!(index.search::<&str>(&[], 10).is_empty());
+
+    // index is empty but query_tokens is NOT empty, top_k > 0
+    let index_empty = Bm25Index::new();
+    assert!(index_empty.search(&["a"], 10).is_empty());
+}
