@@ -61,3 +61,8 @@
 - **CLI table name prefix**: The persistence layer uses `csm_`-prefixed table names (`csm_concepts`, `csm_associations`, `csm_schema_version`). Direct SQL access must account for this prefix.
 - **No native archive command**: The CLI has `delete` but no `archive`. Archive is handled via marker concepts with metadata `{"status":"archived","target":"<id>"}`. If archive becomes a common workflow, consider adding a native `csm archive <id>` command.
 - **Export/import roundtrip fidelity**: JSON export preserves metadata, vector data, and associations. Import into a fresh DB produces identical probe results (same similarity scores), confirming no precision loss in serialization.
+
+### CI/CD Maintenance
+- **Node 20 Deprecation**: GitHub Actions using Node 20 runtime can be resolved by upgrading to versions that natively support Node 24 (e.g., `actions/checkout@v5`, `Swatinem/rust-cache@v2.9.1`).
+- **Miri Job Reliability**: Miri tests are significantly slower than standard tests. For a suite of ~220 tests, a 30-minute timeout is often insufficient, and 60 minutes is a safer baseline for initial reliability.
+- **Action Pinning**: Use `git ls-remote --tags <url>` to find the exact SHA for a specific version tag to ensure security and reproducible CI environments.
