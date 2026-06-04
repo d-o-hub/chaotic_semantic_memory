@@ -448,16 +448,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/framework_validation.rs
 
-- pub const MAX_TOP_K_LIMIT
-- pub const MAX_BATCH_SIZE_LIMIT
-- pub const MAX_SEQUENCE_LENGTH_LIMIT
-- pub const MAX_METADATA_BYTES_LIMIT
-- pub const MAX_CONCEPT_CACHE_LIMIT
-- pub const MAX_VERSION_RETENTION_LIMIT
-- pub const MAX_CONNECTION_POOL_LIMIT
-- pub const MAX_IMPORT_SIZE
-- pub const MAX_RESERVOIR_SIZE_LIMIT
-- pub const MAX_STORE_CAPACITY_LIMIT
 - impl ChaoticSemanticFramework
 
 ### src/graph_traversal.rs
@@ -667,8 +657,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct Bm25Config
 - impl Default for Bm25Config
 - pub struct Bm25Index
-- impl Default for Bm25Index
-- impl Clone for Bm25Index
 - impl Bm25Index
 
 ### src/retrieval/graph_rag.rs
@@ -3396,70 +3384,6 @@ impl crate::framework::ChaoticSemanticFramework {
 
 ## src/framework_validation.rs
 
-### MAX_BATCH_SIZE_LIMIT
-
-```rust
-pub const MAX_BATCH_SIZE_LIMIT: usize
-```
-
-### MAX_CONCEPT_CACHE_LIMIT
-
-```rust
-pub const MAX_CONCEPT_CACHE_LIMIT: usize
-```
-
-### MAX_CONNECTION_POOL_LIMIT
-
-```rust
-pub const MAX_CONNECTION_POOL_LIMIT: usize
-```
-
-### MAX_IMPORT_SIZE
-
-```rust
-pub const MAX_IMPORT_SIZE: u64
-```
-
-### MAX_METADATA_BYTES_LIMIT
-
-```rust
-pub const MAX_METADATA_BYTES_LIMIT: usize
-```
-
-### MAX_RESERVOIR_SIZE_LIMIT
-
-```rust
-pub const MAX_RESERVOIR_SIZE_LIMIT: usize
-```
-
-Limits for critical memory-allocating components
-
-### MAX_SEQUENCE_LENGTH_LIMIT
-
-```rust
-pub const MAX_SEQUENCE_LENGTH_LIMIT: usize
-```
-
-### MAX_STORE_CAPACITY_LIMIT
-
-```rust
-pub const MAX_STORE_CAPACITY_LIMIT: usize
-```
-
-### MAX_TOP_K_LIMIT
-
-```rust
-pub const MAX_TOP_K_LIMIT: usize
-```
-
-Hard security limits for framework parameters to prevent resource exhaustion (CWE-770).
-
-### MAX_VERSION_RETENTION_LIMIT
-
-```rust
-pub const MAX_VERSION_RETENTION_LIMIT: usize
-```
-
 ### impl ChaoticSemanticFramework
 
 ```rust
@@ -4444,7 +4368,7 @@ Configuration for BM25 ranking algorithm.
 ### Bm25Index
 
 ```rust
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct Bm25Index {
 }
 ```
@@ -4467,24 +4391,10 @@ impl Bm25Index {
 }
 ```
 
-### impl Clone for Bm25Index
-
-```rust
-impl Clone for Bm25Index {
-}
-```
-
 ### impl Default for Bm25Config
 
 ```rust
 impl Default for Bm25Config {
-}
-```
-
-### impl Default for Bm25Index
-
-```rust
-impl Default for Bm25Index {
 }
 ```
 

@@ -3808,19 +3808,3 @@ actions:
     description: |
       Upgraded GitHub Actions in ci.yml to Node 24 native versions and increased
       Miri timeout to 60 minutes to resolve deprecation warnings and job cancellations.
-
-  # ─────────────────────────────────────────────────────────
-  # CI Security Policy Alignment (2026-05-21)
-  # ─────────────────────────────────────────────────────────
-
-  - name: pin_github_actions_to_sha
-    preconditions:
-      - release_v0_3_6: true
-    effects:
-      - actions_pinned_to_sha: true
-    cost: 2
-    status: complete
-    description: |
-      Pinned all GitHub Actions across all workflow files to full-length commit SHAs
-      to comply with repository security policy. Updated version comments for
-      maintainability. Verified with scripts/validate-github-actions-shas.sh.
