@@ -296,6 +296,10 @@ impl TextEncoder {
     ///
     /// Generates n-grams, encodes each, and bundles them together.
     fn encode_ngrams(&self, text: &str, n: usize) -> HVec10240 {
+        if n == 0 {
+            return HVec10240::zero();
+        }
+
         // Performance Optimization: Collect only offsets to save memory and use
         // standard windows() for fast iteration.
         let mut offsets: Vec<usize> = text.char_indices().map(|(i, _)| i).collect();
@@ -380,6 +384,14 @@ mod tests {
         // N-gram encoding should produce a non-zero vector
         let zero = HVec10240::zero();
         assert!(v.hamming_distance(&zero) > 0);
+
+        // Case where string length == n
+        let v2 = encoder.encode_with_ngrams("abc", 3);
+        assert!(v2.hamming_distance(&zero) > 0);
+
+        // Case where string length < n
+        let v3 = encoder.encode_with_ngrams("abc", 4);
+        assert_eq!(v3, zero);
     }
 
     #[test]
