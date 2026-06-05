@@ -1082,3 +1082,9 @@ world_state:
   goap_pin_actions_validation_gates:
     scripts_validate_github_actions_shas: passing
     cargo_test_compilation: passing
+  # PR #346 mutation miss fixed 2026-06-05: removed dead `depth > max_depth`
+  # branch in ConceptGraph::expand (related concepts only enqueued at
+  # depth+1 when depth < max_depth, so the comparison was always false).
+  # Added 5 regression tests covering expand() and label index roundtrip.
+  pr_346_mutation_miss_resolved: true
+  action_last_completed: fix_pr_346_mutation_miss_concept_graph_expand

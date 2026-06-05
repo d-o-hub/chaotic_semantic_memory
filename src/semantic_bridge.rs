@@ -187,12 +187,12 @@ impl ConceptGraph {
     /// Add a concept to the graph, indexing all labels.
     pub fn add_concept(&mut self, concept: CanonicalConcept) {
         let id = concept.id.clone();
-        let labels: Vec<String> = concept.labels.iter().map(|l| l.to_lowercase()).collect();
 
         // Index labels
-        for label in &labels {
+        for label in &concept.labels {
+            // Algorithmic Optimization: Avoid intermediate vector allocation and lowercase directly
             self.label_index
-                .entry(label.clone())
+                .entry(label.to_lowercase())
                 .or_default()
                 .push(id.clone());
         }
@@ -205,10 +205,15 @@ impl ConceptGraph {
         let concept = self.concepts.remove(id)?;
         // Clean up label index
         for label in &concept.labels {
-            if let Some(ids) = self.label_index.get_mut(&label.to_lowercase()) {
+            // Algorithmic Optimization: Avoid double lookup by reusing the entry
+            let lowered = label.to_lowercase();
+            if let std::collections::hash_map::Entry::Occupied(mut entry) =
+                self.label_index.entry(lowered)
+            {
+                let ids = entry.get_mut();
                 ids.retain(|i| i != id);
                 if ids.is_empty() {
-                    self.label_index.remove(&label.to_lowercase());
+                    entry.remove();
                 }
             }
         }
@@ -224,8 +229,17 @@ impl ConceptGraph {
     pub fn match_tokens(&self, tokens: &[String]) -> Vec<String> {
         let mut matched = std::collections::HashSet::new();
         for token in tokens {
-            if let Some(ids) = self.label_index.get(&token.to_lowercase()) {
-                matched.extend(ids.clone());
+            // Algorithmic Optimization: Avoid allocation if token is already present (likely lowercase)
+            if let Some(ids) = self.label_index.get(token) {
+                matched.extend(ids.iter().cloned());
+            } else {
+                // If not found, attempt case-insensitive lookup
+                let lowered = token.to_lowercase();
+                if &lowered != token {
+                    if let Some(ids) = self.label_index.get(&lowered) {
+                        matched.extend(ids.iter().cloned());
+                    }
+                }
             }
         }
         matched.into_iter().collect()
@@ -239,10 +253,13 @@ impl ConceptGraph {
         let mut visited = std::collections::HashSet::new();
 
         while let Some((id, depth)) = to_visit.pop() {
-            if visited.contains(&id) || depth > max_depth {
+            // Algorithmic Optimization: Use insert() result to combine check and mark in one lookup.
+            // The `depth > max_depth` branch is unreachable: related concepts are only
+            // enqueued at `depth + 1` when `depth < max_depth`, so every queued depth
+            // satisfies `depth <= max_depth`.
+            if !visited.insert(id.clone()) {
                 continue;
             }
-            visited.insert(id.clone());
 
             if let Some(concept) = self.concepts.get(&id) {
                 // Add all labels
