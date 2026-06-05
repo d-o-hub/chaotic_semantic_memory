@@ -448,6 +448,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/framework_validation.rs
 
+- pub const MAX_NAMESPACE_BYTES
 - pub const MAX_TOP_K_LIMIT
 - pub const MAX_BATCH_SIZE_LIMIT
 - pub const MAX_SEQUENCE_LENGTH_LIMIT
@@ -3085,7 +3086,7 @@ impl Default for FrameworkConfig {
 ```rust
 impl FrameworkBuilder {
     pub fn new() -> Self;
-    pub fn with_namespace(self, ns: impl Trait) -> Result<Self>;
+    pub fn with_namespace(self, ns: impl Trait) -> Self;
     pub fn with_reservoir_size(self, size: usize) -> Self;
     pub fn with_reservoir_input_size(self, size: usize) -> Self;
     pub fn with_chaos_strength(self, strength: f32) -> Self;
@@ -3424,6 +3425,12 @@ pub const MAX_IMPORT_SIZE: u64
 
 ```rust
 pub const MAX_METADATA_BYTES_LIMIT: usize
+```
+
+### MAX_NAMESPACE_BYTES
+
+```rust
+pub const MAX_NAMESPACE_BYTES: usize
 ```
 
 ### MAX_RESERVOIR_SIZE_LIMIT

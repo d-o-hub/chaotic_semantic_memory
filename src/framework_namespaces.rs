@@ -256,11 +256,17 @@ mod tests {
 
         // Should return 2
         let count = fw.delete_namespace("delete-test").await.unwrap();
-        assert_eq!(count, 2, "delete_namespace should return the number of deleted concepts");
+        assert_eq!(
+            count, 2,
+            "delete_namespace should return the number of deleted concepts"
+        );
 
         // Verify it's actually gone from list_namespaces
         let namespaces = fw.list_namespaces().await.unwrap();
-        assert!(!namespaces.contains(&"delete-test".to_string()), "namespace should be removed from list");
+        assert!(
+            !namespaces.contains(&"delete-test".to_string()),
+            "namespace should be removed from list"
+        );
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -277,7 +283,10 @@ mod tests {
 
         assert!(path.exists(), "export file should exist");
         let content = std::fs::read_to_string(&path).unwrap();
-        assert!(content.contains("c1"), "export file should contain concept id");
+        assert!(
+            content.contains("c1"),
+            "export file should contain concept id"
+        );
         assert!(content.len() > 100, "export file should not be empty");
     }
 

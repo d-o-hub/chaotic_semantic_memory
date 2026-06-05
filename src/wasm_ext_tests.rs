@@ -209,7 +209,6 @@ mod tests {
         assert!(to_js_error_test("test error"));
     }
 
-
     #[tokio::test]
     async fn wasm_namespace_switching_isolates_concepts() {
         let framework = FrameworkBuilder::new()
