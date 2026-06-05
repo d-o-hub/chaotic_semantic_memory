@@ -209,6 +209,7 @@ mod tests {
         assert!(to_js_error_test("test error"));
     }
 
+
     #[tokio::test]
     async fn wasm_namespace_switching_isolates_concepts() {
         let framework = FrameworkBuilder::new()
@@ -248,6 +249,24 @@ mod tests {
         let results = framework.probe(HVec10240::random(), 10).await.unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].0, "default-concept");
+    }
+
+    #[tokio::test]
+    async fn test_wasm_namespace_ops_defend_mutation() {
+        // Use the native framework directly to test the same logic WasmFramework uses
+        let framework = FrameworkBuilder::new()
+            .without_persistence()
+            .build()
+            .await
+            .unwrap();
+
+        assert_eq!(framework.namespace().await, "_default");
+        framework.set_namespace("new-ns").await.unwrap();
+        assert_eq!(framework.namespace().await, "new-ns");
+
+        // Verify validation rejects empty and keeps previous
+        assert!(framework.set_namespace("").await.is_err());
+        assert_eq!(framework.namespace().await, "new-ns");
     }
 
     fn native_enc(t: &str) -> Box<[u8]> {
