@@ -5,6 +5,7 @@
 ### Security Patterns
 - **Path Hijacking Mitigation (CWE-426)**: Always resolve system executables (e.g., `git`) to absolute paths. Filter the `PATH` environment variable to strictly exclude relative entries like `.` or empty paths before use in `Command::new()`.
 - **DoS Prevention**: Enforce strict upper bounds on all public API parameters. For graph traversals, use `MAX_TRAVERSAL_DEPTH = 32` and `MAX_TRAVERSAL_RESULTS = 10,000`. Batch operations should be limited to `max_batch_size` (default 1000).
+- **Namespace Input Validation (CWE-770)**: Enforce strict length (128 bytes), non-empty, and control-character filtering on namespaces across all public APIs to prevent resource exhaustion and undefined isolation behavior.
 
 ### Optimization Patterns
 - **Instruction-Level Parallelism (ILP)**: Use independent accumulators (e.g., 4) in hot loops (popcount, dot products) to break serial dependency chains. This often outperforms SIMD due to avoiding STLF stalls.

@@ -7,8 +7,8 @@ use crate::metadata_filter::{MAX_FILTER_DEPTH, MetadataFilter};
 use crate::singularity::Concept;
 use crate::singularity_retrieval::RetrievalConfig;
 
+pub const MAX_NAMESPACE_BYTES: usize = 128;
 const MAX_CONCEPT_ID_BYTES: usize = 256;
-pub(crate) const MAX_NAMESPACE_BYTES: usize = 128;
 const MAX_BUCKET_PROBE_WIDTH: usize = 16;
 const MAX_TRAVERSAL_DEPTH: usize = 32;
 const MAX_TRAVERSAL_RESULTS: usize = 10_000;
@@ -102,32 +102,6 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
-    pub(crate) fn validate_concept_id(id: &str) -> Result<()> {
-        if id.is_empty() {
-            return Err(MemoryError::InvalidInput {
-                field: "id".to_string(),
-                reason: "concept ID must not be empty".to_string(),
-            });
-        }
-        if id.len() > MAX_CONCEPT_ID_BYTES {
-            return Err(MemoryError::InvalidInput {
-                field: "id".to_string(),
-                reason: format!(
-                    "concept ID exceeds {} bytes (got {})",
-                    MAX_CONCEPT_ID_BYTES,
-                    id.len()
-                ),
-            });
-        }
-        if id.chars().any(|c| c.is_control()) {
-            return Err(MemoryError::InvalidInput {
-                field: "id".to_string(),
-                reason: "concept ID must not contain control characters".to_string(),
-            });
-        }
-        Ok(())
-    }
-
     pub(crate) fn validate_namespace(ns: &str) -> Result<()> {
         if ns.is_empty() {
             return Err(MemoryError::InvalidInput {
@@ -149,6 +123,32 @@ impl ChaoticSemanticFramework {
             return Err(MemoryError::InvalidInput {
                 field: "namespace".to_string(),
                 reason: "namespace must not contain control characters".to_string(),
+            });
+        }
+        Ok(())
+    }
+
+    pub(crate) fn validate_concept_id(id: &str) -> Result<()> {
+        if id.is_empty() {
+            return Err(MemoryError::InvalidInput {
+                field: "id".to_string(),
+                reason: "concept ID must not be empty".to_string(),
+            });
+        }
+        if id.len() > MAX_CONCEPT_ID_BYTES {
+            return Err(MemoryError::InvalidInput {
+                field: "id".to_string(),
+                reason: format!(
+                    "concept ID exceeds {} bytes (got {})",
+                    MAX_CONCEPT_ID_BYTES,
+                    id.len()
+                ),
+            });
+        }
+        if id.chars().any(|c| c.is_control()) {
+            return Err(MemoryError::InvalidInput {
+                field: "id".to_string(),
+                reason: "concept ID must not contain control characters".to_string(),
             });
         }
         Ok(())
@@ -314,6 +314,26 @@ mod tests {
     }
 
     #[test]
+    fn test_validate_namespace_empty() {
+        assert!(ChaoticSemanticFramework::validate_namespace("").is_err());
+    }
+
+    #[test]
+    fn test_validate_namespace_too_long() {
+        let long = "a".repeat(129);
+        assert!(ChaoticSemanticFramework::validate_namespace(&long).is_err());
+        let edge = "a".repeat(128);
+        assert!(ChaoticSemanticFramework::validate_namespace(&edge).is_ok());
+    }
+
+    #[test]
+    fn test_validate_namespace_control_chars() {
+        assert!(ChaoticSemanticFramework::validate_namespace("ns\0x").is_err());
+        assert!(ChaoticSemanticFramework::validate_namespace("ns\n").is_err());
+        assert!(ChaoticSemanticFramework::validate_namespace("valid-namespace_01").is_ok());
+    }
+
+    #[test]
     fn test_validate_retrieval_config_bucket_width() {
         let config = RetrievalConfig {
             bucket_probe_width: 16,
@@ -342,24 +362,5 @@ mod tests {
     #[test]
     fn path_relative_ok() {
         assert!(validate_path("test.json").is_ok());
-    }
-
-    #[test]
-    fn test_validate_namespace_empty() {
-        assert!(ChaoticSemanticFramework::validate_namespace("").is_err());
-    }
-
-    #[test]
-    fn test_validate_namespace_too_long() {
-        let long = "a".repeat(129);
-        assert!(ChaoticSemanticFramework::validate_namespace(&long).is_err());
-        let edge = "a".repeat(128);
-        assert!(ChaoticSemanticFramework::validate_namespace(&edge).is_ok());
-    }
-
-    #[test]
-    fn test_validate_namespace_control_chars() {
-        assert!(ChaoticSemanticFramework::validate_namespace("ns\x00evil").is_err());
-        assert!(ChaoticSemanticFramework::validate_namespace("valid-ns_1").is_ok());
     }
 }

@@ -448,6 +448,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/framework_validation.rs
 
+- pub const MAX_NAMESPACE_BYTES
 - pub const MAX_TOP_K_LIMIT
 - pub const MAX_BATCH_SIZE_LIMIT
 - pub const MAX_SEQUENCE_LENGTH_LIMIT

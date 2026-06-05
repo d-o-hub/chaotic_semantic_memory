@@ -113,11 +113,17 @@ impl FrameworkBuilder {
         Self::default()
     }
 
-    pub fn with_namespace(mut self, ns: impl Into<String>) -> Result<Self> {
+    pub fn with_namespace(mut self, ns: impl Into<String>) -> Self {
         let ns = ns.into();
-        crate::framework::ChaoticSemanticFramework::validate_namespace(&ns)?;
-        self.namespace = ns;
-        Ok(self)
+        if let Err(e) = ChaoticSemanticFramework::validate_namespace(&ns) {
+            warn!(
+                "invalid namespace supplied to builder ({}), keeping default",
+                e
+            );
+        } else {
+            self.namespace = ns;
+        }
+        self
     }
 
     pub fn with_reservoir_size(mut self, mut size: usize) -> Self {

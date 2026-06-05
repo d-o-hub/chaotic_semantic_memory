@@ -170,6 +170,18 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_set_namespace_updates_state() {
+        let fw = empty_framework().await;
+        assert_eq!(fw.namespace().await, "_default");
+        fw.set_namespace("new-ns").await.unwrap();
+        assert_eq!(fw.namespace().await, "new-ns");
+
+        // Verify validation works and preserves state on error
+        assert!(fw.set_namespace("").await.is_err());
+        assert_eq!(fw.namespace().await, "new-ns");
+    }
+
+    #[tokio::test]
     async fn test_export_namespace_to_bytes_serializes_concepts() {
         let fw = empty_framework().await;
         fw.set_namespace("test-ns").await.unwrap();
@@ -233,6 +245,49 @@ mod tests {
         let bin_payload: BinaryExportPayload =
             bincode::deserialize(&bytes).expect("should deserialize bincode payload");
         assert!(bin_payload.concepts.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_delete_namespace_returns_correct_count() {
+        let fw = empty_framework().await;
+        fw.set_namespace("delete-test").await.unwrap();
+        fw.inject_concept("c1", HVec10240::random()).await.unwrap();
+        fw.inject_concept("c2", HVec10240::random()).await.unwrap();
+
+        // Should return 2
+        let count = fw.delete_namespace("delete-test").await.unwrap();
+        assert_eq!(
+            count, 2,
+            "delete_namespace should return the number of deleted concepts"
+        );
+
+        // Verify it's actually gone from list_namespaces
+        let namespaces = fw.list_namespaces().await.unwrap();
+        assert!(
+            !namespaces.contains(&"delete-test".to_string()),
+            "namespace should be removed from list"
+        );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[tokio::test]
+    async fn test_export_namespace_writes_file() {
+        let fw = empty_framework().await;
+        fw.set_namespace("export-test").await.unwrap();
+        fw.inject_concept("c1", HVec10240::random()).await.unwrap();
+
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("export.json");
+
+        fw.export_namespace("export-test", &path).await.unwrap();
+
+        assert!(path.exists(), "export file should exist");
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(
+            content.contains("c1"),
+            "export file should contain concept id"
+        );
+        assert!(content.len() > 100, "export file should not be empty");
     }
 
     #[tokio::test]
