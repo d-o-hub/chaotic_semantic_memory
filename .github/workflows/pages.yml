@@ -24,18 +24,19 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
     - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@46268bd060767258de96ed93c1251119784f2ab6 # v1.16.1
+      uses: actions-rust-lang/setup-rust-toolchain@150fca883cd4034361b621bd4e6a9d34e5143606 # v1.15.4
       with:
+        cache: false
         toolchain: stable
 
     - name: Install mdBook
       run: cargo install mdbook
 
     - name: Setup Pages
-      uses: actions/configure-pages@983d7736d9061a7bc71f6276590226f8ca508d58 # v5.0.0
+      uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
     - name: Build mdBook documentation
       run: |
@@ -72,7 +73,7 @@ jobs:
         fi
 
     - name: Upload Pages artifact
-      uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dee46299d48b # v3.0.1
+      uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
       with:
         path: ${{ hashFiles('book/book.toml') != '' && 'book/build' || '_site' }}
 
@@ -85,7 +86,7 @@ jobs:
     steps:
     - name: Deploy to GitHub Pages
       id: deployment
-      uses: actions/deploy-pages@d6db90164ad5ee21c17bcad51d3231e335606409 # v4.0.5
+      uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
 
     - name: Deployment summary
       run: |

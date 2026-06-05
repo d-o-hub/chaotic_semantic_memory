@@ -8,9 +8,11 @@ use tokio::sync::RwLock;
 
 impl ChaoticSemanticFramework {
     /// Set the current namespace.
-    pub async fn set_namespace(&self, ns: impl Into<String>) {
-        let mut namespace = self.namespace.write().await;
-        *namespace = ns.into();
+    pub async fn set_namespace(&self, ns: impl Into<String>) -> Result<()> {
+        let ns = ns.into();
+        Self::validate_namespace(&ns)?;
+        *self.namespace.write().await = ns;
+        Ok(())
     }
 
     /// List all namespaces, querying persistence if available for complete results.
@@ -42,6 +44,7 @@ impl ChaoticSemanticFramework {
     /// could leave data in memory that no longer has a persistence backing,
     /// causing inconsistency on process restart.
     pub async fn delete_namespace(&self, ns: &str) -> Result<usize> {
+        Self::validate_namespace(ns)?;
         let count = {
             let mut sing = self.singularity.write().await;
             let count = sing.len(ns);
@@ -64,6 +67,7 @@ impl ChaoticSemanticFramework {
     /// then exports using the existing `export_json` logic.
     #[cfg(not(target_arch = "wasm32"))]
     pub async fn export_namespace(&self, ns: &str, path: &Path) -> Result<()> {
+        Self::validate_namespace(ns)?;
         let path_str = path
             .to_str()
             .ok_or_else(|| crate::error::MemoryError::InvalidInput {
@@ -84,6 +88,7 @@ impl ChaoticSemanticFramework {
     /// Loads the namespace data from persistence if not currently in memory,
     /// then serializes to a binary payload using bincode.
     pub async fn export_namespace_to_bytes(&self, ns: &str) -> Result<Vec<u8>> {
+        Self::validate_namespace(ns)?;
         // Ensure the namespace is loaded from persistence if available and not in memory
         self.ensure_namespace_loaded(ns).await?;
 
@@ -167,7 +172,7 @@ mod tests {
     #[tokio::test]
     async fn test_export_namespace_to_bytes_serializes_concepts() {
         let fw = empty_framework().await;
-        fw.set_namespace("test-ns").await;
+        fw.set_namespace("test-ns").await.unwrap();
         let vector = HVec10240::random();
 
         fw.inject_concept("c1", vector).await.unwrap();
@@ -236,10 +241,10 @@ mod tests {
         let vector_a = HVec10240::random();
         let vector_b = HVec10240::random();
 
-        fw.set_namespace("ns-a").await;
+        fw.set_namespace("ns-a").await.unwrap();
         fw.inject_concept("a1", vector_a).await.unwrap();
 
-        fw.set_namespace("ns-b").await;
+        fw.set_namespace("ns-b").await.unwrap();
         fw.inject_concept("b1", vector_b).await.unwrap();
 
         let bytes = fw.export_namespace_to_bytes("ns-a").await.unwrap();
@@ -250,5 +255,68 @@ mod tests {
             bin_payload.concepts[0].id, "a1",
             "ns-a should contain a1 only"
         );
+    }
+
+    #[tokio::test]
+    async fn test_delete_namespace_logic() {
+        let fw = empty_framework().await;
+        fw.set_namespace("ns-delete").await.unwrap();
+        fw.inject_concept("c1", HVec10240::random()).await.unwrap();
+        fw.inject_concept("c2", HVec10240::random()).await.unwrap();
+
+        let count = fw.delete_namespace("ns-delete").await.unwrap();
+        assert_eq!(count, 2, "should return correct deleted count");
+
+        let namespaces = fw.list_namespaces().await.unwrap();
+        assert!(
+            !namespaces.contains(&"ns-delete".to_string()),
+            "namespace should be removed"
+        );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[tokio::test]
+    async fn test_export_namespace_file() {
+        // Use /tmp since validate_path requires it or current dir
+        let export_path = std::path::PathBuf::from("/tmp/export_ns_test.json");
+        if export_path.exists() {
+            let _ = std::fs::remove_file(&export_path);
+        }
+
+        let fw = empty_framework().await;
+        fw.set_namespace("ns-export").await.unwrap();
+        fw.inject_concept("c1", HVec10240::random()).await.unwrap();
+
+        fw.export_namespace("ns-export", &export_path)
+            .await
+            .unwrap();
+        assert!(export_path.exists(), "export file should exist");
+
+        let content = std::fs::read_to_string(&export_path).unwrap();
+        assert!(
+            content.contains("\"id\": \"c1\""),
+            "export should contain concept"
+        );
+        let _ = std::fs::remove_file(&export_path);
+    }
+
+    #[tokio::test]
+    async fn test_validate_namespace_integration() {
+        let fw = empty_framework().await;
+        // Test set_namespace validation
+        assert!(fw.set_namespace("").await.is_err());
+        assert!(fw.set_namespace("a".repeat(129)).await.is_err());
+        assert!(fw.set_namespace("ns\0").await.is_err());
+
+        // Test delete_namespace validation
+        assert!(fw.delete_namespace("").await.is_err());
+
+        // Test export validation
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let path = std::path::Path::new("test.json");
+            assert!(fw.export_namespace("", path).await.is_err());
+        }
+        assert!(fw.export_namespace_to_bytes("").await.is_err());
     }
 }

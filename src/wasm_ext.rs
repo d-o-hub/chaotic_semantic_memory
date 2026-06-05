@@ -245,6 +245,7 @@ impl WasmFramework {
 
 /// Convert a Concept to a JsValue object
 #[cfg(target_arch = "wasm32")]
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 pub(crate) fn concept_to_js_value(
     concept: &crate::singularity::Concept,
 ) -> Result<JsValue, JsValue> {
@@ -303,6 +304,7 @@ pub(crate) fn concept_to_js_value(
 }
 
 #[cfg(target_arch = "wasm32")]
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
 pub(crate) fn to_js_error<E: std::fmt::Display>(error: E) -> JsValue {
     JsValue::from_str(&error.to_string())
 }

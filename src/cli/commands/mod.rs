@@ -127,7 +127,9 @@ pub async fn create_framework_advanced(
     } else {
         builder = builder.without_persistence();
     }
-    builder = builder.with_namespace(ns);
+    builder = builder
+        .with_namespace(ns)
+        .map_err(|e| CliError::Validation(format!("failed to set namespace: {e}")))?;
 
     if let Some(name) = provider_name {
         let provider = crate::embedding::get_provider(name)

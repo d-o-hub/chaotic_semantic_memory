@@ -3085,7 +3085,7 @@ impl Default for FrameworkConfig {
 ```rust
 impl FrameworkBuilder {
     pub fn new() -> Self;
-    pub fn with_namespace(self, ns: impl Trait) -> Self;
+    pub fn with_namespace(self, ns: impl Trait) -> Result<Self>;
     pub fn with_reservoir_size(self, size: usize) -> Self;
     pub fn with_reservoir_input_size(self, size: usize) -> Self;
     pub fn with_chaos_strength(self, strength: f32) -> Self;
@@ -3316,7 +3316,7 @@ impl FrameworkMetrics {
 
 ```rust
 impl ChaoticSemanticFramework {
-    pub fn set_namespace(&self, ns: impl Trait);
+    pub fn set_namespace(&self, ns: impl Trait) -> Result<()>;
     pub fn list_namespaces(&self) -> Result<Vec<String>>;
     pub fn delete_namespace(&self, ns: &str) -> Result<usize>;
     pub fn export_namespace(&self, ns: &str, path: &Path) -> Result<()>;
@@ -5292,7 +5292,7 @@ pub fn encode_text(text: &str) -> Box<[u8]>
 ```rust
 impl WasmFramework {
     pub fn new() -> Result<WasmFramework, JsValue>;
-    pub fn set_namespace(&self, ns: String);
+    pub fn set_namespace(&self, ns: String) -> Result<(), JsValue>;
     pub fn get_namespace(&self) -> String;
     pub fn inject_concept(&self, id: String, vector: &[u8]) -> Result<(), JsValue>;
     pub fn probe(&self, vector: &[u8], top_k: usize) -> Result<Array, JsValue>;

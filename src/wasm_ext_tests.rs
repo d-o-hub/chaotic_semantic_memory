@@ -224,7 +224,7 @@ mod tests {
             .unwrap();
 
         // 2. Switch namespace
-        framework.set_namespace("tenant-a").await;
+        framework.set_namespace("tenant-a").await.unwrap();
         assert_eq!(framework.namespace().await, "tenant-a");
 
         // 3. Verify default concept is not visible in tenant-a
@@ -241,7 +241,7 @@ mod tests {
         assert_eq!(results[0].0, "tenant-concept");
 
         // 5. Switch back to default
-        framework.set_namespace("_default").await;
+        framework.set_namespace("_default").await.unwrap();
         assert_eq!(framework.namespace().await, "_default");
 
         // 6. Verify only default concept is visible
@@ -276,4 +276,28 @@ mod tests {
     fn wasm_encode_text_empty() {
         assert_eq!(native_enc("").len(), 1280);
     }
+}
+
+#[tokio::test]
+async fn test_namespace_validation_integration() {
+    let framework: crate::ChaoticSemanticFramework = crate::ChaoticSemanticFramework::builder()
+        .without_persistence()
+        .build()
+        .await
+        .unwrap();
+
+    // 1. Valid namespace
+    assert!(framework.set_namespace("tenant-a").await.is_ok());
+
+    // 2. Invalid namespace: empty
+    let res = framework.set_namespace("").await;
+    assert!(res.is_err());
+
+    // 3. Invalid namespace: too long
+    let res = framework.set_namespace("a".repeat(129)).await;
+    assert!(res.is_err());
+
+    // 4. Invalid namespace: control chars
+    let res = framework.set_namespace("ns\x00").await;
+    assert!(res.is_err());
 }
