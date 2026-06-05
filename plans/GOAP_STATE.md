@@ -1068,4 +1068,9 @@ world_state:
   mutation_ci_in_diff_enabled: true        # --in-diff scoped to PR changes
   mutation_ci_fetch_depth_zero: true       # fetch-depth: 0 in checkout
   wasm_freshness_sort_stable: true         # check-wasm-freshness.sh sorts lines before diff
-  action_last_completed: fix_ci_node_deprecations_and_miri_timeout
+  # PR #346 mutation miss fixed 2026-06-05: removed dead `depth > max_depth`
+  # branch in ConceptGraph::expand (related concepts only enqueued at
+  # depth+1 when depth < max_depth, so the comparison was always false).
+  # Added 5 regression tests covering expand() and label index roundtrip.
+  pr_346_mutation_miss_resolved: true
+  action_last_completed: fix_pr_346_mutation_miss_concept_graph_expand
