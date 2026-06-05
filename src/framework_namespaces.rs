@@ -8,9 +8,11 @@ use tokio::sync::RwLock;
 
 impl ChaoticSemanticFramework {
     /// Set the current namespace.
-    pub async fn set_namespace(&self, ns: impl Into<String>) {
-        let mut namespace = self.namespace.write().await;
-        *namespace = ns.into();
+    pub async fn set_namespace(&self, ns: impl Into<String>) -> Result<()> {
+        let ns = ns.into();
+        Self::validate_namespace(&ns)?;
+        *self.namespace.write().await = ns;
+        Ok(())
     }
 
     /// List all namespaces, querying persistence if available for complete results.
@@ -42,6 +44,7 @@ impl ChaoticSemanticFramework {
     /// could leave data in memory that no longer has a persistence backing,
     /// causing inconsistency on process restart.
     pub async fn delete_namespace(&self, ns: &str) -> Result<usize> {
+        Self::validate_namespace(ns)?;
         let count = {
             let mut sing = self.singularity.write().await;
             let count = sing.len(ns);
@@ -64,6 +67,7 @@ impl ChaoticSemanticFramework {
     /// then exports using the existing `export_json` logic.
     #[cfg(not(target_arch = "wasm32"))]
     pub async fn export_namespace(&self, ns: &str, path: &Path) -> Result<()> {
+        Self::validate_namespace(ns)?;
         let path_str = path
             .to_str()
             .ok_or_else(|| crate::error::MemoryError::InvalidInput {
@@ -84,6 +88,7 @@ impl ChaoticSemanticFramework {
     /// Loads the namespace data from persistence if not currently in memory,
     /// then serializes to a binary payload using bincode.
     pub async fn export_namespace_to_bytes(&self, ns: &str) -> Result<Vec<u8>> {
+        Self::validate_namespace(ns)?;
         // Ensure the namespace is loaded from persistence if available and not in memory
         self.ensure_namespace_loaded(ns).await?;
 
@@ -167,7 +172,7 @@ mod tests {
     #[tokio::test]
     async fn test_export_namespace_to_bytes_serializes_concepts() {
         let fw = empty_framework().await;
-        fw.set_namespace("test-ns").await;
+        fw.set_namespace("test-ns").await.unwrap();
         let vector = HVec10240::random();
 
         fw.inject_concept("c1", vector).await.unwrap();
@@ -236,10 +241,10 @@ mod tests {
         let vector_a = HVec10240::random();
         let vector_b = HVec10240::random();
 
-        fw.set_namespace("ns-a").await;
+        fw.set_namespace("ns-a").await.unwrap();
         fw.inject_concept("a1", vector_a).await.unwrap();
 
-        fw.set_namespace("ns-b").await;
+        fw.set_namespace("ns-b").await.unwrap();
         fw.inject_concept("b1", vector_b).await.unwrap();
 
         let bytes = fw.export_namespace_to_bytes("ns-a").await.unwrap();

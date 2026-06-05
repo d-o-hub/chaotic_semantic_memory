@@ -114,7 +114,15 @@ impl FrameworkBuilder {
     }
 
     pub fn with_namespace(mut self, ns: impl Into<String>) -> Self {
-        self.namespace = ns.into();
+        let ns = ns.into();
+        if let Err(e) = ChaoticSemanticFramework::validate_namespace(&ns) {
+            warn!(
+                "invalid namespace supplied to builder ({}), keeping default",
+                e
+            );
+        } else {
+            self.namespace = ns;
+        }
         self
     }
 

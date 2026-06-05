@@ -7,6 +7,7 @@ use crate::metadata_filter::{MAX_FILTER_DEPTH, MetadataFilter};
 use crate::singularity::Concept;
 use crate::singularity_retrieval::RetrievalConfig;
 
+pub const MAX_NAMESPACE_BYTES: usize = 128;
 const MAX_CONCEPT_ID_BYTES: usize = 256;
 const MAX_BUCKET_PROBE_WIDTH: usize = 16;
 const MAX_TRAVERSAL_DEPTH: usize = 32;
@@ -96,6 +97,32 @@ impl ChaoticSemanticFramework {
             return Err(MemoryError::InvalidInput {
                 field: "bucket_probe_width".to_string(),
                 reason: format!("bucket_probe_width exceeds {MAX_BUCKET_PROBE_WIDTH}"),
+            });
+        }
+        Ok(())
+    }
+
+    pub(crate) fn validate_namespace(ns: &str) -> Result<()> {
+        if ns.is_empty() {
+            return Err(MemoryError::InvalidInput {
+                field: "namespace".to_string(),
+                reason: "namespace must not be empty".to_string(),
+            });
+        }
+        if ns.len() > MAX_NAMESPACE_BYTES {
+            return Err(MemoryError::InvalidInput {
+                field: "namespace".to_string(),
+                reason: format!(
+                    "namespace exceeds {} bytes (got {})",
+                    MAX_NAMESPACE_BYTES,
+                    ns.len()
+                ),
+            });
+        }
+        if ns.chars().any(|c| c.is_control()) {
+            return Err(MemoryError::InvalidInput {
+                field: "namespace".to_string(),
+                reason: "namespace must not contain control characters".to_string(),
             });
         }
         Ok(())
@@ -284,6 +311,26 @@ mod tests {
         assert!(ChaoticSemanticFramework::validate_concept_id(&long_id).is_err());
         let edge_id = "a".repeat(256);
         assert!(ChaoticSemanticFramework::validate_concept_id(&edge_id).is_ok());
+    }
+
+    #[test]
+    fn test_validate_namespace_empty() {
+        assert!(ChaoticSemanticFramework::validate_namespace("").is_err());
+    }
+
+    #[test]
+    fn test_validate_namespace_too_long() {
+        let long = "a".repeat(129);
+        assert!(ChaoticSemanticFramework::validate_namespace(&long).is_err());
+        let edge = "a".repeat(128);
+        assert!(ChaoticSemanticFramework::validate_namespace(&edge).is_ok());
+    }
+
+    #[test]
+    fn test_validate_namespace_control_chars() {
+        assert!(ChaoticSemanticFramework::validate_namespace("ns\0x").is_err());
+        assert!(ChaoticSemanticFramework::validate_namespace("ns\n").is_err());
+        assert!(ChaoticSemanticFramework::validate_namespace("valid-namespace_01").is_ok());
     }
 
     #[test]
