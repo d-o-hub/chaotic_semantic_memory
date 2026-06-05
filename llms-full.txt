@@ -448,6 +448,16 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/framework_validation.rs
 
+- pub const MAX_TOP_K_LIMIT
+- pub const MAX_BATCH_SIZE_LIMIT
+- pub const MAX_SEQUENCE_LENGTH_LIMIT
+- pub const MAX_METADATA_BYTES_LIMIT
+- pub const MAX_CONCEPT_CACHE_LIMIT
+- pub const MAX_VERSION_RETENTION_LIMIT
+- pub const MAX_CONNECTION_POOL_LIMIT
+- pub const MAX_IMPORT_SIZE
+- pub const MAX_RESERVOIR_SIZE_LIMIT
+- pub const MAX_STORE_CAPACITY_LIMIT
 - impl ChaoticSemanticFramework
 
 ### src/graph_traversal.rs
@@ -657,6 +667,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct Bm25Config
 - impl Default for Bm25Config
 - pub struct Bm25Index
+- impl Default for Bm25Index
+- impl Clone for Bm25Index
 - impl Bm25Index
 
 ### src/retrieval/graph_rag.rs
@@ -3073,7 +3085,7 @@ impl Default for FrameworkConfig {
 ```rust
 impl FrameworkBuilder {
     pub fn new() -> Self;
-    pub fn with_namespace(self, ns: impl Trait) -> Self;
+    pub fn with_namespace(self, ns: impl Trait) -> Result<Self>;
     pub fn with_reservoir_size(self, size: usize) -> Self;
     pub fn with_reservoir_input_size(self, size: usize) -> Self;
     pub fn with_chaos_strength(self, strength: f32) -> Self;
@@ -3304,7 +3316,7 @@ impl FrameworkMetrics {
 
 ```rust
 impl ChaoticSemanticFramework {
-    pub fn set_namespace(&self, ns: impl Trait);
+    pub fn set_namespace(&self, ns: impl Trait) -> Result<()>;
     pub fn list_namespaces(&self) -> Result<Vec<String>>;
     pub fn delete_namespace(&self, ns: &str) -> Result<usize>;
     pub fn export_namespace(&self, ns: &str, path: &Path) -> Result<()>;
@@ -3383,6 +3395,70 @@ impl crate::framework::ChaoticSemanticFramework {
 ```
 
 ## src/framework_validation.rs
+
+### MAX_BATCH_SIZE_LIMIT
+
+```rust
+pub const MAX_BATCH_SIZE_LIMIT: usize
+```
+
+### MAX_CONCEPT_CACHE_LIMIT
+
+```rust
+pub const MAX_CONCEPT_CACHE_LIMIT: usize
+```
+
+### MAX_CONNECTION_POOL_LIMIT
+
+```rust
+pub const MAX_CONNECTION_POOL_LIMIT: usize
+```
+
+### MAX_IMPORT_SIZE
+
+```rust
+pub const MAX_IMPORT_SIZE: u64
+```
+
+### MAX_METADATA_BYTES_LIMIT
+
+```rust
+pub const MAX_METADATA_BYTES_LIMIT: usize
+```
+
+### MAX_RESERVOIR_SIZE_LIMIT
+
+```rust
+pub const MAX_RESERVOIR_SIZE_LIMIT: usize
+```
+
+Limits for critical memory-allocating components
+
+### MAX_SEQUENCE_LENGTH_LIMIT
+
+```rust
+pub const MAX_SEQUENCE_LENGTH_LIMIT: usize
+```
+
+### MAX_STORE_CAPACITY_LIMIT
+
+```rust
+pub const MAX_STORE_CAPACITY_LIMIT: usize
+```
+
+### MAX_TOP_K_LIMIT
+
+```rust
+pub const MAX_TOP_K_LIMIT: usize
+```
+
+Hard security limits for framework parameters to prevent resource exhaustion (CWE-770).
+
+### MAX_VERSION_RETENTION_LIMIT
+
+```rust
+pub const MAX_VERSION_RETENTION_LIMIT: usize
+```
 
 ### impl ChaoticSemanticFramework
 
@@ -4368,7 +4444,7 @@ Configuration for BM25 ranking algorithm.
 ### Bm25Index
 
 ```rust
-#[derive(Debug, Clone, Default)]
+#[derive(Debug)]
 pub struct Bm25Index {
 }
 ```
@@ -4391,10 +4467,24 @@ impl Bm25Index {
 }
 ```
 
+### impl Clone for Bm25Index
+
+```rust
+impl Clone for Bm25Index {
+}
+```
+
 ### impl Default for Bm25Config
 
 ```rust
 impl Default for Bm25Config {
+}
+```
+
+### impl Default for Bm25Index
+
+```rust
+impl Default for Bm25Index {
 }
 ```
 
@@ -5202,7 +5292,7 @@ pub fn encode_text(text: &str) -> Box<[u8]>
 ```rust
 impl WasmFramework {
     pub fn new() -> Result<WasmFramework, JsValue>;
-    pub fn set_namespace(&self, ns: String);
+    pub fn set_namespace(&self, ns: String) -> Result<(), JsValue>;
     pub fn get_namespace(&self) -> String;
     pub fn inject_concept(&self, id: String, vector: &[u8]) -> Result<(), JsValue>;
     pub fn probe(&self, vector: &[u8], top_k: usize) -> Result<Array, JsValue>;

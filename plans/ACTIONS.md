@@ -3808,3 +3808,40 @@ actions:
     description: |
       Upgraded GitHub Actions in ci.yml to Node 24 native versions and increased
       Miri timeout to 60 minutes to resolve deprecation warnings and job cancellations.
+
+  # ─────────────────────────────────────────────────────────
+  # CI Security Policy Alignment (2026-05-21)
+  # ─────────────────────────────────────────────────────────
+
+  - name: pin_github_actions_to_sha
+    preconditions:
+      - release_v0_3_6: true
+    effects:
+      - actions_pinned_to_sha: true
+    cost: 2
+    status: complete
+    description: |
+      Pinned all GitHub Actions across all workflow files to full-length commit SHAs
+      to comply with repository security policy. Updated version comments for
+      maintainability. Verified with scripts/validate-github-actions-shas.sh.
+  - name: fix_pr_346_mutation_miss_concept_graph_expand
+    preconditions:
+      - mutation_ci_enforced: true
+    effects:
+      - pr_346_mutation_miss_resolved: true
+    cost: 1
+    status: complete
+    file: src/semantic_bridge.rs, tests/framework_bridge_coverage.rs
+    description: |
+      PR #346 (perf: optimize concept graph indexing) introduced the guard
+      `depth > max_depth || !visited.insert(id.clone())` in ConceptGraph::expand.
+      cargo-mutants flagged `||` -> `&&` as the 1 missed mutant because the
+      left operand is unreachable: related concepts are only enqueued at
+      `depth + 1` when `depth < max_depth`, so every queued depth satisfies
+      `depth <= max_depth`.
+
+      Fix: remove the dead `depth > max_depth` check, document the invariant
+      in a comment, and add 5 regression tests covering expand() behavior
+      (cycle dedup, max_depth=0 boundary, unknown seed) and a roundtrip
+      test for the lowercased label index across add_concept/match_tokens/
+      remove_concept.

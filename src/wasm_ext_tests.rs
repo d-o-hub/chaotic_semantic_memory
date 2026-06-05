@@ -296,3 +296,27 @@ mod tests {
         assert_eq!(native_enc("").len(), 1280);
     }
 }
+
+#[tokio::test]
+async fn test_namespace_validation_integration() {
+    let framework: crate::ChaoticSemanticFramework = crate::ChaoticSemanticFramework::builder()
+        .without_persistence()
+        .build()
+        .await
+        .unwrap();
+
+    // 1. Valid namespace
+    assert!(framework.set_namespace("tenant-a").await.is_ok());
+
+    // 2. Invalid namespace: empty
+    let res = framework.set_namespace("").await;
+    assert!(res.is_err());
+
+    // 3. Invalid namespace: too long
+    let res = framework.set_namespace("a".repeat(129)).await;
+    assert!(res.is_err());
+
+    // 4. Invalid namespace: control chars
+    let res = framework.set_namespace("ns\x00").await;
+    assert!(res.is_err());
+}
