@@ -448,16 +448,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/framework_validation.rs
 
-- pub const MAX_TOP_K_LIMIT
-- pub const MAX_BATCH_SIZE_LIMIT
-- pub const MAX_SEQUENCE_LENGTH_LIMIT
-- pub const MAX_METADATA_BYTES_LIMIT
-- pub const MAX_CONCEPT_CACHE_LIMIT
-- pub const MAX_VERSION_RETENTION_LIMIT
-- pub const MAX_CONNECTION_POOL_LIMIT
-- pub const MAX_IMPORT_SIZE
-- pub const MAX_RESERVOIR_SIZE_LIMIT
-- pub const MAX_STORE_CAPACITY_LIMIT
 - impl ChaoticSemanticFramework
 
 ### src/graph_traversal.rs
@@ -667,8 +657,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct Bm25Config
 - impl Default for Bm25Config
 - pub struct Bm25Index
-- impl Default for Bm25Index
-- impl Clone for Bm25Index
 - impl Bm25Index
 
 ### src/retrieval/graph_rag.rs
@@ -1369,7 +1357,7 @@ anyhow = "1.0.102"
 sha2 = "0.10.9"
 rand = "0.10.1"
 rand_chacha = "0.10.0"
-uuid = { version = "1.23.2", features = ["v4", "serde"] }
+uuid = { version = "1.23.1", features = ["v4", "serde"] }
 tempfile = "3.16.0"
 base64 = "0.22.1"
 
