@@ -256,4 +256,67 @@ mod tests {
             "ns-a should contain a1 only"
         );
     }
+
+    #[tokio::test]
+    async fn test_delete_namespace_logic() {
+        let fw = empty_framework().await;
+        fw.set_namespace("ns-delete").await.unwrap();
+        fw.inject_concept("c1", HVec10240::random()).await.unwrap();
+        fw.inject_concept("c2", HVec10240::random()).await.unwrap();
+
+        let count = fw.delete_namespace("ns-delete").await.unwrap();
+        assert_eq!(count, 2, "should return correct deleted count");
+
+        let namespaces = fw.list_namespaces().await.unwrap();
+        assert!(
+            !namespaces.contains(&"ns-delete".to_string()),
+            "namespace should be removed"
+        );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[tokio::test]
+    async fn test_export_namespace_file() {
+        // Use /tmp since validate_path requires it or current dir
+        let export_path = std::path::PathBuf::from("/tmp/export_ns_test.json");
+        if export_path.exists() {
+            let _ = std::fs::remove_file(&export_path);
+        }
+
+        let fw = empty_framework().await;
+        fw.set_namespace("ns-export").await.unwrap();
+        fw.inject_concept("c1", HVec10240::random()).await.unwrap();
+
+        fw.export_namespace("ns-export", &export_path)
+            .await
+            .unwrap();
+        assert!(export_path.exists(), "export file should exist");
+
+        let content = std::fs::read_to_string(&export_path).unwrap();
+        assert!(
+            content.contains("\"id\": \"c1\""),
+            "export should contain concept"
+        );
+        let _ = std::fs::remove_file(&export_path);
+    }
+
+    #[tokio::test]
+    async fn test_validate_namespace_integration() {
+        let fw = empty_framework().await;
+        // Test set_namespace validation
+        assert!(fw.set_namespace("").await.is_err());
+        assert!(fw.set_namespace("a".repeat(129)).await.is_err());
+        assert!(fw.set_namespace("ns\0").await.is_err());
+
+        // Test delete_namespace validation
+        assert!(fw.delete_namespace("").await.is_err());
+
+        // Test export validation
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let path = std::path::Path::new("test.json");
+            assert!(fw.export_namespace("", path).await.is_err());
+        }
+        assert!(fw.export_namespace_to_bytes("").await.is_err());
+    }
 }

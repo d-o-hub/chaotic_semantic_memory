@@ -1068,4 +1068,17 @@ world_state:
   mutation_ci_in_diff_enabled: true        # --in-diff scoped to PR changes
   mutation_ci_fetch_depth_zero: true       # fetch-depth: 0 in checkout
   wasm_freshness_sort_stable: true         # check-wasm-freshness.sh sorts lines before diff
-  action_last_completed: fix_ci_node_deprecations_and_miri_timeout
+  action_last_completed: pin_github_actions_to_sha
+
+  # ═══════════════════════════════════════════════════════
+  # CI Security Policy Alignment (2026-05-21)
+  # Orchestrator: goap_pin_actions_to_sha
+  # ═══════════════════════════════════════════════════════
+  actions_pinned_to_sha: true
+  actions_pin_validation:
+    github_workflows_verified: 6
+    sha_pinning_check: passing
+    version_comments_present: true
+  goap_pin_actions_validation_gates:
+    scripts_validate_github_actions_shas: passing
+    cargo_test_compilation: passing
