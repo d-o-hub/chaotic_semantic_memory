@@ -253,8 +253,11 @@ impl ConceptGraph {
         let mut visited = std::collections::HashSet::new();
 
         while let Some((id, depth)) = to_visit.pop() {
-            // Algorithmic Optimization: Use insert() result to combine check and mark in one lookup
-            if depth > max_depth || !visited.insert(id.clone()) {
+            // Algorithmic Optimization: Use insert() result to combine check and mark in one lookup.
+            // The `depth > max_depth` branch is unreachable: related concepts are only
+            // enqueued at `depth + 1` when `depth < max_depth`, so every queued depth
+            // satisfies `depth <= max_depth`.
+            if !visited.insert(id.clone()) {
                 continue;
             }
 
