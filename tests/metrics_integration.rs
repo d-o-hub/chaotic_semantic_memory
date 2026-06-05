@@ -125,7 +125,7 @@ async fn test_cache_metrics_multi_namespace() {
     assert_eq!(metrics.cache_misses_total, 0);
 
     // 2. Namespace 1: trigger a miss
-    framework.set_namespace("ns1").await;
+    framework.set_namespace("ns1").await.unwrap();
     framework
         .inject_concept("c1", HVec10240::random())
         .await
@@ -133,7 +133,7 @@ async fn test_cache_metrics_multi_namespace() {
     let _ = framework.probe(HVec10240::random(), 5).await.unwrap();
 
     // 3. Namespace 2: trigger another miss
-    framework.set_namespace("ns2").await;
+    framework.set_namespace("ns2").await.unwrap();
     framework
         .inject_concept("c2", HVec10240::random())
         .await

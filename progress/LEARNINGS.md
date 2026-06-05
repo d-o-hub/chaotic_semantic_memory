@@ -66,3 +66,8 @@
 - **Node 20 Deprecation**: GitHub Actions using Node 20 runtime can be resolved by upgrading to versions that natively support Node 24 (e.g., `actions/checkout@v5`, `Swatinem/rust-cache@v2.9.1`).
 - **Miri Job Reliability**: Miri tests are significantly slower than standard tests. For a suite of ~220 tests, a 30-minute timeout is often insufficient, and 60 minutes is a safer baseline for initial reliability.
 - **Action Pinning**: Use `git ls-remote --tags <url>` to find the exact SHA for a specific version tag to ensure security and reproducible CI environments.
+
+## 2026-06-05 — Namespace parameter missing bounds/character validation
+**Vulnerability:** `set_namespace`, `delete_namespace`, `export_namespace`, `export_namespace_to_bytes`, and `FrameworkBuilder::with_namespace` accepted arbitrary strings with no length, emptiness, or control-character checks. The namespace is used as a DB primary key prefix in every libsql query.
+**Learning:** The `validate_concept_id` pattern existed and was thorough, but was not applied to the analogous `namespace` input surface when those APIs were added. New public API parameters that become DB keys need the same treatment.
+**Prevention:** When adding any parameter that becomes part of a DB key, hash map key, or file path: apply validate_concept_id-style guards (empty check, byte limit, control-char reject) before first use.

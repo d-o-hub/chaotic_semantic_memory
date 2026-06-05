@@ -224,7 +224,7 @@ mod tests {
             .unwrap();
 
         // 2. Switch namespace
-        framework.set_namespace("tenant-a").await;
+        framework.set_namespace("tenant-a").await.unwrap();
         assert_eq!(framework.namespace().await, "tenant-a");
 
         // 3. Verify default concept is not visible in tenant-a
@@ -241,7 +241,7 @@ mod tests {
         assert_eq!(results[0].0, "tenant-concept");
 
         // 5. Switch back to default
-        framework.set_namespace("_default").await;
+        framework.set_namespace("_default").await.unwrap();
         assert_eq!(framework.namespace().await, "_default");
 
         // 6. Verify only default concept is visible

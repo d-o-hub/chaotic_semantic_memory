@@ -38,8 +38,8 @@ impl WasmFramework {
 
     /// Set the current namespace
     #[wasm_bindgen(js_name = setNamespace)]
-    pub async fn set_namespace(&self, ns: String) {
-        self.framework.set_namespace(ns).await;
+    pub async fn set_namespace(&self, ns: String) -> Result<(), JsValue> {
+        self.framework.set_namespace(ns).await.map_err(to_js_error)
     }
 
     /// Get the current namespace
