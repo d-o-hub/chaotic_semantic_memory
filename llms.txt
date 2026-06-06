@@ -19,6 +19,7 @@
 - fastembed (4)
 - glob (0.3.2)
 - hnsw_rs (0.3.4)
+- prometheus (0.13)
 - rand
 - rand_chacha
 - reqwest (0.12) [features: json, rustls-tls]
@@ -41,8 +42,10 @@
 - embed-voyage: [dep:reqwest]
 - events-http: [cloudevents, cloudevents-sdk/http-binding, dep:reqwest]
 - mcp: [dep:rmcp, cli]
+- otlp-json: []
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
+- prometheus: [dep:prometheus, dep:hyper, dep:hyper-util, dep:http-body-util]
 - wasm: []
 
 Generated: [TIMESTAMP REMOVED FOR DETERMINISM]
@@ -540,6 +543,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod hyperdim
 - pub mod mcp
 - pub mod metadata_filter
+- pub mod observability
 - pub mod semantic_triples
 - pub use metadata_filter::MetadataFilter
 - pub mod index
@@ -607,6 +611,38 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub enum MetadataFilter
 - impl MetadataFilter
 - impl ops::Not for MetadataFilter
+
+### src/observability/mod.rs
+
+- pub mod prom
+- pub mod otlp
+- pub enum LogFormat
+- pub struct ObservabilityConfig
+- pub struct Guard
+- impl Drop for Guard
+- pub fn init
+- pub fn render_metrics
+
+### src/observability/otlp.rs
+
+- pub struct StdoutWriter
+- impl MakeWriter for StdoutWriter
+- pub struct StdoutGuard
+- impl std::io::Write for StdoutGuard
+- pub fn install_json_subscriber
+
+### src/observability/prom.rs
+
+- pub fn record_probe
+- pub fn record_inject
+- pub fn record_persist
+- pub fn set_concepts_count
+- pub fn set_associations_count
+- pub fn set_cache_hit_ratio
+- pub fn render
+- pub struct PromServerHandle
+- impl PromServerHandle
+- pub fn start_server
 
 ### src/persistence.rs
 
@@ -1364,7 +1400,7 @@ serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.150"
 thiserror = "2.0.11"
 tracing = "0.1.41"
-tracing-subscriber = "0.3.19"
+tracing-subscriber = { version = "0.3.19", features = ["json"] }
 tokio = "1.43.0"
 anyhow = "1.0.102"
 sha2 = "0.10.9"
@@ -1438,13 +1474,22 @@ glob = { version = "0.3.2", optional = true }
 # MCP server dependencies (gated behind "mcp" feature - ADR-0067)
 rmcp = { version = "1.7", optional = true, features = ["server", "macros", "transport-io"] }
 
+# Observability dependencies (ADR-0072, opt-in via "prometheus" feature)
+prometheus = { version = "0.13", optional = true, default-features = false }
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # CPU parallelism (opt-in via "parallel" feature)
 rayon = { version = "1.10.0", optional = true }
 
 # Database - Use libsql NOT turso-client (opt-in via "persistence" feature)
 libsql = { version = "0.9.30", default-features = false, features = ["sync", "hrana", "remote"], optional = true }
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs"] }
+# `net` is required by the Prometheus /metrics server (ADR-0072).
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs", "net"] }
+
+# HTTP server for Prometheus /metrics endpoint (ADR-0072, opt-in via "prometheus" feature)
+hyper = { version = "1", features = ["server", "http1"], optional = true }
+hyper-util = { version = "0.1", features = ["tokio"], optional = true }
+http-body-util = { version = "0.1", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.4.2", features = ["wasm_js"] }
@@ -1575,6 +1620,11 @@ path = "examples/knowledge_graph.rs"
 name = "streaming_temporal"
 path = "examples/streaming_temporal.rs"
 
+[[example]]
+name = "observability_otlp"
+path = "examples/observability_otlp.rs"
+required-features = ["prometheus", "otlp-json"]
+
 [features]
 default = ["cli", "persistence", "parallel"]
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
@@ -1595,6 +1645,13 @@ ann-lsh = []
 # CloudEvents integration (ADR-0078)
 cloudevents = ["dep:cloudevents-sdk", "dep:uuid", "uuid/js"]
 events-http = ["cloudevents", "cloudevents-sdk/http-binding", "dep:reqwest"]
+
+# Observability exports (ADR-0072)
+# `prometheus` enables a /metrics HTTP endpoint and a counter/histogram registry.
+# `otlp-json` enables JSON-structured tracing for log shippers (lightweight OTLP alternative).
+# Both are opt-in and have no effect on default builds.
+prometheus = ["dep:prometheus", "dep:hyper", "dep:hyper-util", "dep:http-body-util"]
+otlp-json = []
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]

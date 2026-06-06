@@ -885,12 +885,12 @@ world_state:
 
   # Wave 23 P2 — Production Polish (queued, total cost 28)
   reranking_pipeline_implemented: true        # ADR-0071 — MMR + recency + cross-encoder (2026-05-20: complete)
-  otlp_exporter_implemented: false            # ADR-0072 — opentelemetry + prometheus
+  otlp_exporter_implemented: true             # ADR-0072 + ADR-0086 (2026-06-06: src/observability/ with `prometheus` + `otlp-json` features; 6 integration tests, 1 example)
   namespace_isolation_implemented: true       # ADR-0073 — supersedes deferred ADR-0026 (2026-05-20: complete)
   version_history_surface_implemented: false  # ADR-0074 — activate dormant version table
 
   # Wave 24 P3 — Future Scale (queued, cost 14, depends on Wave 22)
-  quantized_binary_hypervectors_implemented: false  # ADR-0075 — 32× memory compression
+  quantized_binary_hypervectors_implemented: false  # ADR-0075 — 32× memory compression; cost 14, delegated to Jules (2026-06-06)
 
   # ═══════════════════════════════════════════════════════
   # Real-usage Verification + Clippy Audit (2026-04-30)
@@ -1115,4 +1115,31 @@ world_state:
   miri_main_only_landed: true                    # ci.yml miri job: if github.event_name
                                                  # == 'push' (skips PR runs, saves CI time).
 
-  action_last_completed: goap_reconciliation_2026_06
+  # ═══════════════════════════════════════════════════════
+  # OTLP / Prometheus Implementation (2026-06-06)
+  # ADR-0072 + ADR-0086
+  # Branch: feat/observability-otlp-prom
+  # ═══════════════════════════════════════════════════════
+  otlp_observability_implemented: true
+  observability_files:
+    - "src/observability/mod.rs (171 LOC, init/Guard/LogFormat/ObservabilityConfig/render_metrics)"
+    - "src/observability/otlp.rs (65 LOC, JSON subscriber via tracing-subscriber's json feature)"
+    - "src/observability/prom.rs (250 LOC, prometheus registry + hyper /metrics server)"
+    - "tests/observability_integration.rs (6 tests, gated on either feature)"
+    - "examples/observability_otlp.rs (end-to-end smoke, requires prometheus,otlp-json)"
+    - "src/error.rs (Observability / ObservabilityFeatureDisabled / ObservabilityAlreadyInitialised variants)"
+    - "Cargo.toml (prometheus, hyper, hyper-util, http-body-util optional deps; tokio `net` feature)"
+    - "plans/adr/0086-otlp-prom-implementation.md (rationale + follow-ups)"
+  observability_features:
+    - "prometheus — /metrics HTTP endpoint, 7 metrics per ADR-0072"
+    - "otlp-json — JSON tracing subscriber (lightweight alternative to gRPC OTLP)"
+  observability_gates:
+    cargo_check: passing
+    cargo_test: passing  # 6 new observability tests + 0 regressions
+    cargo_fmt: clean
+    cargo_clippy: clean
+  observability_follow_ups:
+    - "auto_wire_framework_prom_metrics (cost 3, queued in ACTIONS.md)"
+    - "add_otlp_grpc_exporter (cost 8, deferred in ACTIONS.md)"
+
+  action_last_completed: otlp_observability_implementation_2026_06_06
