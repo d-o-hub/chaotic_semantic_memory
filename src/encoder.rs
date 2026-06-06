@@ -32,6 +32,17 @@
 //! ```
 
 use crate::hyperdim::HVec10240;
+use std::borrow::Cow;
+
+/// Returns a lowercased version of the input string, avoiding allocation if it is already lowercase.
+#[inline]
+fn to_lowercase_cow(s: &str) -> Cow<'_, str> {
+    if s.chars().any(|c| c.is_uppercase()) {
+        Cow::Owned(s.to_lowercase())
+    } else {
+        Cow::Borrowed(s)
+    }
+}
 
 /// FNV-1a 64-bit offset basis and prime (Fowler–Noll–Vo).
 const FNV1A_OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
@@ -129,22 +140,20 @@ impl TextEncoder {
     /// Splits on: `_`, `-`, `.`, `/`, `::` in addition to whitespace.
     /// This improves retrieval for identifiers like `my_function_name`, `MyClass.method`.
     fn tokenize_code(text: &str) -> Vec<&str> {
-        let mut tokens = Vec::new();
+        let mut tokens = Vec::with_capacity(text.len() / 8);
 
         // First split on whitespace
         for word in text.split_whitespace() {
             // Then split on code separators: `::`, `_`, `-`, `.`, `/`
             // Process `::` first since it's multi-char
-            let parts = Self::split_on_separators(word);
-            tokens.extend(parts);
+            Self::push_split_on_separators(word, &mut tokens);
         }
 
         tokens
     }
 
-    /// Split a single word on code separators.
-    fn split_on_separators(word: &str) -> Vec<&str> {
-        let mut result = Vec::new();
+    /// Split a single word on code separators and append to result vector.
+    fn push_split_on_separators<'a>(word: &'a str, result: &mut Vec<&'a str>) {
         let mut start = 0;
         let mut char_indices = word.char_indices().peekable();
 
@@ -178,8 +187,6 @@ impl TextEncoder {
         if start < word.len() {
             result.push(&word[start..]);
         }
-
-        result
     }
 
     /// Encode text into a hypervector.
@@ -191,18 +198,14 @@ impl TextEncoder {
     /// 4. Bundle all position-encoded vectors
     /// 5. Optionally add n-gram overlay
     pub fn encode(&self, text: &str) -> HVec10240 {
-        let processed_owned: Option<String>;
         let processed = if self.config.lowercase {
-            processed_owned = Some(text.to_lowercase());
-            processed_owned.as_ref().expect("owned string must be set")
+            to_lowercase_cow(text)
         } else {
-            processed_owned = None;
-            text
+            Cow::Borrowed(text)
         };
-        let _ = &processed_owned; // Silence unused warning
 
         let tokens = if self.config.code_aware {
-            Self::tokenize_code(processed)
+            Self::tokenize_code(&processed)
         } else {
             processed.split_whitespace().collect()
         };
@@ -230,7 +233,7 @@ impl TextEncoder {
         // Optionally add n-gram overlay.
         // Same reasoning: bundle of non-empty slice is infallible in practice.
         if let Some(n) = self.config.ngram_size {
-            let ngram_hv = self.encode_ngrams(processed, n);
+            let ngram_hv = self.encode_ngrams(&processed, n);
             // Blend n-gram encoding with token encoding
             result = HVec10240::bundle(&[result, ngram_hv]).unwrap_or_else(|_| HVec10240::zero());
         }
@@ -260,18 +263,14 @@ impl TextEncoder {
     /// * `code_aware` - Enable code-aware splitting (on `_`, `-`, `.`, `/`, `::`)
     /// * `lowercase` - Convert tokens to lowercase
     pub fn tokenize(text: &str, code_aware: bool, lowercase: bool) -> Vec<String> {
-        let processed_owned: Option<String>;
         let processed = if lowercase {
-            processed_owned = Some(text.to_lowercase());
-            processed_owned.as_ref().expect("owned string must be set")
+            to_lowercase_cow(text)
         } else {
-            processed_owned = None;
-            text
+            Cow::Borrowed(text)
         };
-        let _ = &processed_owned; // Silence unused warning
 
         if code_aware {
-            Self::tokenize_code(processed)
+            Self::tokenize_code(&processed)
                 .into_iter()
                 .map(|s| s.to_string())
                 .collect()
@@ -306,17 +305,25 @@ impl TextEncoder {
     ///
     /// Generates n-grams, encodes each, and bundles them together.
     fn encode_ngrams(&self, text: &str, n: usize) -> HVec10240 {
-        let char_indices: Vec<(usize, char)> = text.char_indices().collect();
+        // Optimization: store only byte offsets for character windows.
+        // Reduces memory overhead and improves cache locality compared to (usize, char) pairs.
+        let mut char_offsets = Vec::with_capacity(text.len());
+        for (i, _) in text.char_indices() {
+            char_offsets.push(i);
+        }
 
-        if char_indices.len() < n {
+        if char_offsets.len() < n || n == 0 {
             return HVec10240::zero();
         }
 
-        let ngram_vectors: Vec<HVec10240> = char_indices
-            .windows(n)
+        let last_char_end = text.len();
+        char_offsets.push(last_char_end);
+
+        let ngram_vectors: Vec<HVec10240> = char_offsets
+            .windows(n + 1)
             .map(|window| {
-                let start = window[0].0;
-                let end = window[n - 1].0 + window[n - 1].1.len_utf8();
+                let start = window[0];
+                let end = window[n];
                 self.token_to_hvec(&text[start..end])
             })
             .collect();
