@@ -5,7 +5,7 @@ use tracing::instrument;
 
 use crate::cli::args::{InjectArgs, OutputFormat, VectorSource};
 use crate::cli::error::{CliError, Result};
-use crate::hyperdim::HVec10240;
+use csm_core::hyperdim::HVec10240;
 
 use super::{create_framework_advanced, print_success, print_warning, validate_concept_id};
 

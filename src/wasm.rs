@@ -9,7 +9,7 @@ use wasm_bindgen::prelude::*;
 pub(crate) use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
 pub(crate) use crate::framework::ChaoticSemanticFramework;
 pub(crate) use crate::framework_validation::MAX_IMPORT_SIZE;
-pub(crate) use crate::hyperdim::HVec10240;
+pub(crate) use csm_core::hyperdim::HVec10240;
 pub(crate) use crate::wasm_ext::{concept_to_js_value, to_js_error};
 
 #[wasm_bindgen(start)]
@@ -427,7 +427,7 @@ pub fn random_hypervector() -> Box<[u8]> {
 
 #[wasm_bindgen]
 pub fn encode_text(text: &str) -> Box<[u8]> {
-    let encoder = crate::encoder::TextEncoder::new();
+    let encoder = csm_core::encoder::TextEncoder::new();
     encoder.encode(text).to_bytes().into_boxed_slice()
 }
 

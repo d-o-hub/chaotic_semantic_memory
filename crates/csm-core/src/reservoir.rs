@@ -90,7 +90,7 @@ impl Reservoir {
     const PARTIAL_UPDATE_STRIDE: usize = 32;
     pub const MAX_SIZE: usize = 100_000;
 
-    pub(crate) fn validate_params(size: usize, input_size: usize, chaos: f32) -> Result<()> {
+    pub fn validate_params(size: usize, input_size: usize, chaos: f32) -> Result<()> {
         if size == 0 || size > Self::MAX_SIZE {
             return Err(MemoryError::InvalidInput {
                 field: "reservoir_size".into(),
@@ -461,3 +461,8 @@ pub use crate::reservoir_chaotic::ChaoticReservoir;
 #[cfg(test)]
 #[path = "reservoir_tests.rs"]
 mod reservoir_tests;
+
+#[cfg(test)]
+mod tests {
+    include!("reservoir_tests.rs");
+}

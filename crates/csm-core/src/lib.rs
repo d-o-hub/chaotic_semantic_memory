@@ -12,11 +12,6 @@ pub mod reservoir_chaotic;
 pub mod reservoir_inertial;
 pub mod reservoir_sparse;
 
-#[cfg(test)]
-mod hyperdim_tests;
-#[cfg(test)]
-mod reservoir_tests;
-
 pub use error::{MemoryError, Result};
 pub use hyperdim::{HVec10240, batch_cosine_similarity};
 pub use bundle::BundleAccumulator;

@@ -7,7 +7,7 @@ use tracing::instrument;
 
 use crate::cli::args::{OutputFormat, UpdateArgs};
 use crate::cli::error::{CliError, Result};
-use crate::encoder::TextEncoder;
+use csm_core::encoder::TextEncoder;
 
 use super::{create_framework_with_namespace, print_success, validate_concept_id};
 

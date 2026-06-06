@@ -5,7 +5,7 @@ mod tests {
     use crate::framework_builder::FrameworkBuilder;
     use crate::framework_events::MemoryEvent;
     use crate::graph_traversal::TraversalConfig;
-    use crate::hyperdim::HVec10240;
+    use csm_core::hyperdim::HVec10240;
     use crate::metadata_filter::MetadataFilter;
     use serde_json::json;
     use std::collections::HashMap;
@@ -269,7 +269,7 @@ mod tests {
     }
 
     fn native_enc(t: &str) -> Box<[u8]> {
-        crate::encoder::TextEncoder::new()
+        csm_core::encoder::TextEncoder::new()
             .encode(t)
             .to_bytes()
             .into_boxed_slice()

@@ -22,8 +22,8 @@
 //! # Example
 //!
 //! ```
-//! use chaotic_semantic_memory::encoder::{TextEncoder, TextEncoderConfig};
-//! use chaotic_semantic_memory::HVec10240;
+//! use csm_core::encoder::{TextEncoder, TextEncoderConfig};
+//! use csm_core::HVec10240;
 //!
 //! let encoder = TextEncoder::new();
 //! let hv1 = encoder.encode("hello world");

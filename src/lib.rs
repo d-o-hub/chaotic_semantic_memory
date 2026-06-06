@@ -35,12 +35,12 @@
 //! - `process_sequence`: No Rayon parallelization in WASM
 
 pub use bridge_retrieval::BridgeRetrieval;
-pub use bundle::BundleAccumulator;
-pub use error::{MemoryError, Result};
+pub use csm_core::bundle::BundleAccumulator;
+pub use csm_core::error::{MemoryError, Result};
 pub use framework::ChaoticSemanticFramework;
 pub use framework_builder::FrameworkBuilder;
 pub use framework_events::MemoryEvent;
-pub use hyperdim::{HVec10240, batch_cosine_similarity};
+pub use csm_core::hyperdim::{HVec10240, batch_cosine_similarity};
 pub use semantic_bridge::{
     BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown,
 };
@@ -50,14 +50,13 @@ pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod bridge_persistence;
 pub mod bridge_retrieval;
-pub mod bundle;
-mod bundle_simd; // SIMD paths for BundleAccumulator
+pub use csm_core::bundle;
 #[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]
 pub mod cli;
 pub mod concept_builder;
 pub mod embedding;
-pub mod encoder;
-pub mod error;
+pub use csm_core::encoder;
+pub use csm_core::error;
 mod export_payload;
 pub mod framework;
 mod framework_bridge;
@@ -73,11 +72,7 @@ mod framework_persistence; // Extracted from framework.rs for LOC gate
 mod framework_ttl;
 mod framework_validation;
 pub mod graph_traversal;
-pub mod hyperdim;
-mod hyperdim_batch;
-mod hyperdim_serde; // Extracted from hyperdim.rs for LOC gate
-mod hyperdim_simd; // AVX2/NEON SIMD paths
-mod hyperdim_simd_bundle;
+pub use csm_core::hyperdim;
 #[cfg(all(not(target_arch = "wasm32"), feature = "mcp"))]
 pub mod mcp;
 pub mod metadata_filter;
@@ -102,10 +97,7 @@ mod persistence_versions;
 #[cfg(target_arch = "wasm32")]
 #[cfg(target_arch = "wasm32")]
 pub mod persistence_wasm;
-pub mod reservoir;
-mod reservoir_chaotic;
-mod reservoir_inertial; // ADR-0064
-mod reservoir_sparse; // LOC gate extraction
+pub use csm_core::reservoir;
 pub mod retrieval;
 pub mod semantic_bridge;
 pub mod singularity;

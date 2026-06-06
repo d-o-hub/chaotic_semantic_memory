@@ -1,3 +1,4 @@
+use crate::reservoir::Reservoir;
 use super::*;
 
 #[test]

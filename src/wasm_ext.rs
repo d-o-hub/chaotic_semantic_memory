@@ -103,7 +103,7 @@ impl WasmFramework {
         top_k: usize,
         filter_json: String,
     ) -> Result<Array, JsValue> {
-        let query = crate::hyperdim::HVec10240::from_bytes(vector).map_err(to_js_error)?;
+        let query = csm_core::hyperdim::HVec10240::from_bytes(vector).map_err(to_js_error)?;
         let filter: crate::metadata_filter::MetadataFilter = serde_json::from_str(&filter_json)
             .map_err(|e| JsValue::from_str(&format!("invalid filter JSON: {e}")))?;
 

@@ -484,3 +484,8 @@ pub use crate::bundle::BundleAccumulator;
 #[cfg(test)]
 #[path = "hyperdim_tests.rs"]
 mod hyperdim_tests;
+
+#[cfg(test)]
+mod tests {
+    include!("hyperdim_tests.rs");
+}

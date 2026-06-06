@@ -1,4 +1,4 @@
-use crate::error::MemoryError;
+use csm_core::error::MemoryError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]

@@ -399,7 +399,7 @@ fn res_def(uri: &str, name: &str, desc: &str, mime: &str) -> Resource {
     )
 }
 
-fn parse_hvec(vec_data: &[Value]) -> Result<crate::hyperdim::HVec10240> {
+fn parse_hvec(vec_data: &[Value]) -> Result<csm_core::hyperdim::HVec10240> {
     if vec_data.len() != 80 {
         return Err(anyhow::anyhow!("Vector must have 80 elements"));
     }
@@ -409,5 +409,5 @@ fn parse_hvec(vec_data: &[Value]) -> Result<crate::hyperdim::HVec10240> {
             .as_u64()
             .ok_or_else(|| anyhow::anyhow!("Invalid vector element"))? as u128;
     }
-    Ok(crate::hyperdim::HVec10240 { data })
+    Ok(csm_core::hyperdim::HVec10240 { data })
 }
