@@ -1,6 +1,4 @@
 use super::*;
-use crate::reservoir::Reservoir;
-use crate::reservoir::Reservoir;
 
 #[test]
 fn new_valid() {

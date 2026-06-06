@@ -112,6 +112,7 @@ impl HVec10240 {
     /// 2. It eliminates the large heap-allocated counter array and bit-by-bit loops.
     /// 3. It parallelizes over hypervector words rather than over vectors to minimize
     ///    memory traffic and synchronization overhead.
+#[allow(clippy::needless_range_loop)]
     pub fn bundle(vectors: &[Self]) -> Result<Self> {
         let num_vectors = vectors.len();
         if num_vectors == 0 {
@@ -241,6 +242,7 @@ impl HVec10240 {
 
         #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
         {
+            #[allow(clippy::needless_range_loop)]
             for i in 0..80 {
                 data[i] = bundle_word_scalar(vectors, i, threshold, num_planes);
             }
@@ -450,8 +452,6 @@ impl HVec10240 {
 /// Scalar bit-sliced addition for a single word.
 ///
 /// Centralized helper for sequential and parallel fallback paths.
-#[inline(always)]
-#[allow(dead_code)]
 #[allow(dead_code)]
 fn bundle_word_scalar(
     vectors: &[HVec10240],
@@ -488,6 +488,3 @@ fn bundle_word_scalar(
 // Re-export BundleAccumulator from bundle module
 pub use crate::bundle::BundleAccumulator;
 
-#[cfg(test)]
-#[path = "hyperdim_tests.rs"]
-mod hyperdim_tests;

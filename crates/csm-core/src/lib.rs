@@ -1,3 +1,4 @@
+#![allow(clippy::needless_range_loop, unused_imports)]
 pub mod bundle;
 pub mod bundle_simd;
 pub mod encoder;
@@ -14,7 +15,7 @@ pub mod reservoir_sparse;
 
 pub use bundle::BundleAccumulator;
 pub use error::{MemoryError, Result};
-pub use hyperdim::{HVec10240, batch_cosine_similarity};
+pub use hyperdim::{batch_cosine_similarity, HVec10240};
 
 pub mod prelude {
     pub use crate::error::{MemoryError, Result};
@@ -22,6 +23,17 @@ pub mod prelude {
 }
 
 #[cfg(test)]
-mod hyperdim_tests;
-#[cfg(test)]
-mod reservoir_tests;
+mod tests {
+    use super::*;
+    use crate::hyperdim::HVec10240;
+    use crate::reservoir::Reservoir;
+
+    mod hyperdim_tests {
+        use super::*;
+        include!("hyperdim_tests.rs");
+    }
+    mod reservoir_tests {
+        use super::*;
+        include!("reservoir_tests.rs");
+    }
+}

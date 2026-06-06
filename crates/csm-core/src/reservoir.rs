@@ -458,6 +458,3 @@ fn fast_tanh(x: f32) -> f32 {
 }
 pub use crate::reservoir_chaotic::ChaoticReservoir;
 
-#[cfg(test)]
-#[path = "reservoir_tests.rs"]
-mod reservoir_tests;

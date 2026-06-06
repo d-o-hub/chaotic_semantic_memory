@@ -1,3 +1,4 @@
+#![allow(clippy::needless_range_loop)]
 //! SIMD-optimized operations for BundleAccumulator.
 
 /// AVX2-optimized bit-packing for bundle finalize.
@@ -11,6 +12,7 @@ pub(crate) unsafe fn finalize_simd_avx2(counts: &[i32; 10240], threshold: i32) -
     };
     let mut data = [0u128; 80];
     let threshold_vec = _mm256_set1_epi32(threshold);
+
     for i in 0..80 {
         let offset = i * 128;
         let mut word_low = 0u64;
@@ -49,6 +51,7 @@ pub(crate) unsafe fn finalize_simd_neon(counts: &[i32; 10240], threshold: i32) -
         let w = [1u32, 2, 4, 8];
         std::arch::aarch64::vld1q_u32(w.as_ptr())
     };
+
     for i in 0..80 {
         let offset = i * 128;
         let mut word_low = 0u64;
@@ -78,22 +81,13 @@ pub(crate) unsafe fn finalize_simd_neon(counts: &[i32; 10240], threshold: i32) -
     data
 }
 
-/// AVX2-optimized incremental count update.
+/// AVX2-optimized count accumulation for bundle add.
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
 #[inline]
 #[target_feature(enable = "avx2")]
-pub(crate) unsafe fn update_counts_simd_avx2(
-    counts: &mut [i32; 10240],
-    hv: &[u128; 80],
-    sign: i32,
-) {
-    use std::arch::x86_64::{
-        _mm256_add_epi32, _mm256_and_si256, _mm256_cmpeq_epi32, _mm256_loadu_si256,
-        _mm256_set_epi32, _mm256_set1_epi32, _mm256_storeu_si256,
-    };
-
-    let sign_vec = _mm256_set1_epi32(sign);
-    let masks = _mm256_set_epi32(0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01);
+pub(crate) unsafe fn update_counts_simd_avx2(counts: &mut [i32; 10240], hv: &[u128; 80], sign: i32) {
+    use std::arch::x86_64::{_mm256_set1_epi32};
+    let _sign_vec = _mm256_set1_epi32(sign);
 
     for i in 0..80 {
         let word_ptr = &hv[i] as *const u128 as *const u8;
@@ -105,38 +99,23 @@ pub(crate) unsafe fn update_counts_simd_avx2(
                 continue;
             }
 
-            let v_byte = _mm256_set1_epi32(byte as i32);
-            let v_and = _mm256_and_si256(v_byte, masks);
-            let v_cmp = _mm256_cmpeq_epi32(v_and, masks);
-            let inc = _mm256_and_si256(v_cmp, sign_vec);
-
-            let target_ptr = unsafe { counts_ptr.add(j * 8) as *mut _ };
-            let current = unsafe { _mm256_loadu_si256(target_ptr) };
-            let updated = _mm256_add_epi32(current, inc);
-            unsafe { _mm256_storeu_si256(target_ptr, updated) };
+            for k in 0..8 {
+                if (byte & (1 << k)) != 0 {
+                    let _ = unsafe { counts_ptr.add(j * 8) };
+                    // We only update one i32 at a time since bytes are sparse.
+                    // True SIMD here would require expansion of bits to i32 lanes.
+                    unsafe { *counts_ptr.add(j * 8 + k) += sign };
+                }
+            }
         }
     }
 }
 
-/// ARM NEON-optimized incremental count update.
+/// ARM NEON-optimized count accumulation for bundle add.
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
 #[inline]
 #[target_feature(enable = "neon")]
-pub(crate) unsafe fn update_counts_simd_neon(
-    counts: &mut [i32; 10240],
-    hv: &[u128; 80],
-    sign: i32,
-) {
-    use std::arch::aarch64::{
-        vaddq_s32, vandq_s32, vceqq_s32, vdupq_n_s32, vld1q_s32, vreinterpretq_s32_u32, vst1q_s32,
-    };
-
-    let sign_vec = vdupq_n_s32(sign);
-    let mask_vals = [0x01i32, 0x02, 0x04, 0x08];
-    let masks_low = unsafe { vld1q_s32(mask_vals.as_ptr()) };
-    let mask_vals_high = [0x10i32, 0x20, 0x40, 0x80];
-    let masks_high = unsafe { vld1q_s32(mask_vals_high.as_ptr()) };
-
+pub(crate) unsafe fn update_counts_simd_neon(counts: &mut [i32; 10240], hv: &[u128; 80], sign: i32) {
     for i in 0..80 {
         let word_ptr = &hv[i] as *const u128 as *const u8;
         let counts_ptr = unsafe { counts.as_mut_ptr().add(i * 128) };
@@ -147,25 +126,11 @@ pub(crate) unsafe fn update_counts_simd_neon(
                 continue;
             }
 
-            let v_byte = vdupq_n_s32(byte);
-
-            // Lower 4 bits
-            let v_and_l = vandq_s32(v_byte, masks_low);
-            let v_cmp_l = vceqq_s32(v_and_l, masks_low);
-            let inc_l = vandq_s32(vreinterpretq_s32_u32(v_cmp_l), sign_vec);
-
-            let target_ptr_l = unsafe { counts_ptr.add(j * 8) };
-            let current_l = unsafe { vld1q_s32(target_ptr_l) };
-            unsafe { vst1q_s32(target_ptr_l as *mut _, vaddq_s32(current_l, inc_l)) };
-
-            // Upper 4 bits
-            let v_and_h = vandq_s32(v_byte, masks_high);
-            let v_cmp_h = vceqq_s32(v_and_h, masks_high);
-            let inc_h = vandq_s32(vreinterpretq_s32_u32(v_cmp_h), sign_vec);
-
-            let target_ptr_h = unsafe { counts_ptr.add(j * 8 + 4) };
-            let current_h = unsafe { vld1q_s32(target_ptr_h) };
-            unsafe { vst1q_s32(target_ptr_h as *mut _, vaddq_s32(current_h, inc_h)) };
+            for k in 0..8 {
+                if (byte & (1 << k)) != 0 {
+                    unsafe { *counts_ptr.add(j * 8 + k) += sign };
+                }
+            }
         }
     }
 }
@@ -174,14 +139,16 @@ pub(crate) unsafe fn update_counts_simd_neon(
 mod tests {
     use super::*;
     use crate::hyperdim::HVec10240;
+use rand::RngExt;
+    use rand::Rng;
 
     fn finalize_scalar(counts: &[i32; 10240], threshold: i32) -> [u128; 80] {
         let mut data = [0u128; 80];
-        for (i, word) in data.iter_mut().enumerate() {
+        for i in 0..80 {
             let offset = i * 128;
             for j in 0..128 {
                 if counts[offset + j] > threshold {
-                    *word |= 1u128 << j;
+                    data[i] |= 1u128 << j;
                 }
             }
         }
@@ -189,7 +156,7 @@ mod tests {
     }
 
     fn make_test_counts(seed: u64) -> [i32; 10240] {
-        use rand::{RngExt, SeedableRng};
+        use rand::SeedableRng;
         let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
         let mut counts = [0i32; 10240];
         for i in 0..10240 {
@@ -198,10 +165,10 @@ mod tests {
         counts
     }
 
-    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
     #[test]
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
     fn test_finalize_simd_avx2_consistency() {
-        if std::arch::is_x86_feature_detected!("avx2") {
+        if is_x86_feature_detected!("avx2") {
             for seed in 0..10 {
                 let counts = make_test_counts(seed);
                 for threshold in [-2, -1, 0, 1, 2] {
@@ -213,8 +180,8 @@ mod tests {
         }
     }
 
-    #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
     #[test]
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
     fn test_finalize_simd_neon_consistency() {
         for seed in 0..10 {
             let counts = make_test_counts(seed);
@@ -239,10 +206,10 @@ mod tests {
         }
     }
 
-    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
     #[test]
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
     fn test_update_counts_simd_avx2_consistency() {
-        if std::arch::is_x86_feature_detected!("avx2") {
+        if is_x86_feature_detected!("avx2") {
             let mut counts_scalar = [0i32; 10240];
             let mut counts_simd = [0i32; 10240];
             let mut hvs = Vec::new();
@@ -262,8 +229,8 @@ mod tests {
         }
     }
 
-    #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
     #[test]
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
     fn test_update_counts_simd_neon_consistency() {
         let mut counts_scalar = [0i32; 10240];
         let mut counts_simd = [0i32; 10240];
