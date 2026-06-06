@@ -167,6 +167,7 @@ impl HVec10240 {
 
         let threshold = num_vectors / 2 + 1;
         let num_planes = (usize::BITS - num_vectors.leading_zeros()) as usize;
+        #[allow(unused_mut, unused_variables)]
         let mut data = [0u128; 80];
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
@@ -446,6 +447,7 @@ impl HVec10240 {
 ///
 /// Centralized helper for sequential and parallel fallback paths.
 #[inline(always)]
+#[allow(dead_code)]
 fn bundle_word_scalar(
     vectors: &[HVec10240],
     word_idx: usize,

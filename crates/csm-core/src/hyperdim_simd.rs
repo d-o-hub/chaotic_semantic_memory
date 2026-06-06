@@ -7,6 +7,7 @@
 //! Also provides optimized Hamming distance calculation.
 /// Optimized Hamming distance calculation using a 4x unrolled loop with independent accumulators.
 #[inline]
+#[allow(dead_code)]
 pub(crate) fn hamming_distance_optimized(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
     let distance: u32;
     unsafe {
