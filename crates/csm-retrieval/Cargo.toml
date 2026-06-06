@@ -1,0 +1,22 @@
+[package]
+name = "csm-retrieval"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Retrieval backends for chaotic_semantic_memory"
+license = "MIT"
+
+[dependencies]
+csm-core = { path = "../csm-core" }
+csm-memory = { path = "../csm-memory" }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+hnsw_rs = { version = "0.3.4", optional = true }
+rayon = { version = "1.10.0", optional = true }
+
+[features]
+default = []
+ann-hnsw = ["dep:hnsw_rs"]
+ann-lsh = []
+parallel = ["dep:rayon"]

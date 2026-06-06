@@ -2,6 +2,14 @@
 members = [
     ".",
     "benchmarks",
+    "crates/csm-core",
+    "crates/csm-memory",
+    "crates/csm-persistence",
+    "crates/csm-retrieval",
+    "crates/csm-embedding",
+    "crates/csm-wasm",
+    "crates/csm-cli",
+    "crates/csm-mcp",
     "crates/chaotic_semantic_memory_duckdb",
 ]
 resolver = "3"
