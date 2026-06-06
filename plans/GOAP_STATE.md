@@ -1068,7 +1068,6 @@ world_state:
   mutation_ci_in_diff_enabled: true        # --in-diff scoped to PR changes
   mutation_ci_fetch_depth_zero: true       # fetch-depth: 0 in checkout
   wasm_freshness_sort_stable: true         # check-wasm-freshness.sh sorts lines before diff
-  action_last_completed: pin_github_actions_to_sha
 
   # ═══════════════════════════════════════════════════════
   # CI Security Policy Alignment (2026-05-21)
@@ -1087,4 +1086,33 @@ world_state:
   # depth+1 when depth < max_depth, so the comparison was always false).
   # Added 5 regression tests covering expand() and label index roundtrip.
   pr_346_mutation_miss_resolved: true
-  action_last_completed: fix_pr_346_mutation_miss_concept_graph_expand
+
+  # ═══════════════════════════════════════════════════════
+  # GOAP Reconciliation 2026-06 (codebase audit)
+  # ADR-0085: GOAP Reconciliation 2026-06
+  # Reconciles drift for merged PRs #345, #348, #349, #351 that
+  # were not recorded in world_state, and removes the duplicate
+  # `action_last_completed: pin_github_actions_to_sha` merge
+  # artifact re-introduced by PR #348.
+  # ═══════════════════════════════════════════════════════
+  goap_reconciliation_2026_06_complete: true
+  goap_state_duplicate_key_reremoved: true       # PR #348 re-added a stale
+                                                 # action_last_completed; removed.
+
+  # PR #345 — encoder allocation reduction
+  encoder_alloc_reduction_landed: true           # src/encoder.rs: fewer temp allocs
+                                                 # in text encoding hot path.
+
+  # PR #348/#349 — namespace input validation (security, CWE-770)
+  namespace_input_validation_landed: true        # validate_namespace() guards length
+                                                 # (≤128B), emptiness, control chars.
+  namespace_apis_fallible: true                  # set_namespace/with_namespace return
+                                                 # Result; guard applied to set/delete/
+                                                 # export/export_to_bytes/with_namespace.
+  namespace_validation_max_bytes: 128            # MAX_NAMESPACE_BYTES (framework_validation.rs)
+
+  # PR #351 — Miri scoped to push events on main only
+  miri_main_only_landed: true                    # ci.yml miri job: if github.event_name
+                                                 # == 'push' (skips PR runs, saves CI time).
+
+  action_last_completed: goap_reconciliation_2026_06

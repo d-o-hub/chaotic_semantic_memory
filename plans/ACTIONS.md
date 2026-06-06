@@ -3845,3 +3845,38 @@ actions:
       (cycle dedup, max_depth=0 boundary, unknown seed) and a roundtrip
       test for the lowercased label index across add_concept/match_tokens/
       remove_concept.
+
+  # ─────────────────────────────────────────────────────────
+  # GOAP Reconciliation 2026-06 (codebase audit)
+  # Cost: 2
+  # ADR-0085: GOAP Reconciliation 2026-06
+  # ─────────────────────────────────────────────────────────
+
+  - name: goap_reconciliation_2026_06
+    preconditions:
+      - pr_346_mutation_miss_resolved: true
+    effects:
+      - goap_reconciliation_2026_06_complete: true
+      - encoder_alloc_reduction_landed: true
+      - namespace_input_validation_landed: true
+      - namespace_apis_fallible: true
+      - miri_main_only_landed: true
+      - goap_state_duplicate_key_reremoved: true
+    cost: 2
+    status: complete
+    file: plans/GOAP_STATE.md, plans/ACTIONS.md, plans/ADR_REGISTRY.md, plans/adr/0085-goap-reconciliation-2026-06.md
+    description: |
+      Codebase audit reconciling GOAP world state with merged PRs not
+      previously recorded:
+        - #345 perf(encoder): reduce redundant allocations in text encoding
+          (src/encoder.rs hot-path allocation reduction).
+        - #348 fix(framework): validate namespace on all public namespace APIs
+          and #349 validate namespace input to prevent resource exhaustion
+          (CWE-770). Added validate_namespace() in src/framework_validation.rs
+          (≤128B, non-empty, no control chars); set_namespace/with_namespace
+          now return Result; guard applied across set/delete/export APIs.
+        - #351 ci: restrict miri to main branch only (push events), reducing
+          CI cost on PRs.
+      Also removed the duplicate `action_last_completed: pin_github_actions_to_sha`
+      merge artifact that PR #348 re-introduced into GOAP_STATE.md, restoring the
+      single-key DRY invariant. Documented in ADR-0085.
