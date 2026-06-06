@@ -87,6 +87,7 @@
 | 0082 | DuckDB Companion — Phase 3: Optional CLI Integration | Proposed | [adr/0082-duckdb-phase3-cli-integration.md](adr/0082-duckdb-phase3-cli-integration.md) |
 | 0083 | Memory Lifecycle Verification & Export Format | Accepted | [adr/0083-memory-lifecycle-verification-and-export-format.md](adr/0083-memory-lifecycle-verification-and-export-format.md) |
 | 0084 | GOAP Reconciliation and Codebase Alignment | Accepted | [adr/0084-goap-reconciliation.md](adr/0084-goap-reconciliation.md) |
+| 0085 | GOAP Reconciliation 2026-06 | Accepted | [adr/0085-goap-reconciliation-2026-06.md](adr/0085-goap-reconciliation-2026-06.md) |
 
 ## Status Definitions
 
