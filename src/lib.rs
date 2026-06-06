@@ -81,6 +81,8 @@ mod hyperdim_simd_bundle;
 #[cfg(all(not(target_arch = "wasm32"), feature = "mcp"))]
 pub mod mcp;
 pub mod metadata_filter;
+#[cfg(any(feature = "prometheus", feature = "otlp-json"))]
+pub mod observability;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_concepts;

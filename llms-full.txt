@@ -19,6 +19,7 @@
 - fastembed (4)
 - glob (0.3.2)
 - hnsw_rs (0.3.4)
+- prometheus (0.13)
 - rand
 - rand_chacha
 - reqwest (0.12) [features: json, rustls-tls]
@@ -41,8 +42,10 @@
 - embed-voyage: [dep:reqwest]
 - events-http: [cloudevents, cloudevents-sdk/http-binding, dep:reqwest]
 - mcp: [dep:rmcp, cli]
+- otlp-json: []
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
+- prometheus: [dep:prometheus, dep:hyper, dep:hyper-util, dep:http-body-util]
 - wasm: []
 
 Generated: [TIMESTAMP REMOVED FOR DETERMINISM]
@@ -540,6 +543,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod hyperdim
 - pub mod mcp
 - pub mod metadata_filter
+- pub mod observability
 - pub mod semantic_triples
 - pub use metadata_filter::MetadataFilter
 - pub mod index
@@ -607,6 +611,38 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub enum MetadataFilter
 - impl MetadataFilter
 - impl ops::Not for MetadataFilter
+
+### src/observability/mod.rs
+
+- pub mod prom
+- pub mod otlp
+- pub enum LogFormat
+- pub struct ObservabilityConfig
+- pub struct Guard
+- impl Drop for Guard
+- pub fn init
+- pub fn render_metrics
+
+### src/observability/otlp.rs
+
+- pub struct StdoutWriter
+- impl MakeWriter for StdoutWriter
+- pub struct StdoutGuard
+- impl std::io::Write for StdoutGuard
+- pub fn install_json_subscriber
+
+### src/observability/prom.rs
+
+- pub fn record_probe
+- pub fn record_inject
+- pub fn record_persist
+- pub fn set_concepts_count
+- pub fn set_associations_count
+- pub fn set_cache_hit_ratio
+- pub fn render
+- pub struct PromServerHandle
+- impl PromServerHandle
+- pub fn start_server
 
 ### src/persistence.rs
 
@@ -2903,6 +2939,9 @@ pub enum MemoryError {
     Config(String),
     Io(std::io::Error),
     Serialization(serde_json::Error),
+    Observability(String),
+    ObservabilityFeatureDisabled { feature: &'static str },
+    ObservabilityAlreadyInitialised,
 }
 ```
 
@@ -4149,6 +4188,217 @@ impl MetadataFilter {
 impl ops::Not for MetadataFilter {
 }
 ```
+
+## src/observability/mod.rs
+
+### Guard
+
+```rust
+pub struct Guard {
+}
+```
+
+Guard returned by [`init`].
+
+Holding the guard keeps the Prometheus server task running. Drop it to
+gracefully shut down the scrape endpoint.
+
+### LogFormat
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LogFormat {
+    Pretty,
+    Json,
+    Ndjson,
+}
+```
+
+Log formatting selection for [`init`].
+
+### ObservabilityConfig
+
+```rust
+#[derive(Debug, Clone, Default)]
+pub struct ObservabilityConfig {
+    pub service_name: String,
+    pub otlp_endpoint: Option<String>,
+    pub prometheus_bind: Option<SocketAddr>,
+    pub log_format: LogFormat,
+}
+```
+
+Observability configuration.
+
+All fields are optional. `init` returns `Ok(None)` when nothing was
+actually enabled (no `prometheus_bind` and `log_format == Pretty`),
+so tests can call it unconditionally.
+
+### impl Drop for Guard
+
+```rust
+impl Drop for Guard {
+}
+```
+
+### init
+
+```rust
+pub fn init(config: ObservabilityConfig) -> Result<Option<Guard>>
+```
+
+Initialise observability based on `config`.
+
+`init` is idempotent in a single process: a second call returns
+[`MemoryError::ObservabilityAlreadyInitialised`] so callers can detect
+double-init instead of silently doubling the log output.
+
+Returns `Ok(None)` when nothing was actually enabled — useful for tests
+that want to call this unconditionally.
+
+### render_metrics
+
+```rust
+pub fn render_metrics() -> Result<String>
+```
+
+Encode the current Prometheus registry into the text exposition format.
+
+Requires the `prometheus` feature. Returns `Err` if the feature is
+disabled or the registry cannot be encoded.
+
+## src/observability/otlp.rs
+
+### StdoutGuard
+
+```rust
+pub struct StdoutGuard;
+```
+
+`Write` adapter that writes to locked stdout.
+
+### StdoutWriter
+
+```rust
+#[derive(Debug, Default, Clone, Copy)]
+pub struct StdoutWriter;
+```
+
+Writer that sends events to stdout. Defined as its own type so the
+JSON subscriber does not depend on the default `tracing_subscriber`
+`Stdout` target (which can be re-initialised across tests).
+
+### impl MakeWriter<'a> for StdoutWriter
+
+```rust
+impl<'a> MakeWriter<'a> for StdoutWriter {
+}
+```
+
+### impl std::io::Write for StdoutGuard
+
+```rust
+impl std::io::Write for StdoutGuard {
+}
+```
+
+### install_json_subscriber
+
+```rust
+pub fn install_json_subscriber()
+```
+
+Install a global JSON tracing subscriber.
+
+Idempotent at the level the caller cares about: if a subscriber is
+already installed (`set_global_default` fails), the function returns
+without touching anything. This is the same pattern used by
+`tracing_subscriber::fmt::init()` and keeps the public API panic-free.
+
+## src/observability/prom.rs
+
+### PromServerHandle
+
+```rust
+pub struct PromServerHandle {
+}
+```
+
+Handle to a running metrics HTTP server.
+
+### impl PromServerHandle
+
+```rust
+impl PromServerHandle {
+    pub fn local_addr(&self) -> SocketAddr;
+    pub fn shutdown(self);
+}
+```
+
+### record_inject
+
+```rust
+pub fn record_inject(with_metadata: bool)
+```
+
+Record one inject outcome.
+
+### record_persist
+
+```rust
+pub fn record_persist(op: &str, latency_ms: f64)
+```
+
+Record one persistence operation outcome.
+
+### record_probe
+
+```rust
+pub fn record_probe(result: &str, latency_ms: f64)
+```
+
+Record one probe outcome (`result` = `ok` | `error`).
+
+### render
+
+```rust
+pub fn render() -> Result<String>
+```
+
+Encode the registry using the text exposition format.
+
+### set_associations_count
+
+```rust
+pub fn set_associations_count(n: i64)
+```
+
+Update the associations gauge.
+
+### set_cache_hit_ratio
+
+```rust
+pub fn set_cache_hit_ratio(bps: i64)
+```
+
+Update the cache hit ratio gauge (`0..=10_000` basis points).
+
+### set_concepts_count
+
+```rust
+pub fn set_concepts_count(n: i64)
+```
+
+Update the size gauges (best-effort; failure is ignored).
+
+### start_server
+
+```rust
+pub fn start_server(bind: SocketAddr) -> Result<PromServerHandle>
+```
+
+Start the metrics server bound to `bind`. Blocks until the server task
+has accepted its socket so callers can rely on `local_addr`.
 
 ## src/persistence.rs
 

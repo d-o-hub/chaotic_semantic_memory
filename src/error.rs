@@ -44,6 +44,15 @@ pub enum MemoryError {
 
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
+
+    #[error("Observability error: {0}")]
+    Observability(String),
+
+    #[error("Observability feature '{feature}' is not enabled; rebuild with --features {feature}")]
+    ObservabilityFeatureDisabled { feature: &'static str },
+
+    #[error("Observability stack already initialised in this process")]
+    ObservabilityAlreadyInitialised,
 }
 
 impl MemoryError {

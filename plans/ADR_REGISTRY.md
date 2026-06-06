@@ -88,6 +88,7 @@
 | 0083 | Memory Lifecycle Verification & Export Format | Accepted | [adr/0083-memory-lifecycle-verification-and-export-format.md](adr/0083-memory-lifecycle-verification-and-export-format.md) |
 | 0084 | GOAP Reconciliation and Codebase Alignment | Accepted | [adr/0084-goap-reconciliation.md](adr/0084-goap-reconciliation.md) |
 | 0085 | GOAP Reconciliation 2026-06 | Accepted | [adr/0085-goap-reconciliation-2026-06.md](adr/0085-goap-reconciliation-2026-06.md) |
+| 0086 | OTLP / Prometheus Implementation Notes | Implemented | [adr/0086-otlp-prom-implementation.md](adr/0086-otlp-prom-implementation.md) |
 
 ## Status Definitions
 

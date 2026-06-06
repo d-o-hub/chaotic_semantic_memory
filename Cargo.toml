@@ -18,7 +18,7 @@ serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.150"
 thiserror = "2.0.11"
 tracing = "0.1.41"
-tracing-subscriber = "0.3.19"
+tracing-subscriber = { version = "0.3.19", features = ["json"] }
 tokio = "1.43.0"
 anyhow = "1.0.102"
 sha2 = "0.10.9"
@@ -92,13 +92,22 @@ glob = { version = "0.3.2", optional = true }
 # MCP server dependencies (gated behind "mcp" feature - ADR-0067)
 rmcp = { version = "1.7", optional = true, features = ["server", "macros", "transport-io"] }
 
+# Observability dependencies (ADR-0072, opt-in via "prometheus" feature)
+prometheus = { version = "0.13", optional = true, default-features = false }
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # CPU parallelism (opt-in via "parallel" feature)
 rayon = { version = "1.10.0", optional = true }
 
 # Database - Use libsql NOT turso-client (opt-in via "persistence" feature)
 libsql = { version = "0.9.30", default-features = false, features = ["sync", "hrana", "remote"], optional = true }
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs"] }
+# `net` is required by the Prometheus /metrics server (ADR-0072).
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs", "net"] }
+
+# HTTP server for Prometheus /metrics endpoint (ADR-0072, opt-in via "prometheus" feature)
+hyper = { version = "1", features = ["server", "http1"], optional = true }
+hyper-util = { version = "0.1", features = ["tokio"], optional = true }
+http-body-util = { version = "0.1", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.4.2", features = ["wasm_js"] }
@@ -229,6 +238,11 @@ path = "examples/knowledge_graph.rs"
 name = "streaming_temporal"
 path = "examples/streaming_temporal.rs"
 
+[[example]]
+name = "observability_otlp"
+path = "examples/observability_otlp.rs"
+required-features = ["prometheus", "otlp-json"]
+
 [features]
 default = ["cli", "persistence", "parallel"]
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
@@ -250,6 +264,13 @@ ann-lsh = []
 # CloudEvents integration (ADR-0078)
 cloudevents = ["dep:cloudevents-sdk", "dep:uuid", "uuid/js"]
 events-http = ["cloudevents", "cloudevents-sdk/http-binding", "dep:reqwest"]
+
+# Observability exports (ADR-0072)
+# `prometheus` enables a /metrics HTTP endpoint and a counter/histogram registry.
+# `otlp-json` enables JSON-structured tracing for log shippers (lightweight OTLP alternative).
+# Both are opt-in and have no effect on default builds.
+prometheus = ["dep:prometheus", "dep:hyper", "dep:hyper-util", "dep:http-body-util"]
+otlp-json = []
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]

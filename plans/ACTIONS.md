@@ -3391,13 +3391,20 @@ actions:
     effects:
       otlp_exporter_implemented: true
     cost: 6
-    status: queued
-    file: plans/adr/0072-otlp-exporter.md
+    status: complete
+    file: plans/adr/0072-otlp-exporter.md, plans/adr/0086-otlp-prom-implementation.md
     description: |
       Add observability module behind otlp/prometheus features.
       OTLP gRPC export + Prometheus /metrics endpoint.
       7 metrics surfaced (probe_total, probe_latency_ms, inject_total, etc.).
       Smoke test against local Jaeger + Prometheus.
+
+      2026-06-06: Implemented as `prometheus` + `otlp-json` features
+      behind src/observability/. The gRPC OTLP path was deferred to
+      keep the dep tree slim (no tonic/prost/protobuf); the JSON
+      subscriber is the operational equivalent. See ADR-0086 for
+      rationale and follow-ups. Auto-wiring the framework's hot path
+      to call `prom::record_*` is a separate follow-up.
 
   - name: implement_namespace_isolation
     preconditions:
@@ -3437,13 +3444,19 @@ actions:
     effects:
       quantized_binary_hypervectors_implemented: true
     cost: 14
-    status: queued
+    status: delegated
+    jules_issue: 353
     file: plans/adr/0075-quantized-binary-hypervectors.md
     description: |
       Add BHVec10240 (160 × u64 packed) + Hypervector trait.
       Singularity<H> generic over Hypervector. Migration 007_add_vector_format.sql.
       32× memory compression at ~5% recall cost. Opt-in via FrameworkBuilder.
       Recall@10 vs f32 benchmark report required.
+
+      2026-06-06: Cost 14 (≥ 12 threshold) so delegated to Jules per
+      AGENTS.md §"Phase 2: Planning". Tracked as GitHub issue
+      https://github.com/d-o-hub/chaotic_semantic_memory/issues/353
+      with the `jules` label.
 
   # ═══════════════════════════════════════════════════════
   # 2026-04-30 — Real-usage verification + Clippy audit
@@ -3824,6 +3837,42 @@ actions:
       Pinned all GitHub Actions across all workflow files to full-length commit SHAs
       to comply with repository security policy. Updated version comments for
       maintainability. Verified with scripts/validate-github-actions-shas.sh.
+
+  # ─────────────────────────────────────────────────────────
+  # OTLP/Prometheus follow-ups (ADR-0086 §"Follow-ups")
+  # ─────────────────────────────────────────────────────────
+
+  - name: auto_wire_framework_prom_metrics
+    preconditions:
+      otlp_exporter_implemented: true
+    effects:
+      observability_framework_auto_wired: true
+    cost: 3
+    status: queued
+    file: src/framework.rs, src/singularity.rs, src/persistence.rs
+    description: |
+      Wire `prom::record_probe` / `prom::record_inject` /
+      `prom::record_persist` from the framework's `#[instrument]`
+      sites so callers do not have to instrument their own hot
+      paths. Tracked as the first follow-up from ADR-0086.
+      2026-06-06: Created.
+
+  - name: add_otlp_grpc_exporter
+    preconditions:
+      otlp_exporter_implemented: true
+    effects:
+      otlp_grpc_exporter_implemented: true
+    cost: 8
+    status: deferred
+    file: plans/adr/0072-otlp-exporter.md, plans/adr/0086-otlp-prom-implementation.md
+    description: |
+      Layer `opentelemetry-otlp` behind a new `otlp` feature (the
+      gRPC path that ADR-0072 originally proposed). The
+      `ObservabilityConfig::otlp_endpoint` field is already reserved
+      for this. Deferred because the JSON path covers the same
+      operational use case without the tonic/prost/protobuf compile
+      cost. Tracked as the second follow-up from ADR-0086.
+      2026-06-06: Created.
   - name: fix_pr_346_mutation_miss_concept_graph_expand
     preconditions:
       - mutation_ci_enforced: true
