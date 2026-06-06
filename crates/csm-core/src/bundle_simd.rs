@@ -85,8 +85,12 @@ pub(crate) unsafe fn finalize_simd_neon(counts: &[i32; 10240], threshold: i32) -
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
 #[inline]
 #[target_feature(enable = "avx2")]
-pub(crate) unsafe fn update_counts_simd_avx2(counts: &mut [i32; 10240], hv: &[u128; 80], sign: i32) {
-    use std::arch::x86_64::{_mm256_set1_epi32};
+pub(crate) unsafe fn update_counts_simd_avx2(
+    counts: &mut [i32; 10240],
+    hv: &[u128; 80],
+    sign: i32,
+) {
+    use std::arch::x86_64::_mm256_set1_epi32;
     let _sign_vec = _mm256_set1_epi32(sign);
 
     for i in 0..80 {
@@ -115,7 +119,11 @@ pub(crate) unsafe fn update_counts_simd_avx2(counts: &mut [i32; 10240], hv: &[u1
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
 #[inline]
 #[target_feature(enable = "neon")]
-pub(crate) unsafe fn update_counts_simd_neon(counts: &mut [i32; 10240], hv: &[u128; 80], sign: i32) {
+pub(crate) unsafe fn update_counts_simd_neon(
+    counts: &mut [i32; 10240],
+    hv: &[u128; 80],
+    sign: i32,
+) {
     for i in 0..80 {
         let word_ptr = &hv[i] as *const u128 as *const u8;
         let counts_ptr = unsafe { counts.as_mut_ptr().add(i * 128) };
@@ -139,8 +147,8 @@ pub(crate) unsafe fn update_counts_simd_neon(counts: &mut [i32; 10240], hv: &[u1
 mod tests {
     use super::*;
     use crate::hyperdim::HVec10240;
-use rand::RngExt;
     use rand::Rng;
+    use rand::RngExt;
 
     fn finalize_scalar(counts: &[i32; 10240], threshold: i32) -> [u128; 80] {
         let mut data = [0u128; 80];

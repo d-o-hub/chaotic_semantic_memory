@@ -112,7 +112,7 @@ impl HVec10240 {
     /// 2. It eliminates the large heap-allocated counter array and bit-by-bit loops.
     /// 3. It parallelizes over hypervector words rather than over vectors to minimize
     ///    memory traffic and synchronization overhead.
-#[allow(clippy::needless_range_loop)]
+    #[allow(clippy::needless_range_loop)]
     pub fn bundle(vectors: &[Self]) -> Result<Self> {
         let num_vectors = vectors.len();
         if num_vectors == 0 {
@@ -487,4 +487,3 @@ fn bundle_word_scalar(
 
 // Re-export BundleAccumulator from bundle module
 pub use crate::bundle::BundleAccumulator;
-

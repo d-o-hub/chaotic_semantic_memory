@@ -15,7 +15,7 @@ pub mod reservoir_sparse;
 
 pub use bundle::BundleAccumulator;
 pub use error::{MemoryError, Result};
-pub use hyperdim::{batch_cosine_similarity, HVec10240};
+pub use hyperdim::{HVec10240, batch_cosine_similarity};
 
 pub mod prelude {
     pub use crate::error::{MemoryError, Result};

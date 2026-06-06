@@ -457,4 +457,3 @@ fn fast_tanh(x: f32) -> f32 {
     x * (x2 + 27.0) / x2.mul_add(9.0, 27.0)
 }
 pub use crate::reservoir_chaotic::ChaoticReservoir;
-

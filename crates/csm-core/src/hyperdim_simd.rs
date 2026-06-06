@@ -144,7 +144,10 @@ mod tests {
     }
 
     #[test]
-    #[cfg(all(not(target_arch = "wasm32"), any(target_arch = "x86_64", target_arch = "x86")))]
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(target_arch = "x86_64", target_arch = "x86")
+    ))]
     fn and_simd_x86_correctness() {
         let lhs = [0x5555_5555_5555_5555_5555_5555_5555_5555u128; 80];
         let rhs = [0xAAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAAu128; 80];
@@ -168,7 +171,10 @@ mod tests {
     }
 
     #[test]
-    #[cfg(all(not(target_arch = "wasm32"), any(target_arch = "x86_64", target_arch = "x86")))]
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(target_arch = "x86_64", target_arch = "x86")
+    ))]
     fn bind_simd_x86_correctness() {
         let lhs = [0x5555_5555_5555_5555_5555_5555_5555_5555u128; 80];
         let rhs = [0x5555_5555_5555_5555_5555_5555_5555_5555u128; 80];
