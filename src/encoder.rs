@@ -393,4 +393,22 @@ mod tests {
         let h2 = encoder.stable_hash("test_token");
         assert_eq!(h1, h2);
     }
+
+    #[test]
+    fn encode_ngrams_boundary_conditions() {
+        let encoder = TextEncoder::new();
+        let zero = HVec10240::zero();
+
+        // len < n: should return zero
+        assert_eq!(encoder.encode_ngrams("a", 2), zero);
+
+        // len == n: should NOT return zero (one n-gram)
+        assert_ne!(encoder.encode_ngrams("ab", 2), zero);
+
+        // n == 0: should return zero
+        assert_eq!(encoder.encode_ngrams("abc", 0), zero);
+
+        // len < n - 1: should return zero
+        assert_eq!(encoder.encode_ngrams("", 2), zero);
+    }
 }
