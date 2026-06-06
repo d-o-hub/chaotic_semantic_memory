@@ -2,8 +2,8 @@ use libsql::params;
 use tokio::fs;
 use tracing::warn;
 
-use csm_core::error::{MemoryError, Result};
 use crate::persistence::{ConceptVersion, Persistence};
+use csm_core::error::{MemoryError, Result};
 
 impl Persistence {
     pub async fn save_associations(
@@ -313,9 +313,9 @@ impl Persistence {
 #[cfg(test)]
 #[cfg(feature = "persistence")]
 mod tests {
-    use csm_core::hyperdim::HVec10240;
     use crate::persistence::Persistence;
     use crate::singularity::Concept;
+    use csm_core::hyperdim::HVec10240;
     use std::collections::HashMap;
     use tempfile::NamedTempFile;
 

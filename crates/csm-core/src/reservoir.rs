@@ -72,10 +72,10 @@ pub struct Reservoir {
     input_projection: Vec<f32>,
     input_version: u32,
     node_versions: Vec<u32>,
-    update_stride: usize,
-    update_phase: usize,
+    pub(crate) update_stride: usize,
+    pub(crate) update_phase: usize,
     spectral_radius: f32,
-    alpha: f32,
+    pub(crate) alpha: f32,
     pub(crate) beta: f32, // ADR-0064: inertia coefficient
     state_norm_sq: f64,   // Incremental state norm for performance
     metrics: Arc<ReservoirMetrics>,
@@ -461,8 +461,3 @@ pub use crate::reservoir_chaotic::ChaoticReservoir;
 #[cfg(test)]
 #[path = "reservoir_tests.rs"]
 mod reservoir_tests;
-
-#[cfg(test)]
-mod tests {
-    include!("reservoir_tests.rs");
-}

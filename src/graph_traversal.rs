@@ -13,8 +13,8 @@
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 
-use csm_core::error::{MemoryError, Result};
 use crate::singularity::Singularity;
+use csm_core::error::{MemoryError, Result};
 
 /// Configuration for graph traversal operations.
 #[derive(Debug, Clone)]
@@ -280,8 +280,8 @@ impl Singularity {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use csm_core::hyperdim::HVec10240;
     use crate::singularity::{Concept, ConceptBuilder, Singularity, SingularityConfig};
+    use csm_core::hyperdim::HVec10240;
 
     fn make_concept(id: &str) -> Concept {
         ConceptBuilder::new(id)

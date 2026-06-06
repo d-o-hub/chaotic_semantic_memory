@@ -5,18 +5,18 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::instrument;
 
-use csm_core::error::Result;
 use crate::framework_builder::{FrameworkBuilder, FrameworkConfig, FrameworkStats};
 use crate::framework_events::MemoryEvent;
 use crate::framework_events_ce::{ChaoticEvent, EventEmitter};
 use crate::framework_metrics::{FrameworkMetrics, FrameworkMetricsSnapshot};
 use crate::graph_traversal::TraversalConfig;
-use csm_core::hyperdim::HVec10240;
 use crate::metadata_filter::MetadataFilter;
 #[cfg(feature = "persistence")]
 use crate::persistence::Persistence;
-use csm_core::reservoir_chaotic::ChaoticReservoir;
 use crate::singularity::{Concept, ConceptBuilder, Singularity, unix_now_secs};
+use csm_core::error::Result;
+use csm_core::hyperdim::HVec10240;
+use csm_core::reservoir_chaotic::ChaoticReservoir;
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
 

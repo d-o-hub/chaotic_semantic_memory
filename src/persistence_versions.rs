@@ -1,6 +1,6 @@
-use csm_core::error::{MemoryError, Result};
 use crate::persistence::Persistence;
 use crate::singularity::{Concept, ConceptVersion};
+use csm_core::error::{MemoryError, Result};
 use libsql::{Connection, params};
 
 impl Persistence {

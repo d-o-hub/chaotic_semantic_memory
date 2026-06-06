@@ -5,10 +5,10 @@
 
 // Casts are intentional for scoring formula
 
-use csm_core::error::Result;
 use crate::graph_traversal::TraversalConfig;
-use csm_core::hyperdim::HVec10240;
 use crate::singularity::Concept;
+use csm_core::error::Result;
+use csm_core::hyperdim::HVec10240;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Configuration for GraphRAG retrieval.

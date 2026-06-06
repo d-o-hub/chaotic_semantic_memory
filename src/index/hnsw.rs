@@ -4,13 +4,13 @@
 // Casts are intentional for similarity math
 
 #[cfg(feature = "ann-hnsw")]
-use csm_core::error::{MemoryError, Result};
-#[cfg(feature = "ann-hnsw")]
-use csm_core::hyperdim::HVec10240;
-#[cfg(feature = "ann-hnsw")]
 use crate::index::{AnnIndex, IndexStats};
 #[cfg(feature = "ann-hnsw")]
 use crate::singularity::Concept;
+#[cfg(feature = "ann-hnsw")]
+use csm_core::error::{MemoryError, Result};
+#[cfg(feature = "ann-hnsw")]
+use csm_core::hyperdim::HVec10240;
 #[cfg(feature = "ann-hnsw")]
 use hnsw_rs::prelude::*;
 #[cfg(feature = "ann-hnsw")]
@@ -304,8 +304,8 @@ impl AnnIndex for HnswIndex {
 #[cfg(all(test, feature = "ann-hnsw"))]
 mod tests {
     use super::*;
-    use csm_core::hyperdim::HVec10240;
     use crate::singularity::Concept;
+    use csm_core::hyperdim::HVec10240;
     use std::collections::HashMap;
 
     #[test]

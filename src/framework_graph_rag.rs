@@ -1,9 +1,9 @@
 //! GraphRAG retrieval extension for framework.
 
-use csm_core::error::Result;
 use crate::framework::ChaoticSemanticFramework;
-use csm_core::hyperdim::HVec10240;
 use crate::retrieval::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
+use csm_core::error::Result;
+use csm_core::hyperdim::HVec10240;
 use tracing::instrument;
 
 impl ChaoticSemanticFramework {

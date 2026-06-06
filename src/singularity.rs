@@ -1,11 +1,11 @@
 //! Core concept storage and indexing engine
 
-use csm_core::error::{MemoryError, Result};
-use csm_core::hyperdim::HVec10240;
 use crate::index::{AnnIndex, IndexBackend, IndexStats};
 use crate::singularity_cache::{CacheMetrics, CacheMetricsSnapshot};
 use crate::singularity_retrieval::RetrievalConfig;
 use crate::singularity_state::NamespaceState;
+use csm_core::error::{MemoryError, Result};
+use csm_core::hyperdim::HVec10240;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;

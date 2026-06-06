@@ -1,10 +1,10 @@
 //! TTL (Time-To-Live) and text convenience operations for ChaoticSemanticFramework.
 
-use csm_core::error::Result;
 use crate::framework_events::MemoryEvent;
-use csm_core::hyperdim::HVec10240;
 use crate::metadata_filter::MetadataFilter;
 use crate::singularity::ConceptBuilder;
+use csm_core::error::Result;
+use csm_core::hyperdim::HVec10240;
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
 use std::collections::HashMap;

@@ -6,10 +6,10 @@
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 
-#[cfg(target_arch = "wasm32")]
-use csm_core::error::Result;
 use crate::framework::ChaoticSemanticFramework;
 use crate::framework_events_ce::ChaoticEvent;
+#[cfg(target_arch = "wasm32")]
+use csm_core::error::Result;
 #[cfg(target_arch = "wasm32")]
 use csm_core::hyperdim::HVec10240;
 #[cfg(target_arch = "wasm32")]

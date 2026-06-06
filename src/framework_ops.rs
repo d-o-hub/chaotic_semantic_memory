@@ -1,12 +1,12 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-use csm_core::error::Result;
 use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
 use crate::framework_events::MemoryEvent;
 use crate::framework_validation::{MAX_IMPORT_SIZE, validate_path};
-use csm_core::hyperdim::HVec10240;
 use crate::singularity::ConceptBuilder;
 use bincode::Options;
+use csm_core::error::Result;
+use csm_core::hyperdim::HVec10240;
 use std::io::Read;
 use std::sync::Arc;
 use tokio::fs;
@@ -250,9 +250,9 @@ impl ChaoticSemanticFramework {
 
         let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
         let data = options.serialize(&payload).map_err(|e| {
-            csm_core::error::MemoryError::Serialization(serde_json::Error::io(std::io::Error::other(
-                e.to_string(),
-            )))
+            csm_core::error::MemoryError::Serialization(serde_json::Error::io(
+                std::io::Error::other(e.to_string()),
+            ))
         })?;
         fs::write(validated_path, data).await?;
         Ok(())
@@ -266,13 +266,12 @@ impl ChaoticSemanticFramework {
             .secure_read_file(&validated_path, MAX_IMPORT_SIZE)
             .await?;
         let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
-        let binary_payload: BinaryExportPayload =
-            options
-                .deserialize(&bytes)
-                .map_err(|e| csm_core::error::MemoryError::InvalidInput {
-                    field: "import_data".to_string(),
-                    reason: format!("bincode deserialization failed: {e}"),
-                })?;
+        let binary_payload: BinaryExportPayload = options.deserialize(&bytes).map_err(|e| {
+            csm_core::error::MemoryError::InvalidInput {
+                field: "import_data".to_string(),
+                reason: format!("bincode deserialization failed: {e}"),
+            }
+        })?;
         // Convert to regular payload
         let payload = binary_payload.to_export_payload().map_err(|e| {
             csm_core::error::MemoryError::InvalidInput {

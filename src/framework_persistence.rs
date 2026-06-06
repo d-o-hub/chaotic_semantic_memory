@@ -4,10 +4,10 @@
 
 use tracing::warn;
 
-use csm_core::error::{MemoryError, Result};
 use crate::framework::ChaoticSemanticFramework;
 use crate::framework_events::MemoryEvent;
 use crate::singularity::{Concept, ConceptDiff, ConceptVersion};
+use csm_core::error::{MemoryError, Result};
 
 impl ChaoticSemanticFramework {
     /// Persist all data to storage

@@ -8,10 +8,10 @@ use std::collections::HashMap;
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
 
-use csm_core::error::Result;
-use csm_core::hyperdim::HVec10240;
 use crate::index::{AnnIndex, IndexStats};
 use crate::singularity::Concept;
+use csm_core::error::Result;
+use csm_core::hyperdim::HVec10240;
 
 /// Exact search via linear scan.
 #[derive(Debug, Default)]

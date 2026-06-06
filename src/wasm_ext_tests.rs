@@ -5,8 +5,8 @@ mod tests {
     use crate::framework_builder::FrameworkBuilder;
     use crate::framework_events::MemoryEvent;
     use crate::graph_traversal::TraversalConfig;
-    use csm_core::hyperdim::HVec10240;
     use crate::metadata_filter::MetadataFilter;
+    use csm_core::hyperdim::HVec10240;
     use serde_json::json;
     use std::collections::HashMap;
 

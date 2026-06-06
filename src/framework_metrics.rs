@@ -1,8 +1,8 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 //! Framework metrics for performance monitoring
 
-use csm_core::reservoir::ReservoirMetrics;
 use crate::singularity_cache::CacheMetrics;
+use csm_core::reservoir::ReservoirMetrics;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 

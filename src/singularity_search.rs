@@ -8,12 +8,12 @@ use std::sync::atomic::Ordering;
 #[cfg(not(target_arch = "wasm32"))]
 use tracing::instrument;
 
-use csm_core::hyperdim::HVec10240;
 use crate::singularity::{Singularity, similarity_cache_key, unix_now_ns};
 use crate::singularity_retrieval::{
     CandidateSource, FilterStrategy, RetrievalStats, ScoredCandidateParams,
 };
 use crate::singularity_state::NamespaceState;
+use csm_core::hyperdim::HVec10240;
 
 // ── Helper functions for find_similar_cached ──────────────────────────
 // Extracted to reduce cyclomatic complexity (Deepsource).

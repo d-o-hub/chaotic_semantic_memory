@@ -3,8 +3,8 @@
 //! Persistence is unavailable on `wasm32` in this crate build.
 //! All operations return `MemoryError::UnsupportedOperation`.
 
-use csm_core::error::{MemoryError, Result};
 use crate::singularity::Concept;
+use csm_core::error::{MemoryError, Result};
 
 /// Persistence stub for wasm32 builds.
 pub struct Persistence;

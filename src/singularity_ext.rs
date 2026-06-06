@@ -1,8 +1,8 @@
 //! Extension methods for Singularity (extracted to satisfy LOC gate)
 
+use crate::singularity::Singularity;
 use csm_core::error::{MemoryError, Result};
 use csm_core::hyperdim::HVec10240;
-use crate::singularity::Singularity;
 use tracing::instrument;
 
 impl Singularity {
@@ -70,8 +70,8 @@ impl Singularity {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use csm_core::error::MemoryError;
     use crate::singularity::{ConceptBuilder, Singularity, SingularityConfig};
+    use csm_core::error::MemoryError;
     use std::collections::HashMap;
 
     const NS: &str = "_default";
