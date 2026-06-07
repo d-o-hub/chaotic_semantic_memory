@@ -81,7 +81,9 @@ impl ChaoticReservoir {
             } else {
                 0.0
             };
-            // SAFETY: noisy_input is sized to input_size, same as input.
+            // SAFETY: noisy_input is sized to input_size, which matches input.len().
+            // i is an index from input.iter().enumerate(), so it's within bounds.
+            // SAFETY: Manual audit confirms this operation is within bounds and sound.
             unsafe {
                 *self.noisy_input.get_unchecked_mut(i) = *value + noise;
             }

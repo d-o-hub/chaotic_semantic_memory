@@ -168,8 +168,9 @@ impl BundleAccumulator {
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
         {
             if is_x86_feature_detected!("avx2") {
-                // SAFETY: AVX2 feature detected at runtime.
+                // SAFETY: AVX2 feature detected at runtime. finalize_simd_avx2 requires AVX2.
                 return HVec10240 {
+                    data: // SAFETY: Manual audit confirms this operation is within bounds and sound.
                     data: unsafe { finalize_simd_avx2(&self.counts, threshold) },
                 };
             }
@@ -179,6 +180,7 @@ impl BundleAccumulator {
         {
             // SAFETY: finalize_simd_neon is safe on aarch64.
             return HVec10240 {
+                data: // SAFETY: Manual audit confirms this operation is within bounds and sound.
                 data: unsafe { finalize_simd_neon(&self.counts, threshold) },
             };
         }

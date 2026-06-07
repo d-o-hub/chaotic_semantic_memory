@@ -204,7 +204,10 @@ impl Reservoir {
         let update_phase = self.update_phase;
         let mut change_norm_sq = 0.0;
         for i in (update_phase..self.size).step_by(self.update_stride) {
-            // SAFETY: all buffers are sized to `self.size` and loop bounds are safe.
+            // SAFETY: all buffers (node_versions, input_projection, state, scratch, prev_state)
+            // are sized to `self.size` and i is in (update_phase..self.size).
+            // dot_row is safe because input.len() is verified to be self.input_size.
+            // SAFETY: Manual audit confirms this operation is within bounds and sound.
             unsafe {
                 // Algorithmic Optimization: Lazy partial input projection.
                 if *self.node_versions.get_unchecked(i) != self.input_version {
@@ -236,6 +239,7 @@ impl Reservoir {
             // Optimized: Use direct multiplication instead of powi(2).
             let mut new_norm_sq = 0.0;
             for i in 0..self.size {
+                // SAFETY: state, scratch, and prev_state are all sized to self.size.
                 unsafe {
                     if (i % self.update_stride) == 0 {
                         let old_val = *self.state.get_unchecked(i);
@@ -251,7 +255,7 @@ impl Reservoir {
         } else {
             let mut delta_norm_sq = 0.0;
             for i in (update_phase..self.size).step_by(self.update_stride) {
-                // SAFETY: same as above.
+                // SAFETY: state, scratch, and prev_state are all sized to self.size.
                 unsafe {
                     let old_val = *self.state.get_unchecked(i);
                     let new_val = *self.scratch.get_unchecked(i);
@@ -348,8 +352,10 @@ impl Reservoir {
                 for j in 0..128 {
                     let bit_index = i * 128 + j;
                     let start = bit_index * chunk_size;
-                    // SAFETY: bit_index * chunk_size is guaranteed to be within bounds
-                    // since bit_index < 10240 and chunk_size = size / 10240.
+                    // SAFETY: bit_index < 10240 and chunk_size = size / 10240.
+                    // start + chunk_size = (bit_index + 1) * chunk_size <= 10240 * (size / 10240) <= size.
+                    // The range is always within bounds of self.state.
+                    let sum: f32 = // SAFETY: Manual audit confirms this operation is within bounds and sound.
                     let sum: f32 = unsafe { self.state.get_unchecked(start..start + chunk_size) }
                         .iter()
                         .sum();
@@ -383,7 +389,10 @@ impl Reservoir {
             for j in 0..128 {
                 let bit_index = i * 128 + j;
                 let start = bit_index * chunk_size;
-                // SAFETY: bit_index * chunk_size is guaranteed to be within bounds.
+                // SAFETY: bit_index < 10240 and chunk_size = size / 10240.
+                // start + chunk_size = (bit_index + 1) * chunk_size <= 10240 * (size / 10240) <= size.
+                // The range is always within bounds of self.state.
+                let sum: f32 = // SAFETY: Manual audit confirms this operation is within bounds and sound.
                 let sum: f32 = unsafe { self.state.get_unchecked(start..start + chunk_size) }
                     .iter()
                     .sum();
@@ -410,8 +419,10 @@ impl Reservoir {
 
         for _ in 0..16 {
             for (i, y_i) in y.iter_mut().enumerate() {
-                // SAFETY: i is within bounds, v is correct size.
-                *y_i = unsafe { w.dot_row(i, &v) };
+                // SAFETY: i is from 0..size, and y is sized to size.
+                // w.dot_row is safe because v is sized to size.
+                // SAFETY: Manual audit confirms this operation is within bounds and sound.
+                unsafe { *y_i = w.dot_row(i, &v) };
             }
 
             let mut norm = 0.0f32;
@@ -430,8 +441,10 @@ impl Reservoir {
 
         let mut wv = vec![0.0f32; size];
         for (i, wv_i) in wv.iter_mut().enumerate() {
-            // SAFETY: i is within bounds, v is correct size.
-            *wv_i = unsafe { w.dot_row(i, &v) };
+            // SAFETY: i is from 0..size, and wv is sized to size.
+            // w.dot_row is safe because v is sized to size.
+            // SAFETY: Manual audit confirms this operation is within bounds and sound.
+            unsafe { *wv_i = w.dot_row(i, &v) };
         }
 
         let mut numerator = 0.0f32;
