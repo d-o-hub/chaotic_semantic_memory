@@ -207,7 +207,6 @@ impl Reservoir {
             // SAFETY: all buffers (node_versions, input_projection, state, scratch, prev_state)
             // are sized to `self.size` and i is in (update_phase..self.size).
             // dot_row is safe because input.len() is verified to be self.input_size.
-            // SAFETY: Manual audit confirms this operation is within bounds and sound.
             unsafe {
                 // Algorithmic Optimization: Lazy partial input projection.
                 if *self.node_versions.get_unchecked(i) != self.input_version {
@@ -355,7 +354,6 @@ impl Reservoir {
                     // SAFETY: bit_index < 10240 and chunk_size = size / 10240.
                     // start + chunk_size = (bit_index + 1) * chunk_size <= 10240 * (size / 10240) <= size.
                     // The range is always within bounds of self.state.
-                    let sum: f32 = // SAFETY: Manual audit confirms this operation is within bounds and sound.
                     let sum: f32 = unsafe { self.state.get_unchecked(start..start + chunk_size) }
                         .iter()
                         .sum();
@@ -392,7 +390,6 @@ impl Reservoir {
                 // SAFETY: bit_index < 10240 and chunk_size = size / 10240.
                 // start + chunk_size = (bit_index + 1) * chunk_size <= 10240 * (size / 10240) <= size.
                 // The range is always within bounds of self.state.
-                let sum: f32 = // SAFETY: Manual audit confirms this operation is within bounds and sound.
                 let sum: f32 = unsafe { self.state.get_unchecked(start..start + chunk_size) }
                     .iter()
                     .sum();
@@ -421,7 +418,6 @@ impl Reservoir {
             for (i, y_i) in y.iter_mut().enumerate() {
                 // SAFETY: i is from 0..size, and y is sized to size.
                 // w.dot_row is safe because v is sized to size.
-                // SAFETY: Manual audit confirms this operation is within bounds and sound.
                 unsafe { *y_i = w.dot_row(i, &v) };
             }
 
@@ -443,7 +439,6 @@ impl Reservoir {
         for (i, wv_i) in wv.iter_mut().enumerate() {
             // SAFETY: i is from 0..size, and wv is sized to size.
             // w.dot_row is safe because v is sized to size.
-            // SAFETY: Manual audit confirms this operation is within bounds and sound.
             unsafe { *wv_i = w.dot_row(i, &v) };
         }
 

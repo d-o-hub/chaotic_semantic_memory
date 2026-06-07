@@ -134,6 +134,7 @@ impl BundleAccumulator {
             // SAFETY: update_counts_simd_neon is safe on aarch64.
             unsafe { update_counts_simd_neon(&mut self.counts, &hv.data, -1) };
             self.n -= 1;
+            return Ok(());
         }
 
         #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
@@ -149,9 +150,6 @@ impl BundleAccumulator {
             self.n -= 1;
             Ok(())
         }
-
-        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-        Ok(())
     }
 
     /// Finalize the accumulator into a bundled hypervector.
@@ -168,9 +166,8 @@ impl BundleAccumulator {
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
         {
             if is_x86_feature_detected!("avx2") {
-                // SAFETY: AVX2 feature detected at runtime. finalize_simd_avx2 requires AVX2.
+                // SAFETY: AVX2 feature detected at runtime.
                 return HVec10240 {
-                    data: // SAFETY: Manual audit confirms this operation is within bounds and sound.
                     data: unsafe { finalize_simd_avx2(&self.counts, threshold) },
                 };
             }
@@ -180,7 +177,6 @@ impl BundleAccumulator {
         {
             // SAFETY: finalize_simd_neon is safe on aarch64.
             return HVec10240 {
-                data: // SAFETY: Manual audit confirms this operation is within bounds and sound.
                 data: unsafe { finalize_simd_neon(&self.counts, threshold) },
             };
         }

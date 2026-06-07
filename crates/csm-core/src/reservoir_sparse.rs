@@ -88,11 +88,9 @@ impl SparseWeights {
     /// # Safety
     /// Caller must ensure `row` is within `0..row_offsets.len() - 1` and
     /// `values` slice is large enough to satisfy all indices in the sparse row.
-    pub(crate) // SAFETY: Manual audit confirms this operation is within bounds and sound.
     pub(crate) unsafe fn dot_row(&self, row: usize, values: &[f32]) -> f32 {
         // SAFETY: row is guaranteed to be < rows (which is row_offsets.len() - 1)
         // by the caller (Reservoir::step loops). Pointers are valid.
-        let (start, end) = // SAFETY: Manual audit confirms this operation is within bounds and sound.
         let (start, end) = unsafe {
             (
                 *self.row_offsets.get_unchecked(row),
@@ -101,7 +99,6 @@ impl SparseWeights {
         };
         // SAFETY: start and end are derived from row_offsets which are valid
         // indices into entries. Pointers are valid.
-        let entries = // SAFETY: Manual audit confirms this operation is within bounds and sound.
         let entries = unsafe { self.entries.get_unchecked(start..end) };
 
         // Debug assertions to verify safety invariants during testing.
@@ -127,7 +124,6 @@ impl SparseWeights {
             // SAFETY: indices are guaranteed to be within the `values` buffer range
             // by construction in `build` and `build_local_reservoir`. Loop bounds
             // are strictly checked against `entries.len()`. Pointers are valid.
-            // SAFETY: Manual audit confirms this operation is within bounds and sound.
             unsafe {
                 let e0 = entries.get_unchecked(i);
                 let e1 = entries.get_unchecked(i + 1);
@@ -154,7 +150,6 @@ impl SparseWeights {
         while i < entries.len() {
             // SAFETY: indices are guaranteed to be within the `values` buffer range.
             // Loop bounds are strictly checked against `entries.len()`. Pointers are valid.
-            // SAFETY: Manual audit confirms this operation is within bounds and sound.
             unsafe {
                 let e = entries.get_unchecked(i);
                 sum = e
@@ -289,11 +284,11 @@ mod tests {
         assert!((unsafe { sparse.dot_row(0, &values) } - 5.0).abs() < 1e-6);
 
         // Row 1: weight 1.0 at index 1, value 20.0 → 20.0
-        assert!((// SAFETY: Manual audit confirms this operation is within bounds and sound.
+        // SAFETY: manual construction ensured index is within bounds.
         assert!((unsafe { sparse.dot_row(1, &values) } - 20.0).abs() < 1e-6);
 
         // Row 2: weight 2.0 at index 2, value 30.0 → 60.0
-        assert!((// SAFETY: Manual audit confirms this operation is within bounds and sound.
+        // SAFETY: manual construction ensured index is within bounds.
         assert!((unsafe { sparse.dot_row(2, &values) } - 60.0).abs() < 1e-6);
     }
 
@@ -329,11 +324,11 @@ mod tests {
         assert!((unsafe { sparse.dot_row(1, &values) } - 0.0).abs() < 1e-6);
 
         // Row 0: (1.0 * 10.0) + (2.0 * 20.0) = 50.0
-        assert!((// SAFETY: Manual audit confirms this operation is within bounds and sound.
+        // SAFETY: manual construction ensured indices are within values bounds.
         assert!((unsafe { sparse.dot_row(0, &values) } - 50.0).abs() < 1e-6);
 
         // Row 2: (3.0 * 30.0) + (4.0 * 40.0) = 250.0
-        assert!((// SAFETY: Manual audit confirms this operation is within bounds and sound.
+        // SAFETY: manual construction ensured indices are within values bounds.
         assert!((unsafe { sparse.dot_row(2, &values) } - 250.0).abs() < 1e-6);
     }
 
@@ -473,7 +468,7 @@ mod tests {
         };
         // Providing shorter values slice than the entry index should panic in debug mode
         let values = vec![1.0; 5];
-        let _ = // SAFETY: Manual audit confirms this operation is within bounds and sound.
+        // SAFETY: This is expected to panic due to debug_assert.
         let _ = unsafe { sparse.dot_row(0, &values) };
     }
 }

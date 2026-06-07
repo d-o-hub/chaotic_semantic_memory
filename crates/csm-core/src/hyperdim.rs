@@ -125,8 +125,7 @@ impl HVec10240 {
             #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
             {
                 if is_x86_feature_detected!("avx2") {
-                    // SAFETY: AVX2 is detected at runtime. and_simd_avx2 requires AVX2.
-                    // vectors[0] and vectors[1] are guaranteed to exist by the length check above.
+                    // SAFETY: AVX2 is detected at runtime.
                     return Ok(Self {
                         data: unsafe { and_simd_avx2(&vectors[0].data, &vectors[1].data) },
                     });
@@ -185,8 +184,7 @@ impl HVec10240 {
             #[cfg(target_arch = "x86_64")]
             if is_x86_feature_detected!("avx2") {
                 data.par_chunks_mut(2).enumerate().for_each(|(i, chunk)| {
-                    // SAFETY: AVX2 is detected at runtime. word_idx i*2 is within bounds [0, 80).
-                    // vectors is a slice of HVec10240, accessed safely by the SIMD functions.
+                    // SAFETY: AVX2 is detected at runtime. Pointers to vectors and indices are within bounds.
                     let res = unsafe {
                         crate::hyperdim_simd_bundle::bundle_block_avx2_single(
                             vectors,
@@ -196,7 +194,6 @@ impl HVec10240 {
                         )
                     };
                     // SAFETY: chunk length is 2 (32 bytes), matching AVX2 256-bit block size.
-                    // vst1q_u8 stores 16 bytes into the pointer.
                     unsafe {
                         std::arch::x86_64::_mm256_storeu_si256(chunk.as_mut_ptr().cast(), res);
                     }
@@ -207,15 +204,13 @@ impl HVec10240 {
             #[cfg(target_arch = "aarch64")]
             {
                 data.par_iter_mut().enumerate().for_each(|(i, word)| {
-                    // SAFETY: NEON is always available on aarch64. word_idx i is within bounds.
-                    // vectors is a slice of HVec10240, accessed safely by the SIMD functions.
+                    // SAFETY: NEON is always available on aarch64. Pointers to vectors and indices are within bounds.
                     let res = unsafe {
                         crate::hyperdim_simd_bundle::bundle_block_neon_single(
                             vectors, i, threshold, num_planes,
                         )
                     };
                     // SAFETY: word is a single u128 (16 bytes), matching NEON 128-bit block size.
-                    // vst1q_u8 stores 16 bytes into the pointer.
                     unsafe {
                         std::arch::aarch64::vst1q_u8(word as *mut u128 as *mut u8, res);
                     }
@@ -237,7 +232,7 @@ impl HVec10240 {
 
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
         if is_x86_feature_detected!("avx2") {
-            // SAFETY: AVX2 is detected at runtime. bundle_block_avx2 requires AVX2.
+            // SAFETY: AVX2 is detected at runtime.
             return Ok(Self {
                 data: unsafe { bundle_block_avx2(vectors, threshold, num_planes) },
             });
@@ -245,7 +240,7 @@ impl HVec10240 {
 
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
         {
-            // SAFETY: NEON is always available on aarch64. bundle_block_neon requires NEON.
+            // SAFETY: NEON is always available on aarch64.
             return Ok(Self {
                 data: unsafe { bundle_block_neon(vectors, threshold, num_planes) },
             });

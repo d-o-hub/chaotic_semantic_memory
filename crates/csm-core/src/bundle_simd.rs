@@ -7,7 +7,6 @@
 #[target_feature(enable = "avx2")]
 /// # SAFETY
 /// Caller must ensure AVX2 is supported.
-pub(crate) // SAFETY: Manual audit confirms this operation is within bounds and sound.
 pub(crate) unsafe fn finalize_simd_avx2(counts: &[i32; 10240], threshold: i32) -> [u128; 80] {
     use std::arch::x86_64::{
         _mm256_castsi256_ps, _mm256_cmpgt_epi32, _mm256_loadu_si256, _mm256_movemask_ps,
@@ -21,12 +20,7 @@ pub(crate) unsafe fn finalize_simd_avx2(counts: &[i32; 10240], threshold: i32) -
         let mut word_low = 0u64;
         let mut word_high = 0u64;
         for j in 0..8 {
-            // SAFETY: counts is [i32; 10240]. offset + j * 8 + 8 <= 128 + 64 = 192 (Wait, i * 128 + j * 8).
-            // i is 0..80. i * 128 is 0..10240.
-            // j is 0..8. offset + j * 8 is (i * 128) + (0..64).
-            // (79 * 128) + 64 = 10112 + 64 = 10176.
-            // Ptr points to 8 i32s (32 bytes). 10176 + 8 = 10184 <= 10240. All safe.
-            let packed = // SAFETY: Manual audit confirms this operation is within bounds and sound.
+            // SAFETY: counts is [i32; 10240]. offset + j * 8 + 8 is within bounds.
             let packed = unsafe {
                 let ptr = counts.as_ptr().add(offset + j * 8);
                 let chunk = _mm256_loadu_si256(ptr.cast());
@@ -36,9 +30,7 @@ pub(crate) unsafe fn finalize_simd_avx2(counts: &[i32; 10240], threshold: i32) -
             word_low |= packed << (j * 8);
         }
         for j in 0..8 {
-            // SAFETY: offset + 64 + j * 8. Max is (79 * 128) + 64 + 64 = 10112 + 128 = 10240.
-            // Ptr points to 8 i32s (32 bytes). 10232 + 8 = 10240. All safe.
-            let packed = // SAFETY: Manual audit confirms this operation is within bounds and sound.
+            // SAFETY: offset + 64 + j * 8 + 8 is within bounds.
             let packed = unsafe {
                 let ptr = counts.as_ptr().add(offset + 64 + j * 8);
                 let chunk = _mm256_loadu_si256(ptr.cast());
@@ -58,7 +50,6 @@ pub(crate) unsafe fn finalize_simd_avx2(counts: &[i32; 10240], threshold: i32) -
 #[target_feature(enable = "neon")]
 /// # SAFETY
 /// Caller must ensure NEON is supported.
-pub(crate) // SAFETY: Manual audit confirms this operation is within bounds and sound.
 pub(crate) unsafe fn finalize_simd_neon(counts: &[i32; 10240], threshold: i32) -> [u128; 80] {
     use std::arch::aarch64::{vaddvq_u32, vandq_u32, vcgtq_s32, vdupq_n_s32, vld1q_s32};
     let mut data = [0u128; 80];
@@ -73,9 +64,7 @@ pub(crate) unsafe fn finalize_simd_neon(counts: &[i32; 10240], threshold: i32) -
         let mut word_low = 0u64;
         let mut word_high = 0u64;
         for j in 0..16 {
-            // SAFETY: counts is [i32; 10240]. offset + j * 4 + 4 <= (79 * 128) + (15 * 4) + 4 = 10112 + 60 + 4 = 10176 <= 10240.
-            // Ptr points to 4 i32s (16 bytes). All safe.
-            let packed = // SAFETY: Manual audit confirms this operation is within bounds and sound.
+            // SAFETY: counts is [i32; 10240]. offset + j * 4 + 4 is within bounds.
             let packed = unsafe {
                 let ptr = counts.as_ptr().add(offset + j * 4);
                 let chunk = vld1q_s32(ptr);
@@ -86,9 +75,7 @@ pub(crate) unsafe fn finalize_simd_neon(counts: &[i32; 10240], threshold: i32) -
             word_low |= packed << (j * 4);
         }
         for j in 0..16 {
-            // SAFETY: offset + 64 + j * 4 + 4 <= (79 * 128) + 64 + (15 * 4) + 4 = 10112 + 64 + 60 + 4 = 10240.
-            // Ptr points to 4 i32s (16 bytes). All safe.
-            let packed = // SAFETY: Manual audit confirms this operation is within bounds and sound.
+            // SAFETY: offset + 64 + j * 4 + 4 is within bounds.
             let packed = unsafe {
                 let ptr = counts.as_ptr().add(offset + 64 + j * 4);
                 let chunk = vld1q_s32(ptr);
@@ -109,7 +96,6 @@ pub(crate) unsafe fn finalize_simd_neon(counts: &[i32; 10240], threshold: i32) -
 #[target_feature(enable = "avx2")]
 /// # SAFETY
 /// Caller must ensure AVX2 is supported.
-pub(crate) // SAFETY: Manual audit confirms this operation is within bounds and sound.
 pub(crate) unsafe fn update_counts_simd_avx2(
     counts: &mut [i32; 10240],
     hv: &[u128; 80],
@@ -120,11 +106,11 @@ pub(crate) unsafe fn update_counts_simd_avx2(
 
     for i in 0..80 {
         let word_ptr = &hv[i] as *const u128 as *const u8;
-        // SAFETY: counts is [i32; 10240], i * 128 is within bounds (max 79 * 128 = 10112).
+        // SAFETY: counts is [i32; 10240], i * 128 is within bounds.
         let counts_ptr = unsafe { counts.as_mut_ptr().add(i * 128) };
 
         for j in 0..16 {
-            // SAFETY: hv[i] is u128 (16 bytes), j is 0..16. All safe.
+            // SAFETY: hv[i] is u128 (16 bytes), j is 0..16.
             let byte = unsafe { *word_ptr.add(j) };
             if byte == 0 {
                 continue;
@@ -132,9 +118,7 @@ pub(crate) unsafe fn update_counts_simd_avx2(
 
             for k in 0..8 {
                 if (byte & (1 << k)) != 0 {
-                    // SAFETY: counts_ptr + j * 8 + k. Max is (79 * 128) + (15 * 8) + 7 = 10112 + 120 + 7 = 10239.
-                    // Within [i32; 10240]. All safe.
-                    // SAFETY: Manual audit confirms this operation is within bounds and sound.
+                    // SAFETY: counts_ptr + j * 8 + k is within bounds.
                     unsafe { *counts_ptr.add(j * 8 + k) += sign };
                 }
             }
@@ -148,7 +132,6 @@ pub(crate) unsafe fn update_counts_simd_avx2(
 #[target_feature(enable = "neon")]
 /// # SAFETY
 /// Caller must ensure NEON is supported.
-pub(crate) // SAFETY: Manual audit confirms this operation is within bounds and sound.
 pub(crate) unsafe fn update_counts_simd_neon(
     counts: &mut [i32; 10240],
     hv: &[u128; 80],
