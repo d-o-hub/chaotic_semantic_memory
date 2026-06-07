@@ -27,11 +27,17 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::RwLock;
 use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
+
+thread_local! {
+    /// Scoring buffer to reuse memory across queries.
+    static DOC_SCORES_BUFFER: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
+}
 
 /// Configuration for BM25 ranking algorithm.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -259,30 +265,40 @@ impl Bm25Index {
         // Compute unique query terms and their weighted IDFs once
         let mut query_weights = Vec::with_capacity(query_tokens.len());
 
-        // Use a set to handle duplicate tokens in query efficiently
-        let mut seen_terms = HashSet::with_capacity(query_tokens.len());
-        for token in query_tokens {
-            let term = token.as_ref();
-            if !seen_terms.insert(term) {
-                continue;
-            }
+        // Optimization: Use simple linear scan for deduplication on short queries
+        // to avoid HashSet allocation overhead.
+        if query_tokens.len() <= 8 {
+            for token in query_tokens {
+                let term = token.as_ref();
+                if query_weights.iter().any(|(t, _)| *t == term) {
+                    continue;
+                }
 
-            // Optimization: Skip OOV terms. They contribute 0 to all scores and increase per-doc loop overhead.
-            match self.doc_freqs.get(term) {
-                Some(&df) if df > 0 => {
-                    let df = df as f32;
-                    // Optimization: Simplified IDF formula log((N+1)/(df+0.5)).
-                    // This is not the standard Okapi BM25 IDF formula ln((N - df + 0.5)/(df + 0.5)),
-                    // but it is algebraically equivalent to the previously used adjusted formula
-                    // ln((N - df + 0.5)/(df + 0.5) + 1.0) which prevents negative idf values
-                    // when df > N/2. This simplified expression reduces arithmetic operations
-                    // while preserving the same non-negative result for all n and df terms.
-                    let idf = ((n + 1.0) / (df + 0.5)).ln();
-                    if idf > 0.0 {
-                        query_weights.push((term, idf * k1_plus_1));
+                if let Some(&df) = self.doc_freqs.get(term) {
+                    if df > 0 {
+                        let idf = ((n + 1.0) / (df as f32 + 0.5)).ln();
+                        if idf > 0.0 {
+                            query_weights.push((term, idf * k1_plus_1));
+                        }
                     }
                 }
-                _ => continue,
+            }
+        } else {
+            let mut seen_terms = HashSet::with_capacity(query_tokens.len());
+            for token in query_tokens {
+                let term = token.as_ref();
+                if !seen_terms.insert(term) {
+                    continue;
+                }
+
+                if let Some(&df) = self.doc_freqs.get(term) {
+                    if df > 0 {
+                        let idf = ((n + 1.0) / (df as f32 + 0.5)).ln();
+                        if idf > 0.0 {
+                            query_weights.push((term, idf * k1_plus_1));
+                        }
+                    }
+                }
             }
         }
 
@@ -290,43 +306,48 @@ impl Bm25Index {
             return Vec::new();
         }
 
-        // Optimization: Use inverted index for sub-linear search complexity O(Q * avg_df).
-        // Scores are accumulated in a dense array to maximize cache locality.
-        let mut doc_scores = vec![0.0f32; self.documents.len()];
-
         self.ensure_norm_cache();
-        {
-            let doc_term_bs = self
-                .doc_term_bs
-                .read()
-                .expect("Bm25Index doc_term_bs lock poisoned");
-            let tf1_recips = self
-                .tf1_recips
-                .read()
-                .expect("Bm25Index tf1_recips lock poisoned");
 
-            for (term, weighted_idf) in query_weights {
-                if let Some(entries) = self.postings.get(term) {
-                    for &(doc_idx, tf) in entries {
-                        if tf == 1 {
-                            // Fast path for the most common case: single term frequency.
-                            // Replaces division and mul_add with a single multiplication.
-                            doc_scores[doc_idx] += weighted_idf * tf1_recips[doc_idx];
-                        } else {
-                            let tf = tf as f32;
-                            let denominator = tf + doc_term_bs[doc_idx];
-                            doc_scores[doc_idx] += (tf * weighted_idf) / denominator;
+        // Optimization: Reuse thread-local scoring buffer to avoid O(N) allocation per query.
+        let mut scores: Vec<(usize, f32)> = DOC_SCORES_BUFFER.with(|cell| {
+            let mut buffer = cell.borrow_mut();
+            let doc_count = self.documents.len();
+            buffer.resize(doc_count, 0.0);
+            buffer.fill(0.0);
+
+            {
+                let doc_term_bs = self
+                    .doc_term_bs
+                    .read()
+                    .expect("Bm25Index doc_term_bs lock poisoned");
+                let tf1_recips = self
+                    .tf1_recips
+                    .read()
+                    .expect("Bm25Index tf1_recips lock poisoned");
+
+                for (term, weighted_idf) in query_weights {
+                    if let Some(entries) = self.postings.get(term) {
+                        for &(doc_idx, tf) in entries {
+                            if tf == 1 {
+                                buffer[doc_idx] += weighted_idf * tf1_recips[doc_idx];
+                            } else {
+                                let tf = tf as f32;
+                                let denominator = tf + doc_term_bs[doc_idx];
+                                buffer[doc_idx] += (tf * weighted_idf) / denominator;
+                            }
                         }
                     }
                 }
             }
-        }
 
-        let mut scores: Vec<(usize, f32)> = doc_scores
-            .into_iter()
-            .enumerate()
-            .filter(|&(_, score)| score > 0.0)
-            .collect();
+            // Implementation: Collect non-zero scores while we have the buffer borrowed.
+            buffer
+                .iter()
+                .enumerate()
+                .filter(|&(_, &score)| score > 0.0)
+                .map(|(idx, &score)| (idx, score))
+                .collect()
+        });
 
         // Partial select keeps complexity near O(n) for large corpora
         if scores.len() > top_k {
