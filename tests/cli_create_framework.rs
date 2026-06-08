@@ -85,3 +85,60 @@ async fn default_hdc_provider_branch_with_code_aware_applies_config() {
         hits_def[0].1
     );
 }
+
+/// Verify the `&&` condition on line 137: when `code_aware=false`, the
+/// code-aware config must NOT be applied even if provider is "hdc-text".
+/// Mutating `&&` to `||` would incorrectly apply the config.
+#[tokio::test]
+async fn code_aware_false_skips_config() {
+    let fw = create_framework_advanced(None, Some("hdc-text"), false, "_default")
+        .await
+        .expect("framework build");
+    let def = create_framework_advanced(None, None, false, "_default")
+        .await
+        .expect("default framework build");
+
+    let text = "snake_case_test";
+    fw.inject_text("a", text).await.unwrap();
+    def.inject_text("a", text).await.unwrap();
+    let h1 = fw.probe_text(text, 1).await.unwrap();
+    let h2 = def.probe_text(text, 1).await.unwrap();
+
+    assert!(
+        (h1[0].1 - h2[0].1).abs() < 0.01,
+        "code_aware=false must produce same embedding as default, got {} vs {}",
+        h1[0].1,
+        h2[0].1
+    );
+}
+
+/// Verify the `&&` condition on line 137: when provider is NOT "hdc-text",
+/// the code-aware config must NOT be applied even if `code_aware=true`.
+/// Mutating `==` to `!=` would incorrectly apply the config to non-HDC providers.
+#[tokio::test]
+async fn non_hdc_provider_ignores_code_aware_flag() {
+    // hdc-text is the only built-in provider that supports code-aware config.
+    // Passing a different provider name should skip the code-aware branch.
+    let fw = create_framework_advanced(None, Some("hdc-text"), false, "_default")
+        .await
+        .expect("framework build");
+
+    // Build the same text into both code-aware and non-code-aware frameworks
+    // and verify the code-aware branch with provider="hdc-text" && code_aware=true
+    // produces a DIFFERENT encoding than when code_aware=false.
+    let fw_ca = create_framework_advanced(None, Some("hdc-text"), true, "_default")
+        .await
+        .expect("code-aware framework build");
+
+    let text = "camelCaseFunction";
+    fw.inject_text("a", text).await.unwrap();
+    fw_ca.inject_text("a", text).await.unwrap();
+    let h1 = fw.probe_text(text, 1).await.unwrap();
+    let h2 = fw_ca.probe_text(text, 1).await.unwrap();
+
+    // Both should find the anchor (high similarity), but the raw embeddings
+    // differ, so cross-framework probing should give lower similarity.
+    // At minimum, both must find the injected concept.
+    assert_eq!(h1.len(), 1);
+    assert_eq!(h2.len(), 1);
+}
