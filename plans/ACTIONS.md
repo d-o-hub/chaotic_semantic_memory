@@ -3929,35 +3929,3 @@ actions:
       Also removed the duplicate `action_last_completed: pin_github_actions_to_sha`
       merge artifact that PR #348 re-introduced into GOAP_STATE.md, restoring the
       single-key DRY invariant. Documented in ADR-0085.
-
-  # ─────────────────────────────────────────────────────────
-  # Mutation Test Fixes (CI swarm fix)
-  # Cost: 10
-  # ─────────────────────────────────────────────────────────
-
-  - name: mutation_test_fixes
-    preconditions:
-      - ci_mutation_test_failing: true
-      - mutation_score_below_85: true
-    effects:
-      - mutation_test_passing: true
-      - mutation_score_above_85: true
-      - wasm_mcp_excluded_from_mutation: true
-    cost: 10
-    status: complete
-    file: scripts/mutation_test.sh, tests/secure_read_file_boundary.rs, tests/lsh_roundtrip.rs, tests/mcp_handler_test.rs, src/mcp/handler.rs, src/mcp/mod.rs, src/framework_ops.rs
-    description: |
-      Fix CI mutation test failure (20 missed mutants → target ≥85% score):
-        - Agent 1: Created tests/secure_read_file_boundary.rs (2 boundary tests)
-          to kill framework_ops.rs:159 mutation (`>` vs `>=`).
-        - Agent 1: Created tests/lsh_roundtrip.rs (4 tests, gated ann-lsh) to
-          kill 4 LSH serialize/deserialize mutations in src/index/lsh.rs.
-        - Agent 2: Fixed scripts/mutation_test.sh — awk diff filtering + explicit
-          `-e` flags for WASM/MCP exclusion with `--in-diff`.
-        - Agent 2: Created tests/mcp_handler_test.rs (4 tests, gated mcp) to
-          kill MCP parse_hvec mutation; made parse_hvec public + re-exported.
-        - Agent 3: Verified existing tests kill 3 embedding match-arm mutations
-          (tests/embedding_factory.rs) and 4 CLI config mutations
-          (tests/cli_create_framework.rs).
-        - Removed redundant inline tests from src/framework_ops.rs (LOC cap).
-      WASM transient 504 is infrastructure (not fixable in code).

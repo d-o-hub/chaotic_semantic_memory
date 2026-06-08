@@ -58,50 +58,11 @@ if [[ "${PROFILE}" == "fast" ]]; then
     DIFF_FILE="$(mktemp)"
     trap 'rm -f "${DIFF_FILE}"' EXIT
     git diff "${DIFF_TARGET}" > "${DIFF_FILE}" 2>/dev/null || true
-    # Filter out WASM and MCP files from the diff.  cargo-mutants --in-diff
-    # selects mutation targets directly from the diff, bypassing
-    # exclude_globs in .cargo/mutants.toml.  Removing these paths keeps
-    # the diff-based run consistent with the full-scan exclusions.
-    FILTERED_DIFF="$(mktemp)"
-    trap 'rm -f "${DIFF_FILE}" "${FILTERED_DIFF}"' EXIT
-    # awk removes entire diff sections (diff --git ... to next diff --git)
-    # for files matching the exclusion globs.
-    awk '
-      /^diff --git / {
-        # Extract the b/ path from "diff --git a/... b/..."
-        path = $0
-        sub(/^diff --git a\/[^ ]+ b\//, "", path)
-        exclude = 0
-        if (path == "src/wasm.rs") exclude = 1
-        else if (path == "src/wasm_ext.rs") exclude = 1
-        else if (path == "src/wasm_graph_rag.rs") exclude = 1
-        else if (path == "src/persistence_wasm.rs") exclude = 1
-        else if (path == "src/cli/mcp.rs") exclude = 1
-        else if (path ~ /^src\/mcp\//) exclude = 1
-      }
-      !exclude
-    ' "${DIFF_FILE}" > "${FILTERED_DIFF}" || true
-    mv "${FILTERED_DIFF}" "${DIFF_FILE}"
     if [[ -s "${DIFF_FILE}" ]]; then
       FAST_ARGS+=(--in-diff "${DIFF_FILE}")
     else
-      echo "warning: no diff against ${DIFF_TARGET} (after WASM/MCP exclusion); running full target set" >&2
+      echo "warning: no diff against ${DIFF_TARGET}; running full target set" >&2
     fi
-    # Belt-and-suspenders: explicit -e flags so cargo-mutants never
-    # generates mutants for WASM/MCP files even if --in-diff bypasses
-    # exclude_globs in .cargo/mutants.toml.
-    FAST_ARGS+=(
-      -e src/wasm.rs
-      -e src/wasm_ext.rs
-      -e src/wasm_graph_rag.rs
-      -e src/persistence_wasm.rs
-      -e "src/mcp"
-      -e src/cli/mcp.rs
-    )
-    # Enable ann-lsh feature so LSH roundtrip tests are compiled and run.
-    # Without this, cargo-mutants uses default features, skipping tests gated
-    # on #![cfg(feature = "ann-lsh")] and leaving serialize/deserialize untested.
-    FAST_ARGS+=(--cargo-arg --features=ann-lsh)
   else
     echo "warning: --in-diff is unsupported by installed cargo-mutants; running full target set" >&2
   fi

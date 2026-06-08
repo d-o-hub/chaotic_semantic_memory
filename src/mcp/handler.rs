@@ -399,10 +399,7 @@ fn res_def(uri: &str, name: &str, desc: &str, mime: &str) -> Resource {
     )
 }
 
-/// Parse a JSON array of u64 values into an `HVec10240`.
-///
-/// The array must contain exactly 80 elements, each representable as `u64`.
-pub fn parse_hvec(vec_data: &[Value]) -> Result<csm_core::hyperdim::HVec10240> {
+fn parse_hvec(vec_data: &[Value]) -> Result<csm_core::hyperdim::HVec10240> {
     if vec_data.len() != 80 {
         return Err(anyhow::anyhow!("Vector must have 80 elements"));
     }
@@ -413,69 +410,4 @@ pub fn parse_hvec(vec_data: &[Value]) -> Result<csm_core::hyperdim::HVec10240> {
             .ok_or_else(|| anyhow::anyhow!("Invalid vector element"))? as u128;
     }
     Ok(csm_core::hyperdim::HVec10240 { data })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn parse_hvec_valid_80_elements() {
-        let vals: Vec<Value> = (0..80u64).map(|i| json!(i)).collect();
-        let hvec = parse_hvec(&vals).expect("should parse valid 80-element vector");
-        for (i, &d) in hvec.data.iter().enumerate() {
-            assert_eq!(d, i as u128, "element {i} mismatch");
-        }
-    }
-
-    #[test]
-    fn parse_hvec_wrong_length_too_few() {
-        let vals: Vec<Value> = (0..79u64).map(|i| json!(i)).collect();
-        let err = parse_hvec(&vals).unwrap_err();
-        assert!(
-            err.to_string().contains("80 elements"),
-            "expected length error, got: {err}"
-        );
-    }
-
-    #[test]
-    fn parse_hvec_wrong_length_too_many() {
-        let vals: Vec<Value> = (0..81u64).map(|i| json!(i)).collect();
-        let err = parse_hvec(&vals).unwrap_err();
-        assert!(
-            err.to_string().contains("80 elements"),
-            "expected length error, got: {err}"
-        );
-    }
-
-    #[test]
-    fn parse_hvec_non_u64_element() {
-        let mut vals: Vec<Value> = (0..80u64).map(|i| json!(i)).collect();
-        vals[40] = json!("not a number");
-        let err = parse_hvec(&vals).unwrap_err();
-        assert!(
-            err.to_string().contains("Invalid vector element"),
-            "expected element error, got: {err}"
-        );
-    }
-
-    #[test]
-    fn parse_hvec_negative_value_fails() {
-        let mut vals: Vec<Value> = (0..80u64).map(|i| json!(i)).collect();
-        vals[0] = json!(-1i64);
-        let err = parse_hvec(&vals).unwrap_err();
-        assert!(
-            err.to_string().contains("Invalid vector element"),
-            "expected element error for negative value, got: {err}"
-        );
-    }
-
-    #[test]
-    fn parse_hvec_large_u64_values() {
-        let vals: Vec<Value> = (0..80u64).map(|i| json!(u64::MAX - i)).collect();
-        let hvec = parse_hvec(&vals).expect("should parse large u64 values");
-        assert_eq!(hvec.data[0], u64::MAX as u128);
-        assert_eq!(hvec.data[79], (u64::MAX - 79) as u128);
-    }
 }

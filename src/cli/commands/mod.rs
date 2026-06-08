@@ -193,3 +193,42 @@ fn validate_strength(strength: f64) -> Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn test_create_framework_advanced_config() {
+        let tmp = tempdir().unwrap();
+
+        // 1. Test HDC with code_aware = true
+        let db_path1 = tmp.path().join("test1.db");
+        let fw_true = create_framework_advanced(Some(&db_path1), Some("hdc-text"), true, "ns")
+            .await
+            .expect("should create framework");
+
+        // 2. Test HDC with code_aware = false
+        let db_path2 = tmp.path().join("test2.db");
+        let fw_false = create_framework_advanced(Some(&db_path2), Some("hdc-text"), false, "ns")
+            .await
+            .expect("should create framework");
+
+        let text = "my_function_name";
+
+        // Use the providers directly from the framework
+        let v_true = fw_true.embedding_provider.embed(text).await.unwrap();
+        let v_false = fw_false.embedding_provider.embed(text).await.unwrap();
+
+        // They should be different because tokenization differs
+        // "my_function_name" (code_aware: false) -> ["my_function_name"]
+        // "my_function_name" (code_aware: true) -> ["my", "function", "name"] + trigrams
+        assert_ne!(v_true, v_false, "Vectors should differ based on code_aware config");
+
+        // Verify code-aware behavior: "my_function_name" should be similar to "my function name"
+        let v_split = fw_true.embedding_provider.embed("my function name").await.unwrap();
+        let sim = v_true.cosine_similarity(&v_split);
+        assert!(sim > 0.5, "Code-aware encoding should preserve similarity after splitting, got {}", sim);
+    }
+}
