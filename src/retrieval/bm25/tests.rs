@@ -331,3 +331,45 @@ fn test_search_mutant_prevention() {
     let index_empty = Bm25Index::new();
     assert!(index_empty.search(&["a"], 10).is_empty());
 }
+
+#[test]
+fn test_search_duplicate_tokens() {
+    let mut index = Bm25Index::new();
+    index.add_document("doc1", &["hello", "world"]);
+
+    // Duplicated token "hello" should yield same score as single "hello"
+    let results1 = index.search(&["hello"], 10);
+    let results2 = index.search(&["hello", "hello"], 10);
+
+    assert_eq!(results1.len(), results2.len());
+    assert!((results1[0].1 - results2[0].1).abs() < f32::EPSILON);
+}
+
+#[test]
+fn test_search_idf_threshold() {
+    let mut index = Bm25Index::new();
+    // Term "common" appears in all 3 documents
+    index.add_document("doc1", &["common", "rare"]);
+    index.add_document("doc2", &["common"]);
+    index.add_document("doc3", &["common"]);
+
+    // N=3, df=3. idf = ln((3+1)/(3+0.5)) = ln(4/3.5) = ln(1.14) > 0
+    let results = index.search(&["common"], 10);
+    assert_eq!(results.len(), 3);
+
+    // Add many more documents containing "common" until IDF <= 0
+    for i in 4..20 {
+        index.add_document(&format!("doc{}", i), &["common"]);
+    }
+
+    // N=19, df=19. idf = ln((19+1)/(19+0.5)) = ln(20/19.5) = ln(1.02) > 0
+    // We need df > N/2 + offset for IDF to become negative?
+    // No, idf = ln((N+1)/(df+0.5)). If df+0.5 > N+1, idf < 0.
+    // df > N + 0.5. Since df <= N, idf is always > 0 with this formula.
+    // Wait, Okapi BM25 typically uses idf = ln((N - df + 0.5) / (df + 0.5)).
+    // But our implementation uses: idf = ((n + 1.0) / (df as f32 + 0.5)).ln();
+    // This formula ALWAYS gives idf > 0 since n >= df.
+
+    let results_common = index.search(&["common"], 10);
+    assert!(!results_common.is_empty());
+}

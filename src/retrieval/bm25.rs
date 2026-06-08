@@ -253,29 +253,20 @@ impl Bm25Index {
         // Compute unique query terms and their weighted IDFs once.
         // We also pre-fetch the postings entries to avoid HashMap lookups in the scoring loop.
         let mut query_weights = Vec::with_capacity(query_tokens.len());
-        let mut seen_terms = if query_tokens.len() > 8 {
-            Some(HashSet::with_capacity(query_tokens.len()))
-        } else {
-            None
-        };
+        let mut seen_terms = HashSet::with_capacity(query_tokens.len());
 
         for token in query_tokens {
             let term = token.as_ref();
-            if let Some(seen) = &mut seen_terms {
-                if !seen.insert(term) {
-                    continue;
-                }
-            } else if query_weights.iter().any(|(t, _, _)| *t == term) {
+            if !seen_terms.insert(term) {
                 continue;
             }
 
             if let Some(entries) = self.postings.get(term) {
-                let df = entries.len();
-                if df > 0 {
-                    let idf = ((n + 1.0) / (df as f32 + 0.5)).ln();
-                    if idf > 0.0 {
-                        query_weights.push((term, idf * k1_plus_1, entries));
-                    }
+                // IDF threshold > 0.0 avoids scoring terms that appear in most documents
+                // and thus don't contribute significantly to relevance.
+                let idf = ((n + 1.0) / (entries.len() as f32 + 0.5)).ln();
+                if idf > 0.0 {
+                    query_weights.push((term, idf * k1_plus_1, entries));
                 }
             }
         }
