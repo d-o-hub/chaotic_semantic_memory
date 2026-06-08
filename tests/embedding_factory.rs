@@ -41,6 +41,7 @@ fn get_provider_hdc_with_model_succeeds() {
 }
 
 #[test]
+#[cfg(not(feature = "embed-fastembed"))]
 fn get_provider_fastembed_arm_returns_feature_specific_error() {
     let msg = provider_error("fastembed");
     assert!(
@@ -54,6 +55,14 @@ fn get_provider_fastembed_arm_returns_feature_specific_error() {
 }
 
 #[test]
+#[cfg(feature = "embed-fastembed")]
+fn get_provider_fastembed_arm_succeeds() {
+    let p = get_provider("fastembed").expect("fastembed provider should be available");
+    assert_eq!(p.name(), "fastembed");
+}
+
+#[test]
+#[cfg(not(feature = "embed-openai"))]
 fn get_provider_openai_arm_returns_feature_specific_error() {
     let msg = provider_error("openai");
     assert!(
@@ -67,6 +76,23 @@ fn get_provider_openai_arm_returns_feature_specific_error() {
 }
 
 #[test]
+#[cfg(feature = "embed-openai")]
+fn get_provider_openai_arm_succeeds() {
+    let result = get_provider("openai");
+    match result {
+        Ok(p) => assert_eq!(p.name(), "openai"),
+        Err(e) => {
+            let msg = e.to_string();
+            assert!(
+                msg.contains("OPENAI_API_KEY"),
+                "openai arm should fail with API key error, got: {msg}"
+            );
+        }
+    }
+}
+
+#[test]
+#[cfg(not(feature = "embed-voyage"))]
 fn get_provider_voyage_arm_returns_feature_specific_error() {
     let msg = provider_error("voyage");
     assert!(
@@ -77,6 +103,22 @@ fn get_provider_voyage_arm_returns_feature_specific_error() {
         !msg.contains("unknown embedding provider"),
         "voyage should hit its own arm, not the fallback: {msg}"
     );
+}
+
+#[test]
+#[cfg(feature = "embed-voyage")]
+fn get_provider_voyage_arm_succeeds() {
+    let result = get_provider("voyage");
+    match result {
+        Ok(p) => assert_eq!(p.name(), "voyage"),
+        Err(e) => {
+            let msg = e.to_string();
+            assert!(
+                msg.contains("VOYAGE_API_KEY"),
+                "voyage arm should fail with API key error, got: {msg}"
+            );
+        }
+    }
 }
 
 #[test]
