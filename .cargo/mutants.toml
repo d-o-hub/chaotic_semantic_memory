@@ -1,0 +1,17 @@
+## cargo-mutants configuration
+## See: https://mutants.rs/skip_files.html
+
+## Exclude files that cannot be tested under the default feature set or default
+## target. These files are tested via dedicated CI jobs (wasm, mcp-feature) but
+## are gated by cfg(target_arch = "wasm32") or `--features mcp`, so cargo-mutants
+## cannot apply mutations and observe failures with `cargo test` alone.
+exclude_globs = [
+    ## WASM bindings — only compiled with target wasm32-unknown-unknown.
+    "src/wasm.rs",
+    "src/wasm_ext.rs",
+    "src/wasm_graph_rag.rs",
+    "src/persistence_wasm.rs",
+    ## MCP server — only compiled with --features mcp (tested by mcp-feature CI job).
+    "src/mcp/**/*.rs",
+    "src/cli/mcp.rs",
+]

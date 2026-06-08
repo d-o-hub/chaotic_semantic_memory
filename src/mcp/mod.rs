@@ -13,4 +13,6 @@ mod server;
 #[cfg(feature = "mcp")]
 pub use handler::McpHandler;
 #[cfg(feature = "mcp")]
+pub use handler::parse_hvec;
+#[cfg(feature = "mcp")]
 pub use server::{McpConfig, Transport, serve};

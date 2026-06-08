@@ -16,6 +16,7 @@
 - clap_complete (4.5.42)
 - cloudevents-sdk (0.9.0)
 - colored (2.2.0)
+- csm-core
 - fastembed (4)
 - glob (0.3.2)
 - hnsw_rs (0.3.4)
@@ -75,12 +76,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub struct BridgeRetrieval
 - impl BridgeRetrieval
-
-### src/bundle.rs
-
-- pub struct BundleAccumulator
-- impl Default for BundleAccumulator
-- impl BundleAccumulator
 
 ### src/cli/args.rs
 
@@ -358,19 +353,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl VoyageProvider
 - impl EmbeddingProvider for VoyageProvider
 
-### src/encoder.rs
-
-- pub struct TextEncoderConfig
-- impl Default for TextEncoderConfig
-- pub struct TextEncoder
-- impl TextEncoder
-
-### src/error.rs
-
-- pub enum MemoryError
-- impl MemoryError
-- pub type Result
-
 ### src/export_payload.rs
 
 - impl From for BinaryMetadataValue
@@ -470,23 +452,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Default for TraversalConfig
 - impl Singularity
 
-### src/hyperdim.rs
-
-- pub use crate::hyperdim_batch::batch_cosine_similarity
-- pub struct HVec10240
-- impl HVec10240
-- pub use crate::bundle::BundleAccumulator
-
-### src/hyperdim_batch.rs
-
-- pub fn batch_cosine_similarity
-
-### src/hyperdim_serde.rs
-
-- impl Serialize for HVec10240
-- impl Visitor for HVecVisitor
-- impl Deserialize for HVec10240
-
 ### src/index/brute_force.rs
 
 - pub struct BruteForce
@@ -520,27 +485,27 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/lib.rs
 
 - pub use bridge_retrieval::BridgeRetrieval
-- pub use bundle::BundleAccumulator
-- pub use error::{MemoryError, Result}
+- pub use csm_core::bundle::BundleAccumulator
+- pub use csm_core::error::{MemoryError, Result}
+- pub use csm_core::hyperdim::{HVec10240, batch_cosine_similarity}
 - pub use framework::ChaoticSemanticFramework
 - pub use framework_builder::FrameworkBuilder
 - pub use framework_events::MemoryEvent
-- pub use hyperdim::{HVec10240, batch_cosine_similarity}
 - pub use semantic_bridge::{BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown}
 - pub use singularity::{Concept, ConceptBuilder}
 - pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod bridge_retrieval
-- pub mod bundle
+- pub use csm_core::bundle
 - pub mod cli
 - pub mod concept_builder
 - pub mod embedding
-- pub mod encoder
-- pub mod error
+- pub use csm_core::encoder
+- pub use csm_core::error
 - pub mod framework
 - pub mod framework_builder
 - pub mod framework_events_ce
 - pub mod graph_traversal
-- pub mod hyperdim
+- pub use csm_core::hyperdim
 - pub mod mcp
 - pub mod metadata_filter
 - pub mod observability
@@ -549,7 +514,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod index
 - pub mod persistence
 - pub mod persistence_wasm
-- pub mod reservoir
+- pub use csm_core::reservoir
 - pub mod retrieval
 - pub mod semantic_bridge
 - pub mod singularity
@@ -561,15 +526,15 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl persistence::Persistence
 - pub mod prelude
 - pub use prelude::crate::bridge_retrieval::BridgeRetrieval
-- pub use prelude::crate::bundle::BundleAccumulator
-- pub use prelude::crate::error::{MemoryError, Result}
 - pub use prelude::crate::framework::ChaoticSemanticFramework
 - pub use prelude::crate::framework_builder::FrameworkBuilder
 - pub use prelude::crate::framework_events::MemoryEvent
-- pub use prelude::crate::hyperdim::HVec10240
 - pub use prelude::crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket}
 - pub use prelude::crate::singularity::{Concept, ConceptBuilder, ConceptDiff, ConceptVersion}
 - pub use prelude::crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
+- pub use prelude::csm_core::bundle::BundleAccumulator
+- pub use prelude::csm_core::error::{MemoryError, Result}
+- pub use prelude::csm_core::hyperdim::HVec10240
 - pub mod wasm
 
 ### src/mcp/handler.rs
@@ -578,10 +543,12 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl McpHandler
 - impl ServerHandler for McpHandler
 - impl McpHandler
+- pub fn parse_hvec
 
 ### src/mcp/mod.rs
 
 - pub use handler::McpHandler
+- pub use handler::parse_hvec
 - pub use server::{McpConfig, Transport, serve}
 
 ### src/mcp/schema.rs
@@ -675,29 +642,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct Persistence
 - pub use crate::singularity::ConceptVersion
 - impl Persistence
-
-### src/reservoir.rs
-
-- pub struct ReservoirMetrics
-- pub struct ReservoirMetricsSnapshot
-- pub struct ReservoirStepOutput
-- impl ReservoirMetrics
-- pub struct Reservoir
-- impl Reservoir
-- pub use crate::reservoir_chaotic::ChaoticReservoir
-
-### src/reservoir_chaotic.rs
-
-- pub struct ChaoticReservoir
-- impl ChaoticReservoir
-
-### src/reservoir_inertial.rs
-
-- impl Reservoir
-
-### src/reservoir_sparse.rs
-
-- impl SparseWeights
 
 ### src/retrieval/bm25.rs
 
@@ -1487,45 +1431,6 @@ impl BridgeRetrieval {
     pub fn config(&self) -> &BridgeConfig;
 }
 ```
-
-## src/bundle.rs
-
-### BundleAccumulator
-
-```rust
-#[derive(Debug, Clone)]
-pub struct BundleAccumulator {
-}
-```
-
-Incremental bundle accumulator for streaming/sliding-window memory.
-
-Maintains signed bit counts for efficient add/remove operations.
-Finalize applies majority threshold to produce a bundled hypervector.
-
-### impl BundleAccumulator
-
-```rust
-impl BundleAccumulator {
-    pub fn new() -> Self;
-    pub fn add(&mut self, hv: &HVec10240);
-    pub fn remove(&mut self, hv: &HVec10240);
-    pub fn try_remove(&mut self, hv: &HVec10240) -> Result<()>;
-    pub fn finalize(&self) -> HVec10240;
-    pub fn len(&self) -> u32;
-    pub fn is_empty(&self) -> bool;
-    pub fn clear(&mut self);
-}
-```
-
-### impl Default for BundleAccumulator
-
-```rust
-impl Default for BundleAccumulator {
-}
-```
-
-## src/bundle_simd.rs
 
 ## src/cli/args.rs
 
@@ -2688,7 +2593,7 @@ impl EmbeddingProvider for HdcTextProvider {
 ```rust
 impl HdcTextProvider {
     pub fn new() -> Self;
-    pub fn with_config(config: crate::encoder::TextEncoderConfig) -> Self;
+    pub fn with_config(config: csm_core::encoder::TextEncoderConfig) -> Self;
 }
 ```
 
@@ -2865,100 +2770,6 @@ impl VoyageProvider {
     pub fn new(api_key: String) -> Result<Self>;
     pub fn with_model(self, model: impl Trait) -> Self;
     pub fn with_base_url(self, url: impl Trait) -> Self;
-}
-```
-
-## src/encoder.rs
-
-### TextEncoder
-
-```rust
-#[derive(Debug, Clone, Default)]
-pub struct TextEncoder {
-}
-```
-
-Deterministic text-to-hypervector encoder using HDC principles.
-
-Produces consistent `HVec10240` vectors from text input without external dependencies.
-The encoding is:
-- **Deterministic**: Same input always produces same output
-- **Similarity-preserving**: Similar texts produce similar vectors
-- **WASM-compatible**: No external dependencies
-
-### TextEncoderConfig
-
-```rust
-#[derive(Debug, Clone)]
-pub struct TextEncoderConfig {
-    pub position_stride: usize,
-    pub ngram_size: Option<usize>,
-    pub lowercase: bool,
-    pub code_aware: bool,
-}
-```
-
-Configuration for the text encoder.
-
-### impl Default for TextEncoderConfig
-
-```rust
-impl Default for TextEncoderConfig {
-}
-```
-
-### impl TextEncoder
-
-```rust
-impl TextEncoder {
-    pub fn new() -> Self;
-    pub fn with_config(config: TextEncoderConfig) -> Self;
-    pub fn new_code_aware() -> Self;
-    pub fn config(&self) -> &TextEncoderConfig;
-    pub fn encode(&self, text: &str) -> HVec10240;
-    pub fn encode_with_ngrams(&self, text: &str, n: usize) -> HVec10240;
-    pub fn tokenize(text: &str, code_aware: bool, lowercase: bool) -> Vec<String>;
-}
-```
-
-## src/error.rs
-
-### MemoryError
-
-```rust
-#[derive(Error, Debug)]
-pub enum MemoryError {
-    Database { message: String, source: Option<Box<dyn Trait>> },
-    InvalidInput { field: String, reason: String },
-    InvalidDimension { expected: usize, actual: usize },
-    NotFound { entity: String, id: String },
-    UnsupportedOperation(String),
-    Reservoir { message: String, source: Option<Box<dyn Trait>> },
-    Persistence(String),
-    External(String),
-    Config(String),
-    Io(std::io::Error),
-    Serialization(serde_json::Error),
-    Observability(String),
-    ObservabilityFeatureDisabled { feature: &'static str },
-    ObservabilityAlreadyInitialised,
-}
-```
-
-### Result
-
-```rust
-pub type Result<T> = std::result::Result<T, MemoryError>
-```
-
-### impl MemoryError
-
-```rust
-impl MemoryError {
-    pub fn database(message: impl Trait) -> Self;
-    pub fn database_with_source(message: impl Trait, source: impl Trait) -> Self;
-    pub fn reservoir(message: impl Trait) -> Self;
-    pub fn reservoir_with_source(message: impl Trait, source: impl Trait) -> Self;
 }
 ```
 
@@ -3546,90 +3357,6 @@ impl Singularity {
 }
 ```
 
-## src/hyperdim.rs
-
-### HVec10240
-
-```rust
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct HVec10240 {
-}
-```
-
-10240-bit hypervector (80 x 128-bit words)
-
-### crate::bundle::BundleAccumulator
-
-```rust
-pub use crate::bundle::BundleAccumulator;
-```
-
-### crate::hyperdim_batch::batch_cosine_similarity
-
-```rust
-pub use crate::hyperdim_batch::batch_cosine_similarity;
-```
-
-### impl HVec10240
-
-```rust
-impl HVec10240 {
-    pub const DIMENSION: Type;
-    pub const WORDS: Type;
-    pub fn zero() -> Self;
-    pub fn random() -> Self;
-    pub fn new_seeded(seed: u64) -> Self;
-    pub fn sparse(density: f32) -> Self;
-    pub fn set_bit(&mut self, pos: usize);
-    pub fn bundle(vectors: &[Self]) -> Result<Self>;
-    pub fn bind(&self, other: &Self) -> Self;
-    pub fn cosine_similarity(&self, other: &Self) -> f32;
-    pub fn hamming_distance(&self, other: &Self) -> u32;
-    pub fn permute(&self, shift: usize) -> Self;
-    pub fn to_bytes(&self) -> Vec<u8>;
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self>;
-}
-```
-
-## src/hyperdim_batch.rs
-
-### batch_cosine_similarity
-
-```rust
-pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> Vec<f32>
-```
-
-Batch similarity computation tuned for cache locality and Rayon overhead.
-
-## src/hyperdim_serde.rs
-
-### impl Deserialize<'de> for HVec10240
-
-```rust
-impl<'de> Deserialize<'de> for HVec10240 {
-}
-```
-
-### impl Serialize for HVec10240
-
-```rust
-impl Serialize for HVec10240 {
-}
-```
-
-### impl Visitor<'de> for HVecVisitor
-
-```rust
-impl<'de> Visitor<'de> for HVecVisitor {
-}
-```
-
-## src/hyperdim_simd.rs
-
-## src/hyperdim_simd_bundle.rs
-
-## src/hyperdim_tests.rs
-
 ## src/index/brute_force.rs
 
 ### BruteForce
@@ -3787,36 +3514,16 @@ Create an ANN index backend based on configuration.
 pub struct Persistence;
 ```
 
-Stub persistence type when persistence feature is disabled.
-
 ### bridge_retrieval::BridgeRetrieval
 
 ```rust
 pub use bridge_retrieval::BridgeRetrieval;
 ```
 
-### bundle::BundleAccumulator
-
-```rust
-pub use bundle::BundleAccumulator;
-```
-
 ### crate::bridge_retrieval::BridgeRetrieval
 
 ```rust
 pub use crate::bridge_retrieval::BridgeRetrieval;
-```
-
-### crate::bundle::BundleAccumulator
-
-```rust
-pub use crate::bundle::BundleAccumulator;
-```
-
-### crate::error::{MemoryError, Result}
-
-```rust
-pub use crate::error::{MemoryError, Result};
 ```
 
 ### crate::framework::ChaoticSemanticFramework
@@ -3837,12 +3544,6 @@ pub use crate::framework_builder::FrameworkBuilder;
 pub use crate::framework_events::MemoryEvent;
 ```
 
-### crate::hyperdim::HVec10240
-
-```rust
-pub use crate::hyperdim::HVec10240;
-```
-
 ### crate::persistence_wasm as persistence
 
 ```rust
@@ -3861,8 +3562,6 @@ pub use crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket};
 pub use crate::singularity::ConceptVersion;
 ```
 
-Stub concept version type when persistence feature is disabled.
-
 ### crate::singularity::{Concept, ConceptBuilder, ConceptDiff, ConceptVersion}
 
 ```rust
@@ -3875,10 +3574,70 @@ pub use crate::singularity::{Concept, ConceptBuilder, ConceptDiff, ConceptVersio
 pub use crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats};
 ```
 
-### error::{MemoryError, Result}
+### csm_core::bundle
 
 ```rust
-pub use error::{MemoryError, Result};
+pub use csm_core::bundle;
+```
+
+### csm_core::bundle::BundleAccumulator
+
+```rust
+pub use csm_core::bundle::BundleAccumulator;
+```
+
+### csm_core::bundle::BundleAccumulator
+
+```rust
+pub use csm_core::bundle::BundleAccumulator;
+```
+
+### csm_core::encoder
+
+```rust
+pub use csm_core::encoder;
+```
+
+### csm_core::error
+
+```rust
+pub use csm_core::error;
+```
+
+### csm_core::error::{MemoryError, Result}
+
+```rust
+pub use csm_core::error::{MemoryError, Result};
+```
+
+### csm_core::error::{MemoryError, Result}
+
+```rust
+pub use csm_core::error::{MemoryError, Result};
+```
+
+### csm_core::hyperdim
+
+```rust
+pub use csm_core::hyperdim;
+```
+
+### csm_core::hyperdim::HVec10240
+
+```rust
+pub use csm_core::hyperdim::HVec10240;
+```
+
+### csm_core::hyperdim::{HVec10240, batch_cosine_similarity}
+
+```rust
+pub use csm_core::hyperdim::{HVec10240, batch_cosine_similarity};
+```
+
+### csm_core::reservoir
+
+```rust
+pub use csm_core::reservoir;
 ```
 
 ### framework::ChaoticSemanticFramework
@@ -3897,12 +3656,6 @@ pub use framework_builder::FrameworkBuilder;
 
 ```rust
 pub use framework_events::MemoryEvent;
-```
-
-### hyperdim::{HVec10240, batch_cosine_similarity}
-
-```rust
-pub use hyperdim::{HVec10240, batch_cosine_similarity};
 ```
 
 ### impl Persistence
@@ -3994,12 +3747,28 @@ impl ServerHandler for McpHandler {
 }
 ```
 
+### parse_hvec
+
+```rust
+pub fn parse_hvec(vec_data: &[Value]) -> Result<csm_core::hyperdim::HVec10240>
+```
+
+Parse a JSON array of u64 values into an `HVec10240`.
+
+The array must contain exactly 80 elements, each representable as `u64`.
+
 ## src/mcp/mod.rs
 
 ### handler::McpHandler
 
 ```rust
 pub use handler::McpHandler;
+```
+
+### handler::parse_hvec
+
+```rust
+pub use handler::parse_hvec;
 ```
 
 ### server::{McpConfig, Transport, serve}
@@ -4549,141 +4318,6 @@ impl Persistence {
 }
 ```
 
-## src/reservoir.rs
-
-### Reservoir
-
-```rust
-pub struct Reservoir {
-}
-```
-
-Sparse Echo State Network with chaotic dynamics
-
-### ReservoirMetrics
-
-```rust
-#[derive(Debug, Default)]
-pub struct ReservoirMetrics {
-    pub steps_total: AtomicU64,
-    pub step_latency_us_total: AtomicU64,
-    pub step_latency_count: AtomicU64,
-    pub nodes_active: AtomicU64,
-}
-```
-
-### ReservoirMetricsSnapshot
-
-```rust
-#[derive(Debug, Clone, Default)]
-pub struct ReservoirMetricsSnapshot {
-    pub reservoir_steps_total: u64,
-    pub avg_reservoir_step_latency_us: f64,
-    pub reservoir_nodes_active: u64,
-}
-```
-
-### ReservoirStepOutput
-
-```rust
-#[derive(Debug)]
-pub struct ReservoirStepOutput<'a> {
-    pub state: &'a [f32],
-    pub state_norm: f64,
-    pub change_norm: f64,
-}
-```
-
-Output of a reservoir step (ADR-0078)
-
-### crate::reservoir_chaotic::ChaoticReservoir
-
-```rust
-pub use crate::reservoir_chaotic::ChaoticReservoir;
-```
-
-### impl Reservoir
-
-```rust
-impl Reservoir {
-    pub const DEFAULT_SIZE: Type;
-    pub const DEFAULT_RADIUS: Type;
-    pub const DEFAULT_ALPHA: Type;
-    pub const MAX_SIZE: Type;
-    pub fn new(input_size: usize, size: usize) -> Result<Self>;
-    pub fn new_with_metrics(input_size: usize, size: usize, metrics: Arc<ReservoirMetrics>) -> Result<Self>;
-    pub fn new_seeded(input_size: usize, size: usize, seed: u64) -> Result<Self>;
-    pub fn new_seeded_with_metrics(input_size: usize, size: usize, seed: u64, metrics: Arc<ReservoirMetrics>) -> Result<Self>;
-    pub fn step(&mut self, input: &[f32]) -> Result<ReservoirStepOutput<'_>>;
-    pub fn run(&mut self, inputs: &[Vec<f32>]) -> Result<Vec<Vec<f32>>>;
-    pub fn state(&self) -> &[f32];
-    pub fn set_spectral_radius(&mut self, radius: f32) -> Result<()>;
-    pub fn reset(&mut self);
-    pub fn to_hypervector(&self) -> Result<HVec10240>;
-    pub fn to_hypervector(&self) -> Result<HVec10240>;
-    pub fn size(&self) -> usize;
-    pub fn metrics_snapshot(&self) -> ReservoirMetricsSnapshot;
-}
-```
-
-### impl ReservoirMetrics
-
-```rust
-impl ReservoirMetrics {
-    pub fn observe_step(&self, latency_us: u64, nodes_active: u64);
-    pub fn snapshot(&self) -> ReservoirMetricsSnapshot;
-}
-```
-
-## src/reservoir_chaotic.rs
-
-### ChaoticReservoir
-
-```rust
-pub struct ChaoticReservoir {
-}
-```
-
-Chaotic reservoir with configurable dynamics
-
-### impl ChaoticReservoir
-
-```rust
-impl ChaoticReservoir {
-    pub fn new(input_size: usize, size: usize, chaos_strength: f32) -> Result<Self>;
-    pub fn new_with_metrics(input_size: usize, size: usize, chaos_strength: f32, metrics: Arc<ReservoirMetrics>) -> Result<Self>;
-    pub fn new_seeded(input_size: usize, size: usize, chaos_strength: f32, seed: u64) -> Result<Self>;
-    pub fn new_seeded_with_metrics(input_size: usize, size: usize, chaos_strength: f32, seed: u64, metrics: Arc<ReservoirMetrics>) -> Result<Self>;
-    pub fn step(&mut self, input: &[f32]) -> Result<ReservoirStepOutput<'_>>;
-    pub fn reset(&mut self);
-    pub fn state(&self) -> &[f32];
-    pub fn to_hypervector(&self) -> Result<HVec10240>;
-    pub fn metrics_snapshot(&self) -> ReservoirMetricsSnapshot;
-}
-```
-
-## src/reservoir_inertial.rs
-
-### impl Reservoir
-
-```rust
-impl Reservoir {
-    pub fn with_beta(self, beta: f32) -> Result<Self>;
-    pub fn beta(&self) -> f32;
-}
-```
-
-## src/reservoir_sparse.rs
-
-### impl SparseWeights
-
-```rust
-impl SparseWeights {
-}
-```
-
-## src/reservoir_tests.rs
-
 ## src/retrieval/bm25.rs
 
 ### Bm25Config
@@ -4979,7 +4613,7 @@ impl Reranker for RecencyDecayReranker {
 ### parse_rerankers
 
 ```rust
-pub fn parse_rerankers(s: &str) -> crate::error::Result<Vec<Box<dyn Trait>>>
+pub fn parse_rerankers(s: &str) -> csm_core::error::Result<Vec<Box<dyn Trait>>>
 ```
 
 Parses a list of rerankers from a string flag (e.g., "mmr:0.7,recency:30d").
@@ -5105,8 +4739,8 @@ impl ConceptGraph {
     pub fn get_concept(&self, id: &str) -> Option<&CanonicalConcept>;
     pub fn match_tokens(&self, tokens: &[String]) -> Vec<String>;
     pub fn expand(&self, concept_ids: &[String], max_depth: u8) -> Vec<String>;
-    pub fn load_from_json(reader: impl Trait) -> crate::Result<Self>;
-    pub fn save_to_json(&self, writer: impl Trait) -> crate::Result<()>;
+    pub fn load_from_json(reader: impl Trait) -> csm_core::Result<Self>;
+    pub fn save_to_json(&self, writer: impl Trait) -> csm_core::Result<()>;
     pub fn concept_count(&self) -> usize;
     pub fn label_count(&self) -> usize;
     pub fn all_concepts(&self) -> impl Trait;
