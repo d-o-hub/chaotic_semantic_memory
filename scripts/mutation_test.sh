@@ -98,6 +98,10 @@ if [[ "${PROFILE}" == "fast" ]]; then
       -e "src/mcp"
       -e src/cli/mcp.rs
     )
+    # Enable ann-lsh feature so LSH roundtrip tests are compiled and run.
+    # Without this, cargo-mutants uses default features, skipping tests gated
+    # on #![cfg(feature = "ann-lsh")] and leaving serialize/deserialize untested.
+    FAST_ARGS+=(--cargo-arg --features=ann-lsh)
   else
     echo "warning: --in-diff is unsupported by installed cargo-mutants; running full target set" >&2
   fi

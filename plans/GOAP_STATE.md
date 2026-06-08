@@ -1158,4 +1158,14 @@ world_state:
   mutation_test_cli_tests_verified: true          # behavioral differential kills config field mutations
   mutation_test_wasm_exclusion_strategy: "diff filtering + explicit -e flags in mutation_test.sh"
 
+  # ═══════════════════════════════════════════════════════
+  # Mutation Test Round 2 (2026-06-08)
+  # 8 missed mutants: 4 CLI (condition/field), 4 LSH (feature gate)
+  # ═══════════════════════════════════════════════════════
+  mutation_test_round2_in_progress: true
+  mutation_test_round2_missed_count: 8
+  mutation_test_round2_cli_missed: 4   # &&/== condition + ngram_size/code_aware field deletions
+  mutation_test_round2_lsh_missed: 4   # serialize/deserialize behind ann-lsh feature gate
+  mutation_test_round2_lsh_root_cause: "tests/lsh_roundtrip.rs gated on #[cfg(feature = \"ann-lsh\")] but cargo-mutants runs default features only"
+
   action_last_completed: mutation_test_fixes_2026_06_08
