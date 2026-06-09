@@ -10,7 +10,7 @@
 ```yaml
 goal_state:
   mutation_test_passing: true           # BM25 boundary test added
-  build_cli_aarch64_compiling: true     # Unused SIMD import removed
+  build_cli_all_platforms_green: true   # All Build CLI jobs passing
   action_sha_full_restored: true        # Full SHAs in workflow files
   codacy_warnings_resolved: true        # All unsafe/dead-code findings fixed
   pre_existing_issues_documented: true  # ADR-0088 registered
@@ -27,15 +27,17 @@ world_state:
   # New fixes (completed 2026-06-09)
   bundle_simd_unused_simd_import_removed: true  # _mm256_set1_epi32 in update_counts_simd_avx2
   install_action_sha_restored: true             # Full SHA in ci.yml, pre-release-gate.yml
-  # Pre-existing issues (not fixed)
+  hyperdim_data_moved_to_cfg_blocks: true       # Fixed aarch64 unused variable warning
+  # Pre-existing issues (not fixed - followup on main)
   mutation_test_bm25_boundary_missed: true      # bm25.rs:272
   # PR status
   pr_356_codacy_green: true
   pr_356_lint_green: true
   pr_356_test_green: true
   pr_356_mcp_feature_green: true
-  pr_356_mutation_test_red: true               # Pre-existing
-  pr_356_build_cli_green: true                 # Now fixed
+  pr_356_mutation_test_red: true               # Pre-existing - followup on main
+  pr_356_build_cli_all_green: true             # All platforms passing
+  pr_356_merged: true                          # Merged despite mutation-test
 ```
 
 ## 3. Root-Cause Analysis
@@ -211,28 +213,35 @@ gh run view <run-id> --json jobs --jq '.jobs[] | select(.name | startswith("Buil
 
 ## 6. Completion Status
 
-**Codacy Fixes**: Completed in commit `5876bc7` (2026-06-09):
+**PR #356 Merged**: 2026-06-09 (merged despite mutation-test failure)
+
+**Codacy Fixes** (commit `5876bc7`):
 
 - Added SAFETY comments to unsafe env var usage in embedding tests
 - Removed unused `use rand::RngExt;` from bundle_simd.rs
 - Removed redundant `#[allow(unused_mut, unused_variables)]` from hyperdim.rs
 - Restored action versions to latest pinned SHAs
 
-**Build CLI & Workflow Fixes**: Completed in commit `pending` (2026-06-09):
+**Build CLI & Workflow Fixes** (commit `a1b573a`):
 
 - Removed unused `_mm256_set1_epi32` import from `update_counts_simd_avx2`
 - Restored full SHA for `taiki-e/install-action` in ci.yml and pre-release-gate.yml
 
-**Pre-existing Issues**: Open for future waves:
+**aarch64 Build Fix** (commit `b238d8e`):
+
+- Moved `let mut data = [0u128; 80]` inside `#[cfg]` blocks to fix unused variable warning on aarch64
+
+**Pre-existing Issues** — Followup on main:
 
 - mutation-test: BM25 boundary test needed (cost: 3)
 - temp_env: Deferred evaluation (cost: 2)
 
 ## 7. Notes / Out-of-Scope
 
+- PR #356 merged with mutation-test failure as pre-existing issue
+- All other CI checks pass: lint, test, mcp-feature, wasm, Build CLI (all platforms)
 - The Codacy fixes are minimal and targeted — no behavioral changes
 - The mutation-test failure predates PR #356 and is not a regression
-- Build CLI timeouts appear to be GitHub Actions infrastructure issues
 - The `#[allow(dead_code)]` on `bundle_word_scalar` in hyperdim.rs is
   legitimate (function is conditionally compiled via cfg attributes)
 - hyperdim_tests.rs imports are correct via the `include!` macro context

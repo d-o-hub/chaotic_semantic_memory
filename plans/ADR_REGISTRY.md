@@ -219,6 +219,11 @@ These ADRs are valid but deferred based on Swarm Consensus:
 - **ADR-0025 (Decay)**: Association decay - defer until biological modeling requested
 - **ADR-0026 (Namespaces)**: Multi-tenancy - defer until SaaS deployment need
 
+## PR #356 Followup ADRs
+
+- **ADR-0087**: CI Failure Remediation for PR #356 (Workspace Split)
+- **ADR-0088**: Pre-existing Issues Documented During PR #356 Codacy Remediation
+
 ## Links
 
 - Full ADR directory: `plans/adr/`
