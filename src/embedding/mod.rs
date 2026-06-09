@@ -195,6 +195,7 @@ mod tests {
     #[test]
     fn get_provider_openai_with_feature_returns_provider() {
         // Set a dummy API key so from_env() succeeds
+        // SAFETY: env var mutation in single-threaded test is sound; no concurrent readers
         unsafe { std::env::set_var("OPENAI_API_KEY", "test-key-for-mutation-coverage") };
         let result = get_provider("openai");
         assert!(
@@ -203,23 +204,27 @@ mod tests {
         );
         let provider = result.unwrap();
         assert_eq!(provider.name(), "openai");
+        // SAFETY: env var removal in single-threaded test is sound
         unsafe { std::env::remove_var("OPENAI_API_KEY") };
     }
 
     #[cfg(feature = "embed-openai")]
     #[test]
     fn get_provider_openai_with_model_returns_provider() {
+        // SAFETY: env var mutation in single-threaded test is sound; no concurrent readers
         unsafe { std::env::set_var("OPENAI_API_KEY", "test-key-for-mutation-coverage") };
         let result = get_provider("openai:text-embedding-3-small");
         assert!(result.is_ok(), "openai arm with model must succeed");
         let provider = result.unwrap();
         assert_eq!(provider.name(), "openai");
+        // SAFETY: env var removal in single-threaded test is sound
         unsafe { std::env::remove_var("OPENAI_API_KEY") };
     }
 
     #[cfg(feature = "embed-voyage")]
     #[test]
     fn get_provider_voyage_with_feature_returns_provider() {
+        // SAFETY: env var mutation in single-threaded test is sound; no concurrent readers
         unsafe { std::env::set_var("VOYAGE_API_KEY", "test-key-for-mutation-coverage") };
         let result = get_provider("voyage");
         assert!(
@@ -228,17 +233,20 @@ mod tests {
         );
         let provider = result.unwrap();
         assert_eq!(provider.name(), "voyage");
+        // SAFETY: env var removal in single-threaded test is sound
         unsafe { std::env::remove_var("VOYAGE_API_KEY") };
     }
 
     #[cfg(feature = "embed-voyage")]
     #[test]
     fn get_provider_voyage_with_model_returns_provider() {
+        // SAFETY: env var mutation in single-threaded test is sound; no concurrent readers
         unsafe { std::env::set_var("VOYAGE_API_KEY", "test-key-for-mutation-coverage") };
         let result = get_provider("voyage:voyage-3");
         assert!(result.is_ok(), "voyage arm with model must succeed");
         let provider = result.unwrap();
         assert_eq!(provider.name(), "voyage");
+        // SAFETY: env var removal in single-threaded test is sound
         unsafe { std::env::remove_var("VOYAGE_API_KEY") };
     }
 
