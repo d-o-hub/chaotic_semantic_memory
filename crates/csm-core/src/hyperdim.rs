@@ -54,7 +54,6 @@ impl HVec10240 {
     /// Expected speedup: ~15% for random generation.
     pub fn random() -> Self {
         let mut rng = rand::rng();
-        #[allow(unused_mut, unused_variables)]
         let mut data = [0u128; 80];
         rng.fill(&mut data);
         Self { data }
@@ -67,7 +66,6 @@ impl HVec10240 {
         use rand::SeedableRng;
         use rand::rngs::StdRng;
         let mut rng = StdRng::seed_from_u64(seed);
-        #[allow(unused_mut, unused_variables)]
         let mut data = [0u128; 80];
         rng.fill(&mut data);
         Self { data }
@@ -76,7 +74,6 @@ impl HVec10240 {
     /// Create a random sparse hypervector with given density
     pub fn sparse(density: f32) -> Self {
         let mut rng = rand::rng();
-        #[allow(unused_mut, unused_variables)]
         let mut data = [0u128; 80];
         let bits_to_set = (Self::DIMENSION as f32 * density) as usize;
 
@@ -173,7 +170,6 @@ impl HVec10240 {
 
         let threshold = num_vectors / 2 + 1;
         let num_planes = (usize::BITS - num_vectors.leading_zeros()) as usize;
-        #[allow(unused_mut, unused_variables)]
         let mut data = [0u128; 80];
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
@@ -430,7 +426,7 @@ impl HVec10240 {
             });
         }
 
-        #[allow(unused_mut, unused_variables)]
+        #[allow(unused_mut)]
         let mut data = [0u128; 80];
         #[cfg(target_endian = "little")]
         {

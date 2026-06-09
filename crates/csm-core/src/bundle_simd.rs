@@ -164,7 +164,6 @@ mod tests {
     use super::*;
     use crate::hyperdim::HVec10240;
     use rand::Rng;
-    use rand::RngExt;
 
     fn finalize_scalar(counts: &[i32; 10240], threshold: i32) -> [u128; 80] {
         let mut data = [0u128; 80];
