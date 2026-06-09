@@ -4,6 +4,8 @@
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
 #[inline]
 #[target_feature(enable = "avx2")]
+/// # SAFETY
+/// Caller must ensure AVX2 is supported.
 pub(crate) unsafe fn bundle_block_avx2_single(
     vectors: &[crate::hyperdim::HVec10240],
     word_idx: usize,
@@ -17,6 +19,7 @@ pub(crate) unsafe fn bundle_block_avx2_single(
 
     let mut planes = [_mm256_setzero_si256(); 64];
     for v in vectors {
+        // SAFETY: v.data is [u128; 80]. word_idx + 2 is within bounds.
         let mut carry = unsafe { _mm256_loadu_si256(v.data.as_ptr().add(word_idx).cast()) };
         for plane in planes.iter_mut().take(num_planes) {
             let next_carry = _mm256_and_si256(*plane, carry);
@@ -40,6 +43,8 @@ pub(crate) unsafe fn bundle_block_avx2_single(
 }
 
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+/// # SAFETY
+/// Caller must ensure AVX2 is supported.
 pub(crate) unsafe fn bundle_block_avx2(
     vectors: &[crate::hyperdim::HVec10240],
     threshold: usize,
@@ -48,7 +53,9 @@ pub(crate) unsafe fn bundle_block_avx2(
     use std::arch::x86_64::_mm256_storeu_si256;
     let mut out = [0u128; 80];
     for i in (0..80).step_by(2) {
+        // SAFETY: AVX2 is detected at runtime.
         let res = unsafe { bundle_block_avx2_single(vectors, i, threshold, num_planes) };
+        // SAFETY: out is [u128; 80]. i + 2 is within bounds.
         unsafe { _mm256_storeu_si256(out.as_mut_ptr().add(i).cast(), res) };
     }
     out
@@ -58,6 +65,8 @@ pub(crate) unsafe fn bundle_block_avx2(
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
 #[inline]
 #[target_feature(enable = "neon")]
+/// # SAFETY
+/// Caller must ensure NEON is supported.
 pub(crate) unsafe fn bundle_block_neon_single(
     vectors: &[crate::hyperdim::HVec10240],
     word_idx: usize,
@@ -71,6 +80,7 @@ pub(crate) unsafe fn bundle_block_neon_single(
 
     let mut planes = [vdupq_n_u8(0); 64];
     for v in vectors {
+        // SAFETY: v.data is [u128; 80]. word_idx is within bounds.
         let mut carry = unsafe { vld1q_u8(v.data.as_ptr().add(word_idx).cast()) };
         for plane in planes.iter_mut().take(num_planes) {
             let next_carry = vandq_u8(*plane, carry);
@@ -95,6 +105,8 @@ pub(crate) unsafe fn bundle_block_neon_single(
 }
 
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+/// # SAFETY
+/// Caller must ensure NEON is supported.
 pub(crate) unsafe fn bundle_block_neon(
     vectors: &[crate::hyperdim::HVec10240],
     threshold: usize,
@@ -103,7 +115,9 @@ pub(crate) unsafe fn bundle_block_neon(
     use std::arch::aarch64::vst1q_u8;
     let mut out = [0u128; 80];
     for i in 0..80 {
+        // SAFETY: NEON is supported.
         let res = unsafe { bundle_block_neon_single(vectors, i, threshold, num_planes) };
+        // SAFETY: out is [u128; 80]. i is within bounds.
         unsafe { vst1q_u8(out.as_mut_ptr().add(i).cast(), res) };
     }
     out

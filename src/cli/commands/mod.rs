@@ -135,20 +135,21 @@ pub async fn create_framework_advanced(
 
         // If provider is HDC and code-aware is requested, apply config
         if provider.name() == "hdc-text" && code_aware {
-            builder = builder.with_embedding_provider(
-                crate::embedding::HdcTextProvider::with_config(crate::encoder::TextEncoderConfig {
-                    ngram_size: Some(3),
-                    code_aware: true,
-                    ..Default::default()
-                }),
-            );
+            builder =
+                builder.with_embedding_provider(crate::embedding::HdcTextProvider::with_config(
+                    csm_core::encoder::TextEncoderConfig {
+                        ngram_size: Some(3),
+                        code_aware: true,
+                        ..Default::default()
+                    },
+                ));
         } else {
             builder = builder.with_embedding_provider_arc(provider);
         }
     } else if code_aware {
         // Default HDC provider with code-aware config
         builder = builder.with_embedding_provider(crate::embedding::HdcTextProvider::with_config(
-            crate::encoder::TextEncoderConfig {
+            csm_core::encoder::TextEncoderConfig {
                 ngram_size: Some(3),
                 code_aware: true,
                 ..Default::default()
@@ -191,4 +192,78 @@ fn validate_strength(strength: f64) -> Result<()> {
         )));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn test_create_framework_advanced_config() {
+        let tmp = tempdir().unwrap();
+
+        // 1. Test HDC with code_aware = true
+        let db_path1 = tmp.path().join("test1.db");
+        let fw_true = create_framework_advanced(Some(&db_path1), Some("hdc-text"), true, "ns")
+            .await
+            .expect("should create framework");
+
+        // 2. Test HDC with code_aware = false
+        let db_path2 = tmp.path().join("test2.db");
+        let fw_false = create_framework_advanced(Some(&db_path2), Some("hdc-text"), false, "ns")
+            .await
+            .expect("should create framework");
+
+        let text = "my_function_name";
+
+        // Use the providers directly from the framework
+        let v_true = fw_true.embedding_provider.embed(text).await.unwrap();
+        let v_false = fw_false.embedding_provider.embed(text).await.unwrap();
+
+        // They should be different because tokenization differs
+        // "my_function_name" (code_aware: false) -> ["my_function_name"]
+        // "my_function_name" (code_aware: true) -> ["my", "function", "name"] + trigrams
+        assert_ne!(
+            v_true, v_false,
+            "Vectors should differ based on code_aware config"
+        );
+
+        // Verify code-aware behavior: "my_function_name" should be similar to "my function name"
+        let v_split = fw_true
+            .embedding_provider
+            .embed("my function name")
+            .await
+            .unwrap();
+        let dot: f32 = v_true.iter().zip(v_split.iter()).map(|(a, b)| a * b).sum();
+        let mag_a: f32 = v_true.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let mag_b: f32 = v_split.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let sim = dot / (mag_a * mag_b);
+        assert!(
+            sim > 0.5,
+            "Code-aware encoding should preserve similarity after splitting, got {sim}"
+        );
+    }
+
+    #[tokio::test]
+    async fn create_framework_advanced_applies_ngram_size() {
+        let tmp = tempdir().unwrap();
+
+        // code_aware=true sets ngram_size=3, code_aware=false uses default (no ngrams)
+        let db_path1 = tmp.path().join("ngram1.db");
+        let fw1 = create_framework_advanced(Some(&db_path1), Some("hdc-text"), false, "ns")
+            .await
+            .unwrap();
+        let db_path2 = tmp.path().join("ngram2.db");
+        let fw2 = create_framework_advanced(Some(&db_path2), Some("hdc-text"), true, "ns")
+            .await
+            .unwrap();
+
+        let v1 = fw1.embedding_provider.embed("hello world").await.unwrap();
+        let v2 = fw2.embedding_provider.embed("hello world").await.unwrap();
+        assert_ne!(
+            v1, v2,
+            "Different ngram_size must produce different encodings"
+        );
+    }
 }

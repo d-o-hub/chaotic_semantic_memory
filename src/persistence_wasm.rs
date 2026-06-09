@@ -3,8 +3,8 @@
 //! Persistence is unavailable on `wasm32` in this crate build.
 //! All operations return `MemoryError::UnsupportedOperation`.
 
-use crate::error::{MemoryError, Result};
 use crate::singularity::Concept;
+use csm_core::error::{MemoryError, Result};
 
 /// Persistence stub for wasm32 builds.
 pub struct Persistence;
@@ -165,7 +165,7 @@ fn wasm_persistence_unavailable() -> MemoryError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hyperdim::HVec10240;
+    use csm_core::hyperdim::HVec10240;
 
     #[tokio::test]
     async fn new_local_returns_unsupported() {

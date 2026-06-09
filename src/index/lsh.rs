@@ -12,10 +12,10 @@ use std::collections::HashMap;
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
 
-use crate::error::Result;
-use crate::hyperdim::HVec10240;
 use crate::index::{AnnIndex, IndexStats};
 use crate::singularity::Concept;
+use csm_core::error::Result;
+use csm_core::hyperdim::HVec10240;
 
 /// Locality-Sensitive Hashing (LSH) for hypervectors using bit-sampling.
 #[derive(Debug, Serialize, Deserialize)]
@@ -31,7 +31,7 @@ impl LshIndex {
     pub fn new(num_tables: usize, hash_bits: usize) -> Result<Self> {
         // #9: Reject zero-table configurations.
         if num_tables == 0 {
-            return Err(crate::error::MemoryError::InvalidInput {
+            return Err(csm_core::error::MemoryError::InvalidInput {
                 field: "num_tables".to_string(),
                 reason: "num_tables must be greater than zero".to_string(),
             });
@@ -286,15 +286,92 @@ impl AnnIndex for LshIndex {
 
     fn serialize(&self) -> Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| {
-            crate::error::MemoryError::Persistence(format!("Serialization error: {}", e))
+            csm_core::error::MemoryError::Persistence(format!("Serialization error: {}", e))
         })
     }
 
     fn deserialize(&mut self, data: &[u8]) -> Result<()> {
         let decoded: Self = bincode::deserialize(data).map_err(|e| {
-            crate::error::MemoryError::Persistence(format!("Deserialization error: {}", e))
+            csm_core::error::MemoryError::Persistence(format!("Deserialization error: {}", e))
         })?;
         *self = decoded;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::index::AnnIndex;
+
+    #[test]
+    fn lsh_index_serialize_deserialize_roundtrip() {
+        let mut idx = LshIndex::new(4, 8).expect("must create index");
+        let vec = HVec10240::random();
+        idx.insert("concept-1".to_string(), &vec)
+            .expect("must insert");
+
+        let bytes = AnnIndex::serialize(&idx).expect("serialize must succeed");
+        assert!(!bytes.is_empty(), "serialized bytes must be non-empty");
+        assert!(bytes.iter().any(|&b| b != 0));
+
+        let mut idx2 = LshIndex::new(4, 8).expect("must create index2");
+        AnnIndex::deserialize(&mut idx2, &bytes).expect("deserialize must succeed");
+
+        let results = idx2.search(&vec, 1).expect("must search");
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, "concept-1");
+    }
+
+    #[test]
+    fn lsh_index_deserialize_with_garbage_returns_error() {
+        let mut idx = LshIndex::new(4, 8).expect("must create index");
+        let result = AnnIndex::deserialize(&mut idx, b"not valid bincode data !!!!");
+        assert!(result.is_err(), "garbage bytes must return Err");
+    }
+
+    #[test]
+    fn lsh_index_roundtrip_preserves_concept_count() {
+        let mut idx = LshIndex::new(4, 8).expect("must create index");
+        let v1 = HVec10240::random();
+        let v2 = HVec10240::random();
+        idx.insert("alpha".to_string(), &v1).expect("insert alpha");
+        idx.insert("beta".to_string(), &v2).expect("insert beta");
+
+        let bytes = AnnIndex::serialize(&idx).expect("serialize");
+        assert!(bytes.len() > 100, "serialized bytes must be substantial");
+
+        let mut idx2 = LshIndex::new(4, 8).expect("must create index2");
+        AnnIndex::deserialize(&mut idx2, &bytes).expect("deserialize");
+
+        let stats_original = idx.stats();
+        let stats_deserialized = idx2.stats();
+        assert_eq!(
+            stats_original.count, stats_deserialized.count,
+            "concept count must survive roundtrip"
+        );
+        assert_eq!(stats_original.count, 2, "must have exactly 2 concepts");
+
+        let r1 = idx2.search(&v1, 1).expect("search v1");
+        assert_eq!(r1[0].0, "alpha", "search for v1 must find alpha");
+
+        let r2 = idx2.search(&v2, 1).expect("search v2");
+        assert_eq!(r2[0].0, "beta", "search for v2 must find beta");
+    }
+
+    #[test]
+    fn lsh_index_serialize_produces_nonzero_bytes() {
+        let mut idx = LshIndex::new(2, 4).expect("must create index");
+        let v = HVec10240::random();
+        idx.insert("solo".to_string(), &v).expect("insert");
+
+        let bytes = AnnIndex::serialize(&idx).expect("serialize");
+        assert!(!bytes.is_empty());
+        let nonzero = bytes.iter().filter(|&&b| b != 0).count();
+        assert!(
+            nonzero > bytes.len() / 4,
+            "at least 25% of bytes must be nonzero, got {nonzero}/{}",
+            bytes.len()
+        );
     }
 }

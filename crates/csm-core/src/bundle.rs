@@ -134,6 +134,7 @@ impl BundleAccumulator {
             // SAFETY: update_counts_simd_neon is safe on aarch64.
             unsafe { update_counts_simd_neon(&mut self.counts, &hv.data, -1) };
             self.n -= 1;
+            return Ok(());
         }
 
         #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
@@ -149,9 +150,6 @@ impl BundleAccumulator {
             self.n -= 1;
             Ok(())
         }
-
-        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-        Ok(())
     }
 
     /// Finalize the accumulator into a bundled hypervector.

@@ -4,7 +4,7 @@
 //! Default model: BGE-small-en-v1.5 (384 dimensions).
 
 use crate::embedding::EmbeddingProvider;
-use crate::error::{MemoryError, Result};
+use csm_core::error::{MemoryError, Result};
 
 /// FastEmbed local embedding provider.
 ///

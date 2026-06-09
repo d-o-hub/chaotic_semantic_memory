@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-use crate::error::Result;
-use crate::hyperdim::HVec10240;
 use crate::singularity::Concept;
+use csm_core::error::Result;
+use csm_core::hyperdim::HVec10240;
 
 pub mod brute_force;
 #[cfg(feature = "ann-hnsw")]

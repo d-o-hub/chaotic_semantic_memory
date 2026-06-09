@@ -16,9 +16,9 @@ use std::sync::Arc;
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
 
-use crate::error::Result;
-use crate::hyperdim::HVec10240;
 use crate::singularity::{Singularity, unix_now_ns};
+use csm_core::error::Result;
+use csm_core::hyperdim::HVec10240;
 
 /// Statistics from the last retrieval operation.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

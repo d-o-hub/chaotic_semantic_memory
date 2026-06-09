@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/csm-core",
     ".",
     "benchmarks",
     "crates/chaotic_semantic_memory_duckdb",
@@ -52,6 +53,7 @@ include = [
 ]
 
 [dependencies]
+csm-core = { path = "crates/csm-core" }
 tempfile = { workspace = true }
 # Serialization
 serde = { workspace = true }

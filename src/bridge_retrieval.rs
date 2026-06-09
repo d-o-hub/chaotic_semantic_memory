@@ -6,14 +6,14 @@
 // Casts are intentional for bridge score math
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
-use crate::encoder::TextEncoder;
-use crate::error::Result;
-use crate::hyperdim::HVec10240;
 use crate::retrieval::hybrid::normalize_scores;
 use crate::semantic_bridge::{
     BridgeConfig, BridgeHit, ConceptGraph, MemoryPacket, ScoreBreakdown, SemanticReranker,
 };
 use crate::singularity::Singularity;
+use csm_core::encoder::TextEncoder;
+use csm_core::error::Result;
+use csm_core::hyperdim::HVec10240;
 
 /// Bridge retrieval orchestrator combining concept expansion with HDC recall.
 #[derive(Debug, Clone)]
@@ -403,8 +403,8 @@ mod tests {
 #[cfg(test)]
 mod tests_v2 {
     use super::*;
-    use crate::hyperdim::HVec10240;
     use crate::singularity::{ConceptBuilder, Singularity, SingularityConfig};
+    use csm_core::hyperdim::HVec10240;
 
     #[test]
     fn test_bridge_retrieval_query_v2() {

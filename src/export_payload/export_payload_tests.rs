@@ -3,8 +3,8 @@ mod tests {
     use crate::export_payload::{
         BinaryConcept, BinaryExportPayload, BinaryMetadataValue, ExportPayload, unix_now_secs,
     };
-    use crate::hyperdim::HVec10240;
     use crate::singularity::Concept;
+    use csm_core::hyperdim::HVec10240;
     use serde_json::json;
     use std::collections::HashMap;
 

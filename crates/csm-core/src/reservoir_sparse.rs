@@ -90,7 +90,7 @@ impl SparseWeights {
     /// `values` slice is large enough to satisfy all indices in the sparse row.
     pub(crate) unsafe fn dot_row(&self, row: usize, values: &[f32]) -> f32 {
         // SAFETY: row is guaranteed to be < rows (which is row_offsets.len() - 1)
-        // by the caller (Reservoir::step loops).
+        // by the caller (Reservoir::step loops). Pointers are valid.
         let (start, end) = unsafe {
             (
                 *self.row_offsets.get_unchecked(row),
@@ -98,7 +98,7 @@ impl SparseWeights {
             )
         };
         // SAFETY: start and end are derived from row_offsets which are valid
-        // indices into entries.
+        // indices into entries. Pointers are valid.
         let entries = unsafe { self.entries.get_unchecked(start..end) };
 
         // Debug assertions to verify safety invariants during testing.
@@ -123,7 +123,7 @@ impl SparseWeights {
         while i + 3 < entries.len() {
             // SAFETY: indices are guaranteed to be within the `values` buffer range
             // by construction in `build` and `build_local_reservoir`. Loop bounds
-            // are strictly checked against `entries.len()`.
+            // are strictly checked against `entries.len()`. Pointers are valid.
             unsafe {
                 let e0 = entries.get_unchecked(i);
                 let e1 = entries.get_unchecked(i + 1);
@@ -148,7 +148,8 @@ impl SparseWeights {
 
         let mut sum = (sum0 + sum1) + (sum2 + sum3);
         while i < entries.len() {
-            // SAFETY: same as above.
+            // SAFETY: indices are guaranteed to be within the `values` buffer range.
+            // Loop bounds are strictly checked against `entries.len()`. Pointers are valid.
             unsafe {
                 let e = entries.get_unchecked(i);
                 sum = e
@@ -228,6 +229,7 @@ mod tests {
         let values = [1.0_f32; 10];
 
         // Compute dot product for row 0
+        // SAFETY: weights were built with cols=10, values has length 10.
         let result = unsafe { weights.dot_row(0, &values) };
 
         // Result should be sum of weights for row 0
@@ -248,6 +250,7 @@ mod tests {
 
         // Any dot product with zeros should be zero
         for row in 0..5 {
+            // SAFETY: weights were built with cols=10, values has length 10.
             let result = unsafe { weights.dot_row(row, &values) };
             assert!(result.abs() < f32::EPSILON);
         }
@@ -277,12 +280,15 @@ mod tests {
         let values = [10.0, 20.0, 30.0, 40.0];
 
         // Row 0: weight 0.5 at index 0, value 10.0 → 5.0
+        // SAFETY: manual construction ensured indices 0, 1, 2 are within values bounds.
         assert!((unsafe { sparse.dot_row(0, &values) } - 5.0).abs() < 1e-6);
 
         // Row 1: weight 1.0 at index 1, value 20.0 → 20.0
+        // SAFETY: manual construction ensured index is within bounds.
         assert!((unsafe { sparse.dot_row(1, &values) } - 20.0).abs() < 1e-6);
 
         // Row 2: weight 2.0 at index 2, value 30.0 → 60.0
+        // SAFETY: manual construction ensured index is within bounds.
         assert!((unsafe { sparse.dot_row(2, &values) } - 60.0).abs() < 1e-6);
     }
 
@@ -314,12 +320,15 @@ mod tests {
         let values = [10.0, 20.0, 30.0, 40.0];
 
         // Row 1 is empty → dot product should be 0
+        // SAFETY: manual construction ensured indices are within values bounds.
         assert!((unsafe { sparse.dot_row(1, &values) } - 0.0).abs() < 1e-6);
 
         // Row 0: (1.0 * 10.0) + (2.0 * 20.0) = 50.0
+        // SAFETY: manual construction ensured indices are within values bounds.
         assert!((unsafe { sparse.dot_row(0, &values) } - 50.0).abs() < 1e-6);
 
         // Row 2: (3.0 * 30.0) + (4.0 * 40.0) = 250.0
+        // SAFETY: manual construction ensured indices are within values bounds.
         assert!((unsafe { sparse.dot_row(2, &values) } - 250.0).abs() < 1e-6);
     }
 
@@ -377,6 +386,7 @@ mod tests {
         let values = [10.0, 20.0, 30.0];
 
         // Row 0: (-1.0 * 10.0) + (2.0 * 20.0) + (-3.0 * 30.0) = -10 + 40 - 90 = -60
+        // SAFETY: manual construction ensured indices are within values bounds.
         assert!((unsafe { sparse.dot_row(0, &values) } - (-60.0)).abs() < 1e-6);
     }
 
@@ -399,6 +409,7 @@ mod tests {
         let values = [-10.0, -20.0];
 
         // Row 0: (1.0 * -10.0) + (-1.0 * -20.0) = -10 + 20 = 10
+        // SAFETY: manual construction ensured indices are within values bounds.
         assert!((unsafe { sparse.dot_row(0, &values) } - 10.0).abs() < 1e-6);
     }
 
@@ -420,6 +431,7 @@ mod tests {
                 entries,
             };
             let values: Vec<f32> = vec![1.0; n];
+            // SAFETY: values length n matches entries indices.
             let result = unsafe { sparse.dot_row(0, &values) };
             assert!((result - n as f32).abs() < 1e-6, "Failed for n={}", n);
         }
@@ -439,6 +451,7 @@ mod tests {
         values[n - 1] = 5.0;
 
         // Should correctly access the last element
+        // SAFETY: index (n-1) is within values length n.
         assert!((unsafe { sparse.dot_row(0, &values) } - 10.0).abs() < 1e-6);
     }
 
@@ -455,6 +468,7 @@ mod tests {
         };
         // Providing shorter values slice than the entry index should panic in debug mode
         let values = vec![1.0; 5];
+        // SAFETY: This is expected to panic due to debug_assert.
         let _ = unsafe { sparse.dot_row(0, &values) };
     }
 }

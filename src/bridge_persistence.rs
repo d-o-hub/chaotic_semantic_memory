@@ -5,9 +5,9 @@
 
 // Casts are intentional for version serialization
 
-use crate::error::{MemoryError, Result};
 use crate::persistence::Persistence;
 use crate::semantic_bridge::{CanonicalConcept, ConceptGraph};
+use csm_core::error::{MemoryError, Result};
 use libsql::params;
 
 impl Persistence {

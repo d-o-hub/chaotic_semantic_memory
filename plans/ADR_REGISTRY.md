@@ -89,6 +89,7 @@
 | 0084 | GOAP Reconciliation and Codebase Alignment | Accepted | [adr/0084-goap-reconciliation.md](adr/0084-goap-reconciliation.md) |
 | 0085 | GOAP Reconciliation 2026-06 | Accepted | [adr/0085-goap-reconciliation-2026-06.md](adr/0085-goap-reconciliation-2026-06.md) |
 | 0086 | OTLP / Prometheus Implementation Notes | Implemented | [adr/0086-otlp-prom-implementation.md](adr/0086-otlp-prom-implementation.md) |
+| 0087 | CI Failure Remediation for PR #356 (Workspace Split) | Proposed | [adr/0087-ci-failure-remediation-pr356.md](adr/0087-ci-failure-remediation-pr356.md) |
 
 ## Status Definitions
 
@@ -217,6 +218,11 @@ These ADRs are valid but deferred based on Swarm Consensus:
 - **ADR-0024 (Phase 2)**: SIMD completion, Product Quantization, LSH - defer until >200k concepts
 - **ADR-0025 (Decay)**: Association decay - defer until biological modeling requested
 - **ADR-0026 (Namespaces)**: Multi-tenancy - defer until SaaS deployment need
+
+## PR #356 Followup ADRs
+
+- **ADR-0087**: CI Failure Remediation for PR #356 (Workspace Split)
+- **ADR-0088**: Pre-existing Issues Documented During PR #356 Codacy Remediation
 
 ## Links
 

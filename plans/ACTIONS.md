@@ -3929,3 +3929,28 @@ actions:
       Also removed the duplicate `action_last_completed: pin_github_actions_to_sha`
       merge artifact that PR #348 re-introduced into GOAP_STATE.md, restoring the
       single-key DRY invariant. Documented in ADR-0085.
+
+  # ═══════════════════════════════════════════════════════
+  # PR #356 Mutation Kill Tests (2026-06-09)
+  # ═══════════════════════════════════════════════════════
+  - name: kill_pr356_missed_mutants
+    preconditions:
+      pr_356_ci_failure_fixed: true
+    effects:
+      pr_356_mutation_kills_completed: true
+    cost: 4
+    status: complete
+    file: >
+      src/embedding/mod.rs, src/framework_ops.rs, src/wasm.rs,
+      src/mcp/handler.rs, src/index/lsh.rs, src/cli/commands/mod.rs,
+      src/framework_graph_rag.rs, tests/framework_unit.rs
+    description: |
+      Kill 8 missed mutants from cargo-mutants mutation-test job on PR #356:
+      1. src/embedding/mod.rs: 5 tests for get_provider match arms (hdc, fastembed, openai, voyage, unknown)
+      2. src/framework_ops.rs: 2 tests for secure_read_file boundary (exact limit Ok, over limit Err)
+      3. src/wasm.rs: 1 test for encode_text non-triviality (1280 bytes, not all-zero/0xFF)
+      4. src/mcp/handler.rs: 2 tests for parse_hvec (roundtrip values, reject wrong length)
+      5. src/index/lsh.rs: 2 tests for LshIndex serialize/deserialize (roundtrip, garbage rejection)
+      6. src/cli/commands/mod.rs: 1 test for ngram_size differentiation via code_aware
+      7. src/framework_graph_rag.rs: 1 test for probe_with_graph relevance
+      8. tests/framework_unit.rs: 2 tests for probe_filtered + probe_with_graph via framework API

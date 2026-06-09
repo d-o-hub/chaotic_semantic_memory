@@ -100,10 +100,10 @@ impl From<crate::singularity::Concept> for BinaryConcept {
 
 #[allow(dead_code)]
 impl BinaryConcept {
-    pub(crate) fn to_concept(&self) -> crate::error::Result<crate::singularity::Concept> {
+    pub(crate) fn to_concept(&self) -> csm_core::error::Result<crate::singularity::Concept> {
         Ok(crate::singularity::Concept {
             id: self.id.clone(),
-            vector: crate::hyperdim::HVec10240::from_bytes(&self.vector_bytes)?,
+            vector: csm_core::hyperdim::HVec10240::from_bytes(&self.vector_bytes)?,
             metadata: self
                 .metadata
                 .iter()
@@ -144,7 +144,7 @@ impl From<ExportPayload> for BinaryExportPayload {
 
 #[allow(dead_code)]
 impl BinaryExportPayload {
-    pub(crate) fn to_export_payload(&self) -> crate::error::Result<ExportPayload> {
+    pub(crate) fn to_export_payload(&self) -> csm_core::error::Result<ExportPayload> {
         let mut concepts = Vec::with_capacity(self.concepts.len());
         for bc in &self.concepts {
             concepts.push(bc.to_concept()?);

@@ -4,10 +4,10 @@
 //! with the ChaoticSemanticFramework's singularity lock management.
 
 use crate::bridge_retrieval::BridgeRetrieval;
-use crate::error::Result;
 use crate::framework::ChaoticSemanticFramework;
 use crate::metadata_filter::MetadataFilter;
 use crate::semantic_bridge::{BridgeHit, MemoryPacket, SemanticReranker};
+use csm_core::error::Result;
 
 impl ChaoticSemanticFramework {
     /// Execute bridge retrieval query with semantic expansion.
@@ -117,10 +117,10 @@ impl ChaoticSemanticFramework {
 mod tests {
     // Exact float comparisons for confidence test assertions
 
-    use crate::encoder::TextEncoder;
     use crate::framework_builder::FrameworkBuilder;
     use crate::semantic_bridge::{CanonicalConcept, ConceptGraph};
     use crate::singularity::ConceptBuilder;
+    use csm_core::encoder::TextEncoder;
 
     #[tokio::test]
     async fn test_probe_bridge_text_empty() {

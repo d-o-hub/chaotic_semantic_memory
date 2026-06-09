@@ -14,7 +14,7 @@
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::error::{MemoryError, Result};
+use csm_core::error::{MemoryError, Result};
 
 #[cfg(feature = "prometheus")]
 pub mod prom;

@@ -7,7 +7,7 @@ use crate::cli::commands::{
     create_framework_with_namespace, print_success, print_warning, truncate_preview,
 };
 use crate::cli::error::{CliError, Result};
-use crate::encoder::TextEncoder;
+use csm_core::encoder::TextEncoder;
 
 use std::fs::File;
 use std::io::{BufRead, BufReader};

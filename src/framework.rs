@@ -5,18 +5,18 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::instrument;
 
-use crate::error::Result;
 use crate::framework_builder::{FrameworkBuilder, FrameworkConfig, FrameworkStats};
 use crate::framework_events::MemoryEvent;
 use crate::framework_events_ce::{ChaoticEvent, EventEmitter};
 use crate::framework_metrics::{FrameworkMetrics, FrameworkMetricsSnapshot};
 use crate::graph_traversal::TraversalConfig;
-use crate::hyperdim::HVec10240;
 use crate::metadata_filter::MetadataFilter;
 #[cfg(feature = "persistence")]
 use crate::persistence::Persistence;
-use crate::reservoir_chaotic::ChaoticReservoir;
 use crate::singularity::{Concept, ConceptBuilder, Singularity, unix_now_secs};
+use csm_core::error::Result;
+use csm_core::hyperdim::HVec10240;
+use csm_core::reservoir_chaotic::ChaoticReservoir;
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
 
@@ -27,7 +27,7 @@ pub struct ChaoticSemanticFramework {
     pub(crate) persistence: Option<Arc<Persistence>>,
     #[cfg(not(feature = "persistence"))]
     pub(crate) persistence: Option<Arc<crate::persistence::Persistence>>,
-    pub(crate) reservoir: Arc<RwLock<Option<crate::reservoir_chaotic::ChaoticReservoir>>>,
+    pub(crate) reservoir: Arc<RwLock<Option<csm_core::reservoir_chaotic::ChaoticReservoir>>>,
     pub(crate) config: FrameworkConfig,
     pub(crate) metrics: Arc<FrameworkMetrics>,
     pub(crate) event_sender: tokio::sync::broadcast::Sender<MemoryEvent>,
@@ -323,7 +323,7 @@ impl ChaoticSemanticFramework {
 
         let r = reservoir_guard
             .as_mut()
-            .ok_or(crate::error::MemoryError::reservoir(
+            .ok_or(csm_core::error::MemoryError::reservoir(
                 "reservoir failed to initialize".to_string(),
             ))?;
         r.reset();

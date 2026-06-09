@@ -1,4 +1,3 @@
-use crate::hyperdim::HVec10240;
 
 #[test]
 fn test_hvec_creation() {

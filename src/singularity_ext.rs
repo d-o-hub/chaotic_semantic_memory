@@ -1,8 +1,8 @@
 //! Extension methods for Singularity (extracted to satisfy LOC gate)
 
-use crate::error::{MemoryError, Result};
-use crate::hyperdim::HVec10240;
 use crate::singularity::Singularity;
+use csm_core::error::{MemoryError, Result};
+use csm_core::hyperdim::HVec10240;
 use tracing::instrument;
 
 impl Singularity {
@@ -70,14 +70,14 @@ impl Singularity {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error::MemoryError;
     use crate::singularity::{ConceptBuilder, Singularity, SingularityConfig};
+    use csm_core::error::MemoryError;
     use std::collections::HashMap;
 
     const NS: &str = "_default";
 
     #[test]
-    fn test_bundle_concepts_strict_success() -> crate::error::Result<()> {
+    fn test_bundle_concepts_strict_success() -> csm_core::error::Result<()> {
         let mut singularity = Singularity::with_config(SingularityConfig::default());
         let vec1 = HVec10240::random();
         let vec2 = HVec10240::random();
@@ -94,7 +94,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bundle_concepts_strict_missing_id() -> crate::error::Result<()> {
+    fn test_bundle_concepts_strict_missing_id() -> csm_core::error::Result<()> {
         let mut singularity = Singularity::with_config(SingularityConfig::default());
         let vec1 = HVec10240::random();
 
@@ -131,7 +131,7 @@ mod tests {
     }
 
     #[test]
-    fn test_update_metadata_success() -> crate::error::Result<()> {
+    fn test_update_metadata_success() -> csm_core::error::Result<()> {
         let mut sing = Singularity::new(SingularityConfig::default());
         let concept = ConceptBuilder::new("test-id")
             .with_metadata("original", serde_json::Value::Bool(true))

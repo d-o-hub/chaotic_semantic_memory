@@ -16,7 +16,7 @@ use prometheus::{
 };
 use tokio::sync::oneshot;
 
-use crate::error::{MemoryError, Result};
+use csm_core::error::{MemoryError, Result};
 
 /// Global registry — created once per process.
 fn registry() -> &'static Registry {

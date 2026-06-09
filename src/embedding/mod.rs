@@ -29,8 +29,8 @@ pub use remote_openai::OpenAiProvider;
 #[cfg(feature = "embed-voyage")]
 pub use remote_voyage::VoyageProvider;
 
-use crate::error::Result;
-use crate::hyperdim::HVec10240;
+use csm_core::error::Result;
+use csm_core::hyperdim::HVec10240;
 
 /// Embedding provider trait for text-to-vector conversion.
 ///
@@ -82,7 +82,7 @@ pub fn get_provider(name: &str) -> Result<std::sync::Arc<dyn EmbeddingProvider>>
                 }
             }
             #[cfg(not(feature = "embed-fastembed"))]
-            Err(crate::error::MemoryError::Config(
+            Err(csm_core::error::MemoryError::Config(
                 "embed-fastembed feature not enabled".into(),
             ))
         }
@@ -97,7 +97,7 @@ pub fn get_provider(name: &str) -> Result<std::sync::Arc<dyn EmbeddingProvider>>
                 Ok(std::sync::Arc::new(provider))
             }
             #[cfg(not(feature = "embed-openai"))]
-            Err(crate::error::MemoryError::Config(
+            Err(csm_core::error::MemoryError::Config(
                 "embed-openai feature not enabled".into(),
             ))
         }
@@ -112,13 +112,150 @@ pub fn get_provider(name: &str) -> Result<std::sync::Arc<dyn EmbeddingProvider>>
                 Ok(std::sync::Arc::new(provider))
             }
             #[cfg(not(feature = "embed-voyage"))]
-            Err(crate::error::MemoryError::Config(
+            Err(csm_core::error::MemoryError::Config(
                 "embed-voyage feature not enabled".into(),
             ))
         }
 
-        _ => Err(crate::error::MemoryError::Config(format!(
+        _ => Err(csm_core::error::MemoryError::Config(format!(
             "unknown embedding provider: {provider_name}"
         ))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_provider_unknown_returns_error() {
+        let result = get_provider("does-not-exist");
+        assert!(result.is_err(), "Unknown provider must return Err");
+    }
+
+    #[test]
+    fn get_provider_hdc_returns_ok() {
+        let result = get_provider("hdc");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().name(), "hdc-text");
+    }
+
+    #[cfg(not(feature = "embed-fastembed"))]
+    #[test]
+    fn get_provider_fastembed_without_feature_returns_error() {
+        let result = get_provider("fastembed");
+        assert!(result.is_err());
+    }
+
+    #[cfg(not(feature = "embed-openai"))]
+    #[test]
+    fn get_provider_openai_without_feature_returns_error() {
+        let result = get_provider("openai");
+        assert!(result.is_err());
+    }
+
+    #[cfg(not(feature = "embed-voyage"))]
+    #[test]
+    fn get_provider_voyage_without_feature_returns_error() {
+        let result = get_provider("voyage");
+        assert!(result.is_err());
+    }
+
+    #[cfg(feature = "embed-fastembed")]
+    #[test]
+    fn get_provider_fastembed_with_feature_returns_provider() {
+        let result = get_provider("fastembed");
+        assert!(
+            result.is_ok(),
+            "fastembed arm must succeed when feature enabled"
+        );
+        let provider = result.unwrap();
+        assert_eq!(provider.name(), "fastembed");
+    }
+
+    #[cfg(feature = "embed-fastembed")]
+    #[test]
+    fn get_provider_fastembed_with_model_returns_provider() {
+        let result = get_provider("fastembed:BAAI/bge-small-en-v1.5");
+        // Model download may fail in CI; just verify the arm is reached
+        // (deleting the arm would fall through to unknown error, not a model error)
+        match result {
+            Ok(provider) => assert_eq!(provider.name(), "fastembed"),
+            Err(e) => {
+                let msg = format!("{e}");
+                assert!(
+                    msg.contains("embed-fastembed") || msg.contains("model"),
+                    "error must be from fastembed arm, not unknown provider: {msg}"
+                );
+            }
+        }
+    }
+
+    #[cfg(feature = "embed-openai")]
+    #[test]
+    fn get_provider_openai_with_feature_returns_provider() {
+        // Set a dummy API key so from_env() succeeds
+        // SAFETY: env var mutation in single-threaded test is sound; no concurrent readers
+        unsafe { std::env::set_var("OPENAI_API_KEY", "test-key-for-mutation-coverage") };
+        let result = get_provider("openai");
+        assert!(
+            result.is_ok(),
+            "openai arm must succeed when feature enabled"
+        );
+        let provider = result.unwrap();
+        assert_eq!(provider.name(), "openai");
+        // SAFETY: env var removal in single-threaded test is sound
+        unsafe { std::env::remove_var("OPENAI_API_KEY") };
+    }
+
+    #[cfg(feature = "embed-openai")]
+    #[test]
+    fn get_provider_openai_with_model_returns_provider() {
+        // SAFETY: env var mutation in single-threaded test is sound; no concurrent readers
+        unsafe { std::env::set_var("OPENAI_API_KEY", "test-key-for-mutation-coverage") };
+        let result = get_provider("openai:text-embedding-3-small");
+        assert!(result.is_ok(), "openai arm with model must succeed");
+        let provider = result.unwrap();
+        assert_eq!(provider.name(), "openai");
+        // SAFETY: env var removal in single-threaded test is sound
+        unsafe { std::env::remove_var("OPENAI_API_KEY") };
+    }
+
+    #[cfg(feature = "embed-voyage")]
+    #[test]
+    fn get_provider_voyage_with_feature_returns_provider() {
+        // SAFETY: env var mutation in single-threaded test is sound; no concurrent readers
+        unsafe { std::env::set_var("VOYAGE_API_KEY", "test-key-for-mutation-coverage") };
+        let result = get_provider("voyage");
+        assert!(
+            result.is_ok(),
+            "voyage arm must succeed when feature enabled"
+        );
+        let provider = result.unwrap();
+        assert_eq!(provider.name(), "voyage");
+        // SAFETY: env var removal in single-threaded test is sound
+        unsafe { std::env::remove_var("VOYAGE_API_KEY") };
+    }
+
+    #[cfg(feature = "embed-voyage")]
+    #[test]
+    fn get_provider_voyage_with_model_returns_provider() {
+        // SAFETY: env var mutation in single-threaded test is sound; no concurrent readers
+        unsafe { std::env::set_var("VOYAGE_API_KEY", "test-key-for-mutation-coverage") };
+        let result = get_provider("voyage:voyage-3");
+        assert!(result.is_ok(), "voyage arm with model must succeed");
+        let provider = result.unwrap();
+        assert_eq!(provider.name(), "voyage");
+        // SAFETY: env var removal in single-threaded test is sound
+        unsafe { std::env::remove_var("VOYAGE_API_KEY") };
+    }
+
+    #[test]
+    fn get_provider_hdc_is_distinct_from_unknown() {
+        let hdc = get_provider("hdc").unwrap();
+        let unknown = get_provider("no-such-provider");
+        assert!(unknown.is_err());
+        assert_ne!(hdc.name(), "");
+        assert_eq!(hdc.native_dim(), 10240);
     }
 }

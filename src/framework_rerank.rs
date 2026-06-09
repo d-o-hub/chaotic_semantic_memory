@@ -1,8 +1,8 @@
 //! Framework extensions for reranking retrieval results.
 
-use crate::error::Result;
+use csm_core::error::Result;
 use crate::framework::ChaoticSemanticFramework;
-use crate::hyperdim::HVec10240;
+use csm_core::hyperdim::HVec10240;
 use crate::retrieval::rerank::{RerankCandidate, Reranker};
 use std::sync::Arc;
 use tracing::instrument;

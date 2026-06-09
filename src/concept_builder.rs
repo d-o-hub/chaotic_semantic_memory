@@ -3,9 +3,9 @@
 use serde::Serialize;
 use std::collections::HashMap;
 
-use crate::error::{MemoryError, Result};
-use crate::hyperdim::HVec10240;
 use crate::singularity::Concept;
+use csm_core::error::{MemoryError, Result};
+use csm_core::hyperdim::HVec10240;
 
 /// Builder for constructing [`Concept`] instances with a fluent API.
 ///

@@ -1,8 +1,8 @@
 #![cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-use crate::error::{MemoryError, Result};
-use crate::hyperdim::HVec10240;
 use crate::persistence::Persistence;
 use crate::singularity::Concept;
+use csm_core::error::{MemoryError, Result};
+use csm_core::hyperdim::HVec10240;
 use libsql::params;
 
 impl Persistence {

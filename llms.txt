@@ -16,6 +16,7 @@
 - clap_complete (4.5.42)
 - cloudevents-sdk (0.9.0)
 - colored (2.2.0)
+- csm-core
 - fastembed (4)
 - glob (0.3.2)
 - hnsw_rs (0.3.4)
@@ -75,12 +76,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub struct BridgeRetrieval
 - impl BridgeRetrieval
-
-### src/bundle.rs
-
-- pub struct BundleAccumulator
-- impl Default for BundleAccumulator
-- impl BundleAccumulator
 
 ### src/cli/args.rs
 
@@ -358,19 +353,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl VoyageProvider
 - impl EmbeddingProvider for VoyageProvider
 
-### src/encoder.rs
-
-- pub struct TextEncoderConfig
-- impl Default for TextEncoderConfig
-- pub struct TextEncoder
-- impl TextEncoder
-
-### src/error.rs
-
-- pub enum MemoryError
-- impl MemoryError
-- pub type Result
-
 ### src/export_payload.rs
 
 - impl From for BinaryMetadataValue
@@ -470,23 +452,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Default for TraversalConfig
 - impl Singularity
 
-### src/hyperdim.rs
-
-- pub use crate::hyperdim_batch::batch_cosine_similarity
-- pub struct HVec10240
-- impl HVec10240
-- pub use crate::bundle::BundleAccumulator
-
-### src/hyperdim_batch.rs
-
-- pub fn batch_cosine_similarity
-
-### src/hyperdim_serde.rs
-
-- impl Serialize for HVec10240
-- impl Visitor for HVecVisitor
-- impl Deserialize for HVec10240
-
 ### src/index/brute_force.rs
 
 - pub struct BruteForce
@@ -520,27 +485,27 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/lib.rs
 
 - pub use bridge_retrieval::BridgeRetrieval
-- pub use bundle::BundleAccumulator
-- pub use error::{MemoryError, Result}
+- pub use csm_core::bundle::BundleAccumulator
+- pub use csm_core::error::{MemoryError, Result}
+- pub use csm_core::hyperdim::{HVec10240, batch_cosine_similarity}
 - pub use framework::ChaoticSemanticFramework
 - pub use framework_builder::FrameworkBuilder
 - pub use framework_events::MemoryEvent
-- pub use hyperdim::{HVec10240, batch_cosine_similarity}
 - pub use semantic_bridge::{BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown}
 - pub use singularity::{Concept, ConceptBuilder}
 - pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod bridge_retrieval
-- pub mod bundle
+- pub use csm_core::bundle
 - pub mod cli
 - pub mod concept_builder
 - pub mod embedding
-- pub mod encoder
-- pub mod error
+- pub use csm_core::encoder
+- pub use csm_core::error
 - pub mod framework
 - pub mod framework_builder
 - pub mod framework_events_ce
 - pub mod graph_traversal
-- pub mod hyperdim
+- pub use csm_core::hyperdim
 - pub mod mcp
 - pub mod metadata_filter
 - pub mod observability
@@ -549,7 +514,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod index
 - pub mod persistence
 - pub mod persistence_wasm
-- pub mod reservoir
+- pub use csm_core::reservoir
 - pub mod retrieval
 - pub mod semantic_bridge
 - pub mod singularity
@@ -561,15 +526,15 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl persistence::Persistence
 - pub mod prelude
 - pub use prelude::crate::bridge_retrieval::BridgeRetrieval
-- pub use prelude::crate::bundle::BundleAccumulator
-- pub use prelude::crate::error::{MemoryError, Result}
 - pub use prelude::crate::framework::ChaoticSemanticFramework
 - pub use prelude::crate::framework_builder::FrameworkBuilder
 - pub use prelude::crate::framework_events::MemoryEvent
-- pub use prelude::crate::hyperdim::HVec10240
 - pub use prelude::crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket}
 - pub use prelude::crate::singularity::{Concept, ConceptBuilder, ConceptDiff, ConceptVersion}
 - pub use prelude::crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
+- pub use prelude::csm_core::bundle::BundleAccumulator
+- pub use prelude::csm_core::error::{MemoryError, Result}
+- pub use prelude::csm_core::hyperdim::HVec10240
 - pub mod wasm
 
 ### src/mcp/handler.rs
@@ -675,29 +640,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct Persistence
 - pub use crate::singularity::ConceptVersion
 - impl Persistence
-
-### src/reservoir.rs
-
-- pub struct ReservoirMetrics
-- pub struct ReservoirMetricsSnapshot
-- pub struct ReservoirStepOutput
-- impl ReservoirMetrics
-- pub struct Reservoir
-- impl Reservoir
-- pub use crate::reservoir_chaotic::ChaoticReservoir
-
-### src/reservoir_chaotic.rs
-
-- pub struct ChaoticReservoir
-- impl ChaoticReservoir
-
-### src/reservoir_inertial.rs
-
-- impl Reservoir
-
-### src/reservoir_sparse.rs
-
-- impl SparseWeights
 
 ### src/retrieval/bm25.rs
 
@@ -1382,6 +1324,7 @@ The `csm` binary provides command-line access:
 ```toml
 [workspace]
 members = [
+    "crates/csm-core",
     ".",
     "benchmarks",
     "crates/chaotic_semantic_memory_duckdb",
@@ -1434,6 +1377,7 @@ include = [
 ]
 
 [dependencies]
+csm-core = { path = "crates/csm-core" }
 tempfile = { workspace = true }
 # Serialization
 serde = { workspace = true }

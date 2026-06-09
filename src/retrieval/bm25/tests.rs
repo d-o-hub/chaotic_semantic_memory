@@ -331,3 +331,105 @@ fn test_search_mutant_prevention() {
     let index_empty = Bm25Index::new();
     assert!(index_empty.search(&["a"], 10).is_empty());
 }
+
+#[test]
+fn test_oov_term_excluded_from_scoring() {
+    let mut index = Bm25Index::new();
+    index.add_document("doc1", &["hello", "world"]);
+    index.add_document("doc2", &["hello", "rust"]);
+
+    let results = index.search(&["hello", "nonexistent_term_xyz"], 10);
+    assert_eq!(results.len(), 2, "both docs with 'hello' must be returned");
+
+    let score_no_oov = index.search(&["hello"], 10);
+    for (id, score) in &results {
+        let expected = score_no_oov.iter().find(|(i, _)| i == id).unwrap().1;
+        assert!(
+            (*score - expected).abs() < 1e-6,
+            "OOV term must not affect score of '{id}': got {score}, expected {expected}"
+        );
+    }
+}
+
+#[test]
+fn test_idf_formula_positive_for_all_valid_inputs() {
+    let mut index = Bm25Index::new();
+    for i in 0..20 {
+        index.add_document(&format!("doc{i}"), &["term_a"]);
+    }
+
+    let results = index.search(&["term_a"], 20);
+    assert_eq!(results.len(), 20);
+
+    let n = 20.0f32;
+    let df = 20.0f32;
+    let expected_idf = ((n + 1.0) / (df + 0.5)).ln();
+    assert!(expected_idf > 0.0, "IDF must be positive for df=N case");
+
+    for (_, score) in &results {
+        assert!(*score > 0.0, "score must be positive when IDF > 0");
+    }
+}
+
+#[test]
+fn test_rare_term_scores_higher_than_common_term() {
+    let mut index = Bm25Index::new();
+    index.add_document("common-only", &["common"]);
+    index.add_document("rare-and-common", &["rare", "common"]);
+
+    let results_both = index.search(&["rare", "common"], 10);
+    let results_common = index.search(&["common"], 10);
+
+    let score_both = results_both
+        .iter()
+        .find(|(id, _)| id == "rare-and-common")
+        .unwrap()
+        .1;
+    let score_common = results_common
+        .iter()
+        .find(|(id, _)| id == "rare-and-common")
+        .unwrap()
+        .1;
+
+    assert!(
+        score_both > score_common,
+        "adding a rare term must increase score: both={score_both} > common={score_common}"
+    );
+}
+
+#[test]
+fn test_score_positive_for_single_doc_single_term() {
+    let mut index = Bm25Index::new();
+    index.add_document("solo", &["unique"]);
+
+    let results = index.search(&["unique"], 10);
+    assert_eq!(results.len(), 1);
+    assert!(
+        results[0].1 > 0.0,
+        "single doc with matching term must score > 0, got {}",
+        results[0].1
+    );
+}
+
+#[test]
+fn test_search_does_not_mutate_index() {
+    let mut index = Bm25Index::new();
+    index.add_document("d1", &["alpha", "beta"]);
+    index.add_document("d2", &["alpha", "gamma"]);
+
+    let before_len = index.len();
+    let _ = index.search(&["alpha"], 10);
+    let _ = index.search(&["beta"], 10);
+    assert_eq!(
+        index.len(),
+        before_len,
+        "search must not change document count"
+    );
+
+    let results_after = index.search(&["alpha"], 10);
+    assert_eq!(
+        results_after.len(),
+        2,
+        "index still queryable after searches"
+    );
+}

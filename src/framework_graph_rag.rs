@@ -1,9 +1,9 @@
 //! GraphRAG retrieval extension for framework.
 
-use crate::error::Result;
 use crate::framework::ChaoticSemanticFramework;
-use crate::hyperdim::HVec10240;
 use crate::retrieval::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
+use csm_core::error::Result;
+use csm_core::hyperdim::HVec10240;
 use tracing::instrument;
 
 impl ChaoticSemanticFramework {
@@ -45,5 +45,36 @@ impl ChaoticSemanticFramework {
             .embedding_provider
             .project(&embedding, &self.projection);
         self.probe_with_graph(query, config).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn probe_with_graph_returns_relevant_results() {
+        let fw = ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .build()
+            .await
+            .unwrap();
+        let vector = HVec10240::random();
+        fw.inject_concept("graph".to_string(), vector)
+            .await
+            .unwrap();
+        let config = GraphRagConfig {
+            anchor_top_k: 5,
+            max_hops: 2,
+            min_assoc_strength: 0.1,
+            similarity_weight: 0.7,
+            graph_weight: 0.3,
+            final_top_k: 5,
+        };
+        let results = fw.probe_with_graph(vector, config).await.unwrap();
+        assert!(
+            !results.is_empty(),
+            "probe_with_graph must return at least one result"
+        );
     }
 }

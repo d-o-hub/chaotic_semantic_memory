@@ -1,17 +1,16 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-use crate::error::Result;
 use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
 use crate::framework_events::MemoryEvent;
 use crate::framework_validation::{MAX_IMPORT_SIZE, validate_path};
-use crate::hyperdim::HVec10240;
 use crate::singularity::ConceptBuilder;
 use bincode::Options;
+use csm_core::error::Result;
+use csm_core::hyperdim::HVec10240;
 use std::io::Read;
 use std::sync::Arc;
 use tokio::fs;
 use tracing::{instrument, warn};
-
 const MAX_HISTORY_LIMIT: usize = 1000;
 
 impl ChaoticSemanticFramework {
@@ -20,11 +19,9 @@ impl ChaoticSemanticFramework {
     #[instrument(err, skip(self, concepts))]
     pub async fn inject_concepts(&self, concepts: &[(String, HVec10240)]) -> Result<()> {
         self.validate_batch_size(concepts.len())?;
-
         if concepts.is_empty() {
             return Ok(());
         }
-
         let mut to_save = Vec::with_capacity(concepts.len());
         {
             let mut sing = self.singularity.write().await;
@@ -56,7 +53,6 @@ impl ChaoticSemanticFramework {
 
             self.metrics.observe_persist_latency_ms(elapsed_ms, "save");
         }
-
         self.metrics.inc_concepts_injected(to_save.len() as u64);
         Ok(())
     }
@@ -65,11 +61,9 @@ impl ChaoticSemanticFramework {
     #[instrument(err, skip(self, associations))]
     pub async fn associate_many(&self, associations: &[(String, String, f32)]) -> Result<()> {
         self.validate_batch_size(associations.len())?;
-
         if associations.is_empty() {
             return Ok(());
         }
-
         {
             let mut sing = self.singularity.write().await;
             let ns = self.namespace.read().await;
@@ -151,13 +145,12 @@ impl ChaoticSemanticFramework {
         fs::write(validated_path, data).await?;
         Ok(())
     }
-
     /// Securely read a file into bytes with size limit to prevent OOM/TOCTOU (CWE-770).
     async fn secure_read_file(&self, path: &std::path::Path, limit: u64) -> Result<Vec<u8>> {
         let mut file = std::fs::File::open(path)?;
         let metadata = file.metadata()?;
         if metadata.len() > limit {
-            return Err(crate::error::MemoryError::InvalidInput {
+            return Err(csm_core::error::MemoryError::InvalidInput {
                 field: "file_size".to_string(),
                 reason: format!(
                     "File size {} exceeds maximum allowed size {}",
@@ -250,9 +243,9 @@ impl ChaoticSemanticFramework {
 
         let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
         let data = options.serialize(&payload).map_err(|e| {
-            crate::error::MemoryError::Serialization(serde_json::Error::io(std::io::Error::other(
-                e.to_string(),
-            )))
+            csm_core::error::MemoryError::Serialization(serde_json::Error::io(
+                std::io::Error::other(e.to_string()),
+            ))
         })?;
         fs::write(validated_path, data).await?;
         Ok(())
@@ -266,16 +259,15 @@ impl ChaoticSemanticFramework {
             .secure_read_file(&validated_path, MAX_IMPORT_SIZE)
             .await?;
         let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
-        let binary_payload: BinaryExportPayload =
-            options
-                .deserialize(&bytes)
-                .map_err(|e| crate::error::MemoryError::InvalidInput {
-                    field: "import_data".to_string(),
-                    reason: format!("bincode deserialization failed: {e}"),
-                })?;
+        let binary_payload: BinaryExportPayload = options.deserialize(&bytes).map_err(|e| {
+            csm_core::error::MemoryError::InvalidInput {
+                field: "import_data".to_string(),
+                reason: format!("bincode deserialization failed: {e}"),
+            }
+        })?;
         // Convert to regular payload
         let payload = binary_payload.to_export_payload().map_err(|e| {
-            crate::error::MemoryError::InvalidInput {
+            csm_core::error::MemoryError::InvalidInput {
                 field: "import_data".to_string(),
                 reason: format!("failed to convert binary payload: {e}"),
             }
@@ -475,5 +467,34 @@ impl ChaoticSemanticFramework {
         let sing = self.singularity.read().await;
         let ns = self.namespace.read().await;
         sing.bundle_concepts_strict(&ns, ids)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[tokio::test]
+    async fn secure_read_file_exact_limit_is_allowed() {
+        let fw = ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .build()
+            .await
+            .unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("exact.txt");
+        std::fs::write(&path, b"hello").unwrap();
+        assert!(fw.secure_read_file(path.as_path(), 5).await.is_ok());
+    }
+    #[tokio::test]
+    async fn secure_read_file_over_limit_is_rejected() {
+        let fw = ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .build()
+            .await
+            .unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("over.txt");
+        std::fs::write(&path, b"hello!").unwrap();
+        assert!(fw.secure_read_file(path.as_path(), 5).await.is_err());
     }
 }

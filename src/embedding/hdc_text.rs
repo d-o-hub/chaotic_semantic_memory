@@ -7,9 +7,9 @@
 // Casts are intentional for HDC conversion (u128 words to f32 representation)
 
 use crate::embedding::{EmbeddingProvider, Projection};
-use crate::encoder::TextEncoder;
-use crate::error::Result;
-use crate::hyperdim::HVec10240;
+use csm_core::encoder::TextEncoder;
+use csm_core::error::Result;
+use csm_core::hyperdim::HVec10240;
 
 /// HDC text embedding provider using FNV-1a hashing.
 ///
@@ -40,7 +40,7 @@ impl HdcTextProvider {
 
     /// Create with custom encoder configuration.
     #[must_use]
-    pub const fn with_config(config: crate::encoder::TextEncoderConfig) -> Self {
+    pub const fn with_config(config: csm_core::encoder::TextEncoderConfig) -> Self {
         Self {
             encoder: TextEncoder::with_config(config),
         }

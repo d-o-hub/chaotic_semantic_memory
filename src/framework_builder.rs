@@ -5,13 +5,13 @@ use tokio::sync::RwLock;
 use tracing::warn;
 
 use crate::ChaoticSemanticFramework;
-use crate::error::Result;
 use crate::framework_events::build_event_sender;
 use crate::framework_events_ce::EventEmitter;
 #[cfg(feature = "persistence")]
 use crate::persistence::Persistence;
-use crate::reservoir::Reservoir;
 use crate::singularity::{Singularity, SingularityConfig};
+use csm_core::error::Result;
+use csm_core::reservoir::Reservoir;
 
 const DEFAULT_MAX_PROBE_TOP_K: usize = 10_000;
 const DEFAULT_MAX_CACHED_TOP_K: usize = 100;

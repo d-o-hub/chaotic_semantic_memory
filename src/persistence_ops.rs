@@ -2,8 +2,8 @@ use libsql::params;
 use tokio::fs;
 use tracing::warn;
 
-use crate::error::{MemoryError, Result};
 use crate::persistence::{ConceptVersion, Persistence};
+use csm_core::error::{MemoryError, Result};
 
 impl Persistence {
     pub async fn save_associations(
@@ -148,7 +148,7 @@ impl Persistence {
                 concept_id,
                 version: version as u64,
                 timestamp_unix: modified_at as u64,
-                vector: Some(crate::hyperdim::HVec10240::from_bytes(&vector_bytes)?),
+                vector: Some(csm_core::hyperdim::HVec10240::from_bytes(&vector_bytes)?),
                 metadata: Some(serde_json::from_str(&metadata_json)?),
                 vector_changed: None,
                 metadata_changed: None,
@@ -313,9 +313,9 @@ impl Persistence {
 #[cfg(test)]
 #[cfg(feature = "persistence")]
 mod tests {
-    use crate::hyperdim::HVec10240;
     use crate::persistence::Persistence;
     use crate::singularity::Concept;
+    use csm_core::hyperdim::HVec10240;
     use std::collections::HashMap;
     use tempfile::NamedTempFile;
 

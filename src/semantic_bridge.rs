@@ -281,7 +281,7 @@ impl ConceptGraph {
     }
 
     /// Load concept graph from JSON.
-    pub fn load_from_json(reader: impl Read) -> crate::Result<Self> {
+    pub fn load_from_json(reader: impl Read) -> csm_core::Result<Self> {
         let concepts: Vec<CanonicalConcept> = serde_json::from_reader(reader)?;
         let mut graph = Self::new();
         for concept in concepts {
@@ -291,7 +291,7 @@ impl ConceptGraph {
     }
 
     /// Save concept graph to JSON.
-    pub fn save_to_json(&self, writer: impl Write) -> crate::Result<()> {
+    pub fn save_to_json(&self, writer: impl Write) -> csm_core::Result<()> {
         let concepts: Vec<&CanonicalConcept> = self.concepts.values().collect();
         serde_json::to_writer_pretty(writer, &concepts)?;
         Ok(())

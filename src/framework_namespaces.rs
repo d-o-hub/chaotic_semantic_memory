@@ -1,6 +1,6 @@
-use crate::error::Result;
 use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
+use csm_core::error::Result;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 use std::sync::Arc;
@@ -70,7 +70,7 @@ impl ChaoticSemanticFramework {
         Self::validate_namespace(ns)?;
         let path_str = path
             .to_str()
-            .ok_or_else(|| crate::error::MemoryError::InvalidInput {
+            .ok_or_else(|| csm_core::error::MemoryError::InvalidInput {
                 field: "path".to_string(),
                 reason: "Invalid path".to_string(),
             })?;
@@ -105,7 +105,7 @@ impl ChaoticSemanticFramework {
 
         let binary_payload = BinaryExportPayload::from(payload);
         let data = bincode::serialize(&binary_payload).map_err(|e| {
-            crate::error::MemoryError::Persistence(format!("Serialization error: {}", e))
+            csm_core::error::MemoryError::Persistence(format!("Serialization error: {}", e))
         })?;
         Ok(data)
     }
@@ -160,7 +160,7 @@ impl ChaoticSemanticFramework {
 mod tests {
     use super::*;
     use crate::export_payload::BinaryExportPayload;
-    use crate::hyperdim::HVec10240;
+    use csm_core::hyperdim::HVec10240;
     async fn empty_framework() -> ChaoticSemanticFramework {
         ChaoticSemanticFramework::builder()
             .without_persistence()

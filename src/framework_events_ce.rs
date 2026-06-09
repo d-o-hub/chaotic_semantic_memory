@@ -1,10 +1,10 @@
 //! CloudEvents event emitter implementation (ADR-0078).
 
-#[cfg(all(feature = "events-http", not(target_arch = "wasm32")))]
-use crate::error::MemoryError;
-#[cfg(any(feature = "cloudevents", feature = "events-http"))]
-use crate::error::Result;
 use async_trait::async_trait;
+#[cfg(all(feature = "events-http", not(target_arch = "wasm32")))]
+use csm_core::error::MemoryError;
+#[cfg(any(feature = "cloudevents", feature = "events-http"))]
+use csm_core::error::Result;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 

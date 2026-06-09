@@ -8,7 +8,7 @@
 
 // Casts are intentional for dimension math (usize to f32 for sparsity ratio)
 
-use crate::hyperdim::HVec10240;
+use csm_core::hyperdim::HVec10240;
 
 /// Configuration for projection matrix generation.
 #[derive(Debug, Clone)]
@@ -168,7 +168,7 @@ mod tests {
 
     #[test]
     fn projection_preserves_similarity() {
-        use crate::hyperdim::HVec10240;
+        use csm_core::hyperdim::HVec10240;
 
         let config = ProjectionConfig {
             seed: 42,
