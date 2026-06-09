@@ -11,7 +11,6 @@ use std::io::Read;
 use std::sync::Arc;
 use tokio::fs;
 use tracing::{instrument, warn};
-
 const MAX_HISTORY_LIMIT: usize = 1000;
 
 impl ChaoticSemanticFramework {
@@ -20,11 +19,9 @@ impl ChaoticSemanticFramework {
     #[instrument(err, skip(self, concepts))]
     pub async fn inject_concepts(&self, concepts: &[(String, HVec10240)]) -> Result<()> {
         self.validate_batch_size(concepts.len())?;
-
         if concepts.is_empty() {
             return Ok(());
         }
-
         let mut to_save = Vec::with_capacity(concepts.len());
         {
             let mut sing = self.singularity.write().await;
@@ -56,7 +53,6 @@ impl ChaoticSemanticFramework {
 
             self.metrics.observe_persist_latency_ms(elapsed_ms, "save");
         }
-
         self.metrics.inc_concepts_injected(to_save.len() as u64);
         Ok(())
     }
@@ -65,11 +61,9 @@ impl ChaoticSemanticFramework {
     #[instrument(err, skip(self, associations))]
     pub async fn associate_many(&self, associations: &[(String, String, f32)]) -> Result<()> {
         self.validate_batch_size(associations.len())?;
-
         if associations.is_empty() {
             return Ok(());
         }
-
         {
             let mut sing = self.singularity.write().await;
             let ns = self.namespace.read().await;
@@ -151,7 +145,6 @@ impl ChaoticSemanticFramework {
         fs::write(validated_path, data).await?;
         Ok(())
     }
-
     /// Securely read a file into bytes with size limit to prevent OOM/TOCTOU (CWE-770).
     async fn secure_read_file(&self, path: &std::path::Path, limit: u64) -> Result<Vec<u8>> {
         let mut file = std::fs::File::open(path)?;
@@ -474,5 +467,34 @@ impl ChaoticSemanticFramework {
         let sing = self.singularity.read().await;
         let ns = self.namespace.read().await;
         sing.bundle_concepts_strict(&ns, ids)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[tokio::test]
+    async fn secure_read_file_exact_limit_is_allowed() {
+        let fw = ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .build()
+            .await
+            .unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("exact.txt");
+        std::fs::write(&path, b"hello").unwrap();
+        assert!(fw.secure_read_file(path.as_path(), 5).await.is_ok());
+    }
+    #[tokio::test]
+    async fn secure_read_file_over_limit_is_rejected() {
+        let fw = ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .build()
+            .await
+            .unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("over.txt");
+        std::fs::write(&path, b"hello!").unwrap();
+        assert!(fw.secure_read_file(path.as_path(), 5).await.is_err());
     }
 }

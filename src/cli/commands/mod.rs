@@ -244,4 +244,26 @@ mod tests {
             "Code-aware encoding should preserve similarity after splitting, got {sim}"
         );
     }
+
+    #[tokio::test]
+    async fn create_framework_advanced_applies_ngram_size() {
+        let tmp = tempdir().unwrap();
+
+        // code_aware=true sets ngram_size=3, code_aware=false uses default (no ngrams)
+        let db_path1 = tmp.path().join("ngram1.db");
+        let fw1 = create_framework_advanced(Some(&db_path1), Some("hdc-text"), false, "ns")
+            .await
+            .unwrap();
+        let db_path2 = tmp.path().join("ngram2.db");
+        let fw2 = create_framework_advanced(Some(&db_path2), Some("hdc-text"), true, "ns")
+            .await
+            .unwrap();
+
+        let v1 = fw1.embedding_provider.embed("hello world").await.unwrap();
+        let v2 = fw2.embedding_provider.embed("hello world").await.unwrap();
+        assert_ne!(
+            v1, v2,
+            "Different ngram_size must produce different encodings"
+        );
+    }
 }

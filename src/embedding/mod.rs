@@ -122,3 +122,42 @@ pub fn get_provider(name: &str) -> Result<std::sync::Arc<dyn EmbeddingProvider>>
         ))),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn get_provider_unknown_returns_error() {
+        let result = get_provider("does-not-exist");
+        assert!(result.is_err(), "Unknown provider must return Err");
+    }
+
+    #[test]
+    fn get_provider_hdc_returns_ok() {
+        let result = get_provider("hdc");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().name(), "hdc-text");
+    }
+
+    #[cfg(not(feature = "embed-fastembed"))]
+    #[test]
+    fn get_provider_fastembed_without_feature_returns_error() {
+        let result = get_provider("fastembed");
+        assert!(result.is_err());
+    }
+
+    #[cfg(not(feature = "embed-openai"))]
+    #[test]
+    fn get_provider_openai_without_feature_returns_error() {
+        let result = get_provider("openai");
+        assert!(result.is_err());
+    }
+
+    #[cfg(not(feature = "embed-voyage"))]
+    #[test]
+    fn get_provider_voyage_without_feature_returns_error() {
+        let result = get_provider("voyage");
+        assert!(result.is_err());
+    }
+}

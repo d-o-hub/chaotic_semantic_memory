@@ -294,6 +294,22 @@ mod tests {
     fn wasm_encode_text_empty() {
         assert_eq!(native_enc("").len(), 1280);
     }
+
+    #[test]
+    fn encode_text_returns_nontrivial_hvec() {
+        let bytes = native_enc("hello world");
+        // HVec10240 serialised = 80 × 16 bytes = 1280 bytes
+        assert_eq!(
+            bytes.len(),
+            1280,
+            "encoded length must match HVec10240 wire size"
+        );
+        assert!(bytes.iter().any(|&b| b != 0), "result must not be all-zero");
+        assert!(
+            bytes.iter().any(|&b| b != 0xff),
+            "result must not be all-ones"
+        );
+    }
 }
 
 #[tokio::test]

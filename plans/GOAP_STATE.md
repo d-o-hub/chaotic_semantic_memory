@@ -1142,4 +1142,38 @@ world_state:
     - "auto_wire_framework_prom_metrics (cost 3, queued in ACTIONS.md)"
     - "add_otlp_grpc_exporter (cost 8, deferred in ACTIONS.md)"
 
-  action_last_completed: otlp_observability_implementation_2026_06_06
+  # ═══════════════════════════════════════════════════════
+  # PR #356 CI Remediation (2026-06-09)
+  # Workspace-split PR — CI failure fix
+  # ═══════════════════════════════════════════════════════
+  pr_356_ci_failure_fixed: true
+  pr_356_failure_root_cause: "cosine_similarity called on Vec<f32> (method only on HVec10240)"
+  pr_356_fix_commit: "10e63ae"
+  pr_356_ci_status:
+    lint: pass
+    test: pass
+    mcp_feature: pass
+    wasm: pass
+    benchmark_small: pass
+    codacy: pass
+    codeql: pass
+    sonarcloud: pass
+    build_cli: pass  # all platforms
+
+  # ═══════════════════════════════════════════════════════
+  # PR #356 Mutation Kill Tests (2026-06-09)
+  # Killed 8 missed mutants from cargo-mutants mutation-test job
+  # ═══════════════════════════════════════════════════════
+  pr_356_mutation_kills_completed: true
+  pr_356_mutation_kills_files:
+    - "src/embedding/mod.rs: 5 tests (get_provider match arms)"
+    - "src/framework_ops.rs: 2 tests (secure_read_file boundary)"
+    - "src/wasm.rs: 1 test (encode_text non-triviality)"
+    - "src/mcp/handler.rs: 2 tests (parse_hvec roundtrip + rejection)"
+    - "src/index/lsh.rs: 2 tests (serialize/deserialize roundtrip + garbage)"
+    - "src/cli/commands/mod.rs: 1 test (ngram_size differentiation)"
+    - "src/framework_graph_rag.rs: 1 test (probe_with_graph relevance)"
+    - "tests/framework_unit.rs: 2 tests (probe_filtered + probe_with_graph)"
+  pr_356_mutation_kills_count: 16
+
+  action_last_completed: pr_356_mutation_kills_2026_06_09

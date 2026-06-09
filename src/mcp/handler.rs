@@ -411,3 +411,27 @@ fn parse_hvec(vec_data: &[Value]) -> Result<csm_core::hyperdim::HVec10240> {
     }
     Ok(csm_core::hyperdim::HVec10240 { data })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn parse_hvec_roundtrips_values() {
+        let input: Vec<Value> = (0u64..80).map(|i| json!(i * 3 + 7)).collect();
+        let hvec = parse_hvec(&input).expect("must parse successfully");
+        for (i, val) in hvec.data.iter().enumerate() {
+            assert_eq!(*val, (i as u128) * 3 + 7, "element {i} mismatch");
+        }
+    }
+
+    #[test]
+    fn parse_hvec_rejects_wrong_length() {
+        let short: Vec<Value> = vec![json!(1u64); 10];
+        assert!(
+            parse_hvec(&short).is_err(),
+            "must reject non-80-element input"
+        );
+    }
+}
