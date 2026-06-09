@@ -170,7 +170,6 @@ impl HVec10240 {
 
         let threshold = num_vectors / 2 + 1;
         let num_planes = (usize::BITS - num_vectors.leading_zeros()) as usize;
-        let mut data = [0u128; 80];
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         // Performance Optimization: Use parallel bit-sliced addition for large batches (N >= 256).
@@ -179,6 +178,7 @@ impl HVec10240 {
         if num_vectors >= 256 {
             #[cfg(target_arch = "x86_64")]
             if is_x86_feature_detected!("avx2") {
+                let mut data = [0u128; 80];
                 data.par_chunks_mut(2).enumerate().for_each(|(i, chunk)| {
                     // SAFETY: AVX2 is detected at runtime. Pointers to vectors and indices are within bounds.
                     let res = unsafe {
@@ -199,6 +199,7 @@ impl HVec10240 {
 
             #[cfg(target_arch = "aarch64")]
             {
+                let mut data = [0u128; 80];
                 data.par_iter_mut().enumerate().for_each(|(i, word)| {
                     // SAFETY: NEON is always available on aarch64. Pointers to vectors and indices are within bounds.
                     let res = unsafe {
@@ -219,6 +220,7 @@ impl HVec10240 {
             // because the NEON path above returns unconditionally.
             #[cfg(not(target_arch = "aarch64"))]
             {
+                let mut data = [0u128; 80];
                 data.par_iter_mut().enumerate().for_each(|(i, word)| {
                     *word = bundle_word_scalar(vectors, i, threshold, num_planes);
                 });
@@ -244,6 +246,7 @@ impl HVec10240 {
 
         #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
         {
+            let mut data = [0u128; 80];
             #[allow(clippy::needless_range_loop)]
             for i in 0..80 {
                 data[i] = bundle_word_scalar(vectors, i, threshold, num_planes);
