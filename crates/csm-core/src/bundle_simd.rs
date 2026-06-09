@@ -101,9 +101,6 @@ pub(crate) unsafe fn update_counts_simd_avx2(
     hv: &[u128; 80],
     sign: i32,
 ) {
-    use std::arch::x86_64::_mm256_set1_epi32;
-    let _sign_vec = _mm256_set1_epi32(sign);
-
     for i in 0..80 {
         let word_ptr = &hv[i] as *const u128 as *const u8;
         // SAFETY: counts is [i32; 10240], i * 128 is within bounds.
