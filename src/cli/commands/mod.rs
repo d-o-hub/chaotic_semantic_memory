@@ -224,11 +224,24 @@ mod tests {
         // They should be different because tokenization differs
         // "my_function_name" (code_aware: false) -> ["my_function_name"]
         // "my_function_name" (code_aware: true) -> ["my", "function", "name"] + trigrams
-        assert_ne!(v_true, v_false, "Vectors should differ based on code_aware config");
+        assert_ne!(
+            v_true, v_false,
+            "Vectors should differ based on code_aware config"
+        );
 
         // Verify code-aware behavior: "my_function_name" should be similar to "my function name"
-        let v_split = fw_true.embedding_provider.embed("my function name").await.unwrap();
-        let sim = v_true.cosine_similarity(&v_split);
-        assert!(sim > 0.5, "Code-aware encoding should preserve similarity after splitting, got {}", sim);
+        let v_split = fw_true
+            .embedding_provider
+            .embed("my function name")
+            .await
+            .unwrap();
+        let dot: f32 = v_true.iter().zip(v_split.iter()).map(|(a, b)| a * b).sum();
+        let mag_a: f32 = v_true.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let mag_b: f32 = v_split.iter().map(|x| x * x).sum::<f32>().sqrt();
+        let sim = dot / (mag_a * mag_b);
+        assert!(
+            sim > 0.5,
+            "Code-aware encoding should preserve similarity after splitting, got {sim}"
+        );
     }
 }
