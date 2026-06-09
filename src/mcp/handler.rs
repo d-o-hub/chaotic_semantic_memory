@@ -434,4 +434,42 @@ mod tests {
             "must reject non-80-element input"
         );
     }
+
+    #[test]
+    fn parse_hvec_known_values_match_expected() {
+        let input: Vec<Value> = vec![json!(0u64), json!(1), json!(255), json!(u64::MAX)]
+            .into_iter()
+            .chain((4..80).map(|i| json!(i as u64)))
+            .collect();
+        let hvec = parse_hvec(&input).expect("must parse");
+        assert_eq!(hvec.data[0], 0u128, "first element must be 0");
+        assert_eq!(hvec.data[1], 1u128, "second element must be 1");
+        assert_eq!(hvec.data[2], 255u128, "third element must be 255");
+        assert_eq!(
+            hvec.data[3],
+            u64::MAX as u128,
+            "fourth element must be u64::MAX"
+        );
+        assert_eq!(hvec.data[79], 79u128, "last element must be 79");
+    }
+
+    #[test]
+    fn parse_hvec_all_zeros_roundtrips() {
+        let input: Vec<Value> = (0..80).map(|_| json!(0u64)).collect();
+        let hvec = parse_hvec(&input).expect("must parse zeros");
+        assert!(
+            hvec.data.iter().all(|&v| v == 0),
+            "all elements must be zero"
+        );
+    }
+
+    #[test]
+    fn parse_hvec_rejects_non_numeric() {
+        let mut input: Vec<Value> = (0..80).map(|i| json!(i as u64)).collect();
+        input[40] = json!("not a number");
+        assert!(
+            parse_hvec(&input).is_err(),
+            "must reject non-numeric element"
+        );
+    }
 }

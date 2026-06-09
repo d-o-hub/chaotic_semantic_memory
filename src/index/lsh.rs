@@ -329,4 +329,49 @@ mod tests {
         let result = AnnIndex::deserialize(&mut idx, b"not valid bincode data !!!!");
         assert!(result.is_err(), "garbage bytes must return Err");
     }
+
+    #[test]
+    fn lsh_index_roundtrip_preserves_concept_count() {
+        let mut idx = LshIndex::new(4, 8).expect("must create index");
+        let v1 = HVec10240::random();
+        let v2 = HVec10240::random();
+        idx.insert("alpha".to_string(), &v1).expect("insert alpha");
+        idx.insert("beta".to_string(), &v2).expect("insert beta");
+
+        let bytes = AnnIndex::serialize(&idx).expect("serialize");
+        assert!(bytes.len() > 100, "serialized bytes must be substantial");
+
+        let mut idx2 = LshIndex::new(4, 8).expect("must create index2");
+        AnnIndex::deserialize(&mut idx2, &bytes).expect("deserialize");
+
+        let stats_original = idx.stats();
+        let stats_deserialized = idx2.stats();
+        assert_eq!(
+            stats_original.count, stats_deserialized.count,
+            "concept count must survive roundtrip"
+        );
+        assert_eq!(stats_original.count, 2, "must have exactly 2 concepts");
+
+        let r1 = idx2.search(&v1, 1).expect("search v1");
+        assert_eq!(r1[0].0, "alpha", "search for v1 must find alpha");
+
+        let r2 = idx2.search(&v2, 1).expect("search v2");
+        assert_eq!(r2[0].0, "beta", "search for v2 must find beta");
+    }
+
+    #[test]
+    fn lsh_index_serialize_produces_nonzero_bytes() {
+        let mut idx = LshIndex::new(2, 4).expect("must create index");
+        let v = HVec10240::random();
+        idx.insert("solo".to_string(), &v).expect("insert");
+
+        let bytes = AnnIndex::serialize(&idx).expect("serialize");
+        assert!(!bytes.is_empty());
+        let nonzero = bytes.iter().filter(|&&b| b != 0).count();
+        assert!(
+            nonzero > bytes.len() / 4,
+            "at least 25% of bytes must be nonzero, got {nonzero}/{}",
+            bytes.len()
+        );
+    }
 }
