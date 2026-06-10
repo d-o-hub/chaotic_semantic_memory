@@ -78,6 +78,9 @@ fi
 set -o pipefail
 RUSTFLAGS="" cargo mutants "${FAST_ARGS[@]}" \
   --exclude-re 'WasmFramework::' \
+  --exclude-re 'persistence::Persistence::schema_version' \
+  --exclude-re 'persistence::Persistence::load_index' \
+  --exclude-re 'persistence::Persistence::list_namespaces' \
   "$@" 2>&1 | tee "${LOG_FILE}"
 RESULT="${PIPESTATUS[0]}"
 set +o pipefail

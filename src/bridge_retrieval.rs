@@ -398,6 +398,49 @@ mod tests {
         let final_score = bridge.compute_final_score(&scores);
         assert!((final_score - 1.0).abs() < 1e-6); // All weights sum to 1.0
     }
+
+    /// Kills compute_final_score -> 1.0 mutant: partial scores must NOT yield 1.0.
+    #[test]
+    fn test_final_score_partial_deterministic_only() {
+        let config = BridgeConfig {
+            deterministic_weight: 0.6,
+            concept_weight: 0.3,
+            semantic_weight: 0.1,
+            ..Default::default()
+        };
+        let bridge = BridgeRetrieval::new(TextEncoder::new(), ConceptGraph::new(), config);
+        let scores = ScoreBreakdown {
+            deterministic: 0.5,
+            concept: 0.0,
+            semantic: 0.0,
+            final_score: 0.0,
+            evidence: vec![],
+        };
+        // 0.6 * 0.5 = 0.3, not 1.0
+        let final_score = bridge.compute_final_score(&scores);
+        assert!(
+            (final_score - 0.3).abs() < 1e-5,
+            "expected 0.3, got {final_score}"
+        );
+    }
+
+    /// Kills query `||` -> `&&` mutant: top_k == 0 with non-empty singularity must return empty.
+    #[test]
+    fn test_query_top_k_zero_returns_empty() {
+        let encoder = TextEncoder::new();
+        let bridge = BridgeRetrieval::with_defaults(encoder.clone(), ConceptGraph::new());
+        let mut singularity = Singularity::new(SingularityConfig::default());
+        let concept = crate::singularity::ConceptBuilder::new("c1")
+            .with_vector(encoder.encode("hello world"))
+            .build()
+            .unwrap();
+        singularity.inject("_default", concept).unwrap();
+        // top_k == 0 must short-circuit even when singularity is non-empty
+        let results = bridge
+            .query("_default", &singularity, "hello", 0, None)
+            .unwrap();
+        assert!(results.is_empty(), "top_k=0 must yield empty results");
+    }
 }
 
 #[cfg(test)]
