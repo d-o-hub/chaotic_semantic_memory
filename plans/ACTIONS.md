@@ -3953,4 +3953,36 @@ actions:
       5. src/index/lsh.rs: 2 tests for LshIndex serialize/deserialize (roundtrip, garbage rejection)
       6. src/cli/commands/mod.rs: 1 test for ngram_size differentiation via code_aware
       7. src/framework_graph_rag.rs: 1 test for probe_with_graph relevance
-      8. tests/framework_unit.rs: 2 tests for probe_filtered + probe_with_graph via framework API
+       8. tests/framework_unit.rs: 2 tests for probe_filtered + probe_with_graph via framework API
+
+  # ═══════════════════════════════════════════════════════
+  # WAVE 27: PR #356 CI Remediation (2026-06-10)
+  # ═══════════════════════════════════════════════════════
+  - name: wave_27_ci_remediation
+    preconditions:
+      pr_356_mutation_kills_completed: true
+    effects:
+      wave_27_merged: true
+      mutation_test_wasm_excluded: true
+      prometheus_metrics_bridge: true
+      adr_0074_implemented: true
+      adr_0088_created: true
+    cost: 8
+    status: complete
+    file: >
+      src/wasm_ext.rs, src/framework_metrics.rs, src/embedding/mod.rs,
+      tests/version_history.rs, tests/observability_integration.rs,
+      scripts/mutation_test.sh, plans/ADR_REGISTRY.md,
+      plans/adr/0074-version-history-surface.md,
+      plans/adr/0087-ci-failure-remediation-pr356-codacy-remediation.md,
+      plans/adr/0088-pre-existing-issues-pr356-codacy-remediation.md
+    description: |
+      Coordinated 7-agent swarm to remediate all pre-existing CI failures on PR #356:
+      1. Added WASM diffVersions binding (ADR-0074 complete)
+      2. Bridged FrameworkMetrics → Prometheus (4 missing AtomicU64 fields fixed)
+      3. Fixed fastembed CI-flaky test (model download resilience)
+      4. Added diff_versions mutant-killing test
+      5. Fixed clippy clone_on_copy on HVec10240 (Copy type)
+      6. Excluded WasmFramework:: mutants from native mutation tests (cfg-gated)
+      7. Created ADR-0088 documenting all pre-existing issues
+      PR #362 squash-merged to main. All 19 CI jobs passing.

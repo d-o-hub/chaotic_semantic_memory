@@ -1179,4 +1179,11 @@ world_state:
   # 2026-06-10: Fixed pre-existing flaky fastembed test (CI model download resilience)
   fastembed_test_ci_resilient: true  # get_provider_fastembed now tolerates model download failure
 
-  action_last_completed: fix_fastembed_ci_flaky_test_2026_06_10
+  # 2026-06-10: Wave 27 — PR #356 CI remediation merged
+  wave_27_merged: true               # PR #362 squash-merged to main
+  mutation_test_wasm_excluded: true  # WasmFramework:: mutants excluded (cfg-gated, untestable on native)
+  prometheus_metrics_bridge: true    # FrameworkMetrics → Prometheus bridge connected
+  adr_0074_implemented: true         # diff_versions WASM binding added
+  adr_0088_created: true             # CI failure remediation record
+
+  action_last_completed: wave_27_pr356_ci_remediation_merged_2026_06_10
