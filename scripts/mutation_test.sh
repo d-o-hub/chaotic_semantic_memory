@@ -76,7 +76,9 @@ elif [[ "${PROFILE}" != "full" ]]; then
 fi
 
 set -o pipefail
-RUSTFLAGS="" cargo mutants "${FAST_ARGS[@]}" "$@" 2>&1 | tee "${LOG_FILE}"
+RUSTFLAGS="" cargo mutants "${FAST_ARGS[@]}" \
+  --exclude-re 'WasmFramework::' \
+  "$@" 2>&1 | tee "${LOG_FILE}"
 RESULT="${PIPESTATUS[0]}"
 set +o pipefail
 

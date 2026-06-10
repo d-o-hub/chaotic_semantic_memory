@@ -41,6 +41,10 @@ export class WasmFramework {
      */
     delete_concept(id: string): Promise<void>;
     /**
+     * Diff two versions of a concept.
+     */
+    diffVersions(id: string, from_version: number, to_version: number): Promise<any>;
+    /**
      * Remove an association between two concepts
      */
     disassociate(from: string, to: string): Promise<void>;
@@ -185,19 +189,11 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
-    readonly wasmframework_clear_associations: (a: number, b: number, c: number) => any;
-    readonly wasmframework_concept_count: (a: number) => any;
-    readonly wasmframework_exportNamespaceToBytes: (a: number, b: number, c: number) => any;
-    readonly wasmframework_getVersion: (a: number, b: number, c: number, d: number) => any;
-    readonly wasmframework_inject_text: (a: number, b: number, c: number, d: number, e: number) => any;
-    readonly wasmframework_listVersions: (a: number, b: number, c: number) => any;
-    readonly wasmframework_neighbors: (a: number, b: number, c: number, d: number) => any;
-    readonly wasmframework_on_event: (a: number, b: any) => void;
-    readonly wasmframework_probe_filtered: (a: number, b: number, c: number, d: number, e: number, f: number) => any;
-    readonly wasmframework_probe_text: (a: number, b: number, c: number, d: number) => any;
-    readonly wasmframework_rollbackToVersion: (a: number, b: number, c: number, d: number) => any;
-    readonly wasmframework_stats: (a: number) => any;
-    readonly wasmframework_update_concept_metadata: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmframework_bfs: (a: number, b: number, c: number) => any;
+    readonly wasmframework_probe_text_with_graph: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
+    readonly wasmframework_probe_with_graph: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
+    readonly wasmframework_shortest_path: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmframework_traverse: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly __wbg_wasmframework_free: (a: number, b: number) => void;
     readonly cosine_similarity: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly encode_text: (a: number, b: number) => [number, number];
@@ -221,11 +217,20 @@ export interface InitOutput {
     readonly wasmframework_processSequence: (a: number, b: any) => any;
     readonly wasmframework_setNamespace: (a: number, b: number, c: number) => any;
     readonly wasmframework_update_concept: (a: number, b: number, c: number, d: number, e: number) => any;
-    readonly wasmframework_bfs: (a: number, b: number, c: number) => any;
-    readonly wasmframework_probe_text_with_graph: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
-    readonly wasmframework_probe_with_graph: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
-    readonly wasmframework_shortest_path: (a: number, b: number, c: number, d: number, e: number) => any;
-    readonly wasmframework_traverse: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmframework_clear_associations: (a: number, b: number, c: number) => any;
+    readonly wasmframework_concept_count: (a: number) => any;
+    readonly wasmframework_diffVersions: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmframework_exportNamespaceToBytes: (a: number, b: number, c: number) => any;
+    readonly wasmframework_getVersion: (a: number, b: number, c: number, d: number) => any;
+    readonly wasmframework_inject_text: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmframework_listVersions: (a: number, b: number, c: number) => any;
+    readonly wasmframework_neighbors: (a: number, b: number, c: number, d: number) => any;
+    readonly wasmframework_on_event: (a: number, b: any) => void;
+    readonly wasmframework_probe_filtered: (a: number, b: number, c: number, d: number, e: number, f: number) => any;
+    readonly wasmframework_probe_text: (a: number, b: number, c: number, d: number) => any;
+    readonly wasmframework_rollbackToVersion: (a: number, b: number, c: number, d: number) => any;
+    readonly wasmframework_stats: (a: number) => any;
+    readonly wasmframework_update_concept_metadata: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasm_bindgen__convert__closures_____invoke__hbf57a2c43ac1d931: (a: number, b: number, c: any) => [number, number];
     readonly wasm_bindgen__convert__closures_____invoke__he6e30b5ebcee2b40: (a: number, b: number, c: any, d: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__hd6b0f2ad8a8ee62f: (a: number, b: number) => number;

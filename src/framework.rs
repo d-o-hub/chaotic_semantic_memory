@@ -290,6 +290,7 @@ impl ChaoticSemanticFramework {
         Self::validate_traversal_config(&config)?;
         let sing = self.singularity.read().await;
         let ns = self.namespace.read().await;
+        self.metrics.inc_traversals();
         sing.bfs(&ns, start, &config)
     }
 
@@ -300,6 +301,7 @@ impl ChaoticSemanticFramework {
         Self::validate_concept_id(to)?;
         let sing = self.singularity.read().await;
         let ns = self.namespace.read().await;
+        self.metrics.inc_shortest_path();
         sing.shortest_path(&ns, from, to, &TraversalConfig::default())
     }
 
@@ -411,6 +413,7 @@ impl ChaoticSemanticFramework {
             persistence.delete_concept(&ns, id).await?;
         }
 
+        self.metrics.inc_delete_concepts(1);
         self.emit_event(MemoryEvent::ConceptDeleted {
             id: id.to_string(),
             timestamp: unix_now_secs(),

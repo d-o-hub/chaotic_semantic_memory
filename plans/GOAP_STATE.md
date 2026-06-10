@@ -58,7 +58,7 @@ world_state:
   verification_workspace_mrr: 0.75
   verification_bm25_search_1000_us: 64.4        # was 3030 µs pre PR #129 (47× faster)
   verification_bridge_retrieval_pipeline_1k_ms: 1.92
-  tests_count: 598                              # 2026-04-30: +27 inline tests (reservoir:7, singularity:5, retrieval:6, ops:3, wasm:4)
+  tests_count: 667                              # 2026-06-09: Wave 27 validation (was 598)
   skills_count: 29                              # 2026-04-30: All 29 skills have SKILL.md verified
   coverage_ratio_current: 93                   # Test:Source ratio (target: 90% - ACHIEVED)
   coverage_inline_tests_added: true             # encoder.rs (7), persistence_ops.rs (3), framework_ttl.rs (9), wasm_ext.rs (17)
@@ -887,7 +887,7 @@ world_state:
   reranking_pipeline_implemented: true        # ADR-0071 — MMR + recency + cross-encoder (2026-05-20: complete)
   otlp_exporter_implemented: true             # ADR-0072 + ADR-0086 (2026-06-06: src/observability/ with `prometheus` + `otlp-json` features; 6 integration tests, 1 example)
   namespace_isolation_implemented: true       # ADR-0073 — supersedes deferred ADR-0026 (2026-05-20: complete)
-  version_history_surface_implemented: false  # ADR-0074 — activate dormant version table
+  version_history_surface_implemented: true  # ADR-0074 — completed 2026-06-09: WASM diffVersions binding added
 
   # Wave 24 P3 — Future Scale (queued, cost 14, depends on Wave 22)
   quantized_binary_hypervectors_implemented: false  # ADR-0075 — 32× memory compression; cost 14, delegated to Jules (2026-06-06)
@@ -1176,4 +1176,14 @@ world_state:
     - "tests/framework_unit.rs: 2 tests (probe_filtered + probe_with_graph)"
   pr_356_mutation_kills_count: 16
 
-  action_last_completed: pr_356_mutation_kills_2026_06_09
+  # 2026-06-10: Fixed pre-existing flaky fastembed test (CI model download resilience)
+  fastembed_test_ci_resilient: true  # get_provider_fastembed now tolerates model download failure
+
+  # 2026-06-10: Wave 27 — PR #356 CI remediation merged
+  wave_27_merged: true               # PR #362 squash-merged to main
+  mutation_test_wasm_excluded: true  # WasmFramework:: mutants excluded (cfg-gated, untestable on native)
+  prometheus_metrics_bridge: true    # FrameworkMetrics → Prometheus bridge connected
+  adr_0074_implemented: true         # diff_versions WASM binding added
+  adr_0088_created: true             # CI failure remediation record
+
+  action_last_completed: wave_27_pr356_ci_remediation_merged_2026_06_10
