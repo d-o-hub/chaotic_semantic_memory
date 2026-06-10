@@ -89,7 +89,8 @@
 | 0084 | GOAP Reconciliation and Codebase Alignment | Accepted | [adr/0084-goap-reconciliation.md](adr/0084-goap-reconciliation.md) |
 | 0085 | GOAP Reconciliation 2026-06 | Accepted | [adr/0085-goap-reconciliation-2026-06.md](adr/0085-goap-reconciliation-2026-06.md) |
 | 0086 | OTLP / Prometheus Implementation Notes | Implemented | [adr/0086-otlp-prom-implementation.md](adr/0086-otlp-prom-implementation.md) |
-| 0087 | CI Failure Remediation for PR #356 (Workspace Split) | Proposed | [adr/0087-ci-failure-remediation-pr356.md](adr/0087-ci-failure-remediation-pr356.md) |
+| 0087 | CI Failure Remediation for PR #356 (Workspace Split) | Implemented | [adr/0087-ci-failure-remediation-pr356.md](adr/0087-ci-failure-remediation-pr356.md) |
+| 0088 | Pre-existing Issues Documented During PR #356 Codacy Remediation | Accepted | [adr/0088-pre-existing-issues-pr356-codacy-remediation.md](adr/0088-pre-existing-issues-pr356-codacy-remediation.md) |
 
 ## Status Definitions
 

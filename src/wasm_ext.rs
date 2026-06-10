@@ -220,6 +220,24 @@ impl WasmFramework {
         }
     }
 
+    /// Diff two versions of a concept.
+    #[wasm_bindgen(js_name = diffVersions)]
+    pub async fn diff_versions(
+        &self,
+        id: String,
+        from_version: u32,
+        to_version: u32,
+    ) -> Result<JsValue, JsValue> {
+        let diff = self
+            .framework
+            .diff_versions(&id, from_version as u64, to_version as u64)
+            .await
+            .map_err(to_js_error)?;
+        let json_str =
+            serde_json::to_string(&diff).map_err(|e| JsValue::from_str(&e.to_string()))?;
+        js_sys::JSON::parse(&json_str).map_err(|_| JsValue::from_str("failed to parse diff JSON"))
+    }
+
     /// Roll back a concept to a historical version.
     #[wasm_bindgen(js_name = rollbackToVersion)]
     pub async fn rollback_to_version(&self, id: String, version: u32) -> Result<JsValue, JsValue> {
