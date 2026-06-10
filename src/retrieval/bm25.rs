@@ -27,6 +27,7 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -54,6 +55,11 @@ struct Document {
     id: String,
     term_freqs: HashMap<Arc<str>, u32>,
     length: usize,
+}
+
+thread_local! {
+    static DOC_SCORES_BUFFER: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
+    static SCORES_COLLECT_BUFFER: RefCell<Vec<(usize, f32)>> = const { RefCell::new(Vec::new()) };
 }
 
 #[derive(Debug)]
@@ -251,38 +257,38 @@ impl Bm25Index {
         }
 
         let n = self.len() as f32;
+        let num_docs = self.documents.len();
 
         // Pre-calculate constants for scoring (hoisted out of loop)
         let k1 = self.config.k1;
         let k1_plus_1 = k1 + 1.0;
 
-        // Compute unique query terms and their weighted IDFs once
+        // Compute unique query terms and their weighted IDFs once.
+        // Optimization: Pre-fetch postings list references to minimize HashMap lookups in the scoring loop.
         let mut query_weights = Vec::with_capacity(query_tokens.len());
 
-        // Use a set to handle duplicate tokens in query efficiently
-        let mut seen_terms = HashSet::with_capacity(query_tokens.len());
-        for token in query_tokens {
-            let term = token.as_ref();
-            if !seen_terms.insert(term) {
-                continue;
-            }
-
-            // Optimization: Skip OOV terms. They contribute 0 to all scores and increase per-doc loop overhead.
-            match self.doc_freqs.get(term) {
-                Some(&df) if df > 0 => {
-                    let df = df as f32;
-                    // Optimization: Simplified IDF formula log((N+1)/(df+0.5)).
-                    // This is not the standard Okapi BM25 IDF formula ln((N - df + 0.5)/(df + 0.5)),
-                    // but it is algebraically equivalent to the previously used adjusted formula
-                    // ln((N - df + 0.5)/(df + 0.5) + 1.0) which prevents negative idf values
-                    // when df > N/2. This simplified expression reduces arithmetic operations
-                    // while preserving the same non-negative result for all n and df terms.
-                    let idf = ((n + 1.0) / (df + 0.5)).ln();
-                    if idf > 0.0 {
-                        query_weights.push((term, idf * k1_plus_1));
+        // Fast-path for query deduplication: linear scan for short queries (<= 8 tokens).
+        if query_tokens.len() <= 8 {
+            for i in 0..query_tokens.len() {
+                let term = query_tokens[i].as_ref();
+                let mut duplicate = false;
+                for j in 0..i {
+                    if query_tokens[j].as_ref() == term {
+                        duplicate = true;
+                        break;
                     }
                 }
-                _ => continue,
+                if !duplicate {
+                    self.push_query_weight(term, n, k1_plus_1, &mut query_weights);
+                }
+            }
+        } else {
+            let mut seen_terms = HashSet::with_capacity(query_tokens.len());
+            for token in query_tokens {
+                let term = token.as_ref();
+                if seen_terms.insert(term) {
+                    self.push_query_weight(term, n, k1_plus_1, &mut query_weights);
+                }
             }
         }
 
@@ -290,27 +296,27 @@ impl Bm25Index {
             return Vec::new();
         }
 
-        // Optimization: Use inverted index for sub-linear search complexity O(Q * avg_df).
-        // Scores are accumulated in a dense array to maximize cache locality.
-        let mut doc_scores = vec![0.0f32; self.documents.len()];
+        // Optimization: Use thread-local buffer to eliminate O(N) allocation per search call.
+        DOC_SCORES_BUFFER.with(|buffer| {
+            let mut doc_scores = buffer.borrow_mut();
+            doc_scores.clear();
+            doc_scores.resize(num_docs, 0.0);
 
-        self.ensure_norm_cache();
-        {
-            let doc_term_bs = self
-                .doc_term_bs
-                .read()
-                .expect("Bm25Index doc_term_bs lock poisoned");
-            let tf1_recips = self
-                .tf1_recips
-                .read()
-                .expect("Bm25Index tf1_recips lock poisoned");
+            self.ensure_norm_cache();
+            {
+                let doc_term_bs = self
+                    .doc_term_bs
+                    .read()
+                    .expect("Bm25Index doc_term_bs lock poisoned");
+                let tf1_recips = self
+                    .tf1_recips
+                    .read()
+                    .expect("Bm25Index tf1_recips lock poisoned");
 
-            for (term, weighted_idf) in query_weights {
-                if let Some(entries) = self.postings.get(term) {
+                for (_, weighted_idf, entries) in query_weights {
                     for &(doc_idx, tf) in entries {
                         if tf == 1 {
                             // Fast path for the most common case: single term frequency.
-                            // Replaces division and mul_add with a single multiplication.
                             doc_scores[doc_idx] += weighted_idf * tf1_recips[doc_idx];
                         } else {
                             let tf = tf as f32;
@@ -320,27 +326,53 @@ impl Bm25Index {
                     }
                 }
             }
+
+            SCORES_COLLECT_BUFFER.with(|collect_buffer| {
+                let mut scores = collect_buffer.borrow_mut();
+                scores.clear();
+
+                for (idx, &score) in doc_scores.iter().enumerate() {
+                    if score > 0.0 {
+                        scores.push((idx, score));
+                    }
+                }
+
+                // Partial select keeps complexity near O(n) for large corpora
+                if scores.len() > top_k {
+                    let nth = top_k - 1;
+                    scores.select_nth_unstable_by(nth, score_cmp_desc);
+                    scores.truncate(top_k);
+                }
+                scores.sort_unstable_by(score_cmp_desc);
+
+                // Map to final results, cloning IDs only for top_k
+                scores
+                    .iter()
+                    .map(|&(idx, score)| (self.documents[idx].id.clone(), score))
+                    .collect()
+            })
+        })
+    }
+
+    #[inline]
+    fn push_query_weight<'a>(
+        &'a self,
+        term: &'a str,
+        n: f32,
+        k1_plus_1: f32,
+        query_weights: &mut Vec<(&'a str, f32, &'a Vec<(usize, u32)>)>,
+    ) {
+        if let Some(&df) = self.doc_freqs.get(term) {
+            if df > 0 {
+                let df = df as f32;
+                let idf = ((n + 1.0) / (df + 0.5)).ln();
+                if idf > 0.0 {
+                    if let Some(postings) = self.postings.get(term) {
+                        query_weights.push((term, idf * k1_plus_1, postings));
+                    }
+                }
+            }
         }
-
-        let mut scores: Vec<(usize, f32)> = doc_scores
-            .into_iter()
-            .enumerate()
-            .filter(|&(_, score)| score > 0.0)
-            .collect();
-
-        // Partial select keeps complexity near O(n) for large corpora
-        if scores.len() > top_k {
-            let nth = top_k - 1;
-            scores.select_nth_unstable_by(nth, score_cmp_desc);
-            scores.truncate(top_k);
-        }
-        scores.sort_unstable_by(score_cmp_desc);
-
-        // Map to final results, cloning IDs only for top_k
-        scores
-            .into_iter()
-            .map(|(idx, score)| (self.documents[idx].id.clone(), score))
-            .collect()
     }
 
     /// Clear all documents from the index.
