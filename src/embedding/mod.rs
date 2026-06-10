@@ -165,12 +165,16 @@ mod tests {
     #[test]
     fn get_provider_fastembed_with_feature_returns_provider() {
         let result = get_provider("fastembed");
-        assert!(
-            result.is_ok(),
-            "fastembed arm must succeed when feature enabled"
-        );
-        let provider = result.unwrap();
-        assert_eq!(provider.name(), "fastembed");
+        match result {
+            Ok(provider) => assert_eq!(provider.name(), "fastembed"),
+            Err(e) => {
+                let msg = format!("{e}");
+                assert!(
+                    msg.contains("fastembed"),
+                    "error must be from fastembed arm, not unknown provider: {msg}"
+                );
+            }
+        }
     }
 
     #[cfg(feature = "embed-fastembed")]

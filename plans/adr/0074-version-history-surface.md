@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-04-30)
+Implemented (2026-06-09)
 
 ## Context and Problem Statement
 

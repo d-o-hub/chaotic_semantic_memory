@@ -108,6 +108,35 @@ mod prom_tests {
             "prometheus exposition format expected"
         );
     }
+
+    /// FrameworkMetrics operations must populate Prometheus counters.
+    /// This test exercises the prom bridge functions directly since
+    /// FrameworkMetrics is crate-private; unit tests verify the wiring.
+    #[test]
+    fn framework_metrics_populate_prometheus() {
+        prom::record_inject(false);
+        prom::record_inject(true);
+        prom::set_associations_count(5);
+        prom::record_probe("ok", 42.0);
+        prom::record_persist("save", 10.0);
+        prom::set_concepts_count(3);
+
+        let text = render_metrics().expect("render");
+        assert!(text.contains("csm_probe_total"), "probe counter missing");
+        assert!(text.contains("csm_inject_total"), "inject counter missing");
+        assert!(
+            text.contains("csm_persist_latency_ms"),
+            "persist histogram missing"
+        );
+        assert!(
+            text.contains("csm_concepts_count"),
+            "concepts gauge missing"
+        );
+        assert!(
+            text.contains("csm_associations_count"),
+            "associations gauge missing"
+        );
+    }
 }
 
 #[cfg(feature = "otlp-json")]

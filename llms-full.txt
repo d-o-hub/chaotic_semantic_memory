@@ -3141,6 +3141,10 @@ pub struct FrameworkMetricsSnapshot {
     pub reservoir_nodes_active: u64,
     pub persist_ops_total: u64,
     pub avg_persist_latency_ms: f64,
+    pub delete_concepts_total: u64,
+    pub traversals_total: u64,
+    pub shortest_path_total: u64,
+    pub disassociations_total: u64,
 }
 ```
 
@@ -5214,6 +5218,7 @@ impl WasmFramework {
     pub fn probe_text(&self, query: String, top_k: usize) -> Result<Array, JsValue>;
     pub fn list_versions(&self, id: String) -> Result<Array, JsValue>;
     pub fn get_version(&self, id: String, version: u32) -> Result<JsValue, JsValue>;
+    pub fn diff_versions(&self, id: String, from_version: u32, to_version: u32) -> Result<JsValue, JsValue>;
     pub fn rollback_to_version(&self, id: String, version: u32) -> Result<JsValue, JsValue>;
     pub fn export_namespace_to_bytes(&self, ns: String) -> Result<Uint8Array, JsValue>;
 }
