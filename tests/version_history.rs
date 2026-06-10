@@ -1,6 +1,7 @@
 //! Comprehensive integration tests for CSM concept version history (ADR-0074).
 
 use chaotic_semantic_memory::prelude::*;
+use serde_json::json;
 use std::collections::HashMap;
 use tempfile::NamedTempFile;
 
@@ -110,6 +111,52 @@ async fn test_framework_version_history_flow() {
     let c4 = framework.get_version(concept_id, 4).await.unwrap().unwrap();
     assert_eq!(c4.vector, v1);
     assert_eq!(c4.metadata.get("status").unwrap(), "draft");
+}
+
+#[tokio::test]
+async fn test_diff_versions_returns_nontrivial_result() {
+    let temp = NamedTempFile::new().unwrap();
+    let db_path = temp.path().to_str().unwrap().to_string();
+
+    let framework = ChaoticSemanticFramework::builder()
+        .with_local_db(db_path)
+        .with_version_retention(10)
+        .build()
+        .await
+        .unwrap();
+
+    let concept_id = "test-diff-nontrivial";
+    let v1 = HVec10240::random();
+    let v2 = HVec10240::random();
+
+    let mut meta1 = HashMap::new();
+    meta1.insert("status".to_string(), json!("draft"));
+    let mut meta2 = HashMap::new();
+    meta2.insert("status".to_string(), json!("published"));
+
+    framework
+        .inject_concept_with_metadata(concept_id, v1, meta1)
+        .await
+        .unwrap();
+    framework
+        .update_concept_vector(concept_id, v2)
+        .await
+        .unwrap();
+    framework
+        .update_concept_metadata(concept_id, meta2)
+        .await
+        .unwrap();
+
+    let diff = framework.diff_versions(concept_id, 1, 3).await.unwrap();
+    assert!(
+        diff.vector_cosine_distance > 0.0,
+        "cosine distance must be positive for different vectors, got {}",
+        diff.vector_cosine_distance
+    );
+    assert!(
+        !diff.metadata_changed.is_empty(),
+        "metadata_changed must not be empty"
+    );
 }
 
 #[tokio::test]
