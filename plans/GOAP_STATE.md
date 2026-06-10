@@ -1176,4 +1176,7 @@ world_state:
     - "tests/framework_unit.rs: 2 tests (probe_filtered + probe_with_graph)"
   pr_356_mutation_kills_count: 16
 
-  action_last_completed: wave_27_implementation_2026_06_09
+  # 2026-06-10: Fixed pre-existing flaky fastembed test (CI model download resilience)
+  fastembed_test_ci_resilient: true  # get_provider_fastembed now tolerates model download failure
+
+  action_last_completed: fix_fastembed_ci_flaky_test_2026_06_10
