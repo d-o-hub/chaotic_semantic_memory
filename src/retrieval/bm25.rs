@@ -354,12 +354,9 @@ impl Bm25Index {
     ) {
         if let Some(postings) = self.postings.get(term) {
             let df = postings.len() as f32;
-            if df > 0.0 {
-                let idf = ((n + 1.0) / (df + 0.5)).ln();
-                if idf > 0.0 {
-                    query_weights.push((term, idf * k1_plus_1, postings));
-                }
-            }
+            // idf = ln((N + 1.0) / (df + 0.5)) is always > 0 for all N >= df >= 1
+            let idf = ((n + 1.0) / (df + 0.5)).ln();
+            query_weights.push((term, idf * k1_plus_1, postings));
         }
     }
 
