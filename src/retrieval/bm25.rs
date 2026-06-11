@@ -68,7 +68,6 @@ pub struct Bm25Index {
     config: Bm25Config,
     documents: Vec<Document>,
     doc_index: HashMap<String, usize>,
-    doc_freqs: HashMap<Arc<str>, u32>,
     /// Inverted index mapping terms to (document_index, term_frequency)
     postings: HashMap<Arc<str>, Vec<(usize, u32)>>,
     /// Document terms (c2 * doc_len + c1) for fast scoring.
@@ -88,7 +87,6 @@ impl Default for Bm25Index {
             config: Bm25Config::default(),
             documents: Vec::new(),
             doc_index: HashMap::new(),
-            doc_freqs: HashMap::new(),
             postings: HashMap::new(),
             doc_term_bs: RwLock::new(Vec::new()),
             tf1_recips: RwLock::new(Vec::new()),
@@ -105,7 +103,6 @@ impl Clone for Bm25Index {
             config: self.config,
             documents: self.documents.clone(),
             doc_index: self.doc_index.clone(),
-            doc_freqs: self.doc_freqs.clone(),
             postings: self.postings.clone(),
             doc_term_bs: RwLock::new(
                 self.doc_term_bs
@@ -144,21 +141,21 @@ impl Bm25Index {
     ///
     /// If a document with the same ID already exists, it will be replaced.
     pub fn add_document<T: AsRef<str>>(&mut self, id: &str, tokens: &[T]) {
-        if self.doc_index.contains_key(id) {
-            self.remove_document(id);
+        if let Some(idx) = self.doc_index.remove(id) {
+            self.remove_document_at(idx);
         }
 
         let mut term_freqs = HashMap::with_capacity(tokens.len().min(100));
         for token in tokens {
             let term = token.as_ref();
-            // Arc interning - share term strings between documents and doc_freqs
+            // Arc interning - share term strings between documents and postings
             // Double lookup pattern to bypass lack of get_key_value_mut
             if let Some(count) = term_freqs.get_mut(term) {
                 *count += 1;
             } else {
                 // If term exists in index, reuse its Arc to save memory
                 let term_arc = self
-                    .doc_freqs
+                    .postings
                     .get_key_value(term)
                     .map_or_else(|| Arc::from(term), |(k, _)| Arc::clone(k));
 
@@ -172,11 +169,6 @@ impl Bm25Index {
             term_freqs,
             length,
         };
-
-        // Update global document frequencies
-        for term in doc.term_freqs.keys() {
-            *self.doc_freqs.entry(Arc::clone(term)).or_insert(0) += 1;
-        }
 
         self.total_length += length;
         let idx = self.documents.len();
@@ -209,23 +201,21 @@ impl Bm25Index {
         let doc = self.documents.swap_remove(idx);
         self.doc_lengths.swap_remove(idx);
 
-        // Update document frequencies and postings
+        // Update postings and cleanup empty entries
         for term in doc.term_freqs.keys() {
-            if let Some(df) = self.doc_freqs.get_mut(term) {
-                *df = df.saturating_sub(1);
-            }
-
-            // Remove entry from postings for the removed document
+            let mut needs_removal = false;
             if let Some(entries) = self.postings.get_mut(term) {
                 if let Some(p_idx) = entries.iter().position(|&(d_idx, _)| d_idx == idx) {
                     entries.swap_remove(p_idx);
                 }
+                needs_removal = entries.is_empty();
+            }
+            if needs_removal {
+                self.postings.remove(term);
             }
         }
 
         self.total_length = self.total_length.saturating_sub(doc.length);
-        // Use owned ID to avoid clone during removal from index
-        self.doc_index.remove(&doc.id);
 
         // If we swapped an element into idx, update its mapping
         if idx < self.documents.len() {
@@ -362,14 +352,12 @@ impl Bm25Index {
         k1_plus_1: f32,
         query_weights: &mut Vec<(&'a str, f32, &'a Vec<(usize, u32)>)>,
     ) {
-        if let Some(&df) = self.doc_freqs.get(term) {
-            if df > 0 {
-                let df = df as f32;
+        if let Some(postings) = self.postings.get(term) {
+            let df = postings.len() as f32;
+            if df > 0.0 {
                 let idf = ((n + 1.0) / (df + 0.5)).ln();
                 if idf > 0.0 {
-                    if let Some(postings) = self.postings.get(term) {
-                        query_weights.push((term, idf * k1_plus_1, postings));
-                    }
+                    query_weights.push((term, idf * k1_plus_1, postings));
                 }
             }
         }
@@ -380,7 +368,6 @@ impl Bm25Index {
         self.documents.clear();
         self.doc_lengths.clear();
         self.doc_index.clear();
-        self.doc_freqs.clear();
         self.postings.clear();
         self.total_length = 0;
         self.norm_cache_dirty.store(true, AtomicOrdering::Release);
