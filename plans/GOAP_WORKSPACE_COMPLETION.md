@@ -37,10 +37,11 @@
   - PR: #384 merged
 
 ### Phase 3: Extract WASM (P1)
-- [ ] Action 3: Extract csm-wasm (#369)
+- [x] Action 3: Extract csm-wasm (#369)
   - Pre: #382 complete
   - Effect: WASM bindings in standalone crate
   - Cost: 4 (1-2 hours)
+  - PR: #385 merged
 
 ### Phase 4: Cleanup (P2)
 - [ ] Action 4: Remove bridge/stub modules (#371)
