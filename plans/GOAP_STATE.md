@@ -393,6 +393,14 @@ world_state:
   dependabot_alert_3_package: rustls-webpki
   dependabot_alert_3_blocker: "No stable rustls-webpki >=0.103.10 exists"
 
+  # Workspace extraction status
+  workspace_extraction_csm_embedding: true  # 2026-06-12: PR #377 merged, csm-embedding extracted
+  workspace_extraction_csm_memory: false    # Pending: #365
+  workspace_extraction_csm_retrieval: false # Pending: #366
+  workspace_extraction_csm_persistence: false # Pending: #367
+  workspace_extraction_csm_cli: false       # Pending: #368
+  workspace_extraction_csm_wasm: false      # Pending: #369
+
   # ═══════════════════════════════════════════════════════
   # Module status (LOC counts) - Updated 2026-06-10
   # Reconciled against codebase after workspace split (PR #356),
@@ -1353,4 +1361,4 @@ world_state:
     cargo_clippy: clean
   ci_mutation_gate_pr363_equivalent_mutants_accepted: true
 
-  action_last_completed: ci_remediation_pr375_2026_06_10
+  action_last_completed: csm_embedding_extracted_2026_06_12
