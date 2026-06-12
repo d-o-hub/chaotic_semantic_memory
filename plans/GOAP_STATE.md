@@ -399,7 +399,9 @@ world_state:
   workspace_extraction_csm_retrieval: true  # 2026-06-12: PR #379 merged, csm-retrieval extracted
   workspace_extraction_csm_persistence: true # 2026-06-12: PR #380 merged, csm-persistence extracted
   workspace_extraction_csm_cli: true        # 2026-06-12: PR #381 merged, csm-cli extracted
-  workspace_extraction_csm_wasm: false      # Pending: #369
+  workspace_extraction_csm_traits: false    # Pending: #382 (blocks csm-wasm)
+  workspace_extraction_csm_wasm: false      # Blocked by: #382 (csm-traits)
+  workspace_mio_wasm_fix: false             # Blocked by: #372 (target-cfg gating)
 
   # ═══════════════════════════════════════════════════════
   # Module status (LOC counts) - Updated 2026-06-10
@@ -1361,4 +1363,4 @@ world_state:
     cargo_clippy: clean
   ci_mutation_gate_pr363_equivalent_mutants_accepted: true
 
-  action_last_completed: csm_cli_extracted_2026_06_12
+  action_last_completed: workspace_analysis_complete_2026_06_12
