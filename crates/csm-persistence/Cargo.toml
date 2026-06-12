@@ -26,7 +26,8 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tempfile = { workspace = true }
 
 [features]
-default = []
+default = ["persistence"]
+persistence = ["dep:libsql"]
 libsql = ["dep:libsql"]
 wasm = ["uuid"]
 
