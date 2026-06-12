@@ -257,7 +257,7 @@ required-features = ["prometheus", "otlp-json"]
 [features]
 default = ["cli", "persistence", "parallel"]
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
-persistence = ["dep:libsql"]
+persistence = ["dep:libsql", "csm-persistence/libsql"]
 parallel = ["dep:rayon"]
 wasm = []
 mcp = ["dep:rmcp", "cli"]  # ADR-0067: MCP server requires CLI infrastructure

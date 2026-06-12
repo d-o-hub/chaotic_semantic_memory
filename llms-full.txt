@@ -49,7 +49,7 @@
 - mcp: [dep:rmcp, cli]
 - otlp-json: []
 - parallel: [dep:rayon]
-- persistence: [dep:libsql]
+- persistence: [dep:libsql, csm-persistence/libsql]
 - prometheus: [dep:prometheus, dep:hyper, dep:hyper-util, dep:http-body-util]
 - wasm: []
 
