@@ -7,10 +7,12 @@ use csm_core::error::{MemoryError, Result};
 use csm_memory::Concept;
 
 /// Persistence stub for wasm32 builds.
+#[allow(dead_code)]
 pub struct Persistence;
 
 pub use csm_memory::ConceptVersion;
 
+#[allow(dead_code)]
 impl Persistence {
     pub async fn new_local(_path: &str) -> Result<Self> {
         Err(wasm_persistence_unavailable())
@@ -150,6 +152,7 @@ impl Persistence {
     }
 }
 
+#[allow(dead_code)]
 fn wasm_persistence_unavailable() -> MemoryError {
     MemoryError::UnsupportedOperation("Persistence is unavailable on wasm32".to_string())
 }
