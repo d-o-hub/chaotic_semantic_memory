@@ -433,3 +433,68 @@ fn test_search_does_not_mutate_index() {
         "index still queryable after searches"
     );
 }
+
+// Regression: every distinct query term must contribute to scoring.
+//
+// Guards the short-query (<= 8 tokens) linear-scan deduplication added in
+// PR #363 (src/retrieval/bm25.rs:271-283). Kills the surviving mutant
+// `replace == with != in Bm25Index::search` (line 276): flipping the term
+// equality check marks every *distinct* term as a duplicate, so only the
+// first query term is scored. By isolating each query term to its own
+// document we make the dropped contribution observable.
+#[test]
+fn test_search_distinct_terms_each_contribute() {
+    let mut index = Bm25Index::new();
+    // Each document carries exactly one of the two query terms so that a
+    // term being dropped during dedup removes its document from the results.
+    index.add_document("doc_alpha", &["alpha", "alpha", "alpha"]);
+    index.add_document("doc_beta", &["beta", "beta", "beta"]);
+    // Two distinct tokens, length 2 (<= 8) -> exercises the linear-scan path.
+    let results = index.search(&["alpha", "beta"], 10);
+    assert_eq!(
+        results.len(),
+        2,
+        "both distinct query terms must score their respective document"
+    );
+    let ids: std::collections::HashSet<&str> = results.iter().map(|(id, _)| id.as_str()).collect();
+    assert!(ids.contains("doc_alpha"), "alpha term must contribute");
+    assert!(ids.contains("doc_beta"), "beta term must contribute");
+    assert!(
+        results.iter().all(|(_, score)| *score > 0.0),
+        "each contributing term must yield a positive score"
+    );
+}
+// Companion: the same distinct-term invariant on the HashSet dedup path
+// (> 8 unique tokens). Ensures both deduplication paths stay behaviourally
+// identical and that duplicate terms never inflate scores.
+#[test]
+fn test_search_dedup_hashset_path_distinct_terms() {
+    let mut index = Bm25Index::new();
+    index.add_document("doc_a", &["a"]);
+    index.add_document("doc_b", &["b"]);
+
+    // 10 tokens (> 8) forces the HashSet dedup branch. "a" is repeated to
+    // confirm duplicates are collapsed, not double-counted.
+    let query = ["a", "a", "c", "d", "e", "f", "g", "h", "i", "b"];
+    let results = index.search(&query, 10);
+
+    let ids: std::collections::HashSet<&str> = results.iter().map(|(id, _)| id.as_str()).collect();
+    assert!(
+        ids.contains("doc_a"),
+        "term 'a' must contribute via HashSet path"
+    );
+    assert!(
+        ids.contains("doc_b"),
+        "term 'b' must contribute via HashSet path"
+    );
+
+    // Querying "a" once must give doc_a the same score as querying it twice.
+    let once = index.search(&["a"], 10);
+    let twice = index.search(&["a", "a"], 10);
+    #[allow(clippy::float_cmp)]
+    let scores_match = once[0].1 == twice[0].1;
+    assert!(
+        scores_match,
+        "duplicate query terms must not inflate the score"
+    );
+}
