@@ -6,6 +6,7 @@ members = [
     "crates/csm-retrieval",
     "crates/csm-persistence",
     "crates/csm-cli",
+    "crates/csm-traits",
     ".",
     "benchmarks",
     "crates/chaotic_semantic_memory_duckdb",
