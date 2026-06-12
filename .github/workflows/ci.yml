@@ -180,9 +180,9 @@ jobs:
     - name: Install wasm-pack
       run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
     - name: Build WASM
-      run: wasm-pack build --dev --target web -- --features wasm
+      run: wasm-pack build --dev --target web -- --no-default-features --features wasm
     - name: Check WASM
-      run: cargo check --target wasm32-unknown-unknown --features wasm
+      run: cargo check --target wasm32-unknown-unknown --no-default-features --features wasm
     - name: Verify WASM TS Freshness
       run: bash scripts/check-wasm-freshness.sh
 
