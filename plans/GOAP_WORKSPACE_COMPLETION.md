@@ -30,10 +30,11 @@
   - PR: #383 merged
 
 ### Phase 2: Create Shared Types (P0)
-- [ ] Action 2: Create csm-traits crate (#382)
+- [x] Action 2: Create csm-traits crate (#382)
   - Pre: none
   - Effect: Shared types available for all crates
   - Cost: 8 (2-3 hours)
+  - PR: #384 merged
 
 ### Phase 3: Extract WASM (P1)
 - [ ] Action 3: Extract csm-wasm (#369)
