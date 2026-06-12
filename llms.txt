@@ -19,6 +19,7 @@
 - csm-core
 - csm-embedding
 - csm-memory
+- csm-persistence
 - csm-retrieval
 - fastembed (4)
 - glob (0.3.2)
@@ -1293,6 +1294,7 @@ members = [
     "crates/csm-embedding",
     "crates/csm-memory",
     "crates/csm-retrieval",
+    "crates/csm-persistence",
     ".",
     "benchmarks",
     "crates/chaotic_semantic_memory_duckdb",
@@ -1349,6 +1351,7 @@ csm-core = { path = "crates/csm-core" }
 csm-embedding = { path = "crates/csm-embedding" }
 csm-memory = { path = "crates/csm-memory" }
 csm-retrieval = { path = "crates/csm-retrieval" }
+csm-persistence = { path = "crates/csm-persistence" }
 tempfile = { workspace = true }
 # Serialization
 serde = { workspace = true }

@@ -854,6 +854,7 @@ dependencies = [
  "csm-core",
  "csm-embedding",
  "csm-memory",
+ "csm-persistence",
  "csm-retrieval",
  "fastembed",
  "getrandom 0.4.2",
@@ -1349,6 +1350,22 @@ dependencies = [
  "hnsw_rs",
  "serde",
  "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "csm-persistence"
+version = "0.1.0"
+dependencies = [
+ "csm-core",
+ "csm-memory",
+ "libsql",
+ "serde",
+ "serde_json",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tracing",

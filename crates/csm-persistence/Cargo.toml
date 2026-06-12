@@ -1,0 +1,33 @@
+[package]
+name = "csm-persistence"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Persistence backends for chaotic_semantic_memory"
+license = "MIT"
+repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
+
+[dependencies]
+csm-core = { path = "../csm-core" }
+csm-memory = { path = "../csm-memory" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true, optional = true }
+
+# libSQL backend (default)
+libsql = { version = "0.9.30", default-features = false, features = ["sync", "hrana", "remote"], optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tempfile = { workspace = true }
+
+[features]
+default = ["libsql"]
+libsql = ["dep:libsql"]
+wasm = ["uuid"]
+
+[lib]
+crate-type = ["lib"]
