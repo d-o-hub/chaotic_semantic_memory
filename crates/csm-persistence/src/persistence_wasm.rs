@@ -3,13 +3,13 @@
 //! Persistence is unavailable on `wasm32` in this crate build.
 //! All operations return `MemoryError::UnsupportedOperation`.
 
-use crate::singularity::Concept;
 use csm_core::error::{MemoryError, Result};
+use csm_memory::Concept;
 
 /// Persistence stub for wasm32 builds.
 pub struct Persistence;
 
-pub use crate::singularity::ConceptVersion;
+pub use csm_memory::ConceptVersion;
 
 impl Persistence {
     pub async fn new_local(_path: &str) -> Result<Self> {
@@ -96,11 +96,7 @@ impl Persistence {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn list_versions_scoped(
-        &self,
-        _ns: &str,
-        _id: &str,
-    ) -> Result<Vec<crate::singularity::ConceptVersion>> {
+    pub async fn list_versions_scoped(&self, _ns: &str, _id: &str) -> Result<Vec<ConceptVersion>> {
         Err(wasm_persistence_unavailable())
     }
 
