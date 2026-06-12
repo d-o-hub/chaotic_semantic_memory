@@ -470,6 +470,8 @@ impl Singularity {
     }
 }
 
+/// Get current time in Unix seconds.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn unix_now_secs() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -477,12 +479,26 @@ pub fn unix_now_secs() -> u64 {
         .as_secs()
 }
 
+/// Get current time in Unix seconds (WASM version).
+#[cfg(target_arch = "wasm32")]
+pub fn unix_now_secs() -> u64 {
+    (js_sys::Date::new_0().get_time() / 1000.0) as u64
+}
+
+/// Get current time in Unix nanoseconds.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn unix_now_ns() -> u64 {
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
     u64::try_from(nanos).unwrap_or(u64::MAX)
+}
+
+/// Get current time in Unix nanoseconds (WASM version).
+#[cfg(target_arch = "wasm32")]
+pub fn unix_now_ns() -> u64 {
+    (js_sys::Date::new_0().get_time() * 1_000_000.0) as u64
 }
 
 pub(crate) fn similarity_cache_key(query: &HVec10240, top_k: usize) -> u64 {
