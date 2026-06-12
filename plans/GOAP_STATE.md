@@ -395,7 +395,7 @@ world_state:
 
   # Workspace extraction status
   workspace_extraction_csm_embedding: true  # 2026-06-12: PR #377 merged, csm-embedding extracted
-  workspace_extraction_csm_memory: false    # Pending: #365
+  workspace_extraction_csm_memory: true     # 2026-06-12: PR #378 merged, csm-memory extracted
   workspace_extraction_csm_retrieval: false # Pending: #366
   workspace_extraction_csm_persistence: false # Pending: #367
   workspace_extraction_csm_cli: false       # Pending: #368
@@ -1361,4 +1361,4 @@ world_state:
     cargo_clippy: clean
   ci_mutation_gate_pr363_equivalent_mutants_accepted: true
 
-  action_last_completed: csm_embedding_extracted_2026_06_12
+  action_last_completed: csm_memory_extracted_2026_06_12
