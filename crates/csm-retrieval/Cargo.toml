@@ -1,0 +1,32 @@
+[package]
+name = "csm-retrieval"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Retrieval backends for chaotic_semantic_memory"
+license = "MIT"
+repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
+
+[dependencies]
+csm-core = { path = "../csm-core" }
+csm-memory = { path = "../csm-memory" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+async-trait = "0.1.83"
+
+# Optional BM25 dependencies
+tantivy = { version = "0.22", optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[features]
+default = []
+bm25 = ["dep:tantivy"]
+rerank-cross = []
+
+[lib]
+crate-type = ["lib"]

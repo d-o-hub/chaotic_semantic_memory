@@ -19,6 +19,7 @@
 - csm-core
 - csm-embedding
 - csm-memory
+- csm-retrieval
 - fastembed (4)
 - glob (0.3.2)
 - hnsw_rs (0.3.4)
