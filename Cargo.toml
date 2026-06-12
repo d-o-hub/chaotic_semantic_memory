@@ -6,6 +6,7 @@ members = [
     "crates/csm-retrieval",
     "crates/csm-persistence",
     "crates/csm-cli",
+    "crates/csm-wasm",
     ".",
     "benchmarks",
     "crates/chaotic_semantic_memory_duckdb",
@@ -62,7 +63,7 @@ csm-core = { path = "crates/csm-core" }
 csm-embedding = { path = "crates/csm-embedding" }
 csm-memory = { path = "crates/csm-memory" }
 csm-retrieval = { path = "crates/csm-retrieval" }
-csm-persistence = { path = "crates/csm-persistence" }
+csm-persistence = { path = "crates/csm-persistence", default-features = false }
 tempfile = { workspace = true }
 # Serialization
 serde = { workspace = true }
