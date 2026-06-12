@@ -398,7 +398,7 @@ world_state:
   workspace_extraction_csm_memory: true     # 2026-06-12: PR #378 merged, csm-memory extracted
   workspace_extraction_csm_retrieval: true  # 2026-06-12: PR #379 merged, csm-retrieval extracted
   workspace_extraction_csm_persistence: true # 2026-06-12: PR #380 merged, csm-persistence extracted
-  workspace_extraction_csm_cli: false       # Pending: #368
+  workspace_extraction_csm_cli: true        # 2026-06-12: PR #381 merged, csm-cli extracted
   workspace_extraction_csm_wasm: false      # Pending: #369
 
   # ═══════════════════════════════════════════════════════
@@ -1361,4 +1361,4 @@ world_state:
     cargo_clippy: clean
   ci_mutation_gate_pr363_equivalent_mutants_accepted: true
 
-  action_last_completed: csm_persistence_extracted_2026_06_12
+  action_last_completed: csm_cli_extracted_2026_06_12
