@@ -19,7 +19,6 @@
 - csm-core
 - csm-embedding
 - csm-memory
-- csm-persistence
 - csm-retrieval
 - fastembed (4)
 - glob (0.3.2)
