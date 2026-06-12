@@ -19,7 +19,6 @@
 - csm-core
 - csm-embedding
 - csm-memory
-- csm-persistence
 - csm-retrieval
 - fastembed (4)
 - glob (0.3.2)
@@ -49,7 +48,7 @@
 - mcp: [dep:rmcp, cli]
 - otlp-json: []
 - parallel: [dep:rayon]
-- persistence: [dep:libsql, csm-persistence/persistence]
+- persistence: [dep:libsql]
 - prometheus: [dep:prometheus, dep:hyper, dep:hyper-util, dep:http-body-util]
 - wasm: []
 

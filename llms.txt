@@ -19,7 +19,6 @@
 - csm-core
 - csm-embedding
 - csm-memory
-- csm-persistence
 - csm-retrieval
 - fastembed (4)
 - glob (0.3.2)
@@ -49,7 +48,7 @@
 - mcp: [dep:rmcp, cli]
 - otlp-json: []
 - parallel: [dep:rayon]
-- persistence: [dep:libsql, csm-persistence/persistence]
+- persistence: [dep:libsql]
 - prometheus: [dep:prometheus, dep:hyper, dep:hyper-util, dep:http-body-util]
 - wasm: []
 
@@ -1352,7 +1351,7 @@ csm-core = { path = "crates/csm-core" }
 csm-embedding = { path = "crates/csm-embedding" }
 csm-memory = { path = "crates/csm-memory" }
 csm-retrieval = { path = "crates/csm-retrieval" }
-csm-persistence = { path = "crates/csm-persistence", default-features = false }
+
 tempfile = { workspace = true }
 # Serialization
 serde = { workspace = true }
@@ -1402,6 +1401,7 @@ rayon = { version = "1.10.0", optional = true }
 
 # Database - Use libsql NOT turso-client (opt-in via "persistence" feature)
 libsql = { version = "0.9.30", default-features = false, features = ["sync", "hrana", "remote"], optional = true }
+csm-persistence = { path = "crates/csm-persistence" }
 # `net` is required by the Prometheus /metrics server (ADR-0072).
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs", "net"] }
 
@@ -1417,6 +1417,7 @@ wasm-bindgen = "0.2.100"
 wasm-bindgen-futures = "0.4.64"
 js-sys = "0.3.77"
 console_error_panic_hook = { version = "0.1", optional = false }
+csm-persistence = { path = "crates/csm-persistence", default-features = false, features = ["wasm"] }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }
@@ -1547,7 +1548,7 @@ required-features = ["prometheus", "otlp-json"]
 [features]
 default = ["cli", "persistence", "parallel"]
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
-persistence = ["dep:libsql", "csm-persistence/persistence"]
+persistence = ["dep:libsql"]
 parallel = ["dep:rayon"]
 wasm = []
 mcp = ["dep:rmcp", "cli"]  # ADR-0067: MCP server requires CLI infrastructure

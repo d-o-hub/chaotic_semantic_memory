@@ -28,7 +28,7 @@ tempfile = { workspace = true }
 [features]
 default = ["persistence"]
 persistence = ["dep:libsql"]
-libsql = ["dep:libsql"]
+libsql = ["persistence"]
 wasm = ["uuid"]
 
 [lib]
