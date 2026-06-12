@@ -829,6 +829,7 @@ dependencies = [
  "criterion",
  "csm-core",
  "csm-embedding",
+ "csm-memory",
  "fastembed",
  "getrandom 0.4.2",
  "glob",
@@ -1304,6 +1305,20 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "csm-memory"
+version = "0.1.0"
+dependencies = [
+ "csm-core",
+ "hnsw_rs",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

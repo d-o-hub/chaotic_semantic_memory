@@ -18,6 +18,7 @@
 - colored (2.2.0)
 - csm-core
 - csm-embedding
+- csm-memory
 - fastembed (4)
 - glob (0.3.2)
 - hnsw_rs (0.3.4)
@@ -1289,6 +1290,7 @@ The `csm` binary provides command-line access:
 members = [
     "crates/csm-core",
     "crates/csm-embedding",
+    "crates/csm-memory",
     ".",
     "benchmarks",
     "crates/chaotic_semantic_memory_duckdb",
@@ -1343,6 +1345,7 @@ include = [
 [dependencies]
 csm-core = { path = "crates/csm-core" }
 csm-embedding = { path = "crates/csm-embedding" }
+csm-memory = { path = "crates/csm-memory" }
 tempfile = { workspace = true }
 # Serialization
 serde = { workspace = true }
