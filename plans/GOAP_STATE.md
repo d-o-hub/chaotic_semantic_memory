@@ -393,56 +393,168 @@ world_state:
   dependabot_alert_3_package: rustls-webpki
   dependabot_alert_3_blocker: "No stable rustls-webpki >=0.103.10 exists"
 
-  # Module status (LOC counts) - Updated 2026-04-21
+  # ═══════════════════════════════════════════════════════
+  # Module status (LOC counts) - Updated 2026-06-10
+  # Reconciled against codebase after workspace split (PR #356),
+  # MCP/index/embedding/observability/namespaces additions, and
+  # bm25 perf (PR #363). Previous map dated 2026-04-21 and was
+  # missing ~45 modules + the entire crates/ workspace.
+  # Source workspace LOC: src/ = 21,665 ; crates/ = 5,313.
+  # All first-party source files ≤ 500 LOC (LOC gate satisfied).
+  # ═══════════════════════════════════════════════════════
   modules:
-    lib.rs: 217
-    error.rs: 32
-    hyperdim.rs: 500
-    reservoir.rs: 500
-    reservoir_inertial.rs: 34
-    singularity.rs: 447
-    singularity_retrieval.rs: 405
-    singularity_ext.rs: 234
-    persistence.rs: 491
-    persistence_ops.rs: 371
-    persistence_wasm.rs: 122
-    persistence_migrations.rs: 162
-    framework.rs: 491
-    framework_ops.rs: 476
-    framework_builder.rs: 248
-    framework_validation.rs: 184
-    framework_bridge.rs: 176
-    export_payload.rs: 174
+    # --- root crate: src/ ---
+    lib.rs: 225
     concept_builder.rs: 164
-    encoder.rs: 329
-    graph_traversal.rs: 460
-    metadata_filter.rs: 200
-    bundle.rs: 178
-    wasm.rs: 469
-    wasm_ext.rs: 265
-    semantic_bridge.rs: 400
-    bridge_retrieval.rs: 386
-    bridge_persistence.rs: 293
-    retrieval/bm25.rs: 471
-    retrieval/hybrid.rs: 242
-    cli/args.rs: 228
-    cli/git_local.rs: 182
-    cli/commands/mod.rs: 115
-    cli/commands/query.rs: 282
-    cli/commands/index_dir.rs: 304
-    cli/commands/index_jsonl.rs: 153
-    cli/commands/inject.rs: 177
-    cli/commands/probe.rs: 154
-    cli/commands/associate.rs: 163
-    cli/commands/export.rs: 65
-    cli/commands/import.rs: 128
+    metadata_filter.rs: 212
+    export_payload.rs: 177
+    export_payload/export_payload_tests.rs: 493
+    # singularity (HDC memory core)
+    singularity.rs: 492
+    singularity_retrieval.rs: 479
+    singularity_search.rs: 253
+    singularity_cache.rs: 219
+    singularity_ttl.rs: 207
+    singularity_ext.rs: 161
+    singularity_state.rs: 41
+    # framework (public facade)
+    framework.rs: 500
+    framework_ops.rs: 500
+    framework_builder.rs: 398
+    framework_validation.rs: 366
+    framework_namespaces.rs: 377     # ADR-0073 namespace isolation
+    framework_persistence.rs: 300
+    framework_events.rs: 251
+    framework_events_ce.rs: 283      # CloudEvents emitter (Wave 25)
+    framework_metrics.rs: 243        # FrameworkMetrics → Prometheus bridge
+    framework_bridge.rs: 187
+    framework_ttl.rs: 160
+    framework_graph_rag.rs: 80       # ADR-0070 GraphRAG
+    framework_rerank.rs: 62          # ADR-0071 reranking
+    # persistence (libsql/turso)
+    persistence.rs: 281
+    persistence_ops.rs: 394
+    persistence_concepts.rs: 301
+    persistence_migrations.rs: 380
+    persistence_versions.rs: 219
+    persistence_wasm.rs: 223
+    persistence_index.rs: 54
+    # graph + bridge
+    graph_traversal.rs: 486
+    semantic_bridge.rs: 420
+    semantic_triples.rs: 78
+    bridge_retrieval.rs: 426
+    bridge_persistence.rs: 317
+    # retrieval/
+    retrieval/bm25.rs: 456
+    retrieval/bm25/tests.rs: 435
+    retrieval/hybrid.rs: 244
+    retrieval/rerank.rs: 376         # ADR-0071 MMR + recency + cross-encoder
+    retrieval/graph_rag.rs: 238      # ADR-0070
+    retrieval/mod.rs: 18
+    # index/ (ANN — ADR-0068)
+    index/hnsw.rs: 354
+    index/lsh.rs: 377
+    index/brute_force.rs: 187
+    index/mod.rs: 103
+    # embedding/ (ADR-0069 bridge)
+    embedding/mod.rs: 265
+    embedding/projection.rs: 234
+    embedding/fastembed.rs: 167
+    embedding/hdc_text.rs: 128
+    embedding/remote_openai.rs: 145
+    embedding/remote_voyage.rs: 145
+    # mcp/ (ADR-0067 Model Context Protocol server)
+    mcp/handler.rs: 475
+    mcp/schema.rs: 224
+    mcp/server.rs: 61
+    mcp/mod.rs: 16
+    # observability/ (ADR-0072/0086)
+    observability/mod.rs: 171
+    observability/otlp.rs: 65
+    observability/prom.rs: 250
+    # wasm/
+    wasm.rs: 446
+    wasm_ext.rs: 362
+    wasm_ext_tests.rs: 476
+    wasm_graph_rag.rs: 192
+    # cli/ + bin/
+    bin/csm.rs: 221
+    cli/args.rs: 499
+    cli/mod.rs: 18
+    cli/mcp.rs: 21
+    cli/error.rs: 113
+    cli/git_local.rs: 302
+    cli/commands/mod.rs: 269
+    cli/commands/query.rs: 289
+    cli/commands/index_dir.rs: 301
+    cli/commands/index_jsonl.rs: 155
+    cli/commands/inject.rs: 197
+    cli/commands/probe.rs: 165
+    cli/commands/probe_filtered.rs: 114
+    cli/commands/probe_graph.rs: 113
+    cli/commands/associate.rs: 167
+    cli/commands/associations.rs: 110
+    cli/commands/disassociate.rs: 145
+    cli/commands/traverse.rs: 121
+    cli/commands/get.rs: 145
+    cli/commands/update.rs: 130
+    cli/commands/delete.rs: 85
+    cli/commands/history.rs: 117
+    cli/commands/diff.rs: 80
+    cli/commands/rollback.rs: 67
+    cli/commands/path.rs: 117
+    cli/commands/stats.rs: 56
+    cli/commands/metrics.rs: 88
+    cli/commands/watch.rs: 204
+    cli/commands/export.rs: 66
+    cli/commands/import.rs: 126
     cli/commands/completions.rs: 45
-    bin/csm.rs: 160
 
-  # Test status - Updated 2026-04-21
-  tests_passing: 333
+  # --- workspace member: crates/csm-core (HDC + reservoir kernels) ---
+  modules_csm_core:
+    hyperdim.rs: 494
+    hyperdim_simd.rs: 276
+    hyperdim_simd_bundle.rs: 202
+    hyperdim_batch.rs: 60
+    hyperdim_serde.rs: 106
+    bundle.rs: 270
+    bundle_simd.rs: 278
+    encoder.rs: 414
+    reservoir.rs: 467
+    reservoir_sparse.rs: 474
+    reservoir_chaotic.rs: 107
+    reservoir_inertial.rs: 33
+    error.rs: 115
+    lib.rs: 39
+
+  # --- workspace member: crates/chaotic_semantic_memory_duckdb (ADR-0079..0082) ---
+  modules_duckdb_companion:
+    lib.rs: 139
+    export_parquet.rs: 185
+    ingest_export.rs: 98
+    ingest_bench.rs: 96
+    ingest_libsql.rs: 74
+    stats.rs: 91
+    schema.rs: 62
+    manifest.rs: 62
+    export_all.rs: 56
+    connection.rs: 50
+    error.rs: 40
+    cli/mod.rs: 112
+    cli/query.rs: 68
+    cli/export.rs: 46
+    cli/inspect.rs: 43
+    cli/stats.rs: 33
+    bin/csm-analytics.rs: 20
+
+  # Test status - Updated 2026-06-10
+  # 60 integration test files in tests/ + inline #[test] modules across src/ & crates/.
+  tests_passing: true
   integration_tests_exist: true
-  total_tests: 333
+  integration_test_files: 60        # tests/*.rs
+  total_test_functions: 773         # #[test]/#[tokio::test] across src + crates + tests
+  test_count_note: "Was 333 on 2026-04-21; grew with ANN, embedding, MCP, namespaces, GraphRAG, rerank, observability, duckdb companion."
 
   # Correctness issues (must fix)
   permute_shift_zero_bug: false
@@ -1138,8 +1250,11 @@ world_state:
     cargo_test: passing  # 6 new observability tests + 0 regressions
     cargo_fmt: clean
     cargo_clippy: clean
+  observability_framework_auto_wired: true       # 2026-06-10: Wave 27 wired
+                                                 # FrameworkMetrics → prom bridge
+                                                 # (src/framework_metrics.rs).
   observability_follow_ups:
-    - "auto_wire_framework_prom_metrics (cost 3, queued in ACTIONS.md)"
+    - "auto_wire_framework_prom_metrics (cost 3, COMPLETE 2026-06-10 via Wave 27)"
     - "add_otlp_grpc_exporter (cost 8, deferred in ACTIONS.md)"
 
   # ═══════════════════════════════════════════════════════
@@ -1186,4 +1301,56 @@ world_state:
   adr_0074_implemented: true         # diff_versions WASM binding added
   adr_0088_created: true             # CI failure remediation record
 
-  action_last_completed: wave_27_pr356_ci_remediation_merged_2026_06_10
+  # ═══════════════════════════════════════════════════════
+  # GOAP Reconciliation 2026-06-10 (codebase audit)
+  # Re-mapped module LOC + test counts after workspace split,
+  # MCP/index/embedding/observability/namespaces growth, and
+  # recorded bm25 perf (PR #363) which landed after Wave 27.
+  # ═══════════════════════════════════════════════════════
+  goap_reconciliation_2026_06_10_complete: true
+  goap_2026_06_10_main_head: "acee40b"
+  goap_2026_06_10_module_map_refreshed: true     # modules / modules_csm_core /
+                                                 # modules_duckdb_companion now match disk
+  goap_2026_06_10_test_counts_refreshed: true    # 60 integration files, 773 test fns
+  goap_2026_06_10_adr_parity:
+    registry_count: 84
+    disk_count: 83
+    parity_satisfied: true                       # scripts/check-adr-parity.sh → ok
+  goap_2026_06_10_loc_gate: satisfied            # all first-party src ≤ 500 LOC
+  goap_2026_06_10_ci_status: "CI in_progress on main HEAD acee40b (#363); PR CI green pre-merge"
+
+  # PR #363 — bm25 search allocation reduction (landed after Wave 27)
+  bm25_threadlocal_scoring_buffers: true         # eliminate O(N) heap allocs per query
+  bm25_short_query_linear_dedup: true            # linear-scan fast-path for token dedup
+  bm25_postings_prefetch: true                   # pre-fetch postings refs in weight calc
+
+  # ═══════════════════════════════════════════════════════
+  # CI Remediation 2026-06-10 — mutation-test gate (PR #363)
+  # See: plans/GOAP_CI_REMEDIATION_MUTATION_PR363.md
+  # Failing run 27261966916: mutation-test 31/37 caught = 83.78% < 85%.
+  # 6 mutants missed in src/retrieval/bm25.rs (PR #363 changes):
+  #   - 1 KILLABLE (line 276 == → !=, dedup correctness)
+  #   - 5 EQUIVALENT (271 threshold, 341/342 partial-select,
+  #                   366 df>0, 369 idf>0.0 — no observable behavior)
+  # Killing the 1 killable mutant → 32/37 = 86.49% ≥ 85% → gate PASSES.
+  # ═══════════════════════════════════════════════════════
+  ci_mutation_gate_pr363_failing_diagnosed: true
+  ci_mutation_gate_pr363_fixed: true
+  ci_mutation_gate_pr363_root_cause: "missing test coverage of multi-distinct-term query path"
+  ci_mutation_gate_pr363_missed_total: 6
+  ci_mutation_gate_pr363_killable: 1            # bm25.rs:276 == → !=
+  ci_mutation_gate_pr363_equivalent: 5         # bm25.rs:271,341,342,366,369
+  ci_mutation_gate_pr363_score_before_pct: 83.78
+  ci_mutation_gate_pr363_score_after_pct: 86.49
+  ci_mutation_gate_pr363_fix_kind: tests_only  # no production code changed
+  ci_mutation_gate_pr363_tests_added:
+    - "src/retrieval/bm25/tests.rs::test_search_distinct_terms_each_contribute (kills mutant 276)"
+    - "src/retrieval/bm25/tests.rs::test_search_dedup_hashset_path_distinct_terms (coverage + no-inflate)"
+  ci_mutation_gate_pr363_kill_verified: true   # manual mutant repro: test FAILED (1 vs 2), then reverted
+  ci_mutation_gate_pr363_gates:
+    cargo_test_bm25: "31 passed (was 29)"
+    cargo_fmt: clean
+    cargo_clippy: clean
+  ci_mutation_gate_pr363_equivalent_mutants_accepted: true
+
+  action_last_completed: ci_remediation_pr375_2026_06_10

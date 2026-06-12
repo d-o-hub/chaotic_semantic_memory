@@ -1,0 +1,36 @@
+[package]
+name = "csm-embedding"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Embedding providers for chaotic_semantic_memory"
+license = "MIT"
+repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
+
+[dependencies]
+csm-core = { path = "../csm-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+async-trait = "0.1.83"
+rand = { workspace = true }
+tokio = { workspace = true }
+
+# Remote embedding providers (opt-in)
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], optional = true }
+
+# Local ONNX embeddings (opt-in)
+fastembed = { version = "4", optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[features]
+default = []
+embed-fastembed = ["dep:fastembed"]
+embed-openai = ["dep:reqwest"]
+embed-voyage = ["dep:reqwest"]
+
+[lib]
+crate-type = ["lib"]

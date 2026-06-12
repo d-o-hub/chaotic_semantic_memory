@@ -1,27 +1,27 @@
-//! OpenAI embeddings API backend.
+//! Voyage embeddings API backend.
 //!
-//! Requires `embed-openai` feature. Uses text-embedding-3-small by default.
+//! Requires `embed-voyage` feature. Uses voyage-2 by default.
 
-use crate::embedding::EmbeddingProvider;
+use crate::EmbeddingProvider;
 use csm_core::error::{MemoryError, Result};
 use serde::Deserialize;
 
-/// OpenAI embedding provider via HTTP API.
+/// Voyage embedding provider via HTTP API.
 ///
-/// Default model: text-embedding-3-small (1536 dimensions).
+/// Default model: voyage-2 (1024 dimensions).
 /// API key must be set via environment or constructor.
 #[derive(Debug)]
-pub struct OpenAiProvider {
+pub struct VoyageProvider {
     api_key: String,
     model: String,
     base_url: String,
 }
 
-impl OpenAiProvider {
-    /// Create with API key from environment (OPENAI_API_KEY).
+impl VoyageProvider {
+    /// Create with API key from environment (VOYAGE_API_KEY).
     pub fn from_env() -> Result<Self> {
-        let api_key = std::env::var("OPENAI_API_KEY")
-            .map_err(|_| MemoryError::Config("OPENAI_API_KEY not set".into()))?;
+        let api_key = std::env::var("VOYAGE_API_KEY")
+            .map_err(|_| MemoryError::Config("VOYAGE_API_KEY not set".into()))?;
         Self::new(api_key)
     }
 
@@ -29,19 +29,19 @@ impl OpenAiProvider {
     pub fn new(api_key: String) -> Result<Self> {
         Ok(Self {
             api_key,
-            model: "text-embedding-3-small".into(),
-            base_url: "https://api.openai.com/v1".into(),
+            model: "voyage-2".into(),
+            base_url: "https://api.voyageai.com/v1".into(),
         })
     }
 
-    /// Override model (e.g., text-embedding-3-large).
+    /// Override model (e.g., voyage-3, voyage-code-2).
     #[must_use]
     pub fn with_model(mut self, model: impl Into<String>) -> Self {
         self.model = model.into();
         self
     }
 
-    /// Override base URL (for proxies/azure).
+    /// Override base URL.
     #[must_use]
     pub fn with_base_url(mut self, url: impl Into<String>) -> Self {
         self.base_url = url.into();
@@ -50,37 +50,37 @@ impl OpenAiProvider {
 }
 
 #[async_trait::async_trait]
-impl EmbeddingProvider for OpenAiProvider {
+impl EmbeddingProvider for VoyageProvider {
     fn name(&self) -> &str {
-        "openai"
+        "voyage"
     }
 
     fn native_dim(&self) -> usize {
-        // text-embedding-3-small: 1536
-        // text-embedding-3-large: 3072
-        if self.model.contains("large") {
-            3072
-        } else {
+        // voyage-2/voyage-3: 1024
+        // voyage-code-2: 1536
+        if self.model.contains("code") {
             1536
+        } else {
+            1024
         }
     }
 
     async fn embed(&self, text: &str) -> Result<Vec<f32>> {
-        #[cfg(feature = "embed-openai")]
+        #[cfg(feature = "embed-voyage")]
         {
             let client = reqwest::Client::new();
             let response = client
                 .post(format!("{}/embeddings", self.base_url))
                 .header("Authorization", format!("Bearer {}", self.api_key))
                 .json(&serde_json::json!({
-                    "input": text,
+                    "input": [text],
                     "model": self.model
                 }))
                 .send()
                 .await
                 .map_err(|e: reqwest::Error| MemoryError::External(e.to_string()))?;
 
-            let data: OpenAiResponse = response
+            let data: VoyageResponse = response
                 .json()
                 .await
                 .map_err(|e: reqwest::Error| MemoryError::External(e.to_string()))?;
@@ -91,16 +91,16 @@ impl EmbeddingProvider for OpenAiProvider {
                 .ok_or_else(|| MemoryError::External("no embedding returned".into()))
         }
 
-        #[cfg(not(feature = "embed-openai"))]
+        #[cfg(not(feature = "embed-voyage"))]
         {
             Err(MemoryError::Config(
-                "embed-openai feature not enabled".into(),
+                "embed-voyage feature not enabled".into(),
             ))
         }
     }
 
     async fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>> {
-        #[cfg(feature = "embed-openai")]
+        #[cfg(feature = "embed-voyage")]
         {
             let client = reqwest::Client::new();
             let response = client
@@ -114,7 +114,7 @@ impl EmbeddingProvider for OpenAiProvider {
                 .await
                 .map_err(|e: reqwest::Error| MemoryError::External(e.to_string()))?;
 
-            let data: OpenAiResponse = response
+            let data: VoyageResponse = response
                 .json()
                 .await
                 .map_err(|e: reqwest::Error| MemoryError::External(e.to_string()))?;
@@ -122,24 +122,24 @@ impl EmbeddingProvider for OpenAiProvider {
             Ok(data.data.into_iter().map(|d| d.embedding).collect())
         }
 
-        #[cfg(not(feature = "embed-openai"))]
+        #[cfg(not(feature = "embed-voyage"))]
         {
             Err(MemoryError::Config(
-                "embed-openai feature not enabled".into(),
+                "embed-voyage feature not enabled".into(),
             ))
         }
     }
 }
 
-/// OpenAI API response structure.
-#[cfg(feature = "embed-openai")]
+/// Voyage API response structure.
+#[cfg(feature = "embed-voyage")]
 #[derive(Debug, Deserialize)]
-struct OpenAiResponse {
-    data: Vec<OpenAiEmbedding>,
+struct VoyageResponse {
+    data: Vec<VoyageEmbedding>,
 }
 
-#[cfg(feature = "embed-openai")]
+#[cfg(feature = "embed-voyage")]
 #[derive(Debug, Deserialize)]
-struct OpenAiEmbedding {
+struct VoyageEmbedding {
     embedding: Vec<f32>,
 }

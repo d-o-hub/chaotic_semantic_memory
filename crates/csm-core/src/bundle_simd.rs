@@ -176,6 +176,7 @@ mod tests {
     }
 
     fn make_test_counts(seed: u64) -> [i32; 10240] {
+        use rand::RngExt;
         use rand::SeedableRng;
         let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
         let mut counts = [0i32; 10240];

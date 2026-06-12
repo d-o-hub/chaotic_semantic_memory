@@ -6,7 +6,7 @@
 
 // Casts are intentional for HDC conversion (u128 words to f32 representation)
 
-use crate::embedding::{EmbeddingProvider, Projection};
+use crate::{EmbeddingProvider, Projection};
 use csm_core::encoder::TextEncoder;
 use csm_core::error::Result;
 use csm_core::hyperdim::HVec10240;
@@ -106,7 +106,7 @@ impl EmbeddingProvider for HdcTextProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::embedding::Projection;
+    use crate::Projection;
 
     #[tokio::test]
     async fn test_hdc_provider_roundtrip() {

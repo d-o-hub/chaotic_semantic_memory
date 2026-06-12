@@ -3,7 +3,7 @@
 //! Requires `embed-fastembed` feature. Runs models locally without API calls.
 //! Default model: BGE-small-en-v1.5 (384 dimensions).
 
-use crate::embedding::EmbeddingProvider;
+use crate::EmbeddingProvider;
 use csm_core::error::{MemoryError, Result};
 
 /// FastEmbed local embedding provider.

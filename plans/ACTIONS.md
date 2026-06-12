@@ -3848,14 +3848,19 @@ actions:
     effects:
       observability_framework_auto_wired: true
     cost: 3
-    status: queued
-    file: src/framework.rs, src/singularity.rs, src/persistence.rs
+    status: complete
+    file: src/framework_metrics.rs
     description: |
       Wire `prom::record_probe` / `prom::record_inject` /
       `prom::record_persist` from the framework's `#[instrument]`
       sites so callers do not have to instrument their own hot
       paths. Tracked as the first follow-up from ADR-0086.
       2026-06-06: Created.
+      2026-06-10: COMPLETE — Wave 27 (PR #362) wired the
+      FrameworkMetrics → Prometheus bridge. src/framework_metrics.rs
+      now calls prom::record_inject (L151), set_concepts_count (L153),
+      set_associations_count (L163), record_probe (L173), and
+      record_persist (L181), all gated behind #[cfg(feature = "prometheus")].
 
   - name: add_otlp_grpc_exporter
     preconditions:
