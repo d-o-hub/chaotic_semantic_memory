@@ -1310,6 +1310,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "csm-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "clap_complete",
+ "colored",
+ "csm-core",
+ "csm-embedding",
+ "csm-memory",
+ "csm-persistence",
+ "csm-retrieval",
+ "glob",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "csm-core"
 version = "0.1.0"
 dependencies = [
