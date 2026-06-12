@@ -1,0 +1,32 @@
+[package]
+name = "csm-memory"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Concept store and singularity engine for chaotic_semantic_memory"
+license = "MIT"
+repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
+
+[dependencies]
+csm-core = { path = "../csm-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true, optional = true }
+
+# ANN backends (opt-in)
+hnsw_rs = { version = "0.3.4", optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[features]
+default = []
+parallel = ["csm-core/parallel"]
+ann-hnsw = ["dep:hnsw_rs"]
+ann-lsh = []
+
+[lib]
+crate-type = ["lib"]

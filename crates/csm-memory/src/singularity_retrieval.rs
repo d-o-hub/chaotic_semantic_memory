@@ -389,6 +389,7 @@ impl Singularity {
     }
 
     /// Score candidates with explicit selectivity stats (ADR-0065).
+    #[allow(dead_code)]
     pub(crate) fn scored_candidate_retrieval_with_stats(
         &self,
         ns: &str,

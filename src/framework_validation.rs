@@ -93,13 +93,7 @@ pub(crate) fn validate_path(path: &str) -> Result<PathBuf> {
 
 impl ChaoticSemanticFramework {
     pub(crate) fn validate_retrieval_config(config: &RetrievalConfig) -> Result<()> {
-        if config.bucket_probe_width > MAX_BUCKET_PROBE_WIDTH {
-            return Err(MemoryError::InvalidInput {
-                field: "bucket_probe_width".to_string(),
-                reason: format!("bucket_probe_width exceeds {MAX_BUCKET_PROBE_WIDTH}"),
-            });
-        }
-        Ok(())
+        config.validate()
     }
 
     pub(crate) fn validate_namespace(ns: &str) -> Result<()> {
