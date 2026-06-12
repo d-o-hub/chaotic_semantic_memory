@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/csm-core",
+    "crates/csm-embedding",
     ".",
     "benchmarks",
     "crates/chaotic_semantic_memory_duckdb",
@@ -54,6 +55,7 @@ include = [
 
 [dependencies]
 csm-core = { path = "crates/csm-core" }
+csm-embedding = { path = "crates/csm-embedding" }
 tempfile = { workspace = true }
 # Serialization
 serde = { workspace = true }
@@ -254,9 +256,9 @@ wasm = []
 mcp = ["dep:rmcp", "cli"]  # ADR-0067: MCP server requires CLI infrastructure
 
 # Embedding providers (ADR-0069)
-embed-fastembed = ["dep:fastembed"]
-embed-openai = ["dep:reqwest"]
-embed-voyage = ["dep:reqwest"]
+embed-fastembed = ["csm-embedding/embed-fastembed"]
+embed-openai = ["csm-embedding/embed-openai"]
+embed-voyage = ["csm-embedding/embed-voyage"]
 
 # ANN backends (ADR-0068)
 ann-hnsw = ["dep:hnsw_rs"]

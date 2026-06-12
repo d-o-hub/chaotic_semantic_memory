@@ -17,6 +17,7 @@
 - cloudevents-sdk (0.9.0)
 - colored (2.2.0)
 - csm-core
+- csm-embedding
 - fastembed (4)
 - glob (0.3.2)
 - hnsw_rs (0.3.4)
@@ -38,9 +39,9 @@
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - cloudevents: [dep:cloudevents-sdk, dep:uuid, uuid/js]
 - default: [cli, persistence, parallel]
-- embed-fastembed: [dep:fastembed]
-- embed-openai: [dep:reqwest]
-- embed-voyage: [dep:reqwest]
+- embed-fastembed: [csm-embedding/embed-fastembed]
+- embed-openai: [csm-embedding/embed-openai]
+- embed-voyage: [csm-embedding/embed-voyage]
 - events-http: [cloudevents, cloudevents-sdk/http-binding, dep:reqwest]
 - mcp: [dep:rmcp, cli]
 - otlp-json: []
@@ -311,47 +312,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct ConceptBuilder
 - impl ConceptBuilder
 
-### src/embedding/fastembed.rs
-
-- pub struct FastEmbedProvider
-- impl FastEmbedProvider
-- impl EmbeddingProvider for FastEmbedProvider
-
-### src/embedding/hdc_text.rs
-
-- pub struct HdcTextProvider
-- impl Default for HdcTextProvider
-- impl HdcTextProvider
-- impl EmbeddingProvider for HdcTextProvider
-
 ### src/embedding/mod.rs
 
-- pub use hdc_text::HdcTextProvider
-- pub use projection::{Projection, ProjectionConfig}
-- pub use fastembed::FastEmbedProvider
-- pub use remote_openai::OpenAiProvider
-- pub use remote_voyage::VoyageProvider
-- pub trait EmbeddingProvider
-- pub fn get_provider
-
-### src/embedding/projection.rs
-
-- pub struct ProjectionConfig
-- impl Default for ProjectionConfig
-- pub struct Projection
-- impl Projection
-
-### src/embedding/remote_openai.rs
-
-- pub struct OpenAiProvider
-- impl OpenAiProvider
-- impl EmbeddingProvider for OpenAiProvider
-
-### src/embedding/remote_voyage.rs
-
-- pub struct VoyageProvider
-- impl VoyageProvider
-- impl EmbeddingProvider for VoyageProvider
+- pub use csm_embedding::*
 
 ### src/export_payload.rs
 
@@ -1325,6 +1288,7 @@ The `csm` binary provides command-line access:
 [workspace]
 members = [
     "crates/csm-core",
+    "crates/csm-embedding",
     ".",
     "benchmarks",
     "crates/chaotic_semantic_memory_duckdb",
@@ -1378,6 +1342,7 @@ include = [
 
 [dependencies]
 csm-core = { path = "crates/csm-core" }
+csm-embedding = { path = "crates/csm-embedding" }
 tempfile = { workspace = true }
 # Serialization
 serde = { workspace = true }
@@ -1578,9 +1543,9 @@ wasm = []
 mcp = ["dep:rmcp", "cli"]  # ADR-0067: MCP server requires CLI infrastructure
 
 # Embedding providers (ADR-0069)
-embed-fastembed = ["dep:fastembed"]
-embed-openai = ["dep:reqwest"]
-embed-voyage = ["dep:reqwest"]
+embed-fastembed = ["csm-embedding/embed-fastembed"]
+embed-openai = ["csm-embedding/embed-openai"]
+embed-voyage = ["csm-embedding/embed-voyage"]
 
 # ANN backends (ADR-0068)
 ann-hnsw = ["dep:hnsw_rs"]
