@@ -12,6 +12,9 @@ csm-core = { path = "../csm-core" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = "0.3.77"
+
 [features]
 default = []
 parallel = ["csm-core/parallel"]
