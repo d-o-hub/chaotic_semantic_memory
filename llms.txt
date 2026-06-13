@@ -23,6 +23,9 @@
 - fastembed (4)
 - glob (0.3.2)
 - hnsw_rs (0.3.4)
+- opentelemetry (0.27)
+- opentelemetry-otlp (0.27) [features: grpc-tonic]
+- opentelemetry_sdk (0.27)
 - prometheus (0.13)
 - rand
 - rand_chacha
@@ -33,6 +36,7 @@
 - tempfile
 - thiserror
 - tracing
+- tracing-opentelemetry (0.28)
 - tracing-subscriber
 - uuid
 **Features:**
@@ -47,6 +51,7 @@
 - events-http: [cloudevents, cloudevents-sdk/http-binding, dep:reqwest]
 - mcp: [dep:rmcp, cli]
 - otlp-json: []
+- otlp: [dep:opentelemetry, dep:opentelemetry_sdk, dep:opentelemetry-otlp, dep:tracing-opentelemetry]
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
 - prometheus: [dep:prometheus, dep:hyper, dep:hyper-util, dep:http-body-util]
@@ -515,6 +520,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub mod prom
 - pub mod otlp
+- pub mod otlp_grpc
 - pub enum LogFormat
 - pub struct ObservabilityConfig
 - pub struct Guard
@@ -529,6 +535,13 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct StdoutGuard
 - impl std::io::Write for StdoutGuard
 - pub fn install_json_subscriber
+
+### src/observability/otlp_grpc.rs
+
+- pub struct OtlpGuard
+- impl OtlpGuard
+- impl Drop for OtlpGuard
+- pub fn install_grpc_tracer
 
 ### src/observability/prom.rs
 
@@ -1332,6 +1345,12 @@ rmcp = { version = "1.7", optional = true, features = ["server", "macros", "tran
 # Observability dependencies (ADR-0072, opt-in via "prometheus" feature)
 prometheus = { version = "0.13", optional = true, default-features = false }
 
+# OTLP gRPC observability dependencies (ADR-0072/ADR-0086, opt-in via "otlp" feature)
+opentelemetry = { version = "0.27", optional = true }
+opentelemetry_sdk = { version = "0.27", optional = true }
+opentelemetry-otlp = { version = "0.27", optional = true, features = ["grpc-tonic"] }
+tracing-opentelemetry = { version = "0.28", optional = true }
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # CPU parallelism (opt-in via "parallel" feature)
 rayon = { version = "1.10.0", optional = true }
@@ -1506,9 +1525,11 @@ events-http = ["cloudevents", "cloudevents-sdk/http-binding", "dep:reqwest"]
 # Observability exports (ADR-0072)
 # `prometheus` enables a /metrics HTTP endpoint and a counter/histogram registry.
 # `otlp-json` enables JSON-structured tracing for log shippers (lightweight OTLP alternative).
-# Both are opt-in and have no effect on default builds.
+# `otlp` enables full OTLP gRPC tracing export via tonic/prost/protobuf (ADR-0086).
+# All are opt-in and have no effect on default builds.
 prometheus = ["dep:prometheus", "dep:hyper", "dep:hyper-util", "dep:http-body-util"]
 otlp-json = []
+otlp = ["dep:opentelemetry", "dep:opentelemetry_sdk", "dep:opentelemetry-otlp", "dep:tracing-opentelemetry"]
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]

@@ -50,7 +50,7 @@ pub use csm_core::hyperdim;
 #[cfg(all(not(target_arch = "wasm32"), feature = "mcp"))]
 pub mod mcp;
 pub mod metadata_filter;
-#[cfg(any(feature = "prometheus", feature = "otlp-json"))]
+#[cfg(any(feature = "prometheus", feature = "otlp-json", feature = "otlp"))]
 pub mod observability;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod persistence_concepts;

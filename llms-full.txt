@@ -23,6 +23,9 @@
 - fastembed (4)
 - glob (0.3.2)
 - hnsw_rs (0.3.4)
+- opentelemetry (0.27)
+- opentelemetry-otlp (0.27) [features: grpc-tonic]
+- opentelemetry_sdk (0.27)
 - prometheus (0.13)
 - rand
 - rand_chacha
@@ -33,6 +36,7 @@
 - tempfile
 - thiserror
 - tracing
+- tracing-opentelemetry (0.28)
 - tracing-subscriber
 - uuid
 **Features:**
@@ -47,6 +51,7 @@
 - events-http: [cloudevents, cloudevents-sdk/http-binding, dep:reqwest]
 - mcp: [dep:rmcp, cli]
 - otlp-json: []
+- otlp: [dep:opentelemetry, dep:opentelemetry_sdk, dep:opentelemetry-otlp, dep:tracing-opentelemetry]
 - parallel: [dep:rayon]
 - persistence: [dep:libsql]
 - prometheus: [dep:prometheus, dep:hyper, dep:hyper-util, dep:http-body-util]
@@ -515,6 +520,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub mod prom
 - pub mod otlp
+- pub mod otlp_grpc
 - pub enum LogFormat
 - pub struct ObservabilityConfig
 - pub struct Guard
@@ -529,6 +535,13 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct StdoutGuard
 - impl std::io::Write for StdoutGuard
 - pub fn install_json_subscriber
+
+### src/observability/otlp_grpc.rs
+
+- pub struct OtlpGuard
+- impl OtlpGuard
+- impl Drop for OtlpGuard
+- pub fn install_grpc_tracer
 
 ### src/observability/prom.rs
 
@@ -3390,8 +3403,9 @@ pub struct Guard {
 
 Guard returned by [`init`].
 
-Holding the guard keeps the Prometheus server task running. Drop it to
-gracefully shut down the scrape endpoint.
+Holding the guard keeps the Prometheus server task and OTLP tracer
+provider running. Drop it to gracefully shut down scrape endpoints
+and flush pending spans.
 
 ### LogFormat
 
@@ -3421,8 +3435,8 @@ pub struct ObservabilityConfig {
 Observability configuration.
 
 All fields are optional. `init` returns `Ok(None)` when nothing was
-actually enabled (no `prometheus_bind` and `log_format == Pretty`),
-so tests can call it unconditionally.
+actually enabled (no `prometheus_bind`, no `otlp_endpoint`, and
+`log_format == Pretty`), so tests can call it unconditionally.
 
 ### impl Drop for Guard
 
@@ -3504,6 +3518,54 @@ Idempotent at the level the caller cares about: if a subscriber is
 already installed (`set_global_default` fails), the function returns
 without touching anything. This is the same pattern used by
 `tracing_subscriber::fmt::init()` and keeps the public API panic-free.
+
+## src/observability/otlp_grpc.rs
+
+### OtlpGuard
+
+```rust
+pub struct OtlpGuard {
+}
+```
+
+Guard that owns the OTLP `TracerProvider`.
+
+Holding the guard keeps the tracer provider alive. Dropping it flushes
+any buffered spans and shuts down the provider, ensuring clean export
+before process exit.
+
+### impl Drop for OtlpGuard
+
+```rust
+impl Drop for OtlpGuard {
+}
+```
+
+### impl OtlpGuard
+
+```rust
+impl OtlpGuard {
+    pub fn shutdown(&mut self);
+}
+```
+
+### install_grpc_tracer
+
+```rust
+pub fn install_grpc_tracer(endpoint: &str, service_name: &str) -> Result<OtlpGuard>
+```
+
+Create an OTLP gRPC tracer provider and wire it into `tracing`.
+
+Uses the **simple** (synchronous) span processor so spans are exported
+immediately — suitable for low-throughput or development workloads.
+For production, callers may wish to replace this with a batch processor
+by constructing the provider directly.
+
+This function also installs a `tracing_subscriber` layer so that
+[`tracing::info!`] etc. are exported via OTLP. It uses `try_init()`
+so it is best-effort: if a subscriber is already installed, the layer
+is silently skipped.
 
 ## src/observability/prom.rs
 

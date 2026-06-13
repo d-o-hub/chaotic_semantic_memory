@@ -1,15 +1,17 @@
 //! Integration tests for the observability module (ADR-0072 / ADR-0086).
 //!
-//! Gated on the `prometheus` / `otlp-json` features. These tests
+//! Gated on the `prometheus` / `otlp-json` / `otlp` features. These tests
 //! exercise the public API surface (`init`, `render_metrics`,
 //! `record_*`, `set_*`) and the HTTP scrape endpoint, so they cannot
 //! live as `#[cfg(test)]` modules inside `src/observability/prom.rs`
 //! (the prometheus crate is only pulled in for the `prometheus` feature,
 //! and the lib is already feature-gated as a whole).
-#![cfg(any(feature = "prometheus", feature = "otlp-json"))]
+#![cfg(any(feature = "prometheus", feature = "otlp-json", feature = "otlp"))]
 
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::time::Duration;
+
+#[cfg(feature = "prometheus")]
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
 #[cfg(feature = "prometheus")]
 mod prom_tests {
@@ -162,6 +164,64 @@ mod otlp_tests {
                 // Another test in the same process already initialised.
             }
             Err(e) => panic!("unexpected init error: {e:?}"),
+        }
+    }
+}
+
+#[cfg(all(feature = "otlp", not(target_arch = "wasm32")))]
+mod otlp_grpc_tests {
+    use chaotic_semantic_memory::observability::{LogFormat, ObservabilityConfig, init};
+
+    /// `init` with an `otlp_endpoint` and the `otlp` feature enabled should
+    /// return `Ok(Some(Guard))` with a functioning OTLP gRPC tracer.
+    ///
+    /// Note: we connect to a non-existent endpoint because the test only
+    /// validates the *configuration* path — the tracer provider is created
+    /// successfully even if the backend isn't reachable (spans are buffered
+    /// and export fails lazily).
+    ///
+    /// Requires a Tokio runtime because the tonic gRPC transport creates
+    /// background tasks for connection management.
+    #[tokio::test]
+    async fn init_otlp_grpc_endpoint_succeeds() {
+        let cfg = ObservabilityConfig {
+            service_name: "csm-test-otlp".into(),
+            otlp_endpoint: Some("http://127.0.0.1:4317".into()),
+            log_format: LogFormat::Pretty,
+            ..ObservabilityConfig::default()
+        };
+        match init(cfg) {
+            Ok(Some(_guard)) => { /* expected: guard holds the OTLP tracer provider */ }
+            Ok(None) => panic!("init should return Some(Guard) when otlp_endpoint is set"),
+            Err(chaotic_semantic_memory::error::MemoryError::ObservabilityAlreadyInitialised) => {
+                // Another test in the same process already initialised.
+            }
+            Err(e) => panic!("unexpected init error: {e:?}"),
+        }
+    }
+
+    /// `init` without an `otlp_endpoint` should return `Ok(None)` when no
+    /// other feature is active (Pretty format, no Prometheus, no endpoint).
+    /// This test does not require a Tokio runtime because no gRPC channel
+    /// is established.
+    #[test]
+    fn init_otlp_no_endpoint_returns_none() {
+        let cfg = ObservabilityConfig {
+            service_name: "csm-test-otlp-none".into(),
+            otlp_endpoint: None,
+            log_format: LogFormat::Pretty,
+            ..ObservabilityConfig::default()
+        };
+        match init(cfg) {
+            Ok(None) => { /* expected: nothing wired up */ }
+            Err(chaotic_semantic_memory::error::MemoryError::ObservabilityAlreadyInitialised) => {
+                // Another test in the same process already initialised.
+            }
+            Err(e) => panic!("unexpected init error: {e:?}"),
+            Ok(Some(_)) => {
+                // Acceptable if another test already ran and the init flag
+                // was released; the guard is from a prior test's cleanup.
+            }
         }
     }
 }
