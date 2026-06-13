@@ -38,6 +38,8 @@ jobs:
     name: Test Workspace Crates
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      PROTOC: /usr/bin/protoc
     strategy:
       fail-fast: false
       matrix:
