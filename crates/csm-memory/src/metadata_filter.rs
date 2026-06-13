@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::ops;
 
 /// Maximum recursion depth for metadata filters to prevent stack overflow (DoS).
-pub(crate) const MAX_FILTER_DEPTH: usize = 32;
+pub const MAX_FILTER_DEPTH: usize = 32;
 
 /// A predicate for filtering concepts by metadata during similarity search.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -29,8 +29,8 @@ pub enum MetadataFilter {
 
 impl MetadataFilter {
     /// Create an equality filter: `key == value`.
-    pub fn eq(key: impl Into<String>, value: Value) -> Self {
-        Self::Eq(key.into(), value)
+    pub fn eq(key: impl Into<String>, value: impl Into<Value>) -> Self {
+        Self::Eq(key.into(), value.into())
     }
 
     /// Create an "in" filter: `key in [values]`.
@@ -66,7 +66,7 @@ impl MetadataFilter {
     }
 
     /// Compute the depth of the filter tree.
-    pub(crate) fn depth(&self) -> usize {
+    pub fn depth(&self) -> usize {
         let (mut max, mut stack) = (0, vec![(self, 1)]);
         while let Some((f, d)) = stack.pop() {
             max = max.max(d);

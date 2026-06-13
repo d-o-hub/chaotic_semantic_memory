@@ -36,8 +36,8 @@
 - tracing-subscriber
 - uuid
 **Features:**
-- ann-hnsw: [dep:hnsw_rs]
-- ann-lsh: []
+- ann-hnsw: [dep:hnsw_rs, csm-memory/ann-hnsw]
+- ann-lsh: [csm-memory/ann-lsh]
 - cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
 - cloudevents: [dep:cloudevents-sdk, dep:uuid, uuid/js]
 - default: [cli, persistence, parallel]
@@ -311,8 +311,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/concept_builder.rs
 
-- pub struct ConceptBuilder
-- impl ConceptBuilder
+- pub use csm_memory::concept_builder::*
 
 ### src/embedding/mod.rs
 
@@ -413,39 +412,11 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/graph_traversal.rs
 
-- pub struct TraversalConfig
-- impl Default for TraversalConfig
-- impl Singularity
+- pub use csm_memory::graph_traversal::*
 
-### src/index/brute_force.rs
+### src/index.rs
 
-- pub struct BruteForce
-- impl BruteForce
-- impl AnnIndex for BruteForce
-
-### src/index/hnsw.rs
-
-- impl Distance for HammingDist
-- pub struct HnswIndex
-- impl HnswIndex
-- impl std::fmt::Debug for HnswIndex
-- impl AnnIndex for HnswIndex
-
-### src/index/lsh.rs
-
-- pub struct LshIndex
-- impl LshIndex
-- impl AnnIndex for LshIndex
-
-### src/index/mod.rs
-
-- pub mod brute_force
-- pub mod hnsw
-- pub mod lsh
-- pub struct IndexStats
-- pub enum IndexBackend
-- pub trait AnnIndex
-- pub fn create_index
+- pub use csm_memory::index::*
 
 ### src/lib.rs
 
@@ -538,9 +509,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/metadata_filter.rs
 
-- pub enum MetadataFilter
-- impl MetadataFilter
-- impl ops::Not for MetadataFilter
+- pub use csm_memory::metadata_filter::*
 
 ### src/observability/mod.rs
 
@@ -676,53 +645,19 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/singularity.rs
 
-- pub struct SingularityConfig
-- impl Default for SingularityConfig
-- pub struct Concept
-- pub struct ConceptVersion
-- pub struct ConceptDiff
-- impl ConceptDiff
-- pub struct ConceptBuilder
-- impl ConceptBuilder
-- pub struct Singularity
-- impl Singularity
-- pub fn unix_now_secs
-- pub fn unix_now_ns
+- pub use csm_memory::singularity::*
 
 ### src/singularity_cache.rs
 
-- impl QueryCache
-- pub struct CacheMetrics
-- pub struct CacheMetricsSnapshot
-- impl CacheMetrics
-
-### src/singularity_ext.rs
-
-- impl Singularity
+- pub use csm_memory::singularity_cache::*
 
 ### src/singularity_retrieval.rs
 
-- pub struct RetrievalStats
-- pub enum CandidateSource
-- pub enum FilterStrategy
-- pub struct RetrievalConfig
-- impl RetrievalConfig
-- impl Default for RetrievalConfig
-- impl Singularity
-
-### src/singularity_search.rs
-
-- impl Singularity
+- pub use csm_memory::singularity_retrieval::*
 
 ### src/singularity_state.rs
 
-- pub struct NamespaceState
-- impl NamespaceState
-
-### src/singularity_ttl.rs
-
-- impl Default for Concept
-- impl Singularity
+- pub use csm_memory::singularity_state::*
 
 ### src/wasm.rs
 
@@ -1561,8 +1496,8 @@ embed-openai = ["csm-embedding/embed-openai"]
 embed-voyage = ["csm-embedding/embed-voyage"]
 
 # ANN backends (ADR-0068)
-ann-hnsw = ["dep:hnsw_rs"]
-ann-lsh = []
+ann-hnsw = ["dep:hnsw_rs", "csm-memory/ann-hnsw"]
+ann-lsh = ["csm-memory/ann-lsh"]
 
 # CloudEvents integration (ADR-0078)
 cloudevents = ["dep:cloudevents-sdk", "dep:uuid", "uuid/js"]

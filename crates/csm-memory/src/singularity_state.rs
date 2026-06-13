@@ -9,15 +9,15 @@ use std::sync::{Arc, RwLock};
 /// State for a single namespace in the singularity engine.
 #[derive(Debug)]
 pub struct NamespaceState {
-    pub(crate) concepts: HashMap<String, Concept>,
-    pub(crate) associations: HashMap<String, HashMap<String, f32>>,
+    pub concepts: HashMap<String, Concept>,
+    pub associations: HashMap<String, HashMap<String, f32>>,
     pub(crate) concept_indices: Vec<String>,
     pub(crate) concept_vectors: Vec<HVec10240>,
     pub(crate) id_to_index: HashMap<String, usize>,
     pub(crate) query_cache: RwLock<QueryCache>,
     pub(crate) cache_metrics: Arc<CacheMetrics>,
     pub(crate) last_retrieval_stats: RwLock<RetrievalStats>,
-    pub(crate) index: Box<dyn AnnIndex>,
+    pub index: Box<dyn AnnIndex>,
 }
 
 impl NamespaceState {

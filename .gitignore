@@ -98,4 +98,4 @@ csm_memory.db
 commit_messages.txt
 *.log
 pr_diff.txt
-update_
+update_.fastembed_cache/

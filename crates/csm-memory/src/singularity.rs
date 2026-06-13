@@ -166,10 +166,10 @@ impl ConceptBuilder {
 }
 
 pub struct Singularity {
-    pub(crate) config: SingularityConfig,
-    pub(crate) namespaces: HashMap<String, NamespaceState>,
+    pub config: SingularityConfig,
+    pub namespaces: HashMap<String, NamespaceState>,
     pub(crate) _retrieval_config: RetrievalConfig,
-    pub(crate) cache_metrics: Arc<CacheMetrics>,
+    pub cache_metrics: Arc<CacheMetrics>,
 }
 
 impl Singularity {
@@ -211,11 +211,11 @@ impl Singularity {
             .expect("ANN index creation failed; check feature flags and configuration")
     }
 
-    pub(crate) fn get_namespace(&self, ns: &str) -> Option<&NamespaceState> {
+    pub fn get_namespace(&self, ns: &str) -> Option<&NamespaceState> {
         self.namespaces.get(ns)
     }
 
-    pub(crate) fn get_namespace_mut(&mut self, ns: &str) -> &mut NamespaceState {
+    pub fn get_namespace_mut(&mut self, ns: &str) -> &mut NamespaceState {
         if !self.namespaces.contains_key(ns) {
             let index = self.create_index();
             self.namespaces.insert(
@@ -501,7 +501,7 @@ pub fn unix_now_ns() -> u64 {
     (js_sys::Date::new_0().get_time() * 1_000_000.0) as u64
 }
 
-pub(crate) fn similarity_cache_key(query: &HVec10240, top_k: usize) -> u64 {
+pub fn similarity_cache_key(query: &HVec10240, top_k: usize) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut s = std::collections::hash_map::DefaultHasher::new();
     query.data.hash(&mut s);

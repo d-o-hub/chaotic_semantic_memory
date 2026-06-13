@@ -1377,11 +1377,15 @@ dependencies = [
 name = "csm-memory"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "csm-core",
  "hnsw_rs",
  "js-sys",
+ "rand 0.10.1",
+ "rand_chacha 0.10.0",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tracing",

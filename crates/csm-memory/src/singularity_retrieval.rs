@@ -55,7 +55,7 @@ pub enum FilterStrategy {
 }
 
 /// Parameters for scored candidate retrieval.
-pub(crate) struct ScoredCandidateParams<'a> {
+pub struct ScoredCandidateParams<'a> {
     pub query: &'a HVec10240,
     pub top_k: usize,
     pub candidates: Vec<usize>,
