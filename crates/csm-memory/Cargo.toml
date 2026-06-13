@@ -34,7 +34,7 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 [features]
 default = []
 parallel = ["csm-core/parallel"]
-ann-hnsw = ["dep:hnsw_rs", "dep:tempfile"]
+ann-hnsw = ["dep:hnsw_rs", "dep:tempfile", "dep:bincode"]
 ann-lsh = ["dep:bincode", "dep:rand", "dep:rand_chacha"]
 
 [lib]

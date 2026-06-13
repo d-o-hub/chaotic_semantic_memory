@@ -82,7 +82,9 @@ pub trait AnnIndex<H: Hypervector = HVec10240>: Send + Sync + Debug + 'static {
 }
 
 /// Create an ANN index backend based on configuration.
-pub fn create_index<H: Hypervector + 'static>(backend: &IndexBackend) -> Result<Box<dyn AnnIndex<H>>> {
+pub fn create_index<H: Hypervector + 'static>(
+    backend: &IndexBackend,
+) -> Result<Box<dyn AnnIndex<H>>> {
     let index: Box<dyn AnnIndex<H>> = match backend {
         IndexBackend::BruteForce => Box::new(brute_force::BruteForce::new()),
         #[cfg(feature = "ann-hnsw")]

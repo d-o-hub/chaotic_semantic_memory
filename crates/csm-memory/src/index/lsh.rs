@@ -311,7 +311,7 @@ mod tests {
 
     #[test]
     fn lsh_index_serialize_deserialize_roundtrip() {
-        let mut idx = LshIndex::new(4, 8).expect("must create index");
+        let mut idx = LshIndex::<HVec10240>::new(4, 8).expect("must create index");
         let vec = HVec10240::random();
         idx.insert("concept-1".to_string(), &vec)
             .expect("must insert");
@@ -320,7 +320,7 @@ mod tests {
         assert!(!bytes.is_empty(), "serialized bytes must be non-empty");
         assert!(bytes.iter().any(|&b| b != 0));
 
-        let mut idx2 = LshIndex::new(4, 8).expect("must create index2");
+        let mut idx2 = LshIndex::<HVec10240>::new(4, 8).expect("must create index2");
         AnnIndex::deserialize(&mut idx2, &bytes).expect("deserialize must succeed");
 
         let results = idx2.search(&vec, 1).expect("must search");
@@ -330,14 +330,14 @@ mod tests {
 
     #[test]
     fn lsh_index_deserialize_with_garbage_returns_error() {
-        let mut idx = LshIndex::new(4, 8).expect("must create index");
+        let mut idx = LshIndex::<HVec10240>::new(4, 8).expect("must create index");
         let result = AnnIndex::deserialize(&mut idx, b"not valid bincode data !!!!");
         assert!(result.is_err(), "garbage bytes must return Err");
     }
 
     #[test]
     fn lsh_index_roundtrip_preserves_concept_count() {
-        let mut idx = LshIndex::new(4, 8).expect("must create index");
+        let mut idx = LshIndex::<HVec10240>::new(4, 8).expect("must create index");
         let v1 = HVec10240::random();
         let v2 = HVec10240::random();
         idx.insert("alpha".to_string(), &v1).expect("insert alpha");
@@ -346,7 +346,7 @@ mod tests {
         let bytes = AnnIndex::serialize(&idx).expect("serialize");
         assert!(bytes.len() > 100, "serialized bytes must be substantial");
 
-        let mut idx2 = LshIndex::new(4, 8).expect("must create index2");
+        let mut idx2 = LshIndex::<HVec10240>::new(4, 8).expect("must create index2");
         AnnIndex::deserialize(&mut idx2, &bytes).expect("deserialize");
 
         let stats_original = idx.stats();
@@ -366,7 +366,7 @@ mod tests {
 
     #[test]
     fn lsh_index_serialize_produces_nonzero_bytes() {
-        let mut idx = LshIndex::new(2, 4).expect("must create index");
+        let mut idx = LshIndex::<HVec10240>::new(2, 4).expect("must create index");
         let v = HVec10240::random();
         idx.insert("solo".to_string(), &v).expect("insert");
 

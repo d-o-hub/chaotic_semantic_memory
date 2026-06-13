@@ -54,7 +54,7 @@ proptest! {
 
     #[test]
     fn associate_creates_queryable_link(strength in 0.0f32..=1.0f32) {
-        let mut singularity = Singularity::new(SingularityConfig::default());
+        let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
         let concept_a = Concept {
             id: "a".to_string(),
             vector: HVec10240::random(),

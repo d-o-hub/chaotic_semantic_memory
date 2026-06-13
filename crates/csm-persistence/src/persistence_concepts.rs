@@ -1,7 +1,6 @@
 #![cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 use crate::persistence::Persistence;
 use csm_core::error::{MemoryError, Result};
-use csm_core::hyperdim::HVec10240;
 use csm_memory::Concept;
 use libsql::params;
 
@@ -188,7 +187,6 @@ impl Persistence {
             let canonical_concept_ids_json: Option<String> = row.get(5).ok();
 
             let vector = H::from_bytes(&vector_bytes)?;
-            let vector = H::from_bytes(&vector_bytes)?;
             let metadata = serde_json::from_str(&metadata_json)?;
             let canonical_concept_ids = canonical_concept_ids_json
                 .as_deref()
@@ -251,7 +249,7 @@ impl Persistence {
             let expires_at: Option<i64> = row.get(5).ok();
             let canonical_concept_ids_json: Option<String> = row.get(6).ok();
 
-            let vector = HVec10240::from_bytes(&vector_bytes)?;
+            let vector = H::from_bytes(&vector_bytes)?;
             let metadata = serde_json::from_str(&metadata_json)?;
             let canonical_concept_ids = canonical_concept_ids_json
                 .as_deref()

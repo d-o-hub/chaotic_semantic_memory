@@ -3,12 +3,12 @@
 //! 10240-bit hypervectors packed into 160 x u64 words.
 //! Provides 32x compression compared to f32 hypervectors.
 
+use crate::error::{MemoryError, Result};
+use crate::hyperdim::{HVec10240, Hypervector};
+use rand::RngExt;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
-use rand::RngExt;
-use crate::error::{Result, MemoryError};
-use crate::hyperdim::{HVec10240, Hypervector};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[must_use]
