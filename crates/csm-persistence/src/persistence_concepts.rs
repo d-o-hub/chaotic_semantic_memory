@@ -17,11 +17,7 @@ impl Persistence {
         let metadata_json = serde_json::to_string(&concept.metadata)?;
         let expires_at: Option<i64> = concept.expires_at.map(|t| t as i64);
         let canonical_concept_ids_json = serde_json::to_string(&concept.canonical_concept_ids)?;
-        let vector_format = if std::mem::size_of::<H>() == 1280 {
-            "f32"
-        } else {
-            "binary"
-        };
+        let vector_format = H::FORMAT_NAME;
 
         conn.execute(
             "INSERT INTO csm_concepts
@@ -76,11 +72,7 @@ impl Persistence {
             .await
             .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {e}")))?;
 
-        let vector_format = if std::mem::size_of::<H>() == 1280 {
-            "f32"
-        } else {
-            "binary"
-        };
+        let vector_format = H::FORMAT_NAME;
 
         let mut first_error: Option<MemoryError> = None;
         for concept in concepts {

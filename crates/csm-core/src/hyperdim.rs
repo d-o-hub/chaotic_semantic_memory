@@ -38,6 +38,7 @@ pub trait Hypervector:
     Debug + Clone + Copy + PartialEq + Eq + Send + Sync + Serialize + for<'de> Deserialize<'de>
 {
     const DIMENSION: usize;
+    const FORMAT_NAME: &'static str;
     fn zero() -> Self;
     fn random() -> Self;
     fn new_seeded(seed: u64) -> Self;
@@ -59,6 +60,7 @@ pub struct HVec10240 {
 
 impl Hypervector for HVec10240 {
     const DIMENSION: usize = 10240;
+    const FORMAT_NAME: &'static str = "f32";
 
     fn zero() -> Self {
         Self::zero()

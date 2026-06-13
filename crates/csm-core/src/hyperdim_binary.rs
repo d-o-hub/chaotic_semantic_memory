@@ -77,6 +77,7 @@ impl<'de> Deserialize<'de> for BHVec10240 {
 
 impl Hypervector for BHVec10240 {
     const DIMENSION: usize = 10240;
+    const FORMAT_NAME: &'static str = "binary";
 
     fn zero() -> Self {
         Self::zero()
