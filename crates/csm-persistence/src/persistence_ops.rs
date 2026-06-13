@@ -314,8 +314,8 @@ impl Persistence {
 #[cfg(feature = "persistence")]
 mod tests {
     use crate::persistence::Persistence;
-    use crate::singularity::Concept;
     use csm_core::hyperdim::HVec10240;
+    use csm_memory::Concept;
     use std::collections::HashMap;
     use tempfile::NamedTempFile;
 
