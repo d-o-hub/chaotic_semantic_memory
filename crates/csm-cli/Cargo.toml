@@ -32,5 +32,6 @@ name = "csm"
 path = "src/main.rs"
 
 [features]
-default = ["persistence"]
+default = ["cli", "persistence"]
+cli = []
 persistence = ["csm-persistence/libsql"]

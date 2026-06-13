@@ -1,4 +1,4 @@
-#![cfg(all(not(target_arch = "wasm32"), feature = "libsql"))]
+#![cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 use crate::persistence::Persistence;
 use csm_core::error::{MemoryError, Result};
 use csm_core::hyperdim::HVec10240;
