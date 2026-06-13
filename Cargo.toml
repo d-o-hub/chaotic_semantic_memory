@@ -272,8 +272,8 @@ embed-openai = ["csm-embedding/embed-openai"]
 embed-voyage = ["csm-embedding/embed-voyage"]
 
 # ANN backends (ADR-0068)
-ann-hnsw = ["dep:hnsw_rs"]
-ann-lsh = []
+ann-hnsw = ["dep:hnsw_rs", "csm-memory/ann-hnsw"]
+ann-lsh = ["csm-memory/ann-lsh"]
 
 
 # CloudEvents integration (ADR-0078)

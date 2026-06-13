@@ -7,26 +7,28 @@
 //! - `AnnIndex`: Approximate nearest neighbor index abstraction
 //! - `graph_traversal`: BFS, Dijkstra on the concept graph
 
-mod concept_builder;
-mod graph_traversal;
-mod index;
-mod metadata_filter;
-mod singularity;
-mod singularity_cache;
-mod singularity_ext;
-mod singularity_retrieval;
-mod singularity_search;
-mod singularity_state;
-mod singularity_ttl;
+pub mod concept_builder;
+pub mod graph_traversal;
+pub mod index;
+pub mod metadata_filter;
+pub mod singularity;
+pub mod singularity_cache;
+pub mod singularity_ext;
+pub mod singularity_retrieval;
+pub mod singularity_search;
+pub mod singularity_state;
+pub mod singularity_ttl;
 
 pub use concept_builder::ConceptBuilder;
 pub use graph_traversal::TraversalConfig;
 pub use index::{AnnIndex, IndexBackend, IndexStats};
 pub use metadata_filter::MetadataFilter;
 pub use singularity::{
-    Concept, ConceptDiff, ConceptVersion, Singularity, SingularityConfig, unix_now_ns,
-    unix_now_secs,
+    Concept, ConceptDiff, ConceptVersion, Singularity, SingularityConfig, similarity_cache_key,
+    unix_now_ns, unix_now_secs,
 };
 pub use singularity_cache::{CacheMetrics, CacheMetricsSnapshot};
-pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats};
+pub use singularity_retrieval::{
+    CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats, ScoredCandidateParams,
+};
 pub use singularity_state::NamespaceState;

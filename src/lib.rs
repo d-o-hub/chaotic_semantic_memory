@@ -74,11 +74,8 @@ pub mod retrieval;
 pub mod semantic_bridge;
 pub mod singularity;
 mod singularity_cache;
-mod singularity_ext;
 mod singularity_retrieval;
-mod singularity_search;
 pub mod singularity_state;
-mod singularity_ttl;
 
 #[cfg(target_arch = "wasm32")]
 pub use crate::persistence_wasm as persistence;
