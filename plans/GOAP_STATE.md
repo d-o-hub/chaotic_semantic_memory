@@ -1364,3 +1364,35 @@ world_state:
   ci_mutation_gate_pr363_equivalent_mutants_accepted: true
 
   action_last_completed: csm_wasm_created_2026_06_12
+
+  # ═══════════════════════════════════════════════════════
+  # GOAP Orchestration 2026-06-13
+  # Scanned plans/ folder, resolved missing tasks, opened issues
+  # ═══════════════════════════════════════════════════════
+  goap_orchestration_2026_06_13_completed: true
+  goap_2026_06_13_main_head: "1acbf44"
+  goap_2026_06_13_prs_merged:
+    - "PR #394: refactor(workspace): replace duplicate modules with csm-memory re-exports (#371)"
+  goap_2026_06_13_issues_opened:
+    - "#391: feat(observability): OTLP gRPC exporter (ADR-0072 follow-up)"
+    - "#392: test(security): property-based security tests"
+    - "#393: fix(cli): csm-cli standalone compilation"
+    - "#395: feat(errors): remediation hints for MemoryError variants"
+  goap_2026_06_13_gap_analysis_status:
+    f1_cli_parity: complete
+    f2_mcp_server: complete
+    f3_hnsw_ann: complete
+    f4_agent_protocol: complete  # MCP server covers this
+    f5_embedding_bridge: complete
+    f6_observability: complete  # JSON path done, gRPC deferred (#391)
+    f7_namespace_isolation: complete
+    f8_version_history: complete
+    f9_reranking: complete
+    f10_quantized_hvs: in_progress  # #387/#389 Jules delegation
+  goap_2026_06_13_deferred_actions:
+    - "advanced_ttl_policies (cost 8, ADR-0024)"
+    - "performance_phase2 (cost 15, ADR-0024)"
+    - "association_decay (cost 6, ADR-0025)"
+    - "otlp_grpc_exporter (cost 8, #391)"
+
+  action_last_completed: goap_orchestration_2026_06_13
