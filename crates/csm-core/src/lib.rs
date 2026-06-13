@@ -4,6 +4,7 @@ pub mod bundle_simd;
 pub mod encoder;
 pub mod error;
 pub mod hyperdim;
+pub mod hyperdim_binary;
 pub mod hyperdim_batch;
 pub mod hyperdim_serde;
 pub mod hyperdim_simd;
@@ -16,6 +17,7 @@ pub mod reservoir_sparse;
 pub use bundle::BundleAccumulator;
 pub use error::{MemoryError, Result};
 pub use hyperdim::{HVec10240, batch_cosine_similarity};
+pub use hyperdim_binary::BHVec10240;
 
 pub mod prelude {
     pub use crate::error::{MemoryError, Result};

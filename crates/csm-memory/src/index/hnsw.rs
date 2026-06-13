@@ -99,7 +99,7 @@ struct HnswPersistenceWrapper {
 }
 
 #[cfg(feature = "ann-hnsw")]
-impl AnnIndex for HnswIndex {
+impl AnnIndex<HVec10240> for HnswIndex {
     fn insert(&mut self, id: String, vec: &HVec10240) -> Result<()> {
         // #6: Handle updates to existing IDs.
         if self.id_to_idx.contains_key(&id) {
@@ -149,7 +149,7 @@ impl AnnIndex for HnswIndex {
         query: &HVec10240,
         top_k: usize,
         filter: &crate::metadata_filter::MetadataFilter,
-        concepts: &HashMap<String, Concept>,
+        concepts: &HashMap<String, Concept<HVec10240>>,
     ) -> Result<Vec<(String, f32)>> {
         let expanded_k = top_k * 5 + self.deleted_count.min(top_k * 10);
         let results = self.hnsw.search(
@@ -195,7 +195,7 @@ impl AnnIndex for HnswIndex {
         Ok(filtered_results)
     }
 
-    fn rebuild(&mut self, concepts: &HashMap<String, Concept>) -> Result<()> {
+    fn rebuild(&mut self, concepts: &HashMap<String, Concept<HVec10240>>) -> Result<()> {
         self.hnsw = Hnsw::new(
             self.config.m,
             concepts.len().max(100),

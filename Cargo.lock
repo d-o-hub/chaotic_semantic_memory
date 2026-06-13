@@ -1383,6 +1383,10 @@ dependencies = [
  "js-sys",
  "rand 0.10.1",
  "rand_chacha 0.10.0",
+<<<<<<< HEAD
+=======
+ "rayon",
+>>>>>>> 87d2b24 (feat(hyperdim): implement quantized binary hypervectors (ADR-0075))
  "serde",
  "serde_json",
  "tempfile",

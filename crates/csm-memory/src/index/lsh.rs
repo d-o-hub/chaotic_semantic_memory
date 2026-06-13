@@ -10,24 +10,27 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
+use rayon::iter::ParallelBridge;
+#[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
 
 use crate::index::{AnnIndex, IndexStats};
 use crate::singularity::Concept;
 use csm_core::error::Result;
-use csm_core::hyperdim::HVec10240;
+use csm_core::hyperdim::{HVec10240, Hypervector};
 
 /// Locality-Sensitive Hashing (LSH) for hypervectors using bit-sampling.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct LshIndex {
+#[serde(bound = "H: Hypervector")]
+pub struct LshIndex<H: Hypervector = HVec10240> {
     num_tables: usize,
     hash_bits: usize,
     tables: Vec<HashMap<u64, Vec<String>>>,
     projections: Vec<Vec<usize>>, // indices of bits to sample for each table
-    concepts: HashMap<String, HVec10240>,
+    concepts: HashMap<String, H>,
 }
 
-impl LshIndex {
+impl<H: Hypervector> LshIndex<H> {
     pub fn new(num_tables: usize, hash_bits: usize) -> Result<Self> {
         // #9: Reject zero-table configurations.
         if num_tables == 0 {
@@ -60,13 +63,14 @@ impl LshIndex {
         })
     }
 
-    fn compute_hash(&self, vec: &HVec10240, table_idx: usize) -> u64 {
+    fn compute_hash(&self, vec: &H, table_idx: usize) -> u64 {
         let mut hash = 0u64;
         let bits = &self.projections[table_idx];
+        let bytes = vec.to_bytes();
         for (i, &bit_pos) in bits.iter().enumerate() {
-            let word = bit_pos / 128;
-            let bit = bit_pos % 128;
-            if (vec.data[word] & (1u128 << bit)) != 0 {
+            let byte_idx = bit_pos / 8;
+            let bit_idx = bit_pos % 8;
+            if byte_idx < bytes.len() && (bytes[byte_idx] & (1 << bit_idx)) != 0 {
                 hash |= 1u64 << i;
             }
         }
@@ -74,8 +78,8 @@ impl LshIndex {
     }
 }
 
-impl AnnIndex for LshIndex {
-    fn insert(&mut self, id: String, vec: &HVec10240) -> Result<()> {
+impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
+    fn insert(&mut self, id: String, vec: &H) -> Result<()> {
         if self.concepts.contains_key(&id) {
             self.delete(&id)?;
         }
@@ -100,7 +104,7 @@ impl AnnIndex for LshIndex {
         Ok(())
     }
 
-    fn search(&self, query: &HVec10240, top_k: usize) -> Result<Vec<(String, f32)>> {
+    fn search(&self, query: &H, top_k: usize) -> Result<Vec<(String, f32)>> {
         if top_k == 0 || self.concepts.is_empty() {
             return Ok(Vec::new());
         }
@@ -152,17 +156,17 @@ impl AnnIndex for LshIndex {
 
         let results = scores
             .into_iter()
-            .map(|(id, dist)| (id.clone(), 1.0 - (dist as f32 / 5120.0)))
+            .map(|(id, dist): (&String, u32)| (id.clone(), 1.0 - (dist as f32 / 5120.0)))
             .collect();
         Ok(results)
     }
 
     fn search_filtered(
         &self,
-        query: &HVec10240,
+        query: &H,
         top_k: usize,
         filter: &crate::metadata_filter::MetadataFilter,
-        concepts: &HashMap<String, Concept>,
+        concepts: &HashMap<String, Concept<H>>,
     ) -> Result<Vec<(String, f32)>> {
         if top_k == 0 || self.concepts.is_empty() {
             return Ok(Vec::new());
@@ -217,7 +221,7 @@ impl AnnIndex for LshIndex {
 
         let final_scores: Vec<(String, f32)> = scores
             .into_iter()
-            .map(|(id, dist)| (id.clone(), 1.0 - (dist as f32 / 5120.0)))
+            .map(|(id, dist): (&String, u32)| (id.clone(), 1.0 - (dist as f32 / 5120.0)))
             .collect();
 
         // Fallback for correctness: if we have few candidates, check all filtered concepts
@@ -227,7 +231,8 @@ impl AnnIndex for LshIndex {
             // valid candidates for a specific filter.
             #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
             let mut all_filtered: Vec<(&String, u32)> = concepts
-                .par_iter()
+                .iter()
+                .par_bridge()
                 .filter(|(_, c)| filter.matches(&c.metadata))
                 .map(|(id, c)| (id, query.hamming_distance(&c.vector)))
                 .collect();
@@ -249,7 +254,7 @@ impl AnnIndex for LshIndex {
 
             let results = all_filtered
                 .into_iter()
-                .map(|(id, dist)| (id.clone(), 1.0 - (dist as f32 / 5120.0)))
+                .map(|(id, dist): (&String, u32)| (id.clone(), 1.0 - (dist as f32 / 5120.0)))
                 .collect();
             return Ok(results);
         }
@@ -257,7 +262,7 @@ impl AnnIndex for LshIndex {
         Ok(final_scores)
     }
 
-    fn rebuild(&mut self, concepts: &HashMap<String, Concept>) -> Result<()> {
+    fn rebuild(&mut self, concepts: &HashMap<String, Concept<H>>) -> Result<()> {
         for table in &mut self.tables {
             table.clear();
         }
@@ -279,7 +284,7 @@ impl AnnIndex for LshIndex {
             backend: "LSH".to_string(),
             count: self.concepts.len(),
             memory_usage_bytes: self.concepts.len()
-                * (std::mem::size_of::<String>() + std::mem::size_of::<HVec10240>())
+                * (std::mem::size_of::<String>() + std::mem::size_of::<H>())
                 + total_buckets * std::mem::size_of::<Vec<String>>(),
         }
     }
