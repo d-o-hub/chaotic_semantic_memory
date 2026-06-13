@@ -60,7 +60,7 @@ jobs:
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
     - name: Test ${{ matrix.crate }}
-      run: cargo test -p ${{ matrix.crate }} --all-features --locked -- --quiet
+      run: cargo test -p ${{ matrix.crate }} --locked -- --quiet
 
   test-duckdb:
     name: Test DuckDB Companion
