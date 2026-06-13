@@ -60,6 +60,8 @@ jobs:
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
     - name: Test ${{ matrix.crate }}
+      # Default features only; --all-features causes conflicts (wasm+persistence).
+      # Full feature coverage is in the main 'test' job.
       run: cargo test -p ${{ matrix.crate }} --locked -- --quiet
 
   test-duckdb:
