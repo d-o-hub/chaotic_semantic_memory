@@ -467,4 +467,30 @@ mod tests {
         assert!(index.core.as_ref().is_some_and(|c| c._owner.is_none()));
         Ok(())
     }
+
+    #[test]
+    fn binary_singularity_type_alias_works() {
+        let _bs: crate::singularity::BinarySingularity =
+            crate::singularity::Singularity::new(crate::singularity::SingularityConfig::default());
+    }
+
+    #[test]
+    fn hnsw_index_bruteforce_fallback_for_binary_vectors() {
+        use csm_core::BHVec10240;
+
+        // When H != HVec10240, HnswIndex should fall back to BruteForce
+        let mut index = HnswIndex::<BHVec10240>::new(16, 100, 10).unwrap();
+        assert!(!index.use_hnsw(), "BHVec10240 should not use HNSW graph");
+
+        let vec = BHVec10240::random();
+        index.insert("bin-1".to_string(), &vec).unwrap();
+
+        let results = index.search(&vec, 1).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].0, "bin-1");
+
+        let stats = index.stats();
+        assert_eq!(stats.count, 1);
+        assert_eq!(stats.backend, "BruteForce");
+    }
 }
