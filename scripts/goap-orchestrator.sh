@@ -8,7 +8,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PLANS_DIR="$REPO_ROOT/plans"
 STATE_FILE="$PLANS_DIR/GOAP_ORCHESTRATOR.md"
-TRACKER_FILE="$PLANS_DIR/ISSUE_TRACKER.md"
 
 # Colors
 RED='\033[0;31m'
@@ -34,11 +33,12 @@ cmd_scan() {
 
 cmd_plan() {
     echo -e "${BLUE}=== Building GOAP Plan ===${NC}"
-    
+
     # Get all open issues
-    local issues=$(gh issue list --state open --limit 50 --json number,title,labels \
+    local issues
+    issues=$(gh issue list --state open --limit 50 --json number,title,labels \
         --jq '.[] | "\(.number)|\(.title)|\(.labels[].name // "none")"')
-    
+
     # Create plan file
     cat > "$STATE_FILE" << 'EOF'
 # GOAP Orchestrator State
@@ -56,27 +56,31 @@ EOF
     local action_id=1
     while IFS='|' read -r number title labels; do
         if [[ "$number" =~ ^[0-9]+$ ]]; then
-            echo "### Action $action_id: Issue #$number" >> "$STATE_FILE"
-            echo "- **Issue**: #$number" >> "$STATE_FILE"
-            echo "- **Title**: $title" >> "$STATE_FILE"
-            echo "- **Labels**: $labels" >> "$STATE_FILE"
-            echo "- **Status**: queued" >> "$STATE_FILE"
-            echo "- **Branch**: feat/issue-$number-$(echo "$title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | head -c 50)" >> "$STATE_FILE"
-            echo "" >> "$STATE_FILE"
+            {
+                echo "### Action $action_id: Issue #$number"
+                echo "- **Issue**: #$number"
+                echo "- **Title**: $title"
+                echo "- **Labels**: $labels"
+                echo "- **Status**: queued"
+                echo "- **Branch**: feat/issue-$number-$(echo "$title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | head -c 50)"
+                echo ""
+            } >> "$STATE_FILE"
             ((action_id++))
         fi
     done <<< "$issues"
-    
+
     echo -e "${GREEN}Plan created: $STATE_FILE${NC}"
     cat "$STATE_FILE"
 }
+
 
 cmd_execute() {
     local action_num="${1:-1}"
     echo -e "${BLUE}=== Executing Action #$action_num ===${NC}"
     
     # Get issue number from plan
-    local issue_num=$(grep -A5 "Action $action_num:" "$STATE_FILE" | grep "Issue" | head -1 | sed 's/.*#\([0-9]*\).*/\1/')
+    local issue_num
+    issue_num=$(grep -A5 "Action $action_num:" "$STATE_FILE" | grep "Issue" | head -1 | sed 's/.*#\([0-9]*\).*/\1/')
     
     if [[ -z "$issue_num" ]]; then
         echo -e "${RED}Action #$action_num not found in plan${NC}"
@@ -89,7 +93,8 @@ cmd_execute() {
     gh issue view "$issue_num" --json title,body,labels
     
     # Create branch
-    local branch=$(grep -A5 "Action $action_num:" "$STATE_FILE" | grep "Branch" | head -1 | sed 's/.*: //')
+    local branch
+    branch=$(grep -A5 "Action $action_num:" "$STATE_FILE" | grep "Branch" | head -1 | sed 's/.*: //')
     
     echo -e "${YELLOW}Creating branch: $branch${NC}"
     git checkout -b "$branch" 2>/dev/null || git checkout "$branch"
@@ -118,7 +123,8 @@ cmd_complete() {
     sed -i "s/### Action $action_num:.*$/### Action $action_num: [COMPLETED]/" "$STATE_FILE"
     
     # Commit and push
-    local branch=$(git branch --show-current)
+    local branch
+    branch=$(git branch --show-current)
     echo -e "${YELLOW}Committing changes on $branch${NC}"
     
     git add -A
