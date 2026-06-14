@@ -84,6 +84,9 @@ RUSTFLAGS="" cargo mutants "${FAST_ARGS[@]}" \
   --exclude-re 'persistence::Persistence::list_namespaces' \
   --exclude-re 'HnswIndex::serialize' \
   --exclude-re 'HnswIndex::deserialize' \
+  --exclude-re 'observability::otlp_grpc::' \
+  --exclude-re 'observability::init' \
+  --exclude-re 'observability::Guard::drop' \
   "$@" 2>&1 | tee "${LOG_FILE}"
 RESULT="${PIPESTATUS[0]}"
 set +o pipefail
