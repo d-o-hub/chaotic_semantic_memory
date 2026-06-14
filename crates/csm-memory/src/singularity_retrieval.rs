@@ -474,16 +474,17 @@ impl Singularity {
 #[cfg(test)]
 mod tests_v2 {
     use crate::singularity::{Singularity, SingularityConfig};
+    use csm_core::hyperdim::HVec10240;
 
     #[test]
     fn singularity_last_stats_v2() {
-        let s = Singularity::new(SingularityConfig::default());
+        let s = Singularity::<HVec10240>::new(SingularityConfig::default());
         assert_eq!(s.last_retrieval_stats("_default").candidate_count, 0);
     }
 
     #[test]
     fn singularity_get_config_v2() {
-        let s = Singularity::new(SingularityConfig::default());
+        let s = Singularity::<HVec10240>::new(SingularityConfig::default());
         assert_eq!(s.retrieval_config().max_candidates, 1000);
     }
 }

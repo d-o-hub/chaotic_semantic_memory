@@ -343,11 +343,11 @@ mod tests {
         let concept = make_concept("test-concept");
 
         persistence
-            .save_concept(ns, &concept)
+            .save_concept::<HVec10240>(ns, &concept)
             .await
             .expect("Failed to save");
         let loaded = persistence
-            .load_concept(ns, "test-concept")
+            .load_concept::<HVec10240>(ns, "test-concept")
             .await
             .expect("Failed to load")
             .expect("Concept not found");
@@ -366,14 +366,16 @@ mod tests {
         let concept = make_concept("delete-test");
 
         persistence
-            .save_concept(ns, &concept)
+            .save_concept::<HVec10240>(ns, &concept)
             .await
             .expect("Failed to save");
         persistence
             .delete_concept(ns, "delete-test")
             .await
             .expect("Failed to delete");
-        let result = persistence.load_concept(ns, "delete-test").await;
+        let result = persistence
+            .load_concept::<HVec10240>(ns, "delete-test")
+            .await;
         assert!(result.expect("Query failed").is_none());
     }
 

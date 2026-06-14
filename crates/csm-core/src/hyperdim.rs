@@ -6,6 +6,8 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use rand::RngExt;
+use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
@@ -31,11 +33,76 @@ use crate::hyperdim_simd_bundle::bundle_block_avx2;
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
 use crate::hyperdim_simd_bundle::bundle_block_neon;
 
+/// Common interface for hypervectors
+pub trait Hypervector:
+    Debug + Clone + Copy + PartialEq + Eq + Send + Sync + Serialize + for<'de> Deserialize<'de>
+{
+    const DIMENSION: usize;
+    const FORMAT_NAME: &'static str;
+    fn zero() -> Self;
+    fn random() -> Self;
+    fn new_seeded(seed: u64) -> Self;
+    fn bundle(vectors: &[&Self]) -> Result<Self>;
+    fn bind(&self, other: &Self) -> Self;
+    fn cosine_similarity(&self, other: &Self) -> f32;
+    fn hamming_distance(&self, other: &Self) -> u32;
+    fn permute(&self, shift: usize) -> Self;
+    fn to_bytes(&self) -> Vec<u8>;
+    fn from_bytes(bytes: &[u8]) -> Result<Self>;
+}
+
 /// 10240-bit hypervector (80 x 128-bit words)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[must_use]
 pub struct HVec10240 {
     pub data: [u128; 80],
+}
+
+impl Hypervector for HVec10240 {
+    const DIMENSION: usize = 10240;
+    const FORMAT_NAME: &'static str = "f32";
+
+    fn zero() -> Self {
+        Self::zero()
+    }
+
+    fn random() -> Self {
+        Self::random()
+    }
+
+    fn new_seeded(seed: u64) -> Self {
+        Self::new_seeded(seed)
+    }
+
+    fn bundle(vectors: &[&Self]) -> Result<Self> {
+        // HVec10240::bundle expects &[Self], but trait gives &[&Self]
+        let owned_vecs: Vec<Self> = vectors.iter().map(|&v| *v).collect();
+        Self::bundle(&owned_vecs)
+    }
+
+    fn bind(&self, other: &Self) -> Self {
+        self.bind(other)
+    }
+
+    fn cosine_similarity(&self, other: &Self) -> f32 {
+        self.cosine_similarity(other)
+    }
+
+    fn hamming_distance(&self, other: &Self) -> u32 {
+        self.hamming_distance(other)
+    }
+
+    fn permute(&self, shift: usize) -> Self {
+        self.permute(shift)
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        self.to_bytes()
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        Self::from_bytes(bytes)
+    }
 }
 
 impl HVec10240 {

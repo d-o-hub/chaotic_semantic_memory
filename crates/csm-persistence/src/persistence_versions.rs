@@ -5,10 +5,10 @@ use libsql::{Connection, params};
 
 #[allow(dead_code)]
 impl Persistence {
-    pub(crate) async fn record_concept_version(
+    pub(crate) async fn record_concept_version<H: csm_core::hyperdim::Hypervector>(
         &self,
         conn: &Connection,
-        concept: &Concept,
+        concept: &Concept<H>,
     ) -> Result<()> {
         self.record_concept_version_scoped(conn, "_default", concept, None, None)
             .await
@@ -17,11 +17,11 @@ impl Persistence {
     /// Records a new concept version, optionally using pre-computed vector bytes and metadata JSON.
     /// Performance Optimization: Accepting pre-computed values avoids redundant serialization and
     /// allocations when this is called from batch operations or normal save paths.
-    pub(crate) async fn record_concept_version_scoped(
+    pub(crate) async fn record_concept_version_scoped<H: csm_core::hyperdim::Hypervector>(
         &self,
         conn: &Connection,
         ns: &str,
-        concept: &Concept,
+        concept: &Concept<H>,
         vector_bytes: Option<&[u8]>,
         metadata_json: Option<&str>,
     ) -> Result<()> {
@@ -89,12 +89,12 @@ impl Persistence {
     }
 
     /// Load a specific concept version from the database.
-    pub async fn get_version_scoped(
+    pub async fn get_version_scoped<H: csm_core::hyperdim::Hypervector>(
         &self,
         ns: &str,
         id: &str,
         version: u64,
-    ) -> Result<Option<Concept>> {
+    ) -> Result<Option<Concept<H>>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
@@ -129,7 +129,7 @@ impl Persistence {
             let canonical_concept_ids_json: Option<String> =
                 row.get::<Option<String>>(5).ok().flatten();
 
-            let vector = csm_core::hyperdim::HVec10240::from_bytes(&vector_bytes)?;
+            let vector = H::from_bytes(&vector_bytes)?;
             let metadata = serde_json::from_str(&metadata_json)?;
             let canonical_concept_ids = canonical_concept_ids_json
                 .as_deref()
@@ -152,7 +152,11 @@ impl Persistence {
     }
 
     /// List all versions of a concept in a namespace.
-    pub async fn list_versions_scoped(&self, ns: &str, id: &str) -> Result<Vec<ConceptVersion>> {
+    pub async fn list_versions_scoped<H: csm_core::hyperdim::Hypervector>(
+        &self,
+        ns: &str,
+        id: &str,
+    ) -> Result<Vec<ConceptVersion<H>>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
