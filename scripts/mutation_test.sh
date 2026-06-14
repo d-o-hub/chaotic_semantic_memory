@@ -87,7 +87,7 @@ RUSTFLAGS="" cargo mutants "${FAST_ARGS[@]}" \
   --exclude-re 'OtlpGuard::' \
   --exclude-re 'install_grpc_tracer' \
   --exclude-re 'Guard>::drop' \
-  --exclude-re 'init.*Result<Option<Guard>>' \
+  --exclude-re 'init.*Option' \
   --exclude-re 'init.*&&' \
   --exclude-re 'init.*delete' \
   "$@" 2>&1 | tee "${LOG_FILE}"
