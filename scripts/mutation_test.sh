@@ -86,7 +86,8 @@ RUSTFLAGS="" cargo mutants "${FAST_ARGS[@]}" \
   --exclude-re 'HnswIndex::deserialize' \
   --exclude-re 'OtlpGuard::' \
   --exclude-re 'install_grpc_tracer' \
-  --exclude-re 'Guard>.drop' \
+  --exclude-re 'impl Drop for Guard' \
+  --exclude-re 'impl Drop for OtlpGuard' \
   --exclude-re 'Result<Option<Guard>>' \
   --exclude-re 'replace && with' \
   --exclude-re 'delete . in init' \
