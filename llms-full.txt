@@ -3545,6 +3545,7 @@ impl Drop for OtlpGuard {
 
 ```rust
 impl OtlpGuard {
+    pub fn empty() -> Self;
     pub fn shutdown(&mut self);
 }
 ```

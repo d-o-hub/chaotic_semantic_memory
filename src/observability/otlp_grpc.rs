@@ -46,6 +46,14 @@ pub struct OtlpGuard {
 }
 
 impl OtlpGuard {
+    /// Create an `OtlpGuard` with no provider (for testing purposes).
+    ///
+    /// The guard will be a no-op: `shutdown()` and `Drop` do nothing when
+    /// `provider` is `None`.
+    pub fn empty() -> Self {
+        Self { provider: None }
+    }
+
     /// Flush remaining spans and shut down the provider.
     ///
     /// Idempotent: subsequent calls after the first are no-ops because

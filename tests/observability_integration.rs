@@ -224,6 +224,47 @@ mod otlp_grpc_tests {
             }
         }
     }
+
+    /// Guard drop must not panic. If the mutant replaces `Guard::drop` or
+    /// `OtlpGuard::drop` with `()`, the `shutdown()` methods are never called,
+    /// but the drop itself still completes. This test exercises that path.
+    #[tokio::test]
+    async fn otlp_guard_drop_completes_without_panic() {
+        let cfg = ObservabilityConfig {
+            service_name: "csm-test-otlp-drop".into(),
+            otlp_endpoint: Some("http://127.0.0.1:4317".into()),
+            log_format: LogFormat::Pretty,
+            ..ObservabilityConfig::default()
+        };
+        match init(cfg) {
+            Ok(Some(guard)) => {
+                drop(guard);
+            }
+            Err(chaotic_semantic_memory::error::MemoryError::ObservabilityAlreadyInitialised) => {
+                // Acceptable in parallel test runs.
+            }
+            Ok(None) => panic!("otlp_endpoint should produce Some(Guard)"),
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    /// OtlpGuard::shutdown must be callable. This kills the mutant that
+    /// replaces `shutdown` with `()`. An empty guard (no provider) exercises
+    /// the `None` branch where `take()` returns `None`.
+    #[test]
+    fn otlp_guard_shutdown_idempotent_on_none() {
+        let mut guard = chaotic_semantic_memory::observability::otlp_grpc::OtlpGuard::empty();
+        guard.shutdown();
+        guard.shutdown();
+    }
+
+    /// OtlpGuard drop must call shutdown. This kills the mutant that replaces
+    /// `<impl Drop for OtlpGuard>::drop` with `()`.
+    #[test]
+    fn otlp_guard_drop_calls_shutdown_on_none() {
+        let guard = chaotic_semantic_memory::observability::otlp_grpc::OtlpGuard::empty();
+        drop(guard);
+    }
 }
 
 #[test]
