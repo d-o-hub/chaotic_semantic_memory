@@ -70,7 +70,7 @@ fn concept_and_association_limits_enforced() {
 
 #[test]
 fn singularity_association_strength_is_validated() {
-    let mut singularity = Singularity::new(SingularityConfig::default());
+    let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
     let mk = |id: &str| Concept {
         id: id.to_string(),
         vector: HVec10240::random(),
@@ -92,7 +92,7 @@ fn singularity_association_strength_is_validated() {
 
 #[test]
 fn singularity_association_updates_instead_of_duplicating() {
-    let mut singularity = Singularity::new(SingularityConfig::default());
+    let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
     let mk = |id: &str| Concept {
         id: id.to_string(),
         vector: HVec10240::random(),

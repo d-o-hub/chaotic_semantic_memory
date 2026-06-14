@@ -5,7 +5,7 @@ use crate::singularity_cache::{CacheMetrics, CacheMetricsSnapshot};
 use crate::singularity_retrieval::RetrievalConfig;
 use crate::singularity_state::NamespaceState;
 use csm_core::error::{MemoryError, Result};
-use csm_core::hyperdim::HVec10240;
+use csm_core::hyperdim::{HVec10240, Hypervector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -35,9 +35,10 @@ impl Default for SingularityConfig {
 
 /// Represents a single memory concept
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Concept {
+#[serde(bound = "H: Hypervector")]
+pub struct Concept<H: Hypervector = HVec10240> {
     pub id: String,
-    pub vector: HVec10240,
+    pub vector: H,
     pub metadata: HashMap<String, serde_json::Value>,
     pub created_at: u64,
     pub modified_at: u64,
@@ -50,12 +51,13 @@ pub struct Concept {
 /// Represents a historical version of a concept.
 /// Can be a summary (with change flags) or a full record (with vector/metadata).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct ConceptVersion {
+#[serde(bound = "H: Hypervector")]
+pub struct ConceptVersion<H: Hypervector = HVec10240> {
     pub concept_id: String,
     pub version: u64,
     pub timestamp_unix: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub vector: Option<HVec10240>,
+    pub vector: Option<H>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -75,7 +77,7 @@ pub struct ConceptDiff {
 
 impl ConceptDiff {
     /// Calculate the differences between two versions of a concept.
-    pub fn calculate(from_concept: &Concept, to_concept: &Concept) -> Self {
+    pub fn calculate<H: Hypervector>(from_concept: &Concept<H>, to_concept: &Concept<H>) -> Self {
         let sim = from_concept.vector.cosine_similarity(&to_concept.vector);
         let vector_cosine_distance = 1.0 - sim;
 
@@ -112,16 +114,16 @@ impl ConceptDiff {
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub struct ConceptBuilder {
+pub struct ConceptBuilder<H: Hypervector = HVec10240> {
     id: String,
-    vector: Option<HVec10240>,
+    vector: Option<H>,
     metadata: HashMap<String, serde_json::Value>,
     expires_at: Option<u64>,
     canonical_concept_ids: Vec<String>,
 }
 
 #[allow(dead_code)]
-impl ConceptBuilder {
+impl<H: Hypervector> ConceptBuilder<H> {
     pub fn new(id: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -132,7 +134,7 @@ impl ConceptBuilder {
         }
     }
 
-    pub const fn with_vector(mut self, vector: HVec10240) -> Self {
+    pub fn with_vector(mut self, vector: H) -> Self {
         self.vector = Some(vector);
         self
     }
@@ -151,11 +153,11 @@ impl ConceptBuilder {
         self
     }
 
-    pub fn build(self) -> Result<Concept> {
+    pub fn build(self) -> Result<Concept<H>> {
         let now = unix_now_secs();
         Ok(Concept {
             id: self.id,
-            vector: self.vector.unwrap_or_else(HVec10240::random),
+            vector: self.vector.unwrap_or_else(H::random),
             metadata: self.metadata,
             created_at: now,
             modified_at: now,
@@ -165,14 +167,18 @@ impl ConceptBuilder {
     }
 }
 
-pub struct Singularity {
+pub struct Singularity<H: Hypervector = HVec10240> {
     pub config: SingularityConfig,
-    pub namespaces: HashMap<String, NamespaceState>,
+    pub namespaces: HashMap<String, NamespaceState<H>>,
     pub(crate) _retrieval_config: RetrievalConfig,
     pub cache_metrics: Arc<CacheMetrics>,
 }
 
-impl Singularity {
+/// Type alias for binary (quantized) hypervector-backed singularity engine.
+#[allow(dead_code)]
+pub type BinarySingularity = Singularity<csm_core::BHVec10240>;
+
+impl<H: Hypervector + 'static> Singularity<H> {
     pub fn new(config: SingularityConfig) -> Self {
         Self::new_with_metrics(config, Arc::new(CacheMetrics::default()))
     }
@@ -206,16 +212,16 @@ impl Singularity {
         Self::new_with_metrics(cfg, cache_metrics)
     }
 
-    fn create_index(&self) -> Box<dyn AnnIndex> {
+    fn create_index(&self) -> Box<dyn AnnIndex<H>> {
         crate::index::create_index(&self.config.index_backend)
             .expect("ANN index creation failed; check feature flags and configuration")
     }
 
-    pub fn get_namespace(&self, ns: &str) -> Option<&NamespaceState> {
+    pub fn get_namespace(&self, ns: &str) -> Option<&NamespaceState<H>> {
         self.namespaces.get(ns)
     }
 
-    pub fn get_namespace_mut(&mut self, ns: &str) -> &mut NamespaceState {
+    pub fn get_namespace_mut(&mut self, ns: &str) -> &mut NamespaceState<H> {
         if !self.namespaces.contains_key(ns) {
             let index = self.create_index();
             self.namespaces.insert(
@@ -227,7 +233,7 @@ impl Singularity {
     }
 
     #[instrument(skip(self, concept))]
-    pub fn inject(&mut self, ns: &str, concept: Concept) -> Result<()> {
+    pub fn inject(&mut self, ns: &str, concept: Concept<H>) -> Result<()> {
         self.evict_oldest_if_needed(ns);
         let id = concept.id.clone();
         let vector = concept.vector;
@@ -252,7 +258,7 @@ impl Singularity {
         Ok(())
     }
 
-    pub fn update(&mut self, ns: &str, id: &str, vector: HVec10240) -> Result<()> {
+    pub fn update(&mut self, ns: &str, id: &str, vector: H) -> Result<()> {
         let ns_state = self.get_namespace_mut(ns);
         if let Some(concept) = ns_state.concepts.get_mut(id) {
             concept.vector = vector;
@@ -309,7 +315,7 @@ impl Singularity {
         }
     }
 
-    pub fn get(&self, ns: &str, id: &str) -> Option<&Concept> {
+    pub fn get(&self, ns: &str, id: &str) -> Option<&Concept<H>> {
         self.get_namespace(ns).and_then(|n| n.concepts.get(id))
     }
     pub fn associate(&mut self, ns: &str, from: &str, to: &str, strength: f32) -> Result<()> {
@@ -393,7 +399,7 @@ impl Singularity {
         incoming
     }
 
-    pub fn all_concepts(&self, ns: &str) -> Vec<Concept> {
+    pub fn all_concepts(&self, ns: &str) -> Vec<Concept<H>> {
         self.get_namespace(ns)
             .map(|n| n.concepts.values().cloned().collect())
             .unwrap_or_default()
@@ -501,10 +507,10 @@ pub fn unix_now_ns() -> u64 {
     (js_sys::Date::new_0().get_time() * 1_000_000.0) as u64
 }
 
-pub fn similarity_cache_key(query: &HVec10240, top_k: usize) -> u64 {
+pub fn similarity_cache_key<H: Hypervector>(query: &H, top_k: usize) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut s = std::collections::hash_map::DefaultHasher::new();
-    query.data.hash(&mut s);
+    query.to_bytes().hash(&mut s);
     top_k.hash(&mut s);
     s.finish()
 }
