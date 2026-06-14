@@ -119,7 +119,7 @@ fn test_encoder_ngram_deterministic() {
 
 #[test]
 fn test_bfs_cycle_does_not_loop() {
-    let mut sing = Singularity::new(SingularityConfig::default());
+    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
     // a → b → c → a (cycle)
     for id in ["a", "b", "c"] {
         sing.inject(NS, make_concept(id)).unwrap();
@@ -141,7 +141,7 @@ fn test_bfs_cycle_does_not_loop() {
 
 #[test]
 fn test_bfs_disconnected_graph() {
-    let mut sing = Singularity::new(SingularityConfig::default());
+    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
     // Component 1: a → b
     // Component 2: c → d (disconnected)
     for id in ["a", "b", "c", "d"] {
@@ -163,7 +163,7 @@ fn test_bfs_disconnected_graph() {
 
 #[test]
 fn test_bfs_max_results_limit() {
-    let mut sing = Singularity::new(SingularityConfig::default());
+    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
     // Chain: a → b → c → d → e
     for id in ["a", "b", "c", "d", "e"] {
         sing.inject(NS, make_concept(id)).unwrap();
@@ -184,7 +184,7 @@ fn test_bfs_max_results_limit() {
 
 #[test]
 fn test_shortest_path_cycle_terminates() {
-    let mut sing = Singularity::new(SingularityConfig::default());
+    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
     // a → b → c → a (cycle), also a → c directly
     for id in ["a", "b", "c"] {
         sing.inject(NS, make_concept(id)).unwrap();
@@ -205,7 +205,7 @@ fn test_shortest_path_cycle_terminates() {
 
 #[test]
 fn test_shortest_path_hops_cycle_terminates() {
-    let mut sing = Singularity::new(SingularityConfig::default());
+    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
     for id in ["a", "b", "c"] {
         sing.inject(NS, make_concept(id)).unwrap();
     }
@@ -289,7 +289,7 @@ fn test_bundle_accumulator_add_remove_finalize_matches_single() {
 
 #[test]
 fn test_filtered_search_empty_filter_returns_all() {
-    let mut sing = Singularity::new(SingularityConfig::default());
+    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
     let query = HVec10240::random();
 
     for i in 0..5 {
@@ -308,7 +308,7 @@ fn test_filtered_search_empty_filter_returns_all() {
 
 #[test]
 fn test_filtered_search_no_match_returns_empty() {
-    let mut sing = Singularity::new(SingularityConfig::default());
+    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
     let query = HVec10240::random();
 
     for i in 0..5 {
@@ -333,7 +333,7 @@ fn test_filtered_search_no_match_returns_empty() {
 
 #[test]
 fn test_filtered_search_subset_match() {
-    let mut sing = Singularity::new(SingularityConfig::default());
+    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
     let query = HVec10240::random();
 
     // 3 science, 2 art
@@ -365,7 +365,7 @@ fn test_filtered_search_subset_match() {
 
 #[test]
 fn test_filtered_search_top_k_respected() {
-    let mut sing = Singularity::new(SingularityConfig::default());
+    let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
     let query = HVec10240::random();
 
     for i in 0..10 {

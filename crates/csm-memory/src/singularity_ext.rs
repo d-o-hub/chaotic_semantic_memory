@@ -116,7 +116,7 @@ mod tests {
 
     #[test]
     fn test_update_metadata_not_found() {
-        let mut sing = Singularity::new(SingularityConfig::default());
+        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
         let metadata = HashMap::new();
 
         let result = sing.update_metadata(NS, "non-existent-id", metadata);
@@ -132,7 +132,7 @@ mod tests {
 
     #[test]
     fn test_update_metadata_success() -> csm_core::error::Result<()> {
-        let mut sing = Singularity::new(SingularityConfig::default());
+        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
         let concept = ConceptBuilder::new("test-id")
             .with_metadata("original", serde_json::Value::Bool(true))
             .build()

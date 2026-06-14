@@ -74,7 +74,7 @@ mod tests {
 
     #[test]
     fn test_purge_expired() {
-        let mut sing = Singularity::new(SingularityConfig::default());
+        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
         let now = unix_now_secs();
 
         let concept1 = Concept {
@@ -128,7 +128,7 @@ mod tests {
 
     #[test]
     fn test_is_expired() {
-        let mut sing = Singularity::new(SingularityConfig::default());
+        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
         let now = unix_now_secs();
 
         let concept1 = Concept {
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_active_concept_ids() {
-        let mut sing = Singularity::new(SingularityConfig::default());
+        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
         let now = unix_now_secs();
 
         let concept1 = Concept {

@@ -11,24 +11,34 @@ use rayon::prelude::*;
 use crate::index::{AnnIndex, IndexStats};
 use crate::singularity::Concept;
 use csm_core::error::Result;
-use csm_core::hyperdim::HVec10240;
+use csm_core::hyperdim::{HVec10240, Hypervector};
 
 /// Exact search via linear scan.
-#[derive(Debug, Default)]
-pub struct BruteForce {
+#[derive(Debug)]
+pub struct BruteForce<H: Hypervector = HVec10240> {
     indices: Vec<String>,
-    vectors: Vec<HVec10240>,
+    vectors: Vec<H>,
     id_to_index: HashMap<String, usize>,
 }
 
-impl BruteForce {
+impl<H: Hypervector> Default for BruteForce<H> {
+    fn default() -> Self {
+        Self {
+            indices: Vec::new(),
+            vectors: Vec::new(),
+            id_to_index: HashMap::new(),
+        }
+    }
+}
+
+impl<H: Hypervector> BruteForce<H> {
     pub fn new() -> Self {
         Self::default()
     }
 }
 
-impl AnnIndex for BruteForce {
-    fn insert(&mut self, id: String, vec: &HVec10240) -> Result<()> {
+impl<H: Hypervector + 'static> AnnIndex<H> for BruteForce<H> {
+    fn insert(&mut self, id: String, vec: &H) -> Result<()> {
         if let Some(&idx) = self.id_to_index.get(&id) {
             self.vectors[idx] = *vec;
         } else {
@@ -52,7 +62,7 @@ impl AnnIndex for BruteForce {
         Ok(())
     }
 
-    fn search(&self, query: &HVec10240, top_k: usize) -> Result<Vec<(String, f32)>> {
+    fn search(&self, query: &H, top_k: usize) -> Result<Vec<(String, f32)>> {
         if top_k == 0 || self.indices.is_empty() {
             return Ok(Vec::new());
         }
@@ -98,10 +108,10 @@ impl AnnIndex for BruteForce {
 
     fn search_filtered(
         &self,
-        query: &HVec10240,
+        query: &H,
         top_k: usize,
         filter: &crate::metadata_filter::MetadataFilter,
-        concepts: &HashMap<String, Concept>,
+        concepts: &HashMap<String, Concept<H>>,
     ) -> Result<Vec<(String, f32)>> {
         if top_k == 0 || self.indices.is_empty() {
             return Ok(Vec::new());
@@ -155,7 +165,7 @@ impl AnnIndex for BruteForce {
         Ok(results)
     }
 
-    fn rebuild(&mut self, concepts: &HashMap<String, Concept>) -> Result<()> {
+    fn rebuild(&mut self, concepts: &HashMap<String, Concept<H>>) -> Result<()> {
         self.indices.clear();
         self.vectors.clear();
         self.id_to_index.clear();
@@ -171,7 +181,7 @@ impl AnnIndex for BruteForce {
             backend: "BruteForce".to_string(),
             count: self.indices.len(),
             memory_usage_bytes: self.indices.len()
-                * (std::mem::size_of::<String>() + std::mem::size_of::<HVec10240>() + 16),
+                * (std::mem::size_of::<String>() + std::mem::size_of::<H>() + 16),
         }
     }
 

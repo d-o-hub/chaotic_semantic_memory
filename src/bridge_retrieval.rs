@@ -294,7 +294,7 @@ mod tests {
         let encoder = TextEncoder::new();
         let graph = ConceptGraph::new();
         let bridge = BridgeRetrieval::with_defaults(encoder, graph);
-        let singularity = Singularity::new(SingularityConfig::default());
+        let singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
 
         let results = bridge
             .query("_default", &singularity, "test query", 10, None)
@@ -308,7 +308,7 @@ mod tests {
         let graph = ConceptGraph::new();
         let bridge = BridgeRetrieval::with_defaults(encoder.clone(), graph);
 
-        let mut singularity = Singularity::new(SingularityConfig::default());
+        let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
         let concept = crate::singularity::ConceptBuilder::new("test-concept")
             .with_vector(encoder.encode("test content"))
             .build()
@@ -338,7 +338,7 @@ mod tests {
 
         let bridge = BridgeRetrieval::with_defaults(encoder.clone(), graph);
 
-        let mut singularity = Singularity::new(SingularityConfig::default());
+        let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
         let concept = crate::singularity::ConceptBuilder::new("mem-1")
             .with_vector(encoder.encode("session context for AI agent"))
             .build()
@@ -364,7 +364,7 @@ mod tests {
         let encoder = TextEncoder::new();
         let graph = ConceptGraph::new();
         let bridge = BridgeRetrieval::with_defaults(encoder, graph);
-        let singularity = Singularity::new(SingularityConfig::default());
+        let singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
 
         let packet = bridge
             .memory_packet("_default", &singularity, "test query", 10, None)
@@ -429,7 +429,7 @@ mod tests {
     fn test_query_top_k_zero_returns_empty() {
         let encoder = TextEncoder::new();
         let bridge = BridgeRetrieval::with_defaults(encoder.clone(), ConceptGraph::new());
-        let mut singularity = Singularity::new(SingularityConfig::default());
+        let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
         let concept = crate::singularity::ConceptBuilder::new("c1")
             .with_vector(encoder.encode("hello world"))
             .build()
@@ -451,7 +451,7 @@ mod tests_v2 {
 
     #[test]
     fn test_bridge_retrieval_query_v2() {
-        let mut singularity = Singularity::new(SingularityConfig::default());
+        let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
         let concept = ConceptBuilder::new("c1")
             .with_vector(HVec10240::random())
             .build()
