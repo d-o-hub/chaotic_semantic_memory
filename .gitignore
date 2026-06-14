@@ -53,11 +53,15 @@ pkg/
 .opencode/node_modules/
 .opencode/bun.lock
 .opencode/package.json
+.kilo/node_modules/
 .idea/
 .vscode/
 
 # Stray test output
 /1
+mutants.out/
+mutants.out.old/
+**/*.proptest-regressions
 
 # CLI npm package artifacts
 /cli-npm/bin/*
@@ -66,18 +70,13 @@ pkg/
 # Temporary examples (not part of crate)
 examples/tmp/
 
+# FastEmbed model cache
+.fastembed_cache/
+
 # Skill-memory test databases and exports (AI agent storage)
-.agents/csm-memory/*.db
-.agents/csm-memory/*.db-journal
-.agents/csm-memory/*.db-wal
-.agents/csm-memory/*.db-shm
-.agents/csm-memory/metrics/
-.agents/csm-memory/rate-limits/
-.agents/csm-memory/.key
 *.memory.json
 
 # Skill-memory logs (AI agent storage)
-.agents/csm-memory/*.log
 *.skill-memory.log
 
 # Temporary exports from demos
