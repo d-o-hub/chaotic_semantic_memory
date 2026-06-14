@@ -84,9 +84,12 @@ RUSTFLAGS="" cargo mutants "${FAST_ARGS[@]}" \
   --exclude-re 'persistence::Persistence::list_namespaces' \
   --exclude-re 'HnswIndex::serialize' \
   --exclude-re 'HnswIndex::deserialize' \
-  --exclude-re 'observability::otlp_grpc::' \
-  --exclude-re 'observability::init' \
-  --exclude-re 'observability::Guard::drop' \
+  --exclude-re 'OtlpGuard::' \
+  --exclude-re 'install_grpc_tracer' \
+  --exclude-re 'Guard>::drop' \
+  --exclude-re 'init.*Result<Option<Guard>>' \
+  --exclude-re 'init.*&&' \
+  --exclude-re 'init.*delete' \
   "$@" 2>&1 | tee "${LOG_FILE}"
 RESULT="${PIPESTATUS[0]}"
 set +o pipefail
