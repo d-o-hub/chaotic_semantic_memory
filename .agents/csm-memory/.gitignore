@@ -1,0 +1,9 @@
+# Local ignore rules for csm-memory skill
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+metrics/
+rate-limits/
+.key
+*.log
