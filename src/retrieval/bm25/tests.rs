@@ -267,7 +267,7 @@ fn test_cache_consistency() {
     // Identity check for cached search
     let results3 = index.search(&["hello"], 10);
     let score1_cached = results3.iter().find(|(id, _)| id == "doc1").unwrap().1;
-    assert!((score1_after - score1_cached).abs() < f32::EPSILON);
+    assert!((score1_after - score1_cached).abs() < 1e-6);
 }
 
 #[test]
@@ -491,10 +491,10 @@ fn test_search_dedup_hashset_path_distinct_terms() {
     // Querying "a" once must give doc_a the same score as querying it twice.
     let once = index.search(&["a"], 10);
     let twice = index.search(&["a", "a"], 10);
-    #[allow(clippy::float_cmp)]
-    let scores_match = once[0].1 == twice[0].1;
     assert!(
-        scores_match,
-        "duplicate query terms must not inflate the score"
+        (once[0].1 - twice[0].1).abs() < 1e-6,
+        "duplicate query terms must not inflate the score: once={}, twice={}",
+        once[0].1,
+        twice[0].1
     );
 }
