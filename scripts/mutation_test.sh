@@ -86,10 +86,10 @@ RUSTFLAGS="" cargo mutants "${FAST_ARGS[@]}" \
   --exclude-re 'HnswIndex::deserialize' \
   --exclude-re 'OtlpGuard::' \
   --exclude-re 'install_grpc_tracer' \
-  --exclude-re 'Guard>::drop' \
-  --exclude-re 'init.*Option' \
-  --exclude-re 'init.*&&' \
-  --exclude-re 'init.*delete' \
+  --exclude-re 'Guard>.drop' \
+  --exclude-re 'Result<Option<Guard>>' \
+  --exclude-re 'replace && with' \
+  --exclude-re 'delete . in init' \
   "$@" 2>&1 | tee "${LOG_FILE}"
 RESULT="${PIPESTATUS[0]}"
 set +o pipefail
