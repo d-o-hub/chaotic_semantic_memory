@@ -227,6 +227,15 @@ mod tests {
     }
 
     #[test]
+    fn test_normalize_scores_range_two() {
+        let scores = vec![("a".to_string(), 2.0), ("b".to_string(), 0.0)];
+        let normalized = normalize_scores(&scores);
+        // (2-0)/2 = 1.0; (0-0)/2 = 0.0
+        assert!((normalized[0].1 - 1.0).abs() < 1e-6);
+        assert!((normalized[1].1 - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
     fn test_normalize_scores_empty() {
         let normalized = normalize_scores(&[]);
         assert!(normalized.is_empty());
@@ -283,14 +292,14 @@ mod tests {
 
     #[test]
     fn test_exact_score_calculation() {
-        let bm25 = vec![("d1".to_string(), 10.0), ("d2".to_string(), 5.0)];
-        let hdc = vec![("d1".to_string(), 0.8), ("d3".to_string(), 0.4)];
+        let bm25 = vec![("d1".to_string(), 10.0), ("d2".to_string(), 0.0)];
+        let hdc = vec![("d1".to_string(), 0.8), ("d3".to_string(), 0.0)];
         let weights = (0.5, 0.5);
 
-        // d1: bm25_norm = (10-5)/(10-5) = 1.0; hdc_norm = (0.8-0.4)/(0.8-0.4) = 1.0
+        // d1: bm25_norm = (10-0)/10 = 1.0; hdc_norm = (0.8-0)/0.8 = 1.0
         // combined score = 0.5 * 1.0 + 0.5 * 1.0 = 1.0
-        // d2: bm25_norm = (5-5)/(10-5) = 0.0; combined = 0.5 * 0.0 = 0.0
-        // d3: hdc_norm = (0.4-0.4)/(0.8-0.4) = 0.0; combined = 0.5 * 0.0 = 0.0
+        // d2: bm25_norm = (0-0)/10 = 0.0; combined = 0.5 * 0.0 = 0.0
+        // d3: hdc_norm = (0-0)/0.8 = 0.0; combined = 0.5 * 0.0 = 0.0
 
         let merged = merge_results(&bm25, &hdc, weights);
         let d1_score = merged.iter().find(|(id, _)| id == "d1").unwrap().1;
@@ -300,5 +309,18 @@ mod tests {
         assert!((d1_score - 1.0).abs() < 1e-6);
         assert!((d2_score - 0.0).abs() < 1e-6);
         assert!((d3_score - 0.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_merge_results_equal_scores() {
+        let bm25 = vec![("d1".to_string(), 5.0), ("d2".to_string(), 5.0)];
+        let hdc = vec![("d1".to_string(), 0.5), ("d2".to_string(), 0.5)];
+        let weights = (0.5, 0.5);
+        let merged = merge_results(&bm25, &hdc, weights);
+        // Each gets kw_weight (0.5) + sem_weight (0.5) = 1.0
+        assert_eq!(merged.len(), 2);
+        for (_, score) in merged {
+            assert!((score - 1.0).abs() < 1e-6);
+        }
     }
 }
