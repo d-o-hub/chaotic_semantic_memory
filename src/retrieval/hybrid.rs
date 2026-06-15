@@ -215,9 +215,9 @@ mod tests {
     #[test]
     fn test_normalize_scores_basic() {
         let scores = vec![
-            ("a".to_string(), 0.0),
-            ("b".to_string(), 0.5),
-            ("c".to_string(), 1.0),
+            ("a".to_string(), 10.0),
+            ("b".to_string(), 15.0),
+            ("c".to_string(), 20.0),
         ];
         let normalized = normalize_scores(&scores);
 
@@ -292,34 +292,76 @@ mod tests {
 
     #[test]
     fn test_exact_score_calculation() {
-        let bm25 = vec![("d1".to_string(), 10.0), ("d2".to_string(), 0.0)];
-        let hdc = vec![("d1".to_string(), 0.8), ("d3".to_string(), 0.0)];
-        let weights = (0.5, 0.5);
-
-        // d1: bm25_norm = (10-0)/10 = 1.0; hdc_norm = (0.8-0)/0.8 = 1.0
-        // combined score = 0.5 * 1.0 + 0.5 * 1.0 = 1.0
-        // d2: bm25_norm = (0-0)/10 = 0.0; combined = 0.5 * 0.0 = 0.0
-        // d3: hdc_norm = (0-0)/0.8 = 0.0; combined = 0.5 * 0.0 = 0.0
+        // Use non-zero min values to catch replace - with + mutants.
+        // Use weight != 0.5 to catch weight-related mutants.
+        let weights = (0.6, 0.4);
+        let bm25 = vec![
+            ("d1".to_string(), 12.0),
+            ("d2".to_string(), 2.0),
+            ("d4".to_string(), 7.0),
+        ];
+        let hdc = vec![
+            ("d1".to_string(), 1.2),
+            ("d3".to_string(), 0.2),
+            ("d4".to_string(), 0.7),
+        ];
 
         let merged = merge_results(&bm25, &hdc, weights);
-        let d1_score = merged.iter().find(|(id, _)| id == "d1").unwrap().1;
-        let d2_score = merged.iter().find(|(id, _)| id == "d2").unwrap().1;
-        let d3_score = merged.iter().find(|(id, _)| id == "d3").unwrap().1;
 
+        // d1: 0.6 * 1.0 + 0.4 * 1.0 = 1.0
+        let d1_score = merged.iter().find(|(id, _)| id == "d1").unwrap().1;
         assert!((d1_score - 1.0).abs() < 1e-6);
+
+        // d2: 0.6 * 0.0 + 0.0 = 0.0
+        let d2_score = merged.iter().find(|(id, _)| id == "d2").unwrap().1;
         assert!((d2_score - 0.0).abs() < 1e-6);
+
+        // d3: 0.0 + 0.4 * 0.0 = 0.0
+        let d3_score = merged.iter().find(|(id, _)| id == "d3").unwrap().1;
         assert!((d3_score - 0.0).abs() < 1e-6);
+
+        // d4: 0.6 * 0.5 + 0.4 * 0.5 = 0.5
+        let d4_score = merged.iter().find(|(id, _)| id == "d4").unwrap().1;
+        assert!((d4_score - 0.5).abs() < 1e-6);
     }
 
     #[test]
-    fn test_merge_results_equal_scores() {
-        let bm25 = vec![("d1".to_string(), 5.0), ("d2".to_string(), 5.0)];
-        let hdc = vec![("d1".to_string(), 0.5), ("d2".to_string(), 0.5)];
+    fn test_range_epsilon_boundary() {
+        let epsilon = 1e-10;
+        let scores = vec![("a".to_string(), epsilon), ("b".to_string(), 0.0)];
+        let normalized = normalize_scores(&scores);
+        // range = epsilon. epsilon < epsilon is false.
+        assert!((normalized[0].1 - 1.0).abs() < 1e-6);
+        assert!((normalized[1].1 - 0.0).abs() < 1e-6);
+
+        let just_below = epsilon * 0.9;
+        let scores_below = vec![("a".to_string(), just_below), ("b".to_string(), 0.0)];
+        let normalized_below = normalize_scores(&scores_below);
+        // range < epsilon is true.
+        assert!((normalized_below[0].1 - 1.0).abs() < 1e-6);
+        assert!((normalized_below[1].1 - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_merge_results_epsilon_boundary() {
+        let epsilon = 1e-10;
         let weights = (0.5, 0.5);
+
+        // Case 1: range exactly epsilon (should normalize)
+        let bm25 = vec![("d1".to_string(), epsilon), ("d2".to_string(), 0.0)];
+        let hdc = vec![("d1".to_string(), epsilon), ("d2".to_string(), 0.0)];
         let merged = merge_results(&bm25, &hdc, weights);
-        // Each gets kw_weight (0.5) + sem_weight (0.5) = 1.0
-        assert_eq!(merged.len(), 2);
-        for (_, score) in merged {
+        let d1_score = merged.iter().find(|(id, _)| id == "d1").unwrap().1;
+        let d2_score = merged.iter().find(|(id, _)| id == "d2").unwrap().1;
+        assert!((d1_score - 1.0).abs() < 1e-6);
+        assert!((d2_score - 0.0).abs() < 1e-6);
+
+        // Case 2: range just below epsilon (should fallback to 1.0)
+        let just_below = epsilon * 0.9;
+        let bm25_small = vec![("d1".to_string(), just_below), ("d2".to_string(), 0.0)];
+        let hdc_small = vec![("d1".to_string(), just_below), ("d2".to_string(), 0.0)];
+        let merged_small = merge_results(&bm25_small, &hdc_small, weights);
+        for (_, score) in merged_small {
             assert!((score - 1.0).abs() < 1e-6);
         }
     }
