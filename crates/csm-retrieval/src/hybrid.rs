@@ -34,10 +34,11 @@ pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)> {
     }
 
     // Optimization: Single-pass min-max calculation
-    let (min, max) = scores.iter().fold(
-        (f32::INFINITY, f32::NEG_INFINITY),
-        |(min, max), (_, s)| (min.min(*s), max.max(*s)),
-    );
+    let (min, max) = scores
+        .iter()
+        .fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), (_, s)| {
+            (min.min(*s), max.max(*s))
+        });
 
     let range = max - min;
     let epsilon = 1e-10;
@@ -79,10 +80,11 @@ pub fn merge_results(
     // normalizing in a single pass.
 
     if !bm25_results.is_empty() {
-        let (min, max) = bm25_results.iter().fold(
-            (f32::INFINITY, f32::NEG_INFINITY),
-            |(min, max), (_, s)| (min.min(*s), max.max(*s)),
-        );
+        let (min, max) = bm25_results
+            .iter()
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), (_, s)| {
+                (min.min(*s), max.max(*s))
+            });
         let range = max - min;
         if range < 1e-10 {
             for (id, _) in bm25_results {
@@ -97,10 +99,11 @@ pub fn merge_results(
     }
 
     if !hdc_results.is_empty() {
-        let (min, max) = hdc_results.iter().fold(
-            (f32::INFINITY, f32::NEG_INFINITY),
-            |(min, max), (_, s)| (min.min(*s), max.max(*s)),
-        );
+        let (min, max) = hdc_results
+            .iter()
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), (_, s)| {
+                (min.min(*s), max.max(*s))
+            });
         let range = max - min;
         if range < 1e-10 {
             for (id, _) in hdc_results {
@@ -277,5 +280,26 @@ mod tests {
 
         let merged = merge_results(&[], &[("a".to_string(), 1.0)], (0.5, 0.5));
         assert_eq!(merged.len(), 1);
+    }
+
+    #[test]
+    fn test_exact_score_calculation() {
+        let bm25 = vec![("d1".to_string(), 10.0), ("d2".to_string(), 5.0)];
+        let hdc = vec![("d1".to_string(), 0.8), ("d3".to_string(), 0.4)];
+        let weights = (0.5, 0.5);
+
+        // d1: bm25_norm = (10-5)/(10-5) = 1.0; hdc_norm = (0.8-0.4)/(0.8-0.4) = 1.0
+        // combined score = 0.5 * 1.0 + 0.5 * 1.0 = 1.0
+        // d2: bm25_norm = (5-5)/(10-5) = 0.0; combined = 0.5 * 0.0 = 0.0
+        // d3: hdc_norm = (0.4-0.4)/(0.8-0.4) = 0.0; combined = 0.5 * 0.0 = 0.0
+
+        let merged = merge_results(&bm25, &hdc, weights);
+        let d1_score = merged.iter().find(|(id, _)| id == "d1").unwrap().1;
+        let d2_score = merged.iter().find(|(id, _)| id == "d2").unwrap().1;
+        let d3_score = merged.iter().find(|(id, _)| id == "d3").unwrap().1;
+
+        assert!((d1_score - 1.0).abs() < 1e-6);
+        assert!((d2_score - 0.0).abs() < 1e-6);
+        assert!((d3_score - 0.0).abs() < 1e-6);
     }
 }
