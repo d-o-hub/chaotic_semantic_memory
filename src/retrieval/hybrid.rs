@@ -26,17 +26,17 @@ pub const fn compute_weights(token_count: usize) -> (f32, f32) {
 
 /// Normalize scores to [0, 1] range using min-max normalization.
 ///
-/// If all scores are equal, returns 0.5 for all.
+/// If all scores are equal, returns 1.0 for all.
 pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)> {
     if scores.is_empty() {
         return Vec::new();
     }
 
-    let min = scores.iter().map(|(_, s)| *s).fold(f32::INFINITY, f32::min);
-    let max = scores
-        .iter()
-        .map(|(_, s)| *s)
-        .fold(f32::NEG_INFINITY, f32::max);
+    // Optimization: Single-pass min-max calculation
+    let (min, max) = scores.iter().fold(
+        (f32::INFINITY, f32::NEG_INFINITY),
+        |(min, max), (_, s)| (min.min(*s), max.max(*s)),
+    );
 
     let range = max - min;
     let epsilon = 1e-10;
@@ -45,10 +45,12 @@ pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)> {
         return scores.iter().map(|(id, _)| (id.clone(), 1.0)).collect();
     }
 
+    // Optimization: Use inverse range multiplication instead of division in loop
+    let inv_range = 1.0 / range;
     scores
         .iter()
         .map(|(id, score)| {
-            let normalized = (score - min) / range;
+            let normalized = (score - min) * inv_range;
             (id.clone(), normalized)
         })
         .collect()
@@ -67,21 +69,55 @@ pub fn merge_results(
 ) -> Vec<(String, f32)> {
     let (kw_weight, sem_weight) = weights;
 
-    // Normalize both result sets
-    let bm25_normalized = normalize_scores(bm25_results);
-    let hdc_normalized = normalize_scores(hdc_results);
+    // Optimization: Pre-allocate map to avoid redundant re-hashes and re-allocs.
+    // Capacity is at most the sum of both result sets.
+    let mut combined: HashMap<String, f32> =
+        HashMap::with_capacity(bm25_results.len() + hdc_results.len());
 
-    // Build score map
-    let mut combined: HashMap<String, f32> = HashMap::new();
+    // Optimization: Eliminate intermediate Vec allocations by merging and
+    // normalizing in a single pass.
 
-    for (id, score) in &bm25_normalized {
-        let entry = combined.entry(id.clone()).or_insert(0.0);
-        *entry += kw_weight * score;
+    if !bm25_results.is_empty() {
+        let (min, max) = bm25_results.iter().fold(
+            (f32::INFINITY, f32::NEG_INFINITY),
+            |(min, max), (_, s)| (min.min(*s), max.max(*s)),
+        );
+        let range = max - min;
+        if range < 1e-10 {
+            for (id, _) in bm25_results {
+                combined.insert(id.clone(), kw_weight);
+            }
+        } else {
+            let inv_range = 1.0 / range;
+            for (id, score) in bm25_results {
+                combined.insert(id.clone(), kw_weight * (score - min) * inv_range);
+            }
+        }
     }
 
-    for (id, score) in &hdc_normalized {
-        let entry = combined.entry(id.clone()).or_insert(0.0);
-        *entry += sem_weight * score;
+    if !hdc_results.is_empty() {
+        let (min, max) = hdc_results.iter().fold(
+            (f32::INFINITY, f32::NEG_INFINITY),
+            |(min, max), (_, s)| (min.min(*s), max.max(*s)),
+        );
+        let range = max - min;
+        if range < 1e-10 {
+            for (id, _) in hdc_results {
+                combined
+                    .entry(id.clone())
+                    .and_modify(|s| *s += sem_weight)
+                    .or_insert(sem_weight);
+            }
+        } else {
+            let inv_range = 1.0 / range;
+            for (id, score) in hdc_results {
+                let weighted_norm = sem_weight * (score - min) * inv_range;
+                combined
+                    .entry(id.clone())
+                    .and_modify(|s| *s += weighted_norm)
+                    .or_insert(weighted_norm);
+            }
+        }
     }
 
     // Sort by combined score descending
