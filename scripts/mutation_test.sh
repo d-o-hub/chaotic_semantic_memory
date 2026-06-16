@@ -126,12 +126,16 @@ if [[ "${CI_MODE}" == "true" ]]; then
   if [[ "${SCORE}" == "0" ]]; then
     if grep -q -E 'No mutants generated|Diff changes no|No mutants to filter' "${LOG_FILE}" 2>/dev/null; then
       echo "mutation score: no Rust source files changed, CI check skipped"
+      exit 0
     else
       echo "error: could not parse mutation score from ${LOG_FILE}" >&2
       exit 1
     fi
   elif awk -v s="${SCORE}" -v t="${THRESHOLD}" 'BEGIN { exit !(s >= t) }'; then
     echo "mutation score ${SCORE}% >= ${THRESHOLD}%, CI check passed"
+    # Score meets threshold: succeed even if cargo-mutants returned non-zero
+    # (it exits 2 whenever any mutant is missed, regardless of the threshold).
+    exit 0
   else
     echo "mutation score ${SCORE}% < ${THRESHOLD}%, CI check failed" >&2
     exit 1
