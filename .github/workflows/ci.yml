@@ -172,6 +172,11 @@ jobs:
       run: cargo test --features mcp --locked -- --quiet
 
   mutation-test:
+    # Mutation testing is expensive (~20 min per run). Run it only on PRs so
+    # main-branch CI stays fast enough to fit inside the Release workflow's
+    # wait-for-ci window. Push-to-main already gets full mutation coverage on
+    # the PR that introduced the change.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     needs: test
