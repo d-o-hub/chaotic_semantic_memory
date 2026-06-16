@@ -33,8 +33,11 @@ jobs:
     - name: Wait for CI workflow to complete
       id: check-ci
       run: |
-        # Wait up to 10 minutes for CI workflow to complete
-        MAX_WAIT=600
+        # Wait up to 30 minutes for CI workflow to complete.
+        # The mutation-test job alone can take ~20 min on PRs, and main-branch CI
+        # has historically been cancelled and re-triggered by the concurrency group,
+        # so 10 min was not enough and Release silently timed out (see run #412).
+        MAX_WAIT=1800
         SLEEP_INTERVAL=30
         ELAPSED=0
 
@@ -56,8 +59,9 @@ jobs:
               echo "passed=true" >> $GITHUB_OUTPUT
               exit 0
             else
-              echo "❌ CI failed with conclusion: $CI_CONCLUSION"
-              echo "::error::CI workflow failed. Release blocked."
+              # Covers failure, cancelled, timed_out, action_required, etc.
+              echo "❌ CI ended with conclusion: $CI_CONCLUSION"
+              echo "::error::CI workflow $CI_CONCLUSION. Release blocked."
               echo "passed=false" >> $GITHUB_OUTPUT
               exit 1
             fi
@@ -68,7 +72,7 @@ jobs:
           ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
         done
 
-        echo "::error::Timeout waiting for CI workflow to complete"
+        echo "::error::Timeout waiting for CI workflow to complete after ${MAX_WAIT}s"
         echo "passed=false" >> $GITHUB_OUTPUT
         exit 1
       env:
