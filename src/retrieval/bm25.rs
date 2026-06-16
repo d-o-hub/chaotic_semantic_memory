@@ -62,6 +62,14 @@ thread_local! {
     static SCORES_COLLECT_BUFFER: RefCell<Vec<(usize, f32)>> = const { RefCell::new(Vec::new()) };
 }
 
+#[derive(Debug, Default, Clone)]
+struct Bm25Cache {
+    /// Document terms (c2 * doc_len + c1) for fast scoring.
+    doc_term_bs: Vec<f32>,
+    /// Reciprocals (1.0 / (1.0 + b_val)) for the tf=1 fast path.
+    tf1_recips: Vec<f32>,
+}
+
 #[derive(Debug)]
 /// BM25-based document index for keyword search.
 pub struct Bm25Index {
@@ -70,10 +78,8 @@ pub struct Bm25Index {
     doc_index: HashMap<String, usize>,
     /// Inverted index mapping terms to (document_index, term_frequency)
     postings: HashMap<Arc<str>, Vec<(usize, u32)>>,
-    /// Document terms (c2 * doc_len + c1) for fast scoring.
-    doc_term_bs: RwLock<Vec<f32>>,
-    /// Reciprocals (1.0 / (1.0 + b_val)) for the tf=1 fast path.
-    tf1_recips: RwLock<Vec<f32>>,
+    /// Cached normalization factors for fast scoring.
+    norm_cache: RwLock<Bm25Cache>,
     /// True when scoring factors are stale due to index mutations.
     norm_cache_dirty: AtomicBool,
     /// Document lengths for fast access in scoring loop
@@ -88,8 +94,7 @@ impl Default for Bm25Index {
             documents: Vec::new(),
             doc_index: HashMap::new(),
             postings: HashMap::new(),
-            doc_term_bs: RwLock::new(Vec::new()),
-            tf1_recips: RwLock::new(Vec::new()),
+            norm_cache: RwLock::new(Bm25Cache::default()),
             norm_cache_dirty: AtomicBool::new(true),
             doc_lengths: Vec::new(),
             total_length: 0,
@@ -104,16 +109,10 @@ impl Clone for Bm25Index {
             documents: self.documents.clone(),
             doc_index: self.doc_index.clone(),
             postings: self.postings.clone(),
-            doc_term_bs: RwLock::new(
-                self.doc_term_bs
+            norm_cache: RwLock::new(
+                self.norm_cache
                     .read()
-                    .expect("Bm25Index doc_term_bs lock poisoned")
-                    .clone(),
-            ),
-            tf1_recips: RwLock::new(
-                self.tf1_recips
-                    .read()
-                    .expect("Bm25Index tf1_recips lock poisoned")
+                    .expect("Bm25Index norm_cache lock poisoned")
                     .clone(),
             ),
             norm_cache_dirty: AtomicBool::new(self.norm_cache_dirty.load(AtomicOrdering::Acquire)),
@@ -294,14 +293,12 @@ impl Bm25Index {
 
             self.ensure_norm_cache();
             {
-                let doc_term_bs = self
-                    .doc_term_bs
+                let cache = self
+                    .norm_cache
                     .read()
-                    .expect("Bm25Index doc_term_bs lock poisoned");
-                let tf1_recips = self
-                    .tf1_recips
-                    .read()
-                    .expect("Bm25Index tf1_recips lock poisoned");
+                    .expect("Bm25Index norm_cache lock poisoned");
+                let doc_term_bs = &cache.doc_term_bs;
+                let tf1_recips = &cache.tf1_recips;
 
                 for (_, weighted_idf, entries) in query_weights {
                     for &(doc_idx, tf) in entries {
@@ -399,22 +396,20 @@ impl Bm25Index {
         let c2 = k1 * b / avgdl;
 
         {
-            let mut bs = self
-                .doc_term_bs
+            let mut cache = self
+                .norm_cache
                 .write()
-                .expect("Bm25Index doc_term_bs lock poisoned");
-            let mut recips = self
-                .tf1_recips
-                .write()
-                .expect("Bm25Index tf1_recips lock poisoned");
+                .expect("Bm25Index norm_cache lock poisoned");
 
-            bs.clear();
-            recips.clear();
+            cache.doc_term_bs.clear();
+            cache.tf1_recips.clear();
+            cache.doc_term_bs.reserve(self.doc_lengths.len());
+            cache.tf1_recips.reserve(self.doc_lengths.len());
 
             for &doc_len in &self.doc_lengths {
                 let b_val = c2.mul_add(doc_len, c1);
-                bs.push(b_val);
-                recips.push(1.0 / (1.0 + b_val));
+                cache.doc_term_bs.push(b_val);
+                cache.tf1_recips.push(1.0 / (1.0 + b_val));
             }
         }
 
