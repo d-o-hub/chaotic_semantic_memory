@@ -35,6 +35,7 @@ rand_chacha = "0.10.0"
 uuid = { version = "1.23.2", features = ["v4", "serde"] }
 tempfile = "3.16.0"
 base64 = "0.22.1"
+temp-env = "0.3.6"
 
 [package]
 name = "chaotic_semantic_memory"
@@ -145,6 +146,7 @@ proptest = "1.6.0"
 assert_cmd = "2.0.16"
 predicates = "3.1.3"
 mockito = "1.5.0"
+temp-env = { workspace = true }
 
 [[bench]]
 name = "benchmark"

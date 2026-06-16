@@ -113,7 +113,7 @@ the workspace-split. They should be tracked as follow-up actions.
       mutation suite
 - [x] Investigate Build CLI timeout/configuration enough to confirm latest
       matrix jobs pass
-- [ ] Consider adding `temp_env` crate for safer test env var management
+- [x] Consider adding `temp_env` crate for safer test env var management  (PR: this branch)
 - [x] Register ADR-0088 in `plans/ADR_REGISTRY.md`
 
 ## References

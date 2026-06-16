@@ -25,6 +25,7 @@ fastembed = { version = "4", optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+temp-env = { workspace = true }
 
 [features]
 default = []
