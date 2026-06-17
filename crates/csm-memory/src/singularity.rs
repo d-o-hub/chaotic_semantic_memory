@@ -510,7 +510,9 @@ pub fn unix_now_ns() -> u64 {
 pub fn similarity_cache_key<H: Hypervector>(query: &H, top_k: usize) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut s = std::collections::hash_map::DefaultHasher::new();
-    query.to_bytes().hash(&mut s);
+    // Optimization: Hash the hypervector directly instead of calling to_bytes().
+    // This eliminates a 1280-byte allocation/copy per cache lookup.
+    query.hash(&mut s);
     top_k.hash(&mut s);
     s.finish()
 }
