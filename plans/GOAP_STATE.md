@@ -1363,7 +1363,8 @@ world_state:
     cargo_clippy: clean
   ci_mutation_gate_pr363_equivalent_mutants_accepted: true
 
-  action_last_completed: csm_wasm_created_2026_06_12
+  # action_last_completed (superseded 2026-06-16 by ADR-0089 reconciliation):
+  #   csm_wasm_created_2026_06_12
 
   # ═══════════════════════════════════════════════════════
   # GOAP Orchestration 2026-06-13
@@ -1384,15 +1385,44 @@ world_state:
     f3_hnsw_ann: complete
     f4_agent_protocol: complete  # MCP server covers this
     f5_embedding_bridge: complete
-    f6_observability: complete  # JSON path done, gRPC deferred (#391)
+    f6_observability: complete  # JSON + gRPC paths both shipped (PR #396)
     f7_namespace_isolation: complete
     f8_version_history: complete
     f9_reranking: complete
-    f10_quantized_hvs: in_progress  # #387/#389 Jules delegation
+    f10_quantized_hvs: complete  # PR #389 merged 2026-06-14 (ADR-0075)
   goap_2026_06_13_deferred_actions:
-    - "advanced_ttl_policies (cost 8, ADR-0024)"
-    - "performance_phase2 (cost 15, ADR-0024)"
-    - "association_decay (cost 6, ADR-0025)"
-    - "otlp_grpc_exporter (cost 8, #391)"
+    # 2026-06-16 reconciliation (ADR-0089): 3 of 4 entries below were stale.
+    #   - otlp_grpc_exporter: DONE by PR #396 (src/observability/otlp_grpc.rs, +119 LOC)
+    #   - performance_phase2: DONE — SIMD (hyperdim_simd.rs, bundle_simd.rs),
+    #     LSH (index/lsh.rs), HNSW (index/hnsw.rs), and Product Quantization
+    #     (PR #389 / ADR-0075) are all shipped.
+    #   - namespace_isolation: DONE — src/framework_namespaces.rs (ADR-0084
+    #     already called this out; ACTIONS.md entry was never updated).
+    # Remaining genuinely-deferred items:
+    - "advanced_ttl_policies (cost 8, ADR-0024 — baseline TTL shipped; advanced policies still deferred)"
+    - "association_decay (cost 6, ADR-0025 — no user request; activation trigger not met)"
 
-  action_last_completed: goap_orchestration_2026_06_13
+  # action_last_completed (was: goap_orchestration_2026_06_13; superseded 2026-06-16 by ADR-0089)
+
+
+  # ═══════════════════════════════════════════════════════
+  # GOAP Reconciliation 2026-06-16 (ADR-0089)
+  # Post-PR #396 / #389 audit: 3 stale "deferred" actions exposed
+  # as already-shipped, plus a duplicate action_last_completed key
+  # (LEARNINGS.md invariant violation).
+  # ═══════════════════════════════════════════════════════
+  goap_reconciliation_2026_06_16_complete: true
+  goap_2026_06_16_main_head: "4420eeb"
+  goap_2026_06_16_changes:
+    - "Removed duplicate action_last_completed (was 2 keys; LEARNINGS.md requires exactly 1)"
+    - "ACTIONS.md: add_otlp_grpc_exporter deferred -> complete (PR #396)"
+    - "ACTIONS.md: deferred_performance_phase2 deferred -> complete (SIMD/LSH/HNSW/Quantized HVs shipped)"
+    - "ACTIONS.md: deferred_namespace_isolation deferred -> complete (src/framework_namespaces.rs)"
+    - "GOAP_STATE.md: f10_quantized_hvs in_progress -> complete (PR #389)"
+    - "GOAP_STATE.md: f6_observability comment updated (gRPC no longer deferred)"
+    - "goap_2026_06_13_deferred_actions list pruned to 2 genuinely-deferred items"
+  goap_2026_06_16_remaining_deferred:
+    - "advanced_ttl_policies (cost 8, ADR-0024 — baseline TTL shipped; advanced still deferred)"
+    - "association_decay (cost 6, ADR-0025 — no user request)"
+
+  action_last_completed: goap_reconciliation_2026_06_16

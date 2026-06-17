@@ -1159,13 +1159,21 @@ actions:
     effects:
       deferred_phase2_optimizations: true
     cost: 15
-    status: deferred
+    status: complete
     adr: ADR-0024
     description: |
-      DEFERRED: Performance Phase 2 optimizations.
-      Includes: SIMD completion for hamming_distance, Product Quantization, LSH indexing.
-      See ADR-0024 for full specification.
-      Activate when: >200k concepts with latency degradation observed.
+      Originally DEFERRED: Performance Phase 2 optimizations.
+      Included: SIMD completion for hamming_distance, Product Quantization,
+      LSH indexing. See ADR-0024 for full specification.
+      Original activation trigger: >200k concepts with latency degradation.
+
+      2026-06-16: COMPLETED. All three sub-components have shipped:
+        - SIMD: crates/csm-core/src/{hyperdim_simd.rs, bundle_simd.rs,
+          hyperdim_simd_bundle.rs} (per ADR-0013, augmented by Wave 22).
+        - LSH index: crates/csm-memory/src/index/lsh.rs (ADR-0068 sibling).
+        - Product Quantization / Quantized Binary Hypervectors:
+          PR #389 (ADR-0075), merged 2026-06-14.
+      Status updated from `deferred` to `complete` (ADR-0089).
 
   - name: deferred_association_decay
     preconditions: []
@@ -1184,12 +1192,19 @@ actions:
     effects:
       deferred_namespace_isolation: true
     cost: 10
-    status: deferred
+    status: complete
     adr: ADR-0026
     description: |
-      DEFERRED: Namespace isolation for multi-tenancy.
+      Originally DEFERRED: Namespace isolation for multi-tenancy.
       See ADR-0026 for full specification.
-      Activate when: Multi-tenant SaaS deployment requirements emerge.
+      Original activation trigger: Multi-tenant SaaS deployment requirements.
+
+      2026-06-16: COMPLETED. `src/framework_namespaces.rs` (14055 bytes)
+      provides namespace set/delete/export APIs with input validation
+      (CWE-770 hardening via PR #348/#349). Already called out as
+      implemented by ADR-0084 (2026-05-20); ACTIONS.md entry was never
+      updated to reflect this. Status updated from `deferred` to
+      `complete` (ADR-0089).
 
   # ═══════════════════════════════════════════════════════
   # PHASE 20: CLI CRATE (cost: 12) - Wave 9
@@ -3868,8 +3883,8 @@ actions:
     effects:
       otlp_grpc_exporter_implemented: true
     cost: 8
-    status: deferred
-    file: plans/adr/0072-otlp-exporter.md, plans/adr/0086-otlp-prom-implementation.md
+    status: complete
+    file: plans/adr/0072-otlp-exporter.md, plans/adr/0086-otlp-prom-implementation.md, src/observability/otlp_grpc.rs
     description: |
       Layer `opentelemetry-otlp` behind a new `otlp` feature (the
       gRPC path that ADR-0072 originally proposed). The
@@ -3878,6 +3893,11 @@ actions:
       operational use case without the tonic/prost/protobuf compile
       cost. Tracked as the second follow-up from ADR-0086.
       2026-06-06: Created.
+      2026-06-14: COMPLETED by PR #396 (commit 1cacc8e0). Added
+      `otlp` feature with opentelemetry/opentelemetry-otlp deps,
+      new `src/observability/otlp_grpc.rs` (111 LOC), wired into
+      `ObservabilityConfig::init()`, gated `cfg(not(target_arch="wasm32"))`.
+      2026-06-16: Status updated from `deferred` to `complete` (ADR-0089).
   - name: fix_pr_346_mutation_miss_concept_graph_expand
     preconditions:
       - mutation_ci_enforced: true

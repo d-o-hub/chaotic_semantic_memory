@@ -225,6 +225,12 @@ These ADRs are valid but deferred based on Swarm Consensus:
 - **ADR-0087**: CI Failure Remediation for PR #356 (Workspace Split)
 - **ADR-0088**: Pre-existing Issues Documented During PR #356 Codacy Remediation
 
+## GOAP Reconciliation ADRs
+
+- **ADR-0084**: GOAP Reconciliation and Codebase Alignment (2026-05-20)
+- **ADR-0085**: GOAP Reconciliation 2026-06 (2026-06-06)
+- **ADR-0089**: GOAP Reconciliation 2026-06-16 (post-PR #396 / #389 audit; removed duplicate `action_last_completed`, marked 3 stale "deferred" actions as complete)
+
 ## Links
 
 - Full ADR directory: `plans/adr/`
