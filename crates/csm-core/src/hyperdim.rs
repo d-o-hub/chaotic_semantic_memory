@@ -13,6 +13,7 @@ use std::fmt::Debug;
 use rayon::prelude::*;
 
 use crate::error::Result;
+use std::hash::Hash;
 
 pub use crate::hyperdim_batch::batch_cosine_similarity;
 
@@ -35,7 +36,7 @@ use crate::hyperdim_simd_bundle::bundle_block_neon;
 
 /// Common interface for hypervectors
 pub trait Hypervector:
-    Debug + Clone + Copy + PartialEq + Eq + Send + Sync + Serialize + for<'de> Deserialize<'de>
+    Debug + Clone + Copy + PartialEq + Eq + Hash + Send + Sync + Serialize + for<'de> Deserialize<'de>
 {
     const DIMENSION: usize;
     const FORMAT_NAME: &'static str;
@@ -52,7 +53,7 @@ pub trait Hypervector:
 }
 
 /// 10240-bit hypervector (80 x 128-bit words)
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[must_use]
 pub struct HVec10240 {
     pub data: [u128; 80],
