@@ -1,6 +1,6 @@
 [package]
 name = "csm-persistence"
-version = "0.1.0"
+version = "0.3.6"
 edition = "2024"
 rust-version = "1.85"
 description = "Persistence backends for chaotic_semantic_memory"
@@ -8,8 +8,8 @@ license = "MIT"
 repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
 
 [dependencies]
-csm-core = { path = "../csm-core" }
-csm-memory = { path = "../csm-memory" }
+csm-core = { path = "../csm-core", version = "0.3.6" }
+csm-memory = { path = "../csm-memory", version = "0.3.6" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

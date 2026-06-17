@@ -939,7 +939,7 @@ dependencies = [
 
 [[package]]
 name = "chaotic_semantic_memory_duckdb"
-version = "0.1.0"
+version = "0.3.6"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -1371,7 +1371,7 @@ dependencies = [
 
 [[package]]
 name = "csm-cli"
-version = "0.1.0"
+version = "0.3.6"
 dependencies = [
  "anyhow",
  "chaotic_semantic_memory",
@@ -1394,7 +1394,7 @@ dependencies = [
 
 [[package]]
 name = "csm-core"
-version = "0.1.0"
+version = "0.3.6"
 dependencies = [
  "base64 0.22.1",
  "bincode",
@@ -1411,7 +1411,7 @@ dependencies = [
 
 [[package]]
 name = "csm-embedding"
-version = "0.1.0"
+version = "0.3.6"
 dependencies = [
  "async-trait",
  "csm-core",
@@ -1427,7 +1427,7 @@ dependencies = [
 
 [[package]]
 name = "csm-memory"
-version = "0.1.0"
+version = "0.3.6"
 dependencies = [
  "bincode",
  "csm-core",
@@ -1447,7 +1447,7 @@ dependencies = [
 
 [[package]]
 name = "csm-persistence"
-version = "0.1.0"
+version = "0.3.6"
 dependencies = [
  "csm-core",
  "csm-memory",
@@ -1463,7 +1463,7 @@ dependencies = [
 
 [[package]]
 name = "csm-retrieval"
-version = "0.1.0"
+version = "0.3.6"
 dependencies = [
  "async-trait",
  "csm-core",
@@ -1478,7 +1478,7 @@ dependencies = [
 
 [[package]]
 name = "csm-traits"
-version = "0.1.0"
+version = "0.3.6"
 dependencies = [
  "csm-core",
  "js-sys",
@@ -1488,7 +1488,7 @@ dependencies = [
 
 [[package]]
 name = "csm-wasm"
-version = "0.1.0"
+version = "0.3.6"
 dependencies = [
  "chaotic_semantic_memory",
  "console_error_panic_hook",
