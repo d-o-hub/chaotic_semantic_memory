@@ -427,7 +427,7 @@ impl Bm25Index {
 }
 
 fn score_cmp_desc(a: &(usize, f32), b: &(usize, f32)) -> Ordering {
-    b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal)
+    b.1.total_cmp(&a.1)
 }
 
 #[cfg(test)]
