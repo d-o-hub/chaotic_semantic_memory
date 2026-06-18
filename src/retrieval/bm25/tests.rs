@@ -498,3 +498,56 @@ fn test_search_dedup_hashset_path_distinct_terms() {
         twice[0].1
     );
 }
+
+// Kills mutation: `replace > with >= in Bm25Index::search` (score > 0.0 threshold).
+//
+// Documents that share no terms with the query have score == 0.0 after the
+// scoring loop. With the correct `>` guard they are excluded; mutating to
+// `>=` would include every document in the index, inflating the result count.
+#[test]
+fn test_zero_score_documents_excluded_from_results() {
+    let mut index = Bm25Index::new();
+    // "matching" documents (will score > 0.0 for query "target")
+    index.add_document("match1", &["target", "extra"]);
+    index.add_document("match2", &["target"]);
+    // "non-matching" documents (score == 0.0 for query "target")
+    index.add_document("nomatch1", &["unrelated", "words"]);
+    index.add_document("nomatch2", &["other", "content"]);
+    index.add_document("nomatch3", &["completely", "different"]);
+
+    let results = index.search(&["target"], 100);
+
+    // Only the 2 matching documents should be returned
+    assert_eq!(
+        results.len(),
+        2,
+        "only documents with score > 0.0 must appear in results; \
+         got {} (expected 2 matching docs out of 5 total)",
+        results.len()
+    );
+
+    // All returned scores must be strictly positive
+    for (id, score) in &results {
+        assert!(
+            *score > 0.0,
+            "document '{id}' has non-positive score {score}; \
+             zero-score documents must be excluded"
+        );
+    }
+
+    // Explicitly verify non-matching documents are absent
+    let result_ids: std::collections::HashSet<&str> =
+        results.iter().map(|(id, _)| id.as_str()).collect();
+    assert!(
+        !result_ids.contains("nomatch1"),
+        "nomatch1 (score 0.0) must not appear in results"
+    );
+    assert!(
+        !result_ids.contains("nomatch2"),
+        "nomatch2 (score 0.0) must not appear in results"
+    );
+    assert!(
+        !result_ids.contains("nomatch3"),
+        "nomatch3 (score 0.0) must not appear in results"
+    );
+}

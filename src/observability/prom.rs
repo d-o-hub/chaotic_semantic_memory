@@ -5,7 +5,6 @@
 //! `GET /metrics`. The whole module is gated on the `prometheus` feature
 //! because it pulls in `prometheus`, `hyper`, `hyper-util`, and
 //! `http-body-util` (none of which are useful without the server).
-#![cfg(feature = "prometheus")]
 
 use std::net::SocketAddr;
 use std::sync::OnceLock;

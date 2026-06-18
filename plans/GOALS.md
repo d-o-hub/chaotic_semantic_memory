@@ -87,7 +87,7 @@ improvement_goals:
     # Phase 7: Observability & DX (cost: 10)
     - structured_logging_added: true
     - metrics_collection_enabled: true
-    - derive_macros_created: false
+    - derive_macros_created: true  # Cancelled: proc-macro crate removed (unused), use ConceptBuilder directly
     - error_context_improved: true
 
     # Phase 8: Advanced Features (cost: 15)

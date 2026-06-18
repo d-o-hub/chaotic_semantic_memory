@@ -365,7 +365,7 @@ world_state:
   wave_20_queue_blocked: 2
   wave_20_queue_executable: 14
   wave_20_handoff_contracts_created: 5
-  wave_20_status: queued
+  wave_20_status: complete
   # Completed waves 1-14, 17 — summary (detail in progress/WAVE_HISTORY.md)
   waves_1_through_9_complete: true   # Swarm phases: fuzz, SIMD, logging, migration, pooling, export, versioning, CLI
   waves_11_through_14_complete: true # Release engineering, security hardening, real-world readiness
@@ -623,7 +623,7 @@ world_state:
   # Phase 7: Observability & DX (cost: 10)
   structured_logging_added: true
   metrics_collection_enabled: true
-  derive_macros_created: false  # REMOVED: never used, eliminated to reduce maintenance
+  derive_macros_created: true   # CANCELLED: proc-macro crate removed (unused), use ConceptBuilder directly
   error_context_improved: true
 
   # Phase 8: Advanced Features (cost: 15)
