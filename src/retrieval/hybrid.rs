@@ -106,26 +106,29 @@ pub fn merge_results(
         let range = max - min;
         if range < 1e-10 {
             for (id, _) in hdc_results {
-                combined
-                    .entry(id.clone())
-                    .and_modify(|s| *s += sem_weight)
-                    .or_insert(sem_weight);
+                // Optimization: Use get_mut to avoid redundant String clones on existing entries.
+                if let Some(score) = combined.get_mut(id) {
+                    *score += sem_weight;
+                } else {
+                    combined.insert(id.clone(), sem_weight);
+                }
             }
         } else {
             let inv_range = 1.0 / range;
             for (id, score) in hdc_results {
                 let weighted_norm = sem_weight * (score - min) * inv_range;
-                combined
-                    .entry(id.clone())
-                    .and_modify(|s| *s += weighted_norm)
-                    .or_insert(weighted_norm);
+                if let Some(score) = combined.get_mut(id) {
+                    *score += weighted_norm;
+                } else {
+                    combined.insert(id.clone(), weighted_norm);
+                }
             }
         }
     }
 
     // Sort by combined score descending
     let mut results: Vec<(String, f32)> = combined.into_iter().collect();
-    results.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
 
     results
 }
