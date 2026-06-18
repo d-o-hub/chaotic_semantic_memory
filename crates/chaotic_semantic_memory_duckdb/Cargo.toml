@@ -1,6 +1,6 @@
 [package]
 name = "chaotic_semantic_memory_duckdb"
-version = "0.1.0"
+version = "0.3.6"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT"
@@ -22,7 +22,7 @@ tokio = { workspace = true, optional = true, features = ["rt-multi-thread", "mac
 duckdb = { version = "1.1", features = ["bundled"] }
 
 [dev-dependencies]
-chaotic_semantic_memory = { path = "../../", default-features = false, features = ["persistence"] }
+chaotic_semantic_memory = { path = "../../", version = "0.3.6", default-features = false, features = ["persistence"] }
 tempfile = { workspace = true }
 insta = "1.40.0"
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

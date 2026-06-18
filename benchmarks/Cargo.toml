@@ -1,6 +1,6 @@
 [package]
 name = "do-chaotic-semantic-memory-bench"
-version = "0.1.0"
+version = "0.3.6"
 edition = "2021"
 rust-version = "1.85"
 license = "MIT"
@@ -22,7 +22,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["fmt", "env-filter"] }
 uuid = { workspace = true, features = ["serde", "v4"] }
 
-chaotic_semantic_memory = { path = ".." }
+chaotic_semantic_memory = { path = "..", version = "0.3.6" }
 
 [features]
 default = []

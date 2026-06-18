@@ -1,6 +1,6 @@
 [package]
 name = "csm-cli"
-version = "0.1.0"
+version = "0.3.6"
 edition = "2024"
 rust-version = "1.85"
 description = "CLI for chaotic_semantic_memory"
@@ -8,12 +8,12 @@ license = "MIT"
 repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
 
 [dependencies]
-chaotic_semantic_memory = { path = "../..", default-features = false }
-csm-core = { path = "../csm-core" }
-csm-memory = { path = "../csm-memory" }
-csm-embedding = { path = "../csm-embedding" }
-csm-retrieval = { path = "../csm-retrieval" }
-csm-persistence = { path = "../csm-persistence" }
+chaotic_semantic_memory = { path = "../..", version = "0.3.6", default-features = false }
+csm-core = { path = "../csm-core", version = "0.3.6" }
+csm-memory = { path = "../csm-memory", version = "0.3.6" }
+csm-embedding = { path = "../csm-embedding", version = "0.3.6" }
+csm-retrieval = { path = "../csm-retrieval", version = "0.3.6" }
+csm-persistence = { path = "../csm-persistence", version = "0.3.6" }
 clap = { version = "4.5", features = ["derive", "env", "string"] }
 clap_complete = { version = "4.5.42" }
 anyhow = "1.0.102"

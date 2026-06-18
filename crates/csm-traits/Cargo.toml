@@ -1,6 +1,6 @@
 [package]
 name = "csm-traits"
-version = "0.1.0"
+version = "0.3.6"
 edition = "2024"
 rust-version = "1.85"
 description = "Shared types and traits for chaotic_semantic_memory workspace"
@@ -8,7 +8,7 @@ license = "MIT"
 repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
 
 [dependencies]
-csm-core = { path = "../csm-core" }
+csm-core = { path = "../csm-core", version = "0.3.6" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
