@@ -193,6 +193,26 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn load_associations_returns_unsupported() {
+        let p = Persistence {};
+        let result = p.load_associations("test_ns", "test_id").await;
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        assert!(matches!(err, MemoryError::UnsupportedOperation(_)));
+    }
+
+    #[tokio::test]
+    async fn load_all_associations_returns_unsupported() {
+        let p = Persistence {};
+        let result = p.load_all_associations("test_ns").await;
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        assert!(matches!(err, MemoryError::UnsupportedOperation(_)));
+    }
+
+    #[tokio::test]
     async fn all_operations_return_unsupported() {
         // Persistence struct cannot be created (constructor fails),
         // but we can verify the error function behavior
