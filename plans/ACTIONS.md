@@ -4011,3 +4011,102 @@ actions:
       6. Excluded WasmFramework:: mutants from native mutation tests (cfg-gated)
       7. Created ADR-0088 documenting all pre-existing issues
       PR #362 squash-merged to main. All 19 CI jobs passing.
+
+  # ═══════════════════════════════════════════════════════
+  # WAVE 28: BM25 Perf + Plans Completion (2026-06-18)
+  # Branch: feat/plans-completion-wave-28 (PR #413)
+  # ═══════════════════════════════════════════════════════
+  - name: wave_28_bm25_perf_optimizations
+    preconditions:
+      wave_27_merged: true
+    effects:
+      bm25_hybrid_merge_optimized: true
+      bm25_normalization_cache_consolidated: true
+      singularity_cache_key_optimized: true
+    cost: 6
+    status: complete
+    file: >
+      src/retrieval/hybrid.rs, src/retrieval/bm25.rs,
+      crates/csm-retrieval/src/hybrid.rs, crates/csm-retrieval/src/bm25.rs,
+      crates/csm-memory/src/singularity.rs
+    description: |
+      BM25/hybrid retrieval performance optimizations:
+      1. Optimize hybrid merge and normalization (4 iterations of refinement)
+      2. Consolidate BM25 normalization cache locks to reduce contention
+      3. Optimize result merging and score comparison
+      4. Eliminate redundant allocations in cache key generation (singularity)
+      5. Fix f32::EPSILON → 1e-6 tolerance in BM25 test assertions (#398)
+
+  - name: wave_28_ci_improvements
+    preconditions:
+      wave_27_merged: true
+    effects:
+      mutation_test_gate_ci_fixed: true
+      release_wait_for_ci_timeout_raised: true
+    cost: 3
+    status: complete
+    file: >
+      scripts/mutation_test.sh, .github/workflows/ci.yml,
+      .github/workflows/release.yml, .sonarcloud.properties
+    description: |
+      CI/infrastructure improvements:
+      1. Fix mutation_test.sh threshold gate in CI mode
+      2. Gate mutation-test on pull_request (main-branch CI fits release window)
+      3. Raise wait-for-ci timeout to 30 min and surface cancellation
+      4. Bump taiki-e/install-action from 2.81.8 to 2.81.10
+      5. Set explicit Python version for SonarCloud analysis
+
+  - name: wave_28_goap_reconciliation_adr_0089
+    preconditions:
+      wave_27_merged: true
+    effects:
+      goap_reconciliation_2026_06_16_complete: true
+    cost: 2
+    status: complete
+    file: plans/GOAP_STATE.md, plans/ACTIONS.md, plans/adr/0089-goap-reconciliation-2026-06-16.md
+    description: |
+      GOAP state drift reconciliation (ADR-0089):
+      1. Removed duplicate action_last_completed key
+      2. Marked 3 stale "deferred" actions as complete:
+         - add_otlp_grpc_exporter (PR #396)
+         - deferred_performance_phase2 (SIMD/LSH/HNSW/Quantized HVs shipped)
+         - deferred_namespace_isolation (src/framework_namespaces.rs)
+      3. Pruned deferred_actions list to 2 genuinely-deferred items
+
+  - name: wave_28_version_bump_and_deps
+    preconditions:
+      wave_27_merged: true
+    effects:
+      workspace_versions_bumped: true
+    cost: 1
+    status: complete
+    file: Cargo.toml, Cargo.lock, crates/*/Cargo.toml
+    description: |
+      Bump workspace versions and add explicit dependency requirements (#407).
+      Aligns all workspace member crate versions.
+
+  - name: wave_28_plans_completion
+    preconditions:
+      wave_28_bm25_perf_optimizations: true
+      wave_28_ci_improvements: true
+      wave_28_goap_reconciliation_adr_0089: true
+    effects:
+      wave_28_complete: true
+      action_last_completed: wave_28_plans_completion_2026_06_18
+    cost: 2
+    status: complete
+    file: >
+      plans/GOAP_STATE.md, plans/ACTIONS.md, plans/ADR_REGISTRY.md,
+      plans/GOAP_ANALYSIS_2026_04_25.md, plans/GOAP_PRE_EXISTING_ISSUES_PR356.md,
+      plans/GOALS.md, src/retrieval/bm25/tests.rs,
+      crates/csm-retrieval/src/bm25/tests.rs, src/observability/prom.rs
+    description: |
+      Complete remaining queued tasks from plans/:
+      1. Add test_zero_score_documents_excluded_from_results (kills BM25 mutation)
+      2. Fix clippy::duplicated_attributes in observability/prom.rs
+      3. Mark all 7 queued items in GOAP_ANALYSIS_2026_04_25 as complete
+      4. Mark pre-existing issues in GOAP_PRE_EXISTING_ISSUES_PR356 as complete
+      5. Update GOAP_STATE.md Wave 28 section
+      6. Update ADR_REGISTRY.md with ADR-0089
+      7. Open GitHub issues: #411 (TTL policies), #412 (association decay)
+      8. Create PR #413 for the branch
