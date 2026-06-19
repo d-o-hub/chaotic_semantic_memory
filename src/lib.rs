@@ -123,7 +123,7 @@ pub mod persistence {
         ) -> Result<()> {
             Ok(())
         }
-        pub async fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32)>> {
+        pub async fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32, u64)>> {
             Ok(Vec::new())
         }
         pub async fn delete_association(&self, _ns: &str, _from: &str, _to: &str) -> Result<()> {
