@@ -141,7 +141,7 @@ impl Singularity {
                 }
                 if let Some(links) = ns_state.associations.get(&id) {
                     let mut sorted_links: Vec<_> = links.iter().collect();
-                    sorted_links.sort_by(|a, b| b.1.total_cmp(a.1));
+                    sorted_links.sort_by(|a, b| b.1.0.total_cmp(&a.1.0));
                     for (neighbor_id, _) in sorted_links
                         .into_iter()
                         .take(self._retrieval_config.graph_fanout)

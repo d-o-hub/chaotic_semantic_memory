@@ -24,19 +24,42 @@ impl Singularity {
     ///
     /// Returns the number of concepts removed.
     pub fn purge_expired(&mut self, ns: &str) -> usize {
+        self.purge_expired_cascading(ns, false)
+    }
+
+    /// Purge expired concepts, optionally cascading through associations.
+    pub fn purge_expired_cascading(&mut self, ns: &str, cascading: bool) -> usize {
         let now = unix_now_secs();
         let Some(ns_state) = self.get_namespace(ns) else {
             return 0;
         };
-        let expired: Vec<String> = ns_state
+        let mut to_remove: std::collections::HashSet<String> = ns_state
             .concepts
             .iter()
             .filter(|(_, c)| c.expires_at.is_some_and(|exp| exp <= now))
             .map(|(id, _)| id.clone())
             .collect();
 
-        let count = expired.len();
-        for id in expired {
+        if cascading && !to_remove.is_empty() {
+            let mut changed = true;
+            while changed {
+                changed = false;
+                let ns_state = self.get_namespace(ns).unwrap();
+                for (from_id, neighbors) in &ns_state.associations {
+                    if to_remove.contains(from_id) {
+                        for to_id in neighbors.keys() {
+                            if !to_remove.contains(to_id) {
+                                to_remove.insert(to_id.clone());
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let count = to_remove.len();
+        for id in to_remove {
             self.delete(ns, &id).ok();
         }
         if count > 0 {

@@ -10,7 +10,7 @@ use std::sync::{Arc, RwLock};
 #[derive(Debug)]
 pub struct NamespaceState<H: Hypervector = HVec10240> {
     pub concepts: HashMap<String, Concept<H>>,
-    pub associations: HashMap<String, HashMap<String, f32>>,
+    pub associations: HashMap<String, HashMap<String, (f32, u64)>>,
     pub(crate) concept_indices: Vec<String>,
     pub(crate) concept_vectors: Vec<H>,
     pub(crate) id_to_index: HashMap<String, usize>,

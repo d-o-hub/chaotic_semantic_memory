@@ -44,6 +44,7 @@ mod framework_namespaces;
 mod framework_ops;
 mod framework_persistence;
 mod framework_ttl;
+pub mod framework_ttl_advanced;
 mod framework_validation;
 pub mod graph_traversal;
 pub use csm_core::hyperdim;

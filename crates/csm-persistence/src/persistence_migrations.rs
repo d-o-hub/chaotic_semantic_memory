@@ -353,6 +353,26 @@ impl Persistence {
                 .map_err(|e| MemoryError::database(format!("Failed migration v9: {e}")))?;
             }
 
+            if version == 10
+                && !self
+                    .column_exists(conn, "csm_associations", "created_at")
+                    .await?
+            {
+                conn.execute_batch(
+                    "ALTER TABLE csm_associations ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0;",
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v10: {e}")))?;
+                // Update existing associations with a sensible default if they were 0
+                let now = csm_memory::unix_now_secs();
+                conn.execute(
+                    "UPDATE csm_associations SET created_at = ?1 WHERE created_at = 0",
+                    libsql::params![now],
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v10 update: {e}")))?;
+            }
+
             conn.execute(
                 "INSERT INTO csm_schema_version(version) VALUES (?1)",
                 libsql::params![version],
