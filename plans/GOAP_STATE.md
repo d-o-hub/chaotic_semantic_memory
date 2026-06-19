@@ -58,7 +58,7 @@ world_state:
   verification_workspace_mrr: 0.75
   verification_bm25_search_1000_us: 64.4        # was 3030 µs pre PR #129 (47× faster)
   verification_bridge_retrieval_pipeline_1k_ms: 1.92
-  tests_count: 651                              # 2026-06-09: Wave 27 validation (was 598)
+  tests_count: 668                              # 2026-06-09: Wave 27 validation (was 598)
   skills_count: 29                              # 2026-04-30: All 29 skills have SKILL.md verified
   coverage_ratio_current: 93                   # Test:Source ratio (target: 90% - ACHIEVED)
   coverage_inline_tests_added: true             # encoder.rs (7), persistence_ops.rs (3), framework_ttl.rs (9), wasm_ext.rs (17)
