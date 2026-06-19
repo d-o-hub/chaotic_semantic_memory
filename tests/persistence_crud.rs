@@ -591,7 +591,7 @@ async fn multiple_associations_for_single_concept() {
     assert_eq!(associations.len(), 3);
 
     let ids: std::collections::HashSet<_> =
-        associations.iter().map(|(id, _)| id.as_str()).collect();
+        associations.iter().map(|(id, _, _)| id.as_str()).collect();
     assert!(ids.contains("spoke-1"));
     assert!(ids.contains("spoke-2"));
     assert!(ids.contains("spoke-3"));

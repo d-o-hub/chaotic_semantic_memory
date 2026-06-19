@@ -67,11 +67,11 @@ impl ChaoticSemanticFramework {
                 self.validate_concept(concept)?;
             }
 
-            let mut all_associations: Vec<(String, String, f32)> = Vec::new();
+            let mut all_associations: Vec<(String, String, f32, u64)> = Vec::new();
             for concept in &concepts {
                 let links = persistence.load_associations(&ns, &concept.id).await?;
-                for (to_id, strength) in links {
-                    all_associations.push((concept.id.clone(), to_id, strength));
+                for (to_id, strength, created_at) in links {
+                    all_associations.push((concept.id.clone(), to_id, strength, created_at));
                 }
             }
 
@@ -82,16 +82,10 @@ impl ChaoticSemanticFramework {
                     sing.inject(&ns, concept)?;
                 }
 
-                for (from_id, to_id, strength) in all_associations {
-                    if let Err(error) = sing.associate(&ns, &from_id, &to_id, strength) {
-                        warn!(
-                            from_id = %from_id,
-                            to_id = %to_id,
-                            strength,
-                            error = %error,
-                            "skipping invalid association during load_replace"
-                        );
-                    }
+                for (from_id, to_id, strength, created_at) in all_associations {
+                    let ns_state = sing.get_namespace_mut(&ns);
+                    let neighbors = ns_state.associations.entry(from_id).or_default();
+                    neighbors.insert(to_id, (strength, created_at));
                 }
             }
 
@@ -153,26 +147,20 @@ impl ChaoticSemanticFramework {
                 }
             }
 
-            let mut all_associations: Vec<(String, String, f32)> = Vec::new();
+            let mut all_associations: Vec<(String, String, f32, u64)> = Vec::new();
             for concept in &concepts {
                 let links = persistence.load_associations(&ns, &concept.id).await?;
-                for (to_id, strength) in links {
-                    all_associations.push((concept.id.clone(), to_id, strength));
+                for (to_id, strength, created_at) in links {
+                    all_associations.push((concept.id.clone(), to_id, strength, created_at));
                 }
             }
 
             {
                 let mut sing = self.singularity.write().await;
-                for (from_id, to_id, strength) in all_associations {
-                    if let Err(error) = sing.associate(&ns, &from_id, &to_id, strength) {
-                        warn!(
-                            from_id = %from_id,
-                            to_id = %to_id,
-                            strength,
-                            error = %error,
-                            "skipping invalid association during load_merge"
-                        );
-                    }
+                for (from_id, to_id, strength, created_at) in all_associations {
+                    let ns_state = sing.get_namespace_mut(&ns);
+                    let neighbors = ns_state.associations.entry(from_id).or_default();
+                    neighbors.insert(to_id, (strength, created_at));
                 }
             }
 

@@ -21,10 +21,11 @@ impl Persistence {
             .await
             .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {e}")))?;
 
+        let now = crate::singularity::unix_now_secs();
         let stmt = conn
             .prepare(
-                "INSERT INTO csm_associations (namespace, from_id, to_id, strength)
-                 VALUES (?1, ?2, ?3, ?4)
+                "INSERT INTO csm_associations (namespace, from_id, to_id, strength, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)
                  ON CONFLICT(namespace, from_id, to_id) DO UPDATE SET strength = excluded.strength",
             )
             .await
@@ -34,7 +35,7 @@ impl Persistence {
         for (from, to, strength) in associations {
             stmt.reset();
             if let Err(e) = stmt
-                .execute(params![ns, from.as_str(), to.as_str(), *strength])
+                .execute(params![ns, from.as_str(), to.as_str(), *strength, now as i64])
                 .await
             {
                 first_error = Some(MemoryError::database(format!(
@@ -241,8 +242,8 @@ impl Persistence {
             conn.execute_batch(
                 "INSERT INTO csm_concepts (namespace, id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
                  SELECT namespace, id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json FROM restore_db.csm_concepts;
-                 INSERT INTO csm_associations (namespace, from_id, to_id, strength)
-                 SELECT namespace, from_id, to_id, strength FROM restore_db.csm_associations;
+                 INSERT INTO csm_associations (namespace, from_id, to_id, strength, created_at)
+                 SELECT namespace, from_id, to_id, strength, created_at FROM restore_db.csm_associations;
                  INSERT INTO csm_versions (namespace, concept_id, version, vector, metadata, modified_at)
                  SELECT namespace, concept_id, version, vector, metadata, modified_at FROM restore_db.csm_versions;
                  INSERT INTO csm_hnsw_graph (namespace, id, data, modified_at)

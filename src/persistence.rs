@@ -7,7 +7,7 @@ use csm_core::error::{MemoryError, Result};
 use libsql::{Builder, Connection, Database, params};
 use std::sync::Arc;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-pub(crate) const LATEST_SCHEMA_VERSION: i64 = 8;
+pub(crate) const LATEST_SCHEMA_VERSION: i64 = 9;
 
 #[derive(Debug)]
 pub struct Persistence {
@@ -156,12 +156,13 @@ impl Persistence {
     ) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
+        let now = crate::singularity::unix_now_secs();
 
         conn.execute(
-            "INSERT INTO csm_associations (namespace, from_id, to_id, strength)
-             VALUES (?1, ?2, ?3, ?4)
+            "INSERT INTO csm_associations (namespace, from_id, to_id, strength, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)
              ON CONFLICT(namespace, from_id, to_id) DO UPDATE SET strength = excluded.strength",
-            params![ns, from, to, strength],
+            params![ns, from, to, strength, now as i64],
         )
         .await
         .map_err(|e| MemoryError::database(format!("Failed to save association: {e}")))?;
@@ -170,13 +171,13 @@ impl Persistence {
     }
 
     /// Load associations for a concept
-    pub async fn load_associations(&self, ns: &str, id: &str) -> Result<Vec<(String, f32)>> {
+    pub async fn load_associations(&self, ns: &str, id: &str) -> Result<Vec<(String, f32, u64)>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 
         let mut rows = conn
             .query(
-                "SELECT to_id, strength FROM csm_associations WHERE namespace = ?1 AND from_id = ?2",
+                "SELECT to_id, strength, created_at FROM csm_associations WHERE namespace = ?1 AND from_id = ?2",
                 params![ns, id],
             )
             .await
@@ -194,7 +195,10 @@ impl Persistence {
             let strength: f64 = row
                 .get(1)
                 .map_err(|e| MemoryError::database(format!("Failed to get strength: {e}")))?;
-            associations.push((to_id, strength as f32));
+            let created_at: i64 = row
+                .get(2)
+                .map_err(|e| MemoryError::database(format!("Failed to get created_at: {e}")))?;
+            associations.push((to_id, strength as f32, created_at as u64));
         }
 
         Ok(associations)

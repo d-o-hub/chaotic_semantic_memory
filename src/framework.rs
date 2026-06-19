@@ -1,6 +1,7 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 //! Main framework integrating all components
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::instrument;
@@ -21,6 +22,7 @@ use csm_core::reservoir_chaotic::ChaoticReservoir;
 use js_sys::Date;
 
 /// Main framework for chaotic semantic memory
+#[derive(Clone)]
 pub struct ChaoticSemanticFramework {
     pub(crate) singularity: Arc<RwLock<Singularity>>,
     #[cfg(feature = "persistence")]
@@ -61,9 +63,14 @@ impl ChaoticSemanticFramework {
     pub async fn inject_concept(&self, id: impl Into<String>, vector: HVec10240) -> Result<()> {
         let id = id.into();
         Self::validate_concept_id(&id)?;
-        let concept = ConceptBuilder::new(id.clone())
-            .with_vector(vector)
-            .build()?;
+
+        let ttl = self.evaluate_ttl_policy(&id, &HashMap::new()).await;
+
+        let mut builder = ConceptBuilder::new(id.clone()).with_vector(vector);
+        if let Some(ttl_secs) = ttl {
+            builder = builder.with_ttl(ttl_secs);
+        }
+        let concept = builder.build()?;
 
         {
             let mut sing = self.singularity.write().await;
@@ -120,7 +127,12 @@ impl ChaoticSemanticFramework {
         Self::validate_concept_id(&id)?;
         Self::validate_metadata_bytes(&metadata, self.config.max_metadata_bytes)?;
 
+        let ttl = self.evaluate_ttl_policy(&id, &metadata).await;
+
         let mut builder = ConceptBuilder::new(id).with_vector(vector);
+        if let Some(ttl_secs) = ttl {
+            builder = builder.with_ttl(ttl_secs);
+        }
         for (key, value) in metadata {
             builder = builder.with_metadata(key, value);
         }
@@ -423,25 +435,30 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
-    /// Get associations for a concept (outbound edges).
+    /// Get associations for a concept (outbound edges), with decay applied.
     #[instrument(err, skip(self))]
     pub async fn get_associations(&self, id: &str) -> Result<Vec<(String, f32)>> {
         Self::validate_concept_id(id)?;
+        let curve = self.config.ttl_config.association_decay;
         let sing = self.singularity.read().await;
         let ns = self.namespace.read().await;
-        Ok(sing.get_associations(&ns, id))
+        Ok(sing.get_associations_with_decay(&ns, id, curve))
     }
 
-    /// Get incoming associations for a concept (inbound edges).
+    /// Get incoming associations for a concept (inbound edges), with decay applied.
     ///
     /// Returns concepts that have associations pointing to this concept,
     /// sorted by strength descending.
     #[instrument(err, skip(self))]
     pub async fn incoming_associations(&self, id: &str) -> Result<Vec<(String, f32)>> {
         Self::validate_concept_id(id)?;
+        let curve = self.config.ttl_config.association_decay;
         let sing = self.singularity.read().await;
         let ns = self.namespace.read().await;
-        Ok(sing.incoming_associations(&ns, id).into_iter().collect())
+        Ok(sing
+            .incoming_associations_with_decay(&ns, id, curve)
+            .into_iter()
+            .collect())
     }
 
     /// Find the fewest-hop path between two concepts (unweighted BFS).

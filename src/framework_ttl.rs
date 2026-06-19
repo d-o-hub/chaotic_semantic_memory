@@ -1,6 +1,7 @@
 //! TTL (Time-To-Live) and text convenience operations for ChaoticSemanticFramework.
 
 use crate::framework_events::MemoryEvent;
+use crate::framework_ttl_advanced::TtlPolicy;
 use crate::metadata_filter::MetadataFilter;
 use crate::singularity::ConceptBuilder;
 use csm_core::error::Result;
@@ -11,6 +12,44 @@ use std::collections::HashMap;
 use tracing::instrument;
 
 impl crate::framework::ChaoticSemanticFramework {
+    /// Evaluate the TTL policy for a concept.
+    pub(crate) async fn evaluate_ttl_policy(
+        &self,
+        id: &str,
+        metadata: &HashMap<String, serde_json::Value>,
+    ) -> Option<u64> {
+        let policy = &self.config.ttl_config.policy;
+        match policy {
+            TtlPolicy::None => None,
+            TtlPolicy::Fixed(ttl) => Some(*ttl),
+            TtlPolicy::MetadataRule(rules) => {
+                for rule in rules {
+                    if let Some(val) = metadata.get(&rule.key) {
+                        if val == &rule.value {
+                            return Some(rule.ttl_seconds);
+                        }
+                    }
+                }
+                None
+            }
+            TtlPolicy::Inherit => {
+                // Check outgoing associations (inheritance from what we point TO)
+                let outgoing = self.get_associations(id).await.ok().unwrap_or_default();
+                if let Some((source_id, _)) = outgoing.first() {
+                    if let Ok(Some(concept)) = self.get_concept(source_id).await {
+                        if let Some(exp) = concept.expires_at {
+                            let now = crate::singularity::unix_now_secs();
+                            if exp > now {
+                                return Some(exp - now);
+                            }
+                        }
+                    }
+                }
+                None
+            }
+        }
+    }
+
     /// Inject a concept with TTL. The concept expires after `ttl_seconds`; expired concepts are filtered during probe.
     #[instrument(err, skip(self, id, vector))]
     pub async fn inject_concept_with_ttl(
@@ -76,10 +115,12 @@ impl crate::framework::ChaoticSemanticFramework {
         #[cfg(target_arch = "wasm32")]
         let start = Date::now();
 
+        let cascading = self.config.ttl_config.cascading_purge;
+
         let count = {
             let mut sing = self.singularity.write().await;
             let ns = self.namespace.read().await;
-            sing.purge_expired(&ns)
+            sing.purge_expired_cascading(&ns, cascading)
         };
 
         if count > 0 {

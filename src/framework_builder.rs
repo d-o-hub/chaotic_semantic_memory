@@ -50,6 +50,8 @@ pub struct FrameworkConfig {
     pub index_backend: crate::index::IndexBackend,
     /// Cosine similarity threshold for pattern recognition events (default: `0.9`).
     pub pattern_recognition_threshold: f64,
+    /// Advanced TTL and decay configuration.
+    pub ttl_config: crate::framework_ttl_advanced::TtlConfig,
 }
 
 impl Default for FrameworkConfig {
@@ -69,6 +71,7 @@ impl Default for FrameworkConfig {
             max_sequence_length: DEFAULT_MAX_SEQUENCE_LENGTH,
             index_backend: crate::index::IndexBackend::BruteForce,
             pattern_recognition_threshold: 0.9,
+            ttl_config: crate::framework_ttl_advanced::TtlConfig::default(),
         }
     }
 }
@@ -254,6 +257,11 @@ impl FrameworkBuilder {
         self
     }
 
+    pub fn with_ttl_config(mut self, config: crate::framework_ttl_advanced::TtlConfig) -> Self {
+        self.config.ttl_config = config;
+        self
+    }
+
     /// Keep the last N historical versions per concept in persistence.
     ///
     /// Values less than 1 are coerced to 1. Default is 10.
@@ -401,6 +409,28 @@ impl FrameworkBuilder {
         };
 
         framework.load_replace().await?;
+
+        // Start background cleanup if configured
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let interval = framework.config.ttl_config.cleanup_interval_seconds;
+            if interval > 0 {
+                let fw = Arc::new(framework);
+                let fw_clone = Arc::clone(&fw);
+                tokio::spawn(async move {
+                    let mut timer =
+                        tokio::time::interval(tokio::time::Duration::from_secs(interval));
+                    loop {
+                        timer.tick().await;
+                        if let Err(e) = fw_clone.purge_expired().await {
+                            tracing::error!(error = %e, "background cleanup failed");
+                        }
+                    }
+                });
+                return Ok(Arc::try_unwrap(fw).unwrap_or_else(|fw_arc| (*fw_arc).clone()));
+            }
+        }
+
         Ok(framework)
     }
 }

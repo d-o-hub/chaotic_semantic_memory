@@ -48,6 +48,73 @@ pub struct Concept<H: Hypervector = HVec10240> {
     pub canonical_concept_ids: Vec<String>,
 }
 
+/// Represents an association between two concepts.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Association {
+    pub strength: f32,
+    pub created_at: u64,
+}
+
+/// Curve defining how association strength decays over time.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub enum DecayCurve {
+    /// No decay (static strength).
+    None,
+    /// Linear decay: strength = strength * (1 - elapsed / limit).
+    Linear {
+        /// Time in seconds until strength reaches zero.
+        limit_seconds: u64,
+    },
+    /// Exponential decay: strength = strength * e^(-t / tau).
+    Exponential {
+        /// Time in seconds for strength to halve.
+        half_life_seconds: u64,
+    },
+    /// Step decay: strength drops by a fixed amount after a threshold.
+    Step {
+        /// Time in seconds after which the drop occurs.
+        threshold_seconds: u64,
+        /// Amount to subtract from strength (clamped to 0.0).
+        drop: f32,
+    },
+}
+
+impl Default for DecayCurve {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl DecayCurve {
+    /// Apply decay curve to a strength given elapsed time.
+    pub fn apply(&self, strength: f32, elapsed_secs: u64) -> f32 {
+        match self {
+            Self::None => strength,
+            Self::Linear { limit_seconds } => {
+                if elapsed_secs >= *limit_seconds {
+                    0.0
+                } else {
+                    strength * (1.0 - (elapsed_secs as f32 / *limit_seconds as f32))
+                }
+            }
+            Self::Exponential { half_life_seconds } => {
+                let lambda = std::f32::consts::LN_2 / (*half_life_seconds as f32);
+                strength * (-lambda * elapsed_secs as f32).exp()
+            }
+            Self::Step {
+                threshold_seconds,
+                drop,
+            } => {
+                if elapsed_secs >= *threshold_seconds {
+                    (strength - drop).max(0.0)
+                } else {
+                    strength
+                }
+            }
+        }
+    }
+}
+
 /// Represents a historical version of a concept.
 /// Can be a summary (with change flags) or a full record (with vector/metadata).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -351,14 +418,14 @@ impl<H: Hypervector + 'static> Singularity<H> {
         }
 
         let neighbors = ns_state.associations.entry(from.to_string()).or_default();
-        neighbors.insert(to.to_string(), strength);
+        neighbors.insert(to.to_string(), (strength, unix_now_secs()));
 
         // Enforce max_associations_per_concept: evict weakest if over limit
         if let Some(limit) = max_assoc {
             while neighbors.len() > limit {
                 if let Some(weakest) = neighbors
                     .iter()
-                    .min_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
+                    .min_by(|a, b| a.1.0.partial_cmp(&b.1.0).unwrap_or(std::cmp::Ordering::Equal))
                     .map(|(k, _)| k.clone())
                 {
                     neighbors.remove(&weakest);
@@ -380,18 +447,48 @@ impl<H: Hypervector + 'static> Singularity<H> {
     }
 
     pub fn get_associations(&self, ns: &str, id: &str) -> Vec<(String, f32)> {
+        self.get_associations_with_decay(ns, id, DecayCurve::None)
+    }
+
+    /// Get associations with decay curve applied.
+    pub fn get_associations_with_decay(
+        &self,
+        ns: &str,
+        id: &str,
+        curve: DecayCurve,
+    ) -> Vec<(String, f32)> {
+        let now = unix_now_secs();
         self.get_namespace(ns)
             .and_then(|n| n.associations.get(id))
-            .map(|m| m.iter().map(|(k, v)| (k.clone(), *v)).collect::<Vec<_>>())
+            .map(|m| {
+                m.iter()
+                    .map(|(k, (strength, created_at))| {
+                        let elapsed = now.saturating_sub(*created_at);
+                        (k.clone(), curve.apply(*strength, elapsed))
+                    })
+                    .collect::<Vec<_>>()
+            })
             .unwrap_or_default()
     }
 
     pub fn incoming_associations(&self, ns: &str, id: &str) -> Vec<(String, f32)> {
+        self.incoming_associations_with_decay(ns, id, DecayCurve::None)
+    }
+
+    /// Get incoming associations with decay curve applied.
+    pub fn incoming_associations_with_decay(
+        &self,
+        ns: &str,
+        id: &str,
+        curve: DecayCurve,
+    ) -> Vec<(String, f32)> {
+        let now = unix_now_secs();
         let mut incoming = Vec::new();
         if let Some(ns_state) = self.get_namespace(ns) {
             for (from_id, neighbors) in &ns_state.associations {
-                if let Some(strength) = neighbors.get(id) {
-                    incoming.push((from_id.clone(), *strength));
+                if let Some((strength, created_at)) = neighbors.get(id) {
+                    let elapsed = now.saturating_sub(*created_at);
+                    incoming.push((from_id.clone(), curve.apply(*strength, elapsed)));
                 }
             }
         }
@@ -406,11 +503,22 @@ impl<H: Hypervector + 'static> Singularity<H> {
     }
 
     pub fn all_associations(&self, ns: &str) -> Vec<(String, String, f32)> {
+        self.all_associations_with_decay(ns, DecayCurve::None)
+    }
+
+    /// Get all associations with decay curve applied.
+    pub fn all_associations_with_decay(
+        &self,
+        ns: &str,
+        curve: DecayCurve,
+    ) -> Vec<(String, String, f32)> {
+        let now = unix_now_secs();
         let mut all = Vec::new();
         if let Some(ns_state) = self.get_namespace(ns) {
             for (from, neighbors) in &ns_state.associations {
-                for (to, strength) in neighbors {
-                    all.push((from.clone(), to.clone(), *strength));
+                for (to, (strength, created_at)) in neighbors {
+                    let elapsed = now.saturating_sub(*created_at);
+                    all.push((from.clone(), to.clone(), curve.apply(*strength, elapsed)));
                 }
             }
         }
