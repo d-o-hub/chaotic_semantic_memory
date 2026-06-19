@@ -9,11 +9,19 @@ use std::arch::x86_64::{
 
 #[allow(dead_code)]
 pub(crate) fn hamming_distance_optimized(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
-    let mut distance = 0;
-    for i in 0..80 {
-        distance += (lhs[i] ^ rhs[i]).count_ones();
+    let mut d0 = 0;
+    let mut d1 = 0;
+    let mut d2 = 0;
+    let mut d3 = 0;
+
+    // Unroll by 4 with independent accumulators to improve ILP
+    for i in (0..80).step_by(4) {
+        d0 += (lhs[i] ^ rhs[i]).count_ones();
+        d1 += (lhs[i + 1] ^ rhs[i + 1]).count_ones();
+        d2 += (lhs[i + 2] ^ rhs[i + 2]).count_ones();
+        d3 += (lhs[i + 3] ^ rhs[i + 3]).count_ones();
     }
-    distance
+    d0 + d1 + d2 + d3
 }
 
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
@@ -58,15 +66,24 @@ pub(crate) unsafe fn bind_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
 
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
 #[inline]
-#[target_feature(enable = "avx2")]
+#[target_feature(enable = "avx2,popcnt")]
 /// # SAFETY
-/// Caller must ensure AVX2 is supported.
+/// Caller must ensure AVX2 and POPCNT are supported.
 pub(crate) unsafe fn hamming_distance_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
-    let mut dist = 0u32;
-    for i in 0..80 {
-        dist += (lhs[i] ^ rhs[i]).count_ones();
+    let mut d0 = 0u32;
+    let mut d1 = 0u32;
+    let mut d2 = 0u32;
+    let mut d3 = 0u32;
+
+    // Unroll by 4 with independent accumulators to improve ILP
+    // target_feature(enable = "popcnt") ensures hardware POPCNT is used.
+    for i in (0..80).step_by(4) {
+        d0 += (lhs[i] ^ rhs[i]).count_ones();
+        d1 += (lhs[i + 1] ^ rhs[i + 1]).count_ones();
+        d2 += (lhs[i + 2] ^ rhs[i + 2]).count_ones();
+        d3 += (lhs[i + 3] ^ rhs[i + 3]).count_ones();
     }
-    dist
+    d0 + d1 + d2 + d3
 }
 
 #[cfg(all(
@@ -143,11 +160,19 @@ pub(crate) unsafe fn bind_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
 /// # SAFETY
 /// Caller must ensure NEON is supported.
 pub(crate) unsafe fn hamming_distance_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
-    let mut dist = 0u32;
-    for i in 0..80 {
-        dist += (lhs[i] ^ rhs[i]).count_ones();
+    let mut d0 = 0u32;
+    let mut d1 = 0u32;
+    let mut d2 = 0u32;
+    let mut d3 = 0u32;
+
+    // Unroll by 4 with independent accumulators to improve ILP
+    for i in (0..80).step_by(4) {
+        d0 += (lhs[i] ^ rhs[i]).count_ones();
+        d1 += (lhs[i + 1] ^ rhs[i + 1]).count_ones();
+        d2 += (lhs[i + 2] ^ rhs[i + 2]).count_ones();
+        d3 += (lhs[i + 3] ^ rhs[i + 3]).count_ones();
     }
-    dist
+    d0 + d1 + d2 + d3
 }
 
 #[cfg(test)]

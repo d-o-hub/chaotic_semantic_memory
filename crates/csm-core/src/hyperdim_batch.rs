@@ -9,6 +9,48 @@ pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> V
     {
         const CHUNK_SIZE: usize = 512;
         let mut results = vec![0.0f32; candidates.len()];
+
+        // Runtime dispatch once per batch to select the fastest inner loop
+        #[cfg(target_arch = "x86_64")]
+        if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("popcnt") {
+            candidates
+                .par_chunks(CHUNK_SIZE)
+                .zip(results.par_chunks_mut(CHUNK_SIZE))
+                .for_each(|(chunk, out)| {
+                    // SAFETY: AVX2 and POPCNT detected once per batch.
+                    for (slot, candidate) in out.iter_mut().zip(chunk.iter()) {
+                        let dist = unsafe {
+                            crate::hyperdim_simd::hamming_distance_simd_avx2(
+                                &query.data,
+                                &candidate.data,
+                            )
+                        };
+                        *slot = 1.0 - (dist as f32 / 5120.0);
+                    }
+                });
+            return results;
+        }
+
+        #[cfg(target_arch = "aarch64")]
+        {
+            candidates
+                .par_chunks(CHUNK_SIZE)
+                .zip(results.par_chunks_mut(CHUNK_SIZE))
+                .for_each(|(chunk, out)| {
+                    // SAFETY: NEON is always available on aarch64.
+                    for (slot, candidate) in out.iter_mut().zip(chunk.iter()) {
+                        let dist = unsafe {
+                            crate::hyperdim_simd::hamming_distance_simd_neon(
+                                &query.data,
+                                &candidate.data,
+                            )
+                        };
+                        *slot = 1.0 - (dist as f32 / 5120.0);
+                    }
+                });
+            return results;
+        }
+
         candidates
             .par_chunks(CHUNK_SIZE)
             .zip(results.par_chunks_mut(CHUNK_SIZE))
