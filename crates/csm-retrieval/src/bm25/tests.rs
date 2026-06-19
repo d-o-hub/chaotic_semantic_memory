@@ -435,119 +435,61 @@ fn test_search_does_not_mutate_index() {
 }
 
 // Regression: every distinct query term must contribute to scoring.
-//
-// Guards the short-query (<= 8 tokens) linear-scan deduplication added in
-// PR #363 (src/retrieval/bm25.rs:271-283). Kills the surviving mutant
-// `replace == with != in Bm25Index::search` (line 276): flipping the term
-// equality check marks every *distinct* term as a duplicate, so only the
-// first query term is scored. By isolating each query term to its own
-// document we make the dropped contribution observable.
+// Guards short-query (<= 8 tokens) linear-scan dedup (PR #363, bm25.rs:271-283).
 #[test]
 fn test_search_distinct_terms_each_contribute() {
     let mut index = Bm25Index::new();
-    // Each document carries exactly one of the two query terms so that a
-    // term being dropped during dedup removes its document from the results.
     index.add_document("doc_alpha", &["alpha", "alpha", "alpha"]);
     index.add_document("doc_beta", &["beta", "beta", "beta"]);
-    // Two distinct tokens, length 2 (<= 8) -> exercises the linear-scan path.
     let results = index.search(&["alpha", "beta"], 10);
-    assert_eq!(
-        results.len(),
-        2,
-        "both distinct query terms must score their respective document"
-    );
+    assert_eq!(results.len(), 2, "both distinct terms must score their doc");
     let ids: std::collections::HashSet<&str> = results.iter().map(|(id, _)| id.as_str()).collect();
-    assert!(ids.contains("doc_alpha"), "alpha term must contribute");
-    assert!(ids.contains("doc_beta"), "beta term must contribute");
-    assert!(
-        results.iter().all(|(_, score)| *score > 0.0),
-        "each contributing term must yield a positive score"
-    );
+    assert!(ids.contains("doc_alpha"));
+    assert!(ids.contains("doc_beta"));
+    assert!(results.iter().all(|(_, score)| *score > 0.0));
 }
-// Companion: the same distinct-term invariant on the HashSet dedup path
-// (> 8 unique tokens). Ensures both deduplication paths stay behaviourally
-// identical and that duplicate terms never inflate scores.
+// Companion: same distinct-term invariant on HashSet dedup path (> 8 tokens).
 #[test]
 fn test_search_dedup_hashset_path_distinct_terms() {
     let mut index = Bm25Index::new();
     index.add_document("doc_a", &["a"]);
     index.add_document("doc_b", &["b"]);
 
-    // 10 tokens (> 8) forces the HashSet dedup branch. "a" is repeated to
-    // confirm duplicates are collapsed, not double-counted.
+    // 10 tokens (> 8) forces HashSet dedup branch
     let query = ["a", "a", "c", "d", "e", "f", "g", "h", "i", "b"];
     let results = index.search(&query, 10);
-
     let ids: std::collections::HashSet<&str> = results.iter().map(|(id, _)| id.as_str()).collect();
-    assert!(
-        ids.contains("doc_a"),
-        "term 'a' must contribute via HashSet path"
-    );
-    assert!(
-        ids.contains("doc_b"),
-        "term 'b' must contribute via HashSet path"
-    );
+    assert!(ids.contains("doc_a"));
+    assert!(ids.contains("doc_b"));
 
-    // Querying "a" once must give doc_a the same score as querying it twice.
+    // Duplicate terms must not inflate score
     let once = index.search(&["a"], 10);
     let twice = index.search(&["a", "a"], 10);
     assert!(
         (once[0].1 - twice[0].1).abs() < 1e-6,
-        "duplicate query terms must not inflate the score: once={}, twice={}",
-        once[0].1,
-        twice[0].1
+        "dupes must not inflate score"
     );
 }
 
 // Kills mutation: `replace > with >= in Bm25Index::search` (score > 0.0 threshold).
-//
-// Documents that share no terms with the query have score == 0.0 after the
-// scoring loop. With the correct `>` guard they are excluded; mutating to
-// `>=` would include every document in the index, inflating the result count.
+// Documents with no shared terms have score == 0.0 and must be excluded.
 #[test]
 fn test_zero_score_documents_excluded_from_results() {
     let mut index = Bm25Index::new();
-    // "matching" documents (will score > 0.0 for query "target")
     index.add_document("match1", &["target", "extra"]);
     index.add_document("match2", &["target"]);
-    // "non-matching" documents (score == 0.0 for query "target")
     index.add_document("nomatch1", &["unrelated", "words"]);
     index.add_document("nomatch2", &["other", "content"]);
     index.add_document("nomatch3", &["completely", "different"]);
 
     let results = index.search(&["target"], 100);
 
-    // Only the 2 matching documents should be returned
-    assert_eq!(
-        results.len(),
-        2,
-        "only documents with score > 0.0 must appear in results; \
-         got {} (expected 2 matching docs out of 5 total)",
-        results.len()
-    );
-
-    // All returned scores must be strictly positive
+    assert_eq!(results.len(), 2, "only score > 0.0 docs returned");
     for (id, score) in &results {
-        assert!(
-            *score > 0.0,
-            "document '{id}' has non-positive score {score}; \
-             zero-score documents must be excluded"
-        );
+        assert!(*score > 0.0, "doc '{id}' has non-positive score {score}");
     }
-
-    // Explicitly verify non-matching documents are absent
-    let result_ids: std::collections::HashSet<&str> =
-        results.iter().map(|(id, _)| id.as_str()).collect();
-    assert!(
-        !result_ids.contains("nomatch1"),
-        "nomatch1 (score 0.0) must not appear in results"
-    );
-    assert!(
-        !result_ids.contains("nomatch2"),
-        "nomatch2 (score 0.0) must not appear in results"
-    );
-    assert!(
-        !result_ids.contains("nomatch3"),
-        "nomatch3 (score 0.0) must not appear in results"
-    );
+    let ids: std::collections::HashSet<&str> = results.iter().map(|(id, _)| id.as_str()).collect();
+    assert!(!ids.contains("nomatch1"));
+    assert!(!ids.contains("nomatch2"));
+    assert!(!ids.contains("nomatch3"));
 }

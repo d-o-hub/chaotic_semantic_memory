@@ -16,10 +16,10 @@
 - clap_complete (4.5.42)
 - cloudevents-sdk (0.9.0)
 - colored (2.2.0)
-- csm-core
-- csm-embedding
-- csm-memory
-- csm-retrieval
+- csm-core (0.3.6)
+- csm-embedding (0.3.6)
+- csm-memory (0.3.6)
+- csm-retrieval (0.3.6)
 - fastembed (4)
 - glob (0.3.2)
 - hnsw_rs (0.3.4)
@@ -1297,10 +1297,10 @@ include = [
 ]
 
 [dependencies]
-csm-core = { path = "crates/csm-core" }
-csm-embedding = { path = "crates/csm-embedding" }
-csm-memory = { path = "crates/csm-memory" }
-csm-retrieval = { path = "crates/csm-retrieval" }
+csm-core = { path = "crates/csm-core", version = "0.3.6" }
+csm-embedding = { path = "crates/csm-embedding", version = "0.3.6" }
+csm-memory = { path = "crates/csm-memory", version = "0.3.6" }
+csm-retrieval = { path = "crates/csm-retrieval", version = "0.3.6" }
 
 tempfile = { workspace = true }
 # Serialization
@@ -1357,7 +1357,7 @@ rayon = { version = "1.10.0", optional = true }
 
 # Database - Use libsql NOT turso-client (opt-in via "persistence" feature)
 libsql = { version = "0.9.30", default-features = false, features = ["sync", "hrana", "remote"], optional = true }
-csm-persistence = { path = "crates/csm-persistence" }
+csm-persistence = { path = "crates/csm-persistence", version = "0.3.6" }
 # `net` is required by the Prometheus /metrics server (ADR-0072).
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs", "net"] }
 
@@ -1373,7 +1373,7 @@ wasm-bindgen = "0.2.100"
 wasm-bindgen-futures = "0.4.64"
 js-sys = "0.3.77"
 console_error_panic_hook = { version = "0.1", optional = false }
-csm-persistence = { path = "crates/csm-persistence", default-features = false, features = ["wasm"] }
+csm-persistence = { path = "crates/csm-persistence", version = "0.3.6", default-features = false, features = ["wasm"] }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }
