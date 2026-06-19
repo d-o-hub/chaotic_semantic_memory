@@ -56,9 +56,10 @@ pub struct Association {
 }
 
 /// Curve defining how association strength decays over time.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Default)]
 pub enum DecayCurve {
     /// No decay (static strength).
+    #[default]
     None,
     /// Linear decay: strength = strength * (1 - elapsed / limit).
     Linear {
@@ -77,12 +78,6 @@ pub enum DecayCurve {
         /// Amount to subtract from strength (clamped to 0.0).
         drop: f32,
     },
-}
-
-impl Default for DecayCurve {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 impl DecayCurve {
@@ -425,7 +420,11 @@ impl<H: Hypervector + 'static> Singularity<H> {
             while neighbors.len() > limit {
                 if let Some(weakest) = neighbors
                     .iter()
-                    .min_by(|a, b| a.1.0.partial_cmp(&b.1.0).unwrap_or(std::cmp::Ordering::Equal))
+                    .min_by(|a, b| {
+                        a.1.0
+                            .partial_cmp(&b.1.0)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    })
                     .map(|(k, _)| k.clone())
                 {
                     neighbors.remove(&weakest);

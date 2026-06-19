@@ -341,25 +341,24 @@ impl Persistence {
                 self.apply_v8_namespace_migration(conn).await?;
             }
 
-            if version == 9 {
-                if !self
+            if version == 9
+                && !self
                     .column_exists(conn, "csm_associations", "created_at")
                     .await?
-                {
-                    conn.execute_batch(
-                        "ALTER TABLE csm_associations ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0;",
-                    )
-                    .await
-                    .map_err(|e| MemoryError::database(format!("Failed migration v9: {e}")))?;
-                    // Update existing associations with a sensible default if they were 0
-                    let now = crate::singularity::unix_now_secs();
-                    conn.execute(
-                        "UPDATE csm_associations SET created_at = ?1 WHERE created_at = 0",
-                        libsql::params![now],
-                    )
-                    .await
-                    .map_err(|e| MemoryError::database(format!("Failed migration v9 update: {e}")))?;
-                }
+            {
+                conn.execute_batch(
+                    "ALTER TABLE csm_associations ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0;",
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v9: {e}")))?;
+                // Update existing associations with a sensible default if they were 0
+                let now = crate::singularity::unix_now_secs();
+                conn.execute(
+                    "UPDATE csm_associations SET created_at = ?1 WHERE created_at = 0",
+                    libsql::params![now],
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v9 update: {e}")))?;
             }
 
             conn.execute(

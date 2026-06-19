@@ -35,7 +35,13 @@ impl Persistence {
         for (from, to, strength) in associations {
             stmt.reset();
             if let Err(e) = stmt
-                .execute(params![ns, from.as_str(), to.as_str(), *strength, now as i64])
+                .execute(params![
+                    ns,
+                    from.as_str(),
+                    to.as_str(),
+                    *strength,
+                    now as i64
+                ])
                 .await
             {
                 first_error = Some(MemoryError::database(format!(
