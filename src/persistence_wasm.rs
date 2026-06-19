@@ -86,6 +86,10 @@ impl Persistence {
         Err(wasm_persistence_unavailable())
     }
 
+    pub async fn clear_namespace(&self, _ns: &str) -> Result<()> {
+        Err(wasm_persistence_unavailable())
+    }
+
     pub async fn clear_all(&self) -> Result<()> {
         Err(wasm_persistence_unavailable())
     }

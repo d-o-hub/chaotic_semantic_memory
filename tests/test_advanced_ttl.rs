@@ -79,7 +79,7 @@ async fn test_linear_decay() {
     fw.associate("c1", "c2", 1.0).await.unwrap();
 
     let assocs = fw.get_associations("c1").await.unwrap();
-    assert_eq!(assocs[0].1, 1.0);
+    assert!((assocs[0].1 - 1.0).abs() < f32::EPSILON);
 }
 
 #[tokio::test]
@@ -142,4 +142,33 @@ async fn test_inherit_ttl_policy() {
 
     let child = fw.get_concept("child").await.unwrap().unwrap();
     assert!(child.expires_at.is_some());
+    // Verify exact TTL value to kill mutants in evaluate_ttl_policy
+    let ttl = child.expires_at.unwrap() - chaotic_semantic_memory::singularity::unix_now_secs();
+    assert!(ttl > 90 && ttl <= 100);
+}
+
+#[tokio::test]
+async fn test_evaluate_ttl_policy_boundary() {
+    let ttl_config = TtlConfig {
+        policy: TtlPolicy::Inherit,
+        ..Default::default()
+    };
+    let fw = ChaoticSemanticFramework::builder()
+        .with_ttl_config(ttl_config)
+        .without_persistence()
+        .build()
+        .await
+        .unwrap();
+
+    // Inject a concept that expires EXACTLY NOW
+    // We use inject_concept_with_ttl which adds ttl to now.
+    fw.inject_concept_with_ttl("source", HVec10240::random(), 0).await.unwrap();
+
+    fw.inject_concept("child", HVec10240::random()).await.unwrap();
+    fw.associate("child", "source", 1.0).await.unwrap();
+
+    // Inheritance should return None if exp <= now
+    fw.inject_concept("child", HVec10240::random()).await.unwrap();
+    let child = fw.get_concept("child").await.unwrap().unwrap();
+    assert!(child.expires_at.is_none());
 }
