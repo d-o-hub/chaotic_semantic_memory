@@ -171,7 +171,12 @@ impl FrameworkBuilder {
     }
 
     pub const fn with_max_associations_per_concept(mut self, max_associations: usize) -> Self {
-        self.config.max_associations_per_concept = Some(max_associations);
+        let limit = crate::framework_validation::MAX_ASSOCIATIONS_PER_CONCEPT_LIMIT;
+        self.config.max_associations_per_concept = Some(if max_associations > limit {
+            limit
+        } else {
+            max_associations
+        });
         self
     }
 
@@ -394,5 +399,22 @@ impl FrameworkBuilder {
 
         framework.load_replace().await?;
         Ok(framework)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_max_associations_per_concept_clamping() {
+        let builder = FrameworkBuilder::new().with_max_associations_per_concept(
+            crate::framework_validation::MAX_ASSOCIATIONS_PER_CONCEPT_LIMIT + 1,
+        );
+
+        assert_eq!(
+            builder.config.max_associations_per_concept,
+            Some(crate::framework_validation::MAX_ASSOCIATIONS_PER_CONCEPT_LIMIT)
+        );
     }
 }
