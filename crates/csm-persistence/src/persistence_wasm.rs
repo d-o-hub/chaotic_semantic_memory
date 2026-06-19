@@ -77,7 +77,7 @@ impl Persistence {
         Err(wasm_persistence_unavailable())
     }
 
-    pub async fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32)>> {
+    pub async fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32, u64)>> {
         Err(wasm_persistence_unavailable())
     }
 

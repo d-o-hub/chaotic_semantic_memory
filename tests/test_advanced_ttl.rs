@@ -138,9 +138,12 @@ async fn test_inherit_ttl_policy() {
     // Now trigger a re-injection or simulate what evaluate_ttl_policy does.
     fw.inject_concept("child", HVec10240::random())
         .await
-        .unwrap();
+        .expect("fw.inject_concept(\"child\") failed");
 
-    let child = fw.get_concept("child").await.unwrap().unwrap();
+    let result = fw.get_concept("child").await
+        .expect("fw.get_concept(\"child\") returned Err");
+    let child = result
+        .expect("concept 'child' not found; expected it to exist after injection");
     assert!(child.expires_at.is_some());
     // Verify exact TTL value to kill mutants in evaluate_ttl_policy
     let ttl = child.expires_at.unwrap() - chaotic_semantic_memory::singularity::unix_now_secs();
@@ -168,7 +171,12 @@ async fn test_evaluate_ttl_policy_boundary() {
     fw.associate("child", "source", 1.0).await.unwrap();
 
     // Inheritance should return None if exp <= now
-    fw.inject_concept("child", HVec10240::random()).await.unwrap();
-    let child = fw.get_concept("child").await.unwrap().unwrap();
+    fw.inject_concept("child", HVec10240::random())
+        .await
+        .expect("fw.inject_concept(\"child\") failed");
+    let result = fw.get_concept("child").await
+        .expect("fw.get_concept(\"child\") returned Err");
+    let child = result
+        .expect("concept 'child' not found; expected it to exist after injection");
     assert!(child.expires_at.is_none());
 }
