@@ -170,9 +170,16 @@ impl FrameworkBuilder {
         self
     }
 
-    pub fn with_max_associations_per_concept(mut self, max_associations: usize) -> Self {
+    pub fn with_max_associations_per_concept(mut self, mut max_associations: usize) -> Self {
         let limit = crate::framework_validation::MAX_ASSOCIATIONS_PER_CONCEPT_LIMIT;
-        self.config.max_associations_per_concept = Some(max_associations.min(limit));
+        if max_associations > limit {
+            warn!(
+                "max associations per concept {} exceeds limit {}, clamping",
+                max_associations, limit
+            );
+            max_associations = limit;
+        }
+        self.config.max_associations_per_concept = Some(max_associations);
         self
     }
 
@@ -406,15 +413,15 @@ mod tests {
     fn test_max_associations_per_concept_clamping() {
         let limit = crate::framework_validation::MAX_ASSOCIATIONS_PER_CONCEPT_LIMIT;
 
-        // Above limit → clamped
+        // Above limit
         let builder = FrameworkBuilder::new().with_max_associations_per_concept(limit + 1);
         assert_eq!(builder.config.max_associations_per_concept, Some(limit));
 
-        // At limit → passes through unchanged
+        // At limit
         let builder = FrameworkBuilder::new().with_max_associations_per_concept(limit);
         assert_eq!(builder.config.max_associations_per_concept, Some(limit));
 
-        // Below limit → passes through unchanged
+        // Below limit
         let builder = FrameworkBuilder::new().with_max_associations_per_concept(limit - 1);
         assert_eq!(builder.config.max_associations_per_concept, Some(limit - 1));
     }
