@@ -1,12 +1,13 @@
 //! Advanced TTL policy and decay curve definitions for ChaoticSemanticFramework.
 
-use serde::{Deserialize, Serialize};
 pub use csm_memory::singularity::DecayCurve;
+use serde::{Deserialize, Serialize};
 
 /// Policy for automatic TTL assignment.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum TtlPolicy {
     /// No automatic TTL (permanent unless explicitly set).
+    #[default]
     None,
     /// Fixed TTL for all new concepts.
     Fixed(u64),
@@ -14,12 +15,6 @@ pub enum TtlPolicy {
     MetadataRule(Vec<TtlRule>),
     /// Inherit TTL from associated concepts.
     Inherit,
-}
-
-impl Default for TtlPolicy {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 /// Rule for metadata-based TTL assignment.
