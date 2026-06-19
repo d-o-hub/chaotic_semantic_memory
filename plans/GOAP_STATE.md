@@ -356,7 +356,7 @@ world_state:
   tests_count_v032_baseline: 333  # historical baseline; current count tracked in tests_count above
 
   # Swarm orchestration snapshot
-  active_wave: 20
+  active_wave: 28
   wave_strategy: parallel_by_phase_with_handoffs
   wave_20_name: "Implementation Queue Rebuild"
   wave_20_started_at: "2026-04-12"
@@ -365,7 +365,7 @@ world_state:
   wave_20_queue_blocked: 2
   wave_20_queue_executable: 14
   wave_20_handoff_contracts_created: 5
-  wave_20_status: queued
+  wave_20_status: complete
   # Completed waves 1-14, 17 — summary (detail in progress/WAVE_HISTORY.md)
   waves_1_through_9_complete: true   # Swarm phases: fuzz, SIMD, logging, migration, pooling, export, versioning, CLI
   waves_11_through_14_complete: true # Release engineering, security hardening, real-world readiness
@@ -623,7 +623,7 @@ world_state:
   # Phase 7: Observability & DX (cost: 10)
   structured_logging_added: true
   metrics_collection_enabled: true
-  derive_macros_created: false  # REMOVED: never used, eliminated to reduce maintenance
+  derive_macros_created: true   # CANCELLED: proc-macro crate removed (unused), use ConceptBuilder directly
   error_context_improved: true
 
   # Phase 8: Advanced Features (cost: 15)
@@ -1425,4 +1425,39 @@ world_state:
     - "advanced_ttl_policies (cost 8, ADR-0024 — baseline TTL shipped; advanced still deferred)"
     - "association_decay (cost 6, ADR-0025 — no user request)"
 
-  action_last_completed: goap_reconciliation_2026_06_16
+  # ═══════════════════════════════════════════════════════
+  # Wave 28: BM25 Perf + GOAP Plans Completion (2026-06-18)
+  # Branch: feat/plans-completion-wave-28 (PR #413)
+  # ═══════════════════════════════════════════════════════
+  wave_28_name: "BM25 Perf Optimizations + Plans Completion"
+  wave_28_started_at: "2026-06-16"
+  wave_28_completed_at: "2026-06-18"
+  wave_28_focus: "BM25/hybrid retrieval perf, mutation test CI gate fix, GOAP plans queue drain"
+  wave_28_status: complete
+  wave_28_pr: 413
+  wave_28_changes:
+    - "perf(retrieval): optimize hybrid merge and normalization (4 iterations)"
+    - "perf(retrieval): consolidate bm25 normalization cache locks"
+    - "perf(retrieval): optimize result merging and score comparison"
+    - "perf(singularity): optimize cache key generation by eliminating redundant allocations"
+    - "fix(mutation_test): respect the threshold gate in CI mode"
+    - "ci: gate mutation-test on pull_request so main-branch CI fits Release window"
+    - "ci(release): raise wait-for-ci timeout to 30 min and surface cancellation"
+    - "ci(deps): bump taiki-e/install-action from 2.81.8 to 2.81.10"
+    - "build: set explicit python version for sonarcloud analysis"
+    - "chore(goap): reconcile state drift (ADR-0089)"
+    - "chore: bump workspace versions and add explicit dependency requirements (#407)"
+    - "fix(bm25): use 1e-6 tolerance instead of f32::EPSILON in test assertions (#398)"
+    - "feat: complete remaining queued tasks from plans/ (BM25 mutation kill, clippy fix)"
+  wave_28_issues_opened:
+    - "#411: feat: Advanced TTL policy automation (ADR-0024)"
+    - "#412: feat: Weighted forgetting with association decay (ADR-0025)"
+  wave_28_validation:
+    cargo_check: passing
+    cargo_clippy: clean
+    cargo_fmt: clean
+    cargo_test_lib: "171 passed"
+    cargo_test_csm_retrieval: "51 passed"
+    cargo_test_csm_core: "66 passed"
+
+  action_last_completed: wave_28_plans_completion_2026_06_18

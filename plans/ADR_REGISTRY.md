@@ -32,7 +32,7 @@
 | 0023 | Zero-Alloc Query Cache | Accepted | [adr/0023-zero-alloc-query-cache.md](adr/0023-zero-alloc-query-cache.md) |
 | 0024 | Concept Expiration (TTL) | Accepted (Baseline) | [adr/0024-concept-expiration-ttl.md](adr/0024-concept-expiration-ttl.md) |
 | 0025 | Weighted Forgetting (Decay) | Deferred | [adr/0025-weighted-forgetting-decay.md](adr/0025-weighted-forgetting-decay.md) |
-| 0026 | Namespace Isolation | Deferred | [adr/0026-namespace-isolation.md](adr/0026-namespace-isolation.md) |
+| 0026 | Namespace Isolation | Implemented | [adr/0026-namespace-isolation.md](adr/0026-namespace-isolation.md) |
 | 0027 | Documentation Standards | Implemented | [adr/0027-documentation-standards.md](adr/0027-documentation-standards.md) |
 | 0028 | Observability Completion | Implemented | [adr/0028-observability-completion.md](adr/0028-observability-completion.md) |
 | 0029 | WASM API Parity (Phase 2) | Implemented | [adr/0029-wasm-api-parity-phase-2.md](adr/0029-wasm-api-parity-phase-2.md) |
@@ -50,15 +50,15 @@
 | 0041 | Batch Similarity Optimization | Implemented | [adr/0041-batch-similarity-optimization.md](adr/0041-batch-similarity-optimization.md) |
 | 0042 | Release Automation v0.1.0 | Accepted | [adr/0042-release-automation-v010.md](adr/0042-release-automation-v010.md) |
 | 0043 | Skill-Memory Security Hardening | Accepted | [adr/0043-skill-memory-security-hardening.md](adr/0043-skill-memory-security-hardening.md) |
-| 0044 | Memory Limits and Resource Governance | Proposed | [adr/0044-memory-limits-and-resource-governance.md](adr/0044-memory-limits-and-resource-governance.md) |
-| 0045 | Security Policy for Input Validation | Proposed | [adr/0045-security-policy-for-input-validation.md](adr/0045-security-policy-for-input-validation.md) |
-| 0046 | npm OIDC Trusted Publishing | Proposed | [adr/0046-npm-oidc-trusted-publishing.md](adr/0046-npm-oidc-trusted-publishing.md) |
+| 0044 | Memory Limits and Resource Governance | Implemented | [adr/0044-memory-limits-and-resource-governance.md](adr/0044-memory-limits-and-resource-governance.md) |
+| 0045 | Security Policy for Input Validation | Implemented | [adr/0045-security-policy-for-input-validation.md](adr/0045-security-policy-for-input-validation.md) |
+| 0046 | npm OIDC Trusted Publishing | Implemented | [adr/0046-npm-oidc-trusted-publishing.md](adr/0046-npm-oidc-trusted-publishing.md) |
 | 0047 | Security & Performance Hardening | Implemented | [adr/0047-security-and-performance-hardening.md](adr/0047-security-and-performance-hardening.md) |
 | 0048 | WASM-pack Bulk Memory Fix | Implemented | [adr/0048-wasm-pack-bulk-memory-fix.md](adr/0048-wasm-pack-bulk-memory-fix.md) |
 | 0050 | npm Node.js 24 + Token Fallback | Implemented | [adr/0050-npm-nodejs-24-and-token-fallback.md](adr/0050-npm-nodejs-24-and-token-fallback.md) |
 | 0051 | Real-World Readiness & Quality Hardening | Implemented | [adr/0051-real-world-readiness-and-quality-hardening.md](adr/0051-real-world-readiness-and-quality-hardening.md) |
-| 0053 | API Hardening & New Features | Proposed | [adr/0053-api-hardening-and-new-features.md](adr/0053-api-hardening-and-new-features.md) |
-| 0054 | High-Impact New Features | Proposed | [adr/0054-high-impact-new-features.md](adr/0054-high-impact-new-features.md) |
+| 0053 | API Hardening & New Features | Implemented | [adr/0053-api-hardening-and-new-features.md](adr/0053-api-hardening-and-new-features.md) |
+| 0054 | High-Impact New Features | Implemented | [adr/0054-high-impact-new-features.md](adr/0054-high-impact-new-features.md) |
 | 0055 | Production Polish & Correctness | Implemented | [adr/0055-production-polish-and-correctness.md](adr/0055-production-polish-and-correctness.md) |
 | 0056 | Performance Follow-up Priorities | Implemented | [adr/0056-performance-follow-up-priorities.md](adr/0056-performance-follow-up-priorities.md) |
 | 0057 | Phase 41 API Completion and Memory Events | Implemented | [adr/0057-phase41-api-completion-and-events.md](adr/0057-phase41-api-completion-and-events.md) |
@@ -71,26 +71,27 @@
 | 0066 | CLI ↔ Framework API Parity | Implemented | [adr/0066-cli-framework-api-parity.md](adr/0066-cli-framework-api-parity.md) |
 | 0067 | MCP Server | Implemented | [adr/0067-mcp-server.md](adr/0067-mcp-server.md) |
 | 0068 | HNSW ANN Index | Implemented | [adr/0068-hnsw-ann-index.md](adr/0068-hnsw-ann-index.md) |
-| 0069 | Embedding Model Bridge | Proposed | [adr/0069-embedding-model-bridge.md](adr/0069-embedding-model-bridge.md) |
-| 0070 | GraphRAG Hybrid Retrieval | Proposed | [adr/0070-graphrag-hybrid-retrieval.md](adr/0070-graphrag-hybrid-retrieval.md) |
-| 0071 | Reranking MMR Pipeline | Proposed | [adr/0071-reranking-mmr-pipeline.md](adr/0071-reranking-mmr-pipeline.md) |
-| 0072 | OTLP Exporter | Proposed | [adr/0072-otlp-exporter.md](adr/0072-otlp-exporter.md) |
-| 0073 | Namespace Isolation | Proposed | [adr/0073-namespace-isolation.md](adr/0073-namespace-isolation.md) |
-| 0074 | Version History Surface | Proposed | [adr/0074-version-history-surface.md](adr/0074-version-history-surface.md) |
-| 0075 | Quantized Binary Hypervectors | Proposed | [adr/0075-quantized-binary-hypervectors.md](adr/0075-quantized-binary-hypervectors.md) |
+| 0069 | Embedding Model Bridge | Implemented | [adr/0069-embedding-model-bridge.md](adr/0069-embedding-model-bridge.md) |
+| 0070 | GraphRAG Hybrid Retrieval | Implemented | [adr/0070-graphrag-hybrid-retrieval.md](adr/0070-graphrag-hybrid-retrieval.md) |
+| 0071 | Reranking MMR Pipeline | Implemented | [adr/0071-reranking-mmr-pipeline.md](adr/0071-reranking-mmr-pipeline.md) |
+| 0072 | OTLP Exporter | Implemented | [adr/0072-otlp-exporter.md](adr/0072-otlp-exporter.md) |
+| 0073 | Namespace Isolation | Implemented | [adr/0073-namespace-isolation.md](adr/0073-namespace-isolation.md) |
+| 0074 | Version History Surface | Implemented | [adr/0074-version-history-surface.md](adr/0074-version-history-surface.md) |
+| 0075 | Quantized Binary Hypervectors | Implemented | [adr/0075-quantized-binary-hypervectors.md](adr/0075-quantized-binary-hypervectors.md) |
 | 0076 | ADR Backfill | Implemented | [adr/0076-adr-backfill.md](adr/0076-adr-backfill.md) |
 | 0077 | Clippy Pedantic Selective Promotion | Phase A+B Implemented | [adr/0077-clippy-pedantic-selective-promotion.md](adr/0077-clippy-pedantic-selective-promotion.md) |
-| 0078 | CloudEvents Event Emitter | Proposed | [adr/0078-cloudevents-event-emitter.md](adr/0078-cloudevents-event-emitter.md) |
-| 0079 | DuckDB Companion Crate — Workspace Restructure | Proposed | [adr/0079-duckdb-companion-crate-workspace.md](adr/0079-duckdb-companion-crate-workspace.md) |
-| 0080 | DuckDB Companion — Phase 1: Read-Only Analytics | Proposed | [adr/0080-duckdb-phase1-readonly-analytics.md](adr/0080-duckdb-phase1-readonly-analytics.md) |
-| 0081 | DuckDB Companion — Phase 2: Parquet Export | Proposed | [adr/0081-duckdb-phase2-parquet-export.md](adr/0081-duckdb-phase2-parquet-export.md) |
-| 0082 | DuckDB Companion — Phase 3: Optional CLI Integration | Proposed | [adr/0082-duckdb-phase3-cli-integration.md](adr/0082-duckdb-phase3-cli-integration.md) |
+| 0078 | CloudEvents Event Emitter | Implemented | [adr/0078-cloudevents-event-emitter.md](adr/0078-cloudevents-event-emitter.md) |
+| 0079 | DuckDB Companion Crate — Workspace Restructure | Implemented | [adr/0079-duckdb-companion-crate-workspace.md](adr/0079-duckdb-companion-crate-workspace.md) |
+| 0080 | DuckDB Companion — Phase 1: Read-Only Analytics | Implemented | [adr/0080-duckdb-phase1-readonly-analytics.md](adr/0080-duckdb-phase1-readonly-analytics.md) |
+| 0081 | DuckDB Companion — Phase 2: Parquet Export | Implemented | [adr/0081-duckdb-phase2-parquet-export.md](adr/0081-duckdb-phase2-parquet-export.md) |
+| 0082 | DuckDB Companion — Phase 3: Optional CLI Integration | Implemented | [adr/0082-duckdb-phase3-cli-integration.md](adr/0082-duckdb-phase3-cli-integration.md) |
 | 0083 | Memory Lifecycle Verification & Export Format | Accepted | [adr/0083-memory-lifecycle-verification-and-export-format.md](adr/0083-memory-lifecycle-verification-and-export-format.md) |
 | 0084 | GOAP Reconciliation and Codebase Alignment | Accepted | [adr/0084-goap-reconciliation.md](adr/0084-goap-reconciliation.md) |
 | 0085 | GOAP Reconciliation 2026-06 | Accepted | [adr/0085-goap-reconciliation-2026-06.md](adr/0085-goap-reconciliation-2026-06.md) |
 | 0086 | OTLP / Prometheus Implementation Notes | Implemented | [adr/0086-otlp-prom-implementation.md](adr/0086-otlp-prom-implementation.md) |
 | 0087 | CI Failure Remediation for PR #356 (Workspace Split) | Implemented | [adr/0087-ci-failure-remediation-pr356.md](adr/0087-ci-failure-remediation-pr356.md) |
 | 0088 | Pre-existing Issues Documented During PR #356 Codacy Remediation | Accepted | [adr/0088-pre-existing-issues-pr356-codacy-remediation.md](adr/0088-pre-existing-issues-pr356-codacy-remediation.md) |
+| 0089 | GOAP Reconciliation 2026-06-16 | Accepted | [adr/0089-goap-reconciliation-2026-06-16.md](adr/0089-goap-reconciliation-2026-06-16.md) |
 
 ## Status Definitions
 
@@ -215,10 +216,9 @@ Per Swarm Consensus 2026-02-17, these ADRs were implemented for 1.0 release:
 
 These ADRs are valid but deferred based on Swarm Consensus:
 
-- **ADR-0024 (TTL)**: Concept expiration - defer until session management use case
-- **ADR-0024 (Phase 2)**: SIMD completion, Product Quantization, LSH - defer until >200k concepts
-- **ADR-0025 (Decay)**: Association decay - defer until biological modeling requested
-- **ADR-0026 (Namespaces)**: Multi-tenancy - defer until SaaS deployment need
+- **ADR-0024 (TTL)**: Advanced TTL policy automation - baseline shipped, advanced deferred (GitHub #411)
+- **ADR-0025 (Decay)**: Association decay - defer until biological modeling requested (GitHub #412)
+- **ADR-0060 (Dimensions)**: Configurable hypervector dimensions - defer until user demand
 
 ## PR #356 Followup ADRs
 

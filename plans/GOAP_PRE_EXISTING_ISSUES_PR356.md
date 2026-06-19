@@ -155,24 +155,30 @@ actions:
     effects:
       mutation_test_passing: true
     cost: 3
-    status: queued
-    file: src/retrieval/bm25/tests.rs
+    status: complete
+    file: src/retrieval/bm25/tests.rs, crates/csm-retrieval/src/bm25/tests.rs
     description: |
-      Add a test case where BM25 score exactly equals the threshold to verify
-      strict inequality (> vs >=) is intentional. This kills the mutation.
+      Added test_zero_score_documents_excluded_from_results that kills the
+      mutation 'replace > with >= in Bm25Index::search' at the score > 0.0
+      threshold. Test verifies non-matching documents (score == 0.0) are
+      excluded from results while matching documents are included.
+      Completed: 2026-06-18.
 
   - name: investigate_build_cli_timeouts
     preconditions: []
     effects:
       build_cli_timeout_investigated: true
     cost: 2
-    status: queued
+    status: complete
     description: |
-      Investigate why Build CLI jobs timeout across all platforms. Check:
-      - Workflow timeout configuration
-      - Cross-compilation toolchain setup time
-      - Caching effectiveness
-      - Runner resource availability
+      Investigated Build CLI timeout root causes. Findings:
+      - Root cause was unused `_mm256_set1_epi32` import in bundle_simd.rs
+        causing aarch64 compile failures (not timeouts per se).
+      - Fixed in commit b238d8e (PR #356): moved data into #[cfg] blocks,
+        removed unused x86_64 intrinsic imports.
+      - Timeout budget (45 min) is adequate for release cross-compilation.
+      - All 5 platform/arch combos now pass (pr_356_build_cli_all_green: true).
+      - Rust-cache (Swatinem/rust-cache) provides dependency caching per target.
 
   - name: consider_temp_env_crate
     preconditions: []
@@ -190,10 +196,12 @@ actions:
     effects:
       adr_0088_registered: true
     cost: 1
-    status: queued
+    status: complete
     file: plans/ADR_REGISTRY.md
     description: |
-      Add ADR-0088 to the ADR registry table and run check-adr-parity.sh.
+      ADR-0088 already present in ADR_REGISTRY.md table (verified 2026-06-18).
+      Entry: "0088 | Pre-existing Issues Documented During PR #356 Codacy
+      Remediation | Accepted | adr/0088-pre-existing-issues-pr356-codacy-remediation.md"
 ```
 
 ## 5. Validation Gates (must pass before claiming done)
@@ -231,10 +239,12 @@ gh run view <run-id> --json jobs --jq '.jobs[] | select(.name | startswith("Buil
 
 - Moved `let mut data = [0u128; 80]` inside `#[cfg]` blocks to fix unused variable warning on aarch64
 
-**Pre-existing Issues** — Followup on main:
+**Followup Issues — All Resolved** (2026-06-18):
 
-- mutation-test: BM25 boundary test needed (cost: 3)
-- temp_env: Deferred evaluation (cost: 2)
+- mutation-test: BM25 boundary test added (`test_zero_score_documents_excluded_from_results`)
+- Build CLI timeouts: Root cause was aarch64 compile failure from unused x86_64 imports (fixed)
+- ADR-0088: Already registered in ADR_REGISTRY.md
+- temp_env: Deferred (no user demand)
 
 ## 7. Notes / Out-of-Scope
 

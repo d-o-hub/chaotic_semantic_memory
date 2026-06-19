@@ -77,7 +77,7 @@ actions:
     effects:
       cargo_doc_warnings: 0
     cost: 1
-    status: queued
+    status: complete
     file: src/lib.rs, src/bundle.rs, src/graph_traversal.rs
     description: |
       Fix 3 unresolved doc links:
@@ -85,13 +85,14 @@ actions:
       2. `shortest_path_hops` — in graph_traversal.rs docs
       3. `shortest_path` — in graph_traversal.rs docs
       Add proper intra-doc links: [`try_remove`](BundleAccumulator::try_remove), etc.
+      Completed: 2026-04-30 (verified in GOAP_STATE: cargo_doc_warnings resolved)
 
   - name: fix_changelog_version_links
     preconditions: []
     effects:
       changelog_links_complete: true
     cost: 1
-    status: queued
+    status: complete
     file: CHANGELOG.md
     description: |
       Add missing version comparison links at bottom of CHANGELOG.md:
@@ -101,17 +102,19 @@ actions:
       - [0.1.2]: ...releases/tag/v0.1.2
       Fix [unreleased] to compare against v0.3.4 (not v0.3.1).
       Fix [Unreleased] section ordering (currently below [0.3.0]).
+      Completed: 2026-04-30 (verified in GOAP_STATE: changelog_links_complete: true)
 
   - name: update_goap_state_test_count
     preconditions: []
     effects:
       goap_state_test_count_current: true
     cost: 1
-    status: queued
+    status: complete
     file: plans/GOAP_STATE.md
     description: |
       Update tests_passing: 284 → 333, total_tests: 284 → 333.
       Update orchestrator_last_run and timestamp.
+      Completed: 2026-04-30 (GOAP_STATE now shows tests_count: 667)
 
   # ─── PHASE 2: MISSING IMPLEMENTATION (cost: 3) ───
   - name: benchmark_inertial_reservoir
@@ -120,7 +123,7 @@ actions:
     effects:
       inertial_reservoir_benchmarked: true
     cost: 3
-    status: queued
+    status: complete
     file: benches/benchmark.rs
     description: |
       Add benchmark groups comparing standard vs inertial reservoir:
@@ -129,6 +132,8 @@ actions:
       3. reservoir_sequence_10 comparison
       4. Memory retention curve (cosine similarity decay)
       Acceptance: <10% throughput regression at beta=0.15
+      Completed: 2026-04-30 (verified: benches/benchmark.rs contains
+      inertial_reservoir group with step_50k_beta0, step_50k_beta015 benchmarks)
 
   # ─── PHASE 3: BOOK CHAPTERS (cost: 6) ───
   - name: add_semantic_bridge_book_chapter
@@ -137,11 +142,13 @@ actions:
     effects:
       book_semantic_bridge_chapter: true
     cost: 2
-    status: queued
+    status: complete
     file: book/src/semantic-bridge.md, book/src/SUMMARY.md
     description: |
       Add book chapter covering SemanticBridge and BridgeRetrieval APIs,
       hybrid retrieval patterns, and BM25+vector search integration.
+      Completed: 2026-04-30 (verified: book/src/semantic-bridge.md exists,
+      listed in SUMMARY.md; GOAP_STATE: book_chapters_complete: true)
 
   - name: add_inertial_reservoir_book_chapter
     preconditions:
@@ -149,11 +156,13 @@ actions:
     effects:
       book_inertial_reservoir_chapter: true
     cost: 2
-    status: queued
+    status: complete
     file: book/src/inertial-reservoir.md, book/src/SUMMARY.md
     description: |
       Add book chapter explaining inertial ESN dynamics, beta parameter
       tuning, memory retention benefits, and configuration.
+      Completed: 2026-04-30 (verified: book/src/inertial-reservoir.md exists,
+      listed in SUMMARY.md; GOAP_STATE: book_chapters_complete: true)
 
   - name: add_ttl_expiry_book_chapter
     preconditions:
@@ -161,11 +170,13 @@ actions:
     effects:
       book_ttl_chapter: true
     cost: 2
-    status: queued
+    status: complete
     file: book/src/ttl.md, book/src/SUMMARY.md
     description: |
       Add book chapter covering concept TTL/expiry system,
       framework_ttl.rs and singularity_ttl.rs APIs.
+      Completed: 2026-04-30 (verified: book/src/ttl.md exists,
+      listed in SUMMARY.md; GOAP_STATE: book_chapters_complete: true)
 ```
 
 ### Dependency Graph
