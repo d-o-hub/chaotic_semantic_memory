@@ -10,8 +10,8 @@ fi
 MAX_SRC_LOC=500
 WASM_TARGET="wasm32-unknown-unknown"
 
-echo "==> cargo fmt --check"
-cargo fmt --check
+echo "==> cargo fmt --all -- --check"
+cargo fmt --all -- --check
 
 echo "==> cargo clippy --all-targets --all-features -- -D warnings"
 cargo clippy --all-targets --all-features -- -D warnings
