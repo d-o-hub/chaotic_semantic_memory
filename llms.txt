@@ -407,6 +407,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub const MAX_BATCH_SIZE_LIMIT
 - pub const MAX_SEQUENCE_LENGTH_LIMIT
 - pub const MAX_METADATA_BYTES_LIMIT
+- pub const MAX_ASSOCIATIONS_PER_CONCEPT_LIMIT
 - pub const MAX_CONCEPT_CACHE_LIMIT
 - pub const MAX_VERSION_RETENTION_LIMIT
 - pub const MAX_CONNECTION_POOL_LIMIT
