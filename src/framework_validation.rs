@@ -19,6 +19,7 @@ pub const MAX_TOP_K_LIMIT: usize = 100_000;
 pub const MAX_BATCH_SIZE_LIMIT: usize = 10_000;
 pub const MAX_SEQUENCE_LENGTH_LIMIT: usize = 100_000;
 pub const MAX_METADATA_BYTES_LIMIT: usize = 100 * 1024 * 1024; // 100MB
+pub const MAX_ASSOCIATIONS_PER_CONCEPT_LIMIT: usize = 100_000;
 pub const MAX_CONCEPT_CACHE_LIMIT: usize = 100_000;
 pub const MAX_VERSION_RETENTION_LIMIT: usize = 10_000;
 pub const MAX_CONNECTION_POOL_LIMIT: usize = 1_000;

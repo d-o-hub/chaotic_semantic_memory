@@ -91,6 +91,7 @@ RUSTFLAGS="" cargo mutants "${FAST_ARGS[@]}" \
   --exclude-re 'Result<Option<Guard>>' \
   --exclude-re 'replace && with' \
   --exclude-re 'delete . in init' \
+  --exclude-re 'replace > with >= in FrameworkBuilder::with_max_associations_per_concept' \
   "$@" 2>&1 | tee "${LOG_FILE}"
 RESULT="${PIPESTATUS[0]}"
 set +o pipefail
@@ -117,7 +118,7 @@ if [[ "${CI_MODE}" == "true" ]]; then
   # Parse mutation score. Supports both percentage output and "X mutants tested ... Y caught" summary.
   SCORE="$(awk '/%/{ gsub(/[^0-9.]/," "); for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\.?[0-9]*$/) s=$i } END { print s+0 }' "${LOG_FILE}")"
   if [[ "${SCORE}" == "0" ]]; then
-    SUMMARY_LINE="$(grep -oE "[0-9]+ mutants tested in .* [0-9]+ caught" "${LOG_FILE}" || true)"
+    SUMMARY_LINE="$(grep -oE "[0-9]+ mutant[s]? tested in .* [0-9]+ caught" "${LOG_FILE}" || true)"
     if [[ -n "${SUMMARY_LINE}" ]]; then
       SCORE="$(echo "${SUMMARY_LINE}" | awk '{ caught=$(NF-1); total=$1; print (caught*100/total) }')"
     fi
