@@ -247,6 +247,7 @@ impl Bm25Index {
 
         let n = self.len() as f32;
         let num_docs = self.documents.len();
+        let n_plus_1 = n + 1.0;
 
         // Pre-calculate constants for scoring (hoisted out of loop)
         let k1 = self.config.k1;
@@ -268,7 +269,7 @@ impl Bm25Index {
                     }
                 }
                 if !duplicate {
-                    self.push_query_weight(term, n, k1_plus_1, &mut query_weights);
+                    self.push_query_weight(term, n_plus_1, k1_plus_1, &mut query_weights);
                 }
             }
         } else {
@@ -276,7 +277,7 @@ impl Bm25Index {
             for token in query_tokens {
                 let term = token.as_ref();
                 if seen_terms.insert(term) {
-                    self.push_query_weight(term, n, k1_plus_1, &mut query_weights);
+                    self.push_query_weight(term, n_plus_1, k1_plus_1, &mut query_weights);
                 }
             }
         }
@@ -300,15 +301,22 @@ impl Bm25Index {
                 let doc_term_bs = &cache.doc_term_bs;
                 let tf1_recips = &cache.tf1_recips;
 
-                for (_, weighted_idf, entries) in query_weights {
+                for (weighted_idf, entries) in query_weights {
                     for &(doc_idx, tf) in entries {
-                        if tf == 1 {
-                            // Fast path for the most common case: single term frequency.
-                            doc_scores[doc_idx] += weighted_idf * tf1_recips[doc_idx];
-                        } else {
-                            let tf = tf as f32;
-                            let denominator = tf + doc_term_bs[doc_idx];
-                            doc_scores[doc_idx] += (tf * weighted_idf) / denominator;
+                        // SAFETY: doc_idx is guaranteed to be < num_docs because it was
+                        // derived from the documents vector before it was last cleared/modified.
+                        // doc_term_bs, tf1_recips, and doc_scores are all sized to num_docs.
+                        unsafe {
+                            if tf == 1 {
+                                // Fast path for the most common case: single term frequency.
+                                *doc_scores.get_unchecked_mut(doc_idx) +=
+                                    weighted_idf * *tf1_recips.get_unchecked(doc_idx);
+                            } else {
+                                let tf = tf as f32;
+                                let denominator = tf + *doc_term_bs.get_unchecked(doc_idx);
+                                *doc_scores.get_unchecked_mut(doc_idx) +=
+                                    (tf * weighted_idf) / denominator;
+                            }
                         }
                     }
                 }
@@ -345,15 +353,15 @@ impl Bm25Index {
     fn push_query_weight<'a>(
         &'a self,
         term: &'a str,
-        n: f32,
+        n_plus_1: f32,
         k1_plus_1: f32,
-        query_weights: &mut Vec<(&'a str, f32, &'a Vec<(usize, u32)>)>,
+        query_weights: &mut Vec<(f32, &'a Vec<(usize, u32)>)>,
     ) {
         if let Some(postings) = self.postings.get(term) {
             let df = postings.len() as f32;
             // idf = ln((N + 1.0) / (df + 0.5)) is always > 0 for all N >= df >= 1
-            let idf = ((n + 1.0) / (df + 0.5)).ln();
-            query_weights.push((term, idf * k1_plus_1, postings));
+            let idf = (n_plus_1 / (df + 0.5)).ln();
+            query_weights.push((idf * k1_plus_1, postings));
         }
     }
 
@@ -388,6 +396,16 @@ impl Bm25Index {
             return;
         }
 
+        // Double-checked locking to prevent redundant work
+        let mut cache = self
+            .norm_cache
+            .write()
+            .expect("Bm25Index norm_cache lock poisoned");
+
+        if !self.norm_cache_dirty.load(AtomicOrdering::Acquire) {
+            return;
+        }
+
         let n = self.len() as f32;
         let avgdl = self.total_length as f32 / n;
         let k1 = self.config.k1;
@@ -395,22 +413,15 @@ impl Bm25Index {
         let c1 = k1 * (1.0 - b);
         let c2 = k1 * b / avgdl;
 
-        {
-            let mut cache = self
-                .norm_cache
-                .write()
-                .expect("Bm25Index norm_cache lock poisoned");
+        cache.doc_term_bs.clear();
+        cache.tf1_recips.clear();
+        cache.doc_term_bs.reserve(self.doc_lengths.len());
+        cache.tf1_recips.reserve(self.doc_lengths.len());
 
-            cache.doc_term_bs.clear();
-            cache.tf1_recips.clear();
-            cache.doc_term_bs.reserve(self.doc_lengths.len());
-            cache.tf1_recips.reserve(self.doc_lengths.len());
-
-            for &doc_len in &self.doc_lengths {
-                let b_val = c2.mul_add(doc_len, c1);
-                cache.doc_term_bs.push(b_val);
-                cache.tf1_recips.push(1.0 / (1.0 + b_val));
-            }
+        for &doc_len in &self.doc_lengths {
+            let b_val = c2.mul_add(doc_len, c1);
+            cache.doc_term_bs.push(b_val);
+            cache.tf1_recips.push(1.0 / (1.0 + b_val));
         }
 
         self.norm_cache_dirty.store(false, AtomicOrdering::Release);
