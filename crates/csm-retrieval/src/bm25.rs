@@ -304,20 +304,13 @@ impl Bm25Index {
 
                 for (weighted_idf, entries) in query_weights {
                     for &(doc_idx, tf) in entries {
-                        // SAFETY: doc_idx is guaranteed to be < num_docs because it was
-                        // derived from the documents vector before it was last cleared/modified.
-                        // doc_term_bs, tf1_recips, and doc_scores are all sized to num_docs.
-                        unsafe {
-                            if tf == 1 {
-                                // Fast path for the most common case: single term frequency.
-                                *doc_scores.get_unchecked_mut(doc_idx) +=
-                                    weighted_idf * *tf1_recips.get_unchecked(doc_idx);
-                            } else {
-                                let tf = tf as f32;
-                                let denominator = tf + *doc_term_bs.get_unchecked(doc_idx);
-                                *doc_scores.get_unchecked_mut(doc_idx) +=
-                                    (tf * weighted_idf) / denominator;
-                            }
+                        if tf == 1 {
+                            // Fast path for the most common case: single term frequency.
+                            doc_scores[doc_idx] += weighted_idf * tf1_recips[doc_idx];
+                        } else {
+                            let tf = tf as f32;
+                            let denominator = tf + doc_term_bs[doc_idx];
+                            doc_scores[doc_idx] += (tf * weighted_idf) / denominator;
                         }
                     }
                 }
