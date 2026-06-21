@@ -304,13 +304,19 @@ impl Bm25Index {
 
                 for (weighted_idf, entries) in query_weights {
                     for &(doc_idx, tf) in entries {
-                        if tf == 1 {
-                            // Fast path for the most common case: single term frequency.
-                            doc_scores[doc_idx] += weighted_idf * tf1_recips[doc_idx];
-                        } else {
-                            let tf = tf as f32;
-                            let denominator = tf + doc_term_bs[doc_idx];
-                            doc_scores[doc_idx] += (tf * weighted_idf) / denominator;
+                        // SAFETY: doc_idx is guaranteed to be within bounds because it was
+                        // validated during document addition, and the cache is synchronized
+                        // with the document count in ensure_norm_cache.
+                        unsafe {
+                            if tf == 1 {
+                                *doc_scores.get_unchecked_mut(doc_idx) +=
+                                    weighted_idf * tf1_recips.get_unchecked(doc_idx);
+                            } else {
+                                let tf = tf as f32;
+                                let denominator = tf + doc_term_bs.get_unchecked(doc_idx);
+                                *doc_scores.get_unchecked_mut(doc_idx) +=
+                                    (tf * weighted_idf) / denominator;
+                            }
                         }
                     }
                 }
@@ -337,7 +343,12 @@ impl Bm25Index {
                 // Map to final results, cloning IDs only for top_k
                 scores
                     .iter()
-                    .map(|&(idx, score)| (self.documents[idx].id.clone(), score))
+                    .map(|&(idx, score)| {
+                        // SAFETY: idx is derived from the score buffer which is sized
+                        // exactly to self.documents.len().
+                        let id = unsafe { &self.documents.get_unchecked(idx).id };
+                        (id.clone(), score)
+                    })
                     .collect()
             })
         })
