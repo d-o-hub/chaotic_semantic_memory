@@ -306,11 +306,25 @@ impl Bm25Index {
                     for &(doc_idx, tf) in entries {
                         if tf == 1 {
                             // Fast path for the most common case: single term frequency.
-                            doc_scores[doc_idx] += weighted_idf * tf1_recips[doc_idx];
+                            // SAFETY: doc_idx is validated during document addition.
+                            // Cache and doc_scores are sized to num_docs.
+                            // Eliminating 2 bounds checks per posting (one for doc_scores, one for tf1_recips).
+                            // Mathematical Impact: O(Q * D_q) search complexity where D_q is doc count for query term.
+                            unsafe {
+                                *doc_scores.get_unchecked_mut(doc_idx) +=
+                                    weighted_idf * tf1_recips.get_unchecked(doc_idx);
+                            }
                         } else {
                             let tf = tf as f32;
-                            let denominator = tf + doc_term_bs[doc_idx];
-                            doc_scores[doc_idx] += (tf * weighted_idf) / denominator;
+                            // SAFETY: doc_idx is validated during document addition.
+                            // Cache and doc_scores are sized to num_docs.
+                            // Eliminating 2 bounds checks per posting (one for doc_scores, one for doc_term_bs).
+                            // Mathematical Impact: O(Q * D_q) search complexity where D_q is doc count for query term.
+                            unsafe {
+                                let denominator = tf + doc_term_bs.get_unchecked(doc_idx);
+                                *doc_scores.get_unchecked_mut(doc_idx) +=
+                                    (tf * weighted_idf) / denominator;
+                            }
                         }
                     }
                 }
