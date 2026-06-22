@@ -236,3 +236,45 @@ async fn load_merge_does_not_silently_overwrite_existing_concepts() {
     let concept = framework_a.get_concept("shared-id").await.unwrap().unwrap();
     assert_eq!(concept.vector, vector_a);
 }
+
+#[tokio::test]
+async fn load_merge_loads_new_concepts_from_persistence() {
+    let temp = NamedTempFile::new().unwrap();
+    let path = temp.path().to_str().unwrap().to_string();
+
+    // Instance A starts and injects a concept
+    let framework_a = ChaoticSemanticFramework::builder()
+        .with_local_db(path.clone())
+        .build()
+        .await
+        .unwrap();
+    framework_a
+        .inject_concept("existing", HVec10240::random())
+        .await
+        .unwrap();
+
+    // Instance B connects to same DB, injects a different concept
+    let framework_b = ChaoticSemanticFramework::builder()
+        .with_local_db(path)
+        .build()
+        .await
+        .unwrap();
+    framework_b
+        .inject_concept("new-from-b", HVec10240::random())
+        .await
+        .unwrap();
+
+    // Instance A doesn't know about "new-from-b" yet
+    assert!(
+        framework_a
+            .get_concept("new-from-b")
+            .await
+            .unwrap()
+            .is_none()
+    );
+
+    // After load_merge, A should pick up B's concept
+    framework_a.load_merge().await.unwrap();
+    let merged = framework_a.get_concept("new-from-b").await.unwrap();
+    assert!(merged.is_some());
+}
