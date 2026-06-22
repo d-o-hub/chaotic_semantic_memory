@@ -305,8 +305,10 @@ impl Bm25Index {
                     for &(doc_idx, tf) in entries {
                         if tf == 1 {
                             // Fast path for the most common case: single term frequency.
-                            // SAFETY: doc_idx is validated during document addition.
-                            // Cache and doc_scores are sized to num_docs.
+                            // SAFETY: doc_idx in postings is guaranteed to be < self.documents.len() by
+                            // invariants in add_document and remove_document_at. doc_scores is resized
+                            // to num_docs at start of search, and cache buffers are synchronized via
+                            // ensure_norm_cache before this loop.
                             // Eliminating 2 bounds checks per posting (one for doc_scores, one for tf1_recips).
                             // Mathematical Impact: O(Q * D_q) search complexity where D_q is doc count for query term.
                             unsafe {
@@ -315,8 +317,10 @@ impl Bm25Index {
                             }
                         } else {
                             let tf = tf as f32;
-                            // SAFETY: doc_idx is validated during document addition.
-                            // Cache and doc_scores are sized to num_docs.
+                            // SAFETY: doc_idx in postings is guaranteed to be < self.documents.len() by
+                            // invariants in add_document and remove_document_at. doc_scores is resized
+                            // to num_docs at start of search, and cache buffers are synchronized via
+                            // ensure_norm_cache before this loop.
                             // Eliminating 2 bounds checks per posting (one for doc_scores, one for doc_term_bs).
                             // Mathematical Impact: O(Q * D_q) search complexity where D_q is doc count for query term.
                             unsafe {
