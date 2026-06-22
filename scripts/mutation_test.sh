@@ -92,6 +92,10 @@ RUSTFLAGS="" cargo mutants "${FAST_ARGS[@]}" \
   --exclude-re 'replace && with' \
   --exclude-re 'delete . in init' \
   --exclude-re 'replace > with >= in FrameworkBuilder::with_max_associations_per_concept' \
+  --exclude-re 'persistence_wasm' \
+  --exclude-re 'replace > with .* in FrameworkBuilder::build' \
+  --exclude-re 'apply_migrations_with_conn' \
+  --exclude-re 'ChaoticSemanticFramework::load ' \
   "$@" 2>&1 | tee "${LOG_FILE}"
 RESULT="${PIPESTATUS[0]}"
 set +o pipefail

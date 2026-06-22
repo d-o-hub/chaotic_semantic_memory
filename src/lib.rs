@@ -33,6 +33,7 @@ pub use csm_core::encoder;
 pub use csm_core::error;
 mod export_payload;
 pub mod framework;
+mod framework_accessors;
 mod framework_bridge;
 pub mod framework_builder;
 mod framework_events;
@@ -123,7 +124,11 @@ pub mod persistence {
         ) -> Result<()> {
             Ok(())
         }
-        pub async fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32, u64)>> {
+        pub async fn load_associations(
+            &self,
+            _ns: &str,
+            _id: &str,
+        ) -> Result<Vec<(String, f32, u64)>> {
             Ok(Vec::new())
         }
         pub async fn delete_association(&self, _ns: &str, _from: &str, _to: &str) -> Result<()> {

@@ -192,6 +192,8 @@ async fn association_lifecycle_save_load() {
     assert_eq!(associations.len(), 1);
     assert_eq!(associations[0].0, "to-id");
     assert!((associations[0].1 - 0.75).abs() < 0.001);
+    // created_at should be a recent unix timestamp (non-zero)
+    assert!(associations[0].2 > 1_700_000_000);
 
     persistence
         .save_association(NS, "from-id", "to-id", 0.5)
@@ -200,6 +202,7 @@ async fn association_lifecycle_save_load() {
     let updated = persistence.load_associations(NS, "from-id").await.unwrap();
     assert_eq!(updated.len(), 1);
     assert!((updated[0].1 - 0.5).abs() < 0.001);
+    assert!(updated[0].2 > 1_700_000_000);
 }
 
 #[tokio::test]

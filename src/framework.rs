@@ -6,15 +6,15 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::instrument;
 
-use crate::framework_builder::{FrameworkBuilder, FrameworkConfig, FrameworkStats};
+use crate::framework_builder::{FrameworkBuilder, FrameworkConfig};
 use crate::framework_events::MemoryEvent;
 use crate::framework_events_ce::{ChaoticEvent, EventEmitter};
-use crate::framework_metrics::{FrameworkMetrics, FrameworkMetricsSnapshot};
+use crate::framework_metrics::FrameworkMetrics;
 use crate::graph_traversal::TraversalConfig;
 use crate::metadata_filter::MetadataFilter;
 #[cfg(feature = "persistence")]
 use crate::persistence::Persistence;
-use crate::singularity::{Concept, ConceptBuilder, Singularity, unix_now_secs};
+use crate::singularity::{ConceptBuilder, Singularity, unix_now_secs};
 use csm_core::error::Result;
 use csm_core::hyperdim::HVec10240;
 use csm_core::reservoir_chaotic::ChaoticReservoir;
@@ -459,59 +459,5 @@ impl ChaoticSemanticFramework {
             .incoming_associations_with_decay(&ns, id, curve)
             .into_iter()
             .collect())
-    }
-
-    /// Find the fewest-hop path between two concepts (unweighted BFS).
-    ///
-    /// Returns the path with the minimum number of hops, ignoring edge strengths.
-    /// Use [] for strength-weighted (Dijkstra) traversal.
-    #[instrument(err, skip(self))]
-    pub async fn shortest_path_hops(&self, from: &str, to: &str) -> Result<Option<Vec<String>>> {
-        Self::validate_concept_id(from)?;
-        Self::validate_concept_id(to)?;
-        let sing = self.singularity.read().await;
-        let ns = self.namespace.read().await;
-        sing.shortest_path_hops(&ns, from, to, &TraversalConfig::default())
-    }
-
-    /// Get a concept by ID.
-    #[instrument(err, skip(self))]
-    pub async fn get_concept(&self, id: &str) -> Result<Option<Concept>> {
-        Self::validate_concept_id(id)?;
-        let sing = self.singularity.read().await;
-        let ns = self.namespace.read().await;
-        Ok(sing.get(&ns, id).cloned())
-    }
-
-    /// Backward-compatible alias for replace semantics.
-    ///
-    /// Delegates to [](Self::load_replace).
-    pub async fn load(&self) -> Result<()> {
-        self.load_replace().await
-    }
-
-    pub async fn metrics_snapshot(&self) -> FrameworkMetricsSnapshot {
-        self.metrics.snapshot()
-    }
-
-    /// Get framework statistics
-    pub async fn stats(&self) -> Result<FrameworkStats> {
-        // Get concept count without holding lock during persistence call
-        let concept_count = {
-            let sing = self.singularity.read().await;
-            let ns = self.namespace.read().await;
-            sing.len(&ns)
-        };
-
-        let db_size = if let Some(ref persistence) = self.persistence {
-            Some(persistence.size().await.unwrap_or(0))
-        } else {
-            None
-        };
-
-        Ok(FrameworkStats {
-            concept_count,
-            db_size_bytes: db_size,
-        })
     }
 }
