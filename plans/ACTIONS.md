@@ -1147,12 +1147,15 @@ actions:
     effects:
       deferred_concept_ttl: true
     cost: 8
-    status: deferred
+    status: complete
     adr: ADR-0024
     description: |
       DEFERRED: Advanced TTL policies beyond baseline support.
       Baseline TTL APIs are implemented; this action tracks post-1.0 policy automation.
       See ADR-0024 for extended specification and activation criteria.
+      2026-06-23: All advanced policies implemented (Fixed, MetadataRule, Inherit,
+      cascading_purge, DecayCurve). 18 integration tests cover end-to-end workflows.
+      Background cleanup daemon remains opt-in/manual via purge_expired().
 
   - name: deferred_performance_phase2
     preconditions: []
