@@ -1460,4 +1460,23 @@ world_state:
     cargo_test_csm_retrieval: "51 passed"
     cargo_test_csm_core: "66 passed"
 
-  action_last_completed: deferred_association_decay
+  # ═══════════════════════════════════════════════════════
+  # Harness Engineering & Template Alignment (2026-06-23)
+  # ADR-0090: rust-2026-template gap analysis
+  # ═══════════════════════════════════════════════════════
+  harness_engineering_gap_analysis_complete: true
+  harness_engineering_adr_created: true              # ADR-0090
+  harness_engineering_phase1_items: 8                # HARNESS.md, deny.toml, rust-toolchain.toml,
+                                                     # quality-gates.sh, harness-check.sh, .gitleaks.toml,
+                                                     # tests/arch_fitness.rs, .agents/context/
+  harness_engineering_phase1_cost: 18
+  harness_engineering_phase2_items: 5                # .pre-commit-config.yaml, nextest, .codecov.yml,
+                                                     # commitlint.config.cjs, dist-workspace.toml
+  harness_engineering_phase2_cost: 14                # delegated to Jules
+  harness_engineering_deferred: 2                    # insta snapshots, Makefile
+  harness_msrv_current: "1.85"
+  harness_msrv_target: "1.88"
+  template_reference: "https://github.com/d-oit/rust-2026-template"
+  template_version_analyzed: "0.3.2 (392 commits)"
+
+  action_last_completed: harness_engineering_gap_analysis_2026_06_23
