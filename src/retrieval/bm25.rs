@@ -303,8 +303,11 @@ impl Bm25Index {
 
                 for (weighted_idf, entries) in query_weights {
                     for &(doc_idx, tf) in entries {
-                        // SAFETY: doc_idx is guaranteed to be within bounds because it's derived
-                        // from the postings index which is synchronized with documents/doc_lengths.
+                        // SAFETY: doc_idx is guaranteed to be within bounds because:
+                        // 1. It is derived from the postings index which is strictly synchronized with
+                        //    the documents vector in add_document/remove_document_at.
+                        // 2. doc_scores is resized to self.documents.len() at search start.
+                        // 3. Normalization buffers are synchronized in ensure_norm_cache() before access.
                         // Mathematical Impact: O(Q * D_q) search complexity.
                         unsafe {
                             if tf == 1 {
