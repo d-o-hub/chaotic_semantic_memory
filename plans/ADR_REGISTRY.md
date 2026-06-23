@@ -91,6 +91,8 @@
 | 0086 | OTLP / Prometheus Implementation Notes | Implemented | [adr/0086-otlp-prom-implementation.md](adr/0086-otlp-prom-implementation.md) |
 | 0087 | CI Failure Remediation for PR #356 (Workspace Split) | Implemented | [adr/0087-ci-failure-remediation-pr356.md](adr/0087-ci-failure-remediation-pr356.md) |
 | 0088 | Pre-existing Issues Documented During PR #356 Codacy Remediation | Accepted | [adr/0088-pre-existing-issues-pr356-codacy-remediation.md](adr/0088-pre-existing-issues-pr356-codacy-remediation.md) |
+| 0089 | GOAP Reconciliation 2026-06-16 | Accepted | [adr/0089-goap-reconciliation-2026-06-16.md](adr/0089-goap-reconciliation-2026-06-16.md) |
+| 0090 | Harness Engineering & rust-2026-template Alignment | Accepted | [adr/0090-harness-engineering-template-alignment.md](adr/0090-harness-engineering-template-alignment.md) |
 
 ## Status Definitions
 

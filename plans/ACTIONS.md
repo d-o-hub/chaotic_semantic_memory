@@ -4113,3 +4113,133 @@ actions:
       6. Update ADR_REGISTRY.md with ADR-0089
       7. Open GitHub issues: #411 (TTL policies), #412 (association decay)
       8. Create PR #413 for the branch
+
+  # ═══════════════════════════════════════════════════════
+  # WAVE 29: HARNESS ENGINEERING & TEMPLATE ALIGNMENT (2026-06-23)
+  # ADR-0090: Adopt rust-2026-template practices
+  # ═══════════════════════════════════════════════════════
+
+  - name: harness_engineering_gap_analysis
+    preconditions:
+      wave_28_complete: true
+    effects:
+      harness_engineering_gap_analysis_complete: true
+      harness_engineering_adr_created: true
+    cost: 2
+    status: complete
+    file: plans/adr/0090-harness-engineering-template-alignment.md, plans/ADR_REGISTRY.md
+    description: |
+      Cross-referenced rust-2026-template (v0.3.2, 392 commits) against
+      chaotic_semantic_memory codebase. Identified 15 missing infrastructure
+      components. Created ADR-0090 documenting adoption plan in 2 phases
+      (Wave 29 cost 18, Wave 30 cost 14) + 2 deferred items.
+
+  - name: create_harness_md
+    preconditions:
+      harness_engineering_gap_analysis_complete: true
+    effects:
+      harness_md_created: true
+    cost: 3
+    status: queued
+    file: HARNESS.md
+    description: |
+      Create HARNESS.md adapted for HDC/reservoir domain. Map existing
+      sensors (clippy, tests, validate.sh, mutation_test.sh) and guides
+      (AGENTS.md, skills/). Add feedforward/feedback loop documentation.
+      Include agent self-correction protocol and structured error output.
+
+  - name: create_deny_toml
+    preconditions:
+      harness_engineering_gap_analysis_complete: true
+    effects:
+      deny_toml_created: true
+    cost: 3
+    status: queued
+    file: deny.toml, .github/workflows/ci.yml
+    description: |
+      Create deny.toml for supply chain auditing:
+      - License allowlist: MIT, Apache-2.0, BSD-2/3, ISC, Unicode-3.0, Zlib
+      - Advisory database checks (rustsec)
+      - Ban duplicate crate versions where feasible
+      - Document exceptions for known unmaintained (bincode 1.x)
+      Add `cargo deny check` to CI pipeline and quality-gates.sh.
+
+  - name: create_rust_toolchain_toml
+    preconditions:
+      harness_engineering_gap_analysis_complete: true
+    effects:
+      rust_toolchain_toml_created: true
+      msrv_bumped_to_1_88: true
+    cost: 1
+    status: queued
+    file: rust-toolchain.toml, Cargo.toml
+    description: |
+      Create rust-toolchain.toml pinning stable 1.88.0.
+      Bump rust-version in Cargo.toml from "1.85" to "1.88".
+      Enables full Rust 2024 edition features.
+
+  - name: create_quality_gates_script
+    preconditions:
+      harness_engineering_gap_analysis_complete: true
+    effects:
+      quality_gates_script_created: true
+    cost: 2
+    status: queued
+    file: scripts/quality-gates.sh
+    description: |
+      Unified quality gate script wrapping validate.sh with structured
+      output. Adds cargo-deny check to the pipeline. Compatible with
+      both local dev and CI execution.
+
+  - name: create_harness_check_script
+    preconditions:
+      quality_gates_script_created: true
+    effects:
+      harness_check_script_created: true
+    cost: 2
+    status: queued
+    file: scripts/harness-check.sh
+    description: |
+      Agent-optimized error output with HARNESS VIOLATION prefix and
+      fix hints. Wraps quality-gates.sh sensors. Emits structured
+      output parseable by AI coding agents for self-correction.
+
+  - name: create_gitleaks_toml
+    preconditions:
+      harness_engineering_gap_analysis_complete: true
+    effects:
+      gitleaks_toml_created: true
+    cost: 1
+    status: queued
+    file: .gitleaks.toml
+    description: |
+      Secret scanning configuration. Critical for a crate that handles
+      database credentials (Turso tokens). Add to pre-commit pipeline.
+
+  - name: create_arch_fitness_tests
+    preconditions:
+      harness_engineering_gap_analysis_complete: true
+    effects:
+      arch_fitness_tests_created: true
+    cost: 3
+    status: queued
+    file: tests/arch_fitness.rs
+    description: |
+      Architecture fitness tests enforced at compile/test time:
+      - LOC gate (all src/ files ≤ 500 LOC)
+      - Module dependency layering
+      - No unsafe outside hyperdim_simd.rs
+      - Public API surface stability check
+
+  - name: create_agents_context
+    preconditions:
+      harness_engineering_gap_analysis_complete: true
+    effects:
+      agents_context_created: true
+    cost: 3
+    status: queued
+    file: .agents/context/shared-conventions.md
+    description: |
+      Cross-repo context document for d-o-hub organization conventions.
+      Commit format, branch naming, PR requirements, quality thresholds.
+      Referenced by AGENTS.md and consumable by derived repositories.
