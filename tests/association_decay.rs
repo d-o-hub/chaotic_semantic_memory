@@ -1,7 +1,7 @@
 //! Integration tests for association decay (ADR-0025, issue #412).
 
-use chaotic_semantic_memory::prelude::*;
 use chaotic_semantic_memory::framework_ttl_advanced::{DecayCurve, TtlConfig};
+use chaotic_semantic_memory::prelude::*;
 
 #[tokio::test]
 async fn reinforce_association_resets_decay_clock() {
@@ -12,14 +12,8 @@ async fn reinforce_association_resets_decay_clock() {
         .unwrap();
 
     let v = HVec10240::random();
-    framework
-        .inject_concept("a".to_string(), v.clone())
-        .await
-        .unwrap();
-    framework
-        .inject_concept("b".to_string(), v)
-        .await
-        .unwrap();
+    framework.inject_concept("a".to_string(), v).await.unwrap();
+    framework.inject_concept("b".to_string(), v).await.unwrap();
     framework.associate("a", "b", 0.8).await.unwrap();
 
     // Reinforce should succeed
@@ -48,14 +42,8 @@ async fn prune_decayed_removes_weak_associations() {
         .unwrap();
 
     let v = HVec10240::random();
-    framework
-        .inject_concept("x".to_string(), v.clone())
-        .await
-        .unwrap();
-    framework
-        .inject_concept("y".to_string(), v)
-        .await
-        .unwrap();
+    framework.inject_concept("x".to_string(), v).await.unwrap();
+    framework.inject_concept("y".to_string(), v).await.unwrap();
     framework.associate("x", "y", 0.9).await.unwrap();
 
     // With step decay (threshold=0, drop=1.0), the decayed strength is 0.0
