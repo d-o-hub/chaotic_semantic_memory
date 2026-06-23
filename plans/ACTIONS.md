@@ -1180,7 +1180,7 @@ actions:
     effects:
       deferred_association_decay: true
     cost: 6
-    status: deferred
+    status: complete
     adr: ADR-0025
     description: |
       DEFERRED: Weighted forgetting with association decay.
