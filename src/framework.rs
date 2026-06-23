@@ -460,4 +460,29 @@ impl ChaoticSemanticFramework {
             .into_iter()
             .collect())
     }
+
+    /// Reinforce an association by resetting its decay clock.
+    ///
+    /// This refreshes the `created_at` timestamp so decay restarts from now,
+    /// implementing "use it or lose it" behavior.
+    #[instrument(err, skip(self))]
+    pub async fn reinforce_association(&self, from: &str, to: &str) -> Result<()> {
+        Self::validate_concept_id(from)?;
+        Self::validate_concept_id(to)?;
+        let mut sing = self.singularity.write().await;
+        let ns = self.namespace.read().await;
+        sing.reinforce_association(&ns, from, to)
+    }
+
+    /// Prune associations whose decayed strength falls below `threshold`.
+    ///
+    /// Uses the configured `association_decay` curve. Returns the count of
+    /// pruned associations.
+    #[instrument(err, skip(self))]
+    pub async fn prune_decayed_associations(&self, threshold: f32) -> Result<usize> {
+        let curve = self.config.ttl_config.association_decay;
+        let mut sing = self.singularity.write().await;
+        let ns = self.namespace.read().await;
+        Ok(sing.prune_decayed_associations(&ns, curve, threshold))
+    }
 }
