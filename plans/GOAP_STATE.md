@@ -766,8 +766,8 @@ world_state:
 
   # Post-1.0 Deferred Work (ADR-0024, ADR-0025, ADR-0026)
   # Per Swarm Consensus 2026-02-17: Advanced features deferred until user demand
-  deferred_concept_ttl: false           # ADR-0024: advanced TTL policy automation (baseline TTL shipped)
-  deferred_association_decay: false     # ADR-0025: Weighted forgetting
+  deferred_concept_ttl: true            # ADR-0024: advanced TTL policy automation — all policies implemented 2026-06-23
+  deferred_association_decay: true      # ADR-0025: Weighted forgetting — implemented 2026-06-23 (PR #426)
   deferred_namespace_isolation: false   # ADR-0026: Multi-tenancy
   deferred_phase2_optimizations: false  # ADR-0024: SIMD completion, PQ, LSH
   deferred_trigger_threshold: "User demand or >200k concepts with latency issues"
@@ -1460,4 +1460,4 @@ world_state:
     cargo_test_csm_retrieval: "51 passed"
     cargo_test_csm_core: "66 passed"
 
-  action_last_completed: security_fix_max_associations_bound
+  action_last_completed: deferred_association_decay

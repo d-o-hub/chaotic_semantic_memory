@@ -13,6 +13,7 @@ pub mod index;
 pub mod metadata_filter;
 pub mod singularity;
 pub mod singularity_cache;
+pub mod singularity_decay;
 pub mod singularity_ext;
 pub mod singularity_retrieval;
 pub mod singularity_search;
@@ -24,8 +25,8 @@ pub use graph_traversal::TraversalConfig;
 pub use index::{AnnIndex, IndexBackend, IndexStats};
 pub use metadata_filter::MetadataFilter;
 pub use singularity::{
-    Concept, ConceptDiff, ConceptVersion, Singularity, SingularityConfig, similarity_cache_key,
-    unix_now_ns, unix_now_secs,
+    Association, Concept, ConceptDiff, ConceptVersion, DecayCurve, Singularity, SingularityConfig,
+    similarity_cache_key, unix_now_ns, unix_now_secs,
 };
 pub use singularity_cache::{CacheMetrics, CacheMetricsSnapshot};
 pub use singularity_retrieval::{
