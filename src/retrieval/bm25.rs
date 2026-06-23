@@ -303,13 +303,23 @@ impl Bm25Index {
 
                 for (weighted_idf, entries) in query_weights {
                     for &(doc_idx, tf) in entries {
-                        if tf == 1 {
-                            // Fast path for the most common case: single term frequency.
-                            doc_scores[doc_idx] += weighted_idf * tf1_recips[doc_idx];
-                        } else {
-                            let tf = tf as f32;
-                            let denominator = tf + doc_term_bs[doc_idx];
-                            doc_scores[doc_idx] += (tf * weighted_idf) / denominator;
+                        // SAFETY: doc_idx is guaranteed to be within bounds because:
+                        // 1. It is derived from the postings index which is strictly synchronized with
+                        //    the documents vector in add_document/remove_document_at.
+                        // 2. doc_scores is resized to self.documents.len() at search start.
+                        // 3. Normalization buffers are synchronized in ensure_norm_cache() before access.
+                        // Mathematical Impact: O(Q * D_q) search complexity.
+                        unsafe {
+                            if tf == 1 {
+                                // Fast path for the most common case: single term frequency.
+                                *doc_scores.get_unchecked_mut(doc_idx) +=
+                                    weighted_idf * tf1_recips.get_unchecked(doc_idx);
+                            } else {
+                                let tf = tf as f32;
+                                let denominator = tf + doc_term_bs.get_unchecked(doc_idx);
+                                *doc_scores.get_unchecked_mut(doc_idx) +=
+                                    (tf * weighted_idf) / denominator;
+                            }
                         }
                     }
                 }
