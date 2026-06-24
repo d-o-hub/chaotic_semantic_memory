@@ -1460,4 +1460,33 @@ world_state:
     cargo_test_csm_retrieval: "51 passed"
     cargo_test_csm_core: "66 passed"
 
-  action_last_completed: deferred_association_decay
+  # ═══════════════════════════════════════════════════════
+  # Gap Analysis 2026-06-24 (ADR-0090 through ADR-0094)
+  # Codebase scan found 14 gaps; 5 ADRs proposed for medium-priority items.
+  # ═══════════════════════════════════════════════════════
+  gap_analysis_2026_06_24_completed: true
+  gap_analysis_2026_06_24_findings: 14
+  gap_analysis_2026_06_24_adrs_drafted: 5
+  gap_analysis_2026_06_24_adrs:
+    - "ADR-0090: MCP SSE Transport + Integration Tests"
+    - "ADR-0091: Bridge Persistence Integration Tests"
+    - "ADR-0092: CI Test Matrix Expansion (csm-wasm, csm-cli)"
+    - "ADR-0093: Fuzz Target Expansion (4 new targets)"
+    - "ADR-0094: Benchmark Coverage Expansion (reranking, hybrid, embedding)"
+  gap_analysis_2026_06_24_medium_priority:
+    mcp_sse_transport: proposed          # ADR-0090 Phase 2 (cost 12, delegate Jules)
+    mcp_integration_tests: proposed      # ADR-0090 Phase 1 (cost 4)
+    bridge_persistence_tests: proposed   # ADR-0091 (cost 3)
+    ci_matrix_expansion: proposed        # ADR-0092 (cost 2)
+  gap_analysis_2026_06_24_low_priority:
+    fuzz_target_expansion: proposed      # ADR-0093 (cost 4)
+    benchmark_coverage: proposed         # ADR-0094 (cost 5)
+    metrics_reset_cli: unimplemented     # src/cli/commands/metrics.rs placeholder
+    semantic_triples_tests: missing      # only 2 inline unit tests
+    events_http_ci_job: missing          # no dedicated CI for events-http feature
+    shellcheck_disabled: known           # validate.sh crash workaround
+    namespace_export_import_tests: missing  # indirect coverage only
+    dead_code_allow_global: accepted     # Cargo.toml lints section
+    export_payload_dead_code: vestigial  # 4 #[allow(dead_code)] after workspace refactor
+
+  action_last_completed: gap_analysis_2026_06_24

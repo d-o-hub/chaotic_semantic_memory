@@ -4113,3 +4113,85 @@ actions:
       6. Update ADR_REGISTRY.md with ADR-0089
       7. Open GitHub issues: #411 (TTL policies), #412 (association decay)
       8. Create PR #413 for the branch
+
+  # ═══════════════════════════════════════════════════════
+  # QUEUED: Gap Analysis 2026-06-24 (ADRs 0090-0094)
+  # ═══════════════════════════════════════════════════════
+  - name: mcp_integration_tests
+    preconditions:
+      mcp_server_implemented: true
+    effects:
+      mcp_integration_tests_complete: true
+    cost: 4
+    status: queued
+    file: tests/mcp_integration.rs
+    description: |
+      ADR-0090 Phase 1: Add integration tests for MCP tool execution
+      (memory_inject, memory_probe, memory_associate), resource reads,
+      server initialization, and error handling paths.
+
+  - name: mcp_sse_transport
+    preconditions:
+      mcp_server_implemented: true
+      mcp_integration_tests_complete: true
+    effects:
+      mcp_sse_transport_implemented: true
+    cost: 12
+    status: queued
+    file: src/mcp/server.rs, src/mcp/transport_sse.rs
+    description: |
+      ADR-0090 Phase 2: Implement SSE transport variant for MCP server.
+      Add Sse { bind: SocketAddr } to Transport enum, implement HTTP
+      server with SSE endpoint. Cost >= 12, delegate to Jules.
+
+  - name: bridge_persistence_integration_tests
+    preconditions:
+      tests_passing: true
+    effects:
+      bridge_persistence_tests_complete: true
+    cost: 3
+    status: queued
+    file: tests/bridge_persistence_integration.rs
+    description: |
+      ADR-0091: Integration tests for bridge persistence module —
+      round-trip save/load, update, delete, bulk load, label
+      deserialization, related IDs, and error handling.
+
+  - name: ci_test_matrix_expansion
+    preconditions:
+      ci_all_checks_passed: true
+    effects:
+      ci_matrix_csm_cli_tested: true
+      ci_matrix_csm_wasm_documented: true
+    cost: 2
+    status: queued
+    file: .github/workflows/ci.yml
+    description: |
+      ADR-0092: Add csm-cli to test-workspace-crates CI matrix.
+      Document csm-wasm test limitations or add wasm-bindgen-test.
+
+  - name: fuzz_target_expansion
+    preconditions:
+      tests_passing: true
+    effects:
+      fuzz_targets_count: 7
+    cost: 4
+    status: queued
+    file: fuzz/fuzz_targets/
+    description: |
+      ADR-0093: Add 4 new fuzz targets — fuzz_json_import,
+      fuzz_metadata_filter, fuzz_bm25_tokenize, fuzz_text_encoder.
+
+  - name: benchmark_coverage_expansion
+    preconditions:
+      benchmarks_exist: true
+    effects:
+      rerank_benchmarks_exist: true
+      hybrid_benchmarks_exist: true
+      embedding_benchmarks_exist: true
+    cost: 5
+    status: queued
+    file: benches/rerank_benchmark.rs, benches/hybrid_benchmark.rs, benches/embedding_benchmark.rs
+    description: |
+      ADR-0094: Add benchmark groups for reranking pipeline, hybrid
+      BM25+HDC search, and embedding provider encode paths.
