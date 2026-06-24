@@ -201,7 +201,10 @@ async fn test_graph_rag_boundary_conditions() {
         .unwrap();
     let ids: Vec<String> = results.iter().map(|r| r.id.clone()).collect();
     assert!(ids.contains(&"c1".to_string()));
-    assert!(!ids.contains(&"c2".to_string()), "c2 should be filtered by min_assoc_strength");
+    assert!(
+        !ids.contains(&"c2".to_string()),
+        "c2 should be filtered by min_assoc_strength"
+    );
 
     // Test scoring impact of hop distance (1.0 / (1.0 + hops))
     // c0: hops=0, path=1.0, graph_score = 1.0 / (1+0) * 1.0 = 1.0
@@ -222,4 +225,47 @@ async fn test_graph_rag_boundary_conditions() {
     let c1_res = results_scoring.iter().find(|r| r.id == "c1").unwrap();
     assert!((c0_res.score - 1.0).abs() < f32::EPSILON);
     assert!((c1_res.score - 0.25).abs() < f32::EPSILON);
+}
+
+#[tokio::test]
+async fn test_graph_rag_max_results_boundary() {
+    let framework = setup_framework().await;
+
+    // To test the 1000 results boundary, we need to inject 1001 concepts and associate c0 to all of them.
+    // This is slow but necessary to kill mutants on line 226.
+    framework
+        .inject_concept("c0", HVec10240::new_seeded(0))
+        .await
+        .unwrap();
+
+    // Use a smaller number if we can, but the code hardcodes 1000.
+    // Let's actually do it.
+    for i in 1..=1001 {
+        let id = format!("n{i}");
+        framework
+            .inject_concept(&id, HVec10240::new_seeded(i as u64))
+            .await
+            .unwrap();
+        framework.associate("c0", &id, 0.9).await.unwrap();
+    }
+
+    let config = GraphRagConfig {
+        anchor_top_k: 1,
+        max_hops: 1,
+        final_top_k: 2000,
+        ..Default::default()
+    };
+
+    let results = framework
+        .probe_with_graph(HVec10240::new_seeded(0), config)
+        .await
+        .unwrap();
+
+    // results should have c0 (anchor) + 1000 neighbors = 1001 total.
+    // The 1001st neighbor should have been rejected by max_results=1000.
+    assert_eq!(
+        results.len(),
+        1001,
+        "Should have anchor plus exactly 1000 neighbors"
+    );
 }

@@ -222,7 +222,7 @@ fn traverse_from<'a>(
                 let is_better = if let Some(&(_, _, prev_score)) = best_paths.get(neighbor) {
                     new_graph_score > prev_score
                 } else {
-                    best_paths.len() < config.max_results + 1 // +1 for start node
+                    best_paths.len() <= config.max_results
                 };
 
                 if is_better {
