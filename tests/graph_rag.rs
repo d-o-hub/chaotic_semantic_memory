@@ -166,3 +166,60 @@ async fn test_graph_rag_empty_isolated() {
     assert_eq!(results[0].id, "c0");
     assert_eq!(results[0].hop_distance, 0);
 }
+
+#[tokio::test]
+async fn test_graph_rag_boundary_conditions() {
+    let framework = setup_framework().await;
+
+    // c0 -> c1 (0.5), c0 -> c2 (0.4)
+    framework
+        .inject_concept("c0", HVec10240::new_seeded(0))
+        .await
+        .unwrap();
+    framework
+        .inject_concept("c1", HVec10240::new_seeded(1))
+        .await
+        .unwrap();
+    framework
+        .inject_concept("c2", HVec10240::new_seeded(2))
+        .await
+        .unwrap();
+
+    framework.associate("c0", "c1", 0.5).await.unwrap();
+    framework.associate("c0", "c2", 0.4).await.unwrap();
+
+    // Test min_assoc_strength boundary
+    let config = GraphRagConfig {
+        anchor_top_k: 1,
+        max_hops: 1,
+        min_assoc_strength: 0.5, // Exactly c1
+        ..Default::default()
+    };
+    let results = framework
+        .probe_with_graph(HVec10240::new_seeded(0), config)
+        .await
+        .unwrap();
+    let ids: Vec<String> = results.iter().map(|r| r.id.clone()).collect();
+    assert!(ids.contains(&"c1".to_string()));
+    assert!(!ids.contains(&"c2".to_string()), "c2 should be filtered by min_assoc_strength");
+
+    // Test scoring impact of hop distance (1.0 / (1.0 + hops))
+    // c0: hops=0, path=1.0, graph_score = 1.0 / (1+0) * 1.0 = 1.0
+    // c1: hops=1, path=0.5, graph_score = 0.5 / (1+1) * 1.0 = 0.25
+    // we use a config with graph_weight=1.0 and similarity_weight=0.0
+    let config_scoring = GraphRagConfig {
+        anchor_top_k: 1,
+        max_hops: 1,
+        similarity_weight: 0.0,
+        graph_weight: 1.0,
+        ..Default::default()
+    };
+    let results_scoring = framework
+        .probe_with_graph(HVec10240::new_seeded(0), config_scoring)
+        .await
+        .unwrap();
+    let c0_res = results_scoring.iter().find(|r| r.id == "c0").unwrap();
+    let c1_res = results_scoring.iter().find(|r| r.id == "c1").unwrap();
+    assert!((c0_res.score - 1.0).abs() < f32::EPSILON);
+    assert!((c1_res.score - 0.25).abs() < f32::EPSILON);
+}

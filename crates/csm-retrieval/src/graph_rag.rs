@@ -184,10 +184,7 @@ fn find_anchors<'a>(
     concepts: &HashMap<&'a str, (&Concept, f32)>,
     top_k: usize,
 ) -> Vec<(&'a str, f32)> {
-    let mut scored: Vec<(&str, f32)> = concepts
-        .iter()
-        .map(|(&id, &(_, sim))| (id, sim))
-        .collect();
+    let mut scored: Vec<(&str, f32)> = concepts.iter().map(|(&id, &(_, sim))| (id, sim)).collect();
 
     scored.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
     scored.truncate(top_k);
