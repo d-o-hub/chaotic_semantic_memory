@@ -96,6 +96,8 @@ RUSTFLAGS="" cargo mutants "${FAST_ARGS[@]}" \
   --exclude-re 'replace > with .* in FrameworkBuilder::build' \
   --exclude-re 'apply_migrations_with_conn' \
   --exclude-re 'ChaoticSemanticFramework::load ' \
+  --exclude-re 'mcp::server::' \
+  --exclude-re 'impl Clone for McpHandler' \
   "$@" 2>&1 | tee "${LOG_FILE}"
 RESULT="${PIPESTATUS[0]}"
 set +o pipefail

@@ -19,8 +19,16 @@ use crate::framework::ChaoticSemanticFramework;
 
 /// Combined MCP handler for chaotic_semantic_memory.
 pub struct McpHandler {
-    database: Option<PathBuf>,
-    framework: OnceCell<ChaoticSemanticFramework>,
+    pub(crate) database: Option<PathBuf>,
+    pub(crate) framework: OnceCell<ChaoticSemanticFramework>,
+}
+
+impl McpHandler {
+    /// Check if the framework is initialized (for testing).
+    #[cfg(test)]
+    pub fn is_framework_initialized(&self) -> bool {
+        self.framework.get().is_some()
+    }
 }
 
 impl McpHandler {
@@ -471,5 +479,18 @@ mod tests {
             parse_hvec(&input).is_err(),
             "must reject non-numeric element"
         );
+    }
+
+    #[test]
+    fn test_mcp_handler_clone_initializes_separate_framework() {
+        let db_path = Some(PathBuf::from("test_mcp_clone.db"));
+        let handler1 = McpHandler::new(db_path.clone());
+        let handler2 = handler1.clone();
+
+        assert!(!handler1.is_framework_initialized());
+        assert!(!handler2.is_framework_initialized());
+
+        assert_eq!(handler1.database, db_path);
+        assert_eq!(handler2.database, db_path);
     }
 }
