@@ -19,8 +19,8 @@ use crate::framework::ChaoticSemanticFramework;
 
 /// Combined MCP handler for chaotic_semantic_memory.
 pub struct McpHandler {
-    database: Option<PathBuf>,
-    framework: OnceCell<ChaoticSemanticFramework>,
+    pub(crate) database: Option<PathBuf>,
+    pub(crate) framework: OnceCell<ChaoticSemanticFramework>,
 }
 
 impl McpHandler {

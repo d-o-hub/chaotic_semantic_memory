@@ -13,4 +13,4 @@ mod server;
 #[cfg(feature = "mcp")]
 pub use handler::McpHandler;
 #[cfg(feature = "mcp")]
-pub use server::{McpConfig, Transport, serve};
+pub use server::{McpConfig, Transport, TransportType, serve};
