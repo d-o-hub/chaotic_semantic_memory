@@ -1,1 +1,1 @@
-No papers newer than 2026-01-01 were found on any topic.
+No papers newer than 2026-06-04 found on any of the specified topics.
