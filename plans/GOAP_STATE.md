@@ -1461,22 +1461,32 @@ world_state:
     cargo_test_csm_core: "66 passed"
 
   # ═══════════════════════════════════════════════════════
-  # Harness Engineering & Template Alignment (2026-06-23)
-  # ADR-0090: rust-2026-template gap analysis
+  # Gap Analysis 2026-06-24 (ADR-0090 through ADR-0094)
+  # Codebase scan found 14 gaps; 5 ADRs proposed for medium-priority items.
   # ═══════════════════════════════════════════════════════
-  harness_engineering_gap_analysis_complete: true
-  harness_engineering_adr_created: true              # ADR-0090
-  harness_engineering_phase1_items: 8                # HARNESS.md, deny.toml, rust-toolchain.toml,
-                                                     # quality-gates.sh, harness-check.sh, .gitleaks.toml,
-                                                     # tests/arch_fitness.rs, .agents/context/
-  harness_engineering_phase1_cost: 18
-  harness_engineering_phase2_items: 5                # .pre-commit-config.yaml, nextest, .codecov.yml,
-                                                     # commitlint.config.cjs, dist-workspace.toml
-  harness_engineering_phase2_cost: 14                # delegated to Jules
-  harness_engineering_deferred: 2                    # insta snapshots, Makefile
-  harness_msrv_current: "1.85"
-  harness_msrv_target: "1.88"
-  template_reference: "https://github.com/d-oit/rust-2026-template"
-  template_version_analyzed: "0.3.2 (392 commits)"
+  gap_analysis_2026_06_24_completed: true
+  gap_analysis_2026_06_24_findings: 14
+  gap_analysis_2026_06_24_adrs_drafted: 5
+  gap_analysis_2026_06_24_adrs:
+    - "ADR-0090: MCP SSE Transport + Integration Tests"
+    - "ADR-0091: Bridge Persistence Integration Tests"
+    - "ADR-0092: CI Test Matrix Expansion (csm-wasm, csm-cli)"
+    - "ADR-0093: Fuzz Target Expansion (4 new targets)"
+    - "ADR-0094: Benchmark Coverage Expansion (reranking, hybrid, embedding)"
+  gap_analysis_2026_06_24_medium_priority:
+    mcp_sse_transport: proposed          # ADR-0090 Phase 2 (cost 12, delegate Jules)
+    mcp_integration_tests: proposed      # ADR-0090 Phase 1 (cost 4)
+    bridge_persistence_tests: proposed   # ADR-0091 (cost 3)
+    ci_matrix_expansion: proposed        # ADR-0092 (cost 2)
+  gap_analysis_2026_06_24_low_priority:
+    fuzz_target_expansion: proposed      # ADR-0093 (cost 4)
+    benchmark_coverage: proposed         # ADR-0094 (cost 5)
+    metrics_reset_cli: unimplemented     # src/cli/commands/metrics.rs placeholder
+    semantic_triples_tests: missing      # only 2 inline unit tests
+    events_http_ci_job: missing          # no dedicated CI for events-http feature
+    shellcheck_disabled: known           # validate.sh crash workaround
+    namespace_export_import_tests: missing  # indirect coverage only
+    dead_code_allow_global: accepted     # Cargo.toml lints section
+    export_payload_dead_code: vestigial  # 4 #[allow(dead_code)] after workspace refactor
 
-  action_last_completed: harness_engineering_gap_analysis_2026_06_23
+  action_last_completed: gap_analysis_2026_06_24

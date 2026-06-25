@@ -232,6 +232,14 @@ These ADRs are valid but deferred based on Swarm Consensus:
 - **ADR-0085**: GOAP Reconciliation 2026-06 (2026-06-06)
 - **ADR-0089**: GOAP Reconciliation 2026-06-16 (post-PR #396 / #389 audit; removed duplicate `action_last_completed`, marked 3 stale "deferred" actions as complete)
 
+## Gap Analysis 2026-06-24
+
+- **ADR-0090**: MCP SSE Transport and Integration Tests (Phase 1: tests cost 4; Phase 2: SSE cost 12)
+- **ADR-0091**: Bridge Persistence Integration Tests (cost 3)
+- **ADR-0092**: CI Test Matrix Expansion — csm-cli + csm-wasm (cost 2)
+- **ADR-0093**: Fuzz Target Expansion — 4 new targets (cost 4)
+- **ADR-0094**: Benchmark Coverage Expansion — reranking, hybrid, embedding (cost 5)
+
 ## Links
 
 - Full ADR directory: `plans/adr/`
