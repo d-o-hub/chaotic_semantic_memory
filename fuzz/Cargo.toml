@@ -13,7 +13,8 @@ tokio = { version = "1.43.0", features = ["rt", "macros"] }
 serde_json = "1.0.149"
 
 [dependencies.chaotic_semantic_memory]
-path = "..", version = "0.3.6"
+path = ".."
+version = "0.3.6"
 
 [workspace]
 
@@ -34,6 +35,34 @@ bench = false
 [[bin]]
 name = "persistence_save_concept"
 path = "fuzz_targets/persistence_save_concept.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_json_import"
+path = "fuzz_targets/fuzz_json_import.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_metadata_filter"
+path = "fuzz_targets/fuzz_metadata_filter.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_bm25_tokenize"
+path = "fuzz_targets/fuzz_bm25_tokenize.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_text_encoder"
+path = "fuzz_targets/fuzz_text_encoder.rs"
 test = false
 doc = false
 bench = false

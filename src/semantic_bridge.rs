@@ -229,55 +229,54 @@ impl ConceptGraph {
     pub fn match_tokens(&self, tokens: &[String]) -> Vec<String> {
         let mut matched = std::collections::HashSet::new();
         for token in tokens {
-            // Algorithmic Optimization: Avoid allocation if token is already present (likely lowercase)
+            // Algorithmic Optimization: Use &str references in the matched set to avoid
+            // cloning concept IDs during the matching process.
             if let Some(ids) = self.label_index.get(token) {
-                matched.extend(ids.iter().cloned());
+                matched.extend(ids.iter().map(|s| s.as_str()));
             } else {
                 // If not found, attempt case-insensitive lookup
                 let lowered = token.to_lowercase();
                 if &lowered != token {
                     if let Some(ids) = self.label_index.get(&lowered) {
-                        matched.extend(ids.iter().cloned());
+                        matched.extend(ids.iter().map(|s| s.as_str()));
                     }
                 }
             }
         }
-        matched.into_iter().collect()
+        matched.into_iter().map(|s| s.to_string()).collect()
     }
 
     /// Expand concept IDs to their labels and related concept labels.
     pub fn expand(&self, concept_ids: &[String], max_depth: u8) -> Vec<String> {
         let mut expanded = std::collections::HashSet::new();
-        let mut to_visit: Vec<(String, u8)> =
-            concept_ids.iter().map(|id| (id.clone(), 0)).collect();
+        let mut to_visit: Vec<(&str, u8)> = concept_ids.iter().map(|id| (id.as_str(), 0)).collect();
         let mut visited = std::collections::HashSet::new();
 
         while let Some((id, depth)) = to_visit.pop() {
             // Algorithmic Optimization: Use insert() result to combine check and mark in one lookup.
-            // The `depth > max_depth` branch is unreachable: related concepts are only
-            // enqueued at `depth + 1` when `depth < max_depth`, so every queued depth
-            // satisfies `depth <= max_depth`.
-            if !visited.insert(id.clone()) {
+            // Using &str references for visited and to_visit sets eliminates redundant String
+            // allocations and clones during the graph traversal hot path.
+            if !visited.insert(id) {
                 continue;
             }
 
-            if let Some(concept) = self.concepts.get(&id) {
+            if let Some(concept) = self.concepts.get(id) {
                 // Add all labels
                 for label in &concept.labels {
-                    expanded.insert(label.clone());
+                    expanded.insert(label.as_str());
                 }
                 // Queue related concepts
                 if depth < max_depth {
                     for related_id in &concept.related {
-                        if !visited.contains(related_id) {
-                            to_visit.push((related_id.clone(), depth + 1));
+                        if !visited.contains(related_id.as_str()) {
+                            to_visit.push((related_id.as_str(), depth + 1));
                         }
                     }
                 }
             }
         }
 
-        expanded.into_iter().collect()
+        expanded.into_iter().map(|s| s.to_string()).collect()
     }
 
     /// Load concept graph from JSON.
@@ -365,6 +364,34 @@ mod tests {
         let expanded = graph.expand(&["c1".to_string()], 1);
         assert!(expanded.contains(&"agent memory".to_string()));
         assert!(expanded.contains(&"session context".to_string()));
+    }
+
+    #[test]
+    fn test_concept_graph_expand_max_depth_strict() {
+        let mut graph = ConceptGraph::new();
+        graph.add_concept(
+            CanonicalConcept::new("c1")
+                .with_label("l1")
+                .with_related("c2"),
+        );
+        graph.add_concept(
+            CanonicalConcept::new("c2")
+                .with_label("l2")
+                .with_related("c3"),
+        );
+        graph.add_concept(CanonicalConcept::new("c3").with_label("l3"));
+
+        // Max depth 1 should reach c1 and c2, but not c3
+        let expanded = graph.expand(&["c1".to_string()], 1);
+        assert!(expanded.contains(&"l1".to_string()));
+        assert!(expanded.contains(&"l2".to_string()));
+        assert!(!expanded.contains(&"l3".to_string()));
+
+        // Max depth 2 should reach all
+        let expanded_full = graph.expand(&["c1".to_string()], 2);
+        assert!(expanded_full.contains(&"l1".to_string()));
+        assert!(expanded_full.contains(&"l2".to_string()));
+        assert!(expanded_full.contains(&"l3".to_string()));
     }
 
     #[test]

@@ -177,6 +177,7 @@ strip = "symbols"
 # Safety lints
 unsafe_code = "allow"  # SIMD uses intentional unsafe blocks
 missing_docs = "allow"  # Project uses selective documentation
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("rerank-cross"))'] }
 
 # Serialization struct fields may be unused but needed for format
 dead_code = "allow"

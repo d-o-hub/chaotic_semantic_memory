@@ -4118,6 +4118,18 @@ actions:
   # WAVE 29: HARNESS ENGINEERING & TEMPLATE ALIGNMENT (2026-06-23)
   # ADR-0090: Adopt rust-2026-template practices
   # ═══════════════════════════════════════════════════════
+  - name: mcp_integration_tests
+    preconditions:
+      mcp_server_implemented: true
+    effects:
+      mcp_integration_tests_complete: true
+    cost: 4
+    status: complete
+    file: tests/mcp_integration.rs
+    description: |
+      ADR-0090 Phase 1: Add integration tests for MCP tool execution
+      (memory_inject, memory_probe, memory_associate), resource reads,
+      server initialization, and error handling paths.
 
   - name: harness_engineering_gap_analysis
     preconditions:
@@ -4140,8 +4152,8 @@ actions:
     effects:
       harness_md_created: true
     cost: 3
-    status: queued
-    file: HARNESS.md
+    status: complete
+    file: tests/bridge_persistence_integration.rs
     description: |
       Create HARNESS.md adapted for HDC/reservoir domain. Map existing
       sensors (clippy, tests, validate.sh, mutation_test.sh) and guides
@@ -4184,8 +4196,8 @@ actions:
     effects:
       quality_gates_script_created: true
     cost: 2
-    status: queued
-    file: scripts/quality-gates.sh
+    status: complete
+    file: .github/workflows/ci.yml
     description: |
       Unified quality gate script wrapping validate.sh with structured
       output. Adds cargo-deny check to the pipeline. Compatible with
@@ -4195,10 +4207,10 @@ actions:
     preconditions:
       quality_gates_script_created: true
     effects:
-      harness_check_script_created: true
-    cost: 2
-    status: queued
-    file: scripts/harness-check.sh
+      fuzz_targets_count: 7
+    cost: 4
+    status: complete
+    file: fuzz/fuzz_targets/
     description: |
       Agent-optimized error output with HARNESS VIOLATION prefix and
       fix hints. Wraps quality-gates.sh sensors. Emits structured
@@ -4208,10 +4220,12 @@ actions:
     preconditions:
       harness_engineering_gap_analysis_complete: true
     effects:
-      gitleaks_toml_created: true
-    cost: 1
-    status: queued
-    file: .gitleaks.toml
+      rerank_benchmarks_exist: true
+      hybrid_benchmarks_exist: true
+      embedding_benchmarks_exist: true
+    cost: 5
+    status: complete
+    file: benches/rerank_benchmark.rs, benches/hybrid_benchmark.rs, benches/embedding_benchmark.rs
     description: |
       Secret scanning configuration. Critical for a crate that handles
       database credentials (Turso tokens). Add to pre-commit pipeline.

@@ -1479,4 +1479,19 @@ world_state:
   template_reference: "https://github.com/d-oit/rust-2026-template"
   template_version_analyzed: "0.3.2 (392 commits)"
 
-  action_last_completed: harness_engineering_gap_analysis_2026_06_23
+  action_last_completed: wave_29_harness_expansion
+
+  # ═══════════════════════════════════════════════════════
+  # Wave 29: Harness Expansion (2026-06-25)
+  # MCP integration tests, bridge persistence tests, CI matrix,
+  # fuzz targets, benchmark coverage
+  # ═══════════════════════════════════════════════════════
+  wave_29_complete: true
+  wave_29_mcp_integration_tests: 12    # tests/mcp_integration.rs
+  wave_29_bridge_persistence_tests: 9  # tests/bridge_persistence_integration.rs
+  wave_29_ci_matrix_csm_cli: true      # Added to test-workspace-crates
+  wave_29_fuzz_targets_added: 4        # json_import, metadata_filter, bm25_tokenize, text_encoder
+  wave_29_benchmarks_added: 3          # rerank_benchmark, hybrid_benchmark, embedding_benchmark
+  wave_29_rerank_module_public: true   # pub mod rerank in src/retrieval/mod.rs
+  wave_29_check_cfg_rerank_cross: true # Suppressed pre-existing unexpected_cfgs warning
+  tests_count: 696                     # Up from 668 (wave 28)
