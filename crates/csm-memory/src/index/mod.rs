@@ -13,6 +13,7 @@ pub mod brute_force;
 pub mod hnsw;
 #[cfg(feature = "ann-lsh")]
 pub mod lsh;
+pub mod lsh_query_mod;
 
 /// Statistics for an ANN index.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

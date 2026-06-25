@@ -22,8 +22,8 @@ impl Serialize for BHVec10240 {
         S: Serializer,
     {
         if serializer.is_human_readable() {
-            use base64::Engine;
             use base64::engine::general_purpose::STANDARD;
+            use base64::Engine;
             let bytes = self.to_bytes();
             let b64 = STANDARD.encode(&bytes);
             serializer.serialize_str(&b64)
@@ -47,8 +47,8 @@ impl<'de> Visitor<'de> for BHVecVisitor {
     where
         E: de::Error,
     {
-        use base64::Engine;
         use base64::engine::general_purpose::STANDARD;
+        use base64::Engine;
         let bytes = STANDARD.decode(v).map_err(de::Error::custom)?;
         BHVec10240::from_bytes(&bytes).map_err(de::Error::custom)
     }
@@ -139,8 +139,8 @@ impl BHVec10240 {
 
     /// Create a deterministic random hypervector from a seed
     pub fn new_seeded(seed: u64) -> Self {
-        use rand::SeedableRng;
         use rand::rngs::StdRng;
+        use rand::SeedableRng;
         let mut rng = StdRng::seed_from_u64(seed);
         let mut bits = [0u64; 160];
         rng.fill(&mut bits);

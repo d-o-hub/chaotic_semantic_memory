@@ -3,8 +3,8 @@
 // Casts are intentional for sparse matrix indices (usize -> u32 for compact storage)
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
-use rand::RngExt;
 use rand::rngs::StdRng;
+use rand::RngExt;
 
 /// A single entry in the sparse weight matrix.
 ///
