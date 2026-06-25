@@ -25,6 +25,13 @@ async fn test_sse_transport_lifecycle() {
     // Give server a moment to start
     sleep(Duration::from_millis(500)).await;
 
+    // Check if server is still running
+    if server_handle.is_finished() {
+        // If it finished early, it likely failed or returned Ok(()) prematurely
+        server_handle.await.unwrap(); // This will panic if it returned error
+        panic!("Server finished prematurely");
+    }
+
     let client = reqwest::Client::new();
     let base_url = format!("http://{}", actual_addr);
 
