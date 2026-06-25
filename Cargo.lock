@@ -1409,6 +1409,7 @@ version = "0.3.6"
 dependencies = [
  "base64 0.22.1",
  "bincode",
+ "criterion",
  "getrandom 0.4.3",
  "js-sys",
  "rand 0.10.1",
