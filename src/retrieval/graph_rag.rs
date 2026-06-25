@@ -60,9 +60,9 @@ pub struct GraphRagResult {
 
 /// Internal candidate during GraphRAG expansion.
 #[derive(Debug, Clone)]
-struct Candidate {
-    id: String,
-    anchor_id: String,
+struct Candidate<'a> {
+    id: &'a str,
+    anchor_id: &'a str,
     hop_distance: usize,
     path_strength: f32,
 }
@@ -78,28 +78,40 @@ pub fn graph_rag_retrieve(
         return Ok(Vec::new());
     }
 
-    let concept_map: HashMap<String, &Concept> =
-        concepts.iter().map(|c| (c.id.clone(), c)).collect();
+    // Optimization: Calculate similarities upfront.
+    // While batch_cosine_similarity exists, it requires contiguous HVec10240.
+    // HVec10240::cosine_similarity is already SIMD-accelerated.
+    let similarities: Vec<f32> = concepts
+        .iter()
+        .map(|c| query.cosine_similarity(&c.vector))
+        .collect();
 
-    let assoc_map: HashMap<String, Vec<(String, f32)>> = {
-        let mut map: HashMap<String, Vec<(String, f32)>> = HashMap::new();
+    // Build efficient lookup maps using &str keys to avoid String allocations.
+    let concept_map: HashMap<&str, (&Concept, f32)> = concepts
+        .iter()
+        .zip(similarities.iter())
+        .map(|(c, &sim)| (c.id.as_str(), (c, sim)))
+        .collect();
+
+    let assoc_map: HashMap<&str, Vec<(&str, f32)>> = {
+        let mut map: HashMap<&str, Vec<(&str, f32)>> = HashMap::with_capacity(associations.len());
         for (from, to, strength) in associations {
-            map.entry(from.clone())
+            map.entry(from.as_str())
                 .or_default()
-                .push((to.clone(), *strength));
+                .push((to.as_str(), *strength));
         }
         map
     };
 
-    let anchors = find_anchors(query, &concept_map, config.anchor_top_k);
-    let mut candidates: Vec<Candidate> = Vec::new();
-    let mut seen: HashSet<String> = HashSet::new();
+    let anchors = find_anchors(&concept_map, config.anchor_top_k);
+    let mut candidates: Vec<Candidate> = Vec::with_capacity(anchors.len() * 2);
+    let mut seen: HashSet<&str> = HashSet::with_capacity(concepts.len());
 
     for (anchor_id, _anchor_sim) in &anchors {
-        seen.insert(anchor_id.clone());
+        seen.insert(anchor_id);
         candidates.push(Candidate {
-            id: anchor_id.clone(),
-            anchor_id: anchor_id.clone(),
+            id: anchor_id,
+            anchor_id,
             hop_distance: 0,
             path_strength: 1.0,
         });
@@ -113,92 +125,85 @@ pub fn graph_rag_retrieve(
         let traversed = traverse_from(anchor_id, &assoc_map, &traversal_config);
 
         for (node_id, hop, path_strength) in traversed {
-            if seen.contains(&node_id) {
+            if seen.contains(node_id) {
                 continue;
             }
-            seen.insert(node_id.clone());
+            seen.insert(node_id);
 
             candidates.push(Candidate {
                 id: node_id,
-                anchor_id: anchor_id.clone(),
+                anchor_id,
                 hop_distance: hop,
                 path_strength,
             });
         }
     }
 
-    let mut best_by_id: HashMap<String, GraphRagResult> = HashMap::new();
+    let mut best_by_id: HashMap<&str, GraphRagResult> = HashMap::with_capacity(candidates.len());
 
     for candidate in &candidates {
-        let concept = match concept_map.get(&candidate.id) {
+        let &(_, similarity) = match concept_map.get(candidate.id) {
             Some(c) => c,
             None => continue,
         };
 
-        let similarity = query.cosine_similarity(&concept.vector);
+        // Mathematical Impact: O(1) score calculation using pre-calculated similarity.
         let graph_score = config.graph_weight
             * (1.0 / (1.0 + candidate.hop_distance as f32))
             * candidate.path_strength;
         let sim_score = config.similarity_weight * similarity;
         let combined = sim_score + graph_score;
 
-        let result = GraphRagResult {
-            id: candidate.id.clone(),
-            score: combined,
-            similarity,
-            anchor_id: Some(candidate.anchor_id.clone()),
-            hop_distance: candidate.hop_distance,
-            assoc_strength: candidate.path_strength,
-        };
         if best_by_id
-            .get(&candidate.id)
+            .get(candidate.id)
             .is_none_or(|e| e.score < combined)
         {
-            best_by_id.insert(candidate.id.clone(), result);
+            best_by_id.insert(
+                candidate.id,
+                GraphRagResult {
+                    id: candidate.id.to_string(),
+                    score: combined,
+                    similarity,
+                    anchor_id: Some(candidate.anchor_id.to_string()),
+                    hop_distance: candidate.hop_distance,
+                    assoc_strength: candidate.path_strength,
+                },
+            );
         }
     }
 
-    let mut results: Vec<GraphRagResult> = best_by_id.values().cloned().collect();
-    results.sort_by(|a, b| {
-        b.score
-            .partial_cmp(&a.score)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
+    let mut results: Vec<GraphRagResult> = best_by_id.into_values().collect();
+    // Optimization: Use unstable sort and total_cmp for faster result ranking.
+    results.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
     results.truncate(config.final_top_k);
 
     Ok(results)
 }
 
-/// Find anchor concepts via brute-force similarity.
-fn find_anchors(
-    query: &HVec10240,
-    concepts: &HashMap<String, &Concept>,
+/// Find anchor concepts using pre-calculated similarities.
+fn find_anchors<'a>(
+    concepts: &HashMap<&'a str, (&Concept, f32)>,
     top_k: usize,
-) -> Vec<(String, f32)> {
-    let mut scored: Vec<(String, f32)> = concepts
-        .iter()
-        .map(|(id, c)| (id.clone(), query.cosine_similarity(&c.vector)))
-        .collect();
+) -> Vec<(&'a str, f32)> {
+    let mut scored: Vec<(&str, f32)> = concepts.iter().map(|(&id, &(_, sim))| (id, sim)).collect();
 
-    scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    scored.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
     scored.truncate(top_k);
     scored
 }
 
-/// BFS traverse from a starting concept.
-///
-/// Re-visits nodes if a path with a higher graph score (strength / (1 + hops)) is found.
-fn traverse_from(
-    start: &str,
-    associations: &HashMap<String, Vec<(String, f32)>>,
+/// BFS traverse from a starting concept using &str to eliminate allocations.
+fn traverse_from<'a>(
+    start: &'a str,
+    associations: &HashMap<&'a str, Vec<(&'a str, f32)>>,
     config: &TraversalConfig,
-) -> Vec<(String, usize, f32)> {
+) -> Vec<(&'a str, usize, f32)> {
     // Map of node_id -> (depth, path_strength, graph_score)
-    let mut best_paths: HashMap<String, (usize, f32, f32)> = HashMap::new();
-    let mut queue: VecDeque<(String, usize, f32)> = VecDeque::new();
+    let mut best_paths: HashMap<&str, (usize, f32, f32)> = HashMap::new();
+    let mut queue: VecDeque<(&str, usize, f32)> = VecDeque::new();
 
-    queue.push_back((start.to_string(), 0, 1.0));
-    best_paths.insert(start.to_string(), (0, 1.0, 1.0));
+    queue.push_back((start, 0, 1.0));
+    best_paths.insert(start, (0, 1.0, 1.0));
 
     while let Some((current, depth, path_strength)) = queue.pop_front() {
         if depth >= config.max_depth {
@@ -206,25 +211,24 @@ fn traverse_from(
         }
 
         if let Some(edges) = associations.get(&current) {
-            for (neighbor, strength) in edges {
-                if *strength < config.min_strength {
+            for &(neighbor, strength) in edges {
+                if strength < config.min_strength {
                     continue;
                 }
 
                 let new_depth = depth + 1;
-                let new_strength = path_strength.min(*strength);
+                let new_strength = path_strength.min(strength);
                 let new_graph_score = new_strength / (1.0 + new_depth as f32);
 
                 let is_better = if let Some(&(_, _, prev_score)) = best_paths.get(neighbor) {
                     new_graph_score > prev_score
                 } else {
-                    // Start node is in best_paths but not in results
-                    (best_paths.len() - 1) < config.max_results
+                    best_paths.len() <= config.max_results
                 };
 
                 if is_better {
-                    best_paths.insert(neighbor.clone(), (new_depth, new_strength, new_graph_score));
-                    queue.push_back((neighbor.clone(), new_depth, new_strength));
+                    best_paths.insert(neighbor, (new_depth, new_strength, new_graph_score));
+                    queue.push_back((neighbor, new_depth, new_strength));
                 }
             }
         }
@@ -232,7 +236,7 @@ fn traverse_from(
 
     best_paths
         .into_iter()
-        .filter(|(id, _)| id != start)
+        .filter(|&(id, _)| id != start)
         .map(|(id, (depth, strength, _))| (id, depth, strength))
         .collect()
 }
