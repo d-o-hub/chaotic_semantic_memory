@@ -30,3 +30,10 @@ parallel = ["dep:rayon"]
 
 [lib]
 crate-type = ["lib"]
+
+[[bench]]
+name = "chaotic_hashing"
+harness = false
+
+[dev-dependencies]
+criterion = "0.5"
