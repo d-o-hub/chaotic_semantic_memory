@@ -109,10 +109,12 @@ async fn run_sse_server(handler: McpHandler, bind: std::net::SocketAddr) -> Resu
 }
 
 impl Clone for McpHandler {
+    /// Manual clone implementation because OnceCell doesn't implement Clone
+    /// and we want new instances to re-initialize their framework.
     fn clone(&self) -> Self {
         Self {
             database: self.database.clone(),
-            framework: tokio::sync::OnceCell::new(), // New instance will re-init
+            framework: tokio::sync::OnceCell::new(),
         }
     }
 }

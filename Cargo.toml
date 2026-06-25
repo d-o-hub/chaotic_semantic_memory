@@ -144,6 +144,7 @@ csm-persistence = { path = "crates/csm-persistence", version = "0.3.6", default-
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"] }
 proptest = "1.6.0"
+reqwest = { version = "0.12", features = ["json"] }
 # CLI testing
 assert_cmd = "2.0.16"
 predicates = "3.1.3"

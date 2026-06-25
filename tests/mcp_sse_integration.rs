@@ -1,8 +1,8 @@
 #![cfg(feature = "mcp")]
 
+use serde_json::json;
 use std::net::SocketAddr;
 use tokio::time::{Duration, sleep};
-use serde_json::json;
 
 #[tokio::test]
 async fn test_sse_transport_lifecycle() {
@@ -17,7 +17,9 @@ async fn test_sse_transport_lifecycle() {
             transport: chaotic_semantic_memory::mcp::Transport::Sse { bind: actual_addr },
             bind: Some(actual_addr.to_string()),
             database: None,
-        }).await.unwrap();
+        })
+        .await
+        .unwrap();
     });
 
     // Give server a moment to start
@@ -28,7 +30,8 @@ async fn test_sse_transport_lifecycle() {
 
     // 1. Initial Handshake (POST)
     // We expect the server to return a session ID in the header
-    let init_resp = client.post(&base_url)
+    let init_resp = client
+        .post(&base_url)
         .header("Accept", "application/json, text/event-stream")
         .json(&json!({
             "jsonrpc": "2.0",
@@ -45,10 +48,17 @@ async fn test_sse_transport_lifecycle() {
         .unwrap();
 
     assert_eq!(init_resp.status(), reqwest::StatusCode::OK);
-    let session_id = init_resp.headers().get("mcp-session-id").expect("Missing session ID header").to_str().unwrap().to_string();
+    let session_id = init_resp
+        .headers()
+        .get("mcp-session-id")
+        .expect("Missing session ID header")
+        .to_str()
+        .unwrap()
+        .to_string();
 
     // 2. List tools
-    let list_tools_resp = client.post(&base_url)
+    let list_tools_resp = client
+        .post(&base_url)
         .header("mcp-session-id", &session_id)
         .header("Accept", "application/json, text/event-stream")
         .json(&json!({
@@ -62,11 +72,13 @@ async fn test_sse_transport_lifecycle() {
         .unwrap();
 
     assert_eq!(list_tools_resp.status(), reqwest::StatusCode::OK);
-    // The response is an SSE stream, we might need to read it if we want to verify content
-    // but for lifecycle test, getting 200 OK is a good sign.
+    let list_tools_body = list_tools_resp.text().await.unwrap();
+    assert!(list_tools_body.contains("memory_inject"));
+    assert!(list_tools_body.contains("memory_stats"));
 
     // 3. Call a tool (memory_stats)
-    let call_tool_resp = client.post(&base_url)
+    let call_tool_resp = client
+        .post(&base_url)
         .header("mcp-session-id", &session_id)
         .header("Accept", "application/json, text/event-stream")
         .json(&json!({
@@ -83,6 +95,9 @@ async fn test_sse_transport_lifecycle() {
         .unwrap();
 
     assert_eq!(call_tool_resp.status(), reqwest::StatusCode::OK);
+    let call_tool_body = call_tool_resp.text().await.unwrap();
+    assert!(call_tool_body.contains("stats"));
+    assert!(call_tool_body.contains("concept_count"));
 
     // Cleanup
     server_handle.abort();
