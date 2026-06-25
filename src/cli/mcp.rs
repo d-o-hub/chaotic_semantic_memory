@@ -11,9 +11,9 @@ pub enum McpCommands {
 #[cfg(feature = "mcp")]
 #[derive(Args, Debug, Clone)]
 pub struct McpServeArgs {
-    /// Transport to use: stdio. (SSE is currently unsupported).
+    /// Transport to use: stdio, sse.
     #[arg(long, value_enum, default_value = "stdio")]
-    pub transport: crate::mcp::Transport,
+    pub transport: crate::mcp::TransportType,
 
     /// Bind address for SSE transport (e.g. 127.0.0.1:8765).
     #[arg(long)]

@@ -182,8 +182,21 @@ mod native {
             #[cfg(feature = "mcp")]
             Commands::Mcp(cmd) => match cmd {
                 chaotic_semantic_memory::cli::McpCommands::Serve(args) => {
+                    use chaotic_semantic_memory::mcp::{Transport, TransportType};
+                    let transport = match args.transport {
+                        TransportType::Stdio => Transport::Stdio,
+                        TransportType::Sse => {
+                            let bind_str = args.bind.as_deref().unwrap_or("127.0.0.1:8080");
+                            let bind = bind_str.parse::<std::net::SocketAddr>().map_err(|e| {
+                                chaotic_semantic_memory::cli::CliError::Config(format!(
+                                    "Invalid bind address: {e}"
+                                ))
+                            })?;
+                            Transport::Sse { bind }
+                        }
+                    };
                     let config = chaotic_semantic_memory::mcp::McpConfig {
-                        transport: args.transport,
+                        transport,
                         bind: args.bind.clone(),
                         database: db_path,
                     };
