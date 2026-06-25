@@ -367,6 +367,34 @@ mod tests {
     }
 
     #[test]
+    fn test_concept_graph_expand_max_depth_strict() {
+        let mut graph = ConceptGraph::new();
+        graph.add_concept(
+            CanonicalConcept::new("c1")
+                .with_label("l1")
+                .with_related("c2"),
+        );
+        graph.add_concept(
+            CanonicalConcept::new("c2")
+                .with_label("l2")
+                .with_related("c3"),
+        );
+        graph.add_concept(CanonicalConcept::new("c3").with_label("l3"));
+
+        // Max depth 1 should reach c1 and c2, but not c3
+        let expanded = graph.expand(&["c1".to_string()], 1);
+        assert!(expanded.contains(&"l1".to_string()));
+        assert!(expanded.contains(&"l2".to_string()));
+        assert!(!expanded.contains(&"l3".to_string()));
+
+        // Max depth 2 should reach all
+        let expanded_full = graph.expand(&["c1".to_string()], 2);
+        assert!(expanded_full.contains(&"l1".to_string()));
+        assert!(expanded_full.contains(&"l2".to_string()));
+        assert!(expanded_full.contains(&"l3".to_string()));
+    }
+
+    #[test]
     fn test_concept_graph_expand_no_cycle() {
         let mut graph = ConceptGraph::new();
         graph.add_concept(
