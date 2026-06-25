@@ -41,16 +41,16 @@ pub fn estimate_query_center<'a>(
     for word_idx in 0..HVec10240::WORDS {
         let mut acc = [0u32; 128];
         for v in &vecs {
-            let bits = (*v).data[word_idx];
-            for bit in 0..128 {
+            let bits = v.data[word_idx];
+            for (bit, count) in acc.iter_mut().enumerate() {
                 if (bits >> bit) & 1 == 1 {
-                    acc[bit] += 1;
+                    *count += 1;
                 }
             }
         }
         let mut word = 0u128;
-        for bit in 0..128 {
-            if acc[bit] > half as u32 {
+        for (bit, &count) in acc.iter().enumerate() {
+            if count > half as u32 {
                 word |= 1u128 << bit;
             }
         }

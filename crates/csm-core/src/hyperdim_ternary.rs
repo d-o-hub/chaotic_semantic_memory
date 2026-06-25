@@ -83,11 +83,11 @@ impl TernaryHVec {
     pub fn ternary_scalar_product(&self, other: &Self) -> i64 {
         let mut sum = 0i64;
         for i in 0..Self::DIMENSION / 64 {
-            let agree_pos = self.positive[i] & other.positive[i];
-            let agree_neg = self.negative[i] & other.negative[i];
+            let agree =
+                (self.positive[i] & other.positive[i]) | (self.negative[i] & other.negative[i]);
             let disagree =
-                (self.positive[i] ^ other.negative[i]) & (self.negative[i] ^ other.positive[i]);
-            sum += (agree_pos.count_ones() + agree_neg.count_ones()) as i64;
+                (self.positive[i] & other.negative[i]) | (self.negative[i] & other.positive[i]);
+            sum += agree.count_ones() as i64;
             sum -= disagree.count_ones() as i64;
         }
         sum
@@ -159,9 +159,9 @@ pub fn ternary_scalar_product_avx2(a: &TernaryHVec, b: &TernaryHVec) -> i64 {
                 _mm256_and_si256(a_pos, b_pos),
                 _mm256_and_si256(a_neg, b_neg),
             );
-            let disagree = _mm256_and_si256(
-                _mm256_xor_si256(a_pos, b_neg),
-                _mm256_xor_si256(a_neg, b_pos),
+            let disagree = _mm256_or_si256(
+                _mm256_and_si256(a_pos, b_neg),
+                _mm256_and_si256(a_neg, b_pos),
             );
 
             sum += popcount_256(agree) as i64;
@@ -176,23 +176,25 @@ pub fn ternary_scalar_product_avx2(a: &TernaryHVec, b: &TernaryHVec) -> i64 {
 #[inline]
 unsafe fn popcount_256(v: std::arch::x86_64::__m256i) -> u64 {
     use std::arch::x86_64::*;
-    let lookup = _mm256_setr_epi8(
-        0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3,
-        3, 4,
-    );
-    let low_mask = _mm256_set1_epi8(0x0F);
-    let lo = _mm256_and_si256(v, low_mask);
-    let hi = _mm256_and_si256(_mm256_srli_epi16(v, 4), low_mask);
-    let pop_lo = _mm256_shuffle_epi8(lookup, lo);
-    let pop_hi = _mm256_shuffle_epi8(lookup, hi);
-    let total = _mm256_add_epi8(pop_lo, pop_hi);
+    unsafe {
+        let lookup = _mm256_setr_epi8(
+            0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2,
+            3, 3, 4,
+        );
+        let low_mask = _mm256_set1_epi8(0x0F);
+        let lo = _mm256_and_si256(v, low_mask);
+        let hi = _mm256_and_si256(_mm256_srli_epi16(v, 4), low_mask);
+        let pop_lo = _mm256_shuffle_epi8(lookup, lo);
+        let pop_hi = _mm256_shuffle_epi8(lookup, hi);
+        let total = _mm256_add_epi8(pop_lo, pop_hi);
 
-    // Horizontal sum of bytes into u64
-    let zero = _mm256_setzero_si256();
-    let acc = _mm256_sad_epu8(total, zero);
-    let lo64 = _mm_cvtsi128_si64(unsafe { _mm256_extracti128_si256(acc, 0) });
-    let hi64 = _mm_cvtsi128_si64(unsafe { _mm256_extracti128_si256(acc, 1) });
-    (lo64 + hi64) as u64
+        // Horizontal sum of bytes into u64
+        let zero = _mm256_setzero_si256();
+        let acc = _mm256_sad_epu8(total, zero);
+        let lo64 = _mm_cvtsi128_si64(_mm256_extracti128_si256(acc, 0));
+        let hi64 = _mm_cvtsi128_si64(_mm256_extracti128_si256(acc, 1));
+        (lo64 + hi64) as u64
+    }
 }
 
 #[cfg(test)]

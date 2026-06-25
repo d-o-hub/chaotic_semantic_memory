@@ -15,8 +15,8 @@ impl Serialize for HVec10240 {
     {
         if serializer.is_human_readable() {
             // Use base64 for JSON and other human-readable formats
-            use base64::engine::general_purpose::STANDARD;
             use base64::Engine;
+            use base64::engine::general_purpose::STANDARD;
             let bytes = self.to_bytes();
             let b64 = STANDARD.encode(&bytes);
             serializer.serialize_str(&b64)
@@ -43,8 +43,8 @@ impl<'de> Visitor<'de> for HVecVisitor {
     where
         E: de::Error,
     {
-        use base64::engine::general_purpose::STANDARD;
         use base64::Engine;
+        use base64::engine::general_purpose::STANDARD;
         let bytes = STANDARD.decode(v).map_err(de::Error::custom)?;
         HVec10240::from_bytes(&bytes).map_err(de::Error::custom)
     }

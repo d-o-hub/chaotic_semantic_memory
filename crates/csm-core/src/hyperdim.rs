@@ -131,8 +131,8 @@ impl HVec10240 {
     ///
     /// Uses `rand::rngs::StdRng` for reproducibility across runs.
     pub fn new_seeded(seed: u64) -> Self {
-        use rand::rngs::StdRng;
         use rand::SeedableRng;
+        use rand::rngs::StdRng;
         let mut rng = StdRng::seed_from_u64(seed);
         let mut data = [0u128; 80];
         rng.fill(&mut data);

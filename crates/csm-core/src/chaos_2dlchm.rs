@@ -45,8 +45,8 @@ impl TwoDlchm {
             0.5
         };
         Self::new(
-            x.abs().fract().max(0.001).min(0.999),
-            y.abs().fract().max(0.001).min(0.999),
+            x.abs().fract().clamp(0.001, 0.999),
+            y.abs().fract().clamp(0.001, 0.999),
         )
     }
 
@@ -67,8 +67,8 @@ impl TwoDlchm {
     #[inline]
     pub fn hash_u64(&mut self) -> u64 {
         let (hx, hy) = self.step();
-        let lo = (hx * f64::from(1u32 << 32)) as u32;
-        let hi = (hy * f64::from(1u32 << 32)) as u32;
+        let lo = (hx * ((1u64 << 32) as f64)) as u32;
+        let hi = (hy * ((1u64 << 32) as f64)) as u32;
         ((hi as u64) << 32) | lo as u64
     }
 
@@ -92,7 +92,7 @@ impl TwoDlchm {
     pub fn rng_seed(&mut self) -> [u8; 32] {
         let mut seed = [0u8; 32];
         for chunk in seed.chunks_mut(8) {
-            let (hx, hy) = self.step();
+            let (hx, _hy) = self.step();
             let bytes = ((hx * ((1u64 << 32) as f64)) as u64).to_le_bytes();
             for (i, &b) in bytes.iter().enumerate().take(8) {
                 if chunk.len() > i {
