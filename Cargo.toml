@@ -158,6 +158,18 @@ harness = false
 name = "bm25_benchmark"
 harness = false
 
+[[bench]]
+name = "rerank_benchmark"
+harness = false
+
+[[bench]]
+name = "hybrid_benchmark"
+harness = false
+
+[[bench]]
+name = "embedding_benchmark"
+harness = false
+
 [profile.release]
 opt-level = 3
 lto = "fat"
@@ -173,6 +185,7 @@ strip = "symbols"
 # Safety lints
 unsafe_code = "allow"  # SIMD uses intentional unsafe blocks
 missing_docs = "allow"  # Project uses selective documentation
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("rerank-cross"))'] }
 
 # Serialization struct fields may be unused but needed for format
 dead_code = "allow"

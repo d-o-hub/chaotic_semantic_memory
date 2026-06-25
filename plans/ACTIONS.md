@@ -4123,7 +4123,7 @@ actions:
     effects:
       mcp_integration_tests_complete: true
     cost: 4
-    status: queued
+    status: complete
     file: tests/mcp_integration.rs
     description: |
       ADR-0090 Phase 1: Add integration tests for MCP tool execution
@@ -4150,7 +4150,7 @@ actions:
     effects:
       bridge_persistence_tests_complete: true
     cost: 3
-    status: queued
+    status: complete
     file: tests/bridge_persistence_integration.rs
     description: |
       ADR-0091: Integration tests for bridge persistence module —
@@ -4164,7 +4164,7 @@ actions:
       ci_matrix_csm_cli_tested: true
       ci_matrix_csm_wasm_documented: true
     cost: 2
-    status: queued
+    status: complete
     file: .github/workflows/ci.yml
     description: |
       ADR-0092: Add csm-cli to test-workspace-crates CI matrix.
@@ -4176,7 +4176,7 @@ actions:
     effects:
       fuzz_targets_count: 7
     cost: 4
-    status: queued
+    status: complete
     file: fuzz/fuzz_targets/
     description: |
       ADR-0093: Add 4 new fuzz targets — fuzz_json_import,
@@ -4190,7 +4190,7 @@ actions:
       hybrid_benchmarks_exist: true
       embedding_benchmarks_exist: true
     cost: 5
-    status: queued
+    status: complete
     file: benches/rerank_benchmark.rs, benches/hybrid_benchmark.rs, benches/embedding_benchmark.rs
     description: |
       ADR-0094: Add benchmark groups for reranking pipeline, hybrid
