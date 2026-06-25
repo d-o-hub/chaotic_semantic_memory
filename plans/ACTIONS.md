@@ -4115,7 +4115,8 @@ actions:
       8. Create PR #413 for the branch
 
   # ═══════════════════════════════════════════════════════
-  # QUEUED: Gap Analysis 2026-06-24 (ADRs 0090-0094)
+  # WAVE 29: HARNESS ENGINEERING & TEMPLATE ALIGNMENT (2026-06-23)
+  # ADR-0090: Adopt rust-2026-template practices
   # ═══════════════════════════════════════════════════════
   - name: mcp_integration_tests
     preconditions:
@@ -4130,61 +4131,94 @@ actions:
       (memory_inject, memory_probe, memory_associate), resource reads,
       server initialization, and error handling paths.
 
-  - name: mcp_sse_transport
+  - name: harness_engineering_gap_analysis
     preconditions:
-      mcp_server_implemented: true
-      mcp_integration_tests_complete: true
+      wave_28_complete: true
     effects:
-      mcp_sse_transport_implemented: true
-    cost: 12
-    status: queued
-    file: src/mcp/server.rs, src/mcp/transport_sse.rs
+      harness_engineering_gap_analysis_complete: true
+      harness_engineering_adr_created: true
+    cost: 2
+    status: complete
+    file: plans/adr/0090-harness-engineering-template-alignment.md, plans/ADR_REGISTRY.md
     description: |
-      ADR-0090 Phase 2: Implement SSE transport variant for MCP server.
-      Add Sse { bind: SocketAddr } to Transport enum, implement HTTP
-      server with SSE endpoint. Cost >= 12, delegate to Jules.
+      Cross-referenced rust-2026-template (v0.3.2, 392 commits) against
+      chaotic_semantic_memory codebase. Identified 15 missing infrastructure
+      components. Created ADR-0090 documenting adoption plan in 2 phases
+      (Wave 29 cost 18, Wave 30 cost 14) + 2 deferred items.
 
-  - name: bridge_persistence_integration_tests
+  - name: create_harness_md
     preconditions:
-      tests_passing: true
+      harness_engineering_gap_analysis_complete: true
     effects:
-      bridge_persistence_tests_complete: true
+      harness_md_created: true
     cost: 3
     status: complete
     file: tests/bridge_persistence_integration.rs
     description: |
-      ADR-0091: Integration tests for bridge persistence module —
-      round-trip save/load, update, delete, bulk load, label
-      deserialization, related IDs, and error handling.
+      Create HARNESS.md adapted for HDC/reservoir domain. Map existing
+      sensors (clippy, tests, validate.sh, mutation_test.sh) and guides
+      (AGENTS.md, skills/). Add feedforward/feedback loop documentation.
+      Include agent self-correction protocol and structured error output.
 
-  - name: ci_test_matrix_expansion
+  - name: create_deny_toml
     preconditions:
-      ci_all_checks_passed: true
+      harness_engineering_gap_analysis_complete: true
     effects:
-      ci_matrix_csm_cli_tested: true
-      ci_matrix_csm_wasm_documented: true
+      deny_toml_created: true
+    cost: 3
+    status: queued
+    file: deny.toml, .github/workflows/ci.yml
+    description: |
+      Create deny.toml for supply chain auditing:
+      - License allowlist: MIT, Apache-2.0, BSD-2/3, ISC, Unicode-3.0, Zlib
+      - Advisory database checks (rustsec)
+      - Ban duplicate crate versions where feasible
+      - Document exceptions for known unmaintained (bincode 1.x)
+      Add `cargo deny check` to CI pipeline and quality-gates.sh.
+
+  - name: create_rust_toolchain_toml
+    preconditions:
+      harness_engineering_gap_analysis_complete: true
+    effects:
+      rust_toolchain_toml_created: true
+      msrv_bumped_to_1_88: true
+    cost: 1
+    status: queued
+    file: rust-toolchain.toml, Cargo.toml
+    description: |
+      Create rust-toolchain.toml pinning stable 1.88.0.
+      Bump rust-version in Cargo.toml from "1.85" to "1.88".
+      Enables full Rust 2024 edition features.
+
+  - name: create_quality_gates_script
+    preconditions:
+      harness_engineering_gap_analysis_complete: true
+    effects:
+      quality_gates_script_created: true
     cost: 2
     status: complete
     file: .github/workflows/ci.yml
     description: |
-      ADR-0092: Add csm-cli to test-workspace-crates CI matrix.
-      Document csm-wasm test limitations or add wasm-bindgen-test.
+      Unified quality gate script wrapping validate.sh with structured
+      output. Adds cargo-deny check to the pipeline. Compatible with
+      both local dev and CI execution.
 
-  - name: fuzz_target_expansion
+  - name: create_harness_check_script
     preconditions:
-      tests_passing: true
+      quality_gates_script_created: true
     effects:
       fuzz_targets_count: 7
     cost: 4
     status: complete
     file: fuzz/fuzz_targets/
     description: |
-      ADR-0093: Add 4 new fuzz targets — fuzz_json_import,
-      fuzz_metadata_filter, fuzz_bm25_tokenize, fuzz_text_encoder.
+      Agent-optimized error output with HARNESS VIOLATION prefix and
+      fix hints. Wraps quality-gates.sh sensors. Emits structured
+      output parseable by AI coding agents for self-correction.
 
-  - name: benchmark_coverage_expansion
+  - name: create_gitleaks_toml
     preconditions:
-      benchmarks_exist: true
+      harness_engineering_gap_analysis_complete: true
     effects:
       rerank_benchmarks_exist: true
       hybrid_benchmarks_exist: true
@@ -4193,5 +4227,33 @@ actions:
     status: complete
     file: benches/rerank_benchmark.rs, benches/hybrid_benchmark.rs, benches/embedding_benchmark.rs
     description: |
-      ADR-0094: Add benchmark groups for reranking pipeline, hybrid
-      BM25+HDC search, and embedding provider encode paths.
+      Secret scanning configuration. Critical for a crate that handles
+      database credentials (Turso tokens). Add to pre-commit pipeline.
+
+  - name: create_arch_fitness_tests
+    preconditions:
+      harness_engineering_gap_analysis_complete: true
+    effects:
+      arch_fitness_tests_created: true
+    cost: 3
+    status: queued
+    file: tests/arch_fitness.rs
+    description: |
+      Architecture fitness tests enforced at compile/test time:
+      - LOC gate (all src/ files ≤ 500 LOC)
+      - Module dependency layering
+      - No unsafe outside hyperdim_simd.rs
+      - Public API surface stability check
+
+  - name: create_agents_context
+    preconditions:
+      harness_engineering_gap_analysis_complete: true
+    effects:
+      agents_context_created: true
+    cost: 3
+    status: queued
+    file: .agents/context/shared-conventions.md
+    description: |
+      Cross-repo context document for d-o-hub organization conventions.
+      Commit format, branch naming, PR requirements, quality thresholds.
+      Referenced by AGENTS.md and consumable by derived repositories.
