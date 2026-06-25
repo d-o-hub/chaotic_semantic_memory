@@ -223,19 +223,21 @@ mod tests {
         Vec<Vec<usize>>,
         HashMap<String, HVec10240>,
     ) {
-        use rand::RngExt;
-        use rand::SeedableRng;
-        use rand_chacha::ChaCha8Rng;
-
-        let mut rng = ChaCha8Rng::seed_from_u64(42);
         let mut projections = Vec::with_capacity(n);
         let mut tables: Vec<HashMap<u64, Vec<String>>> = Vec::with_capacity(n);
         let mut concepts = HashMap::new();
 
-        for _ in 0..n {
-            let bits: Vec<usize> = (0..hash_bits)
-                .map(|_| rng.random_range(0..HVec10240::DIMENSION))
-                .collect();
+        // Deterministic projection generation using simple LCG
+        for t in 0..n {
+            let mut bits = Vec::with_capacity(hash_bits);
+            for b in 0..hash_bits {
+                // Simple deterministic hash: splitmix64-style
+                let seed = (t * 1000 + b) as u64;
+                let h = seed
+                    .wrapping_mul(0x9E3779B97F4A7C15)
+                    .wrapping_add(0x517CC1B727220A95);
+                bits.push((h % HVec10240::DIMENSION as u64) as usize);
+            }
             projections.push(bits);
             tables.push(HashMap::new());
         }
