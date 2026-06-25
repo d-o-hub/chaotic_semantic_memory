@@ -120,12 +120,23 @@ echo "wrote ${REPORT_FILE}"
 
 if [[ "${CI_MODE}" == "true" ]]; then
   # Parse mutation score. Supports both percentage output and "X mutants tested ... Y caught" summary.
-  SCORE="$(awk '/%/{ gsub(/[^0-9.]/," "); for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\.?[0-9]*$/) s=$i } END { print s+0 }' "${LOG_FILE}")"
-  if [[ "${SCORE}" == "0" ]]; then
-    SUMMARY_LINE="$(grep -oE "[0-9]+ mutant[s]? tested in .* [0-9]+ caught" "${LOG_FILE}" || true)"
-    if [[ -n "${SUMMARY_LINE}" ]]; then
-      SCORE="$(echo "${SUMMARY_LINE}" | awk '{ caught=$(NF-1); total=$1; print (caught*100/total) }')"
+  # Unviable mutants (won't compile) are excluded from the denominator.
+  SCORE=""
+  SUMMARY_LINE="$(grep -oE "[0-9]+ mutant[s]? tested in .* [0-9]+ caught.*" "${LOG_FILE}" || true)"
+  if [[ -n "${SUMMARY_LINE}" ]]; then
+    TOTAL="$(echo "${SUMMARY_LINE}" | awk '{print $1}')"
+    CAUGHT="$(echo "${SUMMARY_LINE}" | grep -oE '[0-9]+ caught' | awk '{print $1}')"
+    UNVIABLE="$(echo "${SUMMARY_LINE}" | grep -oE '[0-9]+ unviable' | awk '{print $1}')"
+    UNVIABLE="${UNVIABLE:-0}"
+    VIABLE=$((TOTAL - UNVIABLE))
+    if [[ "${VIABLE}" -gt 0 ]]; then
+      SCORE="$(awk -v c="${CAUGHT}" -v v="${VIABLE}" 'BEGIN { printf "%.4f", c*100/v }')"
+    else
+      SCORE="100"
     fi
+  fi
+  if [[ -z "${SCORE}" ]]; then
+    SCORE="$(awk '/%/{ gsub(/[^0-9.]/," "); for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\.?[0-9]*$/) s=$i } END { print s+0 }' "${LOG_FILE}")"
   fi
 
   if [[ "${SCORE}" == "0" ]]; then
