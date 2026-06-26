@@ -1479,7 +1479,7 @@ world_state:
   template_reference: "https://github.com/d-oit/rust-2026-template"
   template_version_analyzed: "0.3.2 (392 commits)"
 
-  action_last_completed: wave_29_harness_expansion
+  action_last_completed: hyperchaotic_bit_slicing_research_2026_06
 
   # ═══════════════════════════════════════════════════════
   # Wave 29: Harness Expansion (2026-06-25)

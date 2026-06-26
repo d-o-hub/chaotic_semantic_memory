@@ -4257,3 +4257,39 @@ actions:
       Cross-repo context document for d-o-hub organization conventions.
       Commit format, branch naming, PR requirements, quality thresholds.
       Referenced by AGENTS.md and consumable by derived repositories.
+
+  - name: hyperchaotic_bit_slicing_research_2026_06
+    preconditions:
+      dependencies_added: true
+    effects:
+      hyperchaotic_bitslicing_implemented: true
+    cost: 5
+    status: complete
+    file: crates/csm-core/src/maps/hyperchaotic.rs
+    description: |
+      Research and implementation of 2D Sine-Logistic Hyperchaotic Map (2D-SLHM)
+      and optimized Chaotic LSH projector for binary semantic hashing (Chen & Wei, 2026).
+      Includes Criterion benchmarks and statistical uniformity verification.
+
+  - name: extract_csm_chaos_crate
+    preconditions:
+      hyperchaotic_bitslicing_implemented: true
+    effects:
+      chaos_logic_isolated: true
+    cost: 8
+    status: queued
+    description: |
+      Extract chaotic maps and hashing primitives into a standalone 'csm-chaos' crate.
+      Provides no_std + libm support for WASM/embedded targets and isolates
+      PRNG logic from core hyperdimensional math.
+
+  - name: simd_optimize_chaotic_lsh
+    preconditions:
+      hyperchaotic_bitslicing_implemented: true
+    effects:
+      lsh_projection_simd_accelerated: true
+    cost: 5
+    status: queued
+    description: |
+      Implement SIMD (AVX2/NEON) acceleration for the ChaoticLsh dot-product loop.
+      Leverage the pre-generated projection matrix for vectorized multiplication and sign-bit extraction.
