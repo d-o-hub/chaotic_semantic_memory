@@ -4166,7 +4166,7 @@ actions:
     effects:
       deny_toml_created: true
     cost: 3
-    status: queued
+    status: complete
     file: deny.toml, .github/workflows/ci.yml
     description: |
       Create deny.toml for supply chain auditing:
@@ -4183,7 +4183,7 @@ actions:
       rust_toolchain_toml_created: true
       msrv_bumped_to_1_88: true
     cost: 1
-    status: queued
+    status: complete
     file: rust-toolchain.toml, Cargo.toml
     description: |
       Create rust-toolchain.toml pinning stable 1.88.0.
@@ -4236,7 +4236,7 @@ actions:
     effects:
       arch_fitness_tests_created: true
     cost: 3
-    status: queued
+    status: complete
     file: tests/arch_fitness.rs
     description: |
       Architecture fitness tests enforced at compile/test time:
@@ -4277,7 +4277,8 @@ actions:
     effects:
       chaos_logic_isolated: true
     cost: 8
-    status: queued
+    status: complete
+    file: crates/csm-chaos/
     description: |
       Extract chaotic maps and hashing primitives into a standalone 'csm-chaos' crate.
       Provides no_std + libm support for WASM/embedded targets and isolates
@@ -4289,7 +4290,8 @@ actions:
     effects:
       lsh_projection_simd_accelerated: true
     cost: 5
-    status: queued
+    status: complete
+    file: crates/csm-chaos/src/hashing/chaotic_lsh.rs
     description: |
       Implement SIMD (AVX2/NEON) acceleration for the ChaoticLsh dot-product loop.
       Leverage the pre-generated projection matrix for vectorized multiplication and sign-bit extraction.
