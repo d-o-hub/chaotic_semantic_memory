@@ -291,13 +291,13 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
 
     fn serialize(&self) -> Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| {
-            csm_core::error::MemoryError::Persistence(format!("Serialization error: {}", e))
+            csm_core::error::MemoryError::Persistence(format!("Serialization error: {e}"))
         })
     }
 
     fn deserialize(&mut self, data: &[u8]) -> Result<()> {
         let decoded: Self = bincode::deserialize(data).map_err(|e| {
-            csm_core::error::MemoryError::Persistence(format!("Deserialization error: {}", e))
+            csm_core::error::MemoryError::Persistence(format!("Deserialization error: {e}"))
         })?;
         *self = decoded;
         Ok(())

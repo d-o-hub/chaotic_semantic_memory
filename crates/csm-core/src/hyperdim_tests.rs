@@ -110,8 +110,7 @@ fn test_bundle_threshold_consistency() {
 
         assert_eq!(
             actual.data, expected,
-            "Bundling inconsistency at N={} vectors",
-            n
+            "Bundling inconsistency at N={n} vectors"
         );
     }
 }

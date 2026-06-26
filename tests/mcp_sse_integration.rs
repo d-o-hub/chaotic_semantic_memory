@@ -33,7 +33,7 @@ async fn test_sse_transport_lifecycle() {
     }
 
     let client = reqwest::Client::new();
-    let base_url = format!("http://{}", actual_addr);
+    let base_url = format!("http://{actual_addr}");
 
     // 1. Initial Handshake (POST)
     // We expect the server to return a session ID in the header

@@ -171,7 +171,7 @@ impl MemoryEvent {
             ),
         };
 
-        let ce_type = format!("io.d-o-hub.csm.memory.{}", variant);
+        let ce_type = format!("io.d-o-hub.csm.memory.{variant}");
 
         let mut builder = EventBuilderV10::new()
             .id(Uuid::new_v4().to_string())

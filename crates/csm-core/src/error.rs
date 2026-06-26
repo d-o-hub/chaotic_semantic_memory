@@ -231,10 +231,7 @@ mod tests {
             let hint = err.remediation().expect("remediation should return Some");
             assert!(
                 hint.starts_with(prefix),
-                "remediation hint for {:?} should start with {:?}, got {:?}",
-                err,
-                prefix,
-                hint
+                "remediation hint for {err:?} should start with {prefix:?}, got {hint:?}"
             );
         }
     }
