@@ -22,7 +22,11 @@ fn bench_chaotic_lsh_project_reexport(c: &mut Criterion) {
 }
 
 #[cfg(feature = "chaotic-hashing")]
-criterion_group!(benches, bench_slhm2d_next_reexport, bench_chaotic_lsh_project_reexport);
+criterion_group!(
+    benches,
+    bench_slhm2d_next_reexport,
+    bench_chaotic_lsh_project_reexport
+);
 #[cfg(feature = "chaotic-hashing")]
 criterion_main!(benches);
 
