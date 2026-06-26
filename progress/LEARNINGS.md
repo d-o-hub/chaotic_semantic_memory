@@ -76,3 +76,8 @@
 - **Unreachable code is a mutation smell**: When refactoring a `visited.contains(&id) || depth > max_depth` style guard into `!visited.insert(id.clone())`, audit the queue invariant. If new entries are only enqueued at `depth + 1` when `depth < max_depth`, the original `depth > max_depth` check becomes unreachable and cargo-mutants will catch the `||` -> `&&` substitution as a missed mutant. Remove the dead branch and document the invariant.
 - **Mutation test cost is acceptable for PR fixes**: `cargo-mutants --in-diff <pr.diff> --in-place --no-shuffle` against a 35-line PR diff takes ~14 minutes locally and exercises both the original and mutated compile/test paths. 11 mutants → 10 caught, 1 unviable, 0 missed is a strong signal the fix is correct.
 - **Always run `--in-diff` on the post-fix tree**: cargo-mutants reports the baseline, so the diff must reflect the fix (not the pre-fix PR head). Generate the diff with `git diff origin/main > /tmp/pr.diff` after the fix is staged.
+
+## 2026-06-05 — RetrievalConfig parameters missing security bounds
+**Vulnerability:** RetrievalConfig parameters max_candidates, graph_depth, and graph_fanout lacked upper bounds, potentially leading to resource exhaustion (CWE-770) during candidate generation in similarity searches.
+**Learning:** While bucket_probe_width had a hard limit, other fields in the same struct were overlooked during its initial implementation and subsequent expansion of retrieval strategies.
+**Prevention:** Always enforce hard security limits on any parameter that controls recursion depth, fan-out, or allocation sizes in public APIs, even if they are nested in configuration structs.
