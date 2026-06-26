@@ -22,7 +22,7 @@ impl Persistence {
             ],
         )
         .await
-        .map_err(|e| MemoryError::database(format!("Failed to save index: {}", e)))?;
+        .map_err(|e| MemoryError::database(format!("Failed to save index: {e}")))?;
         Ok(())
     }
 
@@ -36,19 +36,48 @@ impl Persistence {
                 params![ns.to_string(), id],
             )
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to load index: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to load index: {e}")))?;
 
         if let Some(row) = rows
             .next()
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to fetch index row: {}", e)))?
+            .map_err(|e| MemoryError::database(format!("Failed to fetch index row: {e}")))?
         {
             let data: Vec<u8> = row
                 .get(0)
-                .map_err(|e| MemoryError::database(format!("Failed to get index data: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to get index data: {e}")))?;
             Ok(Some(data))
         } else {
             Ok(None)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_save_and_load_index_roundtrip() {
+        let path = "/tmp/test_index_persist_rt.db";
+        let persistence = Persistence::new_local(path).await.unwrap();
+
+        let test_data = vec![1u8, 2, 3, 4, 5, 42, 99];
+        persistence
+            .save_index("default", "test-idx", &test_data)
+            .await
+            .unwrap();
+
+        let loaded = persistence.load_index("default", "test-idx").await.unwrap();
+        assert_eq!(loaded, Some(test_data));
+
+        // Non-existent index returns None
+        let missing = persistence
+            .load_index("default", "no-such-idx")
+            .await
+            .unwrap();
+        assert_eq!(missing, None);
+
+        std::fs::remove_file(path).ok();
     }
 }

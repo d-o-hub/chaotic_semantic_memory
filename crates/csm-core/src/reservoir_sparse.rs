@@ -433,7 +433,7 @@ mod tests {
             let values: Vec<f32> = vec![1.0; n];
             // SAFETY: values length n matches entries indices.
             let result = unsafe { sparse.dot_row(0, &values) };
-            assert!((result - n as f32).abs() < 1e-6, "Failed for n={}", n);
+            assert!((result - n as f32).abs() < 1e-6, "Failed for n={n}");
         }
     }
 

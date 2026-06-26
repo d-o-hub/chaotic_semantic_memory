@@ -168,14 +168,14 @@ pub fn parse_rerankers(s: &str) -> csm_core::error::Result<Vec<Box<dyn Reranker>
                 let lambda = value.parse::<f32>().map_err(|_| {
                     csm_core::error::MemoryError::InvalidInput {
                         field: "rerank".to_string(),
-                        reason: format!("invalid MMR lambda: {}", value),
+                        reason: format!("invalid MMR lambda: {value}"),
                     }
                 })?;
 
                 if !(0.0..=1.0).contains(&lambda) {
                     return Err(csm_core::error::MemoryError::InvalidInput {
                         field: "rerank".to_string(),
-                        reason: format!("MMR lambda must be between 0.0 and 1.0: {}", lambda),
+                        reason: format!("MMR lambda must be between 0.0 and 1.0: {lambda}"),
                     });
                 }
 
@@ -192,14 +192,14 @@ pub fn parse_rerankers(s: &str) -> csm_core::error::Result<Vec<Box<dyn Reranker>
                 let half_life = val_str.parse::<f32>().map_err(|_| {
                     csm_core::error::MemoryError::InvalidInput {
                         field: "rerank".to_string(),
-                        reason: format!("invalid recency half-life: {}", half_life_str),
+                        reason: format!("invalid recency half-life: {half_life_str}"),
                     }
                 })?;
 
                 if half_life <= 0.0 {
                     return Err(csm_core::error::MemoryError::InvalidInput {
                         field: "rerank".to_string(),
-                        reason: format!("recency half-life must be positive: {}", half_life),
+                        reason: format!("recency half-life must be positive: {half_life}"),
                     });
                 }
 
@@ -207,13 +207,13 @@ pub fn parse_rerankers(s: &str) -> csm_core::error::Result<Vec<Box<dyn Reranker>
                     let b = blend_str.parse::<f32>().map_err(|_| {
                         csm_core::error::MemoryError::InvalidInput {
                             field: "rerank".to_string(),
-                            reason: format!("invalid recency blend: {}", blend_str),
+                            reason: format!("invalid recency blend: {blend_str}"),
                         }
                     })?;
                     if !(0.0..=1.0).contains(&b) {
                         return Err(csm_core::error::MemoryError::InvalidInput {
                             field: "rerank".to_string(),
-                            reason: format!("recency blend must be between 0.0 and 1.0: {}", b),
+                            reason: format!("recency blend must be between 0.0 and 1.0: {b}"),
                         });
                     }
                     b
@@ -224,7 +224,7 @@ pub fn parse_rerankers(s: &str) -> csm_core::error::Result<Vec<Box<dyn Reranker>
                 if recency_split.next().is_some() {
                     return Err(csm_core::error::MemoryError::InvalidInput {
                         field: "rerank".to_string(),
-                        reason: format!("extra segments in recency reranker: {}", value),
+                        reason: format!("extra segments in recency reranker: {value}"),
                     });
                 }
 
@@ -249,7 +249,7 @@ pub fn parse_rerankers(s: &str) -> csm_core::error::Result<Vec<Box<dyn Reranker>
             _ => {
                 return Err(csm_core::error::MemoryError::InvalidInput {
                     field: "rerank".to_string(),
-                    reason: format!("unknown reranker: {}", name),
+                    reason: format!("unknown reranker: {name}"),
                 });
             }
         }
@@ -370,6 +370,6 @@ mod tests {
     #[test]
     fn test_parse_rerankers_invalid_blend() {
         let err = parse_rerankers("recency:30d:not-a-number").unwrap_err();
-        assert!(format!("{}", err).contains("invalid recency blend"));
+        assert!(format!("{err}").contains("invalid recency blend"));
     }
 }

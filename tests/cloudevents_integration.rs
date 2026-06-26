@@ -147,7 +147,7 @@ async fn test_http_emitter_delivery() {
     // Set up a local TCP listener to act as our HTTP receiver
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let local_addr = listener.local_addr().unwrap();
-    let url = format!("http://{}", local_addr);
+    let url = format!("http://{local_addr}");
 
     // Spawn a thread to read the incoming POST request
     let handle = std::thread::spawn(move || {

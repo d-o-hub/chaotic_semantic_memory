@@ -13,10 +13,7 @@ impl Analytics {
         // We use single quotes for the path; if the path contains single quotes, we escape them.
         let escaped_path = path_str.replace('\'', "''");
         self.conn.execute(
-            &format!(
-                "ATTACH '{}' AS csm_src (TYPE SQLITE, READ_ONLY)",
-                escaped_path
-            ),
+            &format!("ATTACH '{escaped_path}' AS csm_src (TYPE SQLITE, READ_ONLY)"),
             [],
         )?;
 
