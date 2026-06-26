@@ -3,6 +3,7 @@ pub mod bundle;
 pub mod bundle_simd;
 pub mod encoder;
 pub mod error;
+#[cfg(feature = "chaotic-hashing")]
 pub mod hashing;
 pub mod hyperdim;
 pub mod hyperdim_batch;
@@ -10,6 +11,7 @@ pub mod hyperdim_binary;
 pub mod hyperdim_serde;
 pub mod hyperdim_simd;
 pub mod hyperdim_simd_bundle;
+#[cfg(feature = "chaotic-hashing")]
 pub mod maps;
 pub mod reservoir;
 pub mod reservoir_chaotic;

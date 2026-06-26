@@ -26,6 +26,7 @@ js-sys = "0.3.77"
 
 [features]
 default = []
+chaotic-hashing = []
 parallel = ["dep:rayon"]
 
 [lib]
