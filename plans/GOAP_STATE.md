@@ -1479,7 +1479,7 @@ world_state:
   template_reference: "https://github.com/d-oit/rust-2026-template"
   template_version_analyzed: "0.3.2 (392 commits)"
 
-  action_last_completed: wave_30_harness_engineering_phase1_2026_06_26
+  action_last_completed: create_agents_context_2026_06_26
 
   # ═══════════════════════════════════════════════════════
   # Wave 29: Harness Expansion (2026-06-25)
@@ -1561,3 +1561,4 @@ world_state:
   deny_toml_created: true
   arch_fitness_tests_created: true
   lsh_projection_simd_accelerated: true
+  agents_context_created: true
