@@ -1479,7 +1479,7 @@ world_state:
   template_reference: "https://github.com/d-oit/rust-2026-template"
   template_version_analyzed: "0.3.2 (392 commits)"
 
-  action_last_completed: wave_30_harness_engineering_phase1_2026_06_26
+  action_last_completed: pr_triage_2026_06_26
 
   # ═══════════════════════════════════════════════════════
   # Wave 29: Harness Expansion (2026-06-25)
@@ -1511,9 +1511,9 @@ world_state:
     package: opentelemetry_sdk
     from_version: "0.27.1"
     to_version: "0.32.1"
-    status: failing
-    root_cause: "Cargo.lock mismatch — CI uses --locked"
-    fix: "@dependabot recreate or manual lock file update"
+    status: closed  # 2026-06-26: semver-incompatible, requires API migration
+    root_cause: "Cargo.toml pins 0.27; 0.32 is breaking (TracerProvider/SpanExporter API changes)"
+    resolution: "Closed — upgrade deferred until opentelemetry ecosystem stabilizes"
   goap_2026_06_26_queued_actions_count: 6
   goap_2026_06_26_queued_actions:
     - "create_deny_toml (cost 3) — supply chain auditing"
@@ -1561,3 +1561,18 @@ world_state:
   deny_toml_created: true
   arch_fitness_tests_created: true
   lsh_projection_simd_accelerated: true
+  agents_context_created: true
+
+  # ═══════════════════════════════════════════════════════
+  # PR Triage 2026-06-26 (GOAP Orchestrated)
+  # ═══════════════════════════════════════════════════════
+  pr_triage_2026_06_26_completed: true
+  pr_triage_2026_06_26_actions:
+    - "PR #441 (csm-chaos extraction): merged — all CI green, Codacy false positives (SIMD unsafe)"
+    - "PR #437 (dependabot opentelemetry_sdk 0.27→0.32): closed — semver-incompatible, requires code changes"
+    - "PR #442 created: remove .fastembed_cache from git tracking (128MB ML model blobs)"
+  pr_441_merged: true
+  pr_441_merged_at: "2026-06-26T22:00:00Z"
+  pr_437_closed: true
+  pr_437_closed_reason: "semver-incompatible upgrade (0.27→0.32) requiring opentelemetry API migration"
+  fastembed_cache_removed_from_git: true  # PR #442
