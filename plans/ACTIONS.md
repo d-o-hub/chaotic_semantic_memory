@@ -4251,7 +4251,7 @@ actions:
     effects:
       agents_context_created: true
     cost: 3
-    status: complete
+    status: queued
     file: .agents/context/shared-conventions.md
     description: |
       Cross-repo context document for d-o-hub organization conventions.
@@ -4277,8 +4277,7 @@ actions:
     effects:
       chaos_logic_isolated: true
     cost: 8
-    status: delegated
-    jules_issue: 439
+    status: queued
     description: |
       Extract chaotic maps and hashing primitives into a standalone 'csm-chaos' crate.
       Provides no_std + libm support for WASM/embedded targets and isolates

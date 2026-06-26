@@ -1,0 +1,27 @@
+[package]
+name = "csm-chaos"
+version = "0.3.6"
+edition = "2024"
+rust-version = "1.85"
+description = "Chaotic maps and hashing primitives for chaotic_semantic_memory"
+license = "MIT"
+repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
+
+[dependencies]
+libm = "0.2.11"
+serde = { workspace = true, optional = true }
+
+[features]
+default = []
+std = []
+serde = ["dep:serde"]
+
+[lib]
+crate-type = ["lib"]
+
+[[bench]]
+name = "chaotic_hashing"
+harness = false
+
+[dev-dependencies]
+criterion = "0.5"

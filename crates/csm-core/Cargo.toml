@@ -8,6 +8,7 @@ license = "MIT"
 repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
 
 [dependencies]
+csm-chaos = { path = "../csm-chaos", version = "0.3.6", optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
@@ -26,7 +27,7 @@ js-sys = "0.3.77"
 
 [features]
 default = []
-chaotic-hashing = []
+chaotic-hashing = ["dep:csm-chaos", "csm-chaos/std"]
 parallel = ["dep:rayon"]
 
 [lib]
