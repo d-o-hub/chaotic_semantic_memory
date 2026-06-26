@@ -1381,6 +1381,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "csm-chaos"
+version = "0.3.6"
+dependencies = [
+ "criterion",
+ "libm",
+ "serde",
+]
+
+[[package]]
 name = "csm-cli"
 version = "0.3.6"
 dependencies = [
@@ -1410,6 +1419,7 @@ dependencies = [
  "base64 0.22.1",
  "bincode",
  "criterion",
+ "csm-chaos",
  "getrandom 0.4.3",
  "js-sys",
  "rand 0.10.1",
