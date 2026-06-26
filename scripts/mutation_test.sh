@@ -76,6 +76,7 @@ elif [[ "${PROFILE}" != "full" ]]; then
 fi
 
 set -o pipefail
+set +e  # cargo-mutants exits 2 when any mutant is missed; we evaluate the score below
 RUSTFLAGS="" cargo mutants "${FAST_ARGS[@]}" \
   --build-timeout 600 \
   --exclude-re 'WasmFramework::' \
@@ -101,6 +102,7 @@ RUSTFLAGS="" cargo mutants "${FAST_ARGS[@]}" \
   "$@" 2>&1 | tee "${LOG_FILE}"
 RESULT="${PIPESTATUS[0]}"
 set +o pipefail
+set -e  # re-enable errexit for the rest of the script
 
 {
   echo "# Mutation Test Report"
