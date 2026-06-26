@@ -77,33 +77,11 @@ pub struct RetrievalConfig {
     pub enable_bucket_candidates: bool,
 }
 
-/// Hard security limits for retrieval parameters (CWE-770).
-pub const MAX_RETRIEVAL_CANDIDATES: usize = 100_000;
-pub const MAX_GRAPH_DEPTH: u8 = 32;
-pub const MAX_GRAPH_FANOUT: usize = 10_000;
 /// Maximum allowed bucket probe width to prevent excessive memory usage.
 const MAX_BUCKET_PROBE_WIDTH: usize = 16;
 
 impl RetrievalConfig {
     pub fn validate(&self) -> Result<()> {
-        if self.max_candidates > MAX_RETRIEVAL_CANDIDATES {
-            return Err(csm_core::error::MemoryError::InvalidInput {
-                field: "max_candidates".to_string(),
-                reason: format!("max_candidates exceeds {MAX_RETRIEVAL_CANDIDATES}"),
-            });
-        }
-        if self.graph_depth > MAX_GRAPH_DEPTH {
-            return Err(csm_core::error::MemoryError::InvalidInput {
-                field: "graph_depth".to_string(),
-                reason: format!("graph_depth exceeds {MAX_GRAPH_DEPTH}"),
-            });
-        }
-        if self.graph_fanout > MAX_GRAPH_FANOUT {
-            return Err(csm_core::error::MemoryError::InvalidInput {
-                field: "graph_fanout".to_string(),
-                reason: format!("graph_fanout exceeds {MAX_GRAPH_FANOUT}"),
-            });
-        }
         if self.bucket_probe_width > MAX_BUCKET_PROBE_WIDTH {
             return Err(csm_core::error::MemoryError::InvalidInput {
                 field: "bucket_probe_width".to_string(),
