@@ -227,14 +227,14 @@ impl ChaoticSemanticFramework {
                 .await?
                 .ok_or_else(|| MemoryError::NotFound {
                     entity: "ConceptVersion".to_string(),
-                    id: format!("{}@{}", id, from_version),
+                    id: format!("{id}@{from_version}"),
                 })?;
         let to_concept =
             self.get_version(id, to_version)
                 .await?
                 .ok_or_else(|| MemoryError::NotFound {
                     entity: "ConceptVersion".to_string(),
-                    id: format!("{}@{}", id, to_version),
+                    id: format!("{id}@{to_version}"),
                 })?;
         Ok(ConceptDiff::calculate(&from_concept, &to_concept))
     }
@@ -248,7 +248,7 @@ impl ChaoticSemanticFramework {
                 .await?
                 .ok_or_else(|| MemoryError::NotFound {
                     entity: "ConceptVersion".to_string(),
-                    id: format!("{}@{}", id, version),
+                    id: format!("{id}@{version}"),
                 })?;
 
         let now = std::time::SystemTime::now()

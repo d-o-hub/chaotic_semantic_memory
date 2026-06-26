@@ -17,7 +17,7 @@ impl Persistence {
             params![ns.to_string(), id, data, csm_memory::unix_now_secs() as i64],
         )
         .await
-        .map_err(|e| MemoryError::database(format!("Failed to save index: {}", e)))?;
+        .map_err(|e| MemoryError::database(format!("Failed to save index: {e}")))?;
         Ok(())
     }
 
@@ -31,16 +31,16 @@ impl Persistence {
                 params![ns.to_string(), id],
             )
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to load index: {}", e)))?;
+            .map_err(|e| MemoryError::database(format!("Failed to load index: {e}")))?;
 
         if let Some(row) = rows
             .next()
             .await
-            .map_err(|e| MemoryError::database(format!("Failed to fetch index row: {}", e)))?
+            .map_err(|e| MemoryError::database(format!("Failed to fetch index row: {e}")))?
         {
             let data: Vec<u8> = row
                 .get(0)
-                .map_err(|e| MemoryError::database(format!("Failed to get index data: {}", e)))?;
+                .map_err(|e| MemoryError::database(format!("Failed to get index data: {e}")))?;
             Ok(Some(data))
         } else {
             Ok(None)

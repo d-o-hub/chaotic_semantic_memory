@@ -1,0 +1,46 @@
+[graph]
+targets = []
+all-features = true
+
+[advisories]
+ignore = [
+    { id = "RUSTSEC-2024-0436", reason = "paste unmaintained, no replacement in transitive deps (fastembed)" },
+    { id = "RUSTSEC-2025-0141", reason = "bincode 1.x unmaintained, pinned by libsql" },
+    { id = "RUSTSEC-2025-0119", reason = "number_prefix unmaintained, transitive dep from indicatif" },
+]
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "Unicode-DFS-2016",
+    "OpenSSL",
+    "MPL-2.0",
+    "NCSA",
+    "CDLA-Permissive-2.0",
+]
+confidence-threshold = 0.8
+
+[[licenses.exceptions]]
+crate = "bincode"
+allow = ["MIT"]
+
+[[licenses.exceptions]]
+crate = "cloudevents-sdk"
+allow = ["Apache-2.0"]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "allow"
+skip = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

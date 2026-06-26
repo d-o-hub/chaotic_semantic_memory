@@ -1479,7 +1479,7 @@ world_state:
   template_reference: "https://github.com/d-oit/rust-2026-template"
   template_version_analyzed: "0.3.2 (392 commits)"
 
-  action_last_completed: goap_orchestrator_analysis_2026_06_26
+  action_last_completed: wave_30_harness_engineering_phase1_2026_06_26
 
   # ═══════════════════════════════════════════════════════
   # Wave 29: Harness Expansion (2026-06-25)
@@ -1534,3 +1534,30 @@ world_state:
   goap_2026_06_26_active_wave: 30
   goap_2026_06_26_wave_30_name: "Harness Engineering Phase 1 — Toolchain & Supply Chain"
   goap_2026_06_26_wave_30_focus: "rust-toolchain.toml, deny.toml, SIMD ChaoticLsh, arch fitness tests"
+
+  # ═══════════════════════════════════════════════════════
+  # Wave 30: Harness Engineering Phase 1 (2026-06-26)
+  # Toolchain pin, supply chain audit, SIMD ChaoticLsh, arch fitness
+  # ═══════════════════════════════════════════════════════
+  wave_30_complete: true
+  wave_30_completed_at: "2026-06-26"
+  wave_30_items_completed:
+    - "rust-toolchain.toml: pin stable 1.88.0, bump MSRV 1.85→1.88"
+    - "deny.toml: supply chain audit (advisories ok, bans ok, licenses ok, sources ok)"
+    - "SIMD ChaoticLsh: AVX2 + NEON acceleration, project_scalar/project_simd, parity test"
+    - "tests/arch_fitness.rs: 6 tests (LOC gate, unsafe audit, API stability, module layering)"
+  wave_30_validation:
+    cargo_check: passing
+    cargo_fmt: clean
+    cargo_clippy: clean  # uninlined_format_args fixed across workspace
+    cargo_deny: passing  # advisories ok, bans ok, licenses ok, sources ok
+    lib_tests: 177
+    arch_fitness_tests: 6
+    chaotic_lsh_tests: 2  # locality + SIMD-scalar parity
+  wave_30_clippy_fixes:
+    - "uninlined_format_args: 18 fixes across 8 files (triggered by 1.88 toolchain)"
+  harness_msrv_current: "1.88"
+  rust_toolchain_toml_created: true
+  deny_toml_created: true
+  arch_fitness_tests_created: true
+  lsh_projection_simd_accelerated: true

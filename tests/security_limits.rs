@@ -37,6 +37,6 @@ async fn test_import_oversized_file() {
     let result = framework.import_json(path, false).await;
     assert!(result.is_err());
     if let Err(e) = result {
-        assert!(format!("{:?}", e).contains("exceeds maximum allowed size"));
+        assert!(format!("{e:?}").contains("exceeds maximum allowed size"));
     }
 }

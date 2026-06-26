@@ -105,7 +105,7 @@ impl ChaoticSemanticFramework {
 
         let binary_payload = BinaryExportPayload::from(payload);
         let data = bincode::serialize(&binary_payload).map_err(|e| {
-            csm_core::error::MemoryError::Persistence(format!("Serialization error: {}", e))
+            csm_core::error::MemoryError::Persistence(format!("Serialization error: {e}"))
         })?;
         Ok(data)
     }
