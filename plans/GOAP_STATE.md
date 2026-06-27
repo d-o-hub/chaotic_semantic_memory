@@ -1479,7 +1479,26 @@ world_state:
   template_reference: "https://github.com/d-oit/rust-2026-template"
   template_version_analyzed: "0.3.2 (392 commits)"
 
-  action_last_completed: pr_triage_2026_06_26
+  action_last_completed: review_pr_444_sparse_bm25_collection
+
+  # ═══════════════════════════════════════════════════════
+  # PR #444 Review: BM25 Sparse Collection (2026-06-27)
+  # Branch: perf/bm25-sparse-collection-9244619970982429697
+  # Author: Jules bot (task 9244619970982429697)
+  # ═══════════════════════════════════════════════════════
+  pr_444_status: open
+  pr_444_title: "perf(retrieval): implement sparse collection in BM25 search"
+  pr_444_source: jules_bot
+  pr_444_review_posted: true
+  pr_444_review_verdict: "LGTM with minor comments"
+  pr_444_review_recommendations_implemented: true
+  pr_444_recommendations:
+    - "Simplified misleading duplicate-index comment (accumulations strictly positive)"
+    - "Added high-water-mark retention comment for buffer sizing"
+    - "Verified dual-file duplication (pre-existing from workspace extraction, not a new issue)"
+    - "Added selective benchmark: 100K docs, 1000-token vocab, ~2% hit rate"
+  pr_444_ci_status: pending  # Waiting for CI after recommendation commits pushed
+  pr_444_perf_claim: "O(N) → O(T) result collection where T = touched documents"
 
   # ═══════════════════════════════════════════════════════
   # Wave 29: Harness Expansion (2026-06-25)
