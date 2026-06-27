@@ -91,6 +91,7 @@ if [ -n "$DRY_RUN" ]; then
             echo "  Would update $file: ${VERSION_FILES[$file]}"
         fi
     done
+    echo "  Would update all crates/*/Cargo.toml: $CURRENT_VERSION → $VERSION"
     exit 0
 fi
 
@@ -105,5 +106,10 @@ for file in "${!VERSION_FILES[@]}"; do
         echo "  ✓ Updated $file"
     fi
 done
+
+# Update workspace crate versions (Cargo.toml files under crates/)
+echo "  Updating workspace crates..."
+find crates -name "Cargo.toml" -exec sed -i "s/version = \"$CURRENT_VERSION\"/version = \"$VERSION\"/g" {} \;
+echo "  ✓ Updated workspace crate versions"
 
 echo "Version sync complete: $CURRENT_VERSION → $VERSION"

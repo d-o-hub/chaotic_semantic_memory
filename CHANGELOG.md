@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.7] - 2026-06-27
+
+### Fixed
+- **Security**: Resolve SonarCloud path traversal warnings in `scripts/normalize_llms.py` and `scripts/yaml-to-drawio.py` by validating file paths stay within the project directory (pythonsecurity:S8707).
+- **CI (Release workflow)**: Fix `cargo publish --dry-run` failure caused by workspace crates (`csm-core`, `csm-embedding`, etc.) not being published to crates.io. Use `--no-verify` for dry-run validation and publish workspace crates in dependency order before the main crate.
+
 ## [0.3.6] - 2026-05-20
 
 ### Added

@@ -1,6 +1,6 @@
 [package]
 name = "csm-wasm"
-version = "0.3.6"
+version = "0.3.7"
 edition = "2024"
 rust-version = "1.85"
 description = "WASM bindings for chaotic_semantic_memory"
@@ -8,11 +8,11 @@ license = "MIT"
 repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
 
 [dependencies]
-chaotic_semantic_memory = { path = "../..", version = "0.3.6", default-features = false, features = ["wasm"] }
-csm-core = { path = "../csm-core", version = "0.3.6" }
-csm-memory = { path = "../csm-memory", version = "0.3.6" }
-csm-retrieval = { path = "../csm-retrieval", version = "0.3.6", default-features = false }
-csm-traits = { path = "../csm-traits", version = "0.3.6" }
+chaotic_semantic_memory = { path = "../..", version = "0.3.7", default-features = false, features = ["wasm"] }
+csm-core = { path = "../csm-core", version = "0.3.7" }
+csm-memory = { path = "../csm-memory", version = "0.3.7" }
+csm-retrieval = { path = "../csm-retrieval", version = "0.3.7", default-features = false }
+csm-traits = { path = "../csm-traits", version = "0.3.7" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 wasm-bindgen = "0.2.100"

@@ -1,6 +1,6 @@
 {
   "name": "@d-o-hub/csm",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "CLI for chaotic semantic memory - AI memory systems with hyperdimensional vectors",
   "bin": {
     "csm": "./index.js"
