@@ -60,6 +60,7 @@ struct Document {
 thread_local! {
     static DOC_SCORES_BUFFER: RefCell<Vec<f32>> = const { RefCell::new(Vec::new()) };
     static SCORES_COLLECT_BUFFER: RefCell<Vec<(usize, f32)>> = const { RefCell::new(Vec::new()) };
+    static TOUCHED_INDICES_BUFFER: RefCell<Vec<usize>> = const { RefCell::new(Vec::new()) };
 }
 
 #[derive(Debug, Default, Clone)]
@@ -287,68 +288,88 @@ impl Bm25Index {
             return Vec::new();
         }
 
-        // Optimization: Use thread-local buffer to eliminate O(N) allocation per search call.
-        DOC_SCORES_BUFFER.with(|buffer| {
-            let mut doc_scores = buffer.borrow_mut();
-            doc_scores.clear();
-            doc_scores.resize(num_docs, 0.0);
+        // Optimization: Use thread-local buffers to eliminate O(N) allocation and zeroing per search call.
+        TOUCHED_INDICES_BUFFER.with(|touched_buffer| {
+            let mut touched_indices = touched_buffer.borrow_mut();
+            touched_indices.clear();
 
-            self.ensure_norm_cache();
-            {
-                let cache = self
-                    .norm_cache
-                    .read()
-                    .expect("Bm25Index norm_cache lock poisoned");
-                let doc_term_bs = &cache.doc_term_bs;
-                let tf1_recips = &cache.tf1_recips;
+            DOC_SCORES_BUFFER.with(|buffer| {
+                let mut doc_scores = buffer.borrow_mut();
+                // Ensure buffer is large enough; we use sparse zeroing to maintain it.
+                if doc_scores.len() < num_docs {
+                    doc_scores.resize(num_docs, 0.0);
+                }
 
-                for (weighted_idf, entries) in query_weights {
-                    for &(doc_idx, tf) in entries {
-                        // SAFETY: doc_idx is guaranteed to be within bounds because:
-                        // 1. It is derived from the postings index which is strictly synchronized with
-                        //    the documents vector in add_document/remove_document_at.
-                        // 2. doc_scores is resized to self.documents.len() at search start.
-                        // 3. Normalization buffers are synchronized in ensure_norm_cache() before access.
-                        // Mathematical Impact: O(Q * D_q) search complexity.
-                        unsafe {
-                            if tf == 1 {
-                                // Fast path for the most common case: single term frequency.
-                                *doc_scores.get_unchecked_mut(doc_idx) +=
-                                    weighted_idf * tf1_recips.get_unchecked(doc_idx);
-                            } else {
-                                let tf = tf as f32;
-                                let denominator = tf + doc_term_bs.get_unchecked(doc_idx);
-                                *doc_scores.get_unchecked_mut(doc_idx) +=
-                                    (tf * weighted_idf) / denominator;
+                self.ensure_norm_cache();
+                {
+                    let cache = self
+                        .norm_cache
+                        .read()
+                        .expect("Bm25Index norm_cache lock poisoned");
+                    let doc_term_bs = &cache.doc_term_bs;
+                    let tf1_recips = &cache.tf1_recips;
+
+                    for (weighted_idf, entries) in query_weights {
+                        if weighted_idf <= 0.0 {
+                            continue;
+                        }
+
+                        for &(doc_idx, tf) in entries {
+                            // SAFETY: doc_idx is guaranteed to be within bounds because:
+                            // 1. It is derived from the postings index which is strictly synchronized with
+                            //    the documents vector in add_document/remove_document_at.
+                            // 2. doc_scores is ensured to be >= num_docs at search start.
+                            // 3. Normalization buffers are synchronized in ensure_norm_cache() before access.
+                            // Mathematical Impact: O(Q * D_q) search complexity.
+                            unsafe {
+                                let score_ptr = doc_scores.get_unchecked_mut(doc_idx);
+                                if *score_ptr == 0.0 {
+                                    touched_indices.push(doc_idx);
+                                }
+
+                                if tf == 1 {
+                                    // Fast path for the most common case: single term frequency.
+                                    *score_ptr += weighted_idf * tf1_recips.get_unchecked(doc_idx);
+                                } else {
+                                    let tf = tf as f32;
+                                    let denominator = tf + doc_term_bs.get_unchecked(doc_idx);
+                                    *score_ptr += (tf * weighted_idf) / denominator;
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            SCORES_COLLECT_BUFFER.with(|collect_buffer| {
-                let mut scores = collect_buffer.borrow_mut();
-                scores.clear();
+                SCORES_COLLECT_BUFFER.with(|collect_buffer| {
+                    let mut scores = collect_buffer.borrow_mut();
+                    scores.clear();
 
-                for (idx, &score) in doc_scores.iter().enumerate() {
-                    if score > 0.0 {
-                        scores.push((idx, score));
+                    for &idx in touched_indices.iter() {
+                        let score = doc_scores[idx];
+                        // Correctness: A document might be added to touched_indices multiple times if
+                        // multiple terms score it but some intermediate sums are exactly 0.0.
+                        // We also use this loop to reset the score buffer immediately to avoid
+                        // duplicate results and ensure the buffer is clean for the next search.
+                        if score > 0.0 {
+                            scores.push((idx, score));
+                            doc_scores[idx] = 0.0;
+                        }
                     }
-                }
 
-                // Partial select keeps complexity near O(n) for large corpora
-                if scores.len() > top_k {
-                    let nth = top_k - 1;
-                    scores.select_nth_unstable_by(nth, score_cmp_desc);
-                    scores.truncate(top_k);
-                }
-                scores.sort_unstable_by(score_cmp_desc);
+                    // Partial select keeps complexity near O(T) (touched documents) for large corpora
+                    if scores.len() > top_k {
+                        let nth = top_k - 1;
+                        scores.select_nth_unstable_by(nth, score_cmp_desc);
+                        scores.truncate(top_k);
+                    }
+                    scores.sort_unstable_by(score_cmp_desc);
 
-                // Map to final results, cloning IDs only for top_k
-                scores
-                    .iter()
-                    .map(|&(idx, score)| (self.documents[idx].id.clone(), score))
-                    .collect()
+                    // Map to final results, cloning IDs only for top_k
+                    scores
+                        .iter()
+                        .map(|&(idx, score)| (self.documents[idx].id.clone(), score))
+                        .collect()
+                })
             })
         })
     }
