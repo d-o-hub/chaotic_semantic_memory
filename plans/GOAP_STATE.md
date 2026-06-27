@@ -1561,7 +1561,8 @@ world_state:
   deny_toml_created: true
   arch_fitness_tests_created: true
   lsh_projection_simd_accelerated: true
-  agents_context_created: true
+  agents_context_created: false          # Was created in d3c620b but deleted by Jules merge (7acfa78)
+  chaos_logic_isolated: true             # csm-chaos crate extracted (PR #441, 2026-06-26)
 
   # ═══════════════════════════════════════════════════════
   # PR Triage 2026-06-26 (GOAP Orchestrated)
@@ -1576,3 +1577,24 @@ world_state:
   pr_437_closed: true
   pr_437_closed_reason: "semver-incompatible upgrade (0.27→0.32) requiring opentelemetry API migration"
   fastembed_cache_removed_from_git: true  # PR #442
+
+  # ═══════════════════════════════════════════════════════
+  # Wave 30 Status (2026-06-27)
+  # ═══════════════════════════════════════════════════════
+  wave_30_status: mostly_complete
+  wave_30_completed_actions:
+    - create_rust_toolchain_toml
+    - create_deny_toml
+    - create_arch_fitness_tests
+    - simd_optimize_chaotic_lsh
+    - extract_csm_chaos_crate
+    - hyperchaotic_bit_slicing_research_2026_06
+  wave_30_remaining_queued:
+    - create_agents_context       # File deleted by Jules merge; needs re-creation
+  ci_main_status: in_progress     # Run 28268048957 (ddda1bc): 3/13 jobs passed, rest in queue
+  ci_main_partial_results:
+    wasm: success
+    csm_persistence: success
+    duckdb_companion: success
+  ci_dependabot_opentelemetry: closed  # PR #437 closed, not blocking
+  adr_0091_registered: true
