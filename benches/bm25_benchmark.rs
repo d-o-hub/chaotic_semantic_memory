@@ -100,6 +100,29 @@ fn bench_bm25_search_10000(c: &mut Criterion) {
     });
 }
 
+/// Selective query benchmark: 100K docs, 1000-token vocabulary, ~20 tokens/doc.
+/// Query terms appear in ~2% of documents, demonstrating O(T) where T << N.
+fn bench_bm25_search_selective_100000(c: &mut Criterion) {
+    let mut index = Bm25Index::new();
+    // Large vocabulary: 1000 distinct terms
+    let vocab: Vec<String> = (0..1000).map(|i| format!("term_{i}")).collect();
+
+    // Index 100K documents with ~20 tokens each (2% coverage per term)
+    for i in 0..100_000u64 {
+        let doc_tokens: Vec<&str> = (0..20)
+            .map(|j| vocab[(i as usize * 7 + j * 13) % 1000].as_str())
+            .collect();
+        index.add_document(&format!("doc_{i}"), &doc_tokens);
+    }
+
+    // Query with rare terms that hit few documents
+    let query = vec![vocab[999].as_str(), vocab[997].as_str()];
+
+    c.bench_function("bm25_search_selective_100000", |b| {
+        b.iter(|| index.search(black_box(&query), black_box(10)))
+    });
+}
+
 fn bench_bm25_replacement(c: &mut Criterion) {
     let mut index = Bm25Index::new();
     let tokens = vec!["hello", "world", "rust"];
@@ -122,6 +145,7 @@ criterion_group!(
     bench_bm25_search,
     bench_bm25_search_10000,
     bench_bm25_search_100000,
+    bench_bm25_search_selective_100000,
     bench_bm25_replacement
 );
 criterion_main!(benches);

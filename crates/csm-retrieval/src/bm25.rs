@@ -296,6 +296,7 @@ impl Bm25Index {
             DOC_SCORES_BUFFER.with(|buffer| {
                 let mut doc_scores = buffer.borrow_mut();
                 // Ensure buffer is large enough; we use sparse zeroing to maintain it.
+                // Buffer retains high-water-mark size; shrinking is O(N) and not worth it.
                 if doc_scores.len() < num_docs {
                     doc_scores.resize(num_docs, 0.0);
                 }
@@ -346,10 +347,9 @@ impl Bm25Index {
 
                     for &idx in touched_indices.iter() {
                         let score = doc_scores[idx];
-                        // Correctness: A document might be added to touched_indices multiple times if
-                        // multiple terms score it but some intermediate sums are exactly 0.0.
-                        // We also use this loop to reset the score buffer immediately to avoid
-                        // duplicate results and ensure the buffer is clean for the next search.
+                        // Reset buffer slot and collect. The score > 0.0 guard handles
+                        // the theoretical duplicate-index case (all real accumulations
+                        // are strictly positive, so duplicates are near-impossible).
                         if score > 0.0 {
                             scores.push((idx, score));
                             doc_scores[idx] = 0.0;
