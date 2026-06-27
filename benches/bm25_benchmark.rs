@@ -108,9 +108,9 @@ fn bench_bm25_search_selective_100000(c: &mut Criterion) {
     let vocab: Vec<String> = (0..1000).map(|i| format!("term_{i}")).collect();
 
     // Index 100K documents with ~20 tokens each (2% coverage per term)
-    for i in 0..100_000u64 {
+    for i in 0..100_000usize {
         let doc_tokens: Vec<&str> = (0..20)
-            .map(|j| vocab[(i as usize * 7 + j * 13) % 1000].as_str())
+            .map(|j| vocab[(i * 7 + j * 13) % 1000].as_str())
             .collect();
         index.add_document(&format!("doc_{i}"), &doc_tokens);
     }
