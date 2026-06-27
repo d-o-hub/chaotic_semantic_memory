@@ -1,0 +1,8 @@
+#!/bin/bash
+# Pre-push hook: mirrors CI lint checks locally
+set -e
+
+echo "🔍 Running pre-push validation (clippy + fmt)..."
+cargo fmt --check --quiet
+cargo clippy --all-targets --all-features -- -D warnings
+echo "✅ Pre-push checks passed"
