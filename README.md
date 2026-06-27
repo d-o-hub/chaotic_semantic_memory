@@ -463,29 +463,6 @@ scripts/mutation_test.sh fast
 cargo +nightly fuzz run hvec_from_bytes
 ```
 
-## Test Coverage
-
-| Metric | Current |
-|--------|---------|
-| Total tests | 592 |
-| Test files | 46 |
-| Test LOC | 8,501 |
-| Source LOC | 12,140 (excluding inline tests) |
-| Inline test LOC | 2684 (in src modules) |
-| Test:Source ratio | **93%** (target: 90%) ✅ |
-| Fuzz coverage | `fuzz/fuzz_targets/` |
-
-### Test Types
-
-| Type | Count | Purpose |
-|------|-------|---------|
-| Unit tests | Inline in 31 modules | Function-level correctness |
-| Integration tests | 46 dedicated files | Cross-module workflows |
-| CLI integration | 30 tests in `tests/cli_integration.rs` | End-to-end CLI usage |
-| Property-based | `tests/property_based.rs` | Edge case discovery |
-| Real usage | 8 examples in `examples/` | Production scenarios |
-| Skill-memory | 17 tests in `tests/skill_memory_integration.rs` | CLI patterns validation |
-
 ### Real Usage Validation
 
 ```bash
@@ -499,16 +476,6 @@ csm import backup.json --merge --database test.db
 # Location: .agents/csm-memory/skill-memory.db
 # Verified: concept save/recall, db file creation
 ```
-
-### Production Readiness Score: 8.5/10
-
-| Component | Status | Notes |
-|-----------|--------|-------|
-| Rust Library | ✅ Ready | Tested from crates.io v0.3.5 |
-| CLI Binary | ✅ Ready | All commands pass |
-| WASM/npm | ✅ Ready | Export/import fixed in v0.3.5 (PR #138) |
-
-**WASM Export**: `exportToBytes()` / `importFromBytes()` uses `BinaryExportPayload` for bincode serialization, handling `serde_json::Value` metadata.
 
 ### Benchmark & Performance Gates
 
