@@ -73,7 +73,8 @@ pub fn merge_results(
 
     // Optimization: Pre-allocate map to avoid redundant re-hashes and re-allocs.
     // Capacity is at most the sum of both result sets.
-    let mut combined: HashMap<String, f32> =
+    // Use &str as key to avoid redundant String clones during accumulation.
+    let mut combined: HashMap<&str, f32> =
         HashMap::with_capacity(bm25_results.len() + hdc_results.len());
 
     // Optimization: Eliminate intermediate Vec allocations by merging and
@@ -88,12 +89,12 @@ pub fn merge_results(
         let range = max - min;
         if range < 1e-10 {
             for (id, _) in bm25_results {
-                combined.insert(id.clone(), kw_weight);
+                combined.insert(id.as_str(), kw_weight);
             }
         } else {
             let inv_range = 1.0 / range;
             for (id, score) in bm25_results {
-                combined.insert(id.clone(), kw_weight * (score - min) * inv_range);
+                combined.insert(id.as_str(), kw_weight * (score - min) * inv_range);
             }
         }
     }
@@ -107,28 +108,31 @@ pub fn merge_results(
         let range = max - min;
         if range < 1e-10 {
             for (id, _) in hdc_results {
-                // Optimization: Use get_mut to avoid redundant String clones on existing entries.
-                if let Some(score) = combined.get_mut(id) {
+                // Optimization: Use get_mut to avoid redundant key clones on existing entries.
+                if let Some(score) = combined.get_mut(id.as_str()) {
                     *score += sem_weight;
                 } else {
-                    combined.insert(id.clone(), sem_weight);
+                    combined.insert(id.as_str(), sem_weight);
                 }
             }
         } else {
             let inv_range = 1.0 / range;
             for (id, score) in hdc_results {
                 let weighted_norm = sem_weight * (score - min) * inv_range;
-                if let Some(score) = combined.get_mut(id) {
+                if let Some(score) = combined.get_mut(id.as_str()) {
                     *score += weighted_norm;
                 } else {
-                    combined.insert(id.clone(), weighted_norm);
+                    combined.insert(id.as_str(), weighted_norm);
                 }
             }
         }
     }
 
-    // Sort by combined score descending
-    let mut results: Vec<(String, f32)> = combined.into_iter().collect();
+    // Sort by combined score descending and clone IDs only once for the final results.
+    let mut results: Vec<(String, f32)> = combined
+        .into_iter()
+        .map(|(id, score)| (id.to_string(), score))
+        .collect();
     results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
 
     results
