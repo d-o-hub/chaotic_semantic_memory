@@ -2,7 +2,7 @@
 
 > AI memory systems with hyperdimensional vectors and chaotic reservoirs
 
-**Version:** 0.3.6
+**Version:** 0.3.7
 **License:** MIT
 **Repository:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
@@ -16,10 +16,10 @@
 - clap_complete (4.5.42)
 - cloudevents-sdk (0.9.0)
 - colored (2.2.0)
-- csm-core (0.3.6)
-- csm-embedding (0.3.6)
-- csm-memory (0.3.6)
-- csm-retrieval (0.3.6)
+- csm-core (0.3.7)
+- csm-embedding (0.3.7)
+- csm-memory (0.3.7)
+- csm-retrieval (0.3.7)
 - fastembed (4)
 - glob (0.3.2)
 - hnsw_rs (0.3.4)
@@ -30,7 +30,7 @@
 - rand
 - rand_chacha
 - reqwest (0.12) [features: json, rustls-tls]
-- rmcp (1.7) [features: server, macros, transport-io]
+- rmcp (1.7) [features: server, macros, transport-io, server-side-http, transport-streamable-http-server]
 - serde
 - serde_json
 - tempfile
@@ -49,7 +49,7 @@
 - embed-openai: [csm-embedding/embed-openai]
 - embed-voyage: [csm-embedding/embed-voyage]
 - events-http: [cloudevents, cloudevents-sdk/http-binding, dep:reqwest]
-- mcp: [dep:rmcp, cli]
+- mcp: [dep:rmcp, cli, dep:axum, dep:tower, dep:tower-http]
 - otlp-json: []
 - otlp: [dep:opentelemetry, dep:opentelemetry_sdk, dep:opentelemetry-otlp, dep:tracing-opentelemetry]
 - parallel: [dep:rayon]
@@ -336,6 +336,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct ChaoticSemanticFramework
 - impl ChaoticSemanticFramework
 
+### src/framework_accessors.rs
+
+- impl ChaoticSemanticFramework
+
 ### src/framework_bridge.rs
 
 - impl ChaoticSemanticFramework
@@ -400,6 +404,13 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - impl crate::framework::ChaoticSemanticFramework
 
+### src/framework_ttl_advanced.rs
+
+- pub use csm_memory::singularity::DecayCurve
+- pub enum TtlPolicy
+- pub struct TtlRule
+- pub struct TtlConfig
+
 ### src/framework_validation.rs
 
 - pub const MAX_NAMESPACE_BYTES
@@ -407,6 +418,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub const MAX_BATCH_SIZE_LIMIT
 - pub const MAX_SEQUENCE_LENGTH_LIMIT
 - pub const MAX_METADATA_BYTES_LIMIT
+- pub const MAX_ASSOCIATIONS_PER_CONCEPT_LIMIT
 - pub const MAX_CONCEPT_CACHE_LIMIT
 - pub const MAX_VERSION_RETENTION_LIMIT
 - pub const MAX_CONNECTION_POOL_LIMIT
@@ -445,6 +457,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod framework
 - pub mod framework_builder
 - pub mod framework_events_ce
+- pub mod framework_ttl_advanced
 - pub mod graph_traversal
 - pub use csm_core::hyperdim
 - pub mod mcp
@@ -482,13 +495,14 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub struct McpHandler
 - impl McpHandler
+- impl McpHandler
 - impl ServerHandler for McpHandler
 - impl McpHandler
 
 ### src/mcp/mod.rs
 
 - pub use handler::McpHandler
-- pub use server::{McpConfig, Transport, serve}
+- pub use server::{McpConfig, Transport, TransportType, serve}
 
 ### src/mcp/schema.rs
 
@@ -508,9 +522,11 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/mcp/server.rs
 
 - pub enum Transport
+- pub enum TransportType
 - pub struct McpConfig
 - impl Default for McpConfig
 - pub fn serve
+- impl Clone for McpHandler
 
 ### src/metadata_filter.rs
 
@@ -618,9 +634,11 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod bm25
 - pub mod graph_rag
 - pub mod hybrid
+- pub mod rerank
 - pub use bm25::{Bm25Config, Bm25Index}
 - pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve}
 - pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
+- pub use rerank::{MmrReranker, RerankCandidate, Reranker}
 
 ### src/retrieval/rerank.rs
 
@@ -916,29 +934,6 @@ scripts/mutation_test.sh fast
 cargo +nightly fuzz run hvec_from_bytes
 ```
 
-#### Test Coverage
-
-| Metric | Current |
-|--------|---------|
-| Total tests | 592 |
-| Test files | 46 |
-| Test LOC | 8,501 |
-| Source LOC | 12,140 (excluding inline tests) |
-| Inline test LOC | 2684 (in src modules) |
-| Test:Source ratio | **93%** (target: 90%) ✅ |
-| Fuzz coverage | `fuzz/fuzz_targets/` |
-
-##### Test Types
-
-| Type | Count | Purpose |
-|------|-------|---------|
-| Unit tests | Inline in 31 modules | Function-level correctness |
-| Integration tests | 46 dedicated files | Cross-module workflows |
-| CLI integration | 30 tests in `tests/cli_integration.rs` | End-to-end CLI usage |
-| Property-based | `tests/property_based.rs` | Edge case discovery |
-| Real usage | 8 examples in `examples/` | Production scenarios |
-| Skill-memory | 17 tests in `tests/skill_memory_integration.rs` | CLI patterns validation |
-
 ##### Real Usage Validation
 
 ```bash
@@ -952,16 +947,6 @@ csm inject my-concept --database csm_memory.db
 ### Skill-memory integration test
 ### Verified: concept save/recall, db file creation
 ```
-
-##### Production Readiness Score: 8.5/10
-
-| Component | Status | Notes |
-|-----------|--------|-------|
-| Rust Library | ✅ Ready | Tested from crates.io v0.3.5 |
-| CLI Binary | ✅ Ready | All commands pass |
-| WASM/npm | ✅ Ready | Export/import fixed in v0.3.5 (PR #138) |
-
-**WASM Export**: `exportToBytes()` / `importFromBytes()` uses `BinaryExportPayload` for bincode serialization, handling `serde_json::Value` metadata.
 
 ##### Benchmark & Performance Gates
 
@@ -2361,7 +2346,7 @@ pub enum McpCommands {
 #[derive(Args, Debug, Clone)]
 #[cfg(feature = "mcp")]
 pub struct McpServeArgs {
-    pub transport: crate::mcp::Transport,
+    pub transport: crate::mcp::TransportType,
     pub bind: Option<String>,
 }
 ```
@@ -2465,6 +2450,7 @@ impl From<serde_json::Value> for BinaryMetadataValue {
 ### ChaoticSemanticFramework
 
 ```rust
+#[derive(Clone)]
 pub struct ChaoticSemanticFramework {
 }
 ```
@@ -2489,6 +2475,17 @@ impl ChaoticSemanticFramework {
     pub fn delete_concept(&self, id: &str) -> Result<()>;
     pub fn get_associations(&self, id: &str) -> Result<Vec<(String, f32)>>;
     pub fn incoming_associations(&self, id: &str) -> Result<Vec<(String, f32)>>;
+    pub fn reinforce_association(&self, from: &str, to: &str) -> Result<()>;
+    pub fn prune_decayed_associations(&self, threshold: f32) -> Result<usize>;
+}
+```
+
+## src/framework_accessors.rs
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
     pub fn shortest_path_hops(&self, from: &str, to: &str) -> Result<Option<Vec<String>>>;
     pub fn get_concept(&self, id: &str) -> Result<Option<Concept>>;
     pub fn load(&self) -> Result<()>;
@@ -2541,6 +2538,7 @@ pub struct FrameworkConfig {
     pub max_sequence_length: usize,
     pub index_backend: crate::index::IndexBackend,
     pub pattern_recognition_threshold: f64,
+    pub ttl_config: crate::framework_ttl_advanced::TtlConfig,
 }
 ```
 
@@ -2593,6 +2591,7 @@ impl FrameworkBuilder {
     pub fn with_pattern_recognition_threshold(self, threshold: f64) -> Self;
     pub fn with_emitter(self, emitter: Arc<dyn Trait>) -> Self;
     pub fn with_index_backend(self, backend: crate::index::IndexBackend) -> Self;
+    pub fn with_ttl_config(self, config: crate::framework_ttl_advanced::TtlConfig) -> Self;
     pub fn with_version_retention(self, retention: usize) -> Self;
     pub fn with_local_db(self, path: impl Trait) -> Self;
     pub fn with_local_db(self, _path: impl Trait) -> Self;
@@ -2890,7 +2889,62 @@ impl crate::framework::ChaoticSemanticFramework {
 }
 ```
 
+## src/framework_ttl_advanced.rs
+
+### TtlConfig
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+pub struct TtlConfig {
+    pub policy: TtlPolicy,
+    pub association_decay: DecayCurve,
+    pub cleanup_interval_seconds: u64,
+    pub cascading_purge: bool,
+}
+```
+
+Advanced TTL and decay configuration.
+
+### TtlPolicy
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub enum TtlPolicy {
+    None,
+    Fixed(u64),
+    MetadataRule(Vec<TtlRule>),
+    Inherit,
+}
+```
+
+Policy for automatic TTL assignment.
+
+### TtlRule
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TtlRule {
+    pub key: String,
+    pub value: serde_json::Value,
+    pub ttl_seconds: u64,
+}
+```
+
+Rule for metadata-based TTL assignment.
+
+### csm_memory::singularity::DecayCurve
+
+```rust
+pub use csm_memory::singularity::DecayCurve;
+```
+
 ## src/framework_validation.rs
+
+### MAX_ASSOCIATIONS_PER_CONCEPT_LIMIT
+
+```rust
+pub const MAX_ASSOCIATIONS_PER_CONCEPT_LIMIT: usize
+```
 
 ### MAX_BATCH_SIZE_LIMIT
 
@@ -3149,7 +3203,7 @@ impl Persistence {
     pub fn delete_concept(&self, _ns: &str, _id: &str) -> Result<()>;
     pub fn save_association(&self, _ns: &str, _from: &str, _to: &str, _strength: f32) -> Result<()>;
     pub fn save_associations(&self, _ns: &str, _associations: &[(String, String, f32)]) -> Result<()>;
-    pub fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32)>>;
+    pub fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32, u64)>>;
     pub fn delete_association(&self, _ns: &str, _from: &str, _to: &str) -> Result<()>;
     pub fn clear_concept_associations(&self, _ns: &str, _id: &str) -> Result<()>;
     pub fn clear_all(&self) -> Result<()>;
@@ -3209,6 +3263,14 @@ Combined MCP handler for chaotic_semantic_memory.
 
 ```rust
 impl McpHandler {
+    pub fn is_framework_initialized(&self) -> bool;
+}
+```
+
+### impl McpHandler
+
+```rust
+impl McpHandler {
     pub fn new(database: Option<PathBuf>) -> Self;
 }
 ```
@@ -3235,10 +3297,10 @@ impl ServerHandler for McpHandler {
 pub use handler::McpHandler;
 ```
 
-### server::{McpConfig, Transport, serve}
+### server::{McpConfig, Transport, TransportType, serve}
 
 ```rust
-pub use server::{McpConfig, Transport, serve};
+pub use server::{McpConfig, Transport, TransportType, serve};
 ```
 
 ## src/mcp/schema.rs
@@ -3357,13 +3419,33 @@ Configuration for MCP server.
 ### Transport
 
 ```rust
-#[derive(Debug, Clone, Copy, Default, clap :: ValueEnum)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum Transport {
     Stdio,
+    Sse { bind: std::net::SocketAddr },
 }
 ```
 
 Transport type for MCP server.
+
+### TransportType
+
+```rust
+#[derive(Debug, Clone, Copy, Default, clap :: ValueEnum)]
+pub enum TransportType {
+    Stdio,
+    Sse,
+}
+```
+
+Transport type for CLI parsing.
+
+### impl Clone for McpHandler
+
+```rust
+impl Clone for McpHandler {
+}
+```
 
 ### impl Default for McpConfig
 
@@ -3679,7 +3761,7 @@ impl Persistence {
     pub fn new_turso_with_pool(url: &str, token: &str, pool_size: usize) -> Result<Self>;
     pub fn new_turso_with_pool_and_retention(url: &str, token: &str, pool_size: usize, version_retention: usize) -> Result<Self>;
     pub fn save_association(&self, ns: &str, from: &str, to: &str, strength: f32) -> Result<()>;
-    pub fn load_associations(&self, ns: &str, id: &str) -> Result<Vec<(String, f32)>>;
+    pub fn load_associations(&self, ns: &str, id: &str) -> Result<Vec<(String, f32, u64)>>;
     pub fn checkpoint(&self) -> Result<()>;
     pub fn list_namespaces(&self) -> Result<Vec<String>>;
     pub fn size(&self) -> Result<u64>;
@@ -3783,7 +3865,8 @@ impl Persistence {
     pub fn delete_concept(&self, _ns: &str, _id: &str) -> Result<()>;
     pub fn save_association(&self, _ns: &str, _from: &str, _to: &str, _strength: f32) -> Result<()>;
     pub fn save_associations(&self, _ns: &str, _associations: &[(String, String, f32)]) -> Result<()>;
-    pub fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32)>>;
+    pub fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32, u64)>>;
+    pub fn load_all_associations(&self, _ns: &str) -> Result<Vec<(String, String, f32, u64)>>;
     pub fn clear_namespace(&self, _ns: &str) -> Result<()>;
     pub fn clear_all(&self) -> Result<()>;
     pub fn get_version_scoped(&self, _ns: &str, _id: &str, _version: u64) -> Result<Option<Concept>>;
@@ -3987,7 +4070,7 @@ pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)>
 
 Normalize scores to [0, 1] range using min-max normalization.
 
-If all scores are equal, returns 0.5 for all.
+If all scores are equal, returns 1.0 for all.
 
 ## src/retrieval/mod.rs
 
@@ -4007,6 +4090,12 @@ pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
 
 ```rust
 pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores};
+```
+
+### rerank::{MmrReranker, RerankCandidate, Reranker}
+
+```rust
+pub use rerank::{MmrReranker, RerankCandidate, Reranker};
 ```
 
 ## src/retrieval/rerank.rs
