@@ -1,7 +1,18 @@
 import sys
+import os
 import re
 
+ALLOWED_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def _validate_path(filename):
+    """Validate that the file path is within the project directory."""
+    resolved = os.path.realpath(filename)
+    if not resolved.startswith(ALLOWED_DIR + os.sep) and resolved != ALLOWED_DIR:
+        raise ValueError(f"Path escapes project directory: {filename}")
+    return resolved
+
 def normalize(filename):
+    filename = _validate_path(filename)
     with open(filename, 'r') as f:
         content = f.read()
 
@@ -75,6 +86,7 @@ def normalize(filename):
     result = "".join(final_content)
     result = re.sub(r'\n{3,}', '\n\n', result)
 
+    filename = _validate_path(filename)
     with open(filename, 'w') as f:
         f.write(result)
 

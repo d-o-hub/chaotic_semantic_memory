@@ -6,8 +6,18 @@ Converts structured context.yaml to draw.io XML format
 
 import yaml
 import sys
+import os
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
+
+ALLOWED_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def _validate_path(filepath):
+    """Validate that the file path is within the project directory."""
+    resolved = os.path.realpath(filepath)
+    if not resolved.startswith(ALLOWED_DIR + os.sep) and resolved != ALLOWED_DIR:
+        raise ValueError(f"Path escapes project directory: {filepath}")
+    return resolved
 
 def escape_xml(text):
     return (text
@@ -17,6 +27,8 @@ def escape_xml(text):
             .replace('"', '&quot;'))
 
 def yaml_to_drawio(yaml_file, output_file):
+    yaml_file = _validate_path(yaml_file)
+    output_file = _validate_path(output_file)
     with open(yaml_file, 'r') as f:
         data = yaml.safe_load(f)
     
