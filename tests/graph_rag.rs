@@ -331,6 +331,7 @@ async fn test_graph_rag_truncation_logic() {
     assert_eq!(results_trunc.len(), 2, "Should truncate to final_top_k");
     // Ensure they are sorted (highest score first)
     assert!(results_trunc[0].score >= results_trunc[1].score);
+    // c0 (anchor) and c1 (strongest association) should be the top 2
     assert_eq!(results_trunc[0].id, "c0");
     assert_eq!(results_trunc[1].id, "c1");
 
@@ -352,6 +353,8 @@ async fn test_graph_rag_truncation_logic() {
     );
     // Explicitly verify content to kill select_nth_unstable mutants (top_k-1 vs top_k/1)
     assert_eq!(results_anchors[0].id, "c0");
+    // c0 is seed, so must be first anchor. Check that second anchor is also present and correct.
+    assert!(results_anchors.iter().any(|r| r.id == "c1") || results_anchors.iter().any(|r| r.id == "c2"));
 
     // 5. Test exact boundary where len == top_k (kills > vs >= mutants)
     let config_exact = GraphRagConfig {
@@ -365,4 +368,16 @@ async fn test_graph_rag_truncation_logic() {
         .await
         .unwrap();
     assert_eq!(results_exact.len(), 5, "Should return all 5 elements when len == top_k");
+    // Verify sorting at boundary
+    for i in 0..4 {
+        assert!(results_exact[i].score >= results_exact[i+1].score);
+    }
+
+    // 6. Test validation rejection for excessive top_k
+    let config_huge = GraphRagConfig {
+        final_top_k: 100_001, // Exceeds MAX_TOP_K_LIMIT
+        ..Default::default()
+    };
+    let results_huge = framework.probe_with_graph(HVec10240::new_seeded(0), config_huge).await;
+    assert!(results_huge.is_err(), "Exceeding top_k limit should be rejected");
 }
