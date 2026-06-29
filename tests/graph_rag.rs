@@ -288,6 +288,7 @@ async fn test_graph_rag_truncation_logic() {
 
     // 1. Test top_k = 0
     let config_zero = GraphRagConfig {
+        anchor_top_k: 0,
         final_top_k: 0,
         ..Default::default()
     };
@@ -300,7 +301,21 @@ async fn test_graph_rag_truncation_logic() {
         "top_k=0 should return empty results"
     );
 
-    // 2. Test final_top_k truncation (3 elements available, take 2)
+    // 2. Test top_k = 1 (kills framework > 0 mutants)
+    let config_one = GraphRagConfig {
+        anchor_top_k: 1,
+        max_hops: 0,
+        final_top_k: 1,
+        ..Default::default()
+    };
+    let results_one = framework
+        .probe_with_graph(HVec10240::new_seeded(0), config_one)
+        .await
+        .unwrap();
+    assert_eq!(results_one.len(), 1, "top_k=1 should return exactly 1 result");
+    assert_eq!(results_one[0].id, "c0");
+
+    // 3. Test final_top_k truncation (3 elements available, take 2)
     let config_trunc = GraphRagConfig {
         anchor_top_k: 1, // anchor c0
         max_hops: 2,     // reaches c1, c2
@@ -316,8 +331,10 @@ async fn test_graph_rag_truncation_logic() {
     assert_eq!(results_trunc.len(), 2, "Should truncate to final_top_k");
     // Ensure they are sorted (highest score first)
     assert!(results_trunc[0].score >= results_trunc[1].score);
+    assert_eq!(results_trunc[0].id, "c0");
+    assert_eq!(results_trunc[1].id, "c1");
 
-    // 3. Test anchor_top_k selection (5 elements available, take 2 anchors)
+    // 4. Test anchor_top_k selection boundary (5 elements available, take 2 anchors)
     let config_anchors = GraphRagConfig {
         anchor_top_k: 2,
         max_hops: 0,
@@ -333,4 +350,19 @@ async fn test_graph_rag_truncation_logic() {
         2,
         "Should have exactly anchor_top_k results when hops=0"
     );
+    // Explicitly verify content to kill select_nth_unstable mutants (top_k-1 vs top_k/1)
+    assert_eq!(results_anchors[0].id, "c0");
+
+    // 5. Test exact boundary where len == top_k (kills > vs >= mutants)
+    let config_exact = GraphRagConfig {
+        anchor_top_k: 5,
+        max_hops: 0,
+        final_top_k: 5,
+        ..Default::default()
+    };
+    let results_exact = framework
+        .probe_with_graph(HVec10240::new_seeded(0), config_exact)
+        .await
+        .unwrap();
+    assert_eq!(results_exact.len(), 5, "Should return all 5 elements when len == top_k");
 }
