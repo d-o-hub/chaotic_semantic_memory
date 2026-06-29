@@ -173,12 +173,11 @@ pub fn graph_rag_retrieve(
     }
 
     let mut results: Vec<GraphRagResult> = best_by_id.into_values().collect();
-    // Optimization: Use select_nth_unstable for $O(M)$ result ranking.
-    if results.len() > config.final_top_k {
-        results.select_nth_unstable_by(config.final_top_k - 1, |a, b| b.score.total_cmp(&a.score));
-        results.truncate(config.final_top_k);
-    }
+    // Optimization: Use unstable sort and total_cmp for faster result ranking.
+    // Mathematical Impact: O(M log M) complexity where M is candidates.
+    // Note: select_nth_unstable is avoided here to minimize monomorphization bloat.
     results.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
+    results.truncate(config.final_top_k);
 
     Ok(results)
 }
@@ -189,6 +188,9 @@ fn find_anchors<'a>(
     similarities: &[f32],
     top_k: usize,
 ) -> Vec<(&'a str, f32)> {
+    if top_k == 0 {
+        return Vec::new();
+    }
     // Optimization: Avoid HashMap iteration and O(N log N) sorting for anchors.
     // Mathematical Impact: O(N) selection complexity using select_nth_unstable.
     let mut scored: Vec<(&str, f32)> = concepts

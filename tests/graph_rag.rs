@@ -269,3 +269,68 @@ async fn test_graph_rag_max_results_boundary() {
         "Should have anchor plus exactly 1000 neighbors"
     );
 }
+
+#[tokio::test]
+async fn test_graph_rag_truncation_logic() {
+    let framework = setup_framework().await;
+
+    // Create 5 concepts with distinct seeds to get predictable similarities
+    for i in 0..5 {
+        framework
+            .inject_concept(&format!("c{i}"), HVec10240::new_seeded(i as u64))
+            .await
+            .unwrap();
+    }
+
+    // Association c0 -> c1 (0.9), c1 -> c2 (0.8)
+    framework.associate("c0", "c1", 0.9).await.unwrap();
+    framework.associate("c1", "c2", 0.8).await.unwrap();
+
+    // 1. Test top_k = 0
+    let config_zero = GraphRagConfig {
+        final_top_k: 0,
+        ..Default::default()
+    };
+    let results_zero = framework
+        .probe_with_graph(HVec10240::new_seeded(0), config_zero)
+        .await
+        .unwrap();
+    assert!(
+        results_zero.is_empty(),
+        "top_k=0 should return empty results"
+    );
+
+    // 2. Test final_top_k truncation (3 elements available, take 2)
+    let config_trunc = GraphRagConfig {
+        anchor_top_k: 1, // anchor c0
+        max_hops: 2,     // reaches c1, c2
+        final_top_k: 2,
+        similarity_weight: 0.5,
+        graph_weight: 0.5,
+        ..Default::default()
+    };
+    let results_trunc = framework
+        .probe_with_graph(HVec10240::new_seeded(0), config_trunc)
+        .await
+        .unwrap();
+    assert_eq!(results_trunc.len(), 2, "Should truncate to final_top_k");
+    // Ensure they are sorted (highest score first)
+    assert!(results_trunc[0].score >= results_trunc[1].score);
+
+    // 3. Test anchor_top_k selection (5 elements available, take 2 anchors)
+    let config_anchors = GraphRagConfig {
+        anchor_top_k: 2,
+        max_hops: 0,
+        final_top_k: 10,
+        ..Default::default()
+    };
+    let results_anchors = framework
+        .probe_with_graph(HVec10240::new_seeded(0), config_anchors)
+        .await
+        .unwrap();
+    assert_eq!(
+        results_anchors.len(),
+        2,
+        "Should have exactly anchor_top_k results when hops=0"
+    );
+}
