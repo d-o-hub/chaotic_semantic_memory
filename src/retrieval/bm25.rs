@@ -371,15 +371,12 @@ impl Bm25Index {
                     }
                     scores.sort_unstable_by(score_cmp_desc);
 
-                    // Map to final results, cloning IDs only for top_k
+                    // Map to final results, cloning IDs only for top_k.
+                    // Safe indexing: idx comes from scores which was built from touched_indices,
+                    // all of which are valid document indices by the postings-to-documents invariant.
                     scores
                         .iter()
-                        .map(|&(idx, score)| {
-                            // SAFETY: idx is guaranteed to be within bounds by the postings-to-documents invariant.
-                            debug_assert!(idx < self.documents.len());
-                            let id = unsafe { &self.documents.get_unchecked(idx).id };
-                            (id.clone(), score)
-                        })
+                        .map(|&(idx, score)| (self.documents[idx].id.clone(), score))
                         .collect()
                 })
             })
