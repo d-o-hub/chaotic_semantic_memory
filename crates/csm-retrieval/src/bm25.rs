@@ -249,6 +249,8 @@ impl Bm25Index {
         let n = self.len() as f32;
         let num_docs = self.documents.len();
         let n_plus_1 = n + 1.0;
+        // Optimization: Hoist ln(N+1) to replace division with subtraction in IDF calculation.
+        let n_plus_1_ln = n_plus_1.ln();
 
         // Pre-calculate constants for scoring (hoisted out of loop)
         let k1 = self.config.k1;
@@ -260,18 +262,19 @@ impl Bm25Index {
 
         // Fast-path for query deduplication: linear scan for short queries (<= 8 tokens).
         if query_tokens.len() <= 8 {
-            #[allow(clippy::needless_range_loop)]
+            let mut terms = [None; 8];
             for i in 0..query_tokens.len() {
                 let term = query_tokens[i].as_ref();
                 let mut duplicate = false;
-                for j in 0..i {
-                    if query_tokens[j].as_ref() == term {
+                for term_opt in terms.iter().take(i) {
+                    if *term_opt == Some(term) {
                         duplicate = true;
                         break;
                     }
                 }
                 if !duplicate {
-                    self.push_query_weight(term, n_plus_1, k1_plus_1, &mut query_weights);
+                    terms[i] = Some(term);
+                    self.push_query_weight(term, n_plus_1_ln, k1_plus_1, &mut query_weights);
                 }
             }
         } else {
@@ -279,7 +282,7 @@ impl Bm25Index {
             for token in query_tokens {
                 let term = token.as_ref();
                 if seen_terms.insert(term) {
-                    self.push_query_weight(term, n_plus_1, k1_plus_1, &mut query_weights);
+                    self.push_query_weight(term, n_plus_1_ln, k1_plus_1, &mut query_weights);
                 }
             }
         }
@@ -346,13 +349,17 @@ impl Bm25Index {
                     scores.clear();
 
                     for &idx in touched_indices.iter() {
-                        let score = doc_scores[idx];
+                        // SAFETY: idx is derived from touched_indices which only contains
+                        // valid indices into doc_scores pushed during the scoring loop.
+                        debug_assert!(idx < doc_scores.len());
+                        let score = unsafe { *doc_scores.get_unchecked(idx) };
                         // Reset buffer slot and collect. The score > 0.0 guard handles
                         // the theoretical duplicate-index case (all real accumulations
                         // are strictly positive, so duplicates are near-impossible).
                         if score > 0.0 {
                             scores.push((idx, score));
-                            doc_scores[idx] = 0.0;
+                            debug_assert!(idx < doc_scores.len());
+                            unsafe { *doc_scores.get_unchecked_mut(idx) = 0.0 };
                         }
                     }
 
@@ -364,7 +371,9 @@ impl Bm25Index {
                     }
                     scores.sort_unstable_by(score_cmp_desc);
 
-                    // Map to final results, cloning IDs only for top_k
+                    // Map to final results, cloning IDs only for top_k.
+                    // Safe indexing: idx comes from scores which was built from touched_indices,
+                    // all of which are valid document indices by the postings-to-documents invariant.
                     scores
                         .iter()
                         .map(|&(idx, score)| (self.documents[idx].id.clone(), score))
@@ -379,14 +388,15 @@ impl Bm25Index {
     fn push_query_weight<'a>(
         &'a self,
         term: &'a str,
-        n_plus_1: f32,
+        n_plus_1_ln: f32,
         k1_plus_1: f32,
         query_weights: &mut Vec<(f32, &'a Vec<(usize, u32)>)>,
     ) {
         if let Some(postings) = self.postings.get(term) {
             let df = postings.len() as f32;
+            // Optimization: Use ln(N + 1.0) - ln(df + 0.5) to avoid division.
             // idf = ln((N + 1.0) / (df + 0.5)) is always > 0 for all N >= df >= 1
-            let idf = (n_plus_1 / (df + 0.5)).ln();
+            let idf = n_plus_1_ln - (df + 0.5).ln();
             query_weights.push((idf * k1_plus_1, postings));
         }
     }
@@ -447,7 +457,8 @@ impl Bm25Index {
         for &doc_len in &self.doc_lengths {
             let b_val = c2.mul_add(doc_len, c1);
             cache.doc_term_bs.push(b_val);
-            cache.tf1_recips.push(1.0 / (1.0 + b_val));
+            // Optimization: Use recip() to potentially leverage hardware reciprocal instructions.
+            cache.tf1_recips.push((1.0 + b_val).recip());
         }
 
         self.norm_cache_dirty.store(false, AtomicOrdering::Release);
