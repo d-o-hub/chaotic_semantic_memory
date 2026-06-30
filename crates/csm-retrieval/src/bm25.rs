@@ -266,8 +266,8 @@ impl Bm25Index {
             for i in 0..query_tokens.len() {
                 let term = query_tokens[i].as_ref();
                 let mut duplicate = false;
-                for j in 0..i {
-                    if terms[j] == Some(term) {
+                for term_opt in terms.iter().take(i) {
+                    if *term_opt == Some(term) {
                         duplicate = true;
                         break;
                     }
