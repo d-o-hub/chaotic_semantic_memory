@@ -351,12 +351,14 @@ impl Bm25Index {
                     for &idx in touched_indices.iter() {
                         // SAFETY: idx is derived from touched_indices which only contains
                         // valid indices into doc_scores pushed during the scoring loop.
+                        debug_assert!(idx < doc_scores.len());
                         let score = unsafe { *doc_scores.get_unchecked(idx) };
                         // Reset buffer slot and collect. The score > 0.0 guard handles
                         // the theoretical duplicate-index case (all real accumulations
                         // are strictly positive, so duplicates are near-impossible).
                         if score > 0.0 {
                             scores.push((idx, score));
+                            debug_assert!(idx < doc_scores.len());
                             unsafe { *doc_scores.get_unchecked_mut(idx) = 0.0 };
                         }
                     }
@@ -374,6 +376,7 @@ impl Bm25Index {
                         .iter()
                         .map(|&(idx, score)| {
                             // SAFETY: idx is guaranteed to be within bounds by the postings-to-documents invariant.
+                            debug_assert!(idx < self.documents.len());
                             let id = unsafe { &self.documents.get_unchecked(idx).id };
                             (id.clone(), score)
                         })
