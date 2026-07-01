@@ -102,7 +102,7 @@ pub fn graph_rag_retrieve(
         map
     };
 
-    let anchors = find_anchors(&concept_map, config.anchor_top_k);
+    let anchors = find_anchors(concepts, &similarities, config.anchor_top_k);
     let mut candidates: Vec<Candidate> = Vec::with_capacity(anchors.len() * 2);
     let mut seen: HashSet<&str> = HashSet::with_capacity(concepts.len());
 
@@ -173,6 +173,8 @@ pub fn graph_rag_retrieve(
 
     let mut results: Vec<GraphRagResult> = best_by_id.into_values().collect();
     // Optimization: Use unstable sort and total_cmp for faster result ranking.
+    // Mathematical Impact: O(M log M) complexity where M is candidates.
+    // Note: select_nth_unstable is avoided here to minimize monomorphization bloat.
     results.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
     results.truncate(config.final_top_k);
 
@@ -181,13 +183,26 @@ pub fn graph_rag_retrieve(
 
 /// Find anchor concepts using pre-calculated similarities.
 fn find_anchors<'a>(
-    concepts: &HashMap<&'a str, (&Concept, f32)>,
+    concepts: &'a [Concept],
+    similarities: &[f32],
     top_k: usize,
 ) -> Vec<(&'a str, f32)> {
-    let mut scored: Vec<(&str, f32)> = concepts.iter().map(|(&id, &(_, sim))| (id, sim)).collect();
+    if top_k == 0 {
+        return Vec::new();
+    }
+    // Optimization: Avoid HashMap iteration and O(N log N) sorting for anchors.
+    // Mathematical Impact: O(N) selection complexity using select_nth_unstable.
+    let mut scored: Vec<(&str, f32)> = concepts
+        .iter()
+        .zip(similarities.iter())
+        .map(|(c, &sim)| (c.id.as_str(), sim))
+        .collect();
 
+    if scored.len() > top_k {
+        scored.select_nth_unstable_by(top_k - 1, |a, b| b.1.total_cmp(&a.1));
+        scored.truncate(top_k);
+    }
     scored.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
-    scored.truncate(top_k);
     scored
 }
 
