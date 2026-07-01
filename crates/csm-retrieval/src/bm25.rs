@@ -65,10 +65,9 @@ thread_local! {
 
 #[derive(Debug, Default, Clone)]
 struct Bm25Cache {
-    /// Document terms (c2 * doc_len + c1) for fast scoring.
-    doc_term_bs: Vec<f32>,
-    /// Reciprocals (1.0 / (1.0 + b_val)) for the tf=1 fast path.
-    tf1_recips: Vec<f32>,
+    /// Cached normalization factors (doc_term_b, tf1_recip) for fast scoring.
+    /// Using a single vector of pairs improves cache locality in the scoring hot loop.
+    factors: Vec<(f32, f32)>,
 }
 
 #[derive(Debug)]
@@ -263,17 +262,21 @@ impl Bm25Index {
         // Fast-path for query deduplication: linear scan for short queries (<= 8 tokens).
         if query_tokens.len() <= 8 {
             let mut terms = [None; 8];
-            for i in 0..query_tokens.len() {
-                let term = query_tokens[i].as_ref();
+            let mut count = 0;
+            for token in query_tokens {
+                let term = token.as_ref();
                 let mut duplicate = false;
-                for term_opt in terms.iter().take(i) {
-                    if *term_opt == Some(term) {
+                // Clippy note: linear scan on stack-allocated array is faster than hashing for small queries.
+                #[allow(clippy::needless_range_loop)]
+                for i in 0..count {
+                    if terms[i] == Some(term) {
                         duplicate = true;
                         break;
                     }
                 }
                 if !duplicate {
-                    terms[i] = Some(term);
+                    terms[count] = Some(term);
+                    count += 1;
                     self.push_query_weight(term, n_plus_1_ln, k1_plus_1, &mut query_weights);
                 }
             }
@@ -310,8 +313,7 @@ impl Bm25Index {
                         .norm_cache
                         .read()
                         .expect("Bm25Index norm_cache lock poisoned");
-                    let doc_term_bs = &cache.doc_term_bs;
-                    let tf1_recips = &cache.tf1_recips;
+                    let factors = &cache.factors;
 
                     for (weighted_idf, entries) in query_weights {
                         if weighted_idf <= 0.0 {
@@ -331,12 +333,13 @@ impl Bm25Index {
                                     touched_indices.push(doc_idx);
                                 }
 
+                                let (doc_term_b, tf1_recip) = *factors.get_unchecked(doc_idx);
                                 if tf == 1 {
                                     // Fast path for the most common case: single term frequency.
-                                    *score_ptr += weighted_idf * tf1_recips.get_unchecked(doc_idx);
+                                    *score_ptr += weighted_idf * tf1_recip;
                                 } else {
                                     let tf = tf as f32;
-                                    let denominator = tf + doc_term_bs.get_unchecked(doc_idx);
+                                    let denominator = tf + doc_term_b;
                                     *score_ptr += (tf * weighted_idf) / denominator;
                                 }
                             }
@@ -449,16 +452,13 @@ impl Bm25Index {
         let c1 = k1 * (1.0 - b);
         let c2 = k1 * b / avgdl;
 
-        cache.doc_term_bs.clear();
-        cache.tf1_recips.clear();
-        cache.doc_term_bs.reserve(self.doc_lengths.len());
-        cache.tf1_recips.reserve(self.doc_lengths.len());
+        cache.factors.clear();
+        cache.factors.reserve(self.doc_lengths.len());
 
         for &doc_len in &self.doc_lengths {
             let b_val = c2.mul_add(doc_len, c1);
-            cache.doc_term_bs.push(b_val);
             // Optimization: Use recip() to potentially leverage hardware reciprocal instructions.
-            cache.tf1_recips.push((1.0 + b_val).recip());
+            cache.factors.push((b_val, (1.0 + b_val).recip()));
         }
 
         self.norm_cache_dirty.store(false, AtomicOrdering::Release);

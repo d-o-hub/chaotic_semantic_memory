@@ -108,22 +108,20 @@ pub fn merge_results(
         let range = max - min;
         if range < 1e-10 {
             for (id, _) in hdc_results {
-                // Optimization: Use get_mut to avoid redundant key clones on existing entries.
-                if let Some(score) = combined.get_mut(id.as_str()) {
-                    *score += sem_weight;
-                } else {
-                    combined.insert(id.as_str(), sem_weight);
-                }
+                // Optimization: Use Entry API to combine lookup and insertion, avoiding redundant hashing.
+                combined
+                    .entry(id.as_str())
+                    .and_modify(|s| *s += sem_weight)
+                    .or_insert(sem_weight);
             }
         } else {
             let inv_range = 1.0 / range;
             for (id, score) in hdc_results {
                 let weighted_norm = sem_weight * (score - min) * inv_range;
-                if let Some(score) = combined.get_mut(id.as_str()) {
-                    *score += weighted_norm;
-                } else {
-                    combined.insert(id.as_str(), weighted_norm);
-                }
+                combined
+                    .entry(id.as_str())
+                    .and_modify(|s| *s += weighted_norm)
+                    .or_insert(weighted_norm);
             }
         }
     }
