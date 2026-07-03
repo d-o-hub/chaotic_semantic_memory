@@ -1,0 +1,10 @@
+---
+# Codacy configuration for chaotic_semantic_memory
+# Excludes BM25 scoring hot paths from opengrep unsafe-usage rule.
+# These files contain justified unsafe blocks for sparse accumulator
+# performance, documented with SAFETY comments and debug_assert! guards.
+engines:
+  opengrep:
+    exclude_paths:
+      - "src/retrieval/bm25.rs"
+      - "crates/csm-retrieval/src/bm25.rs"

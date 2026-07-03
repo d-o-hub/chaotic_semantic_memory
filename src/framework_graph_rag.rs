@@ -21,8 +21,12 @@ impl ChaoticSemanticFramework {
         query: HVec10240,
         config: GraphRagConfig,
     ) -> Result<Vec<GraphRagResult>> {
-        self.validate_top_k(config.anchor_top_k)?;
-        self.validate_top_k(config.final_top_k)?;
+        if config.anchor_top_k > 0 {
+            self.validate_top_k(config.anchor_top_k)?;
+        }
+        if config.final_top_k > 0 {
+            self.validate_top_k(config.final_top_k)?;
+        }
 
         let (concepts, associations) = {
             let sing = self.singularity.read().await;
