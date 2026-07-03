@@ -50,39 +50,56 @@ impl Reranker for MmrReranker {
         mut candidates: Vec<RerankCandidate>,
         top_k: usize,
     ) -> Vec<RerankCandidate> {
-        if candidates.is_empty() || top_k == 0 {
+        let n = candidates.len();
+        if n == 0 || top_k == 0 {
             return Vec::new();
         }
 
-        let mut selected: Vec<RerankCandidate> = Vec::with_capacity(top_k);
+        let k = top_k.min(n);
+        let mut selected: Vec<RerankCandidate> = Vec::with_capacity(k);
 
-        // Greedily select candidates
-        while selected.len() < top_k && !candidates.is_empty() {
+        // Pre-calculate query similarities to avoid redundant calculations: O(N)
+        let mut query_sims: Vec<f32> = candidates
+            .iter()
+            .map(|c| query.cosine_similarity(&c.vector))
+            .collect();
+
+        // Track max similarity to any already selected candidate to avoid O(K^2 * N) complexity
+        let mut max_sim_to_selected = vec![0.0f32; n];
+
+        // Greedily select candidates: O(K * N) total complexity
+        for _ in 0..k {
             let mut best_idx = 0;
             let mut max_mmr = f32::NEG_INFINITY;
 
-            for (idx, cand) in candidates.iter().enumerate() {
-                let mut max_sim_to_selected = 0.0f32;
-                for sel in &selected {
-                    let sim = cand.vector.cosine_similarity(&sel.vector);
-                    if sim > max_sim_to_selected {
-                        max_sim_to_selected = sim;
-                    }
-                }
-
+            for i in 0..candidates.len() {
                 // MMR Formula: lambda * sim(query, cand) - (1 - lambda) * max_sim(cand, selected)
-                let similarity = query.cosine_similarity(&cand.vector);
                 let mmr_score =
-                    self.lambda * similarity - (1.0 - self.lambda) * max_sim_to_selected;
+                    self.lambda * query_sims[i] - (1.0 - self.lambda) * max_sim_to_selected[i];
+
                 if mmr_score > max_mmr {
                     max_mmr = mmr_score;
-                    best_idx = idx;
+                    best_idx = i;
                 }
             }
 
-            let mut best_cand = candidates.remove(best_idx);
+            // O(1) removal by swapping with the last element
+            let mut best_cand = candidates.swap_remove(best_idx);
             best_cand.score = max_mmr;
+            let best_vec = best_cand.vector.clone();
             selected.push(best_cand);
+
+            // Synchronize auxiliary vectors
+            query_sims.swap_remove(best_idx);
+            max_sim_to_selected.swap_remove(best_idx);
+
+            // Update max_sim_to_selected for remaining candidates: O(N)
+            for i in 0..candidates.len() {
+                let sim = candidates[i].vector.cosine_similarity(&best_vec);
+                if sim > max_sim_to_selected[i] {
+                    max_sim_to_selected[i] = sim;
+                }
+            }
         }
 
         selected
