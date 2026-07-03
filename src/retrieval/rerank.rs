@@ -332,19 +332,24 @@ mod tests {
         // If lambda is 0.5, diversity should kick in.
         let lambda = 0.5;
         let reranker = MmrReranker { lambda };
-        let results = reranker.rerank(&query, vec![c1.clone(), c2.clone(), c3.clone()], 2);
+
+        // Pre-calculate similarities for verification before candidates are moved
+        let sim_q_c1 = query.cosine_similarity(&c1.vector);
+        let sim_q_c3 = query.cosine_similarity(&c3.vector);
+        let sim_c3_c1 = c3.vector.cosine_similarity(&c1.vector);
+
+        let results = reranker.rerank(&query, vec![c1, c2, c3], 2);
 
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].id, "c1");
         assert_eq!(results[1].id, "c3");
 
         // Verify score calculation: lambda * sim(query, c1) - (1-lambda) * 0
-        let expected_score_0 = lambda * query.cosine_similarity(&c1.vector);
+        let expected_score_0 = lambda * sim_q_c1;
         assert!((results[0].score - expected_score_0).abs() < 1e-6);
 
         // Verify score calculation: lambda * sim(query, c3) - (1-lambda) * sim(c3, c1)
-        let expected_score_1 = lambda * query.cosine_similarity(&c3.vector)
-            - (1.0 - lambda) * c3.vector.cosine_similarity(&c1.vector);
+        let expected_score_1 = lambda * sim_q_c3 - (1.0 - lambda) * sim_c3_c1;
         assert!((results[1].score - expected_score_1).abs() < 1e-6);
     }
 
