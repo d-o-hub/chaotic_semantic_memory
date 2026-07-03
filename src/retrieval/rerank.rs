@@ -51,11 +51,11 @@ impl Reranker for MmrReranker {
         top_k: usize,
     ) -> Vec<RerankCandidate> {
         let n = candidates.len();
-        if n == 0 || top_k == 0 {
+        let k = top_k.min(n);
+        if k == 0 {
             return Vec::new();
         }
 
-        let k = top_k.min(n);
         let mut selected: Vec<RerankCandidate> = Vec::with_capacity(k);
 
         // Pre-calculate query similarities to avoid redundant calculations: O(N)
@@ -96,9 +96,7 @@ impl Reranker for MmrReranker {
             // Update max_sim_to_selected for remaining candidates: O(N)
             for i in 0..candidates.len() {
                 let sim = candidates[i].vector.cosine_similarity(&best_vec);
-                if sim > max_sim_to_selected[i] {
-                    max_sim_to_selected[i] = sim;
-                }
+                max_sim_to_selected[i] = max_sim_to_selected[i].max(sim);
             }
         }
 
@@ -293,8 +291,8 @@ mod tests {
 
     #[test]
     fn test_mmr_reranker() {
-        // Use a zero vector as query for deterministic (and low) similarity
-        let query = HVec10240::zero();
+        // Use a seeded vector as query to ensure non-zero similarities
+        let query = HVec10240::new_seeded(42);
         // Use seeded vectors for deterministic similarity
         // v1 will be the anchor
         let v1 = Arc::new(HVec10240::new_seeded(1));
@@ -332,22 +330,22 @@ mod tests {
         assert_eq!(results_sim[1].id, "c2");
 
         // If lambda is 0.5, diversity should kick in.
-        // Step 1: Selection.
-        // MMR(c1) = 0.5 * sim(query, c1) - 0.5 * 0.0 = 0.5 * sim(query, c1)
-        // MMR(c2) = 0.5 * sim(query, c2)
-        // MMR(c3) = 0.5 * sim(query, c3)
-        // Since sim(query, c1) is highest (initially we use query.cosine_similarity), c1 is selected.
-
-        // Step 2:
-        // MMR(c2) = 0.5 * sim(query, c2) - 0.5 * sim(c2, c1) = 0.5 * sim(query, c2) - 0.5 * 1.0
-        // MMR(c3) = 0.5 * sim(query, c3) - 0.5 * sim(c3, c1)
-        // Since sim(c3, c1) < 1.0, MMR(c3) will be greater than MMR(c2).
-        let reranker = MmrReranker { lambda: 0.5 };
-        let results = reranker.rerank(&query, vec![c1, c2, c3], 2);
+        let lambda = 0.5;
+        let reranker = MmrReranker { lambda };
+        let results = reranker.rerank(&query, vec![c1.clone(), c2.clone(), c3.clone()], 2);
 
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].id, "c1");
         assert_eq!(results[1].id, "c3");
+
+        // Verify score calculation: lambda * sim(query, c1) - (1-lambda) * 0
+        let expected_score_0 = lambda * query.cosine_similarity(&c1.vector);
+        assert!((results[0].score - expected_score_0).abs() < 1e-6);
+
+        // Verify score calculation: lambda * sim(query, c3) - (1-lambda) * sim(c3, c1)
+        let expected_score_1 = lambda * query.cosine_similarity(&c3.vector)
+            - (1.0 - lambda) * c3.vector.cosine_similarity(&c1.vector);
+        assert!((results[1].score - expected_score_1).abs() < 1e-6);
     }
 
     #[test]
