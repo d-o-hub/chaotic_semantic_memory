@@ -16,5 +16,8 @@ pub mod rerank;
 
 pub use bm25::{Bm25Config, Bm25Index};
 pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
-pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores};
+pub use hybrid::{
+    HybridConfig, HybridMode, HybridResult, RetrievalAbstention, compute_weights, merge_results,
+    merge_results_checked, normalize_scores,
+};
 pub use rerank::{MmrReranker, RerankCandidate, Reranker};

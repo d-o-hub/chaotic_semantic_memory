@@ -3,7 +3,34 @@
 //! Provides query-length-dependent weighting between keyword (BM25) and
 //! semantic (HDC) search results.
 
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
+
+/// Structured signal emitted when hybrid retrieval cannot find results
+/// above the configured confidence threshold across all tiers.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RetrievalAbstention {
+    /// The query that failed to produce results
+    pub query: String,
+    /// The threshold that was not met
+    pub min_score_threshold: f32,
+    /// Highest score actually seen across all tiers (for diagnostics)
+    pub best_score_seen: f32,
+    /// Which retrieval modes were attempted before abstaining
+    pub attempted_modes: Vec<String>,
+    /// UTC timestamp of the abstention event
+    pub timestamp: DateTime<Utc>,
+}
+
+/// The result of a hybrid retrieval attempt.
+/// Replaces bare `Vec<(String, f32)>` at the public API boundary.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum HybridResult {
+    /// One or more results above the min_score threshold.
+    Hits(Vec<(String, f32)>),
+    /// All tiers returned results below min_score: the system abstains.
+    Abstained(RetrievalAbstention),
+}
 
 /// Compute query-length-dependent weights for hybrid retrieval.
 ///
@@ -134,6 +161,60 @@ pub fn merge_results(
     results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
 
     results
+}
+
+/// Merge BM25 and HDC results with query-length-dependent weights.
+/// Returns `HybridResult::Abstained` if no merged result meets `config.min_score`.
+///
+/// NOTE: This function applies the `min_score` threshold BEFORE normalization
+/// to properly implement Agentic Abstention (arXiv:2606.28733).
+pub fn merge_results_checked(
+    bm25_results: &[(String, f32)],
+    hdc_results: &[(String, f32)],
+    weights: (f32, f32),
+    config: &HybridConfig,
+    query: &str,
+) -> HybridResult {
+    // 1. First merge RAW scores with weights
+    let (kw_weight, sem_weight) = weights;
+    let mut combined: HashMap<&str, f32> =
+        HashMap::with_capacity(bm25_results.len() + hdc_results.len());
+
+    for (id, score) in bm25_results {
+        combined.insert(id.as_str(), kw_weight * score);
+    }
+
+    for (id, score) in hdc_results {
+        combined
+            .entry(id.as_str())
+            .and_modify(|s| *s += sem_weight * score)
+            .or_insert(sem_weight * score);
+    }
+
+    // 2. Filter by absolute threshold BEFORE normalization
+    let above_threshold: Vec<(String, f32)> = combined
+        .iter()
+        .filter(|(_, &score)| score >= config.min_score)
+        .map(|(&id, &score)| (id.to_string(), score))
+        .collect();
+
+    if above_threshold.is_empty() {
+        let best_score_seen = combined.values().fold(0.0_f32, |m, &s| m.max(s));
+
+        HybridResult::Abstained(RetrievalAbstention {
+            query: query.to_string(),
+            min_score_threshold: config.min_score,
+            best_score_seen,
+            attempted_modes: vec![format!("{:?}", config.mode)],
+            timestamp: Utc::now(),
+        })
+    } else {
+        // 3. Apply normalization to the final result set for consistent ranking/display
+        let normalized = normalize_scores(&above_threshold);
+        let mut results = normalized;
+        results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
+        HybridResult::Hits(results)
+    }
 }
 
 /// Hybrid retrieval mode.
@@ -382,6 +463,64 @@ mod tests {
         let merged_small = merge_results(&bm25_small, &hdc_small, weights);
         for (_, score) in merged_small {
             assert!((score - 1.0).abs() < 1e-6);
+        }
+    }
+
+    fn config_with_threshold(min_score: f32) -> HybridConfig {
+        HybridConfig {
+            mode: HybridMode::Auto,
+            min_score,
+        }
+    }
+
+    #[test]
+    fn test_hits_above_threshold() {
+        let bm25 = vec![("doc_a".to_string(), 0.9)];
+        let hdc = vec![("doc_a".to_string(), 0.8)];
+        let config = config_with_threshold(0.5);
+        let weights = (0.6, 0.4);
+        let result = merge_results_checked(&bm25, &hdc, weights, &config, "test query");
+        assert!(matches!(result, HybridResult::Hits(_)));
+    }
+
+    #[test]
+    fn test_abstention_below_threshold() {
+        let bm25 = vec![("doc_a".to_string(), 0.1)];
+        let hdc = vec![("doc_a".to_string(), 0.05)];
+        let config = config_with_threshold(0.5);
+        let weights = (0.6, 0.4);
+        let result = merge_results_checked(&bm25, &hdc, weights, &config, "unknown concept");
+        match result {
+            HybridResult::Abstained(a) => {
+                assert_eq!(a.query, "unknown concept");
+                assert!(a.best_score_seen < 0.5);
+                assert_eq!(a.min_score_threshold, 0.5);
+            }
+            HybridResult::Hits(_) => panic!("Expected abstention"),
+        }
+    }
+
+    #[test]
+    fn test_empty_results_produce_abstention() {
+        let bm25: Vec<(String, f32)> = vec![];
+        let hdc: Vec<(String, f32)> = vec![];
+        let config = config_with_threshold(0.3);
+        let weights = (0.5, 0.5);
+        let result = merge_results_checked(&bm25, &hdc, weights, &config, "empty corpus query");
+        assert!(matches!(result, HybridResult::Abstained(_)));
+    }
+
+    #[test]
+    fn test_abstention_best_score_is_highest_seen() {
+        let bm25 = vec![("doc_a".to_string(), 0.3), ("doc_b".to_string(), 0.1)];
+        let hdc = vec![("doc_a".to_string(), 0.2)];
+        let config = config_with_threshold(0.5);
+        let weights = (0.6, 0.4);
+        let result = merge_results_checked(&bm25, &hdc, weights, &config, "test");
+        if let HybridResult::Abstained(a) = result {
+            assert!(a.best_score_seen > 0.0 && a.best_score_seen < 0.5);
+        } else {
+            panic!("Expected abstention");
         }
     }
 }

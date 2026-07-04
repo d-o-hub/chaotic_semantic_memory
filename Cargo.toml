@@ -23,6 +23,7 @@ repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
 homepage = "https://github.com/d-o-hub/chaotic_semantic_memory"
 
 [workspace.dependencies]
+chrono = { version = "0.4.45", features = ["serde"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.150"
 thiserror = "2.0.11"
@@ -61,6 +62,7 @@ include = [
 ]
 
 [dependencies]
+chrono = { workspace = true }
 csm-core = { path = "crates/csm-core", version = "0.3.7" }
 csm-embedding = { path = "crates/csm-embedding", version = "0.3.7" }
 csm-memory = { path = "crates/csm-memory", version = "0.3.7" }
