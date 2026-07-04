@@ -16,6 +16,9 @@ use tracing::{error, info};
 
 use super::schema;
 use crate::framework::ChaoticSemanticFramework;
+use crate::retrieval::{
+    HybridConfig, HybridMode, HybridResult, compute_weights, merge_results_checked,
+};
 
 /// Combined MCP handler for chaotic_semantic_memory.
 pub struct McpHandler {
@@ -265,12 +268,46 @@ impl McpHandler {
                 Ok(json!({"status": "ok", "results": results}))
             }
             "memory_probe_text" => {
-                let query = args["query"]
+                let text = args["text"]
                     .as_str()
-                    .ok_or_else(|| anyhow::anyhow!("Missing query"))?;
+                    .ok_or_else(|| anyhow::anyhow!("Missing text"))?;
                 let top_k = args["top_k"].as_u64().unwrap_or(10) as usize;
-                let results = fw.probe_text(query, top_k).await?;
-                Ok(json!({"status": "ok", "results": results}))
+                let min_score = args["min_score"].as_f64().unwrap_or(0.0) as f32;
+
+                // 1. Semantic retrieval (HDC)
+                let hdc_results = fw.probe_text(text, top_k).await?;
+
+                // 2. Keyword retrieval (BM25)
+                let bm25_index = build_bm25_index(fw).await?;
+                let query_tokens = tokenize_query(text);
+                let bm25_results = if bm25_index.is_empty() {
+                    Vec::new()
+                } else {
+                    bm25_index.search(&query_tokens, top_k)
+                };
+
+                // 3. Hybrid merge
+                let weights = compute_weights(query_tokens.len());
+                let config = HybridConfig {
+                    mode: HybridMode::Auto,
+                    min_score,
+                };
+
+                match merge_results_checked(&bm25_results, &hdc_results, weights, &config, text) {
+                    HybridResult::Hits(results) => Ok(json!({
+                        "status": "ok",
+                        "results": results
+                    })),
+                    HybridResult::Abstained(abstention) => Ok(json!({
+                        "status": "abstained",
+                        "abstained": true,
+                        "reason": "No concepts match query above confidence threshold",
+                        "query": abstention.query,
+                        "best_score_seen": abstention.best_score_seen,
+                        "threshold": abstention.min_score_threshold,
+                        "timestamp": abstention.timestamp,
+                    })),
+                }
             }
             "memory_probe_filtered" => {
                 let text = args["text"]
@@ -418,6 +455,48 @@ fn parse_hvec(vec_data: &[Value]) -> Result<csm_core::hyperdim::HVec10240> {
             .ok_or_else(|| anyhow::anyhow!("Invalid vector element"))? as u128;
     }
     Ok(csm_core::hyperdim::HVec10240 { data })
+}
+
+/// Tokenize query text for BM25.
+fn tokenize_query(text: &str) -> Vec<String> {
+    text.to_lowercase()
+        .split_whitespace()
+        .map(|s| s.to_string())
+        .collect()
+}
+
+/// Build BM25 index from concepts in the framework.
+async fn build_bm25_index(
+    framework: &crate::framework::ChaoticSemanticFramework,
+) -> anyhow::Result<crate::retrieval::bm25::Bm25Index> {
+    let concepts = {
+        let singularity = framework.singularity();
+        let sing = singularity.read().await;
+        let ns = framework.namespace().await;
+        sing.all_concepts(&ns)
+    };
+
+    let mut index = crate::retrieval::bm25::Bm25Index::new();
+    for concept in concepts {
+        let text = concept
+            .metadata
+            .get("text_preview")
+            .or_else(|| concept.metadata.get("content_preview"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+
+        let tokens: Vec<String> = text
+            .to_lowercase()
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect();
+
+        if !tokens.is_empty() {
+            index.add_document(&concept.id, &tokens);
+        }
+    }
+
+    Ok(index)
 }
 
 #[cfg(test)]
