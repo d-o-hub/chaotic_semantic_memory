@@ -493,7 +493,7 @@ mod tests {
             HybridResult::Abstained(a) => {
                 assert_eq!(a.query, "unknown concept");
                 assert!(a.best_score_seen < 0.5);
-                assert_eq!(a.min_score_threshold, 0.5);
+                assert!((a.min_score_threshold - 0.5).abs() < 1e-6);
             }
             HybridResult::Hits(_) => panic!("Expected abstention"),
         }
