@@ -193,7 +193,7 @@ pub fn merge_results_checked(
     // 2. Filter by absolute threshold BEFORE normalization
     let above_threshold: Vec<(String, f32)> = combined
         .iter()
-        .filter(|(_, &score)| score >= config.min_score)
+        .filter(|&(_, &score)| score >= config.min_score)
         .map(|(&id, &score)| (id.to_string(), score))
         .collect();
 

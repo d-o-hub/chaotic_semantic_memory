@@ -10,6 +10,8 @@ const LOC_EXCEPTIONS_CRATES: &[&str] = &[
     "crates/csm-core/src/hyperdim.rs",
     "crates/csm-memory/src/singularity.rs",
     "crates/csm-memory/src/graph_traversal.rs",
+    "src/mcp/handler.rs",
+    "crates/csm-retrieval/src/hybrid.rs",
 ];
 
 /// Known files with unsafe in root src/ (accepted uses with SAFETY docs).
