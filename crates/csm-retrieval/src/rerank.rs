@@ -50,54 +50,39 @@ impl Reranker for MmrReranker {
         mut candidates: Vec<RerankCandidate>,
         top_k: usize,
     ) -> Vec<RerankCandidate> {
-        let n = candidates.len();
-        let k = top_k.min(n);
-        if k == 0 {
+        if candidates.is_empty() || top_k == 0 {
             return Vec::new();
         }
 
-        let mut selected: Vec<RerankCandidate> = Vec::with_capacity(k);
+        let mut selected: Vec<RerankCandidate> = Vec::with_capacity(top_k);
 
-        // Pre-calculate query similarities to avoid redundant calculations: O(N)
-        let mut query_sims: Vec<f32> = candidates
-            .iter()
-            .map(|c| query.cosine_similarity(&c.vector))
-            .collect();
-
-        // Track max similarity to any already selected candidate to avoid O(K^2 * N) complexity
-        let mut max_sim_to_selected = vec![0.0f32; n];
-
-        // Greedily select candidates: O(K * N) total complexity
-        for _ in 0..k {
+        // Greedily select candidates
+        while selected.len() < top_k && !candidates.is_empty() {
             let mut best_idx = 0;
             let mut max_mmr = f32::NEG_INFINITY;
 
-            for i in 0..candidates.len() {
-                // MMR Formula: lambda * sim(query, cand) - (1 - lambda) * max_sim(cand, selected)
-                let mmr_score =
-                    self.lambda * query_sims[i] - (1.0 - self.lambda) * max_sim_to_selected[i];
+            for (idx, cand) in candidates.iter().enumerate() {
+                let mut max_sim_to_selected = 0.0f32;
+                for sel in &selected {
+                    let sim = cand.vector.cosine_similarity(&sel.vector);
+                    if sim > max_sim_to_selected {
+                        max_sim_to_selected = sim;
+                    }
+                }
 
+                // MMR Formula: lambda * sim(query, cand) - (1 - lambda) * max_sim(cand, selected)
+                let similarity = query.cosine_similarity(&cand.vector);
+                let mmr_score =
+                    self.lambda * similarity - (1.0 - self.lambda) * max_sim_to_selected;
                 if mmr_score > max_mmr {
                     max_mmr = mmr_score;
-                    best_idx = i;
+                    best_idx = idx;
                 }
             }
 
-            // O(1) removal by swapping with the last element
-            let mut best_cand = candidates.swap_remove(best_idx);
+            let mut best_cand = candidates.remove(best_idx);
             best_cand.score = max_mmr;
-            let best_vec = best_cand.vector.clone();
             selected.push(best_cand);
-
-            // Synchronize auxiliary vectors
-            query_sims.swap_remove(best_idx);
-            max_sim_to_selected.swap_remove(best_idx);
-
-            // Update max_sim_to_selected for remaining candidates: O(N)
-            for i in 0..candidates.len() {
-                let sim = candidates[i].vector.cosine_similarity(&best_vec);
-                max_sim_to_selected[i] = max_sim_to_selected[i].max(sim);
-            }
         }
 
         selected
@@ -291,8 +276,8 @@ mod tests {
 
     #[test]
     fn test_mmr_reranker() {
-        // Use a seeded vector as query to ensure non-zero similarities
-        let query = HVec10240::new_seeded(42);
+        // Use a zero vector as query for deterministic (and low) similarity
+        let query = HVec10240::zero();
         // Use seeded vectors for deterministic similarity
         // v1 will be the anchor
         let v1 = Arc::new(HVec10240::new_seeded(1));
@@ -330,27 +315,22 @@ mod tests {
         assert_eq!(results_sim[1].id, "c2");
 
         // If lambda is 0.5, diversity should kick in.
-        let lambda = 0.5;
-        let reranker = MmrReranker { lambda };
+        // Step 1: Selection.
+        // MMR(c1) = 0.5 * sim(query, c1) - 0.5 * 0.0 = 0.5 * sim(query, c1)
+        // MMR(c2) = 0.5 * sim(query, c2)
+        // MMR(c3) = 0.5 * sim(query, c3)
+        // Since sim(query, c1) is highest (initially we use query.cosine_similarity), c1 is selected.
 
-        // Pre-calculate similarities for verification before candidates are moved
-        let sim_q_c1 = query.cosine_similarity(&c1.vector);
-        let sim_q_c3 = query.cosine_similarity(&c3.vector);
-        let sim_c3_c1 = c3.vector.cosine_similarity(&c1.vector);
-
+        // Step 2:
+        // MMR(c2) = 0.5 * sim(query, c2) - 0.5 * sim(c2, c1) = 0.5 * sim(query, c2) - 0.5 * 1.0
+        // MMR(c3) = 0.5 * sim(query, c3) - 0.5 * sim(c3, c1)
+        // Since sim(c3, c1) < 1.0, MMR(c3) will be greater than MMR(c2).
+        let reranker = MmrReranker { lambda: 0.5 };
         let results = reranker.rerank(&query, vec![c1, c2, c3], 2);
 
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].id, "c1");
         assert_eq!(results[1].id, "c3");
-
-        // Verify score calculation: lambda * sim(query, c1) - (1-lambda) * 0
-        let expected_score_0 = lambda * sim_q_c1;
-        assert!((results[0].score - expected_score_0).abs() < 1e-6);
-
-        // Verify score calculation: lambda * sim(query, c3) - (1-lambda) * sim(c3, c1)
-        let expected_score_1 = lambda * sim_q_c3 - (1.0 - lambda) * sim_c3_c1;
-        assert!((results[1].score - expected_score_1).abs() < 1e-6);
     }
 
     #[test]

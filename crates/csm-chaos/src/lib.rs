@@ -7,3 +7,4 @@ pub mod maps;
 
 pub use hashing::chaotic_lsh::ChaoticLsh;
 pub use maps::hyperchaotic::Slhm2d;
+pub use maps::hyperchaotic_chebyshev::ChebyshevLogistic2d;

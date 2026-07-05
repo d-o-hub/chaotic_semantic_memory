@@ -12,7 +12,6 @@
 - async-trait (0.1.83)
 - base64
 - bincode (1.3.3)
-- chrono
 - clap (4.5) [features: derive, env, string]
 - clap_complete (4.5.42)
 - cloudevents-sdk (0.9.0)
@@ -498,6 +497,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl McpHandler
 - impl McpHandler
 - impl ServerHandler for McpHandler
+- impl McpHandler
 
 ### src/mcp/mod.rs
 
@@ -527,10 +527,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Default for McpConfig
 - pub fn serve
 - impl Clone for McpHandler
-
-### src/mcp/tools.rs
-
-- impl McpHandler
 
 ### src/metadata_filter.rs
 
@@ -626,12 +622,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/retrieval/hybrid.rs
 
-- pub struct RetrievalAbstention
-- pub enum HybridResult
 - pub fn compute_weights
 - pub fn normalize_scores
 - pub fn merge_results
-- pub fn merge_results_checked
 - pub enum HybridMode
 - pub struct HybridConfig
 - impl Default for HybridConfig
@@ -644,7 +637,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod rerank
 - pub use bm25::{Bm25Config, Bm25Index}
 - pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve}
-- pub use hybrid::{HybridConfig, HybridMode, HybridResult, RetrievalAbstention, compute_weights, merge_results, merge_results_checked, normalize_scores}
+- pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
 - pub use rerank::{MmrReranker, RerankCandidate, Reranker}
 
 ### src/retrieval/rerank.rs
@@ -3282,6 +3275,13 @@ impl McpHandler {
 }
 ```
 
+### impl McpHandler
+
+```rust
+impl McpHandler {
+}
+```
+
 ### impl ServerHandler for McpHandler
 
 ```rust
@@ -3465,15 +3465,6 @@ Start the MCP server.
 #### Errors
 
 Returns error if server fails to start or transport initialization fails.
-
-## src/mcp/tools.rs
-
-### impl McpHandler
-
-```rust
-impl McpHandler {
-}
-```
 
 ## src/metadata_filter.rs
 
@@ -4034,35 +4025,6 @@ pub enum HybridMode {
 
 Hybrid retrieval mode.
 
-### HybridResult
-
-```rust
-#[derive(Debug, Clone, serde :: Serialize, serde :: Deserialize)]
-pub enum HybridResult {
-    Hits(Vec<(String, f32)>),
-    Abstained(RetrievalAbstention),
-}
-```
-
-The result of a hybrid retrieval attempt.
-Replaces bare `Vec<(String, f32)>` at the public API boundary.
-
-### RetrievalAbstention
-
-```rust
-#[derive(Debug, Clone, serde :: Serialize, serde :: Deserialize)]
-pub struct RetrievalAbstention {
-    pub query: String,
-    pub min_score_threshold: f32,
-    pub best_score_seen: f32,
-    pub attempted_modes: Vec<String>,
-    pub timestamp: DateTime<Utc>,
-}
-```
-
-Structured signal emitted when hybrid retrieval cannot find results
-above the configured confidence threshold across all tiers.
-
 ### compute_weights
 
 ```rust
@@ -4100,18 +4062,6 @@ and combines them using weighted sum.
 
 Duplicate IDs are merged by taking the maximum combined score.
 
-### merge_results_checked
-
-```rust
-pub fn merge_results_checked(bm25_results: &[(String, f32)], hdc_results: &[(String, f32)], weights: (f32, f32), config: &HybridConfig, query: &str) -> HybridResult
-```
-
-Merge BM25 and HDC results with query-length-dependent weights.
-Returns `HybridResult::Abstained` if no merged result meets `config.min_score`.
-
-NOTE: This function applies the `min_score` threshold BEFORE normalization
-to properly implement Agentic Abstention (arXiv:2606.28733).
-
 ### normalize_scores
 
 ```rust
@@ -4121,8 +4071,6 @@ pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)>
 Normalize scores to [0, 1] range using min-max normalization.
 
 If all scores are equal, returns 1.0 for all.
-
-## src/retrieval/hybrid/tests.rs
 
 ## src/retrieval/mod.rs
 
@@ -4138,10 +4086,10 @@ pub use bm25::{Bm25Config, Bm25Index};
 pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
 ```
 
-### hybrid::{HybridConfig, HybridMode, HybridResult, RetrievalAbstention, compute_weights, merge_results, merge_results_checked, normalize_scores}
+### hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
 
 ```rust
-pub use hybrid::{HybridConfig, HybridMode, HybridResult, RetrievalAbstention, compute_weights, merge_results, merge_results_checked, normalize_scores};
+pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores};
 ```
 
 ### rerank::{MmrReranker, RerankCandidate, Reranker}

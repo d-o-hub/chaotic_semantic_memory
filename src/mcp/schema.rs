@@ -74,11 +74,6 @@ pub fn probe_text_schema() -> Value {
                 "type": "integer",
                 "description": "Number of results to return",
                 "default": 10
-            },
-            "min_score": {
-                "type": "number",
-                "description": "Minimum confidence threshold applied to weighted raw scores; below it the server abstains",
-                "default": 0.0
             }
         },
         "required": ["text"]

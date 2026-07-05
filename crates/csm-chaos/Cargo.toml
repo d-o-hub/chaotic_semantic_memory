@@ -23,5 +23,9 @@ crate-type = ["lib"]
 name = "chaotic_hashing"
 harness = false
 
+[[bench]]
+name = "chaotic_hashing_chebyshev"
+harness = false
+
 [dev-dependencies]
 criterion = "0.5"

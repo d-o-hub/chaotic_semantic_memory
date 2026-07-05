@@ -141,23 +141,14 @@ impl Singularity {
                 }
                 if let Some(links) = ns_state.associations.get(&id) {
                     let mut sorted_links: Vec<_> = links.iter().collect();
-                    let fanout = self._retrieval_config.graph_fanout;
-                    // Optimization: Use O(E) partial selection instead of O(E log E) full sort
-                    // to identify top-N strongest associations.
-                    let links_to_process = if fanout == 0 {
-                        &[]
-                    } else if sorted_links.len() > fanout {
-                        sorted_links
-                            .select_nth_unstable_by(fanout - 1, |a, b| b.1.0.total_cmp(&a.1.0));
-                        &sorted_links[..fanout]
-                    } else {
-                        &sorted_links[..]
-                    };
-
-                    for (neighbor_id, _) in links_to_process {
-                        if !candidates.contains(*neighbor_id) {
-                            candidates.insert((*neighbor_id).clone());
-                            queue.push_back(((*neighbor_id).clone(), depth + 1));
+                    sorted_links.sort_by(|a, b| b.1.0.total_cmp(&a.1.0));
+                    for (neighbor_id, _) in sorted_links
+                        .into_iter()
+                        .take(self._retrieval_config.graph_fanout)
+                    {
+                        if !candidates.contains(neighbor_id) {
+                            candidates.insert(neighbor_id.clone());
+                            queue.push_back((neighbor_id.clone(), depth + 1));
                         }
                     }
                 }
