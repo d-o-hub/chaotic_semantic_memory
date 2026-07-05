@@ -9,6 +9,8 @@ mod handler;
 mod schema;
 #[cfg(feature = "mcp")]
 mod server;
+#[cfg(feature = "mcp")]
+mod tools;
 
 #[cfg(feature = "mcp")]
 pub use handler::McpHandler;
