@@ -243,19 +243,6 @@ impl ChaoticSemanticFramework {
         Ok(filtered)
     }
 
-    /// Query for similar concepts and return best score seen.
-    pub async fn probe_with_best_score(
-        &self,
-        query: HVec10240,
-        top_k: usize,
-    ) -> Result<(Vec<(String, f32)>, f32)> {
-        let results = self.probe(query, top_k).await?;
-        let sing = self.singularity.read().await;
-        let ns = self.namespace.read().await;
-        let best_score = sing.last_retrieval_stats(&ns).best_score_seen;
-        Ok((results, best_score))
-    }
-
     /// Query for similar concepts with metadata filtering.
     #[instrument(err, skip(self, query, filter))]
     pub async fn probe_filtered(

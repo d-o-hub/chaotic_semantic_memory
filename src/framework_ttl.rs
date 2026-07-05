@@ -196,6 +196,23 @@ impl crate::framework::ChaoticSemanticFramework {
         }
     }
 
+    /// Query for similar concepts and return best score seen.
+    pub async fn probe_with_best_score(
+        &self,
+        query: HVec10240,
+        top_k: usize,
+    ) -> Result<(Vec<(String, f32)>, f32)> {
+        let results = self.probe(query, top_k).await?;
+        let ns = self.namespace.read().await;
+        let best_score = self
+            .singularity
+            .read()
+            .await
+            .last_retrieval_stats(&ns)
+            .best_score_seen;
+        Ok((results, best_score))
+    }
+
     /// Probe for similar concepts using text input and metadata filtering.
     pub async fn probe_text_filtered(
         &self,

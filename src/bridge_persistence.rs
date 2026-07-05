@@ -439,20 +439,20 @@ mod tests {
         // Create
         let entry = persist_absence(&abstention, &persistence).await.unwrap();
         assert_eq!(entry.attempt_count, 1);
-        assert_eq!(entry.best_score_ever, 0.1);
+        assert!((entry.best_score_ever - 0.1).abs() < f32::EPSILON);
 
         // Update with higher score
         let mut abstention2 = abstention.clone();
         abstention2.best_score_seen = 0.4;
         let entry2 = persist_absence(&abstention2, &persistence).await.unwrap();
         assert_eq!(entry2.attempt_count, 2);
-        assert_eq!(entry2.best_score_ever, 0.4);
+        assert!((entry2.best_score_ever - 0.4).abs() < f32::EPSILON);
 
         // Update with lower score
         let mut abstention3 = abstention.clone();
         abstention3.best_score_seen = 0.2;
         let entry3 = persist_absence(&abstention3, &persistence).await.unwrap();
         assert_eq!(entry3.attempt_count, 3);
-        assert_eq!(entry3.best_score_ever, 0.4); // Stays at 0.4
+        assert!((entry3.best_score_ever - 0.4).abs() < f32::EPSILON); // Stays at 0.4
     }
 }

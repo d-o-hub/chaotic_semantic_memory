@@ -89,7 +89,7 @@ async fn main() -> Result<()> {
         HybridResult::Success(hits) => {
             println!("Results: {} hits", hits.len());
             for (id, score) in hits {
-                println!("  {} | score={:.3}", id, score);
+                println!("  {id} | score={score:.3}");
             }
         }
         HybridResult::Abstained(a) => {
@@ -107,7 +107,7 @@ async fn main() -> Result<()> {
         HybridResult::Success(hits) => {
             println!("Results: {} hits", hits.len());
             for (id, score) in hits {
-                println!("  {} | score={:.3}", id, score);
+                println!("  {id} | score={score:.3}");
             }
         }
         HybridResult::Abstained(a) => {
@@ -125,7 +125,7 @@ async fn main() -> Result<()> {
         HybridResult::Success(hits) => {
             println!("Results: {} hits", hits.len());
             for (id, score) in hits {
-                println!("  {} | score={:.3}", id, score);
+                println!("  {id} | score={score:.3}");
             }
         }
         HybridResult::Abstained(a) => {
