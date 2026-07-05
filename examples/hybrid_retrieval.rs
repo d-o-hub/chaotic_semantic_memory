@@ -92,7 +92,9 @@ async fn main() -> Result<()> {
                 println!("  {} | score={:.3}", id, score);
             }
         }
-        HybridResult::Abstained(a) => println!("Abstained: best score seen {:.3}", a.best_score_seen),
+        HybridResult::Abstained(a) => {
+            println!("Abstained: best score seen {:.3}", a.best_score_seen)
+        }
     }
 
     // Query 2: Semantic expansion (term not in index but related)
@@ -108,7 +110,9 @@ async fn main() -> Result<()> {
                 println!("  {} | score={:.3}", id, score);
             }
         }
-        HybridResult::Abstained(a) => println!("Abstained: best score seen {:.3}", a.best_score_seen),
+        HybridResult::Abstained(a) => {
+            println!("Abstained: best score seen {:.3}", a.best_score_seen)
+        }
     }
 
     // Query 3: Full semantic chain
@@ -124,7 +128,9 @@ async fn main() -> Result<()> {
                 println!("  {} | score={:.3}", id, score);
             }
         }
-        HybridResult::Abstained(a) => println!("Abstained: best score seen {:.3}", a.best_score_seen),
+        HybridResult::Abstained(a) => {
+            println!("Abstained: best score seen {:.3}", a.best_score_seen)
+        }
     }
 
     println!("\nHybrid retrieval complete");

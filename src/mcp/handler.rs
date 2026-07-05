@@ -16,7 +16,7 @@ use tracing::{error, info};
 
 use super::schema;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-use crate::bridge_persistence::{AbsenceStore, persist_absence};
+use crate::bridge_persistence::AbsenceStore;
 use crate::framework::ChaoticSemanticFramework;
 use crate::retrieval::hybrid::HybridResult;
 

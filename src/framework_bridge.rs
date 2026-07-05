@@ -120,7 +120,8 @@ impl ChaoticSemanticFramework {
             .collect();
 
         // Run full bridge query and filter results
-        let (hits, best_score) = bridge.query_with_best_score(&ns, &singularity, query, top_k, None)?;
+        let (hits, best_score) =
+            bridge.query_with_best_score(&ns, &singularity, query, top_k, None)?;
         drop(singularity);
         let filtered_hits: Vec<(String, f32)> = hits
             .into_iter()
