@@ -28,6 +28,7 @@ pub struct RetrievalStats {
     pub fell_back_to_exact_scan: bool,
     pub candidate_ns: u64,
     pub scoring_ns: u64,
+    pub best_score_seen: f32,
     /// ADR-0065: Filter selectivity ratio (matching_count / total_count)
     pub selectivity_ratio: f32,
     /// ADR-0065: Strategy used for filtered retrieval
@@ -255,6 +256,7 @@ impl Singularity {
             })
             .collect();
 
+        let best_score = results.first().map_or(0.0, |r| r.1);
         let results_arc = Arc::from(results);
         if !bypass_cache {
             if let Ok(mut cache) = ns_state.query_cache.write() {
@@ -274,6 +276,7 @@ impl Singularity {
             true,
             scoring_start.saturating_sub(start_ns),
             scoring_ns,
+            best_score,
             1.0,  // Full scan means 100% selectivity for unfiltered
             None, // No filter strategy for unfiltered
         );
@@ -332,6 +335,7 @@ impl Singularity {
             })
             .collect();
 
+        let best_score = results.first().map_or(0.0, |r| r.1);
         let results_arc = Arc::from(results);
         if !bypass_cache {
             if let Ok(mut cache) = ns_state.query_cache.write() {
@@ -352,6 +356,7 @@ impl Singularity {
             false,
             cand_ns,
             scoring_ns,
+            best_score,
             0.0,
             None,
         );
@@ -369,6 +374,7 @@ impl Singularity {
         fallback: bool,
         cand_ns: u64,
         score_ns: u64,
+        best_score: f32,
         selectivity: f32,
         strategy: Option<FilterStrategy>,
     ) {
@@ -379,6 +385,7 @@ impl Singularity {
                 fell_back_to_exact_scan: fallback,
                 candidate_ns: cand_ns,
                 scoring_ns: score_ns,
+                best_score_seen: best_score,
                 selectivity_ratio: selectivity,
                 filter_strategy: strategy,
             };
@@ -443,6 +450,7 @@ impl Singularity {
             })
             .collect();
 
+        let best_score = results.first().map_or(0.0, |r| r.1);
         let results_arc = Arc::from(results);
         if !bypass_cache {
             if let Ok(mut cache) = ns_state.query_cache.write() {
@@ -463,6 +471,7 @@ impl Singularity {
             false,
             cand_ns,
             scoring_ns,
+            best_score,
             selectivity,
             strategy,
         );

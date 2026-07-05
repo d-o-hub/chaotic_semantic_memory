@@ -115,6 +115,20 @@ impl BridgeRetrieval {
         Ok(hits)
     }
 
+    /// Execute the bridge retrieval pipeline and return results with best score seen.
+    pub fn query_with_best_score(
+        &self,
+        ns: &str,
+        singularity: &Singularity,
+        query_text: &str,
+        top_k: usize,
+        reranker: Option<&dyn SemanticReranker>,
+    ) -> Result<(Vec<BridgeHit>, f32)> {
+        let hits = self.query(ns, singularity, query_text, top_k, reranker)?;
+        let best_score = hits.first().map_or(0.0, |h| h.scores.final_score);
+        Ok((hits, best_score))
+    }
+
     /// Compile a memory packet from query results.
     ///
     /// Calls `query()` then compiles hits into a compressed packet

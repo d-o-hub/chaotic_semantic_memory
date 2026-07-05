@@ -304,25 +304,7 @@ impl AbsenceStore for Persistence {
             .await
             .map_err(|e| MemoryError::database(format!("Failed to fetch absence row: {e}")))?
         {
-            let id: String = row.get(0).map_err(|e| MemoryError::database(format!("id: {e}")))?;
-            let query: String = row.get(1).map_err(|e| MemoryError::database(format!("query: {e}")))?;
-            let normalized_query: String = row.get(2).map_err(|e| MemoryError::database(format!("normalized_query: {e}")))?;
-            let attempt_count: i64 = row.get(3).map_err(|e| MemoryError::database(format!("attempt_count: {e}")))?;
-            let last_threshold: f64 = row.get(4).map_err(|e| MemoryError::database(format!("last_threshold: {e}")))?;
-            let best_score_ever: f64 = row.get(5).map_err(|e| MemoryError::database(format!("best_score_ever: {e}")))?;
-            let first_seen: String = row.get(6).map_err(|e| MemoryError::database(format!("first_seen: {e}")))?;
-            let last_seen: String = row.get(7).map_err(|e| MemoryError::database(format!("last_seen: {e}")))?;
-
-            Ok(Some(AbsenceEntry {
-                id,
-                query,
-                normalized_query,
-                attempt_count: attempt_count as u32,
-                last_threshold: last_threshold as f32,
-                best_score_ever: best_score_ever as f32,
-                first_seen: first_seen.parse().map_err(|e| MemoryError::database(format!("parse first_seen: {e}")))?,
-                last_seen: last_seen.parse().map_err(|e| MemoryError::database(format!("parse last_seen: {e}")))?,
-            }))
+            Ok(Some(Self::row_to_absence_entry(&row)?))
         } else {
             Ok(None)
         }
@@ -375,27 +357,53 @@ impl AbsenceStore for Persistence {
             .await
             .map_err(|e| MemoryError::database(format!("Failed to fetch absence row: {e}")))?
         {
-            let id: String = row.get(0).map_err(|e| MemoryError::database(format!("id: {e}")))?;
-            let query: String = row.get(1).map_err(|e| MemoryError::database(format!("query: {e}")))?;
-            let normalized_query: String = row.get(2).map_err(|e| MemoryError::database(format!("normalized_query: {e}")))?;
-            let attempt_count: i64 = row.get(3).map_err(|e| MemoryError::database(format!("attempt_count: {e}")))?;
-            let last_threshold: f64 = row.get(4).map_err(|e| MemoryError::database(format!("last_threshold: {e}")))?;
-            let best_score_ever: f64 = row.get(5).map_err(|e| MemoryError::database(format!("best_score_ever: {e}")))?;
-            let first_seen: String = row.get(6).map_err(|e| MemoryError::database(format!("first_seen: {e}")))?;
-            let last_seen: String = row.get(7).map_err(|e| MemoryError::database(format!("last_seen: {e}")))?;
-
-            entries.push(AbsenceEntry {
-                id,
-                query,
-                normalized_query,
-                attempt_count: attempt_count as u32,
-                last_threshold: last_threshold as f32,
-                best_score_ever: best_score_ever as f32,
-                first_seen: first_seen.parse().map_err(|e| MemoryError::database(format!("parse first_seen: {e}")))?,
-                last_seen: last_seen.parse().map_err(|e| MemoryError::database(format!("parse last_seen: {e}")))?,
-            });
+            entries.push(Self::row_to_absence_entry(&row)?);
         }
 
         Ok(entries)
+    }
+}
+
+impl Persistence {
+    fn row_to_absence_entry(row: &libsql::Row) -> Result<AbsenceEntry> {
+        let id: String = row
+            .get(0)
+            .map_err(|e| MemoryError::database(format!("id: {e}")))?;
+        let query: String = row
+            .get(1)
+            .map_err(|e| MemoryError::database(format!("query: {e}")))?;
+        let normalized_query: String = row
+            .get(2)
+            .map_err(|e| MemoryError::database(format!("normalized_query: {e}")))?;
+        let attempt_count: i64 = row
+            .get(3)
+            .map_err(|e| MemoryError::database(format!("attempt_count: {e}")))?;
+        let last_threshold: f64 = row
+            .get(4)
+            .map_err(|e| MemoryError::database(format!("last_threshold: {e}")))?;
+        let best_score_ever: f64 = row
+            .get(5)
+            .map_err(|e| MemoryError::database(format!("best_score_ever: {e}")))?;
+        let first_seen: String = row
+            .get(6)
+            .map_err(|e| MemoryError::database(format!("first_seen: {e}")))?;
+        let last_seen: String = row
+            .get(7)
+            .map_err(|e| MemoryError::database(format!("last_seen: {e}")))?;
+
+        Ok(AbsenceEntry {
+            id,
+            query,
+            normalized_query,
+            attempt_count: attempt_count as u32,
+            last_threshold: last_threshold as f32,
+            best_score_ever: best_score_ever as f32,
+            first_seen: first_seen
+                .parse()
+                .map_err(|e| MemoryError::database(format!("parse first_seen: {e}")))?,
+            last_seen: last_seen
+                .parse()
+                .map_err(|e| MemoryError::database(format!("parse last_seen: {e}")))?,
+        })
     }
 }

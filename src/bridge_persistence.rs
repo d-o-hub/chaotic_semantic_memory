@@ -266,13 +266,11 @@ impl AbsenceEntry {
 
     /// Derive a stable string ID from the normalized query.
     pub fn id_for(query: &str) -> String {
-        // Use a simple hex digest.
-        format!(
-            "absence:{:x}",
-            Self::normalize(query)
-                .bytes()
-                .fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64))
-        )
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut hasher = DefaultHasher::new();
+        Self::normalize(query).hash(&mut hasher);
+        format!("absence:{:x}", hasher.finish())
     }
 
     /// Create a new entry from a RetrievalAbstention event.
@@ -412,5 +410,49 @@ mod tests {
         let loaded = persistence.load_concept_graph("_default").await.unwrap();
         assert_eq!(loaded.concept_count(), 2);
         assert_eq!(loaded.label_count(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_absence_id_generation() {
+        let q1 = "  Test Query  ";
+        let q2 = "test query";
+        let id1 = AbsenceEntry::id_for(q1);
+        let id2 = AbsenceEntry::id_for(q2);
+        assert_eq!(id1, id2);
+        assert!(id1.starts_with("absence:"));
+    }
+
+    #[tokio::test]
+    async fn test_persist_absence_lifecycle() {
+        let temp = NamedTempFile::new().unwrap();
+        let path = temp.path().to_str().unwrap();
+        let persistence = Persistence::new_local(path).await.unwrap();
+
+        let abstention = RetrievalAbstention {
+            query: "unknown".to_string(),
+            min_score_threshold: 0.5,
+            best_score_seen: 0.1,
+            attempted_modes: vec!["Auto".to_string()],
+            timestamp: Utc::now(),
+        };
+
+        // Create
+        let entry = persist_absence(&abstention, &persistence).await.unwrap();
+        assert_eq!(entry.attempt_count, 1);
+        assert_eq!(entry.best_score_ever, 0.1);
+
+        // Update with higher score
+        let mut abstention2 = abstention.clone();
+        abstention2.best_score_seen = 0.4;
+        let entry2 = persist_absence(&abstention2, &persistence).await.unwrap();
+        assert_eq!(entry2.attempt_count, 2);
+        assert_eq!(entry2.best_score_ever, 0.4);
+
+        // Update with lower score
+        let mut abstention3 = abstention.clone();
+        abstention3.best_score_seen = 0.2;
+        let entry3 = persist_absence(&abstention3, &persistence).await.unwrap();
+        assert_eq!(entry3.attempt_count, 3);
+        assert_eq!(entry3.best_score_ever, 0.4); // Stays at 0.4
     }
 }

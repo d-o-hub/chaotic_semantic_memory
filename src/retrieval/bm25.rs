@@ -26,6 +26,7 @@
 // Casts are intentional for BM25 math (document counts, term frequencies)
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 use crate::bridge_persistence::{AbsenceEntry, AbsenceStore};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
@@ -105,11 +106,8 @@ impl Default for Bm25Index {
 
 /// Returns true if the query has a known absence record with
 /// attempt_count >= min_attempts, indicating BM25 should be skipped.
-pub async fn is_known_absent(
-    query: &str,
-    store: &dyn AbsenceStore,
-    min_attempts: u32,
-) -> bool {
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+pub async fn is_known_absent(query: &str, store: &dyn AbsenceStore, min_attempts: u32) -> bool {
     let id = AbsenceEntry::id_for(query);
     match store.get_absence(&id).await {
         Ok(Some(entry)) => entry.attempt_count >= min_attempts,

@@ -15,7 +15,8 @@ use tokio::sync::OnceCell;
 use tracing::{error, info};
 
 use super::schema;
-use crate::bridge_persistence::persist_absence;
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+use crate::bridge_persistence::{AbsenceStore, persist_absence};
 use crate::framework::ChaoticSemanticFramework;
 use crate::retrieval::hybrid::HybridResult;
 
@@ -278,19 +279,16 @@ impl McpHandler {
                 let top_k = args["top_k"].as_u64().unwrap_or(10) as usize;
                 let result = fw.probe_text(query, top_k).await?;
                 match result {
-                    HybridResult::Success(results) => Ok(json!({"status": "ok", "results": results})),
-                    HybridResult::Abstained(abstention) => {
-                        if let Some(ref store) = fw.persistence {
-                            let _ = persist_absence(&abstention, store.as_ref()).await;
-                        }
-                        Ok(json!({
-                            "status": "abstained",
-                            "reason": "No concepts match query above confidence threshold",
-                            "query": abstention.query,
-                            "best_score_seen": abstention.best_score_seen,
-                            "threshold": abstention.min_score_threshold,
-                        }))
+                    HybridResult::Success(results) => {
+                        Ok(json!({"status": "ok", "results": results}))
                     }
+                    HybridResult::Abstained(abstention) => Ok(json!({
+                        "status": "abstained",
+                        "reason": "No concepts match query above confidence threshold",
+                        "query": abstention.query,
+                        "best_score_seen": abstention.best_score_seen,
+                        "threshold": abstention.min_score_threshold,
+                    })),
                 }
             }
             "memory_probe_filtered" => {
@@ -382,14 +380,21 @@ impl McpHandler {
             }
             "memory_list_gaps" => {
                 let min_attempts = args["min_attempts"].as_u64().unwrap_or(1) as u32;
+                #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
                 if let Some(ref store) = fw.persistence {
                     let entries = store.list_absences(min_attempts).await?;
+                    let total = entries.len();
                     Ok(json!({
                         "status": "ok",
                         "gaps": entries,
-                        "total": entries.len(),
+                        "total": total,
                     }))
                 } else {
+                    Err(anyhow::anyhow!("Persistence not enabled"))
+                }
+                #[cfg(any(target_arch = "wasm32", not(feature = "persistence")))]
+                {
+                    let _ = min_attempts;
                     Err(anyhow::anyhow!("Persistence not enabled"))
                 }
             }

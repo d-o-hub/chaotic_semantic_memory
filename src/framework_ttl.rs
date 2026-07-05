@@ -1,5 +1,6 @@
 //! TTL (Time-To-Live) and text convenience operations for ChaoticSemanticFramework.
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 use crate::bridge_persistence::persist_absence;
 use crate::framework_events::MemoryEvent;
 use crate::framework_ttl_advanced::TtlPolicy;
@@ -173,17 +174,18 @@ impl crate::framework::ChaoticSemanticFramework {
         let vector = self
             .embedding_provider
             .project(&embedding, &self.projection);
-        let results = self.probe(vector, top_k).await?;
+        let (results, best_score) = self.probe_with_best_score(vector, top_k).await?;
 
         if results.is_empty() {
             let abstention = RetrievalAbstention {
                 query: query.to_string(),
                 min_score_threshold: self.config.pattern_recognition_threshold as f32,
-                best_score_seen: 0.0,
+                best_score_seen: best_score,
                 attempted_modes: vec!["Auto".to_string()],
                 timestamp: chrono::Utc::now(),
             };
 
+            #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
             if let Some(ref store) = self.persistence {
                 let _ = persist_absence(&abstention, store.as_ref()).await;
             }

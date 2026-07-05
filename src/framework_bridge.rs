@@ -3,12 +3,13 @@
 //! Provides async wrappers for bridge retrieval operations, integrating
 //! with the ChaoticSemanticFramework's singularity lock management.
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 use crate::bridge_persistence::persist_absence;
 use crate::bridge_retrieval::BridgeRetrieval;
 use crate::framework::ChaoticSemanticFramework;
 use crate::metadata_filter::MetadataFilter;
 use crate::retrieval::hybrid::{HybridResult, RetrievalAbstention};
-use crate::semantic_bridge::{BridgeHit, MemoryPacket, SemanticReranker};
+use crate::semantic_bridge::{MemoryPacket, SemanticReranker};
 use csm_core::error::Result;
 
 impl ChaoticSemanticFramework {
@@ -24,24 +25,29 @@ impl ChaoticSemanticFramework {
         self.validate_top_k(top_k)?;
         let singularity = self.singularity.read().await;
         let ns = self.namespace.read().await;
-        let hits = bridge.query(&ns, &singularity, query, top_k, None)?;
+        let (hits, best_score) =
+            bridge.query_with_best_score(&ns, &singularity, query, top_k, None)?;
 
         if hits.is_empty() {
             let abstention = RetrievalAbstention {
                 query: query.to_string(),
                 min_score_threshold: bridge.config().deterministic_weight, // Approximate
-                best_score_seen: 0.0,
+                best_score_seen: best_score,
                 attempted_modes: vec!["Bridge".to_string()],
                 timestamp: chrono::Utc::now(),
             };
 
+            #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
             if let Some(ref store) = self.persistence {
                 let _ = persist_absence(&abstention, store.as_ref()).await;
             }
 
             Ok(HybridResult::Abstained(abstention))
         } else {
-            let results = hits.into_iter().map(|h| (h.id, h.scores.final_score)).collect();
+            let results = hits
+                .into_iter()
+                .map(|h| (h.id, h.scores.final_score))
+                .collect();
             Ok(HybridResult::Success(results))
         }
     }
@@ -56,11 +62,35 @@ impl ChaoticSemanticFramework {
         top_k: usize,
         bridge: &BridgeRetrieval,
         reranker: &dyn SemanticReranker,
-    ) -> Result<Vec<BridgeHit>> {
+    ) -> Result<HybridResult> {
         self.validate_top_k(top_k)?;
         let singularity = self.singularity.read().await;
         let ns = self.namespace.read().await;
-        bridge.query(&ns, &singularity, query, top_k, Some(reranker))
+        let (hits, best_score) =
+            bridge.query_with_best_score(&ns, &singularity, query, top_k, Some(reranker))?;
+
+        if hits.is_empty() {
+            let abstention = RetrievalAbstention {
+                query: query.to_string(),
+                min_score_threshold: bridge.config().deterministic_weight,
+                best_score_seen: best_score,
+                attempted_modes: vec!["BridgeRerank".to_string()],
+                timestamp: chrono::Utc::now(),
+            };
+
+            #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+            if let Some(ref store) = self.persistence {
+                let _ = persist_absence(&abstention, store.as_ref()).await;
+            }
+
+            Ok(HybridResult::Abstained(abstention))
+        } else {
+            let results = hits
+                .into_iter()
+                .map(|h| (h.id, h.scores.final_score))
+                .collect();
+            Ok(HybridResult::Success(results))
+        }
     }
 
     /// Execute bridge retrieval query with metadata filtering.
@@ -74,7 +104,7 @@ impl ChaoticSemanticFramework {
         top_k: usize,
         bridge: &BridgeRetrieval,
         filter: &MetadataFilter,
-    ) -> Result<Vec<BridgeHit>> {
+    ) -> Result<HybridResult> {
         self.validate_top_k(top_k)?;
         Self::validate_metadata_filter(filter)?;
         let singularity = self.singularity.read().await;
@@ -90,14 +120,32 @@ impl ChaoticSemanticFramework {
             .collect();
 
         // Run full bridge query and filter results
-        let hits = bridge.query(&ns, &singularity, query, top_k, None)?;
+        let (hits, best_score) = bridge.query_with_best_score(&ns, &singularity, query, top_k, None)?;
         drop(singularity);
-        let filtered_hits: Vec<BridgeHit> = hits
+        let filtered_hits: Vec<(String, f32)> = hits
             .into_iter()
             .filter(|hit| filtered_ids.contains(&hit.id))
+            .map(|hit| (hit.id, hit.scores.final_score))
             .collect();
 
-        Ok(filtered_hits)
+        if filtered_hits.is_empty() {
+            let abstention = RetrievalAbstention {
+                query: query.to_string(),
+                min_score_threshold: bridge.config().deterministic_weight,
+                best_score_seen: best_score,
+                attempted_modes: vec!["BridgeFiltered".to_string()],
+                timestamp: chrono::Utc::now(),
+            };
+
+            #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+            if let Some(ref store) = self.persistence {
+                let _ = persist_absence(&abstention, store.as_ref()).await;
+            }
+
+            Ok(HybridResult::Abstained(abstention))
+        } else {
+            Ok(HybridResult::Success(filtered_hits))
+        }
     }
 
     /// Compile memory packet from bridge retrieval results.
@@ -203,6 +251,6 @@ mod tests {
             .unwrap();
 
         assert!(!results.is_empty());
-        assert!(results.iter().any(|h| h.id == "test-concept"));
+        assert!(results.iter().any(|(id, _)| id == "test-concept"));
     }
 }

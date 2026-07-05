@@ -75,7 +75,7 @@ async fn probe_bridge_text_filtered_returns_matching() {
     assert!(
         results
             .iter()
-            .all(|h| h.id == "filtered-1" || h.id.contains("filtered"))
+            .all(|(id, _)| id == "filtered-1" || id.contains("filtered"))
     );
 }
 
@@ -141,7 +141,7 @@ async fn probe_bridge_text_with_reranker_applies_reranking() {
         .unwrap();
 
     // Verify results were returned (reranking applied internally)
-    assert!(results.len() <= 2);
+    assert!(!results.is_empty());
 }
 
 #[test]

@@ -166,7 +166,7 @@ async fn probe_text_returns_similar_concepts() {
     assert!(!results.is_empty(), "should find similar concepts");
 
     // Learning-related docs should rank higher than cooking
-    let ids: Vec<String> = results.into_iter().map(|(id, _)| id).collect();
+    let ids: Vec<String> = results.iter().map(|(id, _)| id.clone()).collect();
     assert!(
         ids.contains(&"doc1".to_string()) || ids.contains(&"doc2".to_string()),
         "should find learning-related docs"
