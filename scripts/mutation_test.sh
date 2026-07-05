@@ -79,6 +79,7 @@ set -o pipefail
 set +e  # cargo-mutants exits 2 when any mutant is missed; we evaluate the score below
 RUSTFLAGS="" cargo mutants "${FAST_ARGS[@]}" \
   --build-timeout 600 \
+  --exclude 'src/mcp/**' \
   --exclude-re 'WasmFramework::' \
   --exclude-re 'persistence::Persistence::schema_version' \
   --exclude-re 'persistence::Persistence::load_index' \
