@@ -372,4 +372,86 @@ mod tests {
         let err = parse_rerankers("recency:30d:not-a-number").unwrap_err();
         assert!(format!("{err}").contains("invalid recency blend"));
     }
+
+    /// Kills the `|| → &&` mutation on the early-return guard.
+    /// With `&&`, a non-empty candidates list + top_k=0 would NOT return early,
+    /// causing a loop that never terminates (or panics). Must return empty vec.
+    #[test]
+    fn test_mmr_top_k_zero_returns_empty() {
+        let query = HVec10240::zero();
+        let c1 = RerankCandidate {
+            id: "c1".into(),
+            vector: Arc::new(HVec10240::new_seeded(1)),
+            metadata: HashMap::new(),
+            score: 0.9,
+            created_at_unix: 0,
+        };
+        let reranker = MmrReranker { lambda: 0.5 };
+        let results = reranker.rerank(&query, vec![c1], 0);
+        assert!(
+            results.is_empty(),
+            "top_k=0 with non-empty candidates must return empty vec"
+        );
+    }
+
+    /// Kills the `* → +` mutation on the MMR diversity penalty term.
+    ///
+    /// With lambda=0.0 and one candidate already selected, the MMR score for a
+    /// second candidate is:
+    ///   correct:   0.0 * sim(q, c) - 1.0 * max_sim_to_selected
+    ///              = -max_sim_to_selected  (always ≤ 0)
+    ///   mutated:   0.0 + sim(q, c) + 1.0 + max_sim_to_selected
+    ///              = sim(q, c) + 1.0 + max_sim_to_selected  (always > 1)
+    ///
+    /// The test checks that the second-round MMR score is negative, which is
+    /// impossible under the mutated formula.
+    #[test]
+    fn test_mmr_lambda_zero_score_is_negative_after_first_selection() {
+        let query = HVec10240::zero();
+        // v1 and v2 are different seeded vectors (non-zero similarity to each other)
+        let v1 = Arc::new(HVec10240::new_seeded(1));
+        let v2 = Arc::new(HVec10240::new_seeded(2));
+
+        // Sanity: v1 and v2 have non-trivial similarity to each other
+        let sim_v1_v2 = v1.cosine_similarity(&v2);
+        assert!(
+            sim_v1_v2 > 0.0,
+            "seeded vectors must have positive mutual similarity (got {sim_v1_v2})"
+        );
+
+        let c1 = RerankCandidate {
+            id: "c1".into(),
+            vector: v1,
+            metadata: HashMap::new(),
+            score: 0.9,
+            created_at_unix: 0,
+        };
+        let c2 = RerankCandidate {
+            id: "c2".into(),
+            vector: v2,
+            metadata: HashMap::new(),
+            score: 0.8,
+            created_at_unix: 0,
+        };
+
+        // lambda=0.0: pure diversity — score = 0 * sim(q,c) - 1 * max_sim_to_selected
+        let reranker = MmrReranker { lambda: 0.0 };
+        let results = reranker.rerank(&query, vec![c1, c2], 2);
+        assert_eq!(results.len(), 2);
+
+        // First selection has no prior selected set, so max_sim_to_selected = 0,
+        // score = 0.0 * sim - 1.0 * 0.0 = 0.0.
+        assert!(
+            results[0].score <= 0.0,
+            "lambda=0 first pick score must be <= 0, got {}",
+            results[0].score
+        );
+        // Second selection has one prior, so max_sim_to_selected > 0,
+        // score = -max_sim_to_selected < 0. Mutated formula gives > 1, catching the bug.
+        assert!(
+            results[1].score < 0.0,
+            "lambda=0 second pick score must be < 0 (penalty for similarity to selected), got {}",
+            results[1].score
+        );
+    }
 }
