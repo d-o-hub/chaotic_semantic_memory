@@ -3,7 +3,33 @@
 //! Provides query-length-dependent weighting between keyword (BM25) and
 //! semantic (HDC) search results.
 
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+/// A record of a retrieval attempt that yielded no results above the threshold.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RetrievalAbstention {
+    /// The original query string
+    pub query: String,
+    /// The minimum score threshold that was required
+    pub min_score_threshold: f32,
+    /// The best score seen during this attempt
+    pub best_score_seen: f32,
+    /// The retrieval modes attempted (e.g., "Auto", "SemanticOnly")
+    pub attempted_modes: Vec<String>,
+    /// Timestamp when this abstention occurred
+    pub timestamp: DateTime<Utc>,
+}
+
+/// Result of a hybrid retrieval operation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum HybridResult {
+    /// Results found above threshold
+    Success(Vec<(String, f32)>),
+    /// No results met the confidence threshold
+    Abstained(RetrievalAbstention),
+}
 
 /// Compute query-length-dependent weights for hybrid retrieval.
 ///

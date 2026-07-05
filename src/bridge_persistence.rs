@@ -6,7 +6,9 @@
 // Casts are intentional for version serialization
 
 use crate::persistence::Persistence;
+use crate::retrieval::hybrid::RetrievalAbstention;
 use crate::semantic_bridge::{CanonicalConcept, ConceptGraph};
+use chrono::{DateTime, Utc};
 use csm_core::error::{MemoryError, Result};
 use libsql::params;
 
@@ -230,6 +232,103 @@ impl Persistence {
             graph.add_concept(concept);
         }
         Ok(graph)
+    }
+}
+
+/// A persisted record of a retrieval event that found no matching concepts.
+/// Used to prevent re-querying known-absent concepts and to surface
+/// memory gaps to operators.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct AbsenceEntry {
+    /// Stable ID derived from a hash of the normalized query string
+    pub id: String,
+    /// The original query that produced no results
+    pub query: String,
+    /// Normalized form of the query (lowercased, trimmed)
+    pub normalized_query: String,
+    /// How many times this query has been attempted with no result
+    pub attempt_count: u32,
+    /// Threshold that was not met on the last attempt
+    pub last_threshold: f32,
+    /// Best score seen across all attempts
+    pub best_score_ever: f32,
+    /// Timestamp of first absence event for this query
+    pub first_seen: DateTime<Utc>,
+    /// Timestamp of most recent absence event
+    pub last_seen: DateTime<Utc>,
+}
+
+impl AbsenceEntry {
+    /// Normalize a query string for stable ID derivation.
+    pub fn normalize(query: &str) -> String {
+        query.trim().to_lowercase()
+    }
+
+    /// Derive a stable string ID from the normalized query.
+    pub fn id_for(query: &str) -> String {
+        // Use a simple hex digest.
+        format!(
+            "absence:{:x}",
+            Self::normalize(query)
+                .bytes()
+                .fold(0u64, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64))
+        )
+    }
+
+    /// Create a new entry from a RetrievalAbstention event.
+    pub fn from_abstention(abstention: &RetrievalAbstention) -> Self {
+        let normalized = Self::normalize(&abstention.query);
+        AbsenceEntry {
+            id: Self::id_for(&abstention.query),
+            query: abstention.query.clone(),
+            normalized_query: normalized,
+            attempt_count: 1,
+            last_threshold: abstention.min_score_threshold,
+            best_score_ever: abstention.best_score_seen,
+            first_seen: abstention.timestamp,
+            last_seen: abstention.timestamp,
+        }
+    }
+
+    /// Merge a new abstention event into an existing entry (upsert logic).
+    pub fn merge_with(&mut self, abstention: &RetrievalAbstention) {
+        self.attempt_count += 1;
+        self.last_seen = abstention.timestamp;
+        self.last_threshold = abstention.min_score_threshold;
+        if abstention.best_score_seen > self.best_score_ever {
+            self.best_score_ever = abstention.best_score_seen;
+        }
+    }
+}
+
+/// Persistence backend for absence entries.
+#[async_trait::async_trait]
+pub trait AbsenceStore: Send + Sync {
+    /// Load an absence entry by ID.
+    async fn get_absence(&self, id: &str) -> Result<Option<AbsenceEntry>>;
+    /// Save or update an absence entry.
+    async fn upsert_absence(&self, entry: &AbsenceEntry) -> Result<()>;
+    /// Return all absence entries with attempt_count >= min_attempts.
+    async fn list_absences(&self, min_attempts: u32) -> Result<Vec<AbsenceEntry>>;
+}
+
+/// Persist a RetrievalAbstention event as an AbsenceEntry.
+pub async fn persist_absence(
+    abstention: &RetrievalAbstention,
+    store: &dyn AbsenceStore,
+) -> Result<AbsenceEntry> {
+    let id = AbsenceEntry::id_for(&abstention.query);
+    match store.get_absence(&id).await? {
+        Some(mut existing) => {
+            existing.merge_with(abstention);
+            store.upsert_absence(&existing).await?;
+            Ok(existing)
+        }
+        None => {
+            let entry = AbsenceEntry::from_abstention(abstention);
+            store.upsert_absence(&entry).await?;
+            Ok(entry)
+        }
     }
 }
 

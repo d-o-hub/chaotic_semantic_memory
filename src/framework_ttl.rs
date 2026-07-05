@@ -1,8 +1,10 @@
 //! TTL (Time-To-Live) and text convenience operations for ChaoticSemanticFramework.
 
+use crate::bridge_persistence::persist_absence;
 use crate::framework_events::MemoryEvent;
 use crate::framework_ttl_advanced::TtlPolicy;
 use crate::metadata_filter::MetadataFilter;
+use crate::retrieval::hybrid::{HybridResult, RetrievalAbstention};
 use crate::singularity::ConceptBuilder;
 use csm_core::error::Result;
 use csm_core::hyperdim::HVec10240;
@@ -166,12 +168,30 @@ impl crate::framework::ChaoticSemanticFramework {
     }
 
     /// Probe for similar concepts using text input. Encodes the query text via the embedding provider.
-    pub async fn probe_text(&self, query: &str, top_k: usize) -> Result<Vec<(String, f32)>> {
+    pub async fn probe_text(&self, query: &str, top_k: usize) -> Result<HybridResult> {
         let embedding = self.embedding_provider.embed(query).await?;
         let vector = self
             .embedding_provider
             .project(&embedding, &self.projection);
-        self.probe(vector, top_k).await
+        let results = self.probe(vector, top_k).await?;
+
+        if results.is_empty() {
+            let abstention = RetrievalAbstention {
+                query: query.to_string(),
+                min_score_threshold: self.config.pattern_recognition_threshold as f32,
+                best_score_seen: 0.0,
+                attempted_modes: vec!["Auto".to_string()],
+                timestamp: chrono::Utc::now(),
+            };
+
+            if let Some(ref store) = self.persistence {
+                let _ = persist_absence(&abstention, store.as_ref()).await;
+            }
+
+            Ok(HybridResult::Abstained(abstention))
+        } else {
+            Ok(HybridResult::Success(results))
+        }
     }
 
     /// Probe for similar concepts using text input and metadata filtering.

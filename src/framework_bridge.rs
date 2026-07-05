@@ -3,9 +3,11 @@
 //! Provides async wrappers for bridge retrieval operations, integrating
 //! with the ChaoticSemanticFramework's singularity lock management.
 
+use crate::bridge_persistence::persist_absence;
 use crate::bridge_retrieval::BridgeRetrieval;
 use crate::framework::ChaoticSemanticFramework;
 use crate::metadata_filter::MetadataFilter;
+use crate::retrieval::hybrid::{HybridResult, RetrievalAbstention};
 use crate::semantic_bridge::{BridgeHit, MemoryPacket, SemanticReranker};
 use csm_core::error::Result;
 
@@ -18,11 +20,30 @@ impl ChaoticSemanticFramework {
         query: &str,
         top_k: usize,
         bridge: &BridgeRetrieval,
-    ) -> Result<Vec<BridgeHit>> {
+    ) -> Result<HybridResult> {
         self.validate_top_k(top_k)?;
         let singularity = self.singularity.read().await;
         let ns = self.namespace.read().await;
-        bridge.query(&ns, &singularity, query, top_k, None)
+        let hits = bridge.query(&ns, &singularity, query, top_k, None)?;
+
+        if hits.is_empty() {
+            let abstention = RetrievalAbstention {
+                query: query.to_string(),
+                min_score_threshold: bridge.config().deterministic_weight, // Approximate
+                best_score_seen: 0.0,
+                attempted_modes: vec!["Bridge".to_string()],
+                timestamp: chrono::Utc::now(),
+            };
+
+            if let Some(ref store) = self.persistence {
+                let _ = persist_absence(&abstention, store.as_ref()).await;
+            }
+
+            Ok(HybridResult::Abstained(abstention))
+        } else {
+            let results = hits.into_iter().map(|h| (h.id, h.scores.final_score)).collect();
+            Ok(HybridResult::Success(results))
+        }
     }
 
     /// Execute bridge retrieval query with optional reranker.

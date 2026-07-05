@@ -361,6 +361,25 @@ impl Persistence {
                 .map_err(|e| MemoryError::database(format!("Failed migration v9 update: {e}")))?;
             }
 
+            if version == 10 {
+                conn.execute_batch(
+                    "CREATE TABLE IF NOT EXISTS csm_absences (
+                        id TEXT PRIMARY KEY,
+                        query TEXT NOT NULL,
+                        normalized_query TEXT NOT NULL,
+                        attempt_count INTEGER NOT NULL,
+                        last_threshold REAL NOT NULL,
+                        best_score_ever REAL NOT NULL,
+                        first_seen TEXT NOT NULL,
+                        last_seen TEXT NOT NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_csm_absences_normalized ON csm_absences(normalized_query);
+                    CREATE INDEX IF NOT EXISTS idx_csm_absences_attempts ON csm_absences(attempt_count);",
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v10: {e}")))?;
+            }
+
             conn.execute(
                 "INSERT INTO csm_schema_version(version) VALUES (?1)",
                 libsql::params![version],

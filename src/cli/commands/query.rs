@@ -12,7 +12,7 @@ use crate::cli::commands::{
 };
 use crate::cli::error::{CliError, Result};
 use crate::retrieval::bm25::Bm25Index;
-use crate::retrieval::hybrid::{compute_weights, merge_results};
+use crate::retrieval::hybrid::{HybridResult, compute_weights, merge_results};
 
 use std::path::Path;
 
@@ -71,12 +71,14 @@ pub async fn run_query(
     // Collect results from both search methods
     let hdc_results = if use_hdc {
         // Search for similar concepts using framework's probe_text (which uses configured provider)
-        Some(
-            framework
-                .probe_text(&args.text, args.top_k)
-                .await
-                .map_err(|e| CliError::Persistence(format!("query operation failed: {e}")))?,
-        )
+        match framework
+            .probe_text(&args.text, args.top_k)
+            .await
+            .map_err(|e| CliError::Persistence(format!("query operation failed: {e}")))?
+        {
+            HybridResult::Success(results) => Some(results),
+            HybridResult::Abstained(_) => None,
+        }
     } else {
         None
     };

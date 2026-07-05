@@ -15,7 +15,9 @@ use tokio::sync::OnceCell;
 use tracing::{error, info};
 
 use super::schema;
+use crate::bridge_persistence::persist_absence;
 use crate::framework::ChaoticSemanticFramework;
+use crate::retrieval::hybrid::HybridResult;
 
 /// Combined MCP handler for chaotic_semantic_memory.
 pub struct McpHandler {
@@ -138,6 +140,11 @@ impl ServerHandler for McpHandler {
             ),
             tool_def("memory_stats", "DB stats snapshot", schema::stats_schema()),
             tool_def("memory_export", "Export to JSON", schema::export_schema()),
+            tool_def(
+                "memory_list_gaps",
+                "List known memory gaps (failed retrieval attempts)",
+                schema::list_gaps_schema(),
+            ),
         ];
         Ok(ListToolsResult {
             tools,
@@ -269,8 +276,22 @@ impl McpHandler {
                     .as_str()
                     .ok_or_else(|| anyhow::anyhow!("Missing query"))?;
                 let top_k = args["top_k"].as_u64().unwrap_or(10) as usize;
-                let results = fw.probe_text(query, top_k).await?;
-                Ok(json!({"status": "ok", "results": results}))
+                let result = fw.probe_text(query, top_k).await?;
+                match result {
+                    HybridResult::Success(results) => Ok(json!({"status": "ok", "results": results})),
+                    HybridResult::Abstained(abstention) => {
+                        if let Some(ref store) = fw.persistence {
+                            let _ = persist_absence(&abstention, store.as_ref()).await;
+                        }
+                        Ok(json!({
+                            "status": "abstained",
+                            "reason": "No concepts match query above confidence threshold",
+                            "query": abstention.query,
+                            "best_score_seen": abstention.best_score_seen,
+                            "threshold": abstention.min_score_threshold,
+                        }))
+                    }
+                }
             }
             "memory_probe_filtered" => {
                 let text = args["text"]
@@ -358,6 +379,19 @@ impl McpHandler {
                     fw.export_json(&path).await?;
                 }
                 Ok(json!({"status": "ok", "file": path}))
+            }
+            "memory_list_gaps" => {
+                let min_attempts = args["min_attempts"].as_u64().unwrap_or(1) as u32;
+                if let Some(ref store) = fw.persistence {
+                    let entries = store.list_absences(min_attempts).await?;
+                    Ok(json!({
+                        "status": "ok",
+                        "gaps": entries,
+                        "total": entries.len(),
+                    }))
+                } else {
+                    Err(anyhow::anyhow!("Persistence not enabled"))
+                }
             }
             _ => Err(anyhow::anyhow!("Tool not implemented: {name}")),
         }
