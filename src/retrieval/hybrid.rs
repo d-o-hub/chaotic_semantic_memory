@@ -235,7 +235,9 @@ pub enum HybridMode {
 pub struct HybridConfig {
     /// Hybrid mode.
     pub mode: HybridMode,
-    /// Minimum score threshold (0.0-1.0).
+    /// Minimum score threshold applied by `merge_results_checked` to weighted
+    /// raw scores (`kw_weight*bm25 + sem_weight*hdc`) before normalization.
+    /// Note this is a raw-score cutoff, not a normalized [0,1] confidence.
     pub min_score: f32,
 }
 
