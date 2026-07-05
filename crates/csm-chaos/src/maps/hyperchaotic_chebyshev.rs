@@ -126,7 +126,11 @@ mod tests {
             assert!(libm::fabs(map.x) > 1e-10 || libm::fabs(map.y) > 1e-10);
         }
 
-        assert!(same_count < 10, "Map seems to have converged: {}", same_count);
+        assert!(
+            same_count < 10,
+            "Map seems to have converged: {}",
+            same_count
+        );
     }
 
     #[test]
