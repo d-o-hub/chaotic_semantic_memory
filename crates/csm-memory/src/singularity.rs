@@ -491,7 +491,9 @@ impl<H: Hypervector + 'static> Singularity<H> {
                 }
             }
         }
-        incoming.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        // Optimization: Use sort_unstable_by to avoid stability overhead for numeric ranking.
+        incoming
+            .sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         incoming
     }
 
