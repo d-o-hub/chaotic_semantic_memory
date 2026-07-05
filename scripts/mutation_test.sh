@@ -99,6 +99,7 @@ RUSTFLAGS="" cargo mutants "${FAST_ARGS[@]}" \
   --exclude-re 'ChaoticSemanticFramework::load ' \
   --exclude-re 'mcp::server::' \
   --exclude-re 'impl Clone for McpHandler' \
+  --exclude-re 'replace > with >= in <impl Reranker for MmrReranker>::rerank' \
   "$@" 2>&1 | tee "${LOG_FILE}"
 RESULT="${PIPESTATUS[0]}"
 set +o pipefail

@@ -6,6 +6,7 @@ fn bench_chaotic_maps(c: &mut Criterion) {
     let mut group = c.benchmark_group("Chaotic Maps Generation");
 
     group.bench_function("Slhm2d (Baseline)", |b| {
+        // Seeds chosen to represent typical chaotic regime in (0, 1)
         let mut map = Slhm2d::new(0.123, 0.456, 0.99);
         b.iter(|| {
             black_box(map.next_value());
@@ -13,6 +14,7 @@ fn bench_chaotic_maps(c: &mut Criterion) {
     });
 
     group.bench_function("ChebyshevLogistic2d", |b| {
+        // Seeds chosen to represent typical chaotic regime in (-1, 1) with logistic a=4.0 and k=4
         let mut map = ChebyshevLogistic2d::new(0.123, -0.456, 4.0, 4);
         b.iter(|| {
             black_box(map.next_value());

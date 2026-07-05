@@ -98,3 +98,6 @@ commit_messages.txt
 *.log
 pr_diff.txt
 update_.fastembed_cache/
+
+# Local export file
+export.json
