@@ -12,10 +12,10 @@ use std::collections::HashMap;
 pub struct RetrievalAbstention {
     /// The original query string
     pub query: String,
-    /// The minimum score threshold that was required
+    /// The minimum score threshold that was required (may be an approximation)
     pub min_score_threshold: f32,
     /// The best score seen during this attempt
-    pub best_score_seen: f32,
+    pub best_score_seen: Option<f32>,
     /// The retrieval modes attempted (e.g., "Auto", "SemanticOnly")
     pub attempted_modes: Vec<String>,
     /// Timestamp when this abstention occurred

@@ -74,7 +74,7 @@ fn try_ann_lookup(
 
     if let Ok(results) = ns_state.index.search(query, top_k) {
         let results_arc: Arc<[(String, f32)]> = Arc::from(results);
-        let best_score = results_arc.first().map_or(0.0, |r| r.1);
+        let best_score = results_arc.first().map(|r| r.1);
 
         if let Ok(mut s) = ns_state.last_retrieval_stats.write() {
             s.scored_count = results_arc.len();

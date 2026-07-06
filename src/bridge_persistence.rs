@@ -251,7 +251,7 @@ pub struct AbsenceEntry {
     /// Threshold that was not met on the last attempt
     pub last_threshold: f32,
     /// Best score seen across all attempts
-    pub best_score_ever: f32,
+    pub best_score_ever: Option<f32>,
     /// Timestamp of first absence event for this query
     pub first_seen: DateTime<Utc>,
     /// Timestamp of most recent absence event
@@ -266,11 +266,12 @@ impl AbsenceEntry {
 
     /// Derive a stable string ID from the normalized query.
     pub fn id_for(query: &str) -> String {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-        let mut hasher = DefaultHasher::new();
-        Self::normalize(query).hash(&mut hasher);
-        format!("absence:{:x}", hasher.finish())
+        let normalized = Self::normalize(query);
+        let hash = normalized
+            .as_bytes()
+            .iter()
+            .fold(0u64, |acc, &b| acc.wrapping_mul(31).wrapping_add(b as u64));
+        format!("absence:{hash:x}")
     }
 
     /// Create a new entry from a RetrievalAbstention event.
@@ -293,8 +294,17 @@ impl AbsenceEntry {
         self.attempt_count += 1;
         self.last_seen = abstention.timestamp;
         self.last_threshold = abstention.min_score_threshold;
-        if abstention.best_score_seen > self.best_score_ever {
-            self.best_score_ever = abstention.best_score_seen;
+
+        match (abstention.best_score_seen, self.best_score_ever) {
+            (Some(new), Some(existing)) => {
+                if new > existing {
+                    self.best_score_ever = Some(new);
+                }
+            }
+            (Some(new), None) => {
+                self.best_score_ever = Some(new);
+            }
+            _ => {}
         }
     }
 }
@@ -431,28 +441,30 @@ mod tests {
         let abstention = RetrievalAbstention {
             query: "unknown".to_string(),
             min_score_threshold: 0.5,
-            best_score_seen: 0.1,
+            best_score_seen: Some(0.1),
             attempted_modes: vec!["Auto".to_string()],
             timestamp: Utc::now(),
         };
 
         // Create
+        let mut abstention = abstention;
+        abstention.best_score_seen = Some(0.1);
         let entry = persist_absence(&abstention, &persistence).await.unwrap();
         assert_eq!(entry.attempt_count, 1);
-        assert!((entry.best_score_ever - 0.1).abs() < f32::EPSILON);
+        assert!((entry.best_score_ever.unwrap() - 0.1).abs() < f32::EPSILON);
 
         // Update with higher score
         let mut abstention2 = abstention.clone();
-        abstention2.best_score_seen = 0.4;
+        abstention2.best_score_seen = Some(0.4);
         let entry2 = persist_absence(&abstention2, &persistence).await.unwrap();
         assert_eq!(entry2.attempt_count, 2);
-        assert!((entry2.best_score_ever - 0.4).abs() < f32::EPSILON);
+        assert!((entry2.best_score_ever.unwrap() - 0.4).abs() < f32::EPSILON);
 
         // Update with lower score
         let mut abstention3 = abstention.clone();
-        abstention3.best_score_seen = 0.2;
+        abstention3.best_score_seen = Some(0.2);
         let entry3 = persist_absence(&abstention3, &persistence).await.unwrap();
         assert_eq!(entry3.attempt_count, 3);
-        assert!((entry3.best_score_ever - 0.4).abs() < f32::EPSILON); // Stays at 0.4
+        assert!((entry2.best_score_ever.unwrap() - 0.4).abs() < f32::EPSILON); // Stays at 0.4
     }
 }

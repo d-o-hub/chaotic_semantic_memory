@@ -235,9 +235,9 @@ async fn bundle_concepts_strict_batch_size_fails() {
 
 #[tokio::test]
 async fn run_query_min_score_validation_fails() {
+    use chaotic_semantic_memory::cli::args::OutputFormat;
     use chaotic_semantic_memory::cli::args::QueryArgs;
     use chaotic_semantic_memory::cli::commands::query::run_query;
-    use chaotic_semantic_memory::cli::args::OutputFormat;
 
     let base_args = QueryArgs {
         text: "test".to_string(),
@@ -267,9 +267,9 @@ async fn run_query_min_score_validation_fails() {
 
 #[tokio::test]
 async fn run_query_top_k_validation_fails() {
+    use chaotic_semantic_memory::cli::args::OutputFormat;
     use chaotic_semantic_memory::cli::args::QueryArgs;
     use chaotic_semantic_memory::cli::commands::query::run_query;
-    use chaotic_semantic_memory::cli::args::OutputFormat;
 
     let args = QueryArgs {
         text: "test".to_string(),
@@ -290,9 +290,9 @@ async fn run_query_top_k_validation_fails() {
 
 #[tokio::test]
 async fn run_query_keyword_weight_validation_fails() {
+    use chaotic_semantic_memory::cli::args::OutputFormat;
     use chaotic_semantic_memory::cli::args::QueryArgs;
     use chaotic_semantic_memory::cli::commands::query::run_query;
-    use chaotic_semantic_memory::cli::args::OutputFormat;
 
     let base_args = QueryArgs {
         text: "test".to_string(),
@@ -322,9 +322,9 @@ async fn run_query_keyword_weight_validation_fails() {
 
 #[tokio::test]
 async fn run_query_mutually_exclusive_modes_fail() {
+    use chaotic_semantic_memory::cli::args::OutputFormat;
     use chaotic_semantic_memory::cli::args::QueryArgs;
     use chaotic_semantic_memory::cli::commands::query::run_query;
-    use chaotic_semantic_memory::cli::args::OutputFormat;
 
     let args = QueryArgs {
         text: "test".to_string(),

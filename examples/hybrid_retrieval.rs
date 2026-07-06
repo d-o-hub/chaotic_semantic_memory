@@ -93,7 +93,7 @@ async fn main() -> Result<()> {
             }
         }
         HybridResult::Abstained(a) => {
-            println!("Abstained: best score seen {:.3}", a.best_score_seen)
+            println!("Abstained: best score seen {:?}", a.best_score_seen);
         }
     }
 
@@ -111,7 +111,7 @@ async fn main() -> Result<()> {
             }
         }
         HybridResult::Abstained(a) => {
-            println!("Abstained: best score seen {:.3}", a.best_score_seen)
+            println!("Abstained: best score seen {:?}", a.best_score_seen);
         }
     }
 
@@ -129,7 +129,7 @@ async fn main() -> Result<()> {
             }
         }
         HybridResult::Abstained(a) => {
-            println!("Abstained: best score seen {:.3}", a.best_score_seen)
+            println!("Abstained: best score seen {:?}", a.best_score_seen);
         }
     }
 

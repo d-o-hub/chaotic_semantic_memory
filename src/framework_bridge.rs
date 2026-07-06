@@ -31,15 +31,21 @@ impl ChaoticSemanticFramework {
         if hits.is_empty() {
             let abstention = RetrievalAbstention {
                 query: query.to_string(),
-                min_score_threshold: bridge.config().deterministic_weight, // Approximate
-                best_score_seen: best_score,
+                min_score_threshold: bridge.config().deterministic_weight,
+                best_score_seen: if best_score > 0.0 {
+                    Some(best_score)
+                } else {
+                    None
+                },
                 attempted_modes: vec!["Bridge".to_string()],
                 timestamp: chrono::Utc::now(),
             };
 
             #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
             if let Some(ref store) = self.persistence {
-                let _ = persist_absence(&abstention, store.as_ref()).await;
+                if let Err(e) = persist_absence(&abstention, store.as_ref()).await {
+                    tracing::warn!("Failed to persist absence entry: {e}");
+                }
             }
 
             Ok(HybridResult::Abstained(abstention))
@@ -73,14 +79,20 @@ impl ChaoticSemanticFramework {
             let abstention = RetrievalAbstention {
                 query: query.to_string(),
                 min_score_threshold: bridge.config().deterministic_weight,
-                best_score_seen: best_score,
+                best_score_seen: if best_score > 0.0 {
+                    Some(best_score)
+                } else {
+                    None
+                },
                 attempted_modes: vec!["BridgeRerank".to_string()],
                 timestamp: chrono::Utc::now(),
             };
 
             #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
             if let Some(ref store) = self.persistence {
-                let _ = persist_absence(&abstention, store.as_ref()).await;
+                if let Err(e) = persist_absence(&abstention, store.as_ref()).await {
+                    tracing::warn!("Failed to persist absence entry: {e}");
+                }
             }
 
             Ok(HybridResult::Abstained(abstention))
@@ -124,26 +136,38 @@ impl ChaoticSemanticFramework {
             bridge.query_with_best_score(&ns, &singularity, query, top_k, None)?;
         drop(singularity);
         let filtered_hits: Vec<(String, f32)> = hits
-            .into_iter()
+            .iter()
             .filter(|hit| filtered_ids.contains(&hit.id))
-            .map(|hit| (hit.id, hit.scores.final_score))
+            .map(|hit| (hit.id.clone(), hit.scores.final_score))
             .collect();
 
         if filtered_hits.is_empty() {
-            let abstention = RetrievalAbstention {
-                query: query.to_string(),
-                min_score_threshold: bridge.config().deterministic_weight,
-                best_score_seen: best_score,
-                attempted_modes: vec!["BridgeFiltered".to_string()],
-                timestamp: chrono::Utc::now(),
-            };
+            // Only emit an abstention if the unfiltered hits are also empty,
+            // to avoid false negatives from over-selective filters.
+            if hits.is_empty() {
+                let abstention = RetrievalAbstention {
+                    query: query.to_string(),
+                    min_score_threshold: bridge.config().deterministic_weight,
+                    best_score_seen: if best_score > 0.0 {
+                        Some(best_score)
+                    } else {
+                        None
+                    },
+                    attempted_modes: vec!["BridgeFiltered".to_string()],
+                    timestamp: chrono::Utc::now(),
+                };
 
-            #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-            if let Some(ref store) = self.persistence {
-                let _ = persist_absence(&abstention, store.as_ref()).await;
+                #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+                if let Some(ref store) = self.persistence {
+                    if let Err(e) = persist_absence(&abstention, store.as_ref()).await {
+                        tracing::warn!("Failed to persist absence entry: {e}");
+                    }
+                }
+
+                Ok(HybridResult::Abstained(abstention))
+            } else {
+                Ok(HybridResult::Success(Vec::new()))
             }
-
-            Ok(HybridResult::Abstained(abstention))
         } else {
             Ok(HybridResult::Success(filtered_hits))
         }

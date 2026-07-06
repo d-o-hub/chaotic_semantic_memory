@@ -187,7 +187,9 @@ impl crate::framework::ChaoticSemanticFramework {
 
             #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
             if let Some(ref store) = self.persistence {
-                let _ = persist_absence(&abstention, store.as_ref()).await;
+                if let Err(e) = persist_absence(&abstention, store.as_ref()).await {
+                    tracing::warn!("Failed to persist absence entry: {e}");
+                }
             }
 
             Ok(HybridResult::Abstained(abstention))
@@ -201,7 +203,7 @@ impl crate::framework::ChaoticSemanticFramework {
         &self,
         query: HVec10240,
         top_k: usize,
-    ) -> Result<(Vec<(String, f32)>, f32)> {
+    ) -> Result<(Vec<(String, f32)>, Option<f32>)> {
         let results = self.probe(query, top_k).await?;
         let ns = self.namespace.read().await;
         let best_score = self
@@ -219,12 +221,35 @@ impl crate::framework::ChaoticSemanticFramework {
         query: &str,
         top_k: usize,
         filter: &MetadataFilter,
-    ) -> Result<Vec<(String, f32)>> {
+    ) -> Result<HybridResult> {
         let embedding = self.embedding_provider.embed(query).await?;
         let vector = self
             .embedding_provider
             .project(&embedding, &self.projection);
-        self.probe_filtered(&vector, top_k, filter).await
+        let results = self.probe_filtered(&vector, top_k, filter).await?;
+
+        if results.is_empty() {
+            // We don't have a direct 'best_score' from probe_filtered easily without refactoring singularity,
+            // but we can at least return an Abstained result.
+            let abstention = RetrievalAbstention {
+                query: query.to_string(),
+                min_score_threshold: self.config.pattern_recognition_threshold as f32,
+                best_score_seen: None,
+                attempted_modes: vec!["Filtered".to_string()],
+                timestamp: chrono::Utc::now(),
+            };
+
+            #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+            if let Some(ref store) = self.persistence {
+                if let Err(e) = persist_absence(&abstention, store.as_ref()).await {
+                    tracing::warn!("Failed to persist absence entry: {e}");
+                }
+            }
+
+            Ok(HybridResult::Abstained(abstention))
+        } else {
+            Ok(HybridResult::Success(results))
+        }
     }
 
     /// Query for a session using text input. Filters results to those with matching `session_id` metadata.
@@ -233,7 +258,7 @@ impl crate::framework::ChaoticSemanticFramework {
         query: &str,
         session_id: &str,
         top_k: usize,
-    ) -> Result<Vec<(String, f32)>> {
+    ) -> Result<HybridResult> {
         let filter = MetadataFilter::eq("session_id", session_id);
         self.probe_text_filtered(query, top_k, &filter).await
     }

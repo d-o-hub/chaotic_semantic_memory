@@ -328,7 +328,7 @@ impl AbsenceStore for Persistence {
                 entry.normalized_query.clone(),
                 entry.attempt_count as i64,
                 entry.last_threshold as f64,
-                entry.best_score_ever as f64,
+                entry.best_score_ever.map(|s| s as f64),
                 entry.first_seen.to_rfc3339(),
                 entry.last_seen.to_rfc3339()
             ],
@@ -381,7 +381,7 @@ impl Persistence {
         let last_threshold: f64 = row
             .get(4)
             .map_err(|e| MemoryError::database(format!("last_threshold: {e}")))?;
-        let best_score_ever: f64 = row
+        let best_score_ever: Option<f64> = row
             .get(5)
             .map_err(|e| MemoryError::database(format!("best_score_ever: {e}")))?;
         let first_seen: String = row
@@ -397,7 +397,7 @@ impl Persistence {
             normalized_query,
             attempt_count: attempt_count as u32,
             last_threshold: last_threshold as f32,
-            best_score_ever: best_score_ever as f32,
+            best_score_ever: best_score_ever.map(|s| s as f32),
             first_seen: first_seen
                 .parse()
                 .map_err(|e| MemoryError::database(format!("parse first_seen: {e}")))?,
