@@ -128,27 +128,42 @@ impl Singularity {
         let Some(ns_state) = self.get_namespace(ns) else {
             return Vec::new();
         };
+        // NOTE: ns_state borrow held for duration of BFS
         let mut candidates = std::collections::HashSet::new();
         let results = self.exact_similarity_scan(ns, query, 1, unix_now_ns(), true);
+
+        let fanout = self._retrieval_config.graph_fanout;
+        if fanout == 0 {
+            // Early return skips graph expansion; old behaviour would BFS with fanout=0 (seed only).
+            return results
+                .iter()
+                .filter_map(|(id, _)| ns_state.id_to_index.get(id).copied())
+                .collect();
+        }
+
         if let Some((seed_id, _)) = results.first() {
             let mut queue = VecDeque::new();
-            queue.push_back((seed_id.clone(), 0u8));
-            candidates.insert(seed_id.clone());
+            queue.push_back((seed_id.as_str(), 0u8));
+            candidates.insert(seed_id.as_str());
 
             while let Some((id, depth)) = queue.pop_front() {
                 if depth >= self._retrieval_config.graph_depth {
                     continue;
                 }
-                if let Some(links) = ns_state.associations.get(&id) {
-                    let mut sorted_links: Vec<_> = links.iter().collect();
-                    sorted_links.sort_by(|a, b| b.1.0.total_cmp(&a.1.0));
-                    for (neighbor_id, _) in sorted_links
-                        .into_iter()
-                        .take(self._retrieval_config.graph_fanout)
-                    {
-                        if !candidates.contains(neighbor_id) {
-                            candidates.insert(neighbor_id.clone());
-                            queue.push_back((neighbor_id.clone(), depth + 1));
+                if let Some(links) = ns_state.associations.get(id) {
+                    let mut neighbors: Vec<_> = links.iter().collect();
+
+                    // Partial selection: elements [0..fanout] are the top-K strongest by strength,
+                    // but their relative order is not guaranteed (O(E) average vs O(E log E) sort).
+                    if neighbors.len() > fanout {
+                        neighbors
+                            .select_nth_unstable_by(fanout - 1, |a, b| b.1.0.total_cmp(&a.1.0));
+                        neighbors.truncate(fanout);
+                    }
+
+                    for (neighbor_id, _) in neighbors {
+                        if candidates.insert(neighbor_id.as_str()) {
+                            queue.push_back((neighbor_id.as_str(), depth + 1));
                         }
                     }
                 }
@@ -157,7 +172,7 @@ impl Singularity {
 
         candidates
             .into_iter()
-            .filter_map(|id| ns_state.id_to_index.get(&id).copied())
+            .filter_map(|id| ns_state.id_to_index.get(id).copied())
             .collect()
     }
 
@@ -472,19 +487,5 @@ impl Singularity {
 }
 
 #[cfg(test)]
-mod tests_v2 {
-    use crate::singularity::{Singularity, SingularityConfig};
-    use csm_core::hyperdim::HVec10240;
-
-    #[test]
-    fn singularity_last_stats_v2() {
-        let s = Singularity::<HVec10240>::new(SingularityConfig::default());
-        assert_eq!(s.last_retrieval_stats("_default").candidate_count, 0);
-    }
-
-    #[test]
-    fn singularity_get_config_v2() {
-        let s = Singularity::<HVec10240>::new(SingularityConfig::default());
-        assert_eq!(s.retrieval_config().max_candidates, 1000);
-    }
-}
+#[path = "singularity_retrieval/tests.rs"]
+mod tests;
