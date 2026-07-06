@@ -128,11 +128,13 @@ impl Singularity {
         let Some(ns_state) = self.get_namespace(ns) else {
             return Vec::new();
         };
+        // NOTE: ns_state borrow held for duration of BFS
         let mut candidates = std::collections::HashSet::new();
         let results = self.exact_similarity_scan(ns, query, 1, unix_now_ns(), true);
 
         let fanout = self._retrieval_config.graph_fanout;
         if fanout == 0 {
+            // Early return skips graph expansion; old behaviour would BFS with fanout=0 (seed only).
             return results
                 .iter()
                 .filter_map(|(id, _)| ns_state.id_to_index.get(id).copied())
@@ -151,8 +153,8 @@ impl Singularity {
                 if let Some(links) = ns_state.associations.get(id) {
                     let mut neighbors: Vec<_> = links.iter().collect();
 
-                    // Algorithmic Optimization: Use O(E) selection instead of O(E log E) full sort.
-                    // This identifies the top-K strongest associations without the overhead of ordering.
+                    // Partial selection: elements [0..fanout] are the top-K strongest by strength,
+                    // but their relative order is not guaranteed (O(E) average vs O(E log E) sort).
                     if neighbors.len() > fanout {
                         neighbors
                             .select_nth_unstable_by(fanout - 1, |a, b| b.1.0.total_cmp(&a.1.0));

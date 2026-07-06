@@ -66,10 +66,12 @@ fn test_generate_graph_candidates_logic() {
         .map(|idx| s.get_namespace(ns).unwrap().concept_indices[idx].clone())
         .collect();
 
+    // Verify correct set of top-K strongest associations are picked
     assert!(names.contains("seed"));
-    assert!(names.contains("c2"));
-    assert!(names.contains("c4"));
-    assert!(!names.contains("c1"));
-    assert!(!names.contains("c3"));
+    assert!(names.contains("c2")); // strength 0.9
+    assert!(names.contains("c4")); // strength 0.7
+    // Excluded based on strength
+    assert!(!names.contains("c1")); // strength 0.1
+    assert!(!names.contains("c3")); // strength 0.5
     assert_eq!(names.len(), 3);
 }
