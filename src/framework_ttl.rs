@@ -229,12 +229,18 @@ impl crate::framework::ChaoticSemanticFramework {
         let results = self.probe_filtered(&vector, top_k, filter).await?;
 
         if results.is_empty() {
-            // We don't have a direct 'best_score' from probe_filtered easily without refactoring singularity,
-            // but we can at least return an Abstained result.
+            let ns = self.namespace.read().await;
+            let best_score = self
+                .singularity
+                .read()
+                .await
+                .last_retrieval_stats(&ns)
+                .best_score_seen;
+
             let abstention = RetrievalAbstention {
                 query: query.to_string(),
                 min_score_threshold: self.config.pattern_recognition_threshold as f32,
-                best_score_seen: None,
+                best_score_seen: best_score,
                 attempted_modes: vec!["Filtered".to_string()],
                 timestamp: chrono::Utc::now(),
             };

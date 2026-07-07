@@ -106,6 +106,9 @@ impl Default for Bm25Index {
 
 /// Returns true if the query has a known absence record with
 /// attempt_count >= min_attempts, indicating BM25 should be skipped.
+///
+/// TODO: Wire this hook into the main hybrid retrieval pipeline to enable
+/// short-circuiting of known futile queries.
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 pub async fn is_known_absent(query: &str, store: &dyn AbsenceStore, min_attempts: u32) -> bool {
     let id = AbsenceEntry::id_for(query);

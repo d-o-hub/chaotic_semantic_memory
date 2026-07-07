@@ -12,7 +12,8 @@ use std::collections::HashMap;
 pub struct RetrievalAbstention {
     /// The original query string
     pub query: String,
-    /// The minimum score threshold that was required (may be an approximation)
+    /// The minimum score threshold that was required (may be an approximation
+    /// based on framework weighting parameters).
     pub min_score_threshold: f32,
     /// The best score seen during this attempt
     pub best_score_seen: Option<f32>,
@@ -25,9 +26,13 @@ pub struct RetrievalAbstention {
 /// Result of a hybrid retrieval operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum HybridResult {
-    /// Results found above threshold
+    /// Results found above threshold.
+    ///
+    /// Note: An empty vector indicates that results existed in the underlying
+    /// store but were removed by a secondary filter (e.g. metadata filtering),
+    /// rather than a true absence of matching concepts.
     Success(Vec<(String, f32)>),
-    /// No results met the confidence threshold
+    /// No results met the confidence threshold.
     Abstained(RetrievalAbstention),
 }
 

@@ -369,7 +369,7 @@ impl Persistence {
                         normalized_query TEXT NOT NULL,
                         attempt_count INTEGER NOT NULL,
                         last_threshold REAL NOT NULL,
-                        best_score_ever REAL NOT NULL,
+                        best_score_ever REAL,
                         first_seen TEXT NOT NULL,
                         last_seen TEXT NOT NULL
                     );

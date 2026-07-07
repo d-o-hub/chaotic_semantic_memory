@@ -3,7 +3,7 @@ use chaotic_semantic_memory::bridge_retrieval::BridgeRetrieval;
 use chaotic_semantic_memory::encoder::TextEncoder;
 use chaotic_semantic_memory::prelude::*;
 use chaotic_semantic_memory::retrieval::bm25::Bm25Index;
-use chaotic_semantic_memory::retrieval::hybrid::{HybridResult, compute_weights, merge_results};
+use chaotic_semantic_memory::retrieval::hybrid::{compute_weights, merge_results, HybridResult};
 use chaotic_semantic_memory::semantic_bridge::{CanonicalConcept, ConceptGraph};
 use std::collections::{HashMap, HashSet};
 use tempfile::NamedTempFile;
