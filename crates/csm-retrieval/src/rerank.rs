@@ -91,6 +91,10 @@ impl Reranker for MmrReranker {
             let selected_vec = Arc::clone(&best_cand.vector);
             selected.push(best_cand);
 
+            if candidates.is_empty() {
+                break;
+            }
+
             // Synchronize auxiliary vectors
             query_sims.swap_remove(best_idx);
             max_sim_to_selected.swap_remove(best_idx);
