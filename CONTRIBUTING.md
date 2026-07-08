@@ -2,8 +2,19 @@
 
 ## Development Setup
 
+### Nix (Recommended)
+
+This project provides a `flake.nix` for a reproducible development environment.
+
 ```bash
-# Install Rust 1.85+ (edition 2024)
+# Enter the development shell with all tools pinned (Rust, WASM, Node.js)
+nix develop
+```
+
+### Manual Setup
+
+```bash
+# Install Rust 1.88+ (edition 2024)
 rustup install stable
 
 # Install components
