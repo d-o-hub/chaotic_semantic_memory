@@ -95,6 +95,20 @@ scripts/mutation_test.sh fast
 cargo test --test property_based
 ```
 
+## Profiling
+
+To profile the application with `perf` or `flamegraph` while maintaining release-level optimizations, use the `profiling` profile:
+
+```bash
+# Build with profiling symbols preserved
+cargo build --profile profiling
+
+# Run with perf
+perf record --call-graph dwarf ./target/profiling/csm
+```
+
+This profile inherits from `release` but preserves debug symbols (`debug = 1`) and disables stripping.
+
 ## Pull Request Process
 
 1. Create a feature branch from `main`
