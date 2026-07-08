@@ -71,7 +71,11 @@ if [[ "${PROFILE}" == "fast" ]]; then
   fi
   # CI mode: reuse target/ cache (safe in disposable checkout) + deterministic order
   if [[ "${CI_MODE}" == "true" ]]; then
-    FAST_ARGS+=(--in-place --no-shuffle)
+    # --in-place is incompatible with parallel jobs (-j)
+    if [[ "$JOBS" -eq 1 ]]; then
+      FAST_ARGS+=(--in-place)
+    fi
+    FAST_ARGS+=(--no-shuffle)
   fi
 elif [[ "${PROFILE}" != "full" ]]; then
   echo "usage: scripts/mutation_test.sh [--ci] [--threshold=N] [fast|full] [extra cargo-mutants args...]" >&2
