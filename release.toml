@@ -1,0 +1,32 @@
+# Configuration for cargo-release
+# https://github.com/crate-ci/cargo-release/blob/master/docs/reference.md
+
+[workspace]
+consolidate-commits = true
+consolidate-pushes = true
+
+# Update changelog using git-cliff
+pre-release-replacements = [
+  {file = "CHANGELOG.md", search = "unreleased", replace = "{{version}}", min = 1},
+  {file = "CHANGELOG.md", search = "Unreleased", replace = "{{version}}", min = 1},
+  {file = "VERSION", search = ".*", replace = "{{version}}", exactly = 1},
+]
+
+# Hook to sync version across the codebase and regenerate llms.txt
+# We call sync-version.sh which handles everything including changelog prep
+pre-release-hook = ["bash", "scripts/sync-version.sh", "{{version}}"]
+
+[changelog]
+# We'll use git-cliff via cargo-release's built-in support if possible,
+# or via the hook. cargo-release has 'changelog.release = true' to use git-cliff.
+enabled = true
+release = true
+
+[package]
+# Do not publish the workspace root by default
+publish = false
+
+[[package]]
+name = "chaotic_semantic_memory"
+tag-name = "v{{version}}"
+publish = true
