@@ -2,19 +2,8 @@
 
 ## Development Setup
 
-### Nix (Recommended)
-
-This project provides a `flake.nix` for a reproducible development environment.
-
 ```bash
-# Enter the development shell with all tools pinned (Rust, WASM, Node.js)
-nix develop
-```
-
-### Manual Setup
-
-```bash
-# Install Rust 1.88+ (edition 2024)
+# Install Rust 1.85+ (edition 2024)
 rustup install stable
 
 # Install components
@@ -24,10 +13,7 @@ rustup component add rustfmt clippy
 rustup target add wasm32-unknown-unknown
 
 # Set up git hooks
-pip install pre-commit
-pre-commit install
-pre-commit install --hook-type commit-msg
-pre-commit install --hook-type pre-push
+scripts/setup-hooks.sh
 ```
 
 ## Code Standards
