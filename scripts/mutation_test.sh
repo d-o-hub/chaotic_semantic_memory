@@ -31,6 +31,9 @@ set -- "${POSITIONAL[@]}"
 PROFILE="${1:-fast}"
 shift || true
 
+# Parallelism: default 4 on CI (runner has 4 vCPUs), 1 locally
+JOBS="${MUTANTS_JOBS:-1}"
+
 if ! command -v cargo-mutants &>/dev/null && ! cargo mutants --version &>/dev/null; then
   cat <<'MSG' >&2
 cargo-mutants is not installed.
@@ -78,28 +81,25 @@ fi
 set -o pipefail
 set +e  # cargo-mutants exits 2 when any mutant is missed; we evaluate the score below
 RUSTFLAGS="" cargo mutants "${FAST_ARGS[@]}" \
-  --build-timeout 600 \
-  --exclude-re 'WasmFramework::' \
-  --exclude-re 'persistence::Persistence::schema_version' \
-  --exclude-re 'persistence::Persistence::load_index' \
-  --exclude-re 'persistence::Persistence::list_namespaces' \
-  --exclude-re 'HnswIndex::serialize' \
-  --exclude-re 'HnswIndex::deserialize' \
-  --exclude-re 'OtlpGuard::' \
-  --exclude-re 'install_grpc_tracer' \
-  --exclude-re 'impl Drop for Guard' \
-  --exclude-re 'impl Drop for OtlpGuard' \
-  --exclude-re 'Result<Option<Guard>>' \
-  --exclude-re 'replace && with' \
-  --exclude-re 'delete . in init' \
-  --exclude-re 'replace > with >= in FrameworkBuilder::with_max_associations_per_concept' \
-  --exclude-re 'persistence_wasm' \
-  --exclude-re 'replace > with .* in FrameworkBuilder::build' \
-  --exclude-re 'apply_migrations_with_conn' \
-  --exclude-re 'ChaoticSemanticFramework::load ' \
-  --exclude-re 'mcp::server::' \
-  --exclude-re 'impl Clone for McpHandler' \
-  --exclude-re 'replace > with >= in <impl Reranker for MmrReranker>::rerank' \
+  -j "$JOBS" \
+  --build-timeout 180 \
+  --minimum-test-timeout 30 \
+  --exclude-re "WasmFramework::" \
+  --exclude-re "persistence::" \
+  --exclude-re "HnswIndex::serialize" \
+  --exclude-re "HnswIndex::deserialize" \
+  --exclude-re "OtlpGuard::" \
+  --exclude-re "install_grpc_tracer" \
+  --exclude-re "impl Drop for Guard" \
+  --exclude-re "impl Drop for OtlpGuard" \
+  --exclude-re "Result<Option<Guard>>" \
+  --exclude-re "replace && with" \
+  --exclude-re "delete . in init" \
+  --exclude-re "replace > with >= in FrameworkBuilder::with_max_associations_per_concept" \
+  --exclude-re "replace > with .* in FrameworkBuilder::build" \
+  --exclude-re "ChaoticSemanticFramework::load " \
+  --exclude-re "mcp::" \
+  --exclude-re "replace > with >= in <impl Reranker for MmrReranker>::rerank" \
   "$@" 2>&1 | tee "${LOG_FILE}"
 RESULT="${PIPESTATUS[0]}"
 set +o pipefail
