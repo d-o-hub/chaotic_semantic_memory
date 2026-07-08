@@ -65,21 +65,6 @@ cargo fmt --check
 cargo clippy --all-targets --all-features -- -D warnings
 ```
 
-### Local CI Testing (Optional)
-
-For fast feedback on GitHub Actions workflows, you can use [act](https://github.com/nektos/act) to run them locally. This repo includes a `.actrc` for configuration.
-
-```bash
-# List all jobs
-act -l
-
-# Run the lint job locally
-act -j lint
-
-# Run all push-event workflows
-act
-```
-
 ## Testing
 
 ```bash
