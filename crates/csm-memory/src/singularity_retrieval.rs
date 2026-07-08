@@ -16,7 +16,7 @@ use std::sync::Arc;
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
 
-use crate::singularity::{unix_now_ns, Singularity};
+use crate::singularity::{Singularity, unix_now_ns};
 use csm_core::error::Result;
 use csm_core::hyperdim::HVec10240;
 
@@ -145,9 +145,9 @@ impl Singularity {
                     let fanout = self._retrieval_config.graph_fanout.min(sorted_links.len());
                     if fanout > 0 {
                         sorted_links
-                            .select_nth_unstable_by(fanout - 1, |a, b| b.1 .0.total_cmp(&a.1 .0));
+                            .select_nth_unstable_by(fanout - 1, |a, b| b.1.0.total_cmp(&a.1.0));
                         sorted_links.truncate(fanout);
-                        sorted_links.sort_unstable_by(|a, b| b.1 .0.total_cmp(&a.1 .0));
+                        sorted_links.sort_unstable_by(|a, b| b.1.0.total_cmp(&a.1.0));
                     }
 
                     for (neighbor_id, _) in sorted_links {
