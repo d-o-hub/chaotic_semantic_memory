@@ -256,7 +256,7 @@ debug = 1
 workspace = true
 
 [lib]
-crate-type = ["lib", "cdylib"]
+crate-type = ["lib"]
 
 [[bin]]
 name = "csm"
