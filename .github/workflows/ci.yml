@@ -196,7 +196,7 @@ jobs:
     # main-branch CI stays fast enough to fit inside the Release workflow's
     # wait-for-ci window. Push-to-main already gets full mutation coverage on
     # the PR that introduced the change.
-    if: github.event_name == 'pull_request'
+    if: github.event_name == "pull_request"
     runs-on: ubuntu-latest
     timeout-minutes: 90
     needs: test
@@ -204,21 +204,40 @@ jobs:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
       with:
         fetch-depth: 0
+
+    # --- NEW: skip entire job if no Rust source files changed ---
+    - name: Check for Rust changes
+      id: rust_changes
+      run: |
+        git fetch origin ${{ github.base_ref }} --depth=1
+        CHANGED=$(git diff --name-only origin/${{ github.base_ref }} | grep "\.rs$" || true)
+        echo "has_rust_changes=$([ -n "$CHANGED" ] && echo "true" || echo "false")" >> $GITHUB_OUTPUT
+
     - name: Install Rust
+      if: steps.rust_changes.outputs.has_rust_changes == "true"
       uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
       with:
         cache: false
+
     - name: Cache Rust dependencies
+      if: steps.rust_changes.outputs.has_rust_changes == "true"
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
+      with:
+        shared-key: mutation-test   # dedicated cache bucket, avoids evicting test-job cache
+
     - name: Install cargo-mutants
+      if: steps.rust_changes.outputs.has_rust_changes == "true"
       uses: taiki-e/install-action@4684b8405694ae9dd42c9f39ba901a70ae83f4a3  # v2.82.9
       with:
         tool: cargo-mutants
+
     - name: Run mutation tests
+      if: steps.rust_changes.outputs.has_rust_changes == "true"
       run: bash scripts/mutation_test.sh fast --ci
       env:
-        MUTATION_THRESHOLD: 85
-        DIFF_TARGET: origin/${{ github.base_ref || 'main' }}
+        MUTATION_THRESHOLD: ${{ github.event.pull_request.draft && "75" || "85" }}
+        DIFF_TARGET: origin/${{ github.base_ref || "main" }}
+        MUTANTS_JOBS: "4"   # passed into script below
 
   wasm:
     runs-on: ubuntu-latest

@@ -84,8 +84,12 @@ fi
 
 set -o pipefail
 set +e  # cargo-mutants exits 2 when any mutant is missed; we evaluate the score below
-RUSTFLAGS="" cargo mutants "${FAST_ARGS[@]}" \
-  -j "$JOBS" \
+MUTANTS_ARGS=("${FAST_ARGS[@]}")
+if [[ "$JOBS" -gt 1 ]]; then
+  MUTANTS_ARGS+=(-j "$JOBS")
+fi
+
+RUSTFLAGS="" cargo mutants "${MUTANTS_ARGS[@]}" \
   --build-timeout 180 \
   --minimum-test-timeout 30 \
   --exclude-re "WasmFramework::" \
