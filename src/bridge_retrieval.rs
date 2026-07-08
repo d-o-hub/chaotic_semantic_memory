@@ -188,11 +188,7 @@ impl BridgeRetrieval {
                             concept: *score,
                             semantic: 0.0,
                             final_score: 0.0,
-                            evidence: {
-                                let mut v = Vec::with_capacity(1);
-                                v.push("concept_expansion".to_string());
-                                v
-                            },
+                            evidence: vec!["concept_expansion".to_string()],
                         },
                     });
                 }
