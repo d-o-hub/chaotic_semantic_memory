@@ -24,7 +24,10 @@ rustup component add rustfmt clippy
 rustup target add wasm32-unknown-unknown
 
 # Set up git hooks
-scripts/setup-hooks.sh
+pip install pre-commit
+pre-commit install
+pre-commit install --hook-type commit-msg
+pre-commit install --hook-type pre-push
 ```
 
 ## Code Standards
