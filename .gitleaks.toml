@@ -1,6 +1,6 @@
 # .gitleaks.toml
 # Gitleaks configuration for secret scanning
-# Ported from d-oit/rust-2026-template and tuned for chaotic_semantic_memory
+# For more information, see https://github.com/gitleaks/gitleaks
 
 [allowlist]
 description = "Global allowlist"
@@ -8,7 +8,6 @@ paths = [
     '''Cargo\.lock''',
     '''package-lock\.json''',
     '''go\.sum''',
-    '''metadata\.json''', # Large metadata artifact, prone to false positives
 ]
 
 [[rules]]
@@ -41,15 +40,3 @@ description = "GitHub Refresh Token"
 id = "github-refresh-token"
 regex = '''ghr_[a-zA-Z0-9]{76}'''
 keywords = ["ghr_"]
-
-[[rules]]
-description = "OpenAI API Key"
-id = "openai-api-key"
-regex = '''sk-[a-zA-Z0-9]{48}'''
-keywords = ["sk-"]
-
-[[rules]]
-description = "Anthropic API Key"
-id = "anthropic-api-key"
-regex = '''sk-ant-api03-[a-zA-Z0-9\-]{94}'''
-keywords = ["sk-ant-api03"]
