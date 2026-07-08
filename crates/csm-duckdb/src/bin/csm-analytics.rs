@@ -1,5 +1,5 @@
-use csm_duckdb::cli::{AnalyticsCommand, run_analytics};
 use clap::Parser;
+use csm_duckdb::cli::{AnalyticsCommand, run_analytics};
 
 #[derive(Parser)]
 #[command(name = "csm-analytics")]

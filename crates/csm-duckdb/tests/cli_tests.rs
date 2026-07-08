@@ -48,20 +48,16 @@ async fn test_export_command() {
 
     let out_dir = tempfile::tempdir().unwrap();
 
-    let cmd = csm_duckdb::cli::AnalyticsCommand::Export(
-        csm_duckdb::cli::ExportArgs {
-            input: temp_db.path().to_path_buf(),
-            out: out_dir.path().to_path_buf(),
-            #[cfg(feature = "parquet")]
-            compression: csm_duckdb::export_parquet::ParquetCompression::None,
-            row_group_size: 1000,
-            partition_by: None,
-        },
-    );
+    let cmd = csm_duckdb::cli::AnalyticsCommand::Export(csm_duckdb::cli::ExportArgs {
+        input: temp_db.path().to_path_buf(),
+        out: out_dir.path().to_path_buf(),
+        #[cfg(feature = "parquet")]
+        compression: csm_duckdb::export_parquet::ParquetCompression::None,
+        row_group_size: 1000,
+        partition_by: None,
+    });
 
-    csm_duckdb::cli::run_analytics(cmd)
-        .await
-        .unwrap();
+    csm_duckdb::cli::run_analytics(cmd).await.unwrap();
 
     // Verify some files were created
     assert!(out_dir.path().join("concepts.parquet").exists());
@@ -87,13 +83,9 @@ async fn test_query_command() {
     )
     .await
     .unwrap();
-    csm_duckdb::cli::query::run(
-        &analytics,
-        "SELECT * FROM concepts",
-        &CliOutputFormat::Json,
-    )
-    .await
-    .unwrap();
+    csm_duckdb::cli::query::run(&analytics, "SELECT * FROM concepts", &CliOutputFormat::Json)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -104,14 +96,10 @@ async fn test_export_json_input() {
         .unwrap();
 
     // Test open_analytics helper implicitly via run_analytics
-    let cmd = csm_duckdb::cli::AnalyticsCommand::Stats(
-        csm_duckdb::cli::StatsArgs {
-            input: temp.path().to_path_buf(),
-            format: CliOutputFormat::Json,
-        },
-    );
+    let cmd = csm_duckdb::cli::AnalyticsCommand::Stats(csm_duckdb::cli::StatsArgs {
+        input: temp.path().to_path_buf(),
+        format: CliOutputFormat::Json,
+    });
 
-    csm_duckdb::cli::run_analytics(cmd)
-        .await
-        .unwrap();
+    csm_duckdb::cli::run_analytics(cmd).await.unwrap();
 }

@@ -11,7 +11,7 @@ members = [
     "crates/csm-chaos",
     ".",
     "benchmarks",
-    "crates/chaotic_semantic_memory_duckdb",
+    "crates/csm-duckdb",
 ]
 resolver = "3"
 
