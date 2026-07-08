@@ -1,0 +1,38 @@
+module.exports = {
+  extends: ['@commitlint/config-conventional'],
+  rules: {
+    'body-max-line-length': [0],
+    'scope-enum': [
+      2,
+      'always',
+      [
+        'singularity',
+        'reservoir',
+        'framework',
+        'persistence',
+        'cli',
+        'wasm',
+        'retrieval',
+        'embedding',
+        'mcp',
+        'observability',
+        'bridge',
+        'duckdb',
+        'chaos',
+        'memory',
+        'core',
+        'deps',
+        'ci',
+        'docs',
+        'release'
+      ]
+    ],
+  },
+  ignores: [
+    (message) => message.includes('Co-authored-by: codacy-production[bot]'),
+    (message) => /^Update .*/.test(message) && message.includes('bot'),
+    (message) => message.includes('---\nupdated-dependencies:'),
+    (message) => /^Merge branch .+ into/.test(message),
+    (message) => /^Merge pull request/.test(message),
+  ],
+};
