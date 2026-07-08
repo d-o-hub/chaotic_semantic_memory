@@ -229,30 +229,5 @@ pub(crate) fn parse_hvec(vec_data: &[Value]) -> Result<csm_core::hyperdim::HVec1
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn test_parse_hvec_valid() {
-        let vec_data: Vec<Value> = (0..80).map(|i| json!(i as u64)).collect();
-        let hvec = parse_hvec(&vec_data).unwrap();
-        assert_eq!(hvec.data[0], 0);
-        assert_eq!(hvec.data[79], 79);
-    }
-
-    #[test]
-    fn test_parse_hvec_invalid_length() {
-        let vec_data = vec![json!(1u64); 79];
-        let err = parse_hvec(&vec_data).unwrap_err();
-        assert_eq!(err.to_string(), "Vector must have 80 elements");
-    }
-
-    #[test]
-    fn test_parse_hvec_invalid_type() {
-        let mut vec_data = vec![json!(1u64); 80];
-        vec_data[0] = json!("not a number");
-        let err = parse_hvec(&vec_data).unwrap_err();
-        assert_eq!(err.to_string(), "Invalid vector element");
-    }
-}
+#[path = "tools_tests.rs"]
+mod tests;
