@@ -481,8 +481,8 @@ mod tests_v2 {
         let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
         let hv = HVec10240::random();
         for i in 0..3 {
-            let concept = ConceptBuilder::new(&format!("c{i}"))
-                .with_vector(hv.clone())
+            let concept = ConceptBuilder::new(format!("c{i}"))
+                .with_vector(hv)
                 .build()
                 .unwrap();
             singularity.inject("_default", concept).unwrap();
