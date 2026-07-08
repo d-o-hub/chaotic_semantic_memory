@@ -3641,10 +3641,10 @@ actions:
       duckdb_workspace_restructure_complete: true
     cost: 4
     status: complete
-    file: Cargo.toml, crates/chaotic_semantic_memory_duckdb/Cargo.toml
+    file: Cargo.toml, crates/csm-duckdb/Cargo.toml
     description: |
       ADR-0079. Moved DuckDB-dependent code to a workspace member
-      crate (crates/chaotic_semantic_memory_duckdb/) to keep the core
+      crate (crates/csm-duckdb/) to keep the core
       crate slim and DuckDB-free.
 
   - name: duckdb_phase1_readonly_analytics
@@ -3654,11 +3654,11 @@ actions:
       duckdb_phase1_readonly_analytics_complete: true
     cost: 8
     status: complete
-    file: crates/chaotic_semantic_memory_duckdb/src/{connection,schema,stats,ingest_libsql}.rs
+    file: crates/csm-duckdb/src/{connection,schema,stats,ingest_libsql}.rs
     description: |
       ADR-0080. Read-only DuckDB connector over libSQL exports.
       Implements connection, schema, stats, libsql ingest. Tested via
-      crates/chaotic_semantic_memory_duckdb/tests/integration_tests.rs.
+      crates/csm-duckdb/tests/integration_tests.rs.
 
   - name: duckdb_phase2_parquet_export
     preconditions:
@@ -3667,7 +3667,7 @@ actions:
       duckdb_phase2_parquet_export_complete: true
     cost: 6
     status: complete
-    file: crates/chaotic_semantic_memory_duckdb/src/{export_parquet,export_all,manifest}.rs
+    file: crates/csm-duckdb/src/{export_parquet,export_all,manifest}.rs
     description: |
       ADR-0081. Parquet export with manifest tracking and
       bench/export ingest paths. Snapshot-tested in
@@ -3680,7 +3680,7 @@ actions:
       duckdb_phase3_cli_integration_complete: true
     cost: 8
     status: complete
-    file: crates/chaotic_semantic_memory_duckdb/src/{bin/csm-analytics.rs,cli/**}
+    file: crates/csm-duckdb/src/{bin/csm-analytics.rs,cli/**}
     description: |
       ADR-0082 (PR #242, merge 8ca0e75). `csm-analytics` standalone
       binary plus optional integrated `csm analytics` subcommand.

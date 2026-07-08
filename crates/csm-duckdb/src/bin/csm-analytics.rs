@@ -1,4 +1,4 @@
-use chaotic_semantic_memory_duckdb::cli::{AnalyticsCommand, run_analytics};
+use csm_duckdb::cli::{AnalyticsCommand, run_analytics};
 use clap::Parser;
 
 #[derive(Parser)]

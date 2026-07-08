@@ -1,4 +1,4 @@
-# ADR-0079: Workspace Restructure for `chaotic_semantic_memory_duckdb` Companion Crate
+# ADR-0079: Workspace Restructure for `csm-duckdb` Companion Crate
 
 ## Status
 
@@ -41,14 +41,14 @@ Adding DuckDB directly would:
 ## Considered Options
 
 1. **Single-crate, feature-gated** — Add `duckdb` to the existing crate behind `--features duckdb`.
-2. **Sibling crate at repo root** — Add a top-level `chaotic_semantic_memory_duckdb/` package.
-3. **Cargo workspace with `crates/` directory** — Convert the repo into a workspace and place the companion crate at `crates/chaotic_semantic_memory_duckdb/`.
+2. **Sibling crate at repo root** — Add a top-level `csm-duckdb/` package.
+3. **Cargo workspace with `crates/` directory** — Convert the repo into a workspace and place the companion crate at `crates/csm-duckdb/`.
 
 ## Decision Outcome
 
 Chosen: **Option 3 — Cargo workspace with `crates/` directory.**
 
-Move toward a small workspace layout. The core crate stays in place (or moves to `crates/chaotic_semantic_memory/`) and the companion lives at `crates/chaotic_semantic_memory_duckdb/`. The companion depends on the core crate; **never the other way around**.
+Move toward a small workspace layout. The core crate stays in place (or moves to `crates/chaotic_semantic_memory/`) and the companion lives at `crates/csm-duckdb/`. The companion depends on the core crate; **never the other way around**.
 
 ### Justification
 
@@ -60,7 +60,7 @@ Move toward a small workspace layout. The core crate stays in place (or moves to
 
 To minimize blast radius:
 
-1. **Stage A (non-breaking):** Keep the core crate at the repo root for one release cycle. Add `crates/chaotic_semantic_memory_duckdb/` as a sibling and declare a virtual `[workspace]` in the root `Cargo.toml`.
+1. **Stage A (non-breaking):** Keep the core crate at the repo root for one release cycle. Add `crates/csm-duckdb/` as a sibling and declare a virtual `[workspace]` in the root `Cargo.toml`.
 2. **Stage B (optional, later release):** If a second companion crate is added, move the core crate into `crates/chaotic_semantic_memory/` in a dedicated migration ADR.
 
 This staged approach avoids a disruptive path change for downstream consumers.
@@ -79,7 +79,7 @@ This staged approach avoids a disruptive path change for downstream consumers.
              ▼
 ╭────────────────────────────────────╮
 │ crates/                            │
-│  └─ chaotic_semantic_memory_duckdb │
+│  └─ csm-duckdb │
 │      ├─ src/                       │
 │      ├─ tests/                     │
 │      ├─ Cargo.toml                 │
@@ -94,7 +94,7 @@ Root `Cargo.toml` additions:
 members = [
     ".",
     "benchmarks",
-    "crates/chaotic_semantic_memory_duckdb",
+    "crates/csm-duckdb",
 ]
 resolver = "3"
 
@@ -109,7 +109,7 @@ Companion crate `Cargo.toml`:
 
 ```toml
 [package]
-name = "chaotic_semantic_memory_duckdb"
+name = "csm-duckdb"
 version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
@@ -147,7 +147,7 @@ If any of these are not `pub`, a follow-up PR to the core crate will re-export t
 - [ ] `cargo build --target wasm32-unknown-unknown` for the core crate is unaffected.
 - [ ] Companion crate has its own `AGENTS.md` and `README.md`.
 - [ ] Root `README.md` documents the two-crate model under "Optional analytics".
-- [ ] CI matrix adds a single job: `cargo test -p chaotic_semantic_memory_duckdb` (Linux only).
+- [ ] CI matrix adds a single job: `cargo test -p csm-duckdb` (Linux only).
 - [ ] No DuckDB types appear in the public API of `chaotic_semantic_memory`.
 
 ## Pros and Cons

@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **MCP Server**: Implemented Model Context Protocol (MCP) server support with stdio transport, providing 12 tool and 3 resource handlers for LLM integration (ADR-0067).
-- **DuckDB Companion Crate**: Added workspace member crate `chaotic_semantic_memory_duckdb` providing parquet export, analytical queries, and a `csm-analytics` tool (ADR-0079 to ADR-0082).
+- **DuckDB Companion Crate**: Added workspace member crate `csm-duckdb` providing parquet export, analytical queries, and a `csm-analytics` tool (ADR-0079 to ADR-0082).
 - **CLI**: Reached 100% feature-parity with the framework API across all 22 commands, locked with a new `cli_parity` smoke test suite (ADR-0066).
 - **Events**: Pluggable memory event subscriptions in the framework using the CloudEvents specification.
 

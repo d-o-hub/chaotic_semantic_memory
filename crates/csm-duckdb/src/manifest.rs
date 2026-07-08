@@ -49,7 +49,7 @@ impl Analytics {
         Ok(ExportManifest {
             schema_version: 1,
             generator: format!(
-                "chaotic_semantic_memory_duckdb {}",
+                "csm-duckdb {}",
                 env!("CARGO_PKG_VERSION")
             ),
             core_crate_version: format!("{} (core stub)", env!("CARGO_PKG_VERSION")),
