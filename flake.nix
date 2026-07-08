@@ -75,6 +75,9 @@
               cargo-audit      # security audit
               cargo-binstall   # fast binary installs
               cargo-llms-txt   # llms.txt generation (scripts/gen-llms-txt.sh)
+              cargo-release    # release automation (release.toml)
+              cargo-dist       # distribution (dist-workspace.toml)
+              git-cliff        # changelog generation (cliff.toml)
 
               # Quality and documentation
               shellcheck       # shell script hygiene
