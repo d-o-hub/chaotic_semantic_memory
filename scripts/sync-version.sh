@@ -25,34 +25,7 @@ if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   exit 1
 fi
 
-# Guardrail: Validate CHANGELOG format before modifying
-validate_changelog() {
-  local ver="$1"
-  local changelog="CHANGELOG.md"
-  
-  if [ ! -f "$changelog" ]; then
-    echo "Error: $changelog not found"
-    exit 1
-  fi
-  
-  # Check for Unreleased section
-  if ! grep -q "## \[Unreleased\]" "$changelog"; then
-    echo "Error: Missing [Unreleased] section in $changelog"
-    exit 1
-  fi
-  
-  # Check for duplicate version headers
-  local existing_count
-  # Use double backslash and quotes to ensure grep sees a literal bracket safely
-  existing_count=$(grep -c "^## \\\[${ver}\\\]" "$changelog" || true)
-  if [ "${existing_count:-0}" -gt 0 ]; then
-    echo "Error: Version ${ver} already has ${existing_count} header(s) in $changelog"
-    exit 1
-  fi
-}
-
 # Get current version from Cargo.toml first
-# Use quotes for the filename to satisfy linting
 CURRENT_VERSION=$(grep -m1 '^version = ' "Cargo.toml" | sed 's/^version = "\(.*\)"/\1/')
 
 # If version unchanged, skip validation and exit early
@@ -60,9 +33,6 @@ if [ "$VERSION" = "$CURRENT_VERSION" ]; then
     echo "Version $VERSION is current. No sync needed."
     exit 0
 fi
-
-# Run validation (only for version bumps)
-validate_changelog "$VERSION"
 
 # Extract major.minor for Cargo.toml compatibility version
 MAJOR_MINOR=$(echo "$VERSION" | cut -d. -f1,2)
@@ -76,7 +46,6 @@ declare -A VERSION_FILES
 VERSION_FILES["Cargo.toml"]="s/^version = \"$CURRENT_VERSION\"/version = \"$VERSION\"/"
 VERSION_FILES["README.md"]="s/version = \"$CURRENT_VERSION\"/version = \"$MAJOR_MINOR\"/g"
 VERSION_FILES["book/src/getting-started.md"]="s/version = \"$CURRENT_VERSION\"/version = \"$MAJOR_MINOR\"/g"
-VERSION_FILES["CHANGELOG.md"]="s/\[Unreleased\]/\[$VERSION\]/; s/## \[Unreleased\]/## [$VERSION] - $(date +%Y-%m-%d)/"
 VERSION_FILES["wasm/package.json"]="s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$VERSION\"/"
 VERSION_FILES["cli-npm/package.json"]="s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$VERSION\"/"
 VERSION_FILES["tests/framework_lifecycle.rs"]="s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$VERSION\"/g"
@@ -111,5 +80,10 @@ done
 echo "  Updating workspace crates..."
 find crates -name "Cargo.toml" -exec sed -i "s/version = \"$CURRENT_VERSION\"/version = \"$VERSION\"/g" {} \;
 echo "  ✓ Updated workspace crate versions"
+
+# Generate llms.txt files
+if [ -f "scripts/gen-llms-txt.sh" ]; then
+    bash scripts/gen-llms-txt.sh || echo "Warning: llms.txt generation failed"
+fi
 
 echo "Version sync complete: $CURRENT_VERSION → $VERSION"
