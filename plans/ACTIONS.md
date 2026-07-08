@@ -4220,15 +4220,36 @@ actions:
     preconditions:
       harness_engineering_gap_analysis_complete: true
     effects:
-      rerank_benchmarks_exist: true
-      hybrid_benchmarks_exist: true
-      embedding_benchmarks_exist: true
-    cost: 5
+      gitleaks_enabled: true
+    cost: 2
     status: complete
-    file: benches/rerank_benchmark.rs, benches/hybrid_benchmark.rs, benches/embedding_benchmark.rs
+    file: .gitleaks.toml
     description: |
-      Secret scanning configuration. Critical for a crate that handles
-      database credentials (Turso tokens). Add to pre-commit pipeline.
+      Secret scanning configuration for Gitleaks. Critical for a crate that handles
+      database credentials (Turso tokens).
+
+  - name: create_secretlint_config
+    preconditions:
+      harness_engineering_gap_analysis_complete: true
+    effects:
+      secretlint_enabled: true
+    cost: 2
+    status: complete
+    file: .secretlintrc.json, .secretlintignore
+    description: |
+      Secretlint configuration for linting secrets in files.
+
+  - name: add_secret_scanning_workflow
+    preconditions:
+      gitleaks_enabled: true
+      secretlint_enabled: true
+    effects:
+      automated_secret_scanning_ci: true
+    cost: 2
+    status: complete
+    file: .github/workflows/secret-scan.yml
+    description: |
+      GitHub Action workflow for automated secret scanning on PRs.
 
   - name: create_arch_fitness_tests
     preconditions:
