@@ -138,8 +138,8 @@ impl BridgeRetrieval {
         primary: &[(String, f32)],
         expanded: &[(String, f32)],
     ) -> Vec<BridgeHit> {
-        use std::collections::HashMap;
         use std::collections::hash_map::Entry;
+        use std::collections::HashMap;
 
         // Optimization: Pre-allocate map to avoid redundant re-hashes and re-allocs.
         // Use &str as key to avoid redundant String clones during accumulation.
@@ -362,12 +362,10 @@ mod tests {
 
         assert!(!results.is_empty());
         // Check that expansion added concept score evidence
-        assert!(
-            results[0]
-                .scores
-                .evidence
-                .contains(&"deterministic_recall".to_string())
-        );
+        assert!(results[0]
+            .scores
+            .evidence
+            .contains(&"deterministic_recall".to_string()));
     }
 
     #[test]
@@ -476,5 +474,33 @@ mod tests_v2 {
         );
         let results = bridge.query("_default", &singularity, "test", 10, None);
         assert!(results.is_ok());
+    }
+
+    #[test]
+    fn test_memory_packet_confidence_is_average() {
+        let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
+        let hv = HVec10240::random();
+        for i in 0..3 {
+            let concept = ConceptBuilder::new(&format!("c{i}"))
+                .with_vector(hv.clone())
+                .build()
+                .unwrap();
+            singularity.inject("_default", concept).unwrap();
+        }
+
+        let bridge = BridgeRetrieval::new(
+            TextEncoder::new(),
+            ConceptGraph::new(),
+            BridgeConfig::default(),
+        );
+        let packet = bridge
+            .memory_packet("_default", &singularity, "concept", 10, None)
+            .unwrap();
+
+        assert!(
+            packet.confidence > 0.0 && packet.confidence <= 1.0,
+            "confidence {} should be in (0, 1]",
+            packet.confidence
+        );
     }
 }
