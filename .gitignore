@@ -46,8 +46,9 @@ pkg/
 /progress/mutation/*.log
 /progress/mutation/*-latest.md
 
-# Auto-generated exports
-
+# Generated metadata artifacts (regenerate via `cargo run --bin csm -- export`)
+/metadata.json
+/export.json
 
 # IDE / editor tooling
 .opencode/node_modules/
@@ -99,5 +100,3 @@ commit_messages.txt
 pr_diff.txt
 update_.fastembed_cache/
 
-# Local export file
-export.json
