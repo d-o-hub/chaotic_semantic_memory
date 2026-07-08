@@ -138,8 +138,8 @@ impl BridgeRetrieval {
         primary: &[(String, f32)],
         expanded: &[(String, f32)],
     ) -> Vec<BridgeHit> {
-        use std::collections::hash_map::Entry;
         use std::collections::HashMap;
+        use std::collections::hash_map::Entry;
 
         // Optimization: Pre-allocate map to avoid redundant re-hashes and re-allocs.
         // Use &str as key to avoid redundant String clones during accumulation.
@@ -362,10 +362,12 @@ mod tests {
 
         assert!(!results.is_empty());
         // Check that expansion added concept score evidence
-        assert!(results[0]
-            .scores
-            .evidence
-            .contains(&"deterministic_recall".to_string()));
+        assert!(
+            results[0]
+                .scores
+                .evidence
+                .contains(&"deterministic_recall".to_string())
+        );
     }
 
     #[test]
