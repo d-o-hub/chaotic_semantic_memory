@@ -25,21 +25,6 @@ if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   exit 1
 fi
 
-# Guardrail: Validate CHANGELOG format before modifying
-validate_changelog() {
-  local ver="$1"
-  local changelog="CHANGELOG.md"
-  
-  if [ ! -f "$changelog" ]; then
-    echo "Error: $changelog not found"
-    exit 1
-  fi
-  
-  # Check for Unreleased section (if we are not using git-cliff exclusively)
-  # Actually, if we are using git-cliff, we might not need to pre-validate this,
-  # but it's good to keep some sanity checks.
-}
-
 # Get current version from Cargo.toml first
 CURRENT_VERSION=$(grep -m1 '^version = ' "Cargo.toml" | sed 's/^version = "\(.*\)"/\1/')
 
