@@ -128,7 +128,8 @@ impl BridgeRetrieval {
         reranker: Option<&dyn SemanticReranker>,
     ) -> Result<MemoryPacket> {
         let hits = self.query(ns, singularity, query_text, top_k, reranker)?;
-        self.compile_packet(ns, query_text, &hits, singularity)
+        // Optimization: Pass hits by value to allow ownership transfer of concept IDs.
+        self.compile_packet(ns, query_text, hits, singularity)
     }
 
     /// Merge primary and expanded results with score breakdown.
@@ -138,13 +139,17 @@ impl BridgeRetrieval {
         expanded: &[(String, f32)],
     ) -> Vec<BridgeHit> {
         use std::collections::HashMap;
+        use std::collections::hash_map::Entry;
 
-        let mut hit_map: HashMap<String, BridgeHit> = HashMap::new();
+        // Optimization: Pre-allocate map to avoid redundant re-hashes and re-allocs.
+        // Use &str as key to avoid redundant String clones during accumulation.
+        let mut hit_map: HashMap<&str, BridgeHit> =
+            HashMap::with_capacity(primary.len() + expanded.len());
 
         // Process primary results (deterministic scores)
         for (id, score) in primary {
             hit_map.insert(
-                id.clone(),
+                id.as_str(),
                 BridgeHit {
                     id: id.clone(),
                     text_preview: None,
@@ -153,7 +158,12 @@ impl BridgeRetrieval {
                         concept: 0.0,
                         semantic: 0.0,
                         final_score: 0.0,
-                        evidence: vec!["deterministic_recall".to_string()],
+                        // Optimization: Pre-allocate evidence vector.
+                        evidence: {
+                            let mut v = Vec::with_capacity(2);
+                            v.push("deterministic_recall".to_string());
+                            v
+                        },
                     },
                 },
             );
@@ -161,15 +171,16 @@ impl BridgeRetrieval {
 
         // Process expanded results (concept scores)
         for (id, score) in expanded {
-            if let Some(hit) = hit_map.get_mut(id) {
-                // Boost existing hit's concept score
-                hit.scores.concept = hit.scores.concept.max(*score);
-                hit.scores.evidence.push("concept_expansion".to_string());
-            } else {
-                // New hit from expansion only
-                hit_map.insert(
-                    id.clone(),
-                    BridgeHit {
+            match hit_map.entry(id.as_str()) {
+                Entry::Occupied(mut entry) => {
+                    let hit = entry.get_mut();
+                    // Boost existing hit's concept score
+                    hit.scores.concept = hit.scores.concept.max(*score);
+                    hit.scores.evidence.push("concept_expansion".to_string());
+                }
+                Entry::Vacant(entry) => {
+                    // New hit from expansion only
+                    entry.insert(BridgeHit {
                         id: id.clone(),
                         text_preview: None,
                         scores: ScoreBreakdown {
@@ -177,10 +188,14 @@ impl BridgeRetrieval {
                             concept: *score,
                             semantic: 0.0,
                             final_score: 0.0,
-                            evidence: vec!["concept_expansion".to_string()],
+                            evidence: {
+                                let mut v = Vec::with_capacity(1);
+                                v.push("concept_expansion".to_string());
+                                v
+                            },
                         },
-                    },
-                );
+                    });
+                }
             }
         }
 
@@ -199,12 +214,12 @@ impl BridgeRetrieval {
         &self,
         ns: &str,
         query_text: &str,
-        hits: &[BridgeHit],
+        hits: Vec<BridgeHit>,
         singularity: &Singularity,
     ) -> Result<MemoryPacket> {
-        // Extract facts from hits
-        let mut facts: Vec<(String, f32)> = Vec::new();
-        let mut sources: Vec<String> = Vec::new();
+        // Optimization: Pre-allocate vectors based on input size.
+        let mut facts: Vec<(String, f32)> = Vec::with_capacity(hits.len());
+        let mut sources: Vec<String> = Vec::with_capacity(hits.len());
 
         for hit in hits {
             // Get concept for text preview
@@ -217,13 +232,15 @@ impl BridgeRetrieval {
                     .map_or_else(|| hit.id.clone(), |s| s.to_string());
 
                 facts.push((text, hit.scores.final_score));
-                sources.push(hit.id.clone());
+                // Optimization: Transfer ownership of concept ID instead of cloning.
+                sources.push(hit.id);
             }
         }
 
         // Deduplicate facts (exact match)
-        let mut unique_facts: Vec<String> = Vec::new();
-        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut unique_facts: Vec<String> = Vec::with_capacity(facts.len());
+        let mut seen: std::collections::HashSet<String> =
+            std::collections::HashSet::with_capacity(facts.len());
         for (text, _score) in &facts {
             if !seen.contains(text) {
                 seen.insert(text.clone());
@@ -235,7 +252,7 @@ impl BridgeRetrieval {
         unique_facts.truncate(self.config.max_packet_facts);
 
         // Apply token budget (drop lowest-scored facts)
-        let mut budgeted_facts: Vec<String> = Vec::new();
+        let mut budgeted_facts: Vec<String> = Vec::with_capacity(unique_facts.len());
         let mut token_count = 0;
         for text in unique_facts {
             let estimated = (text.split_whitespace().count() as f32 / 0.75).ceil() as usize;
@@ -246,15 +263,13 @@ impl BridgeRetrieval {
         }
 
         // Compute confidence from top-k final_scores
-        let confidence = if hits.is_empty() {
+        let confidence = if sources.is_empty() {
             0.0
         } else {
-            let top_scores: Vec<f32> = hits
-                .iter()
-                .take(self.config.max_packet_facts)
-                .map(|h| h.scores.final_score)
-                .collect();
-            top_scores.iter().sum::<f32>() / top_scores.len() as f32
+            // Optimization: Avoid intermediate Vec allocation for confidence calculation.
+            let count = sources.len().min(self.config.max_packet_facts);
+            let sum: f32 = facts.iter().take(count).map(|(_, s)| *s).sum();
+            sum / count as f32
         };
 
         Ok(MemoryPacket {
