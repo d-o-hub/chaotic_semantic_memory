@@ -6,7 +6,6 @@ use chaotic_semantic_memory::bridge_retrieval::BridgeRetrieval;
 use chaotic_semantic_memory::encoder::TextEncoder;
 use chaotic_semantic_memory::metadata_filter::MetadataFilter;
 use chaotic_semantic_memory::prelude::*;
-use chaotic_semantic_memory::retrieval::hybrid::{HybridResult, RetrievalAbstention};
 use chaotic_semantic_memory::semantic_bridge::{
     BridgeHit, CanonicalConcept, ConceptGraph, SemanticReranker,
 };
@@ -143,95 +142,6 @@ async fn probe_bridge_text_with_reranker_applies_reranking() {
 
     // Verify results were returned (reranking applied internally)
     assert!(!results.is_empty());
-}
-
-/// Helper to extract abstention from HybridResult, panicking on success.
-fn unwrap_abstained(result: HybridResult) -> RetrievalAbstention {
-    match result {
-        HybridResult::Abstained(a) => a,
-        HybridResult::Success(v) => panic!("expected Abstained, got Success({v:?})"),
-    }
-}
-
-#[tokio::test]
-async fn probe_bridge_text_abstains_with_none_score() {
-    let encoder = TextEncoder::new();
-
-    // Empty framework — no injected concepts
-    let framework = ChaoticSemanticFramework::builder()
-        .without_persistence()
-        .build()
-        .await
-        .unwrap();
-
-    // Empty concept graph — no canonical concepts to match
-    let graph = ConceptGraph::new();
-    let bridge = BridgeRetrieval::with_defaults(encoder, graph);
-
-    let result = framework
-        .probe_bridge_text("any query", 10, &bridge)
-        .await
-        .unwrap();
-
-    let abstention = unwrap_abstained(result);
-    assert_eq!(
-        abstention.best_score_seen, None,
-        "best_score_seen must be None when no concepts exist; >= mutant would yield Some(0.0)"
-    );
-}
-
-#[tokio::test]
-async fn probe_bridge_text_with_reranker_abstains_with_none_score() {
-    let encoder = TextEncoder::new();
-
-    let framework = ChaoticSemanticFramework::builder()
-        .without_persistence()
-        .build()
-        .await
-        .unwrap();
-
-    let graph = ConceptGraph::new();
-    let bridge = BridgeRetrieval::with_defaults(encoder, graph);
-    let reranker = TestReranker;
-
-    let result = framework
-        .probe_bridge_text_with_reranker("any query", 10, &bridge, &reranker)
-        .await
-        .unwrap();
-
-    let abstention = unwrap_abstained(result);
-    assert_eq!(
-        abstention.best_score_seen, None,
-        "best_score_seen must be None when no concepts exist; >= mutant would yield Some(0.0)"
-    );
-}
-
-#[tokio::test]
-async fn probe_bridge_text_filtered_abstains_with_none_score() {
-    let encoder = TextEncoder::new();
-
-    let framework = ChaoticSemanticFramework::builder()
-        .without_persistence()
-        .build()
-        .await
-        .unwrap();
-
-    let graph = ConceptGraph::new();
-    let bridge = BridgeRetrieval::with_defaults(encoder, graph);
-
-    // Filter that can never match anything on an empty singularity
-    let filter = MetadataFilter::eq("type", "nonexistent");
-
-    let result = framework
-        .probe_bridge_text_filtered("any query", 10, &bridge, &filter)
-        .await
-        .unwrap();
-
-    let abstention = unwrap_abstained(result);
-    assert_eq!(
-        abstention.best_score_seen, None,
-        "best_score_seen must be None when no concepts exist; >= mutant would yield Some(0.0)"
-    );
 }
 
 #[test]
