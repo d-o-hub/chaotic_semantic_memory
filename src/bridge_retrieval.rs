@@ -140,12 +140,10 @@ impl BridgeRetrieval {
     ) -> Vec<BridgeHit> {
         use std::collections::HashMap;
         use std::collections::hash_map::Entry;
-
         // Optimization: Pre-allocate map to avoid redundant re-hashes and re-allocs.
         // Use &str as key to avoid redundant String clones during accumulation.
         let mut hit_map: HashMap<&str, BridgeHit> =
             HashMap::with_capacity(primary.len() + expanded.len());
-
         // Process primary results (deterministic scores)
         for (id, score) in primary {
             hit_map.insert(
@@ -459,50 +457,44 @@ mod tests_v2 {
     use super::*;
     use crate::singularity::{ConceptBuilder, Singularity, SingularityConfig};
     use csm_core::hyperdim::HVec10240;
-
     #[test]
     fn test_bridge_retrieval_query_v2() {
-        let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
-        let concept = ConceptBuilder::new("c1")
+        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+        let c = ConceptBuilder::new("c1")
             .with_vector(HVec10240::random())
             .build()
             .unwrap();
-        singularity.inject("_default", concept).unwrap();
-
+        sing.inject("_default", c).unwrap();
         let bridge = BridgeRetrieval::new(
             TextEncoder::new(),
             ConceptGraph::new(),
             BridgeConfig::default(),
         );
-        let results = bridge.query("_default", &singularity, "test", 10, None);
-        assert!(results.is_ok());
+        assert!(bridge.query("_default", &sing, "test", 10, None).is_ok());
     }
-
     #[test]
     fn test_memory_packet_confidence_is_average() {
-        let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
+        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
         let hv = HVec10240::random();
         for i in 0..3 {
-            let concept = ConceptBuilder::new(format!("c{i}"))
+            let c = ConceptBuilder::new(format!("c{i}"))
                 .with_vector(hv)
                 .build()
                 .unwrap();
-            singularity.inject("_default", concept).unwrap();
+            sing.inject("_default", c).unwrap();
         }
-
         let bridge = BridgeRetrieval::new(
             TextEncoder::new(),
             ConceptGraph::new(),
             BridgeConfig::default(),
         );
-        let packet = bridge
-            .memory_packet("_default", &singularity, "concept", 10, None)
+        let pkt = bridge
+            .memory_packet("_default", &sing, "concept", 10, None)
             .unwrap();
-
         assert!(
-            packet.confidence > 0.0 && packet.confidence <= 1.0,
-            "confidence {} should be in (0, 1]",
-            packet.confidence
+            pkt.confidence > 0.0 && pkt.confidence <= 1.0,
+            "confidence {}",
+            pkt.confidence
         );
     }
 }
