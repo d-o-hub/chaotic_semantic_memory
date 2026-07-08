@@ -14,3 +14,16 @@ src/ @d-o-hub
 plans/ @d-o-hub
 CLAUDE.md @d-o-hub
 AGENTS.md @d-o-hub
+
+# Security & local quality gates — prevent AI agents from silently removing these
+# (Defense-in-depth: effective when branch protection + required reviews are enabled)
+.githooks/ @d-o-hub
+.pre-commit-config.yaml @d-o-hub
+.gitleaks.toml @d-o-hub
+.secretlintrc.json @d-o-hub
+.secretlintignore @d-o-hub
+.github/workflows/secret-scan.yml @d-o-hub
+scripts/harness-check.sh @d-o-hub
+scripts/quality-gates.sh @d-o-hub
+commitlint.config.cjs @d-o-hub
+flake.nix @d-o-hub

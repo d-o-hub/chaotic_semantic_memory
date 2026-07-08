@@ -2,8 +2,19 @@
 
 ## Development Setup
 
+### Nix (Recommended)
+
+This project provides a `flake.nix` for a reproducible development environment.
+
 ```bash
-# Install Rust 1.85+ (edition 2024)
+# Enter the development shell with all tools pinned (Rust, WASM, Node.js)
+nix develop
+```
+
+### Manual Setup
+
+```bash
+# Install Rust 1.88+ (edition 2024)
 rustup install stable
 
 # Install components
@@ -13,7 +24,10 @@ rustup component add rustfmt clippy
 rustup target add wasm32-unknown-unknown
 
 # Set up git hooks
-scripts/setup-hooks.sh
+pip install pre-commit
+pre-commit install
+pre-commit install --hook-type commit-msg
+pre-commit install --hook-type pre-push
 ```
 
 ## Code Standards
@@ -63,6 +77,21 @@ cargo check --all-targets --all-features
 cargo test --all-features
 cargo fmt --check
 cargo clippy --all-targets --all-features -- -D warnings
+```
+
+### Local CI Testing (Optional)
+
+For fast feedback on GitHub Actions workflows, you can use [act](https://github.com/nektos/act) to run them locally. This repo includes a `.actrc` for configuration.
+
+```bash
+# List all jobs
+act -l
+
+# Run the lint job locally
+act -j lint
+
+# Run all push-event workflows
+act
 ```
 
 ## Testing
