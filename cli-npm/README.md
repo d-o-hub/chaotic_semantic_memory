@@ -4,9 +4,21 @@ Command-line interface for [chaotic_semantic_memory](https://github.com/d-o-hub/
 
 ## Installation
 
+**Recommended: use npx (no install needed)**
+```bash
+npx @d-o-hub/csm --version
+```
+
+**Global install:**
 ```bash
 npm install -g @d-o-hub/csm
 ```
+
+> **Permission errors (EACCES)?** Configure npm prefix to avoid needing sudo:
+> ```bash
+> npm config set prefix ~/.npm-global
+> export PATH=~/.npm-global/bin:$PATH
+> ```
 
 ## Usage
 

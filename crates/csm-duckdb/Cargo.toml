@@ -1,5 +1,5 @@
 [package]
-name = "chaotic_semantic_memory_duckdb"
+name = "csm-duckdb"
 version = "0.3.7"
 edition = "2024"
 rust-version = "1.85"
