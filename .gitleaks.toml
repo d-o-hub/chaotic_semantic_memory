@@ -1,0 +1,55 @@
+# .gitleaks.toml
+# Gitleaks configuration for secret scanning
+# Ported from d-oit/rust-2026-template and tuned for chaotic_semantic_memory
+
+[allowlist]
+description = "Global allowlist"
+paths = [
+    '''Cargo\.lock''',
+    '''package-lock\.json''',
+    '''go\.sum''',
+    '''metadata\.json''', # Large metadata artifact, prone to false positives
+]
+
+[[rules]]
+description = "Generic API Key"
+id = "generic-api-key"
+regex = '''(?i)(api_key|apikey|secret|token|auth|key|password)[[:space:]]*[:=][[:space:]]*['\"][a-zA-Z0-9_\-]{16,}['\"]'''
+entropy = 3.5
+keywords = ["api_key", "apikey", "secret", "token", "auth", "key", "password"]
+
+[[rules]]
+description = "GitHub Personal Access Token"
+id = "github-pat"
+regex = '''ghp_[a-zA-Z0-9]{36}'''
+keywords = ["ghp_"]
+
+[[rules]]
+description = "GitHub OAuth Access Token"
+id = "github-oauth"
+regex = '''gho_[a-zA-Z0-9]{36}'''
+keywords = ["gho_"]
+
+[[rules]]
+description = "GitHub App Token"
+id = "github-app-token"
+regex = '''(ghu|ghs)_[a-zA-Z0-9]{36}'''
+keywords = ["ghu_", "ghs_"]
+
+[[rules]]
+description = "GitHub Refresh Token"
+id = "github-refresh-token"
+regex = '''ghr_[a-zA-Z0-9]{76}'''
+keywords = ["ghr_"]
+
+[[rules]]
+description = "OpenAI API Key"
+id = "openai-api-key"
+regex = '''sk-[a-zA-Z0-9]{48}'''
+keywords = ["sk-"]
+
+[[rules]]
+description = "Anthropic API Key"
+id = "anthropic-api-key"
+regex = '''sk-ant-api03-[a-zA-Z0-9\-]{94}'''
+keywords = ["sk-ant-api03"]
