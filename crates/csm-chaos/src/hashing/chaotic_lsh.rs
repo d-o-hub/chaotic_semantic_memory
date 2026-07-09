@@ -144,7 +144,8 @@ impl ChaoticLsh {
 
         for i in 0..10240 {
             let offset = i * len;
-            let mut sum = vdupq_n_f32(0.0);
+            // SAFETY: target_feature "neon" is guaranteed by the cfg gate on this function.
+            let mut sum = unsafe { vdupq_n_f32(0.0) };
 
             for c in 0..chunks {
                 let base = offset + c * 4;
@@ -157,7 +158,8 @@ impl ChaoticLsh {
                 }
             }
 
-            let mut dot_product = vaddvq_f32(sum);
+            // SAFETY: target_feature "neon" is guaranteed by the cfg gate on this function.
+            let mut dot_product = unsafe { vaddvq_f32(sum) };
 
             for r in 0..remainder {
                 let idx = chunks * 4 + r;
