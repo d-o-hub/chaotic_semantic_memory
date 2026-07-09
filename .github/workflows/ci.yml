@@ -196,7 +196,7 @@ jobs:
     # main-branch CI stays fast enough to fit inside the Release workflow's
     # wait-for-ci window. Push-to-main already gets full mutation coverage on
     # the PR that introduced the change.
-    if: github.event_name == "pull_request"
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     needs: test
@@ -210,8 +210,12 @@ jobs:
       id: rust_changes
       run: |
         git fetch origin ${{ github.base_ref }} --depth=1
-        CHANGED=$(git diff --name-only origin/${{ github.base_ref }} | grep "\.rs$" || true)
-        echo "has_rust_changes=$([ -n "$CHANGED" ] && echo "true" || echo "false")" >> $GITHUB_OUTPUT
+        CHANGED=$(git diff --name-only origin/${{ github.base_ref }} | grep '\.rs$' || true)
+        if [ -n "$CHANGED" ]; then
+          echo "has_rust_changes=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "has_rust_changes=false" >> "$GITHUB_OUTPUT"
+        fi
 
     - name: Install Rust
       if: steps.rust_changes.outputs.has_rust_changes == "true"
