@@ -61,10 +61,12 @@ include = [
 ]
 
 [dependencies]
+csm-chaos = { path = "crates/csm-chaos", version = "0.3.7" }
 csm-core = { path = "crates/csm-core", version = "0.3.7" }
 csm-embedding = { path = "crates/csm-embedding", version = "0.3.7" }
 csm-memory = { path = "crates/csm-memory", version = "0.3.7" }
 csm-retrieval = { path = "crates/csm-retrieval", version = "0.3.7" }
+csm-traits = { path = "crates/csm-traits", version = "0.3.7" }
 
 tempfile = { workspace = true }
 # Serialization
