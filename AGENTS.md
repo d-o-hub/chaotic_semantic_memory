@@ -89,20 +89,6 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
    - Assign tasks and monitor progress
    - Clean up resources after completion
 
-8. **Delegate long-running actions to Jules** — Actions with `cost ≥ 12` in
-   `plans/ACTIONS.md`, or anything spanning a new protocol/transport/large
-   surface, should become a GitHub issue with the `jules` label rather than
-   blocking the interactive session:
-
-   ```bash
-   gh issue create --label jules \
-       --title "Wave XX: <ADR-NNNN> <short summary>" \
-       --body "<context, current state, TODO list, acceptance criteria>"
-   ```
-
-   Then mark the action `status: delegated` and record `jules_issue: <num>`
-   in `plans/ACTIONS.md`. See the [jules-orchestration](.agents/skills/jules-orchestration/SKILL.md) skill.
-
 ### Phase 3: Implementation (HOW)
 
 8. **Edit files with precision** — Never bulk-edit without reading first:
@@ -159,8 +145,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
      last-key-wins makes earlier duplicates silently dead).
      Check: `grep -c '^  action_last_completed' plans/GOAP_STATE.md` → `1`.
    - Update `plans/ACTIONS.md` status. Valid status values:
-     `queued`, `in_progress`, `complete`, `blocked`, `deferred`, `delegated`
-     (use `delegated` + `jules_issue: <num>` when handed to Jules).
+     `queued`, `in_progress`, `complete`, `blocked`, `deferred`
    - Add learnings to `progress/LEARNINGS.md` if new patterns discovered.
 
 ### Phase 4: Verification (Compound Engineering)

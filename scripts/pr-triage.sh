@@ -16,7 +16,7 @@ if [[ -z "$PRS" ]]; then
 fi
 
 echo "--- Merge Conflict Status ---"
-while IFS='|' read -r num title mergeable branch; do
+while IFS='|' read -r num title mergeable _; do
   if [[ "$mergeable" == "CONFLICTING" ]]; then
     status="❌ CONFLICTING"
   elif [[ "$mergeable" == "MERGEABLE" ]]; then
@@ -29,7 +29,7 @@ done <<< "$PRS"
 
 echo ""
 echo "--- CI Status ---"
-while IFS='|' read -r num title mergeable branch; do
+while IFS='|' read -r num title mergeable _; do
   pass=$(gh pr checks "$num" 2>&1 | grep -c "pass" || true)
   fail=$(gh pr checks "$num" 2>&1 | grep -c "fail" || true)
   pend=$(gh pr checks "$num" 2>&1 | grep -c "pending" || true)
