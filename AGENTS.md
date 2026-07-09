@@ -45,6 +45,15 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
    gh run list --workflow=ci.yml --limit 3
    ```
 
+5b. **Check open PR merge conflicts** — When triaging multiple PRs, check
+   conflict status FIRST (before CI). A `CONFLICTING` PR cannot merge regardless
+   of CI status:
+
+   ```bash
+   gh pr list --state open --json number,title,mergeable \
+     --jq '.[] | "\(.number): \(.mergeable) — \(.title)"'
+   ```
+
 6. **Verify built binary, not stale install** — `~/.local/bin/csm` (or any global
    install) may lag the source tree by multiple releases. Before claiming a CLI
    surface is missing a command, always confirm against a fresh build:
@@ -79,20 +88,6 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
    - Spawn specialized workers with clear prompts
    - Assign tasks and monitor progress
    - Clean up resources after completion
-
-8. **Delegate long-running actions to Jules** — Actions with `cost ≥ 12` in
-   `plans/ACTIONS.md`, or anything spanning a new protocol/transport/large
-   surface, should become a GitHub issue with the `jules` label rather than
-   blocking the interactive session:
-
-   ```bash
-   gh issue create --label jules \
-       --title "Wave XX: <ADR-NNNN> <short summary>" \
-       --body "<context, current state, TODO list, acceptance criteria>"
-   ```
-
-   Then mark the action `status: delegated` and record `jules_issue: <num>`
-   in `plans/ACTIONS.md`. See the [jules-orchestration](.agents/skills/jules-orchestration/SKILL.md) skill.
 
 ### Phase 3: Implementation (HOW)
 
@@ -150,8 +145,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
      last-key-wins makes earlier duplicates silently dead).
      Check: `grep -c '^  action_last_completed' plans/GOAP_STATE.md` → `1`.
    - Update `plans/ACTIONS.md` status. Valid status values:
-     `queued`, `in_progress`, `complete`, `blocked`, `deferred`, `delegated`
-     (use `delegated` + `jules_issue: <num>` when handed to Jules).
+     `queued`, `in_progress`, `complete`, `blocked`, `deferred`
    - Add learnings to `progress/LEARNINGS.md` if new patterns discovered.
 
 ### Phase 4: Verification (Compound Engineering)
@@ -192,6 +186,11 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
     gh pr merge  # Squash merge preferred
     ```
 
+    **⚠️ NEVER use `gh pr merge --auto` when merging multiple PRs.**
+    This repo requires "up to date with base". Auto-merge on multiple PRs
+    creates a rebase loop (merge A → B is stale → auto-merge cancelled).
+    Instead: merge one PR → rebase next → wait for CI → merge → repeat.
+
 19. **Fix ALL issues (including pre-existing)** — CI must pass completely:
     - New failures: Fix immediately
     - Pre-existing warnings: Fix before claiming completion
@@ -214,6 +213,7 @@ Before starting any task, verify:
 - [ ] GOAP_STATE.md loaded — know current state
 - [ ] ALL uncommitted changes reviewed via `git status --short`
 - [ ] **LOC gate pre-check**: all source files ≤ 500 LOC (`find src -name '*.rs' -exec wc -l {} + | sort -rn | head -20`)
+- [ ] **PR conflict check**: `scripts/pr-triage.sh` or `gh pr list --state open --json number,mergeable --jq '.[] | select(.mergeable == "CONFLICTING")'`
 - [ ] Hard constraints understood — spectral radius [0.9, 1.1]
 - [ ] CI baseline confirmed via `gh run list`
 
