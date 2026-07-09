@@ -1,4 +1,5 @@
 //! Core concept storage and indexing engine
+#![allow(clippy::cast_precision_loss)] // u64 timestamps → f32 for TTL decay math is intentional
 
 use crate::index::{AnnIndex, IndexBackend, IndexStats};
 use crate::singularity_cache::{CacheMetrics, CacheMetricsSnapshot};
@@ -196,6 +197,7 @@ impl<H: Hypervector> ConceptBuilder<H> {
         }
     }
 
+    #[allow(clippy::missing_const_for_fn)]
     pub fn with_vector(mut self, vector: H) -> Self {
         self.vector = Some(vector);
         self
@@ -274,6 +276,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
         Self::new_with_metrics(cfg, cache_metrics)
     }
 
+    #[allow(clippy::expect_used)]
     fn create_index(&self) -> Box<dyn AnnIndex<H>> {
         crate::index::create_index(&self.config.index_backend)
             .expect("ANN index creation failed; check feature flags and configuration")
@@ -283,6 +286,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
         self.namespaces.get(ns)
     }
 
+    #[allow(clippy::unwrap_used)]
     pub fn get_namespace_mut(&mut self, ns: &str) -> &mut NamespaceState<H> {
         if !self.namespaces.contains_key(ns) {
             let index = self.create_index();

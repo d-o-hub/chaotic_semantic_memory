@@ -302,6 +302,14 @@ value.map(|s| s.to_string()).unwrap_or_else(|| default())
 | `.map(f).unwrap_or(g)` | `clippy::map_unwrap_or` (pedantic) | ✅ Promoted to `warn` in Cargo.toml |
 | `.map_or(false, f)` | `clippy::unnecessary_map_or` (in `all`) | ✅ Implied by `-D warnings` |
 | `Self::new()` in `default()` | No clippy equivalent | 📋 Documented above |
+| `unwrap()`/`expect()`/`panic!()` in library | `clippy::unwrap_used`, `clippy::expect_used`, `clippy::panic` | ✅ `warn` in workspace lints |
+
+### Lint Policy: unwrap/expect/panic
+
+- **Workspace lints** (`Cargo.toml`): `unwrap_used = "warn"`, `expect_used = "warn"`, `panic = "warn"`
+- **Test exemption** (`.clippy.toml`): `allow-unwrap-in-tests = true`, `allow-expect-in-tests = true`, `allow-panic-in-tests = true`
+- **Production allows**: Use `#[allow(clippy::expect_used)]` with a justification comment for infallible operations (lock acquisition, static construction)
+- **CI enforcement**: `cargo clippy -- -D warnings` promotes all warnings to errors
 
 ---
 

@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Skill-Memory Integration Tests
 //!
 //! Tests for skill-memory production usage patterns:

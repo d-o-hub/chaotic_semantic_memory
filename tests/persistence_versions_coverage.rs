@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Persistence version recording coverage tests.
 //!
 //! Covers: record_concept_version, version history retrieval, version pruning

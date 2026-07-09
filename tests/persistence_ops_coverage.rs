@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Additional persistence operations tests for coverage gap.
 //!
 //! Covers: persistence_ops.rs error paths, association operations

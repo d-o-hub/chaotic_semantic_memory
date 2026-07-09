@@ -118,6 +118,7 @@ pub async fn is_known_absent(query: &str, store: &dyn AbsenceStore, min_attempts
     }
 }
 
+#[allow(clippy::expect_used)] // Lock poisoning is unrecoverable
 impl Clone for Bm25Index {
     fn clone(&self) -> Self {
         Self {
@@ -256,6 +257,7 @@ impl Bm25Index {
     // cache vector stability. Tightening the drop would require re-acquiring
     // the lock mid-loop, which is both slower and semantically incorrect.
     #[allow(clippy::significant_drop_tightening)]
+    #[allow(clippy::expect_used)]
     pub fn search<T: AsRef<str>>(&self, query_tokens: &[T], top_k: usize) -> Vec<(String, f32)> {
         if top_k == 0 || query_tokens.is_empty() || self.is_empty() {
             return Vec::new();
@@ -440,6 +442,7 @@ impl Bm25Index {
     }
 
     #[allow(clippy::significant_drop_tightening)]
+    #[allow(clippy::expect_used)]
     fn ensure_norm_cache(&self) {
         if !self.norm_cache_dirty.load(AtomicOrdering::Acquire) {
             return;

@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Framework builder configuration coverage tests.
 //!
 //! Covers: with_max_sequence_length, with_max_metadata_bytes, with_version_retention

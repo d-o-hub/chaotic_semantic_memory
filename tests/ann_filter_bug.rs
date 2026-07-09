@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #![cfg(any(feature = "ann-hnsw", feature = "ann-lsh"))]
 
 use chaotic_semantic_memory::MetadataFilter;

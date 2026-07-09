@@ -1,3 +1,4 @@
+#![allow(clippy::cast_precision_loss)] // Hamming distance → f32 cosine similarity is intentional
 use crate::hyperdim::HVec10240;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
@@ -76,6 +77,7 @@ fn process_chunk(query: &HVec10240, chunk: &[HVec10240], out: &mut [f32]) {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
 
     #[test]

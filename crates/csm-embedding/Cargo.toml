@@ -34,3 +34,6 @@ embed-voyage = ["dep:reqwest"]
 
 [lib]
 crate-type = ["lib"]
+
+[lints]
+workspace = true

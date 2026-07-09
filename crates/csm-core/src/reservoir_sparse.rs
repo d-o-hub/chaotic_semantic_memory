@@ -174,6 +174,7 @@ impl SparseWeights {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     // Exact float comparisons for mathematical test assertions
 
     use super::*;

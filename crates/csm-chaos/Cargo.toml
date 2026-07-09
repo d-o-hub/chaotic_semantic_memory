@@ -29,3 +29,6 @@ harness = false
 
 [dev-dependencies]
 criterion = "0.5"
+
+[lints]
+workspace = true

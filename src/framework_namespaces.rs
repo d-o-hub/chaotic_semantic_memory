@@ -158,6 +158,7 @@ impl ChaoticSemanticFramework {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     use crate::export_payload::BinaryExportPayload;
     use csm_core::hyperdim::HVec10240;

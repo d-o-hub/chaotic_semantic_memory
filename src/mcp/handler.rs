@@ -164,6 +164,7 @@ impl ServerHandler for McpHandler {
             .map_err(Self::map_error)?;
 
         Ok(CallToolResult::success(vec![Content::new(
+            #[allow(clippy::unwrap_used)] // serde_json serialization of valid data is infallible
             RawContent::text(serde_json::to_string_pretty(&result).unwrap()),
             None,
         )]))
@@ -216,6 +217,7 @@ impl ServerHandler for McpHandler {
             ResourceContents::TextResourceContents {
                 uri,
                 mime_type: Some("application/json".to_string()),
+                #[allow(clippy::unwrap_used)] // serde_json serialization of valid data is infallible
                 text: serde_json::to_string_pretty(&result).unwrap(),
                 meta: None,
             },
@@ -223,6 +225,7 @@ impl ServerHandler for McpHandler {
     }
 }
 
+#[allow(clippy::unwrap_used)] // Schema is always a JSON object literal
 fn tool_def(name: &str, desc: &str, schema: Value) -> Tool {
     Tool::new(
         name.to_string(),

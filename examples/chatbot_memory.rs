@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Chatbot session memory: store and retrieve conversation messages
 
 use std::collections::HashMap;

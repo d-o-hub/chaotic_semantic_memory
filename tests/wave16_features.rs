@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Wave 16 feature tests: TextEncoder golden vectors, graph traversal edge cases,
 //! BundleAccumulator edge cases, and filtered search edge cases.
 

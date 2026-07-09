@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Cache LRU behavior tests for coverage gap in singularity_cache.rs.
 //!
 //! Covers: QueryCache::get with LRU update, QueryCache::put with eviction

@@ -39,3 +39,6 @@ ann-lsh = ["dep:bincode", "dep:rand", "dep:rand_chacha"]
 
 [lib]
 crate-type = ["lib"]
+
+[lints]
+workspace = true

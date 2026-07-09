@@ -37,6 +37,69 @@ uuid = { version = "1.23.2", features = ["v4", "serde"] }
 tempfile = "3.16.0"
 base64 = "0.22.1"
 
+# ============================================================================
+# WORKSPACE LINTS CONFIGURATION (Rust 2024)
+# ============================================================================
+
+[workspace.lints.rust]
+# Safety lints
+unsafe_code = "allow"  # SIMD uses intentional unsafe blocks
+missing_docs = "allow"  # Project uses selective documentation
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("rerank-cross"))'] }
+
+# Serialization struct fields may be unused but needed for format
+dead_code = "allow"
+
+[workspace.lints.clippy]
+# Enable all clippy lints at warning level
+all = { level = "warn", priority = -1 }
+
+# Pedantic lints are too strict for this project
+pedantic = { level = "allow", priority = -1 }
+nursery = { level = "allow", priority = -1 }
+
+# ============================================================================
+# ADR-0077: Promoted from pedantic — correctness signal (Phase A)
+# ============================================================================
+float_cmp = "warn"                      # Strict f32/f64 == almost always a bug
+significant_drop_tightening = "warn"    # Lock held longer than needed
+cast_precision_loss = "warn"            # usize as f32 losing bits
+cast_possible_truncation = "warn"       # i64 as u32 truncation risk
+redundant_clone = "warn"                # Free perf wins
+map_unwrap_or = "warn"                # Prefer map_or/map_or_else (DeepSource parity)
+unnecessary_map_or = "warn"           # Then prefer is_some_and() or map_or_else()
+
+# ============================================================================
+# ADR-0077: Promoted from pedantic — library DX (Phase A allow, Phase C warn)
+# ============================================================================
+missing_errors_doc = "allow"            # Phase C: flip to warn after docs added
+must_use_candidate = "allow"            # Phase C: flip to warn after audit
+
+# ============================================================================
+# ADR-0077: Promoted from nursery — free perf wins
+# ============================================================================
+missing_const_for_fn = "warn"           # Const fn free perf
+
+# Explicit overrides for justified allows in source
+too_many_arguments = "allow"  # Internal hot paths documented in GOAP_STATE
+type_complexity = "allow"     # Complex generics in framework
+needless_range_loop = "allow" # Intentional range iteration in hyperdim
+
+# Production code should warn on panics (issue #476)
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+
+# Examples and benchmarks use println - allow in library
+print_stdout = "allow"
+print_stderr = "allow"
+
+# Allow common short identifiers
+many_single_char_names = "allow"
+
+# Allow some cognitive complexity for hot paths
+cognitive_complexity = "allow"
+
 [package]
 name = "chaotic_semantic_memory"
 version = "0.3.7"
@@ -190,68 +253,8 @@ inherits = "release"
 strip = false
 debug = 1
 
-# ============================================================================
-# LINTS CONFIGURATION (Rust 2024)
-# ============================================================================
-
-[lints.rust]
-# Safety lints
-unsafe_code = "allow"  # SIMD uses intentional unsafe blocks
-missing_docs = "allow"  # Project uses selective documentation
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("rerank-cross"))'] }
-
-# Serialization struct fields may be unused but needed for format
-dead_code = "allow"
-
-[lints.clippy]
-# Enable all clippy lints at warning level
-all = { level = "warn", priority = -1 }
-
-# Pedantic lints are too strict for this project
-pedantic = { level = "allow", priority = -1 }
-nursery = { level = "allow", priority = -1 }
-
-# ============================================================================
-# ADR-0077: Promoted from pedantic — correctness signal (Phase A)
-# ============================================================================
-float_cmp = "warn"                      # Strict f32/f64 == almost always a bug
-significant_drop_tightening = "warn"    # Lock held longer than needed
-cast_precision_loss = "warn"            # usize as f32 losing bits
-cast_possible_truncation = "warn"       # i64 as u32 truncation risk
-redundant_clone = "warn"                # Free perf wins
-map_unwrap_or = "warn"                # Prefer map_or/map_or_else (DeepSource parity)
-unnecessary_map_or = "warn"           # Then prefer is_some_and() or map_or_else()
-
-# ============================================================================
-# ADR-0077: Promoted from pedantic — library DX (Phase A allow, Phase C warn)
-# ============================================================================
-missing_errors_doc = "allow"            # Phase C: flip to warn after docs added
-must_use_candidate = "allow"            # Phase C: flip to warn after audit
-
-# ============================================================================
-# ADR-0077: Promoted from nursery — free perf wins
-# ============================================================================
-missing_const_for_fn = "warn"           # Const fn free perf
-
-# Explicit overrides for justified allows in source
-too_many_arguments = "allow"  # Internal hot paths documented in GOAP_STATE
-type_complexity = "allow"     # Complex generics in framework
-needless_range_loop = "allow" # Intentional range iteration in hyperdim
-
-# Production code should avoid panics but examples/benchmarks use them
-unwrap_used = "allow"
-expect_used = "allow"
-panic = "allow"
-
-# Examples and benchmarks use println - allow in library
-print_stdout = "allow"
-print_stderr = "allow"
-
-# Allow common short identifiers
-many_single_char_names = "allow"
-
-# Allow some cognitive complexity for hot paths
-cognitive_complexity = "allow"
+[lints]
+workspace = true
 
 [lib]
 crate-type = ["lib", "cdylib"]

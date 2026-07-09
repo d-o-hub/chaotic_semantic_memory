@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Architecture fitness tests — enforce structural invariants at test-time.
 //! Known exceptions are documented and accepted per ADR-0090.
 

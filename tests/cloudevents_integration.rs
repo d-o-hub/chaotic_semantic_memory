@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(feature = "cloudevents")]
 use async_trait::async_trait;
 #[cfg(feature = "cloudevents")]

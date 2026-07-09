@@ -125,6 +125,7 @@ pub(crate) unsafe fn bundle_block_neon(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
     #[test]

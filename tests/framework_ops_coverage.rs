@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Framework operations coverage tests for framework_ops.rs.
 //!
 //! Covers: inject_concepts, associate_many, probe_batch, update operations

@@ -37,3 +37,6 @@ default = ["cli", "persistence"]
 cli = ["chaotic_semantic_memory/cli"]
 persistence = ["csm-persistence/libsql", "chaotic_semantic_memory/persistence"]
 mcp = ["chaotic_semantic_memory/mcp"]
+
+[lints]
+workspace = true

@@ -21,3 +21,6 @@ parallel = ["csm-core/parallel"]
 
 [lib]
 crate-type = ["lib"]
+
+[lints]
+workspace = true

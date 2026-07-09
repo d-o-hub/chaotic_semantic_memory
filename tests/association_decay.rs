@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Integration tests for association decay (ADR-0025, issue #412).
 
 use chaotic_semantic_memory::framework_ttl_advanced::{DecayCurve, TtlConfig};

@@ -218,6 +218,7 @@ impl Default for HybridConfig {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     // Exact float comparisons for weight test assertions
 
     use super::*;

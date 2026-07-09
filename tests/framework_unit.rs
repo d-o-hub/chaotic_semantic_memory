@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Unit tests for framework module
 
 use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240};

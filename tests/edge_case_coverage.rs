@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Edge case coverage tests for framework boundaries.
 //!
 //! Float comparisons allowed: association strength test assertions.

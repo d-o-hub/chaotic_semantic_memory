@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Framework ops path validation error branch coverage tests.
 //!
 //! Covers: validate_path too long, path traversal detection, absolute path restrictions

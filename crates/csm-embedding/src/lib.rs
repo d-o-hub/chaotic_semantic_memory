@@ -125,6 +125,7 @@ pub fn get_provider(name: &str) -> Result<std::sync::Arc<dyn EmbeddingProvider>>
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
 
     #[test]

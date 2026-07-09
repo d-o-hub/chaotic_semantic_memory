@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Integration tests for bridge persistence (canonical concept graph storage).
 
 use chaotic_semantic_memory::persistence::Persistence;

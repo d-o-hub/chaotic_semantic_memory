@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS benchmarks (
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     use duckdb::Connection;
 

@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Export/import operations coverage tests.
 //!
 //! Covers: export_json, import_json, export_binary, import_binary, backup/restore

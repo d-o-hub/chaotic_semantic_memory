@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Benchmarks for chaotic_semantic_memory crate.
 
 // Casts are intentional for benchmark metrics

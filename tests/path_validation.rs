@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Path validation edge cases for framework_ops.rs coverage.
 //!
 //! Covers: validate_path branches, import error handling, backup/restore

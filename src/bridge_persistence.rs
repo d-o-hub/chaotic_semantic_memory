@@ -342,6 +342,7 @@ pub async fn persist_absence(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     use crate::semantic_bridge::CanonicalConcept;
     use tempfile::NamedTempFile;

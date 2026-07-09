@@ -6,6 +6,8 @@
 //! because it pulls in `prometheus`, `hyper`, `hyper-util`, and
 //! `http-body-util` (none of which are useful without the server).
 
+#![allow(clippy::expect_used)]
+
 use std::net::SocketAddr;
 use std::sync::OnceLock;
 

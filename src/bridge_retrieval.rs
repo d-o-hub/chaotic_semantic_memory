@@ -297,9 +297,8 @@ impl BridgeRetrieval {
 
 #[cfg(test)]
 mod tests {
-    // Exact float comparisons for score test assertions
-
-    use super::*;
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+    use super::*; // Exact float comparisons for score test assertions
     use crate::semantic_bridge::CanonicalConcept;
     use crate::singularity::{Singularity, SingularityConfig};
 
@@ -459,6 +458,7 @@ mod tests {
 
 #[cfg(test)]
 mod tests_v2 {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     use crate::singularity::{ConceptBuilder, Singularity, SingularityConfig};
     use csm_core::hyperdim::HVec10240;

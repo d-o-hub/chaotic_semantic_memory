@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use chaotic_semantic_memory::HVec10240;
 use chaotic_semantic_memory::prelude::*;
 use chaotic_semantic_memory::singularity::unix_now_secs;

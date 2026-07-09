@@ -156,6 +156,7 @@ impl McpHandler {
             }
             "memory_export" => {
                 let format = args["format"].as_str().unwrap_or("json");
+                #[allow(clippy::unwrap_used)] // SystemTime is always after UNIX_EPOCH
                 let path = format!(
                     "export_{}.{}",
                     std::time::SystemTime::now()

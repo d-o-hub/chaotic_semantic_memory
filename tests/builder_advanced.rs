@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Framework builder additional configuration coverage tests.
 //!
 //! Covers: with_reservoir_size, with_reservoir_input_size, with_max_concepts,
