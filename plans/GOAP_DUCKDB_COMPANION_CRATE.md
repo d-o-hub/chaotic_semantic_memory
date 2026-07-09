@@ -1,6 +1,6 @@
 # GOAP Action Plan: DuckDB Companion Crate (Issue #210)
 
-> **Tracks**: GitHub Issue [#210](https://github.com/d-o-hub/chaotic_semantic_memory/issues/210) — *feat: add optional `chaotic_semantic_memory_duckdb` companion crate for analytics and export*
+> **Tracks**: GitHub Issue [#210](https://github.com/d-o-hub/chaotic_semantic_memory/issues/210) — *feat: add optional `csm-duckdb` companion crate for analytics and export*
 >
 > **ADRs**:
 > - ADR-0079 — Workspace Restructure for Companion Crate (parent)
@@ -81,9 +81,9 @@ Use `gh issue create --repo d-o-hub/chaotic_semantic_memory` for each sub-issue 
 Steps:
 
 1. Create branch `feat/duckdb-companion-workspace`.
-2. Add root `[workspace]` table to `Cargo.toml` with members `[".", "benchmarks", "crates/chaotic_semantic_memory_duckdb"]`.
-3. Create `crates/chaotic_semantic_memory_duckdb/{Cargo.toml,README.md,AGENTS.md,src/lib.rs}` — empty stub that compiles.
-4. Add CI job `cargo test -p chaotic_semantic_memory_duckdb` (Linux only) to `.github/workflows/ci.yml`.
+2. Add root `[workspace]` table to `Cargo.toml` with members `[".", "benchmarks", "crates/csm-duckdb"]`.
+3. Create `crates/csm-duckdb/{Cargo.toml,README.md,AGENTS.md,src/lib.rs}` — empty stub that compiles.
+4. Add CI job `cargo test -p csm-duckdb` (Linux only) to `.github/workflows/ci.yml`.
 5. Verify `cargo build` (default features) does not pull `duckdb` (run `cargo tree --no-default-features | grep -i duckdb || true`).
 6. Verify `cargo build --target wasm32-unknown-unknown` for the core crate still succeeds.
 7. Run `./scripts/validate.sh`.
@@ -211,10 +211,10 @@ cargo tree --no-default-features --prefix=none | grep -i duckdb && echo "FAIL: d
 cargo build --target wasm32-unknown-unknown --quiet
 
 # Companion crate works end-to-end
-cargo test -p chaotic_semantic_memory_duckdb --all-features --quiet
+cargo test -p csm-duckdb --all-features --quiet
 
 # CLI surface
-cargo run -p chaotic_semantic_memory_duckdb --features cli,parquet --bin csm-analytics -- --help
+cargo run -p csm-duckdb --features cli,parquet --bin csm-analytics -- --help
 cargo run --features analytics -- analytics --help    # only when analytics feature is on
 
 # Real usage

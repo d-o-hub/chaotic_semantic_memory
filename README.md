@@ -56,7 +56,7 @@ vectors directly via `inject_concept`.
 
 ## Optional Analytics (DuckDB)
 
-For advanced OLAP workloads, SQL inspection, and Parquet export, see the [`chaotic_semantic_memory_duckdb`](crates/chaotic_semantic_memory_duckdb) companion crate.
+For advanced OLAP workloads, SQL inspection, and Parquet export, see the [`csm-duckdb`](crates/csm-duckdb) companion crate.
 
 **Two-Crate Decision Tree:**
 
