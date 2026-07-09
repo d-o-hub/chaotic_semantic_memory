@@ -186,6 +186,11 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
     gh pr merge  # Squash merge preferred
     ```
 
+    **⚠️ NEVER use `gh pr merge --auto` when merging multiple PRs.**
+    This repo requires "up to date with base". Auto-merge on multiple PRs
+    creates a rebase loop (merge A → B is stale → auto-merge cancelled).
+    Instead: merge one PR → rebase next → wait for CI → merge → repeat.
+
 19. **Fix ALL issues (including pre-existing)** — CI must pass completely:
     - New failures: Fix immediately
     - Pre-existing warnings: Fix before claiming completion
