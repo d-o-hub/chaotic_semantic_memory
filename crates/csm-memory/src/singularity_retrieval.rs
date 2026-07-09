@@ -28,6 +28,7 @@ pub struct RetrievalStats {
     pub fell_back_to_exact_scan: bool,
     pub candidate_ns: u64,
     pub scoring_ns: u64,
+    pub best_score_seen: Option<f32>,
     /// ADR-0065: Filter selectivity ratio (matching_count / total_count)
     pub selectivity_ratio: f32,
     /// ADR-0065: Strategy used for filtered retrieval
@@ -128,42 +129,31 @@ impl Singularity {
         let Some(ns_state) = self.get_namespace(ns) else {
             return Vec::new();
         };
-        // NOTE: ns_state borrow held for duration of BFS
         let mut candidates = std::collections::HashSet::new();
         let results = self.exact_similarity_scan(ns, query, 1, unix_now_ns(), true);
-
-        let fanout = self._retrieval_config.graph_fanout;
-        if fanout == 0 {
-            // Early return skips graph expansion; old behaviour would BFS with fanout=0 (seed only).
-            return results
-                .iter()
-                .filter_map(|(id, _)| ns_state.id_to_index.get(id).copied())
-                .collect();
-        }
-
         if let Some((seed_id, _)) = results.first() {
             let mut queue = VecDeque::new();
-            queue.push_back((seed_id.as_str(), 0u8));
-            candidates.insert(seed_id.as_str());
+            queue.push_back((seed_id.clone(), 0u8));
+            candidates.insert(seed_id.clone());
 
             while let Some((id, depth)) = queue.pop_front() {
                 if depth >= self._retrieval_config.graph_depth {
                     continue;
                 }
-                if let Some(links) = ns_state.associations.get(id) {
-                    let mut neighbors: Vec<_> = links.iter().collect();
-
-                    // Partial selection: elements [0..fanout] are the top-K strongest by strength,
-                    // but their relative order is not guaranteed (O(E) average vs O(E log E) sort).
-                    if neighbors.len() > fanout {
-                        neighbors
+                if let Some(links) = ns_state.associations.get(&id) {
+                    let mut sorted_links: Vec<_> = links.iter().collect();
+                    let fanout = self._retrieval_config.graph_fanout.min(sorted_links.len());
+                    if fanout > 0 {
+                        sorted_links
                             .select_nth_unstable_by(fanout - 1, |a, b| b.1.0.total_cmp(&a.1.0));
-                        neighbors.truncate(fanout);
+                        sorted_links.truncate(fanout);
+                        sorted_links.sort_unstable_by(|a, b| b.1.0.total_cmp(&a.1.0));
                     }
 
-                    for (neighbor_id, _) in neighbors {
-                        if candidates.insert(neighbor_id.as_str()) {
-                            queue.push_back((neighbor_id.as_str(), depth + 1));
+                    for (neighbor_id, _) in sorted_links {
+                        if !candidates.contains(neighbor_id) {
+                            candidates.insert(neighbor_id.clone());
+                            queue.push_back((neighbor_id.clone(), depth + 1));
                         }
                     }
                 }
@@ -172,7 +162,7 @@ impl Singularity {
 
         candidates
             .into_iter()
-            .filter_map(|id| ns_state.id_to_index.get(id).copied())
+            .filter_map(|id| ns_state.id_to_index.get(&id).copied())
             .collect()
     }
 
@@ -270,6 +260,7 @@ impl Singularity {
             })
             .collect();
 
+        let best_score = results.first().map(|r| r.1);
         let results_arc = Arc::from(results);
         if !bypass_cache {
             if let Ok(mut cache) = ns_state.query_cache.write() {
@@ -289,6 +280,7 @@ impl Singularity {
             true,
             scoring_start.saturating_sub(start_ns),
             scoring_ns,
+            best_score,
             1.0,  // Full scan means 100% selectivity for unfiltered
             None, // No filter strategy for unfiltered
         );
@@ -301,77 +293,7 @@ impl Singularity {
         ns: &str,
         params: ScoredCandidateParams,
     ) -> Arc<[(String, f32)]> {
-        let Some(ns_state) = self.get_namespace(ns) else {
-            return Arc::from(Vec::new());
-        };
-        let ScoredCandidateParams {
-            query,
-            top_k,
-            candidates,
-            start_ns: _start_ns,
-            cand_ns,
-            source: _source,
-            bypass_cache,
-        } = params;
-        let scoring_start = unix_now_ns();
-        let candidate_count = candidates.len();
-
-        #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        let mut scores: Vec<(usize, u32)> = candidates
-            .into_par_iter()
-            .map(|idx| (idx, query.hamming_distance(&ns_state.concept_vectors[idx])))
-            .collect();
-
-        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-        let mut scores: Vec<(usize, u32)> = candidates
-            .into_iter()
-            .map(|idx| (idx, query.hamming_distance(&ns_state.concept_vectors[idx])))
-            .collect();
-
-        let scoring_ns = unix_now_ns().saturating_sub(scoring_start);
-        let scored_count = scores.len();
-
-        if scores.len() <= top_k {
-            scores.sort_unstable_by_key(|&(_, dist)| dist);
-        } else {
-            scores.select_nth_unstable_by(top_k - 1, |a, b| a.1.cmp(&b.1));
-            scores.truncate(top_k);
-            scores.sort_unstable_by_key(|&(_, dist)| dist);
-        }
-
-        let results: Vec<(String, f32)> = scores
-            .into_iter()
-            .map(|(idx, dist)| {
-                let similarity = 1.0 - (dist as f32 / 5120.0);
-                (ns_state.concept_indices[idx].clone(), similarity)
-            })
-            .collect();
-
-        let results_arc = Arc::from(results);
-        if !bypass_cache {
-            if let Ok(mut cache) = ns_state.query_cache.write() {
-                let cache_key = crate::singularity::similarity_cache_key(query, top_k);
-                if cache.put(cache_key, Arc::clone(&results_arc)) {
-                    ns_state
-                        .cache_metrics
-                        .evictions_total
-                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                }
-            }
-        }
-
-        self.update_stats(
-            ns,
-            candidate_count,
-            scored_count,
-            false,
-            cand_ns,
-            scoring_ns,
-            0.0,
-            None,
-        );
-
-        results_arc
+        self.scored_candidate_retrieval_with_stats(ns, params, 0.0, None)
     }
 
     /// Update retrieval statistics.
@@ -384,6 +306,7 @@ impl Singularity {
         fallback: bool,
         cand_ns: u64,
         score_ns: u64,
+        best_score: Option<f32>,
         selectivity: f32,
         strategy: Option<FilterStrategy>,
     ) {
@@ -394,6 +317,7 @@ impl Singularity {
                 fell_back_to_exact_scan: fallback,
                 candidate_ns: cand_ns,
                 scoring_ns: score_ns,
+                best_score_seen: best_score,
                 selectivity_ratio: selectivity,
                 filter_strategy: strategy,
             };
@@ -404,7 +328,6 @@ impl Singularity {
     }
 
     /// Score candidates with explicit selectivity stats (ADR-0065).
-    #[allow(dead_code)]
     pub(crate) fn scored_candidate_retrieval_with_stats(
         &self,
         ns: &str,
@@ -458,6 +381,7 @@ impl Singularity {
             })
             .collect();
 
+        let best_score = results.first().map(|r| r.1);
         let results_arc = Arc::from(results);
         if !bypass_cache {
             if let Ok(mut cache) = ns_state.query_cache.write() {
@@ -478,6 +402,7 @@ impl Singularity {
             false,
             cand_ns,
             scoring_ns,
+            best_score,
             selectivity,
             strategy,
         );
@@ -487,5 +412,79 @@ impl Singularity {
 }
 
 #[cfg(test)]
-#[path = "singularity_retrieval/tests.rs"]
-mod tests;
+mod tests_v2 {
+    use crate::singularity::{Singularity, SingularityConfig};
+    use csm_core::hyperdim::HVec10240;
+
+    #[test]
+    fn singularity_last_stats_v2() {
+        let s = Singularity::<HVec10240>::new(SingularityConfig::default());
+        assert_eq!(s.last_retrieval_stats("_default").candidate_count, 0);
+    }
+
+    #[test]
+    fn singularity_get_config_v2() {
+        let s = Singularity::<HVec10240>::new(SingularityConfig::default());
+        assert_eq!(s.retrieval_config().max_candidates, 1000);
+    }
+
+    #[test]
+    fn test_generate_graph_candidates_logic() {
+        use super::RetrievalConfig;
+        use crate::singularity::ConceptBuilder;
+        let mut s = Singularity::<HVec10240>::new(SingularityConfig::default());
+        let mut config = RetrievalConfig::default();
+        config.enable_graph_candidates = true;
+        config.graph_depth = 1;
+        config.graph_fanout = 2;
+        s.set_retrieval_config(config).unwrap();
+
+        let v1 = HVec10240::random();
+        let v2 = HVec10240::random();
+        let v3 = HVec10240::random();
+        let v4 = HVec10240::random();
+
+        s.inject(
+            "_default",
+            ConceptBuilder::new("c1")
+                .with_vector(v1.clone())
+                .build()
+                .unwrap(),
+        )
+        .unwrap();
+        s.inject(
+            "_default",
+            ConceptBuilder::new("c2").with_vector(v2).build().unwrap(),
+        )
+        .unwrap();
+        s.inject(
+            "_default",
+            ConceptBuilder::new("c3").with_vector(v3).build().unwrap(),
+        )
+        .unwrap();
+        s.inject(
+            "_default",
+            ConceptBuilder::new("c4").with_vector(v4).build().unwrap(),
+        )
+        .unwrap();
+
+        // c1 -> c2 (0.9), c1 -> c3 (0.8), c1 -> c4 (0.1)
+        s.associate("_default", "c1", "c2", 0.9).unwrap();
+        s.associate("_default", "c1", "c3", 0.8).unwrap();
+        s.associate("_default", "c1", "c4", 0.1).unwrap();
+
+        let candidates = s.generate_graph_candidates("_default", &v1);
+        // c1 is seed, c2 and c3 are top 2 neighbors. c4 is excluded by fanout=2.
+        assert_eq!(candidates.len(), 3);
+
+        let ns_state = s.get_namespace("_default").unwrap();
+        let ids: std::collections::HashSet<_> = candidates
+            .iter()
+            .map(|&idx| ns_state.concept_indices[idx].as_str())
+            .collect();
+        assert!(ids.contains("c1"));
+        assert!(ids.contains("c2"));
+        assert!(ids.contains("c3"));
+        assert!(!ids.contains("c4"));
+    }
+}

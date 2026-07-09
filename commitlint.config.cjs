@@ -27,7 +27,8 @@ module.exports = {
         'release',
         'clippy',
         'lints',
-        'build'
+        'build',
+        'loc-gate'
       ]
     ],
   },
@@ -36,6 +37,9 @@ module.exports = {
     (message) => /^Update .*/.test(message) && message.includes('bot'),
     (message) => message.includes('---\nupdated-dependencies:'),
     (message) => /^Merge branch .+ into/.test(message),
+    (message) => /^Merge remote-tracking branch/.test(message),
     (message) => /^Merge pull request/.test(message),
+    (message) => /^Revert /.test(message),
+    (message) => /^Potential fix/.test(message),
   ],
 };

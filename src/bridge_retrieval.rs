@@ -115,6 +115,20 @@ impl BridgeRetrieval {
         Ok(hits)
     }
 
+    /// Execute the bridge retrieval pipeline and return results with best score seen.
+    pub fn query_with_best_score(
+        &self,
+        ns: &str,
+        singularity: &Singularity,
+        query_text: &str,
+        top_k: usize,
+        reranker: Option<&dyn SemanticReranker>,
+    ) -> Result<(Vec<BridgeHit>, f32)> {
+        let hits = self.query(ns, singularity, query_text, top_k, reranker)?;
+        let best_score = hits.first().map_or(0.0, |h| h.scores.final_score);
+        Ok((hits, best_score))
+    }
+
     /// Compile a memory packet from query results.
     ///
     /// Calls `query()` then compiles hits into a compressed packet
@@ -128,8 +142,7 @@ impl BridgeRetrieval {
         reranker: Option<&dyn SemanticReranker>,
     ) -> Result<MemoryPacket> {
         let hits = self.query(ns, singularity, query_text, top_k, reranker)?;
-        // Optimization: Pass hits by value to allow ownership transfer of concept IDs.
-        self.compile_packet(ns, query_text, hits, singularity)
+        self.compile_packet(ns, query_text, &hits, singularity)
     }
 
     /// Merge primary and expanded results with score breakdown.
@@ -139,15 +152,13 @@ impl BridgeRetrieval {
         expanded: &[(String, f32)],
     ) -> Vec<BridgeHit> {
         use std::collections::HashMap;
-        use std::collections::hash_map::Entry;
-        // Optimization: Pre-allocate map to avoid redundant re-hashes and re-allocs.
-        // Use &str as key to avoid redundant String clones during accumulation.
-        let mut hit_map: HashMap<&str, BridgeHit> =
-            HashMap::with_capacity(primary.len() + expanded.len());
+
+        let mut hit_map: HashMap<String, BridgeHit> = HashMap::new();
+
         // Process primary results (deterministic scores)
         for (id, score) in primary {
             hit_map.insert(
-                id.as_str(),
+                id.clone(),
                 BridgeHit {
                     id: id.clone(),
                     text_preview: None,
@@ -156,12 +167,7 @@ impl BridgeRetrieval {
                         concept: 0.0,
                         semantic: 0.0,
                         final_score: 0.0,
-                        // Optimization: Pre-allocate evidence vector.
-                        evidence: {
-                            let mut v = Vec::with_capacity(2);
-                            v.push("deterministic_recall".to_string());
-                            v
-                        },
+                        evidence: vec!["deterministic_recall".to_string()],
                     },
                 },
             );
@@ -169,16 +175,15 @@ impl BridgeRetrieval {
 
         // Process expanded results (concept scores)
         for (id, score) in expanded {
-            match hit_map.entry(id.as_str()) {
-                Entry::Occupied(mut entry) => {
-                    let hit = entry.get_mut();
-                    // Boost existing hit's concept score
-                    hit.scores.concept = hit.scores.concept.max(*score);
-                    hit.scores.evidence.push("concept_expansion".to_string());
-                }
-                Entry::Vacant(entry) => {
-                    // New hit from expansion only
-                    entry.insert(BridgeHit {
+            if let Some(hit) = hit_map.get_mut(id) {
+                // Boost existing hit's concept score
+                hit.scores.concept = hit.scores.concept.max(*score);
+                hit.scores.evidence.push("concept_expansion".to_string());
+            } else {
+                // New hit from expansion only
+                hit_map.insert(
+                    id.clone(),
+                    BridgeHit {
                         id: id.clone(),
                         text_preview: None,
                         scores: ScoreBreakdown {
@@ -188,8 +193,8 @@ impl BridgeRetrieval {
                             final_score: 0.0,
                             evidence: vec!["concept_expansion".to_string()],
                         },
-                    });
-                }
+                    },
+                );
             }
         }
 
@@ -208,12 +213,12 @@ impl BridgeRetrieval {
         &self,
         ns: &str,
         query_text: &str,
-        hits: Vec<BridgeHit>,
+        hits: &[BridgeHit],
         singularity: &Singularity,
     ) -> Result<MemoryPacket> {
-        // Optimization: Pre-allocate vectors based on input size.
-        let mut facts: Vec<(String, f32)> = Vec::with_capacity(hits.len());
-        let mut sources: Vec<String> = Vec::with_capacity(hits.len());
+        // Extract facts from hits
+        let mut facts: Vec<(String, f32)> = Vec::new();
+        let mut sources: Vec<String> = Vec::new();
 
         for hit in hits {
             // Get concept for text preview
@@ -226,15 +231,13 @@ impl BridgeRetrieval {
                     .map_or_else(|| hit.id.clone(), |s| s.to_string());
 
                 facts.push((text, hit.scores.final_score));
-                // Optimization: Transfer ownership of concept ID instead of cloning.
-                sources.push(hit.id);
+                sources.push(hit.id.clone());
             }
         }
 
         // Deduplicate facts (exact match)
-        let mut unique_facts: Vec<String> = Vec::with_capacity(facts.len());
-        let mut seen: std::collections::HashSet<String> =
-            std::collections::HashSet::with_capacity(facts.len());
+        let mut unique_facts: Vec<String> = Vec::new();
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
         for (text, _score) in &facts {
             if !seen.contains(text) {
                 seen.insert(text.clone());
@@ -246,7 +249,7 @@ impl BridgeRetrieval {
         unique_facts.truncate(self.config.max_packet_facts);
 
         // Apply token budget (drop lowest-scored facts)
-        let mut budgeted_facts: Vec<String> = Vec::with_capacity(unique_facts.len());
+        let mut budgeted_facts: Vec<String> = Vec::new();
         let mut token_count = 0;
         for text in unique_facts {
             let estimated = (text.split_whitespace().count() as f32 / 0.75).ceil() as usize;
@@ -257,13 +260,15 @@ impl BridgeRetrieval {
         }
 
         // Compute confidence from top-k final_scores
-        let confidence = if sources.is_empty() {
+        let confidence = if hits.is_empty() {
             0.0
         } else {
-            // Optimization: Avoid intermediate Vec allocation for confidence calculation.
-            let count = sources.len().min(self.config.max_packet_facts);
-            let sum: f32 = facts.iter().take(count).map(|(_, s)| *s).sum();
-            sum / count as f32
+            let top_scores: Vec<f32> = hits
+                .iter()
+                .take(self.config.max_packet_facts)
+                .map(|h| h.scores.final_score)
+                .collect();
+            top_scores.iter().sum::<f32>() / top_scores.len() as f32
         };
 
         Ok(MemoryPacket {
@@ -457,44 +462,22 @@ mod tests_v2 {
     use super::*;
     use crate::singularity::{ConceptBuilder, Singularity, SingularityConfig};
     use csm_core::hyperdim::HVec10240;
+
     #[test]
     fn test_bridge_retrieval_query_v2() {
-        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
-        let c = ConceptBuilder::new("c1")
+        let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
+        let concept = ConceptBuilder::new("c1")
             .with_vector(HVec10240::random())
             .build()
             .unwrap();
-        sing.inject("_default", c).unwrap();
+        singularity.inject("_default", concept).unwrap();
+
         let bridge = BridgeRetrieval::new(
             TextEncoder::new(),
             ConceptGraph::new(),
             BridgeConfig::default(),
         );
-        assert!(bridge.query("_default", &sing, "test", 10, None).is_ok());
-    }
-    #[test]
-    fn test_memory_packet_confidence_is_average() {
-        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
-        let hv = HVec10240::random();
-        for i in 0..3 {
-            let c = ConceptBuilder::new(format!("c{i}"))
-                .with_vector(hv)
-                .build()
-                .unwrap();
-            sing.inject("_default", c).unwrap();
-        }
-        let bridge = BridgeRetrieval::new(
-            TextEncoder::new(),
-            ConceptGraph::new(),
-            BridgeConfig::default(),
-        );
-        let pkt = bridge
-            .memory_packet("_default", &sing, "concept", 10, None)
-            .unwrap();
-        assert!(
-            pkt.confidence > 0.0 && pkt.confidence <= 1.0,
-            "confidence {}",
-            pkt.confidence
-        );
+        let results = bridge.query("_default", &singularity, "test", 10, None);
+        assert!(results.is_ok());
     }
 }

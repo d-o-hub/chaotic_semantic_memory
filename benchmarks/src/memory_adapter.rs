@@ -3,7 +3,7 @@ use chaotic_semantic_memory::bridge_retrieval::BridgeRetrieval;
 use chaotic_semantic_memory::encoder::TextEncoder;
 use chaotic_semantic_memory::prelude::*;
 use chaotic_semantic_memory::retrieval::bm25::Bm25Index;
-use chaotic_semantic_memory::retrieval::hybrid::{compute_weights, merge_results};
+use chaotic_semantic_memory::retrieval::hybrid::{compute_weights, merge_results, HybridResult};
 use chaotic_semantic_memory::semantic_bridge::{CanonicalConcept, ConceptGraph};
 use std::collections::{HashMap, HashSet};
 use tempfile::NamedTempFile;
@@ -290,10 +290,15 @@ impl MemoryAdapter {
         }
 
         // For standard queries, use framework-level session filtering
-        let hdc_hits = self
+        let hdc_result = self
             .framework
             .query_in_session(text, session_id, top_k * 3)
             .await?;
+
+        let hdc_hits = match hdc_result {
+            HybridResult::Success(hits) => hits,
+            HybridResult::Abstained(_) => Vec::new(),
+        };
 
         // Get BM25 results (BM25 still needs manual session filtering here as it's a separate index)
         let query_tokens = tokenize_for_bm25(text);

@@ -6,6 +6,7 @@
 use chaotic_semantic_memory::bridge_retrieval::BridgeRetrieval;
 use chaotic_semantic_memory::encoder::TextEncoder;
 use chaotic_semantic_memory::prelude::*;
+use chaotic_semantic_memory::retrieval::hybrid::HybridResult;
 use chaotic_semantic_memory::semantic_bridge::{CanonicalConcept, ConceptGraph};
 
 #[tokio::main]
@@ -83,12 +84,17 @@ async fn main() -> Result<()> {
     let results = framework
         .probe_bridge_text("agent memory", 3, &bridge)
         .await?;
-    println!("Results: {} hits", results.len());
-    for hit in &results {
-        println!(
-            "  {} | det={:.3} concept={:.3} final={:.3}",
-            hit.id, hit.scores.deterministic, hit.scores.concept, hit.scores.semantic
-        );
+
+    match results {
+        HybridResult::Success(hits) => {
+            println!("Results: {} hits", hits.len());
+            for (id, score) in hits {
+                println!("  {id} | score={score:.3}");
+            }
+        }
+        HybridResult::Abstained(a) => {
+            println!("Abstained: best score seen {:?}", a.best_score_seen);
+        }
     }
 
     // Query 2: Semantic expansion (term not in index but related)
@@ -96,12 +102,17 @@ async fn main() -> Result<()> {
     let results = framework
         .probe_bridge_text("AI context", 3, &bridge)
         .await?;
-    println!("Results: {} hits", results.len());
-    for hit in &results {
-        println!(
-            "  {} | det={:.3} concept={:.3} final={:.3}",
-            hit.id, hit.scores.deterministic, hit.scores.concept, hit.scores.semantic
-        );
+
+    match results {
+        HybridResult::Success(hits) => {
+            println!("Results: {} hits", hits.len());
+            for (id, score) in hits {
+                println!("  {id} | score={score:.3}");
+            }
+        }
+        HybridResult::Abstained(a) => {
+            println!("Abstained: best score seen {:?}", a.best_score_seen);
+        }
     }
 
     // Query 3: Full semantic chain
@@ -109,12 +120,17 @@ async fn main() -> Result<()> {
     let results = framework
         .probe_bridge_text("knowledge retrieval for generation", 5, &bridge)
         .await?;
-    println!("Results: {} hits", results.len());
-    for hit in &results {
-        println!(
-            "  {} | det={:.3} concept={:.3} final={:.3}",
-            hit.id, hit.scores.deterministic, hit.scores.concept, hit.scores.semantic
-        );
+
+    match results {
+        HybridResult::Success(hits) => {
+            println!("Results: {} hits", hits.len());
+            for (id, score) in hits {
+                println!("  {id} | score={score:.3}");
+            }
+        }
+        HybridResult::Abstained(a) => {
+            println!("Abstained: best score seen {:?}", a.best_score_seen);
+        }
     }
 
     println!("\nHybrid retrieval complete");

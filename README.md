@@ -452,14 +452,6 @@ gated behind `#[cfg(not(target_arch = "wasm32"))]` for CPU parallelism.
 
 ## Development Gates
 
-For a reproducible development environment with all targets (native, WASM, npm) supported, use Nix:
-
-```bash
-nix develop
-```
-
-Alternatively, using manual toolchains:
-
 ```bash
 cargo check --quiet
 cargo test --all-features --quiet

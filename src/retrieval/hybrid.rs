@@ -3,7 +3,56 @@
 //! Provides query-length-dependent weighting between keyword (BM25) and
 //! semantic (HDC) search results.
 
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+/// A record of a retrieval attempt that yielded no results above the threshold.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RetrievalAbstention {
+    /// The original query string
+    pub query: String,
+    /// The minimum score threshold that was required (may be an approximation
+    /// based on framework weighting parameters).
+    pub min_score_threshold: f32,
+    /// The best score seen during this attempt
+    pub best_score_seen: Option<f32>,
+    /// The retrieval modes attempted (e.g., "Auto", "SemanticOnly")
+    pub attempted_modes: Vec<String>,
+    /// Timestamp when this abstention occurred
+    pub timestamp: DateTime<Utc>,
+}
+
+/// Result of a hybrid retrieval operation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum HybridResult {
+    /// Results found above threshold.
+    ///
+    /// Note: An empty vector indicates that results existed in the underlying
+    /// store but were removed by a secondary filter (e.g. metadata filtering),
+    /// rather than a true absence of matching concepts.
+    Success(Vec<(String, f32)>),
+    /// No results met the confidence threshold.
+    Abstained(RetrievalAbstention),
+}
+
+impl HybridResult {
+    /// Check if the result is a success and contains entries.
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::Success(v) => v.is_empty(),
+            Self::Abstained(_) => true,
+        }
+    }
+
+    /// Get an iterator over results if it is a success.
+    pub fn iter(&self) -> Box<dyn Iterator<Item = &(String, f32)> + '_> {
+        match self {
+            Self::Success(v) => Box::new(v.iter()),
+            Self::Abstained(_) => Box::new(std::iter::empty()),
+        }
+    }
+}
 
 /// Compute query-length-dependent weights for hybrid retrieval.
 ///

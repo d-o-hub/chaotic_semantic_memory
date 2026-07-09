@@ -233,3 +233,113 @@ async fn bundle_concepts_strict_batch_size_fails() {
     let result = framework.bundle_concepts_strict(&ids).await;
     assert!(result.is_err());
 }
+
+#[tokio::test]
+async fn run_query_min_score_validation_fails() {
+    use chaotic_semantic_memory::cli::args::OutputFormat;
+    use chaotic_semantic_memory::cli::args::QueryArgs;
+    use chaotic_semantic_memory::cli::commands::query::run_query;
+
+    let base_args = QueryArgs {
+        text: "test".to_string(),
+        top_k: 10,
+        min_score: -0.1,
+        compact: false,
+        code_aware: false,
+        namespace: "_default".to_string(),
+        provider: None,
+        keyword_weight: None,
+        semantic_only: false,
+        keyword_only: false,
+    };
+
+    // Too low
+    let mut args = base_args.clone();
+    args.min_score = -0.1;
+    let result = run_query(args, None, OutputFormat::Table).await;
+    assert!(result.is_err());
+
+    // Too high
+    let mut args = base_args.clone();
+    args.min_score = 1.1;
+    let result = run_query(args, None, OutputFormat::Table).await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn run_query_top_k_validation_fails() {
+    use chaotic_semantic_memory::cli::args::OutputFormat;
+    use chaotic_semantic_memory::cli::args::QueryArgs;
+    use chaotic_semantic_memory::cli::commands::query::run_query;
+
+    let args = QueryArgs {
+        text: "test".to_string(),
+        top_k: 0,
+        min_score: 0.5,
+        compact: false,
+        code_aware: false,
+        namespace: "_default".to_string(),
+        provider: None,
+        keyword_weight: None,
+        semantic_only: false,
+        keyword_only: false,
+    };
+
+    let result = run_query(args, None, OutputFormat::Table).await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn run_query_keyword_weight_validation_fails() {
+    use chaotic_semantic_memory::cli::args::OutputFormat;
+    use chaotic_semantic_memory::cli::args::QueryArgs;
+    use chaotic_semantic_memory::cli::commands::query::run_query;
+
+    let base_args = QueryArgs {
+        text: "test".to_string(),
+        top_k: 10,
+        min_score: 0.5,
+        compact: false,
+        code_aware: false,
+        namespace: "_default".to_string(),
+        provider: None,
+        keyword_weight: Some(-0.1),
+        semantic_only: false,
+        keyword_only: false,
+    };
+
+    // Too low
+    let mut args = base_args.clone();
+    args.keyword_weight = Some(-0.1);
+    let result = run_query(args, None, OutputFormat::Table).await;
+    assert!(result.is_err());
+
+    // Too high
+    let mut args = base_args.clone();
+    args.keyword_weight = Some(1.1);
+    let result = run_query(args, None, OutputFormat::Table).await;
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn run_query_mutually_exclusive_modes_fail() {
+    use chaotic_semantic_memory::cli::args::OutputFormat;
+    use chaotic_semantic_memory::cli::args::QueryArgs;
+    use chaotic_semantic_memory::cli::commands::query::run_query;
+
+    let args = QueryArgs {
+        text: "test".to_string(),
+        top_k: 10,
+        min_score: 0.5,
+        compact: false,
+        code_aware: false,
+        namespace: "_default".to_string(),
+        provider: None,
+        keyword_weight: None,
+        semantic_only: true,
+        keyword_only: true,
+    };
+
+    let result = run_query(args, None, OutputFormat::Table).await;
+    assert!(result.is_err());
+}

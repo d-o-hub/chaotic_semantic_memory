@@ -167,7 +167,7 @@ async fn probe_text_returns_similar_concepts() {
     assert!(!results.is_empty(), "should find similar concepts");
 
     // Learning-related docs should rank higher than cooking
-    let ids: Vec<String> = results.into_iter().map(|(id, _)| id).collect();
+    let ids: Vec<String> = results.iter().map(|(id, _)| id.clone()).collect();
     assert!(
         ids.contains(&"doc1".to_string()) || ids.contains(&"doc2".to_string()),
         "should find learning-related docs"
@@ -290,16 +290,18 @@ async fn test_query_in_session_filtering() {
         .query_in_session("apple", "session-1", 10)
         .await
         .unwrap();
-    assert_eq!(results1.len(), 1);
-    assert_eq!(results1[0].0, "doc-1-1");
+    let hits1: Vec<_> = results1.iter().collect();
+    assert_eq!(hits1.len(), 1);
+    assert_eq!(hits1[0].0, "doc-1-1");
 
     // Query in session 2
     let results2 = framework
         .query_in_session("apple", "session-2", 10)
         .await
         .unwrap();
-    assert_eq!(results2.len(), 1);
-    assert_eq!(results2[0].0, "doc-2-1");
+    let hits2: Vec<_> = results2.iter().collect();
+    assert_eq!(hits2.len(), 1);
+    assert_eq!(hits2[0].0, "doc-2-1");
 
     // Query in non-existent session
     let results3 = framework

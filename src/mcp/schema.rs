@@ -222,3 +222,17 @@ pub fn export_schema() -> Value {
         }
     })
 }
+
+/// Schema for memory_list_gaps tool.
+pub fn list_gaps_schema() -> Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "min_attempts": {
+                "type": "integer",
+                "description": "Minimum number of failed retrieval attempts",
+                "default": 1
+            }
+        }
+    })
+}
