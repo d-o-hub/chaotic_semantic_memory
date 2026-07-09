@@ -265,13 +265,25 @@ impl AbsenceEntry {
     }
 
     /// Derive a stable string ID from the normalized query.
+    ///
+    /// Uses FNV-1a (64-bit) for deterministic hashing across Rust versions
+    /// and platforms, matching the crate's text encoding pipeline.
     pub fn id_for(query: &str) -> String {
         let normalized = Self::normalize(query);
-        let hash = normalized
-            .as_bytes()
-            .iter()
-            .fold(0u64, |acc, &b| acc.wrapping_mul(31).wrapping_add(b as u64));
-        format!("absence:{hash:x}")
+        let hash = Self::fnv1a_hash(normalized.as_bytes());
+        format!("absence:{hash:016x}")
+    }
+
+    /// FNV-1a 64-bit hash (stable across Rust versions/platforms).
+    fn fnv1a_hash(bytes: &[u8]) -> u64 {
+        const OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
+        const PRIME: u64 = 0x0000_0100_0000_01b3;
+        let mut hash = OFFSET_BASIS;
+        for &byte in bytes {
+            hash ^= byte as u64;
+            hash = hash.wrapping_mul(PRIME);
+        }
+        hash
     }
 
     /// Create a new entry from a RetrievalAbstention event.

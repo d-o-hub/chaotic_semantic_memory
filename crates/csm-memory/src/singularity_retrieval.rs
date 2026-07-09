@@ -293,79 +293,7 @@ impl Singularity {
         ns: &str,
         params: ScoredCandidateParams,
     ) -> Arc<[(String, f32)]> {
-        let Some(ns_state) = self.get_namespace(ns) else {
-            return Arc::from(Vec::new());
-        };
-        let ScoredCandidateParams {
-            query,
-            top_k,
-            candidates,
-            start_ns: _start_ns,
-            cand_ns,
-            source: _source,
-            bypass_cache,
-        } = params;
-        let scoring_start = unix_now_ns();
-        let candidate_count = candidates.len();
-
-        #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        let mut scores: Vec<(usize, u32)> = candidates
-            .into_par_iter()
-            .map(|idx| (idx, query.hamming_distance(&ns_state.concept_vectors[idx])))
-            .collect();
-
-        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-        let mut scores: Vec<(usize, u32)> = candidates
-            .into_iter()
-            .map(|idx| (idx, query.hamming_distance(&ns_state.concept_vectors[idx])))
-            .collect();
-
-        let scoring_ns = unix_now_ns().saturating_sub(scoring_start);
-        let scored_count = scores.len();
-
-        if scores.len() <= top_k {
-            scores.sort_unstable_by_key(|&(_, dist)| dist);
-        } else {
-            scores.select_nth_unstable_by(top_k - 1, |a, b| a.1.cmp(&b.1));
-            scores.truncate(top_k);
-            scores.sort_unstable_by_key(|&(_, dist)| dist);
-        }
-
-        let results: Vec<(String, f32)> = scores
-            .into_iter()
-            .map(|(idx, dist)| {
-                let similarity = 1.0 - (dist as f32 / 5120.0);
-                (ns_state.concept_indices[idx].clone(), similarity)
-            })
-            .collect();
-
-        let best_score = results.first().map(|r| r.1);
-        let results_arc = Arc::from(results);
-        if !bypass_cache {
-            if let Ok(mut cache) = ns_state.query_cache.write() {
-                let cache_key = crate::singularity::similarity_cache_key(query, top_k);
-                if cache.put(cache_key, Arc::clone(&results_arc)) {
-                    ns_state
-                        .cache_metrics
-                        .evictions_total
-                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                }
-            }
-        }
-
-        self.update_stats(
-            ns,
-            candidate_count,
-            scored_count,
-            false,
-            cand_ns,
-            scoring_ns,
-            best_score,
-            0.0,
-            None,
-        );
-
-        results_arc
+        self.scored_candidate_retrieval_with_stats(ns, params, 0.0, None)
     }
 
     /// Update retrieval statistics.
@@ -400,7 +328,6 @@ impl Singularity {
     }
 
     /// Score candidates with explicit selectivity stats (ADR-0065).
-    #[allow(dead_code)]
     pub(crate) fn scored_candidate_retrieval_with_stats(
         &self,
         ns: &str,

@@ -27,7 +27,8 @@ module.exports = {
         'release',
         'clippy',
         'lints',
-        'build'
+        'build',
+        'loc-gate'
       ]
     ],
   },
