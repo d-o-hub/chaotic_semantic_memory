@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Property-based security tests for input validation (ADR-0047).
 //!
 //! Covers: namespace validation, concept ID validation, association strength

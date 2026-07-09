@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Framework validation error branch coverage tests.
 //!
 //! Covers: concept ID validation (empty, too long, control chars),

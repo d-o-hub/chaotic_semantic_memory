@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! TTL (Time-To-Live) lifecycle tests for coverage gap in framework_ttl.rs.
 //!
 //! Covers: inject_concept_with_ttl, inject_text_with_ttl, purge_expired

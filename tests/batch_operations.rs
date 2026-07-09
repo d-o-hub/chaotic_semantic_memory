@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Tests for batch operations API.
 #![allow(clippy::cast_possible_truncation)] // Test index-to-char conversion for workflow names
 

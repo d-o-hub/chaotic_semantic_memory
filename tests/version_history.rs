@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Comprehensive integration tests for CSM concept version history (ADR-0074).
 
 use chaotic_semantic_memory::prelude::*;

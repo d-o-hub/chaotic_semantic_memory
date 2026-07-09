@@ -21,7 +21,8 @@ impl ChaoticLsh {
 
         for _ in 0..10240 {
             for _ in 0..input_dim {
-                #[allow(clippy::cast_possible_truncation)] // Intentional f64→f32 for projection values
+                #[allow(clippy::cast_possible_truncation)]
+                // Intentional f64→f32 for projection values
                 projection_matrix.push((map.next_value() * 2.0 - 1.0) as f32);
             }
         }

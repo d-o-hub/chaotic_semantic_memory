@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use std::time::Instant;
 
 use chaotic_semantic_memory::persistence::Persistence;

@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Absolute path validation coverage for framework_ops.rs.
 //!
 //! Covers: validate_path absolute path branches, backup without persistence

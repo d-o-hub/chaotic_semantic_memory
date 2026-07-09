@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use chaotic_semantic_memory::HVec10240;
 use chaotic_semantic_memory::persistence::Persistence;
 use chaotic_semantic_memory::singularity::Concept;

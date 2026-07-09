@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Tests for selectivity-aware filtered retrieval (ADR-0065).
 
 use chaotic_semantic_memory::{

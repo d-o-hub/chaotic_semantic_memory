@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use chaotic_semantic_memory::ChaoticSemanticFramework;
 use chaotic_semantic_memory::framework_ttl_advanced::{DecayCurve, TtlConfig, TtlPolicy, TtlRule};
 use csm_core::hyperdim::HVec10240;

@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Retrieval config validation tests for coverage gap in singularity_retrieval.rs.
 //!
 //! Covers: RetrievalConfig::validate, set_retrieval_config, FilterStrategy branches

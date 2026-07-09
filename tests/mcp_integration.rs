@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #![cfg(feature = "mcp")]
 //! Integration tests for MCP server handler (ADR-0090).
 //!

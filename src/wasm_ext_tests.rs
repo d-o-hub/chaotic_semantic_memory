@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Tests for WASM extension methods to run underlying data pattern tests on native targets.
 
 #[cfg(test)]

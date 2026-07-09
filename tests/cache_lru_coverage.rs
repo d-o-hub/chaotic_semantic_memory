@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Cache LRU reorder and occupied entry coverage tests.
 //!
 //! Covers: QueryCache get LRU reorder, put occupied entry update

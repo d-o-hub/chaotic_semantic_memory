@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Coverage tests for singularity_cache QueryCache operations.
 //!
 //! Covers: QueryCache put occupied entry, get LRU reorder, eviction edge cases
