@@ -8,6 +8,7 @@
 use csm_core::error::Result;
 use csm_core::hyperdim::HVec10240;
 use csm_memory::Concept;
+use std::collections::hash_map::Entry;
 use std::collections::{HashMap, VecDeque};
 
 /// Configuration for GraphRAG retrieval.
@@ -143,7 +144,6 @@ pub fn graph_rag_retrieve(
                     config.graph_weight * (1.0 / (1.0 + new_hop as f32)) * new_strength;
                 let total_score = config.similarity_weight * similarity + graph_score;
 
-                use std::collections::hash_map::Entry;
                 match results_map.entry(neighbor_id) {
                     Entry::Occupied(mut entry) => {
                         if total_score > entry.get().0 {
