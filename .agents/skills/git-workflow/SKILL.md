@@ -53,3 +53,33 @@ gh run list --branch <branch> --limit 5
 ```
 
 Do not claim success until both local and GitHub checks pass.
+
+## PR Triage Checklist (Multi-PR Review)
+
+When reviewing/fixing multiple open PRs, **always check ALL of these for EVERY PR** before starting work:
+
+```bash
+# 1. Merge conflict check (FIRST - before anything else)
+gh pr list --state open --json number,title,mergeable \
+  --jq '.[] | "\(.number): \(.title) — \(.mergeable)"'
+
+# 2. CI status check
+for pr in $(gh pr list --state open --json number --jq '.[].number'); do
+  echo "PR #$pr:"
+  gh pr checks $pr 2>&1 | grep "fail" | wc -l
+  echo "failures"
+done
+
+# 3. Review comments requiring action
+gh pr list --state open --json number,reviewDecision \
+  --jq '.[] | "\(.number): \(.reviewDecision)"'
+```
+
+**Merge order rules:**
+1. Check `mergeable` status FIRST — resolve conflicts before CI fixes
+2. Independent PRs (docs, CI-only) merge first
+3. Foundation PRs (lints, commitlint config) merge before dependent PRs
+4. Feature PRs that touch the same files go last
+5. After each merge, rebase remaining PRs on updated main
+
+**Never skip:** A PR showing `MERGEABLE` in the API can still have conflicts after other PRs merge. Re-check after each merge.

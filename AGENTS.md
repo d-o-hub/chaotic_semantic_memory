@@ -45,6 +45,15 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
    gh run list --workflow=ci.yml --limit 3
    ```
 
+5b. **Check open PR merge conflicts** — When triaging multiple PRs, check
+   conflict status FIRST (before CI). A `CONFLICTING` PR cannot merge regardless
+   of CI status:
+
+   ```bash
+   gh pr list --state open --json number,title,mergeable \
+     --jq '.[] | "\(.number): \(.mergeable) — \(.title)"'
+   ```
+
 6. **Verify built binary, not stale install** — `~/.local/bin/csm` (or any global
    install) may lag the source tree by multiple releases. Before claiming a CLI
    surface is missing a command, always confirm against a fresh build:
@@ -214,6 +223,7 @@ Before starting any task, verify:
 - [ ] GOAP_STATE.md loaded — know current state
 - [ ] ALL uncommitted changes reviewed via `git status --short`
 - [ ] **LOC gate pre-check**: all source files ≤ 500 LOC (`find src -name '*.rs' -exec wc -l {} + | sort -rn | head -20`)
+- [ ] **PR conflict check**: `scripts/pr-triage.sh` or `gh pr list --state open --json number,mergeable --jq '.[] | select(.mergeable == "CONFLICTING")'`
 - [ ] Hard constraints understood — spectral radius [0.9, 1.1]
 - [ ] CI baseline confirmed via `gh run list`
 
