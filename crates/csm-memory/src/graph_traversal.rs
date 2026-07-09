@@ -309,6 +309,7 @@ impl Singularity {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     use crate::singularity::{Concept, ConceptBuilder, Singularity, SingularityConfig};
     use csm_core::hyperdim::HVec10240;

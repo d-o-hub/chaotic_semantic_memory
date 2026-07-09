@@ -274,6 +274,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
         Self::new_with_metrics(cfg, cache_metrics)
     }
 
+    #[allow(clippy::expect_used)]
     fn create_index(&self) -> Box<dyn AnnIndex<H>> {
         crate::index::create_index(&self.config.index_backend)
             .expect("ANN index creation failed; check feature flags and configuration")
@@ -283,6 +284,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
         self.namespaces.get(ns)
     }
 
+    #[allow(clippy::unwrap_used)]
     pub fn get_namespace_mut(&mut self, ns: &str) -> &mut NamespaceState<H> {
         if !self.namespaces.contains_key(ns) {
             let index = self.create_index();

@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 #[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]
 use std::process::ExitCode as StdExitCode;
 

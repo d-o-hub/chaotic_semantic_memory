@@ -37,3 +37,6 @@ cli = ["dep:clap", "dep:tokio"]
 name = "csm-analytics"
 path = "src/bin/csm-analytics.rs"
 required-features = ["cli"]
+
+[lints]
+workspace = true

@@ -148,6 +148,7 @@ pub(crate) fn build_event_sender() -> broadcast::Sender<MemoryEvent> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     // Clone needed for event ownership testing
 
     use super::*;

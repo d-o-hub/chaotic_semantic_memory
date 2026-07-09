@@ -30,6 +30,7 @@ pub mod prelude {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     use crate::hyperdim::HVec10240;
     use crate::reservoir::Reservoir;

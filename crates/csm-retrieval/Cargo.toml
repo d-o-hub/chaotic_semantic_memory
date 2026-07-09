@@ -30,3 +30,6 @@ rerank-cross = []
 
 [lib]
 crate-type = ["lib"]
+
+[lints]
+workspace = true

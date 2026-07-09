@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 pub mod connection;
 pub mod error;
 pub mod ingest_bench;
@@ -94,6 +96,7 @@ pub fn version() -> &'static str {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     use crate::schema::SCHEMA_DDL;
     use duckdb::Connection;

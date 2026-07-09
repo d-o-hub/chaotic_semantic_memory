@@ -146,6 +146,7 @@ impl ServerHandler for McpHandler {
         })
     }
 
+    #[allow(clippy::unwrap_used)]
     async fn call_tool(
         &self,
         request: CallToolRequestParams,
@@ -197,6 +198,7 @@ impl ServerHandler for McpHandler {
         })
     }
 
+    #[allow(clippy::unwrap_used)]
     async fn read_resource(
         &self,
         request: ReadResourceRequestParams,
@@ -220,6 +222,7 @@ impl ServerHandler for McpHandler {
 }
 
 impl McpHandler {
+    #[allow(clippy::unwrap_used)]
     async fn execute_tool(&self, name: &str, args: Value) -> Result<Value> {
         let fw = self.framework().await?;
         match name {
@@ -382,7 +385,7 @@ impl McpHandler {
         }
     }
 }
-
+#[allow(clippy::unwrap_used)]
 fn tool_def(name: &str, desc: &str, schema: Value) -> Tool {
     Tool::new(
         name.to_string(),
@@ -422,6 +425,7 @@ fn parse_hvec(vec_data: &[Value]) -> Result<csm_core::hyperdim::HVec10240> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     use serde_json::json;
 

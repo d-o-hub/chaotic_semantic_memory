@@ -73,6 +73,7 @@ pub enum ChaoticEvent {
 #[cfg(feature = "cloudevents")]
 impl ChaoticEvent {
     /// Map this event to a CloudEvent.
+    #[allow(clippy::expect_used)]
     pub fn to_cloud_event(&self, source: &str) -> Event {
         let (ce_type, data) = match self {
             Self::AttractorFired {
@@ -142,6 +143,7 @@ impl ChaoticEvent {
 #[cfg(feature = "cloudevents")]
 impl MemoryEvent {
     /// Map this memory event to a CloudEvent.
+    #[allow(clippy::expect_used)]
     pub fn to_cloud_event(&self, source: &str) -> Event {
         let (variant, subject, data) = match self {
             Self::ConceptInjected { id, .. } => (

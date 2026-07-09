@@ -33,3 +33,6 @@ wasm = ["uuid"]
 
 [lib]
 crate-type = ["lib"]
+
+[lints]
+workspace = true

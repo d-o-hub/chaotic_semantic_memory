@@ -140,6 +140,7 @@ pub type Result<T> = std::result::Result<T, MemoryError>;
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::MemoryError;
 
     #[test]
