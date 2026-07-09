@@ -952,25 +952,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "chaotic_semantic_memory_duckdb"
-version = "0.3.7"
-dependencies = [
- "anyhow",
- "base64 0.22.1",
- "chaotic_semantic_memory",
- "clap",
- "duckdb",
- "insta",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "thiserror 2.0.18",
- "tokio",
- "uuid",
-]
-
-[[package]]
 name = "chrono"
 version = "0.4.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1432,6 +1413,25 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.18",
  "tracing",
+]
+
+[[package]]
+name = "csm-duckdb"
+version = "0.3.7"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "chaotic_semantic_memory",
+ "clap",
+ "duckdb",
+ "insta",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]

@@ -6,10 +6,10 @@ MAX_BYTES="${CSM_WASM_SIZE_MAX_BYTES:-${DEFAULT_MAX_BYTES}}"
 REPORT_PATH="plans/handoffs/W5_C_to_D_wasm_size_report.md"
 
 rustup target add wasm32-unknown-unknown >/dev/null 2>&1 || true
-cargo build --target wasm32-unknown-unknown --release --features wasm >/dev/null
+cargo build --target wasm32-unknown-unknown --release -p csm-wasm >/dev/null
 
-# Find the library WASM (chaotic_semantic_memory.wasm), not the CLI binary (csm.wasm)
-WASM_FILE="target/wasm32-unknown-unknown/release/chaotic_semantic_memory.wasm"
+# Find the library WASM (csm_wasm.wasm from the csm-wasm crate)
+WASM_FILE="target/wasm32-unknown-unknown/release/csm_wasm.wasm"
 if [[ ! -f "${WASM_FILE}" ]]; then
   # Fallback: find any .wasm that's not the CLI binary
   WASM_FILE="$(find target/wasm32-unknown-unknown/release -maxdepth 1 -name '*.wasm' ! -name 'csm.wasm' | head -n 1)"

@@ -1,6 +1,6 @@
 #[cfg(feature = "parquet")]
 mod tests {
-    use chaotic_semantic_memory_duckdb::{Analytics, ParquetExportOptions};
+    use csm_duckdb::{Analytics, ParquetExportOptions};
     use std::fs;
     use tempfile::tempdir;
 
@@ -146,9 +146,9 @@ mod tests {
 
         // Test different compressions
         for compression in [
-            chaotic_semantic_memory_duckdb::ParquetCompression::Zstd,
-            chaotic_semantic_memory_duckdb::ParquetCompression::Snappy,
-            chaotic_semantic_memory_duckdb::ParquetCompression::None,
+            csm_duckdb::ParquetCompression::Zstd,
+            csm_duckdb::ParquetCompression::Snappy,
+            csm_duckdb::ParquetCompression::None,
         ] {
             let opts = ParquetExportOptions {
                 compression: compression.clone(),
@@ -210,7 +210,7 @@ mod tests {
         let mut reports = std::collections::BTreeMap::new();
         reports.insert(
             "test.parquet".to_string(),
-            chaotic_semantic_memory_duckdb::ExportReport {
+            csm_duckdb::ExportReport {
                 rows_written: 10,
                 bytes_written: 100,
                 path: "test.parquet".into(),

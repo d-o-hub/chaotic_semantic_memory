@@ -1,11 +1,11 @@
-# chaotic_semantic_memory_duckdb
+# csm-duckdb
 
 Optional analytics, Parquet export, and SQL inspection for `chaotic_semantic_memory`.
 
 ## Usage
 
 ```rust
-use chaotic_semantic_memory_duckdb::Analytics;
+use csm_duckdb::Analytics;
 
 let mut analytics = Analytics::open_in_memory()?;
 analytics.load_export_json("export.json")?;
@@ -56,5 +56,5 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-chaotic_semantic_memory_duckdb = { version = "0.1" }
+csm-duckdb = { version = "0.1" }
 ```

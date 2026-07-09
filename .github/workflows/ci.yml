@@ -97,7 +97,7 @@ jobs:
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
     - name: Run DuckDB tests
-      run: cargo test -p chaotic_semantic_memory_duckdb --locked -- --test-threads=1 --quiet
+      run: cargo test -p csm-duckdb --locked -- --test-threads=1 --quiet
 
   miri:
     runs-on: ubuntu-latest
@@ -258,9 +258,9 @@ jobs:
     - name: Install wasm-pack
       run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
     - name: Build WASM
-      run: wasm-pack build --dev --target web -- --no-default-features --features wasm
+      run: wasm-pack build crates/csm-wasm --dev --target web
     - name: Check WASM
-      run: cargo check --target wasm32-unknown-unknown --no-default-features --features wasm
+      run: cargo check --target wasm32-unknown-unknown -p csm-wasm
     - name: Verify WASM TS Freshness
       run: bash scripts/check-wasm-freshness.sh
 

@@ -6,7 +6,7 @@ Proposed (2026-05-15)
 
 Tracks: GitHub Issue [#210](https://github.com/d-o-hub/chaotic_semantic_memory/issues/210), Phase 1.
 
-Parent: ADR-0079 (Workspace Restructure for `chaotic_semantic_memory_duckdb`).
+Parent: ADR-0079 (Workspace Restructure for `csm-duckdb`).
 Successor: ADR-0081 (Phase 2 — Parquet Export).
 
 ## Context and Problem Statement
@@ -39,7 +39,7 @@ The JSON export path is forward-compatible (we already version it via ADR-0016, 
 ### Module Layout
 
 ```
-crates/chaotic_semantic_memory_duckdb/
+crates/csm-duckdb/
 ├── Cargo.toml
 ├── README.md
 ├── AGENTS.md
@@ -137,8 +137,8 @@ CREATE TABLE benchmarks (
 
 ## Acceptance Criteria
 
-- [ ] `cargo build -p chaotic_semantic_memory_duckdb` succeeds on Linux/macOS.
-- [ ] `cargo test -p chaotic_semantic_memory_duckdb` covers:
+- [ ] `cargo build -p csm-duckdb` succeeds on Linux/macOS.
+- [ ] `cargo test -p csm-duckdb` covers:
   - JSON export ingest roundtrip (golden fixture under `tests/fixtures/`).
   - libSQL attach against a fixture file.
   - Benchmarks JSONL ingest from `benchmarks/` sample data.

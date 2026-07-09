@@ -6,7 +6,7 @@ Proposed (2026-05-15)
 
 Tracks: GitHub Issue [#210](https://github.com/d-o-hub/chaotic_semantic_memory/issues/210), Phase 3.
 
-Parent: ADR-0079 (Workspace Restructure for `chaotic_semantic_memory_duckdb`).
+Parent: ADR-0079 (Workspace Restructure for `csm-duckdb`).
 Predecessors: ADR-0080 (Phase 1 — Read-Only Analytics), ADR-0081 (Phase 2 — Parquet Export).
 
 ## Context and Problem Statement
@@ -34,7 +34,7 @@ Chosen: **Option 3 — both, with the standalone binary as the supported default
 
 Rationale:
 
-- The standalone binary keeps the default `csm` build untouched and gives users a clean install path: `cargo install chaotic_semantic_memory_duckdb` ships `csm-analytics`.
+- The standalone binary keeps the default `csm` build untouched and gives users a clean install path: `cargo install csm-duckdb` ships `csm-analytics`.
 - The integrated subcommand exists for power users who want `csm analytics …`; they opt in via `cargo install chaotic_semantic_memory --features analytics`.
 
 This avoids forcing the choice on users while keeping defaults clean.
@@ -44,7 +44,7 @@ This avoids forcing the choice on users while keeping defaults clean.
 ### Companion Crate Additions
 
 ```
-crates/chaotic_semantic_memory_duckdb/
+crates/csm-duckdb/
 ├── Cargo.toml             # adds [[bin]] csm-analytics, [features] cli
 └── src/
     ├── cli/
@@ -81,10 +81,10 @@ Add a tiny optional feature on the core crate:
 ```toml
 # Cargo.toml (core)
 [features]
-analytics = ["dep:chaotic_semantic_memory_duckdb"]
+analytics = ["dep:csm-duckdb"]
 
 [dependencies]
-chaotic_semantic_memory_duckdb = { path = "crates/chaotic_semantic_memory_duckdb",
+csm-duckdb = { path = "crates/csm-duckdb",
                                    features = ["cli", "parquet"], optional = true }
 ```
 
@@ -93,7 +93,7 @@ In `src/cli/mod.rs` (core CLI), add a `cfg`-gated subcommand:
 ```rust
 #[cfg(feature = "analytics")]
 fn analytics_subcommand() -> clap::Command {
-    chaotic_semantic_memory_duckdb::cli::build_subcommand().name("analytics")
+    csm_duckdb::cli::build_subcommand().name("analytics")
 }
 ```
 
@@ -122,9 +122,9 @@ Mirror under `csm analytics …` when the `analytics` feature is enabled.
 ## Acceptance Criteria
 
 - [ ] Default `cargo install chaotic_semantic_memory` does **not** install `csm-analytics`.
-- [ ] `cargo install --path crates/chaotic_semantic_memory_duckdb --features cli,parquet` produces a working `csm-analytics` binary.
+- [ ] `cargo install --path crates/csm-duckdb --features cli,parquet` produces a working `csm-analytics` binary.
 - [ ] `cargo install --path . --features analytics,cli` produces a `csm` binary that exposes `csm analytics --help`.
-- [ ] Integration tests under `crates/chaotic_semantic_memory_duckdb/tests/cli_*.rs` cover `inspect`, `query`, `stats`, `export` against a fixture.
+- [ ] Integration tests under `crates/csm-duckdb/tests/cli_*.rs` cover `inspect`, `query`, `stats`, `export` against a fixture.
 - [ ] `--help` output is snapshot-tested (e.g., via `insta`) so accidental drift is caught.
 - [ ] No DuckDB types appear in `csm --help` when built without `analytics`.
 

@@ -1,5 +1,5 @@
 ---
-source: crates/chaotic_semantic_memory_duckdb/tests/cli_tests.rs
+source: crates/csm-duckdb/tests/cli_tests.rs
 expression: help
 ---
 SQL Analytics for Chaotic Semantic Memory

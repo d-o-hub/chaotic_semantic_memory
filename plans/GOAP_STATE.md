@@ -538,7 +538,7 @@ world_state:
     error.rs: 115
     lib.rs: 39
 
-  # --- workspace member: crates/chaotic_semantic_memory_duckdb (ADR-0079..0082) ---
+  # --- workspace member: crates/csm-duckdb (ADR-0079..0082) ---
   modules_duckdb_companion:
     lib.rs: 139
     export_parquet.rs: 185
@@ -1130,7 +1130,7 @@ world_state:
   # Wave 26: DuckDB Companion Crate (P2) — backfilled 2026-05-18
   # ADRs 0079-0082. Code merged in main; this section records
   # state for the planner. All three phases shipped under
-  # crates/chaotic_semantic_memory_duckdb/.
+  # crates/csm-duckdb/.
   # ═══════════════════════════════════════════════════════
   duckdb_workspace_restructure_complete: true   # ADR-0079
   duckdb_phase1_readonly_analytics_complete: true  # ADR-0080

@@ -6,7 +6,7 @@ Proposed (2026-05-15)
 
 Tracks: GitHub Issue [#210](https://github.com/d-o-hub/chaotic_semantic_memory/issues/210), Phase 2.
 
-Parent: ADR-0079 (Workspace Restructure for `chaotic_semantic_memory_duckdb`).
+Parent: ADR-0079 (Workspace Restructure for `csm-duckdb`).
 Predecessor: ADR-0080 (Phase 1 — Read-Only Analytics).
 Successor: ADR-0082 (Phase 3 — Optional CLI Integration).
 
@@ -45,7 +45,7 @@ Option 2 is rejected because it duplicates code DuckDB already maintains and wou
 ### Module Additions
 
 ```
-crates/chaotic_semantic_memory_duckdb/src/
+crates/csm-duckdb/src/
 ├── export_parquet.rs   # NEW: write helpers
 └── manifest.rs         # NEW: run manifest + checksum
 ```
@@ -141,7 +141,7 @@ TO 'concepts/'
 ```json
 {
   "schema_version": 1,
-  "generator": "chaotic_semantic_memory_duckdb 0.1.0",
+  "generator": "csm-duckdb 0.1.0",
   "core_crate_version": "0.3.5",
   "run_id": "ulid-...",
   "exported_at": "2026-05-15T12:00:00Z",
@@ -163,13 +163,13 @@ TO 'concepts/'
 
 ## Acceptance Criteria
 
-- [ ] `cargo test -p chaotic_semantic_memory_duckdb --features parquet` covers:
+- [ ] `cargo test -p csm-duckdb --features parquet` covers:
   - Roundtrip: ingest fixture → export Parquet → re-ingest into a fresh DuckDB → row counts match.
   - Determinism: two consecutive exports of the same data produce byte-identical Parquet (or at minimum identical SHA-256 of sorted row groups; document if DuckDB writes non-deterministic file metadata).
   - Manifest schema validation against a JSON-schema fixture.
 - [ ] No new top-level dependency (no `arrow`, no `parquet`).
 - [ ] Test:source ratio for new files ≥ 90%.
-- [ ] Documentation: `crates/chaotic_semantic_memory_duckdb/README.md` shows a Polars + Python read example.
+- [ ] Documentation: `crates/csm-duckdb/README.md` shows a Polars + Python read example.
 - [ ] Memory ceiling: exporting 1 M concepts stays under 1 GB RSS on a CI runner (verified by an `--ignored` test marked `#[ignore]` that runs locally).
 
 ## Out of Scope (Deferred to Phase 3 or later)
