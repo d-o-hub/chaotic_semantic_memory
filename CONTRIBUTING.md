@@ -79,21 +79,6 @@ cargo fmt --check
 cargo clippy --all-targets --all-features -- -D warnings
 ```
 
-### Local CI Testing (Optional)
-
-For fast feedback on GitHub Actions workflows, you can use [act](https://github.com/nektos/act) to run them locally. This repo includes a `.actrc` for configuration.
-
-```bash
-# List all jobs
-act -l
-
-# Run the lint job locally
-act -j lint
-
-# Run all push-event workflows
-act
-```
-
 ## Testing
 
 ```bash
@@ -110,6 +95,20 @@ scripts/mutation_test.sh fast
 cargo test --test property_based
 ```
 
+## Profiling
+
+To profile the application with `perf` or `flamegraph` while maintaining release-level optimizations, use the `profiling` profile:
+
+```bash
+# Build with profiling symbols preserved
+cargo build --profile profiling
+
+# Run with perf
+perf record --call-graph dwarf ./target/profiling/csm
+```
+
+This profile inherits from `release` but preserves debug symbols (`debug = 1`) and disables stripping.
+
 ## Pull Request Process
 
 1. Create a feature branch from `main`
@@ -121,23 +120,45 @@ cargo test --test property_based
 
 ## Release Process
 
-Releases are managed via `scripts/release-manager.sh`:
+Releases are managed using `cargo-release`, `git-cliff`, and `cargo-dist`.
+
+### 1. Preparation
+
+Ensure your workspace is clean and you are on the `main` branch.
+
+### 2. Validation
+
+Run the validation gates to ensure the project is in a releasable state:
 
 ```bash
-# Validate release readiness
-scripts/release-manager.sh validate
-
-# Prepare release (bump version, update changelog)
-scripts/release-manager.sh prepare 0.2.0
-
-# Publish (tag, push, create GitHub release)
-scripts/release-manager.sh publish 0.2.0
-
-# Or do everything at once
-scripts/release-manager.sh full 0.2.0
+scripts/validate.sh
 ```
 
-See [ADR-0042](plans/adr/0042-release-automation-v010.md) for release automation details.
+### 3. Release Dry-run
+
+Verify the release process without making any changes:
+
+```bash
+cargo release [patch|minor|major] --dry-run
+```
+
+### 4. Execute Release
+
+Perform the release. This will bump the version, update `CHANGELOG.md` using `git-cliff`, sync versions across the codebase, create a git tag, and push to GitHub.
+
+```bash
+cargo release [patch|minor|major] --execute
+```
+
+### 5. Distribution
+
+Once the tag is pushed, GitHub Actions will automatically:
+1. Build and publish workspace crates to crates.io.
+2. Build and publish WASM bindings to npm.
+3. Build and publish the CLI to npm.
+4. Create a GitHub Release with binaries for all supported platforms (managed by `cargo-dist`).
+
+See [ADR-0042](plans/adr/0042-release-automation-v010.md) for historical release automation details.
 
 ## Security
 

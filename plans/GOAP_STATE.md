@@ -1479,7 +1479,7 @@ world_state:
   template_reference: "https://github.com/d-oit/rust-2026-template"
   template_version_analyzed: "0.3.2 (392 commits)"
 
-  action_last_completed: add_automated_secret_scanning
+  action_last_completed: review_pr_444_sparse_bm25_collection
 
   # ═══════════════════════════════════════════════════════
   # PR #444 Review: BM25 Sparse Collection (2026-06-27)

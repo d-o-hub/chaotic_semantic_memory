@@ -1,0 +1,23 @@
+# Config for 'cargo dist'
+[workspace]
+dist = "0.27.0"
+
+[dist]
+# The target platforms to build for
+cargo-dist-version = "0.27.0"
+ci = ["github"]
+install-updater = false
+tar-style = "xz"
+
+# Targets (mirrors build-cli-matrix in release.yml)
+targets = [
+  "x86_64-unknown-linux-gnu",
+  "aarch64-unknown-linux-gnu",
+  "x86_64-apple-darwin",
+  "aarch64-apple-darwin",
+  "x86_64-pc-windows-msvc",
+]
+
+# Publish to GitHub Releases
+[dist.github-release]
+auto-publish = true

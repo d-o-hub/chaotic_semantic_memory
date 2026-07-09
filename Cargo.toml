@@ -184,6 +184,11 @@ codegen-units = 1
 panic = "unwind"
 strip = "symbols"
 
+[profile.profiling]
+inherits = "release"
+strip = false
+debug = 1
+
 # ============================================================================
 # LINTS CONFIGURATION (Rust 2024)
 # ============================================================================
