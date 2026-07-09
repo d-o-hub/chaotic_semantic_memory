@@ -90,6 +90,7 @@ impl MemoryError {
         }
     }
 
+    #[allow(clippy::missing_const_for_fn)] // match arms with string refs prevent const
     pub fn remediation(&self) -> Option<&'static str> {
         match self {
             Self::Database { .. } => Some(

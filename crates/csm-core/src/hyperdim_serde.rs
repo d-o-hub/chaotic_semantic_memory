@@ -76,6 +76,7 @@ impl<'de> Visitor<'de> for HVecVisitor {
             Ok(HVec10240 { data })
         } else if words.len() == 1280 {
             // Legacy byte sequence
+            #[allow(clippy::cast_possible_truncation)] // Intentional: values are guaranteed 0-255
             let bytes: Vec<u8> = words.into_iter().map(|w| w as u8).collect();
             HVec10240::from_bytes(&bytes).map_err(de::Error::custom)
         } else {

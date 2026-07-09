@@ -489,6 +489,7 @@ impl HVec10240 {
     }
 
     /// Deserialize from bytes
+    #[allow(clippy::missing_const_for_fn)] // Result return prevents const
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         if bytes.len() != 1280 {
             return Err(crate::error::MemoryError::InvalidDimension {

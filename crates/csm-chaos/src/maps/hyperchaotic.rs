@@ -18,7 +18,7 @@ impl Slhm2d {
     /// Create a new 2D-SLHM with initial state and control parameter.
     ///
     /// Recommended: x, y in (0, 1), a in [0.9, 1.0] for maximum chaos.
-    pub fn new(x: f64, y: f64, a: f64) -> Self {
+    pub const fn new(x: f64, y: f64, a: f64) -> Self {
         Self { x, y, a }
     }
 
@@ -56,7 +56,9 @@ impl Slhm2d {
         h ^= h >> 33;
 
         // Uniform f64 in [0, 1)
-        (h >> 11) as f64 / (1u64 << 53) as f64
+        #[allow(clippy::cast_precision_loss)] // Standard u64→f64 for uniform random generation
+        let result = (h >> 11) as f64 / (1u64 << 53) as f64;
+        result
     }
 }
 

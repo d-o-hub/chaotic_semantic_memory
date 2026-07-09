@@ -217,6 +217,7 @@ pub fn unix_now_secs() -> u64 {
 
 /// Get current time in Unix nanoseconds.
 #[cfg(not(target_arch = "wasm32"))]
+#[allow(clippy::cast_possible_truncation)] // .min(u64::MAX) ensures value fits
 pub fn unix_now_ns() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

@@ -1,4 +1,5 @@
 //! Core concept storage and indexing engine
+#![allow(clippy::cast_precision_loss)] // u64 timestamps → f32 for TTL decay math is intentional
 
 use crate::index::{AnnIndex, IndexBackend, IndexStats};
 use crate::singularity_cache::{CacheMetrics, CacheMetricsSnapshot};
@@ -196,6 +197,7 @@ impl<H: Hypervector> ConceptBuilder<H> {
         }
     }
 
+    #[allow(clippy::missing_const_for_fn)]
     pub fn with_vector(mut self, vector: H) -> Self {
         self.vector = Some(vector);
         self

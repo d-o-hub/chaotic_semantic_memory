@@ -1,3 +1,4 @@
+#![allow(clippy::cast_precision_loss)] // Hamming distance → f32 cosine similarity is intentional
 use crate::hyperdim::HVec10240;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
