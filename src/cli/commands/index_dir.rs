@@ -220,6 +220,7 @@ fn parse_heading(line: &str) -> Option<(usize, String)> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
 
     #[test]

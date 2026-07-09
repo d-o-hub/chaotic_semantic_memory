@@ -163,6 +163,7 @@ fn wasm_persistence_unavailable() -> MemoryError {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     use csm_core::hyperdim::HVec10240;
 

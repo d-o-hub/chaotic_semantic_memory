@@ -469,9 +469,9 @@ impl ChaoticSemanticFramework {
         sing.bundle_concepts_strict(&ns, ids)
     }
 }
-
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     #[tokio::test]
     async fn secure_read_file_exact_limit_is_allowed() {

@@ -24,7 +24,10 @@ module.exports = {
         'deps',
         'ci',
         'docs',
-        'release'
+        'release',
+        'clippy',
+        'lints',
+        'build'
       ]
     ],
   },

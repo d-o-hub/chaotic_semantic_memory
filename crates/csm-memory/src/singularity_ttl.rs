@@ -28,6 +28,7 @@ impl Singularity {
     }
 
     /// Purge expired concepts, optionally cascading through associations.
+    #[allow(clippy::unwrap_used)]
     pub fn purge_expired_cascading(&mut self, ns: &str, cascading: bool) -> usize {
         let now = unix_now_secs();
         let Some(ns_state) = self.get_namespace(ns) else {
@@ -92,6 +93,7 @@ impl Singularity {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     use crate::singularity::SingularityConfig;
 

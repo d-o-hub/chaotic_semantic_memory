@@ -1,7 +1,9 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Tests for WASM extension methods to run underlying data pattern tests on native targets.
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use crate::framework_builder::FrameworkBuilder;
     use crate::framework_events::MemoryEvent;
     use crate::graph_traversal::TraversalConfig;

@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Tests for Phase 33 API completeness features.
 
 // Locks held during test assertions for framework state verification

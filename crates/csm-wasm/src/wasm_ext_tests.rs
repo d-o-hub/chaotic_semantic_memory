@@ -2,6 +2,7 @@
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use crate::framework_builder::FrameworkBuilder;
     use crate::framework_events::MemoryEvent;
     use crate::graph_traversal::TraversalConfig;

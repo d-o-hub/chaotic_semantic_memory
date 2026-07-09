@@ -2,6 +2,7 @@
 //!
 //! 10240-bit hypervectors packed into 160 x u64 words.
 //! Provides 32x compression compared to f32 hypervectors.
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::{HVec10240, Hypervector};
@@ -276,6 +277,7 @@ impl BHVec10240 {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
 
     #[test]

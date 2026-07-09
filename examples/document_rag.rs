@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Document chunk storage for Retrieval-Augmented Generation (RAG)
 
 use std::collections::HashMap;

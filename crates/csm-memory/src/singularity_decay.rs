@@ -53,6 +53,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     use crate::ConceptBuilder;
     use crate::singularity::SingularityConfig;

@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Integration tests for the observability module (ADR-0072 / ADR-0086).
 //!
 //! Gated on the `prometheus` / `otlp-json` / `otlp` features. These tests

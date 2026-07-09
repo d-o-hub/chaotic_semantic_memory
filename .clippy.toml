@@ -9,3 +9,12 @@ too-many-lines-threshold = 100
 
 # Single character binding names are acceptable in short contexts
 allowed-idents-below-min-chars = ["i", "j", "k", "n", "x", "y", "z", "id"]
+
+# =============================================================================
+# Test code leniency (Rust 2024+ best practice)
+# Library code warns on unwrap/expect/panic, but tests are exempt via clippy
+# configuration rather than per-file #![allow(...)] annotations.
+# =============================================================================
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true

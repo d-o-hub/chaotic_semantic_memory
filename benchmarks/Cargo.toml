@@ -27,3 +27,6 @@ chaotic_semantic_memory = { path = "..", version = "0.3.6" }
 [features]
 default = []
 reader-lite = []
+
+[lints]
+workspace = true

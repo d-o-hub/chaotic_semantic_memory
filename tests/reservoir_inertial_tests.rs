@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Tests for InertialESN second-order momentum dynamics (ADR-0064).
 //!
 //! Float comparisons allowed: beta values are exact constants set by builder.

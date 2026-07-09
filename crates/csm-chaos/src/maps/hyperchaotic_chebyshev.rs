@@ -67,12 +67,15 @@ impl ChebyshevLogistic2d {
         h ^= h >> 33;
 
         // Uniform f64 in [0, 1)
-        (h >> 11) as f64 / (1u64 << 53) as f64
+        #[allow(clippy::cast_precision_loss)] // Standard u64→f64 for uniform random generation
+        let result = (h >> 11) as f64 / (1u64 << 53) as f64;
+        result
     }
 }
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
 
     #[test]

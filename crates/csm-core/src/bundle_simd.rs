@@ -158,6 +158,7 @@ pub(crate) unsafe fn update_counts_simd_neon(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     use crate::hyperdim::HVec10240;
     use rand::Rng;

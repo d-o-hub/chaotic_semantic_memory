@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Hyperdimensional vector coverage tests.
 //!
 //! Covers: sparse, new_seeded, zero, to_bytes/from_bytes, hamming_distance

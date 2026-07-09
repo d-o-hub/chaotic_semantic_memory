@@ -115,6 +115,7 @@ impl ChaoticSemanticFramework {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     // Exact float comparisons for confidence test assertions
 
     use crate::framework_builder::FrameworkBuilder;

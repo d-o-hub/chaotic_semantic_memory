@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Framework bridge operations coverage tests.
 //!
 //! Covers: probe_bridge_text_filtered, memory_packet_text_with_reranker

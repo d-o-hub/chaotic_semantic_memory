@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! CLI ↔ Framework parity smoke test (ADR-0066, Wave 21 P0)
 //!
 //! Verifies the binary exposes every subcommand promised by ADR-0066 so a

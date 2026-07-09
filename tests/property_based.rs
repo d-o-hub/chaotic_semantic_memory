@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Property-based tests for hypervector and singularity operations.
 //!
 //! Float comparisons allowed: proptest assertions for exact association strengths.

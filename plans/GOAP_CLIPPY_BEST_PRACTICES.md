@@ -11,10 +11,11 @@
 | Metric | Value |
 |--------|-------|
 | Clippy status | ✅ Passing (`-D warnings`) |
-| File-wide allows | 0 |
-| Per-item allows | 6 |
-| `.clippy.toml` | ❌ Missing |
-| `Cargo.toml` lints | ❌ Missing |
+| File-wide allows | 0 (library code) |
+| Per-item allows | Justified production allows only |
+| `.clippy.toml` | ✅ Created (cognitive complexity, allow-*-in-tests) |
+| `Cargo.toml` lints | ✅ Added (workspace lints) |
+| Test exemptions | ✅ `.clippy.toml` allow-unwrap-in-tests/allow-expect-in-tests/allow-panic-in-tests |
 
 ### Current `#[allow(...)]` Usage
 

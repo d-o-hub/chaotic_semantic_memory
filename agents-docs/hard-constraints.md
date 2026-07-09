@@ -26,3 +26,6 @@
   - `Cargo.toml` - `version = "X.Y.Z"`
   - `wasm/package.json` - `"version": "X.Y.Z"`
   - Test fixtures and examples with `"version":` literals
+- **Lint policy**: `unwrap_used`/`expect_used`/`panic` are `warn` in workspace lints (errors in CI).
+  Tests are exempt via `.clippy.toml` (`allow-unwrap-in-tests = true` etc.).
+  Production allows require `#[allow(...)]` with a justification comment.

@@ -313,6 +313,7 @@ impl Persistence {
 #[cfg(test)]
 #[cfg(feature = "persistence")]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use crate::persistence::Persistence;
     use csm_core::hyperdim::HVec10240;
     use csm_memory::Concept;

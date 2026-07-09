@@ -196,6 +196,7 @@ fn validate_strength(strength: f64) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     use tempfile::tempdir;
 

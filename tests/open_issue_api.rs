@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use chaotic_semantic_memory::graph_traversal::TraversalConfig;
 use chaotic_semantic_memory::metadata_filter::MetadataFilter;
 use chaotic_semantic_memory::{ChaoticSemanticFramework, HVec10240, MemoryEvent};

@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use chaotic_semantic_memory::prelude::*;
 use rand::RngExt;
 use std::sync::Arc;

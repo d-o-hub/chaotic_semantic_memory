@@ -97,3 +97,30 @@ value.map_or_else(|| default(), |s| s.to_string())
 concepts.get(id).map(|c| filter.matches(&c.metadata)).unwrap_or(false)
 value.map(|s| s.to_string()).unwrap_or_else(|| default())
 ```
+
+## Lint Policy: unwrap/expect/panic (Rust 2024+ Best Practice)
+
+**Library code**: `unwrap_used`, `expect_used`, and `panic` are set to `warn` in
+`[workspace.lints.clippy]` (Cargo.toml). CI runs `clippy -- -D warnings`, promoting
+these to hard errors.
+
+**Test code**: `.clippy.toml` sets `allow-unwrap-in-tests = true`,
+`allow-expect-in-tests = true`, `allow-panic-in-tests = true`. This automatically
+exempts `#[cfg(test)]` modules and `#[test]` functions — no per-file `#![allow]`
+annotations needed.
+
+**Justified production allows**: Use `#[allow(clippy::expect_used)]` with a comment
+explaining why the operation cannot fail or why a panic is acceptable:
+
+```rust
+// Lock poisoning is unrecoverable — program state is corrupted
+#[allow(clippy::expect_used)]
+let cache = self.norm_cache.read().expect("lock poisoned");
+
+// Prometheus metric construction is infallible with static params
+#[allow(clippy::expect_used)]
+let counter = IntCounterVec::new(opts, &["result"]).expect("counter");
+```
+
+**Never** use bare `unwrap()` in library code without an `#[allow]` + justification.
+Prefer `?` operator, `.ok_or()`, `.map_err()`, or pattern matching.
