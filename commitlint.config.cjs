@@ -23,6 +23,7 @@ module.exports = {
         'core',
         'deps',
         'ci',
+        'codacy',
         'docs',
         'release',
         'clippy',
