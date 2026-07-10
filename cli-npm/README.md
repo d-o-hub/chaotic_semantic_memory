@@ -4,21 +4,31 @@ Command-line interface for [chaotic_semantic_memory](https://github.com/d-o-hub/
 
 ## Installation
 
-**Recommended: use npx (no install needed)**
+**Use npx (recommended — no install needed, no permission issues):**
 ```bash
 npx @d-o-hub/csm --version
+npx @d-o-hub/csm inject my-concept --database csm_memory.db
 ```
 
-**Global install:**
+`npx` downloads and runs the correct platform binary automatically. No global install required.
+
+**Global install (optional):**
 ```bash
 npm install -g @d-o-hub/csm
 ```
 
-> **Permission errors (EACCES)?** Configure npm prefix to avoid needing sudo:
+> **⚠ Permission errors (EACCES)?**
+>
+> Global installs write to a system directory that may require elevated permissions.
+> **Do not use `sudo npm install -g`** — this creates root-owned files that cause further issues.
+>
+> Instead, configure a user-writable npm prefix:
 > ```bash
 > npm config set prefix ~/.npm-global
 > export PATH=~/.npm-global/bin:$PATH  # Add to ~/.bashrc or ~/.zshrc to persist
 > ```
+>
+> Or simply use `npx` above, which requires no global install and avoids permission issues entirely.
 
 ## Usage
 

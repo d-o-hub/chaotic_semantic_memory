@@ -82,13 +82,17 @@ try {
 
   if (!response.ok) {
     if (response.status === 404) {
-      console.error(`Binary not found for version v${version}`);
-      console.error('This version may not have been released yet.');
-      console.error('Check available releases at: https://github.com/d-o-hub/chaotic_semantic_memory/releases');
+      console.warn(`Binary not found for version v${version}`);
+      console.warn('This version may not have been released yet.');
+      console.warn('Check available releases at: https://github.com/d-o-hub/chaotic_semantic_memory/releases');
     } else {
-      console.error(`Download failed: HTTP ${response.status}`);
+      console.warn(`Download failed: HTTP ${response.status}`);
     }
-    process.exit(1);
+    console.warn('');
+    console.warn('The CLI will still work via npx:');
+    console.warn('  npx @d-o-hub/csm --version');
+    // Exit 0 so `npm install -g` doesn't fail entirely
+    process.exit(0);
   }
 
   // Convert web ReadableStream to Node.js Readable stream
@@ -120,10 +124,36 @@ try {
   console.log(`Successfully installed csm v${version}`);
   console.log(`Binary location: ${binaryPath}`);
 } catch (err) {
+  // Handle permission errors gracefully — don't fail the install
+  const isPermissionError = err.code === 'EACCES' || err.code === 'EPERM' ||
+    (err.message && /permission denied|EACCES|EPERM/i.test(err.message));
+
+  if (isPermissionError) {
+    console.warn('');
+    console.warn('⚠ Could not download binary: permission denied (EACCES).');
+    console.warn('');
+    console.warn('This is expected when installing globally without proper prefix configuration.');
+    console.warn('The CLI will still work via npx:');
+    console.warn('');
+    console.warn('  npx @d-o-hub/csm --version');
+    console.warn('');
+    console.warn('To fix global installs, configure a user-writable npm prefix:');
+    console.warn('');
+    console.warn('  npm config set prefix ~/.npm-global');
+    console.warn('  export PATH=~/.npm-global/bin:$PATH  # Add to ~/.bashrc or ~/.zshrc');
+    console.warn('');
+    // Exit 0 so `npm install -g` doesn't fail entirely
+    process.exit(0);
+  }
+
   console.error(`Failed to download binary: ${err.message}`);
+  console.error('');
+  console.error('The CLI will still work via npx:');
+  console.error('  npx @d-o-hub/csm --version');
   console.error('');
   console.error('Alternative installation methods:');
   console.error('  1. Install from crates.io: cargo install chaotic_semantic_memory --bin csm');
   console.error('  2. Download manually from: https://github.com/d-o-hub/chaotic_semantic_memory/releases');
-  process.exit(1);
+  // Exit 0 to avoid breaking `npm install -g` for non-critical failures
+  process.exit(0);
 }
