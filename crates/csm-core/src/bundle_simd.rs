@@ -101,6 +101,16 @@ pub(crate) unsafe fn update_counts_simd_avx2(
     hv: &[u128; 80],
     sign: i32,
 ) {
+    use std::arch::x86_64::{
+        _mm256_add_epi32, _mm256_and_si256, _mm256_cmpeq_epi32, _mm256_loadu_si256,
+        _mm256_set1_epi32, _mm256_set_epi32, _mm256_storeu_si256,
+    };
+
+    let sign_vec = _mm256_set1_epi32(sign);
+    // Bit selector for expanding bits to i32 lanes.
+    // lane 0: 2^0, lane 1: 2^1, ..., lane 7: 2^7
+    let bit_selector = _mm256_set_epi32(128, 64, 32, 16, 8, 4, 2, 1);
+
     for i in 0..80 {
         let word_ptr = &hv[i] as *const u128 as *const u8;
         // SAFETY: counts is [i32; 10240], i * 128 is within bounds.
@@ -113,12 +123,18 @@ pub(crate) unsafe fn update_counts_simd_avx2(
                 continue;
             }
 
-            for k in 0..8 {
-                if (byte & (1 << k)) != 0 {
-                    // SAFETY: counts_ptr + j * 8 + k is within bounds.
-                    unsafe { *counts_ptr.add(j * 8 + k) += sign };
-                }
-            }
+            // Expand 8 bits to 8 x i32 masks (0 or -1).
+            // Process: broadcast byte -> and with bit_selector -> compare equal to bit_selector.
+            let byte_vec = _mm256_set1_epi32(i32::from(byte));
+            let mask = _mm256_cmpeq_epi32(_mm256_and_si256(byte_vec, bit_selector), bit_selector);
+            let increment = _mm256_and_si256(mask, sign_vec);
+
+            // SIMD add the increment (sign or 0) to the counts array.
+            // SAFETY: counts_ptr + j * 8 + 8 is within bounds.
+            let target_ptr = unsafe { counts_ptr.add(j * 8) };
+            let current_counts = unsafe { _mm256_loadu_si256(target_ptr.cast()) };
+            let new_counts = _mm256_add_epi32(current_counts, increment);
+            unsafe { _mm256_storeu_si256(target_ptr.cast(), new_counts) };
         }
     }
 }
