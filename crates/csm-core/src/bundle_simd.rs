@@ -103,7 +103,7 @@ pub(crate) unsafe fn update_counts_simd_avx2(
 ) {
     use std::arch::x86_64::{
         _mm256_add_epi32, _mm256_and_si256, _mm256_cmpeq_epi32, _mm256_loadu_si256,
-        _mm256_set1_epi32, _mm256_set_epi32, _mm256_storeu_si256,
+        _mm256_set_epi32, _mm256_set1_epi32, _mm256_storeu_si256,
     };
 
     let sign_vec = _mm256_set1_epi32(sign);
