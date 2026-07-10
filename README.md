@@ -97,7 +97,7 @@ npm install @d-o-hub/chaotic_semantic_memory
 
 ### CLI Binary
 
-**via npx (recommended — no install needed):**
+**via npx (recommended — no install, no permission issues):**
 ```bash
 npx @d-o-hub/csm --version
 npx @d-o-hub/csm inject my-concept --database csm_memory.db
@@ -108,12 +108,12 @@ npx @d-o-hub/csm inject my-concept --database csm_memory.db
 npm install -g @d-o-hub/csm
 ```
 
-> **Permission errors?** Global installs may fail with `EACCES`. Fix with:
+> **Permission errors (EACCES)?** Do not use `sudo`. Configure a user-writable prefix:
 > ```bash
 > npm config set prefix ~/.npm-global
 > export PATH=~/.npm-global/bin:$PATH  # Add to ~/.bashrc or ~/.zshrc to persist
 > ```
-> Or simply use `npx` above, which requires no global install.
+> Or simply use `npx` above, which requires no global install and avoids permission issues.
 
 **via cargo:**
 ```bash
