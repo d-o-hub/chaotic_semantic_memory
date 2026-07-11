@@ -4295,3 +4295,103 @@ actions:
     description: |
       Implement SIMD (AVX2/NEON) acceleration for the ChaoticLsh dot-product loop.
       Leverage the pre-generated projection matrix for vectorized multiplication and sign-bit extraction.
+
+  # ═══════════════════════════════════════════════════════
+  # WAVE 31: LOC & Supply Chain Remediation (2026-07-11)
+  # ADR-0092: GOAP Reconciliation 2026-07-11
+  # ═══════════════════════════════════════════════════════
+
+  - name: fix_workspace_loc_gate
+    preconditions:
+      arch_fitness_tests_created: true
+    effects:
+      workspace_loc_gate_enforced: true
+      loc_gate_verified: true
+    cost: 5
+    status: queued
+    file: crates/csm-memory/src/singularity.rs, crates/csm-core/src/hyperdim.rs, crates/csm-memory/src/graph_traversal.rs, .github/workflows/ci.yml
+    adr: ADR-0092
+    description: |
+      3 workspace crate files violate the ≤500 LOC hard constraint:
+      - crates/csm-memory/src/singularity.rs (629 LOC, +129 over)
+      - crates/csm-core/src/hyperdim.rs (563 LOC, +63 over)
+      - crates/csm-memory/src/graph_traversal.rs (517 LOC, +17 over)
+
+      Fix in two steps:
+      1. Extend CI LOC gate (`find src -name '*.rs'`) to also cover
+         `find crates -name '*.rs'` — prevents future regressions
+      2. Split the 3 violating files using the established extraction pattern:
+         - singularity.rs → extract singularity_retrieval.rs or singularity_ops.rs
+         - hyperdim.rs → extract hyperdim_ops.rs (bundling/permutation helpers)
+         - graph_traversal.rs → extract into multiple thinner traversal modules
+
+  - name: update_deny_toml_advisories
+    preconditions:
+      deny_toml_created: true
+    effects:
+      deny_toml_advisories_current: true
+    cost: 2
+    status: queued
+    file: deny.toml
+    adr: ADR-0092
+    description: |
+      Triage 5 new Dependabot alerts and update deny.toml:
+      - opentelemetry_sdk (medium): Check if upgrade to 0.32+ is feasible
+        (requires API migration — previously deferred in PR #437)
+      - time (medium): Check if newer transitive dep resolves it
+      - lru (low): IterMut soundness — check if newer lru version exists
+      - libsql-sqlite3-parser ×2 (low): Blocked upstream (no patch available)
+
+      For each: either upgrade the dependency or add a documented ignore entry
+      with clear justification (blocked upstream, no user-facing impact, etc.)
+
+  - name: fix_commitlint_scopes
+    preconditions:
+      ci_main_status: failing
+    effects:
+      commitlint_scopes_updated: true
+    cost: 2
+    status: queued
+    file: commitlint.config.cjs
+    adr: ADR-0092
+    description: |
+      Fix CI commitlint failures on main caused by merged PRs:
+      1. Add `cli-npm` to scope-enum (used by npm CLI package scope)
+      2. Add ignore rule for commits without conventional format from
+         automated Jules bot merges (e.g., b649c7c pattern)
+
+      Consider also making commitlint a required status check for PRs
+      to prevent future scope violations from reaching main.
+
+  - name: merge_pr_502_simd_hamming
+    preconditions:
+      ci_all_checks_passed: true
+    effects:
+      pr_502_merged: true
+      hamming_distance_simd_accelerated: true
+    cost: 1
+    status: queued
+    file: crates/csm-core/src/hyperdim_simd.rs
+    adr: ADR-0092
+    description: |
+      Merge PR #502 (Jules bot): perf(core): optimize Hamming distance with SIMD.
+      - AVX2 nibble-lookup popcount via vpshufb and psadbw accumulation
+      - NEON vcnt and vaddlv reduction
+      - 18.5% latency reduction in cosine_similarity (81.5ns → 66.4ns)
+      - Status: MERGEABLE, CI pending (last run passed)
+
+  - name: goap_reconciliation_2026_07_11
+    preconditions:
+      wave_30_complete: true
+    effects:
+      goap_reconciliation_2026_07_11_complete: true
+    cost: 2
+    status: complete
+    file: plans/GOAP_STATE.md, plans/ACTIONS.md, plans/adr/0092-goap-reconciliation-2026-07-11.md, plans/ADR_REGISTRY.md
+    adr: ADR-0092
+    description: |
+      GOAP reconciliation after 13+ commits landed since last audit (7a0a432 → 87248dba).
+      Findings: 3 LOC violations in workspace crates, CI commitlint failing on main,
+      deny.toml advisories failing (5 new alerts), PRs #444/#94 merged but tracked as open,
+      test count grew 696→1029, version 0.3.6→0.3.7. Updated GOAP_STATE.md, ACTIONS.md,
+      and created ADR-0092 documenting all findings and Wave 31 roadmap.
