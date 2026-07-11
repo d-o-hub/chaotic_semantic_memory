@@ -5,8 +5,8 @@
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
 use std::arch::x86_64::{
     _mm256_add_epi8, _mm256_add_epi64, _mm256_and_si256, _mm256_loadu_si256, _mm256_sad_epu8,
-    _mm256_set1_epi8, _mm256_setr_epi8, _mm256_setzero_si256, _mm256_shuffle_epi8,
-    _mm256_srli_epi16, _mm256_storeu_si256, _mm256_xor_si256,
+    _mm256_set1_epi8, _mm256_setr_epi8, _mm256_setzero_si256, _mm256_shuffle_epi8, _mm256_srli_epi16,
+    _mm256_storeu_si256, _mm256_xor_si256,
 };
 
 #[allow(dead_code)]
@@ -103,7 +103,9 @@ pub(crate) unsafe fn hamming_distance_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 8
     unsafe {
         _mm256_storeu_si256(results.as_mut_ptr().cast(), acc);
     }
-    (results[0] + results[1] + results[2] + results[3]) as u32
+    #[allow(clippy::cast_possible_truncation)]
+    let res = (results[0] + results[1] + results[2] + results[3]) as u32;
+    res
 }
 
 #[cfg(all(
