@@ -1,8 +1,8 @@
 # Hard Constraints
 
-- Source files: `<= 500 LOC` each. Pre-check before every session:
+- Source files: `<= 500 LOC` each (applies to BOTH `src/` AND `crates/`). Pre-check before every session:
   ```bash
-  find src -name '*.rs' -exec wc -l {} + | sort -rn | head -20
+  find src crates -name '*.rs' -not -path '*/target/*' -exec wc -l {} + | sort -rn | head -20
   ```
 - `SKILL.md` (`.agents/skills/` folder): `<= 250 LOC`; detailed references in `reference/`, `scripts/`, or `assets/`.
 - Use `libsql` (never `turso-client`).
@@ -21,6 +21,10 @@
   ```bash
   gh repo view <owner>/<repo> --json isArchived,pushedAt
   ```
+- **Supply chain advisories must pass** before any release. Run `cargo deny check`
+  and address failures (upgrade deps or document ignores in `deny.toml`).
+- **Commitlint scopes must be kept current.** When adding a new workspace crate
+  or package scope, also add the scope to `commitlint.config.cjs` `scope-enum` list.
 - **Version numbers must be synchronized across all files before release.**
   Run `scripts/verify-version-sync.sh` to verify. Files checked:
   - `Cargo.toml` - `version = "X.Y.Z"`

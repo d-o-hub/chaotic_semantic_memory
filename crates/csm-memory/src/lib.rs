@@ -19,6 +19,7 @@ pub mod singularity_retrieval;
 pub mod singularity_search;
 pub mod singularity_state;
 pub mod singularity_ttl;
+pub mod singularity_types;
 
 pub use concept_builder::ConceptBuilder;
 pub use graph_traversal::TraversalConfig;

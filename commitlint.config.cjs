@@ -11,6 +11,7 @@ module.exports = {
         'framework',
         'persistence',
         'cli',
+        'cli-npm',
         'wasm',
         'retrieval',
         'embedding',
@@ -21,6 +22,7 @@ module.exports = {
         'chaos',
         'memory',
         'core',
+        'traits',
         'deps',
         'ci',
         'codacy',
@@ -29,7 +31,8 @@ module.exports = {
         'clippy',
         'lints',
         'build',
-        'loc-gate'
+        'loc-gate',
+        'workspace'
       ]
     ],
   },
@@ -42,5 +45,7 @@ module.exports = {
     (message) => /^Merge pull request/.test(message),
     (message) => /^Revert /.test(message),
     (message) => /^Potential fix/.test(message),
+    // Jules bot automated commits that may not follow conventional commit format
+    (message) => /^\w/.test(message) && !message.includes(':') && message.includes('(#'),
   ],
 };

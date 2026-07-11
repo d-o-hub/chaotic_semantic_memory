@@ -8,6 +8,7 @@ pub mod hashing;
 pub mod hyperdim;
 pub mod hyperdim_batch;
 pub mod hyperdim_binary;
+pub mod hyperdim_ops;
 pub mod hyperdim_serde;
 pub mod hyperdim_simd;
 pub mod hyperdim_simd_bundle;
@@ -22,6 +23,7 @@ pub use bundle::BundleAccumulator;
 pub use error::{MemoryError, Result};
 pub use hyperdim::{HVec10240, batch_cosine_similarity};
 pub use hyperdim_binary::BHVec10240;
+pub use hyperdim_ops::Hypervector;
 
 pub mod prelude {
     pub use crate::error::{MemoryError, Result};
