@@ -34,7 +34,7 @@ echo "==> cargo test --all-targets --all-features"
 cargo test --all-targets --all-features
 
 echo "==> Source file LOC gate (< ${MAX_SRC_LOC})"
-for file in $(find src -name '*.rs'); do
+for file in $(find src crates -name '*.rs' -not -path '*/target/*'); do
   loc="$(wc -l < "${file}")"
   if [[ "${loc}" -gt "${MAX_SRC_LOC}" ]]; then
     echo "LOC gate failed: ${file} has ${loc} lines"

@@ -28,7 +28,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 3. **Run proactive LOC gate check** — Pre-existing violations cascade on commit, wasting iterations:
 
    ```bash
-   find src -name '*.rs' -exec wc -l {} + | sort -rn | head -20
+   find src crates -name '*.rs' -not -path '*/target/*' -exec wc -l {} + | sort -rn | head -20
    # Verify every file is ≤ 500 LOC. Fix violations BEFORE starting work.
    ```
 
@@ -212,7 +212,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 Before starting any task, verify:
 - [ ] GOAP_STATE.md loaded — know current state
 - [ ] ALL uncommitted changes reviewed via `git status --short`
-- [ ] **LOC gate pre-check**: all source files ≤ 500 LOC (`find src -name '*.rs' -exec wc -l {} + | sort -rn | head -20`)
+- [ ] **LOC gate pre-check**: all source files ≤ 500 LOC (`find src crates -name '*.rs' -not -path '*/target/*' -exec wc -l {} + | sort -rn | head -20`)
 - [ ] **PR conflict check**: `scripts/pr-triage.sh` or `gh pr list --state open --json number,mergeable --jq '.[] | select(.mergeable == "CONFLICTING")'`
 - [ ] Hard constraints understood — spectral radius [0.9, 1.1]
 - [ ] CI baseline confirmed via `gh run list`

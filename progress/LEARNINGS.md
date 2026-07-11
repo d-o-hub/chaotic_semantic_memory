@@ -76,3 +76,36 @@
 - **Unreachable code is a mutation smell**: When refactoring a `visited.contains(&id) || depth > max_depth` style guard into `!visited.insert(id.clone())`, audit the queue invariant. If new entries are only enqueued at `depth + 1` when `depth < max_depth`, the original `depth > max_depth` check becomes unreachable and cargo-mutants will catch the `||` -> `&&` substitution as a missed mutant. Remove the dead branch and document the invariant.
 - **Mutation test cost is acceptable for PR fixes**: `cargo-mutants --in-diff <pr.diff> --in-place --no-shuffle` against a 35-line PR diff takes ~14 minutes locally and exercises both the original and mutated compile/test paths. 11 mutants → 10 caught, 1 unviable, 0 missed is a strong signal the fix is correct.
 - **Always run `--in-diff` on the post-fix tree**: cargo-mutants reports the baseline, so the diff must reflect the fix (not the pre-fix PR head). Generate the diff with `git diff origin/main > /tmp/pr.diff` after the fix is staged.
+
+## Workspace LOC Gate Enforcement (2026-07-11, Wave 31)
+
+### Problem: LOC gate only checked `src/`, not workspace crates
+- After workspace extraction (PRs #377-#385), code moved to `crates/*/src/` but the
+  LOC gate (`scripts/validate.sh`) only scanned `find src -name '*.rs'`.
+- Jules bot PRs added code to workspace crates without any enforcement, growing 3 files
+  past 500 LOC undetected (singularity.rs 629, hyperdim.rs 563, graph_traversal.rs 517).
+
+### Fix
+- Extended `scripts/validate.sh` to scan `find src crates -name '*.rs' -not -path '*/target/*'`
+- Updated `AGENTS.md` and `agents-docs/hard-constraints.md` to reflect workspace coverage
+- Split the 3 violating files using established patterns (types extraction, trait extraction, test extraction)
+
+### Prevention
+- The LOC gate now covers all first-party Rust code automatically
+- When creating new workspace crates, verify they are within the `crates/` directory
+  which is already covered by the LOC gate scan
+
+### Commitlint Scope Maintenance
+- **Always add new scopes when creating workspace crates or packages**: When adding
+  a new crate (e.g., `csm-traits`) or package scope (e.g., `cli-npm`), also add
+  the corresponding scope to `commitlint.config.cjs` scope-enum list.
+- **Jules bot commits may not follow conventional format**: Added an ignore rule
+  for PR merge commits that have no conventional prefix. This prevents CI failures
+  on main after bot-authored PRs are merged.
+
+### Supply Chain Advisory Discipline
+- **Run `cargo deny check` before releases and after dependency upgrades**:
+  New advisories can surface at any time. The `deny.toml` ignore list must be
+  actively maintained — either upgrade affected deps or add documented ignore entries.
+- **Simple upgrades first**: `cargo update -p <package>` often resolves advisories
+  without any code changes (e.g., crossbeam-epoch 0.9.18→0.9.20, anyhow 1.0.102→1.0.103).
