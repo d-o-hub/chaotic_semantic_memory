@@ -37,7 +37,7 @@ world_state:
   book_chapters_complete: true                      # 2026-04-30: 15 book chapters verified (semantic-bridge, inertial-reservoir, ttl exist)
   changelog_links_complete: true                    # 2026-04-30: All version links verified
   hybrid_retrieval_example_compiles: true           # 2026-04-30: cargo check --example hybrid_retrieval OK
-  loc_gate_verified: true                           # 2026-04-30: All files ≤500 LOC (max: singularity.rs, wasm_ext.rs at 500)
+  loc_gate_verified: false                          # 2026-07-11: 3 workspace crate files over 500 LOC (csm-memory/singularity 629, csm-core/hyperdim 563, csm-memory/graph_traversal 517)
   misleading_docs_found: true                       # 2026-04-30: README.md WASM issue outdated (lines 500-503)
   # PR Status
   pr_138_merged: true                           # 2026-04-30: Coverage improvements + WASM fix (571 tests, 70%)
@@ -90,7 +90,7 @@ world_state:
   # GitHub Actions Security Audit (2026-04-21)
   codeql_missing_permissions_fixed: true
   codeql_alerts_resolved: 4  # actions/missing-workflow-permissions in ci.yml
-  dependabot_alerts_open: 6  # rustls-webpki(3), rand(2), libsql-sqlite3-parser(1)
+  dependabot_alerts_open: 5  # 2026-07-11: opentelemetry_sdk(medium), time(medium), lru(low), libsql-sqlite3-parser(2×low)
   dependabot_blocked_upstream: true  # No stable rustls-webpki >=0.103.10 exists
 
   # ═══════════════════════════════════════════════════════
@@ -356,7 +356,7 @@ world_state:
   tests_count_v032_baseline: 333  # historical baseline; current count tracked in tests_count above
 
   # Swarm orchestration snapshot
-  active_wave: 30
+  active_wave: 31
   wave_strategy: parallel_by_phase_with_handoffs
   wave_20_name: "Implementation Queue Rebuild"
   wave_20_started_at: "2026-04-12"
@@ -375,7 +375,7 @@ world_state:
   final_validation_passed: true
 
   # PR tracking
-  pr_94_status: open
+  pr_94_status: merged
   pr_94_title: "perf(retrieval): optimize BM25 scoring loop"
   pr_94_ci_passed: true
   pr_94_source: jules_bot
@@ -1479,26 +1479,17 @@ world_state:
   template_reference: "https://github.com/d-oit/rust-2026-template"
   template_version_analyzed: "0.3.2 (392 commits)"
 
-  action_last_completed: review_pr_444_sparse_bm25_collection
+  action_last_completed: goap_reconciliation_2026_07_11
 
   # ═══════════════════════════════════════════════════════
   # PR #444 Review: BM25 Sparse Collection (2026-06-27)
   # Branch: perf/bm25-sparse-collection-9244619970982429697
   # Author: Jules bot (task 9244619970982429697)
   # ═══════════════════════════════════════════════════════
-  pr_444_status: open
+  pr_444_status: merged
   pr_444_title: "perf(retrieval): implement sparse collection in BM25 search"
   pr_444_source: jules_bot
-  pr_444_review_posted: true
-  pr_444_review_verdict: "LGTM with minor comments"
-  pr_444_review_recommendations_implemented: true
-  pr_444_recommendations:
-    - "Simplified misleading duplicate-index comment (accumulations strictly positive)"
-    - "Added high-water-mark retention comment for buffer sizing"
-    - "Verified dual-file duplication (pre-existing from workspace extraction, not a new issue)"
-    - "Added selective benchmark: 100K docs, 1000-token vocab, ~2% hit rate"
-  pr_444_ci_status: pending  # Waiting for CI after recommendation commits pushed
-  pr_444_perf_claim: "O(N) → O(T) result collection where T = touched documents"
+  pr_444_merged_at: "2026-07-09"
 
   # ═══════════════════════════════════════════════════════
   # Wave 29: Harness Expansion (2026-06-25)
@@ -1513,7 +1504,7 @@ world_state:
   wave_29_benchmarks_added: 3          # rerank_benchmark, hybrid_benchmark, embedding_benchmark
   wave_29_rerank_module_public: true   # pub mod rerank in src/retrieval/mod.rs
   wave_29_check_cfg_rerank_cross: true # Suppressed pre-existing unexpected_cfgs warning
-  tests_count: 696                     # Up from 668 (wave 28)
+  tests_count: 1029                     # 2026-07-11: Wave 31 reconciliation (was 696)
 
   # ═══════════════════════════════════════════════════════
   # GOAP Orchestrator Analysis 2026-06-26
@@ -1600,7 +1591,7 @@ world_state:
   # ═══════════════════════════════════════════════════════
   # Wave 30 Status (2026-06-27)
   # ═══════════════════════════════════════════════════════
-  wave_30_status: mostly_complete
+  wave_30_status: complete
   wave_30_completed_actions:
     - create_rust_toolchain_toml
     - create_deny_toml
@@ -1610,10 +1601,47 @@ world_state:
     - hyperchaotic_bit_slicing_research_2026_06
   wave_30_remaining_queued:
     - create_agents_context       # File deleted by Jules merge; needs re-creation
-  ci_main_status: in_progress     # Run 28268048957 (ddda1bc): 3/13 jobs passed, rest in queue
+  ci_main_status: failing             # 2026-07-11: commitlint job failing (scope violations in merged PRs)
   ci_main_partial_results:
+    lint: success
+    test: success
     wasm: success
-    csm_persistence: success
-    duckdb_companion: success
+    commitlint: failure               # cli-npm scope not allowed; b649c7c has no conventional format
   ci_dependabot_opentelemetry: closed  # PR #437 closed, not blocking
   adr_0091_registered: true
+
+  # ═══════════════════════════════════════════════════════
+  # GOAP Reconciliation 2026-07-11 (ADR-0092)
+  # HEAD: 87248dba (was 7a0a432 at last audit — 13+ commits landed)
+  # ═══════════════════════════════════════════════════════
+  goap_reconciliation_2026_07_11_complete: true
+  goap_2026_07_11_main_head: "87248dba"
+  goap_2026_07_11_version: "0.3.7"
+  goap_2026_07_11_test_functions: 1029     # was 696
+  goap_2026_07_11_findings:
+    loc_violations: 3                       # csm-memory/singularity (629), csm-core/hyperdim (563), csm-memory/graph_traversal (517)
+    ci_commitlint_failing: true             # scope violations: cli-npm not in enum, b649c7c no conventional format
+    deny_toml_advisories_failing: true      # 5 new alerts not yet in ignore list
+    stale_pr_tracking: 2                    # PRs #444, #94 now merged (were tracked as open)
+    open_prs: 1                             # PR #502 (SIMD Hamming, MERGEABLE)
+    todo_markers: 1                         # src/retrieval/bm25.rs:109
+    dependabot_alerts_open: 5               # opentelemetry_sdk (medium), time (medium), lru (low), libsql-sqlite3-parser ×2 (low)
+  goap_2026_07_11_prs_merged_since_last_audit:
+    - "#444: perf(retrieval): implement sparse collection in BM25 search"
+    - "#463: Persist RetrievalAbstention events as absence-memory entries"
+    - "#493: fix(build): separate cdylib target into csm-wasm"
+    - "#495: refactor: rename chaotic_semantic_memory_duckdb to csm-duckdb"
+    - "#497: fix(lints): warn on unwrap/expect/panic in library crates"
+    - "#498: docs: clarify npm CLI installation and fix permissions guidance"
+    - "#499: fix(ci): add PR triage script and merge conflict checks to workflow"
+    - "#500: perf(core): optimize BundleAccumulator AVX2 count updates"
+    - "#501: fix(cli-npm): handle EACCES gracefully in global install"
+  goap_2026_07_11_wave_31_queued:
+    - "fix_workspace_loc_gate (cost 5, P1 — extend CI LOC gate to crates/, split 3 files)"
+    - "update_deny_toml_advisories (cost 2, P1 — triage new advisories, add ignores or upgrade)"
+    - "fix_commitlint_scopes (cost 2, P2 — add cli-npm scope or Jules bot ignore)"
+    - "merge_pr_502_simd_hamming (cost 1, P2 — Jules bot PR, MERGEABLE, 18.5% Hamming speedup)"
+    - "create_agents_context (cost 3, P3 — carried from Wave 30)"
+  wave_31_name: "LOC & Supply Chain Remediation"
+  wave_31_started_at: "2026-07-11"
+  wave_31_focus: "Fix LOC violations, supply chain advisories, commitlint hygiene, merge SIMD PR"

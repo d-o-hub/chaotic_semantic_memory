@@ -94,6 +94,7 @@
 | 0089 | GOAP Reconciliation 2026-06-16 | Accepted | [adr/0089-goap-reconciliation-2026-06-16.md](adr/0089-goap-reconciliation-2026-06-16.md) |
 | 0090 | Harness Engineering & rust-2026-template Alignment | Accepted | [adr/0090-harness-engineering-template-alignment.md](adr/0090-harness-engineering-template-alignment.md) |
 | 0091 | Hyperchaotic Bit-Slicing for Binary Semantic Hashing | Accepted | [adr/0091-hyperchaotic-bit-slicing.md](adr/0091-hyperchaotic-bit-slicing.md) |
+| 0092 | GOAP Reconciliation 2026-07-11 | Accepted | [adr/0092-goap-reconciliation-2026-07-11.md](adr/0092-goap-reconciliation-2026-07-11.md) |
 
 ## Status Definitions
 
