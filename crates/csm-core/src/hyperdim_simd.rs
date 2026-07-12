@@ -191,8 +191,8 @@ pub(crate) unsafe fn bind_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
 /// Caller must ensure NEON is supported.
 pub(crate) unsafe fn hamming_distance_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
     use std::arch::aarch64::{
-        vaddlvq_u16, vaddq_u16, vcntq_u8, vdupq_n_u16, vdupq_n_u8, veorq_u8, vld1q_u8, vpaddlq_u8,
-        vaddq_u8,
+        vaddlvq_u16, vaddq_u8, vaddq_u16, vcntq_u8, vdupq_n_u8, vdupq_n_u16, veorq_u8, vld1q_u8,
+        vpaddlq_u8,
     };
     let mut acc = vdupq_n_u16(0);
 
