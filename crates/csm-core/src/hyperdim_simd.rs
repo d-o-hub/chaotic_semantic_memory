@@ -80,23 +80,31 @@ pub(crate) unsafe fn hamming_distance_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 8
     let mut acc = _mm256_setzero_si256();
     let zero = _mm256_setzero_si256();
 
-    for i in (0..80).step_by(2) {
-        // SAFETY: lhs and rhs are [u128; 80]. add(i) is safe for i in (0..80).step_by(2).
-        // _mm256_loadu_si256 loads 256 bits (32 bytes).
-        unsafe {
-            let l = _mm256_loadu_si256(lhs.as_ptr().add(i).cast());
-            let r = _mm256_loadu_si256(rhs.as_ptr().add(i).cast());
-            let x = _mm256_xor_si256(l, r);
+    for i in (0..80).step_by(20) {
+        // Algorithmic Optimization: Intermediate 8-bit accumulation.
+        // We accumulate popcounts in an 8-bit vector for 10 iterations (20 words)
+        // before flushing to the 64-bit accumulator via _mm256_sad_epu8.
+        // Max bits per byte is 8. 8 * 10 = 80, which safely fits in u8 (255).
+        // This reduces expensive SAD instructions by 90% and improves ILP.
+        let mut acc_8 = _mm256_setzero_si256();
+        for j in 0..10 {
+            let idx = i + j * 2;
+            // SAFETY: idx is in (0..80). add(idx) is safe.
+            unsafe {
+                let l = _mm256_loadu_si256(lhs.as_ptr().add(idx).cast());
+                let r = _mm256_loadu_si256(rhs.as_ptr().add(idx).cast());
+                let x = _mm256_xor_si256(l, r);
 
-            let low = _mm256_and_si256(x, low_mask);
-            let high = _mm256_and_si256(_mm256_srli_epi16(x, 4), low_mask);
+                let low = _mm256_and_si256(x, low_mask);
+                let high = _mm256_and_si256(_mm256_srli_epi16(x, 4), low_mask);
 
-            let pop_low = _mm256_shuffle_epi8(lookup, low);
-            let pop_high = _mm256_shuffle_epi8(lookup, high);
+                let pop_low = _mm256_shuffle_epi8(lookup, low);
+                let pop_high = _mm256_shuffle_epi8(lookup, high);
 
-            let count = _mm256_add_epi8(pop_low, pop_high);
-            acc = _mm256_add_epi64(acc, _mm256_sad_epu8(count, zero));
+                acc_8 = _mm256_add_epi8(acc_8, _mm256_add_epi8(pop_low, pop_high));
+            }
         }
+        acc = _mm256_add_epi64(acc, _mm256_sad_epu8(acc_8, zero));
     }
 
     let mut results = [0u64; 4];
@@ -183,27 +191,33 @@ pub(crate) unsafe fn bind_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
 /// Caller must ensure NEON is supported.
 pub(crate) unsafe fn hamming_distance_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
     use std::arch::aarch64::{
-        vaddlvq_u16, vaddq_u16, vcntq_u8, vdupq_n_u16, veorq_u8, vld1q_u8, vpaddlq_u8,
+        vaddlvq_u16, vaddq_u16, vcntq_u8, vdupq_n_u16, vdupq_n_u8, veorq_u8, vld1q_u8, vpaddlq_u8,
+        vaddq_u8,
     };
     let mut acc = vdupq_n_u16(0);
 
-    for i in (0..80).step_by(2) {
-        // SAFETY: lhs and rhs are [u128; 80]. vld1q_u8 loads 128 bits (16 bytes).
-        // add(i) moves the pointer by i * sizeof(u128), which is exactly 16 bytes.
-        // All accesses are within bounds.
-        unsafe {
-            let l0 = vld1q_u8(lhs.as_ptr().add(i).cast());
-            let r0 = vld1q_u8(rhs.as_ptr().add(i).cast());
-            let x0 = veorq_u8(l0, r0);
-            let c0 = vcntq_u8(x0);
-            acc = vaddq_u16(acc, vpaddlq_u8(c0));
+    for i in (0..80).step_by(20) {
+        // Algorithmic Optimization: Intermediate 8-bit accumulation for NEON.
+        // Reduces the number of vpaddlq_u8 (narrowing add) calls by 10x.
+        let mut acc_8 = vdupq_n_u8(0);
+        for j in 0..10 {
+            let idx = i + j * 2;
+            // SAFETY: idx and idx+1 are in (0..80). vld1q_u8 loads 16 bytes.
+            unsafe {
+                let l0 = vld1q_u8(lhs.as_ptr().add(idx).cast());
+                let r0 = vld1q_u8(rhs.as_ptr().add(idx).cast());
+                let x0 = veorq_u8(l0, r0);
+                let c0 = vcntq_u8(x0);
+                acc_8 = vaddq_u8(acc_8, c0);
 
-            let l1 = vld1q_u8(lhs.as_ptr().add(i + 1).cast());
-            let r1 = vld1q_u8(rhs.as_ptr().add(i + 1).cast());
-            let x1 = veorq_u8(l1, r1);
-            let c1 = vcntq_u8(x1);
-            acc = vaddq_u16(acc, vpaddlq_u8(c1));
+                let l1 = vld1q_u8(lhs.as_ptr().add(idx + 1).cast());
+                let r1 = vld1q_u8(rhs.as_ptr().add(idx + 1).cast());
+                let x1 = veorq_u8(l1, r1);
+                let c1 = vcntq_u8(x1);
+                acc_8 = vaddq_u8(acc_8, c1);
+            }
         }
+        acc = vaddq_u16(acc, vpaddlq_u8(acc_8));
     }
     vaddlvq_u16(acc) as u32
 }
