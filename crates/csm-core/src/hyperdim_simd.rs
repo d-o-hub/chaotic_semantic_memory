@@ -80,23 +80,29 @@ pub(crate) unsafe fn hamming_distance_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 8
     let mut acc = _mm256_setzero_si256();
     let zero = _mm256_setzero_si256();
 
-    for i in (0..80).step_by(2) {
-        // SAFETY: lhs and rhs are [u128; 80]. add(i) is safe for i in (0..80).step_by(2).
-        // _mm256_loadu_si256 loads 256 bits (32 bytes).
-        unsafe {
-            let l = _mm256_loadu_si256(lhs.as_ptr().add(i).cast());
-            let r = _mm256_loadu_si256(rhs.as_ptr().add(i).cast());
-            let x = _mm256_xor_si256(l, r);
+    // Deferred accumulation: sum popcounts in 8-bit registers for 10 iterations
+    // (max sum 10*8=80 < 255) before flushing to 64-bit accumulators via SAD.
+    // This reduces the frequency of expensive _mm256_sad_epu8 and _mm256_add_epi64.
+    for i in (0..80).step_by(20) {
+        let mut local_acc = _mm256_setzero_si256();
+        for j in 0..10 {
+            // SAFETY: lhs and rhs are [u128; 80]. add(i + j * 2) is safe for i in 0..4 and j in 0..10.
+            // _mm256_loadu_si256 loads 256 bits (32 bytes).
+            unsafe {
+                let l = _mm256_loadu_si256(lhs.as_ptr().add(i + j * 2).cast());
+                let r = _mm256_loadu_si256(rhs.as_ptr().add(i + j * 2).cast());
+                let x = _mm256_xor_si256(l, r);
 
-            let low = _mm256_and_si256(x, low_mask);
-            let high = _mm256_and_si256(_mm256_srli_epi16(x, 4), low_mask);
+                let low = _mm256_and_si256(x, low_mask);
+                let high = _mm256_and_si256(_mm256_srli_epi16(x, 4), low_mask);
 
-            let pop_low = _mm256_shuffle_epi8(lookup, low);
-            let pop_high = _mm256_shuffle_epi8(lookup, high);
+                let pop_low = _mm256_shuffle_epi8(lookup, low);
+                let pop_high = _mm256_shuffle_epi8(lookup, high);
 
-            let count = _mm256_add_epi8(pop_low, pop_high);
-            acc = _mm256_add_epi64(acc, _mm256_sad_epu8(count, zero));
+                local_acc = _mm256_add_epi8(local_acc, _mm256_add_epi8(pop_low, pop_high));
+            }
         }
+        acc = _mm256_add_epi64(acc, _mm256_sad_epu8(local_acc, zero));
     }
 
     let mut results = [0u64; 4];
