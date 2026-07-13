@@ -80,7 +80,7 @@ pub(crate) unsafe fn hamming_distance_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 8
     let mut acc = _mm256_setzero_si256();
     let zero = _mm256_setzero_si256();
 
-    // Deferred accumulation: sum popcounts in 8-bit registers for 10 iterations
+    // Deferred accumulation: accumulate 10 x 256-bit chunks in 8-bit registers
     // (max sum 10*8=80 < 255) before flushing to 64-bit accumulators via SAD.
     // This reduces the frequency of expensive _mm256_sad_epu8 and _mm256_add_epi64.
     for i in (0..80).step_by(20) {
