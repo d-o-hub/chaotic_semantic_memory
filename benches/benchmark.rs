@@ -58,6 +58,15 @@ fn bench_cosine_similarity(c: &mut Criterion) {
     });
 }
 
+fn bench_hamming_distance(c: &mut Criterion) {
+    let a = HVec10240::random();
+    let other = HVec10240::random();
+
+    c.bench_function("hamming_distance", |bencher| {
+        bencher.iter(|| a.hamming_distance(black_box(&other)))
+    });
+}
+
 fn bench_batch_similarity(c: &mut Criterion) {
     let query = HVec10240::random();
     let candidates: Vec<_> = (0..1000).map(|_| HVec10240::random()).collect();
@@ -702,6 +711,7 @@ criterion_group!(
     bench_hvec_creation,
     bench_hvec_serialization,
     bench_cosine_similarity,
+    bench_hamming_distance,
     bench_batch_similarity,
     bench_binding,
     bench_hvec_bundle,
