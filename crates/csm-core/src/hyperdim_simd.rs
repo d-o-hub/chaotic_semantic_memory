@@ -72,6 +72,10 @@ pub(crate) unsafe fn bind_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
 /// # SAFETY
 /// Caller must ensure AVX2 is supported.
 pub(crate) unsafe fn hamming_distance_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
+    const BATCH_SIZE: usize = 10;
+    const WORDS_PER_BATCH: usize = BATCH_SIZE * 2;
+    debug_assert!(80 % WORDS_PER_BATCH == 0);
+
     let lookup = _mm256_setr_epi8(
         0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3,
         3, 4,
@@ -80,14 +84,14 @@ pub(crate) unsafe fn hamming_distance_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 8
     let mut acc = _mm256_setzero_si256();
     let zero = _mm256_setzero_si256();
 
-    for i in (0..80).step_by(20) {
+    for i in (0..80).step_by(WORDS_PER_BATCH) {
         // Algorithmic Optimization: Intermediate 8-bit accumulation.
         // We accumulate popcounts in an 8-bit vector for 10 iterations (20 words)
         // before flushing to the 64-bit accumulator via _mm256_sad_epu8.
         // Max bits per byte is 8. 8 * 10 = 80, which safely fits in u8 (255).
         // This reduces expensive SAD instructions by 90% and improves ILP.
         let mut acc_8 = _mm256_setzero_si256();
-        for j in 0..10 {
+        for j in 0..BATCH_SIZE {
             let idx = i + j * 2;
             // SAFETY: idx is in (0..80). add(idx) is safe.
             unsafe {
@@ -194,13 +198,21 @@ pub(crate) unsafe fn hamming_distance_simd_neon(lhs: &[u128; 80], rhs: &[u128; 8
         vaddlvq_u16, vaddq_u8, vaddq_u16, vcntq_u8, vdupq_n_u8, vdupq_n_u16, veorq_u8, vld1q_u8,
         vpaddlq_u8,
     };
+    const BATCH_SIZE: usize = 10;
+    const WORDS_PER_BATCH: usize = BATCH_SIZE * 2;
+    debug_assert!(80 % WORDS_PER_BATCH == 0);
+
     let mut acc = vdupq_n_u16(0);
 
-    for i in (0..80).step_by(20) {
+    for i in (0..80).step_by(WORDS_PER_BATCH) {
         // Algorithmic Optimization: Intermediate 8-bit accumulation for NEON.
-        // Reduces the number of vpaddlq_u8 (narrowing add) calls by 10x.
+        // We accumulate popcounts in an 8-bit vector for 10 iterations (20 words)
+        // before flushing to the 16-bit accumulator via vpaddlq_u8.
+        // Max bits per byte lane is 8. Over 20 additions (10 iterations * 2 loads),
+        // max sum is 8 * 20 = 160, which safely fits in u8 (255).
+        // This reduces the frequency of vpaddlq_u8 (widening pairwise add) calls by 10x.
         let mut acc_8 = vdupq_n_u8(0);
-        for j in 0..10 {
+        for j in 0..BATCH_SIZE {
             let idx = i + j * 2;
             // SAFETY: idx and idx+1 are in (0..80). vld1q_u8 loads 16 bytes.
             unsafe {
