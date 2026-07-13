@@ -278,7 +278,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
                 }
             }
         }
-        incoming.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        incoming.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         incoming
     }
 
