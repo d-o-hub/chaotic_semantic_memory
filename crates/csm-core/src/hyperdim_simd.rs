@@ -74,7 +74,8 @@ pub(crate) unsafe fn bind_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
 pub(crate) unsafe fn hamming_distance_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
     const BATCH_SIZE: usize = 10;
     const WORDS_PER_BATCH: usize = BATCH_SIZE * 2;
-    debug_assert!(80 % WORDS_PER_BATCH == 0);
+    // Compile-time guard for array alignment
+    const _: () = assert!(80 % WORDS_PER_BATCH == 0);
 
     let lookup = _mm256_setr_epi8(
         0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3,
@@ -200,7 +201,8 @@ pub(crate) unsafe fn hamming_distance_simd_neon(lhs: &[u128; 80], rhs: &[u128; 8
     };
     const BATCH_SIZE: usize = 10;
     const WORDS_PER_BATCH: usize = BATCH_SIZE * 2;
-    debug_assert!(80 % WORDS_PER_BATCH == 0);
+    // Compile-time guard for array alignment
+    const _: () = assert!(80 % WORDS_PER_BATCH == 0);
 
     let mut acc = vdupq_n_u16(0);
 
