@@ -116,25 +116,35 @@ pub(crate) unsafe fn update_counts_simd_avx2(
         // SAFETY: counts is [i32; 10240], i * 128 is within bounds.
         let counts_ptr = unsafe { counts.as_mut_ptr().add(i * 128) };
 
-        for j in 0..16 {
-            // SAFETY: hv[i] is u128 (16 bytes), j is 0..16.
-            let byte = unsafe { *word_ptr.add(j) };
-            if byte == 0 {
-                continue;
+        // Unroll by 2 to process 16 bits (2 bytes) per iteration, improving ILP.
+        for j in (0..16).step_by(2) {
+            // SAFETY: hv[i] is u128 (16 bytes), j and j+1 are 0..16.
+            let byte0 = unsafe { *word_ptr.add(j) };
+            let byte1 = unsafe { *word_ptr.add(j + 1) };
+
+            if byte0 != 0 {
+                let byte_vec = _mm256_set1_epi32(i32::from(byte0));
+                let mask =
+                    _mm256_cmpeq_epi32(_mm256_and_si256(byte_vec, bit_selector), bit_selector);
+                let increment = _mm256_and_si256(mask, sign_vec);
+
+                let target_ptr = unsafe { counts_ptr.add(j * 8) };
+                let current_counts = unsafe { _mm256_loadu_si256(target_ptr.cast()) };
+                let new_counts = _mm256_add_epi32(current_counts, increment);
+                unsafe { _mm256_storeu_si256(target_ptr.cast(), new_counts) };
             }
 
-            // Expand 8 bits to 8 x i32 masks (0 or -1).
-            // Process: broadcast byte -> and with bit_selector -> compare equal to bit_selector.
-            let byte_vec = _mm256_set1_epi32(i32::from(byte));
-            let mask = _mm256_cmpeq_epi32(_mm256_and_si256(byte_vec, bit_selector), bit_selector);
-            let increment = _mm256_and_si256(mask, sign_vec);
+            if byte1 != 0 {
+                let byte_vec = _mm256_set1_epi32(i32::from(byte1));
+                let mask =
+                    _mm256_cmpeq_epi32(_mm256_and_si256(byte_vec, bit_selector), bit_selector);
+                let increment = _mm256_and_si256(mask, sign_vec);
 
-            // SIMD add the increment (sign or 0) to the counts array.
-            // SAFETY: counts_ptr + j * 8 + 8 is within bounds.
-            let target_ptr = unsafe { counts_ptr.add(j * 8) };
-            let current_counts = unsafe { _mm256_loadu_si256(target_ptr.cast()) };
-            let new_counts = _mm256_add_epi32(current_counts, increment);
-            unsafe { _mm256_storeu_si256(target_ptr.cast(), new_counts) };
+                let target_ptr = unsafe { counts_ptr.add((j + 1) * 8) };
+                let current_counts = unsafe { _mm256_loadu_si256(target_ptr.cast()) };
+                let new_counts = _mm256_add_epi32(current_counts, increment);
+                unsafe { _mm256_storeu_si256(target_ptr.cast(), new_counts) };
+            }
         }
     }
 }
