@@ -7,7 +7,6 @@ use crate::singularity::ConceptBuilder;
 use bincode::Options;
 use csm_core::error::Result;
 use csm_core::hyperdim::HVec10240;
-use std::io::Read;
 use std::sync::Arc;
 use tokio::fs;
 use tracing::{instrument, warn};
@@ -147,8 +146,7 @@ impl ChaoticSemanticFramework {
     }
     /// Securely read a file into bytes with size limit to prevent OOM/TOCTOU (CWE-770).
     async fn secure_read_file(&self, path: &std::path::Path, limit: u64) -> Result<Vec<u8>> {
-        let mut file = std::fs::File::open(path)?;
-        let metadata = file.metadata()?;
+        let metadata = fs::metadata(path).await?;
         if metadata.len() > limit {
             return Err(csm_core::error::MemoryError::InvalidInput {
                 field: "file_size".to_string(),
@@ -159,8 +157,7 @@ impl ChaoticSemanticFramework {
                 ),
             });
         }
-        let mut buffer = Vec::with_capacity(metadata.len() as usize);
-        file.read_to_end(&mut buffer)?;
+        let buffer = fs::read(path).await?;
         Ok(buffer)
     }
 

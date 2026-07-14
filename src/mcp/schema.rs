@@ -11,12 +11,17 @@ pub fn inject_schema() -> Value {
                 "type": "string",
                 "description": "Unique identifier for the concept"
             },
+            "vector": {
+                "type": "array",
+                "items": {"type": "integer"},
+                "description": "80-element array of u128 values representing a 10240-bit hypervector"
+            },
             "metadata": {
                 "type": "object",
                 "description": "Optional metadata key-value pairs"
             }
         },
-        "required": ["concept_id"]
+        "required": ["concept_id", "vector"]
     })
 }
 
@@ -47,9 +52,10 @@ pub fn probe_schema() -> Value {
     json!({
         "type": "object",
         "properties": {
-            "concept_id": {
-                "type": "string",
-                "description": "ID of concept to use as query vector"
+            "vector": {
+                "type": "array",
+                "items": {"type": "integer"},
+                "description": "80-element array of u128 values representing a query hypervector"
             },
             "top_k": {
                 "type": "integer",
@@ -57,7 +63,7 @@ pub fn probe_schema() -> Value {
                 "default": 10
             }
         },
-        "required": ["concept_id"]
+        "required": ["vector"]
     })
 }
 
@@ -66,7 +72,7 @@ pub fn probe_text_schema() -> Value {
     json!({
         "type": "object",
         "properties": {
-            "text": {
+            "query": {
                 "type": "string",
                 "description": "Query text to encode and search"
             },
@@ -76,7 +82,7 @@ pub fn probe_text_schema() -> Value {
                 "default": 10
             }
         },
-        "required": ["text"]
+        "required": ["query"]
     })
 }
 

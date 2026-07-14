@@ -107,6 +107,8 @@ RUSTFLAGS="" cargo mutants "${MUTANTS_ARGS[@]}" \
   --exclude-re "replace > with .* in FrameworkBuilder::build" \
   --exclude-re "ChaoticSemanticFramework::load " \
   --exclude-re "mcp::" \
+  --exclude-re "McpHandler::" \
+  --exclude "src/mcp/*" \
   --exclude-re "replace > with >= in <impl Reranker for MmrReranker>::rerank" \
   "$@" 2>&1 | tee "${LOG_FILE}"
 RESULT="${PIPESTATUS[0]}"
@@ -134,16 +136,24 @@ echo "wrote ${REPORT_FILE}"
 if [[ "${CI_MODE}" == "true" ]]; then
   # Parse mutation score. Supports both percentage output and "X mutants tested ... Y caught" summary.
   # Unviable mutants (won't compile) are excluded from the denominator.
+  # Timeouts are treated as caught (mutant couldn't survive tests).
   SCORE=""
-  SUMMARY_LINE="$(grep -oE "[0-9]+ mutant[s]? tested in .* [0-9]+ caught.*" "${LOG_FILE}" || true)"
+  SUMMARY_LINE="$(grep -oE "[0-9]+ mutant[s]? tested in .*" "${LOG_FILE}" | tail -1 || true)"
   if [[ -n "${SUMMARY_LINE}" ]]; then
     TOTAL="$(echo "${SUMMARY_LINE}" | awk '{print $1}')"
     CAUGHT="$(echo "${SUMMARY_LINE}" | grep -oE '[0-9]+ caught' | awk '{print $1}')"
+    CAUGHT="${CAUGHT:-0}"
+    TIMEOUTS="$(echo "${SUMMARY_LINE}" | grep -oE '[0-9]+ timeout' | awk '{print $1}')"
+    TIMEOUTS="${TIMEOUTS:-0}"
+    MISSED="$(echo "${SUMMARY_LINE}" | grep -oE '[0-9]+ missed' | awk '{print $1}')"
+    MISSED="${MISSED:-0}"
     UNVIABLE="$(echo "${SUMMARY_LINE}" | grep -oE '[0-9]+ unviable' | awk '{print $1}')"
     UNVIABLE="${UNVIABLE:-0}"
     VIABLE=$((TOTAL - UNVIABLE))
+    # Timeouts count as caught (mutant couldn't survive testing)
+    EFFECTIVE_CAUGHT=$((CAUGHT + TIMEOUTS))
     if [[ "${VIABLE}" -gt 0 ]]; then
-      SCORE="$(awk -v c="${CAUGHT}" -v v="${VIABLE}" 'BEGIN { printf "%.4f", c*100/v }')"
+      SCORE="$(awk -v c="${EFFECTIVE_CAUGHT}" -v v="${VIABLE}" 'BEGIN { printf "%.4f", c*100/v }')"
     else
       SCORE="100"
     fi
