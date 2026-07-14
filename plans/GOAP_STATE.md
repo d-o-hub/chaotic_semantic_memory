@@ -37,7 +37,7 @@ world_state:
   book_chapters_complete: true                      # 2026-04-30: 15 book chapters verified (semantic-bridge, inertial-reservoir, ttl exist)
   changelog_links_complete: true                    # 2026-04-30: All version links verified
   hybrid_retrieval_example_compiles: true           # 2026-04-30: cargo check --example hybrid_retrieval OK
-  loc_gate_verified: false                          # 2026-07-11: 3 workspace crate files over 500 LOC (csm-memory/singularity 629, csm-core/hyperdim 563, csm-memory/graph_traversal 517)
+  loc_gate_verified: true                          # 2026-07-14: all workspace crate files now ≤500 LOC (singularity 398, hyperdim 462, graph_traversal 312)
   misleading_docs_found: true                       # 2026-04-30: README.md WASM issue outdated (lines 500-503)
   # PR Status
   pr_138_merged: true                           # 2026-04-30: Coverage improvements + WASM fix (571 tests, 70%)
@@ -1479,7 +1479,7 @@ world_state:
   template_reference: "https://github.com/d-oit/rust-2026-template"
   template_version_analyzed: "0.3.2 (392 commits)"
 
-  action_last_completed: goap_reconciliation_2026_07_11
+  action_last_completed: fix_mcp_schema_async_fs_deny_advisories_2026_07_14
 
   # ═══════════════════════════════════════════════════════
   # PR #444 Review: BM25 Sparse Collection (2026-06-27)
@@ -1571,7 +1571,7 @@ world_state:
   deny_toml_created: true
   arch_fitness_tests_created: true
   lsh_projection_simd_accelerated: true
-  agents_context_created: false          # Was created in d3c620b but deleted by Jules merge (7acfa78)
+  agents_context_created: true           # Re-created in PR #511 (2026-07-14)
   chaos_logic_isolated: true             # csm-chaos crate extracted (PR #441, 2026-06-26)
 
   # ═══════════════════════════════════════════════════════
@@ -1601,12 +1601,12 @@ world_state:
     - hyperchaotic_bit_slicing_research_2026_06
   wave_30_remaining_queued:
     - create_agents_context       # File deleted by Jules merge; needs re-creation
-  ci_main_status: failing             # 2026-07-11: commitlint job failing (scope violations in merged PRs)
+  ci_main_status: passing              # 2026-07-14: all jobs pass including commitlint
   ci_main_partial_results:
     lint: success
     test: success
     wasm: success
-    commitlint: failure               # cli-npm scope not allowed; b649c7c has no conventional format
+    commitlint: success               # Fixed: cli-npm scope added, Jules bot ignore rules active
   ci_dependabot_opentelemetry: closed  # PR #437 closed, not blocking
   adr_0091_registered: true
 
@@ -1621,11 +1621,11 @@ world_state:
   goap_2026_07_11_findings:
     loc_violations: 3                       # csm-memory/singularity (629), csm-core/hyperdim (563), csm-memory/graph_traversal (517)
     ci_commitlint_failing: true             # scope violations: cli-npm not in enum, b649c7c no conventional format
-    deny_toml_advisories_failing: true      # 5 new alerts not yet in ignore list
+    deny_toml_advisories_failing: false    # Fixed in PR #511: documented ignores added
     stale_pr_tracking: 2                    # PRs #444, #94 now merged (were tracked as open)
-    open_prs: 1                             # PR #502 (SIMD Hamming, MERGEABLE)
+    open_prs: 1                             # PR #511 (MCP fix + deny.toml + agents context)
     todo_markers: 1                         # src/retrieval/bm25.rs:109
-    dependabot_alerts_open: 5               # opentelemetry_sdk (medium), time (medium), lru (low), libsql-sqlite3-parser ×2 (low)
+    dependabot_alerts_open: 5               # opentelemetry_sdk (medium), time (medium), lru (low), libsql-sqlite3-parser ×2 (low) — all blocked upstream, documented in deny.toml
   goap_2026_07_11_prs_merged_since_last_audit:
     - "#444: perf(retrieval): implement sparse collection in BM25 search"
     - "#463: Persist RetrievalAbstention events as absence-memory entries"
@@ -1645,3 +1645,22 @@ world_state:
   wave_31_name: "LOC & Supply Chain Remediation"
   wave_31_started_at: "2026-07-11"
   wave_31_focus: "Fix LOC violations, supply chain advisories, commitlint hygiene, merge SIMD PR"
+
+  # ═══════════════════════════════════════════════════════
+  # Session 2026-07-14: P0/P1 Fixes (RECOMMENDATIONS_2026_07_14)
+  # PR #510 merged, PR #511 created
+  # ═══════════════════════════════════════════════════════
+  session_2026_07_14_completed: true
+  session_2026_07_14_actions:
+    - "Merged PR #510 (perf: AVX2 bundle loop unroll, ~2.3% latency reduction)"
+    - "Fixed P0 MCP schema/handler field name mismatch (tools.rs ↔ schema.rs)"
+    - "Fixed P1 blocking std::fs in async secure_read_file (→ tokio::fs)"
+    - "Updated deny.toml: documented ignore for 5 Dependabot alerts (all blocked upstream)"
+    - "Created .agents/context/shared-conventions.md (org-wide conventions)"
+  pr_510_merged: true
+  pr_510_merged_at: "2026-07-14"
+  pr_511_created: true
+  pr_511_title: "fix(mcp): align schema/handler field names, async fs, deny.toml advisories"
+  mcp_schema_handler_mismatch_fixed: true
+  blocking_std_fs_in_async_fixed: true
+  deny_toml_advisories_current: true

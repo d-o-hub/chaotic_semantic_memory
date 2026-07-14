@@ -4251,7 +4251,7 @@ actions:
     effects:
       agents_context_created: true
     cost: 3
-    status: queued
+    status: complete
     file: .agents/context/shared-conventions.md
     description: |
       Cross-repo context document for d-o-hub organization conventions.
@@ -4308,7 +4308,7 @@ actions:
       workspace_loc_gate_enforced: true
       loc_gate_verified: true
     cost: 5
-    status: queued
+    status: complete
     file: crates/csm-memory/src/singularity.rs, crates/csm-core/src/hyperdim.rs, crates/csm-memory/src/graph_traversal.rs, .github/workflows/ci.yml
     adr: ADR-0092
     description: |
@@ -4325,13 +4325,16 @@ actions:
          - hyperdim.rs → extract hyperdim_ops.rs (bundling/permutation helpers)
          - graph_traversal.rs → extract into multiple thinner traversal modules
 
+      RESOLVED: Files already fixed in intervening PRs (Wave 31 LOC fix #504):
+        singularity.rs → 398 LOC, hyperdim.rs → 462 LOC, graph_traversal.rs → 312 LOC
+
   - name: update_deny_toml_advisories
     preconditions:
       deny_toml_created: true
     effects:
       deny_toml_advisories_current: true
     cost: 2
-    status: queued
+    status: complete
     file: deny.toml
     adr: ADR-0092
     description: |
@@ -4351,7 +4354,7 @@ actions:
     effects:
       commitlint_scopes_updated: true
     cost: 2
-    status: queued
+    status: complete
     file: commitlint.config.cjs
     adr: ADR-0092
     description: |
@@ -4370,7 +4373,7 @@ actions:
       pr_502_merged: true
       hamming_distance_simd_accelerated: true
     cost: 1
-    status: queued
+    status: complete
     file: crates/csm-core/src/hyperdim_simd.rs
     adr: ADR-0092
     description: |

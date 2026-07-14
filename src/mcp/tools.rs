@@ -14,9 +14,9 @@ impl McpHandler {
         let fw = self.framework().await?;
         match name {
             "memory_inject" => {
-                let id = args["id"]
+                let id = args["concept_id"]
                     .as_str()
-                    .ok_or_else(|| anyhow::anyhow!("Missing id"))?;
+                    .ok_or_else(|| anyhow::anyhow!("Missing concept_id"))?;
                 let vec_data = args["vector"]
                     .as_array()
                     .ok_or_else(|| anyhow::anyhow!("Missing vector"))?;
@@ -28,12 +28,12 @@ impl McpHandler {
                 } else {
                     fw.inject_concept(id, vector).await?;
                 }
-                Ok(json!({"status": "ok", "id": id}))
+                Ok(json!({"status": "ok", "concept_id": id}))
             }
             "memory_inject_text" => {
-                let id = args["id"]
+                let id = args["concept_id"]
                     .as_str()
-                    .ok_or_else(|| anyhow::anyhow!("Missing id"))?;
+                    .ok_or_else(|| anyhow::anyhow!("Missing concept_id"))?;
                 let text = args["text"]
                     .as_str()
                     .ok_or_else(|| anyhow::anyhow!("Missing text"))?;
@@ -43,7 +43,7 @@ impl McpHandler {
                 } else {
                     fw.inject_text(id, text).await?;
                 }
-                Ok(json!({"status": "ok", "id": id}))
+                Ok(json!({"status": "ok", "concept_id": id}))
             }
             "memory_probe" => {
                 let vec_data = args["vector"]
@@ -99,9 +99,9 @@ impl McpHandler {
                 }
             }
             "memory_get" => {
-                let id = args["id"]
+                let id = args["concept_id"]
                     .as_str()
-                    .ok_or_else(|| anyhow::anyhow!("Missing id"))?;
+                    .ok_or_else(|| anyhow::anyhow!("Missing concept_id"))?;
                 if let Some(concept) = fw.get_concept(id).await? {
                     Ok(json!({"status": "ok", "concept": concept}))
                 } else {
@@ -109,9 +109,9 @@ impl McpHandler {
                 }
             }
             "memory_delete" => {
-                let id = args["id"]
+                let id = args["concept_id"]
                     .as_str()
-                    .ok_or_else(|| anyhow::anyhow!("Missing id"))?;
+                    .ok_or_else(|| anyhow::anyhow!("Missing concept_id"))?;
                 fw.delete_concept(id).await?;
                 Ok(json!({"status": "ok", "deleted": true}))
             }
@@ -255,5 +255,99 @@ mod tests {
         vec_data[0] = json!("not a number");
         let err = parse_hvec(&vec_data).unwrap_err();
         assert_eq!(err.to_string(), "Invalid vector element");
+    }
+
+    /// Helper to create a handler with an in-memory framework.
+    async fn handler_with_framework() -> McpHandler {
+        let handler = McpHandler::new(None);
+        let fw = crate::framework::ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .build()
+            .await
+            .unwrap();
+        assert!(handler.framework.set(fw).is_ok());
+        handler
+    }
+
+    #[tokio::test]
+    async fn test_execute_tool_inject_and_get() {
+        let handler = handler_with_framework().await;
+        let vector: Vec<Value> = (0..80).map(|i| json!(i as u64)).collect();
+        let args = json!({
+            "concept_id": "test-concept",
+            "vector": vector,
+        });
+        let result = handler.execute_tool("memory_inject", args).await.unwrap();
+        assert_eq!(result["status"], "ok");
+        assert_eq!(result["concept_id"], "test-concept");
+
+        // Verify get returns the concept
+        let get_args = json!({"concept_id": "test-concept"});
+        let get_result = handler.execute_tool("memory_get", get_args).await.unwrap();
+        assert_eq!(get_result["status"], "ok");
+        assert!(get_result["concept"].is_object());
+    }
+
+    #[tokio::test]
+    async fn test_execute_tool_inject_text() {
+        let handler = handler_with_framework().await;
+        let args = json!({
+            "concept_id": "text-concept",
+            "text": "hello world",
+        });
+        let result = handler
+            .execute_tool("memory_inject_text", args)
+            .await
+            .unwrap();
+        assert_eq!(result["status"], "ok");
+        assert_eq!(result["concept_id"], "text-concept");
+    }
+
+    #[tokio::test]
+    async fn test_execute_tool_delete() {
+        let handler = handler_with_framework().await;
+        // Inject first
+        let vector: Vec<Value> = (0..80).map(|i| json!(i as u64)).collect();
+        let inject_args = json!({
+            "concept_id": "to-delete",
+            "vector": vector,
+        });
+        handler
+            .execute_tool("memory_inject", inject_args)
+            .await
+            .unwrap();
+
+        // Delete
+        let del_args = json!({"concept_id": "to-delete"});
+        let result = handler
+            .execute_tool("memory_delete", del_args)
+            .await
+            .unwrap();
+        assert_eq!(result["status"], "ok");
+        assert_eq!(result["deleted"], true);
+
+        // Verify it's gone
+        let get_args = json!({"concept_id": "to-delete"});
+        let get_result = handler.execute_tool("memory_get", get_args).await.unwrap();
+        assert_eq!(get_result["status"], "not_found");
+    }
+
+    #[tokio::test]
+    async fn test_execute_tool_get_not_found() {
+        let handler = handler_with_framework().await;
+        let args = json!({"concept_id": "nonexistent"});
+        let result = handler.execute_tool("memory_get", args).await.unwrap();
+        assert_eq!(result["status"], "not_found");
+    }
+
+    #[tokio::test]
+    async fn test_execute_tool_missing_concept_id() {
+        let handler = handler_with_framework().await;
+        let args = json!({"wrong_field": "value"});
+        let err = handler
+            .execute_tool("memory_inject_text", args)
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("Missing concept_id"));
     }
 }

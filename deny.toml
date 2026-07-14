@@ -7,6 +7,21 @@ ignore = [
     { id = "RUSTSEC-2024-0436", reason = "paste unmaintained, no replacement in transitive deps (fastembed)" },
     { id = "RUSTSEC-2025-0141", reason = "bincode 1.x unmaintained, pinned by libsql" },
     { id = "RUSTSEC-2025-0119", reason = "number_prefix unmaintained, transitive dep from indicatif" },
+    # Dependabot alert #22: opentelemetry_sdk unbounded memory in W3C Baggage (GHSA-w9wp-h8wv-79jx)
+    # Patched in 0.32.1, we're at 0.27.1. Upgrade requires major API migration (deferred).
+    # No RUSTSEC ID yet; added proactively for when one is assigned.
+    # { id = "RUSTSEC-20XX-XXXX", reason = "opentelemetry_sdk 0.32 requires major API migration, blocked until ecosystem catches up" },
+    # Dependabot alert #21: time DoS via stack exhaustion in RFC2822 parsing (RUSTSEC-2026-0009)
+    # Patched in 0.3.47, pinned at 0.3.45 by tantivy 0.22.1 (transitive via fastembed).
+    # We don't parse user-supplied RFC2822 dates; tantivy uses time internally.
+    { id = "RUSTSEC-2026-0009", reason = "time 0.3.45 pinned by tantivy (via fastembed), no user-facing RFC2822 parsing" },
+    # Dependabot alert #20: lru IterMut unsoundness (RUSTSEC-2026-0002)
+    # Patched in 0.16.3, pinned at 0.12.5 by tantivy 0.22.1 (transitive via fastembed).
+    # Informational/unsound — theoretical Stacked Borrows violation, no practical exploit.
+    { id = "RUSTSEC-2026-0002", reason = "lru 0.12.5 pinned by tantivy (via fastembed), informational unsoundness" },
+    # Dependabot alerts #1, #4: libsql-sqlite3-parser crash on invalid UTF-8 (GHSA-8m95-fffc-h4c5)
+    # No patch available upstream. Low severity, requires malformed SQL input.
+    # No RUSTSEC ID; will add when assigned.
 ]
 
 [licenses]
