@@ -8,7 +8,7 @@ world_state:
   binary_built: true
   sample_app_created: true
   documentation_complete: true
-  validated: false
+  validated: false                    # 2026-07-14: fuzz workspace broken + GOAP boolean corrections; re-validation pending Wave 32 P0
   dependency_hygiene_complete: true
   adr_registry_current: true
   result_contract_clarified: true
@@ -1505,7 +1505,7 @@ world_state:
   wave_29_benchmarks_added: 3          # rerank_benchmark, hybrid_benchmark, embedding_benchmark
   wave_29_rerank_module_public: true   # pub mod rerank in src/retrieval/mod.rs
   wave_29_check_cfg_rerank_cross: true # Suppressed pre-existing unexpected_cfgs warning
-  tests_count: 1034                     # 2026-07-14: literal #[test]/#[tokio::test] attributes across src/crates/tests
+  tests_count: 1034                     # 2026-07-14: CANONICAL — literal #[test]/#[tokio::test] across src/crates/tests (see tests_count_wave27_baseline for historical)
 
   # ═══════════════════════════════════════════════════════
   # GOAP Orchestrator Analysis 2026-06-26

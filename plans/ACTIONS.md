@@ -4155,6 +4155,8 @@ actions:
     status: queued
     file: HARNESS.md
     description: |
+      2026-07-14: re-queued; prior 'complete' was filed against wrong artifact
+      (tests/bridge_persistence_integration.rs instead of HARNESS.md).
       Create HARNESS.md adapted for HDC/reservoir domain. Map existing
       sensors (clippy, tests, validate.sh, mutation_test.sh) and guides
       (AGENTS.md, skills/). Add feedforward/feedback loop documentation.
@@ -4515,6 +4517,7 @@ actions:
       decoders, build every target in CI, and run changed targets briefly on PRs
       plus all targets on schedule. Acceptance: cargo fuzz build succeeds and no
       target shares mutable persistent state across cases.
+      NOTE: ADR-0095 fuzz-build CI gate is aspirational until this action completes.
 
   - name: make_skill_validation_fail_closed
     preconditions:
