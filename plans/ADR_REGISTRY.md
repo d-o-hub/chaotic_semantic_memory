@@ -30,8 +30,8 @@
 | 0021 | Auto Schema Migration | Accepted | [adr/0021-auto-schema-migration.md](adr/0021-auto-schema-migration.md) |
 | 0022 | WASM API Parity (Original) | Accepted | [adr/0022-wasm-api-parity-original.md](adr/0022-wasm-api-parity-original.md) |
 | 0023 | Zero-Alloc Query Cache | Accepted | [adr/0023-zero-alloc-query-cache.md](adr/0023-zero-alloc-query-cache.md) |
-| 0024 | Concept Expiration (TTL) | Accepted (Baseline) | [adr/0024-concept-expiration-ttl.md](adr/0024-concept-expiration-ttl.md) |
-| 0025 | Weighted Forgetting (Decay) | Deferred | [adr/0025-weighted-forgetting-decay.md](adr/0025-weighted-forgetting-decay.md) |
+| 0024 | Concept Expiration (TTL) | Implemented (lifecycle follow-up queued) | [adr/0024-concept-expiration-ttl.md](adr/0024-concept-expiration-ttl.md) |
+| 0025 | Weighted Forgetting (Decay) | Implemented | [adr/0025-weighted-forgetting-decay.md](adr/0025-weighted-forgetting-decay.md) |
 | 0026 | Namespace Isolation | Implemented | [adr/0026-namespace-isolation.md](adr/0026-namespace-isolation.md) |
 | 0027 | Documentation Standards | Implemented | [adr/0027-documentation-standards.md](adr/0027-documentation-standards.md) |
 | 0028 | Observability Completion | Implemented | [adr/0028-observability-completion.md](adr/0028-observability-completion.md) |
@@ -93,11 +93,16 @@
 | 0088 | Pre-existing Issues Documented During PR #356 Codacy Remediation | Accepted | [adr/0088-pre-existing-issues-pr356-codacy-remediation.md](adr/0088-pre-existing-issues-pr356-codacy-remediation.md) |
 | 0089 | GOAP Reconciliation 2026-06-16 | Accepted | [adr/0089-goap-reconciliation-2026-06-16.md](adr/0089-goap-reconciliation-2026-06-16.md) |
 | 0090 | Harness Engineering & rust-2026-template Alignment | Accepted | [adr/0090-harness-engineering-template-alignment.md](adr/0090-harness-engineering-template-alignment.md) |
-| 0091 | Hyperchaotic Bit-Slicing for Binary Semantic Hashing | Accepted | [adr/0091-hyperchaotic-bit-slicing.md](adr/0091-hyperchaotic-bit-slicing.md) |
+| 0091 | Hyperchaotic Bit-Slicing for Binary Semantic Hashing | Implemented | [adr/0091-hyperchaotic-bit-slicing.md](adr/0091-hyperchaotic-bit-slicing.md) |
 | 0092 | GOAP Reconciliation 2026-07-11 | Accepted | [adr/0092-goap-reconciliation-2026-07-11.md](adr/0092-goap-reconciliation-2026-07-11.md) |
+| 0093 | Authoritative Persistence and Derived ANN Index Consistency | Proposed | [adr/0093-authoritative-persistence-and-derived-index-consistency.md](adr/0093-authoritative-persistence-and-derived-index-consistency.md) |
+| 0094 | Workspace Ownership and Feature Contracts | Proposed | [adr/0094-workspace-ownership-and-feature-contracts.md](adr/0094-workspace-ownership-and-feature-contracts.md) |
+| 0095 | Evidence-Driven Quality Gates | Proposed | [adr/0095-evidence-driven-quality-gates.md](adr/0095-evidence-driven-quality-gates.md) |
+| 0096 | Agent Skill and Workflow Validation | Proposed | [adr/0096-agent-skill-and-workflow-validation.md](adr/0096-agent-skill-and-workflow-validation.md) |
 
 ## Status Definitions
 
+- **Proposed**: Decision drafted for maintainer approval; dependent implementation remains queued
 - **Accepted**: Decision approved, may be implemented or in progress
 - **Implemented**: Code complete and merged
 - **Deferred**: Postponed to future release, see ADR for trigger conditions
@@ -219,9 +224,9 @@ Per Swarm Consensus 2026-02-17, these ADRs were implemented for 1.0 release:
 
 These ADRs are valid but deferred based on Swarm Consensus:
 
-- **ADR-0024 (TTL)**: Advanced TTL policy automation - baseline shipped, advanced deferred (GitHub #411)
-- **ADR-0025 (Decay)**: Association decay - defer until biological modeling requested (GitHub #412)
 - **ADR-0060 (Dimensions)**: Configurable hypervector dimensions - defer until user demand
+
+TTL advanced policies and association decay were implemented on 2026-06-23; see ADR-0024 and ADR-0025 resolution notes.
 
 ## PR #356 Followup ADRs
 

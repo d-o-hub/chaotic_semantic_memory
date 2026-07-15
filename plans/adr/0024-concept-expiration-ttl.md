@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (backfilled 2026-05-01) - Baseline implemented; advanced deferred
+Implemented (baseline and advanced policies; cleanup-task lifecycle follow-up proposed in ADR-0093)
 
 ## Context
 
@@ -13,7 +13,7 @@ Memory concepts may need time-based expiration:
 
 ## Decision
 
-Implement **baseline TTL APIs**; defer advanced policy automation.
+Implement baseline TTL APIs and advanced policy automation.
 
 **Baseline (Implemented):**
 - inject_concept_with_ttl(id, vector, metadata, ttl_seconds)
@@ -21,10 +21,13 @@ Implement **baseline TTL APIs**; defer advanced policy automation.
 - purge_expired() -> removes all expired concepts
 - expires_at field in persistence
 
-**Deferred (Post-1.0):**
-- Advanced TTL policies (cascade, priority-based)
-- Background TTL cleanup daemon
-- TTL statistics and monitoring
+**Advanced policies (Implemented 2026-06-23):**
+- Fixed, MetadataRule, and Inherit TTL policies
+- Cascading purge and DecayCurve behavior
+- Opt-in background cleanup scheduling
+
+**Lifecycle follow-up:**
+- The background task exists, but cancellation/JoinHandle ownership and bounded shutdown are proposed in ADR-0093.
 
 ## Consequences
 
