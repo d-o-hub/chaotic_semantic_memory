@@ -112,15 +112,24 @@ pub(crate) unsafe fn hamming_distance_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 8
                 acc_8_high = _mm256_add_epi8(
                     acc_8_high,
                     _mm256_add_epi8(
-                        _mm256_shuffle_epi8(lookup, _mm256_and_si256(_mm256_srli_epi16(x0, 4), low_mask)),
-                        _mm256_shuffle_epi8(lookup, _mm256_and_si256(_mm256_srli_epi16(x1, 4), low_mask)),
+                        _mm256_shuffle_epi8(
+                            lookup,
+                            _mm256_and_si256(_mm256_srli_epi16(x0, 4), low_mask),
+                        ),
+                        _mm256_shuffle_epi8(
+                            lookup,
+                            _mm256_and_si256(_mm256_srli_epi16(x1, 4), low_mask),
+                        ),
                     ),
                 );
             }
         }
         acc = _mm256_add_epi64(
             acc,
-            _mm256_add_epi64(_mm256_sad_epu8(acc_8_low, zero), _mm256_sad_epu8(acc_8_high, zero)),
+            _mm256_add_epi64(
+                _mm256_sad_epu8(acc_8_low, zero),
+                _mm256_sad_epu8(acc_8_high, zero),
+            ),
         );
     }
 
