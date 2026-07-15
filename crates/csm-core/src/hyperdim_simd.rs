@@ -72,10 +72,14 @@ pub(crate) unsafe fn bind_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
 /// # SAFETY
 /// Caller must ensure AVX2 is supported.
 pub(crate) unsafe fn hamming_distance_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
-    const BATCH_SIZE: usize = 10;
-    const WORDS_PER_BATCH: usize = BATCH_SIZE * 2;
-    // Compile-time guard for array alignment
-    const _: () = assert!(80 % WORDS_PER_BATCH == 0);
+    const LOADS_PER_FLUSH: usize = 20;
+    const TOTAL_LOADS: usize = 40;
+    const UNROLL_FACTOR: usize = 2;
+    // Compile-time guard for loop structure and overflow safety.
+    // Max bits per byte = 8. 8 * UNROLL_FACTOR * (LOADS_PER_FLUSH / UNROLL_FACTOR) = 8 * 20 = 160.
+    // 160 safely fits in u8 (255) to prevent overflow during deferred accumulation.
+    const _: () = assert!(80 % (LOADS_PER_FLUSH * 2) == 0);
+    const _: () = assert!(LOADS_PER_FLUSH % (UNROLL_FACTOR * 2) == 0);
 
     let lookup = _mm256_setr_epi8(
         0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3,
@@ -85,31 +89,59 @@ pub(crate) unsafe fn hamming_distance_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 8
     let mut acc = _mm256_setzero_si256();
     let zero = _mm256_setzero_si256();
 
-    for i in (0..80).step_by(WORDS_PER_BATCH) {
-        // Algorithmic Optimization: Intermediate 8-bit accumulation.
-        // We accumulate popcounts in an 8-bit vector for 10 iterations (20 words)
-        // before flushing to the 64-bit accumulator via _mm256_sad_epu8.
-        // Max bits per byte is 8. 8 * 10 = 80, which safely fits in u8 (255).
-        // This reduces expensive SAD instructions by 90% and improves ILP.
-        let mut acc_8 = _mm256_setzero_si256();
-        for j in 0..BATCH_SIZE {
-            let idx = i + j * 2;
-            // SAFETY: idx is in (0..80). add(idx) is safe.
+    // Algorithmic Optimization: Deferred 8-bit accumulation with dual accumulators and unrolling.
+    // 80 words = 40 AVX2 loads. We process in two 20-load flushes to avoid 8-bit overflow.
+    // Dual accumulators (acc_8_low, acc_8_high) and 2x unrolling improve ILP by exposing
+    // independent execution paths to the scheduler.
+    for i in (0..80).step_by(LOADS_PER_FLUSH * 2) {
+        let mut acc_8_low = _mm256_setzero_si256();
+        let mut acc_8_high = _mm256_setzero_si256();
+        for j in (0..LOADS_PER_FLUSH * 2).step_by(UNROLL_FACTOR * 2) {
+            let idx0 = i + j;
+            let idx1 = idx0 + 2;
+
+            // SAFETY: i + j + 2 is at most 40 + 36 + 2 = 78.
+            // _mm256_loadu_si256 reads 32 bytes (2 x u128), so add(78) reads indices [78, 79].
+            // This stays within the bounds of the 80-element input arrays.
             unsafe {
-                let l = _mm256_loadu_si256(lhs.as_ptr().add(idx).cast());
-                let r = _mm256_loadu_si256(rhs.as_ptr().add(idx).cast());
-                let x = _mm256_xor_si256(l, r);
+                let x0 = _mm256_xor_si256(
+                    _mm256_loadu_si256(lhs.as_ptr().add(idx0).cast()),
+                    _mm256_loadu_si256(rhs.as_ptr().add(idx0).cast()),
+                );
+                let x1 = _mm256_xor_si256(
+                    _mm256_loadu_si256(lhs.as_ptr().add(idx1).cast()),
+                    _mm256_loadu_si256(rhs.as_ptr().add(idx1).cast()),
+                );
 
-                let low = _mm256_and_si256(x, low_mask);
-                let high = _mm256_and_si256(_mm256_srli_epi16(x, 4), low_mask);
-
-                let pop_low = _mm256_shuffle_epi8(lookup, low);
-                let pop_high = _mm256_shuffle_epi8(lookup, high);
-
-                acc_8 = _mm256_add_epi8(acc_8, _mm256_add_epi8(pop_low, pop_high));
+                acc_8_low = _mm256_add_epi8(
+                    acc_8_low,
+                    _mm256_add_epi8(
+                        _mm256_shuffle_epi8(lookup, _mm256_and_si256(x0, low_mask)),
+                        _mm256_shuffle_epi8(lookup, _mm256_and_si256(x1, low_mask)),
+                    ),
+                );
+                acc_8_high = _mm256_add_epi8(
+                    acc_8_high,
+                    _mm256_add_epi8(
+                        _mm256_shuffle_epi8(
+                            lookup,
+                            _mm256_and_si256(_mm256_srli_epi16(x0, 4), low_mask),
+                        ),
+                        _mm256_shuffle_epi8(
+                            lookup,
+                            _mm256_and_si256(_mm256_srli_epi16(x1, 4), low_mask),
+                        ),
+                    ),
+                );
             }
         }
-        acc = _mm256_add_epi64(acc, _mm256_sad_epu8(acc_8, zero));
+        acc = _mm256_add_epi64(
+            acc,
+            _mm256_add_epi64(
+                _mm256_sad_epu8(acc_8_low, zero),
+                _mm256_sad_epu8(acc_8_high, zero),
+            ),
+        );
     }
 
     let mut results = [0u64; 4];
