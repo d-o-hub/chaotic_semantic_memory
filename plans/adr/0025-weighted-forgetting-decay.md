@@ -2,7 +2,7 @@
 
 ## Status
 
-Deferred (backfilled 2026-05-01)
+Implemented (2026-06-23)
 
 ## Context
 
@@ -13,37 +13,26 @@ Association strength could decay over time:
 
 ## Decision
 
-**Deferred** - Weighted forgetting not implemented for 1.0.
+Weighted forgetting is implemented as opt-in association decay with reinforcement and pruning APIs. The fixed-strength path remains available when decay is not configured.
 
-**Rationale:**
-- No current user request for decay
-- Fixed strength simplifies debugging
-- Biological modeling is niche use case
-- Complexity not justified for initial release
-
-**Activation Trigger:**
-- Biological memory modeling requested by users
-- Research application with decay requirement
-- Attention modeling use case emerges
+Implementation ownership is `crates/csm-memory/src/singularity_decay.rs`, exposed through framework methods in `src/framework.rs`. Regression coverage is in `tests/association_decay.rs` and advanced TTL/decay tests.
 
 ## Consequences
 
-### Positive (Deferred)
-- Simplified mental model (fixed strength)
-- No decay computation overhead
-- Easier to reason about associations
+### Positive
+- Supports biological/recency-oriented forgetting when configured
+- Reinforcement resets decay age
+- Pruning removes associations below the configured threshold
 
-### Negative (Deferred)
-- Cannot model biological forgetting
-- All associations persist equally
-- No "use it or lose it" behavior
+### Negative
+- Time-dependent scores require deterministic clock-aware tests
+- Callers must understand whether raw or decayed association strength is returned
 
-## Future Implementation
+## Implementation
 
-- Module: `src/singularity.rs`
-- Pattern: decay factor per association
-- Trigger: access count updates strength
-- Cost: ~6 (estimated)
+- Module: `crates/csm-memory/src/singularity_decay.rs`
+- Framework: `reinforce_association` and `prune_decayed_associations`
+- Tests: `tests/association_decay.rs`
 
 ## Sources
 

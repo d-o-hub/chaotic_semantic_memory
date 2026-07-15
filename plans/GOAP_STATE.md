@@ -8,7 +8,7 @@ world_state:
   binary_built: true
   sample_app_created: true
   documentation_complete: true
-  validated: true
+  validated: false                    # 2026-07-14: fuzz workspace broken + GOAP boolean corrections; re-validation pending Wave 32 P0
   dependency_hygiene_complete: true
   adr_registry_current: true
   result_contract_clarified: true
@@ -32,8 +32,8 @@ world_state:
   orchestrator_last_run: goap_orchestrator_analysis_2026_04_30
   orchestrator_last_run_at_utc: 2026-04-30T18:30:00Z
   goap_orchestrator_analysis_complete: true         # 2026-04-30: All actionable items verified complete
-  skills_all_defined: true                          # 2026-04-30: 29 skills with SKILL.md verified
-  no_missing_implementations: true                  # 2026-04-30: No TODO/FIXME/unimplemented! in source
+  skills_all_defined: true                          # 2026-07-14: 32 skill manifests exist; validation hardening queued
+  no_missing_implementations: false                 # 2026-07-14: BM25 absence short-circuit TODO + verified contract gaps queued
   book_chapters_complete: true                      # 2026-04-30: 15 book chapters verified (semantic-bridge, inertial-reservoir, ttl exist)
   changelog_links_complete: true                    # 2026-04-30: All version links verified
   hybrid_retrieval_example_compiles: true           # 2026-04-30: cargo check --example hybrid_retrieval OK
@@ -58,8 +58,8 @@ world_state:
   verification_workspace_mrr: 0.75
   verification_bm25_search_1000_us: 64.4        # was 3030 µs pre PR #129 (47× faster)
   verification_bridge_retrieval_pipeline_1k_ms: 1.92
-  tests_count: 668                              # 2026-06-09: Wave 27 validation (was 598)
-  skills_count: 29                              # 2026-04-30: All 29 skills have SKILL.md verified
+  tests_count_wave27_baseline: 668               # Historical 2026-06-09 snapshot; canonical count is near file end
+  skills_count: 32                              # 2026-07-14: find .agents/skills -name SKILL.md | wc -l
   coverage_ratio_current: 93                   # Test:Source ratio (target: 90% - ACHIEVED)
   coverage_inline_tests_added: true             # encoder.rs (7), persistence_ops.rs (3), framework_ttl.rs (9), wasm_ext.rs (17)
   coverage_core_inline_tests_added: true       # 2026-04-30: reservoir.rs (7), singularity.rs (5), singularity_retrieval.rs (6), framework_ops.rs (3), wasm.rs (4)
@@ -82,7 +82,7 @@ world_state:
   ci_release_workflow_blocked: false           # 2026-04-28: Fixed - checkout + retry logic
   ci_release_workflow_fix_applied: true        # 2026-04-28: actions: read + null guards
   ci_pages_workflow_fix_applied: true          # 2026-04-28: heredoc terminator de-indented
-  ci_pre_release_gate_failing: true            # version triad + security audit + planning
+  ci_pre_release_gate_failing: true            # Latest named Pre-Release Gate run 24604591915 failed; rerun required
   changelog_v033_yanked_recorded: true         # 2026-04-28: backfilled CHANGELOG
   changelog_unreleased_section: true           # 2026-04-28: added Unreleased
   goap_actions_md_synced: true                 # 2026-04-28: 3 queued -> complete
@@ -256,10 +256,10 @@ world_state:
     - "Benchmark CI passed despite poor retrieval metrics because it validates artifact presence instead of metric thresholds."
     - "WASM Rust target compiles, but the documented JS API and wasm/test.js drift from the generated pkg API and are not exercised in CI."
     - "Benchmark runner reports dataset file size as storage_bytes and always uses the in-memory adapter."
-  ci_executes_real_criterion_benches: true
-  benchmark_workspace_tests_run_in_ci: true
-  wasm_js_smoke_test_enforced: true
-  benchmark_ci_enforces_quality_thresholds: true
+  ci_executes_real_criterion_benches: false
+  benchmark_workspace_tests_run_in_ci: false
+  wasm_js_smoke_test_enforced: false
+  benchmark_ci_enforces_quality_thresholds: false
   benchmark_storage_metric_truthful: true
   benchmark_report_contract_complete: true
   pages_fallback_renders_html: true
@@ -356,7 +356,7 @@ world_state:
   tests_count_v032_baseline: 333  # historical baseline; current count tracked in tests_count above
 
   # Swarm orchestration snapshot
-  active_wave: 31
+  active_wave: 32
   wave_strategy: parallel_by_phase_with_handoffs
   wave_20_name: "Implementation Queue Rebuild"
   wave_20_started_at: "2026-04-12"
@@ -372,7 +372,7 @@ world_state:
   wave_17_complete: true             # Performance follow-up & GOAP consistency
   all_waves_finished: false
   swarm_status: active
-  final_validation_passed: true
+  final_validation_passed: false
 
   # PR tracking
   pr_94_status: merged
@@ -560,7 +560,7 @@ world_state:
 
   # Test status - Updated 2026-06-10
   # 60 integration test files in tests/ + inline #[test] modules across src/ & crates/.
-  tests_passing: true
+  workspace_tests_passing_2026_06_10: true      # Historical snapshot; canonical tests_passing is defined once above
   integration_tests_exist: true
   integration_test_files: 60        # tests/*.rs
   total_test_functions: 773         # #[test]/#[tokio::test] across src + crates + tests
@@ -601,9 +601,9 @@ world_state:
   # Batch similarity performance (ADR-0041) - Phase 2 Complete
   batch_similarity_under_500us: true
   batch_similarity_1000_latest_us: 470
-  benchmarks_prove_performance: true
+  benchmarks_prove_performance: false
   turso_roundtrip_under_20ms: true
-  10m_concepts_under_12mb: true
+  10m_concepts_under_12mb: false
   wasm_binary_under_500kb: true
   no_hardcoded_runtime_settings: true
   no_magic_numbers_without_named_constants: true
@@ -611,6 +611,7 @@ world_state:
   # Phase 5: Testing & Quality (cost: 8)
   property_based_tests_added: true
   fuzzing_targets_created: true
+  fuzz_workspace_compiles: false                 # 2026-07-14: persistence_save_concept target has 3 API-drift errors
   edge_case_coverage_complete: true
   mutation_testing_enabled: true
 
@@ -766,8 +767,8 @@ world_state:
 
   # Post-1.0 Deferred Work (ADR-0024, ADR-0025, ADR-0026)
   # Per Swarm Consensus 2026-02-17: Advanced features deferred until user demand
-  deferred_concept_ttl: true            # ADR-0024: advanced TTL policy automation — all policies implemented 2026-06-23
-  deferred_association_decay: true      # ADR-0025: Weighted forgetting — implemented 2026-06-23 (PR #426)
+  advanced_ttl_policies_implemented: true       # 2026-06-23: Fixed/MetadataRule/Inherit/cascading purge/DecayCurve
+  association_decay_implemented: true            # 2026-06-23: reinforce/prune APIs and tests shipped
   deferred_namespace_isolation: false   # ADR-0026: Multi-tenancy
   deferred_phase2_optimizations: false  # ADR-0024: SIMD completion, PQ, LSH
   deferred_trigger_threshold: "User demand or >200k concepts with latency issues"
@@ -1012,7 +1013,7 @@ world_state:
   version_history_surface_implemented: true  # ADR-0074 — completed 2026-06-09: WASM diffVersions binding added
 
   # Wave 24 P3 — Future Scale (queued, cost 14, depends on Wave 22)
-  quantized_binary_hypervectors_implemented: false  # ADR-0075 — 32× memory compression; cost 14, delegated to Jules (2026-06-06)
+  quantized_binary_hypervectors_implemented: true   # ADR-0075 — implemented by PR #389; issue #353 closed
 
   # ═══════════════════════════════════════════════════════
   # Real-usage Verification + Clippy Audit (2026-04-30)
@@ -1474,12 +1475,12 @@ world_state:
                                                      # commitlint.config.cjs, dist-workspace.toml
   harness_engineering_phase2_cost: 14                # delegated to Jules
   harness_engineering_deferred: 2                    # insta snapshots, Makefile
-  harness_msrv_current: "1.85"
+  harness_msrv_baseline_2026_06_23: "1.85"
   harness_msrv_target: "1.88"
   template_reference: "https://github.com/d-oit/rust-2026-template"
   template_version_analyzed: "0.3.2 (392 commits)"
 
-  action_last_completed: fix_mcp_schema_async_fs_deny_advisories_2026_07_14
+  action_last_completed: plan_codebase_audit_wave32_2026_07_14
 
   # ═══════════════════════════════════════════════════════
   # PR #444 Review: BM25 Sparse Collection (2026-06-27)
@@ -1504,7 +1505,7 @@ world_state:
   wave_29_benchmarks_added: 3          # rerank_benchmark, hybrid_benchmark, embedding_benchmark
   wave_29_rerank_module_public: true   # pub mod rerank in src/retrieval/mod.rs
   wave_29_check_cfg_rerank_cross: true # Suppressed pre-existing unexpected_cfgs warning
-  tests_count: 1029                     # 2026-07-11: Wave 31 reconciliation (was 696)
+  tests_count: 1034                     # 2026-07-14: CANONICAL — literal #[test]/#[tokio::test] across src/crates/tests (see tests_count_wave27_baseline for historical)
 
   # ═══════════════════════════════════════════════════════
   # GOAP Orchestrator Analysis 2026-06-26
@@ -1599,8 +1600,8 @@ world_state:
     - simd_optimize_chaotic_lsh
     - extract_csm_chaos_crate
     - hyperchaotic_bit_slicing_research_2026_06
-  wave_30_remaining_queued:
-    - create_agents_context       # File deleted by Jules merge; needs re-creation
+  wave_30_remaining_queued_snapshot_2026_06_27:
+    - create_agents_context       # Historical snapshot; completed by PR #511 on 2026-07-14
   ci_main_status: passing              # 2026-07-14: all jobs pass including commitlint
   ci_main_partial_results:
     lint: success
@@ -1660,7 +1661,53 @@ world_state:
   pr_510_merged: true
   pr_510_merged_at: "2026-07-14"
   pr_511_created: true
+  pr_511_merged: true
+  pr_511_merged_at: "2026-07-14T11:07:17Z"
+  pr_511_merge_sha: "58918a61"
   pr_511_title: "fix(mcp): align schema/handler field names, async fs, deny.toml advisories"
   mcp_schema_handler_mismatch_fixed: true
   blocking_std_fs_in_async_fixed: true
   deny_toml_advisories_current: true
+
+  # ═══════════════════════════════════════════════════════
+  # Wave 32: Correctness, Ownership, Evidence & Agent Safety
+  # Planning-only audit 2026-07-14; implementation requires ADR approval.
+  # See plans/GOAP_AUDIT_2026_07_14.md and ADR-0093..0096.
+  # ═══════════════════════════════════════════════════════
+  codebase_audit_2026_07_14_complete: true
+  codebase_audit_2026_07_14_main_head: "58918a61"
+  codebase_audit_2026_07_14_ci_run: 29327781685
+  codebase_audit_2026_07_14_ci_status: success
+  codebase_audit_2026_07_14_open_prs: 0
+  codebase_audit_2026_07_14_rust_source_files: 216
+  codebase_audit_2026_07_14_skill_manifests: 32
+  codebase_audit_2026_07_14_test_attributes: 1034
+  codebase_audit_2026_07_14_source_loc_gate: passing
+  codebase_audit_2026_07_14_adr_parity: passing
+  wave_31_complete: true
+  wave_31_completed_at: "2026-07-14"
+  wave_32_name: "Correctness, Ownership, Evidence & Agent Safety"
+  wave_32_started_at: "2026-07-14"
+  wave_32_status: planned
+  wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
+  wave_32_adrs_proposed: 4
+  adr_0093_proposed: true
+  adr_0094_proposed: true
+  adr_0095_proposed: true
+  adr_0096_proposed: true
+  ann_snapshot_revision_validated: false
+  ann_config_is_fallible: false
+  persistence_failure_leaves_memory_unchanged: false
+  no_framework_state_lock_across_io_await: false
+  workspace_implementation_owners_unique: false
+  no_default_features_is_lean: false
+  persistence_disabled_false_success_removed: false
+  mcp_full_width_vector_wire_contract: false
+  wasm_ci_release_artifact_identical: false
+  benchmark_metrics_mathematically_correct: false
+  performance_claims_have_current_artifacts: false
+  cargo_deny_required_in_ci: false
+  skill_validation_fail_closed: false
+  release_skill_loc_compliant: false
+  active_plan_keys_unique: true
+  user_recommendations_2026_07_14_preserved: true

@@ -1142,20 +1142,19 @@ actions:
       Added API surface: inject_concept_with_ttl(), inject_text_with_ttl(), purge_expired().
       Added expires_at persistence and load/save support.
 
-  - name: deferred_concept_ttl
-    preconditions: []
+  - name: implement_advanced_ttl_policies
+    preconditions:
+      concept_ttl: true
     effects:
-      deferred_concept_ttl: true
+      advanced_ttl_policies_implemented: true
     cost: 8
     status: complete
     adr: ADR-0024
     description: |
-      DEFERRED: Advanced TTL policies beyond baseline support.
-      Baseline TTL APIs are implemented; this action tracks post-1.0 policy automation.
-      See ADR-0024 for extended specification and activation criteria.
-      2026-06-23: All advanced policies implemented (Fixed, MetadataRule, Inherit,
-      cascading_purge, DecayCurve). 18 integration tests cover end-to-end workflows.
-      Background cleanup daemon remains opt-in/manual via purge_expired().
+      Completed 2026-06-23: Fixed, MetadataRule, and Inherit policies,
+      cascading purge, and DecayCurve shipped with 18 integration tests.
+      Background cleanup exists but cancellation/JoinHandle ownership is a
+      separate Wave 32 lifecycle action.
 
   - name: deferred_performance_phase2
     preconditions: []
@@ -1178,17 +1177,18 @@ actions:
           PR #389 (ADR-0075), merged 2026-06-14.
       Status updated from `deferred` to `complete` (ADR-0089).
 
-  - name: deferred_association_decay
-    preconditions: []
+  - name: implement_association_decay
+    preconditions:
+      core_modules_created: true
     effects:
-      deferred_association_decay: true
+      association_decay_implemented: true
     cost: 6
     status: complete
     adr: ADR-0025
     description: |
-      DEFERRED: Weighted forgetting with association decay.
-      See ADR-0025 for full specification.
-      Activate when: Biological memory modeling requested by users.
+      Completed 2026-06-23: weighted decay, reinforcement, pruning, framework
+      APIs, and regression tests shipped in csm-memory singularity_decay and
+      the root framework façade.
 
   - name: deferred_namespace_isolation
     preconditions: []
@@ -1593,7 +1593,7 @@ actions:
       - rayon: "1.10" -> "1.10.0"
       And all dev-dependencies with specific versions.
 
-  - name: remove_exitcode_crate
+  - name: reconcile_exitcode_removal_in_cargo_modernization
     preconditions:
       cli_crate_created: true
     effects:
@@ -1603,10 +1603,9 @@ actions:
     file: Cargo.toml
     adr: ADR-0036, ADR-0038
     description: |
-      Remove the exitcode = "1.1" dependency from Cargo.toml.
-      The CLI already defines its own ExitCode enum in src/cli/error.rs.
-      This dependency is unused and should have been removed earlier.
-      Update any imports that reference exitcode::ExitCode to use cli::ExitCode.
+      Historical Cargo-modernization reconciliation for the already-complete
+      remove_exitcode_crate action. Renamed 2026-07-14 so GOAP action names
+      remain unique.
 
   - name: gate_cli_dependencies
     preconditions:
@@ -3462,7 +3461,7 @@ actions:
     effects:
       quantized_binary_hypervectors_implemented: true
     cost: 14
-    status: delegated
+    status: complete
     jules_issue: 353
     file: plans/adr/0075-quantized-binary-hypervectors.md
     description: |
@@ -3475,6 +3474,7 @@ actions:
       AGENTS.md §"Phase 2: Planning". Tracked as GitHub issue
       https://github.com/d-o-hub/chaotic_semantic_memory/issues/353
       with the `jules` label.
+      2026-06-14: COMPLETED by PR #389; issue #353 is closed.
 
   # ═══════════════════════════════════════════════════════
   # 2026-04-30 — Real-usage verification + Clippy audit
@@ -4152,9 +4152,11 @@ actions:
     effects:
       harness_md_created: true
     cost: 3
-    status: complete
-    file: tests/bridge_persistence_integration.rs
+    status: queued
+    file: HARNESS.md
     description: |
+      2026-07-14: re-queued; prior 'complete' was filed against wrong artifact
+      (tests/bridge_persistence_integration.rs instead of HARNESS.md).
       Create HARNESS.md adapted for HDC/reservoir domain. Map existing
       sensors (clippy, tests, validate.sh, mutation_test.sh) and guides
       (AGENTS.md, skills/). Add feedforward/feedback loop documentation.
@@ -4197,7 +4199,7 @@ actions:
       quality_gates_script_created: true
     cost: 2
     status: complete
-    file: .github/workflows/ci.yml
+    file: scripts/quality-gates.sh
     description: |
       Unified quality gate script wrapping validate.sh with structured
       output. Adds cargo-deny check to the pipeline. Compatible with
@@ -4207,10 +4209,10 @@ actions:
     preconditions:
       quality_gates_script_created: true
     effects:
-      fuzz_targets_count: 7
-    cost: 4
+      harness_check_script_created: true
+    cost: 2
     status: complete
-    file: fuzz/fuzz_targets/
+    file: scripts/harness-check.sh
     description: |
       Agent-optimized error output with HARNESS VIOLATION prefix and
       fix hints. Wraps quality-gates.sh sensors. Emits structured
@@ -4220,12 +4222,10 @@ actions:
     preconditions:
       harness_engineering_gap_analysis_complete: true
     effects:
-      rerank_benchmarks_exist: true
-      hybrid_benchmarks_exist: true
-      embedding_benchmarks_exist: true
-    cost: 5
+      gitleaks_config_created: true
+    cost: 1
     status: complete
-    file: benches/rerank_benchmark.rs, benches/hybrid_benchmark.rs, benches/embedding_benchmark.rs
+    file: .gitleaks.toml
     description: |
       Secret scanning configuration. Critical for a crate that handles
       database credentials (Turso tokens). Add to pre-commit pipeline.
@@ -4398,3 +4398,444 @@ actions:
       deny.toml advisories failing (5 new alerts), PRs #444/#94 merged but tracked as open,
       test count grew 696→1029, version 0.3.6→0.3.7. Updated GOAP_STATE.md, ACTIONS.md,
       and created ADR-0092 documenting all findings and Wave 31 roadmap.
+
+  # ═══════════════════════════════════════════════════════
+  # WAVE 32: CORRECTNESS, OWNERSHIP, EVIDENCE & AGENT SAFETY
+  # Audit: plans/GOAP_AUDIT_2026_07_14.md
+  # Proposed ADRs: 0093-0096. No implementation begins before ADR approval.
+  # ═══════════════════════════════════════════════════════
+
+  - name: plan_codebase_audit_wave32_2026_07_14
+    preconditions:
+      ci_all_checks_passed: true
+    effects:
+      codebase_audit_2026_07_14_complete: true
+      wave_32_status: planned
+    cost: 4
+    status: complete
+    file: plans/GOAP_AUDIT_2026_07_14.md, plans/GOAP_STATE.md, plans/ACTIONS.md, plans/ADR_REGISTRY.md, plans/adr/0093-0096
+    description: |
+      Read-only audit of architecture, implementation gaps, tests, fuzzing,
+      benchmarks, CI, workflow, and 32 agent skills. Reconciled duplicate/stale
+      planning state and created an evidence-backed Wave 32 action graph.
+      Preserved user-owned export.json, opencode.json, and the untracked
+      plans/RECOMMENDATIONS_2026_07_14.md without modification.
+
+  - name: review_adr_0093_persistence_consistency
+    preconditions:
+      codebase_audit_2026_07_14_complete: true
+    effects:
+      adr_0093_accepted: true
+    cost: 1
+    status: queued
+    file: plans/adr/0093-authoritative-persistence-and-derived-index-consistency.md
+    description: |
+      User/maintainer decision gate for persistence authority, ANN snapshot
+      revisioning, mutation semantics, and lock discipline. Revise or reject
+      without changing the acceptance state of other Wave 32 ADRs.
+
+  - name: review_adr_0094_workspace_contracts
+    preconditions:
+      codebase_audit_2026_07_14_complete: true
+    effects:
+      adr_0094_accepted: true
+    cost: 1
+    status: queued
+    file: plans/adr/0094-workspace-ownership-and-feature-contracts.md
+    description: |
+      User/maintainer decision gate for workspace ownership, feature forwarding,
+      protocol encoding, and the canonical WASM artifact.
+
+  - name: review_adr_0095_evidence_policy
+    preconditions:
+      codebase_audit_2026_07_14_complete: true
+    effects:
+      adr_0095_accepted: true
+    cost: 1
+    status: queued
+    file: plans/adr/0095-evidence-driven-quality-gates.md
+    description: |
+      User/maintainer decision gate for PR, scheduled, and release evidence tiers.
+
+  - name: review_adr_0096_agent_validation
+    preconditions:
+      codebase_audit_2026_07_14_complete: true
+    effects:
+      adr_0096_accepted: true
+    cost: 1
+    status: queued
+    file: plans/adr/0096-agent-skill-and-workflow-validation.md
+    description: |
+      User/maintainer decision gate for fail-closed skill/workflow validation,
+      behavioral evaluations, hooks, and non-destructive plan compaction.
+
+  # P0 — correctness and fail-closed validation
+  - name: fix_ann_backend_validation
+    preconditions:
+      adr_0093_accepted: true
+    effects:
+      ann_config_is_fallible: true
+    cost: 2
+    status: queued
+    file: src/framework_builder.rs, crates/csm-memory/src/singularity.rs, crates/csm-memory/src/index/
+    adr: ADR-0093
+    description: |
+      Validate backend parameters during build and propagate index construction
+      errors through Result. Acceptance: invalid HNSW/LSH configs return
+      InvalidInput and no production expect/panic is reachable.
+
+  - name: enforce_authoritative_persistence_and_ann_revision
+    preconditions:
+      adr_0093_accepted: true
+      ann_config_is_fallible: true
+    effects:
+      ann_snapshot_revision_validated: true
+      persistence_failure_leaves_memory_unchanged: true
+      load_merge_index_preserves_union: true
+    cost: 8
+    status: queued
+    file: src/framework.rs, src/framework_persistence.rs, src/persistence_index.rs, src/persistence_migrations.rs
+    adr: ADR-0093
+    description: |
+      Make persisted rows authoritative, add namespace revision and index envelope
+      fingerprints, reject stale/corrupt/incompatible snapshots, and recover memory
+      from durable rows after a post-commit in-memory failure. Test stale snapshots
+      after insert/update/delete, backend mismatch, corruption, and merge union.
+
+  - name: repair_fuzz_workspace_and_gate
+    preconditions:
+      adr_0095_accepted: true
+    effects:
+      fuzz_workspace_compiles: true
+      fuzz_build_required_in_ci: true
+    cost: 3
+    status: queued
+    file: fuzz/fuzz_targets/, .github/workflows/ci.yml
+    adr: ADR-0095
+    description: |
+      Fix persistence_save_concept API drift, make import fuzzers invoke product
+      decoders, build every target in CI, and run changed targets briefly on PRs
+      plus all targets on schedule. Acceptance: cargo fuzz build succeeds and no
+      target shares mutable persistent state across cases.
+      NOTE: ADR-0095 fuzz-build CI gate is aspirational until this action completes.
+
+  - name: make_skill_validation_fail_closed
+    preconditions:
+      adr_0096_accepted: true
+    effects:
+      skill_validation_fail_closed: true
+      skill_loc_enforced: true
+      critical_skill_evals_passing: true
+    cost: 4
+    status: queued
+    file: scripts/validate-skill-format.sh, scripts/validate.sh, .agents/skills/*/scripts/, .github/workflows/ci.yml
+    adr: ADR-0096
+    description: |
+      Parse frontmatter, enforce <=250 LOC and references, preserve direct command
+      exit status, and add negative fixtures for check/test/fmt/clippy/doc/deny/fuzz.
+      Each command executes once. Evaluate five critical workflow skills at >=19/20.
+
+  - name: align_release_skill_with_protected_workflow
+    preconditions:
+      adr_0096_accepted: true
+      skill_validation_fail_closed: true
+    effects:
+      release_skill_loc_compliant: true
+      release_guidance_matches_workflow: true
+    cost: 3
+    status: queued
+    file: .agents/skills/release-management/
+    adr: ADR-0096
+    description: |
+      Reduce SKILL.md from 294 to <=250 lines, fix .agents paths, require
+      branch->PR->CI->merge, document one automatic tag owner, and isolate
+      destructive recovery behind explicit approval.
+
+  # P1 — ownership and contracts
+  - name: bulk_load_associations_and_release_state_locks
+    preconditions:
+      adr_0093_accepted: true
+    effects:
+      association_load_queries_constant: true
+      no_framework_state_lock_across_io_await: true
+    cost: 5
+    status: queued
+    file: src/framework_persistence.rs, src/persistence_ops.rs, crates/csm-persistence/src/
+    adr: ADR-0093
+    description: |
+      Add namespace-scoped bulk association loading and copy state/index bytes
+      before I/O. Acceptance: one association SELECT for 1/1k/10k concepts and
+      bounded concurrent inject/probe/persist/load completes without starvation.
+
+  - name: enforce_workspace_feature_contracts
+    preconditions:
+      adr_0094_accepted: true
+    effects:
+      no_default_features_is_lean: true
+      msrv_workspace_aligned: true
+    cost: 5
+    status: queued
+    file: Cargo.toml, crates/*/Cargo.toml
+    adr: ADR-0094
+    description: |
+      Disable owner-crate defaults and explicitly forward persistence, parallel,
+      ANN, embedding, and protocol features. Acceptance: no-default cargo tree has
+      no libSQL/Rayon and every workspace manifest uses the canonical MSRV.
+
+  - name: replace_persistence_disabled_noops
+    preconditions:
+      adr_0094_accepted: true
+      no_default_features_is_lean: true
+    effects:
+      persistence_disabled_false_success_removed: true
+    cost: 3
+    status: queued
+    file: src/framework_builder.rs, src/lib.rs
+    adr: ADR-0094
+    description: |
+      Remove silently ignored DB builder configuration and Ok/empty persistence
+      stubs. APIs are cfg-absent or return UnsupportedOperation consistently.
+
+  - name: fix_mcp_hypervector_wire_format
+    preconditions:
+      adr_0094_accepted: true
+    effects:
+      mcp_full_width_vector_wire_contract: true
+    cost: 3
+    status: queued
+    file: src/mcp/schema.rs, src/mcp/tools.rs, tests/mcp_integration.rs
+    adr: ADR-0094
+    description: |
+      Replace unsafe JSON integer words with canonical base64 bytes (preferred) or
+      explicit halves. Test words with high bits set and schema/parser round trips.
+
+  - name: align_wasm_ci_release_artifact
+    preconditions:
+      adr_0094_accepted: true
+    effects:
+      wasm_ci_release_artifact_identical: true
+      wasm_js_smoke_test_enforced: true
+    cost: 3
+    status: queued
+    file: crates/csm-wasm/, wasm/, .github/workflows/ci.yml, .github/workflows/release.yml
+    adr: ADR-0094
+    description: |
+      Make csm-wasm the canonical npm artifact and run the same build, freshness,
+      size, and Node smoke commands in CI and release.
+
+  - name: consolidate_retrieval_ownership
+    preconditions:
+      adr_0094_accepted: true
+    effects:
+      retrieval_implementation_owner_unique: true
+    cost: 8
+    status: queued
+    file: src/retrieval/, crates/csm-retrieval/src/
+    adr: ADR-0094
+    description: |
+      Move shared result/abstention contracts as needed, add parity tests, then
+      replace root algorithm bodies with façade delegation/re-exports. Preserve
+      root public paths for a compatibility window.
+
+  - name: consolidate_persistence_cli_wasm_ownership
+    preconditions:
+      adr_0094_accepted: true
+      retrieval_implementation_owner_unique: true
+    effects:
+      workspace_implementation_owners_unique: true
+      duplicate_implementation_bodies: 0
+    cost: 10
+    status: queued
+    file: src/persistence*, src/cli/, src/wasm*, crates/csm-persistence/, crates/csm-cli/, crates/csm-wasm/, crates/csm-traits/
+    adr: ADR-0094
+    description: |
+      Complete the owner/facade migration for persistence/export payloads, CLI,
+      and WASM. Migrate one concern per PR with API snapshots and behavior parity;
+      do not blindly re-export currently divergent implementations.
+
+  - name: complete_workspace_ci_and_supply_chain_matrix
+    preconditions:
+      adr_0095_accepted: true
+    effects:
+      workspace_ci_matrix_complete: true
+      cargo_deny_required_in_ci: true
+      benchmark_workspace_tests_run_in_ci: true
+    cost: 5
+    status: queued
+    file: .github/workflows/ci.yml, .github/workflows/benchmark-ci.yml, scripts/quality-gates.sh
+    adr: ADR-0095
+    description: |
+      Derive package coverage from cargo metadata, add omitted csm-chaos and
+      benchmark tests, run cargo deny for the release SHA, and make crates/**
+      trigger relevant quality/performance workflows.
+
+  # P2 — evidence and missing behavior
+  - name: correct_benchmark_metric_definitions
+    preconditions:
+      adr_0095_accepted: true
+    effects:
+      benchmark_metrics_mathematically_correct: true
+    cost: 3
+    status: queued
+    file: benchmarks/src/scorer.rs, benchmarks/src/metrics.rs, benchmarks/src/types.rs
+    adr: ADR-0095
+    description: |
+      Separate hit rate from recall, use log2 DCG discount, and use
+      should_abstain as ground truth. Add hand-calculated multi/duplicate/empty
+      gold and label-disagreement tests.
+
+  - name: establish_tiered_benchmark_evidence
+    preconditions:
+      adr_0095_accepted: true
+      benchmark_metrics_mathematically_correct: true
+      workspace_ci_matrix_complete: true
+    effects:
+      ci_executes_real_criterion_benches: true
+      benchmark_ci_enforces_quality_thresholds: true
+      performance_claims_have_current_artifacts: true
+    cost: 8
+    status: queued
+    file: .github/workflows/benchmark-ci.yml, benchmarks/, benches/, plans/
+    adr: ADR-0095
+    description: |
+      Implement PR, scheduled-scale, and release-claim tiers with evidence
+      manifests containing commit, dataset, seed, features, command, hardware,
+      samples, variance, and baseline. Do not gate hardware budgets on unpinned runners.
+
+  - name: add_ann_and_persistence_scale_benchmarks
+    preconditions:
+      performance_claims_have_current_artifacts: true
+      ann_snapshot_revision_validated: true
+    effects:
+      ann_scale_evidence_current: true
+      persistence_contention_evidence_current: true
+    cost: 8
+    status: queued
+    file: benches/benchmark.rs, benches/persistence_benchmark.rs, benchmarks/
+    adr: ADR-0095
+    description: |
+      Compare exact/bucket/HNSW/LSH build, query, update, delete, bytes, recall,
+      and reload at agreed scales. Bound persistence retries/timeouts and report
+      throughput, p50/p95/p99, retry, and error rates.
+
+  - name: replace_formula_only_memory_claim
+    preconditions:
+      performance_claims_have_current_artifacts: true
+    effects:
+      measured_memory_model_exists: true
+      ten_million_memory_claim_evaluated: true
+    cost: 4
+    status: queued
+    file: tests/performance_targets.rs, benchmarks/, plans/handoffs/
+    adr: ADR-0095
+    description: |
+      Measure allocator/RSS and persisted/index bytes at multiple scales, fit a
+      bytes-per-concept model with held-out error <=5%, then evaluate whether a 10M
+      projection is supportable. This action records evidence/evaluation only;
+      set support true separately iff the measured acceptance threshold passes.
+
+  - name: harden_mutation_evidence
+    preconditions:
+      adr_0095_accepted: true
+    effects:
+      mutation_timeouts_unresolved: true
+      mutation_changed_files_not_excluded: true
+    cost: 4
+    status: queued
+    file: scripts/mutation_test.sh, .github/workflows/ci.yml
+    adr: ADR-0095
+    description: |
+      Count timeouts as unresolved, cover changed production files, publish
+      caught/missed/timeout/unviable/excluded inventories, and document only
+      proven equivalent mutants.
+
+  - name: implement_or_remove_bm25_absence_short_circuit
+    preconditions:
+      retrieval_implementation_owner_unique: true
+    effects:
+      bm25_absence_todo_resolved: true
+    cost: 3
+    status: queued
+    file: crates/csm-retrieval/src/, src/retrieval/, src/framework_bridge.rs
+    adr: ADR-0094
+    description: |
+      Either wire is_known_absent into the canonical hybrid path with threshold,
+      namespace, invalidation, and false-negative tests, or remove the premature
+      unused API. No production TODO remains.
+
+  - name: own_ttl_cleanup_lifecycle
+    preconditions:
+      adr_0093_accepted: true
+    effects:
+      ttl_cleanup_task_owned: true
+      ttl_cleanup_shutdown_bounded: true
+    cost: 3
+    status: queued
+    file: src/framework_builder.rs, src/framework_ttl.rs, src/framework.rs
+    adr: ADR-0093
+    description: |
+      Store cancellation and JoinHandle ownership, cancel on explicit shutdown/drop,
+      and await with a bounded deadline. Tests prove no orphan task after framework drop.
+
+  # P3 — consolidation and plan hygiene
+  - name: deduplicate_test_and_source_surfaces
+    preconditions:
+      workspace_implementation_owners_unique: true
+      adr_0095_accepted: true
+    effects:
+      canonical_test_owners_unique: true
+      coverage_methodology_behavior_based: true
+    cost: 8
+    status: queued
+    file: src/, crates/, tests/
+    adr: ADR-0094, ADR-0095
+    description: |
+      Remove duplicated root/split test bodies after owner migration. Report unique
+      compiled behavior and line/branch coverage; raw test count remains inventory only.
+
+  - name: canonicalize_hooks_skill_refs_and_catalog
+    preconditions:
+      skill_validation_fail_closed: true
+    effects:
+      skill_catalog_single_sourced: true
+      hook_bootstrap_canonical: true
+      skill_references_current: true
+    cost: 5
+    status: queued
+    file: .agents/skills/, scripts/, AGENTS.md, .pre-commit-config.yaml
+    adr: ADR-0096
+    description: |
+      Generate the 32-skill catalog, repair broken/stale paths, define root versus
+      skill-relative links, and install/verify one pre-commit/commit-msg/pre-push set.
+
+  - name: reconcile_harness_engineering_state
+    preconditions:
+      harness_engineering_gap_analysis_complete: true
+      harness_md_created: true
+      adr_0096_accepted: true
+    effects:
+      harness_engineering_state_truthful: true
+    cost: 2
+    status: queued
+    file: plans/adr/0090-harness-engineering-template-alignment.md, plans/ACTIONS.md
+    adr: ADR-0090, ADR-0096
+    description: |
+      After the existing create_harness_md action supplies the sole HARNESS.md
+      artifact, decide remaining Phase 2 items and append a dated implementation
+      matrix to ADR-0090 instead of treating its 2026-06-23 baseline as current.
+
+  - name: compact_active_plans_non_destructively
+    preconditions:
+      codebase_audit_2026_07_14_complete: true
+      adr_0096_accepted: true
+    effects:
+      active_plan_set_compact: true
+      plan_archive_manifest_valid: true
+    cost: 3
+    status: queued
+    file: plans/, scripts/plans-manager.sh
+    adr: ADR-0096
+    description: |
+      Define active/history criteria, audit inbound references, write an archive
+      manifest and redirects, then move immutable completed material. Preserve
+      plans/RECOMMENDATIONS_2026_07_14.md unless the user explicitly approves it.
