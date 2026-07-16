@@ -6,6 +6,7 @@
 
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::{HVec10240, Hypervector};
+use crate::hyperdim_ops::bundle_word_u64;
 use rand::RngExt;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -199,6 +200,10 @@ impl BHVec10240 {
     /// addition approach. Processes 64 bits in parallel using bitwise operations across
     /// log2(N) accumulation planes. This reduces the number of outer loop iterations
     /// from 10,240 bits to 160 words, achieving a ~60x theoretical speedup.
+    ///
+    /// Majority rule: a bit is set when `count >= N/2 + 1` (equivalent to `count > N/2`).
+    /// N=2 is a fast path (bitwise AND). Accumulation capacity matches HVec via
+    /// [`crate::hyperdim_ops::BUNDLE_MAX_PLANES`] (64 planes).
     pub fn bundle(vectors: &[&Self]) -> Self {
         let num_vectors = vectors.len();
         if num_vectors == 0 {
@@ -207,35 +212,22 @@ impl BHVec10240 {
         if num_vectors == 1 {
             return *vectors[0];
         }
+        // N=2 majority is bitwise AND (threshold = 2). Match HVec fast path.
+        if num_vectors == 2 {
+            let mut bits = [0u64; 160];
+            for i in 0..160 {
+                bits[i] = vectors[0].bits[i] & vectors[1].bits[i];
+            }
+            return Self { bits };
+        }
 
         let mut bits = [0u64; 160];
         let threshold = num_vectors / 2 + 1;
         let num_planes = (usize::BITS - num_vectors.leading_zeros()) as usize;
 
         for i in 0..160 {
-            let mut planes = [0u64; 16];
-            for v in vectors {
-                let mut carry = v.bits[i];
-                for plane in planes.iter_mut().take(num_planes) {
-                    let next_carry = *plane & carry;
-                    *plane ^= carry;
-                    carry = next_carry;
-                    if carry == 0 {
-                        break;
-                    }
-                }
-            }
-
-            let (mut current_eq, mut current_gt) = (!0u64, 0u64);
-            for p in (0..num_planes).rev() {
-                if ((threshold >> p) & 1) == 1 {
-                    current_eq &= planes[p];
-                } else {
-                    current_gt |= current_eq & planes[p];
-                    current_eq &= !planes[p];
-                }
-            }
-            bits[i] = current_gt | current_eq;
+            // Shared helper with HVec scalar path (u64 vs u128 word width only).
+            bits[i] = bundle_word_u64(vectors.iter().map(|v| v.bits[i]), threshold, num_planes);
         }
 
         Self { bits }
@@ -327,39 +319,66 @@ mod tests {
         assert_eq!(h1, h2);
     }
 
+    /// Naive per-bit majority oracle (`count >= N/2 + 1`).
+    fn naive_bundle_majority(vectors: &[&BHVec10240]) -> BHVec10240 {
+        let n = vectors.len();
+        if n == 0 {
+            return BHVec10240::zero();
+        }
+        if n == 1 {
+            return *vectors[0];
+        }
+        let threshold = n / 2 + 1;
+        let mut bits = [0u64; 160];
+        for word_idx in 0..160 {
+            for bit_idx in 0..64 {
+                let mask = 1u64 << bit_idx;
+                let count = vectors
+                    .iter()
+                    .filter(|v| (v.bits[word_idx] & mask) != 0)
+                    .count();
+                if count >= threshold {
+                    bits[word_idx] |= mask;
+                }
+            }
+        }
+        BHVec10240 { bits }
+    }
+
     #[test]
-    fn test_bhvec_bundle_majority() {
+    fn test_bhvec_bundle_empty_and_single() {
+        assert_eq!(BHVec10240::bundle(&[]), BHVec10240::zero());
+        let v = BHVec10240::new_seeded(42);
+        assert_eq!(BHVec10240::bundle(&[&v]), v);
+    }
+
+    #[test]
+    fn test_bhvec_bundle_n2_is_and() {
         let v1 = BHVec10240::new_seeded(1);
         let v2 = BHVec10240::new_seeded(2);
-        let v3 = BHVec10240::new_seeded(3);
+        let bundled = BHVec10240::bundle(&[&v1, &v2]);
+        for i in 0..160 {
+            assert_eq!(
+                bundled.bits[i],
+                v1.bits[i] & v2.bits[i],
+                "N=2 must be bitwise AND at word {i}"
+            );
+        }
+    }
 
-        let bundled = BHVec10240::bundle(&[&v1, &v2, &v3]);
-
-        for i in 0..BHVec10240::DIMENSION {
-            let word_idx = i / 64;
-            let bit_idx = i % 64;
-            let mask = 1u64 << bit_idx;
-
-            let count = (if (v1.bits[word_idx] & mask) != 0 {
-                1
-            } else {
-                0
-            }) + (if (v2.bits[word_idx] & mask) != 0 {
-                1
-            } else {
-                0
-            }) + (if (v3.bits[word_idx] & mask) != 0 {
-                1
-            } else {
-                0
-            });
-
-            let bit_set = (bundled.bits[word_idx] & mask) != 0;
-            if count > 1 {
-                assert!(bit_set, "Bit {} should be set (count={})", i, count);
-            } else {
-                assert!(!bit_set, "Bit {} should not be set (count={})", i, count);
-            }
+    #[test]
+    fn test_bhvec_bundle_threshold_consistency() {
+        // Span early returns, even-N ties, plane widths, and larger N (parity with HVec).
+        for n in [2usize, 3, 4, 10, 255, 256, 1000] {
+            let vectors: Vec<BHVec10240> =
+                (0..n).map(|i| BHVec10240::new_seeded(i as u64)).collect();
+            let refs: Vec<&BHVec10240> = vectors.iter().collect();
+            let actual = BHVec10240::bundle(&refs);
+            let expected = naive_bundle_majority(&refs);
+            assert_eq!(
+                actual.bits, expected.bits,
+                "Bundling inconsistency at N={n} vectors"
+            );
         }
     }
 }

@@ -1,13 +1,16 @@
 use chaotic_semantic_memory::BHVec10240;
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 
 fn bench_bhvec_bundle(c: &mut Criterion) {
-    let vectors: Vec<BHVec10240> = (0..10).map(|_| BHVec10240::random()).collect();
-    let vector_refs: Vec<&BHVec10240> = vectors.iter().collect();
-
-    c.bench_function("bhvec_bundle_10", |b| {
-        b.iter(|| BHVec10240::bundle(black_box(&vector_refs)))
-    });
+    let mut group = c.benchmark_group("bhvec_bundle");
+    for n in [2usize, 10, 100, 1000] {
+        let vectors: Vec<BHVec10240> = (0..n).map(|_| BHVec10240::random()).collect();
+        let vector_refs: Vec<&BHVec10240> = vectors.iter().collect();
+        group.bench_with_input(BenchmarkId::from_parameter(n), &vector_refs, |b, refs| {
+            b.iter(|| BHVec10240::bundle(black_box(refs)));
+        });
+    }
+    group.finish();
 }
 
 fn bench_bhvec_hamming(c: &mut Criterion) {
@@ -15,7 +18,7 @@ fn bench_bhvec_hamming(c: &mut Criterion) {
     let v2 = BHVec10240::random();
 
     c.bench_function("bhvec_hamming", |b| {
-        b.iter(|| black_box(&v1).hamming(black_box(&v2)))
+        b.iter(|| black_box(&v1).hamming(black_box(&v2)));
     });
 }
 
