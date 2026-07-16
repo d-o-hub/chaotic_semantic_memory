@@ -18,6 +18,116 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  # Path change detection so expensive / specialized jobs can skip when irrelevant.
+  # Push to main always runs full coverage (DIFF empty → all true) to protect the trunk.
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      duckdb: ${{ steps.filter.outputs.duckdb }}
+      wasm: ${{ steps.filter.outputs.wasm }}
+      fuzz: ${{ steps.filter.outputs.fuzz }}
+      mcp: ${{ steps.filter.outputs.mcp }}
+      cli_cross: ${{ steps.filter.outputs.cli_cross }}
+      mutation: ${{ steps.filter.outputs.mutation }}
+      rust_src: ${{ steps.filter.outputs.rust_src }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
+        with:
+          fetch-depth: 0
+      - id: filter
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}" --depth=50
+            BASE="origin/${{ github.base_ref }}"
+            DIFF=$(git diff --name-only "${BASE}...HEAD" || true)
+          elif [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ] \
+            && [ -n "${{ github.event.before }}" ]; then
+            DIFF=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" || true)
+          else
+            # First push / unknown base: run everything
+            DIFF=""
+          fi
+
+          # Empty DIFF (e.g. first push) → enable all specialized jobs
+          if [ -z "${DIFF}" ]; then
+            for k in duckdb wasm fuzz mcp cli_cross mutation rust_src; do
+              echo "${k}=true" >> "$GITHUB_OUTPUT"
+            done
+            echo "detect-changes: empty DIFF → all jobs enabled"
+            exit 0
+          fi
+
+          echo "Changed files:"
+          echo "${DIFF}"
+
+          match() {
+            local pattern=$1
+            echo "${DIFF}" | grep -qE "${pattern}"
+          }
+
+          # Always true on push to main for trunk protection of optional crates
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "duckdb=true" >> "$GITHUB_OUTPUT"
+            echo "wasm=true" >> "$GITHUB_OUTPUT"
+            echo "fuzz=true" >> "$GITHUB_OUTPUT"
+            echo "mcp=true" >> "$GITHUB_OUTPUT"
+            echo "cli_cross=true" >> "$GITHUB_OUTPUT"
+            echo "mutation=false" >> "$GITHUB_OUTPUT"  # mutation is PR-only
+            if match '\.rs$|Cargo\.(toml|lock)$|build\.rs$'; then
+              echo "rust_src=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "rust_src=false" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          fi
+
+          # PR: path-filtered specialized jobs
+          if match '^(crates/csm-duckdb/|Cargo\.(toml|lock)$)'; then
+            echo "duckdb=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "duckdb=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if match '^(crates/csm-wasm/|src/wasm|wasm/|Cargo\.(toml|lock)$)'; then
+            echo "wasm=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "wasm=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if match '^(fuzz/|Cargo\.(toml|lock)$)'; then
+            echo "fuzz=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "fuzz=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if match '^(src/mcp/|Cargo\.(toml|lock)$|\.github/workflows/ci\.yml$)'; then
+            echo "mcp=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "mcp=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Cross-platform CLI (macOS/Windows): only when CLI surface or build wiring changes
+          if match '^(src/bin/|src/cli/|crates/csm-cli/|cli-npm/|Cargo\.(toml|lock)$|\.github/workflows/ci\.yml$)'; then
+            echo "cli_cross=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "cli_cross=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Mutation: production-relevant sources + manifests + mutation tooling
+          if match '\.rs$|Cargo\.(toml|lock)$|build\.rs$|scripts/mutation_test\.sh$|\.cargo/|deny\.toml$'; then
+            echo "mutation=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "mutation=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if match '\.rs$|Cargo\.(toml|lock)$|build\.rs$'; then
+            echo "rust_src=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "rust_src=false" >> "$GITHUB_OUTPUT"
+          fi
+
   commitlint:
     runs-on: ubuntu-latest
     steps:
@@ -28,8 +138,9 @@ jobs:
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v4.0.3
         with:
           node-version: '20'
+          cache: 'npm'
       - name: Install commitlint
-        run: npm install --save-dev @commitlint/config-conventional @commitlint/cli
+        run: npm ci
       - name: Validate PR commits with commitlint
         if: github.event_name == 'pull_request'
         run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
@@ -50,6 +161,8 @@ jobs:
         cache: false
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
+      with:
+        shared-key: test
     - name: Run tests
       run: cargo test --all-features --locked -- --quiet
 
@@ -81,6 +194,8 @@ jobs:
         cache: false
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
+      with:
+        shared-key: test
     - name: Test ${{ matrix.crate }}
       # Default features only; --all-features activates mutually exclusive
       # crate features (e.g. wasm vs persistence in csm-persistence).
@@ -89,6 +204,8 @@ jobs:
 
   test-duckdb:
     name: Test DuckDB Companion
+    needs: detect-changes
+    if: needs.detect-changes.outputs.duckdb == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -99,15 +216,17 @@ jobs:
         cache: false
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
+      with:
+        shared-key: test
     - name: Run DuckDB tests
       run: cargo test -p csm-duckdb --locked -- --test-threads=1 --quiet
 
-  # Run on push (main) and pull_request so PR CI catches miri regressions
-  # before merge (main was red on test_cache_consistency after Wave 32 P0).
+  # Miri: push + PR. Path-skip docs-only when no Rust/Cargo changes (detect-changes.rust_src).
   miri:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.rust_src == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
     env:
       PROTOC: /usr/bin/protoc
     steps:
@@ -120,6 +239,8 @@ jobs:
         components: miri
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
+      with:
+        shared-key: miri
     - name: Run Miri tests
       run: cargo miri test -p chaotic_semantic_memory --no-default-features --features ann-hnsw --lib
       env:
@@ -127,17 +248,35 @@ jobs:
         # repeated searches; miri's default non-det floats break cache parity tests.
         MIRIFLAGS: "-Zmiri-disable-isolation -Zmiri-deterministic-floats"
 
+  # Always build linux-x64 CLI after tests (cheap smoke compile).
   build-cli:
-    name: Build CLI (${{ matrix.platform }}-${{ matrix.arch }})
+    name: Build CLI (linux-x64)
     needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+      with:
+        cache: false
+        target: x86_64-unknown-linux-gnu
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
+      with:
+        shared-key: cli
+    - name: Build CLI
+      run: cargo build --release --bin csm --features cli --target x86_64-unknown-linux-gnu --locked
+
+  # Cross-platform CLI (arm64/macOS/Windows): PR path-filtered or always on push to main.
+  build-cli-cross:
+    name: Build CLI (${{ matrix.platform }}-${{ matrix.arch }})
+    needs: [test, detect-changes]
+    if: needs.detect-changes.outputs.cli_cross == 'true'
     strategy:
       fail-fast: true
       matrix:
         include:
-          - platform: linux
-            arch: x64
-            runner: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
           - platform: linux
             arch: arm64
             runner: ubuntu-latest
@@ -167,6 +306,8 @@ jobs:
 
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
+      with:
+        shared-key: cli
 
     - name: Install cross-compilation linker (Linux arm64)
       if: matrix.target == 'aarch64-unknown-linux-gnu'
@@ -179,6 +320,8 @@ jobs:
       run: cargo build --release --bin csm --features cli --target ${{ matrix.target }} --locked
 
   mcp-feature:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.mcp == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -193,68 +336,56 @@ jobs:
         cache: false
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
-    - name: Build MCP feature
-      run: cargo build --features mcp --locked
+      with:
+        shared-key: test
+    # cargo test already compiles; no separate cargo build step
     - name: Test MCP feature
       run: cargo test --features mcp --locked -- --quiet
 
   mutation-test:
-    # Fast profile (2026-07-16): in-diff + unit tests only (--lib) + 60s timeout.
-    # Analysis of job 87601199764: full cargo test spent ~97s on integration vs
-    # ~12s on --lib; 120 mutants × full suite exceeded 50+ min. Target wall ≤20 min.
-    if: github.event_name == 'pull_request'
+    # Fast profile: in-diff + unit tests only (--lib) + tight timeouts.
+    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.mutation == 'true'
+    needs: [test, detect-changes]
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    needs: test
     steps:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
       with:
         fetch-depth: 0
 
-    - name: Check for Rust changes
-      id: rust_changes
-      run: |
-        # Fetch enough base history for three-dot merge-base (in-diff accuracy).
-        git fetch origin "${{ github.base_ref }}" --depth=50
-        CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep '\.rs$' || true)
-        if [ -n "$CHANGED" ]; then
-          echo "has_rust_changes=true" >> "$GITHUB_OUTPUT"
-          echo "Changed Rust files:"
-          echo "$CHANGED"
-        else
-          echo "has_rust_changes=false" >> "$GITHUB_OUTPUT"
-        fi
+    - name: Fetch base for three-dot in-diff
+      run: git fetch origin "${{ github.base_ref }}" --depth=50
 
     - name: Install Rust
-      if: steps.rust_changes.outputs.has_rust_changes == 'true'
       uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
       with:
         cache: false
 
     - name: Cache Rust dependencies
-      if: steps.rust_changes.outputs.has_rust_changes == 'true'
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
       with:
         shared-key: mutation-test
 
     - name: Install cargo-mutants
-      if: steps.rust_changes.outputs.has_rust_changes == 'true'
       uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853  # v2.83.2
       with:
         tool: cargo-mutants
 
     - name: Run mutation tests
-      if: steps.rust_changes.outputs.has_rust_changes == 'true'
       run: bash scripts/mutation_test.sh --ci fast
       env:
         MUTATION_THRESHOLD: ${{ github.event.pull_request.draft && '75' || '85' }}
         DIFF_TARGET: origin/${{ github.base_ref || 'main' }}
-        # Parallel mutants; each runs cargo test --lib (see scripts/mutation_test.sh).
         MUTANTS_JOBS: "4"
+        # Absolute timeout budget + fraction of viable (see scripts/mutation_test.sh)
+        MUTATION_TIMEOUT_BUDGET: "5"
+        MUTATION_TIMEOUT_FRACTION: "0.10"
         CARGO_TERM_COLOR: always
         RUST_BACKTRACE: "0"
 
   wasm:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.wasm == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -266,8 +397,12 @@ jobs:
         target: wasm32-unknown-unknown
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
+      with:
+        shared-key: wasm
     - name: Install wasm-pack
-      run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853  # v2.83.2
+      with:
+        tool: wasm-pack
     - name: Build WASM
       run: wasm-pack build crates/csm-wasm --dev --target web
     - name: Check WASM
@@ -297,6 +432,8 @@ jobs:
         components: clippy, rustfmt
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
+      with:
+        shared-key: test
     - name: Format check
       run: cargo fmt --all -- --check
     - name: Clippy
@@ -306,9 +443,6 @@ jobs:
     - name: LOC gate
       run: bash scripts/validate.sh
 
-  # ADR-0095 Tier 1: supply-chain / license / advisory gate (deny.toml).
-  # Lightweight job: install cargo-deny via taiki-e (same pin as cargo-mutants).
-  # Add job name "Cargo Deny" to branch-protection required checks when ready.
   cargo-deny:
     name: Cargo Deny
     runs-on: ubuntu-latest
@@ -321,16 +455,15 @@ jobs:
         cache: false
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
+      with:
+        shared-key: test
     - name: Install cargo-deny
       uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853  # v2.83.2
       with:
         tool: cargo-deny
     - name: cargo deny check
-      # Global --locked asserts Cargo.lock is unchanged (cargo-deny CLI option;
-      # must precede the `check` subcommand — `check --locked` is rejected).
       run: cargo deny --locked check
 
-  # ADR-0095 Tier 1: benchmark crate unit tests (separate workspace manifest).
   test-benchmarks:
     name: Test Benchmark Workspace
     runs-on: ubuntu-latest
@@ -345,14 +478,15 @@ jobs:
         cache: false
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
+      with:
+        shared-key: test
     - name: Benchmark workspace unit tests
       run: cargo test --manifest-path benchmarks/Cargo.toml --locked --quiet
 
-  # ADR-0095 Tier 1: fuzz targets must compile on every PR/push.
-  # Lightweight check only (no long fuzz runs). cargo-fuzz CLI / nightly not required.
-  # Add job name "Fuzz Workspace Build" to branch-protection required checks.
   fuzz-build:
     name: Fuzz Workspace Build
+    needs: detect-changes
+    if: needs.detect-changes.outputs.fuzz == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -371,5 +505,6 @@ jobs:
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
       with:
         workspaces: fuzz
+        shared-key: fuzz
     - name: Check all fuzz targets compile
       run: cargo check --manifest-path fuzz/Cargo.toml --all-targets --locked
