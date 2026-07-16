@@ -193,38 +193,52 @@ impl BHVec10240 {
         1.0 - (dist as f32 / 5120.0)
     }
 
-    /// Bundle multiple hypervectors using majority rule
+    /// Bundle multiple hypervectors using bit-sliced addition.
+    ///
+    /// Algorithmic Optimization: Replaces the O(D * N) bit-by-bit loop with a bit-sliced
+    /// addition approach. Processes 64 bits in parallel using bitwise operations across
+    /// log2(N) accumulation planes. This reduces the number of outer loop iterations
+    /// from 10,240 bits to 160 words, achieving a ~60x theoretical speedup.
     pub fn bundle(vectors: &[&Self]) -> Self {
-        if vectors.is_empty() {
+        let num_vectors = vectors.len();
+        if num_vectors == 0 {
             return Self::zero();
         }
-        if vectors.len() == 1 {
+        if num_vectors == 1 {
             return *vectors[0];
         }
 
-        let mut result = [0u64; 160];
-        let threshold = vectors.len() / 2;
+        let mut bits = [0u64; 160];
+        let threshold = num_vectors / 2 + 1;
+        let num_planes = (usize::BITS - num_vectors.leading_zeros()) as usize;
 
-        // Simple scalar implementation for now
-        // For production, this should be optimized with bit-sliced addition
-        for i in 0..Self::DIMENSION {
-            let mut count = 0;
-            let word_idx = i / 64;
-            let bit_idx = i % 64;
-            let mask = 1u64 << bit_idx;
-
+        for i in 0..160 {
+            let mut planes = [0u64; 16];
             for v in vectors {
-                if (v.bits[word_idx] & mask) != 0 {
-                    count += 1;
+                let mut carry = v.bits[i];
+                for plane in planes.iter_mut().take(num_planes) {
+                    let next_carry = *plane & carry;
+                    *plane ^= carry;
+                    carry = next_carry;
+                    if carry == 0 {
+                        break;
+                    }
                 }
             }
 
-            if count > threshold {
-                result[word_idx] |= mask;
+            let (mut current_eq, mut current_gt) = (!0u64, 0u64);
+            for p in (0..num_planes).rev() {
+                if ((threshold >> p) & 1) == 1 {
+                    current_eq &= planes[p];
+                } else {
+                    current_gt |= current_eq & planes[p];
+                    current_eq &= !planes[p];
+                }
             }
+            bits[i] = current_gt | current_eq;
         }
 
-        Self { bits: result }
+        Self { bits }
     }
 
     /// Cyclic permutation (shift)
@@ -311,5 +325,31 @@ mod tests {
         let bh1 = BHVec10240::from_hvec(&h1);
         let h2 = bh1.to_hvec();
         assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn test_bhvec_bundle_majority() {
+        let v1 = BHVec10240::new_seeded(1);
+        let v2 = BHVec10240::new_seeded(2);
+        let v3 = BHVec10240::new_seeded(3);
+
+        let bundled = BHVec10240::bundle(&[&v1, &v2, &v3]);
+
+        for i in 0..BHVec10240::DIMENSION {
+            let word_idx = i / 64;
+            let bit_idx = i % 64;
+            let mask = 1u64 << bit_idx;
+
+            let count = (if (v1.bits[word_idx] & mask) != 0 { 1 } else { 0 })
+                + (if (v2.bits[word_idx] & mask) != 0 { 1 } else { 0 })
+                + (if (v3.bits[word_idx] & mask) != 0 { 1 } else { 0 });
+
+            let bit_set = (bundled.bits[word_idx] & mask) != 0;
+            if count > 1 {
+                assert!(bit_set, "Bit {} should be set (count={})", i, count);
+            } else {
+                assert!(!bit_set, "Bit {} should not be set (count={})", i, count);
+            }
+        }
     }
 }
