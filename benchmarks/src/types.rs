@@ -95,15 +95,15 @@ pub struct CaseResult {
     pub task_type: TaskType,
     /// List of retrieved items.
     pub retrieved: Vec<RetrievedItem>,
-    /// Whether gold evidence was found at rank 1.
-    pub recall_at_1: bool,
-    /// Whether gold evidence was found in top 5.
-    pub recall_at_5: bool,
-    /// Whether gold evidence was found in top 10.
-    pub recall_at_10: bool,
+    /// Multi-label recall@1: |gold ∩ top-1| / |gold| (0 if gold empty).
+    pub recall_at_1: f32,
+    /// Multi-label recall@5: |gold ∩ top-5| / |gold| (0 if gold empty).
+    pub recall_at_5: f32,
+    /// Multi-label recall@10: |gold ∩ top-10| / |gold| (0 if gold empty).
+    pub recall_at_10: f32,
     /// Reciprocal rank of first gold evidence match.
     pub reciprocal_rank: f32,
-    /// NDCG@10 for multi-gold evidence cases.
+    /// NDCG@10 with log2 position discount for multi-gold evidence cases.
     pub ndcg_at_10: f32,
     /// Predicted answer (in reader-lite mode).
     pub predicted_answer: Option<String>,
@@ -111,6 +111,9 @@ pub struct CaseResult {
     pub exact_match: Option<bool>,
     /// Whether the system abstained from answering.
     pub abstained: bool,
+    /// Gold label: whether the system *should* abstain (from QueryCase.should_abstain).
+    #[serde(default)]
+    pub should_abstain: bool,
     /// Query latency in milliseconds.
     pub latency_ms: u128,
     /// Query latency in microseconds (precise for sub-ms measurements).
@@ -127,22 +130,22 @@ pub struct CaseResult {
 pub struct SummaryMetrics {
     /// Total number of query cases evaluated.
     pub cases: usize,
-    /// Fraction of cases with gold at rank 1.
+    /// Mean multi-label recall@1 across gold cases.
     pub recall_at_1: f32,
-    /// Fraction of cases with gold in top 5.
+    /// Mean multi-label recall@5 across gold cases.
     pub recall_at_5: f32,
-    /// Fraction of cases with gold in top 10.
+    /// Mean multi-label recall@10 across gold cases.
     pub recall_at_10: f32,
     /// Mean reciprocal rank across all cases.
     pub mrr: f32,
-    /// Mean NDCG@10 across all cases.
+    /// Mean NDCG@10 (log2 discount) across all cases.
     #[serde(default)]
     pub ndcg_at_10: f32,
     /// Exact match accuracy (reader mode only).
     pub exact_match: Option<f32>,
-    /// Precision of abstention decisions.
+    /// Precision of abstention decisions (gold = should_abstain).
     pub abstain_precision: f32,
-    /// Recall of abstention decisions.
+    /// Recall of abstention decisions (gold = should_abstain).
     pub abstain_recall: f32,
     /// Success rate of association tasks.
     #[serde(default)]

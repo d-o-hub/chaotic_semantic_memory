@@ -1,31 +1,60 @@
 //! Framework persistence operations.
 //!
 //! Extracted from framework.rs to satisfy the 500 LOC gate.
+//! ADR-0093: rows are authoritative; ANN snapshots are revisioned derivatives;
+//! state locks are not held across persistence I/O.
 
 use tracing::warn;
 
 use crate::framework::ChaoticSemanticFramework;
 use crate::framework_events::MemoryEvent;
+use crate::index_envelope::{IndexSnapshotEnvelope, backend_fingerprint};
 use crate::singularity::{Concept, ConceptDiff, ConceptVersion};
 use csm_core::error::{MemoryError, Result};
 
 impl ChaoticSemanticFramework {
-    /// Persist all data to storage
+    /// Persist all data to storage (checkpoint + revisioned ANN snapshot).
     #[tracing::instrument(err, skip(self))]
     pub async fn persist(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
             #[cfg(not(target_arch = "wasm32"))]
             let p_start = std::time::Instant::now();
-            // ADR-0068: Persist ANN index state
-            {
+
+            // Snapshot under short locks; re-check revision after unlock so we never
+            // stamp a current revision onto an incomplete index (TOCTOU, ADR-0093).
+            let ns = self.namespace.read().await.clone();
+            let rev_before = persistence.get_namespace_revision(&ns).await?;
+            let (index_data, fingerprint) = {
                 let sing = self.singularity.read().await;
-                let ns = self.namespace.read().await;
-                if let Some(ns_state) = sing.get_namespace(&ns) {
-                    if let Ok(index_data) = ns_state.index.serialize() {
-                        if !index_data.is_empty() {
-                            persistence.save_index(&ns, "main", &index_data).await?;
+                let fingerprint = backend_fingerprint(&sing.config.index_backend);
+                let index_data = match sing.get_namespace(&ns) {
+                    Some(ns_state) => match ns_state.index.serialize() {
+                        Ok(data) if !data.is_empty() => Some(data),
+                        Ok(_) => None,
+                        Err(e) => {
+                            warn!(error = %e, "ANN index serialize failed; skipping envelope");
+                            None
                         }
-                    }
+                    },
+                    None => None,
+                };
+                drop(sing);
+                (index_data, fingerprint)
+            };
+
+            if let Some(index_data) = index_data {
+                let rev_after = persistence.get_namespace_revision(&ns).await?;
+                if rev_after == rev_before {
+                    let envelope = IndexSnapshotEnvelope::new(rev_after, fingerprint, index_data);
+                    persistence
+                        .save_index_envelope(&ns, "main", &envelope)
+                        .await?;
+                } else {
+                    warn!(
+                        rev_before,
+                        rev_after,
+                        "namespace revision moved during ANN snapshot; skipping envelope write"
+                    );
                 }
             }
 
@@ -54,26 +83,38 @@ impl ChaoticSemanticFramework {
     ///
     /// Clears existing state, loads persisted state. Use for fresh starts.
     /// See also: [`load_merge`](Self::load_merge) for additive semantics.
-    #[allow(clippy::significant_drop_tightening)] // Lock held for concept injection and index rebuild
+    // Lock held for inject + rebuild after all I/O is complete (ADR-0093).
+    #[allow(clippy::significant_drop_tightening)]
     #[tracing::instrument(err, skip(self))]
     pub async fn load_replace(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
             #[cfg(not(target_arch = "wasm32"))]
             let p_start = std::time::Instant::now();
-            let ns = self.namespace.read().await;
-            let concepts = persistence.load_all_concepts(&ns).await?;
 
+            // Namespace string + all durable I/O without holding singularity locks.
+            let ns = self.namespace.read().await.clone();
+            let concepts = persistence.load_all_concepts(&ns).await?;
             for concept in &concepts {
                 self.validate_concept(concept)?;
             }
-
-            let mut all_associations: Vec<(String, String, f32, u64)> = Vec::new();
-            for concept in &concepts {
-                let links = persistence.load_associations(&ns, &concept.id).await?;
-                for (to_id, strength, created_at) in links {
-                    all_associations.push((concept.id.clone(), to_id, strength, created_at));
+            let all_associations = persistence.load_all_associations(&ns).await?;
+            let revision = persistence.get_namespace_revision(&ns).await?;
+            // Corrupt/legacy envelopes degrade to rebuild (rows authoritative).
+            let envelope = match persistence.load_index_envelope(&ns, "main").await {
+                Ok(env) => env,
+                Err(e) => {
+                    warn!(
+                        error = %e,
+                        "ANN envelope unreadable; rebuilding index from concept rows"
+                    );
+                    None
                 }
-            }
+            };
+
+            let expected_fingerprint = {
+                let sing = self.singularity.read().await;
+                backend_fingerprint(&sing.config.index_backend)
+            };
 
             {
                 let mut sing = self.singularity.write().await;
@@ -81,32 +122,40 @@ impl ChaoticSemanticFramework {
                 for concept in concepts {
                     sing.inject(&ns, concept)?;
                 }
-
                 for (from_id, to_id, strength, created_at) in all_associations {
                     let ns_state = sing.ensure_namespace(&ns)?;
                     let neighbors = ns_state.associations.entry(from_id).or_default();
                     neighbors.insert(to_id, (strength, created_at));
                 }
-            }
 
-            // ADR-0068: Load ANN index state
-            // Prefer deserialize over rebuild if data is fresh.
-            // Propagate errors instead of silently ignoring (fixes test regression).
-            if let Ok(Some(index_data)) = persistence.load_index(&ns, "main").await {
-                {
-                    let mut sing = self.singularity.write().await;
-                    let ns_state = sing.ensure_namespace(&ns)?;
-                    ns_state.index.deserialize(&index_data)?;
-                }
-            } else {
-                // Fallback: rebuild index from concepts
-                {
-                    let mut sing = self.singularity.write().await;
+                let apply_snapshot = envelope.as_ref().is_some_and(|env| {
+                    env.namespace_revision == revision
+                        && env.backend_fingerprint == expected_fingerprint
+                });
+
+                if apply_snapshot {
+                    if let Some(env) = envelope {
+                        let ns_state = sing.ensure_namespace(&ns)?;
+                        if let Err(e) = ns_state.index.deserialize(&env.index_data) {
+                            warn!(error = %e, "ANN snapshot deserialize failed; rebuilding");
+                            let concepts_map = ns_state.concepts.clone();
+                            ns_state.index.rebuild(&concepts_map)?;
+                        }
+                    }
+                } else {
+                    if envelope.is_some() {
+                        warn!(
+                            revision,
+                            expected = %expected_fingerprint,
+                            "rejecting stale or incompatible ANN snapshot; rebuilding from rows"
+                        );
+                    }
                     let ns_state = sing.ensure_namespace(&ns)?;
                     let concepts_map = ns_state.concepts.clone();
                     ns_state.index.rebuild(&concepts_map)?;
                 }
             }
+
             #[cfg(not(target_arch = "wasm32"))]
             {
                 self.metrics.observe_persist_latency_ms(
@@ -121,17 +170,18 @@ impl ChaoticSemanticFramework {
     /// Load and merge persisted state into in-memory state.
     ///
     /// Preserves existing state, adds persisted state on top.
-    /// See also: [`load_replace`](Self::load_replace) for replacement semantics.
-    #[allow(clippy::significant_drop_tightening)] // Lock held for concept injection and index rebuild
+    /// Never applies a persisted-only ANN snapshot over the merged union (ADR-0093).
+    // Lock held for inject + rebuild after I/O (ADR-0093).
+    #[allow(clippy::significant_drop_tightening)]
     #[tracing::instrument(err, skip(self))]
     pub async fn load_merge(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
-            let ns = self.namespace.read().await;
+            let ns = self.namespace.read().await.clone();
             let concepts = persistence.load_all_concepts(&ns).await?;
-
             for concept in &concepts {
                 self.validate_concept(concept)?;
             }
+            let all_associations = persistence.load_all_associations(&ns).await?;
 
             {
                 let mut sing = self.singularity.write().await;
@@ -145,46 +195,126 @@ impl ChaoticSemanticFramework {
                     }
                     sing.inject(&ns, (*concept).clone())?;
                 }
-            }
-
-            let mut all_associations: Vec<(String, String, f32, u64)> = Vec::new();
-            for concept in &concepts {
-                let links = persistence.load_associations(&ns, &concept.id).await?;
-                for (to_id, strength, created_at) in links {
-                    all_associations.push((concept.id.clone(), to_id, strength, created_at));
-                }
-            }
-
-            {
-                let mut sing = self.singularity.write().await;
                 for (from_id, to_id, strength, created_at) in all_associations {
                     let ns_state = sing.ensure_namespace(&ns)?;
                     let neighbors = ns_state.associations.entry(from_id).or_default();
                     neighbors.insert(to_id, (strength, created_at));
                 }
-            }
-
-            // ADR-0068: Load ANN index state
-            // We just injected new concepts into the index via sing.inject(),
-            // so the index is already updated with merged concepts.
-            // Rebuilding ensures optimal structure if many concepts were merged.
-            // Propagate errors instead of silently ignoring.
-            if let Ok(Some(index_data)) = persistence.load_index(&ns, "main").await {
-                {
-                    let mut sing = self.singularity.write().await;
-                    let ns_state = sing.ensure_namespace(&ns)?;
-                    ns_state.index.deserialize(&index_data)?;
-                }
-            } else {
-                // Fallback: rebuild index from concepts
-                {
-                    let mut sing = self.singularity.write().await;
-                    let ns_state = sing.ensure_namespace(&ns)?;
-                    let concepts_map = ns_state.concepts.clone();
-                    ns_state.index.rebuild(&concepts_map)?;
-                }
+                // Rebuild from final union; never replace with a persisted-only snapshot.
+                let ns_state = sing.ensure_namespace(&ns)?;
+                let concepts_map = ns_state.concepts.clone();
+                ns_state.index.rebuild(&concepts_map)?;
             }
         }
+        Ok(())
+    }
+
+    /// Batch durable inject (ADR-0093): commit all rows, then apply memory.
+    #[allow(clippy::significant_drop_tightening)] // sequential inject under one write lock
+    pub(crate) async fn durable_inject_concepts(&self, concepts: &[Concept]) -> Result<()> {
+        if concepts.is_empty() {
+            return Ok(());
+        }
+        if let Some(ref persistence) = self.persistence {
+            let ns = self.namespace().await;
+            persistence.save_concepts(&ns, concepts).await?;
+            let mut sing = self.singularity.write().await;
+            for concept in concepts {
+                if let Err(e) = sing.inject(&ns, concept.clone()) {
+                    drop(sing);
+                    warn!(
+                        error = %e,
+                        "post-commit batch inject failed; reloading namespace"
+                    );
+                    self.reload_namespace_from_rows(&ns).await?;
+                    return Ok(());
+                }
+            }
+        } else {
+            let mut sing = self.singularity.write().await;
+            let ns = self.namespace.read().await;
+            for concept in concepts {
+                sing.inject(&ns, concept.clone())?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Commit a concept to durable storage first, then apply to memory (ADR-0093).
+    ///
+    /// Persistence failures leave in-memory state unchanged. A rare post-commit
+    /// memory apply failure reloads the namespace from authoritative rows.
+    pub(crate) async fn durable_inject_concept(&self, concept: Concept) -> Result<()> {
+        if let Some(ref persistence) = self.persistence {
+            let ns = self.namespace().await;
+            persistence.save_concept(&ns, &concept).await?;
+            let mut sing = self.singularity.write().await;
+            if let Err(e) = sing.inject(&ns, concept.clone()) {
+                drop(sing);
+                warn!(
+                    error = %e,
+                    concept_id = %concept.id,
+                    "post-commit memory inject failed; reloading namespace from durable rows"
+                );
+                // Durable commit succeeded; reconcile memory and return Ok so
+                // callers do not treat a successful write as failure.
+                self.reload_namespace_from_rows(&ns).await?;
+            }
+        } else {
+            let mut sing = self.singularity.write().await;
+            let ns = self.namespace.read().await;
+            sing.inject(&ns, concept)?;
+        }
+        Ok(())
+    }
+
+    /// Durable delete: commit row removal first, then memory (ADR-0093).
+    pub(crate) async fn durable_delete_concept(&self, id: &str) -> Result<()> {
+        if let Some(ref persistence) = self.persistence {
+            let ns = self.namespace().await;
+            persistence.delete_concept(&ns, id).await?;
+            let mut sing = self.singularity.write().await;
+            if let Err(e) = sing.delete(&ns, id) {
+                drop(sing);
+                warn!(
+                    error = %e,
+                    concept_id = %id,
+                    "post-commit memory delete failed; reloading namespace from durable rows"
+                );
+                self.reload_namespace_from_rows(&ns).await?;
+                return Err(MemoryError::database(format!(
+                    "in-memory delete failed after durable commit for concept {id}; namespace reloaded: {e}"
+                )));
+            }
+        } else {
+            let mut sing = self.singularity.write().await;
+            let ns = self.namespace.read().await;
+            sing.delete(&ns, id)?;
+        }
+        Ok(())
+    }
+
+    /// Reload one namespace from authoritative concept/association rows.
+    #[allow(clippy::significant_drop_tightening)] // inject + rebuild under one write lock
+    pub(crate) async fn reload_namespace_from_rows(&self, ns: &str) -> Result<()> {
+        let Some(ref persistence) = self.persistence else {
+            return Ok(());
+        };
+        let concepts = persistence.load_all_concepts(ns).await?;
+        let associations = persistence.load_all_associations(ns).await?;
+        let mut sing = self.singularity.write().await;
+        sing.clear(ns);
+        for concept in concepts {
+            sing.inject(ns, concept)?;
+        }
+        for (from_id, to_id, strength, created_at) in associations {
+            let ns_state = sing.ensure_namespace(ns)?;
+            let neighbors = ns_state.associations.entry(from_id).or_default();
+            neighbors.insert(to_id, (strength, created_at));
+        }
+        let ns_state = sing.ensure_namespace(ns)?;
+        let concepts_map = ns_state.concepts.clone();
+        ns_state.index.rebuild(&concepts_map)?;
         Ok(())
     }
 
@@ -257,24 +387,15 @@ impl ChaoticSemanticFramework {
             .as_secs();
         target_concept.modified_at = now;
 
-        {
-            let mut sing = self.singularity.write().await;
-            let ns = self.namespace.read().await;
-            sing.inject(&ns, target_concept.clone())?;
-        }
-
-        if let Some(ref persistence) = self.persistence {
-            #[cfg(not(target_arch = "wasm32"))]
-            let p_start = std::time::Instant::now();
-            let ns = self.namespace().await;
-            persistence.save_concept(&ns, &target_concept).await?;
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                self.metrics.observe_persist_latency_ms(
-                    u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
-                    "save",
-                );
-            }
+        #[cfg(not(target_arch = "wasm32"))]
+        let p_start = std::time::Instant::now();
+        self.durable_inject_concept(target_concept.clone()).await?;
+        #[cfg(not(target_arch = "wasm32"))]
+        if self.persistence.is_some() {
+            self.metrics.observe_persist_latency_ms(
+                u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX),
+                "save",
+            );
         }
 
         self.emit_event(MemoryEvent::ConceptInjected {

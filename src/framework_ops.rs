@@ -22,34 +22,22 @@ impl ChaoticSemanticFramework {
             return Ok(());
         }
         let mut to_save = Vec::with_capacity(concepts.len());
-        {
-            let mut sing = self.singularity.write().await;
-            let ns = self.namespace.read().await;
-            for (id, vector) in concepts {
-                Self::validate_concept_id(id)?;
-                let concept = ConceptBuilder::new(id.clone())
-                    .with_vector(*vector)
-                    .build()?;
-                sing.inject(&ns, concept.clone())?;
-                to_save.push(concept);
-            }
-            drop(sing);
+        for (id, vector) in concepts {
+            Self::validate_concept_id(id)?;
+            let concept = ConceptBuilder::new(id.clone())
+                .with_vector(*vector)
+                .build()?;
+            to_save.push(concept);
         }
 
-        if let Some(ref persistence) = self.persistence {
-            #[cfg(not(target_arch = "wasm32"))]
-            let p_start = std::time::Instant::now();
-            #[cfg(target_arch = "wasm32")]
-            let p_start = 0.0; // js_sys::Date not imported here, and p_start not used for WASM
-
-            let ns = self.namespace.read().await;
-            persistence.save_concepts(&ns, &to_save).await?;
-
+        #[cfg(not(target_arch = "wasm32"))]
+        let p_start = std::time::Instant::now();
+        self.durable_inject_concepts(&to_save).await?;
+        if self.persistence.is_some() {
             #[cfg(not(target_arch = "wasm32"))]
             let elapsed_ms = u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX);
             #[cfg(target_arch = "wasm32")]
-            let elapsed_ms = 0; // Persistence always None on WASM, but keep for completeness
-
+            let elapsed_ms = 0u64;
             self.metrics.observe_persist_latency_ms(elapsed_ms, "save");
         }
         self.metrics.inc_concepts_injected(to_save.len() as u64);

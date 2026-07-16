@@ -8,7 +8,7 @@ world_state:
   binary_built: true
   sample_app_created: true
   documentation_complete: true
-  validated: false                    # 2026-07-14: fuzz workspace broken + GOAP boolean corrections; re-validation pending Wave 32 P0
+  validated: false                    # Wave 32 still in progress (feature contracts, ownership, evidence tiers remain)
   dependency_hygiene_complete: true
   adr_registry_current: true
   result_contract_clarified: true
@@ -33,7 +33,7 @@ world_state:
   orchestrator_last_run_at_utc: 2026-04-30T18:30:00Z
   goap_orchestrator_analysis_complete: true         # 2026-04-30: All actionable items verified complete
   skills_all_defined: true                          # 2026-07-14: 32 skill manifests exist; validation hardening queued
-  no_missing_implementations: false                 # 2026-07-14: BM25 absence short-circuit TODO + verified contract gaps queued
+  no_missing_implementations: false                 # BM25 absence TODO + ownership/feature contracts still queued
   book_chapters_complete: true                      # 2026-04-30: 15 book chapters verified (semantic-bridge, inertial-reservoir, ttl exist)
   changelog_links_complete: true                    # 2026-04-30: All version links verified
   hybrid_retrieval_example_compiles: true           # 2026-04-30: cargo check --example hybrid_retrieval OK
@@ -1480,7 +1480,7 @@ world_state:
   template_reference: "https://github.com/d-oit/rust-2026-template"
   template_version_analyzed: "0.3.2 (392 commits)"
 
-  action_last_completed: wave32_p0_review_followups_ci_skill_gates_2026_07_16
+  action_last_completed: wave32_p1_persistence_contracts_ci_2026_07_16
 
   # ═══════════════════════════════════════════════════════
   # PR #444 Review: BM25 Sparse Collection (2026-06-27)
@@ -1701,18 +1701,22 @@ world_state:
   adr_0095_accepted: true
   adr_0096_accepted: true
   harness_md_created: true
-  ann_snapshot_revision_validated: false
+  ann_snapshot_revision_validated: true          # 2026-07-16: IndexSnapshotEnvelope + ns revision
   ann_config_is_fallible: true                   # 2026-07-16: validate_index_backend + fallible ensure_namespace
-  persistence_failure_leaves_memory_unchanged: false
-  no_framework_state_lock_across_io_await: false
+  persistence_failure_leaves_memory_unchanged: true  # durable commit before memory mutate
+  load_merge_index_preserves_union: true
+  association_load_queries_constant: true        # load_all_associations single SELECT
+  no_framework_state_lock_across_io_await: true  # I/O before state apply; snapshot copy then await
   workspace_implementation_owners_unique: false
   no_default_features_is_lean: false
   persistence_disabled_false_success_removed: false
-  mcp_full_width_vector_wire_contract: false
+  mcp_full_width_vector_wire_contract: true      # 2026-07-16: base64 HVec wire + high-bit tests
   wasm_ci_release_artifact_identical: false
-  benchmark_metrics_mathematically_correct: false
+  benchmark_metrics_mathematically_correct: true # hit vs recall; log2 NDCG; should_abstain
   performance_claims_have_current_artifacts: false
-  cargo_deny_required_in_ci: false
+  cargo_deny_required_in_ci: true                # 2026-07-16: cargo-deny job in ci.yml
+  workspace_ci_matrix_complete: true             # csm-chaos + benchmark unit tests in CI
+  benchmark_workspace_tests_run_in_ci: true
   fuzz_build_required_in_ci: true                # 2026-07-16: ci.yml fuzz-build job (add to branch protection)
   skill_validation_fail_closed: true             # 2026-07-16: wired into validate.sh + CI lint + pre-commit
   release_skill_loc_compliant: true              # 2026-07-16: SKILL.md 161 lines + references/
@@ -1737,9 +1741,16 @@ world_state:
       - align_release_skill_with_protected_workflow
       - wire_skill_format_into_ci_and_validate
       - accept_adr_0093_0096_on_disk
-    deferred_to_followup:
+  wave32_p1_swarm_2026_07_16:
+    branch: feat/wave32-p1-persistence-contracts-ci
+    completed_actions:
       - enforce_authoritative_persistence_and_ann_revision
       - bulk_load_associations_and_release_state_locks
+      - fix_mcp_hypervector_wire_format
+      - correct_benchmark_metric_definitions
+      - complete_workspace_ci_and_supply_chain_matrix
+    deferred_to_followup:
       - run_critical_skill_behavioral_evals
       - fuzz_short_and_scheduled_runs
-      - Phase 2/3 ownership and evidence actions
+      - enforce_workspace_feature_contracts
+      - ownership consolidation and evidence tiers

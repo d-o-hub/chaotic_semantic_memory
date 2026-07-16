@@ -68,26 +68,18 @@ impl crate::framework::ChaoticSemanticFramework {
             .with_ttl(ttl_seconds)
             .build()?;
 
-        {
-            let mut sing = self.singularity.write().await;
-            let ns = self.namespace.read().await;
-            sing.inject(&ns, concept.clone())?;
-        }
+        #[cfg(not(target_arch = "wasm32"))]
+        let p_start = std::time::Instant::now();
+        #[cfg(target_arch = "wasm32")]
+        let p_start = Date::now();
 
-        if let Some(ref persistence) = self.persistence {
-            #[cfg(not(target_arch = "wasm32"))]
-            let p_start = std::time::Instant::now();
-            #[cfg(target_arch = "wasm32")]
-            let p_start = Date::now();
+        self.durable_inject_concept(concept.clone()).await?;
 
-            let ns = self.namespace.read().await;
-            persistence.save_concept(&ns, &concept).await?;
-
+        if self.persistence.is_some() {
             #[cfg(not(target_arch = "wasm32"))]
             let elapsed_ms = u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX);
             #[cfg(target_arch = "wasm32")]
             let elapsed_ms = (Date::now() - p_start) as u64;
-
             self.metrics.observe_persist_latency_ms(elapsed_ms, "save");
         }
         self.metrics.inc_concepts_injected(1);

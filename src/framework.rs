@@ -72,26 +72,19 @@ impl ChaoticSemanticFramework {
         }
         let concept = builder.build()?;
 
-        {
-            let mut sing = self.singularity.write().await;
-            let ns = self.namespace.read().await;
-            sing.inject(&ns, concept.clone())?;
-        }
+        #[cfg(not(target_arch = "wasm32"))]
+        let p_start = std::time::Instant::now();
+        #[cfg(target_arch = "wasm32")]
+        let p_start = Date::now();
 
-        if let Some(ref persistence) = self.persistence {
-            #[cfg(not(target_arch = "wasm32"))]
-            let p_start = std::time::Instant::now();
-            #[cfg(target_arch = "wasm32")]
-            let p_start = Date::now();
+        // ADR-0093: durable commit before in-memory mutation when persistence is enabled.
+        self.durable_inject_concept(concept.clone()).await?;
 
-            let ns = self.namespace().await;
-            persistence.save_concept(&ns, &concept).await?;
-
+        if self.persistence.is_some() {
             #[cfg(not(target_arch = "wasm32"))]
             let elapsed_ms = u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX);
             #[cfg(target_arch = "wasm32")]
             let elapsed_ms = (Date::now() - p_start) as u64;
-
             self.metrics.observe_persist_latency_ms(elapsed_ms, "save");
         }
         self.metrics.inc_concepts_injected(1);
@@ -138,26 +131,18 @@ impl ChaoticSemanticFramework {
         }
         let concept = builder.build()?;
 
-        {
-            let mut sing = self.singularity.write().await;
-            let ns = self.namespace.read().await;
-            sing.inject(&ns, concept.clone())?;
-        }
+        #[cfg(not(target_arch = "wasm32"))]
+        let p_start = std::time::Instant::now();
+        #[cfg(target_arch = "wasm32")]
+        let p_start = Date::now();
 
-        if let Some(ref persistence) = self.persistence {
-            #[cfg(not(target_arch = "wasm32"))]
-            let p_start = std::time::Instant::now();
-            #[cfg(target_arch = "wasm32")]
-            let p_start = Date::now();
+        self.durable_inject_concept(concept.clone()).await?;
 
-            let ns = self.namespace().await;
-            persistence.save_concept(&ns, &concept).await?;
-
+        if self.persistence.is_some() {
             #[cfg(not(target_arch = "wasm32"))]
             let elapsed_ms = u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX);
             #[cfg(target_arch = "wasm32")]
             let elapsed_ms = (Date::now() - p_start) as u64;
-
             self.metrics.observe_persist_latency_ms(elapsed_ms, "save");
         }
         self.metrics.inc_concepts_injected(1);
@@ -414,16 +399,8 @@ impl ChaoticSemanticFramework {
     #[instrument(err, skip(self))]
     pub async fn delete_concept(&self, id: &str) -> Result<()> {
         Self::validate_concept_id(id)?;
-        {
-            let mut sing = self.singularity.write().await;
-            let ns = self.namespace.read().await;
-            sing.delete(&ns, id)?;
-        }
-
-        if let Some(ref persistence) = self.persistence {
-            let ns = self.namespace().await;
-            persistence.delete_concept(&ns, id).await?;
-        }
+        // ADR-0093: durable delete before in-memory mutation when persistence is enabled.
+        self.durable_delete_concept(id).await?;
 
         self.metrics.inc_delete_concepts(1);
         self.emit_event(MemoryEvent::ConceptDeleted {

@@ -63,6 +63,9 @@ jobs:
       fail-fast: false
       matrix:
         crate:
+          # Keep in sync with workspace members under crates/ (excl. csm-wasm, csm-duckdb).
+          # csm-duckdb has a dedicated job; csm-wasm is covered by the wasm job.
+          - csm-chaos
           - csm-cli
           - csm-core
           - csm-embedding
@@ -263,6 +266,14 @@ jobs:
       run: cargo check --target wasm32-unknown-unknown -p csm-wasm
     - name: Verify WASM TS Freshness
       run: bash scripts/check-wasm-freshness.sh
+    # WASM JS smoke (wasm/test.js) is intentionally NOT run in this job:
+    # 1) Build uses --target web; Node cannot initialize that package (fetch of
+    #    file:// wasm fails under undici: "not implemented... yet...").
+    # 2) crates/csm-wasm wasm-pack output is named csm_wasm.js; wasm/test.js
+    #    imports chaotic_semantic_memory.js (publish/out-name).
+    # 3) Smoke currently only succeeds against a nodejs-target package with that
+    #    name (e.g. checked-in wasm/pkg-node). Re-enable after packaging is
+    #    aligned (nodejs CI artifact + matching out-name or test env).
 
   lint:
     runs-on: ubuntu-latest
@@ -286,6 +297,48 @@ jobs:
       run: bash scripts/validate-skill-format.sh
     - name: LOC gate
       run: bash scripts/validate.sh
+
+  # ADR-0095 Tier 1: supply-chain / license / advisory gate (deny.toml).
+  # Lightweight job: install cargo-deny via taiki-e (same pin as cargo-mutants).
+  # Add job name "Cargo Deny" to branch-protection required checks when ready.
+  cargo-deny:
+    name: Cargo Deny
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+      with:
+        cache: false
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
+    - name: Install cargo-deny
+      uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853  # v2.83.2
+      with:
+        tool: cargo-deny
+    - name: cargo deny check
+      # Global --locked asserts Cargo.lock is unchanged (cargo-deny CLI option;
+      # must precede the `check` subcommand — `check --locked` is rejected).
+      run: cargo deny --locked check
+
+  # ADR-0095 Tier 1: benchmark crate unit tests (separate workspace manifest).
+  test-benchmarks:
+    name: Test Benchmark Workspace
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PROTOC: /usr/bin/protoc
+    steps:
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+      with:
+        cache: false
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
+    - name: Benchmark workspace unit tests
+      run: cargo test --manifest-path benchmarks/Cargo.toml --locked --quiet
 
   # ADR-0095 Tier 1: fuzz targets must compile on every PR/push.
   # Lightweight check only (no long fuzz runs). cargo-fuzz CLI / nightly not required.

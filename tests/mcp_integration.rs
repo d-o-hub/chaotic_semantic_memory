@@ -123,3 +123,45 @@ fn transport_clone() {
     let t2 = t;
     assert!(matches!(t2, Transport::Stdio));
 }
+
+// --- Hypervector wire format (ADR-0094) ---
+
+#[test]
+fn mcp_hypervector_base64_preserves_high_bits() {
+    use base64::Engine;
+    use base64::engine::general_purpose::STANDARD;
+    use chaotic_semantic_memory::HVec10240;
+
+    // Full 10240-bit vectors must survive the MCP wire format (base64 of
+    // HVec10240::to_bytes()). JSON integers cannot carry bits above 64.
+    let mut data = [0u128; 80];
+    data[0] = 1u128 << 80;
+    data[1] = u128::MAX;
+    data[2] = (u64::MAX as u128) << 64 | 0xCAFE_F00D;
+    let original = HVec10240 { data };
+
+    let wire = STANDARD.encode(original.to_bytes());
+    assert!(
+        !wire.is_empty(),
+        "MCP vector wire is a non-empty base64 string"
+    );
+
+    let restored = HVec10240::from_bytes(
+        &STANDARD
+            .decode(&wire)
+            .expect("MCP wire must be valid standard base64"),
+    )
+    .expect("decoded bytes must be a valid 1280-byte HVec10240");
+
+    assert_eq!(restored.data[0], 1u128 << 80);
+    assert_eq!(restored.data[1], u128::MAX);
+    assert_eq!(restored.data[2], (u64::MAX as u128) << 64 | 0xCAFE_F00D);
+    assert_eq!(restored.to_bytes(), original.to_bytes());
+
+    // Serde human-readable form must match the same base64 wire (used when
+    // concepts are returned from memory_get).
+    let json = serde_json::to_value(original).expect("HVec serializes");
+    assert_eq!(json.as_str(), Some(wire.as_str()));
+    let via_serde: HVec10240 = serde_json::from_value(json).expect("HVec deserializes");
+    assert_eq!(via_serde.data[0], 1u128 << 80);
+}
