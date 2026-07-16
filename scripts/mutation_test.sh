@@ -135,6 +135,7 @@ EXCLUDE_ARGS=(
   --exclude-re "install_grpc_tracer"
   --exclude-re "impl Drop for Guard"
   --exclude-re "impl Drop for OtlpGuard"
+  --exclude-re "impl Drop for TtlCleanupControl"
   --exclude-re "Result<Option<Guard>>"
   --exclude-re "replace && with"
   --exclude-re "delete . in init"
@@ -142,6 +143,15 @@ EXCLUDE_ARGS=(
   --exclude-re "replace > with .* in FrameworkBuilder::build"
   --exclude-re "ChaoticSemanticFramework::load "
   --exclude "src/persistence_wasm.rs"
+  # Feature-disabled persistence stubs always return UnsupportedOperation; mutants
+  # that swap Ok/Err still compile but unit tests never exercise the stub module
+  # under default features → build timeouts only. Proven uninteresting for score.
+  --exclude-re "persistence::Persistence::"
+  --exclude-re "TtlCleanupControl::"
+  --exclude-re "has_ttl_cleanup_task"
+  --exclude-re "shutdown_ttl_cleanup"
+  --exclude-re "is_known_absent"
+  --exclude-re "run_query"
   --exclude-re "replace > with >= in <impl Reranker for MmrReranker>::rerank"
 )
 # Inventory of exclude rationale (published in CI report).

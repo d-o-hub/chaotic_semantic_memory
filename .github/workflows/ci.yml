@@ -405,8 +405,10 @@ jobs:
         tool: wasm-pack
     - name: Build WASM (web — matches release npm target)
       # ADR-0094: identical crate/path/out-name as release.yml publish-npm-wasm.
+      # out-dir must be absolute: wasm-pack resolves relative paths from the crate dir.
       run: |
-        wasm-pack build crates/csm-wasm --dev --target web --out-dir wasm/pkg-ci-web \
+        wasm-pack build crates/csm-wasm --dev --target web \
+          --out-dir "${{ github.workspace }}/wasm/pkg-ci-web" \
           --out-name chaotic_semantic_memory
     - name: Check WASM
       run: cargo check --target wasm32-unknown-unknown -p csm-wasm
@@ -417,10 +419,12 @@ jobs:
       # matches wasm/test.js / wasm/package.json main field.
       run: |
         set -euo pipefail
-        wasm-pack build crates/csm-wasm --dev --target nodejs --out-dir wasm/pkg-ci-node \
+        OUT="${{ github.workspace }}/wasm/pkg-ci-node"
+        wasm-pack build crates/csm-wasm --dev --target nodejs \
+          --out-dir "${OUT}" \
           --out-name chaotic_semantic_memory
-        test -f wasm/pkg-ci-node/chaotic_semantic_memory.js
-        WASM_PACKAGE_DIR="$(pwd)/wasm/pkg-ci-node" node wasm/test.js
+        test -f "${OUT}/chaotic_semantic_memory.js"
+        WASM_PACKAGE_DIR="${OUT}" node wasm/test.js
 
   lint:
     runs-on: ubuntu-latest
