@@ -320,6 +320,10 @@ value.map(|s| s.to_string()).unwrap_or_else(|| default())
 ## Hard Constraints
 See: [agents-docs/hard-constraints.md](agents-docs/hard-constraints.md)
 
+**No bare versions/timeouts in CI steps or production code.** Defaults = named
+constants; runtime knobs = `CSM_*` env; CI tool versions/timeouts =
+`.github/ci-settings.env` only (workflows must source it).
+
 ---
 
 ## Release Safety Requirements

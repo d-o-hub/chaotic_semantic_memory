@@ -17,6 +17,9 @@ const DEFAULT_MAX_PROBE_TOP_K: usize = 10_000;
 const DEFAULT_MAX_CACHED_TOP_K: usize = 100;
 const DEFAULT_MAX_BATCH_SIZE: usize = 1000;
 const DEFAULT_MAX_SEQUENCE_LENGTH: usize = 1024;
+/// How often the TTL cleanup task polls the cancel flag between interval waits.
+/// Override: `CSM_TTL_CANCEL_POLL_MS`.
+const DEFAULT_TTL_CANCEL_POLL_MS: u64 = 200;
 
 /// Runtime configuration for [`ChaoticSemanticFramework`], tuned via [`FrameworkBuilder`].
 #[derive(Clone, Debug)]
@@ -412,9 +415,13 @@ impl FrameworkBuilder {
                 let cancel_task = Arc::clone(&cancel);
                 let fw_task = framework.clone();
                 let handle = tokio::spawn(async move {
-                    // Poll cancel every 200ms so shutdown does not wait a full
-                    // cleanup_interval_seconds for the next timer tick.
-                    const CANCEL_POLL: std::time::Duration = std::time::Duration::from_millis(200);
+                    // Poll cancel so shutdown does not wait a full cleanup interval.
+                    let cancel_poll = std::time::Duration::from_millis(
+                        std::env::var("CSM_TTL_CANCEL_POLL_MS")
+                            .ok()
+                            .and_then(|v| v.parse().ok())
+                            .unwrap_or(DEFAULT_TTL_CANCEL_POLL_MS),
+                    );
                     loop {
                         // Wait one interval (or until cancelled).
                         let deadline = tokio::time::Instant::now()
@@ -427,7 +434,7 @@ impl FrameworkBuilder {
                             if now >= deadline {
                                 break;
                             }
-                            let slice = (deadline - now).min(CANCEL_POLL);
+                            let slice = (deadline - now).min(cancel_poll);
                             tokio::time::sleep(slice).await;
                         }
                         if cancel_task.load(std::sync::atomic::Ordering::Relaxed) {

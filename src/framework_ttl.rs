@@ -22,6 +22,11 @@ use std::time::Duration;
 use tokio::task::JoinHandle;
 use tracing::instrument;
 
+/// Default bounded wait when shutting down the TTL cleanup task.
+/// Override at runtime with `CSM_TTL_CLEANUP_SHUTDOWN_SECS`.
+#[cfg(not(target_arch = "wasm32"))]
+const DEFAULT_TTL_CLEANUP_SHUTDOWN_SECS: u64 = 2;
+
 /// Owns a background TTL cleanup task. Shared via [`std::sync::Arc`] across framework
 /// clones; when the last reference drops, the task is cancelled and aborted.
 #[cfg(not(target_arch = "wasm32"))]
@@ -88,11 +93,18 @@ impl crate::framework::ChaoticSemanticFramework {
     /// Shut down the background TTL cleanup task with a bounded wait.
     ///
     /// No-op when cleanup was never started. Safe to call multiple times.
+    /// Deadline override: `CSM_TTL_CLEANUP_SHUTDOWN_SECS` (default
+    /// [`DEFAULT_TTL_CLEANUP_SHUTDOWN_SECS`]).
     #[cfg(not(target_arch = "wasm32"))]
     pub async fn shutdown_ttl_cleanup(&self) {
-        const SHUTDOWN_DEADLINE: Duration = Duration::from_secs(2);
+        let deadline = Duration::from_secs(
+            std::env::var("CSM_TTL_CLEANUP_SHUTDOWN_SECS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(DEFAULT_TTL_CLEANUP_SHUTDOWN_SECS),
+        );
         if let Some(ctrl) = &self.ttl_cleanup {
-            let _ = ctrl.shutdown(SHUTDOWN_DEADLINE).await;
+            let _ = ctrl.shutdown(deadline).await;
         }
     }
 

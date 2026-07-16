@@ -502,11 +502,27 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.fuzz == 'true'
     runs-on: ubuntu-latest
+    # Keep in sync with FUZZ_PR_JOB_TIMEOUT_MINUTES in .github/ci-settings.env
+    # (GHA timeout-minutes must be a literal; settings file is the human source of truth).
     timeout-minutes: 30
     env:
       PROTOC: /usr/bin/protoc
     steps:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
+    - name: Load CI settings (no bare versions/timeouts in steps)
+      run: |
+        set -euo pipefail
+        # shellcheck source=/dev/null
+        set -a
+        source "${GITHUB_WORKSPACE}/.github/ci-settings.env"
+        set +a
+        {
+          echo "CARGO_FUZZ_VERSION=${CARGO_FUZZ_VERSION}"
+          echo "FUZZ_SHORT_SECONDS=${FUZZ_SHORT_SECONDS}"
+          echo "FUZZ_INPUT_TIMEOUT_SECONDS=${FUZZ_INPUT_TIMEOUT_SECONDS}"
+          echo "FUZZ_PR_SMOKE_TARGETS=${FUZZ_PR_SMOKE_TARGETS}"
+          echo "RUSTUP_TOOLCHAIN_PROFILE=${RUSTUP_TOOLCHAIN_PROFILE}"
+        } >> "${GITHUB_ENV}"
     - name: Install clang (libfuzzer-sys build)
       run: |
         sudo apt-get update
@@ -523,27 +539,32 @@ jobs:
     - name: Check all fuzz targets compile
       # Required gate (ADR-0095 Tier 1 compile). Uses stable + locked fuzz/Cargo.lock.
       run: cargo check --manifest-path fuzz/Cargo.toml --all-targets --locked
-    - name: Install nightly + pinned cargo-fuzz for short runs
-      # Do not use a second setup-rust-toolchain (clobbers default) or taiki tool
-      # cargo-fuzz@ver (unsupported → binstall musl breakage). Pin version only.
+    - name: Install nightly + cargo-fuzz (version from ci-settings.env)
+      # No bare version literals here. Do not use taiki cargo-fuzz@ver (musl breakage).
       run: |
         set -euo pipefail
-        rustup toolchain install nightly --profile minimal --no-self-update
+        : "${CARGO_FUZZ_VERSION:?CARGO_FUZZ_VERSION unset — load ci-settings.env}"
+        : "${RUSTUP_TOOLCHAIN_PROFILE:?RUSTUP_TOOLCHAIN_PROFILE unset}"
+        rustup toolchain install nightly --profile "${RUSTUP_TOOLCHAIN_PROFILE}" --no-self-update
         rustup component add rust-src --toolchain nightly
-        cargo install cargo-fuzz --locked --version 0.12.0 --force
+        cargo install cargo-fuzz --locked --version "${CARGO_FUZZ_VERSION}" --force
     - name: Short fuzz runs (smoke targets)
-      # Set FUZZ_SHORT_SECONDS=0 to degrade to compile-only (compile gate already ran).
-      # --sanitizer none: ASAN/musl builds are flaky/slow on shared PR runners.
+      # FUZZ_SHORT_SECONDS=0 → compile-only. --sanitizer none for shared PR runners.
       run: |
         set -euo pipefail
-        SHORT_SECS="${FUZZ_SHORT_SECONDS:-10}"
-        if [[ "${SHORT_SECS}" == "0" ]]; then
+        : "${FUZZ_SHORT_SECONDS:?}"
+        : "${FUZZ_INPUT_TIMEOUT_SECONDS:?}"
+        : "${FUZZ_PR_SMOKE_TARGETS:?}"
+        if [[ "${FUZZ_SHORT_SECONDS}" == "0" ]]; then
           echo "FUZZ_SHORT_SECONDS=0 → skip short runs (compile-only gate satisfied)"
           exit 0
         fi
-        for target in hvec_from_bytes reservoir_step fuzz_text_encoder; do
-          echo "::group::fuzz ${target} (${SHORT_SECS}s)"
+        # shellcheck disable=SC2206
+        targets=( ${FUZZ_PR_SMOKE_TARGETS} )
+        for target in "${targets[@]}"; do
+          echo "::group::fuzz ${target} (${FUZZ_SHORT_SECONDS}s)"
           cargo +nightly fuzz run "${target}" --sanitizer none -- \
-            -max_total_time="${SHORT_SECS}" -timeout=5
+            -max_total_time="${FUZZ_SHORT_SECONDS}" \
+            -timeout="${FUZZ_INPUT_TIMEOUT_SECONDS}"
           echo "::endgroup::"
         done
