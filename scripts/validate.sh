@@ -50,8 +50,10 @@ for file in $(find src crates -name '*.rs' -not -path '*/target/*'); do
 done
 
 if rustup target list --installed | grep -q "^${WASM_TARGET}\$"; then
-  echo "==> cargo check --target ${WASM_TARGET} --features wasm"
-  cargo check --target "${WASM_TARGET}" --features wasm
+  # Never enable default features (persistence/libsql) on wasm32 — libsql is
+  # host-only. Match release/CI: no-default-features + wasm only.
+  echo "==> cargo check --target ${WASM_TARGET} --no-default-features --features wasm"
+  cargo check --target "${WASM_TARGET}" --no-default-features --features wasm
 else
   echo "skip: ${WASM_TARGET} target not installed"
 fi
