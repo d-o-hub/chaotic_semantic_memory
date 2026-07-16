@@ -317,10 +317,11 @@ impl Bm25Index {
 
             DOC_SCORES_BUFFER.with(|buffer| {
                 let mut doc_scores = buffer.borrow_mut();
-                // Ensure buffer is large enough; we use sparse zeroing to maintain it.
-                // Buffer retains high-water-mark size; shrinking is O(N) and not worth it.
+                // Active prefix zeroed each search (residuals break sparse touch tracking).
                 if doc_scores.len() < num_docs {
                     doc_scores.resize(num_docs, 0.0);
+                } else {
+                    doc_scores[..num_docs].fill(0.0);
                 }
 
                 self.ensure_norm_cache();
@@ -330,6 +331,7 @@ impl Bm25Index {
                         .read()
                         .expect("Bm25Index norm_cache lock poisoned");
                     let factors = &cache.factors;
+                    debug_assert_eq!(factors.len(), num_docs);
 
                     for (weighted_idf, entries) in query_weights {
                         if weighted_idf <= 0.0 {
@@ -337,26 +339,18 @@ impl Bm25Index {
                         }
 
                         for &(doc_idx, tf) in entries {
-                            // SAFETY: doc_idx is guaranteed to be within bounds because:
-                            // 1. It is derived from the postings index which is strictly synchronized with
-                            //    the documents vector in add_document/remove_document_at.
-                            // 2. doc_scores is ensured to be >= num_docs at search start.
-                            // 3. Normalization buffers are synchronized in ensure_norm_cache() before access.
-                            // Mathematical Impact: O(Q * D_q) search complexity.
+                            // SAFETY: doc_idx from postings; buffers sized to num_docs.
                             unsafe {
                                 let score_ptr = doc_scores.get_unchecked_mut(doc_idx);
                                 if *score_ptr == 0.0 {
                                     touched_indices.push(doc_idx);
                                 }
-
                                 let (doc_term_b, tf1_recip) = *factors.get_unchecked(doc_idx);
                                 if tf == 1 {
-                                    // Fast path for the most common case: single term frequency.
                                     *score_ptr += weighted_idf * tf1_recip;
                                 } else {
                                     let tf = tf as f32;
-                                    let denominator = tf + doc_term_b;
-                                    *score_ptr += (tf * weighted_idf) / denominator;
+                                    *score_ptr += (tf * weighted_idf) / (tf + doc_term_b);
                                 }
                             }
                         }
@@ -442,8 +436,16 @@ impl Bm25Index {
     #[allow(clippy::significant_drop_tightening)]
     #[allow(clippy::expect_used)]
     fn ensure_norm_cache(&self) {
+        let n_docs = self.documents.len();
         if !self.norm_cache_dirty.load(AtomicOrdering::Acquire) {
-            return;
+            let cache = self
+                .norm_cache
+                .read()
+                .expect("Bm25Index norm_cache lock poisoned");
+            // Rebuild if length drifted even when dirty flag is clear.
+            if cache.factors.len() == n_docs {
+                return;
+            }
         }
 
         if self.is_empty() {
@@ -451,13 +453,12 @@ impl Bm25Index {
             return;
         }
 
-        // Double-checked locking to prevent redundant work
         let mut cache = self
             .norm_cache
             .write()
             .expect("Bm25Index norm_cache lock poisoned");
 
-        if !self.norm_cache_dirty.load(AtomicOrdering::Acquire) {
+        if !self.norm_cache_dirty.load(AtomicOrdering::Acquire) && cache.factors.len() == n_docs {
             return;
         }
 
