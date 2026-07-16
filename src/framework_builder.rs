@@ -273,7 +273,8 @@ impl FrameworkBuilder {
 
     /// Configure a local SQLite database for persistence.
     ///
-    /// Only available when the `persistence` feature is enabled.
+    /// Only available when the `persistence` feature is enabled (ADR-0094:
+    /// disabled capabilities are cfg-absent, never silently ignored).
     #[cfg(feature = "persistence")]
     pub fn with_local_db(mut self, path: impl Into<String>) -> Self {
         self.db_path = Some(path.into());
@@ -281,15 +282,9 @@ impl FrameworkBuilder {
         self
     }
 
-    /// Stub for `with_local_db` when persistence is disabled.
-    #[cfg(not(feature = "persistence"))]
-    pub fn with_local_db(self, _path: impl Into<String>) -> Self {
-        self
-    }
-
     /// Configure a remote Turso database for persistence.
     ///
-    /// Only available when the `persistence` feature is enabled.
+    /// Only available when the `persistence` feature is enabled (ADR-0094).
     #[cfg(feature = "persistence")]
     pub fn with_turso(mut self, url: impl Into<String>, token: impl Into<String>) -> Self {
         self.db_path = Some(url.into());
@@ -297,25 +292,16 @@ impl FrameworkBuilder {
         self
     }
 
-    /// Stub for `with_turso` when persistence is disabled.
-    #[cfg(not(feature = "persistence"))]
-    pub fn with_turso(self, _url: impl Into<String>, _token: impl Into<String>) -> Self {
-        self
-    }
-
     /// Disable persistence even when the feature is enabled.
-    ///
-    /// When the `persistence` feature is disabled, this method is a no-op
-    /// since persistence is already unavailable.
     #[cfg(feature = "persistence")]
     pub const fn without_persistence(mut self) -> Self {
         self.config.enable_persistence = false;
         self
     }
 
-    /// Disable persistence (no-op when `persistence` feature is disabled).
+    /// No-op when the `persistence` feature is disabled (already unavailable).
     #[cfg(not(feature = "persistence"))]
-    pub fn without_persistence(self) -> Self {
+    pub const fn without_persistence(self) -> Self {
         self
     }
 
@@ -398,7 +384,9 @@ impl FrameworkBuilder {
             })
         };
 
-        let framework = ChaoticSemanticFramework {
+        // `mut` only used when attaching ttl_cleanup (non-wasm).
+        #[allow(unused_mut)]
+        let mut framework = ChaoticSemanticFramework {
             singularity,
             persistence,
             reservoir: Arc::new(RwLock::new(None)),
@@ -409,28 +397,41 @@ impl FrameworkBuilder {
             namespace: Arc::new(RwLock::new(self.namespace)),
             embedding_provider: provider,
             projection: Arc::new(projection),
+            #[cfg(not(target_arch = "wasm32"))]
+            ttl_cleanup: None,
         };
 
         framework.load_replace().await?;
 
-        // Start background cleanup if configured
+        // Start owned background cleanup when configured (ADR-0093 lifecycle).
         #[cfg(not(target_arch = "wasm32"))]
         {
             let interval = framework.config.ttl_config.cleanup_interval_seconds;
             if interval > 0 {
-                let fw = Arc::new(framework);
-                let fw_clone = Arc::clone(&fw);
-                tokio::spawn(async move {
+                let cancel = crate::framework_ttl::TtlCleanupControl::new_cancel();
+                let cancel_task = Arc::clone(&cancel);
+                let fw_task = framework.clone();
+                let handle = tokio::spawn(async move {
                     let mut timer =
                         tokio::time::interval(tokio::time::Duration::from_secs(interval));
+                    // Skip the immediate first tick so build() returns before first purge.
+                    timer.tick().await;
                     loop {
+                        if cancel_task.load(std::sync::atomic::Ordering::Relaxed) {
+                            break;
+                        }
                         timer.tick().await;
-                        if let Err(e) = fw_clone.purge_expired().await {
+                        if cancel_task.load(std::sync::atomic::Ordering::Relaxed) {
+                            break;
+                        }
+                        if let Err(e) = fw_task.purge_expired().await {
                             tracing::error!(error = %e, "background cleanup failed");
                         }
                     }
                 });
-                return Ok(Arc::try_unwrap(fw).unwrap_or_else(|fw_arc| (*fw_arc).clone()));
+                framework.ttl_cleanup = Some(Arc::new(
+                    crate::framework_ttl::TtlCleanupControl::new(cancel, handle),
+                ));
             }
         }
 

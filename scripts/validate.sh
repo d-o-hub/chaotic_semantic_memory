@@ -146,6 +146,33 @@ else
   exit 1
 fi
 
+# Skill catalog single-source (ADR-0096)
+if [[ -x "${SCRIPT_DIR}/generate-skill-catalog.sh" ]]; then
+  echo "==> Skill catalog freshness"
+  "${SCRIPT_DIR}/generate-skill-catalog.sh" --check
+else
+  echo "Error: scripts/generate-skill-catalog.sh missing or not executable"
+  exit 1
+fi
+
+# Critical skill behavioral evals (ADR-0096) — ≥19/20
+if [[ -x "${SCRIPT_DIR}/eval-critical-skills.sh" ]]; then
+  echo "==> Critical skill behavioral evals"
+  "${SCRIPT_DIR}/eval-critical-skills.sh"
+else
+  echo "Error: scripts/eval-critical-skills.sh missing or not executable"
+  exit 1
+fi
+
+# Plan archive manifest (must exist; non-destructive)
+if [[ -x "${SCRIPT_DIR}/plans-archive-manifest.sh" ]]; then
+  echo "==> Plan archive manifest"
+  "${SCRIPT_DIR}/plans-archive-manifest.sh"
+else
+  echo "Error: scripts/plans-archive-manifest.sh missing or not executable"
+  exit 1
+fi
+
 # ADR Registry consistency check (ADR-0076)
 echo "==> ADR Registry consistency check"
 ADR_REGISTRY="plans/ADR_REGISTRY.md"

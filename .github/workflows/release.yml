@@ -340,12 +340,16 @@ jobs:
       run: rustup target add wasm32-unknown-unknown
 
     - name: Build WASM release
-      run: cargo build --target wasm32-unknown-unknown --release --features wasm
+      # ADR-0094: same artifact owner as CI (csm-wasm crate), not root --features wasm.
+      run: cargo build --target wasm32-unknown-unknown --release -p csm-wasm
 
     - name: Prepare WASM artifact
       run: |
         mkdir -p release
-        cp target/wasm32-unknown-unknown/release/chaotic_semantic_memory.wasm release/
+        # csm-wasm produces csm_wasm.wasm (cdylib); fall back to legacy name if present.
+        WASM_FILE=$(find target/wasm32-unknown-unknown/release -maxdepth 1 \( -name 'csm_wasm.wasm' -o -name 'chaotic_semantic_memory.wasm' \) | head -1)
+        test -n "$WASM_FILE"
+        cp "$WASM_FILE" release/chaotic_semantic_memory.wasm
         cd release
         tar -czvf chaotic_semantic_memory-${{ needs.validate.outputs.version }}-wasm.tar.gz chaotic_semantic_memory.wasm
 
@@ -518,7 +522,9 @@ jobs:
         target: wasm32-unknown-unknown
 
     - name: Install wasm-pack
-      run: cargo install wasm-pack
+      uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853  # v2.83.2
+      with:
+        tool: wasm-pack
 
     - name: Check if version already published to npm
       id: npm-check
@@ -537,7 +543,10 @@ jobs:
       env:
         WASM_OPT_FLAGS: "--enable-bulk-memory --enable-sign-ext"
       run: |
-        wasm-pack build --target web --out-dir wasm/pkg -- --features wasm
+        # ADR-0094: canonical npm artifact is crates/csm-wasm (matches CI wasm job).
+        # --out-name aligns generated JS with wasm/package.json main field.
+        wasm-pack build crates/csm-wasm --release --target web --out-dir wasm/pkg \
+          --out-name chaotic_semantic_memory
         cp LICENSE wasm/pkg/
         cp README.md wasm/pkg/
         # Use prepared package.json with scoped name @d-o-hub/chaotic_semantic_memory

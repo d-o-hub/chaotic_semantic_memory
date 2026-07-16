@@ -12,9 +12,89 @@ use csm_core::hyperdim::HVec10240;
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
 use std::collections::HashMap;
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::Mutex;
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::Duration;
+#[cfg(not(target_arch = "wasm32"))]
+use tokio::task::JoinHandle;
 use tracing::instrument;
 
+/// Owns a background TTL cleanup task. Shared via [`std::sync::Arc`] across framework
+/// clones; when the last reference drops, the task is cancelled and aborted.
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) struct TtlCleanupControl {
+    /// Shared with the spawn loop so cancel is visible before `ttl_cleanup` is attached.
+    cancel: std::sync::Arc<AtomicBool>,
+    handle: Mutex<Option<JoinHandle<()>>>,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl TtlCleanupControl {
+    /// Create cancel flag used by the spawn loop *before* the control is installed.
+    pub(crate) fn new_cancel() -> std::sync::Arc<AtomicBool> {
+        std::sync::Arc::new(AtomicBool::new(false))
+    }
+
+    pub(crate) fn new(cancel: std::sync::Arc<AtomicBool>, handle: JoinHandle<()>) -> Self {
+        Self {
+            cancel,
+            handle: Mutex::new(Some(handle)),
+        }
+    }
+
+    /// Request cooperative shutdown and await the join handle with a deadline.
+    /// Returns `true` if the task finished within `timeout`.
+    pub(crate) async fn shutdown(&self, timeout: Duration) -> bool {
+        self.cancel.store(true, Ordering::SeqCst);
+        let handle = self.handle.lock().ok().and_then(|mut guard| guard.take());
+        let Some(handle) = handle else {
+            return true;
+        };
+        tokio::time::timeout(timeout, handle).await.is_ok()
+    }
+
+    #[inline]
+    pub(crate) fn is_cancelled(&self) -> bool {
+        self.cancel.load(Ordering::Relaxed)
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl Drop for TtlCleanupControl {
+    fn drop(&mut self) {
+        self.cancel.store(true, Ordering::SeqCst);
+        if let Ok(mut guard) = self.handle.lock() {
+            if let Some(handle) = guard.take() {
+                handle.abort();
+            }
+        }
+    }
+}
+
 impl crate::framework::ChaoticSemanticFramework {
+    /// Shut down the background TTL cleanup task with a bounded wait.
+    ///
+    /// No-op when cleanup was never started. Safe to call multiple times.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn shutdown_ttl_cleanup(&self) {
+        const SHUTDOWN_DEADLINE: Duration = Duration::from_secs(2);
+        if let Some(ctrl) = &self.ttl_cleanup {
+            let _ = ctrl.shutdown(SHUTDOWN_DEADLINE).await;
+        }
+    }
+
+    /// Whether a background TTL cleanup task is currently owned by this framework.
+    #[cfg(not(target_arch = "wasm32"))]
+    #[must_use]
+    pub fn has_ttl_cleanup_task(&self) -> bool {
+        self.ttl_cleanup
+            .as_ref()
+            .is_some_and(|c| !c.is_cancelled() && c.handle.lock().ok().is_some_and(|g| g.is_some()))
+    }
+
     /// Evaluate the TTL policy for a concept.
     pub(crate) async fn evaluate_ttl_policy(
         &self,

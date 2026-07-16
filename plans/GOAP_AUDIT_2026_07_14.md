@@ -199,6 +199,34 @@ One authoritative data owner, one implementation owner, one evidence source, and
 - Do not claim 10M memory or 1M ANN SLOs until measured artifacts exist.
 - Do not modify or archive the user-owned recommendations file without explicit approval.
 
+## Progress update — 2026-07-16
+
+Implementation is no longer planning-only. Status is tracked in:
+
+| Doc | Role |
+|---|---|
+| `plans/GOAP_STATE.md` | Canonical booleans + `action_last_completed` |
+| `plans/ACTIONS.md` | Per-action status (complete vs queued) |
+| `plans/WAVE_32_P2_PROGRESS.md` | P2 PR #517 detail + follow-up waves |
+| `progress/PROGRESS.md` | Session progress log |
+
+### Phases shipped
+
+| Phase | Status | Notes |
+|---|---|---|
+| Phase 0 (ADR review) | **complete** | ADR-0093..0096 accepted on disk |
+| Phase 1 P0 correctness/validation | **complete** | ANN fallible, persistence authority, fuzz compile, skill format |
+| Phase 2 P1 subset (P0+P1 swarm + P2 PR) | **partial** | P2 landed contracts/TTL/absence/fuzz/mutation/WASM alignment; **ownership consolidation still queued** |
+| Phase 3 P2 evidence | **partial** | metric defs + mutation harden done; tiered benches/scale/memory claim queued |
+| Phase 4 P3 hygiene | **queued** | skills evals, hooks catalog, harness matrix, plan compact |
+
+### Immediate follow-ups
+
+1. Green PR #517 CI (`fix_pr517_*` actions in ACTIONS.md).
+2. Wave 33a: retrieval then persistence/CLI/WASM ownership façades.
+3. Wave 33b: tiered benchmark evidence + scale + measured memory.
+4. Wave 33c: skill behavioral evals + agent/plan hygiene.
+
 ## Decision records
 
 - [ADR-0093](adr/0093-authoritative-persistence-and-derived-index-consistency.md): persistence authority, revisioned ANN snapshots, mutation coordination, lock discipline.

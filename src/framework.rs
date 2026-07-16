@@ -39,6 +39,9 @@ pub struct ChaoticSemanticFramework {
     pub(crate) embedding_provider: Arc<dyn crate::embedding::EmbeddingProvider>,
     /// Random projection layer for embedding → HVec mapping.
     pub(crate) projection: Arc<crate::embedding::Projection>,
+    /// Owned background TTL cleanup task (shared across clones; cancelled on last drop).
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) ttl_cleanup: Option<Arc<crate::framework_ttl::TtlCleanupControl>>,
 }
 
 impl ChaoticSemanticFramework {
