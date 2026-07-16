@@ -362,6 +362,24 @@ impl AbsenceStore for Persistence {
 
         Ok(entries)
     }
+
+    async fn delete_absence(&self, id: &str) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        conn.execute("DELETE FROM csm_absences WHERE id = ?1", params![id])
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to delete absence: {e}")))?;
+        Ok(())
+    }
+
+    async fn clear_all_absences(&self) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        conn.execute("DELETE FROM csm_absences", ())
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to clear absences: {e}")))?;
+        Ok(())
+    }
 }
 
 impl Persistence {

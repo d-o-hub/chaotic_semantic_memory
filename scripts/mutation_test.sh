@@ -150,7 +150,6 @@ EXCLUDE_ARGS=(
   --exclude-re "TtlCleanupControl::"
   --exclude-re "has_ttl_cleanup_task"
   --exclude-re "shutdown_ttl_cleanup"
-  --exclude-re "is_known_absent"
   --exclude-re "run_query"
   --exclude-re "replace > with >= in <impl Reranker for MmrReranker>::rerank"
 )

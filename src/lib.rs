@@ -23,6 +23,10 @@ pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod bridge_persistence;
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+pub use bridge_persistence::{
+    AbsenceEntry, AbsenceStore, invalidate_all_absences, persist_absence,
+};
 pub mod bridge_retrieval;
 pub use csm_chaos;
 pub use csm_core::bundle;

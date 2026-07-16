@@ -47,13 +47,23 @@ impl TtlCleanupControl {
 
     /// Request cooperative shutdown and await the join handle with a deadline.
     /// Returns `true` if the task finished within `timeout`.
+    ///
+    /// On deadline expiry the task is **aborted** (not merely detached) so a long
+    /// `timer.tick` cannot outlive explicit shutdown (review PR #518).
     pub(crate) async fn shutdown(&self, timeout: Duration) -> bool {
         self.cancel.store(true, Ordering::SeqCst);
         let handle = self.handle.lock().ok().and_then(|mut guard| guard.take());
-        let Some(handle) = handle else {
+        let Some(mut handle) = handle else {
             return true;
         };
-        tokio::time::timeout(timeout, handle).await.is_ok()
+        match tokio::time::timeout(timeout, &mut handle).await {
+            Ok(Ok(())) | Ok(Err(_)) => true,
+            Err(_elapsed) => {
+                handle.abort();
+                let _ = handle.await;
+                false
+            }
+        }
     }
 
     #[inline]

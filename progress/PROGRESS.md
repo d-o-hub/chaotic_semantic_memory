@@ -2,7 +2,7 @@
 
 ### Summary
 Implemented seven independent Wave 32 GOAP actions on branch
-`feat/wave32-p2-ttl-absence-contracts` (**PR #517**). Full write-up:
+`feat/wave32-p2-ttl-absence-contracts` (**PR #518**). Full write-up:
 `plans/WAVE_32_P2_PROGRESS.md`. Canonical state: `plans/GOAP_STATE.md`
 (`action_last_completed: wave32_p2_ttl_absence_contracts_2026_07_16`).
 
@@ -15,7 +15,7 @@ Implemented seven independent Wave 32 GOAP actions on branch
 - Fuzz short PR smoke + weekly scheduled full fuzz workflow
 - Mutation score: timeouts unresolved; inventory; fewer path excludes
 
-### CI / merge follow-ups (P0 on PR #517)
+### CI / merge follow-ups (P0 on PR #518)
 - Fix **commitlint**, **wasm**, **Fuzz Workspace Build** failures before merge
 
 ### Queued follow-ups (see ACTIONS.md + WAVE_32_P2_PROGRESS.md)

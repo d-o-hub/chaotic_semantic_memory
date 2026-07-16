@@ -33,7 +33,7 @@ world_state:
   orchestrator_last_run_at_utc: 2026-04-30T18:30:00Z
   goap_orchestrator_analysis_complete: true         # 2026-04-30: All actionable items verified complete
   skills_all_defined: true                          # 2026-07-14: 32 skill manifests exist; validation hardening queued
-  no_missing_implementations: false                 # BM25 absence TODO + ownership/feature contracts still queued
+  no_missing_implementations: false                 # full workspace ownership consolidation still queued (BM25 absence TODO resolved)
   book_chapters_complete: true                      # 2026-04-30: 15 book chapters verified (semantic-bridge, inertial-reservoir, ttl exist)
   changelog_links_complete: true                    # 2026-04-30: All version links verified
   hybrid_retrieval_example_compiles: true           # 2026-04-30: cargo check --example hybrid_retrieval OK
@@ -1480,7 +1480,7 @@ world_state:
   template_reference: "https://github.com/d-oit/rust-2026-template"
   template_version_analyzed: "0.3.2 (392 commits)"
 
-  action_last_completed: wave32_p2_full_implementation_2026_07_16
+  action_last_completed: wave32_p2_review_fixes_2026_07_16
 
   # ═══════════════════════════════════════════════════════
   # PR #444 Review: BM25 Sparse Collection (2026-06-27)
@@ -1723,7 +1723,7 @@ world_state:
   release_skill_loc_compliant: true              # 2026-07-16: SKILL.md 161 lines + references/
   release_guidance_matches_workflow: true
   skill_loc_enforced: true
-  critical_skill_evals_passing: true            # behavioral evals deferred (queued follow-up)
+  critical_skill_evals_passing: true            # structural skill gates (frontmatter/LOC/catalog); full behavioral fixtures partial
   fuzz_short_runs_on_pr: true                    # 2026-07-16: 10s smoke targets after fuzz-build
   fuzz_scheduled_full_runs: true                 # 2026-07-16: fuzz-scheduled.yml weekly
   mutation_timeouts_unresolved: true
@@ -1772,8 +1772,8 @@ world_state:
     deferred_to_followup: []
   wave32_p2_swarm_2026_07_16:
     branch: feat/wave32-p2-ttl-absence-contracts
-    pr: 517
-    pr_url: "https://github.com/d-o-hub/chaotic_semantic_memory/pull/517"
+    pr: 518
+    pr_url: "https://github.com/d-o-hub/chaotic_semantic_memory/pull/518"
     commit: "bc30e08"
     status: open_ci_partial  # commitlint + wasm + fuzz-build red at last poll; core tests green
     progress_doc: "plans/WAVE_32_P2_PROGRESS.md"
@@ -1785,11 +1785,11 @@ world_state:
       - align_wasm_ci_release_artifact
       - fuzz_short_and_scheduled_runs
       - harden_mutation_evidence
-    # Immediate: unblock PR #517 CI (must land before merge)
+    # Immediate: unblock PR #518 CI (must land before merge)
     followups_ci_blockers:
       - id: fix_pr517_commitlint
         priority: P0
-        note: "commitlint failed on PR #517 — align subject/scope with commitlint config (wave32 may need allowlist or conventional scope)"
+        note: "commitlint failed on PR #518 — align subject/scope with commitlint config (wave32 may need allowlist or conventional scope)"
       - id: fix_pr517_wasm_job
         priority: P0
         note: "wasm job failed — likely wasm-pack out-name / node smoke path; verify pkg-ci-node + wasm/test.js"

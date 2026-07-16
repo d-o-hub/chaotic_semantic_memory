@@ -412,17 +412,26 @@ impl FrameworkBuilder {
                 let cancel_task = Arc::clone(&cancel);
                 let fw_task = framework.clone();
                 let handle = tokio::spawn(async move {
-                    let mut timer =
-                        tokio::time::interval(tokio::time::Duration::from_secs(interval));
-                    // Skip the immediate first tick so build() returns before first purge.
-                    timer.tick().await;
+                    // Poll cancel every 200ms so shutdown does not wait a full
+                    // cleanup_interval_seconds for the next timer tick.
+                    const CANCEL_POLL: std::time::Duration = std::time::Duration::from_millis(200);
                     loop {
-                        if cancel_task.load(std::sync::atomic::Ordering::Relaxed) {
-                            break;
+                        // Wait one interval (or until cancelled).
+                        let deadline = tokio::time::Instant::now()
+                            + tokio::time::Duration::from_secs(interval);
+                        loop {
+                            if cancel_task.load(std::sync::atomic::Ordering::Relaxed) {
+                                return;
+                            }
+                            let now = tokio::time::Instant::now();
+                            if now >= deadline {
+                                break;
+                            }
+                            let slice = (deadline - now).min(CANCEL_POLL);
+                            tokio::time::sleep(slice).await;
                         }
-                        timer.tick().await;
                         if cancel_task.load(std::sync::atomic::Ordering::Relaxed) {
-                            break;
+                            return;
                         }
                         if let Err(e) = fw_task.purge_expired().await {
                             tracing::error!(error = %e, "background cleanup failed");

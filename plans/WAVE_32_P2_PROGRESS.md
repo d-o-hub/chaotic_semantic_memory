@@ -8,7 +8,7 @@ Independent Wave 32 actions that do **not** require full workspace ownership con
 | Field | Value |
 |---|---|
 | Branch | `feat/wave32-p2-ttl-absence-contracts` |
-| PR | [#517](https://github.com/d-o-hub/chaotic_semantic_memory/pull/517) |
+| PR | [#518](https://github.com/d-o-hub/chaotic_semantic_memory/pull/517) |
 | Commit | `bc30e08` |
 | GOAP action key | `wave32_p2_ttl_absence_contracts_2026_07_16` |
 | Roadmap | `plans/GOAP_AUDIT_2026_07_14.md` |
@@ -34,7 +34,7 @@ Independent Wave 32 actions that do **not** require full workspace ownership con
 - `cargo test --test cli_parity --features cli` — pass
 - LOC gate — all files ≤500
 
-## CI status (PR #517 — live)
+## CI status (PR #518 — live)
 
 **Green (sampled):** workspace crate matrix, cargo-deny, benchmark workspace, detect-changes, tooling/version/changelog, Codacy, SonarCloud, several CodeQL language jobs.
 
@@ -50,7 +50,7 @@ Independent Wave 32 actions that do **not** require full workspace ownership con
 
 ## Follow-ups
 
-### A. Immediate (PR #517 unblock)
+### A. Immediate (PR #518 unblock)
 
 1. **fix_pr517_commitlint** — make commit message / commitlint config agree.
 2. **fix_pr517_wasm_job** — restore green wasm job (smoke optional behind flag if flaky).
@@ -141,3 +141,14 @@ In addition to the P2 code already listed, this PR now also ships:
 | `consolidate_retrieval_ownership` (hybrid phase) | csm-retrieval owner façade |
 
 Still queued: full persistence/CLI/WASM ownership + test surface dedupe.
+
+## Review fixes (PR #518, post-review)
+
+Addressed PENDING review findings:
+
+1. TTL `shutdown` aborts JoinHandle on timeout; spawn loop polls cancel every 200ms.
+2. BM25 short-circuit only when HDC also empty (never `--keyword-only` alone).
+3. `delete_absence` / `clear_all_absences` + invalidate on inject.
+4. Integration tests for `is_known_absent`, inject invalidation, clear APIs.
+5. GOAP comments / structural skill-eval wording; PR #518 numbering.
+6. Fuzz short runs: pinned cargo-fuzz@0.12.0 via install-action; `FUZZ_SHORT_SECONDS=0` escape hatch.
