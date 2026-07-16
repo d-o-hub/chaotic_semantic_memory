@@ -59,6 +59,9 @@
   7. **cargo-fuzz short runs:** version from `.github/ci-settings.env`
      (`CARGO_FUZZ_VERSION`); do not use `taiki-e/install-action` `cargo-fuzz@x.y`
      (unsupported → musl binstall). Prefer `--sanitizer none` on PR runners.
+  8. **WASM check must not enable default features:**  
+     `cargo check --target wasm32-unknown-unknown --no-default-features --features wasm`  
+     Enabling defaults pulls `persistence`/libsql, which is unavailable on wasm32.
 - **Version numbers must be synchronized across all files before release.**
   Run `scripts/verify-version-sync.sh` to verify. Files checked:
   - `Cargo.toml` - `version = "X.Y.Z"`

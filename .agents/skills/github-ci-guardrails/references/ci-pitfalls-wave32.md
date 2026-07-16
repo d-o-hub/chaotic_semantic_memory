@@ -72,6 +72,22 @@ or add tests that exercise the mutant symbols under default features.
 
 Generator must use `LC_ALL=C sort` and strip `wc -l` whitespace.
 
+### WASM check / unlinked `libsql`
+
+Never:
+
+```bash
+cargo check --target wasm32-unknown-unknown --features wasm   # BAD: enables default features
+```
+
+Always:
+
+```bash
+cargo check --target wasm32-unknown-unknown --no-default-features --features wasm
+```
+
+`csm-persistence` default features enable libsql, which is not a wasm32 dependency.
+
 ### cargo-fuzz short runs (PR fuzz job)
 
 - **Required gate** is `cargo check --manifest-path fuzz/Cargo.toml --all-targets --locked`.
