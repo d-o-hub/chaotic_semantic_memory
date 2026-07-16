@@ -265,10 +265,9 @@ fn test_cache_consistency() {
     // Scores should change because avgdl changed
     assert!((score1_initial - score1_after).abs() > 1e-6);
 
-    // Identity check for cached search
+    // Warm-cache search must match cold-after-mutation scores bit-for-bit.
     let results3 = index.search(&["hello"], 10);
-    let score1_cached = results3.iter().find(|(id, _)| id == "doc1").unwrap().1;
-    assert!((score1_after - score1_cached).abs() < 1e-6);
+    assert_eq!(results2, results3);
 }
 
 #[test]
