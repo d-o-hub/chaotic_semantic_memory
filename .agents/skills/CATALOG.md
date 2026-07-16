@@ -11,8 +11,8 @@ Do not edit by hand. Regenerate: `./scripts/generate-skill-catalog.sh`
 | `debugging-reservoir` | `.agents/skills/debugging-reservoir/SKILL.md` | 59 |
 | `dist-channel-selection` | `.agents/skills/dist-channel-selection/SKILL.md` | 100 |
 | `drawio` | `.agents/skills/drawio/SKILL.md` | 132 |
-| `git-workflow` | `.agents/skills/git-workflow/SKILL.md` | 122 |
-| `github-ci-guardrails` | `.agents/skills/github-ci-guardrails/SKILL.md` | 11 |
+| `git-workflow` | `.agents/skills/git-workflow/SKILL.md` | 152 |
+| `github-ci-guardrails` | `.agents/skills/github-ci-guardrails/SKILL.md` | 16 |
 | `goap-orchestrator` | `.agents/skills/goap-orchestrator/SKILL.md` | 38 |
 | `goap-planning` | `.agents/skills/goap-planning/SKILL.md` | 12 |
 | `iterative-refinement` | `.agents/skills/iterative-refinement/SKILL.md` | 149 |
