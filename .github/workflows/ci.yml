@@ -123,7 +123,9 @@ jobs:
     - name: Run Miri tests
       run: cargo miri test -p chaotic_semantic_memory --no-default-features --features ann-hnsw --lib
       env:
-        MIRIFLAGS: "-Zmiri-disable-isolation"
+        # deterministic-floats: BM25/ln/recip scoring must be bit-stable across
+        # repeated searches; miri's default non-det floats break cache parity tests.
+        MIRIFLAGS: "-Zmiri-disable-isolation -Zmiri-deterministic-floats"
 
   build-cli:
     name: Build CLI (${{ matrix.platform }}-${{ matrix.arch }})

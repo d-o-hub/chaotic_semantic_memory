@@ -303,12 +303,11 @@ impl Bm25Index {
 
             DOC_SCORES_BUFFER.with(|buffer| {
                 let mut doc_scores = buffer.borrow_mut();
-                // Active prefix zeroed each search (residuals break sparse touch tracking).
+                // Always clear the active prefix (resize alone does not zero old slots).
                 if doc_scores.len() < num_docs {
                     doc_scores.resize(num_docs, 0.0);
-                } else {
-                    doc_scores[..num_docs].fill(0.0);
                 }
+                doc_scores[..num_docs].fill(0.0);
 
                 self.ensure_norm_cache();
                 {
@@ -478,7 +477,7 @@ impl Bm25Index {
 }
 
 fn score_cmp_desc(a: &(usize, f32), b: &(usize, f32)) -> Ordering {
-    b.1.total_cmp(&a.1)
+    b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0))
 }
 
 #[cfg(test)]
