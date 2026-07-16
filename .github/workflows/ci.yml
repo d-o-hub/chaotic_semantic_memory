@@ -199,27 +199,28 @@ jobs:
       run: cargo test --features mcp --locked -- --quiet
 
   mutation-test:
-    # Mutation testing is expensive (~20 min per run). Run it only on PRs so
-    # main-branch CI stays fast enough to fit inside the Release workflow's
-    # wait-for-ci window. Push-to-main already gets full mutation coverage on
-    # the PR that introduced the change.
+    # Fast profile (2026-07-16): in-diff + unit tests only (--lib) + 60s timeout.
+    # Analysis of job 87601199764: full cargo test spent ~97s on integration vs
+    # ~12s on --lib; 120 mutants × full suite exceeded 50+ min. Target wall ≤20 min.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 45
     needs: test
     steps:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
       with:
         fetch-depth: 0
 
-    # --- NEW: skip entire job if no Rust source files changed ---
     - name: Check for Rust changes
       id: rust_changes
       run: |
-        git fetch origin ${{ github.base_ref }} --depth=1
-        CHANGED=$(git diff --name-only origin/${{ github.base_ref }} | grep '\.rs$' || true)
+        # Fetch enough base history for three-dot merge-base (in-diff accuracy).
+        git fetch origin "${{ github.base_ref }}" --depth=50
+        CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep '\.rs$' || true)
         if [ -n "$CHANGED" ]; then
           echo "has_rust_changes=true" >> "$GITHUB_OUTPUT"
+          echo "Changed Rust files:"
+          echo "$CHANGED"
         else
           echo "has_rust_changes=false" >> "$GITHUB_OUTPUT"
         fi
@@ -234,7 +235,7 @@ jobs:
       if: steps.rust_changes.outputs.has_rust_changes == 'true'
       uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
       with:
-        shared-key: mutation-test   # dedicated cache bucket, avoids evicting test-job cache
+        shared-key: mutation-test
 
     - name: Install cargo-mutants
       if: steps.rust_changes.outputs.has_rust_changes == 'true'
@@ -244,11 +245,14 @@ jobs:
 
     - name: Run mutation tests
       if: steps.rust_changes.outputs.has_rust_changes == 'true'
-      run: bash scripts/mutation_test.sh fast --ci
+      run: bash scripts/mutation_test.sh --ci fast
       env:
         MUTATION_THRESHOLD: ${{ github.event.pull_request.draft && '75' || '85' }}
         DIFF_TARGET: origin/${{ github.base_ref || 'main' }}
-        MUTANTS_JOBS: "4"   # passed into script below
+        # Parallel mutants; each runs cargo test --lib (see scripts/mutation_test.sh).
+        MUTANTS_JOBS: "4"
+        CARGO_TERM_COLOR: always
+        RUST_BACKTRACE: "0"
 
   wasm:
     runs-on: ubuntu-latest
