@@ -72,6 +72,24 @@ or add tests that exercise the mutant symbols under default features.
 
 Generator must use `LC_ALL=C sort` and strip `wc -l` whitespace.
 
+### GitHub Actions shell injection (Codacy / Opengrep)
+
+Never interpolate untrusted `github.*` context **inside** a `run:` script:
+
+```yaml
+# BAD
+run: echo "${{ github.event.inputs.foo }}"
+```
+
+Always bind through `env:` first:
+
+```yaml
+# GOOD
+env:
+  INPUT_FOO: ${{ github.event.inputs.foo }}
+run: echo "${INPUT_FOO}"
+```
+
 ### WASM check / unlinked `libsql`
 
 Never:
