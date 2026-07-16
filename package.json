@@ -1,0 +1,9 @@
+{
+  "name": "chaotic-semantic-memory-ci",
+  "private": true,
+  "description": "CI-only tooling (commitlint). Not published.",
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1"
+  }
+}

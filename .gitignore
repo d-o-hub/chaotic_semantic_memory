@@ -49,6 +49,9 @@ pkg/
 # Auto-generated exports
 
 
+# CI-only root npm (commitlint); lockfile is committed, modules are not
+/node_modules/
+
 # IDE / editor tooling
 .opencode/node_modules/
 .opencode/bun.lock

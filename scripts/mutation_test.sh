@@ -99,14 +99,15 @@ if [[ "${PROFILE}" == "fast" ]]; then
       FAST_ARGS+=(--in-place)
     fi
     FAST_ARGS+=(--no-shuffle)
-    # Tight bounds: kill hung mutants; auto timeout still applies via multiplier.
+    # Tight bounds: kill hung mutants; keep build-timeout short so pathological
+    # const/eval mutants don't burn the full job budget (was 180s).
     FAST_ARGS+=(--timeout 60)
     FAST_ARGS+=(--minimum-test-timeout 10)
-    FAST_ARGS+=(--build-timeout 120)
+    FAST_ARGS+=(--build-timeout 60)
   else
     FAST_ARGS+=(--timeout 90)
     FAST_ARGS+=(--minimum-test-timeout 15)
-    FAST_ARGS+=(--build-timeout 180)
+    FAST_ARGS+=(--build-timeout 120)
   fi
 elif [[ "${PROFILE}" != "full" ]]; then
   echo "usage: scripts/mutation_test.sh [--ci] [--threshold=N] [fast|full] [extra cargo-mutants args...]" >&2
@@ -214,7 +215,9 @@ if [[ "${CI_MODE}" == "true" ]]; then
     UNVIABLE="$(echo "${SUMMARY_LINE}" | grep -oE '[0-9]+ unviable' | awk '{print $1}')"
     UNVIABLE="${UNVIABLE:-0}"
     VIABLE=$((TOTAL - UNVIABLE))
-    # Timeouts count as caught for gate purposes (mutant did not pass tests in time).
+    # Industry (Stryker et al.): detected = killed + timeout. Infinite-loop mutants
+    # often only surface as timeouts. ADR-0095: also fail on a timeout *budget*
+    # so a hung suite cannot masquerade as higher quality.
     EFFECTIVE_CAUGHT=$((CAUGHT + TIMEOUTS))
     if [[ "${VIABLE}" -gt 0 ]]; then
       SCORE="$(awk -v c="${EFFECTIVE_CAUGHT}" -v v="${VIABLE}" 'BEGIN { printf "%.4f", c*100/v }')"
@@ -225,6 +228,28 @@ if [[ "${CI_MODE}" == "true" ]]; then
   fi
   if [[ -z "${SCORE}" ]]; then
     SCORE="$(awk '/%/{ gsub(/[^0-9.]/," "); for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\.?[0-9]*$/) s=$i } END { print s+0 }' "${LOG_FILE}")"
+  fi
+
+  # Timeout budget (ADR-0095): timeouts still count as "detected" for score, but
+  # a high timeout rate fails the job so hangs cannot look like strong coverage.
+  # Override: MUTATION_TIMEOUT_BUDGET (absolute), MUTATION_TIMEOUT_FRACTION (of viable).
+  TIMEOUT_BUDGET="${MUTATION_TIMEOUT_BUDGET:-5}"
+  TIMEOUT_FRACTION="${MUTATION_TIMEOUT_FRACTION:-0.10}"
+  if [[ -n "${TIMEOUTS:-}" ]]; then
+    if [[ "${TIMEOUTS}" -gt "${TIMEOUT_BUDGET}" ]]; then
+      echo "error: ${TIMEOUTS} mutation timeouts exceed absolute budget ${TIMEOUT_BUDGET}" >&2
+      exit 1
+    fi
+    if [[ -n "${VIABLE:-}" && "${VIABLE}" -ge 10 ]]; then
+      FRAC_LIMIT="$(awk -v v="${VIABLE}" -v f="${TIMEOUT_FRACTION}" 'BEGIN { n=v*f; printf "%d", (n==int(n)?n:int(n)+1) }')"
+      if [[ "${TIMEOUTS}" -gt "${FRAC_LIMIT}" ]]; then
+        echo "error: ${TIMEOUTS} mutation timeouts exceed ${TIMEOUT_FRACTION} of viable=${VIABLE} (limit ${FRAC_LIMIT})" >&2
+        exit 1
+      fi
+    fi
+    if [[ "${TIMEOUTS}" -gt 0 ]]; then
+      echo "mutation timeouts: ${TIMEOUTS} (budget abs=${TIMEOUT_BUDGET})" >&2
+    fi
   fi
 
   if [[ "${SCORE}" == "0" ]]; then
