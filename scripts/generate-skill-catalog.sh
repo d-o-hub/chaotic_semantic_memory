@@ -20,14 +20,15 @@ tmp="$(mktemp)"
   echo "| Skill | Path | LOC |"
   echo "|-------|------|----:|"
   count=0
+  # Locale-stable sort so CI and local machines produce identical catalogs.
   while IFS= read -r -d '' skill_md; do
     dir="$(dirname "$skill_md")"
     name="$(basename "$dir")"
-    loc=$(wc -l <"$skill_md")
+    loc=$(wc -l <"$skill_md" | tr -d ' ')
     rel="${skill_md#"$ROOT"/}"
     echo "| \`${name}\` | \`${rel}\` | ${loc} |"
     count=$((count + 1))
-  done < <(find "$SKILLS_DIR" -mindepth 2 -maxdepth 2 -name SKILL.md -print0 | sort -z)
+  done < <(find "$SKILLS_DIR" -mindepth 2 -maxdepth 2 -name SKILL.md -print0 | LC_ALL=C sort -z)
   echo ""
   echo "_Total: ${count} skills._"
 } >"$tmp"

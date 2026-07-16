@@ -544,13 +544,15 @@ jobs:
         WASM_OPT_FLAGS: "--enable-bulk-memory --enable-sign-ext"
       run: |
         # ADR-0094: canonical npm artifact is crates/csm-wasm (matches CI wasm job).
-        # --out-name aligns generated JS with wasm/package.json main field.
-        wasm-pack build crates/csm-wasm --release --target web --out-dir wasm/pkg \
+        # Absolute out-dir: wasm-pack resolves relative paths from the crate dir.
+        OUT="${{ github.workspace }}/wasm/pkg"
+        wasm-pack build crates/csm-wasm --release --target web \
+          --out-dir "${OUT}" \
           --out-name chaotic_semantic_memory
-        cp LICENSE wasm/pkg/
-        cp README.md wasm/pkg/
+        cp LICENSE "${OUT}/"
+        cp README.md "${OUT}/"
         # Use prepared package.json with scoped name @d-o-hub/chaotic_semantic_memory
-        cp wasm/package.json wasm/pkg/package.json
+        cp wasm/package.json "${OUT}/package.json"
 
     - name: Publish to npm
       if: steps.npm-check.outputs.already-published != 'true'
