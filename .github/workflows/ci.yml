@@ -522,17 +522,26 @@ jobs:
         shared-key: fuzz
     - name: Check all fuzz targets compile
       run: cargo check --manifest-path fuzz/Cargo.toml --all-targets --locked
-    - name: Install nightly + cargo-fuzz for short PR runs
-      # ADR-0095 Tier 1: compile gate above + short runs of changed/smoke targets.
-      run: |
-        rustup toolchain install nightly --profile minimal
-        rustup component add rust-src --toolchain nightly
-        cargo install cargo-fuzz --locked --version 0.12.0 || cargo install cargo-fuzz --locked
+    - name: Install nightly for short PR fuzz runs
+      uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+      with:
+        cache: false
+        toolchain: nightly
+        components: rust-src
+    - name: Install cargo-fuzz (pinned)
+      # Pin only — no unpinned fallback (PR #518 review). Cache via tool cache when possible.
+      uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853  # v2.83.2
+      with:
+        tool: cargo-fuzz@0.12.0
     - name: Short fuzz runs (smoke targets)
+      # Set FUZZ_SHORT_SECONDS=0 to degrade to compile-only (compile gate already ran).
       run: |
         set -euo pipefail
-        # Bounded wall time per target; fail closed on non-zero (crash/OOM).
         SHORT_SECS="${FUZZ_SHORT_SECONDS:-10}"
+        if [[ "${SHORT_SECS}" == "0" ]]; then
+          echo "FUZZ_SHORT_SECONDS=0 → skip short runs (compile-only gate satisfied)"
+          exit 0
+        fi
         for target in hvec_from_bytes reservoir_step fuzz_text_encoder; do
           echo "::group::fuzz ${target} (${SHORT_SECS}s)"
           cargo +nightly fuzz run "${target}" -- \

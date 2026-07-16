@@ -86,6 +86,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl AbsenceEntry
 - pub trait AbsenceStore
 - pub fn persist_absence
+- pub fn invalidate_all_absences
 
 ### src/bridge_retrieval.rs
 
@@ -466,6 +467,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use semantic_bridge::{BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown}
 - pub use singularity::{Concept, ConceptBuilder}
 - pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
+- pub use bridge_persistence::{AbsenceEntry, AbsenceStore, invalidate_all_absences, persist_absence}
 - pub mod bridge_retrieval
 - pub use csm_chaos
 - pub use csm_core::bundle
@@ -1352,6 +1354,8 @@ pub trait AbsenceStore: Send + Sync {
     fn get_absence(&self, id: &str) -> Result<Option<AbsenceEntry>>;
     fn upsert_absence(&self, entry: &AbsenceEntry) -> Result<()>;
     fn list_absences(&self, min_attempts: u32) -> Result<Vec<AbsenceEntry>>;
+    fn delete_absence(&self, id: &str) -> Result<()>;
+    fn clear_all_absences(&self) -> Result<()>;
 }
 ```
 
@@ -1380,6 +1384,14 @@ impl Persistence {
     pub fn load_concept_graph(&self, ns: &str) -> Result<ConceptGraph>;
 }
 ```
+
+### invalidate_all_absences
+
+```rust
+pub fn invalidate_all_absences(store: &dyn Trait) -> Result<()>
+```
+
+Invalidate all absence short-circuit state after the corpus changes.
 
 ### persist_absence
 
@@ -3219,6 +3231,12 @@ impl IndexSnapshotEnvelope {
 ```rust
 #[derive(Debug)]
 pub struct Persistence;
+```
+
+### bridge_persistence::{AbsenceEntry, AbsenceStore, invalidate_all_absences, persist_absence}
+
+```rust
+pub use bridge_persistence::{AbsenceEntry, AbsenceStore, invalidate_all_absences, persist_absence};
 ```
 
 ### bridge_retrieval::BridgeRetrieval

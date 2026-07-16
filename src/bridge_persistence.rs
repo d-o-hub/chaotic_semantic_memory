@@ -330,6 +330,10 @@ pub trait AbsenceStore: Send + Sync {
     async fn upsert_absence(&self, entry: &AbsenceEntry) -> Result<()>;
     /// Return all absence entries with attempt_count >= min_attempts.
     async fn list_absences(&self, min_attempts: u32) -> Result<Vec<AbsenceEntry>>;
+    /// Delete a single absence row by id (e.g. after memory is no longer empty).
+    async fn delete_absence(&self, id: &str) -> Result<()>;
+    /// Clear all absence rows (invalidation after inject / corpus change).
+    async fn clear_all_absences(&self) -> Result<()>;
 }
 
 /// Persist a RetrievalAbstention event as an AbsenceEntry.
@@ -350,6 +354,11 @@ pub async fn persist_absence(
             Ok(entry)
         }
     }
+}
+
+/// Invalidate all absence short-circuit state after the corpus changes.
+pub async fn invalidate_all_absences(store: &dyn AbsenceStore) -> Result<()> {
+    store.clear_all_absences().await
 }
 
 #[cfg(test)]
