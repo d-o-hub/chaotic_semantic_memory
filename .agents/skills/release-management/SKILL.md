@@ -5,290 +5,157 @@ description: GitHub release management, crates.io trusted publishing, npm proven
 
 # Release Management
 
-Automated release pipeline using 2026 best practices: version sync automation, Trusted Publishing for crates.io/npm, and mdBook for docs.
+Automated release pipeline: version sync, Trusted Publishing (crates.io/npm), and docs. **Main is protected** — never push release commits directly to `main`.
 
-## Quick Start
+## Hard rules
+
+1. **Never push directly to `main`.** Use branch → PR → required CI green → merge.
+2. **Never create release tags manually for routine releases.** Tag owner is `.github/workflows/release.yml` (job `validate` / step “Ensure release tag exists”).
+3. **Single trigger:** workflow runs on **push to `main`** (after merge) or `workflow_dispatch`. It waits for CI, then creates `v{version}` from `Cargo.toml` and publishes.
+4. Identify the artifact channel first via the `dist-channel-selection` skill.
+
+## Protected release flow
+
+```
+feature branch → PR → CI green → merge to main
+        → release.yml (wait-for-ci) → create tag v* → publish
+```
+
+### Operator steps
 
 ```bash
-# 1. Sync version across all files (automates README, docs, tests)
+# 1. Branch from up-to-date main
+git checkout main && git pull
+git checkout -b release/v0.2.0
+
+# 2. Set version in Cargo.toml, then sync dependents
+#    (edit Cargo.toml version = "0.2.0")
 ./scripts/sync-version.sh 0.2.0
 
-# 2. Pre-release validation
-./agents/skills/release-management/scripts/validate-release.sh
+# 3. CHANGELOG: one dated header, Keep a Changelog sections + footer links
+#    ## [0.2.0] - YYYY-MM-DD
 
-# 3. Commit and push (GitHub Actions creates tag automatically)
-git add -A && git commit -m "release: v0.2.0"
-git push origin main
+# 4. Local gates
+./scripts/pre-release-validate.sh --skip-bench
+# Optional skill-local extras:
+.agents/skills/release-management/scripts/validate-release.sh
+
+# 5. Commit on the branch — never on main
+git add -A
+git commit -m "release: v0.2.0"
+
+# 6. PR → wait for CI → merge (squash preferred; no --auto multi-PR loops)
+git push -u origin HEAD
+gh pr create --title "release: v0.2.0" --body "Version bump and changelog for 0.2.0"
+gh pr checks --watch
+gh pr merge --squash
+
+# 7. After merge: release.yml owns the tag and publish
+gh run list --workflow=release.yml --limit 3
+gh run watch
 ```
 
-## Version Sync (Critical Step)
+**Do not** `git push origin main` or `git tag` / `git push origin v*` for normal releases. The workflow extracts version from `Cargo.toml`, creates `v${VERSION}`, and pushes the tag.
 
-Before every release, run `./scripts/sync-version.sh <version>` to update:
+## Version sync (before PR)
 
-| File | Update Type | Example |
-|------|-------------|---------|
-| Cargo.toml | Exact version | `0.2.0` |
-| Cargo.lock | Regenerated | - |
-| CHANGELOG.md | [Unreleased] → [0.2.0] with date | - |
-| README.md | Major.minor compatibility | `0.2` |
-| book/src/getting-started.md | Major.minor compatibility | `0.2` |
-| wasm/package.json | Exact version | `0.2.0` |
-| tests/*.rs | Exact version | `0.2.0` |
-| examples/cli/*.sh | Exact version | `0.2.0` |
-| llms.txt | Regenerated | - |
+Run `./scripts/sync-version.sh <version>` after editing `Cargo.toml`. It updates Cargo.lock, CHANGELOG date section, README/docs minor pins, `wasm/package.json`, tests/examples, and regenerates llms files as configured.
 
-This prevents the common issue of stale versions in documentation.
+| Script | Purpose |
+|--------|---------|
+| `scripts/sync-version.sh <ver>` | Release version propagation |
+| `scripts/sync-docs.sh` | Doc sync (`--check` in CI) |
+| `scripts/check-docs-links.sh` | Links + version consistency |
+| `scripts/pre-release-validate.sh` | Full pre-release gates |
+| `scripts/release-manager.sh` | Unified validate/prepare helpers |
 
-### ⚠️ Important: Tags are Created Automatically
+## CHANGELOG (CRITICAL)
 
-**DO NOT create git tags manually!** The release workflow automatically:
-1. Extracts version from Cargo.toml
-2. Creates and pushes the tag
-3. Triggers the full release pipeline
+Release note extraction requires **exactly one** header with a date:
 
-### Script Distinction
+```markdown
+## [0.2.0] - 2026-04-06
 
-| Script | Purpose | When to Use |
-|--------|---------|-------------|
-| `sync-version.sh <ver>` | Release automation | During release (used in CI) |
-| `sync-docs.sh` | Documentation sync | Development, has `--check` mode |
-| `check-docs-links.sh` | Validation + fix | CI validation, has `--fix` mode |
+### Added
+- …
 
-## Release Process Flow
-
-```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│  Update version │────▶│  Push to main    │────▶│  CI Creates     │
-│  in Cargo.toml  │     │  (git push)      │     │  Tag + Release  │
-└─────────────────┘     └──────────────────┘     └─────────────────┘
+[0.2.0]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.2.0
 ```
 
-### How It Works
-1. Update version in `Cargo.toml` and run `./scripts/sync-version.sh <version>`
-2. Update `CHANGELOG.md` with release notes
-3. Commit and push to main: `git push origin main`
-4. GitHub Actions extracts version from Cargo.toml
-5. CI creates tag `v*` automatically
-6. CI builds, publishes to crates.io/npm, creates GitHub release
+Avoid duplicate headers and missing dates — both fail `release.yml` validate.
 
-### Prerequisites
-1. All conventional commits merged to main
-2. `CHANGELOG.md` reflects changes with proper version header
-3. CI passes on main branch
-4. Trusted Publishing configured (see references/trusted-publishing.md)
+```bash
+VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d'"' -f2)
+grep -c "^## \[${VERSION}\]" CHANGELOG.md   # must be 1
+grep -q "^## \[${VERSION}\] - [0-9]" CHANGELOG.md
+grep -q "^\[${VERSION}\]:" CHANGELOG.md
+```
 
-## Validation Gates
+## Distribution channels
 
-Run `./scripts/pre-release-validate.sh` which checks:
-- [ ] All README CLI commands work as documented
-- [ ] All tests pass (`cargo test --all-features`)
-- [ ] No clippy warnings (`cargo clippy -- -D warnings`)
-- [ ] Documentation builds (`cargo doc --no-deps`)
-- [ ] LOC policy enforced (<= 500 lines per file)
-- [ ] WASM build and size gate
-- [ ] Version sync script available
+1. **Rust library:** `chaotic_semantic_memory` (crates.io, Trusted Publishing / OIDC)
+2. **JS/WASM:** `@d-o-hub/chaotic_semantic_memory` (npm provenance)
+3. **CLI:** `@d-o-hub/csm` (npm)
 
-For faster validation without benchmarks:
+| Target | Method | When |
+|--------|--------|------|
+| crates.io | OIDC Trusted Publishing | After tag from release workflow |
+| npm packages | `npm publish --provenance` / OIDC | Same |
+| GitHub Release | `softprops/action-gh-release` | Same |
+| GitHub Pages | mdBook deploy | Docs path on main / release jobs |
+
+## Tag ownership (single owner)
+
+| Who | Action |
+|-----|--------|
+| **Human / PR** | Bump `Cargo.toml`, changelog, sync-version, merge via PR |
+| **`release.yml`** | Wait for CI → create+push `v{version}` → package → publish → GitHub release |
+
+If the tag already exists, the workflow sets `release-needed=false` and skips re-publish paths (idempotent). Manual tag push is **recovery-only**, approval-gated — see `references/release-workflow.md`.
+
+## Dry run / hotfix / rollback
+
+```bash
+cargo publish --dry-run
+# npm: npm publish --dry-run --provenance (package dir as applicable)
+```
+
+Hotfix: still use a branch + PR into `main`; after merge, `release.yml` creates the patch tag. Do not tag from a side branch for routine hotfixes.
+
+Rollback / partial failure recovery (yank, delete tag, recreate) is documented in `references/release-workflow.md` and must be human-approved.
+
+## Validation gates (local)
+
+`./scripts/pre-release-validate.sh` checks tests, clippy, docs, LOC, WASM size, version sync, etc. Faster:
+
 ```bash
 ./scripts/pre-release-validate.sh --skip-bench
 ```
 
-## CHANGELOG Requirements (CRITICAL)
+Also: `cargo deny check` before release when deps changed.
 
-The release workflow extracts changelog content using awk. **Incorrect formatting causes empty release notes.**
+## SemVer (from conventional commits)
 
-### Required Format
-```markdown
-## [0.2.9] - 2026-04-06
+- **MAJOR:** `feat!:` / `BREAKING CHANGE:`
+- **MINOR:** `feat:`
+- **PATCH:** `fix:`, `perf:`
 
-### Added
-- Description of new features
-
-### Changed
-- Description of changes
-
-### Fixed
-- Description of fixes
-
-[unreleased]: https://github.com/.../compare/v0.2.9...HEAD
-[0.2.9]: https://github.com/.../releases/tag/v0.2.9
-[0.2.8]: https://github.com/.../releases/tag/v0.2.8
-```
-
-### Common Mistakes (DO NOT DO)
-```markdown
-## [0.2.9]                    ❌ Duplicate/empty header
-## [0.2.9] - 2026-04-06       ❌ Causes awk to exit immediately
-
-## [0.2.9]                    ❌ Missing date
-```
-
-### Pre-Commit Validation
-```bash
-# Check for duplicate headers
-grep -c '^\#\# \[.*\]' CHANGELOG.md | while read count; do
-  [ "$count" -gt 1 ] && echo "❌ Duplicate header detected" && exit 1
-done
-
-# Check for version link entry at bottom
-VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d'"' -f2)
-grep -q "^\[${VERSION}\]:" CHANGELOG.md || echo "❌ Missing version link"
-```
-
-## Distribution Channels (CRITICAL)
-
-Before publishing or validating, you MUST use the `dist-channel-selection` skill to identify the correct target. This repository distributes three distinct artifacts:
-
-1. **Rust Library:** `chaotic_semantic_memory` (crates.io)
-2. **JS/WASM Library:** `@d-o-hub/chaotic_semantic_memory` (npm)
-3. **CLI Tool:** `@d-o-hub/csm` (npm)
-
-## Publishing Targets
-
-| Target | Method | Trigger |
-|--------|--------|---------|
-| crates.io | Trusted Publishing (OIDC) | Push git tag `v*` |
-| npm (if applicable) | `npm publish --provenance` | Push git tag `v*` |
-| GitHub Release | `softprops/action-gh-release` | Push git tag `v*` triggers CI |
-| GitHub Pages | mdBook + actions/deploy-pages | Push to main |
-
-## CLI Usage Examples
-
-### Full Release (Recommended)
-```bash
-# 1. Sync version across all files (prevents stale docs)
-./scripts/sync-version.sh 0.2.0
-
-# 2. Review changes
-git diff
-
-# 3. Run validation gates
-cargo test --all-features
-cargo fmt --check
-cargo clippy --all-targets -- -D warnings
-
-# 4. Commit and push (GitHub Actions creates tag automatically)
-git add -A && git commit -m "release: v0.2.0"
-git push origin main
-
-# 5. Monitor CI (GitHub Actions will create tag and release)
-gh run watch
-
-# 6. Verify publication
-cargo search chaotic_semantic_memory
-```
-
-**⚠️ Important:** Do NOT create tags manually! GitHub Actions automatically creates tags from Cargo.toml version.
-
-### Dry Run (Test Release Process)
-```bash
-# Test crates.io publishing without publishing
-cargo publish --dry-run
-
-# Test npm provenance (if applicable)
-npm publish --dry-run --provenance
-```
-
-### Hotfix Release
-```bash
-# Create hotfix branch from tag
-git checkout -b hotfix/v1.2.1 v1.2.0
-
-# Apply fix and commit
-git commit -m "fix: critical bug in reservoir spectral radius"
-
-# Tag and push (triggers release workflow)
-git tag -a v1.2.1 -m "Hotfix 1.2.1"
-git push origin v1.2.1
-```
-
-### Rollback Failed Release
-```bash
-# Delete remote tag (before CI publishes)
-git push --delete origin v1.2.0
-
-# Yank from crates.io (if already published)
-cargo yank --version 1.2.0 chaotic_semantic_memory
-
-# Delete GitHub release
-gh release delete v1.2.0 --yes
-```
-
-## Version Numbering
-
-Follows [SemVer](https://semver.org/):
-- **MAJOR**: Breaking API changes
-- **MINOR**: New features, backward compatible
-- **PATCH**: Bug fixes, backward compatible
-
-Derived automatically from conventional commits:
-- `feat!:` or `BREAKING CHANGE:` → MAJOR
-- `feat:` → MINOR
-- `fix:`, `perf:` → PATCH
-
-## Detailed References
+## References
 
 | Document | Purpose |
 |----------|---------|
-| [release-workflow.md](references/release-workflow.md) | Full workflow with CI examples |
-| [trusted-publishing.md](references/trusted-publishing.md) | crates.io + npm OIDC setup |
-| [version-tag-format.md](references/version-tag-format.md) | v{version} best practices, rolling tags |
-| ADR-0049 | Release checklist and version sync protocol |
+| [release-workflow.md](references/release-workflow.md) | Full flow, recovery, pitfalls |
+| [trusted-publishing.md](references/trusted-publishing.md) | crates.io + npm OIDC |
+| [version-tag-format.md](references/version-tag-format.md) | `v{version}` conventions |
+| ADR-0039 / ADR-0049 | Release engineering / checklist |
 
-## Troubleshooting
+Skill scripts (optional, not the tag owner):
 
-| Issue | Solution |
-|-------|----------|
-| "crate already exists" on crates.io | The workflow now checks and skips publish if already published |
-| GitHub release not created but crates.io exists | The workflow now checks for existing releases and skips creation |
-| Tag exists but release missing | Delete local/remote tag: `git tag -d vX.X.X && git push origin :refs/tags/vX.X.X`, then re-push |
-| "OIDC token exchange failed" | Verify Trusted Publishing config on crates.io |
-| "npm provenance failed" | Ensure Node 24+ and `id-token: write` permission |
-| "npm token expired" | Generate fresh automation token at npmjs.com/settings/tokens |
-| "npm 404 Not Found" | Package doesn't exist OR Trusted Publisher not configured |
-| "Access token expired" | NPM_TOKEN secret is revoked; regenerate at npmjs.com |
-| Docs not deploying | Check GitHub Pages settings → Source: GitHub Actions |
+- `scripts/validate-release.sh` — skill-local preflight
+- `scripts/create-github-release.sh` — manual GH release helper (recovery)
 
-## Idempotent Releases (2026-03-17)
+## Security
 
-The release workflow is now idempotent - it handles partial failures gracefully:
-
-1. **crates.io check**: Before publishing, checks if version already exists on crates.io
-2. **GitHub release check**: Before creating release, checks if release already exists
-3. **Skipped gracefully**: If either already exists, it skips that step and continues
-
-This prevents the issue where:
-- Crate was manually published to crates.io
-- CI failed trying to re-publish
-- GitHub release was never created
-- Future runs skipped because tag existed
-
-### Manual Recovery (if needed)
-
-If a release partially failed:
-
-```bash
-# Check current state
-gh release list
-curl -s https://crates.io/api/v1/crates/chaotic_semantic_memory/versions | jq '.versions[0].num'
-npm view @d-o-hub/chaotic_semantic_memory version
-
-# If GitHub release missing but crates.io published:
-# 1. Delete the tag locally and remotely
-git tag -d vX.X.X && git push origin :refs/tags/vX.X.X
-
-# 2. Re-create at correct commit (or HEAD)
-git tag vX.X.X <commit> && git push origin vX.X.X
-# OR create at HEAD:
-git tag vX.X.X && git push origin vX.X.X
-
-# 3. CI will now create the release (or manually with):
-gh release create vX.X.X --title "vX.X.X" --notes-file CHANGELOG.md
-```
-
-## Security Requirements
-
-- **Never** commit API tokens or secrets
-- Use Trusted Publishing (OIDC) instead of long-lived tokens
-- Require 2FA on crates.io and npm accounts
-- Enable branch protection on main
+- Never commit API tokens; prefer OIDC Trusted Publishing
+- 2FA on crates.io and npm
+- Branch protection on `main` (required checks, no direct push)

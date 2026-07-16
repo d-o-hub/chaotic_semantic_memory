@@ -58,26 +58,43 @@ impl<H: Hypervector + 'static> Singularity<H> {
         Self::new_with_metrics(cfg, cache_metrics)
     }
 
-    #[allow(clippy::expect_used)]
-    fn create_index(&self) -> Box<dyn AnnIndex<H>> {
+    fn create_index(&self) -> Result<Box<dyn AnnIndex<H>>> {
         crate::index::create_index(&self.config.index_backend)
-            .expect("ANN index creation failed; check feature flags and configuration")
     }
 
     pub fn get_namespace(&self, ns: &str) -> Option<&NamespaceState<H>> {
         self.namespaces.get(ns)
     }
 
-    #[allow(clippy::unwrap_used)]
-    pub fn get_namespace_mut(&mut self, ns: &str) -> &mut NamespaceState<H> {
+    /// Ensure a namespace exists, creating its ANN index if needed.
+    ///
+    /// Returns `Err(MemoryError::InvalidInput)` when the configured ANN backend
+    /// cannot be constructed (e.g. invalid HNSW/LSH parameters).
+    pub fn ensure_namespace(&mut self, ns: &str) -> Result<&mut NamespaceState<H>> {
         if !self.namespaces.contains_key(ns) {
-            let index = self.create_index();
+            let index = self.create_index()?;
             self.namespaces.insert(
                 ns.to_string(),
                 NamespaceState::new(&self.config, index, Arc::clone(&self.cache_metrics)),
             );
         }
-        self.namespaces.get_mut(ns).unwrap()
+        // Key was present or just inserted; absence would be a logic bug.
+        self.namespaces
+            .get_mut(ns)
+            .ok_or_else(|| MemoryError::NotFound {
+                entity: "Namespace".to_string(),
+                id: ns.to_string(),
+            })
+    }
+
+    /// Mutable access to a namespace, creating it if absent.
+    ///
+    /// **Breaking change (0.3.x → next):** returns `Result` instead of a bare
+    /// `&mut NamespaceState`. Prefer [`Self::ensure_namespace`]. Invalid ANN
+    /// backend configuration propagates as `MemoryError::InvalidInput` rather
+    /// than panicking. Migration: use `?` or handle the `Result` at call sites.
+    pub fn get_namespace_mut(&mut self, ns: &str) -> Result<&mut NamespaceState<H>> {
+        self.ensure_namespace(ns)
     }
 
     #[instrument(skip(self, concept))]
@@ -86,7 +103,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
         let id = concept.id.clone();
         let vector = concept.vector;
 
-        let ns_state = self.get_namespace_mut(ns);
+        let ns_state = self.ensure_namespace(ns)?;
 
         // Update ANN index
         ns_state.index.insert(id.clone(), &vector)?;
@@ -107,7 +124,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
     }
 
     pub fn update(&mut self, ns: &str, id: &str, vector: H) -> Result<()> {
-        let ns_state = self.get_namespace_mut(ns);
+        let ns_state = self.ensure_namespace(ns)?;
         if let Some(concept) = ns_state.concepts.get_mut(id) {
             concept.vector = vector;
             concept.modified_at = unix_now_secs();
@@ -126,7 +143,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
     }
 
     pub fn delete(&mut self, ns: &str, id: &str) -> Result<()> {
-        let ns_state = self.get_namespace_mut(ns);
+        let ns_state = self.ensure_namespace(ns)?;
         if ns_state.concepts.remove(id).is_some() {
             ns_state.associations.remove(id);
             for neighbors in ns_state.associations.values_mut() {
@@ -185,7 +202,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
         // Read config limit before borrowing ns_state mutably
         let max_assoc = self.config.max_associations_per_concept;
 
-        let ns_state = self.get_namespace_mut(ns);
+        let ns_state = self.ensure_namespace(ns)?;
         if !ns_state.concepts.contains_key(from) {
             return Err(MemoryError::NotFound {
                 entity: "Concept".to_string(),
@@ -225,7 +242,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
     }
 
     pub fn disassociate(&mut self, ns: &str, from: &str, to: &str) -> Result<()> {
-        let ns_state = self.get_namespace_mut(ns);
+        let ns_state = self.ensure_namespace(ns)?;
         if let Some(neighbors) = ns_state.associations.get_mut(from) {
             neighbors.remove(to);
         }

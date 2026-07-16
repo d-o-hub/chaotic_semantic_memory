@@ -83,7 +83,7 @@ impl ChaoticSemanticFramework {
                 }
 
                 for (from_id, to_id, strength, created_at) in all_associations {
-                    let ns_state = sing.get_namespace_mut(&ns);
+                    let ns_state = sing.ensure_namespace(&ns)?;
                     let neighbors = ns_state.associations.entry(from_id).or_default();
                     neighbors.insert(to_id, (strength, created_at));
                 }
@@ -95,14 +95,14 @@ impl ChaoticSemanticFramework {
             if let Ok(Some(index_data)) = persistence.load_index(&ns, "main").await {
                 {
                     let mut sing = self.singularity.write().await;
-                    let ns_state = sing.get_namespace_mut(&ns);
+                    let ns_state = sing.ensure_namespace(&ns)?;
                     ns_state.index.deserialize(&index_data)?;
                 }
             } else {
                 // Fallback: rebuild index from concepts
                 {
                     let mut sing = self.singularity.write().await;
-                    let ns_state = sing.get_namespace_mut(&ns);
+                    let ns_state = sing.ensure_namespace(&ns)?;
                     let concepts_map = ns_state.concepts.clone();
                     ns_state.index.rebuild(&concepts_map)?;
                 }
@@ -158,7 +158,7 @@ impl ChaoticSemanticFramework {
             {
                 let mut sing = self.singularity.write().await;
                 for (from_id, to_id, strength, created_at) in all_associations {
-                    let ns_state = sing.get_namespace_mut(&ns);
+                    let ns_state = sing.ensure_namespace(&ns)?;
                     let neighbors = ns_state.associations.entry(from_id).or_default();
                     neighbors.insert(to_id, (strength, created_at));
                 }
@@ -172,14 +172,14 @@ impl ChaoticSemanticFramework {
             if let Ok(Some(index_data)) = persistence.load_index(&ns, "main").await {
                 {
                     let mut sing = self.singularity.write().await;
-                    let ns_state = sing.get_namespace_mut(&ns);
+                    let ns_state = sing.ensure_namespace(&ns)?;
                     ns_state.index.deserialize(&index_data)?;
                 }
             } else {
                 // Fallback: rebuild index from concepts
                 {
                     let mut sing = self.singularity.write().await;
-                    let ns_state = sing.get_namespace_mut(&ns);
+                    let ns_state = sing.ensure_namespace(&ns)?;
                     let concepts_map = ns_state.concepts.clone();
                     ns_state.index.rebuild(&concepts_map)?;
                 }

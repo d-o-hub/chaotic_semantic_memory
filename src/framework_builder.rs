@@ -343,6 +343,9 @@ impl FrameworkBuilder {
             self.config.reservoir_input_size,
             self.config.chaos_strength,
         )?;
+        // Fail closed on invalid ANN params (HNSW m, LSH tables, etc.) at build
+        // time rather than panicking on first namespace creation (ADR-0093).
+        crate::index::validate_index_backend(&self.config.index_backend)?;
         let metrics = Arc::new(crate::framework_metrics::FrameworkMetrics::default());
 
         let singularity = Arc::new(RwLock::new(Singularity::with_config_backend_and_metrics(
@@ -455,5 +458,17 @@ mod tests {
         // Below limit
         let builder = FrameworkBuilder::new().with_max_associations_per_concept(limit - 1);
         assert_eq!(builder.config.max_associations_per_concept, Some(limit - 1));
+    }
+
+    #[tokio::test]
+    async fn build_default_bruteforce_ok() {
+        let fw = FrameworkBuilder::new()
+            .without_persistence()
+            .build()
+            .await
+            .expect("default BruteForce backend must build");
+        fw.inject_concept("c1", csm_core::HVec10240::random())
+            .await
+            .expect("inject on default backend");
     }
 }

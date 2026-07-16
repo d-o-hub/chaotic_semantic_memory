@@ -9,7 +9,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
     /// Reinforce an association by resetting its `created_at` timestamp to now.
     /// This effectively refreshes the association so decay starts over.
     pub fn reinforce_association(&mut self, ns: &str, from: &str, to: &str) -> Result<()> {
-        let ns_state = self.get_namespace_mut(ns);
+        let ns_state = self.ensure_namespace(ns)?;
         let neighbors =
             ns_state
                 .associations
@@ -28,6 +28,9 @@ impl<H: Hypervector + 'static> Singularity<H> {
 
     /// Prune associations whose decayed strength falls below `threshold`.
     /// Returns the number of associations removed.
+    ///
+    /// Missing namespaces are a no-op (returns 0) so prune never creates an
+    /// empty namespace solely to count removals.
     pub fn prune_decayed_associations(
         &mut self,
         ns: &str,
@@ -35,7 +38,9 @@ impl<H: Hypervector + 'static> Singularity<H> {
         threshold: f32,
     ) -> usize {
         let now = unix_now_secs();
-        let ns_state = self.get_namespace_mut(ns);
+        let Some(ns_state) = self.namespaces.get_mut(ns) else {
+            return 0;
+        };
         let mut removed = 0usize;
         for neighbors in ns_state.associations.values_mut() {
             let before = neighbors.len();

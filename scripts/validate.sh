@@ -137,6 +137,15 @@ else
   echo "      Install with: npm install -g markdownlint-cli || gem install mdl"
 fi
 
+# Skill format validation (ADR-0096) — fail-closed LOC/frontmatter/local refs
+if [[ -x "${SCRIPT_DIR}/validate-skill-format.sh" ]]; then
+  echo "==> Skill format validation (fail-closed)"
+  "${SCRIPT_DIR}/validate-skill-format.sh"
+else
+  echo "Error: scripts/validate-skill-format.sh missing or not executable"
+  exit 1
+fi
+
 # ADR Registry consistency check (ADR-0076)
 echo "==> ADR Registry consistency check"
 ADR_REGISTRY="plans/ADR_REGISTRY.md"

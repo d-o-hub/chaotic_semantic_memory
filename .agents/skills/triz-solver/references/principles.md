@@ -1,0 +1,1 @@
+../../triz-analysis/references/principles.md

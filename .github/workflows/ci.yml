@@ -282,5 +282,33 @@ jobs:
       run: cargo fmt --all -- --check
     - name: Clippy
       run: cargo clippy --all-targets --all-features -- -D warnings
+    - name: Skill format validation (ADR-0096)
+      run: bash scripts/validate-skill-format.sh
     - name: LOC gate
       run: bash scripts/validate.sh
+
+  # ADR-0095 Tier 1: fuzz targets must compile on every PR/push.
+  # Lightweight check only (no long fuzz runs). cargo-fuzz CLI / nightly not required.
+  # Add job name "Fuzz Workspace Build" to branch-protection required checks.
+  fuzz-build:
+    name: Fuzz Workspace Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PROTOC: /usr/bin/protoc
+    steps:
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
+    - name: Install clang (libfuzzer-sys build)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+      with:
+        cache: false
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
+      with:
+        workspaces: fuzz
+    - name: Check all fuzz targets compile
+      run: cargo check --manifest-path fuzz/Cargo.toml --all-targets --locked
