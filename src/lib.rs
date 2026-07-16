@@ -60,6 +60,7 @@ mod persistence_concepts;
 pub mod semantic_triples;
 pub use metadata_filter::MetadataFilter;
 pub mod index;
+pub mod index_envelope;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 pub mod persistence;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
@@ -132,6 +133,33 @@ pub mod persistence {
             _id: &str,
         ) -> Result<Vec<(String, f32, u64)>> {
             Ok(Vec::new())
+        }
+        pub async fn load_all_associations(
+            &self,
+            _ns: &str,
+        ) -> Result<Vec<(String, String, f32, u64)>> {
+            Ok(Vec::new())
+        }
+        pub async fn get_namespace_revision(&self, _ns: &str) -> Result<u64> {
+            Ok(0)
+        }
+        pub async fn bump_namespace_revision(&self, _ns: &str) -> Result<u64> {
+            Ok(1)
+        }
+        pub async fn save_index_envelope(
+            &self,
+            _ns: &str,
+            _id: &str,
+            _envelope: &crate::index_envelope::IndexSnapshotEnvelope,
+        ) -> Result<()> {
+            Ok(())
+        }
+        pub async fn load_index_envelope(
+            &self,
+            _ns: &str,
+            _id: &str,
+        ) -> Result<Option<crate::index_envelope::IndexSnapshotEnvelope>> {
+            Ok(None)
         }
         pub async fn delete_association(&self, _ns: &str, _from: &str, _to: &str) -> Result<()> {
             Ok(())

@@ -42,6 +42,12 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
 
+      # Unit tests for the benchmarks workspace (also run on every PR via ci.yml
+      # test-benchmarks). Kept here so path-filtered benchmark changes still
+      # validate the harness before the retrieval-only smoke run.
+      - name: Benchmark workspace unit tests
+        run: cargo test --manifest-path benchmarks/Cargo.toml --locked --quiet
+
       - name: Run benchmark
         run: cargo run --manifest-path benchmarks/Cargo.toml -- --dataset-dir benchmarks/datasets/v1/small --mode retrieval-only --out-dir benchmarks/results/ci
 
@@ -77,8 +83,10 @@ jobs:
               return True
 
           ok = True
-          ok &= require('recall_at_1', 0.7)
-          ok &= require('recall_at_5', 0.7)
+          # ADR-0095: recall_at_* is multi-label recall (not hit rate). Hit rate was
+          # historically ~0.75+; true multi-label mean on the small CI profile is lower.
+          ok &= require('recall_at_1', 0.55)
+          ok &= require('recall_at_5', 0.55)
           ok &= require('abstain_precision', 0.5)
           ok &= require('abstain_recall', 0.5)
           ok &= require_positive('storage_bytes')

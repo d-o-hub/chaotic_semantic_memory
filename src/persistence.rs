@@ -8,7 +8,7 @@ use csm_core::error::{MemoryError, Result};
 use libsql::{Builder, Connection, Database, params};
 use std::sync::Arc;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-pub(crate) const LATEST_SCHEMA_VERSION: i64 = 10;
+pub(crate) const LATEST_SCHEMA_VERSION: i64 = 11;
 
 #[derive(Debug)]
 pub struct Persistence {

@@ -442,6 +442,16 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub use csm_memory::index::*
 
+### src/index_envelope.rs
+
+- pub const INDEX_ENVELOPE_MAGIC
+- pub const INDEX_ENVELOPE_VERSION
+- pub const VECTOR_FORMAT_HVEC10240
+- pub struct IndexSnapshotEnvelope
+- impl IndexSnapshotEnvelope
+- pub fn fnv1a64
+- pub fn backend_fingerprint
+
 ### src/lib.rs
 
 - pub use bridge_retrieval::BridgeRetrieval
@@ -474,6 +484,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod semantic_triples
 - pub use metadata_filter::MetadataFilter
 - pub mod index
+- pub mod index_envelope
 - pub mod persistence
 - pub mod persistence_wasm
 - pub use csm_core::reservoir
@@ -3122,6 +3133,75 @@ pub use csm_memory::graph_traversal::*;
 pub use csm_memory::index::*;
 ```
 
+## src/index_envelope.rs
+
+### INDEX_ENVELOPE_MAGIC
+
+```rust
+pub const INDEX_ENVELOPE_MAGIC: &[u8; N]
+```
+
+Magic prefix for envelope-wrapped index blobs (`CSMIDX01`).
+
+### INDEX_ENVELOPE_VERSION
+
+```rust
+pub const INDEX_ENVELOPE_VERSION: u32
+```
+
+Envelope schema version (not DB schema version).
+
+### IndexSnapshotEnvelope
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct IndexSnapshotEnvelope {
+    pub envelope_version: u32,
+    pub namespace_revision: u64,
+    pub backend_fingerprint: String,
+    pub vector_format: String,
+    pub index_data: Vec<u8>,
+    pub checksum: u64,
+}
+```
+
+Revisioned ANN snapshot envelope (ADR-0093).
+
+### VECTOR_FORMAT_HVEC10240
+
+```rust
+pub const VECTOR_FORMAT_HVEC10240: &str
+```
+
+Canonical vector format identifier for 10240-bit HDC vectors.
+
+### backend_fingerprint
+
+```rust
+pub fn backend_fingerprint(backend: &crate::index::IndexBackend) -> String
+```
+
+Fingerprint an [`crate::index::IndexBackend`] for envelope matching.
+
+### fnv1a64
+
+```rust
+pub fn fnv1a64(data: &[u8]) -> u64
+```
+
+FNV-1a 64-bit hash for envelope checksums.
+
+### impl IndexSnapshotEnvelope
+
+```rust
+impl IndexSnapshotEnvelope {
+    pub fn new(namespace_revision: u64, backend_fingerprint: impl Trait, index_data: Vec<u8>) -> Self;
+    pub fn validate_integrity(&self) -> Result<()>;
+    pub fn encode(&self) -> Result<Vec<u8>>;
+    pub fn try_decode(bytes: &[u8]) -> Result<Option<Self>>;
+}
+```
+
 ## src/lib.rs
 
 ### Persistence
@@ -3299,6 +3379,11 @@ impl Persistence {
     pub fn save_association(&self, _ns: &str, _from: &str, _to: &str, _strength: f32) -> Result<()>;
     pub fn save_associations(&self, _ns: &str, _associations: &[(String, String, f32)]) -> Result<()>;
     pub fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32, u64)>>;
+    pub fn load_all_associations(&self, _ns: &str) -> Result<Vec<(String, String, f32, u64)>>;
+    pub fn get_namespace_revision(&self, _ns: &str) -> Result<u64>;
+    pub fn bump_namespace_revision(&self, _ns: &str) -> Result<u64>;
+    pub fn save_index_envelope(&self, _ns: &str, _id: &str, _envelope: &crate::index_envelope::IndexSnapshotEnvelope) -> Result<()>;
+    pub fn load_index_envelope(&self, _ns: &str, _id: &str) -> Result<Option<crate::index_envelope::IndexSnapshotEnvelope>>;
     pub fn delete_association(&self, _ns: &str, _from: &str, _to: &str) -> Result<()>;
     pub fn clear_concept_associations(&self, _ns: &str, _id: &str) -> Result<()>;
     pub fn clear_all(&self) -> Result<()>;
@@ -3908,7 +3993,12 @@ impl Persistence {
 ```rust
 impl Persistence {
     pub fn save_index(&self, ns: &str, id: &str, data: &[u8]) -> Result<()>;
+    pub fn save_index_envelope(&self, ns: &str, id: &str, envelope: &IndexSnapshotEnvelope) -> Result<()>;
     pub fn load_index(&self, ns: &str, id: &str) -> Result<Option<Vec<u8>>>;
+    pub fn load_index_envelope(&self, ns: &str, id: &str) -> Result<Option<IndexSnapshotEnvelope>>;
+    pub fn get_namespace_revision(&self, ns: &str) -> Result<u64>;
+    pub fn bump_namespace_revision(&self, ns: &str) -> Result<u64>;
+    pub fn load_all_associations(&self, ns: &str) -> Result<Vec<(String, String, f32, u64)>>;
 }
 ```
 
@@ -3986,6 +4076,10 @@ impl Persistence {
     pub fn save_associations(&self, _ns: &str, _associations: &[(String, String, f32)]) -> Result<()>;
     pub fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32, u64)>>;
     pub fn load_all_associations(&self, _ns: &str) -> Result<Vec<(String, String, f32, u64)>>;
+    pub fn get_namespace_revision(&self, _ns: &str) -> Result<u64>;
+    pub fn bump_namespace_revision(&self, _ns: &str) -> Result<u64>;
+    pub fn save_index_envelope(&self, _ns: &str, _id: &str, _envelope: &crate::index_envelope::IndexSnapshotEnvelope) -> Result<()>;
+    pub fn load_index_envelope(&self, _ns: &str, _id: &str) -> Result<Option<crate::index_envelope::IndexSnapshotEnvelope>>;
     pub fn clear_namespace(&self, _ns: &str) -> Result<()>;
     pub fn clear_all(&self) -> Result<()>;
     pub fn get_version_scoped(&self, _ns: &str, _id: &str, _version: u64) -> Result<Option<Concept>>;

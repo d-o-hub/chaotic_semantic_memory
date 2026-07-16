@@ -15,8 +15,14 @@ impl Persistence {
         let expires_at: Option<i64> = concept.expires_at.map(|t| t as i64);
         let canonical_concept_ids_json = serde_json::to_string(&concept.canonical_concept_ids)?;
 
-        conn.execute(
-            "INSERT INTO csm_concepts
+        // ADR-0093: single transaction so row + version + revision stay consistent.
+        conn.execute("BEGIN", ())
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to begin transaction: {e}")))?;
+
+        if let Err(e) = conn
+            .execute(
+                "INSERT INTO csm_concepts
              (namespace, id, vector, metadata, created_at, modified_at, expires_at, canonical_concept_ids_json)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
              ON CONFLICT(namespace, id) DO UPDATE SET
@@ -25,28 +31,45 @@ impl Persistence {
              modified_at = excluded.modified_at,
              expires_at = excluded.expires_at,
              canonical_concept_ids_json = excluded.canonical_concept_ids_json",
-            params![
-                ns,
-                concept.id.as_str(),
-                vector_bytes.as_slice(),
-                metadata_json.as_str(),
-                concept.created_at as i64,
-                concept.modified_at as i64,
-                expires_at,
-                canonical_concept_ids_json.as_str()
-            ],
-        )
-        .await
-        .map_err(|e| MemoryError::database(format!("Failed to save concept: {e}")))?;
+                params![
+                    ns,
+                    concept.id.as_str(),
+                    vector_bytes.as_slice(),
+                    metadata_json.as_str(),
+                    concept.created_at as i64,
+                    concept.modified_at as i64,
+                    expires_at,
+                    canonical_concept_ids_json.as_str()
+                ],
+            )
+            .await
+        {
+            let _ = conn.execute("ROLLBACK", ()).await;
+            return Err(MemoryError::database(format!("Failed to save concept: {e}")));
+        }
 
-        self.record_concept_version_scoped(
-            &conn,
-            ns,
-            concept,
-            Some(&vector_bytes),
-            Some(&metadata_json),
-        )
-        .await?;
+        if let Err(e) = self
+            .record_concept_version_scoped(
+                &conn,
+                ns,
+                concept,
+                Some(&vector_bytes),
+                Some(&metadata_json),
+            )
+            .await
+        {
+            let _ = conn.execute("ROLLBACK", ()).await;
+            return Err(e);
+        }
+
+        if let Err(e) = self.bump_namespace_revision_with_conn(&conn, ns).await {
+            let _ = conn.execute("ROLLBACK", ()).await;
+            return Err(e);
+        }
+
+        conn.execute("COMMIT", ())
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to commit concept save: {e}")))?;
         Ok(())
     }
 
@@ -117,6 +140,12 @@ impl Persistence {
         if let Some(error) = first_error {
             let _ = conn.execute("ROLLBACK", ()).await;
             return Err(error);
+        }
+
+        // One revision bump for the batch (authoritative mutation set).
+        if let Err(e) = self.bump_namespace_revision_with_conn(&conn, ns).await {
+            let _ = conn.execute("ROLLBACK", ()).await;
+            return Err(e);
         }
 
         conn.execute("COMMIT", ())
@@ -290,6 +319,12 @@ impl Persistence {
             return Err(MemoryError::database(format!(
                 "Failed to delete concept: {e}"
             )));
+        }
+
+        // ADR-0093: durable delete advances revision (stales ANN snapshot).
+        if let Err(e) = self.bump_namespace_revision_with_conn(&conn, ns).await {
+            let _ = conn.execute("ROLLBACK", ()).await;
+            return Err(e);
         }
 
         conn.execute("COMMIT", ())

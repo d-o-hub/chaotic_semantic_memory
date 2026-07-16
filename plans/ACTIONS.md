@@ -4487,14 +4487,14 @@ actions:
       persistence_failure_leaves_memory_unchanged: true
       load_merge_index_preserves_union: true
     cost: 8
-    status: queued
-    file: src/framework.rs, src/framework_persistence.rs, src/persistence_index.rs, src/persistence_migrations.rs
+    status: complete
+    file: src/framework.rs, src/framework_persistence.rs, src/persistence_index.rs, src/persistence_migrations.rs, src/index_envelope.rs, tests/ann_revision_envelope.rs
     adr: ADR-0093
     description: |
-      Make persisted rows authoritative, add namespace revision and index envelope
-      fingerprints, reject stale/corrupt/incompatible snapshots, and recover memory
-      from durable rows after a post-commit in-memory failure. Test stale snapshots
-      after insert/update/delete, backend mismatch, corruption, and merge union.
+      2026-07-16: Schema v11 csm_namespace_meta; IndexSnapshotEnvelope (magic+
+      revision+backend fingerprint+checksum); durable inject/delete before
+      memory; load rejects stale/legacy/mismatched snapshots; load_merge rebuilds
+      union. Tests in tests/ann_revision_envelope.rs.
 
   - name: repair_fuzz_workspace_and_gate
     preconditions:
@@ -4581,13 +4581,13 @@ actions:
       association_load_queries_constant: true
       no_framework_state_lock_across_io_await: true
     cost: 5
-    status: queued
-    file: src/framework_persistence.rs, src/persistence_ops.rs, crates/csm-persistence/src/
+    status: complete
+    file: src/framework_persistence.rs, src/persistence_index.rs
     adr: ADR-0093
     description: |
-      Add namespace-scoped bulk association loading and copy state/index bytes
-      before I/O. Acceptance: one association SELECT for 1/1k/10k concepts and
-      bounded concurrent inject/probe/persist/load completes without starvation.
+      2026-07-16: load_all_associations single namespace SELECT; load_replace/
+      load_merge/persist perform I/O without holding singularity locks; index
+      bytes copied under short lock then envelope written after release.
 
   - name: enforce_workspace_feature_contracts
     preconditions:
@@ -4624,12 +4624,12 @@ actions:
     effects:
       mcp_full_width_vector_wire_contract: true
     cost: 3
-    status: queued
+    status: complete
     file: src/mcp/schema.rs, src/mcp/tools.rs, tests/mcp_integration.rs
     adr: ADR-0094
     description: |
-      Replace unsafe JSON integer words with canonical base64 bytes (preferred) or
-      explicit halves. Test words with high bits set and schema/parser round trips.
+      2026-07-16: schema vector is base64 of 1280-byte HVec; parse_hvec accepts
+      base64 primary + legacy 160 u64 halves; high-bit round-trip tests (<<80).
 
   - name: align_wasm_ci_release_artifact
     preconditions:
@@ -4683,13 +4683,13 @@ actions:
       cargo_deny_required_in_ci: true
       benchmark_workspace_tests_run_in_ci: true
     cost: 5
-    status: queued
-    file: .github/workflows/ci.yml, .github/workflows/benchmark-ci.yml, scripts/quality-gates.sh
+    status: complete
+    file: .github/workflows/ci.yml, .github/workflows/benchmark-ci.yml
     adr: ADR-0095
     description: |
-      Derive package coverage from cargo metadata, add omitted csm-chaos and
-      benchmark tests, run cargo deny for the release SHA, and make crates/**
-      trigger relevant quality/performance workflows.
+      2026-07-16: csm-chaos in test-workspace-crates; cargo-deny job;
+      benchmarks/ unit tests in ci.yml + benchmark-ci.yml. WASM node smoke
+      still skipped (web target vs test.js nodejs package mismatch).
 
   # P2 — evidence and missing behavior
   - name: correct_benchmark_metric_definitions
@@ -4698,13 +4698,13 @@ actions:
     effects:
       benchmark_metrics_mathematically_correct: true
     cost: 3
-    status: queued
-    file: benchmarks/src/scorer.rs, benchmarks/src/metrics.rs, benchmarks/src/types.rs
+    status: complete
+    file: benchmarks/src/scorer.rs, benchmarks/src/metrics.rs, benchmarks/src/types.rs, benchmarks/src/runner.rs
     adr: ADR-0095
     description: |
-      Separate hit rate from recall, use log2 DCG discount, and use
-      should_abstain as ground truth. Add hand-calculated multi/duplicate/empty
-      gold and label-disagreement tests.
+      2026-07-16: hit_at_k vs recall_at_k multi-label; NDCG uses log2(rank+1);
+      abstention precision/recall uses should_abstain; hand-calculated tests
+      (31 benchmark crate tests).
 
   - name: establish_tiered_benchmark_evidence
     preconditions:

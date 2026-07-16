@@ -12,9 +12,8 @@ pub fn inject_schema() -> Value {
                 "description": "Unique identifier for the concept"
             },
             "vector": {
-                "type": "array",
-                "items": {"type": "integer"},
-                "description": "80-element array of u128 values representing a 10240-bit hypervector"
+                "type": "string",
+                "description": "Base64-encoded 1280-byte HVec10240 (canonical wire format from HVec10240::to_bytes())"
             },
             "metadata": {
                 "type": "object",
@@ -53,9 +52,8 @@ pub fn probe_schema() -> Value {
         "type": "object",
         "properties": {
             "vector": {
-                "type": "array",
-                "items": {"type": "integer"},
-                "description": "80-element array of u128 values representing a query hypervector"
+                "type": "string",
+                "description": "Base64-encoded 1280-byte HVec10240 query vector (canonical wire format from HVec10240::to_bytes())"
             },
             "top_k": {
                 "type": "integer",

@@ -380,6 +380,18 @@ impl Persistence {
                 .map_err(|e| MemoryError::database(format!("Failed migration v10: {e}")))?;
             }
 
+            // ADR-0093: namespace revision for derived ANN snapshot validation
+            if version == 11 {
+                conn.execute_batch(
+                    "CREATE TABLE IF NOT EXISTS csm_namespace_meta (
+                        namespace TEXT PRIMARY KEY,
+                        revision INTEGER NOT NULL DEFAULT 0
+                    );",
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v11: {e}")))?;
+            }
+
             conn.execute(
                 "INSERT INTO csm_schema_version(version) VALUES (?1)",
                 libsql::params![version],

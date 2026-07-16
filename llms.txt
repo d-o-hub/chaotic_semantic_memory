@@ -442,6 +442,16 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub use csm_memory::index::*
 
+### src/index_envelope.rs
+
+- pub const INDEX_ENVELOPE_MAGIC
+- pub const INDEX_ENVELOPE_VERSION
+- pub const VECTOR_FORMAT_HVEC10240
+- pub struct IndexSnapshotEnvelope
+- impl IndexSnapshotEnvelope
+- pub fn fnv1a64
+- pub fn backend_fingerprint
+
 ### src/lib.rs
 
 - pub use bridge_retrieval::BridgeRetrieval
@@ -474,6 +484,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod semantic_triples
 - pub use metadata_filter::MetadataFilter
 - pub mod index
+- pub mod index_envelope
 - pub mod persistence
 - pub mod persistence_wasm
 - pub use csm_core::reservoir

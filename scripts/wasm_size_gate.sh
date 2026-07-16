@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DEFAULT_MAX_BYTES=1110000
+# Headroom for ADR-0093 index envelope + durable mutation paths compiled into root.
+DEFAULT_MAX_BYTES=1120000
 MAX_BYTES="${CSM_WASM_SIZE_MAX_BYTES:-${DEFAULT_MAX_BYTES}}"
 REPORT_PATH="plans/handoffs/W5_C_to_D_wasm_size_report.md"
 

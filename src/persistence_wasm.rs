@@ -86,6 +86,31 @@ impl Persistence {
         Err(wasm_persistence_unavailable())
     }
 
+    pub async fn get_namespace_revision(&self, _ns: &str) -> Result<u64> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn bump_namespace_revision(&self, _ns: &str) -> Result<u64> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn save_index_envelope(
+        &self,
+        _ns: &str,
+        _id: &str,
+        _envelope: &crate::index_envelope::IndexSnapshotEnvelope,
+    ) -> Result<()> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn load_index_envelope(
+        &self,
+        _ns: &str,
+        _id: &str,
+    ) -> Result<Option<crate::index_envelope::IndexSnapshotEnvelope>> {
+        Err(wasm_persistence_unavailable())
+    }
+
     pub async fn clear_namespace(&self, _ns: &str) -> Result<()> {
         Err(wasm_persistence_unavailable())
     }

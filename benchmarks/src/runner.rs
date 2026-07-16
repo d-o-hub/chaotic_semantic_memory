@@ -131,23 +131,25 @@ pub async fn run(cli: Cli) -> Result<()> {
             session_id: query_case.session_id.clone(),
             task_type: query_case.task_type.clone(),
             retrieved,
-            recall_at_1: false,
-            recall_at_5: false,
-            recall_at_10: false,
+            recall_at_1: 0.0,
+            recall_at_5: 0.0,
+            recall_at_10: 0.0,
             reciprocal_rank: 0.0,
             ndcg_at_10: 0.0,
             predicted_answer: None,
             exact_match: None,
             abstained: false,
+            should_abstain: query_case.should_abstain,
             latency_ms,
             latency_us,
             prompt_tokens: 0,
             completion_tokens: 0,
         };
 
-        result.recall_at_1 = scorer::hit_at_k(&query_case, &result, 1);
-        result.recall_at_5 = scorer::hit_at_k(&query_case, &result, 5);
-        result.recall_at_10 = scorer::hit_at_k(&query_case, &result, 10);
+        // Multi-label recall (not hit rate); hit_at_k remains available for hit-rate use cases
+        result.recall_at_1 = scorer::recall_at_k(&query_case, &result, 1);
+        result.recall_at_5 = scorer::recall_at_k(&query_case, &result, 5);
+        result.recall_at_10 = scorer::recall_at_k(&query_case, &result, 10);
         result.reciprocal_rank = scorer::reciprocal_rank(&query_case, &result);
         result.ndcg_at_10 = scorer::ndcg_at_k(&query_case, &result, 10);
 

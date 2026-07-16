@@ -17,10 +17,7 @@ impl McpHandler {
                 let id = args["concept_id"]
                     .as_str()
                     .ok_or_else(|| anyhow::anyhow!("Missing concept_id"))?;
-                let vec_data = args["vector"]
-                    .as_array()
-                    .ok_or_else(|| anyhow::anyhow!("Missing vector"))?;
-                let vector = parse_hvec(vec_data)?;
+                let vector = parse_hvec(&args["vector"])?;
                 if let Some(meta) = args.get("metadata") {
                     let meta_map: HashMap<String, Value> = serde_json::from_value(meta.clone())?;
                     fw.inject_concept_with_metadata(id, vector, meta_map)
@@ -46,10 +43,7 @@ impl McpHandler {
                 Ok(json!({"status": "ok", "concept_id": id}))
             }
             "memory_probe" => {
-                let vec_data = args["vector"]
-                    .as_array()
-                    .ok_or_else(|| anyhow::anyhow!("Missing vector"))?;
-                let vector = parse_hvec(vec_data)?;
+                let vector = parse_hvec(&args["vector"])?;
                 let top_k = args["top_k"].as_u64().unwrap_or(10) as usize;
                 let (results, _) = fw.probe_with_best_score(vector, top_k).await?;
                 Ok(json!({"status": "ok", "results": results}))
@@ -216,15 +210,51 @@ impl McpHandler {
     }
 }
 
-pub(crate) fn parse_hvec(vec_data: &[Value]) -> Result<csm_core::hyperdim::HVec10240> {
-    if vec_data.len() != 80 {
-        return Err(anyhow::anyhow!("Vector must have 80 elements"));
+/// Parse an MCP wire hypervector.
+///
+/// Primary format (ADR-0094): base64 string of 1280 little-endian bytes
+/// (`HVec10240::to_bytes()`).
+///
+/// Migration fallback: array of 160 JSON integers as u64 halves
+/// `(high_0, low_0, high_1, low_1, …)` for each of the 80 `u128` words.
+pub(crate) fn parse_hvec(value: &Value) -> Result<csm_core::hyperdim::HVec10240> {
+    if let Some(s) = value.as_str() {
+        return parse_hvec_base64(s);
+    }
+    if let Some(arr) = value.as_array() {
+        return parse_hvec_u64_halves(arr);
+    }
+    Err(anyhow::anyhow!(
+        "Missing or invalid vector: expected base64 string or array of 160 u64 halves"
+    ))
+}
+
+fn parse_hvec_base64(s: &str) -> Result<csm_core::hyperdim::HVec10240> {
+    use base64::Engine;
+    use base64::engine::general_purpose::STANDARD;
+
+    let bytes = STANDARD
+        .decode(s)
+        .map_err(|e| anyhow::anyhow!("Invalid base64 vector: {e}"))?;
+    csm_core::hyperdim::HVec10240::from_bytes(&bytes)
+        .map_err(|e| anyhow::anyhow!("Invalid vector bytes: {e}"))
+}
+
+fn parse_hvec_u64_halves(arr: &[Value]) -> Result<csm_core::hyperdim::HVec10240> {
+    if arr.len() != 160 {
+        return Err(anyhow::anyhow!(
+            "Legacy vector must have 160 u64 halves (high, low × 80 words)"
+        ));
     }
     let mut data = [0u128; 80];
-    for (i, val) in vec_data.iter().enumerate() {
-        data[i] = val
+    for (i, word) in data.iter_mut().enumerate() {
+        let high = arr[i * 2]
             .as_u64()
-            .ok_or_else(|| anyhow::anyhow!("Invalid vector element"))? as u128;
+            .ok_or_else(|| anyhow::anyhow!("Invalid vector half at index {}", i * 2))?;
+        let low = arr[i * 2 + 1]
+            .as_u64()
+            .ok_or_else(|| anyhow::anyhow!("Invalid vector half at index {}", i * 2 + 1))?;
+        *word = (u128::from(high) << 64) | u128::from(low);
     }
     Ok(csm_core::hyperdim::HVec10240 { data })
 }
@@ -232,29 +262,91 @@ pub(crate) fn parse_hvec(vec_data: &[Value]) -> Result<csm_core::hyperdim::HVec1
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::Engine;
+    use base64::engine::general_purpose::STANDARD;
+    use csm_core::hyperdim::HVec10240;
     use serde_json::json;
 
-    #[test]
-    fn test_parse_hvec_valid() {
-        let vec_data: Vec<Value> = (0..80).map(|i| json!(i as u64)).collect();
-        let hvec = parse_hvec(&vec_data).unwrap();
-        assert_eq!(hvec.data[0], 0);
-        assert_eq!(hvec.data[79], 79);
+    fn hvec_to_b64(hvec: &HVec10240) -> String {
+        STANDARD.encode(hvec.to_bytes())
+    }
+
+    fn zero_vector_b64() -> String {
+        hvec_to_b64(&HVec10240 { data: [0u128; 80] })
     }
 
     #[test]
-    fn test_parse_hvec_invalid_length() {
-        let vec_data = vec![json!(1u64); 79];
-        let err = parse_hvec(&vec_data).unwrap_err();
-        assert_eq!(err.to_string(), "Vector must have 80 elements");
+    fn test_parse_hvec_base64_valid() {
+        let mut data = [0u128; 80];
+        data[0] = 42;
+        data[79] = 79;
+        let hvec = HVec10240 { data };
+        let parsed = parse_hvec(&json!(hvec_to_b64(&hvec))).unwrap();
+        assert_eq!(parsed.data[0], 42);
+        assert_eq!(parsed.data[79], 79);
     }
 
     #[test]
-    fn test_parse_hvec_invalid_type() {
-        let mut vec_data = vec![json!(1u64); 80];
-        vec_data[0] = json!("not a number");
-        let err = parse_hvec(&vec_data).unwrap_err();
-        assert_eq!(err.to_string(), "Invalid vector element");
+    fn test_parse_hvec_base64_high_bits_roundtrip() {
+        // JSON integers cannot carry full u128; base64 must preserve bits above 64.
+        let mut data = [0u128; 80];
+        data[0] = 1u128 << 80;
+        data[1] = u128::MAX;
+        data[2] = (u64::MAX as u128) << 64 | 0xDEAD_BEEF;
+        let original = HVec10240 { data };
+        let parsed = parse_hvec(&json!(hvec_to_b64(&original))).unwrap();
+        assert_eq!(parsed.data[0], 1u128 << 80);
+        assert_eq!(parsed.data[1], u128::MAX);
+        assert_eq!(parsed.data[2], (u64::MAX as u128) << 64 | 0xDEAD_BEEF);
+        assert_eq!(parsed.to_bytes(), original.to_bytes());
+    }
+
+    #[test]
+    fn test_parse_hvec_legacy_u64_halves() {
+        // 160 halves: (high, low) per word. Word 0 = (1 << 80) = high=1<<16, low=0.
+        let mut halves = vec![0u64; 160];
+        halves[0] = 1u64 << 16; // high half of word 0
+        halves[1] = 0; // low half of word 0
+        halves[2] = 0xABCD;
+        halves[3] = 0x1234;
+        let arr: Vec<Value> = halves.into_iter().map(|n| json!(n)).collect();
+        let parsed = parse_hvec(&Value::Array(arr)).unwrap();
+        assert_eq!(parsed.data[0], 1u128 << 80);
+        assert_eq!(parsed.data[1], (0xABCDu128 << 64) | 0x1234);
+    }
+
+    #[test]
+    fn test_parse_hvec_invalid_base64() {
+        let err = parse_hvec(&json!("not!!!base64")).unwrap_err();
+        assert!(err.to_string().contains("Invalid base64"));
+    }
+
+    #[test]
+    fn test_parse_hvec_wrong_byte_length() {
+        let short = STANDARD.encode([0u8; 16]);
+        let err = parse_hvec(&json!(short)).unwrap_err();
+        assert!(err.to_string().contains("Invalid vector bytes"));
+    }
+
+    #[test]
+    fn test_parse_hvec_legacy_invalid_length() {
+        let arr = vec![json!(1u64); 80];
+        let err = parse_hvec(&Value::Array(arr)).unwrap_err();
+        assert!(err.to_string().contains("160 u64 halves"));
+    }
+
+    #[test]
+    fn test_parse_hvec_legacy_invalid_type() {
+        let mut arr = vec![json!(1u64); 160];
+        arr[0] = json!("not a number");
+        let err = parse_hvec(&Value::Array(arr)).unwrap_err();
+        assert!(err.to_string().contains("Invalid vector half"));
+    }
+
+    #[test]
+    fn test_parse_hvec_missing() {
+        let err = parse_hvec(&Value::Null).unwrap_err();
+        assert!(err.to_string().contains("Missing or invalid vector"));
     }
 
     /// Helper to create a handler with an in-memory framework.
@@ -272,10 +364,9 @@ mod tests {
     #[tokio::test]
     async fn test_execute_tool_inject_and_get() {
         let handler = handler_with_framework().await;
-        let vector: Vec<Value> = (0..80).map(|i| json!(i as u64)).collect();
         let args = json!({
             "concept_id": "test-concept",
-            "vector": vector,
+            "vector": zero_vector_b64(),
         });
         let result = handler.execute_tool("memory_inject", args).await.unwrap();
         assert_eq!(result["status"], "ok");
@@ -286,6 +377,46 @@ mod tests {
         let get_result = handler.execute_tool("memory_get", get_args).await.unwrap();
         assert_eq!(get_result["status"], "ok");
         assert!(get_result["concept"].is_object());
+    }
+
+    #[tokio::test]
+    async fn test_execute_tool_inject_high_bits_roundtrip() {
+        let handler = handler_with_framework().await;
+        let mut data = [0u128; 80];
+        data[0] = 1u128 << 80;
+        data[5] = u128::MAX;
+        let original = HVec10240 { data };
+        let b64 = hvec_to_b64(&original);
+
+        let inject = json!({
+            "concept_id": "high-bits",
+            "vector": b64,
+        });
+        handler.execute_tool("memory_inject", inject).await.unwrap();
+
+        // Probe with the same vector should find the concept (results are (id, score) tuples).
+        let probe = json!({
+            "vector": hvec_to_b64(&original),
+            "top_k": 1,
+        });
+        let result = handler.execute_tool("memory_probe", probe).await.unwrap();
+        assert_eq!(result["status"], "ok");
+        let results = result["results"].as_array().unwrap();
+        assert!(!results.is_empty());
+        assert_eq!(results[0][0], "high-bits");
+
+        // Concept serialization uses the same base64 wire format.
+        let get = handler
+            .execute_tool("memory_get", json!({"concept_id": "high-bits"}))
+            .await
+            .unwrap();
+        let wire = get["concept"]["vector"]
+            .as_str()
+            .expect("concept.vector must be base64 string");
+        let restored = parse_hvec(&json!(wire)).unwrap();
+        assert_eq!(restored.data[0], 1u128 << 80);
+        assert_eq!(restored.data[5], u128::MAX);
+        assert_eq!(restored.to_bytes(), original.to_bytes());
     }
 
     #[tokio::test]
@@ -307,10 +438,9 @@ mod tests {
     async fn test_execute_tool_delete() {
         let handler = handler_with_framework().await;
         // Inject first
-        let vector: Vec<Value> = (0..80).map(|i| json!(i as u64)).collect();
         let inject_args = json!({
             "concept_id": "to-delete",
-            "vector": vector,
+            "vector": zero_vector_b64(),
         });
         handler
             .execute_tool("memory_inject", inject_args)
