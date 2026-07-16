@@ -32,15 +32,18 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
 
       - name: Load CI settings
+        # Pass workflow inputs via env (never ${{ }} inside run: — Codacy/Semgrep injection rule).
+        env:
+          INPUT_MAX_TOTAL_TIME: ${{ github.event.inputs.max_total_time }}
         run: |
           set -euo pipefail
           set -a
           # shellcheck source=/dev/null
           source "${GITHUB_WORKSPACE}/.github/ci-settings.env"
           set +a
-          # workflow_dispatch override if provided
-          if [[ -n "${{ github.event.inputs.max_total_time }}" ]]; then
-            FUZZ_SCHEDULED_SECONDS_PER_TARGET="${{ github.event.inputs.max_total_time }}"
+          # workflow_dispatch override if provided (already env-bound above)
+          if [[ -n "${INPUT_MAX_TOTAL_TIME}" ]]; then
+            FUZZ_SCHEDULED_SECONDS_PER_TARGET="${INPUT_MAX_TOTAL_TIME}"
           fi
           {
             echo "CARGO_FUZZ_VERSION=${CARGO_FUZZ_VERSION}"
