@@ -245,6 +245,10 @@ harness = false
 name = "hamming_benchmark"
 harness = false
 
+[[bench]]
+name = "binary_benchmark"
+harness = false
+
 [profile.release]
 opt-level = 3
 lto = "fat"

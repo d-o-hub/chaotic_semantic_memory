@@ -11,7 +11,7 @@
 pub use bridge_retrieval::BridgeRetrieval;
 pub use csm_core::bundle::BundleAccumulator;
 pub use csm_core::error::{MemoryError, Result};
-pub use csm_core::hyperdim::{HVec10240, batch_cosine_similarity};
+pub use csm_core::hyperdim::{BHVec10240, HVec10240, batch_cosine_similarity};
 pub use framework::ChaoticSemanticFramework;
 pub use framework_builder::FrameworkBuilder;
 pub use framework_events::MemoryEvent;

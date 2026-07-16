@@ -13,6 +13,7 @@ use rayon::prelude::*;
 use crate::error::Result;
 
 pub use crate::hyperdim_batch::batch_cosine_similarity;
+pub use crate::hyperdim_binary::BHVec10240;
 pub use crate::hyperdim_ops::{Hypervector, bundle_word_scalar};
 
 // Import SIMD functions from extension module
