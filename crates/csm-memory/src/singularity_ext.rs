@@ -44,7 +44,7 @@ impl Singularity {
         id: &str,
         metadata: std::collections::HashMap<String, serde_json::Value>,
     ) -> Result<()> {
-        let ns_state = self.get_namespace_mut(ns);
+        let ns_state = self.ensure_namespace(ns)?;
         if let Some(concept) = ns_state.concepts.get_mut(id) {
             concept.metadata = metadata;
             concept.modified_at = crate::singularity::unix_now_secs();
@@ -59,7 +59,7 @@ impl Singularity {
     }
 
     pub fn clear_associations(&mut self, ns: &str, id: &str) -> Result<()> {
-        let ns_state = self.get_namespace_mut(ns);
+        let ns_state = self.ensure_namespace(ns)?;
         if let Some(neighbors) = ns_state.associations.get_mut(id) {
             neighbors.clear();
         }
@@ -158,5 +158,57 @@ mod tests {
         assert_eq!(updated_concept.metadata, new_metadata);
         assert!(updated_concept.modified_at >= time_before);
         Ok(())
+    }
+
+    #[test]
+    fn ensure_namespace_bruteforce_ok() {
+        let mut sing = Singularity::<HVec10240>::new(SingularityConfig::default());
+        assert!(sing.ensure_namespace(NS).is_ok());
+        assert!(sing.get_namespace(NS).is_some());
+    }
+
+    #[cfg(feature = "ann-hnsw")]
+    #[test]
+    fn inject_invalid_hnsw_returns_invalid_input_not_panic() {
+        use crate::index::IndexBackend;
+        let mut sing = Singularity::<HVec10240>::with_config_and_backend(
+            SingularityConfig::default(),
+            IndexBackend::Hnsw {
+                m: 0,
+                ef_construction: 200,
+                ef_search: 50,
+            },
+        );
+        let concept = ConceptBuilder::new("bad-backend")
+            .build()
+            .expect("concept build");
+        match sing.inject(NS, concept) {
+            Err(MemoryError::InvalidInput { field, .. }) => assert_eq!(field, "m"),
+            other => panic!("expected InvalidInput, got {other:?}"),
+        }
+        match sing.ensure_namespace(NS) {
+            Err(MemoryError::InvalidInput { field, .. }) => assert_eq!(field, "m"),
+            other => panic!("expected InvalidInput from ensure_namespace, got {other:?}"),
+        }
+    }
+
+    #[cfg(feature = "ann-lsh")]
+    #[test]
+    fn inject_invalid_lsh_returns_invalid_input_not_panic() {
+        use crate::index::IndexBackend;
+        let mut sing = Singularity::<HVec10240>::with_config_and_backend(
+            SingularityConfig::default(),
+            IndexBackend::Lsh {
+                num_tables: 0,
+                hash_bits: 8,
+            },
+        );
+        let concept = ConceptBuilder::new("bad-lsh")
+            .build()
+            .expect("concept build");
+        match sing.inject(NS, concept) {
+            Err(MemoryError::InvalidInput { field, .. }) => assert_eq!(field, "num_tables"),
+            other => panic!("expected InvalidInput, got {other:?}"),
+        }
     }
 }

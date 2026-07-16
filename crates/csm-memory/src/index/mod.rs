@@ -103,3 +103,101 @@ pub fn create_index<H: Hypervector + 'static>(
     };
     Ok(index)
 }
+
+/// Validate that `backend` can be constructed.
+///
+/// Builds a throwaway [`HVec10240`] index via [`create_index`] so checks stay in
+/// lock-step with constructors (HNSW `m` ∈ [1, 256], LSH `num_tables > 0`, etc.).
+/// Call at framework build time so invalid configs fail closed with
+/// `MemoryError::InvalidInput` rather than panicking later.
+pub fn validate_index_backend(backend: &IndexBackend) -> Result<()> {
+    let _index: Box<dyn AnnIndex<HVec10240>> = create_index(backend)?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+    use super::*;
+    #[cfg(any(feature = "ann-hnsw", feature = "ann-lsh"))]
+    use csm_core::error::MemoryError;
+
+    #[test]
+    fn create_index_bruteforce_ok() {
+        let idx = create_index::<HVec10240>(&IndexBackend::BruteForce);
+        assert!(idx.is_ok());
+        assert!(validate_index_backend(&IndexBackend::BruteForce).is_ok());
+    }
+
+    #[cfg(feature = "ann-hnsw")]
+    #[test]
+    fn create_index_hnsw_valid_ok() {
+        let backend = IndexBackend::Hnsw {
+            m: 16,
+            ef_construction: 200,
+            ef_search: 50,
+        };
+        assert!(create_index::<HVec10240>(&backend).is_ok());
+        assert!(validate_index_backend(&backend).is_ok());
+    }
+
+    #[cfg(feature = "ann-hnsw")]
+    #[test]
+    fn create_index_hnsw_m_zero_is_invalid_input() {
+        let backend = IndexBackend::Hnsw {
+            m: 0,
+            ef_construction: 200,
+            ef_search: 50,
+        };
+        match create_index::<HVec10240>(&backend) {
+            Err(MemoryError::InvalidInput { field, .. }) => assert_eq!(field, "m"),
+            other => panic!("expected InvalidInput for m=0, got {other:?}"),
+        }
+        assert!(matches!(
+            validate_index_backend(&backend),
+            Err(MemoryError::InvalidInput { .. })
+        ));
+    }
+
+    #[cfg(feature = "ann-hnsw")]
+    #[test]
+    fn create_index_hnsw_m_too_large_is_invalid_input() {
+        let backend = IndexBackend::Hnsw {
+            m: 257,
+            ef_construction: 200,
+            ef_search: 50,
+        };
+        match create_index::<HVec10240>(&backend) {
+            Err(MemoryError::InvalidInput { field, .. }) => assert_eq!(field, "m"),
+            other => panic!("expected InvalidInput for m=257, got {other:?}"),
+        }
+    }
+
+    #[cfg(feature = "ann-lsh")]
+    #[test]
+    fn create_index_lsh_valid_ok() {
+        let backend = IndexBackend::Lsh {
+            num_tables: 4,
+            hash_bits: 8,
+        };
+        assert!(create_index::<HVec10240>(&backend).is_ok());
+        assert!(validate_index_backend(&backend).is_ok());
+    }
+
+    #[cfg(feature = "ann-lsh")]
+    #[test]
+    fn create_index_lsh_zero_tables_is_invalid_input() {
+        let backend = IndexBackend::Lsh {
+            num_tables: 0,
+            hash_bits: 8,
+        };
+        match create_index::<HVec10240>(&backend) {
+            Err(MemoryError::InvalidInput { field, .. }) => assert_eq!(field, "num_tables"),
+            other => panic!("expected InvalidInput for num_tables=0, got {other:?}"),
+        }
+        assert!(matches!(
+            validate_index_backend(&backend),
+            Err(MemoryError::InvalidInput { .. })
+        ));
+    }
+}

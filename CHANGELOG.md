@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **HARNESS.md**: Agent sensor map, feedforward/feedback loops, and self-correction protocol for HDC/reservoir development.
+- **CI**: `Fuzz Workspace Build` job compiles all fuzz targets (`cargo check --manifest-path fuzz/Cargo.toml --all-targets --locked`).
+- **CI / validate**: Fail-closed skill format gate (`scripts/validate-skill-format.sh`) in lint job, `validate.sh`, and pre-commit.
+- **ANN**: `validate_index_backend` at framework build; invalid HNSW/LSH configs return `MemoryError::InvalidInput` instead of panicking.
+
+### Changed
+- **Breaking (`csm-memory`)**: `Singularity::get_namespace_mut` now returns `Result<&mut NamespaceState<H>>` (was `&mut NamespaceState<H>`). Prefer `ensure_namespace`; invalid ANN backends propagate as `InvalidInput`. Migration: add `?` / handle `Result` at call sites.
+- **Release skill**: Slimmed to ≤250 LOC; documents protected-main branch→PR→CI→merge and `release.yml` as sole routine tag owner.
+
+### Fixed
+- **Fuzz**: `persistence_save_concept` target updated for current `Concept` / `save_concept(ns, …)` API; unique temp DBs via `tempfile`.
+
 ## [0.3.7] - 2026-06-27
 
 ### Fixed

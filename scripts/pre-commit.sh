@@ -96,6 +96,16 @@ if [[ -d ".claude/skills" ]] && [[ -x "${SCRIPT_DIR}/validate-skills.sh" ]]; the
   }
 fi
 
+# Skill format validation (ADR-0096) — fail-closed frontmatter/LOC/local refs
+if [[ -x "${SCRIPT_DIR}/validate-skill-format.sh" ]]; then
+  echo " → Validating skill format (fail-closed)..."
+  "${SCRIPT_DIR}/validate-skill-format.sh" || {
+    echo "❌ Skill format validation failed!"
+    echo "   Run: scripts/validate-skill-format.sh --verbose"
+    exit 1
+  }
+fi
+
 # GitHub Actions SHA validation (optional - opt-in via env var)
 # Note: Disabled by default as existing workflows use version tags
 # To enable: export CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true

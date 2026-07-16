@@ -95,10 +95,10 @@
 | 0090 | Harness Engineering & rust-2026-template Alignment | Accepted | [adr/0090-harness-engineering-template-alignment.md](adr/0090-harness-engineering-template-alignment.md) |
 | 0091 | Hyperchaotic Bit-Slicing for Binary Semantic Hashing | Implemented | [adr/0091-hyperchaotic-bit-slicing.md](adr/0091-hyperchaotic-bit-slicing.md) |
 | 0092 | GOAP Reconciliation 2026-07-11 | Accepted | [adr/0092-goap-reconciliation-2026-07-11.md](adr/0092-goap-reconciliation-2026-07-11.md) |
-| 0093 | Authoritative Persistence and Derived ANN Index Consistency | Proposed | [adr/0093-authoritative-persistence-and-derived-index-consistency.md](adr/0093-authoritative-persistence-and-derived-index-consistency.md) |
-| 0094 | Workspace Ownership and Feature Contracts | Proposed | [adr/0094-workspace-ownership-and-feature-contracts.md](adr/0094-workspace-ownership-and-feature-contracts.md) |
-| 0095 | Evidence-Driven Quality Gates | Proposed | [adr/0095-evidence-driven-quality-gates.md](adr/0095-evidence-driven-quality-gates.md) |
-| 0096 | Agent Skill and Workflow Validation | Proposed | [adr/0096-agent-skill-and-workflow-validation.md](adr/0096-agent-skill-and-workflow-validation.md) |
+| 0093 | Authoritative Persistence and Derived ANN Index Consistency | Accepted | [adr/0093-authoritative-persistence-and-derived-index-consistency.md](adr/0093-authoritative-persistence-and-derived-index-consistency.md) |
+| 0094 | Workspace Ownership and Feature Contracts | Accepted | [adr/0094-workspace-ownership-and-feature-contracts.md](adr/0094-workspace-ownership-and-feature-contracts.md) |
+| 0095 | Evidence-Driven Quality Gates | Accepted | [adr/0095-evidence-driven-quality-gates.md](adr/0095-evidence-driven-quality-gates.md) |
+| 0096 | Agent Skill and Workflow Validation | Accepted | [adr/0096-agent-skill-and-workflow-validation.md](adr/0096-agent-skill-and-workflow-validation.md) |
 
 ## Status Definitions
 

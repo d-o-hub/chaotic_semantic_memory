@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-07-14)
+Accepted (2026-07-16)
 
 ## Context and Problem Statement
 

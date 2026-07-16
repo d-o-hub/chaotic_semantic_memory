@@ -1,253 +1,93 @@
-# Release Workflow
+# Release Workflow (canonical)
 
-Complete release automation workflow with GitHub Actions integration.
+Matches `.github/workflows/release.yml` as of Wave 32. Prefer the skill entrypoint `SKILL.md` for operator steps; this file holds detail and recovery.
 
-## CI/CD Pipeline Overview
+## Trigger and tag owner
+
+| Item | Value |
+|------|-------|
+| Workflow | `.github/workflows/release.yml` |
+| Triggers | `push` to `main`, `workflow_dispatch` |
+| Tag owner | Workflow job `validate`, step **Ensure release tag exists** |
+| Tag format | `v` + version from root `Cargo.toml` |
 
 ```
-main branch ──▶ semantic-release ──▶ publish crates.io ──▶ deploy docs
-                      │
-                      ├── Analyze commits
-                      ├── Calculate version
-                      ├── Generate CHANGELOG
-                      └── Create git tag
+merge PR to main
+  → release.yml starts
+  → wait-for-ci (gh run list --workflow=ci.yml --commit $SHA)
+  → validate: changelog, sync-version clean, package list
+  → git tag v$VERSION && git push origin v$VERSION   # ONLY tag owner
+  → build matrix / publish crates / npm / GitHub release
 ```
 
-## GitHub Actions Workflow
+**Humans do not create routine `v*` tags.** Manual tag push is recovery-only (below).
 
-### Release Workflow (`.github/workflows/release.yml`)
+## Protected-main policy
 
-```yaml
-name: Release
+1. Create `release/vX.Y.Z` (or `chore/release-…`) from updated `main`
+2. Bump `Cargo.toml`, run `scripts/sync-version.sh`, fix CHANGELOG
+3. Open PR; required CI must pass
+4. Merge (squash preferred). Never `git push origin main` for releases
+5. Watch `release.yml`; do not re-tag if it is still running
 
-on:
-  push:
-    tags:
-      - 'v*'
+AGENTS.md / hard constraints: main is protected; multi-PR never use `gh pr merge --auto` (stale-base loops).
 
-permissions:
-  contents: write
-  id-token: write  # Required for Trusted Publishing
-  pages: write
+## CHANGELOG extraction pitfalls
 
-jobs:
-  publish-crates:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        
-      - name: Publish to crates.io
-        run: cargo publish
-        # Uses Trusted Publishing - no token needed!
+`release.yml` requires:
 
-  publish-npm:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
-          
-      - name: Install latest npm
-        run: npm install -g npm@latest
-        
-      - name: Publish with provenance
-        run: npm publish --provenance
-        # Uses Trusted Publishing via OIDC
+- Exactly one `## [VERSION]` header
+- Header includes date: `## [VERSION] - YYYY-MM-DD`
+- Keep a Changelog sections as needed
 
-  github-release:
-    needs: [publish-crates]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Generate release notes
-        id: notes
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          echo "notes<<EOF" >> $GITHUB_OUTPUT
-          git log --pretty=format:"- %s" $(git describe --tags --abbrev=0 HEAD~1)..HEAD >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          body: ${{ steps.notes.outputs.notes }}
-          generate_release_notes: true
+`body_path` and `generate_release_notes: true` are mutually exclusive in `softprops/action-gh-release` — workflow uses changelog extraction, not dual modes.
 
-  deploy-docs:
-    needs: [github-release]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup mdBook
-        uses: peaceiris/actions-mdbook@v2
-        with:
-          mdbook-version: '0.4.40'
-          
-      - name: Build docs
-        run: mdbook build docs/
-        
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/book
+## Idempotent behavior
+
+1. If tag `vVERSION` already exists → `release-needed=false`, skip new tag
+2. crates.io / npm paths should skip or tolerate already-published versions
+3. GitHub release creation should not fail the whole world if re-run after partial success — verify with `gh release list`
+
+## Recovery (approval-gated)
+
+Only after confirming publish state and team approval:
+
+```bash
+# Inspect
+gh release list --limit 5
+gh run list --workflow=release.yml --limit 5
+curl -s https://crates.io/api/v1/crates/chaotic_semantic_memory/versions | head
+
+# Tag exists but release/publish incomplete — coordinate before deleting tags
+git fetch --tags
+git tag -d vX.Y.Z
+git push origin :refs/tags/vX.Y.Z
+# Re-merge or workflow_dispatch only with a clear plan; prefer fixing forward
+
+# Already on crates.io and need yank
+cargo yank --version X.Y.Z chaotic_semantic_memory
 ```
 
-### Semantic Release Workflow (`.github/workflows/semantic-release.yml`)
+Prefer **fix-forward** (patch release) over deleting published artifacts.
 
-```yaml
-name: Semantic Release
+## Local helpers
 
-on:
-  push:
-    branches: [main]
+| Path | Role |
+|------|------|
+| `scripts/pre-release-validate.sh` | Canonical local gates |
+| `scripts/sync-version.sh` | Propagate version |
+| `scripts/release-manager.sh` | validate / prepare helpers |
+| `.agents/skills/release-management/scripts/validate-release.sh` | Skill-local preflight |
+| `.agents/skills/release-management/scripts/create-github-release.sh` | Manual GH release notes helper |
 
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+## Not used (stale docs)
 
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Full history for commit analysis
-          
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          
-      - name: Install semantic-release
-        run: |
-          npm install -g semantic-release \
-            @semantic-release/git \
-            @semantic-release/changelog \
-            @semantic-release/commit-analyzer \
-            @semantic-release/release-notes-generator \
-            @semantic-release/github
-            
-      - name: Run semantic-release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: semantic-release
-```
+This repository does **not** use a separate `semantic-release.yml` or npm `semantic-release` bot for tagging. Ignore older diagrams that show “push tag → release” as the human step; humans merge version PRs, workflow owns tags.
 
-## semantic-release Configuration
+## Post-release checklist
 
-### `.releaserc.json`
-
-```json
-{
-  "branches": ["main"],
-  "plugins": [
-    "@semantic-release/commit-analyzer",
-    "@semantic-release/release-notes-generator",
-    "@semantic-release/changelog",
-    [
-      "@semantic-release/git",
-      {
-        "assets": ["CHANGELOG.md", "Cargo.toml", "package.json"],
-        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
-      }
-    ],
-    "@semantic-release/github"
-  ]
-}
-```
-
-## Commit Types → Version Mapping
-
-| Commit Pattern | Version Bump |
-|----------------|--------------|
-| `feat(scope)!: description` | MAJOR (breaking) |
-| `feat(scope): description` | MINOR |
-| `fix(scope): description` | PATCH |
-| `perf(scope): description` | PATCH |
-| `docs(scope): description` | PATCH |
-| `chore(scope): description` | No release |
-| `test(scope): description` | No release |
-| `ci(scope): description` | No release |
-
-## Release Branches
-
-| Branch | Purpose |
-|--------|---------|
-| `main` | Production releases |
-| `beta` | Pre-release testing |
-| `alpha` | Development releases |
-
-## Environment Configuration
-
-### crates.io Trusted Publishing Setup
-
-1. Navigate to `https://crates.io/crates/chaotic_semantic_memory/settings`
-2. Click "Trusted Publishing" → "Add"
-3. Configure:
-   - Repository: `d-o-hub/chaotic_semantic_memory`
-   - Workflow: `.github/workflows/release.yml`
-   - Environment: (optional, for additional controls)
-
-### npm Trusted Publishing Setup
-
-1. First publish must be manual: `npm publish`
-2. Navigate to `https://www.npmjs.com/package/@d-o-hub/chaotic_semantic_memory/access`
-   (and `https://www.npmjs.com/package/@d-o-hub/csm/access` for the CLI)
-3. Enable "Trusted Publishing"
-4. Configure GitHub repository
-
-## Pre-Release Checklist
-
-- [ ] All PRs merged to main
-- [ ] CI passing on main branch
-- [ ] CHANGELOG.md updated (or will be by semantic-release)
-- [ ] Version bump in Cargo.toml matches tag
-- [ ] Documentation updated
-- [ ] Breaking changes documented
-- [ ] Trusted Publishing verified
-
-## ⚠️ Common Pitfalls
-
-### Release Name Format
-Always use `v{version}` format for release names, NOT `{package} v{version}`:
-
-```yaml
-# ✅ Correct
-name: v${{ needs.validate.outputs.version }}
-
-# ❌ Wrong - hardcoded package name
-name: chaotic_semantic_memory v${{ needs.validate.outputs.version }}
-```
-
-### body_path vs generate_release_notes
-These options are **mutually exclusive** in `softprops/action-gh-release`:
-
-```yaml
-# ✅ Correct - use body_path to include custom changelog
-body_path: release_notes.md
-generate_release_notes: false  # or omit entirely
-
-# ❌ Wrong - generate_release_notes overrides body_path
-body_path: release_notes.md
-generate_release_notes: true  # This will IGNORE your body_path!
-```
-
-When `generate_release_notes: true`, the action auto-generates minimal release notes (just version + compare link) and ignores any `body` or `body_path` you provide.
-
-## Post-Release Checklist
-
-- [ ] crates.io page shows new version
-- [ ] GitHub Release created with notes
-- [ ] Docs deployed to GitHub Pages
-- [ ] Announcement posted (if major/minor)
+- [ ] crates.io shows new version
+- [ ] npm packages (WASM + CLI) updated if in scope
+- [ ] GitHub Release notes non-empty
+- [ ] Pages/docs still building
+- [ ] No accidental second tag for same version

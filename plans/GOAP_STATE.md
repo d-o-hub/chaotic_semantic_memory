@@ -611,7 +611,7 @@ world_state:
   # Phase 5: Testing & Quality (cost: 8)
   property_based_tests_added: true
   fuzzing_targets_created: true
-  fuzz_workspace_compiles: false                 # 2026-07-14: persistence_save_concept target has 3 API-drift errors
+  fuzz_workspace_compiles: true                  # 2026-07-16: persistence_save_concept API drift fixed; CI fuzz-build job
   edge_case_coverage_complete: true
   mutation_testing_enabled: true
 
@@ -1480,7 +1480,7 @@ world_state:
   template_reference: "https://github.com/d-oit/rust-2026-template"
   template_version_analyzed: "0.3.2 (392 commits)"
 
-  action_last_completed: plan_codebase_audit_wave32_2026_07_14
+  action_last_completed: wave32_p0_review_followups_ci_skill_gates_2026_07_16
 
   # ═══════════════════════════════════════════════════════
   # PR #444 Review: BM25 Sparse Collection (2026-06-27)
@@ -1688,15 +1688,21 @@ world_state:
   wave_31_completed_at: "2026-07-14"
   wave_32_name: "Correctness, Ownership, Evidence & Agent Safety"
   wave_32_started_at: "2026-07-14"
-  wave_32_status: planned
+  wave_32_status: in_progress
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_32_adrs_proposed: 4
   adr_0093_proposed: true
   adr_0094_proposed: true
   adr_0095_proposed: true
   adr_0096_proposed: true
+  # 2026-07-16: GOAP swarm PR implements Phase 0 accept + Phase 1 subset
+  adr_0093_accepted: true
+  adr_0094_accepted: true   # accepted for planning; ownership consolidation still queued
+  adr_0095_accepted: true
+  adr_0096_accepted: true
+  harness_md_created: true
   ann_snapshot_revision_validated: false
-  ann_config_is_fallible: false
+  ann_config_is_fallible: true                   # 2026-07-16: validate_index_backend + fallible ensure_namespace
   persistence_failure_leaves_memory_unchanged: false
   no_framework_state_lock_across_io_await: false
   workspace_implementation_owners_unique: false
@@ -1707,7 +1713,33 @@ world_state:
   benchmark_metrics_mathematically_correct: false
   performance_claims_have_current_artifacts: false
   cargo_deny_required_in_ci: false
-  skill_validation_fail_closed: false
-  release_skill_loc_compliant: false
+  fuzz_build_required_in_ci: true                # 2026-07-16: ci.yml fuzz-build job (add to branch protection)
+  skill_validation_fail_closed: true             # 2026-07-16: wired into validate.sh + CI lint + pre-commit
+  release_skill_loc_compliant: true              # 2026-07-16: SKILL.md 161 lines + references/
+  release_guidance_matches_workflow: true
+  skill_loc_enforced: true
+  critical_skill_evals_passing: false            # behavioral evals deferred (queued follow-up)
+  fuzz_short_runs_on_pr: false                   # compile-only gate; short runs queued
+  fuzz_scheduled_full_runs: false                # scheduled full fuzz runs queued
   active_plan_keys_unique: true
   user_recommendations_2026_07_14_preserved: true
+  wave32_p0_swarm_2026_07_16:
+    branch: feat/wave32-p0-goap-correctness-validation
+    completed_actions:
+      - review_adr_0093_persistence_consistency
+      - review_adr_0094_workspace_contracts
+      - review_adr_0095_evidence_policy
+      - review_adr_0096_agent_validation
+      - create_harness_md
+      - fix_ann_backend_validation
+      - repair_fuzz_workspace_and_gate
+      - make_skill_validation_fail_closed
+      - align_release_skill_with_protected_workflow
+      - wire_skill_format_into_ci_and_validate
+      - accept_adr_0093_0096_on_disk
+    deferred_to_followup:
+      - enforce_authoritative_persistence_and_ann_revision
+      - bulk_load_associations_and_release_state_locks
+      - run_critical_skill_behavioral_evals
+      - fuzz_short_and_scheduled_runs
+      - Phase 2/3 ownership and evidence actions

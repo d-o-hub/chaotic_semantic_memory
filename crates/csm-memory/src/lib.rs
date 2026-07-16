@@ -23,7 +23,7 @@ pub mod singularity_types;
 
 pub use concept_builder::ConceptBuilder;
 pub use graph_traversal::TraversalConfig;
-pub use index::{AnnIndex, IndexBackend, IndexStats};
+pub use index::{AnnIndex, IndexBackend, IndexStats, create_index, validate_index_backend};
 pub use metadata_filter::MetadataFilter;
 pub use singularity::{
     Association, Concept, ConceptDiff, ConceptVersion, DecayCurve, Singularity, SingularityConfig,
