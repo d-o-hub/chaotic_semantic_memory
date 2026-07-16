@@ -634,14 +634,20 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use crate::singularity::ConceptVersion
 - impl Persistence
 
+### src/retrieval/absence_short_circuit.rs
+
+- pub const DEFAULT_ABSENCE_MIN_ATTEMPTS
+- pub fn absence_min_attempts
+- pub fn is_known_absent
+
 ### src/retrieval/bm25.rs
 
+- pub use crate::retrieval::absence_short_circuit::is_known_absent
+- pub use crate::retrieval::absence_short_circuit::{DEFAULT_ABSENCE_MIN_ATTEMPTS, absence_min_attempts}
 - pub struct Bm25Config
 - impl Default for Bm25Config
 - pub struct Bm25Index
 - impl Default for Bm25Index
-- pub const DEFAULT_ABSENCE_MIN_ATTEMPTS
-- pub fn is_known_absent
 - impl Clone for Bm25Index
 - impl Bm25Index
 
@@ -658,6 +664,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/retrieval/mod.rs
 
+- pub mod absence_short_circuit
 - pub mod bm25
 - pub mod graph_rag
 - pub mod hybrid
@@ -4126,6 +4133,32 @@ impl Persistence {
 }
 ```
 
+## src/retrieval/absence_short_circuit.rs
+
+### DEFAULT_ABSENCE_MIN_ATTEMPTS
+
+```rust
+pub const DEFAULT_ABSENCE_MIN_ATTEMPTS: u32
+```
+
+Default BM25 absence short-circuit threshold. Override: `CSM_ABSENCE_MIN_ATTEMPTS`.
+
+### absence_min_attempts
+
+```rust
+pub fn absence_min_attempts() -> u32
+```
+
+Env `CSM_ABSENCE_MIN_ATTEMPTS` if >0, else [`DEFAULT_ABSENCE_MIN_ATTEMPTS`].
+
+### is_known_absent
+
+```rust
+pub fn is_known_absent(query: &str, store: &dyn Trait, min_attempts: u32) -> bool
+```
+
+True when absence memory has attempt_count >= min_attempts (CLI hybrid skips BM25).
+
 ## src/retrieval/bm25.rs
 
 ### Bm25Config
@@ -4150,13 +4183,17 @@ pub struct Bm25Index {
 
 BM25-based document index for keyword search.
 
-### DEFAULT_ABSENCE_MIN_ATTEMPTS
+### crate::retrieval::absence_short_circuit::is_known_absent
 
 ```rust
-pub const DEFAULT_ABSENCE_MIN_ATTEMPTS: u32
+pub use crate::retrieval::absence_short_circuit::is_known_absent;
 ```
 
-Default absence attempt threshold for BM25 hybrid short-circuit.
+### crate::retrieval::absence_short_circuit::{DEFAULT_ABSENCE_MIN_ATTEMPTS, absence_min_attempts}
+
+```rust
+pub use crate::retrieval::absence_short_circuit::{DEFAULT_ABSENCE_MIN_ATTEMPTS, absence_min_attempts};
+```
 
 ### impl Bm25Index
 
@@ -4194,14 +4231,6 @@ impl Default for Bm25Config {
 impl Default for Bm25Index {
 }
 ```
-
-### is_known_absent
-
-```rust
-pub fn is_known_absent(query: &str, store: &dyn Trait, min_attempts: u32) -> bool
-```
-
-True when absence memory has attempt_count >= min_attempts (CLI hybrid skips BM25).
 
 ## src/retrieval/bm25/tests.rs
 

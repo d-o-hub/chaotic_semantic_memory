@@ -75,10 +75,12 @@ Generator must use `LC_ALL=C sort` and strip `wc -l` whitespace.
 ### cargo-fuzz short runs (PR fuzz job)
 
 - **Required gate** is `cargo check --manifest-path fuzz/Cargo.toml --all-targets --locked`.
-- Short runs need **nightly + rust-src** and **pinned** `cargo install cargo-fuzz --version 0.12.0`.
+- Versions/timeouts/targets: **only** `.github/ci-settings.env` (workflows `source` it).
+- Short runs need nightly + rust-src and
+  `cargo install cargo-fuzz --version "${CARGO_FUZZ_VERSION}"`.
 - Do **not** install via `taiki-e/install-action` `cargo-fuzz@x.y` (unsupported → binstall musl).
-- Prefer `cargo +nightly fuzz run TARGET --sanitizer none` on PR runners (ASAN is heavy/flaky).
-- Optional escape: `FUZZ_SHORT_SECONDS=0` skips short runs after compile gate.
+- Prefer `cargo +nightly fuzz run TARGET --sanitizer none` on PR runners.
+- Optional escape: `FUZZ_SHORT_SECONDS=0` in ci-settings (or env) skips short runs.
 
 ### TTL cleanup lifecycle
 

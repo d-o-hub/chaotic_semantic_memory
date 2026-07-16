@@ -89,12 +89,12 @@ pub async fn run_query(
         // semantic abstentions; inject clears them (invalidate_absence_short_circuit).
         #[cfg(feature = "persistence")]
         let skip_bm25 = {
-            use crate::retrieval::bm25::{DEFAULT_ABSENCE_MIN_ATTEMPTS, is_known_absent};
+            use crate::retrieval::bm25::{absence_min_attempts, is_known_absent};
             // Do not skip the only retrieval path; require concurrent HDC empty.
             let hdc_also_empty = use_hdc && hdc_results.is_none();
             if hdc_also_empty {
                 if let Some(store) = framework.persistence_store() {
-                    is_known_absent(&args.text, store.as_ref(), DEFAULT_ABSENCE_MIN_ATTEMPTS).await
+                    is_known_absent(&args.text, store.as_ref(), absence_min_attempts()).await
                 } else {
                     false
                 }

@@ -12,6 +12,10 @@
 - Reservoir spectral radius must stay in `[0.9, 1.1]`.
 - WASM threading paths must be gated with `#[cfg(not(target_arch = "wasm32"))]`.
 - No hardcoded runtime settings or magic numbers in production paths; use named constants and configurable env/config values.
+  - **Named constants** for defaults (e.g. `DEFAULT_ABSENCE_MIN_ATTEMPTS`).
+  - **Env overrides** for runtime knobs (`CSM_*`, see module docs).
+  - **CI tool versions / timeouts** live only in `.github/ci-settings.env` — workflows
+    must `source` that file; do not embed bare `0.12.0` / `timeout=5` in job steps.
 - Never render architecture diagrams as raw ASCII art in responses; use fenced ```mermaid``` blocks for all inline diagrams.
 - **Never use an archived GitHub repository as a reference package or dependency.**
   Always either:
@@ -52,9 +56,9 @@
      concurrent HDC-empty; **invalidate** absence rows on inject/corpus change.
   6. **Skill catalog:** generate with `LC_ALL=C sort` and strip `wc -l` whitespace so
      CI and local catalogs byte-match (`scripts/generate-skill-catalog.sh --check`).
-  7. **cargo-fuzz short runs:** pin `cargo install cargo-fuzz --version 0.12.0`;
-     do not use `taiki-e/install-action` `cargo-fuzz@x.y` (unsupported → musl
-     binstall failures). Prefer `--sanitizer none` on PR runners.
+  7. **cargo-fuzz short runs:** version from `.github/ci-settings.env`
+     (`CARGO_FUZZ_VERSION`); do not use `taiki-e/install-action` `cargo-fuzz@x.y`
+     (unsupported → musl binstall). Prefer `--sanitizer none` on PR runners.
 - **Version numbers must be synchronized across all files before release.**
   Run `scripts/verify-version-sync.sh` to verify. Files checked:
   - `Cargo.toml` - `version = "X.Y.Z"`
