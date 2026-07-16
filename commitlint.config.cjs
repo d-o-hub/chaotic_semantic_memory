@@ -32,9 +32,15 @@ module.exports = {
         'lints',
         'build',
         'loc-gate',
-        'workspace'
+        'workspace',
+        // Planning / agent docs (Wave 32: docs(plans) failed scope-enum)
+        'plans',
+        'goap',
+        'agents',
       ]
     ],
+    // Prefer lowercase subject start; do not use UpperCase tokens like "TTL lifecycle"
+    // (config-conventional subject-case already enforces this — keep scopes in sync).
   },
   ignores: [
     (message) => message.includes('Co-authored-by: codacy-production[bot]'),

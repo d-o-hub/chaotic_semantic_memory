@@ -19,6 +19,23 @@ Use [Conventional Commits](https://www.conventionalcommits.org/) format:
 
 See `references/commit-types.md` for full type/scope guide and examples.
 
+### Scope enum (must match `commitlint.config.cjs`)
+
+Common scopes: `framework`, `persistence`, `retrieval`, `cli`, `wasm`, `ci`,
+`docs`, `memory`, `core`, `workspace`, `plans`, `goap`, `agents`.
+
+- Prefer **lowercase subject** start: `fix(ci): repair wasm out-dir` — not
+  `fix(ci): Repair WASM` / `feat(framework): TTL lifecycle` (subject-case fails).
+- **Validate the full PR range before push** (single-commit local checks miss
+  earlier bad commits on the branch):
+
+```bash
+npx commitlint --from origin/main --to HEAD --verbose
+```
+
+If amend/reword is needed on a shared branch, use `git push --force-with-lease`
+only after confirming no one else has based work on the tip.
+
 ## Validation Gates (Pre-Commit)
 
 Run before every commit:
@@ -48,11 +65,24 @@ Target: `reservoir_step_50k < 100μs`
 ## CI Verification
 
 ```bash
+npx commitlint --from origin/main --to HEAD --verbose   # full range
 gh pr checks --watch
 gh run list --branch <branch> --limit 5
+gh run view <run-id> --log-failed   # on failure: root-cause before retry
 ```
 
 Do not claim success until both local and GitHub checks pass.
+
+### Recurring CI failure classes (prevent)
+
+| Failure | Prevention |
+|---------|------------|
+| commitlint scope-enum | Use scopes from `commitlint.config.cjs`; add new scopes when introducing crates/plan areas |
+| commitlint subject-case | Lowercase first word of subject (`ttl` not `TTL`) |
+| wasm smoke / missing js | Absolute `--out-dir` for `wasm-pack build crates/csm-wasm` |
+| macos-arm64 unreachable_code | `#[cfg(not(target_arch = "aarch64"))]` after NEON early return |
+| mutation timeouts on stubs | Exclude or test feature-disabled stubs; timeouts do not inflate score |
+| skill catalog stale | `./scripts/generate-skill-catalog.sh` then `--check` before commit |
 
 ## PR Triage Checklist (Multi-PR Review)
 
