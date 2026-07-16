@@ -102,10 +102,12 @@ jobs:
     - name: Run DuckDB tests
       run: cargo test -p csm-duckdb --locked -- --test-threads=1 --quiet
 
+  # Run on push (main) and pull_request so PR CI catches miri regressions
+  # before merge (main was red on test_cache_consistency after Wave 32 P0).
   miri:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     env:
       PROTOC: /usr/bin/protoc
     steps:
