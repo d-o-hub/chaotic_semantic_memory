@@ -83,6 +83,7 @@ Do not claim success until both local and GitHub checks pass.
 | macos-arm64 unreachable_code | `#[cfg(not(target_arch = "aarch64"))]` after NEON early return |
 | mutation timeouts on stubs | Exclude or test feature-disabled stubs; timeouts do not inflate score |
 | skill catalog stale | `./scripts/generate-skill-catalog.sh` then `--check` before commit |
+| cargo-fuzz short run / musl | pin `cargo install cargo-fuzz --version 0.12.0`; `--sanitizer none` on PR |
 
 ## PR Triage Checklist (Multi-PR Review)
 

@@ -52,6 +52,9 @@
      concurrent HDC-empty; **invalidate** absence rows on inject/corpus change.
   6. **Skill catalog:** generate with `LC_ALL=C sort` and strip `wc -l` whitespace so
      CI and local catalogs byte-match (`scripts/generate-skill-catalog.sh --check`).
+  7. **cargo-fuzz short runs:** pin `cargo install cargo-fuzz --version 0.12.0`;
+     do not use `taiki-e/install-action` `cargo-fuzz@x.y` (unsupported → musl
+     binstall failures). Prefer `--sanitizer none` on PR runners.
 - **Version numbers must be synchronized across all files before release.**
   Run `scripts/verify-version-sync.sh` to verify. Files checked:
   - `Cargo.toml` - `version = "X.Y.Z"`
