@@ -12,14 +12,17 @@
 - async-trait (0.1.83)
 - base64
 - bincode (1.3.3)
+- chrono (0.4.45) [features: serde]
 - clap (4.5) [features: derive, env, string]
 - clap_complete (4.5.42)
 - cloudevents-sdk (0.9.0)
 - colored (2.2.0)
+- csm-chaos (0.3.7)
 - csm-core (0.3.7)
 - csm-embedding (0.3.7)
 - csm-memory (0.3.7)
 - csm-retrieval (0.3.7)
+- csm-traits (0.3.7)
 - fastembed (4)
 - glob (0.3.2)
 - hnsw_rs (0.3.4)
@@ -79,6 +82,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/bridge_persistence.rs
 
 - impl Persistence
+- pub struct AbsenceEntry
+- impl AbsenceEntry
+- pub trait AbsenceStore
+- pub fn persist_absence
 
 ### src/bridge_retrieval.rs
 
@@ -440,7 +447,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use bridge_retrieval::BridgeRetrieval
 - pub use csm_core::bundle::BundleAccumulator
 - pub use csm_core::error::{MemoryError, Result}
-- pub use csm_core::hyperdim::{HVec10240, batch_cosine_similarity}
+- pub use csm_core::hyperdim::{BHVec10240, HVec10240, batch_cosine_similarity}
 - pub use framework::ChaoticSemanticFramework
 - pub use framework_builder::FrameworkBuilder
 - pub use framework_events::MemoryEvent
@@ -448,6 +455,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use singularity::{Concept, ConceptBuilder}
 - pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod bridge_retrieval
+- pub use csm_chaos
 - pub use csm_core::bundle
 - pub mod cli
 - pub mod concept_builder
@@ -469,6 +477,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod persistence
 - pub mod persistence_wasm
 - pub use csm_core::reservoir
+- pub use csm_traits
 - pub mod retrieval
 - pub mod semantic_bridge
 - pub mod singularity
@@ -497,7 +506,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl McpHandler
 - impl McpHandler
 - impl ServerHandler for McpHandler
-- impl McpHandler
 
 ### src/mcp/mod.rs
 
@@ -518,6 +526,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn shortest_path_schema
 - pub fn stats_schema
 - pub fn export_schema
+- pub fn list_gaps_schema
 
 ### src/mcp/server.rs
 
@@ -527,6 +536,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Default for McpConfig
 - pub fn serve
 - impl Clone for McpHandler
+
+### src/mcp/tools.rs
+
+- impl McpHandler
 
 ### src/metadata_filter.rs
 
@@ -577,6 +590,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct Persistence
 - pub use crate::singularity::ConceptVersion
 - impl Persistence
+- impl AbsenceStore for Persistence
+- impl Persistence
 
 ### src/persistence_concepts.rs
 
@@ -610,6 +625,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Default for Bm25Config
 - pub struct Bm25Index
 - impl Default for Bm25Index
+- pub fn is_known_absent
 - impl Clone for Bm25Index
 - impl Bm25Index
 
@@ -622,6 +638,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/retrieval/hybrid.rs
 
+- pub struct RetrievalAbstention
+- pub enum HybridResult
+- impl HybridResult
 - pub fn compute_weights
 - pub fn normalize_scores
 - pub fn merge_results
@@ -1076,17 +1095,28 @@ npm install @d-o-hub/chaotic_semantic_memory
 
 ##### CLI Binary
 
-**via npm (recommended for Node.js users):**
+**via npx (recommended — no install, no permission issues):**
+```bash
+npx @d-o-hub/csm --version
+npx @d-o-hub/csm inject my-concept --database csm_memory.db
+```
+
+**via npm global install:**
 ```bash
 npm install -g @d-o-hub/csm
 ```
+
+> **Permission errors (EACCES)?** Do not use `sudo`. Configure a user-writable prefix:
+> ```bash
+> npm config set prefix ~/.npm-global
+> export PATH=~/.npm-global/bin:$PATH  # Add to ~/.bashrc or ~/.zshrc to persist
+> ```
+> Or simply use `npx` above, which requires no global install and avoids permission issues.
 
 **via cargo:**
 ```bash
 cargo install chaotic_semantic_memory --bin csm
 ```
-
-> **Note:** Using `"0.2"` ensures compatibility with the latest 0.2.x patch versions.
 
 #### Core Components
 
@@ -1259,6 +1289,69 @@ uuid = { version = "1.23.2", features = ["v4", "serde"] }
 tempfile = "3.16.0"
 base64 = "0.22.1"
 
+# ============================================================================
+# WORKSPACE LINTS CONFIGURATION (Rust 2024)
+# ============================================================================
+
+[workspace.lints.rust]
+# Safety lints
+unsafe_code = "allow"  # SIMD uses intentional unsafe blocks
+missing_docs = "allow"  # Project uses selective documentation
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("rerank-cross"))'] }
+
+# Serialization struct fields may be unused but needed for format
+dead_code = "allow"
+
+[workspace.lints.clippy]
+# Enable all clippy lints at warning level
+all = { level = "warn", priority = -1 }
+
+# Pedantic lints are too strict for this project
+pedantic = { level = "allow", priority = -1 }
+nursery = { level = "allow", priority = -1 }
+
+# ============================================================================
+# ADR-0077: Promoted from pedantic — correctness signal (Phase A)
+# ============================================================================
+float_cmp = "warn"                      # Strict f32/f64 == almost always a bug
+significant_drop_tightening = "warn"    # Lock held longer than needed
+cast_precision_loss = "warn"            # usize as f32 losing bits
+cast_possible_truncation = "warn"       # i64 as u32 truncation risk
+redundant_clone = "warn"                # Free perf wins
+map_unwrap_or = "warn"                # Prefer map_or/map_or_else (DeepSource parity)
+unnecessary_map_or = "warn"           # Then prefer is_some_and() or map_or_else()
+
+# ============================================================================
+# ADR-0077: Promoted from pedantic — library DX (Phase A allow, Phase C warn)
+# ============================================================================
+missing_errors_doc = "allow"            # Phase C: flip to warn after docs added
+must_use_candidate = "allow"            # Phase C: flip to warn after audit
+
+# ============================================================================
+# ADR-0077: Promoted from nursery — free perf wins
+# ============================================================================
+missing_const_for_fn = "warn"           # Const fn free perf
+
+# Explicit overrides for justified allows in source
+too_many_arguments = "allow"  # Internal hot paths documented in GOAP_STATE
+type_complexity = "allow"     # Complex generics in framework
+needless_range_loop = "allow" # Intentional range iteration in hyperdim
+
+# Production code should warn on panics (issue #476)
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+
+# Examples and benchmarks use println - allow in library
+print_stdout = "allow"
+print_stderr = "allow"
+
+# Allow common short identifiers
+many_single_char_names = "allow"
+
+# Allow some cognitive complexity for hot paths
+cognitive_complexity = "allow"
+
 [package]
 name = "chaotic_semantic_memory"
 version = "0.3.7"
@@ -1283,15 +1376,18 @@ include = [
 ]
 
 [dependencies]
+csm-chaos = { path = "crates/csm-chaos", version = "0.3.7" }
 csm-core = { path = "crates/csm-core", version = "0.3.7" }
 csm-embedding = { path = "crates/csm-embedding", version = "0.3.7" }
 csm-memory = { path = "crates/csm-memory", version = "0.3.7" }
 csm-retrieval = { path = "crates/csm-retrieval", version = "0.3.7" }
+csm-traits = { path = "crates/csm-traits", version = "0.3.7" }
 
 tempfile = { workspace = true }
 # Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
+ chrono = { version = "0.4.45", features = ["serde"] }
 cloudevents-sdk = { version = "0.9.0", optional = true }
 uuid = { workspace = true, optional = true }
 bincode = "1.3.3"
@@ -1397,6 +1493,14 @@ harness = false
 name = "embedding_benchmark"
 harness = false
 
+[[bench]]
+name = "hamming_benchmark"
+harness = false
+
+[[bench]]
+name = "binary_benchmark"
+harness = false
+
 [profile.release]
 opt-level = 3
 lto = "fat"
@@ -1404,71 +1508,16 @@ codegen-units = 1
 panic = "unwind"
 strip = "symbols"
 
-# ============================================================================
-# LINTS CONFIGURATION (Rust 2024)
-# ============================================================================
+[profile.profiling]
+inherits = "release"
+strip = false
+debug = 1
 
-[lints.rust]
-# Safety lints
-unsafe_code = "allow"  # SIMD uses intentional unsafe blocks
-missing_docs = "allow"  # Project uses selective documentation
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("rerank-cross"))'] }
-
-# Serialization struct fields may be unused but needed for format
-dead_code = "allow"
-
-[lints.clippy]
-# Enable all clippy lints at warning level
-all = { level = "warn", priority = -1 }
-
-# Pedantic lints are too strict for this project
-pedantic = { level = "allow", priority = -1 }
-nursery = { level = "allow", priority = -1 }
-
-# ============================================================================
-# ADR-0077: Promoted from pedantic — correctness signal (Phase A)
-# ============================================================================
-float_cmp = "warn"                      # Strict f32/f64 == almost always a bug
-significant_drop_tightening = "warn"    # Lock held longer than needed
-cast_precision_loss = "warn"            # usize as f32 losing bits
-cast_possible_truncation = "warn"       # i64 as u32 truncation risk
-redundant_clone = "warn"                # Free perf wins
-map_unwrap_or = "warn"                # Prefer map_or/map_or_else (DeepSource parity)
-unnecessary_map_or = "warn"           # Then prefer is_some_and() or map_or_else()
-
-# ============================================================================
-# ADR-0077: Promoted from pedantic — library DX (Phase A allow, Phase C warn)
-# ============================================================================
-missing_errors_doc = "allow"            # Phase C: flip to warn after docs added
-must_use_candidate = "allow"            # Phase C: flip to warn after audit
-
-# ============================================================================
-# ADR-0077: Promoted from nursery — free perf wins
-# ============================================================================
-missing_const_for_fn = "warn"           # Const fn free perf
-
-# Explicit overrides for justified allows in source
-too_many_arguments = "allow"  # Internal hot paths documented in GOAP_STATE
-type_complexity = "allow"     # Complex generics in framework
-needless_range_loop = "allow" # Intentional range iteration in hyperdim
-
-# Production code should avoid panics but examples/benchmarks use them
-unwrap_used = "allow"
-expect_used = "allow"
-panic = "allow"
-
-# Examples and benchmarks use println - allow in library
-print_stdout = "allow"
-print_stderr = "allow"
-
-# Allow common short identifiers
-many_single_char_names = "allow"
-
-# Allow some cognitive complexity for hot paths
-cognitive_complexity = "allow"
+[lints]
+workspace = true
 
 [lib]
-crate-type = ["lib", "cdylib"]
+crate-type = ["lib"]
 
 [[bin]]
 name = "csm"

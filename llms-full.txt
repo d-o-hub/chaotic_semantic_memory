@@ -12,14 +12,17 @@
 - async-trait (0.1.83)
 - base64
 - bincode (1.3.3)
+- chrono (0.4.45) [features: serde]
 - clap (4.5) [features: derive, env, string]
 - clap_complete (4.5.42)
 - cloudevents-sdk (0.9.0)
 - colored (2.2.0)
+- csm-chaos (0.3.7)
 - csm-core (0.3.7)
 - csm-embedding (0.3.7)
 - csm-memory (0.3.7)
 - csm-retrieval (0.3.7)
+- csm-traits (0.3.7)
 - fastembed (4)
 - glob (0.3.2)
 - hnsw_rs (0.3.4)
@@ -79,6 +82,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/bridge_persistence.rs
 
 - impl Persistence
+- pub struct AbsenceEntry
+- impl AbsenceEntry
+- pub trait AbsenceStore
+- pub fn persist_absence
 
 ### src/bridge_retrieval.rs
 
@@ -440,7 +447,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use bridge_retrieval::BridgeRetrieval
 - pub use csm_core::bundle::BundleAccumulator
 - pub use csm_core::error::{MemoryError, Result}
-- pub use csm_core::hyperdim::{HVec10240, batch_cosine_similarity}
+- pub use csm_core::hyperdim::{BHVec10240, HVec10240, batch_cosine_similarity}
 - pub use framework::ChaoticSemanticFramework
 - pub use framework_builder::FrameworkBuilder
 - pub use framework_events::MemoryEvent
@@ -448,6 +455,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use singularity::{Concept, ConceptBuilder}
 - pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod bridge_retrieval
+- pub use csm_chaos
 - pub use csm_core::bundle
 - pub mod cli
 - pub mod concept_builder
@@ -469,6 +477,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod persistence
 - pub mod persistence_wasm
 - pub use csm_core::reservoir
+- pub use csm_traits
 - pub mod retrieval
 - pub mod semantic_bridge
 - pub mod singularity
@@ -497,7 +506,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl McpHandler
 - impl McpHandler
 - impl ServerHandler for McpHandler
-- impl McpHandler
 
 ### src/mcp/mod.rs
 
@@ -518,6 +526,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn shortest_path_schema
 - pub fn stats_schema
 - pub fn export_schema
+- pub fn list_gaps_schema
 
 ### src/mcp/server.rs
 
@@ -527,6 +536,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Default for McpConfig
 - pub fn serve
 - impl Clone for McpHandler
+
+### src/mcp/tools.rs
+
+- impl McpHandler
 
 ### src/metadata_filter.rs
 
@@ -577,6 +590,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct Persistence
 - pub use crate::singularity::ConceptVersion
 - impl Persistence
+- impl AbsenceStore for Persistence
+- impl Persistence
 
 ### src/persistence_concepts.rs
 
@@ -610,6 +625,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Default for Bm25Config
 - pub struct Bm25Index
 - impl Default for Bm25Index
+- pub fn is_known_absent
 - impl Clone for Bm25Index
 - impl Bm25Index
 
@@ -622,6 +638,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/retrieval/hybrid.rs
 
+- pub struct RetrievalAbstention
+- pub enum HybridResult
+- impl HybridResult
 - pub fn compute_weights
 - pub fn normalize_scores
 - pub fn merge_results
@@ -1070,17 +1089,28 @@ npm install @d-o-hub/chaotic_semantic_memory
 
 ##### CLI Binary
 
-**via npm (recommended for Node.js users):**
+**via npx (recommended — no install, no permission issues):**
+```bash
+npx @d-o-hub/csm --version
+npx @d-o-hub/csm inject my-concept --database csm_memory.db
+```
+
+**via npm global install:**
 ```bash
 npm install -g @d-o-hub/csm
 ```
+
+> **Permission errors (EACCES)?** Do not use `sudo`. Configure a user-writable prefix:
+> ```bash
+> npm config set prefix ~/.npm-global
+> export PATH=~/.npm-global/bin:$PATH  # Add to ~/.bashrc or ~/.zshrc to persist
+> ```
+> Or simply use `npx` above, which requires no global install and avoids permission issues.
 
 **via cargo:**
 ```bash
 cargo install chaotic_semantic_memory --bin csm
 ```
-
-> **Note:** Using `"0.2"` ensures compatibility with the latest 0.2.x patch versions.
 
 #### Core Components
 
@@ -1289,6 +1319,49 @@ pub use tracing_subscriber::FmtSubscriber;
 
 ## src/bridge_persistence.rs
 
+### AbsenceEntry
+
+```rust
+#[derive(Debug, Clone, serde :: Serialize, serde :: Deserialize)]
+pub struct AbsenceEntry {
+    pub id: String,
+    pub query: String,
+    pub normalized_query: String,
+    pub attempt_count: u32,
+    pub last_threshold: f32,
+    pub best_score_ever: Option<f32>,
+    pub first_seen: DateTime<Utc>,
+    pub last_seen: DateTime<Utc>,
+}
+```
+
+A persisted record of a retrieval event that found no matching concepts.
+Used to prevent re-querying known-absent concepts and to surface
+memory gaps to operators.
+
+### AbsenceStore
+
+```rust
+pub trait AbsenceStore: Send + Sync {
+    fn get_absence(&self, id: &str) -> Result<Option<AbsenceEntry>>;
+    fn upsert_absence(&self, entry: &AbsenceEntry) -> Result<()>;
+    fn list_absences(&self, min_attempts: u32) -> Result<Vec<AbsenceEntry>>;
+}
+```
+
+Persistence backend for absence entries.
+
+### impl AbsenceEntry
+
+```rust
+impl AbsenceEntry {
+    pub fn normalize(query: &str) -> String;
+    pub fn id_for(query: &str) -> String;
+    pub fn from_abstention(abstention: &RetrievalAbstention) -> Self;
+    pub fn merge_with(&mut self, abstention: &RetrievalAbstention);
+}
+```
+
 ### impl Persistence
 
 ```rust
@@ -1301,6 +1374,14 @@ impl Persistence {
     pub fn load_concept_graph(&self, ns: &str) -> Result<ConceptGraph>;
 }
 ```
+
+### persist_absence
+
+```rust
+pub fn persist_absence(abstention: &RetrievalAbstention, store: &dyn Trait) -> Result<AbsenceEntry>
+```
+
+Persist a RetrievalAbstention event as an AbsenceEntry.
 
 ## src/bridge_retrieval.rs
 
@@ -1321,6 +1402,7 @@ impl BridgeRetrieval {
     pub fn new(encoder: TextEncoder, concept_graph: ConceptGraph, config: BridgeConfig) -> Self;
     pub fn with_defaults(encoder: TextEncoder, concept_graph: ConceptGraph) -> Self;
     pub fn query(&self, ns: &str, singularity: &Singularity, query_text: &str, top_k: usize, reranker: Option<&dyn Trait>) -> Result<Vec<BridgeHit>>;
+    pub fn query_with_best_score(&self, ns: &str, singularity: &Singularity, query_text: &str, top_k: usize, reranker: Option<&dyn Trait>) -> Result<(Vec<BridgeHit>, f32)>;
     pub fn memory_packet(&self, ns: &str, singularity: &Singularity, query_text: &str, top_k: usize, reranker: Option<&dyn Trait>) -> Result<MemoryPacket>;
     pub fn concept_graph(&self) -> &ConceptGraph;
     pub fn encoder(&self) -> &TextEncoder;
@@ -2500,9 +2582,9 @@ impl ChaoticSemanticFramework {
 
 ```rust
 impl ChaoticSemanticFramework {
-    pub fn probe_bridge_text(&self, query: &str, top_k: usize, bridge: &BridgeRetrieval) -> Result<Vec<BridgeHit>>;
-    pub fn probe_bridge_text_with_reranker(&self, query: &str, top_k: usize, bridge: &BridgeRetrieval, reranker: &dyn Trait) -> Result<Vec<BridgeHit>>;
-    pub fn probe_bridge_text_filtered(&self, query: &str, top_k: usize, bridge: &BridgeRetrieval, filter: &MetadataFilter) -> Result<Vec<BridgeHit>>;
+    pub fn probe_bridge_text(&self, query: &str, top_k: usize, bridge: &BridgeRetrieval) -> Result<HybridResult>;
+    pub fn probe_bridge_text_with_reranker(&self, query: &str, top_k: usize, bridge: &BridgeRetrieval, reranker: &dyn Trait) -> Result<HybridResult>;
+    pub fn probe_bridge_text_filtered(&self, query: &str, top_k: usize, bridge: &BridgeRetrieval, filter: &MetadataFilter) -> Result<HybridResult>;
     pub fn memory_packet_text(&self, query: &str, top_k: usize, bridge: &BridgeRetrieval) -> Result<MemoryPacket>;
     pub fn memory_packet_text_with_reranker(&self, query: &str, top_k: usize, bridge: &BridgeRetrieval, reranker: &dyn Trait) -> Result<MemoryPacket>;
 }
@@ -2883,9 +2965,10 @@ impl crate::framework::ChaoticSemanticFramework {
     pub fn purge_expired(&self) -> Result<usize>;
     pub fn inject_text(&self, id: &str, text: &str) -> Result<()>;
     pub fn inject_text_with_metadata(&self, id: &str, text: &str, metadata: HashMap<String, serde_json::Value>) -> Result<()>;
-    pub fn probe_text(&self, query: &str, top_k: usize) -> Result<Vec<(String, f32)>>;
-    pub fn probe_text_filtered(&self, query: &str, top_k: usize, filter: &MetadataFilter) -> Result<Vec<(String, f32)>>;
-    pub fn query_in_session(&self, query: &str, session_id: &str, top_k: usize) -> Result<Vec<(String, f32)>>;
+    pub fn probe_text(&self, query: &str, top_k: usize) -> Result<HybridResult>;
+    pub fn probe_with_best_score(&self, query: HVec10240, top_k: usize) -> Result<(Vec<(String, f32)>, Option<f32>)>;
+    pub fn probe_text_filtered(&self, query: &str, top_k: usize, filter: &MetadataFilter) -> Result<HybridResult>;
+    pub fn query_in_session(&self, query: &str, session_id: &str, top_k: usize) -> Result<HybridResult>;
 }
 ```
 
@@ -3108,6 +3191,12 @@ pub use crate::singularity::{Concept, ConceptBuilder, ConceptDiff, ConceptVersio
 pub use crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats};
 ```
 
+### csm_chaos
+
+```rust
+pub use csm_chaos;
+```
+
 ### csm_core::bundle
 
 ```rust
@@ -3162,16 +3251,22 @@ pub use csm_core::hyperdim;
 pub use csm_core::hyperdim::HVec10240;
 ```
 
-### csm_core::hyperdim::{HVec10240, batch_cosine_similarity}
+### csm_core::hyperdim::{BHVec10240, HVec10240, batch_cosine_similarity}
 
 ```rust
-pub use csm_core::hyperdim::{HVec10240, batch_cosine_similarity};
+pub use csm_core::hyperdim::{BHVec10240, HVec10240, batch_cosine_similarity};
 ```
 
 ### csm_core::reservoir
 
 ```rust
 pub use csm_core::reservoir;
+```
+
+### csm_traits
+
+```rust
+pub use csm_traits;
 ```
 
 ### framework::ChaoticSemanticFramework
@@ -3275,13 +3370,6 @@ impl McpHandler {
 }
 ```
 
-### impl McpHandler
-
-```rust
-impl McpHandler {
-}
-```
-
 ### impl ServerHandler for McpHandler
 
 ```rust
@@ -3352,6 +3440,14 @@ pub fn inject_text_schema() -> Value
 ```
 
 Schema for memory_inject_text tool.
+
+### list_gaps_schema
+
+```rust
+pub fn list_gaps_schema() -> Value
+```
+
+Schema for memory_list_gaps tool.
 
 ### probe_filtered_schema
 
@@ -3465,6 +3561,15 @@ Start the MCP server.
 #### Errors
 
 Returns error if server fails to start or transport initialization fails.
+
+## src/mcp/tools.rs
+
+### impl McpHandler
+
+```rust
+impl McpHandler {
+}
+```
 
 ## src/metadata_filter.rs
 
@@ -3751,6 +3856,13 @@ pub struct Persistence {
 pub use crate::singularity::ConceptVersion;
 ```
 
+### impl AbsenceStore for Persistence
+
+```rust
+impl AbsenceStore for Persistence {
+}
+```
+
 ### impl Persistence
 
 ```rust
@@ -3765,6 +3877,13 @@ impl Persistence {
     pub fn checkpoint(&self) -> Result<()>;
     pub fn list_namespaces(&self) -> Result<Vec<String>>;
     pub fn size(&self) -> Result<u64>;
+}
+```
+
+### impl Persistence
+
+```rust
+impl Persistence {
 }
 ```
 
@@ -3946,6 +4065,16 @@ impl Default for Bm25Index {
 }
 ```
 
+### is_known_absent
+
+```rust
+pub fn is_known_absent(query: &str, store: &dyn Trait, min_attempts: u32) -> bool
+```
+
+Returns true if the query has a known absence record with
+attempt_count >= min_attempts, indicating BM25 should be skipped.
+TODO: Wire into the main hybrid retrieval pipeline for short-circuiting.
+
 ## src/retrieval/bm25/tests.rs
 
 ## src/retrieval/graph_rag.rs
@@ -4025,6 +4154,33 @@ pub enum HybridMode {
 
 Hybrid retrieval mode.
 
+### HybridResult
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum HybridResult {
+    Success(Vec<(String, f32)>),
+    Abstained(RetrievalAbstention),
+}
+```
+
+Result of a hybrid retrieval operation.
+
+### RetrievalAbstention
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RetrievalAbstention {
+    pub query: String,
+    pub min_score_threshold: f32,
+    pub best_score_seen: Option<f32>,
+    pub attempted_modes: Vec<String>,
+    pub timestamp: DateTime<Utc>,
+}
+```
+
+A record of a retrieval attempt that yielded no results above the threshold.
+
 ### compute_weights
 
 ```rust
@@ -4046,6 +4202,15 @@ Returns (keyword_weight, semantic_weight) based on token count.
 
 ```rust
 impl Default for HybridConfig {
+}
+```
+
+### impl HybridResult
+
+```rust
+impl HybridResult {
+    pub fn is_empty(&self) -> bool;
+    pub fn iter(&self) -> Box<dyn Trait>;
 }
 ```
 

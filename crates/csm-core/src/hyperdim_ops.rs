@@ -75,9 +75,17 @@ impl Hypervector for HVec10240 {
     }
 }
 
-/// Scalar bit-sliced addition for a single word.
+/// Max bit-planes for bit-sliced bundle accumulation.
+///
+/// Supports N up to `2^64 - 1`. Shared by HVec (`bundle_word_scalar`) and
+/// BHVec (`bundle_word_u64`) so capacity stays in lockstep.
+pub const BUNDLE_MAX_PLANES: usize = 64;
+
+/// Scalar bit-sliced addition for a single `u128` word (HVec).
 ///
 /// Centralized helper for sequential and parallel fallback paths.
+/// Semantics: bit set when `count >= threshold` (callers pass `N/2 + 1`).
+/// Must stay in lockstep with [`bundle_word_u64`].
 #[allow(dead_code)]
 pub fn bundle_word_scalar(
     vectors: &[HVec10240],
@@ -85,7 +93,11 @@ pub fn bundle_word_scalar(
     threshold: usize,
     num_planes: usize,
 ) -> u128 {
-    let mut planes = [0u128; 64];
+    debug_assert!(
+        num_planes <= BUNDLE_MAX_PLANES,
+        "num_planes={num_planes} exceeds BUNDLE_MAX_PLANES={BUNDLE_MAX_PLANES}"
+    );
+    let mut planes = [0u128; BUNDLE_MAX_PLANES];
     for v in vectors {
         let mut carry = v.data[word_idx];
         for plane in planes.iter_mut().take(num_planes) {
@@ -98,6 +110,43 @@ pub fn bundle_word_scalar(
         }
     }
     let (mut current_eq, mut current_gt) = (!0u128, 0u128);
+    for p in (0..num_planes).rev() {
+        if ((threshold >> p) & 1) == 1 {
+            current_eq &= planes[p];
+        } else {
+            current_gt |= current_eq & planes[p];
+            current_eq &= !planes[p];
+        }
+    }
+    current_gt | current_eq
+}
+
+/// Bit-sliced majority for a single `u64` word (BHVec).
+///
+/// Same algorithm as [`bundle_word_scalar`], differing only in word width.
+/// Callers pass `threshold = N/2 + 1` and `num_planes = bit_width(N)`.
+pub fn bundle_word_u64(
+    words: impl IntoIterator<Item = u64>,
+    threshold: usize,
+    num_planes: usize,
+) -> u64 {
+    debug_assert!(
+        num_planes <= BUNDLE_MAX_PLANES,
+        "num_planes={num_planes} exceeds BUNDLE_MAX_PLANES={BUNDLE_MAX_PLANES}"
+    );
+    let mut planes = [0u64; BUNDLE_MAX_PLANES];
+    for word in words {
+        let mut carry = word;
+        for plane in planes.iter_mut().take(num_planes) {
+            let next_carry = *plane & carry;
+            *plane ^= carry;
+            carry = next_carry;
+            if carry == 0 {
+                break;
+            }
+        }
+    }
+    let (mut current_eq, mut current_gt) = (!0u64, 0u64);
     for p in (0..num_planes).rev() {
         if ((threshold >> p) & 1) == 1 {
             current_eq &= planes[p];
