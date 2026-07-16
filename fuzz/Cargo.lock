@@ -581,6 +581,7 @@ dependencies = [
  "js-sys",
  "rand 0.10.2",
  "rand_chacha 0.10.0",
+ "rayon",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -635,6 +636,7 @@ name = "csm-retrieval"
 version = "0.3.7"
 dependencies = [
  "async-trait",
+ "chrono",
  "csm-core",
  "csm-memory",
  "serde",
@@ -1883,9 +1885,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.52.3"
+version = "1.52.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fc7f01b389ac15039e4dc9531aa973a135d7a4135281b12d7c1bc79fd57fffe"
+checksum = "317fafbbe3f02fc663dad00ea6186197de963cd4190e86a26d8d0fae095539af"
 dependencies = [
  "bytes",
  "libc",

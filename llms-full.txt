@@ -55,8 +55,8 @@
 - mcp: [dep:rmcp, cli, dep:axum, dep:tower, dep:tower-http]
 - otlp-json: []
 - otlp: [dep:opentelemetry, dep:opentelemetry_sdk, dep:opentelemetry-otlp, dep:tracing-opentelemetry]
-- parallel: [dep:rayon]
-- persistence: [dep:libsql]
+- parallel: [dep:rayon, csm-core/parallel, csm-memory/parallel]
+- persistence: [dep:libsql, csm-persistence/persistence]
 - prometheus: [dep:prometheus, dep:hyper, dep:hyper-util, dep:http-body-util]
 - wasm: []
 
@@ -409,6 +409,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/framework_ttl.rs
 
+- impl TtlCleanupControl
+- impl Drop for TtlCleanupControl
 - impl crate::framework::ChaoticSemanticFramework
 
 ### src/framework_ttl_advanced.rs
@@ -636,6 +638,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Default for Bm25Config
 - pub struct Bm25Index
 - impl Default for Bm25Index
+- pub const DEFAULT_ABSENCE_MIN_ATTEMPTS
 - pub fn is_known_absent
 - impl Clone for Bm25Index
 - impl Bm25Index
@@ -649,15 +652,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/retrieval/hybrid.rs
 
-- pub struct RetrievalAbstention
-- pub enum HybridResult
-- impl HybridResult
-- pub fn compute_weights
-- pub fn normalize_scores
-- pub fn merge_results
-- pub enum HybridMode
-- pub struct HybridConfig
-- impl Default for HybridConfig
+- pub use csm_retrieval::{HybridConfig, HybridMode, HybridResult, RetrievalAbstention, compute_weights, merge_results, normalize_scores}
 
 ### src/retrieval/mod.rs
 
@@ -2579,6 +2574,7 @@ impl ChaoticSemanticFramework {
 
 ```rust
 impl ChaoticSemanticFramework {
+    pub fn persistence_store(&self) -> Option<&std::sync::Arc<crate::persistence::Persistence>>;
     pub fn shortest_path_hops(&self, from: &str, to: &str) -> Result<Option<Vec<String>>>;
     pub fn get_concept(&self, id: &str) -> Result<Option<Concept>>;
     pub fn load(&self) -> Result<()>;
@@ -2687,9 +2683,7 @@ impl FrameworkBuilder {
     pub fn with_ttl_config(self, config: crate::framework_ttl_advanced::TtlConfig) -> Self;
     pub fn with_version_retention(self, retention: usize) -> Self;
     pub fn with_local_db(self, path: impl Trait) -> Self;
-    pub fn with_local_db(self, _path: impl Trait) -> Self;
     pub fn with_turso(self, url: impl Trait, token: impl Trait) -> Self;
-    pub fn with_turso(self, _url: impl Trait, _token: impl Trait) -> Self;
     pub fn without_persistence(self) -> Self;
     pub fn without_persistence(self) -> Self;
     pub fn with_embedding_provider<P: crate::embedding::EmbeddingProvider + 'static>(self, provider: P) -> Self;
@@ -2967,10 +2961,26 @@ impl ChaoticSemanticFramework {
 
 ## src/framework_ttl.rs
 
+### impl Drop for TtlCleanupControl
+
+```rust
+impl Drop for TtlCleanupControl {
+}
+```
+
+### impl TtlCleanupControl
+
+```rust
+impl TtlCleanupControl {
+}
+```
+
 ### impl crate::framework::ChaoticSemanticFramework
 
 ```rust
 impl crate::framework::ChaoticSemanticFramework {
+    pub fn shutdown_ttl_cleanup(&self);
+    pub fn has_ttl_cleanup_task(&self) -> bool;
     pub fn inject_concept_with_ttl(&self, id: impl Trait, vector: HVec10240, ttl_seconds: u64) -> Result<()>;
     pub fn inject_text_with_ttl(&self, id: &str, text: &str, ttl_seconds: u64) -> Result<()>;
     pub fn purge_expired(&self) -> Result<usize>;
@@ -4122,6 +4132,14 @@ pub struct Bm25Index {
 
 BM25-based document index for keyword search.
 
+### DEFAULT_ABSENCE_MIN_ATTEMPTS
+
+```rust
+pub const DEFAULT_ABSENCE_MIN_ATTEMPTS: u32
+```
+
+Default absence attempt threshold for BM25 hybrid short-circuit.
+
 ### impl Bm25Index
 
 ```rust
@@ -4165,9 +4183,7 @@ impl Default for Bm25Index {
 pub fn is_known_absent(query: &str, store: &dyn Trait, min_attempts: u32) -> bool
 ```
 
-Returns true if the query has a known absence record with
-attempt_count >= min_attempts, indicating BM25 should be skipped.
-TODO: Wire into the main hybrid retrieval pipeline for short-circuiting.
+True when absence memory has attempt_count >= min_attempts (CLI hybrid skips BM25).
 
 ## src/retrieval/bm25/tests.rs
 
@@ -4222,114 +4238,11 @@ impl Default for GraphRagConfig {
 
 ## src/retrieval/hybrid.rs
 
-### HybridConfig
+### csm_retrieval::{HybridConfig, HybridMode, HybridResult, RetrievalAbstention, compute_weights, merge_results, normalize_scores}
 
 ```rust
-#[derive(Debug, Clone)]
-pub struct HybridConfig {
-    pub mode: HybridMode,
-    pub min_score: f32,
-}
+pub use csm_retrieval::{HybridConfig, HybridMode, HybridResult, RetrievalAbstention, compute_weights, merge_results, normalize_scores};
 ```
-
-Configuration for hybrid retrieval.
-
-### HybridMode
-
-```rust
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub enum HybridMode {
-    Auto,
-    SemanticOnly,
-    KeywordOnly,
-    Custom(f32),
-}
-```
-
-Hybrid retrieval mode.
-
-### HybridResult
-
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum HybridResult {
-    Success(Vec<(String, f32)>),
-    Abstained(RetrievalAbstention),
-}
-```
-
-Result of a hybrid retrieval operation.
-
-### RetrievalAbstention
-
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RetrievalAbstention {
-    pub query: String,
-    pub min_score_threshold: f32,
-    pub best_score_seen: Option<f32>,
-    pub attempted_modes: Vec<String>,
-    pub timestamp: DateTime<Utc>,
-}
-```
-
-A record of a retrieval attempt that yielded no results above the threshold.
-
-### compute_weights
-
-```rust
-pub fn compute_weights(token_count: usize) -> (f32, f32)
-```
-
-Compute query-length-dependent weights for hybrid retrieval.
-
-Returns (keyword_weight, semantic_weight) based on token count.
-
-| Query Tokens | Keyword | Semantic | Rationale |
-|-------------|---------|----------|-----------|
-| 1-2 | 0.9 | 0.1 | Exact match dominates |
-| 3-4 | 0.7 | 0.3 | Keyword still strong |
-| 5-8 | 0.4 | 0.6 | Semantic takes over |
-| 9+ | 0.2 | 0.8 | Full semantic mode |
-
-### impl Default for HybridConfig
-
-```rust
-impl Default for HybridConfig {
-}
-```
-
-### impl HybridResult
-
-```rust
-impl HybridResult {
-    pub fn is_empty(&self) -> bool;
-    pub fn iter(&self) -> Box<dyn Trait>;
-}
-```
-
-### merge_results
-
-```rust
-pub fn merge_results(bm25_results: &[(String, f32)], hdc_results: &[(String, f32)], weights: (f32, f32)) -> Vec<(String, f32)>
-```
-
-Merge BM25 and HDC results with given weights.
-
-Takes two result sets (from BM25 and HDC), normalizes scores,
-and combines them using weighted sum.
-
-Duplicate IDs are merged by taking the maximum combined score.
-
-### normalize_scores
-
-```rust
-pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)>
-```
-
-Normalize scores to [0, 1] range using min-max normalization.
-
-If all scores are equal, returns 1.0 for all.
 
 ## src/retrieval/mod.rs
 

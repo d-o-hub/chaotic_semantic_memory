@@ -125,11 +125,11 @@ include = [
 
 [dependencies]
 csm-chaos = { path = "crates/csm-chaos", version = "0.3.7" }
-csm-core = { path = "crates/csm-core", version = "0.3.7" }
-csm-embedding = { path = "crates/csm-embedding", version = "0.3.7" }
-csm-memory = { path = "crates/csm-memory", version = "0.3.7" }
-csm-retrieval = { path = "crates/csm-retrieval", version = "0.3.7" }
-csm-traits = { path = "crates/csm-traits", version = "0.3.7" }
+csm-core = { path = "crates/csm-core", version = "0.3.7", default-features = false }
+csm-embedding = { path = "crates/csm-embedding", version = "0.3.7", default-features = false }
+csm-memory = { path = "crates/csm-memory", version = "0.3.7", default-features = false }
+csm-retrieval = { path = "crates/csm-retrieval", version = "0.3.7", default-features = false }
+csm-traits = { path = "crates/csm-traits", version = "0.3.7", default-features = false }
 
 tempfile = { workspace = true }
 # Serialization
@@ -187,9 +187,11 @@ rayon = { version = "1.10.0", optional = true }
 
 # Database - Use libsql NOT turso-client (opt-in via "persistence" feature)
 libsql = { version = "0.9.30", default-features = false, features = ["sync", "hrana", "remote"], optional = true }
-csm-persistence = { path = "crates/csm-persistence", version = "0.3.7" }
+# ADR-0094: lean no-default-features — do not pull csm-persistence default (libSQL).
+csm-persistence = { path = "crates/csm-persistence", version = "0.3.7", default-features = false }
 # `net` is required by the Prometheus /metrics server (ADR-0072).
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs", "net"] }
+# `time` required for TTL cleanup interval/timeout (ADR-0093 lifecycle).
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs", "net", "time"] }
 
 # HTTP server for Prometheus /metrics endpoint (ADR-0072, opt-in via "prometheus" feature)
 hyper = { version = "1", features = ["server", "http1"], optional = true }
@@ -304,8 +306,9 @@ required-features = ["prometheus", "otlp-json"]
 [features]
 default = ["cli", "persistence", "parallel"]
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
-persistence = ["dep:libsql"]
-parallel = ["dep:rayon"]
+# ADR-0094: forward owner-crate features; persistence enables libSQL in root + csm-persistence.
+persistence = ["dep:libsql", "csm-persistence/persistence"]
+parallel = ["dep:rayon", "csm-core/parallel", "csm-memory/parallel"]
 wasm = []
 mcp = ["dep:rmcp", "cli", "dep:axum", "dep:tower", "dep:tower-http"]  # ADR-0067: MCP server requires CLI infrastructure
 

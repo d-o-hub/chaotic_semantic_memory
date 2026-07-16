@@ -479,5 +479,10 @@ mod tests {
         let entry3 = persist_absence(&abstention3, &persistence).await.unwrap();
         assert_eq!(entry3.attempt_count, 3);
         assert!((entry2.best_score_ever.unwrap() - 0.4).abs() < f32::EPSILON); // Stays at 0.4
+
+        // Wave 32: BM25 short-circuit threshold uses DEFAULT_ABSENCE_MIN_ATTEMPTS.
+        use crate::retrieval::bm25::{DEFAULT_ABSENCE_MIN_ATTEMPTS, is_known_absent};
+        assert!(is_known_absent("unknown", &persistence, DEFAULT_ABSENCE_MIN_ATTEMPTS).await);
+        assert!(!is_known_absent("unknown", &persistence, 4).await);
     }
 }

@@ -1,0 +1,81 @@
+# ADR-0095 Tier 2: scheduled full fuzz target runs with bounded duration.
+name: Fuzz Scheduled
+
+on:
+  schedule:
+    # Weekly Sunday 04:00 UTC
+    - cron: "0 4 * * 0"
+  workflow_dispatch:
+    inputs:
+      max_total_time:
+        description: "Seconds per fuzz target"
+        required: false
+        default: "120"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz-scheduled
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  FUZZ_MAX_TOTAL_TIME: ${{ github.event.inputs.max_total_time || '120' }}
+
+jobs:
+  fuzz-all-targets:
+    name: Full Fuzz Sweep
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
+
+      - name: Install clang (libfuzzer-sys)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang
+
+      - name: Install Rust (stable for check) + nightly for cargo-fuzz
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          cache: false
+
+      - name: Install nightly + cargo-fuzz
+        run: |
+          rustup toolchain install nightly --profile minimal
+          rustup component add rust-src --toolchain nightly
+          cargo install cargo-fuzz --locked
+
+      - name: Cache fuzz workspace
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
+        with:
+          workspaces: fuzz
+          shared-key: fuzz-scheduled
+
+      - name: Compile-check all fuzz targets
+        run: cargo check --manifest-path fuzz/Cargo.toml --all-targets --locked
+
+      - name: Run all fuzz targets (bounded)
+        run: |
+          set -euo pipefail
+          SECS="${FUZZ_MAX_TOTAL_TIME}"
+          mapfile -t TARGETS < <(cargo +nightly fuzz list)
+          echo "Fuzz targets (${#TARGETS[@]}): ${TARGETS[*]}"
+          for target in "${TARGETS[@]}"; do
+            echo "::group::fuzz ${target} (${SECS}s)"
+            cargo +nightly fuzz run "${target}" -- \
+              -max_total_time="${SECS}" -timeout=25
+            echo "::endgroup::"
+          done
+
+      - name: Upload crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fuzz-crashes
+          path: |
+            fuzz/artifacts/
+            fuzz/corpus/
+          if-no-files-found: ignore
+          retention-days: 14

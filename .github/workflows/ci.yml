@@ -403,20 +403,24 @@ jobs:
       uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853  # v2.83.2
       with:
         tool: wasm-pack
-    - name: Build WASM
-      run: wasm-pack build crates/csm-wasm --dev --target web
+    - name: Build WASM (web — matches release npm target)
+      # ADR-0094: identical crate/path/out-name as release.yml publish-npm-wasm.
+      run: |
+        wasm-pack build crates/csm-wasm --dev --target web --out-dir wasm/pkg-ci-web \
+          --out-name chaotic_semantic_memory
     - name: Check WASM
       run: cargo check --target wasm32-unknown-unknown -p csm-wasm
     - name: Verify WASM TS Freshness
       run: bash scripts/check-wasm-freshness.sh
-    # WASM JS smoke (wasm/test.js) is intentionally NOT run in this job:
-    # 1) Build uses --target web; Node cannot initialize that package (fetch of
-    #    file:// wasm fails under undici: "not implemented... yet...").
-    # 2) crates/csm-wasm wasm-pack output is named csm_wasm.js; wasm/test.js
-    #    imports chaotic_semantic_memory.js (publish/out-name).
-    # 3) Smoke currently only succeeds against a nodejs-target package with that
-    #    name (e.g. checked-in wasm/pkg-node). Re-enable after packaging is
-    #    aligned (nodejs CI artifact + matching out-name or test env).
+    - name: Build WASM (nodejs) + JS smoke
+      # Node cannot init --target web (file:// fetch). Nodejs target + out-name
+      # matches wasm/test.js / wasm/package.json main field.
+      run: |
+        set -euo pipefail
+        wasm-pack build crates/csm-wasm --dev --target nodejs --out-dir wasm/pkg-ci-node \
+          --out-name chaotic_semantic_memory
+        test -f wasm/pkg-ci-node/chaotic_semantic_memory.js
+        WASM_PACKAGE_DIR="$(pwd)/wasm/pkg-ci-node" node wasm/test.js
 
   lint:
     runs-on: ubuntu-latest
@@ -440,6 +444,12 @@ jobs:
       run: cargo clippy --all-targets --all-features -- -D warnings
     - name: Skill format validation (ADR-0096)
       run: bash scripts/validate-skill-format.sh
+    - name: Skill catalog freshness (ADR-0096)
+      run: bash scripts/generate-skill-catalog.sh --check
+    - name: Critical skill behavioral evals (ADR-0096)
+      run: bash scripts/eval-critical-skills.sh
+    - name: Plan archive manifest (ADR-0096)
+      run: bash scripts/plans-archive-manifest.sh
     - name: LOC gate
       run: bash scripts/validate.sh
 
@@ -508,3 +518,20 @@ jobs:
         shared-key: fuzz
     - name: Check all fuzz targets compile
       run: cargo check --manifest-path fuzz/Cargo.toml --all-targets --locked
+    - name: Install nightly + cargo-fuzz for short PR runs
+      # ADR-0095 Tier 1: compile gate above + short runs of changed/smoke targets.
+      run: |
+        rustup toolchain install nightly --profile minimal
+        rustup component add rust-src --toolchain nightly
+        cargo install cargo-fuzz --locked --version 0.12.0 || cargo install cargo-fuzz --locked
+    - name: Short fuzz runs (smoke targets)
+      run: |
+        set -euo pipefail
+        # Bounded wall time per target; fail closed on non-zero (crash/OOM).
+        SHORT_SECS="${FUZZ_SHORT_SECONDS:-10}"
+        for target in hvec_from_bytes reservoir_step fuzz_text_encoder; do
+          echo "::group::fuzz ${target} (${SHORT_SECS}s)"
+          cargo +nightly fuzz run "${target}" -- \
+            -max_total_time="${SHORT_SECS}" -timeout=5
+          echo "::endgroup::"
+        done

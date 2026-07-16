@@ -84,12 +84,35 @@ pub async fn run_query(
     };
 
     let bm25_results = if use_bm25 {
-        // Build BM25 index from concepts
-        let bm25_index = build_bm25_index(&framework).await?;
-        if bm25_index.is_empty() {
+        // ADR-0094 / Wave 32: short-circuit BM25 when absence memory says the
+        // query has repeatedly returned nothing (avoids rebuilding/scanning
+        // the keyword index for known-absent queries).
+        #[cfg(feature = "persistence")]
+        let skip_bm25 = {
+            use crate::retrieval::bm25::{DEFAULT_ABSENCE_MIN_ATTEMPTS, is_known_absent};
+            if let Some(store) = framework.persistence_store() {
+                is_known_absent(&args.text, store.as_ref(), DEFAULT_ABSENCE_MIN_ATTEMPTS).await
+            } else {
+                false
+            }
+        };
+        #[cfg(not(feature = "persistence"))]
+        let skip_bm25 = false;
+
+        if skip_bm25 {
+            tracing::debug!(
+                query = %args.text,
+                "skipping BM25: known absence short-circuit"
+            );
             None
         } else {
-            Some(bm25_index.search(&query_tokens, args.top_k))
+            // Build BM25 index from concepts
+            let bm25_index = build_bm25_index(&framework).await?;
+            if bm25_index.is_empty() {
+                None
+            } else {
+                Some(bm25_index.search(&query_tokens, args.top_k))
+            }
         }
     } else {
         None

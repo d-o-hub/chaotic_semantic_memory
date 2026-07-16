@@ -1,3 +1,38 @@
+## 2026-07-16: Wave 32 P2 — TTL, Absence, Feature Contracts
+
+### Summary
+Implemented seven independent Wave 32 GOAP actions on branch
+`feat/wave32-p2-ttl-absence-contracts` (**PR #517**). Full write-up:
+`plans/WAVE_32_P2_PROGRESS.md`. Canonical state: `plans/GOAP_STATE.md`
+(`action_last_completed: wave32_p2_ttl_absence_contracts_2026_07_16`).
+
+### Completed
+- TTL cleanup lifecycle ownership + bounded shutdown (`TtlCleanupControl`)
+- BM25 absence short-circuit in hybrid CLI (`DEFAULT_ABSENCE_MIN_ATTEMPTS=3`)
+- Lean `--no-default-features` (no libSQL); parallel/persistence feature forward
+- Persistence-disabled APIs: cfg-absent builders + `UnsupportedOperation` stubs
+- CI/release WASM artifact aligned on `crates/csm-wasm` + nodejs smoke path
+- Fuzz short PR smoke + weekly scheduled full fuzz workflow
+- Mutation score: timeouts unresolved; inventory; fewer path excludes
+
+### CI / merge follow-ups (P0 on PR #517)
+- Fix **commitlint**, **wasm**, **Fuzz Workspace Build** failures before merge
+
+### Queued follow-ups (see ACTIONS.md + WAVE_32_P2_PROGRESS.md)
+| Wave | Focus | Key actions |
+|------|--------|-------------|
+| 33a P1 | Ownership façades | `consolidate_retrieval_ownership` → persistence/CLI/WASM |
+| 33b P2 | Evidence tiers | tiered benchmarks → scale ANN/persistence → measured 10M model |
+| 33c P2/P3 | Agent hygiene | skill behavioral evals, hooks catalog, harness matrix, plan compact |
+| later | Dedup | `deduplicate_test_and_source_surfaces` after unique owners |
+
+### Suggested (not yet named ACTIONS)
+- Absence invalidation on successful inject
+- Branch-protection require for Fuzz Workspace Build
+- Release path JS smoke parity with CI
+
+---
+
 ## 2026-05-23: Documentation Audit
 
 ### Summary

@@ -9,6 +9,14 @@ use csm_core::error::Result;
 use tracing::instrument;
 
 impl ChaoticSemanticFramework {
+    /// Borrow the persistence backend when configured (feature + path present).
+    ///
+    /// Used by hybrid retrieval to consult absence memory for BM25 short-circuit.
+    #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+    pub fn persistence_store(&self) -> Option<&std::sync::Arc<crate::persistence::Persistence>> {
+        self.persistence.as_ref()
+    }
+
     /// Find the fewest-hop path between two concepts (unweighted BFS).
     ///
     /// Returns the path with the minimum number of hops, ignoring edge strengths.
