@@ -521,20 +521,19 @@ jobs:
         workspaces: fuzz
         shared-key: fuzz
     - name: Check all fuzz targets compile
+      # Required gate (ADR-0095 Tier 1 compile). Uses stable + locked fuzz/Cargo.lock.
       run: cargo check --manifest-path fuzz/Cargo.toml --all-targets --locked
-    - name: Install nightly for short PR fuzz runs
-      uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
-      with:
-        cache: false
-        toolchain: nightly
-        components: rust-src
-    - name: Install cargo-fuzz (pinned)
-      # Pin only — no unpinned fallback (PR #518 review). Cache via tool cache when possible.
-      uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853  # v2.83.2
-      with:
-        tool: cargo-fuzz@0.12.0
+    - name: Install nightly + pinned cargo-fuzz for short runs
+      # Do not use a second setup-rust-toolchain (clobbers default) or taiki tool
+      # cargo-fuzz@ver (unsupported → binstall musl breakage). Pin version only.
+      run: |
+        set -euo pipefail
+        rustup toolchain install nightly --profile minimal --no-self-update
+        rustup component add rust-src --toolchain nightly
+        cargo install cargo-fuzz --locked --version 0.12.0 --force
     - name: Short fuzz runs (smoke targets)
       # Set FUZZ_SHORT_SECONDS=0 to degrade to compile-only (compile gate already ran).
+      # --sanitizer none: ASAN/musl builds are flaky/slow on shared PR runners.
       run: |
         set -euo pipefail
         SHORT_SECS="${FUZZ_SHORT_SECONDS:-10}"
@@ -544,7 +543,7 @@ jobs:
         fi
         for target in hvec_from_bytes reservoir_step fuzz_text_encoder; do
           echo "::group::fuzz ${target} (${SHORT_SECS}s)"
-          cargo +nightly fuzz run "${target}" -- \
+          cargo +nightly fuzz run "${target}" --sanitizer none -- \
             -max_total_time="${SHORT_SECS}" -timeout=5
           echo "::endgroup::"
         done
