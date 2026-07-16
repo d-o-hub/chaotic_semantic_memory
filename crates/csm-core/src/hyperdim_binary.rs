@@ -340,9 +340,19 @@ mod tests {
             let bit_idx = i % 64;
             let mask = 1u64 << bit_idx;
 
-            let count = (if (v1.bits[word_idx] & mask) != 0 { 1 } else { 0 })
-                + (if (v2.bits[word_idx] & mask) != 0 { 1 } else { 0 })
-                + (if (v3.bits[word_idx] & mask) != 0 { 1 } else { 0 });
+            let count = (if (v1.bits[word_idx] & mask) != 0 {
+                1
+            } else {
+                0
+            }) + (if (v2.bits[word_idx] & mask) != 0 {
+                1
+            } else {
+                0
+            }) + (if (v3.bits[word_idx] & mask) != 0 {
+                1
+            } else {
+                0
+            });
 
             let bit_set = (bundled.bits[word_idx] & mask) != 0;
             if count > 1 {
