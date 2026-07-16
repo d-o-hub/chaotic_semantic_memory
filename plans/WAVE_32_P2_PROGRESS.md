@@ -8,7 +8,7 @@ Independent Wave 32 actions that do **not** require full workspace ownership con
 | Field | Value |
 |---|---|
 | Branch | `feat/wave32-p2-ttl-absence-contracts` |
-| PR | [#518](https://github.com/d-o-hub/chaotic_semantic_memory/pull/517) |
+| PR | [#518](https://github.com/d-o-hub/chaotic_semantic_memory/pull/518) |
 | Commit | `bc30e08` |
 | GOAP action key | `wave32_p2_ttl_absence_contracts_2026_07_16` |
 | Roadmap | `plans/GOAP_AUDIT_2026_07_14.md` |
