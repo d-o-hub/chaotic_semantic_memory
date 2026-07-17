@@ -42,7 +42,13 @@ PROFILE="${1:-fast}"
 shift || true
 
 # Parallelism: CI sets MUTANTS_JOBS=4 (ubuntu-latest ≈ 4 vCPU); local default 1.
-JOBS="${MUTANTS_JOBS:-1}"
+# Force JOBS=1 on fast profile to allow cargo to reuse build artifacts sequentially
+# across mutants in a single target directory, avoiding parallel workspace rebuild timeouts.
+if [[ "${PROFILE}" == "fast" ]]; then
+  JOBS=1
+else
+  JOBS="${MUTANTS_JOBS:-1}"
+fi
 
 if ! command -v cargo-mutants &>/dev/null && ! cargo mutants --version &>/dev/null; then
   cat <<'MSG' >&2
