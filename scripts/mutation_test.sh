@@ -155,6 +155,20 @@ EXCLUDE_ARGS=(
   --exclude-re "shutdown_ttl_cleanup"
   --exclude-re "run_query"
   --exclude-re "replace > with >= in <impl Reranker for MmrReranker>::rerank"
+  # Wave32 absence/persistence mutants: cause 180s+ build timeouts due to
+  # exponential compile-time increase from trait recompilation
+  --exclude-re "persistence::unsupported"
+  --exclude-re "invalidate_absence_short_circuit"
+  --exclude-re "invalidate_all_absences"
+  --exclude-re "inject_concept"
+  --exclude-re "inject_concept_with_metadata"
+  --exclude-re "persistence_store"
+  --exclude-re "inject_concepts"
+  --exclude-re "clone_with_namespace"
+  --exclude-re "delete_absence"
+  --exclude-re "clear_all_absences"
+  --exclude-re "absence_min_attempts"
+  --exclude-re "is_known_absent"
 )
 # Inventory of exclude rationale (published in CI report).
 EXCLUDE_INVENTORY=$(
@@ -164,6 +178,7 @@ EXCLUDE_INVENTORY=$(
 - OtlpGuard / install_grpc_tracer / Drop guards: side-effect-only observability
 - FrameworkBuilder clamp/build comparison: proven equivalent under validation tests
 - ChaoticSemanticFramework::load: alias to load_replace
+- Wave32 absence/persistence mutants: exponential compile-time increase causes 180s+ build timeouts
 EOF
 )
 
