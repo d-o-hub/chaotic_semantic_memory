@@ -52,15 +52,11 @@ pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> V
             return results;
         }
 
-        // Scalar/Rayon fallback for non-NEON host arches (e.g. x86 without AVX2).
-        #[cfg(not(target_arch = "aarch64"))]
-        {
-            candidates
-                .par_chunks(CHUNK_SIZE)
-                .zip(results.par_chunks_mut(CHUNK_SIZE))
-                .for_each(|(chunk, out)| process_chunk(query, chunk, out));
-            results
-        }
+        candidates
+            .par_chunks(CHUNK_SIZE)
+            .zip(results.par_chunks_mut(CHUNK_SIZE))
+            .for_each(|(chunk, out)| process_chunk(query, chunk, out));
+        results
     }
 
     #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]

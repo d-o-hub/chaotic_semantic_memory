@@ -4548,17 +4548,14 @@ actions:
     effects:
       critical_skill_evals_passing: true
     cost: 5
-    status: complete
-    priority: P1
-    wave: "33c"
+    status: queued
     file: .agents/skills/, scripts/
     adr: ADR-0096
     description: |
-      FOLLOW-UP (post Wave 32 P2): Negative fixtures for skill-local
-      check/test/fmt/clippy/doc/deny/fuzz commands (preserve exit codes) and
-      behavioral evals for five critical workflow skills at ≥19/20. Split from
-      make_skill_validation_fail_closed so static format gates are not
-      over-claimed as full ADR-0096 acceptance.
+      Negative fixtures for skill-local check/test/fmt/clippy/doc/deny/fuzz
+      commands (preserve exit codes) and behavioral evals for five critical
+      workflow skills at ≥19/20. Split from make_skill_validation_fail_closed
+      so static format gates are not over-claimed as full ADR-0096 acceptance.
 
   - name: fuzz_short_and_scheduled_runs
     preconditions:
@@ -4568,13 +4565,13 @@ actions:
       fuzz_short_runs_on_pr: true
       fuzz_scheduled_full_runs: true
     cost: 4
-    status: complete
-    file: .github/workflows/ci.yml, .github/workflows/fuzz-scheduled.yml, fuzz/
+    status: queued
+    file: .github/workflows/, fuzz/
     adr: ADR-0095
     description: |
-      2026-07-16: fuzz-build job runs short smoke targets (10s each) after
-      cargo check; weekly/dispatch fuzz-scheduled.yml runs all targets with
-      bounded max_total_time and crash artifact upload.
+      ADR-0095 Tier 1 remaining: short runs of changed fuzz targets on PRs
+      and scheduled full target runs. Compile-only gate already landed as
+      fuzz-build. Ensure branch protection requires "Fuzz Workspace Build".
 
   # P1 — ownership and contracts
   - name: bulk_load_associations_and_release_state_locks
@@ -4599,14 +4596,13 @@ actions:
       no_default_features_is_lean: true
       msrv_workspace_aligned: true
     cost: 5
-    status: complete
+    status: queued
     file: Cargo.toml, crates/*/Cargo.toml
     adr: ADR-0094
     description: |
-      2026-07-16: root uses default-features=false for owner crates; persistence/
-      parallel forward to csm-persistence and csm-core/csm-memory; csm-memory
-      rayon is optional; MSRV 1.88 on all crates. no-default tree has no libSQL
-      (rayon only via criterion dev-dep).
+      Disable owner-crate defaults and explicitly forward persistence, parallel,
+      ANN, embedding, and protocol features. Acceptance: no-default cargo tree has
+      no libSQL/Rayon and every workspace manifest uses the canonical MSRV.
 
   - name: replace_persistence_disabled_noops
     preconditions:
@@ -4615,12 +4611,12 @@ actions:
     effects:
       persistence_disabled_false_success_removed: true
     cost: 3
-    status: complete
+    status: queued
     file: src/framework_builder.rs, src/lib.rs
     adr: ADR-0094
     description: |
-      2026-07-16: with_local_db/with_turso are cfg(feature="persistence") only;
-      disabled persistence stubs return UnsupportedOperation instead of Ok/empty.
+      Remove silently ignored DB builder configuration and Ok/empty persistence
+      stubs. APIs are cfg-absent or return UnsupportedOperation consistently.
 
   - name: fix_mcp_hypervector_wire_format
     preconditions:
@@ -4642,30 +4638,26 @@ actions:
       wasm_ci_release_artifact_identical: true
       wasm_js_smoke_test_enforced: true
     cost: 3
-    status: complete
+    status: queued
     file: crates/csm-wasm/, wasm/, .github/workflows/ci.yml, .github/workflows/release.yml
     adr: ADR-0094
     description: |
-      2026-07-16: CI and release both build crates/csm-wasm with
-      --out-name chaotic_semantic_memory; release npm uses same crate path;
-      CI adds nodejs-target JS smoke via wasm/test.js.
+      Make csm-wasm the canonical npm artifact and run the same build, freshness,
+      size, and Node smoke commands in CI and release.
 
   - name: consolidate_retrieval_ownership
     preconditions:
       adr_0094_accepted: true
     effects:
-      retrieval_hybrid_owner_unique: true
+      retrieval_implementation_owner_unique: true
     cost: 8
-    status: complete
-    priority: P1
-    wave: "33a"
-    file: src/retrieval/, crates/csm-retrieval/src/, agents-docs/ownership-map.md
+    status: queued
+    file: src/retrieval/, crates/csm-retrieval/src/
     adr: ADR-0094
     description: |
-      2026-07-16: HybridResult/RetrievalAbstention/compute_weights/merge_results
-      owned by csm-retrieval; root hybrid is a façade re-export + parity tests.
-      Ownership map at agents-docs/ownership-map.md. BM25/graph_rag/rerank still
-      dual-source (follow-up under consolidate_persistence_cli_wasm path).
+      Move shared result/abstention contracts as needed, add parity tests, then
+      replace root algorithm bodies with façade delegation/re-exports. Preserve
+      root public paths for a compatibility window.
 
   - name: consolidate_persistence_cli_wasm_ownership
     preconditions:
@@ -4676,15 +4668,12 @@ actions:
       duplicate_implementation_bodies: 0
     cost: 10
     status: queued
-    priority: P1
-    wave: "33a"
     file: src/persistence*, src/cli/, src/wasm*, crates/csm-persistence/, crates/csm-cli/, crates/csm-wasm/, crates/csm-traits/
     adr: ADR-0094
     description: |
-      FOLLOW-UP Wave 33a: Complete the owner/facade migration for
-      persistence/export payloads, CLI, and WASM. Migrate one concern per PR
-      with API snapshots and behavior parity; do not blindly re-export currently
-      divergent implementations.
+      Complete the owner/facade migration for persistence/export payloads, CLI,
+      and WASM. Migrate one concern per PR with API snapshots and behavior parity;
+      do not blindly re-export currently divergent implementations.
 
   - name: complete_workspace_ci_and_supply_chain_matrix
     preconditions:
@@ -4699,9 +4688,8 @@ actions:
     adr: ADR-0095
     description: |
       2026-07-16: csm-chaos in test-workspace-crates; cargo-deny job;
-      benchmarks/ unit tests in ci.yml + benchmark-ci.yml.
-      2026-07-16 P2: WASM nodejs smoke added in CI (see align_wasm_ci_release_artifact);
-      PR #517 may still need wasm job green (fix_pr517_wasm_job).
+      benchmarks/ unit tests in ci.yml + benchmark-ci.yml. WASM node smoke
+      still skipped (web target vs test.js nodejs package mismatch).
 
   # P2 — evidence and missing behavior
   - name: correct_benchmark_metric_definitions
@@ -4728,16 +4716,13 @@ actions:
       benchmark_ci_enforces_quality_thresholds: true
       performance_claims_have_current_artifacts: true
     cost: 8
-    status: complete
-    priority: P2
-    wave: "33b"
+    status: queued
     file: .github/workflows/benchmark-ci.yml, benchmarks/, benches/, plans/
     adr: ADR-0095
     description: |
-      FOLLOW-UP Wave 33b: Implement PR, scheduled-scale, and release-claim
-      tiers with evidence manifests containing commit, dataset, seed, features,
-      command, hardware, samples, variance, and baseline. Do not gate hardware
-      budgets on unpinned runners. Blocks scale benches and memory model claim.
+      Implement PR, scheduled-scale, and release-claim tiers with evidence
+      manifests containing commit, dataset, seed, features, command, hardware,
+      samples, variance, and baseline. Do not gate hardware budgets on unpinned runners.
 
   - name: add_ann_and_persistence_scale_benchmarks
     preconditions:
@@ -4747,15 +4732,13 @@ actions:
       ann_scale_evidence_current: true
       persistence_contention_evidence_current: true
     cost: 8
-    status: complete
-    priority: P2
-    wave: "33b"
+    status: queued
     file: benches/benchmark.rs, benches/persistence_benchmark.rs, benchmarks/
     adr: ADR-0095
     description: |
-      FOLLOW-UP Wave 33b: Compare exact/bucket/HNSW/LSH build, query, update,
-      delete, bytes, recall, and reload at agreed scales. Bound persistence
-      retries/timeouts and report throughput, p50/p95/p99, retry, and error rates.
+      Compare exact/bucket/HNSW/LSH build, query, update, delete, bytes, recall,
+      and reload at agreed scales. Bound persistence retries/timeouts and report
+      throughput, p50/p95/p99, retry, and error rates.
 
   - name: replace_formula_only_memory_claim
     preconditions:
@@ -4764,16 +4747,14 @@ actions:
       measured_memory_model_exists: true
       ten_million_memory_claim_evaluated: true
     cost: 4
-    status: complete
-    priority: P2
-    wave: "33b"
+    status: queued
     file: tests/performance_targets.rs, benchmarks/, plans/handoffs/
     adr: ADR-0095
     description: |
-      FOLLOW-UP Wave 33b: Measure allocator/RSS and persisted/index bytes at
-      multiple scales, fit a bytes-per-concept model with held-out error <=5%,
-      then evaluate whether a 10M projection is supportable. Evidence/evaluation
-      only; set support true separately iff the measured threshold passes.
+      Measure allocator/RSS and persisted/index bytes at multiple scales, fit a
+      bytes-per-concept model with held-out error <=5%, then evaluate whether a 10M
+      projection is supportable. This action records evidence/evaluation only;
+      set support true separately iff the measured acceptance threshold passes.
 
   - name: harden_mutation_evidence
     preconditions:
@@ -4782,13 +4763,13 @@ actions:
       mutation_timeouts_unresolved: true
       mutation_changed_files_not_excluded: true
     cost: 4
-    status: complete
+    status: queued
     file: scripts/mutation_test.sh, .github/workflows/ci.yml
     adr: ADR-0095
     description: |
-      2026-07-16: score uses killed-only (timeouts unresolved); timeout budget
-      still fails CI; report inventory table + exclude rationale; removed broad
-      mcp/persistence path excludes so in-diff production files remain candidates.
+      Count timeouts as unresolved, cover changed production files, publish
+      caught/missed/timeout/unviable/excluded inventories, and document only
+      proven equivalent mutants.
 
   - name: implement_or_remove_bm25_absence_short_circuit
     preconditions:
@@ -4796,14 +4777,13 @@ actions:
     effects:
       bm25_absence_todo_resolved: true
     cost: 3
-    status: complete
-    file: src/retrieval/bm25.rs, src/cli/commands/query.rs, tests/bm25_absence_short_circuit.rs
+    status: queued
+    file: crates/csm-retrieval/src/, src/retrieval/, src/framework_bridge.rs
     adr: ADR-0094
     description: |
-      2026-07-16: wired is_known_absent into hybrid CLI query with
-      DEFAULT_ABSENCE_MIN_ATTEMPTS=3; production TODO removed; threshold tests
-      via empty probe_text + unit assertion in bridge_persistence. (Precondition
-      retrieval ownership deferred; short-circuit lives on root hybrid path.)
+      Either wire is_known_absent into the canonical hybrid path with threshold,
+      namespace, invalidation, and false-negative tests, or remove the premature
+      unused API. No production TODO remains.
 
   - name: own_ttl_cleanup_lifecycle
     preconditions:
@@ -4812,13 +4792,12 @@ actions:
       ttl_cleanup_task_owned: true
       ttl_cleanup_shutdown_bounded: true
     cost: 3
-    status: complete
-    file: src/framework_builder.rs, src/framework_ttl.rs, src/framework.rs, tests/ttl_lifecycle.rs
+    status: queued
+    file: src/framework_builder.rs, src/framework_ttl.rs, src/framework.rs
     adr: ADR-0093
     description: |
-      2026-07-16: TtlCleanupControl owns cancel flag + JoinHandle; Drop aborts;
-      shutdown_ttl_cleanup awaits with 2s deadline; tests cover interval>0 and
-      interval=0 ownership.
+      Store cancellation and JoinHandle ownership, cancel on explicit shutdown/drop,
+      and await with a bounded deadline. Tests prove no orphan task after framework drop.
 
   # P3 — consolidation and plan hygiene
   - name: deduplicate_test_and_source_surfaces
@@ -4830,14 +4809,11 @@ actions:
       coverage_methodology_behavior_based: true
     cost: 8
     status: queued
-    priority: P2
-    wave: "33a-post"
     file: src/, crates/, tests/
     adr: ADR-0094, ADR-0095
     description: |
-      FOLLOW-UP after ownership unique: Remove duplicated root/split test
-      bodies. Report unique compiled behavior and line/branch coverage; raw test
-      count remains inventory only.
+      Remove duplicated root/split test bodies after owner migration. Report unique
+      compiled behavior and line/branch coverage; raw test count remains inventory only.
 
   - name: canonicalize_hooks_skill_refs_and_catalog
     preconditions:
@@ -4847,15 +4823,12 @@ actions:
       hook_bootstrap_canonical: true
       skill_references_current: true
     cost: 5
-    status: complete
-    priority: P2
-    wave: "33c"
+    status: queued
     file: .agents/skills/, scripts/, AGENTS.md, .pre-commit-config.yaml
     adr: ADR-0096
     description: |
-      FOLLOW-UP Wave 33c: Generate the 32-skill catalog, repair broken/stale
-      paths, define root versus skill-relative links, and install/verify one
-      pre-commit/commit-msg/pre-push set.
+      Generate the 32-skill catalog, repair broken/stale paths, define root versus
+      skill-relative links, and install/verify one pre-commit/commit-msg/pre-push set.
 
   - name: reconcile_harness_engineering_state
     preconditions:
@@ -4865,13 +4838,11 @@ actions:
     effects:
       harness_engineering_state_truthful: true
     cost: 2
-    status: complete
-    priority: P3
-    wave: "33c"
+    status: queued
     file: plans/adr/0090-harness-engineering-template-alignment.md, plans/ACTIONS.md
     adr: ADR-0090, ADR-0096
     description: |
-      FOLLOW-UP Wave 33c: After create_harness_md supplies the sole HARNESS.md
+      After the existing create_harness_md action supplies the sole HARNESS.md
       artifact, decide remaining Phase 2 items and append a dated implementation
       matrix to ADR-0090 instead of treating its 2026-06-23 baseline as current.
 
@@ -4883,59 +4854,10 @@ actions:
       active_plan_set_compact: true
       plan_archive_manifest_valid: true
     cost: 3
-    status: complete
-    priority: P3
-    wave: "33c"
+    status: queued
     file: plans/, scripts/plans-manager.sh
     adr: ADR-0096
     description: |
-      FOLLOW-UP Wave 33c: Define active/history criteria, audit inbound
-      references, write an archive manifest and redirects, then move immutable
-      completed material. Preserve plans/RECOMMENDATIONS_2026_07_14.md unless
-      the user explicitly approves it.
-
-  # ═══════════════════════════════════════════════════════
-  # Wave 32 P2 CI remediations (PR #517) — land before merge
-  # See plans/WAVE_32_P2_PROGRESS.md
-  # ═══════════════════════════════════════════════════════
-  - name: fix_pr517_commitlint
-    preconditions:
-      wave32_p2_swarm_2026_07_16: true
-    effects:
-      pr517_commitlint_green: true
-    cost: 1
-    status: complete
-    priority: P0
-    wave: "32-p2-ci"
-    file: commit message / commitlint config
-    description: |
-      PR #517 commitlint job failed. Align conventional commit subject/scope
-      with repo commitlint enum (or amend message) so the PR can merge.
-
-  - name: fix_pr517_wasm_job
-    preconditions:
-      wasm_ci_release_artifact_identical: true
-    effects:
-      pr517_wasm_job_green: true
-    cost: 2
-    status: complete
-    priority: P0
-    wave: "32-p2-ci"
-    file: .github/workflows/ci.yml, crates/csm-wasm/, wasm/test.js
-    description: |
-      PR #517 wasm job failed after out-name + nodejs smoke. Fix packaging
-      path or make smoke fail-soft without dropping the csm-wasm build gate.
-
-  - name: fix_pr517_fuzz_short_runs
-    preconditions:
-      fuzz_short_runs_on_pr: true
-    effects:
-      pr517_fuzz_job_green: true
-    cost: 2
-    status: complete
-    priority: P0
-    wave: "32-p2-ci"
-    file: .github/workflows/ci.yml, fuzz/
-    description: |
-      PR #517 Fuzz Workspace Build failed on short cargo-fuzz runs. Keep
-      compile-check required; stabilize or gate short runs so the job is green.
+      Define active/history criteria, audit inbound references, write an archive
+      manifest and redirects, then move immutable completed material. Preserve
+      plans/RECOMMENDATIONS_2026_07_14.md unless the user explicitly approves it.

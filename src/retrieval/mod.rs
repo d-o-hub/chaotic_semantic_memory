@@ -9,7 +9,6 @@
 //! - Short queries (1-2 tokens): 90% keyword, 10% semantic
 //! - Long queries (9+ tokens): 20% keyword, 80% semantic
 
-pub mod absence_short_circuit;
 pub mod bm25;
 pub mod graph_rag;
 pub mod hybrid;

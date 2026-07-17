@@ -2,7 +2,7 @@
 name = "csm-retrieval"
 version = "0.3.7"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.85"
 description = "Retrieval backends for chaotic_semantic_memory"
 license = "MIT"
 repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
@@ -16,7 +16,6 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
 async-trait = "0.1.83"
-chrono = { version = "0.4.45", features = ["serde"] }
 
 # Optional BM25 dependencies
 tantivy = { version = "0.22", optional = true }

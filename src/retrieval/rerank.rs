@@ -72,10 +72,13 @@ impl Reranker for MmrReranker {
             let mut best_idx = 0;
             let mut max_mmr = f32::NEG_INFINITY;
 
-            for idx in 0..candidates.len() {
+            // Zip similarities to avoid manual indexing and bounds checks.
+            for (idx, (&similarity, &max_sim)) in query_similarities
+                .iter()
+                .zip(max_sim_to_selected.iter())
+                .enumerate()
+            {
                 // MMR Formula: lambda * sim(query, cand) - (1 - lambda) * max_sim(cand, selected)
-                let similarity = query_similarities[idx];
-                let max_sim = max_sim_to_selected[idx];
                 let mmr_score = self.lambda * similarity - (1.0 - self.lambda) * max_sim;
 
                 if mmr_score > max_mmr {

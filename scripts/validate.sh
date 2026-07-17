@@ -50,10 +50,8 @@ for file in $(find src crates -name '*.rs' -not -path '*/target/*'); do
 done
 
 if rustup target list --installed | grep -q "^${WASM_TARGET}\$"; then
-  # Never enable default features (persistence/libsql) on wasm32 — libsql is
-  # host-only. Match release/CI: no-default-features + wasm only.
-  echo "==> cargo check --target ${WASM_TARGET} --no-default-features --features wasm"
-  cargo check --target "${WASM_TARGET}" --no-default-features --features wasm
+  echo "==> cargo check --target ${WASM_TARGET} --features wasm"
+  cargo check --target "${WASM_TARGET}" --features wasm
 else
   echo "skip: ${WASM_TARGET} target not installed"
 fi
@@ -145,33 +143,6 @@ if [[ -x "${SCRIPT_DIR}/validate-skill-format.sh" ]]; then
   "${SCRIPT_DIR}/validate-skill-format.sh"
 else
   echo "Error: scripts/validate-skill-format.sh missing or not executable"
-  exit 1
-fi
-
-# Skill catalog single-source (ADR-0096)
-if [[ -x "${SCRIPT_DIR}/generate-skill-catalog.sh" ]]; then
-  echo "==> Skill catalog freshness"
-  "${SCRIPT_DIR}/generate-skill-catalog.sh" --check
-else
-  echo "Error: scripts/generate-skill-catalog.sh missing or not executable" >&2
-  exit 1
-fi
-
-# Critical skill behavioral evals (ADR-0096) — ≥19/20
-if [[ -x "${SCRIPT_DIR}/eval-critical-skills.sh" ]]; then
-  echo "==> Critical skill behavioral evals"
-  "${SCRIPT_DIR}/eval-critical-skills.sh"
-else
-  echo "Error: scripts/eval-critical-skills.sh missing or not executable" >&2
-  exit 1
-fi
-
-# Plan archive manifest (must exist; non-destructive)
-if [[ -x "${SCRIPT_DIR}/plans-archive-manifest.sh" ]]; then
-  echo "==> Plan archive manifest"
-  "${SCRIPT_DIR}/plans-archive-manifest.sh"
-else
-  echo "Error: scripts/plans-archive-manifest.sh missing or not executable" >&2
   exit 1
 fi
 
