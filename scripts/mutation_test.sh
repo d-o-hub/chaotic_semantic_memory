@@ -91,7 +91,9 @@ if [[ "${PROFILE}" == "fast" ]]; then
   fi
 
   # Unit tests only: integration suite dominates wall time (~8× unit suite).
-  TEST_ARGS+=(--lib)
+  # We limit testing to only csm-retrieval and chaotic_semantic_memory to avoid
+  # building irrelevant workspace packages, saving up to 80% build time.
+  TEST_ARGS+=(--lib -p csm-retrieval -p chaotic_semantic_memory)
 
   if [[ "${CI_MODE}" == "true" ]]; then
     # --in-place is incompatible with parallel jobs (-j)
