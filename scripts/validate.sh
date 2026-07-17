@@ -153,7 +153,7 @@ if [[ -x "${SCRIPT_DIR}/generate-skill-catalog.sh" ]]; then
   echo "==> Skill catalog freshness"
   "${SCRIPT_DIR}/generate-skill-catalog.sh" --check
 else
-  echo "Error: scripts/generate-skill-catalog.sh missing or not executable"
+  echo "Error: scripts/generate-skill-catalog.sh missing or not executable" >&2
   exit 1
 fi
 
@@ -162,7 +162,7 @@ if [[ -x "${SCRIPT_DIR}/eval-critical-skills.sh" ]]; then
   echo "==> Critical skill behavioral evals"
   "${SCRIPT_DIR}/eval-critical-skills.sh"
 else
-  echo "Error: scripts/eval-critical-skills.sh missing or not executable"
+  echo "Error: scripts/eval-critical-skills.sh missing or not executable" >&2
   exit 1
 fi
 
@@ -171,7 +171,7 @@ if [[ -x "${SCRIPT_DIR}/plans-archive-manifest.sh" ]]; then
   echo "==> Plan archive manifest"
   "${SCRIPT_DIR}/plans-archive-manifest.sh"
 else
-  echo "Error: scripts/plans-archive-manifest.sh missing or not executable"
+  echo "Error: scripts/plans-archive-manifest.sh missing or not executable" >&2
   exit 1
 fi
 

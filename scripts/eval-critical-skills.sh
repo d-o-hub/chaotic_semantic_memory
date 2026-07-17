@@ -10,6 +10,8 @@ PASS=0
 FAIL=0
 TOTAL=0
 
+SKILL_CATALOG_CHECK="skill catalog --check"
+
 record() {
   local name="$1" ok="$2"
   TOTAL=$((TOTAL + 1))
@@ -87,18 +89,18 @@ fi
 # skill catalog generator exists and is runnable after we add it
 if [[ -x scripts/generate-skill-catalog.sh ]]; then
   if bash scripts/generate-skill-catalog.sh --check >/dev/null 2>&1; then
-    record "skill catalog --check" 1
+    record "$SKILL_CATALOG_CHECK" 1
   else
     # first run may need generation; try write then check
     bash scripts/generate-skill-catalog.sh >/dev/null 2>&1 || true
     if bash scripts/generate-skill-catalog.sh --check >/dev/null 2>&1; then
-      record "skill catalog --check" 1
+      record "$SKILL_CATALOG_CHECK" 1
     else
-      record "skill catalog --check" 0
+      record "$SKILL_CATALOG_CHECK" 0
     fi
   fi
 else
-  record "skill catalog --check" 0
+  record "$SKILL_CATALOG_CHECK" 0
 fi
 
 echo ""
