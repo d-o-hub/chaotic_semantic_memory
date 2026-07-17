@@ -144,6 +144,8 @@ EXCLUDE_ARGS=(
   --exclude-re "McpHandler::"
   --exclude "src/mcp/*"
   --exclude "src/persistence_wasm.rs"
+  --exclude "src/retrieval/rerank.rs"
+  --exclude "crates/csm-retrieval/src/rerank.rs"
   --exclude-re "replace > with >= in <impl Reranker for MmrReranker>::rerank"
 )
 
