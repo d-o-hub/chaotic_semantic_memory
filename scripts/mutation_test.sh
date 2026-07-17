@@ -103,7 +103,10 @@ if [[ "${PROFILE}" == "fast" ]]; then
     # const/eval mutants don't burn the full job budget (was 180s).
     FAST_ARGS+=(--timeout 60)
     FAST_ARGS+=(--minimum-test-timeout 10)
-    FAST_ARGS+=(--build-timeout 60)
+    # Build timeout: configurable via MUTATION_BUILD_TIMEOUT (default 120s for CI)
+    # Increase when wave32+ features cause longer compile times
+    BUILD_TIMEOUT="${MUTATION_BUILD_TIMEOUT:-120}"
+    FAST_ARGS+=(--build-timeout "${BUILD_TIMEOUT}")
   else
     FAST_ARGS+=(--timeout 90)
     FAST_ARGS+=(--minimum-test-timeout 15)

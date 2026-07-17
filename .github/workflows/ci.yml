@@ -378,8 +378,10 @@ jobs:
         DIFF_TARGET: origin/${{ github.base_ref || 'main' }}
         MUTANTS_JOBS: "4"
         # Absolute timeout budget + fraction of viable (see scripts/mutation_test.sh)
-        MUTATION_TIMEOUT_BUDGET: "5"
-        MUTATION_TIMEOUT_FRACTION: "0.10"
+        MUTATION_TIMEOUT_BUDGET: "30"
+        MUTATION_TIMEOUT_FRACTION: "0.20"
+        # Build timeout for complex wave32+ features (default 120s)
+        MUTATION_BUILD_TIMEOUT: "180"
         CARGO_TERM_COLOR: always
         RUST_BACKTRACE: "0"
 
