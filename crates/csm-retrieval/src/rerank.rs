@@ -77,8 +77,7 @@ impl Reranker for MmrReranker {
                 // MMR Formula: lambda * sim(query, cand) - (1 - lambda) * max_sim(cand, selected)
                 let similarity = query_similarities[idx];
                 let max_sim = max_sim_to_selected[idx];
-                let mmr_score =
-                    self.lambda * similarity - (1.0 - self.lambda) * max_sim;
+                let mmr_score = self.lambda * similarity - (1.0 - self.lambda) * max_sim;
 
                 if mmr_score > max_mmr {
                     max_mmr = mmr_score;
