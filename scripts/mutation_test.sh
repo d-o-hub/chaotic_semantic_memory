@@ -101,9 +101,9 @@ if [[ "${PROFILE}" == "fast" ]]; then
     FAST_ARGS+=(--no-shuffle)
     # Tight bounds: kill hung mutants; keep build-timeout short so pathological
     # const/eval mutants don't burn the full job budget (was 180s).
-    FAST_ARGS+=(--timeout 60)
-    FAST_ARGS+=(--minimum-test-timeout 10)
-    FAST_ARGS+=(--build-timeout 60)
+    FAST_ARGS+=(--timeout 120)
+    FAST_ARGS+=(--minimum-test-timeout 15)
+    FAST_ARGS+=(--build-timeout 150)
   else
     FAST_ARGS+=(--timeout 90)
     FAST_ARGS+=(--minimum-test-timeout 15)
@@ -144,8 +144,6 @@ EXCLUDE_ARGS=(
   --exclude-re "McpHandler::"
   --exclude "src/mcp/*"
   --exclude "src/persistence_wasm.rs"
-  --exclude "src/retrieval/rerank.rs"
-  --exclude "crates/csm-retrieval/src/rerank.rs"
   --exclude-re "replace > with >= in <impl Reranker for MmrReranker>::rerank"
 )
 

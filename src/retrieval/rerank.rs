@@ -54,7 +54,6 @@ impl Reranker for MmrReranker {
             return Vec::new();
         }
 
-        let n = candidates.len();
         let mut selected: Vec<RerankCandidate> = Vec::with_capacity(top_k);
 
         // Precompute cosine similarity between query and all candidates.
@@ -66,7 +65,7 @@ impl Reranker for MmrReranker {
 
         // Cache the maximum similarity of each candidate to the already selected set.
         // Initially, the selected set is empty, so maximum similarity is 0.0.
-        let mut max_sim_to_selected = vec![0.0f32; n];
+        let mut max_sim_to_selected = vec![0.0f32; candidates.len()];
 
         // Greedily select candidates
         while selected.len() < top_k && !candidates.is_empty() {
@@ -91,14 +90,15 @@ impl Reranker for MmrReranker {
             let mut best_cand = candidates.swap_remove(best_idx);
             best_cand.score = max_mmr;
             query_similarities.swap_remove(best_idx);
-            let _ = max_sim_to_selected.swap_remove(best_idx);
+            max_sim_to_selected.swap_remove(best_idx);
 
             // Incrementally update the maximum similarity cache using the newly selected candidate.
             // This reduces the complexity of similarity-to-selected tracking from O(N * K^2) to O(N * K).
-            for (idx, cand) in candidates.iter().enumerate() {
+            // Using zip avoids bounds checks and indexing overhead.
+            for (cand, max_sim) in candidates.iter().zip(max_sim_to_selected.iter_mut()) {
                 let sim = cand.vector.cosine_similarity(&best_cand.vector);
-                if sim > max_sim_to_selected[idx] {
-                    max_sim_to_selected[idx] = sim;
+                if sim > *max_sim {
+                    *max_sim = sim;
                 }
             }
 
