@@ -12,9 +12,111 @@ use csm_core::hyperdim::HVec10240;
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
 use std::collections::HashMap;
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::Mutex;
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::Duration;
+#[cfg(not(target_arch = "wasm32"))]
+use tokio::task::JoinHandle;
 use tracing::instrument;
 
+/// Default bounded wait when shutting down the TTL cleanup task.
+/// Override at runtime with `CSM_TTL_CLEANUP_SHUTDOWN_SECS`.
+#[cfg(not(target_arch = "wasm32"))]
+const DEFAULT_TTL_CLEANUP_SHUTDOWN_SECS: u64 = 2;
+
+/// Owns a background TTL cleanup task. Shared via [`std::sync::Arc`] across framework
+/// clones; when the last reference drops, the task is cancelled and aborted.
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) struct TtlCleanupControl {
+    /// Shared with the spawn loop so cancel is visible before `ttl_cleanup` is attached.
+    cancel: std::sync::Arc<AtomicBool>,
+    handle: Mutex<Option<JoinHandle<()>>>,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl TtlCleanupControl {
+    /// Create cancel flag used by the spawn loop *before* the control is installed.
+    pub(crate) fn new_cancel() -> std::sync::Arc<AtomicBool> {
+        std::sync::Arc::new(AtomicBool::new(false))
+    }
+
+    pub(crate) fn new(cancel: std::sync::Arc<AtomicBool>, handle: JoinHandle<()>) -> Self {
+        Self {
+            cancel,
+            handle: Mutex::new(Some(handle)),
+        }
+    }
+
+    /// Request cooperative shutdown and await the join handle with a deadline.
+    /// Returns `true` if the task finished within `timeout`.
+    ///
+    /// On deadline expiry the task is **aborted** (not merely detached) so a long
+    /// `timer.tick` cannot outlive explicit shutdown (review PR #518).
+    pub(crate) async fn shutdown(&self, timeout: Duration) -> bool {
+        self.cancel.store(true, Ordering::SeqCst);
+        let handle = self.handle.lock().ok().and_then(|mut guard| guard.take());
+        let Some(mut handle) = handle else {
+            return true;
+        };
+        match tokio::time::timeout(timeout, &mut handle).await {
+            Ok(Ok(())) | Ok(Err(_)) => true,
+            Err(_elapsed) => {
+                handle.abort();
+                let _ = handle.await;
+                false
+            }
+        }
+    }
+
+    #[inline]
+    pub(crate) fn is_cancelled(&self) -> bool {
+        self.cancel.load(Ordering::Relaxed)
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl Drop for TtlCleanupControl {
+    fn drop(&mut self) {
+        self.cancel.store(true, Ordering::SeqCst);
+        if let Ok(mut guard) = self.handle.lock() {
+            if let Some(handle) = guard.take() {
+                handle.abort();
+            }
+        }
+    }
+}
+
 impl crate::framework::ChaoticSemanticFramework {
+    /// Shut down the background TTL cleanup task with a bounded wait.
+    ///
+    /// No-op when cleanup was never started. Safe to call multiple times.
+    /// Deadline override: `CSM_TTL_CLEANUP_SHUTDOWN_SECS` (default
+    /// [`DEFAULT_TTL_CLEANUP_SHUTDOWN_SECS`]).
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn shutdown_ttl_cleanup(&self) {
+        let deadline = Duration::from_secs(
+            std::env::var("CSM_TTL_CLEANUP_SHUTDOWN_SECS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(DEFAULT_TTL_CLEANUP_SHUTDOWN_SECS),
+        );
+        if let Some(ctrl) = &self.ttl_cleanup {
+            let _ = ctrl.shutdown(deadline).await;
+        }
+    }
+
+    /// Whether a background TTL cleanup task is currently owned by this framework.
+    #[cfg(not(target_arch = "wasm32"))]
+    #[must_use]
+    pub fn has_ttl_cleanup_task(&self) -> bool {
+        self.ttl_cleanup
+            .as_ref()
+            .is_some_and(|c| !c.is_cancelled() && c.handle.lock().ok().is_some_and(|g| g.is_some()))
+    }
+
     /// Evaluate the TTL policy for a concept.
     pub(crate) async fn evaluate_ttl_policy(
         &self,

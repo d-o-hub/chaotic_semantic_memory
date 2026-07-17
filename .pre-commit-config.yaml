@@ -26,6 +26,14 @@ repos:
         pass_filenames: false
         stages: [pre-commit]
 
+      - id: skill-catalog
+        name: skill catalog freshness
+        entry: bash scripts/generate-skill-catalog.sh --check
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+        files: '^\.agents/skills/'
+
       # THOROUGH: clippy — runs only on push
       - id: cargo-clippy
         name: cargo clippy (thorough)

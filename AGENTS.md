@@ -219,8 +219,12 @@ Before starting any task, verify:
 
 Before completing any task, verify:
 - [ ] **Branch created (NOT main)** — never push directly to protected branch
+- [ ] **Commitlint full range** — `npx commitlint --from origin/main --to HEAD --verbose`
 - [ ] **PR created and CI passing** — merge only after green checks
 - [ ] All validation gates pass (check, test, fmt, clippy)
+- [ ] **CI pitfall scan** when touching wasm/fuzz/mutation/TTL/absence — see
+      `agents-docs/hard-constraints.md` and
+      `.agents/skills/github-ci-guardrails/references/ci-pitfalls-wave32.md`
 - [ ] **Coverage gate** — test:source ratio >= 90% (or improving)
 - [ ] **Real usage validated** — CLI workflow, skill-memory db, file persistence
 - [ ] CI workflow passes
@@ -315,6 +319,10 @@ value.map(|s| s.to_string()).unwrap_or_else(|| default())
 
 ## Hard Constraints
 See: [agents-docs/hard-constraints.md](agents-docs/hard-constraints.md)
+
+**No bare versions/timeouts in CI steps or production code.** Defaults = named
+constants; runtime knobs = `CSM_*` env; CI tool versions/timeouts =
+`.github/ci-settings.env` only (workflows must source it).
 
 ---
 

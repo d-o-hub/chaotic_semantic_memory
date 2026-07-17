@@ -174,6 +174,27 @@ Wave 30 (Phase 2): 5 items, cost 14 — delegated to Jules
   └── dist-workspace.toml (cost 2)
 ```
 
+## Implementation matrix (reconciled 2026-07-16)
+
+| Template item | Repo artifact | Status |
+|---|---|---|
+| HARNESS.md | `HARNESS.md` (162 lines) | **done** |
+| deny.toml + CI | `deny.toml` + `cargo-deny` job in `ci.yml` | **done** |
+| rust-toolchain / MSRV | workspace `rust-version = 1.88` | **done** |
+| quality gates script | `scripts/validate.sh`, `scripts/harness-check.sh` | **done** |
+| pre-commit config | `.pre-commit-config.yaml` (fmt commit / clippy+deny push) | **done** |
+| commitlint | `commitlint.config.cjs` | **done** |
+| gitleaks | pre-commit gitleaks hook | **done** |
+| arch fitness tests | `tests/arch_fitness.rs` (if present) / LOC gate | **partial** |
+| nextest CI | not required; cargo test matrix | **deferred** |
+| codecov | optional; not blocking Wave 32 | **deferred** |
+| skill catalog + evals | `scripts/generate-skill-catalog.sh`, `scripts/eval-critical-skills.sh` | **done** (2026-07-16) |
+| plan archive manifest | `scripts/plans-archive-manifest.sh` | **done** (2026-07-16) |
+
+This matrix supersedes the 2026-06-23 baseline checklist for planning purposes.
+`harness_engineering_state_truthful` may be set true when CI green includes the
+new skill catalog/eval gates on main.
+
 ## References
 
 - [rust-2026-template](https://github.com/d-oit/rust-2026-template) — Source template

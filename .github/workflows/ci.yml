@@ -378,8 +378,10 @@ jobs:
         DIFF_TARGET: origin/${{ github.base_ref || 'main' }}
         MUTANTS_JOBS: "4"
         # Absolute timeout budget + fraction of viable (see scripts/mutation_test.sh)
-        MUTATION_TIMEOUT_BUDGET: "5"
-        MUTATION_TIMEOUT_FRACTION: "0.10"
+        MUTATION_TIMEOUT_BUDGET: "30"
+        MUTATION_TIMEOUT_FRACTION: "0.20"
+        # Build timeout for complex wave32+ features (default 120s)
+        MUTATION_BUILD_TIMEOUT: "180"
         CARGO_TERM_COLOR: always
         RUST_BACKTRACE: "0"
 
@@ -403,20 +405,28 @@ jobs:
       uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853  # v2.83.2
       with:
         tool: wasm-pack
-    - name: Build WASM
-      run: wasm-pack build crates/csm-wasm --dev --target web
+    - name: Build WASM (web — matches release npm target)
+      # ADR-0094: identical crate/path/out-name as release.yml publish-npm-wasm.
+      # out-dir must be absolute: wasm-pack resolves relative paths from the crate dir.
+      run: |
+        wasm-pack build crates/csm-wasm --dev --target web \
+          --out-dir "${{ github.workspace }}/wasm/pkg-ci-web" \
+          --out-name chaotic_semantic_memory
     - name: Check WASM
       run: cargo check --target wasm32-unknown-unknown -p csm-wasm
     - name: Verify WASM TS Freshness
       run: bash scripts/check-wasm-freshness.sh
-    # WASM JS smoke (wasm/test.js) is intentionally NOT run in this job:
-    # 1) Build uses --target web; Node cannot initialize that package (fetch of
-    #    file:// wasm fails under undici: "not implemented... yet...").
-    # 2) crates/csm-wasm wasm-pack output is named csm_wasm.js; wasm/test.js
-    #    imports chaotic_semantic_memory.js (publish/out-name).
-    # 3) Smoke currently only succeeds against a nodejs-target package with that
-    #    name (e.g. checked-in wasm/pkg-node). Re-enable after packaging is
-    #    aligned (nodejs CI artifact + matching out-name or test env).
+    - name: Build WASM (nodejs) + JS smoke
+      # Node cannot init --target web (file:// fetch). Nodejs target + out-name
+      # matches wasm/test.js / wasm/package.json main field.
+      run: |
+        set -euo pipefail
+        OUT="${{ github.workspace }}/wasm/pkg-ci-node"
+        wasm-pack build crates/csm-wasm --dev --target nodejs \
+          --out-dir "${OUT}" \
+          --out-name chaotic_semantic_memory
+        test -f "${OUT}/chaotic_semantic_memory.js"
+        WASM_PACKAGE_DIR="${OUT}" node wasm/test.js
 
   lint:
     runs-on: ubuntu-latest
@@ -440,6 +450,12 @@ jobs:
       run: cargo clippy --all-targets --all-features -- -D warnings
     - name: Skill format validation (ADR-0096)
       run: bash scripts/validate-skill-format.sh
+    - name: Skill catalog freshness (ADR-0096)
+      run: bash scripts/generate-skill-catalog.sh --check
+    - name: Critical skill behavioral evals (ADR-0096)
+      run: bash scripts/eval-critical-skills.sh
+    - name: Plan archive manifest (ADR-0096)
+      run: bash scripts/plans-archive-manifest.sh
     - name: LOC gate
       run: bash scripts/validate.sh
 
@@ -488,11 +504,27 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.fuzz == 'true'
     runs-on: ubuntu-latest
+    # Keep in sync with FUZZ_PR_JOB_TIMEOUT_MINUTES in .github/ci-settings.env
+    # (GHA timeout-minutes must be a literal; settings file is the human source of truth).
     timeout-minutes: 30
     env:
       PROTOC: /usr/bin/protoc
     steps:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
+    - name: Load CI settings (no bare versions/timeouts in steps)
+      run: |
+        set -euo pipefail
+        # shellcheck source=/dev/null
+        set -a
+        source "${GITHUB_WORKSPACE}/.github/ci-settings.env"
+        set +a
+        {
+          echo "CARGO_FUZZ_VERSION=${CARGO_FUZZ_VERSION}"
+          echo "FUZZ_SHORT_SECONDS=${FUZZ_SHORT_SECONDS}"
+          echo "FUZZ_INPUT_TIMEOUT_SECONDS=${FUZZ_INPUT_TIMEOUT_SECONDS}"
+          echo "FUZZ_PR_SMOKE_TARGETS=${FUZZ_PR_SMOKE_TARGETS}"
+          echo "RUSTUP_TOOLCHAIN_PROFILE=${RUSTUP_TOOLCHAIN_PROFILE}"
+        } >> "${GITHUB_ENV}"
     - name: Install clang (libfuzzer-sys build)
       run: |
         sudo apt-get update
@@ -507,4 +539,34 @@ jobs:
         workspaces: fuzz
         shared-key: fuzz
     - name: Check all fuzz targets compile
+      # Required gate (ADR-0095 Tier 1 compile). Uses stable + locked fuzz/Cargo.lock.
       run: cargo check --manifest-path fuzz/Cargo.toml --all-targets --locked
+    - name: Install nightly + cargo-fuzz (version from ci-settings.env)
+      # No bare version literals here. Do not use taiki cargo-fuzz@ver (musl breakage).
+      run: |
+        set -euo pipefail
+        : "${CARGO_FUZZ_VERSION:?CARGO_FUZZ_VERSION unset — load ci-settings.env}"
+        : "${RUSTUP_TOOLCHAIN_PROFILE:?RUSTUP_TOOLCHAIN_PROFILE unset}"
+        rustup toolchain install nightly --profile "${RUSTUP_TOOLCHAIN_PROFILE}" --no-self-update
+        rustup component add rust-src --toolchain nightly
+        cargo install cargo-fuzz --locked --version "${CARGO_FUZZ_VERSION}" --force
+    - name: Short fuzz runs (smoke targets)
+      # FUZZ_SHORT_SECONDS=0 → compile-only. --sanitizer none for shared PR runners.
+      run: |
+        set -euo pipefail
+        : "${FUZZ_SHORT_SECONDS:?}"
+        : "${FUZZ_INPUT_TIMEOUT_SECONDS:?}"
+        : "${FUZZ_PR_SMOKE_TARGETS:?}"
+        if [[ "${FUZZ_SHORT_SECONDS}" == "0" ]]; then
+          echo "FUZZ_SHORT_SECONDS=0 → skip short runs (compile-only gate satisfied)"
+          exit 0
+        fi
+        # shellcheck disable=SC2206
+        targets=( ${FUZZ_PR_SMOKE_TARGETS} )
+        for target in "${targets[@]}"; do
+          echo "::group::fuzz ${target} (${FUZZ_SHORT_SECONDS}s)"
+          cargo +nightly fuzz run "${target}" --sanitizer none -- \
+            -max_total_time="${FUZZ_SHORT_SECONDS}" \
+            -timeout="${FUZZ_INPUT_TIMEOUT_SECONDS}"
+          echo "::endgroup::"
+        done

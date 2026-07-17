@@ -39,6 +39,9 @@ pub struct ChaoticSemanticFramework {
     pub(crate) embedding_provider: Arc<dyn crate::embedding::EmbeddingProvider>,
     /// Random projection layer for embedding → HVec mapping.
     pub(crate) projection: Arc<crate::embedding::Projection>,
+    /// Owned background TTL cleanup task (shared across clones; cancelled on last drop).
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) ttl_cleanup: Option<Arc<crate::framework_ttl::TtlCleanupControl>>,
 }
 
 impl ChaoticSemanticFramework {
@@ -79,6 +82,7 @@ impl ChaoticSemanticFramework {
 
         // ADR-0093: durable commit before in-memory mutation when persistence is enabled.
         self.durable_inject_concept(concept.clone()).await?;
+        self.invalidate_absence_short_circuit().await;
 
         if self.persistence.is_some() {
             #[cfg(not(target_arch = "wasm32"))]
@@ -107,6 +111,20 @@ impl ChaoticSemanticFramework {
 
         Ok(())
     }
+
+    /// Clear BM25 absence short-circuit rows after corpus mutation (PR #518 review).
+    #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+    pub(crate) async fn invalidate_absence_short_circuit(&self) {
+        use crate::bridge_persistence::invalidate_all_absences;
+        if let Some(store) = &self.persistence {
+            if let Err(e) = invalidate_all_absences(store.as_ref()).await {
+                tracing::warn!(error = %e, "failed to clear absence short-circuit after inject");
+            }
+        }
+    }
+
+    #[cfg(any(target_arch = "wasm32", not(feature = "persistence")))]
+    pub(crate) async fn invalidate_absence_short_circuit(&self) {}
 
     /// Inject a concept with metadata into memory
     #[instrument(err, skip(self, id, vector, metadata))]
@@ -137,6 +155,7 @@ impl ChaoticSemanticFramework {
         let p_start = Date::now();
 
         self.durable_inject_concept(concept.clone()).await?;
+        self.invalidate_absence_short_circuit().await;
 
         if self.persistence.is_some() {
             #[cfg(not(target_arch = "wasm32"))]

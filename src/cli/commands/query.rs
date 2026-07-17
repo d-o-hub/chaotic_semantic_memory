@@ -84,12 +84,41 @@ pub async fn run_query(
     };
 
     let bm25_results = if use_bm25 {
-        // Build BM25 index from concepts
-        let bm25_index = build_bm25_index(&framework).await?;
-        if bm25_index.is_empty() {
+        // ADR-0094 / Wave 32: short-circuit BM25 only when HDC also produced no
+        // hits this query (never for --keyword-only). Absence rows come from
+        // semantic abstentions; inject clears them (invalidate_absence_short_circuit).
+        #[cfg(feature = "persistence")]
+        let skip_bm25 = {
+            use crate::retrieval::bm25::{absence_min_attempts, is_known_absent};
+            // Do not skip the only retrieval path; require concurrent HDC empty.
+            let hdc_also_empty = use_hdc && hdc_results.is_none();
+            if hdc_also_empty {
+                if let Some(store) = framework.persistence_store() {
+                    is_known_absent(&args.text, store.as_ref(), absence_min_attempts()).await
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        };
+        #[cfg(not(feature = "persistence"))]
+        let skip_bm25 = false;
+
+        if skip_bm25 {
+            tracing::debug!(
+                query = %args.text,
+                "skipping BM25: known absence short-circuit (HDC also empty)"
+            );
             None
         } else {
-            Some(bm25_index.search(&query_tokens, args.top_k))
+            // Build BM25 index from concepts
+            let bm25_index = build_bm25_index(&framework).await?;
+            if bm25_index.is_empty() {
+                None
+            } else {
+                Some(bm25_index.search(&query_tokens, args.top_k))
+            }
         }
     } else {
         None

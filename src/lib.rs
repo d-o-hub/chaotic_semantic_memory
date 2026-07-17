@@ -23,6 +23,10 @@ pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod bridge_persistence;
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+pub use bridge_persistence::{
+    AbsenceEntry, AbsenceStore, invalidate_all_absences, persist_absence,
+};
 pub mod bridge_retrieval;
 pub use csm_chaos;
 pub use csm_core::bundle;
@@ -85,31 +89,40 @@ pub mod singularity_state;
 #[cfg(target_arch = "wasm32")]
 pub use crate::persistence_wasm as persistence;
 
+/// Persistence API when the `persistence` feature is disabled (ADR-0094).
+///
+/// Methods return [`MemoryError::UnsupportedOperation`] instead of false success.
 #[cfg(all(not(target_arch = "wasm32"), not(feature = "persistence")))]
 pub mod persistence {
     use crate::singularity::Concept;
-    use csm_core::Result;
+    use csm_core::error::{MemoryError, Result};
 
     #[derive(Debug)]
     pub struct Persistence;
 
     pub use crate::singularity::ConceptVersion;
 
+    fn unsupported<T>() -> Result<T> {
+        Err(MemoryError::UnsupportedOperation(
+            "persistence feature is disabled; rebuild with --features persistence".into(),
+        ))
+    }
+
     impl Persistence {
         pub async fn save_concept(&self, _ns: &str, _concept: &Concept) -> Result<()> {
-            Ok(())
+            unsupported()
         }
         pub async fn save_concepts(&self, _ns: &str, _concepts: &[Concept]) -> Result<()> {
-            Ok(())
+            unsupported()
         }
         pub async fn load_concept(&self, _ns: &str, _id: &str) -> Result<Option<Concept>> {
-            Ok(None)
+            unsupported()
         }
         pub async fn load_all_concepts(&self, _ns: &str) -> Result<Vec<Concept>> {
-            Ok(Vec::new())
+            unsupported()
         }
         pub async fn delete_concept(&self, _ns: &str, _id: &str) -> Result<()> {
-            Ok(())
+            unsupported()
         }
         pub async fn save_association(
             &self,
@@ -118,33 +131,33 @@ pub mod persistence {
             _to: &str,
             _strength: f32,
         ) -> Result<()> {
-            Ok(())
+            unsupported()
         }
         pub async fn save_associations(
             &self,
             _ns: &str,
             _associations: &[(String, String, f32)],
         ) -> Result<()> {
-            Ok(())
+            unsupported()
         }
         pub async fn load_associations(
             &self,
             _ns: &str,
             _id: &str,
         ) -> Result<Vec<(String, f32, u64)>> {
-            Ok(Vec::new())
+            unsupported()
         }
         pub async fn load_all_associations(
             &self,
             _ns: &str,
         ) -> Result<Vec<(String, String, f32, u64)>> {
-            Ok(Vec::new())
+            unsupported()
         }
         pub async fn get_namespace_revision(&self, _ns: &str) -> Result<u64> {
-            Ok(0)
+            unsupported()
         }
         pub async fn bump_namespace_revision(&self, _ns: &str) -> Result<u64> {
-            Ok(1)
+            unsupported()
         }
         pub async fn save_index_envelope(
             &self,
@@ -152,38 +165,38 @@ pub mod persistence {
             _id: &str,
             _envelope: &crate::index_envelope::IndexSnapshotEnvelope,
         ) -> Result<()> {
-            Ok(())
+            unsupported()
         }
         pub async fn load_index_envelope(
             &self,
             _ns: &str,
             _id: &str,
         ) -> Result<Option<crate::index_envelope::IndexSnapshotEnvelope>> {
-            Ok(None)
+            unsupported()
         }
         pub async fn delete_association(&self, _ns: &str, _from: &str, _to: &str) -> Result<()> {
-            Ok(())
+            unsupported()
         }
         pub async fn clear_concept_associations(&self, _ns: &str, _id: &str) -> Result<()> {
-            Ok(())
+            unsupported()
         }
         pub async fn clear_all(&self) -> Result<()> {
-            Ok(())
+            unsupported()
         }
         pub async fn checkpoint(&self) -> Result<()> {
-            Ok(())
+            unsupported()
         }
         pub async fn health_check(&self) -> Result<()> {
-            Ok(())
+            unsupported()
         }
         pub async fn size(&self) -> Result<u64> {
-            Ok(0)
+            unsupported()
         }
         pub async fn backup(&self, _path: &str) -> Result<()> {
-            Ok(())
+            unsupported()
         }
         pub async fn restore(&self, _path: &str) -> Result<()> {
-            Ok(())
+            unsupported()
         }
         pub async fn get_version_scoped(
             &self,
@@ -191,14 +204,14 @@ pub mod persistence {
             _id: &str,
             _version: u64,
         ) -> Result<Option<Concept>> {
-            Ok(None)
+            unsupported()
         }
         pub async fn list_versions_scoped(
             &self,
             _ns: &str,
             _id: &str,
         ) -> Result<Vec<crate::singularity::ConceptVersion>> {
-            Ok(Vec::new())
+            unsupported()
         }
         pub async fn get_concept_history(
             &self,
@@ -206,25 +219,25 @@ pub mod persistence {
             _id: &str,
             _limit: usize,
         ) -> Result<Vec<ConceptVersion>> {
-            Ok(Vec::new())
+            unsupported()
         }
         pub async fn schema_version(&self) -> Result<i64> {
-            Ok(0)
+            unsupported()
         }
         pub async fn save_index(&self, _ns: &str, _id: &str, _data: &[u8]) -> Result<()> {
-            Ok(())
+            unsupported()
         }
         pub async fn load_index(&self, _ns: &str, _id: &str) -> Result<Option<Vec<u8>>> {
-            Ok(None)
+            unsupported()
         }
         pub async fn apply_migrations(&self, _target_version: i64) -> Result<()> {
-            Ok(())
+            unsupported()
         }
         pub async fn list_namespaces(&self) -> Result<Vec<String>> {
-            Ok(Vec::new())
+            unsupported()
         }
         pub async fn clear_namespace(&self, _ns: &str) -> Result<()> {
-            Ok(())
+            unsupported()
         }
     }
 }
