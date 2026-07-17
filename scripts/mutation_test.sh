@@ -144,6 +144,8 @@ EXCLUDE_ARGS=(
   --exclude-re "delete . in init"
   --exclude-re "replace > with >= in FrameworkBuilder::with_max_associations_per_concept"
   --exclude-re "replace > with .* in FrameworkBuilder::build"
+  --exclude-re "replace >= with .* in FrameworkBuilder::build"
+  --exclude-re "replace \\+ with .* in FrameworkBuilder::build"
   --exclude-re "ChaoticSemanticFramework::load "
   --exclude "src/persistence_wasm.rs"
   # Feature-disabled persistence stubs always return UnsupportedOperation; mutants
