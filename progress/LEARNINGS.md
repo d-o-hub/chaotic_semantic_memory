@@ -102,24 +102,6 @@
 - **Jules bot commits may not follow conventional format**: Added an ignore rule
   for PR merge commits that have no conventional prefix. This prevents CI failures
   on main after bot-authored PRs are merged.
-- **Validate the full branch range**, not just the last commit: CI runs
-  `commitlint --from base --to head`. A bad early commit fails the PR after later
-  good commits land. Use `npx commitlint --from origin/main --to HEAD --verbose`.
-- **Planning scopes**: `plans`, `goap`, `agents` are valid; avoid inventing scopes
-  (`docs(plans)` failed until `plans` was added — prefer `docs:` or `docs(plans)`
-  with the enum updated first).
-- **Subject-case**: do not start subjects with acronyms in UpperCase (`TTL lifecycle`
-  fails; use `ttl cleanup`).
-
-### Wave 32 CI / correctness lessons (PR #518)
-- **wasm-pack `--out-dir` is crate-relative** when building `crates/csm-wasm`; use
-  absolute paths in CI/release or artifacts land under `crates/csm-wasm/...`.
-- **NEON early-return leaves trailing parallel fallbacks unreachable on aarch64**
-  under `-D warnings`; cfg-gate fallbacks.
-- **Mutation timeouts ≠ kills** (ADR-0095); stub modules need excludes or real tests.
-- **TTL `timeout(handle)` detaches on expiry** — always `abort()` on deadline.
-- **Absence short-circuit must not starve keyword-only** and must invalidate on inject.
-- See `.agents/skills/github-ci-guardrails/references/ci-pitfalls-wave32.md`.
 
 ### Supply Chain Advisory Discipline
 - **Run `cargo deny check` before releases and after dependency upgrades**:

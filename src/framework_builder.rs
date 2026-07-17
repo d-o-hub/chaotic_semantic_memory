@@ -17,9 +17,6 @@ const DEFAULT_MAX_PROBE_TOP_K: usize = 10_000;
 const DEFAULT_MAX_CACHED_TOP_K: usize = 100;
 const DEFAULT_MAX_BATCH_SIZE: usize = 1000;
 const DEFAULT_MAX_SEQUENCE_LENGTH: usize = 1024;
-/// How often the TTL cleanup task polls the cancel flag between interval waits.
-/// Override: `CSM_TTL_CANCEL_POLL_MS`.
-const DEFAULT_TTL_CANCEL_POLL_MS: u64 = 200;
 
 /// Runtime configuration for [`ChaoticSemanticFramework`], tuned via [`FrameworkBuilder`].
 #[derive(Clone, Debug)]
@@ -276,8 +273,7 @@ impl FrameworkBuilder {
 
     /// Configure a local SQLite database for persistence.
     ///
-    /// Only available when the `persistence` feature is enabled (ADR-0094:
-    /// disabled capabilities are cfg-absent, never silently ignored).
+    /// Only available when the `persistence` feature is enabled.
     #[cfg(feature = "persistence")]
     pub fn with_local_db(mut self, path: impl Into<String>) -> Self {
         self.db_path = Some(path.into());
@@ -285,9 +281,15 @@ impl FrameworkBuilder {
         self
     }
 
+    /// Stub for `with_local_db` when persistence is disabled.
+    #[cfg(not(feature = "persistence"))]
+    pub fn with_local_db(self, _path: impl Into<String>) -> Self {
+        self
+    }
+
     /// Configure a remote Turso database for persistence.
     ///
-    /// Only available when the `persistence` feature is enabled (ADR-0094).
+    /// Only available when the `persistence` feature is enabled.
     #[cfg(feature = "persistence")]
     pub fn with_turso(mut self, url: impl Into<String>, token: impl Into<String>) -> Self {
         self.db_path = Some(url.into());
@@ -295,16 +297,25 @@ impl FrameworkBuilder {
         self
     }
 
+    /// Stub for `with_turso` when persistence is disabled.
+    #[cfg(not(feature = "persistence"))]
+    pub fn with_turso(self, _url: impl Into<String>, _token: impl Into<String>) -> Self {
+        self
+    }
+
     /// Disable persistence even when the feature is enabled.
+    ///
+    /// When the `persistence` feature is disabled, this method is a no-op
+    /// since persistence is already unavailable.
     #[cfg(feature = "persistence")]
     pub const fn without_persistence(mut self) -> Self {
         self.config.enable_persistence = false;
         self
     }
 
-    /// No-op when the `persistence` feature is disabled (already unavailable).
+    /// Disable persistence (no-op when `persistence` feature is disabled).
     #[cfg(not(feature = "persistence"))]
-    pub const fn without_persistence(self) -> Self {
+    pub fn without_persistence(self) -> Self {
         self
     }
 
@@ -387,9 +398,7 @@ impl FrameworkBuilder {
             })
         };
 
-        // `mut` only used when attaching ttl_cleanup (non-wasm).
-        #[allow(unused_mut)]
-        let mut framework = ChaoticSemanticFramework {
+        let framework = ChaoticSemanticFramework {
             singularity,
             persistence,
             reservoir: Arc::new(RwLock::new(None)),
@@ -400,54 +409,28 @@ impl FrameworkBuilder {
             namespace: Arc::new(RwLock::new(self.namespace)),
             embedding_provider: provider,
             projection: Arc::new(projection),
-            #[cfg(not(target_arch = "wasm32"))]
-            ttl_cleanup: None,
         };
 
         framework.load_replace().await?;
 
-        // Start owned background cleanup when configured (ADR-0093 lifecycle).
+        // Start background cleanup if configured
         #[cfg(not(target_arch = "wasm32"))]
         {
             let interval = framework.config.ttl_config.cleanup_interval_seconds;
             if interval > 0 {
-                let cancel = crate::framework_ttl::TtlCleanupControl::new_cancel();
-                let cancel_task = Arc::clone(&cancel);
-                let fw_task = framework.clone();
-                let handle = tokio::spawn(async move {
-                    // Poll cancel so shutdown does not wait a full cleanup interval.
-                    let cancel_poll = std::time::Duration::from_millis(
-                        std::env::var("CSM_TTL_CANCEL_POLL_MS")
-                            .ok()
-                            .and_then(|v| v.parse().ok())
-                            .unwrap_or(DEFAULT_TTL_CANCEL_POLL_MS),
-                    );
+                let fw = Arc::new(framework);
+                let fw_clone = Arc::clone(&fw);
+                tokio::spawn(async move {
+                    let mut timer =
+                        tokio::time::interval(tokio::time::Duration::from_secs(interval));
                     loop {
-                        // Wait one interval (or until cancelled).
-                        let deadline = tokio::time::Instant::now()
-                            + tokio::time::Duration::from_secs(interval);
-                        loop {
-                            if cancel_task.load(std::sync::atomic::Ordering::Relaxed) {
-                                return;
-                            }
-                            let now = tokio::time::Instant::now();
-                            if now >= deadline {
-                                break;
-                            }
-                            let slice = (deadline - now).min(cancel_poll);
-                            tokio::time::sleep(slice).await;
-                        }
-                        if cancel_task.load(std::sync::atomic::Ordering::Relaxed) {
-                            return;
-                        }
-                        if let Err(e) = fw_task.purge_expired().await {
+                        timer.tick().await;
+                        if let Err(e) = fw_clone.purge_expired().await {
                             tracing::error!(error = %e, "background cleanup failed");
                         }
                     }
                 });
-                framework.ttl_cleanup = Some(Arc::new(
-                    crate::framework_ttl::TtlCleanupControl::new(cancel, handle),
-                ));
+                return Ok(Arc::try_unwrap(fw).unwrap_or_else(|fw_arc| (*fw_arc).clone()));
             }
         }
 

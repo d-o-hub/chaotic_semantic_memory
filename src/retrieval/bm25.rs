@@ -26,13 +26,8 @@
 // Casts are intentional for BM25 math (document counts, term frequencies)
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
-// Stable re-exports (absence helpers live in `absence_short_circuit` for LOC).
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-pub use crate::retrieval::absence_short_circuit::is_known_absent;
-pub use crate::retrieval::absence_short_circuit::{
-    DEFAULT_ABSENCE_MIN_ATTEMPTS, absence_min_attempts,
-};
-
+use crate::bridge_persistence::{AbsenceEntry, AbsenceStore};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::cmp::Ordering;
@@ -106,6 +101,18 @@ impl Default for Bm25Index {
             doc_lengths: Vec::new(),
             total_length: 0,
         }
+    }
+}
+
+/// Returns true if the query has a known absence record with
+/// attempt_count >= min_attempts, indicating BM25 should be skipped.
+/// TODO: Wire into the main hybrid retrieval pipeline for short-circuiting.
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+pub async fn is_known_absent(query: &str, store: &dyn AbsenceStore, min_attempts: u32) -> bool {
+    let id = AbsenceEntry::id_for(query);
+    match store.get_absence(&id).await {
+        Ok(Some(entry)) => entry.attempt_count >= min_attempts,
+        _ => false,
     }
 }
 

@@ -706,34 +706,6 @@ fn bench_singularity_scalability(c: &mut Criterion) {
     group.finish();
 }
 
-/// ADR-0095: ANN backend build + query comparison at modest scale (exact/bucket).
-/// HNSW/LSH paths are feature-gated; exact/bucket always run.
-fn bench_ann_scale(c: &mut Criterion) {
-    let mut group = c.benchmark_group("ann_scale");
-    group.sample_size(10);
-    let scale = 2_000usize;
-    let query = HVec10240::new_seeded(42);
-
-    let exact = build_probe_benchmark_singularity(scale, false);
-    group.bench_function(format!("exact_query_{scale}"), |b| {
-        b.iter(|| black_box(exact.find_similar_cached(NS, black_box(&query), black_box(10))))
-    });
-
-    let mut bucket = build_probe_benchmark_singularity(scale, false);
-    let mut ret_config = bucket.retrieval_config().clone();
-    ret_config.enable_bucket_candidates = true;
-    let _ = bucket.set_retrieval_config(ret_config);
-    group.bench_function(format!("bucket_query_{scale}"), |b| {
-        b.iter(|| black_box(bucket.find_similar_cached(NS, black_box(&query), black_box(10))))
-    });
-
-    group.bench_function(format!("exact_build_{scale}"), |b| {
-        b.iter(|| black_box(build_probe_benchmark_singularity(scale, false)))
-    });
-
-    group.finish();
-}
-
 criterion_group!(
     benches,
     bench_hvec_creation,
@@ -756,8 +728,7 @@ criterion_group!(
     bench_memory_packet_compilation,
     bench_bm25_search,
     bench_singularity_scalability,
-    bench_graph_rag,
-    bench_ann_scale
+    bench_graph_rag
 );
 criterion_main!(benches);
 

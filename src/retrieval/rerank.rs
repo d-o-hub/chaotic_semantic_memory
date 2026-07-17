@@ -56,32 +56,55 @@ impl Reranker for MmrReranker {
 
         let mut selected: Vec<RerankCandidate> = Vec::with_capacity(top_k);
 
+        // Precompute cosine similarity between query and all candidates.
+        // This avoids recalculating query similarities (which are static across steps) O(N * K) times.
+        let mut query_similarities: Vec<f32> = candidates
+            .iter()
+            .map(|cand| query.cosine_similarity(&cand.vector))
+            .collect();
+
+        // Cache the maximum similarity of each candidate to the already selected set.
+        // Initially, the selected set is empty, so maximum similarity is 0.0.
+        let mut max_sim_to_selected = vec![0.0f32; candidates.len()];
+
         // Greedily select candidates
         while selected.len() < top_k && !candidates.is_empty() {
             let mut best_idx = 0;
             let mut max_mmr = f32::NEG_INFINITY;
 
-            for (idx, cand) in candidates.iter().enumerate() {
-                let mut max_sim_to_selected = 0.0f32;
-                for sel in &selected {
-                    let sim = cand.vector.cosine_similarity(&sel.vector);
-                    if sim > max_sim_to_selected {
-                        max_sim_to_selected = sim;
-                    }
-                }
-
+            // Zip similarities to avoid manual indexing and bounds checks.
+            for (idx, (&similarity, &max_sim)) in query_similarities
+                .iter()
+                .zip(max_sim_to_selected.iter())
+                .enumerate()
+            {
                 // MMR Formula: lambda * sim(query, cand) - (1 - lambda) * max_sim(cand, selected)
-                let similarity = query.cosine_similarity(&cand.vector);
-                let mmr_score =
-                    self.lambda * similarity - (1.0 - self.lambda) * max_sim_to_selected;
+                let mmr_score = self.lambda * similarity - (1.0 - self.lambda) * max_sim;
+
                 if mmr_score > max_mmr {
                     max_mmr = mmr_score;
                     best_idx = idx;
                 }
             }
 
-            let mut best_cand = candidates.remove(best_idx);
+            // O(1) swap_remove instead of O(N) remove to avoid shifting subsequent elements.
+            // Alignment with query_similarities and max_sim_to_selected is preserved by
+            // performing swap_remove on them as well.
+            let mut best_cand = candidates.swap_remove(best_idx);
             best_cand.score = max_mmr;
+            query_similarities.swap_remove(best_idx);
+            max_sim_to_selected.swap_remove(best_idx);
+
+            // Incrementally update the maximum similarity cache using the newly selected candidate.
+            // This reduces the complexity of similarity-to-selected tracking from O(N * K^2) to O(N * K).
+            // Using zip avoids bounds checks and indexing overhead.
+            for (cand, max_sim) in candidates.iter().zip(max_sim_to_selected.iter_mut()) {
+                let sim = cand.vector.cosine_similarity(&best_cand.vector);
+                if sim > *max_sim {
+                    *max_sim = sim;
+                }
+            }
+
             selected.push(best_cand);
         }
 

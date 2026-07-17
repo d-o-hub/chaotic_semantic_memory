@@ -55,8 +55,8 @@
 - mcp: [dep:rmcp, cli, dep:axum, dep:tower, dep:tower-http]
 - otlp-json: []
 - otlp: [dep:opentelemetry, dep:opentelemetry_sdk, dep:opentelemetry-otlp, dep:tracing-opentelemetry]
-- parallel: [dep:rayon, csm-core/parallel, csm-memory/parallel]
-- persistence: [dep:libsql, csm-persistence/persistence]
+- parallel: [dep:rayon]
+- persistence: [dep:libsql]
 - prometheus: [dep:prometheus, dep:hyper, dep:hyper-util, dep:http-body-util]
 - wasm: []
 
@@ -86,7 +86,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl AbsenceEntry
 - pub trait AbsenceStore
 - pub fn persist_absence
-- pub fn invalidate_all_absences
 
 ### src/bridge_retrieval.rs
 
@@ -410,8 +409,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/framework_ttl.rs
 
-- impl TtlCleanupControl
-- impl Drop for TtlCleanupControl
 - impl crate::framework::ChaoticSemanticFramework
 
 ### src/framework_ttl_advanced.rs
@@ -467,7 +464,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use semantic_bridge::{BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown}
 - pub use singularity::{Concept, ConceptBuilder}
 - pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
-- pub use bridge_persistence::{AbsenceEntry, AbsenceStore, invalidate_all_absences, persist_absence}
 - pub mod bridge_retrieval
 - pub use csm_chaos
 - pub use csm_core::bundle
@@ -634,20 +630,13 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use crate::singularity::ConceptVersion
 - impl Persistence
 
-### src/retrieval/absence_short_circuit.rs
-
-- pub const DEFAULT_ABSENCE_MIN_ATTEMPTS
-- pub fn absence_min_attempts
-- pub fn is_known_absent
-
 ### src/retrieval/bm25.rs
 
-- pub use crate::retrieval::absence_short_circuit::is_known_absent
-- pub use crate::retrieval::absence_short_circuit::{DEFAULT_ABSENCE_MIN_ATTEMPTS, absence_min_attempts}
 - pub struct Bm25Config
 - impl Default for Bm25Config
 - pub struct Bm25Index
 - impl Default for Bm25Index
+- pub fn is_known_absent
 - impl Clone for Bm25Index
 - impl Bm25Index
 
@@ -660,11 +649,18 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/retrieval/hybrid.rs
 
-- pub use csm_retrieval::{HybridConfig, HybridMode, HybridResult, RetrievalAbstention, compute_weights, merge_results, normalize_scores}
+- pub struct RetrievalAbstention
+- pub enum HybridResult
+- impl HybridResult
+- pub fn compute_weights
+- pub fn normalize_scores
+- pub fn merge_results
+- pub enum HybridMode
+- pub struct HybridConfig
+- impl Default for HybridConfig
 
 ### src/retrieval/mod.rs
 
-- pub mod absence_short_circuit
 - pub mod bm25
 - pub mod graph_rag
 - pub mod hybrid
@@ -1392,11 +1388,11 @@ include = [
 
 [dependencies]
 csm-chaos = { path = "crates/csm-chaos", version = "0.3.7" }
-csm-core = { path = "crates/csm-core", version = "0.3.7", default-features = false }
-csm-embedding = { path = "crates/csm-embedding", version = "0.3.7", default-features = false }
-csm-memory = { path = "crates/csm-memory", version = "0.3.7", default-features = false }
-csm-retrieval = { path = "crates/csm-retrieval", version = "0.3.7", default-features = false }
-csm-traits = { path = "crates/csm-traits", version = "0.3.7", default-features = false }
+csm-core = { path = "crates/csm-core", version = "0.3.7" }
+csm-embedding = { path = "crates/csm-embedding", version = "0.3.7" }
+csm-memory = { path = "crates/csm-memory", version = "0.3.7" }
+csm-retrieval = { path = "crates/csm-retrieval", version = "0.3.7" }
+csm-traits = { path = "crates/csm-traits", version = "0.3.7" }
 
 tempfile = { workspace = true }
 # Serialization
@@ -1454,11 +1450,9 @@ rayon = { version = "1.10.0", optional = true }
 
 # Database - Use libsql NOT turso-client (opt-in via "persistence" feature)
 libsql = { version = "0.9.30", default-features = false, features = ["sync", "hrana", "remote"], optional = true }
-# ADR-0094: lean no-default-features — do not pull csm-persistence default (libSQL).
-csm-persistence = { path = "crates/csm-persistence", version = "0.3.7", default-features = false }
+csm-persistence = { path = "crates/csm-persistence", version = "0.3.7" }
 # `net` is required by the Prometheus /metrics server (ADR-0072).
-# `time` required for TTL cleanup interval/timeout (ADR-0093 lifecycle).
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs", "net", "time"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs", "net"] }
 
 # HTTP server for Prometheus /metrics endpoint (ADR-0072, opt-in via "prometheus" feature)
 hyper = { version = "1", features = ["server", "http1"], optional = true }
@@ -1573,9 +1567,8 @@ required-features = ["prometheus", "otlp-json"]
 [features]
 default = ["cli", "persistence", "parallel"]
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
-# ADR-0094: forward owner-crate features; persistence enables libSQL in root + csm-persistence.
-persistence = ["dep:libsql", "csm-persistence/persistence"]
-parallel = ["dep:rayon", "csm-core/parallel", "csm-memory/parallel"]
+persistence = ["dep:libsql"]
+parallel = ["dep:rayon"]
 wasm = []
 mcp = ["dep:rmcp", "cli", "dep:axum", "dep:tower", "dep:tower-http"]  # ADR-0067: MCP server requires CLI infrastructure
 

@@ -1491,7 +1491,6 @@ name = "csm-retrieval"
 version = "0.3.7"
 dependencies = [
  "async-trait",
- "chrono",
  "csm-core",
  "csm-memory",
  "serde",

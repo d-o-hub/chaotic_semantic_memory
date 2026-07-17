@@ -26,7 +26,10 @@ fn bench_mmr_rerank(c: &mut Criterion) {
     for size in [50, 200, 500] {
         let candidates = make_candidates(size);
         group.bench_function(format!("top10_from_{size}"), |b| {
-            b.iter(|| reranker.rerank(black_box(&query), black_box(candidates.clone()), 10))
+            b.iter_with_setup(
+                || candidates.clone(),
+                |cands| reranker.rerank(black_box(&query), black_box(cands), 10),
+            )
         });
     }
     group.finish();

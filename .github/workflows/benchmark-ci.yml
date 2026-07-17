@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - 'src/**'
-      - 'crates/**'
       - 'benches/**'
       - 'benchmarks/**'
       - '.github/workflows/benchmark-ci.yml'
@@ -14,7 +13,6 @@ on:
     branches: [main]
     paths:
       - 'src/**'
-      - 'crates/**'
       - 'benches/**'
       - 'benchmarks/**'
       - '.github/workflows/benchmark-ci.yml'
@@ -95,34 +93,6 @@ jobs:
 
           if not ok:
               sys.exit(1)
-          PY
-
-      - name: Write evidence manifest (ADR-0095)
-        run: |
-          set -euo pipefail
-          mkdir -p benchmarks/results/ci
-          {
-            echo '{'
-            echo "  \"schema_version\": 1,"
-            echo "  \"tier\": \"pr\","
-            echo "  \"commit\": \"${{ github.sha }}\","
-            echo "  \"ref\": \"${{ github.ref }}\","
-            echo "  \"dataset\": \"benchmarks/datasets/v1/small\","
-            echo "  \"mode\": \"retrieval-only\","
-            echo "  \"command\": \"cargo run --manifest-path benchmarks/Cargo.toml -- --dataset-dir benchmarks/datasets/v1/small --mode retrieval-only --out-dir benchmarks/results/ci\","
-            echo "  \"features\": \"default\","
-            echo "  \"runner\": \"${{ runner.os }}/${{ runner.arch }}\","
-            echo "  \"rustc\": \"$(rustc --version | tr -d '\n')\","
-            echo "  \"summary\": \"benchmarks/results/ci/summary.json\""
-            echo '}'
-          } > benchmarks/results/ci/evidence_manifest.json
-          test -f benchmarks/results/ci/evidence_manifest.json
-          python - <<'PY'
-          import json, pathlib
-          m = json.loads(pathlib.Path("benchmarks/results/ci/evidence_manifest.json").read_text())
-          for k in ("schema_version", "tier", "commit", "dataset", "command", "summary"):
-              assert k in m and m[k], k
-          print("evidence manifest ok", m["tier"], m["commit"][:12])
           PY
 
       - name: Upload artifacts

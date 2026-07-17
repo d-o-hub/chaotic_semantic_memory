@@ -33,7 +33,6 @@ impl ChaoticSemanticFramework {
         #[cfg(not(target_arch = "wasm32"))]
         let p_start = std::time::Instant::now();
         self.durable_inject_concepts(&to_save).await?;
-        self.invalidate_absence_short_circuit().await;
         if self.persistence.is_some() {
             #[cfg(not(target_arch = "wasm32"))]
             let elapsed_ms = u64::try_from(p_start.elapsed().as_millis()).unwrap_or(u64::MAX);

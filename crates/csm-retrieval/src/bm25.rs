@@ -410,12 +410,12 @@ impl Bm25Index {
     }
 
     /// Get the number of documents in the index.
-    pub const fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.documents.len()
     }
 
     /// Check if the index is empty.
-    pub const fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.documents.is_empty()
     }
 

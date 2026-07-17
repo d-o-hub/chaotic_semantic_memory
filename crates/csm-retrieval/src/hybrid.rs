@@ -2,56 +2,8 @@
 //!
 //! Provides query-length-dependent weighting between keyword (BM25) and
 //! semantic (HDC) search results.
-//!
-//! **Owner crate** (ADR-0094): this module is the implementation owner;
-//! root `chaotic_semantic_memory::retrieval::hybrid` re-exports it.
 
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
-/// A record of a retrieval attempt that yielded no results above the threshold.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RetrievalAbstention {
-    /// The original query string.
-    pub query: String,
-    /// Minimum score threshold required for a hit.
-    pub min_score_threshold: f32,
-    /// Best score observed during the attempt.
-    pub best_score_seen: Option<f32>,
-    /// Retrieval modes attempted (e.g. `"Auto"`, `"SemanticOnly"`).
-    pub attempted_modes: Vec<String>,
-    /// When the abstention occurred.
-    pub timestamp: DateTime<Utc>,
-}
-
-/// Result of a hybrid retrieval operation.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum HybridResult {
-    /// Hits above threshold. Empty `Success` means a secondary filter removed all hits.
-    Success(Vec<(String, f32)>),
-    /// No results met the confidence threshold.
-    Abstained(RetrievalAbstention),
-}
-
-impl HybridResult {
-    /// True when there are no usable hits.
-    #[must_use]
-    pub const fn is_empty(&self) -> bool {
-        match self {
-            Self::Success(v) => v.is_empty(),
-            Self::Abstained(_) => true,
-        }
-    }
-
-    /// Iterate scores if this is a success result.
-    pub fn iter(&self) -> Box<dyn Iterator<Item = &(String, f32)> + '_> {
-        match self {
-            Self::Success(v) => Box::new(v.iter()),
-            Self::Abstained(_) => Box::new(std::iter::empty()),
-        }
-    }
-}
 
 /// Compute query-length-dependent weights for hybrid retrieval.
 ///
@@ -63,6 +15,7 @@ impl HybridResult {
 /// | 3-4 | 0.7 | 0.3 | Keyword still strong |
 /// | 5-8 | 0.4 | 0.6 | Semantic takes over |
 /// | 9+ | 0.2 | 0.8 | Full semantic mode |
+#[allow(dead_code)]
 pub const fn compute_weights(token_count: usize) -> (f32, f32) {
     match token_count {
         1..=2 => (0.9, 0.1),
