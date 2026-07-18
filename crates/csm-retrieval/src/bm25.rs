@@ -299,10 +299,12 @@ impl Bm25Index {
         // Optimization: Use thread-local buffers to eliminate O(N) allocation and zeroing per search call.
         TOUCHED_INDICES_BUFFER.with(|touched_buffer| {
             let mut touched_indices = touched_buffer.borrow_mut();
+            let touched_indices = &mut *touched_indices;
             touched_indices.clear();
 
             DOC_SCORES_BUFFER.with(|buffer| {
                 let mut doc_scores = buffer.borrow_mut();
+                let doc_scores = &mut *doc_scores;
                 // Always clear the active prefix (resize alone does not zero old slots).
                 if doc_scores.len() < num_docs {
                     doc_scores.resize(num_docs, 0.0);
@@ -315,7 +317,7 @@ impl Bm25Index {
                         .norm_cache
                         .read()
                         .expect("Bm25Index norm_cache lock poisoned");
-                    let factors = &cache.factors;
+                    let factors = cache.factors.as_slice();
                     debug_assert_eq!(factors.len(), num_docs);
 
                     for (weighted_idf, entries) in query_weights {
@@ -344,6 +346,7 @@ impl Bm25Index {
 
                 SCORES_COLLECT_BUFFER.with(|collect_buffer| {
                     let mut scores = collect_buffer.borrow_mut();
+                    let scores = &mut *scores;
                     scores.clear();
 
                     for &idx in touched_indices.iter() {
@@ -388,7 +391,7 @@ impl Bm25Index {
         term: &'a str,
         n_plus_1_ln: f32,
         k1_plus_1: f32,
-        query_weights: &mut Vec<(f32, &'a Vec<(usize, u32)>)>,
+        query_weights: &mut Vec<(f32, &'a [(usize, u32)])>,
     ) {
         if let Some(postings) = self.postings.get(term) {
             let df = postings.len() as f32;
