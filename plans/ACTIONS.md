@@ -4883,3 +4883,18 @@ actions:
       empty #520, fixed CI on #527 and merged, rewrote #529 after Jules
       regression and merged when green. Updated GOAP_STATE, PROGRESS, LEARNINGS.
 
+  - name: framework_ops_perf_524_525_526
+    preconditions:
+      tests_passing: true
+    effects:
+      issue_524_done: true
+      issue_525_done: true
+      issue_526_done: true
+    cost: 9
+    status: complete
+    priority: P1
+    wave: "framework-ops-perf"
+    description: |
+      #524 single namespace clone, #525 parallel inject construction,
+      #526 import inject/associate split write locks. One PR.
+
