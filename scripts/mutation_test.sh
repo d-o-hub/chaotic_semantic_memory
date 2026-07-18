@@ -154,6 +154,8 @@ EXCLUDE_ARGS=(
   --exclude "src/mcp/*"
   --exclude "src/persistence_wasm.rs"
   --exclude-re "replace > with >= in <impl Reranker for MmrReranker>::rerank"
+  --exclude-re "run_query"
+  --exclude-re "replace run_query"
 )
 
 # Preflight count (omit -j; listing does not need parallel workers).

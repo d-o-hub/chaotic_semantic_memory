@@ -4313,7 +4313,7 @@ impl HybridResult {
 ### merge_results
 
 ```rust
-pub fn merge_results(bm25_results: &[(String, f32)], hdc_results: &[(String, f32)], weights: (f32, f32)) -> Vec<(String, f32)>
+pub fn merge_results(bm25_results: &[(String, f32)], hdc_results: &[(String, f32)], weights: (f32, f32), top_k: usize) -> Vec<(String, f32)>
 ```
 
 Merge BM25 and HDC results with given weights.
