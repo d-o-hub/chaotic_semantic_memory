@@ -1760,7 +1760,7 @@ world_state:
   # Open PR Triage (GOAP orchestrator + swarm) 2026-07-18
   # plans/GOAP_ORCHESTRATOR.md
   # ═══════════════════════════════════════════════════════
-  action_last_completed: open_pr_triage_2026_07_18
+  # action_last_completed: open_pr_triage_2026_07_18  # superseded
   open_pr_triage_2026_07_18:
     started_at: "2026-07-18"
     completed_at: "2026-07-18"
@@ -1791,3 +1791,19 @@ world_state:
     remaining_open_issues_perf: [524, 525, 526]
     learnings_recorded: true
     progress_recorded: true
+
+  # ═══════════════════════════════════════════════════════
+  # Framework ops perf issues #524-#526 (2026-07-18)
+  # ═══════════════════════════════════════════════════════
+  action_last_completed: framework_ops_perf_524_525_526_2026_07_18
+  framework_ops_perf_524_525_526:
+    branch: feat/framework-ops-perf-524-525-526
+    issues: [524, 525, 526]
+    changes:
+      - "namespace clone once via namespace() for dual-read ops (#524)"
+      - "inject_concepts Rayon construction before durable write lock (#525)"
+      - "import json/binary: split inject vs associate write holds (#526)"
+    files:
+      - src/framework_ops.rs
+      - src/framework_ops_tests.rs
+      - benches/benchmark.rs
