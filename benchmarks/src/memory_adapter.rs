@@ -221,7 +221,7 @@ impl MemoryAdapter {
             .collect();
 
         // Merge results
-        let merged = merge_results(&bm25_hits, &hdc_filtered, weights);
+        let merged = merge_results(&bm25_hits, &hdc_filtered, weights, top_k);
 
         let reweighted = {
             let text_store = self.text_store.read().await;
@@ -315,7 +315,7 @@ impl MemoryAdapter {
 
         // Merge results
         let weights = compute_weights(query_tokens.len());
-        let merged = merge_results(&bm25_filtered, &hdc_hits, weights);
+        let merged = merge_results(&bm25_filtered, &hdc_hits, weights, top_k);
 
         let reweighted = {
             let text_store = self.text_store.read().await;

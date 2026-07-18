@@ -116,18 +116,19 @@ pub fn merge_results(
     bm25_results: &[(String, f32)],
     hdc_results: &[(String, f32)],
     weights: (f32, f32),
+    top_k: usize,
 ) -> Vec<(String, f32)> {
+    if top_k == 0 {
+        return Vec::new();
+    }
+
     let (kw_weight, sem_weight) = weights;
 
-    // Optimization: Pre-allocate map to avoid redundant re-hashes and re-allocs.
-    // Capacity is at most the sum of both result sets.
-    // Use &str as key to avoid redundant String clones during accumulation.
+    // Pre-allocate map; use &str keys to avoid String clones during accumulation.
     let mut combined: HashMap<&str, f32> =
         HashMap::with_capacity(bm25_results.len() + hdc_results.len());
 
-    // Optimization: Eliminate intermediate Vec allocations by merging and
-    // normalizing in a single pass.
-
+    // Fold min/max then insert — no intermediate Vec allocation.
     if !bm25_results.is_empty() {
         let (min, max) = bm25_results
             .iter()
@@ -156,7 +157,6 @@ pub fn merge_results(
         let range = max - min;
         if range < 1e-10 {
             for (id, _) in hdc_results {
-                // Optimization: Use Entry API to combine lookup and insertion, avoiding redundant hashing.
                 combined
                     .entry(id.as_str())
                     .and_modify(|s| *s += sem_weight)
@@ -174,11 +174,17 @@ pub fn merge_results(
         }
     }
 
-    // Sort by combined score descending and clone IDs only once for the final results.
+    // Clone IDs only once for the final result set.
     let mut results: Vec<(String, f32)> = combined
         .into_iter()
         .map(|(id, score)| (id.to_string(), score))
         .collect();
+
+    // O(N) top-k selection, then sort only the retained slice.
+    if results.len() > top_k {
+        results.select_nth_unstable_by(top_k, |a, b| b.1.total_cmp(&a.1));
+        results.truncate(top_k);
+    }
     results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
 
     results
@@ -311,7 +317,7 @@ mod tests {
         let bm25 = vec![("doc1".to_string(), 1.0), ("doc2".to_string(), 0.5)];
         let hdc = vec![("doc1".to_string(), 0.5), ("doc3".to_string(), 1.0)];
 
-        let merged = merge_results(&bm25, &hdc, (0.5, 0.5));
+        let merged = merge_results(&bm25, &hdc, (0.5, 0.5), 10);
 
         // doc1 appears in both
         assert!(merged.iter().any(|(id, _)| id == "doc1"));
@@ -327,7 +333,7 @@ mod tests {
         let hdc = vec![("doc1".to_string(), 1.0)];
 
         // With heavy keyword weight, BM25 should dominate
-        let merged = merge_results(&bm25, &hdc, (0.9, 0.1));
+        let merged = merge_results(&bm25, &hdc, (0.9, 0.1), 10);
 
         // doc1 should have combined score
         assert!(merged.iter().any(|(id, s)| id == "doc1" && *s > 0.0));
@@ -335,13 +341,13 @@ mod tests {
 
     #[test]
     fn test_merge_results_empty() {
-        let merged = merge_results(&[], &[], (0.5, 0.5));
+        let merged = merge_results(&[], &[], (0.5, 0.5), 10);
         assert!(merged.is_empty());
 
-        let merged = merge_results(&[("a".to_string(), 1.0)], &[], (0.5, 0.5));
+        let merged = merge_results(&[("a".to_string(), 1.0)], &[], (0.5, 0.5), 10);
         assert_eq!(merged.len(), 1);
 
-        let merged = merge_results(&[], &[("a".to_string(), 1.0)], (0.5, 0.5));
+        let merged = merge_results(&[], &[("a".to_string(), 1.0)], (0.5, 0.5), 10);
         assert_eq!(merged.len(), 1);
     }
 
@@ -361,7 +367,7 @@ mod tests {
             ("d4".to_string(), 0.7),
         ];
 
-        let merged = merge_results(&bm25, &hdc, weights);
+        let merged = merge_results(&bm25, &hdc, weights, 10);
 
         // d1: 0.6 * 1.0 + 0.4 * 1.0 = 1.0
         let d1_score = merged.iter().find(|(id, _)| id == "d1").unwrap().1;
@@ -405,7 +411,7 @@ mod tests {
         // Case 1: range exactly epsilon (should normalize)
         let bm25 = vec![("d1".to_string(), epsilon), ("d2".to_string(), 0.0)];
         let hdc = vec![("d1".to_string(), epsilon), ("d2".to_string(), 0.0)];
-        let merged = merge_results(&bm25, &hdc, weights);
+        let merged = merge_results(&bm25, &hdc, weights, 10);
         let d1_score = merged.iter().find(|(id, _)| id == "d1").unwrap().1;
         let d2_score = merged.iter().find(|(id, _)| id == "d2").unwrap().1;
         assert!((d1_score - 1.0).abs() < 1e-6);
@@ -415,9 +421,53 @@ mod tests {
         let just_below = epsilon * 0.9;
         let bm25_small = vec![("d1".to_string(), just_below), ("d2".to_string(), 0.0)];
         let hdc_small = vec![("d1".to_string(), just_below), ("d2".to_string(), 0.0)];
-        let merged_small = merge_results(&bm25_small, &hdc_small, weights);
+        let merged_small = merge_results(&bm25_small, &hdc_small, weights, 10);
         for (_, score) in merged_small {
             assert!((score - 1.0).abs() < 1e-6);
         }
+    }
+
+    #[test]
+    fn test_merge_results_top_k() {
+        let bm25 = vec![
+            ("d1".to_string(), 10.0),
+            ("d2".to_string(), 8.0),
+            ("d3".to_string(), 6.0),
+        ];
+        let hdc = vec![
+            ("d1".to_string(), 10.0),
+            ("d4".to_string(), 4.0),
+            ("d5".to_string(), 2.0),
+        ];
+        let weights = (0.5, 0.5);
+
+        // top_k = 2 should return exactly the 2 best elements: d1 and d2
+        let merged = merge_results(&bm25, &hdc, weights, 2);
+        assert_eq!(merged.len(), 2);
+        assert_eq!(merged[0].0, "d1");
+        assert_eq!(merged[1].0, "d2");
+
+        // top_k = 1 should return only d1
+        let merged_one = merge_results(&bm25, &hdc, weights, 1);
+        assert_eq!(merged_one.len(), 1);
+        assert_eq!(merged_one[0].0, "d1");
+
+        // top_k = 0 should return empty
+        let merged_zero = merge_results(&bm25, &hdc, weights, 0);
+        assert!(merged_zero.is_empty());
+    }
+
+    #[test]
+    fn test_merge_results_top_k_exact_boundary() {
+        // When unique result count equals top_k, the partial-sort branch must NOT run.
+        // Using `>=` instead of `>` would call select_nth_unstable_by(top_k) with
+        // index == len and panic.
+        let bm25 = vec![("d1".to_string(), 10.0), ("d2".to_string(), 8.0)];
+        let hdc = vec![("d1".to_string(), 10.0), ("d2".to_string(), 8.0)];
+        let weights = (0.5, 0.5);
+        let merged = merge_results(&bm25, &hdc, weights, 2);
+        assert_eq!(merged.len(), 2);
+        assert_eq!(merged[0].0, "d1");
+        assert_eq!(merged[1].0, "d2");
     }
 }

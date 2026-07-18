@@ -105,7 +105,7 @@ pub async fn run_query(
                 compute_weights(query_tokens.len())
             };
 
-            merge_results(&bm25, &hdc, weights)
+            merge_results(&bm25, &hdc, weights, args.top_k)
         }
         (Some(bm25), None) => bm25,
         (None, Some(hdc)) => hdc,
