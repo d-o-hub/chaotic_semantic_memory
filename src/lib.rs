@@ -244,6 +244,8 @@ pub mod prelude {
     pub use csm_core::hyperdim::HVec10240;
 }
 
+#[cfg(test)]
+mod framework_ops_tests;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
 #[cfg(target_arch = "wasm32")]

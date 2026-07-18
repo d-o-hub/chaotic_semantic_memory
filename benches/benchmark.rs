@@ -728,9 +728,69 @@ criterion_group!(
     bench_memory_packet_compilation,
     bench_bm25_search,
     bench_singularity_scalability,
-    bench_graph_rag
+    bench_graph_rag,
+    bench_probe_batch_comparison
 );
 criterion_main!(benches);
+
+fn bench_probe_batch_comparison(c: &mut Criterion) {
+    use chaotic_semantic_memory::prelude::*;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let framework = rt.block_on(async {
+        ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .build()
+            .await
+            .unwrap()
+    });
+
+    // Let's inject some concepts first to search against
+    rt.block_on(async {
+        let mut concepts = Vec::new();
+        for i in 0..100 {
+            concepts.push((format!("concept_{i}"), HVec10240::random()));
+        }
+        framework.inject_concepts(&concepts).await.unwrap();
+    });
+
+    let mut group = c.benchmark_group("probe_batch_comparison");
+    group.sample_size(10); // keep bench time reasonable
+
+    for size in [1, 4, 16, 64] {
+        let queries: Vec<HVec10240> = (0..size).map(|_| HVec10240::random()).collect();
+
+        // 1. Parallel probe_batch (optimized)
+        group.bench_function(format!("parallel_batch_{size}"), |b| {
+            b.iter(|| {
+                rt.block_on(async {
+                    let results = framework
+                        .probe_batch(black_box(&queries), 10)
+                        .await
+                        .unwrap();
+                    black_box(results);
+                })
+            })
+        });
+
+        // 2. Serial equivalent
+        group.bench_function(format!("serial_batch_{size}"), |b| {
+            b.iter(|| {
+                rt.block_on(async {
+                    let sing_arc = framework.singularity();
+                    let sing = sing_arc.read().await;
+                    let ns = framework.namespace().await;
+                    let results: Vec<Vec<(String, f32)>> = queries
+                        .iter()
+                        .map(|q| sing.find_similar(&ns, q, 10))
+                        .collect();
+                    black_box(results);
+                })
+            })
+        });
+    }
+    group.finish();
+}
 
 fn bench_graph_rag(c: &mut Criterion) {
     let mut group = c.benchmark_group("graph_rag");
