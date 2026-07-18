@@ -24,3 +24,11 @@ When adding new workspace crates or package scopes, update `commitlint.config.cj
 - Valid scopes: singularity, reservoir, framework, persistence, cli, cli-npm, wasm,
   retrieval, embedding, mcp, observability, bridge, duckdb, chaos, memory, core,
   traits, deps, ci, codacy, docs, release, clippy, lints, build, loc-gate, workspace
+
+**Always validate the full PR range** (CI does this; last-commit-only is insufficient):
+
+```bash
+npx commitlint --from origin/main --to HEAD --verbose
+```
+
+Do not invent scopes (`ops`, `plans`, `goap` unless added to the enum first).

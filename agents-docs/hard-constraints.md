@@ -25,6 +25,11 @@
   and address failures (upgrade deps or document ignores in `deny.toml`).
 - **Commitlint scopes must be kept current.** When adding a new workspace crate
   or package scope, also add the scope to `commitlint.config.cjs` `scope-enum` list.
+  Validate the **full PR range** before push (`npx commitlint --from origin/main --to HEAD`).
+- **Mutation in-diff discipline:** do not expand PR surface with unrelated
+  rewrites (score is scored on the git diff). Prefer kill tests or justified
+  `scripts/mutation_test.sh` excludes over path-excluding production modules.
+  Pitfalls: `.agents/skills/github-ci-guardrails/references/ci-pitfalls-pr-triage.md`.
 - **Version numbers must be synchronized across all files before release.**
   Run `scripts/verify-version-sync.sh` to verify. Files checked:
   - `Cargo.toml` - `version = "X.Y.Z"`
