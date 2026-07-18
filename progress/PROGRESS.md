@@ -1,3 +1,33 @@
+## 2026-07-18: Open PR Triage (GOAP + Swarm)
+
+### Summary
+GOAP-orchestrated sweep of all open PRs with swarm agents for CI repair.
+Merge order enforced (no multi-PR auto-merge). State: `plans/GOAP_ORCHESTRATOR.md`,
+`plans/GOAP_STATE.md` (`action_last_completed: open_pr_triage_2026_07_18`).
+
+### Merged (correct order)
+| PR | Title | SHA | Notes |
+|----|-------|-----|-------|
+| #528 | BM25 search hot loop | `f8b2bbc` | All-green first; RefMut/slice elision dual-surface |
+| #527 | Rayon `probe_batch` / `probe_batch_cached` | `1e94c11` | Fixes #522; CI repair via worktree agent |
+| #529 | hybrid `merge_results` partial top-k | `d2db671` | Fixes #523; Jules regression cleaned |
+
+### Closed
+| PR | Reason |
+|----|--------|
+| #520 | Empty Jules research simulation (0 file changes) |
+
+### CI repair patterns (#527 / #529)
+1. **commitlint**: invalid scope `ops` → squash to `framework`; full-range check
+2. **clippy**: `duplicated_attributes` from `#![cfg(test)]` + `#[cfg(test)] mod`
+3. **mutation**: shrink unrelated in-diff surface; kill `>` vs `>=` with len==top_k boundary test; exclude CLI `run_query` under `--lib` mutation
+4. **Jules overwrite**: bot force-push can revert sibling merges — reset to main and re-apply minimal delta
+
+### Remaining open issues (not this triage)
+#524 namespace reads, #525 inject parallel, #526 import lock hold
+
+---
+
 ## 2026-05-23: Documentation Audit
 
 ### Summary

@@ -1480,7 +1480,8 @@ world_state:
   template_reference: "https://github.com/d-oit/rust-2026-template"
   template_version_analyzed: "0.3.2 (392 commits)"
 
-  action_last_completed: wave32_p1_persistence_contracts_ci_2026_07_16
+  # superseded 2026-07-18 open PR triage (see block at end)
+  # action_last_completed: wave32_p1_persistence_contracts_ci_2026_07_16
 
   # ═══════════════════════════════════════════════════════
   # PR #444 Review: BM25 Sparse Collection (2026-06-27)
@@ -1754,3 +1755,39 @@ world_state:
       - fuzz_short_and_scheduled_runs
       - enforce_workspace_feature_contracts
       - ownership consolidation and evidence tiers
+
+  # ═══════════════════════════════════════════════════════
+  # Open PR Triage (GOAP orchestrator + swarm) 2026-07-18
+  # plans/GOAP_ORCHESTRATOR.md
+  # ═══════════════════════════════════════════════════════
+  action_last_completed: open_pr_triage_2026_07_18
+  open_pr_triage_2026_07_18:
+    started_at: "2026-07-18"
+    completed_at: "2026-07-18"
+    method: goap_orchestrator_with_swarm_agents
+    scanned_prs: [520, 527, 528, 529]
+    merge_order: [528, 527, 529]
+    closed:
+      - number: 520
+        reason: "empty Jules research-sim PR (0 file changes)"
+    merged:
+      - number: 528
+        title: "perf(retrieval): optimize BM25 search hot loop"
+        sha: "f8b2bbc"
+      - number: 527
+        title: "perf(framework): parallelize probe_batch and probe_batch_cached with Rayon"
+        sha: "1e94c11"
+        fixes_issue: 522
+        ci_fixes:
+          - "commitlint: squash invalid scope ops → framework"
+          - "clippy: remove duplicated #![cfg(test)] on framework_ops_tests"
+          - "mutation: restore import_* surface so Ok(1) mutants leave in-diff set"
+      - number: 529
+        title: "perf(retrieval): optimize hybrid merge_results with partial top-k sort"
+        sha: "d2db671"
+        fixes_issue: 523
+        notes: "Jules regression reverted; fold min/max + select_nth + boundary test + run_query mutation exclude"
+    open_prs_after: []
+    remaining_open_issues_perf: [524, 525, 526]
+    learnings_recorded: true
+    progress_recorded: true

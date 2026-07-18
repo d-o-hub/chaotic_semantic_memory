@@ -1,93 +1,47 @@
-# GOAP Orchestrator State
+# GOAP Orchestrator State — Open PR Triage 2026-07-18
 
-## Target State
-- All workspace extraction issues resolved
-- CI passes for all crates
-- Documentation reflects workspace structure
+## Target State — ACHIEVED
+- All open PRs either merged (green + useful) or closed (empty/obsolete)
+- GOAP_STATE / ACTIONS / PROGRESS / LEARNINGS updated
 
-## Action Plan
+## Final Outcomes
 
-### Action 1: Issue #374
-- **Issue**: #374
-- **Title**: docs: regenerate `llms.txt`, `llms-full.txt`, and `export.json` to reflect workspace crate structure from PR #356
-- **Labels**: none
-- **Status**: queued
-- **Branch**: feat/issue-374-docs-regenerate-llms-txt-llms-full-txt-and-export-
+| PR | Title | Outcome |
+|----|-------|---------|
+| #528 | BM25 hot loop | **MERGED** `f8b2bbc` |
+| #527 | Rayon probe_batch | **MERGED** `1e94c11` |
+| #520 | LSH research simulate | **CLOSED** empty no-op |
+| #529 | hybrid merge_results top-k | **MERGED** `d2db671` (closes #523) |
 
-### Action 2: Issue #373
-- **Issue**: #373
-- **Title**: ci: update `.github/workflows/ci.yml` and `pre-release-gate.yml` for Cargo workspace with per-crate test and mutation jobs
-- **Labels**: none
-- **Status**: queued
-- **Branch**: feat/issue-373-ci-update-github-workflows-ci-yml-and-pre-release-
+## Merge order executed
+```
+528 → close 520 → fix+CI 527 → merge 527 → rewrite+CI 529 → merge 529 → docs
+```
 
-### Action 3: Issue #372
-- **Issue**: #372
-- **Title**: ci: add WASM32 compilation check for `csm-core` to CI/CD pipeline
-- **Labels**: none
-- **Status**: queued
-- **Branch**: feat/issue-372-ci-add-wasm32-compilation-check-for-csm-core-to-ci
+## GOAP actions
 
-### Action 4: Issue #371
-- **Issue**: #371
-- **Title**: refactor: remove bridge/stub modules from main crate `src/lib.rs` after full workspace extraction
-- **Labels**: none
-- **Status**: queued
-- **Branch**: feat/issue-371-refactor-remove-bridge-stub-modules-from-main-crat
+| Action | Status |
+|--------|--------|
+| merge_pr_528_bm25_hot_loop | complete |
+| close_pr_520_empty_research | complete |
+| fix_pr_527_ci_blockers | complete |
+| merge_pr_527_probe_batch_rayon | complete |
+| fix_merge_pr_529_hybrid_topk | complete |
+| update_progress_and_learnings | complete |
 
-### Action 5: Issue #370
-- **Issue**: #370
-- **Title**: chore: finalize root `Cargo.toml` workspace members and shared dependency versions
-- **Labels**: none
-- **Status**: queued
-- **Branch**: feat/issue-370-chore-finalize-root-cargo-toml-workspace-members-a
+## PR #529 repair notes
+Jules force-pushed a regression that reverted probe_batch Rayon from #527.
+Clean rewrite from `origin/main`: fold min/max + partial top-k + boundary
+test + `run_query` mutation exclude.
 
-### Action 6: Issue #369
-- **Issue**: #369
-- **Title**: refactor: extract WASM bindings into a dedicated `csm-wasm` workspace crate
-- **Labels**: none
-- **Status**: queued
-- **Branch**: feat/issue-369-refactor-extract-wasm-bindings-into-a-dedicated-cs
+## Remaining after triage
+- Issues #524–#526 (framework perf) — not yet PRs
+- Wave 33 ownership / evidence / agent hygiene
 
-### Action 7: Issue #368
-- **Issue**: #368
-- **Title**: refactor: extract CLI commands into a standalone `csm-cli` workspace crate
-- **Labels**: none
-- **Status**: queued
-- **Branch**: feat/issue-368-refactor-extract-cli-commands-into-a-standalone-cs
-
-### Action 8: Issue #367
-- **Issue**: #367
-- **Title**: refactor: create `csm-persistence` workspace crate for libSQL/Turso storage backend
-- **Labels**: none
-- **Status**: queued
-- **Branch**: feat/issue-367-refactor-create-csm-persistence-workspace-crate-fo
-
-### Action 9: Issue #366
-- **Issue**: #366
-- **Title**: refactor: create `csm-retrieval` workspace crate for graph-RAG, reranking, and BM25 logic
-- **Labels**: none
-- **Status**: queued
-- **Branch**: feat/issue-366-refactor-create-csm-retrieval-workspace-crate-for-
-
-### Action 10: Issue #365
-- **Issue**: #365
-- **Title**: refactor: finalize `csm-memory` crate extraction and resolve circular dependency on persistence/retrieval
-- **Labels**: none
-- **Status**: queued
-- **Branch**: feat/issue-365-refactor-finalize-csm-memory-crate-extraction-and-
-
-### Action 11: Issue #364
-- **Issue**: #364
-- **Title**: refactor: complete extraction of `csm-embedding` into standalone workspace crate
-- **Labels**: jules
-- **Status**: queued
-- **Branch**: feat/issue-364-refactor-complete-extraction-of-csm-embedding-into
-
-### Action 12: Issue #353
-- **Issue**: #353
-- **Title**: Wave 24: Quantized Binary Hypervectors (ADR-0075)
-- **Labels**: none
-- **Status**: queued
-- **Branch**: feat/issue-353-wave-24-quantized-binary-hypervectors-adr-0075-
-
+## Swarm
+| Agent | Role | Result |
+|-------|------|--------|
+| orchestrator | GOAP lead | plan + merges + state |
+| agent-527 | fix CI | green, merged |
+| agent-529 | first fix | good then Jules overwrote |
+| orchestrator | 529 rewrite | `f6d54bb` → merge `d2db671` |
