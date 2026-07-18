@@ -2938,6 +2938,8 @@ impl ChaoticSemanticFramework {
 }
 ```
 
+## src/framework_ops_tests.rs
+
 ## src/framework_persistence.rs
 
 ### impl ChaoticSemanticFramework

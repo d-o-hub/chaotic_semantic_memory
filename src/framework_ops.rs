@@ -10,6 +10,13 @@ use csm_core::hyperdim::HVec10240;
 use std::sync::Arc;
 use tokio::fs;
 use tracing::{instrument, warn};
+
+// Verify Singularity is Send + Sync for concurrent Rayon execution
+const _: () = {
+    const fn assert_sync_send<T: Sync + Send>() {}
+    assert_sync_send::<crate::singularity::Singularity>();
+};
+
 const MAX_HISTORY_LIMIT: usize = 1000;
 
 impl ChaoticSemanticFramework {
@@ -84,10 +91,23 @@ impl ChaoticSemanticFramework {
         let out = {
             let sing = self.singularity.read().await;
             let ns = self.namespace.read().await;
-            queries
-                .iter()
-                .map(|q| sing.find_similar(&ns, q, top_k))
-                .collect()
+
+            #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
+            {
+                use rayon::prelude::*;
+                queries
+                    .par_iter()
+                    .map(|q| sing.find_similar(&ns, q, top_k))
+                    .collect()
+            }
+
+            #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
+            {
+                queries
+                    .iter()
+                    .map(|q| sing.find_similar(&ns, q, top_k))
+                    .collect()
+            }
         };
         Ok(out)
     }
@@ -105,10 +125,23 @@ impl ChaoticSemanticFramework {
         let out = {
             let sing = self.singularity.read().await;
             let ns = self.namespace.read().await;
-            queries
-                .iter()
-                .map(|q| sing.find_similar_cached(&ns, q, top_k))
-                .collect()
+
+            #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
+            {
+                use rayon::prelude::*;
+                queries
+                    .par_iter()
+                    .map(|q| sing.find_similar_cached(&ns, q, top_k))
+                    .collect()
+            }
+
+            #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
+            {
+                queries
+                    .iter()
+                    .map(|q| sing.find_similar_cached(&ns, q, top_k))
+                    .collect()
+            }
         };
         Ok(out)
     }
@@ -133,7 +166,11 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
     /// Securely read a file into bytes with size limit to prevent OOM/TOCTOU (CWE-770).
-    async fn secure_read_file(&self, path: &std::path::Path, limit: u64) -> Result<Vec<u8>> {
+    pub(crate) async fn secure_read_file(
+        &self,
+        path: &std::path::Path,
+        limit: u64,
+    ) -> Result<Vec<u8>> {
         let metadata = fs::metadata(path).await?;
         if metadata.len() > limit {
             return Err(csm_core::error::MemoryError::InvalidInput {
@@ -452,34 +489,5 @@ impl ChaoticSemanticFramework {
         let sing = self.singularity.read().await;
         let ns = self.namespace.read().await;
         sing.bundle_concepts_strict(&ns, ids)
-    }
-}
-#[cfg(test)]
-mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-    use super::*;
-    #[tokio::test]
-    async fn secure_read_file_exact_limit_is_allowed() {
-        let fw = ChaoticSemanticFramework::builder()
-            .without_persistence()
-            .build()
-            .await
-            .unwrap();
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("exact.txt");
-        std::fs::write(&path, b"hello").unwrap();
-        assert!(fw.secure_read_file(path.as_path(), 5).await.is_ok());
-    }
-    #[tokio::test]
-    async fn secure_read_file_over_limit_is_rejected() {
-        let fw = ChaoticSemanticFramework::builder()
-            .without_persistence()
-            .build()
-            .await
-            .unwrap();
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("over.txt");
-        std::fs::write(&path, b"hello!").unwrap();
-        assert!(fw.secure_read_file(path.as_path(), 5).await.is_err());
     }
 }
