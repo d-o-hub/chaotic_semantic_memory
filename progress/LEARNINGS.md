@@ -20,6 +20,29 @@
 - Reservoir Step (50k nodes): ~136 µs (4 accumulators).
 - BM25 Search (10k docs): ~406 µs (hoisted constants).
 
+
+### Open PR Triage / Jules bot CI (2026-07-18)
+
+- **Empty research PRs**: Jules can open PRs with zero file changes after a
+  "simulate research" task. Close as no-op; do not burn mutation budget.
+- **Commitlint full range**: invalid early scope (`perf(ops):`) fails CI even
+  when later commits use allowed scopes. Squash/reword; run
+  `npx commitlint --from origin/main --to HEAD`.
+- **`duplicated_attributes`**: never put `#![cfg(test)]` inside a file also
+  gated by `#[cfg(test)] mod foo;` in `lib.rs`.
+- **Mutation in-diff surface**: cosmetic rewrites of unrelated functions pull
+  them into cargo-mutants scoring. A test that asserts `import_* == 1` does
+  **not** kill `Ok(1)` mutants. Prefer restore-to-main for unrelated lines.
+- **`>` vs `>=` top-k**: add a test where `results.len() == top_k` so a `>=`
+  mutant that calls `select_nth_unstable_by(top_k)` panics and is killed.
+- **CLI entry-point mutants**: `run_query -> Ok(())` is unkillable under
+  `--lib`-only mutation CI; exclude via `scripts/mutation_test.sh`.
+- **Merge order**: merge independent green PRs first; never `gh pr merge --auto`
+  on stacks (rebase cancellation loop).
+- **Jules force-push risk**: bot can rewrite a PR after your fix and regress
+  sibling merges (e.g. drop Rayon probe_batch). Always re-diff vs `origin/main`
+  before merge.
+
 ## Technical Insights by Module
 
 ### Reservoir & ESN

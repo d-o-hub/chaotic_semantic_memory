@@ -4861,3 +4861,25 @@ actions:
       Define active/history criteria, audit inbound references, write an archive
       manifest and redirects, then move immutable completed material. Preserve
       plans/RECOMMENDATIONS_2026_07_14.md unless the user explicitly approves it.
+
+  # ═══════════════════════════════════════════════════════
+  # Open PR Triage 2026-07-18 (GOAP orchestrator + swarm)
+  # ═══════════════════════════════════════════════════════
+  - name: open_pr_triage_2026_07_18
+    preconditions:
+      tests_passing: true
+    effects:
+      pr_528_merged: true
+      pr_527_merged: true
+      pr_529_merged: true
+      pr_520_closed: true
+      open_prs_cleared_2026_07_18: true
+    cost: 8
+    status: complete
+    priority: P0
+    wave: "pr-triage"
+    description: |
+      Scanned open PRs #520/#527/#528/#529. Merged green #528 first, closed
+      empty #520, fixed CI on #527 and merged, rewrote #529 after Jules
+      regression and merged when green. Updated GOAP_STATE, PROGRESS, LEARNINGS.
+
