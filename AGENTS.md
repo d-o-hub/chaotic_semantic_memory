@@ -191,6 +191,12 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
     creates a rebase loop (merge A → B is stale → auto-merge cancelled).
     Instead: merge one PR → rebase next → wait for CI → merge → repeat.
 
+    **Jules / multi-PR extras** (see `.agents/skills/git-workflow/SKILL.md`):
+    - Close empty research PRs (0 files) without CI thrash.
+    - Before merge, `git diff --stat origin/main...HEAD` to catch bot force-push
+      reverts of already-merged work.
+    - Commitlint: full range `npx commitlint --from origin/main --to HEAD`.
+
 19. **Fix ALL issues (including pre-existing)** — CI must pass completely:
     - New failures: Fix immediately
     - Pre-existing warnings: Fix before claiming completion
@@ -219,8 +225,11 @@ Before starting any task, verify:
 
 Before completing any task, verify:
 - [ ] **Branch created (NOT main)** — never push directly to protected branch
+- [ ] **Commitlint full range** — `npx commitlint --from origin/main --to HEAD --verbose`
 - [ ] **PR created and CI passing** — merge only after green checks
 - [ ] All validation gates pass (check, test, fmt, clippy)
+- [ ] **CI pitfall scan** when touching mutation/TTL/CLI/Jules PRs — see
+      `.agents/skills/github-ci-guardrails/references/ci-pitfalls-pr-triage.md`
 - [ ] **Coverage gate** — test:source ratio >= 90% (or improving)
 - [ ] **Real usage validated** — CLI workflow, skill-memory db, file persistence
 - [ ] CI workflow passes

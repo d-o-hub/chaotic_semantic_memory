@@ -77,12 +77,26 @@ gh pr list --state open --json number,reviewDecision \
 
 **Merge order rules:**
 1. Check `mergeable` status FIRST — resolve conflicts before CI fixes
-2. Independent PRs (docs, CI-only) merge first
+2. Independent green PRs (docs, pure perf with all checks green) merge first
 3. Foundation PRs (lints, commitlint config) merge before dependent PRs
 4. Feature PRs that touch the same files go last
 5. After each merge, rebase remaining PRs on updated main
+6. Never `gh pr merge --auto` when clearing multiple PRs (rebase loop)
 
 **Never skip:** A PR showing `MERGEABLE` in the API can still have conflicts after other PRs merge. Re-check after each merge.
+
+## Jules / bot PR hygiene
+
+- **Empty research PRs**: if `gh pr diff --name-only` is empty (0 files), close as
+  no-op — do not spend mutation/CI budget.
+- **Re-diff vs `origin/main` before merge**: Jules can force-push after a human/agent
+  fix and silently drop sibling merges (e.g. remove Rayon from `probe_batch`).
+  Always: `git diff --stat origin/main...HEAD` and skim for unexpected reverts.
+- **Commitlint full range**: CI runs `commitlint --from base --to head`. One early
+  bad scope (`perf(ops):`) fails even if later commits are valid. Squash/reword;
+  validate with `npx commitlint --from origin/main --to HEAD --verbose`.
+- **Invalid scopes are not inventable**: use only `commitlint.config.cjs` `scope-enum`
+  (e.g. `framework`, not `ops`; `docs` without a fake `plans` scope).
 
 ## Merging Multiple PRs (Sequential Merge Protocol)
 

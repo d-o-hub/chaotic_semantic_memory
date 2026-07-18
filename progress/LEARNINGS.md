@@ -125,6 +125,12 @@
 - **Jules bot commits may not follow conventional format**: Added an ignore rule
   for PR merge commits that have no conventional prefix. This prevents CI failures
   on main after bot-authored PRs are merged.
+- **Validate the full branch range**, not just the last commit: CI runs
+  `commitlint --from base --to head`. Prefer bare `docs:` over inventing scopes
+  (`docs(plans)` fails until `plans` is enum-listed).
+- Instruction home for multi-PR / Jules / mutation pitfalls:
+  `.agents/skills/git-workflow/SKILL.md` and
+  `.agents/skills/github-ci-guardrails/references/ci-pitfalls-pr-triage.md`.
 
 ### Supply Chain Advisory Discipline
 - **Run `cargo deny check` before releases and after dependency upgrades**:
