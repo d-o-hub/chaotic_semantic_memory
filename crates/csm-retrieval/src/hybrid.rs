@@ -126,20 +126,20 @@ pub fn merge_results(
         }
     }
 
-    // Clone IDs only once for the final result set.
-    let mut results: Vec<(String, f32)> = combined
-        .into_iter()
-        .map(|(id, score)| (id.to_string(), score))
-        .collect();
+    // Perform top-k selection on references to delay string cloning/allocation.
+    let mut ref_results: Vec<(&str, f32)> = combined.into_iter().collect();
 
     // O(N) top-k selection, then sort only the retained slice.
-    if results.len() > top_k {
-        results.select_nth_unstable_by(top_k, |a, b| b.1.total_cmp(&a.1));
-        results.truncate(top_k);
+    if ref_results.len() > top_k {
+        ref_results.select_nth_unstable_by(top_k, |a, b| b.1.total_cmp(&a.1));
+        ref_results.truncate(top_k);
     }
-    results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
+    ref_results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
 
-    results
+    ref_results
+        .into_iter()
+        .map(|(id, score)| (id.to_string(), score))
+        .collect()
 }
 
 /// Hybrid retrieval mode.
