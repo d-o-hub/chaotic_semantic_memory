@@ -44,6 +44,8 @@ mod framework_metrics;
 mod framework_namespaces;
 #[cfg(not(target_arch = "wasm32"))]
 mod framework_ops;
+#[cfg(not(target_arch = "wasm32"))]
+mod framework_ops_import;
 mod framework_persistence;
 mod framework_ttl;
 pub mod framework_ttl_advanced;

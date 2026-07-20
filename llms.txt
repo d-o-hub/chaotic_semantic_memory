@@ -399,6 +399,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - impl ChaoticSemanticFramework
 
+### src/framework_ops_import.rs
+
+- impl ChaoticSemanticFramework
+
 ### src/framework_persistence.rs
 
 - impl ChaoticSemanticFramework
