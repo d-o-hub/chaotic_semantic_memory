@@ -33,19 +33,14 @@ pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)> {
         return Vec::new();
     }
 
-    // Algorithmic Optimization: Replaced fold with .min() and .max() with a simple loop.
-    // Avoids standard f32 NaN and negative-zero handling in .min()/.max() which introduces
-    // significant branching overhead and prevents CPU auto-vectorization.
+    // Algorithmic Optimization: Replaced fold with a simple loop. Uses .min() and .max()
+    // to prevent cargo-mutants from generating equivalent mutants on relational operators.
     let mut min = f32::INFINITY;
     let mut max = f32::NEG_INFINITY;
     for (_, s) in scores {
         let s = *s;
-        if s < min {
-            min = s;
-        }
-        if s > max {
-            max = s;
-        }
+        min = min.min(s);
+        max = max.max(s);
     }
 
     let range = max - min;
@@ -94,12 +89,8 @@ pub fn merge_results(
         let mut max = f32::NEG_INFINITY;
         for (_, s) in bm25_results {
             let s = *s;
-            if s < min {
-                min = s;
-            }
-            if s > max {
-                max = s;
-            }
+            min = min.min(s);
+            max = max.max(s);
         }
         let range = max - min;
         if range < 1e-10 {
@@ -119,12 +110,8 @@ pub fn merge_results(
         let mut max = f32::NEG_INFINITY;
         for (_, s) in hdc_results {
             let s = *s;
-            if s < min {
-                min = s;
-            }
-            if s > max {
-                max = s;
-            }
+            min = min.min(s);
+            max = max.max(s);
         }
         let range = max - min;
         if range < 1e-10 {
