@@ -114,3 +114,19 @@ release_and_validation_goals:
     - benchmark_storage_metric_truthful: true
     - benchmark_report_contract_complete: true
     - pages_fallback_renders_html: true
+
+# Wave 33 targets (from plans/RECOMMENDATIONS_2026_07_20.md)
+wave_33_goals:
+  name: "Docs Truth, Ownership, Missing Behavior, Evidence"
+  note: "Queued after Wave 32 P0/P1 subset; see ACTIONS.md wave-33"
+  targets:
+    - workspace_implementation_owners_unique: false  # still dual-write
+    - no_default_features_is_lean: false
+    - bm25_absence_todo_resolved: false
+    - ttl_cleanup_task_owned: false
+    - readme_version_consistent: false
+    - readme_ann_section_matches_code: false
+    - agents_skill_count_matches_disk: false
+    - cli_metrics_reset_implemented: false
+    - performance_claims_have_current_artifacts: false
+    - active_plan_set_compact: true   # achieved 2026-07-20
