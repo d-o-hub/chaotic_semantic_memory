@@ -729,7 +729,8 @@ criterion_group!(
     bench_bm25_search,
     bench_singularity_scalability,
     bench_graph_rag,
-    bench_probe_batch_comparison
+    bench_probe_batch_comparison,
+    bench_inject_concepts_batch
 );
 criterion_main!(benches);
 
@@ -785,6 +786,37 @@ fn bench_probe_batch_comparison(c: &mut Criterion) {
                         .map(|q| sing.find_similar(&ns, q, 10))
                         .collect();
                     black_box(results);
+                })
+            })
+        });
+    }
+    group.finish();
+}
+
+/// #525: inject_concepts construction+durable path at several batch sizes.
+fn bench_inject_concepts_batch(c: &mut Criterion) {
+    use chaotic_semantic_memory::prelude::*;
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let framework = rt.block_on(async {
+        ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .build()
+            .await
+            .unwrap()
+    });
+
+    let mut group = c.benchmark_group("inject_concepts_batch");
+    group.sample_size(10);
+
+    for size in [1, 10, 100, 1000] {
+        let batch: Vec<(String, HVec10240)> = (0..size)
+            .map(|i| (format!("inj_{size}_{i}"), HVec10240::random()))
+            .collect();
+        group.bench_function(format!("batch_{size}"), |b| {
+            b.iter(|| {
+                rt.block_on(async {
+                    framework.inject_concepts(black_box(&batch)).await.unwrap();
                 })
             })
         });

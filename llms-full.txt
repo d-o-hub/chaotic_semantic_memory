@@ -399,6 +399,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - impl ChaoticSemanticFramework
 
+### src/framework_ops_import.rs
+
+- impl ChaoticSemanticFramework
+
 ### src/framework_persistence.rs
 
 - impl ChaoticSemanticFramework
@@ -2922,6 +2926,21 @@ impl ChaoticSemanticFramework {
     pub fn associate_many(&self, associations: &[(String, String, f32)]) -> Result<()>;
     pub fn probe_batch(&self, queries: &[HVec10240], top_k: usize) -> Result<Vec<Vec<(String, f32)>>>;
     pub fn probe_batch_cached(&self, queries: &[HVec10240], top_k: usize) -> Result<Vec<Arc<[(String, f32)]>>>;
+    pub fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()>;
+    pub fn update_concept_metadata(&self, id: &str, metadata: std::collections::HashMap<String, serde_json::Value>) -> Result<()>;
+    pub fn disassociate(&self, from: &str, to: &str) -> Result<()>;
+    pub fn clear_associations(&self, id: &str) -> Result<()>;
+    pub fn clear_similarity_cache(&self);
+    pub fn bundle_concepts_strict(&self, ids: &[String]) -> Result<HVec10240>;
+}
+```
+
+## src/framework_ops_import.rs
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
     pub fn export_json(&self, path: &str) -> Result<()>;
     pub fn import_json(&self, path: &str, merge: bool) -> Result<usize>;
     pub fn export_binary(&self, path: &str) -> Result<()>;
@@ -2929,12 +2948,6 @@ impl ChaoticSemanticFramework {
     pub fn backup(&self, path: &str) -> Result<()>;
     pub fn restore(&self, path: &str) -> Result<()>;
     pub fn concept_history(&self, id: &str, limit: usize) -> Result<Vec<crate::singularity::ConceptVersion>>;
-    pub fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()>;
-    pub fn update_concept_metadata(&self, id: &str, metadata: std::collections::HashMap<String, serde_json::Value>) -> Result<()>;
-    pub fn disassociate(&self, from: &str, to: &str) -> Result<()>;
-    pub fn clear_associations(&self, id: &str) -> Result<()>;
-    pub fn clear_similarity_cache(&self);
-    pub fn bundle_concepts_strict(&self, ids: &[String]) -> Result<HVec10240>;
 }
 ```
 
