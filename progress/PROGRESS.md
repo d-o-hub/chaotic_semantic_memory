@@ -1,3 +1,21 @@
+## 2026-07-18: Framework ops perf (#524–#526)
+
+### Summary
+Single PR implementing all open GitHub issues under GOAP orchestration:
+namespace single-clone (#524), parallel `inject_concepts` build (#525),
+split import write locks (#526).
+
+### Changes
+- `self.namespace().await` once per op (tokio guard cannot cross await)
+- Rayon `par_iter` ConceptBuilder construction before `durable_inject_concepts`
+- Shared `apply_import_payload` / `clear_for_import_replace` / `persist_import`
+- Tests + `bench_inject_concepts_batch` (1/10/100/1000)
+
+### Issues
+Fixes #524, #525, #526
+
+---
+
 ## 2026-07-18: Open PR Triage (GOAP + Swarm)
 
 ### Summary

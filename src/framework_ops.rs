@@ -1,41 +1,54 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
+use crate::export_payload::unix_now_secs;
 use crate::framework::ChaoticSemanticFramework;
 use crate::framework_events::MemoryEvent;
-use crate::framework_validation::{MAX_IMPORT_SIZE, validate_path};
 use crate::singularity::ConceptBuilder;
-use bincode::Options;
 use csm_core::error::Result;
 use csm_core::hyperdim::HVec10240;
 use std::sync::Arc;
-use tokio::fs;
-use tracing::{instrument, warn};
+use tracing::instrument;
 
-// Verify Singularity is Send + Sync for concurrent Rayon execution
+// Singularity is Send + Sync for Rayon probe/inject construction (#525 / probe_batch).
 const _: () = {
     const fn assert_sync_send<T: Sync + Send>() {}
     assert_sync_send::<crate::singularity::Singularity>();
 };
 
-const MAX_HISTORY_LIMIT: usize = 1000;
-
 impl ChaoticSemanticFramework {
-    /// Batch inject multiple concepts into memory.
-    // Singularity write lock needed for batch inject
+    /// Batch inject: build concepts (optionally parallel) then durable commit.
+    /// Construction runs **before** any write lock (`durable_inject_concepts`).
     #[instrument(err, skip(self, concepts))]
     pub async fn inject_concepts(&self, concepts: &[(String, HVec10240)]) -> Result<()> {
         self.validate_batch_size(concepts.len())?;
         if concepts.is_empty() {
             return Ok(());
         }
-        let mut to_save = Vec::with_capacity(concepts.len());
-        for (id, vector) in concepts {
-            Self::validate_concept_id(id)?;
-            let concept = ConceptBuilder::new(id.clone())
-                .with_vector(*vector)
-                .build()?;
-            to_save.push(concept);
-        }
+
+        // #525: parallel CPU-bound ConceptBuilder work outside the write lock.
+        #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
+        let to_save: Vec<_> = {
+            use rayon::prelude::*;
+            concepts
+                .par_iter()
+                .map(|(id, vector)| {
+                    Self::validate_concept_id(id)?;
+                    ConceptBuilder::new(id.clone()).with_vector(*vector).build()
+                })
+                .collect::<Result<Vec<_>>>()?
+        };
+        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
+        let to_save: Vec<_> = {
+            let mut out = Vec::with_capacity(concepts.len());
+            for (id, vector) in concepts {
+                Self::validate_concept_id(id)?;
+                out.push(
+                    ConceptBuilder::new(id.clone())
+                        .with_vector(*vector)
+                        .build()?,
+                );
+            }
+            out
+        };
 
         #[cfg(not(target_arch = "wasm32"))]
         let p_start = std::time::Instant::now();
@@ -58,9 +71,10 @@ impl ChaoticSemanticFramework {
         if associations.is_empty() {
             return Ok(());
         }
+        // #524: clone namespace once (tokio guard cannot cross await).
+        let ns = self.namespace().await;
         {
             let mut sing = self.singularity.write().await;
-            let ns = self.namespace.read().await;
             for (from, to, strength) in associations {
                 Self::validate_concept_id(from)?;
                 Self::validate_concept_id(to)?;
@@ -70,7 +84,6 @@ impl ChaoticSemanticFramework {
         }
 
         if let Some(ref persistence) = self.persistence {
-            let ns = self.namespace.read().await;
             persistence.save_associations(&ns, associations).await?;
         }
 
@@ -146,258 +159,18 @@ impl ChaoticSemanticFramework {
         Ok(out)
     }
 
-    /// Export memory state to JSON file.
-    #[instrument(err, skip(self), fields(path))]
-    pub async fn export_json(&self, path: &str) -> Result<()> {
-        let validated_path = validate_path(path)?;
-
-        let payload = {
-            let sing = self.singularity.read().await;
-            let ns = self.namespace.read().await;
-            ExportPayload {
-                version: env!("CARGO_PKG_VERSION").to_string(),
-                exported_at: unix_now_secs(),
-                concepts: sing.all_concepts(&ns),
-                associations: sing.all_associations(&ns),
-            }
-        };
-        let data = serde_json::to_vec_pretty(&payload)?;
-        fs::write(validated_path, data).await?;
-        Ok(())
-    }
-    /// Securely read a file into bytes with size limit to prevent OOM/TOCTOU (CWE-770).
-    pub(crate) async fn secure_read_file(
-        &self,
-        path: &std::path::Path,
-        limit: u64,
-    ) -> Result<Vec<u8>> {
-        let metadata = fs::metadata(path).await?;
-        if metadata.len() > limit {
-            return Err(csm_core::error::MemoryError::InvalidInput {
-                field: "file_size".to_string(),
-                reason: format!(
-                    "File size {} exceeds maximum allowed size {}",
-                    metadata.len(),
-                    limit
-                ),
-            });
-        }
-        let buffer = fs::read(path).await?;
-        Ok(buffer)
-    }
-
-    /// Import memory state from JSON file.
-    #[instrument(err, skip(self), fields(path, merge))]
-    pub async fn import_json(&self, path: &str, merge: bool) -> Result<usize> {
-        let validated_path = validate_path(path)?;
-        let bytes = self
-            .secure_read_file(&validated_path, MAX_IMPORT_SIZE)
-            .await?;
-        let payload: ExportPayload = serde_json::from_slice(&bytes)?;
-
-        if !merge {
-            {
-                let mut sing = self.singularity.write().await;
-                let ns = self.namespace.read().await;
-                sing.clear(&ns);
-            }
-            if let Some(ref persistence) = self.persistence {
-                let ns = self.namespace.read().await;
-                persistence.clear_namespace(&ns).await?;
-            }
-        }
-
-        // Acquire write lock, inject concepts + build associations list, then release
-        let valid_associations = {
-            let mut sing = self.singularity.write().await;
-            let ns = self.namespace.read().await;
-            let mut associations = Vec::with_capacity(payload.associations.len());
-            for concept in &payload.concepts {
-                self.validate_concept(concept)?;
-                sing.inject(&ns, concept.clone())?;
-            }
-            for (from, to, strength) in &payload.associations {
-                match sing.associate(&ns, from, to, *strength) {
-                    Ok(()) => associations.push((from.clone(), to.clone(), *strength)),
-                    Err(error) => {
-                        warn!(
-                            from_id = %from,
-                            to_id = %to,
-                            strength = *strength,
-                            error = %error,
-                            "skipping invalid association during import_json"
-                        );
-                    }
-                }
-            }
-            associations
-        }; // Lock released here
-        // Persist concepts and associations (no lock needed)
-        if let Some(ref persistence) = self.persistence {
-            let ns = self.namespace.read().await;
-            persistence.save_concepts(&ns, &payload.concepts).await?;
-            persistence
-                .save_associations(&ns, &valid_associations)
-                .await?;
-        }
-        Ok(payload.concepts.len())
-    }
-    /// Export memory state to binary file.
-    // Singularity read lock needed for binary export
-    #[allow(clippy::significant_drop_tightening)]
-    #[instrument(err, skip(self), fields(path))]
-    pub async fn export_binary(&self, path: &str) -> Result<()> {
-        let validated_path = validate_path(path)?;
-
-        let payload = {
-            let sing = self.singularity.read().await;
-            let ns = self.namespace.read().await;
-            let json_payload = ExportPayload {
-                version: env!("CARGO_PKG_VERSION").to_string(),
-                exported_at: unix_now_secs(),
-                concepts: sing.all_concepts(&ns),
-                associations: sing.all_associations(&ns),
-            };
-            let res = BinaryExportPayload::from(json_payload);
-            drop(sing);
-            res
-        };
-
-        let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
-        let data = options.serialize(&payload).map_err(|e| {
-            csm_core::error::MemoryError::Serialization(serde_json::Error::io(
-                std::io::Error::other(e.to_string()),
-            ))
-        })?;
-        fs::write(validated_path, data).await?;
-        Ok(())
-    }
-
-    /// Import memory state from binary file.
-    #[instrument(err, skip(self), fields(path, merge))]
-    pub async fn import_binary(&self, path: &str, merge: bool) -> Result<usize> {
-        let validated_path = validate_path(path)?;
-        let bytes = self
-            .secure_read_file(&validated_path, MAX_IMPORT_SIZE)
-            .await?;
-        let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
-        let binary_payload: BinaryExportPayload = options.deserialize(&bytes).map_err(|e| {
-            csm_core::error::MemoryError::InvalidInput {
-                field: "import_data".to_string(),
-                reason: format!("bincode deserialization failed: {e}"),
-            }
-        })?;
-        // Convert to regular payload
-        let payload = binary_payload.to_export_payload().map_err(|e| {
-            csm_core::error::MemoryError::InvalidInput {
-                field: "import_data".to_string(),
-                reason: format!("failed to convert binary payload: {e}"),
-            }
-        })?;
-        if !merge {
-            {
-                let mut sing = self.singularity.write().await;
-                let ns = self.namespace.read().await;
-                sing.clear(&ns);
-            }
-            if let Some(ref persistence) = self.persistence {
-                let ns = self.namespace.read().await;
-                persistence.clear_namespace(&ns).await?;
-            }
-        }
-        // Acquire write lock, inject concepts + build associations list, then release
-        let valid_associations = {
-            let mut sing = self.singularity.write().await;
-            let ns = self.namespace.read().await;
-            let mut associations = Vec::with_capacity(payload.associations.len());
-            for concept in &payload.concepts {
-                self.validate_concept(concept)?;
-                sing.inject(&ns, concept.clone())?;
-            }
-            for (from, to, strength) in &payload.associations {
-                match sing.associate(&ns, from, to, *strength) {
-                    Ok(()) => associations.push((from.clone(), to.clone(), *strength)),
-                    Err(error) => {
-                        warn!(
-                            from_id = %from,
-                            to_id = %to,
-                            strength = *strength,
-                            error = %error,
-                            "skipping invalid association during import_binary"
-                        );
-                    }
-                }
-            }
-            associations
-        }; // Lock released here
-
-        // Persist concepts and associations (no lock needed)
-        if let Some(ref persistence) = self.persistence {
-            let ns = self.namespace.read().await;
-            persistence.save_concepts(&ns, &payload.concepts).await?;
-            persistence
-                .save_associations(&ns, &valid_associations)
-                .await?;
-        }
-
-        Ok(payload.concepts.len())
-    }
-
-    /// Create database backup (SQLite only).
-    #[instrument(err, skip(self), fields(path))]
-    pub async fn backup(&self, path: &str) -> Result<()> {
-        let validated_path = validate_path(path)?;
-        if let Some(ref persistence) = self.persistence {
-            persistence
-                .backup(validated_path.to_str().unwrap_or(path))
-                .await?;
-        }
-        Ok(())
-    }
-
-    /// Restore from database backup (SQLite only).
-    #[instrument(err, skip(self), fields(path))]
-    pub async fn restore(&self, path: &str) -> Result<()> {
-        let validated_path = validate_path(path)?;
-        if let Some(ref persistence) = self.persistence {
-            persistence
-                .restore(validated_path.to_str().unwrap_or(path))
-                .await?;
-            self.load_replace().await?;
-        }
-        Ok(())
-    }
-
-    /// Get version history for a concept.
-    #[instrument(err, skip(self), fields(id, limit))]
-    pub async fn concept_history(
-        &self,
-        id: &str,
-        mut limit: usize,
-    ) -> Result<Vec<crate::singularity::ConceptVersion>> {
-        if limit > MAX_HISTORY_LIMIT {
-            limit = MAX_HISTORY_LIMIT;
-        }
-        if let Some(ref persistence) = self.persistence {
-            let ns = self.namespace.read().await;
-            return persistence.get_concept_history(&ns, id, limit).await;
-        }
-        Ok(Vec::new())
-    }
-
     /// Update a concept's vector.
     #[instrument(err, skip(self), fields(id))]
     pub async fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()> {
         Self::validate_concept_id(id)?;
+        let ns = self.namespace().await;
         let concept = {
             let mut sing = self.singularity.write().await;
-            let ns = self.namespace.read().await;
             sing.update(&ns, id, vector)?;
             sing.get(&ns, id).cloned()
         };
 
         if let (Some(concept), Some(persistence)) = (concept, &self.persistence) {
-            let ns = self.namespace.read().await;
             persistence.save_concept(&ns, &concept).await?;
         }
         self.emit_event(MemoryEvent::ConceptUpdated {
@@ -417,15 +190,14 @@ impl ChaoticSemanticFramework {
     ) -> Result<()> {
         Self::validate_concept_id(id)?;
         Self::validate_metadata_bytes(&metadata, self.config.max_metadata_bytes)?;
+        let ns = self.namespace().await;
         let concept = {
             let mut sing = self.singularity.write().await;
-            let ns = self.namespace.read().await;
             sing.update_metadata(&ns, id, metadata)?;
             sing.get(&ns, id).cloned()
         };
 
         if let (Some(concept), Some(persistence)) = (concept, &self.persistence) {
-            let ns = self.namespace.read().await;
             persistence.save_concept(&ns, &concept).await?;
         }
         self.emit_event(MemoryEvent::ConceptUpdated {
@@ -441,14 +213,13 @@ impl ChaoticSemanticFramework {
     pub async fn disassociate(&self, from: &str, to: &str) -> Result<()> {
         Self::validate_concept_id(from)?;
         Self::validate_concept_id(to)?;
+        let ns = self.namespace().await;
         {
             let mut sing = self.singularity.write().await;
-            let ns = self.namespace.read().await;
             sing.disassociate(&ns, from, to)?;
         }
 
         if let Some(persistence) = &self.persistence {
-            let ns = self.namespace.read().await;
             persistence.delete_association(&ns, from, to).await?;
         }
         self.emit_event(MemoryEvent::Disassociated {
@@ -463,14 +234,13 @@ impl ChaoticSemanticFramework {
     #[instrument(err, skip(self), fields(id))]
     pub async fn clear_associations(&self, id: &str) -> Result<()> {
         Self::validate_concept_id(id)?;
+        let ns = self.namespace().await;
         {
             let mut sing = self.singularity.write().await;
-            let ns = self.namespace.read().await;
             sing.clear_associations(&ns, id)?;
         }
 
         if let Some(persistence) = &self.persistence {
-            let ns = self.namespace.read().await;
             persistence.clear_concept_associations(&ns, id).await?;
         }
         Ok(())

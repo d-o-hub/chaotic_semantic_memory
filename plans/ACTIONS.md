@@ -4854,13 +4854,14 @@ actions:
       active_plan_set_compact: true
       plan_archive_manifest_valid: true
     cost: 3
-    status: queued
-    file: plans/, scripts/plans-manager.sh
+    status: complete
+    file: plans/, scripts/plans-manager.sh, plans/ARCHIVE_MANIFEST.md
     adr: ADR-0096
     description: |
-      Define active/history criteria, audit inbound references, write an archive
-      manifest and redirects, then move immutable completed material. Preserve
-      plans/RECOMMENDATIONS_2026_07_14.md unless the user explicitly approves it.
+      2026-07-20: Archived 25 completed GOAP/analysis docs + 49 handoffs to
+      plans/.archive/2026-07-20-historical/. Active set: README, GOAP_STATE,
+      ACTIONS, GOALS, GOAP_AUDIT, GOAP_ORCHESTRATOR, RECOMMENDATIONS_2026_07_20,
+      ADR_REGISTRY, adr/, ARCHIVE_MANIFEST. handoffs/README redirect added.
 
   # ═══════════════════════════════════════════════════════
   # Open PR Triage 2026-07-18 (GOAP orchestrator + swarm)
@@ -4882,4 +4883,115 @@ actions:
       Scanned open PRs #520/#527/#528/#529. Merged green #528 first, closed
       empty #520, fixed CI on #527 and merged, rewrote #529 after Jules
       regression and merged when green. Updated GOAP_STATE, PROGRESS, LEARNINGS.
+
+  - name: framework_ops_perf_524_525_526
+    preconditions:
+      tests_passing: true
+    effects:
+      issue_524_done: true
+      issue_525_done: true
+      issue_526_done: true
+    cost: 9
+    status: complete
+    priority: P1
+    wave: "framework-ops-perf"
+    description: |
+      #524 single namespace clone, #525 parallel inject construction,
+      #526 import inject/associate split write locks. One PR.
+
+
+  # ═══════════════════════════════════════════════════════
+  # Codebase analysis + plans compaction 2026-07-20
+  # ═══════════════════════════════════════════════════════
+  - name: codebase_analysis_recommendations_2026_07_20
+    preconditions:
+      tests_passing: true
+    effects:
+      recommendations_2026_07_20_written: true
+      plan_archive_2026_07_20_complete: true
+      active_plan_set_compact: true
+    cost: 5
+    status: complete
+    priority: P1
+    wave: "analysis-2026-07-20"
+    file: plans/RECOMMENDATIONS_2026_07_20.md, plans/ARCHIVE_MANIFEST.md, plans/README.md
+    description: |
+      Full codebase analysis (missing impl, perf, features, README/AGENTS/skills).
+      Non-destructive plans compaction. See RECOMMENDATIONS_2026_07_20.md.
+
+  - name: fix_readme_truth_version_and_ann
+    preconditions:
+      recommendations_2026_07_20_written: true
+    effects:
+      readme_version_consistent: true
+      readme_ann_section_matches_code: true
+    cost: 2
+    status: queued
+    priority: P1
+    wave: "wave-33"
+    file: README.md
+    description: |
+      Align crate version examples to 0.3.7; rewrite ANN/LSH section to reflect
+      shipped IndexBackend options; LOC policy covers crates/; real-usage uses
+      ./target/debug/csm; optional surfaces table (MCP, GraphRAG, hybrid).
+
+  - name: fix_agents_md_skill_inventory
+    preconditions:
+      recommendations_2026_07_20_written: true
+    effects:
+      agents_skill_count_matches_disk: true
+      agents_points_to_plans_readme: true
+    cost: 1
+    status: queued
+    priority: P1
+    wave: "wave-33"
+    file: AGENTS.md, CLAUDE.md
+    description: |
+      Skills count 30→32; list goap-orchestrator + jules-orchestration; point
+      session checklist at plans/README.md and RECOMMENDATIONS_2026_07_20.md;
+      note workspace crate ownership map.
+
+  - name: implement_cli_metrics_reset
+    preconditions:
+      recommendations_2026_07_20_written: true
+    effects:
+      cli_metrics_reset_implemented: true
+    cost: 2
+    status: queued
+    priority: P2
+    wave: "wave-33"
+    file: src/cli/commands/metrics.rs, crates/csm-cli/src/commands/metrics.rs, src/framework_metrics.rs
+    description: |
+      Replace "not yet implemented" with real counter reset or remove the
+      subcommand. Keep root/cli crate in sync until ownership consolidation.
+
+  - name: skill_loc_trim_near_ceiling
+    preconditions:
+      recommendations_2026_07_20_written: true
+    effects:
+      skill_npm_trusted_publishers_under_200: true
+    cost: 2
+    status: queued
+    priority: P3
+    wave: "wave-33"
+    file: .agents/skills/npm-trusted-publishers/
+    description: |
+      Move long troubleshooting tables from SKILL.md into references/ so head
+      skill stays well under 250 LOC (currently 241).
+
+  - name: merge_open_perf_prs_532_534
+    preconditions:
+      tests_passing: true
+    effects:
+      pr_532_merged: true
+      pr_534_merged_or_closed: true
+      issues_524_525_526_closed: true
+    cost: 4
+    status: queued
+    priority: P0
+    wave: "wave-33"
+    file: .
+    description: |
+      Land PR #532 (framework ops #524–#526) after CI green; triage #534 hybrid
+      min-max (merge if correct, close if duplicate/regressed). Close issues.
 
