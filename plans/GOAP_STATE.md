@@ -33,12 +33,12 @@ world_state:
   orchestrator_last_run_at_utc: 2026-04-30T18:30:00Z
   goap_orchestrator_analysis_complete: true         # 2026-04-30: All actionable items verified complete
   skills_all_defined: true                          # 2026-07-14: 32 skill manifests exist; validation hardening queued
-  no_missing_implementations: false                 # BM25 absence TODO + ownership/feature contracts still queued
+  no_missing_implementations: false                 # BM25 absence TODO + CLI metrics reset + ownership/feature contracts still queued
   book_chapters_complete: true                      # 2026-04-30: 15 book chapters verified (semantic-bridge, inertial-reservoir, ttl exist)
   changelog_links_complete: true                    # 2026-04-30: All version links verified
   hybrid_retrieval_example_compiles: true           # 2026-04-30: cargo check --example hybrid_retrieval OK
   loc_gate_verified: true                          # 2026-07-14: all workspace crate files now ≤500 LOC (singularity 398, hyperdim 462, graph_traversal 312)
-  misleading_docs_found: true                       # 2026-04-30: README.md WASM issue outdated (lines 500-503)
+  misleading_docs_found: true                       # 2026-07-20: README version 0.3/0.4 drift + ANN "deferred" vs shipped IndexBackend; AGENTS skills 30 vs 32
   # PR Status
   pr_138_merged: true                           # 2026-04-30: Coverage improvements + WASM fix (571 tests, 70%)
   pr_138_tests_added: 45                        # encoder(7), persistence_ops(3), framework_ttl(9), wasm_ext(17), skill-memory(17)
@@ -1760,7 +1760,7 @@ world_state:
   # Open PR Triage (GOAP orchestrator + swarm) 2026-07-18
   # plans/GOAP_ORCHESTRATOR.md
   # ═══════════════════════════════════════════════════════
-  action_last_completed: open_pr_triage_2026_07_18
+  # action_last_completed: open_pr_triage_2026_07_18  # superseded
   open_pr_triage_2026_07_18:
     started_at: "2026-07-18"
     completed_at: "2026-07-18"
@@ -1791,3 +1791,68 @@ world_state:
     remaining_open_issues_perf: [524, 525, 526]
     learnings_recorded: true
     progress_recorded: true
+
+  # ═══════════════════════════════════════════════════════
+  # Framework ops perf issues #524-#526 (2026-07-18)
+  # ═══════════════════════════════════════════════════════
+  framework_ops_perf_524_525_526:
+    branch: feat/framework-ops-perf-524-525-526
+    issues: [524, 525, 526]
+    pr: 532
+    status: open_pr  # awaiting merge; mutation tests added bad5118
+    changes:
+      - "namespace clone once via namespace() for dual-read ops (#524)"
+      - "inject_concepts Rayon construction before durable write lock (#525)"
+      - "import json/binary: split inject vs associate write holds (#526)"
+    files:
+      - src/framework_ops.rs
+      - src/framework_ops_tests.rs
+      - benches/benchmark.rs
+
+  # ═══════════════════════════════════════════════════════
+  # Codebase analysis + plans compaction 2026-07-20
+  # Canonical recommendations: plans/RECOMMENDATIONS_2026_07_20.md
+  # ═══════════════════════════════════════════════════════
+  action_last_completed: codebase_analysis_recommendations_2026_07_20
+  recommendations_2026_07_20_written: true
+  plan_archive_2026_07_20_complete: true
+  active_plan_set_compact: true
+  plan_archive_manifest_valid: true
+  compact_active_plans_non_destructively: true
+  plans_active_index: "plans/README.md"
+  plans_recommendations_canonical: "plans/RECOMMENDATIONS_2026_07_20.md"
+  plans_archive_root: "plans/.archive/2026-07-20-historical"
+  plans_archive_counts:
+    completed_goap_docs: 25
+    handoffs: 49
+    total_archived_files: 74
+  codebase_analysis_2026_07_20:
+    product_version: "0.3.7"
+    skills_count_disk: 32
+    agents_md_skill_count_stale: true   # AGENTS says 30 — queued fix_agents_md_skill_inventory
+    readme_version_inconsistent: true   # 0.3 vs 0.4 examples; crate is 0.3.7
+    readme_ann_section_stale: true      # says ANN deferred; IndexBackend exists
+    production_todo_bm25_absence: true
+    cli_metrics_reset_missing: true
+    ownership_divergence:
+      cli_args: identical
+      wasm_core: identical
+      retrieval_bm25: diverged
+      retrieval_hybrid: diverged
+      retrieval_rerank: diverged
+      persistence: diverged
+    open_prs: [532, 534]
+    open_issues_perf: [524, 525, 526]
+    wave_32_remaining_queued: 16  # compact_active_plans now complete
+    wave_33_name: "Docs truth + missing behavior + evidence"
+    wave_33_queued:
+      - merge_open_perf_prs_532_534
+      - fix_readme_truth_version_and_ann
+      - fix_agents_md_skill_inventory
+      - implement_cli_metrics_reset
+      - skill_loc_trim_near_ceiling
+      - enforce_workspace_feature_contracts  # carried from Wave 32
+      - consolidate_retrieval_ownership     # carried from Wave 32
+      - implement_or_remove_bm25_absence_short_circuit
+      - own_ttl_cleanup_lifecycle
+      - establish_tiered_benchmark_evidence
