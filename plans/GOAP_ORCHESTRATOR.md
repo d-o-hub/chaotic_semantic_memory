@@ -1,47 +1,48 @@
-# GOAP Orchestrator State — Open PR Triage 2026-07-18
+# GOAP Orchestrator — Open Issues Wave 2026-07-18
 
-## Target State — ACHIEVED
-- All open PRs either merged (green + useful) or closed (empty/obsolete)
-- GOAP_STATE / ACTIONS / PROGRESS / LEARNINGS updated
+## Target state
+- Issues #524, #525, #526 closed via single PR
+- All tests pass; framework_ops.rs ≤ 500 LOC
+- GOAP_STATE / PROGRESS updated
 
-## Final Outcomes
+## World scan
+| Issue | Title | Module | Cost |
+|-------|-------|--------|------|
+| #524 | redundant `namespace.read()` | `framework_ops` | 2 |
+| #525 | parallelize `inject_concepts` build | `framework_ops` | 3 |
+| #526 | shorten import association write lock | `framework_ops` | 4 |
 
-| PR | Title | Outcome |
-|----|-------|---------|
-| #528 | BM25 hot loop | **MERGED** `f8b2bbc` |
-| #527 | Rayon probe_batch | **MERGED** `1e94c11` |
-| #520 | LSH research simulate | **CLOSED** empty no-op |
-| #529 | hybrid merge_results top-k | **MERGED** `d2db671` (closes #523) |
+All three touch `src/framework_ops.rs` only → **single feature branch / one PR**.
 
-## Merge order executed
-```
-528 → close 520 → fix+CI 527 → merge 527 → rewrite+CI 529 → merge 529 → docs
-```
+## Action plan (dependency order)
 
-## GOAP actions
+### A1: `fix_redundant_namespace_reads` (#524)
+- **Effect**: one `namespace` clone (or single guard) per op; no dual `read().await`
+- **Why clone not guard**: tokio `RwLockReadGuard` is not held across `.await` (Send)
+- **Funcs**: `associate_many`, `update_concept_vector`, `update_concept_metadata`,
+  `disassociate`, `clear_associations`, import paths
 
-| Action | Status |
-|--------|--------|
-| merge_pr_528_bm25_hot_loop | complete |
-| close_pr_520_empty_research | complete |
-| fix_pr_527_ci_blockers | complete |
-| merge_pr_527_probe_batch_rayon | complete |
-| fix_merge_pr_529_hybrid_topk | complete |
-| update_progress_and_learnings | complete |
+### A2: `parallel_inject_concepts_build` (#525)
+- **Effect**: Rayon `par_iter` construction before `durable_inject_concepts`
+- **cfg**: `parallel` + non-wasm; serial fallback otherwise
+- **Note**: write lock remains inside `durable_inject_concepts` (post-build)
 
-## PR #529 repair notes
-Jules force-pushed a regression that reverted probe_batch Rayon from #527.
-Clean rewrite from `origin/main`: fold min/max + partial top-k + boundary
-test + `run_query` mutation exclude.
+### A3: `shorten_import_write_locks` (#526)
+- **Effect**: validate concepts outside lock; phase-1 inject write; phase-2 associate write
+- **TOCTOU**: documented; invalid assoc still skipped with `warn!` (existing semantics)
+- **DRY**: shared `apply_import_payload` helper for json/binary
 
-## Remaining after triage
-- Issues #524–#526 (framework perf) — not yet PRs
-- Wave 33 ownership / evidence / agent hygiene
+### A4: tests + bench + state
+- Unit tests in `framework_ops_tests.rs`
+- Optional criterion group for inject batch sizes
+- Update GOAP_STATE / PROGRESS / close issues via PR body `Fixes`
+
+## Branch
+`feat/framework-ops-perf-524-525-526`
 
 ## Swarm
-| Agent | Role | Result |
-|-------|------|--------|
-| orchestrator | GOAP lead | plan + merges + state |
-| agent-527 | fix CI | green, merged |
-| agent-529 | first fix | good then Jules overwrote |
-| orchestrator | 529 rewrite | `f6d54bb` → merge `d2db671` |
+| Agent | Task |
+|-------|------|
+| orchestrator | plan, integrate, PR |
+| implement | framework_ops + tests (same file → single agent) |
+| validate | cargo test/clippy/fmt |
