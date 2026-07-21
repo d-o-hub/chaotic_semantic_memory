@@ -246,6 +246,87 @@ pub(crate) unsafe fn bundle_block_neon_bhvec(
     out
 }
 
+/// Safe wrapper for sequential AVX2 bundling of BHVec10240.
+/// Returns None if AVX2 is not supported.
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+pub fn bundle_avx2_bhvec(
+    vectors: &[&crate::hyperdim::BHVec10240],
+    threshold: usize,
+    num_planes: usize,
+) -> Option<[u64; 160]> {
+    if is_x86_feature_detected!("avx2") {
+        // SAFETY: AVX2 is detected at runtime.
+        Some(unsafe { bundle_block_avx2_bhvec(vectors, threshold, num_planes) })
+    } else {
+        None
+    }
+}
+
+/// Safe wrapper for parallel AVX2 bundling of BHVec10240.
+/// Returns None if AVX2 is not supported.
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    feature = "parallel",
+    target_arch = "x86_64"
+))]
+pub fn bundle_parallel_avx2_bhvec(
+    vectors: &[&crate::hyperdim::BHVec10240],
+    threshold: usize,
+    num_planes: usize,
+) -> Option<[u64; 160]> {
+    if is_x86_feature_detected!("avx2") {
+        use rayon::prelude::*;
+        let mut bits = [0u64; 160];
+        bits.par_chunks_mut(4).enumerate().for_each(|(i, chunk)| {
+            // SAFETY: AVX2 is supported. Pointers are valid.
+            let res =
+                unsafe { bundle_block_avx2_single_bhvec(vectors, i * 4, threshold, num_planes) };
+            // SAFETY: chunk length is 4 (32 bytes), matching AVX2 256-bit block size.
+            unsafe {
+                std::arch::x86_64::_mm256_storeu_si256(chunk.as_mut_ptr().cast(), res);
+            }
+        });
+        Some(bits)
+    } else {
+        None
+    }
+}
+
+/// Safe wrapper for sequential NEON bundling of BHVec10240.
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+pub fn bundle_neon_bhvec(
+    vectors: &[&crate::hyperdim::BHVec10240],
+    threshold: usize,
+    num_planes: usize,
+) -> [u64; 160] {
+    // SAFETY: NEON is always supported on aarch64.
+    unsafe { bundle_block_neon_bhvec(vectors, threshold, num_planes) }
+}
+
+/// Safe wrapper for parallel NEON bundling of BHVec10240.
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    feature = "parallel",
+    target_arch = "aarch64"
+))]
+pub fn bundle_parallel_neon_bhvec(
+    vectors: &[&crate::hyperdim::BHVec10240],
+    threshold: usize,
+    num_planes: usize,
+) -> [u64; 160] {
+    use rayon::prelude::*;
+    let mut bits = [0u64; 160];
+    bits.par_chunks_mut(2).enumerate().for_each(|(i, chunk)| {
+        // SAFETY: NEON is supported on aarch64. Pointers are valid.
+        let res = unsafe { bundle_block_neon_single_bhvec(vectors, i * 2, threshold, num_planes) };
+        // SAFETY: chunk length is 2 (16 bytes), matching NEON 128-bit block size.
+        unsafe {
+            std::arch::aarch64::vst1q_u8(chunk.as_mut_ptr().cast(), res);
+        }
+    });
+    bits
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -253,7 +334,7 @@ mod tests {
     #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
     #[test]
     fn bundle_block_avx2_bhvec_correctness() {
-        if std::arch::is_x86_feature_detected!("avx2") {
+        if std::is_x86_feature_detected!("avx2") {
             use crate::hyperdim::BHVec10240;
             let vectors: Vec<BHVec10240> = (0..10u64).map(BHVec10240::new_seeded).collect();
             let refs: Vec<&BHVec10240> = vectors.iter().collect();
