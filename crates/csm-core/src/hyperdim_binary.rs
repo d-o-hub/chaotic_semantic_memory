@@ -8,6 +8,15 @@ use crate::error::{MemoryError, Result};
 use crate::hyperdim::{HVec10240, Hypervector};
 use crate::hyperdim_ops::bundle_word_u64;
 use rand::RngExt;
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
+use rayon::prelude::*;
+
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+use crate::hyperdim_simd_bundle::{bundle_block_avx2_bhvec, bundle_block_avx2_single_bhvec};
+
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+use crate::hyperdim_simd_bundle::{bundle_block_neon_bhvec, bundle_block_neon_single_bhvec};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -221,15 +230,75 @@ impl BHVec10240 {
             return Self { bits };
         }
 
-        let mut bits = [0u64; 160];
         let threshold = num_vectors / 2 + 1;
         let num_planes = (usize::BITS - num_vectors.leading_zeros()) as usize;
 
-        for i in 0..160 {
-            // Shared helper with HVec scalar path (u64 vs u128 word width only).
-            bits[i] = bundle_word_u64(vectors.iter().map(|v| v.bits[i]), threshold, num_planes);
+        #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
+        if num_vectors >= 256 {
+            #[cfg(target_arch = "x86_64")]
+            if is_x86_feature_detected!("avx2") {
+                let mut bits = [0u64; 160];
+                bits.par_chunks_mut(4).enumerate().for_each(|(i, chunk)| {
+                    // SAFETY: AVX2 is detected at runtime. Pointers are valid.
+                    let res = unsafe {
+                        bundle_block_avx2_single_bhvec(vectors, i * 4, threshold, num_planes)
+                    };
+                    // SAFETY: chunk length is 4 (32 bytes), matching AVX2 256-bit block size.
+                    unsafe {
+                        std::arch::x86_64::_mm256_storeu_si256(chunk.as_mut_ptr().cast(), res);
+                    }
+                });
+                return Self { bits };
+            }
+
+            #[cfg(target_arch = "aarch64")]
+            {
+                let mut bits = [0u64; 160];
+                bits.par_chunks_mut(2).enumerate().for_each(|(i, chunk)| {
+                    // SAFETY: NEON is supported on aarch64. Pointers are valid.
+                    let res = unsafe {
+                        bundle_block_neon_single_bhvec(vectors, i * 2, threshold, num_planes)
+                    };
+                    // SAFETY: chunk length is 2 (16 bytes), matching NEON 128-bit block size.
+                    unsafe {
+                        std::arch::aarch64::vst1q_u8(chunk.as_mut_ptr().cast(), res);
+                    }
+                });
+                return Self { bits };
+            }
+
+            // Parallel scalar fallback
+            #[cfg(not(target_arch = "aarch64"))]
+            {
+                let mut bits = [0u64; 160];
+                bits.par_iter_mut().enumerate().for_each(|(i, word)| {
+                    *word =
+                        bundle_word_u64(vectors.iter().map(|v| v.bits[i]), threshold, num_planes);
+                });
+                return Self { bits };
+            }
         }
 
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+        if is_x86_feature_detected!("avx2") {
+            // SAFETY: AVX2 is detected at runtime.
+            return Self {
+                bits: unsafe { bundle_block_avx2_bhvec(vectors, threshold, num_planes) },
+            };
+        }
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+        {
+            // SAFETY: NEON is supported.
+            return Self {
+                bits: unsafe { bundle_block_neon_bhvec(vectors, threshold, num_planes) },
+            };
+        }
+
+        let mut bits = [0u64; 160];
+        for i in 0..160 {
+            bits[i] = bundle_word_u64(vectors.iter().map(|v| v.bits[i]), threshold, num_planes);
+        }
         Self { bits }
     }
 
