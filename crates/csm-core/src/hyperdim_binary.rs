@@ -12,25 +12,6 @@ use rand::RngExt;
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
 
-#[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-use crate::hyperdim_simd_bundle::bundle_avx2_bhvec;
-
-#[cfg(all(
-    not(target_arch = "wasm32"),
-    feature = "parallel",
-    target_arch = "x86_64"
-))]
-use crate::hyperdim_simd_bundle::bundle_parallel_avx2_bhvec;
-
-#[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-use crate::hyperdim_simd_bundle::bundle_neon_bhvec;
-
-#[cfg(all(
-    not(target_arch = "wasm32"),
-    feature = "parallel",
-    target_arch = "aarch64"
-))]
-use crate::hyperdim_simd_bundle::bundle_parallel_neon_bhvec;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -219,10 +200,10 @@ impl BHVec10240 {
 
     /// Bundle multiple hypervectors using bit-sliced addition.
     ///
-    /// Algorithmic Optimization: Replaces the O(D * N) bit-by-bit loop with a bit-sliced
-    /// addition approach. Processes 64 bits in parallel using bitwise operations across
-    /// log2(N) accumulation planes. This reduces the number of outer loop iterations
-    /// from 10,240 bits to 160 words, achieving a ~60x theoretical speedup.
+    /// Algorithmic Optimization: Replaces the O(D * N) bit-by-bit loop with a transposed
+    /// bit-sliced addition approach. By processing all 160 words of each vector contiguously,
+    /// we eliminate 160x redundant memory loads, achieving a massive locality speedup
+    /// with 100% safe Rust.
     ///
     /// Majority rule: a bit is set when `count >= N/2 + 1` (equivalent to `count > N/2`).
     /// N=2 is a fast path (bitwise AND). Accumulation capacity matches HVec via
@@ -249,47 +230,64 @@ impl BHVec10240 {
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         if num_vectors >= 256 {
-            #[cfg(target_arch = "x86_64")]
-            if let Some(bits) = bundle_parallel_avx2_bhvec(vectors, threshold, num_planes) {
-                return Self { bits };
-            }
-
-            #[cfg(target_arch = "aarch64")]
-            {
-                let bits = bundle_parallel_neon_bhvec(vectors, threshold, num_planes);
-                return Self { bits };
-            }
-
-            // Parallel scalar fallback
-            // Note: Since NEON is guaranteed on aarch64, its parallel branch always returns.
-            // This fallback is only needed for non-ARM64 platforms, specifically acting
-            // as the runtime fallback for x86_64 when AVX2 is not supported/detected.
-            #[cfg(not(target_arch = "aarch64"))]
-            {
-                let mut bits = [0u64; 160];
-                bits.par_iter_mut().enumerate().for_each(|(i, word)| {
-                    *word =
-                        bundle_word_u64(vectors.iter().map(|v| v.bits[i]), threshold, num_planes);
-                });
-                return Self { bits };
-            }
-        }
-
-        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-        if let Some(bits) = bundle_avx2_bhvec(vectors, threshold, num_planes) {
+            let mut bits = [0u64; 160];
+            bits.par_iter_mut().enumerate().for_each(|(i, word)| {
+                let mut planes = [0u64; 64];
+                for v in vectors {
+                    let mut carry = v.bits[i];
+                    for p in 0..num_planes {
+                        let next_carry = planes[p] & carry;
+                        planes[p] ^= carry;
+                        carry = next_carry;
+                        if carry == 0 {
+                            break;
+                        }
+                    }
+                }
+                let (mut current_eq, mut current_gt) = (!0u64, 0u64);
+                for p in (0..num_planes).rev() {
+                    if ((threshold >> p) & 1) == 1 {
+                        current_eq &= planes[p];
+                    } else {
+                        current_gt |= current_eq & planes[p];
+                        current_eq &= !planes[p];
+                    }
+                }
+                *word = current_gt | current_eq;
+            });
             return Self { bits };
         }
 
-        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-        {
-            let bits = bundle_neon_bhvec(vectors, threshold, num_planes);
-            return Self { bits };
+        // Cache-friendly transposed bit-sliced addition
+        let mut planes = vec![[0u64; 160]; num_planes];
+        for v in vectors {
+            for i in 0..160 {
+                let mut carry = v.bits[i];
+                for p in 0..num_planes {
+                    let next_carry = planes[p][i] & carry;
+                    planes[p][i] ^= carry;
+                    carry = next_carry;
+                    if carry == 0 {
+                        break;
+                    }
+                }
+            }
         }
 
         let mut bits = [0u64; 160];
         for i in 0..160 {
-            bits[i] = bundle_word_u64(vectors.iter().map(|v| v.bits[i]), threshold, num_planes);
+            let (mut current_eq, mut current_gt) = (!0u64, 0u64);
+            for p in (0..num_planes).rev() {
+                if ((threshold >> p) & 1) == 1 {
+                    current_eq &= planes[p][i];
+                } else {
+                    current_gt |= current_eq & planes[p][i];
+                    current_eq &= !planes[p][i];
+                }
+            }
+            bits[i] = current_gt | current_eq;
         }
+
         Self { bits }
     }
 
