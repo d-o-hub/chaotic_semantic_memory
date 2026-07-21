@@ -261,6 +261,9 @@ impl BHVec10240 {
             }
 
             // Parallel scalar fallback
+            // Note: Since NEON is guaranteed on aarch64, its parallel branch always returns.
+            // This fallback is only needed for non-ARM64 platforms, specifically acting
+            // as the runtime fallback for x86_64 when AVX2 is not supported/detected.
             #[cfg(not(target_arch = "aarch64"))]
             {
                 let mut bits = [0u64; 160];

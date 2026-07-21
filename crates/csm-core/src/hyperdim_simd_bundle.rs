@@ -140,6 +140,8 @@ pub(crate) unsafe fn bundle_block_avx2_single_bhvec(
         _mm256_set1_epi64x, _mm256_setzero_si256, _mm256_testz_si256, _mm256_xor_si256,
     };
 
+    // Stack allocation note: 'planes' is a 64-entry array of 256-bit registers (2 KB on stack),
+    // which is safely within normal stack limits and called in shallow recursion paths.
     let mut planes = [_mm256_setzero_si256(); 64];
     for v in vectors {
         // SAFETY: v.bits is [u64; 160]. word_idx + 4 is within bounds.
@@ -166,6 +168,7 @@ pub(crate) unsafe fn bundle_block_avx2_single_bhvec(
 }
 
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+#[inline]
 /// # SAFETY
 /// Caller must ensure AVX2 is supported.
 pub(crate) unsafe fn bundle_block_avx2_bhvec(
@@ -201,9 +204,14 @@ pub(crate) unsafe fn bundle_block_neon_single_bhvec(
         vreinterpretq_u64_u8,
     };
 
+    // Stack allocation note: 'planes' is a 64-entry array of 128-bit registers (1 KB on stack),
+    // which is safely within normal stack limits and called in shallow recursion paths.
     let mut planes = [vdupq_n_u8(0); 64];
     for v in vectors {
-        // SAFETY: v.bits is [u64; 160]. word_idx + 2 is within bounds.
+        // SAFETY: v.bits is an array of [u64; 160]. word_idx is a u64 word index.
+        // vst1q_u8/vld1q_u8 load/store 16 bytes, which corresponds exactly to 2 u64 words.
+        // Since word_idx <= 158 and word_idx is even, word_idx + 2 is strictly <= 160,
+        // so accessing starting at word_idx is completely within bounds of the 160-word bits array.
         let mut carry = unsafe { vld1q_u8(v.bits.as_ptr().add(word_idx).cast()) };
         for plane in planes.iter_mut().take(num_planes) {
             let next_carry = vandq_u8(*plane, carry);
@@ -228,6 +236,7 @@ pub(crate) unsafe fn bundle_block_neon_single_bhvec(
 }
 
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+#[inline]
 /// # SAFETY
 /// Caller must ensure NEON is supported.
 pub(crate) unsafe fn bundle_block_neon_bhvec(
@@ -431,6 +440,43 @@ mod tests {
                 }
             }
             let (mut current_eq, mut current_gt) = (!0u128, 0u128);
+            for p in (0..num_planes).rev() {
+                if ((threshold >> p) & 1) == 1 {
+                    current_eq &= planes[p];
+                } else {
+                    current_gt |= current_eq & planes[p];
+                    current_eq &= !planes[p];
+                }
+            }
+            expected[i] = current_gt | current_eq;
+        }
+        assert_eq!(simd_res, expected);
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+    #[test]
+    fn bundle_block_neon_bhvec_correctness() {
+        use crate::hyperdim::BHVec10240;
+        let vectors: Vec<BHVec10240> = (0..10u64).map(BHVec10240::new_seeded).collect();
+        let refs: Vec<&BHVec10240> = vectors.iter().collect();
+        let threshold = vectors.len() / 2 + 1;
+        let num_planes = (usize::BITS - vectors.len().leading_zeros()) as usize;
+        let simd_res = unsafe { bundle_block_neon_bhvec(&refs, threshold, num_planes) };
+        let mut expected = [0u64; 160];
+        for i in 0..160 {
+            let mut planes = [0u64; 64];
+            for v in &vectors {
+                let mut carry = v.bits[i];
+                for p in 0..num_planes {
+                    let next_carry = planes[p] & carry;
+                    planes[p] ^= carry;
+                    carry = next_carry;
+                    if carry == 0 {
+                        break;
+                    }
+                }
+            }
+            let (mut current_eq, mut current_gt) = (!0u64, 0u64);
             for p in (0..num_planes).rev() {
                 if ((threshold >> p) & 1) == 1 {
                     current_eq &= planes[p];
