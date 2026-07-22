@@ -209,7 +209,7 @@ jobs:
 
     - name: Validate publish dry-run
       run: |
-        # Workspace crates (csm-core, csm-embedding, etc.) are published alongside
+        # Workspace crates (csm-core-lib, csm-embedding, etc.) are published alongside
         # the main crate in the publish-crates job. During validation, they don't
         # yet exist on crates.io, so a full dry-run would fail dependency resolution.
         # Instead, verify the package can be assembled (--list shows included files).
@@ -405,7 +405,7 @@ jobs:
       run: |
         # Pre-check: Verify workspace crate names are not taken by unrelated projects
         echo "Checking crates.io name availability..."
-        CRATES="csm-chaos csm-core csm-traits csm-embedding csm-memory csm-retrieval csm-persistence"
+        CRATES="csm-chaos csm-core-lib csm-traits csm-embedding csm-memory csm-retrieval csm-persistence"
         NAME_CONFLICT=false
         for crate in $CRATES; do
           CRATE_VERSION=$(grep -m1 '^version' "crates/$crate/Cargo.toml" | cut -d'"' -f2)
@@ -429,9 +429,9 @@ jobs:
 
         # Publish order based on dependency graph:
         # 1. csm-chaos (no internal deps)
-        # 2. csm-core (depends on csm-chaos optionally)
-        # 3. csm-traits, csm-embedding, csm-memory (depend on csm-core)
-        # 4. csm-retrieval, csm-persistence (depend on csm-core + csm-memory)
+        # 2. csm-core-lib (depends on csm-chaos optionally)
+        # 3. csm-traits, csm-embedding, csm-memory (depend on csm-core-lib)
+        # 4. csm-retrieval, csm-persistence (depend on csm-core-lib + csm-memory)
         for crate in $CRATES; do
           echo "Publishing $crate..."
           # Skip if already published (idempotent)

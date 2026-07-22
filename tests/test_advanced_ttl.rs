@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use chaotic_semantic_memory::ChaoticSemanticFramework;
 use chaotic_semantic_memory::framework_ttl_advanced::{DecayCurve, TtlConfig, TtlPolicy, TtlRule};
-use csm_core::hyperdim::HVec10240;
+use csm_core_lib::hyperdim::HVec10240;
 use std::collections::HashMap;
 use std::time::Duration;
 

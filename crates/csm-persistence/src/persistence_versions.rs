@@ -1,11 +1,11 @@
 use crate::persistence::Persistence;
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 use csm_memory::{Concept, ConceptVersion};
 use libsql::{Connection, params};
 
 #[allow(dead_code)]
 impl Persistence {
-    pub(crate) async fn record_concept_version<H: csm_core::hyperdim::Hypervector>(
+    pub(crate) async fn record_concept_version<H: csm_core_lib::hyperdim::Hypervector>(
         &self,
         conn: &Connection,
         concept: &Concept<H>,
@@ -17,7 +17,7 @@ impl Persistence {
     /// Records a new concept version, optionally using pre-computed vector bytes and metadata JSON.
     /// Performance Optimization: Accepting pre-computed values avoids redundant serialization and
     /// allocations when this is called from batch operations or normal save paths.
-    pub(crate) async fn record_concept_version_scoped<H: csm_core::hyperdim::Hypervector>(
+    pub(crate) async fn record_concept_version_scoped<H: csm_core_lib::hyperdim::Hypervector>(
         &self,
         conn: &Connection,
         ns: &str,
@@ -89,7 +89,7 @@ impl Persistence {
     }
 
     /// Load a specific concept version from the database.
-    pub async fn get_version_scoped<H: csm_core::hyperdim::Hypervector>(
+    pub async fn get_version_scoped<H: csm_core_lib::hyperdim::Hypervector>(
         &self,
         ns: &str,
         id: &str,
@@ -152,7 +152,7 @@ impl Persistence {
     }
 
     /// List all versions of a concept in a namespace.
-    pub async fn list_versions_scoped<H: csm_core::hyperdim::Hypervector>(
+    pub async fn list_versions_scoped<H: csm_core_lib::hyperdim::Hypervector>(
         &self,
         ns: &str,
         id: &str,

@@ -10,7 +10,7 @@ use tracing::instrument;
 use crate::cli::args::{OutputFormat, ProbeArgs};
 use crate::cli::error::{CliError, Result};
 use colored::Colorize;
-use csm_core::hyperdim::HVec10240;
+use csm_core_lib::hyperdim::HVec10240;
 
 use super::{
     create_framework_with_namespace, print_success, print_warning, validate_concept_id,

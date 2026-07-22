@@ -9,9 +9,9 @@
 //!
 
 pub use bridge_retrieval::BridgeRetrieval;
-pub use csm_core::bundle::BundleAccumulator;
-pub use csm_core::error::{MemoryError, Result};
-pub use csm_core::hyperdim::{BHVec10240, HVec10240, batch_cosine_similarity};
+pub use csm_core_lib::bundle::BundleAccumulator;
+pub use csm_core_lib::error::{MemoryError, Result};
+pub use csm_core_lib::hyperdim::{BHVec10240, HVec10240, batch_cosine_similarity};
 pub use framework::ChaoticSemanticFramework;
 pub use framework_builder::FrameworkBuilder;
 pub use framework_events::MemoryEvent;
@@ -25,13 +25,13 @@ pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig
 mod bridge_persistence;
 pub mod bridge_retrieval;
 pub use csm_chaos;
-pub use csm_core::bundle;
+pub use csm_core_lib::bundle;
 #[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]
 pub mod cli;
 pub mod concept_builder;
 pub mod embedding;
-pub use csm_core::encoder;
-pub use csm_core::error;
+pub use csm_core_lib::encoder;
+pub use csm_core_lib::error;
 mod export_payload;
 pub mod framework;
 mod framework_accessors;
@@ -51,7 +51,7 @@ mod framework_ttl;
 pub mod framework_ttl_advanced;
 mod framework_validation;
 pub mod graph_traversal;
-pub use csm_core::hyperdim;
+pub use csm_core_lib::hyperdim;
 #[cfg(all(not(target_arch = "wasm32"), feature = "mcp"))]
 pub mod mcp;
 pub mod metadata_filter;
@@ -75,7 +75,7 @@ mod persistence_ops;
 mod persistence_versions;
 #[cfg(target_arch = "wasm32")]
 pub mod persistence_wasm;
-pub use csm_core::reservoir;
+pub use csm_core_lib::reservoir;
 pub use csm_traits;
 pub mod retrieval;
 pub mod semantic_bridge;
@@ -90,7 +90,7 @@ pub use crate::persistence_wasm as persistence;
 #[cfg(all(not(target_arch = "wasm32"), not(feature = "persistence")))]
 pub mod persistence {
     use crate::singularity::Concept;
-    use csm_core::Result;
+    use csm_core_lib::Result;
 
     #[derive(Debug)]
     pub struct Persistence;
@@ -241,9 +241,9 @@ pub mod prelude {
     pub use crate::singularity_retrieval::{
         CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats,
     };
-    pub use csm_core::bundle::BundleAccumulator;
-    pub use csm_core::error::{MemoryError, Result};
-    pub use csm_core::hyperdim::HVec10240;
+    pub use csm_core_lib::bundle::BundleAccumulator;
+    pub use csm_core_lib::error::{MemoryError, Result};
+    pub use csm_core_lib::hyperdim::HVec10240;
 }
 
 #[cfg(test)]

@@ -3,7 +3,7 @@
 // Casts are intentional for schema version math
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 use libsql::{Builder, Connection, Database, params};
 use std::sync::Arc;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};

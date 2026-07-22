@@ -217,7 +217,7 @@ impl McpHandler {
 ///
 /// Migration fallback: array of 160 JSON integers as u64 halves
 /// `(high_0, low_0, high_1, low_1, …)` for each of the 80 `u128` words.
-pub(crate) fn parse_hvec(value: &Value) -> Result<csm_core::hyperdim::HVec10240> {
+pub(crate) fn parse_hvec(value: &Value) -> Result<csm_core_lib::hyperdim::HVec10240> {
     if let Some(s) = value.as_str() {
         return parse_hvec_base64(s);
     }
@@ -229,18 +229,18 @@ pub(crate) fn parse_hvec(value: &Value) -> Result<csm_core::hyperdim::HVec10240>
     ))
 }
 
-fn parse_hvec_base64(s: &str) -> Result<csm_core::hyperdim::HVec10240> {
+fn parse_hvec_base64(s: &str) -> Result<csm_core_lib::hyperdim::HVec10240> {
     use base64::Engine;
     use base64::engine::general_purpose::STANDARD;
 
     let bytes = STANDARD
         .decode(s)
         .map_err(|e| anyhow::anyhow!("Invalid base64 vector: {e}"))?;
-    csm_core::hyperdim::HVec10240::from_bytes(&bytes)
+    csm_core_lib::hyperdim::HVec10240::from_bytes(&bytes)
         .map_err(|e| anyhow::anyhow!("Invalid vector bytes: {e}"))
 }
 
-fn parse_hvec_u64_halves(arr: &[Value]) -> Result<csm_core::hyperdim::HVec10240> {
+fn parse_hvec_u64_halves(arr: &[Value]) -> Result<csm_core_lib::hyperdim::HVec10240> {
     if arr.len() != 160 {
         return Err(anyhow::anyhow!(
             "Legacy vector must have 160 u64 halves (high, low × 80 words)"
@@ -256,7 +256,7 @@ fn parse_hvec_u64_halves(arr: &[Value]) -> Result<csm_core::hyperdim::HVec10240>
             .ok_or_else(|| anyhow::anyhow!("Invalid vector half at index {}", i * 2 + 1))?;
         *word = (u128::from(high) << 64) | u128::from(low);
     }
-    Ok(csm_core::hyperdim::HVec10240 { data })
+    Ok(csm_core_lib::hyperdim::HVec10240 { data })
 }
 
 #[cfg(test)]
@@ -264,7 +264,7 @@ mod tests {
     use super::*;
     use base64::Engine;
     use base64::engine::general_purpose::STANDARD;
-    use csm_core::hyperdim::HVec10240;
+    use csm_core_lib::hyperdim::HVec10240;
     use serde_json::json;
 
     fn hvec_to_b64(hvec: &HVec10240) -> String {

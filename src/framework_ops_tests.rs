@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use crate::framework::ChaoticSemanticFramework;
-use csm_core::hyperdim::HVec10240;
+use csm_core_lib::hyperdim::HVec10240;
 
 #[tokio::test]
 async fn probe_batch_and_cached_return_injected_concept() {

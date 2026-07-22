@@ -3,7 +3,7 @@
 //! Extracted from persistence.rs to satisfy the 500 LOC gate.
 
 use crate::persistence::Persistence;
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 use libsql::params;
 
 impl Persistence {

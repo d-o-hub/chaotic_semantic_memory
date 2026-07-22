@@ -4,7 +4,7 @@
 //! All operations return `MemoryError::UnsupportedOperation`.
 
 use crate::singularity::Concept;
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 
 /// Persistence stub for wasm32 builds.
 pub struct Persistence;
@@ -198,7 +198,7 @@ fn wasm_persistence_unavailable() -> MemoryError {
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
-    use csm_core::hyperdim::HVec10240;
+    use csm_core_lib::hyperdim::HVec10240;
 
     #[tokio::test]
     async fn new_local_returns_unsupported() {

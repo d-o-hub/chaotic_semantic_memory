@@ -180,7 +180,7 @@ jobs:
           # csm-duckdb has a dedicated job; csm-wasm is covered by the wasm job.
           - csm-chaos
           - csm-cli
-          - csm-core
+          - csm-core-lib
           - csm-embedding
           - csm-memory
           - csm-retrieval

@@ -18,7 +18,7 @@
 - cloudevents-sdk (0.9.0)
 - colored (2.2.0)
 - csm-chaos (0.3.7)
-- csm-core (0.3.7)
+- csm-core-lib (0.3.7)
 - csm-embedding (0.3.7)
 - csm-memory (0.3.7)
 - csm-retrieval (0.3.7)
@@ -459,9 +459,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/lib.rs
 
 - pub use bridge_retrieval::BridgeRetrieval
-- pub use csm_core::bundle::BundleAccumulator
-- pub use csm_core::error::{MemoryError, Result}
-- pub use csm_core::hyperdim::{BHVec10240, HVec10240, batch_cosine_similarity}
+- pub use csm_core_lib::bundle::BundleAccumulator
+- pub use csm_core_lib::error::{MemoryError, Result}
+- pub use csm_core_lib::hyperdim::{BHVec10240, HVec10240, batch_cosine_similarity}
 - pub use framework::ChaoticSemanticFramework
 - pub use framework_builder::FrameworkBuilder
 - pub use framework_events::MemoryEvent
@@ -470,18 +470,18 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod bridge_retrieval
 - pub use csm_chaos
-- pub use csm_core::bundle
+- pub use csm_core_lib::bundle
 - pub mod cli
 - pub mod concept_builder
 - pub mod embedding
-- pub use csm_core::encoder
-- pub use csm_core::error
+- pub use csm_core_lib::encoder
+- pub use csm_core_lib::error
 - pub mod framework
 - pub mod framework_builder
 - pub mod framework_events_ce
 - pub mod framework_ttl_advanced
 - pub mod graph_traversal
-- pub use csm_core::hyperdim
+- pub use csm_core_lib::hyperdim
 - pub mod mcp
 - pub mod metadata_filter
 - pub mod observability
@@ -491,7 +491,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod index_envelope
 - pub mod persistence
 - pub mod persistence_wasm
-- pub use csm_core::reservoir
+- pub use csm_core_lib::reservoir
 - pub use csm_traits
 - pub mod retrieval
 - pub mod semantic_bridge
@@ -510,9 +510,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use prelude::crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket}
 - pub use prelude::crate::singularity::{Concept, ConceptBuilder, ConceptDiff, ConceptVersion}
 - pub use prelude::crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
-- pub use prelude::csm_core::bundle::BundleAccumulator
-- pub use prelude::csm_core::error::{MemoryError, Result}
-- pub use prelude::csm_core::hyperdim::HVec10240
+- pub use prelude::csm_core_lib::bundle::BundleAccumulator
+- pub use prelude::csm_core_lib::error::{MemoryError, Result}
+- pub use prelude::csm_core_lib::hyperdim::HVec10240
 - pub mod wasm
 
 ### src/mcp/handler.rs
@@ -1267,7 +1267,7 @@ The `csm` binary provides command-line access:
 ```toml
 [workspace]
 members = [
-    "crates/csm-core",
+    "crates/csm-core-lib",
     "crates/csm-embedding",
     "crates/csm-memory",
     "crates/csm-retrieval",
@@ -1392,7 +1392,7 @@ include = [
 
 [dependencies]
 csm-chaos = { path = "crates/csm-chaos", version = "0.3.7" }
-csm-core = { path = "crates/csm-core", version = "0.3.7" }
+csm-core-lib = { path = "crates/csm-core-lib", version = "0.3.7" }
 csm-embedding = { path = "crates/csm-embedding", version = "0.3.7" }
 csm-memory = { path = "crates/csm-memory", version = "0.3.7" }
 csm-retrieval = { path = "crates/csm-retrieval", version = "0.3.7" }

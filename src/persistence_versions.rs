@@ -1,6 +1,6 @@
 use crate::persistence::Persistence;
 use crate::singularity::{Concept, ConceptVersion};
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 use libsql::{Connection, params};
 
 impl Persistence {
@@ -128,7 +128,7 @@ impl Persistence {
             let canonical_concept_ids_json: Option<String> =
                 row.get::<Option<String>>(5).ok().flatten();
 
-            let vector = csm_core::hyperdim::HVec10240::from_bytes(&vector_bytes)?;
+            let vector = csm_core_lib::hyperdim::HVec10240::from_bytes(&vector_bytes)?;
             let metadata = serde_json::from_str(&metadata_json)?;
             let canonical_concept_ids = canonical_concept_ids_json
                 .as_deref()

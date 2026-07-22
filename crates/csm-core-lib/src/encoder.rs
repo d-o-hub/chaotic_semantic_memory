@@ -22,8 +22,8 @@
 //! # Example
 //!
 //! ```
-//! use csm_core::encoder::{TextEncoder, TextEncoderConfig};
-//! use csm_core::HVec10240;
+//! use csm_core_lib::encoder::{TextEncoder, TextEncoderConfig};
+//! use csm_core_lib::HVec10240;
 //!
 //! let encoder = TextEncoder::new();
 //! let hv1 = encoder.encode("hello world");

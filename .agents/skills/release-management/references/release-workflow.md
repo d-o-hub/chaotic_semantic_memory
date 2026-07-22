@@ -91,24 +91,24 @@ The recovery workflow:
 
 ## crates.io name conflicts
 
-Workspace crate names (`csm-core`, `csm-traits`, etc.) may be taken by unrelated projects on crates.io. If so, `cargo publish` will fail with:
+Workspace crate names (`csm-core-lib`, `csm-traits`, etc.) may be taken by unrelated projects on crates.io. If so, `cargo publish` will fail with:
 
 ```
 403 Forbidden: this crate exists but you don't seem to be an owner.
 ```
 
-**Solution:** Rename crates before first publish. Use prefixes like `chaotic-semantic-memory-*` or suffixes like `csm-core-lib`.
+**Solution:** Rename crates before first publish. Use prefixes like `chaotic-semantic-memory-*` or suffixes like `csm-core-lib-lib`.
 
 ```bash
 # Check if names are available
-for crate in csm-chaos csm-core csm-traits csm-embedding csm-memory csm-retrieval csm-persistence; do
+for crate in csm-chaos csm-core-lib csm-traits csm-embedding csm-memory csm-retrieval csm-persistence; do
   echo -n "$crate: "
   cargo search "$crate" 2>/dev/null | head -1
 done
 ```
 
 **Known conflicts (as of 2026-07-22):**
-- `csm-core`: Taken by Sesame CSM-1B TTS project (v0.1.0)
+- `csm-core-lib`: Taken by Sesame CSM-1B TTS project (v0.1.0)
 
 ## Environment wait timer
 

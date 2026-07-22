@@ -3,7 +3,7 @@
 //! This crate provides types that are needed by multiple workspace crates
 //! but aren't yet in csm-core or csm-memory.
 
-use csm_core::hyperdim::HVec10240;
+use csm_core_lib::hyperdim::HVec10240;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -160,7 +160,7 @@ impl From<ExportConcept> for BinaryConcept {
 
 impl BinaryConcept {
     /// Convert back to ExportConcept.
-    pub fn to_export_concept(&self) -> csm_core::error::Result<ExportConcept> {
+    pub fn to_export_concept(&self) -> csm_core_lib::error::Result<ExportConcept> {
         let vector = HVec10240::from_bytes(&self.vector_bytes)?;
         let metadata = self
             .metadata
@@ -182,7 +182,7 @@ impl BinaryConcept {
 
 impl BinaryExportPayload {
     /// Convert back to ExportPayload.
-    pub fn to_export_payload(&self) -> csm_core::error::Result<ExportPayload> {
+    pub fn to_export_payload(&self) -> csm_core_lib::error::Result<ExportPayload> {
         Ok(ExportPayload {
             version: self.version.clone(),
             exported_at: self.exported_at,

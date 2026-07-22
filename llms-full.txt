@@ -18,7 +18,7 @@
 - cloudevents-sdk (0.9.0)
 - colored (2.2.0)
 - csm-chaos (0.3.7)
-- csm-core (0.3.7)
+- csm-core-lib (0.3.7)
 - csm-embedding (0.3.7)
 - csm-memory (0.3.7)
 - csm-retrieval (0.3.7)
@@ -459,9 +459,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/lib.rs
 
 - pub use bridge_retrieval::BridgeRetrieval
-- pub use csm_core::bundle::BundleAccumulator
-- pub use csm_core::error::{MemoryError, Result}
-- pub use csm_core::hyperdim::{BHVec10240, HVec10240, batch_cosine_similarity}
+- pub use csm_core_lib::bundle::BundleAccumulator
+- pub use csm_core_lib::error::{MemoryError, Result}
+- pub use csm_core_lib::hyperdim::{BHVec10240, HVec10240, batch_cosine_similarity}
 - pub use framework::ChaoticSemanticFramework
 - pub use framework_builder::FrameworkBuilder
 - pub use framework_events::MemoryEvent
@@ -470,18 +470,18 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
 - pub mod bridge_retrieval
 - pub use csm_chaos
-- pub use csm_core::bundle
+- pub use csm_core_lib::bundle
 - pub mod cli
 - pub mod concept_builder
 - pub mod embedding
-- pub use csm_core::encoder
-- pub use csm_core::error
+- pub use csm_core_lib::encoder
+- pub use csm_core_lib::error
 - pub mod framework
 - pub mod framework_builder
 - pub mod framework_events_ce
 - pub mod framework_ttl_advanced
 - pub mod graph_traversal
-- pub use csm_core::hyperdim
+- pub use csm_core_lib::hyperdim
 - pub mod mcp
 - pub mod metadata_filter
 - pub mod observability
@@ -491,7 +491,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod index_envelope
 - pub mod persistence
 - pub mod persistence_wasm
-- pub use csm_core::reservoir
+- pub use csm_core_lib::reservoir
 - pub use csm_traits
 - pub mod retrieval
 - pub mod semantic_bridge
@@ -510,9 +510,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use prelude::crate::semantic_bridge::{BridgeHit, ConceptGraph, MemoryPacket}
 - pub use prelude::crate::singularity::{Concept, ConceptBuilder, ConceptDiff, ConceptVersion}
 - pub use prelude::crate::singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats}
-- pub use prelude::csm_core::bundle::BundleAccumulator
-- pub use prelude::csm_core::error::{MemoryError, Result}
-- pub use prelude::csm_core::hyperdim::HVec10240
+- pub use prelude::csm_core_lib::bundle::BundleAccumulator
+- pub use prelude::csm_core_lib::error::{MemoryError, Result}
+- pub use prelude::csm_core_lib::hyperdim::HVec10240
 - pub mod wasm
 
 ### src/mcp/handler.rs
@@ -3292,70 +3292,70 @@ pub use crate::singularity_retrieval::{CandidateSource, FilterStrategy, Retrieva
 pub use csm_chaos;
 ```
 
-### csm_core::bundle
+### csm_core_lib::bundle
 
 ```rust
-pub use csm_core::bundle;
+pub use csm_core_lib::bundle;
 ```
 
-### csm_core::bundle::BundleAccumulator
+### csm_core_lib::bundle::BundleAccumulator
 
 ```rust
-pub use csm_core::bundle::BundleAccumulator;
+pub use csm_core_lib::bundle::BundleAccumulator;
 ```
 
-### csm_core::bundle::BundleAccumulator
+### csm_core_lib::bundle::BundleAccumulator
 
 ```rust
-pub use csm_core::bundle::BundleAccumulator;
+pub use csm_core_lib::bundle::BundleAccumulator;
 ```
 
-### csm_core::encoder
+### csm_core_lib::encoder
 
 ```rust
-pub use csm_core::encoder;
+pub use csm_core_lib::encoder;
 ```
 
-### csm_core::error
+### csm_core_lib::error
 
 ```rust
-pub use csm_core::error;
+pub use csm_core_lib::error;
 ```
 
-### csm_core::error::{MemoryError, Result}
+### csm_core_lib::error::{MemoryError, Result}
 
 ```rust
-pub use csm_core::error::{MemoryError, Result};
+pub use csm_core_lib::error::{MemoryError, Result};
 ```
 
-### csm_core::error::{MemoryError, Result}
+### csm_core_lib::error::{MemoryError, Result}
 
 ```rust
-pub use csm_core::error::{MemoryError, Result};
+pub use csm_core_lib::error::{MemoryError, Result};
 ```
 
-### csm_core::hyperdim
+### csm_core_lib::hyperdim
 
 ```rust
-pub use csm_core::hyperdim;
+pub use csm_core_lib::hyperdim;
 ```
 
-### csm_core::hyperdim::HVec10240
+### csm_core_lib::hyperdim::HVec10240
 
 ```rust
-pub use csm_core::hyperdim::HVec10240;
+pub use csm_core_lib::hyperdim::HVec10240;
 ```
 
-### csm_core::hyperdim::{BHVec10240, HVec10240, batch_cosine_similarity}
+### csm_core_lib::hyperdim::{BHVec10240, HVec10240, batch_cosine_similarity}
 
 ```rust
-pub use csm_core::hyperdim::{BHVec10240, HVec10240, batch_cosine_similarity};
+pub use csm_core_lib::hyperdim::{BHVec10240, HVec10240, batch_cosine_similarity};
 ```
 
-### csm_core::reservoir
+### csm_core_lib::reservoir
 
 ```rust
-pub use csm_core::reservoir;
+pub use csm_core_lib::reservoir;
 ```
 
 ### csm_traits
@@ -4460,7 +4460,7 @@ impl Reranker for RecencyDecayReranker {
 ### parse_rerankers
 
 ```rust
-pub fn parse_rerankers(s: &str) -> csm_core::error::Result<Vec<Box<dyn Trait>>>
+pub fn parse_rerankers(s: &str) -> csm_core_lib::error::Result<Vec<Box<dyn Trait>>>
 ```
 
 Parses a list of rerankers from a string flag (e.g., "mmr:0.7,recency:30d").
@@ -4586,8 +4586,8 @@ impl ConceptGraph {
     pub fn get_concept(&self, id: &str) -> Option<&CanonicalConcept>;
     pub fn match_tokens(&self, tokens: &[String]) -> Vec<String>;
     pub fn expand(&self, concept_ids: &[String], max_depth: u8) -> Vec<String>;
-    pub fn load_from_json(reader: impl Trait) -> csm_core::Result<Self>;
-    pub fn save_to_json(&self, writer: impl Trait) -> csm_core::Result<()>;
+    pub fn load_from_json(reader: impl Trait) -> csm_core_lib::Result<Self>;
+    pub fn save_to_json(&self, writer: impl Trait) -> csm_core_lib::Result<()>;
     pub fn concept_count(&self) -> usize;
     pub fn label_count(&self) -> usize;
     pub fn all_concepts(&self) -> impl Trait;

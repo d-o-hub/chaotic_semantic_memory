@@ -10,7 +10,7 @@ use crate::framework::ChaoticSemanticFramework;
 use crate::framework_events::MemoryEvent;
 use crate::index_envelope::{IndexSnapshotEnvelope, backend_fingerprint};
 use crate::singularity::{Concept, ConceptDiff, ConceptVersion};
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 
 impl ChaoticSemanticFramework {
     /// Persist all data to storage (checkpoint + revisioned ANN snapshot).

@@ -10,7 +10,7 @@ use crate::framework::ChaoticSemanticFramework;
 use crate::metadata_filter::MetadataFilter;
 use crate::retrieval::hybrid::{HybridResult, RetrievalAbstention};
 use crate::semantic_bridge::{MemoryPacket, SemanticReranker};
-use csm_core::error::Result;
+use csm_core_lib::error::Result;
 
 impl ChaoticSemanticFramework {
     /// Execute bridge retrieval query with semantic expansion.
@@ -215,7 +215,7 @@ mod tests {
     use crate::framework_builder::FrameworkBuilder;
     use crate::semantic_bridge::{CanonicalConcept, ConceptGraph};
     use crate::singularity::ConceptBuilder;
-    use csm_core::encoder::TextEncoder;
+    use csm_core_lib::encoder::TextEncoder;
 
     #[tokio::test]
     async fn test_probe_bridge_text_empty() {

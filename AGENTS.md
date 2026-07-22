@@ -368,11 +368,11 @@ Refer to the `dist-channel-selection` skill for canonical commands.
 5. **Verify crates.io name availability** (FIRST PUBLISH ONLY):
    ```bash
    # Check if workspace crate names are already taken by unrelated projects
-   for crate in csm-chaos csm-core csm-traits csm-embedding csm-memory csm-retrieval csm-persistence; do
+   for crate in csm-chaos csm-core-lib csm-traits csm-embedding csm-memory csm-retrieval csm-persistence; do
      echo -n "$crate: "
      cargo search "$crate" 2>/dev/null | head -1
    done
-   # If names are taken, rename crates before first publish (e.g., csm-core → csm-core-lib)
+   # If names are taken, rename crates before first publish (e.g., csm-core-lib → csm-core-lib-lib)
    ```
 
 6. **Check crates.io environment wait timer**:
@@ -407,7 +407,7 @@ Refer to the `dist-channel-selection` skill for canonical commands.
 
 ### Common Deployment Failures
 
-1. **crates.io name conflicts**: Workspace crate names (`csm-core`, `csm-traits`, etc.) may be taken by unrelated projects. Check `cargo search` before first publish. Rename crates if needed (e.g., `csm-core` → `csm-core-lib`).
+1. **crates.io name conflicts**: Workspace crate names (`csm-core-lib`, `csm-traits`, etc.) may be taken by unrelated projects. Check `cargo search` before first publish. Rename crates if needed (e.g., `csm-core-lib` → `csm-core-lib-lib`).
 
 2. **Environment wait timer**: The `crates.io` GitHub environment may have a wait timer (typically 15 minutes). This blocks `publish-crates` job until the timer expires. Remove the timer in GitHub Settings → Environments → crates.io if not needed.
 

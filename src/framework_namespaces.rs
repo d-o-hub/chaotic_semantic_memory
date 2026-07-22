@@ -1,6 +1,6 @@
 use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
-use csm_core::error::Result;
+use csm_core_lib::error::Result;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 use std::sync::Arc;
@@ -68,12 +68,12 @@ impl ChaoticSemanticFramework {
     #[cfg(not(target_arch = "wasm32"))]
     pub async fn export_namespace(&self, ns: &str, path: &Path) -> Result<()> {
         Self::validate_namespace(ns)?;
-        let path_str = path
-            .to_str()
-            .ok_or_else(|| csm_core::error::MemoryError::InvalidInput {
-                field: "path".to_string(),
-                reason: "Invalid path".to_string(),
-            })?;
+        let path_str =
+            path.to_str()
+                .ok_or_else(|| csm_core_lib::error::MemoryError::InvalidInput {
+                    field: "path".to_string(),
+                    reason: "Invalid path".to_string(),
+                })?;
 
         // Ensure the namespace is loaded from persistence if available and not in memory
         self.ensure_namespace_loaded(ns).await?;
@@ -105,7 +105,7 @@ impl ChaoticSemanticFramework {
 
         let binary_payload = BinaryExportPayload::from(payload);
         let data = bincode::serialize(&binary_payload).map_err(|e| {
-            csm_core::error::MemoryError::Persistence(format!("Serialization error: {e}"))
+            csm_core_lib::error::MemoryError::Persistence(format!("Serialization error: {e}"))
         })?;
         Ok(data)
     }
@@ -161,7 +161,7 @@ mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     use crate::export_payload::BinaryExportPayload;
-    use csm_core::hyperdim::HVec10240;
+    use csm_core_lib::hyperdim::HVec10240;
     async fn empty_framework() -> ChaoticSemanticFramework {
         ChaoticSemanticFramework::builder()
             .without_persistence()

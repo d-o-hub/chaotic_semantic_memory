@@ -2,7 +2,7 @@ use crate::index::AnnIndex;
 use crate::singularity::{Concept, SingularityConfig};
 use crate::singularity_cache::{CacheMetrics, QueryCache};
 use crate::singularity_retrieval::RetrievalStats;
-use csm_core::hyperdim::{HVec10240, Hypervector};
+use csm_core_lib::hyperdim::{HVec10240, Hypervector};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 

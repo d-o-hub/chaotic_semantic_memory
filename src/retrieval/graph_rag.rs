@@ -7,8 +7,8 @@
 
 use crate::graph_traversal::TraversalConfig;
 use crate::singularity::Concept;
-use csm_core::error::Result;
-use csm_core::hyperdim::HVec10240;
+use csm_core_lib::error::Result;
+use csm_core_lib::hyperdim::HVec10240;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Configuration for GraphRAG retrieval.

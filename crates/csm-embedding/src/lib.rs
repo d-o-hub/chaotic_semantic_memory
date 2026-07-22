@@ -29,8 +29,8 @@ pub use remote_openai::OpenAiProvider;
 #[cfg(feature = "embed-voyage")]
 pub use remote_voyage::VoyageProvider;
 
-use csm_core::error::Result;
-use csm_core::hyperdim::HVec10240;
+use csm_core_lib::error::Result;
+use csm_core_lib::hyperdim::HVec10240;
 
 /// Embedding provider trait for text-to-vector conversion.
 ///
@@ -82,7 +82,7 @@ pub fn get_provider(name: &str) -> Result<std::sync::Arc<dyn EmbeddingProvider>>
                 }
             }
             #[cfg(not(feature = "embed-fastembed"))]
-            Err(csm_core::error::MemoryError::Config(
+            Err(csm_core_lib::error::MemoryError::Config(
                 "embed-fastembed feature not enabled".into(),
             ))
         }
@@ -97,7 +97,7 @@ pub fn get_provider(name: &str) -> Result<std::sync::Arc<dyn EmbeddingProvider>>
                 Ok(std::sync::Arc::new(provider))
             }
             #[cfg(not(feature = "embed-openai"))]
-            Err(csm_core::error::MemoryError::Config(
+            Err(csm_core_lib::error::MemoryError::Config(
                 "embed-openai feature not enabled".into(),
             ))
         }
@@ -112,12 +112,12 @@ pub fn get_provider(name: &str) -> Result<std::sync::Arc<dyn EmbeddingProvider>>
                 Ok(std::sync::Arc::new(provider))
             }
             #[cfg(not(feature = "embed-voyage"))]
-            Err(csm_core::error::MemoryError::Config(
+            Err(csm_core_lib::error::MemoryError::Config(
                 "embed-voyage feature not enabled".into(),
             ))
         }
 
-        _ => Err(csm_core::error::MemoryError::Config(format!(
+        _ => Err(csm_core_lib::error::MemoryError::Config(format!(
             "unknown embedding provider: {provider_name}"
         ))),
     }

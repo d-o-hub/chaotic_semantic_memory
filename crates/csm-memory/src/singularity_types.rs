@@ -4,8 +4,8 @@
 //! `ConceptVersion`, `ConceptDiff`, `ConceptBuilder`, and `SingularityConfig`.
 
 use crate::index::IndexBackend;
-use csm_core::error::Result;
-use csm_core::hyperdim::{HVec10240, Hypervector};
+use csm_core_lib::error::Result;
+use csm_core_lib::hyperdim::{HVec10240, Hypervector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

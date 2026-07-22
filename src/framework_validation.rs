@@ -5,7 +5,7 @@ use crate::framework::ChaoticSemanticFramework;
 use crate::metadata_filter::{MAX_FILTER_DEPTH, MetadataFilter};
 use crate::singularity::Concept;
 use crate::singularity_retrieval::RetrievalConfig;
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 
 pub const MAX_NAMESPACE_BYTES: usize = 128;
 const MAX_CONCEPT_ID_BYTES: usize = 256;
