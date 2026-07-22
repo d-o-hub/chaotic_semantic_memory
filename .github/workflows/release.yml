@@ -5,6 +5,12 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      recover:
+        description: Retry missing artifacts for the current version even when its tag exists
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: release-${{ github.ref }}
@@ -88,6 +94,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       release-needed: ${{ steps.tag.outputs.release-needed }}
+      release-ref: ${{ steps.tag.outputs.release-ref }}
     steps:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       with:
@@ -167,8 +174,14 @@ jobs:
       run: |
         VERSION="${{ steps.version.outputs.version }}"
         TAG="v${VERSION}"
+        echo "release-ref=${TAG}" >> $GITHUB_OUTPUT
         git fetch --tags --force
         if git rev-parse "$TAG" >/dev/null 2>&1; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.recover }}" = "true" ]; then
+            echo "Tag ${TAG} already exists; recovering missing release artifacts."
+            echo "release-needed=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           echo "Tag ${TAG} already exists; skipping release."
           echo "release-needed=false" >> $GITHUB_OUTPUT
           exit 0
@@ -275,6 +288,8 @@ jobs:
     if: needs.validate.outputs.release-needed == 'true'
     steps:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      with:
+        ref: ${{ needs.validate.outputs.release-ref }}
 
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
@@ -329,6 +344,8 @@ jobs:
     if: needs.validate.outputs.release-needed == 'true'
     steps:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      with:
+        ref: ${{ needs.validate.outputs.release-ref }}
 
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
@@ -340,12 +357,12 @@ jobs:
       run: rustup target add wasm32-unknown-unknown
 
     - name: Build WASM release
-      run: cargo build --target wasm32-unknown-unknown --release --features wasm
+      run: cargo build --target wasm32-unknown-unknown --release -p csm-wasm
 
     - name: Prepare WASM artifact
       run: |
         mkdir -p release
-        cp target/wasm32-unknown-unknown/release/chaotic_semantic_memory.wasm release/
+        cp target/wasm32-unknown-unknown/release/csm_wasm.wasm release/chaotic_semantic_memory.wasm
         cd release
         tar -czvf chaotic_semantic_memory-${{ needs.validate.outputs.version }}-wasm.tar.gz chaotic_semantic_memory.wasm
 
@@ -363,6 +380,8 @@ jobs:
     environment: crates.io
     steps:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      with:
+        ref: ${{ needs.validate.outputs.release-ref }}
 
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
@@ -424,6 +443,7 @@ jobs:
     steps:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       with:
+        ref: ${{ needs.validate.outputs.release-ref }}
         fetch-depth: 0
 
     - name: Check if GitHub release already exists
@@ -503,6 +523,8 @@ jobs:
       contents: read
     steps:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      with:
+        ref: ${{ needs.validate.outputs.release-ref }}
 
     - name: Setup Node.js
       uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -534,14 +556,26 @@ jobs:
 
     - name: Build WASM package
       if: steps.npm-check.outputs.already-published != 'true'
-      env:
-        WASM_OPT_FLAGS: "--enable-bulk-memory --enable-sign-ext"
       run: |
-        wasm-pack build --target web --out-dir wasm/pkg -- --features wasm
-        cp LICENSE wasm/pkg/
-        cp README.md wasm/pkg/
+        # ADR-0094: canonical npm artifact is crates/csm-wasm (matches CI wasm job).
+        # Absolute out-dir: wasm-pack resolves relative paths from the crate dir.
+        # Recovery tags may predate package-local wasm-opt metadata, so inject it
+        # only when absent; this changes build metadata, not release code.
+        if ! grep -q '^\[package.metadata.wasm-pack.profile.release\]' crates/csm-wasm/Cargo.toml; then
+          cat >> crates/csm-wasm/Cargo.toml <<'EOF'
+
+        [package.metadata.wasm-pack.profile.release]
+        wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext", "--enable-nontrapping-float-to-int"]
+        EOF
+        fi
+        OUT="${{ github.workspace }}/wasm/pkg"
+        wasm-pack build crates/csm-wasm --release --target web \
+          --out-dir "${OUT}" \
+          --out-name chaotic_semantic_memory
+        cp LICENSE "${OUT}/"
+        cp README.md "${OUT}/"
         # Use prepared package.json with scoped name @d-o-hub/chaotic_semantic_memory
-        cp wasm/package.json wasm/pkg/package.json
+        cp wasm/package.json "${OUT}/package.json"
 
     - name: Publish to npm
       if: steps.npm-check.outputs.already-published != 'true'
@@ -590,6 +624,8 @@ jobs:
       contents: read
     steps:
     - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      with:
+        ref: ${{ needs.validate.outputs.release-ref }}
 
     - name: Setup Node.js
       uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0

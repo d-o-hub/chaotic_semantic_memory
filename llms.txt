@@ -1597,8 +1597,5 @@ events-http = ["cloudevents", "cloudevents-sdk/http-binding", "dep:reqwest"]
 prometheus = ["dep:prometheus", "dep:hyper", "dep:hyper-util", "dep:http-body-util"]
 otlp-json = []
 otlp = ["dep:opentelemetry", "dep:opentelemetry_sdk", "dep:opentelemetry-otlp", "dep:tracing-opentelemetry"]
-
-[package.metadata.wasm-pack.profile.release]
-wasm-opt = ["-O", "--enable-bulk-memory", "--enable-sign-ext"]
 ```
 

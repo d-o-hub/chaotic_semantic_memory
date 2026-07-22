@@ -4995,3 +4995,20 @@ actions:
       Land PR #532 (framework ops #524–#526) after CI green; triage #534 hybrid
       min-max (merge if correct, close if duplicate/regressed). Close issues.
 
+  - name: recover_v037_failed_deployments
+    preconditions:
+      ci_all_checks_passed: true
+    effects:
+      release_recovery_dispatch_supported: true
+      wasm_opt_nontrapping_float_enabled: true
+      v037_registry_deployments_recovered: true
+    cost: 2
+    status: in_progress
+    priority: P0
+    wave: "wave-33"
+    file: .github/workflows/release.yml, crates/csm-wasm/Cargo.toml
+    description: |
+      Add an explicit, idempotent workflow-dispatch recovery mode for an
+      existing release tag and enable wasm-opt's non-trapping float-to-int
+      feature. Dispatch recovery for v0.3.7 after CI so the updated crates.io
+      credential and npm OIDC publisher fill only missing registry artifacts.
