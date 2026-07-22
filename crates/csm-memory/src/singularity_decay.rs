@@ -1,7 +1,7 @@
 //! Association decay: reinforcement and pruning for weighted forgetting (ADR-0025).
 
-use csm_core::error::{MemoryError, Result};
-use csm_core::hyperdim::Hypervector;
+use csm_core_lib::error::{MemoryError, Result};
+use csm_core_lib::hyperdim::Hypervector;
 
 use crate::singularity::{DecayCurve, Singularity, unix_now_secs};
 
@@ -62,7 +62,7 @@ mod tests {
     use super::*;
     use crate::ConceptBuilder;
     use crate::singularity::SingularityConfig;
-    use csm_core::HVec10240;
+    use csm_core_lib::HVec10240;
 
     fn make_singularity() -> Singularity<HVec10240> {
         Singularity::new(SingularityConfig::default())

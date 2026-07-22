@@ -137,7 +137,7 @@ pub async fn create_framework_advanced(
         if provider.name() == "hdc-text" && code_aware {
             builder =
                 builder.with_embedding_provider(crate::embedding::HdcTextProvider::with_config(
-                    csm_core::encoder::TextEncoderConfig {
+                    csm_core_lib::encoder::TextEncoderConfig {
                         ngram_size: Some(3),
                         code_aware: true,
                         ..Default::default()
@@ -149,7 +149,7 @@ pub async fn create_framework_advanced(
     } else if code_aware {
         // Default HDC provider with code-aware config
         builder = builder.with_embedding_provider(crate::embedding::HdcTextProvider::with_config(
-            csm_core::encoder::TextEncoderConfig {
+            csm_core_lib::encoder::TextEncoderConfig {
                 ngram_size: Some(3),
                 code_aware: true,
                 ..Default::default()

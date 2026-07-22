@@ -25,7 +25,7 @@ impl WasmFramework {
         final_top_k: usize,
     ) -> Result<Array, JsValue> {
         use crate::retrieval::GraphRagConfig;
-        let query = csm_core::hyperdim::HVec10240::from_bytes(vector).map_err(to_js_error)?;
+        let query = csm_core_lib::hyperdim::HVec10240::from_bytes(vector).map_err(to_js_error)?;
         let config = GraphRagConfig {
             anchor_top_k,
             max_hops,

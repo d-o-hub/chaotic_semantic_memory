@@ -9,7 +9,7 @@ use crate::persistence::Persistence;
 use crate::retrieval::hybrid::RetrievalAbstention;
 use crate::semantic_bridge::{CanonicalConcept, ConceptGraph};
 use chrono::{DateTime, Utc};
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 use libsql::params;
 
 impl Persistence {

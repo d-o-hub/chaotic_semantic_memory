@@ -2,7 +2,7 @@
 //! Framework metrics for performance monitoring
 
 use crate::singularity_cache::CacheMetrics;
-use csm_core::reservoir::ReservoirMetrics;
+use csm_core_lib::reservoir::ReservoirMetrics;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 

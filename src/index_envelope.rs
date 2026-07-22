@@ -3,7 +3,7 @@
 //! Pure encoding helpers with no persistence backend dependency so WASM and
 //! no-persistence builds can still reference the types.
 
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 use serde::{Deserialize, Serialize};
 
 /// Magic prefix for envelope-wrapped index blobs (`CSMIDX01`).

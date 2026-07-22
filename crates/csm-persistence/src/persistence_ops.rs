@@ -3,7 +3,7 @@ use tokio::fs;
 use tracing::warn;
 
 use crate::persistence::{ConceptVersion, Persistence};
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 
 impl Persistence {
     pub async fn save_associations(
@@ -148,7 +148,9 @@ impl Persistence {
                 concept_id,
                 version: version as u64,
                 timestamp_unix: modified_at as u64,
-                vector: Some(csm_core::hyperdim::HVec10240::from_bytes(&vector_bytes)?),
+                vector: Some(csm_core_lib::hyperdim::HVec10240::from_bytes(
+                    &vector_bytes,
+                )?),
                 metadata: Some(serde_json::from_str(&metadata_json)?),
                 vector_changed: None,
                 metadata_changed: None,
@@ -315,7 +317,7 @@ impl Persistence {
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use crate::persistence::Persistence;
-    use csm_core::hyperdim::HVec10240;
+    use csm_core_lib::hyperdim::HVec10240;
     use csm_memory::Concept;
     use std::collections::HashMap;
     use tempfile::NamedTempFile;

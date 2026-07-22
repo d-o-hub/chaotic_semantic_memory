@@ -10,8 +10,8 @@ use crate::framework_events_ce::EventEmitter;
 #[cfg(feature = "persistence")]
 use crate::persistence::Persistence;
 use crate::singularity::{Singularity, SingularityConfig};
-use csm_core::error::Result;
-use csm_core::reservoir::Reservoir;
+use csm_core_lib::error::Result;
+use csm_core_lib::reservoir::Reservoir;
 
 const DEFAULT_MAX_PROBE_TOP_K: usize = 10_000;
 const DEFAULT_MAX_CACHED_TOP_K: usize = 100;
@@ -467,7 +467,7 @@ mod tests {
             .build()
             .await
             .expect("default BruteForce backend must build");
-        fw.inject_concept("c1", csm_core::HVec10240::random())
+        fw.inject_concept("c1", csm_core_lib::HVec10240::random())
             .await
             .expect("inject on default backend");
     }

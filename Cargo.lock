@@ -909,7 +909,7 @@ dependencies = [
  "console_error_panic_hook",
  "criterion",
  "csm-chaos",
- "csm-core",
+ "csm-core-lib",
  "csm-embedding",
  "csm-memory",
  "csm-persistence",
@@ -1382,7 +1382,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "colored 2.2.0",
- "csm-core",
+ "csm-core-lib",
  "csm-embedding",
  "csm-memory",
  "csm-persistence",
@@ -1397,7 +1397,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "csm-core"
+name = "csm-core-lib"
 version = "0.3.7"
 dependencies = [
  "base64 0.22.1",
@@ -1439,7 +1439,7 @@ name = "csm-embedding"
 version = "0.3.7"
 dependencies = [
  "async-trait",
- "csm-core",
+ "csm-core-lib",
  "fastembed",
  "rand 0.10.2",
  "reqwest",
@@ -1455,7 +1455,7 @@ name = "csm-memory"
 version = "0.3.7"
 dependencies = [
  "bincode",
- "csm-core",
+ "csm-core-lib",
  "hnsw_rs",
  "js-sys",
  "rand 0.10.2",
@@ -1474,7 +1474,7 @@ dependencies = [
 name = "csm-persistence"
 version = "0.3.7"
 dependencies = [
- "csm-core",
+ "csm-core-lib",
  "csm-memory",
  "libsql",
  "serde",
@@ -1491,7 +1491,7 @@ name = "csm-retrieval"
 version = "0.3.7"
 dependencies = [
  "async-trait",
- "csm-core",
+ "csm-core-lib",
  "csm-memory",
  "serde",
  "serde_json",
@@ -1505,7 +1505,7 @@ dependencies = [
 name = "csm-traits"
 version = "0.3.7"
 dependencies = [
- "csm-core",
+ "csm-core-lib",
  "js-sys",
  "serde",
  "serde_json",
@@ -1517,7 +1517,7 @@ version = "0.3.7"
 dependencies = [
  "chaotic_semantic_memory",
  "console_error_panic_hook",
- "csm-core",
+ "csm-core-lib",
  "csm-memory",
  "csm-retrieval",
  "csm-traits",

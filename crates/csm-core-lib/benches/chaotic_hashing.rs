@@ -1,9 +1,9 @@
 #[cfg(feature = "chaotic-hashing")]
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 #[cfg(feature = "chaotic-hashing")]
-use csm_core::hashing::chaotic_lsh::ChaoticLsh;
+use csm_core_lib::hashing::chaotic_lsh::ChaoticLsh;
 #[cfg(feature = "chaotic-hashing")]
-use csm_core::maps::hyperchaotic::Slhm2d;
+use csm_core_lib::maps::hyperchaotic::Slhm2d;
 
 #[cfg(feature = "chaotic-hashing")]
 fn bench_slhm2d_next_reexport(c: &mut Criterion) {

@@ -109,16 +109,16 @@ grep -q "^\[${VERSION}\]:" CHANGELOG.md
 Before first publish, verify workspace crate names are available on crates.io:
 
 ```bash
-for crate in csm-chaos csm-core csm-traits csm-embedding csm-memory csm-retrieval csm-persistence; do
+for crate in csm-chaos csm-core-lib csm-traits csm-embedding csm-memory csm-retrieval csm-persistence; do
   echo -n "$crate: "
   cargo search "$crate" 2>/dev/null | head -1
 done
 ```
 
-If a name is taken by an unrelated project (e.g., `csm-core` is "Candle-based inference for Sesame CSM-1B"), rename the crate before publishing. Use prefixes like `chaotic-semantic-memory-*` or suffixes like `csm-core-lib` to avoid conflicts.
+If a name is taken by an unrelated project (e.g., `csm-core-lib` is "Candle-based inference for Sesame CSM-1B"), rename the crate before publishing. Use prefixes like `chaotic-semantic-memory-*` or suffixes like `csm-core-lib-lib` to avoid conflicts.
 
 **Known conflicts (as of 2026-07-22):**
-- `csm-core`: Taken by Sesame CSM-1B TTS project
+- `csm-core-lib`: Taken by Sesame CSM-1B TTS project
 - `csm-chaos`: Available (published at 0.3.7)
 - `csm-traits`, `csm-embedding`, `csm-memory`, `csm-retrieval`, `csm-persistence`, `csm-wasm`: Not yet published, availability unknown
 

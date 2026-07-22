@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use crate::singularity::{Concept, Singularity, unix_now_secs};
-use csm_core::hyperdim::HVec10240;
+use csm_core_lib::hyperdim::HVec10240;
 
 impl Default for Concept {
     fn default() -> Self {

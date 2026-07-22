@@ -11,9 +11,9 @@ use crate::semantic_bridge::{
     BridgeConfig, BridgeHit, ConceptGraph, MemoryPacket, ScoreBreakdown, SemanticReranker,
 };
 use crate::singularity::Singularity;
-use csm_core::encoder::TextEncoder;
-use csm_core::error::Result;
-use csm_core::hyperdim::HVec10240;
+use csm_core_lib::encoder::TextEncoder;
+use csm_core_lib::error::Result;
+use csm_core_lib::hyperdim::HVec10240;
 
 /// Bridge retrieval orchestrator combining concept expansion with HDC recall.
 #[derive(Debug, Clone)]
@@ -461,7 +461,7 @@ mod tests_v2 {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     use crate::singularity::{ConceptBuilder, Singularity, SingularityConfig};
-    use csm_core::hyperdim::HVec10240;
+    use csm_core_lib::hyperdim::HVec10240;
 
     #[test]
     fn test_bridge_retrieval_query_v2() {

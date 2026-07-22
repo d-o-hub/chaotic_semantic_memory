@@ -13,7 +13,7 @@ use crate::singularity_retrieval::{
     CandidateSource, FilterStrategy, RetrievalStats, ScoredCandidateParams,
 };
 use crate::singularity_state::NamespaceState;
-use csm_core::hyperdim::HVec10240;
+use csm_core_lib::hyperdim::HVec10240;
 
 // ── Helper functions for find_similar_cached ──────────────────────────
 // Extracted to reduce cyclomatic complexity (Deepsource).

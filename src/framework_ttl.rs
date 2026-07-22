@@ -7,8 +7,8 @@ use crate::framework_ttl_advanced::TtlPolicy;
 use crate::metadata_filter::MetadataFilter;
 use crate::retrieval::hybrid::{HybridResult, RetrievalAbstention};
 use crate::singularity::ConceptBuilder;
-use csm_core::error::Result;
-use csm_core::hyperdim::HVec10240;
+use csm_core_lib::error::Result;
+use csm_core_lib::hyperdim::HVec10240;
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
 use std::collections::HashMap;

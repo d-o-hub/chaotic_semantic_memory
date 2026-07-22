@@ -17,8 +17,8 @@ use std::sync::Arc;
 use rayon::prelude::*;
 
 use crate::singularity::{Singularity, unix_now_ns};
-use csm_core::error::Result;
-use csm_core::hyperdim::HVec10240;
+use csm_core_lib::error::Result;
+use csm_core_lib::hyperdim::HVec10240;
 
 /// Statistics from the last retrieval operation.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -84,7 +84,7 @@ const MAX_BUCKET_PROBE_WIDTH: usize = 16;
 impl RetrievalConfig {
     pub fn validate(&self) -> Result<()> {
         if self.bucket_probe_width > MAX_BUCKET_PROBE_WIDTH {
-            return Err(csm_core::error::MemoryError::InvalidInput {
+            return Err(csm_core_lib::error::MemoryError::InvalidInput {
                 field: "bucket_probe_width".to_string(),
                 reason: format!("bucket_probe_width exceeds {MAX_BUCKET_PROBE_WIDTH}"),
             });
@@ -414,7 +414,7 @@ impl Singularity {
 #[cfg(test)]
 mod tests_v2 {
     use crate::singularity::{Singularity, SingularityConfig};
-    use csm_core::hyperdim::HVec10240;
+    use csm_core_lib::hyperdim::HVec10240;
 
     #[test]
     fn singularity_last_stats_v2() {

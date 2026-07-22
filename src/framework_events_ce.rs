@@ -2,9 +2,9 @@
 
 use async_trait::async_trait;
 #[cfg(all(feature = "events-http", not(target_arch = "wasm32")))]
-use csm_core::error::MemoryError;
+use csm_core_lib::error::MemoryError;
 #[cfg(any(feature = "cloudevents", feature = "events-http"))]
-use csm_core::error::Result;
+use csm_core_lib::error::Result;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 

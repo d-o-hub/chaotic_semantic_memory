@@ -83,10 +83,10 @@ impl MetadataFilter {
     }
 
     /// Validate filter parameters.
-    pub fn validate(&self) -> csm_core::error::Result<()> {
+    pub fn validate(&self) -> csm_core_lib::error::Result<()> {
         let depth = self.depth();
         if depth > MAX_FILTER_DEPTH {
-            return Err(csm_core::error::MemoryError::InvalidInput {
+            return Err(csm_core_lib::error::MemoryError::InvalidInput {
                 field: "filter".to_string(),
                 reason: format!(
                     "metadata filter depth exceeds maximum allowed {MAX_FILTER_DEPTH} (got {depth})"

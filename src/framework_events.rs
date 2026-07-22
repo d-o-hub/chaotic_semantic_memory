@@ -9,9 +9,9 @@ use tokio::sync::broadcast;
 use crate::framework::ChaoticSemanticFramework;
 use crate::framework_events_ce::ChaoticEvent;
 #[cfg(target_arch = "wasm32")]
-use csm_core::error::Result;
+use csm_core_lib::error::Result;
 #[cfg(target_arch = "wasm32")]
-use csm_core::hyperdim::HVec10240;
+use csm_core_lib::hyperdim::HVec10240;
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
 #[cfg(target_arch = "wasm32")]

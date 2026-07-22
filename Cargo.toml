@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/csm-core",
+    "crates/csm-core-lib",
     "crates/csm-embedding",
     "crates/csm-memory",
     "crates/csm-retrieval",
@@ -125,7 +125,7 @@ include = [
 
 [dependencies]
 csm-chaos = { path = "crates/csm-chaos", version = "0.3.7" }
-csm-core = { path = "crates/csm-core", version = "0.3.7" }
+csm-core-lib = { path = "crates/csm-core-lib", version = "0.3.7" }
 csm-embedding = { path = "crates/csm-embedding", version = "0.3.7" }
 csm-memory = { path = "crates/csm-memory", version = "0.3.7" }
 csm-retrieval = { path = "crates/csm-retrieval", version = "0.3.7" }

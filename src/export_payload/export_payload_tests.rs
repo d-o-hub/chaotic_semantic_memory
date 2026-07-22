@@ -5,7 +5,7 @@ mod tests {
         BinaryConcept, BinaryExportPayload, BinaryMetadataValue, ExportPayload, unix_now_secs,
     };
     use crate::singularity::Concept;
-    use csm_core::hyperdim::HVec10240;
+    use csm_core_lib::hyperdim::HVec10240;
     use serde_json::json;
     use std::collections::HashMap;
 
