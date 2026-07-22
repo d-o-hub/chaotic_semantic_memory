@@ -303,13 +303,13 @@ impl Bm25Index {
                 }
                 doc_scores[..num_docs].fill(0.0);
 
-                // Optimization: Acquire read lock once. Only invoke write-locking `ensure_norm_cache` if cache is dirty or size mismatched, avoiding double lock acquisition.
+                // Optimization: Acquire read lock once. Only invoke write-locking `ensure_norm_cache` if cache is dirty, avoiding double lock acquisition.
                 let mut cache_guard = self
                     .norm_cache
                     .read()
                     .expect("Bm25Index norm_cache lock poisoned");
 
-                if self.norm_cache_dirty.load(AtomicOrdering::Acquire) || cache_guard.factors.len() != num_docs {
+                if self.norm_cache_dirty.load(AtomicOrdering::Acquire) {
                     drop(cache_guard);
                     self.ensure_norm_cache();
                     cache_guard = self
