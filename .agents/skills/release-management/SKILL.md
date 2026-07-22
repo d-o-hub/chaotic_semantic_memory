@@ -104,6 +104,37 @@ grep -q "^\[${VERSION}\]:" CHANGELOG.md
 | GitHub Release | `softprops/action-gh-release` | Same |
 | GitHub Pages | mdBook deploy | Docs path on main / release jobs |
 
+## crates.io name verification (FIRST PUBLISH)
+
+Before first publish, verify workspace crate names are available on crates.io:
+
+```bash
+for crate in csm-chaos csm-core csm-traits csm-embedding csm-memory csm-retrieval csm-persistence; do
+  echo -n "$crate: "
+  cargo search "$crate" 2>/dev/null | head -1
+done
+```
+
+If a name is taken by an unrelated project (e.g., `csm-core` is "Candle-based inference for Sesame CSM-1B"), rename the crate before publishing. Use prefixes like `chaotic-semantic-memory-*` or suffixes like `csm-core-lib` to avoid conflicts.
+
+**Known conflicts (as of 2026-07-22):**
+- `csm-core`: Taken by Sesame CSM-1B TTS project
+- `csm-chaos`: Available (published at 0.3.7)
+- `csm-traits`, `csm-embedding`, `csm-memory`, `csm-retrieval`, `csm-persistence`, `csm-wasm`: Not yet published, availability unknown
+
+## GitHub environment configuration
+
+The `crates.io` environment may have protection rules that block automatic publishing:
+
+- **Wait timer**: Default 15 minutes. Remove in GitHub Settings → Environments → crates.io if not needed.
+- **Required reviewers**: Must be configured if manual approval is needed.
+- **Deployment branches**: Restrict to `main` only.
+
+Check pending deployments before re-running failed releases:
+```bash
+gh api repos/{owner}/{repo}/actions/runs/{run_id}/pending_deployments
+```
+
 ## Tag ownership (single owner)
 
 | Who | Action |
