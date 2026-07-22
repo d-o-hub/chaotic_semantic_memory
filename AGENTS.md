@@ -365,6 +365,24 @@ Refer to the `dist-channel-selection` skill for canonical commands.
    grep -q "^## \[${VERSION}\]" CHANGELOG.md
    ```
 
+5. **Verify crates.io name availability** (FIRST PUBLISH ONLY):
+   ```bash
+   # Check if workspace crate names are already taken by unrelated projects
+   for crate in csm-chaos csm-core csm-traits csm-embedding csm-memory csm-retrieval csm-persistence; do
+     echo -n "$crate: "
+     cargo search "$crate" 2>/dev/null | head -1
+   done
+   # If names are taken, rename crates before first publish (e.g., csm-core → csm-core-lib)
+   ```
+
+6. **Check crates.io environment wait timer**:
+   ```bash
+   # The crates.io environment may have a wait timer (default 15min)
+   # Check pending deployments before re-running failed releases
+   gh api repos/{owner}/{repo}/actions/runs/{run_id}/pending_deployments
+   # If wait_timer > 0, either wait or remove timer in GitHub Settings → Environments → crates.io
+   ```
+
 ### Version Bump Workflow
 
 1. Update `Cargo.toml` version
@@ -386,6 +404,16 @@ Refer to the `dist-channel-selection` skill for canonical commands.
 - `.github/workflows/release.yml` — Has `wait-for-ci` guardrail job
 - `.agents/skills/release-management/` — Full release skill
 - `scripts/validate.sh` — Pre-commit validation gates
+
+### Common Deployment Failures
+
+1. **crates.io name conflicts**: Workspace crate names (`csm-core`, `csm-traits`, etc.) may be taken by unrelated projects. Check `cargo search` before first publish. Rename crates if needed (e.g., `csm-core` → `csm-core-lib`).
+
+2. **Environment wait timer**: The `crates.io` GitHub environment may have a wait timer (typically 15 minutes). This blocks `publish-crates` job until the timer expires. Remove the timer in GitHub Settings → Environments → crates.io if not needed.
+
+3. **Token ownership**: The `CARGO_REGISTRY_TOKEN` must belong to a user who owns all crates on crates.io. If a crate name is taken by another project, the token won't have permission to publish. Use `cargo owner --list <crate>` to verify ownership.
+
+4. **Recovery dispatch**: Use `gh workflow run release.yml -f recover=true` to retry failed releases for existing tags. The workflow is idempotent — it skips already-published artifacts.
 
 ---
 ## Key Files
