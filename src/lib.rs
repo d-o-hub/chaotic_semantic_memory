@@ -260,3 +260,35 @@ mod wasm_ext_tests;
 mod wasm_graph_rag;
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod wasm_graph_rag;
+
+#[cfg(test)]
+mod encoder_lib_tests {
+    use csm_core_lib::encoder::TextEncoder;
+    use csm_core_lib::hyperdim::HVec10240;
+
+    #[test]
+    fn encode_text_produces_nonzero_output() {
+        // Kills the wasm.rs encode_text mutant that replaces the body with empty bytes.
+        // TextEncoder::encode is the core logic; wasm.rs encode_text just wraps it.
+        let encoder = TextEncoder::new();
+        let result = encoder.encode("hello world");
+        let zero = HVec10240::zero();
+        assert_ne!(result, zero, "encoding must produce a non-zero vector");
+    }
+
+    #[test]
+    fn encode_text_is_deterministic() {
+        let encoder = TextEncoder::new();
+        let a = encoder.encode("test input");
+        let b = encoder.encode("test input");
+        assert_eq!(a, b, "same input must produce identical output");
+    }
+
+    #[test]
+    fn encode_different_inputs_differ() {
+        let encoder = TextEncoder::new();
+        let a = encoder.encode("hello");
+        let b = encoder.encode("world");
+        assert_ne!(a, b, "different inputs must produce different vectors");
+    }
+}

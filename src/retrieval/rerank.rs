@@ -392,6 +392,22 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "rerank-cross")]
+    fn test_parse_rerankers_cross_unrecognized_path_errors() {
+        // The "cross" arm should be reachable; a non-existent path must error
+        // (not fall through to "unknown reranker")
+        let err = parse_rerankers("cross:/tmp/nonexistent_model.onnx").unwrap_err();
+        if let csm_core_lib::error::MemoryError::InvalidInput { reason, .. } = err {
+            assert!(
+                reason.contains("failed to load ONNX model"),
+                "expected ONNX load error, got: {reason}"
+            );
+        } else {
+            panic!("Expected InvalidInput, got: {err:?}");
+        }
+    }
+
+    #[test]
     fn test_parse_rerankers_invalid_blend() {
         let err = parse_rerankers("recency:30d:not-a-number").unwrap_err();
         assert!(format!("{err}").contains("invalid recency blend"));
