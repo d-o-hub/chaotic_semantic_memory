@@ -303,13 +303,22 @@ impl Bm25Index {
                 }
                 doc_scores[..num_docs].fill(0.0);
 
-                self.ensure_norm_cache();
-                {
-                    let cache = self
+                // Optimization: Acquire read lock once. Only invoke write-locking `ensure_norm_cache` if cache is dirty or size mismatched, avoiding double lock acquisition.
+                let mut cache_guard = self
+                    .norm_cache
+                    .read()
+                    .expect("Bm25Index norm_cache lock poisoned");
+
+                if self.norm_cache_dirty.load(AtomicOrdering::Acquire) || cache_guard.factors.len() != num_docs {
+                    drop(cache_guard);
+                    self.ensure_norm_cache();
+                    cache_guard = self
                         .norm_cache
                         .read()
                         .expect("Bm25Index norm_cache lock poisoned");
-                    let factors = cache.factors.as_slice();
+                }
+                {
+                    let factors = cache_guard.factors.as_slice();
                     debug_assert_eq!(factors.len(), num_docs);
 
                     for (weighted_idf, entries) in query_weights {
