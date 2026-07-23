@@ -15,11 +15,9 @@ pub async fn run_metrics(db_path: Option<&Path>, format: OutputFormat, reset: bo
     let framework: crate::framework::ChaoticSemanticFramework = create_framework(db_path).await?;
 
     if reset {
-        // Note: Metrics reset is not currently supported at the framework level.
-        // This is a placeholder for future implementation.
-        return Err(CliError::Validation(
-            "metrics reset is not yet implemented".to_string(),
-        ));
+        framework.reset_metrics().await;
+        println!("Metrics reset to zero.");
+        return Ok(());
     }
 
     let snapshot = framework.metrics_snapshot().await;
