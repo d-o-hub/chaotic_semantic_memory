@@ -20,6 +20,7 @@ module.exports = {
         'bridge',
         'duckdb',
         'chaos',
+        'goap',
         'memory',
         'core',
         'traits',
