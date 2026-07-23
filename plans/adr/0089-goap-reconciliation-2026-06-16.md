@@ -26,7 +26,7 @@ of state drift in the GOAP planning files:
      wired `otlp_endpoint` into `ObservabilityConfig::init()`, and gated the
      feature behind `cfg(not(target_arch = "wasm32"))`.
    - **`deferred_performance_phase2`** — all three sub-components shipped:
-     SIMD (`crates/csm-core/src/hyperdim_simd.rs`, `bundle_simd.rs`,
+     SIMD (`crates/csm-core-lib/src/hyperdim_simd.rs`, `bundle_simd.rs`,
      `hyperdim_simd_bundle.rs`), LSH index (`crates/csm-memory/src/index/lsh.rs`),
      and Product Quantization via PR #389 (ADR-0075, merged 2026-06-14).
    - **`deferred_namespace_isolation`** — `src/framework_namespaces.rs`
