@@ -174,7 +174,34 @@ Wave 30 (Phase 2): 5 items, cost 14 — delegated to Jules
   └── dist-workspace.toml (cost 2)
 ```
 
-## References
+## Implementation Status (2026-07-23)
+
+### Phase 1 (Wave 29) — Complete
+
+| Item | Status | Notes |
+|------|--------|-------|
+| HARNESS.md | ✅ Done | 2026-07-16 |
+| deny.toml + CI | ✅ Done | 2026-07-16 |
+| rust-toolchain.toml | ✅ Done | MSRV 1.85 (not 1.88) |
+| scripts/quality-gates.sh | ✅ Done | 2026-07-16 |
+| scripts/harness-check.sh | ✅ Done | 2026-07-16 |
+| .gitleaks.toml | ✅ Done | 2026-07-16 |
+| tests/arch_fitness.rs | ✅ Done | 2026-07-16 |
+| .agents/context/ | ✅ Done | 2026-07-16 |
+
+### Phase 2 (Wave 30) — Partial
+
+| Item | Status | Notes |
+|------|--------|-------|
+| .pre-commit-config.yaml | ✅ Done | 2026-07-18 |
+| commitlint.config.cjs | ✅ Done | 2026-07-18 |
+| dist-workspace.toml | ✅ Done | 2026-07-13 |
+| cargo-nextest CI | ❌ Deferred | Using cargo test; nextest adds complexity |
+| .codecov.yml | ❌ Deferred | No coverage tracking service configured |
+
+### Decision
+
+Phase 2 items `.pre-commit-config.yaml`, `commitlint.config.cjs`, and `dist-workspace.toml` are complete. `cargo-nextest` and `.codecov.yml` are deferred — cargo test is sufficient for current needs, and coverage tracking adds CI complexity without clear benefit at this stage.
 
 - [rust-2026-template](https://github.com/d-oit/rust-2026-template) — Source template
 - [HARNESS.md in template](https://github.com/d-oit/rust-2026-template/blob/main/HARNESS.md) — Harness engineering spec
