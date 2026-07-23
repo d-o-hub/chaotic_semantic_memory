@@ -123,16 +123,16 @@ cargo install chaotic_semantic_memory --bin csm
 ## Core Components
 
 - `hyperdim`: binary hypervector math (`HVec10240`) and similarity operations
-- `reservoir`: sparse chaotic reservoir dynamics with spectral radius controls
-- `singularity`: concept graph, associations, retrieval, and memory limits
-- `framework`: high-level async orchestration API
-- `persistence`: libSQL-backed storage (native only)
+- `reservoir`: sparse chaotic Echo State Network mapping sequences to fixed-size hypervectors
+- `singularity`: graph-based concept storage, zero-allocation caching, and semantic search
+- `framework`: high-level async orchestration API, batching, and state management
+- `persistence`: durable storage via libSQL and connection pooling (native only)
 - `wasm`: JS-facing bindings for browser/runtime integration (wasm32 target only)
 - `encoder`: text and binary encoding utilities
 - `graph_traversal`: graph walk and reachability utilities
 - `metadata_filter`: metadata query and filtering
 - `bundle`: snapshot and bundle helpers
-- `cli`: Command-line interface (`csm` binary)
+- `cli`: `csm` command-line utility for database management and querying
 - `semantic_bridge`: Semantic Bridge Layer for concept expansion (ADR-0061)
 - `bridge_retrieval`: Bridge retrieval pipeline for zero-drift semantic search
 - `retrieval`: Hybrid BM25/HDC retrieval module (ADR-0062)

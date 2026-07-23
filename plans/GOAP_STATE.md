@@ -522,7 +522,7 @@ world_state:
     cli/commands/completions.rs: 45
 
   # --- workspace member: crates/csm-core (HDC + reservoir kernels) ---
-  modules_csm_core_lib:
+  modules_csm_core:
     hyperdim.rs: 494
     hyperdim_simd.rs: 276
     hyperdim_simd_bundle.rs: 202
@@ -1459,7 +1459,7 @@ world_state:
     cargo_fmt: clean
     cargo_test_lib: "171 passed"
     cargo_test_csm_retrieval: "51 passed"
-    cargo_test_csm_core_lib: "66 passed"
+    cargo_test_csm_core: "66 passed"
 
   # ═══════════════════════════════════════════════════════
   # Harness Engineering & Template Alignment (2026-06-23)
@@ -1621,7 +1621,7 @@ world_state:
   goap_2026_07_11_version: "0.3.7"
   goap_2026_07_11_test_functions: 1029     # was 696
   goap_2026_07_11_findings:
-    loc_violations: 3                       # csm-memory/singularity (629), csm-core-lib/hyperdim (563), csm-memory/graph_traversal (517)
+    loc_violations: 3                       # csm-memory/singularity (629), csm-core/hyperdim (563), csm-memory/graph_traversal (517)
     ci_commitlint_failing: true             # scope violations: cli-npm not in enum, b649c7c no conventional format
     deny_toml_advisories_failing: false    # Fixed in PR #511: documented ignores added
     stale_pr_tracking: 2                    # PRs #444, #94 now merged (were tracked as open)

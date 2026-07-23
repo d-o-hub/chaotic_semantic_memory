@@ -44,7 +44,7 @@ Concept storage and semantic search:
 
 - HashMap-based concept storage
 - Association graph (weighted edges)
-- Zero-copy query cache for similarity queries
+- Zero-allocation query cache using `RwLock<QueryCache>` on `NamespaceState` and returning `Arc<[(String, f32)]>` for similarity queries
 - Rayon-parallel similarity search
 
 ### Framework (`framework.rs`)

@@ -6,7 +6,7 @@ Accepted (2026-07-16)
 
 ## Context and Problem Statement
 
-The repository extracted reusable crates (`csm-core-lib`, `csm-memory`, `csm-retrieval`, `csm-persistence`, `csm-cli`, `csm-wasm`, and others), but the root crate still contains duplicate implementations. The duplication is not uniformly generated or delegated:
+The repository extracted reusable crates (`csm-core`, `csm-memory`, `csm-retrieval`, `csm-persistence`, `csm-cli`, `csm-wasm`, and others), but the root crate still contains duplicate implementations. The duplication is not uniformly generated or delegated:
 
 - all root retrieval implementation files differ from `csm-retrieval` counterparts;
 - most root/standalone CLI files are byte-identical copies, while some differ;
@@ -40,7 +40,7 @@ Chosen option: **workspace crates own implementations; the root crate is a compa
 
 ### Ownership rules
 
-- `csm-core-lib`: hypervectors, encoders, reservoirs, low-level kernels.
+- `csm-core`: hypervectors, encoders, reservoirs, low-level kernels.
 - `csm-memory`: concepts, graph, metadata filters, ANN indexes, retrieval state.
 - `csm-retrieval`: BM25, hybrid scoring, GraphRAG, reranking algorithms and shared result contracts.
 - `csm-persistence`: durable schema and CRUD over owner-neutral trait types.

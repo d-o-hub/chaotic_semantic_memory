@@ -87,7 +87,7 @@ declare class WasmFramework {
 
 ## Limitations
 
-- **No persistence** - `libSQL` persistence is bypassed/unavailable on `wasm32-unknown-unknown` and threading guards dictate compilation.
+- **No persistence** - `libSQL` persistence is bypassed/unavailable on `wasm32-unknown-unknown` and threading guards (`#[cfg(not(target_arch = "wasm32"))]`) dictate compilation.
 - **No threading** - Rayon parallelization is gated
 - **Memory only** - All data is in-memory for browser context
 
