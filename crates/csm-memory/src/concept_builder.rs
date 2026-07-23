@@ -4,8 +4,8 @@ use serde::Serialize;
 use std::collections::HashMap;
 
 use crate::singularity::Concept;
-use csm_core::error::{MemoryError, Result};
-use csm_core::hyperdim::HVec10240;
+use csm_core_lib::error::{MemoryError, Result};
+use csm_core_lib::hyperdim::HVec10240;
 
 /// Builder for constructing [`Concept`] instances with a fluent API.
 ///
@@ -13,7 +13,7 @@ use csm_core::hyperdim::HVec10240;
 ///
 /// ```
 /// use csm_memory::ConceptBuilder;
-/// use csm_core::hyperdim::HVec10240;
+/// use csm_core_lib::hyperdim::HVec10240;
 ///
 /// let concept = ConceptBuilder::new("example")
 ///     .with_vector(HVec10240::random())

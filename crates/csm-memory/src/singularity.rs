@@ -7,13 +7,13 @@ use crate::index::{AnnIndex, IndexBackend, IndexStats};
 use crate::singularity_cache::{CacheMetrics, CacheMetricsSnapshot};
 use crate::singularity_retrieval::RetrievalConfig;
 use crate::singularity_state::NamespaceState;
-use csm_core::error::{MemoryError, Result};
-use csm_core::hyperdim::Hypervector;
+use csm_core_lib::error::{MemoryError, Result};
+use csm_core_lib::hyperdim::Hypervector;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::instrument;
 
-pub struct Singularity<H: Hypervector = csm_core::hyperdim::HVec10240> {
+pub struct Singularity<H: Hypervector = csm_core_lib::hyperdim::HVec10240> {
     pub config: SingularityConfig,
     pub namespaces: HashMap<String, NamespaceState<H>>,
     pub(crate) _retrieval_config: RetrievalConfig,
@@ -22,7 +22,7 @@ pub struct Singularity<H: Hypervector = csm_core::hyperdim::HVec10240> {
 
 /// Type alias for binary (quantized) hypervector-backed singularity engine.
 #[allow(dead_code)]
-pub type BinarySingularity = Singularity<csm_core::BHVec10240>;
+pub type BinarySingularity = Singularity<csm_core_lib::BHVec10240>;
 
 impl<H: Hypervector + 'static> Singularity<H> {
     pub fn new(config: SingularityConfig) -> Self {

@@ -7,7 +7,7 @@ mod tests {
     use crate::framework_events::MemoryEvent;
     use crate::graph_traversal::TraversalConfig;
     use crate::metadata_filter::MetadataFilter;
-    use csm_core::hyperdim::HVec10240;
+    use csm_core_lib::hyperdim::HVec10240;
     use serde_json::json;
     use std::collections::HashMap;
 
@@ -270,7 +270,7 @@ mod tests {
     }
 
     fn native_enc(t: &str) -> Box<[u8]> {
-        csm_core::encoder::TextEncoder::new()
+        csm_core_lib::encoder::TextEncoder::new()
             .encode(t)
             .to_bytes()
             .into_boxed_slice()
@@ -314,7 +314,7 @@ mod tests {
 
     #[test]
     fn encode_text_matches_encoder_directly() {
-        use csm_core::encoder::TextEncoder;
+        use csm_core_lib::encoder::TextEncoder;
         let encoder = TextEncoder::new();
         let direct = encoder.encode("mutation-test-input").to_bytes();
         let wrapped = native_enc("mutation-test-input");

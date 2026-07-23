@@ -3,7 +3,7 @@
 //! Requires `embed-openai` feature. Uses text-embedding-3-small by default.
 
 use crate::EmbeddingProvider;
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 use serde::Deserialize;
 
 /// OpenAI embedding provider via HTTP API.

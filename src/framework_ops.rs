@@ -3,8 +3,8 @@ use crate::export_payload::unix_now_secs;
 use crate::framework::ChaoticSemanticFramework;
 use crate::framework_events::MemoryEvent;
 use crate::singularity::ConceptBuilder;
-use csm_core::error::Result;
-use csm_core::hyperdim::HVec10240;
+use csm_core_lib::error::Result;
+use csm_core_lib::hyperdim::HVec10240;
 use std::sync::Arc;
 use tracing::instrument;
 

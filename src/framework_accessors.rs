@@ -5,7 +5,7 @@ use crate::framework_builder::FrameworkStats;
 use crate::framework_metrics::FrameworkMetricsSnapshot;
 use crate::graph_traversal::TraversalConfig;
 use crate::singularity::Concept;
-use csm_core::error::Result;
+use csm_core_lib::error::Result;
 use tracing::instrument;
 
 impl ChaoticSemanticFramework {

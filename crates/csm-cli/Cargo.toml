@@ -9,7 +9,7 @@ repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
 
 [dependencies]
 chaotic_semantic_memory = { path = "../..", version = "0.3.7", default-features = false }
-csm-core = { path = "../csm-core", version = "0.3.7" }
+csm-core-lib = { path = "../csm-core-lib", version = "0.3.7" }
 csm-memory = { path = "../csm-memory", version = "0.3.7" }
 csm-embedding = { path = "../csm-embedding", version = "0.3.7" }
 csm-retrieval = { path = "../csm-retrieval", version = "0.3.7" }

@@ -1,5 +1,5 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
-use csm_core::hyperdim::HVec10240;
+use csm_core_lib::hyperdim::HVec10240;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -178,7 +178,7 @@ impl Reranker for CrossEncoderReranker {
 }
 
 /// Parses a list of rerankers from a string flag (e.g., "mmr:0.7,recency:30d").
-pub fn parse_rerankers(s: &str) -> csm_core::error::Result<Vec<Box<dyn Reranker>>> {
+pub fn parse_rerankers(s: &str) -> csm_core_lib::error::Result<Vec<Box<dyn Reranker>>> {
     let mut rerankers: Vec<Box<dyn Reranker>> = Vec::new();
     for part in s.split(',') {
         if part.is_empty() {
@@ -189,14 +189,14 @@ pub fn parse_rerankers(s: &str) -> csm_core::error::Result<Vec<Box<dyn Reranker>
         match name {
             "mmr" => {
                 let lambda = value.parse::<f32>().map_err(|_| {
-                    csm_core::error::MemoryError::InvalidInput {
+                    csm_core_lib::error::MemoryError::InvalidInput {
                         field: "rerank".to_string(),
                         reason: format!("invalid MMR lambda: {value}"),
                     }
                 })?;
 
                 if !(0.0..=1.0).contains(&lambda) {
-                    return Err(csm_core::error::MemoryError::InvalidInput {
+                    return Err(csm_core_lib::error::MemoryError::InvalidInput {
                         field: "rerank".to_string(),
                         reason: format!("MMR lambda must be between 0.0 and 1.0: {lambda}"),
                     });
@@ -213,14 +213,14 @@ pub fn parse_rerankers(s: &str) -> csm_core::error::Result<Vec<Box<dyn Reranker>
                     half_life_str
                 };
                 let half_life = val_str.parse::<f32>().map_err(|_| {
-                    csm_core::error::MemoryError::InvalidInput {
+                    csm_core_lib::error::MemoryError::InvalidInput {
                         field: "rerank".to_string(),
                         reason: format!("invalid recency half-life: {half_life_str}"),
                     }
                 })?;
 
                 if half_life <= 0.0 {
-                    return Err(csm_core::error::MemoryError::InvalidInput {
+                    return Err(csm_core_lib::error::MemoryError::InvalidInput {
                         field: "rerank".to_string(),
                         reason: format!("recency half-life must be positive: {half_life}"),
                     });
@@ -228,13 +228,13 @@ pub fn parse_rerankers(s: &str) -> csm_core::error::Result<Vec<Box<dyn Reranker>
 
                 let blend = if let Some(blend_str) = recency_split.next() {
                     let b = blend_str.parse::<f32>().map_err(|_| {
-                        csm_core::error::MemoryError::InvalidInput {
+                        csm_core_lib::error::MemoryError::InvalidInput {
                             field: "rerank".to_string(),
                             reason: format!("invalid recency blend: {blend_str}"),
                         }
                     })?;
                     if !(0.0..=1.0).contains(&b) {
-                        return Err(csm_core::error::MemoryError::InvalidInput {
+                        return Err(csm_core_lib::error::MemoryError::InvalidInput {
                             field: "rerank".to_string(),
                             reason: format!("recency blend must be between 0.0 and 1.0: {b}"),
                         });
@@ -245,7 +245,7 @@ pub fn parse_rerankers(s: &str) -> csm_core::error::Result<Vec<Box<dyn Reranker>
                 };
 
                 if recency_split.next().is_some() {
-                    return Err(csm_core::error::MemoryError::InvalidInput {
+                    return Err(csm_core_lib::error::MemoryError::InvalidInput {
                         field: "rerank".to_string(),
                         reason: format!("extra segments in recency reranker: {value}"),
                     });
@@ -259,7 +259,7 @@ pub fn parse_rerankers(s: &str) -> csm_core::error::Result<Vec<Box<dyn Reranker>
             #[cfg(feature = "rerank-cross")]
             "cross" => {
                 let model = candle_onnx::read_file(value).map_err(|e| {
-                    csm_core::error::MemoryError::InvalidInput {
+                    csm_core_lib::error::MemoryError::InvalidInput {
                         field: "rerank".to_string(),
                         reason: format!("failed to load ONNX model {}: {}", value, e),
                     }
@@ -270,7 +270,7 @@ pub fn parse_rerankers(s: &str) -> csm_core::error::Result<Vec<Box<dyn Reranker>
                 }));
             }
             _ => {
-                return Err(csm_core::error::MemoryError::InvalidInput {
+                return Err(csm_core_lib::error::MemoryError::InvalidInput {
                     field: "rerank".to_string(),
                     reason: format!("unknown reranker: {name}"),
                 });
@@ -384,7 +384,7 @@ mod tests {
     #[cfg(feature = "rerank-cross")]
     fn test_parse_rerankers_windows_path() {
         let err = parse_rerankers(r"cross:C:\nonexistent\model.onnx").unwrap_err();
-        if let csm_core::error::MemoryError::InvalidInput { reason, .. } = err {
+        if let csm_core_lib::error::MemoryError::InvalidInput { reason, .. } = err {
             assert!(reason.contains(r"C:\nonexistent\model.onnx"));
         } else {
             panic!("Expected InvalidInput error with the full path");

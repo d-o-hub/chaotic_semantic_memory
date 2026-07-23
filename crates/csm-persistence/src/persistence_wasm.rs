@@ -3,7 +3,7 @@
 //! Persistence is unavailable on `wasm32` in this crate build.
 //! All operations return `MemoryError::UnsupportedOperation`.
 
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 use csm_memory::Concept;
 
 /// Persistence stub for wasm32 builds.
@@ -165,7 +165,7 @@ fn wasm_persistence_unavailable() -> MemoryError {
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
-    use csm_core::hyperdim::HVec10240;
+    use csm_core_lib::hyperdim::HVec10240;
 
     #[tokio::test]
     async fn new_local_returns_unsupported() {

@@ -3,7 +3,7 @@
 //! Requires `embed-voyage` feature. Uses voyage-2 by default.
 
 use crate::EmbeddingProvider;
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 use serde::Deserialize;
 
 /// Voyage embedding provider via HTTP API.

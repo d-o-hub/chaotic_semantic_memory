@@ -26,7 +26,7 @@
 
 #![cfg(all(feature = "otlp", not(target_arch = "wasm32")))]
 
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 use opentelemetry::KeyValue;
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::SpanExporter;

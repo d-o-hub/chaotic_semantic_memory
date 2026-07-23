@@ -1,5 +1,5 @@
 use crate::persistence::Persistence;
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 use libsql::params;
 use tracing::info;
 

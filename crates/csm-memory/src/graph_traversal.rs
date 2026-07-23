@@ -14,7 +14,7 @@ use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 
 use crate::singularity::Singularity;
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 
 /// Maximum traversal depth to prevent excessive resource usage.
 const MAX_TRAVERSAL_DEPTH: usize = 32;

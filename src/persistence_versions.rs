@@ -1,6 +1,6 @@
 use crate::persistence::Persistence;
 use crate::singularity::{Concept, ConceptVersion};
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 use libsql::{Connection, params};
 
 impl Persistence {
@@ -128,7 +128,7 @@ impl Persistence {
             let canonical_concept_ids_json: Option<String> =
                 row.get::<Option<String>>(5).ok().flatten();
 
-            let vector = csm_core::hyperdim::HVec10240::from_bytes(&vector_bytes)?;
+            let vector = csm_core_lib::hyperdim::HVec10240::from_bytes(&vector_bytes)?;
             let metadata = serde_json::from_str(&metadata_json)?;
             let canonical_concept_ids = canonical_concept_ids_json
                 .as_deref()
@@ -215,5 +215,56 @@ impl Persistence {
         }
 
         Ok(list)
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature = "persistence")]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+    use crate::persistence::Persistence;
+    use crate::singularity::Concept;
+    use csm_core_lib::hyperdim::HVec10240;
+    use std::collections::HashMap;
+    use tempfile::NamedTempFile;
+
+    fn make_concept(id: &str) -> Concept {
+        Concept {
+            id: id.to_string(),
+            vector: HVec10240::random(),
+            metadata: HashMap::new(),
+            created_at: 0,
+            modified_at: 0,
+            expires_at: None,
+            canonical_concept_ids: Vec::new(),
+        }
+    }
+
+    #[tokio::test]
+    async fn get_version_scoped_returns_stored_concept() {
+        let temp = NamedTempFile::new().expect("Failed to create temp file");
+        let path = temp.path().to_str().expect("Invalid path");
+        let persistence = Persistence::new_local(path)
+            .await
+            .expect("Failed to create persistence");
+
+        let ns = "_default";
+        let concept = make_concept("version-test");
+
+        persistence
+            .save_concept(ns, &concept)
+            .await
+            .expect("Failed to save");
+
+        // get_version_scoped should return the stored concept, not Ok(None)
+        let loaded = persistence
+            .get_version_scoped(ns, "version-test", 1)
+            .await
+            .expect("Failed to get version")
+            .expect("Version should exist");
+
+        assert_eq!(loaded.id, "version-test");
+        // The vector must match (not a default/zero vector)
+        assert_eq!(loaded.vector, concept.vector);
     }
 }

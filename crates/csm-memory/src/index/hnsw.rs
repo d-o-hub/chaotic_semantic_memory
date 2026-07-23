@@ -10,9 +10,9 @@ use crate::index::{AnnIndex, IndexStats};
 #[cfg(feature = "ann-hnsw")]
 use crate::singularity::Concept;
 #[cfg(feature = "ann-hnsw")]
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 #[cfg(feature = "ann-hnsw")]
-use csm_core::hyperdim::{HVec10240, Hypervector};
+use csm_core_lib::hyperdim::{HVec10240, Hypervector};
 #[cfg(feature = "ann-hnsw")]
 use hnsw_rs::prelude::*;
 #[cfg(feature = "ann-hnsw")]
@@ -418,7 +418,7 @@ mod tests {
     use super::*;
     use crate::index::AnnIndex;
     use crate::singularity::Concept;
-    use csm_core::hyperdim::HVec10240;
+    use csm_core_lib::hyperdim::HVec10240;
     use std::collections::HashMap;
 
     // Skip under Miri: hnsw_rs 0.3.4 creates unaligned &[HVec10240] references
@@ -476,7 +476,7 @@ mod tests {
 
     #[test]
     fn hnsw_index_bruteforce_fallback_for_binary_vectors() {
-        use csm_core::BHVec10240;
+        use csm_core_lib::BHVec10240;
 
         // When H != HVec10240, HnswIndex should fall back to BruteForce
         let mut index = HnswIndex::<BHVec10240>::new(16, 100, 10).unwrap();

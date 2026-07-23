@@ -8,7 +8,7 @@ license = "MIT"
 repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
 
 [dependencies]
-csm-core = { path = "../csm-core", version = "0.3.7" }
+csm-core-lib = { path = "../csm-core-lib", version = "0.3.7" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
@@ -17,7 +17,7 @@ js-sys = "0.3.77"
 
 [features]
 default = []
-parallel = ["csm-core/parallel"]
+parallel = ["csm-core-lib/parallel"]
 
 [lib]
 crate-type = ["lib"]

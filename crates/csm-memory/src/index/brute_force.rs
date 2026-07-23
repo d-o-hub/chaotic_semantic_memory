@@ -10,8 +10,8 @@ use rayon::prelude::*;
 
 use crate::index::{AnnIndex, IndexStats};
 use crate::singularity::Concept;
-use csm_core::error::Result;
-use csm_core::hyperdim::{HVec10240, Hypervector};
+use csm_core_lib::error::Result;
+use csm_core_lib::hyperdim::{HVec10240, Hypervector};
 
 /// Exact search via linear scan.
 #[derive(Debug)]

@@ -8,7 +8,7 @@ const MAX_LOC: usize = 500;
 
 /// Known LOC exceptions in workspace crates (pre-existing, tracked for reduction).
 const LOC_EXCEPTIONS_CRATES: &[&str] = &[
-    "crates/csm-core/src/hyperdim.rs",
+    "crates/csm-core-lib-lib/src/hyperdim.rs",
     "crates/csm-memory/src/singularity.rs",
     "crates/csm-memory/src/graph_traversal.rs",
 ];
@@ -21,13 +21,13 @@ const UNSAFE_EXCEPTIONS_ROOT: &[&str] = &[
 
 /// Known files with unsafe in csm-core outside *simd*.rs.
 const UNSAFE_EXCEPTIONS_CORE: &[&str] = &[
-    "crates/csm-core/src/reservoir.rs",
-    "crates/csm-core/src/reservoir_sparse.rs",
-    "crates/csm-core/src/reservoir_chaotic.rs",
-    "crates/csm-core/src/bundle.rs",
-    "crates/csm-core/src/hyperdim.rs",
-    "crates/csm-core/src/hyperdim_batch.rs",
-    "crates/csm-core/src/hashing/chaotic_lsh.rs", // SIMD intrinsics in project_avx2/project_neon
+    "crates/csm-core-lib-lib/src/reservoir.rs",
+    "crates/csm-core-lib-lib/src/reservoir_sparse.rs",
+    "crates/csm-core-lib-lib/src/reservoir_chaotic.rs",
+    "crates/csm-core-lib-lib/src/bundle.rs",
+    "crates/csm-core-lib-lib/src/hyperdim.rs",
+    "crates/csm-core-lib-lib/src/hyperdim_batch.rs",
+    "crates/csm-core-lib-lib/src/hashing/chaotic_lsh.rs", // SIMD intrinsics in project_avx2/project_neon
 ];
 
 fn find_rs_files(dir: &str) -> Vec<String> {
@@ -116,9 +116,9 @@ fn unsafe_audit_root_src_no_new_unsafe() {
 }
 
 #[test]
-fn unsafe_audit_csm_core_only_allowed_files() {
+fn unsafe_audit_csm_core_lib_only_allowed_files() {
     let output = Command::new("grep")
-        .args(["-rl", "unsafe", "crates/csm-core/src/"])
+        .args(["-rl", "unsafe", "crates/csm-core-lib-lib/src/"])
         .output()
         .expect("failed to run grep");
     let files: Vec<String> = String::from_utf8_lossy(&output.stdout)
@@ -138,7 +138,7 @@ fn unsafe_audit_csm_core_only_allowed_files() {
     }
     assert!(
         violations.is_empty(),
-        "New `unsafe` in crates/csm-core/src/ outside allowed files:\n{}",
+        "New `unsafe` in crates/csm-core-lib-lib/src/ outside allowed files:\n{}",
         violations.join("\n")
     );
 }

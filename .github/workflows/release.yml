@@ -174,12 +174,13 @@ jobs:
       run: |
         VERSION="${{ steps.version.outputs.version }}"
         TAG="v${VERSION}"
-        echo "release-ref=${TAG}" >> $GITHUB_OUTPUT
         git fetch --tags --force
         if git rev-parse "$TAG" >/dev/null 2>&1; then
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.recover }}" = "true" ]; then
             echo "Tag ${TAG} already exists; recovering missing release artifacts."
             echo "release-needed=true" >> $GITHUB_OUTPUT
+            # Use current main branch for recovery (not the old tag)
+            echo "release-ref=main" >> $GITHUB_OUTPUT
             exit 0
           fi
           echo "Tag ${TAG} already exists; skipping release."
@@ -187,6 +188,7 @@ jobs:
           exit 0
         fi
 
+        echo "release-ref=${TAG}" >> $GITHUB_OUTPUT
         git tag "$TAG"
         git push origin "$TAG"
         echo "Created tag ${TAG}"
@@ -209,7 +211,7 @@ jobs:
 
     - name: Validate publish dry-run
       run: |
-        # Workspace crates (csm-core, csm-embedding, etc.) are published alongside
+        # Workspace crates (csm-core-lib, csm-embedding, etc.) are published alongside
         # the main crate in the publish-crates job. During validation, they don't
         # yet exist on crates.io, so a full dry-run would fail dependency resolution.
         # Instead, verify the package can be assembled (--list shows included files).
@@ -403,12 +405,35 @@ jobs:
     - name: Publish workspace crates in dependency order
       if: steps.crates-check.outputs.already-published != 'true'
       run: |
+        # Pre-check: Verify workspace crate names are not taken by unrelated projects
+        echo "Checking crates.io name availability..."
+        CRATES="csm-chaos csm-core-lib csm-traits csm-embedding csm-memory csm-retrieval csm-persistence"
+        NAME_CONFLICT=false
+        for crate in $CRATES; do
+          CRATE_VERSION=$(grep -m1 '^version' "crates/$crate/Cargo.toml" | cut -d'"' -f2)
+          SEARCH_RESULT=$(cargo search "$crate" 2>/dev/null | head -1)
+          if echo "$SEARCH_RESULT" | grep -q "^$crate = "; then
+            # Name exists - check if it's our version or an unrelated crate
+            EXISTING_VERSION=$(echo "$SEARCH_RESULT" | grep -oP '"\K[^"]+')
+            if [ "$EXISTING_VERSION" != "$CRATE_VERSION" ]; then
+              echo "❌ CONFLICT: $crate@$EXISTING_VERSION exists on crates.io (need $CRATE_VERSION)"
+              echo "   This name is taken by an unrelated project. Rename the crate before publishing."
+              NAME_CONFLICT=true
+            fi
+          fi
+        done
+        if [ "$NAME_CONFLICT" = true ]; then
+          echo ""
+          echo "::error::Workspace crate name conflicts detected. Rename crates and update Cargo.toml dependencies."
+          exit 1
+        fi
+        echo "✅ All workspace crate names available"
+
         # Publish order based on dependency graph:
         # 1. csm-chaos (no internal deps)
-        # 2. csm-core (depends on csm-chaos optionally)
-        # 3. csm-traits, csm-embedding, csm-memory (depend on csm-core)
-        # 4. csm-retrieval, csm-persistence (depend on csm-core + csm-memory)
-        CRATES="csm-chaos csm-core csm-traits csm-embedding csm-memory csm-retrieval csm-persistence"
+        # 2. csm-core-lib (depends on csm-chaos optionally)
+        # 3. csm-traits, csm-embedding, csm-memory (depend on csm-core-lib)
+        # 4. csm-retrieval, csm-persistence (depend on csm-core-lib + csm-memory)
         for crate in $CRATES; do
           echo "Publishing $crate..."
           # Skip if already published (idempotent)

@@ -5,8 +5,8 @@
 
 // Casts are intentional for scoring formula
 
-use csm_core::error::Result;
-use csm_core::hyperdim::HVec10240;
+use csm_core_lib::error::Result;
+use csm_core_lib::hyperdim::HVec10240;
 use csm_memory::Concept;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, VecDeque};

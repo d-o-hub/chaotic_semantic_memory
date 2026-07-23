@@ -16,8 +16,8 @@ use rayon::prelude::*;
 
 use crate::index::{AnnIndex, IndexStats};
 use crate::singularity::Concept;
-use csm_core::error::Result;
-use csm_core::hyperdim::{HVec10240, Hypervector};
+use csm_core_lib::error::Result;
+use csm_core_lib::hyperdim::{HVec10240, Hypervector};
 
 /// Locality-Sensitive Hashing (LSH) for hypervectors using bit-sampling.
 #[derive(Debug, Serialize, Deserialize)]
@@ -34,7 +34,7 @@ impl<H: Hypervector> LshIndex<H> {
     pub fn new(num_tables: usize, hash_bits: usize) -> Result<Self> {
         // #9: Reject zero-table configurations.
         if num_tables == 0 {
-            return Err(csm_core::error::MemoryError::InvalidInput {
+            return Err(csm_core_lib::error::MemoryError::InvalidInput {
                 field: "num_tables".to_string(),
                 reason: "num_tables must be greater than zero".to_string(),
             });
@@ -291,13 +291,13 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
 
     fn serialize(&self) -> Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| {
-            csm_core::error::MemoryError::Persistence(format!("Serialization error: {e}"))
+            csm_core_lib::error::MemoryError::Persistence(format!("Serialization error: {e}"))
         })
     }
 
     fn deserialize(&mut self, data: &[u8]) -> Result<()> {
         let decoded: Self = bincode::deserialize(data).map_err(|e| {
-            csm_core::error::MemoryError::Persistence(format!("Deserialization error: {e}"))
+            csm_core_lib::error::MemoryError::Persistence(format!("Deserialization error: {e}"))
         })?;
         *self = decoded;
         Ok(())

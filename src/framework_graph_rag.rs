@@ -2,8 +2,8 @@
 
 use crate::framework::ChaoticSemanticFramework;
 use crate::retrieval::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
-use csm_core::error::Result;
-use csm_core::hyperdim::HVec10240;
+use csm_core_lib::error::Result;
+use csm_core_lib::hyperdim::HVec10240;
 use tracing::instrument;
 
 impl ChaoticSemanticFramework {

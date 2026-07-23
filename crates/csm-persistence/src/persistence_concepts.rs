@@ -1,12 +1,12 @@
 #![cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 use crate::persistence::Persistence;
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 use csm_memory::Concept;
 use libsql::params;
 
 impl Persistence {
     /// Save a concept to the database
-    pub async fn save_concept<H: csm_core::hyperdim::Hypervector>(
+    pub async fn save_concept<H: csm_core_lib::hyperdim::Hypervector>(
         &self,
         ns: &str,
         concept: &Concept<H>,
@@ -57,7 +57,7 @@ impl Persistence {
     }
 
     /// Save concepts in a single transaction
-    pub async fn save_concepts<H: csm_core::hyperdim::Hypervector>(
+    pub async fn save_concepts<H: csm_core_lib::hyperdim::Hypervector>(
         &self,
         ns: &str,
         concepts: &[Concept<H>],
@@ -141,7 +141,7 @@ impl Persistence {
     }
 
     /// Load a concept from the database
-    pub async fn load_concept<H: csm_core::hyperdim::Hypervector>(
+    pub async fn load_concept<H: csm_core_lib::hyperdim::Hypervector>(
         &self,
         ns: &str,
         id: &str,
@@ -201,7 +201,7 @@ impl Persistence {
     }
 
     /// Load all concepts from the database for a specific namespace
-    pub async fn load_all_concepts<H: csm_core::hyperdim::Hypervector>(
+    pub async fn load_all_concepts<H: csm_core_lib::hyperdim::Hypervector>(
         &self,
         ns: &str,
     ) -> Result<Vec<Concept<H>>> {

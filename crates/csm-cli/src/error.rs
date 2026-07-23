@@ -1,4 +1,4 @@
-use csm_core::error::MemoryError;
+use csm_core_lib::error::MemoryError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]

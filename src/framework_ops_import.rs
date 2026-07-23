@@ -6,7 +6,7 @@ use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
 use crate::framework_validation::{MAX_IMPORT_SIZE, validate_path};
 use bincode::Options;
-use csm_core::error::Result;
+use csm_core_lib::error::Result;
 use tokio::fs;
 use tracing::{instrument, warn};
 
@@ -41,7 +41,7 @@ impl ChaoticSemanticFramework {
     ) -> Result<Vec<u8>> {
         let metadata = fs::metadata(path).await?;
         if metadata.len() > limit {
-            return Err(csm_core::error::MemoryError::InvalidInput {
+            return Err(csm_core_lib::error::MemoryError::InvalidInput {
                 field: "file_size".to_string(),
                 reason: format!(
                     "File size {} exceeds maximum allowed size {}",
@@ -160,7 +160,7 @@ impl ChaoticSemanticFramework {
 
         let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
         let data = options.serialize(&payload).map_err(|e| {
-            csm_core::error::MemoryError::Serialization(serde_json::Error::io(
+            csm_core_lib::error::MemoryError::Serialization(serde_json::Error::io(
                 std::io::Error::other(e.to_string()),
             ))
         })?;
@@ -177,13 +177,13 @@ impl ChaoticSemanticFramework {
             .await?;
         let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
         let binary_payload: BinaryExportPayload = options.deserialize(&bytes).map_err(|e| {
-            csm_core::error::MemoryError::InvalidInput {
+            csm_core_lib::error::MemoryError::InvalidInput {
                 field: "import_data".to_string(),
                 reason: format!("bincode deserialization failed: {e}"),
             }
         })?;
         let payload = binary_payload.to_export_payload().map_err(|e| {
-            csm_core::error::MemoryError::InvalidInput {
+            csm_core_lib::error::MemoryError::InvalidInput {
                 field: "import_data".to_string(),
                 reason: format!("failed to convert binary payload: {e}"),
             }

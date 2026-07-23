@@ -4,7 +4,7 @@
 
 use crate::index_envelope::IndexSnapshotEnvelope;
 use crate::persistence::Persistence;
-use csm_core::error::{MemoryError, Result};
+use csm_core_lib::error::{MemoryError, Result};
 use libsql::params;
 
 impl Persistence {
@@ -254,11 +254,11 @@ mod tests {
         let _ = std::fs::remove_file(path);
         let persistence = Persistence::new_local(path).await.unwrap();
         let c1 = crate::singularity::ConceptBuilder::new("a")
-            .with_vector(csm_core::hyperdim::HVec10240::zero())
+            .with_vector(csm_core_lib::hyperdim::HVec10240::zero())
             .build()
             .unwrap();
         let c2 = crate::singularity::ConceptBuilder::new("b")
-            .with_vector(csm_core::hyperdim::HVec10240::zero())
+            .with_vector(csm_core_lib::hyperdim::HVec10240::zero())
             .build()
             .unwrap();
         persistence.save_concept("ns", &c1).await.unwrap();
