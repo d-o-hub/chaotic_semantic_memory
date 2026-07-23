@@ -4926,7 +4926,7 @@ actions:
       readme_version_consistent: true
       readme_ann_section_matches_code: true
     cost: 2
-    status: queued
+    status: complete
     priority: P1
     wave: "wave-33"
     file: README.md
@@ -4942,7 +4942,7 @@ actions:
       agents_skill_count_matches_disk: true
       agents_points_to_plans_readme: true
     cost: 1
-    status: queued
+    status: complete
     priority: P1
     wave: "wave-33"
     file: AGENTS.md, CLAUDE.md
