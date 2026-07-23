@@ -4792,7 +4792,7 @@ actions:
       ttl_cleanup_task_owned: true
       ttl_cleanup_shutdown_bounded: true
     cost: 3
-    status: queued
+    status: complete
     file: src/framework_builder.rs, src/framework_ttl.rs, src/framework.rs
     adr: ADR-0093
     description: |
