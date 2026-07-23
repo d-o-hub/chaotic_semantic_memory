@@ -174,12 +174,13 @@ jobs:
       run: |
         VERSION="${{ steps.version.outputs.version }}"
         TAG="v${VERSION}"
-        echo "release-ref=${TAG}" >> $GITHUB_OUTPUT
         git fetch --tags --force
         if git rev-parse "$TAG" >/dev/null 2>&1; then
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.recover }}" = "true" ]; then
             echo "Tag ${TAG} already exists; recovering missing release artifacts."
             echo "release-needed=true" >> $GITHUB_OUTPUT
+            # Use current main branch for recovery (not the old tag)
+            echo "release-ref=main" >> $GITHUB_OUTPUT
             exit 0
           fi
           echo "Tag ${TAG} already exists; skipping release."
@@ -187,6 +188,7 @@ jobs:
           exit 0
         fi
 
+        echo "release-ref=${TAG}" >> $GITHUB_OUTPUT
         git tag "$TAG"
         git push origin "$TAG"
         echo "Created tag ${TAG}"
