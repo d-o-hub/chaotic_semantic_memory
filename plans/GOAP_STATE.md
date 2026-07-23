@@ -1813,7 +1813,7 @@ world_state:
   # Codebase analysis + plans compaction 2026-07-20
   # Canonical recommendations: plans/RECOMMENDATIONS_2026_07_20.md
   # ═══════════════════════════════════════════════════════
-  action_last_completed: fuzz_short_and_scheduled_runs
+  action_last_completed: reconcile_harness_engineering_state
   recommendations_2026_07_20_written: true
   plan_archive_2026_07_20_complete: true
   active_plan_set_compact: true

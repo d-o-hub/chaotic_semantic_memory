@@ -4838,7 +4838,7 @@ actions:
     effects:
       harness_engineering_state_truthful: true
     cost: 2
-    status: queued
+    status: complete
     file: plans/adr/0090-harness-engineering-template-alignment.md, plans/ACTIONS.md
     adr: ADR-0090, ADR-0096
     description: |
