@@ -4823,7 +4823,7 @@ actions:
       hook_bootstrap_canonical: true
       skill_references_current: true
     cost: 5
-    status: queued
+    status: complete
     file: .agents/skills/, scripts/, AGENTS.md, .pre-commit-config.yaml
     adr: ADR-0096
     description: |
