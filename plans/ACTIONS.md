@@ -4957,7 +4957,7 @@ actions:
     effects:
       cli_metrics_reset_implemented: true
     cost: 2
-    status: queued
+    status: complete
     priority: P2
     wave: "wave-33"
     file: src/cli/commands/metrics.rs, crates/csm-cli/src/commands/metrics.rs, src/framework_metrics.rs
