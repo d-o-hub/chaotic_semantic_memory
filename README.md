@@ -459,7 +459,7 @@ cargo fmt --check --quiet
 cargo clippy --quiet -- -D warnings
 ```
 
-LOC policy: each source file in `src/` must stay at or below 500 lines.
+LOC policy: each source file in `src/` and `crates/` must stay at or below 500 lines.
 
 ### Additional Testing
 

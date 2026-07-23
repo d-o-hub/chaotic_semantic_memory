@@ -423,12 +423,12 @@ Refer to the `dist-channel-selection` skill for canonical commands.
 **CLI**: `src/cli/commands/query.rs`, `src/cli/commands/index_dir.rs`
 **State**: `plans/GOAP_STATE.md`, `plans/ACTIONS.md`
 
-## Skills (30 Total)
-**Core**: `rust-development`, `testing-validation`, `goap-planning`, `adr-creation`, `github-ci-guardrails`, `git-workflow`, `release-management`, `dist-channel-selection`, `benchmarking-perf`, `debugging-reservoir`, `skill-memory-internal`, `memory-lifecycle-verification`, `turso-memory-verification`, `drawio`, `npm-trusted-publishers`
+## Skills (32 Total)
+**Core**: `rust-development`, `testing-validation`, `goap-planning`, `goap-orchestrator`, `adr-creation`, `github-ci-guardrails`, `git-workflow`, `release-management`, `dist-channel-selection`, `benchmarking-perf`, `debugging-reservoir`, `skill-memory-internal`, `memory-lifecycle-verification`, `turso-memory-verification`, `drawio`, `npm-trusted-publishers`
 
 **Swarm**: `swarm-testing-quality`, `swarm-performance`, `swarm-observability`, `swarm-advanced-features`, `analysis-swarm`
 
-**Workflow**: `learn`, `task-decomposition`, `shell-script-quality`
+**Workflow**: `learn`, `task-decomposition`, `shell-script-quality`, `jules-orchestration`
 
 **Automation**: `self-fix-loop`, `iterative-refinement`, `skill-creator`, `skill-evaluator`, `codacy`
 
