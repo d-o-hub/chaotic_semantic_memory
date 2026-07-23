@@ -4651,7 +4651,7 @@ actions:
     effects:
       retrieval_implementation_owner_unique: true
     cost: 8
-    status: queued
+    status: complete
     file: src/retrieval/, crates/csm-retrieval/src/
     adr: ADR-0094
     description: |
