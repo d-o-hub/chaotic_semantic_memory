@@ -5,6 +5,48 @@
 
 use std::collections::HashMap;
 
+/// A record of a retrieval attempt that yielded no results above the threshold.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RetrievalAbstention {
+    /// The original query string
+    pub query: String,
+    /// The minimum score threshold that was required
+    pub min_score_threshold: f32,
+    /// The best score seen during this attempt
+    pub best_score_seen: Option<f32>,
+    /// The retrieval modes attempted (e.g., "Auto", "SemanticOnly")
+    pub attempted_modes: Vec<String>,
+    /// Timestamp when this abstention occurred
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+}
+
+/// Result of a hybrid retrieval operation.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum HybridResult {
+    /// Results found above threshold.
+    Success(Vec<(String, f32)>),
+    /// No results met the confidence threshold.
+    Abstained(RetrievalAbstention),
+}
+
+impl HybridResult {
+    /// Check if the result is a success and contains entries.
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::Success(v) => v.is_empty(),
+            Self::Abstained(_) => true,
+        }
+    }
+
+    /// Get an iterator over results if it is a success.
+    pub fn iter(&self) -> Box<dyn Iterator<Item = &(String, f32)> + '_> {
+        match self {
+            Self::Success(v) => Box::new(v.iter()),
+            Self::Abstained(_) => Box::new(std::iter::empty()),
+        }
+    }
+}
+
 /// Compute query-length-dependent weights for hybrid retrieval.
 ///
 /// Returns (keyword_weight, semantic_weight) based on token count.

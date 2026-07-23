@@ -654,9 +654,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/retrieval/hybrid.rs
 
-- pub struct RetrievalAbstention
-- pub enum HybridResult
-- impl HybridResult
+- pub use csm_retrieval::{HybridResult, RetrievalAbstention}
 - pub fn compute_weights
 - pub fn normalize_scores
 - pub fn merge_results
@@ -4273,33 +4271,6 @@ pub enum HybridMode {
 
 Hybrid retrieval mode.
 
-### HybridResult
-
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum HybridResult {
-    Success(Vec<(String, f32)>),
-    Abstained(RetrievalAbstention),
-}
-```
-
-Result of a hybrid retrieval operation.
-
-### RetrievalAbstention
-
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RetrievalAbstention {
-    pub query: String,
-    pub min_score_threshold: f32,
-    pub best_score_seen: Option<f32>,
-    pub attempted_modes: Vec<String>,
-    pub timestamp: DateTime<Utc>,
-}
-```
-
-A record of a retrieval attempt that yielded no results above the threshold.
-
 ### compute_weights
 
 ```rust
@@ -4317,19 +4288,16 @@ Returns (keyword_weight, semantic_weight) based on token count.
 | 5-8 | 0.4 | 0.6 | Semantic takes over |
 | 9+ | 0.2 | 0.8 | Full semantic mode |
 
+### csm_retrieval::{HybridResult, RetrievalAbstention}
+
+```rust
+pub use csm_retrieval::{HybridResult, RetrievalAbstention};
+```
+
 ### impl Default for HybridConfig
 
 ```rust
 impl Default for HybridConfig {
-}
-```
-
-### impl HybridResult
-
-```rust
-impl HybridResult {
-    pub fn is_empty(&self) -> bool;
-    pub fn iter(&self) -> Box<dyn Trait>;
 }
 ```
 
