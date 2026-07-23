@@ -4548,7 +4548,7 @@ actions:
     effects:
       critical_skill_evals_passing: true
     cost: 5
-    status: queued
+    status: complete
     file: .agents/skills/, scripts/
     adr: ADR-0096
     description: |
