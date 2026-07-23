@@ -138,3 +138,20 @@
   actively maintained — either upgrade affected deps or add documented ignore entries.
 - **Simple upgrades first**: `cargo update -p <package>` often resolves advisories
   without any code changes (e.g., crossbeam-epoch 0.9.18→0.9.20, anyhow 1.0.102→1.0.103).
+
+## Wave 33 Learnings (2026-07-23)
+
+### CI Discipline
+- **WASM smoke test target**: `wasm-pack build --target web` generates `__wbg_init()` that calls `fetch()` to load `.wasm`. Node.js undici `fetch()` does not support `file://` URLs. Use `--target nodejs` for CI smoke tests; release workflow keeps `--target web`.
+- **CJS/ESM interop**: When `import()` loads a CJS module (nodejs target), named exports may not be detected. Use `const exports = module.default || module;` fallback before destructuring.
+- **Cargo.lock atomicity**: Always commit `Cargo.lock` changes atomically with `Cargo.toml` dependency changes. A missing lockfile update causes all `--locked` CI jobs to fail.
+- **CI concurrency guard**: `cancel-in-progress: true` on main cascades to release workflow failures. Use `${{ github.ref != 'refs/heads/main' }}` to only cancel stale PR runs.
+
+### GOAP Orchestration
+- **Wave-based parallel execution**: Group independent actions into waves, dispatch one agent per action, merge in dependency order. Max 4 parallel agents.
+- **Explore before implement**: Always spawn explore agents to audit affected files before spawning general agents for implementation. Reduces wasted work from wrong assumptions.
+- **Merge order matters**: Never use `gh pr merge --auto` on stacked PRs. Merge independent green PRs first, rebase remaining after each merge.
+
+### Code Hygiene
+- **Remove dead code over wiring premature APIs**: `is_known_absent` had zero callers, zero tests, and complex unspecified invalidation semantics. Removing it is cleaner than wiring it in with guesswork. The absence recording infra (independently useful) stays.
+- **Pre-commit hooks save iterations**: The `pre-commit.sh` script catches format, LOC, clippy, and version sync issues before they reach CI.

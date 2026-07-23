@@ -1709,6 +1709,7 @@ world_state:
   association_load_queries_constant: true        # load_all_associations single SELECT
   no_framework_state_lock_across_io_await: true  # I/O before state apply; snapshot copy then await
   workspace_implementation_owners_unique: false
+  retrieval_implementation_owner_unique: true       # 2026-07-23: RetrievalAbstention/HybridResult moved to csm-retrieval
   no_default_features_is_lean: false
   persistence_disabled_false_success_removed: false
   mcp_full_width_vector_wire_contract: true      # 2026-07-16: base64 HVec wire + high-bit tests
@@ -1813,7 +1814,7 @@ world_state:
   # Codebase analysis + plans compaction 2026-07-20
   # Canonical recommendations: plans/RECOMMENDATIONS_2026_07_20.md
   # ═══════════════════════════════════════════════════════
-  action_last_completed: consolidate_retrieval_ownership
+  action_last_completed: goap_orchestrator_hardening
   recommendations_2026_07_20_written: true
   plan_archive_2026_07_20_complete: true
   active_plan_set_compact: true
@@ -1841,10 +1842,16 @@ world_state:
       retrieval_hybrid: diverged
       retrieval_rerank: diverged
       persistence: diverged
-    open_prs: [532, 534]
+    open_prs: [549, 551, 552, 553]
     open_issues_perf: [524, 525, 526]
     wave_32_remaining_queued: 16  # compact_active_plans now complete
     wave_33_name: "Docs truth + missing behavior + evidence"
+    wave_33_status: in_progress
+    wave_33_completed:
+      - implement_or_remove_bm25_absence_short_circuit  # removed unused API (PR #552)
+      - goap_orchestrator_hardening                     # swarm patterns + status commands (PR #553)
+      - fix_ci_wasm_smoke_test                          # --target nodejs for CI (PR #551)
+      - fix_ci_concurrency_policy                       # guard cancel-in-progress (PR #551)
     wave_33_queued:
       - merge_open_perf_prs_532_534
       - fix_readme_truth_version_and_ann
@@ -1853,6 +1860,5 @@ world_state:
       - skill_loc_trim_near_ceiling
       - enforce_workspace_feature_contracts  # carried from Wave 32
       - consolidate_retrieval_ownership     # carried from Wave 32
-      - implement_or_remove_bm25_absence_short_circuit
       - own_ttl_cleanup_lifecycle
       - establish_tiered_benchmark_evidence
