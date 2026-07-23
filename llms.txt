@@ -641,7 +641,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Default for Bm25Config
 - pub struct Bm25Index
 - impl Default for Bm25Index
-- pub fn is_known_absent
 - impl Clone for Bm25Index
 - impl Bm25Index
 

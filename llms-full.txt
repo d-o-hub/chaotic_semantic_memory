@@ -641,7 +641,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl Default for Bm25Config
 - pub struct Bm25Index
 - impl Default for Bm25Index
-- pub fn is_known_absent
 - impl Clone for Bm25Index
 - impl Bm25Index
 
@@ -4181,16 +4180,6 @@ impl Default for Bm25Config {
 impl Default for Bm25Index {
 }
 ```
-
-### is_known_absent
-
-```rust
-pub fn is_known_absent(query: &str, store: &dyn Trait, min_attempts: u32) -> bool
-```
-
-Returns true if the query has a known absence record with
-attempt_count >= min_attempts, indicating BM25 should be skipped.
-TODO: Wire into the main hybrid retrieval pipeline for short-circuiting.
 
 ## src/retrieval/bm25/tests.rs
 
