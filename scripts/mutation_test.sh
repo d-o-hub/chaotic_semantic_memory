@@ -228,15 +228,17 @@ if [[ "${CI_MODE}" == "true" ]]; then
     UNVIABLE="$(echo "${SUMMARY_LINE}" | grep -oE '[0-9]+ unviable' | awk '{print $1}')"
     UNVIABLE="${UNVIABLE:-0}"
     VIABLE=$((TOTAL - UNVIABLE))
-    # Industry (Stryker et al.): detected = killed + timeout. Infinite-loop mutants
-    # often only surface as timeouts. ADR-0095: also fail on a timeout *budget*
-    # so a hung suite cannot masquerade as higher quality.
-    EFFECTIVE_CAUGHT=$((CAUGHT + TIMEOUTS))
+    # ADR-0095: timeouts count as unresolved (not detected), not caught.
+    # Infinite-loop mutants are a quality issue, not a detection success.
+    EFFECTIVE_CAUGHT=$((CAUGHT))
+    UNRESOLVED=$((MISSED + TIMEOUTS))
     if [[ "${VIABLE}" -gt 0 ]]; then
       SCORE="$(awk -v c="${EFFECTIVE_CAUGHT}" -v v="${VIABLE}" 'BEGIN { printf "%.4f", c*100/v }')"
     else
       SCORE="100"
     fi
+    # Publish inventory
+    echo "mutation inventory: caught=${CAUGHT} missed=${MISSED} timeout=${TIMEOUTS} unviable=${UNVIABLE} unresolved=${UNRESOLVED}" >&2
     echo "mutation summary: total=${TOTAL} caught=${CAUGHT} timeout=${TIMEOUTS} missed=${MISSED} unviable=${UNVIABLE} score=${SCORE}%" >&2
   fi
   if [[ -z "${SCORE}" ]]; then
