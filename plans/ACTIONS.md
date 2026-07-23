@@ -4971,7 +4971,7 @@ actions:
     effects:
       skill_npm_trusted_publishers_under_200: true
     cost: 2
-    status: queued
+    status: complete
     priority: P3
     wave: "wave-33"
     file: .agents/skills/npm-trusted-publishers/
@@ -4987,7 +4987,7 @@ actions:
       pr_534_merged_or_closed: true
       issues_524_525_526_closed: true
     cost: 4
-    status: queued
+    status: complete
     priority: P0
     wave: "wave-33"
     file: .
