@@ -404,19 +404,19 @@ jobs:
       with:
         tool: wasm-pack
     - name: Build WASM
-      run: wasm-pack build crates/csm-wasm --dev --target web
+      run: |
+        OUT="${{ github.workspace }}/wasm/pkg"
+        wasm-pack build crates/csm-wasm --dev --target web \
+          --out-dir "${OUT}" \
+          --out-name chaotic_semantic_memory
     - name: Check WASM
       run: cargo check --target wasm32-unknown-unknown -p csm-wasm
     - name: Verify WASM TS Freshness
       run: bash scripts/check-wasm-freshness.sh
-    # WASM JS smoke (wasm/test.js) is intentionally NOT run in this job:
-    # 1) Build uses --target web; Node cannot initialize that package (fetch of
-    #    file:// wasm fails under undici: "not implemented... yet...").
-    # 2) crates/csm-wasm wasm-pack output is named csm_wasm.js; wasm/test.js
-    #    imports chaotic_semantic_memory.js (publish/out-name).
-    # 3) Smoke currently only succeeds against a nodejs-target package with that
-    #    name (e.g. checked-in wasm/pkg-node). Re-enable after packaging is
-    #    aligned (nodejs CI artifact + matching out-name or test env).
+    - name: WASM JS Smoke Test
+      run: |
+        cd wasm
+        WASM_PACKAGE_DIR="${{ github.workspace }}/wasm/pkg" node test.js
 
   lint:
     runs-on: ubuntu-latest
