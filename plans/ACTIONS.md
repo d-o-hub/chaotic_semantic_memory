@@ -4638,7 +4638,7 @@ actions:
       wasm_ci_release_artifact_identical: true
       wasm_js_smoke_test_enforced: true
     cost: 3
-    status: queued
+    status: complete
     file: crates/csm-wasm/, wasm/, .github/workflows/ci.yml, .github/workflows/release.yml
     adr: ADR-0094
     description: |
