@@ -12,6 +12,7 @@ module.exports = {
         'persistence',
         'cli',
         'cli-npm',
+        'crates',
         'wasm',
         'retrieval',
         'embedding',
