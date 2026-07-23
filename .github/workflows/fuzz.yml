@@ -1,0 +1,82 @@
+name: Fuzz
+
+on:
+  pull_request:
+    paths:
+      - 'fuzz/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  schedule:
+    # Full fuzz run every Sunday at 03:00 UTC
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: fuzz-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fuzz-short:
+    name: Fuzz Short Run (PR)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
+    - name: Install Rust
+      uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
+      with:
+        tool: cargo-fuzz
+    - name: Install clang
+      run: sudo apt-get update && sudo apt-get install -y clang
+    - name: Run changed fuzz targets (30s each)
+      run: |
+        # Get changed fuzz target files
+        CHANGED=$(git diff --name-only origin/main...HEAD -- 'fuzz/fuzz_targets/*.rs' || true)
+        if [ -z "$CHANGED" ]; then
+          echo "No fuzz targets changed, skipping"
+          exit 0
+        fi
+        
+        for target_file in $CHANGED; do
+          target=$(basename "$target_file" .rs)
+          echo "Running fuzz target: $target (30s)"
+          timeout 30 cargo fuzz run "$target" -- -max_total_time=30 || {
+            exit_code=$?
+            if [ $exit_code -eq 124 ]; then
+              echo "Fuzz target $target completed 30s run"
+            else
+              echo "Fuzz target $target failed with exit code $exit_code"
+              exit 1
+            fi
+          }
+        done
+
+  fuzz-full:
+    name: Fuzz Full Run (Scheduled)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
+    - name: Install Rust
+      uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b # v2.83.4
+      with:
+        tool: cargo-fuzz
+    - name: Install clang
+      run: sudo apt-get update && sudo apt-get install -y clang
+    - name: Run all fuzz targets (5 min each)
+      run: |
+        targets=$(cargo fuzz list)
+        for target in $targets; do
+          echo "Running fuzz target: $target (5 min)"
+          timeout 300 cargo fuzz run "$target" -- -max_total_time=300 || {
+            exit_code=$?
+            if [ $exit_code -eq 124 ]; then
+              echo "Fuzz target $target completed 5 min run"
+            else
+              echo "Fuzz target $target failed with exit code $exit_code"
+              exit 1
+            fi
+          }
+        done
