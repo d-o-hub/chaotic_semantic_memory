@@ -1170,7 +1170,7 @@ actions:
       Original activation trigger: >200k concepts with latency degradation.
 
       2026-06-16: COMPLETED. All three sub-components have shipped:
-        - SIMD: crates/csm-core/src/{hyperdim_simd.rs, bundle_simd.rs,
+        - SIMD: crates/csm-core-lib/src/{hyperdim_simd.rs, bundle_simd.rs,
           hyperdim_simd_bundle.rs} (per ADR-0013, augmented by Wave 22).
         - LSH index: crates/csm-memory/src/index/lsh.rs (ADR-0068 sibling).
         - Product Quantization / Quantized Binary Hypervectors:
@@ -4262,7 +4262,7 @@ actions:
       hyperchaotic_bitslicing_implemented: true
     cost: 5
     status: complete
-    file: crates/csm-core/src/maps/hyperchaotic.rs
+    file: crates/csm-core-lib/src/maps/hyperchaotic.rs
     description: |
       Research and implementation of 2D Sine-Logistic Hyperchaotic Map (2D-SLHM)
       and optimized Chaotic LSH projector for binary semantic hashing (Chen & Wei, 2026).
@@ -4306,12 +4306,12 @@ actions:
       loc_gate_verified: true
     cost: 5
     status: complete
-    file: crates/csm-memory/src/singularity.rs, crates/csm-core/src/hyperdim.rs, crates/csm-memory/src/graph_traversal.rs, .github/workflows/ci.yml
+    file: crates/csm-memory/src/singularity.rs, crates/csm-core-lib/src/hyperdim.rs, crates/csm-memory/src/graph_traversal.rs, .github/workflows/ci.yml
     adr: ADR-0092
     description: |
       3 workspace crate files violate the ≤500 LOC hard constraint:
       - crates/csm-memory/src/singularity.rs (629 LOC, +129 over)
-      - crates/csm-core/src/hyperdim.rs (563 LOC, +63 over)
+      - crates/csm-core-lib/src/hyperdim.rs (563 LOC, +63 over)
       - crates/csm-memory/src/graph_traversal.rs (517 LOC, +17 over)
 
       Fix in two steps:
@@ -4371,7 +4371,7 @@ actions:
       hamming_distance_simd_accelerated: true
     cost: 1
     status: complete
-    file: crates/csm-core/src/hyperdim_simd.rs
+    file: crates/csm-core-lib/src/hyperdim_simd.rs
     adr: ADR-0092
     description: |
       Merge PR #502 (Jules bot): perf(core): optimize Hamming distance with SIMD.
