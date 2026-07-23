@@ -42,6 +42,11 @@ impl ChaoticSemanticFramework {
         self.metrics.snapshot()
     }
 
+    /// Reset all framework metrics to zero.
+    pub async fn reset_metrics(&self) {
+        self.metrics.reset();
+    }
+
     /// Get framework statistics.
     pub async fn stats(&self) -> Result<FrameworkStats> {
         let concept_count = {

@@ -121,6 +121,45 @@ mod tests {
         assert_eq!(snapshot.shortest_path_total, 1);
         assert_eq!(snapshot.disassociations_total, 1);
     }
+
+    #[test]
+    fn test_metrics_reset() {
+        let metrics = FrameworkMetrics::default();
+        metrics.concepts_injected_total.store(10, Ordering::Relaxed);
+        metrics
+            .associations_created_total
+            .store(20, Ordering::Relaxed);
+        metrics.probes_total.store(30, Ordering::Relaxed);
+        metrics.observe_probe_latency_ms(100);
+        metrics.observe_persist_latency_ms(200, "test");
+
+        // Verify non-zero before reset
+        let snapshot = metrics.snapshot();
+        assert_eq!(snapshot.concepts_injected_total, 10);
+        assert_eq!(snapshot.probes_total, 31); // 30 + 1 from observe
+
+        // Reset
+        metrics.reset();
+
+        // Verify all zero after reset
+        let snapshot = metrics.snapshot();
+        assert_eq!(snapshot.concepts_injected_total, 0);
+        assert_eq!(snapshot.associations_created_total, 0);
+        assert_eq!(snapshot.probes_total, 0);
+        assert!(snapshot.avg_probe_latency_ms < f64::EPSILON);
+        assert_eq!(snapshot.cache_hits_total, 0);
+        assert_eq!(snapshot.cache_misses_total, 0);
+        assert_eq!(snapshot.cache_evictions_total, 0);
+        assert_eq!(snapshot.reservoir_steps_total, 0);
+        assert!(snapshot.avg_reservoir_step_latency_us < f64::EPSILON);
+        assert_eq!(snapshot.reservoir_nodes_active, 0);
+        assert_eq!(snapshot.persist_ops_total, 0);
+        assert!(snapshot.avg_persist_latency_ms < f64::EPSILON);
+        assert_eq!(snapshot.delete_concepts_total, 0);
+        assert_eq!(snapshot.traversals_total, 0);
+        assert_eq!(snapshot.shortest_path_total, 0);
+        assert_eq!(snapshot.disassociations_total, 0);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -197,6 +236,23 @@ impl FrameworkMetrics {
 
     pub(crate) fn inc_disassociations(&self) {
         self.disassociations_total.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Reset all counters to zero.
+    pub fn reset(&self) {
+        self.concepts_injected_total.store(0, Ordering::Relaxed);
+        self.associations_created_total.store(0, Ordering::Relaxed);
+        self.probes_total.store(0, Ordering::Relaxed);
+        self.probe_latency_ms_total.store(0, Ordering::Relaxed);
+        self.probe_latency_count.store(0, Ordering::Relaxed);
+        self.persist_latency_ms_total.store(0, Ordering::Relaxed);
+        self.persist_latency_count.store(0, Ordering::Relaxed);
+        self.delete_concepts_total.store(0, Ordering::Relaxed);
+        self.traversals_total.store(0, Ordering::Relaxed);
+        self.shortest_path_total.store(0, Ordering::Relaxed);
+        self.disassociations_total.store(0, Ordering::Relaxed);
+        self.cache_metrics.reset();
+        self.reservoir_metrics.reset();
     }
 
     pub fn snapshot(&self) -> FrameworkMetricsSnapshot {

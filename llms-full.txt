@@ -2587,6 +2587,7 @@ impl ChaoticSemanticFramework {
     pub fn get_concept(&self, id: &str) -> Result<Option<Concept>>;
     pub fn load(&self) -> Result<()>;
     pub fn metrics_snapshot(&self) -> FrameworkMetricsSnapshot;
+    pub fn reset_metrics(&self);
     pub fn stats(&self) -> Result<FrameworkStats>;
 }
 ```
@@ -2898,6 +2899,7 @@ impl Default for FrameworkMetrics {
 
 ```rust
 impl FrameworkMetrics {
+    pub fn reset(&self);
     pub fn snapshot(&self) -> FrameworkMetricsSnapshot;
 }
 ```

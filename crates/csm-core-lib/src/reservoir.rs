@@ -58,6 +58,14 @@ impl ReservoirMetrics {
             reservoir_nodes_active: self.nodes_active.load(Ordering::Relaxed),
         }
     }
+
+    /// Reset all counters to zero.
+    pub fn reset(&self) {
+        self.steps_total.store(0, Ordering::Relaxed);
+        self.step_latency_us_total.store(0, Ordering::Relaxed);
+        self.step_latency_count.store(0, Ordering::Relaxed);
+        self.nodes_active.store(0, Ordering::Relaxed);
+    }
 }
 /// Sparse Echo State Network with chaotic dynamics
 pub struct Reservoir {
