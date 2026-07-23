@@ -11,7 +11,8 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Cancel stale PR runs but let main pushes complete (prevents release cascading failures).
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   CARGO_TERM_COLOR: always
@@ -403,10 +404,12 @@ jobs:
       uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b  # v2.83.4
       with:
         tool: wasm-pack
-    - name: Build WASM
+    - name: Build WASM (nodejs target for smoke test)
       run: |
         OUT="${{ github.workspace }}/wasm/pkg"
-        wasm-pack build crates/csm-wasm --dev --target web \
+        # Use --target nodejs for CI smoke test (loads .wasm via fs, not fetch).
+        # Release workflow uses --target web for browser compatibility.
+        wasm-pack build crates/csm-wasm --dev --target nodejs \
           --out-dir "${OUT}" \
           --out-name chaotic_semantic_memory
     - name: Check WASM
