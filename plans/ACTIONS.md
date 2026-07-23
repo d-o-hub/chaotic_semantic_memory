@@ -4565,7 +4565,7 @@ actions:
       fuzz_short_runs_on_pr: true
       fuzz_scheduled_full_runs: true
     cost: 4
-    status: queued
+    status: complete
     file: .github/workflows/, fuzz/
     adr: ADR-0095
     description: |
