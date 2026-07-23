@@ -182,7 +182,7 @@ cmd_wave() {
     # Find wave section in ACTIONS.md or GOAP_STATE.md
     local wave_pattern="wave.*$wave_num|Wave $wave_num"
     local matches
-    matches=$(grep -n -i "$wave_pattern" "$PLANS_DIR/ACTIONS.md" "$PLANS_DIR/GOAP_STATE.md" 2>/dev/null || true)
+    matches=$(grep -En -i "$wave_pattern" "$PLANS_DIR/ACTIONS.md" "$PLANS_DIR/GOAP_STATE.md" 2>/dev/null || true)
 
     if [[ -z "$matches" ]]; then
         echo -e "${YELLOW}No wave $wave_num entries found in ACTIONS.md or GOAP_STATE.md${NC}"
@@ -198,6 +198,21 @@ cmd_wave() {
         /^  - name:/ {name=$3}
         /wave:/ && $0 ~ wave {print "  - " name}
     ' "$PLANS_DIR/ACTIONS.md" 2>/dev/null || echo "None found"
+}
+
+cmd_complete() {
+    local action_num="${1:-1}"
+    echo -e "${BLUE}=== Marking Action #$action_num Complete ===${NC}"
+
+    if [[ ! -f "$STATE_FILE" ]]; then
+        echo -e "${RED}No plan found. Run 'plan' first.${NC}"
+        return 1
+    fi
+
+    sed -i "s/\(Action $action_num:.*\)/\1/; /Action $action_num:/,/^$/ s/status: queued/status: completed/" "$STATE_FILE"
+    sed -i "/Action $action_num:/,/^$/ s/status: in_progress/status: completed/" "$STATE_FILE"
+
+    echo -e "${GREEN}Action #$action_num marked complete${NC}"
 }
 
 cmd_help() {
