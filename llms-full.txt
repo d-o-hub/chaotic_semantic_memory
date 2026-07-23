@@ -341,6 +341,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/framework.rs
 
 - pub struct ChaoticSemanticFramework
+- impl Drop for ChaoticSemanticFramework
 - impl ChaoticSemanticFramework
 
 ### src/framework_accessors.rs
@@ -2574,6 +2575,13 @@ impl ChaoticSemanticFramework {
     pub fn incoming_associations(&self, id: &str) -> Result<Vec<(String, f32)>>;
     pub fn reinforce_association(&self, from: &str, to: &str) -> Result<()>;
     pub fn prune_decayed_associations(&self, threshold: f32) -> Result<usize>;
+}
+```
+
+### impl Drop for ChaoticSemanticFramework
+
+```rust
+impl Drop for ChaoticSemanticFramework {
 }
 ```
 

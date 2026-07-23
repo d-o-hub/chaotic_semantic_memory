@@ -409,6 +409,7 @@ impl FrameworkBuilder {
             namespace: Arc::new(RwLock::new(self.namespace)),
             embedding_provider: provider,
             projection: Arc::new(projection),
+            cleanup_handle: None,
         };
 
         framework.load_replace().await?;
@@ -418,9 +419,10 @@ impl FrameworkBuilder {
         {
             let interval = framework.config.ttl_config.cleanup_interval_seconds;
             if interval > 0 {
-                let fw = Arc::new(framework);
-                let fw_clone = Arc::clone(&fw);
-                tokio::spawn(async move {
+                let mut fw = framework;
+                let fw_arc = Arc::new(fw.clone());
+                let fw_clone = Arc::clone(&fw_arc);
+                let handle = tokio::spawn(async move {
                     let mut timer =
                         tokio::time::interval(tokio::time::Duration::from_secs(interval));
                     loop {
@@ -430,7 +432,8 @@ impl FrameworkBuilder {
                         }
                     }
                 });
-                return Ok(Arc::try_unwrap(fw).unwrap_or_else(|fw_arc| (*fw_arc).clone()));
+                fw.cleanup_handle = Some(Arc::new(handle));
+                return Ok(fw);
             }
         }
 

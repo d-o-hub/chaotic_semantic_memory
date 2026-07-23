@@ -39,6 +39,16 @@ pub struct ChaoticSemanticFramework {
     pub(crate) embedding_provider: Arc<dyn crate::embedding::EmbeddingProvider>,
     /// Random projection layer for embedding → HVec mapping.
     pub(crate) projection: Arc<crate::embedding::Projection>,
+    /// JoinHandle for the background cleanup task.
+    pub(crate) cleanup_handle: Option<Arc<tokio::task::JoinHandle<()>>>,
+}
+
+impl Drop for ChaoticSemanticFramework {
+    fn drop(&mut self) {
+        if let Some(handle) = self.cleanup_handle.take() {
+            handle.abort();
+        }
+    }
 }
 
 impl ChaoticSemanticFramework {
