@@ -6,6 +6,4 @@
 engines:
   opengrep:
     exclude_paths:
-      - "src/retrieval/bm25.rs"
-      - "crates/csm-retrieval/src/bm25.rs"
-      - "crates/csm-core-lib/src/bundle_simd.rs"
+ 
