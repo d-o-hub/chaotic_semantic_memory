@@ -4777,13 +4777,13 @@ actions:
     effects:
       bm25_absence_todo_resolved: true
     cost: 3
-    status: queued
+    status: complete
     file: crates/csm-retrieval/src/, src/retrieval/, src/framework_bridge.rs
     adr: ADR-0094
     description: |
-      Either wire is_known_absent into the canonical hybrid path with threshold,
-      namespace, invalidation, and false-negative tests, or remove the premature
-      unused API. No production TODO remains.
+      2026-07-23: Removed unused is_known_absent function (zero callers, zero tests).
+      Absence recording infra (persist_absence, AbsenceEntry, AbsenceStore) retained
+      for memory_list_gaps MCP tool. PR #552.
 
   - name: own_ttl_cleanup_lifecycle
     preconditions:

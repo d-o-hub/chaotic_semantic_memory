@@ -240,6 +240,37 @@ Prepared and validated v0.3.0 release with Semantic Bridge Layer, Hybrid Retriev
 - WASM library (`chaotic_semantic_memory.wasm`) is ~870KB, CLI binary (`csm.wasm`) is ~5KB
 - Schema migration v5 handles both new databases and existing databases with old table names
 
+## 2026-07-23: Wave 33 — CI Fixes + GOAP Orchestrator Hardening
+
+### Summary
+Executed Wave 33 plan: fixed all CI failures, resolved BM25 absence TODO, enhanced GOAP orchestrator with swarm patterns.
+
+### PRs Created
+- **PR #551**: `fix(ci): use --target nodejs for WASM smoke test and guard main concurrency`
+  - Switched CI WASM build from `--target web` to `--target nodejs` (fixes persistent `fetch()` + `file://` failure)
+  - Added `module.default` fallback in `wasm/test.js` for CJS module interop
+  - Guarded `cancel-in-progress` to only cancel PR runs, not main pushes
+- **PR #552**: `fix(retrieval): remove unused is_known_absent function`
+  - Removed dead code: zero callers, zero tests, TODO since Wave 32 audit
+  - Absence recording infra (persist_absence, AbsenceEntry, AbsenceStore) untouched
+- **PR #553**: `feat(goap): enhance orchestrator with swarm patterns and status commands`
+  - Added `status` command: current wave, queued/in-progress actions, open PRs
+  - Added `wave <N>` command: display wave plan with parallel breakdown
+  - Enhanced `verify` command: LOC gate + ADR parity checks
+  - Created `references/wave-execution.md`: multi-agent wave execution template
+  - Documented swarm dispatch patterns, merge order rules, PR triage integration
+
+### Actions Resolved
+- `implement_or_remove_bm25_absence_short_circuit` → resolved (removed)
+- CI WASM smoke test persistent failure → fixed
+- CI concurrency cancellation rate → fixed
+- GOAP orchestrator skill → hardened with swarm patterns
+
+### Key Decisions
+- **BM25 absence**: chose "remove" over "wire in" — zero callers, zero tests, complex invalidation semantics
+- **WASM target**: dual-target strategy (nodejs for CI smoke, web for release)
+- **CI concurrency**: branch-conditional cancel-in-progress prevents cascading failures
+
 ## 2026-04-06: Release Workflow Production Solution
 
 ### Summary
