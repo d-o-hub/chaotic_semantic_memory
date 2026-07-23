@@ -4763,7 +4763,7 @@ actions:
       mutation_timeouts_unresolved: true
       mutation_changed_files_not_excluded: true
     cost: 4
-    status: queued
+    status: complete
     file: scripts/mutation_test.sh, .github/workflows/ci.yml
     adr: ADR-0095
     description: |
