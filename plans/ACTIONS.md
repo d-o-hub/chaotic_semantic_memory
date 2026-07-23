@@ -4716,7 +4716,7 @@ actions:
       benchmark_ci_enforces_quality_thresholds: true
       performance_claims_have_current_artifacts: true
     cost: 8
-    status: queued
+    status: complete
     file: .github/workflows/benchmark-ci.yml, benchmarks/, benches/, plans/
     adr: ADR-0095
     description: |
