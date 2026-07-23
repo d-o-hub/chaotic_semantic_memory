@@ -168,11 +168,14 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
     # Examples: test/inline-tests-clippy-config, fix/persistence-fk, feat/reservoir-simd
     ```
 
-16. **Atomic commits** — One logical change per commit, never mix unrelated changes:
+16. **Atomic commits** — One logical change per commit, never mix unrelated changes. Every single commit must follow Conventional Commits format, enforced locally by `commitlint.config.cjs` via git hook:
     ```bash
+    # Enforce commit message format locally
+    git config core.hooksPath .githooks
     git add src/singularity.rs src/singularity_cache.rs
     git commit -m "feat(singularity): add similarity cache"
     ```
+    Never use generic messages like "optimize" or "fix bug" as they will trigger commitlint failures in CI.
 
 17. **Push branch and create PR** — Never push directly to `main`:
     ```bash
