@@ -40,6 +40,7 @@ pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)> {
     let mut max = f32::NEG_INFINITY;
     for (_, s) in scores {
         let s = *s;
+        debug_assert!(!s.is_nan(), "Score cannot be NaN");
         if s < min {
             min = s;
         }
@@ -95,6 +96,7 @@ pub fn merge_results(
         let mut max = f32::NEG_INFINITY;
         for (_, s) in bm25_results {
             let s = *s;
+            debug_assert!(!s.is_nan(), "Score cannot be NaN");
             if s < min {
                 min = s;
             }
@@ -120,6 +122,7 @@ pub fn merge_results(
         let mut max = f32::NEG_INFINITY;
         for (_, s) in hdc_results {
             let s = *s;
+            debug_assert!(!s.is_nan(), "Score cannot be NaN");
             if s < min {
                 min = s;
             }
