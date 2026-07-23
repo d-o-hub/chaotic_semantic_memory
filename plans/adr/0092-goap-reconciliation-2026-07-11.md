@@ -33,7 +33,7 @@ Reconcile GOAP world state with the current codebase, documenting:
 | File | Lines | Over by |
 |------|------:|--------:|
 | `crates/csm-memory/src/singularity.rs` | 629 | +129 |
-| `crates/csm-core/src/hyperdim.rs` | 563 | +63 |
+| `crates/csm-core-lib/src/hyperdim.rs` | 563 | +63 |
 | `crates/csm-memory/src/graph_traversal.rs` | 517 | +17 |
 
 **Root cause**: Workspace crate extraction (PRs #377-#385) moved code to

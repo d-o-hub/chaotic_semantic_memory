@@ -14,7 +14,7 @@ issues for tracking and future resolution.
 
 The Codacy report flagged 8 unsafe usage warnings in `src/embedding/mod.rs`
 (lines 198, 206, 212, 217, 223, 231, 237, 242) and additional findings in
-`crates/csm-core/`.
+`crates/csm-core-lib/`.
 
 ## Decision Drivers
 
@@ -57,7 +57,7 @@ there is no source diff to mutate.
 **Jobs Affected**: Build CLI (macos-arm64, macos-x64, linux-arm64, linux-x64, windows-x64)
 **Symptom**: Earlier jobs were cancelled after ~60s with "The operation was
 canceled"; later run `27196604107` also exposed a macOS arm64 `-D warnings`
-failure from an unused `data` binding in `crates/csm-core/src/hyperdim.rs:173`.
+failure from an unused `data` binding in `crates/csm-core-lib/src/hyperdim.rs:173`.
 **Impact**: Build CLI jobs failed or failed to complete before remediation.
 **Resolution**: Superseded by later PR #356 fixes. In run `27199074152`, Build
 CLI passed for linux-x64, linux-arm64, macos-arm64, macos-x64, and windows-x64.
@@ -75,14 +75,14 @@ on a fresh run after `d48357d`.
 
 ### Issue 4: Unused Import (Fixed in This PR)
 
-**File**: `crates/csm-core/src/bundle_simd.rs:167`
+**File**: `crates/csm-core-lib/src/bundle_simd.rs:167`
 **Import**: `use rand::RngExt;`
 **Status**: FIXED — Removed unused import
 **Note**: `random_range()` is provided by `rand::Rng`, not `RngExt`
 
 ### Issue 5: Redundant Allow Attributes (Fixed in This PR)
 
-**File**: `crates/csm-core/src/hyperdim.rs`
+**File**: `crates/csm-core-lib/src/hyperdim.rs`
 **Lines**: 57, 70, 79, 176, 433
 **Pattern**: `#[allow(unused_mut, unused_variables)]`
 **Status**: FIXED — Removed redundant attributes; `mut` is genuinely required for

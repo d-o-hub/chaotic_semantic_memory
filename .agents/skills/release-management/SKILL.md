@@ -115,10 +115,10 @@ for crate in csm-chaos csm-core-lib csm-traits csm-embedding csm-memory csm-retr
 done
 ```
 
-If a name is taken by an unrelated project (e.g., `csm-core-lib` is "Candle-based inference for Sesame CSM-1B"), rename the crate before publishing. Use prefixes like `chaotic-semantic-memory-*` or suffixes like `csm-core-lib-lib` to avoid conflicts.
+If a name is taken by an unrelated project (e.g., `csm-core` was taken by Sesame CSM-1B TTS), rename the crate before publishing. Use prefixes like `chaotic-semantic-memory-*` or suffixes like `csm-core-lib` to avoid conflicts.
 
 **Known conflicts (as of 2026-07-22):**
-- `csm-core-lib`: Taken by Sesame CSM-1B TTS project
+- `csm-core`: Taken by Sesame CSM-1B TTS project → renamed to `csm-core-lib`
 - `csm-chaos`: Available (published at 0.3.7)
 - `csm-traits`, `csm-embedding`, `csm-memory`, `csm-retrieval`, `csm-persistence`, `csm-wasm`: Not yet published, availability unknown
 

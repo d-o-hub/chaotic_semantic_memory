@@ -6,7 +6,7 @@
 
 ```
 #364: csm-embedding extraction (has jules label)
-  └─→ #365: csm-memory extraction (depends on csm-core)
+  └─→ #365: csm-memory extraction (depends on csm-core-lib)
        └─→ #366: csm-retrieval extraction
             └─→ #367: csm-persistence extraction
                  └─→ #368: csm-cli extraction
@@ -23,7 +23,7 @@
 
 | Issue | Depends On | Blocks | Priority |
 |-------|------------|--------|----------|
-| #364 | csm-core (done) | #365 | HIGH |
+| #364 | csm-core-lib (done) | #365 | HIGH |
 | #365 | #364 | #366 | HIGH |
 | #366 | #365 | #367 | HIGH |
 | #367 | #366 | #368 | HIGH |

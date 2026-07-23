@@ -32,8 +32,8 @@ test `test_create_framework_advanced_config` added to
 
    `EmbeddingProvider::embed()` returns `Result<Vec<f32>>`
    ([`src/embedding/mod.rs:51`](../../src/embedding/mod.rs)). `cosine_similarity`
-   exists only on the `HVec10240` struct in `csm-core`
-   ([`crates/csm-core/src/hyperdim.rs:319`](../../crates/csm-core/src/hyperdim.rs)),
+   exists only on the `HVec10240` struct in `csm-core-lib`
+   ([`crates/csm-core-lib/src/hyperdim.rs:319`](../../crates/csm-core-lib/src/hyperdim.rs)),
    not on `Vec<f32>`. The lib-test target therefore fails to compile, aborting
    both jobs.
 

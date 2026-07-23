@@ -168,14 +168,11 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
     # Examples: test/inline-tests-clippy-config, fix/persistence-fk, feat/reservoir-simd
     ```
 
-16. **Atomic commits** — One logical change per commit, never mix unrelated changes. Every single commit must follow Conventional Commits format, enforced locally by `commitlint.config.cjs` via git hook:
+16. **Atomic commits** — One logical change per commit, never mix unrelated changes:
     ```bash
-    # Enforce commit message format locally
-    git config core.hooksPath .githooks
     git add src/singularity.rs src/singularity_cache.rs
     git commit -m "feat(singularity): add similarity cache"
     ```
-    Never use generic messages like "optimize" or "fix bug" as they will trigger commitlint failures in CI.
 
 17. **Push branch and create PR** — Never push directly to `main`:
     ```bash
@@ -375,7 +372,7 @@ Refer to the `dist-channel-selection` skill for canonical commands.
      echo -n "$crate: "
      cargo search "$crate" 2>/dev/null | head -1
    done
-   # If names are taken, rename crates before first publish (e.g., csm-core-lib → csm-core-lib-lib)
+   # If names are taken, rename crates before first publish (e.g., csm-core → csm-core-lib)
    ```
 
 6. **Check crates.io environment wait timer**:
@@ -410,7 +407,7 @@ Refer to the `dist-channel-selection` skill for canonical commands.
 
 ### Common Deployment Failures
 
-1. **crates.io name conflicts**: Workspace crate names (`csm-core-lib`, `csm-traits`, etc.) may be taken by unrelated projects. Check `cargo search` before first publish. Rename crates if needed (e.g., `csm-core-lib` → `csm-core-lib-lib`).
+1. **crates.io name conflicts**: Workspace crate names may be taken by unrelated projects. Check `cargo search` before first publish. Rename crates if needed (e.g., `csm-core` → `csm-core-lib`).
 
 2. **Environment wait timer**: The `crates.io` GitHub environment may have a wait timer (typically 15 minutes). This blocks `publish-crates` job until the timer expires. Remove the timer in GitHub Settings → Environments → crates.io if not needed.
 

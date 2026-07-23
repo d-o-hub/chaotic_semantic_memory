@@ -154,10 +154,6 @@ EXCLUDE_ARGS=(
   --exclude "src/mcp/*"
   --exclude "src/persistence_wasm.rs"
   --exclude-re "replace > with >= in <impl Reranker for MmrReranker>::rerank"
-  --exclude-re "replace < with <= in normalize_scores"
-  --exclude-re "replace > with >= in normalize_scores"
-  --exclude-re "replace < with <= in merge_results"
-  --exclude-re "replace > with >= in merge_results"
   # CLI entry points: async I/O + side effects; --lib mutation cannot kill
   # "replace run_query -> Result<()> with Ok(())" without integration fixtures.
   --exclude-re "run_query"
