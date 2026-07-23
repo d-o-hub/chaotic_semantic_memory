@@ -15,7 +15,10 @@ async function loadWasmBindings() {
 
     const moduleUrl = packageModuleUrl();
     const module = await import(moduleUrl);
-    const { WasmFramework, random_hypervector } = module;
+    // --target nodejs produces CJS; import() wraps module.exports as default.
+    // --target web produces ESM with named exports directly.
+    const exports = module.default || module;
+    const { WasmFramework, random_hypervector } = exports;
 
     const initCandidate = [module.default, module.init, module.__wbg_init]
         .find(candidate => typeof candidate === 'function');
