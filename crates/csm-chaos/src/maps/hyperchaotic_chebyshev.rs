@@ -93,7 +93,9 @@ mod tests {
         let mut map2 = ChebyshevLogistic2d::new(0.123, -0.456, 4.0, 4);
 
         for _ in 0..100 {
-            let v1 = map1.next_value(); let v2 = map2.next_value(); assert!((v1 - v2).abs() < f64::EPSILON);
+            let v1 = map1.next_value();
+            let v2 = map2.next_value();
+            assert!((v1 - v2).abs() < f64::EPSILON);
         }
     }
 
@@ -129,10 +131,7 @@ mod tests {
             assert!(libm::fabs(map.x) > 1e-10 || libm::fabs(map.y) > 1e-10);
         }
 
-        assert!(
-            same_count < 10,
-            "Map seems to have converged: {same_count}"
-        );
+        assert!(same_count < 10, "Map seems to have converged: {same_count}");
     }
 
     #[test]
