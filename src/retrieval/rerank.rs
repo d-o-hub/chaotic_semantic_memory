@@ -67,6 +67,9 @@ impl Reranker for MmrReranker {
         // Initially, the selected set is empty, so maximum similarity is 0.0.
         let mut max_sim_to_selected = vec![0.0f32; candidates.len()];
 
+        let lambda = self.lambda;
+        let one_minus_lambda = 1.0 - lambda;
+
         // Greedily select candidates
         while selected.len() < top_k && !candidates.is_empty() {
             let mut best_idx = 0;
@@ -79,7 +82,7 @@ impl Reranker for MmrReranker {
                 .enumerate()
             {
                 // MMR Formula: lambda * sim(query, cand) - (1 - lambda) * max_sim(cand, selected)
-                let mmr_score = self.lambda * similarity - (1.0 - self.lambda) * max_sim;
+                let mmr_score = lambda * similarity - one_minus_lambda * max_sim;
 
                 if mmr_score > max_mmr {
                     max_mmr = mmr_score;
@@ -133,14 +136,18 @@ impl Reranker for RecencyDecayReranker {
         top_k: usize,
     ) -> Vec<RerankCandidate> {
         let now = crate::singularity::unix_now_secs();
-        let half_life_secs = self.half_life_days * 86400.0;
+        let inv_half_life = 1.0 / (self.half_life_days * 86400.0);
+        let blend = self.blend;
+        let one_minus_blend = 1.0 - blend;
 
         for cand in &mut candidates {
             let age_secs = now.saturating_sub(cand.created_at_unix) as f32;
-            let recency = 0.5f32.powf(age_secs / half_life_secs);
+            // Mathematical Optimization: Use exp2(-x) instead of powf(0.5, x) using identity 0.5^x = 2^-x.
+            // This replaces arbitrary-base logarithm and exponentiation with native base-2 instructions.
+            let recency = (-age_secs * inv_half_life).exp2();
 
             // blended_score = blend * original_score + (1 - blend) * recency
-            cand.score = self.blend * cand.score + (1.0 - self.blend) * recency;
+            cand.score = blend * cand.score + one_minus_blend * recency;
         }
 
         candidates.sort_by(|a, b| b.score.total_cmp(&a.score));
@@ -370,6 +377,9 @@ mod tests {
 
         let results = reranker.rerank(&query, vec![c1, c2], 2);
         assert_eq!(results[0].id, "new");
+        assert!((results[0].score - 0.9).abs() < 1e-6);
+        assert_eq!(results[1].id, "old");
+        assert!((results[1].score - 0.575).abs() < 1e-6);
     }
 
     #[test]
@@ -394,8 +404,7 @@ mod tests {
     #[test]
     #[cfg(feature = "rerank-cross")]
     fn test_parse_rerankers_cross_unrecognized_path_errors() {
-        // The "cross" arm should be reachable; a non-existent path must error
-        // (not fall through to "unknown reranker")
+        // The "cross" arm should be reachable; a non-existent path must error.
         let err = parse_rerankers("cross:/tmp/nonexistent_model.onnx").unwrap_err();
         if let csm_core_lib::error::MemoryError::InvalidInput { reason, .. } = err {
             assert!(
@@ -413,9 +422,7 @@ mod tests {
         assert!(format!("{err}").contains("invalid recency blend"));
     }
 
-    /// Kills the `|| → &&` mutation on the early-return guard.
-    /// With `&&`, a non-empty candidates list + top_k=0 would NOT return early,
-    /// causing a loop that never terminates (or panics). Must return empty vec.
+    // Kills the `|| → &&` mutation on the early-return guard.
     #[test]
     fn test_mmr_top_k_zero_returns_empty() {
         let query = HVec10240::zero();
@@ -434,17 +441,9 @@ mod tests {
         );
     }
 
-    /// Kills the `* → +` mutation on the MMR diversity penalty term.
-    ///
-    /// With lambda=0.0 and one candidate already selected, the MMR score for a
-    /// second candidate is:
-    ///   correct:   0.0 * sim(q, c) - 1.0 * max_sim_to_selected
-    ///              = -max_sim_to_selected  (always ≤ 0)
-    ///   mutated:   0.0 + sim(q, c) + 1.0 + max_sim_to_selected
-    ///              = sim(q, c) + 1.0 + max_sim_to_selected  (always > 1)
-    ///
-    /// The test checks that the second-round MMR score is negative, which is
-    /// impossible under the mutated formula.
+    // Kills the `* -> +` mutation on the MMR diversity penalty term.
+    // Correct lambda=0.0 MMR score: -max_sim (<= 0). Mutated: sim + 1.0 + max_sim (> 1).
+    // Testing that the second-round MMR score is negative catches this operator swap.
     #[test]
     fn test_mmr_lambda_zero_score_is_negative_after_first_selection() {
         let query = HVec10240::zero();
