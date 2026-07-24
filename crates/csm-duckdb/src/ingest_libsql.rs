@@ -3,8 +3,12 @@ use crate::error::Result;
 use crate::ingest_export::IngestReport;
 use std::path::Path;
 
+use crate::connection::validate_analytics_path;
+
 impl Analytics {
     pub fn attach_libsql<P: AsRef<Path>>(&mut self, path: P) -> Result<IngestReport> {
+        validate_analytics_path(path.as_ref(), &["db", "sqlite", "sqlite3", "db3"])?;
+
         let path_str = path.as_ref().to_str().ok_or_else(|| {
             crate::error::AnalyticsError::InvalidInput("Invalid path for libsql file".to_string())
         })?;
@@ -68,5 +72,76 @@ mod tests {
 
         let res = analytics.attach_libsql("nonexistent.db");
         assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_attach_libsql_security_validation() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA_DDL).unwrap();
+        let mut analytics = Analytics { conn };
+
+        // Semicolon
+        let res = analytics.attach_libsql("test;db");
+        assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
+
+        // Single quote
+        let res = analytics.attach_libsql("test'db");
+        assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
+
+        // Double quote
+        let res = analytics.attach_libsql("test\"db");
+        assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
+
+        // Path traversal
+        let res = analytics.attach_libsql("../test.db");
+        assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
+
+        // Control characters (like newline)
+        let res = analytics.attach_libsql("test\ndb");
+        assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
+
+        // Null bytes
+        let res = analytics.attach_libsql("test\0db");
+        assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
+
+        // Invalid extension
+        let res = analytics.attach_libsql("test.txt");
+        assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
+
+        // Absolute path outside allowed directory
+        let res = analytics.attach_libsql("/etc/passwd");
+        assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
+
+        // Happy path (clean path with correct extension)
+        let res = analytics.attach_libsql("clean_test_db.db");
+        // Since the file does not exist, it should return NotFound/Io, but NOT InvalidInput
+        assert!(!matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
     }
 }
