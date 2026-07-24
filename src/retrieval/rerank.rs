@@ -401,8 +401,7 @@ mod tests {
     #[test]
     #[cfg(feature = "rerank-cross")]
     fn test_parse_rerankers_cross_unrecognized_path_errors() {
-        // The "cross" arm should be reachable; a non-existent path must error
-        // (not fall through to "unknown reranker")
+        // The "cross" arm should be reachable; a non-existent path must error.
         let err = parse_rerankers("cross:/tmp/nonexistent_model.onnx").unwrap_err();
         if let csm_core_lib::error::MemoryError::InvalidInput { reason, .. } = err {
             assert!(
@@ -420,9 +419,7 @@ mod tests {
         assert!(format!("{err}").contains("invalid recency blend"));
     }
 
-    /// Kills the `|| → &&` mutation on the early-return guard.
-    /// With `&&`, a non-empty candidates list + top_k=0 would NOT return early,
-    /// causing a loop that never terminates (or panics). Must return empty vec.
+    // Kills the `|| → &&` mutation on the early-return guard.
     #[test]
     fn test_mmr_top_k_zero_returns_empty() {
         let query = HVec10240::zero();
@@ -441,17 +438,7 @@ mod tests {
         );
     }
 
-    /// Kills the `* → +` mutation on the MMR diversity penalty term.
-    ///
-    /// With lambda=0.0 and one candidate already selected, the MMR score for a
-    /// second candidate is:
-    ///   correct:   0.0 * sim(q, c) - 1.0 * max_sim_to_selected
-    ///              = -max_sim_to_selected  (always ≤ 0)
-    ///   mutated:   0.0 + sim(q, c) + 1.0 + max_sim_to_selected
-    ///              = sim(q, c) + 1.0 + max_sim_to_selected  (always > 1)
-    ///
-    /// The test checks that the second-round MMR score is negative, which is
-    /// impossible under the mutated formula.
+    // Kills the `* → +` mutation on the MMR diversity penalty term.
     #[test]
     fn test_mmr_lambda_zero_score_is_negative_after_first_selection() {
         let query = HVec10240::zero();
