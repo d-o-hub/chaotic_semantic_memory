@@ -105,7 +105,7 @@ impl Analytics {
         opts: &ParquetExportOptions,
     ) -> Result<ExportReport> {
         let out_path = out_path.as_ref();
-        validate_analytics_path(out_path)?;
+        validate_analytics_path(out_path, &["parquet"])?;
 
         let out_path_str = out_path
             .to_str()
@@ -238,6 +238,28 @@ mod tests {
         // Null bytes
         let res = analytics.export_concepts_parquet("test\0parquet", &opts);
         assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
+
+        // Invalid extension
+        let res = analytics.export_concepts_parquet("test.db", &opts);
+        assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
+
+        // Absolute path outside allowed directory
+        let res = analytics.export_concepts_parquet("/etc/passwd", &opts);
+        assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
+
+        // Happy path (clean path with correct extension)
+        let res = analytics.export_concepts_parquet("clean_test.parquet", &opts);
+        // Since there is no actual data loaded or file written, we just check that it is NOT InvalidInput
+        assert!(!matches!(
             res,
             Err(crate::error::AnalyticsError::InvalidInput(_))
         ));

@@ -7,7 +7,7 @@ use crate::connection::validate_analytics_path;
 
 impl Analytics {
     pub fn attach_libsql<P: AsRef<Path>>(&mut self, path: P) -> Result<IngestReport> {
-        validate_analytics_path(path.as_ref())?;
+        validate_analytics_path(path.as_ref(), &["db", "sqlite", "sqlite3", "db3"])?;
 
         let path_str = path.as_ref().to_str().ok_or_else(|| {
             crate::error::AnalyticsError::InvalidInput("Invalid path for libsql file".to_string())
@@ -118,6 +118,28 @@ mod tests {
         // Null bytes
         let res = analytics.attach_libsql("test\0db");
         assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
+
+        // Invalid extension
+        let res = analytics.attach_libsql("test.txt");
+        assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
+
+        // Absolute path outside allowed directory
+        let res = analytics.attach_libsql("/etc/passwd");
+        assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
+
+        // Happy path (clean path with correct extension)
+        let res = analytics.attach_libsql("clean_test_db.db");
+        // Since the file does not exist, it should return NotFound/Io, but NOT InvalidInput
+        assert!(!matches!(
             res,
             Err(crate::error::AnalyticsError::InvalidInput(_))
         ));

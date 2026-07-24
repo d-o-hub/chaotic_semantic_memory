@@ -32,12 +32,12 @@ impl Analytics {
 
 pub(crate) const MAX_ANALYTICS_PATH_LENGTH: usize = 4096;
 
-pub(crate) fn validate_analytics_path(path: &Path) -> Result<()> {
+pub(crate) fn validate_analytics_path(path: &Path, expected_extensions: &[&str]) -> Result<()> {
     let path_str = path.to_str().ok_or_else(|| {
         crate::error::AnalyticsError::InvalidInput("Path must be valid UTF-8".to_string())
     })?;
 
-    if path_str.len() > MAX_ANALYTICS_PATH_LENGTH {
+    if path_str.chars().count() > MAX_ANALYTICS_PATH_LENGTH {
         return Err(crate::error::AnalyticsError::InvalidInput(format!(
             "Path exceeds maximum length of {MAX_ANALYTICS_PATH_LENGTH} characters"
         )));
@@ -59,6 +59,66 @@ pub(crate) fn validate_analytics_path(path: &Path) -> Result<()> {
         return Err(crate::error::AnalyticsError::InvalidInput(
             "Path must not contain control characters, semicolons, or quotes".to_string(),
         ));
+    }
+
+    if !expected_extensions.is_empty() {
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        let ext_lower = ext.to_lowercase();
+        if !expected_extensions.contains(&ext_lower.as_str()) {
+            return Err(crate::error::AnalyticsError::InvalidInput(format!(
+                "Invalid file extension. Expected one of: {:?}",
+                expected_extensions
+            )));
+        }
+    }
+
+    if path.is_absolute() {
+        let current_dir = std::env::current_dir().map_err(|e| {
+            crate::error::AnalyticsError::InvalidInput(format!(
+                "cannot determine current working directory: {e}"
+            ))
+        })?;
+
+        let normalized = if path.exists() {
+            path.canonicalize().map_err(|e| {
+                crate::error::AnalyticsError::InvalidInput(format!(
+                    "absolute path cannot be accessed: {e}"
+                ))
+            })?
+        } else {
+            if let Some(parent) = path.parent() {
+                if parent.exists() {
+                    let parent_normalized = parent.canonicalize().map_err(|e| {
+                        crate::error::AnalyticsError::InvalidInput(format!(
+                            "absolute path parent cannot be accessed: {e}"
+                        ))
+                    })?;
+                    if let Some(file_name) = path.file_name() {
+                        parent_normalized.join(file_name)
+                    } else {
+                        parent_normalized
+                    }
+                } else {
+                    path.to_path_buf()
+                }
+            } else {
+                path.to_path_buf()
+            }
+        };
+
+        let temp_dir = std::env::temp_dir();
+        let temp_dir_normalized = temp_dir.canonicalize().unwrap_or(temp_dir);
+
+        let is_in_cwd = normalized.starts_with(&current_dir);
+        let is_in_temp =
+            normalized.starts_with(&temp_dir_normalized) || normalized.starts_with("/tmp");
+
+        if !is_in_cwd && !is_in_temp {
+            return Err(crate::error::AnalyticsError::InvalidInput(
+                "absolute paths must be within current working directory or temporary directory"
+                    .to_string(),
+            ));
+        }
     }
 
     Ok(())
