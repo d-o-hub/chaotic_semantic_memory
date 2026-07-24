@@ -142,8 +142,8 @@ impl Reranker for RecencyDecayReranker {
 
         for cand in &mut candidates {
             let age_secs = now.saturating_sub(cand.created_at_unix) as f32;
-            // Mathematical Optimization: Use exp2(x) instead of powf(0.5, y) to bypass
-            // expensive arbitrary-base logarithm and exponentiation in the hot loop.
+            // Mathematical Optimization: Use exp2(-x) instead of powf(0.5, x) using identity 0.5^x = 2^-x.
+            // This replaces arbitrary-base logarithm and exponentiation with native base-2 instructions.
             let recency = (-age_secs * inv_half_life).exp2();
 
             // blended_score = blend * original_score + (1 - blend) * recency
@@ -441,7 +441,9 @@ mod tests {
         );
     }
 
-    // Kills the `* → +` mutation on the MMR diversity penalty term.
+    // Kills the `* -> +` mutation on the MMR diversity penalty term.
+    // Correct lambda=0.0 MMR score: -max_sim (<= 0). Mutated: sim + 1.0 + max_sim (> 1).
+    // Testing that the second-round MMR score is negative catches this operator swap.
     #[test]
     fn test_mmr_lambda_zero_score_is_negative_after_first_selection() {
         let query = HVec10240::zero();
