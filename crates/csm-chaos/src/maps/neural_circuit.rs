@@ -5,7 +5,11 @@
 //!
 //! Provides a coupled cyclic neural circuit chaotic map.
 
-#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct NeuralCircuitMap {
     pub x: f64,
     pub y: f64,
@@ -25,9 +29,9 @@ impl NeuralCircuitMap {
     /// Perform a single iteration of the cyclic neural circuit map.
     #[inline]
     pub fn next(&mut self) {
-        let x_next = f64::tanh(self.a * self.y - self.b * self.x + self.z);
-        let y_next = f64::tanh(self.b * self.z - self.c * self.y + self.x);
-        let z_next = f64::tanh(self.c * self.x - self.a * self.z + self.y);
+        let x_next = libm::tanh(self.a * self.y - self.b * self.x + self.z);
+        let y_next = libm::tanh(self.b * self.z - self.c * self.y + self.x);
+        let z_next = libm::tanh(self.c * self.x - self.a * self.z + self.y);
 
         self.x = x_next;
         self.y = y_next;
