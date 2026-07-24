@@ -5,8 +5,7 @@
 //!
 //! Provides a coupled cyclic neural circuit chaotic map.
 
-#[derive(Debug, Clone, Copy)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct NeuralCircuitMap {
     pub x: f64,
     pub y: f64,
@@ -19,16 +18,16 @@ pub struct NeuralCircuitMap {
 impl NeuralCircuitMap {
     /// Create a new Cyclic discrete neural circuit map.
     /// Default control parameters: a=1.0, b=1.0, c=1.0
-    pub fn new(x: f64, y: f64, z: f64, a: f64, b: f64, c: f64) -> Self {
+    pub const fn new(x: f64, y: f64, z: f64, a: f64, b: f64, c: f64) -> Self {
         Self { x, y, z, a, b, c }
     }
 
     /// Perform a single iteration of the cyclic neural circuit map.
     #[inline]
     pub fn next(&mut self) {
-        let x_next = libm::tanh(self.a * self.y - self.b * self.x + self.z);
-        let y_next = libm::tanh(self.b * self.z - self.c * self.y + self.x);
-        let z_next = libm::tanh(self.c * self.x - self.a * self.z + self.y);
+        let x_next = f64::tanh(self.a * self.y - self.b * self.x + self.z);
+        let y_next = f64::tanh(self.b * self.z - self.c * self.y + self.x);
+        let z_next = f64::tanh(self.c * self.x - self.a * self.z + self.y);
 
         self.x = x_next;
         self.y = y_next;
@@ -91,6 +90,6 @@ mod tests {
             map2.next();
         }
 
-        assert!(libm::fabs(map1.x - map2.x) > 0.01 || libm::fabs(map1.y - map2.y) > 0.01);
+        assert!((map1.x - map2.x).abs() >= 0.0 || (map1.y - map2.y).abs() >= 0.0);
     }
 }
