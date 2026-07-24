@@ -30,6 +30,40 @@ impl Analytics {
     }
 }
 
+pub(crate) const MAX_ANALYTICS_PATH_LENGTH: usize = 4096;
+
+pub(crate) fn validate_analytics_path(path: &Path) -> Result<()> {
+    let path_str = path.to_str().ok_or_else(|| {
+        crate::error::AnalyticsError::InvalidInput("Path must be valid UTF-8".to_string())
+    })?;
+
+    if path_str.len() > MAX_ANALYTICS_PATH_LENGTH {
+        return Err(crate::error::AnalyticsError::InvalidInput(format!(
+            "Path exceeds maximum length of {MAX_ANALYTICS_PATH_LENGTH} characters"
+        )));
+    }
+
+    if path
+        .components()
+        .any(|c| c == std::path::Component::ParentDir)
+    {
+        return Err(crate::error::AnalyticsError::InvalidInput(
+            "Path traversal '..' components are not allowed".to_string(),
+        ));
+    }
+
+    if path_str
+        .chars()
+        .any(|c| c.is_control() || c == ';' || c == '\'' || c == '"')
+    {
+        return Err(crate::error::AnalyticsError::InvalidInput(
+            "Path must not contain control characters, semicolons, or quotes".to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
