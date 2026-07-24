@@ -1,4 +1,4 @@
-use crate::connection::Analytics;
+use crate::connection::{Analytics, validate_analytics_path};
 use crate::error::Result;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -105,6 +105,8 @@ impl Analytics {
         opts: &ParquetExportOptions,
     ) -> Result<ExportReport> {
         let out_path = out_path.as_ref();
+        validate_analytics_path(out_path)?;
+
         let out_path_str = out_path
             .to_str()
             .ok_or_else(|| {
@@ -181,5 +183,63 @@ impl Analytics {
             path: out_path.to_path_buf(),
             sha256,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+    use super::*;
+    use crate::schema::SCHEMA_DDL;
+    use duckdb::Connection;
+
+    #[test]
+    fn test_export_parquet_security_validation() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA_DDL).unwrap();
+        let analytics = Analytics { conn };
+        let opts = ParquetExportOptions::default();
+
+        // Semicolon
+        let res = analytics.export_concepts_parquet("test;parquet", &opts);
+        assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
+
+        // Single quote
+        let res = analytics.export_concepts_parquet("test'parquet", &opts);
+        assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
+
+        // Double quote
+        let res = analytics.export_concepts_parquet("test\"parquet", &opts);
+        assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
+
+        // Path traversal
+        let res = analytics.export_concepts_parquet("../test.parquet", &opts);
+        assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
+
+        // Control characters (like newline)
+        let res = analytics.export_concepts_parquet("test\nparquet", &opts);
+        assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
+
+        // Null bytes
+        let res = analytics.export_concepts_parquet("test\0parquet", &opts);
+        assert!(matches!(
+            res,
+            Err(crate::error::AnalyticsError::InvalidInput(_))
+        ));
     }
 }
