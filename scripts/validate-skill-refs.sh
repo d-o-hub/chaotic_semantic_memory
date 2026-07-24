@@ -5,8 +5,7 @@
 # Checks ALL paths referenced in skills (src/, crates/, plans/, scripts/)
 # against the actual filesystem. Catches stale paths after refactors.
 #
-# Usage: ./scripts/validate-skill-refs.sh [--fix]
-#   --fix: remove lines with dead references (destructive, review diff after)
+# Usage: ./scripts/validate-skill-refs.sh
 #
 # Exit 0 = clean, Exit 1 = dead references found
 # =============================================================================
@@ -15,9 +14,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SKILLS_DIR="${PROJECT_ROOT}/.agents/skills"
-
-FIX=false
-[[ "${1:-}" == "--fix" ]] && FIX=true
 
 DEAD=0
 

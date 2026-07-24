@@ -12,11 +12,19 @@ fail() { echo "FAIL: $1"; FAILED=1; }
 pass() { echo " ok: $1"; }
 
 echo "==> fmt"
-cargo fmt --all -- --check && pass "fmt" || fail "fmt (run: cargo fmt --all)"
+if cargo fmt --all -- --check; then
+  pass "fmt"
+else
+  fail "fmt (run: cargo fmt --all)"
+fi
 
 echo "==> clippy"
 cargo clippy --all-targets --all-features -- -D warnings 2>&1 | tail -5
-[[ ${PIPESTATUS[0]} -eq 0 ]] && pass "clippy" || fail "clippy"
+if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
+  pass "clippy"
+else
+  fail "clippy"
+fi
 
 echo "==> test compile"
 cargo test --no-run --all-features --quiet 2>&1 | grep -i "error" || pass "test compile"
@@ -32,7 +40,11 @@ fi
 
 echo "==> wasm check"
 if rustup target list --installed | grep -q "wasm32-unknown-unknown"; then
-  cargo check --target wasm32-unknown-unknown --features wasm --quiet && pass "wasm" || fail "wasm check"
+  if cargo check --target wasm32-unknown-unknown --features wasm --quiet; then
+    pass "wasm"
+  else
+    fail "wasm check"
+  fi
 else
   echo "skip: wasm target not installed"
 fi
