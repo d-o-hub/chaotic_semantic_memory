@@ -95,8 +95,7 @@ csm_test*
 .claude/skills
 *.tgz
 csm_memory.db
-commit*.txt
-result.txt
+
 
 commit_messages.txt
 *.log

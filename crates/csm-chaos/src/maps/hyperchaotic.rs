@@ -72,7 +72,7 @@ mod tests {
         let mut map = Slhm2d::new(0.123, 0.456, 0.99);
         for _ in 0..1000 {
             let v = map.next_value();
-            assert!((0.0..1.0).contains(&v), "Value {v} out of range");
+            assert!(v >= 0.0 && v < 1.0, "Value {} out of range", v);
         }
     }
 
@@ -105,7 +105,7 @@ mod tests {
 
         // Check for representation in all buckets
         for &count in &buckets {
-            assert!(count > 0, "Bucket is empty: {buckets:?}");
+            assert!(count > 0, "Bucket is empty: {:?}", buckets);
         }
     }
 }

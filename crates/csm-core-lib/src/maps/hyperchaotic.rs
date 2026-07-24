@@ -12,6 +12,6 @@ mod tests {
     fn test_slhm2d_reexport() {
         let mut map = Slhm2d::new(0.123, 0.456, 0.99);
         let v = map.next_value();
-        assert!((0.0..1.0).contains(&v));
+        assert!(v >= 0.0 && v < 1.0);
     }
 }
