@@ -377,6 +377,9 @@ mod tests {
 
         let results = reranker.rerank(&query, vec![c1, c2], 2);
         assert_eq!(results[0].id, "new");
+        assert!((results[0].score - 0.9).abs() < 1e-6);
+        assert_eq!(results[1].id, "old");
+        assert!((results[1].score - 0.575).abs() < 1e-6);
     }
 
     #[test]
