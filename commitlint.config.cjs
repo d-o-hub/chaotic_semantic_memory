@@ -29,6 +29,7 @@ module.exports = {
         'codacy',
         'docs',
         'release',
+        'skills',
         'clippy',
         'lints',
         'build',
