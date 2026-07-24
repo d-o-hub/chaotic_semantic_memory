@@ -12,6 +12,7 @@ libm = "0.2.11"
 serde = { workspace = true, optional = true }
 
 [features]
+experimental-neural-circuit = []
 default = []
 std = []
 serde = ["dep:serde"]
@@ -32,3 +33,6 @@ criterion = "0.5"
 
 [lints]
 workspace = true
+[[bench]]
+name = "chaotic_hashing_neural_circuit"
+harness = false
