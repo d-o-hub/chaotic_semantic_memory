@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use csm_chaos::maps::neural_circuit::NeuralCircuitMap;
 
 pub fn criterion_benchmark(c: &mut Criterion) {

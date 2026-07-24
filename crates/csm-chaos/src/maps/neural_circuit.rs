@@ -41,7 +41,8 @@ impl NeuralCircuitMap {
         self.next();
 
         // Bit-mixing of the chaotic state
-        let mut h = self.x.to_bits() ^ self.y.to_bits().rotate_left(21) ^ self.z.to_bits().rotate_left(42);
+        let mut h =
+            self.x.to_bits() ^ self.y.to_bits().rotate_left(21) ^ self.z.to_bits().rotate_left(42);
 
         // SplitMix64 finalizer
         h ^= h >> 33;
