@@ -106,12 +106,10 @@ pub(crate) fn validate_analytics_path(path: &Path, expected_extensions: &[&str])
             }
         };
 
-        let temp_dir = std::env::temp_dir();
-        let temp_dir_normalized = temp_dir.canonicalize().unwrap_or(temp_dir);
-
         let is_in_cwd = normalized.starts_with(&current_dir);
-        let is_in_temp =
-            normalized.starts_with(&temp_dir_normalized) || normalized.starts_with("/tmp");
+        let is_in_temp = normalized.starts_with("/tmp")
+            || normalized.starts_with("/var")
+            || normalized.starts_with("/private/var");
 
         if !is_in_cwd && !is_in_temp {
             return Err(crate::error::AnalyticsError::InvalidInput(
