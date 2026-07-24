@@ -6,7 +6,7 @@ description: Validate merge readiness with atomic commits and GitHub Actions che
 # GitHub CI Guardrails
 
 1. Ensure change set is one logical unit (atomic commit).
-2. Run local gates from `references/local-gates.md`.
+2. Run local gates: `scripts/ci-preflight.sh` (fast) or `scripts/validate.sh` (full).
 3. **Commitlint full PR range** before push:
    `npx commitlint --from origin/main --to HEAD --verbose`
 4. Validate GitHub checks with `references/gh-ci-truth.md`.

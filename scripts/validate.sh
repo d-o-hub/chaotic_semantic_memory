@@ -146,6 +146,24 @@ else
   exit 1
 fi
 
+# Skill dead-reference check — catches stale src/ and crates/ paths after refactors
+echo "==> Skill dead-reference check"
+if [[ -x "${SCRIPT_DIR}/validate-skill-refs.sh" ]]; then
+  "${SCRIPT_DIR}/validate-skill-refs.sh"
+else
+  echo "Error: scripts/validate-skill-refs.sh missing or not executable"
+  exit 1
+fi
+
+# Catalog sync check
+echo "==> Skill catalog sync"
+if [[ -x "${SCRIPT_DIR}/validate-skill-catalog.sh" ]]; then
+  "${SCRIPT_DIR}/validate-skill-catalog.sh" --fix
+else
+  echo "Error: scripts/validate-skill-catalog.sh missing or not executable"
+  exit 1
+fi
+
 # ADR Registry consistency check (ADR-0076)
 echo "==> ADR Registry consistency check"
 ADR_REGISTRY="plans/ADR_REGISTRY.md"

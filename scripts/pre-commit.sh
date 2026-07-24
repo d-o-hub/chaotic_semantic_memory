@@ -106,6 +106,24 @@ if [[ -x "${SCRIPT_DIR}/validate-skill-format.sh" ]]; then
   }
 fi
 
+# Skill dead-reference check — catches stale src/ and crates/ paths after refactors
+if [[ -x "${SCRIPT_DIR}/validate-skill-refs.sh" ]]; then
+  echo " → Checking skill file references..."
+  "${SCRIPT_DIR}/validate-skill-refs.sh" || {
+    echo "❌ Dead references in skills! Update the SKILL.md files."
+    exit 1
+  }
+fi
+
+# Catalog sync — catches skills added/deleted without updating CATALOG.md
+if [[ -x "${SCRIPT_DIR}/validate-skill-catalog.sh" ]]; then
+  echo " → Checking skill catalog sync..."
+  "${SCRIPT_DIR}/validate-skill-catalog.sh" --fix || {
+    echo "❌ CATALOG.md is out of sync! Run: scripts/validate-skill-catalog.sh --fix"
+    exit 1
+  }
+fi
+
 # GitHub Actions SHA validation (optional - opt-in via env var)
 # Note: Disabled by default as existing workflows use version tags
 # To enable: export CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true

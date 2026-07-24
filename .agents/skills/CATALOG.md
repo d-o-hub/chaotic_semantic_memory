@@ -1,6 +1,6 @@
 # Skill Catalog
 
-32 skills organized by category.
+26 skills organized by category.
 
 ## Core
 
@@ -20,14 +20,6 @@
 - **memory-lifecycle-verification**: Portable verification for memory lifecycle operations
 - **turso-memory-verification**: Verify memory persistence with Turso/libSQL databases
 
-## Swarm
-
-- **analysis-swarm**: Multi-persona code analysis orchestrator using RYAN, FLASH, and SOCRATES
-- **swarm-advanced-features**: Export/import, versioning, migrations, and backup/restore
-- **swarm-observability**: Tracing, metrics, derive macros, and error context
-- **swarm-performance**: SIMD optimization, connection pooling, batch APIs, and caching
-- **swarm-testing-quality**: Property-based testing, fuzzing, and edge case coverage
-
 ## Workflow
 
 - **learn**: Capture non-obvious session learnings to project memory
@@ -40,7 +32,6 @@
 - **self-fix-loop**: Automated CI fix cycle: detect failure, classify error, apply fix, retry
 - **iterative-refinement**: Test-fix-validate loops for complex changes
 - **skill-creator**: Create new skills with proper structure and evals
-- **skill-evaluator**: Evaluate skill performance with benchmarks and metrics
 - **codacy**: Orchestrate static analysis using Codacy CLIs
 
 ## TRIZ

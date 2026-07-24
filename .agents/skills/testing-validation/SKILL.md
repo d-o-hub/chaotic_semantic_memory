@@ -21,7 +21,7 @@ cargo fmt --check
 cargo clippy -- -D warnings
 ```
 
-Then check LOC limits with `scripts/loc-check.sh`.
+Then check LOC limits with `scripts/validate.sh` (includes LOC gate).
 
 ## Benchmark Validation
 
@@ -60,7 +60,7 @@ Use separate test files in `tests/` for:
 
 ## LOC Enforcement
 
-Every file in `src/*.rs` must be ≤ 500 lines. Run `scripts/loc-check.sh` to verify.
+Every file in `src/*.rs` and `crates/*/src/*.rs` must be ≤ 500 lines. Enforced by `scripts/validate.sh`.
 
 ## Documentation Link & Command Validation
 

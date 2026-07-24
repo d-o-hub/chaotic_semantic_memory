@@ -54,6 +54,10 @@ Automated CI failure remediation with iterative repair attempts.
 
 ### 1. Detect Failure
 ```bash
+# Fast local pre-check (catches most issues before waiting for remote CI)
+scripts/ci-preflight.sh
+
+# If local passes but remote fails, fetch remote logs:
 gh run list --limit 1 --json conclusion,status,databaseId
 gh run view <run-id> --log-failed
 ```
@@ -69,7 +73,7 @@ Execute appropriate remediation based on classification:
 
 ### 4. Retry
 ```bash
-git add -A
+git add <changed-files>
 git commit -m "fix: automated remediation for <error-type>"
 git push
 ```

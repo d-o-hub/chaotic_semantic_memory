@@ -79,5 +79,5 @@ Use this skill before any release to ensure:
 ## References
 
 - `src/export_payload.rs` - Binary-compatible payload structs
-- `src/hyperdim.rs` - HVec10240 serialization
-- `src/framework_ops.rs` - Import/export implementations
+- `crates/csm-core-lib/src/hyperdim.rs` - HVec10240 serialization
+- `src/framework_ops.rs` / `src/framework_ops_import.rs` - Import/export implementations

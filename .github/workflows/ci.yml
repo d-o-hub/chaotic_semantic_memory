@@ -443,6 +443,10 @@ jobs:
       run: cargo clippy --all-targets --all-features -- -D warnings
     - name: Skill format validation (ADR-0096)
       run: bash scripts/validate-skill-format.sh
+    - name: Skill dead-reference check
+      run: bash scripts/validate-skill-refs.sh
+    - name: Skill catalog sync
+      run: bash scripts/validate-skill-catalog.sh
     - name: LOC gate
       run: bash scripts/validate.sh
 

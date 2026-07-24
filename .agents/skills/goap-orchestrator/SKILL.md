@@ -29,7 +29,7 @@ Orchestrate complex multi-issue tasks using GOAP planning with GitHub integratio
 ## State Management
 
 - Plan state: `plans/GOAP_ORCHESTRATOR.md`
-- Issue tracking: `plans/ISSUE_TRACKER.md`
+- Issue tracking: `gh issue list` (GitHub as source of truth)
 - Branch strategy: `feat/<scope>-<description>`
 
 ## References

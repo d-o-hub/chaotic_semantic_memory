@@ -6,9 +6,12 @@ description: "Debug and tune the echo state network reservoir. Use when diagnosi
 # Debugging the Reservoir
 
 ## Architecture Overview
-The reservoir is a sparse Echo State Network in `src/reservoir.rs`:
-- `Reservoir`: core ESN with sparse adjacency-list weights
-- `ChaoticReservoir`: wrapper adding noise perturbation for edge-of-chaos dynamics
+The reservoir is a sparse Echo State Network in `crates/csm-core-lib/src/`:
+- `reservoir.rs`: core ESN with sparse adjacency-list weights
+- `reservoir_chaotic.rs`: wrapper adding noise perturbation for edge-of-chaos dynamics
+- `reservoir_sparse.rs`: sparse weight utilities
+- `reservoir_inertial.rs`: inertial variant with momentum
+- `reservoir_tests.rs`: test suite
 
 ## Sparse Weight Format
 Weights are `Vec<Vec<(usize, f32)>>` — each row is a list of `(column_index, weight)`.
