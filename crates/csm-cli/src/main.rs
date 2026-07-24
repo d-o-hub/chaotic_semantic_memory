@@ -185,7 +185,7 @@ mod native {
             Commands::Mcp(cmd) => match cmd {
                 chaotic_semantic_memory::cli::McpCommands::Serve(args) => {
                     let config = chaotic_semantic_memory::mcp::McpConfig {
-                        transport: args.transport,
+                        transport: match args.transport { chaotic_semantic_memory::mcp::TransportType::Stdio => chaotic_semantic_memory::mcp::Transport::Stdio, chaotic_semantic_memory::mcp::TransportType::Sse => chaotic_semantic_memory::mcp::Transport::Sse { bind: args.bind.clone().unwrap_or_else(|| "127.0.0.1:3000".to_string()).parse().expect("Invalid address") } },
                         bind: args.bind.clone(),
                         database: db_path,
                     };

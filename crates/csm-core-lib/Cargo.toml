@@ -26,6 +26,7 @@ getrandom = { version = "0.4.2", features = ["wasm_js"] }
 js-sys = "0.3.77"
 
 [features]
+experimental-neural-circuit = []
 default = []
 chaotic-hashing = ["dep:csm-chaos", "csm-chaos/std"]
 parallel = ["dep:rayon"]

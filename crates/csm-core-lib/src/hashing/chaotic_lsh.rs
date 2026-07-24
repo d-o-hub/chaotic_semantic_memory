@@ -62,13 +62,11 @@ mod tests {
 
         assert!(
             sim_12 > 0.8,
-            "Similar vectors should have high similarity: {}",
-            sim_12
+            "Similar vectors should have high similarity: {sim_12}"
         );
         assert!(
             sim_13 < 0.6,
-            "Different vectors should have low similarity: {}",
-            sim_13
+            "Different vectors should have low similarity: {sim_13}"
         );
     }
 
