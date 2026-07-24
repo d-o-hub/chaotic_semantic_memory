@@ -67,6 +67,9 @@ impl Reranker for MmrReranker {
         // Initially, the selected set is empty, so maximum similarity is 0.0.
         let mut max_sim_to_selected = vec![0.0f32; candidates.len()];
 
+        let lambda = self.lambda;
+        let one_minus_lambda = 1.0 - lambda;
+
         // Greedily select candidates
         while selected.len() < top_k && !candidates.is_empty() {
             let mut best_idx = 0;
@@ -79,7 +82,7 @@ impl Reranker for MmrReranker {
                 .enumerate()
             {
                 // MMR Formula: lambda * sim(query, cand) - (1 - lambda) * max_sim(cand, selected)
-                let mmr_score = self.lambda * similarity - (1.0 - self.lambda) * max_sim;
+                let mmr_score = lambda * similarity - one_minus_lambda * max_sim;
 
                 if mmr_score > max_mmr {
                     max_mmr = mmr_score;
@@ -133,14 +136,18 @@ impl Reranker for RecencyDecayReranker {
         top_k: usize,
     ) -> Vec<RerankCandidate> {
         let now = csm_memory::unix_now_secs();
-        let half_life_secs = self.half_life_days * 86400.0;
+        let inv_half_life = 1.0 / (self.half_life_days * 86400.0);
+        let blend = self.blend;
+        let one_minus_blend = 1.0 - blend;
 
         for cand in &mut candidates {
             let age_secs = now.saturating_sub(cand.created_at_unix) as f32;
-            let recency = 0.5f32.powf(age_secs / half_life_secs);
+            // Mathematical Optimization: Use exp2(x) instead of powf(0.5, y) to bypass
+            // expensive arbitrary-base logarithm and exponentiation in the hot loop.
+            let recency = (-age_secs * inv_half_life).exp2();
 
             // blended_score = blend * original_score + (1 - blend) * recency
-            cand.score = self.blend * cand.score + (1.0 - self.blend) * recency;
+            cand.score = blend * cand.score + one_minus_blend * recency;
         }
 
         candidates.sort_by(|a, b| b.score.total_cmp(&a.score));
