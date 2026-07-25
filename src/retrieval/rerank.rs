@@ -67,6 +67,9 @@ impl Reranker for MmrReranker {
         // Initially, the selected set is empty, so maximum similarity is 0.0.
         let mut max_sim_to_selected = vec![0.0f32; candidates.len()];
 
+        let lambda = self.lambda;
+        let one_minus_lambda = 1.0 - lambda;
+
         // Greedily select candidates
         while selected.len() < top_k && !candidates.is_empty() {
             let mut best_idx = 0;
@@ -79,7 +82,7 @@ impl Reranker for MmrReranker {
                 .enumerate()
             {
                 // MMR Formula: lambda * sim(query, cand) - (1 - lambda) * max_sim(cand, selected)
-                let mmr_score = self.lambda * similarity - (1.0 - self.lambda) * max_sim;
+                let mmr_score = lambda * similarity - one_minus_lambda * max_sim;
 
                 if mmr_score > max_mmr {
                     max_mmr = mmr_score;
@@ -134,13 +137,18 @@ impl Reranker for RecencyDecayReranker {
     ) -> Vec<RerankCandidate> {
         let now = crate::singularity::unix_now_secs();
         let half_life_secs = self.half_life_days * 86400.0;
+        let inv_half_life = 1.0 / half_life_secs;
+        let blend = self.blend;
+        let one_minus_blend = 1.0 - blend;
 
         for cand in &mut candidates {
             let age_secs = now.saturating_sub(cand.created_at_unix) as f32;
-            let recency = 0.5f32.powf(age_secs / half_life_secs);
+            // CPU-native base-2 exponentiation (-age_secs * inv_half_life).exp2()
+            // leveraged via identity 0.5^x = 2^-x to avoid powf overhead.
+            let recency = (-age_secs * inv_half_life).exp2();
 
             // blended_score = blend * original_score + (1 - blend) * recency
-            cand.score = self.blend * cand.score + (1.0 - self.blend) * recency;
+            cand.score = blend * cand.score + one_minus_blend * recency;
         }
 
         candidates.sort_by(|a, b| b.score.total_cmp(&a.score));
@@ -300,21 +308,16 @@ mod tests {
 
     #[test]
     fn test_mmr_reranker() {
-        // Use a zero vector as query for deterministic (and low) similarity
         let query = HVec10240::zero();
-        // Use seeded vectors for deterministic similarity
-        // v1 will be the anchor
         let v1 = Arc::new(HVec10240::new_seeded(1));
-        // v2 is identical to v1
         let v2 = Arc::new(HVec10240::new_seeded(1));
-        // v3 is different
         let v3 = Arc::new(HVec10240::new_seeded(2));
 
         let c1 = RerankCandidate {
             id: "c1".into(),
             vector: v1,
             metadata: HashMap::new(),
-            score: 0.9, // Higher initial score
+            score: 0.9,
             created_at_unix: 0,
         };
         let c2 = RerankCandidate {
@@ -332,26 +335,11 @@ mod tests {
             created_at_unix: 0,
         };
 
-        // If lambda is 1.0, it should be pure similarity: c1, c2
-        let reranker_sim = MmrReranker { lambda: 1.0 };
-        let results_sim = reranker_sim.rerank(&query, vec![c1.clone(), c2.clone(), c3.clone()], 2);
+        let results_sim = MmrReranker { lambda: 1.0 }.rerank(&query, vec![c1.clone(), c2.clone(), c3.clone()], 2);
         assert_eq!(results_sim[0].id, "c1");
         assert_eq!(results_sim[1].id, "c2");
 
-        // If lambda is 0.5, diversity should kick in.
-        // Step 1: Selection.
-        // MMR(c1) = 0.5 * sim(query, c1) - 0.5 * 0.0 = 0.5 * sim(query, c1)
-        // MMR(c2) = 0.5 * sim(query, c2)
-        // MMR(c3) = 0.5 * sim(query, c3)
-        // Since sim(query, c1) is highest (initially we use query.cosine_similarity), c1 is selected.
-
-        // Step 2:
-        // MMR(c2) = 0.5 * sim(query, c2) - 0.5 * sim(c2, c1) = 0.5 * sim(query, c2) - 0.5 * 1.0
-        // MMR(c3) = 0.5 * sim(query, c3) - 0.5 * sim(c3, c1)
-        // Since sim(c3, c1) < 1.0, MMR(c3) will be greater than MMR(c2).
-        let reranker = MmrReranker { lambda: 0.5 };
-        let results = reranker.rerank(&query, vec![c1, c2, c3], 2);
-
+        let results = MmrReranker { lambda: 0.5 }.rerank(&query, vec![c1, c2, c3], 2);
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].id, "c1");
         assert_eq!(results[1].id, "c3");
@@ -435,16 +423,6 @@ mod tests {
     }
 
     /// Kills the `* → +` mutation on the MMR diversity penalty term.
-    ///
-    /// With lambda=0.0 and one candidate already selected, the MMR score for a
-    /// second candidate is:
-    ///   correct:   0.0 * sim(q, c) - 1.0 * max_sim_to_selected
-    ///              = -max_sim_to_selected  (always ≤ 0)
-    ///   mutated:   0.0 + sim(q, c) + 1.0 + max_sim_to_selected
-    ///              = sim(q, c) + 1.0 + max_sim_to_selected  (always > 1)
-    ///
-    /// The test checks that the second-round MMR score is negative, which is
-    /// impossible under the mutated formula.
     #[test]
     fn test_mmr_lambda_zero_score_is_negative_after_first_selection() {
         let query = HVec10240::zero();
