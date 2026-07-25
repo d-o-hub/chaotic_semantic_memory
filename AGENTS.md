@@ -416,6 +416,24 @@ Refer to the `dist-channel-selection` skill for canonical commands.
 4. **Recovery dispatch**: Use `gh workflow run release.yml -f recover=true` to retry failed releases for existing tags. The workflow is idempotent — it skips already-published artifacts.
 
 ---
+
+## PR & CI Workflow
+
+1. **Consolidate dependent changes** — When fixing CI issues across multiple dependent changes, consolidate into a single PR rather than creating separate PRs with circular dependencies. Each PR must be independently CI-green.
+
+2. **Analyze dependencies before splitting** — Before creating multiple PRs, analyze dependency relationships between changes. If changes depend on each other to pass CI, they belong in one PR or must be ordered with a clear base chain (A merges → B rebases on main → B merges → C rebases → ...).
+
+3. **Never use `gh pr merge --auto` on multiple PRs** — This repo requires "up to date with base". Auto-merge on multiple PRs creates a rebase loop. Instead: merge one → rebase next → wait for CI → merge → repeat.
+
+---
+
+## Workflow Patterns
+
+1. **Analysis → Synthesis → Action** — When executing recommendations from a codebase analysis, use parallel task agents to explore different areas simultaneously, then synthesize findings before making changes.
+
+2. **Pre-flight dependency graph** — Before proposing a PR strategy, map which files/crates depend on which changes to compile and pass tests. Draw the graph, then decide the split.
+
+---
 ## Key Files
 **Core**: `src/singularity.rs`, `src/reservoir.rs`, `src/reservoir_inertial.rs`, `src/framework.rs`, `src/persistence.rs`
 **Bridge**: `src/semantic_bridge.rs`, `src/bridge_retrieval.rs`
