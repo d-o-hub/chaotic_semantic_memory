@@ -82,4 +82,12 @@ mod tests {
         let analytics = Analytics::open(&db_path);
         assert!(analytics.is_ok());
     }
+
+    #[test]
+    fn test_path_length_limit() {
+        let at_limit: String = "a".repeat(MAX_ANALYTICS_PATH_LENGTH);
+        assert!(validate_analytics_path(Path::new(&at_limit)).is_ok());
+        let over_limit: String = "a".repeat(MAX_ANALYTICS_PATH_LENGTH + 1);
+        assert!(validate_analytics_path(Path::new(&over_limit)).is_err());
+    }
 }

@@ -107,12 +107,9 @@ impl Analytics {
         let out_path = out_path.as_ref();
         validate_analytics_path(out_path)?;
 
-        let out_path_str = out_path
-            .to_str()
-            .ok_or_else(|| {
-                crate::error::AnalyticsError::InvalidInput("Path must be valid UTF-8".to_string())
-            })?
-            .replace("'", "''");
+        let out_path_str = out_path.to_str().ok_or_else(|| {
+            crate::error::AnalyticsError::InvalidInput("Path must be valid UTF-8".to_string())
+        })?;
 
         let mut copy_opts = vec![
             "FORMAT PARQUET".to_string(),

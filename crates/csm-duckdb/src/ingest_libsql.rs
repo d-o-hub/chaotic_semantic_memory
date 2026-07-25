@@ -13,11 +13,8 @@ impl Analytics {
             crate::error::AnalyticsError::InvalidInput("Invalid path for libsql file".to_string())
         })?;
 
-        // DuckDB SQLite scanner ATTACH
-        // We use single quotes for the path; if the path contains single quotes, we escape them.
-        let escaped_path = path_str.replace('\'', "''");
         self.conn.execute(
-            &format!("ATTACH '{escaped_path}' AS csm_src (TYPE SQLITE, READ_ONLY)"),
+            &format!("ATTACH '{path_str}' AS csm_src (TYPE SQLITE, READ_ONLY)"),
             [],
         )?;
 

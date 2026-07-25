@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Fuzz**: `persistence_save_concept` target updated for current `Concept` / `save_concept(ns, …)` API; unique temp DBs via `tempfile`.
+- **Security (csm-duckdb)**: Remove redundant SQL-escape in `export_parquet.rs` and `ingest_libsql.rs`; `validate_analytics_path` already rejects quote characters, making the extra `replace("'", "''")` unreachable dead code.
+- **CI (Pre-Release Gate)**: Fix `cargo install cargo-audit` failure on rustc 1.88.0 by adding `--locked`; fix `planning-state-check` grep off-by-one (blank line after `## Status` heading).
 
 ## [0.3.7] - 2026-06-27
 
