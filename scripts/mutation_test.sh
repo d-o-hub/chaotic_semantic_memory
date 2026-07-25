@@ -158,6 +158,9 @@ EXCLUDE_ARGS=(
   # "replace run_query -> Result<()> with Ok(())" without integration fixtures.
   --exclude-re "run_query"
   --exclude-re "replace run_query"
+  # src/bin/csm.rs: tracing setup, error formatting, shell completion, and main
+  # are CLI-only concerns (side-effectful, process-exit, I/O); untestable via --lib.
+  --exclude "src/bin/csm.rs"
 )
 
 # Preflight count (omit -j; listing does not need parallel workers).

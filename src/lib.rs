@@ -246,6 +246,10 @@ pub mod prelude {
     pub use csm_core_lib::hyperdim::HVec10240;
 }
 
+#[cfg(all(test, not(target_arch = "wasm32"), feature = "persistence"))]
+mod bridge_persistence_tests;
+#[cfg(test)]
+mod bridge_retrieval_tests;
 #[cfg(test)]
 mod framework_ops_tests;
 #[cfg(target_arch = "wasm32")]
