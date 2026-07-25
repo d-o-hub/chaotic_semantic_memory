@@ -101,18 +101,29 @@ fn test_absence_normalize_trims_and_lowercases() {
     assert_eq!(AbsenceEntry::normalize("already"), "already");
 }
 
-/// Kills fnv1a_hash -> 0/1 and ^= -> |=/&=: different inputs must produce distinct hashes.
+/// Kills fnv1a_hash -> 0/1 and ^= -> |=: tests the exact FNV-1a-64 output for
+/// known inputs so operator substitutions (|= sets bits, never clears) are caught.
 #[test]
-fn test_absence_fnv1a_hash_distinct() {
-    let h_a = AbsenceEntry::fnv1a_hash(b"hello");
-    let h_b = AbsenceEntry::fnv1a_hash(b"world");
-    let h_empty = AbsenceEntry::fnv1a_hash(b"");
-    assert_ne!(h_a, 0, "hash must not be the trivial zero");
-    assert_ne!(h_a, 1, "hash must not be the trivial one");
-    assert_ne!(h_a, h_b, "distinct inputs must produce distinct hashes");
-    assert_ne!(h_a, h_empty, "non-empty must differ from empty");
-    let h_a2 = AbsenceEntry::fnv1a_hash(b"hellp");
-    assert_ne!(h_a, h_a2, "adjacent inputs must produce distinct hashes");
+fn test_absence_fnv1a_hash_known_values() {
+    // FNV-1a-64: offset=0xcbf29ce484222325, prime=0x00000100000001b3
+    // Empty string: no loop iterations → offset basis.
+    assert_eq!(
+        AbsenceEntry::fnv1a_hash(b""),
+        0xcbf2_9ce4_8422_2325,
+        "empty input must equal FNV-1a offset basis"
+    );
+    // Single byte 'a' (0x61): (offset ^ 0x61) * prime = 0xaf63dc4c8601ec8c
+    // |= mutant gives 0xaf63fd4c8602249f (different because OR keeps bits XOR clears)
+    assert_eq!(
+        AbsenceEntry::fnv1a_hash(b"a"),
+        0xaf63_dc4c_8601_ec8c,
+        "fnv1a(b\"a\") must equal known FNV-1a-64 value"
+    );
+    // Distinct inputs must produce distinct hashes.
+    assert_ne!(
+        AbsenceEntry::fnv1a_hash(b"hello"),
+        AbsenceEntry::fnv1a_hash(b"world"),
+    );
 }
 
 /// Kills merge_with (Some(new), None) arm deletion: best_score_ever must be set from None.
