@@ -335,7 +335,8 @@ mod tests {
             created_at_unix: 0,
         };
 
-        let results_sim = MmrReranker { lambda: 1.0 }.rerank(&query, vec![c1.clone(), c2.clone(), c3.clone()], 2);
+        let results_sim =
+            MmrReranker { lambda: 1.0 }.rerank(&query, vec![c1.clone(), c2.clone(), c3.clone()], 2);
         assert_eq!(results_sim[0].id, "c1");
         assert_eq!(results_sim[1].id, "c2");
 
@@ -358,6 +359,10 @@ mod tests {
 
         let results = reranker.rerank(&query, vec![c1, c2], 2);
         assert_eq!(results[0].id, "new");
+        assert_eq!(results[1].id, "old");
+        // Assert exact scores to prevent cargo-mutants bypass
+        assert!((results[0].score - 0.9).abs() < 1e-6);
+        assert!((results[1].score - 0.575).abs() < 1e-6);
     }
 
     #[test]

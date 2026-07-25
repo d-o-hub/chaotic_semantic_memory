@@ -340,26 +340,12 @@ mod tests {
             created_at_unix: 0,
         };
 
-        // If lambda is 1.0, it should be pure similarity: c1, c2
-        let reranker_sim = MmrReranker { lambda: 1.0 };
-        let results_sim = reranker_sim.rerank(&query, vec![c1.clone(), c2.clone(), c3.clone()], 2);
+        let results_sim =
+            MmrReranker { lambda: 1.0 }.rerank(&query, vec![c1.clone(), c2.clone(), c3.clone()], 2);
         assert_eq!(results_sim[0].id, "c1");
         assert_eq!(results_sim[1].id, "c2");
 
-        // If lambda is 0.5, diversity should kick in.
-        // Step 1: Selection.
-        // MMR(c1) = 0.5 * sim(query, c1) - 0.5 * 0.0 = 0.5 * sim(query, c1)
-        // MMR(c2) = 0.5 * sim(query, c2)
-        // MMR(c3) = 0.5 * sim(query, c3)
-        // Since sim(query, c1) is highest (initially we use query.cosine_similarity), c1 is selected.
-
-        // Step 2:
-        // MMR(c2) = 0.5 * sim(query, c2) - 0.5 * sim(c2, c1) = 0.5 * sim(query, c2) - 0.5 * 1.0
-        // MMR(c3) = 0.5 * sim(query, c3) - 0.5 * sim(c3, c1)
-        // Since sim(c3, c1) < 1.0, MMR(c3) will be greater than MMR(c2).
-        let reranker = MmrReranker { lambda: 0.5 };
-        let results = reranker.rerank(&query, vec![c1, c2, c3], 2);
-
+        let results = MmrReranker { lambda: 0.5 }.rerank(&query, vec![c1, c2, c3], 2);
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].id, "c1");
         assert_eq!(results[1].id, "c3");
@@ -378,6 +364,10 @@ mod tests {
 
         let results = reranker.rerank(&query, vec![c1, c2], 2);
         assert_eq!(results[0].id, "new");
+        assert_eq!(results[1].id, "old");
+        // Assert exact scores to prevent cargo-mutants bypass
+        assert!((results[0].score - 0.9).abs() < 1e-6);
+        assert!((results[1].score - 0.575).abs() < 1e-6);
     }
 
     #[test]
@@ -427,16 +417,6 @@ mod tests {
     }
 
     /// Kills the `* → +` mutation on the MMR diversity penalty term.
-    ///
-    /// With lambda=0.0 and one candidate already selected, the MMR score for a
-    /// second candidate is:
-    ///   correct:   0.0 * sim(q, c) - 1.0 * max_sim_to_selected
-    ///              = -max_sim_to_selected  (always ≤ 0)
-    ///   mutated:   0.0 + sim(q, c) + 1.0 + max_sim_to_selected
-    ///              = sim(q, c) + 1.0 + max_sim_to_selected  (always > 1)
-    ///
-    /// The test checks that the second-round MMR score is negative, which is
-    /// impossible under the mutated formula.
     #[test]
     fn test_mmr_lambda_zero_score_is_negative_after_first_selection() {
         let query = HVec10240::zero();
