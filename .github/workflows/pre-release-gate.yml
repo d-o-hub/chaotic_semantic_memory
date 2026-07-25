@@ -66,7 +66,7 @@ jobs:
         cache: false
 
     - name: Install cargo-audit
-      run: cargo install cargo-audit
+      run: cargo install cargo-audit --locked
 
     - name: Run security audit
       # cargo audit (no --deny warnings) reports advisories visibly in CI logs
@@ -96,7 +96,7 @@ jobs:
 
     - name: Verify ADR-0042 is Accepted
       run: |
-        STATUS=$(grep -A1 "^## Status" plans/adr/0042-release-automation-v010.md | tail -1 | tr -d '\r')
+        STATUS=$(grep -A2 "^## Status" plans/adr/0042-release-automation-v010.md | tail -1 | tr -d '\r')
         if [ "$STATUS" != "Accepted" ]; then
           echo "❌ ADR-0042 status is '$STATUS', expected 'Accepted'"
           exit 1
