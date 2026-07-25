@@ -1398,6 +1398,8 @@ pub fn persist_absence(abstention: &RetrievalAbstention, store: &dyn Trait) -> R
 
 Persist a RetrievalAbstention event as an AbsenceEntry.
 
+## src/bridge_persistence_tests.rs
+
 ## src/bridge_retrieval.rs
 
 ### BridgeRetrieval
@@ -1424,6 +1426,8 @@ impl BridgeRetrieval {
     pub fn config(&self) -> &BridgeConfig;
 }
 ```
+
+## src/bridge_retrieval_tests.rs
 
 ## src/cli/args.rs
 
