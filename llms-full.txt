@@ -52,6 +52,7 @@
 - embed-openai: [csm-embedding/embed-openai]
 - embed-voyage: [csm-embedding/embed-voyage]
 - events-http: [cloudevents, cloudevents-sdk/http-binding, dep:reqwest]
+- experimental-neural-circuit: [csm-chaos/experimental-neural-circuit]
 - mcp: [dep:rmcp, cli, dep:axum, dep:tower, dep:tower-http]
 - otlp-json: []
 - otlp: [dep:opentelemetry, dep:opentelemetry_sdk, dep:opentelemetry-otlp, dep:tracing-opentelemetry]

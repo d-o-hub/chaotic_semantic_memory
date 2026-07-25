@@ -302,6 +302,7 @@ path = "examples/observability_otlp.rs"
 required-features = ["prometheus", "otlp-json"]
 
 [features]
+experimental-neural-circuit = ["csm-chaos/experimental-neural-circuit"]
 default = ["cli", "persistence", "parallel"]
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
 persistence = ["dep:libsql"]

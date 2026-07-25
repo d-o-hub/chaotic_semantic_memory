@@ -205,7 +205,8 @@ mod tests {
 
         fn cosine_similarity(a: &[u64; 160], b: &[u64; 160]) -> f32 {
             let dist = hamming(a, b);
-            1.0 - (dist as f32 / 5120.0)
+            #[allow(clippy::cast_precision_loss)]
+            (1.0 - (dist as f32 / 5120.0))
         }
 
         let sim_12 = cosine_similarity(&h1, &h2);
@@ -213,13 +214,11 @@ mod tests {
 
         assert!(
             sim_12 > 0.8,
-            "Similar vectors should have high similarity: {}",
-            sim_12
+            "Similar vectors should have high similarity: {sim_12}"
         );
         assert!(
             sim_13 < 0.6,
-            "Different vectors should have low similarity: {}",
-            sim_13
+            "Different vectors should have low similarity: {sim_13}"
         );
     }
 

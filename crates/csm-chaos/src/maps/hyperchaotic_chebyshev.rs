@@ -129,11 +129,7 @@ mod tests {
             assert!(libm::fabs(map.x) > 1e-10 || libm::fabs(map.y) > 1e-10);
         }
 
-        assert!(
-            same_count < 10,
-            "Map seems to have converged: {}",
-            same_count
-        );
+        assert!(same_count < 10, "Map seems to have converged: {same_count}");
     }
 
     #[test]
@@ -144,6 +140,7 @@ mod tests {
 
         for _ in 0..n {
             let v = map.next_value();
+            #[allow(clippy::cast_possible_truncation)]
             let b = libm::floor(v * 10.0) as usize;
             buckets[b.min(9)] += 1;
         }

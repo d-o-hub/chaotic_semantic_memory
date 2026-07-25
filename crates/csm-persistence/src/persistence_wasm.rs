@@ -8,6 +8,7 @@ use csm_memory::Concept;
 
 /// Persistence stub for wasm32 builds.
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct Persistence;
 
 pub use csm_memory::ConceptVersion;

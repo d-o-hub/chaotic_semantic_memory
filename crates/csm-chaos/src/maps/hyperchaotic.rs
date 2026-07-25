@@ -98,6 +98,7 @@ mod tests {
 
         for _ in 0..n {
             let v = map.next_value();
+            #[allow(clippy::cast_possible_truncation)]
             let b = libm::floor(v * 10.0) as usize;
             buckets[b.min(9)] += 1;
         }
