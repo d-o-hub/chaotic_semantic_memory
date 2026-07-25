@@ -416,7 +416,7 @@ mod tests {
         );
     }
 
-    /// Kills the `* → +` mutation on the MMR diversity penalty term.
+    /// Kills `* → +` mutation: with lambda=0.0, MMR score must be ≤ 0.
     #[test]
     fn test_mmr_lambda_zero_score_is_negative_after_first_selection() {
         let query = HVec10240::zero();
