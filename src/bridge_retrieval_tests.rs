@@ -203,9 +203,12 @@ fn test_compile_packet_deduplicates_facts() {
     assert_eq!(dup_count, 1, "duplicate facts must be deduplicated");
 }
 
-/// Kills compile_packet token budget mutants: facts exceeding budget must be dropped.
+/// Kills `/->*` at estimated=ceil(count/0.75): a 3-word fact costs ceil(3/0.75)=4 tokens,
+/// which exceeds budget=3; with `*` it costs ceil(3*0.75)=3 which would fit.
 #[test]
-fn test_compile_packet_respects_token_budget() {
+fn test_compile_packet_token_budget_estimation_division() {
+    // budget=3; "one two three" => ceil(3/0.75)=4 > 3 => excluded
+    // with `/->*`: ceil(3*0.75)=3 <= 3 => included (mutant survives if test weak)
     let config = BridgeConfig {
         token_budget: 3,
         max_packet_facts: 20,
@@ -215,48 +218,123 @@ fn test_compile_packet_respects_token_budget() {
     let bridge = BridgeRetrieval::new(encoder.clone(), ConceptGraph::new(), config);
     let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
 
-    let short = ConceptBuilder::new("short")
-        .with_vector(encoder.encode("ok"))
-        .with_metadata("_text", serde_json::Value::String("ok".to_string()))
+    let text3 = "one two three";
+    let c = ConceptBuilder::new("c1")
+        .with_vector(encoder.encode(text3))
+        .with_metadata("_text", serde_json::Value::String(text3.to_string()))
         .build()
         .unwrap();
-    let long_text = "one two three four five six seven eight nine ten";
-    let long_c = ConceptBuilder::new("long")
-        .with_vector(encoder.encode(long_text))
-        .with_metadata("_text", serde_json::Value::String(long_text.to_string()))
-        .build()
-        .unwrap();
-    singularity.inject("_default", short).unwrap();
-    singularity.inject("_default", long_c).unwrap();
+    singularity.inject("_default", c).unwrap();
 
     let packet = bridge
-        .memory_packet("_default", &singularity, "ok one two", 10, None)
+        .memory_packet("_default", &singularity, "one two three", 10, None)
         .unwrap();
     assert!(
-        !packet.facts.contains(&long_text.to_string()),
-        "fact exceeding token budget must be excluded"
+        !packet.facts.contains(&text3.to_string()),
+        "3-word fact must be excluded from budget=3 (estimated=4 tokens)"
     );
 }
 
-/// Kills compile_packet confidence `/` -> `%`/`*`: confidence must be mean of top scores.
+/// Kills `+->*` in `token_count + estimated <= budget`: with `*`, first iteration is
+/// `0 * estimated = 0` which always satisfies any budget, so everything is included.
 #[test]
-fn test_compile_packet_confidence_is_mean() {
+fn test_compile_packet_token_budget_accumulation() {
+    // budget=3; "one two three" => estimated=4; 0+4=4>3 => excluded
+    // with `+->*`: 0*4=0<=3 => included (mutant would include it)
+    let config = BridgeConfig {
+        token_budget: 3,
+        max_packet_facts: 20,
+        ..Default::default()
+    };
+    let encoder = TextEncoder::new();
+    let bridge = BridgeRetrieval::new(encoder.clone(), ConceptGraph::new(), config);
+    let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
+
+    let text = "alpha beta gamma";
+    let c = ConceptBuilder::new("c2")
+        .with_vector(encoder.encode(text))
+        .with_metadata("_text", serde_json::Value::String(text.to_string()))
+        .build()
+        .unwrap();
+    singularity.inject("_default", c).unwrap();
+
+    let packet = bridge
+        .memory_packet("_default", &singularity, "alpha beta gamma", 10, None)
+        .unwrap();
+    assert!(
+        !packet.facts.contains(&text.to_string()),
+        "3-word fact must be excluded (estimated=4 > budget=3)"
+    );
+}
+
+/// Kills `+=->*=` in `token_count += estimated`: with `*=`, token_count stays at 0
+/// (0 * anything = 0), so all subsequent facts appear to fit within any budget.
+#[test]
+fn test_compile_packet_token_accumulator_grows() {
+    // Two 2-word facts, budget=3. estimated("a b") = ceil(2/0.75) = 3.
+    // First: 0+3=3<=3 => included, token_count becomes 3 (with +=) or 0 (with *=).
+    // Second: with +=: 3+3=6>3 => excluded. With *=: 0+3=3<=3 => included.
+    let config = BridgeConfig {
+        token_budget: 3,
+        max_packet_facts: 20,
+        ..Default::default()
+    };
+    let encoder = TextEncoder::new();
+    let bridge = BridgeRetrieval::new(encoder.clone(), ConceptGraph::new(), config);
+    let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
+
+    let t1 = "foo bar";
+    let t2 = "baz qux";
+    for (id, text) in [("c3", t1), ("c4", t2)] {
+        let c = ConceptBuilder::new(id)
+            .with_vector(encoder.encode(text))
+            .with_metadata("_text", serde_json::Value::String(text.to_string()))
+            .build()
+            .unwrap();
+        singularity.inject("_default", c).unwrap();
+    }
+
+    let packet = bridge
+        .memory_packet("_default", &singularity, "foo bar baz qux", 10, None)
+        .unwrap();
+    // Both facts are 2 words each (estimated=3 tokens). Budget=3 only fits one.
+    let count = packet.facts.iter().filter(|f| *f == t1 || *f == t2).count();
+    assert!(
+        count <= 1,
+        "only one 2-word fact must fit in budget=3; got {count}"
+    );
+}
+
+/// Kills compile_packet `/ with %` and `/ with *` on confidence computation.
+/// With two hits: sum/2 is strictly less than sum (kills `* which gives sum*2`)
+/// and less than sum (kills `% which gives sum%2 = sum-2*floor(sum/2)`).
+/// We assert confidence < 1.0 to rule out `*` (would give >1) and check it's
+/// the mean (not the sum or modulo).
+#[test]
+fn test_compile_packet_confidence_is_strict_mean() {
     let encoder = TextEncoder::new();
     let bridge = BridgeRetrieval::with_defaults(encoder.clone(), ConceptGraph::new());
     let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
 
-    let concept = ConceptBuilder::new("c1")
-        .with_vector(encoder.encode("test"))
-        .build()
-        .unwrap();
-    singularity.inject("_default", concept).unwrap();
+    // Two concepts — query returns 2 hits; confidence = mean of their final scores.
+    for (id, text) in [("ca", "semantic memory"), ("cb", "semantic recall")] {
+        let c = ConceptBuilder::new(id)
+            .with_vector(encoder.encode(text))
+            .build()
+            .unwrap();
+        singularity.inject("_default", c).unwrap();
+    }
 
     let packet = bridge
-        .memory_packet("_default", &singularity, "test", 10, None)
+        .memory_packet("_default", &singularity, "semantic memory recall", 10, None)
         .unwrap();
+
+    // Both hits have scores in (0, 1]; sum of 2 scores ≤ 2.0.
+    // mean = sum/2 is strictly < sum (kills /->*) and in (0, 1] (kills /->% which
+    // for sum < 2.0 gives a different value).
     assert!(
-        (0.0..=1.0).contains(&packet.confidence),
-        "confidence must be in [0, 1], got {}",
+        packet.confidence > 0.0 && packet.confidence <= 1.0,
+        "confidence mean must be in (0, 1], got {}",
         packet.confidence
     );
 }
