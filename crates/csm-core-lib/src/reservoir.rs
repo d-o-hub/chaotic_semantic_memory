@@ -6,12 +6,13 @@ use crate::hyperdim::HVec10240;
 use crate::reservoir_sparse::SparseWeights;
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
-use rand::rngs::StdRng;
-use rand::{RngExt, SeedableRng};
+use rand::{RngExt, SeedableRng, rngs::StdRng};
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{
+    Arc,
+    atomic::{AtomicU64, Ordering},
+};
 #[cfg(not(target_arch = "wasm32"))]
 use {std::time::Instant, tracing::instrument};
 #[derive(Debug, Default)]
@@ -431,11 +432,7 @@ impl Reservoir {
                 unsafe { *y_i = w.dot_row(i, &v) };
             }
 
-            let mut norm = 0.0f32;
-            for val in &y {
-                norm += val * val;
-            }
-            norm = norm.sqrt();
+            let norm = y.iter().map(|&x| x * x).sum::<f32>().sqrt();
             if norm.abs() < f32::EPSILON {
                 return 0.0;
             }
@@ -478,11 +475,21 @@ fn fast_tanh(x: f32) -> f32 {
 #[inline(always)]
 fn sum_slice(s: &[f32]) -> f32 {
     match s.len() {
-        // SAFETY: len() == 1 guarantees index 0 is in bounds.
+        // SAFETY: s.len() matches arm size, so indices 0..=(len-1) are in-bounds.
         1 => unsafe { *s.get_unchecked(0) },
-        // SAFETY: len() == 4 guarantees indices 0..3 are in bounds.
+        2 => unsafe { *s.get_unchecked(0) + *s.get_unchecked(1) },
         4 => unsafe {
             *s.get_unchecked(0) + *s.get_unchecked(1) + *s.get_unchecked(2) + *s.get_unchecked(3)
+        },
+        8 => unsafe {
+            *s.get_unchecked(0)
+                + *s.get_unchecked(1)
+                + *s.get_unchecked(2)
+                + *s.get_unchecked(3)
+                + *s.get_unchecked(4)
+                + *s.get_unchecked(5)
+                + *s.get_unchecked(6)
+                + *s.get_unchecked(7)
         },
         _ => s.iter().sum(),
     }
