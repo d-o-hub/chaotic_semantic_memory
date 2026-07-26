@@ -41,11 +41,14 @@ set -- "${POSITIONAL[@]}"
 PROFILE="${1:-fast}"
 shift || true
 
-# Parallelism: CI sets MUTANTS_JOBS=4 (ubuntu-latest ≈ 4 vCPU); local default 1.
-# Force JOBS=1 on fast profile to allow cargo to reuse build artifacts sequentially
-# across mutants in a single target directory, avoiding parallel workspace rebuild timeouts.
+# Parallelism:
+# - fast + in-diff (normal case): JOBS=1 to reuse sequential build artifacts across mutants.
+# - fast + full-tree fallback (no diff detected): escalate to MUTANTS_JOBS (default 4) so
+#   1 300+ mutants do not burn the full CI budget at 1 job.
+# - full profile: use MUTANTS_JOBS (default 1 locally).
+FAST_FALLBACK_JOBS="${MUTANTS_JOBS:-4}"
 if [[ "${PROFILE}" == "fast" ]]; then
-  JOBS=1
+  JOBS=1          # overridden below if diff is empty
 else
   JOBS="${MUTANTS_JOBS:-1}"
 fi
@@ -91,6 +94,23 @@ if [[ "${PROFILE}" == "fast" ]]; then
       echo "mutation fast: in-diff against ${DIFF_TARGET} ($(wc -l <"${DIFF_FILE}") diff lines)" >&2
     else
       echo "warning: no diff against ${DIFF_TARGET}; running full target set" >&2
+      # Full-tree fallback: escalate parallelism so the job stays within CI time budget.
+      # JOBS=1 is only safe for the in-diff case (sequential artifact reuse).
+      JOBS="${FAST_FALLBACK_JOBS}"
+      echo "mutation fast: full-tree fallback — escalating to JOBS=${JOBS}" >&2
+      if [[ "${CI_MODE}" == "true" ]]; then
+        # Guard: if mutant count would still blow the budget, cap at a safe subset.
+        FULL_COUNT="$(cargo mutants --list "${EXCLUDE_ARGS[@]}" 2>/dev/null | grep -cE '\.rs:' || true)"
+        echo "mutation preflight (full-tree): ${FULL_COUNT:-unknown} mutants at JOBS=${JOBS}" >&2
+        # Estimated wall time: count * 57s / JOBS. Warn if > 75 min.
+        if [[ -n "${FULL_COUNT}" && "${FULL_COUNT}" -gt 0 ]]; then
+          EST_MIN=$(( FULL_COUNT * 57 / JOBS / 60 ))
+          if [[ "${EST_MIN}" -gt 75 ]]; then
+            echo "warning: estimated ${EST_MIN} min for full-tree fallback (${FULL_COUNT} mutants, JOBS=${JOBS})" >&2
+            echo "warning: consider limiting scope with MUTANTS_JOBS or a crate filter" >&2
+          fi
+        fi
+      fi
     fi
   else
     echo "warning: --in-diff is unsupported by installed cargo-mutants; running full target set" >&2
@@ -131,6 +151,15 @@ fi
 MUTANTS_ARGS=("${FAST_ARGS[@]}")
 if [[ "${JOBS}" -gt 1 ]]; then
   MUTANTS_ARGS+=(-j "${JOBS}")
+  # --in-place must not be present when -j > 1 (cargo-mutants restriction).
+  # We filter --in-place out of MUTANTS_ARGS to avoid conflicts.
+  FILTERED_ARGS=()
+  for arg in "${MUTANTS_ARGS[@]}"; do
+    if [[ "$arg" != "--in-place" ]]; then
+      FILTERED_ARGS+=("$arg")
+    fi
+  done
+  MUTANTS_ARGS=("${FILTERED_ARGS[@]}")
 fi
 
 # Shared excludes: I/O, WASM stubs, MCP wire, uninteresting Drop/guards.
