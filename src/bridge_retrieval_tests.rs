@@ -356,3 +356,75 @@ fn test_bridge_retrieval_query_v2() {
     let results = bridge.query("_default", &singularity, "test", 10, None);
     assert!(results.is_ok());
 }
+
+// --- query guard mutation coverage (|| vs &&) ---
+
+#[test]
+fn query_returns_empty_when_top_k_is_zero_and_not_empty() {
+    // top_k == 0 alone must trigger early return even with a non-empty namespace.
+    // We inject a dummy entry so namespace is NOT empty.
+    let encoder = TextEncoder::new();
+    let bridge = BridgeRetrieval::with_defaults(encoder.clone(), ConceptGraph::new());
+    let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
+
+    let concept = ConceptBuilder::new("c1")
+        .with_vector(encoder.encode("hello world"))
+        .build()
+        .unwrap();
+    singularity.inject("ns", concept).unwrap();
+
+    // Verify singularity is NOT empty
+    assert!(
+        !singularity.is_empty("ns"),
+        "singularity namespace 'ns' must not be empty"
+    );
+
+    let result = bridge.query("ns", &singularity, "hello", 0, None);
+    assert!(result.is_ok());
+    assert!(
+        result.unwrap().is_empty(),
+        "top_k=0 must yield empty results regardless of namespace"
+    );
+}
+
+#[test]
+fn query_returns_empty_when_namespace_is_empty_and_top_k_positive() {
+    // singularity.is_empty(ns) == true alone must trigger early return even for top_k > 0.
+    // With `&&`, this arm would NOT early-return if top_k > 0, causing a traversal
+    // over an empty namespace instead of returning immediately.
+    let encoder = TextEncoder::new();
+    let bridge = BridgeRetrieval::with_defaults(encoder, ConceptGraph::new());
+    let singularity = Singularity::<HVec10240>::new(SingularityConfig::default()); // namespace "ns" is empty by default
+
+    assert!(
+        singularity.is_empty("ns"),
+        "singularity namespace 'ns' must be empty"
+    );
+
+    let result = bridge.query("ns", &singularity, "hello", 5, None);
+    assert!(result.is_ok());
+    assert!(
+        result.unwrap().is_empty(),
+        "empty namespace must yield empty results regardless of top_k"
+    );
+}
+
+#[test]
+fn query_both_conditions_zero_and_empty() {
+    // Belt-and-suspenders: top_k=0 AND empty namespace
+    let encoder = TextEncoder::new();
+    let bridge = BridgeRetrieval::with_defaults(encoder, ConceptGraph::new());
+    let singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
+
+    assert!(
+        singularity.is_empty("ns"),
+        "singularity namespace 'ns' must be empty"
+    );
+
+    let result = bridge.query("ns", &singularity, "hello", 0, None);
+    assert!(result.is_ok());
+    assert!(
+        result.unwrap().is_empty(),
+        "both conditions being met must return empty"
+    );
+}
