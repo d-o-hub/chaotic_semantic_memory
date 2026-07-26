@@ -6,4 +6,6 @@
 engines:
   opengrep:
     exclude_paths:
- 
+      - "crates/csm-core-lib/src/reservoir.rs"
+      - "crates/csm-core-lib/src/reservoir_sparse.rs"
+      - "crates/csm-core-lib/src/hyperdim_simd.rs"

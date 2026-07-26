@@ -6,12 +6,13 @@ use crate::hyperdim::HVec10240;
 use crate::reservoir_sparse::SparseWeights;
 #[cfg(target_arch = "wasm32")]
 use js_sys::Date;
-use rand::rngs::StdRng;
-use rand::{RngExt, SeedableRng};
+use rand::{RngExt, SeedableRng, rngs::StdRng};
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{
+    Arc,
+    atomic::{AtomicU64, Ordering},
+};
 #[cfg(not(target_arch = "wasm32"))]
 use {std::time::Instant, tracing::instrument};
 #[derive(Debug, Default)]
@@ -243,17 +244,22 @@ impl Reservoir {
         // This keeps semantics synchronous within the phase (no order dependency).
         if update_phase == 0 {
             // Periodic full re-calculation to prevent drift from precision errors.
-            // Optimized: Use direct multiplication instead of powi(2).
-            let mut new_norm_sq = 0.0;
-            for i in 0..self.size {
+            // Optimized: Split update and summation loops to completely avoid modulo operations,
+            // eliminate branches in the hot path, and enable auto-vectorization of the norm summation.
+            for i in (0..self.size).step_by(self.update_stride) {
                 // SAFETY: state, scratch, and prev_state are all sized to self.size.
                 unsafe {
-                    if (i % self.update_stride) == 0 {
-                        let old_val = *self.state.get_unchecked(i);
-                        let new_val = *self.scratch.get_unchecked(i);
-                        *self.prev_state.get_unchecked_mut(i) = old_val;
-                        *self.state.get_unchecked_mut(i) = new_val;
-                    }
+                    let old_val = *self.state.get_unchecked(i);
+                    let new_val = *self.scratch.get_unchecked(i);
+                    *self.prev_state.get_unchecked_mut(i) = old_val;
+                    *self.state.get_unchecked_mut(i) = new_val;
+                }
+            }
+
+            let mut new_norm_sq = 0.0;
+            for i in 0..self.size {
+                // SAFETY: state is sized to self.size.
+                unsafe {
                     let val = f64::from(*self.state.get_unchecked(i));
                     new_norm_sq += val * val;
                 }
@@ -362,9 +368,8 @@ impl Reservoir {
                     // SAFETY: bit_index < 10240 and chunk_size = size / 10240.
                     // start + chunk_size = (bit_index + 1) * chunk_size <= 10240 * (size / 10240) <= size.
                     // The range is always within bounds of self.state.
-                    let sum: f32 = unsafe { self.state.get_unchecked(start..start + chunk_size) }
-                        .iter()
-                        .sum();
+                    let sum =
+                        sum_slice(unsafe { self.state.get_unchecked(start..start + chunk_size) });
                     if sum > 0.0 {
                         word |= 1u128 << j;
                     }
@@ -398,9 +403,7 @@ impl Reservoir {
                 // SAFETY: bit_index < 10240 and chunk_size = size / 10240.
                 // start + chunk_size = (bit_index + 1) * chunk_size <= 10240 * (size / 10240) <= size.
                 // The range is always within bounds of self.state.
-                let sum: f32 = unsafe { self.state.get_unchecked(start..start + chunk_size) }
-                    .iter()
-                    .sum();
+                let sum = sum_slice(unsafe { self.state.get_unchecked(start..start + chunk_size) });
                 if sum > 0.0 {
                     *word |= 1u128 << j;
                 }
@@ -429,11 +432,7 @@ impl Reservoir {
                 unsafe { *y_i = w.dot_row(i, &v) };
             }
 
-            let mut norm = 0.0f32;
-            for val in &y {
-                norm += val * val;
-            }
-            norm = norm.sqrt();
+            let norm = y.iter().map(|&x| x * x).sum::<f32>().sqrt();
             if norm.abs() < f32::EPSILON {
                 return 0.0;
             }
@@ -472,4 +471,28 @@ fn fast_tanh(x: f32) -> f32 {
     // Optimized: Redundant multiplication removed.
     x * (x2 + 27.0) / x2.mul_add(9.0, 27.0)
 }
+
+#[inline(always)]
+fn sum_slice(s: &[f32]) -> f32 {
+    match s.len() {
+        // SAFETY: s.len() matches arm size, so indices 0..=(len-1) are in-bounds.
+        1 => unsafe { *s.get_unchecked(0) },
+        2 => unsafe { *s.get_unchecked(0) + *s.get_unchecked(1) },
+        4 => unsafe {
+            *s.get_unchecked(0) + *s.get_unchecked(1) + *s.get_unchecked(2) + *s.get_unchecked(3)
+        },
+        8 => unsafe {
+            *s.get_unchecked(0)
+                + *s.get_unchecked(1)
+                + *s.get_unchecked(2)
+                + *s.get_unchecked(3)
+                + *s.get_unchecked(4)
+                + *s.get_unchecked(5)
+                + *s.get_unchecked(6)
+                + *s.get_unchecked(7)
+        },
+        _ => s.iter().sum(),
+    }
+}
+
 pub use crate::reservoir_chaotic::ChaoticReservoir;
