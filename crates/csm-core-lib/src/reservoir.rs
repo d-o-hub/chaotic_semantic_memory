@@ -478,7 +478,9 @@ fn fast_tanh(x: f32) -> f32 {
 #[inline(always)]
 fn sum_slice(s: &[f32]) -> f32 {
     match s.len() {
+        // SAFETY: len() == 1 guarantees index 0 is in bounds.
         1 => unsafe { *s.get_unchecked(0) },
+        // SAFETY: len() == 4 guarantees indices 0..3 are in bounds.
         4 => unsafe {
             *s.get_unchecked(0) + *s.get_unchecked(1) + *s.get_unchecked(2) + *s.get_unchecked(3)
         },
