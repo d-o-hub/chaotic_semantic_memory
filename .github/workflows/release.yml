@@ -763,8 +763,8 @@ jobs:
         check_with_retry() {
           local name="$1"
           local check_cmd="$2"
-          local max_retries=6
-          local delays=(5 10 15 20 30 30)
+          local max_retries=8
+          local delays=(5 10 15 20 30 45 60 60)
           local attempt=0
 
           while [ $attempt -lt $max_retries ]; do
@@ -784,8 +784,9 @@ jobs:
         }
 
         # Check crates.io (with retry)
+        # 2026 Best Practice: check the crates.io sparse index for low latency, cache-immune, and direct indexing verification
         echo "Checking crates.io..."
-        check_with_retry "crates.io" "curl -s -H \"User-Agent: chaotic-semantic-memory-ci (github.com/d-o-hub/chaotic_semantic_memory)\" 'https://crates.io/api/v1/crates/chaotic_semantic_memory/$VERSION' | grep -q '\"version\"'"
+        check_with_retry "crates.io" "curl -sL https://index.crates.io/ch/ao/chaotic_semantic_memory | grep -q '\"vers\":\"$VERSION\"'"
 
         # Check npm WASM package (with retry)
         echo "Checking npm WASM package..."
