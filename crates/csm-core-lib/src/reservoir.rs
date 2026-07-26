@@ -367,7 +367,8 @@ impl Reservoir {
                     // SAFETY: bit_index < 10240 and chunk_size = size / 10240.
                     // start + chunk_size = (bit_index + 1) * chunk_size <= 10240 * (size / 10240) <= size.
                     // The range is always within bounds of self.state.
-                    let sum = sum_slice(unsafe { self.state.get_unchecked(start..start + chunk_size) });
+                    let sum =
+                        sum_slice(unsafe { self.state.get_unchecked(start..start + chunk_size) });
                     if sum > 0.0 {
                         word |= 1u128 << j;
                     }
