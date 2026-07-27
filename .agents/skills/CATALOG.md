@@ -1,53 +1,74 @@
 # Skill Catalog
 
-32 skills organized by category.
+32 skills. Load with `skill` tool when task matches trigger.
 
-## Core
+## Core (15)
 
-- **adr-creation**: Write or update ADRs for architecture-impacting changes
-- **benchmarking-perf**: Run and analyze criterion benchmarks for performance-sensitive changes
-- **debugging-reservoir**: Debug and tune the echo state network reservoir
-- **dist-channel-selection**: Artifact-aware decision logic for selecting distribution channels
-- **drawio**: Create high-level architecture diagrams using draw.io
-- **github-ci-guardrails**: Validate merge readiness with atomic commits and GitHub Actions checks
-- **git-workflow**: Git commit conventions, validation gates, and CI/CD workflows
-- **goap-orchestrator**: GOAP-based orchestrator for managing GitHub issues and action plans
-- **goap-planning**: Build ordered, executable action plans from current state to target state
-- **npm-trusted-publishers**: Configure and troubleshoot npm OIDC Trusted Publishing
-- **release-management**: GitHub release management, crates.io trusted publishing, npm provenance
-- **rust-development**: Implement or refactor Rust in this repository
-- **skill-memory-internal**: Internal dogfooding skill for storing engineering context via csm CLI
-- **memory-lifecycle-verification**: Portable verification for memory lifecycle operations
-- **turso-memory-verification**: Verify memory persistence with Turso/libSQL databases
+| Skill | Trigger |
+|-------|---------|
+| `rust-development` | Writing/modifying Rust source |
+| `testing-validation` | Running validate.sh, cargo test/clippy/fmt |
+| `github-ci-guardrails` | Pre-merge CI verification, `gh pr checks` |
+| `git-workflow` | Committing, branching, PR creation |
+| `goap-orchestrator` | Multi-issue execution, wave dispatch, PR triage |
+| `goap-planning` | Building action plans with preconditions/effects |
+| `release-management` | Tags, crates.io, npm publish, GitHub Releases |
+| `dist-channel-selection` | Choosing cargo vs WASM npm vs CLI npm |
+| `npm-trusted-publishers` | npm OIDC E404/provenance failures |
+| `benchmarking-perf` | Criterion benches, hot-path optimization |
+| `debugging-reservoir` | Spectral radius, chaotic dynamics, ESN tuning |
+| `adr-creation` | Architecture decisions needing durable rationale |
+| `skill-memory-internal` | Dogfooding csm CLI for engineering context |
+| `memory-lifecycle-verification` | Save/load/archive/delete verification |
+| `turso-memory-verification` | Turso/libSQL roundtrip before releases |
 
-## Swarm
+## Swarm (5)
 
-- **analysis-swarm**: Multi-persona code analysis orchestrator using RYAN, FLASH, and SOCRATES
-- **swarm-advanced-features**: Export/import, versioning, migrations, and backup/restore
-- **swarm-observability**: Tracing, metrics, derive macros, and error context
-- **swarm-performance**: SIMD optimization, connection pooling, batch APIs, and caching
-- **swarm-testing-quality**: Property-based testing, fuzzing, and edge case coverage
+| Skill | Trigger |
+|-------|---------|
+| `analysis-swarm` | RYAN/FLASH/SOCRATES multi-persona decisions |
+| `swarm-testing-quality` | proptest, fuzzing, edge cases |
+| `swarm-performance` | SIMD, pooling, batch APIs, caching |
+| `swarm-observability` | Tracing, metrics, error context |
+| `swarm-advanced-features` | Export/import, versioning, migrations |
 
-## Workflow
+## Workflow (4)
 
-- **learn**: Capture non-obvious session learnings to project memory
-- **task-decomposition**: Break complex tasks into atomic, dependency-ordered goals
-- **shell-script-quality**: Ensure shell scripts pass ShellCheck linting and have BATS tests
-- **jules-orchestration**: Orchestrate GitHub issues and automated tasks via Jules CLI
+| Skill | Trigger |
+|-------|---------|
+| `learn` | End-of-session insight capture |
+| `task-decomposition` | Breaking complex tasks into atomic goals |
+| `shell-script-quality` | ShellCheck + BATS for scripts/ |
+| `jules-orchestration` | Delegating to Jules CLI remote agent |
 
-## Automation
+## Automation (5)
 
-- **self-fix-loop**: Automated CI fix cycle: detect failure, classify error, apply fix, retry
-- **iterative-refinement**: Test-fix-validate loops for complex changes
-- **skill-creator**: Create new skills with proper structure and evals
-- **skill-evaluator**: Evaluate skill performance with benchmarks and metrics
-- **codacy**: Orchestrate static analysis using Codacy CLIs
+| Skill | Trigger |
+|-------|---------|
+| `self-fix-loop` | CI failure → classify → fix → retry |
+| `iterative-refinement` | Red-green-refactor test loops |
+| `skill-creator` | Creating new .agents/skills/ entries |
+| `skill-evaluator` | Measuring skill effectiveness |
+| `codacy` | Codacy static analysis gate failures |
 
-## TRIZ
+## TRIZ (2)
 
-- **triz-analysis**: Perform systematic contradiction analysis before implementation
-- **triz-solver**: Apply TRIZ inventive principles to solve problems
+| Skill | Trigger |
+|-------|---------|
+| `triz-analysis` | Design contradictions before implementation |
+| `triz-solver` | Applying inventive principles after analysis |
 
-## System
+## Visualization (1)
 
-- **testing-validation**: Validate the chaotic_semantic_memory crate: compile, test, lint, LOC caps
+| Skill | Trigger |
+|-------|---------|
+| `drawio` | Architecture diagrams, data flow visualization |
+
+---
+
+## Consolidation Candidates
+
+These pairs overlap and could merge if skill count becomes unwieldy:
+- `memory-lifecycle-verification` + `turso-memory-verification` → `persistence-verification`
+- `self-fix-loop` + `iterative-refinement` → `fix-loop`
+- `goap-orchestrator` absorbs `task-decomposition` (already does wave decomposition)

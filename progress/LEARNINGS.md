@@ -1,157 +1,66 @@
 # LEARNINGS - Chaotic Semantic Memory
 
-## Core Patterns & Best Practices
+## Security Patterns
+- **Path Hijacking (CWE-426)**: Resolve executables to absolute paths; filter PATH to exclude relative entries.
+- **DoS Prevention**: Enforce bounds on public API params. Graph: `MAX_DEPTH=32`, `MAX_RESULTS=10K`. Batch: `max_batch_size=1000`.
+- **Namespace Validation (CWE-770)**: 128-byte limit, non-empty, no control chars. Apply to any param that becomes a DB key.
 
-### Security Patterns
-- **Path Hijacking Mitigation (CWE-426)**: Always resolve system executables (e.g., `git`) to absolute paths. Filter the `PATH` environment variable to strictly exclude relative entries like `.` or empty paths before use in `Command::new()`.
-- **DoS Prevention**: Enforce strict upper bounds on all public API parameters. For graph traversals, use `MAX_TRAVERSAL_DEPTH = 32` and `MAX_TRAVERSAL_RESULTS = 10,000`. Batch operations should be limited to `max_batch_size` (default 1000).
-- **Namespace Input Validation (CWE-770)**: Enforce strict length (128 bytes), non-empty, and control-character filtering on namespaces across all public APIs to prevent resource exhaustion and undefined isolation behavior.
+## Performance Patterns
+- **ILP over SIMD**: 4 independent accumulators in hot loops often beat SIMD (avoids STLF stalls).
+- **Branchless bitmasks**: `w |= (cond as u128) << j` minimizes branch misprediction.
+- **Zero-alloc interning**: `Arc<str>` + `get_mut`/`get_key_value` double-lookup for BM25 terms.
+- **Rayon gating**: Parallelize only when N >= 32; scheduling overhead dominates small ops.
+- **Bitmask modulo**: Power-of-2 buckets → `& (N-1)` instead of `% N`.
+- **f32::min/max vs comparison operators**: `.min()`/`.max()` compile to single `llvm.minnum`/`llvm.maxnum` instructions — MORE vectorizable than if/else. Do NOT replace with `<`/`>` comparisons (reverses intentional mutation-test design, strips docs, adds exclusion debt).
 
-### Optimization Patterns
-- **Instruction-Level Parallelism (ILP)**: Use independent accumulators (e.g., 4) in hot loops (popcount, dot products) to break serial dependency chains. This often outperforms SIMD due to avoiding STLF stalls.
-- **Branchless Logic**: Use branchless bitmask construction (`w |= (condition as u128) << j`) to minimize branch misprediction penalties in tight loops.
-- **Zero-Allocation Interning**: Use `Arc<str>` interning for terms (e.g., BM25) to share memory. Use a `get_mut`/`get_key_value` double-lookup pattern to update frequencies without new allocations for existing terms.
-- **Algorithmic Parallelism**: Parallelize $O(N)$ scans using Rayon's `par_iter()`. For bitmask-based retrieval, this reduces latency from $O(N)$ to $O(N/P)$.
-- **Bitmask Filtering**: For power-of-2 bucket counts, replace modulo (`%`) with bitmask AND (`&`) for significant speedups.
+## Baselines (x86_64)
+| Operation | Latency |
+|-----------|---------|
+| HVec10240 hamming | ~219 ns |
+| HVec10240 cosine | ~238 ns |
+| Reservoir step 50k | ~136 µs |
+| BM25 search 10k | ~406 µs |
 
-### Performance Baselines (x86_64)
-- `HVec10240::hamming_distance`: ~219 ns (unrolled GPR loop).
-- `HVec10240::cosine_similarity`: ~238 ns (unified GPR path).
-- Reservoir Step (50k nodes): ~136 µs (4 accumulators).
-- BM25 Search (10k docs): ~406 µs (hoisted constants).
+## CI/CD Patterns
+- **CI queue starvation**: GitHub Actions runners can leave runs "queued" indefinitely (>1hr). Release `wait-for-ci` must detect perpetual-queue and re-trigger via `gh run rerun`, not just wait. Add `timeout-minutes` to workflow jobs.
+- **Concurrency on main**: `cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}` — never cancel main pushes (cascades to release failures).
+- **WASM dual-target**: `--target nodejs` for CI smoke tests (Node fetch can't do `file://`); `--target web` for release.
+- **CJS/ESM interop**: `const exports = module.default || module;` before destructuring.
+- **Cargo.lock atomicity**: Always commit lockfile with Cargo.toml changes or `--locked` jobs fail.
+- **Node 20 deprecation**: Use actions supporting Node 24 (`checkout@v5+`, `rust-cache@v2.9.1+`).
+- **Miri timeout**: 60 min minimum for ~220 tests.
+- **Action pinning**: `git ls-remote --tags <url>` for exact SHA.
 
+## PR Triage / Jules Bot
+- **Empty research PRs**: Close as no-op; zero file changes = no impact.
+- **Commitlint full range**: `npx commitlint --from origin/main --to HEAD`. Invalid early scope fails CI even if later commits are fine.
+- **Jules force-push risk**: Bot can rewrite PR after your fix, reverting sibling merges. Always `git diff origin/main...HEAD` before merge.
+- **Merge order**: Independent green PRs first. Never `gh pr merge --auto` on stacks (rebase cancellation loop).
+- **Mutation in-diff surface**: Cosmetic rewrites pull unrelated functions into cargo-mutants. Restore-to-main for unrelated lines.
+- **`>` vs `>=` top-k**: Add test where `results.len() == top_k` so `>=` mutant panics.
+- **CLI entry-point mutants**: `run_query -> Ok(())` unkillable under `--lib` mutation; exclude in `scripts/mutation_test.sh`.
+- **`duplicated_attributes`**: Never `#![cfg(test)]` in a file also gated by `#[cfg(test)] mod` in lib.rs.
 
-### Open PR Triage / Jules bot CI (2026-07-18)
+## Mutation Testing
+- **Unreachable code = mutation smell**: Audit queue invariants when refactoring guards. Remove dead branches.
+- **`--in-diff` on post-fix tree**: Generate diff after fix is staged, not before.
+- **Cost**: ~14 min for 35-line diff, 11 mutants. Acceptable for PR validation.
+- **New scopes**: Add to `commitlint.config.cjs` when creating workspace crates.
 
-- **Empty research PRs**: Jules can open PRs with zero file changes after a
-  "simulate research" task. Close as no-op; do not burn mutation budget.
-- **Commitlint full range**: invalid early scope (`perf(ops):`) fails CI even
-  when later commits use allowed scopes. Squash/reword; run
-  `npx commitlint --from origin/main --to HEAD`.
-- **`duplicated_attributes`**: never put `#![cfg(test)]` inside a file also
-  gated by `#[cfg(test)] mod foo;` in `lib.rs`.
-- **Mutation in-diff surface**: cosmetic rewrites of unrelated functions pull
-  them into cargo-mutants scoring. A test that asserts `import_* == 1` does
-  **not** kill `Ok(1)` mutants. Prefer restore-to-main for unrelated lines.
-- **`>` vs `>=` top-k**: add a test where `results.len() == top_k` so a `>=`
-  mutant that calls `select_nth_unstable_by(top_k)` panics and is killed.
-- **CLI entry-point mutants**: `run_query -> Ok(())` is unkillable under
-  `--lib`-only mutation CI; exclude via `scripts/mutation_test.sh`.
-- **Merge order**: merge independent green PRs first; never `gh pr merge --auto`
-  on stacks (rebase cancellation loop).
-- **Jules force-push risk**: bot can rewrite a PR after your fix and regress
-  sibling merges (e.g. drop Rayon probe_batch). Always re-diff vs `origin/main`
-  before merge.
+## Module-Specific
+- **Reservoir**: CSR for >2000 nodes. Partitioned updates must preserve momentum.
+- **Similarity**: Derive cosine from hamming (`1.0 - dist/5120.0`) for bipolar hvecs.
+- **Top-K**: `select_nth_unstable_by` for O(N) partial sort.
+- **WASM**: Gate rayon/IO with `#[cfg(not(target_arch = "wasm32"))]`.
+- **Persistence**: `csm_`-prefixed tables. Update all surfaces (single, batch, export, WASM) when adding fields.
+- **Floats**: Never `partial_cmp().unwrap()` — NaN panics. Use `total_cmp()`.
 
-## Technical Insights by Module
+## State Management
+- **Built ≠ Installed**: `~/.local/bin/csm` lags source. Always verify with `./target/debug/csm --help`.
+- **GOAP_STATE drift**: Duplicate YAML keys silently overwritten. `grep -c '^  action_last_completed'` must equal 1.
+- **ADR parity**: `scripts/check-adr-parity.sh` enforces registry ↔ disk sync.
+- **Jules delegation**: `cost ≥ 12` actions → GitHub issue labeled `jules`, mark `status: delegated`.
 
-### Reservoir & ESN
-- **Partial Updates**: Partitioned updates (rotating node subsets) must preserve momentum. Reverting to a partial `prev_state` update loop is critical for maintaining correct inertial state in partitioned ESNs.
-- **Memory Locality**: For large sparse reservoirs, CSR-like contiguous arrays and neighborhood connectivity dominate throughput by reducing random memory access.
-
-### Retrieval & Similarity
-- **Unified Similarity**: Deriving Cosine Similarity from Hamming Distance (`1.0 - (dist / 5120.0)`) for bipolar hypervectors is optimal across all architectures, saving a `NOT` instruction and unifying SIMD/scalar paths.
-- **Top-K Selection**: Use `select_nth_unstable_by` for $O(N)$ partial sorting instead of $O(N \log N)$ full sort.
-
-### Persistence & Environment
-- **Namespace Isolation**: Use prefixed table names (`csm_concepts`, etc.) for shared databases. Legacy names in migration scripts are intentional.
-- **WASM Compliance**: Always gate `rayon` and I/O paths with `#[cfg(not(target_arch = "wasm32"))]`. Use `wasm-bindgen-futures` for async WASM exports.
-- **Sandbox Limits**: Intermittent network timeouts during `cargo fetch` are common. Verify core logic using standalone `rustc` scripts if dependencies are minimal.
-
-## What to Avoid
-- **Unqualified Commands**: Never use bare command names like `Command::new("git")`.
-- **Insecure PATH**: Never trust `PATH` to contain only absolute, trusted directories.
-- **Floating Point Comparison**: Never use `partial_cmp().unwrap()` on floats; NaN will panic. Use `f32::total_cmp()`.
-- **Schema Drift**: Always update all persistence surfaces (single, batch, export, WASM) when adding concept fields.
-- **Dense Matrices**: Avoid dense matrices for reservoirs > 2000 nodes; use CSR.
-- **Archived Deps**: Never use archived GitHub repositories as dependencies.
-
-## Autonomous PR Repair (Root Cause Analysis - May 2026)
-- **Versioning Logic**: Native framework versioning (v1, v2) is triggered by updating a concept with a stable ID. Manually appending suffixes like `:v1` in the benchmark generator creates separate concepts and breaks lineage evaluation.
-- **Merge Conflict Strategy**: When rebasing or merging, prioritize preserving functional logic from both sides. In this task, Association/Isolation tasks from main were successfully integrated with the expanded coverage areas (TTL, Bridge, History).
-- **Tool Discipline**: Use `git checkout origin/main -- <file>` to restore files lost during complex merges or rebases.
-- **Optimization Strategy**: Gating parallelization (e.g., Rayon) with a minimum workload threshold (N >= 32) prevents task scheduling overhead from dominating small operations, yielding order-of-magnitude gains in hot paths like hypervector bundling.
-
-## State Drift Verification (Wave 21 P0 — May 2026)
-- **Built ≠ Installed**: `~/.local/bin/csm` (or any global install) frequently lags source by multiple releases. Before claiming a CLI surface is missing a command, build locally and check `./target/debug/csm --help`. The Wave 21 P0 gap analysis falsely reported missing CLI subcommands until this was verified — they were already wired in source since Wave 20.
-- **GOAP_STATE drift**: `plans/GOAP_STATE.md` is a flat YAML mapping. Duplicate keys (e.g. `action_last_completed` appearing 3×) are silently overwritten by the last one. Always `grep -c '^  action_last_completed' plans/GOAP_STATE.md` → must equal 1.
-- **ACTIONS.md drift**: Newly merged ADRs (e.g. DuckDB 0079-0082) can ship to `main` without corresponding rows in `plans/ACTIONS.md`. Backfill complete rows when discovered so the planner has accurate state.
-- **Registry ↔ Disk parity**: Added `scripts/check-adr-parity.sh` to enforce `plans/ADR_REGISTRY.md` ↔ `plans/adr/` + `docs/adr/`. Allow rows marked `Superseded` / `N/A`; warn on orphan files; error on missing-with-backing.
-- **Jules delegation pattern**: Long actions (`cost ≥ 12` in ACTIONS.md) belong in a GitHub issue labeled `jules` rather than an interactive session. Mark the action `status: delegated` with `jules_issue: <num>` so the planner sees the dependency satisfied via remote execution. Wave 21 MCP server (ADR-0067) was delegated this way to issue #246.
-
-## Memory Lifecycle Verification (2026-05-18)
-
-- **sqld HTTP API for local DB verification**: The `sqld` binary from Turso (`~/.turso/sqld`) can serve local `.db` files and expose them via an HTTP API at `/v1/query`. However, it binds to the grpc port (50051) by default and may fail with "File exists" on stale sockets. Use `--http-listen-addr 127.0.0.1:<port>` and ensure no stale sqld processes remain (`pkill -9 sqld`). For simple SELECT queries, Python's `sqlite3` module works on libSQL databases (table names are prefixed with `csm_`).
-- **CLI table name prefix**: The persistence layer uses `csm_`-prefixed table names (`csm_concepts`, `csm_associations`, `csm_schema_version`). Direct SQL access must account for this prefix.
-- **No native archive command**: The CLI has `delete` but no `archive`. Archive is handled via marker concepts with metadata `{"status":"archived","target":"<id>"}`. If archive becomes a common workflow, consider adding a native `csm archive <id>` command.
-- **Export/import roundtrip fidelity**: JSON export preserves metadata, vector data, and associations. Import into a fresh DB produces identical probe results (same similarity scores), confirming no precision loss in serialization.
-
-### CI/CD Maintenance
-- **Node 20 Deprecation**: GitHub Actions using Node 20 runtime can be resolved by upgrading to versions that natively support Node 24 (e.g., `actions/checkout@v5`, `Swatinem/rust-cache@v2.9.1`).
-- **Miri Job Reliability**: Miri tests are significantly slower than standard tests. For a suite of ~220 tests, a 30-minute timeout is often insufficient, and 60 minutes is a safer baseline for initial reliability.
-- **Action Pinning**: Use `git ls-remote --tags <url>` to find the exact SHA for a specific version tag to ensure security and reproducible CI environments.
-
-## 2026-06-05 — Namespace parameter missing bounds/character validation
-**Vulnerability:** `set_namespace`, `delete_namespace`, `export_namespace`, `export_namespace_to_bytes`, and `FrameworkBuilder::with_namespace` accepted arbitrary strings with no length, emptiness, or control-character checks. The namespace is used as a DB primary key prefix in every libsql query.
-**Learning:** The `validate_concept_id` pattern existed and was thorough, but was not applied to the analogous `namespace` input surface when those APIs were added. New public API parameters that become DB keys need the same treatment.
-**Prevention:** When adding any parameter that becomes part of a DB key, hash map key, or file path: apply validate_concept_id-style guards (empty check, byte limit, control-char reject) before first use.
-## Mutation Testing Discipline (2026-06-05, PR #346)
-- **Unreachable code is a mutation smell**: When refactoring a `visited.contains(&id) || depth > max_depth` style guard into `!visited.insert(id.clone())`, audit the queue invariant. If new entries are only enqueued at `depth + 1` when `depth < max_depth`, the original `depth > max_depth` check becomes unreachable and cargo-mutants will catch the `||` -> `&&` substitution as a missed mutant. Remove the dead branch and document the invariant.
-- **Mutation test cost is acceptable for PR fixes**: `cargo-mutants --in-diff <pr.diff> --in-place --no-shuffle` against a 35-line PR diff takes ~14 minutes locally and exercises both the original and mutated compile/test paths. 11 mutants → 10 caught, 1 unviable, 0 missed is a strong signal the fix is correct.
-- **Always run `--in-diff` on the post-fix tree**: cargo-mutants reports the baseline, so the diff must reflect the fix (not the pre-fix PR head). Generate the diff with `git diff origin/main > /tmp/pr.diff` after the fix is staged.
-
-## Workspace LOC Gate Enforcement (2026-07-11, Wave 31)
-
-### Problem: LOC gate only checked `src/`, not workspace crates
-- After workspace extraction (PRs #377-#385), code moved to `crates/*/src/` but the
-  LOC gate (`scripts/validate.sh`) only scanned `find src -name '*.rs'`.
-- Jules bot PRs added code to workspace crates without any enforcement, growing 3 files
-  past 500 LOC undetected (singularity.rs 629, hyperdim.rs 563, graph_traversal.rs 517).
-
-### Fix
-- Extended `scripts/validate.sh` to scan `find src crates -name '*.rs' -not -path '*/target/*'`
-- Updated `AGENTS.md` and `agents-docs/hard-constraints.md` to reflect workspace coverage
-- Split the 3 violating files using established patterns (types extraction, trait extraction, test extraction)
-
-### Prevention
-- The LOC gate now covers all first-party Rust code automatically
-- When creating new workspace crates, verify they are within the `crates/` directory
-  which is already covered by the LOC gate scan
-
-### Commitlint Scope Maintenance
-- **Always add new scopes when creating workspace crates or packages**: When adding
-  a new crate (e.g., `csm-traits`) or package scope (e.g., `cli-npm`), also add
-  the corresponding scope to `commitlint.config.cjs` scope-enum list.
-- **Jules bot commits may not follow conventional format**: Added an ignore rule
-  for PR merge commits that have no conventional prefix. This prevents CI failures
-  on main after bot-authored PRs are merged.
-- **Validate the full branch range**, not just the last commit: CI runs
-  `commitlint --from base --to head`. Prefer bare `docs:` over inventing scopes
-  (`docs(plans)` fails until `plans` is enum-listed).
-- Instruction home for multi-PR / Jules / mutation pitfalls:
-  `.agents/skills/git-workflow/SKILL.md` and
-  `.agents/skills/github-ci-guardrails/references/ci-pitfalls-pr-triage.md`.
-
-### Supply Chain Advisory Discipline
-- **Run `cargo deny check` before releases and after dependency upgrades**:
-  New advisories can surface at any time. The `deny.toml` ignore list must be
-  actively maintained — either upgrade affected deps or add documented ignore entries.
-- **Simple upgrades first**: `cargo update -p <package>` often resolves advisories
-  without any code changes (e.g., crossbeam-epoch 0.9.18→0.9.20, anyhow 1.0.102→1.0.103).
-
-## Wave 33 Learnings (2026-07-23)
-
-### CI Discipline
-- **WASM smoke test target**: `wasm-pack build --target web` generates `__wbg_init()` that calls `fetch()` to load `.wasm`. Node.js undici `fetch()` does not support `file://` URLs. Use `--target nodejs` for CI smoke tests; release workflow keeps `--target web`.
-- **CJS/ESM interop**: When `import()` loads a CJS module (nodejs target), named exports may not be detected. Use `const exports = module.default || module;` fallback before destructuring.
-- **Cargo.lock atomicity**: Always commit `Cargo.lock` changes atomically with `Cargo.toml` dependency changes. A missing lockfile update causes all `--locked` CI jobs to fail.
-- **CI concurrency guard**: `cancel-in-progress: true` on main cascades to release workflow failures. Use `${{ github.ref != 'refs/heads/main' }}` to only cancel stale PR runs.
-
-### GOAP Orchestration
-- **Wave-based parallel execution**: Group independent actions into waves, dispatch one agent per action, merge in dependency order. Max 4 parallel agents.
-- **Explore before implement**: Always spawn explore agents to audit affected files before spawning general agents for implementation. Reduces wasted work from wrong assumptions.
-- **Merge order matters**: Never use `gh pr merge --auto` on stacked PRs. Merge independent green PRs first, rebase remaining after each merge.
-
-### Code Hygiene
-- **Remove dead code over wiring premature APIs**: `is_known_absent` had zero callers, zero tests, and complex unspecified invalidation semantics. Removing it is cleaner than wiring it in with guesswork. The absence recording infra (independently useful) stays.
-- **Pre-commit hooks save iterations**: The `pre-commit.sh` script catches format, LOC, clippy, and version sync issues before they reach CI.
+## Supply Chain
+- **`cargo deny check` before releases**: New advisories surface anytime. Maintain `deny.toml` ignore list.
+- **Simple upgrades first**: `cargo update -p <pkg>` often resolves advisories without code changes.
