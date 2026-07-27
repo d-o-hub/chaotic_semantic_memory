@@ -26,8 +26,9 @@ jobs:
   # Guardrail: Wait for CI workflow to complete successfully before releasing
   wait-for-ci:
     runs-on: ubuntu-24.04
+    timeout-minutes: 40
     permissions:
-      actions: read    # required by `gh run list` to query CI workflow status
+      actions: write   # required to query AND re-trigger stuck CI runs
       contents: read
     outputs:
       ci-passed: ${{ steps.check-ci.outputs.passed }}
@@ -43,21 +44,28 @@ jobs:
         # The mutation-test job alone can take ~20 min on PRs, and main-branch CI
         # has historically been cancelled and re-triggered by the concurrency group,
         # so 10 min was not enough and Release silently timed out (see run #412).
+        #
+        # Queue-starvation detection (2026-07-27): GitHub Actions runners can leave
+        # runs "queued" indefinitely. If CI is still queued after QUEUE_THRESHOLD,
+        # re-trigger it once via `gh run rerun` before giving up.
         MAX_WAIT=1800
         SLEEP_INTERVAL=30
+        QUEUE_THRESHOLD=600
         ELAPSED=0
+        QUEUED_TIME=0
+        RETRIGGERED=false
 
         while [ $ELAPSED -lt $MAX_WAIT ]; do
-          # Get the CI workflow run for this commit
-          CI_RUN=$(gh run list --repo ${{ github.repository }} --workflow=ci.yml --commit ${{ github.sha }} --limit 1 --json conclusion,status --jq '.[0]' || echo '')
+          CI_RUN=$(gh run list --repo ${{ github.repository }} --workflow=ci.yml --commit ${{ github.sha }} --limit 1 --json databaseId,conclusion,status --jq '.[0]' || echo '')
           if [ -z "$CI_RUN" ] || [ "$CI_RUN" = "null" ]; then
-            CI_RUN='{"status":"queued","conclusion":null}'
+            CI_RUN='{"databaseId":null,"status":"queued","conclusion":null}'
           fi
 
           CI_STATUS=$(echo "$CI_RUN" | jq -r '.status // "queued"')
           CI_CONCLUSION=$(echo "$CI_RUN" | jq -r '.conclusion // "null"')
+          CI_RUN_ID=$(echo "$CI_RUN" | jq -r '.databaseId // "null"')
 
-          echo "CI status: $CI_STATUS, conclusion: $CI_CONCLUSION"
+          echo "CI status: $CI_STATUS, conclusion: $CI_CONCLUSION (run: $CI_RUN_ID)"
 
           if [ "$CI_STATUS" = "completed" ]; then
             if [ "$CI_CONCLUSION" = "success" ]; then
@@ -65,12 +73,23 @@ jobs:
               echo "passed=true" >> $GITHUB_OUTPUT
               exit 0
             else
-              # Covers failure, cancelled, timed_out, action_required, etc.
               echo "❌ CI ended with conclusion: $CI_CONCLUSION"
               echo "::error::CI workflow $CI_CONCLUSION. Release blocked."
               echo "passed=false" >> $GITHUB_OUTPUT
               exit 1
             fi
+          fi
+
+          if [ "$CI_STATUS" = "queued" ] || [ "$CI_STATUS" = "waiting" ]; then
+            QUEUED_TIME=$((QUEUED_TIME + SLEEP_INTERVAL))
+            if [ "$QUEUED_TIME" -ge "$QUEUE_THRESHOLD" ] && [ "$RETRIGGERED" = "false" ] && [ "$CI_RUN_ID" != "null" ]; then
+              echo "::warning::CI run $CI_RUN_ID stuck in queue for ${QUEUED_TIME}s. Re-triggering..."
+              gh run rerun "$CI_RUN_ID" --repo ${{ github.repository }} || echo "::warning::Re-trigger failed; continuing to wait"
+              RETRIGGERED=true
+              QUEUED_TIME=0
+            fi
+          else
+            QUEUED_TIME=0
           fi
 
           echo "Waiting for CI to complete... ($ELAPSED/$MAX_WAIT seconds)"
