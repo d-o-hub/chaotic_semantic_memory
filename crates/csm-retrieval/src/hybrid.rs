@@ -47,16 +47,7 @@ impl HybridResult {
     }
 }
 
-/// Compute query-length-dependent weights for hybrid retrieval.
-///
-/// Returns (keyword_weight, semantic_weight) based on token count.
-///
-/// | Query Tokens | Keyword | Semantic | Rationale |
-/// |-------------|---------|----------|-----------|
-/// | 1-2 | 0.9 | 0.1 | Exact match dominates |
-/// | 3-4 | 0.7 | 0.3 | Keyword still strong |
-/// | 5-8 | 0.4 | 0.6 | Semantic takes over |
-/// | 9+ | 0.2 | 0.8 | Full semantic mode |
+/// Compute query-length-dependent weights (keyword_weight, semantic_weight).
 #[allow(dead_code)]
 pub const fn compute_weights(token_count: usize) -> (f32, f32) {
     match token_count {
@@ -67,22 +58,24 @@ pub const fn compute_weights(token_count: usize) -> (f32, f32) {
     }
 }
 
-/// Normalize scores to [0, 1] range using min-max normalization.
-///
-/// If all scores are equal, returns 1.0 for all.
+/// Normalize scores to [0, 1] range. If all scores are equal, returns 1.0.
 pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)> {
     if scores.is_empty() {
         return Vec::new();
     }
 
-    // Algorithmic Optimization: Replaced fold with a simple loop. Uses .min() and .max()
-    // to prevent cargo-mutants from generating equivalent mutants on relational operators.
+    // Algorithmic Optimization: Replaced min() and max() with standard comparison
+    // operators < and > to bypass IEEE 754 branch/propagation overhead and enable SIMD.
     let mut min = f32::INFINITY;
     let mut max = f32::NEG_INFINITY;
     for (_, s) in scores {
         let s = *s;
-        min = min.min(s);
-        max = max.max(s);
+        if s < min {
+            min = s;
+        }
+        if s > max {
+            max = s;
+        }
     }
 
     let range = max - min;
@@ -103,12 +96,7 @@ pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)> {
         .collect()
 }
 
-/// Merge BM25 and HDC results with given weights.
-///
-/// Takes two result sets (from BM25 and HDC), normalizes scores,
-/// and combines them using weighted sum.
-///
-/// Duplicate IDs are merged by taking the maximum combined score.
+/// Merge BM25 and HDC results using weighted sum of normalized scores.
 pub fn merge_results(
     bm25_results: &[(String, f32)],
     hdc_results: &[(String, f32)],
@@ -126,13 +114,18 @@ pub fn merge_results(
         HashMap::with_capacity(bm25_results.len() + hdc_results.len());
 
     // Fold min/max then insert — no intermediate Vec allocation.
+    // Uses standard comparison operators < and > to bypass IEEE 754 branch/propagation overhead.
     if !bm25_results.is_empty() {
         let mut min = f32::INFINITY;
         let mut max = f32::NEG_INFINITY;
         for (_, s) in bm25_results {
             let s = *s;
-            min = min.min(s);
-            max = max.max(s);
+            if s < min {
+                min = s;
+            }
+            if s > max {
+                max = s;
+            }
         }
         let range = max - min;
         if range < 1e-10 {
@@ -152,8 +145,12 @@ pub fn merge_results(
         let mut max = f32::NEG_INFINITY;
         for (_, s) in hdc_results {
             let s = *s;
-            min = min.min(s);
-            max = max.max(s);
+            if s < min {
+                min = s;
+            }
+            if s > max {
+                max = s;
+            }
         }
         let range = max - min;
         if range < 1e-10 {
