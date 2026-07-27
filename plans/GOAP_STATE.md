@@ -1814,7 +1814,7 @@ world_state:
   # Codebase analysis + plans compaction 2026-07-20
   # Canonical recommendations: plans/RECOMMENDATIONS_2026_07_20.md
   # ═══════════════════════════════════════════════════════
-  action_last_completed: goap_orchestrator_hardening
+  action_last_completed: pr_triage_ci_queue_fix_2026_07_27
   recommendations_2026_07_20_written: true
   plan_archive_2026_07_20_complete: true
   active_plan_set_compact: true
@@ -1862,3 +1862,14 @@ world_state:
       - consolidate_retrieval_ownership     # carried from Wave 32
       - own_ttl_cleanup_lifecycle
       - establish_tiered_benchmark_evidence
+
+  # ═══════════════════════════════════════════════════════
+  # 2026-07-27: PR Triage + CI Queue Starvation Fix
+  # ═══════════════════════════════════════════════════════
+  pr_triage_2026_07_27:
+    pr_571_closed: true       # perf(retrieval) min/max — fake optimization, docs vandalism, mutation exclusion debt
+    pr_573_merging: true      # dependabot taiki-e/install-action 2.83.4 → 2.85.2
+    ci_queue_starvation_fixed: true  # release.yml wait-for-ci now detects perpetual-queue and re-triggers
+    learnings_compacted: true        # 157 → 82 lines, removed duplicates and stale entries
+    progress_compacted: true         # 284 → 48 lines, compressed pre-Wave-33 history
+    skills_catalog_optimized: true   # CATALOG.md: table format + trigger conditions + consolidation candidates
