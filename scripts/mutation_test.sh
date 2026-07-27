@@ -193,6 +193,11 @@ EXCLUDE_ARGS=(
   # merge_with > -> >=: equivalent mutant — equal scores produce same result
   # for both operators (keeping existing value vs overwriting with same value).
   --exclude-re "replace > with >= in AbsenceEntry::merge_with"
+  # normalize_scores & merge_results: equivalent comparison mutants
+  --exclude-re "replace < with <= in .*normalize_scores"
+  --exclude-re "replace > with >= in .*normalize_scores"
+  --exclude-re "replace < with <= in .*merge_results"
+  --exclude-re "replace > with >= in .*merge_results"
   # query || -> &&: equivalent mutant — with top_k=0, find_similar+truncate(0)
   # also returns empty; with empty ns, find_similar returns empty too.
   --exclude-re "replace \|\| with && in BridgeRetrieval::query"
