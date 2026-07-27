@@ -368,7 +368,7 @@ jobs:
         shared-key: mutation-test
 
     - name: Install cargo-mutants
-      uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b  # v2.83.4
+      uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf  # v2.85.2
       with:
         tool: cargo-mutants
 
@@ -401,7 +401,7 @@ jobs:
       with:
         shared-key: wasm
     - name: Install wasm-pack
-      uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b  # v2.83.4
+      uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf  # v2.85.2
       with:
         tool: wasm-pack
     - name: Build WASM (nodejs target for smoke test)
@@ -461,7 +461,7 @@ jobs:
       with:
         shared-key: test
     - name: Install cargo-deny
-      uses: taiki-e/install-action@07b4745e0c39a41822af610387492e3e53aa222b  # v2.83.4
+      uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf  # v2.85.2
       with:
         tool: cargo-deny
     - name: cargo deny check
