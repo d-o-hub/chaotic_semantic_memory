@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.8] - 2026-07-28
+
 ### Added
 - **HARNESS.md**: Agent sensor map, feedforward/feedback loops, and self-correction protocol for HDC/reservoir development.
 - **CI**: `Fuzz Workspace Build` job compiles all fuzz targets (`cargo check --manifest-path fuzz/Cargo.toml --all-targets --locked`).
@@ -435,8 +437,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CI workflow with security permissions and concurrency controls
 - Trusted Publishing eliminates need for long-lived API tokens
 
+[0.3.8]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.7...v0.3.8
+[0.3.7]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.6...v0.3.7
+[0.3.6]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.4...v0.3.5
-[0.3.6]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.5...HEAD
 [0.3.4]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.2...v0.3.4
 [0.3.2]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.3.1
