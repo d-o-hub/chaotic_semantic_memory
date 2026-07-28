@@ -15,6 +15,7 @@ pub use bm25::{Bm25Config, Bm25Index};
 pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
 pub use hybrid::{
     HybridConfig, HybridMode, HybridResult, RetrievalAbstention, merge_results, normalize_scores,
+    normalize_scores_in_place,
 };
 pub use rerank::{MmrReranker, RecencyDecayReranker, RerankCandidate, Reranker, parse_rerankers};
 

@@ -63,6 +63,38 @@ pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)> {
         .collect()
 }
 
+/// Normalize scores in place to [0, 1] range using min-max normalization.
+///
+/// Algorithmic Optimization: Avoids vector allocation and string cloning.
+pub fn normalize_scores_in_place(scores: &mut [(String, f32)]) {
+    if scores.is_empty() {
+        return;
+    }
+
+    let mut min = f32::INFINITY;
+    let mut max = f32::NEG_INFINITY;
+    for (_, s) in &*scores {
+        let s = *s;
+        min = min.min(s);
+        max = max.max(s);
+    }
+
+    let range = max - min;
+    let epsilon = 1e-10;
+
+    if range < epsilon {
+        for (_, score) in scores {
+            *score = 1.0;
+        }
+        return;
+    }
+
+    let inv_range = 1.0 / range;
+    for (_, score) in scores {
+        *score = (*score - min) * inv_range;
+    }
+}
+
 /// Merge BM25 and HDC results with given weights.
 ///
 /// Takes two result sets (from BM25 and HDC), normalizes scores,
@@ -191,125 +223,91 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_compute_weights_short_query() {
-        let (kw, sem) = compute_weights(1);
-        assert!((kw - (0.9)).abs() < 1e-6);
-        assert!((sem - (0.1)).abs() < 1e-6);
-
-        let (kw, sem) = compute_weights(2);
-        assert!((kw - (0.9)).abs() < 1e-6);
-        assert!((sem - (0.1)).abs() < 1e-6);
+    fn test_compute_weights() {
+        let cases = vec![
+            (1, 0.9, 0.1),
+            (2, 0.9, 0.1),
+            (3, 0.7, 0.3),
+            (4, 0.7, 0.3),
+            (5, 0.4, 0.6),
+            (8, 0.4, 0.6),
+            (9, 0.2, 0.8),
+            (100, 0.2, 0.8),
+        ];
+        for (tc, expected_kw, expected_sem) in cases {
+            let (kw, sem) = compute_weights(tc);
+            assert!((kw - expected_kw).abs() < 1e-6);
+            assert!((sem - expected_sem).abs() < 1e-6);
+        }
     }
 
     #[test]
-    fn test_compute_weights_medium_query() {
-        let (kw, sem) = compute_weights(3);
-        assert!((kw - (0.7)).abs() < 1e-6);
-        assert!((sem - (0.3)).abs() < 1e-6);
-
-        let (kw, sem) = compute_weights(4);
-        assert!((kw - (0.7)).abs() < 1e-6);
-        assert!((sem - (0.3)).abs() < 1e-6);
-    }
-
-    #[test]
-    fn test_compute_weights_long_query() {
-        let (kw, sem) = compute_weights(5);
-        assert!((kw - (0.4)).abs() < 1e-6);
-        assert!((sem - (0.6)).abs() < 1e-6);
-
-        let (kw, sem) = compute_weights(8);
-        assert!((kw - (0.4)).abs() < 1e-6);
-        assert!((sem - (0.6)).abs() < 1e-6);
-    }
-
-    #[test]
-    fn test_compute_weights_very_long_query() {
-        let (kw, sem) = compute_weights(9);
-        assert!((kw - (0.2)).abs() < 1e-6);
-        assert!((sem - (0.8)).abs() < 1e-6);
-
-        let (kw, sem) = compute_weights(100);
-        assert!((kw - (0.2)).abs() < 1e-6);
-        assert!((sem - (0.8)).abs() < 1e-6);
-    }
-
-    #[test]
-    fn test_normalize_scores_basic() {
+    fn test_normalize_scores() {
         let scores = vec![
             ("a".to_string(), 10.0),
             ("b".to_string(), 15.0),
             ("c".to_string(), 20.0),
         ];
         let normalized = normalize_scores(&scores);
-
         assert!((normalized[0].1 - 0.0).abs() < 1e-6);
         assert!((normalized[1].1 - 0.5).abs() < 1e-6);
         assert!((normalized[2].1 - 1.0).abs() < 1e-6);
-    }
 
-    #[test]
-    fn test_normalize_scores_range_two() {
         let scores = vec![("a".to_string(), 2.0), ("b".to_string(), 0.0)];
         let normalized = normalize_scores(&scores);
-        // (2-0)/2 = 1.0; (0-0)/2 = 0.0
         assert!((normalized[0].1 - 1.0).abs() < 1e-6);
         assert!((normalized[1].1 - 0.0).abs() < 1e-6);
-    }
 
-    #[test]
-    fn test_normalize_scores_empty() {
-        let normalized = normalize_scores(&[]);
-        assert!(normalized.is_empty());
-    }
+        assert!(normalize_scores(&[]).is_empty());
 
-    #[test]
-    fn test_normalize_scores_equal() {
         let scores = vec![("a".to_string(), 5.0), ("b".to_string(), 5.0)];
         let normalized = normalize_scores(&scores);
-
-        // All equal scores should normalize to 1.0
         assert!((normalized[0].1 - 1.0).abs() < 1e-6);
         assert!((normalized[1].1 - 1.0).abs() < 1e-6);
     }
 
     #[test]
-    fn test_merge_results_basic() {
+    fn test_normalize_scores_in_place_parity() {
+        let mut empty: Vec<(String, f32)> = Vec::new();
+        normalize_scores_in_place(&mut empty);
+        assert!(empty.is_empty());
+
+        let mut single = vec![("a".to_string(), 10.0)];
+        normalize_scores_in_place(&mut single);
+        assert!((single[0].1 - 1.0).abs() < 1e-6);
+
+        let mut multi = vec![
+            ("a".to_string(), 10.0),
+            ("b".to_string(), 15.0),
+            ("c".to_string(), 20.0),
+        ];
+        let original = multi.clone();
+        normalize_scores_in_place(&mut multi);
+        let expected = normalize_scores(&original);
+        assert_eq!(multi.len(), expected.len());
+        for i in 0..multi.len() {
+            assert_eq!(multi[i].0, expected[i].0);
+            assert!((multi[i].1 - expected[i].1).abs() < 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_merge_results() {
         let bm25 = vec![("doc1".to_string(), 1.0), ("doc2".to_string(), 0.5)];
         let hdc = vec![("doc1".to_string(), 0.5), ("doc3".to_string(), 1.0)];
-
         let merged = merge_results(&bm25, &hdc, (0.5, 0.5), 10);
-
-        // doc1 appears in both
         assert!(merged.iter().any(|(id, _)| id == "doc1"));
-        // doc2 only in BM25
         assert!(merged.iter().any(|(id, _)| id == "doc2"));
-        // doc3 only in HDC
         assert!(merged.iter().any(|(id, _)| id == "doc3"));
-    }
 
-    #[test]
-    fn test_merge_results_weighted() {
         let bm25 = vec![("doc1".to_string(), 1.0)];
         let hdc = vec![("doc1".to_string(), 1.0)];
-
-        // With heavy keyword weight, BM25 should dominate
         let merged = merge_results(&bm25, &hdc, (0.9, 0.1), 10);
-
-        // doc1 should have combined score
         assert!(merged.iter().any(|(id, s)| id == "doc1" && *s > 0.0));
-    }
 
-    #[test]
-    fn test_merge_results_empty() {
-        let merged = merge_results(&[], &[], (0.5, 0.5), 10);
-        assert!(merged.is_empty());
-
-        let merged = merge_results(&[("a".to_string(), 1.0)], &[], (0.5, 0.5), 10);
-        assert_eq!(merged.len(), 1);
-
-        let merged = merge_results(&[], &[("a".to_string(), 1.0)], (0.5, 0.5), 10);
-        assert_eq!(merged.len(), 1);
+        assert!(merge_results(&[], &[], (0.5, 0.5), 10).is_empty());
+        assert_eq!(merge_results(&[("a".to_string(), 1.0)], &[], (0.5, 0.5), 10).len(), 1);
+        assert_eq!(merge_results(&[], &[("a".to_string(), 1.0)], (0.5, 0.5), 10).len(), 1);
     }
 
     #[test]
