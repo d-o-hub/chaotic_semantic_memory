@@ -39,8 +39,23 @@ fn p50_ms(samples: &mut [f64]) -> f64 {
     samples[samples.len() / 2]
 }
 
+/// Projects memory usage of a hypothetical **quantized/compressed ANN index**
+/// at 10 million concepts.
+///
+/// # What this models
+/// `bytes_per_concept = 1` represents a heavily quantized or hash-only index
+/// entry (e.g. 1-byte Product Quantization code or a bloom-filter entry), NOT
+/// the live in-memory Singularity store.
+///
+/// The live in-memory cost is approximately 1.5 KB/concept
+/// (`size_of::<Concept>()` ≈ 1,296 bytes + HashMap/Vec heap overhead of
+/// ~96 bytes). At that rate, 10M concepts would require ~14 GB — far beyond
+/// what this test is designed to gate.
+///
+/// Use `empirical_bytes_per_concept_linear_fit` (below) to validate actual
+/// struct-level memory cost.
 #[test]
-fn projected_10m_concepts_memory_stays_under_12mb() {
+fn projected_compressed_index_10m_concepts_under_12mb() {
     let concepts = env_u64("CSM_MEMORY_MODEL_CONCEPTS", DEFAULT_MEMORY_MODEL_CONCEPTS);
     let threshold = env_u64("CSM_MEMORY_MODEL_MAX_BYTES", DEFAULT_MEMORY_MODEL_MAX_BYTES);
     let projected = projected_compressed_index_bytes(concepts);
@@ -124,6 +139,84 @@ async fn local_wal_checkpoint_roundtrip_stays_consistent() {
     let row = rows.next().await.expect("row read").expect("row");
     let mode: String = row.get(0).expect("mode");
     assert_eq!(mode.to_ascii_lowercase(), "wal");
+}
+
+/// Validates the compile-time floor of the `Concept` struct.
+///
+/// This is a struct-size gate, not a heap-allocation measurement.
+/// Actual per-concept heap cost (including HashMap/String/Vec overhead)
+/// is measured empirically by `rss_grows_linearly_with_concept_count` on Linux.
+#[test]
+fn concept_struct_size_floor() {
+    use std::mem::size_of;
+    let struct_bytes = size_of::<chaotic_semantic_memory::Concept>() as u64;
+    println!("CONCEPT_STRUCT_BYTES={struct_bytes}");
+    // HVec10240 alone is 1280 bytes; struct must not shrink below that floor.
+    assert!(
+        struct_bytes >= 1280,
+        "Concept struct shrank below HVec10240 floor: {struct_bytes}"
+    );
+}
+
+/// RSS-based empirical measurement of per-concept heap cost (Linux only).
+///
+/// Allocates concepts at two scales, derives bytes/concept from the RSS delta,
+/// and asserts a regression ceiling. This is the only *measured* (non-formula)
+/// memory test in this suite.
+#[cfg(target_os = "linux")]
+#[test]
+fn rss_grows_linearly_with_concept_count() {
+    fn rss_kb() -> u64 {
+        let s = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
+        for line in s.lines() {
+            if let Some(rest) = line.strip_prefix("VmRSS:") {
+                return rest
+                    .split_whitespace()
+                    .next()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(0);
+            }
+        }
+        0
+    }
+
+    const SMALL: usize = 500;
+    const LARGE: usize = 2_000;
+
+    let build = |n: usize| -> Vec<_> {
+        (0..n)
+            .map(|i| {
+                chaotic_semantic_memory::ConceptBuilder::new(format!("c{i}"))
+                    .with_vector(chaotic_semantic_memory::HVec10240::random())
+                    .build()
+                    .expect("build")
+            })
+            .collect()
+    };
+
+    // Warm up allocator with a small batch first so we measure marginal cost.
+    let warm = build(SMALL);
+    let rss_after_small = rss_kb();
+    let large = build(LARGE);
+    let rss_after_large = rss_kb();
+
+    // Keep allocations alive.
+    assert_eq!(warm.len(), SMALL);
+    assert_eq!(large.len(), LARGE);
+
+    let delta_kb = rss_after_large.saturating_sub(rss_after_small);
+    // Measured bytes/concept from the LARGE - SMALL marginal allocation.
+    let measured_bytes_per_concept = (delta_kb * 1024) / LARGE as u64;
+    println!("RSS_DELTA_KB={delta_kb}");
+    println!("MEASURED_BYTES_PER_CONCEPT={measured_bytes_per_concept}");
+
+    // Ceiling: live store cost must be below 4 KB/concept.
+    // Struct alone is ~1296 bytes; realistic HashMap+String overhead < 2 KB.
+    // This catches unexpected struct growth or allocator runaway.
+    assert!(
+        measured_bytes_per_concept < 4 * 1024,
+        "measured {measured_bytes_per_concept} bytes/concept, expected < 4 KB"
+    );
 }
 
 fn env_u64(key: &str, default: u64) -> u64 {
