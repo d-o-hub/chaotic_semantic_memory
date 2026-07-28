@@ -658,6 +658,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use csm_retrieval::{HybridResult, RetrievalAbstention}
 - pub fn compute_weights
 - pub fn normalize_scores
+- pub fn normalize_scores_in_place
 - pub fn merge_results
 - pub enum HybridMode
 - pub struct HybridConfig
@@ -671,7 +672,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod rerank
 - pub use bm25::{Bm25Config, Bm25Index}
 - pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve}
-- pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
+- pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores, normalize_scores_in_place}
 - pub use rerank::{MmrReranker, RerankCandidate, Reranker}
 
 ### src/retrieval/rerank.rs
