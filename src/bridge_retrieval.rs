@@ -6,7 +6,7 @@
 // Casts are intentional for bridge score math
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
-use crate::retrieval::hybrid::normalize_scores;
+use crate::retrieval::hybrid::normalize_scores_in_place;
 use crate::semantic_bridge::{
     BridgeConfig, BridgeHit, ConceptGraph, MemoryPacket, ScoreBreakdown, SemanticReranker,
 };
@@ -71,8 +71,8 @@ impl BridgeRetrieval {
         let query_hv = self.encoder.encode(query_text);
 
         // Step 2: First recall - deterministic HDC scores
-        let primary_results = singularity.find_similar(ns, &query_hv, top_k);
-        let primary_normalized = normalize_scores(&primary_results);
+        let mut primary_results = singularity.find_similar(ns, &query_hv, top_k);
+        normalize_scores_in_place(&mut primary_results);
 
         // Step 3: Concept expansion
         let matched_ids = self.concept_graph.match_tokens(&tokens);
@@ -91,12 +91,13 @@ impl BridgeRetrieval {
                 .collect();
 
             let expanded_hv = HVec10240::bundle(&label_hvs).unwrap_or_else(|_| HVec10240::zero());
-            let results = singularity.find_similar(ns, &expanded_hv, top_k);
-            normalize_scores(&results)
+            let mut results = singularity.find_similar(ns, &expanded_hv, top_k);
+            normalize_scores_in_place(&mut results);
+            results
         };
 
         // Step 5: Merge results with score breakdown
-        let mut hits = self.merge_with_breakdown(&primary_normalized, &expanded_results);
+        let mut hits = self.merge_with_breakdown(&primary_results, &expanded_results);
 
         // Step 6: Optional reranking (never mutates deterministic scores)
         if let Some(reranker) = reranker {
