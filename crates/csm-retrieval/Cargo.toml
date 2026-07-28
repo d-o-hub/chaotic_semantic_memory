@@ -1,6 +1,6 @@
 [package]
 name = "csm-retrieval"
-version = "0.3.8"
+version = "0.3.7"
 edition = "2024"
 rust-version = "1.85"
 description = "Retrieval backends for chaotic_semantic_memory"
@@ -8,8 +8,8 @@ license = "MIT"
 repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
 
 [dependencies]
-csm-core-lib = { path = "../csm-core-lib", version = "0.3.8" }
-csm-memory = { path = "../csm-memory", version = "0.3.8" }
+csm-core-lib = { path = "../csm-core-lib", version = "0.3.7" }
+csm-memory = { path = "../csm-memory", version = "0.3.7" }
 chrono = { version = "0.4.45", features = ["serde"] }
 serde = { workspace = true }
 serde_json = { workspace = true }

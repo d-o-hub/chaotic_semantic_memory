@@ -2,7 +2,7 @@
 
 > AI memory systems with hyperdimensional vectors and chaotic reservoirs
 
-**Version:** 0.3.8
+**Version:** 0.3.7
 **License:** MIT
 **Repository:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
@@ -1369,7 +1369,7 @@ cognitive_complexity = "allow"
 
 [package]
 name = "chaotic_semantic_memory"
-version = "0.3.8"
+version = "0.3.7"
 edition = "2024"
 rust-version = "1.88"
 description = "AI memory systems with hyperdimensional vectors and chaotic reservoirs"

@@ -282,18 +282,23 @@ mod tests {
         let mut single = vec![("a".to_string(), 10.0)];
         normalize_scores_in_place(&mut single);
         assert!((single[0].1 - 1.0).abs() < 1e-6);
-        let mut multi = vec![
-            ("a".to_string(), 10.0),
-            ("b".to_string(), 15.0),
-            ("c".to_string(), 20.0),
-        ];
-        let original = multi.clone();
-        normalize_scores_in_place(&mut multi);
-        let expected = normalize_scores(&original);
-        assert_eq!(multi.len(), expected.len());
-        for i in 0..multi.len() {
-            assert_eq!(multi[i].0, expected[i].0);
-            assert!((multi[i].1 - expected[i].1).abs() < 1e-6);
+
+        for cases in [
+            vec![
+                ("a".to_string(), 10.0),
+                ("b".to_string(), 15.0),
+                ("c".to_string(), 20.0),
+            ],
+            vec![("a".to_string(), f32::EPSILON), ("b".to_string(), 0.0)],
+        ] {
+            let mut multi = cases.clone();
+            normalize_scores_in_place(&mut multi);
+            let expected = normalize_scores(&cases);
+            assert_eq!(multi.len(), expected.len());
+            for i in 0..multi.len() {
+                assert_eq!(multi[i].0, expected[i].0);
+                assert!((multi[i].1 - expected[i].1).abs() < 1e-6);
+            }
         }
     }
 
