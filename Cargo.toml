@@ -187,7 +187,7 @@ rayon = { version = "1.10.0", optional = true }
 
 # Database - Use libsql NOT turso-client (opt-in via "persistence" feature)
 libsql = { version = "0.9.30", default-features = false, features = ["sync", "hrana", "remote"], optional = true }
-csm-persistence = { path = "crates/csm-persistence", version = "0.3.7" }
+csm-persistence = { path = "crates/csm-persistence", version = "0.3.7", default-features = false }
 # `net` is required by the Prometheus /metrics server (ADR-0072).
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs", "net"] }
 
@@ -305,7 +305,7 @@ required-features = ["prometheus", "otlp-json"]
 experimental-neural-circuit = ["csm-chaos/experimental-neural-circuit"]
 default = ["cli", "persistence", "parallel"]
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
-persistence = ["dep:libsql"]
+persistence = ["dep:libsql", "csm-persistence/persistence"]
 parallel = ["dep:rayon"]
 wasm = []
 mcp = ["dep:rmcp", "cli", "dep:axum", "dep:tower", "dep:tower-http"]  # ADR-0067: MCP server requires CLI infrastructure
