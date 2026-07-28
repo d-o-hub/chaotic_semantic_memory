@@ -346,8 +346,14 @@ mod tests {
         assert!(merged.iter().any(|(id, s)| id == "doc1" && *s > 0.0));
 
         assert!(merge_results(&[], &[], (0.5, 0.5), 10).is_empty());
-        assert_eq!(merge_results(&[("a".to_string(), 1.0)], &[], (0.5, 0.5), 10).len(), 1);
-        assert_eq!(merge_results(&[], &[("a".to_string(), 1.0)], (0.5, 0.5), 10).len(), 1);
+        assert_eq!(
+            merge_results(&[("a".to_string(), 1.0)], &[], (0.5, 0.5), 10).len(),
+            1
+        );
+        assert_eq!(
+            merge_results(&[], &[("a".to_string(), 1.0)], (0.5, 0.5), 10).len(),
+            1
+        );
     }
 
     #[test]
