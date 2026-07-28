@@ -30,6 +30,11 @@ pub const fn compute_weights(token_count: usize) -> (f32, f32) {
 /// Normalize scores to [0, 1] range using min-max normalization.
 ///
 /// If all scores are equal, returns 1.0 for all.
+///
+/// # Note
+/// For performance-critical pipelines (like search/retrieval hot paths), prefer
+/// using [`normalize_scores_in_place`] to completely bypass vector allocations
+/// and redundant string cloning.
 pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)> {
     if scores.is_empty() {
         return Vec::new();
@@ -46,9 +51,7 @@ pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)> {
     }
 
     let range = max - min;
-    let epsilon = 1e-10;
-
-    if range < epsilon {
+    if range < f32::EPSILON {
         return scores.iter().map(|(id, _)| (id.clone(), 1.0)).collect();
     }
 
@@ -65,7 +68,8 @@ pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)> {
 
 /// Normalize scores in place to [0, 1] range using min-max normalization.
 ///
-/// Algorithmic Optimization: Avoids vector allocation and string cloning.
+/// This is the preferred method in high-frequency/hot query pathways because
+/// it mutates existing score vectors, avoiding heap allocations and string cloning.
 pub fn normalize_scores_in_place(scores: &mut [(String, f32)]) {
     if scores.is_empty() {
         return;
@@ -80,9 +84,7 @@ pub fn normalize_scores_in_place(scores: &mut [(String, f32)]) {
     }
 
     let range = max - min;
-    let epsilon = 1e-10;
-
-    if range < epsilon {
+    if range < f32::EPSILON {
         for (_, score) in scores {
             *score = 1.0;
         }
@@ -127,7 +129,7 @@ pub fn merge_results(
             max = max.max(s);
         }
         let range = max - min;
-        if range < 1e-10 {
+        if range < f32::EPSILON {
             for (id, _) in bm25_results {
                 combined.insert(id.as_str(), kw_weight);
             }
@@ -148,7 +150,7 @@ pub fn merge_results(
             max = max.max(s);
         }
         let range = max - min;
-        if range < 1e-10 {
+        if range < f32::EPSILON {
             for (id, _) in hdc_results {
                 combined
                     .entry(id.as_str())
@@ -236,8 +238,14 @@ mod tests {
         ];
         for (tc, expected_kw, expected_sem) in cases {
             let (kw, sem) = compute_weights(tc);
-            assert!((kw - expected_kw).abs() < 1e-6);
-            assert!((sem - expected_sem).abs() < 1e-6);
+            assert!(
+                (kw - expected_kw).abs() < 1e-6,
+                "kw weight assertion failed for query token count {tc}"
+            );
+            assert!(
+                (sem - expected_sem).abs() < 1e-6,
+                "sem weight assertion failed for query token count {tc}"
+            );
         }
     }
 
@@ -268,14 +276,12 @@ mod tests {
 
     #[test]
     fn test_normalize_scores_in_place_parity() {
-        let mut empty: Vec<(String, f32)> = Vec::new();
+        let mut empty = Vec::new();
         normalize_scores_in_place(&mut empty);
         assert!(empty.is_empty());
-
         let mut single = vec![("a".to_string(), 10.0)];
         normalize_scores_in_place(&mut single);
         assert!((single[0].1 - 1.0).abs() < 1e-6);
-
         let mut multi = vec![
             ("a".to_string(), 10.0),
             ("b".to_string(), 15.0),
@@ -353,7 +359,7 @@ mod tests {
 
     #[test]
     fn test_range_epsilon_boundary() {
-        let epsilon = 1e-10;
+        let epsilon = f32::EPSILON;
         let scores = vec![("a".to_string(), epsilon), ("b".to_string(), 0.0)];
         let normalized = normalize_scores(&scores);
         // range = epsilon. epsilon < epsilon is false.
@@ -370,7 +376,7 @@ mod tests {
 
     #[test]
     fn test_merge_results_epsilon_boundary() {
-        let epsilon = 1e-10;
+        let epsilon = f32::EPSILON;
         let weights = (0.5, 0.5);
 
         // Case 1: range exactly epsilon (should normalize)
