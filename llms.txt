@@ -1517,6 +1517,10 @@ harness = false
 name = "binary_benchmark"
 harness = false
 
+[[bench]]
+name = "ann_benchmark"
+harness = false
+
 [profile.release]
 opt-level = 3
 lto = "fat"
