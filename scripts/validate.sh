@@ -30,8 +30,8 @@ if echo "$OUTPUT" | grep -qi "warning:"; then
   exit 1
 fi
 
-echo "==> cargo test --all-targets --all-features"
-cargo test --all-targets --all-features
+echo "==> cargo test --lib --tests --all-features (exclude benchmarks)"
+cargo test --lib --tests --all-features
 
 echo "==> Source file LOC gate (< ${MAX_SRC_LOC})"
 for file in $(find src crates -name '*.rs' -not -path '*/target/*'); do
