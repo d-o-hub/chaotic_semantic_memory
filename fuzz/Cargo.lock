@@ -607,7 +607,6 @@ version = "0.3.7"
 dependencies = [
  "csm-core-lib",
  "js-sys",
- "rayon",
  "serde",
  "serde_json",
  "thiserror 2.0.19",
