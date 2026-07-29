@@ -23,16 +23,13 @@ jobs:
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
-    - name: Install Rust
-      uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf # v2.85.2
-      with:
-        tool: cargo-fuzz
-    - name: Install clang
-      run: sudo apt-get update && sudo apt-get install -y clang
+    - uses: DeterminateSystems/nix-installer-action@v14
+    - uses: DeterminateSystems/magic-nix-cache-action@v8
     - name: Run changed fuzz targets (30s each)
       run: |
+        nix develop --command bash -c '
         # Get changed fuzz target files
-        CHANGED=$(git diff --name-only origin/main...HEAD -- 'fuzz/fuzz_targets/*.rs' || true)
+        CHANGED=$(git diff --name-only origin/main...HEAD -- "fuzz/fuzz_targets/*.rs" || true)
         if [ -z "$CHANGED" ]; then
           echo "No fuzz targets changed, skipping"
           exit 0
@@ -51,6 +48,7 @@ jobs:
             fi
           }
         done
+        '
 
   fuzz-full:
     name: Fuzz Full Run (Scheduled)
@@ -59,14 +57,11 @@ jobs:
     timeout-minutes: 60
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
-    - name: Install Rust
-      uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf # v2.85.2
-      with:
-        tool: cargo-fuzz
-    - name: Install clang
-      run: sudo apt-get update && sudo apt-get install -y clang
+    - uses: DeterminateSystems/nix-installer-action@v14
+    - uses: DeterminateSystems/magic-nix-cache-action@v8
     - name: Run all fuzz targets (5 min each)
       run: |
+        nix develop --command bash -c '
         targets=$(cargo fuzz list)
         for target in $targets; do
           echo "Running fuzz target: $target (5 min)"
@@ -80,3 +75,4 @@ jobs:
             fi
           }
         done
+        '

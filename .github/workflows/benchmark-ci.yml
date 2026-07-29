@@ -34,10 +34,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
-        with:
-          cache: false
+      - uses: DeterminateSystems/nix-installer-action@v14
+
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
@@ -46,10 +45,10 @@ jobs:
       # test-benchmarks). Kept here so path-filtered benchmark changes still
       # validate the harness before the retrieval-only smoke run.
       - name: Benchmark workspace unit tests
-        run: cargo test --manifest-path benchmarks/Cargo.toml --locked --quiet
+        run: nix develop --command cargo test --manifest-path benchmarks/Cargo.toml --locked --quiet
 
       - name: Run benchmark
-        run: cargo run --manifest-path benchmarks/Cargo.toml -- --dataset-dir benchmarks/datasets/v1/small --mode retrieval-only --out-dir benchmarks/results/ci
+        run: nix develop --command cargo run --manifest-path benchmarks/Cargo.toml -- --dataset-dir benchmarks/datasets/v1/small --mode retrieval-only --out-dir benchmarks/results/ci
 
       - name: Verify outputs
         run: |
