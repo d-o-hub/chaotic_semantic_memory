@@ -52,8 +52,8 @@ fn p50_ms(samples: &mut [f64]) -> f64 {
 /// ~96 bytes). At that rate, 10M concepts would require ~14 GB — far beyond
 /// what this test is designed to gate.
 ///
-/// Use `empirical_bytes_per_concept_linear_fit` (below) to validate actual
-/// struct-level memory cost.
+/// Use `concept_struct_size_floor` (below) to gate struct size and
+/// `rss_grows_linearly_with_concept_count` to measure actual heap cost.
 #[test]
 fn projected_compressed_index_10m_concepts_under_12mb() {
     let concepts = env_u64("CSM_MEMORY_MODEL_CONCEPTS", DEFAULT_MEMORY_MODEL_CONCEPTS);
@@ -160,9 +160,9 @@ fn concept_struct_size_floor() {
 
 /// RSS-based empirical measurement of per-concept heap cost (Linux only).
 ///
-/// Allocates concepts at two scales, derives bytes/concept from the RSS delta,
-/// and asserts a regression ceiling. This is the only *measured* (non-formula)
-/// memory test in this suite.
+/// Allocates concepts at three scales (500, 1000, 2000) and measures the RSS
+/// delta between each pair. Verifies that the per-concept cost is consistent
+/// across scales (approximate linearity) and below a regression ceiling.
 #[cfg(target_os = "linux")]
 #[test]
 fn rss_grows_linearly_with_concept_count() {
@@ -180,8 +180,7 @@ fn rss_grows_linearly_with_concept_count() {
         0
     }
 
-    const SMALL: usize = 500;
-    const LARGE: usize = 2_000;
+    const SCALES: [usize; 3] = [500, 1_000, 2_000];
 
     let build = |n: usize| -> Vec<_> {
         (0..n)
@@ -194,29 +193,65 @@ fn rss_grows_linearly_with_concept_count() {
             .collect()
     };
 
-    // Warm up allocator with a small batch first so we measure marginal cost.
-    let warm = build(SMALL);
-    let rss_after_small = rss_kb();
-    let large = build(LARGE);
-    let rss_after_large = rss_kb();
+    // Warm up allocator, then measure RSS at each scale.
+    let mut batches: Vec<Vec<_>> = Vec::new();
+    let mut rss_samples: Vec<u64> = Vec::new();
 
-    // Keep allocations alive.
-    assert_eq!(warm.len(), SMALL);
-    assert_eq!(large.len(), LARGE);
+    let first = build(SCALES[0]);
+    batches.push(first);
+    rss_samples.push(rss_kb());
 
-    let delta_kb = rss_after_large.saturating_sub(rss_after_small);
-    // Measured bytes/concept from the LARGE - SMALL marginal allocation.
-    let measured_bytes_per_concept = (delta_kb * 1024) / LARGE as u64;
-    println!("RSS_DELTA_KB={delta_kb}");
-    println!("MEASURED_BYTES_PER_CONCEPT={measured_bytes_per_concept}");
+    for &n in &SCALES[1..] {
+        batches.push(build(n));
+        rss_samples.push(rss_kb());
+    }
 
-    // Ceiling: live store cost must be below 4 KB/concept.
-    // Struct alone is ~1296 bytes; realistic HashMap+String overhead < 2 KB.
-    // This catches unexpected struct growth or allocator runaway.
+    // Keep all allocations alive.
+    for (i, batch) in batches.iter().enumerate() {
+        assert_eq!(batch.len(), SCALES[i]);
+    }
+
+    // Compute per-concept bytes between each consecutive scale pair.
+    let mut slopes: Vec<u64> = Vec::new();
+    for (scales_win, rss_win) in SCALES.windows(2).zip(rss_samples.windows(2)) {
+        let (n0, n1) = (scales_win[0], scales_win[1]);
+        let (rss0, rss1) = (rss_win[0], rss_win[1]);
+        let delta_kb = rss1.saturating_sub(rss0);
+        let count = (n1 - n0) as u64;
+        let bytes_per_concept = if count > 0 {
+            (delta_kb * 1024) / count
+        } else {
+            0
+        };
+        println!("RSS_SCALE_{n0}_TO_{n1}: delta_kb={delta_kb}, bytes/concept={bytes_per_concept}");
+        slopes.push(bytes_per_concept);
+    }
+
+    // Linearity check: all slopes must be within 50% of their mean.
+    let mean = slopes.iter().sum::<u64>() / slopes.len() as u64;
+    println!("MEAN_BYTES_PER_CONCEPT={mean}");
+    for &s in &slopes {
+        let lo = mean / 2;
+        let hi = mean + mean / 2;
+        assert!(
+            (lo..=hi).contains(&s),
+            "slope {s} bytes/concept deviates >50% from mean {mean}"
+        );
+    }
+
+    // Regression ceiling: 3.5 KB/concept. Measured ~2.7 KB on Linux x86_64
+    // (1408-byte struct + allocator/Metadata overhead). Gives ~30% headroom
+    // for platform variance while catching real regressions.
     assert!(
-        measured_bytes_per_concept < 4 * 1024,
-        "measured {measured_bytes_per_concept} bytes/concept, expected < 4 KB"
+        mean < 3584,
+        "mean {mean} bytes/concept exceeds 3.5 KB ceiling"
     );
+}
+
+#[cfg(not(target_os = "linux"))]
+#[test]
+fn rss_grows_linearly_with_concept_count() {
+    println!("skipped: RSS measurement requires /proc/self/status (Linux only)");
 }
 
 fn env_u64(key: &str, default: u64) -> u64 {
