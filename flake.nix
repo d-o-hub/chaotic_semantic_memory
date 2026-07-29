@@ -60,7 +60,7 @@
 
               # WASM / npm toolchain
               wasm-pack
-              nodejs_20
+              nodejs
 
               # Build essentials
               openssl
