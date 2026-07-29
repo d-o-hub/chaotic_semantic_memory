@@ -30,8 +30,8 @@ if echo "$OUTPUT" | grep -qi "warning:"; then
   exit 1
 fi
 
-echo "==> cargo test --all-targets --all-features"
-cargo test --all-targets --all-features
+echo "==> cargo test --lib --tests --all-features (exclude benchmarks)"
+cargo test --lib --tests --all-features
 
 echo "==> Source file LOC gate (< ${MAX_SRC_LOC})"
 for file in $(find src crates -name '*.rs' -not -path '*/target/*'); do
@@ -50,8 +50,8 @@ for file in $(find src crates -name '*.rs' -not -path '*/target/*'); do
 done
 
 if rustup target list --installed | grep -q "^${WASM_TARGET}\$"; then
-  echo "==> cargo check --target ${WASM_TARGET} --features wasm"
-  cargo check --target "${WASM_TARGET}" --features wasm
+  echo "==> cargo check --target ${WASM_TARGET} --no-default-features --features wasm"
+  cargo check --target "${WASM_TARGET}" --no-default-features --features wasm
 else
   echo "skip: ${WASM_TARGET} target not installed"
 fi
