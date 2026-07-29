@@ -57,7 +57,7 @@
 - otlp-json: []
 - otlp: [dep:opentelemetry, dep:opentelemetry_sdk, dep:opentelemetry-otlp, dep:tracing-opentelemetry]
 - parallel: [dep:rayon]
-- persistence: [dep:libsql, csm-persistence/persistence]
+- persistence: [dep:libsql]
 - prometheus: [dep:prometheus, dep:hyper, dep:hyper-util, dep:http-body-util]
 - wasm: []
 
