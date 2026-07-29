@@ -86,7 +86,7 @@
             env = {
               # Required by rust-analyzer and proc-macro expansion
               RUST_SRC_PATH = "${pkgs.rustToolchain}/lib/rustlib/src/rust/library";
-              LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
+              CSM_LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
                 pkgs.stdenv.cc.cc.lib
                 pkgs.openssl
               ];
