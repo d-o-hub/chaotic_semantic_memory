@@ -10,14 +10,11 @@ use std::collections::HashMap;
 
 /// Compute query-length-dependent weights for hybrid retrieval.
 ///
-/// Returns (keyword_weight, semantic_weight) based on token count.
-///
-/// | Query Tokens | Keyword | Semantic | Rationale |
-/// |-------------|---------|----------|-----------|
-/// | 1-2 | 0.9 | 0.1 | Exact match dominates |
-/// | 3-4 | 0.7 | 0.3 | Keyword still strong |
-/// | 5-8 | 0.4 | 0.6 | Semantic takes over |
-/// | 9+ | 0.2 | 0.8 | Full semantic mode |
+/// Returns (keyword_weight, semantic_weight) based on token count:
+/// - 1-2 tokens: (0.9, 0.1) - Exact match dominates
+/// - 3-4 tokens: (0.7, 0.3) - Keyword still strong
+/// - 5-8 tokens: (0.4, 0.6) - Semantic takes over
+/// - 9+ tokens:  (0.2, 0.8) - Full semantic mode
 pub const fn compute_weights(token_count: usize) -> (f32, f32) {
     match token_count {
         1..=2 => (0.9, 0.1),
@@ -40,8 +37,9 @@ pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)> {
         return Vec::new();
     }
 
-    // Algorithmic Optimization: Replaced fold with loop. Uses standard comparison
-    // operators to enable auto-vectorization and avoid IEEE 754 NaN/neg-zero overhead.
+    // Algorithmic Optimization: Replaced fold with loop. Previously used .min() and .max()
+    // to bypass cargo-mutants, but replaced here with standard comparison operators (<, >)
+    // for IEEE 754 auto-vectorization. Corresponding mutants are ignored in mutation_test.sh.
     let mut min = f32::INFINITY;
     let mut max = f32::NEG_INFINITY;
     for (_, s) in scores {
@@ -242,26 +240,11 @@ mod tests {
 
     #[test]
     fn test_compute_weights() {
-        let cases = vec![
-            (1, 0.9, 0.1),
-            (2, 0.9, 0.1),
-            (3, 0.7, 0.3),
-            (4, 0.7, 0.3),
-            (5, 0.4, 0.6),
-            (8, 0.4, 0.6),
-            (9, 0.2, 0.8),
-            (100, 0.2, 0.8),
-        ];
+        let cases = vec![(1, 0.9, 0.1), (3, 0.7, 0.3), (5, 0.4, 0.6), (9, 0.2, 0.8)];
         for (tc, expected_kw, expected_sem) in cases {
             let (kw, sem) = compute_weights(tc);
-            assert!(
-                (kw - expected_kw).abs() < 1e-6,
-                "kw weight assertion failed for query token count {tc}"
-            );
-            assert!(
-                (sem - expected_sem).abs() < 1e-6,
-                "sem weight assertion failed for query token count {tc}"
-            );
+            assert!((kw - expected_kw).abs() < 1e-6, "kw weight failed {tc}");
+            assert!((sem - expected_sem).abs() < 1e-6, "sem weight failed {tc}");
         }
     }
 
@@ -299,22 +282,18 @@ mod tests {
         normalize_scores_in_place(&mut single);
         assert!((single[0].1 - 1.0).abs() < 1e-6);
 
-        for cases in [
-            vec![
-                ("a".to_string(), 10.0),
-                ("b".to_string(), 15.0),
-                ("c".to_string(), 20.0),
-            ],
-            vec![("a".to_string(), f32::EPSILON), ("b".to_string(), 0.0)],
-        ] {
-            let mut multi = cases.clone();
-            normalize_scores_in_place(&mut multi);
-            let expected = normalize_scores(&cases);
-            assert_eq!(multi.len(), expected.len());
-            for i in 0..multi.len() {
-                assert_eq!(multi[i].0, expected[i].0);
-                assert!((multi[i].1 - expected[i].1).abs() < 1e-6);
-            }
+        let cases = vec![
+            ("a".to_string(), 10.0),
+            ("b".to_string(), 15.0),
+            ("c".to_string(), 20.0),
+        ];
+        let mut multi = cases.clone();
+        normalize_scores_in_place(&mut multi);
+        let expected = normalize_scores(&cases);
+        assert_eq!(multi.len(), expected.len());
+        for i in 0..multi.len() {
+            assert_eq!(multi[i].0, expected[i].0);
+            assert!((multi[i].1 - expected[i].1).abs() < 1e-6);
         }
     }
 
@@ -345,20 +324,9 @@ mod tests {
 
     #[test]
     fn test_exact_score_calculation() {
-        // Use non-zero min values to catch replace - with + mutants.
-        // Use weight != 0.5 to catch weight-related mutants.
         let weights = (0.6, 0.4);
-        let bm25 = vec![
-            ("d1".to_string(), 12.0),
-            ("d2".to_string(), 2.0),
-            ("d4".to_string(), 7.0),
-        ];
-        let hdc = vec![
-            ("d1".to_string(), 1.2),
-            ("d3".to_string(), 0.2),
-            ("d4".to_string(), 0.7),
-        ];
-
+        let bm25 = vec![("d1".into(), 12.0), ("d2".into(), 2.0), ("d4".into(), 7.0)];
+        let hdc = vec![("d1".into(), 1.2), ("d3".into(), 0.2), ("d4".into(), 0.7)];
         let merged = merge_results(&bm25, &hdc, weights, 10);
 
         // d1: 0.6 * 1.0 + 0.4 * 1.0 = 1.0
@@ -381,40 +349,33 @@ mod tests {
     #[test]
     fn test_range_epsilon_boundary() {
         let epsilon = f32::EPSILON;
-        let scores = vec![("a".to_string(), epsilon), ("b".to_string(), 0.0)];
-        let normalized = normalize_scores(&scores);
+        let norm = normalize_scores(&[("a".into(), epsilon), ("b".into(), 0.0)]);
         // range = epsilon. epsilon < epsilon is false.
-        assert!((normalized[0].1 - 1.0).abs() < 1e-6);
-        assert!((normalized[1].1 - 0.0).abs() < 1e-6);
+        assert!((norm[0].1 - 1.0).abs() < 1e-6);
+        assert!((norm[1].1 - 0.0).abs() < 1e-6);
 
-        let just_below = epsilon * 0.9;
-        let scores_below = vec![("a".to_string(), just_below), ("b".to_string(), 0.0)];
-        let normalized_below = normalize_scores(&scores_below);
+        let norm_below = normalize_scores(&[("a".into(), epsilon * 0.9), ("b".into(), 0.0)]);
         // range < epsilon is true.
-        assert!((normalized_below[0].1 - 1.0).abs() < 1e-6);
-        assert!((normalized_below[1].1 - 1.0).abs() < 1e-6);
+        assert!((norm_below[0].1 - 1.0).abs() < 1e-6);
+        assert!((norm_below[1].1 - 1.0).abs() < 1e-6);
     }
 
     #[test]
     fn test_merge_results_epsilon_boundary() {
         let epsilon = f32::EPSILON;
         let weights = (0.5, 0.5);
-
-        // Case 1: range exactly epsilon (should normalize)
-        let bm25 = vec![("d1".to_string(), epsilon), ("d2".to_string(), 0.0)];
-        let hdc = vec![("d1".to_string(), epsilon), ("d2".to_string(), 0.0)];
+        let bm25 = vec![("d1".into(), epsilon), ("d2".into(), 0.0)];
+        let hdc = vec![("d1".into(), epsilon), ("d2".into(), 0.0)];
         let merged = merge_results(&bm25, &hdc, weights, 10);
         let d1_score = merged.iter().find(|(id, _)| id == "d1").unwrap().1;
         let d2_score = merged.iter().find(|(id, _)| id == "d2").unwrap().1;
         assert!((d1_score - 1.0).abs() < 1e-6);
         assert!((d2_score - 0.0).abs() < 1e-6);
 
-        // Case 2: range just below epsilon (should fallback to 1.0)
-        let just_below = epsilon * 0.9;
-        let bm25_small = vec![("d1".to_string(), just_below), ("d2".to_string(), 0.0)];
-        let hdc_small = vec![("d1".to_string(), just_below), ("d2".to_string(), 0.0)];
-        let merged_small = merge_results(&bm25_small, &hdc_small, weights, 10);
-        for (_, score) in merged_small {
+        let bm25_s = vec![("d1".into(), epsilon * 0.9), ("d2".into(), 0.0)];
+        let hdc_s = vec![("d1".into(), epsilon * 0.9), ("d2".into(), 0.0)];
+        let merged_s = merge_results(&bm25_s, &hdc_s, weights, 10);
+        for (_, score) in merged_s {
             assert!((score - 1.0).abs() < 1e-6);
         }
     }

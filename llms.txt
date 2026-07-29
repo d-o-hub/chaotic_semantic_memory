@@ -57,7 +57,7 @@
 - otlp-json: []
 - otlp: [dep:opentelemetry, dep:opentelemetry_sdk, dep:opentelemetry-otlp, dep:tracing-opentelemetry]
 - parallel: [dep:rayon]
-- persistence: [dep:libsql, csm-persistence/persistence]
+- persistence: [dep:libsql]
 - prometheus: [dep:prometheus, dep:hyper, dep:hyper-util, dep:http-body-util]
 - wasm: []
 
@@ -658,7 +658,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use csm_retrieval::{HybridResult, RetrievalAbstention}
 - pub fn compute_weights
 - pub fn normalize_scores
-- pub fn normalize_scores_in_place
 - pub fn merge_results
 - pub enum HybridMode
 - pub struct HybridConfig
@@ -672,7 +671,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod rerank
 - pub use bm25::{Bm25Config, Bm25Index}
 - pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve}
-- pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores, normalize_scores_in_place}
+- pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
 - pub use rerank::{MmrReranker, RerankCandidate, Reranker}
 
 ### src/retrieval/rerank.rs
@@ -1455,7 +1454,7 @@ rayon = { version = "1.10.0", optional = true }
 
 # Database - Use libsql NOT turso-client (opt-in via "persistence" feature)
 libsql = { version = "0.9.30", default-features = false, features = ["sync", "hrana", "remote"], optional = true }
-csm-persistence = { path = "crates/csm-persistence", version = "0.3.7", default-features = false }
+csm-persistence = { path = "crates/csm-persistence", version = "0.3.7" }
 # `net` is required by the Prometheus /metrics server (ADR-0072).
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs", "net"] }
 
@@ -1573,7 +1572,7 @@ required-features = ["prometheus", "otlp-json"]
 experimental-neural-circuit = ["csm-chaos/experimental-neural-circuit"]
 default = ["cli", "persistence", "parallel"]
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
-persistence = ["dep:libsql", "csm-persistence/persistence"]
+persistence = ["dep:libsql"]
 parallel = ["dep:rayon"]
 wasm = []
 mcp = ["dep:rmcp", "cli", "dep:axum", "dep:tower", "dep:tower-http"]  # ADR-0067: MCP server requires CLI infrastructure
