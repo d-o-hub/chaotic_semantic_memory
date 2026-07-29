@@ -95,6 +95,9 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
    - Read before editing — understand existing code
    - Match existing style, naming, patterns
    - Preserve comments and docstrings unless explicitly removing
+   - **Performance claims require benchmark evidence** — Any PR with a perf claim
+     in its title or body MUST attach `criterion` output or flamegraph results.
+     Use the `benchmarking-perf` skill. No evidence = PR is not review-ready.
 
 9. **Run validation gates after changes** — Verify before proceeding:
 
@@ -196,6 +199,15 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
     - Before merge, `git diff --stat origin/main...HEAD` to catch bot force-push
       reverts of already-merged work.
     - Commitlint: full range `npx commitlint --from origin/main --to HEAD`.
+    - **Never delete rationale comments** — Comments explaining *why* a design
+      decision was made (e.g. cargo-mutants suppression strategy, IEEE 754
+      semantics) are load-bearing. Rewriting them to describe the current PR
+      erases institutional knowledge. Preserve or extend; never replace.
+    - **Never inline test variables** — Named variables (`let d1_score = ...`)
+      and per-assert formula comments (`// d1: 0.6 * 1.0 + 0.4 * 1.0 = 1.0`)
+      are required for on-call debuggability. Do not collapse into chained
+      one-liners or compound `&&` asserts. Each `assert!` must target a single
+      value so failures are unambiguous.
 
 19. **Fix ALL issues (including pre-existing)** — CI must pass completely:
     - New failures: Fix immediately
@@ -228,6 +240,7 @@ Before completing any task, verify:
 - [ ] **Commitlint full range** — `npx commitlint --from origin/main --to HEAD --verbose`
 - [ ] **PR created and CI passing** — merge only after green checks
 - [ ] All validation gates pass (check, test, fmt, clippy)
+- [ ] **Harness sensors green** — `./scripts/harness-check.sh all` (fmt → clippy → deny → test → arch); fix each `❌ HARNESS VIOLATION` before proceeding
 - [ ] **CI pitfall scan** when touching mutation/TTL/CLI/Jules PRs — see
       `.agents/skills/github-ci-guardrails/references/ci-pitfalls-pr-triage.md`
 - [ ] **Coverage gate** — test:source ratio >= 90% (or improving)
