@@ -15,10 +15,12 @@ use std::time::Duration;
 
 const NS: &str = "_default";
 const ANN_BENCH_TOP_K: usize = 10;
-const ANN_BENCH_SAMPLE_SIZE: usize = 10;
+const ANN_BENCH_SAMPLE_SIZE: usize = 20;
 const ANN_BENCH_WARMUP_SECS: u64 = 1;
 const ANN_BENCH_MEASUREMENT_SECS: u64 = 5;
 const ANN_BENCH_SCALES: [usize; 3] = [1_000, 10_000, 50_000];
+/// Diverse query seeds to avoid spot-checking a single index region.
+const ANN_BENCH_QUERY_SEEDS: [u64; 5] = [7, 1337, 42069, 9999, 123_456];
 
 /// Build a `Singularity` pre-loaded with `count` seeded vectors using the given backend.
 /// Setup cost is outside the measurement loop.
@@ -48,11 +50,18 @@ fn bench_ann_brute_force(c: &mut Criterion) {
     group.warm_up_time(Duration::from_secs(ANN_BENCH_WARMUP_SECS));
     group.measurement_time(Duration::from_secs(ANN_BENCH_MEASUREMENT_SECS));
 
-    let query = HVec10240::new_seeded(9999);
+    let queries: Vec<_> = ANN_BENCH_QUERY_SEEDS
+        .iter()
+        .map(|&s| HVec10240::new_seeded(s))
+        .collect();
     for &n in &ANN_BENCH_SCALES {
         let sing = build_ann_singularity(n, IndexBackend::BruteForce);
         group.bench_function(format!("search_{n}"), |b| {
-            b.iter(|| black_box(sing.find_similar_cached(NS, black_box(&query), ANN_BENCH_TOP_K)))
+            b.iter(|| {
+                for q in &queries {
+                    black_box(sing.find_similar_cached(NS, black_box(q), ANN_BENCH_TOP_K));
+                }
+            })
         });
     }
     group.finish();
@@ -65,7 +74,10 @@ fn bench_ann_hnsw(c: &mut Criterion) {
     group.warm_up_time(Duration::from_secs(ANN_BENCH_WARMUP_SECS));
     group.measurement_time(Duration::from_secs(ANN_BENCH_MEASUREMENT_SECS));
 
-    let query = HVec10240::new_seeded(9999);
+    let queries: Vec<_> = ANN_BENCH_QUERY_SEEDS
+        .iter()
+        .map(|&s| HVec10240::new_seeded(s))
+        .collect();
     let backend = IndexBackend::Hnsw {
         m: 16,
         ef_construction: 200,
@@ -74,7 +86,11 @@ fn bench_ann_hnsw(c: &mut Criterion) {
     for &n in &ANN_BENCH_SCALES {
         let sing = build_ann_singularity(n, backend.clone());
         group.bench_function(format!("search_{n}"), |b| {
-            b.iter(|| black_box(sing.find_similar_cached(NS, black_box(&query), ANN_BENCH_TOP_K)))
+            b.iter(|| {
+                for q in &queries {
+                    black_box(sing.find_similar_cached(NS, black_box(q), ANN_BENCH_TOP_K));
+                }
+            })
         });
     }
     group.finish();
@@ -91,7 +107,10 @@ fn bench_ann_lsh(c: &mut Criterion) {
     group.warm_up_time(Duration::from_secs(ANN_BENCH_WARMUP_SECS));
     group.measurement_time(Duration::from_secs(ANN_BENCH_MEASUREMENT_SECS));
 
-    let query = HVec10240::new_seeded(9999);
+    let queries: Vec<_> = ANN_BENCH_QUERY_SEEDS
+        .iter()
+        .map(|&s| HVec10240::new_seeded(s))
+        .collect();
     let backend = IndexBackend::Lsh {
         num_tables: 8,
         hash_bits: 16,
@@ -99,7 +118,11 @@ fn bench_ann_lsh(c: &mut Criterion) {
     for &n in &ANN_BENCH_SCALES {
         let sing = build_ann_singularity(n, backend.clone());
         group.bench_function(format!("search_{n}"), |b| {
-            b.iter(|| black_box(sing.find_similar_cached(NS, black_box(&query), ANN_BENCH_TOP_K)))
+            b.iter(|| {
+                for q in &queries {
+                    black_box(sing.find_similar_cached(NS, black_box(q), ANN_BENCH_TOP_K));
+                }
+            })
         });
     }
     group.finish();
