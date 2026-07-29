@@ -33,7 +33,8 @@ module.exports = {
         'lints',
         'build',
         'loc-gate',
-        'workspace'
+        'workspace',
+        'agents'
       ]
     ],
   },
