@@ -75,14 +75,14 @@ pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)> {
         return Vec::new();
     }
 
-    // Algorithmic Optimization: Replaced fold with a simple loop. Uses .min() and .max()
-    // to prevent cargo-mutants from generating equivalent mutants on relational operators.
+    // Algorithmic Optimization: Replaced fold with loop. Uses standard comparison
+    // operators to enable auto-vectorization and avoid IEEE 754 NaN/neg-zero overhead.
     let mut min = f32::INFINITY;
     let mut max = f32::NEG_INFINITY;
     for (_, s) in scores {
         let s = *s;
-        min = min.min(s);
-        max = max.max(s);
+        if s < min { min = s; }
+        if s > max { max = s; }
     }
 
     let range = max - min;
@@ -114,8 +114,8 @@ pub fn normalize_scores_in_place(scores: &mut [(String, f32)]) {
     let mut max = f32::NEG_INFINITY;
     for (_, s) in &*scores {
         let s = *s;
-        min = min.min(s);
-        max = max.max(s);
+        if s < min { min = s; }
+        if s > max { max = s; }
     }
 
     let range = max - min;
@@ -160,8 +160,8 @@ pub fn merge_results(
         let mut max = f32::NEG_INFINITY;
         for (_, s) in bm25_results {
             let s = *s;
-            min = min.min(s);
-            max = max.max(s);
+            if s < min { min = s; }
+            if s > max { max = s; }
         }
         let range = max - min;
         if range < f32::EPSILON {
@@ -181,8 +181,8 @@ pub fn merge_results(
         let mut max = f32::NEG_INFINITY;
         for (_, s) in hdc_results {
             let s = *s;
-            min = min.min(s);
-            max = max.max(s);
+            if s < min { min = s; }
+            if s > max { max = s; }
         }
         let range = max - min;
         if range < f32::EPSILON {
