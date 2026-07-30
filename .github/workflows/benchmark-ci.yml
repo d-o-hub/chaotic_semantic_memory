@@ -38,6 +38,9 @@ jobs:
 
       - uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
+      # Caching strategy:
+      # - magic-nix-cache caches Nix store paths (compilers, toolchain, system libraries).
+      # - actions/cache caches Cargo registry & target directories for faster incremental builds on cold host runners.
       - name: Cache cargo
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -52,10 +55,10 @@ jobs:
       # test-benchmarks). Kept here so path-filtered benchmark changes still
       # validate the harness before the retrieval-only smoke run.
       - name: Benchmark workspace unit tests
-        run: nix develop --command bash -c 'export LD_LIBRARY_PATH="$CSM_LD_LIBRARY_PATH"; cargo test --manifest-path benchmarks/Cargo.toml --locked --quiet'
+        run: nix develop --command scripts/run-with-libs.sh cargo test --manifest-path benchmarks/Cargo.toml --locked --quiet
 
       - name: Run benchmark
-        run: nix develop --command bash -c 'export LD_LIBRARY_PATH="$CSM_LD_LIBRARY_PATH"; cargo run --manifest-path benchmarks/Cargo.toml -- --dataset-dir benchmarks/datasets/v1/small --mode retrieval-only --out-dir benchmarks/results/ci'
+        run: nix develop --command scripts/run-with-libs.sh cargo run --manifest-path benchmarks/Cargo.toml -- --dataset-dir benchmarks/datasets/v1/small --mode retrieval-only --out-dir benchmarks/results/ci
 
       - name: Verify outputs
         run: |

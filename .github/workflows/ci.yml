@@ -138,7 +138,7 @@ jobs:
       - name: Install node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v4.0.3
         with:
-          node-version: '22'
+          node-version: '20'
           cache: 'npm'
       - name: Install commitlint
         run: npm ci
@@ -158,6 +158,9 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
     - uses: DeterminateSystems/nix-installer-action@da36cb69b1c3247ad7a1f931ebfd954a1105ef14 # v14
     - uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
+    # Caching strategy:
+    # - magic-nix-cache caches Nix store paths (compilers, toolchain, system libraries).
+    # - actions/cache caches Cargo registry & target directories for faster incremental builds on cold host runners.
     - name: Cache cargo
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
@@ -168,7 +171,7 @@ jobs:
           target/
         key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
     - name: Run tests
-      run: nix develop --command bash -c 'export LD_LIBRARY_PATH="$CSM_LD_LIBRARY_PATH"; cargo test --all-features --locked -- --quiet'
+      run: nix develop --command scripts/run-with-libs.sh cargo test --all-features --locked -- --quiet
 
   test-workspace-crates:
     name: Test Workspace Crates
@@ -364,6 +367,9 @@ jobs:
 
     - uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
+    # Caching strategy:
+    # - magic-nix-cache caches Nix store paths (compilers, toolchain, system libraries).
+    # - actions/cache caches Cargo registry & target directories for faster incremental builds on cold host runners.
     - name: Cache cargo
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
@@ -375,7 +381,7 @@ jobs:
         key: ${{ runner.os }}-cargo-mutation-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Run mutation tests
-      run: nix develop --command bash -c 'export LD_LIBRARY_PATH="$CSM_LD_LIBRARY_PATH"; bash scripts/mutation_test.sh --ci fast'
+      run: nix develop --command scripts/run-with-libs.sh bash scripts/mutation_test.sh --ci fast
       env:
         MUTATION_THRESHOLD: ${{ github.event.pull_request.draft && '75' || '85' }}
         DIFF_TARGET: origin/${{ github.base_ref || 'main' }}
@@ -395,6 +401,9 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
     - uses: DeterminateSystems/nix-installer-action@da36cb69b1c3247ad7a1f931ebfd954a1105ef14 # v14
     - uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
+    # Caching strategy:
+    # - magic-nix-cache caches Nix store paths (compilers, toolchain, system libraries).
+    # - actions/cache caches Cargo registry & target directories for faster incremental builds on cold host runners.
     - name: Cache cargo
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
