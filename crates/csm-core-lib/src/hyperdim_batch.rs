@@ -26,7 +26,8 @@ pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> V
                                 &candidate.data,
                             )
                         };
-                        *slot = 1.0 - (dist as f32 / 5120.0);
+                        // Optimization: Replace floating-point division with multiplication by reciprocal.
+                        *slot = 1.0 - (dist as f32 * (1.0 / 5120.0));
                     }
                 });
             return results;
@@ -46,7 +47,8 @@ pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> V
                                 &candidate.data,
                             )
                         };
-                        *slot = 1.0 - (dist as f32 / 5120.0);
+                        // Optimization: Replace floating-point division with multiplication by reciprocal.
+                        *slot = 1.0 - (dist as f32 * (1.0 / 5120.0));
                     }
                 });
             return results;

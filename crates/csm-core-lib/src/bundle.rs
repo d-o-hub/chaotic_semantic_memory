@@ -58,9 +58,10 @@ impl BundleAccumulator {
         {
             for i in 0..80 {
                 let mut val = hv.data[i];
+                let offset = i * 128;
                 while val != 0 {
                     let j = val.trailing_zeros() as usize;
-                    self.counts[i * 128 + j] += 1;
+                    self.counts[offset + j] += 1;
                     val &= val - 1;
                 }
             }
@@ -98,9 +99,10 @@ impl BundleAccumulator {
         {
             for i in 0..80 {
                 let mut val = hv.data[i];
+                let offset = i * 128;
                 while val != 0 {
                     let j = val.trailing_zeros() as usize;
-                    self.counts[i * 128 + j] -= 1;
+                    self.counts[offset + j] -= 1;
                     val &= val - 1;
                 }
             }
@@ -141,9 +143,10 @@ impl BundleAccumulator {
         {
             for i in 0..80 {
                 let mut val = hv.data[i];
+                let offset = i * 128;
                 while val != 0 {
                     let j = val.trailing_zeros() as usize;
-                    self.counts[i * 128 + j] -= 1;
+                    self.counts[offset + j] -= 1;
                     val &= val - 1;
                 }
             }
@@ -185,13 +188,15 @@ impl BundleAccumulator {
         {
             let mut data = [0u128; 80];
 
-            for (i, word) in data.iter_mut().enumerate() {
-                let offset = i * 128;
+            // Optimization: Process self.counts in statically-sized chunks of 128 elements to avoid pointer arithmetic
+            // and repeated memory writes to *word array elements, utilizing register accumulation and allowing vectorization.
+            for (i, chunk) in self.counts.chunks_exact(128).enumerate() {
+                let mut word = 0u128;
                 for j in 0..128 {
-                    // Branchless bit construction to reduce misprediction penalties
-                    let condition = self.counts[offset + j] > threshold;
-                    *word |= (condition as u128) << j;
+                    let condition = chunk[j] > threshold;
+                    word |= (condition as u128) << j;
                 }
+                data[i] = word;
             }
 
             HVec10240 { data }

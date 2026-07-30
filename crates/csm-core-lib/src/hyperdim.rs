@@ -322,7 +322,8 @@ impl HVec10240 {
         // Similarity = (Matches - Mismatches) / Dimension
         // Similarity = (Dimension - 2 * HammingDistance) / Dimension
         // Similarity = 1.0 - (2.0 * HammingDistance / 10240.0) = 1.0 - (HammingDistance / 5120.0)
-        1.0 - (distance as f32 / 5120.0)
+        // Optimization: Replace floating-point division with multiplication by reciprocal to bypass IEEE-754 division latency.
+        1.0 - (distance as f32 * (1.0 / 5120.0))
     }
 
     /// Hamming distance

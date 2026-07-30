@@ -195,7 +195,8 @@ impl BHVec10240 {
     /// Similarity = 1.0 - (HammingDistance / 5120.0)
     pub fn cosine_similarity(&self, other: &Self) -> f32 {
         let dist = self.hamming(other);
-        1.0 - (dist as f32 / 5120.0)
+        // Optimization: Replace floating-point division with multiplication by reciprocal to bypass IEEE-754 division latency.
+        1.0 - (dist as f32 * (1.0 / 5120.0))
     }
 
     /// Bundle multiple hypervectors using bit-sliced addition.
