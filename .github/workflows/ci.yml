@@ -156,16 +156,22 @@ jobs:
       PROTOC: /usr/bin/protoc
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
-    - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+    - uses: DeterminateSystems/nix-installer-action@da36cb69b1c3247ad7a1f931ebfd954a1105ef14 # v14
+    - uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
+    # Caching strategy:
+    # - magic-nix-cache caches Nix store paths (compilers, toolchain, system libraries).
+    # - actions/cache caches Cargo registry & target directories for faster incremental builds on cold host runners.
+    - name: Cache cargo
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
-        cache: false
-    - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
-      with:
-        shared-key: test
+        path: |
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
     - name: Run tests
-      run: cargo test --all-features --locked -- --quiet
+      run: nix develop --command scripts/run-with-libs.sh cargo test --all-features --locked -- --quiet
 
   test-workspace-crates:
     name: Test Workspace Crates
@@ -357,23 +363,25 @@ jobs:
     - name: Fetch base for three-dot in-diff
       run: git fetch origin "${{ github.base_ref }}" --depth=50
 
-    - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
-      with:
-        cache: false
+    - uses: DeterminateSystems/nix-installer-action@da36cb69b1c3247ad7a1f931ebfd954a1105ef14 # v14
 
-    - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
-      with:
-        shared-key: mutation-test
+    - uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
 
-    - name: Install cargo-mutants
-      uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf  # v2.85.2
+    # Caching strategy:
+    # - magic-nix-cache caches Nix store paths (compilers, toolchain, system libraries).
+    # - actions/cache caches Cargo registry & target directories for faster incremental builds on cold host runners.
+    - name: Cache cargo
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
-        tool: cargo-mutants
+        path: |
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-mutation-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Run mutation tests
-      run: bash scripts/mutation_test.sh --ci fast
+      run: nix develop --command scripts/run-with-libs.sh bash scripts/mutation_test.sh --ci fast
       env:
         MUTATION_THRESHOLD: ${{ github.event.pull_request.draft && '75' || '85' }}
         DIFF_TARGET: origin/${{ github.base_ref || 'main' }}
@@ -391,35 +399,36 @@ jobs:
     timeout-minutes: 20
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
-    - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+    - uses: DeterminateSystems/nix-installer-action@da36cb69b1c3247ad7a1f931ebfd954a1105ef14 # v14
+    - uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
+    # Caching strategy:
+    # - magic-nix-cache caches Nix store paths (compilers, toolchain, system libraries).
+    # - actions/cache caches Cargo registry & target directories for faster incremental builds on cold host runners.
+    - name: Cache cargo
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
-        cache: false
-        target: wasm32-unknown-unknown
-    - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
-      with:
-        shared-key: wasm
-    - name: Install wasm-pack
-      uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf  # v2.85.2
-      with:
-        tool: wasm-pack
+        path: |
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-wasm-${{ hashFiles('**/Cargo.lock') }}
     - name: Build WASM (nodejs target for smoke test)
       run: |
         OUT="${{ github.workspace }}/wasm/pkg"
         # Use --target nodejs for CI smoke test (loads .wasm via fs, not fetch).
         # Release workflow uses --target web for browser compatibility.
-        wasm-pack build crates/csm-wasm --dev --target nodejs \
+        nix develop --command wasm-pack build crates/csm-wasm --dev --target nodejs \
           --out-dir "${OUT}" \
           --out-name chaotic_semantic_memory
     - name: Check WASM
-      run: cargo check --target wasm32-unknown-unknown -p csm-wasm
+      run: nix develop --command cargo check --target wasm32-unknown-unknown -p csm-wasm
     - name: Verify WASM TS Freshness
-      run: bash scripts/check-wasm-freshness.sh
+      run: nix develop --command bash scripts/check-wasm-freshness.sh
     - name: WASM JS Smoke Test
       run: |
         cd wasm
-        WASM_PACKAGE_DIR="${{ github.workspace }}/wasm/pkg" node test.js
+        WASM_PACKAGE_DIR="${{ github.workspace }}/wasm/pkg" nix develop --command node test.js
 
   lint:
     runs-on: ubuntu-latest
@@ -452,20 +461,10 @@ jobs:
     timeout-minutes: 15
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
-    - name: Install Rust
-      uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
-      with:
-        cache: false
-    - name: Cache Rust dependencies
-      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
-      with:
-        shared-key: test
-    - name: Install cargo-deny
-      uses: taiki-e/install-action@41049aa56687c35e0afa74eed4f09cec4f9afabf  # v2.85.2
-      with:
-        tool: cargo-deny
+    - uses: DeterminateSystems/nix-installer-action@da36cb69b1c3247ad7a1f931ebfd954a1105ef14 # v14
+    - uses: DeterminateSystems/magic-nix-cache-action@87b14cf437d03d37989d87f0fa5ce4f5dc1a330b # v8
     - name: cargo deny check
-      run: cargo deny --locked check
+      run: nix develop --command cargo deny --locked check
 
   test-benchmarks:
     name: Test Benchmark Workspace

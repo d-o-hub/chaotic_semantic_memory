@@ -60,7 +60,7 @@
 
               # WASM / npm toolchain
               wasm-pack
-              nodejs_20
+              nodejs
 
               # Build essentials
               openssl
@@ -74,7 +74,6 @@
               cargo-fuzz       # fuzz testing (fuzz/)
               cargo-audit      # security audit
               cargo-binstall   # fast binary installs
-              cargo-llms-txt   # llms.txt generation (scripts/gen-llms-txt.sh)
               cargo-release    # release automation (release.toml)
               cargo-dist       # distribution (dist-workspace.toml)
               git-cliff        # changelog generation (cliff.toml)
@@ -87,6 +86,10 @@
             env = {
               # Required by rust-analyzer and proc-macro expansion
               RUST_SRC_PATH = "${pkgs.rustToolchain}/lib/rustlib/src/rust/library";
+              CSM_LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
+                pkgs.stdenv.cc.cc.lib
+                pkgs.openssl
+              ];
             };
           };
         }
