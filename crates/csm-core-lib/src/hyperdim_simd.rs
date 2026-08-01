@@ -268,128 +268,160 @@ pub(crate) unsafe fn hamming_distance_simd_neon(lhs: &[u128; 80], rhs: &[u128; 8
     vaddlvq_u16(acc) as u32
 }
 
+#[allow(dead_code)]
+pub(crate) fn hamming_distance_binary_optimized(lhs: &[u64; 160], rhs: &[u64; 160]) -> u32 {
+    let mut dist = 0u32;
+    for i in 0..160 { dist += (lhs[i] ^ rhs[i]).count_ones(); }
+    dist
+}
+
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) unsafe fn hamming_distance_binary_simd_avx2(lhs: &[u64; 160], rhs: &[u64; 160]) -> u32 {
+    const LOADS_PER_FLUSH: usize = 20;
+    const UNROLL_FACTOR: usize = 1;
+    let lookup = _mm256_setr_epi8(
+        0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
+    );
+    let low_mask = _mm256_set1_epi8(0x0f);
+    let mut acc = _mm256_setzero_si256();
+    let zero = _mm256_setzero_si256();
+    let lhs_ptr = lhs.as_ptr() as *const u8;
+    let rhs_ptr = rhs.as_ptr() as *const u8;
+
+    for i in (0..40).step_by(LOADS_PER_FLUSH * 2) {
+        let mut acc_8_low = _mm256_setzero_si256();
+        let mut acc_8_high = _mm256_setzero_si256();
+        for j in (0..LOADS_PER_FLUSH * 2).step_by(UNROLL_FACTOR * 2) {
+            let idx0 = i + j;
+            let idx1 = idx0 + 1;
+            let byte_offset0 = idx0 * 32;
+            let byte_offset1 = idx1 * 32;
+            unsafe {
+                let x0 = _mm256_xor_si256(
+                    _mm256_loadu_si256(lhs_ptr.add(byte_offset0).cast()),
+                    _mm256_loadu_si256(rhs_ptr.add(byte_offset0).cast()),
+                );
+                let x1 = _mm256_xor_si256(
+                    _mm256_loadu_si256(lhs_ptr.add(byte_offset1).cast()),
+                    _mm256_loadu_si256(rhs_ptr.add(byte_offset1).cast()),
+                );
+                acc_8_low = _mm256_add_epi8(
+                    acc_8_low,
+                    _mm256_add_epi8(
+                        _mm256_shuffle_epi8(lookup, _mm256_and_si256(x0, low_mask)),
+                        _mm256_shuffle_epi8(lookup, _mm256_and_si256(x1, low_mask)),
+                    ),
+                );
+                acc_8_high = _mm256_add_epi8(
+                    acc_8_high,
+                    _mm256_add_epi8(
+                        _mm256_shuffle_epi8(lookup, _mm256_and_si256(_mm256_srli_epi16(x0, 4), low_mask)),
+                        _mm256_shuffle_epi8(lookup, _mm256_and_si256(_mm256_srli_epi16(x1, 4), low_mask)),
+                    ),
+                );
+            }
+        }
+        acc = _mm256_add_epi64(
+            acc,
+            _mm256_add_epi64(_mm256_sad_epu8(acc_8_low, zero), _mm256_sad_epu8(acc_8_high, zero)),
+        );
+    }
+    let mut results = [0u64; 4];
+    unsafe { _mm256_storeu_si256(results.as_mut_ptr().cast(), acc); }
+    #[allow(clippy::cast_possible_truncation)]
+    let res = (results[0] + results[1] + results[2] + results[3]) as u32;
+    res
+}
+
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+#[inline]
+#[target_feature(enable = "neon")]
+pub(crate) unsafe fn hamming_distance_binary_simd_neon(lhs: &[u64; 160], rhs: &[u64; 160]) -> u32 {
+    use std::arch::aarch64::{
+        vaddlvq_u16, vaddq_u8, vaddq_u16, vcntq_u8, vdupq_n_u8, vdupq_n_u16, veorq_u8, vld1q_u8, vpaddlq_u8,
+    };
+    const BATCH_SIZE: usize = 10;
+    const BLOCKS_PER_BATCH: usize = BATCH_SIZE * 2;
+    let mut acc = vdupq_n_u16(0);
+    let lhs_ptr = lhs.as_ptr() as *const u8;
+    let rhs_ptr = rhs.as_ptr() as *const u8;
+
+    for i in (0..80).step_by(BLOCKS_PER_BATCH) {
+        let mut acc_8 = vdupq_n_u8(0);
+        for j in 0..BATCH_SIZE {
+            let idx = i + j * 2;
+            let byte_offset0 = idx * 16;
+            let byte_offset1 = (idx + 1) * 16;
+            unsafe {
+                let l0 = vld1q_u8(lhs_ptr.add(byte_offset0));
+                let r0 = vld1q_u8(rhs_ptr.add(byte_offset0));
+                let x0 = veorq_u8(l0, r0);
+                let c0 = vcntq_u8(x0);
+                acc_8 = vaddq_u8(acc_8, c0);
+
+                let l1 = vld1q_u8(lhs_ptr.add(byte_offset1));
+                let r1 = vld1q_u8(rhs_ptr.add(byte_offset1));
+                let x1 = veorq_u8(l1, r1);
+                let c1 = vcntq_u8(x1);
+                acc_8 = vaddq_u8(acc_8, c1);
+            }
+        }
+        acc = vaddq_u16(acc, vpaddlq_u8(acc_8));
+    }
+    vaddlvq_u16(acc) as u32
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
 
     #[test]
-    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-    fn and_simd_avx2_correctness() {
-        if is_x86_feature_detected!("avx2") {
-            let lhs = [0x5555_5555_5555_5555_5555_5555_5555_5555u128; 80];
-            let rhs = [0xAAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAAu128; 80];
-            // SAFETY: AVX2 support is checked above.
-            let res = unsafe { and_simd_avx2(&lhs, &rhs) };
-            for word in &res {
-                assert_eq!(*word, 0);
-            }
-        }
-    }
-
-    #[test]
-    #[cfg(all(
-        not(target_arch = "wasm32"),
-        any(target_arch = "x86_64", target_arch = "x86")
-    ))]
-    fn and_simd_x86_correctness() {
+    fn test_and_bind_correctness() {
         let lhs = [0x5555_5555_5555_5555_5555_5555_5555_5555u128; 80];
-        let rhs = [0xAAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAAu128; 80];
-        let res = and_simd_x86(&lhs, &rhs);
-        for word in &res {
-            assert_eq!(*word, 0);
-        }
-    }
+        let rhs_diff = [0xAAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAAu128; 80];
+        let rhs_same = [0x5555_5555_5555_5555_5555_5555_5555_5555u128; 80];
 
-    #[test]
-    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-    fn bind_simd_avx2_correctness() {
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
         if is_x86_feature_detected!("avx2") {
-            let lhs = [0x5555_5555_5555_5555_5555_5555_5555_5555u128; 80];
-            let rhs = [0x5555_5555_5555_5555_5555_5555_5555_5555u128; 80];
-            // SAFETY: AVX2 support is checked above.
-            let res = unsafe { bind_simd_avx2(&lhs, &rhs) };
-            for word in &res {
-                assert_eq!(*word, 0);
-            }
+            let res_and = unsafe { and_simd_avx2(&lhs, &rhs_diff) };
+            assert!(res_and.iter().all(|&w| w == 0));
+            let res_bind = unsafe { bind_simd_avx2(&lhs, &rhs_same) };
+            assert!(res_bind.iter().all(|&w| w == 0));
+        }
+
+        #[cfg(all(not(target_arch = "wasm32"), any(target_arch = "x86_64", target_arch = "x86")))]
+        {
+            let res_and = and_simd_x86(&lhs, &rhs_diff);
+            assert!(res_and.iter().all(|&w| w == 0));
+            let res_bind = bind_simd_x86(&lhs, &rhs_same);
+            assert!(res_bind.iter().all(|&w| w == 0));
         }
     }
 
     #[test]
-    #[cfg(all(
-        not(target_arch = "wasm32"),
-        any(target_arch = "x86_64", target_arch = "x86")
-    ))]
-    fn bind_simd_x86_correctness() {
-        let lhs = [0x5555_5555_5555_5555_5555_5555_5555_5555u128; 80];
-        let rhs = [0x5555_5555_5555_5555_5555_5555_5555_5555u128; 80];
-        let res = bind_simd_x86(&lhs, &rhs);
-        for word in &res {
-            assert_eq!(*word, 0);
-        }
-    }
-
-    #[test]
-    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-    fn hamming_distance_simd_avx2_correctness() {
-        if is_x86_feature_detected!("avx2") {
-            let lhs = [0u128; 80];
-            let rhs = [!0u128; 80];
-            // SAFETY: AVX2 support is checked above.
-            let res = unsafe { hamming_distance_simd_avx2(&lhs, &rhs) };
-            assert_eq!(res, 10240);
-        }
-    }
-
-    #[test]
-    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-    fn hamming_distance_simd_avx2_edge_cases() {
-        if is_x86_feature_detected!("avx2") {
-            let lhs = [0u128; 80];
-            let mut rhs = [0u128; 80];
-            rhs[0] = 1;
-            rhs[79] = 1 << 127;
-            // SAFETY: AVX2 support is checked above.
-            let res = unsafe { hamming_distance_simd_avx2(&lhs, &rhs) };
-            assert_eq!(res, 2);
-        }
-    }
-
-    #[test]
-    fn hamming_distance_matches_bit_count() {
+    fn test_hamming_correctness() {
         let lhs = [0u128; 80];
-        let mut rhs = [0u128; 80];
-        for i in 0..80 {
-            rhs[i] = i as u128;
+        let rhs_all = [!0u128; 80];
+        let mut rhs_partial = [0u128; 80];
+        rhs_partial[0] = 1;
+        rhs_partial[79] = 1 << 127;
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+        if is_x86_feature_detected!("avx2") {
+            assert_eq!(unsafe { hamming_distance_simd_avx2(&lhs, &rhs_all) }, 10240);
+            assert_eq!(unsafe { hamming_distance_simd_avx2(&lhs, &rhs_partial) }, 2);
         }
-        let res = hamming_distance_optimized(&lhs, &rhs);
-        let mut expected = 0;
-        for i in 0..80 {
-            expected += (rhs[i]).count_ones();
-        }
-        assert_eq!(res, expected);
-    }
 
-    #[test]
-    fn hamming_distance_optimized_identical_vectors() {
-        let vec = [0x123456789ABCDEF0u128; 80];
-        assert_eq!(hamming_distance_optimized(&vec, &vec), 0);
-    }
+        assert_eq!(hamming_distance_optimized(&lhs, &rhs_all), 10240);
+        assert_eq!(hamming_distance_optimized(&lhs, &rhs_partial), 2);
 
-    #[test]
-    fn hamming_distance_optimized_complements() {
-        let vec = [0x5555_5555_5555_5555_5555_5555_5555_5555u128; 80];
-        let complement = [0xAAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAAu128; 80];
-        assert_eq!(hamming_distance_optimized(&vec, &complement), 10240);
-    }
-
-    #[test]
-    fn hamming_distance_optimized_correctness() {
-        let mut lhs = [0u128; 80];
-        let mut rhs = [0u128; 80];
-        lhs[0] = 0b1010;
-        rhs[0] = 0b1100;
-        // 1010 ^ 1100 = 0110 (2 bits set)
-        assert_eq!(hamming_distance_optimized(&lhs, &rhs), 2);
+        let mut rhs_seq = [0u128; 80];
+        for i in 0..80 { rhs_seq[i] = i as u128; }
+        let expected = rhs_seq.iter().map(|w| w.count_ones()).sum::<u32>();
+        assert_eq!(hamming_distance_optimized(&lhs, &rhs_seq), expected);
+        assert_eq!(hamming_distance_optimized(&rhs_seq, &rhs_seq), 0);
     }
 }

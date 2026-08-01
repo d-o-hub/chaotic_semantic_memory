@@ -7,6 +7,11 @@
 use crate::error::{MemoryError, Result};
 use crate::hyperdim::{HVec10240, Hypervector};
 use crate::hyperdim_ops::bundle_word_u64;
+use crate::hyperdim_simd::hamming_distance_binary_optimized;
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+use crate::hyperdim_simd::hamming_distance_binary_simd_avx2;
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+use crate::hyperdim_simd::hamming_distance_binary_simd_neon;
 use rand::RngExt;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
@@ -184,11 +189,32 @@ impl BHVec10240 {
 
     /// Hamming distance (popcount of XOR)
     pub fn hamming(&self, other: &Self) -> u32 {
-        let mut dist = 0u32;
-        for i in 0..160 {
-            dist += (self.bits[i] ^ other.bits[i]).count_ones();
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+        {
+            if is_x86_feature_detected!("avx2") {
+                // SAFETY: AVX2 support checked at runtime.
+                unsafe { hamming_distance_binary_simd_avx2(&self.bits, &other.bits) }
+            } else {
+                hamming_distance_binary_optimized(&self.bits, &other.bits)
+            }
         }
-        dist
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+        {
+            // SAFETY: NEON is always supported on aarch64.
+            unsafe { hamming_distance_binary_simd_neon(&self.bits, &other.bits) }
+        }
+
+        #[cfg(any(
+            target_arch = "wasm32",
+            all(
+                not(target_arch = "wasm32"),
+                not(any(target_arch = "x86_64", target_arch = "aarch64"))
+            )
+        ))]
+        {
+            hamming_distance_binary_optimized(&self.bits, &other.bits)
+        }
     }
 
     /// Cosine similarity (approximated for binary as 1 - Hamming/Dimension/2)
@@ -437,6 +463,28 @@ mod tests {
                 actual.bits, expected.bits,
                 "Bundling inconsistency at N={n} vectors"
             );
+        }
+    }
+
+    #[test]
+    fn test_bhvec_hamming_correctness_and_parity() {
+        for seed in 0..20 {
+            let v1 = BHVec10240::new_seeded(seed);
+            let v2 = BHVec10240::new_seeded(seed + 100);
+
+            // 1. Naive calculation
+            let mut naive_dist = 0u32;
+            for i in 0..160 {
+                naive_dist += (v1.bits[i] ^ v2.bits[i]).count_ones();
+            }
+
+            // 2. Optimized scalar path
+            let opt_scalar_dist = hamming_distance_binary_optimized(&v1.bits, &v2.bits);
+            assert_eq!(naive_dist, opt_scalar_dist, "Parity check failed for scalar fallback path");
+
+            // 3. Dispatched path (which triggers AVX2 / NEON at runtime if supported)
+            let dispatched_dist = v1.hamming(&v2);
+            assert_eq!(naive_dist, dispatched_dist, "Parity check failed for runtime-dispatched SIMD path");
         }
     }
 }
