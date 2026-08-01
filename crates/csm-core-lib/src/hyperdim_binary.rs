@@ -480,11 +480,17 @@ mod tests {
 
             // 2. Optimized scalar path
             let opt_scalar_dist = hamming_distance_binary_optimized(&v1.bits, &v2.bits);
-            assert_eq!(naive_dist, opt_scalar_dist, "Parity check failed for scalar fallback path");
+            assert_eq!(
+                naive_dist, opt_scalar_dist,
+                "Parity check failed for scalar fallback path"
+            );
 
             // 3. Dispatched path (which triggers AVX2 / NEON at runtime if supported)
             let dispatched_dist = v1.hamming(&v2);
-            assert_eq!(naive_dist, dispatched_dist, "Parity check failed for runtime-dispatched SIMD path");
+            assert_eq!(
+                naive_dist, dispatched_dist,
+                "Parity check failed for runtime-dispatched SIMD path"
+            );
         }
     }
 }

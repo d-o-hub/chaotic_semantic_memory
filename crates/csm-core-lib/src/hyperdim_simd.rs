@@ -271,7 +271,9 @@ pub(crate) unsafe fn hamming_distance_simd_neon(lhs: &[u128; 80], rhs: &[u128; 8
 #[allow(dead_code)]
 pub(crate) fn hamming_distance_binary_optimized(lhs: &[u64; 160], rhs: &[u64; 160]) -> u32 {
     let mut dist = 0u32;
-    for i in 0..160 { dist += (lhs[i] ^ rhs[i]).count_ones(); }
+    for i in 0..160 {
+        dist += (lhs[i] ^ rhs[i]).count_ones();
+    }
     dist
 }
 
@@ -282,7 +284,8 @@ pub(crate) unsafe fn hamming_distance_binary_simd_avx2(lhs: &[u64; 160], rhs: &[
     const LOADS_PER_FLUSH: usize = 20;
     const UNROLL_FACTOR: usize = 1;
     let lookup = _mm256_setr_epi8(
-        0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
+        0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3,
+        3, 4,
     );
     let low_mask = _mm256_set1_epi8(0x0f);
     let mut acc = _mm256_setzero_si256();
@@ -317,19 +320,30 @@ pub(crate) unsafe fn hamming_distance_binary_simd_avx2(lhs: &[u64; 160], rhs: &[
                 acc_8_high = _mm256_add_epi8(
                     acc_8_high,
                     _mm256_add_epi8(
-                        _mm256_shuffle_epi8(lookup, _mm256_and_si256(_mm256_srli_epi16(x0, 4), low_mask)),
-                        _mm256_shuffle_epi8(lookup, _mm256_and_si256(_mm256_srli_epi16(x1, 4), low_mask)),
+                        _mm256_shuffle_epi8(
+                            lookup,
+                            _mm256_and_si256(_mm256_srli_epi16(x0, 4), low_mask),
+                        ),
+                        _mm256_shuffle_epi8(
+                            lookup,
+                            _mm256_and_si256(_mm256_srli_epi16(x1, 4), low_mask),
+                        ),
                     ),
                 );
             }
         }
         acc = _mm256_add_epi64(
             acc,
-            _mm256_add_epi64(_mm256_sad_epu8(acc_8_low, zero), _mm256_sad_epu8(acc_8_high, zero)),
+            _mm256_add_epi64(
+                _mm256_sad_epu8(acc_8_low, zero),
+                _mm256_sad_epu8(acc_8_high, zero),
+            ),
         );
     }
     let mut results = [0u64; 4];
-    unsafe { _mm256_storeu_si256(results.as_mut_ptr().cast(), acc); }
+    unsafe {
+        _mm256_storeu_si256(results.as_mut_ptr().cast(), acc);
+    }
     #[allow(clippy::cast_possible_truncation)]
     let res = (results[0] + results[1] + results[2] + results[3]) as u32;
     res
@@ -340,7 +354,8 @@ pub(crate) unsafe fn hamming_distance_binary_simd_avx2(lhs: &[u64; 160], rhs: &[
 #[target_feature(enable = "neon")]
 pub(crate) unsafe fn hamming_distance_binary_simd_neon(lhs: &[u64; 160], rhs: &[u64; 160]) -> u32 {
     use std::arch::aarch64::{
-        vaddlvq_u16, vaddq_u8, vaddq_u16, vcntq_u8, vdupq_n_u8, vdupq_n_u16, veorq_u8, vld1q_u8, vpaddlq_u8,
+        vaddlvq_u16, vaddq_u8, vaddq_u16, vcntq_u8, vdupq_n_u8, vdupq_n_u16, veorq_u8, vld1q_u8,
+        vpaddlq_u8,
     };
     const BATCH_SIZE: usize = 10;
     const BLOCKS_PER_BATCH: usize = BATCH_SIZE * 2;
@@ -392,7 +407,10 @@ mod tests {
             assert!(res_bind.iter().all(|&w| w == 0));
         }
 
-        #[cfg(all(not(target_arch = "wasm32"), any(target_arch = "x86_64", target_arch = "x86")))]
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            any(target_arch = "x86_64", target_arch = "x86")
+        ))]
         {
             let res_and = and_simd_x86(&lhs, &rhs_diff);
             assert!(res_and.iter().all(|&w| w == 0));
@@ -419,7 +437,9 @@ mod tests {
         assert_eq!(hamming_distance_optimized(&lhs, &rhs_partial), 2);
 
         let mut rhs_seq = [0u128; 80];
-        for i in 0..80 { rhs_seq[i] = i as u128; }
+        for i in 0..80 {
+            rhs_seq[i] = i as u128;
+        }
         let expected = rhs_seq.iter().map(|w| w.count_ones()).sum::<u32>();
         assert_eq!(hamming_distance_optimized(&lhs, &rhs_seq), expected);
         assert_eq!(hamming_distance_optimized(&rhs_seq, &rhs_seq), 0);
