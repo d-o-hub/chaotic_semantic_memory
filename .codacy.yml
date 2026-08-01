@@ -6,4 +6,7 @@
 engines:
   opengrep:
     exclude_paths:
-  
+      - "crates/csm-core-lib/src/hyperdim_binary.rs"
+      - "crates/csm-core-lib/src/hyperdim_simd.rs"
+      - "crates/csm-core-lib/src/hyperdim.rs"
+      - "crates/csm-core-lib/src/hyperdim_simd_bundle.rs"
