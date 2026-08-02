@@ -187,13 +187,17 @@ impl BHVec10240 {
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
         if is_x86_feature_detected!("avx2") {
             // SAFETY: AVX2 feature is detected.
-            return unsafe { crate::hyperdim_simd::hamming_distance_binary_simd_avx2(&self.bits, &other.bits) };
+            return unsafe {
+                crate::hyperdim_simd::hamming_distance_binary_simd_avx2(&self.bits, &other.bits)
+            };
         }
 
         #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
         {
             // SAFETY: Neon is always supported on aarch64.
-            return unsafe { crate::hyperdim_simd::hamming_distance_binary_simd_neon(&self.bits, &other.bits) };
+            return unsafe {
+                crate::hyperdim_simd::hamming_distance_binary_simd_neon(&self.bits, &other.bits)
+            };
         }
 
         hamming_distance_binary_optimized(&self.bits, &other.bits)

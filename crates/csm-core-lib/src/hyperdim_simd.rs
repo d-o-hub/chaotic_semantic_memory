@@ -320,12 +320,24 @@ pub(crate) unsafe fn hamming_distance_binary_simd_avx2(lhs: &[u64; 160], rhs: &[
                 acc_8_low = _mm256_add_epi8(acc_8_low, _mm256_add_epi8(low01, low23));
 
                 let high01 = _mm256_add_epi8(
-                    _mm256_shuffle_epi8(lookup, _mm256_and_si256(_mm256_srli_epi16(x0, 4), low_mask)),
-                    _mm256_shuffle_epi8(lookup, _mm256_and_si256(_mm256_srli_epi16(x1, 4), low_mask)),
+                    _mm256_shuffle_epi8(
+                        lookup,
+                        _mm256_and_si256(_mm256_srli_epi16(x0, 4), low_mask),
+                    ),
+                    _mm256_shuffle_epi8(
+                        lookup,
+                        _mm256_and_si256(_mm256_srli_epi16(x1, 4), low_mask),
+                    ),
                 );
                 let high23 = _mm256_add_epi8(
-                    _mm256_shuffle_epi8(lookup, _mm256_and_si256(_mm256_srli_epi16(x2, 4), low_mask)),
-                    _mm256_shuffle_epi8(lookup, _mm256_and_si256(_mm256_srli_epi16(x3, 4), low_mask)),
+                    _mm256_shuffle_epi8(
+                        lookup,
+                        _mm256_and_si256(_mm256_srli_epi16(x2, 4), low_mask),
+                    ),
+                    _mm256_shuffle_epi8(
+                        lookup,
+                        _mm256_and_si256(_mm256_srli_epi16(x3, 4), low_mask),
+                    ),
                 );
                 acc_8_high = _mm256_add_epi8(acc_8_high, _mm256_add_epi8(high01, high23));
             }
@@ -393,8 +405,15 @@ mod tests {
             let lhs = [0x5555_5555_5555_5555_5555_5555_5555_5555u128; 80];
             let rhs = [0xAAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAAu128; 80];
             assert!(unsafe { and_simd_avx2(&lhs, &rhs) }.iter().all(|&w| w == 0));
-            assert!(unsafe { bind_simd_avx2(&lhs, &lhs) }.iter().all(|&w| w == 0));
-            assert_eq!(unsafe { hamming_distance_simd_avx2(&[0u128; 80], &[!0u128; 80]) }, 10240);
+            assert!(
+                unsafe { bind_simd_avx2(&lhs, &lhs) }
+                    .iter()
+                    .all(|&w| w == 0)
+            );
+            assert_eq!(
+                unsafe { hamming_distance_simd_avx2(&[0u128; 80], &[!0u128; 80]) },
+                10240
+            );
             let mut r = [0u128; 80];
             r[0] = 1;
             r[79] = 1 << 127;
@@ -403,7 +422,10 @@ mod tests {
     }
 
     #[test]
-    #[cfg(all(not(target_arch = "wasm32"), any(target_arch = "x86_64", target_arch = "x86")))]
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(target_arch = "x86_64", target_arch = "x86")
+    ))]
     fn simd_x86_correctness() {
         let lhs = [0x5555_5555_5555_5555_5555_5555_5555_5555u128; 80];
         let rhs = [0xAAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAA_AAAAu128; 80];
@@ -414,7 +436,9 @@ mod tests {
     #[test]
     fn hamming_distance_optimized_correctness() {
         let mut rhs = [0u128; 80];
-        for i in 0..80 { rhs[i] = i as u128; }
+        for i in 0..80 {
+            rhs[i] = i as u128;
+        }
         let expected = rhs.iter().map(|&x| x.count_ones()).sum::<u32>();
         assert_eq!(hamming_distance_optimized(&[0u128; 80], &rhs), expected);
 
