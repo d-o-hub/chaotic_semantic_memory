@@ -355,7 +355,9 @@ pub(crate) unsafe fn hamming_distance_binary_simd_avx2(lhs: &[u64; 160], rhs: &[
     unsafe {
         _mm256_storeu_si256(results.as_mut_ptr().cast(), acc);
     }
-    (results[0] + results[1] + results[2] + results[3]) as u32
+    #[allow(clippy::cast_possible_truncation)]
+    let res = (results[0] + results[1] + results[2] + results[3]) as u32;
+    res
 }
 
 #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
