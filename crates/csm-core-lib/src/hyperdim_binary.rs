@@ -182,13 +182,9 @@ impl BHVec10240 {
         Self { bits: result }
     }
 
-    /// Hamming distance (popcount of XOR)
+    /// Hamming distance (popcount of XOR).
     pub fn hamming(&self, other: &Self) -> u32 {
-        let mut dist = 0u32;
-        for i in 0..160 {
-            dist += (self.bits[i] ^ other.bits[i]).count_ones();
-        }
-        dist
+        self.to_hvec().hamming_distance(&other.to_hvec())
     }
 
     /// Cosine similarity (approximated for binary as 1 - Hamming/Dimension/2)
@@ -358,6 +354,35 @@ mod tests {
         let bound = v1.xor(&v2);
         let dist = v1.hamming(&v2);
         assert_eq!(bound.bits.iter().map(|w| w.count_ones()).sum::<u32>(), dist);
+    }
+
+    #[test]
+    fn test_bhvec_hamming_edge_cases() {
+        let zero = BHVec10240::zero();
+        let ones = BHVec10240 { bits: [!0u64; 160] };
+        let mut edge_bits = [0u64; 160];
+        edge_bits[0] = 1;
+        edge_bits[159] = 1 << 63;
+        let edges = BHVec10240 { bits: edge_bits };
+
+        assert_eq!(zero.hamming(&zero), 0);
+        assert_eq!(zero.hamming(&ones), 10240);
+        assert_eq!(zero.hamming(&edges), 2);
+    }
+
+    #[test]
+    fn test_bhvec_hamming_matches_scalar_oracle() {
+        let lhs = BHVec10240::new_seeded(42);
+        let rhs = BHVec10240::new_seeded(84);
+        let expected = lhs
+            .bits
+            .iter()
+            .zip(&rhs.bits)
+            .map(|(left, right)| (left ^ right).count_ones())
+            .sum::<u32>();
+        let actual = lhs.hamming(&rhs);
+
+        assert_eq!(actual, expected);
     }
 
     #[test]
