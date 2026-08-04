@@ -124,35 +124,3 @@ fn test_bhvec_bundle_threshold_consistency() {
         );
     }
 }
-
-#[test]
-fn test_bhvec_hamming_all_dispatch_paths_agree() {
-    let v1 = BHVec10240::random();
-    let v2 = BHVec10240::random();
-    let lhs_u128: &[u128; 80] = unsafe { &*(v1.bits.as_ptr() as *const [u128; 80]) };
-    let rhs_u128: &[u128; 80] = unsafe { &*(v2.bits.as_ptr() as *const [u128; 80]) };
-
-    let expected = v1.hamming(&v2);
-
-    // Explicitly test the optimized scalar path
-    let scalar_result = crate::hyperdim_simd::hamming_distance_optimized(lhs_u128, rhs_u128);
-    assert_eq!(scalar_result, expected, "Scalar optimized path disagrees with default dispatch!");
-
-    // Explicitly test the AVX2 SIMD path if supported/enabled
-    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-    {
-        if std::is_x86_feature_detected!("avx2") {
-            // SAFETY: AVX2 is detected at runtime. Both lhs and rhs are 16-byte aligned.
-            let avx2_result = unsafe { crate::hyperdim_simd::hamming_distance_simd_avx2(lhs_u128, rhs_u128) };
-            assert_eq!(avx2_result, expected, "AVX2 SIMD path disagrees with default dispatch!");
-        }
-    }
-
-    // Explicitly test the NEON SIMD path if supported/enabled
-    #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-    {
-        // SAFETY: aarch64 always has NEON. Both lhs and rhs are 16-byte aligned.
-        let neon_result = unsafe { crate::hyperdim_simd::hamming_distance_simd_neon(lhs_u128, rhs_u128) };
-        assert_eq!(neon_result, expected, "NEON SIMD path disagrees with default dispatch!");
-    }
-}

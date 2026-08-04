@@ -17,20 +17,10 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[repr(align(16))]
 #[must_use]
 pub struct BHVec10240 {
     pub bits: [u64; 160],
 }
-
-// Compile-time static assertions to guarantee that the layout of BHVec10240 remains
-// perfectly sound for zero-copy unsafe pointer casts to &[u128; 80].
-const _: () = {
-    assert!(std::mem::size_of::<BHVec10240>() == 1280);
-    assert!(std::mem::align_of::<BHVec10240>() == 16);
-    // Ensure that 'bits' is indeed at offset 0 and matches struct size.
-    assert!(std::mem::size_of::<[u64; 160]>() == std::mem::size_of::<BHVec10240>());
-};
 
 impl Serialize for BHVec10240 {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
@@ -194,40 +184,24 @@ impl BHVec10240 {
 
     /// Hamming distance (popcount of XOR).
     ///
-    /// Algorithmic Optimization: Since BHVec10240 has #[repr(align(16))], we can safely
-    /// cast &[u64; 160] to &[u128; 80] without any alignment-related panics. This bypasses
-    /// the layout conversion to HVec10240 (to_hvec()) and temporary stack allocation,
-    /// and allows direct dispatch to SIMD-optimized Hamming distance helpers.
+    /// Algorithmic Optimization: Implemented using 100% safe Rust with 4 independent
+    /// GPR count_ones() accumulators and 4x unrolling. This achieves massive ILP
+    /// (Instruction-Level Parallelism), allowing the compiler to auto-vectorize and compile
+    /// this into highly optimized assembly while remaining completely safe and free from
+    /// any unsafe pointer casting or memory layout invariants.
     pub fn hamming(&self, other: &Self) -> u32 {
-        // SAFETY: BHVec10240 has #[repr(align(16))], ensuring that `self.bits` (and `other.bits`)
-        // are aligned to at least 16 bytes. Both arrays are exactly 1280 bytes.
-        // Therefore, casting `&[u64; 160]` to `&[u128; 80]` is safe, correct, and zero-allocation.
-        let lhs_u128: &[u128; 80] = unsafe { &*(self.bits.as_ptr() as *const [u128; 80]) };
-        let rhs_u128: &[u128; 80] = unsafe { &*(other.bits.as_ptr() as *const [u128; 80]) };
+        let mut d0 = 0;
+        let mut d1 = 0;
+        let mut d2 = 0;
+        let mut d3 = 0;
 
-        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-        {
-            if std::is_x86_feature_detected!("avx2") {
-                // SAFETY: AVX2 feature detected at runtime. Both lhs and rhs are 16-byte aligned.
-                unsafe { crate::hyperdim_simd::hamming_distance_simd_avx2(lhs_u128, rhs_u128) }
-            } else {
-                crate::hyperdim_simd::hamming_distance_optimized(lhs_u128, rhs_u128)
-            }
+        for i in (0..160).step_by(4) {
+            d0 += (self.bits[i] ^ other.bits[i]).count_ones();
+            d1 += (self.bits[i + 1] ^ other.bits[i + 1]).count_ones();
+            d2 += (self.bits[i + 2] ^ other.bits[i + 2]).count_ones();
+            d3 += (self.bits[i + 3] ^ other.bits[i + 3]).count_ones();
         }
-
-        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-        {
-            // SAFETY: aarch64 always has NEON. Both lhs and rhs are 16-byte aligned.
-            unsafe { crate::hyperdim_simd::hamming_distance_simd_neon(lhs_u128, rhs_u128) }
-        }
-
-        #[cfg(any(
-            target_arch = "wasm32",
-            not(any(target_arch = "x86_64", target_arch = "aarch64"))
-        ))]
-        {
-            crate::hyperdim_simd::hamming_distance_optimized(lhs_u128, rhs_u128)
-        }
+        d0 + d1 + d2 + d3
     }
 
     /// Cosine similarity (approximated for binary as 1 - Hamming/Dimension/2)
