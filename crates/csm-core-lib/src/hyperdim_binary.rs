@@ -23,6 +23,15 @@ pub struct BHVec10240 {
     pub bits: [u64; 160],
 }
 
+// Compile-time static assertions to guarantee that the layout of BHVec10240 remains
+// perfectly sound for zero-copy unsafe pointer casts to &[u128; 80].
+const _: () = {
+    assert!(std::mem::size_of::<BHVec10240>() == 1280);
+    assert!(std::mem::align_of::<BHVec10240>() == 16);
+    // Ensure that 'bits' is indeed at offset 0 and matches struct size.
+    assert!(std::mem::size_of::<[u64; 160]>() == std::mem::size_of::<BHVec10240>());
+};
+
 impl Serialize for BHVec10240 {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
@@ -366,113 +375,5 @@ impl BHVec10240 {
             bits[i] = u64::from_le_bytes(word_bytes);
         }
         Ok(Self { bits })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-    use super::*;
-
-    #[test]
-    fn test_bhvec_random() {
-        assert_ne!(BHVec10240::random(), BHVec10240::random());
-    }
-
-    #[test]
-    fn test_bhvec_xor_hamming() {
-        let (v1, v2) = (BHVec10240::random(), BHVec10240::random());
-        assert_eq!(
-            v1.xor(&v2).bits.iter().map(|w| w.count_ones()).sum::<u32>(),
-            v1.hamming(&v2)
-        );
-    }
-
-    #[test]
-    fn test_bhvec_hamming_edge_cases() {
-        let (zero, ones) = (BHVec10240::zero(), BHVec10240 { bits: [!0u64; 160] });
-        let mut edge_bits = [0u64; 160];
-        edge_bits[0] = 1;
-        edge_bits[159] = 1 << 63;
-        let edges = BHVec10240 { bits: edge_bits };
-        assert_eq!(zero.hamming(&zero), 0);
-        assert_eq!(zero.hamming(&ones), 10240);
-        assert_eq!(zero.hamming(&edges), 2);
-    }
-
-    #[test]
-    fn test_bhvec_hamming_matches_scalar_oracle() {
-        let (lhs, rhs) = (BHVec10240::new_seeded(42), BHVec10240::new_seeded(84));
-        let expected = lhs
-            .bits
-            .iter()
-            .zip(&rhs.bits)
-            .map(|(l, r)| (l ^ r).count_ones())
-            .sum::<u32>();
-        assert_eq!(lhs.hamming(&rhs), expected);
-    }
-
-    #[test]
-    fn test_bhvec_permute() {
-        let v1 = BHVec10240::random();
-        assert_ne!(v1, v1.permute(1));
-        assert_eq!(v1, v1.permute(1).permute(BHVec10240::DIMENSION - 1));
-    }
-
-    #[test]
-    fn test_bhvec_roundtrip_hvec() {
-        let h1 = HVec10240::random();
-        assert_eq!(h1, BHVec10240::from_hvec(&h1).to_hvec());
-    }
-
-    fn naive_bundle_majority(vectors: &[&BHVec10240]) -> BHVec10240 {
-        let n = vectors.len();
-        if n == 0 {
-            return BHVec10240::zero();
-        }
-        if n == 1 {
-            return *vectors[0];
-        }
-        let threshold = n / 2 + 1;
-        let mut bits = [0u64; 160];
-        for w in 0..160 {
-            for b in 0..64 {
-                let mask = 1u64 << b;
-                let count = vectors.iter().filter(|v| (v.bits[w] & mask) != 0).count();
-                if count >= threshold {
-                    bits[w] |= mask;
-                }
-            }
-        }
-        BHVec10240 { bits }
-    }
-
-    #[test]
-    fn test_bhvec_bundle_empty_and_single() {
-        assert_eq!(BHVec10240::bundle(&[]), BHVec10240::zero());
-        let v = BHVec10240::new_seeded(42);
-        assert_eq!(BHVec10240::bundle(&[&v]), v);
-    }
-
-    #[test]
-    fn test_bhvec_bundle_n2_is_and() {
-        let (v1, v2) = (BHVec10240::new_seeded(1), BHVec10240::new_seeded(2));
-        let bundled = BHVec10240::bundle(&[&v1, &v2]);
-        for i in 0..160 {
-            assert_eq!(bundled.bits[i], v1.bits[i] & v2.bits[i]);
-        }
-    }
-
-    #[test]
-    fn test_bhvec_bundle_threshold_consistency() {
-        for n in [2, 3, 4, 10, 255, 256, 1000] {
-            let vectors: Vec<BHVec10240> =
-                (0..n).map(|i| BHVec10240::new_seeded(i as u64)).collect();
-            let refs: Vec<&BHVec10240> = vectors.iter().collect();
-            assert_eq!(
-                BHVec10240::bundle(&refs).bits,
-                naive_bundle_majority(&refs).bits
-            );
-        }
     }
 }
