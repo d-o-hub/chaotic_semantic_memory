@@ -17,6 +17,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(align(16))]
 #[must_use]
 pub struct BHVec10240 {
     pub bits: [u64; 160],
@@ -183,8 +184,41 @@ impl BHVec10240 {
     }
 
     /// Hamming distance (popcount of XOR).
+    ///
+    /// Algorithmic Optimization: Since BHVec10240 has #[repr(align(16))], we can safely
+    /// cast &[u64; 160] to &[u128; 80] without any alignment-related panics. This bypasses
+    /// the layout conversion to HVec10240 (to_hvec()) and temporary stack allocation,
+    /// and allows direct dispatch to SIMD-optimized Hamming distance helpers.
     pub fn hamming(&self, other: &Self) -> u32 {
-        self.to_hvec().hamming_distance(&other.to_hvec())
+        // SAFETY: BHVec10240 has #[repr(align(16))], ensuring that `self.bits` (and `other.bits`)
+        // are aligned to at least 16 bytes. Both arrays are exactly 1280 bytes.
+        // Therefore, casting `&[u64; 160]` to `&[u128; 80]` is safe, correct, and zero-allocation.
+        let lhs_u128: &[u128; 80] = unsafe { &*(self.bits.as_ptr() as *const [u128; 80]) };
+        let rhs_u128: &[u128; 80] = unsafe { &*(other.bits.as_ptr() as *const [u128; 80]) };
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+        {
+            if std::is_x86_feature_detected!("avx2") {
+                // SAFETY: AVX2 feature detected at runtime. Both lhs and rhs are 16-byte aligned.
+                unsafe { crate::hyperdim_simd::hamming_distance_simd_avx2(lhs_u128, rhs_u128) }
+            } else {
+                crate::hyperdim_simd::hamming_distance_optimized(lhs_u128, rhs_u128)
+            }
+        }
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+        {
+            // SAFETY: aarch64 always has NEON. Both lhs and rhs are 16-byte aligned.
+            unsafe { crate::hyperdim_simd::hamming_distance_simd_neon(lhs_u128, rhs_u128) }
+        }
+
+        #[cfg(any(
+            target_arch = "wasm32",
+            not(any(target_arch = "x86_64", target_arch = "aarch64"))
+        ))]
+        {
+            crate::hyperdim_simd::hamming_distance_optimized(lhs_u128, rhs_u128)
+        }
     }
 
     /// Cosine similarity (approximated for binary as 1 - Hamming/Dimension/2)
@@ -342,29 +376,22 @@ mod tests {
 
     #[test]
     fn test_bhvec_random() {
-        let v1 = BHVec10240::random();
-        let v2 = BHVec10240::random();
-        assert_ne!(v1, v2);
+        assert_ne!(BHVec10240::random(), BHVec10240::random());
     }
 
     #[test]
     fn test_bhvec_xor_hamming() {
-        let v1 = BHVec10240::random();
-        let v2 = BHVec10240::random();
-        let bound = v1.xor(&v2);
-        let dist = v1.hamming(&v2);
-        assert_eq!(bound.bits.iter().map(|w| w.count_ones()).sum::<u32>(), dist);
+        let (v1, v2) = (BHVec10240::random(), BHVec10240::random());
+        assert_eq!(v1.xor(&v2).bits.iter().map(|w| w.count_ones()).sum::<u32>(), v1.hamming(&v2));
     }
 
     #[test]
     fn test_bhvec_hamming_edge_cases() {
-        let zero = BHVec10240::zero();
-        let ones = BHVec10240 { bits: [!0u64; 160] };
+        let (zero, ones) = (BHVec10240::zero(), BHVec10240 { bits: [!0u64; 160] });
         let mut edge_bits = [0u64; 160];
         edge_bits[0] = 1;
         edge_bits[159] = 1 << 63;
         let edges = BHVec10240 { bits: edge_bits };
-
         assert_eq!(zero.hamming(&zero), 0);
         assert_eq!(zero.hamming(&ones), 10240);
         assert_eq!(zero.hamming(&edges), 2);
@@ -372,57 +399,35 @@ mod tests {
 
     #[test]
     fn test_bhvec_hamming_matches_scalar_oracle() {
-        let lhs = BHVec10240::new_seeded(42);
-        let rhs = BHVec10240::new_seeded(84);
-        let expected = lhs
-            .bits
-            .iter()
-            .zip(&rhs.bits)
-            .map(|(left, right)| (left ^ right).count_ones())
-            .sum::<u32>();
-        let actual = lhs.hamming(&rhs);
-
-        assert_eq!(actual, expected);
+        let (lhs, rhs) = (BHVec10240::new_seeded(42), BHVec10240::new_seeded(84));
+        let expected = lhs.bits.iter().zip(&rhs.bits).map(|(l, r)| (l ^ r).count_ones()).sum::<u32>();
+        assert_eq!(lhs.hamming(&rhs), expected);
     }
 
     #[test]
     fn test_bhvec_permute() {
         let v1 = BHVec10240::random();
-        let v2 = v1.permute(1);
-        assert_ne!(v1, v2);
-        let v3 = v2.permute(BHVec10240::DIMENSION - 1);
-        assert_eq!(v1, v3);
+        assert_ne!(v1, v1.permute(1));
+        assert_eq!(v1, v1.permute(1).permute(BHVec10240::DIMENSION - 1));
     }
 
     #[test]
     fn test_bhvec_roundtrip_hvec() {
         let h1 = HVec10240::random();
-        let bh1 = BHVec10240::from_hvec(&h1);
-        let h2 = bh1.to_hvec();
-        assert_eq!(h1, h2);
+        assert_eq!(h1, BHVec10240::from_hvec(&h1).to_hvec());
     }
 
-    /// Naive per-bit majority oracle (`count >= N/2 + 1`).
     fn naive_bundle_majority(vectors: &[&BHVec10240]) -> BHVec10240 {
         let n = vectors.len();
-        if n == 0 {
-            return BHVec10240::zero();
-        }
-        if n == 1 {
-            return *vectors[0];
-        }
+        if n == 0 { return BHVec10240::zero(); }
+        if n == 1 { return *vectors[0]; }
         let threshold = n / 2 + 1;
         let mut bits = [0u64; 160];
-        for word_idx in 0..160 {
-            for bit_idx in 0..64 {
-                let mask = 1u64 << bit_idx;
-                let count = vectors
-                    .iter()
-                    .filter(|v| (v.bits[word_idx] & mask) != 0)
-                    .count();
-                if count >= threshold {
-                    bits[word_idx] |= mask;
-                }
+        for w in 0..160 {
+            for b in 0..64 {
+                let mask = 1u64 << b;
+                let count = vectors.iter().filter(|v| (v.bits[w] & mask) != 0).count();
+                if count >= threshold { bits[w] |= mask; }
             }
         }
         BHVec10240 { bits }
@@ -437,31 +442,19 @@ mod tests {
 
     #[test]
     fn test_bhvec_bundle_n2_is_and() {
-        let v1 = BHVec10240::new_seeded(1);
-        let v2 = BHVec10240::new_seeded(2);
+        let (v1, v2) = (BHVec10240::new_seeded(1), BHVec10240::new_seeded(2));
         let bundled = BHVec10240::bundle(&[&v1, &v2]);
         for i in 0..160 {
-            assert_eq!(
-                bundled.bits[i],
-                v1.bits[i] & v2.bits[i],
-                "N=2 must be bitwise AND at word {i}"
-            );
+            assert_eq!(bundled.bits[i], v1.bits[i] & v2.bits[i]);
         }
     }
 
     #[test]
     fn test_bhvec_bundle_threshold_consistency() {
-        // Span early returns, even-N ties, plane widths, and larger N (parity with HVec).
-        for n in [2usize, 3, 4, 10, 255, 256, 1000] {
-            let vectors: Vec<BHVec10240> =
-                (0..n).map(|i| BHVec10240::new_seeded(i as u64)).collect();
+        for n in [2, 3, 4, 10, 255, 256, 1000] {
+            let vectors: Vec<BHVec10240> = (0..n).map(|i| BHVec10240::new_seeded(i as u64)).collect();
             let refs: Vec<&BHVec10240> = vectors.iter().collect();
-            let actual = BHVec10240::bundle(&refs);
-            let expected = naive_bundle_majority(&refs);
-            assert_eq!(
-                actual.bits, expected.bits,
-                "Bundling inconsistency at N={n} vectors"
-            );
+            assert_eq!(BHVec10240::bundle(&refs).bits, naive_bundle_majority(&refs).bits);
         }
     }
 }
