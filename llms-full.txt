@@ -658,6 +658,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use csm_retrieval::{HybridResult, RetrievalAbstention}
 - pub fn compute_weights
 - pub fn normalize_scores
+- pub fn normalize_scores_in_place
 - pub fn merge_results
 - pub enum HybridMode
 - pub struct HybridConfig
@@ -671,7 +672,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod rerank
 - pub use bm25::{Bm25Config, Bm25Index}
 - pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve}
-- pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
+- pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores, normalize_scores_in_place}
 - pub use rerank::{MmrReranker, RerankCandidate, Reranker}
 
 ### src/retrieval/rerank.rs
@@ -4284,14 +4285,11 @@ pub fn compute_weights(token_count: usize) -> (f32, f32)
 
 Compute query-length-dependent weights for hybrid retrieval.
 
-Returns (keyword_weight, semantic_weight) based on token count.
-
-| Query Tokens | Keyword | Semantic | Rationale |
-|-------------|---------|----------|-----------|
-| 1-2 | 0.9 | 0.1 | Exact match dominates |
-| 3-4 | 0.7 | 0.3 | Keyword still strong |
-| 5-8 | 0.4 | 0.6 | Semantic takes over |
-| 9+ | 0.2 | 0.8 | Full semantic mode |
+Returns (keyword_weight, semantic_weight) based on token count:
+- 1-2 tokens: (0.9, 0.1) - Exact match dominates
+- 3-4 tokens: (0.7, 0.3) - Keyword still strong
+- 5-8 tokens: (0.4, 0.6) - Semantic takes over
+- 9+ tokens:  (0.2, 0.8) - Full semantic mode
 
 ### csm_retrieval::{HybridResult, RetrievalAbstention}
 
@@ -4329,6 +4327,22 @@ Normalize scores to [0, 1] range using min-max normalization.
 
 If all scores are equal, returns 1.0 for all.
 
+#### Note
+For performance-critical pipelines (like search/retrieval hot paths), prefer
+using [`normalize_scores_in_place`] to completely bypass vector allocations
+and redundant string cloning.
+
+### normalize_scores_in_place
+
+```rust
+pub fn normalize_scores_in_place(scores: &mut [(String, f32)])
+```
+
+Normalize scores in place to [0, 1] range using min-max normalization.
+
+This is the preferred method in high-frequency/hot query pathways because
+it mutates existing score vectors, avoiding heap allocations and string cloning.
+
 ## src/retrieval/mod.rs
 
 ### bm25::{Bm25Config, Bm25Index}
@@ -4343,10 +4357,10 @@ pub use bm25::{Bm25Config, Bm25Index};
 pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
 ```
 
-### hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores}
+### hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores, normalize_scores_in_place}
 
 ```rust
-pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores};
+pub use hybrid::{HybridConfig, HybridMode, compute_weights, merge_results, normalize_scores, normalize_scores_in_place};
 ```
 
 ### rerank::{MmrReranker, RerankCandidate, Reranker}

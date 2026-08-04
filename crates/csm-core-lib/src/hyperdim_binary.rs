@@ -184,24 +184,10 @@ impl BHVec10240 {
 
     /// Hamming distance (popcount of XOR).
     ///
-    /// Algorithmic Optimization: Implemented using 100% safe Rust with 4 independent
-    /// GPR count_ones() accumulators and 4x unrolling. This achieves massive ILP
-    /// (Instruction-Level Parallelism), allowing the compiler to auto-vectorize and compile
-    /// this into highly optimized assembly while remaining completely safe and free from
-    /// any unsafe pointer casting or memory layout invariants.
+    /// Dispatches directly over the packed words, avoiding conversion to
+    /// temporary [`HVec10240`] values.
     pub fn hamming(&self, other: &Self) -> u32 {
-        let mut d0 = 0;
-        let mut d1 = 0;
-        let mut d2 = 0;
-        let mut d3 = 0;
-
-        for i in (0..160).step_by(4) {
-            d0 += (self.bits[i] ^ other.bits[i]).count_ones();
-            d1 += (self.bits[i + 1] ^ other.bits[i + 1]).count_ones();
-            d2 += (self.bits[i + 2] ^ other.bits[i + 2]).count_ones();
-            d3 += (self.bits[i + 3] ^ other.bits[i + 3]).count_ones();
-        }
-        d0 + d1 + d2 + d3
+        crate::hyperdim_simd::hamming_distance_u64(&self.bits, &other.bits)
     }
 
     /// Cosine similarity (approximated for binary as 1 - Hamming/Dimension/2)

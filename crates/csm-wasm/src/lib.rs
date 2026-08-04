@@ -3,7 +3,8 @@
 //! This crate provides JavaScript/WASM bindings for the core memory engine.
 //! It re-exports WASM-compatible types from the main crate and extracted crates.
 
-// Re-export WASM bindings from main crate
+// Bindings only exist when the main crate is compiled for wasm32.
+#[cfg(target_arch = "wasm32")]
 pub use chaotic_semantic_memory::wasm::*;
 
 // Re-export useful types from extracted crates

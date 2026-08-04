@@ -46,6 +46,23 @@ fn test_bhvec_hamming_matches_scalar_oracle() {
 }
 
 #[test]
+fn test_bhvec_hamming_visits_every_packed_word() {
+    let zero = BHVec10240::zero();
+
+    for word_idx in 0..BHVec10240::WORDS {
+        let mut bits = [0u64; BHVec10240::WORDS];
+        bits[word_idx] = 1 << (word_idx % 64);
+        let single_bit = BHVec10240 { bits };
+
+        assert_eq!(
+            zero.hamming(&single_bit),
+            1,
+            "packed word {word_idx} was skipped"
+        );
+    }
+}
+
+#[test]
 fn test_bhvec_permute() {
     let v1 = BHVec10240::random();
     let v2 = v1.permute(1);

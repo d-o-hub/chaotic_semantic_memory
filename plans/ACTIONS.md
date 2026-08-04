@@ -5012,3 +5012,20 @@ actions:
       existing release tag and enable wasm-opt's non-trapping float-to-int
       feature. Dispatch recovery for v0.3.7 after CI so the updated crates.io
       credential and npm OIDC publisher fill only missing registry artifacts.
+
+  - name: validate_and_merge_pr_597
+    preconditions:
+      tests_passing: true
+      benchmarks_exist: true
+    effects:
+      pr_597_validated: true
+      bhvec_hamming_conversion_removed: true
+    cost: 2
+    status: complete
+    priority: P1
+    wave: "performance-validation"
+    file: crates/csm-core-lib/src/hyperdim_binary.rs, crates/csm-core-lib/src/hyperdim_binary_tests.rs
+    description: |
+      Review PR #597, remove stale SIMD claims and unrelated generated churn,
+      cover every unrolled lane, and validate the packed-word Hamming change
+      against a same-machine Criterion baseline before merge.

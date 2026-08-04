@@ -1814,7 +1814,7 @@ world_state:
   # Codebase analysis + plans compaction 2026-07-20
   # Canonical recommendations: plans/RECOMMENDATIONS_2026_07_20.md
   # ═══════════════════════════════════════════════════════
-  action_last_completed: pr_triage_ci_queue_fix_2026_07_27
+  action_last_completed: validate_and_merge_pr_597
   recommendations_2026_07_20_written: true
   plan_archive_2026_07_20_complete: true
   active_plan_set_compact: true
@@ -1873,3 +1873,15 @@ world_state:
     learnings_compacted: true        # 157 → 82 lines, removed duplicates and stale entries
     progress_compacted: true         # 284 → 48 lines, compressed pre-Wave-33 history
     skills_catalog_optimized: true   # CATALOG.md: table format + trigger conditions + consolidation candidates
+
+  # ═══════════════════════════════════════════════════════
+  # 2026-08-04: PR #597 packed-word Hamming optimization
+  # ═══════════════════════════════════════════════════════
+  pr_597_validation:
+    status: in_progress
+    implementation: "safe packed-word dispatch over shared AVX2/NEON byte kernels"
+    correctness_test_added: true
+    unrelated_churn_removed: true
+    benchmark_current_run_ns: "90.152..102.02"
+    benchmark_comparison: pending_same_machine_baseline
+    ci_all_checks_passed: false

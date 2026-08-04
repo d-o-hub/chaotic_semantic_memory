@@ -83,7 +83,7 @@ mod tests {
         let mut map = ChebyshevLogistic2d::new(0.123, -0.456, 4.0, 4);
         for _ in 0..1000 {
             let v = map.next_value();
-            assert!(v >= 0.0 && v < 1.0, "Value {} out of range", v);
+            assert!((0.0..1.0).contains(&v), "Value {v} out of range");
         }
     }
 
@@ -93,7 +93,7 @@ mod tests {
         let mut map2 = ChebyshevLogistic2d::new(0.123, -0.456, 4.0, 4);
 
         for _ in 0..100 {
-            assert_eq!(map1.next_value(), map2.next_value());
+            assert_eq!(map1.next_value().to_bits(), map2.next_value().to_bits());
         }
     }
 
@@ -146,7 +146,7 @@ mod tests {
         }
 
         for &count in &buckets {
-            assert!(count > 0, "Bucket is empty: {:?}", buckets);
+            assert!(count > 0, "Bucket is empty: {buckets:?}");
         }
     }
 }
