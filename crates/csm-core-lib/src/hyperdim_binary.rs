@@ -382,7 +382,10 @@ mod tests {
     #[test]
     fn test_bhvec_xor_hamming() {
         let (v1, v2) = (BHVec10240::random(), BHVec10240::random());
-        assert_eq!(v1.xor(&v2).bits.iter().map(|w| w.count_ones()).sum::<u32>(), v1.hamming(&v2));
+        assert_eq!(
+            v1.xor(&v2).bits.iter().map(|w| w.count_ones()).sum::<u32>(),
+            v1.hamming(&v2)
+        );
     }
 
     #[test]
@@ -400,7 +403,12 @@ mod tests {
     #[test]
     fn test_bhvec_hamming_matches_scalar_oracle() {
         let (lhs, rhs) = (BHVec10240::new_seeded(42), BHVec10240::new_seeded(84));
-        let expected = lhs.bits.iter().zip(&rhs.bits).map(|(l, r)| (l ^ r).count_ones()).sum::<u32>();
+        let expected = lhs
+            .bits
+            .iter()
+            .zip(&rhs.bits)
+            .map(|(l, r)| (l ^ r).count_ones())
+            .sum::<u32>();
         assert_eq!(lhs.hamming(&rhs), expected);
     }
 
@@ -419,15 +427,21 @@ mod tests {
 
     fn naive_bundle_majority(vectors: &[&BHVec10240]) -> BHVec10240 {
         let n = vectors.len();
-        if n == 0 { return BHVec10240::zero(); }
-        if n == 1 { return *vectors[0]; }
+        if n == 0 {
+            return BHVec10240::zero();
+        }
+        if n == 1 {
+            return *vectors[0];
+        }
         let threshold = n / 2 + 1;
         let mut bits = [0u64; 160];
         for w in 0..160 {
             for b in 0..64 {
                 let mask = 1u64 << b;
                 let count = vectors.iter().filter(|v| (v.bits[w] & mask) != 0).count();
-                if count >= threshold { bits[w] |= mask; }
+                if count >= threshold {
+                    bits[w] |= mask;
+                }
             }
         }
         BHVec10240 { bits }
@@ -452,9 +466,13 @@ mod tests {
     #[test]
     fn test_bhvec_bundle_threshold_consistency() {
         for n in [2, 3, 4, 10, 255, 256, 1000] {
-            let vectors: Vec<BHVec10240> = (0..n).map(|i| BHVec10240::new_seeded(i as u64)).collect();
+            let vectors: Vec<BHVec10240> =
+                (0..n).map(|i| BHVec10240::new_seeded(i as u64)).collect();
             let refs: Vec<&BHVec10240> = vectors.iter().collect();
-            assert_eq!(BHVec10240::bundle(&refs).bits, naive_bundle_majority(&refs).bits);
+            assert_eq!(
+                BHVec10240::bundle(&refs).bits,
+                naive_bundle_majority(&refs).bits
+            );
         }
     }
 }
