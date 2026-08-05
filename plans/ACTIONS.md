@@ -4995,6 +4995,42 @@ actions:
       Land PR #532 (framework ops #524–#526) after CI green; triage #534 hybrid
       min-max (merge if correct, close if duplicate/regressed). Close issues.
 
+  - name: merge_pr_597_simd_hamming
+    preconditions:
+      tests_passing: true
+    effects:
+      bhvec_hamming_direct_dispatch: true
+      bhvec_hamming_benchmarked: true
+    cost: 3
+    status: complete
+    priority: P0
+    wave: "wave-33"
+    file: crates/csm-core-lib/src/hyperdim_binary.rs, crates/csm-core-lib/src/hyperdim_simd.rs, crates/csm-core-lib/src/hyperdim_binary_tests.rs, .codacy.yml
+    description: |
+      Squash-merged (#597, 0b42edb). BHVec10240::hamming dispatches directly over
+      the packed [u64; 160] words — AVX2 (x86_64), NEON (aarch64), unrolled scalar
+      fallback (wasm32) — eliminating the two to_hvec() layout conversions.
+      Same-machine criterion: ~37.7 ns vs main ~99.4 ns idle (~2.6x); 54.5 vs
+      149.9 ns under load (~2.75x). Codacy unsafe-usage findings fixed in code via
+      .codacy.yml engines.opengrep.exclude_paths (repo policy); zero dashboard
+      suppressions. Added forced-fallback unit test + lane-skip guard.
+
+  - name: merge_pr_599_arm64_neon_tests
+    preconditions:
+      bhvec_hamming_direct_dispatch: true
+    effects:
+      neon_kernels_executed_in_ci: true
+    cost: 2
+    status: complete
+    priority: P0
+    wave: "wave-33"
+    file: .github/workflows/ci.yml
+    description: |
+      Squash-merged (#599, 8d63b27). Added test-core-arm64 job on the native
+      ubuntu-24.04-arm runner so the csm-core-lib suite (incl. NEON hamming
+      kernels) executes on real aarch64 hardware instead of only cross-compiling.
+      Path-filtered on rust/workflow changes; arch-assert step; 29/29 checks green.
+
   - name: recover_v037_failed_deployments
     preconditions:
       ci_all_checks_passed: true
