@@ -7,13 +7,21 @@ Run benchmarks:
 ```bash
 cargo bench --bench benchmark -- --save-baseline main
 cargo bench --bench benchmark -- --baseline main
+cargo bench --bench binary_benchmark               # BHVec10240::hamming direct dispatch
+cargo bench --bench graph_candidates_benchmark     # graph candidate retrieval path
 ```
+
+CI runs `benchmark-graph-candidates` on `benches/**`, `csm-memory`, and workflow
+changes, enforcing a documented regression ceiling (~600 µs; measured ~259 µs on
+GitHub runners).
 
 ## Targets
 
 | Metric | Target | Actual |
 |--------|--------|--------|
 | `reservoir_step_50k` | <100μs | ~76μs |
+| `BHVec10240::hamming` (direct dispatch, PR #597) | — | ~37.7 ns idle / ~54.5 ns loaded (~2.6–2.75× vs `to_hvec()` conversion path) |
+| Graph candidate retrieval (PR #598) | — | ~218 µs on 500-node graph (~8% faster than String-clone baseline) |
 | `turso_roundtrip` | <20ms | Passing |
 | `10m_concepts_memory` | <12MB | Passing |
 | `wasm_binary_size` | <500KB | ~438KB |
@@ -79,6 +87,21 @@ Automatic via std::simd on x86-64:
 HVec10240::bundle(&vectors);
 HVec10240::cosine_similarity(&a, &b);
 ```
+
+`BHVec10240::hamming` dispatches directly over the packed `[u64; 160]` words —
+AVX2 popcount kernels on x86_64, NEON on aarch64, and an unrolled scalar
+`u64::count_ones()` fallback (including wasm32) — skipping the two `to_hvec()`
+layout conversions the previous implementation performed per distance call
+(PR #597, ~2.6–2.75× faster same-machine). The NEON kernels are executed in CI
+on a native arm64 runner (PR #599).
+
+### Graph Candidate Retrieval
+
+`generate_graph_candidates` (the association-graph BFS used when
+`enable_graph_candidates` is set) borrows `&str` from the seed results and the
+association map instead of cloning every candidate `String` — eliminating the
+per-candidate heap allocations on the expansion path (PR #598, ~8% faster
+end-to-end on a 500-node association graph).
 
 ### Parallel Similarity Search
 
