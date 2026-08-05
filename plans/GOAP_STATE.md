@@ -1814,7 +1814,7 @@ world_state:
   # Codebase analysis + plans compaction 2026-07-20
   # Canonical recommendations: plans/RECOMMENDATIONS_2026_07_20.md
   # ═══════════════════════════════════════════════════════
-  action_last_completed: pr_triage_ci_queue_fix_2026_07_27
+  action_last_completed: merge_pr_597_599_followup_2026_08_05
   recommendations_2026_07_20_written: true
   plan_archive_2026_07_20_complete: true
   active_plan_set_compact: true
@@ -1873,3 +1873,13 @@ world_state:
     learnings_compacted: true        # 157 → 82 lines, removed duplicates and stale entries
     progress_compacted: true         # 284 → 48 lines, compressed pre-Wave-33 history
     skills_catalog_optimized: true   # CATALOG.md: table format + trigger conditions + consolidation candidates
+
+  # ═══════════════════════════════════════════════════════
+  # 2026-08-05: SIMD Hamming (#597) + arm64 CI (#599) merged
+  # ═══════════════════════════════════════════════════════
+  bhvec_hamming_direct_dispatch: true   # #597 (0b42edb): hamming() over packed [u64; 160],
+                                        # no to_hvec() conversions — AVX2/NEON/unaligned scalar
+  bhvec_hamming_benchmarked: true       # same-machine criterion ~2.6x idle, ~2.75x under load
+  neon_kernels_executed_in_ci: true     # #599 (8d63b27): native arm64 runner executes NEON paths
+  codacy_zero_suppressions: true        # .codacy.yml exclude_paths per repo policy; no dashboard ignores
+  main_ci_all_green: true

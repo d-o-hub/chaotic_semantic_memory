@@ -12,11 +12,13 @@
 - **Rayon gating**: Parallelize only when N >= 32; scheduling overhead dominates small ops.
 - **Bitmask modulo**: Power-of-2 buckets → `& (N-1)` instead of `% N`.
 - **f32::min/max vs comparison operators**: `.min()`/`.max()` compile to single `llvm.minnum`/`llvm.maxnum` instructions — MORE vectorizable than if/else. Do NOT replace with `<`/`>` comparisons (reverses intentional mutation-test design, strips docs, adds exclusion debt).
+- **Conversion elimination beats kernel tuning**: For BHVec10240::hamming, removing two full-array `to_hvec()` layout conversions (each a 1,280-byte copy) was the win (~2.6–2.75×), not new SIMD — the kernels already existed on the HVec path. Measure the full call path, not just the kernel.
 
 ## Baselines (x86_64)
 | Operation | Latency |
 |-----------|---------|
 | HVec10240 hamming | ~219 ns |
+| BHVec10240 hamming (direct dispatch, #597) | ~37.7 ns idle / ~54.5 ns loaded (~2.6–2.75× vs to_hvec path) |
 | HVec10240 cosine | ~238 ns |
 | Reservoir step 50k | ~136 µs |
 | BM25 search 10k | ~406 µs |
@@ -30,6 +32,13 @@
 - **Node 20 deprecation**: Use actions supporting Node 24 (`checkout@v5+`, `rust-cache@v2.9.1+`).
 - **Miri timeout**: 60 min minimum for ~220 tests.
 - **Action pinning**: `git ls-remote --tags <url>` for exact SHA.
+- **Native arm64 runners**: Cross-compiling NEON kernels is not testing them. `ubuntu-24.04-arm` runs `cargo test -p csm-core-lib` on real aarch64 hardware, exercising the NEON path against the scalar oracle (PR #599).
+- **YAML plain-scalar trap**: `run: rustc -vV | grep 'host: aarch64'` — the `: ` inside single quotes still terminates a YAML plain scalar → workflow parse error. Double-quote the whole `run:` value.
+- **Benchmark under load**: Absolute ns shift with machine load (idle vs harness-spin: 37.7 → 54.5 ns for the same binary). Report ratios measured under identical conditions, never bare absolute numbers.
+
+## Codacy
+- **`.codacy.yml` exclude_paths is the sanctioned unsafe-usage escape hatch**: SIMD hot paths with SAFETY comments belong in `engines.opengrep.exclude_paths` (repo policy) — NOT dashboard `AcceptedUse` suppressions, which are un-reviewable and vanish from the dashboard. Fix in code, or exclude per policy.
+- **Safe-function restructure dead end**: Removing `#[target_feature]` from SIMD kernels forces every intrinsic call into its own `unsafe` block — MORE flagged sites, not fewer. Keep `unsafe fn` + `#[target_feature]`; exclude the file.
 
 ## PR Triage / Jules Bot
 - **Empty research PRs**: Close as no-op; zero file changes = no impact.
