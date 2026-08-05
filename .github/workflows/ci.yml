@@ -235,6 +235,46 @@ jobs:
     - name: Test csm-core-lib (executes NEON hamming kernels)
       run: cargo test -p csm-core-lib --locked -- --quiet
 
+  # Runs the graph-candidates criterion bench (added in PR #598) and enforces a
+  # regression ceiling. The root-crate benches are otherwise only compiled by
+  # the test matrix, never executed. rust_src covers benches/** and
+  # crates/csm-memory/**; cli_cross also covers .github/workflows/ci.yml so
+  # workflow edits (like this job itself) still exercise the bench.
+  benchmark-graph-candidates:
+    name: Benchmark graph candidates
+    needs: detect-changes
+    if: needs.detect-changes.outputs.rust_src == 'true' || needs.detect-changes.outputs.cli_cross == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+      with:
+        cache: false
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
+      with:
+        shared-key: test
+    - name: Run graph candidates benchmark
+      run: cargo bench --bench graph_candidates_benchmark -- --warm-up-time 1 --measurement-time 3
+    - name: Enforce regression ceiling
+      run: |
+        python3 - <<'PY'
+        import json, pathlib
+        p = pathlib.Path('target/criterion/graph_candidates/find_similar_graph_500x20_d3/new/estimates.json')
+        median_us = json.loads(p.read_text())['median']['point_estimate'] / 1000.0
+        # Dev-machine baseline: ~218-240 us. Ceiling ~2.5x tolerates slower CI
+        # hardware and noise while catching gross regressions (reintroduced
+        # per-node String cloning at scale, O(n^2) BFS blowups). Recalibrate by
+        # running the bench locally and updating this constant.
+        ceiling_us = 600.0
+        print(f'graph_candidates median: {median_us:.1f} us (ceiling {ceiling_us:.0f} us)')
+        if median_us > ceiling_us:
+            print(f'::error::graph candidate retrieval median {median_us:.1f} us exceeds ceiling {ceiling_us:.0f} us')
+            raise SystemExit(1)
+        PY
+
   test-duckdb:
     name: Test DuckDB Companion
     needs: detect-changes
