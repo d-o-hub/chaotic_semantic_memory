@@ -35,6 +35,9 @@
 - **Native arm64 runners**: Cross-compiling NEON kernels is not testing them. `ubuntu-24.04-arm` runs `cargo test -p csm-core-lib` on real aarch64 hardware, exercising the NEON path against the scalar oracle (PR #599).
 - **YAML plain-scalar trap**: `run: rustc -vV | grep 'host: aarch64'` — the `: ` inside single quotes still terminates a YAML plain scalar → workflow parse error. Double-quote the whole `run:` value.
 - **Benchmark under load**: Absolute ns shift with machine load (idle vs harness-spin: 37.7 → 54.5 ns for the same binary). Report ratios measured under identical conditions, never bare absolute numbers.
+- **Stale-binary detection**: cargo can silently reuse a previous build when shared target dirs flip between worktrees. A result that contradicts theory ("removing allocations made it 4.5x slower") means the wrong binary ran — verify the `Compiling csm-memory (path)` line in the build log before trusting any bench number.
+- **Forced clean A/B**: `touch` the changed sources before each side's build and grep the log for which lib path was linked; interleave A/B/A/B and record `loadavg` before each run. Discard runs taken during load spikes (we excluded 281/301 us `main` runs taken at loadavg 2.7).
+- **Deterministic test graphs**: hash-based pseudo-random edges (not ring/wrap successors) model association graphs realistically and reproduce identically across branches — required for a fair A/B (the ring graph's overlapping neighborhoods understated the BFS by ~7x).
 
 ## Codacy
 - **`.codacy.yml` exclude_paths is the sanctioned unsafe-usage escape hatch**: SIMD hot paths with SAFETY comments belong in `engines.opengrep.exclude_paths` (repo policy) — NOT dashboard `AcceptedUse` suppressions, which are un-reviewable and vanish from the dashboard. Fix in code, or exclude per policy.

@@ -1814,7 +1814,7 @@ world_state:
   # Codebase analysis + plans compaction 2026-07-20
   # Canonical recommendations: plans/RECOMMENDATIONS_2026_07_20.md
   # ═══════════════════════════════════════════════════════
-  action_last_completed: merge_pr_597_599_followup_2026_08_05
+  action_last_completed: merge_pr_598_followup_2026_08_05
   recommendations_2026_07_20_written: true
   plan_archive_2026_07_20_complete: true
   active_plan_set_compact: true
@@ -1883,3 +1883,10 @@ world_state:
   neon_kernels_executed_in_ci: true     # #599 (8d63b27): native arm64 runner executes NEON paths
   codacy_zero_suppressions: true        # .codacy.yml exclude_paths per repo policy; no dashboard ignores
   main_ci_all_green: true
+
+  # ═══════════════════════════════════════════════════════
+  # 2026-08-05: Graph candidate &str (#598) merged + bench gate
+  # ═══════════════════════════════════════════════════════
+  graph_candidates_str_borrowed: true   # #598 (075cfe8): BFS borrows &str, no String clones
+  graph_candidates_benchmarked: true    # same-machine A/B ~8% faster (238.3 -> 218.5 us)
+  graph_candidates_bench_in_ci: true    # benchmark-graph-candidates job enforces regression ceiling

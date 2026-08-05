@@ -5031,6 +5031,39 @@ actions:
       kernels) executes on real aarch64 hardware instead of only cross-compiling.
       Path-filtered on rust/workflow changes; arch-assert step; 29/29 checks green.
 
+  - name: merge_pr_598_graph_candidate_str
+    preconditions:
+      tests_passing: true
+    effects:
+      graph_candidates_str_borrowed: true
+      graph_candidates_benchmarked: true
+    cost: 2
+    status: complete
+    priority: P0
+    wave: "wave-33"
+    file: crates/csm-memory/src/singularity_retrieval.rs, benches/graph_candidates_benchmark.rs, Cargo.toml
+    description: |
+      Squash-merged (#598, 075cfe8). generate_graph_candidates BFS borrows &str
+      instead of cloning String per candidate. Same-machine criterion A/B on a
+      deterministic 500-node association graph: main 236.6/240.0 us vs &str
+      202.6/233.5/220.7/217.2 us (~8% faster, ~840 fewer allocs). Evidence bench
+      committed to benches/; PR body carries the full table and methodology.
+
+  - name: add_graph_candidates_ci_bench_gate
+    preconditions:
+      graph_candidates_benchmarked: true
+    effects:
+      graph_candidates_bench_in_ci: true
+    cost: 2
+    status: complete
+    priority: P2
+    wave: "wave-33"
+    file: .github/workflows/ci.yml
+    description: |
+      benchmark-graph-candidates job runs benches/graph_candidates_benchmark.rs
+      in CI with a documented regression ceiling (~2.5x local baseline), gated on
+      benches/, csm-memory, Cargo manifests, and ci.yml changes.
+
   - name: recover_v037_failed_deployments
     preconditions:
       ci_all_checks_passed: true
