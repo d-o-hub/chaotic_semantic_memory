@@ -495,9 +495,17 @@ cargo bench --bench benchmark -- --save-baseline main
 cargo bench --bench benchmark -- --baseline main
 cargo bench --bench persistence_benchmark -- --save-baseline main
 cargo bench --bench persistence_benchmark -- --baseline main
+cargo bench --bench binary_benchmark               # BHVec10240::hamming direct dispatch (PR #597)
+cargo bench --bench graph_candidates_benchmark     # graph candidate retrieval path (PR #598)
 ```
 
 Primary perf gate: `reservoir_step_50k < 100us`.
+
+Recent verified wins (same-machine criterion):
+- **`BHVec10240::hamming`** dispatches directly over the packed `[u64; 160]` words — AVX2 (x86_64), NEON (aarch64), unrolled scalar fallback — eliminating the two `to_hvec()` layout conversions: **~2.6–2.75× faster** (PR #597).
+- **Graph candidate retrieval** (`generate_graph_candidates`) borrows `&str` instead of cloning every candidate `String`: **~8% faster** end-to-end on a 500-node association graph (PR #598).
+
+CI runs `benchmark-graph-candidates` on `benches/**`, `csm-memory`, and workflow changes, enforcing a documented regression ceiling (~600 µs, measured ~259 µs on GitHub runners).
 
 ## License
 

@@ -87,6 +87,8 @@ cargo test --all-features
 
 # Benchmarks
 cargo bench --bench benchmark
+cargo bench --bench binary_benchmark              # BHVec10240::hamming direct dispatch
+cargo bench --bench graph_candidates_benchmark    # graph candidate retrieval path
 
 # Mutation testing
 scripts/mutation_test.sh fast
