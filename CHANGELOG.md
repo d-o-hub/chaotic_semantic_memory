@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ANN**: `validate_index_backend` at framework build; invalid HNSW/LSH configs return `MemoryError::InvalidInput` instead of panicking.
 
 ### Changed
+- **Perf (`csm-core-lib`)**: `BHVec10240::hamming` now dispatches directly over the packed `[u64; 160]` words (AVX2 / NEON / unrolled scalar fallback), removing the two `to_hvec()` layout conversions from the hot path — ~2.6–2.75× faster same-machine (PR #597).
+- **CI**: `test-core-arm64` job runs the `csm-core-lib` suite on a native `ubuntu-24.04-arm` runner so the NEON SIMD kernels are executed in CI, not only cross-compiled (PR #599).
 - **Breaking (`csm-memory`)**: `Singularity::get_namespace_mut` now returns `Result<&mut NamespaceState<H>>` (was `&mut NamespaceState<H>`). Prefer `ensure_namespace`; invalid ANN backends propagate as `InvalidInput`. Migration: add `?` / handle `Result` at call sites.
 - **Release skill**: Slimmed to ≤250 LOC; documents protected-main branch→PR→CI→merge and `release.yml` as sole routine tag owner.
 
