@@ -133,14 +133,14 @@ impl Singularity {
         let results = self.exact_similarity_scan(ns, query, 1, unix_now_ns(), true);
         if let Some((seed_id, _)) = results.first() {
             let mut queue = VecDeque::new();
-            queue.push_back((seed_id.clone(), 0u8));
-            candidates.insert(seed_id.clone());
+            queue.push_back((seed_id.as_str(), 0u8));
+            candidates.insert(seed_id.as_str());
 
             while let Some((id, depth)) = queue.pop_front() {
                 if depth >= self._retrieval_config.graph_depth {
                     continue;
                 }
-                if let Some(links) = ns_state.associations.get(&id) {
+                if let Some(links) = ns_state.associations.get(id) {
                     let mut sorted_links: Vec<_> = links.iter().collect();
                     let fanout = self._retrieval_config.graph_fanout.min(sorted_links.len());
                     if fanout > 0 {
@@ -151,9 +151,10 @@ impl Singularity {
                     }
 
                     for (neighbor_id, _) in sorted_links {
-                        if !candidates.contains(neighbor_id) {
-                            candidates.insert(neighbor_id.clone());
-                            queue.push_back((neighbor_id.clone(), depth + 1));
+                        let neighbor_str = neighbor_id.as_str();
+                        if !candidates.contains(neighbor_str) {
+                            candidates.insert(neighbor_str);
+                            queue.push_back((neighbor_str, depth + 1));
                         }
                     }
                 }
@@ -162,7 +163,7 @@ impl Singularity {
 
         candidates
             .into_iter()
-            .filter_map(|id| ns_state.id_to_index.get(&id).copied())
+            .filter_map(|id| ns_state.id_to_index.get(id).copied())
             .collect()
     }
 
