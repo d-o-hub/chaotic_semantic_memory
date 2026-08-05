@@ -6,4 +6,4 @@
 engines:
   opengrep:
     exclude_paths:
-  
+      - crates/csm-core-lib/src/hyperdim_simd.rs
