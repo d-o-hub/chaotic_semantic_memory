@@ -103,6 +103,53 @@ pub fn normalize_scores_in_place(scores: &mut [(String, f32)]) {
     }
 }
 
+/// Helper to fast-path merging of a single list when the other is empty.
+///
+/// Bypasses HashMap allocation, lookup, and entry insertion, returning directly.
+fn merge_single_list(
+    results: &[(String, f32)],
+    weight: f32,
+    top_k: usize,
+) -> Vec<(String, f32)> {
+    if results.is_empty() || top_k == 0 {
+        return Vec::new();
+    }
+
+    let mut min = f32::INFINITY;
+    let mut max = f32::NEG_INFINITY;
+    for (_, s) in results {
+        let s = *s;
+        if s < min {
+            min = s;
+        }
+        if s > max {
+            max = s;
+        }
+    }
+
+    let range = max - min;
+    let mut ref_results: Vec<(&str, f32)> = if range < f32::EPSILON {
+        results.iter().map(|(id, _)| (id.as_str(), weight)).collect()
+    } else {
+        let factor = weight / range;
+        results
+            .iter()
+            .map(|(id, score)| (id.as_str(), (score - min) * factor))
+            .collect()
+    };
+
+    if ref_results.len() > top_k {
+        ref_results.select_nth_unstable_by(top_k, |a, b| b.1.total_cmp(&a.1));
+        ref_results.truncate(top_k);
+    }
+    ref_results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
+
+    ref_results
+        .into_iter()
+        .map(|(id, score)| (id.to_string(), score))
+        .collect()
+}
+
 /// Merge BM25 and HDC results with given weights.
 ///
 /// Takes two result sets (from BM25 and HDC), normalizes scores,
@@ -120,6 +167,14 @@ pub fn merge_results(
     }
 
     let (kw_weight, sem_weight) = weights;
+
+    // Fast-path single list merges to bypass HashMap allocations, lookups, and entry insertion.
+    if hdc_results.is_empty() {
+        return merge_single_list(bm25_results, kw_weight, top_k);
+    }
+    if bm25_results.is_empty() {
+        return merge_single_list(hdc_results, sem_weight, top_k);
+    }
 
     // Pre-allocate map; use &str keys to avoid String clones during accumulation.
     let mut combined: HashMap<&str, f32> =
@@ -144,9 +199,9 @@ pub fn merge_results(
                 combined.insert(id.as_str(), kw_weight);
             }
         } else {
-            let inv_range = 1.0 / range;
+            let factor = kw_weight / range;
             for (id, score) in bm25_results {
-                combined.insert(id.as_str(), kw_weight * (score - min) * inv_range);
+                combined.insert(id.as_str(), (score - min) * factor);
             }
         }
     }
@@ -172,9 +227,9 @@ pub fn merge_results(
                     .or_insert(sem_weight);
             }
         } else {
-            let inv_range = 1.0 / range;
+            let factor = sem_weight / range;
             for (id, score) in hdc_results {
-                let weighted_norm = sem_weight * (score - min) * inv_range;
+                let weighted_norm = (score - min) * factor;
                 combined
                     .entry(id.as_str())
                     .and_modify(|s| *s += weighted_norm)
@@ -234,8 +289,6 @@ impl Default for HybridConfig {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-    // Exact float comparisons for weight test assertions
-
     use super::*;
 
     #[test]
