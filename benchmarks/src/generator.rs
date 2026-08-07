@@ -290,8 +290,7 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
                             .as_ref()
                             .is_some_and(|id| id.contains(":city:v1"))
                     })
-                    .map(|t| t.text.clone())
-                    .unwrap_or_else(|| "Chicago".into()),
+                    .map_or_else(|| "Chicago".into(), |t| t.text.clone()),
                 gold_evidence_ids: vec![format!("{}:city:v1", s.session_id)],
                 expected_answer: None,
                 should_abstain: false,
@@ -309,8 +308,7 @@ pub fn generate_queries(sessions: &[Session]) -> Vec<QueryCase> {
                             .memory_id
                             .as_ref()
                             .is_some_and(|id| id.contains(":city:v1")))
-                        .map(|t| t.text.clone())
-                        .unwrap_or_else(|| "Chicago".into())
+                        .map_or_else(|| "Chicago".into(), |t| t.text.clone())
                 ),
                 gold_evidence_ids: vec![
                     format!("{}:favorite_color:v2", s.session_id),

@@ -1,3 +1,6 @@
+#![allow(clippy::cast_precision_loss)]
+// Token-overlap ratios intentionally cast counts to f32 (benchmark scoring).
+
 use anyhow::Result;
 use chaotic_semantic_memory::bridge_retrieval::BridgeRetrieval;
 use chaotic_semantic_memory::encoder::TextEncoder;
@@ -302,11 +305,9 @@ impl MemoryAdapter {
 
         // Get BM25 results (BM25 still needs manual session filtering here as it's a separate index)
         let query_tokens = tokenize_for_bm25(text);
-        let bm25_hits = self
-            .bm25_index
-            .read()
-            .await
-            .search(&query_tokens, top_k * 10);
+        let bm25_index_guard = self.bm25_index.read().await;
+        let bm25_hits = bm25_index_guard.search(&query_tokens, top_k * 10);
+        drop(bm25_index_guard);
         let session_prefix = format!("{session_id}:");
         let bm25_filtered: Vec<_> = bm25_hits
             .into_iter()
@@ -348,11 +349,9 @@ impl MemoryAdapter {
         top_k: usize,
     ) -> Result<Vec<(String, f32)>> {
         let query_tokens = tokenize_for_bm25(text);
-        let bm25_hits = self
-            .bm25_index
-            .read()
-            .await
-            .search(&query_tokens, top_k * 10);
+        let bm25_index_guard = self.bm25_index.read().await;
+        let bm25_hits = bm25_index_guard.search(&query_tokens, top_k * 10);
+        drop(bm25_index_guard);
 
         let filtered = if let Some(sid) = session_id {
             let prefix = format!("{sid}:");
@@ -397,6 +396,7 @@ impl MemoryAdapter {
         let hits = self
             .bridge
             .query("_default", &sing, text, top_k * 10, None)?;
+        drop(sing); // release the read guard before the async pipeline continues
 
         let filtered = if let Some(sid) = session_id {
             let prefix = format!("{sid}:");
@@ -452,6 +452,8 @@ impl MemoryAdapter {
                 bm25.remove_document(&id);
                 text_store.remove(&id);
             }
+            drop(bm25);
+            drop(text_store);
         }
 
         Ok(count)
