@@ -40,7 +40,7 @@ mod tests {
         analytics2
             .conn
             .execute(
-                &format!("COPY concepts FROM '{}' (FORMAT PARQUET)", safe_path),
+                &format!("COPY concepts FROM '{safe_path}' (FORMAT PARQUET)"),
                 [],
             )
             .unwrap();
@@ -154,9 +154,7 @@ mod tests {
                 compression: compression.clone(),
                 ..Default::default()
             };
-            let path = dir
-                .path()
-                .join(format!("concepts_{:?}.parquet", compression));
+            let path = dir.path().join(format!("concepts_{compression:?}.parquet"));
             let report = analytics.export_concepts_parquet(&path, &opts).unwrap();
             assert_eq!(report.rows_written, 1);
             assert!(path.exists());

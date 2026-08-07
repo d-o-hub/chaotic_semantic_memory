@@ -1,3 +1,6 @@
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+// Scoring ratios intentionally cast integer counts to f32 (recall/rank math).
+
 use crate::types::{CaseResult, QueryCase};
 use std::collections::HashSet;
 
@@ -80,6 +83,7 @@ pub fn ndcg_at_k(case: &QueryCase, result: &CaseResult, k: usize) -> f32 {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // exact float equality is intentional for scorer tests
     use super::*;
     use crate::types::{RetrievedItem, TaskType};
 

@@ -1,3 +1,7 @@
+#![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+// Casts in benchmark metric aggregation are intentionally approximate (f32 ratios,
+// floor-based percentile indexing). Mirrors csm-memory/singularity_retrieval.rs.
+
 use crate::types::{CaseResult, SummaryMetrics, TaskType};
 
 /// Aggregates case results into summary metrics.
@@ -158,6 +162,7 @@ pub fn aggregate(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)] // exact float equality is intentional for metric tests
     use super::*;
     use crate::types::RetrievedItem;
 

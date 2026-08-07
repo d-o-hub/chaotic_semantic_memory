@@ -69,11 +69,9 @@ impl Analytics {
                     duckdb::types::ValueRef::Int(n) => serde_json::Value::Number(n.into()),
                     duckdb::types::ValueRef::BigInt(n) => serde_json::Value::Number(n.into()),
                     duckdb::types::ValueRef::Float(n) => serde_json::Number::from_f64(n as f64)
-                        .map(serde_json::Value::Number)
-                        .unwrap_or(serde_json::Value::Null),
+                        .map_or(serde_json::Value::Null, serde_json::Value::Number),
                     duckdb::types::ValueRef::Double(n) => serde_json::Number::from_f64(n)
-                        .map(serde_json::Value::Number)
-                        .unwrap_or(serde_json::Value::Null),
+                        .map_or(serde_json::Value::Null, serde_json::Value::Number),
                     duckdb::types::ValueRef::Text(s) => {
                         serde_json::Value::String(String::from_utf8_lossy(s).into_owned())
                     }
@@ -90,7 +88,7 @@ impl Analytics {
     }
 }
 
-pub fn version() -> &'static str {
+pub const fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 

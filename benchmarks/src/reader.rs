@@ -1,10 +1,13 @@
+#![allow(clippy::cast_possible_truncation)]
+// Token estimates intentionally truncate character counts to u32.
+
 use crate::types::QueryCase;
 use anyhow::Result;
 
 pub struct Reader;
 
 impl Reader {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self
     }
 
