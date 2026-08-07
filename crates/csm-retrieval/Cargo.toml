@@ -20,6 +20,8 @@ async-trait = "0.1.83"
 
 # Optional BM25 dependencies
 tantivy = { version = "0.22", optional = true }
+# Optional cross-encoder reranking (ONNX)
+candle-onnx = { version = "0.11", optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
@@ -27,7 +29,7 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 [features]
 default = []
 bm25 = ["dep:tantivy"]
-rerank-cross = []
+rerank-cross = ["dep:candle-onnx"]
 
 [lib]
 crate-type = ["lib"]
