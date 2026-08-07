@@ -20,11 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI**: `test-core-arm64` job runs the `csm-core-lib` suite on a native `ubuntu-24.04-arm` runner so the NEON SIMD kernels are executed in CI, not only cross-compiled (PR #599).
 - **Breaking (`csm-memory`)**: `Singularity::get_namespace_mut` now returns `Result<&mut NamespaceState<H>>` (was `&mut NamespaceState<H>`). Prefer `ensure_namespace`; invalid ANN backends propagate as `InvalidInput`. Migration: add `?` / handle `Result` at call sites.
 - **Release skill**: Slimmed to ≤250 LOC; documents protected-main branch→PR→CI→merge and `release.yml` as sole routine tag owner.
+- **Breaking (`csm-memory`)**: `Singularity::prune_decayed_associations` now returns `Result<usize>` (was `usize`) and rejects non-finite or out-of-range thresholds with `MemoryError::InvalidInput` naming `threshold`. Prefer handling the `Result` at call sites (PR #609).
 
 ### Fixed
 - **Fuzz**: `persistence_save_concept` target updated for current `Concept` / `save_concept(ns, …)` API; unique temp DBs via `tempfile`.
 - **Security (csm-duckdb)**: Remove redundant SQL-escape in `export_parquet.rs` and `ingest_libsql.rs`; `validate_analytics_path` already rejects quote characters, making the extra `replace("'", "''")` unreachable dead code.
 - **Security (deps)**: Update `time` from 0.3.45 to 0.3.47 to fix RUSTSEC-2026-0009 (DoS via stack exhaustion, CVSS 6.8). Transitive via `tantivy → csm-retrieval`.
+- **Security**: `ChaoticSemanticFramework::prune_decayed_associations` validates `threshold` (finite, `[0.0, 1.0]`) before pruning — a `NaN` threshold previously pruned **all** associations silently (PR #607).
+- **Security (`csm-memory`, wasm)**: Crate-level `Singularity::prune_decayed_associations` and the wasm `neighbors(min_strength)` binding reject `NaN`/out-of-range inputs instead of silently mass-pruning associations or returning empty neighbor sets (PR #609).
 - **CI (Pre-Release Gate)**: Fix `cargo install cargo-audit` failure on rustc 1.88.0 by adding `--locked`; fix `planning-state-check` grep off-by-one (blank line after `## Status` heading).
 
 ## [0.3.7] - 2026-06-27
