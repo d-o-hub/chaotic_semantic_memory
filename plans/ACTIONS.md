@@ -5081,3 +5081,26 @@ actions:
       existing release tag and enable wasm-opt's non-trapping float-to-int
       feature. Dispatch recovery for v0.3.7 after CI so the updated crates.io
       credential and npm OIDC publisher fill only missing registry artifacts.
+
+  - name: harden_public_f32_api_validation
+    preconditions:
+      ci_all_checks_passed: true
+      prune_threshold_validated: true
+    effects:
+      public_f32_apis_validate_input: true
+      nan_mass_prune_prevented_at_crate_level: true
+    cost: 3
+    status: queued
+    priority: P1
+    file: crates/csm-memory/src/singularity_decay.rs, src/wasm_ext.rs
+    description: |
+      Follow-up to PR #607: extend threshold/rate/score validation to every
+      public f32 API, not just ChaoticSemanticFramework::prune_decayed_
+      associations. Known gaps: csm-memory Singularity::prune_decayed_
+      associations (pub fn; a NaN threshold still silently prunes ALL
+      associations because `retain(... >= NAN)` keeps nothing) and
+      wasm_ext::neighbors(min_strength: f32). Reject non-finite and
+      out-of-range inputs before state manipulation, mirroring
+      validate_prune_threshold's error-field naming (InvalidInput names the
+      actual parameter). Acceptance: unit tests assert NaN/INF/out-of-range
+      inputs return InvalidInput naming the parameter for every covered API.

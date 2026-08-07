@@ -1,6 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use crate::framework::ChaoticSemanticFramework;
+use csm_core_lib::error::MemoryError;
 use csm_core_lib::hyperdim::HVec10240;
 
 #[tokio::test]
@@ -419,4 +420,81 @@ async fn concept_history_with_persistence_returns_versions_after_update() {
         !history.is_empty(),
         "concept_history must return recorded versions, got empty"
     );
+}
+
+#[tokio::test]
+async fn prune_decayed_associations_strength_validation_fails_unit() {
+    let ttl_config = crate::framework_ttl_advanced::TtlConfig {
+        association_decay: crate::framework_ttl_advanced::DecayCurve::Step {
+            threshold_seconds: 0,
+            drop: 1.0,
+        },
+        ..Default::default()
+    };
+
+    let framework = ChaoticSemanticFramework::builder()
+        .without_persistence()
+        .with_ttl_config(ttl_config)
+        .build()
+        .await
+        .unwrap();
+
+    // Too low threshold
+    let result = framework.prune_decayed_associations(-0.1).await;
+    assert!(result.is_err());
+
+    // Too high threshold
+    let result = framework.prune_decayed_associations(1.1).await;
+    assert!(result.is_err());
+
+    // Infinite threshold
+    let result = framework.prune_decayed_associations(f32::INFINITY).await;
+    assert!(result.is_err());
+
+    // NaN threshold
+    let result = framework.prune_decayed_associations(f32::NAN).await;
+    assert!(result.is_err());
+
+    // Error must name the `threshold` parameter, not `strength`
+    let err = framework
+        .prune_decayed_associations(f32::NAN)
+        .await
+        .unwrap_err();
+    let MemoryError::InvalidInput { field, .. } = err else {
+        panic!("expected InvalidInput, got: {err:?}");
+    };
+    assert_eq!(field, "threshold");
+
+    // Inclusive range edges are valid (with no associations, prune returns Ok(0))
+    let result = framework.prune_decayed_associations(0.0).await;
+    assert!(result.is_ok());
+    let result = framework.prune_decayed_associations(1.0).await;
+    assert!(result.is_ok());
+
+    // Setup active associations to verify pruning logic and kill cargo-mutants (expect exactly 2 pruned)
+    framework
+        .inject_concept("assoc-prune-1", HVec10240::random())
+        .await
+        .unwrap();
+    framework
+        .inject_concept("assoc-prune-2", HVec10240::random())
+        .await
+        .unwrap();
+    framework
+        .inject_concept("assoc-prune-3", HVec10240::random())
+        .await
+        .unwrap();
+    framework
+        .associate("assoc-prune-1", "assoc-prune-2", 0.9)
+        .await
+        .unwrap();
+    framework
+        .associate("assoc-prune-1", "assoc-prune-3", 0.9)
+        .await
+        .unwrap();
+
+    // Valid threshold (should be Ok and return exactly 2 pruned associations)
+    let result = framework.prune_decayed_associations(0.5).await;
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), 2);
 }

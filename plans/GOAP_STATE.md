@@ -1506,7 +1506,7 @@ world_state:
   wave_29_benchmarks_added: 3          # rerank_benchmark, hybrid_benchmark, embedding_benchmark
   wave_29_rerank_module_public: true   # pub mod rerank in src/retrieval/mod.rs
   wave_29_check_cfg_rerank_cross: true # Suppressed pre-existing unexpected_cfgs warning
-  tests_count: 1034                     # 2026-07-14: CANONICAL — literal #[test]/#[tokio::test] across src/crates/tests (see tests_count_wave27_baseline for historical)
+  tests_count: 1036                     # 2026-08-07: CANONICAL — literal #[test]/#[tokio::test] across src/crates/tests (see tests_count_wave27_baseline for historical)
 
   # ═══════════════════════════════════════════════════════
   # GOAP Orchestrator Analysis 2026-06-26
@@ -1814,7 +1814,7 @@ world_state:
   # Codebase analysis + plans compaction 2026-07-20
   # Canonical recommendations: plans/RECOMMENDATIONS_2026_07_20.md
   # ═══════════════════════════════════════════════════════
-  action_last_completed: merge_pr_598_followup_2026_08_05
+  action_last_completed: fix_security_prune_threshold_2026_08_07
   recommendations_2026_07_20_written: true
   plan_archive_2026_07_20_complete: true
   active_plan_set_compact: true

@@ -76,3 +76,8 @@
 ## Supply Chain
 - **`cargo deny check` before releases**: New advisories surface anytime. Maintain `deny.toml` ignore list.
 - **Simple upgrades first**: `cargo update -p <pkg>` often resolves advisories without code changes.
+
+## 2026-08-07 — Input Bound Validation on Decay Pruning
+**Vulnerability:** The public API `prune_decayed_associations` accepted a float `threshold` parameter without any bounds or sanitization checks. Passing `NaN` as a threshold caused all associations to be silently deleted/pruned.
+**Learning:** Even if helper validators exist (such as `validate_association_strength`), some public APIs may skip calling them because they don't perform direct inserts, failing to realize that downstream comparison operators (like `>=`) behave unexpectedly on malicious floats.
+**Prevention:** Always validate all public API parameters of type `f32`/`f64` representing rates, scores, or thresholds against finite limits and expected ranges before performing state manipulation.
