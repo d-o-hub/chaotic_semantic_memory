@@ -18,6 +18,23 @@ mod tests {
     }
 
     #[test]
+    fn validate_min_strength_rejects_invalid() {
+        for bad in [-0.1, 1.1, f32::INFINITY, f32::NEG_INFINITY, f32::NAN] {
+            assert!(
+                crate::wasm_ext::validate_min_strength(bad).is_err(),
+                "expected {bad} to be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn validate_min_strength_accepts_valid() {
+        assert!(crate::wasm_ext::validate_min_strength(0.0).is_ok());
+        assert!(crate::wasm_ext::validate_min_strength(0.5).is_ok());
+        assert!(crate::wasm_ext::validate_min_strength(1.0).is_ok());
+    }
+
+    #[test]
     fn metadata_filter_eq_json_roundtrip() {
         let filter = MetadataFilter::eq("type", "document");
         let json = serde_json::to_string(&filter).unwrap();
