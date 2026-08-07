@@ -34,7 +34,7 @@ pub async fn run(analytics: &mut Analytics) -> Result<()> {
                 }
             }
             Err(e) => {
-                eprintln!("Error: {}", e);
+                eprintln!("Error: {e}");
             }
         }
     }

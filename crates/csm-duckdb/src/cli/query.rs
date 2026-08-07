@@ -7,12 +7,10 @@ pub async fn run(analytics: &Analytics, sql: &str, format: &CliOutputFormat) -> 
 
     if matches!(format, CliOutputFormat::Json) {
         println!("{}", serde_json::to_string_pretty(&rows)?);
+    } else if rows.is_empty() {
+        println!("No results.");
     } else {
-        if rows.is_empty() {
-            println!("No results.");
-        } else {
-            print_table(&rows);
-        }
+        print_table(&rows);
     }
 
     Ok(())
@@ -27,7 +25,7 @@ pub fn print_table(rows: &[serde_json::Value]) {
     let obj = match first.as_object() {
         Some(o) => o,
         None => {
-            println!("{:?}", first);
+            println!("{first:?}");
             return;
         }
     };
@@ -36,7 +34,7 @@ pub fn print_table(rows: &[serde_json::Value]) {
 
     // Simple fixed-width table printing
     for key in &keys {
-        print!("{:<20} ", key);
+        print!("{key:<20} ");
     }
     println!();
 
@@ -56,11 +54,11 @@ pub fn print_table(rows: &[serde_json::Value]) {
                 };
                 let display = if val_str.chars().count() > 19 {
                     let truncated: String = val_str.chars().take(16).collect();
-                    format!("{}...", truncated)
+                    format!("{truncated}...")
                 } else {
                     val_str
                 };
-                print!("{:<20} ", display);
+                print!("{display:<20} ");
             }
             println!();
         }

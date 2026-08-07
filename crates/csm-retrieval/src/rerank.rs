@@ -269,7 +269,7 @@ pub fn parse_rerankers(s: &str) -> csm_core_lib::error::Result<Vec<Box<dyn Reran
                 let model = candle_onnx::read_file(value).map_err(|e| {
                     csm_core_lib::error::MemoryError::InvalidInput {
                         field: "rerank".to_string(),
-                        reason: format!("failed to load ONNX model {}: {}", value, e),
+                        reason: format!("failed to load ONNX model {value}: {e}"),
                     }
                 })?;
                 rerankers.push(Box::new(CrossEncoderReranker {

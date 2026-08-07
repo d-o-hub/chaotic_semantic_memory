@@ -92,6 +92,6 @@ mod tests {
 
         let res = analytics.load_benchmarks_dir(dir.path());
         assert!(res.is_err());
-        assert!(format!("{:?}", res).contains("Missing or invalid latency_ms"));
+        assert!(format!("{res:?}").contains("Missing or invalid latency_ms"));
     }
 }

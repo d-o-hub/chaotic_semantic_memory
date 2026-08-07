@@ -1,3 +1,6 @@
+#![allow(clippy::cast_precision_loss)]
+// Version numbers are mapped to f32 scores for ranking checks.
+
 use crate::{
     cli::{Cli, Mode},
     dataset,
@@ -25,7 +28,7 @@ pub async fn run(cli: Cli) -> Result<()> {
     let pid = Pid::from_u32(std::process::id());
 
     sys.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
-    let mut peak_mem = sys.process(pid).map(|p| p.memory()).unwrap_or(0);
+    let mut peak_mem = sys.process(pid).map_or(0, |p| p.memory());
 
     println!("Ingesting memories...");
     let start_ingest = Instant::now();
@@ -40,7 +43,7 @@ pub async fn run(cli: Cli) -> Result<()> {
     }
     // Sample memory only once after all ingest
     sys.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
-    peak_mem = peak_mem.max(sys.process(pid).map(|p| p.memory()).unwrap_or(0));
+    peak_mem = peak_mem.max(sys.process(pid).map_or(0, |p| p.memory()));
     let ingest_ms = start_ingest.elapsed().as_millis();
 
     println!("Running queries...");
@@ -183,13 +186,13 @@ pub async fn run(cli: Cli) -> Result<()> {
         // Sample memory every 10 queries for accurate peak measurement
         if results.len() % 10 == 0 {
             sys.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
-            peak_mem = peak_mem.max(sys.process(pid).map(|p| p.memory()).unwrap_or(0));
+            peak_mem = peak_mem.max(sys.process(pid).map_or(0, |p| p.memory()));
         }
     }
 
     // Sample memory once after all queries
     sys.refresh_processes(ProcessesToUpdate::Some(&[pid]), false);
-    peak_mem = peak_mem.max(sys.process(pid).map(|p| p.memory()).unwrap_or(0));
+    peak_mem = peak_mem.max(sys.process(pid).map_or(0, |p| p.memory()));
 
     let storage_bytes = adapter.storage_bytes().await?;
 
