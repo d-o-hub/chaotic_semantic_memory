@@ -13,6 +13,7 @@ serde = { workspace = true, optional = true }
 
 [features]
 experimental-neural-circuit = []
+experimental-voronoi-lsh = []
 default = []
 std = []
 serde = ["dep:serde"]
@@ -36,3 +37,8 @@ workspace = true
 [[bench]]
 name = "chaotic_hashing_neural_circuit"
 harness = false
+
+[[bench]]
+name = "chaotic_hashing_voronoi"
+harness = false
+required-features = ["experimental-voronoi-lsh"]

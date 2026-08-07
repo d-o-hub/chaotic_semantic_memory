@@ -83,7 +83,7 @@ mod tests {
         let mut map = ChebyshevLogistic2d::new(0.123, -0.456, 4.0, 4);
         for _ in 0..1000 {
             let v = map.next_value();
-            assert!(v >= 0.0 && v < 1.0, "Value {} out of range", v);
+            assert!((0.0..1.0).contains(&v), "Value {v} out of range");
         }
     }
 
@@ -93,7 +93,13 @@ mod tests {
         let mut map2 = ChebyshevLogistic2d::new(0.123, -0.456, 4.0, 4);
 
         for _ in 0..100 {
-            assert_eq!(map1.next_value(), map2.next_value());
+            #[allow(clippy::float_cmp)]
+            let v1 = map1.next_value();
+            let v2 = map2.next_value();
+            #[allow(clippy::float_cmp)]
+            {
+                assert_eq!(v1, v2);
+            }
         }
     }
 
@@ -146,7 +152,7 @@ mod tests {
         }
 
         for &count in &buckets {
-            assert!(count > 0, "Bucket is empty: {:?}", buckets);
+            assert!(count > 0, "Bucket is empty: {buckets:?}");
         }
     }
 }
