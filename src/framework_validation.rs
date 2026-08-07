@@ -149,6 +149,26 @@ impl ChaoticSemanticFramework {
         Ok(())
     }
 
+    /// Validate a prune threshold: finite and within `[0.0, 1.0]`.
+    ///
+    /// Distinct from [`Self::validate_association_strength`] so error messages
+    /// name the `threshold` parameter the caller actually passed.
+    pub(crate) fn validate_prune_threshold(threshold: f32) -> Result<()> {
+        if !threshold.is_finite() {
+            return Err(MemoryError::InvalidInput {
+                field: "threshold".to_string(),
+                reason: "prune threshold must be finite".to_string(),
+            });
+        }
+        if !(0.0..=1.0).contains(&threshold) {
+            return Err(MemoryError::InvalidInput {
+                field: "threshold".to_string(),
+                reason: format!("prune threshold must be in [0.0, 1.0], got {threshold}"),
+            });
+        }
+        Ok(())
+    }
+
     pub(crate) fn validate_association_strength(strength: f32) -> Result<()> {
         if !strength.is_finite() {
             return Err(MemoryError::InvalidInput {

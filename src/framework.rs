@@ -467,6 +467,7 @@ impl ChaoticSemanticFramework {
     /// pruned associations.
     #[instrument(err, skip(self))]
     pub async fn prune_decayed_associations(&self, threshold: f32) -> Result<usize> {
+        Self::validate_prune_threshold(threshold)?;
         let curve = self.config.ttl_config.association_decay;
         let mut sing = self.singularity.write().await;
         let ns = self.namespace.read().await;

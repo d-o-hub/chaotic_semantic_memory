@@ -4351,6 +4351,8 @@ Normalize scores in place to [0, 1] range using min-max normalization.
 This is the preferred method in high-frequency/hot query pathways because
 it mutates existing score vectors, avoiding heap allocations and string cloning.
 
+## src/retrieval/hybrid_tests.rs
+
 ## src/retrieval/mod.rs
 
 ### bm25::{Bm25Config, Bm25Index}
