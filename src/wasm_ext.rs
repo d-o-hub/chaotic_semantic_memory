@@ -16,6 +16,21 @@ use wasm_bindgen_futures::spawn_local;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm::WasmFramework;
 
+/// Validate a `min_strength` neighbor filter: finite and within `[0.0, 1.0]`.
+///
+/// Plain (non-wasm) helper so it is unit-testable on host builds; the wasm
+/// `neighbors` binding maps the error message to a `JsValue`. A `NaN` filter
+/// would otherwise silently return an empty neighbor set.
+pub(crate) fn validate_min_strength(min_strength: f32) -> Result<(), &'static str> {
+    if !min_strength.is_finite() {
+        return Err("min_strength must be finite");
+    }
+    if !(0.0..=1.0).contains(&min_strength) {
+        return Err("min_strength must be in [0.0, 1.0]");
+    }
+    Ok(())
+}
+
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 impl WasmFramework {
@@ -81,6 +96,7 @@ impl WasmFramework {
     ///
     /// Returns an Array of `{to: string, strength: number}` objects.
     pub async fn neighbors(&self, id: String, min_strength: f32) -> Result<Array, JsValue> {
+        validate_min_strength(min_strength).map_err(JsValue::from_str)?;
         let sing = self.framework.singularity.read().await;
         let ns = self.framework.namespace().await;
         let neighbors = sing.neighbors(&ns, &id, min_strength);

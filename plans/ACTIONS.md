@@ -5090,7 +5090,7 @@ actions:
       public_f32_apis_validate_input: true
       nan_mass_prune_prevented_at_crate_level: true
     cost: 3
-    status: queued
+    status: in_progress
     priority: P1
     file: crates/csm-memory/src/singularity_decay.rs, src/wasm_ext.rs
     description: |

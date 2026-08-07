@@ -471,6 +471,6 @@ impl ChaoticSemanticFramework {
         let curve = self.config.ttl_config.association_decay;
         let mut sing = self.singularity.write().await;
         let ns = self.namespace.read().await;
-        Ok(sing.prune_decayed_associations(&ns, curve, threshold))
+        sing.prune_decayed_associations(&ns, curve, threshold)
     }
 }
