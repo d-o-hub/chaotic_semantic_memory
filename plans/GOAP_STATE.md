@@ -51,12 +51,13 @@ world_state:
   wave_32_status: in_progress    # P0/P1 landed; ownership + evidence remain (see queued actions)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 6        # 2026-08-08: see plans/ACTIONS.md (active-only since ADR-0097)
+  queued_actions_count: 5        # 2026-08-08: see plans/ACTIONS.md (active-only since ADR-0097)
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: false
   workspace_implementation_owners_unique: false   # queued: consolidate_persistence_cli_wasm_ownership
-  no_default_features_is_lean: false              # queued: enforce_workspace_feature_contracts
+  no_default_features_is_lean: true               # 2026-08-08: no libsql/rayon in no-default tree (ADR-0094)
+  msrv_workspace_aligned: true                    # 2026-08-08: all manifests use workspace rust-version 1.88
   persistence_disabled_false_success_removed: false # queued: replace_persistence_disabled_noops
   wasm_ci_release_artifact_identical: false
   performance_claims_have_current_artifacts: false # queued: scale benches + memory model
@@ -95,4 +96,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: plans_reconciliation_compaction_2026_08_08
+  action_last_completed: enforce_workspace_feature_contracts
