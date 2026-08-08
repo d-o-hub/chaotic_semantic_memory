@@ -5,21 +5,21 @@
 //! - In-memory persistence for WASM
 //! - Schema migrations and versioning
 
-#[cfg(feature = "persistence")]
+#[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
 mod persistence;
-#[cfg(feature = "persistence")]
+#[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
 mod persistence_concepts;
-#[cfg(feature = "persistence")]
+#[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
 mod persistence_index;
-#[cfg(feature = "persistence")]
+#[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
 mod persistence_migrations;
-#[cfg(feature = "persistence")]
+#[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
 mod persistence_ops;
-#[cfg(feature = "persistence")]
+#[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
 mod persistence_versions;
 
 #[cfg(feature = "wasm")]
 mod persistence_wasm;
 
-#[cfg(feature = "persistence")]
+#[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
 pub use persistence::Persistence;
