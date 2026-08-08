@@ -61,8 +61,8 @@ world_state:
   wasm_ci_release_artifact_identical: false
   performance_claims_have_current_artifacts: false # queued: scale benches + memory model
   critical_skill_evals_passing: false             # behavioral evals deferred
-  fuzz_short_runs_on_pr: false                    # compile-only gate today; weekly scheduled runs exist
-  fuzz_scheduled_full_runs: false                 # queued follow-up
+  fuzz_short_runs_on_pr: true                     # fuzz.yml fuzz-short job: 30s runs of changed targets on PRs
+  fuzz_scheduled_full_runs: true                  # fuzz.yml fuzz-full job: weekly cron (Sun 03:00 UTC), 5min/target
   duckdb_companion_published: false               # csm-duckdb not on crates.io
   benchmarks_prove_performance: false             # evidence tiers pending (ADR-0095)
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
