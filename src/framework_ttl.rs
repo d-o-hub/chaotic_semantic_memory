@@ -20,10 +20,7 @@ impl crate::framework::ChaoticSemanticFramework {
     /// If the query is known-absent at the configured threshold, return an
     /// immediate abstention without embedding or searching.
     #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-    pub(crate) async fn short_circuit_if_known_absent(
-        &self,
-        query: &str,
-    ) -> Option<HybridResult> {
+    pub(crate) async fn short_circuit_if_known_absent(&self, query: &str) -> Option<HybridResult> {
         let min_attempts = self.config.absence_short_circuit_min_attempts;
         let store = self.persistence.as_ref()?;
         let ns = self.namespace().await;
@@ -33,10 +30,7 @@ impl crate::framework::ChaoticSemanticFramework {
 
     #[cfg(not(all(not(target_arch = "wasm32"), feature = "persistence")))]
     #[allow(clippy::unused_async)]
-    pub(crate) async fn short_circuit_if_known_absent(
-        &self,
-        _query: &str,
-    ) -> Option<HybridResult> {
+    pub(crate) async fn short_circuit_if_known_absent(&self, _query: &str) -> Option<HybridResult> {
         None
     }
 
@@ -203,8 +197,7 @@ impl crate::framework::ChaoticSemanticFramework {
         let Some(handle) = self.ttl_cleanup_task.as_ref() else {
             return;
         };
-        let deadline =
-            tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
         while !handle.is_finished() && tokio::time::Instant::now() < deadline {
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
@@ -355,7 +348,6 @@ mod tests {
     //! (be orphaned by) the framework, and shutdown must be bounded.
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-    use super::*;
     use crate::ChaoticSemanticFramework;
     use crate::framework_ttl_advanced::TtlConfig;
     use std::sync::Arc;
@@ -369,12 +361,17 @@ mod tests {
         while !flag.load(Ordering::SeqCst) && Instant::now() < deadline {
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
-        assert!(flag.load(Ordering::SeqCst), "cleanup task did not exit within 3s");
+        assert!(
+            flag.load(Ordering::SeqCst),
+            "cleanup task did not exit within 3s"
+        );
     }
 
     async fn build_with_interval(interval_secs: u64) -> ChaoticSemanticFramework {
-        let mut ttl_config = TtlConfig::default();
-        ttl_config.cleanup_interval_seconds = interval_secs;
+        let ttl_config = TtlConfig {
+            cleanup_interval_seconds: interval_secs,
+            ..Default::default()
+        };
         crate::ChaoticSemanticFramework::builder()
             .without_persistence()
             .with_ttl_config(ttl_config)
@@ -429,6 +426,11 @@ mod tests {
         );
         assert_loop_exited(&exited).await;
         // Owned lifecycle: the handle is still tracked (already finished).
-        assert!(framework.ttl_cleanup_task.as_ref().is_some_and(|h| h.is_finished()));
+        assert!(
+            framework
+                .ttl_cleanup_task
+                .as_ref()
+                .is_some_and(|h| h.is_finished())
+        );
     }
 }

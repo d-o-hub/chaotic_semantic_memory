@@ -45,13 +45,13 @@ impl Drop for ChaoticSemanticFramework {
         // Always cancel: the loop's select! wakes and the task exits
         // normally, so no orphaned purge task can outlive the framework.
         self.ttl_cleanup_shutdown.cancel();
-        if let Some(handle) = self.ttl_cleanup_task.take() {
+        if let Some(mut handle) = self.ttl_cleanup_task.take() {
             if tokio::runtime::Handle::try_current().is_err() {
                 // Dropped outside a Tokio runtime: we may block. Give the task
                 // a bounded window to observe cancellation and exit, aborting
                 // as a last resort so Drop never hangs.
                 if let Ok(runtime) = tokio::runtime::Runtime::new() {
-                    let _ = runtime.block_on(async {
+                    runtime.block_on(async {
                         if tokio::time::timeout(Duration::from_secs(5), &mut handle)
                             .await
                             .is_err()

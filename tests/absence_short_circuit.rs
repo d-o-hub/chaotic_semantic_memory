@@ -12,7 +12,12 @@ use tempfile::NamedTempFile;
 
 const QUERY: &str = "completely unknown concept xyzzy";
 
-async fn framework_with_threshold(min_attempts: u32) -> (NamedTempFile, chaotic_semantic_memory::ChaoticSemanticFramework) {
+async fn framework_with_threshold(
+    min_attempts: u32,
+) -> (
+    NamedTempFile,
+    chaotic_semantic_memory::ChaoticSemanticFramework,
+) {
     let temp = NamedTempFile::new().unwrap();
     let path = temp.path().to_str().unwrap().to_string();
     let framework = FrameworkBuilder::new()

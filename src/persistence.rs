@@ -210,10 +210,7 @@ impl Persistence {
     /// Returns `(from_id, to_id, strength, created_at)` rows ordered by
     /// `from_id` then `to_id` for deterministic grouping. Replaces the
     /// per-concept `load_associations` N+1 in the framework load path.
-    pub async fn load_all_associations(
-        &self,
-        ns: &str,
-    ) -> Result<Vec<(String, String, f32, u64)>> {
+    pub async fn load_all_associations(&self, ns: &str) -> Result<Vec<(String, String, f32, u64)>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
 

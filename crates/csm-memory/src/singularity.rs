@@ -422,7 +422,10 @@ mod tests {
             matches!(err, MemoryError::InvalidInput { .. }),
             "lazy index creation must error, not panic: {err}"
         );
-        assert!(sing.namespaces.is_empty(), "no namespace on failed creation");
+        assert!(
+            sing.namespaces.is_empty(),
+            "no namespace on failed creation"
+        );
     }
 
     #[cfg(feature = "ann-lsh")]

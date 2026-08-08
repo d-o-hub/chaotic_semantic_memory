@@ -93,14 +93,20 @@ async fn load_all_associations_is_scoped_to_namespace() {
         .save_concepts(NS, &[make_concept("a", 1, 1), make_concept("b", 1, 1)])
         .await
         .unwrap();
-    persistence.save_association(NS, "a", "b", 0.6).await.unwrap();
+    persistence
+        .save_association(NS, "a", "b", 0.6)
+        .await
+        .unwrap();
 
     let other = "other_ns";
     persistence
         .save_concepts(other, &[make_concept("x", 1, 1), make_concept("y", 1, 1)])
         .await
         .unwrap();
-    persistence.save_association(other, "x", "y", 0.4).await.unwrap();
+    persistence
+        .save_association(other, "x", "y", 0.4)
+        .await
+        .unwrap();
 
     let in_default = persistence.load_all_associations(NS).await.unwrap();
     assert_eq!(in_default.len(), 1);
@@ -118,18 +124,26 @@ async fn load_all_associations_empty_for_unknown_namespace() {
     let path = temp.path().to_str().unwrap().to_string();
     let persistence = Persistence::new_local(&path).await.unwrap();
 
-    assert!(persistence
-        .load_all_associations("no-such-namespace")
-        .await
-        .unwrap()
-        .is_empty());
+    assert!(
+        persistence
+            .load_all_associations("no-such-namespace")
+            .await
+            .unwrap()
+            .is_empty()
+    );
 
     // An existing namespace with a concept but no associations is also empty.
     persistence
         .save_concepts(NS, &[make_concept("solo", 1, 1)])
         .await
         .unwrap();
-    assert!(persistence.load_all_associations(NS).await.unwrap().is_empty());
+    assert!(
+        persistence
+            .load_all_associations(NS)
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]
@@ -234,14 +248,28 @@ async fn concurrent_inject_probe_persist_load_does_not_deadlock() {
     };
 
     let (i0, i1, i2, i3, i4, i5, i6, i7, pr, pe, lo) = tokio::join!(
-        inject(0), inject(1), inject(2), inject(3),
-        inject(4), inject(5), inject(6), inject(7),
-        probe, persist, load,
+        inject(0),
+        inject(1),
+        inject(2),
+        inject(3),
+        inject(4),
+        inject(5),
+        inject(6),
+        inject(7),
+        probe,
+        persist,
+        load,
     );
     // No deadlock: every branch returned. Results are racy by design.
     let _ = (i0, i1, i2, i3, i4, i5, i6, i7, pr, pe, lo);
 
     let stats = framework.stats().await.unwrap();
     assert!(stats.concept_count >= 10);
-    assert!(!framework.get_associations("seed-0").await.unwrap().is_empty());
+    assert!(
+        !framework
+            .get_associations("seed-0")
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }

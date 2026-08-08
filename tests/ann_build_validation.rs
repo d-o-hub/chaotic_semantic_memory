@@ -17,7 +17,8 @@ async fn build_rejects_zero_m_hnsw_backend() {
         })
         .build()
         .await
-        .expect_err("m=0 must fail build");
+        .err()
+        .expect("m=0 must fail build");
     assert!(
         matches!(err, MemoryError::InvalidInput { .. }),
         "expected InvalidInput, got {err}"
@@ -35,7 +36,8 @@ async fn build_rejects_m_above_hnsw_rs_limit() {
         })
         .build()
         .await
-        .expect_err("m=257 must fail build (hnsw_rs hard-exits above 256)");
+        .err()
+        .expect("m=257 must fail build (hnsw_rs hard-exits above 256)");
     assert!(
         matches!(err, MemoryError::InvalidInput { .. }),
         "expected InvalidInput, got {err}"
@@ -53,7 +55,8 @@ async fn build_rejects_zero_ef_construction() {
         })
         .build()
         .await
-        .expect_err("ef_construction=0 must fail build");
+        .err()
+        .expect("ef_construction=0 must fail build");
     assert!(
         matches!(err, MemoryError::InvalidInput { .. }),
         "expected InvalidInput, got {err}"
@@ -70,7 +73,8 @@ async fn build_rejects_zero_num_tables_lsh_backend() {
         })
         .build()
         .await
-        .expect_err("num_tables=0 must fail build");
+        .err()
+        .expect("num_tables=0 must fail build");
     assert!(
         matches!(err, MemoryError::InvalidInput { .. }),
         "expected InvalidInput, got {err}"
@@ -87,7 +91,8 @@ async fn build_rejects_hash_bits_above_64_lsh_backend() {
         })
         .build()
         .await
-        .expect_err("hash_bits=65 must fail build instead of being clamped");
+        .err()
+        .expect("hash_bits=65 must fail build instead of being clamped");
     assert!(
         matches!(err, MemoryError::InvalidInput { .. }),
         "expected InvalidInput, got {err}"

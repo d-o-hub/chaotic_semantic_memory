@@ -200,12 +200,14 @@ mod tests {
                 "LSH backend must fail validation: {backend:?}"
             );
         }
-        assert!(IndexBackend::Lsh {
-            num_tables: 5,
-            hash_bits: 16
-        }
-        .validate()
-        .is_ok());
+        assert!(
+            IndexBackend::Lsh {
+                num_tables: 5,
+                hash_bits: 16
+            }
+            .validate()
+            .is_ok()
+        );
     }
 
     #[cfg(feature = "ann-hnsw")]

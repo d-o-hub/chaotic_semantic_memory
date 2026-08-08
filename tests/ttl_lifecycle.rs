@@ -123,8 +123,10 @@ async fn probe_text_encodes_and_searches() {
 async fn shutdown_cleanup_returns_promptly_for_running_loop() {
     // Owned lifecycle: an enabled cleanup loop must be stoppable via the
     // public shutdown API within its 5s bound.
-    let mut ttl_config = chaotic_semantic_memory::framework_ttl_advanced::TtlConfig::default();
-    ttl_config.cleanup_interval_seconds = 1;
+    let ttl_config = chaotic_semantic_memory::framework_ttl_advanced::TtlConfig {
+        cleanup_interval_seconds: 1,
+        ..Default::default()
+    };
     let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
         .with_ttl_config(ttl_config)

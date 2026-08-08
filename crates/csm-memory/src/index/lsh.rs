@@ -411,7 +411,10 @@ mod tests {
             &err,
             csm_core::error::MemoryError::InvalidInput { field, .. } if field == "num_tables"
         );
-        assert!(is_invalid, "expected InvalidInput for num_tables, got {err}");
+        assert!(
+            is_invalid,
+            "expected InvalidInput for num_tables, got {err}"
+        );
     }
 
     #[test]

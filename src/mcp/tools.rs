@@ -346,7 +346,10 @@ mod tests {
             .unwrap();
         assert_eq!(result["status"], "ok");
         let results = result["results"].as_array().unwrap();
-        assert!(!results.is_empty(), "probe should return at least one result");
+        assert!(
+            !results.is_empty(),
+            "probe should return at least one result"
+        );
         // Exact match must rank first: results are [concept_id, score] tuples.
         assert_eq!(results[0][0], "p1");
     }

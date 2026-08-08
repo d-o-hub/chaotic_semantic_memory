@@ -74,7 +74,11 @@ mod tests {
     use chrono::Utc;
     use tempfile::NamedTempFile;
 
-    async fn store_with_attempts(ns: &str, query: &str, attempts: u32) -> (NamedTempFile, Persistence) {
+    async fn store_with_attempts(
+        ns: &str,
+        query: &str,
+        attempts: u32,
+    ) -> (NamedTempFile, Persistence) {
         let temp = NamedTempFile::new().unwrap();
         let path = temp.path().to_str().unwrap();
         let persistence = Persistence::new_local(path).await.unwrap();
@@ -97,9 +101,11 @@ mod tests {
     async fn threshold_not_met_returns_none() {
         let (_temp, store) = store_with_attempts("_default", "missing topic", 2).await;
         assert!(!is_known_absent("_default", "missing topic", &store, 3).await);
-        assert!(known_absence_entry("_default", "missing topic", &store, 3)
-            .await
-            .is_none());
+        assert!(
+            known_absence_entry("_default", "missing topic", &store, 3)
+                .await
+                .is_none()
+        );
     }
 
     #[tokio::test]
@@ -129,9 +135,11 @@ mod tests {
         let (_temp, store) = store_with_attempts("tenant-a", "scoped query", 3).await;
         // Same text in a different namespace must not short-circuit.
         assert!(!is_known_absent("tenant-b", "scoped query", &store, 3).await);
-        assert!(known_absence_entry("tenant-b", "scoped query", &store, 3)
-            .await
-            .is_none());
+        assert!(
+            known_absence_entry("tenant-b", "scoped query", &store, 3)
+                .await
+                .is_none()
+        );
         // Original namespace still short-circuits.
         assert!(is_known_absent("tenant-a", "scoped query", &store, 3).await);
     }

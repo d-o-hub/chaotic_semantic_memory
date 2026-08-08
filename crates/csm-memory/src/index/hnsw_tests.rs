@@ -115,7 +115,10 @@ fn new_rejects_zero_ef() {
             &err,
             MemoryError::InvalidInput { field: f, .. } if f.as_str() == field
         );
-        assert!(is_invalid_field, "expected InvalidInput for {field}, got {err}");
+        assert!(
+            is_invalid_field,
+            "expected InvalidInput for {field}, got {err}"
+        );
     }
 }
 

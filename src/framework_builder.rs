@@ -3,9 +3,9 @@
 use std::sync::Arc;
 #[cfg(test)]
 use std::sync::atomic::{AtomicBool, Ordering};
+use tokio::sync::RwLock;
 #[cfg(not(target_arch = "wasm32"))]
 use tokio_util::sync::CancellationToken;
-use tokio::sync::RwLock;
 use tracing::warn;
 
 use crate::ChaoticSemanticFramework;
@@ -468,8 +468,7 @@ impl FrameworkBuilder {
                     #[cfg(test)]
                     fw_clone.cleanup_loop_exited.store(true, Ordering::SeqCst);
                 });
-                let mut framework =
-                    Arc::try_unwrap(fw).unwrap_or_else(|fw_arc| (*fw_arc).clone());
+                let mut framework = Arc::try_unwrap(fw).unwrap_or_else(|fw_arc| (*fw_arc).clone());
                 framework.ttl_cleanup_task = Some(handle);
                 return Ok(framework);
             }

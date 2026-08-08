@@ -5,9 +5,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 #[cfg(test)]
 use std::sync::atomic::AtomicBool;
+use tokio::sync::RwLock;
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::task::JoinHandle;
-use tokio::sync::RwLock;
 #[cfg(not(target_arch = "wasm32"))]
 use tokio_util::sync::CancellationToken;
 use tracing::instrument;
