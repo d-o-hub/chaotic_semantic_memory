@@ -26,6 +26,7 @@ module.exports = {
         'traits',
         'deps',
         'ci',
+        'hyperdim_binary',
         'codacy',
         'docs',
         'release',
