@@ -7,6 +7,12 @@
 
 This document consolidates improvements, missing implementations, optimizations, new features, and documentation/skill hygiene. It is the active backlog companion to `ACTIONS.md`.
 
+> **2026-08-08 (ADR-0097):** statuses reconciled — the authoritative queue is
+> now the active-only `ACTIONS.md` (6 queued actions). Items this file listed
+> as queued that have since landed (BM25 absence removal, TTL lifecycle
+> ownership, retrieval ownership consolidation, CLI metrics reset, f32 API
+> hardening) are complete; see ADR-0097 and the archive snapshot.
+
 ---
 
 ## Executive summary
