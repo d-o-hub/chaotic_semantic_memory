@@ -2,7 +2,7 @@
 name = "csm-chaos"
 version = "0.3.7"
 edition = "2024"
-rust-version = "1.85"
+rust-version.workspace = true
 description = "Chaotic maps and hashing primitives for chaotic_semantic_memory"
 license = "MIT"
 repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
@@ -37,6 +37,7 @@ workspace = true
 [[bench]]
 name = "chaotic_hashing_neural_circuit"
 harness = false
+required-features = ["experimental-neural-circuit"]
 
 [[bench]]
 name = "chaotic_hashing_voronoi"

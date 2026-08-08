@@ -26,7 +26,7 @@ pub enum HybridResult {
 
 impl HybridResult {
     /// Check if the result is a success and contains entries.
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         match self {
             Self::Success(v) => v.is_empty(),
             Self::Abstained(_) => true,

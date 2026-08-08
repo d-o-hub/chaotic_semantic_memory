@@ -104,7 +104,7 @@ cognitive_complexity = "allow"
 name = "chaotic_semantic_memory"
 version = "0.3.7"
 edition = "2024"
-rust-version = "1.88"
+rust-version.workspace = true
 description = "AI memory systems with hyperdimensional vectors and chaotic reservoirs"
 license = "MIT"
 repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
@@ -124,12 +124,14 @@ include = [
 ]
 
 [dependencies]
-csm-chaos = { path = "crates/csm-chaos", version = "0.3.7" }
-csm-core-lib = { path = "crates/csm-core-lib", version = "0.3.7" }
-csm-embedding = { path = "crates/csm-embedding", version = "0.3.7" }
-csm-memory = { path = "crates/csm-memory", version = "0.3.7" }
-csm-retrieval = { path = "crates/csm-retrieval", version = "0.3.7" }
-csm-traits = { path = "crates/csm-traits", version = "0.3.7" }
+# Owner crates: default-features = false so the root controls feature
+# composition (ADR-0094); root features forward explicitly below.
+csm-chaos = { path = "crates/csm-chaos", version = "0.3.7", default-features = false }
+csm-core-lib = { path = "crates/csm-core-lib", version = "0.3.7", default-features = false }
+csm-embedding = { path = "crates/csm-embedding", version = "0.3.7", default-features = false }
+csm-memory = { path = "crates/csm-memory", version = "0.3.7", default-features = false }
+csm-retrieval = { path = "crates/csm-retrieval", version = "0.3.7", default-features = false }
+csm-traits = { path = "crates/csm-traits", version = "0.3.7", default-features = false }
 
 tempfile = { workspace = true }
 # Serialization
@@ -187,9 +189,13 @@ rayon = { version = "1.10.0", optional = true }
 
 # Database - Use libsql NOT turso-client (opt-in via "persistence" feature)
 libsql = { version = "0.9.30", default-features = false, features = ["sync", "hrana", "remote"], optional = true }
-csm-persistence = { path = "crates/csm-persistence", version = "0.3.7" }
+# ADR-0094: no default features — csm-persistence default pulls libSQL;
+# the root `persistence` feature forwards explicitly.
+csm-persistence = { path = "crates/csm-persistence", version = "0.3.7", default-features = false }
 # `net` is required by the Prometheus /metrics server (ADR-0072).
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs", "net"] }
+# `time` is required by the TTL cleanup loop; it was previously enabled only
+# transitively via libsql (ADR-0094 lean-build fix).
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs", "net", "time"] }
 
 # HTTP server for Prometheus /metrics endpoint (ADR-0072, opt-in via "prometheus" feature)
 hyper = { version = "1", features = ["server", "http1"], optional = true }
@@ -310,8 +316,8 @@ required-features = ["prometheus", "otlp-json"]
 experimental-neural-circuit = ["csm-chaos/experimental-neural-circuit"]
 default = ["cli", "persistence", "parallel"]
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
-persistence = ["dep:libsql"]
-parallel = ["dep:rayon"]
+persistence = ["dep:libsql", "csm-persistence/persistence"]
+parallel = ["dep:rayon", "csm-memory/parallel", "csm-traits/parallel"]
 wasm = []
 mcp = ["dep:rmcp", "cli", "dep:axum", "dep:tower", "dep:tower-http"]  # ADR-0067: MCP server requires CLI infrastructure
 

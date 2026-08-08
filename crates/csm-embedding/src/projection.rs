@@ -120,7 +120,7 @@ impl Projection {
 
     /// Get the number of non-zero entries in the projection matrix.
     #[must_use]
-    pub fn nnz(&self) -> usize {
+    pub const fn nnz(&self) -> usize {
         self.entries.len()
     }
 
