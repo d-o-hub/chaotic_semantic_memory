@@ -20,6 +20,10 @@ uuid = { workspace = true, optional = true, features = ["js"] }
 # libSQL backend - gated to non-WASM targets only (mio incompatible with wasm32)
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 libsql = { version = "0.9.30", default-features = false, features = ["sync", "hrana", "remote"], optional = true }
+# `fs` is used by persistence_ops (tokio::fs); declared explicitly instead of
+# relying on libsql's transitive tokio features. Non-wasm only: tokio fs does
+# not compile on wasm32.
+tokio = { workspace = true, features = ["fs"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

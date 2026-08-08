@@ -52,11 +52,16 @@ pub fn batch_cosine_similarity(query: &HVec10240, candidates: &[HVec10240]) -> V
             return results;
         }
 
-        candidates
-            .par_chunks(CHUNK_SIZE)
-            .zip(results.par_chunks_mut(CHUNK_SIZE))
-            .for_each(|(chunk, out)| process_chunk(query, chunk, out));
-        results
+        // aarch64 always returns from the NEON block above, so the scalar
+        // fallback is compiled only where it is reachable.
+        #[cfg(not(target_arch = "aarch64"))]
+        {
+            candidates
+                .par_chunks(CHUNK_SIZE)
+                .zip(results.par_chunks_mut(CHUNK_SIZE))
+                .for_each(|(chunk, out)| process_chunk(query, chunk, out));
+            results
+        }
     }
 
     #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
