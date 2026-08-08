@@ -1,10 +1,23 @@
 # Plans Archive Manifest
 
-**Archive date:** 2026-07-20  
-**Policy:** Non-destructive (ADR-0096 / Wave 32 `compact_active_plans_non_destructively`)  
-**Location:** `plans/.archive/2026-07-20-historical/`
+**Archive dates:** 2026-07-20, 2026-08-08  
+**Policy:** Non-destructive (ADR-0096; extended by ADR-0097 for state-file snapshots)  
+**Locations:** `plans/.archive/2026-07-20-historical/`, `plans/.archive/2026-08-08-historical/`
 
-Historical completed analysis, wave handoffs, and one-shot GOAP plans were moved out of the active `plans/` root so agents load a compact current state. Nothing was deleted.
+Historical completed analysis, wave handoffs, one-shot GOAP plans, and
+pre-compaction state-file snapshots were moved out of the active `plans/`
+root so agents load a compact current state. Nothing was deleted.
+
+## 2026-08-08 archive (ADR-0097)
+
+| File | What it is |
+|------|------------|
+| `plans/.archive/2026-08-08-historical/GOAP_STATE_2026_08_08.md` | Verbatim 1,892-line world state before compaction (all per-wave/PR narrative 2026-02 → 2026-08) |
+| `plans/.archive/2026-08-08-historical/ACTIONS_2026_08_08.md` | Verbatim 5,106-line action list before compaction (292 complete + 8 active) |
+
+Since 2026-08-08, `GOAP_STATE.md` holds current truth only and `ACTIONS.md`
+holds the active queue only; historical keys/actions resolve via these
+snapshots or git history.
 
 ## Active plan set (do not archive without re-audit)
 
@@ -20,6 +33,7 @@ Historical completed analysis, wave handoffs, and one-shot GOAP plans were moved
 | `plans/ADR_REGISTRY.md` | ADR index |
 | `plans/adr/` | Architecture decision records |
 | `plans/ARCHIVE_MANIFEST.md` | This file |
+| `plans/.archive/` | Dated historical snapshots (2026-07-20, 2026-08-08) |
 
 ## Archived in `2026-07-20-historical/completed-goap/` (25 files)
 

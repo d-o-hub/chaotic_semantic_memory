@@ -28,12 +28,18 @@ Operational planning for `chaotic_semantic_memory`. Load these **before** implem
 
 | Doc | Purpose |
 |-----|---------|
-| [`ARCHIVE_MANIFEST.md`](ARCHIVE_MANIFEST.md) | What moved where (2026-07-20 compaction) |
+| [`ARCHIVE_MANIFEST.md`](ARCHIVE_MANIFEST.md) | What moved where (2026-07-20 + 2026-08-08 compactions) |
 | [`.archive/2026-07-20-historical/`](.archive/2026-07-20-historical/) | Immutable historical plans + handoffs |
+| [`.archive/2026-08-08-historical/`](.archive/2026-08-08-historical/) | Pre-compaction GOAP_STATE / ACTIONS snapshots (ADR-0097) |
 
 ## Hygiene rules
 
-- Keep `action_last_completed` **exactly once** in `GOAP_STATE.md`.
+- Keep `action_last_completed` **exactly once** in `GOAP_STATE.md` (last key; YAML last-key-wins).
 - Action statuses: `queued` | `in_progress` | `complete` | `blocked` | `deferred`.
+- **`ACTIONS.md` is the active queue only** (ADR-0097): remove actions when they
+  complete; full history lives in `plans/.archive/2026-08-08-historical/` + git.
+- **`GOAP_STATE.md` is current truth only** (ADR-0097): update flags in place
+  with a short dated comment; dated per-wave/PR narrative belongs in
+  `plans/.archive/` snapshots, not appended here.
 - Prefer archiving completed one-shots over deleting.
 - New recommendations: dated file `RECOMMENDATIONS_YYYY_MM_DD.md` + queue ACTIONS entries.

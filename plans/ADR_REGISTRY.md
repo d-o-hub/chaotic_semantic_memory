@@ -99,6 +99,7 @@
 | 0094 | Workspace Ownership and Feature Contracts | Accepted | [adr/0094-workspace-ownership-and-feature-contracts.md](adr/0094-workspace-ownership-and-feature-contracts.md) |
 | 0095 | Evidence-Driven Quality Gates | Accepted | [adr/0095-evidence-driven-quality-gates.md](adr/0095-evidence-driven-quality-gates.md) |
 | 0096 | Agent Skill and Workflow Validation | Accepted | [adr/0096-agent-skill-and-workflow-validation.md](adr/0096-agent-skill-and-workflow-validation.md) |
+| 0097 | GOAP Reconciliation and Plans Compaction 2026-08-08 | Accepted | [adr/0097-goap-reconciliation-plans-compaction-2026-08-08.md](adr/0097-goap-reconciliation-plans-compaction-2026-08-08.md) |
 
 ## Status Definitions
 
@@ -238,6 +239,7 @@ TTL advanced policies and association decay were implemented on 2026-06-23; see 
 - **ADR-0084**: GOAP Reconciliation and Codebase Alignment (2026-05-20)
 - **ADR-0085**: GOAP Reconciliation 2026-06 (2026-06-06)
 - **ADR-0089**: GOAP Reconciliation 2026-06-16 (post-PR #396 / #389 audit; removed duplicate `action_last_completed`, marked 3 stale "deferred" actions as complete)
+- **ADR-0097**: GOAP Reconciliation and Plans Compaction 2026-08-08 (state files split into current-truth vs dated archive snapshots; `ACTIONS.md` is active-queue-only)
 
 ## Links
 
