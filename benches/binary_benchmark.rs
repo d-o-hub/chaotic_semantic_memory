@@ -22,5 +22,12 @@ fn bench_bhvec_hamming(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_bhvec_bundle, bench_bhvec_hamming);
+fn bench_bhvec_permute(c: &mut Criterion) {
+    let v = BHVec10240::random();
+    c.bench_function("bhvec_permute", |b| {
+        b.iter(|| black_box(&v).permute(black_box(321)));
+    });
+}
+
+criterion_group!(benches, bench_bhvec_bundle, bench_bhvec_hamming, bench_bhvec_permute);
 criterion_main!(benches);
