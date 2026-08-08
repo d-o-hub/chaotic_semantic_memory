@@ -23,6 +23,44 @@ use std::any::TypeId;
 use std::collections::HashMap;
 
 #[cfg(feature = "ann-hnsw")]
+const MAX_HNSW_M: usize = 256;
+#[cfg(feature = "ann-hnsw")]
+const MIN_HNSW_EF: usize = 1;
+#[cfg(feature = "ann-hnsw")]
+const MAX_HNSW_EF: usize = 10_000;
+
+/// Validate HNSW parameters (ADR-0093) without constructing a graph.
+///
+/// `hnsw_rs` hard-exits the process when `max_nb_connection > 256` and silently
+/// degenerates for zero-width ef; fail closed instead of panicking or degrading.
+#[cfg(feature = "ann-hnsw")]
+pub(crate) fn validate_params(m: usize, ef_construction: usize, ef_search: usize) -> Result<()> {
+    if m == 0 || m > MAX_HNSW_M {
+        return Err(MemoryError::InvalidInput {
+            field: "m".to_string(),
+            reason: format!("m must be between 1 and {MAX_HNSW_M}, got {m}"),
+        });
+    }
+    if !(MIN_HNSW_EF..=MAX_HNSW_EF).contains(&ef_construction) {
+        return Err(MemoryError::InvalidInput {
+            field: "ef_construction".to_string(),
+            reason: format!(
+                "ef_construction must be between {MIN_HNSW_EF} and {MAX_HNSW_EF}, got {ef_construction}"
+            ),
+        });
+    }
+    if !(MIN_HNSW_EF..=MAX_HNSW_EF).contains(&ef_search) {
+        return Err(MemoryError::InvalidInput {
+            field: "ef_search".to_string(),
+            reason: format!(
+                "ef_search must be between {MIN_HNSW_EF} and {MAX_HNSW_EF}, got {ef_search}"
+            ),
+        });
+    }
+    Ok(())
+}
+
+#[cfg(feature = "ann-hnsw")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct HnswData {
     m: usize,
@@ -99,6 +137,7 @@ struct HnswPersistenceWrapper {
 #[cfg(feature = "ann-hnsw")]
 impl<H: Hypervector + 'static> HnswIndex<H> {
     pub fn new(m: usize, ef_construction: usize, ef_search: usize) -> Result<Self> {
+        validate_params(m, ef_construction, ef_search)?;
         let config = HnswData {
             m,
             ef_construction,
@@ -107,13 +146,6 @@ impl<H: Hypervector + 'static> HnswIndex<H> {
 
         // Only create the actual HNSW graph when H = HVec10240
         let core = if TypeId::of::<H>() == TypeId::of::<HVec10240>() {
-            // #7: Validate m (max_nb_connection). hnsw_rs aborts if > 256.
-            if m == 0 || m > 256 {
-                return Err(MemoryError::InvalidInput {
-                    field: "m".to_string(),
-                    reason: "m must be between 1 and 256".to_string(),
-                });
-            }
             // ADR-0068: Default to 1M elements to support scale goal
             let hnsw = Hnsw::new(m, 1_000_000, 16, ef_construction, HammingDist);
             Some(HnswCore {
@@ -414,83 +446,4 @@ impl<H: Hypervector + 'static> AnnIndex<H> for HnswIndex<H> {
 }
 
 #[cfg(all(test, feature = "ann-hnsw"))]
-mod tests {
-    use super::*;
-    use crate::index::AnnIndex;
-    use crate::singularity::Concept;
-    use csm_core::hyperdim::HVec10240;
-    use std::collections::HashMap;
-
-    // Skip under Miri: hnsw_rs 0.3.4 creates unaligned &[HVec10240] references
-    // during deserialization (hnswio.rs:1163 from_raw_parts cast). Third-party bug.
-    #[cfg(not(miri))]
-    #[test]
-    fn test_persistence_roundtrip_miri() -> Result<()> {
-        let mut index = HnswIndex::<HVec10240>::new(16, 100, 10)?;
-        let id = "test".to_string();
-        let vec = HVec10240::random();
-        index.insert(id.clone(), &vec)?;
-
-        let serialized = index.serialize()?;
-        let mut new_index = HnswIndex::<HVec10240>::new(16, 100, 10)?;
-        new_index.deserialize(&serialized)?;
-
-        let results = new_index.search(&vec, 1)?;
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].0, id);
-        Ok(())
-    }
-
-    #[test]
-    fn test_rebuild_resets_owner() -> Result<()> {
-        let mut index = HnswIndex::<HVec10240>::new(16, 100, 10)?;
-        let id = "test".to_string();
-        let vec = HVec10240::random();
-        index.insert(id.clone(), &vec)?;
-
-        // Simulate a load that sets _owner
-        let serialized = index.serialize()?;
-        index.deserialize(&serialized)?;
-        assert!(index.core.as_ref().is_some_and(|c| c._owner.is_some()));
-
-        let mut concepts = HashMap::new();
-        concepts.insert(
-            id.clone(),
-            Concept {
-                id,
-                vector: vec,
-                ..Default::default()
-            },
-        );
-
-        index.rebuild(&concepts)?;
-        assert!(index.core.as_ref().is_some_and(|c| c._owner.is_none()));
-        Ok(())
-    }
-
-    #[test]
-    fn binary_singularity_type_alias_works() {
-        let _bs: crate::singularity::BinarySingularity =
-            crate::singularity::Singularity::new(crate::singularity::SingularityConfig::default());
-    }
-
-    #[test]
-    fn hnsw_index_bruteforce_fallback_for_binary_vectors() {
-        use csm_core::BHVec10240;
-
-        // When H != HVec10240, HnswIndex should fall back to BruteForce
-        let mut index = HnswIndex::<BHVec10240>::new(16, 100, 10).unwrap();
-        assert!(!index.use_hnsw(), "BHVec10240 should not use HNSW graph");
-
-        let vec = BHVec10240::random();
-        index.insert("bin-1".to_string(), &vec).unwrap();
-
-        let results = index.search(&vec, 1).unwrap();
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].0, "bin-1");
-
-        let stats = index.stats();
-        assert_eq!(stats.count, 1);
-        assert_eq!(stats.backend, "BruteForce");
-    }
-}
+mod hnsw_tests;

@@ -98,8 +98,136 @@ pub fn create_index<H: Hypervector + 'static>(
             num_tables,
             hash_bits,
         } => Box::new(lsh::LshIndex::new(*num_tables, *hash_bits)?),
-        #[allow(unreachable_patterns)]
-        _ => Box::new(brute_force::BruteForce::new()),
     };
     Ok(index)
+}
+
+impl IndexBackend {
+    /// Validate backend parameters without constructing the backend (ADR-0093).
+    ///
+    /// Fail-closed: out-of-range parameters are rejected as
+    /// `MemoryError::InvalidInput` here rather than panicking, hard-exiting, or
+    /// silently degrading during index construction.
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            IndexBackend::BruteForce => Ok(()),
+            #[cfg(feature = "ann-hnsw")]
+            IndexBackend::Hnsw {
+                m,
+                ef_construction,
+                ef_search,
+            } => hnsw::validate_params(*m, *ef_construction, *ef_search),
+            #[cfg(feature = "ann-lsh")]
+            IndexBackend::Lsh {
+                num_tables,
+                hash_bits,
+            } => lsh::validate_params(*num_tables, *hash_bits),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+    use super::*;
+    use csm_core::error::MemoryError;
+
+    #[test]
+    fn brute_force_always_validates() {
+        assert!(IndexBackend::BruteForce.validate().is_ok());
+    }
+
+    #[cfg(feature = "ann-hnsw")]
+    #[test]
+    fn validate_rejects_out_of_range_hnsw() {
+        for backend in [
+            IndexBackend::Hnsw {
+                m: 0,
+                ef_construction: 200,
+                ef_search: 50,
+            },
+            IndexBackend::Hnsw {
+                m: 257,
+                ef_construction: 200,
+                ef_search: 50,
+            },
+            IndexBackend::Hnsw {
+                m: 16,
+                ef_construction: 0,
+                ef_search: 50,
+            },
+            IndexBackend::Hnsw {
+                m: 16,
+                ef_construction: 200,
+                ef_search: 0,
+            },
+        ] {
+            assert!(
+                matches!(&backend.validate(), Err(MemoryError::InvalidInput { .. })),
+                "invalid HNSW config must fail validation: {backend:?}"
+            );
+        }
+        assert!(
+            IndexBackend::Hnsw {
+                m: 16,
+                ef_construction: 200,
+                ef_search: 50,
+            }
+            .validate()
+            .is_ok()
+        );
+    }
+
+    #[cfg(feature = "ann-lsh")]
+    #[test]
+    fn validate_rejects_out_of_range_lsh() {
+        for backend in [
+            IndexBackend::Lsh {
+                num_tables: 0,
+                hash_bits: 16,
+            },
+            IndexBackend::Lsh {
+                num_tables: 4,
+                hash_bits: 0,
+            },
+            IndexBackend::Lsh {
+                num_tables: 4,
+                hash_bits: 65,
+            },
+        ] {
+            assert!(
+                matches!(&backend.validate(), Err(MemoryError::InvalidInput { .. })),
+                "LSH backend must fail validation: {backend:?}"
+            );
+        }
+        assert!(IndexBackend::Lsh {
+            num_tables: 5,
+            hash_bits: 16
+        }
+        .validate()
+        .is_ok());
+    }
+
+    #[cfg(feature = "ann-hnsw")]
+    #[test]
+    fn create_index_propagates_invalid_hnsw_without_panicking() {
+        let backend = IndexBackend::Hnsw {
+            m: 0,
+            ef_construction: 200,
+            ef_search: 50,
+        };
+        let result = create_index::<csm_core::hyperdim::HVec10240>(&backend);
+        assert!(matches!(result, Err(MemoryError::InvalidInput { .. })));
+    }
+
+    #[cfg(feature = "ann-lsh")]
+    #[test]
+    fn create_index_propagates_invalid_lsh_without_panicking() {
+        let backend = IndexBackend::Lsh {
+            num_tables: 4,
+            hash_bits: 65,
+        };
+        let result = create_index::<csm_core::hyperdim::HVec10240>(&backend);
+        assert!(matches!(result, Err(MemoryError::InvalidInput { .. })));
+    }
 }

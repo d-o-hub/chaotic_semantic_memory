@@ -284,3 +284,29 @@ jobs:
       run: cargo clippy --all-targets --all-features -- -D warnings
     - name: LOC gate
       run: bash scripts/validate.sh
+
+  fuzz-build:
+    # Fuzz workspace compile gate (fuzz/). Runs on the workflow's existing
+    # push/PR triggers; the separate scheduled workflow (fuzz-weekly.yml)
+    # smoke-runs every target weekly.
+    name: Fuzz build (nightly)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      PROTOC: /usr/bin/protoc
+    steps:
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
+    - name: Install Protobuf Compiler
+      run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+    - name: Install Rust nightly
+      uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+      with:
+        toolchain: nightly
+        components: rust-src
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
+    - name: Install cargo-fuzz
+      run: cargo install cargo-fuzz --locked
+    - name: Build fuzz targets
+      working-directory: fuzz
+      run: cargo +nightly fuzz build

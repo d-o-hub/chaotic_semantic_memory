@@ -60,18 +60,28 @@ impl ChaoticSemanticFramework {
         if let Some(ref persistence) = self.persistence {
             #[cfg(not(target_arch = "wasm32"))]
             let p_start = std::time::Instant::now();
-            let ns = self.namespace.read().await;
+            // Snapshot the namespace under the read lock, then release the guard
+            // before any persistence await: no framework state lock may span an
+            // await on the persistence layer.
+            let ns = self.namespace.read().await.clone();
             let concepts = persistence.load_all_concepts(&ns).await?;
 
             for concept in &concepts {
                 self.validate_concept(concept)?;
             }
 
+            // Single-query association load: one SELECT serves the whole
+            // namespace instead of one per concept (kills the N+1). Rows whose
+            // source concept was not loaded are dropped, matching the legacy
+            // per-concept loop's orphan handling.
             let mut all_associations: Vec<(String, String, f32, u64)> = Vec::new();
-            for concept in &concepts {
-                let links = persistence.load_associations(&ns, &concept.id).await?;
-                for (to_id, strength, created_at) in links {
-                    all_associations.push((concept.id.clone(), to_id, strength, created_at));
+            let loaded_ids: std::collections::HashSet<&str> =
+                concepts.iter().map(|concept| concept.id.as_str()).collect();
+            for (from_id, to_id, strength, created_at) in
+                persistence.load_all_associations(&ns).await?
+            {
+                if loaded_ids.contains(from_id.as_str()) {
+                    all_associations.push((from_id, to_id, strength, created_at));
                 }
             }
 
@@ -83,7 +93,7 @@ impl ChaoticSemanticFramework {
                 }
 
                 for (from_id, to_id, strength, created_at) in all_associations {
-                    let ns_state = sing.get_namespace_mut(&ns);
+                    let ns_state = sing.get_namespace_mut(&ns)?;
                     let neighbors = ns_state.associations.entry(from_id).or_default();
                     neighbors.insert(to_id, (strength, created_at));
                 }
@@ -95,14 +105,14 @@ impl ChaoticSemanticFramework {
             if let Ok(Some(index_data)) = persistence.load_index(&ns, "main").await {
                 {
                     let mut sing = self.singularity.write().await;
-                    let ns_state = sing.get_namespace_mut(&ns);
+                    let ns_state = sing.get_namespace_mut(&ns)?;
                     ns_state.index.deserialize(&index_data)?;
                 }
             } else {
                 // Fallback: rebuild index from concepts
                 {
                     let mut sing = self.singularity.write().await;
-                    let ns_state = sing.get_namespace_mut(&ns);
+                    let ns_state = sing.get_namespace_mut(&ns)?;
                     let concepts_map = ns_state.concepts.clone();
                     ns_state.index.rebuild(&concepts_map)?;
                 }
@@ -126,7 +136,9 @@ impl ChaoticSemanticFramework {
     #[tracing::instrument(err, skip(self))]
     pub async fn load_merge(&self) -> Result<()> {
         if let Some(ref persistence) = self.persistence {
-            let ns = self.namespace.read().await;
+            // Snapshot the namespace under the read lock, then release the guard
+            // before any persistence await (no framework state lock across I/O).
+            let ns = self.namespace.read().await.clone();
             let concepts = persistence.load_all_concepts(&ns).await?;
 
             for concept in &concepts {
@@ -147,18 +159,22 @@ impl ChaoticSemanticFramework {
                 }
             }
 
+            // Single-query association load (see `load_replace`).
             let mut all_associations: Vec<(String, String, f32, u64)> = Vec::new();
-            for concept in &concepts {
-                let links = persistence.load_associations(&ns, &concept.id).await?;
-                for (to_id, strength, created_at) in links {
-                    all_associations.push((concept.id.clone(), to_id, strength, created_at));
+            let loaded_ids: std::collections::HashSet<&str> =
+                concepts.iter().map(|concept| concept.id.as_str()).collect();
+            for (from_id, to_id, strength, created_at) in
+                persistence.load_all_associations(&ns).await?
+            {
+                if loaded_ids.contains(from_id.as_str()) {
+                    all_associations.push((from_id, to_id, strength, created_at));
                 }
             }
 
             {
                 let mut sing = self.singularity.write().await;
                 for (from_id, to_id, strength, created_at) in all_associations {
-                    let ns_state = sing.get_namespace_mut(&ns);
+                    let ns_state = sing.get_namespace_mut(&ns)?;
                     let neighbors = ns_state.associations.entry(from_id).or_default();
                     neighbors.insert(to_id, (strength, created_at));
                 }
@@ -172,14 +188,14 @@ impl ChaoticSemanticFramework {
             if let Ok(Some(index_data)) = persistence.load_index(&ns, "main").await {
                 {
                     let mut sing = self.singularity.write().await;
-                    let ns_state = sing.get_namespace_mut(&ns);
+                    let ns_state = sing.get_namespace_mut(&ns)?;
                     ns_state.index.deserialize(&index_data)?;
                 }
             } else {
                 // Fallback: rebuild index from concepts
                 {
                     let mut sing = self.singularity.write().await;
-                    let ns_state = sing.get_namespace_mut(&ns);
+                    let ns_state = sing.get_namespace_mut(&ns)?;
                     let concepts_map = ns_state.concepts.clone();
                     ns_state.index.rebuild(&concepts_map)?;
                 }

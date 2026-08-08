@@ -118,3 +118,42 @@ async fn probe_text_encodes_and_searches() {
     let results = framework.probe_text("learning", 5).await.unwrap();
     assert!(!results.is_empty());
 }
+
+#[tokio::test]
+async fn shutdown_cleanup_returns_promptly_for_running_loop() {
+    // Owned lifecycle: an enabled cleanup loop must be stoppable via the
+    // public shutdown API within its 5s bound.
+    let mut ttl_config = chaotic_semantic_memory::framework_ttl_advanced::TtlConfig::default();
+    ttl_config.cleanup_interval_seconds = 1;
+    let framework = ChaoticSemanticFramework::builder()
+        .without_persistence()
+        .with_ttl_config(ttl_config)
+        .build()
+        .await
+        .unwrap();
+
+    // Let the loop tick at least once, then stop it.
+    tokio::time::sleep(tokio::time::Duration::from_millis(1200)).await;
+    let started = std::time::Instant::now();
+    framework.shutdown_cleanup().await;
+    framework.shutdown_cleanup().await; // idempotent
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(5),
+        "shutdown_cleanup exceeded its 5s bound"
+    );
+}
+
+#[tokio::test]
+async fn shutdown_cleanup_is_noop_when_cleanup_disabled() {
+    // Default config has cleanup_interval_seconds == 0, so shutdown is a
+    // fast no-op.
+    let framework = ChaoticSemanticFramework::builder()
+        .without_persistence()
+        .build()
+        .await
+        .unwrap();
+
+    let started = std::time::Instant::now();
+    framework.shutdown_cleanup().await;
+    assert!(started.elapsed() < std::time::Duration::from_secs(5));
+}

@@ -22,6 +22,8 @@ pub use singularity::{Concept, ConceptBuilder};
 pub use singularity_retrieval::{CandidateSource, FilterStrategy, RetrievalConfig, RetrievalStats};
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+mod absence_ops;
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 mod bridge_persistence;
 pub mod bridge_retrieval;
 pub use csm_chaos;
@@ -40,6 +42,7 @@ pub mod framework_builder;
 mod framework_events;
 pub mod framework_events_ce;
 mod framework_graph_rag;
+mod framework_lifecycle;
 mod framework_metrics;
 mod framework_namespaces;
 #[cfg(not(target_arch = "wasm32"))]
@@ -131,6 +134,12 @@ pub mod persistence {
             _ns: &str,
             _id: &str,
         ) -> Result<Vec<(String, f32, u64)>> {
+            Ok(Vec::new())
+        }
+        pub async fn load_all_associations(
+            &self,
+            _ns: &str,
+        ) -> Result<Vec<(String, String, f32, u64)>> {
             Ok(Vec::new())
         }
         pub async fn delete_association(&self, _ns: &str, _from: &str, _to: &str) -> Result<()> {

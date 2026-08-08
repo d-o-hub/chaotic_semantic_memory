@@ -23,6 +23,9 @@ impl ChaoticSemanticFramework {
         bridge: &BridgeRetrieval,
     ) -> Result<HybridResult> {
         self.validate_top_k(top_k)?;
+        if let Some(short_circuit) = self.short_circuit_if_known_absent(query).await {
+            return Ok(short_circuit);
+        }
         let singularity = self.singularity.read().await;
         let ns = self.namespace.read().await;
         let (hits, best_score) =
@@ -43,7 +46,8 @@ impl ChaoticSemanticFramework {
 
             #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
             if let Some(ref store) = self.persistence {
-                if let Err(e) = persist_absence(&abstention, store.as_ref()).await {
+                let ns = self.namespace().await;
+                if let Err(e) = persist_absence(&ns, &abstention, store.as_ref()).await {
                     tracing::warn!("Failed to persist absence entry: {e}");
                 }
             }
@@ -70,6 +74,9 @@ impl ChaoticSemanticFramework {
         reranker: &dyn SemanticReranker,
     ) -> Result<HybridResult> {
         self.validate_top_k(top_k)?;
+        if let Some(short_circuit) = self.short_circuit_if_known_absent(query).await {
+            return Ok(short_circuit);
+        }
         let singularity = self.singularity.read().await;
         let ns = self.namespace.read().await;
         let (hits, best_score) =
@@ -90,7 +97,8 @@ impl ChaoticSemanticFramework {
 
             #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
             if let Some(ref store) = self.persistence {
-                if let Err(e) = persist_absence(&abstention, store.as_ref()).await {
+                let ns = self.namespace().await;
+                if let Err(e) = persist_absence(&ns, &abstention, store.as_ref()).await {
                     tracing::warn!("Failed to persist absence entry: {e}");
                 }
             }
@@ -119,6 +127,9 @@ impl ChaoticSemanticFramework {
     ) -> Result<HybridResult> {
         self.validate_top_k(top_k)?;
         Self::validate_metadata_filter(filter)?;
+        if let Some(short_circuit) = self.short_circuit_if_known_absent(query).await {
+            return Ok(short_circuit);
+        }
         let singularity = self.singularity.read().await;
         let ns = self.namespace.read().await;
 
@@ -159,7 +170,8 @@ impl ChaoticSemanticFramework {
 
                 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
                 if let Some(ref store) = self.persistence {
-                    if let Err(e) = persist_absence(&abstention, store.as_ref()).await {
+                    let ns = self.namespace().await;
+                    if let Err(e) = persist_absence(&ns, &abstention, store.as_ref()).await {
                         tracing::warn!("Failed to persist absence entry: {e}");
                     }
                 }

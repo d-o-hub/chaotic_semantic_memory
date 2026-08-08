@@ -68,8 +68,11 @@ pub async fn run_query(
     // Tokenize query for BM25
     let query_tokens = tokenize_query(&args.text, args.code_aware);
 
+    // Skip both HDC and BM25 when the query is known-absent (fail-open otherwise).
+    let known_absent = framework.is_known_absent_query(&args.text).await;
+
     // Collect results from both search methods
-    let hdc_results = if use_hdc {
+    let hdc_results = if use_hdc && !known_absent {
         // Search for similar concepts using framework's probe_text (which uses configured provider)
         match framework
             .probe_text(&args.text, args.top_k)
@@ -83,7 +86,7 @@ pub async fn run_query(
         None
     };
 
-    let bm25_results = if use_bm25 {
+    let bm25_results = if use_bm25 && !known_absent {
         // Build BM25 index from concepts
         let bm25_index = build_bm25_index(&framework).await?;
         if bm25_index.is_empty() {

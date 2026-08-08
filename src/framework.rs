@@ -3,7 +3,13 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+#[cfg(test)]
+use std::sync::atomic::AtomicBool;
+#[cfg(not(target_arch = "wasm32"))]
+use tokio::task::JoinHandle;
 use tokio::sync::RwLock;
+#[cfg(not(target_arch = "wasm32"))]
+use tokio_util::sync::CancellationToken;
 use tracing::instrument;
 
 use crate::framework_builder::{FrameworkBuilder, FrameworkConfig};
@@ -22,7 +28,6 @@ use csm_core::reservoir_chaotic::ChaoticReservoir;
 use js_sys::Date;
 
 /// Main framework for chaotic semantic memory
-#[derive(Clone)]
 pub struct ChaoticSemanticFramework {
     pub(crate) singularity: Arc<RwLock<Singularity>>,
     #[cfg(feature = "persistence")]
@@ -39,6 +44,15 @@ pub struct ChaoticSemanticFramework {
     pub(crate) embedding_provider: Arc<dyn crate::embedding::EmbeddingProvider>,
     /// Random projection layer for embedding → HVec mapping.
     pub(crate) projection: Arc<crate::embedding::Projection>,
+    /// Cancellation token that stops the background TTL cleanup loop.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) ttl_cleanup_shutdown: CancellationToken,
+    /// Handle of the spawned cleanup loop (`None` when disabled).
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) ttl_cleanup_task: Option<JoinHandle<()>>,
+    /// Test-only: set once the cleanup loop task has exited.
+    #[cfg(test)]
+    pub(crate) cleanup_loop_exited: Arc<AtomicBool>,
 }
 
 impl ChaoticSemanticFramework {
@@ -111,6 +125,7 @@ impl ChaoticSemanticFramework {
             },
         })
         .await;
+        self.invalidate_absence_memory().await;
 
         Ok(())
     }
@@ -177,6 +192,7 @@ impl ChaoticSemanticFramework {
             },
         })
         .await;
+        self.invalidate_absence_memory().await;
 
         Ok(())
     }

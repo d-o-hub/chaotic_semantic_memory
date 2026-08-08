@@ -9,7 +9,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
     /// Reinforce an association by resetting its `created_at` timestamp to now.
     /// This effectively refreshes the association so decay starts over.
     pub fn reinforce_association(&mut self, ns: &str, from: &str, to: &str) -> Result<()> {
-        let ns_state = self.get_namespace_mut(ns);
+        let ns_state = self.get_namespace_mut(ns)?;
         let neighbors =
             ns_state
                 .associations
@@ -35,7 +35,11 @@ impl<H: Hypervector + 'static> Singularity<H> {
         threshold: f32,
     ) -> usize {
         let now = unix_now_secs();
-        let ns_state = self.get_namespace_mut(ns);
+        // An invalid backend surfaces as an error on creation; pruning is
+        // best-effort, so treat creation failure as "nothing to prune".
+        let Ok(ns_state) = self.get_namespace_mut(ns) else {
+            return 0;
+        };
         let mut removed = 0usize;
         for neighbors in ns_state.associations.values_mut() {
             let before = neighbors.len();

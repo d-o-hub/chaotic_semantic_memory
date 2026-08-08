@@ -191,6 +191,9 @@ csm-persistence = { path = "crates/csm-persistence", version = "0.3.7" }
 # `net` is required by the Prometheus /metrics server (ADR-0072).
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs", "net"] }
 
+# Cancellation token for the background TTL cleanup loop (owned shutdown).
+tokio-util = { version = "0.7", features = ["rt"] }
+
 # HTTP server for Prometheus /metrics endpoint (ADR-0072, opt-in via "prometheus" feature)
 hyper = { version = "1", features = ["server", "http1"], optional = true }
 hyper-util = { version = "0.1", features = ["tokio"], optional = true }

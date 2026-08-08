@@ -205,6 +205,51 @@ impl Persistence {
         Ok(associations)
     }
 
+    /// Load every association in a namespace with a single query.
+    ///
+    /// Returns `(from_id, to_id, strength, created_at)` rows ordered by
+    /// `from_id` then `to_id` for deterministic grouping. Replaces the
+    /// per-concept `load_associations` N+1 in the framework load path.
+    pub async fn load_all_associations(
+        &self,
+        ns: &str,
+    ) -> Result<Vec<(String, String, f32, u64)>> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+
+        let mut rows = conn
+            .query(
+                "SELECT from_id, to_id, strength, created_at FROM csm_associations
+                 WHERE namespace = ?1 ORDER BY from_id, to_id",
+                params![ns],
+            )
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to load associations: {e}")))?;
+
+        let mut associations = Vec::new();
+        while let Some(row) = rows
+            .next()
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to fetch row: {e}")))?
+        {
+            let from_id: String = row
+                .get(0)
+                .map_err(|e| MemoryError::database(format!("Failed to get from_id: {e}")))?;
+            let to_id: String = row
+                .get(1)
+                .map_err(|e| MemoryError::database(format!("Failed to get to_id: {e}")))?;
+            let strength: f64 = row
+                .get(2)
+                .map_err(|e| MemoryError::database(format!("Failed to get strength: {e}")))?;
+            let created_at: i64 = row
+                .get(3)
+                .map_err(|e| MemoryError::database(format!("Failed to get created_at: {e}")))?;
+            associations.push((from_id, to_id, strength as f32, created_at as u64));
+        }
+
+        Ok(associations)
+    }
+
     /// Perform database checkpoint (optimize)
     pub async fn checkpoint(&self) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
@@ -361,6 +406,24 @@ impl AbsenceStore for Persistence {
         }
 
         Ok(entries)
+    }
+
+    async fn delete_absence(&self, id: &str) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        conn.execute("DELETE FROM csm_absences WHERE id = ?1", params![id])
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to delete absence: {e}")))?;
+        Ok(())
+    }
+
+    async fn clear_absences(&self) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+        conn.execute("DELETE FROM csm_absences", ())
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to clear absences: {e}")))?;
+        Ok(())
     }
 }
 

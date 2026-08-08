@@ -1,6 +1,10 @@
 //! Framework builder and configuration
 
 use std::sync::Arc;
+#[cfg(test)]
+use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(not(target_arch = "wasm32"))]
+use tokio_util::sync::CancellationToken;
 use tokio::sync::RwLock;
 use tracing::warn;
 
@@ -17,6 +21,12 @@ const DEFAULT_MAX_PROBE_TOP_K: usize = 10_000;
 const DEFAULT_MAX_CACHED_TOP_K: usize = 100;
 const DEFAULT_MAX_BATCH_SIZE: usize = 1000;
 const DEFAULT_MAX_SEQUENCE_LENGTH: usize = 1024;
+/// Failed probe attempts before short-circuiting (0 = disabled).
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+const DEFAULT_ABSENCE_SHORT_CIRCUIT_MIN_ATTEMPTS: u32 =
+    crate::absence_ops::DEFAULT_ABSENCE_SHORT_CIRCUIT_MIN_ATTEMPTS;
+#[cfg(not(all(not(target_arch = "wasm32"), feature = "persistence")))]
+const DEFAULT_ABSENCE_SHORT_CIRCUIT_MIN_ATTEMPTS: u32 = 0;
 
 /// Runtime configuration for [`ChaoticSemanticFramework`], tuned via [`FrameworkBuilder`].
 #[derive(Clone, Debug)]
@@ -52,6 +62,10 @@ pub struct FrameworkConfig {
     pub pattern_recognition_threshold: f64,
     /// Advanced TTL and decay configuration.
     pub ttl_config: crate::framework_ttl_advanced::TtlConfig,
+    /// Minimum failed retrieval attempts before short-circuiting probes for a
+    /// known-absent query. `0` disables short-circuit (default: `3` when
+    /// persistence is available).
+    pub absence_short_circuit_min_attempts: u32,
 }
 
 impl Default for FrameworkConfig {
@@ -72,6 +86,7 @@ impl Default for FrameworkConfig {
             index_backend: crate::index::IndexBackend::BruteForce,
             pattern_recognition_threshold: 0.9,
             ttl_config: crate::framework_ttl_advanced::TtlConfig::default(),
+            absence_short_circuit_min_attempts: DEFAULT_ABSENCE_SHORT_CIRCUIT_MIN_ATTEMPTS,
         }
     }
 }
@@ -157,6 +172,16 @@ impl FrameworkBuilder {
 
     pub const fn with_chaos_strength(mut self, strength: f32) -> Self {
         self.config.chaos_strength = strength;
+        self
+    }
+
+    /// Set the absence short-circuit threshold (`0` disables).
+    ///
+    /// After this many failed probes for a normalized query, subsequent
+    /// `probe_text` / bridge probes return an immediate abstention until
+    /// concept inject clears absence memory.
+    pub const fn with_absence_short_circuit_min_attempts(mut self, min_attempts: u32) -> Self {
+        self.config.absence_short_circuit_min_attempts = min_attempts;
         self
     }
 
@@ -343,6 +368,9 @@ impl FrameworkBuilder {
             self.config.reservoir_input_size,
             self.config.chaos_strength,
         )?;
+        // ADR-0093: fail closed on invalid ANN backend parameters before any
+        // index or lazy namespace can be created.
+        self.config.index_backend.validate()?;
         let metrics = Arc::new(crate::framework_metrics::FrameworkMetrics::default());
 
         let singularity = Arc::new(RwLock::new(Singularity::with_config_backend_and_metrics(
@@ -406,28 +434,44 @@ impl FrameworkBuilder {
             namespace: Arc::new(RwLock::new(self.namespace)),
             embedding_provider: provider,
             projection: Arc::new(projection),
+            #[cfg(not(target_arch = "wasm32"))]
+            ttl_cleanup_shutdown: CancellationToken::new(),
+            #[cfg(not(target_arch = "wasm32"))]
+            ttl_cleanup_task: None,
+            #[cfg(test)]
+            cleanup_loop_exited: Arc::new(AtomicBool::new(false)),
         };
 
         framework.load_replace().await?;
 
-        // Start background cleanup if configured
+        // Background cleanup is owned by the framework; Drop/shutdown_cleanup can stop it.
         #[cfg(not(target_arch = "wasm32"))]
         {
             let interval = framework.config.ttl_config.cleanup_interval_seconds;
             if interval > 0 {
+                let loop_shutdown = framework.ttl_cleanup_shutdown.clone();
                 let fw = Arc::new(framework);
                 let fw_clone = Arc::clone(&fw);
-                tokio::spawn(async move {
+                let handle = tokio::spawn(async move {
                     let mut timer =
                         tokio::time::interval(tokio::time::Duration::from_secs(interval));
                     loop {
-                        timer.tick().await;
-                        if let Err(e) = fw_clone.purge_expired().await {
-                            tracing::error!(error = %e, "background cleanup failed");
+                        tokio::select! {
+                            _ = timer.tick() => {
+                                if let Err(e) = fw_clone.purge_expired().await {
+                                    tracing::error!(error = %e, "background cleanup failed");
+                                }
+                            }
+                            _ = loop_shutdown.cancelled() => break,
                         }
                     }
+                    #[cfg(test)]
+                    fw_clone.cleanup_loop_exited.store(true, Ordering::SeqCst);
                 });
-                return Ok(Arc::try_unwrap(fw).unwrap_or_else(|fw_arc| (*fw_arc).clone()));
+                let mut framework =
+                    Arc::try_unwrap(fw).unwrap_or_else(|fw_arc| (*fw_arc).clone());
+                framework.ttl_cleanup_task = Some(handle);
+                return Ok(framework);
             }
         }
 

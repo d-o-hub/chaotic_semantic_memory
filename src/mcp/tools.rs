@@ -1,6 +1,8 @@
 //! MCP Tool and Resource execution logic.
 
 use anyhow::Result;
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 
@@ -17,10 +19,10 @@ impl McpHandler {
                 let id = args["concept_id"]
                     .as_str()
                     .ok_or_else(|| anyhow::anyhow!("Missing concept_id"))?;
-                let vec_data = args["vector"]
-                    .as_array()
-                    .ok_or_else(|| anyhow::anyhow!("Missing vector"))?;
-                let vector = parse_hvec(vec_data)?;
+                let vector = args["vector"]
+                    .as_str()
+                    .ok_or_else(|| anyhow::anyhow!("Missing vector (expected base64 string)"))?;
+                let vector = parse_hvec(vector)?;
                 if let Some(meta) = args.get("metadata") {
                     let meta_map: HashMap<String, Value> = serde_json::from_value(meta.clone())?;
                     fw.inject_concept_with_metadata(id, vector, meta_map)
@@ -46,10 +48,10 @@ impl McpHandler {
                 Ok(json!({"status": "ok", "concept_id": id}))
             }
             "memory_probe" => {
-                let vec_data = args["vector"]
-                    .as_array()
-                    .ok_or_else(|| anyhow::anyhow!("Missing vector"))?;
-                let vector = parse_hvec(vec_data)?;
+                let vector = args["vector"]
+                    .as_str()
+                    .ok_or_else(|| anyhow::anyhow!("Missing vector (expected base64 string)"))?;
+                let vector = parse_hvec(vector)?;
                 let top_k = args["top_k"].as_u64().unwrap_or(10) as usize;
                 let (results, _) = fw.probe_with_best_score(vector, top_k).await?;
                 Ok(json!({"status": "ok", "results": results}))
@@ -216,17 +218,17 @@ impl McpHandler {
     }
 }
 
-pub(crate) fn parse_hvec(vec_data: &[Value]) -> Result<csm_core::hyperdim::HVec10240> {
-    if vec_data.len() != 80 {
-        return Err(anyhow::anyhow!("Vector must have 80 elements"));
-    }
-    let mut data = [0u128; 80];
-    for (i, val) in vec_data.iter().enumerate() {
-        data[i] = val
-            .as_u64()
-            .ok_or_else(|| anyhow::anyhow!("Invalid vector element"))? as u128;
-    }
-    Ok(csm_core::hyperdim::HVec10240 { data })
+/// Parse a canonical base64-encoded hypervector from the MCP wire format.
+///
+/// The wire format is STANDARD base64 of [`HVec10240::to_bytes`]: the 80
+/// u128 words serialized as 16 little-endian bytes each, 1280 bytes total.
+/// Invalid base64 or any decoded length other than 1280 bytes is rejected.
+pub(crate) fn parse_hvec(encoded: &str) -> Result<csm_core::hyperdim::HVec10240> {
+    let bytes = STANDARD
+        .decode(encoded)
+        .map_err(|e| anyhow::anyhow!("Vector must be valid base64: {e}"))?;
+    csm_core::hyperdim::HVec10240::from_bytes(&bytes)
+        .map_err(|e| anyhow::anyhow!("Invalid vector: {e}"))
 }
 
 #[cfg(test)]
@@ -235,26 +237,47 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn test_parse_hvec_valid() {
-        let vec_data: Vec<Value> = (0..80).map(|i| json!(i as u64)).collect();
-        let hvec = parse_hvec(&vec_data).unwrap();
-        assert_eq!(hvec.data[0], 0);
-        assert_eq!(hvec.data[79], 79);
+    fn test_parse_hvec_roundtrip_high_bits() {
+        // Every u128 word set to 0xA5A5... exercises all 128 bits and both
+        // byte orders: little-endian serialization must round-trip exactly.
+        let mut hvec = csm_core::hyperdim::HVec10240::zero();
+        for word in &mut hvec.data {
+            *word = 0xA5A5_A5A5_A5A5_A5A5_A5A5_A5A5_A5A5_A5A5u128;
+        }
+        let encoded = STANDARD.encode(hvec.to_bytes());
+        assert_eq!(encoded.len(), 1708); // 1280 bytes -> STANDARD base64
+        let parsed = parse_hvec(&encoded).unwrap();
+        assert_eq!(parsed, hvec);
+        assert_eq!(parsed.to_bytes(), hvec.to_bytes());
     }
 
     #[test]
-    fn test_parse_hvec_invalid_length() {
-        let vec_data = vec![json!(1u64); 79];
-        let err = parse_hvec(&vec_data).unwrap_err();
-        assert_eq!(err.to_string(), "Vector must have 80 elements");
+    fn test_parse_hvec_rejects_wrong_length() {
+        // Valid base64 of 100 bytes: decodes fine but is not 1280 bytes.
+        let encoded = STANDARD.encode(vec![0xABu8; 100]);
+        let err = parse_hvec(&encoded).unwrap_err();
+        assert!(
+            err.to_string().contains("1280"),
+            "expected length rejection, got: {err}"
+        );
     }
 
     #[test]
-    fn test_parse_hvec_invalid_type() {
-        let mut vec_data = vec![json!(1u64); 80];
-        vec_data[0] = json!("not a number");
-        let err = parse_hvec(&vec_data).unwrap_err();
-        assert_eq!(err.to_string(), "Invalid vector element");
+    fn test_parse_hvec_rejects_invalid_base64() {
+        let err = parse_hvec("!!!not-base64!!!").unwrap_err();
+        assert!(
+            err.to_string().contains("base64"),
+            "expected base64 rejection, got: {err}"
+        );
+    }
+
+    /// A hypervector whose 80 u128 words are all 0xA5A5..., base64-encoded.
+    fn high_bits_vector_encoded() -> String {
+        let mut hvec = csm_core::hyperdim::HVec10240::zero();
+        for word in &mut hvec.data {
+            *word = 0xA5A5_A5A5_A5A5_A5A5_A5A5_A5A5_A5A5_A5A5u128;
+        }
+        STANDARD.encode(hvec.to_bytes())
     }
 
     /// Helper to create a handler with an in-memory framework.
@@ -272,20 +295,77 @@ mod tests {
     #[tokio::test]
     async fn test_execute_tool_inject_and_get() {
         let handler = handler_with_framework().await;
-        let vector: Vec<Value> = (0..80).map(|i| json!(i as u64)).collect();
+        let encoded = high_bits_vector_encoded();
         let args = json!({
             "concept_id": "test-concept",
-            "vector": vector,
+            "vector": encoded,
         });
         let result = handler.execute_tool("memory_inject", args).await.unwrap();
         assert_eq!(result["status"], "ok");
         assert_eq!(result["concept_id"], "test-concept");
 
-        // Verify get returns the concept
+        // Verify get returns the concept with a base64 vector that
+        // round-trips to the injected high-bit words.
         let get_args = json!({"concept_id": "test-concept"});
         let get_result = handler.execute_tool("memory_get", get_args).await.unwrap();
         assert_eq!(get_result["status"], "ok");
-        assert!(get_result["concept"].is_object());
+        let vector_str = get_result["concept"]["vector"].as_str().unwrap();
+        let parsed = parse_hvec(vector_str).unwrap();
+        let mut expected = csm_core::hyperdim::HVec10240::zero();
+        for word in &mut expected.data {
+            *word = 0xA5A5_A5A5_A5A5_A5A5_A5A5_A5A5_A5A5_A5A5u128;
+        }
+        assert_eq!(parsed, expected);
+    }
+
+    #[tokio::test]
+    async fn test_execute_tool_probe_base64_vector() {
+        let handler = handler_with_framework().await;
+        let query_encoded = high_bits_vector_encoded();
+        let other_encoded = STANDARD.encode(vec![0x5Au8; 1280]);
+
+        handler
+            .execute_tool(
+                "memory_inject",
+                json!({"concept_id": "p1", "vector": query_encoded}),
+            )
+            .await
+            .unwrap();
+        handler
+            .execute_tool(
+                "memory_inject",
+                json!({"concept_id": "p2", "vector": other_encoded}),
+            )
+            .await
+            .unwrap();
+
+        let probe_args = json!({"vector": query_encoded, "top_k": 5});
+        let result = handler
+            .execute_tool("memory_probe", probe_args)
+            .await
+            .unwrap();
+        assert_eq!(result["status"], "ok");
+        let results = result["results"].as_array().unwrap();
+        assert!(!results.is_empty(), "probe should return at least one result");
+        // Exact match must rank first: results are [concept_id, score] tuples.
+        assert_eq!(results[0][0], "p1");
+    }
+
+    #[tokio::test]
+    async fn test_execute_tool_rejects_integer_array_vector() {
+        // Wave 32 P1: the legacy JSON integer-word array is replaced by the
+        // canonical base64 string and must be rejected at the handler level.
+        let handler = handler_with_framework().await;
+        let legacy: Vec<Value> = (0..80).map(|i| json!(i as u64)).collect();
+        let args = json!({"concept_id": "old-style", "vector": legacy});
+        let err = handler
+            .execute_tool("memory_inject", args)
+            .await
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("base64"),
+            "expected base64 string rejection, got: {err}"
+        );
     }
 
     #[tokio::test]
@@ -307,10 +387,9 @@ mod tests {
     async fn test_execute_tool_delete() {
         let handler = handler_with_framework().await;
         // Inject first
-        let vector: Vec<Value> = (0..80).map(|i| json!(i as u64)).collect();
         let inject_args = json!({
             "concept_id": "to-delete",
-            "vector": vector,
+            "vector": high_bits_vector_encoded(),
         });
         handler
             .execute_tool("memory_inject", inject_args)

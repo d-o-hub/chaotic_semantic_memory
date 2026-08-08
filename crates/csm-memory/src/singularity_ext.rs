@@ -44,7 +44,7 @@ impl Singularity {
         id: &str,
         metadata: std::collections::HashMap<String, serde_json::Value>,
     ) -> Result<()> {
-        let ns_state = self.get_namespace_mut(ns);
+        let ns_state = self.get_namespace_mut(ns)?;
         if let Some(concept) = ns_state.concepts.get_mut(id) {
             concept.metadata = metadata;
             concept.modified_at = crate::singularity::unix_now_secs();
@@ -59,7 +59,7 @@ impl Singularity {
     }
 
     pub fn clear_associations(&mut self, ns: &str, id: &str) -> Result<()> {
-        let ns_state = self.get_namespace_mut(ns);
+        let ns_state = self.get_namespace_mut(ns)?;
         if let Some(neighbors) = ns_state.associations.get_mut(id) {
             neighbors.clear();
         }

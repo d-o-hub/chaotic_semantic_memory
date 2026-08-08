@@ -152,6 +152,12 @@ impl ChaoticSemanticFramework {
             namespace: Arc::new(RwLock::new(ns.to_string())),
             embedding_provider: self.embedding_provider.clone(),
             projection: self.projection.clone(),
+            #[cfg(not(target_arch = "wasm32"))]
+            ttl_cleanup_shutdown: self.ttl_cleanup_shutdown.clone(),
+            #[cfg(not(target_arch = "wasm32"))]
+            ttl_cleanup_task: None,
+            #[cfg(test)]
+            cleanup_loop_exited: self.cleanup_loop_exited.clone(),
         }
     }
 }

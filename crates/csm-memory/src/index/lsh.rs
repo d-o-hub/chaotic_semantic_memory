@@ -16,8 +16,39 @@ use rayon::prelude::*;
 
 use crate::index::{AnnIndex, IndexStats};
 use crate::singularity::Concept;
-use csm_core::error::Result;
+use csm_core::error::{MemoryError, Result};
 use csm_core::hyperdim::{HVec10240, Hypervector};
+
+/// LSH parameter bounds (ADR-0093).
+const MIN_LSH_TABLES: usize = 1;
+const MAX_LSH_TABLES: usize = 1024;
+const MIN_LSH_HASH_BITS: usize = 1;
+const MAX_LSH_HASH_BITS: usize = 64;
+
+/// Validate LSH parameters (ADR-0093) without allocating tables.
+///
+/// `hash_bits > 64` would overflow the `u64` shift inside `compute_hash`
+/// (silently clamped before, now a fallible error); zero tables or zero bits
+/// silently degrade the index into a single degenerate bucket.
+pub(crate) fn validate_params(num_tables: usize, hash_bits: usize) -> Result<()> {
+    if !(MIN_LSH_TABLES..=MAX_LSH_TABLES).contains(&num_tables) {
+        return Err(MemoryError::InvalidInput {
+            field: "num_tables".to_string(),
+            reason: format!(
+                "num_tables must be between {MIN_LSH_TABLES} and {MAX_LSH_TABLES}, got {num_tables}"
+            ),
+        });
+    }
+    if !(MIN_LSH_HASH_BITS..=MAX_LSH_HASH_BITS).contains(&hash_bits) {
+        return Err(MemoryError::InvalidInput {
+            field: "hash_bits".to_string(),
+            reason: format!(
+                "hash_bits must be between {MIN_LSH_HASH_BITS} and {MAX_LSH_HASH_BITS}, got {hash_bits}"
+            ),
+        });
+    }
+    Ok(())
+}
 
 /// Locality-Sensitive Hashing (LSH) for hypervectors using bit-sampling.
 #[derive(Debug, Serialize, Deserialize)]
@@ -32,15 +63,7 @@ pub struct LshIndex<H: Hypervector = HVec10240> {
 
 impl<H: Hypervector> LshIndex<H> {
     pub fn new(num_tables: usize, hash_bits: usize) -> Result<Self> {
-        // #9: Reject zero-table configurations.
-        if num_tables == 0 {
-            return Err(csm_core::error::MemoryError::InvalidInput {
-                field: "num_tables".to_string(),
-                reason: "num_tables must be greater than zero".to_string(),
-            });
-        }
-        // Safety check: prevent hash_bits > 64 since we use u64 hashes
-        let hash_bits = hash_bits.min(64);
+        validate_params(num_tables, hash_bits)?;
         let mut rng = ChaCha8Rng::seed_from_u64(42);
         let mut projections = Vec::with_capacity(num_tables);
         let mut tables = Vec::with_capacity(num_tables);
@@ -379,5 +402,43 @@ mod tests {
             "at least 25% of bytes must be nonzero, got {nonzero}/{}",
             bytes.len()
         );
+    }
+
+    #[test]
+    fn lsh_new_rejects_zero_num_tables() {
+        let err = LshIndex::<HVec10240>::new(0, 8).unwrap_err();
+        let is_invalid = matches!(
+            &err,
+            csm_core::error::MemoryError::InvalidInput { field, .. } if field == "num_tables"
+        );
+        assert!(is_invalid, "expected InvalidInput for num_tables, got {err}");
+    }
+
+    #[test]
+    fn lsh_new_rejects_zero_hash_bits() {
+        let err = LshIndex::<HVec10240>::new(4, 0).unwrap_err();
+        let is_invalid = matches!(
+            &err,
+            csm_core::error::MemoryError::InvalidInput { field, .. } if field == "hash_bits"
+        );
+        assert!(is_invalid, "expected InvalidInput for hash_bits, got {err}");
+    }
+
+    #[test]
+    fn lsh_new_rejects_hash_bits_above_64_instead_of_clamping() {
+        // hash_bits > 64 used to be silently clamped; it must now fail closed
+        // because `compute_hash` shifts by up to hash_bits - 1 bits.
+        let err = LshIndex::<HVec10240>::new(4, 65).unwrap_err();
+        let is_invalid = matches!(
+            &err,
+            csm_core::error::MemoryError::InvalidInput { field, .. } if field == "hash_bits"
+        );
+        assert!(is_invalid, "expected InvalidInput for hash_bits, got {err}");
+    }
+
+    #[test]
+    fn lsh_accepts_boundary_parameters() {
+        assert!(LshIndex::<HVec10240>::new(1, 1).is_ok());
+        assert!(LshIndex::<HVec10240>::new(1024, 64).is_ok());
     }
 }

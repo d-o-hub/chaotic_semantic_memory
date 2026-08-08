@@ -240,7 +240,7 @@ impl Persistence {
 /// memory gaps to operators.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct AbsenceEntry {
-    /// Stable ID derived from a hash of the normalized query string
+    /// Stable ID derived from a hash of the namespace and normalized query
     pub id: String,
     /// The original query that produced no results
     pub query: String,
@@ -264,22 +264,23 @@ impl AbsenceEntry {
         query.trim().to_lowercase()
     }
 
-    /// Derive a stable string ID from the normalized query.
+    /// Derive a stable string ID from the namespace and normalized query.
     ///
-    /// Uses FNV-1a (64-bit) for deterministic hashing across Rust versions
-    /// and platforms, matching the crate's text encoding pipeline.
-    pub fn id_for(query: &str) -> String {
+    /// Folding the namespace into the hash keeps absence records
+    /// per-namespace: same text in different namespaces never shares
+    /// an absence row. FNV-1a (64-bit) is stable across Rust versions.
+    pub fn id_for(ns: &str, query: &str) -> String {
         let normalized = Self::normalize(query);
-        let hash = Self::fnv1a_hash(normalized.as_bytes());
+        let hash = Self::fnv1a_hash_chunks(&[ns.as_bytes(), b"\0", normalized.as_bytes()]);
         format!("absence:{hash:016x}")
     }
 
-    /// FNV-1a 64-bit hash (stable across Rust versions/platforms).
-    fn fnv1a_hash(bytes: &[u8]) -> u64 {
+    /// FNV-1a 64-bit hash over byte chunks (stable across Rust versions/platforms).
+    fn fnv1a_hash_chunks(chunks: &[&[u8]]) -> u64 {
         const OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
         const PRIME: u64 = 0x0000_0100_0000_01b3;
         let mut hash = OFFSET_BASIS;
-        for &byte in bytes {
+        for byte in chunks.iter().flat_map(|c| *c).copied() {
             hash ^= byte as u64;
             hash = hash.wrapping_mul(PRIME);
         }
@@ -287,10 +288,10 @@ impl AbsenceEntry {
     }
 
     /// Create a new entry from a RetrievalAbstention event.
-    pub fn from_abstention(abstention: &RetrievalAbstention) -> Self {
+    pub fn from_abstention(ns: &str, abstention: &RetrievalAbstention) -> Self {
         let normalized = Self::normalize(&abstention.query);
         AbsenceEntry {
-            id: Self::id_for(&abstention.query),
+            id: Self::id_for(ns, &abstention.query),
             query: abstention.query.clone(),
             normalized_query: normalized,
             attempt_count: 1,
@@ -330,14 +331,19 @@ pub trait AbsenceStore: Send + Sync {
     async fn upsert_absence(&self, entry: &AbsenceEntry) -> Result<()>;
     /// Return all absence entries with attempt_count >= min_attempts.
     async fn list_absences(&self, min_attempts: u32) -> Result<Vec<AbsenceEntry>>;
+    /// Delete a single absence entry by ID.
+    async fn delete_absence(&self, id: &str) -> Result<()>;
+    /// Remove all absence entries (e.g. after concept inject invalidates gaps).
+    async fn clear_absences(&self) -> Result<()>;
 }
 
-/// Persist a RetrievalAbstention event as an AbsenceEntry.
+/// Persist a RetrievalAbstention event as a per-namespace AbsenceEntry.
 pub async fn persist_absence(
+    ns: &str,
     abstention: &RetrievalAbstention,
     store: &dyn AbsenceStore,
 ) -> Result<AbsenceEntry> {
-    let id = AbsenceEntry::id_for(&abstention.query);
+    let id = AbsenceEntry::id_for(ns, &abstention.query);
     match store.get_absence(&id).await? {
         Some(mut existing) => {
             existing.merge_with(abstention);
@@ -345,7 +351,7 @@ pub async fn persist_absence(
             Ok(existing)
         }
         None => {
-            let entry = AbsenceEntry::from_abstention(abstention);
+            let entry = AbsenceEntry::from_abstention(ns, abstention);
             store.upsert_absence(&entry).await?;
             Ok(entry)
         }
@@ -439,10 +445,14 @@ mod tests {
     async fn test_absence_id_generation() {
         let q1 = "  Test Query  ";
         let q2 = "test query";
-        let id1 = AbsenceEntry::id_for(q1);
-        let id2 = AbsenceEntry::id_for(q2);
+        let id1 = AbsenceEntry::id_for("_default", q1);
+        let id2 = AbsenceEntry::id_for("_default", q2);
         assert_eq!(id1, id2);
         assert!(id1.starts_with("absence:"));
+
+        // Same text in a different namespace must key a different record.
+        let id_other = AbsenceEntry::id_for("tenant-a", q1);
+        assert_ne!(id1, id_other);
     }
 
     #[tokio::test]
@@ -462,21 +472,27 @@ mod tests {
         // Create
         let mut abstention = abstention;
         abstention.best_score_seen = Some(0.1);
-        let entry = persist_absence(&abstention, &persistence).await.unwrap();
+        let entry = persist_absence("_default", &abstention, &persistence)
+            .await
+            .unwrap();
         assert_eq!(entry.attempt_count, 1);
         assert!((entry.best_score_ever.unwrap() - 0.1).abs() < f32::EPSILON);
 
         // Update with higher score
         let mut abstention2 = abstention.clone();
         abstention2.best_score_seen = Some(0.4);
-        let entry2 = persist_absence(&abstention2, &persistence).await.unwrap();
+        let entry2 = persist_absence("_default", &abstention2, &persistence)
+            .await
+            .unwrap();
         assert_eq!(entry2.attempt_count, 2);
         assert!((entry2.best_score_ever.unwrap() - 0.4).abs() < f32::EPSILON);
 
         // Update with lower score
         let mut abstention3 = abstention.clone();
         abstention3.best_score_seen = Some(0.2);
-        let entry3 = persist_absence(&abstention3, &persistence).await.unwrap();
+        let entry3 = persist_absence("_default", &abstention3, &persistence)
+            .await
+            .unwrap();
         assert_eq!(entry3.attempt_count, 3);
         assert!((entry2.best_score_ever.unwrap() - 0.4).abs() < f32::EPSILON); // Stays at 0.4
     }

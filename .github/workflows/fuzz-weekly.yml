@@ -1,0 +1,50 @@
+name: Fuzz weekly
+
+on:
+  schedule:
+    # Weekly Monday 03:17 UTC - smoke-run every fuzz target.
+    - cron: '17 3 * * 1'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz-weekly-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  fuzz-smoke:
+    name: Smoke-run all fuzz targets
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      PROTOC: /usr/bin/protoc
+    steps:
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.1.7
+    - name: Install Protobuf Compiler
+      run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+    - name: Install Rust nightly
+      uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+      with:
+        toolchain: nightly
+        components: rust-src
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.7.3
+    - name: Install cargo-fuzz
+      run: cargo install cargo-fuzz --locked
+    - name: Build fuzz targets
+      working-directory: fuzz
+      run: cargo +nightly fuzz build
+    - name: Smoke-run each fuzz target (60s per target)
+      working-directory: fuzz
+      run: |
+        set -euo pipefail
+        for target in $(cargo +nightly fuzz list); do
+          echo "== smoke: ${target} =="
+          cargo +nightly fuzz run "${target}" -- -max_total_time=60
+        done

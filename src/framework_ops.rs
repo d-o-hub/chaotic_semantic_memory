@@ -53,6 +53,7 @@ impl ChaoticSemanticFramework {
             self.metrics.observe_persist_latency_ms(elapsed_ms, "save");
         }
         self.metrics.inc_concepts_injected(to_save.len() as u64);
+        self.invalidate_absence_memory().await;
         Ok(())
     }
 

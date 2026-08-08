@@ -58,26 +58,28 @@ impl<H: Hypervector + 'static> Singularity<H> {
         Self::new_with_metrics(cfg, cache_metrics)
     }
 
-    #[allow(clippy::expect_used)]
-    fn create_index(&self) -> Box<dyn AnnIndex<H>> {
+    fn create_index(&self) -> Result<Box<dyn AnnIndex<H>>> {
         crate::index::create_index(&self.config.index_backend)
-            .expect("ANN index creation failed; check feature flags and configuration")
     }
 
     pub fn get_namespace(&self, ns: &str) -> Option<&NamespaceState<H>> {
         self.namespaces.get(ns)
     }
 
-    #[allow(clippy::unwrap_used)]
-    pub fn get_namespace_mut(&mut self, ns: &str) -> &mut NamespaceState<H> {
+    pub fn get_namespace_mut(&mut self, ns: &str) -> Result<&mut NamespaceState<H>> {
         if !self.namespaces.contains_key(ns) {
-            let index = self.create_index();
+            let index = self.create_index()?;
             self.namespaces.insert(
                 ns.to_string(),
                 NamespaceState::new(&self.config, index, Arc::clone(&self.cache_metrics)),
             );
         }
-        self.namespaces.get_mut(ns).unwrap()
+        self.namespaces
+            .get_mut(ns)
+            .ok_or_else(|| MemoryError::NotFound {
+                entity: "Namespace".to_string(),
+                id: ns.to_string(),
+            })
     }
 
     #[instrument(skip(self, concept))]
@@ -86,7 +88,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
         let id = concept.id.clone();
         let vector = concept.vector;
 
-        let ns_state = self.get_namespace_mut(ns);
+        let ns_state = self.get_namespace_mut(ns)?;
 
         // Update ANN index
         ns_state.index.insert(id.clone(), &vector)?;
@@ -107,7 +109,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
     }
 
     pub fn update(&mut self, ns: &str, id: &str, vector: H) -> Result<()> {
-        let ns_state = self.get_namespace_mut(ns);
+        let ns_state = self.get_namespace_mut(ns)?;
         if let Some(concept) = ns_state.concepts.get_mut(id) {
             concept.vector = vector;
             concept.modified_at = unix_now_secs();
@@ -126,7 +128,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
     }
 
     pub fn delete(&mut self, ns: &str, id: &str) -> Result<()> {
-        let ns_state = self.get_namespace_mut(ns);
+        let ns_state = self.get_namespace_mut(ns)?;
         if ns_state.concepts.remove(id).is_some() {
             ns_state.associations.remove(id);
             for neighbors in ns_state.associations.values_mut() {
@@ -185,7 +187,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
         // Read config limit before borrowing ns_state mutably
         let max_assoc = self.config.max_associations_per_concept;
 
-        let ns_state = self.get_namespace_mut(ns);
+        let ns_state = self.get_namespace_mut(ns)?;
         if !ns_state.concepts.contains_key(from) {
             return Err(MemoryError::NotFound {
                 entity: "Concept".to_string(),
@@ -225,7 +227,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
     }
 
     pub fn disassociate(&mut self, ns: &str, from: &str, to: &str) -> Result<()> {
-        let ns_state = self.get_namespace_mut(ns);
+        let ns_state = self.get_namespace_mut(ns)?;
         if let Some(neighbors) = ns_state.associations.get_mut(from) {
             neighbors.remove(to);
         }
@@ -395,4 +397,47 @@ pub fn similarity_cache_key<H: Hypervector>(query: &H, top_k: usize) -> u64 {
     query.hash(&mut s);
     top_k.hash(&mut s);
     s.finish()
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+    use super::*;
+    use csm_core::error::MemoryError;
+
+    #[cfg(feature = "ann-hnsw")]
+    #[test]
+    fn invalid_hnsw_config_errors_instead_of_panicking() {
+        let config = SingularityConfig {
+            index_backend: crate::index::IndexBackend::Hnsw {
+                m: 0,
+                ef_construction: 200,
+                ef_search: 50,
+            },
+            ..Default::default()
+        };
+        let mut sing = Singularity::<csm_core::hyperdim::HVec10240>::new(config);
+        let err = sing.get_namespace_mut("_default").unwrap_err();
+        assert!(
+            matches!(err, MemoryError::InvalidInput { .. }),
+            "lazy index creation must error, not panic: {err}"
+        );
+        assert!(sing.namespaces.is_empty(), "no namespace on failed creation");
+    }
+
+    #[cfg(feature = "ann-lsh")]
+    #[test]
+    fn invalid_lsh_config_errors_instead_of_panicking() {
+        let config = SingularityConfig {
+            index_backend: crate::index::IndexBackend::Lsh {
+                num_tables: 4,
+                hash_bits: 65,
+            },
+            ..Default::default()
+        };
+        let mut sing = Singularity::<csm_core::hyperdim::HVec10240>::new(config);
+        let err = sing.get_namespace_mut("_default").unwrap_err();
+        assert!(matches!(err, MemoryError::InvalidInput { .. }));
+        assert!(sing.namespaces.is_empty());
+    }
 }

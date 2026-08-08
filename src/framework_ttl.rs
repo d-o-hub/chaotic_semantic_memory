@@ -1,7 +1,9 @@
 //! TTL (Time-To-Live) and text convenience operations for ChaoticSemanticFramework.
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-use crate::bridge_persistence::persist_absence;
+use crate::absence_ops::{known_absence_entry, short_circuit_abstention};
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+use crate::bridge_persistence::{AbsenceStore, persist_absence};
 use crate::framework_events::MemoryEvent;
 use crate::framework_ttl_advanced::TtlPolicy;
 use crate::metadata_filter::MetadataFilter;
@@ -15,6 +17,50 @@ use std::collections::HashMap;
 use tracing::instrument;
 
 impl crate::framework::ChaoticSemanticFramework {
+    /// If the query is known-absent at the configured threshold, return an
+    /// immediate abstention without embedding or searching.
+    #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+    pub(crate) async fn short_circuit_if_known_absent(
+        &self,
+        query: &str,
+    ) -> Option<HybridResult> {
+        let min_attempts = self.config.absence_short_circuit_min_attempts;
+        let store = self.persistence.as_ref()?;
+        let ns = self.namespace().await;
+        let entry = known_absence_entry(&ns, query, store.as_ref(), min_attempts).await?;
+        Some(short_circuit_abstention(query, &entry))
+    }
+
+    #[cfg(not(all(not(target_arch = "wasm32"), feature = "persistence")))]
+    #[allow(clippy::unused_async)]
+    pub(crate) async fn short_circuit_if_known_absent(
+        &self,
+        _query: &str,
+    ) -> Option<HybridResult> {
+        None
+    }
+
+    /// Clear absence rows after memory mutations so inject can resurrect queries.
+    #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+    pub(crate) async fn invalidate_absence_memory(&self) {
+        if let Some(ref store) = self.persistence {
+            if let Err(e) = store.clear_absences().await {
+                tracing::warn!("Failed to clear absence entries after inject: {e}");
+            }
+        }
+    }
+
+    #[cfg(not(all(not(target_arch = "wasm32"), feature = "persistence")))]
+    #[allow(clippy::unused_async)]
+    pub(crate) async fn invalidate_absence_memory(&self) {}
+
+    /// Returns true when the query is known-absent at the configured threshold.
+    ///
+    /// Useful for CLI hybrid paths that should skip BM25 as well as HDC.
+    pub async fn is_known_absent_query(&self, query: &str) -> bool {
+        self.short_circuit_if_known_absent(query).await.is_some()
+    }
+
     /// Evaluate the TTL policy for a concept.
     pub(crate) async fn evaluate_ttl_policy(
         &self,
@@ -96,6 +142,7 @@ impl crate::framework::ChaoticSemanticFramework {
             timestamp: concept.modified_at,
         })
         .await;
+        self.invalidate_absence_memory().await;
 
         Ok(())
     }
@@ -144,6 +191,28 @@ impl crate::framework::ChaoticSemanticFramework {
         Ok(count)
     }
 
+    /// Cancel the background TTL cleanup loop and wait (bounded) for it to exit.
+    ///
+    /// Idempotent: safe to call multiple times, and a no-op when cleanup was
+    /// never started (`cleanup_interval_seconds == 0`). Waits up to 5 seconds
+    /// for the task to observe cancellation; aborts it if the deadline
+    /// elapses.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub async fn shutdown_cleanup(&self) {
+        self.ttl_cleanup_shutdown.cancel();
+        let Some(handle) = self.ttl_cleanup_task.as_ref() else {
+            return;
+        };
+        let deadline =
+            tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+        while !handle.is_finished() && tokio::time::Instant::now() < deadline {
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        if !handle.is_finished() {
+            handle.abort();
+        }
+    }
+
     /// Inject a concept from text using the embedding provider. Convenience for storing text-based concepts.
     pub async fn inject_text(&self, id: &str, text: &str) -> Result<()> {
         let embedding = self.embedding_provider.embed(text).await?;
@@ -170,6 +239,10 @@ impl crate::framework::ChaoticSemanticFramework {
 
     /// Probe for similar concepts using text input. Encodes the query text via the embedding provider.
     pub async fn probe_text(&self, query: &str, top_k: usize) -> Result<HybridResult> {
+        if let Some(short_circuit) = self.short_circuit_if_known_absent(query).await {
+            return Ok(short_circuit);
+        }
+
         let embedding = self.embedding_provider.embed(query).await?;
         let vector = self
             .embedding_provider
@@ -187,7 +260,8 @@ impl crate::framework::ChaoticSemanticFramework {
 
             #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
             if let Some(ref store) = self.persistence {
-                if let Err(e) = persist_absence(&abstention, store.as_ref()).await {
+                let ns = self.namespace().await;
+                if let Err(e) = persist_absence(&ns, &abstention, store.as_ref()).await {
                     tracing::warn!("Failed to persist absence entry: {e}");
                 }
             }
@@ -222,6 +296,10 @@ impl crate::framework::ChaoticSemanticFramework {
         top_k: usize,
         filter: &MetadataFilter,
     ) -> Result<HybridResult> {
+        if let Some(short_circuit) = self.short_circuit_if_known_absent(query).await {
+            return Ok(short_circuit);
+        }
+
         let embedding = self.embedding_provider.embed(query).await?;
         let vector = self
             .embedding_provider
@@ -247,7 +325,8 @@ impl crate::framework::ChaoticSemanticFramework {
 
             #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
             if let Some(ref store) = self.persistence {
-                if let Err(e) = persist_absence(&abstention, store.as_ref()).await {
+                let ns = self.namespace().await;
+                if let Err(e) = persist_absence(&ns, &abstention, store.as_ref()).await {
                     tracing::warn!("Failed to persist absence entry: {e}");
                 }
             }
@@ -267,5 +346,89 @@ impl crate::framework::ChaoticSemanticFramework {
     ) -> Result<HybridResult> {
         let filter = MetadataFilter::eq("session_id", session_id);
         self.probe_text_filtered(query, top_k, &filter).await
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    //! Owned TTL cleanup lifecycle: the background loop must never outlive
+    //! (be orphaned by) the framework, and shutdown must be bounded.
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
+    use super::*;
+    use crate::ChaoticSemanticFramework;
+    use crate::framework_ttl_advanced::TtlConfig;
+    use std::sync::Arc;
+    use std::sync::atomic::Ordering;
+    use std::time::{Duration, Instant};
+
+    /// Wait up to `timeout` for the test-only flag proving the cleanup loop
+    /// exited, then assert it.
+    async fn assert_loop_exited(flag: &Arc<std::sync::atomic::AtomicBool>) {
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while !flag.load(Ordering::SeqCst) && Instant::now() < deadline {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+        assert!(flag.load(Ordering::SeqCst), "cleanup task did not exit within 3s");
+    }
+
+    async fn build_with_interval(interval_secs: u64) -> ChaoticSemanticFramework {
+        let mut ttl_config = TtlConfig::default();
+        ttl_config.cleanup_interval_seconds = interval_secs;
+        crate::ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .with_ttl_config(ttl_config)
+            .build()
+            .await
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn drop_inside_runtime_stops_cleanup_loop() {
+        let framework = build_with_interval(1).await;
+        let exited = framework.cleanup_loop_exited.clone();
+        // Let the loop tick at least once before tearing down.
+        tokio::time::sleep(Duration::from_millis(1200)).await;
+        drop(framework);
+        assert_loop_exited(&exited).await;
+    }
+
+    #[tokio::test]
+    async fn drop_outside_runtime_stops_cleanup_loop() {
+        let framework = build_with_interval(1).await;
+        let exited = framework.cleanup_loop_exited.clone();
+        tokio::time::sleep(Duration::from_millis(1200)).await;
+        // Drop on a plain thread: the Drop impl must execute its bounded
+        // block_on join path without panicking.
+        std::thread::spawn(move || drop(framework))
+            .join()
+            .expect("drop thread panicked");
+        assert_loop_exited(&exited).await;
+    }
+
+    #[tokio::test]
+    async fn shutdown_cleanup_is_fast_and_idempotent_when_disabled() {
+        let framework = build_with_interval(0).await;
+        assert!(framework.ttl_cleanup_task.is_none());
+        let started = Instant::now();
+        framework.shutdown_cleanup().await;
+        framework.shutdown_cleanup().await; // idempotent
+        assert!(started.elapsed() < Duration::from_secs(5));
+    }
+
+    #[tokio::test]
+    async fn shutdown_cleanup_stops_running_loop_within_deadline() {
+        let framework = build_with_interval(1).await;
+        let exited = framework.cleanup_loop_exited.clone();
+        tokio::time::sleep(Duration::from_millis(1200)).await;
+        let started = Instant::now();
+        framework.shutdown_cleanup().await;
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "shutdown_cleanup exceeded its 5s bound"
+        );
+        assert_loop_exited(&exited).await;
+        // Owned lifecycle: the handle is still tracked (already finished).
+        assert!(framework.ttl_cleanup_task.as_ref().is_some_and(|h| h.is_finished()));
     }
 }

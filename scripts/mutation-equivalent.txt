@@ -1,0 +1,16 @@
+# Proven-equivalent mutants — documented set used by scripts/mutation_test.sh.
+#
+# A mutant counts as "equivalent" ONLY when it is listed here AND it survived
+# the current run (appears in target/mutation-artifacts/<profile>/missed.txt).
+# Format: one mutant name per line, verbatim as printed by cargo-mutants
+# (see missed.txt). Everything after the first '#' on a line is the proof
+# rationale. Lines starting with '#' are comments and ignored.
+#
+# To add an entry: copy the exact line from
+#   target/mutation-artifacts/<profile>/missed.txt
+# and append your rationale. See scripts/mutation-equivalence.md for the
+# proof procedure — do not list a mutant unless you have actually verified
+# that it behaves identically to the original code.
+#
+# Example (do NOT uncomment — replace with real proven entries):
+# src/foo.rs:12: replace a - b with a + b | b is always 0 in this module; identical behavior
