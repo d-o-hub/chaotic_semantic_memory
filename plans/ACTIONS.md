@@ -12,30 +12,16 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
-> Last completed (verified 2026-08-08, ADR-0097):
-> `harden_public_f32_api_validation` (PR #607 merged 2026-08-07; validators in
-> `crates/csm-memory/src/singularity_decay.rs` + `src/wasm_ext.rs`) and
-> `recover_v037_failed_deployments` (recover mode in release.yml; wasm-opt
-> `--enable-nontrapping-float-to-int` enabled; v0.3.7 + v0.3.8 both live on
-> crates.io).
+> Last completed (verified 2026-08-08):
+> `enforce_workspace_feature_contracts` (ADR-0094) — owner deps
+> `default-features = false`, `persistence`/`parallel` forward explicitly,
+> rayon optional in csm-memory, workspace MSRV 1.88 single-sourced;
+> `cargo tree --no-default-features` has no libsql/rayon.
+> Earlier same-day completions (ADR-0097): `harden_public_f32_api_validation`
+> (PR #607), `recover_v037_failed_deployments` (v0.3.7 + v0.3.8 on crates.io).
 
 actions:
   # P1 — ownership and contracts (ADR-0094)
-  - name: enforce_workspace_feature_contracts
-    preconditions:
-      adr_0094_accepted: true
-    effects:
-      no_default_features_is_lean: true
-      msrv_workspace_aligned: true
-    cost: 5
-    status: queued
-    file: Cargo.toml, crates/*/Cargo.toml
-    adr: ADR-0094
-    description: |
-      Disable owner-crate defaults and explicitly forward persistence, parallel,
-      ANN, embedding, and protocol features. Acceptance: no-default cargo tree has
-      no libSQL/Rayon and every workspace manifest uses the canonical MSRV.
-
   - name: replace_persistence_disabled_noops
     preconditions:
       adr_0094_accepted: true
