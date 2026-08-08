@@ -200,7 +200,7 @@ cmd_archive() {
 cmd_clean() {
   log_info "Cleaning plan files..."
   
-  AD # Remove duplicateRs (keep newest)
+  # Remove duplicate ADRs (keep newest)
   log_info "Checking for duplicate ADRs..."
   cd "$ADR_DIR"
   for f in *.md; do
