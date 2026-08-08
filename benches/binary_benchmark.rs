@@ -29,5 +29,10 @@ fn bench_bhvec_permute(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_bhvec_bundle, bench_bhvec_hamming, bench_bhvec_permute);
+criterion_group!(
+    benches,
+    bench_bhvec_bundle,
+    bench_bhvec_hamming,
+    bench_bhvec_permute
+);
 criterion_main!(benches);
