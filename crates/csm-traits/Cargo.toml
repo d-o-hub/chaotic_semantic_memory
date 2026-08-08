@@ -2,7 +2,7 @@
 name = "csm-traits"
 version = "0.3.7"
 edition = "2024"
-rust-version = "1.85"
+rust-version.workspace = true
 description = "Shared types and traits for chaotic_semantic_memory workspace"
 license = "MIT"
 repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
