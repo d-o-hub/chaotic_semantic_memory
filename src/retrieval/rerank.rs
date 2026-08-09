@@ -54,7 +54,7 @@ impl Reranker for MmrReranker {
             return Vec::new();
         }
 
-        if self.lambda >= 1.0 - f32::EPSILON {
+        if self.lambda >= 1.0 {
             // Fast-path: lambda >= 1.0 is pure similarity (no diversity penalty).
             // Avoids O(N * K) selection loop and expensive cosine_similarity penalty updates.
             for cand in &mut candidates {
@@ -350,6 +350,9 @@ mod tests {
             MmrReranker { lambda: 1.0 }.rerank(&query, vec![c1.clone(), c2.clone(), c3.clone()], 2);
         assert_eq!(results_sim[0].id, "c1");
         assert_eq!(results_sim[1].id, "c2");
+        // Assert exact scores under lambda = 1.0 (kills comparison operator mutations on the fast-path condition)
+        assert!((results_sim[0].score - query.cosine_similarity(&c1.vector)).abs() < 1e-6);
+        assert!((results_sim[1].score - query.cosine_similarity(&c2.vector)).abs() < 1e-6);
 
         let results = MmrReranker { lambda: 0.5 }.rerank(&query, vec![c1, c2, c3], 2);
         assert_eq!(results.len(), 2);
