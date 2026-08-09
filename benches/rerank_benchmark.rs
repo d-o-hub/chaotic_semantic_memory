@@ -35,5 +35,22 @@ fn bench_mmr_rerank(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_mmr_rerank);
+fn bench_mmr_rerank_pure_similarity(c: &mut Criterion) {
+    let query = HVec10240::random();
+    let reranker = MmrReranker { lambda: 1.0 };
+
+    let mut group = c.benchmark_group("mmr_rerank_pure");
+    for size in [50, 200, 500] {
+        let candidates = make_candidates(size);
+        group.bench_function(format!("top10_from_{size}"), |b| {
+            b.iter_with_setup(
+                || candidates.clone(),
+                |cands| reranker.rerank(black_box(&query), black_box(cands), 10),
+            )
+        });
+    }
+    group.finish();
+}
+
+criterion_group!(benches, bench_mmr_rerank, bench_mmr_rerank_pure_similarity);
 criterion_main!(benches);

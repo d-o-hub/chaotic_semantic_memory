@@ -54,6 +54,17 @@ impl Reranker for MmrReranker {
             return Vec::new();
         }
 
+        if self.lambda >= 1.0 - f32::EPSILON {
+            // Fast-path: lambda >= 1.0 is pure similarity (no diversity penalty).
+            // Avoids O(N * K) selection loop and expensive cosine_similarity penalty updates.
+            for cand in &mut candidates {
+                cand.score = query.cosine_similarity(&cand.vector);
+            }
+            candidates.sort_by(|a, b| b.score.total_cmp(&a.score));
+            candidates.truncate(top_k);
+            return candidates;
+        }
+
         let mut selected: Vec<RerankCandidate> = Vec::with_capacity(top_k);
 
         // Precompute cosine similarity between query and all candidates.
