@@ -344,13 +344,26 @@ impl BHVec10240 {
     /// Serialize to bytes
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(1280);
-        for word in &self.bits {
-            bytes.extend_from_slice(&word.to_le_bytes());
+        #[cfg(target_endian = "little")]
+        {
+            // Performance Optimization: [u64; 160] is bit-compatible with [u8; 1280]
+            // on little-endian platforms. Using extend_from_slice with a casted
+            // byte reference avoids 160 bounds checks and word-by-word serialization.
+            // SAFETY: Alignment of u64 is stricter than u8. Pointers are valid.
+            let data_bytes: &[u8; 1280] = unsafe { &*(self.bits.as_ptr() as *const [u8; 1280]) };
+            bytes.extend_from_slice(data_bytes);
+        }
+        #[cfg(not(target_endian = "little"))]
+        {
+            for word in &self.bits {
+                bytes.extend_from_slice(&word.to_le_bytes());
+            }
         }
         bytes
     }
 
     /// Deserialize from bytes
+    #[allow(clippy::missing_const_for_fn)]
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         if bytes.len() != 1280 {
             return Err(MemoryError::InvalidDimension {
@@ -358,11 +371,25 @@ impl BHVec10240 {
                 actual: bytes.len(),
             });
         }
+        #[allow(unused_mut)]
         let mut bits = [0u64; 160];
-        for i in 0..160 {
-            let mut word_bytes = [0u8; 8];
-            word_bytes.copy_from_slice(&bytes[i * 8..(i + 1) * 8]);
-            bits[i] = u64::from_le_bytes(word_bytes);
+        #[cfg(target_endian = "little")]
+        {
+            // Performance Optimization: Direct memcpy for little-endian platforms.
+            // Avoids 160 loop iterations and multiple bounds checks per word.
+            // SAFETY: bytes length is verified to be 1280. [u64; 160] is bit-compatible
+            // with [u8; 1280] on little-endian. Pointers are valid.
+            unsafe {
+                std::ptr::copy_nonoverlapping(bytes.as_ptr(), bits.as_mut_ptr() as *mut u8, 1280);
+            }
+        }
+        #[cfg(not(target_endian = "little"))]
+        {
+            for i in 0..160 {
+                let mut word_bytes = [0u8; 8];
+                word_bytes.copy_from_slice(&bytes[i * 8..(i + 1) * 8]);
+                bits[i] = u64::from_le_bytes(word_bytes);
+            }
         }
         Ok(Self { bits })
     }
