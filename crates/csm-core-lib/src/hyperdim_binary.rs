@@ -349,7 +349,14 @@ impl BHVec10240 {
             // Performance Optimization: [u64; 160] is bit-compatible with [u8; 1280]
             // on little-endian platforms. Using extend_from_slice with a casted
             // byte reference avoids 160 bounds checks and word-by-word serialization.
-            // SAFETY: Alignment of u64 is stricter than u8. Pointers are valid.
+            // SAFETY:
+            // 1. Pointer Validity: `self.bits` is an initialized `[u64; 160]` array, which occupies
+            //    exactly 1,280 contiguous bytes of memory.
+            // 2. Alignment: `u64` has a stricter alignment constraint (8 bytes) than `u8` (1 byte).
+            //    Casting a stricter aligned pointer (`*const u64`) to a weaker aligned pointer (`*const u8`)
+            //    is always safe and does not cause alignment violations.
+            // 3. Lifetime: The returned reference is bound to the lifetime of `self`, and we copy
+            //    its contents immediately into `bytes` before the reference is discarded.
             let data_bytes: &[u8; 1280] = unsafe { &*(self.bits.as_ptr() as *const [u8; 1280]) };
             bytes.extend_from_slice(data_bytes);
         }
@@ -377,8 +384,13 @@ impl BHVec10240 {
         {
             // Performance Optimization: Direct memcpy for little-endian platforms.
             // Avoids 160 loop iterations and multiple bounds checks per word.
-            // SAFETY: bytes length is verified to be 1280. [u64; 160] is bit-compatible
-            // with [u8; 1280] on little-endian. Pointers are valid.
+            // SAFETY:
+            // 1. Source Validity: `bytes` is verified to have a length of exactly 1,280 bytes via the early return
+            //    length check above, making it safe to read 1,280 bytes from `bytes.as_ptr()`.
+            // 2. Destination Validity: `bits` is a local `[u64; 160]` array, which occupies exactly 1,280 bytes on the
+            //    stack, making it safe to write 1,280 bytes starting at `bits.as_mut_ptr()`.
+            // 3. Non-Overlapping: The source slice `bytes` and the destination local array `bits` reside in completely
+            //    separate memory regions and do not overlap.
             unsafe {
                 std::ptr::copy_nonoverlapping(bytes.as_ptr(), bits.as_mut_ptr() as *mut u8, 1280);
             }
