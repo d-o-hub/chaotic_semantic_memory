@@ -96,6 +96,15 @@ fn test_bhvec_roundtrip_hvec() {
     assert_eq!(h1, h2);
 }
 
+#[test]
+fn test_bhvec_to_bytes_and_from_bytes_roundtrip() {
+    let bh1 = BHVec10240::random();
+    let bytes = bh1.to_bytes();
+    assert_eq!(bytes.len(), 1280);
+    let bh2 = BHVec10240::from_bytes(&bytes).unwrap();
+    assert_eq!(bh1, bh2);
+}
+
 /// Naive per-bit majority oracle (`count >= N/2 + 1`).
 fn naive_bundle_majority(vectors: &[&BHVec10240]) -> BHVec10240 {
     let n = vectors.len();

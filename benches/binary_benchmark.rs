@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use chaotic_semantic_memory::BHVec10240;
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 
@@ -29,10 +31,21 @@ fn bench_bhvec_permute(c: &mut Criterion) {
     });
 }
 
+fn bench_bhvec_serialization(c: &mut Criterion) {
+    let v = BHVec10240::random();
+    let bytes = v.to_bytes();
+
+    c.bench_function("bhvec_to_bytes", |b| b.iter(|| black_box(&v).to_bytes()));
+    c.bench_function("bhvec_from_bytes", |b| {
+        b.iter(|| BHVec10240::from_bytes(black_box(&bytes)).unwrap())
+    });
+}
+
 criterion_group!(
     benches,
     bench_bhvec_bundle,
     bench_bhvec_hamming,
-    bench_bhvec_permute
+    bench_bhvec_permute,
+    bench_bhvec_serialization
 );
 criterion_main!(benches);

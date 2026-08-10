@@ -344,13 +344,33 @@ impl BHVec10240 {
     /// Serialize to bytes
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(1280);
-        for word in &self.bits {
-            bytes.extend_from_slice(&word.to_le_bytes());
+        #[cfg(target_endian = "little")]
+        {
+            // Performance Optimization: [u64; 160] is bit-compatible with [u8; 1280]
+            // on little-endian platforms. Using extend_from_slice with a casted
+            // byte reference avoids 160 bounds checks and word-by-word serialization.
+            // SAFETY:
+            // 1. Pointer Validity: `self.bits` is an initialized `[u64; 160]` array, which occupies
+            //    exactly 1,280 contiguous bytes of memory.
+            // 2. Alignment: `u64` has a stricter alignment constraint (8 bytes) than `u8` (1 byte).
+            //    Casting a stricter aligned pointer (`*const u64`) to a weaker aligned pointer (`*const u8`)
+            //    is always safe and does not cause alignment violations.
+            // 3. Lifetime: The returned reference is bound to the lifetime of `self`, and we copy
+            //    its contents immediately into `bytes` before the reference is discarded.
+            let data_bytes: &[u8; 1280] = unsafe { &*(self.bits.as_ptr() as *const [u8; 1280]) };
+            bytes.extend_from_slice(data_bytes);
+        }
+        #[cfg(not(target_endian = "little"))]
+        {
+            for word in &self.bits {
+                bytes.extend_from_slice(&word.to_le_bytes());
+            }
         }
         bytes
     }
 
     /// Deserialize from bytes
+    #[allow(clippy::missing_const_for_fn)]
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         if bytes.len() != 1280 {
             return Err(MemoryError::InvalidDimension {
