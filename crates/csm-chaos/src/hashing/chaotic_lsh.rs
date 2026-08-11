@@ -139,14 +139,30 @@ impl ChaoticLsh {
                 // SAFETY: projection_matrix has 10240 * len elements.
                 // We load 8 independent segments corresponding to 8 different rows.
                 unsafe {
-                    let b0 = _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset0 + input_offset));
-                    let b1 = _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset1 + input_offset));
-                    let b2 = _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset2 + input_offset));
-                    let b3 = _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset3 + input_offset));
-                    let b4 = _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset4 + input_offset));
-                    let b5 = _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset5 + input_offset));
-                    let b6 = _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset6 + input_offset));
-                    let b7 = _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset7 + input_offset));
+                    let b0 = _mm256_loadu_ps(
+                        self.projection_matrix.as_ptr().add(offset0 + input_offset),
+                    );
+                    let b1 = _mm256_loadu_ps(
+                        self.projection_matrix.as_ptr().add(offset1 + input_offset),
+                    );
+                    let b2 = _mm256_loadu_ps(
+                        self.projection_matrix.as_ptr().add(offset2 + input_offset),
+                    );
+                    let b3 = _mm256_loadu_ps(
+                        self.projection_matrix.as_ptr().add(offset3 + input_offset),
+                    );
+                    let b4 = _mm256_loadu_ps(
+                        self.projection_matrix.as_ptr().add(offset4 + input_offset),
+                    );
+                    let b5 = _mm256_loadu_ps(
+                        self.projection_matrix.as_ptr().add(offset5 + input_offset),
+                    );
+                    let b6 = _mm256_loadu_ps(
+                        self.projection_matrix.as_ptr().add(offset6 + input_offset),
+                    );
+                    let b7 = _mm256_loadu_ps(
+                        self.projection_matrix.as_ptr().add(offset7 + input_offset),
+                    );
 
                     sum0 = _mm256_add_ps(sum0, _mm256_mul_ps(a, b0));
                     sum1 = _mm256_add_ps(sum1, _mm256_mul_ps(a, b1));
@@ -184,14 +200,30 @@ impl ChaoticLsh {
             }
 
             let mut byte_val = 0u64;
-            if dot0 > 0.0 { byte_val |= 1 << 0; }
-            if dot1 > 0.0 { byte_val |= 1 << 1; }
-            if dot2 > 0.0 { byte_val |= 1 << 2; }
-            if dot3 > 0.0 { byte_val |= 1 << 3; }
-            if dot4 > 0.0 { byte_val |= 1 << 4; }
-            if dot5 > 0.0 { byte_val |= 1 << 5; }
-            if dot6 > 0.0 { byte_val |= 1 << 6; }
-            if dot7 > 0.0 { byte_val |= 1 << 7; }
+            if dot0 > 0.0 {
+                byte_val |= 1 << 0;
+            }
+            if dot1 > 0.0 {
+                byte_val |= 1 << 1;
+            }
+            if dot2 > 0.0 {
+                byte_val |= 1 << 2;
+            }
+            if dot3 > 0.0 {
+                byte_val |= 1 << 3;
+            }
+            if dot4 > 0.0 {
+                byte_val |= 1 << 4;
+            }
+            if dot5 > 0.0 {
+                byte_val |= 1 << 5;
+            }
+            if dot6 > 0.0 {
+                byte_val |= 1 << 6;
+            }
+            if dot7 > 0.0 {
+                byte_val |= 1 << 7;
+            }
 
             bits[i / 64] |= byte_val << (i % 64);
         }
@@ -286,14 +318,30 @@ impl ChaoticLsh {
             }
 
             let mut byte_val = 0u64;
-            if dot0 > 0.0 { byte_val |= 1 << 0; }
-            if dot1 > 0.0 { byte_val |= 1 << 1; }
-            if dot2 > 0.0 { byte_val |= 1 << 2; }
-            if dot3 > 0.0 { byte_val |= 1 << 3; }
-            if dot4 > 0.0 { byte_val |= 1 << 4; }
-            if dot5 > 0.0 { byte_val |= 1 << 5; }
-            if dot6 > 0.0 { byte_val |= 1 << 6; }
-            if dot7 > 0.0 { byte_val |= 1 << 7; }
+            if dot0 > 0.0 {
+                byte_val |= 1 << 0;
+            }
+            if dot1 > 0.0 {
+                byte_val |= 1 << 1;
+            }
+            if dot2 > 0.0 {
+                byte_val |= 1 << 2;
+            }
+            if dot3 > 0.0 {
+                byte_val |= 1 << 3;
+            }
+            if dot4 > 0.0 {
+                byte_val |= 1 << 4;
+            }
+            if dot5 > 0.0 {
+                byte_val |= 1 << 5;
+            }
+            if dot6 > 0.0 {
+                byte_val |= 1 << 6;
+            }
+            if dot7 > 0.0 {
+                byte_val |= 1 << 7;
+            }
 
             bits[i / 64] |= byte_val << (i % 64);
         }
