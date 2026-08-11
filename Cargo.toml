@@ -230,6 +230,7 @@ harness = false
 [[bench]]
 name = "persistence_benchmark"
 harness = false
+required-features = ["persistence"]
 
 [[bench]]
 name = "bm25_benchmark"
@@ -286,6 +287,7 @@ required-features = ["cli"]
 [[example]]
 name = "proof_of_concept"
 path = "examples/proof_of_concept.rs"
+required-features = ["persistence"]
 
 [[example]]
 name = "basic_in_memory"
@@ -306,6 +308,11 @@ path = "examples/knowledge_graph.rs"
 [[example]]
 name = "streaming_temporal"
 path = "examples/streaming_temporal.rs"
+
+[[example]]
+name = "verify_migration"
+path = "examples/verify_migration.rs"
+required-features = ["persistence"]
 
 [[example]]
 name = "observability_otlp"

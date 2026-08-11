@@ -30,12 +30,12 @@ world_state:
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
   main_head: "e5affb9"           # 2026-08-08
-  tests_count: 1036              # 2026-08-07: literal #[test]/#[tokio::test] across src/crates/tests
+  tests_count: 1131              # 2026-08-11: literal #[test]/#[tokio::test] across src/crates/tests (incl. new persistence-disabled gates)
   skills_count: 32               # find .agents/skills -name SKILL.md | wc -l
   coverage_ratio_current: 93     # test:source ratio (target ≥90%)
-  adr_registry_count: 92         # 2026-08-08: check-adr-parity.sh ok (registry=92, disk=91, 0003 N/A)
-  adr_disk_count: 91
-  integration_test_files: 60     # tests/*.rs (2026-06-10 snapshot; recount on next audit)
+  adr_registry_count: 93         # 2026-08-11: check-adr-parity.sh ok (registry=93, disk=92, 0003 N/A)
+  adr_disk_count: 92
+  integration_test_files: 70     # tests/*.rs (2026-08-11: +persistence_disabled.rs)
 
   # ── Plans pointers ────────────────────────────────────────────
   plans_active_index: "plans/README.md"
@@ -51,14 +51,14 @@ world_state:
   wave_32_status: in_progress    # P0/P1 landed; ownership + evidence remain (see queued actions)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 5        # 2026-08-08: see plans/ACTIONS.md (active-only since ADR-0097)
+  queued_actions_count: 4        # 2026-08-11: replace_persistence_disabled_noops done (was 5 on 2026-08-08)
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: false
   workspace_implementation_owners_unique: false   # queued: consolidate_persistence_cli_wasm_ownership
   no_default_features_is_lean: true               # 2026-08-08: no libsql/rayon in no-default tree (ADR-0094)
   msrv_workspace_aligned: true                    # 2026-08-08: all manifests use workspace rust-version 1.88
-  persistence_disabled_false_success_removed: false # queued: replace_persistence_disabled_noops
+  persistence_disabled_false_success_removed: true  # 2026-08-11: replace_persistence_disabled_noops (ADR-0094); CLI DB config rejected w/o feature
   wasm_ci_release_artifact_identical: false
   performance_claims_have_current_artifacts: false # queued: scale benches + memory model
   critical_skill_evals_passing: false             # behavioral evals deferred
@@ -96,4 +96,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: enforce_workspace_feature_contracts
+  action_last_completed: replace_persistence_disabled_noops

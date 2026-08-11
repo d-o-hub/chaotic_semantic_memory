@@ -82,6 +82,7 @@ async fn concept_history_without_persistence_returns_empty() {
     assert!(history.is_empty());
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn import_json_merge_with_existing_concepts() {
     let temp = NamedTempFile::new().unwrap();
@@ -124,6 +125,7 @@ async fn import_json_merge_with_existing_concepts() {
     assert_eq!(stats.concept_count, 2);
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn import_binary_merge_with_existing_concepts() {
     let temp = NamedTempFile::new().unwrap();

@@ -5,6 +5,7 @@
 use chaotic_semantic_memory::MemoryError;
 use chaotic_semantic_memory::prelude::*;
 use std::sync::Arc;
+#[cfg(feature = "persistence")]
 use tempfile::NamedTempFile;
 
 const NS: &str = "_default";
@@ -81,6 +82,7 @@ async fn inject_concepts_rejects_oversized_id() {
     assert!(matches!(result, Err(MemoryError::InvalidInput { .. })));
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn inject_concepts_with_persistence() {
     let temp = NamedTempFile::new().unwrap();
@@ -295,6 +297,7 @@ async fn associate_many_rejects_empty_to_id() {
     assert!(matches!(result, Err(MemoryError::InvalidInput { .. })));
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn associate_many_with_persistence() {
     let temp = NamedTempFile::new().unwrap();
@@ -459,6 +462,7 @@ async fn probe_batch_finds_exact_match_first() {
     assert_eq!(results[0][0].0, "target");
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn probe_batch_with_persistence() {
     let temp = NamedTempFile::new().unwrap();
@@ -601,6 +605,7 @@ async fn probe_batch_cached_reuses_results() {
     assert!(Arc::ptr_eq(&first[0], &second[0]));
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn probe_batch_cached_with_persistence() {
     let temp = NamedTempFile::new().unwrap();

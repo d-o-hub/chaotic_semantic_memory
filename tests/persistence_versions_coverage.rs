@@ -1,3 +1,4 @@
+#![cfg(feature = "persistence")]
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 //! Persistence version recording coverage tests.
 //!

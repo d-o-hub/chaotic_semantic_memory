@@ -4,6 +4,7 @@
 //! Covers: with_max_sequence_length, with_max_metadata_bytes, with_version_retention
 
 use chaotic_semantic_memory::prelude::*;
+#[cfg(feature = "persistence")]
 use tempfile::NamedTempFile;
 
 #[tokio::test]
@@ -38,6 +39,7 @@ async fn builder_with_max_metadata_bytes_configured() {
         .unwrap();
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn builder_with_version_retention_configured() {
     let temp = NamedTempFile::new().unwrap();
@@ -90,6 +92,7 @@ async fn builder_with_max_batch_size_configured() {
     assert_eq!(stats.concept_count, 3);
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn builder_with_connection_pool_size_configured() {
     let temp = NamedTempFile::new().unwrap();

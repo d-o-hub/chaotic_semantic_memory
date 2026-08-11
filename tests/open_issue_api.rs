@@ -94,6 +94,7 @@ async fn framework_subscribe_emits_events() {
     }
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn builder_with_version_retention_limits_saved_versions() {
     let db_path = format!("/tmp/csm_version_retention_{}.db", std::process::id());
