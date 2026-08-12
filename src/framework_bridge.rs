@@ -23,6 +23,11 @@ impl ChaoticSemanticFramework {
         bridge: &BridgeRetrieval,
     ) -> Result<HybridResult> {
         self.validate_top_k(top_k)?;
+        #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+        if let Some(result) = self.short_circuit_if_known_absent(query).await {
+            return Ok(result);
+        }
+
         let singularity = self.singularity.read().await;
         let ns = self.namespace.read().await;
         let (hits, best_score) =
@@ -119,6 +124,11 @@ impl ChaoticSemanticFramework {
     ) -> Result<HybridResult> {
         self.validate_top_k(top_k)?;
         Self::validate_metadata_filter(filter)?;
+        #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+        if let Some(result) = self.short_circuit_if_known_absent(query).await {
+            return Ok(result);
+        }
+
         let singularity = self.singularity.read().await;
         let ns = self.namespace.read().await;
 

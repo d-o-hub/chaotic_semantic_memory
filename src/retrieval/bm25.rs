@@ -84,7 +84,8 @@ impl Default for Bm25Index {
 
 /// Returns true if the query has a known absence record with
 /// attempt_count >= min_attempts, indicating BM25 should be skipped.
-/// TODO: Wire into the main hybrid retrieval pipeline for short-circuiting.
+/// Called by the framework probe paths to skip retrieval for queries that
+/// repeatedly abstained.
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 pub async fn is_known_absent(query: &str, store: &dyn AbsenceStore, min_attempts: u32) -> bool {
     let id = AbsenceEntry::id_for(query);
@@ -488,3 +489,7 @@ fn score_cmp_desc(a: &(usize, f32), b: &(usize, f32)) -> Ordering {
 #[cfg(test)]
 #[path = "bm25/tests.rs"]
 mod tests;
+
+#[cfg(all(test, not(target_arch = "wasm32"), feature = "persistence"))]
+#[path = "bm25/absence_short_circuit_tests.rs"]
+mod absence_short_circuit_tests;
