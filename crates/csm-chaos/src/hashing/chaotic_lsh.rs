@@ -199,33 +199,33 @@ impl ChaoticLsh {
                 dot7 += val * self.projection_matrix[offset7 + idx];
             }
 
-            let mut byte_val = 0u64;
+            let mut sign_bits = 0u64;
             if dot0 > 0.0 {
-                byte_val |= 1 << 0;
+                sign_bits |= 1 << 0;
             }
             if dot1 > 0.0 {
-                byte_val |= 1 << 1;
+                sign_bits |= 1 << 1;
             }
             if dot2 > 0.0 {
-                byte_val |= 1 << 2;
+                sign_bits |= 1 << 2;
             }
             if dot3 > 0.0 {
-                byte_val |= 1 << 3;
+                sign_bits |= 1 << 3;
             }
             if dot4 > 0.0 {
-                byte_val |= 1 << 4;
+                sign_bits |= 1 << 4;
             }
             if dot5 > 0.0 {
-                byte_val |= 1 << 5;
+                sign_bits |= 1 << 5;
             }
             if dot6 > 0.0 {
-                byte_val |= 1 << 6;
+                sign_bits |= 1 << 6;
             }
             if dot7 > 0.0 {
-                byte_val |= 1 << 7;
+                sign_bits |= 1 << 7;
             }
 
-            bits[i / 64] |= byte_val << (i % 64);
+            bits[i / 64] |= sign_bits << (i % 64);
         }
 
         bits
@@ -317,33 +317,33 @@ impl ChaoticLsh {
                 dot7 += val * self.projection_matrix[offset7 + idx];
             }
 
-            let mut byte_val = 0u64;
+            let mut sign_bits = 0u64;
             if dot0 > 0.0 {
-                byte_val |= 1 << 0;
+                sign_bits |= 1 << 0;
             }
             if dot1 > 0.0 {
-                byte_val |= 1 << 1;
+                sign_bits |= 1 << 1;
             }
             if dot2 > 0.0 {
-                byte_val |= 1 << 2;
+                sign_bits |= 1 << 2;
             }
             if dot3 > 0.0 {
-                byte_val |= 1 << 3;
+                sign_bits |= 1 << 3;
             }
             if dot4 > 0.0 {
-                byte_val |= 1 << 4;
+                sign_bits |= 1 << 4;
             }
             if dot5 > 0.0 {
-                byte_val |= 1 << 5;
+                sign_bits |= 1 << 5;
             }
             if dot6 > 0.0 {
-                byte_val |= 1 << 6;
+                sign_bits |= 1 << 6;
             }
             if dot7 > 0.0 {
-                byte_val |= 1 << 7;
+                sign_bits |= 1 << 7;
             }
 
-            bits[i / 64] |= byte_val << (i % 64);
+            bits[i / 64] |= sign_bits << (i % 64);
         }
 
         bits
