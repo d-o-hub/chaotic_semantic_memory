@@ -287,6 +287,8 @@ mod bridge_persistence_tests;
 #[cfg(test)]
 mod bridge_retrieval_tests;
 #[cfg(test)]
+mod framework_builder_tests;
+#[cfg(test)]
 mod framework_ops_tests;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;

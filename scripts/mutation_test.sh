@@ -14,6 +14,7 @@ set -euo pipefail
 CI_MODE=false
 THRESHOLD="${MUTATION_THRESHOLD:-85}"
 POSITIONAL=()
+NO_DEFAULT_FEATURES=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -28,6 +29,10 @@ while [[ $# -gt 0 ]]; do
     --threshold)
       THRESHOLD="$2"
       shift 2
+      ;;
+    --no-default-features)
+      NO_DEFAULT_FEATURES=true
+      shift
       ;;
     *)
       POSITIONAL+=("$1")
@@ -92,6 +97,13 @@ if [[ "${PROFILE}" == "fast" ]]; then
     if [[ -s "${DIFF_FILE}" ]]; then
       FAST_ARGS+=(--in-diff "${DIFF_FILE}")
       echo "mutation fast: in-diff against ${DIFF_TARGET} ($(wc -l <"${DIFF_FILE}") diff lines)" >&2
+      # Feature-aware mutation: cfg(not(feature = "persistence")) mutants are
+      # unreachable under default features — both generation and tests must run
+      # with the feature off (ADR-0094, PR #621).
+      if grep -Eq '^\+.*cfg\(not\(feature = "persistence"\)\)' "${DIFF_FILE}"; then
+        NO_DEFAULT_FEATURES=true
+        echo 'mutation fast: diff contains cfg(not(feature = "persistence")) — running with --no-default-features' >&2
+      fi
     elif [[ "${CI_MODE}" == "true" ]]; then
       # No bounded diff on a CI run — e.g. the Pre-Release Gate dispatched on main where
       # HEAD == origin/main, so the three-dot diff is empty. A full-tree pass here is not
@@ -128,6 +140,13 @@ if [[ "${PROFILE}" == "fast" ]]; then
   # building irrelevant workspace packages, saving up to 80% build time.
   # TODO: expand this list of packages if new packages or workspace crates are added.
   TEST_ARGS+=(--lib -p csm-retrieval -p chaotic_semantic_memory)
+
+  if [[ "${NO_DEFAULT_FEATURES}" == "true" ]]; then
+    # --cargo-arg applies --no-default-features to every cargo invocation
+    # (build AND test); adding it again in TEST_ARGS would make cargo reject
+    # the duplicated `--no-default-features` flag on the test invocation.
+    FAST_ARGS+=(--cargo-arg=--no-default-features)
+  fi
 
   if [[ "${CI_MODE}" == "true" ]]; then
     # --in-place is incompatible with parallel jobs (-j)

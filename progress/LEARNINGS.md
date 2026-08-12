@@ -52,7 +52,8 @@
 - **Full-fidelity mutation coverage note**: `#[cfg(feature = "persistence")]` on a test also gates its doc — keep one rationale comment per assert.
 
 ## PR Triage / Jules Bot
-- **Empty research PRs**: Close as no-op; zero file changes = no impact.- **Commitlint full range**: `npx commitlint --from origin/main --to HEAD`. Invalid early scope fails CI even if later commits are fine.
+- **Empty research PRs**: Close as no-op; zero file changes = no impact.
+- **Commitlint full range**: `npx commitlint --from origin/main --to HEAD`. Invalid early scope fails CI even if later commits are fine.
 - **Jules force-push risk**: Bot can rewrite PR after your fix, reverting sibling merges. Always `git diff origin/main...HEAD` before merge.
 - **Merge order**: Independent green PRs first. Never `gh pr merge --auto` on stacks (rebase cancellation loop).
 - **Mutation in-diff surface**: Cosmetic rewrites pull unrelated functions into cargo-mutants. Restore-to-main for unrelated lines.
