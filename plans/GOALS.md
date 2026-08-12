@@ -120,13 +120,13 @@ wave_33_goals:
   name: "Docs Truth, Ownership, Missing Behavior, Evidence"
   note: "Queued after Wave 32 P0/P1 subset; see ACTIONS.md wave-33"
   targets:
-    - workspace_implementation_owners_unique: false  # still dual-write
-    - no_default_features_is_lean: false
-    - bm25_absence_todo_resolved: false
-    - ttl_cleanup_task_owned: false
-    - readme_version_consistent: false
-    - readme_ann_section_matches_code: false
-    - agents_skill_count_matches_disk: false
-    - cli_metrics_reset_implemented: false
+    - workspace_implementation_owners_unique: false  # csm-cli/csm-wasm pending this sprint
+    - no_default_features_is_lean: true              # ADR-0094, 2026-08-08
+    - bm25_absence_todo_resolved: true               # PR wire/bm25-absence-short-circuit (2026-08-12)
+    - ttl_cleanup_task_owned: true                   # src/framework.rs cleanup_handle + Drop abort
+    - readme_version_consistent: true                # PR docs/plans-truth-sync (2026-08-12)
+    - readme_ann_section_matches_code: true          # PR docs/plans-truth-sync (2026-08-12)
+    - agents_skill_count_matches_disk: true          # 32 SKILL.md on disk == GOAP_STATE skills_count
+    - cli_metrics_reset_implemented: true            # src/cli/commands/metrics.rs reset branch
     - performance_claims_have_current_artifacts: false
     - active_plan_set_compact: true   # achieved 2026-07-20
