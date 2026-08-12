@@ -16,5 +16,22 @@ fn bench_chaotic_lsh_project(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_slhm2d_next, bench_chaotic_lsh_project);
+fn bench_chaotic_lsh_project_bitwise_parity(c: &mut Criterion) {
+    let lsh = ChaoticLsh::new(3.9, 0.1, 0.7, 128);
+    let input: Vec<f32> = (0..128).map(|i| (i as f32) * 0.001 - 0.064).collect();
+    c.bench_function("chaotic_lsh_project_bitwise_parity", |b| {
+        b.iter(|| {
+            let scalar = lsh.project_scalar(black_box(&input));
+            let simd = lsh.project(black_box(&input));
+            assert_eq!(scalar, simd, "SIMD projection must match scalar reference");
+        })
+    });
+}
+
+criterion_group!(
+    benches,
+    bench_slhm2d_next,
+    bench_chaotic_lsh_project,
+    bench_chaotic_lsh_project_bitwise_parity
+);
 criterion_main!(benches);

@@ -89,7 +89,8 @@ async fn local_persistence_roundtrip_p50_under_20ms() {
     }
 
     let p50 = p50_ms(&mut durations_ms);
-    println!("LOCAL_ROUNDTRIP_P50_MS={p50:.3}");
+    let persisted_bytes = std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
+    println!("LOCAL_ROUNDTRIP_P50_MS={p50:.3} PERSISTED_BYTES={persisted_bytes}");
     assert!(
         p50 < threshold_ms,
         "p50={p50:.3}ms is above {threshold_ms}ms"
