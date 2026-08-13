@@ -1354,18 +1354,9 @@ dependencies = [
 name = "csm-cli"
 version = "0.3.7"
 dependencies = [
- "anyhow",
  "chaotic_semantic_memory",
  "clap",
- "clap_complete",
  "colored 2.2.0",
- "csm-core-lib",
- "csm-embedding",
- "csm-memory",
- "csm-persistence",
- "csm-retrieval",
- "glob",
- "serde",
  "serde_json",
  "tempfile",
  "tokio",

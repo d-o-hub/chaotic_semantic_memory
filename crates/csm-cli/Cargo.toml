@@ -9,17 +9,8 @@ repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
 
 [dependencies]
 chaotic_semantic_memory = { path = "../..", version = "0.3.7", default-features = false }
-csm-core-lib = { path = "../csm-core-lib", version = "0.3.7" }
-csm-memory = { path = "../csm-memory", version = "0.3.7" }
-csm-embedding = { path = "../csm-embedding", version = "0.3.7" }
-csm-retrieval = { path = "../csm-retrieval", version = "0.3.7" }
-csm-persistence = { path = "../csm-persistence", version = "0.3.7" }
 clap = { version = "4.5", features = ["derive", "env", "string"] }
-clap_complete = { version = "4.5.42" }
-anyhow = "1.0.102"
 colored = "2.2.0"
-glob = "0.3.2"
-serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
@@ -35,7 +26,7 @@ path = "src/main.rs"
 [features]
 default = ["cli", "persistence"]
 cli = ["chaotic_semantic_memory/cli"]
-persistence = ["csm-persistence/libsql", "chaotic_semantic_memory/persistence"]
+persistence = ["chaotic_semantic_memory/persistence"]
 mcp = ["chaotic_semantic_memory/mcp"]
 
 [lints]
