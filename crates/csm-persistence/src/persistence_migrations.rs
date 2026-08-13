@@ -343,18 +343,6 @@ impl Persistence {
 
             if version == 9
                 && !self
-                    .column_exists(conn, "csm_concepts", "vector_format")
-                    .await?
-            {
-                conn.execute_batch(
-                    "ALTER TABLE csm_concepts ADD COLUMN vector_format TEXT NOT NULL DEFAULT 'f32';",
-                )
-                .await
-                .map_err(|e| MemoryError::database(format!("Failed migration v9: {e}")))?;
-            }
-
-            if version == 10
-                && !self
                     .column_exists(conn, "csm_associations", "created_at")
                     .await?
             {
@@ -362,7 +350,7 @@ impl Persistence {
                     "ALTER TABLE csm_associations ADD COLUMN created_at INTEGER NOT NULL DEFAULT 0;",
                 )
                 .await
-                .map_err(|e| MemoryError::database(format!("Failed migration v10: {e}")))?;
+                .map_err(|e| MemoryError::database(format!("Failed migration v9: {e}")))?;
                 // Update existing associations with a sensible default if they were 0
                 let now = csm_memory::unix_now_secs();
                 conn.execute(
@@ -370,7 +358,38 @@ impl Persistence {
                     libsql::params![now],
                 )
                 .await
-                .map_err(|e| MemoryError::database(format!("Failed migration v10 update: {e}")))?;
+                .map_err(|e| MemoryError::database(format!("Failed migration v9 update: {e}")))?;
+            }
+
+            if version == 10 {
+                conn.execute_batch(
+                    "CREATE TABLE IF NOT EXISTS csm_absences (
+                        id TEXT PRIMARY KEY,
+                        query TEXT NOT NULL,
+                        normalized_query TEXT NOT NULL,
+                        attempt_count INTEGER NOT NULL,
+                        last_threshold REAL NOT NULL,
+                        best_score_ever REAL,
+                        first_seen TEXT NOT NULL,
+                        last_seen TEXT NOT NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_csm_absences_normalized ON csm_absences(normalized_query);
+                    CREATE INDEX IF NOT EXISTS idx_csm_absences_attempts ON csm_absences(attempt_count);",
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v10: {e}")))?;
+            }
+
+            // ADR-0093: namespace revision for derived ANN snapshot validation
+            if version == 11 {
+                conn.execute_batch(
+                    "CREATE TABLE IF NOT EXISTS csm_namespace_meta (
+                        namespace TEXT PRIMARY KEY,
+                        revision INTEGER NOT NULL DEFAULT 0
+                    );",
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed migration v11: {e}")))?;
             }
 
             conn.execute(

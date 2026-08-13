@@ -1442,8 +1442,11 @@ dependencies = [
 name = "csm-persistence"
 version = "0.3.7"
 dependencies = [
+ "async-trait",
+ "chrono",
  "csm-core-lib",
  "csm-memory",
+ "csm-traits",
  "libsql",
  "serde",
  "serde_json",
@@ -1474,6 +1477,8 @@ dependencies = [
 name = "csm-traits"
 version = "0.3.7"
 dependencies = [
+ "async-trait",
+ "chrono",
  "csm-core-lib",
  "js-sys",
  "serde",

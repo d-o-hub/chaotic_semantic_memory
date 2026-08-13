@@ -10,6 +10,7 @@
 pub mod concept_builder;
 pub mod graph_traversal;
 pub mod index;
+pub mod index_envelope;
 pub mod metadata_filter;
 pub mod singularity;
 pub mod singularity_cache;

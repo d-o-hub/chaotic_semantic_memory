@@ -222,3 +222,54 @@ impl Persistence {
         Ok(list)
     }
 }
+
+#[cfg(test)]
+#[cfg(feature = "persistence")]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+    use crate::persistence::Persistence;
+    use csm_core_lib::hyperdim::HVec10240;
+    use csm_memory::Concept;
+    use std::collections::HashMap;
+    use tempfile::NamedTempFile;
+
+    fn make_concept(id: &str) -> Concept {
+        Concept {
+            id: id.to_string(),
+            vector: HVec10240::random(),
+            metadata: HashMap::new(),
+            created_at: 0,
+            modified_at: 0,
+            expires_at: None,
+            canonical_concept_ids: Vec::new(),
+        }
+    }
+
+    #[tokio::test]
+    async fn get_version_scoped_returns_stored_concept() {
+        let temp = NamedTempFile::new().expect("Failed to create temp file");
+        let path = temp.path().to_str().expect("Invalid path");
+        let persistence = Persistence::new_local(path)
+            .await
+            .expect("Failed to create persistence");
+
+        let ns = "_default";
+        let concept = make_concept("version-test");
+
+        persistence
+            .save_concept(ns, &concept)
+            .await
+            .expect("Failed to save");
+
+        // get_version_scoped should return the stored concept, not Ok(None)
+        let loaded = persistence
+            .get_version_scoped::<HVec10240>(ns, "version-test", 1)
+            .await
+            .expect("Failed to get version")
+            .expect("Version should exist");
+
+        assert_eq!(loaded.id, "version-test");
+        // The vector must match (not a default/zero vector)
+        assert_eq!(loaded.vector, concept.vector);
+    }
+}

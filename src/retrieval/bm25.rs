@@ -5,7 +5,7 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-use crate::bridge_persistence::{AbsenceEntry, AbsenceStore};
+use csm_traits::{AbsenceEntry, AbsenceStore};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::cmp::Ordering;
