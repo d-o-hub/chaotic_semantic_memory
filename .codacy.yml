@@ -13,3 +13,6 @@ engines:
       # BHVec10240 byte (de)serialization uses justified unsafe pointer casts with
       # SAFETY comments; LE fast path is byte-identical to to_le_bytes loop.
       - crates/csm-core-lib/src/hyperdim_binary.rs
+      # ChaoticLsh AVX2/NEON projection loops use justified unsafe SIMD intrinsics
+      # with SAFETY comments; 8-way unroll keeps pointer bounds documented inline.
+      - crates/csm-chaos/src/hashing/chaotic_lsh.rs
