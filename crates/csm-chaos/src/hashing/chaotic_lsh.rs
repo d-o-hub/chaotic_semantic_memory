@@ -83,6 +83,12 @@ impl ChaoticLsh {
     }
 
     /// AVX2 dot-product projection for x86_64.
+    ///
+    /// Algorithmic Optimization: Unrolls the outer 10240-bit loop 8-way to process 8 projection rows
+    /// simultaneously. This reduces memory reads of `input` by 8x by sharing loaded input chunks
+    /// across all 8 rows, and accumulates the dot products into 8 independent register pools
+    /// (sum0..sum7) to expose maximum instruction-level parallelism (ILP) to the CPU. The final 8
+    /// results are packed into a single byte before performing one scalar memory write to `bits`.
     #[cfg(all(target_arch = "x86_64", feature = "std"))]
     #[target_feature(enable = "avx2")]
     unsafe fn project_avx2(&self, input: &[f32]) -> [u64; 160] {
@@ -93,47 +99,110 @@ impl ChaoticLsh {
         let chunks = len / 8;
         let remainder = len % 8;
 
-        for i in 0..10240 {
-            let offset = i * len;
-            let mut sum = _mm256_setzero_ps();
+        // Inline helper to calculate horizontal sum of __m256 register
+        #[inline(always)]
+        fn horizontal_sum_avx2(sum: __m256) -> f32 {
+            unsafe {
+                let hi = _mm256_extractf128_ps(sum, 1);
+                let lo = _mm256_castps256_ps128(sum);
+                let sum128 = _mm_add_ps(lo, hi);
+                let shuf = _mm_movehdup_ps(sum128);
+                let sums = _mm_add_ps(sum128, shuf);
+                let shuf2 = _mm_movehl_ps(sums, sums);
+                let result = _mm_add_ss(sums, shuf2);
+                _mm_cvtss_f32(result)
+            }
+        }
+
+        for g in 0..1280 {
+            let offset0 = (g * 8) * len;
+            let offset1 = (g * 8 + 1) * len;
+            let offset2 = (g * 8 + 2) * len;
+            let offset3 = (g * 8 + 3) * len;
+            let offset4 = (g * 8 + 4) * len;
+            let offset5 = (g * 8 + 5) * len;
+            let offset6 = (g * 8 + 6) * len;
+            let offset7 = (g * 8 + 7) * len;
+
+            let mut sum0 = _mm256_setzero_ps();
+            let mut sum1 = _mm256_setzero_ps();
+            let mut sum2 = _mm256_setzero_ps();
+            let mut sum3 = _mm256_setzero_ps();
+            let mut sum4 = _mm256_setzero_ps();
+            let mut sum5 = _mm256_setzero_ps();
+            let mut sum6 = _mm256_setzero_ps();
+            let mut sum7 = _mm256_setzero_ps();
 
             for c in 0..chunks {
-                let base = offset + c * 8;
-                // SAFETY: Pointer arithmetic is bounded — input has `len` elements and
-                // projection_matrix has 10240 * len elements. c*8 < len and
-                // offset + base < 10240*len for all iterations.
-                unsafe {
-                    let a = _mm256_loadu_ps(input.as_ptr().add(c * 8));
-                    let b = _mm256_loadu_ps(self.projection_matrix.as_ptr().add(base));
-                    sum = _mm256_add_ps(sum, _mm256_mul_ps(a, b));
-                }
+                // Load input chunk once, share with all 8 rows to eliminate redundant cache/memory reads
+                let a = unsafe { _mm256_loadu_ps(input.as_ptr().add(c * 8)) };
+
+                let b0 = unsafe { _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset0 + c * 8)) };
+                let b1 = unsafe { _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset1 + c * 8)) };
+                let b2 = unsafe { _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset2 + c * 8)) };
+                let b3 = unsafe { _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset3 + c * 8)) };
+                let b4 = unsafe { _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset4 + c * 8)) };
+                let b5 = unsafe { _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset5 + c * 8)) };
+                let b6 = unsafe { _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset6 + c * 8)) };
+                let b7 = unsafe { _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset7 + c * 8)) };
+
+                sum0 = _mm256_add_ps(sum0, _mm256_mul_ps(a, b0));
+                sum1 = _mm256_add_ps(sum1, _mm256_mul_ps(a, b1));
+                sum2 = _mm256_add_ps(sum2, _mm256_mul_ps(a, b2));
+                sum3 = _mm256_add_ps(sum3, _mm256_mul_ps(a, b3));
+                sum4 = _mm256_add_ps(sum4, _mm256_mul_ps(a, b4));
+                sum5 = _mm256_add_ps(sum5, _mm256_mul_ps(a, b5));
+                sum6 = _mm256_add_ps(sum6, _mm256_mul_ps(a, b6));
+                sum7 = _mm256_add_ps(sum7, _mm256_mul_ps(a, b7));
             }
 
-            // Horizontal sum of 8 f32 lanes
-            let hi = _mm256_extractf128_ps(sum, 1);
-            let lo = _mm256_castps256_ps128(sum);
-            let sum128 = _mm_add_ps(lo, hi);
-            let shuf = _mm_movehdup_ps(sum128);
-            let sums = _mm_add_ps(sum128, shuf);
-            let shuf2 = _mm_movehl_ps(sums, sums);
-            let result = _mm_add_ss(sums, shuf2);
-            let mut dot_product = _mm_cvtss_f32(result);
+            let mut dot_product0 = horizontal_sum_avx2(sum0);
+            let mut dot_product1 = horizontal_sum_avx2(sum1);
+            let mut dot_product2 = horizontal_sum_avx2(sum2);
+            let mut dot_product3 = horizontal_sum_avx2(sum3);
+            let mut dot_product4 = horizontal_sum_avx2(sum4);
+            let mut dot_product5 = horizontal_sum_avx2(sum5);
+            let mut dot_product6 = horizontal_sum_avx2(sum6);
+            let mut dot_product7 = horizontal_sum_avx2(sum7);
 
-            // Scalar tail for remainder elements
+            // Scalar tails for remainders
             for r in 0..remainder {
                 let idx = chunks * 8 + r;
-                dot_product += input[idx] * self.projection_matrix[offset + idx];
+                let in_val = input[idx];
+                dot_product0 += in_val * self.projection_matrix[offset0 + idx];
+                dot_product1 += in_val * self.projection_matrix[offset1 + idx];
+                dot_product2 += in_val * self.projection_matrix[offset2 + idx];
+                dot_product3 += in_val * self.projection_matrix[offset3 + idx];
+                dot_product4 += in_val * self.projection_matrix[offset4 + idx];
+                dot_product5 += in_val * self.projection_matrix[offset5 + idx];
+                dot_product6 += in_val * self.projection_matrix[offset6 + idx];
+                dot_product7 += in_val * self.projection_matrix[offset7 + idx];
             }
 
-            if dot_product > 0.0 {
-                bits[i / 64] |= 1u64 << (i % 64);
-            }
+            // Pack 8 results into a byte and perform a single write to bits array
+            let mut byte = 0u8;
+            if dot_product0 > 0.0 { byte |= 1 << 0; }
+            if dot_product1 > 0.0 { byte |= 1 << 1; }
+            if dot_product2 > 0.0 { byte |= 1 << 2; }
+            if dot_product3 > 0.0 { byte |= 1 << 3; }
+            if dot_product4 > 0.0 { byte |= 1 << 4; }
+            if dot_product5 > 0.0 { byte |= 1 << 5; }
+            if dot_product6 > 0.0 { byte |= 1 << 6; }
+            if dot_product7 > 0.0 { byte |= 1 << 7; }
+
+            bits[g / 8] |= (byte as u64) << ((g % 8) * 8);
         }
 
         bits
     }
 
     /// NEON dot-product projection for aarch64.
+    ///
+    /// Algorithmic Optimization: Unrolls the outer 10240-bit loop 8-way to process 8 projection rows
+    /// simultaneously. This reduces memory reads of `input` by 8x by sharing loaded input chunks
+    /// across all 8 rows, and accumulates the dot products into 8 independent register pools
+    /// (sum0..sum7) to expose maximum instruction-level parallelism (ILP) to the CPU. The final 8
+    /// results are packed into a single byte before performing one scalar memory write to `bits`.
     #[cfg(target_arch = "aarch64")]
     #[inline]
     unsafe fn project_neon(&self, input: &[f32]) -> [u64; 160] {
@@ -144,33 +213,83 @@ impl ChaoticLsh {
         let chunks = len / 4;
         let remainder = len % 4;
 
-        for i in 0..10240 {
-            let offset = i * len;
-            // SAFETY: target_feature "neon" is guaranteed by the cfg gate on this function.
-            let mut sum = unsafe { vdupq_n_f32(0.0) };
+        for g in 0..1280 {
+            let offset0 = (g * 8) * len;
+            let offset1 = (g * 8 + 1) * len;
+            let offset2 = (g * 8 + 2) * len;
+            let offset3 = (g * 8 + 3) * len;
+            let offset4 = (g * 8 + 4) * len;
+            let offset5 = (g * 8 + 5) * len;
+            let offset6 = (g * 8 + 6) * len;
+            let offset7 = (g * 8 + 7) * len;
+
+            let mut sum0 = vdupq_n_f32(0.0);
+            let mut sum1 = vdupq_n_f32(0.0);
+            let mut sum2 = vdupq_n_f32(0.0);
+            let mut sum3 = vdupq_n_f32(0.0);
+            let mut sum4 = vdupq_n_f32(0.0);
+            let mut sum5 = vdupq_n_f32(0.0);
+            let mut sum6 = vdupq_n_f32(0.0);
+            let mut sum7 = vdupq_n_f32(0.0);
 
             for c in 0..chunks {
-                let base = offset + c * 4;
-                // SAFETY: Pointer arithmetic bounded — input has `len` elements,
-                // projection_matrix has 10240 * len elements.
-                unsafe {
-                    let a = vld1q_f32(input.as_ptr().add(c * 4));
-                    let b = vld1q_f32(self.projection_matrix.as_ptr().add(base));
-                    sum = vfmaq_f32(sum, a, b);
-                }
+                // Load input chunk once, share with all 8 rows to eliminate redundant cache/memory reads
+                let a = vld1q_f32(input.as_ptr().add(c * 4));
+
+                let b0 = vld1q_f32(self.projection_matrix.as_ptr().add(offset0 + c * 4));
+                let b1 = vld1q_f32(self.projection_matrix.as_ptr().add(offset1 + c * 4));
+                let b2 = vld1q_f32(self.projection_matrix.as_ptr().add(offset2 + c * 4));
+                let b3 = vld1q_f32(self.projection_matrix.as_ptr().add(offset3 + c * 4));
+                let b4 = vld1q_f32(self.projection_matrix.as_ptr().add(offset4 + c * 4));
+                let b5 = vld1q_f32(self.projection_matrix.as_ptr().add(offset5 + c * 4));
+                let b6 = vld1q_f32(self.projection_matrix.as_ptr().add(offset6 + c * 4));
+                let b7 = vld1q_f32(self.projection_matrix.as_ptr().add(offset7 + c * 4));
+
+                sum0 = vfmaq_f32(sum0, a, b0);
+                sum1 = vfmaq_f32(sum1, a, b1);
+                sum2 = vfmaq_f32(sum2, a, b2);
+                sum3 = vfmaq_f32(sum3, a, b3);
+                sum4 = vfmaq_f32(sum4, a, b4);
+                sum5 = vfmaq_f32(sum5, a, b5);
+                sum6 = vfmaq_f32(sum6, a, b6);
+                sum7 = vfmaq_f32(sum7, a, b7);
             }
 
-            // SAFETY: target_feature "neon" is guaranteed by the cfg gate on this function.
-            let mut dot_product = unsafe { vaddvq_f32(sum) };
+            let mut dot_product0 = vaddvq_f32(sum0);
+            let mut dot_product1 = vaddvq_f32(sum1);
+            let mut dot_product2 = vaddvq_f32(sum2);
+            let mut dot_product3 = vaddvq_f32(sum3);
+            let mut dot_product4 = vaddvq_f32(sum4);
+            let mut dot_product5 = vaddvq_f32(sum5);
+            let mut dot_product6 = vaddvq_f32(sum6);
+            let mut dot_product7 = vaddvq_f32(sum7);
 
+            // Scalar tails for remainders
             for r in 0..remainder {
                 let idx = chunks * 4 + r;
-                dot_product += input[idx] * self.projection_matrix[offset + idx];
+                let in_val = input[idx];
+                dot_product0 += in_val * self.projection_matrix[offset0 + idx];
+                dot_product1 += in_val * self.projection_matrix[offset1 + idx];
+                dot_product2 += in_val * self.projection_matrix[offset2 + idx];
+                dot_product3 += in_val * self.projection_matrix[offset3 + idx];
+                dot_product4 += in_val * self.projection_matrix[offset4 + idx];
+                dot_product5 += in_val * self.projection_matrix[offset5 + idx];
+                dot_product6 += in_val * self.projection_matrix[offset6 + idx];
+                dot_product7 += in_val * self.projection_matrix[offset7 + idx];
             }
 
-            if dot_product > 0.0 {
-                bits[i / 64] |= 1u64 << (i % 64);
-            }
+            // Pack 8 results into a byte and perform a single write to bits array
+            let mut byte = 0u8;
+            if dot_product0 > 0.0 { byte |= 1 << 0; }
+            if dot_product1 > 0.0 { byte |= 1 << 1; }
+            if dot_product2 > 0.0 { byte |= 1 << 2; }
+            if dot_product3 > 0.0 { byte |= 1 << 3; }
+            if dot_product4 > 0.0 { byte |= 1 << 4; }
+            if dot_product5 > 0.0 { byte |= 1 << 5; }
+            if dot_product6 > 0.0 { byte |= 1 << 6; }
+            if dot_product7 > 0.0 { byte |= 1 << 7; }
+
+            bits[g / 8] |= (byte as u64) << ((g % 8) * 8);
         }
 
         bits
