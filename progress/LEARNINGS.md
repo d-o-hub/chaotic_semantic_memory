@@ -43,6 +43,14 @@
 - **`.codacy.yml` exclude_paths is the sanctioned unsafe-usage escape hatch**: SIMD hot paths with SAFETY comments belong in `engines.opengrep.exclude_paths` (repo policy) — NOT dashboard `AcceptedUse` suppressions, which are un-reviewable and vanish from the dashboard. Fix in code, or exclude per policy.
 - **Safe-function restructure dead end**: Removing `#[target_feature]` from SIMD kernels forces every intrinsic call into its own `unsafe` block — MORE flagged sites, not fewer. Keep `unsafe fn` + `#[target_feature]`; exclude the file.
 
+## Feature-Gating / Disabled-Capability Contracts (ADR-0094)
+- **No false success on disabled features**: When a Cargo feature is off, optional builders must not silently drop config — record it and reject at `build()` with `UnsupportedOperation`; fallback facade methods must return `Err`, never `Ok`/empty.
+- **Idempotent no-ops are fine**: `without_persistence()` when the feature is already off may return `self` (state already held, nothing discarded).
+- **Gate tests, don't inherit fake success**: Integration tests exercising a disabled feature used to pass via the no-op stub. After the honest failure lands, every such test MUST get `#[cfg(feature = "persistence")]` per test or a `#![cfg(feature = "persistence")]` file gate — CI only ran `--all-features` and `--no-default-features --features ann-hnsw --lib`, so un-gated persistence tests never compiled in the lean matrix.
+- **Verify the lean matrix compiles & passes**: `cargo test --no-default-features` (all targets) catches un-gated tests/examples that `--all-features` hides. Add `required-features` to examples and ad-hoc orphan examples.
+- **Disk-full ≠ test failure**: `cc: No space left on device` during `cargo test --all-features` (60+ linked test binaries × huge optional deps) is environmental. `CARGO_PROFILE_TEST_DEBUG=0` shrinks binaries enough to fit; isolate the report.
+- **Full-fidelity mutation coverage note**: `#[cfg(feature = "persistence")]` on a test also gates its doc — keep one rationale comment per assert.
+
 ## PR Triage / Jules Bot
 - **Empty research PRs**: Close as no-op; zero file changes = no impact.
 - **Commitlint full range**: `npx commitlint --from origin/main --to HEAD`. Invalid early scope fails CI even if later commits are fine.

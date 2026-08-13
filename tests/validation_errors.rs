@@ -234,6 +234,7 @@ async fn bundle_concepts_strict_batch_size_fails() {
     assert!(result.is_err());
 }
 
+#[cfg(feature = "cli")]
 #[tokio::test]
 async fn run_query_min_score_validation_fails() {
     use chaotic_semantic_memory::cli::args::OutputFormat;
@@ -343,6 +344,7 @@ async fn prune_decayed_associations_strength_validation_fails() {
     assert_eq!(result.unwrap(), 2);
 }
 
+#[cfg(feature = "cli")]
 #[tokio::test]
 async fn run_query_top_k_validation_fails() {
     use chaotic_semantic_memory::cli::args::OutputFormat;
@@ -366,6 +368,7 @@ async fn run_query_top_k_validation_fails() {
     assert!(result.is_err());
 }
 
+#[cfg(feature = "cli")]
 #[tokio::test]
 async fn run_query_keyword_weight_validation_fails() {
     use chaotic_semantic_memory::cli::args::OutputFormat;
@@ -398,6 +401,7 @@ async fn run_query_keyword_weight_validation_fails() {
     assert!(result.is_err());
 }
 
+#[cfg(feature = "cli")]
 #[tokio::test]
 async fn run_query_mutually_exclusive_modes_fail() {
     use chaotic_semantic_memory::cli::args::OutputFormat;

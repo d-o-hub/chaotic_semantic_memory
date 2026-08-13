@@ -10,6 +10,8 @@ use crate::framework_events_ce::EventEmitter;
 #[cfg(feature = "persistence")]
 use crate::persistence::Persistence;
 use crate::singularity::{Singularity, SingularityConfig};
+#[cfg(not(feature = "persistence"))]
+use csm_core_lib::error::MemoryError;
 use csm_core_lib::error::Result;
 use csm_core_lib::reservoir::Reservoir;
 
@@ -281,9 +283,12 @@ impl FrameworkBuilder {
         self
     }
 
-    /// Stub for `with_local_db` when persistence is disabled.
+    /// Record the requested local DB path even when persistence is disabled.
+    /// `build()` rejects the configuration with `UnsupportedOperation` rather
+    /// than silently discarding it (ADR-0094).
     #[cfg(not(feature = "persistence"))]
-    pub fn with_local_db(self, _path: impl Into<String>) -> Self {
+    pub fn with_local_db(mut self, path: impl Into<String>) -> Self {
+        self.db_path = Some(path.into());
         self
     }
 
@@ -297,9 +302,13 @@ impl FrameworkBuilder {
         self
     }
 
-    /// Stub for `with_turso` when persistence is disabled.
+    /// Record the requested Turso URL/token even when persistence is disabled.
+    /// `build()` rejects the configuration with `UnsupportedOperation` rather
+    /// than silently discarding it (ADR-0094).
     #[cfg(not(feature = "persistence"))]
-    pub fn with_turso(self, _url: impl Into<String>, _token: impl Into<String>) -> Self {
+    pub fn with_turso(mut self, url: impl Into<String>, token: impl Into<String>) -> Self {
+        self.db_path = Some(url.into());
+        self.db_token = Some(token.into());
         self
     }
 
@@ -384,6 +393,18 @@ impl FrameworkBuilder {
 
         #[cfg(not(feature = "persistence"))]
         let persistence: Option<Arc<crate::persistence::Persistence>> = None;
+
+        // ADR-0094: never silently discard a configured database. When the
+        // `persistence` feature is disabled, a DB path/token requested through
+        // `with_local_db`/`with_turso` must fail explicitly instead of building
+        // an in-memory framework as if the configuration had been honored.
+        #[cfg(not(feature = "persistence"))]
+        if self.db_path.is_some() || self.db_token.is_some() {
+            return Err(MemoryError::UnsupportedOperation(
+                "persistence is disabled (feature `persistence` not enabled); the configured database cannot be opened"
+                    .to_string(),
+            ));
+        }
 
         let provider = self
             .embedding_provider

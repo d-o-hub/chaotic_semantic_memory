@@ -1,4 +1,5 @@
 //! ADR-0093: revisioned ANN snapshot validation and durable mutation semantics.
+#![cfg(feature = "persistence")]
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use chaotic_semantic_memory::index_envelope::IndexSnapshotEnvelope;

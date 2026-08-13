@@ -2,10 +2,14 @@
 //! Comprehensive integration tests for CSM concept version history (ADR-0074).
 
 use chaotic_semantic_memory::prelude::*;
+#[cfg(feature = "persistence")]
 use serde_json::json;
+#[cfg(feature = "persistence")]
 use std::collections::HashMap;
+#[cfg(feature = "persistence")]
 use tempfile::NamedTempFile;
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn test_framework_version_history_flow() {
     let temp = NamedTempFile::new().unwrap();
@@ -114,6 +118,7 @@ async fn test_framework_version_history_flow() {
     assert_eq!(c4.metadata.get("status").unwrap(), "draft");
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn test_diff_versions_returns_nontrivial_result() {
     let temp = NamedTempFile::new().unwrap();

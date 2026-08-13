@@ -2,10 +2,12 @@
 use chaotic_semantic_memory::MemoryError;
 use chaotic_semantic_memory::prelude::*;
 use std::sync::Arc;
+#[cfg(feature = "persistence")]
 use tempfile::NamedTempFile;
 
 const NS: &str = "_default";
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn framework_lifecycle_with_persistence() {
     let temp = NamedTempFile::new().unwrap();
@@ -69,6 +71,7 @@ async fn framework_input_validation_rejects_invalid_public_inputs() {
     assert!(matches!(bad_top_k, Err(MemoryError::InvalidInput { .. })));
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn framework_import_skips_orphan_associations_without_failing() {
     let temp = NamedTempFile::new().unwrap();
@@ -97,6 +100,7 @@ async fn framework_import_skips_orphan_associations_without_failing() {
     assert_eq!(framework.stats().await.unwrap().concept_count, 0);
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn concurrent_access_with_persistence() {
     let temp = NamedTempFile::new().unwrap();
@@ -151,6 +155,7 @@ async fn probe_batch_cached_reuses_cached_results() {
     assert!(Arc::ptr_eq(&first[0], &second[0]));
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn binary_import_export_preserves_ttl_and_canonical_links() {
     let temp_db = NamedTempFile::new().unwrap();
@@ -202,6 +207,7 @@ async fn binary_import_export_preserves_ttl_and_canonical_links() {
     );
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn load_merge_does_not_silently_overwrite_existing_concepts() {
     let temp = NamedTempFile::new().unwrap();
@@ -238,6 +244,7 @@ async fn load_merge_does_not_silently_overwrite_existing_concepts() {
     assert_eq!(concept.vector, vector_a);
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn load_merge_loads_new_concepts_from_persistence() {
     let temp = NamedTempFile::new().unwrap();

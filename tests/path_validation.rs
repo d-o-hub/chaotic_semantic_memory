@@ -108,6 +108,7 @@ async fn import_json_skips_invalid_association() {
     assert_eq!(imported, 3);
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn backup_and_restore_with_persistence() {
     let temp = NamedTempFile::new().unwrap();
@@ -149,6 +150,7 @@ async fn backup_and_restore_with_persistence() {
     assert_eq!(stats.concept_count, 2);
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn concept_history_with_limit_clamping() {
     let temp = NamedTempFile::new().unwrap();

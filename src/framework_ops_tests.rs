@@ -339,7 +339,7 @@ async fn import_binary_replace_mode_clears_preexisting_concepts() {
     assert!(target.get_concept("rb-a").await.unwrap().is_some());
 }
 
-#[cfg(not(miri))]
+#[cfg(all(feature = "persistence", not(miri)))]
 #[tokio::test]
 async fn import_with_persistence_is_loadable_from_fresh_framework() {
     let dir = tempfile::tempdir().unwrap();
@@ -387,7 +387,7 @@ async fn import_with_persistence_is_loadable_from_fresh_framework() {
     assert!(reloaded.get_concept("imp-2").await.unwrap().is_some());
 }
 
-#[cfg(not(miri))]
+#[cfg(all(feature = "persistence", not(miri)))]
 #[tokio::test]
 async fn concept_history_with_persistence_returns_versions_after_update() {
     let dir = tempfile::tempdir().unwrap();

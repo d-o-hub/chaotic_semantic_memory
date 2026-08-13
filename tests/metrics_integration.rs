@@ -84,6 +84,7 @@ async fn test_latency_averages() {
     assert_eq!(metrics.probes_total, 100);
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn test_persistence_metrics_wiring() {
     let temp_dir = tempfile::tempdir().unwrap();

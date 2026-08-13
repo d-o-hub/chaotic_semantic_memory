@@ -12,6 +12,15 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-08-11):
+> `replace_persistence_disabled_noops` (ADR-0094) — persistence-disabled
+> configuration can no longer return false success: `with_local_db`/`with_turso`
+> in no-persistence builds record config and `build()` rejects with
+> `UnsupportedOperation`; the no-persistence `persistence` module methods all
+> return `UnsupportedOperation`; un-gated persistence/CLI integration tests and
+> examples were feature-gated so the full `--no-default-features` matrix compiles
+> and passes. `--no-default-features --features cli` keeps compiling (ADR-0067).
+>
 > Last completed (verified 2026-08-08):
 > `enforce_workspace_feature_contracts` (ADR-0094) — owner deps
 > `default-features = false`, `persistence`/`parallel` forward explicitly,
@@ -22,20 +31,6 @@
 
 actions:
   # P1 — ownership and contracts (ADR-0094)
-  - name: replace_persistence_disabled_noops
-    preconditions:
-      adr_0094_accepted: true
-      no_default_features_is_lean: true
-    effects:
-      persistence_disabled_false_success_removed: true
-    cost: 3
-    status: queued
-    file: src/framework_builder.rs, src/lib.rs
-    adr: ADR-0094
-    description: |
-      Remove silently ignored DB builder configuration and Ok/empty persistence
-      stubs. APIs are cfg-absent or return UnsupportedOperation consistently.
-
   - name: consolidate_persistence_cli_wasm_ownership
     preconditions:
       adr_0094_accepted: true

@@ -5,6 +5,7 @@
 //! probe_batch_cached, import size exceeded, concept_history limit clamping
 
 use chaotic_semantic_memory::prelude::*;
+#[cfg(feature = "persistence")]
 use tempfile::NamedTempFile;
 
 const NS: &str = "_default";
@@ -82,6 +83,7 @@ async fn probe_batch_cached_returns_arc_results() {
     assert_eq!(results.len(), 2);
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn concept_history_limit_clamped_to_max() {
     let temp = NamedTempFile::new().unwrap();

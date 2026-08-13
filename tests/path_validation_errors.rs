@@ -4,6 +4,7 @@
 //! Covers: validate_path too long, path traversal detection, absolute path restrictions
 
 use chaotic_semantic_memory::prelude::*;
+#[cfg(feature = "persistence")]
 use tempfile::NamedTempFile;
 
 #[tokio::test]
@@ -60,6 +61,7 @@ async fn import_json_absolute_path_outside_allowed_fails() {
     assert!(result.is_err());
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn backup_with_persistence_succeeds() {
     let temp = NamedTempFile::new().unwrap();
@@ -83,6 +85,7 @@ async fn backup_with_persistence_succeeds() {
     framework.backup(backup_path).await.unwrap();
 }
 
+#[cfg(feature = "persistence")]
 #[tokio::test]
 async fn restore_with_persistence_succeeds() {
     let temp = NamedTempFile::new().unwrap();
