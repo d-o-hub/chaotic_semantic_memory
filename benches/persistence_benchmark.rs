@@ -401,6 +401,59 @@ fn bench_persistence_concurrency(c: &mut Criterion) {
     });
 }
 
+fn percentile(sorted: &[std::time::Duration], pct: usize) -> std::time::Duration {
+    let idx = (sorted.len() * pct / 100).min(sorted.len() - 1);
+    sorted[idx]
+}
+
+fn bench_crud_roundtrip_percentiles(c: &mut Criterion) {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    const SAMPLES: usize = 100;
+    let mut samples = Vec::with_capacity(SAMPLES);
+    for _ in 0..SAMPLES {
+        let concept = make_concept_with_metadata("pct");
+        let temp = NamedTempFile::new().unwrap();
+        let path = temp.path().to_str().unwrap().to_string();
+        let start = std::time::Instant::now();
+        rt.block_on(async {
+            let persistence = Persistence::new_local(&path).await.unwrap();
+            persistence
+                .save_concept(NS, black_box(&concept))
+                .await
+                .unwrap();
+            let loaded = persistence.load_concept(NS, "pct").await.unwrap().unwrap();
+            black_box(&loaded);
+        });
+        samples.push(start.elapsed());
+    }
+    samples.sort();
+    let p50 = percentile(&samples, 50);
+    let p95 = percentile(&samples, 95);
+    let p99 = percentile(&samples, 99);
+    println!(
+        "PERSISTENCE_CRUD_ROUNDTRIP_P50_MS={:.3} P95_MS={:.3} P99_MS={:.3}",
+        p50.as_secs_f64() * 1000.0,
+        p95.as_secs_f64() * 1000.0,
+        p99.as_secs_f64() * 1000.0
+    );
+    c.bench_function("crud_roundtrip_percentiles", |b| {
+        b.iter(|| {
+            let concept = make_concept_with_metadata("pct");
+            let temp = NamedTempFile::new().unwrap();
+            let path = temp.path().to_str().unwrap();
+            rt.block_on(async {
+                let persistence = Persistence::new_local(path).await.unwrap();
+                persistence
+                    .save_concept(NS, black_box(&concept))
+                    .await
+                    .unwrap();
+                let loaded = persistence.load_concept(NS, "pct").await.unwrap().unwrap();
+                black_box(&loaded);
+            });
+        })
+    });
+}
+
 criterion_group!(
     benches,
     bench_persistence_cold,
@@ -415,5 +468,6 @@ criterion_group!(
     bench_crud_roundtrip,
     bench_crud_roundtrip_with_associations,
     bench_checkpoint,
+    bench_crud_roundtrip_percentiles,
 );
 criterion_main!(benches);
