@@ -137,14 +137,30 @@ impl ChaoticLsh {
                 // Load input chunk once, share with all 8 rows to eliminate redundant cache/memory reads
                 let a = unsafe { _mm256_loadu_ps(input.as_ptr().add(c * 8)) };
 
-                let b0 = unsafe { _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset0 + c * 8)) };
-                let b1 = unsafe { _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset1 + c * 8)) };
-                let b2 = unsafe { _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset2 + c * 8)) };
-                let b3 = unsafe { _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset3 + c * 8)) };
-                let b4 = unsafe { _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset4 + c * 8)) };
-                let b5 = unsafe { _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset5 + c * 8)) };
-                let b6 = unsafe { _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset6 + c * 8)) };
-                let b7 = unsafe { _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset7 + c * 8)) };
+                let b0 = unsafe {
+                    _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset0 + c * 8))
+                };
+                let b1 = unsafe {
+                    _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset1 + c * 8))
+                };
+                let b2 = unsafe {
+                    _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset2 + c * 8))
+                };
+                let b3 = unsafe {
+                    _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset3 + c * 8))
+                };
+                let b4 = unsafe {
+                    _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset4 + c * 8))
+                };
+                let b5 = unsafe {
+                    _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset5 + c * 8))
+                };
+                let b6 = unsafe {
+                    _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset6 + c * 8))
+                };
+                let b7 = unsafe {
+                    _mm256_loadu_ps(self.projection_matrix.as_ptr().add(offset7 + c * 8))
+                };
 
                 sum0 = _mm256_add_ps(sum0, _mm256_mul_ps(a, b0));
                 sum1 = _mm256_add_ps(sum1, _mm256_mul_ps(a, b1));
@@ -181,14 +197,30 @@ impl ChaoticLsh {
 
             // Pack 8 results into a byte and perform a single write to bits array
             let mut byte = 0u8;
-            if dot_product0 > 0.0 { byte |= 1 << 0; }
-            if dot_product1 > 0.0 { byte |= 1 << 1; }
-            if dot_product2 > 0.0 { byte |= 1 << 2; }
-            if dot_product3 > 0.0 { byte |= 1 << 3; }
-            if dot_product4 > 0.0 { byte |= 1 << 4; }
-            if dot_product5 > 0.0 { byte |= 1 << 5; }
-            if dot_product6 > 0.0 { byte |= 1 << 6; }
-            if dot_product7 > 0.0 { byte |= 1 << 7; }
+            if dot_product0 > 0.0 {
+                byte |= 1 << 0;
+            }
+            if dot_product1 > 0.0 {
+                byte |= 1 << 1;
+            }
+            if dot_product2 > 0.0 {
+                byte |= 1 << 2;
+            }
+            if dot_product3 > 0.0 {
+                byte |= 1 << 3;
+            }
+            if dot_product4 > 0.0 {
+                byte |= 1 << 4;
+            }
+            if dot_product5 > 0.0 {
+                byte |= 1 << 5;
+            }
+            if dot_product6 > 0.0 {
+                byte |= 1 << 6;
+            }
+            if dot_product7 > 0.0 {
+                byte |= 1 << 7;
+            }
 
             bits[g / 8] |= (byte as u64) << ((g % 8) * 8);
         }
@@ -280,14 +312,30 @@ impl ChaoticLsh {
 
             // Pack 8 results into a byte and perform a single write to bits array
             let mut byte = 0u8;
-            if dot_product0 > 0.0 { byte |= 1 << 0; }
-            if dot_product1 > 0.0 { byte |= 1 << 1; }
-            if dot_product2 > 0.0 { byte |= 1 << 2; }
-            if dot_product3 > 0.0 { byte |= 1 << 3; }
-            if dot_product4 > 0.0 { byte |= 1 << 4; }
-            if dot_product5 > 0.0 { byte |= 1 << 5; }
-            if dot_product6 > 0.0 { byte |= 1 << 6; }
-            if dot_product7 > 0.0 { byte |= 1 << 7; }
+            if dot_product0 > 0.0 {
+                byte |= 1 << 0;
+            }
+            if dot_product1 > 0.0 {
+                byte |= 1 << 1;
+            }
+            if dot_product2 > 0.0 {
+                byte |= 1 << 2;
+            }
+            if dot_product3 > 0.0 {
+                byte |= 1 << 3;
+            }
+            if dot_product4 > 0.0 {
+                byte |= 1 << 4;
+            }
+            if dot_product5 > 0.0 {
+                byte |= 1 << 5;
+            }
+            if dot_product6 > 0.0 {
+                byte |= 1 << 6;
+            }
+            if dot_product7 > 0.0 {
+                byte |= 1 << 7;
+            }
 
             bits[g / 8] |= (byte as u64) << ((g % 8) * 8);
         }
