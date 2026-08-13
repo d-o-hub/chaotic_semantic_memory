@@ -79,14 +79,14 @@ WASM support is enabled automatically when compiling for the `wasm32` target arc
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.3" }
+chaotic_semantic_memory = { version = "0.3.8" }
 ```
 
 For library-only consumers who don't need the CLI binary or its dependencies:
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.4", default-features = false }
+chaotic_semantic_memory = { version = "0.3.8", default-features = false }
 ```
 
 ### WASM npm Package (for JS/TS)
@@ -432,16 +432,20 @@ vectors. For larger corpora, two-stage candidate generation can be enabled via
 Both reduce the scored subset from n to a smaller candidate set while
 preserving exact similarity semantics on the reranking pass.
 
-### ANN/LSH Deferred
+### ANN Index Backends
 
-Approximate nearest-neighbor (ANN) or locality-sensitive hashing (LSH) indexing
-is **intentionally deferred** until benchmarks demonstrate latency regression
-beyond the current threshold. As documented in
-[ADR-0056](plans/adr/0056-performance-follow-up-priorities.md), the trigger is
-**>200k concepts** with latency degradation. Current benchmarks show the exact
-scan completes in ~24ms at 200k concepts, well within acceptable bounds
-(see [ADR-0059](plans/adr/0059-retrieval-optimization.md) for retrieval
-optimization details and benchmark methodology).
+Approximate nearest-neighbor search is available behind opt-in Cargo
+features: `ann-hnsw` (graph) and `ann-lsh` (chaotic locality-sensitive
+hashing). Enable exactly one:
+
+```toml
+chaotic_semantic_memory = { version = "0.3.8", default-features = false, features = ["ann-hnsw"] }
+```
+
+With no ANN feature enabled, retrieval uses exact scan (~24ms at 200k
+concepts, see [ADR-0059](plans/adr/0059-retrieval-optimization.md)).
+Further index automation (ADR-0056) remains deferred until benchmarks
+show latency regression beyond the threshold at >200k concepts.
 
 ### Async Runtime
 
