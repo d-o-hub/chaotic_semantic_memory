@@ -606,6 +606,7 @@ dependencies = [
 name = "csm-memory"
 version = "0.3.7"
 dependencies = [
+ "bincode",
  "csm-core-lib",
  "js-sys",
  "rayon",
@@ -620,8 +621,10 @@ dependencies = [
 name = "csm-persistence"
 version = "0.3.7"
 dependencies = [
+ "async-trait",
  "csm-core-lib",
  "csm-memory",
+ "csm-traits",
  "libsql",
  "serde",
  "serde_json",
@@ -650,6 +653,8 @@ dependencies = [
 name = "csm-traits"
 version = "0.3.7"
 dependencies = [
+ "async-trait",
+ "chrono",
  "csm-core-lib",
  "js-sys",
  "serde",

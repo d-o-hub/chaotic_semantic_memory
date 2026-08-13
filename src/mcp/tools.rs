@@ -5,9 +5,9 @@ use serde_json::{Value, json};
 use std::collections::HashMap;
 
 use super::handler::McpHandler;
-#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-use crate::bridge_persistence::AbsenceStore;
 use crate::retrieval::hybrid::HybridResult;
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+use csm_traits::AbsenceStore;
 
 impl McpHandler {
     pub(crate) async fn execute_tool(&self, name: &str, args: Value) -> Result<Value> {

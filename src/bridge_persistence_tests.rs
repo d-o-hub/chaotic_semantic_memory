@@ -1,10 +1,11 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use crate::bridge_persistence::{AbsenceEntry, persist_absence};
+use crate::bridge_persistence::{absence_from_abstention, merge_absence_with, persist_absence};
 use crate::persistence::Persistence;
 use crate::retrieval::hybrid::RetrievalAbstention;
 use crate::semantic_bridge::{CanonicalConcept, ConceptGraph};
 use chrono::Utc;
+use csm_traits::AbsenceEntry;
 use tempfile::NamedTempFile;
 
 #[tokio::test]
@@ -147,7 +148,7 @@ fn test_merge_with_sets_score_from_none() {
         attempted_modes: vec![],
         timestamp: ts,
     };
-    entry.merge_with(&abstention);
+    merge_absence_with(&mut entry, &abstention);
     assert_eq!(
         entry.best_score_ever,
         Some(0.7),
@@ -176,7 +177,7 @@ fn test_merge_with_lower_score_unchanged() {
         attempted_modes: vec![],
         timestamp: ts,
     };
-    entry.merge_with(&abstention);
+    merge_absence_with(&mut entry, &abstention);
     assert!(
         (entry.best_score_ever.unwrap() - 0.5).abs() < f32::EPSILON,
         "lower score must not overwrite best_score_ever"
@@ -274,11 +275,11 @@ fn make_abstention(score: Option<f32>) -> crate::retrieval::hybrid::RetrievalAbs
 #[test]
 fn merge_with_keeps_strictly_higher_score() {
     let abstention_initial = make_abstention(Some(0.3));
-    let mut entry = AbsenceEntry::from_abstention(&abstention_initial);
+    let mut entry = absence_from_abstention(&abstention_initial);
 
     // Merge with strictly higher score — must update
     let higher = make_abstention(Some(0.8));
-    entry.merge_with(&higher);
+    merge_absence_with(&mut entry, &higher);
     assert_eq!(entry.best_score_ever, Some(0.8));
 }
 
@@ -289,11 +290,11 @@ fn merge_with_does_not_overwrite_equal_score() {
     // we pin the pointer identity by checking the value is unchanged
     // when the new score equals the existing one).
     let abstention_initial = make_abstention(Some(0.5));
-    let mut entry = AbsenceEntry::from_abstention(&abstention_initial);
+    let mut entry = absence_from_abstention(&abstention_initial);
     assert_eq!(entry.best_score_ever, Some(0.5));
 
     let equal_score = make_abstention(Some(0.5));
-    entry.merge_with(&equal_score);
+    merge_absence_with(&mut entry, &equal_score);
     // Score should remain 0.5; both `>` and `>=` produce same numeric result,
     // BUT we additionally test that a lower score is not promoted:
     assert_eq!(
@@ -303,7 +304,7 @@ fn merge_with_does_not_overwrite_equal_score() {
     );
 
     let lower = make_abstention(Some(0.2));
-    entry.merge_with(&lower);
+    merge_absence_with(&mut entry, &lower);
     assert_eq!(
         entry.best_score_ever,
         Some(0.5),
@@ -314,10 +315,10 @@ fn merge_with_does_not_overwrite_equal_score() {
 #[test]
 fn merge_with_promotes_none_to_some() {
     let initial = make_abstention(None);
-    let mut entry = AbsenceEntry::from_abstention(&initial);
+    let mut entry = absence_from_abstention(&initial);
     assert_eq!(entry.best_score_ever, None);
 
     let with_score = make_abstention(Some(0.7));
-    entry.merge_with(&with_score);
+    merge_absence_with(&mut entry, &with_score);
     assert_eq!(entry.best_score_ever, Some(0.7));
 }

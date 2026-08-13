@@ -7,7 +7,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use super::is_known_absent;
-use crate::bridge_persistence::{AbsenceEntry, AbsenceStore};
+use csm_traits::{AbsenceEntry, AbsenceStore};
 use std::collections::HashMap;
 
 struct StubStore {

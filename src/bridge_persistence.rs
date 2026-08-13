@@ -8,8 +8,8 @@
 use crate::persistence::Persistence;
 use crate::retrieval::hybrid::RetrievalAbstention;
 use crate::semantic_bridge::{CanonicalConcept, ConceptGraph};
-use chrono::{DateTime, Utc};
 use csm_core_lib::error::{MemoryError, Result};
+use csm_traits::{AbsenceEntry, AbsenceStore};
 use libsql::params;
 
 impl Persistence {
@@ -235,101 +235,42 @@ impl Persistence {
     }
 }
 
-/// A persisted record of a retrieval event that found no matching concepts.
-/// Used to prevent re-querying known-absent concepts and to surface
-/// memory gaps to operators.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct AbsenceEntry {
-    /// Stable ID derived from a hash of the normalized query string
-    pub id: String,
-    /// The original query that produced no results
-    pub query: String,
-    /// Normalized form of the query (lowercased, trimmed)
-    pub normalized_query: String,
-    /// How many times this query has been attempted with no result
-    pub attempt_count: u32,
-    /// Threshold that was not met on the last attempt
-    pub last_threshold: f32,
-    /// Best score seen across all attempts
-    pub best_score_ever: Option<f32>,
-    /// Timestamp of first absence event for this query
-    pub first_seen: DateTime<Utc>,
-    /// Timestamp of most recent absence event
-    pub last_seen: DateTime<Utc>,
-}
-
-impl AbsenceEntry {
-    /// Normalize a query string for stable ID derivation.
-    pub fn normalize(query: &str) -> String {
-        query.trim().to_lowercase()
-    }
-
-    /// Derive a stable string ID from the normalized query.
-    ///
-    /// Uses FNV-1a (64-bit) for deterministic hashing across Rust versions
-    /// and platforms, matching the crate's text encoding pipeline.
-    pub fn id_for(query: &str) -> String {
-        let normalized = Self::normalize(query);
-        let hash = Self::fnv1a_hash(normalized.as_bytes());
-        format!("absence:{hash:016x}")
-    }
-
-    /// FNV-1a 64-bit hash (stable across Rust versions/platforms).
-    pub(crate) fn fnv1a_hash(bytes: &[u8]) -> u64 {
-        const OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
-        const PRIME: u64 = 0x0000_0100_0000_01b3;
-        let mut hash = OFFSET_BASIS;
-        for &byte in bytes {
-            hash ^= byte as u64;
-            hash = hash.wrapping_mul(PRIME);
-        }
-        hash
-    }
-
-    /// Create a new entry from a RetrievalAbstention event.
-    pub fn from_abstention(abstention: &RetrievalAbstention) -> Self {
-        let normalized = Self::normalize(&abstention.query);
-        AbsenceEntry {
-            id: Self::id_for(&abstention.query),
-            query: abstention.query.clone(),
-            normalized_query: normalized,
-            attempt_count: 1,
-            last_threshold: abstention.min_score_threshold,
-            best_score_ever: abstention.best_score_seen,
-            first_seen: abstention.timestamp,
-            last_seen: abstention.timestamp,
-        }
-    }
-
-    /// Merge a new abstention event into an existing entry (upsert logic).
-    pub fn merge_with(&mut self, abstention: &RetrievalAbstention) {
-        self.attempt_count += 1;
-        self.last_seen = abstention.timestamp;
-        self.last_threshold = abstention.min_score_threshold;
-
-        match (abstention.best_score_seen, self.best_score_ever) {
-            (Some(new), Some(existing)) => {
-                if new > existing {
-                    self.best_score_ever = Some(new);
-                }
-            }
-            (Some(new), None) => {
-                self.best_score_ever = Some(new);
-            }
-            _ => {}
-        }
+/// Build an `AbsenceEntry` from a `RetrievalAbstention` event.
+///
+/// Root adapter: `AbsenceEntry`/`AbsenceStore` live in `csm-traits` (ADR-0094);
+/// this conversion bridges the framework-level abstention event into the
+/// owner-neutral persistence contract.
+pub fn absence_from_abstention(abstention: &RetrievalAbstention) -> AbsenceEntry {
+    let normalized = AbsenceEntry::normalize(&abstention.query);
+    AbsenceEntry {
+        id: AbsenceEntry::id_for(&abstention.query),
+        query: abstention.query.clone(),
+        normalized_query: normalized,
+        attempt_count: 1,
+        last_threshold: abstention.min_score_threshold,
+        best_score_ever: abstention.best_score_seen,
+        first_seen: abstention.timestamp,
+        last_seen: abstention.timestamp,
     }
 }
 
-/// Persistence backend for absence entries.
-#[async_trait::async_trait]
-pub trait AbsenceStore: Send + Sync {
-    /// Load an absence entry by ID.
-    async fn get_absence(&self, id: &str) -> Result<Option<AbsenceEntry>>;
-    /// Save or update an absence entry.
-    async fn upsert_absence(&self, entry: &AbsenceEntry) -> Result<()>;
-    /// Return all absence entries with attempt_count >= min_attempts.
-    async fn list_absences(&self, min_attempts: u32) -> Result<Vec<AbsenceEntry>>;
+/// Merge a new abstention event into an existing entry (upsert logic).
+pub fn merge_absence_with(entry: &mut AbsenceEntry, abstention: &RetrievalAbstention) {
+    entry.attempt_count += 1;
+    entry.last_seen = abstention.timestamp;
+    entry.last_threshold = abstention.min_score_threshold;
+
+    match (abstention.best_score_seen, entry.best_score_ever) {
+        (Some(new), Some(existing)) => {
+            if new > existing {
+                entry.best_score_ever = Some(new);
+            }
+        }
+        (Some(new), None) => {
+            entry.best_score_ever = Some(new);
+        }
+        _ => {}
+    }
 }
 
 /// Persist a RetrievalAbstention event as an AbsenceEntry.
@@ -340,12 +281,12 @@ pub async fn persist_absence(
     let id = AbsenceEntry::id_for(&abstention.query);
     match store.get_absence(&id).await? {
         Some(mut existing) => {
-            existing.merge_with(abstention);
+            merge_absence_with(&mut existing, abstention);
             store.upsert_absence(&existing).await?;
             Ok(existing)
         }
         None => {
-            let entry = AbsenceEntry::from_abstention(abstention);
+            let entry = absence_from_abstention(abstention);
             store.upsert_absence(&entry).await?;
             Ok(entry)
         }

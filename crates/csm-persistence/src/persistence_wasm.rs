@@ -82,6 +82,21 @@ impl Persistence {
         Err(wasm_persistence_unavailable())
     }
 
+    pub async fn load_all_associations(
+        &self,
+        _ns: &str,
+    ) -> Result<Vec<(String, String, f32, u64)>> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn get_namespace_revision(&self, _ns: &str) -> Result<u64> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn bump_namespace_revision(&self, _ns: &str) -> Result<u64> {
+        Err(wasm_persistence_unavailable())
+    }
+
     pub async fn clear_namespace(&self, _ns: &str) -> Result<()> {
         Err(wasm_persistence_unavailable())
     }
@@ -151,6 +166,23 @@ impl Persistence {
     pub async fn load_index(&self, _ns: &str, _id: &str) -> Result<Option<Vec<u8>>> {
         Err(wasm_persistence_unavailable())
     }
+
+    pub async fn save_index_envelope(
+        &self,
+        _ns: &str,
+        _id: &str,
+        _envelope: &csm_memory::index_envelope::IndexSnapshotEnvelope,
+    ) -> Result<()> {
+        Err(wasm_persistence_unavailable())
+    }
+
+    pub async fn load_index_envelope(
+        &self,
+        _ns: &str,
+        _id: &str,
+    ) -> Result<Option<csm_memory::index_envelope::IndexSnapshotEnvelope>> {
+        Err(wasm_persistence_unavailable())
+    }
 }
 
 #[allow(dead_code)]
@@ -180,6 +212,16 @@ mod tests {
     #[tokio::test]
     async fn new_turso_returns_unsupported() {
         let result = Persistence::new_turso("https://example.com", "token").await;
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        assert!(matches!(err, MemoryError::UnsupportedOperation(_)));
+    }
+
+    #[tokio::test]
+    async fn load_all_associations_returns_unsupported() {
+        let p = Persistence {};
+        let result = p.load_all_associations("test_ns").await;
         assert!(result.is_err());
 
         let err = result.unwrap_err();

@@ -7,6 +7,10 @@ use csm_core_lib::hyperdim::HVec10240;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+pub mod absence;
+
+pub use absence::{AbsenceEntry, AbsenceStore};
+
 // ============================================================================
 // Constants
 // ============================================================================

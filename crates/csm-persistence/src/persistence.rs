@@ -4,13 +4,13 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use csm_core_lib::error::{MemoryError, Result};
+use csm_traits::{AbsenceEntry, AbsenceStore};
 use libsql::{Builder, Connection, Database, params};
 use std::sync::Arc;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-pub(crate) const LATEST_SCHEMA_VERSION: i64 = 10;
+pub(crate) const LATEST_SCHEMA_VERSION: i64 = 11;
 
 #[derive(Debug)]
-#[allow(dead_code)]
 pub struct Persistence {
     pub(crate) db: Arc<Database>,
     pub(crate) local_path: Option<String>,
@@ -282,5 +282,194 @@ impl Persistence {
         } else {
             Ok(0)
         }
+    }
+}
+
+#[async_trait::async_trait]
+impl AbsenceStore for Persistence {
+    async fn get_absence(&self, id: &str) -> Result<Option<AbsenceEntry>> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+
+        let mut rows = conn
+            .query(
+                "SELECT id, query, normalized_query, attempt_count, last_threshold, best_score_ever, first_seen, last_seen FROM csm_absences WHERE id = ?1",
+                params![id],
+            )
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to load absence: {e}")))?;
+
+        if let Some(row) = rows
+            .next()
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to fetch absence row: {e}")))?
+        {
+            Ok(Some(Self::row_to_absence_entry(&row)?))
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn upsert_absence(&self, entry: &AbsenceEntry) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+
+        conn.execute(
+            "INSERT INTO csm_absences (id, query, normalized_query, attempt_count, last_threshold, best_score_ever, first_seen, last_seen)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+             ON CONFLICT(id) DO UPDATE SET
+             attempt_count = excluded.attempt_count,
+             last_threshold = excluded.last_threshold,
+             best_score_ever = excluded.best_score_ever,
+             last_seen = excluded.last_seen",
+            params![
+                entry.id.clone(),
+                entry.query.clone(),
+                entry.normalized_query.clone(),
+                entry.attempt_count as i64,
+                entry.last_threshold as f64,
+                entry.best_score_ever.map(|s| s as f64),
+                entry.first_seen.to_rfc3339(),
+                entry.last_seen.to_rfc3339()
+            ],
+        )
+        .await
+        .map_err(|e| MemoryError::database(format!("Failed to upsert absence: {e}")))?;
+
+        Ok(())
+    }
+
+    async fn list_absences(&self, min_attempts: u32) -> Result<Vec<AbsenceEntry>> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+
+        let mut rows = conn
+            .query(
+                "SELECT id, query, normalized_query, attempt_count, last_threshold, best_score_ever, first_seen, last_seen FROM csm_absences WHERE attempt_count >= ?1 ORDER BY attempt_count DESC",
+                params![min_attempts as i64],
+            )
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to list absences: {e}")))?;
+
+        let mut entries = Vec::new();
+        while let Some(row) = rows
+            .next()
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to fetch absence row: {e}")))?
+        {
+            entries.push(Self::row_to_absence_entry(&row)?);
+        }
+
+        Ok(entries)
+    }
+}
+
+impl Persistence {
+    fn row_to_absence_entry(row: &libsql::Row) -> Result<AbsenceEntry> {
+        let id: String = row
+            .get(0)
+            .map_err(|e| MemoryError::database(format!("id: {e}")))?;
+        let query: String = row
+            .get(1)
+            .map_err(|e| MemoryError::database(format!("query: {e}")))?;
+        let normalized_query: String = row
+            .get(2)
+            .map_err(|e| MemoryError::database(format!("normalized_query: {e}")))?;
+        let attempt_count: i64 = row
+            .get(3)
+            .map_err(|e| MemoryError::database(format!("attempt_count: {e}")))?;
+        let last_threshold: f64 = row
+            .get(4)
+            .map_err(|e| MemoryError::database(format!("last_threshold: {e}")))?;
+        let best_score_ever: Option<f64> = row
+            .get(5)
+            .map_err(|e| MemoryError::database(format!("best_score_ever: {e}")))?;
+        let first_seen: String = row
+            .get(6)
+            .map_err(|e| MemoryError::database(format!("first_seen: {e}")))?;
+        let last_seen: String = row
+            .get(7)
+            .map_err(|e| MemoryError::database(format!("last_seen: {e}")))?;
+
+        Ok(AbsenceEntry {
+            id,
+            query,
+            normalized_query,
+            attempt_count: attempt_count as u32,
+            last_threshold: last_threshold as f32,
+            best_score_ever: best_score_ever.map(|s| s as f32),
+            first_seen: first_seen
+                .parse()
+                .map_err(|e| MemoryError::database(format!("parse first_seen: {e}")))?,
+            last_seen: last_seen
+                .parse()
+                .map_err(|e| MemoryError::database(format!("parse last_seen: {e}")))?,
+        })
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature = "persistence")]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+    use super::*;
+    use chrono::Utc;
+    use tempfile::NamedTempFile;
+
+    #[tokio::test]
+    async fn absence_store_crud_and_list() {
+        let temp = NamedTempFile::new().expect("Failed to create temp file");
+        let path = temp.path().to_str().expect("Invalid path");
+        let persistence = Persistence::new_local(path)
+            .await
+            .expect("Failed to create persistence");
+
+        let ts = Utc::now();
+        let entry = AbsenceEntry {
+            id: AbsenceEntry::id_for("missing query"),
+            query: "missing query".to_string(),
+            normalized_query: AbsenceEntry::normalize("missing query"),
+            attempt_count: 1,
+            last_threshold: 0.5,
+            best_score_ever: None,
+            first_seen: ts,
+            last_seen: ts,
+        };
+
+        // Unknown id returns None before any upsert.
+        assert!(
+            persistence
+                .get_absence(&entry.id)
+                .await
+                .expect("get_absence failed")
+                .is_none()
+        );
+
+        persistence
+            .upsert_absence(&entry)
+            .await
+            .expect("upsert_absence failed");
+
+        let loaded = persistence
+            .get_absence(&entry.id)
+            .await
+            .expect("get_absence failed")
+            .expect("absence should exist after upsert");
+        assert_eq!(loaded.id, entry.id);
+        assert_eq!(loaded.attempt_count, 1);
+
+        // list_absences returns entries at or above the attempt floor.
+        let listed = persistence
+            .list_absences(1)
+            .await
+            .expect("list_absences failed");
+        assert_eq!(listed.len(), 1);
+        assert!(
+            persistence
+                .list_absences(2)
+                .await
+                .expect("list_absences failed")
+                .is_empty()
+        );
     }
 }
