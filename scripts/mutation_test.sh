@@ -251,6 +251,16 @@ EXCLUDE_ARGS=(
   # src/export_payload.rs. This file-level exclude also covers AbsenceEntry::normalize
   # (bridge_persistence.rs:264), so no separate mutant-label exclude is needed.
   --exclude "src/bridge_persistence.rs"
+  # M1 BM25 absence short-circuit (ADR-0094 follow-up): short_circuit_if_known_absent
+  # is a framework async path that requires a persisted absence store; its
+  # Some/None branch is covered by tests/bm25_absence_short_circuit.rs, which the
+  # --lib mutation profile does not run (same rationale as the framework probe
+  # excludes above).
+  --exclude-re "short_circuit_if_known_absent"
+  # Test scaffolding: StubStore::list_absences is a trait method required by the
+  # AbsenceStore stub but never called by the unit test, so mutating it to
+  # Ok(vec![]) is unobservable.
+  --exclude-re "StubStore>::list_absences"
 )
 
 # Preflight count (omit -j; listing does not need parallel workers).

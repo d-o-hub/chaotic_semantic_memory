@@ -14,6 +14,10 @@ use js_sys::Date;
 use std::collections::HashMap;
 use tracing::instrument;
 
+/// Minimum persisted absence attempts before a query short-circuits retrieval (M1).
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+pub const ABSENCE_MIN_ATTEMPTS: u32 = 3;
+
 impl crate::framework::ChaoticSemanticFramework {
     /// Evaluate the TTL policy for a concept.
     pub(crate) async fn evaluate_ttl_policy(
@@ -160,8 +164,38 @@ impl crate::framework::ChaoticSemanticFramework {
             .await
     }
 
+    /// M1: queries that abstained `ABSENCE_MIN_ATTEMPTS`+ times skip retrieval
+    /// and abstain immediately (persisted short-circuit).
+    #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+    pub(crate) async fn short_circuit_if_known_absent(
+        &self,
+        query: &str,
+    ) -> Option<crate::retrieval::hybrid::HybridResult> {
+        let store = self.persistence.as_ref()?;
+        if crate::retrieval::bm25::is_known_absent(query, store.as_ref(), ABSENCE_MIN_ATTEMPTS)
+            .await
+        {
+            Some(crate::retrieval::hybrid::HybridResult::Abstained(
+                crate::retrieval::hybrid::RetrievalAbstention {
+                    query: query.to_string(),
+                    min_score_threshold: self.config.pattern_recognition_threshold as f32,
+                    best_score_seen: None,
+                    attempted_modes: vec!["AbsenceShortCircuit".to_string()],
+                    timestamp: chrono::Utc::now(),
+                },
+            ))
+        } else {
+            None
+        }
+    }
+
     /// Probe for similar concepts using text input. Encodes the query text via the embedding provider.
     pub async fn probe_text(&self, query: &str, top_k: usize) -> Result<HybridResult> {
+        #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+        if let Some(result) = self.short_circuit_if_known_absent(query).await {
+            return Ok(result);
+        }
+
         let embedding = self.embedding_provider.embed(query).await?;
         let vector = self
             .embedding_provider
