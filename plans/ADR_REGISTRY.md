@@ -100,6 +100,7 @@
 | 0095 | Evidence-Driven Quality Gates | Accepted | [adr/0095-evidence-driven-quality-gates.md](adr/0095-evidence-driven-quality-gates.md) |
 | 0096 | Agent Skill and Workflow Validation | Accepted | [adr/0096-agent-skill-and-workflow-validation.md](adr/0096-agent-skill-and-workflow-validation.md) |
 | 0097 | GOAP Reconciliation and Plans Compaction 2026-08-08 | Accepted | [adr/0097-goap-reconciliation-plans-compaction-2026-08-08.md](adr/0097-goap-reconciliation-plans-compaction-2026-08-08.md) |
+| 0098 | GOAP Reconciliation 2026-08-12 | Accepted | [adr/0098-goap-reconciliation-2026-08-12.md](adr/0098-goap-reconciliation-2026-08-12.md) |
 
 ## Status Definitions
 
@@ -240,6 +241,7 @@ TTL advanced policies and association decay were implemented on 2026-06-23; see 
 - **ADR-0085**: GOAP Reconciliation 2026-06 (2026-06-06)
 - **ADR-0089**: GOAP Reconciliation 2026-06-16 (post-PR #396 / #389 audit; removed duplicate `action_last_completed`, marked 3 stale "deferred" actions as complete)
 - **ADR-0097**: GOAP Reconciliation and Plans Compaction 2026-08-08 (state files split into current-truth vs dated archive snapshots; `ACTIONS.md` is active-queue-only)
+- **ADR-0098**: GOAP Reconciliation 2026-08-12 (PR roast wave: #620/#621/#622 landed; BM25 absence wired; wave-33 flags trued; csm-cli/csm-wasm dead dupes deleted; bench harnesses added)
 
 ## Links
 
