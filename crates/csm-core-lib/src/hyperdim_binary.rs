@@ -260,7 +260,18 @@ impl BHVec10240 {
         }
 
         // Cache-friendly transposed bit-sliced addition
-        let mut planes = vec![[0u64; 160]; num_planes];
+        // Algorithmic Optimization: Pre-allocate a fixed-size stack buffer of 16 planes
+        // to completely bypass heap allocation for up to 65,536 input vectors (since
+        // log2(65536) = 16). Dynamic heap-allocated fallback is used only if num_planes > 16.
+        let mut planes_storage = [[0u64; 160]; 16];
+        let mut planes_heap;
+        let planes: &mut [[u64; 160]] = if num_planes <= 16 {
+            &mut planes_storage[..num_planes]
+        } else {
+            planes_heap = vec![[0u64; 160]; num_planes];
+            &mut planes_heap
+        };
+
         for v in vectors {
             for i in 0..160 {
                 let mut carry = v.bits[i];
