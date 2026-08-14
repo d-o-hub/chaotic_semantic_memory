@@ -126,6 +126,35 @@ impl Hypervector for BHVec10240 {
     }
 }
 
+/// Maximum planes kept in the stack scratchpad of [`BHVec10240::bundle`]'s
+/// sequential path before falling back to a heap allocation.
+///
+/// `num_planes` is the bit-width of `num_vectors`, so 16 planes cover inputs
+/// up to 65,535 vectors (bit-width 16). The next size up — 65,536 vectors —
+/// needs 17 planes and takes the heap fallback. The parallel path (enabled by
+/// default) handles `num_vectors >= 256` and is untouched by this selection.
+const STACK_PLANES: usize = 16;
+
+/// Selects the zeroed bit-plane scratchpad for the sequential bundle path.
+///
+/// Returns a slice into the caller-provided stack array when `num_planes` fits
+/// in [`STACK_PLANES`]; otherwise allocates a heap `Vec` and returns it. The
+/// stack array must be zero-initialized by the caller; the heap branch
+/// zero-initializes via `vec!`. Exposed as a free function so the fallback
+/// branch is testable without materializing 65,536 input vectors.
+fn select_planes<'a>(
+    num_planes: usize,
+    stack: &'a mut [[u64; 160]; STACK_PLANES],
+    heap: &'a mut Vec<[u64; 160]>,
+) -> &'a mut [[u64; 160]] {
+    if num_planes <= STACK_PLANES {
+        &mut stack[..num_planes]
+    } else {
+        *heap = vec![[0u64; 160]; num_planes];
+        heap
+    }
+}
+
 impl BHVec10240 {
     pub const DIMENSION: usize = 10240;
     pub const WORDS: usize = 160;
@@ -259,18 +288,12 @@ impl BHVec10240 {
             return Self { bits };
         }
 
-        // Cache-friendly transposed bit-sliced addition
-        // Algorithmic Optimization: Pre-allocate a fixed-size stack buffer of 16 planes
-        // to completely bypass heap allocation for up to 65,536 input vectors (since
-        // log2(65536) = 16). Dynamic heap-allocated fallback is used only if num_planes > 16.
-        let mut planes_storage = [[0u64; 160]; 16];
-        let mut planes_heap;
-        let planes: &mut [[u64; 160]] = if num_planes <= 16 {
-            &mut planes_storage[..num_planes]
-        } else {
-            planes_heap = vec![[0u64; 160]; num_planes];
-            &mut planes_heap
-        };
+        // Cache-friendly transposed bit-sliced addition. The plane scratchpad is a
+        // stack array when it fits in STACK_PLANES; larger inputs use a heap Vec
+        // fallback. See `select_planes`.
+        let mut planes_storage = [[0u64; 160]; STACK_PLANES];
+        let mut planes_heap = Vec::new();
+        let planes = select_planes(num_planes, &mut planes_storage, &mut planes_heap);
 
         for v in vectors {
             for i in 0..160 {
@@ -410,5 +433,60 @@ impl BHVec10240 {
             }
         }
         Ok(Self { bits })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The heap fallback (`num_planes > STACK_PLANES`) cannot be exercised through
+    /// `BHVec10240::bundle` without materializing 65,536+ input vectors, so test the
+    /// scratchpad selection directly. Verifies both branches return zeroed planes of
+    /// the requested width, and that the stack branch never allocates.
+    #[test]
+    fn select_planes_returns_zeroed_planes_of_requested_width() {
+        for num_planes in [1usize, 4, 16, 17, 64] {
+            let mut stack = [[0u64; 160]; STACK_PLANES];
+            let mut heap: Vec<[u64; 160]> = Vec::new();
+            let planes = select_planes(num_planes, &mut stack, &mut heap);
+            assert_eq!(
+                planes.len(),
+                num_planes,
+                "width mismatch for {num_planes} planes"
+            );
+            assert!(
+                planes.iter().all(|plane| plane.iter().all(|&w| w == 0)),
+                "planes must be zero-initialized for {num_planes} planes"
+            );
+            if num_planes <= STACK_PLANES {
+                assert!(
+                    heap.is_empty(),
+                    "stack branch must not allocate for {num_planes}"
+                );
+            } else {
+                assert_eq!(heap.len(), num_planes, "heap fallback must size the Vec");
+            }
+        }
+    }
+
+    /// Stack path must alias the caller's array (no allocation) and the heap path
+    /// must return an independent buffer (not the stack array).
+    #[test]
+    fn select_planes_stack_vs_heap_backing() {
+        let mut stack = [[0u64; 160]; STACK_PLANES];
+        let mut heap: Vec<[u64; 160]> = Vec::new();
+
+        let planes = select_planes(STACK_PLANES, &mut stack, &mut heap);
+        assert!(
+            std::ptr::eq(planes.as_ptr(), stack.as_ptr()),
+            "stack path must alias"
+        );
+
+        let planes = select_planes(STACK_PLANES + 1, &mut stack, &mut heap);
+        assert!(
+            !std::ptr::eq(planes.as_ptr(), stack.as_ptr()),
+            "heap fallback must not alias the stack array"
+        );
     }
 }
