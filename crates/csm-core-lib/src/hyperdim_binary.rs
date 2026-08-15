@@ -261,7 +261,8 @@ impl BHVec10240 {
 
         // Cache-friendly transposed bit-sliced addition with small-capacity stack buffer
         use std::mem::MaybeUninit;
-        let mut planes_storage: [MaybeUninit<[u64; 160]>; 16] = [const { MaybeUninit::uninit() }; 16];
+        let mut planes_storage: [MaybeUninit<[u64; 160]>; 16] =
+            [const { MaybeUninit::uninit() }; 16];
         let mut planes_heap;
         let planes: &mut [[u64; 160]] = if num_planes <= 16 {
             for p in 0..num_planes {
