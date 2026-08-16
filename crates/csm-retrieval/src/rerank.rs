@@ -60,8 +60,14 @@ impl Reranker for MmrReranker {
             for cand in &mut candidates {
                 cand.score = query.cosine_similarity(&cand.vector);
             }
-            candidates.sort_by(|a, b| b.score.total_cmp(&a.score));
-            candidates.truncate(top_k);
+            // Algorithmic Optimization: O(N) selection complexity using select_nth_unstable_by
+            // to partition top-k elements, avoiding full O(N log N) vector sorting.
+            if candidates.len() > top_k {
+                let nth = top_k - 1;
+                candidates.select_nth_unstable_by(nth, |a, b| b.score.total_cmp(&a.score));
+                candidates.truncate(top_k);
+            }
+            candidates.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
             return candidates;
         }
 
@@ -146,6 +152,10 @@ impl Reranker for RecencyDecayReranker {
         mut candidates: Vec<RerankCandidate>,
         top_k: usize,
     ) -> Vec<RerankCandidate> {
+        if candidates.is_empty() || top_k == 0 {
+            return Vec::new();
+        }
+
         let now = csm_memory::unix_now_secs();
         let half_life_secs = self.half_life_days * 86400.0;
         let inv_half_life = 1.0 / half_life_secs;
@@ -162,8 +172,15 @@ impl Reranker for RecencyDecayReranker {
             cand.score = blend * cand.score + one_minus_blend * recency;
         }
 
-        candidates.sort_by(|a, b| b.score.total_cmp(&a.score));
-        candidates.truncate(top_k);
+        // Algorithmic Optimization: O(N) selection complexity using select_nth_unstable_by
+        // to partition top-k candidates before sorting, reducing ranking complexity from O(N log N)
+        // to O(N + K log K) and avoiding costly full sorts over heavy candidate structs.
+        if candidates.len() > top_k {
+            let nth = top_k - 1;
+            candidates.select_nth_unstable_by(nth, |a, b| b.score.total_cmp(&a.score));
+            candidates.truncate(top_k);
+        }
+        candidates.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
         candidates
     }
 }
