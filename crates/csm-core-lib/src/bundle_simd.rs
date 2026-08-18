@@ -165,9 +165,10 @@ pub(crate) unsafe fn update_counts_simd_neon(
         vreinterpretq_s32_u32, vst1q_s32,
     };
 
-    let sign_vec = vdupq_n_s32(sign);
-    let sel_low = vld1q_u32([1u32, 2, 4, 8].as_ptr());
-    let sel_high = vld1q_u32([16u32, 32, 64, 128].as_ptr());
+    let sign_vec = unsafe { vdupq_n_s32(sign) };
+    // SAFETY: sel_low/sel_high point to valid 4-element u32 arrays.
+    let sel_low = unsafe { vld1q_u32([1u32, 2, 4, 8].as_ptr()) };
+    let sel_high = unsafe { vld1q_u32([16u32, 32, 64, 128].as_ptr()) };
 
     for i in 0..80 {
         let word_ptr = &hv[i] as *const u128 as *const u8;
@@ -181,23 +182,23 @@ pub(crate) unsafe fn update_counts_simd_neon(
                 continue;
             }
 
-            let byte_vec = vdupq_n_u32(byte);
+            let byte_vec = unsafe { vdupq_n_u32(byte) };
 
             // Process low 4 bits (bits 0..3)
-            let mask_low = vceqq_u32(vandq_u32(byte_vec, sel_low), sel_low);
-            let inc_low = vandq_s32(vreinterpretq_s32_u32(mask_low), sign_vec);
+            let mask_low = unsafe { vceqq_u32(vandq_u32(byte_vec, sel_low), sel_low) };
+            let inc_low = unsafe { vandq_s32(vreinterpretq_s32_u32(mask_low), sign_vec) };
             let target_ptr_low = unsafe { counts_ptr.add(j * 8) };
-            let current_low = vld1q_s32(target_ptr_low);
-            let new_low = vaddq_s32(current_low, inc_low);
-            vst1q_s32(target_ptr_low, new_low);
+            let current_low = unsafe { vld1q_s32(target_ptr_low) };
+            let new_low = unsafe { vaddq_s32(current_low, inc_low) };
+            unsafe { vst1q_s32(target_ptr_low, new_low) };
 
             // Process high 4 bits (bits 4..7)
-            let mask_high = vceqq_u32(vandq_u32(byte_vec, sel_high), sel_high);
-            let inc_high = vandq_s32(vreinterpretq_s32_u32(mask_high), sign_vec);
+            let mask_high = unsafe { vceqq_u32(vandq_u32(byte_vec, sel_high), sel_high) };
+            let inc_high = unsafe { vandq_s32(vreinterpretq_s32_u32(mask_high), sign_vec) };
             let target_ptr_high = unsafe { counts_ptr.add(j * 8 + 4) };
-            let current_high = vld1q_s32(target_ptr_high);
-            let new_high = vaddq_s32(current_high, inc_high);
-            vst1q_s32(target_ptr_high, new_high);
+            let current_high = unsafe { vld1q_s32(target_ptr_high) };
+            let new_high = unsafe { vaddq_s32(current_high, inc_high) };
+            unsafe { vst1q_s32(target_ptr_high, new_high) };
         }
     }
 }
