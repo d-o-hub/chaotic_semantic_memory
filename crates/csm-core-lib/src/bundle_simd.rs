@@ -160,6 +160,15 @@ pub(crate) unsafe fn update_counts_simd_neon(
     hv: &[u128; 80],
     sign: i32,
 ) {
+    use std::arch::aarch64::{
+        vaddq_s32, vandq_s32, vandq_u32, vceqq_u32, vdupq_n_s32, vdupq_n_u32, vld1q_s32, vld1q_u32,
+        vreinterpretq_s32_u32, vst1q_s32,
+    };
+
+    let sign_vec = vdupq_n_s32(sign);
+    let sel_low = vld1q_u32([1u32, 2, 4, 8].as_ptr());
+    let sel_high = vld1q_u32([16u32, 32, 64, 128].as_ptr());
+
     for i in 0..80 {
         let word_ptr = &hv[i] as *const u128 as *const u8;
         // SAFETY: counts is [i32; 10240], i * 128 is within bounds.
@@ -167,17 +176,28 @@ pub(crate) unsafe fn update_counts_simd_neon(
 
         for j in 0..16 {
             // SAFETY: hv[i] is u128 (16 bytes), j is 0..16.
-            let byte = unsafe { *word_ptr.add(j) } as i32;
+            let byte = unsafe { *word_ptr.add(j) } as u32;
             if byte == 0 {
                 continue;
             }
 
-            for k in 0..8 {
-                if (byte & (1 << k)) != 0 {
-                    // SAFETY: counts_ptr + j * 8 + k is within bounds.
-                    unsafe { *counts_ptr.add(j * 8 + k) += sign };
-                }
-            }
+            let byte_vec = vdupq_n_u32(byte);
+
+            // Process low 4 bits (bits 0..3)
+            let mask_low = vceqq_u32(vandq_u32(byte_vec, sel_low), sel_low);
+            let inc_low = vandq_s32(vreinterpretq_s32_u32(mask_low), sign_vec);
+            let target_ptr_low = unsafe { counts_ptr.add(j * 8) };
+            let current_low = vld1q_s32(target_ptr_low);
+            let new_low = vaddq_s32(current_low, inc_low);
+            vst1q_s32(target_ptr_low, new_low);
+
+            // Process high 4 bits (bits 4..7)
+            let mask_high = vceqq_u32(vandq_u32(byte_vec, sel_high), sel_high);
+            let inc_high = vandq_s32(vreinterpretq_s32_u32(mask_high), sign_vec);
+            let target_ptr_high = unsafe { counts_ptr.add(j * 8 + 4) };
+            let current_high = vld1q_s32(target_ptr_high);
+            let new_high = vaddq_s32(current_high, inc_high);
+            vst1q_s32(target_ptr_high, new_high);
         }
     }
 }
