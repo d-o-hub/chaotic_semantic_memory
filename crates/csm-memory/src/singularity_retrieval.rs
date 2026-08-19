@@ -457,4 +457,3 @@ impl Singularity {
 }
 
 include!("singularity_retrieval_tests.rs");
-

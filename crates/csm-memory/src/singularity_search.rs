@@ -168,16 +168,21 @@ impl Singularity {
                 source = CandidateSource::Graph;
             }
         }
-        if candidates.is_empty() && self._retrieval_config.enable_bucket_candidates {
-            candidates = self.generate_bucket_candidates(ns, query);
-            if !candidates.is_empty() {
+        if candidates.len() < top_k && self._retrieval_config.enable_bucket_candidates {
+            let bucket_cands = self.generate_bucket_candidates(ns, query);
+            if !bucket_cands.is_empty() {
+                for c in bucket_cands {
+                    if !candidates.contains(&c) {
+                        candidates.push(c);
+                    }
+                }
                 source = CandidateSource::Bucket;
             }
         }
 
         let cand_ns = unix_now_ns().saturating_sub(candidate_start);
 
-        if candidates.is_empty() {
+        if candidates.len() < top_k {
             return self.exact_similarity_scan(ns, query, top_k, start_ns, bypass_cache);
         }
 

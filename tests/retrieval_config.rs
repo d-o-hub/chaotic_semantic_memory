@@ -109,8 +109,14 @@ fn retrieval_config_for_token_count_long_query_matches_default() {
     assert_eq!(config.max_candidates, default_config.max_candidates);
     assert_eq!(config.graph_depth, default_config.graph_depth);
     assert_eq!(config.graph_fanout, default_config.graph_fanout);
-    assert_eq!(config.enable_graph_candidates, default_config.enable_graph_candidates);
-    assert_eq!(config.bm25_absence_short_circuit, default_config.bm25_absence_short_circuit);
+    assert_eq!(
+        config.enable_graph_candidates,
+        default_config.enable_graph_candidates
+    );
+    assert_eq!(
+        config.bm25_absence_short_circuit,
+        default_config.bm25_absence_short_circuit
+    );
     assert_eq!(config.early_exit_hdc, default_config.early_exit_hdc);
     assert_eq!(config.bridge_expand_cap, default_config.bridge_expand_cap);
 }
