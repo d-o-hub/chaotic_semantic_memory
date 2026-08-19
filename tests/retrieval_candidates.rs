@@ -1,4 +1,4 @@
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::float_cmp)]
 //! Retrieval candidate generation coverage tests.
 //!
 //! Covers: RetrievalConfig getter, last_retrieval_stats, Singularity retrieval paths
