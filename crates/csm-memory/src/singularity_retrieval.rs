@@ -76,6 +76,12 @@ pub struct RetrievalConfig {
     pub bucket_probe_width: usize,
     pub enable_graph_candidates: bool,
     pub enable_bucket_candidates: bool,
+    /// Skip encode/LSH/graph when BM25 finds no token overlap.
+    pub bm25_absence_short_circuit: bool,
+    /// If first-stage top-1 HDC >= this, skip MMR + graph/bridge expansion.
+    pub early_exit_hdc: f32,
+    /// Maximum number of IDs Bridge Retrieval may append before extra scoring.
+    pub bridge_expand_cap: usize,
 }
 
 /// Maximum allowed bucket probe width to prevent excessive memory usage.
@@ -83,6 +89,21 @@ const MAX_BUCKET_PROBE_WIDTH: usize = 16;
 
 impl RetrievalConfig {
     pub fn validate(&self) -> Result<()> {
+        if self.max_candidates == 0 {
+            return Err(csm_core_lib::error::MemoryError::InvalidInput {
+                field: "max_candidates".to_string(),
+                reason: "max_candidates must be greater than 0".to_string(),
+            });
+        }
+        if !(0.0..=1.0).contains(&self.early_exit_hdc) {
+            return Err(csm_core_lib::error::MemoryError::InvalidInput {
+                field: "early_exit_hdc".to_string(),
+                reason: format!(
+                    "early_exit_hdc must be in range [0.0, 1.0], got {}",
+                    self.early_exit_hdc
+                ),
+            });
+        }
         if self.bucket_probe_width > MAX_BUCKET_PROBE_WIDTH {
             return Err(csm_core_lib::error::MemoryError::InvalidInput {
                 field: "bucket_probe_width".to_string(),
@@ -91,18 +112,41 @@ impl RetrievalConfig {
         }
         Ok(())
     }
+
+    /// Creates a [`RetrievalConfig`] tailored for a given query token count.
+    #[must_use]
+    pub fn for_token_count(n: usize) -> Self {
+        let mut c = Self::default();
+        match n {
+            0..=2 => {
+                c.max_candidates = 64;
+                c.graph_depth = 0;
+                c.enable_graph_candidates = false;
+            }
+            3..=4 => {
+                c.max_candidates = 128;
+                c.graph_depth = 1;
+                c.graph_fanout = 4;
+            }
+            _ => {}
+        }
+        c
+    }
 }
 
 impl Default for RetrievalConfig {
     fn default() -> Self {
         Self {
-            max_candidates: 1000,
-            candidate_ratio_fallback: 0.5,
-            graph_depth: 2,
-            graph_fanout: 10,
+            max_candidates: 256,
+            candidate_ratio_fallback: 0.05,
+            graph_depth: 1,
+            graph_fanout: 8,
             bucket_probe_width: 2,
-            enable_graph_candidates: false,
-            enable_bucket_candidates: false,
+            enable_graph_candidates: true,
+            enable_bucket_candidates: true,
+            bm25_absence_short_circuit: true,
+            early_exit_hdc: 0.92,
+            bridge_expand_cap: 16,
         }
     }
 }
@@ -412,80 +456,5 @@ impl Singularity {
     }
 }
 
-#[cfg(test)]
-mod tests_v2 {
-    use crate::singularity::{Singularity, SingularityConfig};
-    use csm_core_lib::hyperdim::HVec10240;
+include!("singularity_retrieval_tests.rs");
 
-    #[test]
-    fn singularity_last_stats_v2() {
-        let s = Singularity::<HVec10240>::new(SingularityConfig::default());
-        assert_eq!(s.last_retrieval_stats("_default").candidate_count, 0);
-    }
-
-    #[test]
-    fn singularity_get_config_v2() {
-        let s = Singularity::<HVec10240>::new(SingularityConfig::default());
-        assert_eq!(s.retrieval_config().max_candidates, 1000);
-    }
-
-    #[test]
-    fn test_generate_graph_candidates_logic() {
-        use super::RetrievalConfig;
-        use crate::singularity::ConceptBuilder;
-        let mut s = Singularity::<HVec10240>::new(SingularityConfig::default());
-        let mut config = RetrievalConfig::default();
-        config.enable_graph_candidates = true;
-        config.graph_depth = 1;
-        config.graph_fanout = 2;
-        s.set_retrieval_config(config).unwrap();
-
-        let v1 = HVec10240::random();
-        let v2 = HVec10240::random();
-        let v3 = HVec10240::random();
-        let v4 = HVec10240::random();
-
-        s.inject(
-            "_default",
-            ConceptBuilder::new("c1")
-                .with_vector(v1.clone())
-                .build()
-                .unwrap(),
-        )
-        .unwrap();
-        s.inject(
-            "_default",
-            ConceptBuilder::new("c2").with_vector(v2).build().unwrap(),
-        )
-        .unwrap();
-        s.inject(
-            "_default",
-            ConceptBuilder::new("c3").with_vector(v3).build().unwrap(),
-        )
-        .unwrap();
-        s.inject(
-            "_default",
-            ConceptBuilder::new("c4").with_vector(v4).build().unwrap(),
-        )
-        .unwrap();
-
-        // c1 -> c2 (0.9), c1 -> c3 (0.8), c1 -> c4 (0.1)
-        s.associate("_default", "c1", "c2", 0.9).unwrap();
-        s.associate("_default", "c1", "c3", 0.8).unwrap();
-        s.associate("_default", "c1", "c4", 0.1).unwrap();
-
-        let candidates = s.generate_graph_candidates("_default", &v1);
-        // c1 is seed, c2 and c3 are top 2 neighbors. c4 is excluded by fanout=2.
-        assert_eq!(candidates.len(), 3);
-
-        let ns_state = s.get_namespace("_default").unwrap();
-        let ids: std::collections::HashSet<_> = candidates
-            .iter()
-            .map(|&idx| ns_state.concept_indices[idx].as_str())
-            .collect();
-        assert!(ids.contains("c1"));
-        assert!(ids.contains("c2"));
-        assert!(ids.contains("c3"));
-        assert!(!ids.contains("c4"));
-    }
-}

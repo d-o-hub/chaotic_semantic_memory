@@ -12,8 +12,11 @@ const NS: &str = "_default";
 fn singularity_retrieval_config_getter() {
     let sing = Singularity::<HVec10240>::new(SingularityConfig::default());
     let config = sing.retrieval_config();
-    assert_eq!(config.max_candidates, 1000);
+    assert_eq!(config.max_candidates, 256);
     assert_eq!(config.bucket_probe_width, 2);
+    assert!(config.bm25_absence_short_circuit);
+    assert_eq!(config.early_exit_hdc, 0.92);
+    assert_eq!(config.bridge_expand_cap, 16);
 }
 
 #[test]
