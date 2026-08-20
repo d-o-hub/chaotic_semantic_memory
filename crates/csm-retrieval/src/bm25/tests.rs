@@ -131,13 +131,19 @@ fn test_idf_rare_term_higher_score() {
 #[test]
 fn test_doc_length_normalization() {
     let mut index = Bm25Index::new();
+
+    // Short document with term
     index.add_document("short", &["hello"]);
+    // Long document with same term but more other words
     index.add_document(
         "long",
         &[
             "hello", "other", "words", "here", "and", "even", "more", "words",
         ],
     );
+
+    // Both match, but shorter doc should score higher per-term
+    // (BM25 normalizes by document length)
     let results = index.search(&["hello"], 10);
     assert_eq!(results.len(), 2);
     assert_eq!(results[0].0, "short");
@@ -462,13 +468,21 @@ fn test_search_dedup_hashset_path_distinct_terms() {
     let mut index = Bm25Index::new();
     index.add_document("doc_a", &["a"]);
     index.add_document("doc_b", &["b"]);
+
+    // 10 tokens (> 8) forces HashSet dedup branch
     let query = ["a", "a", "c", "d", "e", "f", "g", "h", "i", "b"];
     let results = index.search(&query, 10);
     let ids: std::collections::HashSet<&str> = results.iter().map(|(id, _)| id.as_str()).collect();
-    assert!(ids.contains("doc_a") && ids.contains("doc_b"));
+    assert!(ids.contains("doc_a"));
+    assert!(ids.contains("doc_b"));
+
+    // Duplicate terms must not inflate score
     let once = index.search(&["a"], 10);
     let twice = index.search(&["a", "a"], 10);
-    assert!((once[0].1 - twice[0].1).abs() < 1e-6);
+    assert!(
+        (once[0].1 - twice[0].1).abs() < 1e-6,
+        "dupes must not inflate score"
+    );
 }
 
 // Kills mutation: `replace > with >= in Bm25Index::search` (score > 0.0 threshold).
