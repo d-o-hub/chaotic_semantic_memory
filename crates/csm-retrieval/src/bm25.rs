@@ -34,6 +34,9 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
+/// Maximum top_k limit for retrieval operations to prevent CWE-770 memory exhaustion.
+pub const MAX_TOP_K_LIMIT: usize = 100_000;
+
 /// Configuration for BM25 ranking algorithm.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Bm25Config {
@@ -243,6 +246,7 @@ impl Bm25Index {
     #[allow(clippy::significant_drop_tightening)]
     #[allow(clippy::expect_used)]
     pub fn search<T: AsRef<str>>(&self, query_tokens: &[T], top_k: usize) -> Vec<(String, f32)> {
+        let top_k = top_k.min(MAX_TOP_K_LIMIT);
         if top_k == 0 || query_tokens.is_empty() || self.is_empty() {
             return Vec::new();
         }

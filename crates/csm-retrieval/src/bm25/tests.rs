@@ -105,6 +105,16 @@ fn test_top_k_zero_returns_empty() {
 }
 
 #[test]
+fn test_search_top_k_clamped() {
+    let mut index = Bm25Index::new();
+    index.add_document("doc1", &["hello", "world"]);
+    index.add_document("doc2", &["hello", "rust"]);
+
+    let results = index.search(&["hello"], usize::MAX);
+    assert_eq!(results.len(), 2);
+}
+
+#[test]
 fn test_idf_rare_term_higher_score() {
     let mut index = Bm25Index::new();
 
