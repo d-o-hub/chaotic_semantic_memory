@@ -54,20 +54,15 @@ fn test_remove_document() {
     index.add_document("doc2", &["hello", "rust"]);
     index.add_document("doc3", &["hello", "python"]);
 
-    // Removing "doc1" triggers swap_remove, doc3 moves to index 0
     index.remove_document("doc1");
     assert_eq!(index.len(), 2);
 
-    // Verify removed doc is gone
-    let results = index.search(&["world"], 10);
-    assert!(results.is_empty());
+    assert!(index.search(&["world"], 10).is_empty());
 
-    // Verify swapped doc is still findable (this catches the postings index update mutation)
     let results = index.search(&["python"], 10);
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].0, "doc3");
 
-    // Verify common term still works for both
     let results = index.search(&["hello"], 10);
     assert_eq!(results.len(), 2);
 }
@@ -118,7 +113,6 @@ fn test_search_top_k_clamped() {
 fn test_idf_rare_term_higher_score() {
     let mut index = Bm25Index::new();
 
-    // "rare" appears in 1 doc, "common" appears in 3 docs
     index.add_document("doc1", &["rare", "common"]);
     index.add_document("doc2", &["common"]);
     index.add_document("doc3", &["common"]);
@@ -142,8 +136,6 @@ fn test_doc_length_normalization() {
         ],
     );
 
-    // Both match, but shorter doc should score higher per-term
-    // (BM25 normalizes by document length)
     let results = index.search(&["hello"], 10);
     assert_eq!(results.len(), 2);
     assert_eq!(results[0].0, "short");
@@ -302,7 +294,6 @@ fn test_clone_preserves_state() {
 #[test]
 fn test_scoring_math_general_case() {
     let mut index = Bm25Index::new();
-    // doc1: "a" (tf=2), len=2
     index.add_document("doc1", &["a", "a"]);
     // doc2: "a" (tf=1), len=1
     index.add_document("doc2", &["a"]);
@@ -469,7 +460,6 @@ fn test_search_dedup_hashset_path_distinct_terms() {
     index.add_document("doc_a", &["a"]);
     index.add_document("doc_b", &["b"]);
 
-    // 10 tokens (> 8) forces HashSet dedup branch
     let query = ["a", "a", "c", "d", "e", "f", "g", "h", "i", "b"];
     let results = index.search(&query, 10);
     let ids: std::collections::HashSet<&str> = results.iter().map(|(id, _)| id.as_str()).collect();

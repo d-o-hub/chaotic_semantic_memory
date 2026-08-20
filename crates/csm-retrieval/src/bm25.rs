@@ -140,9 +140,7 @@ impl Bm25Index {
         }
     }
 
-    /// Add a document to the index.
-    ///
-    /// If a document with the same ID already exists, it will be replaced.
+    /// Add a document to the index. If exists, replaced.
     pub fn add_document<T: AsRef<str>>(&mut self, id: &str, tokens: &[T]) {
         if let Some(idx) = self.doc_index.remove(id) {
             self.remove_document_at(idx);
@@ -237,9 +235,7 @@ impl Bm25Index {
         self.norm_cache_dirty.store(true, AtomicOrdering::Release);
     }
 
-    /// Search for documents matching the query.
-    ///
-    /// Returns up to `top_k` results sorted by BM25 score (descending).
+    /// Search for documents matching query. Returns up to `top_k` results.
     // SAFETY: The read guard must span the entire scoring loop to guarantee
     // cache vector stability. Tightening the drop would require re-acquiring
     // the lock mid-loop, which is both slower and semantically incorrect.
