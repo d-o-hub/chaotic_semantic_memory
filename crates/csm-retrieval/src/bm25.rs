@@ -1,27 +1,8 @@
 //! BM25 keyword search index for hybrid retrieval.
-//!
 //! Implements the Okapi BM25 ranking function for exact keyword matching.
 //! Used alongside HDC semantic search for improved short-query recall.
 //!
-//! # Algorithm
-//!
-//! BM25 scores documents based on:
-//! - Term frequency (TF) with saturation parameter k1
-//! - Inverse document frequency (IDF)
-//! - Document length normalization with parameter b
-//!
-//! # Example
-//!
-//! ```
-//! use csm_retrieval::Bm25Index;
-//!
-//! let mut index = Bm25Index::new();
-//! index.add_document("doc1", &["hello", "world"]);
-//! index.add_document("doc2", &["hello", "rust"]);
-//!
-//! let results = index.search(&["hello", "world"], 10);
-//! assert_eq!(results[0].0, "doc1"); // Exact match ranks first
-//! ```
+//! BM25 scores documents based on term frequency (TF) and inverse document frequency (IDF).
 
 // Casts are intentional for BM25 math (document counts, term frequencies)
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
