@@ -34,20 +34,52 @@ impl ChaoticLsh {
     }
 
     /// Scalar dot-product projection (reference implementation).
+    ///
+    /// Performance Optimization: Assembles output bits word-by-word into `u64` registers
+    /// (eliminating 10,240 divisions and remainders `i / 64` and `i % 64`), slices row
+    /// projection vectors once per row to eliminate bounds checks, and unrolls dot-product
+    /// accumulation 4-way using `chunks_exact(4)` with four independent floating-point
+    /// accumulators to expose maximum instruction-level parallelism (ILP) to the CPU.
     pub fn project_scalar(&self, input: &[f32]) -> [u64; 160] {
         let mut bits = [0u64; 160];
         if input.is_empty() || input.len() != self.input_dim {
             return bits;
         }
-        for i in 0..10240 {
-            let mut dot_product = 0.0f32;
-            let offset = i * self.input_dim;
-            for (j, &val) in input.iter().enumerate() {
-                dot_product += val * self.projection_matrix[offset + j];
+        let len = self.input_dim;
+        for w in 0..160 {
+            let mut word = 0u64;
+            let base_i = w * 64;
+            for bit in 0..64 {
+                let i = base_i + bit;
+                let offset = i * len;
+                let row = &self.projection_matrix[offset..offset + len];
+                let chunks = input.chunks_exact(4);
+                let remainder = chunks.remainder();
+                let row_chunks = row.chunks_exact(4);
+
+                let mut dot0 = 0.0f32;
+                let mut dot1 = 0.0f32;
+                let mut dot2 = 0.0f32;
+                let mut dot3 = 0.0f32;
+
+                for (in_chunk, row_chunk) in chunks.zip(row_chunks) {
+                    dot0 += in_chunk[0] * row_chunk[0];
+                    dot1 += in_chunk[1] * row_chunk[1];
+                    dot2 += in_chunk[2] * row_chunk[2];
+                    dot3 += in_chunk[3] * row_chunk[3];
+                }
+
+                let mut dot = (dot0 + dot1) + (dot2 + dot3);
+                let rem_row = &row[len - remainder.len()..];
+                for (j, &val) in remainder.iter().enumerate() {
+                    dot += val * rem_row[j];
+                }
+
+                if dot > 0.0 {
+                    word |= 1u64 << bit;
+                }
             }
-            if dot_product > 0.0 {
-                bits[i / 64] |= 1u64 << (i % 64);
-            }
+            bits[w] = word;
         }
         bits
     }
