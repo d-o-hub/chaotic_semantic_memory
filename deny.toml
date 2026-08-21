@@ -11,14 +11,9 @@ ignore = [
     # Patched in 0.32.1, we're at 0.27.1. Upgrade requires major API migration (deferred).
     # No RUSTSEC ID yet; added proactively for when one is assigned.
     # { id = "RUSTSEC-20XX-XXXX", reason = "opentelemetry_sdk 0.32 requires major API migration, blocked until ecosystem catches up" },
-    # Dependabot alert #21: time DoS via stack exhaustion in RFC2822 parsing (RUSTSEC-2026-0009)
-    # Patched in 0.3.47, pinned at 0.3.45 by tantivy 0.22.1 (transitive via fastembed).
-    # We don't parse user-supplied RFC2822 dates; tantivy uses time internally.
-    { id = "RUSTSEC-2026-0009", reason = "time 0.3.45 pinned by tantivy (via fastembed), no user-facing RFC2822 parsing" },
-    # Dependabot alert #20: lru IterMut unsoundness (RUSTSEC-2026-0002)
-    # Patched in 0.16.3, pinned at 0.12.5 by tantivy 0.22.1 (transitive via fastembed).
-    # Informational/unsound — theoretical Stacked Borrows violation, no practical exploit.
-    { id = "RUSTSEC-2026-0002", reason = "lru 0.12.5 pinned by tantivy (via fastembed), informational unsoundness" },
+    # h2 0.3.27 unbounded empty DATA frames (RUSTSEC-2026-0258)
+    # Pinned by hyper 0.14 / tonic 0.11 (transitive via libsql 0.9.30). Unpatched in 0.3 branch.
+    { id = "RUSTSEC-2026-0258", reason = "h2 0.3.27 pinned by hyper 0.14 / tonic 0.11 (transitive via libsql)" },
     # Dependabot alerts #1, #4: libsql-sqlite3-parser crash on invalid UTF-8 (GHSA-8m95-fffc-h4c5)
     # No patch available upstream. Low severity, requires malformed SQL input.
     # No RUSTSEC ID; will add when assigned.
