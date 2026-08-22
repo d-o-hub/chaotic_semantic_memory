@@ -144,10 +144,12 @@ impl Singularity {
                     let mut sorted_links: Vec<_> = links.iter().collect();
                     let fanout = self._retrieval_config.graph_fanout.min(sorted_links.len());
                     if fanout > 0 {
+                        // Performance Optimization: Partition top `fanout` neighbors in O(N) time.
+                        // Order within the top `fanout` set is irrelevant when inserting into BFS queue and set,
+                        // so additional O(K log K) sorting via `sort_unstable_by` is eliminated.
                         sorted_links
                             .select_nth_unstable_by(fanout - 1, |a, b| b.1.0.total_cmp(&a.1.0));
                         sorted_links.truncate(fanout);
-                        sorted_links.sort_unstable_by(|a, b| b.1.0.total_cmp(&a.1.0));
                     }
 
                     for (neighbor_id, _) in sorted_links {
