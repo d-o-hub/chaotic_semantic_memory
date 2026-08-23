@@ -264,8 +264,7 @@ impl BHVec10240 {
         // (handling up to 65,536 vectors) using MaybeUninit to eliminate heap allocation
         // and avoid zero-initialization overhead for unused planes in the 20 KB buffer.
         use std::mem::MaybeUninit;
-        let mut stack_planes: [MaybeUninit<[u64; 160]>; 16] =
-            [const { MaybeUninit::uninit() }; 16];
+        let mut stack_planes: [MaybeUninit<[u64; 160]>; 16] = [const { MaybeUninit::uninit() }; 16];
         let mut heap_planes;
         let planes: &mut [[u64; 160]] = if num_planes <= 16 {
             for p in 0..num_planes {

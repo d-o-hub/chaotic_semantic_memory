@@ -7,6 +7,7 @@ ignore = [
     { id = "RUSTSEC-2024-0436", reason = "paste unmaintained, no replacement in transitive deps (fastembed)" },
     { id = "RUSTSEC-2025-0141", reason = "bincode 1.x unmaintained, pinned by libsql" },
     { id = "RUSTSEC-2025-0119", reason = "number_prefix unmaintained, transitive dep from indicatif" },
+    { id = "RUSTSEC-2026-0258", reason = "h2 unbounded empty DATA frames, pinned transitively by hyper/tonic/libsql" },
     # Dependabot alert #22: opentelemetry_sdk unbounded memory in W3C Baggage (GHSA-w9wp-h8wv-79jx)
     # Patched in 0.32.1, we're at 0.27.1. Upgrade requires major API migration (deferred).
     # No RUSTSEC ID yet; added proactively for when one is assigned.
