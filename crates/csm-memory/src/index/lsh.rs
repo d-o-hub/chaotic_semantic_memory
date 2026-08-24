@@ -64,9 +64,17 @@ impl<H: Hypervector> LshIndex<H> {
     }
 
     fn compute_hash(&self, vec: &H, table_idx: usize) -> u64 {
+        self.compute_hash_from_bytes(&vec.to_bytes(), table_idx)
+    }
+
+    /// Compute LSH bucket hash from pre-serialized hypervector byte slice.
+    ///
+    /// Performance Optimization: Pre-serializing the hypervector once outside table loops
+    /// avoids allocating a 1280-byte `Vec<u8>` on every table lookup iteration ($T$ tables).
+    #[inline]
+    fn compute_hash_from_bytes(&self, bytes: &[u8], table_idx: usize) -> u64 {
         let mut hash = 0u64;
         let bits = &self.projections[table_idx];
-        let bytes = vec.to_bytes();
         for (i, &bit_pos) in bits.iter().enumerate() {
             let byte_idx = bit_pos / 8;
             let bit_idx = bit_pos % 8;
@@ -84,8 +92,9 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
             self.delete(&id)?;
         }
 
+        let bytes = vec.to_bytes();
         for i in 0..self.num_tables {
-            let hash = self.compute_hash(vec, i);
+            let hash = self.compute_hash_from_bytes(&bytes, i);
             self.tables[i].entry(hash).or_default().push(id.clone());
         }
         self.concepts.insert(id, *vec);
@@ -94,8 +103,9 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
 
     fn delete(&mut self, id: &str) -> Result<()> {
         if let Some(vec) = self.concepts.remove(id) {
+            let bytes = vec.to_bytes();
             for i in 0..self.num_tables {
-                let hash = self.compute_hash(&vec, i);
+                let hash = self.compute_hash_from_bytes(&bytes, i);
                 if let Some(bucket) = self.tables[i].get_mut(&hash) {
                     bucket.retain(|x| x != id);
                 }
@@ -109,9 +119,10 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
             return Ok(Vec::new());
         }
 
+        let bytes = query.to_bytes();
         let mut candidates = HashMap::new();
         for i in 0..self.num_tables {
-            let hash = self.compute_hash(query, i);
+            let hash = self.compute_hash_from_bytes(&bytes, i);
             if let Some(bucket) = self.tables[i].get(&hash) {
                 for id in bucket {
                     candidates.entry(id).or_insert(());
@@ -172,9 +183,10 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
             return Ok(Vec::new());
         }
 
+        let bytes = query.to_bytes();
         let mut candidates = HashMap::new();
         for i in 0..self.num_tables {
-            let hash = self.compute_hash(query, i);
+            let hash = self.compute_hash_from_bytes(&bytes, i);
             if let Some(bucket) = self.tables[i].get(&hash) {
                 for id in bucket {
                     if let Some(concept) = concepts.get(id) {
