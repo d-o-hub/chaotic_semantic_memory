@@ -259,8 +259,26 @@ impl BHVec10240 {
             return Self { bits };
         }
 
-        // Cache-friendly transposed bit-sliced addition
-        let mut planes = vec![[0u64; 160]; num_planes];
+        // Cache-friendly transposed bit-sliced addition.
+        // Memory optimization: Stack-allocate scratchpad for num_planes <= 16 (up to 65,536 vectors)
+        // using MaybeUninit to completely eliminate heap allocation overhead and avoid zeroing unused planes.
+        let mut planes_stack;
+        let mut planes_heap;
+        let planes: &mut [[u64; 160]] = if num_planes <= 16 {
+            planes_stack = [const { std::mem::MaybeUninit::<[u64; 160]>::uninit() }; 16];
+            for plane in &mut planes_stack[..num_planes] {
+                plane.write([0u64; 160]);
+            }
+            // SAFETY: planes_stack[..num_planes] have been initialized with write([0u64; 160]).
+            unsafe {
+                &mut *(&mut planes_stack[..num_planes] as *mut [std::mem::MaybeUninit<[u64; 160]>]
+                    as *mut [[u64; 160]])
+            }
+        } else {
+            planes_heap = vec![[0u64; 160]; num_planes];
+            &mut planes_heap[..]
+        };
+
         for v in vectors {
             for i in 0..160 {
                 let mut carry = v.bits[i];
