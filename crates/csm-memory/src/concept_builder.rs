@@ -7,6 +7,9 @@ use crate::singularity::Concept;
 use csm_core_lib::error::{MemoryError, Result};
 use csm_core_lib::hyperdim::HVec10240;
 
+/// Maximum allowed TTL in seconds (~100 years).
+pub const MAX_TTL_SECONDS_LIMIT: u64 = 3_153_600_000;
+
 /// Builder for constructing [`Concept`] instances with a fluent API.
 ///
 /// # Example
@@ -54,11 +57,16 @@ impl ConceptBuilder {
 
     /// Sets the TTL (time to live) in seconds for this concept.
     ///
-    /// The concept will expire after `ttl_seconds` from creation.
-    /// If not set, the concept never expires.
+    /// The concept will expire after `ttl_seconds` from creation (clamped to
+    /// [`MAX_TTL_SECONDS_LIMIT`]). If not set, the concept never expires.
     #[must_use]
     pub const fn with_ttl(mut self, ttl_seconds: u64) -> Self {
-        self.ttl_seconds = Some(ttl_seconds);
+        let ttl = if ttl_seconds > MAX_TTL_SECONDS_LIMIT {
+            MAX_TTL_SECONDS_LIMIT
+        } else {
+            ttl_seconds
+        };
+        self.ttl_seconds = Some(ttl);
         self
     }
 
@@ -99,7 +107,7 @@ impl ConceptBuilder {
         }
 
         let now = crate::singularity::unix_now_secs();
-        let expires_at = self.ttl_seconds.map(|ttl| now + ttl);
+        let expires_at = self.ttl_seconds.map(|ttl| now.saturating_add(ttl));
 
         Ok(Concept {
             id: self.id,
@@ -161,5 +169,20 @@ mod tests {
     fn concept_builder_without_ttl_has_no_expiration() {
         let concept = ConceptBuilder::new("no-ttl").build().unwrap();
         assert!(concept.expires_at.is_none());
+    }
+
+    #[test]
+    fn concept_builder_with_ttl_clamps_excessive_values() {
+        let now = crate::singularity::unix_now_secs();
+        let concept = ConceptBuilder::new("max-ttl-test")
+            .with_ttl(u64::MAX)
+            .build()
+            .unwrap();
+
+        assert!(concept.expires_at.is_some());
+        let expires_at = concept.expires_at.unwrap();
+        let expected_max_expires = now.saturating_add(MAX_TTL_SECONDS_LIMIT);
+        assert!(expires_at >= expected_max_expires - 2);
+        assert!(expires_at <= expected_max_expires + 2);
     }
 }
