@@ -15,6 +15,7 @@ use rayon::prelude::*;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
+use std::mem::MaybeUninit;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[must_use]
@@ -330,8 +331,28 @@ impl BHVec10240 {
 
         #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
         {
-            // Cache-friendly transposed bit-sliced addition
-            let mut planes = vec![[0u64; 160]; num_planes];
+            // Cache-friendly transposed bit-sliced addition with stack buffer optimization
+            // Performance Optimization: Uses a stack scratchpad for small batches (num_planes <= 16, N <= 65,536)
+            // to bypass heap allocation overhead of vec![[0u64; 160]; num_planes].
+            let mut heap_planes;
+            let mut stack_planes = [const { MaybeUninit::<[u64; 160]>::uninit() }; 16];
+
+            let planes: &mut [[u64; 160]] = if num_planes <= 16 {
+                for item in stack_planes.iter_mut().take(num_planes) {
+                    item.write([0u64; 160]);
+                }
+                // SAFETY: 0..num_planes items are initialized with valid [u64; 160] arrays.
+                unsafe {
+                    std::slice::from_raw_parts_mut(
+                        stack_planes.as_mut_ptr().cast::<[u64; 160]>(),
+                        num_planes,
+                    )
+                }
+            } else {
+                heap_planes = vec![[0u64; 160]; num_planes];
+                &mut heap_planes
+            };
+
             for v in vectors {
                 for i in 0..160 {
                     let mut carry = v.bits[i];
