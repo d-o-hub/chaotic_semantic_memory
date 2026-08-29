@@ -98,13 +98,14 @@ impl Singularity {
                 entity: "Namespace".to_string(),
                 id: ns.to_string(),
             })?;
-        let (start_key, _) = ns_state
-            .concepts
-            .get_key_value(start)
-            .ok_or_else(|| MemoryError::NotFound {
-                entity: "Concept".to_string(),
-                id: start.to_string(),
-            })?;
+        let (start_key, _) =
+            ns_state
+                .concepts
+                .get_key_value(start)
+                .ok_or_else(|| MemoryError::NotFound {
+                    entity: "Concept".to_string(),
+                    id: start.to_string(),
+                })?;
         let start_str = start_key.as_str();
 
         // Memory Optimization: Use borrowed &str references to eliminate transient String allocations
@@ -164,20 +165,22 @@ impl Singularity {
                 entity: "Namespace".to_string(),
                 id: ns.to_string(),
             })?;
-        let (from_key, _) = ns_state
-            .concepts
-            .get_key_value(from)
-            .ok_or_else(|| MemoryError::NotFound {
-                entity: "Concept".to_string(),
-                id: from.to_string(),
-            })?;
-        let (to_key, _) = ns_state
-            .concepts
-            .get_key_value(to)
-            .ok_or_else(|| MemoryError::NotFound {
-                entity: "Concept".to_string(),
-                id: to.to_string(),
-            })?;
+        let (from_key, _) =
+            ns_state
+                .concepts
+                .get_key_value(from)
+                .ok_or_else(|| MemoryError::NotFound {
+                    entity: "Concept".to_string(),
+                    id: from.to_string(),
+                })?;
+        let (to_key, _) =
+            ns_state
+                .concepts
+                .get_key_value(to)
+                .ok_or_else(|| MemoryError::NotFound {
+                    entity: "Concept".to_string(),
+                    id: to.to_string(),
+                })?;
         let from_str = from_key.as_str();
         let to_str = to_key.as_str();
 
@@ -268,20 +271,22 @@ impl Singularity {
                 entity: "Namespace".to_string(),
                 id: ns.to_string(),
             })?;
-        let (from_key, _) = ns_state
-            .concepts
-            .get_key_value(from)
-            .ok_or_else(|| MemoryError::NotFound {
-                entity: "Concept".to_string(),
-                id: from.to_string(),
-            })?;
-        let (to_key, _) = ns_state
-            .concepts
-            .get_key_value(to)
-            .ok_or_else(|| MemoryError::NotFound {
-                entity: "Concept".to_string(),
-                id: to.to_string(),
-            })?;
+        let (from_key, _) =
+            ns_state
+                .concepts
+                .get_key_value(from)
+                .ok_or_else(|| MemoryError::NotFound {
+                    entity: "Concept".to_string(),
+                    id: from.to_string(),
+                })?;
+        let (to_key, _) =
+            ns_state
+                .concepts
+                .get_key_value(to)
+                .ok_or_else(|| MemoryError::NotFound {
+                    entity: "Concept".to_string(),
+                    id: to.to_string(),
+                })?;
         let from_str = from_key.as_str();
         let to_str = to_key.as_str();
 
