@@ -60,8 +60,15 @@ impl Reranker for MmrReranker {
             for cand in &mut candidates {
                 cand.score = query.cosine_similarity(&cand.vector);
             }
-            candidates.sort_by(|a, b| b.score.total_cmp(&a.score));
-            candidates.truncate(top_k);
+            if candidates.len() <= top_k {
+                candidates.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
+            } else {
+                // Algorithmic Optimization: Partition top_k elements in O(N) time before sorting
+                // only the K retained items in O(K log K), avoiding full O(N log N) sorting.
+                candidates.select_nth_unstable_by(top_k - 1, |a, b| b.score.total_cmp(&a.score));
+                candidates.truncate(top_k);
+                candidates.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
+            }
             return candidates;
         }
 
@@ -152,6 +159,10 @@ impl Reranker for RecencyDecayReranker {
         let blend = self.blend;
         let one_minus_blend = 1.0 - blend;
 
+        if candidates.is_empty() || top_k == 0 {
+            return Vec::new();
+        }
+
         for cand in &mut candidates {
             let age_secs = now.saturating_sub(cand.created_at_unix) as f32;
             // CPU-native base-2 exponentiation (-age_secs * inv_half_life).exp2()
@@ -162,8 +173,15 @@ impl Reranker for RecencyDecayReranker {
             cand.score = blend * cand.score + one_minus_blend * recency;
         }
 
-        candidates.sort_by(|a, b| b.score.total_cmp(&a.score));
-        candidates.truncate(top_k);
+        if candidates.len() <= top_k {
+            candidates.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
+        } else {
+            // Algorithmic Optimization: Partition top_k elements in O(N) time before sorting
+            // only the K retained items in O(K log K), avoiding full O(N log N) sorting.
+            candidates.select_nth_unstable_by(top_k - 1, |a, b| b.score.total_cmp(&a.score));
+            candidates.truncate(top_k);
+            candidates.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
+        }
         candidates
     }
 }

@@ -160,6 +160,10 @@ impl Reranker for RecencyDecayReranker {
         let blend = self.blend;
         let one_minus_blend = 1.0 - blend;
 
+        if candidates.is_empty() || top_k == 0 {
+            return Vec::new();
+        }
+
         for cand in &mut candidates {
             let age_secs = now.saturating_sub(cand.created_at_unix) as f32;
             // CPU-native base-2 exponentiation (-age_secs * inv_half_life).exp2()
