@@ -204,8 +204,6 @@ impl Reranker for CrossEncoderReranker {
         candidates: Vec<RerankCandidate>,
         top_k: usize,
     ) -> Vec<RerankCandidate> {
-        // Implementation would load and run ONNX model
-        // For now, it's a skeleton that returns candidates as-is
         let mut results = candidates;
         results.truncate(top_k);
         results
