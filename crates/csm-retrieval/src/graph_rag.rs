@@ -58,6 +58,9 @@ pub struct GraphRagResult {
     pub assoc_strength: f32,
 }
 
+/// Maximum graph traversal expanded candidates limit.
+const MAX_TRAVERSAL_EXPANSIONS: usize = 1000;
+
 /// Execute GraphRAG retrieval.
 pub fn graph_rag_retrieve(
     query: &HVec10240,
@@ -121,6 +124,8 @@ pub fn graph_rag_retrieve(
         queue.push_back((anchor_id, anchor_id, 0, 1.0f32));
     }
 
+    let anchor_count = results_map.len();
+
     while let Some((current_id, anchor_id, hop, path_strength)) = queue.pop_front() {
         if hop >= config.max_hops {
             continue;
@@ -144,6 +149,7 @@ pub fn graph_rag_retrieve(
                     config.graph_weight * (1.0 / (1.0 + new_hop as f32)) * new_strength;
                 let total_score = config.similarity_weight * similarity + graph_score;
 
+                let expanded_count = results_map.len() - anchor_count;
                 match results_map.entry(neighbor_id) {
                     Entry::Occupied(mut entry) => {
                         if total_score > entry.get().0 {
@@ -158,8 +164,16 @@ pub fn graph_rag_retrieve(
                         }
                     }
                     Entry::Vacant(entry) => {
-                        entry.insert((total_score, similarity, anchor_id, new_hop, new_strength));
-                        queue.push_back((neighbor_id, anchor_id, new_hop, new_strength));
+                        if expanded_count < MAX_TRAVERSAL_EXPANSIONS {
+                            entry.insert((
+                                total_score,
+                                similarity,
+                                anchor_id,
+                                new_hop,
+                                new_strength,
+                            ));
+                            queue.push_back((neighbor_id, anchor_id, new_hop, new_strength));
+                        }
                     }
                 }
             }
