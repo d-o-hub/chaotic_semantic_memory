@@ -231,65 +231,137 @@ impl BHVec10240 {
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         if num_vectors >= 256 {
-            let mut bits = [0u64; 160];
-            bits.par_iter_mut().enumerate().for_each(|(i, word)| {
-                let mut planes = [0u64; 64];
-                for v in vectors {
+            #[cfg(target_arch = "x86_64")]
+            if is_x86_feature_detected!("avx2") {
+                let mut bits = [0u64; 160];
+                bits.par_chunks_mut(4).enumerate().for_each(|(i, chunk)| {
+                    // SAFETY: AVX2 detected at runtime. Pointers within bounds.
+                    let res = unsafe {
+                        crate::hyperdim_simd_bundle::bundle_block_avx2_single_u64(
+                            vectors,
+                            i * 4,
+                            threshold,
+                            num_planes,
+                        )
+                    };
+                    // SAFETY: chunk length is 4 (32 bytes), matching AVX2 256-bit block size.
+                    unsafe {
+                        std::arch::x86_64::_mm256_storeu_si256(chunk.as_mut_ptr().cast(), res);
+                    }
+                });
+                return Self { bits };
+            }
+
+            #[cfg(target_arch = "aarch64")]
+            {
+                let mut bits = [0u64; 160];
+                bits.par_chunks_mut(2).enumerate().for_each(|(i, chunk)| {
+                    // SAFETY: NEON always available on aarch64. Pointers within bounds.
+                    let res = unsafe {
+                        crate::hyperdim_simd_bundle::bundle_block_neon_single_u64(
+                            vectors,
+                            i * 2,
+                            threshold,
+                            num_planes,
+                        )
+                    };
+                    // SAFETY: chunk length is 2 (16 bytes), matching NEON 128-bit block size.
+                    unsafe {
+                        std::arch::aarch64::vst1q_u8(chunk.as_mut_ptr().cast(), res);
+                    }
+                });
+                return Self { bits };
+            }
+
+            #[cfg(not(target_arch = "aarch64"))]
+            {
+                let mut bits = [0u64; 160];
+                bits.par_iter_mut().enumerate().for_each(|(i, word)| {
+                    let mut planes = [0u64; 64];
+                    for v in vectors {
+                        let mut carry = v.bits[i];
+                        for p in 0..num_planes {
+                            let next_carry = planes[p] & carry;
+                            planes[p] ^= carry;
+                            carry = next_carry;
+                            if carry == 0 {
+                                break;
+                            }
+                        }
+                    }
+                    let (mut current_eq, mut current_gt) = (!0u64, 0u64);
+                    for p in (0..num_planes).rev() {
+                        if ((threshold >> p) & 1) == 1 {
+                            current_eq &= planes[p];
+                        } else {
+                            current_gt |= current_eq & planes[p];
+                            current_eq &= !planes[p];
+                        }
+                    }
+                    *word = current_gt | current_eq;
+                });
+                return Self { bits };
+            }
+        }
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+        if is_x86_feature_detected!("avx2") {
+            // SAFETY: AVX2 is detected at runtime.
+            return Self {
+                bits: unsafe {
+                    crate::hyperdim_simd_bundle::bundle_block_avx2_u64(
+                        vectors, threshold, num_planes,
+                    )
+                },
+            };
+        }
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+        {
+            // SAFETY: NEON is always available on aarch64.
+            return Self {
+                bits: unsafe {
+                    crate::hyperdim_simd_bundle::bundle_block_neon_u64(
+                        vectors, threshold, num_planes,
+                    )
+                },
+            };
+        }
+
+        #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
+        {
+            // Cache-friendly transposed bit-sliced addition
+            let mut planes = vec![[0u64; 160]; num_planes];
+            for v in vectors {
+                for i in 0..160 {
                     let mut carry = v.bits[i];
                     for p in 0..num_planes {
-                        let next_carry = planes[p] & carry;
-                        planes[p] ^= carry;
+                        let next_carry = planes[p][i] & carry;
+                        planes[p][i] ^= carry;
                         carry = next_carry;
                         if carry == 0 {
                             break;
                         }
                     }
                 }
+            }
+
+            let mut bits = [0u64; 160];
+            for i in 0..160 {
                 let (mut current_eq, mut current_gt) = (!0u64, 0u64);
                 for p in (0..num_planes).rev() {
                     if ((threshold >> p) & 1) == 1 {
-                        current_eq &= planes[p];
+                        current_eq &= planes[p][i];
                     } else {
-                        current_gt |= current_eq & planes[p];
-                        current_eq &= !planes[p];
+                        current_gt |= current_eq & planes[p][i];
+                        current_eq &= !planes[p][i];
                     }
                 }
-                *word = current_gt | current_eq;
-            });
-            return Self { bits };
-        }
-
-        // Cache-friendly transposed bit-sliced addition
-        let mut planes = vec![[0u64; 160]; num_planes];
-        for v in vectors {
-            for i in 0..160 {
-                let mut carry = v.bits[i];
-                for p in 0..num_planes {
-                    let next_carry = planes[p][i] & carry;
-                    planes[p][i] ^= carry;
-                    carry = next_carry;
-                    if carry == 0 {
-                        break;
-                    }
-                }
+                bits[i] = current_gt | current_eq;
             }
-        }
 
-        let mut bits = [0u64; 160];
-        for i in 0..160 {
-            let (mut current_eq, mut current_gt) = (!0u64, 0u64);
-            for p in (0..num_planes).rev() {
-                if ((threshold >> p) & 1) == 1 {
-                    current_eq &= planes[p][i];
-                } else {
-                    current_gt |= current_eq & planes[p][i];
-                    current_eq &= !planes[p][i];
-                }
-            }
-            bits[i] = current_gt | current_eq;
+            Self { bits }
         }
-
-        Self { bits }
     }
 
     /// Cyclic permutation (shift)
