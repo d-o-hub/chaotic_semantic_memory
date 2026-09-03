@@ -23,6 +23,7 @@ module.exports = {
         'goap',
         'memory',
         'core',
+        'encoder',
         'traits',
         'deps',
         'ci',
