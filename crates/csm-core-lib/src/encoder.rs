@@ -426,7 +426,10 @@ mod tests {
         let zero = HVec10240::zero();
 
         // n > MAX_NGRAM_SIZE (33 > 32): should return zero without panic or unbounded loop
-        assert_eq!(encoder.encode_with_ngrams("abcdefghijklmnopqrstuvwxyz0123456789", 33), zero);
+        assert_eq!(
+            encoder.encode_with_ngrams("abcdefghijklmnopqrstuvwxyz0123456789", 33),
+            zero
+        );
 
         // n == usize::MAX: should return zero safely without arithmetic overflow panic
         assert_eq!(encoder.encode_with_ngrams("hello world", usize::MAX), zero);
