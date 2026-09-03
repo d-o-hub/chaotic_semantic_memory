@@ -144,10 +144,12 @@ impl Singularity {
                     let mut sorted_links: Vec<_> = links.iter().collect();
                     let fanout = self._retrieval_config.graph_fanout.min(sorted_links.len());
                     if fanout > 0 {
+                        // Algorithmic Optimization: Select top `fanout` candidates via O(N) quickselect
+                        // and truncate. Intra-fanout sorting is omitted as candidates are pushed directly
+                        // into queue and HashSet, reducing node expansion complexity from O(L log L) to O(L).
                         sorted_links
                             .select_nth_unstable_by(fanout - 1, |a, b| b.1.0.total_cmp(&a.1.0));
                         sorted_links.truncate(fanout);
-                        sorted_links.sort_unstable_by(|a, b| b.1.0.total_cmp(&a.1.0));
                     }
 
                     for (neighbor_id, _) in sorted_links {
