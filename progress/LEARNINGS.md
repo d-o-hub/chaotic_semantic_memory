@@ -89,3 +89,8 @@
 **Vulnerability:** The public API `prune_decayed_associations` accepted a float `threshold` parameter without any bounds or sanitization checks. Passing `NaN` as a threshold caused all associations to be silently deleted/pruned.
 **Learning:** Even if helper validators exist (such as `validate_association_strength`), some public APIs may skip calling them because they don't perform direct inserts, failing to realize that downstream comparison operators (like `>=`) behave unexpectedly on malicious floats.
 **Prevention:** Always validate all public API parameters of type `f32`/`f64` representing rates, scores, or thresholds against finite limits and expected ranges before performing state manipulation.
+
+## 2026-08-07 — Enforce Upper Bounds on Character N-Gram Size
+**Vulnerability:** `TextEncoder::encode_with_ngrams` accepted an unguarded `n: usize` parameter. Passing `n = usize::MAX` triggered `n + 1` integer overflow panics in `char_offsets.windows(n + 1)`.
+**Learning:** Functions accepting `Option<usize>` or `usize` parameters on public APIs can bypass upper-bound checks if internal functions assume reasonable caller inputs without explicit constants.
+**Prevention:** Always declare named upper-bound constants (`MAX_NGRAM_SIZE`) for sizing/windowing parameters and validate inputs before performing slice windowing or arithmetic additions.
