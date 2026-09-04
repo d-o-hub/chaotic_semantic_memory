@@ -36,7 +36,6 @@ use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 
 /// Maximum top_k limit for retrieval operations to prevent CWE-770 memory exhaustion.
 pub const MAX_TOP_K_LIMIT: usize = 100_000;
-
 /// Configuration for BM25 ranking algorithm.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Bm25Config {
