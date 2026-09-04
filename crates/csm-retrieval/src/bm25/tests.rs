@@ -96,20 +96,16 @@ fn test_top_k() {
 }
 
 #[test]
-fn test_top_k_zero_returns_empty() {
-    let mut index = Bm25Index::new();
-    index.add_document("doc1", &["hello", "world"]);
-
-    let results = index.search(&["hello"], 0);
-    assert!(results.is_empty());
-}
-
-#[test]
-fn test_search_top_k_clamped() {
+fn test_top_k_edge_cases() {
     let mut index = Bm25Index::new();
     index.add_document("doc1", &["hello", "world"]);
     index.add_document("doc2", &["hello", "rust"]);
 
+    // top_k == 0 returns empty without scoring
+    let results = index.search(&["hello"], 0);
+    assert!(results.is_empty());
+
+    // top_k == usize::MAX is clamped to MAX_TOP_K_LIMIT (CWE-770)
     let results = index.search(&["hello"], usize::MAX);
     assert_eq!(results.len(), 2);
 }
