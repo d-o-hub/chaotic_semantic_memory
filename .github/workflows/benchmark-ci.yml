@@ -114,3 +114,4 @@ jobs:
         with:
           name: benchmark-results
           path: benchmarks/results/ci
+          retention-days: 7
