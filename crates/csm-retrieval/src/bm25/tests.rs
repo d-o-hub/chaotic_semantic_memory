@@ -54,15 +54,20 @@ fn test_remove_document() {
     index.add_document("doc2", &["hello", "rust"]);
     index.add_document("doc3", &["hello", "python"]);
 
+    // Removing "doc1" triggers swap_remove, doc3 moves to index 0
     index.remove_document("doc1");
     assert_eq!(index.len(), 2);
 
-    assert!(index.search(&["world"], 10).is_empty());
+    // Verify removed doc is gone
+    let results = index.search(&["world"], 10);
+    assert!(results.is_empty());
 
+    // Verify swapped doc is still findable (this catches the postings index update mutation)
     let results = index.search(&["python"], 10);
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].0, "doc3");
 
+    // Verify common term still works for both
     let results = index.search(&["hello"], 10);
     assert_eq!(results.len(), 2);
 }
