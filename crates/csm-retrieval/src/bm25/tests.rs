@@ -96,19 +96,24 @@ fn test_top_k() {
 }
 
 #[test]
-fn test_top_k_zero_returns_empty() {
+fn test_top_k_edge_cases() {
     let mut index = Bm25Index::new();
     index.add_document("doc1", &["hello", "world"]);
+    index.add_document("doc2", &["hello", "rust"]);
 
+    // top_k == 0 returns empty without scoring
     let results = index.search(&["hello"], 0);
     assert!(results.is_empty());
+
+    // top_k == usize::MAX is clamped to MAX_TOP_K_LIMIT (CWE-770)
+    let results = index.search(&["hello"], usize::MAX);
+    assert_eq!(results.len(), 2);
 }
 
 #[test]
 fn test_idf_rare_term_higher_score() {
     let mut index = Bm25Index::new();
 
-    // "rare" appears in 1 doc, "common" appears in 3 docs
     index.add_document("doc1", &["rare", "common"]);
     index.add_document("doc2", &["common"]);
     index.add_document("doc3", &["common"]);
@@ -132,8 +137,6 @@ fn test_doc_length_normalization() {
         ],
     );
 
-    // Both match, but shorter doc should score higher per-term
-    // (BM25 normalizes by document length)
     let results = index.search(&["hello"], 10);
     assert_eq!(results.len(), 2);
     assert_eq!(results[0].0, "short");
@@ -292,7 +295,6 @@ fn test_clone_preserves_state() {
 #[test]
 fn test_scoring_math_general_case() {
     let mut index = Bm25Index::new();
-    // doc1: "a" (tf=2), len=2
     index.add_document("doc1", &["a", "a"]);
     // doc2: "a" (tf=1), len=1
     index.add_document("doc2", &["a"]);
@@ -459,7 +461,6 @@ fn test_search_dedup_hashset_path_distinct_terms() {
     index.add_document("doc_a", &["a"]);
     index.add_document("doc_b", &["b"]);
 
-    // 10 tokens (> 8) forces HashSet dedup branch
     let query = ["a", "a", "c", "d", "e", "f", "g", "h", "i", "b"];
     let results = index.search(&query, 10);
     let ids: std::collections::HashSet<&str> = results.iter().map(|(id, _)| id.as_str()).collect();
