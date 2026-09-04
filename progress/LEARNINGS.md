@@ -94,3 +94,8 @@
 **Vulnerability:** `TextEncoder::encode_with_ngrams` accepted an unguarded `n: usize` parameter. Passing `n = usize::MAX` triggered `n + 1` integer overflow panics in `char_offsets.windows(n + 1)`.
 **Learning:** Functions accepting `Option<usize>` or `usize` parameters on public APIs can bypass upper-bound checks if internal functions assume reasonable caller inputs without explicit constants.
 **Prevention:** Always declare named upper-bound constants (`MAX_NGRAM_SIZE`) for sizing/windowing parameters and validate inputs before performing slice windowing or arithmetic additions.
+
+## 2026-08-17 — Input Bound Clamping on Concept TTL
+**Vulnerability:** Public builder API `ConceptBuilder::with_ttl` accepted arbitrary `u64` values without upper bounding, allowing arithmetic overflow when computing `now + ttl`.
+**Learning:** Public builder methods taking time intervals or size limits must clamp input values to pre-defined maximum limits using saturating arithmetic.
+**Prevention:** Enforce explicit `MAX_TTL_SECONDS_LIMIT` parameter bounds and saturating additions on all time-to-live public API builder interfaces.
