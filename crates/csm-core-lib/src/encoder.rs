@@ -44,6 +44,9 @@ fn to_lowercase_cow(s: &str) -> Cow<'_, str> {
     }
 }
 
+/// Maximum character n-gram size allowed for overlay encoding (CWE-770 resource limit).
+pub const MAX_NGRAM_SIZE: usize = 32;
+
 /// FNV-1a 64-bit offset basis and prime (Fowler–Noll–Vo).
 const FNV1A_OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
 const FNV1A_PRIME: u64 = 0x0000_0100_0000_01b3;
@@ -220,7 +223,7 @@ impl TextEncoder {
             .enumerate()
             .map(|(pos, &token)| {
                 let base = self.token_to_hvec(token);
-                base.permute(pos * self.config.position_stride)
+                base.permute(pos.saturating_mul(self.config.position_stride))
             })
             .collect();
 
@@ -305,6 +308,10 @@ impl TextEncoder {
     ///
     /// Generates n-grams, encodes each, and bundles them together.
     fn encode_ngrams(&self, text: &str, n: usize) -> HVec10240 {
+        if n == 0 || n > MAX_NGRAM_SIZE {
+            return HVec10240::zero();
+        }
+
         // Optimization: store only byte offsets for character windows.
         // Reduces memory overhead and improves cache locality compared to (usize, char) pairs.
         let mut char_offsets = Vec::with_capacity(text.len());
@@ -312,7 +319,7 @@ impl TextEncoder {
             char_offsets.push(i);
         }
 
-        if char_offsets.len() < n || n == 0 {
+        if char_offsets.len() < n {
             return HVec10240::zero();
         }
 
@@ -411,5 +418,20 @@ mod tests {
 
         // len < n - 1: should return zero
         assert_eq!(encoder.encode_ngrams("", 2), zero);
+    }
+
+    #[test]
+    fn encode_ngrams_max_limit_and_overflow() {
+        let encoder = TextEncoder::new();
+        let zero = HVec10240::zero();
+
+        // n > MAX_NGRAM_SIZE (33 > 32): should return zero without panic or unbounded loop
+        assert_eq!(
+            encoder.encode_with_ngrams("abcdefghijklmnopqrstuvwxyz0123456789", 33),
+            zero
+        );
+
+        // n == usize::MAX: should return zero safely without arithmetic overflow panic
+        assert_eq!(encoder.encode_with_ngrams("hello world", usize::MAX), zero);
     }
 }
