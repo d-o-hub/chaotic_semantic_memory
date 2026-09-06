@@ -104,64 +104,94 @@ impl VoronoiLsh {
     }
 
     /// AVX2 L2-distance projection for x86_64.
+    ///
+    /// Performance Optimization: Unrolls the inner dimension loop 2-way with dual YMM accumulators
+    /// (`sum_a0`, `sum_a1` and `sum_b0`, `sum_b1`). This breaks latency dependency chains on YMM
+    /// additions and exposes instruction-level parallelism (ILP) to the CPU execution ports.
     #[cfg(all(target_arch = "x86_64", feature = "std"))]
     #[target_feature(enable = "avx2")]
     unsafe fn project_avx2(&self, input: &[f32]) -> [u64; 160] {
         use core::arch::x86_64::*;
 
+        #[inline(always)]
+        unsafe fn horizontal_sum_avx2(sum: __m256) -> f32 {
+            unsafe {
+                let hi = _mm256_extractf128_ps(sum, 1);
+                let lo = _mm256_castps256_ps128(sum);
+                let sum128 = _mm_add_ps(lo, hi);
+                let shuf = _mm_movehdup_ps(sum128);
+                let sums = _mm_add_ps(sum128, shuf);
+                let shuf2 = _mm_movehl_ps(sums, sums);
+                let result = _mm_add_ss(sums, shuf2);
+                _mm_cvtss_f32(result)
+            }
+        }
+
         let mut bits = [0u64; 160];
         let dim = self.input_dim;
         let stride = 2 * dim;
-        let chunks = dim / 8;
+        let chunks2 = dim / 16;
+        let remainder_chunks = (dim % 16) / 8;
         let remainder = dim % 8;
 
         for i in 0..10240 {
             let offset_a = i * stride;
             let offset_b = offset_a + dim;
 
-            let mut sum_a = _mm256_setzero_ps();
-            let mut sum_b = _mm256_setzero_ps();
+            let mut sum_a0 = _mm256_setzero_ps();
+            let mut sum_a1 = _mm256_setzero_ps();
+            let mut sum_b0 = _mm256_setzero_ps();
+            let mut sum_b1 = _mm256_setzero_ps();
 
-            for c in 0..chunks {
-                let base_a = offset_a + c * 8;
-                let base_b = offset_b + c * 8;
+            for c in 0..chunks2 {
+                let idx0 = c * 16;
+                let idx1 = idx0 + 8;
                 // SAFETY: Pointer arithmetic is bounded.
                 unsafe {
-                    let v_in = _mm256_loadu_ps(input.as_ptr().add(c * 8));
-                    let v_a = _mm256_loadu_ps(self.centroids.as_ptr().add(base_a));
-                    let v_b = _mm256_loadu_ps(self.centroids.as_ptr().add(base_b));
+                    let v_in0 = _mm256_loadu_ps(input.as_ptr().add(idx0));
+                    let v_in1 = _mm256_loadu_ps(input.as_ptr().add(idx1));
 
-                    let diff_a = _mm256_sub_ps(v_in, v_a);
-                    sum_a = _mm256_add_ps(sum_a, _mm256_mul_ps(diff_a, diff_a));
+                    let v_a0 = _mm256_loadu_ps(self.centroids.as_ptr().add(offset_a + idx0));
+                    let v_a1 = _mm256_loadu_ps(self.centroids.as_ptr().add(offset_a + idx1));
+                    let v_b0 = _mm256_loadu_ps(self.centroids.as_ptr().add(offset_b + idx0));
+                    let v_b1 = _mm256_loadu_ps(self.centroids.as_ptr().add(offset_b + idx1));
 
-                    let diff_b = _mm256_sub_ps(v_in, v_b);
-                    sum_b = _mm256_add_ps(sum_b, _mm256_mul_ps(diff_b, diff_b));
+                    let diff_a0 = _mm256_sub_ps(v_in0, v_a0);
+                    let diff_a1 = _mm256_sub_ps(v_in1, v_a1);
+                    sum_a0 = _mm256_add_ps(sum_a0, _mm256_mul_ps(diff_a0, diff_a0));
+                    sum_a1 = _mm256_add_ps(sum_a1, _mm256_mul_ps(diff_a1, diff_a1));
+
+                    let diff_b0 = _mm256_sub_ps(v_in0, v_b0);
+                    let diff_b1 = _mm256_sub_ps(v_in1, v_b1);
+                    sum_b0 = _mm256_add_ps(sum_b0, _mm256_mul_ps(diff_b0, diff_b0));
+                    sum_b1 = _mm256_add_ps(sum_b1, _mm256_mul_ps(diff_b1, diff_b1));
                 }
             }
 
-            // Horizontal sum for A
-            let hi_a = _mm256_extractf128_ps(sum_a, 1);
-            let lo_a = _mm256_castps256_ps128(sum_a);
-            let sum128_a = _mm_add_ps(lo_a, hi_a);
-            let shuf_a = _mm_movehdup_ps(sum128_a);
-            let sums_a = _mm_add_ps(sum128_a, shuf_a);
-            let shuf2_a = _mm_movehl_ps(sums_a, sums_a);
-            let result_a = _mm_add_ss(sums_a, shuf2_a);
-            let mut dist_a = _mm_cvtss_f32(result_a);
+            if remainder_chunks > 0 {
+                let idx = chunks2 * 16;
+                unsafe {
+                    let v_in = _mm256_loadu_ps(input.as_ptr().add(idx));
+                    let v_a = _mm256_loadu_ps(self.centroids.as_ptr().add(offset_a + idx));
+                    let v_b = _mm256_loadu_ps(self.centroids.as_ptr().add(offset_b + idx));
 
-            // Horizontal sum for B
-            let hi_b = _mm256_extractf128_ps(sum_b, 1);
-            let lo_b = _mm256_castps256_ps128(sum_b);
-            let sum128_b = _mm_add_ps(lo_b, hi_b);
-            let shuf_b = _mm_movehdup_ps(sum128_b);
-            let sums_b = _mm_add_ps(sum128_b, shuf_b);
-            let shuf2_b = _mm_movehl_ps(sums_b, sums_b);
-            let result_b = _mm_add_ss(sums_b, shuf2_b);
-            let mut dist_b = _mm_cvtss_f32(result_b);
+                    let diff_a = _mm256_sub_ps(v_in, v_a);
+                    sum_a0 = _mm256_add_ps(sum_a0, _mm256_mul_ps(diff_a, diff_a));
+                    let diff_b = _mm256_sub_ps(v_in, v_b);
+                    sum_b0 = _mm256_add_ps(sum_b0, _mm256_mul_ps(diff_b, diff_b));
+                }
+            }
+
+            // SAFETY: AVX2 horizontal sums.
+            let sum_a = _mm256_add_ps(sum_a0, sum_a1);
+            let sum_b = _mm256_add_ps(sum_b0, sum_b1);
+            let mut dist_a = unsafe { horizontal_sum_avx2(sum_a) };
+            let mut dist_b = unsafe { horizontal_sum_avx2(sum_b) };
 
             // Scalar tail for remainder elements
+            let tail_start = chunks2 * 16 + remainder_chunks * 8;
             for r in 0..remainder {
-                let idx = chunks * 8 + r;
+                let idx = tail_start + r;
                 let diff_a_tail = input[idx] - self.centroids[offset_a + idx];
                 dist_a += diff_a_tail * diff_a_tail;
                 let diff_b_tail = input[idx] - self.centroids[offset_b + idx];
@@ -177,6 +207,10 @@ impl VoronoiLsh {
     }
 
     /// NEON L2-distance projection for aarch64.
+    ///
+    /// Performance Optimization: Unrolls the inner dimension loop 2-way with dual NEON accumulators
+    /// (`sum_a0`, `sum_a1` and `sum_b0`, `sum_b1`). This breaks latency dependency chains on NEON
+    /// additions and exposes instruction-level parallelism (ILP) to the CPU execution ports.
     #[cfg(target_arch = "aarch64")]
     #[inline]
     unsafe fn project_neon(&self, input: &[f32]) -> [u64; 160] {
@@ -185,7 +219,8 @@ impl VoronoiLsh {
         let mut bits = [0u64; 160];
         let dim = self.input_dim;
         let stride = 2 * dim;
-        let chunks = dim / 4;
+        let chunks2 = dim / 8;
+        let remainder_chunks = (dim % 8) / 4;
         let remainder = dim % 4;
 
         for i in 0..10240 {
@@ -193,32 +228,60 @@ impl VoronoiLsh {
             let offset_b = offset_a + dim;
 
             // SAFETY: target_feature "neon" is guaranteed by the cfg gate.
-            let mut sum_a = unsafe { vdupq_n_f32(0.0) };
-            let mut sum_b = unsafe { vdupq_n_f32(0.0) };
+            let mut sum_a0 = unsafe { vdupq_n_f32(0.0) };
+            let mut sum_a1 = unsafe { vdupq_n_f32(0.0) };
+            let mut sum_b0 = unsafe { vdupq_n_f32(0.0) };
+            let mut sum_b1 = unsafe { vdupq_n_f32(0.0) };
 
-            for c in 0..chunks {
-                let base_a = offset_a + c * 4;
-                let base_b = offset_b + c * 4;
+            for c in 0..chunks2 {
+                let idx0 = c * 8;
+                let idx1 = idx0 + 4;
                 // SAFETY: Pointer arithmetic bounded.
                 unsafe {
-                    let v_in = vld1q_f32(input.as_ptr().add(c * 4));
-                    let v_a = vld1q_f32(self.centroids.as_ptr().add(base_a));
-                    let v_b = vld1q_f32(self.centroids.as_ptr().add(base_b));
+                    let v_in0 = vld1q_f32(input.as_ptr().add(idx0));
+                    let v_in1 = vld1q_f32(input.as_ptr().add(idx1));
+
+                    let v_a0 = vld1q_f32(self.centroids.as_ptr().add(offset_a + idx0));
+                    let v_a1 = vld1q_f32(self.centroids.as_ptr().add(offset_a + idx1));
+                    let v_b0 = vld1q_f32(self.centroids.as_ptr().add(offset_b + idx0));
+                    let v_b1 = vld1q_f32(self.centroids.as_ptr().add(offset_b + idx1));
+
+                    let diff_a0 = vsubq_f32(v_in0, v_a0);
+                    let diff_a1 = vsubq_f32(v_in1, v_a1);
+                    sum_a0 = vfmaq_f32(sum_a0, diff_a0, diff_a0);
+                    sum_a1 = vfmaq_f32(sum_a1, diff_a1, diff_a1);
+
+                    let diff_b0 = vsubq_f32(v_in0, v_b0);
+                    let diff_b1 = vsubq_f32(v_in1, v_b1);
+                    sum_b0 = vfmaq_f32(sum_b0, diff_b0, diff_b0);
+                    sum_b1 = vfmaq_f32(sum_b1, diff_b1, diff_b1);
+                }
+            }
+
+            if remainder_chunks > 0 {
+                let idx = chunks2 * 8;
+                unsafe {
+                    let v_in = vld1q_f32(input.as_ptr().add(idx));
+                    let v_a = vld1q_f32(self.centroids.as_ptr().add(offset_a + idx));
+                    let v_b = vld1q_f32(self.centroids.as_ptr().add(offset_b + idx));
 
                     let diff_a = vsubq_f32(v_in, v_a);
-                    sum_a = vfmaq_f32(sum_a, diff_a, diff_a);
+                    sum_a0 = vfmaq_f32(sum_a0, diff_a, diff_a);
 
                     let diff_b = vsubq_f32(v_in, v_b);
-                    sum_b = vfmaq_f32(sum_b, diff_b, diff_b);
+                    sum_b0 = vfmaq_f32(sum_b0, diff_b, diff_b);
                 }
             }
 
             // SAFETY: target_feature "neon" is guaranteed by the cfg gate.
+            let sum_a = unsafe { vaddq_f32(sum_a0, sum_a1) };
+            let sum_b = unsafe { vaddq_f32(sum_b0, sum_b1) };
             let mut dist_a = unsafe { vaddvq_f32(sum_a) };
             let mut dist_b = unsafe { vaddvq_f32(sum_b) };
 
+            let tail_start = chunks2 * 8 + remainder_chunks * 4;
             for r in 0..remainder {
-                let idx = chunks * 4 + r;
+                let idx = tail_start + r;
                 let diff_a_tail = input[idx] - self.centroids[offset_a + idx];
                 dist_a += diff_a_tail * diff_a_tail;
                 let diff_b_tail = input[idx] - self.centroids[offset_b + idx];
@@ -292,6 +355,7 @@ mod tests {
 #[cfg(test)]
 mod additional_tests {
     use super::*;
+    use alloc::vec;
 
     #[test]
     fn test_voronoi_lsh_determinism() {
