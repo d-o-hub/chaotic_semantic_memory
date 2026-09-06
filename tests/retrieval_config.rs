@@ -38,6 +38,8 @@ fn retrieval_config_valid_custom_values() {
         bucket_probe_width: 4,
         enable_graph_candidates: true,
         enable_bucket_candidates: true,
+        early_exit_threshold: None,
+        bm25_abort_on_no_overlap: false,
     };
     config.validate().unwrap();
 }

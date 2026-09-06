@@ -248,6 +248,11 @@ impl crate::framework::ChaoticSemanticFramework {
         top_k: usize,
         filter: &MetadataFilter,
     ) -> Result<HybridResult> {
+        #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+        if let Some(result) = self.short_circuit_if_known_absent(query).await {
+            return Ok(result);
+        }
+
         let embedding = self.embedding_provider.embed(query).await?;
         let vector = self
             .embedding_provider

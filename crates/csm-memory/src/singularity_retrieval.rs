@@ -76,6 +76,8 @@ pub struct RetrievalConfig {
     pub bucket_probe_width: usize,
     pub enable_graph_candidates: bool,
     pub enable_bucket_candidates: bool,
+    pub early_exit_threshold: Option<f32>,
+    pub bm25_abort_on_no_overlap: bool,
 }
 
 /// Maximum allowed bucket probe width to prevent excessive memory usage.
@@ -89,7 +91,54 @@ impl RetrievalConfig {
                 reason: format!("bucket_probe_width exceeds {MAX_BUCKET_PROBE_WIDTH}"),
             });
         }
+        if let Some(threshold) = self.early_exit_threshold {
+            if !(0.0..=1.0).contains(&threshold) {
+                return Err(csm_core_lib::error::MemoryError::InvalidInput {
+                    field: "early_exit_threshold".to_string(),
+                    reason: "early_exit_threshold must be within [0.0, 1.0]".to_string(),
+                });
+            }
+        }
         Ok(())
+    }
+
+    /// Construct a RetrievalConfig dynamically tuned for a query's token count.
+    pub const fn for_token_count(token_count: usize) -> Self {
+        match token_count {
+            0..=2 => Self {
+                max_candidates: 200,
+                graph_depth: 1,
+                graph_fanout: 5,
+                bucket_probe_width: 2,
+                enable_graph_candidates: false,
+                enable_bucket_candidates: true,
+                early_exit_threshold: None,
+                bm25_abort_on_no_overlap: true,
+                candidate_ratio_fallback: 0.5,
+            },
+            3..=8 => Self {
+                max_candidates: 500,
+                graph_depth: 1,
+                graph_fanout: 10,
+                bucket_probe_width: 2,
+                enable_graph_candidates: true,
+                enable_bucket_candidates: true,
+                early_exit_threshold: None,
+                bm25_abort_on_no_overlap: true,
+                candidate_ratio_fallback: 0.5,
+            },
+            _ => Self {
+                max_candidates: 1000,
+                graph_depth: 2,
+                graph_fanout: 10,
+                bucket_probe_width: 2,
+                enable_graph_candidates: true,
+                enable_bucket_candidates: true,
+                early_exit_threshold: None,
+                bm25_abort_on_no_overlap: false,
+                candidate_ratio_fallback: 0.5,
+            },
+        }
     }
 }
 
@@ -103,6 +152,8 @@ impl Default for RetrievalConfig {
             bucket_probe_width: 2,
             enable_graph_candidates: false,
             enable_bucket_candidates: false,
+            early_exit_threshold: None,
+            bm25_abort_on_no_overlap: false,
         }
     }
 }
@@ -163,10 +214,14 @@ impl Singularity {
             }
         }
 
-        candidates
+        let mut res: Vec<usize> = candidates
             .into_iter()
             .filter_map(|id| ns_state.id_to_index.get(id).copied())
-            .collect()
+            .collect();
+        if res.len() > self._retrieval_config.max_candidates {
+            res.truncate(self._retrieval_config.max_candidates);
+        }
+        res
     }
 
     /// Generate candidates by coarse bucketing.
@@ -189,24 +244,47 @@ impl Singularity {
         // Algorithmic Optimization: Parallelize O(N) candidate generation via Rayon.
         // Reduces latency from O(N) to O(N/P) where P is the number of execution units.
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        {
-            ns_state
-                .concept_vectors
-                .par_iter()
-                .enumerate()
-                .filter_map(filter)
-                .collect()
-        }
+        let mut res: Vec<usize> = ns_state
+            .concept_vectors
+            .par_iter()
+            .enumerate()
+            .filter_map(filter)
+            .collect();
 
         #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-        {
-            ns_state
-                .concept_vectors
-                .iter()
-                .enumerate()
-                .filter_map(filter)
-                .collect()
+        let mut res: Vec<usize> = ns_state
+            .concept_vectors
+            .iter()
+            .enumerate()
+            .filter_map(filter)
+            .collect();
+
+        if res.len() > self._retrieval_config.max_candidates {
+            res.truncate(self._retrieval_config.max_candidates);
         }
+        res
+    }
+
+    /// Score specific concept IDs directly without full scan.
+    pub fn score_specific_candidates(
+        &self,
+        ns: &str,
+        query: &HVec10240,
+        candidate_ids: &[String],
+    ) -> Vec<(String, f32)> {
+        let Some(ns_state) = self.get_namespace(ns) else {
+            return Vec::new();
+        };
+
+        candidate_ids
+            .iter()
+            .filter_map(|id| ns_state.id_to_index.get(id).map(|&idx| (id, idx)))
+            .map(|(id, idx)| {
+                let dist = query.hamming_distance(&ns_state.concept_vectors[idx]);
+                let sim = 1.0 - (dist as f32 / 5120.0);
+                (id.clone(), sim)
+            })
+            .collect()
     }
 
     /// Perform exact similarity scan over all vectors.
@@ -416,78 +494,5 @@ impl Singularity {
 
 #[cfg(test)]
 mod tests_v2 {
-    use crate::singularity::{Singularity, SingularityConfig};
-    use csm_core_lib::hyperdim::HVec10240;
-
-    #[test]
-    fn singularity_last_stats_v2() {
-        let s = Singularity::<HVec10240>::new(SingularityConfig::default());
-        assert_eq!(s.last_retrieval_stats("_default").candidate_count, 0);
-    }
-
-    #[test]
-    fn singularity_get_config_v2() {
-        let s = Singularity::<HVec10240>::new(SingularityConfig::default());
-        assert_eq!(s.retrieval_config().max_candidates, 1000);
-    }
-
-    #[test]
-    fn test_generate_graph_candidates_logic() {
-        use super::RetrievalConfig;
-        use crate::singularity::ConceptBuilder;
-        let mut s = Singularity::<HVec10240>::new(SingularityConfig::default());
-        let mut config = RetrievalConfig::default();
-        config.enable_graph_candidates = true;
-        config.graph_depth = 1;
-        config.graph_fanout = 2;
-        s.set_retrieval_config(config).unwrap();
-
-        let v1 = HVec10240::random();
-        let v2 = HVec10240::random();
-        let v3 = HVec10240::random();
-        let v4 = HVec10240::random();
-
-        s.inject(
-            "_default",
-            ConceptBuilder::new("c1")
-                .with_vector(v1.clone())
-                .build()
-                .unwrap(),
-        )
-        .unwrap();
-        s.inject(
-            "_default",
-            ConceptBuilder::new("c2").with_vector(v2).build().unwrap(),
-        )
-        .unwrap();
-        s.inject(
-            "_default",
-            ConceptBuilder::new("c3").with_vector(v3).build().unwrap(),
-        )
-        .unwrap();
-        s.inject(
-            "_default",
-            ConceptBuilder::new("c4").with_vector(v4).build().unwrap(),
-        )
-        .unwrap();
-
-        // c1 -> c2 (0.9), c1 -> c3 (0.8), c1 -> c4 (0.1)
-        s.associate("_default", "c1", "c2", 0.9).unwrap();
-        s.associate("_default", "c1", "c3", 0.8).unwrap();
-        s.associate("_default", "c1", "c4", 0.1).unwrap();
-
-        let candidates = s.generate_graph_candidates("_default", &v1);
-        // c1 is seed, c2 and c3 are top 2 neighbors. c4 is excluded by fanout=2.
-        assert_eq!(candidates.len(), 3);
-
-        let ns_state = s.get_namespace("_default").unwrap();
-        let ids: std::collections::HashSet<_> = candidates
-            .iter()
-            .map(|&idx| ns_state.concept_indices[idx].as_str())
-            .collect();
-        assert!(ids.contains("c1"));
-        assert!(ids.contains("c2"));
-        assert!(ids.contains("c3"));
-        assert!(!ids.contains("c4"));
-    }
+    include!("singularity_retrieval_tests.rs");
 }
