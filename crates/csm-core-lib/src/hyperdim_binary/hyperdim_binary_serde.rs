@@ -5,8 +5,8 @@
 //! `BHVec10240` directly from its private `bits` field.
 
 use super::BHVec10240;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::{self, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
 impl Serialize for BHVec10240 {

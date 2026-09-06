@@ -13,7 +13,6 @@ use rand::RngExt;
 use rayon::prelude::*;
 
 use std::mem::MaybeUninit;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[must_use]
 pub struct BHVec10240 {
