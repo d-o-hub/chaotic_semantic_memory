@@ -34,20 +34,51 @@ impl ChaoticLsh {
     }
 
     /// Scalar dot-product projection (reference implementation).
+    ///
+    /// Performance Optimization: Processes bits word-by-word into `u64` registers,
+    /// eliminating 10,240 divisions, remainders, and repeated array index updates.
+    /// Uses row slicing to eliminate bounds checking in the hot inner loop, and
+    /// unrolls dot-product accumulation 4-way with independent FP accumulators.
     pub fn project_scalar(&self, input: &[f32]) -> [u64; 160] {
         let mut bits = [0u64; 160];
         if input.is_empty() || input.len() != self.input_dim {
             return bits;
         }
-        for i in 0..10240 {
-            let mut dot_product = 0.0f32;
-            let offset = i * self.input_dim;
-            for (j, &val) in input.iter().enumerate() {
-                dot_product += val * self.projection_matrix[offset + j];
+        let len = self.input_dim;
+        let proj = &self.projection_matrix;
+
+        for word_idx in 0..160 {
+            let mut word = 0u64;
+            let base_i = word_idx * 64;
+            for bit_idx in 0..64 {
+                let i = base_i + bit_idx;
+                let offset = i * len;
+                let row = &proj[offset..offset + len];
+                let mut dot0 = 0.0f32;
+                let mut dot1 = 0.0f32;
+                let mut dot2 = 0.0f32;
+                let mut dot3 = 0.0f32;
+
+                let mut in_chunks = input.chunks_exact(4);
+                let mut row_chunks = row.chunks_exact(4);
+
+                for (in_c, row_c) in in_chunks.by_ref().zip(row_chunks.by_ref()) {
+                    dot0 += in_c[0] * row_c[0];
+                    dot1 += in_c[1] * row_c[1];
+                    dot2 += in_c[2] * row_c[2];
+                    dot3 += in_c[3] * row_c[3];
+                }
+
+                let mut dot = (dot0 + dot1) + (dot2 + dot3);
+                for (&val, &p_val) in in_chunks.remainder().iter().zip(row_chunks.remainder()) {
+                    dot += val * p_val;
+                }
+
+                if dot > 0.0 {
+                    word |= 1u64 << bit_idx;
+                }
             }
-            if dot_product > 0.0 {
-                bits[i / 64] |= 1u64 << (i % 64);
-            }
+            bits[word_idx] = word;
         }
         bits
     }
