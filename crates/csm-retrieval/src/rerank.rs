@@ -54,9 +54,8 @@ impl Reranker for MmrReranker {
             return Vec::new();
         }
 
-        if self.lambda >= 1.0 {
-            // Fast-path: lambda >= 1.0 is pure similarity (no diversity penalty).
-            // Avoids O(N * K) selection loop and expensive cosine_similarity penalty updates.
+        if self.lambda >= 1.0 || candidates.first().is_some_and(|c| c.score >= 0.99) {
+            // Fast-path: lambda >= 1.0 or high-confidence match skips O(N * K) pairwise updates.
             for cand in &mut candidates {
                 cand.score = query.cosine_similarity(&cand.vector);
             }
