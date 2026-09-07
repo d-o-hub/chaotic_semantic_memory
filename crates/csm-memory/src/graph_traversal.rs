@@ -98,35 +98,44 @@ impl Singularity {
                 entity: "Namespace".to_string(),
                 id: ns.to_string(),
             })?;
-        if !ns_state.concepts.contains_key(start) {
-            return Err(MemoryError::NotFound {
-                entity: "Concept".to_string(),
-                id: start.to_string(),
-            });
-        }
+        let (start_key, _) =
+            ns_state
+                .concepts
+                .get_key_value(start)
+                .ok_or_else(|| MemoryError::NotFound {
+                    entity: "Concept".to_string(),
+                    id: start.to_string(),
+                })?;
+        let start_str = start_key.as_str();
 
-        let mut visited: HashSet<String> = HashSet::new();
+        // Memory Optimization: Use borrowed &str references to eliminate transient String allocations
+        // and repeated namespace lock re-acquisitions during graph traversal.
+        let mut visited: HashSet<&str> = HashSet::new();
         let mut results: Vec<(String, u32)> = Vec::new();
-        let mut queue: VecDeque<(String, u32)> = VecDeque::new();
+        let mut queue: VecDeque<(&str, u32)> = VecDeque::new();
 
-        visited.insert(start.to_string());
-        queue.push_back((start.to_string(), 0));
+        visited.insert(start_str);
+        queue.push_back((start_str, 0));
 
         while let Some((current, depth)) = queue.pop_front() {
             if results.len() >= config.max_results {
                 break;
             }
 
-            results.push((current.clone(), depth));
+            results.push((current.to_string(), depth));
 
             if depth as usize >= config.max_depth {
                 continue;
             }
 
-            let neighbors = self.neighbors(ns, &current, config.min_strength);
-            for (neighbor, _) in neighbors {
-                if visited.insert(neighbor.clone()) {
-                    queue.push_back((neighbor, depth + 1));
+            if let Some(neighbors) = ns_state.associations.get(current) {
+                for (neighbor_key, &(strength, _)) in neighbors {
+                    if strength >= config.min_strength {
+                        let neighbor_str = neighbor_key.as_str();
+                        if visited.insert(neighbor_str) {
+                            queue.push_back((neighbor_str, depth + 1));
+                        }
+                    }
                 }
             }
         }
@@ -156,42 +165,49 @@ impl Singularity {
                 entity: "Namespace".to_string(),
                 id: ns.to_string(),
             })?;
-        if !ns_state.concepts.contains_key(from) {
-            return Err(MemoryError::NotFound {
-                entity: "Concept".to_string(),
-                id: from.to_string(),
-            });
-        }
-        if !ns_state.concepts.contains_key(to) {
-            return Err(MemoryError::NotFound {
-                entity: "Concept".to_string(),
-                id: to.to_string(),
-            });
-        }
+        let (from_key, _) =
+            ns_state
+                .concepts
+                .get_key_value(from)
+                .ok_or_else(|| MemoryError::NotFound {
+                    entity: "Concept".to_string(),
+                    id: from.to_string(),
+                })?;
+        let (to_key, _) =
+            ns_state
+                .concepts
+                .get_key_value(to)
+                .ok_or_else(|| MemoryError::NotFound {
+                    entity: "Concept".to_string(),
+                    id: to.to_string(),
+                })?;
+        let from_str = from_key.as_str();
+        let to_str = to_key.as_str();
 
         if from == to {
             return Ok(Some(vec![from.to_string()]));
         }
 
+        // Memory Optimization: Use borrowed &str references to eliminate transient String allocations
+        // and repeated namespace lock re-acquisitions during Dijkstra path calculation.
         // Dijkstra: min-heap of (cost_bits, depth, node_id)
-        // We store cost as ordered bits via f32::to_bits for BinaryHeap<Reverse<...>>.
-        let mut dist: HashMap<String, f32> = HashMap::new();
-        let mut parent: HashMap<String, String> = HashMap::new();
+        let mut dist: HashMap<&str, f32> = HashMap::new();
+        let mut parent: HashMap<&str, &str> = HashMap::new();
         // BinaryHeap is a max-heap; Reverse makes it a min-heap.
-        let mut heap: BinaryHeap<Reverse<(u32, u32, String)>> = BinaryHeap::new();
+        let mut heap: BinaryHeap<Reverse<(u32, u32, &str)>> = BinaryHeap::new();
 
-        dist.insert(from.to_string(), 0.0);
-        heap.push(Reverse((0u32, 0u32, from.to_string())));
+        dist.insert(from_str, 0.0);
+        heap.push(Reverse((0u32, 0u32, from_str)));
 
         while let Some(Reverse((cost_bits, depth, current))) = heap.pop() {
-            if current == to {
+            if current == to_str {
                 // Reconstruct path
-                let mut path = vec![to.to_string()];
-                let mut node = to;
-                while let Some(p) = parent.get(node) {
-                    path.push(p.clone());
+                let mut path = vec![to_str.to_string()];
+                let mut node = to_str;
+                while let Some(&p) = parent.get(node) {
+                    path.push(p.to_string());
                     node = p;
-                    if node == from {
+                    if node == from_str {
                         break;
                     }
                 }
@@ -200,7 +216,7 @@ impl Singularity {
             }
 
             let current_cost = f32::from_bits(cost_bits);
-            if let Some(&best) = dist.get(&current) {
+            if let Some(&best) = dist.get(current) {
                 if current_cost > best {
                     continue; // Stale entry
                 }
@@ -210,20 +226,24 @@ impl Singularity {
                 continue;
             }
 
-            let neighbors = self.neighbors(ns, &current, config.min_strength);
-            for (neighbor, strength) in neighbors {
-                // Cost: -ln(strength), guarding against strength <= 0
-                let edge_cost = if strength > 0.0 {
-                    -strength.ln()
-                } else {
-                    f32::MAX / 2.0
-                };
-                let new_cost = current_cost + edge_cost;
-                let best = dist.get(&neighbor).copied().unwrap_or(f32::MAX);
-                if new_cost < best {
-                    dist.insert(neighbor.clone(), new_cost);
-                    parent.insert(neighbor.clone(), current.clone());
-                    heap.push(Reverse((new_cost.to_bits(), depth + 1, neighbor)));
+            if let Some(neighbors) = ns_state.associations.get(current) {
+                for (neighbor_key, &(strength, _)) in neighbors {
+                    if strength >= config.min_strength {
+                        // Cost: -ln(strength), guarding against strength <= 0
+                        let edge_cost = if strength > 0.0 {
+                            -strength.ln()
+                        } else {
+                            f32::MAX / 2.0
+                        };
+                        let new_cost = current_cost + edge_cost;
+                        let neighbor_str = neighbor_key.as_str();
+                        let best = dist.get(neighbor_str).copied().unwrap_or(f32::MAX);
+                        if new_cost < best {
+                            dist.insert(neighbor_str, new_cost);
+                            parent.insert(neighbor_str, current);
+                            heap.push(Reverse((new_cost.to_bits(), depth + 1, neighbor_str)));
+                        }
+                    }
                 }
             }
         }
@@ -251,54 +271,66 @@ impl Singularity {
                 entity: "Namespace".to_string(),
                 id: ns.to_string(),
             })?;
-        if !ns_state.concepts.contains_key(from) {
-            return Err(MemoryError::NotFound {
-                entity: "Concept".to_string(),
-                id: from.to_string(),
-            });
-        }
-        if !ns_state.concepts.contains_key(to) {
-            return Err(MemoryError::NotFound {
-                entity: "Concept".to_string(),
-                id: to.to_string(),
-            });
-        }
+        let (from_key, _) =
+            ns_state
+                .concepts
+                .get_key_value(from)
+                .ok_or_else(|| MemoryError::NotFound {
+                    entity: "Concept".to_string(),
+                    id: from.to_string(),
+                })?;
+        let (to_key, _) =
+            ns_state
+                .concepts
+                .get_key_value(to)
+                .ok_or_else(|| MemoryError::NotFound {
+                    entity: "Concept".to_string(),
+                    id: to.to_string(),
+                })?;
+        let from_str = from_key.as_str();
+        let to_str = to_key.as_str();
 
         if from == to {
             return Ok(Some(vec![from.to_string()]));
         }
 
-        let mut visited: HashSet<String> = HashSet::new();
-        let mut parent: HashMap<String, String> = HashMap::new();
-        let mut queue: VecDeque<(String, u32)> = VecDeque::new();
+        // Memory Optimization: Use borrowed &str references to eliminate transient String allocations
+        // and repeated namespace lock re-acquisitions during unweighted BFS traversal.
+        let mut visited: HashSet<&str> = HashSet::new();
+        let mut parent: HashMap<&str, &str> = HashMap::new();
+        let mut queue: VecDeque<(&str, u32)> = VecDeque::new();
 
-        visited.insert(from.to_string());
-        queue.push_back((from.to_string(), 0));
+        visited.insert(from_str);
+        queue.push_back((from_str, 0));
 
         while let Some((current, depth)) = queue.pop_front() {
             if depth as usize >= config.max_depth {
                 continue;
             }
 
-            let neighbors = self.neighbors(ns, &current, config.min_strength);
-            for (neighbor, _) in neighbors {
-                if visited.insert(neighbor.clone()) {
-                    parent.insert(neighbor.clone(), current.clone());
-                    if neighbor == to {
-                        // Reconstruct path
-                        let mut path = vec![to.to_string()];
-                        let mut node = to;
-                        while let Some(p) = parent.get(node) {
-                            path.push(p.clone());
-                            node = p;
-                            if node == from {
-                                break;
+            if let Some(neighbors) = ns_state.associations.get(current) {
+                for (neighbor_key, &(strength, _)) in neighbors {
+                    if strength >= config.min_strength {
+                        let neighbor_str = neighbor_key.as_str();
+                        if visited.insert(neighbor_str) {
+                            parent.insert(neighbor_str, current);
+                            if neighbor_str == to_str {
+                                // Reconstruct path
+                                let mut path = vec![to_str.to_string()];
+                                let mut node = to_str;
+                                while let Some(&p) = parent.get(node) {
+                                    path.push(p.to_string());
+                                    node = p;
+                                    if node == from_str {
+                                        break;
+                                    }
+                                }
+                                path.reverse();
+                                return Ok(Some(path));
                             }
+                            queue.push_back((neighbor_str, depth + 1));
                         }
-                        path.reverse();
-                        return Ok(Some(path));
                     }
-                    queue.push_back((neighbor, depth + 1));
                 }
             }
         }
