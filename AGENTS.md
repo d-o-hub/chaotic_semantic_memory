@@ -446,6 +446,12 @@ Refer to the `dist-channel-selection` skill for canonical commands.
 
 2. **Pre-flight dependency graph** — Before proposing a PR strategy, map which files/crates depend on which changes to compile and pass tests. Draw the graph, then decide the split.
 
+3. **Child module extraction over comment stripping** — When files approach the 500 LOC gate, never strip doc comments or rationale. Instead, extract child submodules (e.g. `hyperdim_binary_serde.rs`) or helper modules to preserve 100% of documentation.
+
+4. **GitHub CLI GraphQL deprecation fallback** — `gh pr edit` and `gh issue view` fail if querying deprecated `projectCards`. Query specific `--json` fields for reads, or use `gh api -X PATCH repos/.../pulls/<id>` for updates.
+
+5. **Linked parent issue multi-close** — When a parent PR implements multiple child issues, list all `Fixes #<id>` declarations in the PR body so all issues close cleanly upon squash-merge.
+
 ---
 ## Key Files
 **Core**: `src/singularity.rs`, `src/reservoir.rs`, `src/reservoir_inertial.rs`, `src/framework.rs`, `src/persistence.rs`
@@ -454,12 +460,12 @@ Refer to the `dist-channel-selection` skill for canonical commands.
 **CLI**: `src/cli/commands/query.rs`, `src/cli/commands/index_dir.rs`
 **State**: `plans/GOAP_STATE.md`, `plans/ACTIONS.md`
 
-## Skills (32 Total)
+## Skills (33 Total)
 **Core**: `rust-development`, `testing-validation`, `goap-planning`, `goap-orchestrator`, `adr-creation`, `github-ci-guardrails`, `git-workflow`, `release-management`, `dist-channel-selection`, `benchmarking-perf`, `debugging-reservoir`, `skill-memory-internal`, `memory-lifecycle-verification`, `turso-memory-verification`, `drawio`, `npm-trusted-publishers`
 
 **Swarm**: `swarm-testing-quality`, `swarm-performance`, `swarm-observability`, `swarm-advanced-features`, `analysis-swarm`
 
-**Workflow**: `learn`, `task-decomposition`, `shell-script-quality`, `jules-orchestration`
+**Workflow**: `learn`, `task-decomposition`, `shell-script-quality`, `jules-orchestration`, `pr-roast-triage`
 
 **Automation**: `self-fix-loop`, `iterative-refinement`, `skill-creator`, `skill-evaluator`, `codacy`
 
