@@ -99,3 +99,15 @@
 **Vulnerability:** Public builder API `ConceptBuilder::with_ttl` accepted arbitrary `u64` values without upper bounding, allowing arithmetic overflow when computing `now + ttl`.
 **Learning:** Public builder methods taking time intervals or size limits must clamp input values to pre-defined maximum limits using saturating arithmetic.
 **Prevention:** Enforce explicit `MAX_TTL_SECONDS_LIMIT` parameter bounds and saturating additions on all time-to-live public API builder interfaces.
+
+## 2026-09-04 — PR Backlog Roast (23 open PRs, Jules swarm duplicates)
+**Pattern:** Bot swarms file near-identical PRs (same base blob + same hunk, 5 clusters found: BHVec scratchpad x3, LSH pre-serialize x3, graph-sort x2, scalar-LSH x2, abort-knobs subsumed). Detect via `gh pr diff` base-hash + file overlap, keep one (green > mergeable, fewest unrelated files, compat wrapper kept), close rest as superseded. Full report: `plans/PR_ROAST_2026_09_04.md`; reusable workflow: `.agents/skills/pr-roast-triage/SKILL.md`.
+**CI truth:** Red badge ≠ verdict — read check-run annotations. `Unable to authenticate to FlakeHub` (deny nix setup) and `hosted runner lost communication` (CodeQL) are infra flakes: re-run, don't "fix code". External-only red (Codacy) with green GitHub checks is real.
+**Commitlint:** `scope-enum` is closed — `perf(csm-core-lib)`/`perf(hyperdim)` fail; use listed scopes (`core`, …) or extend the config in the same PR (as #668 did with `encoder`).
+**Hygiene:** Never commit `export.json` `exported_at`-only hunks or resolver-churn `Cargo.lock` hunks; deny.toml edits must be additive-only (deleting ignores re-breaks deny). PR titles must describe the diff — a `re-export` hiding a BFS result cap is a reject.
+
+## 2026-09-07 — Doc Comment Stripping vs Child Module Extraction (500 LOC Gate)
+**Pattern:** When files approach the 500 LOC gate (e.g. `crates/csm-retrieval/src/bm25.rs` at 500 LOC), bot PRs tend to strip docstrings and rationale comments to fit new methods (e.g. `has_token_overlap`). This violates "Never delete rationale comments".
+**Learning:** The correct architecture is shown by PR #670: extract self-contained implementations (such as serde visitor logic) into a child submodule (`hyperdim_binary_serde.rs`), preserving 100% of comments while keeping all files strictly ≤ 500 LOC.
+**GraphQL Deprecation:** `gh pr edit` and `gh issue view` fail when querying deprecated `projectCards`. Query specific `--json` fields on reads, and use REST API `gh api -X PATCH repos/.../pulls/<id>` on updates.
+**Parent Issue Linkage:** When a comprehensive parent PR (#647) implements multiple child issues (#639, #640, #641, #642), ensure all child issues are linked with `Fixes #<id>` in the PR body so all issues automatically close on merge.
