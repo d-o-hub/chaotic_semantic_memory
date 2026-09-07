@@ -29,9 +29,9 @@ world_state:
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "46c2182"           # 2026-08-12
-  tests_count: 1131              # 2026-08-11: literal #[test]/#[tokio::test] across src/crates/tests (incl. new persistence-disabled gates)
-  skills_count: 32               # find .agents/skills -name SKILL.md | wc -l
+  main_head: "ff85763"           # 2026-09-07
+  tests_count: 1092              # 2026-09-07: literal #[test]/#[tokio::test] across src/crates/tests
+  skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
   coverage_ratio_current: 93     # test:source ratio (target ≥90%)
   adr_registry_count: 94         # 2026-08-12: check-adr-parity.sh ok (registry=94, disk=93, 0003 N/A)
   adr_disk_count: 93
@@ -96,4 +96,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: reconcile_pr_wave_2026_08_12
+  action_last_completed: resolve_open_github_issues_and_pr_triage_2026_09_07
