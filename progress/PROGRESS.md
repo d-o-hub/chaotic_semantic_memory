@@ -1,5 +1,24 @@
 # PROGRESS
 
+## 2026-09-07: PR Roast Triage & Resolution of All Open Issues
+
+### Summary
+Comprehensive triage and roast of all 13 open PRs and 4 open GitHub issues. Closed duplicate PR #672 with no independent impact. Verified and merged PR #647, resolving and closing all 4 open issues (#639, #640, #641, #642). Deduplicated root retrieval modules, verified 100% Codacy pass, and established sequential manual merge plan for the remaining 11 open PRs.
+
+### Actions
+- **All 4 GitHub Issues Resolved**:
+  - #639 (`RetrievalConfig abort knobs + for_token_count`): Implemented in `crates/csm-memory/src/singularity_retrieval.rs`.
+  - #640 (`perf: cut probe_text / BridgeRetrieval work`): Parent issue resolved and closed.
+  - #641 (`perf(bridge): cap expansion and Hamming only new IDs`): Implemented in `src/bridge_retrieval.rs` via `score_specific_candidates`.
+  - #642 (`perf(retrieval): BM25 absence + stage-1 cap + HDC early-exit`): Implemented across retrieval pipeline.
+- **PR #647 Merged** (`ff85763`): 28 CI checks green, 0 Codacy issues. Replaced ~970 lines of duplicate root retrieval files (`bm25.rs`, `rerank.rs`) with re-export shims over `csm_retrieval` (ADR-0094), reducing repository LOC by over 5,300 lines while keeping all files strictly under the 500 LOC gate.
+- **PR #672 Closed**: Redundant duplicate of #653; stripped public wrapper, failed commitlint.
+- **PR Titles Fixed via REST**: Updated #670 (`perf(core)`) and #660 (`fix(retrieval): cap GraphRAG traversal expansions at 1000 nodes`).
+- **Codacy Gate Verified**: 0 issues across all 13 analyzed PRs.
+- **Merge Plan Emitted**: `plans/PR_ROAST_2026_09_07.md`.
+
+---
+
 ## 2026-07-27: PR Triage + CI Queue Fix
 
 ### Summary
