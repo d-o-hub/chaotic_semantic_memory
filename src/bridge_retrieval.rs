@@ -74,24 +74,36 @@ impl BridgeRetrieval {
         let mut primary_results = singularity.find_similar(ns, &query_hv, top_k);
         normalize_scores_in_place(&mut primary_results);
 
-        // Step 3: Concept expansion
+        // Step 3: Concept expansion (capped to top_k expansion labels)
         let matched_ids = self.concept_graph.match_tokens(&tokens);
-        let expanded_labels = self
+        let mut expanded_labels = self
             .concept_graph
             .expand(&matched_ids, self.config.max_expansion_depth);
+        expanded_labels.truncate(top_k);
 
-        // Step 4: Encode expanded labels for second recall (if any matches)
+        // Step 4: Incremental expansion scoring (no second full recall scan)
         let expanded_results = if expanded_labels.is_empty() {
             Vec::new()
         } else {
-            // Bundle expanded label vectors
+            let primary_set: std::collections::HashSet<&str> =
+                primary_results.iter().map(|(id, _)| id.as_str()).collect();
+
+            let mut target_ids: Vec<String> =
+                primary_results.iter().map(|(id, _)| id.clone()).collect();
+
+            for label in &expanded_labels {
+                if !primary_set.contains(label.as_str()) && singularity.get(ns, label).is_some() {
+                    target_ids.push(label.clone());
+                }
+            }
+
             let label_hvs: Vec<HVec10240> = expanded_labels
                 .iter()
                 .map(|label| self.encoder.encode(label))
                 .collect();
 
             let expanded_hv = HVec10240::bundle(&label_hvs).unwrap_or_else(|_| HVec10240::zero());
-            let mut results = singularity.find_similar(ns, &expanded_hv, top_k);
+            let mut results = singularity.score_specific_candidates(ns, &expanded_hv, &target_ids);
             normalize_scores_in_place(&mut results);
             results
         };
