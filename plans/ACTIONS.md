@@ -12,6 +12,12 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-09-07):
+> `resolve_open_github_issues_and_pr_triage` — Closed superseded duplicate
+> PR #672; verified and squashed PR #647 implementing all 4 open GitHub issues
+> (#639, #640, #641, #642); deduplicated root retrieval modules to re-export shims
+> (-5,300+ total repo LOC); updated PR titles (#670, #660); verified Codacy pass on all PRs.
+>
 > Last completed (verified 2026-08-12):
 > `reconcile_pr_wave_2026_08_12` — PR roast wave landed
 > (#620/#621/#622), BM25 absence wired, wave-33 flags trued,

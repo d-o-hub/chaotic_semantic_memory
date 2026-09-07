@@ -1,27 +1,5 @@
 //! BM25 keyword search index for hybrid retrieval.
-//!
-//! Implements the Okapi BM25 ranking function for exact keyword matching.
-//! Used alongside HDC semantic search for improved short-query recall.
-//!
-//! # Algorithm
-//!
-//! BM25 scores documents based on:
-//! - Term frequency (TF) with saturation parameter k1
-//! - Inverse document frequency (IDF)
-//! - Document length normalization with parameter b
-//!
-//! # Example
-//!
-//! ```
-//! use csm_retrieval::Bm25Index;
-//!
-//! let mut index = Bm25Index::new();
-//! index.add_document("doc1", &["hello", "world"]);
-//! index.add_document("doc2", &["hello", "rust"]);
-//!
-//! let results = index.search(&["hello", "world"], 10);
-//! assert_eq!(results[0].0, "doc1"); // Exact match ranks first
-//! ```
+//! Implements Okapi BM25 ranking function for exact keyword matching.
 
 // Casts are intentional for BM25 math (document counts, term frequencies)
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
@@ -432,6 +410,16 @@ impl Bm25Index {
     /// Check if the index is empty.
     pub const fn is_empty(&self) -> bool {
         self.documents.is_empty()
+    }
+
+    /// Check if any query token overlaps with indexed documents in O(tokens) time without full scoring.
+    pub fn has_token_overlap<T: AsRef<str>>(&self, query_tokens: &[T]) -> bool {
+        if self.is_empty() || query_tokens.is_empty() {
+            return false;
+        }
+        query_tokens
+            .iter()
+            .any(|t| self.postings.contains_key(t.as_ref()))
     }
 
     #[allow(clippy::significant_drop_tightening)]

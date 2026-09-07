@@ -16,3 +16,6 @@ engines:
       # ChaoticLsh AVX2/NEON projection loops use justified unsafe SIMD intrinsics
       # with SAFETY comments; 8-way unroll keeps pointer bounds documented inline.
       - crates/csm-chaos/src/hashing/chaotic_lsh.rs
+      # BHVec10240 bit-sliced bundling kernels (AVX2/NEON) use justified unsafe
+      # intrinsics with # SAFETY docs and runtime feature detection; see PR #663.
+      - crates/csm-core-lib/src/hyperdim_simd_bundle.rs
