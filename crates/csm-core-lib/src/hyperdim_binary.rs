@@ -12,74 +12,14 @@ use rand::RngExt;
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
 
-use serde::de::{self, Visitor};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::fmt;
-
+use std::mem::MaybeUninit;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[must_use]
 pub struct BHVec10240 {
     pub bits: [u64; 160],
 }
 
-impl Serialize for BHVec10240 {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        if serializer.is_human_readable() {
-            use base64::Engine;
-            use base64::engine::general_purpose::STANDARD;
-            let bytes = self.to_bytes();
-            let b64 = STANDARD.encode(&bytes);
-            serializer.serialize_str(&b64)
-        } else {
-            let bytes = self.to_bytes();
-            serializer.serialize_bytes(&bytes)
-        }
-    }
-}
-
-struct BHVecVisitor;
-
-impl<'de> Visitor<'de> for BHVecVisitor {
-    type Value = BHVec10240;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a base64-encoded string or byte array")
-    }
-
-    fn visit_str<E>(self, v: &str) -> std::result::Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        use base64::Engine;
-        use base64::engine::general_purpose::STANDARD;
-        let bytes = STANDARD.decode(v).map_err(de::Error::custom)?;
-        BHVec10240::from_bytes(&bytes).map_err(de::Error::custom)
-    }
-
-    fn visit_bytes<E>(self, v: &[u8]) -> std::result::Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        BHVec10240::from_bytes(v).map_err(de::Error::custom)
-    }
-}
-
-impl<'de> Deserialize<'de> for BHVec10240 {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        if deserializer.is_human_readable() {
-            deserializer.deserialize_any(BHVecVisitor)
-        } else {
-            let bytes = <Vec<u8>>::deserialize(deserializer)?;
-            Self::from_bytes(&bytes).map_err(de::Error::custom)
-        }
-    }
-}
+mod hyperdim_binary_serde;
 
 impl Hypervector for BHVec10240 {
     const DIMENSION: usize = 10240;
@@ -153,22 +93,67 @@ impl BHVec10240 {
         Self { bits }
     }
 
-    /// Convert HVec10240 (bit-packed u128) to BHVec10240 (bit-packed u64)
-    /// This is just a layout conversion.
+    /// Convert HVec10240 (bit-packed u128) to BHVec10240 (bit-packed u64).
+    ///
+    /// Performance Optimization: On little-endian architectures, `[u128; 80]` and `[u64; 160]`
+    /// have an identical 1,280-byte memory representation. Using direct memory copy avoids 80 loop
+    /// iterations with bit shifts, casts, and array bounds checks.
+    #[allow(clippy::missing_const_for_fn)]
     pub fn from_hvec(v: &HVec10240) -> Self {
+        #[allow(unused_mut)]
         let mut bits = [0u64; 160];
-        for i in 0..80 {
-            bits[i * 2] = v.data[i] as u64;
-            bits[i * 2 + 1] = (v.data[i] >> 64) as u64;
+        #[cfg(target_endian = "little")]
+        {
+            // SAFETY:
+            // 1. Memory equivalence: `[u128; 80]` and `[u64; 160]` occupy exactly 1,280 contiguous bytes.
+            // 2. Alignment & Validity: `v.data` is an initialized `[u128; 80]` array, and `bits` is a mutable
+            //    `[u64; 160]` array. Pointers are valid, non-null, and point to non-overlapping allocations.
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    v.data.as_ptr().cast::<u8>(),
+                    bits.as_mut_ptr().cast::<u8>(),
+                    1280,
+                );
+            }
+        }
+        #[cfg(not(target_endian = "little"))]
+        {
+            for i in 0..80 {
+                bits[i * 2] = v.data[i] as u64;
+                bits[i * 2 + 1] = (v.data[i] >> 64) as u64;
+            }
         }
         Self { bits }
     }
 
-    /// Convert BHVec10240 (bit-packed u64) to HVec10240 (bit-packed u128)
+    /// Convert BHVec10240 (bit-packed u64) to HVec10240 (bit-packed u128).
+    ///
+    /// Performance Optimization: On little-endian architectures, `[u64; 160]` and `[u128; 80]`
+    /// have an identical 1,280-byte memory representation. Using direct memory copy avoids 80 loop
+    /// iterations with bit shifts, bitwise OR operations, and array bounds checks.
+    #[allow(clippy::missing_const_for_fn)]
     pub fn to_hvec(&self) -> HVec10240 {
+        #[allow(unused_mut)]
         let mut data = [0u128; 80];
-        for i in 0..80 {
-            data[i] = (self.bits[i * 2] as u128) | ((self.bits[i * 2 + 1] as u128) << 64);
+        #[cfg(target_endian = "little")]
+        {
+            // SAFETY:
+            // 1. Memory equivalence: `[u64; 160]` and `[u128; 80]` occupy exactly 1,280 contiguous bytes.
+            // 2. Alignment & Validity: `self.bits` is an initialized `[u64; 160]` array, and `data` is a mutable
+            //    `[u128; 80]` array. Pointers are valid, non-null, and point to non-overlapping allocations.
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    self.bits.as_ptr().cast::<u8>(),
+                    data.as_mut_ptr().cast::<u8>(),
+                    1280,
+                );
+            }
+        }
+        #[cfg(not(target_endian = "little"))]
+        {
+            for i in 0..80 {
+                data[i] = (self.bits[i * 2] as u128) | ((self.bits[i * 2 + 1] as u128) << 64);
+            }
         }
         HVec10240 { data }
     }
@@ -231,65 +216,157 @@ impl BHVec10240 {
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         if num_vectors >= 256 {
-            let mut bits = [0u64; 160];
-            bits.par_iter_mut().enumerate().for_each(|(i, word)| {
-                let mut planes = [0u64; 64];
-                for v in vectors {
+            #[cfg(target_arch = "x86_64")]
+            if is_x86_feature_detected!("avx2") {
+                let mut bits = [0u64; 160];
+                bits.par_chunks_mut(4).enumerate().for_each(|(i, chunk)| {
+                    // SAFETY: AVX2 detected at runtime. Pointers within bounds.
+                    let res = unsafe {
+                        crate::hyperdim_simd_bundle::bundle_block_avx2_single_u64(
+                            vectors,
+                            i * 4,
+                            threshold,
+                            num_planes,
+                        )
+                    };
+                    // SAFETY: chunk length is 4 (32 bytes), matching AVX2 256-bit block size.
+                    unsafe {
+                        std::arch::x86_64::_mm256_storeu_si256(chunk.as_mut_ptr().cast(), res);
+                    }
+                });
+                return Self { bits };
+            }
+
+            #[cfg(target_arch = "aarch64")]
+            {
+                let mut bits = [0u64; 160];
+                bits.par_chunks_mut(2).enumerate().for_each(|(i, chunk)| {
+                    // SAFETY: NEON always available on aarch64. Pointers within bounds.
+                    let res = unsafe {
+                        crate::hyperdim_simd_bundle::bundle_block_neon_single_u64(
+                            vectors,
+                            i * 2,
+                            threshold,
+                            num_planes,
+                        )
+                    };
+                    // SAFETY: chunk length is 2 (16 bytes), matching NEON 128-bit block size.
+                    unsafe {
+                        std::arch::aarch64::vst1q_u8(chunk.as_mut_ptr().cast(), res);
+                    }
+                });
+                return Self { bits };
+            }
+
+            #[cfg(not(target_arch = "aarch64"))]
+            {
+                let mut bits = [0u64; 160];
+                bits.par_iter_mut().enumerate().for_each(|(i, word)| {
+                    let mut planes = [0u64; 64];
+                    for v in vectors {
+                        let mut carry = v.bits[i];
+                        for p in 0..num_planes {
+                            let next_carry = planes[p] & carry;
+                            planes[p] ^= carry;
+                            carry = next_carry;
+                            if carry == 0 {
+                                break;
+                            }
+                        }
+                    }
+                    let (mut current_eq, mut current_gt) = (!0u64, 0u64);
+                    for p in (0..num_planes).rev() {
+                        if ((threshold >> p) & 1) == 1 {
+                            current_eq &= planes[p];
+                        } else {
+                            current_gt |= current_eq & planes[p];
+                            current_eq &= !planes[p];
+                        }
+                    }
+                    *word = current_gt | current_eq;
+                });
+                return Self { bits };
+            }
+        }
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+        if is_x86_feature_detected!("avx2") {
+            // SAFETY: AVX2 is detected at runtime.
+            return Self {
+                bits: unsafe {
+                    crate::hyperdim_simd_bundle::bundle_block_avx2_u64(
+                        vectors, threshold, num_planes,
+                    )
+                },
+            };
+        }
+
+        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+        {
+            // SAFETY: NEON is always available on aarch64.
+            return Self {
+                bits: unsafe {
+                    crate::hyperdim_simd_bundle::bundle_block_neon_u64(
+                        vectors, threshold, num_planes,
+                    )
+                },
+            };
+        }
+
+        #[cfg(not(all(not(target_arch = "wasm32"), target_arch = "aarch64")))]
+        {
+            // Cache-friendly transposed bit-sliced addition with stack buffer optimization
+            // Performance Optimization: Uses a stack scratchpad for small batches (num_planes <= 16, N <= 65,536)
+            // to bypass heap allocation overhead of vec![[0u64; 160]; num_planes].
+            let mut heap_planes;
+            let mut stack_planes = [const { MaybeUninit::<[u64; 160]>::uninit() }; 16];
+
+            let planes: &mut [[u64; 160]] = if num_planes <= 16 {
+                for item in stack_planes.iter_mut().take(num_planes) {
+                    item.write([0u64; 160]);
+                }
+                // SAFETY: 0..num_planes items are initialized with valid [u64; 160] arrays.
+                unsafe {
+                    std::slice::from_raw_parts_mut(
+                        stack_planes.as_mut_ptr().cast::<[u64; 160]>(),
+                        num_planes,
+                    )
+                }
+            } else {
+                heap_planes = vec![[0u64; 160]; num_planes];
+                &mut heap_planes
+            };
+
+            for v in vectors {
+                for i in 0..160 {
                     let mut carry = v.bits[i];
                     for p in 0..num_planes {
-                        let next_carry = planes[p] & carry;
-                        planes[p] ^= carry;
+                        let next_carry = planes[p][i] & carry;
+                        planes[p][i] ^= carry;
                         carry = next_carry;
                         if carry == 0 {
                             break;
                         }
                     }
                 }
+            }
+
+            let mut bits = [0u64; 160];
+            for i in 0..160 {
                 let (mut current_eq, mut current_gt) = (!0u64, 0u64);
                 for p in (0..num_planes).rev() {
                     if ((threshold >> p) & 1) == 1 {
-                        current_eq &= planes[p];
+                        current_eq &= planes[p][i];
                     } else {
-                        current_gt |= current_eq & planes[p];
-                        current_eq &= !planes[p];
+                        current_gt |= current_eq & planes[p][i];
+                        current_eq &= !planes[p][i];
                     }
                 }
-                *word = current_gt | current_eq;
-            });
-            return Self { bits };
-        }
-
-        // Cache-friendly transposed bit-sliced addition
-        let mut planes = vec![[0u64; 160]; num_planes];
-        for v in vectors {
-            for i in 0..160 {
-                let mut carry = v.bits[i];
-                for p in 0..num_planes {
-                    let next_carry = planes[p][i] & carry;
-                    planes[p][i] ^= carry;
-                    carry = next_carry;
-                    if carry == 0 {
-                        break;
-                    }
-                }
+                bits[i] = current_gt | current_eq;
             }
-        }
 
-        let mut bits = [0u64; 160];
-        for i in 0..160 {
-            let (mut current_eq, mut current_gt) = (!0u64, 0u64);
-            for p in (0..num_planes).rev() {
-                if ((threshold >> p) & 1) == 1 {
-                    current_eq &= planes[p][i];
-                } else {
-                    current_gt |= current_eq & planes[p][i];
-                    current_eq &= !planes[p][i];
-                }
-            }
-            bits[i] = current_gt | current_eq;
+            Self { bits }
         }
-
-        Self { bits }
     }
 
     /// Cyclic permutation (shift)
