@@ -115,6 +115,29 @@ fn test_recency_top_k_zero_returns_empty() {
 }
 
 #[test]
+fn test_mmr_early_exit_high_confidence_match() {
+    let query = HVec10240::zero();
+    let v1 = Arc::new(HVec10240::new_seeded(1));
+    let c1 = RerankCandidate {
+        id: "c1".into(),
+        vector: v1.clone(),
+        metadata: HashMap::new(),
+        score: 0.99,
+        created_at_unix: 0,
+    };
+
+    let reranker = MmrReranker { lambda: 0.5 };
+    let results = reranker.rerank(&query, vec![c1], 1);
+    assert_eq!(results.len(), 1);
+    let expected_sim = query.cosine_similarity(&v1);
+    assert!(
+        (results[0].score - expected_sim).abs() < 1e-6,
+        "expected fast-path cosine similarity {expected_sim}, got {}",
+        results[0].score
+    );
+}
+
+#[test]
 fn test_mmr_top_k_zero_returns_empty() {
     let query = HVec10240::zero();
     let c1 = RerankCandidate {

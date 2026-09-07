@@ -428,3 +428,68 @@ fn query_both_conditions_zero_and_empty() {
         "both conditions being met must return empty"
     );
 }
+
+/// Kills `delete !` in `!primary_set.contains(label)`:
+/// Concept expansion must include new incremental concepts that were NOT in primary recall.
+#[test]
+fn test_bridge_expansion_adds_incremental_ids() {
+    let encoder = TextEncoder::new();
+    let mut graph = ConceptGraph::new();
+
+    graph.add_concept(
+        CanonicalConcept::new("cc1")
+            .with_label("query")
+            .with_label("expanded"),
+    );
+
+    let config = BridgeConfig {
+        deterministic_weight: 0.2,
+        concept_weight: 0.8,
+        ..Default::default()
+    };
+    let bridge = BridgeRetrieval::new(encoder.clone(), graph, config);
+    let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
+
+    let v_q = encoder.encode("query");
+    singularity
+        .inject(
+            "_default",
+            ConceptBuilder::new("query")
+                .with_vector(v_q)
+                .build()
+                .unwrap(),
+        )
+        .unwrap();
+
+    for i in 1..=5 {
+        let id = format!("other{i}");
+        singularity
+            .inject(
+                "_default",
+                ConceptBuilder::new(&id)
+                    .with_vector(HVec10240::random())
+                    .build()
+                    .unwrap(),
+            )
+            .unwrap();
+    }
+
+    singularity
+        .inject(
+            "_default",
+            ConceptBuilder::new("expanded")
+                .with_vector(encoder.encode("expanded"))
+                .build()
+                .unwrap(),
+        )
+        .unwrap();
+
+    let hits = bridge
+        .query("_default", &singularity, "query", 2, None)
+        .unwrap();
+
+    assert!(
+        hits.iter().any(|h| h.id == "expanded"),
+        "expanded must be added via concept expansion when !primary_set.contains"
+    );
+}

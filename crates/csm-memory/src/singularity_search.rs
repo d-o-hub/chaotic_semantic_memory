@@ -177,6 +177,10 @@ impl Singularity {
 
         let cand_ns = unix_now_ns().saturating_sub(candidate_start);
 
+        if candidates.len() > self._retrieval_config.max_candidates {
+            candidates.truncate(self._retrieval_config.max_candidates);
+        }
+
         if candidates.is_empty() {
             return self.exact_similarity_scan(ns, query, top_k, start_ns, bypass_cache);
         }
