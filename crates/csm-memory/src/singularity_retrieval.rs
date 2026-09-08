@@ -205,8 +205,8 @@ impl Singularity {
 
                     for (neighbor_id, _) in sorted_links {
                         let neighbor_str = neighbor_id.as_str();
-                        if !candidates.contains(neighbor_str) {
-                            candidates.insert(neighbor_str);
+                        // Optimization: HashSet::insert returns false if already present, avoiding double lookup.
+                        if candidates.insert(neighbor_str) {
                             queue.push_back((neighbor_str, depth + 1));
                         }
                     }

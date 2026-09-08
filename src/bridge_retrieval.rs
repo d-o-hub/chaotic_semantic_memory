@@ -250,10 +250,10 @@ impl BridgeRetrieval {
 
         // Deduplicate facts (exact match)
         let mut unique_facts: Vec<String> = Vec::new();
-        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        // Memory & Algorithmic Optimization: Use HashSet<&str> and single-pass insert to eliminate String clones during lookup.
+        let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
         for (text, _score) in &facts {
-            if !seen.contains(text) {
-                seen.insert(text.clone());
+            if seen.insert(text.as_str()) {
                 unique_facts.push(text.clone());
             }
         }
