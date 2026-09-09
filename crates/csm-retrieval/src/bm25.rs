@@ -286,11 +286,11 @@ impl Bm25Index {
             DOC_SCORES_BUFFER.with(|buffer| {
                 let mut doc_scores = buffer.borrow_mut();
                 let doc_scores = &mut *doc_scores;
-                // Always clear the active prefix (resize alone does not zero old slots).
+                // Algorithmic Optimization: Maintain zeroed invariant via O(T) touched-slot resetting.
+                // Expanding the buffer with zero-initialized slots avoids O(N) full-slice memset.
                 if doc_scores.len() < num_docs {
                     doc_scores.resize(num_docs, 0.0);
                 }
-                doc_scores[..num_docs].fill(0.0);
 
                 // Optimization: Acquire read lock once. Only invoke write-locking `ensure_norm_cache` if cache is dirty, avoiding double lock acquisition.
                 let mut cache_guard = self
@@ -344,13 +344,11 @@ impl Bm25Index {
                         // valid indices into doc_scores pushed during the scoring loop.
                         debug_assert!(idx < doc_scores.len());
                         let score = unsafe { *doc_scores.get_unchecked(idx) };
-                        // Reset buffer slot and collect. The score > 0.0 guard handles
-                        // the theoretical duplicate-index case (all real accumulations
-                        // are strictly positive, so duplicates are near-impossible).
+                        // Algorithmic Optimization: Reset touched slot to 0.0 unconditionally in O(T) time,
+                        // maintaining zeroed doc_scores invariant across searches without O(N) full-slice fill.
+                        unsafe { *doc_scores.get_unchecked_mut(idx) = 0.0 };
                         if score > 0.0 {
                             scores.push((idx, score));
-                            debug_assert!(idx < doc_scores.len());
-                            unsafe { *doc_scores.get_unchecked_mut(idx) = 0.0 };
                         }
                     }
 
