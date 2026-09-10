@@ -7,7 +7,7 @@ use rand::RngExt;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::iter::ParallelBridge;
@@ -72,10 +72,12 @@ impl<H: Hypervector> LshIndex<H> {
         let mut hash = 0u64;
         let bits = &self.projections[table_idx];
         for (i, &bit_pos) in bits.iter().enumerate() {
-            let byte_idx = bit_pos / 8;
-            let bit_idx = bit_pos % 8;
-            if byte_idx < bytes.len() && (bytes[byte_idx] & (1 << bit_idx)) != 0 {
-                hash |= 1u64 << i;
+            let byte_idx = bit_pos >> 3;
+            let bit_mask = 1u8 << (bit_pos & 7);
+            if let Some(&byte) = bytes.get(byte_idx) {
+                if (byte & bit_mask) != 0 {
+                    hash |= 1u64 << i;
+                }
             }
         }
         hash
@@ -121,12 +123,12 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
         }
 
         let query_bytes = query.to_bytes();
-        let mut candidates = HashMap::new();
+        let mut candidates = HashSet::with_capacity(32);
         for i in 0..self.num_tables {
             let hash = self.compute_hash_from_bytes(&query_bytes, i);
             if let Some(bucket) = self.tables[i].get(&hash) {
                 for id in bucket {
-                    candidates.entry(id).or_insert(());
+                    candidates.insert(id.as_str());
                 }
             }
         }
@@ -134,26 +136,27 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
         // Algorithmic Optimization: Parallelize candidate re-ranking via Rayon.
         // This accelerates the exhaustive similarity check of the candidate
         // set retrieved from LSH buckets.
-        // Optimized: Uses integer Hamming distance and references to avoid
-        // expensive string allocations in the parallel loop.
+        // Optimized: Uses integer Hamming distance and HashSet<&str> borrows to
+        // avoid string clones during aggregation (HashSet is a HashMap with unit
+        // value; same hashing cost, cleaner dedup API).
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        let mut scores: Vec<(&String, u32)> = candidates
-            .keys()
+        let mut scores: Vec<(&str, u32)> = candidates
+            .into_iter()
             .par_bridge()
             .filter_map(|id| {
                 self.concepts
-                    .get(*id)
-                    .map(|vec| (*id, query.hamming_distance(vec)))
+                    .get(id)
+                    .map(|vec| (id, query.hamming_distance(vec)))
             })
             .collect();
 
         #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-        let mut scores: Vec<(&String, u32)> = candidates
-            .keys()
+        let mut scores: Vec<(&str, u32)> = candidates
+            .into_iter()
             .filter_map(|id| {
                 self.concepts
-                    .get(*id)
-                    .map(|vec| (*id, query.hamming_distance(vec)))
+                    .get(id)
+                    .map(|vec| (id, query.hamming_distance(vec)))
             })
             .collect();
 
@@ -168,7 +171,7 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
 
         let results = scores
             .into_iter()
-            .map(|(id, dist): (&String, u32)| (id.clone(), 1.0 - (dist as f32 / 5120.0)))
+            .map(|(id, dist): (&str, u32)| (id.to_string(), 1.0 - (dist as f32 / 5120.0)))
             .collect();
         Ok(results)
     }
@@ -185,14 +188,14 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
         }
 
         let query_bytes = query.to_bytes();
-        let mut candidates = HashMap::new();
+        let mut candidates = HashSet::with_capacity(32);
         for i in 0..self.num_tables {
             let hash = self.compute_hash_from_bytes(&query_bytes, i);
             if let Some(bucket) = self.tables[i].get(&hash) {
                 for id in bucket {
                     if let Some(concept) = concepts.get(id) {
                         if filter.matches(&concept.metadata) {
-                            candidates.entry(id).or_insert(());
+                            candidates.insert(id.as_str());
                         }
                     }
                 }
@@ -200,26 +203,27 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
         }
 
         // Algorithmic Optimization: Parallelize candidate re-ranking via Rayon.
-        // Optimized: Uses integer Hamming distance and references to avoid
-        // expensive string allocations in the parallel loop.
+        // Optimized: Uses integer Hamming distance and HashSet<&str> borrows to
+        // avoid string clones during aggregation (same hashing cost as HashMap
+        // with unit value; cleaner dedup API).
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        let mut scores: Vec<(&String, u32)> = candidates
-            .keys()
+        let mut scores: Vec<(&str, u32)> = candidates
+            .into_iter()
             .par_bridge()
             .filter_map(|id| {
                 self.concepts
-                    .get(*id)
-                    .map(|vec| (*id, query.hamming_distance(vec)))
+                    .get(id)
+                    .map(|vec| (id, query.hamming_distance(vec)))
             })
             .collect();
 
         #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-        let mut scores: Vec<(&String, u32)> = candidates
-            .keys()
+        let mut scores: Vec<(&str, u32)> = candidates
+            .into_iter()
             .filter_map(|id| {
                 self.concepts
-                    .get(*id)
-                    .map(|vec| (*id, query.hamming_distance(vec)))
+                    .get(id)
+                    .map(|vec| (id, query.hamming_distance(vec)))
             })
             .collect();
 
@@ -234,7 +238,7 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
 
         let final_scores: Vec<(String, f32)> = scores
             .into_iter()
-            .map(|(id, dist): (&String, u32)| (id.clone(), 1.0 - (dist as f32 / 5120.0)))
+            .map(|(id, dist): (&str, u32)| (id.to_string(), 1.0 - (dist as f32 / 5120.0)))
             .collect();
 
         // Fallback for correctness: if we have few candidates, check all filtered concepts
@@ -392,5 +396,25 @@ mod tests {
             "at least 25% of bytes must be nonzero, got {nonzero}/{}",
             bytes.len()
         );
+    }
+
+    #[test]
+    fn lsh_index_search_deduplication_and_zero_top_k() {
+        let mut idx = LshIndex::<HVec10240>::new(4, 4).expect("must create index");
+        let v1 = HVec10240::random();
+        let v2 = HVec10240::random();
+        idx.insert("c1".to_string(), &v1).expect("insert c1");
+        idx.insert("c2".to_string(), &v2).expect("insert c2");
+
+        let empty_results = idx.search(&v1, 0).expect("top_k 0 must succeed");
+        assert!(empty_results.is_empty());
+
+        let results = idx.search(&v1, 2).expect("search must succeed");
+        assert!(!results.is_empty());
+        // Verify no duplicate IDs are returned
+        let mut seen = HashSet::new();
+        for (id, _) in &results {
+            assert!(seen.insert(id.as_str()), "duplicate ID returned: {id}");
+        }
     }
 }
