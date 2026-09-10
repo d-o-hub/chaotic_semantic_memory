@@ -445,7 +445,10 @@ mod tests {
 
         let mut seen = HashSet::new();
         for (id, _) in &results {
-            assert!(seen.insert(id.as_str()), "duplicate ID in filtered search: {id}");
+            assert!(
+                seen.insert(id.as_str()),
+                "duplicate ID in filtered search: {id}"
+            );
         }
     }
 }
