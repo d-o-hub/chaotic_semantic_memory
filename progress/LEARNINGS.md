@@ -1,23 +1,18 @@
 # LEARNINGS - Chaotic Semantic Memory
 
-> **Compacted 2026-09-08**: dated narrative entries folded into topical sections; full
-> narrative history lives in git and `plans/PR_ROAST_*.md`. One tight bullet per
-> distinct lesson; new lessons append to the matching section, not new dated blocks.
-
 ## Security Patterns
-- **Path hijacking (CWE-426)**: resolve executables to absolute paths; filter PATH to exclude relative entries.
-- **Public API input bounds (2026-08-07/17 cluster)**: NaN `threshold` in `prune_decayed_associations` silently deleted all associations; unguarded `n: usize` in `encode_with_ngrams` overflowed `windows(n+1)`; unbounded `ConceptBuilder::with_ttl` overflowed `now + ttl`. Prevention: finite-limit validation on all public f32/f64 rate/score/threshold params (even when helpers like `validate_association_strength` exist — non-inserting APIs skip them); named `MAX_*` constants for usize size/window params; saturating arithmetic on all time/size intervals.
-- **Namespace validation (CWE-770)**: 128-byte limit, non-empty, no control chars — apply to any param that becomes a DB key.
-- **DoS bounds**: Graph `MAX_DEPTH=32`, `MAX_RESULTS=10K`; batch `max_batch_size=1000`.
+- **Path Hijacking (CWE-426)**: Resolve executables to absolute paths; filter PATH to exclude relative entries.
+- **DoS Prevention**: Enforce bounds on public API params. Graph: `MAX_DEPTH=32`, `MAX_RESULTS=10K`. Batch: `max_batch_size=1000`.
+- **Namespace Validation (CWE-770)**: 128-byte limit, non-empty, no control chars. Apply to any param that becomes a DB key.
 
 ## Performance Patterns
 - **ILP over SIMD**: 4 independent accumulators in hot loops often beat SIMD (avoids STLF stalls).
 - **Branchless bitmasks**: `w |= (cond as u128) << j` minimizes branch misprediction.
-- **Zero-alloc interning**: `Arc<str>` + `get_mut`/`get_key_value` double-lookup for BM25 terms; `HashSet<&str>` + single-pass `insert()` kills the contains+insert double lookup (PR #679).
-- **Rayon gating**: parallelize only when N >= 32; scheduling overhead dominates small ops.
-- **Bitmask modulo**: power-of-2 buckets → `& (N-1)` instead of `% N`.
-- **f32::min/max vs operators**: `.min()`/`.max()` compile to `llvm.minnum`/`llvm.maxnum` — MORE vectorizable than if/else. Do NOT "simplify" to `<`/`>` (reverses mutation-test design, strips docs, adds exclusion debt).
-- **Conversion elimination beats kernel tuning**: BHVec10240::hamming's ~2.6–2.75× came from removing two 1,280-byte `to_hvec()` copies, not new SIMD. Measure the full call path, not just the kernel.
+- **Zero-alloc interning**: `Arc<str>` + `get_mut`/`get_key_value` double-lookup for BM25 terms.
+- **Rayon gating**: Parallelize only when N >= 32; scheduling overhead dominates small ops.
+- **Bitmask modulo**: Power-of-2 buckets → `& (N-1)` instead of `% N`.
+- **f32::min/max vs comparison operators**: `.min()`/`.max()` compile to single `llvm.minnum`/`llvm.maxnum` instructions — MORE vectorizable than if/else. Do NOT replace with `<`/`>` comparisons (reverses intentional mutation-test design, strips docs, adds exclusion debt).
+- **Conversion elimination beats kernel tuning**: For BHVec10240::hamming, removing two full-array `to_hvec()` layout conversions (each a 1,280-byte copy) was the win (~2.6–2.75×), not new SIMD — the kernels already existed on the HVec path. Measure the full call path, not just the kernel.
 
 ## Baselines (x86_64)
 | Operation | Latency |
@@ -28,58 +23,49 @@
 | Reservoir step 50k | ~136 µs |
 | BM25 search 10k | ~406 µs |
 
-
 ## CI/CD Patterns
-- **gh multi-account (2026-09-08)**: keyring can hold `d-oit` + `d-o-hub`; after `gh auth switch` the CLI may still 401 on GraphQL. Verify identity with `gh api graphql -f query='{viewer{login}}'` and pin operations with `export GH_TOKEN=$(gh auth token -u d-o-hub)`. Dependabot silently ignores commands from accounts without write access — post `@dependabot rebase` as the repo owner.
-- **Branch sync without `gh pr update-branch`** (subcommand absent in installed gh): `gh api -X PUT repos/<owner>/<repo>/pulls/<n>/update-branch`.
-- **Dependabot rebase ordering (2026-09-08)**: batch `@dependabot rebase` comments only AFTER all human PRs land (single rebase onto final main). Cargo.lock-group rebases lag workflow-file rebases (dependency resolution); drafts must be `gh pr ready` before any merge attempt.
-- **CI queue wedge + rerun refusal (2026-09-08, twice)**: stuck `QUEUED` runs (0 in_progress, 0 completions, >1hr) block required checks; `gh run rerun` refuses them ("workflow file may be broken" — generic for never-started jobs). Remedy: `gh run cancel` all wedged runs, then re-trigger — empty-commit push for human PRs, `@dependabot recreate` for dependabot PRs (`rebase` replies "already up-to-date" and does nothing). Verify with `gh run list --status in_progress` > 0 and a fast workflow (Tooling Guard) completing.
-- **Concurrency on main**: `cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}` — never cancel main pushes.
-- **WASM dual-target**: `--target nodejs` for CI smoke, `--target web` for release.
+- **CI queue starvation**: GitHub Actions runners can leave runs "queued" indefinitely (>1hr). Release `wait-for-ci` must detect perpetual-queue and re-trigger via `gh run rerun`, not just wait. Add `timeout-minutes` to workflow jobs.
+- **Concurrency on main**: `cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}` — never cancel main pushes (cascades to release failures).
+- **WASM dual-target**: `--target nodejs` for CI smoke tests (Node fetch can't do `file://`); `--target web` for release.
 - **CJS/ESM interop**: `const exports = module.default || module;` before destructuring.
-- **Cargo.lock atomicity**: always commit lockfile with Cargo.toml changes or `--locked` jobs fail.
-- **Node 20 deprecation**: use Node 24-capable actions (`checkout@v5+`, `rust-cache@v2.9.1+`).
+- **Cargo.lock atomicity**: Always commit lockfile with Cargo.toml changes or `--locked` jobs fail.
+- **Node 20 deprecation**: Use actions supporting Node 24 (`checkout@v5+`, `rust-cache@v2.9.1+`).
 - **Miri timeout**: 60 min minimum for ~220 tests.
 - **Action pinning**: `git ls-remote --tags <url>` for exact SHA.
-- **Native arm64 runners**: cross-compiled NEON is not tested NEON; `ubuntu-24.04-arm` runs `cargo test -p csm-core-lib` on real aarch64 (PR #599).
-- **YAML plain-scalar trap**: `: ` inside single quotes still terminates a plain scalar — double-quote the whole `run:` value.
-- **Benchmark under load**: absolute ns shift with load (37.7 → 54.5 ns idle→loaded). Report ratios under identical conditions, never bare absolutes.
-- **Stale-binary detection**: cargo silently reuses builds across worktrees sharing a target dir; a result contradicting theory means the wrong binary ran — grep the log for `Compiling csm-memory (path)` before trusting a number.
-- **Forced clean A/B**: `touch` changed sources per side, grep the linked lib path, interleave A/B/A/B, record `loadavg`, discard runs during spikes (excluded 281/301 runs at loadavg 2.7).
-- **Deterministic test graphs**: hash-based pseudo-random edges (not ring/wrap successors) model association graphs realistically and reproduce across branches — ring graphs understated BFS wins ~7×.
+- **Native arm64 runners**: Cross-compiling NEON kernels is not testing them. `ubuntu-24.04-arm` runs `cargo test -p csm-core-lib` on real aarch64 hardware, exercising the NEON path against the scalar oracle (PR #599).
+- **YAML plain-scalar trap**: `run: rustc -vV | grep 'host: aarch64'` — the `: ` inside single quotes still terminates a YAML plain scalar → workflow parse error. Double-quote the whole `run:` value.
+- **Benchmark under load**: Absolute ns shift with machine load (idle vs harness-spin: 37.7 → 54.5 ns for the same binary). Report ratios measured under identical conditions, never bare absolute numbers.
+- **Stale-binary detection**: cargo can silently reuse a previous build when shared target dirs flip between worktrees. A result that contradicts theory ("removing allocations made it 4.5x slower") means the wrong binary ran — verify the `Compiling csm-memory (path)` line in the build log before trusting any bench number.
+- **Forced clean A/B**: `touch` the changed sources before each side's build and grep the log for which lib path was linked; interleave A/B/A/B and record `loadavg` before each run. Discard runs taken during load spikes (we excluded 281/301 us `main` runs taken at loadavg 2.7).
+- **Deterministic test graphs**: hash-based pseudo-random edges (not ring/wrap successors) model association graphs realistically and reproduce identically across branches — required for a fair A/B (the ring graph's overlapping neighborhoods understated the BFS by ~7x).
 
 ## Codacy
-- **`.codacy.yml` `exclude_paths` is the sanctioned unsafe escape hatch**: SIMD hot paths with SAFETY comments go in `engines.opengrep.exclude_paths` — never dashboard `AcceptedUse` suppressions (un-reviewable, vanish from dashboard).
-- **Safe-function restructure dead end**: removing `#[target_feature]` forces every intrinsic call into its own `unsafe` block — MORE flagged sites. Keep `unsafe fn` + `#[target_feature]`; exclude the file.
+- **`.codacy.yml` exclude_paths is the sanctioned unsafe-usage escape hatch**: SIMD hot paths with SAFETY comments belong in `engines.opengrep.exclude_paths` (repo policy) — NOT dashboard `AcceptedUse` suppressions, which are un-reviewable and vanish from the dashboard. Fix in code, or exclude per policy.
+- **Safe-function restructure dead end**: Removing `#[target_feature]` from SIMD kernels forces every intrinsic call into its own `unsafe` block — MORE flagged sites, not fewer. Keep `unsafe fn` + `#[target_feature]`; exclude the file.
 
 ## Feature-Gating / Disabled-Capability Contracts (ADR-0094)
-- **No false success on disabled features**: record config and reject at `build()` with `UnsupportedOperation`; fallback facades return `Err`, never `Ok`/empty. Idempotent no-ops (`without_persistence()` when already off → `self`) are fine.
-- **Gate tests, don't inherit fake success**: every test exercising a disabled feature needs per-test `#[cfg(feature = "persistence")]` or a file gate — CI's `--all-features` and lean matrix never compiled un-gated tests. Verify with full `cargo test --no-default-features` (all targets) + `required-features` on examples.
-- **Disk-full ≠ test failure**: `cc: No space left on device` under `--all-features` is environmental; `CARGO_PROFILE_TEST_DEBUG=0` shrinks linked test binaries.
-- **Mutation note**: `#[cfg(feature)]` on a test also gates its doc — keep one rationale comment per assert.
+- **No false success on disabled features**: When a Cargo feature is off, optional builders must not silently drop config — record it and reject at `build()` with `UnsupportedOperation`; fallback facade methods must return `Err`, never `Ok`/empty.
+- **Idempotent no-ops are fine**: `without_persistence()` when the feature is already off may return `self` (state already held, nothing discarded).
+- **Gate tests, don't inherit fake success**: Integration tests exercising a disabled feature used to pass via the no-op stub. After the honest failure lands, every such test MUST get `#[cfg(feature = "persistence")]` per test or a `#![cfg(feature = "persistence")]` file gate — CI only ran `--all-features` and `--no-default-features --features ann-hnsw --lib`, so un-gated persistence tests never compiled in the lean matrix.
+- **Verify the lean matrix compiles & passes**: `cargo test --no-default-features` (all targets) catches un-gated tests/examples that `--all-features` hides. Add `required-features` to examples and ad-hoc orphan examples.
+- **Disk-full ≠ test failure**: `cc: No space left on device` during `cargo test --all-features` (60+ linked test binaries × huge optional deps) is environmental. `CARGO_PROFILE_TEST_DEBUG=0` shrinks binaries enough to fit; isolate the report.
+- **Full-fidelity mutation coverage note**: `#[cfg(feature = "persistence")]` on a test also gates its doc — keep one rationale comment per assert.
 
 ## PR Triage / Jules Bot
-- **No impact = close**: empty research PRs (zero file changes) close as no-op; duplicates close as `superseded by #<keeper>`.
-- **Duplicate swarm detection (2026-09-04)**: bots file near-identical PRs (same base blob + hunk). Detect via `gh pr diff` overlap; keep one (green > mergeable, fewest unrelated files, compat wrapper kept, newest branch). Reusable workflow: `.agents/skills/pr-roast-triage/SKILL.md`.
-- **Draft gate (2026-09-08)**: Jules PRs arrive as drafts — merge fails with `mergePullRequest: still a draft`. Check `isDraft` + `mergeStateStatus` (`BEHIND`/`BLOCKED`/`CLEAN`) in every triage pass.
-- **Title+body honesty pair (2026-09-08)**: retitling without rewriting the body leaves an honest title over a dishonest description — full body rewrite via REST (`gh api -X PATCH .../pulls/<n> -f body=...`) in the same pass. Verify the real delta with `gh pr diff <n> --name-only`; a stale local `origin/main` phantom-adds files to three-dot `git diff` stats — trust the API's `changed_files`.
-- **Doc-comment stripping (2026-09-07)**: near the 500 LOC gate, bots strip docstrings to fit code. Correct pattern: extract child submodules (`hyperdim_binary_serde.rs`, PR #670), preserving 100% of comments.
-- **GraphQL deprecation**: `gh pr edit`/`gh issue view` fail on deprecated `projectCards`; query explicit `--json` fields, edit via REST.
-- **Parent PR linkage**: a PR implementing multiple child issues must declare `Fixes #A`, `Fixes #B`, … in the body so all issues close on merge.
-- **Commitlint full range**: `npx commitlint --from origin/main --to HEAD`. `scope-enum` is closed — use listed scopes or extend the config in the same PR (as #668 did with `encoder`).
-- **Jules force-push risk**: bot can rewrite a PR after your fix, reverting sibling merges. Always `git diff origin/main...HEAD` before merge.
-- **Merge order**: independent green PRs first; never `gh pr merge --auto` on stacks (rebase cancellation loop). Single-PR `--auto` with CI green is acceptable.
-- **Hygiene**: never commit `export.json` `exported_at`-only hunks or resolver-churn `Cargo.lock` hunks; deny.toml edits are additive-only (deleting ignores re-breaks deny); titles must describe the diff.
-- **Mutation in-diff surface**: cosmetic rewrites pull unrelated functions into cargo-mutants — restore-to-main for unrelated lines.
-- **`>` vs `>=` top-k**: add a test where `results.len() == top_k` so the `>=` mutant panics.
-- **CLI entry-point mutants**: `run_query -> Ok(())` unkillable under `--lib`; exclude in `scripts/mutation_test.sh`.
-- **`duplicated_attributes`**: never `#![cfg(test)]` in a file also gated by `#[cfg(test)] mod` in lib.rs.
+- **Empty research PRs**: Close as no-op; zero file changes = no impact.
+- **Commitlint full range**: `npx commitlint --from origin/main --to HEAD`. Invalid early scope fails CI even if later commits are fine.
+- **Jules force-push risk**: Bot can rewrite PR after your fix, reverting sibling merges. Always `git diff origin/main...HEAD` before merge.
+- **Merge order**: Independent green PRs first. Never `gh pr merge --auto` on stacks (rebase cancellation loop).
+- **Mutation in-diff surface**: Cosmetic rewrites pull unrelated functions into cargo-mutants. Restore-to-main for unrelated lines.
+- **`>` vs `>=` top-k**: Add test where `results.len() == top_k` so `>=` mutant panics.
+- **CLI entry-point mutants**: `run_query -> Ok(())` unkillable under `--lib` mutation; exclude in `scripts/mutation_test.sh`.
+- **`duplicated_attributes`**: Never `#![cfg(test)]` in a file also gated by `#[cfg(test)] mod` in lib.rs.
 
 ## Mutation Testing
-- **Unreachable code = mutation smell**: audit queue invariants when refactoring guards; remove dead branches.
-- **`--in-diff` on post-fix tree**: generate the diff after the fix is staged, not before.
-- **Cost**: ~14 min for a 35-line diff (11 mutants) — acceptable for PR validation.
-- **New scopes**: add to `commitlint.config.cjs` when creating workspace crates.
+- **Unreachable code = mutation smell**: Audit queue invariants when refactoring guards. Remove dead branches.
+- **`--in-diff` on post-fix tree**: Generate diff after fix is staged, not before.
+- **Cost**: ~14 min for 35-line diff, 11 mutants. Acceptable for PR validation.
+- **New scopes**: Add to `commitlint.config.cjs` when creating workspace crates.
 
 ## Module-Specific
 - **Reservoir**: CSR for >2000 nodes. Partitioned updates must preserve momentum.
@@ -99,3 +85,29 @@
 - **`cargo deny check` before releases**: New advisories surface anytime. Maintain `deny.toml` ignore list.
 - **Simple upgrades first**: `cargo update -p <pkg>` often resolves advisories without code changes.
 
+## 2026-08-07 — Input Bound Validation on Decay Pruning
+**Vulnerability:** The public API `prune_decayed_associations` accepted a float `threshold` parameter without any bounds or sanitization checks. Passing `NaN` as a threshold caused all associations to be silently deleted/pruned.
+**Learning:** Even if helper validators exist (such as `validate_association_strength`), some public APIs may skip calling them because they don't perform direct inserts, failing to realize that downstream comparison operators (like `>=`) behave unexpectedly on malicious floats.
+**Prevention:** Always validate all public API parameters of type `f32`/`f64` representing rates, scores, or thresholds against finite limits and expected ranges before performing state manipulation.
+
+## 2026-08-07 — Enforce Upper Bounds on Character N-Gram Size
+**Vulnerability:** `TextEncoder::encode_with_ngrams` accepted an unguarded `n: usize` parameter. Passing `n = usize::MAX` triggered `n + 1` integer overflow panics in `char_offsets.windows(n + 1)`.
+**Learning:** Functions accepting `Option<usize>` or `usize` parameters on public APIs can bypass upper-bound checks if internal functions assume reasonable caller inputs without explicit constants.
+**Prevention:** Always declare named upper-bound constants (`MAX_NGRAM_SIZE`) for sizing/windowing parameters and validate inputs before performing slice windowing or arithmetic additions.
+
+## 2026-08-17 — Input Bound Clamping on Concept TTL
+**Vulnerability:** Public builder API `ConceptBuilder::with_ttl` accepted arbitrary `u64` values without upper bounding, allowing arithmetic overflow when computing `now + ttl`.
+**Learning:** Public builder methods taking time intervals or size limits must clamp input values to pre-defined maximum limits using saturating arithmetic.
+**Prevention:** Enforce explicit `MAX_TTL_SECONDS_LIMIT` parameter bounds and saturating additions on all time-to-live public API builder interfaces.
+
+## 2026-09-04 — PR Backlog Roast (23 open PRs, Jules swarm duplicates)
+**Pattern:** Bot swarms file near-identical PRs (same base blob + same hunk, 5 clusters found: BHVec scratchpad x3, LSH pre-serialize x3, graph-sort x2, scalar-LSH x2, abort-knobs subsumed). Detect via `gh pr diff` base-hash + file overlap, keep one (green > mergeable, fewest unrelated files, compat wrapper kept), close rest as superseded. Full report: `plans/PR_ROAST_2026_09_04.md`; reusable workflow: `.agents/skills/pr-roast-triage/SKILL.md`.
+**CI truth:** Red badge ≠ verdict — read check-run annotations. `Unable to authenticate to FlakeHub` (deny nix setup) and `hosted runner lost communication` (CodeQL) are infra flakes: re-run, don't "fix code". External-only red (Codacy) with green GitHub checks is real.
+**Commitlint:** `scope-enum` is closed — `perf(csm-core-lib)`/`perf(hyperdim)` fail; use listed scopes (`core`, …) or extend the config in the same PR (as #668 did with `encoder`).
+**Hygiene:** Never commit `export.json` `exported_at`-only hunks or resolver-churn `Cargo.lock` hunks; deny.toml edits must be additive-only (deleting ignores re-breaks deny). PR titles must describe the diff — a `re-export` hiding a BFS result cap is a reject.
+
+## 2026-09-07 — Doc Comment Stripping vs Child Module Extraction (500 LOC Gate)
+**Pattern:** When files approach the 500 LOC gate (e.g. `crates/csm-retrieval/src/bm25.rs` at 500 LOC), bot PRs tend to strip docstrings and rationale comments to fit new methods (e.g. `has_token_overlap`). This violates "Never delete rationale comments".
+**Learning:** The correct architecture is shown by PR #670: extract self-contained implementations (such as serde visitor logic) into a child submodule (`hyperdim_binary_serde.rs`), preserving 100% of comments while keeping all files strictly ≤ 500 LOC.
+**GraphQL Deprecation:** `gh pr edit` and `gh issue view` fail when querying deprecated `projectCards`. Query specific `--json` fields on reads, and use REST API `gh api -X PATCH repos/.../pulls/<id>` on updates.
+**Parent Issue Linkage:** When a comprehensive parent PR (#647) implements multiple child issues (#639, #640, #641, #642), ensure all child issues are linked with `Fixes #<id>` in the PR body so all issues automatically close on merge.

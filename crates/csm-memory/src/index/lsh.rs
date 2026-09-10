@@ -72,12 +72,10 @@ impl<H: Hypervector> LshIndex<H> {
         let mut hash = 0u64;
         let bits = &self.projections[table_idx];
         for (i, &bit_pos) in bits.iter().enumerate() {
-            let byte_idx = bit_pos >> 3;
-            let bit_mask = 1u8 << (bit_pos & 7);
-            if let Some(&byte) = bytes.get(byte_idx) {
-                if (byte & bit_mask) != 0 {
-                    hash |= 1u64 << i;
-                }
+            let byte_idx = bit_pos / 8;
+            let bit_idx = bit_pos % 8;
+            if byte_idx < bytes.len() && (bytes[byte_idx] & (1 << bit_idx)) != 0 {
+                hash |= 1u64 << i;
             }
         }
         hash
@@ -123,7 +121,7 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
         }
 
         let query_bytes = query.to_bytes();
-        let mut candidates = HashSet::with_capacity(32);
+        let mut candidates = HashSet::new();
         for i in 0..self.num_tables {
             let hash = self.compute_hash_from_bytes(&query_bytes, i);
             if let Some(bucket) = self.tables[i].get(&hash) {
@@ -136,9 +134,8 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
         // Algorithmic Optimization: Parallelize candidate re-ranking via Rayon.
         // This accelerates the exhaustive similarity check of the candidate
         // set retrieved from LSH buckets.
-        // Optimized: Uses integer Hamming distance and HashSet<&str> borrows to
-        // avoid string clones during aggregation (HashSet is a HashMap with unit
-        // value; same hashing cost, cleaner dedup API).
+        // Optimized: Uses integer Hamming distance and HashSet<&str> to eliminate
+        // Entry allocations and String pointer indirection during aggregation.
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         let mut scores: Vec<(&str, u32)> = candidates
             .into_iter()
@@ -188,7 +185,7 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
         }
 
         let query_bytes = query.to_bytes();
-        let mut candidates = HashSet::with_capacity(32);
+        let mut candidates = HashSet::new();
         for i in 0..self.num_tables {
             let hash = self.compute_hash_from_bytes(&query_bytes, i);
             if let Some(bucket) = self.tables[i].get(&hash) {
@@ -203,9 +200,8 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
         }
 
         // Algorithmic Optimization: Parallelize candidate re-ranking via Rayon.
-        // Optimized: Uses integer Hamming distance and HashSet<&str> borrows to
-        // avoid string clones during aggregation (same hashing cost as HashMap
-        // with unit value; cleaner dedup API).
+        // Optimized: Uses integer Hamming distance and HashSet<&str> to eliminate
+        // Entry allocations and String pointer indirection during aggregation.
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         let mut scores: Vec<(&str, u32)> = candidates
             .into_iter()
@@ -415,6 +411,41 @@ mod tests {
         let mut seen = HashSet::new();
         for (id, _) in &results {
             assert!(seen.insert(id.as_str()), "duplicate ID returned: {id}");
+        }
+    }
+
+    #[test]
+    fn lsh_index_search_filtered_deduplication_and_zero_top_k() {
+        use crate::concept_builder::ConceptBuilder;
+        use crate::metadata_filter::MetadataFilter;
+
+        let mut idx = LshIndex::<HVec10240>::new(4, 4).expect("must create index");
+        let v1 = HVec10240::random();
+        let v2 = HVec10240::random();
+        idx.insert("c1".to_string(), &v1).expect("insert c1");
+        idx.insert("c2".to_string(), &v2).expect("insert c2");
+
+        let concept1 = ConceptBuilder::new("c1").with_vector(v1).build().unwrap();
+        let concept2 = ConceptBuilder::new("c2").with_vector(v2).build().unwrap();
+        let mut concepts = HashMap::new();
+        concepts.insert("c1".to_string(), concept1);
+        concepts.insert("c2".to_string(), concept2);
+
+        let filter = MetadataFilter::and(vec![]);
+
+        let empty_results = idx
+            .search_filtered(&v1, 0, &filter, &concepts)
+            .expect("top_k 0 must succeed");
+        assert!(empty_results.is_empty());
+
+        let results = idx
+            .search_filtered(&v1, 2, &filter, &concepts)
+            .expect("filtered search must succeed");
+        assert!(!results.is_empty());
+
+        let mut seen = HashSet::new();
+        for (id, _) in &results {
+            assert!(seen.insert(id.as_str()), "duplicate ID in filtered search: {id}");
         }
     }
 }
