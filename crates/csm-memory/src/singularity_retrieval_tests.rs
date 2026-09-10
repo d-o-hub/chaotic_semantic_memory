@@ -37,10 +37,8 @@ fn test_retrieval_config_for_token_count() {
 fn test_retrieval_config_validation() {
     use super::RetrievalConfig;
 
-    let mut cfg = RetrievalConfig {
-        early_exit_threshold: Some(1.5),
-        ..Default::default()
-    };
+    let mut cfg = RetrievalConfig::default();
+    cfg.early_exit_threshold = Some(1.5);
     assert!(cfg.validate().is_err());
 
     cfg.early_exit_threshold = Some(0.85);
@@ -52,12 +50,10 @@ fn test_generate_graph_candidates_logic() {
     use super::RetrievalConfig;
     use crate::singularity::ConceptBuilder;
     let mut s = Singularity::<HVec10240>::new(SingularityConfig::default());
-    let config = RetrievalConfig {
-        enable_graph_candidates: true,
-        graph_depth: 1,
-        graph_fanout: 2,
-        ..Default::default()
-    };
+    let mut config = RetrievalConfig::default();
+    config.enable_graph_candidates = true;
+    config.graph_depth = 1;
+    config.graph_fanout = 2;
     s.set_retrieval_config(config).unwrap();
 
     let v1 = HVec10240::random();
@@ -68,7 +64,7 @@ fn test_generate_graph_candidates_logic() {
     s.inject(
         "_default",
         ConceptBuilder::new("c1")
-            .with_vector(v1)
+            .with_vector(v1.clone())
             .build()
             .unwrap(),
     )
