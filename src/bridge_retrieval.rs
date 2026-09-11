@@ -62,6 +62,7 @@ impl BridgeRetrieval {
         top_k: usize,
         reranker: Option<&dyn SemanticReranker>,
     ) -> Result<Vec<BridgeHit>> {
+        let top_k = top_k.min(crate::framework_validation::MAX_TOP_K_LIMIT);
         if top_k == 0 || singularity.is_empty(ns) {
             return Ok(Vec::new());
         }
