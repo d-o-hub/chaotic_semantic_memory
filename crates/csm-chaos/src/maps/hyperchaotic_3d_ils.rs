@@ -1,9 +1,17 @@
-//! 3D-ILS Hyperchaotic Map.
+//! 3D-ILS chaotic map (3D-Cascading Crossing Coupling over ICMIC/Logistic/Sine).
 //!
-//! Based on Sun et al., "A 3D-Cascading Crossing Coupling Framework for Hyperchaotic
+//! Inspired by Sun et al., "A 3D-Cascading Crossing Coupling Framework for Hyperchaotic
 //! Map Construction and Its Application to Color Image Encryption" (2025).
 //!
-//! Uses a 3D-Cascading Crossing Coupling framework over ICMIC, Logistic, and Sine maps.
+//! [`Ils3d::next`] cascades the three 1D maps with the paper's denominator guard
+//! (`den()`) and bounded-state clamp (`sat()`). It is not a bit-exact port of the
+//! paper's Eq. 9: the Logistic and Sine updates fold through `sin(pi * .)` before
+//! clamping, and [`Ils3d::next_value`] mixes the coupled state through a SplitMix64
+//! finalizer, so the emitted stream is not the paper's keystream. No Lyapunov or
+//! bifurcation evidence is asserted here.
+//!
+//! The map is experimental and feature gated; it is not wired into the LSH hashing
+//! paths, which use [`crate::maps::hyperchaotic::Slhm2d`].
 
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
