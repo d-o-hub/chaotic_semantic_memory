@@ -8,11 +8,8 @@ use csm_core_lib::hyperdim::HVec10240;
 
 #[test]
 fn test_bridge_retrieval_empty_singularity() {
-    let encoder = TextEncoder::new();
-    let graph = ConceptGraph::new();
-    let bridge = BridgeRetrieval::with_defaults(encoder, graph);
+    let bridge = BridgeRetrieval::with_defaults(TextEncoder::new(), ConceptGraph::new());
     let singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
-
     let results = bridge
         .query("_default", &singularity, "test query", 10, None)
         .unwrap();
@@ -22,16 +19,13 @@ fn test_bridge_retrieval_empty_singularity() {
 #[test]
 fn test_bridge_retrieval_empty_graph() {
     let encoder = TextEncoder::new();
-    let graph = ConceptGraph::new();
-    let bridge = BridgeRetrieval::with_defaults(encoder.clone(), graph);
-
+    let bridge = BridgeRetrieval::with_defaults(encoder.clone(), ConceptGraph::new());
     let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
     let concept = ConceptBuilder::new("test-concept")
         .with_vector(encoder.encode("test content"))
         .build()
         .unwrap();
     singularity.inject("_default", concept).unwrap();
-
     let results = bridge
         .query("_default", &singularity, "test query", 10, None)
         .unwrap();
@@ -44,26 +38,21 @@ fn test_bridge_retrieval_empty_graph() {
 fn test_bridge_retrieval_with_expansion() {
     let encoder = TextEncoder::new();
     let mut graph = ConceptGraph::new();
-
     graph.add_concept(
         CanonicalConcept::new("c1")
             .with_label("agent-memory")
             .with_label("session-context"),
     );
-
     let bridge = BridgeRetrieval::with_defaults(encoder.clone(), graph);
-
     let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
     let concept = ConceptBuilder::new("mem-1")
         .with_vector(encoder.encode("session context for AI agent"))
         .build()
         .unwrap();
     singularity.inject("_default", concept).unwrap();
-
     let results = bridge
         .query("_default", &singularity, "agent memory session", 10, None)
         .unwrap();
-
     assert!(!results.is_empty());
     assert!(
         results[0]
@@ -75,16 +64,12 @@ fn test_bridge_retrieval_with_expansion() {
 
 #[test]
 fn test_memory_packet_empty_hits() {
-    let encoder = TextEncoder::new();
-    let graph = ConceptGraph::new();
-    let bridge = BridgeRetrieval::with_defaults(encoder, graph);
+    let bridge = BridgeRetrieval::with_defaults(TextEncoder::new(), ConceptGraph::new());
     let singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
-
     let packet = bridge
         .memory_packet("_default", &singularity, "test query", 10, None)
         .unwrap();
-    assert!(packet.facts.is_empty());
-    assert!(packet.sources.is_empty());
+    assert!(packet.facts.is_empty() && packet.sources.is_empty());
     assert!((packet.confidence).abs() < f32::EPSILON);
 }
 
@@ -492,4 +477,22 @@ fn test_bridge_expansion_adds_incremental_ids() {
         hits.iter().any(|h| h.id == "expanded"),
         "expanded must be added via concept expansion when !primary_set.contains"
     );
+}
+
+#[test]
+fn test_query_unbounded_top_k_clamped() {
+    let encoder = TextEncoder::new();
+    let bridge = BridgeRetrieval::with_defaults(encoder.clone(), ConceptGraph::new());
+    let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
+
+    let concept = ConceptBuilder::new("c1")
+        .with_vector(encoder.encode("test content"))
+        .build()
+        .unwrap();
+    singularity.inject("_default", concept).unwrap();
+
+    let results = bridge
+        .query("_default", &singularity, "test content", usize::MAX, None)
+        .unwrap();
+    assert_eq!(results.len(), 1);
 }
