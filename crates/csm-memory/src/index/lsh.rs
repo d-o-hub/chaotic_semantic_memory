@@ -138,8 +138,9 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
         // Algorithmic Optimization: Parallelize candidate re-ranking via Rayon.
         // This accelerates the exhaustive similarity check of the candidate
         // set retrieved from LSH buckets.
-        // Optimized: Uses integer Hamming distance and HashSet<&str> to eliminate
-        // Entry allocations and String pointer indirection during aggregation.
+        // Optimized: Uses integer Hamming distance and HashSet<&str> borrows to
+        // avoid string clones during aggregation (HashSet is a HashMap with unit
+        // value; same hashing cost, cleaner dedup API).
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         let mut scores: Vec<(&str, u32)> = candidates
             .into_iter()
@@ -204,8 +205,9 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
         }
 
         // Algorithmic Optimization: Parallelize candidate re-ranking via Rayon.
-        // Optimized: Uses integer Hamming distance and HashSet<&str> to eliminate
-        // Entry allocations and String pointer indirection during aggregation.
+        // Optimized: Uses integer Hamming distance and HashSet<&str> borrows to
+        // avoid string clones during aggregation (HashSet is a HashMap with unit
+        // value; same hashing cost, cleaner dedup API).
         #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
         let mut scores: Vec<(&str, u32)> = candidates
             .into_iter()
