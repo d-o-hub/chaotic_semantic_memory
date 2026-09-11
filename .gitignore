@@ -53,9 +53,15 @@ pkg/
 /node_modules/
 
 # IDE / editor tooling
+# .opencode npm state is local-only: Dependabot aborts on the npm ecosystem when
+# it finds .opencode/package-lock.json without its gitignored package.json
+# ("Error during file fetching; aborting: /.opencode/package.json not found"),
+# leaving the 2 high toml alerts unfixable. Bun is the tooling package manager
+# here, so the npm lockfile is ignored alongside bun.lock.
 .opencode/node_modules/
 .opencode/bun.lock
 .opencode/package.json
+.opencode/package-lock.json
 .kilo/node_modules/
 .idea/
 .vscode/
