@@ -67,15 +67,19 @@ impl<H: Hypervector> LshIndex<H> {
     ///
     /// Performance Optimization: Accepting pre-serialized bytes avoids redundant 1280-byte
     /// allocations when computing hashes across multiple LSH tables for the same hypervector.
+    /// Replaced division (`/ 8`) and modulo (`% 8`) arithmetic with bitwise shift (`>> 3`)
+    /// and mask (`& 7`) operations, and safe `bytes.get(byte_idx)` probing.
     #[inline]
     fn compute_hash_from_bytes(&self, bytes: &[u8], table_idx: usize) -> u64 {
         let mut hash = 0u64;
         let bits = &self.projections[table_idx];
         for (i, &bit_pos) in bits.iter().enumerate() {
-            let byte_idx = bit_pos / 8;
-            let bit_idx = bit_pos % 8;
-            if byte_idx < bytes.len() && (bytes[byte_idx] & (1 << bit_idx)) != 0 {
-                hash |= 1u64 << i;
+            let byte_idx = bit_pos >> 3;
+            let bit_idx = bit_pos & 7;
+            if let Some(&byte) = bytes.get(byte_idx) {
+                if (byte & (1 << bit_idx)) != 0 {
+                    hash |= 1u64 << i;
+                }
             }
         }
         hash
@@ -121,7 +125,7 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
         }
 
         let query_bytes = query.to_bytes();
-        let mut candidates = HashSet::new();
+        let mut candidates = HashSet::with_capacity(32);
         for i in 0..self.num_tables {
             let hash = self.compute_hash_from_bytes(&query_bytes, i);
             if let Some(bucket) = self.tables[i].get(&hash) {
@@ -185,7 +189,7 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
         }
 
         let query_bytes = query.to_bytes();
-        let mut candidates = HashSet::new();
+        let mut candidates = HashSet::with_capacity(32);
         for i in 0..self.num_tables {
             let hash = self.compute_hash_from_bytes(&query_bytes, i);
             if let Some(bucket) = self.tables[i].get(&hash) {
