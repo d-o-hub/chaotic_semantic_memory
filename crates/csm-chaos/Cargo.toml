@@ -14,6 +14,7 @@ serde = { workspace = true, optional = true }
 [features]
 experimental-neural-circuit = []
 experimental-voronoi-lsh = []
+experimental-ils3d = []
 default = []
 std = []
 serde = ["dep:serde"]
@@ -43,3 +44,8 @@ required-features = ["experimental-neural-circuit"]
 name = "chaotic_hashing_voronoi"
 harness = false
 required-features = ["experimental-voronoi-lsh"]
+
+[[bench]]
+name = "chaotic_hashing_ils3d"
+harness = false
+required-features = ["experimental-ils3d"]

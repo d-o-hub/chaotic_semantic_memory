@@ -18,6 +18,7 @@ fn bench_chaotic_lsh_project(c: &mut Criterion) {
 
 fn bench_chaotic_lsh_project_bitwise_parity(c: &mut Criterion) {
     let lsh = ChaoticLsh::new(3.9, 0.1, 0.7, 128);
+    #[allow(clippy::cast_precision_loss)]
     let input: Vec<f32> = (0..128).map(|i| (i as f32) * 0.001 - 0.064).collect();
     c.bench_function("chaotic_lsh_project_bitwise_parity", |b| {
         b.iter(|| {
