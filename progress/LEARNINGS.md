@@ -47,6 +47,7 @@
 - **Stale-binary detection**: cargo silently reuses builds across worktrees sharing a target dir; a result contradicting theory means the wrong binary ran — grep the log for `Compiling csm-memory (path)` before trusting a number.
 - **Forced clean A/B**: `touch` changed sources per side, grep the linked lib path, interleave A/B/A/B, record `loadavg`, discard runs during spikes (excluded 281/301 runs at loadavg 2.7).
 - **Deterministic test graphs**: hash-based pseudo-random edges (not ring/wrap successors) model association graphs realistically and reproduce across branches — ring graphs understated BFS wins ~7×.
+- **Storage medium dominates latency gates (2026-09-11)**: `local_persistence_roundtrip_p50_under_20ms` measured 1.2 ms on RAM-backed `/tmp` and 13.9 ms on ext4 for the same revision, and 24.47 ms on the CI runner — main run 34610334012 failed the 20 ms ceiling with no code change. The CI `test` job now mounts tmpfs at `/tmp` so the gate measures a fixed medium on the path the suite already uses (the path validator accepts absolute paths only under cwd or `/tmp`, so `TMPDIR=/dev/shm` breaks export/import tests). A "20x regression" that appears only in CI is usually a different filesystem, not slower code.
 
 ## Codacy
 - **`.codacy.yml` `exclude_paths` is the sanctioned unsafe escape hatch**: SIMD hot paths with SAFETY comments go in `engines.opengrep.exclude_paths` — never dashboard `AcceptedUse` suppressions (un-reviewable, vanish from dashboard).
@@ -75,6 +76,7 @@
 - **`>` vs `>=` top-k**: add a test where `results.len() == top_k` so the `>=` mutant panics.
 - **CLI entry-point mutants**: `run_query -> Ok(())` unkillable under `--lib`; exclude in `scripts/mutation_test.sh`.
 - **`duplicated_attributes`**: never `#![cfg(test)]` in a file also gated by `#[cfg(test)] mod` in lib.rs.
+- **The squash subject is the PR title, and PR linting never sees it (2026-09-11)**: `gh pr merge --squash` uses the PR *title* as the commit subject, but the PR-event commitlint only lints branch commits — so a title that violates `subject-case` (e.g. a leading uppercase acronym: `docs: PR roast …`, main run 34458833944) fails only after merging to `main`. `body-max-line-length` is disabled but `footer-max-line-length` (100) is not, and a body's trailing bullet list followed by `Co-authored-by:` is parsed as footers — two main pushes failed on that (runs 34057231349, 34049727292). Lint the intended title before merging.
 
 ## Mutation Testing
 - **Unreachable code = mutation smell**: audit queue invariants when refactoring guards; remove dead branches.
@@ -99,4 +101,5 @@
 ## Supply Chain
 - **`cargo deny check` before releases**: New advisories surface anytime. Maintain `deny.toml` ignore list.
 - **Simple upgrades first**: `cargo update -p <pkg>` often resolves advisories without code changes.
+- **A tracked lockfile without a tracked manifest breaks Dependabot (2026-09-11)**: `.opencode/package-lock.json` was committed while `.opencode/package.json` stays gitignored, so every `Dependabot Updates` run died with `Error during file fetching; aborting: /.opencode/package.json not found` / `dependency_not_found {source: "toml"}` and the 2 high `toml` alerts could never be patched. Keep manifest and lockfile tracked together or untracked together — a lone lockfile still raises alerts but produces no fix PRs.
 
