@@ -175,8 +175,10 @@ fn merge_single_list(results: &[(String, f32)], weight: f32, top_k: usize) -> Ve
             .collect()
     };
 
+    // Algorithmic Optimization: Use 0-based index `top_k - 1` for O(N) partial selection
+    // so that elements at indices 0..top_k are the true top-K highest scoring items.
     if ref_results.len() > top_k {
-        ref_results.select_nth_unstable_by(top_k, |a, b| b.1.total_cmp(&a.1));
+        ref_results.select_nth_unstable_by(top_k - 1, |a, b| b.1.total_cmp(&a.1));
         ref_results.truncate(top_k);
     }
     ref_results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
@@ -278,9 +280,10 @@ pub fn merge_results(
     // Perform top-k selection on references to delay string cloning/allocation.
     let mut ref_results: Vec<(&str, f32)> = combined.into_iter().collect();
 
-    // O(N) top-k selection, then sort only the retained slice.
+    // Algorithmic Optimization: Use 0-based index `top_k - 1` for O(N) partial selection
+    // so that elements at indices 0..top_k are the true top-K highest scoring items.
     if ref_results.len() > top_k {
-        ref_results.select_nth_unstable_by(top_k, |a, b| b.1.total_cmp(&a.1));
+        ref_results.select_nth_unstable_by(top_k - 1, |a, b| b.1.total_cmp(&a.1));
         ref_results.truncate(top_k);
     }
     ref_results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
