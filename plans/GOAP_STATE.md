@@ -24,7 +24,7 @@ world_state:
   binary_built: true
   documentation_complete: true
   validated: false               # Wave 32/33 remainder: ownership + evidence tiers still queued
-  ci_all_checks_passed: true     # 2026-08-08: main HEAD e5affb9 green (release + ci)
+  ci_all_checks_passed: true     # 2026-09-12: main HEAD 0e569b7 green (ci run 34711678952; PR #690 repaired fuzz + release ceiling)
   loc_gate_verified: true        # all first-party src/ and crates/ files ≤ 500 LOC
 
   # ── Canonical metrics (update in place with date comment) ────
