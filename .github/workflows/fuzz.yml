@@ -23,11 +23,14 @@ jobs:
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
-    - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
-    - uses: DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d # v14
+    - uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+      with:
+        toolchain: nightly
+    - name: Install cargo-fuzz
+      run: cargo install cargo-fuzz --locked
     - name: Run changed fuzz targets (30s each)
       run: |
-        nix develop --command bash -c '
+        bash -c '
         # Get changed fuzz target files
         CHANGED=$(git diff --name-only origin/main...HEAD -- "fuzz/fuzz_targets/*.rs" || true)
         if [ -z "$CHANGED" ]; then
@@ -57,11 +60,14 @@ jobs:
     timeout-minutes: 60
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
-    - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
-    - uses: DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d # v14
+    - uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+      with:
+        toolchain: nightly
+    - name: Install cargo-fuzz
+      run: cargo install cargo-fuzz --locked
     - name: Run all fuzz targets (5 min each)
       run: |
-        nix develop --command bash -c '
+        bash -c '
         targets=$(cargo fuzz list)
         for target in $targets; do
           echo "Running fuzz target: $target (5 min)"
