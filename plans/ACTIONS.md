@@ -12,6 +12,17 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-09-12):
+> `fix_chronic_main_ci_failures_2026_09_12` — PR #690 merged (`0e569b7`):
+> fuzz jobs now run nightly via ci.yml's pinned setup action (nix shell
+> dropped; the scheduled full run had been red six consecutive Sundays
+> 08-02 → 09-06; workflow_dispatch validation 34709772141 green) and Release
+> `wait-for-ci` ceiling raised 1800s → 2700s / job timeout 55m (8 timeouts
+> with CI green, 09-07 → 09-09). PR #689 roasted — fixes the dead
+> `crates/csm-retrieval` copy of `merge_results` with no bench evidence and a
+> stale boundary-test rationale; review comment posted, changes requested.
+> Record: `plans/PR_ROAST_2026_09_12.md`.
+>
 > Last completed (verified 2026-09-07):
 > `resolve_open_github_issues_and_pr_triage` — Closed superseded duplicate
 > PR #672; verified and squashed PR #647 implementing all 4 open GitHub issues

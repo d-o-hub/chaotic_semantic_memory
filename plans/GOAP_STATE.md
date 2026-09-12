@@ -29,7 +29,7 @@ world_state:
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "ff85763"           # 2026-09-07
+  main_head: "0e569b7"           # 2026-09-12: PR #690 (fuzz nightly toolchain + release wait ceiling)
   tests_count: 1092              # 2026-09-07: literal #[test]/#[tokio::test] across src/crates/tests
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
   coverage_ratio_current: 93     # test:source ratio (target ≥90%)
@@ -63,7 +63,7 @@ world_state:
   performance_claims_have_current_artifacts: false # queued: scale benches + memory model
   critical_skill_evals_passing: false             # behavioral evals deferred
   fuzz_short_runs_on_pr: true                     # fuzz.yml fuzz-short job: 30s runs of changed targets on PRs
-  fuzz_scheduled_full_runs: true                  # fuzz.yml fuzz-full job: weekly cron (Sun 03:00 UTC), 5min/target
+  fuzz_scheduled_full_runs: true                  # fuzz-full weekly cron (Sun 03:00 UTC); actually green since PR #690 (2026-09-12): nightly toolchain, nix shell dropped — red ×6 (08-02..09-06) before
   duckdb_companion_published: false               # csm-duckdb not on crates.io
   benchmarks_prove_performance: false             # evidence tiers pending (ADR-0095)
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
@@ -96,4 +96,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: resolve_open_github_issues_and_pr_triage_2026_09_07
+  action_last_completed: fix_chronic_main_ci_failures_2026_09_12
