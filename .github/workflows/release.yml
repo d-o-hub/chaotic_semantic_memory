@@ -26,7 +26,7 @@ jobs:
   # Guardrail: Wait for CI workflow to complete successfully before releasing
   wait-for-ci:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 55
     permissions:
       actions: write   # required to query AND re-trigger stuck CI runs
       contents: read
@@ -40,15 +40,17 @@ jobs:
     - name: Wait for CI workflow to complete
       id: check-ci
       run: |
-        # Wait up to 30 minutes for CI workflow to complete.
+        # Wait up to 45 minutes for CI workflow to complete.
         # The mutation-test job alone can take ~20 min on PRs, and main-branch CI
         # has historically been cancelled and re-triggered by the concurrency group,
         # so 10 min was not enough and Release silently timed out (see run #412).
+        # 2026-09: CI runs drifted past 30 min again (8 Release runs timed out with
+        # CI green), so the ceiling was raised from 1800s to 2700s.
         #
         # Queue-starvation detection (2026-07-27): GitHub Actions runners can leave
         # runs "queued" indefinitely. If CI is still queued after QUEUE_THRESHOLD,
         # re-trigger it once via `gh run rerun` before giving up.
-        MAX_WAIT=1800
+        MAX_WAIT=2700
         SLEEP_INTERVAL=30
         QUEUE_THRESHOLD=600
         ELAPSED=0
