@@ -312,6 +312,10 @@ jobs:
     timeout-minutes: 90
     env:
       PROTOC: /usr/bin/protoc
+      # setup-rust-toolchain v2.0.0 exports CARGO_BUILD_WARNINGS=deny; `cargo
+      # miri setup` scaffolds a sysroot workspace that legitimately emits
+      # "unused dependency sysroot", which deny turns fatal (run 34752425200).
+      CARGO_BUILD_WARNINGS: none
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
     - name: Install Rust nightly
