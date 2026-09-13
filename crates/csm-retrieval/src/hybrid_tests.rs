@@ -174,9 +174,11 @@ fn test_merge_results_top_k() {
 
 #[test]
 fn test_merge_results_top_k_exact_boundary() {
-    // When unique result count equals top_k, the partial-sort branch must NOT run.
-    // Using `>=` instead of `>` would call select_nth_unstable_by(top_k) with
-    // index == len and panic.
+    // When unique result count equals top_k, the selection branch must NOT run
+    // (`>` not `>=`): `>=` would partition the whole slice for no gain. Since
+    // the index is 0-based `top_k - 1`, `>=` would no longer panic (the old
+    // index == len rationale is obsolete); this test pins the len == top_k
+    // output contract instead.
     let bm25 = vec![("d1".to_string(), 10.0), ("d2".to_string(), 8.0)];
     let hdc = vec![("d1".to_string(), 10.0), ("d2".to_string(), 8.0)];
     let weights = (0.5, 0.5);
@@ -184,6 +186,31 @@ fn test_merge_results_top_k_exact_boundary() {
     assert_eq!(merged.len(), 2);
     assert_eq!(merged[0].0, "d1");
     assert_eq!(merged[1].0, "d2");
+}
+
+#[test]
+fn test_merge_results_smallest_selection_boundary() {
+    // len == top_k + 1 is the smallest input that takes the selection branch;
+    // select_nth_unstable_by(top_k + 1) panics there, which kills the
+    // `top_k - 1 -> top_k + 1` mutant. (`- -> /` and `> -> >=` are equivalent
+    // mutants — see scripts/mutation_test.sh excludes.)
+    let single = vec![
+        ("d1".to_string(), 3.0),
+        ("d2".to_string(), 1.0),
+        ("d3".to_string(), 2.0),
+    ];
+    let merged = merge_results(&single, &[], (1.0, 0.0), 2);
+    assert_eq!(merged.len(), 2);
+    assert_eq!(merged[0].0, "d1");
+    assert_eq!(merged[1].0, "d3");
+
+    // Dual-list path: 3 combined ids with top_k = 2 (disjoint scores).
+    let bm25 = vec![("a".to_string(), 10.0), ("b".to_string(), 5.0)];
+    let hdc = vec![("c".to_string(), 7.0)];
+    let merged = merge_results(&bm25, &hdc, (0.6, 0.4), 2);
+    assert_eq!(merged.len(), 2);
+    assert_eq!(merged[0].0, "a");
+    assert_eq!(merged[1].0, "c");
 }
 
 #[test]
