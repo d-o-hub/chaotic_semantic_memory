@@ -12,6 +12,18 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-09-13, wave 2):
+> `repair_setup_rust_toolchain_2_0_0_warnings_cascade_2026_09_13` — merged the
+> weekly dependabot batch (#694–#698, incl. `setup-rust-toolchain` 2.0.0) and
+> repaired its fallout: v2.0.0 moved deny-warnings from `RUSTFLAGS` to cargo
+> config (`CARGO_BUILD_WARNINGS=deny`), which `RUSTFLAGS`-overriding builds
+> (cargo-fuzz `--cfg fuzzing`, `cargo miri setup` sysroot) cannot escape —
+> fixed with `CARGO_BUILD_WARNINGS=allow` on those jobs (PRs #701/#702; valid
+> levels are warn/allow/deny, "none" is rejected, key respected only by cargo
+> ≥ 1.97). PR #700 merged: static `ENV_TEST_LOCK` serializes env mutation in
+> embedding provider tests (intermittent voyage-test failure, run
+> 103702134133). Fuzz re-dispatched on main to re-validate the nightly path.
+>
 > Last completed (verified 2026-09-13):
 > `align_hybrid_dual_surface_selection_2026_09_13` — PR #693 merged
 > (`cda3c26`): 0-based `top_k - 1` selection + `let nth` sibling style applied
