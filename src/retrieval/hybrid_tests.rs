@@ -174,9 +174,11 @@ fn test_merge_results_top_k() {
 
 #[test]
 fn test_merge_results_top_k_exact_boundary() {
-    // When unique result count equals top_k, the partial-sort branch must NOT run.
-    // Using `>=` instead of `>` would call select_nth_unstable_by(top_k) with
-    // index == len and panic.
+    // When unique result count equals top_k, the selection branch must NOT run
+    // (`>` not `>=`): `>=` would partition the whole slice for no gain. Since
+    // the index is 0-based `top_k - 1`, `>=` would no longer panic (the old
+    // index == len rationale is obsolete); this test pins the len == top_k
+    // output contract instead.
     let bm25 = vec![("d1".to_string(), 10.0), ("d2".to_string(), 8.0)];
     let hdc = vec![("d1".to_string(), 10.0), ("d2".to_string(), 8.0)];
     let weights = (0.5, 0.5);

@@ -175,8 +175,11 @@ fn merge_single_list(results: &[(String, f32)], weight: f32, top_k: usize) -> Ve
             .collect()
     };
 
+    // 0-based selection: partition exactly top_k elements. top_k >= 1 because
+    // merge_results rejects 0 before calling this helper.
     if ref_results.len() > top_k {
-        ref_results.select_nth_unstable_by(top_k, |a, b| b.1.total_cmp(&a.1));
+        let nth = top_k - 1;
+        ref_results.select_nth_unstable_by(nth, |a, b| b.1.total_cmp(&a.1));
         ref_results.truncate(top_k);
     }
     ref_results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
@@ -279,8 +282,10 @@ pub fn merge_results(
     let mut ref_results: Vec<(&str, f32)> = combined.into_iter().collect();
 
     // O(N) top-k selection, then sort only the retained slice.
+    // 0-based index: top_k >= 1 here (early return above), so top_k - 1 is safe.
     if ref_results.len() > top_k {
-        ref_results.select_nth_unstable_by(top_k, |a, b| b.1.total_cmp(&a.1));
+        let nth = top_k - 1;
+        ref_results.select_nth_unstable_by(nth, |a, b| b.1.total_cmp(&a.1));
         ref_results.truncate(top_k);
     }
     ref_results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
