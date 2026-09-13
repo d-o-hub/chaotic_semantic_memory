@@ -12,6 +12,18 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-09-13):
+> `align_hybrid_dual_surface_selection_2026_09_13` — PR #693 merged
+> (`cda3c26`): 0-based `top_k - 1` selection + `let nth` sibling style applied
+> to BOTH hybrid copies (root `src/retrieval/hybrid.rs` — the copy the CLI
+> runs — and `crates/csm-retrieval/src/hybrid.rs`), truthful boundary-test
+> rationale in both test copies, `len == top_k + 1` mutation-kill tests, and
+> documented excludes for the two equivalent mutants. PR #689 closed as
+> superseded. PR #692 merged: dependabot cargo ignore for upstream-blocked
+> `libsql-sqlite3-parser` (GHSA-8m95-fffc-h4c5, no patched release; weekly
+> security job stopped erroring). First scheduled fuzz-full green since
+> 08-02 (run 34746887403).
+>
 > Last completed (verified 2026-09-12):
 > `fix_chronic_main_ci_failures_2026_09_12` — PR #690 merged (`0e569b7`):
 > fuzz jobs now run nightly via ci.yml's pinned setup action (nix shell

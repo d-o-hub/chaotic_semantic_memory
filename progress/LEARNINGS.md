@@ -87,6 +87,7 @@
 - **`--in-diff` on post-fix tree**: generate the diff after the fix is staged, not before.
 - **Cost**: ~14 min for a 35-line diff (11 mutants) — acceptable for PR validation.
 - **New scopes**: add to `commitlint.config.cjs` when creating workspace crates.
+- **Equivalent mutants from select_nth(k) + truncate (2026-09-13)**: `select_nth_unstable_by(top_k - 1)` + `truncate(top_k)` makes `top_k - 1 -> top_k / 1` (== the old bare-`top_k` form) and `> -> >=` (wider partition, same post-truncate top-K set) unkillable — identical output for every input, so no test can catch them. Remedy: a `len == top_k + 1` boundary test kills the killable `top_k - 1 -> top_k + 1` mutant via panic (smallest input that takes the branch); the truly equivalent ones get documented `--exclude-re` entries (MmrReranker precedent). Score went 82.6% (fail) → green with 2 tests + 2 excludes.
 
 ## Module-Specific
 - **Reservoir**: CSR for >2000 nodes. Partitioned updates must preserve momentum.
