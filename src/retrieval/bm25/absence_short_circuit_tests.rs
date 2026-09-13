@@ -1,6 +1,6 @@
 //! Unit coverage for `is_known_absent` boundary semantics (M1).
 //!
-//! Lives in a separate `#[cfg(test)]` module so `src/retrieval/bm25/tests.rs`
+//! Lives in a separate `#[cfg(test)]` module so the shim `src/retrieval/bm25.rs`
 //! stays under the 500-LOC gate. `AbsenceStore`/`AbsenceEntry` are private to
 //! the crate (`mod bridge_persistence`), so these cannot live in `tests/`.
 
