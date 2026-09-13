@@ -21,6 +21,13 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      # setup-rust-toolchain v2.0.0 exports CARGO_BUILD_WARNINGS=deny. cargo-fuzz
+      # replaces RUSTFLAGS (so the pre-2.0 RUSTFLAGS-based deny never applied)
+      # but cannot override cargo config, and its generated snake_case [[bin]]
+      # names legitimately emit cargo's kebab-case naming warnings
+      # (run 34751161336). Neutralize here; the warnings gate stays in clippy.
+      CARGO_BUILD_WARNINGS: none
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
     - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
@@ -58,6 +65,9 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      # See fuzz-short: cargo-fuzz cannot override CARGO_BUILD_WARNINGS=deny.
+      CARGO_BUILD_WARNINGS: none
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
     - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
