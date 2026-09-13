@@ -29,7 +29,7 @@ world_state:
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "d484b69"           # 2026-09-13: PR #700 embedding env-race fix (#701/#702 setup-rust-toolchain 2.0.0 fallout)
+  main_head: "9429a07"           # 2026-09-13: PR #704 hybrid root shim (dedup complete; single compiled implementation)
   tests_count: 1092              # 2026-09-07: literal #[test]/#[tokio::test] across src/crates/tests
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
   coverage_ratio_current: 93     # test:source ratio (target ≥90%)
@@ -96,4 +96,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: repair_setup_rust_toolchain_2_0_0_warnings_cascade_2026_09_13
+  action_last_completed: dedupe_hybrid_root_shim_2026_09_13
