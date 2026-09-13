@@ -189,6 +189,31 @@ fn test_merge_results_top_k_exact_boundary() {
 }
 
 #[test]
+fn test_merge_results_smallest_selection_boundary() {
+    // len == top_k + 1 is the smallest input that takes the selection branch;
+    // select_nth_unstable_by(top_k + 1) panics there, which kills the
+    // `top_k - 1 -> top_k + 1` mutant. (`- -> /` and `> -> >=` are equivalent
+    // mutants — see scripts/mutation_test.sh excludes.)
+    let single = vec![
+        ("d1".to_string(), 3.0),
+        ("d2".to_string(), 1.0),
+        ("d3".to_string(), 2.0),
+    ];
+    let merged = merge_results(&single, &[], (1.0, 0.0), 2);
+    assert_eq!(merged.len(), 2);
+    assert_eq!(merged[0].0, "d1");
+    assert_eq!(merged[1].0, "d3");
+
+    // Dual-list path: 3 combined ids with top_k = 2 (disjoint scores).
+    let bm25 = vec![("a".to_string(), 10.0), ("b".to_string(), 5.0)];
+    let hdc = vec![("c".to_string(), 7.0)];
+    let merged = merge_results(&bm25, &hdc, (0.6, 0.4), 2);
+    assert_eq!(merged.len(), 2);
+    assert_eq!(merged[0].0, "a");
+    assert_eq!(merged[1].0, "c");
+}
+
+#[test]
 fn test_single_list_exact() {
     let bm25 = vec![("d1".into(), 12.0), ("d2".into(), 2.0), ("d4".into(), 7.0)];
     let merged = merge_results(&bm25, &[], (0.6, 0.4), 10);
