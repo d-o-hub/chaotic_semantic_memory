@@ -28,6 +28,13 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # libsql-sqlite3-parser: GHSA-8m95-fffc-h4c5 (crash on invalid UTF-8) has
+      # no patched release — 0.13.0 is the max on crates.io and the parser
+      # version is pinned by libsql upstream (see deny.toml). Without this
+      # ignore the weekly security job errors with "dependency is up to date
+      # but still vulnerable" (run 34711687692). Remove when libsql ships a
+      # parser > 0.13.0.
+      - dependency-name: "libsql-sqlite3-parser"
 
   - package-ecosystem: "github-actions"
     directory: "/"
