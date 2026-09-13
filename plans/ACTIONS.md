@@ -12,6 +12,19 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-09-13, wave 3):
+> `dedupe_hybrid_root_shim_2026_09_13` — PR #704 merged (`9429a07`): root
+> `src/retrieval/hybrid.rs` is now a 9-line re-export shim over
+> `csm_retrieval::hybrid` (bm25/rerank pattern), `compute_weights` exported
+> from the crate (was unreachable — the dead-copy trap #689 hit, found before
+> it re-broke the CLI), root `hybrid_tests.rs` and the orphaned
+> `src/retrieval/bm25/tests.rs` from #647 deleted (≈ −550 LOC). Hybrid has one
+> compiled implementation; the dual-surface bug class from
+> `plans/PR_ROAST_2026_09_12.md` is structurally closed. Partial progress on
+> `deduplicate_test_and_source_surfaces` (P3) — action stays queued for the
+> remaining root/crate test-body duplicates. mutation-test + miri verified
+> green under setup-rust-toolchain v2.0.0.
+>
 > Last completed (verified 2026-09-13, wave 2):
 > `repair_setup_rust_toolchain_2_0_0_warnings_cascade_2026_09_13` — merged the
 > weekly dependabot batch (#694–#698, incl. `setup-rust-toolchain` 2.0.0) and
