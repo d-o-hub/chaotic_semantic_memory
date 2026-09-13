@@ -49,7 +49,6 @@ impl HybridResult {
 /// - 3-4 tokens: (0.7, 0.3) - Keyword still strong
 /// - 5-8 tokens: (0.4, 0.6) - Semantic takes over
 /// - 9+ tokens:  (0.2, 0.8) - Full semantic mode
-#[allow(dead_code)]
 pub const fn compute_weights(token_count: usize) -> (f32, f32) {
     match token_count {
         1..=2 => (0.9, 0.1),
