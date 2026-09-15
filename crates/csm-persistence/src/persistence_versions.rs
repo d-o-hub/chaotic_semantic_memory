@@ -3,17 +3,7 @@ use csm_core_lib::error::{MemoryError, Result};
 use csm_memory::{Concept, ConceptVersion};
 use libsql::{Connection, params};
 
-#[allow(dead_code)]
 impl Persistence {
-    pub(crate) async fn record_concept_version<H: csm_core_lib::hyperdim::Hypervector>(
-        &self,
-        conn: &Connection,
-        concept: &Concept<H>,
-    ) -> Result<()> {
-        self.record_concept_version_scoped(conn, "_default", concept, None, None)
-            .await
-    }
-
     /// Records a new concept version, optionally using pre-computed vector bytes and metadata JSON.
     /// Performance Optimization: Accepting pre-computed values avoids redundant serialization and
     /// allocations when this is called from batch operations or normal save paths.
