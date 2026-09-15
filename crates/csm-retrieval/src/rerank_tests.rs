@@ -83,14 +83,13 @@ fn test_parse_rerankers() {
 }
 
 #[test]
-#[cfg(feature = "rerank-cross")]
-fn test_parse_rerankers_windows_path() {
+fn test_parse_rerankers_rejects_cross_encoder() {
+    // The cross-encoder was never shippable: its feature declared no
+    // dependencies while the code referenced an undeclared `candle_onnx`, so
+    // `--all-features` could not compile. Attempting it must fail loudly
+    // rather than silently reranking by similarity.
     let err = parse_rerankers(r"cross:C:\nonexistent\model.onnx").unwrap_err();
-    if let csm_core_lib::error::MemoryError::InvalidInput { reason, .. } = err {
-        assert!(reason.contains(r"C:\nonexistent\model.onnx"));
-    } else {
-        panic!("Expected InvalidInput error with the full path");
-    }
+    assert!(format!("{err}").contains("cross"));
 }
 
 #[test]
