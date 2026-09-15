@@ -179,34 +179,6 @@ impl Reranker for RecencyDecayReranker {
     }
 }
 
-/// Cross-encoder reranker using ONNX (opt-in).
-#[cfg(feature = "rerank-cross")]
-#[derive(Debug)]
-pub struct CrossEncoderReranker {
-    pub model: Arc<candle_onnx::onnx::ModelProto>,
-    pub model_path: String,
-}
-
-#[cfg(feature = "rerank-cross")]
-impl Reranker for CrossEncoderReranker {
-    fn name(&self) -> &str {
-        "cross-encoder"
-    }
-
-    fn rerank(
-        &self,
-        _query: &HVec10240,
-        candidates: Vec<RerankCandidate>,
-        top_k: usize,
-    ) -> Vec<RerankCandidate> {
-        // Implementation would load and run ONNX model
-        // For now, it's a skeleton that returns candidates as-is
-        let mut results = candidates;
-        results.truncate(top_k);
-        results
-    }
-}
-
 /// Parses a list of rerankers from a string flag (e.g., "mmr:0.7,recency:30d").
 pub fn parse_rerankers(s: &str) -> csm_core_lib::error::Result<Vec<Box<dyn Reranker>>> {
     let mut rerankers: Vec<Box<dyn Reranker>> = Vec::new();
@@ -284,19 +256,6 @@ pub fn parse_rerankers(s: &str) -> csm_core_lib::error::Result<Vec<Box<dyn Reran
                 rerankers.push(Box::new(RecencyDecayReranker {
                     half_life_days: half_life,
                     blend,
-                }));
-            }
-            #[cfg(feature = "rerank-cross")]
-            "cross" => {
-                let model = candle_onnx::read_file(value).map_err(|e| {
-                    csm_core_lib::error::MemoryError::InvalidInput {
-                        field: "rerank".to_string(),
-                        reason: format!("failed to load ONNX model {value}: {e}"),
-                    }
-                })?;
-                rerankers.push(Box::new(CrossEncoderReranker {
-                    model: Arc::new(model),
-                    model_path: value.to_string(),
                 }));
             }
             _ => {

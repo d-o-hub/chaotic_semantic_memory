@@ -27,7 +27,6 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 [features]
 default = []
 bm25 = ["dep:tantivy"]
-rerank-cross = []
 
 [lib]
 crate-type = ["lib"]

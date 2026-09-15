@@ -18,6 +18,3 @@ pub use hybrid::{
     normalize_scores, normalize_scores_in_place,
 };
 pub use rerank::{MmrReranker, RecencyDecayReranker, RerankCandidate, Reranker, parse_rerankers};
-
-#[cfg(feature = "rerank-cross")]
-pub use rerank::CrossEncoderReranker;
