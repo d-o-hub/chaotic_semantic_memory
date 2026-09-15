@@ -1,5 +1,18 @@
 # PROGRESS
 
+## 2026-09-15 (wave 2): ADR-0094 Persistence Owner Dedup Completed + PR Queue Landed
+
+### Summary
+Full `deduplicate_persistence_owner_bodies` wave (user-approved) plus the blocked PR queue. A freshly published advisory (RUSTSEC-2026-0285, rustls) had every open PR red on `Cargo Deny`; landing the one-file lockfile bump first, then `update-branch`-ing each PR so it inherited the fix, cleared the queue sequentially (#707, #708, #709, #710, #711 — all squash-merged with green CI, never `--auto`). Persistence now has a single implementation owner: root keeps only re-exports, one-line delegations and two infallible payload converters.
+
+### Actions
+- **#712 Merged** (`68d603d`): `cargo update -p rustls --precise 0.23.45` (+ `rustls-webpki` 0.103.15) for RUSTSEC-2026-0285; `cargo deny check advisories` and `cargo check --locked --all-features` green. Landed before the queue so every other PR could inherit it.
+- **#709 commitlint fixed**: the two offending commits were rewound (`git reset --soft HEAD~2`) and recommitted as `docs: regenerate stale llms API listing` / `docs: use the 0.3 major-minor spec in install snippets`; the first body also had to be re-wrapped (a single 431-char line is parsed as a footer and trips `footer-max-line-length`).
+- **#707/#708/#709/#710/#711 Merged**: dependabot action pin, triage record, repo hygiene (artifacts untracked + 0.3.8 version truth + llms), ADR-0071 rerank restoration, persistence phase 2. Each PR: `update-branch` → full CI → `gh pr merge --squash --delete-branch`.
+- **Phase 3 (PR #713)**: `src/export_payload.rs` reduced from 177 to 51 lines — the payload/wire types and `unix_now_secs` now come from `csm-traits`, with `concept_to_export`/`export_to_concept` as the only root code; `ExportConcept` gained `#[serde(default)]` for legacy JSON. Verified: lib tests (195 on the pre-#711 base, 184 afterwards) + no-default-features (135), targeted integration suites, clippy/fmt, wasm32 check, a legacy-JSON import through the CLI, and a before/after binary comparison (field-level decode of both bincode payloads identical except the wall-clock field and pre-existing map ordering; cross-imports both ways).
+- **Phase 4 (this PR)**: dead `record_concept_version` wrapper + its `#[allow(dead_code)]` removed from `csm-persistence`, the wasm stub export made mutually exclusive with the real one (PR #711 left `cargo clippy -p csm-persistence --all-features` failing with E0252 on a host target — CI only compiles default features for that crate, so nothing caught it), llms regenerated, CHANGELOG/GOAP/ACTIONS/plan-doc/PROGRESS/LEARNINGS updated; `queued_actions_count` 4 → 3, `action_last_completed: deduplicate_persistence_owner_bodies`.
+- **Found, not fixed**: `WasmFramework::exportToBytes`/`importFromBytes` disagree on the bincode config (legacy vs `DefaultOptions`), so the browser round trip fails — pre-existing, documented in `progress/LEARNINGS.md` with the probe, left for its own change.
+
 ## 2026-09-15: PR Queue Clear — Draft Closed as No-Impact, Hygiene + Persistence Queue
 
 ### Summary

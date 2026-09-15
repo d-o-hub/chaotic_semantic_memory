@@ -12,6 +12,21 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-09-15, wave 2):
+> `deduplicate_persistence_owner_bodies` (ADR-0094) — phase 1 (crate parity) was
+> already on main; this wave promoted the bridge types to `csm-traits`
+> (`ConceptGraph`, PR #711), moved the canonical graph CRUD into
+> `csm-persistence` behind a delegating root facade (PR #711), converged the
+> export payloads onto the owner-neutral `csm-traits` types (PR #713) and
+> dropped the last dead copy in `csm-persistence` (this PR). Root keeps no
+> second body of persistence or export payloads — only re-exports, one-line
+> delegations and infallible converters; the payload schema is unchanged
+> (field-level decode of pre/post bincode payloads identical except the
+> wall-clock field and pre-existing map ordering; cross-imports work both
+> ways). Partial progress on
+> `deduplicate_test_and_source_surfaces` (P3) — action stays queued for the
+> remaining root/crate test-body duplicates.
+>
 > Last completed (verified 2026-09-15):
 > `triage_pr_roast_2026_09_15` — 0 open issues, 2 open PRs. Jules draft
 > #706 (`perf(retrieval)` hybrid merge pass) closed as no-impact after
@@ -99,24 +114,6 @@
 > (PR #607), `recover_v037_failed_deployments` (v0.3.7 + v0.3.8 on crates.io).
 
 actions:
-  # P1 — ownership and contracts (ADR-0094)
-  - name: deduplicate_persistence_owner_bodies
-    preconditions:
-      adr_0094_accepted: true
-      retrieval_implementation_owner_unique: true
-    effects:
-      workspace_implementation_owners_unique: true
-      duplicate_implementation_bodies: 0
-    cost: 10
-    status: queued
-    file: src/persistence*, src/cli/, src/wasm*, crates/csm-persistence/, crates/csm-cli/, crates/csm-wasm/, crates/csm-traits/
-    adr: ADR-0094
-    description: |
-      CLI and WASM duplicate bodies are removed (csm-cli #626, csm-wasm #627);
-      persistence/export-payload body convergence between root and
-      csm-persistence remains. Migrate with API snapshots and behavior parity; do
-      not blindly re-export currently divergent implementations.
-
   # P2 — evidence (ADR-0095)
   - name: add_ann_and_persistence_scale_benchmarks
     preconditions:

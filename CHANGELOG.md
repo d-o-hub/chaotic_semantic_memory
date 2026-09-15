@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Perf (`csm-core-lib`)**: `BHVec10240::hamming` now dispatches directly over the packed `[u64; 160]` words (AVX2 / NEON / unrolled scalar fallback), removing the two `to_hvec()` layout conversions from the hot path — ~2.6–2.75× faster same-machine (PR #597).
 - **CI**: `test-core-arm64` job runs the `csm-core-lib` suite on a native `ubuntu-24.04-arm` runner so the NEON SIMD kernels are executed in CI, not only cross-compiled (PR #599).
 - **Breaking (`csm-memory`)**: `Singularity::prune_decayed_associations` now returns `Result<usize>` (was `usize`) and rejects non-finite or out-of-range thresholds with `MemoryError::InvalidInput` naming `threshold`. Prefer handling the `Result` at call sites (PR #609).
+- **Breaking (`chaotic_semantic_memory`)**: `Persistence` is now re-exported from `csm-persistence`; the concept/version read methods are generic over `Hypervector`, so `load_concept`, `load_all_concepts`, `get_version_scoped`, `list_versions_scoped` need an explicit `::<HVec10240>` where the surrounding code does not constrain the vector type. Wire formats (JSON, bincode), the schema ladder, wasm behavior and `--no-default-features` behavior are unchanged.
 
 ### Fixed
 - **Security**: `ChaoticSemanticFramework::prune_decayed_associations` validates `threshold` (finite, `[0.0, 1.0]`) before pruning — a `NaN` threshold previously pruned **all** associations silently (PR #607).
