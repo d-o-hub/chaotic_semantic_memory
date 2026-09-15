@@ -51,7 +51,7 @@ world_state:
   wave_32_status: in_progress    # P0/P1 landed; ownership + evidence remain (see queued actions)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 4        # 2026-08-12: 4 active after deduplicate_persistence_owner_bodies rename
+  queued_actions_count: 3        # 2026-09-15: deduplicate_persistence_owner_bodies completed
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: true            # 2026-08-12: no TODO in src/ crates/
@@ -74,6 +74,7 @@ world_state:
   ann_snapshot_revision_validated: true           # ADR-0093: IndexSnapshotEnvelope + ns revision
   ann_config_is_fallible: true                    # validate_index_backend; ADR-0093
   persistence_failure_leaves_memory_unchanged: true # durable commit before memory mutate
+  persistence_implementation_owner_unique: true  # 2026-09-15: root facade re-exports csm-persistence (phases 1-3); no second body
   mcp_full_width_vector_wire_contract: true       # base64 1280-byte HVec + high-bit tests
   public_f32_apis_validate_input: true            # 2026-08-07: PR #607 prune/neighbors validation
   workspace_ci_matrix_complete: true              # csm-chaos + benchmark tests in CI
@@ -96,4 +97,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: triage_pr_roast_2026_09_15
+  action_last_completed: deduplicate_persistence_owner_bodies

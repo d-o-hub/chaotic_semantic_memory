@@ -1,6 +1,7 @@
 # Deduplicate Persistence Owner Bodies — Implementation Plan (2026-08-13)
 
-Status: **Proposed — awaiting approval** (GOAP action `deduplicate_persistence_owner_bodies`, ADR-0094)
+Status: **Executed (2026-09-15)** (GOAP action `deduplicate_persistence_owner_bodies`, ADR-0094)
+Landed as PR #711 (bridge types → `csm-traits`, canonical graph CRUD → `csm-persistence`, root facade delegates) and PR #713 (export payloads → `csm-traits`), with this cleanup PR closing the dead copies. Two plan deviations: phase 1 was already satisfied on main (crate parity + v11 schema ladder), and `ConceptGraph` shipped in `csm-traits` rather than `csm-memory`.
 
 ## Problem
 

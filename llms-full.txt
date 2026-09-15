@@ -82,7 +82,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/bridge_persistence.rs
 
-- impl Persistence
 - pub fn absence_from_abstention
 - pub fn merge_absence_with
 - pub fn persist_absence
@@ -329,15 +328,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub use csm_embedding::*
 
-### src/export_payload.rs
-
-- impl From for BinaryMetadataValue
-- impl From for serde_json::Value
-- impl From for BinaryConcept
-- impl BinaryConcept
-- impl From for BinaryExportPayload
-- impl BinaryExportPayload
-
 ### src/framework.rs
 
 - pub struct ChaoticSemanticFramework
@@ -481,11 +471,11 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod mcp
 - pub mod metadata_filter
 - pub mod observability
+- pub mod persistence
 - pub mod semantic_triples
 - pub use metadata_filter::MetadataFilter
 - pub mod index
 - pub mod index_envelope
-- pub mod persistence
 - pub mod persistence_wasm
 - pub use csm_core_lib::reservoir
 - pub use csm_traits
@@ -598,37 +588,13 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/persistence.rs
 
-- pub struct Persistence
-- pub use crate::singularity::ConceptVersion
-- impl Persistence
-- impl AbsenceStore for Persistence
-- impl Persistence
-
-### src/persistence_concepts.rs
-
-- impl Persistence
-
-### src/persistence_index.rs
-
-- impl Persistence
-
-### src/persistence_migrations.rs
-
-- impl Persistence
-
-### src/persistence_ops.rs
-
-- impl Persistence
-
-### src/persistence_versions.rs
-
-- impl Persistence
+- pub use csm_memory::ConceptVersion
+- pub use csm_persistence::Persistence
 
 ### src/persistence_wasm.rs
 
-- pub struct Persistence
-- pub use crate::singularity::ConceptVersion
-- impl Persistence
+- pub use csm_memory::ConceptVersion
+- pub use csm_persistence::Persistence
 
 ### src/retrieval/bm25.rs
 
@@ -664,12 +630,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/retrieval/rerank.rs
 
 - pub use csm_retrieval::{MmrReranker, RecencyDecayReranker, RerankCandidate, Reranker, parse_rerankers}
-- pub use csm_retrieval::CrossEncoderReranker
 
 ### src/semantic_bridge.rs
 
-- pub struct CanonicalConcept
-- impl CanonicalConcept
+- pub use csm_traits::{CanonicalConcept, ConceptGraph}
 - pub struct BridgeConfig
 - impl Default for BridgeConfig
 - pub struct ScoreBreakdown
@@ -678,8 +642,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct MemoryPacket
 - impl MemoryPacket
 - pub trait SemanticReranker
-- pub struct ConceptGraph
-- impl ConceptGraph
 
 ### src/semantic_triples.rs
 
@@ -913,7 +875,7 @@ features: `ann-hnsw` (graph) and `ann-lsh` (chaotic locality-sensitive
 hashing). Enable exactly one:
 
 ```toml
-chaotic_semantic_memory = { version = "0.3.8", default-features = false, features = ["ann-hnsw"] }
+chaotic_semantic_memory = { version = "0.3", default-features = false, features = ["ann-hnsw"] }
 ```
 
 With no ANN feature enabled, retrieval uses exact scan (~24ms at 200k
@@ -1078,14 +1040,14 @@ WASM support is enabled automatically when compiling for the `wasm32` target arc
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.3.8" }
+chaotic_semantic_memory = { version = "0.3" }
 ```
 
 For library-only consumers who don't need the CLI binary or its dependencies:
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.3.8", default-features = false }
+chaotic_semantic_memory = { version = "0.3", default-features = false }
 ```
 
 ##### WASM npm Package (for JS/TS)
@@ -1337,19 +1299,6 @@ Build an `AbsenceEntry` from a `RetrievalAbstention` event.
 Root adapter: `AbsenceEntry`/`AbsenceStore` live in `csm-traits` (ADR-0094);
 this conversion bridges the framework-level abstention event into the
 owner-neutral persistence contract.
-
-### impl Persistence
-
-```rust
-impl Persistence {
-    pub fn save_canonical_concept(&self, ns: &str, concept: &CanonicalConcept) -> Result<()>;
-    pub fn delete_canonical_concept(&self, ns: &str, id: &str) -> Result<()>;
-    pub fn load_canonical_concept(&self, ns: &str, id: &str) -> Result<Option<CanonicalConcept>>;
-    pub fn load_all_canonical_concepts(&self, ns: &str) -> Result<Vec<CanonicalConcept>>;
-    pub fn save_concept_graph(&self, ns: &str, graph: &ConceptGraph) -> Result<()>;
-    pub fn load_concept_graph(&self, ns: &str) -> Result<ConceptGraph>;
-}
-```
 
 ### merge_absence_with
 
@@ -2471,48 +2420,6 @@ pub use csm_embedding::*;
 
 ## src/export_payload.rs
 
-### impl BinaryConcept
-
-```rust
-impl BinaryConcept {
-}
-```
-
-### impl BinaryExportPayload
-
-```rust
-impl BinaryExportPayload {
-}
-```
-
-### impl From<BinaryMetadataValue> for serde_json::Value
-
-```rust
-impl From<BinaryMetadataValue> for serde_json::Value {
-}
-```
-
-### impl From<ExportPayload> for BinaryExportPayload
-
-```rust
-impl From<ExportPayload> for BinaryExportPayload {
-}
-```
-
-### impl From<crate::singularity::Concept> for BinaryConcept
-
-```rust
-impl From<crate::singularity::Concept> for BinaryConcept {
-}
-```
-
-### impl From<serde_json::Value> for BinaryMetadataValue
-
-```rust
-impl From<serde_json::Value> for BinaryMetadataValue {
-}
-```
-
 ## src/export_payload/export_payload_tests.rs
 
 ## src/framework.rs
@@ -2963,6 +2870,8 @@ impl ChaoticSemanticFramework {
     pub fn probe_with_rerankers(&self, query: HVec10240, initial_top_k: usize, rerankers: &[Box<dyn Trait>], final_top_k: usize) -> Result<Vec<(String, f32)>>;
 }
 ```
+
+## src/framework_rerank_tests.rs
 
 ## src/framework_ttl.rs
 
@@ -3873,175 +3782,30 @@ has accepted its socket so callers can rely on `local_addr`.
 
 ## src/persistence.rs
 
-### Persistence
+### csm_memory::ConceptVersion
 
 ```rust
-#[derive(Debug)]
-pub struct Persistence {
-}
+pub use csm_memory::ConceptVersion;
 ```
 
-### crate::singularity::ConceptVersion
+### csm_persistence::Persistence
 
 ```rust
-pub use crate::singularity::ConceptVersion;
-```
-
-### impl AbsenceStore for Persistence
-
-```rust
-impl AbsenceStore for Persistence {
-}
-```
-
-### impl Persistence
-
-```rust
-impl Persistence {
-    pub fn new_local(path: &str) -> Result<Self>;
-    pub fn new_local_with_retention(path: &str, version_retention: usize) -> Result<Self>;
-    pub fn new_turso(url: &str, token: &str) -> Result<Self>;
-    pub fn new_turso_with_pool(url: &str, token: &str, pool_size: usize) -> Result<Self>;
-    pub fn new_turso_with_pool_and_retention(url: &str, token: &str, pool_size: usize, version_retention: usize) -> Result<Self>;
-    pub fn save_association(&self, ns: &str, from: &str, to: &str, strength: f32) -> Result<()>;
-    pub fn load_associations(&self, ns: &str, id: &str) -> Result<Vec<(String, f32, u64)>>;
-    pub fn checkpoint(&self) -> Result<()>;
-    pub fn list_namespaces(&self) -> Result<Vec<String>>;
-    pub fn size(&self) -> Result<u64>;
-}
-```
-
-### impl Persistence
-
-```rust
-impl Persistence {
-}
-```
-
-## src/persistence_concepts.rs
-
-### impl Persistence
-
-```rust
-impl Persistence {
-    pub fn save_concept(&self, ns: &str, concept: &Concept) -> Result<()>;
-    pub fn save_concepts(&self, ns: &str, concepts: &[Concept]) -> Result<()>;
-    pub fn load_concept(&self, ns: &str, id: &str) -> Result<Option<Concept>>;
-    pub fn load_all_concepts(&self, ns: &str) -> Result<Vec<Concept>>;
-    pub fn delete_concept(&self, ns: &str, id: &str) -> Result<()>;
-}
-```
-
-## src/persistence_index.rs
-
-### impl Persistence
-
-```rust
-impl Persistence {
-    pub fn save_index(&self, ns: &str, id: &str, data: &[u8]) -> Result<()>;
-    pub fn save_index_envelope(&self, ns: &str, id: &str, envelope: &IndexSnapshotEnvelope) -> Result<()>;
-    pub fn load_index(&self, ns: &str, id: &str) -> Result<Option<Vec<u8>>>;
-    pub fn load_index_envelope(&self, ns: &str, id: &str) -> Result<Option<IndexSnapshotEnvelope>>;
-    pub fn get_namespace_revision(&self, ns: &str) -> Result<u64>;
-    pub fn bump_namespace_revision(&self, ns: &str) -> Result<u64>;
-    pub fn load_all_associations(&self, ns: &str) -> Result<Vec<(String, String, f32, u64)>>;
-}
-```
-
-## src/persistence_migrations.rs
-
-### impl Persistence
-
-```rust
-impl Persistence {
-}
-```
-
-## src/persistence_ops.rs
-
-### impl Persistence
-
-```rust
-impl Persistence {
-    pub fn save_associations(&self, ns: &str, associations: &[(String, String, f32)]) -> Result<()>;
-    pub fn clear_namespace(&self, ns: &str) -> Result<()>;
-    pub fn clear_all(&self) -> Result<()>;
-    pub fn get_concept_history(&self, ns: &str, id: &str, limit: usize) -> Result<Vec<ConceptVersion>>;
-    pub fn schema_version(&self) -> Result<i64>;
-    pub fn apply_migrations(&self, target_version: i64) -> Result<()>;
-    pub fn backup(&self, path: &str) -> Result<()>;
-    pub fn restore(&self, path: &str) -> Result<()>;
-    pub fn health_check(&self) -> Result<()>;
-    pub fn delete_association(&self, ns: &str, from: &str, to: &str) -> Result<()>;
-    pub fn clear_concept_associations(&self, ns: &str, id: &str) -> Result<()>;
-}
-```
-
-## src/persistence_versions.rs
-
-### impl Persistence
-
-```rust
-impl Persistence {
-    pub fn get_version_scoped(&self, ns: &str, id: &str, version: u64) -> Result<Option<Concept>>;
-    pub fn list_versions_scoped(&self, ns: &str, id: &str) -> Result<Vec<ConceptVersion>>;
-}
+pub use csm_persistence::Persistence;
 ```
 
 ## src/persistence_wasm.rs
 
-### Persistence
+### csm_memory::ConceptVersion
 
 ```rust
-pub struct Persistence;
+pub use csm_memory::ConceptVersion;
 ```
 
-Persistence stub for wasm32 builds.
-
-### crate::singularity::ConceptVersion
+### csm_persistence::Persistence
 
 ```rust
-pub use crate::singularity::ConceptVersion;
-```
-
-### impl Persistence
-
-```rust
-impl Persistence {
-    pub fn new_local(_path: &str) -> Result<Self>;
-    pub fn new_local_with_retention(_path: &str, _retention: usize) -> Result<Self>;
-    pub fn new_turso(_url: &str, _token: &str) -> Result<Self>;
-    pub fn new_turso_with_pool(_url: &str, _token: &str, _pool_size: usize) -> Result<Self>;
-    pub fn new_turso_with_pool_and_retention(_url: &str, _token: &str, _pool_size: usize, _retention: usize) -> Result<Self>;
-    pub fn save_concept(&self, _ns: &str, _concept: &Concept) -> Result<()>;
-    pub fn save_concepts(&self, _ns: &str, _concepts: &[Concept]) -> Result<()>;
-    pub fn load_concept(&self, _ns: &str, _id: &str) -> Result<Option<Concept>>;
-    pub fn load_all_concepts(&self, _ns: &str) -> Result<Vec<Concept>>;
-    pub fn delete_concept(&self, _ns: &str, _id: &str) -> Result<()>;
-    pub fn save_association(&self, _ns: &str, _from: &str, _to: &str, _strength: f32) -> Result<()>;
-    pub fn save_associations(&self, _ns: &str, _associations: &[(String, String, f32)]) -> Result<()>;
-    pub fn load_associations(&self, _ns: &str, _id: &str) -> Result<Vec<(String, f32, u64)>>;
-    pub fn load_all_associations(&self, _ns: &str) -> Result<Vec<(String, String, f32, u64)>>;
-    pub fn get_namespace_revision(&self, _ns: &str) -> Result<u64>;
-    pub fn bump_namespace_revision(&self, _ns: &str) -> Result<u64>;
-    pub fn save_index_envelope(&self, _ns: &str, _id: &str, _envelope: &crate::index_envelope::IndexSnapshotEnvelope) -> Result<()>;
-    pub fn load_index_envelope(&self, _ns: &str, _id: &str) -> Result<Option<crate::index_envelope::IndexSnapshotEnvelope>>;
-    pub fn clear_namespace(&self, _ns: &str) -> Result<()>;
-    pub fn clear_all(&self) -> Result<()>;
-    pub fn get_version_scoped(&self, _ns: &str, _id: &str, _version: u64) -> Result<Option<Concept>>;
-    pub fn list_versions_scoped(&self, _ns: &str, _id: &str) -> Result<Vec<crate::singularity::ConceptVersion>>;
-    pub fn get_concept_history(&self, _ns: &str, _id: &str, _limit: usize) -> Result<Vec<ConceptVersion>>;
-    pub fn schema_version(&self) -> Result<i64>;
-    pub fn apply_migrations(&self, _target_version: i64) -> Result<()>;
-    pub fn backup(&self, _path: &str) -> Result<()>;
-    pub fn restore(&self, _path: &str) -> Result<()>;
-    pub fn checkpoint(&self) -> Result<()>;
-    pub fn health_check(&self) -> Result<()>;
-    pub fn size(&self) -> Result<u64>;
-    pub fn save_index(&self, _ns: &str, _id: &str, _data: &[u8]) -> Result<()>;
-    pub fn list_namespaces(&self) -> Result<Vec<String>>;
-    pub fn load_index(&self, _ns: &str, _id: &str) -> Result<Option<Vec<u8>>>;
-}
+pub use csm_persistence::Persistence;
 ```
 
 ## src/retrieval/bm25.rs
@@ -4157,12 +3921,6 @@ pub use rerank::{MmrReranker, RerankCandidate, Reranker};
 
 ## src/retrieval/rerank.rs
 
-### csm_retrieval::CrossEncoderReranker
-
-```rust
-pub use csm_retrieval::CrossEncoderReranker;
-```
-
 ### csm_retrieval::{MmrReranker, RecencyDecayReranker, RerankCandidate, Reranker, parse_rerankers}
 
 ```rust
@@ -4199,33 +3957,6 @@ pub struct BridgeHit {
 ```
 
 A single hit from bridge retrieval.
-
-### CanonicalConcept
-
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CanonicalConcept {
-    pub id: String,
-    pub version: u32,
-    pub labels: Vec<String>,
-    pub related: Vec<String>,
-}
-```
-
-A canonical concept with symbolic identity relationships.
-
-Canonical concepts represent semantic equivalence classes (e.g., "agent memory"
-≈ "cross-session context" ≈ "ai memory") without modifying stored vectors.
-
-### ConceptGraph
-
-```rust
-#[derive(Debug, Clone, Default)]
-pub struct ConceptGraph {
-}
-```
-
-In-memory canonical concept graph for symbolic semantic expansion.
 
 ### MemoryPacket
 
@@ -4270,32 +4001,10 @@ Trait for optional semantic reranking.
 Implementations can wrap local models, remote APIs, or rule-based heuristics.
 The reranker never mutates deterministic scores—only adjusts ordering.
 
-### impl CanonicalConcept
+### csm_traits::{CanonicalConcept, ConceptGraph}
 
 ```rust
-impl CanonicalConcept {
-    pub fn new(id: impl Trait) -> Self;
-    pub fn with_label(self, label: impl Trait) -> Self;
-    pub fn with_related(self, related_id: impl Trait) -> Self;
-}
-```
-
-### impl ConceptGraph
-
-```rust
-impl ConceptGraph {
-    pub fn new() -> Self;
-    pub fn add_concept(&mut self, concept: CanonicalConcept);
-    pub fn remove_concept(&mut self, id: &str) -> Option<CanonicalConcept>;
-    pub fn get_concept(&self, id: &str) -> Option<&CanonicalConcept>;
-    pub fn match_tokens(&self, tokens: &[String]) -> Vec<String>;
-    pub fn expand(&self, concept_ids: &[String], max_depth: u8) -> Vec<String>;
-    pub fn load_from_json(reader: impl Trait) -> csm_core_lib::Result<Self>;
-    pub fn save_to_json(&self, writer: impl Trait) -> csm_core_lib::Result<()>;
-    pub fn concept_count(&self) -> usize;
-    pub fn label_count(&self) -> usize;
-    pub fn all_concepts(&self) -> impl Trait;
-}
+pub use csm_traits::{CanonicalConcept, ConceptGraph};
 ```
 
 ### impl Default for BridgeConfig
