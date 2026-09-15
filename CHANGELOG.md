@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Perf (`csm-memory`)**: `generate_graph_candidates` BFS borrows `&str` instead of cloning every candidate `String` — ~8% faster end-to-end on a 500-node association graph (same-machine criterion, PR #598). New `benches/graph_candidates_benchmark.rs` provides the A/B evidence.
+- **CI**: `benchmark-graph-candidates` job runs the graph-candidates criterion bench with a documented regression ceiling on `benches/**`, `csm-memory`, and workflow changes.
+- **Perf (`csm-core-lib`)**: `BHVec10240::hamming` now dispatches directly over the packed `[u64; 160]` words (AVX2 / NEON / unrolled scalar fallback), removing the two `to_hvec()` layout conversions from the hot path — ~2.6–2.75× faster same-machine (PR #597).
+- **CI**: `test-core-arm64` job runs the `csm-core-lib` suite on a native `ubuntu-24.04-arm` runner so the NEON SIMD kernels are executed in CI, not only cross-compiled (PR #599).
+- **Breaking (`csm-memory`)**: `Singularity::prune_decayed_associations` now returns `Result<usize>` (was `usize`) and rejects non-finite or out-of-range thresholds with `MemoryError::InvalidInput` naming `threshold`. Prefer handling the `Result` at call sites (PR #609).
+
+### Fixed
+- **Security**: `ChaoticSemanticFramework::prune_decayed_associations` validates `threshold` (finite, `[0.0, 1.0]`) before pruning — a `NaN` threshold previously pruned **all** associations silently (PR #607).
+- **Security (`csm-memory`, wasm)**: Crate-level `Singularity::prune_decayed_associations` and the wasm `neighbors(min_strength)` binding reject `NaN`/out-of-range inputs instead of silently mass-pruning associations or returning empty neighbor sets (PR #609).
+
+## [0.3.8] - 2026-07-28
+
 ### Added
 - **HARNESS.md**: Agent sensor map, feedforward/feedback loops, and self-correction protocol for HDC/reservoir development.
 - **CI**: `Fuzz Workspace Build` job compiles all fuzz targets (`cargo check --manifest-path fuzz/Cargo.toml --all-targets --locked`).
@@ -14,20 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ANN**: `validate_index_backend` at framework build; invalid HNSW/LSH configs return `MemoryError::InvalidInput` instead of panicking.
 
 ### Changed
-- **Perf (`csm-memory`)**: `generate_graph_candidates` BFS borrows `&str` instead of cloning every candidate `String` — ~8% faster end-to-end on a 500-node association graph (same-machine criterion, PR #598). New `benches/graph_candidates_benchmark.rs` provides the A/B evidence.
-- **CI**: `benchmark-graph-candidates` job runs the graph-candidates criterion bench with a documented regression ceiling on `benches/**`, `csm-memory`, and workflow changes.
-- **Perf (`csm-core-lib`)**: `BHVec10240::hamming` now dispatches directly over the packed `[u64; 160]` words (AVX2 / NEON / unrolled scalar fallback), removing the two `to_hvec()` layout conversions from the hot path — ~2.6–2.75× faster same-machine (PR #597).
-- **CI**: `test-core-arm64` job runs the `csm-core-lib` suite on a native `ubuntu-24.04-arm` runner so the NEON SIMD kernels are executed in CI, not only cross-compiled (PR #599).
 - **Breaking (`csm-memory`)**: `Singularity::get_namespace_mut` now returns `Result<&mut NamespaceState<H>>` (was `&mut NamespaceState<H>`). Prefer `ensure_namespace`; invalid ANN backends propagate as `InvalidInput`. Migration: add `?` / handle `Result` at call sites.
 - **Release skill**: Slimmed to ≤250 LOC; documents protected-main branch→PR→CI→merge and `release.yml` as sole routine tag owner.
-- **Breaking (`csm-memory`)**: `Singularity::prune_decayed_associations` now returns `Result<usize>` (was `usize`) and rejects non-finite or out-of-range thresholds with `MemoryError::InvalidInput` naming `threshold`. Prefer handling the `Result` at call sites (PR #609).
 
 ### Fixed
 - **Fuzz**: `persistence_save_concept` target updated for current `Concept` / `save_concept(ns, …)` API; unique temp DBs via `tempfile`.
 - **Security (csm-duckdb)**: Remove redundant SQL-escape in `export_parquet.rs` and `ingest_libsql.rs`; `validate_analytics_path` already rejects quote characters, making the extra `replace("'", "''")` unreachable dead code.
 - **Security (deps)**: Update `time` from 0.3.45 to 0.3.47 to fix RUSTSEC-2026-0009 (DoS via stack exhaustion, CVSS 6.8). Transitive via `tantivy → csm-retrieval`.
-- **Security**: `ChaoticSemanticFramework::prune_decayed_associations` validates `threshold` (finite, `[0.0, 1.0]`) before pruning — a `NaN` threshold previously pruned **all** associations silently (PR #607).
-- **Security (`csm-memory`, wasm)**: Crate-level `Singularity::prune_decayed_associations` and the wasm `neighbors(min_strength)` binding reject `NaN`/out-of-range inputs instead of silently mass-pruning associations or returning empty neighbor sets (PR #609).
 - **CI (Pre-Release Gate)**: Fix `cargo install cargo-audit` failure on rustc 1.88.0 by adding `--locked`; fix `planning-state-check` grep off-by-one (blank line after `## Status` heading).
 
 ## [0.3.7] - 2026-06-27
@@ -442,8 +448,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CI workflow with security permissions and concurrency controls
 - Trusted Publishing eliminates need for long-lived API tokens
 
+[0.3.8]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.7...v0.3.8
+[0.3.7]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.6...v0.3.7
+[0.3.6]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.4...v0.3.5
-[0.3.6]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.5...HEAD
 [0.3.4]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.2...v0.3.4
 [0.3.2]: https://github.com/d-o-hub/chaotic_semantic_memory/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/d-o-hub/chaotic_semantic_memory/releases/tag/v0.3.1

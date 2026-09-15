@@ -101,7 +101,7 @@ cognitive_complexity = "allow"
 
 [package]
 name = "chaotic_semantic_memory"
-version = "0.3.7"
+version = "0.3.8"
 edition = "2024"
 rust-version.workspace = true
 description = "AI memory systems with hyperdimensional vectors and chaotic reservoirs"

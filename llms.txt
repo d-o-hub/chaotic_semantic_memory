@@ -2,7 +2,7 @@
 
 > AI memory systems with hyperdimensional vectors and chaotic reservoirs
 
-**Version:** 0.3.7
+**Version:** 0.3.8
 **License:** MIT
 **Repository:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
@@ -56,8 +56,8 @@
 - mcp: [dep:rmcp, cli, dep:axum, dep:tower, dep:tower-http]
 - otlp-json: []
 - otlp: [dep:opentelemetry, dep:opentelemetry_sdk, dep:opentelemetry-otlp, dep:tracing-opentelemetry]
-- parallel: [dep:rayon]
-- persistence: [dep:libsql]
+- parallel: [dep:rayon, csm-memory/parallel, csm-traits/parallel]
+- persistence: [dep:libsql, csm-persistence/persistence]
 - prometheus: [dep:prometheus, dep:hyper, dep:hyper-util, dep:http-body-util]
 - wasm: []
 
@@ -83,9 +83,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/bridge_persistence.rs
 
 - impl Persistence
-- pub struct AbsenceEntry
-- impl AbsenceEntry
-- pub trait AbsenceStore
+- pub fn absence_from_abstention
+- pub fn merge_absence_with
 - pub fn persist_absence
 
 ### src/bridge_retrieval.rs
@@ -415,6 +414,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/framework_ttl.rs
 
+- pub const ABSENCE_MIN_ATTEMPTS
 - impl crate::framework::ChaoticSemanticFramework
 
 ### src/framework_ttl_advanced.rs
@@ -450,13 +450,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/index_envelope.rs
 
-- pub const INDEX_ENVELOPE_MAGIC
-- pub const INDEX_ENVELOPE_VERSION
-- pub const VECTOR_FORMAT_HVEC10240
-- pub struct IndexSnapshotEnvelope
-- impl IndexSnapshotEnvelope
-- pub fn fnv1a64
-- pub fn backend_fingerprint
+- pub use csm_memory::index_envelope::{INDEX_ENVELOPE_MAGIC, INDEX_ENVELOPE_VERSION, IndexSnapshotEnvelope, VECTOR_FORMAT_HVEC10240, backend_fingerprint, fnv1a64}
 
 ### src/lib.rs
 
@@ -638,13 +632,12 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/retrieval/bm25.rs
 
-- pub struct Bm25Config
-- impl Default for Bm25Config
-- pub struct Bm25Index
-- impl Default for Bm25Index
+- pub use csm_retrieval::{Bm25Config, Bm25Index}
 - pub fn is_known_absent
-- impl Clone for Bm25Index
-- impl Bm25Index
+
+### src/retrieval/bm25/absence_short_circuit_tests.rs
+
+- impl AbsenceStore for StubStore
 
 ### src/retrieval/graph_rag.rs
 
@@ -655,14 +648,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/retrieval/hybrid.rs
 
-- pub use csm_retrieval::{HybridResult, RetrievalAbstention}
-- pub fn compute_weights
-- pub fn normalize_scores
-- pub fn normalize_scores_in_place
-- pub fn merge_results
-- pub enum HybridMode
-- pub struct HybridConfig
-- impl Default for HybridConfig
+- pub use csm_retrieval::{HybridConfig, HybridMode, HybridResult, RetrievalAbstention, compute_weights, merge_results, normalize_scores, normalize_scores_in_place}
 
 ### src/retrieval/mod.rs
 
@@ -677,15 +663,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/retrieval/rerank.rs
 
-- pub struct RerankCandidate
-- pub trait Reranker
-- pub struct MmrReranker
-- impl Reranker for MmrReranker
-- pub struct RecencyDecayReranker
-- impl Reranker for RecencyDecayReranker
-- pub struct CrossEncoderReranker
-- impl Reranker for CrossEncoderReranker
-- pub fn parse_rerankers
+- pub use csm_retrieval::{MmrReranker, RecencyDecayReranker, RerankCandidate, Reranker, parse_rerankers}
+- pub use csm_retrieval::CrossEncoderReranker
 
 ### src/semantic_bridge.rs
 
@@ -933,16 +912,20 @@ vectors. For larger corpora, two-stage candidate generation can be enabled via
 Both reduce the scored subset from n to a smaller candidate set while
 preserving exact similarity semantics on the reranking pass.
 
-##### ANN/LSH Deferred
+##### ANN Index Backends
 
-Approximate nearest-neighbor (ANN) or locality-sensitive hashing (LSH) indexing
-is **intentionally deferred** until benchmarks demonstrate latency regression
-beyond the current threshold. As documented in
-[ADR-0056](plans/adr/0056-performance-follow-up-priorities.md), the trigger is
-**>200k concepts** with latency degradation. Current benchmarks show the exact
-scan completes in ~24ms at 200k concepts, well within acceptable bounds
-(see [ADR-0059](plans/adr/0059-retrieval-optimization.md) for retrieval
-optimization details and benchmark methodology).
+Approximate nearest-neighbor search is available behind opt-in Cargo
+features: `ann-hnsw` (graph) and `ann-lsh` (chaotic locality-sensitive
+hashing). Enable exactly one:
+
+```toml
+chaotic_semantic_memory = { version = "0.3.8", default-features = false, features = ["ann-hnsw"] }
+```
+
+With no ANN feature enabled, retrieval uses exact scan (~24ms at 200k
+concepts, see [ADR-0059](plans/adr/0059-retrieval-optimization.md)).
+Further index automation (ADR-0056) remains deferred until benchmarks
+show latency regression beyond the threshold at >200k concepts.
 
 ##### Async Runtime
 
@@ -1101,14 +1084,14 @@ WASM support is enabled automatically when compiling for the `wasm32` target arc
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.3" }
+chaotic_semantic_memory = { version = "0.3.8" }
 ```
 
 For library-only consumers who don't need the CLI binary or its dependencies:
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.4", default-features = false }
+chaotic_semantic_memory = { version = "0.3.8", default-features = false }
 ```
 
 ##### WASM npm Package (for JS/TS)
@@ -1378,9 +1361,9 @@ cognitive_complexity = "allow"
 
 [package]
 name = "chaotic_semantic_memory"
-version = "0.3.7"
+version = "0.3.8"
 edition = "2024"
-rust-version = "1.88"
+rust-version.workspace = true
 description = "AI memory systems with hyperdimensional vectors and chaotic reservoirs"
 license = "MIT"
 repository = "https://github.com/d-o-hub/chaotic_semantic_memory"
@@ -1400,12 +1383,14 @@ include = [
 ]
 
 [dependencies]
-csm-chaos = { path = "crates/csm-chaos", version = "0.3.7" }
-csm-core-lib = { path = "crates/csm-core-lib", version = "0.3.7" }
-csm-embedding = { path = "crates/csm-embedding", version = "0.3.7" }
-csm-memory = { path = "crates/csm-memory", version = "0.3.7" }
-csm-retrieval = { path = "crates/csm-retrieval", version = "0.3.7" }
-csm-traits = { path = "crates/csm-traits", version = "0.3.7" }
+# Owner crates: default-features = false so the root controls feature
+# composition (ADR-0094); root features forward explicitly below.
+csm-chaos = { path = "crates/csm-chaos", version = "0.3.7", default-features = false }
+csm-core-lib = { path = "crates/csm-core-lib", version = "0.3.7", default-features = false }
+csm-embedding = { path = "crates/csm-embedding", version = "0.3.7", default-features = false }
+csm-memory = { path = "crates/csm-memory", version = "0.3.7", default-features = false }
+csm-retrieval = { path = "crates/csm-retrieval", version = "0.3.7", default-features = false }
+csm-traits = { path = "crates/csm-traits", version = "0.3.7", default-features = false }
 
 tempfile = { workspace = true }
 # Serialization
@@ -1463,9 +1448,13 @@ rayon = { version = "1.10.0", optional = true }
 
 # Database - Use libsql NOT turso-client (opt-in via "persistence" feature)
 libsql = { version = "0.9.30", default-features = false, features = ["sync", "hrana", "remote"], optional = true }
-csm-persistence = { path = "crates/csm-persistence", version = "0.3.7" }
+# ADR-0094: no default features — csm-persistence default pulls libSQL;
+# the root `persistence` feature forwards explicitly.
+csm-persistence = { path = "crates/csm-persistence", version = "0.3.7", default-features = false }
 # `net` is required by the Prometheus /metrics server (ADR-0072).
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs", "net"] }
+# `time` is required by the TTL cleanup loop; it was previously enabled only
+# transitively via libsql (ADR-0094 lean-build fix).
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs", "net", "time"] }
 
 # HTTP server for Prometheus /metrics endpoint (ADR-0072, opt-in via "prometheus" feature)
 hyper = { version = "1", features = ["server", "http1"], optional = true }
@@ -1500,6 +1489,7 @@ harness = false
 [[bench]]
 name = "persistence_benchmark"
 harness = false
+required-features = ["persistence"]
 
 [[bench]]
 name = "bm25_benchmark"
@@ -1555,6 +1545,7 @@ required-features = ["cli"]
 [[example]]
 name = "proof_of_concept"
 path = "examples/proof_of_concept.rs"
+required-features = ["persistence"]
 
 [[example]]
 name = "basic_in_memory"
@@ -1577,6 +1568,11 @@ name = "streaming_temporal"
 path = "examples/streaming_temporal.rs"
 
 [[example]]
+name = "verify_migration"
+path = "examples/verify_migration.rs"
+required-features = ["persistence"]
+
+[[example]]
 name = "observability_otlp"
 path = "examples/observability_otlp.rs"
 required-features = ["prometheus", "otlp-json"]
@@ -1585,8 +1581,8 @@ required-features = ["prometheus", "otlp-json"]
 experimental-neural-circuit = ["csm-chaos/experimental-neural-circuit"]
 default = ["cli", "persistence", "parallel"]
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
-persistence = ["dep:libsql"]
-parallel = ["dep:rayon"]
+persistence = ["dep:libsql", "csm-persistence/persistence"]
+parallel = ["dep:rayon", "csm-memory/parallel", "csm-traits/parallel"]
 wasm = []
 mcp = ["dep:rmcp", "cli", "dep:axum", "dep:tower", "dep:tower-http"]  # ADR-0067: MCP server requires CLI infrastructure
 
