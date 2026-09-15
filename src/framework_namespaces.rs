@@ -1,4 +1,4 @@
-use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
+use crate::export_payload::{BinaryExportPayload, ExportPayload, concept_to_export, unix_now_secs};
 use crate::framework::ChaoticSemanticFramework;
 use csm_core_lib::error::Result;
 #[cfg(not(target_arch = "wasm32"))]
@@ -98,7 +98,11 @@ impl ChaoticSemanticFramework {
             ExportPayload {
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 exported_at: unix_now_secs(),
-                concepts: sing.all_concepts(ns),
+                concepts: sing
+                    .all_concepts(ns)
+                    .into_iter()
+                    .map(concept_to_export)
+                    .collect(),
                 associations: sing.all_associations(ns),
             }
         };

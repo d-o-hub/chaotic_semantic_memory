@@ -2,7 +2,8 @@
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use crate::export_payload::{
-        BinaryConcept, BinaryExportPayload, BinaryMetadataValue, ExportPayload, unix_now_secs,
+        BinaryConcept, BinaryExportPayload, BinaryMetadataValue, ExportPayload, concept_to_export,
+        export_to_concept, unix_now_secs,
     };
     use crate::singularity::Concept;
     use csm_core_lib::hyperdim::HVec10240;
@@ -142,7 +143,7 @@ mod tests {
         };
 
         // Convert to BinaryConcept
-        let bin_concept = BinaryConcept::from(concept.clone());
+        let bin_concept = BinaryConcept::from(concept_to_export(concept.clone()));
         assert_eq!(bin_concept.id, "concept-123");
         assert_eq!(bin_concept.vector_bytes, original_vector.to_bytes());
         assert_eq!(bin_concept.created_at, 1000);
@@ -158,7 +159,11 @@ mod tests {
         );
 
         // Convert back to Concept
-        let restored_concept = bin_concept.to_concept().expect("Failed to restore concept");
+        let restored_concept = export_to_concept(
+            bin_concept
+                .to_export_concept()
+                .expect("Failed to restore concept"),
+        );
         assert_eq!(restored_concept.id, concept.id);
         assert_eq!(
             restored_concept.vector.to_bytes(),
@@ -189,7 +194,7 @@ mod tests {
         let payload = ExportPayload {
             version: "1.0".to_string(),
             exported_at: 123456789,
-            concepts: vec![concept],
+            concepts: vec![concept_to_export(concept)],
             associations: vec![("concept-1".to_string(), "concept-2".to_string(), 0.9)],
         };
 
@@ -230,7 +235,7 @@ mod tests {
         let payload = ExportPayload {
             version: "1.0".to_string(),
             exported_at: 100,
-            concepts: vec![concept],
+            concepts: vec![concept_to_export(concept)],
             associations: vec![("a".to_string(), "b".to_string(), 0.5)],
         };
 
@@ -260,7 +265,7 @@ mod tests {
         let payload = ExportPayload {
             version: "1.0".to_string(),
             exported_at: 200,
-            concepts: vec![concept],
+            concepts: vec![concept_to_export(concept)],
             associations: vec![("c".to_string(), "d".to_string(), 0.8)],
         };
 
@@ -345,7 +350,7 @@ mod tests {
         let original_payload = ExportPayload {
             version: "0.3.5".to_string(),
             exported_at: 1700001000,
-            concepts: vec![concept],
+            concepts: vec![concept_to_export(concept)],
             associations: vec![],
         };
 
@@ -387,7 +392,7 @@ mod tests {
         let original_payload = ExportPayload {
             version: "0.3.5".to_string(),
             exported_at: 1700001000,
-            concepts: vec![concept],
+            concepts: vec![concept_to_export(concept)],
             associations: vec![],
         };
 
@@ -433,7 +438,7 @@ mod tests {
         let original_payload = ExportPayload {
             version: "0.3.5".to_string(),
             exported_at: 1700001000,
-            concepts: vec![concept1, concept2],
+            concepts: vec![concept_to_export(concept1), concept_to_export(concept2)],
             associations: vec![
                 ("concept-1".to_string(), "concept-2".to_string(), 0.85),
                 ("concept-2".to_string(), "concept-1".to_string(), 0.42),
@@ -472,7 +477,7 @@ mod tests {
         let payload = ExportPayload {
             version: "1.0".to_string(),
             exported_at: 100,
-            concepts: vec![concept],
+            concepts: vec![concept_to_export(concept)],
             associations: vec![],
         };
 
