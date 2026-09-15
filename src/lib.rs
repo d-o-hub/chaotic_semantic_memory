@@ -47,6 +47,7 @@ mod framework_ops;
 #[cfg(not(target_arch = "wasm32"))]
 mod framework_ops_import;
 mod framework_persistence;
+mod framework_rerank;
 mod framework_ttl;
 pub mod framework_ttl_advanced;
 mod framework_validation;
@@ -280,6 +281,8 @@ mod bridge_retrieval_tests;
 mod framework_builder_tests;
 #[cfg(test)]
 mod framework_ops_tests;
+#[cfg(test)]
+mod framework_rerank_tests;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
 #[cfg(target_arch = "wasm32")]

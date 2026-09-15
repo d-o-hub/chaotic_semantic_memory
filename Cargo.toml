@@ -45,7 +45,6 @@ base64 = "0.22.1"
 # Safety lints
 unsafe_code = "allow"  # SIMD uses intentional unsafe blocks
 missing_docs = "allow"  # Project uses selective documentation
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("rerank-cross"))'] }
 
 # Serialization struct fields may be unused but needed for format
 dead_code = "allow"
@@ -102,7 +101,7 @@ cognitive_complexity = "allow"
 
 [package]
 name = "chaotic_semantic_memory"
-version = "0.3.7"
+version = "0.3.8"
 edition = "2024"
 rust-version.workspace = true
 description = "AI memory systems with hyperdimensional vectors and chaotic reservoirs"

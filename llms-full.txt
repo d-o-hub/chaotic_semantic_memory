@@ -2,7 +2,7 @@
 
 > AI memory systems with hyperdimensional vectors and chaotic reservoirs
 
-**Version:** 0.3.7
+**Version:** 0.3.8
 **License:** MIT
 **Repository:** https://github.com/d-o-hub/chaotic_semantic_memory
 **Homepage:** https://github.com/d-o-hub/chaotic_semantic_memory
@@ -56,8 +56,8 @@
 - mcp: [dep:rmcp, cli, dep:axum, dep:tower, dep:tower-http]
 - otlp-json: []
 - otlp: [dep:opentelemetry, dep:opentelemetry_sdk, dep:opentelemetry-otlp, dep:tracing-opentelemetry]
-- parallel: [dep:rayon]
-- persistence: [dep:libsql]
+- parallel: [dep:rayon, csm-memory/parallel, csm-traits/parallel]
+- persistence: [dep:libsql, csm-persistence/persistence]
 - prometheus: [dep:prometheus, dep:hyper, dep:hyper-util, dep:http-body-util]
 - wasm: []
 
@@ -83,9 +83,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/bridge_persistence.rs
 
 - impl Persistence
-- pub struct AbsenceEntry
-- impl AbsenceEntry
-- pub trait AbsenceStore
+- pub fn absence_from_abstention
+- pub fn merge_absence_with
 - pub fn persist_absence
 
 ### src/bridge_retrieval.rs
@@ -415,6 +414,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/framework_ttl.rs
 
+- pub const ABSENCE_MIN_ATTEMPTS
 - impl crate::framework::ChaoticSemanticFramework
 
 ### src/framework_ttl_advanced.rs
@@ -450,13 +450,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/index_envelope.rs
 
-- pub const INDEX_ENVELOPE_MAGIC
-- pub const INDEX_ENVELOPE_VERSION
-- pub const VECTOR_FORMAT_HVEC10240
-- pub struct IndexSnapshotEnvelope
-- impl IndexSnapshotEnvelope
-- pub fn fnv1a64
-- pub fn backend_fingerprint
+- pub use csm_memory::index_envelope::{INDEX_ENVELOPE_MAGIC, INDEX_ENVELOPE_VERSION, IndexSnapshotEnvelope, VECTOR_FORMAT_HVEC10240, backend_fingerprint, fnv1a64}
 
 ### src/lib.rs
 
@@ -638,13 +632,12 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/retrieval/bm25.rs
 
-- pub struct Bm25Config
-- impl Default for Bm25Config
-- pub struct Bm25Index
-- impl Default for Bm25Index
+- pub use csm_retrieval::{Bm25Config, Bm25Index}
 - pub fn is_known_absent
-- impl Clone for Bm25Index
-- impl Bm25Index
+
+### src/retrieval/bm25/absence_short_circuit_tests.rs
+
+- impl AbsenceStore for StubStore
 
 ### src/retrieval/graph_rag.rs
 
@@ -655,14 +648,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/retrieval/hybrid.rs
 
-- pub use csm_retrieval::{HybridResult, RetrievalAbstention}
-- pub fn compute_weights
-- pub fn normalize_scores
-- pub fn normalize_scores_in_place
-- pub fn merge_results
-- pub enum HybridMode
-- pub struct HybridConfig
-- impl Default for HybridConfig
+- pub use csm_retrieval::{HybridConfig, HybridMode, HybridResult, RetrievalAbstention, compute_weights, merge_results, normalize_scores, normalize_scores_in_place}
 
 ### src/retrieval/mod.rs
 
@@ -677,15 +663,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/retrieval/rerank.rs
 
-- pub struct RerankCandidate
-- pub trait Reranker
-- pub struct MmrReranker
-- impl Reranker for MmrReranker
-- pub struct RecencyDecayReranker
-- impl Reranker for RecencyDecayReranker
-- pub struct CrossEncoderReranker
-- impl Reranker for CrossEncoderReranker
-- pub fn parse_rerankers
+- pub use csm_retrieval::{MmrReranker, RecencyDecayReranker, RerankCandidate, Reranker, parse_rerankers}
+- pub use csm_retrieval::CrossEncoderReranker
 
 ### src/semantic_bridge.rs
 
@@ -927,16 +906,20 @@ vectors. For larger corpora, two-stage candidate generation can be enabled via
 Both reduce the scored subset from n to a smaller candidate set while
 preserving exact similarity semantics on the reranking pass.
 
-##### ANN/LSH Deferred
+##### ANN Index Backends
 
-Approximate nearest-neighbor (ANN) or locality-sensitive hashing (LSH) indexing
-is **intentionally deferred** until benchmarks demonstrate latency regression
-beyond the current threshold. As documented in
-[ADR-0056](plans/adr/0056-performance-follow-up-priorities.md), the trigger is
-**>200k concepts** with latency degradation. Current benchmarks show the exact
-scan completes in ~24ms at 200k concepts, well within acceptable bounds
-(see [ADR-0059](plans/adr/0059-retrieval-optimization.md) for retrieval
-optimization details and benchmark methodology).
+Approximate nearest-neighbor search is available behind opt-in Cargo
+features: `ann-hnsw` (graph) and `ann-lsh` (chaotic locality-sensitive
+hashing). Enable exactly one:
+
+```toml
+chaotic_semantic_memory = { version = "0.3.8", default-features = false, features = ["ann-hnsw"] }
+```
+
+With no ANN feature enabled, retrieval uses exact scan (~24ms at 200k
+concepts, see [ADR-0059](plans/adr/0059-retrieval-optimization.md)).
+Further index automation (ADR-0056) remains deferred until benchmarks
+show latency regression beyond the threshold at >200k concepts.
 
 ##### Async Runtime
 
@@ -1095,14 +1078,14 @@ WASM support is enabled automatically when compiling for the `wasm32` target arc
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.3" }
+chaotic_semantic_memory = { version = "0.3.8" }
 ```
 
 For library-only consumers who don't need the CLI binary or its dependencies:
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.4", default-features = false }
+chaotic_semantic_memory = { version = "0.3.8", default-features = false }
 ```
 
 ##### WASM npm Package (for JS/TS)
@@ -1343,48 +1326,17 @@ pub use tracing_subscriber::FmtSubscriber;
 
 ## src/bridge_persistence.rs
 
-### AbsenceEntry
+### absence_from_abstention
 
 ```rust
-#[derive(Debug, Clone, serde :: Serialize, serde :: Deserialize)]
-pub struct AbsenceEntry {
-    pub id: String,
-    pub query: String,
-    pub normalized_query: String,
-    pub attempt_count: u32,
-    pub last_threshold: f32,
-    pub best_score_ever: Option<f32>,
-    pub first_seen: DateTime<Utc>,
-    pub last_seen: DateTime<Utc>,
-}
+pub fn absence_from_abstention(abstention: &RetrievalAbstention) -> AbsenceEntry
 ```
 
-A persisted record of a retrieval event that found no matching concepts.
-Used to prevent re-querying known-absent concepts and to surface
-memory gaps to operators.
+Build an `AbsenceEntry` from a `RetrievalAbstention` event.
 
-### AbsenceStore
-
-```rust
-pub trait AbsenceStore: Send + Sync {
-    fn get_absence(&self, id: &str) -> Result<Option<AbsenceEntry>>;
-    fn upsert_absence(&self, entry: &AbsenceEntry) -> Result<()>;
-    fn list_absences(&self, min_attempts: u32) -> Result<Vec<AbsenceEntry>>;
-}
-```
-
-Persistence backend for absence entries.
-
-### impl AbsenceEntry
-
-```rust
-impl AbsenceEntry {
-    pub fn normalize(query: &str) -> String;
-    pub fn id_for(query: &str) -> String;
-    pub fn from_abstention(abstention: &RetrievalAbstention) -> Self;
-    pub fn merge_with(&mut self, abstention: &RetrievalAbstention);
-}
-```
+Root adapter: `AbsenceEntry`/`AbsenceStore` live in `csm-traits` (ADR-0094);
+this conversion bridges the framework-level abstention event into the
+owner-neutral persistence contract.
 
 ### impl Persistence
 
@@ -1398,6 +1350,14 @@ impl Persistence {
     pub fn load_concept_graph(&self, ns: &str) -> Result<ConceptGraph>;
 }
 ```
+
+### merge_absence_with
+
+```rust
+pub fn merge_absence_with(entry: &mut AbsenceEntry, abstention: &RetrievalAbstention)
+```
+
+Merge a new abstention event into an existing entry (upsert logic).
 
 ### persist_absence
 
@@ -2712,9 +2672,9 @@ impl FrameworkBuilder {
     pub fn with_ttl_config(self, config: crate::framework_ttl_advanced::TtlConfig) -> Self;
     pub fn with_version_retention(self, retention: usize) -> Self;
     pub fn with_local_db(self, path: impl Trait) -> Self;
-    pub fn with_local_db(self, _path: impl Trait) -> Self;
+    pub fn with_local_db(self, path: impl Trait) -> Self;
     pub fn with_turso(self, url: impl Trait, token: impl Trait) -> Self;
-    pub fn with_turso(self, _url: impl Trait, _token: impl Trait) -> Self;
+    pub fn with_turso(self, url: impl Trait, token: impl Trait) -> Self;
     pub fn without_persistence(self) -> Self;
     pub fn without_persistence(self) -> Self;
     pub fn with_embedding_provider<P: crate::embedding::EmbeddingProvider + 'static>(self, provider: P) -> Self;
@@ -2722,6 +2682,8 @@ impl FrameworkBuilder {
     pub fn build(self) -> Result<ChaoticSemanticFramework>;
 }
 ```
+
+## src/framework_builder_tests.rs
 
 ## src/framework_events.rs
 
@@ -3004,6 +2966,14 @@ impl ChaoticSemanticFramework {
 
 ## src/framework_ttl.rs
 
+### ABSENCE_MIN_ATTEMPTS
+
+```rust
+pub const ABSENCE_MIN_ATTEMPTS: u32
+```
+
+Minimum persisted absence attempts before a query short-circuits retrieval (M1).
+
 ### impl crate::framework::ChaoticSemanticFramework
 
 ```rust
@@ -3172,71 +3142,10 @@ pub use csm_memory::index::*;
 
 ## src/index_envelope.rs
 
-### INDEX_ENVELOPE_MAGIC
+### csm_memory::index_envelope::{INDEX_ENVELOPE_MAGIC, INDEX_ENVELOPE_VERSION, IndexSnapshotEnvelope, VECTOR_FORMAT_HVEC10240, backend_fingerprint, fnv1a64}
 
 ```rust
-pub const INDEX_ENVELOPE_MAGIC: &[u8; N]
-```
-
-Magic prefix for envelope-wrapped index blobs (`CSMIDX01`).
-
-### INDEX_ENVELOPE_VERSION
-
-```rust
-pub const INDEX_ENVELOPE_VERSION: u32
-```
-
-Envelope schema version (not DB schema version).
-
-### IndexSnapshotEnvelope
-
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct IndexSnapshotEnvelope {
-    pub envelope_version: u32,
-    pub namespace_revision: u64,
-    pub backend_fingerprint: String,
-    pub vector_format: String,
-    pub index_data: Vec<u8>,
-    pub checksum: u64,
-}
-```
-
-Revisioned ANN snapshot envelope (ADR-0093).
-
-### VECTOR_FORMAT_HVEC10240
-
-```rust
-pub const VECTOR_FORMAT_HVEC10240: &str
-```
-
-Canonical vector format identifier for 10240-bit HDC vectors.
-
-### backend_fingerprint
-
-```rust
-pub fn backend_fingerprint(backend: &crate::index::IndexBackend) -> String
-```
-
-Fingerprint an [`crate::index::IndexBackend`] for envelope matching.
-
-### fnv1a64
-
-```rust
-pub fn fnv1a64(data: &[u8]) -> u64
-```
-
-FNV-1a 64-bit hash for envelope checksums.
-
-### impl IndexSnapshotEnvelope
-
-```rust
-impl IndexSnapshotEnvelope {
-    pub fn new(namespace_revision: u64, backend_fingerprint: impl Trait, index_data: Vec<u8>) -> Self;
-    pub fn validate_integrity(&self) -> Result<()>;
-    pub fn encode(&self) -> Result<Vec<u8>>;
-    pub fn try_decode(bytes: &[u8]) -> Result<Option<Self>>;
-}
+pub use csm_memory::index_envelope::{INDEX_ENVELOPE_MAGIC, INDEX_ENVELOPE_VERSION, IndexSnapshotEnvelope, VECTOR_FORMAT_HVEC10240, backend_fingerprint, fnv1a64};
 ```
 
 ## src/lib.rs
@@ -4137,63 +4046,10 @@ impl Persistence {
 
 ## src/retrieval/bm25.rs
 
-### Bm25Config
+### csm_retrieval::{Bm25Config, Bm25Index}
 
 ```rust
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct Bm25Config {
-    pub k1: f32,
-    pub b: f32,
-}
-```
-
-Configuration for BM25 ranking algorithm.
-
-### Bm25Index
-
-```rust
-#[derive(Debug)]
-pub struct Bm25Index {
-}
-```
-
-BM25-based document index for keyword search.
-
-### impl Bm25Index
-
-```rust
-impl Bm25Index {
-    pub fn new() -> Self;
-    pub fn with_config(config: Bm25Config) -> Self;
-    pub fn add_document<T: AsRef>(&mut self, id: &str, tokens: &[T]);
-    pub fn remove_document(&mut self, id: &str);
-    pub fn search<T: AsRef>(&self, query_tokens: &[T], top_k: usize) -> Vec<(String, f32)>;
-    pub fn clear(&mut self);
-    pub fn len(&self) -> usize;
-    pub fn is_empty(&self) -> bool;
-    pub fn avg_doc_length(&self) -> f32;
-}
-```
-
-### impl Clone for Bm25Index
-
-```rust
-impl Clone for Bm25Index {
-}
-```
-
-### impl Default for Bm25Config
-
-```rust
-impl Default for Bm25Config {
-}
-```
-
-### impl Default for Bm25Index
-
-```rust
-impl Default for Bm25Index {
-}
+pub use csm_retrieval::{Bm25Config, Bm25Index};
 ```
 
 ### is_known_absent
@@ -4204,9 +4060,17 @@ pub fn is_known_absent(query: &str, store: &dyn Trait, min_attempts: u32) -> boo
 
 Returns true if the query has a known absence record with
 attempt_count >= min_attempts, indicating BM25 should be skipped.
-TODO: Wire into the main hybrid retrieval pipeline for short-circuiting.
+Called by the framework probe paths to skip retrieval for queries that
+repeatedly abstained.
 
-## src/retrieval/bm25/tests.rs
+## src/retrieval/bm25/absence_short_circuit_tests.rs
+
+### impl AbsenceStore for StubStore
+
+```rust
+impl AbsenceStore for StubStore {
+}
+```
 
 ## src/retrieval/graph_rag.rs
 
@@ -4259,99 +4123,11 @@ impl Default for GraphRagConfig {
 
 ## src/retrieval/hybrid.rs
 
-### HybridConfig
+### csm_retrieval::{HybridConfig, HybridMode, HybridResult, RetrievalAbstention, compute_weights, merge_results, normalize_scores, normalize_scores_in_place}
 
 ```rust
-#[derive(Debug, Clone)]
-pub struct HybridConfig {
-    pub mode: HybridMode,
-    pub min_score: f32,
-}
+pub use csm_retrieval::{HybridConfig, HybridMode, HybridResult, RetrievalAbstention, compute_weights, merge_results, normalize_scores, normalize_scores_in_place};
 ```
-
-Configuration for hybrid retrieval.
-
-### HybridMode
-
-```rust
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub enum HybridMode {
-    Auto,
-    SemanticOnly,
-    KeywordOnly,
-    Custom(f32),
-}
-```
-
-Hybrid retrieval mode.
-
-### compute_weights
-
-```rust
-pub fn compute_weights(token_count: usize) -> (f32, f32)
-```
-
-Compute query-length-dependent weights for hybrid retrieval.
-
-Returns (keyword_weight, semantic_weight) based on token count:
-- 1-2 tokens: (0.9, 0.1) - Exact match dominates
-- 3-4 tokens: (0.7, 0.3) - Keyword still strong
-- 5-8 tokens: (0.4, 0.6) - Semantic takes over
-- 9+ tokens:  (0.2, 0.8) - Full semantic mode
-
-### csm_retrieval::{HybridResult, RetrievalAbstention}
-
-```rust
-pub use csm_retrieval::{HybridResult, RetrievalAbstention};
-```
-
-### impl Default for HybridConfig
-
-```rust
-impl Default for HybridConfig {
-}
-```
-
-### merge_results
-
-```rust
-pub fn merge_results(bm25_results: &[(String, f32)], hdc_results: &[(String, f32)], weights: (f32, f32), top_k: usize) -> Vec<(String, f32)>
-```
-
-Merge BM25 and HDC results with given weights.
-
-Takes two result sets (from BM25 and HDC), normalizes scores,
-and combines them using weighted sum.
-
-Duplicate IDs are merged by taking the maximum combined score.
-
-### normalize_scores
-
-```rust
-pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)>
-```
-
-Normalize scores to [0, 1] range using min-max normalization.
-
-If all scores are equal, returns 1.0 for all.
-
-#### Note
-For performance-critical pipelines (like search/retrieval hot paths), prefer
-using [`normalize_scores_in_place`] to completely bypass vector allocations
-and redundant string cloning.
-
-### normalize_scores_in_place
-
-```rust
-pub fn normalize_scores_in_place(scores: &mut [(String, f32)])
-```
-
-Normalize scores in place to [0, 1] range using min-max normalization.
-
-This is the preferred method in high-frequency/hot query pathways because
-it mutates existing score vectors, avoiding heap allocations and string cloning.
-
-## src/retrieval/hybrid_tests.rs
 
 ## src/retrieval/mod.rs
 
@@ -4381,96 +4157,17 @@ pub use rerank::{MmrReranker, RerankCandidate, Reranker};
 
 ## src/retrieval/rerank.rs
 
-### CrossEncoderReranker
+### csm_retrieval::CrossEncoderReranker
 
 ```rust
-#[derive(Debug)]
-#[cfg(feature = "rerank-cross")]
-pub struct CrossEncoderReranker {
-    pub model: Arc<candle_onnx::onnx::ModelProto>,
-    pub model_path: String,
-}
+pub use csm_retrieval::CrossEncoderReranker;
 ```
 
-Cross-encoder reranker using ONNX (opt-in).
-
-### MmrReranker
+### csm_retrieval::{MmrReranker, RecencyDecayReranker, RerankCandidate, Reranker, parse_rerankers}
 
 ```rust
-#[derive(Debug)]
-pub struct MmrReranker {
-    pub lambda: f32,
-}
+pub use csm_retrieval::{MmrReranker, RecencyDecayReranker, RerankCandidate, Reranker, parse_rerankers};
 ```
-
-Maximal Marginal Relevance (MMR) reranker for diversity.
-
-### RecencyDecayReranker
-
-```rust
-#[derive(Debug)]
-pub struct RecencyDecayReranker {
-    pub half_life_days: f32,
-    pub blend: f32,
-}
-```
-
-Recency decay reranker to favor newer concepts.
-
-### RerankCandidate
-
-```rust
-#[derive(Debug, Clone)]
-pub struct RerankCandidate {
-    pub id: String,
-    pub vector: Arc<HVec10240>,
-    pub metadata: HashMap<String, serde_json::Value>,
-    pub score: f32,
-    pub created_at_unix: u64,
-}
-```
-
-A candidate for reranking.
-
-### Reranker
-
-```rust
-pub trait Reranker: Send + Sync + std::fmt::Debug {
-    fn name(&self) -> &str;
-    fn rerank(&self, query: &HVec10240, candidates: Vec<RerankCandidate>, top_k: usize) -> Vec<RerankCandidate>;
-}
-```
-
-Trait for reranking retrieval results.
-
-### impl Reranker for CrossEncoderReranker
-
-```rust
-impl Reranker for CrossEncoderReranker {
-}
-```
-
-### impl Reranker for MmrReranker
-
-```rust
-impl Reranker for MmrReranker {
-}
-```
-
-### impl Reranker for RecencyDecayReranker
-
-```rust
-impl Reranker for RecencyDecayReranker {
-}
-```
-
-### parse_rerankers
-
-```rust
-pub fn parse_rerankers(s: &str) -> csm_core_lib::error::Result<Vec<Box<dyn Trait>>>
-```
-
-Parses a list of rerankers from a string flag (e.g., "mmr:0.7,recency:30d").
 
 ## src/semantic_bridge.rs
 

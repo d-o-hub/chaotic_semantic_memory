@@ -79,14 +79,14 @@ WASM support is enabled automatically when compiling for the `wasm32` target arc
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.3.8" }
+chaotic_semantic_memory = { version = "0.3" }
 ```
 
 For library-only consumers who don't need the CLI binary or its dependencies:
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.3.8", default-features = false }
+chaotic_semantic_memory = { version = "0.3", default-features = false }
 ```
 
 ### WASM npm Package (for JS/TS)
@@ -439,7 +439,7 @@ features: `ann-hnsw` (graph) and `ann-lsh` (chaotic locality-sensitive
 hashing). Enable exactly one:
 
 ```toml
-chaotic_semantic_memory = { version = "0.3.8", default-features = false, features = ["ann-hnsw"] }
+chaotic_semantic_memory = { version = "0.3", default-features = false, features = ["ann-hnsw"] }
 ```
 
 With no ANN feature enabled, retrieval uses exact scan (~24ms at 200k

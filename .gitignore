@@ -110,3 +110,6 @@ update_.fastembed_cache/
 
 # Local export file
 export.json
+
+# Generated cargo metadata dump (cargo metadata --format-version 1)
+/metadata.json
