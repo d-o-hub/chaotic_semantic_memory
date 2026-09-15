@@ -18,6 +18,7 @@
 - **Bitmask modulo**: power-of-2 buckets → `& (N-1)` instead of `% N`.
 - **f32::min/max vs operators**: `.min()`/`.max()` compile to `llvm.minnum`/`llvm.maxnum` — MORE vectorizable than if/else. Do NOT "simplify" to `<`/`>` (reverses mutation-test design, strips docs, adds exclusion debt).
 - **Conversion elimination beats kernel tuning**: BHVec10240::hamming's ~2.6–2.75× came from removing two 1,280-byte `to_hvec()` copies, not new SIMD. Measure the full call path, not just the kernel.
+- **"Avoids reallocations" is a claim about specialization, not about the diff (2026-09-15)**: `.iter().map(..).collect::<Vec<_>>()` over a slice is `TrustedLen`/`ExactSizeIterator`-specialized, so `Vec::from_iter` already performs a single exact-capacity allocation — `Vec::with_capacity(len)` + `push` is byte-identical (PR #706: 13 vs 13 allocs, 131,626 vs 131,626 bytes on the map path; 12 vs 12, 24,410 vs 24,410 on the fast path). Evidence protocol for such claims: a counting `GlobalAlloc` + `black_box` beats reading the loop shape, and the timing must agree in sign across shapes (PR #706 measured −4.4% and +4.3% in the same run = noise). Same class of unverified `perf(...)` PRs: #529 → #605 → #689 → #706.
 
 ## Baselines (x86_64)
 | Operation | Latency |
@@ -103,6 +104,8 @@
 ## State Management
 - **Built ≠ Installed**: `~/.local/bin/csm` lags source. Always verify with `./target/debug/csm --help`.
 - **GOAP_STATE drift**: Duplicate YAML keys silently overwritten. `grep -c '^  action_last_completed'` must equal 1.
+- **Tracked + gitignored = permanent churn (2026-09-15)**: `.gitignore` does not apply to a file already in the index, so `export.json` (CLI's default `--output`, listed under "Local export file" in `.gitignore`) rewrites `exported_at` on every run and dirties the tree forever — every PR roast since 09-08 flagged it as noise. Same family: a 2.2 MB `metadata.json` (`cargo metadata` dump) committed at the repo root, 30% of all tracked bytes, zero consumers. Untrack generated artifacts at the moment they are gitignored; never let a lockfile outlive its standalone workspace (`benchmarks/Cargo.lock` after `benchmarks` joined the root workspace: root lock governs, `cargo metadata --manifest-path benchmarks/Cargo.toml` reports `workspace_root` = repo root).
+- **Release-version truth vs a stale-base bot branch (2026-09-15)**: `d4e902b` (Jules, forked before the `v0.3.8` release commit `88530c3`) reverted `Cargo.toml`/`VERSION`/`cli-npm`/`wasm`/`crates/*`/`fuzz/Cargo.lock` to 0.3.7 and deleted the `[0.3.8]` CHANGELOG section — while tag `v0.3.8` stayed an ancestor of HEAD and 0.3.8 stayed published. `verify-version-sync.sh` passes because every local surface agrees on the *stale* number; only `git tag --list` + `git merge-base --is-ancestor` + the registry expose it. Same class as the 2026-09-11 stale-base squash reverts.
 - **ADR parity**: `scripts/check-adr-parity.sh` enforces registry ↔ disk sync.
 - **Jules delegation**: `cost ≥ 12` actions → GitHub issue labeled `jules`, mark `status: delegated`.
 

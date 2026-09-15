@@ -12,6 +12,16 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-09-15):
+> `triage_pr_roast_2026_09_15` — 0 open issues, 2 open PRs. Jules draft
+> #706 (`perf(retrieval)` hybrid merge pass) closed as no-impact after
+> allocator-level measurement (identical outputs, identical allocation counts
+> and bytes, timing deltas opposite in sign); dependabot #707
+> (`taiki-e/install-action` 2.87.10 → 2.87.11 SHA pin) verified green and kept
+> for manual merge. Record: `plans/PR_ROAST_2026_09_15.md`. Same session queued
+> the 0.3.8 version-truth repair, artifact hygiene, the `probe_with_rerankers`
+> restoration, and the user-approved ADR-0094 persistence dedup phases.
+>
 > Last completed (verified 2026-09-13, wave 3):
 > `dedupe_hybrid_root_shim_2026_09_13` — PR #704 merged (`9429a07`): root
 > `src/retrieval/hybrid.rs` is now a 9-line re-export shim over
