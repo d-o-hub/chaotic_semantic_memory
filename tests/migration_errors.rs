@@ -81,7 +81,7 @@ async fn persistence_save_and_load_triggers_version_recording() {
 
     // Load should succeed
     let loaded = persistence
-        .load_concept(NS, "versioned-concept")
+        .load_concept::<HVec10240>(NS, "versioned-concept")
         .await
         .unwrap();
     assert!(loaded.is_some());
@@ -114,6 +114,9 @@ async fn persistence_prune_old_versions() {
     }
 
     // Only latest version should remain
-    let loaded = persistence.load_concept(NS, "prune-test").await.unwrap();
+    let loaded = persistence
+        .load_concept::<HVec10240>(NS, "prune-test")
+        .await
+        .unwrap();
     assert!(loaded.is_some());
 }

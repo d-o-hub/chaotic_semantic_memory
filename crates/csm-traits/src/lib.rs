@@ -8,8 +8,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub mod absence;
+pub mod bridge;
 
 pub use absence::{AbsenceEntry, AbsenceStore};
+pub use bridge::{CanonicalConcept, ConceptGraph};
 
 // ============================================================================
 // Constants
