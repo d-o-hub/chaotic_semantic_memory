@@ -3,5 +3,9 @@
 /results-*/
 /target/
 
+# The root workspace lockfile governs this member (it is listed in the root
+# [workspace] members); a local lockfile would be dead weight.
+/Cargo.lock
+
 # Generated datasets (v2 and later)
 /datasets/v2/
