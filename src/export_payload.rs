@@ -1,177 +1,46 @@
+//! Export/import payload adapter over the owner types in `csm-traits` (ADR-0094).
+//!
+//! The payload and wire types live in `csm-traits`; this module only re-exports
+//! them for the root facade and converts between the stored `Concept` and its
+//! wire form. Both conversions are infallible: `ExportConcept` carries the
+//! vector directly, and the binary path decodes bytes inside
+//! `csm_traits::BinaryConcept::to_export_concept()`.
+
 #[cfg(test)]
 mod export_payload_tests;
 
-#[cfg(target_arch = "wasm32")]
-use js_sys::Date;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+pub(crate) use csm_traits::unix_now_secs;
+pub(crate) use csm_traits::{BinaryExportPayload, ExportConcept, ExportPayload};
 
-/// Payload for JSON export/import
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct ExportPayload {
-    pub(crate) version: String,
-    pub(crate) exported_at: u64,
-    pub(crate) concepts: Vec<crate::singularity::Concept>,
-    pub(crate) associations: Vec<(String, String, f32)>,
-}
+// Wire types the production paths only ever construct via `BinaryExportPayload`;
+// the unit tests exercise their metadata conversions directly.
+#[cfg(test)]
+pub(crate) use csm_traits::{BinaryConcept, BinaryMetadataValue};
 
-/// Binary-compatible metadata value
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) enum BinaryMetadataValue {
-    Null,
-    Bool(bool),
-    Number(String), // Store numbers as strings to preserve precision
-    String(String),
-    Array(Vec<BinaryMetadataValue>),
-    Object(HashMap<String, BinaryMetadataValue>),
-}
+use crate::singularity::Concept;
 
-impl From<serde_json::Value> for BinaryMetadataValue {
-    fn from(value: serde_json::Value) -> Self {
-        match value {
-            serde_json::Value::Null => BinaryMetadataValue::Null,
-            serde_json::Value::Bool(b) => BinaryMetadataValue::Bool(b),
-            serde_json::Value::Number(n) => BinaryMetadataValue::Number(n.to_string()),
-            serde_json::Value::String(s) => BinaryMetadataValue::String(s),
-            serde_json::Value::Array(arr) => {
-                BinaryMetadataValue::Array(arr.into_iter().map(BinaryMetadataValue::from).collect())
-            }
-            serde_json::Value::Object(obj) => BinaryMetadataValue::Object(
-                obj.into_iter()
-                    .map(|(k, v)| (k, BinaryMetadataValue::from(v)))
-                    .collect(),
-            ),
-        }
+/// Stored concept → wire concept.
+pub(crate) fn concept_to_export(concept: Concept) -> ExportConcept {
+    ExportConcept {
+        id: concept.id,
+        vector: concept.vector,
+        metadata: concept.metadata,
+        created_at: concept.created_at,
+        modified_at: concept.modified_at,
+        expires_at: concept.expires_at,
+        canonical_concept_ids: concept.canonical_concept_ids,
     }
 }
 
-impl From<BinaryMetadataValue> for serde_json::Value {
-    fn from(value: BinaryMetadataValue) -> Self {
-        match value {
-            BinaryMetadataValue::Null => serde_json::Value::Null,
-            BinaryMetadataValue::Bool(b) => serde_json::Value::Bool(b),
-            BinaryMetadataValue::Number(n) => {
-                serde_json::Value::Number(n.parse().unwrap_or(serde_json::Number::from(0)))
-            }
-            BinaryMetadataValue::String(s) => serde_json::Value::String(s),
-            BinaryMetadataValue::Array(arr) => {
-                serde_json::Value::Array(arr.into_iter().map(serde_json::Value::from).collect())
-            }
-            BinaryMetadataValue::Object(obj) => serde_json::Value::Object(
-                obj.into_iter()
-                    .map(|(k, v)| (k, serde_json::Value::from(v)))
-                    .collect(),
-            ),
-        }
+/// Wire concept → stored concept.
+pub(crate) fn export_to_concept(concept: ExportConcept) -> Concept {
+    Concept {
+        id: concept.id,
+        vector: concept.vector,
+        metadata: concept.metadata,
+        created_at: concept.created_at,
+        modified_at: concept.modified_at,
+        expires_at: concept.expires_at,
+        canonical_concept_ids: concept.canonical_concept_ids,
     }
-}
-
-/// Concept representation for binary export (bincode-compatible)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(dead_code)]
-pub(crate) struct BinaryConcept {
-    pub(crate) id: String,
-    /// Raw bytes of the HVec10240 (1280 bytes)
-    pub(crate) vector_bytes: Vec<u8>,
-    pub(crate) metadata: HashMap<String, BinaryMetadataValue>,
-    pub(crate) created_at: u64,
-    pub(crate) modified_at: u64,
-    pub(crate) expires_at: Option<u64>,
-    pub(crate) canonical_concept_ids: Vec<String>,
-}
-
-impl From<crate::singularity::Concept> for BinaryConcept {
-    fn from(concept: crate::singularity::Concept) -> Self {
-        Self {
-            id: concept.id,
-            vector_bytes: concept.vector.to_bytes(),
-            metadata: concept
-                .metadata
-                .into_iter()
-                .map(|(k, v)| (k, BinaryMetadataValue::from(v)))
-                .collect(),
-            created_at: concept.created_at,
-            modified_at: concept.modified_at,
-            expires_at: concept.expires_at,
-            canonical_concept_ids: concept.canonical_concept_ids,
-        }
-    }
-}
-
-#[allow(dead_code)]
-impl BinaryConcept {
-    pub(crate) fn to_concept(&self) -> csm_core_lib::error::Result<crate::singularity::Concept> {
-        Ok(crate::singularity::Concept {
-            id: self.id.clone(),
-            vector: csm_core_lib::hyperdim::HVec10240::from_bytes(&self.vector_bytes)?,
-            metadata: self
-                .metadata
-                .iter()
-                .map(|(k, v)| (k.clone(), serde_json::Value::from(v.clone())))
-                .collect(),
-            created_at: self.created_at,
-            modified_at: self.modified_at,
-            expires_at: self.expires_at,
-            canonical_concept_ids: self.canonical_concept_ids.clone(),
-        })
-    }
-}
-
-/// Payload for binary export/import (bincode-compatible)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(dead_code)]
-pub(crate) struct BinaryExportPayload {
-    pub(crate) version: String,
-    pub(crate) exported_at: u64,
-    pub(crate) concepts: Vec<BinaryConcept>,
-    pub(crate) associations: Vec<(String, String, f32)>,
-}
-
-impl From<ExportPayload> for BinaryExportPayload {
-    fn from(payload: ExportPayload) -> Self {
-        Self {
-            version: payload.version,
-            exported_at: payload.exported_at,
-            concepts: payload
-                .concepts
-                .into_iter()
-                .map(BinaryConcept::from)
-                .collect(),
-            associations: payload.associations,
-        }
-    }
-}
-
-#[allow(dead_code)]
-impl BinaryExportPayload {
-    pub(crate) fn to_export_payload(&self) -> csm_core_lib::error::Result<ExportPayload> {
-        let mut concepts = Vec::with_capacity(self.concepts.len());
-        for bc in &self.concepts {
-            concepts.push(bc.to_concept()?);
-        }
-        Ok(ExportPayload {
-            version: self.version.clone(),
-            exported_at: self.exported_at,
-            concepts,
-            associations: self.associations.clone(),
-        })
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub(crate) fn unix_now_secs() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
-}
-
-#[cfg(target_arch = "wasm32")]
-pub(crate) fn unix_now_secs() -> u64 {
-    let millis = Date::now();
-    if !millis.is_finite() || millis < 0.0 {
-        return 0;
-    }
-    let secs = (millis / 1000.0).floor();
-    format!("{secs:.0}").parse::<u64>().unwrap_or(0)
 }

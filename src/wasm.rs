@@ -6,9 +6,12 @@ use tracing::warn;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 
-pub(crate) use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
+pub(crate) use crate::export_payload::{
+    BinaryExportPayload, ExportPayload, concept_to_export, export_to_concept, unix_now_secs,
+};
 pub(crate) use crate::framework::ChaoticSemanticFramework;
 pub(crate) use crate::framework_validation::MAX_IMPORT_SIZE;
+use crate::singularity::Concept;
 pub(crate) use crate::wasm_ext::{concept_to_js_value, to_js_error};
 pub(crate) use csm_core_lib::hyperdim::HVec10240;
 
@@ -356,7 +359,11 @@ impl WasmFramework {
             ExportPayload {
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 exported_at: unix_now_secs(),
-                concepts: singularity.all_concepts(&ns),
+                concepts: singularity
+                    .all_concepts(&ns)
+                    .into_iter()
+                    .map(concept_to_export)
+                    .collect(),
                 associations: singularity.all_associations(&ns),
             }
         };
@@ -385,6 +392,12 @@ impl WasmFramework {
         let binary_payload: BinaryExportPayload =
             options.deserialize(&bytes).map_err(to_js_error)?;
         let payload = binary_payload.to_export_payload().map_err(to_js_error)?;
+        let concepts: Vec<Concept> = payload
+            .concepts
+            .iter()
+            .cloned()
+            .map(export_to_concept)
+            .collect();
 
         let ns = self.framework.namespace().await;
 
@@ -394,14 +407,13 @@ impl WasmFramework {
             singularity.clear(&ns);
         }
 
+        let concept_count = concepts.len();
         let mut singularity = self.framework.singularity.write().await;
-        for concept in &payload.concepts {
+        for concept in concepts {
             self.framework
-                .validate_concept(concept)
+                .validate_concept(&concept)
                 .map_err(to_js_error)?;
-            singularity
-                .inject(&ns, concept.clone())
-                .map_err(to_js_error)?;
+            singularity.inject(&ns, concept).map_err(to_js_error)?;
         }
 
         for (from, to, strength) in &payload.associations {
@@ -416,7 +428,7 @@ impl WasmFramework {
             }
         }
 
-        Ok(payload.concepts.len())
+        Ok(concept_count)
     }
 }
 

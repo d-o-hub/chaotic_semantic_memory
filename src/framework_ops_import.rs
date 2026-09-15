@@ -2,9 +2,12 @@
 //!
 //! Split from `framework_ops.rs` to respect the 500-LOC module ceiling.
 
-use crate::export_payload::{BinaryExportPayload, ExportPayload, unix_now_secs};
+use crate::export_payload::{
+    BinaryExportPayload, ExportPayload, concept_to_export, export_to_concept, unix_now_secs,
+};
 use crate::framework::ChaoticSemanticFramework;
 use crate::framework_validation::{MAX_IMPORT_SIZE, validate_path};
+use crate::singularity::Concept;
 use bincode::Options;
 use csm_core_lib::error::Result;
 use tokio::fs;
@@ -24,7 +27,11 @@ impl ChaoticSemanticFramework {
             ExportPayload {
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 exported_at: unix_now_secs(),
-                concepts: sing.all_concepts(&ns),
+                concepts: sing
+                    .all_concepts(&ns)
+                    .into_iter()
+                    .map(concept_to_export)
+                    .collect(),
                 associations: sing.all_associations(&ns),
             }
         };
@@ -61,26 +68,27 @@ impl ChaoticSemanticFramework {
     /// invalid associations are skipped with `warn!` (pre-existing semantics).
     async fn apply_import_payload(
         &self,
-        payload: &ExportPayload,
+        concepts: &[Concept],
+        associations: &[(String, String, f32)],
     ) -> Result<Vec<(String, String, f32)>> {
-        for concept in &payload.concepts {
+        for concept in concepts {
             self.validate_concept(concept)?;
         }
         let ns = self.namespace().await;
 
         {
             let mut sing = self.singularity.write().await;
-            for concept in &payload.concepts {
+            for concept in concepts {
                 sing.inject(&ns, concept.clone())?;
             }
         }
 
-        let mut associations = Vec::with_capacity(payload.associations.len());
+        let mut valid_associations = Vec::with_capacity(associations.len());
         {
             let mut sing = self.singularity.write().await;
-            for (from, to, strength) in &payload.associations {
+            for (from, to, strength) in associations {
                 match sing.associate(&ns, from, to, *strength) {
-                    Ok(()) => associations.push((from.clone(), to.clone(), *strength)),
+                    Ok(()) => valid_associations.push((from.clone(), to.clone(), *strength)),
                     Err(error) => {
                         warn!(
                             from_id = %from,
@@ -93,7 +101,7 @@ impl ChaoticSemanticFramework {
                 }
             }
         }
-        Ok(associations)
+        Ok(valid_associations)
     }
 
     async fn clear_for_import_replace(&self) -> Result<()> {
@@ -110,12 +118,12 @@ impl ChaoticSemanticFramework {
 
     async fn persist_import(
         &self,
-        payload: &ExportPayload,
+        concepts: &[Concept],
         associations: &[(String, String, f32)],
     ) -> Result<()> {
-        if let Some(ref persistence) = self.persistence {
+        if let Some(persistence) = &self.persistence {
             let ns = self.namespace().await;
-            persistence.save_concepts(&ns, &payload.concepts).await?;
+            persistence.save_concepts(&ns, concepts).await?;
             persistence.save_associations(&ns, associations).await?;
         }
         Ok(())
@@ -129,13 +137,21 @@ impl ChaoticSemanticFramework {
             .secure_read_file(&validated_path, MAX_IMPORT_SIZE)
             .await?;
         let payload: ExportPayload = serde_json::from_slice(&bytes)?;
+        let concepts: Vec<Concept> = payload
+            .concepts
+            .iter()
+            .cloned()
+            .map(export_to_concept)
+            .collect();
 
         if !merge {
             self.clear_for_import_replace().await?;
         }
-        let valid_associations = self.apply_import_payload(&payload).await?;
-        self.persist_import(&payload, &valid_associations).await?;
-        Ok(payload.concepts.len())
+        let valid_associations = self
+            .apply_import_payload(&concepts, &payload.associations)
+            .await?;
+        self.persist_import(&concepts, &valid_associations).await?;
+        Ok(concepts.len())
     }
 
     /// Export memory state to binary file.
@@ -150,7 +166,11 @@ impl ChaoticSemanticFramework {
             let json_payload = ExportPayload {
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 exported_at: unix_now_secs(),
-                concepts: sing.all_concepts(&ns),
+                concepts: sing
+                    .all_concepts(&ns)
+                    .into_iter()
+                    .map(concept_to_export)
+                    .collect(),
                 associations: sing.all_associations(&ns),
             };
             let res = BinaryExportPayload::from(json_payload);
@@ -188,12 +208,20 @@ impl ChaoticSemanticFramework {
                 reason: format!("failed to convert binary payload: {e}"),
             }
         })?;
+        let concepts: Vec<Concept> = payload
+            .concepts
+            .iter()
+            .cloned()
+            .map(export_to_concept)
+            .collect();
         if !merge {
             self.clear_for_import_replace().await?;
         }
-        let valid_associations = self.apply_import_payload(&payload).await?;
-        self.persist_import(&payload, &valid_associations).await?;
-        Ok(payload.concepts.len())
+        let valid_associations = self
+            .apply_import_payload(&concepts, &payload.associations)
+            .await?;
+        self.persist_import(&concepts, &valid_associations).await?;
+        Ok(concepts.len())
     }
 
     /// Create database backup (SQLite only).
