@@ -82,7 +82,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/bridge_persistence.rs
 
-- impl Persistence
 - pub fn absence_from_abstention
 - pub fn merge_absence_with
 - pub fn persist_absence
@@ -329,15 +328,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 - pub use csm_embedding::*
 
-### src/export_payload.rs
-
-- impl From for BinaryMetadataValue
-- impl From for serde_json::Value
-- impl From for BinaryConcept
-- impl BinaryConcept
-- impl From for BinaryExportPayload
-- impl BinaryExportPayload
-
 ### src/framework.rs
 
 - pub struct ChaoticSemanticFramework
@@ -481,11 +471,11 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod mcp
 - pub mod metadata_filter
 - pub mod observability
+- pub mod persistence
 - pub mod semantic_triples
 - pub use metadata_filter::MetadataFilter
 - pub mod index
 - pub mod index_envelope
-- pub mod persistence
 - pub mod persistence_wasm
 - pub use csm_core_lib::reservoir
 - pub use csm_traits
@@ -598,37 +588,13 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/persistence.rs
 
-- pub struct Persistence
-- pub use crate::singularity::ConceptVersion
-- impl Persistence
-- impl AbsenceStore for Persistence
-- impl Persistence
-
-### src/persistence_concepts.rs
-
-- impl Persistence
-
-### src/persistence_index.rs
-
-- impl Persistence
-
-### src/persistence_migrations.rs
-
-- impl Persistence
-
-### src/persistence_ops.rs
-
-- impl Persistence
-
-### src/persistence_versions.rs
-
-- impl Persistence
+- pub use csm_memory::ConceptVersion
+- pub use csm_persistence::Persistence
 
 ### src/persistence_wasm.rs
 
-- pub struct Persistence
-- pub use crate::singularity::ConceptVersion
-- impl Persistence
+- pub use csm_memory::ConceptVersion
+- pub use csm_persistence::Persistence
 
 ### src/retrieval/bm25.rs
 
@@ -664,12 +630,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/retrieval/rerank.rs
 
 - pub use csm_retrieval::{MmrReranker, RecencyDecayReranker, RerankCandidate, Reranker, parse_rerankers}
-- pub use csm_retrieval::CrossEncoderReranker
 
 ### src/semantic_bridge.rs
 
-- pub struct CanonicalConcept
-- impl CanonicalConcept
+- pub use csm_traits::{CanonicalConcept, ConceptGraph}
 - pub struct BridgeConfig
 - impl Default for BridgeConfig
 - pub struct ScoreBreakdown
@@ -678,8 +642,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct MemoryPacket
 - impl MemoryPacket
 - pub trait SemanticReranker
-- pub struct ConceptGraph
-- impl ConceptGraph
 
 ### src/semantic_triples.rs
 
@@ -919,7 +881,7 @@ features: `ann-hnsw` (graph) and `ann-lsh` (chaotic locality-sensitive
 hashing). Enable exactly one:
 
 ```toml
-chaotic_semantic_memory = { version = "0.3.8", default-features = false, features = ["ann-hnsw"] }
+chaotic_semantic_memory = { version = "0.3", default-features = false, features = ["ann-hnsw"] }
 ```
 
 With no ANN feature enabled, retrieval uses exact scan (~24ms at 200k
@@ -1084,14 +1046,14 @@ WASM support is enabled automatically when compiling for the `wasm32` target arc
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.3.8" }
+chaotic_semantic_memory = { version = "0.3" }
 ```
 
 For library-only consumers who don't need the CLI binary or its dependencies:
 
 ```toml
 [dependencies]
-chaotic_semantic_memory = { version = "0.3.8", default-features = false }
+chaotic_semantic_memory = { version = "0.3", default-features = false }
 ```
 
 ##### WASM npm Package (for JS/TS)
@@ -1304,7 +1266,6 @@ base64 = "0.22.1"
 # Safety lints
 unsafe_code = "allow"  # SIMD uses intentional unsafe blocks
 missing_docs = "allow"  # Project uses selective documentation
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("rerank-cross"))'] }
 
 # Serialization struct fields may be unused but needed for format
 dead_code = "allow"
