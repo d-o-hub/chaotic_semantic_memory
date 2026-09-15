@@ -58,21 +58,11 @@ pub mod metadata_filter;
 #[cfg(any(feature = "prometheus", feature = "otlp-json", feature = "otlp"))]
 pub mod observability;
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-mod persistence_concepts;
+pub mod persistence;
 pub mod semantic_triples;
 pub use metadata_filter::MetadataFilter;
 pub mod index;
 pub mod index_envelope;
-#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-pub mod persistence;
-#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-mod persistence_index;
-#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-mod persistence_migrations;
-#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-mod persistence_ops;
-#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-mod persistence_versions;
 #[cfg(target_arch = "wasm32")]
 pub mod persistence_wasm;
 pub use csm_core_lib::reservoir;

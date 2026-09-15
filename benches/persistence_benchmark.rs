@@ -89,7 +89,7 @@ fn bench_persistence_warm(c: &mut Criterion) {
         b.iter(|| {
             rt.block_on(async {
                 let loaded = persistence
-                    .load_concept(NS, black_box("bench-load"))
+                    .load_concept::<HVec10240>(NS, black_box("bench-load"))
                     .await
                     .unwrap();
                 black_box(loaded)
@@ -188,7 +188,10 @@ fn bench_load_all_concepts(c: &mut Criterion) {
                     let persistence = Persistence::new_local(path).await.unwrap();
                     let concepts = make_concepts(size, "load-all");
                     persistence.save_concepts(NS, &concepts).await.unwrap();
-                    let loaded = persistence.load_all_concepts(NS).await.unwrap();
+                    let loaded = persistence
+                        .load_all_concepts::<HVec10240>(NS)
+                        .await
+                        .unwrap();
                     black_box(loaded)
                 })
             })
@@ -286,7 +289,7 @@ fn bench_crud_roundtrip(c: &mut Criterion) {
                     .await
                     .unwrap();
                 let loaded = persistence
-                    .load_concept(NS, black_box("roundtrip"))
+                    .load_concept::<HVec10240>(NS, black_box("roundtrip"))
                     .await
                     .unwrap()
                     .unwrap();
@@ -295,7 +298,10 @@ fn bench_crud_roundtrip(c: &mut Criterion) {
                     .delete_concept(NS, black_box("roundtrip"))
                     .await
                     .unwrap();
-                let gone = persistence.load_concept(NS, "roundtrip").await.unwrap();
+                let gone = persistence
+                    .load_concept::<HVec10240>(NS, "roundtrip")
+                    .await
+                    .unwrap();
                 black_box(gone)
             })
         })
@@ -331,7 +337,11 @@ fn bench_crud_roundtrip_with_associations(c: &mut Criterion) {
                     .await
                     .unwrap();
 
-                let loaded = persistence.load_concept(NS, "rt-0").await.unwrap().unwrap();
+                let loaded = persistence
+                    .load_concept::<HVec10240>(NS, "rt-0")
+                    .await
+                    .unwrap()
+                    .unwrap();
                 black_box(&loaded);
 
                 let associations = persistence.load_associations(NS, "rt-0").await.unwrap();
@@ -339,7 +349,10 @@ fn bench_crud_roundtrip_with_associations(c: &mut Criterion) {
 
                 persistence.delete_concept(NS, "rt-0").await.unwrap();
 
-                let remaining = persistence.load_all_concepts(NS).await.unwrap();
+                let remaining = persistence
+                    .load_all_concepts::<HVec10240>(NS)
+                    .await
+                    .unwrap();
                 black_box(remaining.len())
             })
         })
@@ -421,7 +434,11 @@ fn bench_crud_roundtrip_percentiles(c: &mut Criterion) {
                 .save_concept(NS, black_box(&concept))
                 .await
                 .unwrap();
-            let loaded = persistence.load_concept(NS, "pct").await.unwrap().unwrap();
+            let loaded = persistence
+                .load_concept::<HVec10240>(NS, "pct")
+                .await
+                .unwrap()
+                .unwrap();
             black_box(&loaded);
         });
         samples.push(start.elapsed());
@@ -447,7 +464,11 @@ fn bench_crud_roundtrip_percentiles(c: &mut Criterion) {
                     .save_concept(NS, black_box(&concept))
                     .await
                     .unwrap();
-                let loaded = persistence.load_concept(NS, "pct").await.unwrap().unwrap();
+                let loaded = persistence
+                    .load_concept::<HVec10240>(NS, "pct")
+                    .await
+                    .unwrap()
+                    .unwrap();
                 black_box(&loaded);
             });
         })
