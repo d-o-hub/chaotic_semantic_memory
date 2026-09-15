@@ -68,6 +68,8 @@ pub struct ExportConcept {
     pub created_at: u64,
     pub modified_at: u64,
     pub expires_at: Option<u64>,
+    /// Legacy JSON payloads predating ADR-0044 omit this key.
+    #[serde(default)]
     pub canonical_concept_ids: Vec<String>,
 }
 
