@@ -36,6 +36,28 @@ updates:
       # parser > 0.13.0.
       - dependency-name: "libsql-sqlite3-parser"
 
+  - package-ecosystem: "cargo"
+    directory: "/fuzz"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "rust"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      # libsql-sqlite3-parser: GHSA-8m95-fffc-h4c5 pinned by libsql upstream.
+      # Without this ignore the weekly security job errors with
+      # "dependency is up to date but still vulnerable" (run 35156838934).
+      - dependency-name: "libsql-sqlite3-parser"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
