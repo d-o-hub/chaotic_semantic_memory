@@ -47,9 +47,9 @@ Batches of 500 concepts, DB/WAL/SHM measured separately:
 
 | N | write throughput | batch p50 | read throughput | db bytes | wal | shm | bytes/concept |
 |---|---|---|---|---|---|---|---|
-| 1,000 | 7,793/s | 70.68 ms | 181,611/s | 2.81 MB | 0 | 0 | 2,949 |
-| 10,000 | 8,733/s | 55.92 ms | 239,562/s | 27.23 MB | 0 | 0 | 2,855 |
-| 50,000 | 8,450/s | 55.78 ms | 237,046/s | 135.97 MB | 0 | 0 | 2,851 |
+| 1,000 | 8,338/s | 58.10 ms | 189,341/s | 2.81 MB | 0 | 0 | 2,949 |
+| 10,000 | 8,900/s | 53.11 ms | 245,398/s | 27.23 MB | 0 | 0 | 2,855 |
+| 50,000 | 7,986/s | 56.83 ms | 204,498/s | 135.97 MB | 0 | 0 | 2,851 |
 
 Before the bounded retry/timeout change in `csm-persistence`
 (`persistence_scale_pre_fix.json`, same workload):
@@ -65,8 +65,8 @@ post-fix (8 tasks × 25 round-trips on one local database):
 
 | variant | ops/s | p50 | p95 | p99 | retries/op | error rate |
 |---|---|---|---|---|---|---|
-| no retry | 377 | 1.77 ms | 35.03 ms | 334.23 ms | 0.00 | **0.000** |
-| caller-side bounded retry (5 × 2 ms) | 378 | 2.37 ms | 34.97 ms | 333.09 ms | 0.00 | **0.000** |
+| no retry | 378 | 1.96 ms | 20.02 ms | 333.81 ms | 0.00 | **0.000** |
+| caller-side bounded retry (5 × 2 ms) | 377 | 2.19 ms | 36.66 ms | 331.22 ms | 0.00 | **0.000** |
 
 **Result:** with a 5 s busy timeout (and retries available when a wait is not enough) every concurrent write succeeds — error rate 0.905 → 0.000 raw and 0.470 → 0.000 with caller-side retries.
 
