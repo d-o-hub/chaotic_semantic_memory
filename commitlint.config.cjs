@@ -44,6 +44,7 @@ module.exports = {
     (message) => message.includes('Co-authored-by: codacy-production[bot]'),
     (message) => /^Update .*/.test(message) && message.includes('bot'),
     (message) => message.includes('---\nupdated-dependencies:'),
+    (message) => /^(ci|chore)\(deps\)\(deps\):/.test(message),
     (message) => /^Merge branch .+ into/.test(message),
     (message) => /^Merge remote-tracking branch/.test(message),
     (message) => /^Merge pull request/.test(message),
