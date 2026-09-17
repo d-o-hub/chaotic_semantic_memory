@@ -27,12 +27,11 @@
 #![cfg(all(feature = "otlp", not(target_arch = "wasm32")))]
 
 use csm_core_lib::error::{MemoryError, Result};
-use opentelemetry::KeyValue;
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::SpanExporter;
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::resource::Resource;
-use opentelemetry_sdk::trace::TracerProvider;
+use opentelemetry_sdk::trace::SdkTracerProvider;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
@@ -42,7 +41,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 /// any buffered spans and shuts down the provider, ensuring clean export
 /// before process exit.
 pub struct OtlpGuard {
-    provider: Option<TracerProvider>,
+    provider: Option<SdkTracerProvider>,
 }
 
 impl OtlpGuard {
@@ -89,12 +88,11 @@ pub fn install_grpc_tracer(endpoint: &str, service_name: &str) -> Result<OtlpGua
         .build()
         .map_err(|e| MemoryError::Observability(format!("OTLP gRPC exporter build: {e}")))?;
 
-    let resource = Resource::new(vec![KeyValue::new(
-        "service.name",
-        service_name.to_string(),
-    )]);
+    let resource = Resource::builder()
+        .with_service_name(service_name.to_string())
+        .build();
 
-    let provider = TracerProvider::builder()
+    let provider = SdkTracerProvider::builder()
         .with_simple_exporter(exporter)
         .with_resource(resource)
         .build();
