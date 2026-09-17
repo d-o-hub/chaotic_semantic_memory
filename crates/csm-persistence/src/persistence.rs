@@ -315,13 +315,13 @@ impl Persistence {
     }
 }
 
-#[async_trait::async_trait]
 #[cfg(test)]
 #[cfg(feature = "persistence")]
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
     use chrono::Utc;
+    use csm_traits::{AbsenceEntry, AbsenceStore};
     use tempfile::NamedTempFile;
 
     #[tokio::test]
