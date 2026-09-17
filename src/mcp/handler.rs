@@ -63,13 +63,14 @@ impl McpHandler {
 impl ServerHandler for McpHandler {
     fn get_info(&self) -> ServerInfo {
         let mut caps = ServerCapabilities::default();
-        caps.tools = Some(ToolsCapability {
-            list_changed: Some(true),
-        });
-        caps.resources = Some(ResourcesCapability {
-            subscribe: Some(false),
-            list_changed: Some(true),
-        });
+        let mut tools = ToolsCapability::default();
+        tools.list_changed = Some(true);
+        caps.tools = Some(tools);
+
+        let mut resources = ResourcesCapability::default();
+        resources.subscribe = Some(false);
+        resources.list_changed = Some(true);
+        caps.resources = Some(resources);
         InitializeResult::new(caps).with_server_info(Implementation::new(
             "chaotic_semantic_memory",
             env!("CARGO_PKG_VERSION"),
@@ -163,10 +164,9 @@ impl ServerHandler for McpHandler {
             .await
             .map_err(Self::map_error)?;
 
-        Ok(CallToolResult::success(vec![Content::new(
+        Ok(CallToolResult::success(vec![ContentBlock::text(
             #[allow(clippy::unwrap_used)] // serde_json serialization of valid data is infallible
-            RawContent::text(serde_json::to_string_pretty(&result).unwrap()),
-            None,
+            serde_json::to_string_pretty(&result).unwrap(),
         )]))
     }
 
@@ -235,17 +235,7 @@ fn tool_def(name: &str, desc: &str, schema: Value) -> Tool {
 }
 
 fn res_def(uri: &str, name: &str, desc: &str, mime: &str) -> Resource {
-    Resource::new(
-        RawResource {
-            uri: uri.to_string(),
-            name: name.to_string(),
-            title: None,
-            description: Some(desc.to_string()),
-            mime_type: Some(mime.to_string()),
-            size: None,
-            icons: None,
-            meta: None,
-        },
-        None,
-    )
+    Resource::new(uri, name)
+        .with_description(desc)
+        .with_mime_type(mime)
 }
