@@ -8,6 +8,8 @@
 #[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
 mod persistence;
 #[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
+mod persistence_absence;
+#[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
 mod persistence_bridge;
 #[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
 mod persistence_concepts;

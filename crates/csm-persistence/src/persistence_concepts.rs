@@ -18,20 +18,7 @@ impl Persistence {
         ns: &str,
         concept: &Concept<H>,
     ) -> Result<()> {
-        let mut attempt = 0;
-        loop {
-            match self.save_concept_once(ns, concept).await {
-                Ok(()) => return Ok(()),
-                Err(e)
-                    if crate::persistence_retry::is_transient(&e)
-                        && attempt < crate::persistence_retry::WRITE_RETRY_LIMIT =>
-                {
-                    attempt += 1;
-                    tokio::time::sleep(crate::persistence_retry::backoff(attempt)).await;
-                }
-                Err(e) => return Err(e),
-            }
-        }
+        crate::persistence_retry::with_retry(|| self.save_concept_once(ns, concept)).await
     }
 
     async fn save_concept_once<H: csm_core_lib::hyperdim::Hypervector>(
@@ -122,20 +109,7 @@ impl Persistence {
             return Ok(());
         }
 
-        let mut attempt = 0;
-        loop {
-            match self.save_concepts_once(ns, concepts).await {
-                Ok(()) => return Ok(()),
-                Err(e)
-                    if crate::persistence_retry::is_transient(&e)
-                        && attempt < crate::persistence_retry::WRITE_RETRY_LIMIT =>
-                {
-                    attempt += 1;
-                    tokio::time::sleep(crate::persistence_retry::backoff(attempt)).await;
-                }
-                Err(e) => return Err(e),
-            }
-        }
+        crate::persistence_retry::with_retry(|| self.save_concepts_once(ns, concepts)).await
     }
 
     async fn save_concepts_once<H: csm_core_lib::hyperdim::Hypervector>(

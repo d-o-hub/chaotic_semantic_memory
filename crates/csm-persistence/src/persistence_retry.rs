@@ -19,9 +19,10 @@
 //! Retries are deliberately limited to idempotent write paths: re-running an
 //! upsert transaction is safe, re-running an arbitrary statement is not.
 
+use std::future::Future;
 use std::time::Duration;
 
-use csm_core_lib::error::MemoryError;
+use csm_core_lib::error::{MemoryError, Result};
 
 /// Bounded wait applied per connection via `PRAGMA busy_timeout`.
 pub(crate) const LOCAL_BUSY_TIMEOUT_MS: u64 = 5_000;
@@ -43,4 +44,27 @@ pub(crate) fn is_transient(error: &MemoryError) -> bool {
 /// 2, 4, 8, 16, 32 ms — no jitter, so evidence runs stay reproducible.
 pub(crate) fn backoff(attempt: u32) -> Duration {
     Duration::from_millis(2u64 << attempt.saturating_sub(1).min(5))
+}
+
+/// Run an idempotent write, retrying a transient lock failure within the
+/// bounds above.
+///
+/// The closure must re-run the whole statement or transaction: every call site
+/// is an upsert, so a retry cannot duplicate work.
+pub(crate) async fn with_retry<T, F, Fut>(mut op: F) -> Result<T>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<T>>,
+{
+    let mut attempt = 0;
+    loop {
+        match op().await {
+            Ok(value) => return Ok(value),
+            Err(e) if is_transient(&e) && attempt < WRITE_RETRY_LIMIT => {
+                attempt += 1;
+                tokio::time::sleep(backoff(attempt)).await;
+            }
+            Err(e) => return Err(e),
+        }
+    }
 }
