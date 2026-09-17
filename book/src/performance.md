@@ -23,8 +23,14 @@ GitHub runners).
 | `BHVec10240::hamming` (direct dispatch, PR #597) | — | ~37.7 ns idle / ~54.5 ns loaded (~2.6–2.75× vs `to_hvec()` conversion path) |
 | Graph candidate retrieval (PR #598) | — | ~218 µs on 500-node graph (~8% faster than String-clone baseline) |
 | `turso_roundtrip` | <20ms | Passing |
-| `10m_concepts_memory` | <12MB | Passing |
+| memory per concept (measured, ADR-0095) | — | 4 691 B RSS / 2 850 B persisted |
+| `10m_concepts_memory` | <12MB | **Not supported**: 43.7 GB RSS / 26.5 GB on disk at the measured slope (the 12 MB figure belongs to the unimplemented ADR-0024 phase-2 product quantization) |
 | `wasm_binary_size` | <500KB | ~438KB |
+
+Memory figures are measured, not projected from constants: see
+[`plans/evidence/scale_2026_09_17/`](https://github.com/d-o-hub/chaotic_semantic_memory/tree/main/plans/evidence/scale_2026_09_17)
+for the fit (RSS `= 2 880 665 B + 4 691 B × concepts`, held-out error 0.29 % at
+100 k) and the reproduction commands.
 
 ## Tuning Guide
 
