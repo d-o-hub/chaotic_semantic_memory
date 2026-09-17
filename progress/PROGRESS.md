@@ -17,6 +17,9 @@ Follow-on to the 2026-09-15 queue landing. Merged the WASM bincode fix (#725), c
 - **`lru` GHSA-rhfx-m35p-ff5j (low, patched 0.16.3)**: transitive via `quinn-proto 0.11.16` and `tantivy 0.22.1`, both on `lru ^0.12`. Not bumpable from this repo until those parents release; the alert stays open.
 - **`libsql-sqlite3-parser` (low, no patched release)**: pinned by libsql upstream, already ignored in `deny.toml` and `dependabot.yml` with a documented reason.
 
+### Final state
+`main` at `c841d28`, zero open PRs, zero open issues; `cargo deny check advisories` ok and `cargo tree --locked --all-features` resolves (rmcp 3.4.0, opentelemetry_sdk 0.32.1). `plans/GOAP_STATE.md` metrics refreshed in place (`main_head`, `tests_count` 1092 → 1053 from the dedup waves, `integration_test_files` 70 → 71, `dependabot_alerts_open` 5 → 3). Local `target/` (116 GiB) reclaimed with `cargo clean`.
+
 ## 2026-09-15 (wave 2): ADR-0094 Persistence Owner Dedup Completed + PR Queue Landed
 
 ### Summary

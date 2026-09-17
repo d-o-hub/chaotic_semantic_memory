@@ -24,18 +24,18 @@ world_state:
   binary_built: true
   documentation_complete: true
   validated: false               # Wave 32/33 remainder: ownership + evidence tiers still queued
-  ci_all_checks_passed: true     # 2026-09-17: PR title guard added after 1d05dc1 push run hit header-max-length (102 chars; other jobs green)
+  ci_all_checks_passed: true     # 2026-09-17: PR-title check keys on github.event.pull_request.user.login and tolerates double-scoped dependabot titles (#726)
   loc_gate_verified: true        # all first-party src/ and crates/ files ≤ 500 LOC
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "1d05dc1"           # 2026-09-15: PR #714 ADR-0094 persistence owner dedup wave complete
-  tests_count: 1092              # 2026-09-07: literal #[test]/#[tokio::test] across src/crates/tests
+  main_head: "c841d28"           # 2026-09-17: PR #730 records the dependabot queue clear (#725-#730)
+  tests_count: 1053              # 2026-09-17: literal #[test]/#[tokio::test] across src/crates/tests
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
   coverage_ratio_current: 93     # test:source ratio (target ≥90%)
   adr_registry_count: 94         # 2026-08-12: check-adr-parity.sh ok (registry=94, disk=93, 0003 N/A)
   adr_disk_count: 93
-  integration_test_files: 70     # tests/*.rs (2026-08-11: +persistence_disabled.rs)
+  integration_test_files: 71     # tests/*.rs (2026-09-17 recount)
 
   # ── Plans pointers ────────────────────────────────────────────
   plans_active_index: "plans/README.md"
@@ -85,7 +85,7 @@ world_state:
   mutation_threshold: 85
   actions_pinned_to_sha: true
   harness_msrv_current: "1.88"
-  dependabot_alerts_open: 5       # 2026-07-11 snapshot; all blocked upstream, documented in deny.toml
+  dependabot_alerts_open: 3       # 2026-09-17: otel GHSA cleared (#729); left: lru (quinn-proto/tantivy pin ^0.12) + libsql-sqlite3-parser ×2 (no fix, denied in deny.toml)
 
   # ── GOAP bookkeeping ──────────────────────────────────────────
   goap_reconciliations_complete:

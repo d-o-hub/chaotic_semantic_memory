@@ -12,6 +12,24 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-09-17):
+> `clear_dependabot_queue_2026_09_17` (no ADR; supply-chain hygiene) — merged
+> the WASM bincode fix (#725) plus the whole Dependabot backlog: consolidated
+> batch PR #726 (`fuzz/Cargo.lock`, `taiki-e/install-action` 2.87.12,
+> dependabot double-scope fix) superseding #717–#722, native #727
+> (`clap_complete`), and two real migrations instead of ignores — rmcp
+> 2.2 → 3.4 (#728: MRTR response enums, `with_all_items`, `ServerConfig`) and
+> opentelemetry 0.27 → 0.32 (#729: clears GHSA-w9wp-h8wv-79jx, medium;
+> `SdkTracerProvider`, `Resource::builder`). Root cause of the recurring
+> `commitlint` failures: `prefix: "chore(deps)"` + `include: "scope"` emits
+> `chore(deps)(deps):`, and the PR-title guard keyed on `github.actor` stopped
+> skipping the bot after a maintainer ran `update-branch`. Zero open PRs and
+> zero open issues after #730; 3 alerts remain non-actionable
+> (`lru` GHSA-rhfx-m35p-ff5j pinned at `^0.12` by quinn-proto/tantivy,
+> `libsql-sqlite3-parser` ×2 with no patched release). The three P2/P3
+> actions below stay queued; `action_last_completed` unchanged because no
+> queued GOAP action was in scope.
+>
 > Last completed (verified 2026-09-15, wave 2):
 > `deduplicate_persistence_owner_bodies` (ADR-0094) — phase 1 (crate parity) was
 > already on main; this wave promoted the bridge types to `csm-traits`
