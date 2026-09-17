@@ -23,4 +23,4 @@ engines:
       # parameters and `std::env::current_exe()` re-executes the harness itself to
       # get a clean-process RSS baseline. Neither feeds a security decision, so the
       # rust.lang.security.args/current-exe rules do not apply to it.
-      - examples/scale_evidence
+      - examples/scale_evidence/**
