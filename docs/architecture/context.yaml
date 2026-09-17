@@ -271,7 +271,20 @@ validation:
       
     - name: memory_10m_concepts
       target: "< 12MB"
-      status: passing
+      status: not_supported
+      measured_bytes_per_concept:
+        rss: 4691
+        persisted: 2850
+      projected_10m:
+        rss_gb: 43.7
+        persisted_gb: 26.5
+      evidence: plans/evidence/scale_2026_09_17/memory_model.json
+      note: >-
+        The 12MB target belongs to the ADR-0024 phase-2 product-quantization
+        design, which was never implemented. The shipped representation stores
+        a 1280-byte HVec10240 per concept (plus index copies) and writes it
+        twice (concept + version rows); the 2026-09-17 scale evidence fits
+        RSS = 2880665 B + 4691 B x concepts with 0.29% held-out error at 100k.
       
     - name: wasm_binary_size
       target: "< 500KB"

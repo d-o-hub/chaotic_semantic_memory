@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Docs (`book`, `docs/architecture/context.yaml`)**: the recorded `< 12 MB for 10M concepts` target is no longer marked passing. The 2026-09-17 scale evidence measures 4 691 B RSS and 2 850 B persisted per concept (held-out error 0.29 % / 0.06 % at 100 k), so the 10 M projection is 43.7 GB / 26.5 GB; the 12 MB figure describes the unimplemented ADR-0024 phase-2 product quantization. `tests/performance_targets.rs` now measures the footprint instead of asserting the design's arithmetic.
 - **Perf (`csm-memory`)**: `generate_graph_candidates` BFS borrows `&str` instead of cloning every candidate `String` — ~8% faster end-to-end on a 500-node association graph (same-machine criterion, PR #598). New `benches/graph_candidates_benchmark.rs` provides the A/B evidence.
 - **CI**: `benchmark-graph-candidates` job runs the graph-candidates criterion bench with a documented regression ceiling on `benches/**`, `csm-memory`, and workflow changes.
 - **Perf (`csm-core-lib`)**: `BHVec10240::hamming` now dispatches directly over the packed `[u64; 160]` words (AVX2 / NEON / unrolled scalar fallback), removing the two `to_hvec()` layout conversions from the hot path — ~2.6–2.75× faster same-machine (PR #597).
