@@ -19,3 +19,8 @@ engines:
       # BHVec10240 bit-sliced bundling kernels (AVX2/NEON) use justified unsafe
       # intrinsics with # SAFETY docs and runtime feature detection; see PR #663.
       - crates/csm-core-lib/src/hyperdim_simd_bundle.rs
+      # Scale-evidence harness (ADR-0095): `std::env::args()` carries measurement
+      # parameters and `std::env::current_exe()` re-executes the harness itself to
+      # get a clean-process RSS baseline. Neither feeds a security decision, so the
+      # rust.lang.security.args/current-exe rules do not apply to it.
+      - examples/scale_evidence/**

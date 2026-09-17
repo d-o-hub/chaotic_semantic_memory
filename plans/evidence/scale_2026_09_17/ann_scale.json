@@ -1,0 +1,348 @@
+{
+  "clusters": 64,
+  "kind": "ann_scale",
+  "noise_bits": 512,
+  "scales": [
+    {
+      "backends": [
+        {
+          "backend": "exact",
+          "build_ms": 2.0047390000000003,
+          "index_bytes": 1320000,
+          "index_count": 1000,
+          "is_ground_truth": true,
+          "query": {
+            "max_us": 978,
+            "mean_us": 87.52,
+            "min_us": 46,
+            "n": 50,
+            "p50_us": 58,
+            "p95_us": 185,
+            "p99_us": 978
+          },
+          "recall_at_k": 1.0,
+          "reload_method": "rebuild:1000",
+          "reload_ms": 4.24049,
+          "serialize_bytes": 0,
+          "update_ms": {
+            "count": 100,
+            "delete": 0.086535,
+            "reinsert": 0.047046000000000004
+          }
+        },
+        {
+          "backend": "hnsw",
+          "build_ms": 508.925638,
+          "index_bytes": 1336000,
+          "index_count": 1000,
+          "is_ground_truth": false,
+          "query": {
+            "max_us": 354,
+            "mean_us": 261.82,
+            "min_us": 174,
+            "n": 50,
+            "p50_us": 248,
+            "p95_us": 345,
+            "p99_us": 354
+          },
+          "recall_at_k": 0.9579999999999997,
+          "reload_method": "deserialize:10",
+          "reload_ms": 23.920403,
+          "serialize_bytes": 1903431,
+          "update_ms": {
+            "count": 100,
+            "delete": 0.13236199999999998,
+            "reinsert": 78.93568300000001
+          }
+        },
+        {
+          "backend": "lsh",
+          "build_ms": 3.702566,
+          "index_bytes": 1368920,
+          "index_count": 1000,
+          "is_ground_truth": false,
+          "query": {
+            "max_us": 417,
+            "mean_us": 37.36,
+            "min_us": 18,
+            "n": 50,
+            "p50_us": 25,
+            "p95_us": 80,
+            "p99_us": 417
+          },
+          "recall_at_k": 0.834,
+          "reload_method": "deserialize:10",
+          "reload_ms": 8.639555,
+          "serialize_bytes": 1409380,
+          "update_ms": {
+            "count": 100,
+            "delete": 0.379679,
+            "reinsert": 0.21776900000000002
+          }
+        },
+        {
+          "backend": "bucket",
+          "bucket_probe_width": 8,
+          "build_ms": 4.466092,
+          "candidate_count_avg": 92.32,
+          "candidate_ns_avg": 86340.72,
+          "exact_fallbacks": 4,
+          "index_bytes": 0,
+          "index_count": 1000,
+          "query": {
+            "max_us": 628,
+            "mean_us": 128.86,
+            "min_us": 50,
+            "n": 50,
+            "p50_us": 95,
+            "p95_us": 295,
+            "p99_us": 628
+          },
+          "recall_at_k": 0.612,
+          "reload_method": "no-persistent-state",
+          "reload_ms": 0.0,
+          "scored_count_avg": 92.32,
+          "scoring_ns_avg": 33809.9,
+          "serialize_bytes": 0,
+          "update_ms": {
+            "count": 0,
+            "delete": 0.0,
+            "reinsert": 0.0
+          }
+        }
+      ],
+      "concepts": 1000,
+      "corpus_checksum": "fnv1a64:24d25b7386ad6fbc",
+      "corpus_version": "synthetic-clustered-v1",
+      "queries": 50
+    },
+    {
+      "backends": [
+        {
+          "backend": "exact",
+          "build_ms": 17.682151,
+          "index_bytes": 13200000,
+          "index_count": 10000,
+          "is_ground_truth": true,
+          "query": {
+            "max_us": 2085,
+            "mean_us": 808.42,
+            "min_us": 569,
+            "n": 50,
+            "p50_us": 758,
+            "p95_us": 1217,
+            "p99_us": 2085
+          },
+          "recall_at_k": 1.0,
+          "reload_method": "rebuild:10000",
+          "reload_ms": 37.21223,
+          "serialize_bytes": 0,
+          "update_ms": {
+            "count": 100,
+            "delete": 0.119289,
+            "reinsert": 0.051802
+          }
+        },
+        {
+          "backend": "hnsw",
+          "build_ms": 19550.226003,
+          "index_bytes": 13360000,
+          "index_count": 10000,
+          "is_ground_truth": false,
+          "query": {
+            "max_us": 1288,
+            "mean_us": 594.4,
+            "min_us": 383,
+            "n": 50,
+            "p50_us": 530,
+            "p95_us": 803,
+            "p99_us": 1288
+          },
+          "recall_at_k": 0.9219999999999997,
+          "reload_method": "deserialize:10",
+          "reload_ms": 410.570243,
+          "serialize_bytes": 19274645,
+          "update_ms": {
+            "count": 100,
+            "delete": 0.261597,
+            "reinsert": 229.198098
+          }
+        },
+        {
+          "backend": "lsh",
+          "build_ms": 73.121836,
+          "index_bytes": 13355480,
+          "index_count": 10000,
+          "is_ground_truth": false,
+          "query": {
+            "max_us": 3496,
+            "mean_us": 374.16,
+            "min_us": 94,
+            "n": 50,
+            "p50_us": 187,
+            "p95_us": 2511,
+            "p99_us": 3496
+          },
+          "recall_at_k": 0.81,
+          "reload_method": "deserialize:10",
+          "reload_ms": 79.483151,
+          "serialize_bytes": 13924420,
+          "update_ms": {
+            "count": 100,
+            "delete": 0.748581,
+            "reinsert": 0.19720400000000002
+          }
+        },
+        {
+          "backend": "bucket",
+          "bucket_probe_width": 8,
+          "build_ms": 78.43074399999999,
+          "candidate_count_avg": 125.48,
+          "candidate_ns_avg": 385086.18,
+          "exact_fallbacks": 0,
+          "index_bytes": 0,
+          "index_count": 10000,
+          "query": {
+            "max_us": 3908,
+            "mean_us": 625.86,
+            "min_us": 168,
+            "n": 50,
+            "p50_us": 478,
+            "p95_us": 2228,
+            "p99_us": 3908
+          },
+          "recall_at_k": 0.554,
+          "reload_method": "no-persistent-state",
+          "reload_ms": 0.0,
+          "scored_count_avg": 125.48,
+          "scoring_ns_avg": 226616.26,
+          "serialize_bytes": 0,
+          "update_ms": {
+            "count": 0,
+            "delete": 0.0,
+            "reinsert": 0.0
+          }
+        }
+      ],
+      "concepts": 10000,
+      "corpus_checksum": "fnv1a64:213091f0133f2a0c",
+      "corpus_version": "synthetic-clustered-v1",
+      "queries": 50
+    },
+    {
+      "backends": [
+        {
+          "backend": "exact",
+          "build_ms": 110.735288,
+          "index_bytes": 66000000,
+          "index_count": 50000,
+          "is_ground_truth": true,
+          "query": {
+            "max_us": 14015,
+            "mean_us": 6835.38,
+            "min_us": 4300,
+            "n": 50,
+            "p50_us": 6348,
+            "p95_us": 11844,
+            "p99_us": 14015
+          },
+          "recall_at_k": 1.0,
+          "reload_method": "rebuild:50000",
+          "reload_ms": 249.001779,
+          "serialize_bytes": 0,
+          "update_ms": {
+            "count": 100,
+            "delete": 0.24176699999999998,
+            "reinsert": 0.096078
+          }
+        },
+        {
+          "backend": "hnsw",
+          "build_ms": 80152.127869,
+          "index_bytes": 66800000,
+          "index_count": 50000,
+          "is_ground_truth": false,
+          "query": {
+            "max_us": 1519,
+            "mean_us": 867.7,
+            "min_us": 473,
+            "n": 50,
+            "p50_us": 896,
+            "p95_us": 1167,
+            "p99_us": 1519
+          },
+          "recall_at_k": 0.8919999999999999,
+          "reload_method": "deserialize:10",
+          "reload_ms": 2284.270518,
+          "serialize_bytes": 97623672,
+          "update_ms": {
+            "count": 100,
+            "delete": 0.341546,
+            "reinsert": 172.877129
+          }
+        },
+        {
+          "backend": "lsh",
+          "build_ms": 282.131733,
+          "index_bytes": 66049552,
+          "index_count": 50000,
+          "is_ground_truth": false,
+          "query": {
+            "max_us": 4876,
+            "mean_us": 979.98,
+            "min_us": 313,
+            "n": 50,
+            "p50_us": 813,
+            "p95_us": 1784,
+            "p99_us": 4876
+          },
+          "recall_at_k": 0.8359999999999995,
+          "reload_method": "deserialize:10",
+          "reload_ms": 496.079283,
+          "serialize_bytes": 69400468,
+          "update_ms": {
+            "count": 100,
+            "delete": 8.841453000000001,
+            "reinsert": 0.379789
+          }
+        },
+        {
+          "backend": "bucket",
+          "bucket_probe_width": 8,
+          "build_ms": 655.6456830000001,
+          "candidate_count_avg": 649.66,
+          "candidate_ns_avg": 2675822.52,
+          "exact_fallbacks": 0,
+          "index_bytes": 0,
+          "index_count": 50000,
+          "query": {
+            "max_us": 17169,
+            "mean_us": 3202.96,
+            "min_us": 843,
+            "n": 50,
+            "p50_us": 1828,
+            "p95_us": 12703,
+            "p99_us": 17169
+          },
+          "recall_at_k": 0.5900000000000001,
+          "reload_method": "no-persistent-state",
+          "reload_ms": 0.0,
+          "scored_count_avg": 649.66,
+          "scoring_ns_avg": 507949.68,
+          "serialize_bytes": 0,
+          "update_ms": {
+            "count": 0,
+            "delete": 0.0,
+            "reinsert": 0.0
+          }
+        }
+      ],
+      "concepts": 50000,
+      "corpus_checksum": "fnv1a64:74b7cd99b8b531e5",
+      "corpus_version": "synthetic-clustered-v1",
+      "queries": 50
+    }
+  ],
+  "seed": 42,
+  "top_k": 10
+}

@@ -85,6 +85,7 @@ world_state:
   mutation_threshold: 85
   actions_pinned_to_sha: true
   harness_msrv_current: "1.88"
+  adr_0095_accepted: true        # 2026-09-17: plans/adr/0095-evidence-driven-quality-gates.md is Accepted (2026-07-16); precondition of deduplicate_test_and_source_surfaces
   dependabot_alerts_open: 3       # 2026-09-17: otel GHSA cleared (#729); left: lru (quinn-proto/tantivy pin ^0.12) + libsql-sqlite3-parser ×2 (no fix, denied in deny.toml)
 
   # ── GOAP bookkeeping ──────────────────────────────────────────

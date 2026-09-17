@@ -135,9 +135,9 @@ actions:
   # P2 — evidence (ADR-0095)
   - name: add_ann_and_persistence_scale_benchmarks
     preconditions:
-      performance_claims_have_current_artifacts: true
       ann_snapshot_revision_validated: true
     effects:
+      performance_claims_have_current_artifacts: true
       ann_scale_evidence_current: true
       persistence_contention_evidence_current: true
     cost: 8
@@ -150,6 +150,10 @@ actions:
       pending. Compare exact/bucket/HNSW/LSH build, query, update, delete, bytes, recall,
       and reload at agreed scales. Bound persistence retries/timeouts and report
       throughput, p50/p95/p99, retry, and error rates.
+      Produces the artifacts the next action consumes, so the
+      `performance_claims_have_current_artifacts` flag is an effect here, not a
+      precondition (2026-09-17 repair: it was previously a precondition with no
+      setter, deadlocking both P2 actions).
 
   - name: replace_formula_only_memory_claim
     preconditions:
