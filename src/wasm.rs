@@ -370,7 +370,8 @@ impl WasmFramework {
 
         // Use BinaryExportPayload for bincode compatibility (serde_json::Value is incompatible with bincode)
         let binary_payload = BinaryExportPayload::from(payload);
-        let data = bincode::serialize(&binary_payload).map_err(to_js_error)?;
+        let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
+        let data = options.serialize(&binary_payload).map_err(to_js_error)?;
         Ok(Uint8Array::from(data.as_slice()))
     }
 

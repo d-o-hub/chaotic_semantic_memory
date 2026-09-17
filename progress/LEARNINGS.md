@@ -99,7 +99,7 @@
 - **Top-K**: `select_nth_unstable_by` for O(N) partial sort.
 - **WASM**: Gate rayon/IO with `#[cfg(not(target_arch = "wasm32"))]`.
 - **Persistence**: `csm_`-prefixed tables. Update all surfaces (single, batch, export, WASM) when adding fields.
-- **WASM bincode configs must match (found 2026-09-15, pre-existing)**: `WasmFramework::exportToBytes` writes with `bincode::serialize` (legacy fixed-width config) while `importFromBytes` reads with `bincode::DefaultOptions` (varint), so a browser export→import round trip fails with `string is not valid utf8` (the payload types are identical — it is the config, not the layout: legacy→legacy `Ok`, legacy→`DefaultOptions` `Err("Slice had bytes remaining")`, varint→`DefaultOptions` `Ok`). The native paths are consistent (`DefaultOptions` both sides, byte-identical payloads). `wasm/test.js` only exercises export, so CI never caught it. Whichever side is changed, serialize and deserialize must use the same `bincode::Options` config.
+- **WASM bincode configs must match (fixed 2026-09-17)**: `WasmFramework::exportToBytes` previously wrote with `bincode::serialize` (legacy fixed-width config) while `importFromBytes` read with `bincode::DefaultOptions` (varint), causing browser export→import round trips to fail with `string is not valid utf8`. Aligned `exportToBytes` to use `DefaultOptions::new().with_limit(MAX_IMPORT_SIZE)` matching `importFromBytes` and native `export_binary`/`import_binary`; added round-trip assertion to `wasm/test.js`.
 - **Floats**: Never `partial_cmp().unwrap()` — NaN panics. Use `total_cmp()`.
 
 ## State Management
