@@ -18,6 +18,8 @@ mod persistence_migrations;
 #[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
 mod persistence_ops;
 #[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
+mod persistence_retry;
+#[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
 mod persistence_versions;
 
 #[cfg(feature = "wasm")]

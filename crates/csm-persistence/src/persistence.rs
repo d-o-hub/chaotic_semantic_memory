@@ -83,6 +83,19 @@ impl Persistence {
                 .query("PRAGMA journal_mode=WAL;", ())
                 .await
                 .map_err(|e| MemoryError::database(format!("Failed to enable WAL mode: {e}")))?;
+            // ADR-0095: bound how long a writer waits for a competing writer
+            // instead of failing immediately with `database is locked`.
+            // `query` (not `execute`): the pragma returns the applied value.
+            let _ = conn
+                .query(
+                    &format!(
+                        "PRAGMA busy_timeout = {};",
+                        crate::persistence_retry::LOCAL_BUSY_TIMEOUT_MS
+                    ),
+                    (),
+                )
+                .await
+                .map_err(|e| MemoryError::database(format!("Failed to set busy timeout: {e}")))?;
         }
         conn.execute("PRAGMA foreign_keys=ON;", ())
             .await
@@ -147,8 +160,38 @@ impl Persistence {
         Ok(())
     }
 
-    /// Save an association
+    /// Save an association.
+    ///
+    /// Idempotent (upsert), so a transient lock failure is retried within the
+    /// bounds documented in `persistence_retry` (ADR-0095).
+    ///
+    /// # Errors
+    ///
+    /// Returns the last error when the retry budget is exhausted.
     pub async fn save_association(
+        &self,
+        ns: &str,
+        from: &str,
+        to: &str,
+        strength: f32,
+    ) -> Result<()> {
+        let mut attempt = 0;
+        loop {
+            match self.save_association_once(ns, from, to, strength).await {
+                Ok(()) => return Ok(()),
+                Err(e)
+                    if crate::persistence_retry::is_transient(&e)
+                        && attempt < crate::persistence_retry::WRITE_RETRY_LIMIT =>
+                {
+                    attempt += 1;
+                    tokio::time::sleep(crate::persistence_retry::backoff(attempt)).await;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
+
+    async fn save_association_once(
         &self,
         ns: &str,
         from: &str,

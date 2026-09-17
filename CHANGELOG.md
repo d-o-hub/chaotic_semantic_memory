@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking (`chaotic_semantic_memory`)**: `Persistence` is now re-exported from `csm-persistence`; the concept/version read methods are generic over `Hypervector`, so `load_concept`, `load_all_concepts`, `get_version_scoped`, `list_versions_scoped` need an explicit `::<HVec10240>` where the surrounding code does not constrain the vector type. Wire formats (JSON, bincode), the schema ladder, wasm behavior and `--no-default-features` behavior are unchanged.
 
 ### Fixed
+- **Persistence (`csm-persistence`)**: concurrent local writes no longer fail with `database is locked`. Every local connection now sets `PRAGMA busy_timeout = 5000` and the idempotent write paths (`save_concept`, `save_concepts`, `save_association`) retry a transient lock error up to 5 times with a bounded 2–32 ms backoff, so the ADR-0095 requirement for bounded retries/timeouts is met. Measured before/after on the same workload (8 writers × 25 round-trips): error rate 90 % → 0 %, with the evidence in `plans/evidence/scale_2026_09_17/`.
 - **Security**: `ChaoticSemanticFramework::prune_decayed_associations` validates `threshold` (finite, `[0.0, 1.0]`) before pruning — a `NaN` threshold previously pruned **all** associations silently (PR #607).
 - **Security (`csm-memory`, wasm)**: Crate-level `Singularity::prune_decayed_associations` and the wasm `neighbors(min_strength)` binding reject `NaN`/out-of-range inputs instead of silently mass-pruning associations or returning empty neighbor sets (PR #609).
 
