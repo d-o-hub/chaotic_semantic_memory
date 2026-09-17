@@ -120,7 +120,7 @@ wave_33_goals:
   name: "Docs Truth, Ownership, Missing Behavior, Evidence"
   note: "Queued after Wave 32 P0/P1 subset; see ACTIONS.md wave-33"
   targets:
-    - workspace_implementation_owners_unique: false  # csm-cli/csm-wasm pending this sprint
+    - workspace_implementation_owners_unique: true   # 2026-08-12: csm-cli/csm-wasm dead dupes removed (#626/#627); comment trued-up 2026-09-17
     - no_default_features_is_lean: true              # ADR-0094, 2026-08-08
     - bm25_absence_todo_resolved: true               # PR wire/bm25-absence-short-circuit (2026-08-12)
     - ttl_cleanup_task_owned: true                   # src/framework.rs cleanup_handle + Drop abort
