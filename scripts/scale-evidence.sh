@@ -66,6 +66,7 @@ cargo run --release --example scale_evidence --features "${FEATURES}" -- \
 # Values are exported and read by the generator below; no shell interpolation
 # happens inside the Python source.
 export EVIDENCE_ARTIFACT="${ARTIFACT}"
+export EVIDENCE_MODE="${MODE}"
 export EVIDENCE_COMMAND="${COMMAND}"
 export EVIDENCE_FEATURES="${FEATURES}"
 export GIT_COMMIT
@@ -154,6 +155,7 @@ manifest = {
     },
 }
 
-(out / "evidence.json").write_text(json.dumps(manifest, indent=2) + "\n")
-print(f"wrote {out / 'evidence.json'}")
+manifest_name = f"evidence_{os.environ['EVIDENCE_MODE']}.json"
+(out / manifest_name).write_text(json.dumps(manifest, indent=2) + "\n")
+print(f"wrote {out / manifest_name}")
 PY
