@@ -177,10 +177,10 @@ rmcp = { version = "3.4", optional = true, features = ["server", "macros", "tran
 prometheus = { version = "0.13", optional = true, default-features = false }
 
 # OTLP gRPC observability dependencies (ADR-0072/ADR-0086, opt-in via "otlp" feature)
-opentelemetry = { version = "0.27", optional = true }
-opentelemetry_sdk = { version = "0.27", optional = true }
-opentelemetry-otlp = { version = "0.27", optional = true, features = ["grpc-tonic"] }
-tracing-opentelemetry = { version = "0.28", optional = true }
+opentelemetry = { version = "0.32", optional = true }
+opentelemetry_sdk = { version = "0.32", optional = true }
+opentelemetry-otlp = { version = "0.32", optional = true, features = ["grpc-tonic"] }
+tracing-opentelemetry = { version = "0.33", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # CPU parallelism (opt-in via "parallel" feature)
