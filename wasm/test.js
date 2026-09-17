@@ -90,6 +90,18 @@ async function test() {
     }
     console.log(`Exported ${exported.length} bytes`);
 
+    console.log('Testing importFromBytes round trip...');
+    const framework2 = await WasmFramework.new();
+    const importedCount = await framework2.importFromBytes(exported, false);
+    if (importedCount !== 2) {
+        throw new Error(`Expected 2 imported concepts, got ${importedCount}`);
+    }
+    const catAssoc = await framework2.get_associations('cat');
+    if (!catAssoc.some(entry => entry.to === 'dog')) {
+        throw new Error('Imported association cat -> dog missing');
+    }
+    console.log(`Successfully imported ${importedCount} concepts and verified associations`);
+
     console.log('\nWASM smoke test passed.');
 }
 
