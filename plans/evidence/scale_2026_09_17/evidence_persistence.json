@@ -2,7 +2,7 @@
   "schema_version": 1,
   "artifact": "persistence_scale.json",
   "artifact_kind": "persistence_scale",
-  "commit": "ae1b9905f37ae5c5a8eeced49c76c9ff64710609",
+  "commit": "60407b2a3c6b2e1d7020d6cea0c0d66f75f64843",
   "dirty": true,
   "command": "cargo run --release --example scale_evidence --features persistence,ann-hnsw,ann-lsh -- persistence --out plans/evidence/scale_2026_09_17 --scales 1000,10000,50000 --tasks 8 --ops 25",
   "features": "persistence,ann-hnsw,ann-lsh",

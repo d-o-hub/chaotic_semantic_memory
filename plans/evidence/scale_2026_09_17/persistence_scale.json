@@ -5,19 +5,19 @@
       "error_rate": 0.0,
       "errors": 0,
       "latency": {
-        "max_us": 434884,
-        "mean_us": 12943.17,
-        "min_us": 1455,
+        "max_us": 435506,
+        "mean_us": 10110.255,
+        "min_us": 1307,
         "n": 200,
-        "p50_us": 2399,
-        "p95_us": 55542,
-        "p99_us": 432953
+        "p50_us": 2369,
+        "p95_us": 34973,
+        "p99_us": 333089
       },
       "ops": 200,
-      "ops_per_sec": 357.60489863639975,
+      "ops_per_sec": 378.428779977969,
       "retries": 0,
       "retry_rate": 0.0,
-      "secs": 0.559276455
+      "secs": 0.52850103
     },
     "db_bytes": {
       "db_bytes": 970752,
@@ -30,19 +30,19 @@
       "error_rate": 0.0,
       "errors": 0,
       "latency": {
-        "max_us": 435581,
-        "mean_us": 15905.035,
-        "min_us": 1361,
+        "max_us": 438565,
+        "mean_us": 10286.325,
+        "min_us": 1272,
         "n": 200,
-        "p50_us": 2274,
-        "p95_us": 58575,
-        "p99_us": 338296
+        "p50_us": 1770,
+        "p95_us": 35031,
+        "p99_us": 334231
       },
       "ops": 200,
-      "ops_per_sec": 297.41234426946875,
+      "ops_per_sec": 376.5366843331027,
       "retries": 0,
       "retry_rate": 0.0,
-      "secs": 0.672467044
+      "secs": 0.531156746
     },
     "tasks": 8,
     "wal_present": false
@@ -58,13 +58,13 @@
   "scales": [
     {
       "batch_latency": {
-        "max_us": 68986,
-        "mean_us": 67044.0,
-        "min_us": 65102,
+        "max_us": 70682,
+        "mean_us": 61349.0,
+        "min_us": 52016,
         "n": 2,
-        "p50_us": 68986,
-        "p95_us": 68986,
-        "p99_us": 68986
+        "p50_us": 70682,
+        "p95_us": 70682,
+        "p99_us": 70682
       },
       "bytes_after_checkpoint": {
         "db_bytes": 2949120,
@@ -80,21 +80,21 @@
       },
       "concepts": 1000,
       "loaded_concepts": 1000,
-      "read_concepts_per_sec": 126693.91345969532,
-      "read_ms": 7.893038999999999,
+      "read_concepts_per_sec": 181610.98019986288,
+      "read_ms": 5.506275,
       "size_api_bytes": 2949120,
-      "write_concepts_per_sec": 7153.239917313411,
-      "write_secs": 0.139796793
+      "write_concepts_per_sec": 7793.464159358573,
+      "write_secs": 0.128312645
     },
     {
       "batch_latency": {
-        "max_us": 81481,
-        "mean_us": 69810.65,
-        "min_us": 60516,
+        "max_us": 64473,
+        "mean_us": 55406.55,
+        "min_us": 48021,
         "n": 20,
-        "p50_us": 70230,
-        "p95_us": 81481,
-        "p99_us": 81481
+        "p50_us": 55921,
+        "p95_us": 64473,
+        "p99_us": 64473
       },
       "bytes_after_checkpoint": {
         "db_bytes": 28557312,
@@ -110,21 +110,21 @@
       },
       "concepts": 10000,
       "loaded_concepts": 10000,
-      "read_concepts_per_sec": 208289.08492085547,
-      "read_ms": 48.010197,
+      "read_concepts_per_sec": 239561.9504329076,
+      "read_ms": 41.742856,
       "size_api_bytes": 28557312,
-      "write_concepts_per_sec": 6953.5009448312785,
-      "write_secs": 1.4381244899999999
+      "write_concepts_per_sec": 8733.300879630378,
+      "write_secs": 1.145042423
     },
     {
       "batch_latency": {
-        "max_us": 91997,
-        "mean_us": 74446.5,
-        "min_us": 61455,
+        "max_us": 86780,
+        "mean_us": 57324.04,
+        "min_us": 48170,
         "n": 100,
-        "p50_us": 73304,
-        "p95_us": 89156,
-        "p99_us": 91997
+        "p50_us": 55779,
+        "p95_us": 68297,
+        "p99_us": 86780
       },
       "bytes_after_checkpoint": {
         "db_bytes": 142573568,
@@ -140,11 +140,11 @@
       },
       "concepts": 50000,
       "loaded_concepts": 50000,
-      "read_concepts_per_sec": 203665.01549735983,
-      "read_ms": 245.501172,
+      "read_concepts_per_sec": 237045.54061561287,
+      "read_ms": 210.92993299999998,
       "size_api_bytes": 142573568,
-      "write_concepts_per_sec": 6525.518014508103,
-      "write_secs": 7.662226951
+      "write_concepts_per_sec": 8449.920106089896,
+      "write_secs": 5.91721571
     }
   ]
 }

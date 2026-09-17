@@ -72,7 +72,9 @@ export EVIDENCE_FEATURES="${FEATURES}"
 export GIT_COMMIT
 GIT_COMMIT="$(git rev-parse HEAD)"
 export GIT_DIRTY="false"
-if [[ -n "$(git status --porcelain)" ]]; then
+# The evidence artifacts themselves are written during the run; the flag
+# describes the measured code, so the artifact directory is excluded.
+if [[ -n "$(git status --porcelain -- . ':!plans/evidence')" ]]; then
   export GIT_DIRTY="true"
 fi
 export RUSTC_VERSION
