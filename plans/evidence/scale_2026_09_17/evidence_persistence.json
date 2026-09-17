@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "artifact": "persistence_scale.json",
+  "artifact_kind": "persistence_scale",
+  "commit": "4d814914206adbd14599b5c408de4485056eed30",
+  "dirty": false,
+  "command": "cargo run --release --example scale_evidence --features persistence,ann-hnsw,ann-lsh -- persistence --out /tmp/ev_final --scales 1000,10000,50000 --tasks 8 --ops 25",
+  "features": "persistence,ann-hnsw,ann-lsh",
+  "profile": "release",
+  "dataset": {
+    "kind": "synthetic-clustered-v1",
+    "seed": 42,
+    "checksum": "synthetic-clustered-v1:seed42"
+  },
+  "toolchain": {
+    "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+    "cargo": "cargo 1.88.0 (873a06493 2025-05-10)"
+  },
+  "hardware": {
+    "os": "Linux",
+    "kernel": "7.0.0-31-generic",
+    "arch": "x86_64",
+    "cpu": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+    "cores": 8,
+    "mem_total_kb": 16247740
+  },
+  "samples": 61000,
+  "baseline": {
+    "ref": "none",
+    "note": "absolute ceilings and distribution statistics only; no A/B baseline"
+  },
+  "variance": {
+    "kind": "percentiles",
+    "reported": [
+      "p50_us",
+      "p95_us",
+      "p99_us",
+      "min_us",
+      "max_us",
+      "mean_us"
+    ]
+  }
+}
