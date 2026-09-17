@@ -318,6 +318,11 @@ name = "observability_otlp"
 path = "examples/observability_otlp.rs"
 required-features = ["prometheus", "otlp-json"]
 
+[[example]]
+name = "scale_evidence"
+path = "examples/scale_evidence/main.rs"
+required-features = ["persistence", "ann-hnsw", "ann-lsh"]
+
 [features]
 experimental-neural-circuit = ["csm-chaos/experimental-neural-circuit"]
 default = ["cli", "persistence", "parallel"]
