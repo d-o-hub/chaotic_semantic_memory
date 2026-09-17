@@ -2,7 +2,7 @@
 
 ADR-0095 Tier-2 artifacts produced by `examples/scale_evidence` and
 `scripts/scale-evidence.sh`; regenerate this file with
-`python3 scripts/render-scale-evidence.py <this directory>`. Each artifact records
+`python3 scripts/render-scale-evidence.py scale_2026_09_17`. Each artifact records
 its own commit, dirty state, corpus checksum, toolchain and hardware in
 `evidence_<mode>.json`.
 
