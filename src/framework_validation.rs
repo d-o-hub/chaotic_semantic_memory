@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use crate::framework::ChaoticSemanticFramework;
 use crate::metadata_filter::{MAX_FILTER_DEPTH, MetadataFilter};
+use crate::retrieval::GraphRagConfig;
 use crate::singularity::Concept;
 use crate::singularity_retrieval::RetrievalConfig;
 use csm_core_lib::error::{MemoryError, Result};
@@ -288,6 +289,55 @@ impl ChaoticSemanticFramework {
         }
         Ok(())
     }
+
+    pub(crate) fn validate_graph_rag_config(&self, config: &GraphRagConfig) -> Result<()> {
+        if config.anchor_top_k > 0 {
+            self.validate_top_k(config.anchor_top_k)?;
+        }
+        if config.final_top_k > 0 {
+            self.validate_top_k(config.final_top_k)?;
+        }
+        if config.max_hops > MAX_TRAVERSAL_DEPTH {
+            return Err(MemoryError::InvalidInput {
+                field: "max_hops".to_string(),
+                reason: format!(
+                    "max_hops exceeds maximum allowed {MAX_TRAVERSAL_DEPTH} (got {})",
+                    config.max_hops
+                ),
+            });
+        }
+        if !config.min_assoc_strength.is_finite()
+            || !(0.0..=1.0).contains(&config.min_assoc_strength)
+        {
+            return Err(MemoryError::InvalidInput {
+                field: "min_assoc_strength".to_string(),
+                reason: format!(
+                    "min_assoc_strength must be finite and in [0.0, 1.0], got {}",
+                    config.min_assoc_strength
+                ),
+            });
+        }
+        if !config.similarity_weight.is_finite() || !(0.0..=1.0).contains(&config.similarity_weight)
+        {
+            return Err(MemoryError::InvalidInput {
+                field: "similarity_weight".to_string(),
+                reason: format!(
+                    "similarity_weight must be finite and in [0.0, 1.0], got {}",
+                    config.similarity_weight
+                ),
+            });
+        }
+        if !config.graph_weight.is_finite() || !(0.0..=1.0).contains(&config.graph_weight) {
+            return Err(MemoryError::InvalidInput {
+                field: "graph_weight".to_string(),
+                reason: format!(
+                    "graph_weight must be finite and in [0.0, 1.0], got {}",
+                    config.graph_weight
+                ),
+            });
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -378,5 +428,56 @@ mod tests {
     #[test]
     fn path_relative_ok() {
         assert!(validate_path("test.json").is_ok());
+    }
+
+    #[tokio::test]
+    async fn validate_graph_rag_config_bounds() {
+        let fw = ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .build()
+            .await
+            .unwrap();
+
+        let valid = GraphRagConfig::default();
+        assert!(fw.validate_graph_rag_config(&valid).is_ok());
+
+        let invalid_anchor_top_k = GraphRagConfig {
+            anchor_top_k: 100_001,
+            ..Default::default()
+        };
+        assert!(fw.validate_graph_rag_config(&invalid_anchor_top_k).is_err());
+
+        let invalid_final_top_k = GraphRagConfig {
+            final_top_k: 100_001,
+            ..Default::default()
+        };
+        assert!(fw.validate_graph_rag_config(&invalid_final_top_k).is_err());
+
+        let invalid_max_hops = GraphRagConfig {
+            max_hops: 33,
+            ..Default::default()
+        };
+        assert!(fw.validate_graph_rag_config(&invalid_max_hops).is_err());
+
+        let invalid_assoc_strength = GraphRagConfig {
+            min_assoc_strength: 1.1,
+            ..Default::default()
+        };
+        assert!(
+            fw.validate_graph_rag_config(&invalid_assoc_strength)
+                .is_err()
+        );
+
+        let invalid_sim_weight = GraphRagConfig {
+            similarity_weight: -0.1,
+            ..Default::default()
+        };
+        assert!(fw.validate_graph_rag_config(&invalid_sim_weight).is_err());
+
+        let invalid_graph_weight = GraphRagConfig {
+            graph_weight: f32::NAN,
+            ..Default::default()
+        };
+        assert!(fw.validate_graph_rag_config(&invalid_graph_weight).is_err());
     }
 }
