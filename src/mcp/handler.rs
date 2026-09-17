@@ -61,7 +61,7 @@ impl McpHandler {
 }
 
 impl ServerHandler for McpHandler {
-    fn get_info(&self) -> ServerInfo {
+    fn get_info(&self) -> ServerConfig {
         let mut caps = ServerCapabilities::default();
         let mut tools = ToolsCapability::default();
         tools.list_changed = Some(true);
@@ -144,18 +144,14 @@ impl ServerHandler for McpHandler {
                 schema::list_gaps_schema(),
             ),
         ];
-        Ok(ListToolsResult {
-            tools,
-            next_cursor: None,
-            meta: None,
-        })
+        Ok(ListToolsResult::with_all_items(tools))
     }
 
     async fn call_tool(
         &self,
         request: CallToolRequestParams,
         _context: RequestContext<RoleServer>,
-    ) -> Result<CallToolResult, ErrorData> {
+    ) -> Result<CallToolResponse, ErrorData> {
         let name = request.name.as_ref();
         let args = request.arguments.map_or(Value::Null, Value::Object);
 
@@ -167,7 +163,8 @@ impl ServerHandler for McpHandler {
         Ok(CallToolResult::success(vec![ContentBlock::text(
             #[allow(clippy::unwrap_used)] // serde_json serialization of valid data is infallible
             serde_json::to_string_pretty(&result).unwrap(),
-        )]))
+        )])
+        .into())
     }
 
     async fn list_resources(
@@ -195,33 +192,30 @@ impl ServerHandler for McpHandler {
                 "application/json",
             ),
         ];
-        Ok(ListResourcesResult {
-            resources,
-            next_cursor: None,
-            meta: None,
-        })
+        Ok(ListResourcesResult::with_all_items(resources))
     }
 
     async fn read_resource(
         &self,
         request: ReadResourceRequestParams,
         _context: RequestContext<RoleServer>,
-    ) -> Result<ReadResourceResult, ErrorData> {
+    ) -> Result<ReadResourceResponse, ErrorData> {
         let uri = request.uri.clone();
         let result = self
             .execute_read_resource(uri.as_ref())
             .await
             .map_err(Self::map_error)?;
 
-        Ok(ReadResourceResult::new(vec![
-            ResourceContents::TextResourceContents {
+        Ok(
+            ReadResourceResult::new(vec![ResourceContents::TextResourceContents {
                 uri,
                 mime_type: Some("application/json".to_string()),
                 #[allow(clippy::unwrap_used)] // serde_json serialization of valid data is infallible
                 text: serde_json::to_string_pretty(&result).unwrap(),
                 meta: None,
-            },
-        ]))
+            }])
+            .into(),
+        )
     }
 }
 
