@@ -2,47 +2,47 @@
   "batch_size": 500,
   "contention": {
     "bounded_retry": {
-      "error_rate": 0.0,
-      "errors": 0,
+      "error_rate": 0.47,
+      "errors": 94,
       "latency": {
-        "max_us": 434884,
-        "mean_us": 12943.17,
-        "min_us": 1455,
+        "max_us": 41728,
+        "mean_us": 19916.055,
+        "min_us": 2501,
         "n": 200,
-        "p50_us": 2399,
-        "p95_us": 55542,
-        "p99_us": 432953
+        "p50_us": 23080,
+        "p95_us": 30532,
+        "p99_us": 35212
       },
       "ops": 200,
-      "ops_per_sec": 357.60489863639975,
-      "retries": 0,
-      "retry_rate": 0.0,
-      "secs": 0.559276455
+      "ops_per_sec": 381.22061939834185,
+      "retries": 686,
+      "retry_rate": 3.43,
+      "secs": 0.524630594
     },
     "db_bytes": {
-      "db_bytes": 970752,
+      "db_bytes": 446464,
       "shm_bytes": 0,
-      "total_bytes": 970752,
+      "total_bytes": 446464,
       "wal_bytes": 0
     },
     "ops_per_task": 25,
     "raw": {
-      "error_rate": 0.0,
-      "errors": 0,
+      "error_rate": 0.905,
+      "errors": 181,
       "latency": {
-        "max_us": 435581,
-        "mean_us": 15905.035,
-        "min_us": 1361,
+        "max_us": 13981,
+        "mean_us": 3614.445,
+        "min_us": 379,
         "n": 200,
-        "p50_us": 2274,
-        "p95_us": 58575,
-        "p99_us": 338296
+        "p50_us": 2940,
+        "p95_us": 10189,
+        "p99_us": 13638
       },
       "ops": 200,
-      "ops_per_sec": 297.41234426946875,
+      "ops_per_sec": 1615.744995498494,
       "retries": 0,
       "retry_rate": 0.0,
-      "secs": 0.672467044
+      "secs": 0.123781909
     },
     "tasks": 8,
     "wal_present": false
@@ -58,13 +58,13 @@
   "scales": [
     {
       "batch_latency": {
-        "max_us": 68986,
-        "mean_us": 67044.0,
-        "min_us": 65102,
+        "max_us": 95606,
+        "mean_us": 88929.5,
+        "min_us": 82253,
         "n": 2,
-        "p50_us": 68986,
-        "p95_us": 68986,
-        "p99_us": 68986
+        "p50_us": 95606,
+        "p95_us": 95606,
+        "p99_us": 95606
       },
       "bytes_after_checkpoint": {
         "db_bytes": 2949120,
@@ -80,21 +80,21 @@
       },
       "concepts": 1000,
       "loaded_concepts": 1000,
-      "read_concepts_per_sec": 126693.91345969532,
-      "read_ms": 7.893038999999999,
+      "read_concepts_per_sec": 93381.1706394285,
+      "read_ms": 10.708797,
       "size_api_bytes": 2949120,
-      "write_concepts_per_sec": 7153.239917313411,
-      "write_secs": 0.139796793
+      "write_concepts_per_sec": 5479.2393702372665,
+      "write_secs": 0.182507084
     },
     {
       "batch_latency": {
-        "max_us": 81481,
-        "mean_us": 69810.65,
-        "min_us": 60516,
+        "max_us": 105877,
+        "mean_us": 94482.6,
+        "min_us": 82201,
         "n": 20,
-        "p50_us": 70230,
-        "p95_us": 81481,
-        "p99_us": 81481
+        "p50_us": 94925,
+        "p95_us": 105877,
+        "p99_us": 105877
       },
       "bytes_after_checkpoint": {
         "db_bytes": 28557312,
@@ -110,21 +110,21 @@
       },
       "concepts": 10000,
       "loaded_concepts": 10000,
-      "read_concepts_per_sec": 208289.08492085547,
-      "read_ms": 48.010197,
+      "read_concepts_per_sec": 154596.49148518857,
+      "read_ms": 64.68452099999999,
       "size_api_bytes": 28557312,
-      "write_concepts_per_sec": 6953.5009448312785,
-      "write_secs": 1.4381244899999999
+      "write_concepts_per_sec": 5132.694090331253,
+      "write_secs": 1.9482945649999999
     },
     {
       "batch_latency": {
-        "max_us": 91997,
-        "mean_us": 74446.5,
-        "min_us": 61455,
+        "max_us": 200402,
+        "mean_us": 93550.78,
+        "min_us": 77726,
         "n": 100,
-        "p50_us": 73304,
-        "p95_us": 89156,
-        "p99_us": 91997
+        "p50_us": 89880,
+        "p95_us": 124640,
+        "p99_us": 200402
       },
       "bytes_after_checkpoint": {
         "db_bytes": 142573568,
@@ -140,11 +140,11 @@
       },
       "concepts": 50000,
       "loaded_concepts": 50000,
-      "read_concepts_per_sec": 203665.01549735983,
-      "read_ms": 245.501172,
+      "read_concepts_per_sec": 144288.4117575721,
+      "read_ms": 346.528175,
       "size_api_bytes": 142573568,
-      "write_concepts_per_sec": 6525.518014508103,
-      "write_secs": 7.662226951
+      "write_concepts_per_sec": 5185.302960930229,
+      "write_secs": 9.642638121
     }
   ]
 }
