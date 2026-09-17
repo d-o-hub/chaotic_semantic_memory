@@ -1,5 +1,22 @@
 # PROGRESS
 
+## 2026-09-17: Dependabot Queue Cleared — WASM bincode Fix, rmcp 3.4, opentelemetry 0.32
+
+### Summary
+Follow-on to the 2026-09-15 queue landing. Merged the WASM bincode fix (#725), consolidated the entire Dependabot backlog into two PRs (#726, #727), then took the two remaining major bumps (#724 rmcp 2→3, opentelemetry medium advisory) as real migrations (#728, #729) rather than suppression ignores. Zero open PRs at the end; `progress/LEARNINGS.md` carries the new CI/supply-chain lessons.
+
+### Actions
+- **#725 Merged** (`0bcbd5c`): `WasmFramework::exportToBytes` wrote with bare `bincode::serialize` while `importFromBytes` read with `DefaultOptions` — browser export→import round trip failed with `string is not valid utf8`. Aligned the writer and added the round-trip assertion to `wasm/test.js`.
+- **#726 Merged** (`ebe5190`): consolidated Dependabot updates. `fuzz/Cargo.lock` batch (thiserror, async-trait, wasm-bindgen-futures, clap, uuid + transitives), `taiki-e/install-action` 2.87.11 → 2.87.12 (supersedes #722), and the double-scope fix. #717–#722 closed as superseded.
+- **Dependabot double-scope root cause**: `commit-message.prefix: "chore(deps)"` (and `ci(deps)`) combined with `include: "scope"` produced `chore(deps)(deps): …` titles, which fail `scope-enum`. Prefixes reduced to `chore`/`ci`; an ignore rule for existing double-scoped messages added to `commitlint.config.cjs`; the PR-title check now keys on `github.event.pull_request.user.login` instead of `github.actor` (a maintainer's `update-branch` made the actor a human, so Dependabot PRs started failing a check meant to skip them).
+- **#727 Merged**: `clap_complete` 4.6.7 → 4.6.9 in `fuzz/Cargo.lock` (Dependabot-native, CI green).
+- **#728 Merged**: rmcp 2.2.0 → 3.4.0. rmcp 3 routes results through MRTR enums — `call_tool` returns `CallToolResponse`, `read_resource` returns `ReadResourceResponse` (`Complete(..)` via `.into()`); `ListToolsResult`/`ListResourcesResult` gained the SEP-2322 `result_type` and SEP-2549 `ttl_ms`/`cache_scope` fields, so struct literals no longer compile (`with_all_items(..)` instead); `ServerInfo` is deprecated for `ServerConfig`. Protocol version unchanged (`ProtocolVersion::LATEST` = `2025-11-25` in both).
+- **#729 Merged**: opentelemetry family 0.27 → 0.32, clearing GHSA-w9wp-h8wv-79jx (medium, unbounded allocation in W3C Baggage propagation). `TracerProvider` → `SdkTracerProvider`; `Resource::new(vec![KeyValue::new("service.name", ..)])` became private → `Resource::builder().with_service_name(..).build()`; `tracing-opentelemetry` 0.28 → 0.33. Verified with `cargo test --features otlp --test observability_integration` (6 passed, incl. a real gRPC exporter build).
+
+### Not fixed (non-actionable)
+- **`lru` GHSA-rhfx-m35p-ff5j (low, patched 0.16.3)**: transitive via `quinn-proto 0.11.16` and `tantivy 0.22.1`, both on `lru ^0.12`. Not bumpable from this repo until those parents release; the alert stays open.
+- **`libsql-sqlite3-parser` (low, no patched release)**: pinned by libsql upstream, already ignored in `deny.toml` and `dependabot.yml` with a documented reason.
+
 ## 2026-09-15 (wave 2): ADR-0094 Persistence Owner Dedup Completed + PR Queue Landed
 
 ### Summary
