@@ -128,5 +128,5 @@ wave_33_goals:
     - readme_ann_section_matches_code: true          # PR docs/plans-truth-sync (2026-08-12)
     - agents_skill_count_matches_disk: true          # 32 SKILL.md on disk == GOAP_STATE skills_count
     - cli_metrics_reset_implemented: true            # src/cli/commands/metrics.rs reset branch
-    - performance_claims_have_current_artifacts: false
+    - performance_claims_have_current_artifacts: true  # 2026-09-17: plans/evidence/scale_2026_09_17
     - active_plan_set_compact: true   # achieved 2026-07-20

@@ -131,47 +131,23 @@
 > Earlier same-day completions (ADR-0097): `harden_public_f32_api_validation`
 > (PR #607), `recover_v037_failed_deployments` (v0.3.7 + v0.3.8 on crates.io).
 
+> Last completed (verified 2026-09-17, evidence wave):
+> `add_ann_and_persistence_scale_benchmarks` + `replace_formula_only_memory_claim`
+> (ADR-0095) — the scale-evidence runner (PR #733) measures exact/HNSW/LSH/
+> bucketed retrieval at 1 k/10 k/50 k, persistence throughput and contention, and
+> a bytes-per-concept model with a held-out point; artifacts and manifests live
+> in `plans/evidence/scale_2026_09_17/`. The persistence contention half was red
+> before the fix (0.905 error rate with eight writers) and green after PR #734
+> added a 5 s busy timeout plus bounded retries to `csm-persistence`
+> (0.000 error rate, same workload, before/after artifacts side by side). The
+> memory claim is now measured, not asserted: 4 691 B RSS and 2 850 B persisted
+> per concept (held-out error 0.29 % / 0.06 % at 100 k), so the recorded
+> `< 12 MB for 10M concepts` target — which described the unimplemented ADR-0024
+> phase-2 product quantization — is marked not supported in the book and
+> `docs/architecture/context.yaml`, and the formula-only test was replaced by a
+> measured one. `deduplicate_test_and_source_surfaces` (P3) stays queued.
+
 actions:
-  # P2 — evidence (ADR-0095)
-  - name: add_ann_and_persistence_scale_benchmarks
-    preconditions:
-      ann_snapshot_revision_validated: true
-    effects:
-      performance_claims_have_current_artifacts: true
-      ann_scale_evidence_current: true
-      persistence_contention_evidence_current: true
-    cost: 8
-    status: queued
-    file: benches/benchmark.rs, benches/persistence_benchmark.rs, benchmarks/
-    adr: ADR-0095
-    description: |
-      Harnesses landed 2026-08-12 (LSH parity bench, persistence CRUD p50/p95/p99
-      percentile bench, persisted-bytes metric); full-scale artifacts still
-      pending. Compare exact/bucket/HNSW/LSH build, query, update, delete, bytes, recall,
-      and reload at agreed scales. Bound persistence retries/timeouts and report
-      throughput, p50/p95/p99, retry, and error rates.
-      Produces the artifacts the next action consumes, so the
-      `performance_claims_have_current_artifacts` flag is an effect here, not a
-      precondition (2026-09-17 repair: it was previously a precondition with no
-      setter, deadlocking both P2 actions).
-
-  - name: replace_formula_only_memory_claim
-    preconditions:
-      performance_claims_have_current_artifacts: true
-    effects:
-      measured_memory_model_exists: true
-      ten_million_memory_claim_evaluated: true
-    cost: 4
-    status: queued
-    file: tests/performance_targets.rs, benchmarks/, plans/handoffs/
-    adr: ADR-0095
-    description: |
-      Persisted-bytes metric landed 2026-08-12; full-scale memory model still
-      pending. Measure allocator/RSS and persisted/index bytes at multiple scales, fit a
-      bytes-per-concept model with held-out error <=5%, then evaluate whether a 10M
-      projection is supportable. This action records evidence/evaluation only;
-      set support true separately iff the measured acceptance threshold passes.
-
   # P3 — consolidation (ADR-0094, ADR-0095)
   - name: deduplicate_test_and_source_surfaces
     preconditions:
