@@ -131,6 +131,15 @@
 > Earlier same-day completions (ADR-0097): `harden_public_f32_api_validation`
 > (PR #607), `recover_v037_failed_deployments` (v0.3.7 + v0.3.8 on crates.io).
 
+> Last completed (verified 2026-09-18):
+> `triage_pr_roast_2026_09_18` — two open PRs. #735 (`fix(framework)`: GraphRAG
+> config validation) verified against the owner crate's `MAX_TRAVERSAL_DEPTH`,
+> all entry points and the existing tests; two non-blocking nits; keeper, merge
+> after `update-branch`. #737 (`perf(memory)`: LSH hashing + candidate scoring)
+> closed as a no-op — the branch changed zero files, and its two ideas were
+> adjudicated with allocator counts and the existing ANN evidence so a
+> resubmission has a target to beat. Record: `plans/PR_ROAST_2026_09_18.md`.
+>
 > Last completed (verified 2026-09-17, evidence wave):
 > `add_ann_and_persistence_scale_benchmarks` + `replace_formula_only_memory_claim`
 > (ADR-0095) — the scale-evidence runner (PR #733) measures exact/HNSW/LSH/
