@@ -102,4 +102,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: replace_formula_only_memory_claim
+  action_last_completed: triage_pr_roast_2026_09_18
