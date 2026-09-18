@@ -21,12 +21,7 @@ impl ChaoticSemanticFramework {
         query: HVec10240,
         config: GraphRagConfig,
     ) -> Result<Vec<GraphRagResult>> {
-        if config.anchor_top_k > 0 {
-            self.validate_top_k(config.anchor_top_k)?;
-        }
-        if config.final_top_k > 0 {
-            self.validate_top_k(config.final_top_k)?;
-        }
+        self.validate_graph_rag_config(&config)?;
 
         let (concepts, associations) = {
             let sing = self.singularity.read().await;
@@ -81,5 +76,20 @@ mod tests {
             !results.is_empty(),
             "probe_with_graph must return at least one result"
         );
+    }
+
+    #[tokio::test]
+    async fn probe_with_graph_rejects_invalid_config() {
+        let fw = ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .build()
+            .await
+            .unwrap();
+        let vector = HVec10240::random();
+        let invalid_config = GraphRagConfig {
+            max_hops: 100,
+            ..GraphRagConfig::default()
+        };
+        assert!(fw.probe_with_graph(vector, invalid_config).await.is_err());
     }
 }

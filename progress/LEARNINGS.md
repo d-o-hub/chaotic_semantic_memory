@@ -7,6 +7,7 @@
 ## Security Patterns
 - **Path hijacking (CWE-426)**: resolve executables to absolute paths; filter PATH to exclude relative entries.
 - **Public API input bounds (2026-08-07/17 cluster)**: NaN `threshold` in `prune_decayed_associations` silently deleted all associations; unguarded `n: usize` in `encode_with_ngrams` overflowed `windows(n+1)`; unbounded `ConceptBuilder::with_ttl` overflowed `now + ttl`. Prevention: finite-limit validation on all public f32/f64 rate/score/threshold params (even when helpers like `validate_association_strength` exist — non-inserting APIs skip them); named `MAX_*` constants for usize size/window params; saturating arithmetic on all time/size intervals.
+- **Public API input bounds on GraphRagConfig**: `validate_graph_rag_config` validates `anchor_top_k`, `final_top_k`, `max_hops` (<=32), `min_assoc_strength`, `similarity_weight`, and `graph_weight` (finite and in [0.0, 1.0]) prior to retrieval/traversal in `probe_with_graph`.
 - **Namespace validation (CWE-770)**: 128-byte limit, non-empty, no control chars — apply to any param that becomes a DB key.
 - **DoS bounds**: Graph `MAX_DEPTH=32`, `MAX_RESULTS=10K`; batch `max_batch_size=1000`.
 
