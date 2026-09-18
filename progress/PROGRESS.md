@@ -1,5 +1,20 @@
 # PROGRESS
 
+## 2026-09-17 (wave 2): ADR-0095 Scale Evidence — ANN/Persistence/Memory Measured, Two Actions Closed
+
+### Summary
+Executed the two queued ADR-0095 evidence actions. A new release-only harness (`examples/scale_evidence`, driven by `scripts/scale-evidence.sh`) produces machine-readable artifacts with the full ADR manifest (commit, dirty state, corpus version/seed/checksum, command, features, toolchain, hardware, samples, variance). The measurements contradicted two recorded claims, both corrected here: concurrent local writes failed 90 % of the time (now 0 % after bounded retries in `csm-persistence`), and the `< 12 MB for 10M concepts` target is off by ~3 700× because it described an unimplemented design.
+
+### Actions
+- **#733 Merged** (`2fc421b`): runner + first artifacts. ANN at 50 k: exact 6.35 ms p50 (recall 1.000), HNSW 896 µs / recall 0.892 / 80 s build / 93 MB serialized, LSH 813 µs / recall 0.836 / 282 ms build, bucketed candidates (probe width 8) 1.83 ms / recall 0.590 with no index. Memory model: RSS `2 880 665 B + 4 691 B × concepts` (held-out error 0.29 % at 100 k), storage `2 850 B/concept` (0.06 %). Claim correction: the formula-only test became a measured footprint test, and the book/context.yaml target is marked not supported. Also excluded the harness from two opengrep rules in `.codacy.yml` (args/current_exe) after Codacy flagged them as high-severity false positives.
+- **#734 Merged**: `csm-persistence` sets `PRAGMA busy_timeout = 5000` on local connections and retries transient lock errors (5 attempts, 2–32 ms) on the idempotent write paths. `tests/persistence_concurrency.rs` (8 writers × 25 saves; 8 writers × batch+associations) is the regression guard; the re-measured artifact shows 0.905 → 0.000 raw and 0.470 → 0.000 with caller-side retries, at the cost of higher tail latency while writers wait.
+- **LOC gate**: the retry loop wrappers pushed `crates/csm-persistence/src/persistence.rs` to 518 lines, so the gate failed in both the lint and test jobs; fixed by sharing a `with_retry` helper and extracting `persistence_absence.rs` (the AGENTS.md rule: child-module extraction over comment stripping).
+- **SonarCloud**: the new renderer took a filesystem path from argv (two path-traversal findings) and had cognitive complexity 36; it now resolves a validated directory *name* under `plans/evidence/` and is split into per-section functions.
+- **Learning recorded**: a perf gate that asserts arithmetic is worse than no gate — the 10M/12 MB test passed for months while the shipped representation needed ~1 000× more memory.
+
+### Next
+`deduplicate_test_and_source_surfaces` (P3) is the only queued action; `persistence_contention_evidence_current`, `ann_scale_evidence_current`, `measured_memory_model_exists` and `ten_million_memory_claim_evaluated` are now true in `GOAP_STATE.md`, and `performance_claims_have_current_artifacts` flipped to true.
+
 ## 2026-09-17: Dependabot Queue Cleared — WASM bincode Fix, rmcp 3.4, opentelemetry 0.32
 
 ### Summary

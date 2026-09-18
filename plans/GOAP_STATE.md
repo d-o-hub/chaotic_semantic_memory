@@ -29,7 +29,7 @@ world_state:
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "c841d28"           # 2026-09-17: PR #730 records the dependabot queue clear (#725-#730)
+  main_head: "1433ae8"           # 2026-09-17: PR #734 bounded persistence retries; evidence wave complete (#732-#734)
   tests_count: 1053              # 2026-09-17: literal #[test]/#[tokio::test] across src/crates/tests
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
   coverage_ratio_current: 93     # test:source ratio (target ≥90%)
@@ -51,7 +51,7 @@ world_state:
   wave_32_status: in_progress    # P0/P1 landed; ownership + evidence remain (see queued actions)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 3        # 2026-09-15: deduplicate_persistence_owner_bodies completed
+  queued_actions_count: 1        # 2026-09-17: add_ann_and_persistence_scale_benchmarks + replace_formula_only_memory_claim completed
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: true            # 2026-08-12: no TODO in src/ crates/
@@ -60,17 +60,21 @@ world_state:
   msrv_workspace_aligned: true                    # 2026-08-08: all manifests use workspace rust-version 1.88
   persistence_disabled_false_success_removed: true  # 2026-08-11: replace_persistence_disabled_noops (ADR-0094); CLI DB config rejected w/o feature
   wasm_ci_release_artifact_identical: false
-  performance_claims_have_current_artifacts: false # queued: scale benches + memory model
+  performance_claims_have_current_artifacts: true  # 2026-09-17: plans/evidence/scale_2026_09_17 (three manifests, #733/#734)
   critical_skill_evals_passing: false             # behavioral evals deferred
   fuzz_short_runs_on_pr: true                     # fuzz.yml fuzz-short job: 30s runs of changed targets on PRs
   fuzz_scheduled_full_runs: true                  # fuzz-full weekly cron (Sun 03:00 UTC); nightly toolchain + nix shell dropped (PR #690); first scheduled green 2026-09-13 (run 34746887403) after red ×6 (08-02..09-06)
   duckdb_companion_published: false               # csm-duckdb not on crates.io
-  benchmarks_prove_performance: false             # evidence tiers pending (ADR-0095)
+  benchmarks_prove_performance: false             # Tier-2 artifacts landed 2026-09-17; Tier-3 release claims (named runner, release-sized evidence) pending
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
   deferred_phase2_optimizations: false            # ADR-0024 (trigger: >200k concepts + latency issues)
 
   # ── Landed invariants worth checking before changes ───────────
   retrieval_implementation_owner_unique: true     # 2026-07-23: csm-retrieval owns contracts
+  ann_scale_evidence_current: true                # 2026-09-17: evidence_ann.json (exact/hnsw/lsh/bucket at 1k/10k/50k)
+  persistence_contention_evidence_current: true   # 2026-09-17: evidence_persistence.json (error rate 0.905 -> 0.000)
+  measured_memory_model_exists: true              # 2026-09-17: 4691 B RSS + 2850 B storage per concept, held-out 0.29 %
+  ten_million_memory_claim_evaluated: true        # 2026-09-17: evaluated NOT supported (43.7 GB RSS / 26.5 GB storage)
   ann_snapshot_revision_validated: true           # ADR-0093: IndexSnapshotEnvelope + ns revision
   ann_config_is_fallible: true                    # validate_index_backend; ADR-0093
   persistence_failure_leaves_memory_unchanged: true # durable commit before memory mutate
@@ -98,4 +102,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: deduplicate_persistence_owner_bodies
+  action_last_completed: replace_formula_only_memory_claim

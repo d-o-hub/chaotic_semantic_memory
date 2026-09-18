@@ -8,6 +8,8 @@
 #[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
 mod persistence;
 #[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
+mod persistence_absence;
+#[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
 mod persistence_bridge;
 #[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
 mod persistence_concepts;
@@ -17,6 +19,8 @@ mod persistence_index;
 mod persistence_migrations;
 #[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
 mod persistence_ops;
+#[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
+mod persistence_retry;
 #[cfg(all(feature = "persistence", not(target_arch = "wasm32")))]
 mod persistence_versions;
 

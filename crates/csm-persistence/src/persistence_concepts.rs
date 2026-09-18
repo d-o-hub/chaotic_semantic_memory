@@ -5,8 +5,23 @@ use csm_memory::Concept;
 use libsql::params;
 
 impl Persistence {
-    /// Save a concept to the database
+    /// Save a concept to the database.
+    ///
+    /// Idempotent (upsert transaction), so a transient lock failure is retried
+    /// within the bounds documented in `persistence_retry` (ADR-0095).
+    ///
+    /// # Errors
+    ///
+    /// Returns the last error when the retry budget is exhausted.
     pub async fn save_concept<H: csm_core_lib::hyperdim::Hypervector>(
+        &self,
+        ns: &str,
+        concept: &Concept<H>,
+    ) -> Result<()> {
+        crate::persistence_retry::with_retry(|| self.save_concept_once(ns, concept)).await
+    }
+
+    async fn save_concept_once<H: csm_core_lib::hyperdim::Hypervector>(
         &self,
         ns: &str,
         concept: &Concept<H>,
@@ -76,7 +91,15 @@ impl Persistence {
         Ok(())
     }
 
-    /// Save concepts in a single transaction
+    /// Save concepts in a single transaction.
+    ///
+    /// Idempotent (upsert transaction), so a transient lock failure retries the
+    /// whole batch within the bounds documented in `persistence_retry`
+    /// (ADR-0095).
+    ///
+    /// # Errors
+    ///
+    /// Returns the last error when the retry budget is exhausted.
     pub async fn save_concepts<H: csm_core_lib::hyperdim::Hypervector>(
         &self,
         ns: &str,
@@ -86,6 +109,14 @@ impl Persistence {
             return Ok(());
         }
 
+        crate::persistence_retry::with_retry(|| self.save_concepts_once(ns, concepts)).await
+    }
+
+    async fn save_concepts_once<H: csm_core_lib::hyperdim::Hypervector>(
+        &self,
+        ns: &str,
+        concepts: &[Concept<H>],
+    ) -> Result<()> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
         conn.execute("BEGIN", ())

@@ -8,31 +8,45 @@ use libsql::Builder;
 use tempfile::NamedTempFile;
 
 const NS: &str = "_default";
-const DEFAULT_MEMORY_MODEL_BYTES_PER_CONCEPT: u64 = 1;
-const DEFAULT_MEMORY_MODEL_CODEBOOK_BYTES: u64 = 2 * 1024 * 1024;
-const DEFAULT_MEMORY_MODEL_METADATA_BYTES: u64 = 256 * 1024;
-const DEFAULT_MEMORY_MODEL_CONCEPTS: u64 = 10_000_000;
-const DEFAULT_MEMORY_MODEL_MAX_BYTES: u64 = 12 * 1024 * 1024;
+/// Scale point used by the measured-footprint test.
+const MEASURED_MEMORY_SAMPLE_CONCEPTS: usize = 10_000;
+/// Persisted bytes per concept (db + wal + shm, after checkpoint).
+///
+/// Measured at commit `4d81491` on an Intel i5-8350U and published as
+/// `plans/evidence/scale_2026_09_17/memory_model.json`: 2 850 B/concept with a
+/// held-out error of 0.06 % at 100 k concepts. The band guards against a
+/// representation change that silently inflates the on-disk footprint (for
+/// example storing a second copy of every vector).
+const MEASURED_STORAGE_BYTES_PER_CONCEPT_MIN: u64 = 2_500;
+const MEASURED_STORAGE_BYTES_PER_CONCEPT_MAX: u64 = 3_500;
+/// Concept count the recorded release claim refers to.
+const TEN_MILLION_CONCEPTS: u64 = 10_000_000;
 const DEFAULT_LOCAL_ROUNDTRIP_SAMPLES: usize = 25;
 const DEFAULT_LOCAL_ROUNDTRIP_MAX_P50_MS: f64 = 20.0;
 
-fn projected_compressed_index_bytes(concept_count: u64) -> u64 {
-    let bytes_per_concept = env_u64(
-        "CSM_MEMORY_MODEL_BYTES_PER_CONCEPT",
-        DEFAULT_MEMORY_MODEL_BYTES_PER_CONCEPT,
-    );
-    let codebook_bytes = env_u64(
-        "CSM_MEMORY_MODEL_CODEBOOK_BYTES",
-        DEFAULT_MEMORY_MODEL_CODEBOOK_BYTES,
-    );
-    let metadata_bytes = env_u64(
-        "CSM_MEMORY_MODEL_METADATA_BYTES",
-        DEFAULT_MEMORY_MODEL_METADATA_BYTES,
-    );
-    concept_count
-        .saturating_mul(bytes_per_concept)
-        .saturating_add(codebook_bytes)
-        .saturating_add(metadata_bytes)
+/// Resident set size in bytes, from `/proc/self/statm` (Linux).
+///
+/// Informational only: the process is shared with parallel tests, so the value
+/// is noisy by construction. The asserted footprint check uses persisted bytes,
+/// which are process-independent.
+fn rss_bytes() -> u64 {
+    let statm = std::fs::read_to_string("/proc/self/statm").unwrap_or_default();
+    let pages: u64 = statm
+        .split_whitespace()
+        .nth(1)
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(0);
+    pages * 4096
+}
+
+/// Bytes held by the database and its WAL/shared-memory sidecars.
+fn sqlite_bytes(db: &std::path::Path) -> u64 {
+    let mut total = std::fs::metadata(db).map(|m| m.len()).unwrap_or(0);
+    for suffix in ["-wal", "-shm"] {
+        let sidecar = std::path::PathBuf::from(format!("{}{suffix}", db.display()));
+        total += std::fs::metadata(&sidecar).map(|m| m.len()).unwrap_or(0);
+    }
+    total
 }
 
 fn p50_ms(samples: &mut [f64]) -> f64 {
@@ -40,14 +54,61 @@ fn p50_ms(samples: &mut [f64]) -> f64 {
     samples[samples.len() / 2]
 }
 
-#[test]
-fn projected_10m_concepts_memory_stays_under_12mb() {
-    let concepts = env_u64("CSM_MEMORY_MODEL_CONCEPTS", DEFAULT_MEMORY_MODEL_CONCEPTS);
-    let threshold = env_u64("CSM_MEMORY_MODEL_MAX_BYTES", DEFAULT_MEMORY_MODEL_MAX_BYTES);
-    let projected = projected_compressed_index_bytes(concepts);
+/// Measure the shipped footprint instead of asserting the arithmetic of an
+/// unimplemented design.
+///
+/// The historical `< 12 MB for 10M concepts` gate describes ADR-0024 phase-2
+/// product quantization (1 byte/concept + 2 MB codebook), which was never
+/// implemented: the shipped representation stores a 1 280-byte `HVec10240` per
+/// concept (plus index copies) and writes it twice (concept row + version row).
+/// The evidence model in `plans/evidence/scale_2026_09_17/` measures 4 691 B
+/// RSS and 2 850 B storage per concept; at that slope the 10M projection is
+/// 43.7 GB / 26.5 GB, so the claim is not supportable and is not asserted here
+/// (ADR-0095: memory claims come from measured points, not constants).
+#[tokio::test]
+async fn measured_memory_footprint_matches_the_evidence_model() {
+    let db_file = NamedTempFile::new().expect("temp file");
+    let db_path = db_file.path().to_string_lossy().to_string();
+    let persistence = Persistence::new_local(&db_path).await.expect("new_local");
+
+    let start_rss = rss_bytes();
+    let mut batch = Vec::with_capacity(500);
+    for i in 0..MEASURED_MEMORY_SAMPLE_CONCEPTS {
+        let concept = ConceptBuilder::new(format!("measured-{i}"))
+            .with_vector(HVec10240::random())
+            .build()
+            .expect("concept");
+        batch.push(concept);
+        if batch.len() == 500 {
+            persistence
+                .save_concepts(NS, &batch)
+                .await
+                .expect("save batch");
+            batch.clear();
+        }
+    }
+    persistence.checkpoint().await.expect("checkpoint");
+
+    let persisted = sqlite_bytes(std::path::Path::new(&db_path));
+    let per_concept = persisted / MEASURED_MEMORY_SAMPLE_CONCEPTS as u64;
+    let rss_per_concept =
+        rss_bytes().saturating_sub(start_rss) / MEASURED_MEMORY_SAMPLE_CONCEPTS as u64;
+
+    let projected_storage_gb = per_concept * TEN_MILLION_CONCEPTS / 1024 / 1024 / 1024;
+    let projected_rss_gb = rss_per_concept * TEN_MILLION_CONCEPTS / 1024 / 1024 / 1024;
+
+    println!(
+        "MEASURED_PERSISTED_BYTES_PER_CONCEPT={per_concept} \
+         MEASURED_RSS_BYTES_PER_CONCEPT={rss_per_concept} \
+         PROJECTED_10M_STORAGE_GB={projected_storage_gb} PROJECTED_10M_RSS_GB={projected_rss_gb}"
+    );
+
     assert!(
-        projected < threshold,
-        "projected={projected} bytes exceeds {threshold} bytes"
+        (MEASURED_STORAGE_BYTES_PER_CONCEPT_MIN..=MEASURED_STORAGE_BYTES_PER_CONCEPT_MAX)
+            .contains(&per_concept),
+        "persisted {per_concept} B/concept is outside the measured band \
+         [{MEASURED_STORAGE_BYTES_PER_CONCEPT_MIN}, {MEASURED_STORAGE_BYTES_PER_CONCEPT_MAX}]; \
+         the on-disk footprint changed, update the evidence model"
     );
 }
 
@@ -126,13 +187,6 @@ async fn local_wal_checkpoint_roundtrip_stays_consistent() {
     let row = rows.next().await.expect("row read").expect("row");
     let mode: String = row.get(0).expect("mode");
     assert_eq!(mode.to_ascii_lowercase(), "wal");
-}
-
-fn env_u64(key: &str, default: u64) -> u64 {
-    std::env::var(key)
-        .ok()
-        .and_then(|value| value.parse::<u64>().ok())
-        .unwrap_or(default)
 }
 
 fn env_usize(key: &str, default: usize) -> usize {

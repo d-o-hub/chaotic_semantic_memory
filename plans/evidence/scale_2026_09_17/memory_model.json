@@ -1,0 +1,119 @@
+{
+  "claim_bytes": 12582912,
+  "corpus_version": "synthetic-clustered-v1",
+  "fit": {
+    "fit_concepts": [
+      1000,
+      5000,
+      10000,
+      50000
+    ],
+    "points": 4,
+    "rss_bytes_per_concept": 4691.08990500976,
+    "rss_intercept_bytes": 2880664.5673389733,
+    "storage_bytes_per_concept": 2849.7180481457385,
+    "storage_intercept_bytes": 83652.2055953145
+  },
+  "holdout": {
+    "concepts": 100000,
+    "rss_relative_error": 0.002925937683544001,
+    "storage_relative_error": 0.0006086300682875068,
+    "within_5_percent": true
+  },
+  "kind": "memory_model",
+  "points": [
+    {
+      "after_rss_bytes": 10362880,
+      "baseline_rss_bytes": 4251648,
+      "concepts": 1000,
+      "inject_ms": 17.741682,
+      "peak_bytes_per_concept": 11341.824,
+      "peak_rss_bytes": 11341824,
+      "rss_bytes_per_concept": 6111.232,
+      "rss_delta_bytes": 6111232,
+      "storage": {
+        "db_bytes": 2949120,
+        "shm_bytes": 0,
+        "total_bytes": 2949120,
+        "wal_bytes": 0
+      },
+      "storage_bytes_per_concept": 2949.12
+    },
+    {
+      "after_rss_bytes": 30285824,
+      "baseline_rss_bytes": 4059136,
+      "concepts": 5000,
+      "inject_ms": 72.625911,
+      "peak_bytes_per_concept": 6112.0512,
+      "peak_rss_bytes": 30560256,
+      "rss_bytes_per_concept": 5245.3376,
+      "rss_delta_bytes": 26226688,
+      "storage": {
+        "db_bytes": 14336000,
+        "shm_bytes": 0,
+        "total_bytes": 14336000,
+        "wal_bytes": 0
+      },
+      "storage_bytes_per_concept": 2867.2
+    },
+    {
+      "after_rss_bytes": 55820288,
+      "baseline_rss_bytes": 4116480,
+      "concepts": 10000,
+      "inject_ms": 138.87884400000002,
+      "peak_bytes_per_concept": 5694.2592,
+      "peak_rss_bytes": 56942592,
+      "rss_bytes_per_concept": 5170.3808,
+      "rss_delta_bytes": 51703808,
+      "storage": {
+        "db_bytes": 28557312,
+        "shm_bytes": 0,
+        "total_bytes": 28557312,
+        "wal_bytes": 0
+      },
+      "storage_bytes_per_concept": 2855.7312
+    },
+    {
+      "after_rss_bytes": 241315840,
+      "baseline_rss_bytes": 4222976,
+      "concepts": 50000,
+      "inject_ms": 712.056251,
+      "peak_bytes_per_concept": 4826.3168,
+      "peak_rss_bytes": 241315840,
+      "rss_bytes_per_concept": 4741.85728,
+      "rss_delta_bytes": 237092864,
+      "storage": {
+        "db_bytes": 142573568,
+        "shm_bytes": 0,
+        "total_bytes": 142573568,
+        "wal_bytes": 0
+      },
+      "storage_bytes_per_concept": 2851.47136
+    },
+    {
+      "after_rss_bytes": 477593600,
+      "baseline_rss_bytes": 4218880,
+      "concepts": 100000,
+      "inject_ms": 1475.36115,
+      "peak_bytes_per_concept": 4775.936,
+      "peak_rss_bytes": 477593600,
+      "rss_bytes_per_concept": 4733.7472,
+      "rss_delta_bytes": 473374720,
+      "storage": {
+        "db_bytes": 285229056,
+        "shm_bytes": 0,
+        "total_bytes": 285229056,
+        "wal_bytes": 0
+      },
+      "storage_bytes_per_concept": 2852.29056
+    }
+  ],
+  "projection": {
+    "claim_ratio_rss": 3728.3722332847065,
+    "claim_ratio_storage": 2264.7590743432825,
+    "claim_supported": false,
+    "rss_bytes": 46913779714.66493,
+    "storage_bytes": 28497264133.662983
+  },
+  "projection_concepts": 10000000
+}
