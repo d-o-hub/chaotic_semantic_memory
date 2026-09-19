@@ -161,18 +161,19 @@ fn merge_single_list(results: &[(String, f32)], weight: f32, top_k: usize) -> Ve
     }
 
     let range = max - min;
-    let mut ref_results: Vec<(&str, f32)> = if range < f32::EPSILON {
-        results
-            .iter()
-            .map(|(id, _)| (id.as_str(), weight))
-            .collect()
+    // Memory Optimization: Pre-allocate capacity for results.len() borrowed candidate tuples
+    // to avoid potential intermediate reallocation during single-list hybrid score normalization.
+    let mut ref_results = Vec::with_capacity(results.len());
+    if range < f32::EPSILON {
+        for (id, _) in results {
+            ref_results.push((id.as_str(), weight));
+        }
     } else {
         let factor = weight / range;
-        results
-            .iter()
-            .map(|(id, score)| (id.as_str(), (score - min) * factor))
-            .collect()
-    };
+        for (id, score) in results {
+            ref_results.push((id.as_str(), (score - min) * factor));
+        }
+    }
 
     // 0-based selection: partition exactly top_k elements. top_k >= 1 because
     // merge_results rejects 0 before calling this helper.
