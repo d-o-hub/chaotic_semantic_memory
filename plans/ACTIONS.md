@@ -156,6 +156,15 @@
 > `docs/architecture/context.yaml`, and the formula-only test was replaced by a
 > measured one. `deduplicate_test_and_source_surfaces` (P3) stays queued.
 
+> Last completed (verified 2026-09-20):
+> `triage_pr_roast_2026_09_20` — two Jules perf PRs (#739, #740) against the same
+> `merge_single_list` hunk in `crates/csm-retrieval/src/hybrid.rs`, both replacing
+> a `TrustedLen` `collect()` with `with_capacity` + push: allocator counting showed
+> byte-identical allocation profiles (102/6 090 B at n=100, 1 002/61 890 B at
+> n=1000, both variants), so both were roasted and closed as no-ops; #740's
+> 13.67 % claim had no criterion output. #735 from the 2026-09-18 wave stays
+> merge-ready. Record: `plans/PR_ROAST_2026_09_20.md`.
+>
 > Last completed (verified 2026-09-18, test-surface dedup):
 > `deduplicate_test_and_source_surfaces` (ADR-0094, ADR-0095) — removed the 24
 > facade test bodies that were byte-identical duplicates of owner-crate tests
