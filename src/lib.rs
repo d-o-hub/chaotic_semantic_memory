@@ -312,14 +312,6 @@ mod encoder_lib_tests {
     }
 
     #[test]
-    fn encode_text_is_deterministic() {
-        let encoder = TextEncoder::new();
-        let a = encoder.encode("test input");
-        let b = encoder.encode("test input");
-        assert_eq!(a, b, "same input must produce identical output");
-    }
-
-    #[test]
     fn encode_different_inputs_differ() {
         let encoder = TextEncoder::new();
         let a = encoder.encode("hello");

@@ -127,14 +127,6 @@ mod tests {
     }
 
     #[test]
-    fn hvec_bytes_roundtrip() {
-        let original = HVec10240::random();
-        let bytes = original.to_bytes();
-        let restored = HVec10240::from_bytes(&bytes).unwrap();
-        assert_eq!(original, restored);
-    }
-
-    #[test]
     fn hvec_bytes_length() {
         let hvec = HVec10240::random();
         let bytes = hvec.to_bytes();

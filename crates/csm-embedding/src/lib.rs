@@ -127,6 +127,12 @@ pub fn get_provider(name: &str) -> Result<std::sync::Arc<dyn EmbeddingProvider>>
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
+    use std::sync::Mutex;
+
+    /// Serializes `std::env` mutation across this test binary: cargo runs test
+    /// threads concurrently, so an unguarded set/remove pair races with other
+    /// tests in the same binary (PR #700).
+    static ENV_TEST_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn get_provider_unknown_returns_error() {
@@ -201,7 +207,8 @@ mod tests {
     fn get_provider_openai_with_feature_returns_provider() {
         // CI-resilient: set a dummy API key; accept success or env-var
         // race condition in parallel test runners
-        // SAFETY: env var mutation in single-threaded test is sound; no concurrent readers
+        // SAFETY: env mutation serialized by ENV_TEST_LOCK; no concurrent writers
+        let _env = ENV_TEST_LOCK.lock().unwrap();
         unsafe { std::env::set_var("OPENAI_API_KEY", "test-key-for-mutation-coverage") };
         let result = get_provider("openai");
         match result {
@@ -214,7 +221,7 @@ mod tests {
                 );
             }
         }
-        // SAFETY: env var removal in single-threaded test is sound
+        // SAFETY: env mutation serialized by ENV_TEST_LOCK; guard still held
         unsafe { std::env::remove_var("OPENAI_API_KEY") };
     }
 
@@ -222,7 +229,8 @@ mod tests {
     #[test]
     fn get_provider_openai_with_model_returns_provider() {
         // CI-resilient: accept success or env-var race condition
-        // SAFETY: env var mutation in single-threaded test is sound; no concurrent readers
+        // SAFETY: env mutation serialized by ENV_TEST_LOCK; no concurrent writers
+        let _env = ENV_TEST_LOCK.lock().unwrap();
         unsafe { std::env::set_var("OPENAI_API_KEY", "test-key-for-mutation-coverage") };
         let result = get_provider("openai:text-embedding-3-small");
         match result {
@@ -235,14 +243,15 @@ mod tests {
                 );
             }
         }
-        // SAFETY: env var removal in single-threaded test is sound
+        // SAFETY: env mutation serialized by ENV_TEST_LOCK; guard still held
         unsafe { std::env::remove_var("OPENAI_API_KEY") };
     }
 
     #[cfg(feature = "embed-voyage")]
     #[test]
     fn get_provider_voyage_with_feature_returns_provider() {
-        // SAFETY: env var mutation in single-threaded test is sound; no concurrent readers
+        // SAFETY: env mutation serialized by ENV_TEST_LOCK; no concurrent writers
+        let _env = ENV_TEST_LOCK.lock().unwrap();
         unsafe { std::env::set_var("VOYAGE_API_KEY", "test-key-for-mutation-coverage") };
         let result = get_provider("voyage");
         assert!(
@@ -251,20 +260,21 @@ mod tests {
         );
         let provider = result.unwrap();
         assert_eq!(provider.name(), "voyage");
-        // SAFETY: env var removal in single-threaded test is sound
+        // SAFETY: env mutation serialized by ENV_TEST_LOCK; guard still held
         unsafe { std::env::remove_var("VOYAGE_API_KEY") };
     }
 
     #[cfg(feature = "embed-voyage")]
     #[test]
     fn get_provider_voyage_with_model_returns_provider() {
-        // SAFETY: env var mutation in single-threaded test is sound; no concurrent readers
+        // SAFETY: env mutation serialized by ENV_TEST_LOCK; no concurrent writers
+        let _env = ENV_TEST_LOCK.lock().unwrap();
         unsafe { std::env::set_var("VOYAGE_API_KEY", "test-key-for-mutation-coverage") };
         let result = get_provider("voyage:voyage-3");
         assert!(result.is_ok(), "voyage arm with model must succeed");
         let provider = result.unwrap();
         assert_eq!(provider.name(), "voyage");
-        // SAFETY: env var removal in single-threaded test is sound
+        // SAFETY: env mutation serialized by ENV_TEST_LOCK; guard still held
         unsafe { std::env::remove_var("VOYAGE_API_KEY") };
     }
 

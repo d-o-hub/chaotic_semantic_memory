@@ -1,5 +1,19 @@
 # PROGRESS
 
+## 2026-09-18: Test-Surface Dedup — Queue Emptied, Coverage Methodology Replaced
+
+### Summary
+Executed the last queued GOAP action `deduplicate_test_and_source_surfaces`. Three read-only scouts mapped the surfaces, then a mechanical body comparator and hand review sorted real duplicates from look-alikes. 24 facade test bodies went away; six files that earlier analysis called "verbatim duplicates" were *rejected* with evidence and stay. The GOAP queue is now empty (`queued_actions_count: 0`).
+
+### Actions
+- **Duplicates removed (24 bodies, workspace attributes 1053 → 1029)**: `src/embedding/mod.rs` 12 (owner: `csm-embedding`), `src/persistence_wasm.rs` 6 (wasm32-only module; its test module referenced an undefined helper and could not compile), `crates/csm-core-lib/src/maps/neural_circuit.rs` 3, plus one each in `src/lib.rs`, `src/export_payload/export_payload_tests.rs`, `src/wasm_ext_tests.rs`, and an empty module in `src/wasm_graph_rag.rs`.
+- **Source dedup**: `csm-core-lib::maps::neural_circuit` was a second, unreachable copy of the CDNCM map (`f64::tanh`, unconditional serde) while `csm-chaos` owns it and the root feature forwarded only to `csm-chaos`. It is now a re-export with the feature forwarding to the owner (serde preserved). `csm-core-lib::hashing::chaotic_lsh` was checked and kept — it is a documented wrapper, not a body copy.
+- **Fix ported, not deleted**: the root embedding copies carried the `ENV_TEST_LOCK` race fix from PR #700; `csm-embedding` still had the racy pattern with a false "single-threaded test" SAFETY comment. The guard was ported into the owner (4 tests, 8 env mutations) before the facade copies were removed.
+- **False positives rejected (6 files)**: `cache_lru_coverage`, `ttl_lifecycle`, `builder_advanced`, `path_validation_errors`, `critical_error_paths`, `batch_ops_coverage` were proposed for deletion but assert distinct behavior (metrics accounting via `probe_batch_cached`, error variants, retrieval after TTL, invalid-config failures). Evidence table in the audit.
+- **Coverage methodology (ADR-0095)**: `scripts/update-coverage.sh` (test-LOC/source-LOC ratio, `crates/` blind, rewrote README rows that no longer exist) deleted; `scripts/coverage-report.sh` added — `inventory` (unique compiled behavior per layer, 1029 attributes; 8 same-name leads, all reviewed) and `llvm-cov`/`llvm-cov-all` (line + branch coverage; 74.33 % lines / 64.08 % branches over lib + all integration targets vs 68.39 %/53.17 % for unit-only). Pre-commit hook now runs the fast inventory.
+- **Verification**: baseline `cargo test --all-features` exit 0 → after the deletions exit 0; the instrumented full-coverage run executed every target green; `csm-embedding` 15 passed, `csm-core-lib --features experimental-neural-circuit` 75 passed, `csm-chaos --all-features` 20 passed; clippy/fmt clean.
+- **Record**: `plans/TEST_SURFACE_AUDIT_2026_09_18.md`.
+
 ## 2026-09-17 (wave 2): ADR-0095 Scale Evidence — ANN/Persistence/Memory Measured, Two Actions Closed
 
 ### Summary

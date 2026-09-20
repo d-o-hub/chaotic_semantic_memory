@@ -184,9 +184,3 @@ impl WasmFramework {
         Ok(array)
     }
 }
-
-// Ensure tests can use the wasm_graph_rag logic on native if needed
-#[cfg(all(test, not(target_arch = "wasm32")))]
-mod tests {
-    // Shared tests for WASM GraphRAG patterns could go here
-}
