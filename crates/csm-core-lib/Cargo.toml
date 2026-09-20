@@ -26,7 +26,9 @@ getrandom = { version = "0.4.2", features = ["wasm_js"] }
 js-sys = "0.3.77"
 
 [features]
-experimental-neural-circuit = []
+# Re-export only: the map is owned by csm-chaos (ADR-0094). The serde
+# capability of the previous local copy is preserved through csm-chaos.
+experimental-neural-circuit = ["dep:csm-chaos", "csm-chaos/experimental-neural-circuit", "csm-chaos/std", "csm-chaos/serde"]
 default = []
 chaotic-hashing = ["dep:csm-chaos", "csm-chaos/std"]
 parallel = ["dep:rayon"]

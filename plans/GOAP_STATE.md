@@ -30,9 +30,10 @@ world_state:
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
   main_head: "1433ae8"           # 2026-09-17: PR #734 bounded persistence retries; evidence wave complete (#732-#734)
-  tests_count: 1053              # 2026-09-17: literal #[test]/#[tokio::test] across src/crates/tests
+  tests_count: 1029              # 2026-09-18: unique compiled behavior (scripts/coverage-report.sh inventory)
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
-  coverage_ratio_current: 93     # test:source ratio (target ≥90%)
+  coverage_lines_percent: 74     # 2026-09-18: cargo +nightly llvm-cov --workspace --lib --tests --branch
+  coverage_branches_percent: 64  # same run; unit-only targets measure 68/53, hence --tests matters
   adr_registry_count: 94         # 2026-08-12: check-adr-parity.sh ok (registry=94, disk=93, 0003 N/A)
   adr_disk_count: 93
   integration_test_files: 71     # tests/*.rs (2026-09-17 recount)
@@ -51,7 +52,7 @@ world_state:
   wave_32_status: in_progress    # P0/P1 landed; ownership + evidence remain (see queued actions)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 1        # 2026-09-17: add_ann_and_persistence_scale_benchmarks + replace_formula_only_memory_claim completed
+  queued_actions_count: 0        # 2026-09-18: deduplicate_test_and_source_surfaces completed; queue empty
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: true            # 2026-08-12: no TODO in src/ crates/
@@ -74,6 +75,8 @@ world_state:
   ann_scale_evidence_current: true                # 2026-09-17: evidence_ann.json (exact/hnsw/lsh/bucket at 1k/10k/50k)
   persistence_contention_evidence_current: true   # 2026-09-17: evidence_persistence.json (error rate 0.905 -> 0.000)
   measured_memory_model_exists: true              # 2026-09-17: 4691 B RSS + 2850 B storage per concept, held-out 0.29 %
+  canonical_test_owners_unique: true              # 2026-09-18: facade test copies of owner tests removed; audit in plans/TEST_SURFACE_AUDIT_2026_09_18.md
+  coverage_methodology_behavior_based: true       # 2026-09-18: unique compiled behavior + llvm-cov line/branch, not test LOC
   ten_million_memory_claim_evaluated: true        # 2026-09-17: evaluated NOT supported (43.7 GB RSS / 26.5 GB storage)
   ann_snapshot_revision_validated: true           # ADR-0093: IndexSnapshotEnvelope + ns revision
   ann_config_is_fallible: true                    # validate_index_backend; ADR-0093
@@ -102,4 +105,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: triage_pr_roast_2026_09_18
+  action_last_completed: deduplicate_test_and_source_surfaces

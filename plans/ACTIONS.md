@@ -156,19 +156,20 @@
 > `docs/architecture/context.yaml`, and the formula-only test was replaced by a
 > measured one. `deduplicate_test_and_source_surfaces` (P3) stays queued.
 
-actions:
-  # P3 — consolidation (ADR-0094, ADR-0095)
-  - name: deduplicate_test_and_source_surfaces
-    preconditions:
-      workspace_implementation_owners_unique: true
-      adr_0095_accepted: true
-    effects:
-      canonical_test_owners_unique: true
-      coverage_methodology_behavior_based: true
-    cost: 8
-    status: queued
-    file: src/, crates/, tests/
-    adr: ADR-0094, ADR-0095
-    description: |
-      Remove duplicated root/split test bodies after owner migration. Report unique
-      compiled behavior and line/branch coverage; raw test count remains inventory only.
+> Last completed (verified 2026-09-18, test-surface dedup):
+> `deduplicate_test_and_source_surfaces` (ADR-0094, ADR-0095) — removed the 24
+> facade test bodies that were byte-identical duplicates of owner-crate tests
+> (12 in `src/embedding/mod.rs`, 6 in `src/persistence_wasm.rs`, 3 with the
+> `csm-core-lib` neural-circuit copy, plus three singles), turned
+> `csm-core-lib::maps::neural_circuit` into a re-export of the `csm-chaos`
+> owner (its feature was enabled by nobody, so the second body was
+> unreachable), and ported the `ENV_TEST_LOCK` race fix into `csm-embedding`
+> before deleting the facade copies that held it. Six further "duplicate" files
+> were *rejected* by mechanical body comparison and hand review — they assert
+> distinct behavior (metrics vs membership, error variants, retrieval after
+> TTL) and stay. Coverage methodology replaced: `scripts/update-coverage.sh`
+> (test-LOC ratio, `crates/` blind) → `scripts/coverage-report.sh`
+> (unique compiled behavior; llvm-cov line/branch: 74.33 % lines / 64.08 %
+> branches over lib + integration targets). Audit: `plans/TEST_SURFACE_AUDIT_2026_09_18.md`.
+
+actions: []  # queue empty: the last action completed 2026-09-18

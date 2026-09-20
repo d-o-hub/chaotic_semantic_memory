@@ -3,7 +3,7 @@ mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use crate::export_payload::{
         BinaryConcept, BinaryExportPayload, BinaryMetadataValue, ExportPayload, concept_to_export,
-        export_to_concept, unix_now_secs,
+        export_to_concept,
     };
     use crate::singularity::Concept;
     use csm_core_lib::hyperdim::HVec10240;
@@ -279,12 +279,6 @@ mod tests {
         assert_eq!(decoded.concepts.len(), 1);
         assert_eq!(decoded.concepts[0].id, "concept-bin");
         assert_eq!(decoded.associations, bin_payload.associations);
-    }
-
-    #[test]
-    fn test_unix_now_secs() {
-        let now = unix_now_secs();
-        assert!(now > 0, "Current time should be greater than 0");
     }
 
     fn assert_export_import_roundtrip(original_payload: &ExportPayload) -> ExportPayload {
