@@ -1,34 +1,56 @@
 import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname, join } from 'path';
+import { existsSync, readFileSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+function packageDirPath() {
+    return process.env.WASM_PACKAGE_DIR || __dirname;
+}
+
 function packageModuleUrl() {
-    const packageDir = process.env.WASM_PACKAGE_DIR || __dirname;
-    const modulePath = join(packageDir, 'chaotic_semantic_memory.js');
+    const modulePath = join(packageDirPath(), 'chaotic_semantic_memory.js');
     return pathToFileURL(modulePath).href;
 }
 
 async function loadWasmBindings() {
     console.log('Loading WASM module...');
 
+    const packageDir = packageDirPath();
     const moduleUrl = packageModuleUrl();
     const module = await import(moduleUrl);
-    // --target nodejs produces CJS; import() wraps module.exports as default.
-    // --target web produces ESM with named exports directly.
-    const exports = module.default || module;
-    const { WasmFramework, random_hypervector } = exports;
+    // --target nodejs produces CJS whose `module.exports` lands on `default`;
+    // --target web produces ESM where the bindings are named exports and
+    // `default` is the init function. Merge both views so one smoke test can
+    // run against either target — including the release/web artifact CI now
+    // builds and the release publishes.
+    const defaultExport = module.default;
+    const bindings =
+        defaultExport && typeof defaultExport === 'object'
+            ? { ...module, ...defaultExport }
+            : { ...module };
 
     const initCandidate = [module.default, module.init, module.__wbg_init]
         .find(candidate => typeof candidate === 'function');
 
     if (initCandidate) {
-        await initCandidate();
-        console.log('WASM module initialized');
+        // `--target web` glue resolves the .wasm with `fetch(import.meta.url)`,
+        // and Node's fetch rejects file:// URLs. Hand the bytes to init instead
+        // so the smoke test can run against the shipped (release/web) package.
+        const wasmPath = join(packageDir, 'chaotic_semantic_memory_bg.wasm');
+        if (existsSync(wasmPath)) {
+            await initCandidate({ module_or_path: readFileSync(wasmPath) });
+            console.log('WASM module initialized from', wasmPath);
+        } else {
+            await initCandidate();
+            console.log('WASM module initialized');
+        }
     } else {
         console.log('WASM module ready (node target auto-initializes)');
     }
+
+    const { WasmFramework, random_hypervector } = bindings;
 
     if (!WasmFramework || !random_hypervector) {
         throw new Error('WASM package missing expected exports');

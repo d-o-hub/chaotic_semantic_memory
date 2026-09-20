@@ -42,7 +42,7 @@ Use this path for browser/JS/TypeScript consumption and registry verification of
 ### Canonical Commands
 - **Check Version:** `npm view @d-o-hub/chaotic_semantic_memory version`
 - **Install Test:** `npm install @d-o-hub/chaotic_semantic_memory`
-- **Build (Local):** `wasm-pack build --target web --out-dir wasm/pkg -- --features wasm`
+- **Build (Local):** `scripts/build-wasm.sh release-web wasm/pkg` (same command CI validates and release publishes)
 - **Validation:** Verify `wasm/package.json` alignment.
 
 ### Decision Logic

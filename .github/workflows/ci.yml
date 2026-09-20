@@ -499,22 +499,26 @@ jobs:
           ~/.cargo/git/db/
           target/
         key: ${{ runner.os }}-cargo-wasm-${{ hashFiles('**/Cargo.lock') }}
-    - name: Build WASM (nodejs target for smoke test)
+    # Build the artifact that release.yml publishes (same script, same profile and
+    # target), then smoke-test it: `wasm_ci_release_artifact_identical`.
+    - name: Build WASM (release/web — the artifact release publishes)
       run: |
         OUT="${{ github.workspace }}/wasm/pkg"
-        # Use --target nodejs for CI smoke test (loads .wasm via fs, not fetch).
-        # Release workflow uses --target web for browser compatibility.
-        nix develop --command wasm-pack build crates/csm-wasm --dev --target nodejs \
-          --out-dir "${OUT}" \
-          --out-name chaotic_semantic_memory
+        nix develop --command bash scripts/build-wasm.sh release-web "${OUT}"
     - name: Check WASM
       run: nix develop --command cargo check --target wasm32-unknown-unknown -p csm-wasm
     - name: Verify WASM TS Freshness
       run: nix develop --command bash scripts/check-wasm-freshness.sh
-    - name: WASM JS Smoke Test
+    - name: WASM JS Smoke Test (release/web package)
       run: |
         cd wasm
         WASM_PACKAGE_DIR="${{ github.workspace }}/wasm/pkg" nix develop --command node test.js
+    - name: Upload WASM package (release artifact)
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: wasm-pkg-release-web
+        path: wasm/pkg/
+        retention-days: 7
 
   lint:
     runs-on: ubuntu-latest

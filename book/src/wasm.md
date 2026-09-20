@@ -7,11 +7,15 @@ rustup target add wasm32-unknown-unknown
 cargo build --target wasm32-unknown-unknown --no-default-features --features wasm
 ```
 
-Using wasm-pack:
+Using the repository's canonical build script (the same one CI validates and
+the release workflow publishes):
 
 ```bash
-wasm-pack build --target web --no-default-features --features wasm
+scripts/build-wasm.sh release-web wasm/pkg   # optimised package for npm
+scripts/build-wasm.sh dev-nodejs  wasm/pkg-node  # fast Node smoke build
 ```
+
+It prints the package directory, the artifact size and its SHA-256.
 
 ## JavaScript API
 
