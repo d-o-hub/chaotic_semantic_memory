@@ -2,6 +2,11 @@ import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname, join } from 'path';
 import { existsSync, readFileSync } from 'fs';
 
+// The wasm path is package-relative by construction (`packageDir` is
+// WASM_PACKAGE_DIR or this file's directory); ESLint's security plugin cannot
+// see that and flags the two non-literal fs calls below.
+/* eslint-disable security/detect-non-literal-fs-filename */
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
