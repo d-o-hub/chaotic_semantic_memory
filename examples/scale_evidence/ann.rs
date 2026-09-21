@@ -29,6 +29,11 @@ pub struct AnnParams {
     pub clusters: usize,
     /// Bits flipped from the cluster centre per concept.
     pub noise_bits: usize,
+    /// Probe width for the bucketed candidate path.
+    pub bucket_probe_width: usize,
+    /// Backends to measure (`exact`, `hnsw`, `lsh`, `bucket`); exact always runs
+    /// because it is the ground truth.
+    pub backends: Vec<String>,
 }
 
 pub fn run(params: &AnnParams) -> Value {
@@ -58,6 +63,9 @@ pub fn run(params: &AnnParams) -> Value {
                 &[],
             );
 
+            let wanted = |name: &str| {
+                params.backends.is_empty() || params.backends.iter().any(|b| b == name)
+            };
             let mut rows = vec![exact];
             for (name, backend) in [
                 (
@@ -76,6 +84,9 @@ pub fn run(params: &AnnParams) -> Value {
                     },
                 ),
             ] {
+                if !wanted(name) {
+                    continue;
+                }
                 let (row, _) = measure_index(
                     name,
                     &backend,
@@ -88,12 +99,15 @@ pub fn run(params: &AnnParams) -> Value {
                 rows.push(row);
             }
 
-            rows.push(measure_bucket(
-                &corpus,
-                &query_vectors,
-                params.top_k,
-                &truth,
-            ));
+            if wanted("bucket") {
+                rows.push(measure_bucket(
+                    &corpus,
+                    &query_vectors,
+                    params.top_k,
+                    &truth,
+                    params.bucket_probe_width,
+                ));
+            }
 
             json!({
                 "concepts": scale,
@@ -209,12 +223,13 @@ fn measure_bucket(
     queries: &[HVec10240],
     top_k: usize,
     truth: &[Vec<String>],
+    probe_width: usize,
 ) -> Value {
     let mut engine = Singularity::with_config(SingularityConfig::default());
     engine
         .set_retrieval_config(RetrievalConfig {
             enable_bucket_candidates: true,
-            bucket_probe_width: 8,
+            bucket_probe_width: probe_width,
             enable_graph_candidates: false,
             ..RetrievalConfig::default()
         })
@@ -265,7 +280,7 @@ fn measure_bucket(
         "candidate_ns_avg": candidate_ns as f64 / n as f64,
         "scoring_ns_avg": scoring_ns as f64 / n as f64,
         "exact_fallbacks": fallbacks,
-        "bucket_probe_width": 8,
+        "bucket_probe_width": probe_width,
     })
 }
 

@@ -52,7 +52,7 @@ world_state:
   wave_32_status: in_progress    # P0/P1 landed; ownership + evidence remain (see queued actions)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 1        # 2026-09-21: bucketed candidate recall collapses at scale (measured); action queued
+  queued_actions_count: 0        # 2026-09-21: fix_bucketed_candidate_recall_at_scale completed; queue empty
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: true            # 2026-08-12: no TODO in src/ crates/
@@ -77,6 +77,7 @@ world_state:
   measured_memory_model_exists: true              # 2026-09-17: 4691 B RSS + 2850 B storage per concept, held-out 0.29 %
   canonical_test_owners_unique: true              # 2026-09-18: facade test copies of owner tests removed; audit in plans/TEST_SURFACE_AUDIT_2026_09_18.md
   coverage_methodology_behavior_based: true       # 2026-09-18: unique compiled behavior + llvm-cov line/branch, not test LOC
+  bucketed_recall_scales_with_corpus: true        # 2026-09-21: adaptive multi-probe + budget guard; probe declines to the exact scan instead of truncating
   ten_million_memory_claim_evaluated: true        # 2026-09-17: evaluated NOT supported (43.7 GB RSS / 26.5 GB storage)
   ann_snapshot_revision_validated: true           # ADR-0093: IndexSnapshotEnvelope + ns revision
   ann_config_is_fallible: true                    # validate_index_backend; ADR-0093
@@ -105,4 +106,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: triage_pr_roast_2026_09_20
+  action_last_completed: fix_bucketed_candidate_recall_at_scale

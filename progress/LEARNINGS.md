@@ -14,7 +14,7 @@
 - **DoS bounds**: Graph `MAX_DEPTH=32`, `MAX_RESULTS=10K`; batch `max_batch_size=1000`.
 
 ## Performance Patterns
-- **Bucketed candidate recall is a function of corpus size (2026-09-21)**: `bucket_probe_width` fixes the bucket mask, so recall@10 falls as the corpus grows — measured 0.604 (10k) → 0.576 (50k) → **0.208** (200k) with `fell_back_to_exact_scan` never firing. Any candidate generator with a fixed probe budget needs the budget expressed against N (or an explicit fallback), otherwise it degrades exactly where it is meant to help. Same class: HNSW at fixed `ef_search` drifts 0.908 → 0.800 over the same range.
+- **Bucketed candidate recall is a function of corpus size (fixed 2026-09-21)**: `bucket_probe_width` fixes the bucket mask, so recall@10 fell as the corpus grew — 0.604 (10k) → 0.576 (50k) → **0.208** (200k) at floor 8, and **0.016** at the floor-2 default. The sweep showed the dominant cause was **index-order truncation** of an oversized bucket (widths 2–6 all returned exactly `max_candidates`), not the width per se. Fix: the configured width is a floor that scales with N, candidates within one masked bit are accepted, and a probe beyond 2× the budget declines so the caller scans exactly. Same class: HNSW at fixed `ef_search` drifts 0.908 → 0.800 over the same range.
 - **ILP over SIMD**: 4 independent accumulators in hot loops often beat SIMD (avoids STLF stalls).
 - **Branchless bitmasks**: `w |= (cond as u128) << j` minimizes branch misprediction.
 - **Zero-alloc interning**: `Arc<str>` + `get_mut`/`get_key_value` double-lookup for BM25 terms; `HashSet<&str>` + single-pass `insert()` kills the contains+insert double lookup (PR #679).

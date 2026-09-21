@@ -13,6 +13,7 @@ pub mod index;
 pub mod index_envelope;
 pub mod metadata_filter;
 pub mod singularity;
+pub mod singularity_bucket;
 pub mod singularity_cache;
 pub mod singularity_decay;
 pub mod singularity_ext;

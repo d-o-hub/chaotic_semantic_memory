@@ -1,0 +1,122 @@
+{
+  "clusters": 64,
+  "kind": "ann_scale",
+  "noise_bits": 512,
+  "scales": [
+    {
+      "backends": [
+        {
+          "backend": "exact",
+          "build_ms": 372.084719,
+          "index_bytes": 264000000,
+          "index_count": 200000,
+          "is_ground_truth": true,
+          "query": {
+            "max_us": 25515,
+            "mean_us": 19766.36,
+            "min_us": 12945,
+            "n": 25,
+            "p50_us": 19297,
+            "p95_us": 24312,
+            "p99_us": 25515
+          },
+          "recall_at_k": 1.0,
+          "reload_method": "rebuild:200000",
+          "reload_ms": 749.089099,
+          "serialize_bytes": 0,
+          "update_ms": {
+            "count": 100,
+            "delete": 0.16388899999999998,
+            "reinsert": 0.066898
+          }
+        },
+        {
+          "backend": "hnsw",
+          "build_ms": 356272.779156,
+          "index_bytes": 267200000,
+          "index_count": 200000,
+          "is_ground_truth": false,
+          "query": {
+            "max_us": 1989,
+            "mean_us": 967.56,
+            "min_us": 657,
+            "n": 25,
+            "p50_us": 940,
+            "p95_us": 1155,
+            "p99_us": 1989
+          },
+          "recall_at_k": 0.5680000000000001,
+          "reload_method": "deserialize:10",
+          "reload_ms": 6861.613807000001,
+          "serialize_bytes": 399633110,
+          "update_ms": {
+            "count": 100,
+            "delete": 0.185131,
+            "reinsert": 224.143076
+          }
+        },
+        {
+          "backend": "lsh",
+          "build_ms": 985.62324,
+          "index_bytes": 262457368,
+          "index_count": 200000,
+          "is_ground_truth": false,
+          "query": {
+            "max_us": 4089,
+            "mean_us": 2140.84,
+            "min_us": 1604,
+            "n": 25,
+            "p50_us": 2055,
+            "p95_us": 3073,
+            "p99_us": 4089
+          },
+          "recall_at_k": 0.82,
+          "reload_method": "deserialize:10",
+          "reload_ms": 1366.58612,
+          "serialize_bytes": 277239012,
+          "update_ms": {
+            "count": 100,
+            "delete": 23.653707,
+            "reinsert": 0.19561399999999998
+          }
+        },
+        {
+          "backend": "bucket",
+          "bucket_probe_width": 6,
+          "build_ms": 1546.528749,
+          "candidate_count_avg": 1000.0,
+          "candidate_ns_avg": 2109569.36,
+          "exact_fallbacks": 0,
+          "index_bytes": 0,
+          "index_count": 200000,
+          "query": {
+            "max_us": 4224,
+            "mean_us": 2384.36,
+            "min_us": 1677,
+            "n": 25,
+            "p50_us": 2318,
+            "p95_us": 3522,
+            "p99_us": 4224
+          },
+          "recall_at_k": 0.14400000000000004,
+          "reload_method": "no-persistent-state",
+          "reload_ms": 0.0,
+          "scored_count_avg": 1000.0,
+          "scoring_ns_avg": 253488.64,
+          "serialize_bytes": 0,
+          "update_ms": {
+            "count": 0,
+            "delete": 0.0,
+            "reinsert": 0.0
+          }
+        }
+      ],
+      "concepts": 200000,
+      "corpus_checksum": "fnv1a64:f181fd1ce5305ff9",
+      "corpus_version": "synthetic-clustered-v1",
+      "queries": 25
+    }
+  ],
+  "seed": 42,
+  "top_k": 10
+}

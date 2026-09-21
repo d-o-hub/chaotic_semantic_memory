@@ -305,6 +305,68 @@ def render_memory(mem: dict) -> list[str]:
     return out
 
 
+def render_bucket_sweep(base: pathlib.Path) -> list[str]:
+    """Summarise `bucket_sweep/*.json` (probe-width sweeps for the bucket path)."""
+    files = sorted((base / "bucket_sweep").glob("*.json"))
+    if not files:
+        return []
+
+    rows = []
+    for path in files:
+        doc = json.loads(path.read_text())
+        scales = doc.get("scales") or []
+        if not scales:
+            continue
+        scale = scales[0]
+        bucket = next((b for b in scale["backends"] if b["backend"] == "bucket"), None)
+        if bucket is None:
+            continue
+        rows.append(
+            (
+                path.stem,
+                scale["concepts"],
+                bucket.get("bucket_probe_width"),
+                bucket["candidate_count_avg"],
+                bucket["recall_at_k"],
+                bucket.get("exact_fallbacks", 0),
+                scale.get("queries", 0),
+                bucket["query"]["p50_us"],
+            )
+        )
+
+    out = [
+        "## Bucketed candidate probe sweep (`bucket_sweep/`)",
+        "",
+        "`prefix_*` rows are the pre-fix generator (single bucket, fixed width, "
+        "index-order truncation); `fixed_*` rows use the adaptive multi-probe and "
+        "budget guard. `floor` is the configured `bucket_probe_width`, which the "
+        "policy treats as a minimum.",
+        "",
+        "| run | N | floor | candidates | recall@10 | exact fallbacks | queries | p50 |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for name, concepts, width, candidates, recall, fallbacks, queries, p50 in rows:
+        width_txt = "—" if width is None else str(width)
+        out.append(
+            f"| {name} | {concepts:,} | {width_txt} | {candidates:,.0f} | {recall:.3f} "
+            f"| {fallbacks} | {queries} | {fmt_us(p50)} |"
+        )
+    out.append("")
+    out += [
+        "Read together with the ANN table above: at `floor = 8` the probe is selective at "
+        "10 k (570 candidates, 0.832 recall, 2.2× faster than the exact scan) and declines at "
+        "50 k/200 k, where the corpus' prefix distribution makes the probe nearly as large as "
+        "the corpus — the caller then scans exactly (recall 1.000) instead of returning the "
+        "index-ordered slice that measured 0.016 recall before the fix.",
+        "",
+    ]
+
+    notes = base / "notes.md"
+    if notes.exists():
+        out += [notes.read_text().rstrip(), ""]
+    return out
+
+
 def render(base: pathlib.Path) -> str:
     def read(name: str):
         return load(base / name)
@@ -325,6 +387,7 @@ def render(base: pathlib.Path) -> str:
         out += render_persistence(persistence, persistence_pre)
     if memory:
         out += render_memory(memory)
+    out += render_bucket_sweep(base)
     return "\n".join(out)
 
 

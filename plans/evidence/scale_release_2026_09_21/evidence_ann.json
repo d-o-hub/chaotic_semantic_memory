@@ -2,9 +2,9 @@
   "schema_version": 1,
   "artifact": "ann_scale.json",
   "artifact_kind": "ann_scale",
-  "commit": "e9b019b8a1b4b1634da622f959ada48d6dd62c90",
-  "dirty": false,
-  "command": "cargo run --release --example scale_evidence --features persistence,ann-hnsw,ann-lsh -- ann --out plans/evidence/scale_release_2026_09_21 --scales 10000,50000,200000 --queries 25",
+  "commit": "588b5e3ed145677b6bec7d13a2e49791ff2ff802",
+  "dirty": true,
+  "command": "cargo run --release --example scale_evidence --features persistence,ann-hnsw,ann-lsh -- ann --out plans/evidence/scale_release_2026_09_21 --scales 10000,50000,200000 --queries 25 --bucket-probe-width 8",
   "features": "persistence,ann-hnsw,ann-lsh",
   "profile": "release",
   "dataset": {

@@ -108,3 +108,69 @@ fn test_generate_graph_candidates_logic() {
     assert!(ids.contains("c3"));
     assert!(!ids.contains("c4"));
 }
+
+#[test]
+fn bucket_candidates_use_a_multi_probe_and_respect_the_budget() {
+    use super::RetrievalConfig;
+    use crate::singularity_bucket::BUCKET_BUDGET_SLACK;
+
+    let mut s = Singularity::<HVec10240>::new(SingularityConfig::default());
+    // 4096 vectors with distinct first words: with a 2-bit floor mask each bucket
+    // holds 1024 members and the multi-probe accepts three buckets (~3072).
+    for i in 0..4096usize {
+        let mut v = HVec10240::zero();
+        v.data[0] = i as u128;
+        s.inject(
+            "_default",
+            crate::singularity::Concept {
+                id: format!("c{i}"),
+                vector: v,
+                metadata: Default::default(),
+                created_at: 1,
+                modified_at: 1,
+                expires_at: None,
+                canonical_concept_ids: Vec::new(),
+            },
+        )
+        .unwrap();
+    }
+    let mut query = HVec10240::zero();
+    query.data[0] = 0b1010_1010;
+
+    // Budget far below the probe size: the generator declines so the caller
+    // scans exactly instead of slicing an oversized bucket by index order.
+    let tight = RetrievalConfig {
+        enable_bucket_candidates: true,
+        bucket_probe_width: 2,
+        max_candidates: 64,
+        ..RetrievalConfig::default()
+    };
+    s.set_retrieval_config(tight.clone()).unwrap();
+    assert!(
+        s.generate_bucket_candidates("_default", &query).is_empty(),
+        "an oversized probe must decline instead of returning an index-ordered slice"
+    );
+
+    // Enough room: the probe returns the bucket plus its one-bit neighbours,
+    // every member within the masked distance of the query.
+    let roomy = RetrievalConfig {
+        max_candidates: 4096,
+        ..tight
+    };
+    s.set_retrieval_config(roomy).unwrap();
+    let candidates = s.generate_bucket_candidates("_default", &query);
+    assert!(!candidates.is_empty());
+    assert!(
+        candidates.len() <= 4096 * BUCKET_BUDGET_SLACK,
+        "multi-probe result must stay within the slack budget"
+    );
+    let ns_state = s.get_namespace("_default").unwrap();
+    let mask = 0b11u128;
+    for &idx in &candidates {
+        let bits = ns_state.concept_vectors[idx].data[0] & mask;
+        assert!(
+            (bits ^ (query.data[0] & mask)).count_ones() <= 1,
+            "every bucket candidate must be within one masked bit of the query"
+        );
+    }
+}

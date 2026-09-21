@@ -1,0 +1,72 @@
+{
+  "clusters": 64,
+  "kind": "ann_scale",
+  "noise_bits": 512,
+  "scales": [
+    {
+      "backends": [
+        {
+          "backend": "exact",
+          "build_ms": 110.00511999999999,
+          "index_bytes": 66000000,
+          "index_count": 50000,
+          "is_ground_truth": true,
+          "query": {
+            "max_us": 18800,
+            "mean_us": 8046.48,
+            "min_us": 3420,
+            "n": 25,
+            "p50_us": 7308,
+            "p95_us": 13117,
+            "p99_us": 18800
+          },
+          "recall_at_k": 1.0,
+          "reload_method": "rebuild:50000",
+          "reload_ms": 185.171535,
+          "serialize_bytes": 0,
+          "update_ms": {
+            "count": 100,
+            "delete": 0.10841999999999999,
+            "reinsert": 0.036804
+          }
+        },
+        {
+          "backend": "bucket",
+          "bucket_probe_width": 8,
+          "build_ms": 505.94475500000004,
+          "candidate_count_avg": 46080.0,
+          "candidate_ns_avg": 997472.32,
+          "exact_fallbacks": 23,
+          "index_bytes": 0,
+          "index_count": 50000,
+          "query": {
+            "max_us": 10355,
+            "mean_us": 5684.44,
+            "min_us": 1510,
+            "n": 25,
+            "p50_us": 5175,
+            "p95_us": 8723,
+            "p99_us": 10355
+          },
+          "recall_at_k": 0.976,
+          "reload_method": "no-persistent-state",
+          "reload_ms": 0.0,
+          "scored_count_avg": 46080.0,
+          "scoring_ns_avg": 4399570.6,
+          "serialize_bytes": 0,
+          "update_ms": {
+            "count": 0,
+            "delete": 0.0,
+            "reinsert": 0.0
+          }
+        }
+      ],
+      "concepts": 50000,
+      "corpus_checksum": "fnv1a64:74b7cd99b8b531e5",
+      "corpus_version": "synthetic-clustered-v1",
+      "queries": 25
+    }
+  ],
+  "seed": 42,
+  "top_k": 10
+}

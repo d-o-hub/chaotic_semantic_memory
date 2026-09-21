@@ -21,37 +21,35 @@ brute-force ground truth, not hit rate.
 
 | N | backend | build | p50 query | p99 query | recall@10 | index bytes | serialized | reload |
 |---|---|---|---|---|---|---|---|---|
-| 10,000 | exact | 11.9 ms | 558 µs | 1.43 ms | 1.000 | 12.59 MB | — | 35.1 ms |
-| 10,000 | hnsw | 11.92 s | 490 µs | 678 µs | 0.908 | 12.74 MB | 18.47 MB | 229.2 ms |
-| 10,000 | lsh | 31.5 ms | 136 µs | 302 µs | 0.824 | 12.74 MB | 13.28 MB | 63.0 ms |
-| 10,000 | bucket | 45.8 ms | 191 µs | 689 µs | 0.604 | 0 | — | — |
-| 50,000 | exact | 81.0 ms | 4.32 ms | 7.40 ms | 1.000 | 62.94 MB | — | 168.0 ms |
-| 50,000 | hnsw | 56.11 s | 547 µs | 1.35 ms | 0.896 | 63.71 MB | 93.33 MB | 1.34 s |
-| 50,000 | lsh | 207.0 ms | 433 µs | 778 µs | 0.832 | 62.99 MB | 66.19 MB | 295.6 ms |
-| 50,000 | bucket | 358.3 ms | 464 µs | 1.58 ms | 0.576 | 0 | — | — |
-| 200,000 | exact | 274.3 ms | 18.20 ms | 24.66 ms | 1.000 | 251.77 MB | — | 649.7 ms |
-| 200,000 | hnsw | 330.14 s | 826 µs | 1.10 ms | 0.800 | 254.82 MB | 382.19 MB | 6.72 s |
-| 200,000 | lsh | 858.5 ms | 1.86 ms | 2.94 ms | 0.820 | 250.30 MB | 264.40 MB | 1.40 s |
-| 200,000 | bucket | 1.37 s | 1.74 ms | 3.82 ms | 0.208 | 0 | — | — |
+| 10,000 | exact | 15.8 ms | 1.10 ms | 1.84 ms | 1.000 | 12.59 MB | — | 35.4 ms |
+| 10,000 | hnsw | 14.49 s | 330 µs | 803 µs | 0.908 | 12.74 MB | 18.23 MB | 249.9 ms |
+| 10,000 | lsh | 39.6 ms | 129 µs | 482 µs | 0.824 | 12.74 MB | 13.28 MB | 61.1 ms |
+| 10,000 | bucket | 58.6 ms | 249 µs | 1.65 ms | 0.832 | 0 | — | — |
+| 50,000 | exact | 84.6 ms | 4.31 ms | 7.06 ms | 1.000 | 62.94 MB | — | 174.6 ms |
+| 50,000 | hnsw | 66.36 s | 728 µs | 1.07 ms | 0.892 | 63.71 MB | 92.86 MB | 1.49 s |
+| 50,000 | lsh | 236.0 ms | 585 µs | 1.78 ms | 0.828 | 62.99 MB | 66.19 MB | 301.8 ms |
+| 50,000 | bucket | 423.3 ms | 5.89 ms | 8.43 ms | 0.976 | 0 | — | — |
+| 200,000 | exact | 347.4 ms | 19.41 ms | 25.39 ms | 1.000 | 251.77 MB | — | 754.9 ms |
+| 200,000 | hnsw | 417.88 s | 1.27 ms | 2.64 ms | 0.724 | 254.82 MB | 380.38 MB | 8.80 s |
+| 200,000 | lsh | 1.28 s | 2.10 ms | 4.22 ms | 0.832 | 250.30 MB | 264.40 MB | 1.40 s |
+| 200,000 | bucket | 2.01 s | 24.38 ms | 33.93 ms | 1.000 | 0 | — | — |
 
 Scaling trend (first → last scale):
 
 | backend | build ×| p50 query ×| recall@10 first → last |
 |---|---|---|---|
-| exact | 23.1× | 32.6× | 1.000 → 1.000 ≈ |
-| hnsw | 27.7× | 1.7× | 0.908 → 0.800 ↓ |
-| lsh | 27.2× | 13.6× | 0.824 → 0.820 ≈ |
-| bucket | 29.9× | 9.1× | 0.604 → 0.208 ↓ |
+| exact | 21.9× | 17.7× | 1.000 → 1.000 ≈ |
+| hnsw | 28.8× | 3.8× | 0.908 → 0.724 ↓ |
+| lsh | 32.4× | 16.3× | 0.824 → 0.832 ≈ |
+| bucket | 34.3× | 97.9× | 0.832 → 1.000 ↑ |
 
-**Bucketed candidate recall degrades with N** (0.604 at 10,000 → 0.208 at 200,000): the probe mask (`bucket_probe_width`) is fixed while the corpus grows, so the candidate set stops covering the true neighbours. Scale the probe width with N or fall back to the exact scan above the size where recall matters.
-
-**HNSW recall falls with N at fixed `ef_search`** (0.908 → 0.800); raise `ef_search`/`m` for large corpora and re-measure before claiming a recall target.
+**HNSW recall falls with N at fixed `ef_search`** (0.908 → 0.724); raise `ef_search`/`m` for large corpora and re-measure before claiming a recall target.
 
 Findings at the largest scale:
 
-- **Exact scan is the query-latency wall**: 18.20 ms p50; HNSW answers in 826 µs (22.0× faster) for 0.800 recall, LSH in 1.86 ms for 0.820.
-- **HNSW build is the cost, not the query**: 330.14 s to build against 858.5 ms for LSH; reloading the serialized index (382.19 MB) takes 6.72 s.
-- **Bucketed candidate generation (probe width 8) is not a recall-preserving filter**: 0.208 recall@10 at 1.74 ms p50 with 967 candidates per query on average.
+- **Exact scan is the query-latency wall**: 19.41 ms p50; HNSW answers in 1.27 ms (15.3× faster) for 0.724 recall, LSH in 2.10 ms for 0.832.
+- **HNSW build is the cost, not the query**: 417.88 s to build against 1.28 s for LSH; reloading the serialized index (380.38 MB) takes 8.80 s.
+- **Bucketed candidate generation (probe width 8) is not a recall-preserving filter**: 1.000 recall@10 at 24.38 ms p50 with 200000 candidates per query on average.
 - Index overhead over the raw vectors: HNSW 16 B/concept, LSH -8; the bucketed path keeps no index.
 
 ## Persistence (`persistence_scale.json`)
@@ -98,3 +96,50 @@ The 12 MB figure describes the product-quantization design (ADR-0024 phase 2:
 ~1 byte/concept + 2 MB codebook), which was never implemented. The shipped
 representation is a 1 280-byte `HVec10240` held in memory (plus index copies)
 and written twice per concept (concept row + version row).
+
+## Bucketed candidate probe sweep (`bucket_sweep/`)
+
+`prefix_*` rows are the pre-fix generator (single bucket, fixed width, index-order truncation); `fixed_*` rows use the adaptive multi-probe and budget guard. `floor` is the configured `bucket_probe_width`, which the policy treats as a minimum.
+
+| run | N | floor | candidates | recall@10 | exact fallbacks | queries | p50 |
+|---|---|---|---|---|---|---|---|
+| fixed_floor2_n10000 | 10,000 | 2 | 10,000 | 1.000 | 25 | 25 | 1.40 ms |
+| fixed_floor2_n200000 | 200,000 | 2 | 200,000 | 1.000 | 25 | 25 | 23.10 ms |
+| fixed_floor2_n50000 | 50,000 | 2 | 50,000 | 1.000 | 25 | 25 | 6.68 ms |
+| fixed_floor8_n10000 | 10,000 | 8 | 570 | 0.832 | 0 | 25 | 259 µs |
+| fixed_floor8_n200000 | 200,000 | 8 | 200,000 | 1.000 | 25 | 25 | 24.57 ms |
+| fixed_floor8_n50000 | 50,000 | 8 | 46,080 | 0.976 | 23 | 25 | 5.17 ms |
+| prefix_w12_n200000 | 200,000 | 12 | 903 | 0.292 | 0 | 25 | 2.01 ms |
+| prefix_w16_n200000 | 200,000 | 16 | 810 | 0.260 | 0 | 25 | 1.64 ms |
+| prefix_w2_n200000 | 200,000 | 2 | 1,000 | 0.016 | 0 | 25 | 3.58 ms |
+| prefix_w4_n200000 | 200,000 | 4 | 1,000 | 0.068 | 0 | 25 | 2.58 ms |
+| prefix_w6_n200000 | 200,000 | 6 | 1,000 | 0.144 | 0 | 25 | 2.32 ms |
+| prefix_w8_n200000 | 200,000 | 8 | 967 | 0.208 | 0 | 25 | 2.99 ms |
+
+Read together with the ANN table above: at `floor = 8` the probe is selective at 10 k (570 candidates, 0.832 recall, 2.2× faster than the exact scan) and declines at 50 k/200 k, where the corpus' prefix distribution makes the probe nearly as large as the corpus — the caller then scans exactly (recall 1.000) instead of returning the index-ordered slice that measured 0.016 recall before the fix.
+
+## The bucketed-candidate recall fix (2026-09-21)
+
+Pre-fix behaviour (single bucket, fixed width, index-order truncation) measured
+recall@10 collapsing with corpus size — 0.604 at 10 k → 0.576 at 50 k → 0.208 at
+200 k with `floor = 8`, and 0.016 at 200 k with the library default `floor = 2`
+(the oversized bucket was cut to the first `max_candidates` indices, which is a
+biased sample of the corpus). `fell_back_to_exact_scan` never fired.
+
+The generator now:
+
+1. **sizes the probe with the corpus** — `effective_bucket_probe_width` raises the
+   configured width so one bucket fits `max_candidates` (clamped to
+   `MAX_BUCKET_PROBE_WIDTH`);
+2. **multi-probes** — candidates within one masked bit of the query bucket are
+   accepted, recovering neighbours a single bucket loses
+   (10 k: 0.604 → 0.832 at `floor = 8`);
+3. **declines instead of truncating** — when the probe exceeds
+   `max_candidates × 2`, it returns nothing and the caller performs the exact
+   scan (`fell_back_to_exact_scan: true`), because an arbitrary slice of an
+   oversized bucket is what produced the 0.016 recall.
+
+Net effect at the scales measured: the bucketed path either returns a bounded,
+higher-recall probe (10 k with `floor = 8`: 570 candidates, 0.832 recall,
+249 µs vs 558 µs exact) or defers to the exact scan (50 k/200 k, recall 1.000 at
+exact-scan latency). It can no longer silently return a low-recall candidate set.

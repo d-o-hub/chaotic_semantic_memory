@@ -1,5 +1,31 @@
 # PROGRESS
 
+## 2026-09-21 (wave 2): Bucketed-Candidate Recall Fixed at Scale
+
+### Summary
+Executed the action the Tier-3 evidence queued an hour earlier: the bucketed candidate generator lost recall as the corpus grew. Two distinct defects were separated by measurement — a biased truncation and a fixed probe width — and both are fixed with a policy that declines rather than returning an unrepresentative slice.
+
+### Measured, before the fix
+| configuration | 10 k | 50 k | 200 k |
+|---|---|---|---|
+| `floor 2` (library default) | recall 0.016 | 0.068 | **0.016** |
+| `floor 8` (evidence setting) | 0.604 | 0.576 | **0.208** |
+
+All widths from 2 to 6 returned exactly `max_candidates` candidates: the bucket was **truncated in index order**, so the sample was biased (the first clusters only) — that is the dominant loss, not the width itself. `fell_back_to_exact_scan` never fired.
+
+### Fix (`crates/csm-memory/src/singularity_retrieval.rs`)
+- `effective_bucket_probe_width(configured, corpus_size, budget)`: the configured width is a **floor**, raised so one bucket fits `max_candidates`, capped at `MAX_BUCKET_PROBE_WIDTH` (16).
+- **Multi-probe**: candidates within one masked bit of the query bucket are accepted.
+- **Budget guard**: a probe larger than `max_candidates × BUCKET_BUDGET_SLACK` (2) returns nothing, so the caller's exact-scan fallback answers instead of a sliced bucket.
+
+### Measured, after the fix
+| configuration | 10 k | 50 k | 200 k |
+|---|---|---|---|
+| `floor 2` | probe declines (25/25) → recall 1.000 at exact-scan latency | same | same |
+| `floor 8` | 570 candidates, **0.832** recall, 249 µs (exact 558 µs) | probe declines (23/25) → 0.976 | declines (25/25) → 1.000 |
+
+The bucketed path can no longer silently return a low-recall candidate set: it either produces a bounded, higher-recall probe or defers to the exact scan. Unit tests cover the width function and the decline/multi-probe behaviour; `bucket_sweep/` in the evidence directory holds every run (pre-fix widths 2–16 at 200 k, post-fix floors 2 and 8 at 10 k/50 k/200 k).
+
 ## 2026-09-21: ADR-0095 Tier-3 Evidence — Reference Runner, Canonical Baseline, Release-Scale Artifacts
 
 ### Summary
