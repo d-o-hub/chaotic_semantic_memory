@@ -52,7 +52,7 @@ world_state:
   wave_32_status: in_progress    # P0/P1 landed; ownership + evidence remain (see queued actions)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 0        # 2026-09-18: deduplicate_test_and_source_surfaces completed; queue empty
+  queued_actions_count: 1        # 2026-09-21: bucketed candidate recall collapses at scale (measured); action queued
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: true            # 2026-08-12: no TODO in src/ crates/
@@ -66,7 +66,7 @@ world_state:
   fuzz_short_runs_on_pr: true                     # fuzz.yml fuzz-short job: 30s runs of changed targets on PRs
   fuzz_scheduled_full_runs: true                  # fuzz-full weekly cron (Sun 03:00 UTC); nightly toolchain + nix shell dropped (PR #690); first scheduled green 2026-09-13 (run 34746887403) after red ×6 (08-02..09-06)
   duckdb_companion_published: false               # csm-duckdb not on crates.io
-  benchmarks_prove_performance: false             # Tier-2 artifacts landed 2026-09-17; Tier-3 release claims (named runner, release-sized evidence) pending
+  benchmarks_prove_performance: true              # 2026-09-21: named runner (plans/REFERENCE_RUNNER.md), canonical criterion baseline (plans/evidence/bench/canonical.json, 88 benches + CI), release-scale evidence (plans/evidence/scale_release_2026_09_21: ANN to 200k, memory/storage to 500k), npm package evidence (plans/evidence/wasm_2026_09_21)
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
   deferred_phase2_optimizations: false            # ADR-0024 (trigger: >200k concepts + latency issues)
 

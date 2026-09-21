@@ -51,14 +51,21 @@ command -v wasm-pack >/dev/null 2>&1 || {
   exit 1
 }
 
-echo "==> wasm-pack build ${CRATE} ${PROFILE_FLAG[*]} --target ${TARGET} --out-dir ${OUT_DIR}"
+# wasm-pack resolves a relative --out-dir against the *crate* directory, so make
+# it absolute here and let callers pass repository-relative paths.
+case "${OUT_DIR}" in
+  /*) OUT_DIR_ABS="${OUT_DIR}" ;;
+  *) OUT_DIR_ABS="${REPO_ROOT}/${OUT_DIR}" ;;
+esac
+
+echo "==> wasm-pack build ${CRATE} ${PROFILE_FLAG[*]} --target ${TARGET} --out-dir ${OUT_DIR_ABS}"
 CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}" wasm-pack build "${CRATE}" \
   "${PROFILE_FLAG[@]}" \
   --target "${TARGET}" \
-  --out-dir "${OUT_DIR}" \
+  --out-dir "${OUT_DIR_ABS}" \
   --out-name "${OUT_NAME}"
 
-WASM_FILE="${OUT_DIR}/${OUT_NAME}_bg.wasm"
+WASM_FILE="${OUT_DIR_ABS}/${OUT_NAME}_bg.wasm"
 if [[ ! -f "${WASM_FILE}" ]]; then
   echo "expected artifact missing: ${WASM_FILE}" >&2
   exit 1
@@ -66,6 +73,6 @@ fi
 
 BYTES="$(wc -c < "${WASM_FILE}")"
 SHA="$(sha256sum "${WASM_FILE}" | cut -d' ' -f1)"
-echo "wasm_package=${OUT_DIR}"
+echo "wasm_package=${OUT_DIR_ABS}"
 echo "wasm_bytes=${BYTES}"
 echo "wasm_sha256=${SHA}"

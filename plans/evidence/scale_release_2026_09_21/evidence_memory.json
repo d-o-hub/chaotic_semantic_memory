@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "artifact": "memory_model.json",
+  "artifact_kind": "memory_model",
+  "commit": "e9b019b8a1b4b1634da622f959ada48d6dd62c90",
+  "dirty": false,
+  "command": "cargo run --release --example scale_evidence --features persistence,ann-hnsw,ann-lsh -- memory --out plans/evidence/scale_release_2026_09_21 --fit 50000,100000,200000 --holdout 500000",
+  "features": "persistence,ann-hnsw,ann-lsh",
+  "profile": "release",
+  "dataset": {
+    "kind": "synthetic-clustered-v1",
+    "seed": 42,
+    "checksum": "synthetic-clustered-v1:seed42"
+  },
+  "toolchain": {
+    "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+    "cargo": "cargo 1.88.0 (873a06493 2025-05-10)"
+  },
+  "hardware": {
+    "os": "Linux",
+    "kernel": "7.0.0-31-generic",
+    "arch": "x86_64",
+    "cpu": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+    "cores": 8,
+    "mem_total_kb": 16247740
+  },
+  "samples": 4,
+  "baseline": {
+    "ref": "none",
+    "note": "absolute ceilings and distribution statistics only; no A/B baseline"
+  },
+  "variance": {
+    "kind": "percentiles",
+    "reported": [
+      "p50_us",
+      "p95_us",
+      "p99_us",
+      "min_us",
+      "max_us",
+      "mean_us"
+    ]
+  }
+}

@@ -181,4 +181,24 @@
 > (unique compiled behavior; llvm-cov line/branch: 74.33 % lines / 64.08 %
 > branches over lib + integration targets). Audit: `plans/TEST_SURFACE_AUDIT_2026_09_18.md`.
 
-actions: []  # queue empty: the last action completed 2026-09-18
+actions:
+  # P2 — retrieval quality (ADR-0095 evidence, 2026-09-21)
+  - name: fix_bucketed_candidate_recall_at_scale
+    preconditions:
+      ann_scale_evidence_current: true
+    effects:
+      bucketed_recall_scales_with_corpus: true
+    cost: 5
+    status: queued
+    file: crates/csm-memory/src/singularity_retrieval.rs, crates/csm-memory/src/singularity_search.rs
+    adr: ADR-0095, ADR-0065
+    description: |
+      Measured 2026-09-21 (plans/evidence/scale_release_2026_09_21/ann_scale.json):
+      `enable_bucket_candidates` recall@10 falls 0.604 (10k) -> 0.576 (50k) ->
+      0.208 (200k) because `bucket_probe_width` (default 2, evidence run 8) is
+      fixed while the corpus grows, so the candidate set stops covering the true
+      neighbours; `fell_back_to_exact_scan` did not trigger. Either scale the
+      probe width with N (or with `max_candidates`), or fall back to the exact
+      scan above the corpus size where the measured recall drops below the
+      caller's target. Re-run the ann artifact to prove the fix, and keep the
+      probe-width default documented with its measured recall.

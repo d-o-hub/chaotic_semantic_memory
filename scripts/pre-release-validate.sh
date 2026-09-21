@@ -255,10 +255,15 @@ section "8. Benchmark Gates"
 
 if [ "$SKIP_BENCH" = true ]; then
     warn "Skipping benchmarks (--skip-bench)"
-elif [ -f "benches/benchmark.rs" ]; then
-    echo "Testing: cargo bench --bench benchmark -- --baseline main"
-    if timeout 180 cargo bench --bench benchmark -- --baseline main 2>&1 | tail -20; then
-        pass "Benchmarks passed"
+elif [ -x "scripts/bench-baseline.sh" ]; then
+    # Criterion baselines live in target/criterion (git-ignored, wiped by
+    # `cargo clean`), so `--baseline main` could never compare against anything.
+    # scripts/bench-baseline.sh compares against the committed canonical
+    # artifact; advisory here because csm-ref-01 is a laptop (see
+    # plans/REFERENCE_RUNNER.md) and the CI graph-candidates ceiling stays hard.
+    echo "Testing: scripts/bench-baseline.sh compare --advisory"
+    if CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-2}" scripts/bench-baseline.sh compare --advisory 2>&1 | tail -25; then
+        pass "Benchmarks compared against the canonical baseline"
     else
         warn "Benchmarks failed or no baseline exists (run with --save-baseline main first)"
     fi
