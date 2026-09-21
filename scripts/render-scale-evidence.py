@@ -55,10 +55,10 @@ def load(path: pathlib.Path):
 def render_header(man: dict) -> list[str]:
     out = ["# Scale evidence", ""]
     out += [
-        "ADR-0095 Tier-2 artifacts produced by `examples/scale_evidence` and",
+        "ADR-0095 scale-evidence artifacts produced by `examples/scale_evidence` and",
         "`scripts/scale-evidence.sh`; regenerate this file with",
-        "`python3 scripts/render-scale-evidence.py scale_2026_09_17`. Each artifact records",
-        "its own commit, dirty state, corpus checksum, toolchain and hardware in",
+        "`python3 scripts/render-scale-evidence.py <this directory's name>`. Each artifact",
+        "records its own commit, dirty state, corpus checksum, toolchain and hardware in",
         "`evidence_<mode>.json`.",
         "",
     ]
@@ -107,6 +107,51 @@ def render_ann(ann: dict) -> list[str]:
     largest = max(ann["scales"], key=lambda s: s["concepts"])
     by = {b["backend"]: b for b in largest["backends"]}
     exact, hnsw, lsh, bucket = (by[name] for name in ("exact", "hnsw", "lsh", "bucket"))
+    if len(ann["scales"]) > 1:
+        first, last = ann["scales"][0], ann["scales"][-1]
+
+        def by_backend(scale):
+            return {b["backend"]: b for b in scale["backends"]}
+
+        first_by, last_by = by_backend(first), by_backend(last)
+        out += [
+            "Scaling trend (first → last scale):",
+            "",
+            "| backend | build ×| p50 query ×| recall@10 first → last |",
+            "|---|---|---|---|",
+        ]
+        for name in ("exact", "hnsw", "lsh", "bucket"):
+            a, b = first_by.get(name), last_by.get(name)
+            if not a or not b:
+                continue
+            build_ratio = b["build_ms"] / a["build_ms"] if a["build_ms"] else float("inf")
+            p50_ratio = b["query"]["p50_us"] / a["query"]["p50_us"] if a["query"]["p50_us"] else float("inf")
+            recall_note = f"{a['recall_at_k']:.3f} → {b['recall_at_k']:.3f}"
+            trend = "↓" if b["recall_at_k"] < a["recall_at_k"] - 0.02 else ("↑" if b["recall_at_k"] > a["recall_at_k"] + 0.02 else "≈")
+            out.append(
+                f"| {name} | {build_ratio:.1f}× | {p50_ratio:.1f}× | {recall_note} {trend} |"
+            )
+        out.append("")
+        bucket_first = first_by.get("bucket", {}).get("recall_at_k")
+        bucket_last = last_by.get("bucket", {}).get("recall_at_k")
+        if bucket_first is not None and bucket_last is not None and bucket_last < bucket_first - 0.1:
+            out += [
+                f"**Bucketed candidate recall degrades with N** ({bucket_first:.3f} at "
+                f"{first['concepts']:,} → {bucket_last:.3f} at {last['concepts']:,}): the probe mask "
+                "(`bucket_probe_width`) is fixed while the corpus grows, so the candidate set stops "
+                "covering the true neighbours. Scale the probe width with N or fall back to the exact "
+                "scan above the size where recall matters.",
+                "",
+            ]
+        hnsw_first = first_by.get("hnsw", {}).get("recall_at_k")
+        hnsw_last = last_by.get("hnsw", {}).get("recall_at_k")
+        if hnsw_first is not None and hnsw_last is not None and hnsw_last < hnsw_first - 0.05:
+            out += [
+                f"**HNSW recall falls with N at fixed `ef_search`** ({hnsw_first:.3f} → {hnsw_last:.3f}); "
+                "raise `ef_search`/`m` for large corpora and re-measure before claiming a recall target.",
+                "",
+            ]
+
     out += [
         "Findings at the largest scale:",
         "",

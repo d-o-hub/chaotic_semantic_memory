@@ -1,5 +1,17 @@
 # PROGRESS
 
+## 2026-09-21: ADR-0095 Tier-3 Evidence — Reference Runner, Canonical Baseline, Release-Scale Artifacts
+
+### Summary
+Completed the Tier-3 release-claim requirements and flipped `benchmarks_prove_performance` to true. The gap was concrete: `pre-release-validate.sh` compared Criterion against `--baseline main`, a baseline that lives in git-ignored `target/` and is wiped by `cargo clean`, so no release was ever gated on a measurement.
+
+### Actions
+- **Reference runner** (`plans/REFERENCE_RUNNER.md`): names `csm-ref-01` (i5-8350U, 16 GB, Linux, rustc 1.88.0) and the rules — every published number names its runner, cross-runner comparisons use ratios, release claims need a committed baseline or a CI ceiling.
+- **Canonical baseline** (`scripts/bench-baseline.sh`): `save` records `plans/evidence/bench/canonical.json` — 88 benchmarks with median and confidence interval plus commit/toolchain/CPU; `compare` re-measures and reports deltas with CI overlap, failing only when delta > tolerance *and* the intervals do not overlap, `--advisory` for laptop runs. Observed noise on `csm-ref-01` justifies that rule: `delete_concept*` moved +27 %/+43 % between two runs minutes apart (non-overlapping CIs), and a later run flagged `crud_roundtrip_percentiles` +22.8 % instead — hence advisory + re-run-to-confirm rather than a hard wall on a laptop. `pre-release-validate.sh` section 8 now calls the comparison.
+- **npm artifact evidence** (`scripts/wasm-evidence.sh`): builds `release-web` through `scripts/build-wasm.sh` (which now resolves its out-dir against the repository, since wasm-pack resolves relative paths from the crate), runs the Node smoke test, and records bytes, SHA-256s, toolchain and the transcript in `plans/evidence/wasm_2026_09_21/`. The `.wasm` is byte-identical across three independent builds (`6804814a…`).
+- **Release-scale evidence** (`plans/evidence/scale_release_2026_09_21/`): ANN at 10k/50k/200k and memory/storage at 50k/100k/200k fit with a 500k hold-out. Two findings, both new: bucketed candidate recall@10 collapses 0.604 → 0.576 → **0.208** because `bucket_probe_width` is fixed while the corpus grows (queued as `fix_bucketed_candidate_recall_at_scale`), and HNSW recall at fixed `ef_search` falls 0.908 → 0.896 → 0.800. The memory model stays linear to 100k (0.29 % hold-out error) but under-predicts at 500k by 15.6 %, so the per-point measurements — not the extrapolation — are the claim.
+- **Rendering**: `scripts/render-scale-evidence.py` derives a scaling-trend table and the two findings above from the artifacts, so the prose cannot drift from the JSON.
+
 ## 2026-09-20: WASM Artifact Parity — CI Now Validates What Ships
 
 ### Summary

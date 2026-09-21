@@ -1,9 +1,9 @@
 # Scale evidence
 
-ADR-0095 Tier-2 artifacts produced by `examples/scale_evidence` and
+ADR-0095 scale-evidence artifacts produced by `examples/scale_evidence` and
 `scripts/scale-evidence.sh`; regenerate this file with
-`python3 scripts/render-scale-evidence.py scale_2026_09_17`. Each artifact records
-its own commit, dirty state, corpus checksum, toolchain and hardware in
+`python3 scripts/render-scale-evidence.py <this directory's name>`. Each artifact
+records its own commit, dirty state, corpus checksum, toolchain and hardware in
 `evidence_<mode>.json`.
 
 Reference machine: Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz, 8 threads, Linux x86_64.
@@ -33,6 +33,17 @@ brute-force ground truth, not hit rate.
 | 50,000 | hnsw | 80.15 s | 896 µs | 1.52 ms | 0.892 | 63.71 MB | 93.10 MB | 2.28 s |
 | 50,000 | lsh | 282.1 ms | 813 µs | 4.88 ms | 0.836 | 62.99 MB | 66.19 MB | 496.1 ms |
 | 50,000 | bucket | 655.6 ms | 1.83 ms | 17.17 ms | 0.590 | 0 | — | — |
+
+Scaling trend (first → last scale):
+
+| backend | build ×| p50 query ×| recall@10 first → last |
+|---|---|---|---|
+| exact | 55.2× | 109.4× | 1.000 → 1.000 ≈ |
+| hnsw | 157.5× | 3.6× | 0.958 → 0.892 ↓ |
+| lsh | 76.2× | 32.5× | 0.834 → 0.836 ≈ |
+| bucket | 146.8× | 19.2× | 0.612 → 0.590 ↓ |
+
+**HNSW recall falls with N at fixed `ef_search`** (0.958 → 0.892); raise `ef_search`/`m` for large corpora and re-measure before claiming a recall target.
 
 Findings at the largest scale:
 

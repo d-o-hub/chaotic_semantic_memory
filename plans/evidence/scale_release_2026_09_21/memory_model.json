@@ -1,0 +1,101 @@
+{
+  "claim_bytes": 12582912,
+  "corpus_version": "synthetic-clustered-v1",
+  "fit": {
+    "fit_concepts": [
+      50000,
+      100000,
+      200000
+    ],
+    "points": 3,
+    "rss_bytes_per_concept": 4727.761188571429,
+    "rss_intercept_bytes": 727040.0,
+    "storage_bytes_per_concept": 2855.0114742857145,
+    "storage_intercept_bytes": -215040.00000003973
+  },
+  "holdout": {
+    "concepts": 500000,
+    "rss_relative_error": 0.15616909788041933,
+    "storage_relative_error": 0.00012440966894718635,
+    "within_5_percent": false
+  },
+  "kind": "memory_model",
+  "points": [
+    {
+      "after_rss_bytes": 241152000,
+      "baseline_rss_bytes": 3973120,
+      "concepts": 50000,
+      "inject_ms": 454.947058,
+      "peak_bytes_per_concept": 4823.04,
+      "peak_rss_bytes": 241152000,
+      "rss_bytes_per_concept": 4743.5776,
+      "rss_delta_bytes": 237178880,
+      "storage": {
+        "db_bytes": 142573568,
+        "shm_bytes": 0,
+        "total_bytes": 142573568,
+        "wal_bytes": 0
+      },
+      "storage_bytes_per_concept": 2851.47136
+    },
+    {
+      "after_rss_bytes": 477712384,
+      "baseline_rss_bytes": 4304896,
+      "concepts": 100000,
+      "inject_ms": 897.4465339999999,
+      "peak_bytes_per_concept": 4777.12384,
+      "peak_rss_bytes": 477712384,
+      "rss_bytes_per_concept": 4734.07488,
+      "rss_delta_bytes": 473407488,
+      "storage": {
+        "db_bytes": 285229056,
+        "shm_bytes": 0,
+        "total_bytes": 285229056,
+        "wal_bytes": 0
+      },
+      "storage_bytes_per_concept": 2852.29056
+    },
+    {
+      "after_rss_bytes": 950415360,
+      "baseline_rss_bytes": 4104192,
+      "concepts": 200000,
+      "inject_ms": 1866.160953,
+      "peak_bytes_per_concept": 4752.0768,
+      "peak_rss_bytes": 950415360,
+      "rss_bytes_per_concept": 4731.55584,
+      "rss_delta_bytes": 946311168,
+      "storage": {
+        "db_bytes": 570806272,
+        "shm_bytes": 0,
+        "total_bytes": 570806272,
+        "wal_bytes": 0
+      },
+      "storage_bytes_per_concept": 2854.03136
+    },
+    {
+      "after_rss_bytes": 2806386688,
+      "baseline_rss_bytes": 4157440,
+      "concepts": 500000,
+      "inject_ms": 5590.233852,
+      "peak_bytes_per_concept": 6742.941696,
+      "peak_rss_bytes": 3371470848,
+      "rss_bytes_per_concept": 5604.458496,
+      "rss_delta_bytes": 2802229248,
+      "storage": {
+        "db_bytes": 1427468288,
+        "shm_bytes": 0,
+        "total_bytes": 1427468288,
+        "wal_bytes": 0
+      },
+      "storage_bytes_per_concept": 2854.936576
+    }
+  ],
+  "projection": {
+    "claim_ratio_rss": 3757.344796316964,
+    "claim_ratio_storage": 2268.9421735491073,
+    "claim_supported": false,
+    "rss_bytes": 47278338925.71429,
+    "storage_bytes": 28549899702.857143
+  },
+  "projection_concepts": 10000000
+}
