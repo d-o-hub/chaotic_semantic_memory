@@ -54,6 +54,25 @@ Findings at the largest scale:
 - **Bucketed candidate generation (probe width 8) is not a recall-preserving filter**: 0.208 recall@10 at 1.74 ms p50 with 967 candidates per query on average.
 - Index overhead over the raw vectors: HNSW 16 B/concept, LSH -8; the bucketed path keeps no index.
 
+## Persistence (`persistence_scale.json`)
+
+Batches of 500 concepts, DB/WAL/SHM measured separately:
+
+| N | write throughput | batch p50 | read throughput | db bytes | wal | shm | bytes/concept |
+|---|---|---|---|---|---|---|---|
+| 50,000 | 9,132/s | 51.08 ms | 285,999/s | 135.97 MB | 0 | 0 | 2,851 |
+
+post-fix (8 tasks × 25 round-trips on one local database):
+
+| variant | ops/s | p50 | p95 | p99 | retries/op | error rate |
+|---|---|---|---|---|---|---|
+| no retry | 375 | 1.68 ms | 22.53 ms | 333.51 ms | 0.00 | **0.000** |
+| caller-side bounded retry (5 × 2 ms) | 376 | 1.69 ms | 38.00 ms | 332.73 ms | 0.00 | **0.000** |
+
+**Result:** error rate 0.000 raw, 0.000 with caller-side retries.
+
+Writers now wait (bounded) instead of failing, so per-operation tail latency at high contention is higher while the failure rate is zero.
+
 ## Memory model (`memory_model.json`)
 
 Per-point child processes; RSS delta is baseline-subtracted VmRSS, storage is

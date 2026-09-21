@@ -1,0 +1,90 @@
+{
+  "batch_size": 500,
+  "contention": {
+    "bounded_retry": {
+      "error_rate": 0.0,
+      "errors": 0,
+      "latency": {
+        "max_us": 436149,
+        "mean_us": 10607.72,
+        "min_us": 1257,
+        "n": 200,
+        "p50_us": 1690,
+        "p95_us": 38004,
+        "p99_us": 332728
+      },
+      "ops": 200,
+      "ops_per_sec": 376.25131215763855,
+      "retries": 0,
+      "retry_rate": 0.0,
+      "secs": 0.531559608
+    },
+    "db_bytes": {
+      "db_bytes": 970752,
+      "shm_bytes": 0,
+      "total_bytes": 970752,
+      "wal_bytes": 0
+    },
+    "ops_per_task": 25,
+    "raw": {
+      "error_rate": 0.0,
+      "errors": 0,
+      "latency": {
+        "max_us": 435851,
+        "mean_us": 10135.615,
+        "min_us": 1266,
+        "n": 200,
+        "p50_us": 1676,
+        "p95_us": 22530,
+        "p99_us": 333511
+      },
+      "ops": 200,
+      "ops_per_sec": 374.9546112756118,
+      "retries": 0,
+      "retry_rate": 0.0,
+      "secs": 0.533397894
+    },
+    "tasks": 8,
+    "wal_present": false
+  },
+  "kind": "persistence_scale",
+  "retry_policy": {
+    "library_side": "none",
+    "probe_side": {
+      "backoff_ms": 2,
+      "limit": 5
+    }
+  },
+  "scales": [
+    {
+      "batch_latency": {
+        "max_us": 132533,
+        "mean_us": 53312.63,
+        "min_us": 46707,
+        "n": 100,
+        "p50_us": 51075,
+        "p95_us": 58273,
+        "p99_us": 132533
+      },
+      "bytes_after_checkpoint": {
+        "db_bytes": 142573568,
+        "shm_bytes": 0,
+        "total_bytes": 142573568,
+        "wal_bytes": 0
+      },
+      "bytes_before_checkpoint": {
+        "db_bytes": 142573568,
+        "shm_bytes": 0,
+        "total_bytes": 142573568,
+        "wal_bytes": 0
+      },
+      "concepts": 50000,
+      "loaded_concepts": 50000,
+      "read_concepts_per_sec": 285998.6059169554,
+      "read_ms": 174.82602699999998,
+      "size_api_bytes": 142573568,
+      "write_concepts_per_sec": 9132.09301561357,
+      "write_secs": 5.475196093
+    }
+  ]
+}
