@@ -46,7 +46,6 @@ esac
 
 ARTIFACT_DIR="plans/evidence/bench"
 BASELINE_FILE="${ARTIFACT_DIR}/canonical.json"
-criterion_dirs=()
 
 case "${SET}" in
   core)
