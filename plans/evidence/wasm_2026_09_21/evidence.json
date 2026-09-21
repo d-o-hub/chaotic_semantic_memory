@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "artifact": "wasm_npm_package",
+  "commit": "ccb091b404a41f75a8d3b0461170d1a59bcd5874",
+  "dirty": false,
+  "command": "scripts/wasm-evidence.sh plans/evidence/wasm_2026_09_21",
+  "build": {
+    "mode": "release-web (scripts/build-wasm.sh)",
+    "target": "web",
+    "wasm_opt": "from [package.metadata.wasm-pack.profile.release]"
+  },
+  "package": {
+    "name": "@d-o-hub/chaotic_semantic_memory",
+    "version": "0.3.8",
+    "wasm_bytes": 656657,
+    "wasm_sha256": "6804814a4aea2885a10dd3ab11255a592d73aff3185cf4eab0df6e74443f5d27",
+    "js_bytes": 38984,
+    "js_sha256": "8a78f9308b47964c5c7feafb4a15f8d4f5eab7d7f11f948c85cfb3a1ddd44f24",
+    "dts_bytes": 11517,
+    "dts_sha256": "0b361283f223586c3409d57f238877af916e79d798c8499998a1e6e9a8b3bcff"
+  },
+  "smoke": {
+    "command": "node wasm/test.js",
+    "exit_code": 0,
+    "transcript": "smoke.log"
+  },
+  "toolchain": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "hardware": {
+    "cpu": "Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz",
+    "os": "Linux 7.0.0-31-generic",
+    "arch": "x86_64"
+  }
+}
