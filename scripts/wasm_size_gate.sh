@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Usage: scripts/wasm_size_gate.sh [PACKAGE_DIR]
+#   PACKAGE_DIR  existing `scripts/build-wasm.sh release-web` output to measure.
+#                Without it the gate builds one (requires wasm-pack).
 set -euo pipefail
 
 # Measures the artifact that actually ships: the `wasm-pack --release --target
@@ -19,12 +22,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${REPO_ROOT}"
 
-PACKAGE_DIR="$(mktemp -d)"
-trap 'rm -rf "${PACKAGE_DIR}"' EXIT
-
-BUILD_OUTPUT="$(bash scripts/build-wasm.sh release-web "${PACKAGE_DIR}")"
-echo "${BUILD_OUTPUT}"
-SHA256="$(printf '%s\n' "${BUILD_OUTPUT}" | sed -n 's/^wasm_sha256=//p')"
+# Optional argument: an existing `release-web` package directory (CI passes the
+# one the wasm job already built and smoke-tested). Without it, build one.
+if [[ $# -ge 1 ]]; then
+  PACKAGE_DIR="$1"
+  SHA256="$(sha256sum "${PACKAGE_DIR}/chaotic_semantic_memory_bg.wasm" 2>/dev/null | cut -d' ' -f1)"
+  echo "==> measuring existing package: ${PACKAGE_DIR}"
+else
+  PACKAGE_DIR="$(mktemp -d)"
+  trap 'rm -rf "${PACKAGE_DIR}"' EXIT
+  BUILD_OUTPUT="$(bash scripts/build-wasm.sh release-web "${PACKAGE_DIR}")"
+  echo "${BUILD_OUTPUT}"
+  SHA256="$(printf '%s\n' "${BUILD_OUTPUT}" | sed -n 's/^wasm_sha256=//p')"
+fi
 
 WASM_FILE="${PACKAGE_DIR}/chaotic_semantic_memory_bg.wasm"
 if [[ ! -f "${WASM_FILE}" ]]; then

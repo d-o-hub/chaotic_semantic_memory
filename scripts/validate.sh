@@ -57,8 +57,16 @@ else
 fi
 
 if [[ -x scripts/wasm_size_gate.sh ]]; then
-  echo "==> scripts/wasm_size_gate.sh"
-  scripts/wasm_size_gate.sh
+  # The gate measures the release/web package, which needs wasm-pack and the
+  # wasm32 target. The CI wasm job runs it against the package it built and
+  # smoke-tested; here it only runs when the toolchain is present, so the lint
+  # job does not fail on a missing build tool.
+  if command -v wasm-pack >/dev/null 2>&1; then
+    echo "==> scripts/wasm_size_gate.sh"
+    scripts/wasm_size_gate.sh
+  else
+    echo "skip: scripts/wasm_size_gate.sh (wasm-pack not installed; CI wasm job runs it)"
+  fi
 fi
 
 echo "==> Generating/validating llms.txt and llms-full.txt"

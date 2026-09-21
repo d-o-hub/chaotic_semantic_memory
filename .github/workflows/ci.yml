@@ -507,6 +507,8 @@ jobs:
         nix develop --command bash scripts/build-wasm.sh release-web "${OUT}"
     - name: Check WASM
       run: nix develop --command cargo check --target wasm32-unknown-unknown -p csm-wasm
+    - name: WASM size gate (same package as above)
+      run: nix develop --command bash scripts/wasm_size_gate.sh "${{ github.workspace }}/wasm/pkg"
     - name: Verify WASM TS Freshness
       run: nix develop --command bash scripts/check-wasm-freshness.sh
     - name: WASM JS Smoke Test (release/web package)
