@@ -81,7 +81,7 @@ pub struct RetrievalConfig {
 }
 
 /// Maximum allowed bucket probe width to prevent excessive memory usage.
-const MAX_BUCKET_PROBE_WIDTH: usize = 16;
+pub(crate) const MAX_BUCKET_PROBE_WIDTH: usize = 16;
 
 impl RetrievalConfig {
     pub fn validate(&self) -> Result<()> {
@@ -218,47 +218,6 @@ impl Singularity {
             .into_iter()
             .filter_map(|id| ns_state.id_to_index.get(id).copied())
             .collect();
-        if res.len() > self._retrieval_config.max_candidates {
-            res.truncate(self._retrieval_config.max_candidates);
-        }
-        res
-    }
-
-    /// Generate candidates by coarse bucketing.
-    pub(crate) fn generate_bucket_candidates(&self, ns: &str, query: &HVec10240) -> Vec<usize> {
-        let Some(ns_state) = self.get_namespace(ns) else {
-            return Vec::new();
-        };
-        debug_assert!(self._retrieval_config.bucket_probe_width <= 127);
-        let bucket_mask = (1u128 << self._retrieval_config.bucket_probe_width) - 1;
-        let query_bucket = query.data[0] & bucket_mask;
-
-        let filter = |(idx, vec): (usize, &HVec10240)| {
-            if (vec.data[0] & bucket_mask) == query_bucket {
-                Some(idx)
-            } else {
-                None
-            }
-        };
-
-        // Algorithmic Optimization: Parallelize O(N) candidate generation via Rayon.
-        // Reduces latency from O(N) to O(N/P) where P is the number of execution units.
-        #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
-        let mut res: Vec<usize> = ns_state
-            .concept_vectors
-            .par_iter()
-            .enumerate()
-            .filter_map(filter)
-            .collect();
-
-        #[cfg(any(target_arch = "wasm32", not(feature = "parallel")))]
-        let mut res: Vec<usize> = ns_state
-            .concept_vectors
-            .iter()
-            .enumerate()
-            .filter_map(filter)
-            .collect();
-
         if res.len() > self._retrieval_config.max_candidates {
             res.truncate(self._retrieval_config.max_candidates);
         }

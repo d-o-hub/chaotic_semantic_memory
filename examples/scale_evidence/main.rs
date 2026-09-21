@@ -44,6 +44,10 @@ fn main() {
             seed: parse_flag_u64(&args, "--seed", 42),
             clusters: parse_flag(&args, "--clusters", 64),
             noise_bits: parse_flag(&args, "--noise-bits", 512),
+            bucket_probe_width: parse_flag(&args, "--bucket-probe-width", 8),
+            backends: arg_value(&args, "--backends")
+                .map(|v| v.split(',').map(|s| s.trim().to_string()).collect())
+                .unwrap_or_default(),
         }),
         "persistence" => rt.block_on(persistence::run(&persistence::PersistenceParams {
             scales: parse_list(&args, "--scales", vec![1_000, 10_000, 50_000]),
