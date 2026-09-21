@@ -60,7 +60,7 @@ world_state:
   no_default_features_is_lean: true               # 2026-08-08: no libsql/rayon in no-default tree (ADR-0094)
   msrv_workspace_aligned: true                    # 2026-08-08: all manifests use workspace rust-version 1.88
   persistence_disabled_false_success_removed: true  # 2026-08-11: replace_persistence_disabled_noops (ADR-0094); CLI DB config rejected w/o feature
-  wasm_ci_release_artifact_identical: false
+  wasm_ci_release_artifact_identical: true  # 2026-09-20: CI builds + smoke-tests the release/web package via scripts/build-wasm.sh (same command release.yml publishes); size gate measures that artifact (656 657 B, sha256-pinned)
   performance_claims_have_current_artifacts: true  # 2026-09-17: plans/evidence/scale_2026_09_17 (three manifests, #733/#734)
   critical_skill_evals_passing: false             # behavioral evals deferred
   fuzz_short_runs_on_pr: true                     # fuzz.yml fuzz-short job: 30s runs of changed targets on PRs

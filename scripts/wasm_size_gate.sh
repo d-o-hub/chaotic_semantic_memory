@@ -1,24 +1,45 @@
 #!/usr/bin/env bash
+# Usage: scripts/wasm_size_gate.sh [PACKAGE_DIR]
+#   PACKAGE_DIR  existing `scripts/build-wasm.sh release-web` output to measure.
+#                Without it the gate builds one (requires wasm-pack).
 set -euo pipefail
 
-# Headroom for ADR-0093 index envelope + durable mutation paths compiled into root.
-# Bumped from 1120000 after chrono 0.4.45 dependency update grew binary by ~3KB.
-DEFAULT_MAX_BYTES=1150000
+# Measures the artifact that actually ships: the `wasm-pack --release --target
+# web` package that `release.yml` publishes to npm, built through the same
+# script CI uses (`wasm_ci_release_artifact_identical`).
+#
+# The previous gate measured a raw `cargo build` output (1 133 971 B before it
+# was replaced) which is 6.2x larger than the shipped 656 657 B — it could not
+# have caught a regression in the released package.
+#
+# Threshold: 800 000 B — the measured artifact plus ~22 % headroom. Override
+# with CSM_WASM_SIZE_MAX_BYTES.
+DEFAULT_MAX_BYTES=800000
 MAX_BYTES="${CSM_WASM_SIZE_MAX_BYTES:-${DEFAULT_MAX_BYTES}}"
 REPORT_PATH="plans/handoffs/W5_C_to_D_wasm_size_report.md"
 
-rustup target add wasm32-unknown-unknown >/dev/null 2>&1 || true
-cargo build --target wasm32-unknown-unknown --release -p csm-wasm >/dev/null
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+cd "${REPO_ROOT}"
 
-# Find the library WASM (csm_wasm.wasm from the csm-wasm crate)
-WASM_FILE="target/wasm32-unknown-unknown/release/csm_wasm.wasm"
+# Optional argument: an existing `release-web` package directory (CI passes the
+# one the wasm job already built and smoke-tested). Without it, build one.
+if [[ $# -ge 1 ]]; then
+  PACKAGE_DIR="$1"
+  SHA256="$(sha256sum "${PACKAGE_DIR}/chaotic_semantic_memory_bg.wasm" 2>/dev/null | cut -d' ' -f1)"
+  echo "==> measuring existing package: ${PACKAGE_DIR}"
+else
+  PACKAGE_DIR="$(mktemp -d)"
+  trap 'rm -rf "${PACKAGE_DIR}"' EXIT
+  BUILD_OUTPUT="$(bash scripts/build-wasm.sh release-web "${PACKAGE_DIR}")"
+  echo "${BUILD_OUTPUT}"
+  SHA256="$(printf '%s\n' "${BUILD_OUTPUT}" | sed -n 's/^wasm_sha256=//p')"
+fi
+
+WASM_FILE="${PACKAGE_DIR}/chaotic_semantic_memory_bg.wasm"
 if [[ ! -f "${WASM_FILE}" ]]; then
-  # Fallback: find any .wasm that's not the CLI binary
-  WASM_FILE="$(find target/wasm32-unknown-unknown/release -maxdepth 1 -name '*.wasm' ! -name 'csm.wasm' | head -n 1)"
-  if [[ -z "${WASM_FILE}" ]]; then
-    echo "No wasm artifact produced under target/wasm32-unknown-unknown/release"
-    exit 1
-  fi
+  echo "No wasm artifact produced by scripts/build-wasm.sh release-web"
+  exit 1
 fi
 
 SIZE_BYTES="$(wc -c < "${WASM_FILE}")"
@@ -36,9 +57,10 @@ cat > "${REPORT_PATH}" <<EOF
 - \`validate_wasm_binary_size\`
 
 ## Measurement
-- Command: \`cargo build --target wasm32-unknown-unknown --release --features wasm\`
-- Artifact: \`${WASM_FILE}\`
+- Command: \`scripts/build-wasm.sh release-web\` (same build CI validates and \`release.yml\` publishes)
+- Artifact: \`chaotic_semantic_memory_bg.wasm\`
 - Size: \`${SIZE_BYTES}\` bytes (\`${SIZE_KB}\` KiB)
+- SHA-256: \`${SHA256}\`
 - Threshold: \`${MAX_BYTES}\` bytes (configurable via \`CSM_WASM_SIZE_MAX_BYTES\`)
 
 ## Result
@@ -51,4 +73,4 @@ if [[ "${STATUS}" == "fail" ]]; then
   exit 1
 fi
 
-echo "WASM size gate passed: ${SIZE_BYTES} bytes (${SIZE_KB} KiB)"
+echo "WASM size gate passed: ${SIZE_BYTES} bytes (${SIZE_KB} KiB), sha256=${SHA256}"

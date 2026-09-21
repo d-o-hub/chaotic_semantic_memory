@@ -82,7 +82,7 @@ Triggered by git tag push (`v*`):
 ### npm Publish (`npm-publish.yml`)
 
 Triggered by tag push (`v*`):
-- Builds WASM package via `wasm-pack`
+- Builds the WASM package via `scripts/build-wasm.sh release-web` (the same script and mode CI smoke-tests)
 - Publishes `@d-o-hub/chaotic_semantic_memory` to npm
 - Includes npm provenance (`--provenance`)
 

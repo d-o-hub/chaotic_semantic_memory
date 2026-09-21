@@ -1,5 +1,27 @@
 # PROGRESS
 
+## 2026-09-20: WASM Artifact Parity — CI Now Validates What Ships
+
+### Summary
+Closed GOAP audit row A5 / the `wasm_ci_release_artifact_identical` flag. CI, the release workflow, the size gate and the TS-freshness check each built a *different* wasm artifact; the shipped one was never built or smoke-tested before publication.
+
+### Measured divergence (before)
+| Path | Command | Artifact |
+|---|---|---|
+| CI smoke | `wasm-pack --dev --target nodejs` | 4 077 828 B `.wasm` |
+| Release (npm) | `wasm-pack --release --target web` (+ wasm-opt) | **656 657 B** |
+| Size gate | raw `cargo build --release -p csm-wasm` | 1 133 971 B (threshold 1 150 000 B — 1.4 % headroom) |
+
+The gate guarded an artifact nobody ships, CI validated a 6.2× larger dev build, and no job ever exercised the release profile.
+
+### Actions
+- **`scripts/build-wasm.sh`** — single source of truth for the package build (`dev-nodejs`, `dev-web`, `release-web`); prints package dir, byte size and SHA-256.
+- **CI wasm job** now builds `release-web` through that script, smoke-tests it, and uploads `wasm/pkg` as an artifact; **`release.yml`** calls the same script, so CI and release cannot drift again.
+- **`wasm/test.js`** loads either target: for `--target web` it hands the wasm bytes to `init` (Node's `fetch` rejects `file://`) and merges the ESM named exports with the CJS default view. Verified against both packages — the release/web run also exercises the `importFromBytes` round-trip added in #725.
+- **`scripts/wasm_size_gate.sh`** measures the shipped artifact (656 657 B, sha256 `6804814a…`, threshold re-based to 800 000 B with ~22 % headroom) instead of the raw cargo output; **`check-wasm-freshness.sh`** builds through the script too.
+- **Reproducibility data point**: two independent `release-web` builds produced byte-identical `.wasm` (`6804814a4aea2885a10dd3ab11255a592d73aff3185cf4eab0df6e74443f5d27`), so the npm artifact is reproducible on a fixed toolchain.
+- **Docs**: `book/src/wasm.md`, `book/src/release.md` and the `dist-channel-selection` skill now point at the script. Flag `wasm_ci_release_artifact_identical: true`.
+
 ## 2026-09-18: Test-Surface Dedup — Queue Emptied, Coverage Methodology Replaced
 
 ### Summary

@@ -613,9 +613,9 @@ jobs:
         EOF
         fi
         OUT="${{ github.workspace }}/wasm/pkg"
-        wasm-pack build crates/csm-wasm --release --target web \
-          --out-dir "${OUT}" \
-          --out-name chaotic_semantic_memory
+        # Same script (and therefore same profile/target) CI uses to build and
+        # smoke-test this artifact: `wasm_ci_release_artifact_identical`.
+        bash scripts/build-wasm.sh release-web "${OUT}"
         cp LICENSE "${OUT}/"
         cp README.md "${OUT}/"
         # Use prepared package.json with scoped name @d-o-hub/chaotic_semantic_memory
