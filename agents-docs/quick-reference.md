@@ -1,5 +1,20 @@
 # Quick Reference Commands
 
+## Skill Selection — Rank-then-Read (issue #749)
+
+```bash
+./scripts/skills-suggest.sh "<task keywords>" [limit=5]   # frontmatter-only ranking
+```
+
+Loop: (1) query → top-5 metadata candidates (name + description + path only — no bodies
+are read by the ranker); (2) inspect the shortlist; (3) select 1–2; (4) read only those
+SKILL.md bodies + referenced files. The scorer is **token-based** (exact token
+intersection, name ×2 / description ×1, with a small singular/plural + domain-synonym
+alias map — `benchmarking`/`benchmarks`→`benchmark`, `performance`→`perf`). Trial
+evidence (#749, issue comment): four queries spanning release / retrieval-perf /
+skill-authoring / reservoir-debug each placed the expected skill in the top-5 and
+resolved with ≤ 2 bodies read (each pick actually opened; counts recorded on the issue).
+
 ## Build Performance
 
 ```bash
