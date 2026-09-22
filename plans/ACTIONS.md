@@ -193,5 +193,71 @@
 > `plans/evidence/scale_release_2026_09_21/` (`bucket_sweep/` holds pre- and
 > post-fix runs at 10 k/50 k/200 k for floors 2 and 8).
 
-actions: []  # queue empty: fix_bucketed_candidate_recall_at_scale completed 2026-09-21
+> Last completed (verified 2026-09-22):
+> `triage_pr_roast_2026_09_22` — one open PR. #754 (`perf(memory)`: pre-allocate
+> capacity + drop iterator closures in `singularity_retrieval`) closed as no
+> demonstrated impact: counting-allocator adjudication showed hunk 4 (both scan
+> tails) byte-identical (257 allocs / 11 264 B — `TrustedLen` `collect()` is
+> already single-exact-alloc), hunk 2 self-contradicting (`with_capacity(len.min(max))`
+> then pushing `len` before `truncate`), and the remaining ~13-alloc growth-chain
+> delta dwarfed by the 257 `String` clones the rewrite keeps. No criterion
+> evidence attached (4th entry in the #737/#739/#740 class). Record:
+> `plans/PR_ROAST_2026_09_22.md`. Five followups queued below; `action_last_completed`
+> unchanged because no queued GOAP action was in scope.
+
+actions:
+  - name: triage_harness_trial_issues_748_752
+    preconditions: []
+    effects:
+      harness_trial_issues_resolved: true
+    notes: >
+      Issues #748-#752 (2026-09-21 harness/guardrail trials). Start with #752
+      (libsql loop vs markdown loop spike, time-boxed ≤ 1 day) — its adopt/
+      reject note gates #748 (do-harness generic pack). Then #751 (goap-plus-adrs
+      guardrail), #750 (loc-gate splits + hook hygiene), #749 (rank-then-read
+      skill selection). No `.do-harness/` state on main.
+
+  - name: publish_csm_duckdb_companion
+    preconditions:
+      ci_all_checks_passed: true
+    effects:
+      duckdb_companion_published: true
+    notes: >
+      csm-duckdb is the last unpublished companion crate (duckdb_companion_published
+      flag). Follow agents-docs/release-safety.md: trusted publishing, synchronized
+      Cargo.lock, verify ownership before `cargo publish`.
+
+  - name: enforce_perf_claim_evidence_gate
+    preconditions:
+      benchmarks_prove_performance: true
+    effects:
+      perf_pr_evidence_gate_enforced: true
+    notes: >
+      Structural guardrail against the #737/#739/#740/#754 Jules class: a
+      `perf(...)` PR is not review-ready without criterion output or a flamegraph
+      against plans/evidence/bench/canonical.json (ADR-0095). Encode in the PR
+      template and/or a CI check; reject `with_capacity`/collect rewrites with no
+      attached numbers.
+
+  - name: eliminate_retrieval_string_clones
+    preconditions:
+      perf_pr_evidence_gate_enforced: true
+    effects:
+      retrieval_string_clones_removed: true
+    notes: >
+      The real hot-path win identified by the #754 roast: `score_specific_candidates`
+      and the scan tails materialise `(String, f32)` with a clone per candidate
+      (257 allocs / 11 KB per query at n=256). Carry `usize` indices to the API
+      boundary or return borrowed/Arc<str> ids. Must beat the criterion baselines
+      in plans/evidence/scale_release_2026_09_21 with attached numbers.
+
+  - name: reconcile_wave_32_remainder_and_flag_truth
+    preconditions: []
+    effects:
+      validated: true
+    notes: >
+      GOAP_STATE flag-truth pass: wave-32 "ownership + evidence remain" comment
+      is stale (ownership dedup landed 2026-09-15/18, evidence waves 2026-09-17/21),
+      and `validated: false`'s justification with it. Verify against
+      plans/GOAP_AUDIT_2026_07_14.md exit criteria, then flip in place.
 

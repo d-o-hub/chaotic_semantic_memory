@@ -49,10 +49,10 @@ world_state:
 
   # ── Active wave ───────────────────────────────────────────────
   active_wave: 33
-  wave_32_status: in_progress    # P0/P1 landed; ownership + evidence remain (see queued actions)
+  wave_32_status: in_progress    # 2026-09-22: ownership (09-15/18) + evidence (09-17/21) landed; remainder is flag-truth reconciliation (queued)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 0        # 2026-09-21: fix_bucketed_candidate_recall_at_scale completed; queue empty
+  queued_actions_count: 5        # 2026-09-22: followups from the #754 roast + backlog (see plans/ACTIONS.md)
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: true            # 2026-08-12: no TODO in src/ crates/
