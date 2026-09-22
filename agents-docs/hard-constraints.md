@@ -38,3 +38,15 @@
 - **Lint policy**: `unwrap_used`/`expect_used`/`panic` are `warn` in workspace lints (errors in CI).
   Tests are exempt via `.clippy.toml` (`allow-unwrap-in-tests = true` etc.).
   Production allows require `#[allow(...)]` with a justification comment.
+- **Harness layers append, never fork (2026-09-22, trials #752/#748):** GOAP
+  (`plans/GOAP_STATE.md` + `plans/ACTIONS.md`) is the only task store/planner;
+  ADRs (`plans/adr/`, checked by `scripts/check-adr-parity.sh`) are the only
+  rationale store. External harness tooling must map sensors to ADRs and queue
+  work via ACTIONS.md — forbidden: a second task store (`tasks.json` /
+  `agent_state.db` as source of truth), a second rationale store
+  (`invariants.json` replacing ADRs), or un-verified state committed to main.
+  Read-only surfaces (`pr`, `compliance`, `explain`, `doctor`) are adopted;
+  stateful ones (`verify --record`, `task`, `trace`/`distill`, `eval`) are
+  rejected until upstream fixes beats-write durability (`PRAGMA busy_timeout`)
+  and eval scaffolding. Evidence that must survive merges lives in
+  `plans/evidence/` (ADR-0095 tiers), not in a local db.
