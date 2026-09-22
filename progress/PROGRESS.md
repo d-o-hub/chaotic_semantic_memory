@@ -1,5 +1,15 @@
 # PROGRESS
 
+## 2026-09-22: Perf-PR Roast (#754) + Followup Queue
+
+### Summary
+Single open PR triaged: #754 (`perf(memory)`: pre-allocate capacity / drop iterator closures in `singularity_retrieval`) closed as **no demonstrated impact**. Counting-allocator adjudication of every changed collection shape: the two scan-tail hunks are byte-identical before/after (257 allocs / 11 264 B — `TrustedLen` `collect()` is already single-exact-alloc), the `graph_candidates` tail hunk is self-contradicting (`with_capacity(len.min(max))` then pushing `len` before `truncate` re-allocates in the case it claims to fix), and the residual ~13-alloc / ~12 KB growth-chain delta is dwarfed by the 257 `String` clones and 256 × 1 280-byte Hamming scans the rewrite keeps. No criterion evidence attached (4th entry in the #737/#739/#740 class).
+
+### Actions
+- Roast comment posted on #754 with the evidence table + resubmission target (`plans/evidence/scale_release_2026_09_21` baselines); PR closed, remote branch deleted.
+- Record: `plans/PR_ROAST_2026_09_22.md`; guardrail learning in `progress/LEARNINGS.md`.
+- Queued 5 followups in `plans/ACTIONS.md`: harness-trial issues #748–#752 (start: #752 spike, gates #748), `csm-duckdb` publish, perf-claim evidence gate, retrieval `String`-clone elimination, wave-32 flag-truth reconciliation.
+
 ## 2026-09-21 (wave 2): Bucketed-Candidate Recall Fixed at Scale
 
 ### Summary
