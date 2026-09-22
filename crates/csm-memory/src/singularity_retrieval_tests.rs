@@ -174,3 +174,41 @@ fn bucket_candidates_use_a_multi_probe_and_respect_the_budget() {
         );
     }
 }
+
+#[test]
+fn test_score_specific_candidates_behavior() {
+    use crate::singularity::ConceptBuilder;
+
+    let mut s = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let vec1 = HVec10240::random();
+    let vec2 = HVec10240::random();
+
+    s.inject(
+        "_default",
+        ConceptBuilder::new("c1")
+            .with_vector(vec1)
+            .build()
+            .unwrap(),
+    )
+    .unwrap();
+    s.inject(
+        "_default",
+        ConceptBuilder::new("c2")
+            .with_vector(vec2)
+            .build()
+            .unwrap(),
+    )
+    .unwrap();
+
+    let target_ids = vec!["c1".to_string(), "non_existent".to_string(), "c2".to_string()];
+    let scores = s.score_specific_candidates("_default", &vec1, &target_ids);
+
+    assert_eq!(scores.len(), 2, "must score existing concepts only");
+    assert_eq!(scores[0].0, "c1");
+    // Identical vector comparison produces similarity score 1.0
+    assert!((scores[0].1 - 1.0).abs() < 1e-6);
+    assert_eq!(scores[1].0, "c2");
+
+    let empty_scores = s.score_specific_candidates("_default", &vec1, &[]);
+    assert!(empty_scores.is_empty(), "empty candidates must return empty results");
+}

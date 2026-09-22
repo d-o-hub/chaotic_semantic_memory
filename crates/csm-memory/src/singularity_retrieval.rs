@@ -180,7 +180,9 @@ impl Singularity {
         let Some(ns_state) = self.get_namespace(ns) else {
             return Vec::new();
         };
-        let mut candidates = std::collections::HashSet::new();
+        // Optimization: Pre-allocate HashSet capacity to avoid reallocations during graph traversal.
+        let mut candidates =
+            std::collections::HashSet::with_capacity(self._retrieval_config.max_candidates);
         let results = self.exact_similarity_scan(ns, query, 1, unix_now_ns(), true);
         if let Some((seed_id, _)) = results.first() {
             let mut queue = VecDeque::new();
@@ -214,10 +216,14 @@ impl Singularity {
             }
         }
 
-        let mut res: Vec<usize> = candidates
-            .into_iter()
-            .filter_map(|id| ns_state.id_to_index.get(id).copied())
-            .collect();
+        // Optimization: Pre-allocate result vector capacity to avoid iterator reallocations.
+        let mut res =
+            Vec::with_capacity(candidates.len().min(self._retrieval_config.max_candidates));
+        for id in candidates {
+            if let Some(&idx) = ns_state.id_to_index.get(id) {
+                res.push(idx);
+            }
+        }
         if res.len() > self._retrieval_config.max_candidates {
             res.truncate(self._retrieval_config.max_candidates);
         }
@@ -235,15 +241,18 @@ impl Singularity {
             return Vec::new();
         };
 
-        candidate_ids
-            .iter()
-            .filter_map(|id| ns_state.id_to_index.get(id).map(|&idx| (id, idx)))
-            .map(|(id, idx)| {
+        // Algorithmic Optimization: Pre-allocate vector capacity with candidate_ids.len() to eliminate
+        // dynamic reallocations from iterator filter_map conservative size bounds, and use a direct loop
+        // to bypass iterator adapter closure invocation overhead during candidate scoring.
+        let mut results = Vec::with_capacity(candidate_ids.len());
+        for id in candidate_ids {
+            if let Some(&idx) = ns_state.id_to_index.get(id) {
                 let dist = query.hamming_distance(&ns_state.concept_vectors[idx]);
                 let sim = 1.0 - (dist as f32 / 5120.0);
-                (id.clone(), sim)
-            })
-            .collect()
+                results.push((id.clone(), sim));
+            }
+        }
+        results
     }
 
     /// Perform exact similarity scan over all vectors.
@@ -291,14 +300,12 @@ impl Singularity {
             scores.sort_unstable_by_key(|&(_, dist)| dist);
         }
 
-        let results: Vec<(String, f32)> = scores
-            .into_iter()
-            .map(|(idx, dist)| {
-                // Defer cosine similarity calculation until the final top_k results
-                let similarity = 1.0 - (dist as f32 / 5120.0);
-                (ns_state.concept_indices[idx].clone(), similarity)
-            })
-            .collect();
+        // Optimization: Pre-allocate vector capacity to avoid iterator reallocations.
+        let mut results = Vec::with_capacity(scores.len());
+        for (idx, dist) in scores {
+            let similarity = 1.0 - (dist as f32 / 5120.0);
+            results.push((ns_state.concept_indices[idx].clone(), similarity));
+        }
 
         let best_score = results.first().map(|r| r.1);
         let results_arc = Arc::from(results);
@@ -413,13 +420,12 @@ impl Singularity {
             scores.sort_unstable_by_key(|&(_, dist)| dist);
         }
 
-        let results: Vec<(String, f32)> = scores
-            .into_iter()
-            .map(|(idx, dist)| {
-                let similarity = 1.0 - (dist as f32 / 5120.0);
-                (ns_state.concept_indices[idx].clone(), similarity)
-            })
-            .collect();
+        // Optimization: Pre-allocate vector capacity to avoid iterator reallocations.
+        let mut results = Vec::with_capacity(scores.len());
+        for (idx, dist) in scores {
+            let similarity = 1.0 - (dist as f32 / 5120.0);
+            results.push((ns_state.concept_indices[idx].clone(), similarity));
+        }
 
         let best_score = results.first().map(|r| r.1);
         let results_arc = Arc::from(results);
