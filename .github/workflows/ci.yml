@@ -558,6 +558,15 @@ jobs:
       run: cargo clippy --all-targets --all-features -- -D warnings
     - name: Skill format validation (ADR-0096)
       run: bash scripts/validate-skill-format.sh
+    # validate.sh runs the same `cargo test --all-targets --all-features` suite
+    # as the `test` job, including tests/performance_targets.rs and its 20 ms p50
+    # persistence-roundtrip ceiling. That ceiling is a property of the storage
+    # medium (~1.2 ms RAM-backed vs 24.47 ms on the runner's disk-backed /tmp,
+    # main run 34610334012), so the same tmpfs mitigation the `test` job uses
+    # applies here: without it this job fails independently of the diff (run
+    # 35846414646, no Rust change).
+    - name: Use RAM-backed /tmp
+      run: sudo mount -t tmpfs -o size=8g,mode=1777 tmpfs /tmp
     - name: LOC gate
       run: bash scripts/validate.sh
 
