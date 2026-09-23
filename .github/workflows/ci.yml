@@ -307,7 +307,10 @@ jobs:
       with:
         shared-key: test
     - name: Run DuckDB tests
-      run: cargo test -p csm-duckdb --locked -- --test-threads=1 --quiet
+      # --all-features: the crate defaults to no features, and the cli_tests
+      # target is `required-features = ["cli"]`, so a default-feature run
+      # executes 0 of its tests (parquet export additionally needs "parquet").
+      run: cargo test -p csm-duckdb --all-features --locked -- --test-threads=1 --quiet
 
   # Miri: push + PR. Path-skip docs-only when no Rust/Cargo changes (detect-changes.rust_src).
   miri:
