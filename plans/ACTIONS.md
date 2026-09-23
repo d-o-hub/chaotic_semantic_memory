@@ -137,12 +137,18 @@
 > always-on `commitlint` job of `ci.yml` for every PR and, for `perf(...)`
 > titles, requires a `## Performance Evidence` section (new PR template
 > section) naming a `plans/evidence/bench/canonical.json` benchmark id (or the
-> nearest canonical comparator when none exists), a Criterion output path or
-> flamegraph reference, and a numeric before/after pair; title/body travel
-> through the environment, scope validity stays with commitlint. Fourteen-case
-> local matrix exercised (non-perf/empty/bot titles pass; missing section,
-> baseline, artifact, numbers and placeholder-only bodies fail). Syntactic
-> presence/shape only — it does not validate provenance or assert improvement.
+> nearest canonical comparator when none exists), a path/URL-shaped Criterion
+> output or flamegraph reference (a bare `flamegraph` word does not count), and
+> a numeric before/after pair; title/body arrive as argv with environment
+> fallback, scope validity stays with commitlint. Nineteen-case local matrix
+> exercised (non-perf/docs/bot/empty titles pass; missing section, baseline,
+> artifact, numbers, placeholder-only, untouched template and "template plus
+> numbers only" bodies fail; complete Criterion/flamegraph and argv
+> invocations pass). Syntactic presence/shape only — it does not validate
+> provenance or assert improvement. Prerequisite `fix(core)` lint repair (#759,
+> merged `e5d039e`) unblocked the workspace-wide clippy sensor of the mandatory
+> local harness gate, and the `lint` CI job gained the test job's RAM-backed
+> `/tmp` mount (same persistence-latency gate, previously red with zero diff).
 > `validated: false` and `reconcile_wave_32_remainder_and_flag_truth` stand:
 > the July audit has other exit criteria.
 
