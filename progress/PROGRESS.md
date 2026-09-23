@@ -1,5 +1,16 @@
 # PROGRESS
 
+## 2026-09-23 (perf gate): Perf-PR Evidence Gate Enforced
+
+### Summary
+`enforce_perf_claim_evidence_gate` landed: `scripts/check-perf-pr-evidence.py` runs in the always-on `commitlint` job of `.github/workflows/ci.yml` (no `detect-changes` dependency, so every PR is covered regardless of path filters) and, for titles beginning `perf(`, requires a `## Performance Evidence` section documenting a baseline (`plans/evidence/bench/canonical.json` or a benchmark id from it; nearest canonical comparator plus new output when the file has no entry), a Criterion output path or flamegraph reference, and a numeric before/after pair for the affected benchmark. Title and body travel through environment variables (never shell interpolation); scope validity stays with commitlint's `scope-enum`, non-`perf(...)` and bot titles exit zero, and the check is presence/shape only — it does not run benchmarks or assert improvement. `.github/PULL_REQUEST_TEMPLATE.md` gained the matching section.
+
+### Actions
+- Prerequisite merged first: `fix(core)` #759 (`e5d039e`) converts two `manual_range_contains` asserts in `csm-core-lib` re-export tests to `(0.0..1.0).contains(&v)`. Reason: CI's `lint` job and `validate.sh` both run clippy **root-scope** (no `--workspace`), so those two errors sat invisible to CI while the workspace-wide sensor in `scripts/harness-check.sh all` stayed red on main; the fix unblocks the local harness gate, not CI.
+- Nineteen-case local matrix exercised (adds adversarial template cases and the argv interface): non-perf/docs/bot/empty titles pass; missing section, empty body, missing baseline, missing artifact, missing numeric pair, placeholder-only, untouched-template, and "template + numbers only with the artifact prompt unedited" bodies fail with named `::error::` lines; complete Criterion/flamegraph bodies and argv invocations pass.
+- `plans/ACTIONS.md` queue drops to three actions (`enforce_perf_claim_evidence_gate` removed), `plans/GOAP_STATE.md` sets `perf_pr_evidence_gate_enforced: true` and `action_last_completed: enforce_perf_claim_evidence_gate`; `validated: false` and the wave-32 reconciliation action stand (the July audit has other exit criteria).
+- No benchmark code, threshold or evidence artifacts touched; `benchmark-ci.yml` and `scripts/bench-baseline.sh compare` remain the measurement gates.
+
 ## 2026-09-23: Harness-Trial Queue Reconciled (#748-#752)
 
 ### Summary

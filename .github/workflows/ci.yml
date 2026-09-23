@@ -150,6 +150,17 @@ jobs:
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: printf '%s\n' "$PR_TITLE" | npx commitlint --verbose
+      # ADR-0095 evidence tier: a `perf(...)` PR must document its baseline,
+      # measurement artifact and before/after numbers (see
+      # scripts/check-perf-pr-evidence.py). `always()` so the evidence verdict
+      # is reported even when commitlint fails above. Non-`perf(...)` titles
+      # exit zero, so bot/dependency PRs are unaffected.
+      - name: Perf PR evidence gate (ADR-0095)
+        if: ${{ always() && github.event_name == 'pull_request' }}
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: python3 scripts/check-perf-pr-evidence.py "$PR_TITLE" "$PR_BODY"
       - name: Validate branch commits with commitlint
         if: github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000'
         run: npx commitlint --from ${{ github.event.before }} --to ${{ github.event.after }} --verbose

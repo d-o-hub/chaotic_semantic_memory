@@ -27,6 +27,17 @@
 - [ ] Documentation updated (if applicable)
 - [ ] CHANGELOG.md updated (if user-facing change)
 
+## Performance Evidence
+
+<!-- Required when the PR title starts with `perf(`; leave blank otherwise.
+     CI enforces this section for perf PRs via scripts/check-perf-pr-evidence.py
+     (ADR-0095). A perf PR without evidence is not review-ready.
+-->
+
+- Baseline: `plans/evidence/bench/canonical.json` — benchmark id:
+- Measurement artifact: Criterion output path or flamegraph link:
+- Before / after for the affected benchmark:
+
 ## Additional Notes
 
 <!-- Any additional context, screenshots, or concerns -->
