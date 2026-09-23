@@ -4,7 +4,7 @@ use csm_duckdb::cli::CliOutputFormat;
 use csm_duckdb::schema::SCHEMA_DDL;
 use duckdb::Connection;
 use std::io::Write;
-use tempfile::NamedTempFile;
+use tempfile::TempDir;
 
 #[test]
 fn test_help_snapshots() {
@@ -24,12 +24,16 @@ fn test_help_snapshots() {
 
 #[tokio::test]
 async fn test_stats_command() {
-    let temp = NamedTempFile::new().unwrap();
-    let conn = Connection::open(temp.path()).unwrap();
+    // A NamedTempFile is created empty on disk, and DuckDB refuses to open an
+    // existing 0-byte file ("exists, but it is not a valid DuckDB database
+    // file"). Hold a TempDir instead and hand DuckDB a path it can create.
+    let dir = TempDir::new().unwrap();
+    let db_path = dir.path().join("analytics.duckdb");
+    let conn = Connection::open(&db_path).unwrap();
     conn.execute_batch(SCHEMA_DDL).unwrap();
     drop(conn);
 
-    let analytics = csm_duckdb::Analytics::open(temp.path()).unwrap();
+    let analytics = csm_duckdb::Analytics::open(&db_path).unwrap();
     // Just verify it doesn't crash and returns OK
     csm_duckdb::cli::stats::run(&analytics, &CliOutputFormat::Table)
         .await
@@ -39,17 +43,19 @@ async fn test_stats_command() {
         .unwrap();
 }
 
+#[cfg(feature = "parquet")]
 #[tokio::test]
 async fn test_export_command() {
-    let temp_db = NamedTempFile::new().unwrap();
-    let conn = Connection::open(temp_db.path()).unwrap();
+    let dir = TempDir::new().unwrap();
+    let db_path = dir.path().join("analytics.duckdb");
+    let conn = Connection::open(&db_path).unwrap();
     conn.execute_batch(SCHEMA_DDL).unwrap();
     drop(conn);
 
     let out_dir = tempfile::tempdir().unwrap();
 
     let cmd = csm_duckdb::cli::AnalyticsCommand::Export(csm_duckdb::cli::ExportArgs {
-        input: temp_db.path().to_path_buf(),
+        input: db_path,
         out: out_dir.path().to_path_buf(),
         #[cfg(feature = "parquet")]
         compression: csm_duckdb::export_parquet::ParquetCompression::None,
@@ -65,8 +71,9 @@ async fn test_export_command() {
 
 #[tokio::test]
 async fn test_query_command() {
-    let temp = NamedTempFile::new().unwrap();
-    let conn = Connection::open(temp.path()).unwrap();
+    let dir = TempDir::new().unwrap();
+    let db_path = dir.path().join("analytics.duckdb");
+    let conn = Connection::open(&db_path).unwrap();
     conn.execute_batch(SCHEMA_DDL).unwrap();
     conn.execute(
         "INSERT INTO concepts (id, namespace) VALUES (?, ?)",
@@ -75,7 +82,7 @@ async fn test_query_command() {
     .unwrap();
     drop(conn);
 
-    let analytics = csm_duckdb::Analytics::open(temp.path()).unwrap();
+    let analytics = csm_duckdb::Analytics::open(&db_path).unwrap();
     csm_duckdb::cli::query::run(
         &analytics,
         "SELECT * FROM concepts",
@@ -90,7 +97,9 @@ async fn test_query_command() {
 
 #[tokio::test]
 async fn test_export_json_input() {
-    let mut temp = NamedTempFile::new().unwrap();
+    // `open_analytics` routes by the `.json` extension; a NamedTempFile's random
+    // name has none, so it fell through to opening the JSON as a database.
+    let mut temp = tempfile::Builder::new().suffix(".json").tempfile().unwrap();
     temp.as_file_mut()
         .write_all(br#"{"concepts": [{"id": "t1", "metadata": {}}], "associations": []}"#)
         .unwrap();
