@@ -52,7 +52,7 @@ world_state:
   wave_32_status: in_progress    # 2026-09-22: ownership (09-15/18) + evidence (09-17/21) landed; remainder is flag-truth reconciliation (queued)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 4        # 2026-09-23: harness-trial queue reconciled (#748/#751/#752 closed with verdicts; #749 ranker in open PR #757; #750 not adopted — P0 parity failed, keep install-hooks.sh path); remainder is #754 followups + backlog (see plans/ACTIONS.md)
+  queued_actions_count: 4        # 2026-09-23: harness-trial queue reconciled (#748/#751/#752 closed with verdicts; #749 ranker merged in #757; #750 closed not-adopted — P0 parity failed, keep install-hooks.sh path); remainder is #754 followups + backlog (see plans/ACTIONS.md)
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: true            # 2026-08-12: no TODO in src/ crates/
