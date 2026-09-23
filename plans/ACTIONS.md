@@ -206,17 +206,6 @@
 > unchanged because no queued GOAP action was in scope.
 
 actions:
-  - name: triage_harness_trial_issues_748_752
-    preconditions: []
-    effects:
-      harness_trial_issues_resolved: true
-    notes: >
-      Issues #748-#752 (2026-09-21 harness/guardrail trials). Start with #752
-      (libsql loop vs markdown loop spike, time-boxed ≤ 1 day) — its adopt/
-      reject note gates #748 (do-harness generic pack). Then #751 (goap-plus-adrs
-      guardrail), #750 (loc-gate splits + hook hygiene), #749 (rank-then-read
-      skill selection). No `.do-harness/` state on main.
-
   - name: publish_csm_duckdb_companion
     preconditions:
       ci_all_checks_passed: true

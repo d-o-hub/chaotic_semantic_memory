@@ -1,5 +1,10 @@
 # PROGRESS
 
+## 2026-09-23: Harness-Trial Queue Reconciled (#748-#752)
+
+### Summary
+Reconciled `triage_harness_trial_issues_748_752` against landed changes: #752 (libsql vs markdown spike) and #748 (do-harness P0 wrapper, drop-for-P1 verdict parity failure) and #751 (goap-plus-adrs guardrail, hard-constraints.md:44-47) all closed; #749 ranker (`scripts/skills-suggest.sh`, frontmatter-only, no do-harness dependency) plus the four-step loop (`agents-docs/quick-reference.md:6-13`) in open PR #757, and all three acceptance queries return the expected skill in top five; #750 (loc splits + hook hygiene, gated on #748 P0 parity) is not adopted — prerequisite failed, keep current `install-hooks.sh` path, no hooks installed, no `.do-harness/` state. Queue now holds four actions; `queued_actions_count: 4`; `action_last_completed: triage_harness_trial_issues_748_752`. Next: #750 non-adoption comment + close #749/#750 per their acceptance criteria, then push, green CI, sequential squash-merge per AGENTS.md Phase 5.
+
 ## 2026-09-22: Perf-PR Roast (#754) + Followup Queue
 
 ### Summary
