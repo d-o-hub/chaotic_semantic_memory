@@ -293,8 +293,10 @@ def main(argv: list[str]) -> int:
     if not has_artifact(without_angles):
         failures.append(
             "missing measurement artifact: reference the Criterion output path "
-            "(for example `target/criterion/<bench-id>/new/estimates.json`) or a "
-            "flamegraph artifact/image"
+            "(for example `target/criterion/<bench-id>/new/estimates.json`), a "
+            "flamegraph file, or the Criterion/flamegraph CI run link (its "
+            "`/artifacts/` download) — a bare mention without a path or link "
+            "does not count"
         )
 
     if not has_numeric_pair(without_angles):
