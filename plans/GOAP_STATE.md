@@ -52,7 +52,7 @@ world_state:
   wave_32_status: in_progress    # 2026-09-22: ownership (09-15/18) + evidence (09-17/21) landed; remainder is flag-truth reconciliation (queued)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 3        # 2026-09-23: perf-evidence gate enforced (5th #737/#739/#740/#754 follow-up); queue is publish_csm_duckdb_companion, eliminate_retrieval_string_clones, wave-32 flag reconciliation
+  queued_actions_count: 4        # 2026-09-24: perf-evidence gate enforced (#760, `e189a9e`); queue is publish_csm_duckdb_companion, eliminate_retrieval_string_clones, wave-32 flag reconciliation, regenerate_stale_llms_dependency_versions
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: true            # 2026-08-12: no TODO in src/ crates/

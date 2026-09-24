@@ -259,3 +259,16 @@ actions:
       and `validated: false`'s justification with it. Verify against
       plans/GOAP_AUDIT_2026_07_14.md exit criteria, then flip in place.
 
+  - name: regenerate_stale_llms_dependency_versions
+    preconditions: []
+    effects:
+      llms_dependency_versions_current: true
+    notes: >
+      Committed `llms.txt`/`llms-full.txt` drift from `Cargo.lock`: they still
+      list opentelemetry 0.27 while the lockfile resolved 0.32.0 after the
+      #729 security bump. Last regenerated at #714, before that bump.
+      `scripts/validate.sh` regenerates and validates these files but never
+      commits them, so the drift accumulates silently. Regenerate, commit, and
+      decide whether the regeneration step belongs in a gate that fails on
+      drift (CI `lint` runs validate.sh) rather than only warning.
+
