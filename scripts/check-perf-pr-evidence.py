@@ -72,6 +72,9 @@ NUMBER_RE = re.compile(NUM)
 # Baseline tokens: literal path or a benchmark id taken from canonical.json.
 TOKEN_RE = re.compile(r"[^\s,;:()\[\]{}\"']+")
 
+# Whole URL, matched before TOKEN_RE splits it (the token class excludes ":").
+URL_RE = re.compile(r"https?://[^\s<>\"')\]]+", re.IGNORECASE)
+
 
 def load_canonical_benchmark_ids() -> set[str]:
     """Benchmark ids from the committed canonical baseline.
@@ -193,19 +196,33 @@ def _arrow_sides_numbered(region: str) -> bool:
 
 
 def has_artifact(text: str) -> bool:
-    """A Criterion output path or a flamegraph reference.
+    """A Criterion output path/URL or a flamegraph reference.
 
-    Token-wise and path-shaped: a bare `flamegraph` word (the PR template's own
-    prompt line) and the baseline path `plans/evidence/bench/canonical.json` —
-    which contains no `criterion/` segment — must not satisfy the gate.
+    The artifact must be path- or URL-shaped: a bare `flamegraph` word (the PR
+    template's own prompt line) and the baseline path
+    `plans/evidence/bench/canonical.json` — which contains no `criterion/`
+    segment — must not satisfy the gate. URLs are matched before whitespace
+    tokenization because the token class excludes `:`, so an artifact URL would
+    otherwise split at the scheme and lose the keyword/path pairing; a URL with
+    no `criterion`/`flamegraph` segment is only accepted when it is a CI
+    artifact download (`/artifacts/`), so an unrelated link never counts.
     """
+    for url in URL_RE.findall(text):
+        lowered = url.lower()
+        if CANONICAL_BASELINE in lowered:
+            continue
+        if "criterion" in lowered or "flamegraph" in lowered or "/artifacts/" in lowered:
+            return True
+
     for token in section_tokens(text):
         if CANONICAL_BASELINE in token:
             continue
         lowered = token.lower()
         if "flamegraph" in lowered and _path_shaped(token):
             return True
-        if "criterion/" in lowered and _path_shaped(token):
+        # A Criterion output is a file (`target/criterion/.../estimates.json`);
+        # the bare output directory is not an artifact.
+        if "criterion/" in lowered and re.search(r"\.[a-z0-9]{1,6}$", lowered):
             return True
     return False
 
