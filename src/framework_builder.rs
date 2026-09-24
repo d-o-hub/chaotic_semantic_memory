@@ -157,8 +157,12 @@ impl FrameworkBuilder {
         self
     }
 
-    pub const fn with_chaos_strength(mut self, strength: f32) -> Self {
-        self.config.chaos_strength = strength;
+    pub fn with_chaos_strength(mut self, strength: f32) -> Self {
+        if strength.is_finite() {
+            self.config.chaos_strength = strength.clamp(0.0, 1.0);
+        } else {
+            self.config.chaos_strength = 0.0;
+        }
         self
     }
 
@@ -482,6 +486,24 @@ mod tests {
         // Below limit
         let builder = FrameworkBuilder::new().with_max_associations_per_concept(limit - 1);
         assert_eq!(builder.config.max_associations_per_concept, Some(limit - 1));
+    }
+
+    #[test]
+    fn test_with_chaos_strength_clamping() {
+        let b = FrameworkBuilder::new().with_chaos_strength(1.5);
+        assert_eq!(b.config.chaos_strength, 1.0);
+
+        let b = FrameworkBuilder::new().with_chaos_strength(-0.5);
+        assert_eq!(b.config.chaos_strength, 0.0);
+
+        let b = FrameworkBuilder::new().with_chaos_strength(f32::NAN);
+        assert_eq!(b.config.chaos_strength, 0.0);
+
+        let b = FrameworkBuilder::new().with_chaos_strength(f32::INFINITY);
+        assert_eq!(b.config.chaos_strength, 0.0);
+
+        let b = FrameworkBuilder::new().with_chaos_strength(0.5);
+        assert_eq!(b.config.chaos_strength, 0.5);
     }
 
     #[tokio::test]
