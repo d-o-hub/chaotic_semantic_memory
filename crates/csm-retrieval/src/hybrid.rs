@@ -157,7 +157,31 @@ fn merge_single_list(results: &[(String, f32)], weight: f32, top_k: usize) -> Ve
         }
     }
 
-    // Optimization: Borrow references directly into vector without floating-point scaling.
+    let range = max - min;
+
+    // Fast path for results.len() <= top_k (e.g. k >= N): scale directly in a single pass
+    // to avoid double vector mapping overhead when selection/truncation is unneeded.
+    if results.len() <= top_k {
+        let mut ref_results: Vec<(&str, f32)> = if range < f32::EPSILON {
+            results
+                .iter()
+                .map(|(id, _)| (id.as_str(), weight))
+                .collect()
+        } else {
+            let factor = weight / range;
+            results
+                .iter()
+                .map(|(id, score)| (id.as_str(), (score - min) * factor))
+                .collect()
+        };
+        ref_results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
+        return ref_results
+            .into_iter()
+            .map(|(id, score)| (id.to_string(), score))
+            .collect();
+    }
+
+    // Optimization: Defer floating-point score scaling until AFTER top-k selection/truncation.
     // Linear min-max normalization is strictly monotonic, so top-k selection on raw scores
     // yields identical elements while deferring scaling calculations to only the top-k subset.
     let mut ref_results: Vec<(&str, f32)> = results
@@ -165,16 +189,11 @@ fn merge_single_list(results: &[(String, f32)], weight: f32, top_k: usize) -> Ve
         .map(|(id, score)| (id.as_str(), *score))
         .collect();
 
-    // 0-based selection: partition exactly top_k elements. top_k >= 1 because
-    // merge_results rejects 0 before calling this helper.
-    if ref_results.len() > top_k {
-        let nth = top_k - 1;
-        ref_results.select_nth_unstable_by(nth, |a, b| b.1.total_cmp(&a.1));
-        ref_results.truncate(top_k);
-    }
+    let nth = top_k - 1;
+    ref_results.select_nth_unstable_by(nth, |a, b| b.1.total_cmp(&a.1));
+    ref_results.truncate(top_k);
     ref_results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
 
-    let range = max - min;
     if range < f32::EPSILON {
         ref_results
             .into_iter()

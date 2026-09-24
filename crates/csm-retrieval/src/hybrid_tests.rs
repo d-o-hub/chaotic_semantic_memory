@@ -259,3 +259,52 @@ fn test_single_list_epsilon() {
     assert!((merged_below[0].1 - 0.5).abs() < 1e-6);
     assert!((merged_below[1].1 - 0.5).abs() < 1e-6);
 }
+
+#[test]
+fn test_merge_single_list_parity_across_cases() {
+    let unoptimized_baseline = |results: &[(String, f32)], weight: f32, top_k: usize| -> Vec<(String, f32)> {
+        if results.is_empty() || top_k == 0 {
+            return Vec::new();
+        }
+        let mut min = f32::INFINITY;
+        let mut max = f32::NEG_INFINITY;
+        for (_, s) in results {
+            let s = *s;
+            if s < min { min = s; }
+            if s > max { max = s; }
+        }
+        let range = max - min;
+        let mut ref_results: Vec<(&str, f32)> = if range < f32::EPSILON {
+            results.iter().map(|(id, _)| (id.as_str(), weight)).collect()
+        } else {
+            let factor = weight / range;
+            results.iter().map(|(id, score)| (id.as_str(), (score - min) * factor)).collect()
+        };
+        if ref_results.len() > top_k {
+            let nth = top_k - 1;
+            ref_results.select_nth_unstable_by(nth, |a, b| b.1.total_cmp(&a.1));
+            ref_results.truncate(top_k);
+        }
+        ref_results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
+        ref_results.into_iter().map(|(id, score)| (id.to_string(), score)).collect()
+    };
+
+    let test_cases = vec![
+        (vec![("a".to_string(), 10.0), ("b".to_string(), 5.0), ("c".to_string(), 15.0)], 0.8, 2),
+        (vec![("a".to_string(), 10.0), ("b".to_string(), 5.0), ("c".to_string(), 15.0)], 0.8, 3),
+        (vec![("a".to_string(), 10.0), ("b".to_string(), 5.0), ("c".to_string(), 15.0)], 0.8, 1),
+        (vec![("a".to_string(), -10.0), ("b".to_string(), -5.0), ("c".to_string(), -2.0)], 0.5, 2),
+        (vec![("a".to_string(), 5.0), ("b".to_string(), 5.0), ("c".to_string(), 5.0)], 0.7, 2),
+        (vec![("a".to_string(), 42.0)], 1.0, 1),
+    ];
+
+    for (results, weight, top_k) in test_cases {
+        let actual = merge_results(&results, &[], (weight, 0.0), top_k);
+        let expected = unoptimized_baseline(&results, weight, top_k);
+        assert_eq!(actual.len(), expected.len(), "length mismatch for top_k={top_k}");
+        for (act, exp) in actual.iter().zip(expected.iter()) {
+            assert_eq!(act.0, exp.0, "ID mismatch");
+            assert!((act.1 - exp.1).abs() < 1e-6, "score mismatch: {} vs {}", act.1, exp.1);
+        }
+    }
+}
