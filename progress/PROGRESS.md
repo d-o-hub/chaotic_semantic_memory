@@ -1,5 +1,17 @@
 # PROGRESS
 
+
+## 2026-09-24: Roast Before Implement or Merge (AGENTS.md Rule)
+
+### Summary
+Made the PR/issue roast a standing gate rather than a thing we remembered to do. `AGENTS.md` now binds it in three places: Phase 1 step 5 (review and roast before **implementing** an issue/PR — premise, affected code path, evidence bar), Phase 5 step 17 (**no verdict, no merge** — CI green is necessary, not sufficient), and Core Rule 9. A no-impact PR is a terminal outcome: roast comment → close → record `plans/PR_ROAST_<date>.md` → update `progress/` → distill the lesson into `.agents/skills/`; quietly re-implementing a closed PR's idea without the evidence it lacked is the failure mode the rule prevents.
+
+### Actions
+- `.agents/skills/pr-roast-triage/SKILL.md` gained a "When this gate applies (MANDATORY)" section (when the roast runs, the terminal no-impact flow, distill-don't-duplicate) — compacted into the existing skill rather than adding a near-duplicate; `scripts/validate-skill-format.sh` passes (33/33).
+- `progress/LEARNINGS.md` PR Triage section: one entry recording the #737/#739/#740/#754 + #520 pattern (5 rounds of close-then-guardrail before the rule existed).
+- AGENTS.md workflow steps renumbered continuously 1–18 across five phases; Core Rules 1–9; 90 LOC (≤ 200 cap).
+- Applied to the live queue: #763 (`perf(retrieval): defer score scaling in single list hybrid merge`, +66/−70, one file, no Criterion/flamegraph, no `## Performance Evidence`) **fails the new CI gate as-is** — it is the exact no-impact class this rule governs.
+
 ## 2026-09-23 (perf gate): Perf-PR Evidence Gate Enforced
 
 ### Summary

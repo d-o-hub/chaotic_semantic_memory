@@ -9,6 +9,25 @@ Review every open PR, close what has no independent impact, roast the rest
 with fix recommendations. The human merges manually in the emitted order —
 never auto-merge, never merge from this skill.
 
+## When this gate applies (MANDATORY)
+
+Roast **before implementing or merging** any GitHub PR or issue — never take
+one at face value, however green its CI or plausible its description. Bound in
+`AGENTS.md` (Phase 1 step 5, Phase 5 step 17, Core Rule 9):
+
+1. **Before implementing an issue/PR** — verify the premise, the affected code
+   path (which copy production actually executes), and the evidence bar *before*
+   writing code. A no-impact premise → close as no-op with the roast comment.
+2. **Before merging** — CI green is necessary, not sufficient. Emit a verdict
+   and record it (Step 6). No verdict, no merge.
+3. **On a no-impact PR** — roast comment first, then close, then update
+   `progress/PROGRESS.md` + `progress/LEARNINGS.md`, then distill the reusable
+   lesson into a skill. Do **not** quietly re-implement the closed idea; a
+   resubmission must carry the evidence the roast demanded.
+4. **Distill, don't duplicate** — the lesson goes into an existing skill
+   (compact it) unless it opens a genuinely new domain; a near-duplicate skill
+   is itself debt. `scripts/validate-skill-format.sh` gates skill files.
+
 ## Step 1 — Triage baseline (run first, before any opinion)
 
 ```bash
