@@ -77,6 +77,26 @@ Close the losers with reason `superseded by #<keeper>`.
 - **deny.toml**: must only ADD ignores with advisory ID + reason. Deleting or
   commenting out existing ignores re-breaks `cargo deny` — reject.
 - **Perf claims**: no `criterion` output or flamegraph = not review-ready.
+- **Correctness and impact are separate verdicts** (PR #763, 2026-09-24). Never
+  let a correct diff pass on a bad claim, nor a good claim excuse a wrong one.
+  Adjudicate each independently:
+  - *Correctness* — provable by reading plus a throwaway harness. For an
+    algebraic/monotonicity argument, brute-force it: 186 (N,k) cases with ties,
+    negatives and duplicates, comparing subset **and returned values**
+    (`worst_abs_diff` must be 0). Zero mismatches → "correct, bit-identical".
+  - *Impact* — only by measurement on `csm-ref-01`. A FLOP-count reduction
+    inside a function dominated by allocation/partitioning is **not** a
+    speedup: check what the dominant term actually is before accepting the
+    claim. Interleave A/B/A/B and demand a consistent sign; shared hosts
+    sign-flip at ±25 % (same class as "Benchmark under load").
+  - A **correct-but-unmeasured** PR is not a no-op: request the evidence
+    (`## Performance Evidence`, enforced by `scripts/check-perf-pr-evidence.py`)
+    and the regression test that locks the new correctness property, and keep
+    the PR open. Reserve *close as no-op* for zero-delta or wrong diffs.
+  - Demand the parity test whenever the diff's justification is a correctness
+    argument — that test is worth more than the benchmark.
+  - Look for the degenerate case: when `k == N` the partition is skipped, so
+    deferring per-element work is a pure regression. Guard it.
 - **`export.json` / `Cargo.lock` noise**: timestamp-only or resolver-churn hunks
   must be dropped before merge.
 - **Bot comments** (Jules hello, Sonar/Codacy pass notes) are noise, not reviews.
