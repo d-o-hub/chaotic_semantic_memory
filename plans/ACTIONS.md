@@ -131,6 +131,27 @@
 > Earlier same-day completions (ADR-0097): `harden_public_f32_api_validation`
 > (PR #607), `recover_v037_failed_deployments` (v0.3.7 + v0.3.8 on crates.io).
 
+> Last completed (verified 2026-09-23):
+> `enforce_perf_claim_evidence_gate` — fail-closed CI check for the
+> #737/#739/#740/#754 class: `scripts/check-perf-pr-evidence.py` runs in the
+> always-on `commitlint` job of `ci.yml` for every PR and, for `perf(...)`
+> titles, requires a `## Performance Evidence` section (new PR template
+> section) naming a `plans/evidence/bench/canonical.json` benchmark id (or the
+> nearest canonical comparator when none exists), a path/URL-shaped Criterion
+> output or flamegraph reference (a bare `flamegraph` word does not count), and
+> a numeric before/after pair; title/body arrive as argv with environment
+> fallback, scope validity stays with commitlint. Nineteen-case local matrix
+> exercised (non-perf/docs/bot/empty titles pass; missing section, baseline,
+> artifact, numbers, placeholder-only, untouched template and "template plus
+> numbers only" bodies fail; complete Criterion/flamegraph and argv
+> invocations pass). Syntactic presence/shape only — it does not validate
+> provenance or assert improvement. Prerequisite `fix(core)` lint repair (#759,
+> merged `e5d039e`) unblocked the workspace-wide clippy sensor of the mandatory
+> local harness gate, and the `lint` CI job gained the test job's RAM-backed
+> `/tmp` mount (same persistence-latency gate, previously red with zero diff).
+> `validated: false` and `reconcile_wave_32_remainder_and_flag_truth` stand:
+> the July audit has other exit criteria.
+
 > Last completed (verified 2026-09-18):
 > `triage_pr_roast_2026_09_18` — two open PRs. #735 (`fix(framework)`: GraphRAG
 > config validation) verified against the owner crate's `MAX_TRAVERSAL_DEPTH`,
@@ -215,18 +236,6 @@ actions:
       csm-duckdb is the last unpublished companion crate (duckdb_companion_published
       flag). Follow agents-docs/release-safety.md: trusted publishing, synchronized
       Cargo.lock, verify ownership before `cargo publish`.
-
-  - name: enforce_perf_claim_evidence_gate
-    preconditions:
-      benchmarks_prove_performance: true
-    effects:
-      perf_pr_evidence_gate_enforced: true
-    notes: >
-      Structural guardrail against the #737/#739/#740/#754 Jules class: a
-      `perf(...)` PR is not review-ready without criterion output or a flamegraph
-      against plans/evidence/bench/canonical.json (ADR-0095). Encode in the PR
-      template and/or a CI check; reject `with_capacity`/collect rewrites with no
-      attached numbers.
 
   - name: eliminate_retrieval_string_clones
     preconditions:
