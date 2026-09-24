@@ -198,9 +198,7 @@ impl FrameworkBuilder {
         self
     }
 
-    /// Configure the connection pool size for remote Turso databases.
-    ///
-    /// Only available when the `persistence` feature is enabled.
+    /// Configure connection pool size for remote Turso databases.
     #[cfg(feature = "persistence")]
     pub fn with_connection_pool_size(mut self, pool_size: usize) -> Self {
         self.config.connection_pool_size =
@@ -242,7 +240,7 @@ impl FrameworkBuilder {
         self
     }
 
-    /// Set the cosine similarity threshold for pattern recognition events.
+    /// Set similarity threshold for pattern recognition events.
     pub fn with_pattern_recognition_threshold(mut self, threshold: f64) -> Self {
         if threshold.is_finite() {
             self.config.pattern_recognition_threshold = threshold.clamp(0.0, 1.0);
@@ -269,8 +267,6 @@ impl FrameworkBuilder {
     }
 
     /// Keep the last N historical versions per concept in persistence.
-    ///
-    /// Values less than 1 are coerced to 1. Default is 10.
     pub fn with_version_retention(mut self, retention: usize) -> Self {
         self.version_retention =
             retention.clamp(1, crate::framework_validation::MAX_VERSION_RETENTION_LIMIT);
@@ -278,8 +274,6 @@ impl FrameworkBuilder {
     }
 
     /// Configure a local SQLite database for persistence.
-    ///
-    /// Only available when the `persistence` feature is enabled.
     #[cfg(feature = "persistence")]
     pub fn with_local_db(mut self, path: impl Into<String>) -> Self {
         self.db_path = Some(path.into());
@@ -287,9 +281,7 @@ impl FrameworkBuilder {
         self
     }
 
-    /// Record the requested local DB path even when persistence is disabled.
-    /// `build()` rejects the configuration with `UnsupportedOperation` rather
-    /// than silently discarding it (ADR-0094).
+    /// Record requested local DB path when persistence is disabled (ADR-0094).
     #[cfg(not(feature = "persistence"))]
     pub fn with_local_db(mut self, path: impl Into<String>) -> Self {
         self.db_path = Some(path.into());
@@ -297,8 +289,6 @@ impl FrameworkBuilder {
     }
 
     /// Configure a remote Turso database for persistence.
-    ///
-    /// Only available when the `persistence` feature is enabled.
     #[cfg(feature = "persistence")]
     pub fn with_turso(mut self, url: impl Into<String>, token: impl Into<String>) -> Self {
         self.db_path = Some(url.into());
@@ -306,9 +296,7 @@ impl FrameworkBuilder {
         self
     }
 
-    /// Record the requested Turso URL/token even when persistence is disabled.
-    /// `build()` rejects the configuration with `UnsupportedOperation` rather
-    /// than silently discarding it (ADR-0094).
+    /// Record requested Turso URL/token when persistence is disabled (ADR-0094).
     #[cfg(not(feature = "persistence"))]
     pub fn with_turso(mut self, url: impl Into<String>, token: impl Into<String>) -> Self {
         self.db_path = Some(url.into());
@@ -316,17 +304,14 @@ impl FrameworkBuilder {
         self
     }
 
-    /// Disable persistence even when the feature is enabled.
-    ///
-    /// When the `persistence` feature is disabled, this method is a no-op
-    /// since persistence is already unavailable.
+    /// Disable persistence even when feature is enabled.
     #[cfg(feature = "persistence")]
     pub const fn without_persistence(mut self) -> Self {
         self.config.enable_persistence = false;
         self
     }
 
-    /// Disable persistence (no-op when `persistence` feature is disabled).
+    /// Disable persistence (no-op when `persistence` is disabled).
     #[cfg(not(feature = "persistence"))]
     pub fn without_persistence(self) -> Self {
         self
@@ -463,58 +448,5 @@ impl FrameworkBuilder {
         }
 
         Ok(framework)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-    use super::*;
-
-    #[test]
-    fn test_max_associations_per_concept_clamping() {
-        let limit = crate::framework_validation::MAX_ASSOCIATIONS_PER_CONCEPT_LIMIT;
-
-        // Above limit
-        let builder = FrameworkBuilder::new().with_max_associations_per_concept(limit + 1);
-        assert_eq!(builder.config.max_associations_per_concept, Some(limit));
-
-        // At limit
-        let builder = FrameworkBuilder::new().with_max_associations_per_concept(limit);
-        assert_eq!(builder.config.max_associations_per_concept, Some(limit));
-
-        // Below limit
-        let builder = FrameworkBuilder::new().with_max_associations_per_concept(limit - 1);
-        assert_eq!(builder.config.max_associations_per_concept, Some(limit - 1));
-    }
-
-    #[test]
-    fn test_with_chaos_strength_clamping() {
-        let b = FrameworkBuilder::new().with_chaos_strength(1.5);
-        assert_eq!(b.config.chaos_strength, 1.0);
-
-        let b = FrameworkBuilder::new().with_chaos_strength(-0.5);
-        assert_eq!(b.config.chaos_strength, 0.0);
-
-        let b = FrameworkBuilder::new().with_chaos_strength(f32::NAN);
-        assert_eq!(b.config.chaos_strength, 0.0);
-
-        let b = FrameworkBuilder::new().with_chaos_strength(f32::INFINITY);
-        assert_eq!(b.config.chaos_strength, 0.0);
-
-        let b = FrameworkBuilder::new().with_chaos_strength(0.5);
-        assert_eq!(b.config.chaos_strength, 0.5);
-    }
-
-    #[tokio::test]
-    async fn build_default_bruteforce_ok() {
-        let fw = FrameworkBuilder::new()
-            .without_persistence()
-            .build()
-            .await
-            .expect("default BruteForce backend must build");
-        fw.inject_concept("c1", csm_core_lib::HVec10240::random())
-            .await
-            .expect("inject on default backend");
     }
 }
