@@ -12,31 +12,29 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 2. **Review uncommitted changes**: `git status --short && git diff HEAD`. Scope out or commit unrelated diffs first.
 3. **LOC gate pre-check**: `find src crates -name '*.rs' -not -path '*/target/*' -exec wc -l {} + | sort -rn | head -20` (all source files must be ≤ 500 LOC).
 4. **Parity & CI check**: `./scripts/check-adr-parity.sh` (ADR parity), `gh run list --workflow=ci.yml --limit 3`, and check conflicts via `scripts/pr-triage.sh` (or `gh pr list --state open --json number,mergeable --jq '.[] | select(.mergeable == "CONFLICTING")'`).
-5. **Roast before implement or merge (MANDATORY)**: every GitHub PR and issue is reviewed and roasted **before** implementing it or merging it — never take a PR/issue at face value. Run the `pr-roast-triage` skill: verify CI truth from annotations (not badges), detect duplicates, and apply the roast rubric (atomicity, title/body honesty, commitlint scope, preserved rationale comments, additive-only `deny.toml`, measured perf claims, no lockfile/`export.json` noise). A PR with no demonstrated impact is **closed as no-op with a roast comment**, not merged. Record the verdict in `plans/PR_ROAST_<YYYY_MM_DD>.md`, update `progress/PROGRESS.md` + `progress/LEARNINGS.md`, and distill the reusable lesson into `.agents/skills/` (update/compact an existing skill rather than adding a near-duplicate). See `skill://pr-roast-triage`.
-6. **Verify binary truth**: Confirm behavior against `./target/debug/csm`, never against a stale global install.
+5. **Verify binary truth**: Confirm behavior against `./target/debug/csm`, never against a stale global install.
 
 ### Phase 2: Planning (WHY)
-7. **Plan before implementing**: For tasks with 3+ steps, map affected files/crates into `plans/`. Use `triz-analysis` for trade-offs and `task-decomposition` for swarms.
-8. **Pre-flight dependency graph**: Analyze crate dependencies before splitting work across multiple PRs.
+6. **Plan before implementing**: For tasks with 3+ steps, map affected files/crates into `plans/`. Use `triz-analysis` for trade-offs and `task-decomposition` for swarms.
+7. **Pre-flight dependency graph**: Analyze crate dependencies before splitting work across multiple PRs.
 
 ### Phase 3: Implementation (HOW)
-9. **Precision editing**: Read before editing. Preserve comments and docstrings. Child module extraction (e.g. `hyperdim_binary_serde.rs`) is required over comment stripping when approaching 500 LOC.
-10. **Perf claims require evidence**: Any PR with perf claims MUST attach Criterion benchmark numbers or flamegraphs via `benchmarking-perf`.
-11. **Validation gates**: Run `./scripts/validate.sh` (fmt, clippy `-D warnings`, test, deny, ADR parity). If touching CLI, run `cargo test --test cli_parity --features cli`.
-12. **Update state files**:
-   - Update `plans/GOAP_STATE.md`: `action_last_completed` (MUST appear exactly once, last key), module LOC, test counts.
-   - Update `plans/ACTIONS.md`: remove completed action, update status.
-   - Append learnings to `progress/LEARNINGS.md` and progress to `progress/PROGRESS.md`.
+8. **Precision editing**: Read before editing. Preserve comments and docstrings. Child module extraction (e.g. `hyperdim_binary_serde.rs`) is required over comment stripping when approaching 500 LOC.
+9. **Perf claims require evidence**: Any PR with perf claims MUST attach Criterion benchmark numbers or flamegraphs via `benchmarking-perf`.
+10. **Validation gates**: Run `./scripts/validate.sh` (fmt, clippy `-D warnings`, test, deny, ADR parity). If touching CLI, run `cargo test --test cli_parity --features cli`.
+11. **Update state files**:
+    - Update `plans/GOAP_STATE.md`: `action_last_completed` (MUST appear exactly once, last key), module LOC, test counts.
+    - Update `plans/ACTIONS.md`: remove completed action, update status.
+    - Append learnings to `progress/LEARNINGS.md` and progress to `progress/PROGRESS.md`.
 
 ### Phase 4: Compound Engineering
-13. **Encode corrections**: Fix the immediate issue, then encode a rule in `AGENTS.md` or `agents-docs/` to prevent recurrence.
+12. **Encode corrections**: Fix the immediate issue, then encode a rule in `AGENTS.md` or `agents-docs/` to prevent recurrence.
 
 ### Phase 5: Atomic Commit, PR & CI Gate
-14. **Branch first**: `main` is protected; always create a branch (`git checkout -b <type>/<scope>-<desc>`).
-15. **Commitlint validation**: Full range `npx commitlint --from origin/main --to HEAD --verbose`. Scopes are strictly defined in `commitlint.config.cjs`.
-16. **Push and create PR**: Push branch, create PR with clear description. If resolving child issues, list `Fixes #<id>` for each issue.
-17. **Roast verdict required before merge (MANDATORY)**: a PR may not merge until it has been reviewed and roasted per Phase 1 step 5 — CI green is necessary, not sufficient. Record the verdict (`plans/PR_ROAST_<date>.md`). On a no-impact PR: post the roast comment, close it, then update `progress/` and distill the lesson into `.agents/skills/`. Do not silently re-implement a closed PR's idea; a resubmission needs the evidence the roast demanded.
-18. **CI truth & merge**: Ensure all checks are green (including Codacy). Merge sequentially (`gh pr merge --squash --delete-branch`). **NEVER use `gh pr merge --auto` on multiple PRs** (rebase loop). After merge, rebase next PR, verify CI, repeat.
+13. **Branch first**: `main` is protected; always create a branch (`git checkout -b <type>/<scope>-<desc>`).
+14. **Commitlint validation**: Full range `npx commitlint --from origin/main --to HEAD --verbose`. Scopes are strictly defined in `commitlint.config.cjs`.
+15. **Push and create PR**: Push branch, create PR with clear description. If resolving child issues, list `Fixes #<id>` for each issue.
+16. **CI truth & merge**: Ensure all checks are green (including Codacy). Merge sequentially (`gh pr merge --squash --delete-branch`). **NEVER use `gh pr merge --auto` on multiple PRs** (rebase loop). After merge, rebase next PR, verify CI, repeat.
 
 ---
 
@@ -50,7 +48,6 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 6. **Encode errors immediately** — Every bug or workflow friction becomes a documented rule.
 7. **Reference, don't duplicate** — Point to source files/ADRs, do not duplicate content.
 8. **Never push directly to `main`** — Branch → commit → PR → verify green CI → squash-merge.
-9. **Roast before implement or merge** — Every GitHub PR/issue gets reviewed and roasted before you act on it. No demonstrated impact → close as no-op with the roast comment, then record the verdict, update `progress/`, and distill the lesson into `.agents/skills/`. CI green ≠ approved.
 
 ---
 

@@ -9,25 +9,6 @@ Review every open PR, close what has no independent impact, roast the rest
 with fix recommendations. The human merges manually in the emitted order —
 never auto-merge, never merge from this skill.
 
-## When this gate applies (MANDATORY)
-
-Roast **before implementing or merging** any GitHub PR or issue — never take
-one at face value, however green its CI or plausible its description. Bound in
-`AGENTS.md` (Phase 1 step 5, Phase 5 step 17, Core Rule 9):
-
-1. **Before implementing an issue/PR** — verify the premise, the affected code
-   path (which copy production actually executes), and the evidence bar *before*
-   writing code. A no-impact premise → close as no-op with the roast comment.
-2. **Before merging** — CI green is necessary, not sufficient. Emit a verdict
-   and record it (Step 6). No verdict, no merge.
-3. **On a no-impact PR** — roast comment first, then close, then update
-   `progress/PROGRESS.md` + `progress/LEARNINGS.md`, then distill the reusable
-   lesson into a skill. Do **not** quietly re-implement the closed idea; a
-   resubmission must carry the evidence the roast demanded.
-4. **Distill, don't duplicate** — the lesson goes into an existing skill
-   (compact it) unless it opens a genuinely new domain; a near-duplicate skill
-   is itself debt. `scripts/validate-skill-format.sh` gates skill files.
-
 ## Step 1 — Triage baseline (run first, before any opinion)
 
 ```bash
@@ -74,58 +55,9 @@ Close the losers with reason `superseded by #<keeper>`.
 - **commitlint scope**: must exist in `commitlint.config.cjs` `scope-enum`
   (`perf(hyperdim)` fails; only listed scopes pass).
 - **Rationale comments**: never deleted to "shorten" (`Never delete rationale comments`). Under 500 LOC gate pressure, bot PRs may attempt to strip docstrings/comments to make room for new code. Reject/roast this behavior; require extracting child submodules (e.g. `hyperdim_binary_serde.rs`) instead.
-  - **Verify before accusing** (PR #767, 2026-09-25). A 21-line doc removal
-    *looked* like comment-stripping, but `grep -c "ADR-0094"` returned 3 → 3:
-    the rationale was reworded, not lost. Count the knowledge that survives
-    (`grep -c` the ADR/issue tag on both sides), then name the exact contract
-    text that did not — here the `#[cfg(feature = "persistence")]` prose
-    ("Only available when…", "no-op since persistence is unavailable") on ~7
-    methods. Rewording is a nit; losing a documented contract is the
-    violation. Never report the former as the latter.
-  - A PR can violate this rule and still be **right on code** — #767's
-    `with_chaos_strength` leaked `NaN`/`±∞` into the reservoir. Say both, and
-    name which one blocks the merge.
-  - **Flipped test expectations are contract changes.** A test asserting
-    "negative strength fails" becoming "negative clamps" belongs in the body
-    as a deliberate contract change, not filed as a test fix.
-  - **`const fn` → `fn` is a public API change**; say so even when in-repo
-    callers are all runtime.
-- **`unsafe` bounds in generic code (PR #769, 2026-09-25)**: a `get_unchecked`
-  SAFETY comment that hardcodes a dimension while the fn is generic over a
-  trait constant is a **future out-of-bounds read**, not a perf tradeoff — all
-  current impls matching proves nothing about the next one. Verify the
-  invariant, then require the bound be type-enforced (`H::DIMENSION`) or the
-  trait document it. Also check the *other* shift in the same loop: `hash_bits`
-  is capped at 64 upstream precisely so `1u64 << i` cannot overflow.
-- **Self-contradicting evidence tables (PR #768, 2026-09-25)**: a "measured"
-  table with a headline number beside rows marked "Not measured" is a close.
-  Also reject research scaffolding committed to the repo root (arXiv/Crossref
-  search helpers, ad-hoc runners) and self-marked `[FALLBACK]` citations on a
-  new public API. Close **as submitted, not as rejected** — name the clean
-  diff that would be reviewable.
 - **deny.toml**: must only ADD ignores with advisory ID + reason. Deleting or
   commenting out existing ignores re-breaks `cargo deny` — reject.
 - **Perf claims**: no `criterion` output or flamegraph = not review-ready.
-- **Correctness and impact are separate verdicts** (PR #763, 2026-09-24). Never
-  let a correct diff pass on a bad claim, nor a good claim excuse a wrong one.
-  Adjudicate each independently:
-  - *Correctness* — provable by reading plus a throwaway harness. For an
-    algebraic/monotonicity argument, brute-force it: 186 (N,k) cases with ties,
-    negatives and duplicates, comparing subset **and returned values**
-    (`worst_abs_diff` must be 0). Zero mismatches → "correct, bit-identical".
-  - *Impact* — only by measurement on `csm-ref-01`. A FLOP-count reduction
-    inside a function dominated by allocation/partitioning is **not** a
-    speedup: check what the dominant term actually is before accepting the
-    claim. Interleave A/B/A/B and demand a consistent sign; shared hosts
-    sign-flip at ±25 % (same class as "Benchmark under load").
-  - A **correct-but-unmeasured** PR is not a no-op: request the evidence
-    (`## Performance Evidence`, enforced by `scripts/check-perf-pr-evidence.py`)
-    and the regression test that locks the new correctness property, and keep
-    the PR open. Reserve *close as no-op* for zero-delta or wrong diffs.
-  - Demand the parity test whenever the diff's justification is a correctness
-    argument — that test is worth more than the benchmark.
-  - Look for the degenerate case: when `k == N` the partition is skipped, so
-    deferring per-element work is a pure regression. Guard it.
 - **`export.json` / `Cargo.lock` noise**: timestamp-only or resolver-churn hunks
   must be dropped before merge.
 - **Bot comments** (Jules hello, Sonar/Codacy pass notes) are noise, not reviews.
