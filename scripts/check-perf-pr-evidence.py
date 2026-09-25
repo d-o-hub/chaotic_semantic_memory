@@ -21,6 +21,15 @@ validate provenance, and does not assert an improvement — a human still judges
 measurement quality. Scope validity of the ``perf(<scope>)`` title stays with
 commitlint's ``scope-enum`` and is deliberately not reimplemented here.
 
+Known limit, with the case that exposed it (PR #763): a PR can satisfy every
+requirement here while citing a benchmark that never executes the changed code.
+#763 defers scaling inside ``merge_single_list``, but the cited
+``merge_results_N1000_K20`` passes both lists non-empty, so ``merge_results``
+takes its HashMap path and the changed helper is never called — the reported
+delta measured unrelated code. No shape check can catch that; confirming the
+cited benchmark reaches the changed function is part of the human review, which
+is why a passing run prints the claim it accepted (see ``main``).
+
 Usage: GitHub Actions passes the PR title/body through the environment (never
 through shell interpolation) and may also pass them as positional arguments;
 environment variables are the fallback so a manual run needs only the env:
@@ -309,6 +318,28 @@ def main(argv: list[str]) -> int:
         report(failures)
         return 1
 
+    # Shape is satisfied. Print what was accepted so the claim is visible in the
+    # CI log — this check cannot judge whether the cited benchmark actually
+    # executes the changed code, so the summary is the handoff for that review.
+    accepted = []
+    if named_ids:
+        accepted.append("benchmark ids: " + ", ".join(named_ids))
+    if CANONICAL_BASELINE in without_angles:
+        accepted.append(f"baseline path: {CANONICAL_BASELINE}")
+    artifacts = sorted(URL_RE.findall(without_angles)) or [
+        token
+        for token in tokens
+        if "criterion/" in token.lower() or "flamegraph" in token.lower()
+    ]
+    if artifacts:
+        accepted.append("artifact: " + ", ".join(artifacts[:3]))
+    print("perf PR evidence gate: shape OK — " + "; ".join(accepted))
+    print(
+        "perf PR evidence gate: NOTE presence/shape only — it does not run the "
+        "benchmark, and it cannot tell whether the cited benchmark exercises the "
+        "changed code path (a bench may time a different branch entirely). A "
+        "human must confirm the measurement covers the change."
+    )
     return 0
 
 
