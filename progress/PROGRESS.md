@@ -1,5 +1,15 @@
 # PROGRESS
 
+## 2026-09-25: Three-PR Roast (#767, #768, #769)
+
+### Summary
+Second roast pass under the gate bound in `AGENTS.md` (merged `31f793f`). Three drafts, three different verdicts — and the first time the rubric's own rules were tested against myself: I initially read #767's 21-line doc removal as comment-stripping, then measured it (`grep -c "ADR-0094"` → 3 → 3) and found the rationale reworded, not lost. The roast says what was actually lost (the `#[cfg(feature = "persistence")]` contract prose on ~7 methods) and not what wasn't. The skill now carries that "verify before accusing" step so the next reviewer doesn't repeat my near-miss.
+
+### Actions
+- **#767** `fix(framework): clamp chaos_strength` — **merge after doc restoration.** The fix is real: `with_chaos_strength` passed `NaN`/`±∞`/out-of-range straight to the reservoir; the clamp plus boundary tests is right, and the 20-test builder baseline is green on main. Blocked only on restoring the persistence-feature contract prose, plus a body note for the `const fn` → `fn` API change and the flipped negative-value test expectation.
+- **#768** `feat: chaotic complex map` — **closed as submitted.** 10 research scratch files committed to the repo root, a self-marked `[FALLBACK — outside this run window]` citation behind a new public API, and a "~9x faster" headline beside "Not measured" rows for entropy/distribution/recall. The idea is not rejected; the packaging is. Remote branch deleted.
+- **#769** `perf(memory): get_unchecked in LSH projection` — **request evidence.** The SAFETY argument is correct (verified: `bit_pos < 10240` ⇒ `byte_idx >> 3 < 1280`, gated on `bytes.len() >= 1280`) and the safe path is retained — materially better than the #737/#739/#740/#754 class. Blocked on the evidence gate (live body → `exit 1`, missing `## Performance Evidence`) and on a real safety point: the bound is a hardcoded literal in a fn generic over `Hypervector`, so a future non-10240 impl becomes an out-of-bounds read, not a perf regression.
+- Records: `plans/PR_ROAST_2026_09_25.md` (153 LOC, per-PR verdicts + recommendations); three roast comments posted, with the closing comment on #768; three `progress/LEARNINGS.md` entries; rubric additions to `pr-roast-triage` (verify-before-accusing, unsafe-bounds-in-generic-code, self-contradicting-evidence-tables). `validate-skill-format.sh` 33/33.
 
 ## 2026-09-24: Roast Before Implement or Merge (AGENTS.md Rule)
 

@@ -74,6 +74,35 @@ Close the losers with reason `superseded by #<keeper>`.
 - **commitlint scope**: must exist in `commitlint.config.cjs` `scope-enum`
   (`perf(hyperdim)` fails; only listed scopes pass).
 - **Rationale comments**: never deleted to "shorten" (`Never delete rationale comments`). Under 500 LOC gate pressure, bot PRs may attempt to strip docstrings/comments to make room for new code. Reject/roast this behavior; require extracting child submodules (e.g. `hyperdim_binary_serde.rs`) instead.
+  - **Verify before accusing** (PR #767, 2026-09-25). A 21-line doc removal
+    *looked* like comment-stripping, but `grep -c "ADR-0094"` returned 3 → 3:
+    the rationale was reworded, not lost. Count the knowledge that survives
+    (`grep -c` the ADR/issue tag on both sides), then name the exact contract
+    text that did not — here the `#[cfg(feature = "persistence")]` prose
+    ("Only available when…", "no-op since persistence is unavailable") on ~7
+    methods. Rewording is a nit; losing a documented contract is the
+    violation. Never report the former as the latter.
+  - A PR can violate this rule and still be **right on code** — #767's
+    `with_chaos_strength` leaked `NaN`/`±∞` into the reservoir. Say both, and
+    name which one blocks the merge.
+  - **Flipped test expectations are contract changes.** A test asserting
+    "negative strength fails" becoming "negative clamps" belongs in the body
+    as a deliberate contract change, not filed as a test fix.
+  - **`const fn` → `fn` is a public API change**; say so even when in-repo
+    callers are all runtime.
+- **`unsafe` bounds in generic code (PR #769, 2026-09-25)**: a `get_unchecked`
+  SAFETY comment that hardcodes a dimension while the fn is generic over a
+  trait constant is a **future out-of-bounds read**, not a perf tradeoff — all
+  current impls matching proves nothing about the next one. Verify the
+  invariant, then require the bound be type-enforced (`H::DIMENSION`) or the
+  trait document it. Also check the *other* shift in the same loop: `hash_bits`
+  is capped at 64 upstream precisely so `1u64 << i` cannot overflow.
+- **Self-contradicting evidence tables (PR #768, 2026-09-25)**: a "measured"
+  table with a headline number beside rows marked "Not measured" is a close.
+  Also reject research scaffolding committed to the repo root (arXiv/Crossref
+  search helpers, ad-hoc runners) and self-marked `[FALLBACK]` citations on a
+  new public API. Close **as submitted, not as rejected** — name the clean
+  diff that would be reviewable.
 - **deny.toml**: must only ADD ignores with advisory ID + reason. Deleting or
   commenting out existing ignores re-breaks `cargo deny` — reject.
 - **Perf claims**: no `criterion` output or flamegraph = not review-ready.
