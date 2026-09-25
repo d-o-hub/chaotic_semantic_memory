@@ -36,7 +36,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 15. **Commitlint validation**: Full range `npx commitlint --from origin/main --to HEAD --verbose`. Scopes are strictly defined in `commitlint.config.cjs`.
 16. **Push and create PR**: Push branch, create PR with clear description. If resolving child issues, list `Fixes #<id>` for each issue.
 17. **Roast verdict required before merge (MANDATORY)**: a PR may not merge until it has been reviewed and roasted per Phase 1 step 5 — CI green is necessary, not sufficient. Record the verdict (`plans/PR_ROAST_<date>.md`). On a no-impact PR: post the roast comment, close it, then update `progress/` and distill the lesson into `.agents/skills/`. Do not silently re-implement a closed PR's idea; a resubmission needs the evidence the roast demanded.
-18. **CI truth & merge**: Ensure all checks are green (including Codacy). Merge sequentially (`gh pr merge --squash --delete-branch`). **NEVER use `gh pr merge --auto` on multiple PRs** (rebase loop). After merge, rebase next PR, verify CI, repeat.
+18. **CI truth & merge (one at a time, always current)**: **NEVER use `gh pr merge --auto`** — merge explicitly. Every PR MUST be **up to date with the latest `main`** at merge time: `git fetch origin main`, rebase the PR branch, push, wait for CI to go green on that new head, re-check `mergeable`/`mergeStateStatus`, and only then `gh pr merge <n> --squash --delete-branch`. A green CI on a stale branch is not merge evidence — it never ran against the tree that would land. Each merge moves `main`, so after every merge repeat the rebase → CI → merge cycle for the next PR; never batch merges on stale heads and never merge while another merge is in flight.
 
 ---
 
@@ -49,7 +49,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 5. **Plan before implementing** — Map dependencies before touching 3+ files.
 6. **Encode errors immediately** — Every bug or workflow friction becomes a documented rule.
 7. **Reference, don't duplicate** — Point to source files/ADRs, do not duplicate content.
-8. **Never push directly to `main`** — Branch → commit → PR → verify green CI → squash-merge.
+8. **Never push directly to `main`** — Branch → commit → PR → verify green CI → squash-merge. Every PR MUST be merged from a head that is up to date with the latest `main` (rebase → re-run CI → merge, one PR at a time); **NEVER** `gh pr merge --auto`.
 9. **Roast before implement or merge** — Every GitHub PR/issue gets reviewed and roasted before you act on it. No demonstrated impact → close as no-op with the roast comment, then record the verdict, update `progress/`, and distill the lesson into `.agents/skills/`. CI green ≠ approved.
 
 ---
