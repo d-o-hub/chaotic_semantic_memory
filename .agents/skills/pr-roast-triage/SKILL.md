@@ -82,6 +82,20 @@ Close the losers with reason `superseded by #<keeper>`.
     ("Only available when…", "no-op since persistence is unavailable") on ~7
     methods. Rewording is a nit; losing a documented contract is the
     violation. Never report the former as the latter.
+  - **A surviving tag is not a surviving contract.** Check every removed
+    sentence **against the code it documents**, not against the diff's line
+    count. The same PR's rework kept all three `ADR-0094` mentions yet dropped
+    two behaviour statements that are verifiable in the source: the pool-size
+    clamp/default (`clamp(1, MAX)` and default 10) and "`build()` rejects the
+    configuration with `UnsupportedOperation`". A tag tells a reader where to
+    look; the sentence tells them what happens.
+  - **Don't restore for symmetry.** A "Only available when feature X is
+    enabled" marker is redundant when `#[cfg(feature = "X")]` sits on the same
+    item and rustdoc renders the gate — say so rather than re-adding it. If you
+    do finish the restoration yourself, commit it as a maintainer action with
+    the per-line evidence in the message (as in `4f8c7b1`), and verify
+    **every** feature configuration when the docs sit on `cfg`-gated items
+    (`cargo check` with default, `--features cli`, `--no-default-features`).
   - A PR can violate this rule and still be **right on code** — #767's
     `with_chaos_strength` leaked `NaN`/`±∞` into the reservoir. Say both, and
     name which one blocks the merge.
