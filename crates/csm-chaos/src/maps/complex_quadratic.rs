@@ -94,7 +94,10 @@ mod tests {
             map2.next();
         }
 
-        assert!(libm::fabs(map1.real_z - map2.real_z) > 1e-5 || libm::fabs(map1.imag_z - map2.imag_z) > 1e-5);
+        assert!(
+            libm::fabs(map1.real_z - map2.real_z) > 1e-5
+                || libm::fabs(map1.imag_z - map2.imag_z) > 1e-5
+        );
     }
 
     #[test]
