@@ -199,6 +199,8 @@ impl FrameworkBuilder {
     }
 
     /// Configure connection pool size for remote Turso databases.
+    ///
+    /// Values less than 1 are coerced to 1. Default is 10.
     #[cfg(feature = "persistence")]
     pub fn with_connection_pool_size(mut self, pool_size: usize) -> Self {
         self.config.connection_pool_size =
@@ -282,6 +284,9 @@ impl FrameworkBuilder {
     }
 
     /// Record requested local DB path when persistence is disabled (ADR-0094).
+    ///
+    /// `build()` rejects the configuration with `UnsupportedOperation` rather
+    /// than silently discarding it.
     #[cfg(not(feature = "persistence"))]
     pub fn with_local_db(mut self, path: impl Into<String>) -> Self {
         self.db_path = Some(path.into());
@@ -297,6 +302,9 @@ impl FrameworkBuilder {
     }
 
     /// Record requested Turso URL/token when persistence is disabled (ADR-0094).
+    ///
+    /// `build()` rejects the configuration with `UnsupportedOperation` rather
+    /// than silently discarding it.
     #[cfg(not(feature = "persistence"))]
     pub fn with_turso(mut self, url: impl Into<String>, token: impl Into<String>) -> Self {
         self.db_path = Some(url.into());
