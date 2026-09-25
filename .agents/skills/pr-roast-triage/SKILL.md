@@ -6,8 +6,10 @@ description: Triage all open PRs — detect duplicates, verify CI truth, roast, 
 # PR Roast Triage
 
 Review every open PR, close what has no independent impact, roast the rest
-with fix recommendations. The human merges manually in the emitted order —
-never auto-merge, never merge from this skill.
+with fix recommendations. The roast emits a merge **order**; merging is an
+explicit owner decision. **Never `--auto`**, and when told to merge, follow
+Step 5 discipline: one PR at a time, each rebased onto the latest `main`
+with CI re-verified on that head before it lands.
 
 ## When this gate applies (MANDATORY)
 
@@ -137,7 +139,7 @@ Close the losers with reason `superseded by #<keeper>`.
   ensure all child issues (`Fixes #A`, `Fixes #B`) are declared in the PR body so all
   issues close cleanly upon merge.
 
-## Step 5 — Manual merge order (emit, do not execute)
+## Step 5 — Manual merge order (emit, do not execute unless instructed)
 
 1. Trivial green first (dependabot 1-liners).
 2. Security/clamp fixes (small, high value).
@@ -145,15 +147,24 @@ Close the losers with reason `superseded by #<keeper>`.
    migrations before perf touches on the same files).
 4. One keeper per duplicate cluster; closes reference the keeper.
 5. Mega-PRs and SIMD/`unsafe` last (need evidence + rebase after everything).
-6. After each merge: rebase next, re-run CI, re-check `mergeable`.
+6. **One PR at a time, and only from a current head.** Each merge moves `main`,
+   so every subsequent PR is behind by construction. Never `--auto`, never
+   batch. A green CI on a stale head proves nothing about the tree that lands.
 
 ```bash
-# per PR, in order:
+# per PR, in order — the rebase is mandatory, not optional:
 git fetch origin main
-gh pr checks <n>                       # all green?
+git rebase origin/main <branch>        # or: gh pr update-branch <n>
+git push --force-with-lease
+gh pr checks <n>                       # wait for GREEN on this new head
+gh pr view <n> --json mergeable,mergeStateStatus   # expect MERGEABLE/CLEAN
 git diff --stat origin/main...<branch> # no surprise reverts?
 gh pr merge <n> --squash --delete-branch
 ```
+
+Verified-safe shortcut: `gh api -X PUT repos/<owner>/<repo>/pulls/<n>/update-branch`
+then wait for CI; confirm a CI run exists for the *post-rebase* SHA before
+trusting a green tick.
 
 ## Step 6 — Record in codebase
 
