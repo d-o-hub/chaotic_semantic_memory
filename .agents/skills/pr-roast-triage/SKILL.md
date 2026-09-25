@@ -108,6 +108,23 @@ Close the losers with reason `superseded by #<keeper>`.
 - **deny.toml**: must only ADD ignores with advisory ID + reason. Deleting or
   commenting out existing ignores re-breaks `cargo deny` — reject.
 - **Perf claims**: no `criterion` output or flamegraph = not review-ready.
+  - **A green evidence gate proves shape, not coverage (PR #763, 2026-09-25).**
+    `scripts/check-perf-pr-evidence.py` checks that the PR body *has* a
+    `## Performance Evidence` section naming a baseline, an artifact and a
+    before/after pair — it never runs the bench. So the reviewer must trace the
+    cited benchmark to the changed lines: find the bench id in `benches/`, then
+    follow the guards it hits. #763 defers scaling inside `merge_single_list`,
+    but the cited `merge_results_N1000_K20` passes *both* lists non-empty, so
+    `merge_results` takes its HashMap path and the changed helper is never
+    called — the "after" number was slower (92.5 → 93.3 µs) because it timed
+    unrelated code. Check the sign too: an "after" that is *worse* is evidence
+    against the claim, not neutral.
+  - **Evidence belongs in the PR body.** A `## Performance Evidence` section in
+    a commit message does not satisfy the gate and does not reach a reviewer
+    reading the PR. Check the body, not the commits.
+  - A passing gate prints what it accepted (`shape OK — benchmark ids: …;
+    artifact: …`) plus a one-line scope warning; read that line in the CI log to
+    see the claim without opening the body.
 - **Correctness and impact are separate verdicts** (PR #763, 2026-09-24). Never
   let a correct diff pass on a bad claim, nor a good claim excuse a wrong one.
   Adjudicate each independently:
