@@ -68,18 +68,26 @@ impl<H: Hypervector> LshIndex<H> {
     /// Performance Optimization: Accepting pre-serialized bytes avoids redundant 1280-byte
     /// allocations when computing hashes across multiple LSH tables for the same hypervector.
     /// Replaced division (`/ 8`) and modulo (`% 8`) arithmetic with bitwise shift (`>> 3`)
-    /// and mask (`& 7`) operations. When `bytes.len() >= 1280`, uses `get_unchecked` to
-    /// eliminate bounds checking in the hot bit-projection loop.
+    /// and mask (`& 7`) operations. When the slice is at least one full serialized
+    /// hypervector (`H::DIMENSION / 8` bytes), uses `get_unchecked` to eliminate bounds
+    /// checking in the hot bit-projection loop.
     #[inline]
     fn compute_hash_from_bytes(&self, bytes: &[u8], table_idx: usize) -> u64 {
         let mut hash = 0u64;
         let bits = &self.projections[table_idx];
-        if bytes.len() >= 1280 {
+        // Bound is derived from the trait, not the current impls: every `bit_pos` is
+        // drawn from `0..H::DIMENSION` (see `LshIndex::new`), so `bit_pos >> 3` is
+        // strictly below `H::DIMENSION / 8`. Hard-coding 1280 here would be correct
+        // only while every `Hypervector` impl keeps `DIMENSION = 10240`; a future impl
+        // with a different dimension would make the unchecked read out of bounds.
+        let serialized_len = H::DIMENSION / 8;
+        if bytes.len() >= serialized_len {
             for (i, &bit_pos) in bits.iter().enumerate() {
                 let byte_idx = bit_pos >> 3;
                 let bit_idx = bit_pos & 7;
-                // SAFETY: bit_pos was initialized within 0..HVec10240::DIMENSION (10240),
-                // so byte_idx = bit_pos >> 3 is strictly < 1280 <= bytes.len().
+                // SAFETY: `bit_pos` is initialized in `0..H::DIMENSION` by
+                // `LshIndex::new`, hence `byte_idx = bit_pos >> 3 < H::DIMENSION / 8
+                // == serialized_len <= bytes.len()`.
                 let byte = unsafe { *bytes.get_unchecked(byte_idx) };
                 if (byte & (1 << bit_idx)) != 0 {
                     hash |= 1u64 << i;
