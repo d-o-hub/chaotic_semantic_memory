@@ -131,6 +131,27 @@
 > Earlier same-day completions (ADR-0097): `harden_public_f32_api_validation`
 > (PR #607), `recover_v037_failed_deployments` (v0.3.7 + v0.3.8 on crates.io).
 
+> Last completed (verified 2026-09-23):
+> `enforce_perf_claim_evidence_gate` — fail-closed CI check for the
+> #737/#739/#740/#754 class: `scripts/check-perf-pr-evidence.py` runs in the
+> always-on `commitlint` job of `ci.yml` for every PR and, for `perf(...)`
+> titles, requires a `## Performance Evidence` section (new PR template
+> section) naming a `plans/evidence/bench/canonical.json` benchmark id (or the
+> nearest canonical comparator when none exists), a path/URL-shaped Criterion
+> output or flamegraph reference (a bare `flamegraph` word does not count), and
+> a numeric before/after pair; title/body arrive as argv with environment
+> fallback, scope validity stays with commitlint. Nineteen-case local matrix
+> exercised (non-perf/docs/bot/empty titles pass; missing section, baseline,
+> artifact, numbers, placeholder-only, untouched template and "template plus
+> numbers only" bodies fail; complete Criterion/flamegraph and argv
+> invocations pass). Syntactic presence/shape only — it does not validate
+> provenance or assert improvement. Prerequisite `fix(core)` lint repair (#759,
+> merged `e5d039e`) unblocked the workspace-wide clippy sensor of the mandatory
+> local harness gate, and the `lint` CI job gained the test job's RAM-backed
+> `/tmp` mount (same persistence-latency gate, previously red with zero diff).
+> `validated: false` and `reconcile_wave_32_remainder_and_flag_truth` stand:
+> the July audit has other exit criteria.
+
 > Last completed (verified 2026-09-18):
 > `triage_pr_roast_2026_09_18` — two open PRs. #735 (`fix(framework)`: GraphRAG
 > config validation) verified against the owner crate's `MAX_TRAVERSAL_DEPTH`,
@@ -216,18 +237,6 @@ actions:
       flag). Follow agents-docs/release-safety.md: trusted publishing, synchronized
       Cargo.lock, verify ownership before `cargo publish`.
 
-  - name: enforce_perf_claim_evidence_gate
-    preconditions:
-      benchmarks_prove_performance: true
-    effects:
-      perf_pr_evidence_gate_enforced: true
-    notes: >
-      Structural guardrail against the #737/#739/#740/#754 Jules class: a
-      `perf(...)` PR is not review-ready without criterion output or a flamegraph
-      against plans/evidence/bench/canonical.json (ADR-0095). Encode in the PR
-      template and/or a CI check; reject `with_capacity`/collect rewrites with no
-      attached numbers.
-
   - name: eliminate_retrieval_string_clones
     preconditions:
       perf_pr_evidence_gate_enforced: true
@@ -249,4 +258,32 @@ actions:
       is stale (ownership dedup landed 2026-09-15/18, evidence waves 2026-09-17/21),
       and `validated: false`'s justification with it. Verify against
       plans/GOAP_AUDIT_2026_07_14.md exit criteria, then flip in place.
+
+  - name: regenerate_stale_llms_dependency_versions
+    preconditions: []
+    effects:
+      llms_dependency_versions_current: true
+    notes: >
+      Committed `llms.txt`/`llms-full.txt` drift from `Cargo.lock`: they still
+      list opentelemetry 0.27 while the lockfile resolved 0.32.0 after the
+      #729 security bump. Last regenerated at #714, before that bump.
+      `scripts/validate.sh` regenerates and validates these files but never
+      commits them, so the drift accumulates silently. Regenerate, commit, and
+      decide whether the regeneration step belongs in a gate that fails on
+      drift (CI `lint` runs validate.sh) rather than only warning.
+
+  - name: migrate_release_wait_for_ci_to_workflow_run
+    preconditions: []
+    effects:
+      release_wait_event_driven: true
+    notes: >
+      `release.yml`'s `wait-for-ci` polls `gh run list` on a `MAX_WAIT` ceiling
+      (1800 → 2700 → timed out again on run 36031855839 while main CI on the same
+      SHA sat `queued` ~40 min on a saturated runner pool). Polling cannot
+      distinguish "CI is slow" from "CI has not been scheduled", and
+      `gh run rerun` cannot help a run that is merely queued. Third occurrence
+      ⇒ stop raising the ceiling. Migrate the gate to a `workflow_run`
+      trigger on ci.yml completion (event-driven, no ceiling), keep the
+      `release-needed` version check, and verify with `gh workflow run` plus a
+      no-op dry run before trusting it on a real release.
 

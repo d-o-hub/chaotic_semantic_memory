@@ -1,5 +1,38 @@
 # PROGRESS
 
+## 2026-09-25: Three-PR Roast (#767, #768, #769)
+
+### Summary
+Second roast pass under the gate bound in `AGENTS.md` (merged `31f793f`). Three drafts, three different verdicts — and the first time the rubric's own rules were tested against myself: I initially read #767's 21-line doc removal as comment-stripping, then measured it (`grep -c "ADR-0094"` → 3 → 3) and found the rationale reworded, not lost. The roast says what was actually lost (the `#[cfg(feature = "persistence")]` contract prose on ~7 methods) and not what wasn't. The skill now carries that "verify before accusing" step so the next reviewer doesn't repeat my near-miss.
+
+### Actions
+- **#767** `fix(framework): clamp chaos_strength` — **merge after doc restoration.** The fix is real: `with_chaos_strength` passed `NaN`/`±∞`/out-of-range straight to the reservoir; the clamp plus boundary tests is right, and the 20-test builder baseline is green on main. Blocked only on restoring the persistence-feature contract prose, plus a body note for the `const fn` → `fn` API change and the flipped negative-value test expectation.
+- **#768** `feat: chaotic complex map` — **closed as submitted.** 10 research scratch files committed to the repo root, a self-marked `[FALLBACK — outside this run window]` citation behind a new public API, and a "~9x faster" headline beside "Not measured" rows for entropy/distribution/recall. The idea is not rejected; the packaging is. Remote branch deleted.
+- **#769** `perf(memory): get_unchecked in LSH projection` — **request evidence.** The SAFETY argument is correct (verified: `bit_pos < 10240` ⇒ `byte_idx >> 3 < 1280`, gated on `bytes.len() >= 1280`) and the safe path is retained — materially better than the #737/#739/#740/#754 class. Blocked on the evidence gate (live body → `exit 1`, missing `## Performance Evidence`) and on a real safety point: the bound is a hardcoded literal in a fn generic over `Hypervector`, so a future non-10240 impl becomes an out-of-bounds read, not a perf regression.
+- Records: `plans/PR_ROAST_2026_09_25.md` (153 LOC, per-PR verdicts + recommendations); three roast comments posted, with the closing comment on #768; three `progress/LEARNINGS.md` entries; rubric additions to `pr-roast-triage` (verify-before-accusing, unsafe-bounds-in-generic-code, self-contradicting-evidence-tables). `validate-skill-format.sh` 33/33.
+
+## 2026-09-24: Roast Before Implement or Merge (AGENTS.md Rule)
+
+### Summary
+Made the PR/issue roast a standing gate rather than a thing we remembered to do. `AGENTS.md` now binds it in three places: Phase 1 step 5 (review and roast before **implementing** an issue/PR — premise, affected code path, evidence bar), Phase 5 step 17 (**no verdict, no merge** — CI green is necessary, not sufficient), and Core Rule 9. A no-impact PR is a terminal outcome: roast comment → close → record `plans/PR_ROAST_<date>.md` → update `progress/` → distill the lesson into `.agents/skills/`; quietly re-implementing a closed PR's idea without the evidence it lacked is the failure mode the rule prevents.
+
+### Actions
+- `.agents/skills/pr-roast-triage/SKILL.md` gained a "When this gate applies (MANDATORY)" section (when the roast runs, the terminal no-impact flow, distill-don't-duplicate) — compacted into the existing skill rather than adding a near-duplicate; `scripts/validate-skill-format.sh` passes (33/33).
+- `progress/LEARNINGS.md` PR Triage section: one entry recording the #737/#739/#740/#754 + #520 pattern (5 rounds of close-then-guardrail before the rule existed).
+- AGENTS.md workflow steps renumbered continuously 1–18 across five phases; Core Rules 1–9; 90 LOC (≤ 200 cap).
+- Applied to the live queue: #763 (`perf(retrieval): defer score scaling in single list hybrid merge`, +66/−70, one file, no Criterion/flamegraph, no `## Performance Evidence`) **fails the new CI gate as-is** — it is the exact no-impact class this rule governs.
+
+## 2026-09-23 (perf gate): Perf-PR Evidence Gate Enforced
+
+### Summary
+`enforce_perf_claim_evidence_gate` landed: `scripts/check-perf-pr-evidence.py` runs in the always-on `commitlint` job of `.github/workflows/ci.yml` (no `detect-changes` dependency, so every PR is covered regardless of path filters) and, for titles beginning `perf(`, requires a `## Performance Evidence` section documenting a baseline (`plans/evidence/bench/canonical.json` or a benchmark id from it; nearest canonical comparator plus new output when the file has no entry), a path/URL-shaped Criterion output or flamegraph reference (a bare `flamegraph` word does not count), and a numeric before/after pair for the affected benchmark. Title and body reach the checker as positional argv with `PR_TITLE`/`PR_BODY` environment fallback (never shell interpolation of `${{ }}` into `run:`); scope validity stays with commitlint's `scope-enum`, non-`perf(...)` and bot titles exit zero, and the check is presence/shape only — it does not run benchmarks or assert improvement. `.github/PULL_REQUEST_TEMPLATE.md` gained the matching section.
+
+### Actions
+- Prerequisite merged first: `fix(core)` #759 (`e5d039e`) converts two `manual_range_contains` asserts in `csm-core-lib` re-export tests to `(0.0..1.0).contains(&v)`. Reason: CI's `lint` job and `validate.sh` both run clippy **root-scope** (no `--workspace`), so those two errors sat invisible to CI while the workspace-wide sensor in `scripts/harness-check.sh all` stayed red on main; the fix unblocks the local harness gate, not CI.
+- Nineteen-case local matrix exercised (adds adversarial template cases and the argv interface): non-perf/docs/bot/empty titles pass; missing section, empty body, missing baseline, missing artifact, missing numeric pair, placeholder-only, untouched-template, and "template + numbers only with the artifact prompt unedited" bodies fail with named `::error::` lines; complete Criterion/flamegraph bodies and argv invocations pass.
+- `plans/ACTIONS.md` queue drops to three actions (`enforce_perf_claim_evidence_gate` removed), `plans/GOAP_STATE.md` sets `perf_pr_evidence_gate_enforced: true` and `action_last_completed: enforce_perf_claim_evidence_gate`; `validated: false` and the wave-32 reconciliation action stand (the July audit has other exit criteria).
+- No benchmark code, threshold or evidence artifacts touched; `benchmark-ci.yml` and `scripts/bench-baseline.sh compare` remain the measurement gates.
+
 ## 2026-09-23: Harness-Trial Queue Reconciled (#748-#752)
 
 ### Summary

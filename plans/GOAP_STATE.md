@@ -52,7 +52,7 @@ world_state:
   wave_32_status: in_progress    # 2026-09-22: ownership (09-15/18) + evidence (09-17/21) landed; remainder is flag-truth reconciliation (queued)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 4        # 2026-09-23: harness-trial queue reconciled (#748/#751/#752 closed with verdicts; #749 ranker merged in #757; #750 closed not-adopted — P0 parity failed, keep install-hooks.sh path); remainder is #754 followups + backlog (see plans/ACTIONS.md)
+  queued_actions_count: 5        # 2026-09-24: perf-evidence gate enforced (#760, `e189a9e`); queue is publish_csm_duckdb_companion, eliminate_retrieval_string_clones, wave-32 flag reconciliation, regenerate_stale_llms_dependency_versions, migrate_release_wait_for_ci_to_workflow_run
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: true            # 2026-08-12: no TODO in src/ crates/
@@ -67,6 +67,7 @@ world_state:
   fuzz_scheduled_full_runs: true                  # fuzz-full weekly cron (Sun 03:00 UTC); nightly toolchain + nix shell dropped (PR #690); first scheduled green 2026-09-13 (run 34746887403) after red ×6 (08-02..09-06)
   duckdb_companion_published: false               # csm-duckdb not on crates.io
   benchmarks_prove_performance: true              # 2026-09-21: named runner (plans/REFERENCE_RUNNER.md), canonical criterion baseline (plans/evidence/bench/canonical.json, 88 benches + CI), release-scale evidence (plans/evidence/scale_release_2026_09_21: ANN to 200k, memory/storage to 500k), npm package evidence (plans/evidence/wasm_2026_09_21)
+  perf_pr_evidence_gate_enforced: true           # 2026-09-23: ci.yml commitlint job runs scripts/check-perf-pr-evidence.py for `perf(...)` PR titles; PR template carries `## Performance Evidence`
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
   deferred_phase2_optimizations: false            # ADR-0024 (trigger: >200k concepts + latency issues)
 
@@ -106,4 +107,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: triage_harness_trial_issues_748_752
+  action_last_completed: enforce_perf_claim_evidence_gate
