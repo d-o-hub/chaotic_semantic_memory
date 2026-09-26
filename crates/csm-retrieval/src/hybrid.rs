@@ -141,10 +141,7 @@ pub fn normalize_scores_in_place(scores: &mut [(String, f32)]) {
 ///
 /// Bypasses HashMap allocation, lookup, and entry insertion, returning directly.
 fn merge_single_list(results: &[(String, f32)], weight: f32, top_k: usize) -> Vec<(String, f32)> {
-    if results.is_empty() {
-        return Vec::new();
-    }
-    if top_k == 0 {
+    if results.is_empty() || top_k == 0 {
         return Vec::new();
     }
 
@@ -167,20 +164,27 @@ fn merge_single_list(results: &[(String, f32)], weight: f32, top_k: usize) -> Ve
             .map(|(id, _)| (id.as_str(), weight))
             .collect()
     } else {
-        let factor = weight / range;
         results
             .iter()
-            .map(|(id, score)| (id.as_str(), (score - min) * factor))
+            .map(|(id, score)| (id.as_str(), *score))
             .collect()
     };
 
-    // 0-based selection: partition exactly top_k elements. top_k >= 1 because
-    // merge_results rejects 0 before calling this helper.
+    // Defer min-max score scaling until after select_nth_unstable_by top-k selection
+    // and truncation. Linear monotonicity preserves relative ranking.
     if ref_results.len() > top_k {
         let nth = top_k - 1;
         ref_results.select_nth_unstable_by(nth, |a, b| b.1.total_cmp(&a.1));
         ref_results.truncate(top_k);
     }
+
+    if range >= f32::EPSILON {
+        let factor = weight / range;
+        for item in &mut ref_results {
+            item.1 = (item.1 - min) * factor;
+        }
+    }
+
     ref_results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
 
     ref_results
@@ -220,60 +224,56 @@ pub fn merge_results(
         HashMap::with_capacity(bm25_results.len() + hdc_results.len());
 
     // Fold min/max then insert — no intermediate Vec allocation.
-    if !bm25_results.is_empty() {
-        let mut min = f32::INFINITY;
-        let mut max = f32::NEG_INFINITY;
-        for (_, s) in bm25_results {
-            let s = *s;
-            if s < min {
-                min = s;
-            }
-            if s > max {
-                max = s;
-            }
+    let mut min = f32::INFINITY;
+    let mut max = f32::NEG_INFINITY;
+    for (_, s) in bm25_results {
+        let s = *s;
+        if s < min {
+            min = s;
         }
-        let range = max - min;
-        if range < f32::EPSILON {
-            for (id, _) in bm25_results {
-                combined.insert(id.as_str(), kw_weight);
-            }
-        } else {
-            let factor = kw_weight / range;
-            for (id, score) in bm25_results {
-                combined.insert(id.as_str(), (score - min) * factor);
-            }
+        if s > max {
+            max = s;
+        }
+    }
+    let range = max - min;
+    if range < f32::EPSILON {
+        for (id, _) in bm25_results {
+            combined.insert(id.as_str(), kw_weight);
+        }
+    } else {
+        let factor = kw_weight / range;
+        for (id, score) in bm25_results {
+            combined.insert(id.as_str(), (score - min) * factor);
         }
     }
 
-    if !hdc_results.is_empty() {
-        let mut min = f32::INFINITY;
-        let mut max = f32::NEG_INFINITY;
-        for (_, s) in hdc_results {
-            let s = *s;
-            if s < min {
-                min = s;
-            }
-            if s > max {
-                max = s;
-            }
+    let mut min = f32::INFINITY;
+    let mut max = f32::NEG_INFINITY;
+    for (_, s) in hdc_results {
+        let s = *s;
+        if s < min {
+            min = s;
         }
-        let range = max - min;
-        if range < f32::EPSILON {
-            for (id, _) in hdc_results {
-                combined
-                    .entry(id.as_str())
-                    .and_modify(|s| *s += sem_weight)
-                    .or_insert(sem_weight);
-            }
-        } else {
-            let factor = sem_weight / range;
-            for (id, score) in hdc_results {
-                let weighted_norm = (score - min) * factor;
-                combined
-                    .entry(id.as_str())
-                    .and_modify(|s| *s += weighted_norm)
-                    .or_insert(weighted_norm);
-            }
+        if s > max {
+            max = s;
+        }
+    }
+    let range = max - min;
+    if range < f32::EPSILON {
+        for (id, _) in hdc_results {
+            combined
+                .entry(id.as_str())
+                .and_modify(|s| *s += sem_weight)
+                .or_insert(sem_weight);
+        }
+    } else {
+        let factor = sem_weight / range;
+        for (id, score) in hdc_results {
+            let weighted_norm = (score - min) * factor;
+            combined
+                .entry(id.as_str())
+                .and_modify(|s| *s += weighted_norm)
+                .or_insert(weighted_norm);
         }
     }
 
