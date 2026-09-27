@@ -217,21 +217,24 @@ impl TextEncoder {
             return HVec10240::zero();
         }
 
-        // Generate position-encoded vectors for each token
-        let encoded_vectors: Vec<HVec10240> = tokens
-            .iter()
-            .enumerate()
-            .map(|(pos, &token)| {
+        // Fast-path single-token inputs to avoid vector allocations and bit-sliced bundling overhead.
+        // Position shift for index 0 is always 0 (pos * stride = 0), so no permute needed.
+        let mut result = if tokens.len() == 1 {
+            self.token_to_hvec(tokens[0])
+        } else {
+            // Pre-allocate vector capacity to avoid dynamic reallocations during position encoding.
+            let mut encoded_vectors = Vec::with_capacity(tokens.len());
+            for (pos, &token) in tokens.iter().enumerate() {
                 let base = self.token_to_hvec(token);
-                base.permute(pos.saturating_mul(self.config.position_stride))
-            })
-            .collect();
+                encoded_vectors.push(base.permute(pos.saturating_mul(self.config.position_stride)));
+            }
 
-        // Bundle all position-encoded vectors.
-        // `HVec10240::bundle` only fails on empty input; we guard against that above,
-        // so the fallback to zero is a defensive no-op that avoids propagating an
-        // unreachable error through the public API.
-        let mut result = HVec10240::bundle(&encoded_vectors).unwrap_or_else(|_| HVec10240::zero());
+            // Bundle all position-encoded vectors.
+            // `HVec10240::bundle` only fails on empty input; we guard against that above,
+            // so the fallback to zero is a defensive no-op that avoids propagating an
+            // unreachable error through the public API.
+            HVec10240::bundle(&encoded_vectors).unwrap_or_else(|_| HVec10240::zero())
+        };
 
         // Optionally add n-gram overlay.
         // Same reasoning: bundle of non-empty slice is infallible in practice.
