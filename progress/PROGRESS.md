@@ -1,5 +1,20 @@
 # PROGRESS
 
+## 2026-09-27: llms Dependency Versions Synced + Drift Gate
+
+### Summary
+Executed `regenerate_stale_llms_dependency_versions`. The committed `llms.txt`/`llms-full.txt` were last regenerated at #714 and still reported `opentelemetry 0.27`, `tracing-opentelemetry 0.28` and `rmcp 1.7` while the manifests carry `0.32`/`0.33`/`3.4` (bumps #728/#729), plus the `scale_evidence` example added in #733. `scripts/validate.sh` regenerated the files but never committed or compared them, so CI could not see the drift. Both files were regenerated through the pinned v0.1.1 generator (no hand-edits) and the validate step is now a failing drift gate.
+
+### Actions
+- `scripts/check-llms-sync.sh`: snapshots both files into a `mktemp -d` dir (EXIT trap), runs `scripts/gen-llms-txt.sh`, `cmp -s` each and prints `stale generated file: <name>` per drifted file (exit 1); missing inputs fail with `missing generated file: <name>` instead of an empty baseline; generator failure propagates its exit code. Regenerated files stay on disk for review.
+- `scripts/validate.sh` calls the checker in place of the bare generator (public-API LOC check unchanged); pre-commit/release/`sync-docs` regeneration paths intentionally untouched.
+- `scripts/test-llms-sync.sh`: five fixture cases in a mock repo with a stub generator — synced passes; stale `llms.txt` and stale `llms-full.txt` each fail and are named; missing input fails; generator failure exits 3. No Cargo/network; ShellCheck clean.
+- Verification: `scripts/test-llms-sync.sh` 5/5; checker run twice on synchronized files exits 0 both times and leaves both files byte-identical (`sha256sum`); induced drift exits 1 naming `llms.txt` and aborts a `set -euo pipefail` caller; ShellCheck clean. `./scripts/validate.sh` stopped at the known local link-OOM (`cargo test --no-run --all-features`, `ld` SIGKILL — environment, LEARNINGS 2026-09-23); the same sensors rerun with `CARGO_PROFILE_TEST_DEBUG=0 CARGO_BUILD_JOBS=4`: `cargo test --all-targets --all-features` exit 0, `cargo deny check` ok, `./scripts/harness-check.sh all` green (fmt, workspace clippy, deny, test, arch). ADR parity ok; LOC gate max 500. No Rust sources changed (`./target/debug/csm` behavior untouched).
+
+### State
+- `plans/ACTIONS.md`: `regenerate_stale_llms_dependency_versions` removed; `queued_actions_count` 5 → 4; `llms_dependency_versions_current: true`; `action_last_completed: regenerate_stale_llms_dependency_versions`.
+- Rule encoded in `agents-docs/hard-constraints.md` (generated listings must not drift; checker + fixture tests named).
+
 ## 2026-09-25 (wave 2): Merge Discipline Bound + Queue Cleared
 
 ### Summary

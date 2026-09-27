@@ -70,7 +70,7 @@ if [[ -x scripts/wasm_size_gate.sh ]]; then
 fi
 
 echo "==> Generating/validating llms.txt and llms-full.txt"
-scripts/gen-llms-txt.sh
+scripts/check-llms-sync.sh
 
 LOC=$(grep -cE '^\s*(pub |fn |struct |enum |trait |impl )' llms-full.txt || true)
 echo "Public API surface: $LOC symbols"
