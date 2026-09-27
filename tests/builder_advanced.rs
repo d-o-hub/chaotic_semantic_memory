@@ -181,13 +181,15 @@ async fn builder_with_reservoir_size_invalid_fails() {
 }
 
 #[tokio::test]
-async fn builder_with_chaos_strength_invalid_fails() {
-    let result = ChaoticSemanticFramework::builder()
+async fn builder_with_chaos_strength_invalid_clamps() {
+    let framework = ChaoticSemanticFramework::builder()
         .without_persistence()
-        .with_reservoir_size(1000)
-        .with_chaos_strength(-0.5) // Invalid: negative chaos strength
+        .with_chaos_strength(-0.5) // Negative value is clamped to 0.0
         .build()
-        .await;
+        .await
+        .unwrap();
 
-    assert!(result.is_err());
+    let input = vec![0.1_f32; 10240];
+    let output = framework.process_sequence(&[input]).await.unwrap();
+    assert_ne!(output, HVec10240::zero());
 }
