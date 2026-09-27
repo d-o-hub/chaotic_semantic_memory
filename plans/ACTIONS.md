@@ -227,16 +227,6 @@
 > unchanged because no queued GOAP action was in scope.
 
 actions:
-  - name: publish_csm_duckdb_companion
-    preconditions:
-      ci_all_checks_passed: true
-    effects:
-      duckdb_companion_published: true
-    notes: >
-      csm-duckdb is the last unpublished companion crate (duckdb_companion_published
-      flag). Follow agents-docs/release-safety.md: trusted publishing, synchronized
-      Cargo.lock, verify ownership before `cargo publish`.
-
   - name: eliminate_retrieval_string_clones
     preconditions:
       perf_pr_evidence_gate_enforced: true
@@ -273,4 +263,25 @@ actions:
       trigger on ci.yml completion (event-driven, no ceiling), keep the
       `release-needed` version check, and verify with `gh workflow run` plus a
       no-op dry run before trusting it on a real release.
+
+  - name: fix_crates_publish_precheck_and_add_duckdb
+    preconditions: []
+    effects:
+      crates_publish_precheck_ownership_aware: true
+      csm_duckdb_in_release_publish_order: true
+    notes: >
+      Found while publishing csm-duckdb 0.3.8 (2026-09-27). (1) The
+      name-availability pre-check in `.github/workflows/release.yml` flags our own
+      older version as an unrelated-project conflict — simulated against the live
+      registry at 0.3.9 it sets NAME_CONFLICT=true for all seven published
+      companions and exits 1, so the next version release fails before publishing
+      anything. Make it ownership-aware (crates.io owners API) or compare against
+      the published version set. (2) `cargo publish` verification resolves
+      dev-dependencies against the registry (probe: dev-dep `serde = "99"` fails
+      package prep), and csm-duckdb dev-depends on the root crate — it must
+      publish in a dedicated step AFTER `Publish to crates.io`; the companion loop
+      swallows failures and would silently skip it. (3) The `curl`-based
+      `crates-check` gets a 403 from crates.io with curl's default UA (Fastly);
+      prefer `cargo search` or a contact UA. Evidence: `progress/LEARNINGS.md`
+      (2026-09-27) and `progress/PROGRESS.md`.
 
