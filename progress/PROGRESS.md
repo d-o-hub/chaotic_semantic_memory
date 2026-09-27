@@ -1,5 +1,19 @@
 # PROGRESS
 
+## 2026-09-27 (wave 2): csm-duckdb First Publish
+
+### Summary
+Executed `publish_csm_duckdb_companion`. `csm-duckdb` was the last unpublished companion crate (name free; `chaotic_semantic_memory` and `csm-chaos` owned by `d-o-hub`). Readiness before the irreversible step: `cargo metadata --locked` clean, `cargo package --list` reviewed (tracked test fixtures only), and a full `cargo publish --dry-run -p csm-duckdb` (package extracted and compiled from the tarball, 13m25s). Published `csm-duckdb 0.3.8` at 2026-09-27T14:07:08Z (38 356 B); verified via `cargo search` (0.3.8), `cargo owner --list` (`d-o-hub`) and the crates.io API.
+
+### Findings (queued as `fix_crates_publish_precheck_and_add_duckdb`)
+- `cargo publish` verification resolves dev-dependencies against the registry (probe crate: dev-dep `serde = "99"` fails package prep). `csm-duckdb` dev-depends on `chaotic_semantic_memory`, so it must publish *after* the root crate; the release loop publishes companions first and swallows failures — appending it to that loop would silently skip it every release.
+- `release.yml`'s name-availability pre-check reads our own older version as an unrelated-project conflict: simulated against the live registry at 0.3.9 it sets `NAME_CONFLICT=true` and exits 1 for all seven published companions — the next version release fails before publishing anything.
+- The `crates-check` `curl` probe receives a 403 (Fastly) with curl's default UA — no `"version"` key in the body — so the "already published → skip" short-circuit cannot be trusted as written (a descriptive UA returns JSON).
+
+### State
+- `plans/ACTIONS.md`: `publish_csm_duckdb_companion` removed; `fix_crates_publish_precheck_and_add_duckdb` queued; `queued_actions_count` stays 4.
+- `plans/GOAP_STATE.md`: `duckdb_companion_published: true`; `action_last_completed: publish_csm_duckdb_companion`; `main_head` refreshed.
+
 ## 2026-09-27: llms Dependency Versions Synced + Drift Gate
 
 ### Summary

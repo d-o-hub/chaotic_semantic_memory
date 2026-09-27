@@ -29,7 +29,7 @@ world_state:
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "4cf4f2c"           # 2026-09-27: #778 llms dependency sync + check-llms-sync drift gate in validate.sh
+  main_head: "af2c062"           # 2026-09-27: #779 records the llms sync wave (latest main at record time)
   tests_count: 1029              # 2026-09-18: unique compiled behavior (scripts/coverage-report.sh inventory)
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
   coverage_lines_percent: 74     # 2026-09-18: cargo +nightly llvm-cov --workspace --lib --tests --branch
@@ -52,7 +52,7 @@ world_state:
   wave_32_status: in_progress    # 2026-09-22: ownership (09-15/18) + evidence (09-17/21) landed; remainder is flag-truth reconciliation (queued)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 4        # 2026-09-27: regenerate_stale_llms_dependency_versions completed; queue is publish_csm_duckdb_companion, eliminate_retrieval_string_clones, wave-32 flag reconciliation, migrate_release_wait_for_ci_to_workflow_run
+  queued_actions_count: 4        # 2026-09-27: publish_csm_duckdb_companion completed; queue is eliminate_retrieval_string_clones, wave-32 flag reconciliation, migrate_release_wait_for_ci_to_workflow_run, fix_crates_publish_precheck_and_add_duckdb
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: true            # 2026-08-12: no TODO in src/ crates/
@@ -65,7 +65,7 @@ world_state:
   critical_skill_evals_passing: false             # behavioral evals deferred
   fuzz_short_runs_on_pr: true                     # fuzz.yml fuzz-short job: 30s runs of changed targets on PRs
   fuzz_scheduled_full_runs: true                  # fuzz-full weekly cron (Sun 03:00 UTC); nightly toolchain + nix shell dropped (PR #690); first scheduled green 2026-09-13 (run 34746887403) after red ×6 (08-02..09-06)
-  duckdb_companion_published: false               # csm-duckdb not on crates.io
+  duckdb_companion_published: true                # 2026-09-27: csm-duckdb 0.3.8 first-published (owner d-o-hub); release.yml lockstep integration queued
   benchmarks_prove_performance: true              # 2026-09-21: named runner (plans/REFERENCE_RUNNER.md), canonical criterion baseline (plans/evidence/bench/canonical.json, 88 benches + CI), release-scale evidence (plans/evidence/scale_release_2026_09_21: ANN to 200k, memory/storage to 500k), npm package evidence (plans/evidence/wasm_2026_09_21)
   perf_pr_evidence_gate_enforced: true           # 2026-09-23: ci.yml commitlint job runs scripts/check-perf-pr-evidence.py for `perf(...)` PR titles; PR template carries `## Performance Evidence`
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
@@ -108,4 +108,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: regenerate_stale_llms_dependency_versions
+  action_last_completed: publish_csm_duckdb_companion
