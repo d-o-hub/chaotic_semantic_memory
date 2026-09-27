@@ -106,29 +106,55 @@ impl ConceptGraph {
 
     /// Match tokens to concept IDs via the label index.
     pub fn match_tokens(&self, tokens: &[String]) -> Vec<String> {
+        self.match_tokens_ref(tokens)
+            .into_iter()
+            .map(str::to_string)
+            .collect()
+    }
+
+    /// Match tokens to borrowed concept IDs via the label index.
+    ///
+    /// Allocation-free counterpart of [`ConceptGraph::match_tokens`] for hot
+    /// paths: the ids borrow from the graph, so callers that only feed them to
+    /// [`ConceptGraph::expand_ref`] avoid materialising owned strings for every
+    /// match.
+    pub fn match_tokens_ref<'a>(&'a self, tokens: &[String]) -> Vec<&'a str> {
         let mut matched = std::collections::HashSet::new();
         for token in tokens {
             // Algorithmic Optimization: Use &str references in the matched set to avoid
             // cloning concept IDs during the matching process.
             if let Some(ids) = self.label_index.get(token) {
-                matched.extend(ids.iter().map(|s| s.as_str()));
+                matched.extend(ids.iter().map(String::as_str));
             } else {
                 // If not found, attempt case-insensitive lookup
                 let lowered = token.to_lowercase();
                 if &lowered != token {
                     if let Some(ids) = self.label_index.get(&lowered) {
-                        matched.extend(ids.iter().map(|s| s.as_str()));
+                        matched.extend(ids.iter().map(String::as_str));
                     }
                 }
             }
         }
-        matched.into_iter().map(|s| s.to_string()).collect()
+        matched.into_iter().collect()
     }
 
     /// Expand concept IDs to their labels and related concept labels.
     pub fn expand(&self, concept_ids: &[String], max_depth: u8) -> Vec<String> {
+        let refs: Vec<&str> = concept_ids.iter().map(String::as_str).collect();
+        self.expand_ref(&refs, max_depth)
+            .into_iter()
+            .map(str::to_string)
+            .collect()
+    }
+
+    /// Expand borrowed concept IDs to borrowed labels and related concept labels.
+    ///
+    /// Allocation-free counterpart of [`ConceptGraph::expand`] for hot paths:
+    /// the labels borrow from the graph, so a caller may truncate the result to
+    /// its top-k before any caller materialises owned strings.
+    pub fn expand_ref<'a>(&'a self, concept_ids: &[&'a str], max_depth: u8) -> Vec<&'a str> {
         let mut expanded = std::collections::HashSet::new();
-        let mut to_visit: Vec<(&str, u8)> = concept_ids.iter().map(|id| (id.as_str(), 0)).collect();
+        let mut to_visit: Vec<(&str, u8)> = concept_ids.iter().map(|id| (*id, 0)).collect();
         let mut visited = std::collections::HashSet::new();
 
         while let Some((id, depth)) = to_visit.pop() {
@@ -155,7 +181,7 @@ impl ConceptGraph {
             }
         }
 
-        expanded.into_iter().map(|s| s.to_string()).collect()
+        expanded.into_iter().collect()
     }
 
     /// Load concept graph from JSON.
@@ -292,6 +318,37 @@ mod tests {
         let expanded = graph.expand(&["c1".to_string()], 10);
         assert!(expanded.contains(&"label1".to_string()));
         assert!(expanded.contains(&"label2".to_string()));
+    }
+
+    #[test]
+    fn test_concept_graph_ref_variants_match_owned() {
+        let mut graph = ConceptGraph::new();
+        graph.add_concept(
+            CanonicalConcept::new("c1")
+                .with_label("Agent-Memory")
+                .with_related("c2"),
+        );
+        graph.add_concept(CanonicalConcept::new("c2").with_label("session"));
+
+        let tokens = vec![
+            "Agent-Memory".to_string(),
+            "SESSION".to_string(),
+            "absent".to_string(),
+        ];
+        let owned = graph.match_tokens(&tokens);
+        let borrowed = graph.match_tokens_ref(&tokens);
+        assert_eq!(borrowed.len(), owned.len());
+        for id in &borrowed {
+            assert!(owned.iter().any(|owned_id| owned_id == id));
+        }
+
+        let ids = vec!["c1".to_string()];
+        let owned_labels = graph.expand(&ids, 2);
+        let borrowed_labels = graph.expand_ref(&["c1"], 2);
+        assert_eq!(borrowed_labels.len(), owned_labels.len());
+        for label in &borrowed_labels {
+            assert!(owned_labels.iter().any(|owned_label| owned_label == label));
+        }
     }
 
     #[test]

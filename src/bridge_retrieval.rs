@@ -76,25 +76,28 @@ impl BridgeRetrieval {
         normalize_scores_in_place(&mut primary_results);
 
         // Step 3: Concept expansion (capped to top_k expansion labels)
-        let matched_ids = self.concept_graph.match_tokens(&tokens);
+        let matched_ids = self.concept_graph.match_tokens_ref(&tokens);
         let mut expanded_labels = self
             .concept_graph
-            .expand(&matched_ids, self.config.max_expansion_depth);
+            .expand_ref(&matched_ids, self.config.max_expansion_depth);
         expanded_labels.truncate(top_k);
 
         // Step 4: Incremental expansion scoring (no second full recall scan)
-        let expanded_results = if expanded_labels.is_empty() {
+        let expanded_results: Vec<(&str, f32)> = if expanded_labels.is_empty() {
             Vec::new()
         } else {
             let primary_set: std::collections::HashSet<&str> =
                 primary_results.iter().map(|(id, _)| id.as_str()).collect();
 
-            let mut target_ids: Vec<String> =
-                primary_results.iter().map(|(id, _)| id.clone()).collect();
+            // Carry borrowed ids to the API boundary: candidates are only
+            // materialised into owned strings when a BridgeHit is constructed.
+            let mut candidate_refs: Vec<&str> =
+                Vec::with_capacity(primary_results.len() + expanded_labels.len());
+            candidate_refs.extend(primary_results.iter().map(|(id, _)| id.as_str()));
 
-            for label in &expanded_labels {
-                if !primary_set.contains(label.as_str()) && singularity.get(ns, label).is_some() {
-                    target_ids.push(label.clone());
+            for label in expanded_labels.iter().copied() {
+                if !primary_set.contains(label) && singularity.get(ns, label).is_some() {
+                    candidate_refs.push(label);
                 }
             }
 
@@ -104,7 +107,11 @@ impl BridgeRetrieval {
                 .collect();
 
             let expanded_hv = HVec10240::bundle(&label_hvs).unwrap_or_else(|_| HVec10240::zero());
-            let mut results = singularity.score_specific_candidates(ns, &expanded_hv, &target_ids);
+            let mut results: Vec<(&str, f32)> = singularity
+                .score_candidate_positions(ns, &expanded_hv, &candidate_refs)
+                .into_iter()
+                .map(|(pos, sim)| (candidate_refs[pos], sim))
+                .collect();
             normalize_scores_in_place(&mut results);
             results
         };
@@ -163,16 +170,17 @@ impl BridgeRetrieval {
     fn merge_with_breakdown(
         &self,
         primary: &[(String, f32)],
-        expanded: &[(String, f32)],
+        expanded: &[(&str, f32)],
     ) -> Vec<BridgeHit> {
         use std::collections::HashMap;
 
-        let mut hit_map: HashMap<String, BridgeHit> = HashMap::new();
+        // Keyed by borrowed id: each surviving hit materialises its id once.
+        let mut hit_map: HashMap<&str, BridgeHit> = HashMap::new();
 
         // Process primary results (deterministic scores)
         for (id, score) in primary {
             hit_map.insert(
-                id.clone(),
+                id.as_str(),
                 BridgeHit {
                     id: id.clone(),
                     text_preview: None,
@@ -189,16 +197,16 @@ impl BridgeRetrieval {
 
         // Process expanded results (concept scores)
         for (id, score) in expanded {
-            if let Some(hit) = hit_map.get_mut(id) {
+            if let Some(hit) = hit_map.get_mut(*id) {
                 // Boost existing hit's concept score
                 hit.scores.concept = hit.scores.concept.max(*score);
                 hit.scores.evidence.push("concept_expansion".to_string());
             } else {
                 // New hit from expansion only
                 hit_map.insert(
-                    id.clone(),
+                    *id,
                     BridgeHit {
-                        id: id.clone(),
+                        id: (*id).to_string(),
                         text_preview: None,
                         scores: ScoreBreakdown {
                             deterministic: 0.0,

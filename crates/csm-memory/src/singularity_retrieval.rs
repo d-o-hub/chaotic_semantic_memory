@@ -231,17 +231,37 @@ impl Singularity {
         query: &HVec10240,
         candidate_ids: &[String],
     ) -> Vec<(String, f32)> {
+        let refs: Vec<&str> = candidate_ids.iter().map(String::as_str).collect();
+        self.score_candidate_positions(ns, query, &refs)
+            .into_iter()
+            .map(|(pos, sim)| (candidate_ids[pos].clone(), sim))
+            .collect()
+    }
+
+    /// Score borrowed candidate IDs, returning input positions instead of clones.
+    ///
+    /// Returns `(position, similarity)` pairs for candidates present in the
+    /// namespace, where `position` indexes `candidate_ids`; unknown ids are
+    /// skipped. Hot paths that only materialise owned ids at their API boundary
+    /// should prefer this over [`Singularity::score_specific_candidates`] — it
+    /// performs no per-candidate string cloning.
+    pub fn score_candidate_positions(
+        &self,
+        ns: &str,
+        query: &HVec10240,
+        candidate_ids: &[&str],
+    ) -> Vec<(usize, f32)> {
         let Some(ns_state) = self.get_namespace(ns) else {
             return Vec::new();
         };
 
         candidate_ids
             .iter()
-            .filter_map(|id| ns_state.id_to_index.get(id).map(|&idx| (id, idx)))
-            .map(|(id, idx)| {
+            .enumerate()
+            .filter_map(|(pos, id)| ns_state.id_to_index.get(*id).map(|&idx| (pos, idx)))
+            .map(|(pos, idx)| {
                 let dist = query.hamming_distance(&ns_state.concept_vectors[idx]);
-                let sim = 1.0 - (dist as f32 / 5120.0);
-                (id.clone(), sim)
+                (pos, 1.0 - (dist as f32 / 5120.0))
             })
             .collect()
     }
