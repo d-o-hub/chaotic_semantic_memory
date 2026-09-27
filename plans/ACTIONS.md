@@ -227,18 +227,6 @@
 > unchanged because no queued GOAP action was in scope.
 
 actions:
-  - name: eliminate_retrieval_string_clones
-    preconditions:
-      perf_pr_evidence_gate_enforced: true
-    effects:
-      retrieval_string_clones_removed: true
-    notes: >
-      The real hot-path win identified by the #754 roast: `score_specific_candidates`
-      and the scan tails materialise `(String, f32)` with a clone per candidate
-      (257 allocs / 11 KB per query at n=256). Carry `usize` indices to the API
-      boundary or return borrowed/Arc<str> ids. Must beat the criterion baselines
-      in plans/evidence/scale_release_2026_09_21 with attached numbers.
-
   - name: reconcile_wave_32_remainder_and_flag_truth
     preconditions: []
     effects:
