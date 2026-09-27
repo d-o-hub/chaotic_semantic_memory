@@ -15,6 +15,9 @@ Executed `regenerate_stale_llms_dependency_versions`. The committed `llms.txt`/`
 - `plans/ACTIONS.md`: `regenerate_stale_llms_dependency_versions` removed; `queued_actions_count` 5 → 4; `llms_dependency_versions_current: true`; `action_last_completed: regenerate_stale_llms_dependency_versions`.
 - Rule encoded in `agents-docs/hard-constraints.md` (generated listings must not drift; checker + fixture tests named).
 
+### Merge
+- Squash-merged as #778 (`4cf4f2c`) from head `b38b87a`, up to date with `main` and CI green (the `lint` job ran the new checker through `validate.sh`); verdict in `plans/PR_ROAST_2026_09_27.md`.
+
 ## 2026-09-25 (wave 2): Merge Discipline Bound + Queue Cleared
 
 ### Summary

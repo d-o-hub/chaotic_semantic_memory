@@ -29,7 +29,7 @@ world_state:
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "1433ae8"           # 2026-09-17: PR #734 bounded persistence retries; evidence wave complete (#732-#734)
+  main_head: "4cf4f2c"           # 2026-09-27: #778 llms dependency sync + check-llms-sync drift gate in validate.sh
   tests_count: 1029              # 2026-09-18: unique compiled behavior (scripts/coverage-report.sh inventory)
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
   coverage_lines_percent: 74     # 2026-09-18: cargo +nightly llvm-cov --workspace --lib --tests --branch
