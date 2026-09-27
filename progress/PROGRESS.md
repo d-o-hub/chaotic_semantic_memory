@@ -1,5 +1,15 @@
 # PROGRESS
 
+## 2026-09-25 (wave 2): Merge Discipline Bound + Queue Cleared
+
+### Summary
+Bound two merge rules that were only implicit, then executed the queue under them. `AGENTS.md` step 18 and Core Rule 8 now require: **never `gh pr merge --auto`**, and **every PR merged from a head that is up to date with the latest `main`** — rebase, push, wait for CI green on *that* head, re-check `mergeable`/`mergeStateStatus`, then merge; repeat per PR because each merge moves `main`. The roast skill's Step 5 became "emit, do not execute unless instructed" with the mandatory per-PR command sequence. The rule is not theoretical: a bot branch's rebase resolved `progress/PROGRESS.md` toward its pre-fork side and would have silently reverted **787 lines** of merged work (the gate script, its `ci.yml` step, the PR template section, the `AGENTS.md` roast rule, both `PR_ROAST` records) had it been merged on the green tick.
+
+### Actions
+- Merged in order, each one rebased onto the live `main` tip and CI-verified on its post-rebase head immediately before landing: **#773** merge discipline (`f2eee21`), **#771** evidence-gate scope trace (`835b28e`), **#772** doc-contract rule (`b4ee04e`), **#767** `chaos_strength` clamp (`25b9092`), **#774** closure records (`554faeb`). A sequencer enforced the discipline; it stopped once on a head-moved guard rather than merging on an uncertain head.
+- Closed four perf PRs as **no demonstrated impact**: **#763** and **#769** (owner call), then resubmissions **#775** and **#776**. `#775` re-proposed the closed #763 change and quoted "up to ~13.5 %" — the **best row** of the sign-flipping table from my own #763 measurement (three losses, including +8.9 % at K=100). `#776`'s single-token fast path is behaviour-preserving (verified by digest equality on both revisions) but its `Vec::with_capacity` hunk is **byte-identical** in allocations (1 alloc, n × 1 280 B, both variants — the #754 pattern recurring), and its long-text claim has no mechanism in the diff.
+- #767 landed clean: clamp, flipped integration test asserting the clamp, unit test, and the two restored behaviour contracts.
+
 ## 2026-09-25: Three-PR Roast (#767, #768, #769)
 
 ### Summary
