@@ -557,6 +557,51 @@ fn bench_concept_expansion(c: &mut Criterion) {
     group.finish();
 }
 
+/// Expansion-heavy bridge fixture: every concept carries the "memory" tag and a
+/// unique label equal to its id, so one query token matches the whole graph and
+/// expansion materialises every label before the top_k truncation.
+fn build_expansion_bridge_graph(concept_count: usize) -> ConceptGraph {
+    let mut graph = ConceptGraph::new();
+    for i in 0..concept_count {
+        let concept_id = format!("mem_{i}");
+        graph.add_concept(
+            CanonicalConcept::new(concept_id.clone())
+                .with_label("memory")
+                .with_label(concept_id),
+        );
+    }
+    graph
+}
+
+fn bench_bridge_retrieval_expansion(c: &mut Criterion) {
+    let mut group = c.benchmark_group("bridge_retrieval");
+    group.sample_size(PROBE_BENCH_SAMPLE_SIZE);
+    group.warm_up_time(Duration::from_secs(PROBE_BENCH_WARMUP_SECS));
+    group.measurement_time(Duration::from_secs(PROBE_BENCH_MEASUREMENT_SECS));
+
+    let graph = build_expansion_bridge_graph(1000);
+    let singularity = build_bridge_singularity(1000);
+    let bridge = BridgeRetrieval::new(TextEncoder::new(), graph, BridgeConfig::default());
+
+    group.bench_function("pipeline_1k_expansion", |b| {
+        b.iter(|| {
+            black_box(
+                bridge
+                    .query(
+                        NS,
+                        black_box(&singularity),
+                        black_box("memory content"),
+                        10,
+                        None,
+                    )
+                    .unwrap(),
+            )
+        })
+    });
+
+    group.finish();
+}
+
 fn bench_bridge_retrieval(c: &mut Criterion) {
     let mut group = c.benchmark_group("bridge_retrieval");
     group.sample_size(PROBE_BENCH_SAMPLE_SIZE);
@@ -724,6 +769,7 @@ criterion_group!(
     bench_bundle_accumulator,
     bench_retrieval_baseline,
     bench_concept_expansion,
+    bench_bridge_retrieval_expansion,
     bench_bridge_retrieval,
     bench_memory_packet_compilation,
     bench_bm25_search,

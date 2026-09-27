@@ -37,7 +37,7 @@ fn test_normalize_scores() {
 
 #[test]
 fn test_normalize_scores_in_place_parity() {
-    let mut empty = Vec::new();
+    let mut empty: Vec<(String, f32)> = Vec::new();
     normalize_scores_in_place(&mut empty);
     assert!(empty.is_empty());
     let mut single = vec![("a".to_string(), 10.0)];

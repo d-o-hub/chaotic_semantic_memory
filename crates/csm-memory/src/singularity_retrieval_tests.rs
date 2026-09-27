@@ -14,6 +14,51 @@ fn singularity_get_config_v2() {
 }
 
 #[test]
+fn score_candidate_positions_matches_owned_wrapper() {
+    use crate::singularity::ConceptBuilder;
+
+    let mut s = Singularity::new(SingularityConfig::default());
+    for i in 0..4 {
+        s.inject(
+            "_default",
+            ConceptBuilder::new(format!("mem_{i}"))
+                .with_vector(HVec10240::new_seeded(i))
+                .build()
+                .unwrap(),
+        )
+        .unwrap();
+    }
+
+    let query = HVec10240::new_seeded(42);
+    let ids: Vec<String> = vec![
+        "mem_0".to_string(),
+        "missing".to_string(),
+        "mem_2".to_string(),
+        "mem_3".to_string(),
+    ];
+
+    let owned = s.score_specific_candidates("_default", &query, &ids);
+    let refs: Vec<&str> = ids.iter().map(String::as_str).collect();
+    let positions = s.score_candidate_positions("_default", &query, &refs);
+
+    // Same scored set, same order, same similarities; positions index the input.
+    assert_eq!(owned.len(), 3);
+    assert_eq!(positions.len(), 3);
+    assert_eq!(
+        positions.iter().map(|&(pos, _)| pos).collect::<Vec<_>>(),
+        vec![0, 2, 3]
+    );
+    for ((id, sim), (pos, pos_sim)) in owned.iter().zip(positions.iter()) {
+        assert_eq!(id, &ids[*pos]);
+        assert!((sim - pos_sim).abs() < f32::EPSILON);
+    }
+
+    assert!(s
+        .score_candidate_positions("absent", &query, &refs)
+        .is_empty());
+}
+
+#[test]
 fn test_retrieval_config_for_token_count() {
     use super::RetrievalConfig;
 

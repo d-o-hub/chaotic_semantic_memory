@@ -106,7 +106,9 @@ pub fn normalize_scores(scores: &[(String, f32)]) -> Vec<(String, f32)> {
 ///
 /// This is the preferred method in high-frequency/hot query pathways because
 /// it mutates existing score vectors, avoiding heap allocations and string cloning.
-pub fn normalize_scores_in_place(scores: &mut [(String, f32)]) {
+/// The id type is generic so borrowed id slices (e.g. `&[(&str, f32)]`) can be
+/// normalized without materialising owned strings.
+pub fn normalize_scores_in_place<T>(scores: &mut [(T, f32)]) {
     if scores.is_empty() {
         return;
     }
