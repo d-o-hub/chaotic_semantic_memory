@@ -1,5 +1,22 @@
 # PROGRESS
 
+## 2026-09-27 (wave 3): Borrowed-Id Retrieval Expansion (#781)
+
+### Summary
+Executed `eliminate_retrieval_string_clones`. Measurement first: the queued hypothesis (#754 roast) said `score_specific_candidates` clone-per-candidate dominated the retrieval path — a counting allocator showed the function at n=256 costs 263 allocations, while a default bridge query allocated 2 209, dominated by `ConceptGraph::match_tokens`/`expand` materialising every matched id and expanded label before the caller truncates to top_k. The fix therefore borrowed the whole path: `match_tokens_ref`/`expand_ref` (csm-traits), `score_candidate_positions` (csm-memory), generic `normalize_scores_in_place` (csm-retrieval), `&str`-keyed merge (root bridge). All owned public signatures kept as delegating wrappers — no breaking change.
+
+### Measured
+- New `bridge_retrieval/pipeline_1k_expansion` bench (one query token matches all 1000 concepts): criterion medians 881.26 µs → 577.07 µs, change −41.6% [−47.9, −34.4], p < 0.05; reversed A/B/A leg old-vs-new +28.8% [+19.7, +38.1].
+- Allocations per query (counting allocator, deterministic): 2 209 → 151 at top_k=10 (−93%), 3 820 → 1 228 at top_k=101, 3 115 → 724 at top_k=64. Public `score_specific_candidates` wrapper unchanged (263 → 265, control).
+- Comparator caveat: the cached `pipeline_1k_concepts` bench drifted 9.1–13.4 µs across windows (±30%) — treated as noise; one large-sample A/B/A leg discarded (first leg 1.30 ms, outside every other window).
+
+### Actions
+- PR #781 merged (`6194fca`) after CI green (lint, test, mutation-test, miri, benchmark jobs) and the roast verdict comment; record appended in `plans/PR_ROAST_2026_09_27.md`.
+- Tests: `test_concept_graph_ref_variants_match_owned`, `score_candidate_positions_matches_owned_wrapper`; `validate.sh` and `harness-check.sh all` green (documented link-OOM mitigation); LOC max 500.
+
+### State
+- `plans/ACTIONS.md`: action removed; `plans/GOAP_STATE.md`: `retrieval_string_clones_removed: true`, `action_last_completed: eliminate_retrieval_string_clones`, `queued_actions_count` 4 → 3, `main_head` refreshed.
+
 ## 2026-09-27 (wave 2): csm-duckdb First Publish
 
 ### Summary
