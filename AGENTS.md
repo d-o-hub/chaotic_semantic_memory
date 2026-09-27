@@ -21,7 +21,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 
 ### Phase 3: Implementation (HOW)
 9. **Precision editing**: Read before editing. Preserve comments and docstrings. Child module extraction (e.g. `hyperdim_binary_serde.rs`) is required over comment stripping when approaching 500 LOC.
-10. **Perf claims require evidence**: Any PR with perf claims MUST attach Criterion benchmark numbers or flamegraphs via `benchmarking-perf`.
+10. **Perf claims require evidence**: Any PR with perf claims MUST attach Criterion benchmark numbers or flamegraphs via `benchmarking-perf`, in the **PR body** (that is what the CI gate reads; a commit message does not count). The cited benchmark MUST exercise the changed code path — `scripts/check-perf-pr-evidence.py` only checks presence and shape, so confirm the bench actually reaches the changed function (a bench can time a branch the diff never touches; PR #763 cited a both-lists-populated bench for a helper only reached when one list is empty).
 11. **Validation gates**: Run `./scripts/validate.sh` (fmt, clippy `-D warnings`, test, deny, ADR parity). If touching CLI, run `cargo test --test cli_parity --features cli`.
 12. **Update state files**:
    - Update `plans/GOAP_STATE.md`: `action_last_completed` (MUST appear exactly once, last key), module LOC, test counts.
