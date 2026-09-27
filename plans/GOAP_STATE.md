@@ -52,7 +52,7 @@ world_state:
   wave_32_status: in_progress    # 2026-09-22: ownership (09-15/18) + evidence (09-17/21) landed; remainder is flag-truth reconciliation (queued)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 5        # 2026-09-24: perf-evidence gate enforced (#760, `e189a9e`); queue is publish_csm_duckdb_companion, eliminate_retrieval_string_clones, wave-32 flag reconciliation, regenerate_stale_llms_dependency_versions, migrate_release_wait_for_ci_to_workflow_run
+  queued_actions_count: 4        # 2026-09-27: regenerate_stale_llms_dependency_versions completed; queue is publish_csm_duckdb_companion, eliminate_retrieval_string_clones, wave-32 flag reconciliation, migrate_release_wait_for_ci_to_workflow_run
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: true            # 2026-08-12: no TODO in src/ crates/
@@ -90,6 +90,7 @@ world_state:
   cargo_deny_required_in_ci: true
   fuzz_build_required_in_ci: true
   skill_validation_fail_closed: true              # wired into validate.sh + CI + pre-commit
+  llms_dependency_versions_current: true          # 2026-09-27: llms.txt/llms-full.txt regenerated (otel 0.32, rmcp 3.4); scripts/check-llms-sync.sh drift gate runs in validate.sh (CI lint job)
   mutation_ci_enforced: true
   mutation_threshold: 85
   actions_pinned_to_sha: true
@@ -107,4 +108,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: enforce_perf_claim_evidence_gate
+  action_last_completed: regenerate_stale_llms_dependency_versions
