@@ -462,7 +462,11 @@ impl BHVec10240 {
             // SAFETY: bytes length is verified to be 1280. `[u64; 160]` is bit-compatible
             // with `[u8; 1280]` on little-endian. Pointers are valid and non-overlapping.
             unsafe {
-                std::ptr::copy_nonoverlapping(bytes.as_ptr(), uninit.as_mut_ptr().cast::<u8>(), 1280);
+                std::ptr::copy_nonoverlapping(
+                    bytes.as_ptr(),
+                    uninit.as_mut_ptr().cast::<u8>(),
+                    1280,
+                );
                 Ok(Self {
                     bits: uninit.assume_init(),
                 })
