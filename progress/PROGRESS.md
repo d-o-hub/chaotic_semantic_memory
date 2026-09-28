@@ -14,6 +14,43 @@ Implemented the first atomic recommendation from the 2026-09-29 audit in the own
 ### State
 - This is intentionally a small correctness slice; atomic imports, scoped absence records, TTL shutdown, snapshot codec migration, and backup/restore completeness remain separate work.
 
+## 2026-09-28: PR Roast Triage (#783–#786)
+
+### Summary
+Session-start roast of all four open PRs. One no-impact PR closed with its roast
+comment; three dependabot keepers verified and a manual merge order emitted (no
+merges executed by the triage). No queued GOAP action was in scope;
+`action_last_completed` unchanged.
+
+### Actions
+- #783 (`perf(core-lib)`: BHVec `MaybeUninit` zero-fill elimination, Jules
+  draft): **closed as no-op**. Old-vs-new codegen probe (x86_64, rustc 1.98.1,
+  `-O -C codegen-units=1`, `#[no_mangle] #[inline(never)]` linked binary):
+  `from_hvec`/`from_bytes` variants fold to the same address (byte-identical
+  code); an old-only build disassembles to a bare `memcpy` — LLVM already
+  dead-store-eliminates the zero-init. `to_bytes` old/new share the same
+  alloc+memcpy sequence (scheduling-only diff). Claimed ~3.7%/~0.8% = noise;
+  perf-evidence gate red (no `## Performance Evidence`), commit 1 scope
+  `core-lib` invalid (not in `commitlint.config.cjs`), draft behind `main`.
+- #784 (install-action 2.87.15 → 2.87.20): keeper. SHA
+  `9983c65e42da123ff25d1f78505eb6de315aa172` equals tag `v2.87.20`'s commit;
+  the only install-action pin in `.github/workflows/`; 18/18 checks green.
+- #785 (patch-updates: rmcp 3.4.1, hyper-util 0.1.21, thiserror 2.0.21,
+  rand 0.10.3): keeper. Lock-only diff; 32/32 checks green; `tempfile`'s
+  `getrandom` edge re-resolves 0.4.3 → 0.3.4 within its `>=0.3.0, <0.5`
+  requirement (both majors remain in the graph); no deny.toml/export.json noise.
+- #786 (rand 0.10.3 in `/fuzz`): keeper. Fuzz lock only; head current
+  (`MERGEABLE`/`CLEAN`); all checks green.
+- Record: `plans/PR_ROAST_2026_09_28.md`; merge order #786 → #784 → #785, each
+  rebased onto current `main` and CI re-verified on the new head before an
+  explicit squash merge.
+
+### State
+- `plans/ACTIONS.md` / `plans/GOAP_STATE.md`: unchanged (triage is not a queued
+  action).
+- Lesson distilled into `.agents/skills/pr-roast-triage/SKILL.md`;
+  `progress/LEARNINGS.md` updated.
+
 ## 2026-09-27 (wave 3): Borrowed-Id Retrieval Expansion (#781)
 
 ### Summary

@@ -133,6 +133,15 @@ Close the losers with reason `superseded by #<keeper>`.
     called — the "after" number was slower (92.5 → 93.3 µs) because it timed
     unrelated code. Check the sign too: an "after" that is *worse* is evidence
     against the claim, not neutral.
+  - **`MaybeUninit` zero-fill elimination is usually a void premise (PR #783,
+    2026-09-28).** LLVM dead-store-eliminates a `[0u64; N]` initializer that a
+    full-width `memcpy` overwrites: #783's old-only build disassembles to a
+    bare `memcpy`, and old/new variants of `from_hvec`/`from_bytes` folded to
+    the *same address* in one linked binary (byte-identical code); `to_bytes`
+    differed only in instruction scheduling. Compile variants
+    `#[no_mangle] #[inline(never)]` into a linked binary (raw `--emit obj/asm`
+    drops unreferenced `pub fn`s on rustc 1.98.1) and disassemble — no codegen
+    delta ⇒ zero-delta close, not a benchmark request.
   - **Evidence belongs in the PR body.** A `## Performance Evidence` section in
     a commit message does not satisfy the gate and does not reach a reviewer
     reading the PR. Check the body, not the commits.
