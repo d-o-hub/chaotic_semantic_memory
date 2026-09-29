@@ -143,10 +143,7 @@ pub fn normalize_scores_in_place<T>(scores: &mut [(T, f32)]) {
 ///
 /// Bypasses HashMap allocation, lookup, and entry insertion, returning directly.
 fn merge_single_list(results: &[(String, f32)], weight: f32, top_k: usize) -> Vec<(String, f32)> {
-    if results.is_empty() {
-        return Vec::new();
-    }
-    if top_k == 0 {
+    if results.is_empty() || top_k == 0 {
         return Vec::new();
     }
 
@@ -162,22 +159,15 @@ fn merge_single_list(results: &[(String, f32)], weight: f32, top_k: usize) -> Ve
         }
     }
 
-    let range = max - min;
-    let mut ref_results: Vec<(&str, f32)> = if range < f32::EPSILON {
-        results
-            .iter()
-            .map(|(id, _)| (id.as_str(), weight))
-            .collect()
-    } else {
-        let factor = weight / range;
-        results
-            .iter()
-            .map(|(id, score)| (id.as_str(), (score - min) * factor))
-            .collect()
-    };
+    // Algorithmic Optimization: Collect borrowed references and partition raw scores first.
+    // Linear monotonicity of min-max scaling permits deferring normalization math until after
+    // top-k truncation, eliminating (N - k) floating-point calculations.
+    let mut ref_results: Vec<(&str, f32)> = Vec::with_capacity(results.len());
+    for (id, score) in results {
+        ref_results.push((id.as_str(), *score));
+    }
 
-    // 0-based selection: partition exactly top_k elements. top_k >= 1 because
-    // merge_results rejects 0 before calling this helper.
+    // 0-based selection: partition exactly top_k elements.
     if ref_results.len() > top_k {
         let nth = top_k - 1;
         ref_results.select_nth_unstable_by(nth, |a, b| b.1.total_cmp(&a.1));
@@ -185,10 +175,19 @@ fn merge_single_list(results: &[(String, f32)], weight: f32, top_k: usize) -> Ve
     }
     ref_results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
 
-    ref_results
-        .into_iter()
-        .map(|(id, score)| (id.to_string(), score))
-        .collect()
+    let range = max - min;
+    if range < f32::EPSILON {
+        ref_results
+            .into_iter()
+            .map(|(id, _)| (id.to_string(), weight))
+            .collect()
+    } else {
+        let factor = weight / range;
+        ref_results
+            .into_iter()
+            .map(|(id, score)| (id.to_string(), (score - min) * factor))
+            .collect()
+    }
 }
 
 /// Merge BM25 and HDC results with given weights.
@@ -217,70 +216,69 @@ pub fn merge_results(
         return merge_single_list(hdc_results, sem_weight, top_k);
     }
 
-    // Pre-allocate map; use &str keys to avoid String clones during accumulation.
+    // Algorithmic Optimization: Pre-allocate map using max(len_a, len_b) instead of len_a + len_b.
+    // In search result merging, candidate sets usually overlap heavily; allocating for the maximum
+    // list size prevents over-allocation while accommodating common doc overlap scenarios.
     let mut combined: HashMap<&str, f32> =
-        HashMap::with_capacity(bm25_results.len() + hdc_results.len());
+        HashMap::with_capacity(bm25_results.len().max(hdc_results.len()));
 
     // Fold min/max then insert — no intermediate Vec allocation.
-    if !bm25_results.is_empty() {
-        let mut min = f32::INFINITY;
-        let mut max = f32::NEG_INFINITY;
-        for (_, s) in bm25_results {
-            let s = *s;
-            if s < min {
-                min = s;
-            }
-            if s > max {
-                max = s;
-            }
+    let mut min = f32::INFINITY;
+    let mut max = f32::NEG_INFINITY;
+    for (_, s) in bm25_results {
+        let s = *s;
+        if s < min {
+            min = s;
         }
-        let range = max - min;
-        if range < f32::EPSILON {
-            for (id, _) in bm25_results {
-                combined.insert(id.as_str(), kw_weight);
-            }
-        } else {
-            let factor = kw_weight / range;
-            for (id, score) in bm25_results {
-                combined.insert(id.as_str(), (score - min) * factor);
-            }
+        if s > max {
+            max = s;
+        }
+    }
+    let range = max - min;
+    if range < f32::EPSILON {
+        for (id, _) in bm25_results {
+            combined.insert(id.as_str(), kw_weight);
+        }
+    } else {
+        let factor = kw_weight / range;
+        for (id, score) in bm25_results {
+            combined.insert(id.as_str(), (score - min) * factor);
         }
     }
 
-    if !hdc_results.is_empty() {
-        let mut min = f32::INFINITY;
-        let mut max = f32::NEG_INFINITY;
-        for (_, s) in hdc_results {
-            let s = *s;
-            if s < min {
-                min = s;
-            }
-            if s > max {
-                max = s;
-            }
+    let mut min = f32::INFINITY;
+    let mut max = f32::NEG_INFINITY;
+    for (_, s) in hdc_results {
+        let s = *s;
+        if s < min {
+            min = s;
         }
-        let range = max - min;
-        if range < f32::EPSILON {
-            for (id, _) in hdc_results {
-                combined
-                    .entry(id.as_str())
-                    .and_modify(|s| *s += sem_weight)
-                    .or_insert(sem_weight);
-            }
-        } else {
-            let factor = sem_weight / range;
-            for (id, score) in hdc_results {
-                let weighted_norm = (score - min) * factor;
-                combined
-                    .entry(id.as_str())
-                    .and_modify(|s| *s += weighted_norm)
-                    .or_insert(weighted_norm);
-            }
+        if s > max {
+            max = s;
+        }
+    }
+    let range = max - min;
+    if range < f32::EPSILON {
+        for (id, _) in hdc_results {
+            combined
+                .entry(id.as_str())
+                .and_modify(|s| *s += sem_weight)
+                .or_insert(sem_weight);
+        }
+    } else {
+        let factor = sem_weight / range;
+        for (id, score) in hdc_results {
+            let weighted_norm = (score - min) * factor;
+            combined
+                .entry(id.as_str())
+                .and_modify(|s| *s += weighted_norm)
+                .or_insert(weighted_norm);
         }
     }
 
     // Perform top-k selection on references to delay string cloning/allocation.
-    let mut ref_results: Vec<(&str, f32)> = combined.into_iter().collect();
+    let mut ref_results: Vec<(&str, f32)> = Vec::with_capacity(combined.len());
+    ref_results.extend(combined);
 
     // O(N) top-k selection, then sort only the retained slice.
     // 0-based index: top_k >= 1 here (early return above), so top_k - 1 is safe.
