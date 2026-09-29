@@ -1,5 +1,6 @@
-use crate::singularity::{Singularity, SingularityConfig};
+use crate::singularity::{Concept, Singularity, SingularityConfig};
 use csm_core_lib::hyperdim::HVec10240;
+use std::collections::HashMap;
 
 #[test]
 fn singularity_last_stats_v2() {
@@ -11,6 +12,124 @@ fn singularity_last_stats_v2() {
 fn singularity_get_config_v2() {
     let s = Singularity::<HVec10240>::new(SingularityConfig::default());
     assert_eq!(s.retrieval_config().max_candidates, 1000);
+}
+
+#[test]
+fn inserting_a_concept_invalidates_cached_similarity_results() {
+    let mut s = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let query = HVec10240::new_seeded(2);
+    s.inject(
+        "_default",
+        Concept {
+            id: "old".to_string(),
+            vector: HVec10240::new_seeded(3),
+            metadata: HashMap::new(),
+            created_at: 1,
+            modified_at: 1,
+            expires_at: None,
+            canonical_concept_ids: Vec::new(),
+        },
+    )
+    .unwrap();
+
+    let first = s.find_similar_cached("_default", &query, 1);
+    assert_eq!(first.first().map(|(id, _)| id.as_str()), Some("old"));
+
+    s.inject(
+        "_default",
+        Concept {
+            id: "exact".to_string(),
+            vector: query,
+            metadata: HashMap::new(),
+            created_at: 2,
+            modified_at: 2,
+            expires_at: None,
+            canonical_concept_ids: Vec::new(),
+        },
+    )
+    .unwrap();
+
+    let refreshed = s.find_similar_cached("_default", &query, 1);
+    assert_eq!(refreshed.first().map(|(id, _)| id.as_str()), Some("exact"));
+}
+
+#[test]
+fn reinserting_existing_id_does_not_evict_another_concept_at_capacity() {
+    let config = SingularityConfig {
+        max_concepts: Some(2),
+        ..SingularityConfig::default()
+    };
+    let mut s = Singularity::<HVec10240>::new(config);
+    for (id, seed, created_at) in [("oldest", 1, 1), ("existing", 2, 2)] {
+        s.inject(
+            "_default",
+            Concept {
+                id: id.to_string(),
+                vector: HVec10240::new_seeded(seed),
+                metadata: HashMap::new(),
+                created_at,
+                modified_at: created_at,
+                expires_at: None,
+                canonical_concept_ids: Vec::new(),
+            },
+        )
+        .unwrap();
+    }
+
+    s.inject(
+        "_default",
+        Concept {
+            id: "existing".to_string(),
+            vector: HVec10240::new_seeded(7),
+            metadata: HashMap::new(),
+            created_at: 3,
+            modified_at: 3,
+            expires_at: None,
+            canonical_concept_ids: Vec::new(),
+        },
+    )
+    .unwrap();
+
+    assert!(s.get("_default", "oldest").is_some());
+    assert!(s.get("_default", "existing").is_some());
+    assert_eq!(s.len("_default"), 2);
+}
+
+#[test]
+fn graph_edge_mutations_invalidate_cached_candidates() {
+    use crate::singularity::ConceptBuilder;
+
+    let mut s = Singularity::new(SingularityConfig::default());
+    s.set_retrieval_config(super::RetrievalConfig {
+        enable_graph_candidates: true,
+        ..Default::default()
+    })
+    .unwrap();
+    let query = HVec10240::new_seeded(11);
+    for (id, vector) in [("seed", query), ("neighbor", HVec10240::new_seeded(12))] {
+        s.inject(
+            "_default",
+            ConceptBuilder::new(id).with_vector(vector).build().unwrap(),
+        )
+        .unwrap();
+    }
+    let before = s.find_similar_cached("_default", &query, 2);
+    assert_eq!(before.len(), 1);
+    assert_eq!(before[0].0, "seed");
+    assert!(std::sync::Arc::ptr_eq(
+        &before,
+        &s.find_similar_cached("_default", &query, 2)
+    ));
+
+    s.associate("_default", "seed", "neighbor", 0.8).unwrap();
+    let connected = s.find_similar_cached("_default", &query, 2);
+    assert_eq!(connected.len(), 2);
+    assert!(connected.iter().any(|(id, _)| id == "neighbor"));
+
+    s.disassociate("_default", "seed", "neighbor").unwrap();
+    let disconnected = s.find_similar_cached("_default", &query, 2);
+    assert_eq!(disconnected.len(), 1);
+    assert_eq!(disconnected[0].0, "seed");
 }
 
 #[test]

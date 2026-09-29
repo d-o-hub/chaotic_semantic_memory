@@ -1,5 +1,19 @@
 # PROGRESS
 
+## 2026-09-29: Retrieval cache and capacity invariants
+
+### Summary
+Implemented the first atomic recommendation from the 2026-09-29 audit in the owning `csm-memory` crate. New concept inserts now invalidate cached similarity results; association/disassociation mutations invalidate graph-derived retrieval caches; and upserting an existing ID no longer evicts an unrelated concept when the store is at capacity.
+
+### Verification
+- Added regression tests for insert-after-cache and capacity-safe upsert.
+- `cargo test -p csm-memory --lib`: 66 passed.
+- `cargo clippy -p csm-memory --all-targets -- -D warnings`: passed.
+- `cargo fmt --all -- --check`: passed.
+
+### State
+- This is intentionally a small correctness slice; atomic imports, scoped absence records, TTL shutdown, snapshot codec migration, and backup/restore completeness remain separate work.
+
 ## 2026-09-27 (wave 3): Borrowed-Id Retrieval Expansion (#781)
 
 ### Summary
