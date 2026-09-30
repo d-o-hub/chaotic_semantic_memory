@@ -369,66 +369,146 @@ jobs:
     - name: Check if version already published to crates.io
       id: crates-check
       run: |
+        # Sparse-index probe (the source verify-release already trusts) instead
+        # of the crates.io API: Fastly answers curl's default UA with 403 HTML
+        # there, so `grep '"version"'` always concluded "not published" and the
+        # skip never fired (2026-09-27). The index is static and UA-agnostic;
+        # a hit means this exact version exists.
         VERSION="${{ needs.validate.outputs.version }}"
-        if curl -s "https://crates.io/api/v1/crates/chaotic_semantic_memory/$VERSION" | grep -q '"version"'; then
+        INDEX="https://index.crates.io/ch/ao/chaotic_semantic_memory"
+        if ! BODY=$(curl -sL --fail-with-body "$INDEX"); then
+          echo "::error::Cannot read the crates.io index for chaotic_semantic_memory; refusing to guess whether $VERSION is published."
+          exit 1
+        fi
+        if grep -q "\"vers\":\"$VERSION\"" <<<"$BODY"; then
           echo "⚠️ Version $VERSION already exists on crates.io, skipping publish"
-          echo "already-published=true" >> $GITHUB_OUTPUT
+          echo "already-published=true" >> "$GITHUB_OUTPUT"
         else
-          echo "already-published=false" >> $GITHUB_OUTPUT
+          echo "already-published=false" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Publish workspace crates in dependency order
       if: steps.crates-check.outputs.already-published != 'true'
       run: |
-        # Pre-check: Verify workspace crate names are not taken by unrelated projects
-        echo "Checking crates.io name availability..."
+        # Helper: is this exact version in the crates.io sparse index?
+        version_published() {  # $1 = crate, $2 = version
+          local p1="${1:0:2}" p2="${1:2:2}"
+          curl -sL "https://index.crates.io/$p1/$p2/$1" | grep -q "\"vers\":\"$2\""
+        }
+
+        # Pre-check: every workspace name must be free or owned by us.
+        # Ownership is the question that matters. The previous check compared
+        # the published *latest version* against the manifest version, so our
+        # own older release read as a squatter: simulated at 0.3.9 all seven
+        # companions were flagged and the job exited before publishing
+        # anything (2026-09-27). The owners endpoint is public — 200 with our
+        # login = ours at any published version, 200 without it = unrelated
+        # publisher, 404 = name still free.
+        OWNER="d-o-hub"
+        UA="csm-release-workflow/1.0 (+https://github.com/${{ github.repository }})"
         CRATES="csm-chaos csm-core-lib csm-traits csm-embedding csm-memory csm-retrieval csm-persistence"
+        ALL_CRATES="$CRATES csm-duckdb"
         NAME_CONFLICT=false
-        for crate in $CRATES; do
-          CRATE_VERSION=$(grep -m1 '^version' "crates/$crate/Cargo.toml" | cut -d'"' -f2)
-          SEARCH_RESULT=$(cargo search "$crate" 2>/dev/null | head -1)
-          if echo "$SEARCH_RESULT" | grep -q "^$crate = "; then
-            # Name exists - check if it's our version or an unrelated crate
-            EXISTING_VERSION=$(echo "$SEARCH_RESULT" | grep -oP '"\K[^"]+')
-            if [ "$EXISTING_VERSION" != "$CRATE_VERSION" ]; then
-              echo "❌ CONFLICT: $crate@$EXISTING_VERSION exists on crates.io (need $CRATE_VERSION)"
-              echo "   This name is taken by an unrelated project. Rename the crate before publishing."
-              NAME_CONFLICT=true
-            fi
-          fi
+        echo "Checking crates.io ownership for: $ALL_CRATES"
+        for crate in $ALL_CRATES; do
+          CODE=$(curl -s -H "User-Agent: $UA" -o /tmp/owners.json -w '%{http_code}' \
+            "https://crates.io/api/v1/crates/$crate/owners" || echo 000)
+          case "$CODE" in
+          404)
+            echo "  ✅ $crate: name is free" ;;
+          200)
+            OWNERS=$(python3 -c "import json;print(' '.join(u.get('login','') for u in json.load(open('/tmp/owners.json')).get('users',[])))" 2>/dev/null || echo "")
+            case " $OWNERS " in
+              *" $OWNER "*)
+                echo "  ✅ $crate: owned by $OWNER" ;;
+              *)
+                echo "  ❌ CONFLICT: $crate is owned by [$OWNERS], not $OWNER"
+                NAME_CONFLICT=true ;;
+            esac ;;
+          *)
+            echo "::error::Cannot verify ownership of $crate (HTTP $CODE); refusing to publish blind."
+            exit 1 ;;
+          esac
         done
         if [ "$NAME_CONFLICT" = true ]; then
           echo ""
           echo "::error::Workspace crate name conflicts detected. Rename crates and update Cargo.toml dependencies."
           exit 1
         fi
-        echo "✅ All workspace crate names available"
+        echo "✅ All workspace crate names are free or owned by $OWNER"
 
         # Publish order based on dependency graph:
         # 1. csm-chaos (no internal deps)
         # 2. csm-core-lib (depends on csm-chaos optionally)
         # 3. csm-traits, csm-embedding, csm-memory (depend on csm-core-lib)
         # 4. csm-retrieval, csm-persistence (depend on csm-core-lib + csm-memory)
+        # csm-duckdb is published by its own step after `Publish to crates.io`:
+        # it dev-depends on the root crate, so it cannot go in this loop.
+        FAILED=""
         for crate in $CRATES; do
           echo "Publishing $crate..."
-          # Skip if already published (idempotent)
           CRATE_VERSION=$(grep -m1 '^version' "crates/$crate/Cargo.toml" | cut -d'"' -f2)
-          if cargo search "$crate" 2>/dev/null | grep -q "^$crate = \"$CRATE_VERSION\""; then
+          if version_published "$crate" "$CRATE_VERSION"; then
             echo "  ⏭️ $crate@$CRATE_VERSION already on crates.io, skipping"
             continue
           fi
-          cargo publish -p "$crate" --allow-dirty || {
-            echo "  ⚠️ $crate publish failed (may already exist), continuing..."
-          }
+          if cargo publish -p "$crate" --allow-dirty > /tmp/publish.log 2>&1; then
+            echo "  ✅ $crate@$CRATE_VERSION published"
+          elif grep -qiE 'already (uploaded|exists)' /tmp/publish.log; then
+            echo "  ⏭️ $crate@$CRATE_VERSION was uploaded concurrently, skipping"
+          else
+            echo "  ❌ $crate@$CRATE_VERSION publish failed:"
+            tail -20 /tmp/publish.log
+            FAILED="$FAILED $crate"
+          fi
           # Wait for crates.io index to propagate
           sleep 20
         done
+        if [ -n "$FAILED" ]; then
+          echo "::error::Publish failed for:$FAILED — fix the cause and re-dispatch with recover=true to retry."
+          exit 1
+        fi
       env:
         CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
     - name: Publish to crates.io
       if: steps.crates-check.outputs.already-published != 'true'
       run: cargo publish --allow-dirty
+      env:
+        CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+    - name: Publish csm-duckdb (after the root crate)
+      if: steps.crates-check.outputs.already-published != 'true'
+      run: |
+        # csm-duckdb dev-depends on the root crate, and `cargo publish`
+        # verification resolves dev-dependencies against the registry (probe:
+        # a dev-dep `serde = "99"` fails package prep), so it can only be
+        # published once chaotic_semantic_memory@$VERSION exists. It must be
+        # its own step rather than a member of the companion loop, which is
+        # failure-tolerant and would silently skip it (found publishing
+        # csm-duckdb 0.3.8, 2026-09-27).
+        VERSION="${{ needs.validate.outputs.version }}"
+        index_has() {  # $1 = crate, $2 = version
+          local p1="${1:0:2}" p2="${1:2:2}"
+          curl -sL "https://index.crates.io/$p1/$p2/$1" | grep -q "\"vers\":\"$2\""
+        }
+        if index_has csm-duckdb "$VERSION"; then
+          echo "⏭️ csm-duckdb@$VERSION already on crates.io, skipping"
+          exit 0
+        fi
+        for attempt in $(seq 1 30); do
+          if index_has chaotic_semantic_memory "$VERSION"; then
+            echo "✅ chaotic_semantic_memory@$VERSION is visible in the index"
+            break
+          fi
+          if [ "$attempt" -eq 30 ]; then
+            echo "::error::chaotic_semantic_memory@$VERSION not visible in the index after 10 minutes; cannot publish csm-duckdb."
+            exit 1
+          fi
+          echo "waiting for the root crate to propagate... ($attempt/30)"
+          sleep 20
+        done
+        cargo publish -p csm-duckdb --allow-dirty
       env:
         CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
