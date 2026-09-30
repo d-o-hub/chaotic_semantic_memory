@@ -81,7 +81,7 @@ Add failure-injection tests for each mutation and for batch operations. Reconcil
 
 #### 6. Make namespace snapshots faithful and codec-stable
 
-**Evidence:** `ensure_namespace_loaded()` loads concepts but not associations, so cold namespace export can omit graph edges. Native export uses `bincode::serialize`, while native import uses `DefaultOptions::new().with_limit(...)`; bincode's documented function/default-options encodings differ.
+**Evidence:** `ensure_namespace_loaded()` loads concepts but not associations, so cold namespace export can omit graph edges. Specifically, `src/framework_namespaces.rs::export_namespace_to_bytes()` uses `bincode::serialize`, while `src/framework_ops_import.rs::export_binary()` and `import_binary()` BOTH use the matching `DefaultOptions::new().with_limit(MAX_IMPORT_SIZE)` configuration. The codec mismatch is between namespace-byte export and that binary-file codec, not between native `export_binary` and `import_binary`; bincode's documented function/default-options encodings differ.
 
 **Implement:** add one versioned snapshot module with an explicit codec configuration, magic/version/backend/revision metadata, and bounded decoding. Cold export must load concepts and associations. Test export/import across separate framework instances and across native/WASM boundaries.
 
@@ -113,7 +113,7 @@ The official MCP `2026-07-28` specification is stateless for Streamable HTTP: pr
 
 #### 11. Make validation reproducible under resource limits
 
-The local all-features gate is too parallel/link-memory intensive for this environment. Keep the full CI gate, but add a documented low-memory path using bounded Cargo jobs, split feature matrices, and separate link-heavy targets. The result must never convert a killed linker into a false pass. Continue running current stable and MSRV separately.
+The local all-features gate is too parallel/link-memory intensive for this environment. Keep the full CI gate, but add a documented low-memory path using bounded Cargo jobs, split feature matrices, and separate link-heavy targets. The result must never convert a killed linker into a false pass. Existing CI already exercises the pinned Rust 1.88.0 toolchain from `rust-toolchain.toml` (including workspace-crate jobs in `.github/workflows/ci.yml`); this is MSRV coverage, not an absent MSRV job. Make the supported target/feature matrix explicit and add a separate current-stable lane rather than assuming current stable is already covered.
 
 ## New feature proposal: Consistency-first Memory Transactions
 
@@ -149,8 +149,8 @@ Framework::shutdown() -> Result<()>
 
 | Source | Verified current fact | Repository implication |
 |---|---|---|
-| [Rust releases](https://blog.rust-lang.org/releases/latest) | Rust 1.98.1 was released 2026-09-03; repository toolchain/MSRV is 1.88. | Keep 1.88 only if intentional; add stable-1.98 CI and document an MSRV policy. Cargo's `rust-version` contract covers all targets, examples, tests, and features. |
-| [Cargo `rust-version`](https://doc.rust-lang.org/cargo/reference/rust-version.html) | Cargo uses `rust-version` for diagnostics and dependency selection; supported functionality should be verified on supported toolchains. | Add a real MSRV job and a current-stable job; do not infer support from one default build. |
+| [Rust releases](https://blog.rust-lang.org/releases/latest) | Rust 1.98.1 was released 2026-09-03; repository toolchain/MSRV is 1.88, with existing CI coverage pinned to 1.88.0. | Preserve the intentional MSRV floor, document its policy, and add separate current-stable CI (1.98.1 at audit time). State the supported target/feature matrix explicitly. |
+| [Cargo `rust-version`](https://doc.rust-lang.org/cargo/reference/rust-version.html) | Cargo uses `rust-version` for diagnostics and dependency selection; supported functionality should be verified on supported toolchains. | Credit existing pinned Rust 1.88 CI; audit and explicitly enumerate its target/feature coverage, then add a current-stable lane. Do not equate pinned-toolchain coverage with a complete compatibility matrix. |
 | [Tokio graceful shutdown](https://tokio.rs/tokio/topics/shutdown) and [`TaskTracker`](https://docs.rs/tokio-util/latest/tokio_util/task/task_tracker/struct.TaskTracker.html) | CancellationToken signals tasks; TaskTracker waits for them to finish. | Replace shared-handle abort-on-drop with owned cancellation and awaited shutdown. |
 | [RustSec bincode advisory](https://rustsec.org/advisories/RUSTSEC-2025-0141.html) and [bincode 1.3 config docs](https://docs.rs/bincode/1.3.3/bincode/config/index.html) | bincode is unmaintained; function helpers and `DefaultOptions` use different integer/trailing-byte behavior. | Version the snapshot codec, migrate public persistence away from bincode, and test exact codec compatibility. |
 | [MCP latest specification](https://modelcontextprotocol.io/specification/latest) and [2026-07-28 changelog](https://modelcontextprotocol.io/specification/2026-07-28/changelog) | Current protocol is stateless over Streamable HTTP; HTTP+SSE is deprecated; discovery, cache hints, deterministic lists, and trace metadata are specified. | Add explicit protocol compatibility/conformance and security tests before advertising the server as current. |
