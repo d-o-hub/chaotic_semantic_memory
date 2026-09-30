@@ -29,8 +29,8 @@ world_state:
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "6194fca"           # 2026-09-27: #781 borrowed-id retrieval expansion (latest main at record time)
-  tests_count: 1029              # 2026-09-18: unique compiled behavior (scripts/coverage-report.sh inventory)
+  main_head: "195d6e61"          # 2026-09-30: triage wave #791 -> #789 -> #792 merged (latest main at record time)
+  tests_count: 1037              # 2026-09-30: unique compiled behavior (scripts/coverage-report.sh inventory)
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
   coverage_lines_percent: 74     # 2026-09-18: cargo +nightly llvm-cov --workspace --lib --tests --branch
   coverage_branches_percent: 64  # same run; unit-only targets measure 68/53, hence --tests matters
@@ -111,4 +111,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: eliminate_retrieval_string_clones
+  action_last_completed: triage_pr_roast_2026_09_30

@@ -226,6 +226,19 @@
 > `plans/PR_ROAST_2026_09_22.md`. Five followups queued below; `action_last_completed`
 > unchanged because no queued GOAP action was in scope.
 
+> Last completed (verified 2026-09-30):
+> `triage_pr_roast_2026_09_30` — drained the open queue: #791 (owner-crate cache
+> invalidation + capacity-safe upsert) merged as `cd70fa5`, #789 (2026-09-28 roast
+> record + skill lesson) as `977f36f`, and #792 (2026-09-29 recommendations +
+> `plans/PR_ROAST_2026_09_30.md`) as `195d6e61`; #790/#793 closed with roast
+> comments for selecting the wrong candidate under negative public weights, and
+> #783 closed earlier as zero-delta. Every keeper was rebased onto the current
+> `main`, commitlint-validated, and re-checked on the exact new head before an
+> explicit squash merge — never `gh pr merge --auto`. Records:
+> `plans/PR_ROAST_2026_09_28.md`, `plans/PR_ROAST_2026_09_29.md`,
+> `plans/PR_ROAST_2026_09_30.md`. 0 open PRs, 0 open issues; the three queued
+> actions below are unchanged (none was in scope).
+
 actions:
   - name: reconcile_wave_32_remainder_and_flag_truth
     preconditions: []
