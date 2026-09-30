@@ -3,11 +3,11 @@
 ## 2026-09-29: Retrieval cache and capacity invariants
 
 ### Summary
-Implemented the first atomic recommendation from the 2026-09-29 audit in the owning `csm-memory` crate. New concept inserts now invalidate cached similarity results; association/disassociation mutations invalidate graph-derived retrieval caches; and upserting an existing ID no longer evicts an unrelated concept when the store is at capacity.
+Implemented the first atomic recommendation from the 2026-09-29 audit in the owning `csm-memory` crate. New concept inserts now invalidate cached similarity results; association, disassociation, and clear-associations mutations invalidate graph-derived retrieval caches; and upserting an existing ID no longer evicts an unrelated concept when the store is at capacity.
 
 ### Verification
-- Added regression tests for insert-after-cache and capacity-safe upsert.
-- `cargo test -p csm-memory --lib`: 66 passed.
+- Added regression tests for insert-after-cache, capacity-safe upsert, and graph candidate cache invalidation after association, disassociation, and reconnect/cache/clear/query.
+- `cargo test -p csm-memory --lib`: 67 passed.
 - `cargo clippy -p csm-memory --all-targets -- -D warnings`: passed.
 - `cargo fmt --all -- --check`: passed.
 

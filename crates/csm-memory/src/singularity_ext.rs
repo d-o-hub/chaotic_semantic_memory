@@ -63,6 +63,7 @@ impl Singularity {
         if let Some(neighbors) = ns_state.associations.get_mut(id) {
             neighbors.clear();
         }
+        self.invalidate_cache(ns);
         Ok(())
     }
 }

@@ -46,6 +46,7 @@ Always use `f32::total_cmp()` instead of `partial_cmp().unwrap()` — NaN safety
 ## Query Result Cache
 `Singularity` caches similarity results keyed by `(top_k, query.data)` (hashing words directly to avoid `to_bytes()` allocations).
 Use `find_similar_cached()` when you want cache-hit reuse via `Arc<[(String, f32)]>`.
+Invalidate the namespace cache after candidate-changing mutations, including extension methods that clear graph edges. Regression tests must prime the cache before mutating and repeat the identical query afterward.
 
 ## Error Handling
 Use `MemoryError` variants, never `anyhow` in library code:

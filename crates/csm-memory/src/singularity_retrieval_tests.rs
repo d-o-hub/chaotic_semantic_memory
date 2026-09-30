@@ -130,6 +130,20 @@ fn graph_edge_mutations_invalidate_cached_candidates() {
     let disconnected = s.find_similar_cached("_default", &query, 2);
     assert_eq!(disconnected.len(), 1);
     assert_eq!(disconnected[0].0, "seed");
+
+    s.associate("_default", "seed", "neighbor", 0.8).unwrap();
+    let reconnected = s.find_similar_cached("_default", &query, 2);
+    assert_eq!(reconnected.len(), 2);
+    assert!(reconnected.iter().any(|(id, _)| id == "neighbor"));
+    assert!(std::sync::Arc::ptr_eq(
+        &reconnected,
+        &s.find_similar_cached("_default", &query, 2)
+    ));
+
+    s.clear_associations("_default", "seed").unwrap();
+    let cleared = s.find_similar_cached("_default", &query, 2);
+    assert_eq!(cleared.len(), 1);
+    assert_eq!(cleared[0].0, "seed");
 }
 
 #[test]
