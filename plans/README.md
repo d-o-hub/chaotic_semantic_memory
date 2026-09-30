@@ -7,7 +7,8 @@ Operational planning for `chaotic_semantic_memory`. Load these **before** implem
 1. [`GOAP_STATE.md`](GOAP_STATE.md) — world state, flags, last completed action  
 2. [`ACTIONS.md`](ACTIONS.md) — queued / complete actions  
 3. [`GOALS.md`](GOALS.md) — target goals  
-4. [`RECOMMENDATIONS_2026_07_20.md`](RECOMMENDATIONS_2026_07_20.md) — current improvement backlog  
+4. [`RECOMMENDATIONS_2026_09_29.md`](RECOMMENDATIONS_2026_09_29.md) — latest improvement and feature analysis
+5. [`RECOMMENDATIONS_2026_07_20.md`](RECOMMENDATIONS_2026_07_20.md) — prior improvement backlog
 
 ## Active roadmaps
 
@@ -15,7 +16,8 @@ Operational planning for `chaotic_semantic_memory`. Load these **before** implem
 |-----|---------|
 | [`GOAP_AUDIT_2026_07_14.md`](GOAP_AUDIT_2026_07_14.md) | Wave 32: correctness, ownership, evidence, agent safety |
 | [`GOAP_ORCHESTRATOR.md`](GOAP_ORCHESTRATOR.md) | PR triage / orchestrator workflow |
-| [`RECOMMENDATIONS_2026_07_20.md`](RECOMMENDATIONS_2026_07_20.md) | Full analysis: missing work, perf, docs, skills, features |
+| [`RECOMMENDATIONS_2026_09_29.md`](RECOMMENDATIONS_2026_09_29.md) | Latest consistency, lifecycle, protocol, and feature analysis |
+| [`RECOMMENDATIONS_2026_07_20.md`](RECOMMENDATIONS_2026_07_20.md) | Prior full analysis: missing work, perf, docs, skills, features |
 
 ## Architecture decisions
 

@@ -156,6 +156,11 @@ Close the losers with reason `superseded by #<keeper>`.
     algebraic/monotonicity argument, brute-force it: 186 (N,k) cases with ties,
     negatives and duplicates, comparing subset **and returned values**
     (`worst_abs_diff` must be 0). Zero mismatches → "correct, bit-identical".
+  - **Test the public input domain, not just internal callers (#790/#793).**
+    Positive internal weights do not prove monotonicity for an arbitrary-weight
+    public API: negative weights reverse raw-score ordering. Close an incorrect
+    duplicate as submitted; do not call its separate unmeasured allocation idea
+    a proven no-op. A resubmission needs corrected parity tests and path evidence.
   - *Impact* — only by measurement on `csm-ref-01`. A FLOP-count reduction
     inside a function dominated by allocation/partitioning is **not** a
     speedup: check what the dominant term actually is before accepting the
