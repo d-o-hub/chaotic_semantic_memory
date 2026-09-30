@@ -1,5 +1,25 @@
 # PROGRESS
 
+## 2026-09-30 (wave-32 residual): Release gate moves to workflow_run
+
+Executed `migrate_release_wait_for_ci_to_workflow_run`. `release.yml` no longer triggers on a main push and polls `gh run list` under a `MAX_WAIT` ceiling (raised 1800 → 2700s, abandoned a third time on run 36031855839 while CI sat `queued` ~40 min on a saturated runner pool); it now triggers on the **completion of the CI workflow** (`workflow_run` on `ci.yml`, `types: [completed]`, `branches: [main]`) and releases exactly `github.event.workflow_run.head_sha`.
+
+### Change
+- `wait-for-ci` (83 lines of polling + queue-starvation re-trigger) deleted; `validate` is the entry job, gated on `conclusion == 'success'` **and** `head_repository == github.repository` **and** `event == 'push'` — a fork PR branch named `main` cannot reach a job holding `contents: write`.
+- Checkout, the tag created by `validate`, and the GitHub release `target_commitish` all pin `head_sha` (new `release-sha` output) instead of `github.sha`, which under `workflow_run` is the default-branch tip rather than the commit whose CI passed.
+- `workflow_dispatch` keeps the fail-closed rule with one query: the new guard refuses to proceed unless CI for HEAD is already `completed`/`success`. `actions: write` is dropped; `validate` adds only `actions: read`.
+- Docs trued: `release-management` skill (hard rule 3 + flow) and its `release-workflow.md` reference, `agents-docs/release-safety.md`, `.agents/context/shared-conventions.md`; `progress/LEARNINGS.md` records the durable rule.
+
+### Verification (merged `8c1f864d`, PR #796)
+- `actionlint .github/workflows/release.yml` → no expression/context/schema errors (remaining output is the pre-existing `ubuntu-24.04` label-data lag and SC2086 notes in untouched steps); `yaml.safe_load` → `workflow_run` + `workflow_dispatch`, 9 jobs, no dangling `wait-for-ci` reference.
+- **Trigger proof:** CI on `8c1f864d` completed `success` (run 36743298010, ~28 min queued) and release run **36746741481** fired with `event: workflow_run` (16:47:13Z); `validate` = success, every publish job `skipped` (tag `v0.3.8` exists → `release-needed=false`), `notify` = success. No `push`-triggered release run exists for that SHA (the old path is gone).
+- **Dispatch proof:** `gh workflow run release.yml` → run **36746882951** `validate` = success, log shows `CI on 8c1f864d495c27d321a7339526530baeb853ed8f: status=completed conclusion=success` and `Tag v0.3.8 already exists; skipping release.`
+- `CARGO_BUILD_JOBS=2 ./scripts/validate.sh` exit 0 (incl. skill-format validation of the edited SKILL.md), `cargo deny check` ok, commitlint 0 problems, CI on `9bca25e2` all green.
+
+### State
+- `plans/GOAP_STATE.md`: `release_wait_event_driven: true`; `action_last_completed: migrate_release_wait_for_ci_to_workflow_run`; `queued_actions_count` 11 → 10; `main_head` refreshed.
+- `plans/ACTIONS.md`: action removed; completion note added.
+
 ## 2026-09-30 (wave-32 exit pass): Flag truth vs the July audit
 
 Re-verified every exit criterion of `plans/GOAP_AUDIT_2026_07_14.md` against HEAD `7ce6fb73` instead of trusting recorded flags. Three read-only evidence sweeps covered Phases 1-4; every claim below was re-checked by command or by reading the cited source.
