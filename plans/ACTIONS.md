@@ -239,17 +239,25 @@
 > `plans/PR_ROAST_2026_09_30.md`. 0 open PRs, 0 open issues; the three queued
 > actions below are unchanged (none was in scope).
 
-actions:
-  - name: reconcile_wave_32_remainder_and_flag_truth
-    preconditions: []
-    effects:
-      validated: true
-    notes: >
-      GOAP_STATE flag-truth pass: wave-32 "ownership + evidence remain" comment
-      is stale (ownership dedup landed 2026-09-15/18, evidence waves 2026-09-17/21),
-      and `validated: false`'s justification with it. Verify against
-      plans/GOAP_AUDIT_2026_07_14.md exit criteria, then flip in place.
+> Last completed (verified 2026-09-30, wave-32 exit pass):
+> `reconcile_wave_32_remainder_and_flag_truth` — re-verified every exit
+> criterion of `plans/GOAP_AUDIT_2026_07_14.md` against HEAD `7ce6fb73` instead
+> of trusting recorded flags. Met: ANN config fallible + revisioned,
+> fingerprint-gated snapshots (`tests/ann_revision_envelope.rs`); fuzz
+> workspace compiles (exact CI command, exit 0); lean `--no-default-features`
+> graph (0 libsql/rayon on normal+build edges); one WASM artifact (CI + release
+> both `build-wasm.sh release-web`); full workspace/supply-chain CI; bulk
+> association load; benchmark metric math + hand-calculated tests; measured
+> memory claim; absence short-circuit wired; 0 TODO/`unimplemented!`; unique
+> source/test ownership; compact plans. Remainder queued as nine actions (TTL
+> shutdown ownership, absence invalidation, failure-path test, query-count
+> test, gate/fixture/hook consolidation, skill catalog + agent-context
+> generation, scheduled/release evidence tiers + mutation inventory,
+> machine-derived CI matrix, archive-manifest validation). `validated` stays
+> false with that evidence-based justification; `wave_32_status` stays
+> in_progress.
 
+actions:
   - name: migrate_release_wait_for_ci_to_workflow_run
     preconditions: []
     effects:
@@ -285,4 +293,135 @@ actions:
       `crates-check` gets a 403 from crates.io with curl's default UA (Fastly);
       prefer `cargo search` or a contact UA. Evidence: `progress/LEARNINGS.md`
       (2026-09-27) and `progress/PROGRESS.md`.
+
+  - name: own_ttl_cleanup_shutdown
+    preconditions: []
+    effects:
+      ttl_cleanup_has_bounded_shutdown: true
+    notes: >
+      Audit F2, re-verified 2026-09-30 against HEAD 7ce6fb73.
+      `src/framework_builder.rs:443` spawns the cleanup loop and the handle is
+      stored (`src/framework.rs:43`, `Arc<JoinHandle<()>>`), but shutdown is a
+      fire-and-forget `handle.abort()` in `Drop` (`src/framework.rs:44-50`):
+      no cancellation token, no await. Because the handle is an `Arc` shared by
+      clones (`src/framework_namespaces.rs:159`), dropping ANY clone aborts the
+      task for every clone. No test sets `cleanup_interval_seconds > 0`, so the
+      loop's termination is never exercised. Required: per-instance
+      cancellation token + bounded await on shutdown, and a test that proves
+      the task stops.
+
+  - name: add_absence_invalidation_semantics
+    preconditions: []
+    effects:
+      absence_records_invalidated_on_insert: true
+    notes: >
+      Audit F1 remainder, re-verified 2026-09-30. The short-circuit is wired
+      (`src/framework_ttl.rs:170-195,252`; `ABSENCE_MIN_ATTEMPTS = 3`) and
+      regression-tested (`tests/bm25_absence_short_circuit.rs`), but absence
+      records never expire and are not cleared when a matching concept is
+      inserted or when the same query later succeeds
+      (`crates/csm-traits/src/absence.rs` exposes only get/upsert/list), so a
+      query known-absent three times keeps short-circuiting after matching
+      content exists. Required: invalidation on insert / successful retrieval,
+      with a test that adds the missing concept and asserts retrieval resumes.
+
+  - name: add_persistence_failure_path_test
+    preconditions: []
+    effects:
+      persistence_failure_semantics_tested: true
+    notes: >
+      Audit C3, re-verified 2026-09-30. The behavior exists — persist before
+      mutate plus reload-reconcile (`src/framework_persistence.rs:244-296`) —
+      but no test injects a persistence error: grep finds no failing/mock
+      `Persistence` and no `inject_concept(...).unwrap_err()` assertion in
+      `tests/`. Required: a failure-injection test asserting
+      `stats().concept_count` is unchanged after a failed inject/delete, so
+      `persistence_failure_leaves_memory_unchanged` rests on a gate.
+
+  - name: wire_and_consolidate_validation_gates
+    preconditions: []
+    effects:
+      single_gate_graph: true
+    notes: >
+      Audit W1/G3, re-verified 2026-09-30. Negative fixtures exist
+      (`scripts/test-llms-sync.sh` 5 cases, `test-version-sync.sh` 4 cases,
+      `negative-fixtures.sh`) but no gate invokes them;
+      `validate-workflows.sh`, `validate-git-hooks.sh` and `validate-links.sh`
+      have zero callers; three hook installers (`install-hooks.sh`,
+      `setup-hooks.sh`, `validate-git-hooks.sh --install`) install different
+      hook sets; `pre-commit.sh` and `hooks/pre-push` enforce different sensors
+      than `harness-check.sh`; the CI-wired skill validator has no negative
+      fixture. Required: one bootstrap, one canonical gate graph, fixture tests
+      wired into `validate.sh` + CI (or deleted), negative fixture for the
+      skill validator.
+
+  - name: generate_skill_catalog_and_agent_context
+    preconditions: []
+    effects:
+      skill_catalog_generated_and_gated: true
+    notes: >
+      Audit Phase-4 exit, re-verified 2026-09-30. `.agents/skills/CATALOG.md`
+      says "32 skills" while the disk has 33, with no generator and no drift
+      check in `scripts/`, `.github/` or hooks. Same family:
+      `scripts/gen-agents-context.sh:77` hardcodes "Skills (13 Total)" and
+      `:13` reads archived `plans/SWARM_COORDINATION.md`;
+      `docs/architecture/context.yaml` is stale (`current_status.active_wave:
+      11`, `total_tests: 134`, `skills.total_count: 19`, `adrs.count: 16`) and
+      its `architecture.modules` names pre-extraction root files. Required:
+      generator + drift gate for the catalog, and refreshed (or generated)
+      agent-context artifacts with a checker.
+
+  - name: complete_evidence_tiers_and_mutation_hardening
+    preconditions: []
+    effects:
+      scheduled_and_release_evidence_tiers: true
+      mutation_inventory_published: true
+    notes: >
+      Audit E4/E6 + ADR-0095 tiers, re-verified 2026-09-30. The PR tier exists
+      (`benchmark-ci.yml`; `ci.yml` test-benchmarks, graph-candidates,
+      perf-evidence gate), but no scheduled workflow runs the scale evidence
+      (`scripts/scale-evidence.sh`) or a full mutation sweep;
+      `pre-release-gate.yml` (workflow_call + workflow_dispatch) has no caller
+      and runs no benchmark; `benchmark-ci.yml` path filters omit `crates/**`,
+      so owner-crate changes skip it. Mutation: timeouts are unresolved ✓ and a
+      budget fails the job ✓, but the static exclude list
+      (`scripts/mutation_test.sh:181-262`) still applies to changed files and
+      only aggregate counts are printed (no module-level inventory artifact).
+
+  - name: add_query_count_regression_test
+    preconditions: []
+    effects:
+      bulk_association_load_verified: true
+    notes: >
+      Audit P1 remainder, re-verified 2026-09-30. `load_all_associations`
+      (`crates/csm-persistence/src/persistence_index.rs:148`) is used by
+      `load`/`load_replace`/`load_merge` (`src/framework_persistence.rs:100,184,304`),
+      so the N+1 loop is gone, but nothing counts queries — grep for
+      `query_count|num_queries` finds no hits. Required: a query-count
+      regression test pinning the single namespace-scoped association load.
+
+  - name: derive_ci_crate_matrix_from_workspace
+    preconditions: []
+    effects:
+      ci_matrix_machine_derived: true
+    notes: >
+      Audit A6 remainder, re-verified 2026-09-30. `ci.yml`'s
+      `test-workspace-crates` matrix (`ci.yml:202-241`) is a hand-written crate
+      list guarded only by a "Keep in sync with workspace members" comment, so
+      a new `crates/*` member can silently miss CI. Required: derive the matrix
+      from `cargo metadata`, or add a check that fails when the list and the
+      workspace diverge.
+
+  - name: validate_archive_manifest_completeness
+    preconditions: []
+    effects:
+      archive_manifest_validated: true
+    notes: >
+      Audit G4, re-verified 2026-09-30. `plans/ARCHIVE_MANIFEST.md` documents
+      the 2026-07-20/2026-08-08 compactions and `plans/README.md` links it, but
+      no script reads it (grep for ARCHIVE_MANIFEST across `scripts/` and
+      `.github/` is empty) and it does not enumerate the 55 top-level archived
+      ADRs under `plans/.archive/` (`grep -c 'plans/.archive/00'` = 0).
+      Required: list the archived ADRs and add a checker so
+      `plan_archive_manifest_valid` rests on a gate.
 
