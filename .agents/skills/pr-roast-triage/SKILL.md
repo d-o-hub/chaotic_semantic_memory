@@ -133,6 +133,16 @@ Close the losers with reason `superseded by #<keeper>`.
     called — the "after" number was slower (92.5 → 93.3 µs) because it timed
     unrelated code. Check the sign too: an "after" that is *worse* is evidence
     against the claim, not neutral.
+  - **Separate zero-fill elimination from scheduling effects (PR #783,
+    2026-09-28).** In the inspected x86_64/rustc 1.98.1 builds, LLVM already
+    removed the overwritten zero-init: the old-only body was a bare `memcpy`,
+    and old/new `from_hvec`/`from_bytes` folded to the *same address*.
+    `to_bytes` changed instruction scheduling over the same alloc+memcpy:
+    no demonstrated zero-fill-elimination benefit does not mean zero codegen
+    delta or prove all timings are noise. Require reproducible affected-path
+    benchmarks for a scheduling-speedup claim. Compile variants
+    `#[no_mangle] #[inline(never)]` into a linked binary and disassemble
+    (raw `--emit obj/asm` drops unreferenced `pub fn`s on rustc 1.98.1).
   - **Evidence belongs in the PR body.** A `## Performance Evidence` section in
     a commit message does not satisfy the gate and does not reach a reviewer
     reading the PR. Check the body, not the commits.
