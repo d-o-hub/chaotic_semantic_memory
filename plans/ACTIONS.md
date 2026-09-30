@@ -257,22 +257,19 @@
 > false with that evidence-based justification; `wave_32_status` stays
 > in_progress.
 
-actions:
-  - name: migrate_release_wait_for_ci_to_workflow_run
-    preconditions: []
-    effects:
-      release_wait_event_driven: true
-    notes: >
-      `release.yml`'s `wait-for-ci` polls `gh run list` on a `MAX_WAIT` ceiling
-      (1800 → 2700 → timed out again on run 36031855839 while main CI on the same
-      SHA sat `queued` ~40 min on a saturated runner pool). Polling cannot
-      distinguish "CI is slow" from "CI has not been scheduled", and
-      `gh run rerun` cannot help a run that is merely queued. Third occurrence
-      ⇒ stop raising the ceiling. Migrate the gate to a `workflow_run`
-      trigger on ci.yml completion (event-driven, no ceiling), keep the
-      `release-needed` version check, and verify with `gh workflow run` plus a
-      no-op dry run before trusting it on a real release.
+> Last completed (verified 2026-09-30, release gate):
+> `migrate_release_wait_for_ci_to_workflow_run` — PR #796 merged as
+> `8c1f864d`: `release.yml` triggers on the CI workflow completing on `main`
+> (`workflow_run`) instead of a push plus a 45-minute poll, releases exactly
+> `github.event.workflow_run.head_sha`, gates the job on
+> `conclusion == 'success'` + same-repo + `event == 'push'`, and keeps
+> `workflow_dispatch` fail-closed with a single CI query. Proof: trigger run
+> 36746741481 (`validate` success, every publish job skipped, and no
+> push-triggered release run for the merge SHA) plus dispatch run 36746882951
+> (log `CI on 8c1f864d…: status=completed conclusion=success`, then
+> `Tag v0.3.8 already exists; skipping release.`).
 
+actions:
   - name: fix_crates_publish_precheck_and_add_duckdb
     preconditions: []
     effects:
