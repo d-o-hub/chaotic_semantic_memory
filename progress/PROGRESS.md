@@ -17,8 +17,9 @@ Implemented the first atomic recommendation from the 2026-09-29 audit in the own
 ## 2026-09-28: PR Roast Triage (#783–#786)
 
 ### Summary
-Session-start roast of all four open PRs. One no-impact PR closed with its roast
-comment; three dependabot keepers verified and a manual merge order emitted (no
+Session-start roast of all four open PRs. One PR closed with its roast comment
+for no demonstrated zero-fill-elimination benefit; three dependabot keepers
+verified and a manual merge order emitted (no
 merges executed by the triage). No queued GOAP action was in scope;
 `action_last_completed` unchanged.
 
@@ -29,8 +30,11 @@ merges executed by the triage). No queued GOAP action was in scope;
   `from_hvec`/`from_bytes` variants fold to the same address (byte-identical
   code); an old-only build disassembles to a bare `memcpy` — LLVM already
   dead-store-eliminates the zero-init. `to_bytes` old/new share the same
-  alloc+memcpy sequence (scheduling-only diff). Claimed ~3.7%/~0.8% = noise;
-  perf-evidence gate red (no `## Performance Evidence`), commit 1 scope
+  alloc+memcpy sequence but differ in instruction scheduling. No demonstrated
+  zero-fill-elimination benefit; the scheduling change means disassembly alone
+  cannot dismiss all claimed timings as noise. A scheduling-speedup claim needs
+  reproducible affected-path benchmarks. The perf-evidence gate was red
+  (no `## Performance Evidence`), commit 1 scope
   `core-lib` invalid (not in `commitlint.config.cjs`), draft behind `main`.
 - #784 (install-action 2.87.15 → 2.87.20): keeper. SHA
   `9983c65e42da123ff25d1f78505eb6de315aa172` equals tag `v2.87.20`'s commit;
