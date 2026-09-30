@@ -52,6 +52,9 @@ pkg/
 # CI-only root npm (commitlint); lockfile is committed, modules are not
 /node_modules/
 
+# Local agent session state
+/__agent__/
+
 # IDE / editor tooling
 # .opencode npm state is local-only: Dependabot aborts on the npm ecosystem when
 # it finds .opencode/package-lock.json without its gitignored package.json
