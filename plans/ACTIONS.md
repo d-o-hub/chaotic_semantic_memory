@@ -269,28 +269,18 @@
 > (log `CI on 8c1f864d…: status=completed conclusion=success`, then
 > `Tag v0.3.8 already exists; skipping release.`).
 
-actions:
-  - name: fix_crates_publish_precheck_and_add_duckdb
-    preconditions: []
-    effects:
-      crates_publish_precheck_ownership_aware: true
-      csm_duckdb_in_release_publish_order: true
-    notes: >
-      Found while publishing csm-duckdb 0.3.8 (2026-09-27). (1) The
-      name-availability pre-check in `.github/workflows/release.yml` flags our own
-      older version as an unrelated-project conflict — simulated against the live
-      registry at 0.3.9 it sets NAME_CONFLICT=true for all seven published
-      companions and exits 1, so the next version release fails before publishing
-      anything. Make it ownership-aware (crates.io owners API) or compare against
-      the published version set. (2) `cargo publish` verification resolves
-      dev-dependencies against the registry (probe: dev-dep `serde = "99"` fails
-      package prep), and csm-duckdb dev-depends on the root crate — it must
-      publish in a dedicated step AFTER `Publish to crates.io`; the companion loop
-      swallows failures and would silently skip it. (3) The `curl`-based
-      `crates-check` gets a 403 from crates.io with curl's default UA (Fastly);
-      prefer `cargo search` or a contact UA. Evidence: `progress/LEARNINGS.md`
-      (2026-09-27) and `progress/PROGRESS.md`.
+> Last completed (verified 2026-09-30, publish pre-check):
+> `fix_crates_publish_precheck_and_add_duckdb` — PR #798 merged as
+> `71a48618`: the name pre-check is ownership-based (owners API; free or
+> `d-o-hub` passes, other owners fail, unknown HTTP fails closed), version
+> existence comes from the sparse index (fail-closed if unreadable), the
+> companion loop classifies failures instead of swallowing them, and
+> `csm-duckdb` has a dedicated step after the root publish that waits for the
+> root version in the index. Verified by executing the workflow's extracted
+> shell: eight-name list green, `serde` conflict red, `0.3.8`/`0.3.9`
+> published-probe split correct, duckdb step no-ops on the published version.
 
+actions:
   - name: own_ttl_cleanup_shutdown
     preconditions: []
     effects:

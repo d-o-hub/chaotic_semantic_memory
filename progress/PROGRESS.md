@@ -1,5 +1,28 @@
 # PROGRESS
 
+## 2026-09-30 (wave-32 residual): crates.io publish pre-check
+
+Executed `fix_crates_publish_precheck_and_add_duckdb` (PR #798, merged `71a48618`): three defects in `publish-crates`, each reproduced against the live registry before the fix.
+
+### Change
+- **Ownership pre-check** replaces the version comparison: `/api/v1/crates/<name>/owners` (public; `200` carries `users[].login`, `404` = free) with a descriptive UA. A name passes when it is free or owned by `d-o-hub`; any other HTTP outcome fails closed. `csm-duckdb` joined the checked set (8 names).
+- **Version existence** now comes from the sparse index `verify-release` already trusts; the root "already published" check fails closed if the index is unreadable, and the per-crate skip uses the same probe instead of `cargo search`.
+- **Companion loop** captures `cargo publish` output, treats "already uploaded" as an idempotent skip, and collects any other failure to exit non-zero — partial publishes can no longer pass silently.
+- **`csm-duckdb`** gets a dedicated step after `Publish to crates.io`: skip if published, otherwise wait (bounded 10 min, then fail) for the root version in the index and publish. Its dev-dependency on the root crate is why ordering matters (`crates/csm-duckdb/Cargo.toml:25`).
+
+### Verification (the workflow's shell was extracted and executed, not read)
+- Ownership pre-check, real eight-name list: all eight `✅ owned by d-o-hub`, exit 0.
+- Negative control: `serde` → `❌ CONFLICT: serde is owned by [dtolnay github:serde-rs:publish]`; unknown name → `✅ name is free`; exit 1.
+- `crates-check`: `0.3.8` → `already-published=true`, `0.3.9` → `already-published=false` (both exit 0). The retired probe reads the published 0.3.8 as "not published" (default UA → 403, no match) — the defect.
+- `csm-duckdb` step on the published 0.3.8: early exit, no publish attempted.
+- `shellcheck -s bash -S info` on the new scripts: 0 findings; `actionlint` 52 findings before → 50 after (the two removed are inside the rewritten step); `cargo metadata` resolves `-p csm-duckdb`.
+- Gates: `CARGO_BUILD_JOBS=2 ./scripts/validate.sh` exit 0, `cargo deny check` ok, commitlint 0 problems, CI green on `3d39510`.
+
+### State
+- `plans/GOAP_STATE.md`: `crates_publish_precheck_ownership_aware: true`, `csm_duckdb_in_release_publish_order: true`; `action_last_completed: fix_crates_publish_precheck_and_add_duckdb`; `queued_actions_count` 10 → 9; `main_head` refreshed.
+- `plans/ACTIONS.md`: action removed; completion note added.
+- `progress/LEARNINGS.md`: the three 2026-09-27 supply-chain bullets now carry their resolutions.
+
 ## 2026-09-30 (wave-32 residual): Release gate moves to workflow_run
 
 Executed `migrate_release_wait_for_ci_to_workflow_run`. `release.yml` no longer triggers on a main push and polls `gh run list` under a `MAX_WAIT` ceiling (raised 1800 → 2700s, abandoned a third time on run 36031855839 while CI sat `queued` ~40 min on a saturated runner pool); it now triggers on the **completion of the CI workflow** (`workflow_run` on `ci.yml`, `types: [completed]`, `branches: [main]`) and releases exactly `github.event.workflow_run.head_sha`.
