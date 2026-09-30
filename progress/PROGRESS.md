@@ -1,5 +1,9 @@
 # PROGRESS
 
+## 2026-09-30: Remaining PR impact review
+
+Closed #790 as an incorrect mixed-scope submission and #793 as its incorrect single-list duplicate after posting roast recommendations. Neither supplied the required PR-body performance evidence; both select the wrong candidate for negative public weights. The independent HashMap proposal remains eligible for a measured atomic resubmission, not branded a proven no-op. Keeper review found and corrected #791's missing `clear_associations` invalidation, #789's overbroad codegen claims, and #792's codec/MSRV wording. See `plans/PR_ROAST_2026_09_30.md` for verdicts and sequential merge discipline.
+
 ## 2026-09-29: Retrieval cache and capacity invariants
 
 ### Summary
