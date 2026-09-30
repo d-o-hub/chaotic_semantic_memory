@@ -99,8 +99,13 @@ impl<H: Hypervector + 'static> Singularity<H> {
 
     #[instrument(skip(self, concept))]
     pub fn inject(&mut self, ns: &str, concept: Concept<H>) -> Result<()> {
-        self.evict_oldest_if_needed(ns);
         let id = concept.id.clone();
+        let replacing = self
+            .get_namespace(ns)
+            .is_some_and(|ns_state| ns_state.concepts.contains_key(&id));
+        if !replacing {
+            self.evict_oldest_if_needed(ns);
+        }
         let vector = concept.vector;
 
         let ns_state = self.ensure_namespace(ns)?;
@@ -118,6 +123,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
             ns_state.concept_vectors.push(vector);
             ns_state.concept_indices.push(id.clone());
             ns_state.id_to_index.insert(id, pos);
+            self.invalidate_cache(ns);
         }
 
         Ok(())
@@ -237,6 +243,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
                 }
             }
         }
+        self.invalidate_cache(ns);
 
         Ok(())
     }
@@ -246,6 +253,7 @@ impl<H: Hypervector + 'static> Singularity<H> {
         if let Some(neighbors) = ns_state.associations.get_mut(from) {
             neighbors.remove(to);
         }
+        self.invalidate_cache(ns);
         Ok(())
     }
 
