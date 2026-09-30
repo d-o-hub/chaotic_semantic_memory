@@ -7,18 +7,22 @@ Matches `.github/workflows/release.yml` as of Wave 32. Prefer the skill entrypoi
 | Item | Value |
 |------|-------|
 | Workflow | `.github/workflows/release.yml` |
-| Triggers | `push` to `main`, `workflow_dispatch` |
+| Triggers | `workflow_run` on `CI` completion (success, branch `main`), `workflow_dispatch` |
 | Tag owner | Workflow job `validate`, step **Ensure release tag exists** |
 | Tag format | `v` + version from root `Cargo.toml` |
 
 ```
 merge PR to main
-  → release.yml starts
-  → wait-for-ci (gh run list --workflow=ci.yml --commit $SHA)
+  → CI completes successfully on main
+  → release.yml starts (workflow_run; no polling, no wait ceiling)
   → validate: changelog, sync-version clean, package list
   → git tag v$VERSION && git push origin v$VERSION   # ONLY tag owner
   → build matrix / publish crates / npm / GitHub release
 ```
+
+A `workflow_dispatch` run skips the event gate but must see a green CI run for
+HEAD (single fail-closed query) before validating; the job-level `if` only
+releases when the upstream CI run concluded `success` in this repository.
 
 **Humans do not create routine `v*` tags.** Manual tag push is recovery-only (below).
 

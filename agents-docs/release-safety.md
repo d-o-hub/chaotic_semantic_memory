@@ -1,6 +1,6 @@
 # Release Safety Requirements
 
-**CRITICAL: Never release with failing CI. The release workflow has a guardrail that waits for CI to pass.**
+**CRITICAL: Never release with failing CI. The release workflow is gated on the CI workflow finishing successfully on `main` (`workflow_run` on `ci.yml`), and a manual dispatch re-verifies CI green for HEAD before doing anything.**
 
 ## Artifact Channels
 - **Rust Library:** `chaotic_semantic_memory` (crates.io / cargo)
@@ -22,7 +22,7 @@ Refer to `.agents/skills/dist-channel-selection/SKILL.md` for canonical commands
 3. Update `CHANGELOG.md` with new section
 4. Run `cargo build --release` to sync Cargo.lock
 5. Commit all version files together (atomic)
-6. Push and wait for CI to pass; only then create tag/release
+6. Push and wait for CI to pass on `main`; its completion triggers `release.yml`, which applies the version/tag check and owns the tag
 
 ## Platform-Specific Notes
 - **macOS arm64**: NEON SIMD intrinsics require explicit unsafe blocks

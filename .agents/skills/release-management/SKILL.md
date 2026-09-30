@@ -11,14 +11,14 @@ Automated release pipeline: version sync, Trusted Publishing (crates.io/npm), an
 
 1. **Never push directly to `main`.** Use branch → PR → required CI green → merge.
 2. **Never create release tags manually for routine releases.** Tag owner is `.github/workflows/release.yml` (job `validate` / step “Ensure release tag exists”).
-3. **Single trigger:** workflow runs on **push to `main`** (after merge) or `workflow_dispatch`. It waits for CI, then creates `v{version}` from `Cargo.toml` and publishes.
+3. **Single trigger:** the workflow runs when the **CI workflow completes successfully on `main`** (`workflow_run` on `ci.yml`; no polling and no ceiling) or on `workflow_dispatch`, which must see a green CI run for HEAD. It then applies the version/tag check and creates `v{version}` from `Cargo.toml`.
 4. Identify the artifact channel first via the `dist-channel-selection` skill.
 
 ## Protected release flow
 
 ```
 feature branch → PR → CI green → merge to main
-        → release.yml (wait-for-ci) → create tag v* → publish
+        → CI completes on main → release.yml (workflow_run) → create tag v* → publish
 ```
 
 ### Operator steps
