@@ -23,20 +23,20 @@ world_state:
   wasm_compiles: true
   binary_built: true
   documentation_complete: true
-  validated: false               # Wave 32/33 remainder: ownership + evidence tiers still queued
+  validated: false               # 2026-09-30: wave-32/33 exits re-verified vs GOAP_AUDIT_2026_07_14.md; residuals queued — TTL shutdown, absence invalidation, failure-path/query-count tests, gate+catalog consolidation, scheduled/release evidence tiers
   ci_all_checks_passed: true     # 2026-09-17: PR-title check keys on github.event.pull_request.user.login and tolerates double-scoped dependabot titles (#726)
   loc_gate_verified: true        # all first-party src/ and crates/ files ≤ 500 LOC
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "195d6e61"          # 2026-09-30: triage wave #791 -> #789 -> #792 merged (latest main at record time)
+  main_head: "7ce6fb73"          # 2026-09-30: #794 state record; wave-32/33 exits verified vs GOAP_AUDIT_2026_07_14.md
   tests_count: 1037              # 2026-09-30: unique compiled behavior (scripts/coverage-report.sh inventory)
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
   coverage_lines_percent: 74     # 2026-09-18: cargo +nightly llvm-cov --workspace --lib --tests --branch
   coverage_branches_percent: 64  # same run; unit-only targets measure 68/53, hence --tests matters
   adr_registry_count: 94         # 2026-08-12: check-adr-parity.sh ok (registry=94, disk=93, 0003 N/A)
   adr_disk_count: 93
-  integration_test_files: 71     # tests/*.rs (2026-09-17 recount)
+  integration_test_files: 72     # tests/*.rs (2026-09-30 recount)
 
   # ── Plans pointers ────────────────────────────────────────────
   plans_active_index: "plans/README.md"
@@ -45,14 +45,14 @@ world_state:
     - "plans/.archive/2026-07-20-historical"
     - "plans/.archive/2026-08-08-historical"
   active_plan_set_compact: true
-  plan_archive_manifest_valid: true
+  plan_archive_manifest_valid: true  # 2026-09-30: ARCHIVE_MANIFEST.md + README redirects exist; no validator reads it and 55 top-level archived ADRs are unlisted (queued)
 
   # ── Active wave ───────────────────────────────────────────────
   active_wave: 33
-  wave_32_status: in_progress    # 2026-09-22: ownership (09-15/18) + evidence (09-17/21) landed; remainder is flag-truth reconciliation (queued)
+  wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 3        # 2026-09-27: eliminate_retrieval_string_clones completed (#781); queue is wave-32 flag reconciliation, migrate_release_wait_for_ci_to_workflow_run, fix_crates_publish_precheck_and_add_duckdb
+  queued_actions_count: 11       # 2026-09-30: flag reconciliation completed; wave-32/33 residuals queued (9) + migrate_release_wait_for_ci_to_workflow_run + fix_crates_publish_precheck_and_add_duckdb
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: true            # 2026-08-12: no TODO in src/ crates/
@@ -82,11 +82,13 @@ world_state:
   ten_million_memory_claim_evaluated: true        # 2026-09-17: evaluated NOT supported (43.7 GB RSS / 26.5 GB storage)
   ann_snapshot_revision_validated: true           # ADR-0093: IndexSnapshotEnvelope + ns revision
   ann_config_is_fallible: true                    # validate_index_backend; ADR-0093
-  persistence_failure_leaves_memory_unchanged: true # durable commit before memory mutate
+  persistence_failure_leaves_memory_unchanged: true # 2026-09-30: durable-first order + reload reconcile (framework_persistence.rs:244-296); failure path untested (queued)
   persistence_implementation_owner_unique: true  # 2026-09-15: root facade re-exports csm-persistence (phases 1-3); no second body
   mcp_full_width_vector_wire_contract: true       # base64 1280-byte HVec + high-bit tests
+  no_state_lock_across_io_await: true             # 2026-09-30: durable I/O before singularity locks (framework_persistence.rs:96,177-215), verified by inspection
+  benchmark_metrics_mathematically_correct: true  # 2026-09-30: multi-label recall_at_k, log2 NDCG, abstention gold from should_abstain + hand-calculated tests (benchmarks/src/scorer.rs)
   public_f32_apis_validate_input: true            # 2026-08-07: PR #607 prune/neighbors validation
-  workspace_ci_matrix_complete: true              # csm-chaos + benchmark tests in CI
+  workspace_ci_matrix_complete: true              # csm-chaos + benchmark tests in CI; crate list hand-maintained (ci.yml:202-241, machine-derived matrix queued)
   cargo_deny_required_in_ci: true
   fuzz_build_required_in_ci: true
   skill_validation_fail_closed: true              # wired into validate.sh + CI + pre-commit
@@ -111,4 +113,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: triage_pr_roast_2026_09_30
+  action_last_completed: reconcile_wave_32_remainder_and_flag_truth

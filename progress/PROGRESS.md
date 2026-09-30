@@ -1,5 +1,37 @@
 # PROGRESS
 
+## 2026-09-30 (wave-32 exit pass): Flag truth vs the July audit
+
+Re-verified every exit criterion of `plans/GOAP_AUDIT_2026_07_14.md` against HEAD `7ce6fb73` instead of trusting recorded flags. Three read-only evidence sweeps covered Phases 1-4; every claim below was re-checked by command or by reading the cited source.
+
+### Met (with evidence)
+- ANN config fallible: `validate_index_backend` (`crates/csm-memory/src/index/mod.rs:113`) is called from `FrameworkBuilder::build` (`src/framework_builder.rs:354`); invalid HNSW/LSH configs return `InvalidInput` (unit tests in `index/mod.rs`).
+- Stale snapshots rejected: `IndexSnapshotEnvelope` carries `namespace_revision` + `backend_fingerprint` and is applied only on exact match (`src/framework_persistence.rs:131-134`); `tests/ann_revision_envelope.rs` (`stale_snapshot_after_inject_is_rejected_on_reload`, `backend_mismatch_rejects_snapshot`).
+- Fuzz workspace compiles: `cargo check --manifest-path fuzz/Cargo.toml --all-targets --locked` exit 0 locally; CI job `fuzz-build` (`ci.yml:603-627`) runs the identical command.
+- Lean feature matrix: 0 libsql / 0 rayon on normal+build edges (`cargo tree -p chaotic_semantic_memory --no-default-features -e features,normal`); the remaining `rayon` hits are dev-only via `criterion`.
+- One WASM artifact: CI (`ci.yml:521`) and release (`release.yml:618`) both call `scripts/build-wasm.sh release-web`; `scripts/wasm_size_gate.sh` measures that artifact (656 657 B threshold, sha256 printed).
+- Workspace/supply-chain CI: whole crate matrix (incl. `csm-chaos`), `cargo-deny`, `test-benchmarks`, `mutation-test`, `miri`, `test-duckdb`, arm64, `fuzz-build`.
+- Constant-query load and lock discipline: `load_all_associations` (`crates/csm-persistence/src/persistence_index.rs:148`) used by `load`/`load_replace`/`load_merge` (`src/framework_persistence.rs:100,184,304`); durable I/O happens before singularity locks are taken (`:96`, `:177-215`).
+- Metric math: true multi-label `recall_at_k`, log2 NDCG, abstention gold from `should_abstain`, hand-calculated tests (`benchmarks/src/scorer.rs`); `cargo test --manifest-path benchmarks/Cargo.toml --locked` 31 passed.
+- Measured (not formula) memory claim: `tests/performance_targets.rs:69` measures on-disk bytes/concept (2 875 measured, band 2 500-3 500) plus RSS; `plans/evidence/scale_release_2026_09_21/memory_model.json` records the 12 MB target as not supported.
+- Absence short-circuit wired: `src/framework_ttl.rs:170-195,252`, `ABSENCE_MIN_ATTEMPTS = 3`, `tests/bm25_absence_short_circuit.rs`.
+- No missing implementations: 0 hits for `TODO|todo!|unimplemented!|FIXME` in `src/` + `crates/`.
+- Unique ownership: facades verified (`src/retrieval/bm25.rs` shim, `src/embedding/mod.rs`, `src/persistence_wasm.rs`), canonical test owners per `plans/TEST_SURFACE_AUDIT_2026_09_18.md`; inventory 1037 unique tests.
+- Plans compact: `GOAP_STATE.md` 9.5 KB / `ACTIONS.md` 18.1 KB (≈100 KB / ≈180 KB at audit time), with `plans/ARCHIVE_MANIFEST.md` + `plans/README.md` redirects.
+
+### Remainder (queued as nine actions)
+- TTL cleanup shutdown is `Drop`-time `abort()` on an `Arc`-shared handle (`src/framework.rs:44-50`): no cancellation token, no await, any clone drop kills the task for all clones, and no test sets a non-zero cleanup interval.
+- Absence records are never invalidated on insert or on later success (stale short-circuit).
+- No persistence failure-injection test and no query-count test for the bulk association load.
+- Gate graph fragmented: orphaned validators (`validate-workflows.sh`, `validate-git-hooks.sh`, `validate-links.sh`), fixture tests (`test-llms-sync.sh`, `test-version-sync.sh`) invoked by nothing, three hook installers with different sets.
+- Skill catalog is hand-written and stale (32 vs 33); `scripts/gen-agents-context.sh` and `docs/architecture/context.yaml` carry stale counts (`active_wave: 11`, `total_tests: 134`, `skills: 19`, `adrs: 16`).
+- Evidence tiers: no scheduled scale tier, `pre-release-gate.yml` uncalled and bench-free, `benchmark-ci.yml` path filters miss `crates/**`; mutation has no module-level inventory and still excludes changed files.
+- `ci.yml` crate matrix is hand-maintained; archive manifest has no validator and omits the 55 top-level archived ADRs.
+
+### State
+- `plans/GOAP_STATE.md`: `validated` stays `false` with the evidence-based residual list; `wave_32_status` stays `in_progress`; `main_head` refreshed; +`no_state_lock_across_io_await`, +`benchmark_metrics_mathematically_correct`; annotations on `persistence_failure_leaves_memory_unchanged`, `workspace_ci_matrix_complete`, `plan_archive_manifest_valid`; `integration_test_files` 71 → 72; `queued_actions_count` 3 → 11.
+- `plans/ACTIONS.md`: completed action removed, nine residuals queued, completion note added.
+
 ## 2026-09-30: Remaining PR impact review
 
 Closed #790 as an incorrect mixed-scope submission and #793 as its incorrect single-list duplicate after posting roast recommendations. Neither supplied the required PR-body performance evidence; both select the wrong candidate for negative public weights. The independent HashMap proposal remains eligible for a measured atomic resubmission, not branded a proven no-op. Keeper review found and corrected #791's missing `clear_associations` invalidation, #789's overbroad codegen claims, and #792's codec/MSRV wording. See `plans/PR_ROAST_2026_09_30.md` for verdicts and sequential merge discipline.
