@@ -1,9 +1,18 @@
 name: Release
 
 on:
-  push:
-    branches:
-      - main
+  # Event-driven release gate (2026-09-30). The release is triggered by the
+  # *completion of the CI workflow on main* instead of a main push followed by
+  # a polling loop. `wait-for-ci` polled `gh run list` under a MAX_WAIT ceiling
+  # (1800 → 2700s) and timed out a third time (run 36031855839: CI sat `queued`
+  # ~40 min on a saturated runner pool) — polling cannot distinguish "CI is
+  # slow" from "CI was never scheduled", and `gh run rerun` cannot help a run
+  # that is merely queued. A `workflow_run` trigger has no ceiling and releases
+  # exactly the SHA whose CI passed.
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       recover:
@@ -23,103 +32,50 @@ env:
   CARGO_INCREMENTAL: 0
 
 jobs:
-  # Guardrail: Wait for CI workflow to complete successfully before releasing
-  wait-for-ci:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 55
-    permissions:
-      actions: write   # required to query AND re-trigger stuck CI runs
-      contents: read
-    outputs:
-      ci-passed: ${{ steps.check-ci.outputs.passed }}
-    steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        fetch-depth: 1
-
-    - name: Wait for CI workflow to complete
-      id: check-ci
-      run: |
-        # Wait up to 45 minutes for CI workflow to complete.
-        # The mutation-test job alone can take ~20 min on PRs, and main-branch CI
-        # has historically been cancelled and re-triggered by the concurrency group,
-        # so 10 min was not enough and Release silently timed out (see run #412).
-        # 2026-09: CI runs drifted past 30 min again (8 Release runs timed out with
-        # CI green), so the ceiling was raised from 1800s to 2700s.
-        #
-        # Queue-starvation detection (2026-07-27): GitHub Actions runners can leave
-        # runs "queued" indefinitely. If CI is still queued after QUEUE_THRESHOLD,
-        # re-trigger it once via `gh run rerun` before giving up.
-        MAX_WAIT=2700
-        SLEEP_INTERVAL=30
-        QUEUE_THRESHOLD=600
-        ELAPSED=0
-        QUEUED_TIME=0
-        RETRIGGERED=false
-
-        while [ $ELAPSED -lt $MAX_WAIT ]; do
-          CI_RUN=$(gh run list --repo ${{ github.repository }} --workflow=ci.yml --commit ${{ github.sha }} --limit 1 --json databaseId,conclusion,status --jq '.[0]' || echo '')
-          if [ -z "$CI_RUN" ] || [ "$CI_RUN" = "null" ]; then
-            CI_RUN='{"databaseId":null,"status":"queued","conclusion":null}'
-          fi
-
-          CI_STATUS=$(echo "$CI_RUN" | jq -r '.status // "queued"')
-          CI_CONCLUSION=$(echo "$CI_RUN" | jq -r '.conclusion // "null"')
-          CI_RUN_ID=$(echo "$CI_RUN" | jq -r '.databaseId // "null"')
-
-          echo "CI status: $CI_STATUS, conclusion: $CI_CONCLUSION (run: $CI_RUN_ID)"
-
-          if [ "$CI_STATUS" = "completed" ]; then
-            if [ "$CI_CONCLUSION" = "success" ]; then
-              echo "✅ CI passed"
-              echo "passed=true" >> $GITHUB_OUTPUT
-              exit 0
-            else
-              echo "❌ CI ended with conclusion: $CI_CONCLUSION"
-              echo "::error::CI workflow $CI_CONCLUSION. Release blocked."
-              echo "passed=false" >> $GITHUB_OUTPUT
-              exit 1
-            fi
-          fi
-
-          if [ "$CI_STATUS" = "queued" ] || [ "$CI_STATUS" = "waiting" ]; then
-            QUEUED_TIME=$((QUEUED_TIME + SLEEP_INTERVAL))
-            if [ "$QUEUED_TIME" -ge "$QUEUE_THRESHOLD" ] && [ "$RETRIGGERED" = "false" ] && [ "$CI_RUN_ID" != "null" ]; then
-              echo "::warning::CI run $CI_RUN_ID stuck in queue for ${QUEUED_TIME}s. Re-triggering..."
-              gh run rerun "$CI_RUN_ID" --repo ${{ github.repository }} || echo "::warning::Re-trigger failed; continuing to wait"
-              RETRIGGERED=true
-              QUEUED_TIME=0
-            fi
-          else
-            QUEUED_TIME=0
-          fi
-
-          echo "Waiting for CI to complete... ($ELAPSED/$MAX_WAIT seconds)"
-          sleep $SLEEP_INTERVAL
-          ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
-        done
-
-        echo "::error::Timeout waiting for CI workflow to complete after ${MAX_WAIT}s"
-        echo "passed=false" >> $GITHUB_OUTPUT
-        exit 1
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   validate:
     runs-on: ubuntu-24.04
-    needs: wait-for-ci
-    if: needs.wait-for-ci.outputs.ci-passed == 'true'
+    # Release only when CI for this commit concluded success on main
+    # (workflow_run), or on an explicit dispatch whose commit CI is green
+    # (verified fail-closed below, single query, no polling).
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.head_repository.full_name == github.repository)
     permissions:
-      contents: write
+      actions: read      # dispatch path: `gh run list` CI guard query
+      contents: write    # tag creation + push
       pull-requests: write
     outputs:
       version: ${{ steps.version.outputs.version }}
       release-needed: ${{ steps.tag.outputs.release-needed }}
       release-ref: ${{ steps.tag.outputs.release-ref }}
+      release-sha: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
+        # Release exactly the commit whose CI passed; a dispatch releases main.
+        ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+    - name: Verify CI is green for the dispatched commit
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        # Fail-closed, single query. The retired wait-for-ci polled for up to
+        # 45 min and could not tell "CI is slow" from "CI was never scheduled";
+        # a dispatch must see a green CI run for HEAD now — wait for CI to end
+        # and re-dispatch instead.
+        SHA="${{ github.sha }}"
+        RUN=$(gh run list --repo "${{ github.repository }}" --workflow=ci.yml --commit "$SHA" --limit 1 --json status,conclusion --jq '.[0] // {}')
+        STATUS=$(echo "$RUN" | jq -r '.status // "missing"')
+        CONCLUSION=$(echo "$RUN" | jq -r '.conclusion // "none"')
+        echo "CI on ${SHA}: status=${STATUS} conclusion=${CONCLUSION}"
+        if [ "$STATUS" != "completed" ] || [ "$CONCLUSION" != "success" ]; then
+          echo "::error::Refusing release: CI on ${SHA} is ${STATUS}/${CONCLUSION}, not completed/success."
+          exit 1
+        fi
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
@@ -549,7 +505,7 @@ jobs:
       uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
       with:
         tag_name: v${{ needs.validate.outputs.version }}
-        target_commitish: ${{ github.sha }}
+        target_commitish: ${{ needs.validate.outputs.release-sha }}
         name: v${{ needs.validate.outputs.version }}
         body_path: release_notes.md
         files: release/*.tar.gz

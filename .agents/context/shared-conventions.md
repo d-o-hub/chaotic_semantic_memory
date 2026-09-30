@@ -146,7 +146,7 @@ For significant design decisions:
 ## CI/CD Conventions
 
 - Primary CI: GitHub Actions (`.github/workflows/ci.yml`)
-- Release: Tag-triggered workflow with `wait-for-ci` guard
+- Release: `release.yml` runs when CI completes successfully on `main` (`workflow_run` on `ci.yml`); a manual dispatch must see green CI for HEAD
 - Platform matrix: linux-x64, linux-arm64, macos-arm64, macos-x64, windows-x64
 - WASM: Separate build + size gate
 - Never use `gh pr merge --auto` when merging multiple PRs (rebase loop risk)
