@@ -1,7 +1,5 @@
 //! TTL (Time-To-Live) and text convenience operations for ChaoticSemanticFramework.
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-use crate::bridge_persistence::persist_absence;
 use crate::framework_events::MemoryEvent;
 use crate::framework_ttl_advanced::TtlPolicy;
 use crate::metadata_filter::MetadataFilter;
@@ -17,6 +15,25 @@ use tracing::instrument;
 /// Minimum persisted absence attempts before a query short-circuits retrieval (M1).
 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
 pub const ABSENCE_MIN_ATTEMPTS: u32 = 3;
+
+/// Outcome of the persisted-absence check for one query.
+///
+/// Deliberately has no inherent methods: the fields are read directly by the
+/// probe paths, which keeps the generated public API documents free of an
+/// `impl` block for a crate-private type.
+#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+pub(crate) struct AbsenceShortCircuit {
+    /// Namespace revision this check observed. Records written by the same probe
+    /// are stamped with it, so an abstention is attributed to the content state
+    /// the probe saw — not to whatever a concurrent writer produced while the
+    /// retrieval ran.
+    pub revision: u64,
+    /// Record id when one exists for this namespace (invalidation target once
+    /// the query retrieves successfully).
+    pub record_id: Option<String>,
+    /// Short-circuit result when the record is authoritative for this content.
+    pub result: Option<crate::retrieval::hybrid::HybridResult>,
+}
 
 impl crate::framework::ChaoticSemanticFramework {
     /// Evaluate the TTL policy for a concept.
@@ -164,18 +181,45 @@ impl crate::framework::ChaoticSemanticFramework {
             .await
     }
 
-    /// M1: queries that abstained `ABSENCE_MIN_ATTEMPTS`+ times skip retrieval
-    /// and abstain immediately (persisted short-circuit).
+    /// M1: queries that abstained `ABSENCE_MIN_ATTEMPTS`+ times *against the
+    /// current content* skip retrieval and abstain immediately.
+    ///
+    /// Also reports the revision this check observed and the record id (when one
+    /// exists for this namespace), so the caller can stamp a new abstention with
+    /// the revision it actually observed and invalidate the record on success.
     #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-    pub(crate) async fn short_circuit_if_known_absent(
-        &self,
-        query: &str,
-    ) -> Option<crate::retrieval::hybrid::HybridResult> {
-        let store = self.persistence.as_ref()?;
-        if crate::retrieval::bm25::is_known_absent(query, store.as_ref(), ABSENCE_MIN_ATTEMPTS)
-            .await
-        {
-            Some(crate::retrieval::hybrid::HybridResult::Abstained(
+    pub(crate) async fn absence_short_circuit(&self, query: &str) -> AbsenceShortCircuit {
+        let Some(store) = self.persistence.as_ref() else {
+            return AbsenceShortCircuit {
+                revision: 0,
+                record_id: None,
+                result: None,
+            };
+        };
+        let namespace = self.namespace.read().await.clone();
+        // A record is only authoritative for the content it was observed
+        // against, so the decision needs the namespace's current revision —
+        // bumped by every durable concept mutation (ADR-0093). An unreadable
+        // revision must not fall back to a default: skipping the short-circuit
+        // is safe, suppressing a query on a guessed revision is not.
+        let Some(revision) = self.namespace_revision().await else {
+            tracing::warn!("Failed to read namespace revision; skipping absence short-circuit");
+            return AbsenceShortCircuit {
+                revision: 0,
+                record_id: None,
+                result: None,
+            };
+        };
+        let lookup = crate::retrieval::bm25::lookup_absence(
+            query,
+            store.as_ref(),
+            ABSENCE_MIN_ATTEMPTS,
+            &namespace,
+            revision,
+        )
+        .await;
+        let result = lookup.short_circuit.then(|| {
+            crate::retrieval::hybrid::HybridResult::Abstained(
                 crate::retrieval::hybrid::RetrievalAbstention {
                     query: query.to_string(),
                     min_score_threshold: self.config.pattern_recognition_threshold as f32,
@@ -183,16 +227,73 @@ impl crate::framework::ChaoticSemanticFramework {
                     attempted_modes: vec!["AbsenceShortCircuit".to_string()],
                     timestamp: chrono::Utc::now(),
                 },
-            ))
-        } else {
-            None
+            )
+        });
+        AbsenceShortCircuit {
+            revision,
+            record_id: lookup.entry_id,
+            result,
+        }
+    }
+
+    /// Current namespace revision, or `None` when persistence cannot read it.
+    #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+    pub(crate) async fn namespace_revision(&self) -> Option<u64> {
+        let store = self.persistence.as_ref()?;
+        let namespace = self.namespace.read().await.clone();
+        store.get_namespace_revision(&namespace).await.ok()
+    }
+
+    /// Persist an abstention stamped with the current namespace and the given
+    /// content revision.
+    ///
+    /// The caller passes the revision it observed *before* retrieval: an
+    /// abstention describes the content state the probe actually saw, not the
+    /// state a concurrent writer may have produced while it ran.
+    #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+    pub(crate) async fn persist_absence_record(
+        &self,
+        abstention: &RetrievalAbstention,
+        namespace_revision: u64,
+    ) {
+        let Some(store) = self.persistence.as_ref() else {
+            return;
+        };
+        let namespace = self.namespace.read().await.clone();
+        if let Err(e) = crate::bridge_persistence::persist_absence(
+            abstention,
+            store.as_ref(),
+            &namespace,
+            namespace_revision,
+        )
+        .await
+        {
+            tracing::warn!("Failed to persist absence entry: {e}");
+        }
+    }
+
+    /// Drop the absence record of a query that has just retrieved successfully.
+    ///
+    /// The record claimed the query matches nothing; the successful retrieval
+    /// disproves it, so keeping it would suppress a query the store can answer.
+    /// Does nothing when no record exists for this namespace, which keeps the
+    /// successful-probe path free of extra store writes.
+    #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+    pub(crate) async fn clear_absence_record(&self, record_id: Option<String>) {
+        let (Some(id), Some(store)) = (record_id, self.persistence.as_ref()) else {
+            return;
+        };
+        if let Err(e) = csm_traits::AbsenceStore::delete_absence(store.as_ref(), &id).await {
+            tracing::warn!("Failed to clear absence record: {e}");
         }
     }
 
     /// Probe for similar concepts using text input. Encodes the query text via the embedding provider.
     pub async fn probe_text(&self, query: &str, top_k: usize) -> Result<HybridResult> {
         #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-        if let Some(result) = self.short_circuit_if_known_absent(query).await {
+        let absence = self.absence_short_circuit(query).await;
+        #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+        if let Some(result) = absence.result {
             return Ok(result);
         }
 
@@ -212,14 +313,16 @@ impl crate::framework::ChaoticSemanticFramework {
             };
 
             #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-            if let Some(ref store) = self.persistence {
-                if let Err(e) = persist_absence(&abstention, store.as_ref()).await {
-                    tracing::warn!("Failed to persist absence entry: {e}");
-                }
-            }
+            self.persist_absence_record(&abstention, absence.revision)
+                .await;
 
             Ok(HybridResult::Abstained(abstention))
         } else {
+            // The query is answerable now: drop the record that claimed
+            // otherwise instead of leaving it to suppress a later probe.
+            #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+            self.clear_absence_record(absence.record_id).await;
+
             Ok(HybridResult::Success(results))
         }
     }
@@ -249,7 +352,9 @@ impl crate::framework::ChaoticSemanticFramework {
         filter: &MetadataFilter,
     ) -> Result<HybridResult> {
         #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-        if let Some(result) = self.short_circuit_if_known_absent(query).await {
+        let absence = self.absence_short_circuit(query).await;
+        #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+        if let Some(result) = absence.result {
             return Ok(result);
         }
 
@@ -277,14 +382,14 @@ impl crate::framework::ChaoticSemanticFramework {
             };
 
             #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-            if let Some(ref store) = self.persistence {
-                if let Err(e) = persist_absence(&abstention, store.as_ref()).await {
-                    tracing::warn!("Failed to persist absence entry: {e}");
-                }
-            }
+            self.persist_absence_record(&abstention, absence.revision)
+                .await;
 
             Ok(HybridResult::Abstained(abstention))
         } else {
+            #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+            self.clear_absence_record(absence.record_id).await;
+
             Ok(HybridResult::Success(results))
         }
     }
@@ -298,5 +403,98 @@ impl crate::framework::ChaoticSemanticFramework {
     ) -> Result<HybridResult> {
         let filter = MetadataFilter::eq("session_id", session_id);
         self.probe_text_filtered(query, top_k, &filter).await
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32"), feature = "persistence"))]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
+    use super::*;
+    use crate::framework_builder::FrameworkBuilder;
+
+    /// `namespace_revision` must report the live revision: a namespace with no
+    /// durable writes reads 0 and a durable insert advances it. Revision-stamped
+    /// state (absence records) depends on this being a real read, not a default.
+    #[tokio::test]
+    async fn namespace_revision_tracks_durable_mutations() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("revision.db");
+        let fw = FrameworkBuilder::new()
+            .with_local_db(db.to_str().unwrap())
+            .build()
+            .await
+            .unwrap();
+
+        assert_eq!(
+            fw.namespace_revision().await,
+            Some(0),
+            "a namespace with no durable writes reads revision 0"
+        );
+
+        fw.inject_concept("c1", HVec10240::random()).await.unwrap();
+
+        assert_eq!(
+            fw.namespace_revision().await,
+            Some(1),
+            "a durable insert must advance the namespace revision"
+        );
+    }
+
+    /// Both halves of the absence contract, observable through the store: an
+    /// abstaining probe records the absence against the revision it observed,
+    /// and a successful retrieval afterwards clears that record.
+    #[tokio::test]
+    async fn abstentions_are_recorded_and_cleared() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("absence.db");
+        let fw = FrameworkBuilder::new()
+            .with_local_db(db.to_str().unwrap())
+            .build()
+            .await
+            .unwrap();
+        let store = fw.persistence.as_ref().expect("persistence enabled");
+        let query = "content-that-does-not-exist-yet";
+        let id = csm_traits::AbsenceEntry::id_for(query);
+
+        assert!(
+            matches!(
+                fw.probe_text(query, 5).await.unwrap(),
+                HybridResult::Abstained(_)
+            ),
+            "an empty store must abstain"
+        );
+        let recorded = csm_traits::AbsenceStore::get_absence(store.as_ref(), &id)
+            .await
+            .unwrap()
+            .expect("an abstention must persist an absence record");
+        assert_eq!(
+            recorded.namespace,
+            fw.namespace().await,
+            "the record must be scoped to the namespace it was observed in"
+        );
+        assert_eq!(
+            recorded.namespace_revision, 0,
+            "the record must carry the revision the probe observed"
+        );
+        assert_eq!(recorded.attempt_count, 1);
+
+        // Content the query matches: the next probe retrieves successfully and
+        // must clear the record instead of leaving it to suppress the query.
+        fw.inject_text("answer", query).await.unwrap();
+        assert!(
+            matches!(
+                fw.probe_text(query, 5).await.unwrap(),
+                HybridResult::Success(_)
+            ),
+            "a matching concept must be retrievable"
+        );
+        assert!(
+            csm_traits::AbsenceStore::get_absence(store.as_ref(), &id)
+                .await
+                .unwrap()
+                .is_none(),
+            "a successful retrieval must clear the absence record"
+        );
     }
 }

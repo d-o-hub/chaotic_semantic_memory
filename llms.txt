@@ -602,7 +602,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/retrieval/bm25.rs
 
 - pub use csm_retrieval::{Bm25Config, Bm25Index}
-- pub fn is_known_absent
+- pub struct AbsenceLookup
+- pub fn lookup_absence
 
 ### src/retrieval/bm25/absence_short_circuit_tests.rs
 

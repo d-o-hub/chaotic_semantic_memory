@@ -73,3 +73,61 @@ async fn short_circuit_is_per_query_not_global() {
         HybridResult::Abstained(_) => panic!("different query must not short-circuit"),
     }
 }
+
+#[tokio::test]
+async fn inserting_matching_content_restores_retrieval() {
+    let dir = tempdir().unwrap();
+    let db_path = dir.path().join("absence-invalidation.db");
+    let db_path = db_path.to_str().unwrap();
+
+    let framework = FrameworkBuilder::new()
+        .with_local_db(db_path)
+        .build()
+        .await
+        .unwrap();
+
+    let query = "a-query-that-becomes-answerable";
+
+    // Three abstentions make the query known-absent; the fourth probe
+    // short-circuits without running retrieval.
+    for _ in 0..3 {
+        match framework.probe_text(query, 5).await.unwrap() {
+            HybridResult::Abstained(_) => {}
+            HybridResult::Success(_) => panic!("expected abstention before any concepts exist"),
+        }
+    }
+    match framework.probe_text(query, 5).await.unwrap() {
+        HybridResult::Abstained(abstention) => assert_eq!(
+            abstention.attempted_modes,
+            vec!["AbsenceShortCircuit".to_string()],
+            "the query must be known-absent at this point"
+        ),
+        HybridResult::Success(_) => panic!("known-absent query must short-circuit"),
+    }
+
+    // Content the query matches makes the persisted record stale: the insert
+    // advances the namespace revision, and a record is only authoritative for
+    // the content it was observed against, so retrieval must resume.
+    framework.inject_text("answer", query).await.unwrap();
+
+    match framework.probe_text(query, 5).await.unwrap() {
+        HybridResult::Success(results) => assert!(
+            !results.is_empty(),
+            "the injected concept must be retrieved, not suppressed by a stale absence record"
+        ),
+        HybridResult::Abstained(abstention) => panic!(
+            "retrieval must resume after matching content exists, got {:?}",
+            abstention.attempted_modes
+        ),
+    }
+
+    // The successful probe also dropped the record, so the next probe cannot
+    // fall back into the short-circuit.
+    match framework.probe_text(query, 5).await.unwrap() {
+        HybridResult::Success(results) => assert!(!results.is_empty()),
+        HybridResult::Abstained(abstention) => panic!(
+            "the absence record must have been invalidated, got {:?}",
+            abstention.attempted_modes
+        ),
+    }
+}

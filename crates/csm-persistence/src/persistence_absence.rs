@@ -17,7 +17,7 @@ impl AbsenceStore for Persistence {
 
         let mut rows = conn
             .query(
-                "SELECT id, query, normalized_query, attempt_count, last_threshold, best_score_ever, first_seen, last_seen FROM csm_absences WHERE id = ?1",
+                "SELECT id, query, normalized_query, attempt_count, last_threshold, best_score_ever, first_seen, last_seen, namespace, namespace_revision FROM csm_absences WHERE id = ?1",
                 params![id],
             )
             .await
@@ -39,13 +39,15 @@ impl AbsenceStore for Persistence {
         let conn = self.connect().await?;
 
         conn.execute(
-            "INSERT INTO csm_absences (id, query, normalized_query, attempt_count, last_threshold, best_score_ever, first_seen, last_seen)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+            "INSERT INTO csm_absences (id, query, normalized_query, attempt_count, last_threshold, best_score_ever, first_seen, last_seen, namespace, namespace_revision)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
              ON CONFLICT(id) DO UPDATE SET
              attempt_count = excluded.attempt_count,
              last_threshold = excluded.last_threshold,
              best_score_ever = excluded.best_score_ever,
-             last_seen = excluded.last_seen",
+             last_seen = excluded.last_seen,
+             namespace = excluded.namespace,
+             namespace_revision = excluded.namespace_revision",
             params![
                 entry.id.clone(),
                 entry.query.clone(),
@@ -54,7 +56,9 @@ impl AbsenceStore for Persistence {
                 entry.last_threshold as f64,
                 entry.best_score_ever.map(|s| s as f64),
                 entry.first_seen.to_rfc3339(),
-                entry.last_seen.to_rfc3339()
+                entry.last_seen.to_rfc3339(),
+                entry.namespace.clone(),
+                entry.namespace_revision as i64
             ],
         )
         .await
@@ -69,7 +73,7 @@ impl AbsenceStore for Persistence {
 
         let mut rows = conn
             .query(
-                "SELECT id, query, normalized_query, attempt_count, last_threshold, best_score_ever, first_seen, last_seen FROM csm_absences WHERE attempt_count >= ?1 ORDER BY attempt_count DESC",
+                "SELECT id, query, normalized_query, attempt_count, last_threshold, best_score_ever, first_seen, last_seen, namespace, namespace_revision FROM csm_absences WHERE attempt_count >= ?1 ORDER BY attempt_count DESC",
                 params![min_attempts as i64],
             )
             .await
@@ -85,6 +89,17 @@ impl AbsenceStore for Persistence {
         }
 
         Ok(entries)
+    }
+
+    async fn delete_absence(&self, id: &str) -> Result<()> {
+        let _permit = self.acquire_remote_slot().await?;
+        let conn = self.connect().await?;
+
+        conn.execute("DELETE FROM csm_absences WHERE id = ?1", params![id])
+            .await
+            .map_err(|e| MemoryError::database(format!("Failed to delete absence: {e}")))?;
+
+        Ok(())
     }
 }
 
@@ -114,6 +129,12 @@ impl Persistence {
         let last_seen: String = row
             .get(7)
             .map_err(|e| MemoryError::database(format!("last_seen: {e}")))?;
+        let namespace: String = row
+            .get(8)
+            .map_err(|e| MemoryError::database(format!("namespace: {e}")))?;
+        let namespace_revision: i64 = row
+            .get(9)
+            .map_err(|e| MemoryError::database(format!("namespace_revision: {e}")))?;
 
         Ok(AbsenceEntry {
             id,
@@ -128,6 +149,8 @@ impl Persistence {
             last_seen: last_seen
                 .parse()
                 .map_err(|e| MemoryError::database(format!("parse last_seen: {e}")))?,
+            namespace,
+            namespace_revision: namespace_revision.max(0) as u64,
         })
     }
 }

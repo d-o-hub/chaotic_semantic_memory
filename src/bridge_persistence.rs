@@ -18,8 +18,13 @@ use csm_traits::{AbsenceEntry, AbsenceStore};
 ///
 /// Root adapter: `AbsenceEntry`/`AbsenceStore` live in `csm-traits` (ADR-0094);
 /// this conversion bridges the framework-level abstention event into the
-/// owner-neutral persistence contract.
-pub fn absence_from_abstention(abstention: &RetrievalAbstention) -> AbsenceEntry {
+/// owner-neutral persistence contract, stamped with the namespace and revision
+/// the query was observed at (ADR-0093).
+pub fn absence_from_abstention(
+    abstention: &RetrievalAbstention,
+    namespace: &str,
+    namespace_revision: u64,
+) -> AbsenceEntry {
     let normalized = AbsenceEntry::normalize(&abstention.query);
     AbsenceEntry {
         id: AbsenceEntry::id_for(&abstention.query),
@@ -30,12 +35,30 @@ pub fn absence_from_abstention(abstention: &RetrievalAbstention) -> AbsenceEntry
         best_score_ever: abstention.best_score_seen,
         first_seen: abstention.timestamp,
         last_seen: abstention.timestamp,
+        namespace: namespace.to_string(),
+        namespace_revision,
     }
 }
 
 /// Merge a new abstention event into an existing entry (upsert logic).
-pub fn merge_absence_with(entry: &mut AbsenceEntry, abstention: &RetrievalAbstention) {
-    entry.attempt_count += 1;
+///
+/// An absence record is only authoritative for the content it was observed
+/// against: when the namespace or the namespace revision changed, the earlier
+/// attempts described content that no longer exists, so the counter restarts at
+/// one instead of accumulating attempts across content changes.
+pub fn merge_absence_with(
+    entry: &mut AbsenceEntry,
+    abstention: &RetrievalAbstention,
+    namespace: &str,
+    namespace_revision: u64,
+) {
+    if entry.namespace != namespace || entry.namespace_revision != namespace_revision {
+        entry.namespace = namespace.to_string();
+        entry.namespace_revision = namespace_revision;
+        entry.attempt_count = 1;
+    } else {
+        entry.attempt_count += 1;
+    }
     entry.last_seen = abstention.timestamp;
     entry.last_threshold = abstention.min_score_threshold;
 
@@ -56,16 +79,18 @@ pub fn merge_absence_with(entry: &mut AbsenceEntry, abstention: &RetrievalAbsten
 pub async fn persist_absence(
     abstention: &RetrievalAbstention,
     store: &dyn AbsenceStore,
+    namespace: &str,
+    namespace_revision: u64,
 ) -> Result<AbsenceEntry> {
     let id = AbsenceEntry::id_for(&abstention.query);
     match store.get_absence(&id).await? {
         Some(mut existing) => {
-            merge_absence_with(&mut existing, abstention);
+            merge_absence_with(&mut existing, abstention, namespace, namespace_revision);
             store.upsert_absence(&existing).await?;
             Ok(existing)
         }
         None => {
-            let entry = absence_from_abstention(abstention);
+            let entry = absence_from_abstention(abstention, namespace, namespace_revision);
             store.upsert_absence(&entry).await?;
             Ok(entry)
         }

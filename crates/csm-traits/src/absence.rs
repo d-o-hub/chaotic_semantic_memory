@@ -27,6 +27,15 @@ pub struct AbsenceEntry {
     pub first_seen: DateTime<Utc>,
     /// Timestamp of most recent absence event
     pub last_seen: DateTime<Utc>,
+    /// Namespace the query was attempted in.
+    pub namespace: String,
+    /// Namespace revision when the last absence was recorded.
+    ///
+    /// Any content mutation bumps the namespace revision (ADR-0093), so a record
+    /// whose revision is older than the current one describes content that has
+    /// since changed: it is stale and must not short-circuit. Absence knowledge
+    /// is only valid for the content it was observed against.
+    pub namespace_revision: u64,
 }
 
 impl AbsenceEntry {
@@ -67,4 +76,10 @@ pub trait AbsenceStore: Send + Sync {
     async fn upsert_absence(&self, entry: &AbsenceEntry) -> Result<()>;
     /// Return all absence entries with attempt_count >= min_attempts.
     async fn list_absences(&self, min_attempts: u32) -> Result<Vec<AbsenceEntry>>;
+    /// Delete an absence entry.
+    ///
+    /// Called when a query that had abstained now retrieves successfully: the
+    /// record described content that no longer fails to match, and keeping it
+    /// would suppress a query the store can answer.
+    async fn delete_absence(&self, id: &str) -> Result<()>;
 }

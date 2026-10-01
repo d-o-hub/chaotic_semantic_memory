@@ -7,7 +7,7 @@ use csm_core_lib::error::{MemoryError, Result};
 use libsql::{Builder, Connection, Database, params};
 use std::sync::Arc;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-pub(crate) const LATEST_SCHEMA_VERSION: i64 = 11;
+pub(crate) const LATEST_SCHEMA_VERSION: i64 = 12;
 
 #[derive(Debug)]
 pub struct Persistence {
@@ -342,6 +342,8 @@ mod tests {
             best_score_ever: None,
             first_seen: ts,
             last_seen: ts,
+            namespace: "_default".to_string(),
+            namespace_revision: 1,
         };
 
         // Unknown id returns None before any upsert.

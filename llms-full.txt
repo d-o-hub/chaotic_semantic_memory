@@ -602,7 +602,8 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/retrieval/bm25.rs
 
 - pub use csm_retrieval::{Bm25Config, Bm25Index}
-- pub fn is_known_absent
+- pub struct AbsenceLookup
+- pub fn lookup_absence
 
 ### src/retrieval/bm25/absence_short_circuit_tests.rs
 
@@ -1294,27 +1295,33 @@ pub use tracing_subscriber::FmtSubscriber;
 ### absence_from_abstention
 
 ```rust
-pub fn absence_from_abstention(abstention: &RetrievalAbstention) -> AbsenceEntry
+pub fn absence_from_abstention(abstention: &RetrievalAbstention, namespace: &str, namespace_revision: u64) -> AbsenceEntry
 ```
 
 Build an `AbsenceEntry` from a `RetrievalAbstention` event.
 
 Root adapter: `AbsenceEntry`/`AbsenceStore` live in `csm-traits` (ADR-0094);
 this conversion bridges the framework-level abstention event into the
-owner-neutral persistence contract.
+owner-neutral persistence contract, stamped with the namespace and revision
+the query was observed at (ADR-0093).
 
 ### merge_absence_with
 
 ```rust
-pub fn merge_absence_with(entry: &mut AbsenceEntry, abstention: &RetrievalAbstention)
+pub fn merge_absence_with(entry: &mut AbsenceEntry, abstention: &RetrievalAbstention, namespace: &str, namespace_revision: u64)
 ```
 
 Merge a new abstention event into an existing entry (upsert logic).
 
+An absence record is only authoritative for the content it was observed
+against: when the namespace or the namespace revision changed, the earlier
+attempts described content that no longer exists, so the counter restarts at
+one instead of accumulating attempts across content changes.
+
 ### persist_absence
 
 ```rust
-pub fn persist_absence(abstention: &RetrievalAbstention, store: &dyn Trait) -> Result<AbsenceEntry>
+pub fn persist_absence(abstention: &RetrievalAbstention, store: &dyn Trait, namespace: &str, namespace_revision: u64) -> Result<AbsenceEntry>
 ```
 
 Persist a RetrievalAbstention event as an AbsenceEntry.
@@ -3816,22 +3823,39 @@ pub use csm_persistence::Persistence;
 
 ## src/retrieval/bm25.rs
 
+### AbsenceLookup
+
+```rust
+#[derive(Debug, Clone)]
+#[cfg(all, all (not (target_arch = "wasm32") , feature = "persistence"))]
+pub struct AbsenceLookup {
+    pub entry_id: Option<String>,
+    pub short_circuit: bool,
+}
+```
+
+Result of consulting the persisted absence records for a query.
+
 ### csm_retrieval::{Bm25Config, Bm25Index}
 
 ```rust
 pub use csm_retrieval::{Bm25Config, Bm25Index};
 ```
 
-### is_known_absent
+### lookup_absence
 
 ```rust
-pub fn is_known_absent(query: &str, store: &dyn Trait, min_attempts: u32) -> bool
+pub fn lookup_absence(query: &str, store: &dyn Trait, min_attempts: u32, namespace: &str, namespace_revision: u64) -> AbsenceLookup
 ```
 
-Returns true if the query has a known absence record with
-attempt_count >= min_attempts, indicating BM25 should be skipped.
-Called by the framework probe paths to skip retrieval for queries that
-repeatedly abstained.
+Consult the absence records for a query in one read.
+
+A record only short-circuits when it belongs to this namespace **and** was
+recorded at the namespace's current revision: any content mutation bumps the
+revision (ADR-0093), which makes earlier absence observations stale — the
+store may now hold content that matches the query. `entry_id` is returned
+even for a stale or below-threshold record so a successful retrieval can
+drop it.
 
 ## src/retrieval/bm25/absence_short_circuit_tests.rs
 
