@@ -39,16 +39,16 @@ pub struct ChaoticSemanticFramework {
     pub(crate) embedding_provider: Arc<dyn crate::embedding::EmbeddingProvider>,
     /// Random projection layer for embedding → HVec mapping.
     pub(crate) projection: Arc<crate::embedding::Projection>,
-    /// JoinHandle for the background cleanup task.
-    pub(crate) cleanup_handle: Option<Arc<tokio::task::JoinHandle<()>>>,
-}
-
-impl Drop for ChaoticSemanticFramework {
-    fn drop(&mut self) {
-        if let Some(handle) = self.cleanup_handle.take() {
-            handle.abort();
-        }
-    }
+    /// Handle to the shared background TTL cleanup task (native only).
+    ///
+    /// The task stops cooperatively: sending `true` on `cancel` asks the loop to
+    /// exit, and dropping the last clone of this handle does the same, because
+    /// the loop holds no sender of its own. `abort()` is deliberately not used —
+    /// clones share one task, so aborting from a single clone's `Drop` would
+    /// kill cleanup for the others. Ownership, spawning, and `shutdown()` live
+    /// in `crate::framework_cleanup` (ADR-0099).
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) cleanup: Option<Arc<crate::framework_cleanup::CleanupTask>>,
 }
 
 impl ChaoticSemanticFramework {
