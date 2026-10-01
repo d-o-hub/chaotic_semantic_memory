@@ -292,6 +292,18 @@
 > and CI on `49b6a74` has lint, test, mutation-test, miri, workspace crates,
 > benchmark-small and commitlint green.
 
+> Last completed (verified 2026-10-01, triage):
+> `triage_pr_roast_2026_10_01` — one open PR. #800 (`perf(core)`: zero-shift
+> fast path for `HVec10240::permute`, draft) kept open with an evidence
+> request: correct (byte-identical for `shift ≡ 0 (mod 10240)`, locked by
+> `hyperdim_tests.rs:48`) and reachable (`encoder.rs:226` calls `permute(0)`
+> for position 0), but `commitlint` is red on the perf gate (`missing
+> '## Performance Evidence' section in the PR body`) and the only `permute`
+> bench uses shift `321`, which cannot enter the new branch. Record:
+> `plans/PR_ROAST_2026_10_01.md`; lesson distilled into
+> `.agents/skills/pr-roast-triage/SKILL.md`. No queued GOAP action was in
+> scope; counters unchanged.
+
 actions:
   - name: add_absence_invalidation_semantics
     preconditions: []

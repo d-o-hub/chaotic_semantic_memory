@@ -1,5 +1,20 @@
 # PROGRESS
 
+## 2026-10-01: PR roast triage (#800)
+
+One open PR at triage time: #800 (`perf(core)`: zero-shift fast path for `HVec10240::permute`), a draft Jules PR. Verdict: **keep open, request evidence** — correct and reachable, but unmeasured; record in `plans/PR_ROAST_2026_10_01.md`.
+
+### Findings
+- CI truth on `e5333ca5`: every job green except `commitlint`, whose annotation is the perf gate itself — `perf PR evidence gate: missing '## Performance Evidence' section in the PR body`.
+- The fast path is byte-identical for `shift ≡ 0 (mod 10240)` and already locked by `crates/csm-core-lib/src/hyperdim_tests.rs:48`; so this is not a correctness objection.
+- It is **reachable**, which is why it was not closed as a no-op: `crates/csm-core-lib/src/encoder.rs:226` permutes `pos * position_stride` with `pos` from `.enumerate()`, so position 0 hits the new branch once per `encode`.
+- The only `permute` benchmark (`benches/binary_benchmark.rs:30`) uses `permute(321)`; `321 % 128 = 65`, so it never enters the `bit_shift == 0` path — it cannot measure this diff. The body's "~0 ns vs ~144 ns" has no artifact and matches the shape of a harness where LLVM elides the dropped copy.
+- Evidence bar posted: `## Performance Evidence` in the body naming `text_encoder/encode_short` (nearest canonical comparator) or the new bench output, an affected-path benchmark with shift `0`/`10240` or the caller `encode`, `black_box` on the returned vector, and the whole-`encode` delta; plus rebase + ready-marking before any merge.
+- Lesson distilled into `.agents/skills/pr-roast-triage/SKILL.md`: a bench can be blind because of its arguments, not only because it calls a different function.
+
+### State
+- `plans/PR_ROAST_2026_10_01.md`: verdict record. `plans/ACTIONS.md`: triage note. `plans/GOAP_STATE.md`: `action_last_completed` set to the triage action (no queued action was in scope; counters unchanged).
+
 ## 2026-10-01 (wave-32 residual): TTL cleanup task ownership
 
 Executed `own_ttl_cleanup_shutdown` (PR #801, merged `96144703`), the audit-F2 remedy: cooperative ownership replaces `abort()`.

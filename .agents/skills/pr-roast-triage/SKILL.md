@@ -133,6 +133,14 @@ Close the losers with reason `superseded by #<keeper>`.
     called — the "after" number was slower (92.5 → 93.3 µs) because it timed
     unrelated code. Check the sign too: an "after" that is *worse* is evidence
     against the claim, not neutral.
+  - **A bench can also be blind because of its arguments (PR #800, 2026-10-01).**
+    `benches/binary_benchmark.rs:30` benches `permute(321)`, and `321 % 128 = 65`,
+    so it never enters the word-aligned `bit_shift == 0` path that #800 added a
+    zero-shift early return to: the function name matched the diff while the
+    constant made the measurement impossible. Read the bench's *arguments* and
+    reparameterize before judging the claim — here shift `0`/`10240`, or the
+    caller path `Encoder::encode` against the canonical comparator
+    `text_encoder/encode_short`.
   - **Separate zero-fill elimination from scheduling effects (PR #783,
     2026-09-28).** In the inspected x86_64/rustc 1.98.1 builds, LLVM already
     removed the overwritten zero-init: the old-only body was a bare `memcpy`,
