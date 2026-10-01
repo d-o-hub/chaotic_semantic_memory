@@ -1,5 +1,28 @@
 # PROGRESS
 
+## 2026-10-01 (wave-32 residual): Absence record invalidation
+
+Executed `add_absence_invalidation_semantics` (PR #804, merged `c8f91876`) — the audit's F1 remainder: absence records short-circuited queries forever, including after matching content existed.
+
+### Design
+- `AbsenceEntry` gains `namespace` + `namespace_revision`; a record short-circuits only when it belongs to this namespace and its revision equals the current one, so every durable mutation (which bumps the revision, ADR-0093) invalidates absence knowledge lazily — no write on the mutation hot path and no list of mutation paths to keep in sync.
+- `AbsenceStore::delete_absence` clears the record a probe found once that probe retrieves successfully; the delete only happens when a same-namespace record existed, so successful probes without a record pay nothing extra.
+- `merge_absence_with` restarts the counter when namespace/revision changed; records are stamped with the revision observed *before* retrieval; an unreadable revision fails closed; a failed write-path read stamps 0 (inert, matches no live namespace).
+- Migration v12 adds both columns behind the guarded versioned `ALTER` pattern (ADR-0021); pre-existing rows default to `('', 0)` and are inert.
+- `lookup_absence` replaces `is_known_absent`, returning the decision plus the invalidation target from the single read the check already performs; the mutation exclusion list follows the rename.
+
+### Verification
+- `tests/bm25_absence_short_circuit.rs` 3 passed, including the new regression (abstain 3×, short-circuit, inject matching text, probe again → Success); with the revision comparison removed the test fails with `got ["AbsenceShortCircuit"]` — the original bug.
+- `cargo test --lib` 165 passed (3 `lookup_absence` boundary/staleness/namespace cases, the `namespace_revision` read test, and the record/clear loop test); `cargo test -p csm-persistence -p csm-traits --all-features` passed.
+- v11 → v12 upgrade: a full database parked at v11 (columns dropped, version row removed, legacy row inserted) opens cleanly — `schema_version=12`, the legacy row preserved and inert, a fresh probe records a `_default` attempt instead of short-circuiting, and re-opening is idempotent.
+- Four CI iterations, each root-caused: stale `llms*.txt` (regenerated, helpers moved so no phantom `impl` block is emitted); three `ChaoticSemanticFramework::namespace_revision` mutants (killed by a `--lib` test, 62.5% → 80%); two write-path mutants `persist_absence_record`/`clear_absence_record -> ()` (killed by the loop test, both simulated locally first → **100%**); and a `csm-persistence` unit-test initializer missed because `--all-targets` is *package* scope, not workspace scope (fixed; lesson recorded).
+- CI on `abff706`: 0 failures — lint, test, mutation-test (100%, 16 mutants: 10 caught / 0 missed / 6 unviable), miri, all nine workspace crates, Cargo Deny, commitlint, benchmark-small.
+
+### State
+- `plans/GOAP_STATE.md`: `absence_records_invalidated_on_insert: true`; `queued_actions_count` 10 → 9; `action_last_completed: add_absence_invalidation_semantics`; `main_head` refreshed.
+- `plans/ACTIONS.md`: action removed, completion note added.
+- `progress/LEARNINGS.md`: the revision-contract lesson for derived negative knowledge, and the `--all-targets`-is-package-scope scope trap.
+
 ## 2026-10-01: PR roast triage (#800)
 
 One open PR at triage time: #800 (`perf(core)`: zero-shift fast path for `HVec10240::permute`), a draft Jules PR. Verdict: **keep open, request evidence** — correct and reachable, but unmeasured; record in `plans/PR_ROAST_2026_10_01.md`.

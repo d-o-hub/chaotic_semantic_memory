@@ -304,22 +304,18 @@
 > `.agents/skills/pr-roast-triage/SKILL.md`. No queued GOAP action was in
 > scope; counters unchanged.
 
-actions:
-  - name: add_absence_invalidation_semantics
-    preconditions: []
-    effects:
-      absence_records_invalidated_on_insert: true
-    notes: >
-      Audit F1 remainder, re-verified 2026-09-30. The short-circuit is wired
-      (`src/framework_ttl.rs:170-195,252`; `ABSENCE_MIN_ATTEMPTS = 3`) and
-      regression-tested (`tests/bm25_absence_short_circuit.rs`), but absence
-      records never expire and are not cleared when a matching concept is
-      inserted or when the same query later succeeds
-      (`crates/csm-traits/src/absence.rs` exposes only get/upsert/list), so a
-      query known-absent three times keeps short-circuiting after matching
-      content exists. Required: invalidation on insert / successful retrieval,
-      with a test that adds the missing concept and asserts retrieval resumes.
+> Last completed (verified 2026-10-01, absence invalidation):
+> `add_absence_invalidation_semantics` — PR #804 merged as `c8f91876`: absence
+> rows now carry namespace + namespace_revision, so any durable mutation makes
+> them stale (no write on the mutation path), successful probes delete the
+> record they found, and the attempt counter restarts when the revision moved.
+> Migration v12 adds the columns with ('', 0) defaults that keep old rows inert.
+> Verified by a new regression (fails with `got ["AbsenceShortCircuit"]` when the
+> revision comparison is removed), a parked-v11 upgrade check, four root-caused
+> CI iterations ending at a 100% mutation score, and a green CI on `abff706`
+> (lint, test, mutation-test, miri, nine workspace crates, deny, commitlint).
 
+actions:
   - name: add_persistence_failure_path_test
     preconditions: []
     effects:
