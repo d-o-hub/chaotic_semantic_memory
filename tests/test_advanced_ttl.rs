@@ -484,3 +484,70 @@ async fn test_load_without_persistence_is_noop() {
     // load() on a non-persistent framework should succeed as a no-op
     fw.load().await.unwrap();
 }
+
+/// Framework with the opt-in background cleanup task enabled (1s interval).
+async fn framework_with_cleanup_task() -> ChaoticSemanticFramework {
+    let ttl_config = TtlConfig {
+        cleanup_interval_seconds: 1,
+        ..Default::default()
+    };
+    ChaoticSemanticFramework::builder()
+        .with_ttl_config(ttl_config)
+        .without_persistence()
+        .build()
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn background_cleanup_runs_until_shutdown() {
+    let fw = framework_with_cleanup_task().await;
+
+    // The task purges an expired concept with no explicit purge call.
+    fw.inject_concept_with_ttl("expires-while-task-runs", HVec10240::random(), 1)
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(2600)).await;
+    assert!(
+        fw.get_concept("expires-while-task-runs")
+            .await
+            .unwrap()
+            .is_none(),
+        "the background task should have purged the expired concept"
+    );
+
+    fw.shutdown().await.unwrap();
+    fw.shutdown().await.unwrap(); // idempotent: second call returns immediately
+
+    // With the task stopped, a newly expired concept is no longer purged.
+    fw.inject_concept_with_ttl("survives-after-shutdown", HVec10240::random(), 1)
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(2600)).await;
+    assert!(
+        fw.get_concept("survives-after-shutdown")
+            .await
+            .unwrap()
+            .is_some(),
+        "no cleanup task may run after shutdown()"
+    );
+}
+
+#[tokio::test]
+async fn dropping_a_clone_keeps_the_cleanup_task_running() {
+    let fw = framework_with_cleanup_task().await;
+    // Clones share one cleanup task; dropping a clone must not stop it.
+    drop(fw.clone());
+
+    fw.inject_concept_with_ttl("purged-despite-clone-drop", HVec10240::random(), 1)
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(2600)).await;
+    assert!(
+        fw.get_concept("purged-despite-clone-drop")
+            .await
+            .unwrap()
+            .is_none(),
+        "the cleanup task must survive dropping another clone"
+    );
+}
