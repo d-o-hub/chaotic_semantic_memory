@@ -280,23 +280,19 @@
 > shell: eight-name list green, `serde` conflict red, `0.3.8`/`0.3.9`
 > published-probe split correct, duckdb step no-ops on the published version.
 
-actions:
-  - name: own_ttl_cleanup_shutdown
-    preconditions: []
-    effects:
-      ttl_cleanup_has_bounded_shutdown: true
-    notes: >
-      Audit F2, re-verified 2026-09-30 against HEAD 7ce6fb73.
-      `src/framework_builder.rs:443` spawns the cleanup loop and the handle is
-      stored (`src/framework.rs:43`, `Arc<JoinHandle<()>>`), but shutdown is a
-      fire-and-forget `handle.abort()` in `Drop` (`src/framework.rs:44-50`):
-      no cancellation token, no await. Because the handle is an `Arc` shared by
-      clones (`src/framework_namespaces.rs:159`), dropping ANY clone aborts the
-      task for every clone. No test sets `cleanup_interval_seconds > 0`, so the
-      loop's termination is never exercised. Required: per-instance
-      cancellation token + bounded await on shutdown, and a test that proves
-      the task stops.
+> Last completed (verified 2026-10-01, TTL lifecycle):
+> `own_ttl_cleanup_shutdown` — PR #801 merged as `96144703` (ADR-0099):
+> cooperative `watch` cancellation replaces `Drop`-time `abort()`, the loop
+> also stops when the last handle drops, `shutdown()` cancels and awaits under
+> a 5 s bound (idempotent, shared across clones, no-op on wasm32), and two
+> CI iterations were root-caused on the way — the 500-line LOC gate via
+> child-module extraction (`src/framework_cleanup.rs`) and three missed
+> mutation mutants via in-crate unit tests, not exclusions. Verification:
+> 20 TTL integration tests + 2 unit tests + 6 arch-fitness tests pass locally,
+> and CI on `49b6a74` has lint, test, mutation-test, miri, workspace crates,
+> benchmark-small and commitlint green.
 
+actions:
   - name: add_absence_invalidation_semantics
     preconditions: []
     effects:
@@ -411,4 +407,30 @@ actions:
       ADRs under `plans/.archive/` (`grep -c 'plans/.archive/00'` = 0).
       Required: list the archived ADRs and add a checker so
       `plan_archive_manifest_valid` rests on a gate.
+
+  - name: wire_graceful_shutdown_into_servers
+    preconditions: []
+    effects:
+      servers_stop_ttl_cleanup_explicitly: true
+    notes: >
+      ADR-0099 added `ChaoticSemanticFramework::shutdown()` (bounded await),
+      but no caller uses it: `src/mcp/server.rs` and
+      `src/cli/commands/watch.rs` rely on dropping the framework, which now
+      stops the cleanup task cooperatively at its next check. Required: call
+      `shutdown().await` on those exit paths so a long-running process stops
+      the task deterministically and can surface a stuck task; cover the
+      server path with a test.
+
+  - name: trigger_wasm_job_on_root_src_changes
+    preconditions: []
+    effects:
+      wasm_job_runs_for_root_src_changes: true
+    notes: >
+      `ci.yml`'s `detect-changes` sets `wasm=true` only for
+      `^(crates/csm-wasm/|src/wasm|wasm/|Cargo\.(toml|lock)$)`, so a change to
+      any other root `src/**` file — including `cfg(not(wasm32))` gating that
+      the wasm build must compile — skips the `wasm` job entirely (observed on
+      PR #801, where all wasm validation was local). Required: include the root
+      crate's `src/**` (or the crate the wasm package depends on) in the
+      filter, and assert the job runs for such a diff.
 
