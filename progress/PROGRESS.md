@@ -1,5 +1,33 @@
 # PROGRESS
 
+## 2026-10-01 (wave-32 residual): TTL cleanup task ownership
+
+Executed `own_ttl_cleanup_shutdown` (PR #801, merged `96144703`), the audit-F2 remedy: cooperative ownership replaces `abort()`.
+
+### Change
+- The task handle is a shared `CleanupTask { cancel: watch::Sender<bool>, handle: Mutex<Option<JoinHandle<()>>> }` in `src/framework_cleanup.rs`; the loop exits on cancel **or** when the last handle drops, because it runs on a framework clone with `cleanup: None` and therefore cannot keep its own sender alive.
+- `impl Drop for ChaoticSemanticFramework` is deleted: there is no strong handle in the loop to abort, and dropping one clone no longer touches the shared task.
+- `ChaoticSemanticFramework::shutdown()` cancels, awaits under a 5 s bound, is idempotent, works from any clone, and reports a panicked/stuck task as `MemoryError::External`. It is a no-op on `wasm32` (identical public API); the task type and field are `cfg(not(wasm32))`.
+- ADR-0099 records the decision; ADR-0024's stale "proposed in ADR-0093" pointer is corrected (ADR-0093 never mentions the lifecycle) and the registry counts move to 95/94. `llms.txt`/`llms-full.txt` regenerated.
+
+### Two CI iterations (both root-caused, not patched)
+- `lint` failed the 500-line gate (`src/framework.rs` reached 533) → child-module extraction per AGENTS.md step 9 (now `framework.rs` 476, `framework_builder.rs` 441, `framework_cleanup.rs` 174).
+- `mutation-test` failed with 3 missed mutants (whole `spawn_cleanup_task` replaced with `()`, `interval == 0` flipped to `!=`, `shutdown` replaced with `Ok(())`) → killed with two in-crate unit tests asserting that interval 0 spawns nothing, interval > 0 spawns a task, and `shutdown()` awaits the task and takes its handle exactly once (no `--exclude-re` exemption was added). Next CI run: `mutation-test` pass (7m9s).
+
+### Verification
+- `tests/test_advanced_ttl.rs` 20 passed, including `background_cleanup_runs_until_shutdown` (purges, then stops after shutdown; idempotent) and `dropping_a_clone_keeps_the_cleanup_task_running` (regression for the clone-drop abort).
+- 2 new lib unit tests passed; `tests/arch_fitness.rs` 6 passed (both LOC gates); `cargo check --all-features --all-targets`, `clippy --all-targets --all-features -D warnings`, and `cargo check --target wasm32-unknown-unknown -p csm-wasm` all exit 0; ADR parity ok (registry=95, disk=94).
+- CI on `49b6a74`: `lint`, `test`, `mutation-test`, `miri`, the workspace crates, `benchmark-small`, and `commitlint` all pass.
+- The host's `target/` directory (83 GiB) was cleaned afterwards at the operator's request; CI is the gate of record from here.
+
+### Findings queued (not fixed in this action)
+- `ci.yml`'s `detect-changes` sets `wasm=true` only for `^(crates/csm-wasm/|src/wasm|wasm/|Cargo\.(toml|lock)$)`, so a root-`src` change that alters `cfg(not(wasm32))` gating skips the `wasm` job entirely (observed on PR #801; covered locally instead).
+- No caller uses `shutdown()` yet: the MCP server and CLI watch rely on dropping the framework.
+
+### State
+- `plans/GOAP_STATE.md`: `ttl_cleanup_has_bounded_shutdown: true`; ADR counts 95/94; `queued_actions_count` 9 → 10 (one completed removed, two findings queued); `action_last_completed: own_ttl_cleanup_shutdown`; `main_head` refreshed.
+- `plans/ACTIONS.md`: action removed, two follow-ups queued, completion note added.
+
 ## 2026-09-30 (wave-32 residual): crates.io publish pre-check
 
 Executed `fix_crates_publish_precheck_and_add_duckdb` (PR #798, merged `71a48618`): three defects in `publish-crates`, each reproduced against the live registry before the fix.
