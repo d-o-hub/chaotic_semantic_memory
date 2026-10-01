@@ -368,8 +368,11 @@ impl HVec10240 {
         let bit_shift = shift % 128;
         let word_shift = (shift / 128) % 80;
 
-        // Optimized path for word-aligned rotations
+        // Fast-path early return for 0-shift or full 10240-bit rotations
         if bit_shift == 0 {
+            if word_shift == 0 {
+                return *self;
+            }
             let (left, right) = self.data.split_at(word_shift);
             result[..80 - word_shift].copy_from_slice(right);
             result[80 - word_shift..].copy_from_slice(left);
