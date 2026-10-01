@@ -30,7 +30,7 @@
 | 0021 | Auto Schema Migration | Accepted | [adr/0021-auto-schema-migration.md](adr/0021-auto-schema-migration.md) |
 | 0022 | WASM API Parity (Original) | Accepted | [adr/0022-wasm-api-parity-original.md](adr/0022-wasm-api-parity-original.md) |
 | 0023 | Zero-Alloc Query Cache | Accepted | [adr/0023-zero-alloc-query-cache.md](adr/0023-zero-alloc-query-cache.md) |
-| 0024 | Concept Expiration (TTL) | Implemented (lifecycle follow-up queued) | [adr/0024-concept-expiration-ttl.md](adr/0024-concept-expiration-ttl.md) |
+| 0024 | Concept Expiration (TTL) | Implemented | [adr/0024-concept-expiration-ttl.md](adr/0024-concept-expiration-ttl.md) |
 | 0025 | Weighted Forgetting (Decay) | Implemented | [adr/0025-weighted-forgetting-decay.md](adr/0025-weighted-forgetting-decay.md) |
 | 0026 | Namespace Isolation | Implemented | [adr/0026-namespace-isolation.md](adr/0026-namespace-isolation.md) |
 | 0027 | Documentation Standards | Implemented | [adr/0027-documentation-standards.md](adr/0027-documentation-standards.md) |
@@ -101,6 +101,7 @@
 | 0096 | Agent Skill and Workflow Validation | Accepted | [adr/0096-agent-skill-and-workflow-validation.md](adr/0096-agent-skill-and-workflow-validation.md) |
 | 0097 | GOAP Reconciliation and Plans Compaction 2026-08-08 | Accepted | [adr/0097-goap-reconciliation-plans-compaction-2026-08-08.md](adr/0097-goap-reconciliation-plans-compaction-2026-08-08.md) |
 | 0098 | GOAP Reconciliation 2026-08-12 | Accepted | [adr/0098-goap-reconciliation-2026-08-12.md](adr/0098-goap-reconciliation-2026-08-12.md) |
+| 0099 | TTL Cleanup Task Lifecycle and Bounded Shutdown | Accepted | [adr/0099-ttl-cleanup-task-lifecycle.md](adr/0099-ttl-cleanup-task-lifecycle.md) |
 
 ## Status Definitions
 

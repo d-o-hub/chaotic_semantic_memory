@@ -26,8 +26,8 @@ Implement baseline TTL APIs and advanced policy automation.
 - Cascading purge and DecayCurve behavior
 - Opt-in background cleanup scheduling
 
-**Lifecycle follow-up:**
-- The background task exists, but cancellation/JoinHandle ownership and bounded shutdown are proposed in ADR-0093.
+**Lifecycle follow-up (resolved 2026-10-01):**
+- Background-task cancellation, handle ownership, and bounded shutdown are specified in ADR-0099 and implemented in `src/framework.rs` (`CleanupTask`, `shutdown()`): cooperative `watch` cancellation, stop only from the last live handle, no `abort()`.
 
 ## Consequences
 

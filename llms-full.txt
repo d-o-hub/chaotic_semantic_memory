@@ -331,7 +331,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/framework.rs
 
 - pub struct ChaoticSemanticFramework
-- impl Drop for ChaoticSemanticFramework
 - impl ChaoticSemanticFramework
 
 ### src/framework_accessors.rs
@@ -350,6 +349,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct FrameworkBuilder
 - impl Default for FrameworkBuilder
 - impl FrameworkBuilder
+
+### src/framework_cleanup.rs
+
+- impl ChaoticSemanticFramework
 
 ### src/framework_events.rs
 
@@ -2457,13 +2460,6 @@ impl ChaoticSemanticFramework {
 }
 ```
 
-### impl Drop for ChaoticSemanticFramework
-
-```rust
-impl Drop for ChaoticSemanticFramework {
-}
-```
-
 ## src/framework_accessors.rs
 
 ### impl ChaoticSemanticFramework
@@ -2591,6 +2587,16 @@ impl FrameworkBuilder {
 ```
 
 ## src/framework_builder_tests.rs
+
+## src/framework_cleanup.rs
+
+### impl ChaoticSemanticFramework
+
+```rust
+impl ChaoticSemanticFramework {
+    pub fn shutdown(&self) -> Result<()>;
+}
+```
 
 ## src/framework_events.rs
 

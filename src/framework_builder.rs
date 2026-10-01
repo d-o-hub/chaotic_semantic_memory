@@ -416,7 +416,7 @@ impl FrameworkBuilder {
             })
         };
 
-        let framework = ChaoticSemanticFramework {
+        let mut framework = ChaoticSemanticFramework {
             singularity,
             persistence,
             reservoir: Arc::new(RwLock::new(None)),
@@ -427,33 +427,14 @@ impl FrameworkBuilder {
             namespace: Arc::new(RwLock::new(self.namespace)),
             embedding_provider: provider,
             projection: Arc::new(projection),
-            cleanup_handle: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            cleanup: None,
         };
 
         framework.load_replace().await?;
 
-        // Start background cleanup if configured
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            let interval = framework.config.ttl_config.cleanup_interval_seconds;
-            if interval > 0 {
-                let mut fw = framework;
-                let fw_arc = Arc::new(fw.clone());
-                let fw_clone = Arc::clone(&fw_arc);
-                let handle = tokio::spawn(async move {
-                    let mut timer =
-                        tokio::time::interval(tokio::time::Duration::from_secs(interval));
-                    loop {
-                        timer.tick().await;
-                        if let Err(e) = fw_clone.purge_expired().await {
-                            tracing::error!(error = %e, "background cleanup failed");
-                        }
-                    }
-                });
-                fw.cleanup_handle = Some(Arc::new(handle));
-                return Ok(fw);
-            }
-        }
+        // Start the background cleanup task when configured (ADR-0099).
+        crate::framework_cleanup::spawn_cleanup_task(&mut framework);
 
         Ok(framework)
     }

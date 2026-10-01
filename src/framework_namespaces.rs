@@ -156,7 +156,8 @@ impl ChaoticSemanticFramework {
             namespace: Arc::new(RwLock::new(ns.to_string())),
             embedding_provider: self.embedding_provider.clone(),
             projection: self.projection.clone(),
-            cleanup_handle: self.cleanup_handle.clone(),
+            #[cfg(not(target_arch = "wasm32"))]
+            cleanup: self.cleanup.clone(),
         }
     }
 }
