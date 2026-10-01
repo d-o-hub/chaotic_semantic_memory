@@ -3,8 +3,6 @@
 //! Provides async wrappers for bridge retrieval operations, integrating
 //! with the ChaoticSemanticFramework's singularity lock management.
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-use crate::bridge_persistence::persist_absence;
 use crate::bridge_retrieval::BridgeRetrieval;
 use crate::framework::ChaoticSemanticFramework;
 use crate::metadata_filter::MetadataFilter;
@@ -24,7 +22,9 @@ impl ChaoticSemanticFramework {
     ) -> Result<HybridResult> {
         self.validate_top_k(top_k)?;
         #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-        if let Some(result) = self.short_circuit_if_known_absent(query).await {
+        let absence = self.absence_short_circuit(query).await;
+        #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+        if let Some(result) = absence.result {
             return Ok(result);
         }
 
@@ -47,11 +47,8 @@ impl ChaoticSemanticFramework {
             };
 
             #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-            if let Some(ref store) = self.persistence {
-                if let Err(e) = persist_absence(&abstention, store.as_ref()).await {
-                    tracing::warn!("Failed to persist absence entry: {e}");
-                }
-            }
+            self.persist_absence_record(&abstention, absence.revision)
+                .await;
 
             Ok(HybridResult::Abstained(abstention))
         } else {
@@ -59,6 +56,8 @@ impl ChaoticSemanticFramework {
                 .into_iter()
                 .map(|h| (h.id, h.scores.final_score))
                 .collect();
+            #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+            self.clear_absence_record(absence.record_id).await;
             Ok(HybridResult::Success(results))
         }
     }
@@ -94,11 +93,10 @@ impl ChaoticSemanticFramework {
             };
 
             #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-            if let Some(ref store) = self.persistence {
-                if let Err(e) = persist_absence(&abstention, store.as_ref()).await {
-                    tracing::warn!("Failed to persist absence entry: {e}");
-                }
-            }
+            let absence_revision = self.namespace_revision().await.unwrap_or(0);
+            #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+            self.persist_absence_record(&abstention, absence_revision)
+                .await;
 
             Ok(HybridResult::Abstained(abstention))
         } else {
@@ -125,7 +123,9 @@ impl ChaoticSemanticFramework {
         self.validate_top_k(top_k)?;
         Self::validate_metadata_filter(filter)?;
         #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-        if let Some(result) = self.short_circuit_if_known_absent(query).await {
+        let absence = self.absence_short_circuit(query).await;
+        #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+        if let Some(result) = absence.result {
             return Ok(result);
         }
 
@@ -168,17 +168,20 @@ impl ChaoticSemanticFramework {
                 };
 
                 #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-                if let Some(ref store) = self.persistence {
-                    if let Err(e) = persist_absence(&abstention, store.as_ref()).await {
-                        tracing::warn!("Failed to persist absence entry: {e}");
-                    }
-                }
+                self.persist_absence_record(&abstention, absence.revision)
+                    .await;
 
                 Ok(HybridResult::Abstained(abstention))
             } else {
+                // The unfiltered query matched: the record is stale, the filter
+                // is what excluded the results.
+                #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+                self.clear_absence_record(absence.record_id).await;
                 Ok(HybridResult::Success(Vec::new()))
             }
         } else {
+            #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+            self.clear_absence_record(absence.record_id).await;
             Ok(HybridResult::Success(filtered_hits))
         }
     }

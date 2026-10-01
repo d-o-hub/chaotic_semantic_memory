@@ -392,6 +392,41 @@ impl Persistence {
                 .map_err(|e| MemoryError::database(format!("Failed migration v11: {e}")))?;
             }
 
+            if version == 12 {
+                // Absence records are only valid for the content they were
+                // observed against (ADR-0093 revision contract): stamp each
+                // record with the namespace it was attempted in and the
+                // revision at that moment. Rows written before this migration
+                // default to ('', 0), which matches no live namespace, so they
+                // stop short-circuiting instead of suppressing queries forever.
+                if !self
+                    .column_exists(conn, "csm_absences", "namespace")
+                    .await?
+                {
+                    conn.execute_batch(
+                        "ALTER TABLE csm_absences ADD COLUMN namespace TEXT NOT NULL DEFAULT '';",
+                    )
+                    .await
+                    .map_err(|e| {
+                        MemoryError::database(format!("Failed migration v12 namespace: {e}"))
+                    })?;
+                }
+                if !self
+                    .column_exists(conn, "csm_absences", "namespace_revision")
+                    .await?
+                {
+                    conn.execute_batch(
+                        "ALTER TABLE csm_absences ADD COLUMN namespace_revision INTEGER NOT NULL DEFAULT 0;",
+                    )
+                    .await
+                    .map_err(|e| {
+                        MemoryError::database(format!(
+                            "Failed migration v12 namespace_revision: {e}"
+                        ))
+                    })?;
+                }
+            }
+
             conn.execute(
                 "INSERT INTO csm_schema_version(version) VALUES (?1)",
                 libsql::params![version],

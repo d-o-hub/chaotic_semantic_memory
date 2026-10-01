@@ -256,15 +256,16 @@ EXCLUDE_ARGS=(
   # integration fixtures to satisfy it, so these mutants cannot be killed deterministically
   # (they hang into a test timeout or survive unobserved). Persistence correctness is covered
   # by integration tests, not --lib mutation — same rationale as src/persistence_wasm.rs and
-  # src/export_payload.rs. This file-level exclude also covers AbsenceEntry::normalize
-  # (bridge_persistence.rs:264), so no separate mutant-label exclude is needed.
+  # src/export_payload.rs. This file-level exclude also covers AbsenceEntry::normalize,
+  # so no separate mutant-label exclude is needed.
   --exclude "src/bridge_persistence.rs"
-  # M1 BM25 absence short-circuit (ADR-0094 follow-up): short_circuit_if_known_absent
-  # is a framework async path that requires a persisted absence store; its
-  # Some/None branch is covered by tests/bm25_absence_short_circuit.rs, which the
-  # --lib mutation profile does not run (same rationale as the framework probe
-  # excludes above).
-  --exclude-re "short_circuit_if_known_absent"
+  # M1 BM25 absence short-circuit (ADR-0094 follow-up): absence_short_circuit
+  # is a framework async path that requires a persisted absence store and a
+  # namespace revision read; the decision itself (lookup_absence) is covered by
+  # --lib unit tests, while the wrapper's abstention shape is covered by
+  # tests/bm25_absence_short_circuit.rs, which the --lib mutation profile does
+  # not run (same rationale as the framework probe excludes above).
+  --exclude-re "absence_short_circuit"
   # Test scaffolding: StubStore::list_absences is a trait method required by the
   # AbsenceStore stub but never called by the unit test, so mutating it to
   # Ok(vec![]) is unobservable.

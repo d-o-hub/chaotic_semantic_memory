@@ -8,6 +8,12 @@ use chrono::Utc;
 use csm_traits::AbsenceEntry;
 use tempfile::NamedTempFile;
 
+/// Namespace + revision used by the absence fixtures: records only match the
+/// content state they were observed at, so construct and merge with the same
+/// pair unless a test deliberately exercises a revision change.
+const TEST_NS: &str = "_default";
+const TEST_REV: u64 = 1;
+
 #[tokio::test]
 async fn test_save_and_load_canonical_concept() {
     let temp = NamedTempFile::new().unwrap();
@@ -140,6 +146,8 @@ fn test_merge_with_sets_score_from_none() {
         best_score_ever: None,
         first_seen: ts,
         last_seen: ts,
+        namespace: TEST_NS.to_string(),
+        namespace_revision: TEST_REV,
     };
     let abstention = RetrievalAbstention {
         query: "q".to_string(),
@@ -148,7 +156,7 @@ fn test_merge_with_sets_score_from_none() {
         attempted_modes: vec![],
         timestamp: ts,
     };
-    merge_absence_with(&mut entry, &abstention);
+    merge_absence_with(&mut entry, &abstention, TEST_NS, TEST_REV);
     assert_eq!(
         entry.best_score_ever,
         Some(0.7),
@@ -169,6 +177,8 @@ fn test_merge_with_lower_score_unchanged() {
         best_score_ever: Some(0.5),
         first_seen: ts,
         last_seen: ts,
+        namespace: TEST_NS.to_string(),
+        namespace_revision: TEST_REV,
     };
     let abstention = RetrievalAbstention {
         query: "q".to_string(),
@@ -177,7 +187,7 @@ fn test_merge_with_lower_score_unchanged() {
         attempted_modes: vec![],
         timestamp: ts,
     };
-    merge_absence_with(&mut entry, &abstention);
+    merge_absence_with(&mut entry, &abstention, TEST_NS, TEST_REV);
     assert!(
         (entry.best_score_ever.unwrap() - 0.5).abs() < f32::EPSILON,
         "lower score must not overwrite best_score_ever"
@@ -200,19 +210,25 @@ async fn test_persist_absence_lifecycle() {
 
     let mut abstention = abstention;
     abstention.best_score_seen = Some(0.1);
-    let entry = persist_absence(&abstention, &persistence).await.unwrap();
+    let entry = persist_absence(&abstention, &persistence, TEST_NS, TEST_REV)
+        .await
+        .unwrap();
     assert_eq!(entry.attempt_count, 1);
     assert!((entry.best_score_ever.unwrap() - 0.1).abs() < f32::EPSILON);
 
     let mut abstention2 = abstention.clone();
     abstention2.best_score_seen = Some(0.4);
-    let entry2 = persist_absence(&abstention2, &persistence).await.unwrap();
+    let entry2 = persist_absence(&abstention2, &persistence, TEST_NS, TEST_REV)
+        .await
+        .unwrap();
     assert_eq!(entry2.attempt_count, 2);
     assert!((entry2.best_score_ever.unwrap() - 0.4).abs() < f32::EPSILON);
 
     let mut abstention3 = abstention.clone();
     abstention3.best_score_seen = Some(0.2);
-    let entry3 = persist_absence(&abstention3, &persistence).await.unwrap();
+    let entry3 = persist_absence(&abstention3, &persistence, TEST_NS, TEST_REV)
+        .await
+        .unwrap();
     assert_eq!(entry3.attempt_count, 3);
     assert!((entry2.best_score_ever.unwrap() - 0.4).abs() < f32::EPSILON); // Stays at 0.4
 }
@@ -275,11 +291,11 @@ fn make_abstention(score: Option<f32>) -> crate::retrieval::hybrid::RetrievalAbs
 #[test]
 fn merge_with_keeps_strictly_higher_score() {
     let abstention_initial = make_abstention(Some(0.3));
-    let mut entry = absence_from_abstention(&abstention_initial);
+    let mut entry = absence_from_abstention(&abstention_initial, TEST_NS, TEST_REV);
 
     // Merge with strictly higher score — must update
     let higher = make_abstention(Some(0.8));
-    merge_absence_with(&mut entry, &higher);
+    merge_absence_with(&mut entry, &higher, TEST_NS, TEST_REV);
     assert_eq!(entry.best_score_ever, Some(0.8));
 }
 
@@ -290,11 +306,11 @@ fn merge_with_does_not_overwrite_equal_score() {
     // we pin the pointer identity by checking the value is unchanged
     // when the new score equals the existing one).
     let abstention_initial = make_abstention(Some(0.5));
-    let mut entry = absence_from_abstention(&abstention_initial);
+    let mut entry = absence_from_abstention(&abstention_initial, TEST_NS, TEST_REV);
     assert_eq!(entry.best_score_ever, Some(0.5));
 
     let equal_score = make_abstention(Some(0.5));
-    merge_absence_with(&mut entry, &equal_score);
+    merge_absence_with(&mut entry, &equal_score, TEST_NS, TEST_REV);
     // Score should remain 0.5; both `>` and `>=` produce same numeric result,
     // BUT we additionally test that a lower score is not promoted:
     assert_eq!(
@@ -304,7 +320,7 @@ fn merge_with_does_not_overwrite_equal_score() {
     );
 
     let lower = make_abstention(Some(0.2));
-    merge_absence_with(&mut entry, &lower);
+    merge_absence_with(&mut entry, &lower, TEST_NS, TEST_REV);
     assert_eq!(
         entry.best_score_ever,
         Some(0.5),
@@ -315,10 +331,10 @@ fn merge_with_does_not_overwrite_equal_score() {
 #[test]
 fn merge_with_promotes_none_to_some() {
     let initial = make_abstention(None);
-    let mut entry = absence_from_abstention(&initial);
+    let mut entry = absence_from_abstention(&initial, TEST_NS, TEST_REV);
     assert_eq!(entry.best_score_ever, None);
 
     let with_score = make_abstention(Some(0.7));
-    merge_absence_with(&mut entry, &with_score);
+    merge_absence_with(&mut entry, &with_score, TEST_NS, TEST_REV);
     assert_eq!(entry.best_score_ever, Some(0.7));
 }
