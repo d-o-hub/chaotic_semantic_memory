@@ -326,7 +326,10 @@ required-features = ["persistence", "ann-hnsw", "ann-lsh"]
 [features]
 experimental-neural-circuit = ["csm-chaos/experimental-neural-circuit"]
 default = ["cli", "persistence", "parallel"]
-cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
+# `tokio/signal` backs the `csm watch` Ctrl+C handler, which cancels and awaits
+# the shared TTL cleanup task before exiting (ADR-0099); scoped to `cli` so the
+# lean no-default-features tree does not pull signal-hook-registry (ADR-0094).
+cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob", "tokio/signal"]
 persistence = ["dep:libsql", "csm-persistence/persistence"]
 parallel = ["dep:rayon", "csm-memory/parallel", "csm-traits/parallel"]
 wasm = []

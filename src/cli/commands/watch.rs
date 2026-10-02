@@ -72,29 +72,53 @@ pub async fn run_watch(db_path: Option<&Path>, filter: EventFilter) -> Result<()
     eprintln!("Watching for memory events (filter: {:?})...", filter);
     eprintln!("Press Ctrl+C to stop.");
 
+    // Ctrl+C is the only real exit path: the event channel closes only when
+    // the framework drops, and the framework lives here. Without this handler
+    // the process is terminated by the default SIGINT disposition and the
+    // cleanup task never gets a chance to stop (ADR-0099). The subscription is
+    // created once so a signal arriving between iterations is not missed.
+    let interrupted = tokio::signal::ctrl_c();
+    tokio::pin!(interrupted);
+
     loop {
-        match receiver.recv().await {
-            Ok(event) => {
-                if filter.matches(&event) {
-                    let json = event_to_json(&event);
-                    writeln!(writer, "{json}")
-                        .map_err(|e| CliError::Output(format!("failed to write event: {e}")))?;
-                    writer
-                        .flush()
-                        .map_err(|e| CliError::Output(format!("failed to flush output: {e}")))?;
-                }
-            }
-            Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                // Channel closed, exit gracefully
-                eprintln!("Event channel closed.");
+        tokio::select! {
+            _ = &mut interrupted => {
+                eprintln!("Interrupted.");
                 break;
             }
-            Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                // Lagged behind - warn but continue
-                eprintln!("Warning: Lagged {n} events, continuing...");
-            }
+            received = receiver.recv() => match received {
+                Ok(event) => {
+                    if filter.matches(&event) {
+                        let json = event_to_json(&event);
+                        writeln!(writer, "{json}")
+                            .map_err(|e| CliError::Output(format!("failed to write event: {e}")))?;
+                        writer
+                            .flush()
+                            .map_err(|e| CliError::Output(format!("failed to flush output: {e}")))?;
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                    // Channel closed, exit gracefully
+                    eprintln!("Event channel closed.");
+                    break;
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    // Lagged behind - warn but continue
+                    eprintln!("Warning: Lagged {n} events, continuing...");
+                }
+            },
         }
     }
+
+    // ADR-0099: stop the shared TTL cleanup task deterministically instead of
+    // relying on drop order. `watch` is a long-running command, so the task
+    // would otherwise be stopped cooperatively at its next check with no
+    // guarantee the process has exited by then — and a stuck task would be
+    // invisible. `shutdown()` is bounded (5s) and surfaces that case.
+    framework
+        .shutdown()
+        .await
+        .map_err(|e| CliError::Other(format!("TTL cleanup shutdown failed: {e}")))?;
 
     Ok(())
 }
