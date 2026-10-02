@@ -55,6 +55,27 @@ impl McpHandler {
             .await
     }
 
+    /// Stop the framework's shared TTL cleanup task (ADR-0099).
+    ///
+    /// The framework is created lazily on the first tool call, so a server
+    /// that served no request has nothing to stop and this returns `Ok(())`
+    /// without initializing one. Otherwise it delegates to
+    /// [`ChaoticSemanticFramework::shutdown`], which is bounded and idempotent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the cleanup task panicked or did not stop within
+    /// the framework's grace period.
+    pub(crate) async fn shutdown(&self) -> Result<()> {
+        match self.framework.get() {
+            Some(framework) => framework
+                .shutdown()
+                .await
+                .map_err(|e| anyhow::anyhow!("TTL cleanup shutdown failed: {e}")),
+            None => Ok(()),
+        }
+    }
+
     pub(crate) fn map_error(e: anyhow::Error) -> ErrorData {
         ErrorData::new(ErrorCode::INTERNAL_ERROR, e.to_string(), None)
     }

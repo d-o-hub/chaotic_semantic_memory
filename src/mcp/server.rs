@@ -61,26 +61,38 @@ impl Default for McpConfig {
 pub async fn serve(config: McpConfig) -> Result<()> {
     info!("Starting MCP server with {:?} transport", config.transport);
 
-    let handler = McpHandler::new(config.database);
+    let handler = Arc::new(McpHandler::new(config.database));
 
     match config.transport {
         Transport::Stdio => {
             let (stdin, stdout) = rmcp::transport::io::stdio();
-            let server = rmcp::serve_server(handler, (stdin, stdout)).await?;
+            // `Arc<McpHandler>` implements `ServerHandler`, so the same
+            // framework instance can be shut down after the transport ends.
+            let server = rmcp::serve_server(handler.clone(), (stdin, stdout)).await?;
             server
                 .waiting()
                 .await
                 .map_err(|e| anyhow::anyhow!("Server join error: {e}"))?;
         }
         Transport::Sse { bind } => {
-            run_sse_server(handler, bind).await?;
+            run_sse_server(handler.clone(), bind).await?;
         }
     }
+
+    // ADR-0099: the handler owns the framework — and with it the shared TTL
+    // cleanup task — in a `OnceCell`, so shutting it down here is what stops
+    // the task deterministically on exit instead of at its next cooperative
+    // check. A server that served no request never initialized the framework,
+    // in which case this is a no-op.
+    handler
+        .shutdown()
+        .await
+        .map_err(|e| anyhow::anyhow!("TTL cleanup shutdown failed: {e}"))?;
 
     Ok(())
 }
 
-async fn run_sse_server(handler: McpHandler, bind: std::net::SocketAddr) -> Result<()> {
+async fn run_sse_server(handler: Arc<McpHandler>, bind: std::net::SocketAddr) -> Result<()> {
     use rmcp::transport::streamable_http_server::{
         StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager,
     };
@@ -106,15 +118,4 @@ async fn run_sse_server(handler: McpHandler, bind: std::net::SocketAddr) -> Resu
         .map_err(|e| anyhow::anyhow!("axum server error: {e}"))?;
 
     Ok(())
-}
-
-impl Clone for McpHandler {
-    /// Manual clone implementation because OnceCell doesn't implement Clone
-    /// and we want new instances to re-initialize their framework.
-    fn clone(&self) -> Self {
-        Self {
-            database: self.database.clone(),
-            framework: tokio::sync::OnceCell::new(),
-        }
-    }
 }
