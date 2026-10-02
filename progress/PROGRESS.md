@@ -1,5 +1,20 @@
 # PROGRESS
 
+## 2026-10-02: WASM freshness gate repaired + root-`src` PR coverage
+
+`main` was red on exactly one job: `wasm`. Runs 36885556956 (`c8f91876`) and 36888300162 (`debd7354`) both failed at `Verify WASM TS Freshness` with a diff made solely of three compiler-generated closure helpers — `wasm_bindgen_847cf8bb5373c819___convert__closures…` — because the checker filtered only the pre-hash naming scheme (`wasm_bindgen__convert__closures_____invoke__…`). Nothing else in those runs failed (the arm64 CLI cancel follows the failed run). The PR-side path filter is why root-source breakage reached the trunk: the `wasm` job set `wasm=true` only for `^(crates/csm-wasm/|src/wasm|wasm/|Cargo\.(toml|lock)$)`, and `src/wasm` is a prefix that never matched root `src/**` — even though `crates/csm-wasm` depends on the root crate with feature `wasm`.
+
+### Change (PR #809, merged `77a47d4`)
+- `scripts/check-wasm-freshness.sh`: the filter is anchored at the declaration start and matches generated closure-invocation declarations under both naming schemes — `^[[:space:]]*readonly wasm_bindgen(_[[:xdigit:]]+)?__+convert__+closures__+invoke__`. Public exports, `InitOutput` members and `__wbindgen_*` ABI signatures are still compared; the checked-in snapshot was deliberately not refreshed, because the observed diff is compiler-generated churn rather than API change.
+- `.github/workflows/ci.yml`: the `wasm` job's PR path filter now covers root `src/**`, `scripts/{build-wasm,check-wasm-freshness,wasm_size_gate}.sh` and `ci.yml` itself.
+
+### Verification
+- Normalization regression executed against the checker's own `filter_dts` (definition read from the script, declaration text on stdin): the job-log fixture (three old helpers replaced by the three hash-prefixed ones) normalizes identically to the checked-in file and is rejected by the previous filter; four API/ABI mutations from that fixture — `encode_text(text: number)`, removed `initialize_wasm`, added `newly_added_api`, `__wbindgen_malloc` arity — all still change the normalized output.
+- Path filter, one file per PR diff: `wasm=true` for `src/framework_cleanup.rs`, `src/framework.rs`, `src/wasm.rs`, `crates/csm-wasm/src/lib.rs`, `wasm/test.js`, `Cargo.toml`, `Cargo.lock`, `scripts/check-wasm-freshness.sh`, `.github/workflows/ci.yml`; `wasm=false` for `README.md`, `plans/ACTIONS.md`, `scripts/check-llms-sync.sh`.
+- Local end-to-end (wasm-pack 0.15.0, wasm32 target, Node 22.23.2; nix unavailable, canonical commands run directly): freshness `OK`; `build-wasm.sh release-web` 655 497 B; `cargo check --target wasm32-unknown-unknown -p csm-wasm` ok; size gate pass (640.13 KiB, ceiling 800 000 B); `wasm/test.js` → `WASM smoke test passed.`; `shellcheck` clean; `actionlint` findings identical to `main`'s three pre-existing ones.
+- PR #809 (head `d0536879`): whole run 36980374291 green, including the previously red `wasm` job — `Verify WASM TS Freshness` → `OK`, `WASM JS Smoke Test` → `WASM smoke test passed.`; merged as `77a47d4`; main push run 36983336327 green. Local wasm-pack emits the old helper names, so CI is the end-to-end proof of the hash-prefixed form.
+- Queued action `trigger_wasm_job_on_root_src_changes` completed (queue 9 → 8); `validated` stays false with the remaining wave-32/33 residuals.
+
 ## 2026-10-01 (wave-32 residual): Absence record invalidation
 
 Executed `add_absence_invalidation_semantics` (PR #804, merged `c8f91876`) — the audit's F1 remainder: absence records short-circuited queries forever, including after matching content existed.

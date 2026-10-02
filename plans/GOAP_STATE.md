@@ -24,12 +24,12 @@ world_state:
   binary_built: true
   documentation_complete: true
   validated: false               # 2026-09-30: wave-32/33 exits re-verified vs GOAP_AUDIT_2026_07_14.md; residuals queued — TTL shutdown, absence invalidation, failure-path/query-count tests, gate+catalog consolidation, scheduled/release evidence tiers
-  ci_all_checks_passed: true     # 2026-09-17: PR-title check keys on github.event.pull_request.user.login and tolerates double-scoped dependabot titles (#726)
+  ci_all_checks_passed: true     # 2026-10-02: main push run 36983336327 (77a47d4, #809) green; predecessor 36888300162 had failed on the `wasm` freshness step
   loc_gate_verified: true        # all first-party src/ and crates/ files ≤ 500 LOC
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "c8f91876"          # 2026-10-01: #804 absence invalidation (latest main at record time)
+  main_head: "77a47d4"           # 2026-10-02: #809 WASM freshness repair (latest main at record time)
   tests_count: 1037              # 2026-09-30: unique compiled behavior (scripts/coverage-report.sh inventory)
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
   coverage_lines_percent: 74     # 2026-09-18: cargo +nightly llvm-cov --workspace --lib --tests --branch
@@ -52,7 +52,7 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 9        # 2026-10-01: absence invalidation landed (#804); remaining = wave-32/33 residuals (9)
+  queued_actions_count: 8        # 2026-10-02: trigger_wasm_job_on_root_src_changes landed (#809); 8 wave-32/33 residuals remain
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: true            # 2026-08-12: no TODO in src/ crates/
@@ -118,4 +118,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: add_absence_invalidation_semantics
+  action_last_completed: trigger_wasm_job_on_root_src_changes
