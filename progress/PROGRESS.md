@@ -1,5 +1,19 @@
 # PROGRESS
 
+## 2026-10-02 (feedback round): open-PR blockers addressed
+
+With the trunk green after the WASM freshness repair, the two feedback-bearing PRs in the open queue were roasted and their blockers fixed (the other two open PRs — #806, #807 — carry no feedback and stay for the next triage pass).
+
+### #808 (`perf(core)`: BHVec10240 xor SIMD)
+Two red gates, both self-inflicted: `commitlint` failed on a body whose evidence section lived only in a commit message, and Codacy `⛔ 3 high` flagged `unsafe` in the *newly extracted* test module — those calls were already covered while they lived inside the excluded `hyperdim_simd.rs`. The roast also found 17 rationale/SAFETY comment blocks blanked, an unmeasured `MaybeUninit` + `get_unchecked` fallback (the #783 class), and a cited baseline id (`bhvec_bind`) that does not exist in `canonical.json`.
+
+Fixed on `aee4253`: comments restored verbatim; the `[u64; 160]` dispatch extracted into `hyperdim_simd::xor_u64` beside the identical hamming dispatcher (484/500 LOC — extraction, not deletion); the unchecked fallback replaced by the safe `xor_u64_scalar` oracle; SAFETY comments restored in the test module with four new xor parity tests (dispatched vs oracle on head/tail words, AVX2 kernel vs oracle, `xor` vs `HVec10240::bind` across layouts); `.codacy.yml` covers the extracted module; the body carries measured evidence (287.6 → 141.5 ns per `xor`, ≈ 1.7–2.0×, sign-consistent over alternating rounds). `commitlint`, Codacy and `Test Workspace Crates (csm-core-lib)` are green on the new head; impact is public-API-only, so the merge call stays with the owner.
+
+### #800 (`perf(core)`: permute zero-shift fast path)
+The 2026-10-01 evidence request stood: no bench reached the new `word_shift == 0` branch (the only permute bench used shift 321). Added the `hvec_permute` group (shifts 0, 10240, 10240 × 3 — all identity rotations — plus 128 and 321 as controls, `black_box` on vector and result), extended `test_permute` to lock `permute(10240)` and `permute(10240 × 3)`, and measured with an order-alternating harness: 81.7 → 57.3 ns on the direct call (6/6 rounds, control offset reported), 2 684 → 2 734 ns on `text_encoder/encode_short` (3/6 each way — noise: one identity permutation per token stream amortizes away). Gate, Codacy, workspace crates and the arm64 job are green on `79f51f7`; merge/close stays with the owner.
+
+Records: `plans/PR_ROAST_2026_10_02.md` (addendum); lessons in `progress/LEARNINGS.md` (body-capture timing for PR gates; control workloads and alternating order for micro-benchmarks).
+
 ## 2026-10-02: WASM freshness gate repaired + root-`src` PR coverage
 
 `main` was red on exactly one job: `wasm`. Runs 36885556956 (`c8f91876`) and 36888300162 (`debd7354`) both failed at `Verify WASM TS Freshness` with a diff made solely of three compiler-generated closure helpers — `wasm_bindgen_847cf8bb5373c819___convert__closures…` — because the checker filtered only the pre-hash naming scheme (`wasm_bindgen__convert__closures_____invoke__…`). Nothing else in those runs failed (the arm64 CLI cancel follows the failed run). The PR-side path filter is why root-source breakage reached the trunk: the `wasm` job set `wasm=true` only for `^(crates/csm-wasm/|src/wasm|wasm/|Cargo\.(toml|lock)$)`, and `src/wasm` is a prefix that never matched root `src/**` — even though `crates/csm-wasm` depends on the root crate with feature `wasm`.
