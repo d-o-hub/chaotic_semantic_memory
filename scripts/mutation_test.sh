@@ -221,6 +221,15 @@ EXCLUDE_ARGS=(
   # "replace run_query -> Result<()> with Ok(())" without integration fixtures.
   --exclude-re "run_query"
   --exclude-re "replace run_query"
+  # run_watch is the same class: a CLI entry point whose loop only exits on
+  # Ctrl+C or on the event channel closing (the framework owns the sender, so
+  # the latter is unreachable while the function holds it). Neither exit is
+  # reachable from --lib, so "replace run_watch -> Result<()> with Ok(())" is
+  # unkillable without a signal-sending integration fixture. Residual: the
+  # call-site wiring (shutdown().await on the watch exit path) is covered by
+  # review and a manual SIGINT smoke, not by a gate; the McpHandler and
+  # framework_cleanup tests cover shutdown() itself, not its callers.
+  --exclude-re "run_watch"
   # src/bin/csm.rs: tracing setup, error formatting, shell completion, and main
   # are CLI-only concerns (side-effectful, process-exit, I/O); untestable via --lib.
   --exclude "src/bin/csm.rs"
