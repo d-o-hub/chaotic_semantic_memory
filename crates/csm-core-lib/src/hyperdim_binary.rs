@@ -94,13 +94,20 @@ impl BHVec10240 {
     }
 
     /// Convert HVec10240 (bit-packed u128) to BHVec10240 (bit-packed u64).
+    ///
+    /// Performance Optimization: On little-endian architectures, `[u128; 80]` and `[u64; 160]`
+    /// have an identical 1,280-byte memory representation. Using direct memory copy avoids 80 loop
+    /// iterations with bit shifts, casts, and array bounds checks.
     #[allow(clippy::missing_const_for_fn)]
     pub fn from_hvec(v: &HVec10240) -> Self {
         #[allow(unused_mut)]
         let mut bits = [0u64; 160];
         #[cfg(target_endian = "little")]
         {
-            // SAFETY: Memory equivalence: `[u128; 80]` and `[u64; 160]` occupy 1,280 bytes.
+            // SAFETY:
+            // 1. Memory equivalence: `[u128; 80]` and `[u64; 160]` occupy exactly 1,280 contiguous bytes.
+            // 2. Alignment & Validity: `v.data` is an initialized `[u128; 80]` array, and `bits` is a mutable
+            //    `[u64; 160]` array. Pointers are valid, non-null, and point to non-overlapping allocations.
             unsafe {
                 std::ptr::copy_nonoverlapping(
                     v.data.as_ptr().cast::<u8>(),
@@ -120,13 +127,20 @@ impl BHVec10240 {
     }
 
     /// Convert BHVec10240 (bit-packed u64) to HVec10240 (bit-packed u128).
+    ///
+    /// Performance Optimization: On little-endian architectures, `[u64; 160]` and `[u128; 80]`
+    /// have an identical 1,280-byte memory representation. Using direct memory copy avoids 80 loop
+    /// iterations with bit shifts, bitwise OR operations, and array bounds checks.
     #[allow(clippy::missing_const_for_fn)]
     pub fn to_hvec(&self) -> HVec10240 {
         #[allow(unused_mut)]
         let mut data = [0u128; 80];
         #[cfg(target_endian = "little")]
         {
-            // SAFETY: Memory equivalence: `[u64; 160]` and `[u128; 80]` occupy 1,280 bytes.
+            // SAFETY:
+            // 1. Memory equivalence: `[u64; 160]` and `[u128; 80]` occupy exactly 1,280 contiguous bytes.
+            // 2. Alignment & Validity: `self.bits` is an initialized `[u64; 160]` array, and `data` is a mutable
+            //    `[u128; 80]` array. Pointers are valid, non-null, and point to non-overlapping allocations.
             unsafe {
                 std::ptr::copy_nonoverlapping(
                     self.bits.as_ptr().cast::<u8>(),
@@ -146,40 +160,14 @@ impl BHVec10240 {
 
     /// XOR binding
     ///
-    /// Performance Optimization: Uses SIMD (AVX2 on x86_64, NEON on aarch64) to vectorize
-    /// 10,240-bit XOR binding over raw 1,280-byte arrays without zero-initialization.
+    /// Performance Optimization: Dispatches over the packed `[u64; 160]` words
+    /// to the shared 1,280-byte kernels (`crate::hyperdim_simd::xor_u64` —
+    /// AVX2 on x86_64 with runtime detection, NEON on aarch64, scalar
+    /// elsewhere, including wasm32), so no layout conversion or temporary
+    /// [`HVec10240`] is built.
     pub fn xor(&self, other: &Self) -> Self {
-        #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-        {
-            if is_x86_feature_detected!("avx2") {
-                // SAFETY: AVX2 feature detected at runtime. Both inputs and output are 1,280 bytes.
-                return Self {
-                    bits: unsafe {
-                        crate::hyperdim_simd::xor_simd_u64_avx2(&self.bits, &other.bits)
-                    },
-                };
-            }
-        }
-
-        #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-        {
-            // SAFETY: NEON is always available on aarch64. Both inputs and output are 1,280 bytes.
-            return Self {
-                bits: unsafe { crate::hyperdim_simd::xor_simd_u64_neon(&self.bits, &other.bits) },
-            };
-        }
-
-        let mut uninit_bits: MaybeUninit<[u64; 160]> = MaybeUninit::uninit();
-        let ptr = uninit_bits.as_mut_ptr().cast::<u64>();
-
-        // SAFETY: `ptr` points to 160 `u64`s written fully in 0..160 before `assume_init`.
-        unsafe {
-            for i in 0..160 {
-                *ptr.add(i) = *self.bits.get_unchecked(i) ^ *other.bits.get_unchecked(i);
-            }
-            Self {
-                bits: uninit_bits.assume_init(),
-            }
+        Self {
+            bits: crate::hyperdim_simd::xor_u64(&self.bits, &other.bits),
         }
     }
 

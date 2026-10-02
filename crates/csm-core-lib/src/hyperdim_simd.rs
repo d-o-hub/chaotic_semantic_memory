@@ -16,6 +16,7 @@ pub(crate) fn hamming_distance_optimized(lhs: &[u128; 80], rhs: &[u128; 80]) -> 
     let mut d2 = 0;
     let mut d3 = 0;
 
+    // Unroll by 4 with independent accumulators to improve ILP
     for i in (0..80).step_by(4) {
         d0 += (lhs[i] ^ rhs[i]).count_ones();
         d1 += (lhs[i + 1] ^ rhs[i + 1]).count_ones();
@@ -35,15 +36,57 @@ pub(crate) fn hamming_distance_optimized(lhs: &[u128; 80], rhs: &[u128; 80]) -> 
 pub(crate) fn hamming_distance_u64(lhs: &[u64; 160], rhs: &[u64; 160]) -> u32 {
     #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
     if std::is_x86_feature_detected!("avx2") {
+        // SAFETY: AVX2 support is detected above; both arrays provide 1,280 readable bytes.
         return unsafe { hamming_distance_1280_avx2(lhs.as_ptr().cast(), rhs.as_ptr().cast()) };
     }
 
     #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
     if std::arch::is_aarch64_feature_detected!("neon") {
+        // SAFETY: NEON support is detected above; both arrays provide 1,280 readable bytes.
         return unsafe { hamming_distance_1280_neon(lhs.as_ptr().cast(), rhs.as_ptr().cast()) };
     }
 
     hamming_distance_u64_scalar(lhs, rhs)
+}
+
+/// XOR binding over packed `[u64; 160]` words (the `BHVec10240` layout).
+///
+/// The same 1,280-byte XOR that [`bind_simd_avx2`]/[`bind_simd_neon`] perform
+/// over the `[u128; 80]` layout, but without a layout conversion: the packed
+/// words are XORed by the AVX2 (x86_64, runtime-detected) or NEON (aarch64)
+/// kernel when available, falling back to [`xor_u64_scalar`] elsewhere
+/// (including wasm32).
+#[inline]
+pub(crate) fn xor_u64(lhs: &[u64; 160], rhs: &[u64; 160]) -> [u64; 160] {
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+    if std::is_x86_feature_detected!("avx2") {
+        // SAFETY: AVX2 support is detected above; both arrays provide 1,280
+        // readable bytes and the kernel writes exactly the same 1,280 bytes.
+        return unsafe { xor_simd_u64_avx2(lhs, rhs) };
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+    if std::arch::is_aarch64_feature_detected!("neon") {
+        // SAFETY: NEON support is detected above; same 1,280-byte bound as the
+        // AVX2 path.
+        return unsafe { xor_simd_u64_neon(lhs, rhs) };
+    }
+
+    xor_u64_scalar(lhs, rhs)
+}
+
+/// Safe scalar XOR fallback over the packed words (also the wasm32 path).
+///
+/// Kept as a separate function so the AVX2/NEON kernels can be checked against
+/// it on every target (`xor_simd_matches_scalar` in `hyperdim_simd_tests.rs`);
+/// the bounds are compile-time constants, so the compiler already proves the
+/// indexing here — no `unsafe` is warranted on this path.
+pub(crate) fn xor_u64_scalar(lhs: &[u64; 160], rhs: &[u64; 160]) -> [u64; 160] {
+    let mut res = [0u64; 160];
+    for i in 0..160 {
+        res[i] = lhs[i] ^ rhs[i];
+    }
+    res
 }
 
 /// Unrolled scalar popcount fallback over the packed words (also the wasm32
@@ -70,6 +113,9 @@ pub(crate) fn hamming_distance_u64_scalar(lhs: &[u64; 160], rhs: &[u64; 160]) ->
 pub(crate) unsafe fn and_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
     let mut res = [0u128; 80];
     for i in (0..80).step_by(2) {
+        // SAFETY: lhs, rhs, and res are [u128; 80], which is 1280 bytes.
+        // i goes up to 78, so i+2 (256 bits) is 32 bytes.
+        // 32 bytes * 40 iterations = 1280 bytes. All pointers are valid.
         unsafe {
             let l = _mm256_loadu_si256(lhs.as_ptr().add(i).cast());
             let r = _mm256_loadu_si256(rhs.as_ptr().add(i).cast());
@@ -79,18 +125,24 @@ pub(crate) unsafe fn and_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128;
     res
 }
 
-#[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
-#[inline]
-#[target_feature(enable = "neon")]
 /// NEON XOR kernel over packed `[u64; 160]` words.
 ///
 /// # SAFETY
-/// Caller must ensure NEON is supported.
+/// Caller must ensure NEON is supported. Both inputs must be valid for 1,280
+/// reads: the loop covers exactly 1,280 bytes (`(0..160).step_by(2)` → 80
+/// 16-byte load pairs, the last at byte offset 1,264) and every byte of the
+/// result is written before `assume_init`.
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
+#[inline]
+#[target_feature(enable = "neon")]
 pub(crate) unsafe fn xor_simd_u64_neon(lhs: &[u64; 160], rhs: &[u64; 160]) -> [u64; 160] {
     use std::arch::aarch64::{veorq_u8, vld1q_u8, vst1q_u8};
     let mut res = std::mem::MaybeUninit::<[u64; 160]>::uninit();
     let res_ptr = res.as_mut_ptr().cast::<u8>();
     for i in (0..160).step_by(2) {
+        // SAFETY: `i` advances by 2 words = 16 bytes, so `lhs`/`rhs` read
+        // bytes `i * 8 .. i * 8 + 16` with `i <= 158` (last read at 1,264) and
+        // `res_ptr` writes the same span; NEON is guaranteed by the caller.
         unsafe {
             let l = vld1q_u8(lhs.as_ptr().add(i).cast());
             let r = vld1q_u8(rhs.as_ptr().add(i).cast());
@@ -98,20 +150,27 @@ pub(crate) unsafe fn xor_simd_u64_neon(lhs: &[u64; 160], rhs: &[u64; 160]) -> [u
         }
     }
 
+    // SAFETY: the loop above wrote all 1,280 bytes of `res` (80 × 16 bytes).
     unsafe { res.assume_init() }
 }
 
-#[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
-#[inline]
-#[target_feature(enable = "avx2")]
 /// AVX2 XOR kernel over packed `[u64; 160]` words.
 ///
 /// # SAFETY
-/// Caller must ensure AVX2 is supported.
+/// Caller must ensure AVX2 is supported. Both inputs must be valid for 1,280
+/// reads: the loop covers exactly 1,280 bytes (`(0..160).step_by(4)` → 40
+/// 32-byte load pairs, the last at byte offset 1,248) and every byte of the
+/// result is written before `assume_init`.
+#[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
+#[inline]
+#[target_feature(enable = "avx2")]
 pub(crate) unsafe fn xor_simd_u64_avx2(lhs: &[u64; 160], rhs: &[u64; 160]) -> [u64; 160] {
     let mut res = std::mem::MaybeUninit::<[u64; 160]>::uninit();
     let res_ptr = res.as_mut_ptr().cast::<u8>();
     for i in (0..160).step_by(4) {
+        // SAFETY: `i` advances by 4 words = 32 bytes, so `lhs`/`rhs` read
+        // bytes `i * 8 .. i * 8 + 32` with `i <= 156` (last read at 1,248) and
+        // `res_ptr` writes the same span; AVX2 is guaranteed by the caller.
         unsafe {
             let l = _mm256_loadu_si256(lhs.as_ptr().add(i).cast());
             let r = _mm256_loadu_si256(rhs.as_ptr().add(i).cast());
@@ -119,6 +178,7 @@ pub(crate) unsafe fn xor_simd_u64_avx2(lhs: &[u64; 160], rhs: &[u64; 160]) -> [u
         }
     }
 
+    // SAFETY: the loop above wrote all 1,280 bytes of `res` (40 × 32 bytes).
     unsafe { res.assume_init() }
 }
 
@@ -130,6 +190,9 @@ pub(crate) unsafe fn xor_simd_u64_avx2(lhs: &[u64; 160], rhs: &[u64; 160]) -> [u
 pub(crate) unsafe fn bind_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
     let mut res = [0u128; 80];
     for i in (0..80).step_by(2) {
+        // SAFETY: lhs, rhs, and res are [u128; 80], which is 1280 bytes.
+        // i goes up to 78, so i+2 (256 bits) is 32 bytes.
+        // 32 bytes * 40 iterations = 1280 bytes. All pointers are valid.
         unsafe {
             let l = _mm256_loadu_si256(lhs.as_ptr().add(i).cast());
             let r = _mm256_loadu_si256(rhs.as_ptr().add(i).cast());
@@ -150,7 +213,9 @@ pub(crate) unsafe fn bind_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
 unsafe fn hamming_distance_1280_avx2(lhs: *const u8, rhs: *const u8) -> u32 {
     const LOADS_PER_FLUSH: usize = 20;
     const UNROLL_FACTOR: usize = 2;
-
+    // Compile-time guard for loop structure and overflow safety.
+    // Max bits per byte = 8. 8 * UNROLL_FACTOR * (LOADS_PER_FLUSH / UNROLL_FACTOR) = 8 * 20 = 160.
+    // 160 safely fits in u8 (255) to prevent overflow during deferred accumulation.
     const _: () = assert!(80 % (LOADS_PER_FLUSH * 2) == 0);
     const _: () = assert!(LOADS_PER_FLUSH % (UNROLL_FACTOR * 2) == 0);
 
@@ -162,6 +227,10 @@ unsafe fn hamming_distance_1280_avx2(lhs: *const u8, rhs: *const u8) -> u32 {
     let mut acc = _mm256_setzero_si256();
     let zero = _mm256_setzero_si256();
 
+    // Algorithmic Optimization: Deferred 8-bit accumulation with dual accumulators and unrolling.
+    // 80 words = 40 AVX2 loads. We process in two 20-load flushes to avoid 8-bit overflow.
+    // Dual accumulators (acc_8_low, acc_8_high) and 2x unrolling improve ILP by exposing
+    // independent execution paths to the scheduler.
     for i in (0..80).step_by(LOADS_PER_FLUSH * 2) {
         let mut acc_8_low = _mm256_setzero_si256();
         let mut acc_8_high = _mm256_setzero_si256();
@@ -169,6 +238,8 @@ unsafe fn hamming_distance_1280_avx2(lhs: *const u8, rhs: *const u8) -> u32 {
             let idx0 = i + j;
             let idx1 = idx0 + 2;
 
+            // SAFETY: idx1 is at most 78. Each index advances 16 bytes, so the final
+            // unaligned 32-byte load covers bytes 1,248..1,280 within each input.
             unsafe {
                 let x0 = _mm256_xor_si256(
                     _mm256_loadu_si256(lhs.add(idx0 * 16).cast()),
@@ -228,6 +299,8 @@ unsafe fn hamming_distance_1280_avx2(lhs: *const u8, rhs: *const u8) -> u32 {
 /// # SAFETY
 /// Caller must ensure AVX2 is supported.
 pub(crate) unsafe fn hamming_distance_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
+    // SAFETY: AVX2 support is guaranteed by the caller, and each `[u128; 80]`
+    // input provides exactly 1,280 readable bytes as required by the kernel.
     unsafe { hamming_distance_1280_avx2(lhs.as_ptr().cast(), rhs.as_ptr().cast()) }
 }
 
@@ -266,6 +339,9 @@ pub(crate) unsafe fn and_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128;
     use std::arch::aarch64::{vandq_u8, vld1q_u8, vst1q_u8};
     let mut res = [0u128; 80];
     for i in 0..80 {
+        // SAFETY: lhs, rhs, and res are [u128; 80]. vld1q_u8 loads 128 bits (16 bytes).
+        // add(i) moves the pointer by i * sizeof(u128), which is exactly 16 bytes.
+        // All accesses are within bounds.
         unsafe {
             let l = vld1q_u8(lhs.as_ptr().add(i).cast());
             let r = vld1q_u8(rhs.as_ptr().add(i).cast());
@@ -284,6 +360,9 @@ pub(crate) unsafe fn bind_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
     use std::arch::aarch64::{veorq_u8, vld1q_u8, vst1q_u8};
     let mut res = [0u128; 80];
     for i in 0..80 {
+        // SAFETY: lhs, rhs, and res are [u128; 80]. vld1q_u8 loads 128 bits (16 bytes).
+        // add(i) moves the pointer by i * sizeof(u128), which is exactly 16 bytes.
+        // All accesses are within bounds.
         unsafe {
             let l = vld1q_u8(lhs.as_ptr().add(i).cast());
             let r = vld1q_u8(rhs.as_ptr().add(i).cast());
@@ -308,16 +387,23 @@ unsafe fn hamming_distance_1280_neon(lhs: *const u8, rhs: *const u8) -> u32 {
     };
     const BATCH_SIZE: usize = 10;
     const WORDS_PER_BATCH: usize = BATCH_SIZE * 2;
-
+    // Compile-time guard for array alignment
     const _: () = assert!(80 % WORDS_PER_BATCH == 0);
 
     let mut acc = vdupq_n_u16(0);
 
     for i in (0..80).step_by(WORDS_PER_BATCH) {
+        // Algorithmic Optimization: Intermediate 8-bit accumulation for NEON.
+        // We accumulate popcounts in an 8-bit vector for 10 iterations (20 words)
+        // before flushing to the 16-bit accumulator via vpaddlq_u8.
+        // Max bits per byte is 8. Over 20 additions (10 iterations * 2 loads),
+        // max sum is 8 * 20 = 160, which safely fits in u8 (255).
+        // This reduces the frequency of vpaddlq_u8 (widening pairwise add) calls by 10x.
         let mut acc_8 = vdupq_n_u8(0);
         for j in 0..BATCH_SIZE {
             let idx = i + j * 2;
-
+            // SAFETY: idx and idx + 1 are below 80. Each index advances 16 bytes,
+            // so every 16-byte load remains within the 1,280-byte input.
             unsafe {
                 let l0 = vld1q_u8(lhs.add(idx * 16));
                 let r0 = vld1q_u8(rhs.add(idx * 16));
@@ -346,6 +432,8 @@ unsafe fn hamming_distance_1280_neon(lhs: *const u8, rhs: *const u8) -> u32 {
 /// # SAFETY
 /// Caller must ensure NEON is supported.
 pub(crate) unsafe fn hamming_distance_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
+    // SAFETY: NEON support is guaranteed by the caller, and each `[u128; 80]`
+    // input provides exactly 1,280 readable bytes as required by the kernel.
     unsafe { hamming_distance_1280_neon(lhs.as_ptr().cast(), rhs.as_ptr().cast()) }
 }
 

@@ -7,6 +7,11 @@ engines:
   opengrep:
     exclude_paths:
       - crates/csm-core-lib/src/hyperdim_simd.rs
+      # The SIMD kernels' unit tests moved into their own child module for the
+      # 500-LOC gate; they call the same justified unsafe intrinsics (each with
+      # a SAFETY comment and runtime feature detection) the excluded parent
+      # already declares.
+      - crates/csm-core-lib/src/hyperdim_simd_tests.rs
       # VDeH SIMD kernels (AVX2/NEON) use justified unsafe intrinsics with
       # SAFETY comments; see PR #604 / chaotic_lsh.rs precedent.
       - crates/csm-chaos/src/hashing/voronoi_lsh.rs
