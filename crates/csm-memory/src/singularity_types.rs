@@ -210,6 +210,14 @@ impl<H: Hypervector> ConceptBuilder<H> {
         self
     }
 
+    /// Sets the TTL (time to live) in seconds for this concept.
+    ///
+    /// The expiry is resolved in [`Self::build`] (not here), so it runs from
+    /// build time. The value is clamped to
+    /// [`crate::concept_builder::MAX_TTL_SECONDS_LIMIT`] — the same ceiling the
+    /// [`crate::ConceptBuilder`] owner applies — so an unbounded `u64` cannot
+    /// wrap `now + ttl` into an already-expired concept. If not set, the
+    /// concept never expires.
     pub fn with_ttl(mut self, ttl_secs: u64) -> Self {
         let ttl = ttl_secs.min(crate::concept_builder::MAX_TTL_SECONDS_LIMIT);
         self.ttl_seconds = Some(ttl);
