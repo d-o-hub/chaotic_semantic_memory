@@ -46,6 +46,11 @@ fn test_bundle() {
 fn test_permute() {
     let v = HVec10240::random();
     assert_eq!(v, v.permute(0));
+    // Every `shift ≡ 0 (mod 10240)` is the identity rotation, not just 0: the
+    // zero-shift early return must serve both the literal 0 and the full-word
+    // multiples (word_shift is reduced modulo 80 before the check).
+    assert_eq!(v, v.permute(10240));
+    assert_eq!(v, v.permute(10240 * 3));
     let s = v.permute(128);
     for i in 0..80 {
         assert_eq!(s.data[i], v.data[(i + 1) % 80]);

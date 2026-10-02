@@ -90,6 +90,24 @@ fn bench_binding(c: &mut Criterion) {
     });
 }
 
+/// `permute(0)`'s zero-shift fast path, plus the shifts it must not regress:
+/// `10240` and `10240 * 3` reduce to the same word-aligned identity rotation,
+/// while `128` (word-aligned, non-zero) and `321` (unaligned) stay on the
+/// two-segment copy. The caller path that reaches shift 0 is
+/// `text_encoder/encode_short` (position 0 of every token stream).
+fn bench_hvec_permute(c: &mut Criterion) {
+    let v = HVec10240::random();
+    let mut group = c.benchmark_group("hvec_permute");
+    for shift in [0usize, 10240, 10240 * 3, 128, 321] {
+        group.bench_with_input(
+            criterion::BenchmarkId::from_parameter(shift),
+            &shift,
+            |b, &shift| b.iter(|| black_box(black_box(&v).permute(shift))),
+        );
+    }
+    group.finish();
+}
+
 fn bench_hvec_bundle(c: &mut Criterion) {
     let mut group = c.benchmark_group("hvec_bundle");
 
@@ -759,6 +777,7 @@ criterion_group!(
     bench_hamming_distance,
     bench_batch_similarity,
     bench_binding,
+    bench_hvec_permute,
     bench_hvec_bundle,
     bench_reservoir_step_50k,
     bench_inertial_reservoir,
