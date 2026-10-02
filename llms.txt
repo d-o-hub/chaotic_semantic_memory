@@ -539,7 +539,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct McpConfig
 - impl Default for McpConfig
 - pub fn serve
-- impl Clone for McpHandler
 
 ### src/mcp/tools.rs
 
@@ -1419,7 +1418,12 @@ csm-persistence = { path = "crates/csm-persistence", version = "0.3.7", default-
 # `net` is required by the Prometheus /metrics server (ADR-0072).
 # `time` is required by the TTL cleanup loop; it was previously enabled only
 # transitively via libsql (ADR-0094 lean-build fix).
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs", "net", "time"] }
+# `signal` backs the `csm watch` Ctrl+C handler (ADR-0099). It is declared here,
+# in the non-wasm target table, rather than on the `cli` feature that uses it:
+# `signal` pulls `mio/net`, which refuses to compile for
+# `wasm32-unknown-unknown`, and `cli` is target-independent — the default
+# feature set turns it on for the wasm32 check too, which would break it.
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "fs", "net", "time", "signal"] }
 
 # HTTP server for Prometheus /metrics endpoint (ADR-0072, opt-in via "prometheus" feature)
 hyper = { version = "1", features = ["server", "http1"], optional = true }

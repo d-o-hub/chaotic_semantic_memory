@@ -539,7 +539,6 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct McpConfig
 - impl Default for McpConfig
 - pub fn serve
-- impl Clone for McpHandler
 
 ### src/mcp/tools.rs
 
@@ -3489,13 +3488,6 @@ pub enum TransportType {
 
 Transport type for CLI parsing.
 
-### impl Clone for McpHandler
-
-```rust
-impl Clone for McpHandler {
-}
-```
-
 ### impl Default for McpConfig
 
 ```rust
@@ -3523,6 +3515,8 @@ Returns error if server fails to start or transport initialization fails.
 impl McpHandler {
 }
 ```
+
+## src/mcp/tools_tests.rs
 
 ## src/metadata_filter.rs
 
