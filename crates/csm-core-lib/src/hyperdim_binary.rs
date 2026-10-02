@@ -154,7 +154,9 @@ impl BHVec10240 {
             if is_x86_feature_detected!("avx2") {
                 // SAFETY: AVX2 feature detected at runtime. Both inputs and output are 1,280 bytes.
                 return Self {
-                    bits: unsafe { crate::hyperdim_simd::xor_simd_u64_avx2(&self.bits, &other.bits) },
+                    bits: unsafe {
+                        crate::hyperdim_simd::xor_simd_u64_avx2(&self.bits, &other.bits)
+                    },
                 };
             }
         }

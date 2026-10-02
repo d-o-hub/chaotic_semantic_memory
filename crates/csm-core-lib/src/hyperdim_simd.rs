@@ -16,7 +16,6 @@ pub(crate) fn hamming_distance_optimized(lhs: &[u128; 80], rhs: &[u128; 80]) -> 
     let mut d2 = 0;
     let mut d3 = 0;
 
-
     for i in (0..80).step_by(4) {
         d0 += (lhs[i] ^ rhs[i]).count_ones();
         d1 += (lhs[i + 1] ^ rhs[i + 1]).count_ones();
@@ -36,13 +35,11 @@ pub(crate) fn hamming_distance_optimized(lhs: &[u128; 80], rhs: &[u128; 80]) -> 
 pub(crate) fn hamming_distance_u64(lhs: &[u64; 160], rhs: &[u64; 160]) -> u32 {
     #[cfg(all(not(target_arch = "wasm32"), target_arch = "x86_64"))]
     if std::is_x86_feature_detected!("avx2") {
-
         return unsafe { hamming_distance_1280_avx2(lhs.as_ptr().cast(), rhs.as_ptr().cast()) };
     }
 
     #[cfg(all(not(target_arch = "wasm32"), target_arch = "aarch64"))]
     if std::arch::is_aarch64_feature_detected!("neon") {
-
         return unsafe { hamming_distance_1280_neon(lhs.as_ptr().cast(), rhs.as_ptr().cast()) };
     }
 
@@ -73,9 +70,6 @@ pub(crate) fn hamming_distance_u64_scalar(lhs: &[u64; 160], rhs: &[u64; 160]) ->
 pub(crate) unsafe fn and_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
     let mut res = [0u128; 80];
     for i in (0..80).step_by(2) {
-
-
-
         unsafe {
             let l = _mm256_loadu_si256(lhs.as_ptr().add(i).cast());
             let r = _mm256_loadu_si256(rhs.as_ptr().add(i).cast());
@@ -97,9 +91,6 @@ pub(crate) unsafe fn xor_simd_u64_neon(lhs: &[u64; 160], rhs: &[u64; 160]) -> [u
     let mut res = std::mem::MaybeUninit::<[u64; 160]>::uninit();
     let res_ptr = res.as_mut_ptr().cast::<u8>();
     for i in (0..160).step_by(2) {
-
-
-
         unsafe {
             let l = vld1q_u8(lhs.as_ptr().add(i).cast());
             let r = vld1q_u8(rhs.as_ptr().add(i).cast());
@@ -121,9 +112,6 @@ pub(crate) unsafe fn xor_simd_u64_avx2(lhs: &[u64; 160], rhs: &[u64; 160]) -> [u
     let mut res = std::mem::MaybeUninit::<[u64; 160]>::uninit();
     let res_ptr = res.as_mut_ptr().cast::<u8>();
     for i in (0..160).step_by(4) {
-
-
-
         unsafe {
             let l = _mm256_loadu_si256(lhs.as_ptr().add(i).cast());
             let r = _mm256_loadu_si256(rhs.as_ptr().add(i).cast());
@@ -142,9 +130,6 @@ pub(crate) unsafe fn xor_simd_u64_avx2(lhs: &[u64; 160], rhs: &[u64; 160]) -> [u
 pub(crate) unsafe fn bind_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128; 80] {
     let mut res = [0u128; 80];
     for i in (0..80).step_by(2) {
-
-
-
         unsafe {
             let l = _mm256_loadu_si256(lhs.as_ptr().add(i).cast());
             let r = _mm256_loadu_si256(rhs.as_ptr().add(i).cast());
@@ -166,8 +151,6 @@ unsafe fn hamming_distance_1280_avx2(lhs: *const u8, rhs: *const u8) -> u32 {
     const LOADS_PER_FLUSH: usize = 20;
     const UNROLL_FACTOR: usize = 2;
 
-
-
     const _: () = assert!(80 % (LOADS_PER_FLUSH * 2) == 0);
     const _: () = assert!(LOADS_PER_FLUSH % (UNROLL_FACTOR * 2) == 0);
 
@@ -179,18 +162,12 @@ unsafe fn hamming_distance_1280_avx2(lhs: *const u8, rhs: *const u8) -> u32 {
     let mut acc = _mm256_setzero_si256();
     let zero = _mm256_setzero_si256();
 
-
-
-
-
     for i in (0..80).step_by(LOADS_PER_FLUSH * 2) {
         let mut acc_8_low = _mm256_setzero_si256();
         let mut acc_8_high = _mm256_setzero_si256();
         for j in (0..LOADS_PER_FLUSH * 2).step_by(UNROLL_FACTOR * 2) {
             let idx0 = i + j;
             let idx1 = idx0 + 2;
-
-
 
             unsafe {
                 let x0 = _mm256_xor_si256(
@@ -251,8 +228,6 @@ unsafe fn hamming_distance_1280_avx2(lhs: *const u8, rhs: *const u8) -> u32 {
 /// # SAFETY
 /// Caller must ensure AVX2 is supported.
 pub(crate) unsafe fn hamming_distance_simd_avx2(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
-
-
     unsafe { hamming_distance_1280_avx2(lhs.as_ptr().cast(), rhs.as_ptr().cast()) }
 }
 
@@ -291,9 +266,6 @@ pub(crate) unsafe fn and_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128;
     use std::arch::aarch64::{vandq_u8, vld1q_u8, vst1q_u8};
     let mut res = [0u128; 80];
     for i in 0..80 {
-
-
-
         unsafe {
             let l = vld1q_u8(lhs.as_ptr().add(i).cast());
             let r = vld1q_u8(rhs.as_ptr().add(i).cast());
@@ -312,9 +284,6 @@ pub(crate) unsafe fn bind_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> [u128
     use std::arch::aarch64::{veorq_u8, vld1q_u8, vst1q_u8};
     let mut res = [0u128; 80];
     for i in 0..80 {
-
-
-
         unsafe {
             let l = vld1q_u8(lhs.as_ptr().add(i).cast());
             let r = vld1q_u8(rhs.as_ptr().add(i).cast());
@@ -345,16 +314,9 @@ unsafe fn hamming_distance_1280_neon(lhs: *const u8, rhs: *const u8) -> u32 {
     let mut acc = vdupq_n_u16(0);
 
     for i in (0..80).step_by(WORDS_PER_BATCH) {
-
-
-
-
-
-
         let mut acc_8 = vdupq_n_u8(0);
         for j in 0..BATCH_SIZE {
             let idx = i + j * 2;
-
 
             unsafe {
                 let l0 = vld1q_u8(lhs.add(idx * 16));
@@ -384,8 +346,6 @@ unsafe fn hamming_distance_1280_neon(lhs: *const u8, rhs: *const u8) -> u32 {
 /// # SAFETY
 /// Caller must ensure NEON is supported.
 pub(crate) unsafe fn hamming_distance_simd_neon(lhs: &[u128; 80], rhs: &[u128; 80]) -> u32 {
-
-
     unsafe { hamming_distance_1280_neon(lhs.as_ptr().cast(), rhs.as_ptr().cast()) }
 }
 
