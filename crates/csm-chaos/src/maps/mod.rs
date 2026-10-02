@@ -1,3 +1,5 @@
+#[cfg(feature = "experimental-complex-quadratic")]
+pub mod complex_quadratic;
 pub mod hyperchaotic;
 #[cfg(feature = "experimental-ils3d")]
 pub mod hyperchaotic_3d_ils;
