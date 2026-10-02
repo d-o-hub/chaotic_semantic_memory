@@ -451,3 +451,27 @@ actions:
       the task deterministically and can surface a stuck task; cover the
       server path with a test.
 
+  - name: collapse_duplicate_concept_builder
+    preconditions: []
+    effects:
+      concept_builder_owner_unique: true
+    notes: >
+      Queued from the 2026-10-02 triage of #806 (roast verdict: keeper, debt
+      recorded). Two live `ConceptBuilder` types: the owner
+      `crates/csm-memory/src/concept_builder.rs:28` (clamped by
+      `MAX_TTL_SECONDS_LIMIT`, exported as `csm_memory::ConceptBuilder`) and the
+      generic copy `crates/csm-memory/src/singularity_types.rs:178` (exported
+      as `csm_memory::singularity::ConceptBuilder`). Production binds the *copy*
+      — `src/framework.rs:17`, `src/framework_ttl.rs:7`,
+      `src/framework_ops.rs:5` — which is why the unclamped `now + ttl`
+      survived the owner's clamp. #806 clamped the copy in place and documented
+      the contract (`9061a8f`); this action collapses the duplicate instead.
+      Required: reroute those three imports (plus the internal test imports in
+      `crates/csm-memory/src/graph_traversal_tests.rs:3`,
+      `singularity_ext.rs:75`, `singularity_retrieval_tests.rs:100,151,231`) to
+      `crate::concept_builder::ConceptBuilder`, delete
+      `singularity_types.rs:177-232`, and update `book/src/ttl.md:15-27`. The
+      copy is the only one generic over `H`, and `grep 'ConceptBuilder<'` finds
+      no non-default instantiation, so that genericity is unused. Delete the
+      now-redundant second clamp test rather than migrating it.
+
