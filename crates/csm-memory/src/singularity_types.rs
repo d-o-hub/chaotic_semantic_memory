@@ -179,7 +179,7 @@ pub struct ConceptBuilder<H: Hypervector = HVec10240> {
     id: String,
     vector: Option<H>,
     metadata: HashMap<String, serde_json::Value>,
-    expires_at: Option<u64>,
+    ttl_seconds: Option<u64>,
     canonical_concept_ids: Vec<String>,
 }
 
@@ -190,7 +190,7 @@ impl<H: Hypervector> ConceptBuilder<H> {
             id: id.into(),
             vector: None,
             metadata: HashMap::new(),
-            expires_at: None,
+            ttl_seconds: None,
             canonical_concept_ids: Vec::new(),
         }
     }
@@ -210,20 +210,30 @@ impl<H: Hypervector> ConceptBuilder<H> {
         self
     }
 
+    /// Sets the TTL (time to live) in seconds for this concept.
+    ///
+    /// The expiry is resolved in [`Self::build`] (not here), so it runs from
+    /// build time. The value is clamped to
+    /// [`crate::concept_builder::MAX_TTL_SECONDS_LIMIT`] — the same ceiling the
+    /// [`crate::ConceptBuilder`] owner applies — so an unbounded `u64` cannot
+    /// wrap `now + ttl` into an already-expired concept. If not set, the
+    /// concept never expires.
     pub fn with_ttl(mut self, ttl_secs: u64) -> Self {
-        self.expires_at = Some(unix_now_secs() + ttl_secs);
+        let ttl = ttl_secs.min(crate::concept_builder::MAX_TTL_SECONDS_LIMIT);
+        self.ttl_seconds = Some(ttl);
         self
     }
 
     pub fn build(self) -> Result<Concept<H>> {
         let now = unix_now_secs();
+        let expires_at = self.ttl_seconds.map(|ttl| now.saturating_add(ttl));
         Ok(Concept {
             id: self.id,
             vector: self.vector.unwrap_or_else(H::random),
             metadata: self.metadata,
             created_at: now,
             modified_at: now,
-            expires_at: self.expires_at,
+            expires_at,
             canonical_concept_ids: self.canonical_concept_ids,
         })
     }
@@ -242,4 +252,26 @@ pub fn unix_now_secs() -> u64 {
 #[cfg(target_arch = "wasm32")]
 pub fn unix_now_secs() -> u64 {
     (js_sys::Date::new_0().get_time() / 1000.0) as u64
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+    use super::*;
+
+    #[test]
+    fn test_concept_builder_ttl_clamping_and_overflow() {
+        let now = unix_now_secs();
+        let concept = ConceptBuilder::<HVec10240>::new("max-ttl-test")
+            .with_ttl(u64::MAX)
+            .build()
+            .unwrap();
+
+        assert!(concept.expires_at.is_some());
+        let expires_at = concept.expires_at.unwrap();
+        let expected_max_expires =
+            now.saturating_add(crate::concept_builder::MAX_TTL_SECONDS_LIMIT);
+        assert!(expires_at >= expected_max_expires.saturating_sub(2));
+        assert!(expires_at <= expected_max_expires.saturating_add(2));
+    }
 }
