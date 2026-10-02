@@ -475,3 +475,22 @@ actions:
       no non-default instantiation, so that genericity is unused. Delete the
       now-redundant second clamp test rather than migrating it.
 
+
+  - name: enable_ttl_cleanup_in_long_running_commands
+    preconditions: []
+    effects:
+      servers_reap_expired_concepts: true
+    notes: >
+      Discovered while wiring `wire_graceful_shutdown_into_servers` (PR #813).
+      `ChaoticSemanticFramework::shutdown()` now runs on the `csm watch` and
+      `mcp::serve` exit paths, but neither path can ever have a cleanup task:
+      `create_framework` (`src/cli/commands/mod.rs:98`) and `McpHandler`
+      (`src/mcp/handler.rs:43`) both build with the default `TtlConfig`, whose
+      `cleanup_interval_seconds` is 0 — and no CLI flag, config file or
+      `McpConfig` field exists to raise it. So a long-running `csm mcp serve`
+      or `csm watch` process never purges expired concepts in the background;
+      expiry is only filtered at probe time (`book/src/ttl.md`). Required: a
+      config surface (a `--ttl-cleanup-interval` flag on the long-running
+      commands, defaulting to 0 so this does not silently start deleting
+      data), plumbed into `create_framework_advanced`/`McpConfig`, with the
+      ADR-0099 graceful shutdown already in place for the exit path.
