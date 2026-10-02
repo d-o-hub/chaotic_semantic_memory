@@ -315,6 +315,28 @@
 > CI iterations ending at a 100% mutation score, and a green CI on `abff706`
 > (lint, test, mutation-test, miri, nine workspace crates, deny, commitlint).
 
+> Last completed (verified 2026-10-02, CI repair):
+> `trigger_wasm_job_on_root_src_changes` — PR #809 merged as `77a47d4`: the
+> `wasm` job's type-freshness check filtered only the pre-hash closure-helper
+> names, so the crate-hash-prefixed declarations wasm-bindgen now emits
+> (`wasm_bindgen_847cf8bb5373c819___convert__closures…`) were reported as API
+> drift and `main` went red on a diff of exactly three compiler-generated
+> closure helpers (runs 36885556956 and 36888300162). The filter is now
+> anchored at the declaration start and matches only generated
+> closure-invocation declarations — both naming schemes — while public exports,
+> `InitOutput` members and `__wbindgen_*` ABI signatures are still compared and
+> the checked-in snapshot was deliberately not refreshed. The same PR widens the
+> job's PR path filter to root `src/**`, the WASM build/check/size-gate scripts
+> and `ci.yml` itself, so the #804 class of root-source change exercises the gate
+> before merge instead of exposing itself on the trunk. Verification: the
+> checker's own `filter_dts` accepts the job-log-derived helper-only fixture
+> (the previous filter rejects it) and still rejects four public-API/ABI
+> mutations; a twelve-case path-filter matrix; local end-to-end — freshness
+> `OK`, `release-web` package 655 497 B, size gate pass, `wasm/test.js` prints
+> `WASM smoke test passed.`; PR #809's `wasm` job green on head `d0536879`
+> (`Verify WASM TS Freshness` → `OK`) and main push run 36983336327 green.
+> Eight actions remain; `validated` stays false.
+
 actions:
   - name: add_persistence_failure_path_test
     preconditions: []
@@ -428,17 +450,4 @@ actions:
       `shutdown().await` on those exit paths so a long-running process stops
       the task deterministically and can surface a stuck task; cover the
       server path with a test.
-
-  - name: trigger_wasm_job_on_root_src_changes
-    preconditions: []
-    effects:
-      wasm_job_runs_for_root_src_changes: true
-    notes: >
-      `ci.yml`'s `detect-changes` sets `wasm=true` only for
-      `^(crates/csm-wasm/|src/wasm|wasm/|Cargo\.(toml|lock)$)`, so a change to
-      any other root `src/**` file — including `cfg(not(wasm32))` gating that
-      the wasm build must compile — skips the `wasm` job entirely (observed on
-      PR #801, where all wasm validation was local). Required: include the root
-      crate's `src/**` (or the crate the wasm package depends on) in the
-      filter, and assert the job runs for such a diff.
 
