@@ -115,7 +115,7 @@ pub struct InjectArgs {
     #[arg(long)]
     pub use_embeddings: bool,
 
-    /// Embedding provider: 'hdc', 'fastembed[:model]', 'openai[:model]', 'voyage[:model]'.
+    /// Embedding provider: 'hdc', 'fastembed', 'openai' or 'voyage' (each accepts an optional ':model' suffix).
     #[arg(long, value_name = "PROVIDER")]
     pub provider: Option<String>,
 
@@ -185,7 +185,7 @@ pub struct QueryArgs {
     #[arg(long, value_name = "WEIGHT")]
     pub keyword_weight: Option<f64>,
 
-    /// Embedding provider: 'hdc', 'fastembed[:model]', 'openai[:model]', 'voyage[:model]'.
+    /// Embedding provider: 'hdc', 'fastembed', 'openai' or 'voyage' (each accepts an optional ':model' suffix).
     #[arg(long, value_name = "PROVIDER")]
     pub provider: Option<String>,
 }

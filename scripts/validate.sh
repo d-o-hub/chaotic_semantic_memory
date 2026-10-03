@@ -16,6 +16,15 @@ cargo fmt --all -- --check
 echo "==> cargo clippy --all-targets --all-features -- -D warnings"
 cargo clippy --all-targets --all-features -- -D warnings
 
+# `GitHub Pages` runs `cargo doc --no-deps --all-features` with
+# CARGO_BUILD_WARNINGS=deny exported by actions-rust-lang/setup-rust-toolchain, so
+# a rustdoc warning fails nothing a PR can see and instead silently stops the docs
+# site deploying: 6 unresolved-link warnings from one `src/cli/args.rs` doc line
+# failed four consecutive main pushes (34751139063, 35274354770, 35614812503,
+# 37126532546). Same command, same flags, so the failure surfaces at PR time.
+echo "==> cargo doc --no-deps --all-features (rustdoc warnings denied)"
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
+
 # CI applies stricter RUSTFLAGS; this is the minimal local gate
 # Check for warnings AND ensure compilation succeeds
 echo "==> cargo test --no-run --all-features (check for warnings)"
