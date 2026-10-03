@@ -12,6 +12,24 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-10-03, third action):
+> `enable_ttl_cleanup_in_long_running_commands` (#817) — `csm watch` and
+> `csm mcp serve` take `--ttl-cleanup-interval <SECONDS>`, default `0` so no
+> long-running server starts deleting rows on its own. The value reaches
+> `spawn_cleanup_task` through `create_framework_advanced`'s new
+> `ttl_cleanup_interval_seconds` parameter (plus `create_framework_with_ttl`) and
+> `McpConfig::ttl_cleanup_interval` → `McpHandler::with_ttl_cleanup_interval`; the
+> three ordinary wrappers pass `0`. `src/cli/args.rs` hit the 500-LOC gate so the
+> tail subcommand structs moved to `src/cli/args_commands.rs` and are re-exported.
+> The reaper tests assert on **raw stored rows** (`Singularity::len("_default")`)
+> going 1 → 0 with no purge call, and the disabled case asserts a row that
+> `is_expired()` is still stored — probe-time filtering cannot explain either, so
+> the test proves the task ran rather than that a field was set. Same PR fixes the
+> docs deploy: 6 rustdoc `unresolved link to ':model'` warnings from one
+> `args.rs` doc line had failed four main pushes while CI stayed green, because
+> nothing but `GitHub Pages` (which inherits `CARGO_BUILD_WARNINGS=deny`) ever ran
+> `cargo doc`; that command is now a `scripts/validate.sh` stage.
+>
 > Last completed (verified 2026-10-03, second action):
 > `collapse_duplicate_concept_builder` — the second `ConceptBuilder`
 > (`crates/csm-memory/src/singularity_types.rs`, generic over an `H` nothing ever
@@ -465,30 +483,6 @@ actions:
       Required: list the archived ADRs and add a checker so
       `plan_archive_manifest_valid` rests on a gate.
 
-  - name: enable_ttl_cleanup_in_long_running_commands
-    preconditions: []
-    effects:
-      servers_reap_expired_concepts: true
-    notes: >
-      Discovered while wiring `wire_graceful_shutdown_into_servers` (PR #813).
-      `ChaoticSemanticFramework::shutdown()` now runs on the `csm watch` and
-      `mcp::serve` exit paths, but neither path can ever have a cleanup task:
-      `create_framework` (`src/cli/commands/mod.rs:98`) and `McpHandler`
-      (`src/mcp/handler.rs:47`, `framework()` body) both build with the default
-      `TtlConfig` (`src/framework_ttl_advanced.rs:31`, interval field `:39`;
-      gate `src/framework_cleanup.rs:44`), whose
-      `cleanup_interval_seconds` is 0 — and no CLI flag, config file or
-      `McpConfig` field exists to raise it. So a long-running `csm mcp serve`
-      or `csm watch` process never purges expired concepts in the background;
-      expiry is only filtered at probe time (`book/src/ttl.md`). Required: a
-      config surface (a `--ttl-cleanup-interval` flag on the long-running
-      commands, defaulting to 0 so this does not silently start deleting
-      data), plumbed into `McpConfig` and the CLI funnel — every command goes
-      through `create_framework_with_namespace`/`create_framework_with_provider`
-      (`mod.rs:104,121`) into `create_framework_advanced` (`mod.rs:118`), which
-      is the single injection point; `with_ttl_config` already exists
-      (`src/framework_builder.rs:266`) — with the ADR-0099 graceful shutdown
-      already in place for the exit path.
 
   - name: deduplicate_unreleased_changelog_headings
     preconditions: []
@@ -503,3 +497,26 @@ actions:
       Required: merge them into one `### Changed` (keep entry ordering) and add a
       checker so `## [Unreleased]` cannot hold two identical `### ` headings;
       `scripts/` already has changelog-adjacent gates to host it.
+
+  - name: revive_dead_cli_parity_help_test
+    preconditions: []
+    effects:
+      cli_parity_help_test_live: true
+    notes: >
+      Found while checking whether `tests/cli_parity.rs` needed updating for the
+      new `--ttl-cleanup-interval` flag (discovered by the Explore audit, reported
+      by the implementer, deliberately not fixed in that PR to keep it atomic).
+      `cli_each_subcommand_has_help` at `tests/cli_parity.rs:97` has no `#[test]`
+      attribute, so it never runs: `cargo test --test cli_parity --features cli`
+      reports 2 passed while the file contains a third test body. Verified on
+      `4064af9`: `-- --list` registers exactly 2 tests, and recompiling the target
+      emits **no** `dead_code` warning — rustc's reachability analysis in a
+      `--test` build does not flag a private `fn` that only the harness would
+      call, so neither the warning scan in `validate.sh` nor clippy can be the
+      detector. The repo's CLI
+      parity gate therefore covers subcommand names and `history` flags only, and
+      no test proves every subcommand renders help. Required: restore the
+      attribute, make the test assert `--help` exits 0 and prints the long help for
+      every `Commands` variant, and add an arch_fitness/CI guard that the test
+      count of `cli_parity` cannot silently drop back to a dead body (a missing
+      attribute is invisible to clippy and to `--all-targets` compilation).
