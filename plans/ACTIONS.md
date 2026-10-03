@@ -489,3 +489,17 @@ actions:
       is the single injection point; `with_ttl_config` already exists
       (`src/framework_builder.rs:266`) — with the ADR-0099 graceful shutdown
       already in place for the exit path.
+
+  - name: deduplicate_unreleased_changelog_headings
+    preconditions: []
+    effects:
+      changelog_sections_unique: true
+    notes: >
+      Found while adding a line to CHANGELOG.md during #816 (self-roast, recorded
+      in plans/PR_ROAST_2026_10_03.md; deliberately not fixed there to keep a
+      20-file refactor atomic). `[Unreleased]` carries two `### Changed` headings
+      — `grep -n '^### ' CHANGELOG.md` shows lines 10 and 15 — so the section is
+      split in two and Keep-a-Changelog readers see a duplicated heading.
+      Required: merge them into one `### Changed` (keep entry ordering) and add a
+      checker so `## [Unreleased]` cannot hold two identical `### ` headings;
+      `scripts/` already has changelog-adjacent gates to host it.

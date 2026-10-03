@@ -52,7 +52,7 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 8        # 2026-10-03: collapse_duplicate_concept_builder completed (9 → 8). Counted with `grep -c '^  - name:' plans/ACTIONS.md`, not asserted — the 2026-10-03 round found a bookkeeping PR whose number was right only by coincidence of two other PRs.
+  queued_actions_count: 9        # 2026-10-03: collapse_duplicate_concept_builder completed (9 → 8), then #816's self-roast queued deduplicate_unreleased_changelog_headings (8 → 9). Counted with `grep -c '^  - name:' plans/ACTIONS.md`, not asserted — the 2026-10-03 round found a bookkeeping PR whose number was right only by coincidence of two other PRs.
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: true            # 2026-08-12: no TODO in src/ crates/
