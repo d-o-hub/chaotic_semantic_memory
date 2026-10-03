@@ -465,15 +465,21 @@ actions:
       — `src/framework.rs:17`, `src/framework_ttl.rs:7`,
       `src/framework_ops.rs:5` — which is why the unclamped `now + ttl`
       survived the owner's clamp. #806 clamped the copy in place and documented
-      the contract (`9061a8f`); this action collapses the duplicate instead.
-      Required: reroute those three imports (plus the internal test imports in
-      `crates/csm-memory/src/graph_traversal_tests.rs:3`,
-      `singularity_ext.rs:75`, `singularity_retrieval_tests.rs:100,151,231`) to
+      the contract (`9061a8f`), so both are clamped now — duplication is the
+      remaining motive. Required: reroute those three imports (plus the
+      internal test imports in `crates/csm-memory/src/graph_traversal_tests.rs:3`,
+      `singularity_ext.rs:75`, `singularity_retrieval_tests.rs:100,151,231` and
+      the root consumers `src/framework_bridge.rs:230`,
+      `src/bridge_retrieval_tests.rs:5`, glob `src/singularity.rs:2`) to
       `crate::concept_builder::ConceptBuilder`, delete
-      `singularity_types.rs:177-232`, and update `book/src/ttl.md:15-27`. The
-      copy is the only one generic over `H`, and `grep 'ConceptBuilder<'` finds
-      no non-default instantiation, so that genericity is unused. Delete the
-      now-redundant second clamp test rather than migrating it.
+      `singularity_types.rs:176-240` (shifted by #806's doc + clamp body), and
+      update `book/src/ttl.md:15-27`. The copy is the only one generic over
+      `H`, and `grep 'ConceptBuilder<'` finds no non-default instantiation
+      (the `::<HVec10240>` turbofish at `:265` is the default arg), so that
+      genericity is unused. Breaking-change risk: `src/lib.rs:21,235,268`
+      re-export the copy on the public prelude path — collapsing it is an API
+      change to disclose in the changelog. Delete the now-redundant second
+      clamp test (`singularity_types.rs:263`) rather than migrating it.
 
 
   - name: enable_ttl_cleanup_in_long_running_commands
@@ -485,12 +491,18 @@ actions:
       `ChaoticSemanticFramework::shutdown()` now runs on the `csm watch` and
       `mcp::serve` exit paths, but neither path can ever have a cleanup task:
       `create_framework` (`src/cli/commands/mod.rs:98`) and `McpHandler`
-      (`src/mcp/handler.rs:43`) both build with the default `TtlConfig`, whose
+      (`src/mcp/handler.rs:47`, `framework()` body) both build with the default
+      `TtlConfig` (`src/framework_ttl_advanced.rs:31`, interval field `:39`;
+      gate `src/framework_cleanup.rs:44`), whose
       `cleanup_interval_seconds` is 0 — and no CLI flag, config file or
       `McpConfig` field exists to raise it. So a long-running `csm mcp serve`
       or `csm watch` process never purges expired concepts in the background;
       expiry is only filtered at probe time (`book/src/ttl.md`). Required: a
       config surface (a `--ttl-cleanup-interval` flag on the long-running
       commands, defaulting to 0 so this does not silently start deleting
-      data), plumbed into `create_framework_advanced`/`McpConfig`, with the
-      ADR-0099 graceful shutdown already in place for the exit path.
+      data), plumbed into `McpConfig` and the CLI funnel — every command goes
+      through `create_framework_with_namespace`/`create_framework_with_provider`
+      (`mod.rs:104,121`) into `create_framework_advanced` (`mod.rs:118`), which
+      is the single injection point; `with_ttl_config` already exists
+      (`src/framework_builder.rs:266`) — with the ADR-0099 graceful shutdown
+      already in place for the exit path.
