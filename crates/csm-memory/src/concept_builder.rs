@@ -59,6 +59,9 @@ impl ConceptBuilder {
     ///
     /// The concept will expire after `ttl_seconds` from creation (clamped to
     /// [`MAX_TTL_SECONDS_LIMIT`]). If not set, the concept never expires.
+    ///
+    /// The expiry is resolved in [`Self::build`] (not here), so it runs from
+    /// build time and a builder held across a clock change is not stale.
     #[must_use]
     pub const fn with_ttl(mut self, ttl_seconds: u64) -> Self {
         let ttl = if ttl_seconds > MAX_TTL_SECONDS_LIMIT {
