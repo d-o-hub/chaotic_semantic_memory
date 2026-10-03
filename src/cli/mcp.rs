@@ -30,6 +30,10 @@ pub struct McpServeArgs {
 
 #[cfg(all(test, feature = "mcp"))]
 mod tests {
+    // These parse tests unwrap clap's `Result` and panic on the wrong
+    // subcommand — test-only, same convention as `src/cli/args_commands.rs`.
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
     use super::*;
     use crate::cli::args::CliArgs;
     use clap::Parser;
