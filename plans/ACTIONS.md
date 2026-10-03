@@ -388,13 +388,38 @@ actions:
     effects:
       persistence_failure_semantics_tested: true
     notes: >
-      Audit C3, re-verified 2026-09-30. The behavior exists — persist before
-      mutate plus reload-reconcile (`src/framework_persistence.rs:244-296`) —
-      but no test injects a persistence error: grep finds no failing/mock
-      `Persistence` and no `inject_concept(...).unwrap_err()` assertion in
-      `tests/`. Required: a failure-injection test asserting
-      `stats().concept_count` is unchanged after a failed inject/delete, so
-      `persistence_failure_leaves_memory_unchanged` rests on a gate.
+      Audit C3, re-verified 2026-09-30; surface re-measured 2026-10-03 by a read-only
+      Explore pass and spot-checked by the orchestrator. The behavior exists — persist
+      before mutate plus reload-reconcile (`src/framework_persistence.rs:247`
+      `durable_inject_concept`, reconcile at `:261`; `:272` `durable_delete_concept`,
+      error at `:285-287`; also `:214` `durable_inject_concepts`) — but no test injects a
+      persistence error: grep finds no failing/mock `Persistence` and no
+      `inject_concept(...).unwrap_err()` assertion in `tests/` (the only `unwrap_err()`
+      uses are validation errors, `tests/critical_error_paths.rs:24,46`). COST CLASS IS
+      NOT `test(...)` — it is `fix(persistence)`, because no seam exists to make
+      `Persistence` fail: it is a concrete struct with a private backend
+      (`crates/csm-persistence/src/persistence.rs:14` `db: Arc<Database>`, `connect()`
+      pub(crate) at `:74`), there is no `trait Persistence` and no Failing/Mock/Fault impl
+      anywhere, and the only error-returning implementation is the feature-disabled stub
+      (`src/lib.rs:83-230`, `unsupported()` `:93-97`) — which cannot reach this code, since
+      `build()` rejects a configured DB when the feature is off
+      (`src/framework_builder.rs:399-402`, asserted by `tests/persistence_disabled.rs:15,34`).
+      Deleting/chmod-ing the libsql file after `build()` *may* fail `save_concept` but is
+      unverified and would be a filesystem-flaky test. Required: a `#[cfg(test)]
+      pub(crate)` seam (failing-backend constructor or builder hook), then one inject and
+      one delete test asserting `stats().concept_count` is unchanged. Placement is
+      constrained: it must be a root-crate `--lib` unit test (`src/`, gated
+      `#[cfg(all(test, feature = "persistence"))]`; `persistence` is a default feature,
+      `Cargo.toml:333`) because a `tests/` integration target is invisible to the mutation
+      fast profile (`scripts/mutation_test.sh:142` passes `--lib -p csm-retrieval -p
+      chaotic_semantic_memory`) — the #817 failure mode, repeated. `src/framework_persistence.rs`
+      has no test module today (0 `cfg(test)` hits, 409/500 LOC); `src/framework_ops_tests.rs`
+      is at exactly 500/500 and cannot host it; `src/framework.rs` is 477/500, so a hook added
+      there needs the mandated child-module extraction
+      (`inject_concept`/`inject_concept_with_metadata`/`delete_concept` at
+      `src/framework.rs:74,124,411` → `framework_mutations.rs`), not comment stripping.
+      Smallest honest scope: seam + two tests, ~80 LOC in a new
+      `src/framework_persistence_tests.rs`.
 
   - name: wire_and_consolidate_validation_gates
     preconditions: []
@@ -451,12 +476,28 @@ actions:
     effects:
       bulk_association_load_verified: true
     notes: >
-      Audit P1 remainder, re-verified 2026-09-30. `load_all_associations`
-      (`crates/csm-persistence/src/persistence_index.rs:148`) is used by
-      `load`/`load_replace`/`load_merge` (`src/framework_persistence.rs:100,184,304`),
-      so the N+1 loop is gone, but nothing counts queries — grep for
-      `query_count|num_queries` finds no hits. Required: a query-count
-      regression test pinning the single namespace-scoped association load.
+      Audit P1 remainder, re-verified 2026-09-30; re-measured 2026-10-03 (read-only
+      Explore pass, spot-checked). `load_all_associations`
+      (`crates/csm-persistence/src/persistence_index.rs:149` — the note's `:148` is the
+      doc comment, stale by one) returns `Result<Vec<(String, String, f32, u64)>>` in one
+      query at `:153-158`, and is used by `load_replace`/`load_merge`/
+      `reload_namespace_from_rows` (`src/framework_persistence.rs:100,184,304` — exact),
+      so the N+1 loop is gone, but nothing counts queries: `grep -rn "query_count|num_queries"`
+      = 0 hits repo-wide (verified). COST CLASS IS `fix(...)`, not `test(...)` — pinning a
+      query count requires production instrumentation (a counter on `Persistence`
+      incremented at the query sites, or a test-only wrapper connection); there is no
+      existing handle to observe. Neighbour that is NOT a duplicate:
+      `persistence_index.rs:250` `bulk_associations_load` asserts correctness
+      `all.len() == 1`), not query count, and the module's `#[cfg(test)] mod tests` is at
+      `:188`. LOC is comfortable (`persistence_index.rs` 274/500, `persistence.rs` 385/500).
+      Visibility caveat the implementer must be told: the test compiles in
+      `cargo test -p csm-persistence --lib` (CI runs that at `ci.yml:240`, and the crate's
+      `default = ["persistence"]` gates it via `crates/csm-persistence/src/lib.rs:8-17`),
+      but the mutation fast profile does NOT include `csm-persistence` in its `-p` list
+      (`scripts/mutation_test.sh:142`), so this gate is CI-visible, not mutation-visible —
+      if it must be mutation-visible it also needs a root-crate `--lib` caller test.
+      Smallest honest scope: cfg(test) counter + one test extending `bulk_associations_load`
+      to N=50 asserting exactly one association query.
 
   - name: derive_ci_crate_matrix_from_workspace
     preconditions: []
