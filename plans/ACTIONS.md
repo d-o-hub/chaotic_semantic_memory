@@ -12,6 +12,24 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-10-03, third action):
+> `enable_ttl_cleanup_in_long_running_commands` (#817) — `csm watch` and
+> `csm mcp serve` take `--ttl-cleanup-interval <SECONDS>`, default `0` so no
+> long-running server starts deleting rows on its own. The value reaches
+> `spawn_cleanup_task` through `create_framework_advanced`'s new
+> `ttl_cleanup_interval_seconds` parameter (plus `create_framework_with_ttl`) and
+> `McpConfig::ttl_cleanup_interval` → `McpHandler::with_ttl_cleanup_interval`; the
+> three ordinary wrappers pass `0`. `src/cli/args.rs` hit the 500-LOC gate so the
+> tail subcommand structs moved to `src/cli/args_commands.rs` and are re-exported.
+> The reaper tests assert on **raw stored rows** (`Singularity::len("_default")`)
+> going 1 → 0 with no purge call, and the disabled case asserts a row that
+> `is_expired()` is still stored — probe-time filtering cannot explain either, so
+> the test proves the task ran rather than that a field was set. Same PR fixes the
+> docs deploy: 6 rustdoc `unresolved link to ':model'` warnings from one
+> `args.rs` doc line had failed four main pushes while CI stayed green, because
+> nothing but `GitHub Pages` (which inherits `CARGO_BUILD_WARNINGS=deny`) ever ran
+> `cargo doc`; that command is now a `scripts/validate.sh` stage.
+>
 > Last completed (verified 2026-10-03, second action):
 > `collapse_duplicate_concept_builder` — the second `ConceptBuilder`
 > (`crates/csm-memory/src/singularity_types.rs`, generic over an `H` nothing ever
@@ -465,30 +483,6 @@ actions:
       Required: list the archived ADRs and add a checker so
       `plan_archive_manifest_valid` rests on a gate.
 
-  - name: enable_ttl_cleanup_in_long_running_commands
-    preconditions: []
-    effects:
-      servers_reap_expired_concepts: true
-    notes: >
-      Discovered while wiring `wire_graceful_shutdown_into_servers` (PR #813).
-      `ChaoticSemanticFramework::shutdown()` now runs on the `csm watch` and
-      `mcp::serve` exit paths, but neither path can ever have a cleanup task:
-      `create_framework` (`src/cli/commands/mod.rs:98`) and `McpHandler`
-      (`src/mcp/handler.rs:47`, `framework()` body) both build with the default
-      `TtlConfig` (`src/framework_ttl_advanced.rs:31`, interval field `:39`;
-      gate `src/framework_cleanup.rs:44`), whose
-      `cleanup_interval_seconds` is 0 — and no CLI flag, config file or
-      `McpConfig` field exists to raise it. So a long-running `csm mcp serve`
-      or `csm watch` process never purges expired concepts in the background;
-      expiry is only filtered at probe time (`book/src/ttl.md`). Required: a
-      config surface (a `--ttl-cleanup-interval` flag on the long-running
-      commands, defaulting to 0 so this does not silently start deleting
-      data), plumbed into `McpConfig` and the CLI funnel — every command goes
-      through `create_framework_with_namespace`/`create_framework_with_provider`
-      (`mod.rs:104,121`) into `create_framework_advanced` (`mod.rs:118`), which
-      is the single injection point; `with_ttl_config` already exists
-      (`src/framework_builder.rs:266`) — with the ADR-0099 graceful shutdown
-      already in place for the exit path.
 
   - name: deduplicate_unreleased_changelog_headings
     preconditions: []
@@ -503,3 +497,85 @@ actions:
       Required: merge them into one `### Changed` (keep entry ordering) and add a
       checker so `## [Unreleased]` cannot hold two identical `### ` headings;
       `scripts/` already has changelog-adjacent gates to host it.
+
+  - name: revive_dead_cli_parity_help_test
+    preconditions: []
+    effects:
+      cli_parity_help_test_live: true
+    notes: >
+      Found while checking whether `tests/cli_parity.rs` needed updating for the
+      new `--ttl-cleanup-interval` flag (discovered by the Explore audit, reported
+      by the implementer, deliberately not fixed in that PR to keep it atomic).
+      `cli_each_subcommand_has_help` at `tests/cli_parity.rs:97` has no `#[test]`
+      attribute, so it never runs: `cargo test --test cli_parity --features cli`
+      reports 2 passed while the file contains a third test body. Verified on
+      `4064af9`: `-- --list` registers exactly 2 tests, and recompiling the target
+      emits **no** `dead_code` warning — rustc's reachability analysis in a
+      `--test` build does not flag a private `fn` that only the harness would
+      call, so neither the warning scan in `validate.sh` nor clippy can be the
+      detector. The repo's CLI
+      parity gate therefore covers subcommand names and `history` flags only, and
+      no test proves every subcommand renders help. Required: restore the
+      attribute, make the test assert `--help` exits 0 and prints the long help for
+      every `Commands` variant, and add an arch_fitness/CI guard that the test
+      count of `cli_parity` cannot silently drop back to a dead body (a missing
+      attribute is invisible to clippy and to `--all-targets` compilation).
+
+  - name: give_the_sse_transport_an_exit_path
+    preconditions: []
+    effects:
+      sse_transport_has_exit_path: true
+    notes: >
+      Found by the #817 review of its own mutation exclusions, so it is a defect
+      discovered by a gate change, not by a test. ADR-0099 promises the TTL cleanup
+      task is stopped deterministically on exit, and `mcp::serve` implements that at
+      src/mcp/server.rs:98 (handler.shutdown() after the transport resolves). On the
+      Sse transport it never resolves: run_sse_server awaits
+      `axum::serve(listener, app)` without `with_graceful_shutdown`, and axum 0.7.9's
+      `Serve::into_future` is an infinite accept loop (serve.rs:205-240; tcp_accept
+      returns Option and never propagates Err, :474-496), so `csm mcp serve
+      --transport sse` runs until the process is killed and the reaper is stopped by
+      Drop at best. Stdio is unaffected (rmcp's `Waiting::waiting` resolves on stdin
+      EOF, src/mcp/server.rs:83-86), which is why #813's review and its test both
+      passed: the only test that calls serve (tests/mcp_sse_integration.rs:17)
+      abort()s the task at :112 rather than awaiting it, so nothing observes the
+      missing return. Required: give run_sse_server a shutdown signal —
+      `with_graceful_shutdown(impl Future<Output = ()>)` exists in axum 0.7.9
+      (serve.rs:139-141) — driven by a real production signal (tokio::signal::ctrl_c,
+      matching the precedent at src/cli/commands/watch.rs:84-98, and/or a handle on
+      McpConfig), NOT by a test-only seam alone, otherwise the fix exists only in the
+      test. Then assert the effect: start serve on an ephemeral port, trigger the
+      signal, await serve(), and reuse the handle-slot check from
+      src/mcp/tools_tests.rs:249-256 to prove the cleanup task is gone — no sleeps.
+      Needs an ADR-0099 update (the SSE exit path and its bound) and a `docs(adr)`
+      parity pass; a behaviour change for SSE users, so disclose it in the changelog.
+
+  - name: mutation_baseline_the_feature_gated_mcp_module
+    preconditions: []
+    effects:
+      mcp_module_mutation_baselined: true
+    notes: >
+      #817 added `--features chaotic_semantic_memory/mcp` to the fast mutation
+      profile, but `--in-diff` only generates mutants for lines a PR touches, so
+      what that fixes going forward is not what it fixes now: `src/mcp/**` was
+      invisible to *every* mutation run before it (the module is
+      `#[cfg(feature = "mcp")]` and `mcp` is not a default feature), so the
+      module has no mutation baseline at all. Required: run cargo-mutants over
+      `src/mcp/**` with the mcp feature on (full profile, or `--file`-scoped fast
+      runs per module), then triage each survivor into a real test or a documented
+      `--exclude-re` entry with its mechanism. Constraints to respect: the PR job
+      is `timeout-minutes: 45` with the full-tree fallback disabled in CI, so this
+      is a local/nightly run; and the profile's `--build-timeout` is sized for
+      incremental per-mutant rebuilds, not for a cold baseline that links
+      rmcp/axum/tower (see LEARNINGS 2026-10-03). Concrete first target found
+      while writing #817's exclusions: the ADR-0099 hop inside `serve`
+      (src/mcp/server.rs:99 -> McpHandler::shutdown, src/mcp/handler.rs:90) is
+      asserted nowhere. tests/mcp_sse_integration.rs:17 does call `serve` over a
+      real transport but aborts the task at :112, so `serve` never returns and its
+      post-transport shutdown line never executes; src/mcp/tools_tests.rs:231
+      covers the *callee*. Order matters: this action is blocked by
+      give_the_sse_transport_an_exit_path, because the review established that
+      axum 0.7.9's Serve future never returns without with_graceful_shutdown, so
+      "close the transport and await serve()" is not expressible until that signal
+      exists. Baseline the module after it, then lift `--exclude "src/mcp/*"` for
+      the lines the profile can now actually kill.

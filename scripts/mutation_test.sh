@@ -141,6 +141,28 @@ if [[ "${PROFILE}" == "fast" ]]; then
   # TODO: expand this list of packages if new packages or workspace crates are added.
   TEST_ARGS+=(--lib -p csm-retrieval -p chaotic_semantic_memory)
 
+  # `mcp` is not in the crate's `default` feature set (Cargo.toml:
+  # default = ["cli", "persistence", "parallel"]) and both
+  # `chaotic_semantic_memory::mcp` (src/lib.rs:57) and `crate::cli::mcp`
+  # (src/cli/mod.rs:6) are `#[cfg(feature = "mcp")]`. Under the default-feature
+  # profile that code is never compiled, so a mutation in it changed nothing
+  # observable and cargo-mutants reported it as MISSED — which reads like "the
+  # tests failed to kill it" but means "the job could not see it at all".
+  # Measured with the same cargo-mutants 27.1.0 CI uses, on the #817 diff
+  # (--in-diff, --lib, jobs=1, no build bound): both `src/cli/mcp.rs:42`
+  # parse-helper mutants flipped MISSED -> CAUGHT (killed by the `45` assertion
+  # in the same module) and the base build went to 146-183s on a target that had
+  # to link the feature graph (23s test). Two costs are therefore paid here:
+  # rmcp/axum/tower join every mutation job's base build, and that build needs
+  # both the raised `--build-timeout` in the CI block below (at 150s its own
+  # mutants came back TIMEOUT and the score printed 0% on a change that is
+  # otherwise killable) and the ci.yml pre-warm step that relinks them once
+  # before the run — after warming, touching one file and rebuilding both
+  # feature-enabled test binaries measured 39s. Note that `src/mcp/*` stays out
+  # of this job's scope via the pre-existing `--exclude "src/mcp/*"` below:
+  # widening the *feature* set is not the same as widening the *path* set.
+  FAST_ARGS+=(--features chaotic_semantic_memory/mcp)
+
   if [[ "${NO_DEFAULT_FEATURES}" == "true" ]]; then
     # --cargo-arg applies --no-default-features to every cargo invocation
     # (build AND test); adding it again in TEST_ARGS would make cargo reject
@@ -155,10 +177,19 @@ if [[ "${PROFILE}" == "fast" ]]; then
     fi
     FAST_ARGS+=(--no-shuffle)
     # Tight bounds: kill hung mutants; keep build-timeout short so pathological
-    # const/eval mutants don't burn the full job budget (was 180s).
+    # const/eval mutants don't burn the full job budget (was 180s, then 150s).
+    # 150s is now measured to be too short for an *incremental* build: with the
+    # default features those rebuilds ran ~54s, but adding
+    # chaotic_semantic_memory/mcp put the unmutated baseline at 183s on a warm
+    # target and individual mutants at 145-208s, so three otherwise killable
+    # mutants came back TIMEOUT and the score printed 0% (the same three are
+    # CAUGHT with no build bound). 420s keeps the pathological-mutant guard — a
+    # single mutant still cannot eat the job's 45 minutes — while leaving the
+    # feature-enabled build room. The cold case is handled where it belongs, by
+    # pre-warming the feature build in ci.yml, not by a loose per-mutant bound.
     FAST_ARGS+=(--timeout 120)
     FAST_ARGS+=(--minimum-test-timeout 15)
-    FAST_ARGS+=(--build-timeout 150)
+    FAST_ARGS+=(--build-timeout 420)
   else
     FAST_ARGS+=(--timeout 90)
     FAST_ARGS+=(--minimum-test-timeout 15)
@@ -230,6 +261,35 @@ EXCLUDE_ARGS=(
   # review and a manual SIGINT smoke, not by a gate; the McpHandler and
   # framework_cleanup tests cover shutdown() itself, not its callers.
   --exclude-re "run_watch"
+  # run_inject is the same class: a CLI command body reached only from the
+  # binary's match arm (src/bin/csm.rs:141), so under --lib nothing calls it and
+  # "replace run_inject -> Result<()> with Ok(())" cannot be killed. This mutant
+  # appeared here only because #817 changed one line of the file (src/cli/commands/
+  # inject.rs:22 now passes ttl_cleanup_interval_seconds = 0), not because inject's
+  # behaviour got weaker: the flag itself is pinned by the parse tests in
+  # src/cli/args_commands.rs.
+  # Residual, stated plainly: the exclusion buys no coverage for the entry point
+  # body. `csm inject` exit statuses are covered by tests/cli_integration.rs, which
+  # is the *integration* profile — this job deliberately runs --lib only.
+  --exclude-re "run_inject"
+  # mcp::serve is the same entry-point class as run_watch: under --lib there is
+  # no transport to end, so "replace serve -> Result<()> with Ok(())" survives
+  # nothing more interesting than being unreachable. It is not in this job's
+  # scope today (`--exclude "src/mcp/*"` above already drops the whole module) —
+  # the entry is written for the day that path exclusion is lifted, which is what
+  # the queued `mutation_baseline_the_feature_gated_mcp_module` action is about.
+  # Residual, stated plainly, and it is worse than untested: the ADR-0099 hop
+  # (src/mcp/server.rs:98 -> McpHandler::shutdown, src/mcp/handler.rs:90) is
+  # reachable on Stdio only. On Sse, run_sse_server awaits `axum::serve(listener,
+  # app)` with no with_graceful_shutdown, and axum 0.7.9's Serve::into_future is an
+  # infinite `loop { match tcp_accept(..) { Some(conn) => .., None => continue } }`
+  # (serve.rs:205-240, tcp_accept never returns an Err: :474-496), so that future
+  # does not resolve and serve never reaches line 98. No test can observe the line
+  # on that transport: tests/mcp_sse_integration.rs:17 does call serve, then
+  # abort()s the task at :112. The callee is covered (src/mcp/tools_tests.rs:231).
+  # The pattern is anchored on "replace serve ->" rather than "serve" so it cannot
+  # swallow a future `serve_*` helper that --lib can actually test.
+  --exclude-re "replace serve ->"
   # src/bin/csm.rs: tracing setup, error formatting, shell completion, and main
   # are CLI-only concerns (side-effectful, process-exit, I/O); untestable via --lib.
   --exclude "src/bin/csm.rs"

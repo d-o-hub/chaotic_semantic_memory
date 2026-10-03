@@ -269,3 +269,30 @@ async fn test_handler_shutdown_is_a_noop_without_a_framework() {
         "shutdown must not initialize the framework"
     );
 }
+
+/// The last hop of the `csm mcp serve --ttl-cleanup-interval` path: `serve`
+/// raises the interval on the handler from `McpConfig`, and the handler is what
+/// builds the framework, so a nonzero interval must produce a live cleanup task.
+#[tokio::test]
+async fn test_handler_ttl_cleanup_interval_starts_the_reaper() {
+    let handler = McpHandler::new(None).with_ttl_cleanup_interval(1);
+    let fw = handler.framework().await.unwrap();
+    assert!(
+        fw.cleanup.is_some(),
+        "the configured interval must reach the framework's cleanup task"
+    );
+    fw.shutdown().await.unwrap();
+}
+
+/// `McpHandler::new` keeps the default, so a handler built outside `serve` — or
+/// a server started from `McpConfig::default()` — never reaps in the background.
+#[tokio::test]
+async fn test_handler_default_keeps_the_reaper_off() {
+    let handler = McpHandler::new(None);
+    let fw = handler.framework().await.unwrap();
+    assert!(
+        fw.cleanup.is_none(),
+        "the default handler must not spawn a cleanup task"
+    );
+    fw.shutdown().await.unwrap();
+}

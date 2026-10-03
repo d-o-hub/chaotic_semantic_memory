@@ -174,7 +174,12 @@ mod native {
                         cmd.filter
                     ))
                 })?;
-                run_watch(db_path.as_deref(), filter).await
+                run_watch(
+                    db_path.as_deref(),
+                    filter,
+                    cmd.ttl_cleanup.ttl_cleanup_interval,
+                )
+                .await
             }
             Commands::ProbeGraph(cmd) => {
                 run_probe_graph(cmd.clone(), db_path.as_deref(), fmt).await
@@ -199,6 +204,7 @@ mod native {
                         transport,
                         bind: args.bind.clone(),
                         database: db_path,
+                        ttl_cleanup_interval: args.ttl_cleanup.ttl_cleanup_interval,
                     };
                     chaotic_semantic_memory::mcp::serve(config)
                         .await

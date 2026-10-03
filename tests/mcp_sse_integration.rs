@@ -18,6 +18,7 @@ async fn test_sse_transport_lifecycle() {
             transport: chaotic_semantic_memory::mcp::Transport::Sse { bind: actual_addr },
             bind: Some(actual_addr.to_string()),
             database: None,
+            ttl_cleanup_interval: 0,
         })
         .await
         .unwrap();
