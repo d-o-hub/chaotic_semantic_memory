@@ -318,11 +318,19 @@ mod tests {
         assert_eq!(stored_rows(fw).await, 1, "{id} must be stored first");
     }
 
+    /// Wait long enough for at least one 1s cleanup tick to land strictly after
+    /// the deadline.
+    ///
+    /// Expiry is UNIX-second granular, so a `ttl_seconds: 1` concept can have a
+    /// wall-clock deadline anywhere in (1.00s, 1.99s] after injection while the
+    /// task ticks at 0s/1s/2s/3s — the tick at 2s is only a few milliseconds
+    /// clear of the worst case. Three seconds guarantees the 3s tick is past
+    /// every possible deadline; `tests/test_advanced_ttl.rs` uses a tighter
+    /// 2.6s budget against the same math.
+    const REAPER_WAIT: std::time::Duration = std::time::Duration::from_millis(3100);
+
     /// The wiring is not a no-op: a nonzero interval through the CLI funnel must
     /// start the reaper, and the reaper must delete the expired row by itself.
-    ///
-    /// Same 1s interval / 1s TTL / 2.6s wait budget as the ADR-0099 task test in
-    /// `tests/test_advanced_ttl.rs`, and the tick at t=2s is the one that reaps.
     #[tokio::test]
     async fn create_framework_with_ttl_starts_a_reaper_that_deletes_rows() {
         let fw = create_framework_with_ttl(None, 1).await.expect("framework");
@@ -333,7 +341,7 @@ mod tests {
 
         inject_expiring_concept(&fw, "reaped-by-task").await;
 
-        tokio::time::sleep(std::time::Duration::from_millis(2600)).await;
+        tokio::time::sleep(REAPER_WAIT).await;
         assert_eq!(
             stored_rows(&fw).await,
             0,
@@ -355,7 +363,7 @@ mod tests {
 
         inject_expiring_concept(&fw, "unreaped-expired").await;
 
-        tokio::time::sleep(std::time::Duration::from_millis(2600)).await;
+        tokio::time::sleep(REAPER_WAIT).await;
         assert_eq!(
             stored_rows(&fw).await,
             1,
