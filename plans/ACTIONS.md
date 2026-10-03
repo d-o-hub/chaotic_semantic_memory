@@ -12,6 +12,21 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-10-03, second action):
+> `collapse_duplicate_concept_builder` — the second `ConceptBuilder`
+> (`crates/csm-memory/src/singularity_types.rs`, generic over an `H` nothing ever
+> instantiated) is deleted; `csm_memory::singularity::ConceptBuilder` is now a
+> `pub use` of the owner, so all four public paths resolve to one type and the
+> change is not breaking. Production bound the *copy*
+> (`src/framework.rs`, `src/framework_ttl.rs`, `src/framework_ops.rs`), which is
+> how an unclamped `now + ttl` expiry stayed live on every path while the owner
+> already clamped — #806 clamped the copy and left the duplication that caused
+> it. Deltas disclosed in the changelog: no `Clone` derive (zero builder `.clone()`
+> call sites) and `with_metadata` now takes `impl Serialize` with ADR-0012 error
+> capture on every path. Two `tests/arch_fitness.rs` guards hold the shape: one
+> struct definition workspace-wide, and five public spellings passed to a fn that
+> takes the owner type.
+>
 > Last completed (verified 2026-10-03):
 > `wire_graceful_shutdown_into_servers` (#813, `f999998`) — ADR-0099's bounded
 > `shutdown()` now runs on both long-running exit paths: `csm watch` handles
@@ -449,37 +464,6 @@ actions:
       ADRs under `plans/.archive/` (`grep -c 'plans/.archive/00'` = 0).
       Required: list the archived ADRs and add a checker so
       `plan_archive_manifest_valid` rests on a gate.
-
-  - name: collapse_duplicate_concept_builder
-    preconditions: []
-    effects:
-      concept_builder_owner_unique: true
-    notes: >
-      Queued from the 2026-10-02 triage of #806 (roast verdict: keeper, debt
-      recorded). Two live `ConceptBuilder` types: the owner
-      `crates/csm-memory/src/concept_builder.rs:28` (clamped by
-      `MAX_TTL_SECONDS_LIMIT`, exported as `csm_memory::ConceptBuilder`) and the
-      generic copy `crates/csm-memory/src/singularity_types.rs:178` (exported
-      as `csm_memory::singularity::ConceptBuilder`). Production binds the *copy*
-      — `src/framework.rs:17`, `src/framework_ttl.rs:7`,
-      `src/framework_ops.rs:5` — which is why the unclamped `now + ttl`
-      survived the owner's clamp. #806 clamped the copy in place and documented
-      the contract (`9061a8f`), so both are clamped now — duplication is the
-      remaining motive. Required: reroute those three imports (plus the
-      internal test imports in `crates/csm-memory/src/graph_traversal_tests.rs:3`,
-      `singularity_ext.rs:75`, `singularity_retrieval_tests.rs:100,151,231` and
-      the root consumers `src/framework_bridge.rs:230`,
-      `src/bridge_retrieval_tests.rs:5`, glob `src/singularity.rs:2`) to
-      `crate::concept_builder::ConceptBuilder`, delete
-      `singularity_types.rs:176-240` (shifted by #806's doc + clamp body), and
-      update `book/src/ttl.md:15-27`. The copy is the only one generic over
-      `H`, and `grep 'ConceptBuilder<'` finds no non-default instantiation
-      (the `::<HVec10240>` turbofish at `:265` is the default arg), so that
-      genericity is unused. Breaking-change risk: `src/lib.rs:21,235,268`
-      re-export the copy on the public prelude path — collapsing it is an API
-      change to disclose in the changelog. Delete the now-redundant second
-      clamp test (`singularity_types.rs:263`) rather than migrating it.
-
 
   - name: enable_ttl_cleanup_in_long_running_commands
     preconditions: []

@@ -20,7 +20,17 @@ Two reds on the branch, both real, both root-caused rather than worked around:
 
 #814 (Jules) re-filed the exact 3-line `HVec10240::permute` zero-shift fast path that #800 carried — a PR this repo roasted on 2026-10-01, **measured**, and closed as no-impact on 2026-10-02 (direct call 81.7 → 57.3 ns; caller path `text_encoder/encode_short` 2 684 → 2 734 ns, 3/6 rounds each way = noise). #814 dropped the bench and the modulo-identity assertions its predecessor shipped, added no `## Performance Evidence` (so `commitlint` was red on the repo's own perf gate), and repeated the "O(W) → O(1)" mechanism that a by-value `-> Self` return refutes. Closed with the recorded numbers cited; `grep -rn '<symbol>' plans/PR_ROAST_*.md` is now part of Step 3 in `pr-roast-triage`.
 
-Records: `plans/PR_ROAST_2026_10_03.md`; queue 10 → 9 (derived by counting `- name:` blocks, not asserted); `ttl_cleanup_has_bounded_shutdown` now states what is gated and what is not.
+### `collapse_duplicate_concept_builder` — completed (PR #816, branch `refactor/collapse-duplicate-concept-builder`)
+
+The queued debt from the #806 triage, implemented with a swarm split: two Explore agents inventoried the surface first, and their audits corrected three references the queued action note had gotten stale — the deletion range is `singularity_types.rs:176-240` plus its test module `257-277` (not `177-232`), `crates/csm-memory/src/singularity.rs:4` is the glob that had to be reasoned about (not line 2), and the root's re-export chain means a naive deletion breaks four public paths.
+
+Collapse made **non-breaking** by re-export: `crates/csm-memory/src/singularity.rs` now carries `pub use crate::concept_builder::ConceptBuilder;`, so `csm_memory::ConceptBuilder`, `csm_memory::singularity::ConceptBuilder`, `chaotic_semantic_memory::ConceptBuilder` and `…::prelude::ConceptBuilder` all name the owner. Copy deleted (−86 LOC in `singularity_types.rs`), its clamp test deleted rather than migrated (the owner's `concept_builder_with_ttl_clamps_excessive_values` is equivalent), 13 importers rerouted, `src/framework_ttl.rs` kept at exactly the 500-LOC cap by making the swap one-line-for-one-line.
+
+Two `tests/arch_fitness.rs` guards replace the grep a human would otherwise re-run forever: exactly one `struct ConceptBuilder` workspace-wide, and five public spellings passed to a function that takes the owner type — re-duplication is now a compile error. Behavioural deltas disclosed in the changelog instead of hidden under a dedup title: the collapsed builder no longer derives `Clone` (zero builder `.clone()` call sites, verified) and `with_metadata` now goes through `impl Serialize` + ADR-0012 error capture on every production path, replacing the copy's infallible `Into<Value>`; no perf claim is made because no benchmark was run, and the extra `to_value` deep copy is the honest cost.
+
+Gates run by the implementer and re-verified independently by the orchestrator: `cargo check -p csm-memory --all-targets`, `cargo check --all-targets`, `cargo clippy --all-targets --all-features -D warnings`, `cargo test -p csm-memory --lib` (67, −1 = the deleted duplicate test), the four affected integration targets, `cargo check --target wasm32-unknown-unknown --features wasm`, `./scripts/check-llms-sync.sh` (artifacts byte-identical — the re-export kept the path lists the generator records), ADR parity, LOC gate at 500, `cargo fmt --check`.
+
+Records: `plans/PR_ROAST_2026_10_03.md`; queue 10 → 9 → 8 (each step derived by counting `- name:` blocks, not asserted); `ttl_cleanup_has_bounded_shutdown` now states what is gated and what is not.
 
 ## 2026-10-02 (feedback round): open-PR blockers addressed
 
