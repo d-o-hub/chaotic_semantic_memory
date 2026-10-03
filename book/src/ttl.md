@@ -85,8 +85,21 @@ async fn main() -> Result<()> {
 
 `purge_expired` iterates stored concepts, collects those past their deadline, deletes them, and invalidates the similarity cache so subsequent probes reflect the new state.
 
+## Background Cleanup in Long-Running Processes
+
+A process that stays up — `csm watch`, `csm mcp serve` — can run `purge_expired` on a timer instead of waiting for a caller to invoke it. Both commands accept:
+
+```console
+$ csm watch --ttl-cleanup-interval 60
+$ csm mcp serve --ttl-cleanup-interval 60
+```
+
+The value is **seconds between cleanup passes, and `0` (the default) disables the reaper entirely**, so upgrading does not start deleting expired concepts from your store: the flag has to be asked for. Expiry is still filtered at probe time either way, so leaving it at `0` only defers reclaiming the rows.
+
+The flag is threaded into `TtlConfig::cleanup_interval_seconds` (library users can set it directly through `ChaoticSemanticFramework::builder().with_ttl_config(..)`) and gates the task spawned by `framework_cleanup::spawn_cleanup_task` (ADR-0099). One task serves every clone of the framework, and it is stopped on the command's exit path by `ChaoticSemanticFramework::shutdown()` — `csm watch` on Ctrl+C, `csm mcp serve` when the transport ends. For a library embedding, call `shutdown()` yourself when the server stops; dropping the last framework handle also stops the task, but cooperatively at its next check.
+
 ## Behaviour Notes
 
 - **Probe filtering** — expired concepts are automatically excluded during probe operations so stale results are never returned.
-- **Lazy deletion** — expiry does not remove data in the background. Call `purge_expired` on a schedule (e.g., after each request batch) to reclaim memory.
+- **Lazy deletion** — expiry does not remove data unless something asks for it: an explicit `purge_expired` call, or a long-running command started with a nonzero `--ttl-cleanup-interval`. One-shot CLI commands never run a reaper.
 - **Persistence** — when persistence is enabled, `inject_concept_with_ttl` and `inject_text_with_ttl` save the concept (including its `expires_at` timestamp) to the database. Purging only removes concepts from the in-memory `Singularity`; see [Configuration](./configuration.md) for persistence details.

@@ -41,6 +41,11 @@ pub struct McpConfig {
     pub bind: Option<String>,
     /// Database path
     pub database: Option<std::path::PathBuf>,
+    /// Seconds between background TTL cleanup passes for the framework this
+    /// server builds; `0` (the default) leaves the reaper off, so a long-running
+    /// `csm mcp serve` never starts deleting expired concepts silently. Set from
+    /// `--ttl-cleanup-interval` (ADR-0099).
+    pub ttl_cleanup_interval: u64,
 }
 
 impl Default for McpConfig {
@@ -49,6 +54,7 @@ impl Default for McpConfig {
             transport: Transport::Stdio,
             bind: None,
             database: None,
+            ttl_cleanup_interval: 0,
         }
     }
 }
@@ -61,7 +67,12 @@ impl Default for McpConfig {
 pub async fn serve(config: McpConfig) -> Result<()> {
     info!("Starting MCP server with {:?} transport", config.transport);
 
-    let handler = Arc::new(McpHandler::new(config.database));
+    // The reaper interval is carried on the handler, not the transport, because
+    // the framework is created lazily on the first tool call — this is the only
+    // place that knows both the config value and the handler that builds it.
+    let handler = Arc::new(
+        McpHandler::new(config.database).with_ttl_cleanup_interval(config.ttl_cleanup_interval),
+    );
 
     match config.transport {
         Transport::Stdio => {

@@ -24,12 +24,12 @@ world_state:
   binary_built: true
   documentation_complete: true
   validated: false               # 2026-09-30: wave-32/33 exits re-verified vs GOAP_AUDIT_2026_07_14.md; residuals queued — TTL shutdown, absence invalidation, failure-path/query-count tests, gate+catalog consolidation, scheduled/release evidence tiers
-  ci_all_checks_passed: true     # 2026-10-03: main push run 37121025587 (63f19bb, #815) green; predecessor run 37118324889 (f999998, #813) green incl. the Build CLI matrix
+  ci_all_checks_passed: true     # 2026-10-03: main push run 37126532544 (4064af9, #816) green incl. CodeQL 37126532599; the same push's GitHub Pages run 37126532546 failed on pre-existing rustdoc warnings — now gated in validate.sh (#817)
   loc_gate_verified: true        # all first-party src/ and crates/ files ≤ 500 LOC
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "63f19bb"           # 2026-10-03: #815 close-out of wire_graceful_shutdown_into_servers (latest main at record time)
+  main_head: "4064af9"           # 2026-10-03: #816 collapse_duplicate_concept_builder (latest main at record time; #817 rides it)
   tests_count: 1037              # 2026-09-30: unique compiled behavior (scripts/coverage-report.sh inventory)
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
   coverage_lines_percent: 74     # 2026-09-18: cargo +nightly llvm-cov --workspace --lib --tests --branch
@@ -52,7 +52,7 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 9        # 2026-10-03: collapse_duplicate_concept_builder completed (9 → 8), then #816's self-roast queued deduplicate_unreleased_changelog_headings (8 → 9). Counted with `grep -c '^  - name:' plans/ACTIONS.md`, not asserted — the 2026-10-03 round found a bookkeeping PR whose number was right only by coincidence of two other PRs.
+  queued_actions_count: 9        # 2026-10-03: #817 completed enable_ttl_cleanup_in_long_running_commands (9 → 8) and its review queued revive_dead_cli_parity_help_test (8 → 9). Counted with `grep -c '^  - name:' plans/ACTIONS.md`, not asserted.
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: true            # 2026-08-12: no TODO in src/ crates/
@@ -95,10 +95,12 @@ world_state:
   release_wait_event_driven: true                 # 2026-09-30: release.yml triggers on CI completion (workflow_run, head_sha-pinned); no polling ceiling. Proof: runs 36746741481 + 36746882951 green, publishes correctly skipped
   crates_publish_precheck_ownership_aware: true   # 2026-09-30: owners API (free or d-o-hub passes; other owners fail; unknown HTTP fails closed) replaces the published-version comparison; verified live incl. negative control
   csm_duckdb_in_release_publish_order: true       # 2026-09-30: dedicated step after the root publish waits for the root version in the index; companion loop exposes failures instead of swallowing them
-  ttl_cleanup_has_bounded_shutdown: true          # 2026-10-01: ADR-0099 — shared CleanupTask, cooperative watch cancel (no abort), bounded await in shutdown(); loop also stops on last-handle drop. 20 TTL + 2 unit tests; mutation-test green. 2026-10-03 (#813, f999998): `shutdown()` now actually runs on the `csm watch` SIGINT path and after the `mcp::serve` transport ends; that call-site wiring rests on review + a manual SIGINT smoke — the `run_watch -> Ok(())` entry-point mutant is excluded in `scripts/mutation_test.sh`, and neither path has cleanup enabled yet (see `enable_ttl_cleanup_in_long_running_commands`)
+  ttl_cleanup_has_bounded_shutdown: true          # 2026-10-01: ADR-0099 — shared CleanupTask, cooperative watch cancel (no abort), bounded await in shutdown(); loop also stops on last-handle drop. 20 TTL + 2 unit tests; mutation-test green. 2026-10-03 (#813, f999998): `shutdown()` now actually runs on the `csm watch` SIGINT path and after the `mcp::serve` transport ends; that call-site wiring rests on review + a manual SIGINT smoke — the `run_watch -> Ok(())` entry-point mutant is excluded in `scripts/mutation_test.sh`. 2026-10-03 (#817): both paths can now actually hold a reaper — see `servers_reap_expired_concepts`
   absence_records_invalidated_on_insert: true     # 2026-10-01: absence rows carry namespace + revision, so any durable mutation (revision bump, ADR-0093) makes them stale; successful probes delete the record. Migration v12; regression + 100% mutation score
   ttl_clamped_on_the_live_builder: true              # 2026-10-02 (#806, 8f9dc3d): the generic builder production actually binds (singularity_types.rs) now clamps to MAX_TTL_SECONDS_LIMIT; superseded by concept_builder_owner_unique below (one clamp site now)
   concept_builder_owner_unique: true                 # 2026-10-03: the `singularity_types::ConceptBuilder` copy is deleted, `csm_memory::singularity::ConceptBuilder` is a `pub use` of the `concept_builder` owner, so one struct and one `MAX_TTL_SECONDS_LIMIT` clamp serve every path. Guarded by two `tests/arch_fitness.rs` checks (single struct definition; five public spellings unify on the owner type). Not breaking — no `Clone` call sites existed; `with_metadata` now takes `impl Serialize` with ADR-0012 error capture everywhere.
+  servers_reap_expired_concepts: true                # 2026-10-03 (#817): `--ttl-cleanup-interval <SECONDS>` on `csm watch` and `csm mcp serve` (shared `TtlCleanupArgs`, default 0 = reaper off, so no silent deletion). Threading: `create_framework_advanced` gained `ttl_cleanup_interval_seconds` and `create_framework_with_ttl` wraps it; `McpConfig::ttl_cleanup_interval` → `McpHandler::with_ttl_cleanup_interval` → the same funnel. Proven by raw-row counts, not config echoes: the enabled test drives `Singularity::len("_default")` 1 → 0 with no purge call, the disabled tests assert `cleanup.is_none()` and a row that `is_expired()` is still stored. Four public shapes changed (documented as Breaking in the changelog); one-shot commands are untouched.
+  rustdoc_warnings_gated: true                       # 2026-10-03 (#817): `scripts/validate.sh` now runs `RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features`, the same invocation `GitHub Pages` runs under `CARGO_BUILD_WARNINGS=deny`. Six `unresolved link to ':model'` warnings from one `src/cli/args.rs` doc line had failed four main pushes (34751139063, 35274354770, 35614812503, 37126532546) with every required check green, so the site had not deployed since 2026-09-09; the doc text is reworded to drop the brackets (`csm query --help` unchanged in shape, llms never carried it) and the gate now fails the PR that would break the deploy.
   skill_validation_fail_closed: true              # wired into validate.sh + CI + pre-commit
   llms_dependency_versions_current: true          # 2026-09-27: llms.txt/llms-full.txt regenerated (otel 0.32, rmcp 3.4); scripts/check-llms-sync.sh drift gate runs in validate.sh (CI lint job)
   retrieval_string_clones_removed: true           # 2026-09-27: #781 borrowed expansion ids/labels + positions scoring; 2209 -> 151 allocs per query (top_k=10)
@@ -121,4 +123,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: collapse_duplicate_concept_builder
+  action_last_completed: enable_ttl_cleanup_in_long_running_commands

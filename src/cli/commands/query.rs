@@ -63,7 +63,8 @@ pub async fn run_query(
 
     // Load framework with provider and namespace
     let framework =
-        create_framework_advanced(db_path, provider_name, args.code_aware, &args.namespace).await?;
+        create_framework_advanced(db_path, provider_name, args.code_aware, &args.namespace, 0)
+            .await?;
 
     // Tokenize query for BM25
     let query_tokens = tokenize_query(&args.text, args.code_aware);

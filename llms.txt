@@ -93,6 +93,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/cli/args.rs
 
+- pub use crate::cli::args_commands::{DiffArgs, HistoryArgs, MetricsArgs, ProbeGraphArgs, RollbackArgs, StatsArgs, TtlCleanupArgs, WatchArgs}
 - pub struct CliArgs
 - pub enum OutputFormat
 - pub enum Commands
@@ -117,8 +118,12 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct TraverseArgs
 - pub struct PathArgs
 - pub struct ProbeFilteredArgs
+
+### src/cli/args_commands.rs
+
 - pub struct StatsArgs
 - pub struct MetricsArgs
+- pub struct TtlCleanupArgs
 - pub struct WatchArgs
 - pub struct ProbeGraphArgs
 - pub struct HistoryArgs
@@ -239,6 +244,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn print_warning
 - pub fn truncate_preview
 - pub fn create_framework
+- pub fn create_framework_with_ttl
 - pub fn create_framework_with_namespace
 - pub fn create_framework_with_provider
 - pub fn create_framework_advanced
@@ -310,6 +316,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/cli/mod.rs
 
 - pub mod args
+- pub mod args_commands
 - pub mod commands
 - pub mod error
 - pub mod git_local

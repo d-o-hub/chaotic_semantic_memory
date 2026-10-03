@@ -93,6 +93,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/cli/args.rs
 
+- pub use crate::cli::args_commands::{DiffArgs, HistoryArgs, MetricsArgs, ProbeGraphArgs, RollbackArgs, StatsArgs, TtlCleanupArgs, WatchArgs}
 - pub struct CliArgs
 - pub enum OutputFormat
 - pub enum Commands
@@ -117,8 +118,12 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct TraverseArgs
 - pub struct PathArgs
 - pub struct ProbeFilteredArgs
+
+### src/cli/args_commands.rs
+
 - pub struct StatsArgs
 - pub struct MetricsArgs
+- pub struct TtlCleanupArgs
 - pub struct WatchArgs
 - pub struct ProbeGraphArgs
 - pub struct HistoryArgs
@@ -239,6 +244,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn print_warning
 - pub fn truncate_preview
 - pub fn create_framework
+- pub fn create_framework_with_ttl
 - pub fn create_framework_with_namespace
 - pub fn create_framework_with_provider
 - pub fn create_framework_advanced
@@ -310,6 +316,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/cli/mod.rs
 
 - pub mod args
+- pub mod args_commands
 - pub mod commands
 - pub mod error
 - pub mod git_local
@@ -1456,20 +1463,6 @@ pub struct DeleteArgs {
 
 Arguments for the delete command.
 
-### DiffArgs
-
-```rust
-#[derive(Args, Debug, Clone)]
-pub struct DiffArgs {
-    pub namespace: String,
-    pub concept_id: String,
-    pub from: u64,
-    pub to: u64,
-}
-```
-
-Arguments for the diff command.
-
 ### DisassociateArgs
 
 ```rust
@@ -1516,21 +1509,6 @@ pub struct GetArgs {
 ```
 
 Arguments for the get command.
-
-### HistoryArgs
-
-```rust
-#[derive(Args, Debug, Clone)]
-pub struct HistoryArgs {
-    pub namespace: String,
-    pub concept_id: String,
-    pub version: Option<u64>,
-    pub rollback: Option<u64>,
-    pub confirm: bool,
-}
-```
-
-Arguments for the history command.
 
 ### ImportArgs
 
@@ -1601,15 +1579,6 @@ pub struct InjectArgs {
 }
 ```
 
-### MetricsArgs
-
-```rust
-#[derive(Args, Debug, Clone)]
-pub struct MetricsArgs {
-    pub reset: bool,
-}
-```
-
 ### OutputFormat
 
 ```rust
@@ -1661,22 +1630,6 @@ pub struct ProbeFilteredArgs {
 
 Arguments for filtered similarity probe.
 
-### ProbeGraphArgs
-
-```rust
-#[derive(Args, Debug, Clone)]
-pub struct ProbeGraphArgs {
-    pub namespace: String,
-    pub text: String,
-    pub anchors: usize,
-    pub hops: usize,
-    pub min_strength: f32,
-    pub similarity_weight: f32,
-    pub graph_weight: f32,
-    pub top_k: usize,
-}
-```
-
 ### QueryArgs
 
 ```rust
@@ -1696,27 +1649,6 @@ pub struct QueryArgs {
 ```
 
 Arguments for text-based similarity query.
-
-### RollbackArgs
-
-```rust
-#[derive(Args, Debug, Clone)]
-pub struct RollbackArgs {
-    pub namespace: String,
-    pub concept_id: String,
-    pub to: u64,
-    pub confirm: bool,
-}
-```
-
-Arguments for the rollback command.
-
-### StatsArgs
-
-```rust
-#[derive(Args, Debug, Clone)]
-pub struct StatsArgs;
-```
 
 ### TraverseArgs
 
@@ -1769,12 +1701,116 @@ pub struct VersionArgs {
 }
 ```
 
+### crate::cli::args_commands::{DiffArgs, HistoryArgs, MetricsArgs, ProbeGraphArgs, RollbackArgs, StatsArgs, TtlCleanupArgs, WatchArgs}
+
+```rust
+pub use crate::cli::args_commands::{DiffArgs, HistoryArgs, MetricsArgs, ProbeGraphArgs, RollbackArgs, StatsArgs, TtlCleanupArgs, WatchArgs};
+```
+
+## src/cli/args_commands.rs
+
+### DiffArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct DiffArgs {
+    pub namespace: String,
+    pub concept_id: String,
+    pub from: u64,
+    pub to: u64,
+}
+```
+
+Arguments for the diff command.
+
+### HistoryArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct HistoryArgs {
+    pub namespace: String,
+    pub concept_id: String,
+    pub version: Option<u64>,
+    pub rollback: Option<u64>,
+    pub confirm: bool,
+}
+```
+
+Arguments for the history command.
+
+### MetricsArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct MetricsArgs {
+    pub reset: bool,
+}
+```
+
+### ProbeGraphArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct ProbeGraphArgs {
+    pub namespace: String,
+    pub text: String,
+    pub anchors: usize,
+    pub hops: usize,
+    pub min_strength: f32,
+    pub similarity_weight: f32,
+    pub graph_weight: f32,
+    pub top_k: usize,
+}
+```
+
+### RollbackArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct RollbackArgs {
+    pub namespace: String,
+    pub concept_id: String,
+    pub to: u64,
+    pub confirm: bool,
+}
+```
+
+Arguments for the rollback command.
+
+### StatsArgs
+
+```rust
+#[derive(Args, Debug, Clone)]
+pub struct StatsArgs;
+```
+
+### TtlCleanupArgs
+
+```rust
+#[derive(Args, Debug, Clone, Copy)]
+pub struct TtlCleanupArgs {
+    pub ttl_cleanup_interval: u64,
+}
+```
+
+Shared `--ttl-cleanup-interval` definition for the long-running commands.
+
+Flattened into both `WatchArgs` (`csm watch`) and `McpServeArgs`
+(`csm mcp serve`) so the flag has exactly one doc comment and one default
+across the two servers that can hold a background TTL cleanup task.
+
+The default is deliberately `0` (= disabled): a long-running server must not
+start deleting expired concepts from the store unless the operator asked for
+it. Expiry is still filtered at probe time either way, and
+`ChaoticSemanticFramework::purge_expired` remains the explicit path.
+
 ### WatchArgs
 
 ```rust
 #[derive(Args, Debug, Clone)]
 pub struct WatchArgs {
     pub filter: String,
+    pub ttl_cleanup: TtlCleanupArgs,
 }
 ```
 
@@ -1951,8 +1987,15 @@ pub fn create_framework(db_path: Option<&std::path::Path>) -> Result<ChaoticSema
 ### create_framework_advanced
 
 ```rust
-pub fn create_framework_advanced(db_path: Option<&std::path::Path>, provider_name: Option<&str>, code_aware: bool, ns: &str) -> Result<ChaoticSemanticFramework>
+pub fn create_framework_advanced(db_path: Option<&std::path::Path>, provider_name: Option<&str>, code_aware: bool, ns: &str, ttl_cleanup_interval_seconds: u64) -> Result<ChaoticSemanticFramework>
 ```
+
+Build a framework through the single CLI funnel.
+
+`ttl_cleanup_interval_seconds` is the one place the background TTL reaper can
+be raised from its default `0` (disabled) for a long-running process; it is
+fed to the existing `with_ttl_config` builder method and gates
+`framework_cleanup::spawn_cleanup_task` (ADR-0099).
 
 ### create_framework_with_namespace
 
@@ -1965,6 +2008,19 @@ pub fn create_framework_with_namespace(db_path: Option<&std::path::Path>, ns: &s
 ```rust
 pub fn create_framework_with_provider(db_path: Option<&std::path::Path>, provider_name: Option<&str>) -> Result<ChaoticSemanticFramework>
 ```
+
+### create_framework_with_ttl
+
+```rust
+pub fn create_framework_with_ttl(db_path: Option<&std::path::Path>, ttl_cleanup_interval_seconds: u64) -> Result<ChaoticSemanticFramework>
+```
+
+Build a framework for a long-running command with a background TTL reaper.
+
+`ttl_cleanup_interval_seconds == 0` leaves the reaper off (the framework
+default), so every ordinary one-shot command keeps using
+[`create_framework`]; only `csm watch` and `csm mcp serve` route through here
+with a value from `--ttl-cleanup-interval`.
 
 ### delete::run_delete
 
@@ -2230,10 +2286,14 @@ impl EventFilter {
 ### run_watch
 
 ```rust
-pub fn run_watch(db_path: Option<&Path>, filter: EventFilter) -> Result<()>
+pub fn run_watch(db_path: Option<&Path>, filter: EventFilter, ttl_cleanup_interval_seconds: u64) -> Result<()>
 ```
 
 Run the watch command.
+
+`ttl_cleanup_interval_seconds` comes from `--ttl-cleanup-interval` and is the
+only way this long-running process gets a background TTL reaper; `0` (the
+default) leaves the reaper off, exactly as before the flag existed.
 
 ## src/cli/error.rs
 
@@ -2376,6 +2436,7 @@ pub enum McpCommands {
 pub struct McpServeArgs {
     pub transport: crate::mcp::TransportType,
     pub bind: Option<String>,
+    pub ttl_cleanup: crate::cli::args_commands::TtlCleanupArgs,
 }
 ```
 
@@ -3319,6 +3380,7 @@ impl McpHandler {
 ```rust
 impl McpHandler {
     pub fn new(database: Option<PathBuf>) -> Self;
+    pub fn with_ttl_cleanup_interval(self, seconds: u64) -> Self;
 }
 ```
 
@@ -3459,6 +3521,7 @@ pub struct McpConfig {
     pub transport: Transport,
     pub bind: Option<String>,
     pub database: Option<std::path::PathBuf>,
+    pub ttl_cleanup_interval: u64,
 }
 ```
 
