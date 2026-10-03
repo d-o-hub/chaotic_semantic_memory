@@ -69,6 +69,22 @@ Same file + same base blob + same effect = duplicates. Keep exactly one:
 
 Close the losers with reason `superseded by #<keeper>`.
 
+**Closed predecessors are duplicates too — and `gh pr list` cannot see them.**
+A bot re-files the same finding under a new task id, so grep the roast records
+for the *symbol* before writing a fresh verdict:
+
+```bash
+grep -rn '<symbol_or_function>' plans/PR_ROAST_*.md
+```
+
+If the idea was already measured and closed (this happened to
+`HVec10240::permute`'s zero-shift branch: #800 measured → closed no-impact, #814
+re-filed the same 3 lines with no evidence), the resubmission inherits the old
+verdict. Close it citing the recorded numbers; do not re-litigate. Rule 17: a
+resubmission must bring the evidence the earlier roast demanded, not restate the
+claim — and check the claim's *mechanism* sentence against the code, since both
+PRs asserted a zero-copy win that a by-value `-> Self` return rules out.
+
 ## Step 4 — Roast rubric (every keeper PR)
 
 - **Atomicity**: one logical change. Mega-PRs (>5 files across concerns) must split.
