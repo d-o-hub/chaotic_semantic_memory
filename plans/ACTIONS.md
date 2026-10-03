@@ -521,6 +521,35 @@ actions:
       count of `cli_parity` cannot silently drop back to a dead body (a missing
       attribute is invisible to clippy and to `--all-targets` compilation).
 
+  - name: give_the_sse_transport_an_exit_path
+    preconditions: []
+    effects:
+      sse_transport_has_exit_path: true
+    notes: >
+      Found by the #817 review of its own mutation exclusions, so it is a defect
+      discovered by a gate change, not by a test. ADR-0099 promises the TTL cleanup
+      task is stopped deterministically on exit, and `mcp::serve` implements that at
+      src/mcp/server.rs:98 (handler.shutdown() after the transport resolves). On the
+      Sse transport it never resolves: run_sse_server awaits
+      `axum::serve(listener, app)` without `with_graceful_shutdown`, and axum 0.7.9's
+      `Serve::into_future` is an infinite accept loop (serve.rs:205-240; tcp_accept
+      returns Option and never propagates Err, :474-496), so `csm mcp serve
+      --transport sse` runs until the process is killed and the reaper is stopped by
+      Drop at best. Stdio is unaffected (rmcp's `Waiting::waiting` resolves on stdin
+      EOF, src/mcp/server.rs:83-86), which is why #813's review and its test both
+      passed: the only test that calls serve (tests/mcp_sse_integration.rs:17)
+      abort()s the task at :112 rather than awaiting it, so nothing observes the
+      missing return. Required: give run_sse_server a shutdown signal —
+      `with_graceful_shutdown(impl Future<Output = ()>)` exists in axum 0.7.9
+      (serve.rs:139-141) — driven by a real production signal (tokio::signal::ctrl_c,
+      matching the precedent at src/cli/commands/watch.rs:84-98, and/or a handle on
+      McpConfig), NOT by a test-only seam alone, otherwise the fix exists only in the
+      test. Then assert the effect: start serve on an ephemeral port, trigger the
+      signal, await serve(), and reuse the handle-slot check from
+      src/mcp/tools_tests.rs:249-256 to prove the cleanup task is gone — no sleeps.
+      Needs an ADR-0099 update (the SSE exit path and its bound) and a `docs(adr)`
+      parity pass; a behaviour change for SSE users, so disclose it in the changelog.
+
   - name: mutation_baseline_the_feature_gated_mcp_module
     preconditions: []
     effects:
@@ -544,6 +573,9 @@ actions:
       asserted nowhere. tests/mcp_sse_integration.rs:17 does call `serve` over a
       real transport but aborts the task at :112, so `serve` never returns and its
       post-transport shutdown line never executes; src/mcp/tools_tests.rs:231
-      covers the *callee*. Do the caller as an effect test (close the transport,
-      let `serve` return, observe the cleanup task is gone), then baseline the
-      module — a mutant of that line currently has nothing that could kill it.
+      covers the *callee*. Order matters: this action is blocked by
+      give_the_sse_transport_an_exit_path, because the review established that
+      axum 0.7.9's Serve future never returns without with_graceful_shutdown, so
+      "close the transport and await serve()" is not expressible until that signal
+      exists. Baseline the module after it, then lift `--exclude "src/mcp/*"` for
+      the lines the profile can now actually kill.

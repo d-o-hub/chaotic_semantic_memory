@@ -56,10 +56,12 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 10       # 2026-10-03: #817 completed enable_ttl_cleanup_in_long_running_commands
+  queued_actions_count: 11       # 2026-10-03: #817 completed enable_ttl_cleanup_in_long_running_commands
                                #   (9 -> 8), its review queued revive_dead_cli_parity_help_test (8 -> 9), and the
                                #   mutation-test red on this PR's head queued mutation_baseline_the_feature_gated_mcp_module
-                               #   (9 -> 10). Counted with `grep -c '^  - name:' plans/ACTIONS.md`, not asserted.
+                               #   (9 -> 10) plus give_the_sse_transport_an_exit_path (10 -> 11) — the second is a
+                               #   production defect that the exclusion review exposed, not a coverage wish.
+                               #   Counted with `grep -c '^  - name:' plans/ACTIONS.md`, not asserted.
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: true            # 2026-08-12: no TODO in src/ crates/
@@ -120,9 +122,16 @@ world_state:
                                #   pre-warming measure 39s. `src/cli/commands/inject.rs:18` (run_inject) and `serve` are
                                #   excluded as --lib-unreachable entry points, same class as run_query/run_watch. Residual
                                #   recorded rather than glossed: `src/mcp/**` is still path-excluded so the module has no
-                               #   baseline, and the ADR-0099 caller hop (src/mcp/server.rs:99 -> McpHandler::shutdown) has
-                               #   no test at all — tests/mcp_sse_integration.rs:17 aborts the task instead of closing the
-                               #   transport, so serve never returns; only the callee is covered (src/mcp/tools_tests.rs:231).
+                               #   baseline, and the ADR-0099 caller hop (src/mcp/server.rs:98 -> McpHandler::shutdown) is
+                               #   UNREACHABLE on the Sse transport, not merely untested — run_sse_server awaits
+                               #   axum::serve(listener, app) with no with_graceful_shutdown, and axum 0.7.9's
+                               #   Serve::into_future is an infinite accept loop (serve.rs:205-240; tcp_accept returns
+                               #   Option, never Err, :474-496), so serve never returns. Stdio does resolve (rmcp
+                               #   Waiting::waiting on stdin EOF, src/mcp/server.rs:83-86), and only the callee is covered
+                               #   (src/mcp/tools_tests.rs:231); tests/mcp_sse_integration.rs:17 abort()s the task at :112.
+  sse_transport_has_exit_path: false                   # 2026-10-03 (#817 review): `csm mcp serve --transport sse` has no
+                               #   graceful exit, so the reaper is never stopped on that path and ADR-0099 holds for stdio
+                               #   only. Queued as give_the_sse_transport_an_exit_path.
   skill_validation_fail_closed: true              # wired into validate.sh + CI + pre-commit
   llms_dependency_versions_current: true          # 2026-09-27: llms.txt/llms-full.txt regenerated (otel 0.32, rmcp 3.4); scripts/check-llms-sync.sh drift gate runs in validate.sh (CI lint job)
   retrieval_string_clones_removed: true           # 2026-09-27: #781 borrowed expansion ids/labels + positions scoring; 2209 -> 151 allocs per query (top_k=10)

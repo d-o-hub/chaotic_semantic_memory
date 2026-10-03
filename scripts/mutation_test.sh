@@ -278,15 +278,17 @@ EXCLUDE_ARGS=(
   # scope today (`--exclude "src/mcp/*"` above already drops the whole module) —
   # the entry is written for the day that path exclusion is lifted, which is what
   # the queued `mutation_baseline_the_feature_gated_mcp_module` action is about.
-  # Residual, stated plainly: `serve` IS driven over a real transport by
-  # tests/mcp_sse_integration.rs:17, but that test aborts the server task at :112
-  # instead of closing the transport, so serve never returns and the ADR-0099 hop
-  # (src/mcp/server.rs:99 -> McpHandler::shutdown, src/mcp/handler.rs:90) is not
-  # exercised by it. The *callee* is unit-tested (src/mcp/tools_tests.rs:231)
-  # and the caller wiring was reviewed manually; nothing asserts or mutation-kills
-  # the caller itself. The pattern is anchored on "replace serve ->" rather
-  # than "serve" so it cannot swallow a future `serve_*` helper that --lib can
-  # actually test.
+  # Residual, stated plainly, and it is worse than untested: the ADR-0099 hop
+  # (src/mcp/server.rs:98 -> McpHandler::shutdown, src/mcp/handler.rs:90) is
+  # reachable on Stdio only. On Sse, run_sse_server awaits `axum::serve(listener,
+  # app)` with no with_graceful_shutdown, and axum 0.7.9's Serve::into_future is an
+  # infinite `loop { match tcp_accept(..) { Some(conn) => .., None => continue } }`
+  # (serve.rs:205-240, tcp_accept never returns an Err: :474-496), so that future
+  # does not resolve and serve never reaches line 98. No test can observe the line
+  # on that transport: tests/mcp_sse_integration.rs:17 does call serve, then
+  # abort()s the task at :112. The callee is covered (src/mcp/tools_tests.rs:231).
+  # The pattern is anchored on "replace serve ->" rather than "serve" so it cannot
+  # swallow a future `serve_*` helper that --lib can actually test.
   --exclude-re "replace serve ->"
   # src/bin/csm.rs: tracing setup, error formatting, shell completion, and main
   # are CLI-only concerns (side-effectful, process-exit, I/O); untestable via --lib.
