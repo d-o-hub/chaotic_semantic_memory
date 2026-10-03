@@ -107,21 +107,27 @@ PRs asserted a zero-copy win that a by-value `-> Self` return rules out.
     clamp/default (`clamp(1, MAX)` and default 10) and "`build()` rejects the
     configuration with `UnsupportedOperation`". A tag tells a reader where to
     look; the sentence tells them what happens.
-  - **Don't restore for symmetry.** A "Only available when feature X is
-    enabled" marker is redundant when `#[cfg(feature = "X")]` sits on the same
-    item and rustdoc renders the gate — say so rather than re-adding it. If you
-    do finish the restoration yourself, commit it as a maintainer action with
-    the per-line evidence in the message (as in `4f8c7b1`), and verify
-    **every** feature configuration when the docs sit on `cfg`-gated items
-    (`cargo check` with default, `--features cli`, `--no-default-features`).
-  - A PR can violate this rule and still be **right on code** — #767's
-    `with_chaos_strength` leaked `NaN`/`±∞` into the reservoir. Say both, and
-    name which one blocks the merge.
+  - **Don't restore for symmetry.** A "Only available when feature X" marker is
+    redundant when `#[cfg(feature = "X")]` sits on the same item and rustdoc
+    renders the gate. If you do restore it, commit as a maintainer action with
+    per-line evidence (`4f8c7b1`) and check **every** feature configuration
+    (default, `--features cli`, `--no-default-features`).
+  - A PR can violate this rule and still be **right on code** (#767's
+    `with_chaos_strength` leaked `NaN`/`±∞`). Say both; name what blocks merge.
   - **Flipped test expectations are contract changes.** A test asserting
     "negative strength fails" becoming "negative clamps" belongs in the body
     as a deliberate contract change, not filed as a test fix.
   - **`const fn` → `fn` is a public API change**; say so even when in-repo
     callers are all runtime.
+  - **Dedup deletes prose too** (2026-10-03, #816): the removed copy's `with_ttl`
+    doc was the only place stating expiry resolves in `build()`, not at setter
+    time — the owner's doc did not say it. Diff a duplicate pair in both
+    directions and port rationale before deleting either side.
+- **"Not breaking" is a semver claim, not a compile claim** (2026-10-03, #816
+  self-roast): a workspace that still builds says nothing about a removed public
+  derive or impl. Use the repo's `**Breaking (scope)**` changelog label (count
+  `!`-header precedent in `git log --format=%s` first), and re-measure every
+  count an implementer agent reports — its summary is a lead, not evidence.
 - **`unsafe` bounds in generic code (PR #769, 2026-09-25)**: a `get_unchecked`
   SAFETY comment that hardcodes a dimension while the fn is generic over a
   trait constant is a **future out-of-bounds read**, not a perf tradeoff — all

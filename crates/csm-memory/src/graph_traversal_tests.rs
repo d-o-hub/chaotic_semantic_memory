@@ -1,6 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use super::*;
-use crate::singularity::{Concept, ConceptBuilder, Singularity, SingularityConfig};
+use crate::concept_builder::ConceptBuilder;
+use crate::singularity::{Concept, Singularity, SingularityConfig};
 use csm_core_lib::hyperdim::HVec10240;
 
 fn make_concept(id: &str) -> Concept {

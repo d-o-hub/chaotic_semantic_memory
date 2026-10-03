@@ -13,7 +13,7 @@ Concepts can be given a **time-to-live (TTL)** so they automatically expire. Exp
 ### With `ConceptBuilder`
 
 ```rust,no_run
-use chaotic_semantic_memory::singularity::ConceptBuilder;
+use chaotic_semantic_memory::ConceptBuilder;
 use chaotic_semantic_memory::HVec10240;
 
 let concept = ConceptBuilder::new("session-ctx-42")

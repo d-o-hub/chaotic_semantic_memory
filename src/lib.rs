@@ -232,7 +232,7 @@ pub mod persistence {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use crate::singularity::ConceptBuilder;
+        use crate::concept_builder::ConceptBuilder;
 
         #[tokio::test]
         async fn disabled_persistence_fails_explicitly() {

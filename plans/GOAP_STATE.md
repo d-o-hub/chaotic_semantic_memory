@@ -24,12 +24,12 @@ world_state:
   binary_built: true
   documentation_complete: true
   validated: false               # 2026-09-30: wave-32/33 exits re-verified vs GOAP_AUDIT_2026_07_14.md; residuals queued — TTL shutdown, absence invalidation, failure-path/query-count tests, gate+catalog consolidation, scheduled/release evidence tiers
-  ci_all_checks_passed: true     # 2026-10-03: main push run 37118324889 (f999998, #813) green end-to-end incl. the Build CLI matrix; #812 merged with CI run 37118663549 green on head 25a5948
+  ci_all_checks_passed: true     # 2026-10-03: main push run 37121025587 (63f19bb, #815) green; predecessor run 37118324889 (f999998, #813) green incl. the Build CLI matrix
   loc_gate_verified: true        # all first-party src/ and crates/ files ≤ 500 LOC
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "9ce0193"           # 2026-10-03: #813 ADR-0099 server shutdown wiring (f999998) + #812 triage docs (9ce0193)
+  main_head: "63f19bb"           # 2026-10-03: #815 close-out of wire_graceful_shutdown_into_servers (latest main at record time)
   tests_count: 1037              # 2026-09-30: unique compiled behavior (scripts/coverage-report.sh inventory)
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
   coverage_lines_percent: 74     # 2026-09-18: cargo +nightly llvm-cov --workspace --lib --tests --branch
@@ -52,7 +52,7 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 9        # 2026-10-03: #812 queued collapse_duplicate_concept_builder + enable_ttl_cleanup_in_long_running_commands (10 blocks on its head); #813 consumed wire_graceful_shutdown_into_servers → 9. Derived from `grep -c '^  - name:' plans/ACTIONS.md`, not asserted.
+  queued_actions_count: 9        # 2026-10-03: collapse_duplicate_concept_builder completed (9 → 8), then #816's self-roast queued deduplicate_unreleased_changelog_headings (8 → 9). Counted with `grep -c '^  - name:' plans/ACTIONS.md`, not asserted — the 2026-10-03 round found a bookkeeping PR whose number was right only by coincidence of two other PRs.
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: true            # 2026-08-12: no TODO in src/ crates/
@@ -97,7 +97,8 @@ world_state:
   csm_duckdb_in_release_publish_order: true       # 2026-09-30: dedicated step after the root publish waits for the root version in the index; companion loop exposes failures instead of swallowing them
   ttl_cleanup_has_bounded_shutdown: true          # 2026-10-01: ADR-0099 — shared CleanupTask, cooperative watch cancel (no abort), bounded await in shutdown(); loop also stops on last-handle drop. 20 TTL + 2 unit tests; mutation-test green. 2026-10-03 (#813, f999998): `shutdown()` now actually runs on the `csm watch` SIGINT path and after the `mcp::serve` transport ends; that call-site wiring rests on review + a manual SIGINT smoke — the `run_watch -> Ok(())` entry-point mutant is excluded in `scripts/mutation_test.sh`, and neither path has cleanup enabled yet (see `enable_ttl_cleanup_in_long_running_commands`)
   absence_records_invalidated_on_insert: true     # 2026-10-01: absence rows carry namespace + revision, so any durable mutation (revision bump, ADR-0093) makes them stale; successful probes delete the record. Migration v12; regression + 100% mutation score
-  ttl_clamped_on_the_live_builder: true              # 2026-10-02 (#806, 8f9dc3d): the generic builder production actually binds (singularity_types.rs) now clamps to MAX_TTL_SECONDS_LIMIT; the duplicate owner is queued for collapse
+  ttl_clamped_on_the_live_builder: true              # 2026-10-02 (#806, 8f9dc3d): the generic builder production actually binds (singularity_types.rs) now clamps to MAX_TTL_SECONDS_LIMIT; superseded by concept_builder_owner_unique below (one clamp site now)
+  concept_builder_owner_unique: true                 # 2026-10-03: the `singularity_types::ConceptBuilder` copy is deleted, `csm_memory::singularity::ConceptBuilder` is a `pub use` of the `concept_builder` owner, so one struct and one `MAX_TTL_SECONDS_LIMIT` clamp serve every path. Guarded by two `tests/arch_fitness.rs` checks (single struct definition; five public spellings unify on the owner type). Not breaking — no `Clone` call sites existed; `with_metadata` now takes `impl Serialize` with ADR-0012 error capture everywhere.
   skill_validation_fail_closed: true              # wired into validate.sh + CI + pre-commit
   llms_dependency_versions_current: true          # 2026-09-27: llms.txt/llms-full.txt regenerated (otel 0.32, rmcp 3.4); scripts/check-llms-sync.sh drift gate runs in validate.sh (CI lint job)
   retrieval_string_clones_removed: true           # 2026-09-27: #781 borrowed expansion ids/labels + positions scoring; 2209 -> 151 allocs per query (top_k=10)
@@ -120,4 +121,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: wire_graceful_shutdown_into_servers
+  action_last_completed: collapse_duplicate_concept_builder

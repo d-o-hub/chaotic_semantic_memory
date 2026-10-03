@@ -1,8 +1,8 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+use crate::concept_builder::ConceptBuilder;
 use crate::export_payload::unix_now_secs;
 use crate::framework::ChaoticSemanticFramework;
 use crate::framework_events::MemoryEvent;
-use crate::singularity::ConceptBuilder;
 use csm_core_lib::error::Result;
 use csm_core_lib::hyperdim::HVec10240;
 use std::sync::Arc;

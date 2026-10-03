@@ -1,8 +1,9 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use crate::bridge_retrieval::BridgeRetrieval;
+use crate::concept_builder::ConceptBuilder;
 use crate::semantic_bridge::{BridgeConfig, CanonicalConcept, ConceptGraph, ScoreBreakdown};
-use crate::singularity::{ConceptBuilder, Singularity, SingularityConfig};
+use crate::singularity::{Singularity, SingularityConfig};
 use csm_core_lib::encoder::TextEncoder;
 use csm_core_lib::hyperdim::HVec10240;
 
