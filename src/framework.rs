@@ -6,6 +6,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::instrument;
 
+use crate::concept_builder::ConceptBuilder;
 use crate::framework_builder::{FrameworkBuilder, FrameworkConfig};
 use crate::framework_events::MemoryEvent;
 use crate::framework_events_ce::{ChaoticEvent, EventEmitter};
@@ -14,7 +15,7 @@ use crate::graph_traversal::TraversalConfig;
 use crate::metadata_filter::MetadataFilter;
 #[cfg(feature = "persistence")]
 use crate::persistence::Persistence;
-use crate::singularity::{ConceptBuilder, Singularity, unix_now_secs};
+use crate::singularity::{Singularity, unix_now_secs};
 use csm_core_lib::error::Result;
 use csm_core_lib::hyperdim::HVec10240;
 use csm_core_lib::reservoir_chaotic::ChaoticReservoir;

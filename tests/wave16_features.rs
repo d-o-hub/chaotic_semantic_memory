@@ -2,14 +2,13 @@
 //! Wave 16 feature tests: TextEncoder golden vectors, graph traversal edge cases,
 //! BundleAccumulator edge cases, and filtered search edge cases.
 
+use chaotic_semantic_memory::ConceptBuilder;
 use chaotic_semantic_memory::bundle::BundleAccumulator;
 use chaotic_semantic_memory::encoder::TextEncoder;
 use chaotic_semantic_memory::graph_traversal::TraversalConfig;
 use chaotic_semantic_memory::hyperdim::HVec10240;
 use chaotic_semantic_memory::metadata_filter::MetadataFilter;
-use chaotic_semantic_memory::singularity::{
-    Concept, ConceptBuilder, Singularity, SingularityConfig,
-};
+use chaotic_semantic_memory::singularity::{Concept, Singularity, SingularityConfig};
 
 const NS: &str = "_default";
 

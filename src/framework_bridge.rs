@@ -225,9 +225,9 @@ mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     // Exact float comparisons for confidence test assertions
 
+    use crate::concept_builder::ConceptBuilder;
     use crate::framework_builder::FrameworkBuilder;
     use crate::semantic_bridge::{CanonicalConcept, ConceptGraph};
-    use crate::singularity::ConceptBuilder;
     use csm_core_lib::encoder::TextEncoder;
 
     #[tokio::test]

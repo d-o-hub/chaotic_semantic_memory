@@ -183,3 +183,62 @@ fn module_layering_cli_does_not_import_persistence_directly() {
         files.join("\n")
     );
 }
+
+#[test]
+fn single_concept_builder_struct_definition() {
+    // A second `ConceptBuilder` is what let an unclamped `now + ttl` expiry live
+    // on every production path while the owner already clamped (PR #806). Only
+    // the owner definition may exist.
+    let output = Command::new("grep")
+        .args(["-rn", "struct ConceptBuilder", "src", "crates"])
+        .output()
+        .expect("failed to run grep");
+    let hits: Vec<String> = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter(|l| !l.is_empty())
+        .map(String::from)
+        .collect();
+
+    assert_eq!(
+        hits.len(),
+        1,
+        "`ConceptBuilder` must have exactly one struct definition (the owner); found:\n{}",
+        hits.join("\n")
+    );
+    assert!(
+        hits[0].contains("crates/csm-memory/src/concept_builder.rs"),
+        "the only `ConceptBuilder` must be the owner in concept_builder.rs, got: {}",
+        hits[0]
+    );
+}
+
+#[test]
+fn public_api_concept_builder_paths_share_one_owner() {
+    // Every public path must name the *same* type — the owner in
+    // `csm_memory::concept_builder` — never a second lookalike. Passing each path
+    // to a function that takes the owner type makes re-duplication a compile
+    // error rather than a silent behavioural split.
+    fn accepts_owner(_: chaotic_semantic_memory::ConceptBuilder) {}
+
+    accepts_owner(chaotic_semantic_memory::ConceptBuilder::new("root"));
+    accepts_owner(chaotic_semantic_memory::prelude::ConceptBuilder::new(
+        "prelude",
+    ));
+    accepts_owner(chaotic_semantic_memory::singularity::ConceptBuilder::new(
+        "sing",
+    ));
+    accepts_owner(csm_memory::ConceptBuilder::new("csm-root"));
+    accepts_owner(csm_memory::singularity::ConceptBuilder::new("csm-sing"));
+
+    // Collapsing onto the owner must preserve its TTL clamp.
+    let concept = chaotic_semantic_memory::singularity::ConceptBuilder::new("clamp")
+        .with_ttl(u64::MAX)
+        .build()
+        .unwrap();
+    let limit = chaotic_semantic_memory::concept_builder::MAX_TTL_SECONDS_LIMIT;
+    assert!(concept.expires_at.is_some());
+    assert!(
+        concept.expires_at.unwrap() <= concept.created_at.saturating_add(limit),
+        "TTL must stay clamped to MAX_TTL_SECONDS_LIMIT"
+    );
+}

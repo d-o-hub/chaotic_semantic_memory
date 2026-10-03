@@ -1,6 +1,12 @@
 //! Core concept storage and indexing engine
 #![allow(clippy::cast_precision_loss)] // u64 timestamps → f32 for TTL decay math is intentional
 
+// `ConceptBuilder` is owned by [`crate::concept_builder`]. It is re-exported here
+// because `csm_memory::singularity::ConceptBuilder` is an established public path
+// (also reached by the root crate's `pub use csm_memory::singularity::*`). The
+// duplicate builder formerly defined in `singularity_types` has been removed, so
+// the glob below cannot shadow this explicit re-export.
+pub use crate::concept_builder::ConceptBuilder;
 pub use crate::singularity_types::*;
 
 use crate::index::{AnnIndex, IndexBackend, IndexStats};

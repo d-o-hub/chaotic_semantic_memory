@@ -72,7 +72,8 @@ impl Singularity {
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
-    use crate::singularity::{ConceptBuilder, Singularity, SingularityConfig};
+    use crate::concept_builder::ConceptBuilder;
+    use crate::singularity::{Singularity, SingularityConfig};
     use csm_core_lib::error::MemoryError;
     use std::collections::HashMap;
 

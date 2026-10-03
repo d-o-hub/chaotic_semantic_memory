@@ -1,10 +1,12 @@
 //! Type definitions for the Singularity engine.
 //!
 //! Contains core data types: `Concept`, `Association`, `DecayCurve`,
-//! `ConceptVersion`, `ConceptDiff`, `ConceptBuilder`, and `SingularityConfig`.
+//! `ConceptVersion`, `ConceptDiff`, and `SingularityConfig`.
+//!
+//! The fluent builder lives in [`crate::concept_builder`] (its single owner);
+//! this module deliberately defines no second copy of it.
 
 use crate::index::IndexBackend;
-use csm_core_lib::error::Result;
 use csm_core_lib::hyperdim::{HVec10240, Hypervector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -173,72 +175,6 @@ impl ConceptDiff {
     }
 }
 
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub struct ConceptBuilder<H: Hypervector = HVec10240> {
-    id: String,
-    vector: Option<H>,
-    metadata: HashMap<String, serde_json::Value>,
-    ttl_seconds: Option<u64>,
-    canonical_concept_ids: Vec<String>,
-}
-
-#[allow(dead_code)]
-impl<H: Hypervector> ConceptBuilder<H> {
-    pub fn new(id: impl Into<String>) -> Self {
-        Self {
-            id: id.into(),
-            vector: None,
-            metadata: HashMap::new(),
-            ttl_seconds: None,
-            canonical_concept_ids: Vec::new(),
-        }
-    }
-
-    #[allow(clippy::missing_const_for_fn)]
-    pub fn with_vector(mut self, vector: H) -> Self {
-        self.vector = Some(vector);
-        self
-    }
-
-    pub fn with_metadata(
-        mut self,
-        key: impl Into<String>,
-        value: impl Into<serde_json::Value>,
-    ) -> Self {
-        self.metadata.insert(key.into(), value.into());
-        self
-    }
-
-    /// Sets the TTL (time to live) in seconds for this concept.
-    ///
-    /// The expiry is resolved in [`Self::build`] (not here), so it runs from
-    /// build time. The value is clamped to
-    /// [`crate::concept_builder::MAX_TTL_SECONDS_LIMIT`] — the same ceiling the
-    /// [`crate::ConceptBuilder`] owner applies — so an unbounded `u64` cannot
-    /// wrap `now + ttl` into an already-expired concept. If not set, the
-    /// concept never expires.
-    pub fn with_ttl(mut self, ttl_secs: u64) -> Self {
-        let ttl = ttl_secs.min(crate::concept_builder::MAX_TTL_SECONDS_LIMIT);
-        self.ttl_seconds = Some(ttl);
-        self
-    }
-
-    pub fn build(self) -> Result<Concept<H>> {
-        let now = unix_now_secs();
-        let expires_at = self.ttl_seconds.map(|ttl| now.saturating_add(ttl));
-        Ok(Concept {
-            id: self.id,
-            vector: self.vector.unwrap_or_else(H::random),
-            metadata: self.metadata,
-            created_at: now,
-            modified_at: now,
-            expires_at,
-            canonical_concept_ids: self.canonical_concept_ids,
-        })
-    }
-}
-
 /// Get current time in Unix seconds.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn unix_now_secs() -> u64 {
@@ -252,26 +188,4 @@ pub fn unix_now_secs() -> u64 {
 #[cfg(target_arch = "wasm32")]
 pub fn unix_now_secs() -> u64 {
     (js_sys::Date::new_0().get_time() / 1000.0) as u64
-}
-
-#[cfg(test)]
-mod tests {
-    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
-    use super::*;
-
-    #[test]
-    fn test_concept_builder_ttl_clamping_and_overflow() {
-        let now = unix_now_secs();
-        let concept = ConceptBuilder::<HVec10240>::new("max-ttl-test")
-            .with_ttl(u64::MAX)
-            .build()
-            .unwrap();
-
-        assert!(concept.expires_at.is_some());
-        let expires_at = concept.expires_at.unwrap();
-        let expected_max_expires =
-            now.saturating_add(crate::concept_builder::MAX_TTL_SECONDS_LIMIT);
-        assert!(expires_at >= expected_max_expires.saturating_sub(2));
-        assert!(expires_at <= expected_max_expires.saturating_add(2));
-    }
 }

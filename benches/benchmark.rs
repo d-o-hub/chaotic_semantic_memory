@@ -9,6 +9,7 @@
     clippy::redundant_clone
 )]
 
+use chaotic_semantic_memory::ConceptBuilder;
 use chaotic_semantic_memory::HVec10240;
 use chaotic_semantic_memory::bridge_retrieval::BridgeRetrieval;
 use chaotic_semantic_memory::bundle::BundleAccumulator;
@@ -21,9 +22,7 @@ use chaotic_semantic_memory::retrieval::{GraphRagConfig, graph_rag_retrieve};
 use chaotic_semantic_memory::semantic_bridge::{
     BridgeConfig, BridgeHit, CanonicalConcept, ConceptGraph, MemoryPacket, ScoreBreakdown,
 };
-use chaotic_semantic_memory::singularity::{
-    Concept, ConceptBuilder, Singularity, SingularityConfig,
-};
+use chaotic_semantic_memory::singularity::{Concept, Singularity, SingularityConfig};
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use std::time::Duration;
 

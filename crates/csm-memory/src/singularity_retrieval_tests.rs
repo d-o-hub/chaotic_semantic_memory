@@ -97,7 +97,7 @@ fn reinserting_existing_id_does_not_evict_another_concept_at_capacity() {
 
 #[test]
 fn graph_edge_mutations_invalidate_cached_candidates() {
-    use crate::singularity::ConceptBuilder;
+    use crate::concept_builder::ConceptBuilder;
 
     let mut s = Singularity::new(SingularityConfig::default());
     s.set_retrieval_config(super::RetrievalConfig {
@@ -148,7 +148,7 @@ fn graph_edge_mutations_invalidate_cached_candidates() {
 
 #[test]
 fn score_candidate_positions_matches_owned_wrapper() {
-    use crate::singularity::ConceptBuilder;
+    use crate::concept_builder::ConceptBuilder;
 
     let mut s = Singularity::new(SingularityConfig::default());
     for i in 0..4 {
@@ -228,7 +228,7 @@ fn test_retrieval_config_validation() {
 #[test]
 fn test_generate_graph_candidates_logic() {
     use super::RetrievalConfig;
-    use crate::singularity::ConceptBuilder;
+    use crate::concept_builder::ConceptBuilder;
     let mut s = Singularity::<HVec10240>::new(SingularityConfig::default());
     let config = RetrievalConfig {
         enable_graph_candidates: true,
