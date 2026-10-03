@@ -370,6 +370,9 @@ impl HVec10240 {
 
         // Optimized path for word-aligned rotations
         if bit_shift == 0 {
+            if word_shift == 0 {
+                return *self;
+            }
             let (left, right) = self.data.split_at(word_shift);
             result[..80 - word_shift].copy_from_slice(right);
             result[80 - word_shift..].copy_from_slice(left);
