@@ -98,30 +98,63 @@ pub fn truncate_preview(s: &str, max_chars: usize) -> String {
 pub async fn create_framework(
     db_path: Option<&std::path::Path>,
 ) -> Result<ChaoticSemanticFramework> {
-    create_framework_advanced(db_path, None, false, "_default").await
+    create_framework_advanced(db_path, None, false, "_default", 0).await
+}
+
+/// Build a framework for a long-running command with a background TTL reaper.
+///
+/// `ttl_cleanup_interval_seconds == 0` leaves the reaper off (the framework
+/// default), so every ordinary one-shot command keeps using
+/// [`create_framework`]; only `csm watch` and `csm mcp serve` route through here
+/// with a value from `--ttl-cleanup-interval`.
+pub async fn create_framework_with_ttl(
+    db_path: Option<&std::path::Path>,
+    ttl_cleanup_interval_seconds: u64,
+) -> Result<ChaoticSemanticFramework> {
+    create_framework_advanced(
+        db_path,
+        None,
+        false,
+        "_default",
+        ttl_cleanup_interval_seconds,
+    )
+    .await
 }
 
 pub async fn create_framework_with_namespace(
     db_path: Option<&std::path::Path>,
     ns: &str,
 ) -> Result<ChaoticSemanticFramework> {
-    create_framework_advanced(db_path, None, false, ns).await
+    create_framework_advanced(db_path, None, false, ns, 0).await
 }
 
 pub async fn create_framework_with_provider(
     db_path: Option<&std::path::Path>,
     provider_name: Option<&str>,
 ) -> Result<ChaoticSemanticFramework> {
-    create_framework_advanced(db_path, provider_name, false, "_default").await
+    create_framework_advanced(db_path, provider_name, false, "_default", 0).await
 }
 
+/// Build a framework through the single CLI funnel.
+///
+/// `ttl_cleanup_interval_seconds` is the one place the background TTL reaper can
+/// be raised from its default `0` (disabled) for a long-running process; it is
+/// fed to the existing `with_ttl_config` builder method and gates
+/// `framework_cleanup::spawn_cleanup_task` (ADR-0099).
 pub async fn create_framework_advanced(
     db_path: Option<&std::path::Path>,
     provider_name: Option<&str>,
     code_aware: bool,
     ns: &str,
+    ttl_cleanup_interval_seconds: u64,
 ) -> Result<ChaoticSemanticFramework> {
     let mut builder = ChaoticSemanticFramework::builder();
+    // `TtlConfig::default()` is what the builder would use anyway, so writing
+    // the interval here is a no-op for every command that passes 0.
+    builder = builder.with_ttl_config(crate::framework_ttl_advanced::TtlConfig {
+        cleanup_interval_seconds: ttl_cleanup_interval_seconds,
+        ..Default::default()
+    });
     if let Some(path) = db_path {
         builder = builder.with_local_db(path.to_string_lossy());
     } else {
@@ -206,13 +239,13 @@ mod tests {
 
         // 1. Test HDC with code_aware = true
         let db_path1 = tmp.path().join("test1.db");
-        let fw_true = create_framework_advanced(Some(&db_path1), Some("hdc-text"), true, "ns")
+        let fw_true = create_framework_advanced(Some(&db_path1), Some("hdc-text"), true, "ns", 0)
             .await
             .expect("should create framework");
 
         // 2. Test HDC with code_aware = false
         let db_path2 = tmp.path().join("test2.db");
-        let fw_false = create_framework_advanced(Some(&db_path2), Some("hdc-text"), false, "ns")
+        let fw_false = create_framework_advanced(Some(&db_path2), Some("hdc-text"), false, "ns", 0)
             .await
             .expect("should create framework");
 
@@ -252,11 +285,11 @@ mod tests {
 
         // code_aware=true sets ngram_size=3, code_aware=false uses default (no ngrams)
         let db_path1 = tmp.path().join("ngram1.db");
-        let fw1 = create_framework_advanced(Some(&db_path1), Some("hdc-text"), false, "ns")
+        let fw1 = create_framework_advanced(Some(&db_path1), Some("hdc-text"), false, "ns", 0)
             .await
             .unwrap();
         let db_path2 = tmp.path().join("ngram2.db");
-        let fw2 = create_framework_advanced(Some(&db_path2), Some("hdc-text"), true, "ns")
+        let fw2 = create_framework_advanced(Some(&db_path2), Some("hdc-text"), true, "ns", 0)
             .await
             .unwrap();
 
@@ -266,5 +299,102 @@ mod tests {
             v1, v2,
             "Different ngram_size must produce different encodings"
         );
+    }
+
+    /// Rows physically present in the concept store, expired or not.
+    ///
+    /// `Singularity::len` counts raw rows, so unlike a probe (which filters
+    /// expired concepts at read time) it can only drop when something actually
+    /// deleted them — which is what distinguishes the reaper from filtering.
+    async fn stored_rows(fw: &ChaoticSemanticFramework) -> usize {
+        fw.singularity().read().await.len("_default")
+    }
+
+    /// Inject one concept that is already on the way to expiring.
+    async fn inject_expiring_concept(fw: &ChaoticSemanticFramework, id: &str) {
+        fw.inject_concept_with_ttl(id, csm_core_lib::hyperdim::HVec10240::random(), 1)
+            .await
+            .unwrap();
+        assert_eq!(stored_rows(fw).await, 1, "{id} must be stored first");
+    }
+
+    /// The wiring is not a no-op: a nonzero interval through the CLI funnel must
+    /// start the reaper, and the reaper must delete the expired row by itself.
+    ///
+    /// Same 1s interval / 1s TTL / 2.6s wait budget as the ADR-0099 task test in
+    /// `tests/test_advanced_ttl.rs`, and the tick at t=2s is the one that reaps.
+    #[tokio::test]
+    async fn create_framework_with_ttl_starts_a_reaper_that_deletes_rows() {
+        let fw = create_framework_with_ttl(None, 1).await.expect("framework");
+        assert!(
+            fw.cleanup.is_some(),
+            "a nonzero interval through the CLI funnel must spawn the cleanup task"
+        );
+
+        inject_expiring_concept(&fw, "reaped-by-task").await;
+
+        tokio::time::sleep(std::time::Duration::from_millis(2600)).await;
+        assert_eq!(
+            stored_rows(&fw).await,
+            0,
+            "the background task must have deleted the expired row with no purge call"
+        );
+
+        fw.shutdown().await.unwrap();
+    }
+
+    /// `0` keeps the reaper off: the row stays in the store even after it has
+    /// expired, which is exactly the pre-flag behaviour of every one-shot command.
+    #[tokio::test]
+    async fn create_framework_with_ttl_zero_leaves_the_reaper_off() {
+        let fw = create_framework_with_ttl(None, 0).await.expect("framework");
+        assert!(
+            fw.cleanup.is_none(),
+            "interval 0 must not spawn a cleanup task"
+        );
+
+        inject_expiring_concept(&fw, "unreaped-expired").await;
+
+        tokio::time::sleep(std::time::Duration::from_millis(2600)).await;
+        assert_eq!(
+            stored_rows(&fw).await,
+            1,
+            "nothing may delete rows while the reaper is disabled"
+        );
+        // The concept is expired yet still a stored row: probe-time filtering
+        // cannot account for its disappearance in the test above.
+        assert!(
+            fw.singularity()
+                .read()
+                .await
+                .is_expired("_default", "unreaped-expired"),
+            "the row should be expired by now, so only the reaper could remove it"
+        );
+        fw.shutdown().await.unwrap();
+    }
+
+    /// The three wrapper entry points used by ordinary commands stay disabled.
+    #[tokio::test]
+    async fn ordinary_framework_wrappers_never_start_the_reaper() {
+        for (name, fw) in [
+            ("create_framework", create_framework(None).await.unwrap()),
+            (
+                "create_framework_with_namespace",
+                create_framework_with_namespace(None, "_default")
+                    .await
+                    .unwrap(),
+            ),
+            (
+                "create_framework_with_provider",
+                create_framework_with_provider(None, Some("hdc-text"))
+                    .await
+                    .unwrap(),
+            ),
+        ] {
+            assert!(
+                fw.cleanup.is_none(),
+                "{name} must build with the reaper off (interval 0)"
+            );
+        }
     }
 }

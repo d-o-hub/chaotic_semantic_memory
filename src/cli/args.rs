@@ -4,7 +4,8 @@ use std::path::PathBuf;
 // The tail subcommand argument structs live in `args_commands.rs` (500-LOC gate);
 // re-exported here so every `crate::cli::args::<Name>Args` path keeps resolving.
 pub use crate::cli::args_commands::{
-    DiffArgs, HistoryArgs, MetricsArgs, ProbeGraphArgs, RollbackArgs, StatsArgs, WatchArgs,
+    DiffArgs, HistoryArgs, MetricsArgs, ProbeGraphArgs, RollbackArgs, StatsArgs, TtlCleanupArgs,
+    WatchArgs,
 };
 #[derive(Parser, Debug)]
 #[command(name = "csm")]

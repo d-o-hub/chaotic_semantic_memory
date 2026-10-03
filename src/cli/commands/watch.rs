@@ -8,7 +8,7 @@ use tracing::instrument;
 use crate::cli::error::{CliError, Result};
 use crate::framework_events::MemoryEvent;
 
-use super::create_framework;
+use super::create_framework_with_ttl;
 
 /// Filter for event types.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,9 +59,18 @@ impl EventFilter {
 }
 
 /// Run the watch command.
+///
+/// `ttl_cleanup_interval_seconds` comes from `--ttl-cleanup-interval` and is the
+/// only way this long-running process gets a background TTL reaper; `0` (the
+/// default) leaves the reaper off, exactly as before the flag existed.
 #[instrument(name = "cli_watch")]
-pub async fn run_watch(db_path: Option<&Path>, filter: EventFilter) -> Result<()> {
-    let framework: crate::framework::ChaoticSemanticFramework = create_framework(db_path).await?;
+pub async fn run_watch(
+    db_path: Option<&Path>,
+    filter: EventFilter,
+    ttl_cleanup_interval_seconds: u64,
+) -> Result<()> {
+    let framework: crate::framework::ChaoticSemanticFramework =
+        create_framework_with_ttl(db_path, ttl_cleanup_interval_seconds).await?;
     let mut receiver = framework.subscribe();
 
     // Use buffered stdout for efficient line-by-line output

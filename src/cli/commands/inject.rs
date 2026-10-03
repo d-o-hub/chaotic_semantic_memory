@@ -18,7 +18,7 @@ pub async fn run_inject(
     validate_concept_id(&args.concept_id)?;
 
     let framework =
-        create_framework_advanced(db_path, args.provider.as_deref(), false, &args.namespace)
+        create_framework_advanced(db_path, args.provider.as_deref(), false, &args.namespace, 0)
             .await?;
 
     let source = if args.text.is_some() || args.use_embeddings {
