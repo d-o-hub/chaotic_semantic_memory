@@ -207,6 +207,7 @@ mod native {
                         },
                         bind: args.bind.clone(),
                         database: db_path,
+                        ttl_cleanup_interval: args.ttl_cleanup.ttl_cleanup_interval,
                     };
                     chaotic_semantic_memory::mcp::serve(config)
                         .await

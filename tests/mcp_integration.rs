@@ -93,6 +93,9 @@ fn mcp_config_default_uses_stdio_transport() {
     assert!(matches!(config.transport, Transport::Stdio));
     assert!(config.bind.is_none());
     assert!(config.database.is_none());
+    // The reaper stays off by default: a default `McpConfig` must never make a
+    // long-running server delete expired concepts.
+    assert_eq!(config.ttl_cleanup_interval, 0);
 }
 
 #[test]
@@ -101,6 +104,7 @@ fn mcp_config_with_database() {
         transport: Transport::Stdio,
         bind: None,
         database: Some(PathBuf::from("test.db")),
+        ttl_cleanup_interval: 0,
     };
     assert_eq!(
         config.database.as_deref(),

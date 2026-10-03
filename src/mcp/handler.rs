@@ -20,6 +20,11 @@ use crate::framework::ChaoticSemanticFramework;
 pub struct McpHandler {
     pub(crate) database: Option<PathBuf>,
     pub(crate) framework: OnceCell<ChaoticSemanticFramework>,
+    /// Background TTL cleanup interval for the lazily built framework, in
+    /// seconds; `0` (what `new` uses) leaves the reaper off. Owned by the
+    /// handler rather than passed to `new` because `new` has call sites that
+    /// must not change — `serve` raises it via `with_ttl_cleanup_interval`.
+    pub(crate) ttl_cleanup_interval: u64,
 }
 
 impl McpHandler {
@@ -36,7 +41,18 @@ impl McpHandler {
         Self {
             database,
             framework: OnceCell::const_new(),
+            ttl_cleanup_interval: 0,
         }
+    }
+
+    /// Set the background TTL cleanup interval (seconds) for the framework this
+    /// handler builds, overriding the `0` (reaper off) default from [`new`].
+    ///
+    /// [`new`]: Self::new
+    #[must_use]
+    pub const fn with_ttl_cleanup_interval(mut self, seconds: u64) -> Self {
+        self.ttl_cleanup_interval = seconds;
+        self
     }
 
     /// Get or initialize the framework instance.
@@ -44,7 +60,12 @@ impl McpHandler {
         self.framework
             .get_or_try_init(|| async {
                 info!("Initializing ChaoticSemanticFramework for MCP");
-                match crate::cli::commands::create_framework(self.database.as_deref()).await {
+                match crate::cli::commands::create_framework_with_ttl(
+                    self.database.as_deref(),
+                    self.ttl_cleanup_interval,
+                )
+                .await
+                {
                     Ok(fw) => Ok(fw),
                     Err(e) => {
                         error!("Failed to initialize framework: {e}");
