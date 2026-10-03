@@ -24,16 +24,23 @@ world_state:
   binary_built: true
   documentation_complete: true
   validated: false               # 2026-09-30: wave-32/33 exits re-verified vs GOAP_AUDIT_2026_07_14.md; residuals queued — TTL shutdown, absence invalidation, failure-path/query-count tests, gate+catalog consolidation, scheduled/release evidence tiers
-  ci_all_checks_passed: true     # 2026-10-03: main push run 37126532544 (4064af9, #816) green incl. CodeQL 37126532599;
-                               #   the same push's GitHub Pages run 37126532546 failed on pre-existing rustdoc warnings,
-                               #   now gated in validate.sh (#817). #817's own first head (c47d676) went red on
-                               #   mutation-test at score 25% (3 missed of 9) -- root cause was the profile's feature
-                               #   set, not weak tests; see mutation_profile_compiles_feature_gated_mcp.
+  ci_all_checks_passed: true     # 2026-10-03: #817 merged as 1389c9e with CI 37139534832 green on the
+                               #   landing head (27 jobs: 25 success, 2 skipped, 0 failure) incl. the
+                               #   mutation-test job that had gone red at 25% on its first head c47d676
+                               #   (root cause: the profile's feature set, not weak tests -- see
+                               #   mutation_profile_compiles_feature_gated_mcp). GitHub Pages run
+                               #   37141216190 on that push SUCCEEDED -- the first green docs deploy
+                               #   since 8bb4521 (2026-09-09) after four consecutive failures
+                               #   (34751139063, 35274354770, 35614812503, 37126532546) that all kept
+                               #   their required checks green; verified end-to-end, the live
+                               #   ttl.html serves the new --ttl-cleanup-interval text.
+                               #   Prior main push 37126532544 (4064af9, #816) was green incl. CodeQL
+                               #   37126532599 while its Pages run failed on rustdoc warnings, now gated.
   loc_gate_verified: true        # all first-party src/ and crates/ files ≤ 500 LOC
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "4064af9"           # 2026-10-03: #816 collapse_duplicate_concept_builder (latest main at record time; #817 rides it)
+  main_head: "1389c9e"           # 2026-10-03: #817 enable_ttl_cleanup_in_long_running_commands (squash-merged 17:37:50Z)
   tests_count: 1037              # 2026-09-30: unique compiled behavior (scripts/coverage-report.sh inventory)
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
   coverage_lines_percent: 74     # 2026-09-18: cargo +nightly llvm-cov --workspace --lib --tests --branch
