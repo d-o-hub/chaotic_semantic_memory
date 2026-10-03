@@ -520,3 +520,30 @@ actions:
       every `Commands` variant, and add an arch_fitness/CI guard that the test
       count of `cli_parity` cannot silently drop back to a dead body (a missing
       attribute is invisible to clippy and to `--all-targets` compilation).
+
+  - name: mutation_baseline_the_feature_gated_mcp_module
+    preconditions: []
+    effects:
+      mcp_module_mutation_baselined: true
+    notes: >
+      #817 added `--features chaotic_semantic_memory/mcp` to the fast mutation
+      profile, but `--in-diff` only generates mutants for lines a PR touches, so
+      what that fixes going forward is not what it fixes now: `src/mcp/**` was
+      invisible to *every* mutation run before it (the module is
+      `#[cfg(feature = "mcp")]` and `mcp` is not a default feature), so the
+      module has no mutation baseline at all. Required: run cargo-mutants over
+      `src/mcp/**` with the mcp feature on (full profile, or `--file`-scoped fast
+      runs per module), then triage each survivor into a real test or a documented
+      `--exclude-re` entry with its mechanism. Constraints to respect: the PR job
+      is `timeout-minutes: 45` with the full-tree fallback disabled in CI, so this
+      is a local/nightly run; and the profile's `--build-timeout` is sized for
+      incremental per-mutant rebuilds, not for a cold baseline that links
+      rmcp/axum/tower (see LEARNINGS 2026-10-03). Concrete first target found
+      while writing #817's exclusions: the ADR-0099 hop inside `serve`
+      (src/mcp/server.rs:99 -> McpHandler::shutdown, src/mcp/handler.rs:90) is
+      asserted nowhere. tests/mcp_sse_integration.rs:17 does call `serve` over a
+      real transport but aborts the task at :112, so `serve` never returns and its
+      post-transport shutdown line never executes; src/mcp/tools_tests.rs:231
+      covers the *callee*. Do the caller as an effect test (close the transport,
+      let `serve` return, observe the cleanup task is gone), then baseline the
+      module — a mutant of that line currently has nothing that could kill it.

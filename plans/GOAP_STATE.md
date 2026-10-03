@@ -24,7 +24,11 @@ world_state:
   binary_built: true
   documentation_complete: true
   validated: false               # 2026-09-30: wave-32/33 exits re-verified vs GOAP_AUDIT_2026_07_14.md; residuals queued — TTL shutdown, absence invalidation, failure-path/query-count tests, gate+catalog consolidation, scheduled/release evidence tiers
-  ci_all_checks_passed: true     # 2026-10-03: main push run 37126532544 (4064af9, #816) green incl. CodeQL 37126532599; the same push's GitHub Pages run 37126532546 failed on pre-existing rustdoc warnings — now gated in validate.sh (#817)
+  ci_all_checks_passed: true     # 2026-10-03: main push run 37126532544 (4064af9, #816) green incl. CodeQL 37126532599;
+                               #   the same push's GitHub Pages run 37126532546 failed on pre-existing rustdoc warnings,
+                               #   now gated in validate.sh (#817). #817's own first head (c47d676) went red on
+                               #   mutation-test at score 25% (3 missed of 9) -- root cause was the profile's feature
+                               #   set, not weak tests; see mutation_profile_compiles_feature_gated_mcp.
   loc_gate_verified: true        # all first-party src/ and crates/ files ≤ 500 LOC
 
   # ── Canonical metrics (update in place with date comment) ────
@@ -52,7 +56,10 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 9        # 2026-10-03: #817 completed enable_ttl_cleanup_in_long_running_commands (9 → 8) and its review queued revive_dead_cli_parity_help_test (8 → 9). Counted with `grep -c '^  - name:' plans/ACTIONS.md`, not asserted.
+  queued_actions_count: 10       # 2026-10-03: #817 completed enable_ttl_cleanup_in_long_running_commands
+                               #   (9 -> 8), its review queued revive_dead_cli_parity_help_test (8 -> 9), and the
+                               #   mutation-test red on this PR's head queued mutation_baseline_the_feature_gated_mcp_module
+                               #   (9 -> 10). Counted with `grep -c '^  - name:' plans/ACTIONS.md`, not asserted.
 
   # ── Open work (flags currently false — the real backlog) ──────
   no_missing_implementations: true            # 2026-08-12: no TODO in src/ crates/
@@ -98,9 +105,24 @@ world_state:
   ttl_cleanup_has_bounded_shutdown: true          # 2026-10-01: ADR-0099 — shared CleanupTask, cooperative watch cancel (no abort), bounded await in shutdown(); loop also stops on last-handle drop. 20 TTL + 2 unit tests; mutation-test green. 2026-10-03 (#813, f999998): `shutdown()` now actually runs on the `csm watch` SIGINT path and after the `mcp::serve` transport ends; that call-site wiring rests on review + a manual SIGINT smoke — the `run_watch -> Ok(())` entry-point mutant is excluded in `scripts/mutation_test.sh`. 2026-10-03 (#817): both paths can now actually hold a reaper — see `servers_reap_expired_concepts`
   absence_records_invalidated_on_insert: true     # 2026-10-01: absence rows carry namespace + revision, so any durable mutation (revision bump, ADR-0093) makes them stale; successful probes delete the record. Migration v12; regression + 100% mutation score
   ttl_clamped_on_the_live_builder: true              # 2026-10-02 (#806, 8f9dc3d): the generic builder production actually binds (singularity_types.rs) now clamps to MAX_TTL_SECONDS_LIMIT; superseded by concept_builder_owner_unique below (one clamp site now)
-  concept_builder_owner_unique: true                 # 2026-10-03: the `singularity_types::ConceptBuilder` copy is deleted, `csm_memory::singularity::ConceptBuilder` is a `pub use` of the `concept_builder` owner, so one struct and one `MAX_TTL_SECONDS_LIMIT` clamp serve every path. Guarded by two `tests/arch_fitness.rs` checks (single struct definition; five public spellings unify on the owner type). Not breaking — no `Clone` call sites existed; `with_metadata` now takes `impl Serialize` with ADR-0012 error capture everywhere.
+  concept_builder_owner_unique: true                 # 2026-10-03: the `singularity_types::ConceptBuilder` copy is deleted, `csm_memory::singularity::ConceptBuilder` is a `pub use` of the `concept_builder` owner, so one struct and one `MAX_TTL_SECONDS_LIMIT` clamp serve every path. Guarded by two `tests/arch_fitness.rs` checks (single struct definition; five public spellings unify on the owner type). **Breaking (csm-memory)** — corrected by #816's own self-roast: the deleted copy derived `Clone` and the owner does not, so the impl removal is semver-visible to external callers even though zero in-repo call sites existed; `with_metadata` now takes `impl Serialize` with ADR-0012 error capture everywhere.
   servers_reap_expired_concepts: true                # 2026-10-03 (#817): `--ttl-cleanup-interval <SECONDS>` on `csm watch` and `csm mcp serve` (shared `TtlCleanupArgs`, default 0 = reaper off, so no silent deletion). Threading: `create_framework_advanced` gained `ttl_cleanup_interval_seconds` and `create_framework_with_ttl` wraps it; `McpConfig::ttl_cleanup_interval` → `McpHandler::with_ttl_cleanup_interval` → the same funnel. Proven by raw-row counts, not config echoes: the enabled test drives `Singularity::len("_default")` 1 → 0 with no purge call, the disabled tests assert `cleanup.is_none()` and a row that `is_expired()` is still stored. Four public shapes changed (documented as Breaking in the changelog); one-shot commands are untouched.
   rustdoc_warnings_gated: true                       # 2026-10-03 (#817): `scripts/validate.sh` now runs `RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features`, the same invocation `GitHub Pages` runs under `CARGO_BUILD_WARNINGS=deny`. Six `unresolved link to ':model'` warnings from one `src/cli/args.rs` doc line had failed four main pushes (34751139063, 35274354770, 35614812503, 37126532546) with every required check green, so the site had not deployed since 2026-09-09; the doc text is reworded to drop the brackets (`csm query --help` unchanged in shape, llms never carried it) and the gate now fails the PR that would break the deploy.
+  mutation_profile_compiles_feature_gated_mcp: true  # 2026-10-03 (#817): the fast mutation profile
+                               #   now passes `--features chaotic_semantic_memory/mcp`, and ci.yml pre-warms that build.
+                               #   `mcp` is not a default feature and both `chaotic_semantic_memory::mcp` (src/lib.rs:57)
+                               #   and `crate::cli::mcp` (src/cli/mod.rs:6) are cfg-gated on it, so head c47d676 scored 25%
+                               #   (run 37131481411: total=9 caught=1 missed=3 unviable=5) with `src/cli/mcp.rs:42` MISSED
+                               #   twice — mutants of lines the job never compiled. With the feature both flip MISSED ->
+                               #   CAUGHT. Build cost measured: CI per-mutant builds 52-54s without the feature, 146-183s
+                               #   for a base build that must link rmcp/axum/tower (mutants 145-208s) — over the old 150s
+                               #   bound, hence the 0% TIMEOUT local run; bound is now 420s and one-file rebuilds after
+                               #   pre-warming measure 39s. `src/cli/commands/inject.rs:18` (run_inject) and `serve` are
+                               #   excluded as --lib-unreachable entry points, same class as run_query/run_watch. Residual
+                               #   recorded rather than glossed: `src/mcp/**` is still path-excluded so the module has no
+                               #   baseline, and the ADR-0099 caller hop (src/mcp/server.rs:99 -> McpHandler::shutdown) has
+                               #   no test at all — tests/mcp_sse_integration.rs:17 aborts the task instead of closing the
+                               #   transport, so serve never returns; only the callee is covered (src/mcp/tools_tests.rs:231).
   skill_validation_fail_closed: true              # wired into validate.sh + CI + pre-commit
   llms_dependency_versions_current: true          # 2026-09-27: llms.txt/llms-full.txt regenerated (otel 0.32, rmcp 3.4); scripts/check-llms-sync.sh drift gate runs in validate.sh (CI lint job)
   retrieval_string_clones_removed: true           # 2026-09-27: #781 borrowed expansion ids/labels + positions scoring; 2209 -> 151 allocs per query (top_k=10)

@@ -484,6 +484,18 @@ jobs:
           target/
         key: ${{ runner.os }}-cargo-mutation-${{ hashFiles('**/Cargo.lock') }}
 
+    - name: Warm the mcp feature build the mutation profile compiles
+      # scripts/mutation_test.sh now passes --features chaotic_semantic_memory/mcp,
+      # because src/cli/mcp.rs and src/mcp/** are #[cfg(feature = "mcp")] and `mcp`
+      # is not a default feature — without it, mutations in that code were reported
+      # MISSED for lines the job never compiled. This job's target/ cache is keyed
+      # on Cargo.lock and had never linked rmcp/axum/tower, so the first mutant run
+      # would pay that link inside a per-build timeout. Building the test binaries
+      # once here makes the mutation baseline incremental; the tight per-mutant
+      # bound then measures rebuilds of one crate, as it is meant to.
+      run: nix develop --command scripts/run-with-libs.sh cargo test --lib --no-run -p chaotic_semantic_memory -p csm-retrieval --features chaotic_semantic_memory/mcp
+      timeout-minutes: 25
+
     - name: Run mutation tests
       run: nix develop --command scripts/run-with-libs.sh bash scripts/mutation_test.sh --ci fast
       env:
