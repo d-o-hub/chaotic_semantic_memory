@@ -28,7 +28,10 @@ world_state:
                                #   landing head (27 jobs: 25 success, 2 skipped, 0 failure) incl. the
                                #   mutation-test job that had gone red at 25% on its first head c47d676
                                #   (root cause: the profile's feature set, not weak tests -- see
-                               #   mutation_profile_compiles_feature_gated_mcp). GitHub Pages run
+                               #   mutation_profile_compiles_feature_gated_mcp). The push that landed
+                               #   it is green as well: CI 37141216196 (26 success, 1 skipped, 0
+                               #   failure) and CodeQL 37141215898, read per workflowName from
+                               #   `gh run list`. GitHub Pages run
                                #   37141216190 on that push SUCCEEDED -- the first green docs deploy
                                #   since 8bb4521 (2026-09-09) after four consecutive failures
                                #   (34751139063, 35274354770, 35614812503, 37126532546) that all kept
