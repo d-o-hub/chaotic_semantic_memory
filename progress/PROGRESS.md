@@ -1,5 +1,27 @@
 # PROGRESS
 
+## 2026-10-03: ADR-0099 shutdown wired into the server paths (#813), triage docs landed (#812), #814 closed no-op
+
+GOAP round under `goap-orchestrator` with swarm dispatch: a reconciliation pass on the diverged PR head, a diagnosis agent that root-caused a red gate in a scratch worktree with a minimal-diff proof, and an Explore agent that line-audited the two actions a docs PR queues.
+
+### `wire_graceful_shutdown_into_servers` — completed (PR #813, merged `f999998`)
+
+`ChaoticSemanticFramework::shutdown()` (ADR-0099) now runs on both long-running exit paths: `csm watch` installs a Ctrl+C handler and stops the shared TTL cleanup task before flushing, and `mcp::serve` shuts the handler's framework down after the transport ends. MCP SSE sessions share one framework behind an `Arc` — the previous `Clone` for `McpHandler` reset the `OnceCell`, so every session built its own framework *and* its own cleanup task, none of which was ever awaited. `McpHandler::clone` removal is recorded as a **Breaking (`mcp`)** changelog entry, not buried in the lifecycle fix.
+
+Two reds on the branch, both real, both root-caused rather than worked around:
+
+- `mutation-test` — the `run_watch -> Ok(())` entry-point mutant survived because the exclusion commit existed only locally. The exclusion is diff-scoped cargo-mutants config, and the mechanism is stated with its residual kept honest: the framework owns the event sender, so the channel-close exit is unreachable while `run_watch` holds it, and SIGINT is unreachable under `--lib`. What the exclusion does **not** buy: the call-site wiring is covered by review plus a manual SIGINT smoke, not by a gate.
+- `lint` — reported as a "LOC gate" failure, and it was not LOC. `scripts/validate.sh` runs `cargo check --target wasm32-unknown-unknown --features wasm`, which died with 48 `mio` errors after `tokio/signal` was moved onto the target-independent `cli` feature: the default feature set enables `cli` for the wasm32 check too, and `mio/net` cannot build there. The three-line comment the refactor deleted had predicted exactly this. Reverted (`signal` stays in the non-wasm target table), verified by running that single wasm32 check; the `wasm` CI job had stayed green throughout because it builds `-p csm-wasm` with `default-features = false`.
+- Second `lint` red on the fixed head: `validate.sh`'s **llms drift gate** — committed `llms.txt`/`llms-full.txt` still advertised `impl Clone for McpHandler` and predated the Cargo.toml revert. Regenerated with `scripts/gen-llms-txt.sh` on the same branch.
+
+### #812 triage docs merged `9ce0193`; #814 closed as no-impact
+
+#812 (2026-10-02 evening triage record) was roasted, its two queued actions' file:line references audited and corrected pre-merge (`25a5948`), then merged. It sat `BLOCKED` after every check went green for two reasons worth keeping: the "green CI" I first read was the **Tooling Guard** workflow on that SHA, not `CI`, and once `CI` went green the remaining blocker was that the PR was a **draft** on an unprotected trunk.
+
+#814 (Jules) re-filed the exact 3-line `HVec10240::permute` zero-shift fast path that #800 carried — a PR this repo roasted on 2026-10-01, **measured**, and closed as no-impact on 2026-10-02 (direct call 81.7 → 57.3 ns; caller path `text_encoder/encode_short` 2 684 → 2 734 ns, 3/6 rounds each way = noise). #814 dropped the bench and the modulo-identity assertions its predecessor shipped, added no `## Performance Evidence` (so `commitlint` was red on the repo's own perf gate), and repeated the "O(W) → O(1)" mechanism that a by-value `-> Self` return refutes. Closed with the recorded numbers cited; `grep -rn '<symbol>' plans/PR_ROAST_*.md` is now part of Step 3 in `pr-roast-triage`.
+
+Records: `plans/PR_ROAST_2026_10_03.md`; queue 10 → 9 (derived by counting `- name:` blocks, not asserted); `ttl_cleanup_has_bounded_shutdown` now states what is gated and what is not.
+
 ## 2026-10-02 (feedback round): open-PR blockers addressed
 
 With the trunk green after the WASM freshness repair, the two feedback-bearing PRs in the open queue were roasted and their blockers fixed (the other two open PRs — #806, #807 — carry no feedback and stay for the next triage pass).

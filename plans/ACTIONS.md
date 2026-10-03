@@ -12,6 +12,18 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-10-03):
+> `wire_graceful_shutdown_into_servers` (#813, `f999998`) — ADR-0099's bounded
+> `shutdown()` now runs on both long-running exit paths: `csm watch` handles
+> Ctrl+C (previously the default SIGINT disposition killed it without flushing
+> the buffered writer) and `mcp::serve` shuts the handler's framework down
+> after the transport ends, so each stops the shared TTL cleanup task
+> deterministically rather than through `Drop`. MCP SSE sessions now share one
+> framework behind an `Arc`; `McpHandler::clone` is removed because cloning
+> reset the `OnceCell`, giving every session its own framework *and* its own
+> cleanup task that nobody awaited. Snapshot before this:
+> `trigger_wasm_job_on_root_src_changes` (#809, `77a47d4`).
+>
 > Last completed (verified 2026-09-17):
 > `clear_dependabot_queue_2026_09_17` (no ADR; supply-chain hygiene) — merged
 > the WASM bincode fix (#725) plus the whole Dependabot backlog: consolidated
@@ -437,19 +449,6 @@ actions:
       ADRs under `plans/.archive/` (`grep -c 'plans/.archive/00'` = 0).
       Required: list the archived ADRs and add a checker so
       `plan_archive_manifest_valid` rests on a gate.
-
-  - name: wire_graceful_shutdown_into_servers
-    preconditions: []
-    effects:
-      servers_stop_ttl_cleanup_explicitly: true
-    notes: >
-      ADR-0099 added `ChaoticSemanticFramework::shutdown()` (bounded await),
-      but no caller uses it: `src/mcp/server.rs` and
-      `src/cli/commands/watch.rs` rely on dropping the framework, which now
-      stops the cleanup task cooperatively at its next check. Required: call
-      `shutdown().await` on those exit paths so a long-running process stops
-      the task deterministically and can surface a stuck task; cover the
-      server path with a test.
 
   - name: collapse_duplicate_concept_builder
     preconditions: []
