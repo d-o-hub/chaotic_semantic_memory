@@ -214,14 +214,8 @@ fi
 echo "✅ Success (missing input named)"
 
 echo "Test 9: the offender set is stable across runs (deterministic gate)"
-first="$(cd "${TEST_DIR}" \
-    && bash "${TEST_DIR}/scripts/check-test-attributes.sh" \
-        tests/registered.rs tests/pub_top_level_dead.rs 2>&1 \
-    | grep -c 'missing test attribute' || true)"
-second="$(cd "${TEST_DIR}" \
-    && bash "${TEST_DIR}/scripts/check-test-attributes.sh" \
-        tests/registered.rs tests/pub_top_level_dead.rs 2>&1 \
-    | grep -c 'missing test attribute' || true)"
+first="$(count_offenders tests/registered.rs tests/pub_top_level_dead.rs)"
+second="$(count_offenders tests/registered.rs tests/pub_top_level_dead.rs)"
 if [[ "${first}" == "1" && "${first}" == "${second}" ]]; then
     echo "✅ Success (1 offender, identical on both runs)"
 else
