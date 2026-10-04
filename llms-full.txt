@@ -321,11 +321,17 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub mod error
 - pub mod git_local
 - pub mod mcp
+- pub mod shutdown
 - pub use args::*
 - pub use commands::{run_associate, run_associations, run_completions, run_delete, run_diff, run_disassociate, run_export, run_get, run_history, run_import, run_index_dir, run_index_jsonl, run_inject, run_metrics, run_path, run_probe, run_probe_filtered, run_probe_graph, run_query, run_rollback, run_stats, run_traverse, run_update, run_watch}
 - pub use error::{CliError, ExitCode, Result}
 - pub use git_local::{ensure_git_local_dir, resolve_git_local_path}
 - pub use mcp::*
+- pub use shutdown::shutdown_signal
+
+### src/cli/shutdown.rs
+
+- pub fn shutdown_signal
 
 ### src/concept_builder.rs
 
@@ -2473,6 +2479,27 @@ pub use git_local::{ensure_git_local_dir, resolve_git_local_path};
 pub use mcp::*;
 ```
 
+### shutdown::shutdown_signal
+
+```rust
+pub use shutdown::shutdown_signal;
+```
+
+## src/cli/shutdown.rs
+
+### shutdown_signal
+
+```rust
+pub fn shutdown_signal()
+```
+
+Wait for a graceful shutdown signal (SIGINT / Ctrl+C or SIGTERM).
+
+Returns when either signal is received by the process. If signal handler
+registration fails, the error is logged and that handler arm parks forever,
+allowing the default OS signal disposition or remaining signal handlers
+to take effect.
+
 ## src/concept_builder.rs
 
 ### csm_memory::concept_builder::*
@@ -3567,7 +3594,7 @@ pub fn serve(config: McpConfig) -> Result<()>
 
 Start the MCP server.
 
-The exit signal is the operator's Ctrl+C — see [`serve_with_shutdown`] for a
+The exit signal is SIGINT (Ctrl+C) or SIGTERM — see [`serve_with_shutdown`] for a
 variant that is driven by the caller's own lifecycle.
 
 #### Errors
@@ -3584,7 +3611,7 @@ where
 
 Start the MCP server with an explicit shutdown signal for the SSE transport.
 
-[`serve`] is exactly `serve_with_shutdown(config, ctrl_c_shutdown())`, so the
+[`serve`] is exactly `serve_with_shutdown(config, shutdown_signal())`, so the
 production path and this entry share one mechanism — the signal is not a
 test-only seam. It exists for embedders that run the server inside a larger
 lifecycle (a supervisor, a co-located HTTP app, a service manager) and cannot

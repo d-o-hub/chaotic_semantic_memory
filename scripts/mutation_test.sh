@@ -261,6 +261,8 @@ EXCLUDE_ARGS=(
   # review and a manual SIGINT smoke, not by a gate; the McpHandler and
   # framework_cleanup tests cover shutdown() itself, not its callers.
   --exclude-re "run_watch"
+  --exclude-re "replace shutdown_signal"
+  --exclude "src/cli/shutdown.rs"
   # run_inject is the same class: a CLI command body reached only from the
   # binary's match arm (src/bin/csm.rs:141), so under --lib nothing calls it and
   # "replace run_inject -> Result<()> with Ok(())" cannot be killed. This mutant
