@@ -13,6 +13,21 @@ WASM_TARGET="wasm32-unknown-unknown"
 echo "==> cargo fmt --all -- --check"
 cargo fmt --all -- --check
 
+# Test-attribute gate: a test body without `#[test]` compiles, lints clean and
+# simply never runs (no dead_code warning in a --test build), so no Rust sensor
+# can catch it. Textual scan instead — cheapest stage here, so it runs first.
+# The negative fixture is invoked too: a gate whose failure mode is untested can
+# rot into a pass-for-the-wrong-reason check (see progress/LEARNINGS.md 2026-09-30).
+if [[ -x "${SCRIPT_DIR}/check-test-attributes.sh" ]]; then
+  echo "==> Test-attribute gate (unregistered test bodies in tests/)"
+  "${SCRIPT_DIR}/check-test-attributes.sh"
+  echo "==> Test-attribute gate fixture"
+  "${SCRIPT_DIR}/test-check-test-attributes.sh"
+else
+  echo "Error: scripts/check-test-attributes.sh missing or not executable"
+  exit 1
+fi
+
 echo "==> cargo clippy --all-targets --all-features -- -D warnings"
 cargo clippy --all-targets --all-features -- -D warnings
 
