@@ -34,6 +34,23 @@ Self-roast of the PR before opening it (Rule 17 applies to first-party work too)
 
 Records: `plans/PR_ROAST_2026_10_03.md`; queue 10 → 9 → 8 → 9 (each step derived by counting `- name:` blocks, not asserted); `ttl_cleanup_has_bounded_shutdown` now states what is gated and what is not.
 
+### The records PR (#818) merged while its own roast was still a local commit
+
+`docs/goap-close-out-817` opened `17:56:48Z`, and `CI` 37142371089 on head `cceae30` concluded
+success at `18:09:32Z`. At `18:07:50Z` — before that conclusion — an **`autoMergeRequest` was armed
+by the `d-o-hub` account** (`mergeMethod: SQUASH`), and the PR landed at `18:09:57Z` as `f091ad2`,
+25 s after green. I did not arm it and no workflow in this repo merges PRs (`grep -rn "gh pr merge"
+.github/workflows/` → nothing); `allow_auto_merge: true` is a repo setting, and changing it is the
+owner's decision, so it is flagged in the roast rather than touched here. Practical consequences,
+both now encoded: the "branch had no PR and no other writer" assumption I used to justify a
+`--force-with-lease` was true at the time but became false mid-flight (`delete_branch_on_merge`
+removed the head ref, so my next push reported `[new branch]`), and `mergeStateStatus: BLOCKED`
+with `mergeable: MERGEABLE` no longer reads as "checks pending" alone — it can mean "checks pending
+**and** about to merge", so the merge-readiness probe is now
+`gh pr view --json autoMergeRequest,mergeable,mergeStateStatus` in one call. The roast of #818 and
+lessons 16–17 are shipping as a follow-up PR (`docs/roast-818-automerge-record`), which is the only
+honest shape available: the verdict exists, it just arrived after the merge it reviews.
+
 ### `enable_ttl_cleanup_in_long_running_commands` — completed (PR #817, merged `1389c9e`)
 
 One Explore agent re-audited the queued action's file:line references before dispatch, then a single implementer agent owned the change (splitting it across agents would have meant four agents editing `src/cli/args.rs`, `src/cli/commands/mod.rs` and `src/mcp/*` in sequence, so serial was the honest choice). Result: `--ttl-cleanup-interval <SECONDS>` on `csm watch` and `csm mcp serve`, one shared `TtlCleanupArgs` flattened into both arg structs, default `0` so a long-running server never starts deleting on its own. Threading is `create_framework_advanced(…, ttl_cleanup_interval_seconds)` + a new `create_framework_with_ttl`, and `McpConfig::ttl_cleanup_interval` → `McpHandler::with_ttl_cleanup_interval` → the same funnel; `McpHandler::new`'s 12 call sites are untouched because the interval is a field defaulted to `0`. `src/cli/args.rs` hit the 500-LOC gate, so the tail subcommand structs moved to `src/cli/args_commands.rs` and are re-exported from `args` — the AGENTS.md-sanctioned child-module route, not comment stripping.
