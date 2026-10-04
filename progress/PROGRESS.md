@@ -84,6 +84,18 @@ one effect assertion.
 - `set -uo pipefail` + `grep -c` returned 1 for a proof script that had proved its point
   (`ready=yes`, `RESULT=EXITED exit_code=0`) — the harness reported failure for a green run.
 
+### Post-merge verification on `main` (55a9fa3)
+
+Read per `workflowName`, not from badges: `CI` push → **success**, `CodeQL` → success,
+`Release` (`workflow_run`) → success ×2. **`GitHub Pages` did not run and was never going to**
+— `pages.yml:3-8` is path-filtered to `book/**` and the workflow file itself, and neither
+#821 nor #822 touched `book/`. That is not a gap: the rustdoc surface that silently failed
+four main pushes before #817 moved the check into the PR — `validate.sh:41` runs
+`RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features` and CI runs `validate.sh`
+in the `lint` job — so a broken intra-doc link on a new `pub use` now reddens the PR instead
+of the next deploy. Last Pages run is `1389c9e` (#817, success). Record this so nobody hunts
+for a "missing deploy" on a docs-adjacent PR.
+
 ### Queue state after this round
 
 10 queued (`11 → 9` for the two completions, `+1` for the measured SIGTERM gap). Next up:
