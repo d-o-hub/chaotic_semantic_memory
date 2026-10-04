@@ -43,7 +43,7 @@ world_state:
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "1389c9e"           # 2026-10-03: #817 enable_ttl_cleanup_in_long_running_commands (squash-merged 17:37:50Z)
+  main_head: "55a9fa3"           # 2026-10-04: #822 revive_dead_cli_parity_help_test on top of #821 (dc7cd9a), #820 (ee283e6), #818 (f091ad2)
   tests_count: 1037              # 2026-09-30: unique compiled behavior (scripts/coverage-report.sh inventory)
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
   coverage_lines_percent: 74     # 2026-09-18: cargo +nightly llvm-cov --workspace --lib --tests --branch
@@ -66,7 +66,12 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 11       # 2026-10-03: #817 completed enable_ttl_cleanup_in_long_running_commands
+  queued_actions_count: 10       # 2026-10-04: #821 completed give_the_sse_transport_an_exit_path
+                               #   and #822 completes revive_dead_cli_parity_help_test (11 -> 9), but measuring
+                               #   #821's disclosed limitation on the binary (SIGINT exits 0, SIGTERM exits 143
+                               #   = default disposition, so a systemd-stopped server still misses the ADR-0099
+                               #   stop) queued cover_sigterm_in_server_shutdown (9 -> 10).
+                               #   2026-10-03: #817 completed enable_ttl_cleanup_in_long_running_commands
                                #   (9 -> 8), its review queued revive_dead_cli_parity_help_test (8 -> 9), and the
                                #   mutation-test red on this PR's head queued mutation_baseline_the_feature_gated_mcp_module
                                #   (9 -> 10) plus give_the_sse_transport_an_exit_path (10 -> 11) — the second is a
@@ -164,4 +169,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: enable_ttl_cleanup_in_long_running_commands
+  action_last_completed: revive_dead_cli_parity_help_test  # 2026-10-04 #822; give_the_sse_transport_an_exit_path closed the same day as #821
