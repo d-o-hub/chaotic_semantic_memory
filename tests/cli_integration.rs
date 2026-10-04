@@ -38,6 +38,71 @@ fn inject_ok() {
         .assert()
         .success();
 }
+
+#[cfg(unix)]
+#[test]
+fn sigterm_exits_cleanly_watch() {
+    use std::process::Command;
+    use std::time::Duration;
+
+    let csm_bin = assert_cmd::cargo::cargo_bin("csm");
+    let mut child = Command::new(csm_bin)
+        .arg("watch")
+        .spawn()
+        .expect("csm watch process should spawn");
+
+    // Give process a moment to initialize signal handlers
+    std::thread::sleep(Duration::from_millis(200));
+
+    let kill_status = Command::new("kill")
+        .arg("-s")
+        .arg("TERM")
+        .arg(child.id().to_string())
+        .status()
+        .expect("kill command should succeed");
+    assert!(kill_status.success(), "sending SIGTERM should succeed");
+
+    let status = child.wait().expect("child wait should succeed");
+    assert!(
+        status.success(),
+        "csm watch should exit 0 on SIGTERM, got: {status:?}"
+    );
+}
+
+#[cfg(all(unix, feature = "mcp"))]
+#[test]
+fn sigterm_exits_cleanly_mcp_serve() {
+    use std::process::Command;
+    use std::time::Duration;
+
+    let csm_bin = assert_cmd::cargo::cargo_bin("csm");
+    let mut child = Command::new(csm_bin)
+        .arg("mcp")
+        .arg("serve")
+        .arg("--transport")
+        .arg("sse")
+        .arg("--bind")
+        .arg("127.0.0.1:0")
+        .spawn()
+        .expect("csm mcp serve process should spawn");
+
+    // Give server process a moment to bind listener and install signal handlers
+    std::thread::sleep(Duration::from_millis(300));
+
+    let kill_status = Command::new("kill")
+        .arg("-s")
+        .arg("TERM")
+        .arg(child.id().to_string())
+        .status()
+        .expect("kill command should succeed");
+    assert!(kill_status.success(), "sending SIGTERM should succeed");
+
+    let status = child.wait().expect("child wait should succeed");
+    assert!(
+        status.success(),
+        "csm mcp serve should exit 0 on SIGTERM, got: {status:?}"
+    );
+}
 #[test]
 fn inject_dup() {
     let d = db();
