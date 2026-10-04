@@ -521,7 +521,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/mcp/mod.rs
 
 - pub use handler::McpHandler
-- pub use server::{McpConfig, Transport, TransportType, serve}
+- pub use server::{McpConfig, Transport, TransportType, serve, serve_with_shutdown}
 
 ### src/mcp/schema.rs
 
@@ -546,6 +546,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct McpConfig
 - impl Default for McpConfig
 - pub fn serve
+- pub fn serve_with_shutdown
 
 ### src/mcp/tools.rs
 
@@ -3399,10 +3400,10 @@ impl ServerHandler for McpHandler {
 pub use handler::McpHandler;
 ```
 
-### server::{McpConfig, Transport, TransportType, serve}
+### server::{McpConfig, Transport, TransportType, serve, serve_with_shutdown}
 
 ```rust
-pub use server::{McpConfig, Transport, TransportType, serve};
+pub use server::{McpConfig, Transport, TransportType, serve, serve_with_shutdown};
 ```
 
 ## src/mcp/schema.rs
@@ -3566,9 +3567,38 @@ pub fn serve(config: McpConfig) -> Result<()>
 
 Start the MCP server.
 
+The exit signal is the operator's Ctrl+C — see [`serve_with_shutdown`] for a
+variant that is driven by the caller's own lifecycle.
+
 #### Errors
 
 Returns error if server fails to start or transport initialization fails.
+
+### serve_with_shutdown
+
+```rust
+pub fn serve_with_shutdown<F>(config: McpConfig, shutdown_signal: F) -> Result<()>
+where
+    F: Future + Send + 'static
+```
+
+Start the MCP server with an explicit shutdown signal for the SSE transport.
+
+[`serve`] is exactly `serve_with_shutdown(config, ctrl_c_shutdown())`, so the
+production path and this entry share one mechanism — the signal is not a
+test-only seam. It exists for embedders that run the server inside a larger
+lifecycle (a supervisor, a co-located HTTP app, a service manager) and cannot
+rely on being the foreground process that receives SIGINT.
+
+The signal drives the SSE transport only. Stdio ends on stdin EOF and ignores
+it, deliberately: that transport already has a working exit path, and racing
+two of them would change behaviour nobody asked for.
+
+#### Errors
+
+Returns error if server fails to start or transport initialization fails.
+
+## src/mcp/server_tests.rs
 
 ## src/mcp/tools.rs
 
