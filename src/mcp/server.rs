@@ -2,10 +2,11 @@
 //!
 //! Provides stdio and SSE transports for Claude Desktop, Cursor, and other MCP clients.
 
+use std::future::Future;
 use std::sync::Arc;
 
 use anyhow::Result;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::mcp::handler::McpHandler;
 
@@ -61,10 +62,41 @@ impl Default for McpConfig {
 
 /// Start the MCP server.
 ///
+/// The exit signal is the operator's Ctrl+C — see [`serve_with_shutdown`] for a
+/// variant that is driven by the caller's own lifecycle.
+///
 /// # Errors
 ///
 /// Returns error if server fails to start or transport initialization fails.
 pub async fn serve(config: McpConfig) -> Result<()> {
+    // ADR-0099: SSE needs a real shutdown signal because its transport future
+    // otherwise never resolves (see `run_sse_server_with_shutdown`), and the
+    // only signal a foreground `csm mcp serve --transport sse` operator has is
+    // SIGINT — the same precedent `csm watch` uses
+    // (`src/cli/commands/watch.rs:84-98`). Stdio does not need it: rmcp's
+    // `Waiting::waiting` already resolves on stdin EOF.
+    serve_with_shutdown(config, ctrl_c_shutdown()).await
+}
+
+/// Start the MCP server with an explicit shutdown signal for the SSE transport.
+///
+/// [`serve`] is exactly `serve_with_shutdown(config, ctrl_c_shutdown())`, so the
+/// production path and this entry share one mechanism — the signal is not a
+/// test-only seam. It exists for embedders that run the server inside a larger
+/// lifecycle (a supervisor, a co-located HTTP app, a service manager) and cannot
+/// rely on being the foreground process that receives SIGINT.
+///
+/// The signal drives the SSE transport only. Stdio ends on stdin EOF and ignores
+/// it, deliberately: that transport already has a working exit path, and racing
+/// two of them would change behaviour nobody asked for.
+///
+/// # Errors
+///
+/// Returns error if server fails to start or transport initialization fails.
+pub async fn serve_with_shutdown<F>(config: McpConfig, shutdown_signal: F) -> Result<()>
+where
+    F: Future<Output = ()> + Send + 'static,
+{
     info!("Starting MCP server with {:?} transport", config.transport);
 
     // The reaper interval is carried on the handler, not the transport, because
@@ -74,7 +106,24 @@ pub async fn serve(config: McpConfig) -> Result<()> {
         McpHandler::new(config.database).with_ttl_cleanup_interval(config.ttl_cleanup_interval),
     );
 
-    match config.transport {
+    serve_with_handler(handler, config.transport, shutdown_signal).await
+}
+
+/// Body of [`serve_with_shutdown`] with the handler supplied by the caller.
+///
+/// Kept crate-internal because the ADR-0099 guarantee is only observable through
+/// the handler: a test that injects the handler it also inspects can assert the
+/// shared TTL cleanup task is really gone after the transport resolves, instead
+/// of asserting the config echo. Production reaches this through `serve`.
+async fn serve_with_handler<F>(
+    handler: Arc<McpHandler>,
+    transport: Transport,
+    shutdown_signal: F,
+) -> Result<()>
+where
+    F: Future<Output = ()> + Send + 'static,
+{
+    match transport {
         Transport::Stdio => {
             let (stdin, stdout) = rmcp::transport::io::stdio();
             // `Arc<McpHandler>` implements `ServerHandler`, so the same
@@ -86,7 +135,12 @@ pub async fn serve(config: McpConfig) -> Result<()> {
                 .map_err(|e| anyhow::anyhow!("Server join error: {e}"))?;
         }
         Transport::Sse { bind } => {
-            run_sse_server(handler.clone(), bind).await?;
+            let listener = tokio::net::TcpListener::bind(bind).await?;
+            info!(
+                "MCP SSE server listening on http://{}",
+                listener.local_addr()?
+            );
+            run_sse_server_with_shutdown(handler.clone(), listener, shutdown_signal).await?;
         }
     }
 
@@ -103,10 +157,32 @@ pub async fn serve(config: McpConfig) -> Result<()> {
     Ok(())
 }
 
-async fn run_sse_server(handler: Arc<McpHandler>, bind: std::net::SocketAddr) -> Result<()> {
+/// Run the SSE (streamable HTTP) transport until the listener fails or
+/// `shutdown_signal` resolves.
+///
+/// The signal is load-bearing, not an optimisation: without it this function can
+/// never return. In axum 0.7.9 `Serve::into_future` is an unbounded accept loop
+/// (`~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/axum-0.7.9/src/serve.rs:205-240`)
+/// and `tcp_accept` reports failures as `Option` — connection errors are skipped,
+/// anything else is logged and retried after a sleep — so it never yields an
+/// `Err` the caller could observe (`:474-496`). `with_graceful_shutdown`
+/// (`:139-141`) is the only exit: it stops accepting, drops the listener, asks
+/// in-flight connections to finish, and resolves `Ok(())` once they have
+/// (`:348-463`). That return is what makes the ADR-0099 shutdown hop in
+/// [`serve_with_handler`] reachable on this transport.
+async fn run_sse_server_with_shutdown<F>(
+    handler: Arc<McpHandler>,
+    listener: tokio::net::TcpListener,
+    shutdown_signal: F,
+) -> Result<()>
+where
+    F: Future<Output = ()> + Send + 'static,
+{
     use rmcp::transport::streamable_http_server::{
         StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager,
     };
+
+    let bind = listener.local_addr()?;
 
     let config = StreamableHttpServerConfig::default().with_allowed_hosts(vec![
         "localhost".to_string(),
@@ -122,11 +198,36 @@ async fn run_sse_server(handler: Arc<McpHandler>, bind: std::net::SocketAddr) ->
 
     let app = axum::Router::new().fallback_service(service);
 
-    let listener = tokio::net::TcpListener::bind(bind).await?;
-    info!("MCP SSE server listening on http://{}", bind);
     axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal)
         .await
         .map_err(|e| anyhow::anyhow!("axum server error: {e}"))?;
 
     Ok(())
 }
+
+/// The operator's Ctrl+C, shaped into the `Future<Output = ()>` that
+/// `with_graceful_shutdown` requires.
+///
+/// `tokio::signal::ctrl_c` resolves `Err` when the SIGINT handler cannot be
+/// installed. That must not read as "shutdown requested", or a server would exit
+/// the instant it started, so the error path parks forever and leaves the
+/// previous behaviour — the default SIGINT disposition terminating the process —
+/// as the fallback.
+async fn ctrl_c_shutdown() {
+    match tokio::signal::ctrl_c().await {
+        Ok(()) => info!("Received Ctrl+C; stopping the MCP server"),
+        Err(e) => {
+            warn!(
+                error = %e,
+                "could not install the Ctrl+C handler; the server keeps running and \
+                 will be stopped by the default signal disposition"
+            );
+            std::future::pending::<()>().await;
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "server_tests.rs"]
+mod tests;

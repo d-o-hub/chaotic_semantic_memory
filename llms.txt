@@ -521,7 +521,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 ### src/mcp/mod.rs
 
 - pub use handler::McpHandler
-- pub use server::{McpConfig, Transport, TransportType, serve}
+- pub use server::{McpConfig, Transport, TransportType, serve, serve_with_shutdown}
 
 ### src/mcp/schema.rs
 
@@ -546,6 +546,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct McpConfig
 - impl Default for McpConfig
 - pub fn serve
+- pub fn serve_with_shutdown
 
 ### src/mcp/tools.rs
 

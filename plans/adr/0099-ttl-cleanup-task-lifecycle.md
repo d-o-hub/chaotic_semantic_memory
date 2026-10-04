@@ -54,6 +54,24 @@ lifecycle was in fact unspecified. This ADR closes that gap.
 6. Existing semantics are unchanged: interval `0` means no task, the first tick
    is immediate, and a failed purge is logged (`error!`) and retried on the next
    tick.
+7. **Every server transport must reach `shutdown()`, which means every transport
+   needs an exit.** A transport that never resolves makes the hop dead code on
+   that path, so the lifecycle guarantee is only as good as the transport's exit.
+   `rmcp`'s stdio transport ends on stdin EOF (`Waiting::waiting`), so
+   `Transport::Stdio` needed nothing. axum 0.7.9's SSE transport does:
+   `Serve::into_future` is an unbounded accept loop and `tcp_accept` reports
+   failures as `Option` — connection errors skipped, anything else logged and
+   retried after a sleep — so it never yields an `Err` the caller can observe and
+   no request or client disconnect can end it. The decision is therefore
+   `Serve::with_graceful_shutdown(signal)` with `signal: Future<Output = ()>`:
+   `mcp::serve` supplies the operator's Ctrl+C and is exactly
+   `mcp::serve_with_shutdown(config, ctrl_c_shutdown())`, so the embedder-facing
+   entry and the CLI share one mechanism rather than the test owning a seam.
+   Two consequences of that shape are deliberate: if the SIGINT handler cannot be
+   installed the signal `pending()`s instead of resolving, because a failed
+   handler install must not read as "shutdown requested" and tear down a server
+   that just started; and the signal drives only the SSE arm, so stdio keeps the
+   exit path it already had rather than racing two.
 
 ## Consequences
 
@@ -74,6 +92,25 @@ Tests in `tests/test_advanced_ttl.rs`:
   (idempotently), and a concept expiring afterwards is no longer purged.
 - `dropping_a_clone_keeps_the_cleanup_task_running` — regression for F1: it
   fails on the `Arc<JoinHandle>` + `abort()` design and passes on this one.
+
+Server exit paths (decision 7) — `src/mcp/server_tests.rs`, plus
+`tests/mcp_sse_integration.rs`:
+
+- `sse_exit_stops_the_ttl_cleanup_task` — binds the SSE transport on an
+  ephemeral port, confirms readiness by a successful connect (no sleep), sends
+  the shutdown signal, **awaits** `serve_with_handler`, and then asserts the
+  cleanup task's handle slot is empty. Before decision 7 the awaited transport
+  never resolved, so this test could not exist.
+- `sse_exit_is_ok_without_a_request` — an SSE server that never served a request
+  has no framework, so the exit path must return `Ok(())` instead of building one
+  just to stop it. Covers the caller;
+  `test_handler_shutdown_is_a_noop_without_a_framework` in
+  `src/mcp/tools_tests.rs` covers the callee.
+- `test_sse_transport_lifecycle` (`tests/mcp_sse_integration.rs`) drives the real
+  HTTP handshake and now exits by signal + await. Its previous shape —
+  `tokio::spawn(serve(..))` then `handle.abort()` — is the reason decision 7 was
+  found a month late: an aborted task observes nothing after the awaited
+  transport, so it cannot see that the transport never returns.
 
 ## References
 
