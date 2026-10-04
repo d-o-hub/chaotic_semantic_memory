@@ -46,6 +46,8 @@ fn test_bundle() {
 fn test_permute() {
     let v = HVec10240::random();
     assert_eq!(v, v.permute(0));
+    assert_eq!(v, v.permute(10240));
+    assert_eq!(v, v.permute(30720));
     let s = v.permute(128);
     for i in 0..80 {
         assert_eq!(s.data[i], v.data[(i + 1) % 80]);
