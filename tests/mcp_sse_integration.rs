@@ -1,9 +1,9 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #![cfg(feature = "mcp")]
 
+use chaotic_semantic_memory::mcp::{McpConfig, Transport, serve_with_shutdown};
 use serde_json::json;
 use std::net::SocketAddr;
-use tokio::time::{Duration, sleep};
 
 #[tokio::test]
 async fn test_sse_transport_lifecycle() {
@@ -12,26 +12,38 @@ async fn test_sse_transport_lifecycle() {
     let actual_addr = listener.local_addr().unwrap();
     drop(listener); // Free the port for the server to bind
 
-    // Start server in background
-    let server_handle = tokio::spawn(async move {
-        chaotic_semantic_memory::mcp::serve(chaotic_semantic_memory::mcp::McpConfig {
-            transport: chaotic_semantic_memory::mcp::Transport::Sse { bind: actual_addr },
-            bind: Some(actual_addr.to_string()),
-            database: None,
-            ttl_cleanup_interval: 0,
-        })
+    // `serve_with_shutdown` is the entry `serve` itself uses — `serve` is
+    // `serve_with_shutdown(config, ctrl_c)` — so the production path, including
+    // its ADR-0099 shutdown hop, is what runs here. The oneshot only replaces the
+    // operator's keyboard; it is the same `Future<Output = ()>` signal mechanism.
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+    let server = tokio::spawn(async move {
+        serve_with_shutdown(
+            McpConfig {
+                transport: Transport::Sse { bind: actual_addr },
+                bind: Some(actual_addr.to_string()),
+                database: None,
+                ttl_cleanup_interval: 0,
+            },
+            async move {
+                let _ = shutdown_rx.await;
+            },
+        )
         .await
-        .unwrap();
     });
 
-    // Give server a moment to start
-    sleep(Duration::from_millis(500)).await;
-
-    // Check if server is still running
-    if server_handle.is_finished() {
-        // If it finished early, it likely failed or returned Ok(()) prematurely
-        server_handle.await.unwrap(); // This will panic if it returned error
-        panic!("Server finished prematurely");
+    // No startup sleep: the connect retry *is* the readiness synchronisation, and
+    // a server that dies while binding reports its own error instead of leaving
+    // the test to the harness timeout.
+    loop {
+        if tokio::net::TcpStream::connect(actual_addr).await.is_ok() {
+            break;
+        }
+        if server.is_finished() {
+            let outcome = server.await.expect("the server task must not panic");
+            panic!("server stopped before it was listening: {outcome:?}");
+        }
+        tokio::task::yield_now().await;
     }
 
     let client = reqwest::Client::new();
@@ -108,6 +120,14 @@ async fn test_sse_transport_lifecycle() {
     assert!(call_tool_body.contains("stats"));
     assert!(call_tool_body.contains("concept_count"));
 
-    // Cleanup
-    server_handle.abort();
+    // The exit is awaited, never aborted: `abort()` is exactly what hid the fact
+    // that `axum::serve` without `with_graceful_shutdown` does not return. The
+    // client is dropped first so reqwest's pooled keep-alive socket is closed and
+    // graceful shutdown has nothing left to wait for.
+    drop(client);
+    shutdown_tx.send(()).unwrap();
+    server
+        .await
+        .expect("the SSE server task must not panic")
+        .expect("serve must return Ok(()) once the shutdown signal resolves");
 }
