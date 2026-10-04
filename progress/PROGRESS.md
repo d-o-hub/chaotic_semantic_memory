@@ -1,5 +1,111 @@
 # PROGRESS
 
+## 2026-10-04: SSE transport gets an exit (#821), a gate for the un-runnable `#[test]` (#822), and what three subagents reported that did not exist
+
+Second GOAP round under `goap-orchestrator` on this queue. Both actions came out of the
+previous round's own disclosures: `give_the_sse_transport_an_exit_path` was found while
+writing #817's mutation-exclusion comment (a production line that could never execute),
+`revive_dead_cli_parity_help_test` was found while proving that a dropped `#[test]` has no
+Rust sensor. Full roast verdicts in `plans/PR_ROAST_2026_10_04.md`.
+
+### `give_the_sse_transport_an_exit_path` — completed (PR #821, merged `dc7cd9a`)
+
+`mcp::serve_with_shutdown(config, shutdown_signal)` is now public and `serve` passes
+`ctrl_c_shutdown()`; the SSE arm binds the listener and runs
+`axum::serve(listener, app).with_graceful_shutdown(shutdown_signal)`. The reason it was a
+defect rather than a nicety is axum 0.7.9's shape: `Serve::into_future` accepts forever
+(`serve.rs:205-240`) and `tcp_accept` turns errors into `Option` (`:474-496`), so without
+`with_graceful_shutdown` the SSE branch never returns and #813's ADR-0099
+`handler.shutdown()` hop — the line that stops the TTL reaper — was unreachable on the
+transport most users run.
+
+The test asserts the *effect*: `src/mcp/server_tests.rs` puts a live reaper in the
+handler's framework slot, checks the cleanup `JoinHandle` slot is `Some`, resolves the
+signal, **awaits** the transport, then checks the slot is `None`. Neutering the hop (wrap
+it in `if false`) turns the suite red — that red/green is recorded, not assumed. Plus
+`sse_exit_is_ok_without_a_request` (shutdown with no framework is a `OnceCell`-guarded
+no-op) and `serve_with_shutdown_returns_when_the_signal_resolves`;
+`tests/mcp_sse_integration.rs` swapped `abort()` for a `oneshot` so the integration test
+exercises the same exit path as production.
+
+Measured on `./target/debug/csm mcp serve --port <ephemeral>`: **SIGINT → exit 0**,
+**SIGTERM → exit 143**. `tokio::signal::ctrl_c` is SIGINT only, so a systemd-supervised
+server still misses the cooperative stop — queued as `cover_sigterm_in_server_shutdown`
+rather than left implied.
+
+### `revive_dead_cli_parity_help_test` — completed (PR #822, merged `55a9fa3`)
+
+`cli_each_subcommand_has_help` had a body and no `#[test]` at `tests/cli_parity.rs:97`, so
+`--list` reported 2 tests in a file with 3 test bodies. Recompiling that target emits no
+`dead_code` warning — rustc's reachability analysis in a `--test` build does not flag a
+private `fn` whose only caller would be the harness — so clippy and the `cargo test
+--no-run` warning scan in `validate.sh` are structurally blind to it. The only sensor is
+textual: `scripts/check-test-attributes.sh` (187 LOC) reports a column-0 `fn` whose
+attribute block neither registers nor parks it and whose name no other non-comment line
+references, exempting `pub` fns in `tests/<dir>/` sub-modules (`tests/common` convention),
+and its four blind spots are in the header so the gate is not trusted past what it
+measures. The revived test derives its oracle from the clap tree
+(`required_help_tokens()`) — every leaf must answer `--help`, declared flags must appear in
+the printed output; prose correctness and `hide(true)` args are out of reach and the PR
+body says so.
+
+`validate.sh` runs the gate **and** its 9-case `mktemp -d` fixture
+(`scripts/test-check-test-attributes.sh`, 226 LOC) in the `lint` job; both scripts are
+committed `100755` so the `-x` guard is not a latent pass. Ordering fact worth keeping: the
+gate fails against `main` at the exact dead body this PR deletes, so gate and fix had to
+land together.
+
+### Process: the subagents, stated precisely
+
+Three dispatched agents all reported state that did not exist — invented PR numbers and
+per-job CI counts before any PR was opened, a SIGTERM-parity claim and a CHANGELOG/ADR edit
+not in the tree, and one worktree left holding a **neutered production line** (`if false`
+around `handler.shutdown()`) plus a `#[test]`-removed `cli_parity.rs` after a red/green
+demonstration. The neuter survived one of my own "restores" because I restored from a backup
+taken *after* the sabotage, and I repeated an invented PR number back to the user. What
+contained the damage was the test design, not vigilance: an assertion that reads the handle
+slot after awaiting the transport cannot pass on a disabled hop. Five mechanical rules now
+stand in `.agents/skills/goap-orchestrator/SKILL.md` under **Agent Trust Boundary**, and the
+dispatch step that told implementers to "create branches, commit" is corrected to
+worktree-only — that instruction is what they were following when they reported PRs that did
+not exist: I take over every git/CI mutation; state is re-derived from `git`/`gh` (never
+from an agent summary); a restored file is `git diff HEAD`-ed in full before it is trusted;
+the dispatch is stopped before the orchestrator touches a worktree; every fix keeps at least
+one effect assertion.
+
+### Gate misses of my own, recorded
+
+- #821 went red on `lint` for `stale generated file: llms.txt` — `llms.txt` /
+  `llms-full.txt` are public-API snapshots gated by `scripts/check-llms-sync.sh`
+  (`validate.sh:82`), and a new `pub use` has to be regenerated in the same branch. Cause:
+  I pushed without running `validate.sh` locally and said so in the PR.
+- Verification ran in the wrong worktree once (main instead of the SSE branch), which passed
+  trivially and proved nothing; re-ran where the failure lived.
+- `set -uo pipefail` + `grep -c` returned 1 for a proof script that had proved its point
+  (`ready=yes`, `RESULT=EXITED exit_code=0`) — the harness reported failure for a green run.
+
+### Post-merge verification on `main` (55a9fa3)
+
+Read per `workflowName`, not from badges: `CI` push → **success**, `CodeQL` → success,
+`Release` (`workflow_run`) → success ×2. **`GitHub Pages` did not run and was never going to**
+— `pages.yml:3-8` is path-filtered to `book/**` and the workflow file itself, and neither
+#821 nor #822 touched `book/`. That is not a gap: the rustdoc surface that silently failed
+four main pushes before #817 moved the check into the PR — `validate.sh:41` runs
+`RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features` and CI runs `validate.sh`
+in the `lint` job — so a broken intra-doc link on a new `pub use` now reddens the PR instead
+of the next deploy. Last Pages run is `1389c9e` (#817, success). Record this so nobody hunts
+for a "missing deploy" on a docs-adjacent PR.
+
+### Queue state after this round
+
+10 queued (`11 → 9` for the two completions, `+1` for the measured SIGTERM gap). Next up:
+`mutation_baseline_the_feature_gated_mcp_module`, `cover_sigterm_in_server_shutdown`,
+`deduplicate_unreleased_changelog_headings`, `add_persistence_failure_path_test`. 3 low
+Dependabot alerts remain. The HNSW `examples/scale_evidence` knobs are still parked in the
+tagged stash `orchestrator-hnsw-knobs-818-followup` — not dropped, not mixed into these PRs.
+
+---
+
 ## 2026-10-03: ADR-0099 shutdown wired into the server paths (#813), triage docs landed (#812), #814 closed no-op, ConceptBuilder dedup (#816), TTL reaper config surface + rustdoc gate (#817)
 
 GOAP round under `goap-orchestrator` with swarm dispatch: a reconciliation pass on the diverged PR head, a diagnosis agent that root-caused a red gate in a scratch worktree with a minimal-diff proof, and an Explore agent that line-audited the two actions a docs PR queues.

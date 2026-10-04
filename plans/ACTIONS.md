@@ -12,6 +12,49 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-10-04, second action):
+> `revive_dead_cli_parity_help_test` (#822, `55a9fa3`) — `cli_each_subcommand_has_help`
+> existed in `tests/cli_parity.rs` with a body and no `#[test]`, so the harness never
+> registered it: `cargo test --test cli_parity --features cli -- --list` counted 2 tests in
+> a file holding 3 test bodies. No Rust sensor can see that class of defect — a `--test`
+> build emits **no** `dead_code` warning for a private `fn` whose only caller would be the
+> harness, so neither clippy nor the `cargo test --no-run` warning scan in `validate.sh`
+> flags it. The detector is therefore textual: `scripts/check-test-attributes.sh` (187 LOC)
+> reports a column-0 `fn` whose contiguous attribute block neither registers nor parks it
+> and whose name no other non-comment line in the file references, exempting `pub`
+> functions in `tests/<dir>/` sub-modules whose call sites live in other targets, with its
+> own blind spots (string/macro mentions, nested `mod tests`, "should be a test" vs dead
+> helper) stated in the header so nobody trusts it past what it measures. The revived test
+> derives its oracle from the clap tree via `required_help_tokens()`: it proves every leaf
+> answers `--help` and that declared flags appear in what `--help` prints, not that the
+> prose is correct, and `hide(true)` args are invisible to it by design. `validate.sh` runs
+> the gate *and* its 9-case `mktemp -d` fixture in the `lint` job, and both scripts are
+> committed `100755`, so the `-x` guard is not a latent pass. Ordering fact worth keeping:
+> the gate fails against `main` at `cli_parity.rs:97` — the very dead body this PR deletes
+> — so gate and fix could not be split into two PRs.
+>
+> Last completed (verified 2026-10-04, first action):
+> `give_the_sse_transport_an_exit_path` (#821, `dc7cd9a`) — `serve_with_shutdown(config,
+> shutdown_signal)` is the new public entry point; `serve` passes `ctrl_c_shutdown()` and
+> the SSE arm of `serve_with_handler` binds the listener, then runs
+> `axum::serve(listener, app).with_graceful_shutdown(shutdown_signal)`. Before this the SSE
+> transport could not return: `Serve::into_future` is an unbounded accept loop (axum 0.7.9,
+> `serve.rs:205-240`) and `tcp_accept` collapses errors into `Option` (`:474-496`), so
+> `with_graceful_shutdown` is the only exit — which made ADR-0099's `handler.shutdown()` hop
+> unreachable on the transport most users actually run. `src/mcp/server_tests.rs` (176 LOC)
+> proves it by **effect**: a handler whose framework slot holds a live reaper, assert the
+> cleanup `JoinHandle` slot is `Some`, resolve the signal, **await** the transport, assert
+> the slot is `None` — disabling the hop turns the test red rather than leaving it
+> green-by-echo. `sse_exit_is_ok_without_a_request` and
+> `serve_with_shutdown_returns_when_the_signal_resolves` cover the no-request and no-handler
+> paths, and `tests/mcp_sse_integration.rs` replaced its `abort()` with a `oneshot`.
+> Measured against `./target/debug/csm mcp serve`: SIGINT → exit `0`, SIGTERM → `143`
+> (default disposition, no cooperative stop), so the SIGTERM half is queued as
+> `cover_sigterm_in_server_shutdown`. The branch went red once on `lint` for a stale
+> generated file — `llms.txt` / `llms-full.txt` are gated by `scripts/check-llms-sync.sh`
+> (`validate.sh:82`), so a new `pub use` must be regenerated in the same branch; the miss
+> was my own skipped local gate, not CI's.
+>
 > Last completed (verified 2026-10-03, third action):
 > `enable_ttl_cleanup_in_long_running_commands` (#817) — `csm watch` and
 > `csm mcp serve` take `--ttl-cleanup-interval <SECONDS>`, default `0` so no
@@ -539,57 +582,26 @@ actions:
       checker so `## [Unreleased]` cannot hold two identical `### ` headings;
       `scripts/` already has changelog-adjacent gates to host it.
 
-  - name: revive_dead_cli_parity_help_test
+  - name: cover_sigterm_in_server_shutdown
     preconditions: []
     effects:
-      cli_parity_help_test_live: true
+      servers_exit_on_sigterm: true
     notes: >
-      Found while checking whether `tests/cli_parity.rs` needed updating for the
-      new `--ttl-cleanup-interval` flag (discovered by the Explore audit, reported
-      by the implementer, deliberately not fixed in that PR to keep it atomic).
-      `cli_each_subcommand_has_help` at `tests/cli_parity.rs:97` has no `#[test]`
-      attribute, so it never runs: `cargo test --test cli_parity --features cli`
-      reports 2 passed while the file contains a third test body. Verified on
-      `4064af9`: `-- --list` registers exactly 2 tests, and recompiling the target
-      emits **no** `dead_code` warning — rustc's reachability analysis in a
-      `--test` build does not flag a private `fn` that only the harness would
-      call, so neither the warning scan in `validate.sh` nor clippy can be the
-      detector. The repo's CLI
-      parity gate therefore covers subcommand names and `history` flags only, and
-      no test proves every subcommand renders help. Required: restore the
-      attribute, make the test assert `--help` exits 0 and prints the long help for
-      every `Commands` variant, and add an arch_fitness/CI guard that the test
-      count of `cli_parity` cannot silently drop back to a dead body (a missing
-      attribute is invisible to clippy and to `--all-targets` compilation).
-
-  - name: give_the_sse_transport_an_exit_path
-    preconditions: []
-    effects:
-      sse_transport_has_exit_path: true
-    notes: >
-      Found by the #817 review of its own mutation exclusions, so it is a defect
-      discovered by a gate change, not by a test. ADR-0099 promises the TTL cleanup
-      task is stopped deterministically on exit, and `mcp::serve` implements that at
-      src/mcp/server.rs:98 (handler.shutdown() after the transport resolves). On the
-      Sse transport it never resolves: run_sse_server awaits
-      `axum::serve(listener, app)` without `with_graceful_shutdown`, and axum 0.7.9's
-      `Serve::into_future` is an infinite accept loop (serve.rs:205-240; tcp_accept
-      returns Option and never propagates Err, :474-496), so `csm mcp serve
-      --transport sse` runs until the process is killed and the reaper is stopped by
-      Drop at best. Stdio is unaffected (rmcp's `Waiting::waiting` resolves on stdin
-      EOF, src/mcp/server.rs:83-86), which is why #813's review and its test both
-      passed: the only test that calls serve (tests/mcp_sse_integration.rs:17)
-      abort()s the task at :112 rather than awaiting it, so nothing observes the
-      missing return. Required: give run_sse_server a shutdown signal —
-      `with_graceful_shutdown(impl Future<Output = ()>)` exists in axum 0.7.9
-      (serve.rs:139-141) — driven by a real production signal (tokio::signal::ctrl_c,
-      matching the precedent at src/cli/commands/watch.rs:84-98, and/or a handle on
-      McpConfig), NOT by a test-only seam alone, otherwise the fix exists only in the
-      test. Then assert the effect: start serve on an ephemeral port, trigger the
-      signal, await serve(), and reuse the handle-slot check from
-      src/mcp/tools_tests.rs:249-256 to prove the cleanup task is gone — no sleeps.
-      Needs an ADR-0099 update (the SSE exit path and its bound) and a `docs(adr)`
-      parity pass; a behaviour change for SSE users, so disclose it in the changelog.
+      Found by measuring #821's own disclosed limitation against the binary rather
+      than reasoning about it: `csm mcp serve --transport sse` exits **0** on SIGINT
+      (the transport resolves, `serve` returns, the ADR-0099 hop runs) and **143**
+      on SIGTERM, i.e. 128+15 — default disposition, no cooperative stop. A
+      systemd-managed server is stopped with SIGTERM, so the deterministic TTL
+      cleanup stop the ADR promises is still not reached under a service manager.
+      Same shape in `csm watch` (ADR-0099 wired Ctrl+C only). Required: one shared
+      shutdown primitive that resolves on SIGINT *and* SIGTERM (a SIGTERM listener
+      alongside `tokio::signal::ctrl_c`, or a `CancellationToken`-style handle owned
+      by the command), so every long-running command gets both signals rather than
+      each wiring its own. Note the dependency that made `signal` a target-gated
+      feature (`Cargo.toml:197-202`: `signal` pulls `mio/net`, which will not compile
+      for wasm32) — any new listener must stay inside the same non-wasm target table.
+      Assert the effect on the real binary (exit codes 0 vs 143 are the observable),
+      not on a config echo, and disclose the behaviour change in the changelog.
 
   - name: mutation_baseline_the_feature_gated_mcp_module
     preconditions: []
@@ -608,15 +620,12 @@ actions:
       is `timeout-minutes: 45` with the full-tree fallback disabled in CI, so this
       is a local/nightly run; and the profile's `--build-timeout` is sized for
       incremental per-mutant rebuilds, not for a cold baseline that links
-      rmcp/axum/tower (see LEARNINGS 2026-10-03). Concrete first target found
-      while writing #817's exclusions: the ADR-0099 hop inside `serve`
-      (src/mcp/server.rs:99 -> McpHandler::shutdown, src/mcp/handler.rs:90) is
-      asserted nowhere. tests/mcp_sse_integration.rs:17 does call `serve` over a
-      real transport but aborts the task at :112, so `serve` never returns and its
-      post-transport shutdown line never executes; src/mcp/tools_tests.rs:231
-      covers the *callee*. Order matters: this action is blocked by
-      give_the_sse_transport_an_exit_path, because the review established that
-      axum 0.7.9's Serve future never returns without with_graceful_shutdown, so
-      "close the transport and await serve()" is not expressible until that signal
-      exists. Baseline the module after it, then lift `--exclude "src/mcp/*"` for
-      the lines the profile can now actually kill.
+      rmcp/axum/tower (see LEARNINGS 2026-10-03). The concrete target this note
+      was written about is now closed: #821 gave the SSE transport an exit, so the
+      ADR-0099 hop at `src/mcp/server.rs:152-155` (`handler.shutdown()`, delegating
+      to `src/mcp/handler.rs:90`) executes on both transports and is asserted for
+      its effect in `src/mcp/server_tests.rs`. What remains is the baseline itself:
+      `src/mcp/**` is still outside the profile via `--exclude "src/mcp/*"`,
+      `--exclude-re "mcp::"` and `"McpHandler::"`, so the module has no mutation
+      evidence at all — run a scoped baseline over `src/mcp` and triage each
+      survivor into a real test or a documented exclusion with its mechanism.

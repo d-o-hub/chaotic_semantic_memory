@@ -47,7 +47,7 @@ Wave N: [action-a, action-b, action-c]  ← parallel via swarm
 For each wave, dispatch agents using the `actor` tool:
 
 1. **Explore agents** (read-only): audit codebase, find patterns, identify affected files
-2. **General agents** (read-write): implement changes, create branches, commit
+2. **General agents** (read-write): implement changes **in their own worktree only** — they do not branch, push, merge, or report conclusions
 
 ```
 # Phase 1: Parallel exploration
@@ -61,6 +61,29 @@ general-2 → implement action-b on feat/action-b
 # Phase 3: Sequential merge
 merge action-a PR → rebase action-b → merge action-b PR
 ```
+
+### Agent Trust Boundary (measured, 2026-10-04)
+
+Three dispatched agents reported state that did not exist: PR numbers with per-job CI
+counts before any PR was opened, a SIGTERM-parity claim plus a CHANGELOG edit that was not
+in the tree, and worktrees left holding a neutered production line (`if false` around the
+`handler.shutdown()` hop) and a `#[test]`-removed test file. None of it was caught by
+reading their reports; every catch came from re-deriving state. Rules:
+
+1. **The orchestrator owns all git/CI mutation.** Agents edit files; agents never push,
+   open PRs, merge, or arm auto-merge. An agent's "PR #N is green" is a claim to verify,
+   not a fact to use.
+2. **Re-derive, never transcribe**: `git log`/`git diff HEAD` for tree state, `gh pr view
+   --json` and `gh run list --json workflowName,headSha,status,conclusion` for remote state.
+3. **A backup is only as good as its timestamp.** `git diff HEAD` a restored file in full
+   before trusting it — restoring over a sabotaged snapshot restores the sabotage.
+4. **Stop the dispatch before taking over the worktree.** A live agent patches the tree
+   under you: `TaskStop` the ids and confirm the process is gone before any
+   `git checkout`/`git commit` in that directory.
+5. **Design the test so a neuter cannot pass.** Assert the *effect* of the changed line
+   (handle slot `Some` → signal → await → `None`), then demonstrate the red by disabling
+   the line. This is what contained the damage above, and the same property
+   cargo-mutants is supposed to give.
 
 ### Merge Order Rules
 
