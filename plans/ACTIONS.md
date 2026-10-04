@@ -427,6 +427,7 @@
 
 actions:
   - name: add_persistence_failure_path_test
+    github_issue: "#825"
     preconditions: []
     effects:
       persistence_failure_semantics_tested: true
@@ -465,6 +466,7 @@ actions:
       `src/framework_persistence_tests.rs`.
 
   - name: wire_and_consolidate_validation_gates
+    github_issue: "#829"
     preconditions: []
     effects:
       single_gate_graph: true
@@ -482,6 +484,7 @@ actions:
       skill validator.
 
   - name: generate_skill_catalog_and_agent_context
+    github_issue: "#828"
     preconditions: []
     effects:
       skill_catalog_generated_and_gated: true
@@ -498,6 +501,7 @@ actions:
       agent-context artifacts with a checker.
 
   - name: complete_evidence_tiers_and_mutation_hardening
+    github_issue: "#830"
     preconditions: []
     effects:
       scheduled_and_release_evidence_tiers: true
@@ -515,6 +519,7 @@ actions:
       only aggregate counts are printed (no module-level inventory artifact).
 
   - name: add_query_count_regression_test
+    github_issue: "#826"
     preconditions: []
     effects:
       bulk_association_load_verified: true
@@ -543,6 +548,7 @@ actions:
       to N=50 asserting exactly one association query.
 
   - name: derive_ci_crate_matrix_from_workspace
+    github_issue: "#827"
     preconditions: []
     effects:
       ci_matrix_machine_derived: true
@@ -555,6 +561,7 @@ actions:
       workspace diverge.
 
   - name: validate_archive_manifest_completeness
+    github_issue: "#831"
     preconditions: []
     effects:
       archive_manifest_validated: true
@@ -569,6 +576,7 @@ actions:
 
 
   - name: deduplicate_unreleased_changelog_headings
+    github_issue: "#832"
     preconditions: []
     effects:
       changelog_sections_unique: true
@@ -583,6 +591,8 @@ actions:
       `scripts/` already has changelog-adjacent gates to host it.
 
   - name: cover_sigterm_in_server_shutdown
+    github_issue: "#824"
+    status: in_progress
     preconditions: []
     effects:
       servers_exit_on_sigterm: true
@@ -604,6 +614,7 @@ actions:
       not on a config echo, and disclose the behaviour change in the changelog.
 
   - name: mutation_baseline_the_feature_gated_mcp_module
+    github_issue: "#833"
     preconditions: []
     effects:
       mcp_module_mutation_baselined: true

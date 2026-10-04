@@ -1,5 +1,70 @@
 # PROGRESS
 
+## 2026-10-04 (round 2): the backlog was invisible — 10 GOAP actions, 0 GitHub issues
+
+Reconciliation request, run under `goap-orchestrator`. Ground truth read off the API
+before anything was planned: `gh issue list --state open` -> `[]`, `gh pr list --state
+open` -> one PR (#819). `plans/ACTIONS.md` held 10 queued actions. So the entire backlog
+lived on one filesystem: no issue meant no `Fixes #…`, no external signal that anything
+was owed, and a session that did not open `plans/` would have found an empty tracker.
+
+### Verification swarm, and the corrections it produced
+
+Four read-only `Explore` agents re-derived all 10 actions against `8e69a83`. **All 10 are
+still missing** — none had silently landed. Three of the notes were nonetheless wrong in
+ways that change cost, which is why re-verifying a stale note is not busywork:
+
+- `cover_sigterm_in_server_shutdown` warned that a SIGTERM listener must respect the
+  `signal`/wasm32 target gate at `Cargo.toml:197-202`. **`Cargo.toml:202` already enables
+  `signal`.** The stated obstacle did not exist, so the action was cheaper than queued.
+- `derive_ci_crate_matrix_from_workspace` said two crates "silently" miss CI. They do not:
+  `ci.yml:216-217` comments both exclusions and each has a dedicated job. The real drift is
+  a *future* crate, because the root job at `ci.yml:204` runs
+  `cargo test --all-features --locked` with **no `--workspace` and no `-p`**.
+- `complete_evidence_tiers_and_mutation_hardening` claimed `pre-release-gate.yml` runs no
+  mutation. It does (`:106`, `mutation_test.sh fast --ci` at `:129`); it runs no benchmark.
+
+Every claim was re-derived locally (`grep`, `wc -l`, `sed -n`) before use, per the skill's
+trust boundary. No agent invented state this round, and the four corrections all held up.
+
+### Two world-state bugs found by reading `GOAP_STATE.md` against the repo
+
+- `sse_transport_has_exit_path: false` contradicted the *same file's*
+  `queued_actions_count` comment, which records #821 completing exactly that. Duplicate-key
+  hygiene does not catch a file disagreeing with itself; the flag is now `true` with the
+  evidence attached, and `servers_exit_on_sigterm: false` was added as the honest open half.
+- `main_head: "55a9fa3"` was two rounds stale (actual `8e69a83`).
+
+### `cover_sigterm_in_server_shutdown` implemented (#824)
+
+One shared `src/shutdown.rs::operator_shutdown()` resolving on SIGINT **and** SIGTERM,
+used by `mcp::serve` in place of `ctrl_c_shutdown` and by `run_watch` in place of its raw
+`tokio::signal::ctrl_c()`, so a long-running command can no longer wire half of the
+signals. `pub(crate)` and gated `all(not(wasm32), feature = "cli")` — `mcp` implies `cli`
+(`Cargo.toml:338`), so one gate covers both consumers and nothing new becomes public API.
+
+The test is `tests/cli_shutdown_signal.rs`, and it asserts the **exit status of the real
+binary**, because that is the only observable separating "handler installed" from "handler
+written and never registered": `src/mcp/server_tests.rs` resolves a *synthetic* future to
+prove the plumbing, and it stayed green for weeks while SIGTERM was absent from the process
+entirely. Red was demonstrated, not argued — deleting the SIGTERM arm turns the new test
+red with `signal: Some(15)` while the SIGINT test keeps passing, then the file was restored
+byte-identically (md5 + residue grep).
+
+### #819 roasted: no demonstrated impact
+
+Jules `perf(core): fast-path identity rotations in HVec10240::permute`, open since 06:07
+UTC and never roasted (today's first round covered #821/#822/#823). `commitlint` is red on
+the annotation *"perf PR evidence gate: missing `## Performance Evidence` section in the
+PR body"*. Three independent reasons it cannot merge as-is, all read off `main`: the body
+claims an "O(1) register/stack move" while `HVec10240` is `[u128; 80]` — 1280 bytes copied
+by value either way; the only production caller is `encoder.rs:226` with
+`position_stride` defaulting to **1** (`:91`), so identity means `pos == 0`, once per
+sequence; and `plans/evidence/bench/canonical.json` contains **no permute benchmark at
+all**, so the gate's baseline requirement is unsatisfiable without writing one first.
+Same class as #808 and the #737/#739/#740/#754 set. Verdict recorded; **not closed** —
+closing another author's open PR is a human call, and the measurement stays owed.
+
 ## 2026-10-04: SSE transport gets an exit (#821), a gate for the un-runnable `#[test]` (#822), and what three subagents reported that did not exist
 
 Second GOAP round under `goap-orchestrator` on this queue. Both actions came out of the
