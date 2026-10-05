@@ -43,9 +43,11 @@ world_state:
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "2f26214"           # 2026-10-05: #836 (SIGTERM parity on both long-running servers) on top of
-                               #   f235874 (#838 archive-manifest gate), 792d951 (dependabot #843) and
-                               #   87fa734 (#837 machine-derived crate matrix).
+  main_head: "83e9a6c"           # 2026-10-05: #852 (quality-gates.sh hands cargo nextest a flag it
+                               #   accepts) on top of 77bd5f0 (#846 skill-format fail-open + four
+                               #   orphaned fixtures wired), 6ec3cf6 (#848 changelog heading gate) and
+                               #   2f26214 (#836 SIGTERM parity). Each value here is read from
+                               #   `git log --oneline -1 origin/main`, never from the previous entry.
   tests_count: 1044              # 2026-10-05: 1037 + the 2 SIGINT/SIGTERM exit-status tests for `watch`, then +2
                                #   more for `mcp serve --transport sse` in the same
                                #   tests/cli_shutdown_signal.rs (all 4 pass on the branch; the file registers
@@ -81,24 +83,41 @@ world_state:
                                #   Bidirectional, re-measured 2026-10-05 on this base: 8 queued actions and 8
                                #   `github_issue:` keys — 8 and 8 after the #836 close-out and the #851 filing
                                #   (`grep -c '^  - name:'` vs `grep -c '^    github_issue:'`).
-                               #   One direction is still not covered: #839, #840, #841, #842, #849 and #850 are
-                               #   open issues with **no** queue entry — #840-#842 are the gates split out of #829
-                               #   as unwireable-as-is, #849/#850 are CI findings from this round. Filed, not queued.
-  fixture_suites_wired_into_validate: false  # 2026-10-05: implemented on the #829 branch (test-llms-sync.sh, test-version-sync.sh, test-validate-skill-format.sh all run from validate.sh -> CI lint job ci.yml:587) but PR-local — flips true when that PR merges. World state describes main, not an open branch.
-  skill_format_gate_fixtured_and_fail_closed: false  # 2026-10-05: the unclosed-frontmatter fail-open is fixed and covered by a 15-case fixture with four neuter directions demonstrated, on the same unmerged #829 branch.
+                               #   Open GOAP issues with no queue entry are now an error, not a note:
+                               #   #840/#841/#842 are queued in this round, #849 was fixed and merged as
+                               #   #852, and #839/#850/#853 stay CI findings that are filed but not yet
+                               #   queued (they are not `GOAP:`-titled, so the UNQUEUED check does not
+                               #   cover them — if they should be, they need the title prefix).
+  fixture_suites_wired_into_validate: true  # 2026-10-05: flipped on measurement, not on the PR — `77bd5f0` (#846) landed the wiring. On main 83e9a6c validate.sh invokes test-check-test-attributes.sh (:25), test-ci-workspace-crate-matrix.sh (:40), test-llms-sync.sh + test-version-sync.sh (:121 loop), test-validate-changelog.sh (:212), test-validate-skill-format.sh (:223) and test-quality-gates.sh (:294). The #829 action no longer claims this key: a queued action advertising an effect reported true here is the #851 drift and `check-goap-queue-issues.sh` fails on it.
+  skill_format_gate_fixtured_and_fail_closed: true  # 2026-10-05: also flipped by #846 landing. validate-skill-format.sh:282-287 rejects a `---` opener with no closing delimiter (the fail-open), and the 15-case fixture runs from validate.sh:223 -> CI lint job. Same treatment as the key above: moved out of #829's `effects:`.
+  changelog_sections_unique: true  # 2026-10-05 (#832, PR #848, main 6ec3cf6): `## [Unreleased]` holds one heading per release type — `grep -n '^### ' CHANGELOG.md` reads 10 Added / 14 Changed / 33 Fixed — and scripts/validate-changelog.sh scores duplicates per section, fixtured by scripts/test-validate-changelog.sh (10 cases) wired at validate.sh:208-214.
+  single_gate_graph: false  # 2026-10-05: the parent claim of #829, kept queued because it is genuinely not done. Measured on 83e9a6c: validate-links.sh (5 broken links, exit 1) and check-docs-links.sh (39 issues, exit 1) are red with no caller; validate-git-hooks.sh had no caller either. Decomposed into #840 / #841 / #842.
+  yaml_gate_severity_classified_and_gated: true  # 2026-10-05 (#841, PR #854, main 2984d3e): validate-workflows.sh classifies yamllint output on `-f parsable` into syntax error / error-level / warning-level instead of calling every finding "YAML syntax error", .yamllint gives it a profile (relaxed; line-length 200 warning, priced from ci.yml:516 at 166 cols and benchmark-ci.yml:61 at 207), an unavailable parser prints SKIPPED — NOT A PASS instead of a silent pass, and the 12-case fixture runs from validate.sh:297-303 with yamllint apt-installed in the lint job (pip hits PEP 668 on ubuntu-24.04).
 
   # ── Active wave ───────────────────────────────────────────────
   active_wave: 33
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 8        # 2026-10-05 ledger, each step `grep -c '^  - name:' plans/ACTIONS.md`:
-                               #   10 -> 9 (#837 landed derive_ci_crate_matrix_from_workspace, main 87fa734)
-                               #   9 -> 8 (#838 landed validate_archive_manifest_completeness, main f235874)
-                               #   8 -> 7 (#836 landed cover_sigterm_in_server_shutdown, main 2f26214)
-                               #   7 -> 8 (round 7 queued gate_plan_queue_against_issue_tracker from #851)
-                               #   Not from memory, and the count is the last thing this file asserts
-                               #   about itself rather than the first thing anyone checks.
+  queued_actions_count: 9        # 2026-10-05 ledger. Every line below is `git show <commit>:plans/ACTIONS.md
+                               #   | grep -c '^  - name:'`, not a recollection — and reading the commits
+                               #   instead of the prose is what exposed the drift #851 was written about:
+                               #   87fa734 (#837 landed) -> 10   entry NOT removed
+                               #   f235874 (#838 landed) -> 10   entry NOT removed
+                               #   2f26214 (#836 landed) -> 10   entry NOT removed, still `in_progress`
+                               #   6ec3cf6 (#848 landed) -> 10   entry NOT removed
+                               #   77bd5f0 (#846 landed) -> 8    removed #824/#827/#831, added #851
+                               #   83e9a6c (#852 landed) -> 8
+                               #   this commit          -> 10   removed #832, queued #840/#841/#842
+                               #   this commit          -> 9    #854 merged as 2984d3e during the same
+                               #     round and `Fixes #841` closed the issue the freshly written entry
+                               #     pointed at — the gate flagged it STALE before the commit was made,
+                               #     which is the first time this mechanism caught drift automatically.
+                               #   The four earlier "10 -> 9 -> 8 -> 7" lines this entry carried were
+                               #   counterfactual: they described the removals that should have happened,
+                               #   and git says none of them did. Now machine-checked —
+                               #   scripts/check-goap-queue-issues.sh (#851) fails when this number and
+                               #   `grep -c '^  - name:' plans/ACTIONS.md` disagree in either direction.
                                #   2026-10-04: #821 completed give_the_sse_transport_an_exit_path
                                #   and #822 completes revive_dead_cli_parity_help_test (11 -> 9), but measuring
                                #   #821's disclosed limitation on the binary (SIGINT exits 0, SIGTERM exits 143
@@ -216,4 +235,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: cover_sigterm_in_server_shutdown  # 2026-10-05 #824 via PR #836 (main 2f26214); validate_archive_manifest_completeness earlier the same day as #838 (f235874), derive_ci_crate_matrix_from_workspace as #837 (87fa734), revive_dead_cli_parity_help_test 2026-10-04 as #822
+  action_last_completed: classify_yaml_findings_in_validate_workflows  # 2026-10-05 #841 via PR #854 (main 2984d3e) — queued during this round and removed during it, caught STALE by scripts/check-goap-queue-issues.sh itself; before that deduplicate_unreleased_changelog_headings (#832, PR #848, main 6ec3cf6), entry removed in this round; earlier the same day cover_sigterm_in_server_shutdown (#824, 2f26214), validate_archive_manifest_completeness (#838, f235874) and derive_ci_crate_matrix_from_workspace (#837, 87fa734) all landed and had their entries removed only at 77bd5f0 — see the queued_actions_count ledger for what git measured.
