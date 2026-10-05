@@ -1,5 +1,45 @@
 # PROGRESS
 
+## 2026-10-05 (round 4): the mutation gate roasted my own coverage claim; two agent trees verified
+
+**CI failed #836 at `mutation score 0.0000%`** (run 37276860430, head `0107c9c`): all three
+in-diff mutants in `src/shutdown.rs` survived — `replace operator_shutdown with ()` (`:21:5`),
+`replace sigint with ()` (`:40:5`), `replace sigterm with ()` (`:56:5`). Cause, read off the
+script rather than guessed: the fast profile is `cargo mutants --lib -p csm-retrieval -p
+chaotic_semantic_memory` (`scripts/mutation_test.sh:142`), so `tests/cli_shutdown_signal.rs`
+is never built for the run. Every judgement I had made about this branch's coverage was made
+from the subprocess tests, which are the right tests for the *observable* and useless for the
+*gate*. I had also written that same `--lib` limitation up as one of #834's flaws.
+
+`55c0437` adds `src/shutdown_tests.rs` — one pending-check per arm at `NO_SIGNAL = 100ms` —
+chosen so a failure names the arm. Reproduced each mutant individually by deleting that
+function's body and re-running: RC 101 for all three, failing sets `1 / 2 / 2`
+(`operator_shutdown` alone; `sigint` and `sigterm` each take the composite with them).
+Restored from `/tmp/shutdown.pristine` with `cmp` clean, then `3 passed; 0 failed` /
+`GREEN2_RC=0`. The positive direction was deliberately left out of the lib target: `raise()`
+in the shared libtest binary kills the whole process on a mutant that skips registration.
+
+**Both swarm trees re-derived from git, not from their reports.**
+- **#831** (`c7085c5f`, `21b7b25`, base `8e69a83`, `+319/-29`): `plans/ARCHIVE_MANIFEST.md`
+  now enumerates **131** files, and `scripts/check-archive-manifest.sh` is wired into
+  `scripts/validate.sh` (which `ci.yml:587` runs) with a fail-closed `else exit 1`. I proved
+  red myself in three directions: unlisted file on disk → 1, fabricated row → 1, deleted real
+  row → 1, then restore → 0 with `cmp` clean. The 131/131 green count and the disk count
+  (`find plans/.archive -type f | wc -l` → 131) match. Spot-checked that archived "Why
+  archived" reasons survived the rewrite (6/6 present) — my first attempt at that check was
+  itself a broken extraction (`comm` against a bad column split reported *all 21 lost*), which
+  I only noticed by reading the actual rows.
+- **#827** (`f1dafe50`, `f921e81`, `+626/-12`): derived matrix equals the eight hand-written
+  crates exactly — the failure mode that mattered was a silent drop, and `--check` prints
+  `8 derived / 2 excluded (csm-duckdb, csm-wasm) / no hand-written entries`. Its 16-fixture
+  test script passes, including empty-matrix-rejected and re-typed-list-rejected, and
+  `--github-output` outside Actions exits 1 instead of emitting nothing. `shellcheck -S error`
+  clean on all three scripts.
+
+**Unlanded, and why**: #827 and #831 are verified but not yet pushed — the orchestrator owns
+that step, and merging is one-at-a-time from a current head. #836 must clear CI on `55c0437`
+first.
+
 ## 2026-10-05 (round 3): #824 implemented, and a draft duplicate forced the coverage to widen
 
 `cover_sigterm_in_server_shutdown` (#824) shipped as **PR #836** on branch

@@ -1,7 +1,8 @@
 # Rubric detail: subprocess tests, async tests, mutation exclusions, API widening
 
 Extracted from `SKILL.md` (250-LOC skill cap) on 2026-10-05, from the #834/#836
-SIGTERM duplicate. All four are readable off a diff without running anything.
+SIGTERM duplicate. The first four are readable off a diff without running anything;
+the fifth was only reachable by letting CI fail on my own PR.
 
 ## A subprocess test must be bounded and hermetic (#834)
 
@@ -21,7 +22,9 @@ Three checks a green CI cannot make for you:
 3. **A `csm` spawn needs an explicit `--database`.** With none,
    `src/cli/args.rs:20` falls back to git-local storage, so `csm watch` /
    `csm mcp serve` create and write `.git/memory-index/csm.db` inside the checkout
-   the test suite is running in. Non-hermetic, and CI never tells you.
+   the test suite is running in. Non-hermetic, and CI never tells you. **Reproduced** in a
+   throwaway `git init` repo: nothing exists under `.git/memory-index` before the run, and
+   `.git/memory-index/csm.db` is present after `csm watch` + SIGTERM.
 
 Related: dropping the read end of a child's stderr makes the child panic with exit
 101 on its next `eprintln!` (EPIPE), which the harness then blames on the production
@@ -102,3 +105,33 @@ signal listener must sit inside the same non-wasm target table. Nothing in CI ch
 the root crate for `wasm32` with `cli` enabled — `ci.yml:539` only checks `-p
 csm-wasm`, and `pre-release-gate.yml` (which does check `--features wasm`) has no
 caller — so an ungated module there is an unverified risk, not a proven break.
+
+## A subprocess test cannot feed the `--lib` mutation gate (#836, against myself)
+
+The rubric above was applied to #834 while the same defect sat unexamined in #836. CI run
+37276860430 (head `0107c9c`) scored `0.0000%` with all three in-diff mutants of
+`src/shutdown.rs` surviving — `replace operator_shutdown / sigint / sigterm with ()` —
+even though `tests/cli_shutdown_signal.rs` asserted the exact regression with a
+neuter-proven red. Reason, from `scripts/mutation_test.sh:142`: the fast profile runs
+`cargo mutants --lib -p csm-retrieval -p chaotic_semantic_memory`, so `tests/**` is not
+built and cannot kill anything.
+
+Two rules follow:
+
+1. **Read which targets the profile executes before claiming a change is covered.**
+   Assertion sharpness and harness reachability are independent properties; a perfect test
+   in an unseen target scores zero. Ask "can a mutant of the changed line be killed by a
+   test the *gate* runs", not "does my test catch it".
+2. **Put one assertion per mutant in the mutated target.** `src/shutdown_tests.rs` checks
+   each arm stays pending with no signal, at a timeout the correct code can never exceed.
+   Verify per-mutant, not per-suite: delete one function body, run, confirm which tests
+   fail, restore, `cmp` clean. Reproduced this way the failing sets are diagnostic —
+   `operator_shutdown` kills 1 test, `sigint` and `sigterm` each kill 2 (their arm plus
+   the composite). A single broad assertion would have passed the gate while telling a
+   future reader nothing about which arm broke.
+
+Not covered on purpose: proving "a real SIGTERM resolves it" inside `cargo test --lib`
+means `raise()`-ing a process-wide signal into the shared libtest binary. On a mutant that
+skips handler installation the entire test process dies by default disposition instead of
+one assertion failing. The exit-status claim stays process-level, one child per signal,
+bounded by a deadline.

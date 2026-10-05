@@ -617,7 +617,7 @@ actions:
       Assert the effect on the real binary (exit codes 0 vs 143 are the observable),
       not on a config echo, and disclose the behaviour change in the changelog.
       2026-10-05 STATUS: implemented as PR #836 (branch
-      `fix/mcp-sigterm-cooperative-shutdown`, head `c62f2ce`) — `src/shutdown.rs`
+      `fix/mcp-sigterm-cooperative-shutdown`, head `55c0437`) — `src/shutdown.rs`
       `operator_shutdown()`, `pub(crate)` + non-wasm/`cli` gated, no public API change;
       both `watch` and `mcp serve --transport sse` asserted on the binary, red
       demonstrated per command by deleting the SIGTERM arm. Draft PR **#834** is an
@@ -626,6 +626,13 @@ actions:
       twice, and its six weaknesses are recorded in `plans/PR_ROAST_2026_10_05.md` so no
       future session re-imports them. Do not merge both. Keep this action `in_progress`
       until #836 lands on `main`.
+      The gate that moved after that: `mutation-test` went **red on `0107c9c` at score
+      0.0000%** with all three `src/shutdown.rs` mutants surviving, because the fast
+      profile is `--lib` only and the subprocess tests are invisible to it. Fixed at
+      `55c0437` (`src/shutdown_tests.rs`) and each mutant reproduced individually — this
+      is also the measured answer to the action's own instruction above: the exit codes
+      are the observable for a *human*, but the profile that scores the change needs an
+      assertion inside `src/`.
 
   - name: mutation_baseline_the_feature_gated_mcp_module
     github_issue: "#833"

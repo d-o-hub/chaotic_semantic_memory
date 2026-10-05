@@ -45,10 +45,14 @@ world_state:
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
   main_head: "8e69a83"           # 2026-10-04: #823 (docs-only close-out of #821/#822) on top of #822 (55a9fa3),
                                #   #821 (dc7cd9a), #820 (ee283e6), #818 (f091ad2). This field was two rounds stale.
-  tests_count: 1041              # 2026-10-05: 1037 + the 2 SIGINT/SIGTERM exit-status tests for `watch`, then +2
+  tests_count: 1044              # 2026-10-05: 1037 + the 2 SIGINT/SIGTERM exit-status tests for `watch`, then +2
                                #   more for `mcp serve --transport sse` in the same
                                #   tests/cli_shutdown_signal.rs (all 4 pass on the branch; the file registers
-                               #   4 tests, re-derived from the harness output, not inferred); not re-run through
+                               #   4 tests, re-derived from the harness output, not inferred), then +3 from
+                               #   `src/shutdown_tests.rs` (one pending-check per arm, added because the
+                               #   `--lib`-only mutation profile scored 0.0000% on #836 head `0107c9c`; the
+                               #   lib target went 172 filtered-out -> 175 total, measured not inferred);
+                               #   not re-run through
                                #   scripts/coverage-report.sh inventory, so this is a delta on
                                #   the last measured value, not a fresh measurement.
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)

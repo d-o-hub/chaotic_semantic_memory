@@ -183,7 +183,7 @@ PRs asserted a zero-copy win that a by-value `-> Self` return rules out.
     argument — that test is worth more than the benchmark.
   - Look for the degenerate case: when `k == N` the partition is skipped, so
     deferring per-element work is a pure regression. Guard it.
-- **Four things a green CI cannot tell you about a test diff** (2026-10-05, #834):
+- **Five things a green CI cannot tell you about a test diff** (2026-10-05, #834):
   a subprocess test needs a deadline on every `child.wait()`, readiness synchronised on
   the child's own output rather than `sleep(200ms)`, and an explicit `--database` (with
   none `src/cli/args.rs:20` writes into the checkout); an `async` test that only
@@ -192,8 +192,11 @@ PRs asserted a zero-copy win that a by-value `-> Self` return rules out.
   eye — `--exclude-re` matches the mutant *description*, `--exclude` is a file glob, and
   `--exclude-re "mod::path"` silently matches nothing; and a new `pub mod` for an
   internal need is a public-API cost that `llms.txt` counts. Distrust an `--exclude` of a
-  file whose only tests sit in a target the profile never runs. Detail + measured counts:
-  `references/subprocess-and-claim-rubric.md`.
+  file whose only tests sit in a target the profile never runs — and apply that to your
+  own branch first, because reachability is not sharpness: the fast profile is `--lib`
+  only (`scripts/mutation_test.sh:142`), so `tests/**` cannot kill a mutant however
+  precisely it pins the observable. #836 scored 0.0000% discovering this about itself.
+  Detail + measured counts: `references/subprocess-and-claim-rubric.md`.
 - **`export.json` / `Cargo.lock` noise**: timestamp-only or resolver-churn hunks
   must be dropped before merge.
 - **Bot comments** (Jules hello, Sonar/Codacy pass notes) are noise, not reviews.
