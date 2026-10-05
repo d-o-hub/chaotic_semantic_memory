@@ -144,7 +144,17 @@ if [[ " ${DETECTED_LANGUAGES[*]} " =~ " rust " ]]; then
 
   # Tests
   if command -v cargo-nextest &>/dev/null; then
-    if ! OUTPUT=$(cargo nextest run --all-features --workspace --quiet 2>&1); then
+    # nextest has no top-level `--quiet` and rejects it during argument parsing
+    # (measured: RC=2 "unexpected argument '--quiet' found"), so this gate used to
+    # die before compiling or running a single test — a false failure on every box
+    # that HAS cargo-nextest, while boxes without it silently took the working
+    # `cargo test` branch below. Moving it after `--` is not an option either
+    # (measured: RC=96 "failed to parse test binary arguments `--quiet`: arguments
+    # are unsupported"). `--cargo-quiet` is nextest's documented equivalent
+    # ("Do not print cargo log messages"), so it keeps the original intent. The
+    # stdout contract is unchanged: success still emits exactly the one [PASS]
+    # summary line and a failure still surfaces $OUTPUT on stderr.
+    if ! OUTPUT=$(cargo nextest run --all-features --workspace --cargo-quiet 2>&1); then
       fail "Tests: failed"
       printf "%s\n" "$OUTPUT" >&2
     else
