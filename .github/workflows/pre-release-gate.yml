@@ -121,7 +121,7 @@ jobs:
       with:
         tool: cargo-mutants
 
-    - name: Run mutation testing
+    - name: Run unit-target mutation testing
       env:
         MUTATION_THRESHOLD: 85
         DIFF_TARGET: origin/main
@@ -144,7 +144,7 @@ jobs:
         echo "| Security Audit | ${{ needs.security-audit.result }} |" >> $GITHUB_STEP_SUMMARY
         echo "| WASM Build | ${{ needs.wasm-smoke-build.result }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Planning State | ${{ needs.planning-state-check.result }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Mutation Score | ${{ needs.mutation-test.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Unit-Target Mutation Score | ${{ needs.mutation-test.result }} |" >> $GITHUB_STEP_SUMMARY
 
         if [ "${{ needs.pr-drain-check.result }}" != "success" ] || \
            [ "${{ needs.version-triad.result }}" != "success" ] || \
