@@ -1,14 +1,22 @@
 #!/bin/bash
 # test-version-sync.sh - Automated tests for verify-version-sync.sh
+#
+# Resolved through SCRIPT_DIR, not the working directory: this fixture was wired
+# into scripts/validate.sh on 2026-10-05 and had never been invoked by anything,
+# so running it from outside the project root failed on `cp: cannot stat
+# 'scripts/verify-version-sync.sh'` — a missing-file error that looks like a
+# version-sync regression. Same idiom as scripts/test-llms-sync.sh.
 
 set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Setup temporary test environment
 TEST_DIR=$(mktemp -d)
 trap 'rm -rf "$TEST_DIR"' EXIT
 
 echo "Setting up mock project in $TEST_DIR..."
-cp scripts/verify-version-sync.sh "$TEST_DIR/"
+cp "${SCRIPT_DIR}/verify-version-sync.sh" "$TEST_DIR/"
 cd "$TEST_DIR"
 
 # Create mock files
