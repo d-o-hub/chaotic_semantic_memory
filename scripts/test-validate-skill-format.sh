@@ -181,6 +181,7 @@ expect_fail_naming "empty frontmatter block" \
 
 echo "Test 8: a backticked skill-local path that does not exist fails"
 reset_skills_dir
+# shellcheck disable=SC2016  # the backticks are the gate's input, not substitutions
 write_skill brokenref '---
 name: brokenref
 description: Points at a file that is not there.
@@ -199,6 +200,7 @@ expect_pass "reference restored"
 
 echo "Test 10: a repo-root scripts/ path referenced from a skill resolves too"
 reset_skills_dir
+# shellcheck disable=SC2016  # the backticked script path must reach the gate literally
 write_skill rootref '---
 name: rootref
 description: References a repo-root script.
@@ -211,6 +213,7 @@ expect_pass "repo-root scripts/ reference resolves"
 
 echo "Test 11: URLs, anchors and @imports are not mistaken for local paths"
 reset_skills_dir
+# shellcheck disable=SC2016  # `@scope/package` must stay literal; double quotes would substitute
 write_skill skipped '---
 name: skipped
 description: Contains non-path tokens.
