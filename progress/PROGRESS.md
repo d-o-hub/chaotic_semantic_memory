@@ -1,5 +1,116 @@
 # PROGRESS
 
+## 2026-10-05 (round 6): main moved twice under me, and my own monitor called a merged PR "UNKNOWN"
+
+### PR #838 merged while this round was running — verified, not assumed
+`validate_archive_manifest_completeness` landed as **`f235874`** (12:48:58Z) with a
+dependabot bump (`792d951`, #843) in between, so `main` moved twice since round 5. I checked
+that what merged is what I reviewed rather than trusting the title: `git diff b075a73 f235874
+-- scripts plans agents-docs` is **empty**, and the gate is live on main at
+`scripts/validate.sh:234-238` (131 archive files on disk = 131 enumerated, RC=0). That is why
+`plan_archive_manifest_valid` changed from a dated claim to a gated fact, why
+`validate_archive_manifest_completeness` left the queue (9 → 8 actions, counted with
+`grep -c '^  - name:'`), and why `action_last_completed` is now that action.
+
+### PR #836 rebased again, and the remote had moved
+The remote branch had been advanced to `d407b38` — a *merge* of main into the branch — while my
+local copy was a rebase onto `87fa734`. Before overwriting anything I compared the commit sets:
+remote-only was the merge commit alone, local-only was that same 10-commit history plus the
+`llms-full.txt` regeneration and one more docs commit (`git diff --stat d407b38 c7462d8` = 3
+files). Rebase onto `f235874` was clean, `check-llms-sync.sh` RC=0 locally — the failure that
+was blocking the PR is gone — then `--force-with-lease` push (the `pre-push` hook ran
+`cargo fmt --check` + clippy `--all-targets --all-features -D warnings` to completion, RC=0).
+PR head is `39ec716`, `MERGEABLE`, CI re-running on that head; `mutation-test` had already gone
+**success** on the previous head.
+
+### A duplicate track for `deduplicate_unreleased_changelog_headings` (#832)
+Draft PR **#845** appeared on branch `dedup-changelog-headings-…` (26 pass / 9 skipping, files:
+`CHANGELOG.md`, `commitlint.config.cjs`, `scripts/pre-commit.sh`,
+`scripts/validate-changelog.sh`) — i.e. an outside implementation of the action my local agent
+is still compiling. Roast-before-implement applies: #845 gets reviewed on its merits and the
+local duplicate does not land behind it.
+
+### Monitoring truth
+My own monitor line read `PR838 SETTLED state=UNKNOWN checks_pending=0 failures=0`. The state
+was not "settled green" — the PR had **merged** and GitHub had deleted the branch, so
+`gh pr checks` returned nothing at all. `checks_pending=0` derived from an empty result set is
+not evidence; the same "empty output is not a measurement" class as the truncated
+`--list` probe, arriving from the opposite direction.
+
+## 2026-10-05 (round 5): one PR merged, two verified, and a wired gate that validated a broken frontmatter block
+
+Fourth/fifth GOAP round on this queue. `#837` merged; `#838`/`#836` verified and rebased;
+`#829` implemented and split; the `#828` swarm agent came back with a generator whose red
+direction I reproduced myself. Roast verdicts in `plans/PR_ROAST_2026_10_05.md`.
+
+### `derive_ci_crate_matrix_from_workspace` — completed (PR #837, squashed as `87fa734`)
+Merged only after the derived wiring was seen executing in real Actions: **8**
+`Test Workspace Crates (csm-*)` jobs green on head `f921e81`, zero non-green checks. The
+8-vs-10 crate question was answered by the gate itself, not by me: `csm-duckdb`/`csm-wasm`
+are excluded by name and the script fails if an excluded crate is no longer a member
+(`:188`) or has no dedicated CI job (`:193`). Verdict posted to the PR **before** merging.
+
+### PR #838 (`validate_archive_manifest_completeness`) — rebased, CI in flight
+`#837` moving `main` forced the rebase #838 was going to need anyway. Clean (different
+`validate.sh` regions: `:36-42` vs `:234-238`), then re-run rather than re-trusted:
+`ok: archive manifest complete (131 files under plans/.archive/, 131 enumerated)`, RC=0,
+`shellcheck -S error` RC=0. New head `b075a73`.
+
+### #829 — the gate graph, and a fail-open that only a fixture could find
+Audited every claim against `main` before implementing. Five orphan suites confirmed
+(RC table in the issue comment), and the audit found more than it expected:
+- **`validate-skill-format.sh` failed open.** A `SKILL.md` opening `---` with no closing
+  delimiter validated as healthy, because `extract_frontmatter` returns everything after
+  the first delimiter when a second never arrives — so the `-z` branch that prints
+  *"invalid frontmatter (missing closing ---)"* could not fire for the case it named, and
+  actually reported an *empty* block. The gate is CI-wired; no skill on disk trips it,
+  which is why it survived. Fixed + `scripts/test-validate-skill-format.sh` (15 cases),
+  with the four neuter directions demonstrated on the mutated checker (cap 250→2500,
+  `-gt`→`-ge`, `-lt 2`→`-lt 1`, empty-inventory `exit 1`→`exit 0`) — each caught by the
+  one test designed to catch it, file restored `cmp`-identical after every mutation.
+- **A never-invoked script has two untested properties.** `test-version-sync.sh` was mode
+  **664** and resolved its subject as `cp scripts/verify-version-sync.sh` — CWD-relative —
+  so from anywhere but the repo root it died with `cp: cannot stat` (RC=1 measured). Both
+  would have been invisible in a green run from the root.
+- **Three gates cannot be wired as-is**, so they are split out instead of "fixed": #840
+  (two competing link validators; `validate-links.sh` RC=1 on 5 links that are all false
+  positives — root-relative `@AGENTS.md` resolved inside the skill dir, plus example syntax
+  quoted in prose; `check-docs-links.sh` RC=1/66 s with all 33 broken links inside the
+  frozen `plans/.archive/**` that #838 now pins), #841 (`validate-workflows.sh` RC=1
+  "Errors: 4" where the payload is yamllint lint output under a *"YAML syntax error"*
+  heading and the repo has **no** `.yamllint` profile, so the noise is the gate's own
+  missing configuration), #842 (three hook installers, three hook sets, `.githooks/`
+  installed by none, `cmp` differs at byte 40, and `core.hooksPath` checked only in
+  `--global` while this workstation carries it locally).
+- `negative-fixtures.sh` **deleted**, not wired: it asserts rustc rejects
+  `fn main() { invalid_syntax!` and rustfmt flags unformatted code — the toolchain, not the
+  repo — and it wrote `/tmp/test_invalid.rs` under a fixed name with no `set -e`.
+
+### #828 — swarm agent verified before any PR
+`scripts/gen-skill-catalog.sh` (292) + `check-skill-catalog.sh` (76) +
+`test-skill-catalog-gate.sh` (184); `CATALOG.md` regenerated to **33 skills** and now lists
+`pr-roast-triage`, the entry its own roast rule depends on. I re-derived all of it from git
+and reproduced the teeth personally: dropped the `pr-roast-triage` row → gate RC=1, tampered
+with only the count line → gate RC=1, `git checkout` restore → RC=0 with a clean
+`git status`; generator run twice → `cmp` byte-identical; `shellcheck -S error` RC=0;
+rebased onto `87fa734` clean, `ci.yml` parses (`yaml.safe_load`).
+
+### PR #836 — the mutation gate passed; a stale generated file did not
+`mutation-test` went **success** on `a61dbf3` after `src/shutdown_tests.rs` put an assertion
+in the target the `--lib` profile actually runs. The `lint` job still failed, for a
+different reason than the last time: `check-llms-sync.sh` regenerates `llms-full.txt`, which
+emits one `## <file>` section per source file **whether or not that file declares public
+API** — so adding the fixture file itself made the committed copy stale by two lines.
+Reproduced locally (RC=1, `llms-full.txt | 2 ++`), regenerated, committed, rebased onto
+`87fa734` → head `c7462d8`. `cargo fmt --check` and `cargo test` were both green throughout:
+the local gate I skipped was `validate.sh`, not the compiler.
+
+### Swarm/dispatch accounting
+Two agents dispatched this round (#828 landed and is verified; #832 still running with one
+commit and an in-progress `validate-changelog.sh`). The #829 agent's worktree was re-derived
+as **zero commits, clean tree** at `origin/main` with no processes → stopped and taken over
+rather than waiting on a silent dispatch.
+
 ## 2026-10-05 (round 4): the mutation gate roasted my own coverage claim; two agent trees verified
 
 **CI failed #836 at `mutation score 0.0000%`** (run 37276860430, head `0107c9c`): all three

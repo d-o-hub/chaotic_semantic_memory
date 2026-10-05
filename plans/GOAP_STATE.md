@@ -43,8 +43,9 @@ world_state:
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "8e69a83"           # 2026-10-04: #823 (docs-only close-out of #821/#822) on top of #822 (55a9fa3),
-                               #   #821 (dc7cd9a), #820 (ee283e6), #818 (f091ad2). This field was two rounds stale.
+  main_head: "2f26214"           # 2026-10-05: #836 (SIGTERM parity on both long-running servers) on top of
+                               #   f235874 (#838 archive-manifest gate), 792d951 (dependabot #843) and
+                               #   87fa734 (#837 machine-derived crate matrix).
   tests_count: 1044              # 2026-10-05: 1037 + the 2 SIGINT/SIGTERM exit-status tests for `watch`, then +2
                                #   more for `mcp serve --transport sse` in the same
                                #   tests/cli_shutdown_signal.rs (all 4 pass on the branch; the file registers
@@ -52,8 +53,7 @@ world_state:
                                #   `src/shutdown_tests.rs` (one pending-check per arm, added because the
                                #   `--lib`-only mutation profile scored 0.0000% on #836 head `0107c9c`; the
                                #   lib target went 172 filtered-out -> 175 total, measured not inferred);
-                               #   not re-run through
-                               #   scripts/coverage-report.sh inventory, so this is a delta on
+                               #   not re-run through scripts/coverage-report.sh inventory, so this is a delta on
                                #   the last measured value, not a fresh measurement.
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
   coverage_lines_percent: 74     # 2026-09-18: cargo +nightly llvm-cov --workspace --lib --tests --branch
@@ -69,28 +69,36 @@ world_state:
     - "plans/.archive/2026-07-20-historical"
     - "plans/.archive/2026-08-08-historical"
   active_plan_set_compact: true
-  plan_archive_manifest_valid: true  # 2026-09-30: ARCHIVE_MANIFEST.md + README redirects exist; no validator reads it and 55 top-level archived ADRs are unlisted (queued)
+  plan_archive_manifest_valid: true  # 2026-10-05: no longer a claim — scripts/check-archive-manifest.sh (PR #838, main f235874) compares the manifest against disk both directions (131 = 131, RC=0) and validate.sh:234-238 refuses if the gate is missing or not executable
   goap_actions_tracked_as_issues: true  # 2026-10-04: reconciliation found 10 queued actions and 0 open issues — the
                                #   backlog existed only on this filesystem. Each action now carries a
                                #   `github_issue:` key; #824..#833 hold the verified evidence (line numbers,
                                #   grep counts, LOC) so a future session can re-derive rather than re-trust.
-                               #   Bidirectional: `grep -c '^    github_issue:' plans/ACTIONS.md` = 10.
+                               #   Bidirectional, re-measured 2026-10-05 on this base: 8 queued actions and 8
+                               #   `github_issue:` keys (`grep -c '^  - name:'` vs `grep -c '^    github_issue:'`).
+                               #   One direction is still not covered: #839, #840, #841, #842, #849 and #850 are
+                               #   open issues with **no** queue entry — #840-#842 are the gates split out of #829
+                               #   as unwireable-as-is, #849/#850 are CI findings from this round. Filed, not queued.
+  fixture_suites_wired_into_validate: false  # 2026-10-05: implemented on the #829 branch (test-llms-sync.sh, test-version-sync.sh, test-validate-skill-format.sh all run from validate.sh -> CI lint job ci.yml:587) but PR-local — flips true when that PR merges. World state describes main, not an open branch.
+  skill_format_gate_fixtured_and_fail_closed: false  # 2026-10-05: the unclosed-frontmatter fail-open is fixed and covered by a 15-case fixture with four neuter directions demonstrated, on the same unmerged #829 branch.
 
   # ── Active wave ───────────────────────────────────────────────
   active_wave: 33
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 10       # 2026-10-04 (round 2): still 10 — nothing removed, nothing added. What
-                               #   changed is that all 10 were re-verified against 8e69a83 by a four-agent
-                               #   read-only swarm (every one STILL-MISSING; none had silently landed) and
-                               #   each now carries `github_issue:` (#824-#833), because GitHub held **0**
-                               #   open issues against a 10-action backlog. `cover_sigterm_in_server_shutdown`
-                               #   (#824) is `status: in_progress`. Three notes were corrected: Cargo.toml:202
-                               #   already enables `signal`, so the queued wasm32 obstacle does not exist;
-                               #   ci.yml:216-217 declares and covers both crate exclusions, so the drift risk
-                               #   is a *future* crate plus ci.yml:204 running no `--workspace`;
-                               #   pre-release-gate.yml DOES run mutation (:106 -> :129), it runs no benchmark.
+  queued_actions_count: 8        # 2026-10-05: #838 merged validate_archive_manifest_completeness (9 -> 8); earlier the same day #837 merged derive_ci_crate_matrix_from_workspace (10 -> 9).
+                               #   Counted from `grep -c '^  - name:' plans/ACTIONS.md`, not from memory.
+                               #   2026-10-04: #821 completed give_the_sse_transport_an_exit_path
+                               #   and #822 completes revive_dead_cli_parity_help_test (11 -> 9), but measuring
+                               #   #821's disclosed limitation on the binary (SIGINT exits 0, SIGTERM exits 143
+                               #   = default disposition, so a systemd-stopped server still misses the ADR-0099
+                               #   stop) queued cover_sigterm_in_server_shutdown (9 -> 10).
+                               #   2026-10-03: #817 completed enable_ttl_cleanup_in_long_running_commands
+                               #   (9 -> 8), its review queued revive_dead_cli_parity_help_test (8 -> 9), and the
+                               #   mutation-test red on this PR's head queued mutation_baseline_the_feature_gated_mcp_module
+                               #   (9 -> 10) plus give_the_sse_transport_an_exit_path (10 -> 11) — the second is a
+                               #   production defect that the exclusion review exposed, not a coverage wish.
                                #   Counted with `grep -c '^  - name:' plans/ACTIONS.md`, not asserted.
 
   # ── Open work (flags currently false — the real backlog) ──────
@@ -197,4 +205,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: revive_dead_cli_parity_help_test  # 2026-10-04 #822; give_the_sse_transport_an_exit_path closed the same day as #821
+  action_last_completed: validate_archive_manifest_completeness  # 2026-10-05 #838 (main f235874); derive_ci_crate_matrix_from_workspace closed the same morning as #837 (87fa734), revive_dead_cli_parity_help_test 2026-10-04 as #822

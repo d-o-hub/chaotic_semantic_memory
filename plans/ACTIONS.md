@@ -12,6 +12,37 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-10-05, second action):
+> `validate_archive_manifest_completeness` (#831 → PR #838, squashed as `f235874`) —
+> `plans/ARCHIVE_MANIFEST.md` went from a document no script read to one gated by
+> `scripts/check-archive-manifest.sh`: **131 files under `plans/.archive/` = 131
+> enumerated**, RC=0, and the manifest fails closed — it errors on a listed file missing
+> from disk and on a disk file missing from the list, so the frozen archive cannot drift.
+> Wired into `scripts/validate.sh:234-238`, which refuses with *"missing or not executable"*
+> rather than skipping. What I verified before it merged: the tree of the squash commit is
+> identical to the head I reviewed (`git diff b075a73 f235874 -- scripts plans agents-docs`
+> is empty) and `shellcheck -S error` RC=0. Landing it moved `main` twice inside one round
+> (dependabot `792d951`, then `f235874`), which is why #836/#829 were rebased again rather
+> than pushed once.
+>
+> Last completed (verified 2026-10-05, first action):
+> `derive_ci_crate_matrix_from_workspace` (#827 → PR #837, squashed as `87fa734`) —
+> `Test Workspace Crates` is now derived from `cargo metadata` instead of a
+> hand-written list guarded by a "Keep in sync with workspace members" comment. The
+> observable that made it mergeable: on head `f921e81` the derived matrix produced
+> **8** `Test Workspace Crates (csm-*)` jobs, all `completed/success` — the first real
+> Actions execution of the `needs:` + job `outputs:` + `fromJSON` wiring, not a local
+> simulation. `crates/` holds 10 members, so the 8-vs-10 gap is the whole question, and
+> it is gated rather than assumed: `DEFAULT_EXCLUSIONS="csm-duckdb csm-wasm"` and the
+> script **fails** if an excluded crate stops being a workspace member (`:188`) or has no
+> dedicated job in `ci.yml` (`:193`). The third commit is the price of actually running
+> it: `ci(ci): write the derived matrix as a single GITHUB_OUTPUT line` — a multi-line
+> output value silently truncates. Cost: `scripts/ci-workspace-crate-matrix.sh` (289) +
+> `scripts/test-ci-workspace-crate-matrix.sh` (290, 16 fixtures, fail-closed outside
+> Actions) + `ci.yml` ±44 + `validate.sh` +15 (`:36-42`). Blind spots are recorded
+> in-repo by `b394cdf` — it proves the argument appears, not that the job runs, and
+> members added outside `crates/*` (`.`, `benchmarks`) are not candidates.
+>
 > Last completed (verified 2026-10-04, second action):
 > `revive_dead_cli_parity_help_test` (#822, `55a9fa3`) — `cli_each_subcommand_has_help`
 > existed in `tests/cli_parity.rs` with a body and no `#[test]`, so the harness never
@@ -469,8 +500,24 @@ actions:
     github_issue: "#829"
     preconditions: []
     effects:
-      single_gate_graph: true
+      skill_format_gate_fixtured_and_fail_closed: true
+      fixture_suites_wired_into_validate: true
     notes: >
+      Audit W1/G3, re-verified 2026-09-30 and again 2026-10-05 (issue #829 comment).
+      DONE on the branch: `validate-skill-format.sh` fail-open closed (an unclosed
+      frontmatter block validated) and given its first fixture; `test-llms-sync.sh`,
+      `test-version-sync.sh` (SCRIPT_DIR-resolved, exec bit restored) and the new
+      `test-validate-skill-format.sh` wired into `validate.sh`, hence into the CI
+      `lint` job at `ci.yml:587`; `negative-fixtures.sh` deleted — it asserted that
+      rustc rejects bad syntax and rustfmt flags unformatted code, i.e. the toolchain,
+      not this repo. NOT DONE, each split to its own issue because "just wire it" is
+      wrong for all three: #840 two competing link validators, both unwired, one of
+      which resolves root-relative `@imports` against the skill directory; #841
+      `validate-workflows.sh` reporting yamllint lint noise as "YAML syntax error"
+      with no `.yamllint` profile in the repo; #842 three hook installers with three
+      different hook sets and `.githooks/` never installed by any of them. Original
+      note preserved below for provenance.
+      ----
       Audit W1/G3, re-verified 2026-09-30. Negative fixtures exist
       (`scripts/test-llms-sync.sh` 5 cases, `test-version-sync.sh` 4 cases,
       `negative-fixtures.sh`) but no gate invokes them;
@@ -550,34 +597,6 @@ actions:
       if it must be mutation-visible it also needs a root-crate `--lib` caller test.
       Smallest honest scope: cfg(test) counter + one test extending `bulk_associations_load`
       to N=50 asserting exactly one association query.
-
-  - name: derive_ci_crate_matrix_from_workspace
-    github_issue: "#827"
-    preconditions: []
-    effects:
-      ci_matrix_machine_derived: true
-    notes: >
-      Audit A6 remainder, re-verified 2026-09-30. `ci.yml`'s
-      `test-workspace-crates` matrix (`ci.yml:202-241`) is a hand-written crate
-      list guarded only by a "Keep in sync with workspace members" comment, so
-      a new `crates/*` member can silently miss CI. Required: derive the matrix
-      from `cargo metadata`, or add a check that fails when the list and the
-      workspace diverge.
-
-  - name: validate_archive_manifest_completeness
-    github_issue: "#831"
-    preconditions: []
-    effects:
-      archive_manifest_validated: true
-    notes: >
-      Audit G4, re-verified 2026-09-30. `plans/ARCHIVE_MANIFEST.md` documents
-      the 2026-07-20/2026-08-08 compactions and `plans/README.md` links it, but
-      no script reads it (grep for ARCHIVE_MANIFEST across `scripts/` and
-      `.github/` is empty) and it does not enumerate the 55 top-level archived
-      ADRs under `plans/.archive/` (`grep -c 'plans/.archive/00'` = 0).
-      Required: list the archived ADRs and add a checker so
-      `plan_archive_manifest_valid` rests on a gate.
-
 
   - name: deduplicate_unreleased_changelog_headings
     github_issue: "#832"
