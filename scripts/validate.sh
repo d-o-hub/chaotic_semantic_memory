@@ -111,6 +111,23 @@ fi
 echo "==> Generating/validating llms.txt and llms-full.txt"
 scripts/check-llms-sync.sh
 
+# Regression fixtures for the deterministic text gates above. Both suites build a
+# throwaway mock tree, copy the checker in, and assert the checker's failure
+# directions; they existed on main unrun by anything since they were committed
+# (#829), so either gate could have rotted into passing for the wrong reason.
+# `test-version-sync.sh` exercises the checker that `.github/workflows/
+# version-integrity.yml:32` runs — the fixture has no CI coverage of its own
+# otherwise, and it was not even executable (mode 664) until it was wired.
+for fixture in test-llms-sync.sh test-version-sync.sh; do
+  if [[ -x "${SCRIPT_DIR}/${fixture}" ]]; then
+    echo "==> Fixture: scripts/${fixture}"
+    "${SCRIPT_DIR}/${fixture}"
+  else
+    echo "Error: scripts/${fixture} missing or not executable"
+    exit 1
+  fi
+done
+
 LOC=$(grep -cE '^\s*(pub |fn |struct |enum |trait |impl )' llms-full.txt || true)
 echo "Public API surface: $LOC symbols"
 
@@ -202,6 +219,8 @@ fi
 if [[ -x "${SCRIPT_DIR}/validate-skill-format.sh" ]]; then
   echo "==> Skill format validation (fail-closed)"
   "${SCRIPT_DIR}/validate-skill-format.sh"
+  echo "==> Skill format gate fixture (both directions of every check)"
+  "${SCRIPT_DIR}/test-validate-skill-format.sh"
 else
   echo "Error: scripts/validate-skill-format.sh missing or not executable"
   exit 1
