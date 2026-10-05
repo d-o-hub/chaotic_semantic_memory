@@ -237,7 +237,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-echo "Test 4: a 120-column line does NOT fail (the .yamllint profile is load-bearing)"
+echo "Test 4a: a 120-column line is not even reported (the .yamllint budget is 200)"
 if [[ ${HAS_YAMLLOINT} -eq 1 ]]; then
     write_workflow <<'YML'
 ---
@@ -256,19 +256,45 @@ jobs:
         shell: bash
 YML
     run_gate
-    LINE_LEN="$(awk '{ if (length($0) > 80 && length($0) < 200) print FILENAME":"FNR }' \
+    LINE_LEN="$(awk '{ if (length($0) > 80 && length($0) < 200) print FILENAME":"FNR" ("length($0)" cols)" }' \
         "${TEST_DIR}/.github/workflows/mock.yml" || true)"
     if [[ -z "${LINE_LEN}" ]]; then
         ko "fixture broken: the mock has no >80-column line, so the profile was not exercised"
-    elif [[ "${GATE_STATUS}" -ne 0 ]] || [[ "${GATE_OUTPUT}" == *"lint finding, error level"* ]]; then
-        ko "a 120-column line failed the gate — .yamllint raised line-length to 200 at" \
-            "warning level and that profile is not being picked up (status=${GATE_STATUS})"
+    elif [[ "${GATE_STATUS}" -ne 0 ]] \
+        || [[ "${GATE_OUTPUT}" == *"line too long"* ]] \
+        || [[ "${GATE_OUTPUT}" == *"lint finding, error level"* ]]; then
+        ko "the 120-column line was reported (status=${GATE_STATUS}) — .yamllint's" \
+            "line-length max: 200 is not in effect; output was:"
         printf '%s\n' "${GATE_OUTPUT}"
     else
-        ok "line at ${LINE_LEN} (>80, <200) accepted; gate stayed at exit 0"
+        ok "line at ${LINE_LEN} not reported at all: profile is what admitted it"
     fi
 else
     skip "yamllint is not installed, so the profile-assertion case did not run"
+fi
+
+# ---------------------------------------------------------------------------
+echo "Test 4b: a 218-column line IS still reported, as a warning that cannot fail the gate"
+if [[ ${HAS_YAMLLOINT} -eq 1 ]]; then
+    # Generated, not pasted: the length is the assertion, and a 218-column
+    # literal in this file would be unreadable (and would itself get wrapped).
+    PADDING="$(printf 'x%.0s' {1..200})"
+    {
+        printf -- '---\nname: mock\non:\n  push:\n    branches:\n      - main\n'
+        printf -- 'permissions: read-all\njobs:\n  build:\n    runs-on: ubuntu-latest\n'
+        printf '    steps:\n      - run: echo %s\n' "${PADDING}"
+    } > "${TEST_DIR}/.github/workflows/mock.yml"
+    run_gate
+    if [[ "${GATE_STATUS}" -eq 0 ]] \
+        && [[ "${GATE_OUTPUT}" == *"line too long (218 > 200 characters)"* ]] \
+        && [[ "${GATE_OUTPUT}" == *"warning level"* ]]; then
+        ok "over-budget line surfaced as a warning at exit 0 — the budget is finite"
+    else
+        ko "218-column line wrong (status=${GATE_STATUS}); output was:"
+        printf '%s\n' "${GATE_OUTPUT}"
+    fi
+else
+    skip "yamllint is not installed, so the over-budget case did not run"
 fi
 
 # ---------------------------------------------------------------------------
