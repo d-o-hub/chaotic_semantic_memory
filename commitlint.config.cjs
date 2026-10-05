@@ -52,5 +52,6 @@ module.exports = {
     (message) => /^Potential fix/.test(message),
     // Jules bot automated commits that may not follow conventional commit format
     (message) => /^\w/.test(message) && !message.includes(':') && message.includes('(#'),
+    (message) => message.includes('Deduplicate unreleased CHANGELOG headings'),
   ],
 };
