@@ -23,7 +23,9 @@ async fn test_durable_inject_concept_failure_leaves_memory_unchanged() {
         .expect("Persistence should be present");
     persistence.set_simulate_failure(true);
 
-    let result = fw.inject_concept("failed_concept", HVec10240::random()).await;
+    let result = fw
+        .inject_concept("failed_concept", HVec10240::random())
+        .await;
     assert!(
         result.is_err(),
         "inject_concept should fail when persistence fails"
