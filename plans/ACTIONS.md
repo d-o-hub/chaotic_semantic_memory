@@ -606,7 +606,18 @@ actions:
       its `architecture.modules` names pre-extraction root files. Required:
       generator + drift gate for the catalog, and refreshed (or generated)
       agent-context artifacts with a checker.
-      2026-10-05 STATUS: PR **#847** open (branch `docs/generate-skill-catalog-and-drift-gate`, rebased head `a4092b5`) — `scripts/gen-skill-catalog.sh` + `scripts/check-skill-catalog.sh` (76 lines) + an 8-case drift fixture, `CATALOG.md` regenerated to 33 skills and proven byte-identical on re-run. #846 has merged, so the `validate.sh` collision it was warned about is resolved; what remains is `ci.yml` and `validate.sh` overlapping with #854, which merges first. Codacy's seven info-level SC2016 findings are gone at head `a4092b5`: two were real and were removed (`render_catalog` rewritten as one quoted heredoc, proven byte-identical on re-run), five were literal-backtick fixtures and gates that took `# shellcheck disable=SC2016` with a reason on the line above. Verify with plain `shellcheck <file>` — info level, the level Codacy scores; this repo's own gate runs `-S error` and saw nothing.
+      2026-10-05 STATUS: PR **#847** merged as `6d936ee` — `scripts/gen-skill-catalog.sh` +
+      `scripts/check-skill-catalog.sh` (76 lines) + a 23-assertion drift fixture, `CATALOG.md`
+      regenerated to 33 skills and proven byte-identical on re-run, wired at `validate.sh:235-241`
+      (fail-closed `else` at `:241`) and `ci.yml:598`. Its seven Codacy SC2016 findings cleared
+      honestly: two removed (`render_catalog` rewritten as one quoted heredoc, regeneration proven
+      byte-identical), five literal-backtick lines given `# shellcheck disable=SC2016` with a reason.
+      **This entry stays queued on purpose.** The action names two artifacts and #847 shipped one:
+      `scripts/gen-agents-context.sh:77` still hardcodes "Skills (13 Total)" into the drawio XML,
+      `docs/architecture/context.yaml` still carries `skills.total_count: 19`, which
+      `scripts/yaml-to-drawio.py` renders, and nothing checks either. Flipping
+      `skill_catalog_generated_and_gated` to `true` while the action is still queued is exactly what
+      `check-goap-queue-issues.sh` errors on, so the effect waits for the half that is not done.
 
   - name: complete_evidence_tiers_and_mutation_hardening
     github_issue: "#830"
@@ -769,16 +780,28 @@ actions:
       one `gh` call for the whole check, and a loud `skip:` line when offline — a
       gate that passes silently without its token is this same bug in a new place.
       2026-10-05 STATUS: implemented in this round as `scripts/check-goap-queue-issues.sh`
-      (277 lines, one `gh issue list --state all --limit 500` call, `SKIP — NOT A PASS`
-      when gh is absent or unauthenticated while UNDECLARED/STATE still run,
-      `CSM_GOAP_QUEUE_REQUIRED=true` makes an unreachable tracker fatal, fail-closed on a
-      missing plans file and on a zero-action parse) plus `scripts/test-goap-queue-issues.sh`
-      (46 assertions over 22 tests, stubbed `gh`) wired into `validate.sh`. One design
+      (one `gh issue list --state all --limit 500` call and nothing else — the `gh auth
+      status` probe a first draft had in front of it is gone, see below) plus
+      `scripts/test-goap-queue-issues.sh` (50 assertions over 23 tests, stubbed `gh`)
+      wired into `validate.sh`. One design
       decision changed under measurement: the brief asked for "every queued effect must be
       declared in world_state", which on `83e9a6c` flagged 8 of 10 effect keys — a pending
       effect is by definition not held, and pre-declaring each as `false` only relocates
       the drift. The check now asserts the inverse, which is the failure that actually
       occurred: a queued action whose effect world_state already reports `true`, and an
       `action_last_completed` naming an action still in the queue. Both directions are
-      fixture-covered and each was shown red by neutering the implementing line. Keep this
+      fixture-covered and each was shown red by neutering the implementing line.
+      Roasting this PR before merge found two more defects in my own gate. (1) The probe
+      was a second, independent way to conclude "tracker unreachable", and it can fail on
+      a runner whose token answers the real query perfectly well; the gate now decides
+      from the single `gh issue list` call and carries that call's first stderr line into
+      the SKIP reason instead of discarding it. (2) An rc=0 that is not a JSON array now
+      skips loudly rather than parsing as zero issues, which would have read as an empty
+      backlog and passed. CI wiring, without which the tracker half never runs: the `lint`
+      job declares `permissions: {contents: read, issues: read}` (a job-level block
+      REPLACES the workflow-level one, so contents has to be restated or checkout loses its
+      token) and the `validate.sh` step gets `GITHUB_TOKEN` plus
+      `CSM_GOAP_QUEUE_REQUIRED=true`. Keeping that SKIP survivable would have been the
+      #853 machine-asymmetry class in a new place: a gate whose decisive branch only runs
+      on machines that happen to have a credential. Keep this
       action `in_progress` until the branch lands on `main`.
