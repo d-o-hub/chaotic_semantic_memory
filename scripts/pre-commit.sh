@@ -43,6 +43,29 @@ if [[ -f "CHANGELOG.md" ]]; then
     echo "   Format: ## [VERSION] - YYYY-MM-DD"
     exit 1
   fi
+
+  # Check for duplicate subsection headings (e.g. two ### Changed under [Unreleased])
+  SECTION_DUPLICATES=$(awk '
+  /^## / {
+      section = $0
+      delete seen
+  }
+  /^### / {
+      if (seen[$0]++) {
+          print "   " $0 " in section '\''" section "'\''"
+          has_dup = 1
+      }
+  }
+  END {
+      if (has_dup) exit 1
+  }
+  ' CHANGELOG.md || true)
+  if [[ -n "$SECTION_DUPLICATES" ]]; then
+    echo "❌ Duplicate CHANGELOG subsection (###) headers found:"
+    echo "$SECTION_DUPLICATES"
+    echo "   Merge identical subsection headings under each version header"
+    exit 1
+  fi
 fi
 
 # Docs sync: regenerate llms.txt files
@@ -122,7 +145,7 @@ fi
 
 # Test-surface inventory (fast; no test execution). Coverage measurement is
 # opt-in: scripts/coverage-report.sh llvm-cov[-all].
-STAGED_TESTS=$(git diff --cached --name-only 2>/dev/null | grep -cE "^(src|crates)/.*\.rs$|^tests/.*\.rs$" || echo "0")
+STAGED_TESTS=$( (git diff --cached --name-only 2>/dev/null | grep -cE "^(src|crates)/.*\.rs$|^tests/.*\.rs$") || true)
 if [[ "${STAGED_TESTS}" -gt 0 ]] && [[ -x "${SCRIPT_DIR}/coverage-report.sh" ]]; then
   echo " → Test inventory (unique compiled behavior)..."
   "${SCRIPT_DIR}/coverage-report.sh" inventory | head -8

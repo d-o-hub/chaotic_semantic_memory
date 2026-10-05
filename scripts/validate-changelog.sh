@@ -9,6 +9,7 @@
 #   1. Version header exists (## [VERSION] format)
 #   2. No duplicate headers
 #   3. Header has date (Keep a Changelog format: YYYY-MM-DD)
+#   4. No duplicate subsection (###) headers within any section
 #
 # Exit codes:
 #   0 - Validation passed
@@ -64,6 +65,30 @@ if ! grep -q "${DATE_PATTERN}" CHANGELOG.md; then
   echo "   Expected format: ## [${VERSION}] - YYYY-MM-DD"
   echo "   Found header:"
   grep "${HEADER_PATTERN}" CHANGELOG.md
+  exit 1
+fi
+
+# 4. Guardrail: Check for duplicate ### subsection headings within any ## section
+SECTION_DUPLICATES=$(awk '
+/^## / {
+    section = $0
+    delete seen
+}
+/^### / {
+    if (seen[$0]++) {
+        print "   " $0 " in section '\''" section "'\''"
+        has_dup = 1
+    }
+}
+END {
+    if (has_dup) exit 1
+}
+' CHANGELOG.md || true)
+
+if [[ -n "${SECTION_DUPLICATES}" ]]; then
+  echo "::error::Duplicate subsection (###) headers found in CHANGELOG.md:"
+  echo "${SECTION_DUPLICATES}"
+  echo "   Fix: Merge identical subsection headings under each version header"
   exit 1
 fi
 
