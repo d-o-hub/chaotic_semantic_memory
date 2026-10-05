@@ -80,6 +80,15 @@ cargo build --bin csm --features cli --quiet
 ```
 Run before any ADR-related PR; integrated into `scripts/validate.sh`.
 
+## Plan Archive Manifest ↔ Disk Parity (#831)
+
+```bash
+./scripts/check-archive-manifest.sh           # errors on unlisted files and stale rows
+```
+Every file under `plans/.archive/` needs a row in `plans/ARCHIVE_MANIFEST.md`, and every
+row needs a file. Run after archiving (including `plans-manager.sh archive adr`);
+integrated into `scripts/validate.sh`.
+
 ## Jules Delegation (Long-Running Actions)
 
 For `plans/ACTIONS.md` actions with `cost ≥ 12`, hand off to Jules:

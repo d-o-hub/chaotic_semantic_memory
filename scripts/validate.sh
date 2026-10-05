@@ -225,6 +225,20 @@ else
   echo "skip: ${ADR_REGISTRY} not found"
 fi
 
+# Plan archive manifest completeness (issue #831). plans/ARCHIVE_MANIFEST.md is the
+# only index of plans/.archive/, and `scripts/plans-manager.sh archive adr` moves ADRs
+# into that directory without touching the manifest — so the gate had a real drift
+# mechanism and no reader: 55 archived ADRs plus 49 handoffs went unlisted while
+# `plan_archive_manifest_valid` reported true on prose. Bidirectional, so a stale row
+# fails as loudly as an unlisted file.
+if [[ -x "${SCRIPT_DIR}/check-archive-manifest.sh" ]]; then
+  echo "==> Plan archive manifest completeness"
+  "${SCRIPT_DIR}/check-archive-manifest.sh"
+else
+  echo "Error: scripts/check-archive-manifest.sh missing or not executable"
+  exit 1
+fi
+
 # GitHub Actions SHA validation (optional - only if requested)
 # Note: Disabled by default as existing workflows use version tags
 # To enable: export CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true
