@@ -479,9 +479,13 @@ actions:
       `setup-hooks.sh`, `validate-git-hooks.sh --install`) install different
       hook sets; `pre-commit.sh` and `hooks/pre-push` enforce different sensors
       than `harness-check.sh`; the CI-wired skill validator has no negative
-      fixture. Required: one bootstrap, one canonical gate graph, fixture tests
-      wired into `validate.sh` + CI (or deleted), negative fixture for the
-      skill validator.
+      fixture. Fresh measured evidence (2026-10-05): `scripts/validate-links.sh`
+      is red on `main` right now — 5 broken refs (`@AGENTS.md` in
+      `jules-orchestration` and `rust-development`, `@file.md` in
+      `skill-creator`, `@file.md` + `./path.md` in `testing-validation`) — and
+      nothing invokes it, so a gate that fails is contributing zero signal.
+      Required: one bootstrap, one canonical gate graph, fixture tests wired into
+      `validate.sh` + CI (or deleted), negative fixture for the skill validator.
 
   - name: generate_skill_catalog_and_agent_context
     github_issue: "#828"
@@ -612,6 +616,16 @@ actions:
       for wasm32) — any new listener must stay inside the same non-wasm target table.
       Assert the effect on the real binary (exit codes 0 vs 143 are the observable),
       not on a config echo, and disclose the behaviour change in the changelog.
+      2026-10-05 STATUS: implemented as PR #836 (branch
+      `fix/mcp-sigterm-cooperative-shutdown`, head `c62f2ce`) — `src/shutdown.rs`
+      `operator_shutdown()`, `pub(crate)` + non-wasm/`cli` gated, no public API change;
+      both `watch` and `mcp serve --transport sse` asserted on the binary, red
+      demonstrated per command by deleting the SIGTERM arm. Draft PR **#834** is an
+      independent duplicate of the same fix (Jules, same issue, CI green on `09973d8`);
+      its only extra coverage — the SSE server — was folded into #836 rather than merged
+      twice, and its six weaknesses are recorded in `plans/PR_ROAST_2026_10_05.md` so no
+      future session re-imports them. Do not merge both. Keep this action `in_progress`
+      until #836 lands on `main`.
 
   - name: mutation_baseline_the_feature_gated_mcp_module
     github_issue: "#833"

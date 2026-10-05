@@ -69,6 +69,13 @@ Same file + same base blob + same effect = duplicates. Keep exactly one:
 
 Close the losers with reason `superseded by #<keeper>`.
 
+**A live duplicate can hold coverage the keeper lacks — fold, then dominate.** Diff the
+rival's *test* files, not just its source: #834 proved the SIGTERM path on
+`csm mcp serve --transport sse` while the keeper #836 covered only `watch`. Take that one
+dimension into the keeper's own harness and say in the roast that the competitor supplied
+it. Two agents reaching the same design independently is also the cheapest confirmation
+the design is the obvious one.
+
 **Closed predecessors are duplicates too — and `gh pr list` cannot see them.**
 A bot re-files the same finding under a new task id, so grep the roast records
 for the *symbol* before writing a fresh verdict:
@@ -92,37 +99,9 @@ PRs asserted a zero-copy win that a by-value `-> Self` return rules out.
 - **commitlint scope**: must exist in `commitlint.config.cjs` `scope-enum`
   (`perf(hyperdim)` fails; only listed scopes pass).
 - **Rationale comments**: never deleted to "shorten" (`Never delete rationale comments`). Under 500 LOC gate pressure, bot PRs may attempt to strip docstrings/comments to make room for new code. Reject/roast this behavior; require extracting child submodules (e.g. `hyperdim_binary_serde.rs`) instead.
-  - **Verify before accusing** (PR #767, 2026-09-25). A 21-line doc removal
-    *looked* like comment-stripping, but `grep -c "ADR-0094"` returned 3 → 3:
-    the rationale was reworded, not lost. Count the knowledge that survives
-    (`grep -c` the ADR/issue tag on both sides), then name the exact contract
-    text that did not — here the `#[cfg(feature = "persistence")]` prose
-    ("Only available when…", "no-op since persistence is unavailable") on ~7
-    methods. Rewording is a nit; losing a documented contract is the
-    violation. Never report the former as the latter.
-  - **A surviving tag is not a surviving contract.** Check every removed
-    sentence **against the code it documents**, not against the diff's line
-    count. The same PR's rework kept all three `ADR-0094` mentions yet dropped
-    two behaviour statements that are verifiable in the source: the pool-size
-    clamp/default (`clamp(1, MAX)` and default 10) and "`build()` rejects the
-    configuration with `UnsupportedOperation`". A tag tells a reader where to
-    look; the sentence tells them what happens.
-  - **Don't restore for symmetry.** A "Only available when feature X" marker is
-    redundant when `#[cfg(feature = "X")]` sits on the same item and rustdoc
-    renders the gate. If you do restore it, commit as a maintainer action with
-    per-line evidence (`4f8c7b1`) and check **every** feature configuration
-    (default, `--features cli`, `--no-default-features`).
-  - A PR can violate this rule and still be **right on code** (#767's
-    `with_chaos_strength` leaked `NaN`/`±∞`). Say both; name what blocks merge.
-  - **Flipped test expectations are contract changes.** A test asserting
-    "negative strength fails" becoming "negative clamps" belongs in the body
-    as a deliberate contract change, not filed as a test fix.
-  - **`const fn` → `fn` is a public API change**; say so even when in-repo
-    callers are all runtime.
-  - **Dedup deletes prose too** (2026-10-03, #816): the removed copy's `with_ttl`
-    doc was the only place stating expiry resolves in `build()`, not at setter
-    time — the owner's doc did not say it. Diff a duplicate pair in both
-    directions and port rationale before deleting either side.
+  - Detail, with the #767 `grep -c ADR-0094` 3→3 verification, the surviving-tag
+    rule, restore-for-symmetry, flipped test expectations, `const fn` → `fn`, and
+    #816's dedup-deletes-prose case: `references/rationale-comments.md`.
 - **"Not breaking" is a semver claim, not a compile claim** (2026-10-03, #816
   self-roast): a workspace that still builds says nothing about a removed public
   derive or impl. Use the repo's `**Breaking (scope)**` changelog label (count
@@ -204,6 +183,15 @@ PRs asserted a zero-copy win that a by-value `-> Self` return rules out.
     argument — that test is worth more than the benchmark.
   - Look for the degenerate case: when `k == N` the partition is skipped, so
     deferring per-element work is a pure regression. Guard it.
+- **Four things a green CI cannot tell you about a test diff** (2026-10-05, #834):
+  a subprocess test needs a deadline on every `child.wait()`, readiness synchronised on
+  the child's own output rather than `sleep(200ms)`, and an explicit `--database` (with
+  none `src/cli/args.rs:20` writes into the checkout); an `async` test that only
+  *constructs* a future asserts nothing but compilation, and
+  `check-test-attributes.sh` cannot see that; `--exclude-re` matches item *names*, so a
+  string copied from a mutant description excludes nothing while reading like a waiver;
+  and a new `pub mod` for an internal need is a public-API cost that `llms.txt` counts.
+  Detail + measurements: `references/subprocess-and-claim-rubric.md`.
 - **`export.json` / `Cargo.lock` noise**: timestamp-only or resolver-churn hunks
   must be dropped before merge.
 - **Bot comments** (Jules hello, Sonar/Codacy pass notes) are noise, not reviews.

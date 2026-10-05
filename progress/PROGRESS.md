@@ -1,5 +1,72 @@
 # PROGRESS
 
+## 2026-10-05 (round 3): #824 implemented, and a draft duplicate forced the coverage to widen
+
+`cover_sigterm_in_server_shutdown` (#824) shipped as **PR #836** on branch
+`fix/mcp-sigterm-cooperative-shutdown`. The fix is one `pub(crate)`
+`src/shutdown.rs::operator_shutdown()` that resolves on SIGINT **and** SIGTERM; it
+replaces `ctrl_c_shutdown` in `mcp::serve` and the raw `tokio::signal::ctrl_c()` in
+`run_watch`, so a long-running command cannot wire only half of its signals. No new
+public API (`llms.txt` untouched), gated `all(not(target_arch = "wasm32"), feature =
+"cli")` because `mcp` implies `cli` (`Cargo.toml:338`).
+
+Then the queue grew a competitor: draft PR **#834** (Jules, also `Fixes #824`, CI green on
+`09973d8`) implemented the same primitive in `src/cli/shutdown.rs` as a `pub fn`.
+Re-derived from its own head rather than from its report: two binary-level tests with
+**unbounded `child.wait()`** (a regression hangs CI instead of failing), fixed
+**200/300 ms sleeps** in place of readiness synchronisation, both commands spawned with
+**no `--database`** — so per `src/cli/args.rs:20` they write `.git/memory-index/csm.db`
+into the checkout — a `#[tokio::test]` whose body only *constructs* the future (an
+`async fn` is lazy, so it asserts compilation), `sig.recv().await` discarding the
+`Option` (a closed stream reads as a shutdown request), `+6` lines of public API in
+`llms.txt`, and two new `scripts/mutation_test.sh` exclusions including
+`--exclude-re "replace shutdown_signal"`, which cannot match an item name.
+
+But it covered `csm mcp serve --transport sse`, which #836 did not. That dimension was
+folded in at **`c62f2ce`** — `serve_sse_stops_cooperatively_on_sigterm` / `_sigint`,
+reusing the bounded-wait harness, `--bind 127.0.0.1:0` with the kernel-chosen port read
+off the server's own readiness line, and an explicit temp `--database` — so #836 now
+covers both servers and #834 has nothing left to contribute. Four tests pass in 0.79 s.
+
+**Red demonstrated for both commands, not argued:** the SIGTERM arm was deleted from
+`operator_shutdown()`; exactly the two SIGTERM tests failed with
+`ExitStatus(unix_wait_status(15))`, `signal: Some(15)`, while both SIGINT tests stayed
+green (2/2). The file was restored from a copy taken before the neuter, `diff -q` clean,
+`git diff HEAD -- src/shutdown.rs` empty, and the suite re-run green.
+
+Gates on the branch head: `cargo fmt --all -- --check` clean, `cargo clippy --features
+cli,mcp --test cli_shutdown_signal -- -D warnings` clean, `check-test-attributes.sh` ok
+(76 files), `check-llms-sync.sh` up to date (tests/ is not in the generated surface, so
+`llms-full.txt` needed no second regen). Commitlint: 0 problems, 1 warning
+(`footer-leading-blank`, the heredoc quote line).
+
+Also roasted **#835** (`perf(retrieval): defer score normalization scaling in
+merge_single_list`) — a resubmission of the closed **#763** in the same function, now with
+*no* benchmark at all, which dodges #763's specific critique (a bench that never reached
+the changed path) by discarding the claim's support. Its rollup says `commitlint:
+COMPLETED/FAILURE`, `mergeStateStatus: BLOCKED`, and 4 commits with three identical
+headlines plus a re-typed `refactor(...)` — gate-dodging, not history. Verdicts and the
+manual merge order are in `plans/PR_ROAST_2026_10_05.md`. Nothing was closed: #834 and
+#835 are another author's drafts, and that call is human.
+
+Distilled into `skill://pr-roast-triage` (now 238 lines under the 250 cap): the Step-3
+rule that a live duplicate may hold coverage the keeper lacks — diff its *test* files,
+fold, dominate — plus four CI-invisible checks, with the long-form detail moved to
+`references/subprocess-and-claim-rubric.md` and the #767 rationale chain to
+`references/rationale-comments.md`. The addition itself first broke the cap (283 lines,
+`validate-skill-format.sh` RC=1); compaction was the fix, not a raised limit.
+
+Incidental measured evidence for `wire_and_consolidate_validation_gates` (#829):
+`scripts/validate-links.sh` is **red on the current tree** — 5 broken refs across
+`jules-orchestration`, `rust-development`, `skill-creator`, `testing-validation`
+(`@AGENTS.md`, `@file.md`, `./path.md`) — and no workflow or `validate.sh` invokes it, so
+an uncalled gate is also an already-failing one. Attached to that action rather than
+fixed here, to keep #824 atomic.
+
+World state: `servers_exit_on_sigterm` deliberately stays `false` — `origin/main` is
+still `8e69a83` (re-fetched), and the state file records the repository, not the queue.
+`tests_count` 1039 -> 1041 as a stated delta.
+
 ## 2026-10-04 (round 2): the backlog was invisible — 10 GOAP actions, 0 GitHub issues
 
 Reconciliation request, run under `goap-orchestrator`. Ground truth read off the API

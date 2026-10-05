@@ -45,8 +45,10 @@ world_state:
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
   main_head: "8e69a83"           # 2026-10-04: #823 (docs-only close-out of #821/#822) on top of #822 (55a9fa3),
                                #   #821 (dc7cd9a), #820 (ee283e6), #818 (f091ad2). This field was two rounds stale.
-  tests_count: 1039              # 2026-10-04: 1037 + the 2 SIGINT/SIGTERM exit-status tests in
-                               #   tests/cli_shutdown_signal.rs; not re-run through
+  tests_count: 1041              # 2026-10-05: 1037 + the 2 SIGINT/SIGTERM exit-status tests for `watch`, then +2
+                               #   more for `mcp serve --transport sse` in the same
+                               #   tests/cli_shutdown_signal.rs (all 4 pass on the branch; the file registers
+                               #   4 tests, re-derived from the harness output, not inferred); not re-run through
                                #   scripts/coverage-report.sh inventory, so this is a delta on
                                #   the last measured value, not a fresh measurement.
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
@@ -165,7 +167,10 @@ world_state:
                                #   and `csm mcp serve` exit 0 on SIGINT, 143 (128+15, default disposition) on
                                #   SIGTERM, so a systemd/docker-managed server is killed rather than stopped and the
                                #   bounded reaper stop is not reached. `grep -rn "SIGTERM" src/ tests/ crates/` = 0.
-                               #   In progress as cover_sigterm_in_server_shutdown (#824).
+                               #   2026-10-05: stays `false` because `main` is unchanged (origin/main = 8e69a83,
+                               #   re-fetched) — the fix is PR #836 on head c62f2ce, not landed. World state tracks
+                               #   the repository, not the queue; flipping this now would record a branch as a
+                               #   fact. #836 covers both servers and demonstrates the red on each.
   skill_validation_fail_closed: true              # wired into validate.sh + CI + pre-commit
   llms_dependency_versions_current: true          # 2026-09-27: llms.txt/llms-full.txt regenerated (otel 0.32, rmcp 3.4); scripts/check-llms-sync.sh drift gate runs in validate.sh (CI lint job)
   retrieval_string_clones_removed: true           # 2026-09-27: #781 borrowed expansion ids/labels + positions scoring; 2209 -> 151 allocs per query (top_k=10)
