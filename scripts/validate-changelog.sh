@@ -21,9 +21,13 @@ VERSION="${1:-}"
 
 # Extract version from Cargo.toml if not provided
 if [[ -z "$VERSION" ]]; then
-  VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d'"' -f2)
+  # `|| true` because set -e would kill the substitution (a missing or unspaced `version =`
+  # makes grep exit non-zero) before the actionable message below could print. Same reason
+  # line 48 guards its `grep -c`.
+  VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d'"' -f2 || true)
   if [[ -z "$VERSION" ]]; then
     echo "::error::Could not extract version from Cargo.toml"
+    echo "   Expected a line matching: version = \"X.Y.Z\" (grep is space-sensitive)"
     exit 1
   fi
 fi
