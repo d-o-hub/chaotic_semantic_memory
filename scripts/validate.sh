@@ -28,6 +28,21 @@ else
   exit 1
 fi
 
+# CI crate-matrix gate (issue #827): the `test-workspace-crates` matrix must be
+# derived from `cargo metadata`, every exclusion must have a dedicated job in
+# ci.yml, and an empty derivation must fail. Cheap (one `cargo metadata
+# --no-deps`, no network), and it runs the fixture too so the failure modes stay
+# proven in both directions.
+if [[ -x "${SCRIPT_DIR}/ci-workspace-crate-matrix.sh" ]]; then
+  echo "==> CI crate-matrix gate (workspace vs .github/workflows/ci.yml)"
+  "${SCRIPT_DIR}/ci-workspace-crate-matrix.sh" --check
+  echo "==> CI crate-matrix gate fixture"
+  "${SCRIPT_DIR}/test-ci-workspace-crate-matrix.sh"
+else
+  echo "Error: scripts/ci-workspace-crate-matrix.sh missing or not executable"
+  exit 1
+fi
+
 echo "==> cargo clippy --all-targets --all-features -- -D warnings"
 cargo clippy --all-targets --all-features -- -D warnings
 
