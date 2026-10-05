@@ -28,6 +28,20 @@
 #      `fromJSON(...)`, that is an error. The point was to delete the duplicate
 #      source of truth, not to keep a second one next to the derived one.
 #
+# BLIND SPOTS (stated so nobody trusts this gate more than it deserves)
+#   - It is textual, not YAML-parsed. The workflow is sliced with awk at 2-space
+#     job keys and grepped for `-p <crate>`, so a crate covered by
+#     `cargo test --workspace`, or by `-p $SOME_VAR`, is NOT recognised as
+#     covered. That fails in the safe direction (the exclusion is rejected).
+#   - It proves the argument appears, not that the job RUNS: a path-filtered
+#     `if:` job, an `if: false` job or a `|| true` step still counts as coverage.
+#     An exclusion therefore still needs a human to own it — but now against a
+#     named, greppable anchor instead of a prose comment.
+#   - Only `crates/*` members are candidates. A member added elsewhere (like
+#     `benchmarks`) never reaches this matrix and needs its own job.
+#   - `--locked` and the feature set of the per-crate test step are unchanged
+#     from the hand-written job; this script only decides WHICH crates run.
+#
 # Usage (paths resolve relative to this script, so it runs from anywhere):
 #   scripts/ci-workspace-crate-matrix.sh                  # names, one per line
 #   scripts/ci-workspace-crate-matrix.sh --json           # {"crate":["a","b"]} one line
