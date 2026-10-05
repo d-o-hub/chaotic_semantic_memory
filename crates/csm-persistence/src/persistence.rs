@@ -6,6 +6,7 @@
 use csm_core_lib::error::{MemoryError, Result};
 use libsql::{Builder, Connection, Database, params};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 pub(crate) const LATEST_SCHEMA_VERSION: i64 = 12;
 
@@ -15,6 +16,7 @@ pub struct Persistence {
     pub(crate) local_path: Option<String>,
     pub(crate) remote_limit: Option<Arc<Semaphore>>,
     pub(crate) version_retention: usize,
+    pub(crate) simulate_failure: AtomicBool,
 }
 
 pub use csm_memory::ConceptVersion;
@@ -36,6 +38,7 @@ impl Persistence {
             local_path: Some(path.to_string()),
             remote_limit: None,
             version_retention: version_retention.max(1),
+            simulate_failure: AtomicBool::new(false),
         };
         persistence.init_schema().await?;
         Ok(persistence)
@@ -66,12 +69,22 @@ impl Persistence {
             local_path: None,
             remote_limit: Some(Arc::new(Semaphore::new(pool_size.max(1)))),
             version_retention: version_retention.max(1),
+            simulate_failure: AtomicBool::new(false),
         };
         persistence.init_schema().await?;
         Ok(persistence)
     }
 
+    /// Toggle failure simulation for test scenarios.
+    pub fn set_simulate_failure(&self, fail: bool) {
+        self.simulate_failure.store(fail, Ordering::SeqCst);
+    }
+
     pub(crate) async fn connect(&self) -> Result<Connection> {
+        if self.simulate_failure.load(Ordering::SeqCst) {
+            return Err(MemoryError::database("Simulated persistence failure"));
+        }
+
         let conn = self
             .db
             .connect()
