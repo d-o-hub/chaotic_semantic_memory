@@ -2935,6 +2935,8 @@ impl ChaoticSemanticFramework {
 }
 ```
 
+## src/framework_persistence_tests.rs
+
 ## src/framework_rerank.rs
 
 ### impl ChaoticSemanticFramework
