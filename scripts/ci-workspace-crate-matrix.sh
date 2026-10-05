@@ -269,12 +269,14 @@ case "${MODE}" in
     github-output)
         [[ -n "${GITHUB_OUTPUT:-}" ]] \
             || fail "--github-output needs GITHUB_OUTPUT (every Actions step exports it)"
-        # Delimited form: safe even if the payload ever grows beyond one line.
-        {
-            echo 'crates<<csm-matrix-eof'
-            printf '%s\n' "${json}"
-            echo 'csm-matrix-eof'
-        } >> "${GITHUB_OUTPUT}"
+        # One `key=value` line: a value containing a newline would silently become
+        # a multi-line output, so assert the single-line shape instead of relying
+        # on fromJSON() tolerating trailing whitespace.
+        if [[ "${json}" == *$'\n'* ]]; then
+            fail "the emitted matrix JSON is not single-line; refusing to write it to GITHUB_OUTPUT" \
+                "got: ${json}"
+        fi
+        printf 'crates=%s\n' "${json}" >> "${GITHUB_OUTPUT}"
         printf 'wrote matrix for %s to GITHUB_OUTPUT: %s\n' "${MATRIX_JOB}" "${json}"
         ;;
     check)

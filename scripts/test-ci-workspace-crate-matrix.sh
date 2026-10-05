@@ -248,23 +248,22 @@ printf 'not json at all\n' > "${META}"
 run_check --json
 expect_fail_naming "invalid metadata rejected" "no .packages array"
 
-echo "Test 14: --github-output writes a delimited crates= value that parses back to"
-echo "         exactly what fromJSON() will receive"
+echo "Test 14: --github-output writes exactly one crates= line that parses back to"
+echo "         what fromJSON() will receive"
 write_workflow
 write_metadata csm-alpha csm-beta csm-gamma
 export GITHUB_OUTPUT="${TEST_DIR}/github_output.txt"
 : > "${GITHUB_OUTPUT}"
 run_check --github-output
 expect_pass "github-output mode"
-if ! grep -q '^crates<<csm-matrix-eof$' "${GITHUB_OUTPUT}"; then
-    echo "❌ Failure (GITHUB_OUTPUT heredoc delimiter missing)"
+if [[ "$(grep -c '^crates=' "${GITHUB_OUTPUT}")" != "1" ]]; then
+    echo "❌ Failure (GITHUB_OUTPUT must hold exactly one crates= line)"
     cat "${GITHUB_OUTPUT}"
     exit 1
 fi
-roundtrip="$(sed -n '/^crates<<csm-matrix-eof$/,/^csm-matrix-eof$/p' "${GITHUB_OUTPUT}" \
-    | sed '1d;$d' | tr -d '\n')"
+roundtrip="$(grep '^crates=' "${GITHUB_OUTPUT}" | sed 's/^crates=//')"
 if [[ "${roundtrip}" != '{"crate":["csm-alpha","csm-beta"]}' ]]; then
-    echo "❌ Failure (output value round-trip mismatch): ${roundtrip}"
+    echo "❌ Failure (output value mismatch): ${roundtrip}"
     exit 1
 fi
 if ! printf '%s' "${roundtrip}" | jq -e '.crate | (type == "array") and (length == 2)' >/dev/null; then
