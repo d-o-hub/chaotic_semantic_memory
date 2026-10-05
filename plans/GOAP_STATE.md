@@ -99,7 +99,7 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 9        # 2026-10-05 ledger. Every line below is `git show <commit>:plans/ACTIONS.md
+  queued_actions_count: 8        # 2026-10-05 ledger. Every line below is `git show <commit>:plans/ACTIONS.md
                                #   | grep -c '^  - name:'`, not a recollection — and reading the commits
                                #   instead of the prose is what exposed the drift #851 was written about:
                                #   87fa734 (#837 landed) -> 10   entry NOT removed
@@ -235,4 +235,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: classify_yaml_findings_in_validate_workflows  # 2026-10-05 #841 via PR #854 (main 2984d3e) — queued during this round and removed during it, caught STALE by scripts/check-goap-queue-issues.sh itself; before that deduplicate_unreleased_changelog_headings (#832, PR #848, main 6ec3cf6), entry removed in this round; earlier the same day cover_sigterm_in_server_shutdown (#824, 2f26214), validate_archive_manifest_completeness (#838, f235874) and derive_ci_crate_matrix_from_workspace (#837, 87fa734) all landed and had their entries removed only at 77bd5f0 — see the queued_actions_count ledger for what git measured.
+  action_last_completed: gate_plan_queue_against_issue_tracker  # 2026-10-05 #851 — removed STALE entry gate_plan_queue_against_issue_tracker

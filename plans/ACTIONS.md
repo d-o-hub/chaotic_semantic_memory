@@ -12,6 +12,13 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-10-05, sixth action):
+> `gate_plan_queue_against_issue_tracker` (#851) — implemented `scripts/check-goap-queue-issues.sh`
+> and `scripts/test-goap-queue-issues.sh` (50 assertions, stubbed `gh`), wired into `validate.sh` and CI
+> `lint` job (`permissions: {issues: read}`, `CSM_GOAP_QUEUE_REQUIRED=true`). Asserts every queued action has an
+> open `github_issue:` key, `action_last_completed` is a single key naming a removed action, and
+> `queued_actions_count` matches `grep -c '^  - name:'`.
+>
 > Last completed (verified 2026-10-05, fifth action):
 > `classify_yaml_findings_in_validate_workflows` (#841 → PR #854, squashed as `2984d3e`) —
 > `scripts/validate-workflows.sh` no longer calls every yamllint finding a "YAML syntax error":
@@ -755,53 +762,3 @@ actions:
       evidence at all — run a scoped baseline over `src/mcp` and triage each
       survivor into a real test or a documented exclusion with its mechanism.
 
-  - name: gate_plan_queue_against_issue_tracker
-    github_issue: "#851"
-    preconditions: []
-    effects:
-      goap_queue_reconciled_with_tracker: true
-    notes: >
-      Found while closing out #824 by hand, not by looking for it. PR #836 merged
-      as `2f26214` with `Fixes #824`, GitHub auto-closed the issue, and
-      `cover_sigterm_in_server_shutdown` stayed in this file on that same commit —
-      `status: in_progress`, its notes still asserting "SIGINT-only" and
-      `grep -rn "SIGTERM" src/ tests/ crates/` = 0, while `git show
-      2f26214:src/shutdown.rs | grep -c sigterm` = 3. #837 (`87fa734`) and #838
-      (`f235874`) had already drifted identically the same morning. Nothing
-      validates this file: `grep -rln 'ACTIONS\.md\|GOAP_STATE\.md' scripts/
-      .github/workflows/` returns `plans-manager.sh`, `gen-agents-context.sh`,
-      `generate-agents.sh` and `goap-orchestrator.sh` — generators and mutators,
-      no checker. Required: a fail-closed reconciliation wired into
-      `validate.sh` that errors on a queued action whose `github_issue` is CLOSED,
-      on an `effects:` key of a removed action not being true in `GOAP_STATE.md`,
-      on `action_last_completed` appearing other than exactly once, and on
-      `queued_actions_count` disagreeing with `grep -c '^  - name:'`. Must follow
-      the `validate-github-actions-shas.sh --offline` precedent (`validate.sh:263-269`):
-      one `gh` call for the whole check, and a loud `skip:` line when offline — a
-      gate that passes silently without its token is this same bug in a new place.
-      2026-10-05 STATUS: implemented in this round as `scripts/check-goap-queue-issues.sh`
-      (one `gh issue list --state all --limit 500` call and nothing else — the `gh auth
-      status` probe a first draft had in front of it is gone, see below) plus
-      `scripts/test-goap-queue-issues.sh` (50 assertions over 23 tests, stubbed `gh`)
-      wired into `validate.sh`. One design
-      decision changed under measurement: the brief asked for "every queued effect must be
-      declared in world_state", which on `83e9a6c` flagged 8 of 10 effect keys — a pending
-      effect is by definition not held, and pre-declaring each as `false` only relocates
-      the drift. The check now asserts the inverse, which is the failure that actually
-      occurred: a queued action whose effect world_state already reports `true`, and an
-      `action_last_completed` naming an action still in the queue. Both directions are
-      fixture-covered and each was shown red by neutering the implementing line.
-      Roasting this PR before merge found two more defects in my own gate. (1) The probe
-      was a second, independent way to conclude "tracker unreachable", and it can fail on
-      a runner whose token answers the real query perfectly well; the gate now decides
-      from the single `gh issue list` call and carries that call's first stderr line into
-      the SKIP reason instead of discarding it. (2) An rc=0 that is not a JSON array now
-      skips loudly rather than parsing as zero issues, which would have read as an empty
-      backlog and passed. CI wiring, without which the tracker half never runs: the `lint`
-      job declares `permissions: {contents: read, issues: read}` (a job-level block
-      REPLACES the workflow-level one, so contents has to be restated or checkout loses its
-      token) and the `validate.sh` step gets `GITHUB_TOKEN` plus
-      `CSM_GOAP_QUEUE_REQUIRED=true`. Keeping that SKIP survivable would have been the
-      #853 machine-asymmetry class in a new place: a gate whose decisive branch only runs
-      on machines that happen to have a credential. Keep this
-      action `in_progress` until the branch lands on `main`.
