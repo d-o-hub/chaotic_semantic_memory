@@ -115,14 +115,14 @@ if [[ "${PROFILE}" == "fast" ]]; then
       # non-CI (local/nightly) branch and the `full` profile.
       echo "mutation fast: no diff against ${DIFF_TARGET} on a CI run; skipping full-tree fallback" >&2
       {
-        echo "# Mutation Test Report"
+        echo "# Unit-Target Mutation Test Report"
         echo
         echo "- Timestamp (UTC): ${TIMESTAMP}"
         echo "- Profile: ${PROFILE}"
         echo "- Mutants: 0"
         echo "- Result: skip (no bounded diff on CI run; full-tree fallback disabled in CI)"
       } >"${REPORT_FILE}"
-      echo "mutation score: no bounded diff on CI run, full-tree fallback skipped"
+      echo "unit-target mutation score: no bounded diff on CI run, full-tree fallback skipped"
       exit 0
     else
       echo "warning: no diff against ${DIFF_TARGET}; running full target set" >&2
@@ -135,7 +135,9 @@ if [[ "${PROFILE}" == "fast" ]]; then
     echo "warning: --in-diff is unsupported by installed cargo-mutants; running full target set" >&2
   fi
 
-  # Unit tests only: integration suite dominates wall time (~8× unit suite).
+  # Unit-target tests only (--lib): integration suite dominates wall time (~8× unit suite).
+  # Any change to src/** or crates/** must have unit test assertions in the lib target
+  # to be visible to this mutation gate (process-level tests in tests/** are ignored).
   # We limit testing to only csm-retrieval and chaotic_semantic_memory to avoid
   # building irrelevant workspace packages, saving up to 80% build time.
   # TODO: expand this list of packages if new packages or workspace crates are added.
@@ -349,7 +351,7 @@ if [[ "${PROFILE}" == "fast" ]] && [[ ${#FAST_ARGS[@]} -gt 0 ]]; then
   if [[ "${MUTANT_COUNT:-0}" -eq 0 ]]; then
     echo "No mutants generated for changed files; writing empty report" | tee "${LOG_FILE}"
     {
-      echo "# Mutation Test Report"
+      echo "# Unit-Target Mutation Test Report"
       echo
       echo "- Timestamp (UTC): ${TIMESTAMP}"
       echo "- Profile: ${PROFILE}"
@@ -357,7 +359,7 @@ if [[ "${PROFILE}" == "fast" ]] && [[ ${#FAST_ARGS[@]} -gt 0 ]]; then
       echo "- Result: skip (no mutants in diff)"
     } >"${REPORT_FILE}"
     if [[ "${CI_MODE}" == "true" ]]; then
-      echo "mutation score: no mutants in changed Rust sources, CI check skipped"
+      echo "unit-target mutation score: no mutants in changed Rust sources, CI check skipped"
       exit 0
     fi
     exit 0
@@ -376,10 +378,11 @@ set +o pipefail
 set -e
 
 {
-  echo "# Mutation Test Report"
+  echo "# Unit-Target Mutation Test Report"
   echo
   echo "- Timestamp (UTC): ${TIMESTAMP}"
   echo "- Profile: ${PROFILE}"
+  echo "- Target Set: lib target only (--lib -p csm-retrieval -p chaotic_semantic_memory)"
   echo "- Exit code: ${RESULT}"
   echo "- Jobs: ${JOBS}"
   echo "- Test args: ${TEST_ARGS[*]:-(full suite)}"
@@ -419,8 +422,8 @@ if [[ "${CI_MODE}" == "true" ]]; then
       SCORE="100"
     fi
     # Publish inventory
-    echo "mutation inventory: caught=${CAUGHT} missed=${MISSED} timeout=${TIMEOUTS} unviable=${UNVIABLE} unresolved=${UNRESOLVED}" >&2
-    echo "mutation summary: total=${TOTAL} caught=${CAUGHT} timeout=${TIMEOUTS} missed=${MISSED} unviable=${UNVIABLE} score=${SCORE}%" >&2
+    echo "unit-target mutation inventory: caught=${CAUGHT} missed=${MISSED} timeout=${TIMEOUTS} unviable=${UNVIABLE} unresolved=${UNRESOLVED}" >&2
+    echo "unit-target mutation summary: total=${TOTAL} caught=${CAUGHT} timeout=${TIMEOUTS} missed=${MISSED} unviable=${UNVIABLE} score=${SCORE}%" >&2
   fi
   if [[ -z "${SCORE}" ]]; then
     SCORE="$(awk '/%/{ gsub(/[^0-9.]/," "); for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\.?[0-9]*$/) s=$i } END { print s+0 }' "${LOG_FILE}")"
@@ -450,17 +453,17 @@ if [[ "${CI_MODE}" == "true" ]]; then
 
   if [[ "${SCORE}" == "0" ]]; then
     if grep -q -E 'No mutants generated|Diff changes no|No mutants to filter' "${LOG_FILE}" 2>/dev/null; then
-      echo "mutation score: no Rust source files changed, CI check skipped"
+      echo "unit-target mutation score: no Rust source files changed, CI check skipped"
       exit 0
     else
       echo "error: could not parse mutation score from ${LOG_FILE}" >&2
       exit 1
     fi
   elif awk -v s="${SCORE}" -v t="${THRESHOLD}" 'BEGIN { exit !(s >= t) }'; then
-    echo "mutation score ${SCORE}% >= ${THRESHOLD}%, CI check passed"
+    echo "unit-target mutation score ${SCORE}% >= ${THRESHOLD}%, CI check passed"
     exit 0
   else
-    echo "mutation score ${SCORE}% < ${THRESHOLD}%, CI check failed" >&2
+    echo "unit-target mutation score ${SCORE}% < ${THRESHOLD}%, CI check failed" >&2
     exit 1
   fi
 fi
