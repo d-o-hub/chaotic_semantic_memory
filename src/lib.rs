@@ -75,6 +75,10 @@ pub mod singularity;
 mod singularity_cache;
 mod singularity_retrieval;
 pub mod singularity_state;
+// `mcp` requires `cli` (Cargo.toml:338), so gating on `cli` covers both of the
+// module's consumers: `csm watch` and `csm mcp serve`.
+#[cfg(all(not(target_arch = "wasm32"), feature = "cli"))]
+mod shutdown;
 
 #[cfg(target_arch = "wasm32")]
 pub use crate::persistence_wasm as persistence;

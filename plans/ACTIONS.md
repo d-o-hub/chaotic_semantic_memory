@@ -12,6 +12,51 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-10-05, third action):
+> `cover_sigterm_in_server_shutdown` (#824 → PR #836, squashed as `2f26214`) —
+> `src/shutdown.rs::operator_shutdown()` waits on SIGINT **and** SIGTERM, and both long-running
+> commands now call it (`src/cli/commands/watch.rs:91`, `src/mcp/server.rs:79`), so a service
+> manager's stop reaches ADR-0099's bounded reaper shutdown instead of the default disposition
+> (measured on the binary beforehand: exit `0` on SIGINT, `143` on SIGTERM). No public API
+> change — the primitive is `pub(crate)`, and the SIGTERM listener stays inside the non-wasm
+> target table (`Cargo.toml:197-202`) that made `signal` target-gated in the first place. The
+> behavior is asserted twice on purpose: subprocess exit status for the observable, and
+> `src/shutdown_tests.rs` (one pending-check per arm) because the mutation profile is `--lib`
+> only (`scripts/mutation_test.sh:142`) and scored **0.0000%** on head `0107c9c` with all three
+> `src/shutdown.rs` mutants surviving. `Fixes #824` auto-closed the issue when the squash
+> landed; nothing closed this queue entry, so the header's own hygiene rule is still unenforced.
+>
+> Last completed (verified 2026-10-05, second action):
+> `validate_archive_manifest_completeness` (#831 → PR #838, squashed as `f235874`) —
+> `plans/ARCHIVE_MANIFEST.md` went from a document no script read to one gated by
+> `scripts/check-archive-manifest.sh`: **131 files under `plans/.archive/` = 131
+> enumerated**, RC=0, and the manifest fails closed — it errors on a listed file missing
+> from disk and on a disk file missing from the list, so the frozen archive cannot drift.
+> Wired into `scripts/validate.sh:234-238`, which refuses with *"missing or not executable"*
+> rather than skipping. What I verified before it merged: the tree of the squash commit is
+> identical to the head I reviewed (`git diff b075a73 f235874 -- scripts plans agents-docs`
+> is empty) and `shellcheck -S error` RC=0. Landing it moved `main` twice inside one round
+> (dependabot `792d951`, then `f235874`), which is why #836/#829 were rebased again rather
+> than pushed once.
+>
+> Last completed (verified 2026-10-05, first action):
+> `derive_ci_crate_matrix_from_workspace` (#827 → PR #837, squashed as `87fa734`) —
+> `Test Workspace Crates` is now derived from `cargo metadata` instead of a
+> hand-written list guarded by a "Keep in sync with workspace members" comment. The
+> observable that made it mergeable: on head `f921e81` the derived matrix produced
+> **8** `Test Workspace Crates (csm-*)` jobs, all `completed/success` — the first real
+> Actions execution of the `needs:` + job `outputs:` + `fromJSON` wiring, not a local
+> simulation. `crates/` holds 10 members, so the 8-vs-10 gap is the whole question, and
+> it is gated rather than assumed: `DEFAULT_EXCLUSIONS="csm-duckdb csm-wasm"` and the
+> script **fails** if an excluded crate stops being a workspace member (`:188`) or has no
+> dedicated job in `ci.yml` (`:193`). The third commit is the price of actually running
+> it: `ci(ci): write the derived matrix as a single GITHUB_OUTPUT line` — a multi-line
+> output value silently truncates. Cost: `scripts/ci-workspace-crate-matrix.sh` (289) +
+> `scripts/test-ci-workspace-crate-matrix.sh` (290, 16 fixtures, fail-closed outside
+> Actions) + `ci.yml` ±44 + `validate.sh` +15 (`:36-42`). Blind spots are recorded
+> in-repo by `b394cdf` — it proves the argument appears, not that the job runs, and
+> members added outside `crates/*` (`.`, `benchmarks`) are not candidates.
+>
 > Last completed (verified 2026-10-04, second action):
 > `revive_dead_cli_parity_help_test` (#822, `55a9fa3`) — `cli_each_subcommand_has_help`
 > existed in `tests/cli_parity.rs` with a body and no `#[test]`, so the harness never
@@ -427,6 +472,7 @@
 
 actions:
   - name: add_persistence_failure_path_test
+    github_issue: "#825"
     preconditions: []
     effects:
       persistence_failure_semantics_tested: true
@@ -465,10 +511,28 @@ actions:
       `src/framework_persistence_tests.rs`.
 
   - name: wire_and_consolidate_validation_gates
+    github_issue: "#829"
+    status: in_progress
     preconditions: []
     effects:
-      single_gate_graph: true
+      skill_format_gate_fixtured_and_fail_closed: true
+      fixture_suites_wired_into_validate: true
     notes: >
+      Audit W1/G3, re-verified 2026-09-30 and again 2026-10-05 (issue #829 comment).
+      DONE on the branch: `validate-skill-format.sh` fail-open closed (an unclosed
+      frontmatter block validated) and given its first fixture; `test-llms-sync.sh`,
+      `test-version-sync.sh` (SCRIPT_DIR-resolved, exec bit restored) and the new
+      `test-validate-skill-format.sh` wired into `validate.sh`, hence into the CI
+      `lint` job at `ci.yml:587`; `negative-fixtures.sh` deleted — it asserted that
+      rustc rejects bad syntax and rustfmt flags unformatted code, i.e. the toolchain,
+      not this repo. NOT DONE, each split to its own issue because "just wire it" is
+      wrong for all three: #840 two competing link validators, both unwired, one of
+      which resolves root-relative `@imports` against the skill directory; #841
+      `validate-workflows.sh` reporting yamllint lint noise as "YAML syntax error"
+      with no `.yamllint` profile in the repo; #842 three hook installers with three
+      different hook sets and `.githooks/` never installed by any of them. Original
+      note preserved below for provenance.
+      ----
       Audit W1/G3, re-verified 2026-09-30. Negative fixtures exist
       (`scripts/test-llms-sync.sh` 5 cases, `test-version-sync.sh` 4 cases,
       `negative-fixtures.sh`) but no gate invokes them;
@@ -477,11 +541,18 @@ actions:
       `setup-hooks.sh`, `validate-git-hooks.sh --install`) install different
       hook sets; `pre-commit.sh` and `hooks/pre-push` enforce different sensors
       than `harness-check.sh`; the CI-wired skill validator has no negative
-      fixture. Required: one bootstrap, one canonical gate graph, fixture tests
-      wired into `validate.sh` + CI (or deleted), negative fixture for the
-      skill validator.
+      fixture. Fresh measured evidence (2026-10-05): `scripts/validate-links.sh`
+      is red on `main` right now — 5 broken refs (`@AGENTS.md` in
+      `jules-orchestration` and `rust-development`, `@file.md` in
+      `skill-creator`, `@file.md` + `./path.md` in `testing-validation`) — and
+      nothing invokes it, so a gate that fails is contributing zero signal.
+      Required: one bootstrap, one canonical gate graph, fixture tests wired into
+      `validate.sh` + CI (or deleted), negative fixture for the skill validator.
+      2026-10-05 STATUS: PR **#846** open (branch `ci/wire-and-consolidate-validation-gates`) — three of the six orphan fixtures are wired there, the skill-format fail-open is fixed with a 15-case fixture, and `negative-fixtures.sh` is deleted. The remaining gates are deliberately NOT in this action: #840 (link validators), #841 (yamllint profile), #842 (hook installers). Do not re-implement #846's work elsewhere.
 
   - name: generate_skill_catalog_and_agent_context
+    github_issue: "#828"
+    status: in_progress
     preconditions: []
     effects:
       skill_catalog_generated_and_gated: true
@@ -496,8 +567,10 @@ actions:
       its `architecture.modules` names pre-extraction root files. Required:
       generator + drift gate for the catalog, and refreshed (or generated)
       agent-context artifacts with a checker.
+      2026-10-05 STATUS: PR **#847** open (branch `docs/generate-skill-catalog-and-drift-gate`) — `scripts/gen-skill-catalog.sh` + `scripts/check-skill-catalog.sh` + a drift fixture, with `CATALOG.md` regenerated. Blocked on nothing; #846 touches the same `validate.sh` region, so rebase in that order.
 
   - name: complete_evidence_tiers_and_mutation_hardening
+    github_issue: "#830"
     preconditions: []
     effects:
       scheduled_and_release_evidence_tiers: true
@@ -515,6 +588,7 @@ actions:
       only aggregate counts are printed (no module-level inventory artifact).
 
   - name: add_query_count_regression_test
+    github_issue: "#826"
     preconditions: []
     effects:
       bulk_association_load_verified: true
@@ -542,33 +616,9 @@ actions:
       Smallest honest scope: cfg(test) counter + one test extending `bulk_associations_load`
       to N=50 asserting exactly one association query.
 
-  - name: derive_ci_crate_matrix_from_workspace
-    preconditions: []
-    effects:
-      ci_matrix_machine_derived: true
-    notes: >
-      Audit A6 remainder, re-verified 2026-09-30. `ci.yml`'s
-      `test-workspace-crates` matrix (`ci.yml:202-241`) is a hand-written crate
-      list guarded only by a "Keep in sync with workspace members" comment, so
-      a new `crates/*` member can silently miss CI. Required: derive the matrix
-      from `cargo metadata`, or add a check that fails when the list and the
-      workspace diverge.
-
-  - name: validate_archive_manifest_completeness
-    preconditions: []
-    effects:
-      archive_manifest_validated: true
-    notes: >
-      Audit G4, re-verified 2026-09-30. `plans/ARCHIVE_MANIFEST.md` documents
-      the 2026-07-20/2026-08-08 compactions and `plans/README.md` links it, but
-      no script reads it (grep for ARCHIVE_MANIFEST across `scripts/` and
-      `.github/` is empty) and it does not enumerate the 55 top-level archived
-      ADRs under `plans/.archive/` (`grep -c 'plans/.archive/00'` = 0).
-      Required: list the archived ADRs and add a checker so
-      `plan_archive_manifest_valid` rests on a gate.
-
-
   - name: deduplicate_unreleased_changelog_headings
+    github_issue: "#832"
+    status: in_progress
     preconditions: []
     effects:
       changelog_sections_unique: true
@@ -581,29 +631,10 @@ actions:
       Required: merge them into one `### Changed` (keep entry ordering) and add a
       checker so `## [Unreleased]` cannot hold two identical `### ` headings;
       `scripts/` already has changelog-adjacent gates to host it.
-
-  - name: cover_sigterm_in_server_shutdown
-    preconditions: []
-    effects:
-      servers_exit_on_sigterm: true
-    notes: >
-      Found by measuring #821's own disclosed limitation against the binary rather
-      than reasoning about it: `csm mcp serve --transport sse` exits **0** on SIGINT
-      (the transport resolves, `serve` returns, the ADR-0099 hop runs) and **143**
-      on SIGTERM, i.e. 128+15 — default disposition, no cooperative stop. A
-      systemd-managed server is stopped with SIGTERM, so the deterministic TTL
-      cleanup stop the ADR promises is still not reached under a service manager.
-      Same shape in `csm watch` (ADR-0099 wired Ctrl+C only). Required: one shared
-      shutdown primitive that resolves on SIGINT *and* SIGTERM (a SIGTERM listener
-      alongside `tokio::signal::ctrl_c`, or a `CancellationToken`-style handle owned
-      by the command), so every long-running command gets both signals rather than
-      each wiring its own. Note the dependency that made `signal` a target-gated
-      feature (`Cargo.toml:197-202`: `signal` pulls `mio/net`, which will not compile
-      for wasm32) — any new listener must stay inside the same non-wasm target table.
-      Assert the effect on the real binary (exit codes 0 vs 143 are the observable),
-      not on a config echo, and disclose the behaviour change in the changelog.
+      2026-10-05 STATUS: PR **#848** open at head `9b5cab7` — `scripts/validate-changelog.sh` gained per-section heading-duplicate scoring plus `scripts/test-validate-changelog.sh` (10 cases) and a `validate.sh` block. Draft **#845** was an independent implementation of the same issue and was closed as superseded (roast in `plans/PR_ROAST_2026_10_05.md`); its CHANGELOG dedupe is the part worth keeping. Do not re-implement.
 
   - name: mutation_baseline_the_feature_gated_mcp_module
+    github_issue: "#833"
     preconditions: []
     effects:
       mcp_module_mutation_baselined: true
@@ -629,3 +660,28 @@ actions:
       `--exclude-re "mcp::"` and `"McpHandler::"`, so the module has no mutation
       evidence at all — run a scoped baseline over `src/mcp` and triage each
       survivor into a real test or a documented exclusion with its mechanism.
+
+  - name: gate_plan_queue_against_issue_tracker
+    github_issue: "#851"
+    preconditions: []
+    effects:
+      goap_queue_reconciled_with_tracker: true
+    notes: >
+      Found while closing out #824 by hand, not by looking for it. PR #836 merged
+      as `2f26214` with `Fixes #824`, GitHub auto-closed the issue, and
+      `cover_sigterm_in_server_shutdown` stayed in this file on that same commit —
+      `status: in_progress`, its notes still asserting "SIGINT-only" and
+      `grep -rn "SIGTERM" src/ tests/ crates/` = 0, while `git show
+      2f26214:src/shutdown.rs | grep -c sigterm` = 3. #837 (`87fa734`) and #838
+      (`f235874`) had already drifted identically the same morning. Nothing
+      validates this file: `grep -rln 'ACTIONS\.md\|GOAP_STATE\.md' scripts/
+      .github/workflows/` returns `plans-manager.sh`, `gen-agents-context.sh`,
+      `generate-agents.sh` and `goap-orchestrator.sh` — generators and mutators,
+      no checker. Required: a fail-closed reconciliation wired into
+      `validate.sh` that errors on a queued action whose `github_issue` is CLOSED,
+      on an `effects:` key of a removed action not being true in `GOAP_STATE.md`,
+      on `action_last_completed` appearing other than exactly once, and on
+      `queued_actions_count` disagreeing with `grep -c '^  - name:'`. Must follow
+      the `validate-github-actions-shas.sh --offline` precedent (`validate.sh:263-269`):
+      one `gh` call for the whole check, and a loud `skip:` line when offline — a
+      gate that passes silently without its token is this same bug in a new place.

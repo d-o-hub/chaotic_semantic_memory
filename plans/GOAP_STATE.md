@@ -43,14 +43,24 @@ world_state:
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "55a9fa3"           # 2026-10-04: #822 revive_dead_cli_parity_help_test on top of #821 (dc7cd9a), #820 (ee283e6), #818 (f091ad2)
-  tests_count: 1037              # 2026-09-30: unique compiled behavior (scripts/coverage-report.sh inventory)
+  main_head: "2f26214"           # 2026-10-05: #836 (SIGTERM parity on both long-running servers) on top of
+                               #   f235874 (#838 archive-manifest gate), 792d951 (dependabot #843) and
+                               #   87fa734 (#837 machine-derived crate matrix).
+  tests_count: 1044              # 2026-10-05: 1037 + the 2 SIGINT/SIGTERM exit-status tests for `watch`, then +2
+                               #   more for `mcp serve --transport sse` in the same
+                               #   tests/cli_shutdown_signal.rs (all 4 pass on the branch; the file registers
+                               #   4 tests, re-derived from the harness output, not inferred), then +3 from
+                               #   `src/shutdown_tests.rs` (one pending-check per arm, added because the
+                               #   `--lib`-only mutation profile scored 0.0000% on #836 head `0107c9c`; the
+                               #   lib target went 172 filtered-out -> 175 total, measured not inferred);
+                               #   not re-run through scripts/coverage-report.sh inventory, so this is a delta on
+                               #   the last measured value, not a fresh measurement.
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
   coverage_lines_percent: 74     # 2026-09-18: cargo +nightly llvm-cov --workspace --lib --tests --branch
   coverage_branches_percent: 64  # same run; unit-only targets measure 68/53, hence --tests matters
   adr_registry_count: 95         # 2026-10-01: check-adr-parity.sh ok (registry=95, disk=94, 0003 N/A)
   adr_disk_count: 94
-  integration_test_files: 72     # tests/*.rs (2026-09-30 recount)
+  integration_test_files: 73     # tests/*.rs (2026-10-04 recount: +cli_shutdown_signal.rs)
 
   # ── Plans pointers ────────────────────────────────────────────
   plans_active_index: "plans/README.md"
@@ -59,14 +69,37 @@ world_state:
     - "plans/.archive/2026-07-20-historical"
     - "plans/.archive/2026-08-08-historical"
   active_plan_set_compact: true
-  plan_archive_manifest_valid: true  # 2026-09-30: ARCHIVE_MANIFEST.md + README redirects exist; no validator reads it and 55 top-level archived ADRs are unlisted (queued)
+  ci_matrix_machine_derived: true            # 2026-10-05 (#827, PR #837, main 87fa734): `Test Workspace Crates`
+                               #   comes from `scripts/ci-workspace-crate-matrix.sh` reading `cargo metadata`, not a
+                               #   hand-written list; the script fails if an excluded crate stops being a member or
+                               #   loses its dedicated job. Do not re-queue.
+  plan_archive_manifest_valid: true  # 2026-10-05: no longer a claim — scripts/check-archive-manifest.sh (PR #838, main f235874) compares the manifest against disk both directions (131 = 131, RC=0) and validate.sh:234-238 refuses if the gate is missing or not executable
+  goap_actions_tracked_as_issues: true  # 2026-10-04: reconciliation found 10 queued actions and 0 open issues — the
+                               #   backlog existed only on this filesystem. Each action now carries a
+                               #   `github_issue:` key; #824..#833 hold the verified evidence (line numbers,
+                               #   grep counts, LOC) so a future session can re-derive rather than re-trust.
+                               #   Bidirectional, re-measured 2026-10-05 on this base: 8 queued actions and 8
+                               #   `github_issue:` keys — 8 and 8 after the #836 close-out and the #851 filing
+                               #   (`grep -c '^  - name:'` vs `grep -c '^    github_issue:'`).
+                               #   One direction is still not covered: #839, #840, #841, #842, #849 and #850 are
+                               #   open issues with **no** queue entry — #840-#842 are the gates split out of #829
+                               #   as unwireable-as-is, #849/#850 are CI findings from this round. Filed, not queued.
+  fixture_suites_wired_into_validate: false  # 2026-10-05: implemented on the #829 branch (test-llms-sync.sh, test-version-sync.sh, test-validate-skill-format.sh all run from validate.sh -> CI lint job ci.yml:587) but PR-local — flips true when that PR merges. World state describes main, not an open branch.
+  skill_format_gate_fixtured_and_fail_closed: false  # 2026-10-05: the unclosed-frontmatter fail-open is fixed and covered by a 15-case fixture with four neuter directions demonstrated, on the same unmerged #829 branch.
 
   # ── Active wave ───────────────────────────────────────────────
   active_wave: 33
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 10       # 2026-10-04: #821 completed give_the_sse_transport_an_exit_path
+  queued_actions_count: 8        # 2026-10-05 ledger, each step `grep -c '^  - name:' plans/ACTIONS.md`:
+                               #   10 -> 9 (#837 landed derive_ci_crate_matrix_from_workspace, main 87fa734)
+                               #   9 -> 8 (#838 landed validate_archive_manifest_completeness, main f235874)
+                               #   8 -> 7 (#836 landed cover_sigterm_in_server_shutdown, main 2f26214)
+                               #   7 -> 8 (round 7 queued gate_plan_queue_against_issue_tracker from #851)
+                               #   Not from memory, and the count is the last thing this file asserts
+                               #   about itself rather than the first thing anyone checks.
+                               #   2026-10-04: #821 completed give_the_sse_transport_an_exit_path
                                #   and #822 completes revive_dead_cli_parity_help_test (11 -> 9), but measuring
                                #   #821's disclosed limitation on the binary (SIGINT exits 0, SIGTERM exits 143
                                #   = default disposition, so a systemd-stopped server still misses the ADR-0099
@@ -144,9 +177,23 @@ world_state:
                                #   Option, never Err, :474-496), so serve never returns. Stdio does resolve (rmcp
                                #   Waiting::waiting on stdin EOF, src/mcp/server.rs:83-86), and only the callee is covered
                                #   (src/mcp/tools_tests.rs:231); tests/mcp_sse_integration.rs:17 abort()s the task at :112.
-  sse_transport_has_exit_path: false                   # 2026-10-03 (#817 review): `csm mcp serve --transport sse` has no
-                               #   graceful exit, so the reaper is never stopped on that path and ADR-0099 holds for stdio
-                               #   only. Queued as give_the_sse_transport_an_exit_path.
+  sse_transport_has_exit_path: true                    # 2026-10-04 (#821, dc7cd9a): `serve_with_shutdown(config,
+                               #   shutdown_signal)` is the public entry and the SSE arm now runs
+                               #   `axum::serve(listener, app).with_graceful_shutdown(..)`, so the transport resolves
+                               #   and ADR-0099's `handler.shutdown()` hop executes on both transports. Asserted for
+                               #   its effect in `src/mcp/server_tests.rs` (handle slot Some -> signal -> await ->
+                               #   None), which is why disabling the hop turns that test red. This flag was left at
+                               #   `false` by the previous round while its own `queued_actions_count` comment
+                               #   recorded the completion — a duplicate-key-free file can still self-contradict.
+  servers_exit_on_sigterm: true                        # 2026-10-05 (#824, PR #836, main 2f26214): `src/shutdown.rs`
+                               #   `operator_shutdown()` selects on SIGINT and SIGTERM, and both long-running callers
+                               #   go through it (`src/cli/commands/watch.rs:91`, `src/mcp/server.rs:79`), so a service
+                               #   manager's stop reaches ADR-0099's bounded reaper shutdown. Measured on the binary
+                               #   before the fix: exit 0 on SIGINT, 143 on SIGTERM, `grep -rn "SIGTERM" src/ tests/
+                               #   crates/` = 0. Held `false` on 2026-10-05 morning while #836 was still a branch —
+                               #   world state tracks the repository, not the queue. Kept in the lib target as well
+                               #   (`src/shutdown_tests.rs`) because the `--lib`-only mutation profile scored 0.0000%
+                               #   on head `0107c9c` with all three `src/shutdown.rs` mutants surviving.
   skill_validation_fail_closed: true              # wired into validate.sh + CI + pre-commit
   llms_dependency_versions_current: true          # 2026-09-27: llms.txt/llms-full.txt regenerated (otel 0.32, rmcp 3.4); scripts/check-llms-sync.sh drift gate runs in validate.sh (CI lint job)
   retrieval_string_clones_removed: true           # 2026-09-27: #781 borrowed expansion ids/labels + positions scoring; 2209 -> 151 allocs per query (top_k=10)
@@ -169,4 +216,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: revive_dead_cli_parity_help_test  # 2026-10-04 #822; give_the_sse_transport_an_exit_path closed the same day as #821
+  action_last_completed: cover_sigterm_in_server_shutdown  # 2026-10-05 #824 via PR #836 (main 2f26214); validate_archive_manifest_completeness earlier the same day as #838 (f235874), derive_ci_crate_matrix_from_workspace as #837 (87fa734), revive_dead_cli_parity_help_test 2026-10-04 as #822

@@ -111,6 +111,23 @@ fi
 echo "==> Generating/validating llms.txt and llms-full.txt"
 scripts/check-llms-sync.sh
 
+# Regression fixtures for the deterministic text gates above. Both suites build a
+# throwaway mock tree, copy the checker in, and assert the checker's failure
+# directions; they existed on main unrun by anything since they were committed
+# (#829), so either gate could have rotted into passing for the wrong reason.
+# `test-version-sync.sh` exercises the checker that `.github/workflows/
+# version-integrity.yml:32` runs — the fixture has no CI coverage of its own
+# otherwise, and it was not even executable (mode 664) until it was wired.
+for fixture in test-llms-sync.sh test-version-sync.sh; do
+  if [[ -x "${SCRIPT_DIR}/${fixture}" ]]; then
+    echo "==> Fixture: scripts/${fixture}"
+    "${SCRIPT_DIR}/${fixture}"
+  else
+    echo "Error: scripts/${fixture} missing or not executable"
+    exit 1
+  fi
+done
+
 LOC=$(grep -cE '^\s*(pub |fn |struct |enum |trait |impl )' llms-full.txt || true)
 echo "Public API surface: $LOC symbols"
 
@@ -184,12 +201,44 @@ else
   echo "      Install with: npm install -g markdownlint-cli || gem install mdl"
 fi
 
+# CHANGELOG structure — a version section must not declare one release-type heading twice.
+# version-integrity.yml runs the checker only when a PR touches CHANGELOG.md, so a PR that
+# weakens the checker itself is never scored; this is the path that always runs. The checker
+# reads Cargo.toml and CHANGELOG.md from the CWD, so it runs from the repo root explicitly.
+if [[ -x "${SCRIPT_DIR}/validate-changelog.sh" ]]; then
+  echo "==> CHANGELOG structure validation (fail-closed)"
+  ( cd "$(dirname "${SCRIPT_DIR}")" && "${SCRIPT_DIR}/validate-changelog.sh" )
+  echo "==> CHANGELOG gate fixtures"
+  "${SCRIPT_DIR}/test-validate-changelog.sh"
+else
+  echo "Error: scripts/validate-changelog.sh missing or not executable"
+  exit 1
+fi
+
 # Skill format validation (ADR-0096) — fail-closed LOC/frontmatter/local refs
 if [[ -x "${SCRIPT_DIR}/validate-skill-format.sh" ]]; then
   echo "==> Skill format validation (fail-closed)"
   "${SCRIPT_DIR}/validate-skill-format.sh"
+  echo "==> Skill format gate fixture (both directions of every check)"
+  "${SCRIPT_DIR}/test-validate-skill-format.sh"
 else
   echo "Error: scripts/validate-skill-format.sh missing or not executable"
+  exit 1
+fi
+
+# Skill catalog drift gate (#828): .agents/skills/CATALOG.md is generated from
+# the tree, so a stale or hand-edited copy is a hard failure — the committed file
+# claimed "32 skills." against 33 on disk and omitted `pr-roast-triage`, the skill
+# AGENTS.md's roast gate points at. The fixture runs too: a gate whose failure
+# mode is untested can rot into a pass-for-the-wrong-reason check (see
+# progress/LEARNINGS.md 2026-09-30).
+if [[ -x "${SCRIPT_DIR}/check-skill-catalog.sh" ]]; then
+  echo "==> Skill catalog drift gate"
+  "${SCRIPT_DIR}/check-skill-catalog.sh"
+  echo "==> Skill catalog drift gate fixture"
+  "${SCRIPT_DIR}/test-skill-catalog-gate.sh"
+else
+  echo "Error: scripts/check-skill-catalog.sh missing or not executable"
   exit 1
 fi
 
@@ -225,6 +274,36 @@ else
   echo "skip: ${ADR_REGISTRY} not found"
 fi
 
+# Plan archive manifest completeness (issue #831). plans/ARCHIVE_MANIFEST.md is the
+# only index of plans/.archive/, and `scripts/plans-manager.sh archive adr` moves ADRs
+# into that directory without touching the manifest — so the gate had a real drift
+# mechanism and no reader: 55 archived ADRs plus 49 handoffs went unlisted while
+# `plan_archive_manifest_valid` reported true on prose. Bidirectional, so a stale row
+# fails as loudly as an unlisted file.
+if [[ -x "${SCRIPT_DIR}/check-archive-manifest.sh" ]]; then
+  echo "==> Plan archive manifest completeness"
+  "${SCRIPT_DIR}/check-archive-manifest.sh"
+else
+  echo "Error: scripts/check-archive-manifest.sh missing or not executable"
+  exit 1
+fi
+
+# GitHub Actions workflow YAML validation (issue #841). Fail-closed on the
+# script's presence, and the fixture runs right after it: the gate separates
+# parse failures from error-level lint findings from advisories, and that
+# classifier is only trustworthy while it is being contradicted by a test.
+# A box with neither yamllint nor python3+PyYAML is reported by the subject as
+# "SKIPPED — NOT A PASS" and exits 0 — the skip is loud, never a green check.
+if [[ -x "${SCRIPT_DIR}/validate-workflows.sh" ]]; then
+  echo "==> GitHub Actions workflow YAML validation (fail-closed)"
+  "${SCRIPT_DIR}/validate-workflows.sh" --check
+  echo "==> Workflow YAML gate fixture"
+  "${SCRIPT_DIR}/test-validate-workflows.sh"
+else
+  echo "Error: scripts/validate-workflows.sh missing or not executable"
+  exit 1
+fi
+
 # GitHub Actions SHA validation (optional - only if requested)
 # Note: Disabled by default as existing workflows use version tags
 # To enable: export CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true
@@ -233,6 +312,21 @@ if [[ -x "${SCRIPT_DIR}/validate-github-actions-shas.sh" ]] && [[ "${CSM_VALIDAT
   "${SCRIPT_DIR}/validate-github-actions-shas.sh" --offline
 else
   echo "skip: GitHub Actions SHA validation (use CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true to enable)"
+fi
+
+# Quality-gates regression fixture (issue #849). scripts/quality-gates.sh is not
+# run by CI at all (`grep -rn nextest .github/workflows/` is empty), so its
+# nextest branch was a machine-dependent trap: `cargo nextest run --quiet` dies
+# in argument parsing with RC=2 before a single test compiles, and only boxes
+# that happen to have cargo-nextest hit it. The fixture asserts the argv shape
+# and replays it against the real binary, which is the only way this stays fixed
+# without adding a nextest job to CI.
+if [[ -x "${SCRIPT_DIR}/test-quality-gates.sh" ]]; then
+  echo "==> Quality-gates fixture (nextest argv accepted, output contract)"
+  "${SCRIPT_DIR}/test-quality-gates.sh"
+else
+  echo "Error: scripts/test-quality-gates.sh missing or not executable"
+  exit 1
 fi
 
 echo "Validation complete."

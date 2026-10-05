@@ -3567,8 +3567,9 @@ pub fn serve(config: McpConfig) -> Result<()>
 
 Start the MCP server.
 
-The exit signal is the operator's Ctrl+C — see [`serve_with_shutdown`] for a
-variant that is driven by the caller's own lifecycle.
+The exit signals are the operator's Ctrl+C (SIGINT) and a service manager's
+SIGTERM — see [`serve_with_shutdown`] for a variant driven by the caller's own
+lifecycle.
 
 #### Errors
 
@@ -3584,7 +3585,7 @@ where
 
 Start the MCP server with an explicit shutdown signal for the SSE transport.
 
-[`serve`] is exactly `serve_with_shutdown(config, ctrl_c_shutdown())`, so the
+[`serve`] is exactly `serve_with_shutdown(config, operator_shutdown())`, so the
 production path and this entry share one mechanism — the signal is not a
 test-only seam. It exists for embedders that run the server inside a larger
 lifecycle (a supervisor, a co-located HTTP app, a service manager) and cannot
@@ -4192,6 +4193,10 @@ impl StructuredMemoryPayload {
     pub fn to_context_string(&self) -> String;
 }
 ```
+
+## src/shutdown.rs
+
+## src/shutdown_tests.rs
 
 ## src/singularity.rs
 

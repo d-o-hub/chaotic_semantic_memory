@@ -1,5 +1,354 @@
 # PROGRESS
 
+## 2026-10-05 (round 7): a merged PR left its queue entry alive, and my own roast published a false protection claim
+
+### #836 merged as `2f26214` — and `Fixes #824` closed the issue while the plan file did not
+Verified before merging, not after: head current with `main`, `mutation-test` **success** on that
+head (the `src/shutdown_tests.rs` arms from round 4), `lint` and the crate matrix green. After the
+squash, `src/shutdown.rs::operator_shutdown()` selects SIGINT *and* SIGTERM, both callers go through
+it (`src/cli/commands/watch.rs:91`, `src/mcp/server.rs:79`), and `Fixes #824` auto-closed the issue.
+What did **not** happen automatically: `cover_sigterm_in_server_shutdown` was still in
+`plans/ACTIONS.md` on the new `main`, contradicting that file's own header rule ("when an action
+completes, remove it here"). GitHub closes issues; nothing closes queue entries. Closed by hand this
+round, queue 8 → 7 counted with `grep -c '^  - name:'`, and the gap is recorded as a learning rather
+than trusted to memory.
+
+### #845 was an independent implementation of #832 — roasted, closed as superseded, and I posted an erratum
+Draft #845 (Jules) fixed the same duplicated `### Changed` heading as my local #832 work. Rather than
+merge two copies, I compared them: #845 dedupes the heading, mine adds per-section duplicate scoring
+plus a 10-case fixture and a `validate.sh` block, so mine strictly dominates and #848 is the one that
+lands; #845's changelog dedupe is worth keeping and #832's own note says so. **But my roast comment
+asserted "main is not protected"** — that came from one API call, `GET /repos/…/branches/main/protection`
+→ 404, which is what a ruleset-protected branch returns: the classic endpoint has no record because
+the protection is a **ruleset** (`GET /branches/main` → `protected: true`). I published the wrong claim
+in good faith, checked it after filing #850, and posted a public correction on #845 instead of editing
+it quietly. The real, measured finding is #850: ruleset `12897801` requires exactly three checks
+(`Build CLI (linux-x64)`, `Codacy Static Code Analysis`, `commitlint`) with
+`strict_required_status_checks_policy: true`, so `lint`, `test` and `mutation-test` are *not* merge
+blockers — a PR can squash-merge with a red test job. Not fixed unilaterally: repo settings are not
+mine to change silently.
+
+### Two issues from the same audit trail, both measured before filing
+`#849`: `scripts/quality-gates.sh:147` passes `--quiet` to `cargo nextest run` at the top level, and
+nextest rejects it (`error: unexpected argument '--quiet'`, RC=2 measured) — so on any machine with
+`cargo-nextest` installed the "quality gates" script takes a branch that cannot compile or run a test,
+and a green-looking run proves nothing. Found while writing #832's fixture, because writing a fixture
+means running the thing. `#850` is the ruleset finding above.
+
+### Rebase arithmetic: three PRs editing the same three files
+`#846`, `#847` and `#848` each add a block to `scripts/validate.sh` and each carry `plans/` + `progress/`
+documentation, so every `main` move produces the same four-file conflict (`ACTIONS.md`, `GOAP_STATE.md`,
+`LEARNINGS.md`, `PROGRESS.md`). Resolved this round as a union with an ordering rule: PROGRESS is
+newest-first, so the incoming round-6/round-5 blocks go **above** main's round-4/3/2 blocks, not after
+them. After resolving, the numbers that the conflict *touched* were re-measured rather than inherited —
+`main_head` to `2f26214`, the actions↔issues mapping to 7/7 (`grep`-counted), `tests_count` kept at
+main's fresher 1044 instead of my branch's stale 1037, and two landed gates (#827, #831) that never had
+a world-state key got one so nobody re-queues them.
+
+### Remote state as measured, not as hoped
+`gh pr view --json statusCheckRollup` on the current heads: **#846** `883e074` DIRTY (that is the
+conflict being fixed by this rebase), 23 success / 9 skipped; **#847** `dcf84a3` BEHIND, 31 success;
+**#848** `9b5cab7` BLOCKED with `lint`, `test` and `Analyze (rust)` still at an empty conclusion. All
+three show `Codacy Static Code Analysis` as `ACTION_REQUIRED`, which is the only thing #850 lists as
+mandatory. Merge order stays #848 → #846 → #847, one rebase per `main` move.
+
+### Dispatch accounting
+No agents dispatched this round — the remaining work is docs conflict resolution and merge sequencing,
+which is exactly the class of work an agent cannot be trusted to verify for me.
+
+## 2026-10-05 (round 6): main moved twice under me, and my own monitor called a merged PR "UNKNOWN"
+
+### PR #838 merged while this round was running — verified, not assumed
+`validate_archive_manifest_completeness` landed as **`f235874`** (12:48:58Z) with a
+dependabot bump (`792d951`, #843) in between, so `main` moved twice since round 5. I checked
+that what merged is what I reviewed rather than trusting the title: `git diff b075a73 f235874
+-- scripts plans agents-docs` is **empty**, and the gate is live on main at
+`scripts/validate.sh:234-238` (131 archive files on disk = 131 enumerated, RC=0). That is why
+`plan_archive_manifest_valid` changed from a dated claim to a gated fact, why
+`validate_archive_manifest_completeness` left the queue (9 → 8 actions, counted with
+`grep -c '^  - name:'`), and why `action_last_completed` is now that action.
+
+### PR #836 rebased again, and the remote had moved
+The remote branch had been advanced to `d407b38` — a *merge* of main into the branch — while my
+local copy was a rebase onto `87fa734`. Before overwriting anything I compared the commit sets:
+remote-only was the merge commit alone, local-only was that same 10-commit history plus the
+`llms-full.txt` regeneration and one more docs commit (`git diff --stat d407b38 c7462d8` = 3
+files). Rebase onto `f235874` was clean, `check-llms-sync.sh` RC=0 locally — the failure that
+was blocking the PR is gone — then `--force-with-lease` push (the `pre-push` hook ran
+`cargo fmt --check` + clippy `--all-targets --all-features -D warnings` to completion, RC=0).
+PR head is `39ec716`, `MERGEABLE`, CI re-running on that head; `mutation-test` had already gone
+**success** on the previous head.
+
+### A duplicate track for `deduplicate_unreleased_changelog_headings` (#832)
+Draft PR **#845** appeared on branch `dedup-changelog-headings-…` (26 pass / 9 skipping, files:
+`CHANGELOG.md`, `commitlint.config.cjs`, `scripts/pre-commit.sh`,
+`scripts/validate-changelog.sh`) — i.e. an outside implementation of the action my local agent
+is still compiling. Roast-before-implement applies: #845 gets reviewed on its merits and the
+local duplicate does not land behind it.
+
+### Monitoring truth
+My own monitor line read `PR838 SETTLED state=UNKNOWN checks_pending=0 failures=0`. The state
+was not "settled green" — the PR had **merged** and GitHub had deleted the branch, so
+`gh pr checks` returned nothing at all. `checks_pending=0` derived from an empty result set is
+not evidence; the same "empty output is not a measurement" class as the truncated
+`--list` probe, arriving from the opposite direction.
+
+## 2026-10-05 (round 5): one PR merged, two verified, and a wired gate that validated a broken frontmatter block
+
+Fourth/fifth GOAP round on this queue. `#837` merged; `#838`/`#836` verified and rebased;
+`#829` implemented and split; the `#828` swarm agent came back with a generator whose red
+direction I reproduced myself. Roast verdicts in `plans/PR_ROAST_2026_10_05.md`.
+
+### `derive_ci_crate_matrix_from_workspace` — completed (PR #837, squashed as `87fa734`)
+Merged only after the derived wiring was seen executing in real Actions: **8**
+`Test Workspace Crates (csm-*)` jobs green on head `f921e81`, zero non-green checks. The
+8-vs-10 crate question was answered by the gate itself, not by me: `csm-duckdb`/`csm-wasm`
+are excluded by name and the script fails if an excluded crate is no longer a member
+(`:188`) or has no dedicated CI job (`:193`). Verdict posted to the PR **before** merging.
+
+### PR #838 (`validate_archive_manifest_completeness`) — rebased, CI in flight
+`#837` moving `main` forced the rebase #838 was going to need anyway. Clean (different
+`validate.sh` regions: `:36-42` vs `:234-238`), then re-run rather than re-trusted:
+`ok: archive manifest complete (131 files under plans/.archive/, 131 enumerated)`, RC=0,
+`shellcheck -S error` RC=0. New head `b075a73`.
+
+### #829 — the gate graph, and a fail-open that only a fixture could find
+Audited every claim against `main` before implementing. Five orphan suites confirmed
+(RC table in the issue comment), and the audit found more than it expected:
+- **`validate-skill-format.sh` failed open.** A `SKILL.md` opening `---` with no closing
+  delimiter validated as healthy, because `extract_frontmatter` returns everything after
+  the first delimiter when a second never arrives — so the `-z` branch that prints
+  *"invalid frontmatter (missing closing ---)"* could not fire for the case it named, and
+  actually reported an *empty* block. The gate is CI-wired; no skill on disk trips it,
+  which is why it survived. Fixed + `scripts/test-validate-skill-format.sh` (15 cases),
+  with the four neuter directions demonstrated on the mutated checker (cap 250→2500,
+  `-gt`→`-ge`, `-lt 2`→`-lt 1`, empty-inventory `exit 1`→`exit 0`) — each caught by the
+  one test designed to catch it, file restored `cmp`-identical after every mutation.
+- **A never-invoked script has two untested properties.** `test-version-sync.sh` was mode
+  **664** and resolved its subject as `cp scripts/verify-version-sync.sh` — CWD-relative —
+  so from anywhere but the repo root it died with `cp: cannot stat` (RC=1 measured). Both
+  would have been invisible in a green run from the root.
+- **Three gates cannot be wired as-is**, so they are split out instead of "fixed": #840
+  (two competing link validators; `validate-links.sh` RC=1 on 5 links that are all false
+  positives — root-relative `@AGENTS.md` resolved inside the skill dir, plus example syntax
+  quoted in prose; `check-docs-links.sh` RC=1/66 s with all 33 broken links inside the
+  frozen `plans/.archive/**` that #838 now pins), #841 (`validate-workflows.sh` RC=1
+  "Errors: 4" where the payload is yamllint lint output under a *"YAML syntax error"*
+  heading and the repo has **no** `.yamllint` profile, so the noise is the gate's own
+  missing configuration), #842 (three hook installers, three hook sets, `.githooks/`
+  installed by none, `cmp` differs at byte 40, and `core.hooksPath` checked only in
+  `--global` while this workstation carries it locally).
+- `negative-fixtures.sh` **deleted**, not wired: it asserts rustc rejects
+  `fn main() { invalid_syntax!` and rustfmt flags unformatted code — the toolchain, not the
+  repo — and it wrote `/tmp/test_invalid.rs` under a fixed name with no `set -e`.
+
+### #828 — swarm agent verified before any PR
+`scripts/gen-skill-catalog.sh` (292) + `check-skill-catalog.sh` (76) +
+`test-skill-catalog-gate.sh` (184); `CATALOG.md` regenerated to **33 skills** and now lists
+`pr-roast-triage`, the entry its own roast rule depends on. I re-derived all of it from git
+and reproduced the teeth personally: dropped the `pr-roast-triage` row → gate RC=1, tampered
+with only the count line → gate RC=1, `git checkout` restore → RC=0 with a clean
+`git status`; generator run twice → `cmp` byte-identical; `shellcheck -S error` RC=0;
+rebased onto `87fa734` clean, `ci.yml` parses (`yaml.safe_load`).
+
+### PR #836 — the mutation gate passed; a stale generated file did not
+`mutation-test` went **success** on `a61dbf3` after `src/shutdown_tests.rs` put an assertion
+in the target the `--lib` profile actually runs. The `lint` job still failed, for a
+different reason than the last time: `check-llms-sync.sh` regenerates `llms-full.txt`, which
+emits one `## <file>` section per source file **whether or not that file declares public
+API** — so adding the fixture file itself made the committed copy stale by two lines.
+Reproduced locally (RC=1, `llms-full.txt | 2 ++`), regenerated, committed, rebased onto
+`87fa734` → head `c7462d8`. `cargo fmt --check` and `cargo test` were both green throughout:
+the local gate I skipped was `validate.sh`, not the compiler.
+
+### Swarm/dispatch accounting
+Two agents dispatched this round (#828 landed and is verified; #832 still running with one
+commit and an in-progress `validate-changelog.sh`). The #829 agent's worktree was re-derived
+as **zero commits, clean tree** at `origin/main` with no processes → stopped and taken over
+rather than waiting on a silent dispatch.
+
+## 2026-10-05 (round 4): the mutation gate roasted my own coverage claim; two agent trees verified
+
+**CI failed #836 at `mutation score 0.0000%`** (run 37276860430, head `0107c9c`): all three
+in-diff mutants in `src/shutdown.rs` survived — `replace operator_shutdown with ()` (`:21:5`),
+`replace sigint with ()` (`:40:5`), `replace sigterm with ()` (`:56:5`). Cause, read off the
+script rather than guessed: the fast profile is `cargo mutants --lib -p csm-retrieval -p
+chaotic_semantic_memory` (`scripts/mutation_test.sh:142`), so `tests/cli_shutdown_signal.rs`
+is never built for the run. Every judgement I had made about this branch's coverage was made
+from the subprocess tests, which are the right tests for the *observable* and useless for the
+*gate*. I had also written that same `--lib` limitation up as one of #834's flaws.
+
+`55c0437` adds `src/shutdown_tests.rs` — one pending-check per arm at `NO_SIGNAL = 100ms` —
+chosen so a failure names the arm. Reproduced each mutant individually by deleting that
+function's body and re-running: RC 101 for all three, failing sets `1 / 2 / 2`
+(`operator_shutdown` alone; `sigint` and `sigterm` each take the composite with them).
+Restored from `/tmp/shutdown.pristine` with `cmp` clean, then `3 passed; 0 failed` /
+`GREEN2_RC=0`. The positive direction was deliberately left out of the lib target: `raise()`
+in the shared libtest binary kills the whole process on a mutant that skips registration.
+
+**Both swarm trees re-derived from git, not from their reports.**
+- **#831** (`c7085c5f`, `21b7b25`, base `8e69a83`, `+319/-29`): `plans/ARCHIVE_MANIFEST.md`
+  now enumerates **131** files, and `scripts/check-archive-manifest.sh` is wired into
+  `scripts/validate.sh` (which `ci.yml:587` runs) with a fail-closed `else exit 1`. I proved
+  red myself in three directions: unlisted file on disk → 1, fabricated row → 1, deleted real
+  row → 1, then restore → 0 with `cmp` clean. The 131/131 green count and the disk count
+  (`find plans/.archive -type f | wc -l` → 131) match. Spot-checked that archived "Why
+  archived" reasons survived the rewrite (6/6 present) — my first attempt at that check was
+  itself a broken extraction (`comm` against a bad column split reported *all 21 lost*), which
+  I only noticed by reading the actual rows.
+- **#827** (`f1dafe50`, `f921e81`, `+626/-12`): derived matrix equals the eight hand-written
+  crates exactly — the failure mode that mattered was a silent drop, and `--check` prints
+  `8 derived / 2 excluded (csm-duckdb, csm-wasm) / no hand-written entries`. Its 16-fixture
+  test script passes, including empty-matrix-rejected and re-typed-list-rejected, and
+  `--github-output` outside Actions exits 1 instead of emitting nothing. `shellcheck -S error`
+  clean on all three scripts.
+
+**Unlanded, and why**: #827 and #831 are verified but not yet pushed — the orchestrator owns
+that step, and merging is one-at-a-time from a current head. #836 must clear CI on `55c0437`
+first.
+
+## 2026-10-05 (round 3): #824 implemented, and a draft duplicate forced the coverage to widen
+
+`cover_sigterm_in_server_shutdown` (#824) shipped as **PR #836** on branch
+`fix/mcp-sigterm-cooperative-shutdown`. The fix is one `pub(crate)`
+`src/shutdown.rs::operator_shutdown()` that resolves on SIGINT **and** SIGTERM; it
+replaces `ctrl_c_shutdown` in `mcp::serve` and the raw `tokio::signal::ctrl_c()` in
+`run_watch`, so a long-running command cannot wire only half of its signals. No new
+public API (`llms.txt` untouched), gated `all(not(target_arch = "wasm32"), feature =
+"cli")` because `mcp` implies `cli` (`Cargo.toml:338`).
+
+Then the queue grew a competitor: draft PR **#834** (Jules, also `Fixes #824`, CI green on
+`09973d8`) implemented the same primitive in `src/cli/shutdown.rs` as a `pub fn`.
+Re-derived from its own head rather than from its report: two binary-level tests with
+**unbounded `child.wait()`** (a regression hangs CI instead of failing), fixed
+**200/300 ms sleeps** in place of readiness synchronisation, both commands spawned with
+**no `--database`** — so per `src/cli/args.rs:20` they write `.git/memory-index/csm.db`
+into the checkout — a `#[tokio::test]` whose body only *constructs* the future (an
+`async fn` is lazy, so it asserts compilation), `sig.recv().await` discarding the
+`Option` (a closed stream reads as a shutdown request), `+6` lines of public API in
+`llms.txt`, and two new `scripts/mutation_test.sh` exclusions. On the exclusions I wrote
+the first verdict backwards and then corrected it by measurement: `--exclude-re
+"replace shutdown_signal"` **does** match (`--exclude-re` is matched against the mutant
+*description*, proven by counts on `cargo-mutants 27.1.0`: `src/shutdown.rs` baseline 3
+mutants → 2 with `"replace operator_shutdown"`, 2 with `"sigterm"`, unchanged 3 with
+`"shutdown::"`, control `"zzz_no_match"` 3), while my original "no path contains the word
+replace, so it is inert" reading came from a `tail`-truncated `--list` I mistook for a
+result. The real problem is one layer down: that line is redundant with the
+`--exclude "src/cli/shutdown.rs"` under it, and the module needs excluding at all only
+because its behavioural tests live in `tests/cli_integration.rs`, which the fast profile
+never runs (`mutation_test.sh:142`) — so `replace shutdown_signal with ()` is unkillable
+in-gate, and the exclusion files a placement mistake as policy.
+
+But it covered `csm mcp serve --transport sse`, which #836 did not. That dimension was
+folded in at **`c62f2ce`** — `serve_sse_stops_cooperatively_on_sigterm` / `_sigint`,
+reusing the bounded-wait harness, `--bind 127.0.0.1:0` with the kernel-chosen port read
+off the server's own readiness line, and an explicit temp `--database` — so #836 now
+covers both servers and #834 has nothing left to contribute. Four tests pass in 0.79 s.
+
+**Red demonstrated for both commands, not argued:** the SIGTERM arm was deleted from
+`operator_shutdown()`; exactly the two SIGTERM tests failed with
+`ExitStatus(unix_wait_status(15))`, `signal: Some(15)`, while both SIGINT tests stayed
+green (2/2). The file was restored from a copy taken before the neuter, `diff -q` clean,
+`git diff HEAD -- src/shutdown.rs` empty, and the suite re-run green.
+
+Gates on the branch head: `cargo fmt --all -- --check` clean, `cargo clippy --features
+cli,mcp --test cli_shutdown_signal -- -D warnings` clean, `check-test-attributes.sh` ok
+(76 files), `check-llms-sync.sh` up to date (tests/ is not in the generated surface, so
+`llms-full.txt` needed no second regen). Commitlint: 0 problems, 1 warning
+(`footer-leading-blank`, the heredoc quote line).
+
+Also roasted **#835** (`perf(retrieval): defer score normalization scaling in
+merge_single_list`) — a resubmission of the closed **#763** in the same function, now with
+*no* benchmark at all, which dodges #763's specific critique (a bench that never reached
+the changed path) by discarding the claim's support. Its rollup says `commitlint:
+COMPLETED/FAILURE`, `mergeStateStatus: BLOCKED`, and 4 commits with three identical
+headlines plus a re-typed `refactor(...)` — gate-dodging, not history. Verdicts and the
+manual merge order are in `plans/PR_ROAST_2026_10_05.md`. Nothing was closed: #834 and
+#835 are another author's drafts, and that call is human.
+
+Distilled into `skill://pr-roast-triage` (now 238 lines under the 250 cap): the Step-3
+rule that a live duplicate may hold coverage the keeper lacks — diff its *test* files,
+fold, dominate — plus four CI-invisible checks, with the long-form detail moved to
+`references/subprocess-and-claim-rubric.md` and the #767 rationale chain to
+`references/rationale-comments.md`. The addition itself first broke the cap (283 lines,
+`validate-skill-format.sh` RC=1); compaction was the fix, not a raised limit.
+
+Incidental measured evidence for `wire_and_consolidate_validation_gates` (#829):
+`scripts/validate-links.sh` is **red on the current tree** — 5 broken refs across
+`jules-orchestration`, `rust-development`, `skill-creator`, `testing-validation`
+(`@AGENTS.md`, `@file.md`, `./path.md`) — and no workflow or `validate.sh` invokes it, so
+an uncalled gate is also an already-failing one. Attached to that action rather than
+fixed here, to keep #824 atomic.
+
+World state: `servers_exit_on_sigterm` deliberately stays `false` — `origin/main` is
+still `8e69a83` (re-fetched), and the state file records the repository, not the queue.
+`tests_count` 1039 -> 1041 as a stated delta.
+
+## 2026-10-04 (round 2): the backlog was invisible — 10 GOAP actions, 0 GitHub issues
+
+Reconciliation request, run under `goap-orchestrator`. Ground truth read off the API
+before anything was planned: `gh issue list --state open` -> `[]`, `gh pr list --state
+open` -> one PR (#819). `plans/ACTIONS.md` held 10 queued actions. So the entire backlog
+lived on one filesystem: no issue meant no `Fixes #…`, no external signal that anything
+was owed, and a session that did not open `plans/` would have found an empty tracker.
+
+### Verification swarm, and the corrections it produced
+
+Four read-only `Explore` agents re-derived all 10 actions against `8e69a83`. **All 10 are
+still missing** — none had silently landed. Three of the notes were nonetheless wrong in
+ways that change cost, which is why re-verifying a stale note is not busywork:
+
+- `cover_sigterm_in_server_shutdown` warned that a SIGTERM listener must respect the
+  `signal`/wasm32 target gate at `Cargo.toml:197-202`. **`Cargo.toml:202` already enables
+  `signal`.** The stated obstacle did not exist, so the action was cheaper than queued.
+- `derive_ci_crate_matrix_from_workspace` said two crates "silently" miss CI. They do not:
+  `ci.yml:216-217` comments both exclusions and each has a dedicated job. The real drift is
+  a *future* crate, because the root job at `ci.yml:204` runs
+  `cargo test --all-features --locked` with **no `--workspace` and no `-p`**.
+- `complete_evidence_tiers_and_mutation_hardening` claimed `pre-release-gate.yml` runs no
+  mutation. It does (`:106`, `mutation_test.sh fast --ci` at `:129`); it runs no benchmark.
+
+Every claim was re-derived locally (`grep`, `wc -l`, `sed -n`) before use, per the skill's
+trust boundary. No agent invented state this round, and the four corrections all held up.
+
+### Two world-state bugs found by reading `GOAP_STATE.md` against the repo
+
+- `sse_transport_has_exit_path: false` contradicted the *same file's*
+  `queued_actions_count` comment, which records #821 completing exactly that. Duplicate-key
+  hygiene does not catch a file disagreeing with itself; the flag is now `true` with the
+  evidence attached, and `servers_exit_on_sigterm: false` was added as the honest open half.
+- `main_head: "55a9fa3"` was two rounds stale (actual `8e69a83`).
+
+### `cover_sigterm_in_server_shutdown` implemented (#824)
+
+One shared `src/shutdown.rs::operator_shutdown()` resolving on SIGINT **and** SIGTERM,
+used by `mcp::serve` in place of `ctrl_c_shutdown` and by `run_watch` in place of its raw
+`tokio::signal::ctrl_c()`, so a long-running command can no longer wire half of the
+signals. `pub(crate)` and gated `all(not(wasm32), feature = "cli")` — `mcp` implies `cli`
+(`Cargo.toml:338`), so one gate covers both consumers and nothing new becomes public API.
+
+The test is `tests/cli_shutdown_signal.rs`, and it asserts the **exit status of the real
+binary**, because that is the only observable separating "handler installed" from "handler
+written and never registered": `src/mcp/server_tests.rs` resolves a *synthetic* future to
+prove the plumbing, and it stayed green for weeks while SIGTERM was absent from the process
+entirely. Red was demonstrated, not argued — deleting the SIGTERM arm turns the new test
+red with `signal: Some(15)` while the SIGINT test keeps passing, then the file was restored
+byte-identically (md5 + residue grep).
+
+### #819 roasted: no demonstrated impact
+
+Jules `perf(core): fast-path identity rotations in HVec10240::permute`, open since 06:07
+UTC and never roasted (today's first round covered #821/#822/#823). `commitlint` is red on
+the annotation *"perf PR evidence gate: missing `## Performance Evidence` section in the
+PR body"*. Three independent reasons it cannot merge as-is, all read off `main`: the body
+claims an "O(1) register/stack move" while `HVec10240` is `[u128; 80]` — 1280 bytes copied
+by value either way; the only production caller is `encoder.rs:226` with
+`position_stride` defaulting to **1** (`:91`), so identity means `pos == 0`, once per
+sequence; and `plans/evidence/bench/canonical.json` contains **no permute benchmark at
+all**, so the gate's baseline requirement is unsatisfiable without writing one first.
+Same class as #808 and the #737/#739/#740/#754 set. Verdict recorded; **not closed** —
+closing another author's open PR is a human call, and the measurement stays owed.
+
 ## 2026-10-04: SSE transport gets an exit (#821), a gate for the un-runnable `#[test]` (#822), and what three subagents reported that did not exist
 
 Second GOAP round under `goap-orchestrator` on this queue. Both actions came out of the

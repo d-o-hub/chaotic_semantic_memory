@@ -277,15 +277,27 @@ for skill_file in "${SKILL_FILES[@]}"; do
         continue
     fi
 
-    frontmatter="$(extract_frontmatter "${skill_file}")"
-    if [[ -z "${frontmatter}" ]]; then
-        echo -e "${RED}✗${NC} ${skill_dir_name}: invalid frontmatter (missing closing ---)"
+    # extract_frontmatter stops at the *second* delimiter but returns everything
+    # after the first when there is no second one, so it cannot detect an
+    # unclosed block on its own — a `---` opener with fields below it and no
+    # closer used to validate (scripts/test-validate-skill-format.sh Test 7).
+    # Count delimiters in the file itself rather than trusting the extractor.
+    delim_count="$(awk '/^---[[:space:]]*$/{c++} END{print c+0}' "${skill_file}")"
+    if [[ "${delim_count}" -lt 2 ]]; then
+        echo -e "${RED}✗${NC} ${skill_dir_name}: invalid frontmatter (no closing --- delimiter)"
         ((INVALID_YAML++)) || true
         ((ISSUES++)) || true
         continue
     fi
 
-    # Closing --- must exist (extract_frontmatter already requires second ---)
+    frontmatter="$(extract_frontmatter "${skill_file}")"
+    if [[ -z "${frontmatter}" ]]; then
+        echo -e "${RED}✗${NC} ${skill_dir_name}: empty frontmatter (no fields between the delimiters)"
+        ((INVALID_YAML++)) || true
+        ((ISSUES++)) || true
+        continue
+    fi
+
     # Ensure at least one non-empty field line
     if ! printf '%s\n' "${frontmatter}" | grep -qE '^[a-zA-Z_]'; then
         echo -e "${RED}✗${NC} ${skill_dir_name}: empty frontmatter"

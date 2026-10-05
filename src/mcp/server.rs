@@ -6,7 +6,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use anyhow::Result;
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::mcp::handler::McpHandler;
 
@@ -62,25 +62,26 @@ impl Default for McpConfig {
 
 /// Start the MCP server.
 ///
-/// The exit signal is the operator's Ctrl+C — see [`serve_with_shutdown`] for a
-/// variant that is driven by the caller's own lifecycle.
+/// The exit signals are the operator's Ctrl+C (SIGINT) and a service manager's
+/// SIGTERM — see [`serve_with_shutdown`] for a variant driven by the caller's own
+/// lifecycle.
 ///
 /// # Errors
 ///
 /// Returns error if server fails to start or transport initialization fails.
 pub async fn serve(config: McpConfig) -> Result<()> {
     // ADR-0099: SSE needs a real shutdown signal because its transport future
-    // otherwise never resolves (see `run_sse_server_with_shutdown`), and the
-    // only signal a foreground `csm mcp serve --transport sse` operator has is
-    // SIGINT — the same precedent `csm watch` uses
-    // (`src/cli/commands/watch.rs:84-98`). Stdio does not need it: rmcp's
-    // `Waiting::waiting` already resolves on stdin EOF.
-    serve_with_shutdown(config, ctrl_c_shutdown()).await
+    // otherwise never resolves (see `run_sse_server_with_shutdown`). Both the
+    // foreground operator's SIGINT and a service manager's SIGTERM must reach it:
+    // `systemctl stop` / `docker stop` send SIGTERM, and handling only SIGINT left
+    // the bounded cleanup stop unreached under a service manager. Stdio does not
+    // need it: rmcp's `Waiting::waiting` already resolves on stdin EOF.
+    serve_with_shutdown(config, crate::shutdown::operator_shutdown()).await
 }
 
 /// Start the MCP server with an explicit shutdown signal for the SSE transport.
 ///
-/// [`serve`] is exactly `serve_with_shutdown(config, ctrl_c_shutdown())`, so the
+/// [`serve`] is exactly `serve_with_shutdown(config, operator_shutdown())`, so the
 /// production path and this entry share one mechanism — the signal is not a
 /// test-only seam. It exists for embedders that run the server inside a larger
 /// lifecycle (a supervisor, a co-located HTTP app, a service manager) and cannot
@@ -204,28 +205,6 @@ where
         .map_err(|e| anyhow::anyhow!("axum server error: {e}"))?;
 
     Ok(())
-}
-
-/// The operator's Ctrl+C, shaped into the `Future<Output = ()>` that
-/// `with_graceful_shutdown` requires.
-///
-/// `tokio::signal::ctrl_c` resolves `Err` when the SIGINT handler cannot be
-/// installed. That must not read as "shutdown requested", or a server would exit
-/// the instant it started, so the error path parks forever and leaves the
-/// previous behaviour — the default SIGINT disposition terminating the process —
-/// as the fallback.
-async fn ctrl_c_shutdown() {
-    match tokio::signal::ctrl_c().await {
-        Ok(()) => info!("Received Ctrl+C; stopping the MCP server"),
-        Err(e) => {
-            warn!(
-                error = %e,
-                "could not install the Ctrl+C handler; the server keeps running and \
-                 will be stopped by the default signal disposition"
-            );
-            std::future::pending::<()>().await;
-        }
-    }
 }
 
 #[cfg(test)]
