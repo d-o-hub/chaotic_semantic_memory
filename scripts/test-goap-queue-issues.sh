@@ -37,9 +37,11 @@ GH_CALL_LOG="${TEST_DIR}/gh-calls.log"
 ISSUES_JSON="${TEST_DIR}/issues.json"
 
 # Stub gh: logs its argv (so the "exactly one gh call" constraint is assertable),
-# answers `auth status` with success and the tracker query with the canned
-# payload. Anything else is a hard error, so a second gh call added to the gate
-# shows up here as a failure instead of as a silent network dependency.
+# answers the tracker query with the canned payload, and can be told to fail it
+# (CSM_GH_LIST_FAIL) or answer rc=0 with garbage (CSM_GH_LIST_GARBAGE). Anything
+# else is a hard error, so a second gh call added to the gate — an auth probe, a
+# per-issue loop — shows up here as a failure instead of as a silent network
+# dependency.
 cat > "${TEST_DIR}/bin/gh" <<'STUB'
 #!/usr/bin/env bash
 {
@@ -48,13 +50,17 @@ cat > "${TEST_DIR}/bin/gh" <<'STUB'
     printf '\n'
 } >> "${CSM_GH_LOG:?}"
 case "$*" in
-    *auth*status*)
-        if [[ -n "${CSM_GH_AUTH_FAIL:-}" ]]; then
+    *issue*list*)
+        if [[ -n "${CSM_GH_LIST_FAIL:-}" ]]; then
+            echo "gh: HTTP 403 Resource forbidden (the token has no issues: read)" >&2
             exit 1
         fi
-        exit 0
+        if [[ -n "${CSM_GH_LIST_GARBAGE:-}" ]]; then
+            echo "<html>502 Bad Gateway</html>"
+            exit 0
+        fi
+        cat "${CSM_GOAP_ISSUES_FILE:?}"
         ;;
-    *issue*list*) cat "${CSM_GOAP_ISSUES_FILE:?}" ;;
     *)
         echo "STUB-GH-UNEXPECTED-ARGS: $*" >&2
         exit 9
@@ -152,12 +158,13 @@ write_baseline() {
         "105|OPEN|ci: unrelated open issue, not a GOAP action"
 }
 
-# run_gate [gh-bin-dir] [path-base] [CSM_GOAP_QUEUE_REQUIRED] [auth-fail-flag]
+# run_gate [gh-bin-dir] [path-base] [CSM_GOAP_QUEUE_REQUIRED] [list-fail-flag] [garbage-flag]
 run_gate() {
     local bin_dir="${1:-${TEST_DIR}/bin}"
     local path_base="${2:-${ORIG_PATH}}"
     local required="${3:-}"
-    local auth_fail="${4:-}"
+    local list_fail="${4:-}"
+    local list_garbage="${5:-}"
     CHECK_STATUS=0
     CHECK_OUTPUT=""
     : > "${GH_CALL_LOG}"
@@ -165,7 +172,8 @@ run_gate() {
         CSM_GH_LOG="${GH_CALL_LOG}" \
         CSM_GOAP_ISSUES_FILE="${ISSUES_JSON}" \
         CSM_GOAP_QUEUE_REQUIRED="${required}" \
-        CSM_GH_AUTH_FAIL="${auth_fail}" \
+        CSM_GH_LIST_FAIL="${list_fail}" \
+        CSM_GH_LIST_GARBAGE="${list_garbage}" \
         CSM_PLANS_DIR="" \
         PATH="${bin_dir}:${path_base}" \
             bash "${TEST_DIR}/scripts/check-goap-queue-issues.sh" --repo-root "${TEST_DIR}" 2>&1
@@ -241,13 +249,13 @@ run_gate
 expect_pass "consistent queue"
 expect_output_has "success line reports the reconciliation" "ok: GOAP queue reconciled"
 
-echo "Test 2: exactly one gh issue-list call serves every tracker check"
+echo "Test 2: exactly one gh call serves every tracker check"
 write_baseline
 run_gate
 GH_LIST_CALLS="$(grep -c 'issue list' "${GH_CALL_LOG}" || true)"
 GH_TOTAL_CALLS="$(grep -c '^gh ' "${GH_CALL_LOG}" || true)"
-if [[ "${GH_LIST_CALLS}" -eq 1 ]] && [[ "${GH_TOTAL_CALLS}" -le 2 ]]; then
-    ok "one issue-list call plus the auth probe (${GH_TOTAL_CALLS} gh call(s) total)"
+if [[ "${GH_LIST_CALLS}" -eq 1 ]] && [[ "${GH_TOTAL_CALLS}" -eq 1 ]]; then
+    ok "exactly one gh call — the issue list, nothing else"
 else
     CHECK_OUTPUT="$(cat "${GH_CALL_LOG}")"
     ko "expected exactly one issue-list call, got ${GH_LIST_CALLS} of ${GH_TOTAL_CALLS}"
@@ -386,15 +394,25 @@ run_gate "${TEST_DIR}/nogh" "${TEST_DIR}/nogh" "true"
 expect_fail_naming "required mode fails closed on an unreachable tracker" \
     "CSM_GOAP_QUEUE_REQUIRED" "SKIP — NOT A PASS"
 
-echo "Test 13b: gh present but unauthenticated takes the same SKIP path"
+echo "Test 13b: gh present but the query failing takes the same SKIP path"
 write_baseline
 run_gate "${TEST_DIR}/bin" "${ORIG_PATH}" "" "1"
-expect_pass "unauthenticated tracker is a skip, not a failure, by default"
-expect_output_has "SKIP names the auth failure" "gh is not authenticated"
+expect_pass "an unreachable tracker is a skip, not a failure, by default"
+expect_output_has "SKIP carries gh's own first line, not a paraphrase" "HTTP 403"
 expect_output_has "SKIP is loud" "SKIP — NOT A PASS"
+expect_output_lacks "the tracker verdicts are not invented from a failed query" "STALE:"
 run_gate "${TEST_DIR}/bin" "${ORIG_PATH}" "true" "1"
-expect_fail_naming "required mode is fatal when gh is unauthenticated" \
-    "CSM_GOAP_QUEUE_REQUIRED" "gh is not authenticated"
+expect_fail_naming "required mode is fatal when the query fails" \
+    "CSM_GOAP_QUEUE_REQUIRED" "HTTP 403"
+
+echo "Test 13c: an rc=0 that is not a JSON array is not read as an empty backlog"
+write_baseline
+run_gate "${TEST_DIR}/bin" "${ORIG_PATH}" "" "" "1"
+expect_pass "a garbage payload skips the tracker half, loudly"
+expect_output_has "SKIP names the shape problem" "not a JSON array"
+run_gate "${TEST_DIR}/bin" "${ORIG_PATH}" "true" "" "1"
+expect_fail_naming "required mode is fatal on a garbage payload" \
+    "CSM_GOAP_QUEUE_REQUIRED" "not a JSON array"
 
 echo "Test 14: a queued issue missing from the tracker payload fails closed"
 write_baseline
