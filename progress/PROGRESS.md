@@ -19,8 +19,18 @@ Re-derived from its own head rather than from its report: two binary-level tests
 into the checkout — a `#[tokio::test]` whose body only *constructs* the future (an
 `async fn` is lazy, so it asserts compilation), `sig.recv().await` discarding the
 `Option` (a closed stream reads as a shutdown request), `+6` lines of public API in
-`llms.txt`, and two new `scripts/mutation_test.sh` exclusions including
-`--exclude-re "replace shutdown_signal"`, which cannot match an item name.
+`llms.txt`, and two new `scripts/mutation_test.sh` exclusions. On the exclusions I wrote
+the first verdict backwards and then corrected it by measurement: `--exclude-re
+"replace shutdown_signal"` **does** match (`--exclude-re` is matched against the mutant
+*description*, proven by counts on `cargo-mutants 27.1.0`: `src/shutdown.rs` baseline 3
+mutants → 2 with `"replace operator_shutdown"`, 2 with `"sigterm"`, unchanged 3 with
+`"shutdown::"`, control `"zzz_no_match"` 3), while my original "no path contains the word
+replace, so it is inert" reading came from a `tail`-truncated `--list` I mistook for a
+result. The real problem is one layer down: that line is redundant with the
+`--exclude "src/cli/shutdown.rs"` under it, and the module needs excluding at all only
+because its behavioural tests live in `tests/cli_integration.rs`, which the fast profile
+never runs (`mutation_test.sh:142`) — so `replace shutdown_signal with ()` is unkillable
+in-gate, and the exclusion files a placement mistake as policy.
 
 But it covered `csm mcp serve --transport sse`, which #836 did not. That dimension was
 folded in at **`c62f2ce`** — `serve_sse_stops_cooperatively_on_sigterm` / `_sigint`,

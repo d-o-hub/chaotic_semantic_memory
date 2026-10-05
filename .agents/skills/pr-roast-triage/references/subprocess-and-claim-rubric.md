@@ -48,19 +48,45 @@ Worse in combination: the same PR excluded that very file from mutation testing
 (`--exclude "src/cli/shutdown.rs"`). A vacuous test plus an exclusion is the opposite
 of evidence, even though each looks defensible alone.
 
-## A mutation exclusion must be provable, or it is a fake decision
+## Measure a mutation exclusion; do not read it
 
-`--exclude` / `--exclude-re` in `scripts/mutation_test.sh` match **item paths or
-names** — the file's own entries are `"run_watch"`, `"McpHandler::"`,
-`"src/mcp/*"`. `--exclude-re "replace shutdown_signal"` therefore matches nothing:
-no Rust item path contains the word "replace", and the string is plainly copied out
-of a mutant *description* (`replace shutdown_signal -> ...`). A dead exclusion is
-worse than none, because the next reader believes the module is deliberately waived.
+**This section first shipped a wrong claim, and the correction is the lesson.** The
+original text asserted that `--exclude-re "replace shutdown_signal"` (added by #834)
+"matched nothing, because `--exclude-re` takes item names and no Rust path contains the
+word `replace`." It does match. The belief came from reading a `tail`-truncated
+`cargo mutants --list` output as an experiment: the truncated view looked like "nothing
+was excluded," when in fact one mutant had been removed from a list I could not see the
+whole of.
 
-Prove an exclusion by generating the mutant it claims to skip and confirming it is
-absent from the report. cargo-mutants is not installed in every dev workspace, so a
-reviewer may have to read `--help` output in CI rather than locally — say which you
-did, and do not sentence a line you could not measure.
+Measured with counts on `cargo-mutants 27.1.0`, against this repo's `src/shutdown.rs`
+(baseline `--list` = 3 mutants: `operator_shutdown`, `sigint`, `sigterm`):
+
+| `--exclude-re` pattern | mutants listed | conclusion |
+|---|---|---|
+| `"replace operator_shutdown"` | 2 | the pattern set is the mutant **description**, so `replace <fn>` is a valid form |
+| `"operator_shutdown"`, `"sigterm"`, `"replace sigint"` | 2 | ditto |
+| `"shutdown::"` | 3 | **module paths do not match** — the inverse of the original claim |
+| `"zzz_no_match"` | 3 | required control: a non-matching pattern must change nothing |
+
+Cross-check the pre-existing entries rather than assuming they are alive:
+`src/mcp/handler.rs` baselines at 12 and `--exclude-re "McpHandler::"` leaves 8, so that
+entry does real work (descriptions carry impl-qualified names such as
+`McpHandler::read_resource`); a bare `"McpHandler"` takes it to 2.
+
+The method, not the numbers, is the rule: **run `--list` with and without the pattern,
+count lines, and include a control pattern that must not match.** Four commands, no
+compilation, and they settle a claim that reading the flag's help text got backwards.
+
+What #834 actually did with those two lines is worse than a dead flag, and was only
+visible after the correction: `--exclude-re "replace shutdown_signal"` is redundant with
+the `--exclude "src/cli/shutdown.rs"` directly under it, and the module needs excluding
+only because its behavioural tests live in `tests/cli_integration.rs` — which the fast
+profile never runs (`scripts/mutation_test.sh:142` passes `--lib -p csm-retrieval -p
+chaotic_semantic_memory`). `replace shutdown_signal with ()` is therefore genuinely
+unkillable in the profile that gates: the in-profile unit test is
+`let _fut = shutdown_signal();`, which passes unchanged under the mutant because
+constructing a future polls nothing. Excluding the file turns a placement mistake into
+policy. Ask instead: put the kill-capable test where the gate can see it.
 
 ## Widening public API for an internal need is a cost, counted in `llms.txt`
 

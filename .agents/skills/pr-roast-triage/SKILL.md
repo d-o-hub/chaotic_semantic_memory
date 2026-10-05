@@ -188,10 +188,12 @@ PRs asserted a zero-copy win that a by-value `-> Self` return rules out.
   the child's own output rather than `sleep(200ms)`, and an explicit `--database` (with
   none `src/cli/args.rs:20` writes into the checkout); an `async` test that only
   *constructs* a future asserts nothing but compilation, and
-  `check-test-attributes.sh` cannot see that; `--exclude-re` matches item *names*, so a
-  string copied from a mutant description excludes nothing while reading like a waiver;
-  and a new `pub mod` for an internal need is a public-API cost that `llms.txt` counts.
-  Detail + measurements: `references/subprocess-and-claim-rubric.md`.
+  `check-test-attributes.sh` cannot see that; a mutation exclusion is not judgeable by
+  eye — `--exclude-re` matches the mutant *description*, `--exclude` is a file glob, and
+  `--exclude-re "mod::path"` silently matches nothing; and a new `pub mod` for an
+  internal need is a public-API cost that `llms.txt` counts. Distrust an `--exclude` of a
+  file whose only tests sit in a target the profile never runs. Detail + measured counts:
+  `references/subprocess-and-claim-rubric.md`.
 - **`export.json` / `Cargo.lock` noise**: timestamp-only or resolver-churn hunks
   must be dropped before merge.
 - **Bot comments** (Jules hello, Sonar/Codacy pass notes) are noise, not reviews.
