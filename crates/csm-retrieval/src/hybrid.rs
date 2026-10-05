@@ -142,11 +142,11 @@ pub fn normalize_scores_in_place<T>(scores: &mut [(T, f32)]) {
 /// Helper to fast-path merging of a single list when the other is empty.
 ///
 /// Bypasses HashMap allocation, lookup, and entry insertion, returning directly.
+/// Performance Optimization: Defers min-max score scaling `(score - min) * factor`
+/// until after `select_nth_unstable_by` top-k selection and truncation. Exploiting
+/// linear monotonicity eliminates 2 * (N - k) floating-point calculations per call.
 fn merge_single_list(results: &[(String, f32)], weight: f32, top_k: usize) -> Vec<(String, f32)> {
-    if results.is_empty() {
-        return Vec::new();
-    }
-    if top_k == 0 {
+    if results.is_empty() || top_k == 0 {
         return Vec::new();
     }
 
@@ -162,22 +162,10 @@ fn merge_single_list(results: &[(String, f32)], weight: f32, top_k: usize) -> Ve
         }
     }
 
-    let range = max - min;
-    let mut ref_results: Vec<(&str, f32)> = if range < f32::EPSILON {
-        results
-            .iter()
-            .map(|(id, _)| (id.as_str(), weight))
-            .collect()
-    } else {
-        let factor = weight / range;
-        results
-            .iter()
-            .map(|(id, score)| (id.as_str(), (score - min) * factor))
-            .collect()
-    };
+    let mut ref_results: Vec<(&str, f32)> = Vec::with_capacity(results.len());
+    ref_results.extend(results.iter().map(|(id, score)| (id.as_str(), *score)));
 
-    // 0-based selection: partition exactly top_k elements. top_k >= 1 because
-    // merge_results rejects 0 before calling this helper.
+    // 0-based selection: partition exactly top_k elements on raw scores.
     if ref_results.len() > top_k {
         let nth = top_k - 1;
         ref_results.select_nth_unstable_by(nth, |a, b| b.1.total_cmp(&a.1));
@@ -185,10 +173,19 @@ fn merge_single_list(results: &[(String, f32)], weight: f32, top_k: usize) -> Ve
     }
     ref_results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
 
-    ref_results
-        .into_iter()
-        .map(|(id, score)| (id.to_string(), score))
-        .collect()
+    let range = max - min;
+    if range < f32::EPSILON {
+        ref_results
+            .into_iter()
+            .map(|(id, _)| (id.to_string(), weight))
+            .collect()
+    } else {
+        let factor = weight / range;
+        ref_results
+            .into_iter()
+            .map(|(id, score)| (id.to_string(), (score - min) * factor))
+            .collect()
+    }
 }
 
 /// Merge BM25 and HDC results with given weights.
