@@ -516,7 +516,7 @@ jobs:
       run: nix develop --command scripts/run-with-libs.sh cargo test --lib --no-run -p chaotic_semantic_memory -p csm-retrieval --features chaotic_semantic_memory/mcp
       timeout-minutes: 25
 
-    - name: Run mutation tests
+    - name: Run unit-target mutation tests
       run: nix develop --command scripts/run-with-libs.sh bash scripts/mutation_test.sh --ci fast
       env:
         MUTATION_THRESHOLD: ${{ github.event.pull_request.draft && '75' || '85' }}
