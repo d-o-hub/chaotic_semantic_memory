@@ -623,6 +623,10 @@ jobs:
     # /usr/bin with no PATH or venv setup.
     - name: Install yamllint
       run: sudo apt-get update && sudo apt-get install -y yamllint
+    - name: Install cargo-nextest
+      uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
+      with:
+        tool: nextest
     - name: LOC gate
       # GITHUB_TOKEN is not in a step's environment unless the workflow puts it
       # there — `gh` reads it from env, so without this line the queue gate's
