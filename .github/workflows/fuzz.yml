@@ -44,7 +44,7 @@ jobs:
           echo "No fuzz targets changed, skipping"
           exit 0
         fi
-        
+
         for target_file in $CHANGED; do
           target=$(basename "$target_file" .rs)
           echo "Running fuzz target: $target (30s)"
