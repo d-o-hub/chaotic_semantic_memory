@@ -81,12 +81,14 @@ pub async fn run_watch(
     eprintln!("Watching for memory events (filter: {:?})...", filter);
     eprintln!("Press Ctrl+C to stop.");
 
-    // Ctrl+C is the only real exit path: the event channel closes only when
-    // the framework drops, and the framework lives here. Without this handler
-    // the process is terminated by the default SIGINT disposition and the
-    // cleanup task never gets a chance to stop (ADR-0099). The subscription is
-    // created once so a signal arriving between iterations is not missed.
-    let interrupted = tokio::signal::ctrl_c();
+    // A signal is the only real exit path: the event channel closes only when the
+    // framework drops, and the framework lives here. Without a handler the process
+    // dies on the default signal disposition and the cleanup task never gets a
+    // chance to stop (ADR-0099). Both SIGINT (the foreground operator's Ctrl+C) and
+    // SIGTERM (`systemctl stop`, `docker stop`) are handled by one shared primitive
+    // so this command cannot wire only half of them; the subscription is created
+    // once so a signal arriving between iterations is not missed.
+    let interrupted = crate::shutdown::operator_shutdown();
     tokio::pin!(interrupted);
 
     loop {

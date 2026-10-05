@@ -43,14 +43,24 @@ world_state:
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "55a9fa3"           # 2026-10-04: #822 revive_dead_cli_parity_help_test on top of #821 (dc7cd9a), #820 (ee283e6), #818 (f091ad2)
-  tests_count: 1037              # 2026-09-30: unique compiled behavior (scripts/coverage-report.sh inventory)
+  main_head: "8e69a83"           # 2026-10-04: #823 (docs-only close-out of #821/#822) on top of #822 (55a9fa3),
+                               #   #821 (dc7cd9a), #820 (ee283e6), #818 (f091ad2). This field was two rounds stale.
+  tests_count: 1044              # 2026-10-05: 1037 + the 2 SIGINT/SIGTERM exit-status tests for `watch`, then +2
+                               #   more for `mcp serve --transport sse` in the same
+                               #   tests/cli_shutdown_signal.rs (all 4 pass on the branch; the file registers
+                               #   4 tests, re-derived from the harness output, not inferred), then +3 from
+                               #   `src/shutdown_tests.rs` (one pending-check per arm, added because the
+                               #   `--lib`-only mutation profile scored 0.0000% on #836 head `0107c9c`; the
+                               #   lib target went 172 filtered-out -> 175 total, measured not inferred);
+                               #   not re-run through
+                               #   scripts/coverage-report.sh inventory, so this is a delta on
+                               #   the last measured value, not a fresh measurement.
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
   coverage_lines_percent: 74     # 2026-09-18: cargo +nightly llvm-cov --workspace --lib --tests --branch
   coverage_branches_percent: 64  # same run; unit-only targets measure 68/53, hence --tests matters
   adr_registry_count: 95         # 2026-10-01: check-adr-parity.sh ok (registry=95, disk=94, 0003 N/A)
   adr_disk_count: 94
-  integration_test_files: 72     # tests/*.rs (2026-09-30 recount)
+  integration_test_files: 73     # tests/*.rs (2026-10-04 recount: +cli_shutdown_signal.rs)
 
   # ── Plans pointers ────────────────────────────────────────────
   plans_active_index: "plans/README.md"
@@ -60,22 +70,27 @@ world_state:
     - "plans/.archive/2026-08-08-historical"
   active_plan_set_compact: true
   plan_archive_manifest_valid: true  # 2026-09-30: ARCHIVE_MANIFEST.md + README redirects exist; no validator reads it and 55 top-level archived ADRs are unlisted (queued)
+  goap_actions_tracked_as_issues: true  # 2026-10-04: reconciliation found 10 queued actions and 0 open issues — the
+                               #   backlog existed only on this filesystem. Each action now carries a
+                               #   `github_issue:` key; #824..#833 hold the verified evidence (line numbers,
+                               #   grep counts, LOC) so a future session can re-derive rather than re-trust.
+                               #   Bidirectional: `grep -c '^    github_issue:' plans/ACTIONS.md` = 10.
 
   # ── Active wave ───────────────────────────────────────────────
   active_wave: 33
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 10       # 2026-10-04: #821 completed give_the_sse_transport_an_exit_path
-                               #   and #822 completes revive_dead_cli_parity_help_test (11 -> 9), but measuring
-                               #   #821's disclosed limitation on the binary (SIGINT exits 0, SIGTERM exits 143
-                               #   = default disposition, so a systemd-stopped server still misses the ADR-0099
-                               #   stop) queued cover_sigterm_in_server_shutdown (9 -> 10).
-                               #   2026-10-03: #817 completed enable_ttl_cleanup_in_long_running_commands
-                               #   (9 -> 8), its review queued revive_dead_cli_parity_help_test (8 -> 9), and the
-                               #   mutation-test red on this PR's head queued mutation_baseline_the_feature_gated_mcp_module
-                               #   (9 -> 10) plus give_the_sse_transport_an_exit_path (10 -> 11) — the second is a
-                               #   production defect that the exclusion review exposed, not a coverage wish.
+  queued_actions_count: 10       # 2026-10-04 (round 2): still 10 — nothing removed, nothing added. What
+                               #   changed is that all 10 were re-verified against 8e69a83 by a four-agent
+                               #   read-only swarm (every one STILL-MISSING; none had silently landed) and
+                               #   each now carries `github_issue:` (#824-#833), because GitHub held **0**
+                               #   open issues against a 10-action backlog. `cover_sigterm_in_server_shutdown`
+                               #   (#824) is `status: in_progress`. Three notes were corrected: Cargo.toml:202
+                               #   already enables `signal`, so the queued wasm32 obstacle does not exist;
+                               #   ci.yml:216-217 declares and covers both crate exclusions, so the drift risk
+                               #   is a *future* crate plus ci.yml:204 running no `--workspace`;
+                               #   pre-release-gate.yml DOES run mutation (:106 -> :129), it runs no benchmark.
                                #   Counted with `grep -c '^  - name:' plans/ACTIONS.md`, not asserted.
 
   # ── Open work (flags currently false — the real backlog) ──────
@@ -144,9 +159,22 @@ world_state:
                                #   Option, never Err, :474-496), so serve never returns. Stdio does resolve (rmcp
                                #   Waiting::waiting on stdin EOF, src/mcp/server.rs:83-86), and only the callee is covered
                                #   (src/mcp/tools_tests.rs:231); tests/mcp_sse_integration.rs:17 abort()s the task at :112.
-  sse_transport_has_exit_path: false                   # 2026-10-03 (#817 review): `csm mcp serve --transport sse` has no
-                               #   graceful exit, so the reaper is never stopped on that path and ADR-0099 holds for stdio
-                               #   only. Queued as give_the_sse_transport_an_exit_path.
+  sse_transport_has_exit_path: true                    # 2026-10-04 (#821, dc7cd9a): `serve_with_shutdown(config,
+                               #   shutdown_signal)` is the public entry and the SSE arm now runs
+                               #   `axum::serve(listener, app).with_graceful_shutdown(..)`, so the transport resolves
+                               #   and ADR-0099's `handler.shutdown()` hop executes on both transports. Asserted for
+                               #   its effect in `src/mcp/server_tests.rs` (handle slot Some -> signal -> await ->
+                               #   None), which is why disabling the hop turns that test red. This flag was left at
+                               #   `false` by the previous round while its own `queued_actions_count` comment
+                               #   recorded the completion — a duplicate-key-free file can still self-contradict.
+  servers_exit_on_sigterm: false                       # 2026-10-04: SIGINT-only. Measured on the binary: `csm watch`
+                               #   and `csm mcp serve` exit 0 on SIGINT, 143 (128+15, default disposition) on
+                               #   SIGTERM, so a systemd/docker-managed server is killed rather than stopped and the
+                               #   bounded reaper stop is not reached. `grep -rn "SIGTERM" src/ tests/ crates/` = 0.
+                               #   2026-10-05: stays `false` because `main` is unchanged (origin/main = 8e69a83,
+                               #   re-fetched) — the fix is PR #836 on head c62f2ce, not landed. World state tracks
+                               #   the repository, not the queue; flipping this now would record a branch as a
+                               #   fact. #836 covers both servers and demonstrates the red on each.
   skill_validation_fail_closed: true              # wired into validate.sh + CI + pre-commit
   llms_dependency_versions_current: true          # 2026-09-27: llms.txt/llms-full.txt regenerated (otel 0.32, rmcp 3.4); scripts/check-llms-sync.sh drift gate runs in validate.sh (CI lint job)
   retrieval_string_clones_removed: true           # 2026-09-27: #781 borrowed expansion ids/labels + positions scoring; 2209 -> 151 allocs per query (top_k=10)
