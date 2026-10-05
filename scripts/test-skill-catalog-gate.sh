@@ -105,6 +105,7 @@ echo "✅ Success (pass path reports the skill count)"
 
 echo "Test 2: a deleted row fails and names the catalog"
 sync_catalog
+# shellcheck disable=SC2016  # the backticks are the literal row key in CATALOG.md
 grep -v '^| `beta`' "${SKILLS}/CATALOG.md" > "${TEST_DIR}/trimmed.md"
 mv "${TEST_DIR}/trimmed.md" "${SKILLS}/CATALOG.md"
 run_check
@@ -154,6 +155,7 @@ echo "Test 7: a skill outside CATEGORY_SPEC is still catalogued"
 sync_catalog
 run_check
 expect_pass "synced after adding gamma"
+# shellcheck disable=SC2016  # the backticks are the literal row key, not a substitution
 if ! grep -q '^| `gamma`' "${SKILLS}/CATALOG.md"; then
     echo "❌ Failure (a skill on disk is absent from the generated catalog)"
     exit 1
@@ -173,6 +175,7 @@ run_check
 expect_pass "synced with an escaped pipe"
 # -F: the cell is expected to contain a literal backslash-pipe, which BRE would
 # otherwise read as alternation.
+# shellcheck disable=SC2016  # backticks and `\|` are literal CATALOG.md cell content
 if ! grep -qF '| `delta` | Splits on \| when needed. Use for pipe safety. |' \
     "${SKILLS}/CATALOG.md"; then
     echo "❌ Failure (pipe not escaped in the table cell)"
