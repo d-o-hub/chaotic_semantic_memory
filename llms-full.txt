@@ -4196,6 +4196,8 @@ impl StructuredMemoryPayload {
 
 ## src/shutdown.rs
 
+## src/shutdown_tests.rs
+
 ## src/singularity.rs
 
 ### csm_memory::singularity::*
