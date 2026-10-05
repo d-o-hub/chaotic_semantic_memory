@@ -12,6 +12,34 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-10-05, fifth action):
+> `classify_yaml_findings_in_validate_workflows` (#841 → PR #854, squashed as `2984d3e`) —
+> `scripts/validate-workflows.sh` no longer calls every yamllint finding a "YAML syntax error":
+> it classifies on `yamllint -f parsable` into syntax / error-level / warning-level, `.yamllint`
+> supplies the profile that makes the output actionable (`extends: relaxed`, `line-length` 200 at
+> warning — priced from the tree: `ci.yml:516` is 166 columns, `benchmark-ci.yml:61` is 207), and a
+> box with no parser now prints `SKIPPED — NOT A PASS` and is counted rather than passing. Two of
+> the old heuristics manufactured defects instead of finding them: `grep -n '^  [^ ]' |
+> grep -v '^  [a-z]'` matched line-number prefixes, and python3-without-PyYAML reported a syntax
+> error for every file. 12-case fixture, wired at `validate.sh:297-303`, apt-installed in the `lint`
+> job because `pip install` hits PEP 668 on ubuntu-24.04. **This entry is the gate's first catch:**
+> the action was written into this file during round 8, #854 merged before the round-8 commit was
+> made, `Fixes #841` closed the issue, and `scripts/check-goap-queue-issues.sh` reported it STALE on
+> the uncommitted tree — the same mechanism that left #824/#827/#831/#832 alive five times today,
+> now firing on its own.
+>
+> Last completed (verified 2026-10-05, fourth action):
+> `deduplicate_unreleased_changelog_headings` (#832 → PR #848, squashed as `6ec3cf6`) —
+> `## [Unreleased]` no longer holds two `### Changed` headings (`grep -n '^### '
+> CHANGELOG.md` on `83e9a6c` now reads 10 Added / 14 Changed / 33 Fixed, one each), and the
+> checker the issue asked for exists: `scripts/validate-changelog.sh` scores duplicated
+> release-type headings per section and `scripts/test-validate-changelog.sh` (10 cases) runs
+> from `scripts/validate.sh:208-214`. Draft PR **#845** was an independent implementation of
+> the same issue and was closed as superseded; its CHANGELOG dedupe is the part that was kept.
+> This entry is the fourth same-day instance of the drift #851 describes — #846's branch
+> removed three stale entries, then #848 landed and stale-ified this one behind it — which is
+> why the reconciliation gate, not another hand pass, is the fix.
+>
 > Last completed (verified 2026-10-05, third action):
 > `cover_sigterm_in_server_shutdown` (#824 → PR #836, squashed as `2f26214`) —
 > `src/shutdown.rs::operator_shutdown()` waits on SIGINT **and** SIGTERM, and both long-running
@@ -515,9 +543,20 @@ actions:
     status: in_progress
     preconditions: []
     effects:
-      skill_format_gate_fixtured_and_fail_closed: true
-      fixture_suites_wired_into_validate: true
+      single_gate_graph: true
     notes: >
+      2026-10-05 EFFECTS REVISED: the two keys this action used to advertise —
+      `fixture_suites_wired_into_validate` and
+      `skill_format_gate_fixtured_and_fail_closed` — are achieved on `main` as of
+      `77bd5f0` (PR #846), so they moved to `GOAP_STATE.md` as `true` and stopped
+      being claimed here. A queued action advertising an effect the state file
+      already reports true is precisely the #851 drift, and
+      `scripts/check-goap-queue-issues.sh` now fails on it. What stays queued is
+      the parent claim: one canonical gate graph. That remainder decomposed into
+      #840 (link validators), #841 (yamllint profile + severity
+      classification, landed as PR #854 / `2984d3e`) and #842 (hook installers), each now carrying its own
+      action block below.
+      ----
       Audit W1/G3, re-verified 2026-09-30 and again 2026-10-05 (issue #829 comment).
       DONE on the branch: `validate-skill-format.sh` fail-open closed (an unclosed
       frontmatter block validated) and given its first fixture; `test-llms-sync.sh`,
@@ -548,7 +587,7 @@ actions:
       nothing invokes it, so a gate that fails is contributing zero signal.
       Required: one bootstrap, one canonical gate graph, fixture tests wired into
       `validate.sh` + CI (or deleted), negative fixture for the skill validator.
-      2026-10-05 STATUS: PR **#846** open (branch `ci/wire-and-consolidate-validation-gates`) — three of the six orphan fixtures are wired there, the skill-format fail-open is fixed with a 15-case fixture, and `negative-fixtures.sh` is deleted. The remaining gates are deliberately NOT in this action: #840 (link validators), #841 (yamllint profile), #842 (hook installers). Do not re-implement #846's work elsewhere.
+      2026-10-05 STATUS: PR **#846** merged as `77bd5f0` — three of the six orphan fixtures wired there, the skill-format fail-open fixed with a 15-case fixture, `negative-fixtures.sh` deleted. The remaining gates are deliberately NOT in this action: #840 (link validators), #841 (yamllint profile), #842 (hook installers). Do not re-implement #846's work elsewhere. Re-measured on `83e9a6c` for the remainder: `scripts/validate-links.sh` reports 5 broken links and exits 1, `scripts/check-docs-links.sh` reports 39 issues and exits 1, and `scripts/validate-git-hooks.sh` / `scripts/validate-workflows.sh` still have zero callers in `validate.sh` or any workflow — three red gates and two unwired gates contributing no signal.
 
   - name: generate_skill_catalog_and_agent_context
     github_issue: "#828"
@@ -567,7 +606,18 @@ actions:
       its `architecture.modules` names pre-extraction root files. Required:
       generator + drift gate for the catalog, and refreshed (or generated)
       agent-context artifacts with a checker.
-      2026-10-05 STATUS: PR **#847** open (branch `docs/generate-skill-catalog-and-drift-gate`) — `scripts/gen-skill-catalog.sh` + `scripts/check-skill-catalog.sh` + a drift fixture, with `CATALOG.md` regenerated. Blocked on nothing; #846 touches the same `validate.sh` region, so rebase in that order.
+      2026-10-05 STATUS: PR **#847** merged as `6d936ee` — `scripts/gen-skill-catalog.sh` +
+      `scripts/check-skill-catalog.sh` (76 lines) + a 23-assertion drift fixture, `CATALOG.md`
+      regenerated to 33 skills and proven byte-identical on re-run, wired at `validate.sh:235-241`
+      (fail-closed `else` at `:241`) and `ci.yml:598`. Its seven Codacy SC2016 findings cleared
+      honestly: two removed (`render_catalog` rewritten as one quoted heredoc, regeneration proven
+      byte-identical), five literal-backtick lines given `# shellcheck disable=SC2016` with a reason.
+      **This entry stays queued on purpose.** The action names two artifacts and #847 shipped one:
+      `scripts/gen-agents-context.sh:77` still hardcodes "Skills (13 Total)" into the drawio XML,
+      `docs/architecture/context.yaml` still carries `skills.total_count: 19`, which
+      `scripts/yaml-to-drawio.py` renders, and nothing checks either. Flipping
+      `skill_catalog_generated_and_gated` to `true` while the action is still queued is exactly what
+      `check-goap-queue-issues.sh` errors on, so the effect waits for the half that is not done.
 
   - name: complete_evidence_tiers_and_mutation_hardening
     github_issue: "#830"
@@ -616,22 +666,66 @@ actions:
       Smallest honest scope: cfg(test) counter + one test extending `bulk_associations_load`
       to N=50 asserting exactly one association query.
 
-  - name: deduplicate_unreleased_changelog_headings
-    github_issue: "#832"
+  - name: reconcile_and_wire_the_two_link_validators
+    github_issue: "#840"
+    preconditions: []
+    effects:
+      link_validators_single_and_wired: true
+    notes: >
+      Split out of #829, which deliberately stopped at the fixtures. Two scripts
+      do overlapping work and neither has a caller: `grep -rl
+      'validate-links.sh\|check-docs-links.sh' scripts/validate.sh
+      .github/workflows/` returns nothing, while both are red right now —
+      measured on `83e9a6c`: `scripts/validate-links.sh` reports 5 broken links
+      and exits 1 (`@AGENTS.md` in `jules-orchestration` and `rust-development`,
+      `@file.md` in `skill-creator`, `@file.md` + `./path.md` in
+      `testing-validation`), `scripts/check-docs-links.sh` reports 39 issues and
+      exits 1. Required: decide which validator owns which reference class, fix
+      or exempt the 5 + 39 findings, wire the survivor into `validate.sh` behind
+      the `[[ -x ]] … exit 1` guard this repo standardised in #829/#846, and give
+      it a negative fixture so a neutered check cannot pass. Note the trap that
+      made `validate-links.sh` useless as a sensor even if it were wired: it
+      resolves root-relative `@imports` (the `AGENTS.md` convention, e.g.
+      `@plans/ACTIONS.md`) against the *skill directory*, so real imports read as
+      broken — fix the resolution root before believing its exit code.
+      Measure exit codes without a pipe: `bash scripts/x.sh; echo $?`, never
+      `bash scripts/x.sh | tail -1; echo $?`, which reports `tail`'s status and
+      made a failing validator look like it exited 0.
+
+  - name: consolidate_the_three_hook_installers
+    github_issue: "#842"
     status: in_progress
     preconditions: []
     effects:
-      changelog_sections_unique: true
+      single_hook_bootstrap_installed_by_default: true
     notes: >
-      Found while adding a line to CHANGELOG.md during #816 (self-roast, recorded
-      in plans/PR_ROAST_2026_10_03.md; deliberately not fixed there to keep a
-      20-file refactor atomic). `[Unreleased]` carries two `### Changed` headings
-      — `grep -n '^### ' CHANGELOG.md` shows lines 10 and 15 — so the section is
-      split in two and Keep-a-Changelog readers see a duplicated heading.
-      Required: merge them into one `### Changed` (keep entry ordering) and add a
-      checker so `## [Unreleased]` cannot hold two identical `### ` headings;
-      `scripts/` already has changelog-adjacent gates to host it.
-      2026-10-05 STATUS: PR **#848** open at head `9b5cab7` — `scripts/validate-changelog.sh` gained per-section heading-duplicate scoring plus `scripts/test-validate-changelog.sh` (10 cases) and a `validate.sh` block. Draft **#845** was an independent implementation of the same issue and was closed as superseded (roast in `plans/PR_ROAST_2026_10_05.md`); its CHANGELOG dedupe is the part worth keeping. Do not re-implement.
+      Split out of #829. Three installers produce three different hook sets:
+      `install-hooks.sh` installed only `scripts/hooks/pre-push`; `setup-hooks.sh`
+      installed only `scripts/pre-commit.sh` as pre-commit;
+      `validate-git-hooks.sh --install` looped over `pre-push commit-msg` looking
+      for `scripts/<hook>.sh` files that do not exist, so it silently installed
+      pre-commit only. `.githooks/pre-commit` and `scripts/pre-commit.sh` are not
+      the same file (`cmp`: differ at byte 40), and `core.hooksPath` was never set
+      — measured again on `83e9a6c`: this checkout's hooks dir
+      (`.git/hooks`, resolved through `git rev-parse --git-common-dir`) contains
+      exactly one non-sample hook, `pre-push`, while `.githooks/` holds
+      `pre-commit` and is referenced by `tooling-guard.yml:24` but installed by
+      nothing. So the committed guard-rail hooks have never run on any local
+      commit. 2026-10-05 STATUS: implemented and verified locally on branch
+      `ci/consolidate-hook-bootstraps` at `cdf711e` — one reconciled
+      `.githooks/pre-commit`, `install-hooks.sh` copying into
+      `$(git rev-parse --git-common-dir)/hooks` by default (an absolute
+      `core.hooksPath` under `--link`, because a relative one does not fire inside
+      linked worktrees on git 2.43.0), `setup-hooks.sh` reduced to a shim,
+      `validate-git-hooks.sh` fail-closed, a 19-test `test-hook-bootstrap.sh`,
+      `validate.sh` wiring; not pushed yet — it goes after #847/#854 so the
+      `validate.sh` region rebases once. Disclosed consequences an implementer
+      must not skip: local commits start running clippy (≈3 min with a warm
+      shared `CARGO_TARGET_DIR`), `scripts/pre-commit.sh` keeps doc references in
+      `docs/release-guardrails.md:65,67,112,127` and `HARNESS.md:45` after no
+      script references it, and `.githooks/pre-commit` cannot be deleted because
+      `tooling-guard.yml:24` guards it.
+
 
   - name: mutation_baseline_the_feature_gated_mcp_module
     github_issue: "#833"
@@ -685,3 +779,29 @@ actions:
       the `validate-github-actions-shas.sh --offline` precedent (`validate.sh:263-269`):
       one `gh` call for the whole check, and a loud `skip:` line when offline — a
       gate that passes silently without its token is this same bug in a new place.
+      2026-10-05 STATUS: implemented in this round as `scripts/check-goap-queue-issues.sh`
+      (one `gh issue list --state all --limit 500` call and nothing else — the `gh auth
+      status` probe a first draft had in front of it is gone, see below) plus
+      `scripts/test-goap-queue-issues.sh` (50 assertions over 23 tests, stubbed `gh`)
+      wired into `validate.sh`. One design
+      decision changed under measurement: the brief asked for "every queued effect must be
+      declared in world_state", which on `83e9a6c` flagged 8 of 10 effect keys — a pending
+      effect is by definition not held, and pre-declaring each as `false` only relocates
+      the drift. The check now asserts the inverse, which is the failure that actually
+      occurred: a queued action whose effect world_state already reports `true`, and an
+      `action_last_completed` naming an action still in the queue. Both directions are
+      fixture-covered and each was shown red by neutering the implementing line.
+      Roasting this PR before merge found two more defects in my own gate. (1) The probe
+      was a second, independent way to conclude "tracker unreachable", and it can fail on
+      a runner whose token answers the real query perfectly well; the gate now decides
+      from the single `gh issue list` call and carries that call's first stderr line into
+      the SKIP reason instead of discarding it. (2) An rc=0 that is not a JSON array now
+      skips loudly rather than parsing as zero issues, which would have read as an empty
+      backlog and passed. CI wiring, without which the tracker half never runs: the `lint`
+      job declares `permissions: {contents: read, issues: read}` (a job-level block
+      REPLACES the workflow-level one, so contents has to be restated or checkout loses its
+      token) and the `validate.sh` step gets `GITHUB_TOKEN` plus
+      `CSM_GOAP_QUEUE_REQUIRED=true`. Keeping that SKIP survivable would have been the
+      #853 machine-asymmetry class in a new place: a gate whose decisive branch only runs
+      on machines that happen to have a credential. Keep this
+      action `in_progress` until the branch lands on `main`.

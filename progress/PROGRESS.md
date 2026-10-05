@@ -1,5 +1,96 @@
 # PROGRESS
 
+## 2026-10-05 (round 8): the queue drifted again behind its own fix, and I read a pipe's exit code as the script's
+
+### Three merges, one at a time, each re-based onto the moving `main`
+**#846** merged as `77bd5f0` (tree verified byte-identical to the reviewed head `099ddab` after the
+squash), **#852** as `83e9a6c` (#849: `quality-gates.sh` was handing `cargo nextest run --quiet`,
+which dies in argument parsing with RC=2 before a test compiles), **#854** as `2984d3e` (#841: yamllint
+severity split, `.yamllint` profile, 12-case fixture, apt-installed yamllint in the `lint` job because
+`pip` hits PEP 668 on ubuntu-24.04). **#847** was re-based twice (onto `83e9a6c`, then onto `2984d3e`)
+and its two fixture suites re-run on each new base — git auto-merged `validate.sh` and `ci.yml` without
+conflict, so the merge was verified semantically rather than trusted: `check-skill-catalog.sh` at
+`validate.sh:235` and `validate-workflows.sh --check` + its fixture at `:297-303` both survive, and
+`ci.yml` carries the apt yamllint step *and* the two catalog steps.
+
+### The drift recurred while I was writing the gate for it
+Round 7 recorded `cover_sigterm_in_server_shutdown` as removed "queue 8 → 7". **Git says that never
+happened**: `git show 2f26214:plans/ACTIONS.md | grep -c '^  - name:'` = **10**, and so are `f235874`,
+`87fa734` and `6ec3cf6`. The count only dropped to 8 at `77bd5f0`, when #846's branch happened to carry
+the removals. Measured per commit this round:
+
+| commit | queue length | what landed |
+|--------|--------------|-------------|
+| `87fa734` | 10 | #837 (`derive_ci_crate_matrix_from_workspace`) — entry left alive |
+| `f235874` | 10 | #838 (`validate_archive_manifest_completeness`) — left alive |
+| `2f26214` | 10 | #836 (`cover_sigterm_in_server_shutdown`) — left alive, `in_progress` |
+| `6ec3cf6` | 10 | #848 (`deduplicate_unreleased_changelog_headings`) — left alive |
+| `77bd5f0` | 8 | #846 — removed three, added #851's entry |
+| `83e9a6c` | 8 | #852 |
+| this commit | 10 | removes #832, queues #840/#841/#842 |
+
+So the `queued_actions_count` ledger in `GOAP_STATE.md` was describing removals that had not occurred,
+and my own prose repeated the error. `deduplicate_unreleased_changelog_headings` (#832) was still
+queued on `83e9a6c` — a fifth same-day instance, created *after* #846's branch was cut, which is the
+strongest argument the reconciliation must be a gate and not a hand pass.
+
+### The gate (#851) is implemented, and one of its checks was wrong until measurement
+`scripts/check-goap-queue-issues.sh` (277 lines) + `scripts/test-goap-queue-issues.sh` (22 tests, 46
+assertions, stubbed `gh`) wired into `validate.sh`. One `gh issue list --state all --limit 500` call
+feeds STALE and UNQUEUED; `SKIP — NOT A PASS` when `gh` is absent or unauthenticated while UNDECLARED
+and STATE still run; `CSM_GOAP_QUEUE_REQUIRED=true` makes an unreachable tracker fatal; missing plans
+files and a zero-action parse both fail closed. **A check I specified was wrong**: I asked for "every
+queued action's effect must be declared in `world_state`", and on `83e9a6c` that flagged 8 of the 10
+effect keys — a pending effect is by definition not held yet, and pre-declaring each as `false` only
+relocates the drift to "flag says false, reality says true". Replaced with the inverse, which is the
+failure that actually occurred: a queued action whose effect `world_state` reports `true`, and an
+`action_last_completed` naming an action still in the queue. Each of the five checks was shown red by
+neutering its implementing line, and every restore verified `sha256`-identical.
+
+### Two measurements I got wrong and then corrected
+1. `bash scripts/validate-links.sh | tail -8; echo $?` reported **0**, which is `tail`'s status, not
+   the validator's. Re-run without the pipe: `rc=1`. Both link validators are genuinely red on `main`
+   (5 broken refs and 39 issues) and genuinely unwired — not fail-open, which is what the first reading
+   implied and what would have gone into #840's note as a false defect.
+2. My round-8 note on #847 claimed "three SC2016 findings removed by quoting the heredoc". The commit
+   says seven: two removed honestly (`render_catalog` rewritten as one quoted heredoc, regeneration
+   proven byte-identical), five given `# shellcheck disable=SC2016` with a reason. Corrected in
+   `plans/ACTIONS.md` before the commit, from `git show --stat` rather than from recall.
+
+### Roasting #855 found that its tracker half would never have run in CI
+The rubric applies to my own PR, so I ran it: `grep -n "CSM_GOAP_QUEUE_REQUIRED" .github/workflows/`
+returned **nothing** — no job set the flag, and the `lint` job inherits the workflow-level
+`permissions: contents: read`, which does not include `issues: read`. So STALE and UNQUEUED — the two
+checks that exist because four landed PRs left their queue entries alive — would have printed
+`SKIP — NOT A PASS` on every CI run, permanently. A gate whose decisive branch never executes on the
+machine that matters is #853's machine-asymmetry class in a new place. Three fixes, all measured:
+`permissions: {contents: read, issues: read}` on the `lint` job (a job-level block **replaces** the
+workflow-level one, so `contents` must be restated or `actions/checkout` loses its token),
+`GITHUB_TOKEN` + `CSM_GOAP_QUEUE_REQUIRED=true` on the `validate.sh` step, and the deletion of the
+`gh auth status` probe that sat in front of the real query. The probe was the worse of the two findings:
+it is a second, independent path to "tracker unreachable", and it can fail on a runner whose token
+answers `gh issue list` fine. The gate now decides from that one call, folds its stderr into the reason
+(test 13b asserts the literal `HTTP 403` survives into the SKIP line), and treats rc=0 with a non-JSON
+body as unreachable rather than parsing it as zero issues — a truncated payload read as an empty backlog
+would have been a *pass*. Test 2 tightened from `gh calls <= 2` to `-eq 1` so re-adding a probe is caught.
+Fixture: 46 → **50 assertions, 23 tests**, red demonstrated for the shape guard by replacing its
+condition with `false` (3 failures, all in 13c). `yamllint -c .yamllint` unchanged at 16 findings and 0
+errors; `shellcheck` clean at every level on both scripts.
+
+### Bookkeeping
+`plans/ACTIONS.md`: removed #832's entry, revised #829 to the parent claim `single_gate_graph`
+(its two achieved effects moved to `GOAP_STATE.md` as `true` — a queued action advertising an effect
+the state file already reports true is now a gate failure), added `reconcile_and_wire_the_two_link_validators`
+(#840), `classify_yaml_findings_in_validate_workflows` (#841) and `consolidate_the_three_hook_installers`
+(#842). `plans/GOAP_STATE.md`: `main_head: "83e9a6c"`, `queued_actions_count` with the measured ledger,
+`action_last_completed` (exactly once, last key).
+**The gate caught its first drift before this branch was committed.** #854 merged as `2984d3e` while the
+docs were being written; `Fixes #841` closed the issue, and `check-goap-queue-issues.sh` run against the
+uncommitted tree reported the entry I had *just added* as STALE — then, after removing it, reported
+`queued_actions_count is 10 ... holds 9 action(s)`. Both were fixed in place; final state:
+`ok: GOAP queue reconciled — 9 action(s), 9 tracked issue(s), 10 effect key(s), one gh call`, RC=0. Five
+drift instances earlier the same day took a human to find; the sixth took two seconds and needed no one.
+
 ## 2026-10-05 (round 7): a merged PR left its queue entry alive, and my own roast published a false protection claim
 
 ### #836 merged as `2f26214` — and `Fixes #824` closed the issue while the plan file did not

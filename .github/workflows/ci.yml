@@ -575,6 +575,13 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # scripts/check-goap-queue-issues.sh reads the tracker through `gh`, and the
+    # default GITHUB_TOKEN cannot see issues unless the job asks. Job-level
+    # permissions REPLACE the workflow-level block rather than merging into it,
+    # so contents has to be restated here or actions/checkout loses its token.
+    permissions:
+      contents: read
+      issues: read
     env:
       PROTOC: /usr/bin/protoc
     steps:
@@ -617,6 +624,14 @@ jobs:
     - name: Install yamllint
       run: sudo apt-get update && sudo apt-get install -y yamllint
     - name: LOC gate
+      # GITHUB_TOKEN is not in a step's environment unless the workflow puts it
+      # there — `gh` reads it from env, so without this line the queue gate's
+      # tracker half prints "SKIP — NOT A PASS" on every run and the STALE /
+      # UNQUEUED drift #851 exists to catch sails. REQUIRED makes that skip
+      # fatal here: on a runner with a token, silence is a bug, not a fallback.
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        CSM_GOAP_QUEUE_REQUIRED: "true"
       run: bash scripts/validate.sh
 
   cargo-deny:
