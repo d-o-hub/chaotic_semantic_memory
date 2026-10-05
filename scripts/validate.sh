@@ -282,4 +282,19 @@ else
   echo "skip: GitHub Actions SHA validation (use CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true to enable)"
 fi
 
+# Quality-gates regression fixture (issue #849). scripts/quality-gates.sh is not
+# run by CI at all (`grep -rn nextest .github/workflows/` is empty), so its
+# nextest branch was a machine-dependent trap: `cargo nextest run --quiet` dies
+# in argument parsing with RC=2 before a single test compiles, and only boxes
+# that happen to have cargo-nextest hit it. The fixture asserts the argv shape
+# and replays it against the real binary, which is the only way this stays fixed
+# without adding a nextest job to CI.
+if [[ -x "${SCRIPT_DIR}/test-quality-gates.sh" ]]; then
+  echo "==> Quality-gates fixture (nextest argv accepted, output contract)"
+  "${SCRIPT_DIR}/test-quality-gates.sh"
+else
+  echo "Error: scripts/test-quality-gates.sh missing or not executable"
+  exit 1
+fi
+
 echo "Validation complete."
