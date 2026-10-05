@@ -19,12 +19,13 @@
 #                     reported true in world_state
 #
 # TRACKER  Exactly ONE "gh issue list --state all --limit 500 --json
-# number,state,title" call feeds every tracker-dependent check (plus one "gh
-# auth status" probe) — a per-issue loop is one API call per action on every
-# validate.sh run, which is how lint jobs get rate-limited into silence. With gh
-# missing or unauthenticated the tracker checks print "SKIP — NOT A PASS" and are
-# skipped while UNDECLARED/STATE still run; CSM_GOAP_QUEUE_REQUIRED=true (the CI
-# lint job) makes an unreachable tracker fatal instead of a silent pass.
+# number,state,title" call feeds every tracker-dependent check — a per-issue
+# loop is one API call per action on every validate.sh run, which is how lint
+# jobs get rate-limited into silence. With gh missing or the query failing (no
+# token, or a token without issues: read) the tracker checks print "SKIP — NOT A
+# PASS" and are skipped while UNDECLARED/STATE still run;
+# CSM_GOAP_QUEUE_REQUIRED=true (the CI lint job) makes an unreachable tracker
+# fatal instead of a silent pass.
 #
 # Exit 0 clean, 1 any error (a missing input file or a zero-action parse is an
 # error, never "all clear"), 2 on a bad invocation. Usage:
@@ -209,17 +210,31 @@ ISSUE_JSON=""
 if ! command -v gh >/dev/null 2>&1; then
     TRACKER_OK=0
     TRACKER_REASON="gh CLI not on PATH"
-elif ! gh auth status >/dev/null 2>&1; then
-    TRACKER_OK=0
-    TRACKER_REASON="gh is not authenticated (gh auth status failed)"
-elif ! ISSUE_JSON="$(gh issue list --state all --limit 500 --json number,state,title 2>/dev/null)"; then
-    TRACKER_OK=0
-    TRACKER_REASON="gh issue list --state all --limit 500 --json number,state,title failed"
+else
+    # stderr is folded into the captured output so a token that cannot read
+    # issues says why instead of vanishing behind /dev/null. There is deliberately
+    # no `gh auth status` probe in front of this call: it is a second, independent
+    # way to conclude "tracker unreachable", and it can fail on a runner whose
+    # token would have answered the real query perfectly well — which is how a
+    # gate ends up printing SKIP forever.
+    if ! ISSUE_JSON="$(gh issue list --state all --limit 500 --json number,state,title 2>&1)"; then
+        TRACKER_OK=0
+        TRACKER_REASON="gh issue list failed: ${ISSUE_JSON%%$'\n'*}"
+        ISSUE_JSON=""
+    elif ! printf '%s\n' "${ISSUE_JSON}" | jq -e 'type == "array"' >/dev/null 2>&1; then
+        # A rc=0 that is not a JSON array (proxy error page, truncated body) must
+        # not become "zero issues" — that reads as an empty backlog and passes.
+        TRACKER_OK=0
+        TRACKER_REASON="gh issue list returned rc=0 but not a JSON array"
+        ISSUE_JSON=""
+    fi
 fi
 
 if [[ "${TRACKER_OK}" -eq 0 ]]; then
     echo "SKIP — NOT A PASS: STALE and UNQUEUED did not run (${TRACKER_REASON})."
     echo "       UNDECLARED and STATE were still checked; the tracker half is unverified."
+    echo "       In CI this needs a job with 'permissions: issues: read' and"
+    echo "       GITHUB_TOKEN in the step env; CSM_GOAP_QUEUE_REQUIRED=true makes it fatal."
     if [[ "${CSM_GOAP_QUEUE_REQUIRED:-}" == "true" ]]; then
         add_error "STALE/UNQUEUED unverifiable while CSM_GOAP_QUEUE_REQUIRED=true — the tracker must be reachable in CI"
     fi
