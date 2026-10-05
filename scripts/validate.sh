@@ -184,6 +184,20 @@ else
   echo "      Install with: npm install -g markdownlint-cli || gem install mdl"
 fi
 
+# CHANGELOG structure — a version section must not declare one release-type heading twice.
+# version-integrity.yml runs the checker only when a PR touches CHANGELOG.md, so a PR that
+# weakens the checker itself is never scored; this is the path that always runs. The checker
+# reads Cargo.toml and CHANGELOG.md from the CWD, so it runs from the repo root explicitly.
+if [[ -x "${SCRIPT_DIR}/validate-changelog.sh" ]]; then
+  echo "==> CHANGELOG structure validation (fail-closed)"
+  ( cd "$(dirname "${SCRIPT_DIR}")" && "${SCRIPT_DIR}/validate-changelog.sh" )
+  echo "==> CHANGELOG gate fixtures"
+  "${SCRIPT_DIR}/test-validate-changelog.sh"
+else
+  echo "Error: scripts/validate-changelog.sh missing or not executable"
+  exit 1
+fi
+
 # Skill format validation (ADR-0096) — fail-closed LOC/frontmatter/local refs
 if [[ -x "${SCRIPT_DIR}/validate-skill-format.sh" ]]; then
   echo "==> Skill format validation (fail-closed)"

@@ -7,8 +7,9 @@
 #
 # Validates:
 #   1. Version header exists (## [VERSION] format)
-#   2. No duplicate headers
+#   2. No duplicate version headers
 #   3. Header has date (Keep a Changelog format: YYYY-MM-DD)
+#   4. No release-type (###) heading repeated inside a version section
 #
 # Exit codes:
 #   0 - Validation passed
@@ -20,9 +21,13 @@ VERSION="${1:-}"
 
 # Extract version from Cargo.toml if not provided
 if [[ -z "$VERSION" ]]; then
-  VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d'"' -f2)
+  # `|| true` because set -e would kill the substitution (a missing or unspaced `version =`
+  # makes grep exit non-zero) before the actionable message below could print. Same reason
+  # line 48 guards its `grep -c`.
+  VERSION=$(grep '^version =' Cargo.toml | head -1 | cut -d'"' -f2 || true)
   if [[ -z "$VERSION" ]]; then
     echo "::error::Could not extract version from Cargo.toml"
+    echo "   Expected a line matching: version = \"X.Y.Z\" (grep is space-sensitive)"
     exit 1
   fi
 fi
@@ -64,6 +69,39 @@ if ! grep -q "${DATE_PATTERN}" CHANGELOG.md; then
   echo "   Expected format: ## [${VERSION}] - YYYY-MM-DD"
   echo "   Found header:"
   grep "${HEADER_PATTERN}" CHANGELOG.md
+  exit 1
+fi
+
+# 4. Guardrail: Check that no release-type heading repeats inside a version section
+# The checks above only guard the '## [VERSION]' line; this guards the '### Type' blocks.
+# Appending an entry by reopening a section (a second '### Changed' under the same
+# version) splits one logical section in two and leaves readers to guess which block
+# is authoritative - Keep a Changelog allows each type once per version section.
+DUP_SUBHEADERS=$(awk '
+  /^## /  { section = $0; next }
+  /^### / {
+    key = section "\t" $0
+    count[key]++
+    at[key] = at[key] " " NR
+  }
+  END {
+    for (key in count) {
+      if (count[key] > 1) {
+        split(key, parts, "\t")
+        printf "%s\t%s\t%d\t%s\n", parts[1], parts[2], count[key], at[key]
+      }
+    }
+  }
+' CHANGELOG.md | sort)
+
+if [[ -n "${DUP_SUBHEADERS}" ]]; then
+  echo "::error::Duplicate release-type headings in CHANGELOG.md version sections"
+  while IFS=$'\t' read -r dup_section dup_subheader dup_count dup_lines; do
+    echo "   '${dup_section}' declares '${dup_subheader}' ${dup_count} times at lines:${dup_lines}"
+  done <<< "${DUP_SUBHEADERS}"
+  echo "   Each type (Added, Changed, Fixed, Removed, ...) may appear once per version."
+  echo "   Fix: merge the blocks under one heading, keeping every bullet verbatim"
+  echo "   (delete the repeated '### <Type>' line; do not rewrite or reorder the entries)"
   exit 1
 fi
 
