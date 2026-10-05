@@ -203,26 +203,46 @@ jobs:
     - name: Run tests
       run: nix develop --command scripts/run-with-libs.sh cargo test --all-features --locked -- --quiet
 
+  # The crate list for "Test Workspace Crates" is derived here instead of typed
+  # by hand (issue #827, audit A6). A hand-written matrix guarded only by a
+  # "keep in sync with workspace members" comment let a new crates/* member ship
+  # without ever running `cargo test -p` on it — the comment cannot fail.
+  # scripts/ci-workspace-crate-matrix.sh reads `cargo metadata --no-deps`, keeps
+  # every crates/* member, and drops only crates that a dedicated job below
+  # proves it covers (the exclusion list is checked against this file, so it
+  # cannot rot either). It also fails on an EMPTY result, because Actions runs
+  # zero jobs for an empty matrix and reports success: that would be the same
+  # silent skip in a new costume. Run it red locally with
+  # `bash scripts/ci-workspace-crate-matrix.sh --check`.
+  workspace-matrix:
+    name: Derive Workspace Crate Matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      crates: ${{ steps.derive.outputs.crates }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+      with:
+        cache: false
+    - id: derive
+      name: Derive crate matrix from cargo metadata
+      shell: bash
+      run: bash scripts/ci-workspace-crate-matrix.sh --github-output
+
   test-workspace-crates:
     name: Test Workspace Crates
+    needs: workspace-matrix
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       PROTOC: /usr/bin/protoc
     strategy:
       fail-fast: false
-      matrix:
-        crate:
-          # Keep in sync with workspace members under crates/ (excl. csm-wasm, csm-duckdb).
-          # csm-duckdb has a dedicated job; csm-wasm is covered by the wasm job.
-          - csm-chaos
-          - csm-cli
-          - csm-core-lib
-          - csm-embedding
-          - csm-memory
-          - csm-retrieval
-          - csm-persistence
-          - csm-traits
+      # {"crate":[...]} from the workspace-matrix job — never a literal list
+      # here (enforced by scripts/ci-workspace-crate-matrix.sh).
+      matrix: ${{ fromJSON(needs.workspace-matrix.outputs.crates) }}
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
     - name: Install Rust
