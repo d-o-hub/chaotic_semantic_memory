@@ -329,4 +329,22 @@ else
   exit 1
 fi
 
+# GOAP queue vs issue tracker reconciliation (issue #851). plans/ACTIONS.md and
+# plans/GOAP_STATE.md had no reader at all: PR #836 merged as 2f26214 with
+# `Fixes #824`, GitHub auto-closed #824, and on that same commit
+# cover_sigterm_in_server_shutdown stayed queued with `status: in_progress` while
+# `git show 2f26214:src/shutdown.rs | grep -c sigterm` returned 3. The gate is
+# fail-closed on its own inputs and needs exactly one `gh issue list` call; its
+# fixture runs here too so a neutered check cannot rot into a pass-for-the-wrong-
+# reason (the orphaned-fixture class fixed by #846).
+if [[ -x "${SCRIPT_DIR}/check-goap-queue-issues.sh" ]]; then
+  echo "==> GOAP queue vs issue tracker reconciliation"
+  "${SCRIPT_DIR}/check-goap-queue-issues.sh"
+  echo "==> GOAP queue gate fixture (both directions of every check)"
+  "${SCRIPT_DIR}/test-goap-queue-issues.sh"
+else
+  echo "Error: scripts/check-goap-queue-issues.sh missing or not executable"
+  exit 1
+fi
+
 echo "Validation complete."
