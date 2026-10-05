@@ -603,6 +603,15 @@ jobs:
     # 35846414646, no Rust change).
     - name: Use RAM-backed /tmp
       run: sudo mount -t tmpfs -o size=8g,mode=1777 tmpfs /tmp
+    # The workflow YAML gate wired into scripts/validate.sh below prefers
+    # yamllint and skipped on every runner before (`grep -rn yamllint
+    # .github/workflows/` was empty). Plain `pip install yamllint` is not usable
+    # here: ubuntu-24.04's system Python is PEP 668 externally-managed
+    # (actions/runner-images#10781), so apt is used instead — same pattern as the
+    # protobuf-compiler step in the aarch64 job, and it puts yamllint on PATH at
+    # /usr/bin with no PATH or venv setup.
+    - name: Install yamllint
+      run: sudo apt-get update && sudo apt-get install -y yamllint
     - name: LOC gate
       run: bash scripts/validate.sh
 

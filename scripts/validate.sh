@@ -272,6 +272,22 @@ else
   exit 1
 fi
 
+# GitHub Actions workflow YAML validation (issue #841). Fail-closed on the
+# script's presence, and the fixture runs right after it: the gate separates
+# parse failures from error-level lint findings from advisories, and that
+# classifier is only trustworthy while it is being contradicted by a test.
+# A box with neither yamllint nor python3+PyYAML is reported by the subject as
+# "SKIPPED — NOT A PASS" and exits 0 — the skip is loud, never a green check.
+if [[ -x "${SCRIPT_DIR}/validate-workflows.sh" ]]; then
+  echo "==> GitHub Actions workflow YAML validation (fail-closed)"
+  "${SCRIPT_DIR}/validate-workflows.sh" --check
+  echo "==> Workflow YAML gate fixture"
+  "${SCRIPT_DIR}/test-validate-workflows.sh"
+else
+  echo "Error: scripts/validate-workflows.sh missing or not executable"
+  exit 1
+fi
+
 # GitHub Actions SHA validation (optional - only if requested)
 # Note: Disabled by default as existing workflows use version tags
 # To enable: export CSM_VALIDATE_GITHUB_ACTIONS_SHAS=true
