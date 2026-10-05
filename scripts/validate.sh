@@ -226,6 +226,22 @@ else
   exit 1
 fi
 
+# Skill catalog drift gate (#828): .agents/skills/CATALOG.md is generated from
+# the tree, so a stale or hand-edited copy is a hard failure — the committed file
+# claimed "32 skills." against 33 on disk and omitted `pr-roast-triage`, the skill
+# AGENTS.md's roast gate points at. The fixture runs too: a gate whose failure
+# mode is untested can rot into a pass-for-the-wrong-reason check (see
+# progress/LEARNINGS.md 2026-09-30).
+if [[ -x "${SCRIPT_DIR}/check-skill-catalog.sh" ]]; then
+  echo "==> Skill catalog drift gate"
+  "${SCRIPT_DIR}/check-skill-catalog.sh"
+  echo "==> Skill catalog drift gate fixture"
+  "${SCRIPT_DIR}/test-skill-catalog-gate.sh"
+else
+  echo "Error: scripts/check-skill-catalog.sh missing or not executable"
+  exit 1
+fi
+
 # ADR Registry consistency check (ADR-0076)
 echo "==> ADR Registry consistency check"
 ADR_REGISTRY="plans/ADR_REGISTRY.md"
