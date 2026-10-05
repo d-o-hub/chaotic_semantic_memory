@@ -79,3 +79,7 @@ async fn sigterm() {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "shutdown_tests.rs"]
+mod tests;
