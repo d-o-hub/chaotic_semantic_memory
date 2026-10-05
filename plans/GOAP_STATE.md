@@ -69,13 +69,18 @@ world_state:
     - "plans/.archive/2026-07-20-historical"
     - "plans/.archive/2026-08-08-historical"
   active_plan_set_compact: true
+  ci_matrix_machine_derived: true            # 2026-10-05 (#827, PR #837, main 87fa734): `Test Workspace Crates`
+                               #   comes from `scripts/ci-workspace-crate-matrix.sh` reading `cargo metadata`, not a
+                               #   hand-written list; the script fails if an excluded crate stops being a member or
+                               #   loses its dedicated job. Do not re-queue.
   plan_archive_manifest_valid: true  # 2026-10-05: no longer a claim — scripts/check-archive-manifest.sh (PR #838, main f235874) compares the manifest against disk both directions (131 = 131, RC=0) and validate.sh:234-238 refuses if the gate is missing or not executable
   goap_actions_tracked_as_issues: true  # 2026-10-04: reconciliation found 10 queued actions and 0 open issues — the
                                #   backlog existed only on this filesystem. Each action now carries a
                                #   `github_issue:` key; #824..#833 hold the verified evidence (line numbers,
                                #   grep counts, LOC) so a future session can re-derive rather than re-trust.
                                #   Bidirectional, re-measured 2026-10-05 on this base: 8 queued actions and 8
-                               #   `github_issue:` keys (`grep -c '^  - name:'` vs `grep -c '^    github_issue:'`).
+                               #   `github_issue:` keys — 8 and 8 after the #836 close-out and the #851 filing
+                               #   (`grep -c '^  - name:'` vs `grep -c '^    github_issue:'`).
                                #   One direction is still not covered: #839, #840, #841, #842, #849 and #850 are
                                #   open issues with **no** queue entry — #840-#842 are the gates split out of #829
                                #   as unwireable-as-is, #849/#850 are CI findings from this round. Filed, not queued.
@@ -87,8 +92,13 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 8        # 2026-10-05: #838 merged validate_archive_manifest_completeness (9 -> 8); earlier the same day #837 merged derive_ci_crate_matrix_from_workspace (10 -> 9).
-                               #   Counted from `grep -c '^  - name:' plans/ACTIONS.md`, not from memory.
+  queued_actions_count: 8        # 2026-10-05 ledger, each step `grep -c '^  - name:' plans/ACTIONS.md`:
+                               #   10 -> 9 (#837 landed derive_ci_crate_matrix_from_workspace, main 87fa734)
+                               #   9 -> 8 (#838 landed validate_archive_manifest_completeness, main f235874)
+                               #   8 -> 7 (#836 landed cover_sigterm_in_server_shutdown, main 2f26214)
+                               #   7 -> 8 (round 7 queued gate_plan_queue_against_issue_tracker from #851)
+                               #   Not from memory, and the count is the last thing this file asserts
+                               #   about itself rather than the first thing anyone checks.
                                #   2026-10-04: #821 completed give_the_sse_transport_an_exit_path
                                #   and #822 completes revive_dead_cli_parity_help_test (11 -> 9), but measuring
                                #   #821's disclosed limitation on the binary (SIGINT exits 0, SIGTERM exits 143
@@ -175,14 +185,15 @@ world_state:
                                #   None), which is why disabling the hop turns that test red. This flag was left at
                                #   `false` by the previous round while its own `queued_actions_count` comment
                                #   recorded the completion — a duplicate-key-free file can still self-contradict.
-  servers_exit_on_sigterm: false                       # 2026-10-04: SIGINT-only. Measured on the binary: `csm watch`
-                               #   and `csm mcp serve` exit 0 on SIGINT, 143 (128+15, default disposition) on
-                               #   SIGTERM, so a systemd/docker-managed server is killed rather than stopped and the
-                               #   bounded reaper stop is not reached. `grep -rn "SIGTERM" src/ tests/ crates/` = 0.
-                               #   2026-10-05: stays `false` because `main` is unchanged (origin/main = 8e69a83,
-                               #   re-fetched) — the fix is PR #836 on head c62f2ce, not landed. World state tracks
-                               #   the repository, not the queue; flipping this now would record a branch as a
-                               #   fact. #836 covers both servers and demonstrates the red on each.
+  servers_exit_on_sigterm: true                        # 2026-10-05 (#824, PR #836, main 2f26214): `src/shutdown.rs`
+                               #   `operator_shutdown()` selects on SIGINT and SIGTERM, and both long-running callers
+                               #   go through it (`src/cli/commands/watch.rs:91`, `src/mcp/server.rs:79`), so a service
+                               #   manager's stop reaches ADR-0099's bounded reaper shutdown. Measured on the binary
+                               #   before the fix: exit 0 on SIGINT, 143 on SIGTERM, `grep -rn "SIGTERM" src/ tests/
+                               #   crates/` = 0. Held `false` on 2026-10-05 morning while #836 was still a branch —
+                               #   world state tracks the repository, not the queue. Kept in the lib target as well
+                               #   (`src/shutdown_tests.rs`) because the `--lib`-only mutation profile scored 0.0000%
+                               #   on head `0107c9c` with all three `src/shutdown.rs` mutants surviving.
   skill_validation_fail_closed: true              # wired into validate.sh + CI + pre-commit
   llms_dependency_versions_current: true          # 2026-09-27: llms.txt/llms-full.txt regenerated (otel 0.32, rmcp 3.4); scripts/check-llms-sync.sh drift gate runs in validate.sh (CI lint job)
   retrieval_string_clones_removed: true           # 2026-09-27: #781 borrowed expansion ids/labels + positions scoring; 2209 -> 151 allocs per query (top_k=10)
@@ -205,4 +216,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: validate_archive_manifest_completeness  # 2026-10-05 #838 (main f235874); derive_ci_crate_matrix_from_workspace closed the same morning as #837 (87fa734), revive_dead_cli_parity_help_test 2026-10-04 as #822
+  action_last_completed: cover_sigterm_in_server_shutdown  # 2026-10-05 #824 via PR #836 (main 2f26214); validate_archive_manifest_completeness earlier the same day as #838 (f235874), derive_ci_crate_matrix_from_workspace as #837 (87fa734), revive_dead_cli_parity_help_test 2026-10-04 as #822

@@ -1,5 +1,61 @@
 # PROGRESS
 
+## 2026-10-05 (round 7): a merged PR left its queue entry alive, and my own roast published a false protection claim
+
+### #836 merged as `2f26214` — and `Fixes #824` closed the issue while the plan file did not
+Verified before merging, not after: head current with `main`, `mutation-test` **success** on that
+head (the `src/shutdown_tests.rs` arms from round 4), `lint` and the crate matrix green. After the
+squash, `src/shutdown.rs::operator_shutdown()` selects SIGINT *and* SIGTERM, both callers go through
+it (`src/cli/commands/watch.rs:91`, `src/mcp/server.rs:79`), and `Fixes #824` auto-closed the issue.
+What did **not** happen automatically: `cover_sigterm_in_server_shutdown` was still in
+`plans/ACTIONS.md` on the new `main`, contradicting that file's own header rule ("when an action
+completes, remove it here"). GitHub closes issues; nothing closes queue entries. Closed by hand this
+round, queue 8 → 7 counted with `grep -c '^  - name:'`, and the gap is recorded as a learning rather
+than trusted to memory.
+
+### #845 was an independent implementation of #832 — roasted, closed as superseded, and I posted an erratum
+Draft #845 (Jules) fixed the same duplicated `### Changed` heading as my local #832 work. Rather than
+merge two copies, I compared them: #845 dedupes the heading, mine adds per-section duplicate scoring
+plus a 10-case fixture and a `validate.sh` block, so mine strictly dominates and #848 is the one that
+lands; #845's changelog dedupe is worth keeping and #832's own note says so. **But my roast comment
+asserted "main is not protected"** — that came from one API call, `GET /repos/…/branches/main/protection`
+→ 404, which is what a ruleset-protected branch returns: the classic endpoint has no record because
+the protection is a **ruleset** (`GET /branches/main` → `protected: true`). I published the wrong claim
+in good faith, checked it after filing #850, and posted a public correction on #845 instead of editing
+it quietly. The real, measured finding is #850: ruleset `12897801` requires exactly three checks
+(`Build CLI (linux-x64)`, `Codacy Static Code Analysis`, `commitlint`) with
+`strict_required_status_checks_policy: true`, so `lint`, `test` and `mutation-test` are *not* merge
+blockers — a PR can squash-merge with a red test job. Not fixed unilaterally: repo settings are not
+mine to change silently.
+
+### Two issues from the same audit trail, both measured before filing
+`#849`: `scripts/quality-gates.sh:147` passes `--quiet` to `cargo nextest run` at the top level, and
+nextest rejects it (`error: unexpected argument '--quiet'`, RC=2 measured) — so on any machine with
+`cargo-nextest` installed the "quality gates" script takes a branch that cannot compile or run a test,
+and a green-looking run proves nothing. Found while writing #832's fixture, because writing a fixture
+means running the thing. `#850` is the ruleset finding above.
+
+### Rebase arithmetic: three PRs editing the same three files
+`#846`, `#847` and `#848` each add a block to `scripts/validate.sh` and each carry `plans/` + `progress/`
+documentation, so every `main` move produces the same four-file conflict (`ACTIONS.md`, `GOAP_STATE.md`,
+`LEARNINGS.md`, `PROGRESS.md`). Resolved this round as a union with an ordering rule: PROGRESS is
+newest-first, so the incoming round-6/round-5 blocks go **above** main's round-4/3/2 blocks, not after
+them. After resolving, the numbers that the conflict *touched* were re-measured rather than inherited —
+`main_head` to `2f26214`, the actions↔issues mapping to 7/7 (`grep`-counted), `tests_count` kept at
+main's fresher 1044 instead of my branch's stale 1037, and two landed gates (#827, #831) that never had
+a world-state key got one so nobody re-queues them.
+
+### Remote state as measured, not as hoped
+`gh pr view --json statusCheckRollup` on the current heads: **#846** `883e074` DIRTY (that is the
+conflict being fixed by this rebase), 23 success / 9 skipped; **#847** `dcf84a3` BEHIND, 31 success;
+**#848** `9b5cab7` BLOCKED with `lint`, `test` and `Analyze (rust)` still at an empty conclusion. All
+three show `Codacy Static Code Analysis` as `ACTION_REQUIRED`, which is the only thing #850 lists as
+mandatory. Merge order stays #848 → #846 → #847, one rebase per `main` move.
+
+### Dispatch accounting
+No agents dispatched this round — the remaining work is docs conflict resolution and merge sequencing,
+which is exactly the class of work an agent cannot be trusted to verify for me.
+
 ## 2026-10-05 (round 6): main moved twice under me, and my own monitor called a merged PR "UNKNOWN"
 
 ### PR #838 merged while this round was running — verified, not assumed

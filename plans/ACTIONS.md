@@ -12,6 +12,20 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-10-05, third action):
+> `cover_sigterm_in_server_shutdown` (#824 → PR #836, squashed as `2f26214`) —
+> `src/shutdown.rs::operator_shutdown()` waits on SIGINT **and** SIGTERM, and both long-running
+> commands now call it (`src/cli/commands/watch.rs:91`, `src/mcp/server.rs:79`), so a service
+> manager's stop reaches ADR-0099's bounded reaper shutdown instead of the default disposition
+> (measured on the binary beforehand: exit `0` on SIGINT, `143` on SIGTERM). No public API
+> change — the primitive is `pub(crate)`, and the SIGTERM listener stays inside the non-wasm
+> target table (`Cargo.toml:197-202`) that made `signal` target-gated in the first place. The
+> behavior is asserted twice on purpose: subprocess exit status for the observable, and
+> `src/shutdown_tests.rs` (one pending-check per arm) because the mutation profile is `--lib`
+> only (`scripts/mutation_test.sh:142`) and scored **0.0000%** on head `0107c9c` with all three
+> `src/shutdown.rs` mutants surviving. `Fixes #824` auto-closed the issue when the squash
+> landed; nothing closed this queue entry, so the header's own hygiene rule is still unenforced.
+>
 > Last completed (verified 2026-10-05, second action):
 > `validate_archive_manifest_completeness` (#831 → PR #838, squashed as `f235874`) —
 > `plans/ARCHIVE_MANIFEST.md` went from a document no script read to one gated by
@@ -498,6 +512,7 @@ actions:
 
   - name: wire_and_consolidate_validation_gates
     github_issue: "#829"
+    status: in_progress
     preconditions: []
     effects:
       skill_format_gate_fixtured_and_fail_closed: true
@@ -533,9 +548,11 @@ actions:
       nothing invokes it, so a gate that fails is contributing zero signal.
       Required: one bootstrap, one canonical gate graph, fixture tests wired into
       `validate.sh` + CI (or deleted), negative fixture for the skill validator.
+      2026-10-05 STATUS: PR **#846** open (branch `ci/wire-and-consolidate-validation-gates`) — three of the six orphan fixtures are wired there, the skill-format fail-open is fixed with a 15-case fixture, and `negative-fixtures.sh` is deleted. The remaining gates are deliberately NOT in this action: #840 (link validators), #841 (yamllint profile), #842 (hook installers). Do not re-implement #846's work elsewhere.
 
   - name: generate_skill_catalog_and_agent_context
     github_issue: "#828"
+    status: in_progress
     preconditions: []
     effects:
       skill_catalog_generated_and_gated: true
@@ -550,6 +567,7 @@ actions:
       its `architecture.modules` names pre-extraction root files. Required:
       generator + drift gate for the catalog, and refreshed (or generated)
       agent-context artifacts with a checker.
+      2026-10-05 STATUS: PR **#847** open (branch `docs/generate-skill-catalog-and-drift-gate`) — `scripts/gen-skill-catalog.sh` + `scripts/check-skill-catalog.sh` + a drift fixture, with `CATALOG.md` regenerated. Blocked on nothing; #846 touches the same `validate.sh` region, so rebase in that order.
 
   - name: complete_evidence_tiers_and_mutation_hardening
     github_issue: "#830"
@@ -600,6 +618,7 @@ actions:
 
   - name: deduplicate_unreleased_changelog_headings
     github_issue: "#832"
+    status: in_progress
     preconditions: []
     effects:
       changelog_sections_unique: true
@@ -612,46 +631,7 @@ actions:
       Required: merge them into one `### Changed` (keep entry ordering) and add a
       checker so `## [Unreleased]` cannot hold two identical `### ` headings;
       `scripts/` already has changelog-adjacent gates to host it.
-
-  - name: cover_sigterm_in_server_shutdown
-    github_issue: "#824"
-    status: in_progress
-    preconditions: []
-    effects:
-      servers_exit_on_sigterm: true
-    notes: >
-      Found by measuring #821's own disclosed limitation against the binary rather
-      than reasoning about it: `csm mcp serve --transport sse` exits **0** on SIGINT
-      (the transport resolves, `serve` returns, the ADR-0099 hop runs) and **143**
-      on SIGTERM, i.e. 128+15 — default disposition, no cooperative stop. A
-      systemd-managed server is stopped with SIGTERM, so the deterministic TTL
-      cleanup stop the ADR promises is still not reached under a service manager.
-      Same shape in `csm watch` (ADR-0099 wired Ctrl+C only). Required: one shared
-      shutdown primitive that resolves on SIGINT *and* SIGTERM (a SIGTERM listener
-      alongside `tokio::signal::ctrl_c`, or a `CancellationToken`-style handle owned
-      by the command), so every long-running command gets both signals rather than
-      each wiring its own. Note the dependency that made `signal` a target-gated
-      feature (`Cargo.toml:197-202`: `signal` pulls `mio/net`, which will not compile
-      for wasm32) — any new listener must stay inside the same non-wasm target table.
-      Assert the effect on the real binary (exit codes 0 vs 143 are the observable),
-      not on a config echo, and disclose the behaviour change in the changelog.
-      2026-10-05 STATUS: implemented as PR #836 (branch
-      `fix/mcp-sigterm-cooperative-shutdown`, head `55c0437`) — `src/shutdown.rs`
-      `operator_shutdown()`, `pub(crate)` + non-wasm/`cli` gated, no public API change;
-      both `watch` and `mcp serve --transport sse` asserted on the binary, red
-      demonstrated per command by deleting the SIGTERM arm. Draft PR **#834** is an
-      independent duplicate of the same fix (Jules, same issue, CI green on `09973d8`);
-      its only extra coverage — the SSE server — was folded into #836 rather than merged
-      twice, and its six weaknesses are recorded in `plans/PR_ROAST_2026_10_05.md` so no
-      future session re-imports them. Do not merge both. Keep this action `in_progress`
-      until #836 lands on `main`.
-      The gate that moved after that: `mutation-test` went **red on `0107c9c` at score
-      0.0000%** with all three `src/shutdown.rs` mutants surviving, because the fast
-      profile is `--lib` only and the subprocess tests are invisible to it. Fixed at
-      `55c0437` (`src/shutdown_tests.rs`) and each mutant reproduced individually — this
-      is also the measured answer to the action's own instruction above: the exit codes
-      are the observable for a *human*, but the profile that scores the change needs an
-      assertion inside `src/`.
+      2026-10-05 STATUS: PR **#848** open at head `9b5cab7` — `scripts/validate-changelog.sh` gained per-section heading-duplicate scoring plus `scripts/test-validate-changelog.sh` (10 cases) and a `validate.sh` block. Draft **#845** was an independent implementation of the same issue and was closed as superseded (roast in `plans/PR_ROAST_2026_10_05.md`); its CHANGELOG dedupe is the part worth keeping. Do not re-implement.
 
   - name: mutation_baseline_the_feature_gated_mcp_module
     github_issue: "#833"
@@ -680,3 +660,28 @@ actions:
       `--exclude-re "mcp::"` and `"McpHandler::"`, so the module has no mutation
       evidence at all — run a scoped baseline over `src/mcp` and triage each
       survivor into a real test or a documented exclusion with its mechanism.
+
+  - name: gate_plan_queue_against_issue_tracker
+    github_issue: "#851"
+    preconditions: []
+    effects:
+      goap_queue_reconciled_with_tracker: true
+    notes: >
+      Found while closing out #824 by hand, not by looking for it. PR #836 merged
+      as `2f26214` with `Fixes #824`, GitHub auto-closed the issue, and
+      `cover_sigterm_in_server_shutdown` stayed in this file on that same commit —
+      `status: in_progress`, its notes still asserting "SIGINT-only" and
+      `grep -rn "SIGTERM" src/ tests/ crates/` = 0, while `git show
+      2f26214:src/shutdown.rs | grep -c sigterm` = 3. #837 (`87fa734`) and #838
+      (`f235874`) had already drifted identically the same morning. Nothing
+      validates this file: `grep -rln 'ACTIONS\.md\|GOAP_STATE\.md' scripts/
+      .github/workflows/` returns `plans-manager.sh`, `gen-agents-context.sh`,
+      `generate-agents.sh` and `goap-orchestrator.sh` — generators and mutators,
+      no checker. Required: a fail-closed reconciliation wired into
+      `validate.sh` that errors on a queued action whose `github_issue` is CLOSED,
+      on an `effects:` key of a removed action not being true in `GOAP_STATE.md`,
+      on `action_last_completed` appearing other than exactly once, and on
+      `queued_actions_count` disagreeing with `grep -c '^  - name:'`. Must follow
+      the `validate-github-actions-shas.sh --offline` precedent (`validate.sh:263-269`):
+      one `gh` call for the whole check, and a loud `skip:` line when offline — a
+      gate that passes silently without its token is this same bug in a new place.
