@@ -57,6 +57,26 @@ neutering its implementing line, and every restore verified `sha256`-identical.
    proven byte-identical), five given `# shellcheck disable=SC2016` with a reason. Corrected in
    `plans/ACTIONS.md` before the commit, from `git show --stat` rather than from recall.
 
+### Roasting #855 found that its tracker half would never have run in CI
+The rubric applies to my own PR, so I ran it: `grep -n "CSM_GOAP_QUEUE_REQUIRED" .github/workflows/`
+returned **nothing** — no job set the flag, and the `lint` job inherits the workflow-level
+`permissions: contents: read`, which does not include `issues: read`. So STALE and UNQUEUED — the two
+checks that exist because four landed PRs left their queue entries alive — would have printed
+`SKIP — NOT A PASS` on every CI run, permanently. A gate whose decisive branch never executes on the
+machine that matters is #853's machine-asymmetry class in a new place. Three fixes, all measured:
+`permissions: {contents: read, issues: read}` on the `lint` job (a job-level block **replaces** the
+workflow-level one, so `contents` must be restated or `actions/checkout` loses its token),
+`GITHUB_TOKEN` + `CSM_GOAP_QUEUE_REQUIRED=true` on the `validate.sh` step, and the deletion of the
+`gh auth status` probe that sat in front of the real query. The probe was the worse of the two findings:
+it is a second, independent path to "tracker unreachable", and it can fail on a runner whose token
+answers `gh issue list` fine. The gate now decides from that one call, folds its stderr into the reason
+(test 13b asserts the literal `HTTP 403` survives into the SKIP line), and treats rc=0 with a non-JSON
+body as unreachable rather than parsing it as zero issues — a truncated payload read as an empty backlog
+would have been a *pass*. Test 2 tightened from `gh calls <= 2` to `-eq 1` so re-adding a probe is caught.
+Fixture: 46 → **50 assertions, 23 tests**, red demonstrated for the shape guard by replacing its
+condition with `false` (3 failures, all in 13c). `yamllint -c .yamllint` unchanged at 16 findings and 0
+errors; `shellcheck` clean at every level on both scripts.
+
 ### Bookkeeping
 `plans/ACTIONS.md`: removed #832's entry, revised #829 to the parent claim `single_gate_graph`
 (its two achieved effects moved to `GOAP_STATE.md` as `true` — a queued action advertising an effect
