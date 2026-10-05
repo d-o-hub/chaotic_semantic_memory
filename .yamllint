@@ -1,0 +1,30 @@
+# yamllint profile for this repository (issue #841).
+#
+# Why this file exists: scripts/validate-workflows.sh ran `yamllint -d relaxed`
+# with no repo profile at all (`ls -a | grep -i yamllint` was empty), and
+# `relaxed` keeps line-length at the default 80 columns. Hand-written Actions
+# YAML with pinned `uses:` SHAs blows past 80 on almost every step, so the gate
+# was scoring its own missing configuration as repository defects: measured on
+# main, 9 workflow files produced ~300 line-length/indentation findings that are
+# not fixable here (ci.yml:516 is 166 columns: a rust-cache step with a pinned
+# SHA and a version comment). The 4-space step indentation GitHub's own examples
+# use is likewise reported as "wrong indentation" by the 2-space preset.
+#
+# What stays at error level: the two rules whose findings ARE real, cheap and
+# silent elsewhere. Exactly three error-class findings existed on main, all of
+# them from these rules — trailing spaces and a missing final newline.
+extends: relaxed
+
+rules:
+  trailing-spaces:
+    level: error
+
+  new-line-at-end-of-file:
+    level: error
+
+  # 200 columns: the longest line in the tree is 207 (benchmark-ci.yml:61), so
+  # this keeps genuine run-ons visible as warnings while stopping the pinned-`uses`
+  # noise. Warnings never fail the gate.
+  line-length:
+    level: warning
+    max: 200
