@@ -286,6 +286,8 @@ mod bridge_retrieval_tests;
 mod framework_builder_tests;
 #[cfg(test)]
 mod framework_ops_tests;
+#[cfg(all(test, not(target_arch = "wasm32"), feature = "persistence"))]
+mod framework_persistence_tests;
 #[cfg(test)]
 mod framework_rerank_tests;
 #[cfg(target_arch = "wasm32")]
