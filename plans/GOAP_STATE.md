@@ -99,7 +99,7 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 7        # 2026-10-05 ledger. Every line below is `git show <commit>:plans/ACTIONS.md
+  queued_actions_count: 8        # 2026-10-05 ledger. Every line below is `git show <commit>:plans/ACTIONS.md
                                #   | grep -c '^  - name:'`, not a recollection — and reading the commits
                                #   instead of the prose is what exposed the drift #851 was written about:
                                #   87fa734 (#837 landed) -> 10   entry NOT removed
@@ -159,8 +159,7 @@ world_state:
   ten_million_memory_claim_evaluated: true        # 2026-09-17: evaluated NOT supported (43.7 GB RSS / 26.5 GB storage)
   ann_snapshot_revision_validated: true           # ADR-0093: IndexSnapshotEnvelope + ns revision
   ann_config_is_fallible: true                    # validate_index_backend; ADR-0093
-  persistence_failure_leaves_memory_unchanged: true # 2026-09-30: durable-first order + reload reconcile (framework_persistence.rs:244-296); failure path tested via simulate_failure seam in framework_persistence_tests.rs
-  persistence_failure_semantics_tested: true
+  persistence_failure_leaves_memory_unchanged: true # 2026-09-30: durable-first order + reload reconcile (framework_persistence.rs:244-296); failure path untested (queued)
   persistence_implementation_owner_unique: true  # 2026-09-15: root facade re-exports csm-persistence (phases 1-3); no second body
   mcp_full_width_vector_wire_contract: true       # base64 1280-byte HVec + high-bit tests
   no_state_lock_across_io_await: true             # 2026-09-30: durable I/O before singularity locks (framework_persistence.rs:96,177-215), verified by inspection
@@ -236,4 +235,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: add_persistence_failure_path_test  # 2026-10-05 #825 — added failure path unit tests with failure simulation seam
+  action_last_completed: gate_plan_queue_against_issue_tracker  # 2026-10-05 #851 — removed STALE entry gate_plan_queue_against_issue_tracker
