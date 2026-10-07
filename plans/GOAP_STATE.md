@@ -99,7 +99,7 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 8        # 2026-10-05 ledger. Every line below is `git show <commit>:plans/ACTIONS.md
+  queued_actions_count: 7        # 2026-10-05 ledger. Every line below is `git show <commit>:plans/ACTIONS.md
                                #   | grep -c '^  - name:'`, not a recollection — and reading the commits
                                #   instead of the prose is what exposed the drift #851 was written about:
                                #   87fa734 (#837 landed) -> 10   entry NOT removed
@@ -235,4 +235,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: gate_plan_queue_against_issue_tracker  # 2026-10-05 #851 — removed STALE entry gate_plan_queue_against_issue_tracker
+  action_last_completed: add_persistence_failure_path_test  # 2026-10-05 #825 — removed STALE entry add_persistence_failure_path_test
