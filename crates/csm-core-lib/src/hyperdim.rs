@@ -6,6 +6,7 @@
 #![allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
 
 use rand::RngExt;
+use std::mem::MaybeUninit;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
@@ -410,7 +411,7 @@ impl HVec10240 {
             // on little-endian platforms. Using extend_from_slice with a casted
             // byte reference avoids 80 bounds checks and word-by-word serialization.
             // SAFETY: Alignment of u128 is stricter than u8. Pointers are valid.
-            let data_bytes: &[u8; 1280] = unsafe { &*(self.data.as_ptr() as *const [u8; 1280]) };
+            let data_bytes: &[u8; 1280] = unsafe { &*(self.data.as_ptr().cast::<[u8; 1280]>()) };
             bytes.extend_from_slice(data_bytes);
         }
         #[cfg(not(target_endian = "little"))]
@@ -432,28 +433,30 @@ impl HVec10240 {
             });
         }
 
-        #[allow(unused_mut)]
-        let mut data = [0u128; 80];
         #[cfg(target_endian = "little")]
         {
-            // Performance Optimization: Direct memcpy for little-endian platforms.
-            // Avoids 80 loop iterations and multiple bounds checks per word.
+            // Performance Optimization: Direct memcpy for little-endian platforms into MaybeUninit
+            // stack buffer to eliminate 1,280-byte zero initialization.
             // SAFETY: bytes length is verified to be 1280. [u128; 80] is bit-compatible
             // with [u8; 1280] on little-endian. Pointers are valid.
+            let mut data = MaybeUninit::<[u128; 80]>::uninit();
             unsafe {
-                std::ptr::copy_nonoverlapping(bytes.as_ptr(), data.as_mut_ptr() as *mut u8, 1280);
+                std::ptr::copy_nonoverlapping(bytes.as_ptr(), data.as_mut_ptr().cast::<u8>(), 1280);
+                Ok(Self {
+                    data: data.assume_init(),
+                })
             }
         }
         #[cfg(not(target_endian = "little"))]
         {
+            let mut data = [0u128; 80];
             for i in 0..80 {
                 let mut word_bytes = [0u8; 16];
                 word_bytes.copy_from_slice(&bytes[i * 16..(i + 1) * 16]);
                 data[i] = u128::from_le_bytes(word_bytes);
             }
+            Ok(Self { data })
         }
-
-        Ok(Self { data })
     }
 }
 
