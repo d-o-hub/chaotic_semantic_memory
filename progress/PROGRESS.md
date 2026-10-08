@@ -1218,3 +1218,7 @@ fallback-root resolution, spaced source paths, and seven stderr findings.
 The hook fixture passes 20 cases and ShellCheck 0.11.0 passes changed hook scripts.
 The #842 action remains queued until merge; Rust source, APIs and test counts
 are unchanged. Full review and validation scope: plans/PR_ROAST_2026_10_08.md.
+
+Hosted CI 37836615208 confirmed all 20 hook cases and full Rust validation, then
+found stale #825 in the queue. Reconciled the action already implemented by merged
+#858/d611e12; its three persistence failure tests passed. Seven actions remain.
