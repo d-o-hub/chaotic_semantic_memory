@@ -12,6 +12,14 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (reconciled 2026-10-08):
+> `add_persistence_failure_path_test` (#825 → PR #858, merged 2026-10-06 as `d611e12`)
+> already exists on this branch base. `src/framework_persistence_tests.rs` has three
+> lib unit tests covering failed inject, delete and batch inject with unchanged memory;
+> all three passed in CI 37836615208. Removed the stale queue entry after that run
+> reached the tracker gate and correctly rejected closed #825. Seven actions remain.
+> #842 stays queued because its repair has not merged.
+>
 > Last completed (verified 2026-10-05, sixth action):
 > `gate_plan_queue_against_issue_tracker` (#851) — implemented `scripts/check-goap-queue-issues.sh`
 > and `scripts/test-goap-queue-issues.sh` (50 assertions, stubbed `gh`), wired into `validate.sh` and CI
@@ -506,45 +514,6 @@
 > Eight actions remain; `validated` stays false.
 
 actions:
-  - name: add_persistence_failure_path_test
-    github_issue: "#825"
-    preconditions: []
-    effects:
-      persistence_failure_semantics_tested: true
-    notes: >
-      Audit C3, re-verified 2026-09-30; surface re-measured 2026-10-03 by a read-only
-      Explore pass and spot-checked by the orchestrator. The behavior exists — persist
-      before mutate plus reload-reconcile (`src/framework_persistence.rs:247`
-      `durable_inject_concept`, reconcile at `:261`; `:272` `durable_delete_concept`,
-      error at `:285-287`; also `:214` `durable_inject_concepts`) — but no test injects a
-      persistence error: grep finds no failing/mock `Persistence` and no
-      `inject_concept(...).unwrap_err()` assertion in `tests/` (the only `unwrap_err()`
-      uses are validation errors, `tests/critical_error_paths.rs:24,46`). COST CLASS IS
-      NOT `test(...)` — it is `fix(persistence)`, because no seam exists to make
-      `Persistence` fail: it is a concrete struct with a private backend
-      (`crates/csm-persistence/src/persistence.rs:14` `db: Arc<Database>`, `connect()`
-      pub(crate) at `:74`), there is no `trait Persistence` and no Failing/Mock/Fault impl
-      anywhere, and the only error-returning implementation is the feature-disabled stub
-      (`src/lib.rs:83-230`, `unsupported()` `:93-97`) — which cannot reach this code, since
-      `build()` rejects a configured DB when the feature is off
-      (`src/framework_builder.rs:399-402`, asserted by `tests/persistence_disabled.rs:15,34`).
-      Deleting/chmod-ing the libsql file after `build()` *may* fail `save_concept` but is
-      unverified and would be a filesystem-flaky test. Required: a `#[cfg(test)]
-      pub(crate)` seam (failing-backend constructor or builder hook), then one inject and
-      one delete test asserting `stats().concept_count` is unchanged. Placement is
-      constrained: it must be a root-crate `--lib` unit test (`src/`, gated
-      `#[cfg(all(test, feature = "persistence"))]`; `persistence` is a default feature,
-      `Cargo.toml:333`) because a `tests/` integration target is invisible to the mutation
-      fast profile (`scripts/mutation_test.sh:142` passes `--lib -p csm-retrieval -p
-      chaotic_semantic_memory`) — the #817 failure mode, repeated. `src/framework_persistence.rs`
-      has no test module today (0 `cfg(test)` hits, 409/500 LOC); `src/framework_ops_tests.rs`
-      is at exactly 500/500 and cannot host it; `src/framework.rs` is 477/500, so a hook added
-      there needs the mandated child-module extraction
-      (`inject_concept`/`inject_concept_with_metadata`/`delete_concept` at
-      `src/framework.rs:74,124,411` → `framework_mutations.rs`), not comment stripping.
-      Smallest honest scope: seam + two tests, ~80 LOC in a new
-      `src/framework_persistence_tests.rs`.
-
   - name: wire_and_consolidate_validation_gates
     github_issue: "#829"
     status: in_progress
