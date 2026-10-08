@@ -82,6 +82,11 @@ fn test_bhvec_hamming_scalar_fallback_matches_oracle() {
 #[test]
 fn test_bhvec_permute() {
     let v1 = BHVec10240::random();
+    // Fast-path early returns
+    assert_eq!(v1, v1.permute(0));
+    assert_eq!(v1, v1.permute(BHVec10240::DIMENSION));
+    assert_eq!(v1, v1.permute(BHVec10240::DIMENSION * 2));
+
     let v2 = v1.permute(1);
     assert_ne!(v1, v2);
     let v3 = v2.permute(BHVec10240::DIMENSION - 1);
