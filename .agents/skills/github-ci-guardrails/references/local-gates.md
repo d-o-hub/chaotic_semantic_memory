@@ -32,3 +32,12 @@ npx commitlint --from origin/main --to HEAD --verbose
 ```
 
 Do not invent scopes (`ops`, `plans`, `goap` unless added to the enum first).
+
+## Hook bootstrap
+
+On a fresh checkout, run `scripts/install-hooks.sh` before strict validation.
+Keep `scripts/validate.sh` read-only for hook configuration. Run
+`scripts/test-hook-bootstrap.sh` to prove real Git invocation in a clone,
+parent and linked worktree; checking a nonempty `core.hooksPath` is insufficient.
+Use relative repo-local `.githooks`, and check both local and effective paths.
+Pre-push uses GNU `timeout`/`gtimeout` with a configurable 180-second budget.

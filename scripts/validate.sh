@@ -43,6 +43,19 @@ else
   exit 1
 fi
 
+# Git hooks validation & bootstrap fixture (issue #842).
+# Ensures hooks are installed, core.hooksPath is set to .githooks, and required
+# hooks exist and are executable. Runs the fixture to verify all failure directions.
+if [[ -x "${SCRIPT_DIR}/validate-git-hooks.sh" ]]; then
+  echo "==> Git hooks configuration validation"
+  "${SCRIPT_DIR}/validate-git-hooks.sh" --check
+  echo "==> Git hooks bootstrap fixture"
+  "${SCRIPT_DIR}/test-hook-bootstrap.sh"
+else
+  echo "Error: scripts/validate-git-hooks.sh missing or not executable" >&2
+  exit 1
+fi
+
 echo "==> cargo clippy --all-targets --all-features -- -D warnings"
 cargo clippy --all-targets --all-features -- -D warnings
 

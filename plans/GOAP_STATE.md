@@ -235,4 +235,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: gate_plan_queue_against_issue_tracker  # 2026-10-05 #851 — removed STALE entry gate_plan_queue_against_issue_tracker
+  action_last_completed: repair_pr_862_hook_bootstrap_ci  # 2026-10-08: repair session completed; #842 stays queued until merge. Source LOC <=500, Rust test counts unchanged; hook fixture 20 cases.

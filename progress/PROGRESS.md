@@ -1209,3 +1209,12 @@ BM25+HDC fusion with query-length weights. Recall@1: 2.5% → 75%. Semantic Brid
 
 ## 2026-04-06: Release Workflow
 npm OIDC Trusted Publishing. Fixed duplicate CHANGELOG header breaking awk extraction.
+
+## 2026-10-08: PR #862 hook bootstrap repair
+
+Repaired the unsupported commit scope and missing CI bootstrap without weakening
+strict validation. Fixed ineffective hook-path acceptance, worktree redirection,
+fallback-root resolution, spaced source paths, and seven stderr findings.
+The hook fixture passes 20 cases and ShellCheck 0.11.0 passes changed hook scripts.
+The #842 action remains queued until merge; Rust source, APIs and test counts
+are unchanged. Full review and validation scope: plans/PR_ROAST_2026_10_08.md.
