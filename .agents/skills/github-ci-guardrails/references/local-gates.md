@@ -41,3 +41,6 @@ Keep `scripts/validate.sh` read-only for hook configuration. Run
 parent and linked worktree; checking a nonempty `core.hooksPath` is insufficient.
 Use relative repo-local `.githooks`, and check both local and effective paths.
 Pre-push uses GNU `timeout`/`gtimeout` with a configurable 180-second budget.
+
+Correct PR title/body before pushing a repaired commit. Actions snapshots PR
+metadata in the event; rerunning an old event can retain the invalid old title.
