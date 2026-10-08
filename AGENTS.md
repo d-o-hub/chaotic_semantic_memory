@@ -44,7 +44,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 
 1. **Always read before editing** — Never guess file contents.
 2. **Stay under context limits** — Each instruction must earn its place. Keep AGENTS.md ≤ 200 LOC.
-3. **Deterministic gates** — `./scripts/validate.sh` and `./scripts/harness-check.sh all` are mandatory.
+3. **Deterministic gates** — `./scripts/validate.sh` and `./scripts/harness-check.sh all` are mandatory. On a fresh checkout, run `scripts/install-hooks.sh` first; strict validation must not silently install hooks. Test hook execution in parent and linked worktrees, not only configuration text.
 4. **Use `@imports` for modularity** — Reference docs via `@path/to/file` syntax.
 5. **Plan before implementing** — Map dependencies before touching 3+ files.
 6. **Encode errors immediately** — Every bug or workflow friction becomes a documented rule.

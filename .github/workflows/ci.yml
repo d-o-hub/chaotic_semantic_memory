@@ -623,6 +623,10 @@ jobs:
     # /usr/bin with no PATH or venv setup.
     - name: Install yamllint
       run: sudo apt-get update && sudo apt-get install -y yamllint
+    # Git config is not versioned. Bootstrap this checkout before the strict
+    # configuration gate; do not make validate.sh silently repair bad setups.
+    - name: Install repository hooks
+      run: bash scripts/install-hooks.sh
     - name: LOC gate
       # GITHUB_TOKEN is not in a step's environment unless the workflow puts it
       # there — `gh` reads it from env, so without this line the queue gate's

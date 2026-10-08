@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Pre-push hook: mirrors CI lint checks locally with bounded execution.
+#
+# Direct checks run:
+#   - cargo fmt --check --quiet
+#   - cargo clippy --all-targets --all-features -- -D warnings
+#
+# Notes on CI duplication vs hook speed:
+#   - Format & Clippy checks are also run in the CI `lint` job.
+#   - On cold/uncached worktrees, clippy may compile dependencies.
+#   - The combined payload has a 180-second budget (plus 5-second kill grace).
+#   - Override with CSM_PRE_PUSH_TIMEOUT_SECONDS; requires timeout/gtimeout
+#     from GNU coreutils (gtimeout is the usual macOS executable name).
+#   - Override/bypass: export SKIP_PRE_PUSH=1 or run `git push --no-verify`.
+
+set -euo pipefail
+
+if [[ "${SKIP_PRE_PUSH:-0}" == "1" ]]; then
+  echo "skip: pre-push hook skipped via SKIP_PRE_PUSH=1"
+  exit 0
+fi
+
+# Ensure cargo/rustfmt are available
+if ! command -v cargo >/dev/null 2>&1 && [[ -f "$HOME/.cargo/env" ]]; then
+  # shellcheck disable=SC1090
+  source "$HOME/.cargo/env"
+fi
+
+cd "$(git rev-parse --show-toplevel)"
+
+TIMEOUT_SECONDS="${CSM_PRE_PUSH_TIMEOUT_SECONDS:-180}"
+if [[ ! "$TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]]; then
+  echo "Error: CSM_PRE_PUSH_TIMEOUT_SECONDS must be a positive integer" >&2
+  exit 1
+fi
+if command -v timeout >/dev/null 2>&1; then
+  TIMEOUT_COMMAND=timeout
+elif command -v gtimeout >/dev/null 2>&1; then
+  TIMEOUT_COMMAND=gtimeout
+else
+  echo "Error: pre-push requires timeout or gtimeout from GNU coreutils" >&2
+  exit 1
+fi
+
+echo "🔍 Running pre-push validation (clippy + fmt)..."
+if "$TIMEOUT_COMMAND" --kill-after=5 "${TIMEOUT_SECONDS}s" bash -c \
+  'cargo fmt --check --quiet && cargo clippy --all-targets --all-features -- -D warnings'; then
+  :
+else
+  hook_rc=$?
+  if [[ "$hook_rc" -eq 124 || "$hook_rc" -eq 137 ]]; then
+    echo "Error: pre-push exceeded ${TIMEOUT_SECONDS}s; run validation before retrying or increase CSM_PRE_PUSH_TIMEOUT_SECONDS" >&2
+  fi
+  exit "$hook_rc"
+fi
+echo "✅ Pre-push checks passed"

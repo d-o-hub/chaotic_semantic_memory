@@ -706,6 +706,14 @@ actions:
     effects:
       single_hook_bootstrap_installed_by_default: true
     notes: >
+      2026-10-08 STATUS: PR #862 repaired after CI run 37458838397 rejected the
+      hooks commit scope and strict validation on an unbootstrapped checkout.
+      CI now installs hooks before validation; the validator checks local and
+      effective hook paths, all seven Sonar stderr findings are addressed, and
+      20 fixture cases exercise actual Git invocation, linked worktrees,
+      fallback copies, fresh clones, disabled paths and gate failure propagation.
+      Keep this action queued until #842 closes on merge; local verification
+      does not mean the implementation has landed. See plans/PR_ROAST_2026_10_08.md.
       Split out of #829. Three installers produce three different hook sets:
       `install-hooks.sh` installed only `scripts/hooks/pre-push`; `setup-hooks.sh`
       installed only `scripts/pre-commit.sh` as pre-commit;
