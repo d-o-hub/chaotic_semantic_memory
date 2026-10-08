@@ -60,6 +60,9 @@ pub struct GraphRagResult {
 
 /// Maximum graph traversal expanded candidates limit.
 const MAX_TRAVERSAL_EXPANSIONS: usize = 1000;
+const MAX_GRAPH_RAG_HOPS: usize = 32;
+const MAX_GRAPH_RAG_ANCHOR_TOP_K: usize = 10_000;
+const MAX_GRAPH_RAG_FINAL_TOP_K: usize = 100_000;
 
 /// Execute GraphRAG retrieval.
 pub fn graph_rag_retrieve(
@@ -68,9 +71,13 @@ pub fn graph_rag_retrieve(
     associations: &[(String, String, f32)],
     config: &GraphRagConfig,
 ) -> Result<Vec<GraphRagResult>> {
-    if concepts.is_empty() || config.final_top_k == 0 {
+    let final_top_k = config.final_top_k.min(MAX_GRAPH_RAG_FINAL_TOP_K);
+    if concepts.is_empty() || final_top_k == 0 {
         return Ok(Vec::new());
     }
+
+    let anchor_top_k = config.anchor_top_k.min(MAX_GRAPH_RAG_ANCHOR_TOP_K);
+    let max_hops = config.max_hops.min(MAX_GRAPH_RAG_HOPS);
 
     // Optimization: Merge similarity calculation, anchor collection, and map construction
     // into fewer passes to improve cache locality and minimize reallocations.
@@ -85,13 +92,12 @@ pub fn graph_rag_retrieve(
     }
 
     let anchors = {
-        let top_k = config.anchor_top_k;
-        if top_k == 0 {
+        if anchor_top_k == 0 {
             Vec::new()
         } else {
-            if scored_anchors.len() > top_k {
-                scored_anchors.select_nth_unstable_by(top_k - 1, |a, b| b.1.total_cmp(&a.1));
-                scored_anchors.truncate(top_k);
+            if scored_anchors.len() > anchor_top_k {
+                scored_anchors.select_nth_unstable_by(anchor_top_k - 1, |a, b| b.1.total_cmp(&a.1));
+                scored_anchors.truncate(anchor_top_k);
             }
             scored_anchors.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
             scored_anchors
@@ -127,7 +133,7 @@ pub fn graph_rag_retrieve(
     let anchor_count = results_map.len();
 
     while let Some((current_id, anchor_id, hop, path_strength)) = queue.pop_front() {
-        if hop >= config.max_hops {
+        if hop >= max_hops {
             continue;
         }
 
@@ -195,12 +201,43 @@ pub fn graph_rag_retrieve(
         .collect();
 
     // Optimization: Use O(N) selection for top-K results to avoid full O(N log N) sort.
-    if results.len() > config.final_top_k {
-        let k = config.final_top_k;
+    if results.len() > final_top_k {
+        let k = final_top_k;
         results.select_nth_unstable_by(k - 1, |a, b| b.score.total_cmp(&a.score));
         results.truncate(k);
     }
     results.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
 
     Ok(results)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_graph_rag_retrieve_clamped_input_bounds() {
+        let query = HVec10240::random();
+        let concept1 = Concept {
+            id: "c1".to_string(),
+            vector: HVec10240::random(),
+            ..Default::default()
+        };
+        let concepts = vec![concept1];
+        let associations = vec![("c1".to_string(), "c2".to_string(), 0.9f32)];
+
+        let config = GraphRagConfig {
+            anchor_top_k: usize::MAX,
+            max_hops: usize::MAX,
+            min_assoc_strength: 0.0,
+            similarity_weight: 0.5,
+            graph_weight: 0.5,
+            final_top_k: usize::MAX,
+        };
+
+        let res = graph_rag_retrieve(&query, &concepts, &associations, &config);
+        assert!(res.is_ok());
+        let results = res.unwrap();
+        assert!(!results.is_empty());
+    }
 }
