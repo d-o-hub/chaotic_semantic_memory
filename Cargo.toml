@@ -330,6 +330,7 @@ required-features = ["persistence", "ann-hnsw", "ann-lsh"]
 
 [features]
 experimental-neural-circuit = ["csm-chaos/experimental-neural-circuit"]
+experimental-coupled-lorenz = ["csm-chaos/experimental-coupled-lorenz"]
 default = ["cli", "persistence", "parallel"]
 cli = ["dep:clap", "dep:clap_complete", "dep:anyhow", "dep:colored", "dep:glob"]
 persistence = ["dep:libsql", "csm-persistence/persistence"]

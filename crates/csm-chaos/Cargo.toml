@@ -13,6 +13,7 @@ serde = { workspace = true, optional = true }
 
 [features]
 experimental-neural-circuit = []
+experimental-coupled-lorenz = []
 experimental-voronoi-lsh = []
 experimental-ils3d = []
 default = []
@@ -25,6 +26,11 @@ crate-type = ["lib"]
 [[bench]]
 name = "chaotic_hashing"
 harness = false
+
+[[bench]]
+name = "chaotic_hashing_coupled_lorenz"
+harness = false
+required-features = ["experimental-coupled-lorenz"]
 
 [[bench]]
 name = "chaotic_hashing_chebyshev"

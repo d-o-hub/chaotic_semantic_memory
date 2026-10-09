@@ -258,6 +258,13 @@ jobs:
       # crate features (e.g. wasm vs persistence in csm-persistence).
       # Full feature coverage is in the main 'test' job.
       run: cargo test -p ${{ matrix.crate }} --locked -- --quiet
+    # csm-chaos's experimental modules are gated off in the default-features test
+    # above, and the root-package all-features jobs never select member crates
+    # (`workspace_default_members` is the root package), so this step is the one
+    # place they are compiled and tested.
+    - name: Test experimental features (csm-chaos)
+      if: matrix.crate == 'csm-chaos'
+      run: cargo test -p csm-chaos --all-features --locked -- --quiet
 
   # Native arm64 runner: executes the aarch64 NEON SIMD kernels (e.g.
   # hamming_distance_1280_neon), which the x86_64 ubuntu matrix only compiles
