@@ -43,11 +43,12 @@ world_state:
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "83e9a6c"           # 2026-10-05: #852 (quality-gates.sh hands cargo nextest a flag it
-                               #   accepts) on top of 77bd5f0 (#846 skill-format fail-open + four
-                               #   orphaned fixtures wired), 6ec3cf6 (#848 changelog heading gate) and
-                               #   2f26214 (#836 SIGTERM parity). Each value here is read from
-                               #   `git log --oneline -1 origin/main`, never from the previous entry.
+  main_head: "0a8a1d9"           # 2026-10-09: fetched (`git fetch origin main`); replaced 83e9a6c
+                               #   (2026-10-05). Since then: the #851 queue-reconciliation gate, the
+                               #   #862 hook-installer consolidation, #858's persistence failure-path
+                               #   tests (d611e12), #844's dependency bump, and the queue clean-up this
+                               #   head is named for. Read from `git log --oneline origin/main`, never
+                               #   from the previous entry.
   tests_count: 1044              # 2026-10-05: 1037 + the 2 SIGINT/SIGTERM exit-status tests for `watch`, then +2
                                #   more for `mcp serve --transport sse` in the same
                                #   tests/cli_shutdown_signal.rs (all 4 pass on the branch; the file registers
@@ -99,7 +100,7 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 7        # 2026-10-08: removed closed #825, already implemented by #858 on base d611e12. Historical 2026-10-05 ledger: Every line below is `git show <commit>:plans/ACTIONS.md
+  queued_actions_count: 6        # 2026-10-09: removed closed #842 (#862 landed the hook consolidation; the gate flagged the stale entry while shipping the record PR). 2026-10-08: removed closed #825, already implemented by #858 on base d611e12. Historical 2026-10-05 ledger: Every line below is `git show <commit>:plans/ACTIONS.md
                                #   | grep -c '^  - name:'`, not a recollection — and reading the commits
                                #   instead of the prose is what exposed the drift #851 was written about:
                                #   87fa734 (#837 landed) -> 10   entry NOT removed
@@ -169,6 +170,7 @@ world_state:
   workspace_ci_matrix_complete: true              # csm-chaos + benchmark tests in CI; crate list hand-maintained (ci.yml:202-241, machine-derived matrix queued)
   cargo_deny_required_in_ci: true
   fuzz_build_required_in_ci: true
+  ruleset_requires_core_ci_gates: true  # 2026-10-09 (#850): ruleset 12897801 requires lint/test/mutation-test (app 15368) in addition to Build CLI/Codacy/commitlint; strict up-to-date and admin PR bypass retained. Verified via the stored ruleset, /rules/branches/main and `gh pr checks 867 --required` (3 -> 6 contexts).
   release_wait_event_driven: true                 # 2026-09-30: release.yml triggers on CI completion (workflow_run, head_sha-pinned); no polling ceiling. Proof: runs 36746741481 + 36746882951 green, publishes correctly skipped
   crates_publish_precheck_ownership_aware: true   # 2026-09-30: owners API (free or d-o-hub passes; other owners fail; unknown HTTP fails closed) replaces the published-version comparison; verified live incl. negative control
   csm_duckdb_in_release_publish_order: true       # 2026-09-30: dedicated step after the root publish waits for the root version in the index; companion loop exposes failures instead of swallowing them
@@ -236,4 +238,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: add_persistence_failure_path_test  # 2026-10-08: reconciled #825, merged as #858/d611e12 on 2026-10-06; removed stale action. #842 stays queued until merge; hook fixture 20 cases.
+  action_last_completed: enforce_main_ruleset_required_checks  # 2026-10-09 #850 — one settings PUT added lint/test/mutation-test (app 15368) to ruleset 12897801 and nothing else changed; the same round is recorded as triage_pr_roast_2026_10_09 in plans/ACTIONS.md. Neither name is queued.
