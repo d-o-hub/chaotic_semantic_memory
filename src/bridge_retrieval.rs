@@ -175,7 +175,9 @@ impl BridgeRetrieval {
         use std::collections::HashMap;
 
         // Keyed by borrowed id: each surviving hit materialises its id once.
-        let mut hit_map: HashMap<&str, BridgeHit> = HashMap::new();
+        // Pre-allocate hash map capacity to eliminate rehashes during merge.
+        let mut hit_map: HashMap<&str, BridgeHit> =
+            HashMap::with_capacity(primary.len() + expanded.len());
 
         // Process primary results (deterministic scores)
         for (id, score) in primary {
@@ -238,9 +240,9 @@ impl BridgeRetrieval {
         hits: &[BridgeHit],
         singularity: &Singularity,
     ) -> Result<MemoryPacket> {
-        // Extract facts from hits
-        let mut facts: Vec<(String, f32)> = Vec::new();
-        let mut sources: Vec<String> = Vec::new();
+        // Extract facts from hits (pre-allocate to eliminate reallocations)
+        let mut facts: Vec<(String, f32)> = Vec::with_capacity(hits.len());
+        let mut sources: Vec<String> = Vec::with_capacity(hits.len());
 
         for hit in hits {
             // Get concept for text preview
@@ -257,10 +259,11 @@ impl BridgeRetrieval {
             }
         }
 
-        // Deduplicate facts (exact match)
-        let mut unique_facts: Vec<String> = Vec::new();
-        // Memory & Algorithmic Optimization: Use HashSet<&str> and single-pass insert to eliminate String clones during lookup.
-        let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
+        // Deduplicate facts (exact match; pre-allocate vector and set capacities)
+        let mut unique_facts: Vec<String> = Vec::with_capacity(facts.len());
+        // Memory & Algorithmic Optimization: Use HashSet<&str> with capacity and single-pass insert to eliminate String clones during lookup.
+        let mut seen: std::collections::HashSet<&str> =
+            std::collections::HashSet::with_capacity(facts.len());
         for (text, _score) in &facts {
             if seen.insert(text.as_str()) {
                 unique_facts.push(text.clone());
@@ -270,8 +273,8 @@ impl BridgeRetrieval {
         // Truncate to max_packet_facts
         unique_facts.truncate(self.config.max_packet_facts);
 
-        // Apply token budget (drop lowest-scored facts)
-        let mut budgeted_facts: Vec<String> = Vec::new();
+        // Apply token budget (drop lowest-scored facts; pre-allocate result capacity)
+        let mut budgeted_facts: Vec<String> = Vec::with_capacity(unique_facts.len());
         let mut token_count = 0;
         for text in unique_facts {
             let estimated = (text.split_whitespace().count() as f32 / 0.75).ceil() as usize;
