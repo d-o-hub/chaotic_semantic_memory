@@ -1,3 +1,5 @@
+#[cfg(feature = "experimental-coupled-lorenz")]
+pub mod coupled_lorenz;
 pub mod hyperchaotic;
 #[cfg(feature = "experimental-ils3d")]
 pub mod hyperchaotic_3d_ils;
