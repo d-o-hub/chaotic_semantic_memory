@@ -1222,3 +1222,37 @@ are unchanged. Full review and validation scope: plans/PR_ROAST_2026_10_08.md.
 Hosted CI 37836615208 confirmed all 20 hook cases and full Rust validation, then
 found stale #825 in the queue. Reconciled the action already implemented by merged
 #858/d611e12; its three persistence failure tests passed. Seven actions remain.
+
+## 2026-10-09: ruleset gates enforced (#850) and the six-PR round roasted
+
+### #850: the three core jobs existed, so make them required
+Ruleset `12897801` required only `Build CLI (linux-x64)`, `Codacy Static Code Analysis` and
+`commitlint`; one `PUT` appended `lint`, `test`, `mutation-test` (app 15368) and nothing else
+changed (bypass actor, strict policy, `do_not_enforce_on_create` and all six other rules
+byte-identical to the snapshot). Verified from the stored object, `GET /rules/branches/main` and
+`gh pr checks 867 --required` (3 → 6 contexts); issue #850 closed with the evidence comment.
+Admin bypass retained (explicit decision), so the gates bind non-bypassing merges.
+
+### Roast round: three closes, one evidence bar, two keepers
+- **#860 closed as a no-op**: `gh pr diff 860` and `git diff d611e12..eba2ec8d` are empty — the two
+  `perf` commits are empty commits and the merge only re-adds main's content. Fourth filing of the
+  `HVec10240::permute` zero-shift idea (#800 measured it: 81.7 → 57.3 ns direct, caller path
+  2 684 → 2 734 ns; #814/#819 closed).
+- **#863 closed as a no-op**: the #783 zero-init refutation (same files, `nm` same address, bare
+  `memcpy`), plus a deleted `Lifetime:` rationale line and a Codacy unsafe flag; no bench, red gate.
+- **#864 closed as no-impact**: its title claims an early return that has been on main since #611
+  (`git log -S 'return *self;'` → `e5affb9`); the net diff is a zero-init relocation; the only
+  `BHVec10240::permute` bench uses shift 321 (`321 % 64 = 1`).
+- **#867 kept open**: pre-allocations are correct but unmeasured (growth-event savings only; #754
+  measured the same shape to nil); the evidence bar is stated in the comment.
+- **#861 keeper**: implements #830; red commitlint is scope `evidence` (not in `scope-enum`, per the
+  job log); needs rebase, head_sha-pinned checkouts, an observable inventory fallback, post-merge
+  queue cleanup.
+- **#866 keeper**: equations match arXiv:2609.23276 §2 eq. (8) and the paper's RK4 — but no CI job
+  compiles the feature (`workspace_default_members` = root package only; fixture probe in the
+  record), so it was built locally: 13 tests pass, clippy clean.
+
+**Queue hygiene**: the local queue gate caught a pre-existing STALE entry — #842 closed at
+08:09:35Z while `consolidate_the_three_hook_installers` was still queued; removed in this PR (7 → 6).
+
+Record: `plans/PR_ROAST_2026_10_09.md`. No keeper was merged — the merge order is emitted there.

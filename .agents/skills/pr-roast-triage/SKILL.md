@@ -91,6 +91,8 @@ verdict. Close it citing the recorded numbers; do not re-litigate. Rule 17: a
 resubmission must bring the evidence the earlier roast demanded, not restate the
 claim — and check the claim's *mechanism* sentence against the code, since both
 PRs asserted a zero-copy win that a by-value `-> Self` return rules out.
+- **An empty branch is a resubmission to catch by content (2026-10-09, #860).** `gh pr diff` +
+  `changed_files: 0` + empty `git diff <merge-base>..<head> --stat` = the PR merges nothing.
 
 ## Step 4 — Roast rubric (every keeper PR)
 
@@ -197,6 +199,8 @@ PRs asserted a zero-copy win that a by-value `-> Self` return rules out.
   only (`scripts/mutation_test.sh:142`), so `tests/**` cannot kill a mutant however
   precisely it pins the observable. #836 scored 0.0000% discovering this about itself.
   Detail + measured counts: `references/subprocess-and-claim-rubric.md`.
+- **Green CI can be green about another package (2026-10-09, #866).** Root `--all-features` gates
+  select only `workspace_default_members` (here the root package); build member features with `-p`.
 - **`export.json` / `Cargo.lock` noise**: timestamp-only or resolver-churn hunks
   must be dropped before merge.
 - **Bot comments** (Jules hello, Sonar/Codacy pass notes) are noise, not reviews.

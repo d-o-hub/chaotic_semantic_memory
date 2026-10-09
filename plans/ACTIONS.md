@@ -12,6 +12,23 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-10-09):
+> `enforce_main_ruleset_required_checks` (#850) + `triage_pr_roast_2026_10_09` — ruleset `12897801`
+> now requires `lint`, `test` and `mutation-test` (app 15368) alongside `Build CLI (linux-x64)`,
+> `Codacy Static Code Analysis` and `commitlint`, verified against the stored ruleset, the effective
+> `/rules/branches/main` endpoint, and `gh pr checks 867 --required` (3 → 6 contexts); administrator
+> bypass retained by explicit decision. Same round, the six-PR roast: #860/#863/#864 closed as
+> no-op/no-impact (empty diff / #783 inheritance / a fast path that has existed since #611), #867
+> kept open on an evidence bar, #861 and #866 keepers requiring the fixes listed in the record.
+> Record: `plans/PR_ROAST_2026_10_09.md`. Neither item was a queued action; the same round also
+> removed one stale queue entry (#842, next block).
+>
+> Last completed (verified 2026-10-09, second action):
+> `consolidate_the_three_hook_installers` (#842, the #862 hook-bootstrap repair `16a3294`) — GitHub
+> closed #842 at 2026-10-09T08:09:35Z while the action was still queued with `status: in_progress`;
+> the queue gate flagged it STALE on the record branch — the same mechanism as its 2026-10-05 first
+> catch, now firing on an unrelated PR's tree. Deleted the action here; 7 → 6.
+>
 > Last completed (reconciled 2026-10-08):
 > `add_persistence_failure_path_test` (#825 → PR #858, merged 2026-10-06 as `d611e12`)
 > already exists on this branch base. `src/framework_persistence_tests.rs` has three
@@ -667,49 +684,6 @@ actions:
       Measure exit codes without a pipe: `bash scripts/x.sh; echo $?`, never
       `bash scripts/x.sh | tail -1; echo $?`, which reports `tail`'s status and
       made a failing validator look like it exited 0.
-
-  - name: consolidate_the_three_hook_installers
-    github_issue: "#842"
-    status: in_progress
-    preconditions: []
-    effects:
-      single_hook_bootstrap_installed_by_default: true
-    notes: >
-      2026-10-08 STATUS: PR #862 repaired after CI run 37458838397 rejected the
-      hooks commit scope and strict validation on an unbootstrapped checkout.
-      CI now installs hooks before validation; the validator checks local and
-      effective hook paths, all seven Sonar stderr findings are addressed, and
-      20 fixture cases exercise actual Git invocation, linked worktrees,
-      fallback copies, fresh clones, disabled paths and gate failure propagation.
-      Keep this action queued until #842 closes on merge; local verification
-      does not mean the implementation has landed. See plans/PR_ROAST_2026_10_08.md.
-      Split out of #829. Three installers produce three different hook sets:
-      `install-hooks.sh` installed only `scripts/hooks/pre-push`; `setup-hooks.sh`
-      installed only `scripts/pre-commit.sh` as pre-commit;
-      `validate-git-hooks.sh --install` looped over `pre-push commit-msg` looking
-      for `scripts/<hook>.sh` files that do not exist, so it silently installed
-      pre-commit only. `.githooks/pre-commit` and `scripts/pre-commit.sh` are not
-      the same file (`cmp`: differ at byte 40), and `core.hooksPath` was never set
-      — measured again on `83e9a6c`: this checkout's hooks dir
-      (`.git/hooks`, resolved through `git rev-parse --git-common-dir`) contains
-      exactly one non-sample hook, `pre-push`, while `.githooks/` holds
-      `pre-commit` and is referenced by `tooling-guard.yml:24` but installed by
-      nothing. So the committed guard-rail hooks have never run on any local
-      commit. 2026-10-05 STATUS: implemented and verified locally on branch
-      `ci/consolidate-hook-bootstraps` at `cdf711e` — one reconciled
-      `.githooks/pre-commit`, `install-hooks.sh` copying into
-      `$(git rev-parse --git-common-dir)/hooks` by default (an absolute
-      `core.hooksPath` under `--link`, because a relative one does not fire inside
-      linked worktrees on git 2.43.0), `setup-hooks.sh` reduced to a shim,
-      `validate-git-hooks.sh` fail-closed, a 19-test `test-hook-bootstrap.sh`,
-      `validate.sh` wiring; not pushed yet — it goes after #847/#854 so the
-      `validate.sh` region rebases once. Disclosed consequences an implementer
-      must not skip: local commits start running clippy (≈3 min with a warm
-      shared `CARGO_TARGET_DIR`), `scripts/pre-commit.sh` keeps doc references in
-      `docs/release-guardrails.md:65,67,112,127` and `HARNESS.md:45` after no
-      script references it, and `.githooks/pre-commit` cannot be deleted because
-      `tooling-guard.yml:24` guards it.
-
 
   - name: mutation_baseline_the_feature_gated_mcp_module
     github_issue: "#833"
