@@ -183,6 +183,12 @@ impl Persistence {
     ) -> Result<Option<csm_memory::index_envelope::IndexSnapshotEnvelope>> {
         Err(wasm_persistence_unavailable())
     }
+
+    pub fn query_count(&self) -> u64 {
+        0
+    }
+
+    pub fn reset_query_count(&self) {}
 }
 
 #[allow(dead_code)] // wasm-only stub, exercised by the root wasm tests

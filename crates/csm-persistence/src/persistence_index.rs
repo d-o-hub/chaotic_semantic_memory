@@ -9,6 +9,7 @@ use crate::persistence::Persistence;
 use csm_core_lib::error::{MemoryError, Result};
 use csm_memory::index_envelope::IndexSnapshotEnvelope;
 use libsql::params;
+use std::sync::atomic::Ordering;
 
 impl Persistence {
     /// Save the serialized index state to the database (raw or pre-wrapped bytes).
@@ -149,6 +150,7 @@ impl Persistence {
     pub async fn load_all_associations(&self, ns: &str) -> Result<Vec<(String, String, f32, u64)>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
+        self.query_count.fetch_add(1, Ordering::SeqCst);
 
         let mut rows = conn
             .query(
@@ -269,6 +271,42 @@ mod tests {
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].0, "a");
         assert_eq!(all[0].1, "b");
+        std::fs::remove_file(path).ok();
+    }
+
+    #[tokio::test]
+    async fn bulk_associations_load_query_count() {
+        let path = "/tmp/test_bulk_assoc_query_count.db";
+        let _ = std::fs::remove_file(path);
+        let persistence = Persistence::new_local(path).await.unwrap();
+
+        for i in 0..=50 {
+            let id = format!("concept_{i}");
+            let concept = csm_memory::ConceptBuilder::new(&id)
+                .with_vector(csm_core_lib::hyperdim::HVec10240::zero())
+                .build()
+                .unwrap();
+            persistence.save_concept("ns", &concept).await.unwrap();
+        }
+
+        for i in 0..50 {
+            let from = format!("concept_{i}");
+            let to = format!("concept_{}", i + 1);
+            persistence
+                .save_association("ns", &from, &to, 0.8)
+                .await
+                .unwrap();
+        }
+
+        persistence.reset_query_count();
+        let all = persistence.load_all_associations("ns").await.unwrap();
+        assert_eq!(all.len(), 50);
+        assert_eq!(
+            persistence.query_count(),
+            1,
+            "load_all_associations must issue exactly 1 database query regardless of association count"
+        );
+
         std::fs::remove_file(path).ok();
     }
 }

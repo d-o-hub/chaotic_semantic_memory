@@ -6,7 +6,7 @@
 use csm_core_lib::error::{MemoryError, Result};
 use libsql::{Builder, Connection, Database, params};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 pub(crate) const LATEST_SCHEMA_VERSION: i64 = 12;
 
@@ -17,6 +17,7 @@ pub struct Persistence {
     pub(crate) remote_limit: Option<Arc<Semaphore>>,
     pub(crate) version_retention: usize,
     pub(crate) simulate_failure: AtomicBool,
+    pub(crate) query_count: AtomicU64,
 }
 
 pub use csm_memory::ConceptVersion;
@@ -39,6 +40,7 @@ impl Persistence {
             remote_limit: None,
             version_retention: version_retention.max(1),
             simulate_failure: AtomicBool::new(false),
+            query_count: AtomicU64::new(0),
         };
         persistence.init_schema().await?;
         Ok(persistence)
@@ -70,6 +72,7 @@ impl Persistence {
             remote_limit: Some(Arc::new(Semaphore::new(pool_size.max(1)))),
             version_retention: version_retention.max(1),
             simulate_failure: AtomicBool::new(false),
+            query_count: AtomicU64::new(0),
         };
         persistence.init_schema().await?;
         Ok(persistence)
@@ -78,6 +81,16 @@ impl Persistence {
     /// Toggle failure simulation for test scenarios.
     pub fn set_simulate_failure(&self, fail: bool) {
         self.simulate_failure.store(fail, Ordering::SeqCst);
+    }
+
+    /// Returns the number of database queries executed.
+    pub fn query_count(&self) -> u64 {
+        self.query_count.load(Ordering::SeqCst)
+    }
+
+    /// Resets the database query counter to zero.
+    pub fn reset_query_count(&self) {
+        self.query_count.store(0, Ordering::SeqCst);
     }
 
     pub(crate) async fn connect(&self) -> Result<Connection> {
@@ -218,6 +231,7 @@ impl Persistence {
     pub async fn load_associations(&self, ns: &str, id: &str) -> Result<Vec<(String, f32, u64)>> {
         let _permit = self.acquire_remote_slot().await?;
         let conn = self.connect().await?;
+        self.query_count.fetch_add(1, Ordering::SeqCst);
 
         let mut rows = conn
             .query(
