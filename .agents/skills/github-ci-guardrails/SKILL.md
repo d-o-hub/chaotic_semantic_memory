@@ -35,3 +35,12 @@ git diff --stat origin/main...HEAD   # unexpected reverts?
 npx commitlint --from origin/main --to HEAD --verbose
 gh pr checks <n>
 ```
+
+### After a bot force-push or a bot merge
+
+Re-derive the **tree**, not just the head SHA: `git diff --stat origin/main...HEAD` shows the PR's
+intended files, and `git diff origin/main HEAD -- <dirs main recently touched>` catches a merge
+resolution that silently restored an old side of a conflict (measured 2026-10-10, #861: main's
+`query_count` implementation had vanished from a branch whose own commits never touched the file,
+while every check stayed green). `--force-with-lease` detects remote movement, never content loss;
+rebuilding as `main` + the intended files is safer than trusting the merge.

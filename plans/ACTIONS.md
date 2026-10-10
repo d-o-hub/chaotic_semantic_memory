@@ -13,6 +13,14 @@
 > entries to this file.
 >
 > Last completed (verified 2026-10-10):
+> `complete_evidence_tiers_and_mutation_hardening` (#830 → PR #861, squashed as `3ef32d5d`) —
+> `scheduled-evidence.yml` (weekly scale-evidence + full mutation sweep), `crates/**` in the
+> `benchmark-ci.yml` path filters, `pre-release-gate.yml` on `workflow_run` only with
+> `head_sha`-pinned checkouts + `benchmark-gate`, and the argv-free module-level mutation inventory
+> with its 16-assertion fixture wired into `validate.sh`. Entry removed because the merge closed
+> #830. 5 → 4.
+>
+> Last completed (verified 2026-10-10, second action):
 > `add_query_count_regression_test` (#826, landed on `main` as `81c292de`) — the `Persistence`
 > query counter and the `load_all_associations` regression test; the entry was removed because
 > the reconciliation gate caught it STALE on main's post-merge CI run 38026936562 and fails
@@ -617,30 +625,6 @@ actions:
       `scripts/yaml-to-drawio.py` renders, and nothing checks either. Flipping
       `skill_catalog_generated_and_gated` to `true` while the action is still queued is exactly what
       `check-goap-queue-issues.sh` errors on, so the effect waits for the half that is not done.
-
-  - name: complete_evidence_tiers_and_mutation_hardening
-    github_issue: "#830"
-    status: in_progress
-    preconditions: []
-    effects:
-      scheduled_and_release_evidence_tiers: true
-      mutation_inventory_published: true
-    notes: >
-      Audit E4/E6 + ADR-0095 tiers, re-verified 2026-09-30. The PR tier exists
-      (`benchmark-ci.yml`; `ci.yml` test-benchmarks, graph-candidates,
-      perf-evidence gate), but no scheduled workflow runs the scale evidence
-      (`scripts/scale-evidence.sh`) or a full mutation sweep;
-      `pre-release-gate.yml` (workflow_call + workflow_dispatch) has no caller
-      and runs no benchmark; `benchmark-ci.yml` path filters omit `crates/**`,
-      so owner-crate changes skip it. Mutation: timeouts are unresolved ✓ and a
-      budget fails the job ✓, but the static exclude list
-      (`scripts/mutation_test.sh:181-262`) still applies to changed files and
-      only aggregate counts are printed (no module-level inventory artifact).
-      2026-10-09 STATUS: implementation in review as PR #861 — scheduled-evidence.yml,
-      the module-level inventory (`scripts/mutation_inventory.py` + its fixture test),
-      and the workflow_run wiring of pre-release-gate.yml. The entry stays until the
-      merge closes #830, because the reconciliation gate requires a queued entry iff
-      its issue is open.
 
   - name: reconcile_and_wire_the_two_link_validators
     github_issue: "#840"

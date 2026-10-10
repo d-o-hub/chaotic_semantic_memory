@@ -1256,3 +1256,21 @@ Admin bypass retained (explicit decision), so the gates bind non-bypassing merge
 08:09:35Z while `consolidate_the_three_hook_installers` was still queued; removed in this PR (7 → 6).
 
 Record: `plans/PR_ROAST_2026_10_09.md`. No keeper was merged — the merge order is emitted there.
+
+## 2026-10-10: #866 and #861 landed; a bot-merge revert caught before it shipped
+
+### The merge order executed, one rebase at a time
+#866 (`c75e700`): paper-verified map + the CI path that finally compiles `csm-chaos`'s
+experimental modules (`cargo test -p csm-chaos --all-features` in the workspace matrix).
+#861 (`3ef32d5d`): scheduled evidence + the argv-free mutation inventory, after **three** bot
+pushes. The second push had merged main with a conflict resolution that *reverted* main's #826
+persistence work — caught by the pre-merge two-dot diff and fixed by rebuilding the branch on
+current main (10 files, persistence drift 0). The Codacy holdout was one unused `import sys`; the
+CodeQL holdout was the write-capable `workflow_dispatch` + `head_sha` combination — dropped per
+the query's own docs, which exempt `workflow_run`'s read-only cache scope. The merge also fixed
+main's red lint: #826 landed without its queue-entry removal and the reconciliation gate failed
+closed on it (run 38026936562).
+
+### Queue
+6 → 5 (#826, caught by the gate on main) → 4 (#830, this close-out). #869 roasted (keeper, four
+repairs) — next in the merge order; #867 still open on its evidence bar.

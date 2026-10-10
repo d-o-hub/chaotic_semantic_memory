@@ -100,7 +100,7 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 5        # 2026-10-10: removed closed #826, landed on main as 81c292de. 2026-10-09: removed closed #842 (#862 landed the hook consolidation; the gate flagged the stale entry while shipping the record PR). 2026-10-08: removed closed #825, already implemented by #858 on base d611e12. Historical 2026-10-05 ledger: Every line below is `git show <commit>:plans/ACTIONS.md
+  queued_actions_count: 4        # 2026-10-10: removed closed #830 (PR #861, 3ef32d5d); earlier that day removed closed #826 (81c292de). 2026-10-09: removed closed #842 (#862 landed the hook consolidation; the gate flagged the stale entry while shipping the record PR). 2026-10-08: removed closed #825, already implemented by #858 on base d611e12. Historical 2026-10-05 ledger: Every line below is `git show <commit>:plans/ACTIONS.md
                                #   | grep -c '^  - name:'`, not a recollection — and reading the commits
                                #   instead of the prose is what exposed the drift #851 was written about:
                                #   87fa734 (#837 landed) -> 10   entry NOT removed
@@ -171,6 +171,8 @@ world_state:
   cargo_deny_required_in_ci: true
   fuzz_build_required_in_ci: true
   ruleset_requires_core_ci_gates: true  # 2026-10-09 (#850): ruleset 12897801 requires lint/test/mutation-test (app 15368) in addition to Build CLI/Codacy/commitlint; strict up-to-date and admin PR bypass retained. Verified via the stored ruleset, /rules/branches/main and `gh pr checks 867 --required` (3 -> 6 contexts).
+  scheduled_evidence_tier_runs: true  # 2026-10-10 (#830 -> PR #861, 3ef32d5d): scheduled-evidence.yml runs scale-evidence + a full mutation sweep weekly (dispatch included); benchmark-ci path filters cover crates/**.
+  mutation_inventory_published: true  # 2026-10-10 (#830 -> PR #861): module-level table appended to progress/mutation/<profile>-latest.md and uploaded as artifacts.
   release_wait_event_driven: true                 # 2026-09-30: release.yml triggers on CI completion (workflow_run, head_sha-pinned); no polling ceiling. Proof: runs 36746741481 + 36746882951 green, publishes correctly skipped
   crates_publish_precheck_ownership_aware: true   # 2026-09-30: owners API (free or d-o-hub passes; other owners fail; unknown HTTP fails closed) replaces the published-version comparison; verified live incl. negative control
   csm_duckdb_in_release_publish_order: true       # 2026-09-30: dedicated step after the root publish waits for the root version in the index; companion loop exposes failures instead of swallowing them
@@ -238,4 +240,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: add_query_count_regression_test  # 2026-10-10 #826 — landed on main as 81c292de (query counter + regression test); entry removed, 6 -> 5. Previous: enforce_main_ruleset_required_checks (#850, 2026-10-09).
+  action_last_completed: complete_evidence_tiers_and_mutation_hardening  # 2026-10-10 #830 — PR #861 squashed as 3ef32d5d; entry removed, 5 -> 4. Previous: add_query_count_regression_test (#826, 81c292de).
