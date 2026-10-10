@@ -180,10 +180,11 @@ impl Singularity {
         let Some(ns_state) = self.get_namespace(ns) else {
             return Vec::new();
         };
-        let mut candidates = std::collections::HashSet::new();
+        let max_candidates = self._retrieval_config.max_candidates;
+        let mut candidates = std::collections::HashSet::with_capacity(max_candidates.min(128));
         let results = self.exact_similarity_scan(ns, query, 1, unix_now_ns(), true);
         if let Some((seed_id, _)) = results.first() {
-            let mut queue = VecDeque::new();
+            let mut queue = VecDeque::with_capacity(self._retrieval_config.graph_fanout + 1);
             queue.push_back((seed_id.as_str(), 0u8));
             candidates.insert(seed_id.as_str());
 
@@ -214,12 +215,14 @@ impl Singularity {
             }
         }
 
-        let mut res: Vec<usize> = candidates
-            .into_iter()
-            .filter_map(|id| ns_state.id_to_index.get(id).copied())
-            .collect();
-        if res.len() > self._retrieval_config.max_candidates {
-            res.truncate(self._retrieval_config.max_candidates);
+        let mut res = Vec::with_capacity(candidates.len().min(max_candidates));
+        for id in candidates {
+            if let Some(&idx) = ns_state.id_to_index.get(id) {
+                res.push(idx);
+                if res.len() == max_candidates {
+                    break;
+                }
+            }
         }
         res
     }
@@ -231,11 +234,16 @@ impl Singularity {
         query: &HVec10240,
         candidate_ids: &[String],
     ) -> Vec<(String, f32)> {
-        let refs: Vec<&str> = candidate_ids.iter().map(String::as_str).collect();
-        self.score_candidate_positions(ns, query, &refs)
-            .into_iter()
-            .map(|(pos, sim)| (candidate_ids[pos].clone(), sim))
-            .collect()
+        let mut refs = Vec::with_capacity(candidate_ids.len());
+        for id in candidate_ids {
+            refs.push(id.as_str());
+        }
+        let scored = self.score_candidate_positions(ns, query, &refs);
+        let mut results = Vec::with_capacity(scored.len());
+        for (pos, sim) in scored {
+            results.push((candidate_ids[pos].clone(), sim));
+        }
+        results
     }
 
     /// Score borrowed candidate IDs, returning input positions instead of clones.
@@ -255,15 +263,14 @@ impl Singularity {
             return Vec::new();
         };
 
-        candidate_ids
-            .iter()
-            .enumerate()
-            .filter_map(|(pos, id)| ns_state.id_to_index.get(*id).map(|&idx| (pos, idx)))
-            .map(|(pos, idx)| {
+        let mut results = Vec::with_capacity(candidate_ids.len());
+        for (pos, &id) in candidate_ids.iter().enumerate() {
+            if let Some(&idx) = ns_state.id_to_index.get(id) {
                 let dist = query.hamming_distance(&ns_state.concept_vectors[idx]);
-                (pos, 1.0 - (dist as f32 / 5120.0))
-            })
-            .collect()
+                results.push((pos, 1.0 - (dist as f32 / 5120.0)));
+            }
+        }
+        results
     }
 
     /// Perform exact similarity scan over all vectors.
