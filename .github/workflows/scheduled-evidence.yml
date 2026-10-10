@@ -1,0 +1,84 @@
+name: Scheduled Evidence & Mutation Sweep
+
+on:
+  schedule:
+    # Weekly run every Sunday at 04:00 UTC
+    - cron: '0 4 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scheduled-evidence-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  scale-evidence:
+    name: Scale Evidence Run
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+        with:
+          cache: false
+
+      - name: Run ANN scale evidence
+        run: bash scripts/scale-evidence.sh ann --out plans/evidence/scheduled_scale
+
+      - name: Run Persistence scale evidence
+        run: bash scripts/scale-evidence.sh persistence --out plans/evidence/scheduled_scale
+
+      - name: Run Memory scale evidence
+        run: bash scripts/scale-evidence.sh memory --out plans/evidence/scheduled_scale
+
+      - name: Render scale evidence README
+        run: python3 scripts/render-scale-evidence.py scheduled_scale
+
+      - name: Upload Scale Evidence Artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: scale-evidence-artifacts
+          path: plans/evidence/scheduled_scale
+          retention-days: 30
+
+  full-mutation-sweep:
+    name: Full Mutation Sweep
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+        with:
+          cache: false
+
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2.87.22
+        with:
+          tool: cargo-mutants
+
+      - name: Run full mutation sweep
+        env:
+          MUTATION_THRESHOLD: 80
+          MUTANTS_JOBS: 4
+        run: bash scripts/mutation_test.sh full --ci
+
+      - name: Upload Mutation Test Artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: full-mutation-artifacts
+          path: progress/mutation
+          retention-days: 30

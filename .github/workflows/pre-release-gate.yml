@@ -1,8 +1,16 @@
 name: Pre-Release Gate
 
 on:
-  workflow_call:
-  workflow_dispatch:
+  # Deliberately no workflow_dispatch: a write-capable trigger combined with a
+  # head_sha checkout is what CodeQL's actions/cache-poisoning queries report
+  # (https://codeql.github.com/codeql-query-help/actions/actions-cache-poisoning-poisonable-step/);
+  # workflow_run has read-only default-branch cache scope and is not reported.
+  # Manual runs of the scheduled evidence tier go through the dispatch on
+  # scheduled-evidence.yml instead.
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
@@ -14,8 +22,15 @@ env:
 jobs:
   pr-drain-check:
     runs-on: ubuntu-24.04
+    if: >-
+      github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.head_repository.full_name == github.repository
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        ref: ${{ github.event.workflow_run.head_sha }}
+        persist-credentials: false
 
     - name: Check for blocking open PRs
       env:
@@ -34,8 +49,15 @@ jobs:
 
   version-triad:
     runs-on: ubuntu-24.04
+    if: >-
+      github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.head_repository.full_name == github.repository
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        ref: ${{ github.event.workflow_run.head_sha }}
+        persist-credentials: false
 
     - name: Verify version triad integrity
       run: |
@@ -57,8 +79,15 @@ jobs:
 
   security-audit:
     runs-on: ubuntu-24.04
+    if: >-
+      github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.head_repository.full_name == github.repository
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        ref: ${{ github.event.workflow_run.head_sha }}
+        persist-credentials: false
 
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
@@ -77,8 +106,15 @@ jobs:
 
   wasm-smoke-build:
     runs-on: ubuntu-24.04
+    if: >-
+      github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.head_repository.full_name == github.repository
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        ref: ${{ github.event.workflow_run.head_sha }}
+        persist-credentials: false
 
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
@@ -91,8 +127,15 @@ jobs:
 
   planning-state-check:
     runs-on: ubuntu-24.04
+    if: >-
+      github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.head_repository.full_name == github.repository
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        ref: ${{ github.event.workflow_run.head_sha }}
+        persist-credentials: false
 
     - name: Verify ADR-0042 is Accepted
       run: |
@@ -103,12 +146,45 @@ jobs:
         fi
         echo "✅ ADR-0042 status is Accepted"
 
+  benchmark-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    if: >-
+      github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.head_repository.full_name == github.repository
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        ref: ${{ github.event.workflow_run.head_sha }}
+        persist-credentials: false
+    - name: Install Rust
+      uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+      with:
+        cache: false
+    - name: Benchmark workspace unit tests
+      run: cargo test --manifest-path benchmarks/Cargo.toml --locked --quiet
+    - name: Run benchmark
+      run: cargo run --manifest-path benchmarks/Cargo.toml -- --dataset-dir benchmarks/datasets/v1/small --mode retrieval-only --out-dir benchmarks/results/pre-release
+    - name: Verify outputs
+      run: |
+        if [ ! -f benchmarks/results/pre-release/summary.json ]; then echo "Missing summary.json"; exit 1; fi
+        if [ ! -f benchmarks/results/pre-release/results.jsonl ]; then echo "Missing results.jsonl"; exit 1; fi
+        if [ ! -f benchmarks/results/pre-release/report.md ]; then echo "Missing report.md"; exit 1; fi
+        grep -q "recall_at_1" benchmarks/results/pre-release/summary.json || (echo "Malformed summary.json"; exit 1)
+
   mutation-test:
     runs-on: ubuntu-24.04
+    if: >-
+      github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.head_repository.full_name == github.repository
     timeout-minutes: 120
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
+        ref: ${{ github.event.workflow_run.head_sha }}
+        persist-credentials: false
         fetch-depth: 0
 
     - name: Install Rust
@@ -128,9 +204,17 @@ jobs:
         MUTANTS_JOBS: 4
       run: bash scripts/mutation_test.sh fast --ci
 
+    - name: Upload Mutation Test Artifacts
+      if: always()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: pre-release-mutation-artifacts
+        path: progress/mutation
+        retention-days: 30
+
   gate-summary:
     runs-on: ubuntu-24.04
-    needs: [pr-drain-check, version-triad, security-audit, wasm-smoke-build, planning-state-check, mutation-test]
+    needs: [pr-drain-check, version-triad, security-audit, wasm-smoke-build, planning-state-check, benchmark-gate, mutation-test]
     if: always()
     steps:
     - name: Gate summary
@@ -144,6 +228,7 @@ jobs:
         echo "| Security Audit | ${{ needs.security-audit.result }} |" >> $GITHUB_STEP_SUMMARY
         echo "| WASM Build | ${{ needs.wasm-smoke-build.result }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Planning State | ${{ needs.planning-state-check.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Benchmark Gate | ${{ needs.benchmark-gate.result }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Unit-Target Mutation Score | ${{ needs.mutation-test.result }} |" >> $GITHUB_STEP_SUMMARY
 
         if [ "${{ needs.pr-drain-check.result }}" != "success" ] || \
@@ -151,6 +236,7 @@ jobs:
            [ "${{ needs.security-audit.result }}" != "success" ] || \
            [ "${{ needs.wasm-smoke-build.result }}" != "success" ] || \
            [ "${{ needs.planning-state-check.result }}" != "success" ] || \
+           [ "${{ needs.benchmark-gate.result }}" != "success" ] || \
            [ "${{ needs.mutation-test.result }}" != "success" ]; then
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "❌ **Gate failed** - one or more checks did not pass" >> $GITHUB_STEP_SUMMARY

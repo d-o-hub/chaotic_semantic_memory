@@ -11,6 +11,8 @@
 #   - Fast CI uses `-- --lib` so each mutant is ~10–15s of tests after build.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 CI_MODE=false
 THRESHOLD="${MUTATION_THRESHOLD:-85}"
 POSITIONAL=()
@@ -395,6 +397,8 @@ set -e
   tail -n 40 "${LOG_FILE}"
   echo '```'
 } >"${REPORT_FILE}"
+
+python3 "${SCRIPT_DIR}/mutation_inventory.py" >> "${REPORT_FILE}"
 
 echo "wrote ${REPORT_FILE}"
 

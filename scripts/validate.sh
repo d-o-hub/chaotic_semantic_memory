@@ -141,6 +141,12 @@ for fixture in test-llms-sync.sh test-version-sync.sh; do
   fi
 done
 
+# Module-level mutation inventory parser (PR #861 review): pins the real
+# cargo-mutants 27.1.0 outcomes.json schema (variant-name summaries) and the
+# aggregate cross-check — the failure directions a lowercased compare hides.
+echo "==> Mutation inventory fixture"
+"${SCRIPT_DIR}/test-mutation-inventory.sh"
+
 LOC=$(grep -cE '^\s*(pub |fn |struct |enum |trait |impl )' llms-full.txt || true)
 echo "Public API surface: $LOC symbols"
 

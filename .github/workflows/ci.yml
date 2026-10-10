@@ -535,6 +535,14 @@ jobs:
         CARGO_TERM_COLOR: always
         RUST_BACKTRACE: "0"
 
+    - name: Upload Mutation Test Artifacts
+      if: always()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: mutation-artifacts
+        path: progress/mutation
+        retention-days: 14
+
   wasm:
     needs: detect-changes
     if: needs.detect-changes.outputs.wasm == 'true'
