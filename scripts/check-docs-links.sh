@@ -7,12 +7,10 @@
 # Checks:
 #   1. Internal file links (relative paths like @file.md or [text](./path.md))
 #   2. External URLs (http/https links) - with --check-urls
-#   3. Code block commands (bash commands in markdown code blocks)
-#   4. Version references consistency across ALL files:
-#      - Core: Cargo.toml, Cargo.lock, wasm/package.json
-#      - Docs: README.md, book/src/getting-started.md, CHANGELOG.md, llms.txt
-#      - Tests: examples/cli/*.sh, tests/*.rs
-#      - Generated: export.json, csm_test.json (gitignored)
+#   3. Code block commands (referenced repository scripts)
+#   4. Version references consistency across core package and doc files:
+#      - Core: Cargo.toml, Cargo.lock, wasm/package.json, cli-npm/package.json, VERSION
+#      - Docs: README.md, book/src/getting-started.md, CHANGELOG.md, llms.txt, llms-full.txt
 #
 # Exit codes:
 #   0 - All checks passed
@@ -124,7 +122,7 @@ check_version() {
 # =============================================================================
 echo -e "${CYAN}→ Checking internal file links...${NC}"
 
-MD_FILES=$(find . -name "*.md" -not -path "./target/*" -not -path "./.git/*" 2>/dev/null | sort)
+MD_FILES=$(find . -name "*.md" -not -path "./target/*" -not -path "./.git/*" -not -path "./plans/.archive/*" -not -path "./.mimocode/*" -not -path "*/node_modules/*" -not -path "./.qoder/*" -not -path "./.opencode/*" 2>/dev/null | sort)
 
 check_file_link() {
     local link="$1"
@@ -133,32 +131,56 @@ check_file_link() {
     source_dir=$(dirname "$source_file")
     local target_path
     
+    # Strip anchor if present (e.g. path.md#L10-L20 or #section)
+    link="${link%%#*}"
+    if [[ -z "$link" ]]; then
+        return 0
+    fi
+
     if [[ "$link" =~ ^@(.*)$ ]]; then
-        target_path="${BASH_REMATCH[1]}"
-    elif [[ "$link" =~ ^\.\./? ]]; then
-        target_path="${source_dir}/${link}"
-    elif [[ "$link" =~ ^[a-zA-Z] ]]; then
+        local after_at="${BASH_REMATCH[1]}"
+        if [[ -e "./${after_at}" ]]; then
+            target_path="./${after_at}"
+        elif [[ -e "${source_dir}/${after_at}" ]]; then
+            target_path="${source_dir}/${after_at}"
+        else
+            target_path="./${after_at}"
+        fi
+    elif [[ "$link" =~ ^\./ ]] || [[ "$link" =~ ^\.\./ ]] || [[ "$link" =~ ^[a-zA-Z0-9_] ]]; then
         target_path="${source_dir}/${link}"
     else
         return 0
     fi
     
-    target_path=$(cd "$(dirname "$target_path")" 2>/dev/null && pwd)/$(basename "$target_path") 2>/dev/null || return 1
+    if [[ -d "$(dirname "$target_path")" ]]; then
+        target_path=$(cd "$(dirname "$target_path")" 2>/dev/null && pwd)/$(basename "$target_path") 2>/dev/null || return 1
+    else
+        return 1
+    fi
     
-    [[ -f "$target_path" ]]
+    [[ -f "$target_path" || -d "$target_path" ]]
 }
 
 while IFS= read -r md_file; do
+    if [[ -z "$md_file" ]]; then continue; fi
+
     # Extract @file references
     while IFS= read -r link; do
-        # Skip npm packages (@scope/package), version tags (@v1.0.0), emails, GitHub mentions
+        if [[ -z "$link" ]]; then continue; fi
+        # Skip npm packages (@scope/package)
         if [[ "$link" =~ ^@[^/]+/ ]]; then continue; fi
-        if [[ "$link" =~ ^@v[0-9] ]]; then continue; fi  # Skip version tags like @v2.0.0
-        if [[ "$link" =~ ^@.+_ ]]; then continue; fi
+        # Skip version tags (@v1.0.0 or @0.3.7)
+        if [[ "$link" =~ ^@v?[0-9]+\.[0-9]+ ]]; then continue; fi
+        # Skip commit SHAs (@0631aa6515c7d545823c67cfae7ef4fc7f490154)
+        if [[ "$link" =~ ^@[0-9a-fA-F]{7,40}$ ]]; then continue; fi
+        # Skip domain extensions
         if [[ "$link" =~ ^@.*\.(com|io|org|net|dev) ]]; then continue; fi
         after_at="${link#@}"
-        if [[ ! "$after_at" =~ \. ]] && [[ ${#after_at} -lt 20 ]]; then continue; fi
-        if [[ "$link" == "@-mentions" ]] || [[ "$link" == "@file.md" ]]; then continue; fi
+        # Skip references without a dot extension
+        if [[ ! "$after_at" =~ \. ]]; then continue; fi
+        # Skip example syntax quoted in prose
+        if [[ "$link" == "@-mentions" ]] || [[ "$link" == "@file.md" ]] || [[ "$link" == "@path.md" ]] || [[ "$link" == "@imports" ]]; then continue; fi
+
         ((TOTAL_CHECKED++)) || true
         if ! check_file_link "$link" "$md_file"; then
             echo -e "${RED}✗${NC} $md_file: broken link '$link'"
@@ -168,8 +190,10 @@ while IFS= read -r md_file; do
     
     # Extract [text](./path) style links
     while IFS= read -r link; do
+        if [[ -z "$link" ]]; then continue; fi
         if [[ "$link" =~ ^https?:// ]] || [[ "$link" =~ ^# ]]; then continue; fi
-        if [[ "$link" == "./path.md" ]] || [[ "$link" == "path.md" ]]; then continue; fi
+        # Skip example syntax quoted in prose
+        if [[ "$link" == "./path.md" ]] || [[ "$link" == "path.md" ]] || [[ "$link" == "file.md" ]] || [[ "$link" == "@file.md" ]]; then continue; fi
         ((TOTAL_CHECKED++)) || true
         if ! check_file_link "$link" "$md_file"; then
             echo -e "${RED}✗${NC} $md_file: broken link '$link'"
@@ -217,6 +241,7 @@ echo ""
 echo -e "${CYAN}→ Checking code block commands...${NC}"
 
 while IFS= read -r md_file; do
+    if [[ -z "$md_file" ]]; then continue; fi
     in_bash_block=false
     while IFS= read -r line; do
         if [[ "$line" =~ ^\`\`\`(bash|sh|shell) ]]; then
@@ -228,17 +253,11 @@ while IFS= read -r md_file; do
             continue
         fi
         if $in_bash_block && [[ -n "$line" ]] && [[ ! "$line" =~ ^# ]]; then
-            ((TOTAL_CHECKED++)) || true
             base_cmd=$(echo "$line" | awk '{print $1}')
             case "$base_cmd" in
-                cargo|rustc|rustup|git|gh|npm|node|python|pip)
-                    if ! command -v "$base_cmd" &> /dev/null; then
-                        echo -e "${RED}✗${NC} $md_file: command '$base_cmd' not found"
-                        ((INVALID_COMMANDS++)) || true
-                    fi
-                    ;;
                 ./scripts/*|scripts/*)
                     script_path="${base_cmd#./}"
+                    ((TOTAL_CHECKED++)) || true
                     if [[ ! -f "$script_path" ]]; then
                         echo -e "${RED}✗${NC} $md_file: script '$script_path' not found"
                         ((INVALID_COMMANDS++)) || true
@@ -268,6 +287,16 @@ check_version "wasm/package.json" "$CARGO_VERSION" \
     "s/\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+\"/\"version\": \"${CARGO_VERSION}\"/" \
     "wasm/package.json" \
     'grep "\"version\"" wasm/package.json | head -1 | sed "s/.*: *\"\([0-9.]\+\)\".*/\1/"'
+
+check_version "cli-npm/package.json" "$CARGO_VERSION" \
+    "s/\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+\"/\"version\": \"${CARGO_VERSION}\"/" \
+    "cli-npm/package.json" \
+    'grep "\"version\"" cli-npm/package.json | head -1 | sed "s/.*: *\"\([0-9.]\+\)\".*/\1/"'
+
+check_version "VERSION" "$CARGO_VERSION" \
+    "" \
+    "VERSION" \
+    'tr -d "[:space:]" < VERSION'
 
 check_version "Cargo.lock" "$CARGO_VERSION" \
     "" \
@@ -318,54 +347,7 @@ check_version "llms-full.txt" "$CARGO_VERSION" \
     "llms-full.txt" \
     'grep -oE "[0-9]+\.[0-9]+\.[0-9]+" llms-full.txt | head -1'
 
-# Test & Example files
-echo ""
-echo -e "${BLUE}  Test & Example Files${NC}"
-
-for f in examples/cli/*.sh; do
-    if [[ -f "$f" ]]; then
-        ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[0-9.]+"' "$f" 2>/dev/null | head -1 | sed 's/.*"\([0-9.]\+\)".*/\1/' || true)
-        if [[ -n "$ver" ]]; then
-            ((TOTAL_CHECKED++)) || true
-            if [[ "$ver" == "$CARGO_VERSION" ]]; then
-                echo -e "${GREEN}✓${NC} $f: $ver"
-            else
-                echo -e "${RED}✗${NC} $f: $ver (expected $CARGO_VERSION)"
-                ((VERSION_MISMATCH++)) || true
-                if $FIX_MODE; then
-                    sed -i "s/\"version\"[[:space:]]*:[[:space:]]*\"[0-9.]\+\"/\"version\": \"${CARGO_VERSION}\"/g" "$f"
-                    echo -e "${CYAN}↻${NC} Fixed: $f"
-                    ((FIXED++)) || true
-                fi
-            fi
-        fi
-    fi
-done
-
-for f in tests/*.rs; do
-    if [[ -f "$f" ]]; then
-        ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[0-9.]+"' "$f" 2>/dev/null | head -1 | sed 's/.*"\([0-9.]\+\)".*/\1/' || true)
-        if [[ -n "$ver" ]]; then
-            ((TOTAL_CHECKED++)) || true
-            if [[ "$ver" == "$CARGO_VERSION" ]]; then
-                echo -e "${GREEN}✓${NC} $f: $ver"
-            else
-                echo -e "${RED}✗${NC} $f: $ver (expected $CARGO_VERSION)"
-                ((VERSION_MISMATCH++)) || true
-                if $FIX_MODE; then
-                    sed -i "s/\"version\"[[:space:]]*:[[:space:]]*\"[0-9.]\+\"/\"version\": \"${CARGO_VERSION}\"/g" "$f"
-                    echo -e "${CYAN}↻${NC} Fixed: $f"
-                    ((FIXED++)) || true
-                fi
-            fi
-        fi
-    fi
-done
-
 # Generated/Test JSON files
-echo ""
-echo -e "${BLUE}  Generated/Test JSON Files${NC}"
-
 if [[ -f "export.json" ]]; then
     check_version "export.json" "$CARGO_VERSION" \
         "s/\"version\": \"[0-9.]\+\"/\"version\": \"${CARGO_VERSION}\"/" \

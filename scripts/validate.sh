@@ -234,6 +234,17 @@ else
   exit 1
 fi
 
+# Documentation link and version checker (issue #840)
+if [[ -x "${SCRIPT_DIR}/check-docs-links.sh" ]]; then
+  echo "==> Documentation link & version validation (fail-closed)"
+  "${SCRIPT_DIR}/check-docs-links.sh"
+  echo "==> Documentation link gate fixture (both directions of every check)"
+  "${SCRIPT_DIR}/test-check-docs-links.sh"
+else
+  echo "Error: scripts/check-docs-links.sh missing or not executable"
+  exit 1
+fi
+
 # Skill format validation (ADR-0096) — fail-closed LOC/frontmatter/local refs
 if [[ -x "${SCRIPT_DIR}/validate-skill-format.sh" ]]; then
   echo "==> Skill format validation (fail-closed)"

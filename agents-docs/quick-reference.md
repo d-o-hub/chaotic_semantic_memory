@@ -172,8 +172,8 @@ csm import backup.json
 # Validate skill.md format (frontmatter, sections)
 ./scripts/validate-skill-format.sh
 
-# Validate links in skill files
-./scripts/validate-links.sh
+# Validate links in documentation and skill files
+./scripts/check-docs-links.sh
 ```
 
 ## Validation Scripts
