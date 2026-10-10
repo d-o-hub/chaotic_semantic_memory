@@ -1285,3 +1285,14 @@ only on clean checkouts. The head was refreshed once (identical content, new sha
 commitlint reads the PR title from the run's *event payload*: the title PATCH after the push left
 the in-flight run validating `fix(scripts)` while the commit check on the same run passed.
 Queue: 4 → 3 (#840 removed here).
+
+## 2026-10-10 (cont. 2): #871 closed as no demonstrated impact after an A/B/A' measurement
+
+Draft `perf(memory): preallocate candidate generation and scoring collections`: roasted and closed
+(comment pull/871#issuecomment-6099040717). The PR diff applied onto current main measured
+1.335–1.524 ms on `find_similar_graph_500x20_d3` against main's 1.487–2.123 ms, but the A' leg
+(baseline restored) came in at 1.270–1.395 ms — the medians fell 1.80 → 1.42 → 1.33 ms across all
+three runs regardless of code, so the trend is host drift, not the diff (criterion's paired p
+0.58 forward, <0.01 backward). Also: the body's "~3.8%" contradicts its own pair (−1.3%),
+commitlint was red on the missing `## Performance Evidence`, and the branch tree reverted four
+landed PRs (#826/#861/#869/#873) via its `Merge branch 'main'` resolution.

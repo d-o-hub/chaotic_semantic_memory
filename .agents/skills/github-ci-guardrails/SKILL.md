@@ -44,3 +44,11 @@ resolution that silently restored an old side of a conflict (measured 2026-10-10
 `query_count` implementation had vanished from a branch whose own commits never touched the file,
 while every check stayed green). `--force-with-lease` detects remote movement, never content loss;
 rebuilding as `main` + the intended files is safer than trusting the merge.
+
+### Perf claims in a PR body
+
+- Recompute the percentage the body prints from its own numbers before judging the claim
+  (measured 2026-10-10, #871: `657.37 → 648.80 µs` labelled "~3.8%"; it is −1.3%).
+- A single A/B pair on a shared host proves nothing. Run A/B/A′ and require the sign to repeat:
+  #871's medians fell `1.80 → 1.42 → 1.33 ms` *across all three runs regardless of code* — drift,
+  not the diff — while criterion's paired p moved from 0.58 (A→B) to <0.01 the other way (B→A′).
