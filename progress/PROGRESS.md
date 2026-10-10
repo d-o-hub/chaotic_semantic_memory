@@ -1274,3 +1274,14 @@ closed on it (run 38026936562).
 ### Queue
 6 → 5 (#826, caught by the gate on main) → 4 (#830, this close-out). #869 roasted (keeper, four
 repairs) — next in the merge order; #867 still open on its evidence bar.
+
+## 2026-10-10 (cont.): #869 landed, #840 closed, queue drained to 3
+
+#869 (`1fd790e8`): rebuilt on current main after the roast (scope `fix(scripts)` → `fix(lints)`,
+Codacy's `${TEST_DIR:?}` guard + a file-scope SC2016 directive), and the gate's `find` now skips
+`*/node_modules/*`, `.qoder/*`, `.opencode/*` — measured on this workstation: 473 findings in
+5m48s before, **0 findings in 13s** after, so `validate.sh` stays honest on developer trees, not
+only on clean checkouts. The head was refreshed once (identical content, new sha) because
+commitlint reads the PR title from the run's *event payload*: the title PATCH after the push left
+the in-flight run validating `fix(scripts)` while the commit check on the same run passed.
+Queue: 4 → 3 (#840 removed here).
