@@ -13,6 +13,14 @@
 > entries to this file.
 >
 > Last completed (verified 2026-10-10):
+> `reconcile_and_wire_the_two_link_validators` (#840 → PR #869, squashed as `1fd790e8`) — the unused
+> `validate-links.sh` deleted, `check-docs-links.sh` fixed (repo-root `@` resolution, archive
+> exclusion, anchor strip, version-matrix scope swap) and wired with its 9-case fixture into
+> `validate.sh` + the `lint` job; the find walk also skips `*/node_modules/*`, `.qoder/*` and
+> `.opencode/*` (473 findings / 5m48s → 0 / 13s on a developer tree). Entry removed because the
+> merge closed #840. 4 → 3.
+>
+> Last completed (verified 2026-10-10, second action):
 > `complete_evidence_tiers_and_mutation_hardening` (#830 → PR #861, squashed as `3ef32d5d`) —
 > `scheduled-evidence.yml` (weekly scale-evidence + full mutation sweep), `crates/**` in the
 > `benchmark-ci.yml` path filters, `pre-release-gate.yml` on `workflow_run` only with
@@ -20,7 +28,7 @@
 > with its 16-assertion fixture wired into `validate.sh`. Entry removed because the merge closed
 > #830. 5 → 4.
 >
-> Last completed (verified 2026-10-10, second action):
+> Last completed (verified 2026-10-10, third action):
 > `add_query_count_regression_test` (#826, landed on `main` as `81c292de`) — the `Persistence`
 > query counter and the `load_all_associations` regression test; the entry was removed because
 > the reconciliation gate caught it STALE on main's post-merge CI run 38026936562 and fails
@@ -625,32 +633,6 @@ actions:
       `scripts/yaml-to-drawio.py` renders, and nothing checks either. Flipping
       `skill_catalog_generated_and_gated` to `true` while the action is still queued is exactly what
       `check-goap-queue-issues.sh` errors on, so the effect waits for the half that is not done.
-
-  - name: reconcile_and_wire_the_two_link_validators
-    github_issue: "#840"
-    preconditions: []
-    effects:
-      link_validators_single_and_wired: true
-    notes: >
-      Split out of #829, which deliberately stopped at the fixtures. Two scripts
-      do overlapping work and neither has a caller: `grep -rl
-      'validate-links.sh\|check-docs-links.sh' scripts/validate.sh
-      .github/workflows/` returns nothing, while both are red right now —
-      measured on `83e9a6c`: `scripts/validate-links.sh` reports 5 broken links
-      and exits 1 (`@AGENTS.md` in `jules-orchestration` and `rust-development`,
-      `@file.md` in `skill-creator`, `@file.md` + `./path.md` in
-      `testing-validation`), `scripts/check-docs-links.sh` reports 39 issues and
-      exits 1. Required: decide which validator owns which reference class, fix
-      or exempt the 5 + 39 findings, wire the survivor into `validate.sh` behind
-      the `[[ -x ]] … exit 1` guard this repo standardised in #829/#846, and give
-      it a negative fixture so a neutered check cannot pass. Note the trap that
-      made `validate-links.sh` useless as a sensor even if it were wired: it
-      resolves root-relative `@imports` (the `AGENTS.md` convention, e.g.
-      `@plans/ACTIONS.md`) against the *skill directory*, so real imports read as
-      broken — fix the resolution root before believing its exit code.
-      Measure exit codes without a pipe: `bash scripts/x.sh; echo $?`, never
-      `bash scripts/x.sh | tail -1; echo $?`, which reports `tail`'s status and
-      made a failing validator look like it exited 0.
 
   - name: mutation_baseline_the_feature_gated_mcp_module
     github_issue: "#833"
