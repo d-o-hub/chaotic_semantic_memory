@@ -12,6 +12,12 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-10-10):
+> `add_query_count_regression_test` (#826, landed on `main` as `81c292de`) — the `Persistence`
+> query counter and the `load_all_associations` regression test; the entry was removed because
+> the reconciliation gate caught it STALE on main's post-merge CI run 38026936562 and fails
+> closed on exactly this drift. 6 → 5.
+>
 > Last completed (verified 2026-10-09):
 > `enforce_main_ruleset_required_checks` (#850) + `triage_pr_roast_2026_10_09` — ruleset `12897801`
 > now requires `lint`, `test` and `mutation-test` (app 15368) alongside `Build CLI (linux-x64)`,
@@ -614,6 +620,7 @@ actions:
 
   - name: complete_evidence_tiers_and_mutation_hardening
     github_issue: "#830"
+    status: in_progress
     preconditions: []
     effects:
       scheduled_and_release_evidence_tiers: true
@@ -629,35 +636,11 @@ actions:
       budget fails the job ✓, but the static exclude list
       (`scripts/mutation_test.sh:181-262`) still applies to changed files and
       only aggregate counts are printed (no module-level inventory artifact).
-
-  - name: add_query_count_regression_test
-    github_issue: "#826"
-    preconditions: []
-    effects:
-      bulk_association_load_verified: true
-    notes: >
-      Audit P1 remainder, re-verified 2026-09-30; re-measured 2026-10-03 (read-only
-      Explore pass, spot-checked). `load_all_associations`
-      (`crates/csm-persistence/src/persistence_index.rs:149` — the note's `:148` is the
-      doc comment, stale by one) returns `Result<Vec<(String, String, f32, u64)>>` in one
-      query at `:153-158`, and is used by `load_replace`/`load_merge`/
-      `reload_namespace_from_rows` (`src/framework_persistence.rs:100,184,304` — exact),
-      so the N+1 loop is gone, but nothing counts queries: `grep -rn "query_count|num_queries"`
-      = 0 hits repo-wide (verified). COST CLASS IS `fix(...)`, not `test(...)` — pinning a
-      query count requires production instrumentation (a counter on `Persistence`
-      incremented at the query sites, or a test-only wrapper connection); there is no
-      existing handle to observe. Neighbour that is NOT a duplicate:
-      `persistence_index.rs:250` `bulk_associations_load` asserts correctness
-      `all.len() == 1`), not query count, and the module's `#[cfg(test)] mod tests` is at
-      `:188`. LOC is comfortable (`persistence_index.rs` 274/500, `persistence.rs` 385/500).
-      Visibility caveat the implementer must be told: the test compiles in
-      `cargo test -p csm-persistence --lib` (CI runs that at `ci.yml:240`, and the crate's
-      `default = ["persistence"]` gates it via `crates/csm-persistence/src/lib.rs:8-17`),
-      but the mutation fast profile does NOT include `csm-persistence` in its `-p` list
-      (`scripts/mutation_test.sh:142`), so this gate is CI-visible, not mutation-visible —
-      if it must be mutation-visible it also needs a root-crate `--lib` caller test.
-      Smallest honest scope: cfg(test) counter + one test extending `bulk_associations_load`
-      to N=50 asserting exactly one association query.
+      2026-10-09 STATUS: implementation in review as PR #861 — scheduled-evidence.yml,
+      the module-level inventory (`scripts/mutation_inventory.py` + its fixture test),
+      and the workflow_run wiring of pre-release-gate.yml. The entry stays until the
+      merge closes #830, because the reconciliation gate requires a queued entry iff
+      its issue is open.
 
   - name: reconcile_and_wire_the_two_link_validators
     github_issue: "#840"
