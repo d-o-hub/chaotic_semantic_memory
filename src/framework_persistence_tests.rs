@@ -123,3 +123,48 @@ async fn test_durable_inject_concepts_batch_failure_leaves_memory_unchanged() {
         "In-memory concept count must remain 0 after batch failure"
     );
 }
+
+#[tokio::test]
+async fn test_load_all_associations_query_count_regression() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let db_path = dir.path().join("test_assoc_query_count.db");
+    let fw = ChaoticSemanticFramework::builder()
+        .with_local_db(db_path.to_str().unwrap())
+        .build()
+        .await
+        .expect("Failed to build framework");
+
+    let persistence = fw
+        .persistence
+        .as_ref()
+        .expect("Persistence should be present");
+
+    for i in 0..=50 {
+        let id = format!("c_{i}");
+        fw.inject_concept(&id, HVec10240::random())
+            .await
+            .expect("inject_concept failed");
+    }
+
+    for i in 0..50 {
+        let from = format!("c_{i}");
+        let to = format!("c_{}", i + 1);
+        persistence
+            .save_association("_default", &from, &to, 0.7)
+            .await
+            .expect("save_association failed");
+    }
+
+    persistence.reset_query_count();
+    let associations = persistence
+        .load_all_associations("_default")
+        .await
+        .expect("load_all_associations failed");
+
+    assert_eq!(associations.len(), 50);
+    assert_eq!(
+        persistence.query_count(),
+        1,
+        "load_all_associations must issue exactly 1 database query regardless of association count"
+    );
+}
