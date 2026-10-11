@@ -364,17 +364,23 @@ impl HVec10240 {
     /// from the hot loop by splitting the rotation into two contiguous segments.
     #[allow(clippy::needless_range_loop)]
     pub fn permute(&self, shift: usize) -> Self {
-        let mut result = [0u128; 80];
         let bit_shift = shift % 128;
         let word_shift = (shift / 128) % 80;
 
-        // Optimized path for word-aligned rotations
+        // Performance Optimization: Early return on 0-shift or full rotation bypasses
+        // 1,280-byte array allocation and slice copy overhead completely.
         if bit_shift == 0 {
+            if word_shift == 0 {
+                return *self;
+            }
+            let mut result = [0u128; 80];
             let (left, right) = self.data.split_at(word_shift);
             result[..80 - word_shift].copy_from_slice(right);
             result[80 - word_shift..].copy_from_slice(left);
             return Self { data: result };
         }
+
+        let mut result = [0u128; 80];
 
         let inv_bit_shift = 128 - bit_shift;
 
@@ -432,28 +438,30 @@ impl HVec10240 {
             });
         }
 
-        #[allow(unused_mut)]
-        let mut data = [0u128; 80];
         #[cfg(target_endian = "little")]
         {
-            // Performance Optimization: Direct memcpy for little-endian platforms.
-            // Avoids 80 loop iterations and multiple bounds checks per word.
+            // Performance Optimization: Use MaybeUninit to eliminate 1,280-byte zero-initialization
+            // prior to direct copy_nonoverlapping on little-endian targets.
+            let mut data = std::mem::MaybeUninit::<[u128; 80]>::uninit();
             // SAFETY: bytes length is verified to be 1280. [u128; 80] is bit-compatible
-            // with [u8; 1280] on little-endian. Pointers are valid.
+            // with [u8; 1280] on little-endian. Pointers are valid and non-overlapping.
             unsafe {
                 std::ptr::copy_nonoverlapping(bytes.as_ptr(), data.as_mut_ptr() as *mut u8, 1280);
+                Ok(Self {
+                    data: data.assume_init(),
+                })
             }
         }
         #[cfg(not(target_endian = "little"))]
         {
+            let mut data = [0u128; 80];
             for i in 0..80 {
                 let mut word_bytes = [0u8; 16];
                 word_bytes.copy_from_slice(&bytes[i * 16..(i + 1) * 16]);
                 data[i] = u128::from_le_bytes(word_bytes);
             }
+            Ok(Self { data })
         }
-
-        Ok(Self { data })
     }
 }
 
