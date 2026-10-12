@@ -1324,3 +1324,14 @@ the comment; its next run then surfaced the queue-gate STALE window for #828, wh
 closes. #828's second half landed in #880 (`d951067a`): `context.yaml` counters re-measured
 against live sources and gated by the rewritten `tests/validate_llm_context.py` (12-case fixture,
 wired into `validate.sh`), `gen-agents-context.sh` retired. Queue 2 → 1 (#833 remains).
+
+## 2026-10-12 (cont.): #878 merged, #877 closed — the bot rebase that had to be thrown away
+
+#878 was green in the end (`lint` success, 13m01s against the 30-minute budget) and landed as
+`6d7c7be4`, closing #877. The merge was not of the head CI had validated in the previous round:
+Jules pushed `9ad593c1`, a rebase whose conflict resolution reverted the merged #880 and #881 —
+it re-added the closed `#829` queue entry, restored `scripts/gen-agents-context.sh`, deleted
+`scripts/test-validate-llm-context.sh` and reversed the `context.yaml` refresh (466+/677− against
+`main`). The branch was rebuilt as `origin/main` + its two intended commits (the eight-workflow
+env bound and the lint budget), proven with `git diff origin/main --stat` = those 8 files,
+force-pushed with a lease, and merged from that tree. Queue: 1 (#833).
