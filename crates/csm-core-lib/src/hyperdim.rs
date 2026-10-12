@@ -370,6 +370,8 @@ impl HVec10240 {
 
         // Optimized path for word-aligned rotations
         if bit_shift == 0 {
+            // Fast-path: 0-shift or full 10240-bit rotation returns copy directly,
+            // avoiding array zero-initialization, slice splitting, and memcpy.
             if word_shift == 0 {
                 return *self;
             }

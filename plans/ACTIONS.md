@@ -12,6 +12,10 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-10-12):
+> `wire_and_consolidate_validation_gates` (#829) — validation gates consolidated and wired. Entry
+> removed because GitHub issue #829 is closed. 3 → 2.
+>
 > Last completed (verified 2026-10-10):
 > `reconcile_and_wire_the_two_link_validators` (#840 → PR #869, squashed as `1fd790e8`) — the unused
 > `validate-links.sh` deleted, `check-docs-links.sh` fixed (repo-root `@` resolution, archive
@@ -553,57 +557,6 @@
 > Eight actions remain; `validated` stays false.
 
 actions:
-  - name: wire_and_consolidate_validation_gates
-    github_issue: "#829"
-    status: in_progress
-    preconditions: []
-    effects:
-      single_gate_graph: true
-    notes: >
-      2026-10-05 EFFECTS REVISED: the two keys this action used to advertise —
-      `fixture_suites_wired_into_validate` and
-      `skill_format_gate_fixtured_and_fail_closed` — are achieved on `main` as of
-      `77bd5f0` (PR #846), so they moved to `GOAP_STATE.md` as `true` and stopped
-      being claimed here. A queued action advertising an effect the state file
-      already reports true is precisely the #851 drift, and
-      `scripts/check-goap-queue-issues.sh` now fails on it. What stays queued is
-      the parent claim: one canonical gate graph. That remainder decomposed into
-      #840 (link validators), #841 (yamllint profile + severity
-      classification, landed as PR #854 / `2984d3e`) and #842 (hook installers), each now carrying its own
-      action block below.
-      ----
-      Audit W1/G3, re-verified 2026-09-30 and again 2026-10-05 (issue #829 comment).
-      DONE on the branch: `validate-skill-format.sh` fail-open closed (an unclosed
-      frontmatter block validated) and given its first fixture; `test-llms-sync.sh`,
-      `test-version-sync.sh` (SCRIPT_DIR-resolved, exec bit restored) and the new
-      `test-validate-skill-format.sh` wired into `validate.sh`, hence into the CI
-      `lint` job at `ci.yml:587`; `negative-fixtures.sh` deleted — it asserted that
-      rustc rejects bad syntax and rustfmt flags unformatted code, i.e. the toolchain,
-      not this repo. NOT DONE, each split to its own issue because "just wire it" is
-      wrong for all three: #840 two competing link validators, both unwired, one of
-      which resolves root-relative `@imports` against the skill directory; #841
-      `validate-workflows.sh` reporting yamllint lint noise as "YAML syntax error"
-      with no `.yamllint` profile in the repo; #842 three hook installers with three
-      different hook sets and `.githooks/` never installed by any of them. Original
-      note preserved below for provenance.
-      ----
-      Audit W1/G3, re-verified 2026-09-30. Negative fixtures exist
-      (`scripts/test-llms-sync.sh` 5 cases, `test-version-sync.sh` 4 cases,
-      `negative-fixtures.sh`) but no gate invokes them;
-      `validate-workflows.sh`, `validate-git-hooks.sh` and `validate-links.sh`
-      have zero callers; three hook installers (`install-hooks.sh`,
-      `setup-hooks.sh`, `validate-git-hooks.sh --install`) install different
-      hook sets; `pre-commit.sh` and `hooks/pre-push` enforce different sensors
-      than `harness-check.sh`; the CI-wired skill validator has no negative
-      fixture. Fresh measured evidence (2026-10-05): `scripts/validate-links.sh`
-      is red on `main` right now — 5 broken refs (`@AGENTS.md` in
-      `jules-orchestration` and `rust-development`, `@file.md` in
-      `skill-creator`, `@file.md` + `./path.md` in `testing-validation`) — and
-      nothing invokes it, so a gate that fails is contributing zero signal.
-      Required: one bootstrap, one canonical gate graph, fixture tests wired into
-      `validate.sh` + CI (or deleted), negative fixture for the skill validator.
-      2026-10-05 STATUS: PR **#846** merged as `77bd5f0` — three of the six orphan fixtures wired there, the skill-format fail-open fixed with a 15-case fixture, `negative-fixtures.sh` deleted. The remaining gates are deliberately NOT in this action: #840 (link validators), #841 (yamllint profile), #842 (hook installers). Do not re-implement #846's work elsewhere. Re-measured on `83e9a6c` for the remainder: `scripts/validate-links.sh` reports 5 broken links and exits 1, `scripts/check-docs-links.sh` reports 39 issues and exits 1, and `scripts/validate-git-hooks.sh` / `scripts/validate-workflows.sh` still have zero callers in `validate.sh` or any workflow — three red gates and two unwired gates contributing no signal.
-
   - name: generate_skill_catalog_and_agent_context
     github_issue: "#828"
     status: in_progress
