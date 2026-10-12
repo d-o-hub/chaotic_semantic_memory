@@ -641,7 +641,7 @@ jobs:
     # protobuf-compiler step in the aarch64 job, and it puts yamllint on PATH at
     # /usr/bin with no PATH or venv setup.
     - name: Install yamllint
-      run: sudo apt-get update && sudo apt-get install -y yamllint
+      run: sudo apt-get update && sudo apt-get install -y yamllint python3-yaml
     # Git config is not versioned. Bootstrap this checkout before the strict
     # configuration gate; do not make validate.sh silently repair bad setups.
     - name: Install repository hooks
