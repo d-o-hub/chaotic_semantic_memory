@@ -28,6 +28,11 @@ concurrency:
   group: benchmark-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_BUILD_JOBS: "2"
+  CARGO_INCREMENTAL: "0"
+
 jobs:
   benchmark-small:
     runs-on: ubuntu-latest
