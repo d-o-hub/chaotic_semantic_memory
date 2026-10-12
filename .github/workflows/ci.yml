@@ -591,7 +591,10 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 2026-10-12: with CARGO_BUILD_JOBS=2 the job's compile-bound work no longer fits
+    # the old 15-minute budget — two consecutive runs were killed at 15m16s and 15m19s
+    # (main's lint took 12m59s at the default job count). 30 leaves room for a cold cache.
+    timeout-minutes: 30
     # scripts/check-goap-queue-issues.sh reads the tracker through `gh`, and the
     # default GITHUB_TOKEN cannot see issues unless the job asks. Job-level
     # permissions REPLACE the workflow-level block rather than merging into it,
