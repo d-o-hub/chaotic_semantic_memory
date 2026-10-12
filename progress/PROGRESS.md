@@ -1296,3 +1296,16 @@ three runs regardless of code, so the trend is host drift, not the diff (criteri
 0.58 forward, <0.01 backward). Also: the body's "~3.8%" contradicts its own pair (−1.3%),
 commitlint was red on the missing `## Performance Evidence`, and the branch tree reverted four
 landed PRs (#826/#861/#869/#873) via its `Merge branch 'main'` resolution.
+
+## 2026-10-10 (cont. 3): #829 closed — the gate-graph umbrella re-measured, queue 3 → 2
+
+The umbrella action's own exit criterion (one canonical gate graph) re-verified on `4a8b4f84`
+after its three decomposed children landed: `negative-fixtures.sh` and `validate-links.sh`
+deleted (#846/#869); `test-llms-sync.sh` + `test-version-sync.sh` (`validate.sh:134`),
+`validate-workflows.sh` (`:327`), `check-docs-links.sh` (`:238`) and `validate-git-hooks.sh`
+(`:49`, with the `test-hook-bootstrap.sh` fixture) all wired with fixtures; hook installers
+unified on `install-hooks.sh` (#862) with `setup-hooks.sh` and `--install` delegating and
+`scripts/pre-commit.sh` a documented shim; the skill validator's 15-case fixture at `:253`.
+`ci.yml:658` runs `bash scripts/validate.sh`, so every one of them executes in the `lint` job —
+main CI run 38064370389 green on this head. Issue closed with the claim-by-claim comment;
+`single_gate_graph: true`; queue entry removed.
