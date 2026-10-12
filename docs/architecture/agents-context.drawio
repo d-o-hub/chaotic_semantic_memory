@@ -50,15 +50,15 @@
         </mxCell>
         
         <!-- Skills Section -->
-        <mxCell id="skills-section" value="&lt;b&gt;Skills (13 Total)&lt;/b&gt;" style="swimlane;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+        <mxCell id="skills-section" value="&lt;b&gt;Skills (33 Total)&lt;/b&gt;" style="swimlane;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
           <mxGeometry x="520" y="240" width="400" height="280" as="geometry" />
         </mxCell>
         
-        <mxCell id="core-skills" value="&lt;b&gt;Core (9)&lt;/b&gt;&lt;br&gt;rust-dev, testing,&lt;br&gt;benchmarking, debugging,&lt;br&gt;adr, goap-planning,&lt;br&gt;ci-guardrails,&lt;br&gt;&lt;b&gt;drawio&lt;/b&gt;, git-workflow" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="skills-section">
+        <mxCell id="core-skills" value="&lt;b&gt;Catalog (33 skills)&lt;/b&gt;&lt;br&gt;Core 15 · Swarm 5&lt;br&gt;Workflow 5 · Automation 5&lt;br&gt;TRIZ 2 · Visualization 1&lt;br&gt;see .agents/skills/&lt;br&gt;CATALOG.md" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="skills-section">
           <mxGeometry x="20" y="40" width="170" height="140" as="geometry" />
         </mxCell>
         
-        <mxCell id="swarm-skills" value="&lt;b&gt;Swarm (4)&lt;/b&gt;&lt;br&gt;testing-quality&lt;br&gt;performance&lt;br&gt;observability&lt;br&gt;advanced-features" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;dashed=1;" vertex="1" parent="skills-section">
+        <mxCell id="swarm-skills" value="&lt;b&gt;Drift-gated&lt;/b&gt;&lt;br&gt;check-skill-catalog.sh&lt;br&gt;validate_llm_context.py" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;dashed=1;" vertex="1" parent="skills-section">
           <mxGeometry x="210" y="40" width="150" height="140" as="geometry" />
         </mxCell>
         
@@ -107,7 +107,7 @@
         </mxCell>
         
         <!-- Current Status Note -->
-        <mxCell id="status" value="Status: active_wave: unknown&lt;br&gt;Tests: 21 test files&lt;br&gt;All modules &lt; 500 LOC" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="1">
+        <mxCell id="status" value="Status: active_wave: 33&lt;br&gt;Tests: 73 test files&lt;br&gt;All modules &lt; 500 LOC" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="1">
           <mxGeometry x="950" y="80" width="200" height="60" as="geometry" />
         </mxCell>
         

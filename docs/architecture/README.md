@@ -75,7 +75,11 @@ Test LLM understanding:
 python3 tests/validate_llm_context.py
 ```
 
-Expected output: 9/9 tests passed (100%)
+Expected output: 15/15 tests passed (100%). The same validator is the drift gate
+for this artifact: `scripts/validate.sh` runs it, so every counter in
+`context.yaml` (skills, ADRs, active_wave, tests, LOC coverage) and every path
+it lists must match live sources; `scripts/test-validate-llm-context.sh` proves
+each failure direction on a synthetic tree.
 
 ---
 

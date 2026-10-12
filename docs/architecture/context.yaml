@@ -1,13 +1,13 @@
 # Chaotic Semantic Memory - LLM Context
 # This file provides structured context for LLM APIs to understand the codebase
 # Format: YAML (machine-optimized, minimal markup)
-# Last Updated: 2026-04-12
+# Last Updated: 2026-10-12
 
 metadata:
   project_name: chaotic_semantic_memory
   description: Production Rust crate for AI memory systems
   format_version: "1.0"
-  last_updated: 2026-04-12
+  last_updated: 2026-10-12
   
 mission:
   statement: Build and maintain chaotic_semantic_memory as a production Rust crate for AI memory systems
@@ -69,13 +69,13 @@ constraints:
 architecture:
   modules:
     - name: hyperdim
-      file: src/hyperdim.rs
+      file: crates/csm-core-lib/src/hyperdim.rs
       purpose: 10240-bit hyperdimensional vectors with SIMD operations
       public_types:
         - HVec10240
       
     - name: reservoir
-      file: src/reservoir.rs
+      file: crates/csm-core-lib/src/reservoir.rs
       purpose: Echo State Network with chaotic dynamics
       public_types:
         - Reservoir
@@ -107,7 +107,7 @@ architecture:
         - FrameworkBuilder
       
     - name: error
-      file: src/error.rs
+      file: crates/csm-core-lib/src/error.rs
       purpose: Error types and Result alias
       public_types:
         - MemoryError
@@ -179,15 +179,12 @@ key_files:
     - path: plans/ACTIONS.md
       purpose: GOAP action plan
       
-    - path: plans/SWARM_COORDINATION.md
-      purpose: Parallel execution coordination
-      
   architecture_docs:
     - path: docs/architecture/context.yaml
       purpose: This file - LLM context source
       
-    - path: docs/architecture/context.drawio
-      purpose: Visual diagram (generated from YAML)
+    - path: docs/architecture/agents-context.drawio
+      purpose: Tier-2 visual diagram (hand-maintained)
       
   ci:
     - path: .github/workflows/ci.yml
@@ -196,39 +193,25 @@ key_files:
   adrs:
     - path: plans/adr/
       purpose: Architecture Decision Records
-      count: 16
+      count: 95
 
 skills:
   location_pattern: ".agents/skills/{skill_name}/SKILL.md"
-  total_count: 19
+  catalog: .agents/skills/CATALOG.md
+  total_count: 33
   categories:
-    core:
-      count: 14
-      items:
-        - rust-development
-        - testing-validation
-        - goap-planning
-        - adr-creation
-        - github-ci-guardrails
-        - git-workflow
-        - release-management
-        - benchmarking-perf
-        - debugging-reservoir
-        - skill-memory-internal
-        - memory-lifecycle-verification
-        - turso-memory-verification
-        - npm-trusted-publishers
-        - drawio
-        
-    swarm:
+    - name: core
+      count: 15
+    - name: swarm
       count: 5
-      description: Parallel execution groups
-      items:
-        - swarm-testing-quality
-        - swarm-performance
-        - swarm-observability
-        - swarm-advanced-features
-        - analysis-swarm
+    - name: workflow
+      count: 5
+    - name: automation
+      count: 5
+    - name: triz
+      count: 2
+    - name: visualization
+      count: 1
 
 validation:
   gates:
@@ -318,11 +301,11 @@ workflow:
       action: Commit with Conventional Commits format
 
 current_status:
-  active_wave: 11
-  swarm_groups: 4
-  total_tests: 134
-  tests_passing: 134
-  modules_under_loc_limit: 26/26
+  active_wave: 33
+  swarm_groups: 5
+  total_tests: 1044
+  tests_passing: 1044
+  modules_under_loc_limit: 97/97
   performance_gates: 4/4 passing
   
 guardrails:

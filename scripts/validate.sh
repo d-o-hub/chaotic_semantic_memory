@@ -276,6 +276,22 @@ else
   exit 1
 fi
 
+# LLM context drift gate (#828): docs/architecture/context.yaml carried stale
+# counters for months (skills 19/33, ADRs 16/95, active_wave 11/33, tests
+# 134/1044) and two dead key-file paths, and nothing read the file. The
+# validator now compares every counter and path against live sources; the
+# fixture proves each failure direction. PyYAML is the one dependency
+# (apt python3-yaml ships it in the CI lint job).
+echo "==> LLM context drift gate (docs/architecture/context.yaml)"
+_CSM_REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+if python3 -c 'import yaml' 2>/dev/null; then
+  python3 "${_CSM_REPO_ROOT}/tests/validate_llm_context.py" --repo-root "${_CSM_REPO_ROOT}"
+else
+  echo "SKIPPED — NOT A PASS: python3 has no PyYAML (apt: python3-yaml); context.yaml went unchecked"
+fi
+echo "==> LLM context drift gate fixture"
+"${SCRIPT_DIR}/test-validate-llm-context.sh"
+
 # ADR Registry consistency check (ADR-0076)
 echo "==> ADR Registry consistency check"
 ADR_REGISTRY="plans/ADR_REGISTRY.md"
