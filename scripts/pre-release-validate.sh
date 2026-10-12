@@ -90,7 +90,8 @@ fi
 # ============================================================================
 section "3. README CLI Commands Verification"
 
-CSM="./target/release/csm"
+# Resolve the built binary like cargo does (section 2's build honors CARGO_TARGET_DIR).
+CSM="${CARGO_TARGET_DIR:-target}/release/csm"
 TEST_DB="csm_test_$$.db"
 TEST_JSON="csm_test_$$.json"
 

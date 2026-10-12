@@ -56,14 +56,15 @@ cleanup() {
 
 trap cleanup EXIT
 
-# Ensure csm binary exists
-if [[ ! -f "./target/release/csm" ]]; then
-    log_error "csm binary not found at ./target/release/csm"
+# Ensure csm binary exists (resolve build output like cargo does: CARGO_TARGET_DIR wins)
+TARGET_DIR="${CARGO_TARGET_DIR:-target}"
+if [[ ! -f "${TARGET_DIR}/release/csm" ]]; then
+    log_error "csm binary not found at ${TARGET_DIR}/release/csm"
     log_info "Run: cargo build --release --bin csm"
     exit 1
 fi
 
-CSM="./target/release/csm"
+CSM="${TARGET_DIR}/release/csm"
 
 log_info "Starting memory roundtrip verification..."
 

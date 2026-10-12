@@ -162,7 +162,11 @@ if command -v npm >/dev/null 2>&1; then
   echo "==> CLI npm pack smoke test"
   cargo build --release --bin csm
   mkdir -p cli-npm/bin
-  cp target/release/csm cli-npm/bin/csm-linux-x64
+  # The build may land outside ./target when CARGO_TARGET_DIR is set (shared caches),
+  # so resolve the artifact the same way cargo does (2026-10-10: this cp failed on a
+  # workstation with a shared target dir while the build itself succeeded).
+  TARGET_DIR="${CARGO_TARGET_DIR:-target}"
+  cp "${TARGET_DIR}/release/csm" cli-npm/bin/csm-linux-x64
   chmod 755 cli-npm/bin/csm-linux-x64
   pushd cli-npm >/dev/null
   TARBALL=$(npm pack --silent)

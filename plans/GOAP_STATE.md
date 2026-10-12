@@ -92,7 +92,14 @@ world_state:
   fixture_suites_wired_into_validate: true  # 2026-10-05: flipped on measurement, not on the PR — `77bd5f0` (#846) landed the wiring. On main 83e9a6c validate.sh invokes test-check-test-attributes.sh (:25), test-ci-workspace-crate-matrix.sh (:40), test-llms-sync.sh + test-version-sync.sh (:121 loop), test-validate-changelog.sh (:212), test-validate-skill-format.sh (:223) and test-quality-gates.sh (:294). The #829 action no longer claims this key: a queued action advertising an effect reported true here is the #851 drift and `check-goap-queue-issues.sh` fails on it.
   skill_format_gate_fixtured_and_fail_closed: true  # 2026-10-05: also flipped by #846 landing. validate-skill-format.sh:282-287 rejects a `---` opener with no closing delimiter (the fail-open), and the 15-case fixture runs from validate.sh:223 -> CI lint job. Same treatment as the key above: moved out of #829's `effects:`.
   changelog_sections_unique: true  # 2026-10-05 (#832, PR #848, main 6ec3cf6): `## [Unreleased]` holds one heading per release type — `grep -n '^### ' CHANGELOG.md` reads 10 Added / 14 Changed / 33 Fixed — and scripts/validate-changelog.sh scores duplicates per section, fixtured by scripts/test-validate-changelog.sh (10 cases) wired at validate.sh:208-214.
-  single_gate_graph: false  # 2026-10-05: the parent claim of #829, kept queued because it is genuinely not done. Measured on 83e9a6c: validate-links.sh (5 broken links, exit 1) and check-docs-links.sh (39 issues, exit 1) are red with no caller; validate-git-hooks.sh had no caller either. Decomposed into #840 / #841 / #842.
+  single_gate_graph: true  # 2026-10-10 (#829): re-measured on 4a8b4f84 once all three decomposed
+                           #   children landed — negative-fixtures.sh and validate-links.sh deleted
+                           #   (#846/#869), test-llms-sync.sh/test-version-sync.sh (validate.sh:134),
+                           #   validate-workflows.sh (:327) and check-docs-links.sh (:238) wired with
+                           #   fixtures, validate-git-hooks.sh (:49) wired with test-hook-bootstrap.sh,
+                           #   one installer (install-hooks.sh; setup-hooks.sh + --install delegate,
+                           #   scripts/pre-commit.sh a documented shim), and `run: bash
+                           #   scripts/validate.sh` (ci.yml:658) executes all of them in the lint job.
   yaml_gate_severity_classified_and_gated: true  # 2026-10-05 (#841, PR #854, main 2984d3e): validate-workflows.sh classifies yamllint output on `-f parsable` into syntax error / error-level / warning-level instead of calling every finding "YAML syntax error", .yamllint gives it a profile (relaxed; line-length 200 warning, priced from ci.yml:516 at 166 cols and benchmark-ci.yml:61 at 207), an unavailable parser prints SKIPPED — NOT A PASS instead of a silent pass, and the 12-case fixture runs from validate.sh:297-303 with yamllint apt-installed in the lint job (pip hits PEP 668 on ubuntu-24.04).
 
   # ── Active wave ───────────────────────────────────────────────
@@ -100,7 +107,7 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 3        # 2026-10-10: removed closed #840 (PR #869, 1fd790e8); earlier that day removed closed #830 (3ef32d5d) and #826 (81c292de). 2026-10-09: removed closed #842 (#862 landed the hook consolidation; the gate flagged the stale entry while shipping the record PR). 2026-10-08: removed closed #825, already implemented by #858 on base d611e12. Historical 2026-10-05 ledger: Every line below is `git show <commit>:plans/ACTIONS.md
+  queued_actions_count: 2        # 2026-10-10: removed closed #829 (issue closed with the claim-by-claim re-measurement); removed closed #840 (PR #869, 1fd790e8); earlier that day removed closed #830 (3ef32d5d) and #826 (81c292de). 2026-10-09: removed closed #842 (#862 landed the hook consolidation; the gate flagged the stale entry while shipping the record PR). 2026-10-08: removed closed #825, already implemented by #858 on base d611e12. Historical 2026-10-05 ledger: Every line below is `git show <commit>:plans/ACTIONS.md
                                #   | grep -c '^  - name:'`, not a recollection — and reading the commits
                                #   instead of the prose is what exposed the drift #851 was written about:
                                #   87fa734 (#837 landed) -> 10   entry NOT removed
@@ -241,4 +248,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: reconcile_and_wire_the_two_link_validators  # 2026-10-10 #840 — PR #869 squashed as 1fd790e8; entry removed, 4 -> 3. Previous: complete_evidence_tiers_and_mutation_hardening (#830).
+  action_last_completed: wire_and_consolidate_validation_gates  # 2026-10-10 #829 — umbrella exit criterion re-measured on 4a8b4f84 (all six orphan gates wired or deleted, one hook bootstrap, fixtures wired into validate.sh + CI); entry removed, 3 -> 2. Previous: reconcile_and_wire_the_two_link_validators (#840).
