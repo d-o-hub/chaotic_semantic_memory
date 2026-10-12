@@ -100,7 +100,7 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 2        # 2026-10-12: removed closed #829. 2026-10-10: removed closed #840 (PR #869, 1fd790e8); earlier that day removed closed #830 (3ef32d5d) and #826 (81c292de). 2026-10-09: removed closed #842 (#862 landed the hook consolidation; the gate flagged the stale entry while shipping the record PR). 2026-10-08: removed closed #825, already implemented by #858 on base d611e12. Historical 2026-10-05 ledger: Every line below is `git show <commit>:plans/ACTIONS.md
+  queued_actions_count: 3        # 2026-10-10: removed closed #840 (PR #869, 1fd790e8); earlier that day removed closed #830 (3ef32d5d) and #826 (81c292de). 2026-10-09: removed closed #842 (#862 landed the hook consolidation; the gate flagged the stale entry while shipping the record PR). 2026-10-08: removed closed #825, already implemented by #858 on base d611e12. Historical 2026-10-05 ledger: Every line below is `git show <commit>:plans/ACTIONS.md
                                #   | grep -c '^  - name:'`, not a recollection — and reading the commits
                                #   instead of the prose is what exposed the drift #851 was written about:
                                #   87fa734 (#837 landed) -> 10   entry NOT removed
@@ -241,4 +241,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: wire_and_consolidate_validation_gates  # 2026-10-12 #829 — entry removed, 3 -> 2. Previous: reconcile_and_wire_the_two_link_validators (#840).
+  action_last_completed: reconcile_and_wire_the_two_link_validators  # 2026-10-10 #840 — PR #869 squashed as 1fd790e8; entry removed, 4 -> 3. Previous: complete_evidence_tiers_and_mutation_hardening (#830).
