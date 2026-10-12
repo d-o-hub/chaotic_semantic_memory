@@ -1309,3 +1309,18 @@ unified on `install-hooks.sh` (#862) with `setup-hooks.sh` and `--install` deleg
 `ci.yml:658` runs `bash scripts/validate.sh`, so every one of them executes in the `lint` job —
 main CI run 38064370389 green on this head. Issue closed with the claim-by-claim comment;
 `single_gate_graph: true`; queue entry removed.
+
+## 2026-10-12: the Jules round — two no-impact closes, #878's budget repair, #828 closed
+
+Three PRs arrived after #876. #875 (`perf(core)`: permute + from_bytes) and #879
+(`perf(hyperdim)`: permute zero-shift) were roasted and closed: both re-file #800/#814 (direct
+call 81.7 → 57.3 ns, product path `text_encoder/encode_short` 2 684 → 2 734 ns = noise → closed
+no-impact) and #783 (`from_bytes` zero-fill elimination — old/new folded to the same address);
+neither carried `## Performance Evidence`, and #875 also duplicated the #829 close-out
+bookkeeping against a pre-#876 base. #878 (`ci`: bound `CARGO_BUILD_JOBS=2`, `Fixes #877`) is a
+keeper: its first two runs were killed at the `lint` job's 15-minute timeout (15m16s / 15m19s
+measured), so the branch carries `timeout-minutes: 30` for lint (`1560d03a`) with the numbers in
+the comment; its next run then surfaced the queue-gate STALE window for #828, which this PR
+closes. #828's second half landed in #880 (`d951067a`): `context.yaml` counters re-measured
+against live sources and gated by the rewritten `tests/validate_llm_context.py` (12-case fixture,
+wired into `validate.sh`), `gen-agents-context.sh` retired. Queue 2 → 1 (#833 remains).

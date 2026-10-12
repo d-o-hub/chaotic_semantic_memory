@@ -12,6 +12,18 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-10-12):
+> `generate_skill_catalog_and_agent_context` (#828 → PRs #847 + #880) — the catalog half landed as
+> `6d936ee` (#847: `gen-skill-catalog.sh` + `check-skill-catalog.sh` + a 23-assertion drift
+> fixture); the agent-context half landed as `d951067a` (#880): `docs/architecture/context.yaml`
+> counters re-measured against live sources (skills 33, ADRs 95, active_wave 33, tests 1044, LOC
+> coverage 97/97), the two dead key-file paths removed, the three post-extraction module paths
+> corrected, and `tests/validate_llm_context.py` rewritten from an orphan that would have crashed
+> on the missing `context.drawio` into the drift gate for every counter — wired into `validate.sh`
+> with a 12-case fixture and `python3-yaml` pinned in the lint job. `scripts/gen-agents-context.sh`
+> retired (zero callers, claimed a nonexistent post-commit hook, hardcoded "Skills (13 Total)").
+> Entry removed because the merge closed #828. 2 → 1.
+>
 > Last completed (verified 2026-10-10, fourth action):
 > `wire_and_consolidate_validation_gates` (#829) — the umbrella's own exit criterion, re-measured
 > on `4a8b4f84` after all three decomposed children landed (#846/#854/#862/#869): all six
@@ -567,36 +579,6 @@
 > Eight actions remain; `validated` stays false.
 
 actions:
-  - name: generate_skill_catalog_and_agent_context
-    github_issue: "#828"
-    status: in_progress
-    preconditions: []
-    effects:
-      skill_catalog_generated_and_gated: true
-    notes: >
-      Audit Phase-4 exit, re-verified 2026-09-30. `.agents/skills/CATALOG.md`
-      says "32 skills" while the disk has 33, with no generator and no drift
-      check in `scripts/`, `.github/` or hooks. Same family:
-      `scripts/gen-agents-context.sh:77` hardcodes "Skills (13 Total)" and
-      `:13` reads archived `plans/SWARM_COORDINATION.md`;
-      `docs/architecture/context.yaml` is stale (`current_status.active_wave:
-      11`, `total_tests: 134`, `skills.total_count: 19`, `adrs.count: 16`) and
-      its `architecture.modules` names pre-extraction root files. Required:
-      generator + drift gate for the catalog, and refreshed (or generated)
-      agent-context artifacts with a checker.
-      2026-10-05 STATUS: PR **#847** merged as `6d936ee` — `scripts/gen-skill-catalog.sh` +
-      `scripts/check-skill-catalog.sh` (76 lines) + a 23-assertion drift fixture, `CATALOG.md`
-      regenerated to 33 skills and proven byte-identical on re-run, wired at `validate.sh:235-241`
-      (fail-closed `else` at `:241`) and `ci.yml:598`. Its seven Codacy SC2016 findings cleared
-      honestly: two removed (`render_catalog` rewritten as one quoted heredoc, regeneration proven
-      byte-identical), five literal-backtick lines given `# shellcheck disable=SC2016` with a reason.
-      **This entry stays queued on purpose.** The action names two artifacts and #847 shipped one:
-      `scripts/gen-agents-context.sh:77` still hardcodes "Skills (13 Total)" into the drawio XML,
-      `docs/architecture/context.yaml` still carries `skills.total_count: 19`, which
-      `scripts/yaml-to-drawio.py` renders, and nothing checks either. Flipping
-      `skill_catalog_generated_and_gated` to `true` while the action is still queued is exactly what
-      `check-goap-queue-issues.sh` errors on, so the effect waits for the half that is not done.
-
   - name: mutation_baseline_the_feature_gated_mcp_module
     github_issue: "#833"
     preconditions: []
