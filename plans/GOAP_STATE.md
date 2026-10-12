@@ -107,7 +107,7 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 2        # 2026-10-10: removed closed #829 (issue closed with the claim-by-claim re-measurement); removed closed #840 (PR #869, 1fd790e8); earlier that day removed closed #830 (3ef32d5d) and #826 (81c292de). 2026-10-09: removed closed #842 (#862 landed the hook consolidation; the gate flagged the stale entry while shipping the record PR). 2026-10-08: removed closed #825, already implemented by #858 on base d611e12. Historical 2026-10-05 ledger: Every line below is `git show <commit>:plans/ACTIONS.md
+  queued_actions_count: 1        # 2026-10-12: removed closed #828 (#880 merged as d951067a, Fixes #828); 2026-10-10: removed closed #829 (issue closed with the claim-by-claim re-measurement); removed closed #840 (PR #869, 1fd790e8); earlier that day removed closed #830 (3ef32d5d) and #826 (81c292de). 2026-10-09: removed closed #842 (#862 landed the hook consolidation; the gate flagged the stale entry while shipping the record PR). 2026-10-08: removed closed #825, already implemented by #858 on base d611e12. Historical 2026-10-05 ledger: Every line below is `git show <commit>:plans/ACTIONS.md
                                #   | grep -c '^  - name:'`, not a recollection — and reading the commits
                                #   instead of the prose is what exposed the drift #851 was written about:
                                #   87fa734 (#837 landed) -> 10   entry NOT removed
@@ -181,6 +181,7 @@ world_state:
   scheduled_evidence_tier_runs: true  # 2026-10-10 (#830 -> PR #861, 3ef32d5d): scheduled-evidence.yml runs scale-evidence + a full mutation sweep weekly (dispatch included); benchmark-ci path filters cover crates/**.
   mutation_inventory_published: true  # 2026-10-10 (#830 -> PR #861): module-level table appended to progress/mutation/<profile>-latest.md and uploaded as artifacts.
   link_validators_single_and_wired: true  # 2026-10-10 (#840 -> PR #869, 1fd790e8): one link checker (check-docs-links.sh) wired into validate.sh + the lint job with a 9-case fixture; validate-links.sh deleted.
+  skill_catalog_generated_and_gated: true  # 2026-10-12 (#828 -> PRs #847/#880): CATALOG.md is generated from the tree and drift-gated (#847); docs/architecture/context.yaml counters are compared against live sources by tests/validate_llm_context.py (skills/ADRs/active_wave/tests/LOC coverage, module and key-file existence), wired into validate.sh with a 12-case fixture (#880, d951067a); gen-agents-context.sh retired.
   release_wait_event_driven: true                 # 2026-09-30: release.yml triggers on CI completion (workflow_run, head_sha-pinned); no polling ceiling. Proof: runs 36746741481 + 36746882951 green, publishes correctly skipped
   crates_publish_precheck_ownership_aware: true   # 2026-09-30: owners API (free or d-o-hub passes; other owners fail; unknown HTTP fails closed) replaces the published-version comparison; verified live incl. negative control
   csm_duckdb_in_release_publish_order: true       # 2026-09-30: dedicated step after the root publish waits for the root version in the index; companion loop exposes failures instead of swallowing them
@@ -248,4 +249,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: wire_and_consolidate_validation_gates  # 2026-10-10 #829 — umbrella exit criterion re-measured on 4a8b4f84 (all six orphan gates wired or deleted, one hook bootstrap, fixtures wired into validate.sh + CI); entry removed, 3 -> 2. Previous: reconcile_and_wire_the_two_link_validators (#840).
+  action_last_completed: generate_skill_catalog_and_agent_context  # 2026-10-12 #828 — catalog half #847 (6d936ee), agent-context half #880 (d951067a, Fixes #828); entry removed, 2 -> 1. Previous: wire_and_consolidate_validation_gates (#829).
