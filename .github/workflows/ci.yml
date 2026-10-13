@@ -142,7 +142,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v4.0.3
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v4.0.3
         with:
           node-version: '20'
           cache: 'npm'
@@ -539,7 +539,7 @@ jobs:
 
     - name: Upload Mutation Test Artifacts
       if: always()
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: mutation-artifacts
         path: progress/mutation
@@ -583,7 +583,7 @@ jobs:
         cd wasm
         WASM_PACKAGE_DIR="${{ github.workspace }}/wasm/pkg" nix develop --command node test.js
     - name: Upload WASM package (release artifact)
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: wasm-pkg-release-web
         path: wasm/pkg/
