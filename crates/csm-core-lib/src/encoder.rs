@@ -217,15 +217,17 @@ impl TextEncoder {
             return HVec10240::zero();
         }
 
-        // Generate position-encoded vectors for each token
-        let encoded_vectors: Vec<HVec10240> = tokens
-            .iter()
-            .enumerate()
-            .map(|(pos, &token)| {
-                let base = self.token_to_hvec(token);
-                base.permute(pos.saturating_mul(self.config.position_stride))
-            })
-            .collect();
+        // Fast-path: single token without n-grams avoids 1,280-byte heap vector allocation, permutation, and bundling
+        if tokens.len() == 1 && self.config.ngram_size.is_none() {
+            return self.token_to_hvec(tokens[0]);
+        }
+
+        // Pre-allocate vector capacity to avoid incremental heap re-allocations
+        let mut encoded_vectors = Vec::with_capacity(tokens.len());
+        for (pos, &token) in tokens.iter().enumerate() {
+            let base = self.token_to_hvec(token);
+            encoded_vectors.push(base.permute(pos.saturating_mul(self.config.position_stride)));
+        }
 
         // Bundle all position-encoded vectors.
         // `HVec10240::bundle` only fails on empty input; we guard against that above,
@@ -343,6 +345,14 @@ impl TextEncoder {
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
+
+    #[test]
+    fn encode_single_token_fast_path() {
+        let encoder = TextEncoder::new();
+        let single_tok_hv = encoder.encode("hello");
+        let direct_tok_hv = encoder.token_to_hvec("hello");
+        assert_eq!(single_tok_hv, direct_tok_hv);
+    }
 
     #[test]
     fn encode_deterministic() {
