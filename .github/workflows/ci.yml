@@ -97,7 +97,7 @@ jobs:
           # (crates/csm-wasm depends on the root crate with feature `wasm`), and
           # the checker/build/size-gate scripts and this workflow must exercise
           # the gate they define.
-          if match '^(crates/csm-wasm/|src/|wasm/|scripts/(build-wasm|check-wasm-freshness|wasm_size_gate)\.sh$|Cargo\.(toml|lock)$|\.github/workflows/ci\.yml$)'; then
+          if match '^(crates/csm-wasm/|crates/.*\.rs$|crates/.*Cargo\.(toml|lock)$|src/|wasm/|scripts/(build-wasm|check-wasm-freshness|wasm_size_gate)\.sh$|Cargo\.(toml|lock)$|\.github/workflows/ci\.yml$)'; then
             echo "wasm=true" >> "$GITHUB_OUTPUT"
           else
             echo "wasm=false" >> "$GITHUB_OUTPUT"
