@@ -112,17 +112,21 @@ impl Reranker for MmrReranker {
             query_similarities.swap_remove(best_idx);
             max_sim_to_selected.swap_remove(best_idx);
 
-            // Incrementally update the maximum similarity cache using the newly selected candidate.
-            // This reduces the complexity of similarity-to-selected tracking from O(N * K^2) to O(N * K).
-            // Using zip avoids bounds checks and indexing overhead.
-            for (cand, max_sim) in candidates.iter().zip(max_sim_to_selected.iter_mut()) {
-                let sim = cand.vector.cosine_similarity(&best_cand.vector);
-                if sim > *max_sim {
-                    *max_sim = sim;
+            selected.push(best_cand);
+
+            // Incrementally update maximum similarity cache for remaining candidates.
+            // Performance Optimization: Bypass similarity updates when selected.len() == top_k
+            // or candidates is empty, saving N - k expensive 10,240-bit cosine similarity calculations
+            // on the final selection iteration since the updated cache is never read again.
+            if selected.len() < top_k && !candidates.is_empty() {
+                let best_vec = &selected.last().expect("selected is not empty").vector;
+                for (cand, max_sim) in candidates.iter().zip(max_sim_to_selected.iter_mut()) {
+                    let sim = cand.vector.cosine_similarity(best_vec);
+                    if sim > *max_sim {
+                        *max_sim = sim;
+                    }
                 }
             }
-
-            selected.push(best_cand);
         }
 
         selected
