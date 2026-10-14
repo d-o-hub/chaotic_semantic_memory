@@ -119,11 +119,12 @@ impl Reranker for MmrReranker {
             // or candidates is empty, saving N - k expensive 10,240-bit cosine similarity calculations
             // on the final selection iteration since the updated cache is never read again.
             if selected.len() < top_k && !candidates.is_empty() {
-                let best_vec = &selected.last().expect("selected is not empty").vector;
-                for (cand, max_sim) in candidates.iter().zip(max_sim_to_selected.iter_mut()) {
-                    let sim = cand.vector.cosine_similarity(best_vec);
-                    if sim > *max_sim {
-                        *max_sim = sim;
+                if let Some(best) = selected.last() {
+                    for (cand, max_sim) in candidates.iter().zip(max_sim_to_selected.iter_mut()) {
+                        let sim = cand.vector.cosine_similarity(&best.vector);
+                        if sim > *max_sim {
+                            *max_sim = sim;
+                        }
                     }
                 }
             }
