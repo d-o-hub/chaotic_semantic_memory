@@ -1335,3 +1335,38 @@ it re-added the closed `#829` queue entry, restored `scripts/gen-agents-context.
 `main`). The branch was rebuilt as `origin/main` + its two intended commits (the eight-workflow
 env bound and the lint budget), proven with `git diff origin/main --stat` = those 8 files,
 force-pushed with a lease, and merged from that tree. Queue: 1 (#833).
+
+## 2026-10-15: three-PR roast — #893 closed, #887 closed, #889 kept with three repairs
+
+Session-start triage of the three open PRs on `main` = `edb1302`. A dirty
+`plans/GOAP_ORCHESTRATOR.md` (the tracked file rewritten by `scripts/goap-orchestrator.sh plan`,
+which emits one action per issue *label*) was restored to `HEAD` before anything else.
+
+**#893** (`perf(hyperdim_binary)`: `MaybeUninit` conversions + `permute` zero-shift, head
+`dfb45ff8`) — **closed as no demonstrated impact**. Both halves re-file measured/disassembly-closed
+predecessors (#800 → #814 → #819 → #875 → #879 for the `permute` hunk; #783 → #863 → #875 for the
+conversions), and I refuted the premise on the pinned toolchain rather than citing those records:
+transcribed bodies linked into one binary show `from_bytes` main/PR at the same address
+(`0x14b50`, `memcpy` only, no `memset`) and the `memset` surviving in the aligned `permute` path
+for `word_shift != 0` even with the initializer moved inside the branch (`0x14f20` vs `0x14fd0`).
+The diff also carried resolver churn (`windows-sys` 0.52→0.59 ×7, `getrandom` 0.4.3→0.3.4
+downgrade); `commitlint` red on the perf-evidence gate, Codacy red (`unsafe` usage).
+
+**#887** (dependabot `uuid` 1.26.1 → 1.28.0 in `/fuzz`) — **closed, not mergeable**: the
+`Fuzz Workspace Build` job fails with `uuid@1.28.0 requires rustc 1.89.0` against
+`rust-toolchain.toml` 1.88.0, and crates.io metadata shows 1.27.0 needs 1.89.0 too, so no
+compatible upgrade above 1.26.1 exists. Recurrence cure left as an owner decision (dependabot
+`ignore` with a "remove when MSRV moves" reason, precedent `libsql-sqlite3-parser`, or an MSRV move).
+
+**#889** (`perf(encoder)`: single-token fast path + capacity pre-allocation, head `f2aea132`) —
+**kept open, keeper pending three repairs**. Measured out-of-tree: `encode("hello")` 590.6 → 468.3 ns
+(6/6 rounds same sign, ≈ −20 %), `2 allocs / 1 344 B` → `1 alloc / 64 B`, digest-identical output.
+Repairs: drop the `with_capacity` hunk (3-token encode is `2 allocs / 3 904 B` on both revisions —
+the #754/#776 finding), replace the body's false "4.51 µs → 675 ns" pair with the measured one and
+the gate's `## Performance Evidence` section, and add an input that separates the two branches (the
+new test passes under the `tokens.len() == 1` → `!= 1` mutant — verified: 10 passed).
+
+Verdicts, evidence and the merge order: `plans/PR_ROAST_2026_10_15.md`. Lesson distilled into
+`.agents/skills/pr-roast-triage/references/codegen-and-measured-claims.md` with two compact
+pointers from `SKILL.md`. No queued GOAP action was in scope: `plans/ACTIONS.md` still holds only
+`mutation_baseline_the_feature_gated_mcp_module` (#833), `queued_actions_count` unchanged at 1.
