@@ -162,9 +162,11 @@ if [[ "${PROFILE}" == "fast" ]]; then
   # mutants came back TIMEOUT and the score printed 0% on a change that is
   # otherwise killable) and the ci.yml pre-warm step that relinks them once
   # before the run — after warming, touching one file and rebuilding both
-  # feature-enabled test binaries measured 39s. Note that `src/mcp/*` stays out
-  # of this job's scope via the pre-existing `--exclude "src/mcp/*"` below:
-  # widening the *feature* set is not the same as widening the *path* set.
+  # feature-enabled test binaries measured 39s. The *path* set is now as wide as
+  # the feature set: `src/mcp/*` left this job's scope on 2026-10-15 (#833), which
+  # ran the module's first baseline and added the lib-target tests and the
+  # documented excludes below — evidence in
+  # `plans/evidence/mutation_mcp_2026_10_15/`.
   FAST_ARGS+=(--features chaotic_semantic_memory/mcp)
 
   if [[ "${NO_DEFAULT_FEATURES}" == "true" ]]; then
@@ -223,7 +225,7 @@ if [[ "${JOBS}" -gt 1 ]]; then
   MUTANTS_ARGS=("${FILTERED_ARGS[@]}")
 fi
 
-# Shared excludes: I/O, WASM stubs, MCP wire, uninteresting Drop/guards.
+# Shared excludes: I/O, WASM stubs, uninteresting Drop/guards.
 EXCLUDE_ARGS=(
   --exclude-re "WasmFramework::"
   --exclude-re "persistence::"
@@ -239,9 +241,6 @@ EXCLUDE_ARGS=(
   --exclude-re "replace > with >= in FrameworkBuilder::with_max_associations_per_concept"
   --exclude-re "replace > with .* in FrameworkBuilder::build"
   --exclude-re "ChaoticSemanticFramework::load "
-  --exclude-re "mcp::"
-  --exclude-re "McpHandler::"
-  --exclude "src/mcp/*"
   --exclude "src/persistence_wasm.rs"
   --exclude-re "replace > with >= in <impl Reranker for MmrReranker>::rerank"
   # Hybrid merge equivalent mutants (2026-09-13, PR #693; proof in
@@ -276,24 +275,29 @@ EXCLUDE_ARGS=(
   # body. `csm inject` exit statuses are covered by tests/cli_integration.rs, which
   # is the *integration* profile — this job deliberately runs --lib only.
   --exclude-re "run_inject"
-  # mcp::serve is the same entry-point class as run_watch: under --lib there is
-  # no transport to end, so "replace serve -> Result<()> with Ok(())" survives
-  # nothing more interesting than being unreachable. It is not in this job's
-  # scope today (`--exclude "src/mcp/*"` above already drops the whole module) —
-  # the entry is written for the day that path exclusion is lifted, which is what
-  # the queued `mutation_baseline_the_feature_gated_mcp_module` action is about.
-  # Residual, stated plainly, and it is worse than untested: the ADR-0099 hop
-  # (src/mcp/server.rs:98 -> McpHandler::shutdown, src/mcp/handler.rs:90) is
-  # reachable on Stdio only. On Sse, run_sse_server awaits `axum::serve(listener,
-  # app)` with no with_graceful_shutdown, and axum 0.7.9's Serve::into_future is an
-  # infinite `loop { match tcp_accept(..) { Some(conn) => .., None => continue } }`
-  # (serve.rs:205-240, tcp_accept never returns an Err: :474-496), so that future
-  # does not resolve and serve never reaches line 98. No test can observe the line
-  # on that transport: tests/mcp_sse_integration.rs:17 does call serve, then
-  # abort()s the task at :112. The callee is covered (src/mcp/tools_tests.rs:231).
-  # The pattern is anchored on "replace serve ->" rather than "serve" so it cannot
-  # swallow a future `serve_*` helper that --lib can actually test.
+  # mcp::serve is the run_watch class: it is `serve_with_shutdown(config,
+  # operator_shutdown())` (src/mcp/server.rs:72/97), so the body's work only
+  # becomes observable in a process that receives SIGINT/SIGTERM — impossible
+  # from `--lib`, where there is no operator signal and no transport to end.
+  # Residual, stated plainly: this exclusion buys no coverage for the entry-point
+  # body. The hop is pinned elsewhere — `src/mcp/server_tests.rs::
+  # sse_exit_stops_the_ttl_cleanup_task` asserts the effect through
+  # `serve_with_handler` (live reaper slot -> signal -> await -> slot empty),
+  # `serve_with_shutdown_returns_when_the_signal_resolves` now requires the
+  # listener to accept a connection before signalling, and the process-level
+  # exits are covered by tests/cli_shutdown_signal.rs::
+  # serve_sse_stops_cooperatively_on_sig{term,int} (integration profile). The
+  # pattern is anchored on "replace serve ->" rather than "serve" so it cannot
+  # swallow a `serve_*` helper `--lib` can test: `serve_with_handler` and
+  # `run_sse_server_with_shutdown` are CAUGHT in the 2026-10-15 baseline.
   --exclude-re "replace serve ->"
+  # src/mcp/tools.rs `| -> ^` in parse_hvec_u64_halves (2026-10-15, #833): the
+  # operands are `u128::from(high) << 64` (bits 64..128) and `u128::from(low)`
+  # (bits 0..64), disjoint by construction, so `|` and `^` agree on every input —
+  # an equivalent mutant, not a weak test. Measured in the same baseline: the
+  # sibling `| -> &` and all seven shift/arithmetic mutants in that function are
+  # CAUGHT by tools_tests.rs::test_parse_hvec_legacy_u64_halves.
+  --exclude-re "replace \| with \^ in parse_hvec_u64_halves"
   # src/bin/csm.rs: tracing setup, error formatting, shell completion, and main
   # are CLI-only concerns (side-effectful, process-exit, I/O); untestable via --lib.
   --exclude "src/bin/csm.rs"

@@ -40,7 +40,7 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 
 ---
 
-## 8 Core Rules
+## Core Rules
 
 1. **Always read before editing** — Never guess file contents.
 2. **Stay under context limits** — Each instruction must earn its place. Keep AGENTS.md ≤ 200 LOC.
@@ -51,6 +51,8 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 7. **Reference, don't duplicate** — Point to source files/ADRs, do not duplicate content.
 8. **Never push directly to `main`** — Branch → commit → PR → verify green CI → squash-merge. Every PR MUST be merged from a head that is up to date with the latest `main` (rebase → re-run CI → merge, one PR at a time); **NEVER** `gh pr merge --auto`.
 9. **Roast before implement or merge** — Every GitHub PR/issue gets reviewed and roasted before you act on it. No demonstrated impact → close as no-op with the roast comment, then record the verdict, update `progress/`, and distill the lesson into `.agents/skills/`. CI green ≠ approved.
+10. **Re-create, don't grind** — a PR whose diff has no demonstrated impact on the codebase, or whose merge conflicts cost more to resolve than to redo, is **closed and re-created** as a fresh branch off the current `main` (`git checkout -b <type>/<scope>-<desc> origin/main`, then the intended commits) — never rebased, hand-resolved, or force-pushed through a stale/bot-rewritten head: a bot resolution silently reverts merged work, and a stale head never tested the tree that would land. Rule 9 still owns the verdict: a zero-delta or duplicate PR is closed with no re-creation, while an idea worth landing is re-created rather than salvaged, and either way the roast comment states exactly what the re-created PR must carry.
+11. **Keep the plan current through the orchestrator** — every session and every completed action updates `plans/GOAP_STATE.md` (flags, counters, `action_last_completed`) + `plans/ACTIONS.md` (queue) and appends to `progress/PROGRESS.md` + `progress/LEARNINGS.md`, driven by the `goap-orchestrator` skill (`scripts/goap-orchestrator.sh status|scan|verify`); `plan` overwrites the tracked `plans/GOAP_ORCHESTRATOR.md`, so it is a generator — `git restore` it rather than staging the output.
 
 ---
 

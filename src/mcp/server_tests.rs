@@ -149,6 +149,11 @@ async fn sse_exit_is_ok_without_a_request() {
 /// `serve_with_shutdown(config, ctrl_c)`, and with `ttl_cleanup_interval: 0` the
 /// transport exit still resolves without the reaper ever starting. This pins the
 /// wiring so `serve` cannot silently drop the shutdown hop.
+///
+/// Readiness is asserted before the signal is sent, exactly as in
+/// [`sse_exit_stops_the_ttl_cleanup_task`]: without it a `serve_with_shutdown`
+/// body that returned `Ok(())` immediately would satisfy this test, because the
+/// signal would merely resolve a future nothing ever waited on.
 #[tokio::test]
 async fn serve_with_shutdown_returns_when_the_signal_resolves() {
     let bind = reserve_ephemeral_port().await;
@@ -165,6 +170,17 @@ async fn serve_with_shutdown_returns_when_the_signal_resolves() {
         })
         .await
     });
+
+    loop {
+        if tokio::net::TcpStream::connect(bind).await.is_ok() {
+            break;
+        }
+        if running.is_finished() {
+            let outcome = running.await.expect("the server task must not panic");
+            panic!("serve_with_shutdown stopped before it was listening: {outcome:?}");
+        }
+        tokio::task::yield_now().await;
+    }
 
     shutdown_tx
         .send(())

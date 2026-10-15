@@ -429,6 +429,21 @@ printf '    - name: indented_wrong\n      github_issue: "#101"\n' > "${TEST_DIR}
 run_gate
 expect_fail_naming "a wrong indentation anchor parses to zero actions" "parsed 0 actions"
 
+echo "Test 15b: an empty queue that the state declares empty is a pass — and the"
+echo "         tolerance must not neuter either half"
+write_queue
+write_state 0 zeta_removed_action
+set_issues "103|CLOSED|GOAP: already landed and correctly unqueued"
+run_gate
+expect_pass "an empty queue with queued_actions_count: 0 reconciles"
+expect_output_has "the empty queue is reported as consistent" "queue is empty"
+set_issues "106|OPEN|GOAP: still open and never queued"
+run_gate
+expect_fail_naming "an OPEN GOAP issue is still UNQUEUED on an empty queue" "UNQUEUED" "#106"
+write_state 1 zeta_removed_action
+run_gate
+expect_fail_naming "a declared count of 1 over an empty queue still fails closed" "parsed 0 actions"
+
 echo "Test 16: missing plans files fail closed"
 write_baseline
 rm -f "${TEST_DIR}/plans/ACTIONS.md"

@@ -1335,3 +1335,78 @@ it re-added the closed `#829` queue entry, restored `scripts/gen-agents-context.
 `main`). The branch was rebuilt as `origin/main` + its two intended commits (the eight-workflow
 env bound and the lint budget), proven with `git diff origin/main --stat` = those 8 files,
 force-pushed with a lease, and merged from that tree. Queue: 1 (#833).
+
+## 2026-10-15: three-PR roast — #893 closed, #887 closed, #889 kept with three repairs
+
+Session-start triage of the three open PRs on `main` = `edb1302`. A dirty
+`plans/GOAP_ORCHESTRATOR.md` (the tracked file rewritten by `scripts/goap-orchestrator.sh plan`,
+which emits one action per issue *label*) was restored to `HEAD` before anything else.
+
+**#893** (`perf(hyperdim_binary)`: `MaybeUninit` conversions + `permute` zero-shift, head
+`dfb45ff8`) — **closed as no demonstrated impact**. Both halves re-file measured/disassembly-closed
+predecessors (#800 → #814 → #819 → #875 → #879 for the `permute` hunk; #783 → #863 → #875 for the
+conversions), and I refuted the premise on the pinned toolchain rather than citing those records:
+transcribed bodies linked into one binary show `from_bytes` main/PR at the same address
+(`0x14b50`, `memcpy` only, no `memset`) and the `memset` surviving in the aligned `permute` path
+for `word_shift != 0` even with the initializer moved inside the branch (`0x14f20` vs `0x14fd0`).
+The diff also carried resolver churn (`windows-sys` 0.52→0.59 ×7, `getrandom` 0.4.3→0.3.4
+downgrade); `commitlint` red on the perf-evidence gate, Codacy red (`unsafe` usage).
+
+**#887** (dependabot `uuid` 1.26.1 → 1.28.0 in `/fuzz`) — **closed, not mergeable**: the
+`Fuzz Workspace Build` job fails with `uuid@1.28.0 requires rustc 1.89.0` against
+`rust-toolchain.toml` 1.88.0, and crates.io metadata shows 1.27.0 needs 1.89.0 too, so no
+compatible upgrade above 1.26.1 exists. Recurrence cure left as an owner decision (dependabot
+`ignore` with a "remove when MSRV moves" reason, precedent `libsql-sqlite3-parser`, or an MSRV move).
+
+**#889** (`perf(encoder)`: single-token fast path + capacity pre-allocation, head `f2aea132`) —
+**kept open, keeper pending three repairs**. Measured out-of-tree: `encode("hello")` 590.6 → 468.3 ns
+(6/6 rounds same sign, ≈ −20 %), `2 allocs / 1 344 B` → `1 alloc / 64 B`, digest-identical output.
+Repairs: drop the `with_capacity` hunk (3-token encode is `2 allocs / 3 904 B` on both revisions —
+the #754/#776 finding), replace the body's false "4.51 µs → 675 ns" pair with the measured one and
+the gate's `## Performance Evidence` section, and add an input that separates the two branches (the
+new test passes under the `tokens.len() == 1` → `!= 1` mutant — verified: 10 passed).
+
+Verdicts, evidence and the merge order: `plans/PR_ROAST_2026_10_15.md`. Lesson distilled into
+`.agents/skills/pr-roast-triage/references/codegen-and-measured-claims.md` with two compact
+pointers from `SKILL.md`. No queued GOAP action was in scope: `plans/ACTIONS.md` still holds only
+`mutation_baseline_the_feature_gated_mcp_module` (#833), `queued_actions_count` unchanged at 1.
+
+## 2026-10-15 (cont.): #833 — `src/mcp` gets a mutation baseline and leaves the exclusion list
+
+The queued action `mutation_baseline_the_feature_gated_mcp_module` is done, the issue closed with the
+measured record, and the queue is empty for the first time (`queued_actions_count: 0`).
+
+**Measured, not asserted.** Scoped `cargo-mutants` over the four production files with
+`--features chaotic_semantic_memory/mcp --lib` (rustc 1.88.0, cargo-mutants 27.1.0, `--in-place`):
+**60 mutants → 34 missed / 18 caught / 8 unviable** before; the 32 triaged survivors plus five
+pre-existing controls then re-verified at **37/37 caught**, i.e. `60 − 2 documented exclusions = 58
+tested`, `58 − 8 unviable = 50 killable`, **50 caught = 100 % of killable mutants**. Evidence and the
+per-survivor triage table: `plans/evidence/mutation_mcp_2026_10_15/`.
+
+**What carried the kills.** `src/mcp/handler_tests.rs` (7 tests: the 13 schemas as a table, the tool
+and resource definitions, `map_error`, `get_info`, the full tool dispatch with the export format
+branches, per-arm argument validation, the resource URIs) and `src/mcp/wire_tests.rs` (1 test that
+drives a real rmcp server over `tokio::io::duplex` with newline-delimited JSON-RPC — the only way to
+reach `initialize` / `list_tools` / `list_resources` from `--lib`). `serve_with_shutdown` is killed
+rather than excluded: its test now requires the listener to accept a connection *before* the signal,
+which is what kills the whole-body `Ok(())` neuter.
+
+**The exclusions.** All three `src/mcp` entries left `scripts/mutation_test.sh` (control: 0 mutants
+listed with the path glob, 60 without; the `mcp::` label was inert because `--exclude-re` matches
+mutant descriptions, not module paths). Two entries remain with mechanisms recorded: `replace serve ->`
+(entry point, observable only in a process taking SIGINT/SIGTERM — the hop's effect is pinned by
+`server_tests.rs` and the process-level tests in `tests/cli_shutdown_signal.rs`) and
+`replace | with ^ in parse_hvec_u64_halves` (equivalent mutant: disjoint bit ranges by construction).
+
+**Two gates had to move with it.** A new `.rs` file under `src/` changes `modules_under_loc_limit`
+(97/97 → 99/99 — the first draft of the test file was 606 lines and had to be split, extracted not
+stripped) and the generator's per-file heading made `llms-full.txt` stale; `tests_count` went
+1044 → 1052 (8 new lib tests). And `scripts/check-goap-queue-issues.sh` failed closed on the empty
+queue ("parsed 0 actions … Both fail closed"), which had never been reachable before: it now
+reconciles an unparsed queue against `queued_actions_count: 0` and the fixture proves the tolerance
+does not neuter the tracker half (an OPEN `GOAP:` issue is still UNQUEUED) or the count half.
+Fixture: 50 → 54 assertions, all green.
+
+Residual, measured and stated: the CI job is `timeout-minutes: 45` with `--in-diff`, per-mutant
+rebuilds cost 86–108 s, so a diff rewriting all of `tools.rs` (31 mutants) would pressure the budget —
+not a regression, since those lines previously produced nothing at all.

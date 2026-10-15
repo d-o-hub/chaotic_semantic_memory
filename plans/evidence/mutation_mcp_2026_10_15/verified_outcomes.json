@@ -1,0 +1,160 @@
+{
+ "scope": "previously-missed 32 + 5 pre-existing controls; --file 'src/mcp/*.rs', --lib, mcp feature, in-place, rustc 1.88.0, cargo-mutants 27.1.0",
+ "totals": {
+  "total_mutants": 37,
+  "caught": 37,
+  "missed": 0,
+  "unviable": 0,
+  "timeout": 0
+ },
+ "outcomes": [
+  {
+   "name": "src/mcp/handler.rs:101:9: replace McpHandler::map_error -> ErrorData with Default::default()",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/handler.rs:107:9: replace <impl ServerHandler for McpHandler>::get_info -> ServerConfig with Default::default()",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/handler.rs:127:9: replace <impl ServerHandler for McpHandler>::initialize -> Result<InitializeResult, ErrorData> with Ok(Default::default())",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/handler.rs:138:9: replace <impl ServerHandler for McpHandler>::list_tools -> Result<ListToolsResult, ErrorData> with Ok(Default::default())",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/handler.rs:217:9: replace <impl ServerHandler for McpHandler>::list_resources -> Result<ListResourcesResult, ErrorData> with Ok(Default::default())",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/handler.rs:266:5: replace tool_def -> Tool with Default::default()",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/schema.rs:112:5: replace get_schema -> Value with Default::default()",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/schema.rs:126:5: replace delete_schema -> Value with Default::default()",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/schema.rs:140:5: replace associate_schema -> Value with Default::default()",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/schema.rs:163:5: replace traverse_schema -> Value with Default::default()",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/schema.rs:187:5: replace shortest_path_schema -> Value with Default::default()",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/schema.rs:210:5: replace stats_schema -> Value with Default::default()",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/schema.rs:218:5: replace export_schema -> Value with Default::default()",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/schema.rs:232:5: replace list_gaps_schema -> Value with Default::default()",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/schema.rs:29:5: replace inject_text_schema -> Value with Default::default()",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/schema.rs:51:5: replace probe_schema -> Value with Default::default()",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/schema.rs:70:5: replace probe_text_schema -> Value with Default::default()",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/schema.rs:7:5: replace inject_schema -> Value with Default::default()",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/schema.rs:89:5: replace probe_filtered_schema -> Value with Default::default()",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/server.rs:101:5: replace serve_with_shutdown -> Result<()> with Ok(())",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/tools.rs:105:13: delete match arm \"memory_delete\" in McpHandler::execute_tool",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/tools.rs:112:13: delete match arm \"memory_associate\" in McpHandler::execute_tool",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/tools.rs:123:13: delete match arm \"memory_traverse\" in McpHandler::execute_tool",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/tools.rs:137:13: delete match arm \"memory_shortest_path\" in McpHandler::execute_tool",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/tools.rs:147:13: delete match arm \"memory_stats\" in McpHandler::execute_tool",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/tools.rs:151:13: delete match arm \"memory_export\" in McpHandler::execute_tool",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/tools.rs:162:27: replace == with != in McpHandler::execute_tool",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/tools.rs:169:13: delete match arm \"memory_list_gaps\" in McpHandler::execute_tool",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/tools.rs:16:13: delete match arm \"memory_inject\" in McpHandler::execute_tool",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/tools.rs:194:9: replace McpHandler::execute_read_resource -> Result<Value> with Ok(Default::default())",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/tools.rs:201:23: replace == with != in McpHandler::execute_read_resource",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/tools.rs:204:23: replace == with != in McpHandler::execute_read_resource",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/tools.rs:30:13: delete match arm \"memory_inject_text\" in McpHandler::execute_tool",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/tools.rs:45:13: delete match arm \"memory_probe\" in McpHandler::execute_tool",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/tools.rs:51:13: delete match arm \"memory_probe_text\" in McpHandler::execute_tool",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/tools.rs:70:13: delete match arm \"memory_probe_filtered\" in McpHandler::execute_tool",
+   "summary": "CaughtMutant"
+  },
+  {
+   "name": "src/mcp/tools.rs:95:13: delete match arm \"memory_get\" in McpHandler::execute_tool",
+   "summary": "CaughtMutant"
+  }
+ ]
+}

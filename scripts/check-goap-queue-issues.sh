@@ -124,10 +124,24 @@ while IFS=$'\t' read -r kind field; do
 done <<< "${RECORDS}"
 
 if [[ "${#ACTION_NAMES[@]}" -eq 0 ]]; then
-    echo "Error: GOAP queue gate parsed 0 actions from ${ACTIONS}" >&2
-    echo "       the parser keys on '^  - name:'; zero actions means the queue is" >&2
-    echo "       genuinely empty or the anchor broke. Both fail closed." >&2
-    exit 1
+    # An empty queue is a legitimate terminal world state — every action landed —
+    # and counting alone cannot tell it apart from a broken anchor. Reconcile the
+    # two independent signals instead of failing closed on zero: only a declared
+    # `queued_actions_count: 0` may agree with an unparsed queue. A missing,
+    # non-numeric or non-zero count still fails closed, and the STATE checks below
+    # re-measure the declared count against the parsed length either way.
+    declared_for_empty="$(grep -m1 '^  queued_actions_count:' "${STATE}" \
+        | sed -e 's/^  queued_actions_count:[ \t]*//' -e 's/[ \t#].*$//' || true)"
+    if [[ "${declared_for_empty}" == "0" ]]; then
+        echo "note: queue is empty and ${STATE} declares queued_actions_count: 0 — consistent, nothing to reconcile" >&2
+    else
+        echo "Error: GOAP queue gate parsed 0 actions from ${ACTIONS}" >&2
+        echo "       the parser keys on '^  - name:'; zero actions means the queue is" >&2
+        echo "       genuinely empty (then ${STATE} must declare 'queued_actions_count: 0')" >&2
+        echo "       or the anchor broke. Both fail closed." >&2
+        echo "       ${STATE} declares '${declared_for_empty:-<no such key>}'." >&2
+        exit 1
+    fi
 fi
 
 # --- UNDECLARED (tracker-independent) --------------------------------------
