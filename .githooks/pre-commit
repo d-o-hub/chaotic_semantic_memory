@@ -137,7 +137,14 @@ fi
 STAGED_TESTS=$(git diff --cached --name-only | grep -cE "^(src|crates)/.*\.rs$|^tests/.*\.rs$" || true)
 if [[ "${STAGED_TESTS}" -gt 0 ]] && [[ -x "${SCRIPT_DIR}/coverage-report.sh" ]]; then
   echo " → Test inventory (unique compiled behavior)..."
-  "${SCRIPT_DIR}/coverage-report.sh" inventory | head -8
+  # Capture, then print the prefix. `| head -8` closed the pipe under
+  # `set -o pipefail`, so the producer's remaining writes raised BrokenPipeError
+  # and the hook exited 1 — a flake that blocked commits (reproduced on a clean
+  # `origin/main` tree, rc=1; rc=0 on a retry). `sed` reads the whole stream, so
+  # nothing closes early, and a failing inventory still aborts the commit
+  # through `set -e`.
+  inventory_output="$("${SCRIPT_DIR}/coverage-report.sh" inventory)" || exit 1
+  printf '%s\n' "${inventory_output}" | sed -n '1,8p'
 fi
 
 echo "✅ Pre-commit checks passed!"

@@ -12,6 +12,27 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-10-15):
+> `mutation_baseline_the_feature_gated_mcp_module` (#833) — the module left the
+> exclusion list and got its first baseline. Measured, not asserted: the scoped
+> pre-change run produced 60 mutants over the four production files
+> (`handler.rs`, `schema.rs`, `server.rs`, `tools.rs`) at **34 missed / 18 caught
+> / 8 unviable**, and after the change **37/37 of the re-verified set were caught**
+> (the 32 triaged survivors plus the five pre-existing controls), leaving
+> `60 − 2 documented exclusions = 58 tested`, `58 − 8 unviable = 50 killable`,
+> **50 caught = 100 % of killable mutants**. `src/mcp/handler_tests.rs` (7 tests)
+> and `src/mcp/wire_tests.rs` (1 test) carry the kills — the wire tests drive a
+> real rmcp server over `tokio::io::duplex`, which is the only way to reach
+> `initialize` / `list_tools` / `list_resources` — and two entries stay excluded
+> with their mechanisms recorded: `replace serve ->` (entry point, observable only
+> in a process that takes SIGINT/SIGTERM) and `replace | with ^ in
+> parse_hvec_u64_halves` (equivalent mutant: disjoint bit ranges). `server.rs`
+> `serve_with_shutdown` is *not* excluded: its test now requires the listener to
+> accept a connection before the signal is sent, which is what kills the
+> whole-body neuter. Evidence and commands:
+> `plans/evidence/mutation_mcp_2026_10_15/`. Entry removed because the merge
+> closed #833. 1 → 0.
+>
 > Last completed (verified 2026-10-12):
 > `generate_skill_catalog_and_agent_context` (#828 → PRs #847 + #880) — the catalog half landed as
 > `6d936ee` (#847: `gen-skill-catalog.sh` + `check-skill-catalog.sh` + a 23-assertion drift
@@ -579,31 +600,4 @@
 > Eight actions remain; `validated` stays false.
 
 actions:
-  - name: mutation_baseline_the_feature_gated_mcp_module
-    github_issue: "#833"
-    preconditions: []
-    effects:
-      mcp_module_mutation_baselined: true
-    notes: >
-      #817 added `--features chaotic_semantic_memory/mcp` to the fast mutation
-      profile, but `--in-diff` only generates mutants for lines a PR touches, so
-      what that fixes going forward is not what it fixes now: `src/mcp/**` was
-      invisible to *every* mutation run before it (the module is
-      `#[cfg(feature = "mcp")]` and `mcp` is not a default feature), so the
-      module has no mutation baseline at all. Required: run cargo-mutants over
-      `src/mcp/**` with the mcp feature on (full profile, or `--file`-scoped fast
-      runs per module), then triage each survivor into a real test or a documented
-      `--exclude-re` entry with its mechanism. Constraints to respect: the PR job
-      is `timeout-minutes: 45` with the full-tree fallback disabled in CI, so this
-      is a local/nightly run; and the profile's `--build-timeout` is sized for
-      incremental per-mutant rebuilds, not for a cold baseline that links
-      rmcp/axum/tower (see LEARNINGS 2026-10-03). The concrete target this note
-      was written about is now closed: #821 gave the SSE transport an exit, so the
-      ADR-0099 hop at `src/mcp/server.rs:152-155` (`handler.shutdown()`, delegating
-      to `src/mcp/handler.rs:90`) executes on both transports and is asserted for
-      its effect in `src/mcp/server_tests.rs`. What remains is the baseline itself:
-      `src/mcp/**` is still outside the profile via `--exclude "src/mcp/*"`,
-      `--exclude-re "mcp::"` and `"McpHandler::"`, so the module has no mutation
-      evidence at all — run a scoped baseline over `src/mcp` and triage each
-      survivor into a real test or a documented exclusion with its mechanism.
 

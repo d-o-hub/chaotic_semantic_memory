@@ -519,6 +519,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - impl McpHandler
 - impl ServerHandler for McpHandler
 
+### src/mcp/handler_tests.rs
+
+- impl Drop for RemoveOnDrop
+
 ### src/mcp/mod.rs
 
 - pub use handler::McpHandler
@@ -3395,6 +3399,15 @@ impl ServerHandler for McpHandler {
 }
 ```
 
+## src/mcp/handler_tests.rs
+
+### impl Drop for RemoveOnDrop
+
+```rust
+impl Drop for RemoveOnDrop {
+}
+```
+
 ## src/mcp/mod.rs
 
 ### handler::McpHandler
@@ -3614,6 +3627,8 @@ impl McpHandler {
 ```
 
 ## src/mcp/tools_tests.rs
+
+## src/mcp/wire_tests.rs
 
 ## src/metadata_filter.rs
 

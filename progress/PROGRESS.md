@@ -1370,3 +1370,43 @@ Verdicts, evidence and the merge order: `plans/PR_ROAST_2026_10_15.md`. Lesson d
 `.agents/skills/pr-roast-triage/references/codegen-and-measured-claims.md` with two compact
 pointers from `SKILL.md`. No queued GOAP action was in scope: `plans/ACTIONS.md` still holds only
 `mutation_baseline_the_feature_gated_mcp_module` (#833), `queued_actions_count` unchanged at 1.
+
+## 2026-10-15 (cont.): #833 — `src/mcp` gets a mutation baseline and leaves the exclusion list
+
+The queued action `mutation_baseline_the_feature_gated_mcp_module` is done, the issue closed with the
+measured record, and the queue is empty for the first time (`queued_actions_count: 0`).
+
+**Measured, not asserted.** Scoped `cargo-mutants` over the four production files with
+`--features chaotic_semantic_memory/mcp --lib` (rustc 1.88.0, cargo-mutants 27.1.0, `--in-place`):
+**60 mutants → 34 missed / 18 caught / 8 unviable** before; the 32 triaged survivors plus five
+pre-existing controls then re-verified at **37/37 caught**, i.e. `60 − 2 documented exclusions = 58
+tested`, `58 − 8 unviable = 50 killable`, **50 caught = 100 % of killable mutants**. Evidence and the
+per-survivor triage table: `plans/evidence/mutation_mcp_2026_10_15/`.
+
+**What carried the kills.** `src/mcp/handler_tests.rs` (7 tests: the 13 schemas as a table, the tool
+and resource definitions, `map_error`, `get_info`, the full tool dispatch with the export format
+branches, per-arm argument validation, the resource URIs) and `src/mcp/wire_tests.rs` (1 test that
+drives a real rmcp server over `tokio::io::duplex` with newline-delimited JSON-RPC — the only way to
+reach `initialize` / `list_tools` / `list_resources` from `--lib`). `serve_with_shutdown` is killed
+rather than excluded: its test now requires the listener to accept a connection *before* the signal,
+which is what kills the whole-body `Ok(())` neuter.
+
+**The exclusions.** All three `src/mcp` entries left `scripts/mutation_test.sh` (control: 0 mutants
+listed with the path glob, 60 without; the `mcp::` label was inert because `--exclude-re` matches
+mutant descriptions, not module paths). Two entries remain with mechanisms recorded: `replace serve ->`
+(entry point, observable only in a process taking SIGINT/SIGTERM — the hop's effect is pinned by
+`server_tests.rs` and the process-level tests in `tests/cli_shutdown_signal.rs`) and
+`replace | with ^ in parse_hvec_u64_halves` (equivalent mutant: disjoint bit ranges by construction).
+
+**Two gates had to move with it.** A new `.rs` file under `src/` changes `modules_under_loc_limit`
+(97/97 → 99/99 — the first draft of the test file was 606 lines and had to be split, extracted not
+stripped) and the generator's per-file heading made `llms-full.txt` stale; `tests_count` went
+1044 → 1052 (8 new lib tests). And `scripts/check-goap-queue-issues.sh` failed closed on the empty
+queue ("parsed 0 actions … Both fail closed"), which had never been reachable before: it now
+reconciles an unparsed queue against `queued_actions_count: 0` and the fixture proves the tolerance
+does not neuter the tracker half (an OPEN `GOAP:` issue is still UNQUEUED) or the count half.
+Fixture: 50 → 54 assertions, all green.
+
+Residual, measured and stated: the CI job is `timeout-minutes: 45` with `--in-diff`, per-mutant
+rebuilds cost 86–108 s, so a diff rewriting all of `tools.rs` (31 mutants) would pressure the budget —
+not a regression, since those lines previously produced nothing at all.

@@ -275,3 +275,11 @@ fn res_def(uri: &str, name: &str, desc: &str, mime: &str) -> Resource {
         .with_description(desc)
         .with_mime_type(mime)
 }
+
+#[cfg(test)]
+#[path = "handler_tests.rs"]
+mod tests;
+
+#[cfg(test)]
+#[path = "wire_tests.rs"]
+mod wire_tests;
