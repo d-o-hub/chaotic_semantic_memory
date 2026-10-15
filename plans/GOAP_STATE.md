@@ -48,7 +48,8 @@ world_state:
                                #   (b2e081a), after #892/#883/#884/#885/#886/#888 and the #828/#878
                                #   close-outs. Read from `git log --oneline origin/main`, never from the
                                #   previous entry.
-  tests_count: 1052              # 2026-10-15: 1044 + the 8 lib-target tests added for the src/mcp
+  tests_count: 1054              # 2026-10-15: 1044 + 8 (#833) + 2 (#897) = 1054. The #833 half:
+                               #   the 8 lib-target tests added for the src/mcp
                                #   mutation baseline (#833): 7 in `src/mcp/handler_tests.rs` and 1 in
                                #   `src/mcp/wire_tests.rs`. The file registered 8 tests when the mcp
                                #   filter ran 32 passing (24 pre-existing), and the mutation run
