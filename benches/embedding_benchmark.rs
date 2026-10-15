@@ -1,6 +1,13 @@
 use chaotic_semantic_memory::encoder::TextEncoder;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
+fn bench_encode_single(c: &mut Criterion) {
+    let encoder = TextEncoder::new();
+    c.bench_function("encode_single_1tok", |b| {
+        b.iter(|| encoder.encode(black_box("hello")))
+    });
+}
+
 fn bench_encode_short(c: &mut Criterion) {
     let encoder = TextEncoder::new();
     c.bench_function("encode_short_3tok", |b| {
@@ -37,6 +44,7 @@ fn bench_encode_batch(c: &mut Criterion) {
 
 criterion_group!(
     benches,
+    bench_encode_single,
     bench_encode_short,
     bench_encode_long,
     bench_encode_batch

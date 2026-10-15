@@ -43,12 +43,13 @@ world_state:
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "b2e081a"           # 2026-10-15: fetched (`git fetch origin main`); replaced 0a8a1d9
+  main_head: "fe20979"           # 2026-10-15: fetched after #895 (8fbae79) and #896 (fe20979) landed
                                #   (2026-10-09). Moves since: the 2026-10-15 PR roast landed as #894
                                #   (b2e081a), after #892/#883/#884/#885/#886/#888 and the #828/#878
                                #   close-outs. Read from `git log --oneline origin/main`, never from the
                                #   previous entry.
-  tests_count: 1052              # 2026-10-15: 1044 + the 8 lib-target tests added for the src/mcp
+  tests_count: 1054              # 2026-10-15: 1044 + 8 (#833) + 2 (#897) = 1054. The #833 half:
+                               #   the 8 lib-target tests added for the src/mcp
                                #   mutation baseline (#833): 7 in `src/mcp/handler_tests.rs` and 1 in
                                #   `src/mcp/wire_tests.rs`. The file registered 8 tests when the mcp
                                #   filter ran 32 passing (24 pre-existing), and the mutation run

@@ -1410,3 +1410,22 @@ Fixture: 50 → 54 assertions, all green.
 Residual, measured and stated: the CI job is `timeout-minutes: 45` with `--in-diff`, per-mutant
 rebuilds cost 86–108 s, so a diff rewriting all of `tools.rs` (31 mutants) would pressure the budget —
 not a regression, since those lines previously produced nothing at all.
+
+## 2026-10-15 (cont.): #889 closed under Rule 10, re-created as #897 — the encoder fast path
+
+#889, the one keeper of the morning roast, carried a real measured win in a head that could not land:
+four `google-labs-jules[bot]` commits on top of three human-resolved `Merge branch 'main'` commits,
+three behind, `commitlint` red. Rule 10 says re-create rather than grind, so the PR is closed with
+its round-1 evidence carried forward and the change re-created as **#897** off current `main` with
+the three repairs the verdict demanded: the provably no-op `with_capacity`/`push` hunk dropped
+(`2 allocs / 3 904 B` for three tokens on both revisions), the false body numbers replaced by a fresh
+Criterion pair (`encode_single_1tok` 587.71 ns → 471.53 ns, −19.8 %, with the untouched
+`encode_short_3tok` control flat — the claimed `~4.51 µs` was #776's own claimed *post-change*
+number), and the non-discriminating test replaced by two that the guard mutants actually fail
+(`==`→`!=` fails the three-token `assert_ne!`; `&&`→`||` fails both).
+
+Two operational findings from this round, both encoded in `progress/LEARNINGS.md`: a full root volume
+surfaced inside `cargo-mutants` as `could not compile … due to 1 previous error` on an *unmutated*
+tree (`target/` had grown to 63 GB; `cargo clean -p csm-core-lib -p chaotic_semantic_memory`
+reclaimed 54.9 GiB), and that tool has no positive mutant filter — `--file` needs a
+workspace-relative path, and `-p` after `--` only changes the test command.

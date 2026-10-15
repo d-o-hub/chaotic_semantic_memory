@@ -217,6 +217,16 @@ impl TextEncoder {
             return HVec10240::zero();
         }
 
+        // Fast path: one token and no n-gram overlay is exactly the bundle of a
+        // single position-encoded vector, whose `permute(0)` is the identity — so
+        // the 10 240-bit bundle, its allocation and the permutation are all
+        // skippable. Both halves of the guard are load-bearing: multi-token input
+        // genuinely needs the bundle, and `encode_with_ngrams("abc", 2)` must not
+        // short-circuit past the overlay it was asked for.
+        if tokens.len() == 1 && self.config.ngram_size.is_none() {
+            return self.token_to_hvec(tokens[0]);
+        }
+
         // Generate position-encoded vectors for each token
         let encoded_vectors: Vec<HVec10240> = tokens
             .iter()
@@ -392,6 +402,33 @@ mod tests {
         // N-gram encoding should produce a non-zero vector
         let zero = HVec10240::zero();
         assert!(v.hamming_distance(&zero) > 0);
+    }
+
+    #[test]
+    fn encode_single_token_fast_path_matches_the_general_path() {
+        let encoder = TextEncoder::new();
+        // One token, no n-grams: the fast path must return what the general path
+        // produces for a bundle of one.
+        assert_eq!(encoder.encode("hello"), encoder.token_to_hvec("hello"));
+        // ...and it must not swallow multi-token input. Three tokens are bundled,
+        // so the result cannot equal a single token's vector; this is the
+        // assertion the `tokens.len() == 1` half of the guard fails.
+        assert_ne!(
+            encoder.encode("alpha beta gamma"),
+            encoder.token_to_hvec("alpha")
+        );
+    }
+
+    #[test]
+    fn encode_single_token_with_ngrams_still_applies_the_overlay() {
+        let encoder = TextEncoder::new();
+        // A single token *with* an overlay configured must take the general path.
+        // The pre-existing `encode_with_ngrams` assertion (non-zero) cannot see
+        // this, because a single token's vector is non-zero too.
+        assert_ne!(
+            encoder.encode_with_ngrams("abc", 2),
+            encoder.token_to_hvec("abc")
+        );
     }
 
     #[test]
