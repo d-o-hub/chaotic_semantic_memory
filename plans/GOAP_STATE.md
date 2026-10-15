@@ -43,13 +43,19 @@ world_state:
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "0a8a1d9"           # 2026-10-09: fetched (`git fetch origin main`); replaced 83e9a6c
-                               #   (2026-10-05). Since then: the #851 queue-reconciliation gate, the
-                               #   #862 hook-installer consolidation, #858's persistence failure-path
-                               #   tests (d611e12), #844's dependency bump, and the queue clean-up this
-                               #   head is named for. Read from `git log --oneline origin/main`, never
-                               #   from the previous entry.
-  tests_count: 1044              # 2026-10-05: 1037 + the 2 SIGINT/SIGTERM exit-status tests for `watch`, then +2
+  main_head: "b2e081a"           # 2026-10-15: fetched (`git fetch origin main`); replaced 0a8a1d9
+                               #   (2026-10-09). Moves since: the 2026-10-15 PR roast landed as #894
+                               #   (b2e081a), after #892/#883/#884/#885/#886/#888 and the #828/#878
+                               #   close-outs. Read from `git log --oneline origin/main`, never from the
+                               #   previous entry.
+  tests_count: 1052              # 2026-10-15: 1044 + the 8 lib-target tests added for the src/mcp
+                               #   mutation baseline (#833): 7 in `src/mcp/handler_tests.rs` and 1 in
+                               #   `src/mcp/wire_tests.rs`. The file registered 8 tests when the mcp
+                               #   filter ran 32 passing (24 pre-existing), and the mutation run
+                               #   re-verified each survivor against them. Delta on the last measured
+                               #   value, not a fresh full-suite inventory — same convention as the
+                               #   entry below.
+                               # 2026-10-05: 1037 + the 2 SIGINT/SIGTERM exit-status tests for `watch`, then +2
                                #   more for `mcp serve --transport sse` in the same
                                #   tests/cli_shutdown_signal.rs (all 4 pass on the branch; the file registers
                                #   4 tests, re-derived from the harness output, not inferred), then +3 from
@@ -107,7 +113,13 @@ world_state:
   wave_32_status: in_progress    # 2026-09-30: exits re-verified — ownership/features/scale-evidence/metres landed; residuals queued (TTL shutdown, absence invalidation, failure-path + query-count tests, gate + catalog work, evidence tiers)
   wave_32_roadmap: "plans/GOAP_AUDIT_2026_07_14.md"
   wave_33_status: in_progress    # docs truth + missing behavior + evidence; mostly landed
-  queued_actions_count: 1        # 2026-10-12: removed closed #828 (#880 merged as d951067a, Fixes #828); 2026-10-10: removed closed #829 (issue closed with the claim-by-claim re-measurement); removed closed #840 (PR #869, 1fd790e8); earlier that day removed closed #830 (3ef32d5d) and #826 (81c292de). 2026-10-09: removed closed #842 (#862 landed the hook consolidation; the gate flagged the stale entry while shipping the record PR). 2026-10-08: removed closed #825, already implemented by #858 on base d611e12. Historical 2026-10-05 ledger: Every line below is `git show <commit>:plans/ACTIONS.md
+  queued_actions_count: 0        # 2026-10-15: removed the completed
+                               #   `mutation_baseline_the_feature_gated_mcp_module` (#833) — its effect is
+                               #   now recorded as `mcp_module_mutation_baselined` below, with the evidence in
+                               #   `plans/evidence/mutation_mcp_2026_10_15/` (60 mutants: 34 missed / 18 caught
+                               #   / 8 unviable before; 50/50 killable caught after). The queue is empty:
+                               #   `grep -c '^  - name:' plans/ACTIONS.md` = 0, which is what the gate compares.
+                               # 2026-10-12: removed closed #828 (#880 merged as d951067a, Fixes #828); 2026-10-10: removed closed #829 (issue closed with the claim-by-claim re-measurement); removed closed #840 (PR #869, 1fd790e8); earlier that day removed closed #830 (3ef32d5d) and #826 (81c292de). 2026-10-09: removed closed #842 (#862 landed the hook consolidation; the gate flagged the stale entry while shipping the record PR). 2026-10-08: removed closed #825, already implemented by #858 on base d611e12. Historical 2026-10-05 ledger: Every line below is `git show <commit>:plans/ACTIONS.md
                                #   | grep -c '^  - name:'`, not a recollection — and reading the commits
                                #   instead of the prose is what exposed the drift #851 was written about:
                                #   87fa734 (#837 landed) -> 10   entry NOT removed
@@ -180,6 +192,23 @@ world_state:
   ruleset_requires_core_ci_gates: true  # 2026-10-09 (#850): ruleset 12897801 requires lint/test/mutation-test (app 15368) in addition to Build CLI/Codacy/commitlint; strict up-to-date and admin PR bypass retained. Verified via the stored ruleset, /rules/branches/main and `gh pr checks 867 --required` (3 -> 6 contexts).
   scheduled_evidence_tier_runs: true  # 2026-10-10 (#830 -> PR #861, 3ef32d5d): scheduled-evidence.yml runs scale-evidence + a full mutation sweep weekly (dispatch included); benchmark-ci path filters cover crates/**.
   mutation_inventory_published: true  # 2026-10-10 (#830 -> PR #861): module-level table appended to progress/mutation/<profile>-latest.md and uploaded as artifacts.
+  mcp_module_mutation_baselined: true  # 2026-10-15 (#833): `src/mcp/*` left the profile's exclusion list
+                               #   (`--exclude "src/mcp/*"` plus its two `--exclude-re` label entries at
+                               #   `scripts/mutation_test.sh:242-244`) after a scoped baseline: 60 mutants over
+                               #   handler/schema/server/tools, **34 missed / 18 caught / 8 unviable** before;
+                               #   `src/mcp/handler_tests.rs` (7) + `src/mcp/wire_tests.rs` (1, a real rmcp
+                               #   server over `tokio::io::duplex` — the only route to `initialize`/`list_tools`/
+                               #   `list_resources`) then took **37/37 of the re-verified set to caught**, i.e.
+                               #   50/50 killable with the two documented exclusions (`replace serve ->`, entry
+                               #   point; `replace | with ^ in parse_hvec_u64_halves`, equivalent mutant).
+                               #   `serve_with_shutdown` is killed, not excluded: its test now requires the
+                               #   listener to accept a connection before signalling. Evidence:
+                               #   `plans/evidence/mutation_mcp_2026_10_15/`.
+                               #   Residual, measured: CI's job budget is `timeout-minutes: 45` and the PR path
+                               #   is `--in-diff`, so the mutant count follows changed lines; a diff rewriting
+                               #   all of `src/mcp/tools.rs` (31 mutants at 86-108 s of rebuild each) would
+                               #   pressure that budget. Not a regression — those lines previously produced no
+                               #   results at all.
   link_validators_single_and_wired: true  # 2026-10-10 (#840 -> PR #869, 1fd790e8): one link checker (check-docs-links.sh) wired into validate.sh + the lint job with a 9-case fixture; validate-links.sh deleted.
   skill_catalog_generated_and_gated: true  # 2026-10-12 (#828 -> PRs #847/#880): CATALOG.md is generated from the tree and drift-gated (#847); docs/architecture/context.yaml counters are compared against live sources by tests/validate_llm_context.py (skills/ADRs/active_wave/tests/LOC coverage, module and key-file existence), wired into validate.sh with a 12-case fixture (#880, d951067a); gen-agents-context.sh retired.
   release_wait_event_driven: true                 # 2026-09-30: release.yml triggers on CI completion (workflow_run, head_sha-pinned); no polling ceiling. Proof: runs 36746741481 + 36746882951 green, publishes correctly skipped
@@ -249,4 +278,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: generate_skill_catalog_and_agent_context  # 2026-10-12 #828 — catalog half #847 (6d936ee), agent-context half #880 (d951067a, Fixes #828); entry removed, 2 -> 1. Previous: wire_and_consolidate_validation_gates (#829).
+  action_last_completed: mutation_baseline_the_feature_gated_mcp_module  # 2026-10-15 #833 — first baseline for the feature-gated mcp module (60 mutants: 34 missed / 18 caught / 8 unviable -> 50/50 killable caught; `plans/evidence/mutation_mcp_2026_10_15/`), the three `src/mcp` profile exclusions removed, 8 lib-target tests added (tests_count 1044 -> 1052), entry removed, 1 -> 0. Previous: generate_skill_catalog_and_agent_context (#828).
