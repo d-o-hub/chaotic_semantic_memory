@@ -154,6 +154,7 @@ PRs asserted a zero-copy win that a by-value `-> Self` return rules out.
     benchmarks for a scheduling-speedup claim. Compile variants
     `#[no_mangle] #[inline(never)]` into a linked binary and disassemble
     (raw `--emit obj/asm` drops unreferenced `pub fn`s on rustc 1.98.1).
+    Initializer *position* is not the fix either: `memset` survives `word_shift != 0` (#893) — `references/codegen-and-measured-claims.md`.
   - **Evidence belongs in the PR body.** A `## Performance Evidence` section in
     a commit message does not satisfy the gate and does not reach a reviewer
     reading the PR. Check the body, not the commits.
@@ -176,7 +177,9 @@ PRs asserted a zero-copy win that a by-value `-> Self` return rules out.
     inside a function dominated by allocation/partitioning is **not** a
     speedup: check what the dominant term actually is before accepting the
     claim. Interleave A/B/A/B and demand a consistent sign; shared hosts
-    sign-flip at ±25 % (same class as "Benchmark under load").
+    sign-flip at ±25 % (same class as "Benchmark under load"). Measure the
+    PR's own base in a worktree: a claimed "after" can be slower than the head
+    measures (#889) — `references/codegen-and-measured-claims.md`.
   - A **correct-but-unmeasured** PR is not a no-op: request the evidence
     (`## Performance Evidence`, enforced by `scripts/check-perf-pr-evidence.py`)
     and the regression test that locks the new correctness property, and keep
