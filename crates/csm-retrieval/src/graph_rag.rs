@@ -77,7 +77,10 @@ pub fn graph_rag_retrieve(
     let max_hops = config.max_hops.min(MAX_GRAPH_RAG_HOPS);
     let final_top_k = config.final_top_k.min(MAX_GRAPH_RAG_FINAL_TOP_K);
 
-    if concepts.is_empty() || final_top_k == 0 {
+    if concepts.is_empty() {
+        return Ok(Vec::new());
+    }
+    if final_top_k == 0 {
         return Ok(Vec::new());
     }
 
