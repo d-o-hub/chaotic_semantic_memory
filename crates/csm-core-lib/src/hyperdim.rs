@@ -10,6 +10,8 @@ use rand::RngExt;
 #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
 use rayon::prelude::*;
 
+use std::mem::MaybeUninit;
+
 use crate::error::Result;
 
 pub use crate::hyperdim_batch::batch_cosine_similarity;
@@ -364,18 +366,22 @@ impl HVec10240 {
     /// from the hot loop by splitting the rotation into two contiguous segments.
     #[allow(clippy::needless_range_loop)]
     pub fn permute(&self, shift: usize) -> Self {
-        let mut result = [0u128; 80];
         let bit_shift = shift % 128;
         let word_shift = (shift / 128) % 80;
 
         // Optimized path for word-aligned rotations
         if bit_shift == 0 {
+            if word_shift == 0 {
+                return *self;
+            }
+            let mut result = [0u128; 80];
             let (left, right) = self.data.split_at(word_shift);
             result[..80 - word_shift].copy_from_slice(right);
             result[80 - word_shift..].copy_from_slice(left);
             return Self { data: result };
         }
 
+        let mut result = [0u128; 80];
         let inv_bit_shift = 128 - bit_shift;
 
         // Split cyclic rotation into two segments to eliminate modulo in the loop
@@ -432,26 +438,25 @@ impl HVec10240 {
             });
         }
 
-        #[allow(unused_mut)]
-        let mut data = [0u128; 80];
         #[cfg(target_endian = "little")]
-        {
-            // Performance Optimization: Direct memcpy for little-endian platforms.
-            // Avoids 80 loop iterations and multiple bounds checks per word.
-            // SAFETY: bytes length is verified to be 1280. [u128; 80] is bit-compatible
-            // with [u8; 1280] on little-endian. Pointers are valid.
-            unsafe {
-                std::ptr::copy_nonoverlapping(bytes.as_ptr(), data.as_mut_ptr() as *mut u8, 1280);
-            }
-        }
+        let data = unsafe {
+            // Performance Optimization: Direct memcpy into uninitialized array on little-endian platforms.
+            // Avoids 1,280-byte zero-initialization before copy_nonoverlapping.
+            // SAFETY: bytes length is verified to be 1280. [u128; 80] is bit-compatible with [u8; 1280].
+            let mut uninit = MaybeUninit::<[u128; 80]>::uninit();
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), uninit.as_mut_ptr().cast::<u8>(), 1280);
+            uninit.assume_init()
+        };
         #[cfg(not(target_endian = "little"))]
-        {
+        let data = {
+            let mut data = [0u128; 80];
             for i in 0..80 {
                 let mut word_bytes = [0u8; 16];
                 word_bytes.copy_from_slice(&bytes[i * 16..(i + 1) * 16]);
                 data[i] = u128::from_le_bytes(word_bytes);
             }
-        }
+            data
+        };
 
         Ok(Self { data })
     }

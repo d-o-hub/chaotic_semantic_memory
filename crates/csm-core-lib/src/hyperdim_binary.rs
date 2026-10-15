@@ -100,29 +100,28 @@ impl BHVec10240 {
     /// iterations with bit shifts, casts, and array bounds checks.
     #[allow(clippy::missing_const_for_fn)]
     pub fn from_hvec(v: &HVec10240) -> Self {
-        #[allow(unused_mut)]
-        let mut bits = [0u64; 160];
         #[cfg(target_endian = "little")]
-        {
+        let bits = unsafe {
             // SAFETY:
             // 1. Memory equivalence: `[u128; 80]` and `[u64; 160]` occupy exactly 1,280 contiguous bytes.
-            // 2. Alignment & Validity: `v.data` is an initialized `[u128; 80]` array, and `bits` is a mutable
-            //    `[u64; 160]` array. Pointers are valid, non-null, and point to non-overlapping allocations.
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    v.data.as_ptr().cast::<u8>(),
-                    bits.as_mut_ptr().cast::<u8>(),
-                    1280,
-                );
-            }
-        }
+            // 2. Alignment & Validity: `v.data` is an initialized `[u128; 80]` array.
+            let mut uninit = MaybeUninit::<[u64; 160]>::uninit();
+            std::ptr::copy_nonoverlapping(
+                v.data.as_ptr().cast::<u8>(),
+                uninit.as_mut_ptr().cast::<u8>(),
+                1280,
+            );
+            uninit.assume_init()
+        };
         #[cfg(not(target_endian = "little"))]
-        {
+        let bits = {
+            let mut bits = [0u64; 160];
             for i in 0..80 {
                 bits[i * 2] = v.data[i] as u64;
                 bits[i * 2 + 1] = (v.data[i] >> 64) as u64;
             }
-        }
+            bits
+        };
         Self { bits }
     }
 
@@ -133,28 +132,27 @@ impl BHVec10240 {
     /// iterations with bit shifts, bitwise OR operations, and array bounds checks.
     #[allow(clippy::missing_const_for_fn)]
     pub fn to_hvec(&self) -> HVec10240 {
-        #[allow(unused_mut)]
-        let mut data = [0u128; 80];
         #[cfg(target_endian = "little")]
-        {
+        let data = unsafe {
             // SAFETY:
             // 1. Memory equivalence: `[u64; 160]` and `[u128; 80]` occupy exactly 1,280 contiguous bytes.
-            // 2. Alignment & Validity: `self.bits` is an initialized `[u64; 160]` array, and `data` is a mutable
-            //    `[u128; 80]` array. Pointers are valid, non-null, and point to non-overlapping allocations.
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    self.bits.as_ptr().cast::<u8>(),
-                    data.as_mut_ptr().cast::<u8>(),
-                    1280,
-                );
-            }
-        }
+            // 2. Alignment & Validity: `self.bits` is an initialized `[u64; 160]` array.
+            let mut uninit = MaybeUninit::<[u128; 80]>::uninit();
+            std::ptr::copy_nonoverlapping(
+                self.bits.as_ptr().cast::<u8>(),
+                uninit.as_mut_ptr().cast::<u8>(),
+                1280,
+            );
+            uninit.assume_init()
+        };
         #[cfg(not(target_endian = "little"))]
-        {
+        let data = {
+            let mut data = [0u128; 80];
             for i in 0..80 {
                 data[i] = (self.bits[i * 2] as u128) | ((self.bits[i * 2 + 1] as u128) << 64);
             }
-        }
+            data
+        };
         HVec10240 { data }
     }
 
@@ -374,7 +372,6 @@ impl BHVec10240 {
     /// Optimized implementation that eliminates modulo operations and branches
     /// from the hot loop by splitting the rotation into three contiguous segments.
     pub fn permute(&self, shift: usize) -> Self {
-        let mut result = [0u64; 160];
         let bit_shift = shift % 64;
         let word_shift = (shift / 64) % 160;
 
@@ -383,12 +380,14 @@ impl BHVec10240 {
             if word_shift == 0 {
                 return *self;
             }
+            let mut result = [0u64; 160];
             let (left, right) = self.bits.split_at(160 - word_shift);
             result[..word_shift].copy_from_slice(right);
             result[word_shift..].copy_from_slice(left);
             return Self { bits: result };
         }
 
+        let mut result = [0u64; 160];
         let inv_bit_shift = 64 - bit_shift;
 
         // Segment 1: i < word_shift
@@ -455,26 +454,25 @@ impl BHVec10240 {
                 actual: bytes.len(),
             });
         }
-        #[allow(unused_mut)]
-        let mut bits = [0u64; 160];
         #[cfg(target_endian = "little")]
-        {
-            // Performance Optimization: Direct memcpy for little-endian platforms.
-            // Avoids 160 loop iterations and multiple bounds checks per word.
-            // SAFETY: bytes length is verified to be 1280. [u64; 160] is bit-compatible
-            // with [u8; 1280] on little-endian. Pointers are valid.
-            unsafe {
-                std::ptr::copy_nonoverlapping(bytes.as_ptr(), bits.as_mut_ptr() as *mut u8, 1280);
-            }
-        }
+        let bits = unsafe {
+            // Performance Optimization: Direct memcpy into uninitialized array on little-endian platforms.
+            // Avoids 1,280-byte zero-initialization before copy_nonoverlapping.
+            // SAFETY: bytes length is verified to be 1280. [u64; 160] is bit-compatible with [u8; 1280].
+            let mut uninit = MaybeUninit::<[u64; 160]>::uninit();
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), uninit.as_mut_ptr().cast::<u8>(), 1280);
+            uninit.assume_init()
+        };
         #[cfg(not(target_endian = "little"))]
-        {
+        let bits = {
+            let mut bits = [0u64; 160];
             for i in 0..160 {
                 let mut word_bytes = [0u8; 8];
                 word_bytes.copy_from_slice(&bytes[i * 8..(i + 1) * 8]);
                 bits[i] = u64::from_le_bytes(word_bytes);
             }
-        }
+            bits
+        };
         Ok(Self { bits })
     }
 }
