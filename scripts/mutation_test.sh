@@ -140,10 +140,10 @@ if [[ "${PROFILE}" == "fast" ]]; then
   # Unit-target tests only (--lib): integration suite dominates wall time (~8× unit suite).
   # Any change to src/** or crates/** must have unit test assertions in the lib target
   # to be visible to this mutation gate (process-level tests in tests/** are ignored).
-  # We limit testing to only csm-retrieval and chaotic_semantic_memory to avoid
+  # We limit testing to csm-core-lib, csm-retrieval, and chaotic_semantic_memory to avoid
   # building irrelevant workspace packages, saving up to 80% build time.
   # TODO: expand this list of packages if new packages or workspace crates are added.
-  TEST_ARGS+=(--lib -p csm-retrieval -p chaotic_semantic_memory)
+  TEST_ARGS+=(--lib -p csm-core-lib -p csm-retrieval -p chaotic_semantic_memory)
 
   # `mcp` is not in the crate's `default` feature set (Cargo.toml:
   # default = ["cli", "persistence", "parallel"]) and both
@@ -209,6 +209,11 @@ else
   FAST_ARGS+=(--timeout 120)
   FAST_ARGS+=(--minimum-test-timeout 30)
   FAST_ARGS+=(--build-timeout 180)
+fi
+
+MUTANTS_SHARD="${MUTANTS_SHARD:-}"
+if [[ -n "${MUTANTS_SHARD}" ]]; then
+  FAST_ARGS+=(--shard "${MUTANTS_SHARD}")
 fi
 
 MUTANTS_ARGS=("${FAST_ARGS[@]}")
@@ -388,7 +393,7 @@ set -e
   echo
   echo "- Timestamp (UTC): ${TIMESTAMP}"
   echo "- Profile: ${PROFILE}"
-  echo "- Target Set: lib target only (--lib -p csm-retrieval -p chaotic_semantic_memory)"
+  echo "- Target Set: lib target only (--lib -p csm-core-lib -p csm-retrieval -p chaotic_semantic_memory)"
   echo "- Exit code: ${RESULT}"
   echo "- Jobs: ${JOBS}"
   echo "- Test args: ${TEST_ARGS[*]:-(full suite)}"
