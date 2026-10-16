@@ -626,6 +626,9 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub struct GraphRagConfig
 - impl Default for GraphRagConfig
 - pub struct GraphRagResult
+- pub const MAX_GRAPH_RAG_ANCHOR_TOP_K
+- pub const MAX_GRAPH_RAG_HOPS
+- pub const MAX_GRAPH_RAG_FINAL_TOP_K
 - pub fn graph_rag_retrieve
 
 ### src/retrieval/hybrid.rs
@@ -4005,6 +4008,26 @@ pub struct GraphRagResult {
 ```
 
 Result from GraphRAG retrieval.
+
+### MAX_GRAPH_RAG_ANCHOR_TOP_K
+
+```rust
+pub const MAX_GRAPH_RAG_ANCHOR_TOP_K: usize
+```
+
+Hard bounds for GraphRAG retrieval parameters (CWE-770).
+
+### MAX_GRAPH_RAG_FINAL_TOP_K
+
+```rust
+pub const MAX_GRAPH_RAG_FINAL_TOP_K: usize
+```
+
+### MAX_GRAPH_RAG_HOPS
+
+```rust
+pub const MAX_GRAPH_RAG_HOPS: usize
+```
 
 ### graph_rag_retrieve
 
