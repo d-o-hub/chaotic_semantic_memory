@@ -1429,3 +1429,23 @@ surfaced inside `cargo-mutants` as `could not compile … due to 1 previous erro
 tree (`target/` had grown to 63 GB; `cargo clean -p csm-core-lib -p chaotic_semantic_memory`
 reclaimed 54.9 GiB), and that tool has no positive mutant filter — `--file` needs a
 workspace-relative path, and `-p` after `--` only changes the test command.
+
+## 2026-10-16: roast round — #899 re-created and landed, #900 closed as submitted
+
+Two Jules-bot PRs arrived after the 2026-10-15 sweep. **#900** (`feat: implement SVSC 4D map`) is
+closed as submitted: paper fidelity unverifiable (`[FALLBACK]` citation + a self-described
+approximation of the paper's 4D system), a `~68.2 ns → ~5.5 ns` latency claim with no Criterion
+artifact and `Recall/quality: Not measured` beside it, and 557 lines of unrelated `Cargo.lock`
+churn — while its feature/bench gating pattern (`experimental-svsc-4d = []` plus
+`required-features`) is the one #866's verdict asked for and is credited in the record. **#899**
+(`fix: bound graph rag retrieval parameters`) was closed under Rule 10 and re-created: the substance
+verified out (clamp before the allocations, `pub` constants required by the root copy, values
+matching the merged `MAX_TOP_K_LIMIT` precedent, two new tests on both live surfaces), but the head
+was two bot commits plus a human `Merge branch 'main'` and the change re-filed #865, closed unmerged
+with no recorded reason.
+
+Two corrections from the process are worth more than the verdicts: the delegated #900 report's two
+"blocking" findings were both wrong (the feature *is* declared; the lock churn does *not* revert the
+security bumps), and a delegated agent wrote `ROAST_P900.md` into the repo root despite instructions.
+Both are encoded in `progress/LEARNINGS.md`. Filed alongside: **#905** (`crates/*` outside the
+root-only lint/test jobs — with a live `csm-persistence` clippy failure as the evidence).
