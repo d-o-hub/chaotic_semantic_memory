@@ -247,6 +247,45 @@ mod tests {
     }
 
     #[test]
+    fn graph_rag_hops_stop_at_the_public_cap() {
+        // A 40-hop chain queried with `max_hops: usize::MAX`. The public cap is what
+        // keeps the deepest reached node at `MAX_GRAPH_RAG_HOPS`; with the clamp
+        // removed the walk follows the chain to its end and the deepest
+        // `hop_distance` is 40 instead of 32.
+        let anchor_vector = HVec10240::random();
+        let concepts: Vec<Concept> = (0..=40)
+            .map(|i| Concept {
+                id: format!("c{i}"),
+                vector: if i == 0 {
+                    anchor_vector
+                } else {
+                    HVec10240::random()
+                },
+                ..Default::default()
+            })
+            .collect();
+        let associations: Vec<(String, String, f32)> = (0..40)
+            .map(|i| (format!("c{i}"), format!("c{}", i + 1), 1.0))
+            .collect();
+        let config = GraphRagConfig {
+            anchor_top_k: 1,
+            max_hops: usize::MAX,
+            min_assoc_strength: 0.0,
+            similarity_weight: 0.6,
+            graph_weight: 0.4,
+            final_top_k: usize::MAX,
+        };
+
+        let results = graph_rag_retrieve(&anchor_vector, &concepts, &associations, &config)
+            .expect("graph_rag_retrieve should succeed");
+        let deepest = results.iter().map(|r| r.hop_distance).max().unwrap_or(0);
+        assert_eq!(
+            deepest, MAX_GRAPH_RAG_HOPS,
+            "a 40-hop chain must stop at the public cap, not walk to its end"
+        );
+    }
+
+    #[test]
     fn graph_rag_zero_final_top_k_returns_empty() {
         let query = HVec10240::random();
         let concept = Concept {
