@@ -11,6 +11,7 @@ use rand::RngExt;
 use rayon::prelude::*;
 
 use crate::error::Result;
+use core::mem::MaybeUninit;
 
 pub use crate::hyperdim_batch::batch_cosine_similarity;
 pub use crate::hyperdim_binary::BHVec10240;
@@ -432,28 +433,35 @@ impl HVec10240 {
             });
         }
 
-        #[allow(unused_mut)]
-        let mut data = [0u128; 80];
         #[cfg(target_endian = "little")]
         {
-            // Performance Optimization: Direct memcpy for little-endian platforms.
-            // Avoids 80 loop iterations and multiple bounds checks per word.
-            // SAFETY: bytes length is verified to be 1280. [u128; 80] is bit-compatible
-            // with [u8; 1280] on little-endian. Pointers are valid.
+            let mut data_uninit = MaybeUninit::<[u128; 80]>::uninit();
+            // Performance Optimization: Direct memcpy for little-endian platforms into uninitialized buffer.
+            // Bypasses 1,280-byte stack zeroing, 80 loop iterations, and bounds checking.
+            // SAFETY:
+            // 1. Memory equivalence: `bytes` length is 1,280 and `[u128; 80]` is 1,280 bytes.
+            // 2. Validity: `copy_nonoverlapping` fully initializes all 1,280 bytes of `data_uninit`.
             unsafe {
-                std::ptr::copy_nonoverlapping(bytes.as_ptr(), data.as_mut_ptr() as *mut u8, 1280);
+                std::ptr::copy_nonoverlapping(
+                    bytes.as_ptr(),
+                    data_uninit.as_mut_ptr().cast::<u8>(),
+                    1280,
+                );
+                Ok(Self {
+                    data: data_uninit.assume_init(),
+                })
             }
         }
         #[cfg(not(target_endian = "little"))]
         {
+            let mut data = [0u128; 80];
             for i in 0..80 {
                 let mut word_bytes = [0u8; 16];
                 word_bytes.copy_from_slice(&bytes[i * 16..(i + 1) * 16]);
                 data[i] = u128::from_le_bytes(word_bytes);
             }
+            Ok(Self { data })
         }
-
-        Ok(Self { data })
     }
 }
 
