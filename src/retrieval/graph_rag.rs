@@ -58,6 +58,11 @@ pub struct GraphRagResult {
     pub assoc_strength: f32,
 }
 
+/// Hard bounds for GraphRAG retrieval parameters (CWE-770).
+pub const MAX_GRAPH_RAG_ANCHOR_TOP_K: usize = 10_000;
+pub const MAX_GRAPH_RAG_HOPS: usize = 32;
+pub const MAX_GRAPH_RAG_FINAL_TOP_K: usize = 100_000;
+
 /// Internal candidate during GraphRAG expansion.
 #[derive(Debug, Clone)]
 struct Candidate<'a> {
@@ -74,7 +79,14 @@ pub fn graph_rag_retrieve(
     associations: &[(String, String, f32)],
     config: &GraphRagConfig,
 ) -> Result<Vec<GraphRagResult>> {
+    let anchor_top_k = config.anchor_top_k.min(MAX_GRAPH_RAG_ANCHOR_TOP_K);
+    let max_hops = config.max_hops.min(MAX_GRAPH_RAG_HOPS);
+    let final_top_k = config.final_top_k.min(MAX_GRAPH_RAG_FINAL_TOP_K);
+
     if concepts.is_empty() {
+        return Ok(Vec::new());
+    }
+    if final_top_k == 0 {
         return Ok(Vec::new());
     }
 
@@ -103,7 +115,7 @@ pub fn graph_rag_retrieve(
         map
     };
 
-    let anchors = find_anchors(concepts, &similarities, config.anchor_top_k);
+    let anchors = find_anchors(concepts, &similarities, anchor_top_k);
     let mut candidates: Vec<Candidate> = Vec::with_capacity(anchors.len() * 2);
     let mut seen: HashSet<&str> = HashSet::with_capacity(concepts.len());
 
@@ -117,7 +129,7 @@ pub fn graph_rag_retrieve(
         });
 
         let traversal_config = TraversalConfig {
-            max_depth: config.max_hops,
+            max_depth: max_hops,
             min_strength: config.min_assoc_strength,
             max_results: 1000,
         };
@@ -177,7 +189,7 @@ pub fn graph_rag_retrieve(
     // Mathematical Impact: O(M log M) complexity where M is candidates.
     // Note: select_nth_unstable is avoided here to minimize monomorphization bloat.
     results.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
-    results.truncate(config.final_top_k);
+    results.truncate(final_top_k);
 
     Ok(results)
 }
@@ -254,4 +266,92 @@ fn traverse_from<'a>(
         .filter(|&(id, _)| id != start)
         .map(|(id, (depth, strength, _))| (id, depth, strength))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::concept_builder::ConceptBuilder;
+
+    #[test]
+    fn graph_rag_bounds_large_config_parameters() {
+        let query = HVec10240::random();
+        let concept = ConceptBuilder::new("c1")
+            .with_vector(HVec10240::random())
+            .build()
+            .expect("concept build should succeed");
+        let concepts = vec![concept];
+        let associations = vec![];
+        let config = GraphRagConfig {
+            anchor_top_k: usize::MAX,
+            max_hops: usize::MAX,
+            min_assoc_strength: 0.0,
+            similarity_weight: 0.6,
+            graph_weight: 0.4,
+            final_top_k: usize::MAX,
+        };
+
+        let res = graph_rag_retrieve(&query, &concepts, &associations, &config);
+        assert!(res.is_ok());
+        let results = res.expect("graph_rag_retrieve should succeed");
+        assert_eq!(results.len(), 1);
+    }
+
+    #[test]
+    fn graph_rag_hops_stop_at_the_public_cap() {
+        // A 40-hop chain queried with `max_hops: usize::MAX`. The public cap is what
+        // keeps the deepest reached node at `MAX_GRAPH_RAG_HOPS`; with the clamp
+        // removed the walk follows the chain to its end and the deepest
+        // `hop_distance` is 40 instead of 32.
+        let anchor_vector = HVec10240::random();
+        let concepts: Vec<Concept> = (0..=40)
+            .map(|i| Concept {
+                id: format!("c{i}"),
+                vector: if i == 0 {
+                    anchor_vector
+                } else {
+                    HVec10240::random()
+                },
+                ..Default::default()
+            })
+            .collect();
+        let associations: Vec<(String, String, f32)> = (0..40)
+            .map(|i| (format!("c{i}"), format!("c{}", i + 1), 1.0))
+            .collect();
+        let config = GraphRagConfig {
+            anchor_top_k: 1,
+            max_hops: usize::MAX,
+            min_assoc_strength: 0.0,
+            similarity_weight: 0.6,
+            graph_weight: 0.4,
+            final_top_k: usize::MAX,
+        };
+
+        let results = graph_rag_retrieve(&anchor_vector, &concepts, &associations, &config)
+            .expect("graph_rag_retrieve should succeed");
+        let deepest = results.iter().map(|r| r.hop_distance).max().unwrap_or(0);
+        assert_eq!(
+            deepest, MAX_GRAPH_RAG_HOPS,
+            "a 40-hop chain must stop at the public cap, not walk to its end"
+        );
+    }
+
+    #[test]
+    fn graph_rag_zero_final_top_k_returns_empty() {
+        let query = HVec10240::random();
+        let concept = ConceptBuilder::new("c1")
+            .with_vector(HVec10240::random())
+            .build()
+            .expect("concept build should succeed");
+        let concepts = vec![concept];
+        let associations = vec![];
+        let config = GraphRagConfig {
+            final_top_k: 0,
+            ..GraphRagConfig::default()
+        };
+
+        let res = graph_rag_retrieve(&query, &concepts, &associations, &config);
+        assert!(res.is_ok());
+        assert!(res.expect("graph_rag_retrieve should succeed").is_empty());
+    }
 }
