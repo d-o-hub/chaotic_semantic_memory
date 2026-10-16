@@ -12,3 +12,5 @@ pub use maps::hyperchaotic::Slhm2d;
 #[cfg(feature = "experimental-ils3d")]
 pub use maps::hyperchaotic_3d_ils::Ils3d;
 pub use maps::hyperchaotic_chebyshev::ChebyshevLogistic2d;
+#[cfg(feature = "experimental-svsc-4d")]
+pub use maps::svsc_4d::Svsc4d;

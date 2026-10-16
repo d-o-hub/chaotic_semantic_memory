@@ -16,6 +16,7 @@ experimental-neural-circuit = []
 experimental-coupled-lorenz = []
 experimental-voronoi-lsh = []
 experimental-ils3d = []
+experimental-svsc-4d = []
 default = []
 std = []
 serde = ["dep:serde"]
@@ -55,3 +56,8 @@ required-features = ["experimental-voronoi-lsh"]
 name = "chaotic_hashing_ils3d"
 harness = false
 required-features = ["experimental-ils3d"]
+
+[[bench]]
+name = "chaotic_hashing_svsc_4d"
+harness = false
+required-features = ["experimental-svsc-4d"]
