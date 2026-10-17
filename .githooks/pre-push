@@ -9,6 +9,10 @@
 #   - Format & Clippy checks are also run in the CI `lint` job.
 #   - On cold/uncached worktrees, clippy may compile dependencies.
 #   - The combined payload has a 180-second budget (plus 5-second kill grace).
+#   - csm-duckdb is excluded: the root manifest's default-members selects every
+#     member (issue #905), and its bundled DuckDB C++ build alone exceeds the
+#     budget on a cold tree. The CI `lint` job lints it and its `test-duckdb`
+#     job compiles and tests it.
 #   - Override with CSM_PRE_PUSH_TIMEOUT_SECONDS; requires timeout/gtimeout
 #     from GNU coreutils (gtimeout is the usual macOS executable name).
 #   - Override/bypass: export SKIP_PRE_PUSH=1 or run `git push --no-verify`.
@@ -44,7 +48,7 @@ fi
 
 echo "🔍 Running pre-push validation (clippy + fmt)..."
 if "$TIMEOUT_COMMAND" --kill-after=5 "${TIMEOUT_SECONDS}s" bash -c \
-  'cargo fmt --check --quiet && cargo clippy --all-targets --all-features -- -D warnings'; then
+  'cargo fmt --check --quiet && cargo clippy --workspace --all-targets --all-features --exclude csm-duckdb -- -D warnings'; then
   :
 else
   hook_rc=$?

@@ -79,7 +79,7 @@ fi
 section "2. Build Verification"
 
 echo "Building release binary..."
-if cargo build --release --bin csm 2>&1 | tail -3; then
+if cargo build --release -p chaotic_semantic_memory --bin csm 2>&1 | tail -3; then
     pass "Release binary built"
 else
     fail "Release binary build failed"
@@ -224,8 +224,8 @@ section "6. WASM Build"
 
 WASM_TARGET="wasm32-unknown-unknown"
 if rustup target list --installed | grep -q "^${WASM_TARGET}$"; then
-    echo "Testing: cargo check --target wasm32-unknown-unknown --features wasm"
-    if cargo check --target "${WASM_TARGET}" --features wasm 2>&1 | tail -3; then
+    echo "Testing: cargo check --target wasm32-unknown-unknown -p chaotic_semantic_memory --features wasm"
+    if cargo check --target "${WASM_TARGET}" -p chaotic_semantic_memory --features wasm 2>&1 | tail -3; then
         pass "WASM build passed"
     else
         fail "WASM build failed"

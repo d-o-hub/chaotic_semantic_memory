@@ -68,9 +68,14 @@ if [[ -f "${SCRIPT_DIR}/sync-docs.sh" ]]; then
   bash "${SCRIPT_DIR}/sync-docs.sh" --check
 fi
 
-# Clippy lint (catches CI failures early)
+# Clippy lint (catches CI failures early). This hook is the fast subset of
+# scripts/validate.sh, which keeps the bare workspace-wide command — so CI and
+# the full gate still lint every member. csm-duckdb is excluded only here:
+# default-members now selects it (issue #905), and its bundled DuckDB C++
+# amalgamation turns a cold pre-commit into a ~20-minute wait for one crate that
+# the CI `lint` job lints and its own `test-duckdb` job compiles and tests.
 echo " → Checking clippy..."
-cargo clippy --all-targets --all-features -- -D warnings
+cargo clippy --workspace --all-targets --all-features --exclude csm-duckdb -- -D warnings
 
 # Gitleaks secret scanning (optional - only if installed)
 if command -v gitleaks >/dev/null 2>&1; then

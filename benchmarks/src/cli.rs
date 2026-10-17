@@ -44,7 +44,7 @@ pub struct Cli {
     #[arg(long, default_value_t = 10)]
     pub top_k: usize,
 
-    /// Score threshold for abstention (retrieved[0].score < threshold triggers abstain).
+    /// Score threshold for abstention (`retrieved[0].score < threshold` triggers abstain).
     #[arg(long, default_value_t = 0.1)]
     pub abstain_threshold: f32,
 }

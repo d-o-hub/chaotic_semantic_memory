@@ -60,7 +60,7 @@ trap cleanup EXIT
 TARGET_DIR="${CARGO_TARGET_DIR:-target}"
 if [[ ! -f "${TARGET_DIR}/release/csm" ]]; then
     log_error "csm binary not found at ${TARGET_DIR}/release/csm"
-    log_info "Run: cargo build --release --bin csm"
+    log_info "Run: cargo build --release -p chaotic_semantic_memory --bin csm"
     exit 1
 fi
 
