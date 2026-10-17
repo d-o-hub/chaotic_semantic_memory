@@ -91,6 +91,7 @@ verdict. Close it citing the recorded numbers; do not re-litigate. Rule 17: a
 resubmission must bring the evidence the earlier roast demanded, not restate the
 claim — and check the claim's *mechanism* sentence against the code, since both
 PRs asserted a zero-copy win that a by-value `-> Self` return rules out.
+A predecessor closed **without** a valid measurement passes on the *demand*, not a verdict.
 - **An empty branch is a resubmission to catch by content (2026-10-09, #860).** `gh pr diff` +
   `changed_files: 0` + empty `git diff <merge-base>..<head> --stat` = the PR merges nothing.
 
@@ -136,14 +137,13 @@ PRs asserted a zero-copy win that a by-value `-> Self` return rules out.
     called — the "after" number was slower (92.5 → 93.3 µs) because it timed
     unrelated code. Check the sign too: an "after" that is *worse* is evidence
     against the claim, not neutral.
-  - **A bench can also be blind because of its arguments (PR #800, 2026-10-01).**
-    `benches/binary_benchmark.rs:30` benches `permute(321)`, and `321 % 128 = 65`,
-    so it never enters the word-aligned `bit_shift == 0` path that #800 added a
-    zero-shift early return to: the function name matched the diff while the
-    constant made the measurement impossible. Read the bench's *arguments* and
-    reparameterize before judging the claim — here shift `0`/`10240`, or the
-    caller path `Encoder::encode` against the canonical comparator
-    `text_encoder/encode_short`.
+  - **A bench can be blind two ways (PR #800, 2026-10-01; #909/#891, 2026-10-17).**
+    By its *arguments*: `binary_benchmark.rs` benches `permute(321)` and `321 % 128 = 65`,
+    so the word-aligned path never runs — use shift `0`/`10240` or `Encoder::encode`.
+    And by the *callee's fast path*: `make_candidates` prefills `score = 1.0`, so
+    `rerank`'s `score >= 0.99` early return made every `mmr_rerank/*` id time the fast
+    path, not the loop. Prove reach with an env-gated `Once` marker and size it with a
+    `top_k = 1` variant — details in the `bench-blindness` reference.
   - **Separate zero-fill elimination from scheduling effects (PR #783,
     2026-09-28).** In the inspected x86_64/rustc 1.98.1 builds, LLVM already
     removed the overwritten zero-init: the old-only body was a bare `memcpy`,
