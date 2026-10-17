@@ -130,6 +130,20 @@ cargo bench --bench benchmark -- --baseline main
 ```
 Target: `reservoir_step_50k < 100μs`
 
+## Perf PR Evidence (ADR-0095)
+
+```bash
+# Dry-run the CI gate against the real title/body before pushing:
+python3 scripts/check-perf-pr-evidence.py "$PR_TITLE" "$(cat /tmp/body.md)"
+
+# What actually gates a merge — green checks can still be BLOCKED (CodeQL holds code_scanning):
+gh api repos/d-o-hub/chaotic_semantic_memory/rulesets/12897801 \
+  --jq '{rules: [.rules[].type], contexts: [.rules[] | select(.type=="required_status_checks") | .parameters.required_status_checks[].context]}'
+gh pr view <n> --json mergeable,mergeStateStatus   # want MERGEABLE + CLEAN
+```
+
+Full checklists: the `benchmarking-perf` skill (author side) and `github-ci-guardrails` (merge side).
+
 ## Commit Format
 Use Conventional Commits (see `git-workflow` skill):
 ```

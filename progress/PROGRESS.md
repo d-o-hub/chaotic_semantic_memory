@@ -1449,3 +1449,34 @@ Two corrections from the process are worth more than the verdicts: the delegated
 security bumps), and a delegated agent wrote `ROAST_P900.md` into the repo root despite instructions.
 Both are encoded in `progress/LEARNINGS.md`. Filed alongside: **#905** (`crates/*` outside the
 root-only lint/test jobs — with a live `csm-persistence` clippy failure as the evidence).
+
+## 2026-10-17: #909 merged as `7b7202a4` with supplied evidence
+
+The roast verdict was executed as merge-after-evidence, not a close: two commits were added to the
+Jules branch (`cd0df80f` slow-path benches + `dca01fde` rationale/guard docs), the body gained the
+ADR-0095 evidence section (validated locally with `scripts/check-perf-pr-evidence.py` before GitHub was
+touched), and the head `dca01fde` went 30 pass / 4 skipped / 0 failures — all six required contexts
+green (`Build CLI (linux-x64)`, `Codacy`, `commitlint`, `lint`, `test`, `mutation-test`) plus the
+ruleset's `code_scanning` gate once `Analyze (rust)` settled — then squashed as `7b7202a4`. Measured on
+the reference CPU: `k = 10` 350.2 → 317.0 µs (p = 0.00; six interleaved legs, mean −7.5 %) and the
+`k = 1` probe 77–84 → 50–51 µs (p = 0.00). The new bench groups make the `mmr_rerank` selection loop
+measurable for the first time; a follow-up can add them to `plans/evidence/bench/canonical.json`
+(`scripts/bench-baseline.sh save --set rerank_benchmark`), which has no `mmr_rerank*` entry.
+
+## 2026-10-17 (cont.): encode the #909 lessons (`docs/agents-909-lessons`)
+
+Twelve files, no new skills (33 unchanged; `CATALOG.md` regenerated from the sharpened frontmatter):
+`benchmarking-perf` (ADR-0095 gate mechanics + local dry-run, reach proof for a cited bench via the
+marker and `top_k = 1` methods, measurement isolation with one target dir per variant),
+`github-ci-guardrails` + its `gh-ci-truth` reference (measured ruleset state, `code_scanning`/CodeQL
+holding `BLOCKED`, robust polling, and a version-scoped correction of the stale "`gh pr checks` has no
+`--json`" claim — gh 2.102.0 documents `--json fields` and `--json name,bucket` returns real JSON),
+`git-workflow` (supplying evidence on a foreign branch + land-and-verify), `AGENTS.md` steps 10/18,
+`agents-docs/quick-reference.md`, the roast record, and the `bench-blindness` reference.
+
+The build caught a revert in progress: the worktree's branch (`726e9c31`) is an ancestor of `main`, and
+six of the copied files were already newer upstream — `git diff --stat origin/main` showed 220
+deletions before a per-file `git diff --quiet <branch> origin/main -- <path>` gate identified them.
+Every path was then rebuilt as `origin/main` + only this session's edits, and the gates re-run in the
+clean worktree: `validate-skill-format.sh` 33/33, `check-skill-catalog.sh`, `check-docs-links.sh`, and
+the router top-1 for both target queries.

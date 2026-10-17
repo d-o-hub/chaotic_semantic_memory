@@ -14,11 +14,11 @@ gated by `scripts/validate-skill-format.sh`; catalog drift by
 | Skill | Trigger |
 |-------|---------|
 | `adr-creation` | Write or update ADRs for architecture-impacting changes, major tradeoffs, or decisions requiring durable rationale and consequences. |
-| `benchmarking-perf` | Run and analyze criterion benchmarks for performance-sensitive changes. Use when optimizing hot paths, validating perf targets, or comparing baselines. |
+| `benchmarking-perf` | Run and analyze criterion benchmarks for performance-sensitive changes. Use when optimizing hot paths, validating perf targets, comparing baselines, or supplying the ADR-0095 '## Performance Evidence' section a perf(...) PR needs. |
 | `debugging-reservoir` | Debug and tune the echo state network reservoir. Use when diagnosing spectral radius issues, chaotic dynamics problems, sparse weight anomalies, or reservoir-to-hypervector projection failures. |
 | `dist-channel-selection` | Artifact-aware decision logic for selecting the correct distribution channel (cargo crate vs WASM npm vs CLI npm). Use when validating, installing, or publishing. |
 | `git-workflow` | Git commit conventions, validation gates, and CI/CD workflows. Use when committing changes, verifying gates, or working with GitHub Actions. |
-| `github-ci-guardrails` | Validate merge readiness with atomic commits and GitHub Actions checks using gh CLI; use for pre-merge verification and CI truth validation. |
+| `github-ci-guardrails` | Validate merge readiness with atomic commits and GitHub Actions checks using gh CLI; use for pre-merge verification, CI truth validation, and ruleset merge-state gating (required contexts, CodeQL code_scanning, mergeStateStatus). |
 | `goap-orchestrator` | GOAP-based orchestrator for managing GitHub issues, creating action plans, and executing workspace operations with branch/PR workflow. |
 | `goap-planning` | Build ordered, executable action plans from current state to target state using explicit preconditions, effects, and costs. |
 | `memory-lifecycle-verification` | Portable verification skill for memory lifecycle operations (save, load, archive, delete) with file-level and database-level checks. |
