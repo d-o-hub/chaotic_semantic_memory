@@ -293,3 +293,15 @@
 - **A widened workspace clippy makes the local hooks unusable long before it makes CI slow (2026-10-17, #910)**: no bare cargo command touched `csm-duckdb` before this change — the root does not depend on it — and its bundled DuckDB C++ build is ~20 minutes cold. The pre-commit hook was killed at 15 minutes inside `libduckdb-sys`, the full workspace build does not fit the 7.5 GB `/tmp` tmpfs (`Disk quota exceeded`, os error 122), and `pre-push` — which kills its payload at 180 s and then *rejects the push* (rc 124) — refused the first attempt. Both hooks now pass `--exclude csm-duckdb` while `scripts/validate.sh` and CI keep the bare command. A hook with a timeout budget is a bounded subset by construction; when a change widens what the bare command selects, the hook needs the exclusion, not a longer budget.
 - **`git commit --amend` after another file cites the commit invalidates the citation (2026-10-17, #910, twice)**: staging the hook-regenerated `llms.txt` with `--amend` moved the rebuild commit `891e8892 → 93046900` *after* `plans/PR_ROAST_2026_10_17.md` had cited the old value, and a second amend did it again to `b89e1aa7`'s sibling. Either commit the citing file last, or write the citation only once the cited commit is final — and re-check the file against `git log --format=%h` immediately before pushing.
 - **`llms.txt` embeds the root `Cargo.toml`, so a manifest change regenerates it (2026-10-17, #910)**: `gen-llms-txt.sh` reproduces the manifest, so adding `default-members` and `doc = false` left `llms.txt` dirty after the commit that had staged the pre-hook copy — the `check-llms-sync.sh` stage in `validate.sh` compares it, and the diff is exactly the added manifest lines. Stage the regenerated file with the manifest change; the pre-existing `src/**/*.rs` case in these notes has the same shape.
+
+## CI Gate Semantics (2026-10-17, #903)
+
+- `workflow_run` cannot filter by conclusion. An `always()` summary must treat an unsuccessful
+  upstream CI run as **no verdict**; skipped dependents are failures only when upstream CI
+  succeeded and a gate check itself did not pass. Keep `pr-drain-check` failing while blocking PRs
+  are open.
+- Cargo Audit and Cargo Deny read separate RustSec policy files. Keep their ignore IDs synchronized
+  with a fail-closed checker and test both mismatch directions; parse every `[advisories]` block so
+  an extra block cannot hide an unmatched ID.
+- Cargo Audit scans the lockfile, including build dependencies. Before adding an ignore, trace the
+  dependency and feature-gated source path; document the exact reason in both policy files.

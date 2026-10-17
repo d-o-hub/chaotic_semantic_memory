@@ -68,3 +68,11 @@ check-runs API in a bounded loop. Recipes and the measured state: `references/gh
 commitlint plus the ADR-0095 evidence gate read the values captured in the *run's payload*. Set the
 title and the body before the push that starts the run — or refresh the head afterwards (identical
 amend + force-push) so the new payload carries them (2026-10-10 #869 title; 2026-10-17 #909 body).
+
+## `workflow_run` gate conclusions
+
+`workflow_run` cannot filter on the upstream conclusion. In downstream `always()` summary jobs,
+represent a non-success upstream run as **no verdict**; do not infer a failed verdict from skipped
+dependent jobs. When Cargo Audit and Cargo Deny consume separate RustSec policy files, gate ignore-ID
+parity with a fail-closed checker. Sources: `.github/workflows/pre-release-gate.yml`,
+`scripts/pre-release-gate-summary.sh`, and `scripts/check-audit-ignore-parity.sh`.
