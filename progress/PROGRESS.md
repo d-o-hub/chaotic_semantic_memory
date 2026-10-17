@@ -1463,9 +1463,9 @@ the reference CPU: `k = 10` 350.2 → 317.0 µs (p = 0.00; six interleaved legs,
 measurable for the first time; a follow-up can add them to `plans/evidence/bench/canonical.json`
 (`scripts/bench-baseline.sh save --set rerank_benchmark`), which has no `mmr_rerank*` entry.
 
-## 2026-10-17 (cont.): encode the #909 lessons (`docs/agents-909-lessons`)
+## 2026-10-17 (cont.): encode the #909 lessons (`docs/agents-909-lessons`, merged as `4fbd429b` in #911)
 
-Twelve files, no new skills (33 unchanged; `CATALOG.md` regenerated from the sharpened frontmatter):
+Thirteen files, no new skills (33 unchanged; `CATALOG.md` regenerated from the sharpened frontmatter):
 `benchmarking-perf` (ADR-0095 gate mechanics + local dry-run, reach proof for a cited bench via the
 marker and `top_k = 1` methods, measurement isolation with one target dir per variant),
 `github-ci-guardrails` + its `gh-ci-truth` reference (measured ruleset state, `code_scanning`/CodeQL
