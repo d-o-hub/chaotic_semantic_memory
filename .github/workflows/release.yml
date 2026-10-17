@@ -292,8 +292,11 @@ jobs:
           target
         key: ${{ runner.os }}-${{ matrix.target }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
 
+    # Scoped to the crate whose binary is published: a bare `cargo build --release`
+    # now selects every member (issue #905), which would drag the bundled-DuckDB
+    # and wasm crates into each release target build.
     - name: Build release binary
-      run: cargo build --release --target ${{ matrix.target }}
+      run: cargo build --release -p chaotic_semantic_memory --target ${{ matrix.target }}
 
     - name: Prepare binary artifact
       shell: bash

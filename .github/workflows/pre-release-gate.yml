@@ -125,7 +125,9 @@ jobs:
         target: wasm32-unknown-unknown
 
     - name: WASM smoke build
-      run: cargo check --target wasm32-unknown-unknown --features wasm
+      # Scoped to the root crate: a bare `cargo check --features wasm` selects every
+      # member now (issue #905), and the workspace is not wasm-buildable.
+      run: cargo check --target wasm32-unknown-unknown -p chaotic_semantic_memory --features wasm
 
   planning-state-check:
     runs-on: ubuntu-24.04

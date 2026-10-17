@@ -3,13 +3,20 @@
 # ci-workspace-crate-matrix.sh — derive the CI `test-workspace-crates` matrix
 # from the real workspace (`cargo metadata`) instead of a hand-written list.
 # =============================================================================
-# WHY THIS GATE EXISTS (issue #827, audit A6 remainder)
+# WHY THIS GATE EXISTS (issues #827 + #905, audit A6 remainder)
 # The matrix was eight hand-written `- csm-*` entries guarded only by a
 # "Keep in sync with workspace members" comment. A comment is not a gate: a new
 # `crates/csm-<new>` member compiles, publishes and ships while
 # `cargo test -p csm-<new>` never runs, and nothing reports the omission. This
 # script reads the authoritative workspace graph, so a new member is IN CI by
 # default and the duplicated list is gone.
+#
+# #905 found the same shape one level up. The root manifest is both a package and
+# a workspace, so a bare `cargo clippy --all-targets --all-features` selected the
+# root package only: every `crates/*` member was un-compiled by the lint job, and
+# a real `const fn` clippy failure in `csm-persistence` sat there while the job
+# reported green. Cargo.toml now lists every member in `default-members`, and
+# enforcement 5 keeps that hand-kept list equal to `members`.
 #
 # WHAT IT ENFORCES (any violation is exit 1)
 #   1. Membership   — every `crates/<dir>` workspace package is a matrix
@@ -27,6 +34,11 @@
 #      `test-workspace-crates`' `strategy.matrix`, or the matrix stops using
 #      `fromJSON(...)`, that is an error. The point was to delete the duplicate
 #      source of truth, not to keep a second one next to the derived one.
+#   5. default-members coverage — every workspace member must be a default
+#      member (issue #905). A member that is in `members` but not in
+#      `default-members` is invisible to every bare `cargo clippy`/`cargo test`
+#      in ci.yml and scripts/validate.sh; this gate fails on that drift instead
+#      of letting the member ship un-compiled.
 #
 # BLIND SPOTS (stated so nobody trusts this gate more than it deserves)
 #   - It is textual, not YAML-parsed. The workflow is sliced with awk at 2-space
@@ -41,6 +53,10 @@
 #     `benchmarks`) never reaches this matrix and needs its own job.
 #   - `--locked` and the feature set of the per-crate test step are unchanged
 #     from the hand-written job; this script only decides WHICH crates run.
+#   - Enforcement 5 compares `workspace_default_members` with `workspace_members`,
+#     so it proves Cargo.toml covers every member — not that any given bare cargo
+#     command actually ran. A CI step that starts passing an explicit `-p` is
+#     outside what this gate can see.
 #
 # Usage (paths resolve relative to this script, so it runs from anywhere):
 #   scripts/ci-workspace-crate-matrix.sh                  # names, one per line
@@ -169,6 +185,44 @@ if [[ "${#all_crates[@]}" -eq 0 ]]; then
 fi
 
 # ---------------------------------------------------------------------------
+# 0b. Every workspace member must be a default member (issue #905).
+#    `workspace_default_members` is what a bare `cargo clippy --all-targets
+#    --all-features` / `cargo test` at the repo root selects. A member that is in
+#    `members` but not in `default-members` is a member no bare command in ci.yml
+#    or scripts/validate.sh compiles, lints or tests — a real clippy failure in
+#    `csm-persistence` lived in exactly that blind spot, green on main.
+#    `default-members` is a hand-kept copy of `members`, so this is the gate that
+#    keeps the copy honest: a new member fails here instead of shipping
+#    un-compiled.
+# ---------------------------------------------------------------------------
+if ! printf '%s' "${metadata}" \
+    | jq -e '(.workspace_members | type == "array") and (.workspace_default_members | type == "array")' >/dev/null 2>&1; then
+    fail "metadata has no workspace_members/workspace_default_members arrays" \
+        "\`cargo metadata --no-deps\` always emits both; with either one missing the default-members coverage check below cannot fail honestly" \
+        "check the cargo version that produced the metadata"
+fi
+
+member_count="$(printf '%s' "${metadata}" | jq -r '.workspace_members | length')"
+
+default_missing=()
+while IFS= read -r member; do
+    [[ -n "${member}" ]] && default_missing+=("${member}")
+done < <(
+    printf '%s' "${metadata}" | jq -r '
+        (.packages | map({key: .id, value: .name}) | from_entries) as $names
+        | (.workspace_default_members) as $defaults
+        | .workspace_members[] as $id
+        | select(($defaults | index($id)) == null)
+        | ($names[$id] // $id)'
+)
+
+if [[ "${#default_missing[@]}" -gt 0 ]]; then
+    fail "workspace member(s) missing from Cargo.toml default-members: ${default_missing[*]}" \
+        "a bare \`cargo clippy --all-targets --all-features\` / \`cargo test\` at the root cannot see them (issue #905)" \
+        "add them to [workspace] default-members in Cargo.toml — otherwise the lint and test jobs stay green while their code is never compiled"
+fi
+
+# ---------------------------------------------------------------------------
 # 1. The workflow is both the consumer of this matrix and the evidence for
 #    every exclusion, so it must be present.
 # ---------------------------------------------------------------------------
@@ -282,6 +336,8 @@ case "${MODE}" in
     check)
         printf 'ok: %s crate(s) derived for the %s matrix: %s\n' \
             "${#matrix_crates[@]}" "${MATRIX_JOB}" "${matrix_crates[*]}"
+        printf 'ok: all %s workspace member(s) are default members (bare cargo commands cover the workspace)\n' \
+            "${member_count}"
         printf 'ok: %s crate(s) excluded because a dedicated job covers them: %s\n' \
             "${#EXCLUSIONS[@]}" "${EXCLUSIONS[*]:-none}"
         printf 'ok: %s consumes the derived matrix and holds no hand-written entries\n' "${MATRIX_JOB}"

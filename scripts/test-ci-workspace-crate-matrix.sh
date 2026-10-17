@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test-ci-workspace-crate-matrix.sh — negative fixtures for
-# scripts/ci-workspace-crate-matrix.sh (issue #827).
+# scripts/ci-workspace-crate-matrix.sh (issues #827 + #905).
 #
 # Follows the precedent of scripts/test-llms-sync.sh and
 # scripts/test-check-test-attributes.sh: build an isolated mock tree in
@@ -78,13 +78,32 @@ expect_fail_naming() {
 
 # write_metadata CRATE... — one `crates/<name>` package per argument, plus a
 # root crate and an out-of-tree `benchmarks` member that must never be derived.
+# `workspace_members` / `workspace_default_members` carry the package ids
+# `cargo metadata` emits, with full default-members coverage — the shape the real
+# manifest must have (issue #905).
 write_metadata() {
     jq -n --arg wr "${TEST_DIR}" '$ARGS.positional
         | {workspace_root: $wr,
            packages: ([{name: "chaotic_semantic_memory", manifest_path: ($wr + "/Cargo.toml")},
                       {name: "do-chaotic-semantic-memory-bench", manifest_path: ($wr + "/benchmarks/Cargo.toml")}]
-                      + [.[] | {name: ., manifest_path: ($wr + "/crates/" + . + "/Cargo.toml")}])}' \
+                      + [.[] | {name: ., manifest_path: ($wr + "/crates/" + . + "/Cargo.toml")}])}
+        | .packages |= map(. + {id: ("path+file://" + .manifest_path)})
+        | . + {workspace_members: [.packages[].id],
+               workspace_default_members: [.packages[].id]}' \
         --args "$@" > "${META}"
+}
+
+# write_metadata_without_default OMITTED CRATE... — the drift the coverage gate
+# exists to catch: a crate still in `members` (workspace_members) but missing
+# from `default-members` (issue #905), i.e. invisible to every bare cargo command.
+write_metadata_without_default() {
+    local omitted="$1"
+    shift
+    write_metadata "$@"
+    local omitted_id
+    omitted_id="$(jq -r --arg name "${omitted}" '.packages[] | select(.name == $name) | .id' "${META}")"
+    jq --arg id "${omitted_id}" '.workspace_default_members -= [$id]' "${META}" > "${META}.tmp"
+    mv "${META}.tmp" "${META}"
 }
 
 # write_workflow — the matrix job consumes the derived output, and `csm-gamma`
@@ -286,5 +305,22 @@ else
     echo "❌ Failure (non-deterministic or empty: '${first}' vs '${second}')"
     exit 1
 fi
+
+echo "Test 17: a member still in the workspace but missing from default-members"
+echo "         fails — this is how #905's clippy error stayed invisible"
+write_metadata_without_default csm-beta csm-alpha csm-beta csm-gamma
+run_check --check
+expect_fail_naming "member missing from default-members rejected" \
+    "missing from Cargo.toml default-members: csm-beta"
+
+echo "Test 18: metadata without workspace_default_members fails closed instead of"
+echo "         passing the coverage check for the wrong reason"
+write_metadata csm-alpha csm-beta csm-gamma
+jq 'del(.workspace_default_members)' "${META}" > "${META}.tmp"
+mv "${META}.tmp" "${META}"
+run_check --check
+expect_fail_naming "absent default-members array rejected" \
+    "no workspace_members/workspace_default_members arrays"
+write_metadata csm-alpha csm-beta csm-gamma
 
 echo "All tests passed!"

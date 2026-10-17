@@ -13,6 +13,26 @@ members = [
     "benchmarks",
     "crates/csm-duckdb",
 ]
+# Bare `cargo clippy --all-targets --all-features` / `cargo test` at the repo root
+# select `workspace_default_members`. Without this list that is the root package
+# only, so no `crates/*` member was compiled, linted or tested by the lint/test
+# jobs (issue #905: a real `const fn` clippy failure in `csm-persistence` stayed
+# green on main). Keep this list equal to `members` —
+# `scripts/ci-workspace-crate-matrix.sh` fails when a member is missing here.
+default-members = [
+    "crates/csm-core-lib",
+    "crates/csm-embedding",
+    "crates/csm-memory",
+    "crates/csm-retrieval",
+    "crates/csm-persistence",
+    "crates/csm-cli",
+    "crates/csm-traits",
+    "crates/csm-wasm",
+    "crates/csm-chaos",
+    ".",
+    "benchmarks",
+    "crates/csm-duckdb",
+]
 resolver = "3"
 
 [workspace.package]
@@ -287,6 +307,11 @@ crate-type = ["lib"]
 name = "csm"
 path = "src/bin/csm.rs"
 required-features = ["cli"]
+# Workspace-wide `cargo doc` (issue #905) documents every member's bins, and this
+# target shares its name with `csm-cli`'s bin, so rustdoc refuses the duplicate
+# output path ("document output filename collision"). Marking the thin facade bin
+# keeps a single documented `csm` target without renaming either binary.
+doc = false
 
 [[example]]
 name = "proof_of_concept"

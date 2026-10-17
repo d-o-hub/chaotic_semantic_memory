@@ -102,8 +102,13 @@ for file in $(find src crates -name '*.rs' -not -path '*/target/*'); do
 done
 
 if rustup target list --installed | grep -q "^${WASM_TARGET}\$"; then
-  echo "==> cargo check --target ${WASM_TARGET} --features wasm"
-  cargo check --target "${WASM_TARGET}" --features wasm
+  # -p csm-wasm, not a bare `--features wasm`: the root manifest's default-members
+  # now covers every member (issue #905), so a bare command selects the whole
+  # workspace and dies on tokio's wasm feature gate ("Only features sync,macros,
+  # io-util,rt,time are supported on wasm"). This is the same check the CI wasm
+  # job runs (ci.yml: `cargo check --target wasm32-unknown-unknown -p csm-wasm`).
+  echo "==> cargo check --target ${WASM_TARGET} -p csm-wasm"
+  cargo check --target "${WASM_TARGET}" -p csm-wasm
 else
   echo "skip: ${WASM_TARGET} target not installed"
 fi
@@ -160,7 +165,7 @@ echo "✅ API surface within threshold ($LOC / $THRESHOLD)"
 
 if command -v npm >/dev/null 2>&1; then
   echo "==> CLI npm pack smoke test"
-  cargo build --release --bin csm
+  cargo build --release -p chaotic_semantic_memory --bin csm
   mkdir -p cli-npm/bin
   # The build may land outside ./target when CARGO_TARGET_DIR is set (shared caches),
   # so resolve the artifact the same way cargo does (2026-10-10: this cp failed on a

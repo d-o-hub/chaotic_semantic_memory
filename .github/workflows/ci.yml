@@ -405,8 +405,11 @@ jobs:
       uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.7.3
       with:
         shared-key: cli
+    # `-p chaotic_semantic_memory`: `--bin csm` now matches two workspace packages
+    # (the root's bin and `csm-cli`'s), which both link to
+    # target/<triple>/release/csm — on Windows that is LNK1104, on Linux luck.
     - name: Build CLI
-      run: cargo build --release --bin csm --features cli --target x86_64-unknown-linux-gnu --locked
+      run: cargo build --release -p chaotic_semantic_memory --bin csm --features cli --target x86_64-unknown-linux-gnu --locked
 
   # Cross-platform CLI (arm64/macOS/Windows): PR path-filtered or always on push to main.
   build-cli-cross:
@@ -457,7 +460,7 @@ jobs:
         echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
     - name: Build CLI
-      run: cargo build --release --bin csm --features cli --target ${{ matrix.target }} --locked
+      run: cargo build --release -p chaotic_semantic_memory --bin csm --features cli --target ${{ matrix.target }} --locked
 
   mcp-feature:
     needs: detect-changes
@@ -480,7 +483,7 @@ jobs:
         shared-key: test
     # cargo test already compiles; no separate cargo build step
     - name: Test MCP feature
-      run: cargo test --features mcp --locked -- --quiet
+      run: cargo test -p chaotic_semantic_memory --features mcp --locked -- --quiet
 
   mutation-test:
     # Fast profile: in-diff + unit tests only (--lib) + tight timeouts.

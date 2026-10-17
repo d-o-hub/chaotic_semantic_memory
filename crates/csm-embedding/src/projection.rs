@@ -35,7 +35,7 @@ impl Default for ProjectionConfig {
     }
 }
 
-/// Sparse random projection matrix for f32[native_dim] → HVec10240.
+/// Sparse random projection matrix for `f32[native_dim]` → HVec10240.
 ///
 /// Matrix is 10240 × native_dim with values in {-1, 0, +1}.
 /// Stored as flat array with indices for non-zero entries.
@@ -91,7 +91,7 @@ impl Projection {
 
     /// Project a native embedding to HVec10240.
     ///
-    /// Computes: output[row] = sign(sum_{col} projection[row,col] * input[col])
+    /// Computes: `output[row] = sign(sum_{col} projection[row,col] * input[col])`
     /// Using sparse matrix multiplication.
     pub fn project(&self, vec: &[f32]) -> HVec10240 {
         assert!(vec.len() == self.native_dim, "input dimension mismatch");
