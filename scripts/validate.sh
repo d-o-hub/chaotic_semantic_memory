@@ -253,6 +253,16 @@ else
   echo "Error: scripts/check-docs-links.sh missing or not executable"
   exit 1
 fi
+# Pre-release gate verdict (issue #903). The verdict only ever renders on a main CI
+# completion, so a wrong branch is invisible to every local gate; the fixture replays
+# all three verdicts against scripts/pre-release-gate-summary.sh.
+if [[ -x "${SCRIPT_DIR}/test-pre-release-gate-summary.sh" ]]; then
+  echo "==> Pre-release gate verdict fixture (no-verdict / pass / fail)"
+  "${SCRIPT_DIR}/test-pre-release-gate-summary.sh"
+else
+  echo "Error: scripts/test-pre-release-gate-summary.sh missing or not executable"
+  exit 1
+fi
 
 # Skill format validation (ADR-0096) — fail-closed LOC/frontmatter/local refs
 if [[ -x "${SCRIPT_DIR}/validate-skill-format.sh" ]]; then
@@ -399,6 +409,16 @@ if [[ -x "${SCRIPT_DIR}/check-goap-queue-issues.sh" ]]; then
   "${SCRIPT_DIR}/test-goap-queue-issues.sh"
 else
   echo "Error: scripts/check-goap-queue-issues.sh missing or not executable"
+  exit 1
+fi
+# RUSTSEC ignore parity between the reviewed deny.toml set and what cargo-audit reads (issue #903)
+if [[ -x "${SCRIPT_DIR}/check-audit-ignore-parity.sh" ]]; then
+  echo "==> RUSTSEC ignore parity (deny.toml vs .cargo/audit.toml, fail-closed)"
+  "${SCRIPT_DIR}/check-audit-ignore-parity.sh"
+  echo "==> RUSTSEC parity gate fixture (both directions)"
+  "${SCRIPT_DIR}/test-check-audit-ignore-parity.sh"
+else
+  echo "Error: scripts/check-audit-ignore-parity.sh missing or not executable"
   exit 1
 fi
 

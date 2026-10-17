@@ -61,6 +61,11 @@ Run before commit (see `git-workflow` skill for details):
 scripts/validate.sh
 ```
 
+## CI Gate Semantics
+
+- `workflow_run` cannot filter events by conclusion. An `always()` summary step must treat an unsuccessful upstream run as “no verdict,” not as failure caused by skipped dependents; see `.github/workflows/pre-release-gate.yml` and `scripts/pre-release-gate-summary.sh`.
+- When Cargo Audit and Cargo Deny share a RustSec ignore policy, keep `.cargo/audit.toml` and `deny.toml` in parity with `scripts/check-audit-ignore-parity.sh`, gated by `scripts/validate.sh`.
+
 ## CLI Surface Lock (ADR-0066)
 
 After touching `src/cli/**` or `src/bin/csm.rs`:

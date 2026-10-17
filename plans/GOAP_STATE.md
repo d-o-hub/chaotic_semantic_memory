@@ -272,6 +272,8 @@ world_state:
                                #   `-p`-scoped), five member intra-doc links, and the bare wasm checks.
                                #   The hooks keep a `--exclude csm-duckdb` bounded subset — its bundled
                                #   DuckDB C++ build is ~20 min cold and blows pre-push's 180 s budget.
+  pre_release_gate_no_verdict_for_skipped_runs: true  # 2026-10-17 (#903): non-success CI is no verdict
+  audit_ignore_sets_gated_in_parity: true             # 2026-10-17 (#903): checker + fixture in validate.sh
   mutation_threshold: 85
   actions_pinned_to_sha: true
   harness_msrv_current: "1.88"
@@ -288,4 +290,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: roast_and_rebuild_pr_910_workspace_default_members  # 2026-10-17 — #910's head poisoned itself (its merge resolutions re-applied a pre-#909/#911 snapshot, so `main` being its merge-base protected nothing: the roast record, the #911 skills, the #909 slow-path benches and part of `rerank.rs` were deleted). Rebuilt instead of reconciled: `default-members` (issue #905, closed at merge) + the two `const fn` findings + `-p csm-wasm` scoping, then the second round CI surfaced after the push — the rustdoc output-path collision between the root's `csm` bin and `csm-cli`'s (fixed with the bot's own `doc = false`, documented), five member intra-doc links in `csm-embedding`/`benchmarks`, and the `--bin csm` ambiguity behind the Windows `LNK1104` (every affected command `-p`-scoped; `release.yml`/pre-release gate/script pre-empted). Enforcement 5 in `scripts/ci-workspace-crate-matrix.sh` + fixtures 17/18 keep `default-members` honest; both hooks exclude `csm-duckdb` to stay within their budgets. Merged as f496d319 with 40 pass / 1 skip / 0 fail; local proofs: bare `cargo doc` and bare clippy both rc 0 with duckdb included. Verdict + corrections: `plans/PR_ROAST_2026_10_17.md`. Previous: encode_pr_909_lessons_into_skills_and_agents.
+  action_last_completed: repair_the_pre_release_gate_verdict_and_audit_parity  # 2026-10-17 — #903's skipped-run handling and Cargo Audit/Cargo Deny parity.

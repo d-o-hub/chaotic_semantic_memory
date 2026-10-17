@@ -1518,3 +1518,24 @@ and, with `csm-duckdb` built, the **bare** CI stages `RUSTDOCFLAGS="-D warnings"
 the merged head `9a54564d`: 40 pass / 1 skip / 0 fail; merged `--squash` as `f496d319`, which closed
 #905 (queue stays at 0). The remaining open issue is **#903** (Pre-Release Gate `security-audit`,
 which also keeps that gate red alongside the `pr-drain-check` that #910's own presence tripped).
+
+## 2026-10-17 (cont.): #903 pre-release-gate repair
+
+Historical CI truth separated the cascade from the actual audit failure: `39022056863` followed
+failed CI at `4fbd429b` and had all seven gate jobs skipped but a failed summary. On successful CI
+at `20b4fc37`, `39023117196` ran the checks: five passed, the audit failed on four vulnerabilities
+with six allowed warnings, and the drain check named #910 as its one open PR. The drain policy is
+unchanged.
+
+`cargo audit` 0.22.2 returned nonzero before configuration (four vulnerabilities: h2 RUSTSEC-2026-0258
+and zip RUSTSEC-2026-0367/-0368/-0369; six allowed warnings). After `.cargo/audit.toml` mirrored
+the nine IDs in `deny.toml`, it returned zero with two allowed warnings (`instant` and `lru`
+RUSTSEC-2026-0253). The three zip ignores are limited to the reviewed non-bundled extraction path;
+the workspace enables DuckDB's bundled feature.
+
+Local verification: verdict fixture 17 assertions / 0 failures; parity fixture 9 / 0; real
+parity set 9 IDs; negative control rc 1 named the missing ID. ShellCheck `-S info` passed all four
+scripts; actionlint 1.7.12 passed; and `CARGO_INCREMENTAL=0 bash scripts/validate.sh` passed after
+`cargo clean` removed 54,740 files (61.2 GiB). GitHub refused the temporary dispatch workflow
+because it was absent from the default branch; verified fallback Release run `39022056988`
+concluded success with operational jobs skipped and `notify` successful.

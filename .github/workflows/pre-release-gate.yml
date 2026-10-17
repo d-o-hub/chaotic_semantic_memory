@@ -100,10 +100,9 @@ jobs:
       run: cargo install cargo-audit --locked
 
     - name: Run security audit
-      # cargo audit (no --deny warnings) reports advisories visibly in CI logs
-      # but does not fail the gate. Known unmaintained crates are documented
-      # in plans/UNMAINTAINED_CRATES.md with migration plans.
-      # If cargo audit ever exits non-zero, that indicates a NEW real vulnerability.
+      # cargo audit reads .cargo/audit.toml; its ignore list mirrors deny.toml's
+      # reviewed set. scripts/check-audit-ignore-parity.sh fails when they diverge.
+      # A non-zero exit still means a new, unreviewed vulnerability.
       run: cargo audit
 
   wasm-smoke-build:
@@ -221,30 +220,20 @@ jobs:
     needs: [pr-drain-check, version-triad, security-audit, wasm-smoke-build, planning-state-check, benchmark-gate, mutation-test]
     if: always()
     steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        ref: ${{ github.event.workflow_run.head_sha }}
+        persist-credentials: false
+
     - name: Gate summary
       run: |
-        echo "## Pre-Release Gate Summary" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
-        echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-        echo "| PR Drain | ${{ needs.pr-drain-check.result }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Version Triad | ${{ needs.version-triad.result }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Security Audit | ${{ needs.security-audit.result }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| WASM Build | ${{ needs.wasm-smoke-build.result }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Planning State | ${{ needs.planning-state-check.result }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Benchmark Gate | ${{ needs.benchmark-gate.result }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Unit-Target Mutation Score | ${{ needs.mutation-test.result }} |" >> $GITHUB_STEP_SUMMARY
-
-        if [ "${{ needs.pr-drain-check.result }}" != "success" ] || \
-           [ "${{ needs.version-triad.result }}" != "success" ] || \
-           [ "${{ needs.security-audit.result }}" != "success" ] || \
-           [ "${{ needs.wasm-smoke-build.result }}" != "success" ] || \
-           [ "${{ needs.planning-state-check.result }}" != "success" ] || \
-           [ "${{ needs.benchmark-gate.result }}" != "success" ] || \
-           [ "${{ needs.mutation-test.result }}" != "success" ]; then
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "❌ **Gate failed** - one or more checks did not pass" >> $GITHUB_STEP_SUMMARY
-          exit 1
-        fi
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "✅ **All gates passed**" >> $GITHUB_STEP_SUMMARY
+        bash scripts/pre-release-gate-summary.sh "${GITHUB_STEP_SUMMARY}" \
+          "${{ github.event.workflow_run.conclusion }}" \
+          "${{ github.event.workflow_run.head_sha }}" \
+          "PR Drain=${{ needs.pr-drain-check.result }}" \
+          "Version Triad=${{ needs.version-triad.result }}" \
+          "Security Audit=${{ needs.security-audit.result }}" \
+          "WASM Build=${{ needs.wasm-smoke-build.result }}" \
+          "Planning State=${{ needs.planning-state-check.result }}" \
+          "Benchmark Gate=${{ needs.benchmark-gate.result }}" \
+          "Unit-Target Mutation Score=${{ needs.mutation-test.result }}"

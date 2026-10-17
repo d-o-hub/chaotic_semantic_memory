@@ -12,6 +12,17 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+
+> Last completed (verified 2026-10-17):
+> `repair_the_pre_release_gate_verdict_and_audit_parity` (Fixes #903) — distinguish no verdict
+> from a failed gate when upstream CI is unsuccessful; mirror Cargo Audit and Cargo Deny RustSec
+> ignore IDs with a fail-closed checker and fixtures. See `plans/PR_ROAST_2026_10_17.md`.
+>
+> Last completed (verified 2026-10-17):
+> `record_pr_913_merge_outcome` (#913 → main `3d674ff8`) — verified the #910 close-out record,
+> posted the roast verdict, and squash-merged after required checks and a clean merge state.
+>
+
 > Last completed (verified 2026-10-17):
 > `roast_and_rebuild_pr_910_workspace_default_members` (#910 → main `f496d319`, closing #905) —
 > the bot's head was poisoned by its own merge resolutions (a pre-#909/#911 snapshot re-applied over

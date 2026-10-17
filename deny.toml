@@ -24,6 +24,11 @@ ignore = [
     # hyper 0.14 via libsql/tonic/axum; no 0.3.x patch — requires libsql
     # upgrade (deferred, tracked in plans).
     { id = "RUSTSEC-2026-0258", reason = "h2 0.3.27 pinned by hyper 0.14 (libsql chain), no 0.3.x patch; 0.4 copy bumped to 0.4.19" },
+    # zip 6.0.0 is a libduckdb-sys build dependency; csm-duckdb enables bundled,
+    # so the vulnerable non-bundled build_linked extraction path is not compiled here.
+    { id = "RUSTSEC-2026-0367", reason = "zip 6 build-dep; vulnerable extract path is cfg(not bundled); csm-duckdb enables duckdb/bundled" },
+    { id = "RUSTSEC-2026-0368", reason = "zip 6 build-dep; vulnerable extract path is cfg(not bundled); csm-duckdb enables duckdb/bundled" },
+    { id = "RUSTSEC-2026-0369", reason = "zip 6 build-dep; vulnerable extract path is cfg(not bundled); csm-duckdb enables duckdb/bundled" },
     # Dependabot alerts #1, #4: libsql-sqlite3-parser crash on invalid UTF-8 (GHSA-8m95-fffc-h4c5)
     # No patch available upstream. Low severity, requires malformed SQL input.
     # No RUSTSEC ID; will add when assigned.
