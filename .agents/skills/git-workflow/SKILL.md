@@ -97,6 +97,11 @@ gh pr list --state open --json number,reviewDecision \
   validate with `npx commitlint --from origin/main --to HEAD --verbose`.
 - **Invalid scopes are not inventable**: use only `commitlint.config.cjs` `scope-enum`
   (e.g. `framework`, not `ops`; `docs` without a fake `plans` scope).
+- **Supplying the evidence a gate demands — on someone else's branch.** When the roast verdict is
+  "correct but unmeasured", add what the gate needs yourself instead of stalling: the bench/comment
+  commits (`test(<scope>): …`, `docs(<scope>): …`), the `## Performance Evidence` body section set
+  *before* the push that starts the run, then merge from the verified head. Never retitle
+  `perf(` → `refactor(` to make the gate skip — that is gate-gaming, not evidence.
 
 ## Merging Multiple PRs (Sequential Merge Protocol)
 
@@ -118,11 +123,16 @@ git fetch origin main
 git rebase origin/main
 git push origin <branch> --force-with-lease
 
-# Wait for CI to pass (~15 min)
-gh pr checks <number> --watch
+# Wait for CI to pass (~15 min). `--watch` can die on a TLS timeout: poll buckets instead.
+gh pr checks <number> --json name,bucket --jq 'group_by(.bucket) | map("\(.[0].bucket)=\(length)") | join(" ")'
 
-# Merge (only after ALL checks green)
+# The merge gate is the ruleset (required contexts + code_scanning/code_quality CodeQL runs):
+gh pr view <number> --json mergeable,mergeStateStatus   # want MERGEABLE + CLEAN
 gh pr merge <number> --squash --delete-branch
+
+# Verify the landing, not just the command's exit code
+git fetch origin main && git log --oneline -1 origin/main
+git ls-remote origin 'refs/heads/<branch>' | wc -l      # 0 = branch deleted
 
 # Then move to next PR (main has changed)
 ```
