@@ -411,5 +411,15 @@ else
   echo "Error: scripts/check-goap-queue-issues.sh missing or not executable"
   exit 1
 fi
+# RUSTSEC ignore parity between the reviewed deny.toml set and what cargo-audit reads (issue #903)
+if [[ -x "${SCRIPT_DIR}/check-audit-ignore-parity.sh" ]]; then
+  echo "==> RUSTSEC ignore parity (deny.toml vs .cargo/audit.toml, fail-closed)"
+  "${SCRIPT_DIR}/check-audit-ignore-parity.sh"
+  echo "==> RUSTSEC parity gate fixture (both directions)"
+  "${SCRIPT_DIR}/test-check-audit-ignore-parity.sh"
+else
+  echo "Error: scripts/check-audit-ignore-parity.sh missing or not executable"
+  exit 1
+fi
 
 echo "Validation complete."

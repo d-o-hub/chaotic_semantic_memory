@@ -100,10 +100,9 @@ jobs:
       run: cargo install cargo-audit --locked
 
     - name: Run security audit
-      # cargo audit (no --deny warnings) reports advisories visibly in CI logs
-      # but does not fail the gate. Known unmaintained crates are documented
-      # in plans/UNMAINTAINED_CRATES.md with migration plans.
-      # If cargo audit ever exits non-zero, that indicates a NEW real vulnerability.
+      # cargo audit reads .cargo/audit.toml; its ignore list mirrors deny.toml's
+      # reviewed set. scripts/check-audit-ignore-parity.sh fails when they diverge.
+      # A non-zero exit still means a new, unreviewed vulnerability.
       run: cargo audit
 
   wasm-smoke-build:
