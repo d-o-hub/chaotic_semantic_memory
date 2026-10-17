@@ -1480,3 +1480,41 @@ deletions before a per-file `git diff --quiet <branch> origin/main -- <path>` ga
 Every path was then rebuilt as `origin/main` + only this session's edits, and the gates re-run in the
 clean worktree: `validate-skill-format.sh` 33/33, `check-skill-catalog.sh`, `check-docs-links.sh`, and
 the router top-1 for both target queries.
+
+## 2026-10-17 (cont.): #910 rebuilt, merged as `f496d319`, closing #905
+
+The roast verdict was **rebuild in place**, not merge: the head `10aaca88` had `main` as its
+merge-base yet deleted the #909 roast record, the #911 `bench-blindness` reference and skill rules,
+the #909 slow-path bench groups and part of `crates/csm-retrieval/src/rerank.rs`, and renamed the
+CLI binary back to `csm-cli` — its four "Merge branch 'main'" commits re-applied a pre-#909 snapshot,
+so ancestry protected nothing. Rebuilt as `main` (`20b4fc37`) + two commits: the bot's honest first
+commit (`default-members` for issue #905 + the two `missing_const_for_fn` findings) plus the second
+round CI surfaced *after* the push:
+
+- `lint`: `error: document output filename collision` — workspace `cargo doc` documents both `csm`
+  bins (root `src/bin/csm.rs` and `csm-cli`'s `src/main.rs`) into one path; fixed with the bot's own
+  `doc = false` on the facade bin, now documented. Then **five unresolved intra-doc links** in member
+  crates the root-only gate had never reached (`csm-embedding/src/projection.rs:38`/`:94`,
+  `benchmarks/src/cli.rs`) — fixed exactly as the bot had them, and the first rebuild had dropped
+  them as false reverts.
+- `Build CLI (windows-x64)`: `LNK1104: cannot open file …\deps\csm.exe` — `cargo build --bin csm`
+  now matches two packages; every such selector is `-p`-scoped (both `ci.yml` CLI jobs,
+  `validate.sh`, `pre-release-validate.sh`, the roundtrip advice), plus pre-emptive scoping in
+  `release.yml`, `pre-release-gate.yml` and the `mcp-feature` job.
+- `scripts/validate.sh`'s wasm check and the pre-release gate's were `-p`-scoped: a bare command now
+  builds the whole workspace for `wasm32`, which is not wasm-buildable.
+- `scripts/ci-workspace-crate-matrix.sh` gained enforcement 5 (a member present in `members` but
+  absent from `default-members` is an error) with fixtures 17/18, so the hand-kept copy cannot rot
+  back into the blind spot.
+- Both `.githooks` exclusions: the workspace clippy in `pre-commit`/`pre-push` excludes `csm-duckdb`
+  — the root crate does not depend on it, its bundled DuckDB C++ build takes ~20 minutes on a cold
+  tree (15-minute hook kill, `Disk quota exceeded` on the 7.5 GB `/tmp` tmpfs), and it blows
+  pre-push's 180 s budget, which rejects the push (rc 124).
+
+Verified before the merge: `default_members=12 members=12 missing_from_default=0`; fixtures 18/18;
+the old bare wasm command fails while the scoped ones pass; the hook's cold workspace clippy 3 m 05 s;
+and, with `csm-duckdb` built, the **bare** CI stages `RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
+--all-features` → rc 0 and `cargo clippy --all-targets --all-features -- -D warnings` → rc 0. CI on
+the merged head `9a54564d`: 40 pass / 1 skip / 0 fail; merged `--squash` as `f496d319`, which closed
+#905 (queue stays at 0). The remaining open issue is **#903** (Pre-Release Gate `security-audit`,
+which also keeps that gate red alongside the `pr-drain-check` that #910's own presence tripped).

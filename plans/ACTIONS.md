@@ -12,6 +12,22 @@
 > dated reconciliation snapshot the file again. Do not re-add completed
 > entries to this file.
 >
+> Last completed (verified 2026-10-17):
+> `roast_and_rebuild_pr_910_workspace_default_members` (#910 → main `f496d319`, closing #905) —
+> the bot's head was poisoned by its own merge resolutions (a pre-#909/#911 snapshot re-applied over
+> `main`, deleting the roast record, the #911 skills, the #909 slow-path benches and part of
+> `rerank.rs`), so the branch was rebuilt as `main` + the intended change rather than reconciled.
+> What landed: `[workspace] default-members` listing all 12 members (issue #905 option 1), the two
+> `missing_const_for_fn` fixes, `-p csm-wasm` scoping in `validate.sh`, enforcement 5 (a member in
+> `members` but not in `default-members` is an error) with fixtures 17/18, and the fallout repairs
+> the push surfaced: the two `csm` bins' rustdoc output-path collision (`doc = false` on the facade
+> bin), five member intra-doc links, and the `--bin csm` ambiguity that made `Build CLI
+> (windows-x64)` fail with `LNK1104` (every affected command is `-p`-scoped, including `release.yml`
+> and the pre-release gate/script). Both hooks now exclude `csm-duckdb` from their clippy: its
+> bundled DuckDB C++ build is ~20 min cold and exceeds pre-push's 180 s budget. Merged with 40 pass
+> / 1 skip / 0 fail; local bare `cargo doc`/`clippy` (duckdb included) rc 0. Verdict and one
+> correction: `plans/PR_ROAST_2026_10_17.md`. Entry removed because the merge closed #905.
+>
 > Last completed (verified 2026-10-15):
 > `mutation_baseline_the_feature_gated_mcp_module` (#833) — the module left the
 > exclusion list and got its first baseline. Measured, not asserted: the scoped

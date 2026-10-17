@@ -263,6 +263,15 @@ world_state:
   retrieval_cache_invalidated_on_mutation: true   # 2026-09-29: insert/upsert and association mutations invalidate cached results; regression-covered
   capacity_upsert_preserves_existing: true        # 2026-09-29: existing IDs are detected before max_concepts eviction; regression-covered
   mutation_ci_enforced: true
+  workspace_default_members_cover_all: true   # 2026-10-17 (#910, main f496d319): bare
+                               #   `cargo clippy/test/doc` at the root now select all 12 members, and
+                               #   `scripts/ci-workspace-crate-matrix.sh` enforcement 5 fails when a
+                               #   member is missing from `default-members`. Fallout repaired in the same
+                               #   landing: the two `csm` bins share a rustdoc output path (root bin
+                               #   `doc = false`), `--bin csm` matches two packages (every such command is
+                               #   `-p`-scoped), five member intra-doc links, and the bare wasm checks.
+                               #   The hooks keep a `--exclude csm-duckdb` bounded subset — its bundled
+                               #   DuckDB C++ build is ~20 min cold and blows pre-push's 180 s budget.
   mutation_threshold: 85
   actions_pinned_to_sha: true
   harness_msrv_current: "1.88"
@@ -279,4 +288,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: encode_pr_909_lessons_into_skills_and_agents  # 2026-10-17 — #909 roasted (keep-open verdict), supplied with evidence and merged (7b7202a4), then the lessons encoded across the skills: benchmarking-perf (ADR-0095 gate + reach proof + measurement isolation), github-ci-guardrails (ruleset gating, payload ordering, robust polling, gh-ci-truth state incl. a version-scoped `--json` correction), git-workflow (evidence on a foreign branch + land-and-verify), AGENTS.md steps 10/18; 33 skills unchanged, CATALOG regenerated, gates green. Previous: mutation_baseline_the_feature_gated_mcp_module (#833).
+  action_last_completed: roast_and_rebuild_pr_910_workspace_default_members  # 2026-10-17 — #910's head poisoned itself (its merge resolutions re-applied a pre-#909/#911 snapshot, so `main` being its merge-base protected nothing: the roast record, the #911 skills, the #909 slow-path benches and part of `rerank.rs` were deleted). Rebuilt instead of reconciled: `default-members` (issue #905, closed at merge) + the two `const fn` findings + `-p csm-wasm` scoping, then the second round CI surfaced after the push — the rustdoc output-path collision between the root's `csm` bin and `csm-cli`'s (fixed with the bot's own `doc = false`, documented), five member intra-doc links in `csm-embedding`/`benchmarks`, and the `--bin csm` ambiguity behind the Windows `LNK1104` (every affected command `-p`-scoped; `release.yml`/pre-release gate/script pre-empted). Enforcement 5 in `scripts/ci-workspace-crate-matrix.sh` + fixtures 17/18 keep `default-members` honest; both hooks exclude `csm-duckdb` to stay within their budgets. Merged as f496d319 with 40 pass / 1 skip / 0 fail; local proofs: bare `cargo doc` and bare clippy both rc 0 with duckdb included. Verdict + corrections: `plans/PR_ROAST_2026_10_17.md`. Previous: encode_pr_909_lessons_into_skills_and_agents.
