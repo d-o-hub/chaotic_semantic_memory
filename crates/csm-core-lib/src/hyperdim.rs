@@ -360,22 +360,27 @@ impl HVec10240 {
 
     /// Permute the hypervector (cyclic rotation)
     ///
-    /// Optimized implementation that eliminates modulo operations and branches
-    /// from the hot loop by splitting the rotation into two contiguous segments.
+    /// Performance Optimization: Fast-path early returns `*self` when `shift % 10240 == 0`
+    /// (word_shift == 0 && bit_shift == 0), bypassing 1,280 bytes of zero-initialization
+    /// and slice rotation memory copies.
     #[allow(clippy::needless_range_loop)]
     pub fn permute(&self, shift: usize) -> Self {
-        let mut result = [0u128; 80];
         let bit_shift = shift % 128;
         let word_shift = (shift / 128) % 80;
 
-        // Optimized path for word-aligned rotations
+        // Fast path for word-aligned rotations
         if bit_shift == 0 {
+            if word_shift == 0 {
+                return *self;
+            }
+            let mut result = [0u128; 80];
             let (left, right) = self.data.split_at(word_shift);
             result[..80 - word_shift].copy_from_slice(right);
             result[80 - word_shift..].copy_from_slice(left);
             return Self { data: result };
         }
 
+        let mut result = [0u128; 80];
         let inv_bit_shift = 128 - bit_shift;
 
         // Split cyclic rotation into two segments to eliminate modulo in the loop

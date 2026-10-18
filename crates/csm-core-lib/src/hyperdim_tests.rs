@@ -45,11 +45,27 @@ fn test_bundle() {
 #[test]
 fn test_permute() {
     let v = HVec10240::random();
+    // Test 0-shift fast path
     assert_eq!(v, v.permute(0));
+    // Test full rotation fast path (10240 bits = 80 words)
+    assert_eq!(v, v.permute(10240));
+    assert_eq!(v, v.permute(20480));
+
+    // Test word-aligned non-zero rotation (128 bits = 1 word)
     let s = v.permute(128);
     for i in 0..80 {
         assert_eq!(s.data[i], v.data[(i + 1) % 80]);
     }
+
+    // Test bit-shift rotation
+    let s_bit = v.permute(1);
+    assert_ne!(v, s_bit);
+    // Rotating 10240 times 1 bit should yield original vector
+    let mut accum = v;
+    for _ in 0..10240 {
+        accum = accum.permute(1);
+    }
+    assert_eq!(v, accum);
 }
 
 #[test]
