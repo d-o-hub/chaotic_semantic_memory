@@ -1557,3 +1557,7 @@ The first Pre-Release Gate run after the merge was `39060608423` at `2026-10-17T
 dispatched on GitHub: the temporary workflow returned 404 because it was not on default `main`.
 The fallback Release run `39022056988` did not execute the new helper; its local fixture is the
 available direct proof for that branch.
+
+Unrelated draft PR #915 (`perf(core): fast-path 0-shift in HVec10240::permute`) was reviewed,
+roasted, and closed as a no-impact duplicate of #800, #814, and #819 (commitlint perf gate failed,
+by-value copy refuted, no new benchmark evidence), clearing the PR-drain gate condition for PR #916.
