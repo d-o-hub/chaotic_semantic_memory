@@ -1539,3 +1539,21 @@ scripts; actionlint 1.7.12 passed; and `CARGO_INCREMENTAL=0 bash scripts/validat
 `cargo clean` removed 54,740 files (61.2 GiB). GitHub refused the temporary dispatch workflow
 because it was absent from the default branch; verified fallback Release run `39022056988`
 concluded success with operational jobs skipped and `notify` successful.
+
+## 2026-10-18: #914 merged; post-merge gate green
+
+PR #914 (`fix(ci): repair the pre-release gate's verdict and RUSTSEC ignore parity`) squash-merged
+as `850cf48a17f0f0317b0e4dcfe6e0294af379a522` at `2026-10-17T18:28:20Z`; it closed issue #903.
+Main CI run `39058232581` succeeded on that SHA.
+
+The first Pre-Release Gate run after the merge was `39060608423` at `2026-10-17T19:00:58Z`
+(`workflow_run`, same head SHA). Its overall conclusion was success. All seven gate checks passed:
+`pr-drain-check`, `version-triad`, `security-audit`, `wasm-smoke-build`, `planning-state-check`,
+`benchmark-gate`, and `mutation-test`. `gate-summary` also passed; its log shows upstream CI
+`success`, all seven needs results `success`, and `✅ All gates passed`.
+
+`bash scripts/check-goap-queue-issues.sh` passed after #903 closed: 0 actions, 0 tracked issues,
+0 effect keys; the queue and `queued_actions_count: 0` agree. The new no-verdict branch was not
+dispatched on GitHub: the temporary workflow returned 404 because it was not on default `main`.
+The fallback Release run `39022056988` did not execute the new helper; its local fixture is the
+available direct proof for that branch.
