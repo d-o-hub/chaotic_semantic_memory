@@ -277,6 +277,12 @@ impl Bm25Index {
             return Vec::new();
         }
 
+        // Optimization: Sort query term postings by length ascending. Iterating through shorter posting
+        // lists first warms CPU L1/L2 data caches on smaller memory regions and improves cache locality.
+        if query_weights.len() > 1 {
+            query_weights.sort_unstable_by_key(|(_, entries)| entries.len());
+        }
+
         // Optimization: Use thread-local buffers to eliminate O(N) allocation and zeroing per search call.
         TOUCHED_INDICES_BUFFER.with(|touched_buffer| {
             let mut touched_indices = touched_buffer.borrow_mut();
