@@ -1,5 +1,46 @@
 # PROGRESS
 
+## 2026-10-19: a reorder claim that no benchmark in the repo could see
+
+Six open PRs, empty GOAP queue, 0 issues, `main` at `0ab86f4d`. The round's work was the mandatory
+pre-merge roast (`AGENTS.md` Phase 1 step 5), recorded in `plans/PR_ROAST_2026_10_19.md`.
+
+**#917** (draft Jules `perf(retrieval)`, +6/-0 in `crates/csm-retrieval/src/bm25.rs`) was **closed as
+no demonstrated impact** — the seventh member of the #737/#739/#740/#754/#783/#800/#915 class, with
+`commitlint` red on `scripts/check-perf-pr-evidence.py` and a body that offered a cache-locality
+story instead of numbers. What made this one different from a shape-check is that the claim was
+*testable*, and testing it refuted it twice over:
+
+1. **Every bm25 corpus in the repository has uniform posting lengths**, so sorting by
+   `entries.len()` swaps nothing. `benches/benchmark.rs:711-719` indexes all four tokens into every
+   document; `benches/bm25_benchmark.rs:19-29` gives doc `i` token `j` iff `(i + j) % 2 == 0`, so
+   each of the ten tokens lands in exactly 500 documents; the `selective_100000` corpus
+   `(7i + 13j) mod 1000` gives exactly 2 000 postings per term. The branch executes on all of them
+   and is a semantic no-op on all of them — a third blindness cause alongside wrong arguments
+   (#800) and the callee's fast path (#909/#891), and only discoverable by reading the corpus
+   generator rather than the call site.
+2. **In the one corpus where it does reorder — 20 000 docs, postings 20 000 / 2 000 / 200, query
+   supplied descending — it is ~8 % slower.** Median 168.3 → 180.0 µs across four time-interleaved
+   pairs (+5.1 / +9.0 / +10.1 / +7.2 %, consistent sign).
+
+The first measurement pair was *wrong in the flattering direction*: 190 µs with the sort against
+255 µs without, a fake 25 % win, because the legs straddled a rebuild while desktop load fell. Absolute
+times on `csm-ref-01` drifted ~50 % across the session and the canonical `search_1000_docs`
+A/B/A/B sign-flipped (11.59 / 10.87 / 11.81 / 14.82 µs). The fix that worked: compile each arm,
+copy the two `target/release/deps/bm25_benchmark-*` binaries apart, then run `A B A B` with no
+rebuild between, printing loadavg per leg. That method, the flat-corpus check and the honest
+withdrawal of my own tie-break objection (bit-identical `to_bits()`, same top-5 ids on a corpus
+built to expose it) are distilled into `skill://pr-roast-triage` and
+`progress/LEARNINGS.md`; the stale `BM25 search 10k ~406 µs` baseline was re-measured at 113–116 µs.
+
+The five dependabot PRs (#918 `taiki-e/install-action` 2.87.27 → 2.87.29; #919 root `serde_json`
+1.0.151 → 1.0.154 + `tokio` 1.53.2 → 1.53.3; #920 root `proptest` 1.11.0 → 1.12.0; #921/#922 the
+same two in `fuzz/Cargo.lock`) are keepers: all `MERGEABLE`, each head contains `origin/main`, each
+diff minimal, and root vs `fuzz/` lockfiles are different workspaces so they are not duplicates of
+each other. They were pending on `lint`/`test`/`mutation-test`/`Build CLI (linux-x64)` at triage, so
+they land one at a time — rebase, CI on the new head, re-check `mergeStateStatus`, squash-merge —
+per Phase 5 step 18.
+
 ## 2026-10-05 (round 8): the queue drifted again behind its own fix, and I read a pipe's exit code as the script's
 
 ### Three merges, one at a time, each re-based onto the moving `main`

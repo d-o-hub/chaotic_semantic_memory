@@ -13,6 +13,28 @@
 > entries to this file.
 >
 
+> Last completed (verified 2026-10-19):
+> `triage_pr_roast_2026_10_19` — six open PRs, 0 issues, empty queue. Draft Jules PR #917
+> (`perf(retrieval)`: sort `query_weights` by posting length in `Bm25Index::search`) was **closed as
+> no demonstrated impact** and its branch deleted. `commitlint` was red on
+> `scripts/check-perf-pr-evidence.py` (no `## Performance Evidence`), and the claim was then
+> refuted by measurement rather than by shape: the sort is a semantic no-op on every bm25 corpus in
+> the repository (all posting lists are equal length — `benches/benchmark.rs:711-719`,
+> `benches/bm25_benchmark.rs:19-29`, `selective_100000`), so the cited comparator cannot see it at
+> all, and on a purpose-built skewed corpus (20 000 docs; postings 20 000/2 000/200; query supplied
+> descending) it measured **+8 % slower** — median 168.3 → 180.0 µs, consistent sign across four
+> time-interleaved A/B pairs run from two saved binaries with no rebuild between. The naive
+> rebuild-straddling pair had pointed the other way (190 vs 255 µs, a fake 25 % win) because
+> `csm-ref-01` absolute times drift ~50 % with desktop load. The predicted correctness objection
+> (reordered `f32` accumulation, `touched_indices` feeding two unstable sorts) was **tested and
+> withdrawn**: bit-identical `to_bits()` and the same top-5 on a corpus built to expose tie-breaks.
+> Record: `plans/PR_ROAST_2026_10_19.md`; flag `bm25_posting_length_sort_measured_slower`; method
+> distilled into `pr-roast-triage` (third bench-blindness cause + the two-binary interleave).
+> #918-#922 (dependabot: `taiki-e/install-action`, root `serde_json`/`tokio`/`proptest`,
+> `fuzz/Cargo.lock` `serde_json`/`tokio`) are keepers — all `MERGEABLE`, each head containing
+> `origin/main`, each diff minimal, root vs `fuzz` lockfiles being different workspaces and so not
+> duplicates. Not a queued action; the queue stays at 0.
+>
 > Last completed (verified 2026-10-17):
 > `repair_the_pre_release_gate_verdict_and_audit_parity` (Fixes #903) — distinguish no verdict
 > from a failed gate when upstream CI is unsuccessful; mirror Cargo Audit and Cargo Deny RustSec

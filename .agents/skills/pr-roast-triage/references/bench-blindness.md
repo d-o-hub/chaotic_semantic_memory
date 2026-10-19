@@ -85,3 +85,47 @@ does *not* catch it: `probe_with_rerankers` (`src/framework_rerank.rs:55`) passe
 crate-level unit tests observe the k-th selection. Equivalent mutants (skip
 nothing, always skip) are unobservable by construction, so the mutation gate can
 never *score* this optimization; only a benchmark can.
+
+# Third cause: a flat corpus (2026-10-19, closed #917)
+
+#917 added, before the score-accumulation loop in `Bm25Index::search`
+(`crates/csm-retrieval/src/bm25.rs:280`):
+
+```rust
+if query_weights.len() > 1 {
+    query_weights.sort_unstable_by_key(|(_, entries)| entries.len());
+}
+```
+
+claimed to "warm CPU L1/L2 data caches". The guard fires on every bm25 benchmark in the
+repo, so a reachability check passes — and the sort still reorders nothing, because each
+corpus feeds it **equal keys**:
+
+| benchmark | query | postings |
+|---|---|---|
+| `benches/benchmark.rs:711-719` `bm25_search/search_{100,1000,10000}_docs` | `["memory","semantic"]` | every doc is indexed with all four tokens ⇒ both lists = `doc_count` |
+| `benches/bm25_benchmark.rs:19-29` `bm25_search_1000/10000/100000` | `["hello","rust","bm25"]` | doc `i` gets token `j` iff `(i+j)%2==0` ⇒ every token in exactly half the docs (500/1 000) |
+| `bench_bm25_search_selective_100000` | two vocab terms | term index `(7i+13j) mod 1000`, `gcd(13,1000)=1` ⇒ exactly 2 000 postings per term |
+
+`sort_unstable` compares with `<`, so equal keys never swap: the measured path executes a
+no-op and the claim is invisible rather than slow. The general form of the trap is that
+**reachability is checked at the call site while blindness lives in the data**, so for any
+ordering, partitioning, short-circuit or dedup claim the check is: read the corpus
+generator and compute the key distribution. `select_nth_unstable_by` claims have the same
+shape — a corpus of distinct scores hides the tie path entirely.
+
+The adversarial-fair test: build the input the claim needs (20 000 docs, postings
+20 000 / 2 000 / 200, query supplied in descending length order so the sort must reverse
+it) and measure that. #917 came out **+8 % slower** there — see
+`references/codegen-and-measured-claims.md` for the interleaved two-binary protocol that
+established it, and for why the first single pair pointed the other way.
+
+Parity, tested and **not** a finding: `f32` accumulation order changes
+(`DOC_SCORES_BUFFER: RefCell<Vec<f32>>`, `bm25.rs:41`) and `touched_indices` push order
+feeds `select_nth_unstable_by` + `sort_unstable_by` (`bm25.rs:342-361`), which looks like a
+guaranteed tie-break change. On a corpus built to expose it (`alpha` 2 000 / `beta` 2 000 /
+`gamma` 1 000, `top_k = 5` inside 1 000 exactly-tied docs) both arms returned
+`doc_0, doc_2, doc_4, doc_6, doc_8` with identical `to_bits()`, and the skewed corpus gave
+`1084339543` in both. Write the objection only after measuring it, and record the
+non-finding so the next reviewer does not re-raise it.
+

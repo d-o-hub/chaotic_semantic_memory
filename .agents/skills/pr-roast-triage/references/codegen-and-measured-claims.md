@@ -113,3 +113,45 @@ workaround either. Before treating a lockfile bump as trivial, check
 `rust_version` for the target *and* the next version (crates.io
 `/api/v1/crates/<crate>/<ver>`); the cure is a dependabot `ignore` with a
 "remove when the MSRV moves" reason, or an MSRV move — a whole-repo decision.
+
+# Interleaving on `csm-ref-01`: two binaries, not two rebuilds (2026-10-19, #917)
+
+`csm-ref-01` is a ThinkPad T480 (i5-8350U, `powersave` governor) running a desktop session,
+and a `cargo bench` leg competes with the rebuild that produced it. Absolute times for the
+**same binary** moved ~50 % across one triage session as the load average fell from 3.7 to 2.3.
+
+The failure mode is directional, not merely noisy. Toggling the source and rebuilding gives
+legs that straddle a 2-minute build at different thermal states:
+
+| leg | reading | note |
+|---|---|---|
+| with sort, first read | 190.29 µs | taken right after its own rebuild |
+| without sort, first read | 255.69 µs | taken after a *different* rebuild |
+| ⇒ naive conclusion | **sort is 25 % faster** | the claim appears confirmed |
+
+Repeat the same two states as saved binaries and the sign inverts: A (no sort) 166.16 /
+170.48 / 163.47 / 168.45 µs vs B (sort) 181.16 / 179.22 / 179.95 / 180.61 µs — every pair
+positive, median 168.3 → 180.0, **+8 % slower**. Protocol:
+
+1. Build arm A, `cp target/release/deps/<bench>-<hash> /tmp/bench_A`. Cargo reuses the same
+   hashed filename for the variant — re-resolve with `ls -t` after each build, and confirm the
+   toggle is actually in the source (`grep -c`) before trusting which binary is which.
+2. Toggle, build arm B, `cp … /tmp/bench_B`.
+3. Run `A B A B …` from `/tmp`, **never rebuilding between legs**, printing `/proc/loadavg`
+   per leg so a reviewer can see the drift the pairing absorbed.
+4. Run the bench binary directly with `--bench` (`/tmp/bench_A <filter> --bench --warm-up-time 1
+   --measurement-time 3`); without `--bench` criterion executes in test mode and prints no
+   timings, which looks like a silently passing run.
+5. Quote the paired deltas and their consistency, not an absolute, and keep an unchanged-arm
+   control (the canonical `bm25_search/search_1000_docs` A/B/A/B sign-flipped
+   11.59 / 10.87 / 11.81 / 14.82 µs — that spread is the host's floor, so a claim smaller
+   than it is unmeasurable here and needs the CI runner or a committed baseline).
+
+For a change whose guard never fires on the repo's corpora (see the `bench-blindness`
+reference), step 3's two arms differ only by the added code, so any residual delta is
+codegen/layout — which is why #783's warning applies in reverse: a reproducible delta is
+not confirmation of the stated mechanism, and the mechanism must be argued from the access
+pattern. Here it predicted the measured sign: reordering the *term* loop cannot cluster
+`doc_idx`, so the working set over `doc_scores`/`factors` is unchanged and the sort is pure
+overhead.
+

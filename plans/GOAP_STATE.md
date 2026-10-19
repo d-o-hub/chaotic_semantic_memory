@@ -164,6 +164,7 @@ world_state:
   fuzz_scheduled_full_runs: true                  # fuzz-full weekly cron (Sun 03:00 UTC); nightly toolchain + nix shell dropped (PR #690); first scheduled green 2026-09-13 (run 34746887403) after red ×6 (08-02..09-06)
   duckdb_companion_published: true                # 2026-09-27: csm-duckdb 0.3.8 first-published (owner d-o-hub); release.yml lockstep integration queued
   bhvec_xor_simd_measured_slower: true # 2026-10-02: #808 closed as no-impact — main scalar 89.5 ns vs SIMD dispatch 113.3 ns (i5-8350U, AVX2 present, rustc 1.88.0); the dispatch adds memset + memcpy + an out-of-line target_feature call
+  bm25_posting_length_sort_measured_slower: true # 2026-10-19: #917 closed as no-impact — sorting `query_weights` by `entries.len()` is a semantic no-op on every bm25 corpus in the repo (all posting lists are equal length: `benches/benchmark.rs:711-719`, `benches/bm25_benchmark.rs:19-29`, `selective_100000`), and on a purpose-built skewed corpus (20 000 docs; postings 20 000/2 000/200; query descending) it measures **+8 %** (median 168.3 → 180.0 µs, consistent sign over four time-interleaved A/B pairs, `csm-ref-01`). Parity held: bit-identical scores and identical top-5 on a tie corpus. A resubmission must beat +8 % against on a committed unequal-length benchmark; see `plans/PR_ROAST_2026_10_19.md`. Do not re-queue.
   benchmarks_prove_performance: true              # 2026-09-21: named runner (plans/REFERENCE_RUNNER.md), canonical criterion baseline (plans/evidence/bench/canonical.json, 88 benches + CI), release-scale evidence (plans/evidence/scale_release_2026_09_21: ANN to 200k, memory/storage to 500k), npm package evidence (plans/evidence/wasm_2026_09_21)
   perf_pr_evidence_gate_enforced: true           # 2026-09-23: ci.yml commitlint job runs scripts/check-perf-pr-evidence.py for `perf(...)` PR titles; PR template carries `## Performance Evidence`
   deferred_namespace_isolation: false             # ADR-0026 multi-tenancy (trigger: user demand)
@@ -290,4 +291,4 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: repair_the_pre_release_gate_verdict_and_audit_parity  # 2026-10-17 — #903's skipped-run handling and Cargo Audit/Cargo Deny parity.
+  action_last_completed: triage_pr_roast_2026_10_19  # 2026-10-19 — six-PR roast: #917 measured +8% slower and closed as no-impact; #918-#922 dependabot keepers.
