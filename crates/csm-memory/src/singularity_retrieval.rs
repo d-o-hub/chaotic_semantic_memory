@@ -91,13 +91,13 @@ impl RetrievalConfig {
                 reason: format!("bucket_probe_width exceeds {MAX_BUCKET_PROBE_WIDTH}"),
             });
         }
-        if let Some(threshold) = self.early_exit_threshold {
-            if !(0.0..=1.0).contains(&threshold) {
-                return Err(csm_core_lib::error::MemoryError::InvalidInput {
-                    field: "early_exit_threshold".to_string(),
-                    reason: "early_exit_threshold must be within [0.0, 1.0]".to_string(),
-                });
-            }
+        if let Some(threshold) = self.early_exit_threshold
+            && !(0.0..=1.0).contains(&threshold)
+        {
+            return Err(csm_core_lib::error::MemoryError::InvalidInput {
+                field: "early_exit_threshold".to_string(),
+                reason: "early_exit_threshold must be within [0.0, 1.0]".to_string(),
+            });
         }
         Ok(())
     }
@@ -322,15 +322,13 @@ impl Singularity {
 
         let best_score = results.first().map(|r| r.1);
         let results_arc = Arc::from(results);
-        if !bypass_cache {
-            if let Ok(mut cache) = ns_state.query_cache.write() {
-                let cache_key = crate::singularity::similarity_cache_key(query, top_k);
-                if cache.put(cache_key, Arc::clone(&results_arc)) {
-                    ns_state
-                        .cache_metrics
-                        .evictions_total
-                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                }
+        if !bypass_cache && let Ok(mut cache) = ns_state.query_cache.write() {
+            let cache_key = crate::singularity::similarity_cache_key(query, top_k);
+            if cache.put(cache_key, Arc::clone(&results_arc)) {
+                ns_state
+                    .cache_metrics
+                    .evictions_total
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
         }
         self.update_stats(
@@ -443,15 +441,13 @@ impl Singularity {
 
         let best_score = results.first().map(|r| r.1);
         let results_arc = Arc::from(results);
-        if !bypass_cache {
-            if let Ok(mut cache) = ns_state.query_cache.write() {
-                let cache_key = crate::singularity::similarity_cache_key(query, top_k);
-                if cache.put(cache_key, Arc::clone(&results_arc)) {
-                    ns_state
-                        .cache_metrics
-                        .evictions_total
-                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                }
+        if !bypass_cache && let Ok(mut cache) = ns_state.query_cache.write() {
+            let cache_key = crate::singularity::similarity_cache_key(query, top_k);
+            if cache.put(cache_key, Arc::clone(&results_arc)) {
+                ns_state
+                    .cache_metrics
+                    .evictions_total
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
         }
 

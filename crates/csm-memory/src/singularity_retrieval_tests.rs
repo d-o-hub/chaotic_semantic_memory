@@ -352,3 +352,52 @@ fn bucket_candidates_use_a_multi_probe_and_respect_the_budget() {
         );
     }
 }
+
+#[test]
+fn active_retrieval_filters_expired_rows_before_top_k() {
+    use crate::metadata_filter::MetadataFilter;
+
+    let mut singularity = Singularity::<HVec10240>::new(SingularityConfig::default());
+    let query = HVec10240::new_seeded(41);
+    let metadata = HashMap::from([("scope".to_string(), serde_json::json!("kept"))]);
+    singularity
+        .inject(
+            "_default",
+            Concept {
+                id: "expired".to_string(),
+                vector: query,
+                metadata: metadata.clone(),
+                created_at: 1,
+                modified_at: 1,
+                expires_at: Some(10),
+                canonical_concept_ids: Vec::new(),
+            },
+        )
+        .unwrap();
+    singularity
+        .inject(
+            "_default",
+            Concept {
+                id: "active".to_string(),
+                vector: HVec10240::new_seeded(42),
+                metadata,
+                created_at: 2,
+                modified_at: 2,
+                expires_at: None,
+                canonical_concept_ids: Vec::new(),
+            },
+        )
+        .unwrap();
+    let filter = MetadataFilter::eq("scope", serde_json::json!("kept"));
+
+    for results in [
+        singularity.find_similar_active("_default", &query, 1, 10, None),
+        singularity.find_similar_active("_default", &query, 1, 10, Some(&filter)),
+    ] {
+        assert_eq!(
+            results.first().map(|(id, _)| id.as_str()),
+            Some("active"),
+            "expired exact matches must not consume top-k capacity"
+        );
+    }
+}

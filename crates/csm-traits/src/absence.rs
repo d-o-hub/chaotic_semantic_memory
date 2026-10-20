@@ -11,7 +11,7 @@ use csm_core_lib::error::Result;
 /// A persisted record of a retrieval event that found no matching concepts.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct AbsenceEntry {
-    /// Stable ID derived from a hash of the normalized query string
+    /// Stable ID derived from the normalized query, optionally with retrieval scope.
     pub id: String,
     /// The original query that produced no results
     pub query: String,
@@ -52,6 +52,16 @@ impl AbsenceEntry {
         let normalized = Self::normalize(query);
         let hash = Self::fnv1a_hash(normalized.as_bytes());
         format!("absence:{hash:016x}")
+    }
+
+    /// Derive an ID that cannot collide across retrieval scope boundaries.
+    pub fn id_for_scoped(scope: &str, query: &str) -> String {
+        let normalized = Self::normalize(query);
+        let mut key = Vec::with_capacity(8 + scope.len() + normalized.len());
+        key.extend_from_slice(&(scope.len() as u64).to_le_bytes());
+        key.extend_from_slice(scope.as_bytes());
+        key.extend_from_slice(normalized.as_bytes());
+        format!("absence:{:016x}", Self::fnv1a_hash(&key))
     }
 
     /// FNV-1a 64-bit hash (stable across Rust versions/platforms).

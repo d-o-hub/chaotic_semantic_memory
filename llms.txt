@@ -616,6 +616,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub use csm_retrieval::{Bm25Config, Bm25Index}
 - pub struct AbsenceLookup
 - pub fn lookup_absence
+- pub fn lookup_absence_scoped
 
 ### src/retrieval/bm25/absence_short_circuit_tests.rs
 
@@ -623,13 +624,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/retrieval/graph_rag.rs
 
-- pub struct GraphRagConfig
-- impl Default for GraphRagConfig
-- pub struct GraphRagResult
-- pub const MAX_GRAPH_RAG_ANCHOR_TOP_K
-- pub const MAX_GRAPH_RAG_HOPS
-- pub const MAX_GRAPH_RAG_FINAL_TOP_K
-- pub fn graph_rag_retrieve
+- pub use csm_retrieval::{GraphRagConfig, GraphRagResult, MAX_GRAPH_RAG_ANCHOR_TOP_K, MAX_GRAPH_RAG_FINAL_TOP_K, MAX_GRAPH_RAG_HOPS, graph_rag_retrieve}
 
 ### src/retrieval/hybrid.rs
 

@@ -1465,6 +1465,7 @@ dependencies = [
  "chrono",
  "csm-core-lib",
  "csm-memory",
+ "proptest",
  "serde",
  "serde_json",
  "tantivy",

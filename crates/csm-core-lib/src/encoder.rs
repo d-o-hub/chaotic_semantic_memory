@@ -138,6 +138,21 @@ impl TextEncoder {
         &self.config
     }
 
+    /// Return the normalized tokens used by this encoder for keyword indexing.
+    pub fn tokenize_search(&self, text: &str) -> Vec<String> {
+        let processed = if self.config.lowercase {
+            to_lowercase_cow(text)
+        } else {
+            Cow::Borrowed(text)
+        };
+        let tokens = if self.config.code_aware {
+            Self::tokenize_code(&processed)
+        } else {
+            processed.split_whitespace().collect()
+        };
+        tokens.into_iter().map(str::to_string).collect()
+    }
+
     /// Tokenize text with code-aware splitting.
     ///
     /// Splits on: `_`, `-`, `.`, `/`, `::` in addition to whitespace.
@@ -163,15 +178,15 @@ impl TextEncoder {
         while let Some((i, c)) = char_indices.next() {
             let is_sep = match c {
                 ':' => {
-                    if let Some(&(_, next_c)) = char_indices.peek() {
-                        if next_c == ':' {
-                            char_indices.next(); // consume second ':'
-                            if i > start {
-                                result.push(&word[start..i]);
-                            }
-                            start = i + 2; // '::' is 2 bytes
-                            continue;
+                    if let Some(&(_, next_c)) = char_indices.peek()
+                        && next_c == ':'
+                    {
+                        char_indices.next(); // consume second ':'
+                        if i > start {
+                            result.push(&word[start..i]);
                         }
+                        start = i + 2; // '::' is 2 bytes
+                        continue;
                     }
                     false
                 }

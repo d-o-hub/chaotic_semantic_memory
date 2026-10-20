@@ -6,7 +6,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use super::lookup_absence;
+use super::{lookup_absence, lookup_absence_scoped};
 use csm_traits::{AbsenceEntry, AbsenceStore};
 use std::collections::HashMap;
 
@@ -129,6 +129,36 @@ async fn lookup_absence_ignores_other_namespaces() {
         foreign.entry_id.is_none(),
         "another namespace's record must not be deleted by this namespace"
     );
+}
+
+#[tokio::test]
+async fn scoped_absence_does_not_cross_retrieval_modes() {
+    let query = "hidden by a filtered miss";
+    let scope = "semantic-only:unfiltered";
+    let mut stored = entry(query, 4, NS, REVISION);
+    stored.id = AbsenceEntry::id_for_scoped(scope, query);
+    let store = store_with(stored);
+
+    assert!(
+        lookup_absence_scoped(query, scope, &store, 3, NS, REVISION)
+            .await
+            .short_circuit
+    );
+    let other_scope =
+        lookup_absence_scoped(query, "hybrid:filter=type:doc", &store, 1, NS, REVISION).await;
+    assert!(!other_scope.short_circuit);
+    assert!(other_scope.entry_id.is_none());
+}
+
+#[tokio::test]
+async fn expired_absence_is_not_authoritative() {
+    let query = "expired absence";
+    let mut stored = entry(query, 5, NS, REVISION);
+    stored.last_seen = chrono::Utc::now() - chrono::Duration::seconds(301);
+    let lookup = lookup_absence(query, &store_with(stored), 3, NS, REVISION).await;
+
+    assert!(!lookup.short_circuit);
+    assert!(lookup.entry_id.is_some());
 }
 
 fn query_id(query: &str) -> String {

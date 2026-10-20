@@ -158,21 +158,19 @@ impl<H: Hypervector + 'static> AnnIndex<H> for HnswIndex<H> {
         self.fallback.insert(id.clone(), vec)?;
 
         let use_hnsw = self.use_hnsw();
-        if let Some(core) = &mut self.core {
-            if use_hnsw {
-                let hvec = unsafe { Self::as_hvec10240(vec) };
-                // Handle updates to existing IDs
-                if core.id_to_idx.contains_key(&id) {
-                    if let Some(idx) = core.id_to_idx.remove(&id) {
-                        core.idx_to_id.remove(&idx);
-                        core.deleted_count += 1;
-                    }
-                }
-                let idx = core.hnsw.get_nb_point();
-                core.hnsw.insert((std::slice::from_ref(hvec), idx));
-                core.id_to_idx.insert(id.clone(), idx);
-                core.idx_to_id.insert(idx, id);
+        if let Some(core) = &mut self.core
+            && use_hnsw
+        {
+            let hvec = unsafe { Self::as_hvec10240(vec) };
+            // Handle updates to existing IDs
+            if let Some(idx) = core.id_to_idx.remove(&id) {
+                core.idx_to_id.remove(&idx);
+                core.deleted_count += 1;
             }
+            let idx = core.hnsw.get_nb_point();
+            core.hnsw.insert((std::slice::from_ref(hvec), idx));
+            core.id_to_idx.insert(id.clone(), idx);
+            core.idx_to_id.insert(idx, id);
         }
         Ok(())
     }
@@ -191,29 +189,29 @@ impl<H: Hypervector + 'static> AnnIndex<H> for HnswIndex<H> {
     }
 
     fn search(&self, query: &H, top_k: usize) -> Result<Vec<(String, f32)>> {
-        if let Some(core) = &self.core {
-            if self.use_hnsw() {
-                let hvec = unsafe { Self::as_hvec10240(query) };
-                // Increase search budget to account for deleted nodes
-                let expanded_k = top_k + core.deleted_count.min(top_k * 10);
-                let results = core.hnsw.search(
-                    std::slice::from_ref(hvec),
-                    expanded_k,
-                    core.config.ef_search,
-                );
+        if let Some(core) = &self.core
+            && self.use_hnsw()
+        {
+            let hvec = unsafe { Self::as_hvec10240(query) };
+            // Increase search budget to account for deleted nodes
+            let expanded_k = top_k + core.deleted_count.min(top_k * 10);
+            let results = core.hnsw.search(
+                std::slice::from_ref(hvec),
+                expanded_k,
+                core.config.ef_search,
+            );
 
-                let mut final_results = Vec::with_capacity(results.len());
-                for neighbor in results {
-                    if let Some(id) = core.idx_to_id.get(&neighbor.d_id) {
-                        let similarity = 1.0 - (neighbor.distance / 5120.0);
-                        final_results.push((id.clone(), similarity));
-                        if final_results.len() >= top_k {
-                            break;
-                        }
+            let mut final_results = Vec::with_capacity(results.len());
+            for neighbor in results {
+                if let Some(id) = core.idx_to_id.get(&neighbor.d_id) {
+                    let similarity = 1.0 - (neighbor.distance / 5120.0);
+                    final_results.push((id.clone(), similarity));
+                    if final_results.len() >= top_k {
+                        break;
                     }
                 }
-                return Ok(final_results);
             }
+            return Ok(final_results);
         }
 
         self.fallback.search(query, top_k)
@@ -226,51 +224,49 @@ impl<H: Hypervector + 'static> AnnIndex<H> for HnswIndex<H> {
         filter: &crate::metadata_filter::MetadataFilter,
         concepts: &HashMap<String, Concept<H>>,
     ) -> Result<Vec<(String, f32)>> {
-        if let Some(core) = &self.core {
-            if self.use_hnsw() {
-                let hvec = unsafe { Self::as_hvec10240(query) };
-                let expanded_k = top_k * 5 + core.deleted_count.min(top_k * 10);
-                let results = core.hnsw.search(
-                    std::slice::from_ref(hvec),
-                    expanded_k,
-                    core.config.ef_search,
-                );
+        if let Some(core) = &self.core
+            && self.use_hnsw()
+        {
+            let hvec = unsafe { Self::as_hvec10240(query) };
+            let expanded_k = top_k * 5 + core.deleted_count.min(top_k * 10);
+            let results = core.hnsw.search(
+                std::slice::from_ref(hvec),
+                expanded_k,
+                core.config.ef_search,
+            );
 
-                let mut filtered_results = Vec::new();
-                for neighbor in results {
-                    if let Some(id) = core.idx_to_id.get(&neighbor.d_id) {
-                        if let Some(concept) = concepts.get(id) {
-                            if filter.matches(&concept.metadata) {
-                                let similarity = 1.0 - (neighbor.distance / 5120.0);
-                                filtered_results.push((id.clone(), similarity));
-                                if filtered_results.len() >= top_k {
-                                    break;
-                                }
-                            }
-                        }
+            let mut filtered_results = Vec::new();
+            for neighbor in results {
+                if let Some(id) = core.idx_to_id.get(&neighbor.d_id)
+                    && let Some(concept) = concepts.get(id)
+                    && filter.matches(&concept.metadata)
+                {
+                    let similarity = 1.0 - (neighbor.distance / 5120.0);
+                    filtered_results.push((id.clone(), similarity));
+                    if filtered_results.len() >= top_k {
+                        break;
                     }
                 }
-
-                if filtered_results.len() < top_k {
-                    let mut all_filtered: Vec<(String, f32)> = concepts
-                        .iter()
-                        .filter(|(_, c)| filter.matches(&c.metadata))
-                        .map(|(id, c)| {
-                            let dist =
-                                hvec.hamming_distance(unsafe { Self::as_hvec10240(&c.vector) });
-                            (id.clone(), 1.0 - (dist as f32 / 5120.0))
-                        })
-                        .collect();
-
-                    all_filtered.sort_unstable_by(|a, b| {
-                        b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
-                    });
-                    all_filtered.truncate(top_k);
-                    return Ok(all_filtered);
-                }
-
-                return Ok(filtered_results);
             }
+
+            if filtered_results.len() < top_k {
+                let mut all_filtered: Vec<(String, f32)> = concepts
+                    .iter()
+                    .filter(|(_, c)| filter.matches(&c.metadata))
+                    .map(|(id, c)| {
+                        let dist = hvec.hamming_distance(unsafe { Self::as_hvec10240(&c.vector) });
+                        (id.clone(), 1.0 - (dist as f32 / 5120.0))
+                    })
+                    .collect();
+
+                all_filtered.sort_unstable_by(|a, b| {
+                    b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
+                });
+                all_filtered.truncate(top_k);
+                return Ok(all_filtered);
+            }
+
+            return Ok(filtered_results);
         }
 
         self.fallback
@@ -281,133 +277,132 @@ impl<H: Hypervector + 'static> AnnIndex<H> for HnswIndex<H> {
         self.fallback.rebuild(concepts)?;
 
         let use_hnsw = self.use_hnsw();
-        if let Some(core) = &mut self.core {
-            if use_hnsw {
-                core.hnsw = Hnsw::new(
-                    core.config.m,
-                    concepts.len().max(100),
-                    16,
-                    core.config.ef_construction,
-                    HammingDist,
-                );
-                core.id_to_idx.clear();
-                core.idx_to_id.clear();
-                core._owner = None;
-                core.deleted_count = 0;
+        if let Some(core) = &mut self.core
+            && use_hnsw
+        {
+            core.hnsw = Hnsw::new(
+                core.config.m,
+                concepts.len().max(100),
+                16,
+                core.config.ef_construction,
+                HammingDist,
+            );
+            core.id_to_idx.clear();
+            core.idx_to_id.clear();
+            core._owner = None;
+            core.deleted_count = 0;
 
-                for (id, concept) in concepts {
-                    let hvec = unsafe { Self::as_hvec10240(&concept.vector) };
-                    let idx = core.hnsw.get_nb_point();
-                    core.hnsw.insert((std::slice::from_ref(hvec), idx));
-                    core.id_to_idx.insert(id.clone(), idx);
-                    core.idx_to_id.insert(idx, id.clone());
-                }
+            for (id, concept) in concepts {
+                let hvec = unsafe { Self::as_hvec10240(&concept.vector) };
+                let idx = core.hnsw.get_nb_point();
+                core.hnsw.insert((std::slice::from_ref(hvec), idx));
+                core.id_to_idx.insert(id.clone(), idx);
+                core.idx_to_id.insert(idx, id.clone());
             }
         }
         Ok(())
     }
 
     fn stats(&self) -> IndexStats {
-        if let Some(core) = &self.core {
-            if self.use_hnsw() {
-                return IndexStats {
-                    backend: "HNSW".to_string(),
-                    count: core.id_to_idx.len(),
-                    memory_usage_bytes: core.id_to_idx.len()
-                        * (std::mem::size_of::<String>() + std::mem::size_of::<HVec10240>() + 32),
-                };
-            }
+        if let Some(core) = &self.core
+            && self.use_hnsw()
+        {
+            return IndexStats {
+                backend: "HNSW".to_string(),
+                count: core.id_to_idx.len(),
+                memory_usage_bytes: core.id_to_idx.len()
+                    * (std::mem::size_of::<String>() + std::mem::size_of::<HVec10240>() + 32),
+            };
         }
         self.fallback.stats()
     }
 
     fn serialize(&self) -> Result<Vec<u8>> {
-        if self.use_hnsw() {
-            if let Some(core) = &self.core {
-                use std::fs;
+        if self.use_hnsw()
+            && let Some(core) = &self.core
+        {
+            use std::fs;
 
-                let nonce = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_nanos();
-                let temp_dir = std::env::temp_dir().join(format!("csm_hnsw_{nonce}"));
-                fs::create_dir_all(&temp_dir).map_err(MemoryError::Io)?;
+            let nonce = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos();
+            let temp_dir = std::env::temp_dir().join(format!("csm_hnsw_{nonce}"));
+            fs::create_dir_all(&temp_dir).map_err(MemoryError::Io)?;
 
-                core.hnsw
-                    .file_dump(&temp_dir, "index")
-                    .map_err(|e| MemoryError::database(format!("HNSW dump failed: {e}")))?;
+            core.hnsw
+                .file_dump(&temp_dir, "index")
+                .map_err(|e| MemoryError::database(format!("HNSW dump failed: {e}")))?;
 
-                let data_path = temp_dir.join("index.hnsw.data");
-                let graph_path = temp_dir.join("index.hnsw.graph");
+            let data_path = temp_dir.join("index.hnsw.data");
+            let graph_path = temp_dir.join("index.hnsw.graph");
 
-                let data_bytes = fs::read(data_path).map_err(MemoryError::Io)?;
-                let graph_bytes = fs::read(graph_path).map_err(MemoryError::Io)?;
+            let data_bytes = fs::read(data_path).map_err(MemoryError::Io)?;
+            let graph_bytes = fs::read(graph_path).map_err(MemoryError::Io)?;
 
-                let wrapper = HnswPersistenceWrapper {
-                    id_to_idx: core.id_to_idx.clone(),
-                    idx_to_id: core.idx_to_id.clone(),
-                    m: core.config.m,
-                    ef_construction: core.config.ef_construction,
-                    ef_search: core.config.ef_search,
-                    deleted_count: core.deleted_count,
-                    data: data_bytes,
-                    graph: graph_bytes,
-                };
+            let wrapper = HnswPersistenceWrapper {
+                id_to_idx: core.id_to_idx.clone(),
+                idx_to_id: core.idx_to_id.clone(),
+                m: core.config.m,
+                ef_construction: core.config.ef_construction,
+                ef_search: core.config.ef_search,
+                deleted_count: core.deleted_count,
+                data: data_bytes,
+                graph: graph_bytes,
+            };
 
-                let payload = bincode::serialize(&wrapper)
-                    .map_err(|e| MemoryError::database(format!("Bincode fail: {e}")))?;
+            let payload = bincode::serialize(&wrapper)
+                .map_err(|e| MemoryError::database(format!("Bincode fail: {e}")))?;
 
-                let _ = fs::remove_dir_all(temp_dir);
-                return Ok(payload);
-            }
+            let _ = fs::remove_dir_all(temp_dir);
+            return Ok(payload);
         }
         self.fallback.serialize()
     }
 
     fn deserialize(&mut self, data: &[u8]) -> Result<()> {
         let use_hnsw = self.use_hnsw();
-        if let Some(core) = &mut self.core {
-            if use_hnsw {
-                use std::fs;
+        if let Some(core) = &mut self.core
+            && use_hnsw
+        {
+            use std::fs;
 
-                if data.is_empty() {
-                    return Ok(());
-                }
-
-                let wrapper: HnswPersistenceWrapper = bincode::deserialize(data)
-                    .map_err(|e| MemoryError::database(format!("Bincode deserialize fail: {e}")))?;
-
-                let temp_dir = tempfile::tempdir().map_err(MemoryError::Io)?;
-                let path = temp_dir.path();
-
-                fs::write(path.join("index.hnsw.data"), &wrapper.data).map_err(MemoryError::Io)?;
-                fs::write(path.join("index.hnsw.graph"), &wrapper.graph)
-                    .map_err(MemoryError::Io)?;
-
-                let loader = HnswIo::new(path, "index");
-                let hnsw = loader
-                    .load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist)
-                    .map_err(|e| MemoryError::database(format!("HNSW load failed: {e}")))?;
-
-                // SAFETY: The Hnsw instance returned by load_hnsw_with_dist may contain
-                // references to the loader or memory-mapped files. We transmute it to
-                // 'static to store it in our struct, but we keep the source alive by
-                // storing them in the _owner field.
-                let static_hnsw: Hnsw<'static, HVec10240, HammingDist> =
-                    unsafe { std::mem::transmute(hnsw) };
-
-                core.hnsw = static_hnsw;
-                core.id_to_idx = wrapper.id_to_idx;
-                core.idx_to_id = wrapper.idx_to_id;
-                core.config.m = wrapper.m;
-                core.config.ef_construction = wrapper.ef_construction;
-                core.config.ef_search = wrapper.ef_search;
-                core.deleted_count = wrapper.deleted_count;
-
-                // Keep the loader and temp_dir alive to prevent UAF
-                core._owner = Some(Box::new((loader, temp_dir)));
+            if data.is_empty() {
                 return Ok(());
             }
+
+            let wrapper: HnswPersistenceWrapper = bincode::deserialize(data)
+                .map_err(|e| MemoryError::database(format!("Bincode deserialize fail: {e}")))?;
+
+            let temp_dir = tempfile::tempdir().map_err(MemoryError::Io)?;
+            let path = temp_dir.path();
+
+            fs::write(path.join("index.hnsw.data"), &wrapper.data).map_err(MemoryError::Io)?;
+            fs::write(path.join("index.hnsw.graph"), &wrapper.graph).map_err(MemoryError::Io)?;
+
+            let loader = HnswIo::new(path, "index");
+            let hnsw = loader
+                .load_hnsw_with_dist::<HVec10240, HammingDist>(HammingDist)
+                .map_err(|e| MemoryError::database(format!("HNSW load failed: {e}")))?;
+
+            // SAFETY: The Hnsw instance returned by load_hnsw_with_dist may contain
+            // references to the loader or memory-mapped files. We transmute it to
+            // 'static to store it in our struct, but we keep the source alive by
+            // storing them in the _owner field.
+            let static_hnsw: Hnsw<'static, HVec10240, HammingDist> =
+                unsafe { std::mem::transmute(hnsw) };
+
+            core.hnsw = static_hnsw;
+            core.id_to_idx = wrapper.id_to_idx;
+            core.idx_to_id = wrapper.idx_to_id;
+            core.config.m = wrapper.m;
+            core.config.ef_construction = wrapper.ef_construction;
+            core.config.ef_search = wrapper.ef_search;
+            core.deleted_count = wrapper.deleted_count;
+
+            // Keep the loader and temp_dir alive to prevent UAF
+            core._owner = Some(Box::new((loader, temp_dir)));
+            return Ok(());
         }
         self.fallback.deserialize(data)
     }

@@ -6,7 +6,6 @@
 
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -204,10 +203,10 @@ impl Bm25Index {
 
             // Update indices in postings list for the swapped document
             for term in self.documents[idx].term_freqs.keys() {
-                if let Some(entries) = self.postings.get_mut(term) {
-                    if let Some(p_idx) = entries.iter().position(|&(d_idx, _)| d_idx == last_idx) {
-                        entries[p_idx].0 = idx;
-                    }
+                if let Some(entries) = self.postings.get_mut(term)
+                    && let Some(p_idx) = entries.iter().position(|&(d_idx, _)| d_idx == last_idx)
+                {
+                    entries[p_idx].0 = idx;
                 }
             }
         }
@@ -217,12 +216,28 @@ impl Bm25Index {
     /// Search for documents matching the query.
     ///
     /// Returns up to `top_k` results sorted by BM25 score (descending).
-    // SAFETY: The read guard must span the entire scoring loop to guarantee
-    // cache vector stability. Tightening the drop would require re-acquiring
-    // the lock mid-loop, which is both slower and semantically incorrect.
+    pub fn search<T: AsRef<str>>(&self, query_tokens: &[T], top_k: usize) -> Vec<(String, f32)> {
+        self.search_filtered(query_tokens, top_k, |_| true)
+    }
+
+    /// Search and apply an eligibility predicate before top-k selection.
+    ///
+    /// Filtering before selection prevents expired or out-of-scope documents
+    /// from consuming result slots.
+    // SAFETY: The cache read guard spans the scoring loop; reacquiring it
+    // mid-loop would allow factor-vector replacement and add locking overhead.
     #[allow(clippy::significant_drop_tightening)]
     #[allow(clippy::expect_used)]
-    pub fn search<T: AsRef<str>>(&self, query_tokens: &[T], top_k: usize) -> Vec<(String, f32)> {
+    pub fn search_filtered<T, F>(
+        &self,
+        query_tokens: &[T],
+        top_k: usize,
+        is_allowed: F,
+    ) -> Vec<(String, f32)>
+    where
+        T: AsRef<str>,
+        F: Fn(&str) -> bool,
+    {
         let top_k = top_k.min(MAX_TOP_K_LIMIT);
         if top_k == 0 || query_tokens.is_empty() || self.is_empty() {
             return Vec::new();
@@ -347,7 +362,7 @@ impl Bm25Index {
                         // Algorithmic Optimization: Reset touched slot to 0.0 unconditionally in O(T) time,
                         // maintaining zeroed doc_scores invariant across searches without O(N) full-slice fill.
                         unsafe { *doc_scores.get_unchecked_mut(idx) = 0.0 };
-                        if score > 0.0 {
+                        if score > 0.0 && is_allowed(&self.documents[idx].id) {
                             scores.push((idx, score));
                         }
                     }
@@ -355,10 +370,12 @@ impl Bm25Index {
                     // Partial select keeps complexity near O(T) (touched documents) for large corpora
                     if scores.len() > top_k {
                         let nth = top_k - 1;
-                        scores.select_nth_unstable_by(nth, score_cmp_desc);
+                        scores.select_nth_unstable_by(nth, |a, b| {
+                            b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0))
+                        });
                         scores.truncate(top_k);
                     }
-                    scores.sort_unstable_by(score_cmp_desc);
+                    scores.sort_unstable_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 
                     // Map to final results, cloning IDs only for top_k.
                     // Safe indexing: idx comes from scores which was built from touched_indices,
@@ -476,11 +493,6 @@ impl Bm25Index {
         }
     }
 }
-
-fn score_cmp_desc(a: &(usize, f32), b: &(usize, f32)) -> Ordering {
-    b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0))
-}
-
 #[cfg(test)]
 #[path = "bm25/tests.rs"]
 mod tests;

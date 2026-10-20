@@ -140,12 +140,38 @@ fn bench_bm25_replacement(c: &mut Criterion) {
     });
 }
 
+/// Workload fixture only: deliberately unequal posting-list lengths exercise
+/// aggregation with common, medium-frequency, and rare terms. It makes no
+/// performance claim.
+fn bench_bm25_search_skewed_postings(c: &mut Criterion) {
+    let mut index = Bm25Index::new();
+    for document in 0..4_000 {
+        let mut terms = Vec::with_capacity(3);
+        if document % 4 != 0 {
+            terms.push("common");
+        }
+        if document % 10 == 0 {
+            terms.push("medium");
+        }
+        if document < 8 {
+            terms.push("rare");
+        }
+        index.add_document(&format!("skewed_{document}"), &terms);
+    }
+
+    let query = ["common", "medium", "rare"];
+    c.bench_function("bm25_skewed_postings_4000", |b| {
+        b.iter(|| index.search(black_box(&query), black_box(10)))
+    });
+}
+
 criterion_group!(
     benches,
     bench_bm25_search,
     bench_bm25_search_10000,
     bench_bm25_search_100000,
     bench_bm25_search_selective_100000,
-    bench_bm25_replacement
+    bench_bm25_replacement,
+    bench_bm25_search_skewed_postings
 );
 criterion_main!(benches);

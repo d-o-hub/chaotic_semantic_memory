@@ -40,11 +40,11 @@ impl QueryCache {
         }
 
         let mut evicted = false;
-        if self.results.len() >= self.capacity {
-            if let Some(oldest) = self.order.pop_front() {
-                self.results.remove(&oldest);
-                evicted = true;
-            }
+        if self.results.len() >= self.capacity
+            && let Some(oldest) = self.order.pop_front()
+        {
+            self.results.remove(&oldest);
+            evicted = true;
         }
         self.order.push_back(key);
         self.results.insert(key, value);
