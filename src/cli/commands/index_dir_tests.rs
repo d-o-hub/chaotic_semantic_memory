@@ -43,6 +43,10 @@ fn test_parse_heading_valid() {
         Some((3, "Subsection".to_string()))
     );
     assert_eq!(parse_heading("#### Deep"), Some((4, "Deep".to_string())));
+    assert_eq!(
+        parse_heading("###### Level 6"),
+        Some((6, "Level 6".to_string()))
+    );
 }
 
 #[test]
@@ -199,6 +203,121 @@ async fn test_run_index_dir_json_output() {
     run_index_dir(args, Some(&db_path), OutputFormat::Json)
         .await
         .unwrap();
+}
+
+#[tokio::test]
+async fn test_run_index_dir_reconciliation_branches_and_counts() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let file1 = temp_dir.path().join("spec.md");
+    fs::write(
+        &file1,
+        "# Spec\n\n## Section 1\nContent 1\n\n## Section 2\nContent 2\n",
+    )
+    .unwrap();
+
+    let db_path = temp_dir.path().join("counts.db");
+    let glob_pat = format!("{}/spec.md", temp_dir.path().display());
+
+    // 1. First pass (additive)
+    let args1 = IndexDirArgs {
+        namespace: "counts_ns".to_string(),
+        glob: vec![glob_pat.clone()],
+        heading_level: 2,
+        code_aware: false,
+        sync: false,
+        scope: None,
+    };
+    run_index_dir(args1, Some(&db_path), OutputFormat::Table)
+        .await
+        .unwrap();
+
+    let fw1 = create_framework_with_namespace(Some(&db_path), "counts_ns")
+        .await
+        .unwrap();
+    let c1 = fw1.singularity().read().await.all_concepts("counts_ns");
+    assert_eq!(c1.len(), 2);
+
+    // Inject legacy concept with source matching glob_pat but no scope metadata
+    let norm_path = normalize_source_path(&file1);
+    let mut legacy_meta = std::collections::HashMap::new();
+    legacy_meta.insert(
+        "source".to_string(),
+        serde_json::Value::String(norm_path.clone()),
+    );
+    fw1.inject_concept_with_metadata(
+        format!("md:{norm_path}:2:99"),
+        csm_core_lib::hyperdim::HVec10240::random(),
+        legacy_meta,
+    )
+    .await
+    .unwrap();
+
+    let c2 = fw1.singularity().read().await.all_concepts("counts_ns");
+    assert_eq!(c2.len(), 3);
+
+    // 2. Second pass: remove Section 2 from spec.md, reindex with sync=true in Table & Json output formats
+    fs::write(&file1, "# Spec\n\n## Section 1\nContent 1\n").unwrap();
+
+    let args2 = IndexDirArgs {
+        namespace: "counts_ns".to_string(),
+        glob: vec![glob_pat.clone()],
+        heading_level: 2,
+        code_aware: true,
+        sync: true,
+        scope: None,
+    };
+
+    run_index_dir(args2.clone(), Some(&db_path), OutputFormat::Json)
+        .await
+        .unwrap();
+
+    let fw2 = create_framework_with_namespace(Some(&db_path), "counts_ns")
+        .await
+        .unwrap();
+    let c3 = fw2.singularity().read().await.all_concepts("counts_ns");
+    assert_eq!(
+        c3.len(),
+        1,
+        "Obsolete section and legacy chunk must be deleted in sync mode"
+    );
+
+    let concept = &c3[0];
+    assert_eq!(
+        concept
+            .metadata
+            .get("encoding_mode")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "code_aware"
+    );
+    assert_eq!(
+        concept
+            .metadata
+            .get("fingerprint")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .len(),
+        64
+    );
+
+    // 3. Delete file and reindex scope with sync=true: scope should become completely empty
+    fs::remove_file(&file1).unwrap();
+
+    run_index_dir(args2, Some(&db_path), OutputFormat::Json)
+        .await
+        .unwrap();
+
+    let fw3 = create_framework_with_namespace(Some(&db_path), "counts_ns")
+        .await
+        .unwrap();
+    let c4 = fw3.singularity().read().await.all_concepts("counts_ns");
+    assert_eq!(
+        c4.len(),
+        0,
+        "Deleted source file chunks cleared from sync scope"
+    );
 }
 
 #[tokio::test]
