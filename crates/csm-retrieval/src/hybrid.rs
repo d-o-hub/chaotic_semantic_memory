@@ -163,18 +163,13 @@ fn merge_single_list(results: &[(String, f32)], weight: f32, top_k: usize) -> Ve
     }
 
     let range = max - min;
-    let mut ref_results: Vec<(&str, f32)> = if range < f32::EPSILON {
-        results
-            .iter()
-            .map(|(id, _)| (id.as_str(), weight))
-            .collect()
-    } else {
-        let factor = weight / range;
-        results
-            .iter()
-            .map(|(id, score)| (id.as_str(), (score - min) * factor))
-            .collect()
-    };
+    // Algorithmic Optimization: Pre-allocate vector capacity and delay min-max score calculation.
+    // Raw scores preserve total order because (score - min) * factor is strictly monotonic (factor > 0).
+    // Deferring scaling until after top-k selection avoids N - k floating point calculations.
+    let mut ref_results: Vec<(&str, f32)> = Vec::with_capacity(results.len());
+    for (id, score) in results {
+        ref_results.push((id.as_str(), *score));
+    }
 
     // 0-based selection: partition exactly top_k elements. top_k >= 1 because
     // merge_results rejects 0 before calling this helper.
@@ -185,10 +180,18 @@ fn merge_single_list(results: &[(String, f32)], weight: f32, top_k: usize) -> Ve
     }
     ref_results.sort_unstable_by(|a, b| b.1.total_cmp(&a.1));
 
-    ref_results
-        .into_iter()
-        .map(|(id, score)| (id.to_string(), score))
-        .collect()
+    if range < f32::EPSILON {
+        ref_results
+            .into_iter()
+            .map(|(id, _)| (id.to_string(), weight))
+            .collect()
+    } else {
+        let factor = weight / range;
+        ref_results
+            .into_iter()
+            .map(|(id, score)| (id.to_string(), (score - min) * factor))
+            .collect()
+    }
 }
 
 /// Merge BM25 and HDC results with given weights.
