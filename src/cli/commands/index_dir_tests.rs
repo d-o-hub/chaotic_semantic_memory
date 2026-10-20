@@ -161,9 +161,11 @@ async fn test_run_index_dir_sync_reconciles_removed_section_and_file() {
     let reloaded_fw = create_framework_with_namespace(Some(&db_path), "test_ns")
         .await
         .unwrap();
-    let sing_lock2 = reloaded_fw.singularity();
-    let sing2 = sing_lock2.read().await;
-    let synced_concepts = sing2.all_concepts("test_ns");
+    let synced_concepts = reloaded_fw
+        .singularity()
+        .read()
+        .await
+        .all_concepts("test_ns");
     assert_eq!(synced_concepts.len(), 1);
     assert!(
         synced_concepts[0]
@@ -197,4 +199,83 @@ async fn test_run_index_dir_json_output() {
     run_index_dir(args, Some(&db_path), OutputFormat::Json)
         .await
         .unwrap();
+}
+
+#[tokio::test]
+async fn test_run_index_dir_scope_isolation_and_metadata() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let in_scope_file = temp_dir.path().join("in_scope.md");
+    fs::write(
+        &in_scope_file,
+        "# Title\n\n## Section InScope\nIn scope content\n",
+    )
+    .unwrap();
+
+    let db_path = temp_dir.path().join("test_scope.db");
+    let glob_in = format!("{}/in_scope.md", temp_dir.path().display());
+
+    // Inject manual/out-of-scope concept into namespace
+    let framework = create_framework_with_namespace(Some(&db_path), "scope_ns")
+        .await
+        .unwrap();
+    let mut manual_meta = std::collections::HashMap::new();
+    manual_meta.insert(
+        "source".to_string(),
+        serde_json::Value::String("out_of_scope.md".to_string()),
+    );
+    manual_meta.insert(
+        "scope".to_string(),
+        serde_json::Value::String("other_scope".to_string()),
+    );
+    framework
+        .inject_concept_with_metadata(
+            "manual_concept",
+            csm_core_lib::hyperdim::HVec10240::random(),
+            manual_meta,
+        )
+        .await
+        .unwrap();
+
+    // Run index-dir with scope "target_scope" and sync = true
+    let args = IndexDirArgs {
+        namespace: "scope_ns".to_string(),
+        glob: vec![glob_in.clone()],
+        heading_level: 2,
+        code_aware: false,
+        sync: true,
+        scope: Some("target_scope".to_string()),
+    };
+
+    run_index_dir(args.clone(), Some(&db_path), OutputFormat::Quiet)
+        .await
+        .unwrap();
+
+    let reloaded_fw = create_framework_with_namespace(Some(&db_path), "scope_ns")
+        .await
+        .unwrap();
+    let concepts = reloaded_fw
+        .singularity()
+        .read()
+        .await
+        .all_concepts("scope_ns");
+
+    // Out-of-scope manual concept must survive!
+    assert_eq!(concepts.len(), 2);
+    let manual_found = concepts.iter().any(|c| c.id == "manual_concept");
+    assert!(
+        manual_found,
+        "Unrelated concept in another scope must survive"
+    );
+
+    // Re-index unchanged content with sync = true
+    run_index_dir(args, Some(&db_path), OutputFormat::Quiet)
+        .await
+        .unwrap();
+
+    let concepts2 = reloaded_fw
+        .singularity()
+        .read()
+        .await
+        .all_concepts("scope_ns");
+    assert_eq!(concepts2.len(), 2, "No duplicate accumulation on reindex");
 }
