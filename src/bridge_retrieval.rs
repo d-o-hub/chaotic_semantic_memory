@@ -72,7 +72,11 @@ impl BridgeRetrieval {
         let query_hv = self.encoder.encode(query_text);
 
         // Step 2: First recall - deterministic HDC scores
-        let mut primary_results = singularity.find_similar(ns, &query_hv, top_k);
+        let now = crate::singularity::unix_now_secs();
+        let mut primary_results = singularity
+            .find_similar_active(ns, &query_hv, top_k, now, None)
+            .as_ref()
+            .to_vec();
         normalize_scores_in_place(&mut primary_results);
 
         // Step 3: Concept expansion (capped to top_k expansion labels)
@@ -80,6 +84,11 @@ impl BridgeRetrieval {
         let mut expanded_labels = self
             .concept_graph
             .expand_ref(&matched_ids, self.config.max_expansion_depth);
+        expanded_labels.retain(|label| {
+            singularity
+                .get(ns, label)
+                .is_some_and(|concept| concept.expires_at.is_none_or(|expires| expires > now))
+        });
         expanded_labels.truncate(top_k);
 
         // Step 4: Incremental expansion scoring (no second full recall scan)

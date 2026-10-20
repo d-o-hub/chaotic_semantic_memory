@@ -5,7 +5,7 @@
 
 // Casts are intentional for scoring formula
 
-use csm_core_lib::error::Result;
+use csm_core_lib::error::{MemoryError, Result};
 use csm_core_lib::hyperdim::HVec10240;
 use csm_memory::Concept;
 use std::collections::hash_map::Entry;
@@ -66,6 +66,44 @@ pub const MAX_GRAPH_RAG_FINAL_TOP_K: usize = 100_000;
 /// Maximum graph traversal expanded candidates limit.
 const MAX_TRAVERSAL_EXPANSIONS: usize = 1000;
 
+fn validate_graph_rag_config(config: &GraphRagConfig) -> Result<()> {
+    for (field, value) in [
+        ("min_assoc_strength", config.min_assoc_strength),
+        ("similarity_weight", config.similarity_weight),
+        ("graph_weight", config.graph_weight),
+    ] {
+        if !value.is_finite() {
+            return Err(MemoryError::InvalidInput {
+                field: field.to_string(),
+                reason: "must be finite".to_string(),
+            });
+        }
+        if !(0.0..=1.0).contains(&value) {
+            return Err(MemoryError::InvalidInput {
+                field: field.to_string(),
+                reason: format!("must be in [0.0, 1.0], got {value}"),
+            });
+        }
+    }
+    for (field, value, maximum) in [
+        (
+            "anchor_top_k",
+            config.anchor_top_k,
+            MAX_GRAPH_RAG_ANCHOR_TOP_K,
+        ),
+        ("max_hops", config.max_hops, MAX_GRAPH_RAG_HOPS),
+        ("final_top_k", config.final_top_k, MAX_GRAPH_RAG_FINAL_TOP_K),
+    ] {
+        if value > maximum {
+            return Err(MemoryError::InvalidInput {
+                field: field.to_string(),
+                reason: format!("must not exceed {maximum}, got {value}"),
+            });
+        }
+    }
+    Ok(())
+}
+
 /// Execute GraphRAG retrieval.
 pub fn graph_rag_retrieve(
     query: &HVec10240,
@@ -73,9 +111,10 @@ pub fn graph_rag_retrieve(
     associations: &[(String, String, f32)],
     config: &GraphRagConfig,
 ) -> Result<Vec<GraphRagResult>> {
-    let anchor_top_k = config.anchor_top_k.min(MAX_GRAPH_RAG_ANCHOR_TOP_K);
-    let max_hops = config.max_hops.min(MAX_GRAPH_RAG_HOPS);
-    let final_top_k = config.final_top_k.min(MAX_GRAPH_RAG_FINAL_TOP_K);
+    validate_graph_rag_config(config)?;
+    let anchor_top_k = config.anchor_top_k;
+    let max_hops = config.max_hops;
+    let final_top_k = config.final_top_k;
 
     if concepts.is_empty() {
         return Ok(Vec::new());
@@ -219,89 +258,122 @@ pub fn graph_rag_retrieve(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
     use super::*;
+    use csm_core_lib::error::MemoryError;
+
+    fn concept(id: impl Into<String>, vector: HVec10240) -> Concept {
+        Concept {
+            id: id.into(),
+            vector,
+            ..Default::default()
+        }
+    }
 
     #[test]
-    fn graph_rag_bounds_large_config_parameters() {
+    fn graph_rag_rejects_non_finite_and_out_of_range_weights() {
         let query = HVec10240::random();
-        let concept = Concept {
-            id: "c1".to_string(),
-            vector: HVec10240::random(),
-            ..Default::default()
-        };
-        let concepts = vec![concept];
-        let associations = vec![];
-        let config = GraphRagConfig {
-            anchor_top_k: usize::MAX,
-            max_hops: usize::MAX,
-            min_assoc_strength: 0.0,
-            similarity_weight: 0.6,
-            graph_weight: 0.4,
-            final_top_k: usize::MAX,
-        };
+        let concepts = vec![concept("c1", HVec10240::random())];
+        for (field, value) in [
+            ("min_assoc_strength", f32::NAN),
+            ("similarity_weight", f32::INFINITY),
+            ("graph_weight", -0.1),
+        ] {
+            let config = match field {
+                "min_assoc_strength" => GraphRagConfig {
+                    min_assoc_strength: value,
+                    ..GraphRagConfig::default()
+                },
+                "similarity_weight" => GraphRagConfig {
+                    similarity_weight: value,
+                    ..GraphRagConfig::default()
+                },
+                _ => GraphRagConfig {
+                    graph_weight: value,
+                    ..GraphRagConfig::default()
+                },
+            };
+            assert!(matches!(
+                graph_rag_retrieve(&query, &concepts, &[], &config),
+                Err(MemoryError::InvalidInput { field: actual, .. }) if actual == field
+            ));
+        }
+    }
 
-        let res = graph_rag_retrieve(&query, &concepts, &associations, &config);
-        assert!(res.is_ok());
-        let results = res.expect("graph_rag_retrieve should succeed");
-        assert_eq!(results.len(), 1);
+    #[test]
+    fn graph_rag_rejects_integer_limits_above_public_bounds() {
+        let query = HVec10240::random();
+        let concepts = vec![concept("c1", HVec10240::random())];
+        for config in [
+            GraphRagConfig {
+                anchor_top_k: MAX_GRAPH_RAG_ANCHOR_TOP_K + 1,
+                ..GraphRagConfig::default()
+            },
+            GraphRagConfig {
+                max_hops: MAX_GRAPH_RAG_HOPS + 1,
+                ..GraphRagConfig::default()
+            },
+            GraphRagConfig {
+                final_top_k: MAX_GRAPH_RAG_FINAL_TOP_K + 1,
+                ..GraphRagConfig::default()
+            },
+        ] {
+            assert!(matches!(
+                graph_rag_retrieve(&query, &concepts, &[], &config),
+                Err(MemoryError::InvalidInput { .. })
+            ));
+        }
     }
 
     #[test]
     fn graph_rag_hops_stop_at_the_public_cap() {
-        // A 40-hop chain queried with `max_hops: usize::MAX`. The public cap is what
-        // keeps the deepest reached node at `MAX_GRAPH_RAG_HOPS`; with the clamp
-        // removed the walk follows the chain to its end and the deepest
-        // `hop_distance` is 40 instead of 32.
         let anchor_vector = HVec10240::random();
         let concepts: Vec<Concept> = (0..=40)
-            .map(|i| Concept {
-                id: format!("c{i}"),
-                vector: if i == 0 {
-                    anchor_vector
-                } else {
-                    HVec10240::random()
-                },
-                ..Default::default()
+            .map(|index| {
+                concept(
+                    format!("c{index}"),
+                    if index == 0 {
+                        anchor_vector
+                    } else {
+                        HVec10240::random()
+                    },
+                )
             })
             .collect();
         let associations: Vec<(String, String, f32)> = (0..40)
-            .map(|i| (format!("c{i}"), format!("c{}", i + 1), 1.0))
+            .map(|index| (format!("c{index}"), format!("c{}", index + 1), 1.0))
             .collect();
         let config = GraphRagConfig {
             anchor_top_k: 1,
-            max_hops: usize::MAX,
+            max_hops: MAX_GRAPH_RAG_HOPS,
             min_assoc_strength: 0.0,
             similarity_weight: 0.6,
             graph_weight: 0.4,
-            final_top_k: usize::MAX,
+            final_top_k: 100,
         };
 
         let results = graph_rag_retrieve(&anchor_vector, &concepts, &associations, &config)
-            .expect("graph_rag_retrieve should succeed");
-        let deepest = results.iter().map(|r| r.hop_distance).max().unwrap_or(0);
+            .expect("valid GraphRAG config should succeed");
         assert_eq!(
-            deepest, MAX_GRAPH_RAG_HOPS,
-            "a 40-hop chain must stop at the public cap, not walk to its end"
+            results.iter().map(|result| result.hop_distance).max(),
+            Some(MAX_GRAPH_RAG_HOPS)
         );
     }
 
     #[test]
     fn graph_rag_zero_final_top_k_returns_empty() {
         let query = HVec10240::random();
-        let concept = Concept {
-            id: "c1".to_string(),
-            vector: HVec10240::random(),
-            ..Default::default()
-        };
-        let concepts = vec![concept];
-        let associations = vec![];
+        let concepts = vec![concept("c1", HVec10240::random())];
         let config = GraphRagConfig {
             final_top_k: 0,
             ..GraphRagConfig::default()
         };
 
-        let res = graph_rag_retrieve(&query, &concepts, &associations, &config);
-        assert!(res.is_ok());
-        assert!(res.expect("graph_rag_retrieve should succeed").is_empty());
+        assert!(
+            graph_rag_retrieve(&query, &concepts, &[], &config)
+                .expect("zero top-k is valid")
+                .is_empty()
+        );
     }
 }

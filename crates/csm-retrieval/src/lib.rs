@@ -12,7 +12,10 @@ mod hybrid;
 mod rerank;
 
 pub use bm25::{Bm25Config, Bm25Index};
-pub use graph_rag::{GraphRagConfig, GraphRagResult, graph_rag_retrieve};
+pub use graph_rag::{
+    GraphRagConfig, GraphRagResult, MAX_GRAPH_RAG_ANCHOR_TOP_K, MAX_GRAPH_RAG_FINAL_TOP_K,
+    MAX_GRAPH_RAG_HOPS, graph_rag_retrieve,
+};
 pub use hybrid::{
     HybridConfig, HybridMode, HybridResult, RetrievalAbstention, compute_weights, merge_results,
     normalize_scores, normalize_scores_in_place,

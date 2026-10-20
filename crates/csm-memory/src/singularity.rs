@@ -384,10 +384,10 @@ impl<H: Hypervector + 'static> Singularity<H> {
     }
 
     pub fn invalidate_cache(&self, ns: &str) {
-        if let Some(ns_state) = self.get_namespace(ns) {
-            if let Ok(mut cache) = ns_state.query_cache.write() {
-                cache.clear();
-            }
+        if let Some(ns_state) = self.get_namespace(ns)
+            && let Ok(mut cache) = ns_state.query_cache.write()
+        {
+            cache.clear();
         }
     }
 

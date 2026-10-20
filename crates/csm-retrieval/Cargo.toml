@@ -23,6 +23,7 @@ tantivy = { version = "0.22", optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+proptest = "1.6.0"
 
 [features]
 default = []

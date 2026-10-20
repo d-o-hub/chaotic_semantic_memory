@@ -216,10 +216,10 @@ impl Singularity {
             }
 
             let current_cost = f32::from_bits(cost_bits);
-            if let Some(&best) = dist.get(current) {
-                if current_cost > best {
-                    continue; // Stale entry
-                }
+            if let Some(&best) = dist.get(current)
+                && current_cost > best
+            {
+                continue; // Stale entry
             }
 
             if depth as usize >= config.max_depth {
