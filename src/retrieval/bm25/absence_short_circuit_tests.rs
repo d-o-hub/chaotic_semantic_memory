@@ -164,3 +164,34 @@ async fn expired_absence_is_not_authoritative() {
 fn query_id(query: &str) -> String {
     AbsenceEntry::id_for(query)
 }
+
+/// The TTL window is exclusive: `age.num_seconds() < TTL_SECS` (300) is strict,
+/// so a record that has aged into its 300th second no longer suppresses
+/// retrieval, even though 299 seconds still does.
+#[tokio::test]
+async fn absence_ttl_window_is_exclusive_at_300_seconds() {
+    let query = "boundary absence";
+
+    let mut inside = entry(query, 5, NS, REVISION);
+    inside.last_seen = chrono::Utc::now() - chrono::Duration::seconds(299);
+    assert!(
+        lookup_absence(query, &store_with(inside), 3, NS, REVISION)
+            .await
+            .short_circuit,
+        "a record 299 seconds old is still inside the TTL window"
+    );
+
+    // `last_seen` is stamped before the lookup reads the clock, so the age
+    // truncates to exactly 300 seconds.
+    let mut at_boundary = entry(query, 5, NS, REVISION);
+    at_boundary.last_seen = chrono::Utc::now() - chrono::Duration::seconds(300);
+    let boundary = lookup_absence(query, &store_with(at_boundary), 3, NS, REVISION).await;
+    assert!(
+        !boundary.short_circuit,
+        "a record at exactly the 300 second TTL must not short-circuit"
+    );
+    assert!(
+        boundary.entry_id.is_some(),
+        "an aged-out record must still be reported so it can be deleted"
+    );
+}
