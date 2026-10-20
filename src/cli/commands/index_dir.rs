@@ -1,14 +1,31 @@
 //! Index Markdown files from directory into memory.
 //!
-//! Supports glob patterns, heading-based chunking, and code-aware encoding.
+//! Supports glob patterns, heading-based chunking, code-aware encoding,
+//! and source synchronization mode for reconciling obsolete chunks and deleted files.
 
 use crate::cli::args::{IndexDirArgs, OutputFormat};
 use crate::cli::commands::{create_framework_with_namespace, print_success, truncate_preview};
 use crate::cli::error::{CliError, Result};
 use csm_core_lib::encoder::TextEncoder;
+use sha2::{Digest, Sha256};
 
+use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
+
+/// Normalize source file path to ensure stable identity across invocation directories and relative spellings.
+pub fn normalize_source_path(path: &Path) -> String {
+    let path_str = path.to_string_lossy();
+    let trimmed = path_str.strip_prefix("./").unwrap_or(&path_str);
+    trimmed.replace('\\', "/")
+}
+
+/// Compute SHA-256 fingerprint hex digest for chunk content.
+pub fn compute_fingerprint(content: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(content.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
 
 pub async fn run_index_dir(
     args: IndexDirArgs,
@@ -25,15 +42,38 @@ pub async fn run_index_dir(
         TextEncoder::new()
     };
 
-    let mut indexed_count = 0;
-    let mut skipped_count = 0;
-    let mut file_count = 0;
+    let declared_scope = args.scope.clone().unwrap_or_else(|| {
+        args.glob
+            .iter()
+            .map(|g| normalize_source_path(Path::new(g)))
+            .collect::<Vec<_>>()
+            .join(",")
+    });
 
+    struct StagedChunk {
+        id: String,
+        heading: String,
+        level: usize,
+        content: String,
+        fingerprint: String,
+        source_path: String,
+        modified_at: Option<u64>,
+    }
+
+    struct StagedFile {
+        normalized_path: String,
+        chunks: Vec<StagedChunk>,
+    }
+
+    let mut staged_files: Vec<StagedFile> = Vec::new();
+    let mut skipped_count = 0;
+
+    // Stage 1: Read and validate all matched files before modifying index (Requirement 4)
     for pattern in &args.glob {
-        let paths = glob::glob(pattern)
+        let glob_paths = glob::glob(pattern)
             .map_err(|e| CliError::Validation(format!("Invalid glob pattern '{pattern}': {e}")))?;
 
-        for path_result in paths {
+        for path_result in glob_paths {
             let path = path_result
                 .map_err(|e| CliError::Io(std::io::Error::other(format!("Glob error: {e}"))))?;
 
@@ -41,9 +81,6 @@ pub async fn run_index_dir(
                 continue;
             }
 
-            file_count += 1;
-
-            // Read file content
             let content = fs::read_to_string(&path).map_err(|e| {
                 CliError::Io(std::io::Error::new(
                     e.kind(),
@@ -51,70 +88,199 @@ pub async fn run_index_dir(
                 ))
             })?;
 
-            // Chunk by headings
-            let chunks = chunk_by_heading(&content, args.heading_level);
+            let normalized_path = normalize_source_path(&path);
+            let chunks_raw = chunk_by_heading(&content, args.heading_level);
 
-            for (chunk_idx, chunk) in chunks.iter().enumerate() {
+            let modified_at = fs::metadata(&path)
+                .ok()
+                .and_then(|m| m.modified().ok())
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs());
+
+            let mut staged_chunks = Vec::new();
+            for (chunk_idx, chunk) in chunks_raw.into_iter().enumerate() {
                 if chunk.content.trim().is_empty() {
                     skipped_count += 1;
                     continue;
                 }
 
-                // Create unique ID
-                let id = format!("md:{}:{}:{}", path.display(), chunk.level, chunk_idx);
+                let id = format!("md:{}:{}:{}", normalized_path, chunk.level, chunk_idx);
+                let fingerprint = compute_fingerprint(&chunk.content);
 
-                // Encode content
-                let hv = encoder.encode(&chunk.content);
+                staged_chunks.push(StagedChunk {
+                    id,
+                    heading: chunk.heading,
+                    level: chunk.level,
+                    content: chunk.content,
+                    fingerprint,
+                    source_path: normalized_path.clone(),
+                    modified_at,
+                });
+            }
 
-                // Create metadata map
-                let path_str = path.display().to_string();
-                let mut metadata = std::collections::HashMap::new();
+            staged_files.push(StagedFile {
+                normalized_path,
+                chunks: staged_chunks,
+            });
+        }
+    }
+
+    let active_source_paths: HashSet<String> = staged_files
+        .iter()
+        .map(|f| f.normalized_path.clone())
+        .collect();
+
+    let new_chunk_ids: HashSet<String> = staged_files
+        .iter()
+        .flat_map(|f| f.chunks.iter().map(|c| c.id.clone()))
+        .collect();
+
+    // Stage 2: Retrieve existing concepts to determine replacements and obsolete chunks
+    let existing_concepts = {
+        let sing_lock = framework.singularity();
+        let sing = sing_lock.read().await;
+        sing.all_concepts(&args.namespace)
+    };
+    let existing_ids: HashSet<String> = existing_concepts.iter().map(|c| c.id.clone()).collect();
+
+    let mut obsolete_ids: Vec<String> = Vec::new();
+
+    if args.sync {
+        let glob_matchers: Vec<glob::Pattern> = args
+            .glob
+            .iter()
+            .filter_map(|g| glob::Pattern::new(g).ok())
+            .collect();
+
+        for concept in &existing_concepts {
+            if new_chunk_ids.contains(&concept.id) {
+                continue;
+            }
+
+            let concept_source = concept
+                .metadata
+                .get("source")
+                .and_then(|v| v.as_str())
+                .or_else(|| concept.metadata.get("path").and_then(|v| v.as_str()));
+
+            let concept_scope = concept.metadata.get("scope").and_then(|v| v.as_str());
+
+            let is_in_active_source = concept_source
+                .is_some_and(|src| active_source_paths.contains(src));
+
+            let is_in_scope = concept_scope == Some(&declared_scope)
+                || concept_source.is_some_and(|src| {
+                    glob_matchers.iter().any(|m| m.matches(src))
+                });
+
+            if ((is_in_active_source && !new_chunk_ids.contains(&concept.id))
+                || (is_in_scope && concept_source.is_none_or(|src| !active_source_paths.contains(src))))
+                && (concept.id.starts_with("md:") || concept_source.is_some())
+            {
+                obsolete_ids.push(concept.id.clone());
+            }
+        }
+    }
+
+    let mut indexed_count = 0;
+    let mut replaced_count = 0;
+    let mut deleted_count = 0;
+
+    // Stage 3: Inject / update concepts
+    for staged in &staged_files {
+        for chunk in &staged.chunks {
+            let is_replacement = existing_ids.contains(&chunk.id);
+
+            let hv = encoder.encode(&chunk.content);
+
+            let mut metadata = std::collections::HashMap::new();
+            metadata.insert(
+                "source".to_string(),
+                serde_json::Value::String(chunk.source_path.clone()),
+            );
+            metadata.insert(
+                "path".to_string(),
+                serde_json::Value::String(chunk.source_path.clone()),
+            );
+            metadata.insert(
+                "heading".to_string(),
+                serde_json::Value::String(chunk.heading.clone()),
+            );
+            metadata.insert(
+                "level".to_string(),
+                serde_json::Value::Number(chunk.level.into()),
+            );
+            metadata.insert(
+                "content_preview".to_string(),
+                serde_json::Value::String(truncate_preview(&chunk.content, 200)),
+            );
+            metadata.insert(
+                "fingerprint".to_string(),
+                serde_json::Value::String(chunk.fingerprint.clone()),
+            );
+            metadata.insert(
+                "encoding_mode".to_string(),
+                serde_json::Value::String(
+                    if args.code_aware { "code_aware" } else { "standard" }.to_string(),
+                ),
+            );
+            metadata.insert(
+                "scope".to_string(),
+                serde_json::Value::String(declared_scope.clone()),
+            );
+
+            if let Some(ts) = chunk.modified_at {
                 metadata.insert(
-                    "source".to_string(),
-                    serde_json::Value::String(path_str.clone()),
+                    "modified_at".to_string(),
+                    serde_json::Value::Number(ts.into()),
                 );
-                metadata.insert("path".to_string(), serde_json::Value::String(path_str));
-                metadata.insert(
-                    "heading".to_string(),
-                    serde_json::Value::String(chunk.heading.clone()),
-                );
-                metadata.insert(
-                    "level".to_string(),
-                    serde_json::Value::Number(chunk.level.into()),
-                );
-                metadata.insert(
-                    "content_preview".to_string(),
-                    serde_json::Value::String(truncate_preview(&chunk.content, 200)),
-                );
+            }
 
-                // Store file modification time as Unix timestamp
-                if let Ok(file_meta) = fs::metadata(&path) {
-                    if let Ok(modified) = file_meta.modified() {
-                        if let Ok(ts) = modified.duration_since(std::time::UNIX_EPOCH) {
-                            metadata.insert(
-                                "modified_at".to_string(),
-                                serde_json::Value::Number(ts.as_secs().into()),
-                            );
-                        }
-                    }
-                }
+            framework
+                .inject_concept_with_metadata(&chunk.id, hv, metadata)
+                .await
+                .map_err(|e| CliError::Persistence(format!("Failed to store concept: {e}")))?;
 
-                framework
-                    .inject_concept_with_metadata(&id, hv, metadata)
-                    .await
-                    .map_err(|e| CliError::Persistence(format!("Failed to store concept: {e}")))?;
-
+            if is_replacement {
+                replaced_count += 1;
+            } else {
                 indexed_count += 1;
             }
         }
     }
 
-    print_success(
-        &format!(
-            "Indexed {indexed_count} chunks from {file_count} files ({skipped_count} skipped)"
-        ),
-        format,
-    );
+    // Stage 4: Delete obsolete chunks in sync mode
+    for obsolete_id in obsolete_ids {
+        framework
+            .delete_concept(&obsolete_id)
+            .await
+            .map_err(|e| CliError::Persistence(format!("Failed to delete concept {obsolete_id}: {e}")))?;
+        deleted_count += 1;
+    }
+
+    let file_count = staged_files.len();
+
+    if format == OutputFormat::Json {
+        let output = serde_json::json!({
+            "status": "success",
+            "files_processed": file_count,
+            "chunks_indexed": indexed_count,
+            "chunks_replaced": replaced_count,
+            "chunks_deleted": deleted_count,
+            "skipped": skipped_count,
+            "namespace": args.namespace,
+            "scope": declared_scope,
+            "sync_mode": args.sync,
+        });
+        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+    } else {
+        print_success(
+            &format!(
+                "Indexed {indexed_count} new chunks ({replaced_count} replaced, {deleted_count} deleted) from {file_count} files ({skipped_count} skipped) [scope: {declared_scope}]"
+            ),
+            format,
+        );
+    }
 
     Ok(())
 }
@@ -141,11 +307,9 @@ pub fn chunk_by_heading(content: &str, min_level: usize) -> Vec<MarkdownChunk> {
     let mut current_content: String = String::new();
 
     for line in content.lines() {
-        // Check if this is a heading line
         let heading_match = parse_heading(line);
 
         if let Some((level, heading_text)) = heading_match {
-            // Save previous chunk if it meets min_level
             if let Some(level) = current_level {
                 if level >= min_level && !current_content.trim().is_empty() {
                     chunks.push(MarkdownChunk {
@@ -156,18 +320,15 @@ pub fn chunk_by_heading(content: &str, min_level: usize) -> Vec<MarkdownChunk> {
                 }
             }
 
-            // Start new chunk
             current_heading = Some(heading_text);
             current_level = Some(level);
             current_content = String::new();
         } else {
-            // Add to current content
             current_content.push_str(line);
             current_content.push('\n');
         }
     }
 
-    // Save final chunk
     if let Some(level) = current_level {
         if level >= min_level && !current_content.trim().is_empty() {
             chunks.push(MarkdownChunk {
@@ -188,12 +349,10 @@ pub fn chunk_by_heading(content: &str, min_level: usize) -> Vec<MarkdownChunk> {
 fn parse_heading(line: &str) -> Option<(usize, String)> {
     let trimmed = line.trim();
 
-    // Check for # heading markers
     if !trimmed.starts_with('#') {
         return None;
     }
 
-    // Count # symbols
     let mut level = 0;
     for c in trimmed.chars() {
         if c == '#' {
@@ -203,12 +362,10 @@ fn parse_heading(line: &str) -> Option<(usize, String)> {
         }
     }
 
-    // Valid heading levels are 1-6
     if level == 0 || level > 6 {
         return None;
     }
 
-    // Extract heading text (after # symbols)
     let heading_text = trimmed[level..].trim().to_string();
 
     if heading_text.is_empty() {
@@ -222,6 +379,23 @@ fn parse_heading(line: &str) -> Option<(usize, String)> {
 mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
     use super::*;
+
+    #[test]
+    fn test_normalize_source_path() {
+        assert_eq!(normalize_source_path(Path::new("./docs/readme.md")), "docs/readme.md");
+        assert_eq!(normalize_source_path(Path::new("docs/readme.md")), "docs/readme.md");
+        assert_eq!(normalize_source_path(Path::new("docs\\readme.md")), "docs/readme.md");
+    }
+
+    #[test]
+    fn test_compute_fingerprint() {
+        let f1 = compute_fingerprint("hello world");
+        let f2 = compute_fingerprint("hello world");
+        let f3 = compute_fingerprint("different content");
+        assert_eq!(f1, f2);
+        assert_ne!(f1, f3);
+        assert_eq!(f1.len(), 64);
+    }
 
     #[test]
     fn test_parse_heading_valid() {
@@ -241,7 +415,7 @@ mod tests {
     fn test_parse_heading_invalid() {
         assert_eq!(parse_heading("Not a heading"), None);
         assert_eq!(parse_heading("####### Too many"), None);
-        assert_eq!(parse_heading("# "), None); // Empty heading
+        assert_eq!(parse_heading("# "), None);
     }
 
     #[test]
@@ -287,7 +461,6 @@ Content 2
 
 ";
 
-        // Only level >= 3
         let chunks = chunk_by_heading(content, 3);
         assert_eq!(chunks.len(), 1);
         assert_eq!(chunks[0].heading, "Subsection");
@@ -298,5 +471,93 @@ Content 2
         let content = "";
         let chunks = chunk_by_heading(content, 2);
         assert!(chunks.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_run_index_dir_sync_reconciles_removed_section_and_file() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file1 = temp_dir.path().join("doc1.md");
+        let file2 = temp_dir.path().join("doc2.md");
+
+        fs::write(&file1, "# Title\n\n## Section A\nContent A\n\n## Section B\nContent B\n").unwrap();
+        fs::write(&file2, "# Title 2\n\n## Section C\nContent C\n").unwrap();
+
+        let db_path = temp_dir.path().join("test.db");
+        let glob_pattern = format!("{}/doc*.md", temp_dir.path().display());
+
+        let args = IndexDirArgs {
+            namespace: "test_ns".to_string(),
+            glob: vec![glob_pattern.clone()],
+            heading_level: 2,
+            code_aware: false,
+            sync: false,
+            scope: None,
+        };
+
+        // Initial additive index
+        run_index_dir(args.clone(), Some(&db_path), OutputFormat::Quiet)
+            .await
+            .unwrap();
+
+        let framework = create_framework_with_namespace(Some(&db_path), "test_ns")
+            .await
+            .unwrap();
+        let sing_lock = framework.singularity();
+        let sing = sing_lock.read().await;
+        let initial_concepts = sing.all_concepts("test_ns");
+        assert_eq!(initial_concepts.len(), 3);
+        drop(sing);
+
+        // Modify file1 (remove Section B) and delete file2
+        fs::write(&file1, "# Title\n\n## Section A\nUpdated Content A\n").unwrap();
+        fs::remove_file(&file2).unwrap();
+
+        // Reindex with sync = true
+        let mut sync_args = args;
+        sync_args.sync = true;
+        run_index_dir(sync_args, Some(&db_path), OutputFormat::Quiet)
+            .await
+            .unwrap();
+
+        // Reload framework from persistence to verify durable state
+        let reloaded_fw = create_framework_with_namespace(Some(&db_path), "test_ns")
+            .await
+            .unwrap();
+        let sing_lock2 = reloaded_fw.singularity();
+        let sing2 = sing_lock2.read().await;
+        let synced_concepts = sing2.all_concepts("test_ns");
+        assert_eq!(synced_concepts.len(), 1);
+        assert!(
+            synced_concepts[0]
+                .metadata
+                .get("content_preview")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .contains("Updated Content A")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_run_index_dir_json_output() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file1 = temp_dir.path().join("doc.md");
+        fs::write(&file1, "# Title\n\n## Section 1\nHello\n").unwrap();
+
+        let db_path = temp_dir.path().join("test.db");
+        let glob_pattern = format!("{}/doc.md", temp_dir.path().display());
+
+        let args = IndexDirArgs {
+            namespace: "json_ns".to_string(),
+            glob: vec![glob_pattern],
+            heading_level: 2,
+            code_aware: true,
+            sync: true,
+            scope: Some("custom-scope".to_string()),
+        };
+
+        run_index_dir(args, Some(&db_path), OutputFormat::Json)
+            .await
+            .unwrap();
     }
 }
