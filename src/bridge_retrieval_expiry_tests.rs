@@ -119,6 +119,7 @@ fn expansion_drops_labels_expiring_in_the_current_second() {
 /// The sampled labels must be ones the anchor resembles: an expansion score is
 /// min-max normalised, so a single unrelated label leaves every existing hit at
 /// zero and a retained-label mutant would be invisible.
+#[cfg(not(miri))]
 fn aligned_harness(labels: &[&str]) -> Option<(Harness, u64)> {
     let clock = crate::singularity::unix_now_secs;
     for _ in 0..5 {
@@ -141,6 +142,11 @@ fn aligned_harness(labels: &[&str]) -> Option<(Harness, u64)> {
     None
 }
 
+// Miri simulates the clock: `sleep` does not move `SystemTime::now()` the way
+// wall time does, so `aligned_harness` can never land on the expiry second
+// there. The case is about a real clock crossing a one-second boundary, so it
+// is skipped rather than faked.
+#[cfg(not(miri))]
 #[test]
 fn expansion_drops_labels_at_the_exact_expiry_second() {
     let Some((harness, expires)) = aligned_harness(&["alpha", "gamma"]) else {
