@@ -51,15 +51,21 @@ case "$SENSOR" in
       "cargo test --test arch_fitness" \
       "LAYERING VIOLATION: Move code to the correct crate layer. See tests/arch_fitness.rs error for the specific fix."
     ;;
+  conventions)
+    run_with_hint "shared conventions" \
+      "./scripts/check-shared-conventions.sh" \
+      "Fix broken file links or anti-duplication violations in .agents/context/shared-conventions.md."
+    ;;
   all)
     run_with_hint "cargo fmt" "cargo fmt --all -- --check" "Run: cargo fmt --all"
     run_with_hint "cargo clippy" "cargo clippy --workspace --all-targets --all-features -- -D warnings" "Fix all warnings. Check .clippy.toml."
     run_with_hint "cargo deny" "cargo deny check" "Check deny.toml for the violation type."
     run_with_hint "cargo test" "cargo test --workspace --all-features --quiet" "Fix the failing test."
     run_with_hint "arch fitness" "cargo test --test arch_fitness" "Fix layering violation."
+    run_with_hint "shared conventions" "./scripts/check-shared-conventions.sh" "Fix broken file links or anti-duplication violations in .agents/context/shared-conventions.md."
     ;;
   *)
-    echo "Usage: $0 <fmt|clippy|deny|test|arch|all>"
+    echo "Usage: $0 <fmt|clippy|deny|test|arch|conventions|all>"
     exit 1
     ;;
 esac

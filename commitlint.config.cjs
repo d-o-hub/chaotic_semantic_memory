@@ -36,7 +36,8 @@ module.exports = {
         'build',
         'loc-gate',
         'workspace',
-        'agents'
+        'agents',
+        'harness'
       ]
     ],
   },
