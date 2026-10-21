@@ -29,7 +29,7 @@ releases when the upstream CI run concluded `success` in this repository.
 ## Protected-main policy
 
 1. Create `release/vX.Y.Z` (or `chore/release-…`) from updated `main`
-2. Bump `Cargo.toml`, run `scripts/sync-version.sh`, fix CHANGELOG
+2. Run `scripts/sync-version.sh <version>` BEFORE editing manifests manually, then fix CHANGELOG and complete version changes
 3. Open PR; required CI must pass
 4. Merge (squash preferred). Never `git push origin main` for releases
 5. Watch `release.yml`; do not re-tag if it is still running

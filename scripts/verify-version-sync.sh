@@ -21,7 +21,6 @@ echo "wasm/package.json version: $NPM_LOCAL_VERSION"
 echo "cli-npm/package.json version: $CLI_NPM_VERSION"
 echo "VERSION file: $VERSION_FILE_CONTENT"
 
-# Check if versions match
 FAILED=0
 
 if [ "$CARGO_VERSION" != "$NPM_LOCAL_VERSION" ]; then
@@ -42,6 +41,24 @@ if [ "$CARGO_VERSION" != "$VERSION_FILE_CONTENT" ]; then
     echo "ERROR: Version mismatch in VERSION file!"
     echo "  Cargo.toml: $CARGO_VERSION"
     echo "  VERSION: $VERSION_FILE_CONTENT"
+    FAILED=1
+fi
+
+# Verify root Cargo.toml internal workspace dependency requirements match CARGO_VERSION
+echo "Checking root Cargo.toml internal workspace dependencies..."
+INTERNAL_DEPS_MISMATCH=$(grep -E 'path = "crates/csm-[^"]+", version = "' Cargo.toml | grep -v "version = \"$CARGO_VERSION\"" || true)
+if [ -n "$INTERNAL_DEPS_MISMATCH" ]; then
+    echo "ERROR: Root Cargo.toml internal dependency requirements do not match $CARGO_VERSION:"
+    echo "$INTERNAL_DEPS_MISMATCH"
+    FAILED=1
+fi
+
+# Verify workspace crate versions match CARGO_VERSION
+echo "Checking workspace crate versions in crates/*/Cargo.toml..."
+CRATE_VERSION_MISMATCHES=$(find crates -name "Cargo.toml" -exec grep -H '^version = ' {} + | grep -v "version = \"$CARGO_VERSION\"" || true)
+if [ -n "$CRATE_VERSION_MISMATCHES" ]; then
+    echo "ERROR: Workspace crate version mismatch found:"
+    echo "$CRATE_VERSION_MISMATCHES"
     FAILED=1
 fi
 

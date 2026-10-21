@@ -89,7 +89,7 @@ Developer writes CHANGELOG
     ↓
 [1] Pre-commit hook validates format
     ↓
-Developer runs sync-version.sh
+Developer runs sync-version.sh BEFORE manually editing Cargo.toml
     ↓
 [2] Sync script validates no existing headers
     ↓

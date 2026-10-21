@@ -59,7 +59,7 @@ gh run watch
 
 ## Version sync (before PR)
 
-Run `./scripts/sync-version.sh <version>` after editing `Cargo.toml`. It updates Cargo.lock, CHANGELOG date section, README/docs minor pins, `wasm/package.json`, tests/examples, and regenerates llms files as configured.
+Run `./scripts/sync-version.sh <version>` BEFORE manually editing `Cargo.toml`. It updates Cargo.lock, CHANGELOG date section, README/docs minor pins, `wasm/package.json`, tests/examples, and regenerates llms files as configured.
 
 | Script | Purpose |
 |--------|---------|

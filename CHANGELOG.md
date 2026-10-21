@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.9] - 2026-10-21
 
 ### Added
 - **CLI/MCP (`csm`)**: `--ttl-cleanup-interval <SECONDS>` on `csm watch` and `csm mcp serve`, the config surface for the ADR-0099 background TTL reaper. Before it, both long-running commands built the framework through `create_framework` with the default `TtlConfig` (`cleanup_interval_seconds == 0`), so `spawn_cleanup_task` returned immediately and no long-running process ever reaped expired concepts — expiry was only filtered at probe time, and `shutdown()` had nothing to stop. The default is `0` (reaper off), so nothing starts deleting rows silently; a nonzero value is threaded through `create_framework_advanced` (new `ttl_cleanup_interval_seconds` parameter, plus `create_framework_with_ttl`) and through `McpConfig::ttl_cleanup_interval` into `McpHandler::with_ttl_cleanup_interval`, and reaches the existing `with_ttl_config` builder. One-shot commands are unchanged: the three framework wrappers pass `0`. `src/cli/args.rs` reached the 500-LOC gate, so the tail subcommand structs moved to `src/cli/args_commands.rs` and `WatchArgs`/`McpServeArgs` now flatten a shared `TtlCleanupArgs`. Documented in `book/src/ttl.md`.

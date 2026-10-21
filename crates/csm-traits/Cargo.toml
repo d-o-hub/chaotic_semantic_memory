@@ -1,6 +1,6 @@
 [package]
 name = "csm-traits"
-version = "0.3.8"
+version = "0.3.9"
 edition = "2024"
 rust-version.workspace = true
 description = "Shared types and traits for chaotic_semantic_memory workspace"
