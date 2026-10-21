@@ -73,8 +73,8 @@ MSG
   exit 127
 fi
 
+OUT_DIR="${MUTATION_OUTPUT_DIR:-progress/mutation}"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-OUT_DIR="progress/mutation"
 LOG_FILE="${OUT_DIR}/${PROFILE}-${TIMESTAMP}.log"
 REPORT_FILE="${OUT_DIR}/${PROFILE}-latest.md"
 mkdir -p "${OUT_DIR}"
@@ -107,25 +107,18 @@ if [[ "${PROFILE}" == "fast" ]]; then
         echo 'mutation fast: diff contains cfg(not(feature = "persistence")) — running with --no-default-features' >&2
       fi
     elif [[ "${CI_MODE}" == "true" ]]; then
-      # No bounded diff on a CI run — e.g. the Pre-Release Gate dispatched on main where
-      # HEAD == origin/main, so the three-dot diff is empty. A full-tree pass here is not
-      # viable: 1000+ mutants exceed the job's timeout-minutes and degrade into mass
-      # build-timeouts (job 90089540259: ~1288 mutants, ~390 min estimate vs 120 min budget).
-      # Mutation coverage is already enforced incrementally on every PR through the in-diff
-      # path above, so skip cleanly instead of running an unbounded full-tree pass. Mirrors
-      # the "no mutants in changed sources" skip below. Full-tree remains available via the
-      # non-CI (local/nightly) branch and the `full` profile.
-      echo "mutation fast: no diff against ${DIFF_TARGET} on a CI run; skipping full-tree fallback" >&2
+      # An unbounded main-branch run is intentionally disabled. This invocation
+      # produced no mutation evidence, so it must not succeed as a test result.
+      echo "error: no bounded diff against ${DIFF_TARGET}; mutation tests did not run" >&2
       {
         echo "# Unit-Target Mutation Test Report"
         echo
         echo "- Timestamp (UTC): ${TIMESTAMP}"
         echo "- Profile: ${PROFILE}"
         echo "- Mutants: 0"
-        echo "- Result: skip (no bounded diff on CI run; full-tree fallback disabled in CI)"
+        echo "- Result: not run (no bounded diff; not a passing mutation result)"
       } >"${REPORT_FILE}"
-      echo "unit-target mutation score: no bounded diff on CI run, full-tree fallback skipped"
-      exit 0
+      exit 2
     else
       echo "warning: no diff against ${DIFF_TARGET}; running full target set" >&2
       # Full-tree fallback (local/nightly only): escalate parallelism so the run finishes.
@@ -360,18 +353,18 @@ if [[ "${PROFILE}" == "fast" ]] && [[ ${#FAST_ARGS[@]} -gt 0 ]]; then
   MUTANT_COUNT="$(printf '%s\n' "${LIST_OUT}" | grep -cE '\.rs:' || true)"
   echo "mutation preflight: ${MUTANT_COUNT:-0} mutants to test (jobs=${JOBS})" >&2
   if [[ "${MUTANT_COUNT:-0}" -eq 0 ]]; then
-    echo "No mutants generated for changed files; writing empty report" | tee "${LOG_FILE}"
+    echo "No mutants generated for the bounded diff; no mutation evidence was produced" | tee "${LOG_FILE}"
     {
       echo "# Unit-Target Mutation Test Report"
       echo
       echo "- Timestamp (UTC): ${TIMESTAMP}"
       echo "- Profile: ${PROFILE}"
       echo "- Mutants: 0"
-      echo "- Result: skip (no mutants in diff)"
+      echo "- Result: not run (no mutants in diff)"
     } >"${REPORT_FILE}"
     if [[ "${CI_MODE}" == "true" ]]; then
-      echo "unit-target mutation score: no mutants in changed Rust sources, CI check skipped"
-      exit 0
+      echo "error: CI mutation check selected this Rust diff but generated no mutants" >&2
+      exit 1
     fi
     exit 0
   fi
@@ -442,8 +435,8 @@ if [[ "${CI_MODE}" == "true" ]]; then
     SCORE="$(awk '/%/{ gsub(/[^0-9.]/," "); for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\.?[0-9]*$/) s=$i } END { print s+0 }' "${LOG_FILE}")"
   fi
 
-  # Timeout budget (ADR-0095): timeouts still count as "detected" for score, but
-  # a high timeout rate fails the job so hangs cannot look like strong coverage.
+  # Timeout mutants remain unresolved and are excluded from caught outcomes; the
+  # budget below prevents hangs from silently weakening the score.
   # Override: MUTATION_TIMEOUT_BUDGET (absolute), MUTATION_TIMEOUT_FRACTION (of viable).
   TIMEOUT_BUDGET="${MUTATION_TIMEOUT_BUDGET:-5}"
   TIMEOUT_FRACTION="${MUTATION_TIMEOUT_FRACTION:-0.10}"
@@ -465,13 +458,8 @@ if [[ "${CI_MODE}" == "true" ]]; then
   fi
 
   if [[ "${SCORE}" == "0" ]]; then
-    if grep -q -E 'No mutants generated|Diff changes no|No mutants to filter' "${LOG_FILE}" 2>/dev/null; then
-      echo "unit-target mutation score: no Rust source files changed, CI check skipped"
-      exit 0
-    else
-      echo "error: could not parse mutation score from ${LOG_FILE}" >&2
-      exit 1
-    fi
+    echo "error: mutation run generated no scoreable mutants; result is not a pass" >&2
+    exit 1
   elif awk -v s="${SCORE}" -v t="${THRESHOLD}" 'BEGIN { exit !(s >= t) }'; then
     echo "unit-target mutation score ${SCORE}% >= ${THRESHOLD}%, CI check passed"
     exit 0

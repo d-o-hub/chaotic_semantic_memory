@@ -127,6 +127,24 @@ The `prepare` command automatically updates version references in:
 - **Artifact signing**: GitHub attestation on release artifacts
 - **Concurrency control**: Cancel-in-progress prevents race conditions
 
+## Current publication blocker chain (2026-10-20)
+
+**Decision:** the Pre-Release Gate is a publication blocker, not advisory evidence.
+CI completion on `main` triggers `pre-release-gate.yml`; its jobs check out the
+CI run's `head_sha`, and `release.yml` listens for successful gate completion,
+checks out that same SHA, and only then creates the version tag and publishes.
+A manual `release.yml` dispatch must find completed-success CI and
+Pre-Release Gate runs for the exact dispatch SHA; a missing, running, failed, or
+mismatched run blocks publication.
+
+`dist.yml` is the tag-triggered owner of platform-specific CLI binary builds and
+GitHub Release assets. `release.yml` owns the version tag and crate/npm
+publication; `dist.yml` does not create a second tag or publish those packages.
+
+Mutation testing remains a PR-diff gate, not a main-release verdict: a main
+push has no bounded PR diff, so the pre-release summary states that mutation
+evidence was not run rather than reporting a green score.
+
 ---
 
 **Created:** 2026-02-20

@@ -1,16 +1,12 @@
 name: Release
 
 on:
-  # Event-driven release gate (2026-09-30). The release is triggered by the
-  # *completion of the CI workflow on main* instead of a main push followed by
-  # a polling loop. `wait-for-ci` polled `gh run list` under a MAX_WAIT ceiling
-  # (1800 → 2700s) and timed out a third time (run 36031855839: CI sat `queued`
-  # ~40 min on a saturated runner pool) — polling cannot distinguish "CI is
-  # slow" from "CI was never scheduled", and `gh run rerun` cannot help a run
-  # that is merely queued. A `workflow_run` trigger has no ceiling and releases
-  # exactly the SHA whose CI passed.
+  # Release is downstream of the pre-release gate, not merely CI. That gate is
+  # triggered by successful CI on main and summarizes every publication blocker
+  # for the same head SHA. The release workflow therefore cannot race the gate or
+  # treat its still-running checks as evidence of success.
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["Pre-Release Gate"]
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -35,13 +31,12 @@ env:
 jobs:
   validate:
     runs-on: ubuntu-24.04
-    # Release only when CI for this commit concluded success on main
-    # (workflow_run), or on an explicit dispatch whose commit CI is green
-    # (verified fail-closed below, single query, no polling).
+    # Release only when the pre-release blocker workflow completed successfully
+    # on main, or on an explicit dispatch whose CI and pre-release gate are green.
     if: >-
       github.event_name == 'workflow_dispatch'
-      || (github.event.workflow_run.event == 'push'
-      && github.event.workflow_run.conclusion == 'success'
+      || (github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.head_branch == 'main'
       && github.event.workflow_run.head_repository.full_name == github.repository)
     permissions:
       actions: read      # dispatch path: `gh run list` CI guard query
@@ -56,7 +51,7 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
-        # Release exactly the commit whose CI passed; a dispatch releases main.
+        # Release the pre-release gate's exact SHA; a dispatch releases main.
         ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
     - name: Verify CI is green for the dispatched commit
@@ -77,6 +72,25 @@ jobs:
         fi
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Verify pre-release blockers for the dispatched commit
+      if: github.event_name == 'workflow_dispatch'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        RELEASE_SHA: ${{ github.sha }}
+      run: |
+        # A manual release is also downstream of the same-SHA blocking gate.
+        # If that run is absent or still running, wait for it and dispatch again.
+        RUN=$(gh run list --repo "${{ github.repository }}" --workflow=pre-release-gate.yml \
+          --commit "$RELEASE_SHA" --limit 1 --json headSha,status,conclusion --jq '.[0] // {}')
+        HEAD_SHA=$(echo "$RUN" | jq -r '.headSha // "missing"')
+        STATUS=$(echo "$RUN" | jq -r '.status // "missing"')
+        CONCLUSION=$(echo "$RUN" | jq -r '.conclusion // "none"')
+        echo "Pre-release gate on ${RELEASE_SHA}: head=${HEAD_SHA} status=${STATUS} conclusion=${CONCLUSION}"
+        if [ "$HEAD_SHA" != "$RELEASE_SHA" ] || [ "$STATUS" != "completed" ] || [ "$CONCLUSION" != "success" ]; then
+          echo "::error::Refusing release: pre-release blockers for ${RELEASE_SHA} are not completed/success."
+          exit 1
+        fi
 
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0

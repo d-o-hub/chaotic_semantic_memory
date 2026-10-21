@@ -122,8 +122,10 @@ jobs:
             echo "cli_cross=false" >> "$GITHUB_OUTPUT"
           fi
 
-          # Mutation: production-relevant sources + manifests + mutation tooling
-          if match '\.rs$|Cargo\.(toml|lock)$|build\.rs$|scripts/mutation_test\.sh$|\.cargo/|deny\.toml$'; then
+          # Mutation evidence is required only for changed production Rust modules.
+          # Tests, manifests, and tooling changes do not create mutants themselves.
+          if echo "${DIFF}" | grep -E '^(src/.*\.rs|crates/[^/]+/src/.*\.rs)$' \
+            | grep -Ev '(^|/)(tests/|tests\.rs$|[^/]*_tests\.rs$)' >/dev/null; then
             echo "mutation=true" >> "$GITHUB_OUTPUT"
           else
             echo "mutation=false" >> "$GITHUB_OUTPUT"
@@ -204,6 +206,24 @@ jobs:
       run: sudo mount -t tmpfs -o size=8g,mode=1777 tmpfs /tmp
     - name: Run tests
       run: nix develop --command scripts/run-with-libs.sh cargo test --all-features --locked -- --quiet
+
+  stable-toolchain:
+    name: Current Stable Rust Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
+    - name: Install current stable Rust
+      uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+      with:
+        cache: false
+        toolchain: stable
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.7.3
+      with:
+        shared-key: stable-smoke
+    - name: Test retrieval owners on current stable
+      run: cargo test -p csm-core-lib -p csm-retrieval --locked -- --quiet
 
   # The crate list for "Test Workspace Crates" is derived here instead of typed
   # by hand (issue #827, audit A6). A hand-written matrix guarded only by a
@@ -609,6 +629,8 @@ jobs:
       PROTOC: /usr/bin/protoc
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.1.7
+    - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+    - uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
     - name: Install Rust
       uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
       with:
@@ -663,7 +685,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         CSM_GOAP_QUEUE_REQUIRED: "true"
-      run: bash scripts/validate.sh
+      run: nix develop --command scripts/run-with-libs.sh bash scripts/validate.sh
 
   cargo-deny:
     name: Cargo Deny

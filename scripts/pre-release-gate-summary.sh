@@ -90,8 +90,8 @@ if [[ "${VERDICT_MODE}" == false ]]; then
 fi
 
 if [[ "${#FAILED_CHECKS[@]}" -eq 0 ]]; then
-    printf '\n%s\n' '✅ **All gates passed**' >> "${SUMMARY_FILE}"
-    printf '%s\n' '✅ All gates passed'
+    printf '\n%s\n' '✅ **All blocking gates passed**' >> "${SUMMARY_FILE}"
+    printf '%s\n' '✅ All blocking gates passed'
     exit 0
 fi
 
