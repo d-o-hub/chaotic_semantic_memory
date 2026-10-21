@@ -17,16 +17,23 @@ if [[ ! -f "${REGISTRY}" ]]; then
     exit 2
 fi
 
-# Extract every 4-digit ADR id from registry table rows (lines starting with "| 00").
-registry_ids=$(grep -oE '^\| 00[0-9]{2}' "${REGISTRY}" | grep -oE '00[0-9]{2}' | sort -u)
+# Extract every 4-digit ADR id from registry table rows. The id space is not
+# bounded to 00xx: ADR-0100 and later exist, and a `00[0-9]{2}`-only pattern
+# silently ignored them — a registry row pointing at a missing ADR could pass.
+registry_ids=$(grep -oE '^\| [0-9]{4}' "${REGISTRY}" | grep -oE '[0-9]{4}' | sort -u)
 
 # Collect IDs that the registry marks as Superseded / N/A — these are
 # allowed to have no on-disk file.
-superseded_ids=$(awk -F'|' '/^\| 00[0-9]{2}/ && /N\/A/ { gsub(/ /, "", $2); print $2 }' "${REGISTRY}" | sort -u)
+# Keep the interval-free expression portable to awk implementations that do
+# not enable interval expressions by default.  The previous `00[0-9]{2}`
+# pattern silently produced an empty exemption set on mawk, so the intentional
+# ADR-0003 sentinel was reported as a missing file.
+superseded_ids=$(awk -F'|' '$0 ~ /^\| [0-9][0-9][0-9][0-9]/ && $5 ~ /N\/A/ { gsub(/[[:space:]]/, "", $2); print $2 }' "${REGISTRY}" | sort -u)
 
 # Extract on-disk ADR ids from both canonical locations.
-disk_ids=$(find "${ROOT}/plans/adr" "${ROOT}/docs/adr" -maxdepth 1 -name '00*.md' -printf '%f\n' 2>/dev/null \
-    | grep -oE '^00[0-9]{2}' \
+disk_ids=$(find "${ROOT}/plans/adr" "${ROOT}/docs/adr" -maxdepth 1 -name '[0-9][0-9][0-9][0-9]-*.md' -printf '%f\n' 2>/dev/null \
+    | grep -oE '^[0-9]{4}' || true)
+disk_ids=$(printf '%s\n' "${disk_ids}" \
     | sort -u)
 
 # Registry IDs missing on disk and not flagged as superseded.
