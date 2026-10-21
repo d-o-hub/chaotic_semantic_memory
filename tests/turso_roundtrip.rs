@@ -80,13 +80,7 @@ fn chrono_like_now_nanos() -> u128 {
 }
 
 fn non_empty_env(key: &str) -> Option<String> {
-    env::var(key).ok().and_then(|value| {
-        if value.trim().is_empty() {
-            None
-        } else {
-            Some(value)
-        }
-    })
+    env::var(key).ok().filter(|value| !value.trim().is_empty())
 }
 
 fn env_usize(key: &str, default: usize) -> usize {

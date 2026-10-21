@@ -418,6 +418,10 @@ impl FrameworkBuilder {
 
         let mut framework = ChaoticSemanticFramework {
             singularity,
+            mutation_coordinator: Arc::new(tokio::sync::Mutex::new(())),
+            text_index_cache: Arc::new(RwLock::new(
+                crate::framework_text_search::TextIndexCache::default(),
+            )),
             persistence,
             reservoir: Arc::new(RwLock::new(None)),
             config: self.config,

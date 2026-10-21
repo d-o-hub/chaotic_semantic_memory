@@ -3,7 +3,7 @@ use crate::concept_builder::ConceptBuilder;
 use crate::export_payload::unix_now_secs;
 use crate::framework::ChaoticSemanticFramework;
 use crate::framework_events::MemoryEvent;
-use csm_core_lib::error::Result;
+use csm_core_lib::error::{MemoryError, Result};
 use csm_core_lib::hyperdim::HVec10240;
 use std::sync::Arc;
 use tracing::instrument;
@@ -71,20 +71,54 @@ impl ChaoticSemanticFramework {
         if associations.is_empty() {
             return Ok(());
         }
-        // #524: clone namespace once (tokio guard cannot cross await).
+        for (from, to, strength) in associations {
+            Self::validate_concept_id(from)?;
+            Self::validate_concept_id(to)?;
+            Self::validate_association_strength(*strength)?;
+        }
+
+        let _mutation = self.mutation_coordinator.lock().await;
         let ns = self.namespace().await;
         {
-            let mut sing = self.singularity.write().await;
-            for (from, to, strength) in associations {
-                Self::validate_concept_id(from)?;
-                Self::validate_concept_id(to)?;
-                Self::validate_association_strength(*strength)?;
-                sing.associate(&ns, from, to, *strength)?;
+            let sing = self.singularity.read().await;
+            for (from, to, _) in associations {
+                if sing.get(&ns, from).is_none() {
+                    return Err(MemoryError::NotFound {
+                        entity: "Concept".to_string(),
+                        id: from.clone(),
+                    });
+                }
+                if sing.get(&ns, to).is_none() {
+                    return Err(MemoryError::NotFound {
+                        entity: "Concept".to_string(),
+                        id: to.clone(),
+                    });
+                }
             }
         }
 
-        if let Some(ref persistence) = self.persistence {
+        if let Some(persistence) = &self.persistence {
             persistence.save_associations(&ns, associations).await?;
+        }
+
+        let apply_result = {
+            let mut sing = self.singularity.write().await;
+            associations
+                .iter()
+                .try_for_each(|(from, to, strength)| sing.associate(&ns, from, to, *strength))
+        };
+        if let Err(error) = apply_result {
+            if self.persistence.is_some() {
+                if let Err(reload) = self.reload_namespace_from_rows(&ns).await {
+                    return Err(MemoryError::database(format!(
+                        "post-commit association batch failed ({error}); namespace reconciliation failed ({reload})"
+                    )));
+                }
+                return Err(MemoryError::database(format!(
+                    "post-commit association batch failed ({error}); namespace was reloaded from durable rows"
+                )));
+            }
+            return Err(error);
         }
 
         self.metrics
@@ -104,13 +138,18 @@ impl ChaoticSemanticFramework {
         let out = {
             let sing = self.singularity.read().await;
             let ns = self.namespace.read().await;
+            let now = crate::singularity::unix_now_secs();
 
             #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
             {
                 use rayon::prelude::*;
                 queries
                     .par_iter()
-                    .map(|q| sing.find_similar(&ns, q, top_k))
+                    .map(|query| {
+                        sing.find_similar_active(&ns, query, top_k, now, None)
+                            .as_ref()
+                            .to_vec()
+                    })
                     .collect()
             }
 
@@ -118,7 +157,11 @@ impl ChaoticSemanticFramework {
             {
                 queries
                     .iter()
-                    .map(|q| sing.find_similar(&ns, q, top_k))
+                    .map(|query| {
+                        sing.find_similar_active(&ns, query, top_k, now, None)
+                            .as_ref()
+                            .to_vec()
+                    })
                     .collect()
             }
         };
@@ -138,13 +181,14 @@ impl ChaoticSemanticFramework {
         let out = {
             let sing = self.singularity.read().await;
             let ns = self.namespace.read().await;
+            let now = crate::singularity::unix_now_secs();
 
             #[cfg(all(not(target_arch = "wasm32"), feature = "parallel"))]
             {
                 use rayon::prelude::*;
                 queries
                     .par_iter()
-                    .map(|q| sing.find_similar_cached(&ns, q, top_k))
+                    .map(|query| sing.find_similar_active(&ns, query, top_k, now, None))
                     .collect()
             }
 
@@ -152,7 +196,7 @@ impl ChaoticSemanticFramework {
             {
                 queries
                     .iter()
-                    .map(|q| sing.find_similar_cached(&ns, q, top_k))
+                    .map(|query| sing.find_similar_active(&ns, query, top_k, now, None))
                     .collect()
             }
         };
@@ -163,19 +207,40 @@ impl ChaoticSemanticFramework {
     #[instrument(err, skip(self), fields(id))]
     pub async fn update_concept_vector(&self, id: &str, vector: HVec10240) -> Result<()> {
         Self::validate_concept_id(id)?;
+        let _mutation = self.mutation_coordinator.lock().await;
         let ns = self.namespace().await;
-        let concept = {
-            let mut sing = self.singularity.write().await;
-            sing.update(&ns, id, vector)?;
-            sing.get(&ns, id).cloned()
+        let mut updated = {
+            let sing = self.singularity.read().await;
+            sing.get(&ns, id)
+                .cloned()
+                .ok_or_else(|| MemoryError::NotFound {
+                    entity: "Concept".to_string(),
+                    id: id.to_string(),
+                })?
         };
+        updated.vector = vector;
+        updated.modified_at = unix_now_secs();
 
-        if let (Some(concept), Some(persistence)) = (concept, &self.persistence) {
-            persistence.save_concept(&ns, &concept).await?;
+        if let Some(persistence) = &self.persistence {
+            persistence.save_concept(&ns, &updated).await?;
+        }
+        let apply_result = self.singularity.write().await.inject(&ns, updated.clone());
+        if let Err(error) = apply_result {
+            if self.persistence.is_some() {
+                if let Err(reload) = self.reload_namespace_from_rows(&ns).await {
+                    return Err(MemoryError::database(format!(
+                        "post-commit vector update failed ({error}); namespace reconciliation failed ({reload})"
+                    )));
+                }
+                return Err(MemoryError::database(format!(
+                    "post-commit vector update failed ({error}); namespace was reloaded from durable rows"
+                )));
+            }
+            return Err(error);
         }
         self.emit_event(MemoryEvent::ConceptUpdated {
             id: id.to_string(),
-            timestamp: unix_now_secs(),
+            timestamp: updated.modified_at,
         })
         .await;
         Ok(())
@@ -190,19 +255,41 @@ impl ChaoticSemanticFramework {
     ) -> Result<()> {
         Self::validate_concept_id(id)?;
         Self::validate_metadata_bytes(&metadata, self.config.max_metadata_bytes)?;
+        let _mutation = self.mutation_coordinator.lock().await;
         let ns = self.namespace().await;
-        let concept = {
-            let mut sing = self.singularity.write().await;
-            sing.update_metadata(&ns, id, metadata)?;
-            sing.get(&ns, id).cloned()
+        let mut updated = {
+            let sing = self.singularity.read().await;
+            sing.get(&ns, id)
+                .cloned()
+                .ok_or_else(|| MemoryError::NotFound {
+                    entity: "Concept".to_string(),
+                    id: id.to_string(),
+                })?
         };
+        updated.metadata = metadata;
+        updated.modified_at = unix_now_secs();
 
-        if let (Some(concept), Some(persistence)) = (concept, &self.persistence) {
-            persistence.save_concept(&ns, &concept).await?;
+        if let Some(persistence) = &self.persistence {
+            persistence.save_concept(&ns, &updated).await?;
         }
+        let apply_result = self.singularity.write().await.inject(&ns, updated.clone());
+        if let Err(error) = apply_result {
+            if self.persistence.is_some() {
+                if let Err(reload) = self.reload_namespace_from_rows(&ns).await {
+                    return Err(MemoryError::database(format!(
+                        "post-commit metadata update failed ({error}); namespace reconciliation failed ({reload})"
+                    )));
+                }
+                return Err(MemoryError::database(format!(
+                    "post-commit metadata update failed ({error}); namespace was reloaded from durable rows"
+                )));
+            }
+            return Err(error);
+        }
+        self.invalidate_text_index(&ns).await;
         self.emit_event(MemoryEvent::ConceptUpdated {
             id: id.to_string(),
-            timestamp: unix_now_secs(),
+            timestamp: updated.modified_at,
         })
         .await;
         Ok(())
@@ -213,14 +300,25 @@ impl ChaoticSemanticFramework {
     pub async fn disassociate(&self, from: &str, to: &str) -> Result<()> {
         Self::validate_concept_id(from)?;
         Self::validate_concept_id(to)?;
+        let _mutation = self.mutation_coordinator.lock().await;
         let ns = self.namespace().await;
-        {
-            let mut sing = self.singularity.write().await;
-            sing.disassociate(&ns, from, to)?;
-        }
 
         if let Some(persistence) = &self.persistence {
             persistence.delete_association(&ns, from, to).await?;
+        }
+        let apply_result = self.singularity.write().await.disassociate(&ns, from, to);
+        if let Err(error) = apply_result {
+            if self.persistence.is_some() {
+                if let Err(reload) = self.reload_namespace_from_rows(&ns).await {
+                    return Err(MemoryError::database(format!(
+                        "post-commit disassociate failed ({error}); namespace reconciliation failed ({reload})"
+                    )));
+                }
+                return Err(MemoryError::database(format!(
+                    "post-commit disassociate failed ({error}); namespace was reloaded from durable rows"
+                )));
+            }
+            return Err(error);
         }
         self.emit_event(MemoryEvent::Disassociated {
             from: from.to_string(),
@@ -234,14 +332,25 @@ impl ChaoticSemanticFramework {
     #[instrument(err, skip(self), fields(id))]
     pub async fn clear_associations(&self, id: &str) -> Result<()> {
         Self::validate_concept_id(id)?;
+        let _mutation = self.mutation_coordinator.lock().await;
         let ns = self.namespace().await;
-        {
-            let mut sing = self.singularity.write().await;
-            sing.clear_associations(&ns, id)?;
-        }
 
         if let Some(persistence) = &self.persistence {
             persistence.clear_concept_associations(&ns, id).await?;
+        }
+        let apply_result = self.singularity.write().await.clear_associations(&ns, id);
+        if let Err(error) = apply_result {
+            if self.persistence.is_some() {
+                if let Err(reload) = self.reload_namespace_from_rows(&ns).await {
+                    return Err(MemoryError::database(format!(
+                        "post-commit association clear failed ({error}); namespace reconciliation failed ({reload})"
+                    )));
+                }
+                return Err(MemoryError::database(format!(
+                    "post-commit association clear failed ({error}); namespace was reloaded from durable rows"
+                )));
+            }
+            return Err(error);
         }
         Ok(())
     }
