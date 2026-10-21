@@ -8,7 +8,9 @@ async fn main() {
         std::fs::remove_file(db_path).unwrap();
     }
 
-    // Creating persistence with current code should initialize it to latest version (8)
+    // Creating persistence with current code should initialize it to the
+    // latest schema version. Keep this example aligned with the migration
+    // owner so it remains useful after schema bumps.
     let p = Persistence::new_local(db_path)
         .await
         .expect("Failed to create persistence");

@@ -41,10 +41,10 @@ fn rss_bytes() -> u64 {
 
 /// Bytes held by the database and its WAL/shared-memory sidecars.
 fn sqlite_bytes(db: &std::path::Path) -> u64 {
-    let mut total = std::fs::metadata(db).map(|m| m.len()).unwrap_or(0);
+    let mut total = std::fs::metadata(db).map_or(0, |m| m.len());
     for suffix in ["-wal", "-shm"] {
         let sidecar = std::path::PathBuf::from(format!("{}{suffix}", db.display()));
-        total += std::fs::metadata(&sidecar).map(|m| m.len()).unwrap_or(0);
+        total += std::fs::metadata(&sidecar).map_or(0, |m| m.len());
     }
     total
 }
@@ -150,7 +150,7 @@ async fn local_persistence_roundtrip_p50_under_20ms() {
     }
 
     let p50 = p50_ms(&mut durations_ms);
-    let persisted_bytes = std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0);
+    let persisted_bytes = std::fs::metadata(&db_path).map_or(0, |m| m.len());
     println!("LOCAL_ROUNDTRIP_P50_MS={p50:.3} PERSISTED_BYTES={persisted_bytes}");
     assert!(
         p50 < threshold_ms,

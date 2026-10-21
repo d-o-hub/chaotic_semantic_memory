@@ -2,6 +2,7 @@
 use assert_cmd::Command;
 use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
+use std::io::Write;
 use tempfile::NamedTempFile;
 
 fn csm() -> Command {
@@ -279,4 +280,47 @@ fn workflow_inject_export() {
         .arg(o.path())
         .assert()
         .success();
+}
+
+#[test]
+fn workflow_index_long_jsonl_and_query_returns_stable_json_identifier() {
+    let d = db();
+    let mut source = NamedTempFile::new().unwrap();
+    writeln!(
+        source,
+        r#"{{"id":"long-document","text":"{}needlequasar"}}"#,
+        "padding ".repeat(35)
+    )
+    .unwrap();
+
+    csm()
+        .arg("--database")
+        .arg(d.path())
+        .arg("index-jsonl")
+        .arg("--file")
+        .arg(source.path())
+        .arg("--id-field")
+        .arg("id")
+        .assert()
+        .success();
+
+    let output = csm()
+        .arg("--database")
+        .arg(d.path())
+        .arg("query")
+        .arg("needlequasar")
+        .arg("--keyword-only")
+        .arg("--format")
+        .arg("json")
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let results: serde_json::Value = serde_json::from_slice(&output).unwrap();
+    assert_eq!(results[0]["concept_id"], "long-document");
+    assert!(
+        results[0]["metadata"].get("searchable_text").is_none(),
+        "private full-text index content must not leak into CLI JSON"
+    );
 }

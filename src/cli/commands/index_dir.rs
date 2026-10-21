@@ -54,7 +54,7 @@ pub async fn run_index_dir(
             // Chunk by headings
             let chunks = chunk_by_heading(&content, args.heading_level);
 
-            for (chunk_idx, chunk) in chunks.iter().enumerate() {
+            for (chunk_idx, chunk) in chunks.into_iter().enumerate() {
                 if chunk.content.trim().is_empty() {
                     skipped_count += 1;
                     continue;
@@ -76,27 +76,31 @@ pub async fn run_index_dir(
                 metadata.insert("path".to_string(), serde_json::Value::String(path_str));
                 metadata.insert(
                     "heading".to_string(),
-                    serde_json::Value::String(chunk.heading.clone()),
+                    serde_json::Value::String(chunk.heading),
                 );
                 metadata.insert(
                     "level".to_string(),
                     serde_json::Value::Number(chunk.level.into()),
                 );
+                let preview = truncate_preview(&chunk.content, 200);
+                metadata.insert(
+                    "searchable_text".to_string(),
+                    serde_json::Value::String(chunk.content),
+                );
                 metadata.insert(
                     "content_preview".to_string(),
-                    serde_json::Value::String(truncate_preview(&chunk.content, 200)),
+                    serde_json::Value::String(preview),
                 );
 
                 // Store file modification time as Unix timestamp
-                if let Ok(file_meta) = fs::metadata(&path) {
-                    if let Ok(modified) = file_meta.modified() {
-                        if let Ok(ts) = modified.duration_since(std::time::UNIX_EPOCH) {
-                            metadata.insert(
-                                "modified_at".to_string(),
-                                serde_json::Value::Number(ts.as_secs().into()),
-                            );
-                        }
-                    }
+                if let Ok(file_meta) = fs::metadata(&path)
+                    && let Ok(modified) = file_meta.modified()
+                    && let Ok(ts) = modified.duration_since(std::time::UNIX_EPOCH)
+                {
+                    metadata.insert(
+                        "modified_at".to_string(),
+                        serde_json::Value::Number(ts.as_secs().into()),
+                    );
                 }
 
                 framework
@@ -146,14 +150,15 @@ pub fn chunk_by_heading(content: &str, min_level: usize) -> Vec<MarkdownChunk> {
 
         if let Some((level, heading_text)) = heading_match {
             // Save previous chunk if it meets min_level
-            if let Some(level) = current_level {
-                if level >= min_level && !current_content.trim().is_empty() {
-                    chunks.push(MarkdownChunk {
-                        heading: current_heading.clone().unwrap_or_default(),
-                        level,
-                        content: current_content.trim().to_string(),
-                    });
-                }
+            if let Some(level) = current_level
+                && level >= min_level
+                && !current_content.trim().is_empty()
+            {
+                chunks.push(MarkdownChunk {
+                    heading: current_heading.clone().unwrap_or_default(),
+                    level,
+                    content: current_content.trim().to_string(),
+                });
             }
 
             // Start new chunk
@@ -168,14 +173,15 @@ pub fn chunk_by_heading(content: &str, min_level: usize) -> Vec<MarkdownChunk> {
     }
 
     // Save final chunk
-    if let Some(level) = current_level {
-        if level >= min_level && !current_content.trim().is_empty() {
-            chunks.push(MarkdownChunk {
-                heading: current_heading.unwrap_or_default(),
-                level,
-                content: current_content.trim().to_string(),
-            });
-        }
+    if let Some(level) = current_level
+        && level >= min_level
+        && !current_content.trim().is_empty()
+    {
+        chunks.push(MarkdownChunk {
+            heading: current_heading.unwrap_or_default(),
+            level,
+            content: current_content.trim().to_string(),
+        });
     }
 
     chunks

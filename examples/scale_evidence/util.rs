@@ -187,10 +187,10 @@ pub fn rss_bytes() -> u64 {
 pub fn peak_rss_bytes() -> u64 {
     let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
     for line in status.lines() {
-        if let Some(rest) = line.strip_prefix("VmHWM:") {
-            if let Some(kb) = rest.split_whitespace().next() {
-                return kb.parse::<u64>().unwrap_or(0) * 1024;
-            }
+        if let Some(rest) = line.strip_prefix("VmHWM:")
+            && let Some(kb) = rest.split_whitespace().next()
+        {
+            return kb.parse::<u64>().unwrap_or(0) * 1024;
         }
     }
     0
@@ -198,7 +198,7 @@ pub fn peak_rss_bytes() -> u64 {
 
 /// Size in bytes of a file, or 0 when absent.
 pub fn file_bytes(path: &std::path::Path) -> u64 {
-    std::fs::metadata(path).map(|m| m.len()).unwrap_or(0)
+    std::fs::metadata(path).map_or(0, |m| m.len())
 }
 
 /// `db`, `db-wal` and `db-shm` sizes: ADR-0095 requires persisted DB, WAL and
