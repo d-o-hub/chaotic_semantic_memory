@@ -12,8 +12,8 @@ use std::net::SocketAddr;
 use std::sync::OnceLock;
 
 use prometheus::{
-    Encoder, Histogram, HistogramOpts, HistogramVec, IntCounterVec, IntGauge, Opts, Registry,
-    TextEncoder,
+    Encoder, Histogram, HistogramOpts, HistogramVec, IntCounter, IntCounterVec, IntGauge, Opts,
+    Registry, TextEncoder,
 };
 use tokio::sync::oneshot;
 
@@ -31,6 +31,12 @@ struct Metrics {
     probe_latency_ms: Histogram,
     inject_total: IntCounterVec,
     persist_latency_ms: HistogramVec,
+    import_failures: IntCounterVec,
+    stale_snapshot_rebuilds: IntCounterVec,
+    absence_short_circuits: IntCounter,
+    ttl_purge_runs: IntCounterVec,
+    ttl_purged_concepts: IntCounter,
+    persistence_reconciliations: IntCounter,
     concepts_count: IntGauge,
     associations_count: IntGauge,
     cache_hit_ratio: IntGauge,
@@ -80,6 +86,57 @@ fn ensure_metrics() -> &'static Metrics {
         r.register(Box::new(persist_latency_ms.clone()))
             .expect("register persist_latency_ms");
 
+        let import_failures = IntCounterVec::new(
+            Opts::new("csm_import_failures_total", "Failed import operations."),
+            &["format"],
+        )
+        .expect("counter construction");
+        r.register(Box::new(import_failures.clone()))
+            .expect("register import_failures");
+
+        let stale_snapshot_rebuilds = IntCounterVec::new(
+            Opts::new(
+                "csm_stale_snapshot_rebuilds_total",
+                "ANN snapshots rejected or rebuilt because cached state was stale or invalid.",
+            ),
+            &["reason"],
+        )
+        .expect("counter construction");
+        r.register(Box::new(stale_snapshot_rebuilds.clone()))
+            .expect("register stale_snapshot_rebuilds");
+
+        let absence_short_circuits = IntCounter::new(
+            "csm_absence_short_circuits_total",
+            "Retrieval requests short-circuited by a scoped negative cache entry.",
+        )
+        .expect("counter construction");
+        r.register(Box::new(absence_short_circuits.clone()))
+            .expect("register absence_short_circuits");
+
+        let ttl_purge_runs = IntCounterVec::new(
+            Opts::new("csm_ttl_purge_total", "Completed TTL purge operations."),
+            &["result"],
+        )
+        .expect("counter construction");
+        r.register(Box::new(ttl_purge_runs.clone()))
+            .expect("register ttl_purge_runs");
+
+        let ttl_purged_concepts = IntCounter::new(
+            "csm_ttl_purged_concepts_total",
+            "Concepts removed by successful TTL purge operations.",
+        )
+        .expect("counter construction");
+        r.register(Box::new(ttl_purged_concepts.clone()))
+            .expect("register ttl_purged_concepts");
+
+        let persistence_reconciliations = IntCounter::new(
+            "csm_persistence_reconciliations_total",
+            "Namespace reloads from authoritative persistence rows.",
+        )
+        .expect("counter construction");
+        r.register(Box::new(persistence_reconciliations.clone()))
+            .expect("register persistence_reconciliations");
+
         let concepts_count = IntGauge::new(
             "csm_concepts_count",
             "Number of active concepts in the in-memory store.",
@@ -112,6 +169,12 @@ fn ensure_metrics() -> &'static Metrics {
             concepts_count,
             associations_count,
             cache_hit_ratio,
+            import_failures,
+            stale_snapshot_rebuilds,
+            absence_short_circuits,
+            ttl_purge_runs,
+            ttl_purged_concepts,
+            persistence_reconciliations,
         }
     })
 }
@@ -136,6 +199,43 @@ pub fn record_persist(op: &str, latency_ms: f64) {
     m.persist_latency_ms
         .with_label_values(&[op])
         .observe(latency_ms);
+}
+
+/// Record a rejected import using a bounded format label.
+pub(crate) fn record_import_failure(format: &str) {
+    ensure_metrics()
+        .import_failures
+        .with_label_values(&[format])
+        .inc();
+}
+
+/// Record a snapshot rebuild caused by stale or invalid derived state.
+pub(crate) fn record_stale_snapshot_rebuild(reason: &str) {
+    ensure_metrics()
+        .stale_snapshot_rebuilds
+        .with_label_values(&[reason])
+        .inc();
+}
+
+/// Record a request skipped by a current, scoped negative-cache entry.
+pub(crate) fn record_absence_short_circuit() {
+    ensure_metrics().absence_short_circuits.inc();
+}
+
+/// Record one completed TTL purge and its removed concept count.
+pub(crate) fn record_ttl_purge(result: &str, concepts: usize) {
+    let metrics = ensure_metrics();
+    metrics.ttl_purge_runs.with_label_values(&[result]).inc();
+    if result == "success"
+        && let Ok(count) = u64::try_from(concepts)
+    {
+        metrics.ttl_purged_concepts.inc_by(count);
+    }
+}
+
+/// Record a reload from authoritative persistence rows.
+pub(crate) fn record_persistence_reconciliation() {
+    ensure_metrics().persistence_reconciliations.inc();
 }
 
 /// Update the size gauges (best-effort; failure is ignored).
@@ -248,4 +348,46 @@ pub fn start_server(bind: SocketAddr) -> Result<PromServerHandle> {
         addr,
         shutdown: Some(tx),
     })
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_counter_at_least(metrics: &str, name: &str, minimum: f64) {
+        let sample = metrics
+            .lines()
+            .find(|line| line.starts_with(name))
+            .expect("counter sample should be rendered");
+        let value = sample
+            .split_whitespace()
+            .nth(1)
+            .expect("counter sample should include a value")
+            .parse::<f64>()
+            .expect("counter sample should contain a numeric value");
+        assert!(
+            value >= minimum,
+            "{name} expected at least {minimum}, got {value}"
+        );
+    }
+
+    #[test]
+    fn operational_counters_are_exposed_with_bounded_labels() {
+        record_import_failure("json");
+        record_stale_snapshot_rebuild("revision_mismatch");
+        record_absence_short_circuit();
+        record_ttl_purge("success", 2);
+        record_persistence_reconciliation();
+
+        let metrics = render().expect("metrics should render");
+        assert_counter_at_least(&metrics, "csm_import_failures_total{format=\"json\"}", 1.0);
+        assert_counter_at_least(
+            &metrics,
+            "csm_stale_snapshot_rebuilds_total{reason=\"revision_mismatch\"}",
+            1.0,
+        );
+        assert_counter_at_least(&metrics, "csm_absence_short_circuits_total", 1.0);
+        assert_counter_at_least(&metrics, "csm_ttl_purge_total{result=\"success\"}", 1.0);
+        assert_counter_at_least(&metrics, "csm_ttl_purged_concepts_total", 2.0);
+        assert_counter_at_least(&metrics, "csm_persistence_reconciliations_total", 1.0);
+    }
 }
