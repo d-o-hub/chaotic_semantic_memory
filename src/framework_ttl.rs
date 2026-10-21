@@ -48,10 +48,10 @@ impl crate::framework::ChaoticSemanticFramework {
             TtlPolicy::Fixed(ttl) => Some(*ttl),
             TtlPolicy::MetadataRule(rules) => {
                 for rule in rules {
-                    if let Some(val) = metadata.get(&rule.key) {
-                        if val == &rule.value {
-                            return Some(rule.ttl_seconds);
-                        }
+                    if let Some(val) = metadata.get(&rule.key)
+                        && val == &rule.value
+                    {
+                        return Some(rule.ttl_seconds);
                     }
                 }
                 None
@@ -59,14 +59,13 @@ impl crate::framework::ChaoticSemanticFramework {
             TtlPolicy::Inherit => {
                 // Check outgoing associations (inheritance from what we point TO)
                 let outgoing = self.get_associations(id).await.ok().unwrap_or_default();
-                if let Some((source_id, _)) = outgoing.first() {
-                    if let Ok(Some(concept)) = self.get_concept(source_id).await {
-                        if let Some(exp) = concept.expires_at {
-                            let now = crate::singularity::unix_now_secs();
-                            if exp > now {
-                                return Some(exp - now);
-                            }
-                        }
+                if let Some((source_id, _)) = outgoing.first()
+                    && let Ok(Some(concept)) = self.get_concept(source_id).await
+                    && let Some(exp) = concept.expires_at
+                {
+                    let now = crate::singularity::unix_now_secs();
+                    if exp > now {
+                        return Some(exp - now);
                     }
                 }
                 None
@@ -82,12 +81,26 @@ impl crate::framework::ChaoticSemanticFramework {
         vector: HVec10240,
         ttl_seconds: u64,
     ) -> Result<()> {
-        let id = id.into();
+        self.inject_concept_with_ttl_metadata(id.into(), vector, ttl_seconds, HashMap::new())
+            .await
+    }
+
+    async fn inject_concept_with_ttl_metadata(
+        &self,
+        id: String,
+        vector: HVec10240,
+        ttl_seconds: u64,
+        metadata: HashMap<String, serde_json::Value>,
+    ) -> Result<()> {
         Self::validate_concept_id(&id)?;
-        let concept = ConceptBuilder::new(id.clone())
+        Self::validate_metadata_bytes(&metadata, self.config.max_metadata_bytes)?;
+        let mut builder = ConceptBuilder::new(id.clone())
             .with_vector(vector)
-            .with_ttl(ttl_seconds)
-            .build()?;
+            .with_ttl(ttl_seconds);
+        for (key, value) in metadata {
+            builder = builder.with_metadata(key, value);
+        }
+        let concept = builder.build()?;
 
         #[cfg(not(target_arch = "wasm32"))]
         let p_start = std::time::Instant::now();
@@ -120,63 +133,35 @@ impl crate::framework::ChaoticSemanticFramework {
         let vector = self
             .embedding_provider
             .project(&embedding, &self.projection);
-        self.inject_concept_with_ttl(id, vector, ttl_seconds).await
-    }
-
-    /// Purge all expired concepts. Returns the count of concepts removed.
-    #[instrument(err, skip(self))]
-    pub async fn purge_expired(&self) -> Result<usize> {
-        #[cfg(not(target_arch = "wasm32"))]
-        let start = std::time::Instant::now();
-        #[cfg(target_arch = "wasm32")]
-        let start = Date::now();
-
-        let cascading = self.config.ttl_config.cascading_purge;
-
-        let count = {
-            let mut sing = self.singularity.write().await;
-            let ns = self.namespace.read().await;
-            sing.purge_expired_cascading(&ns, cascading)
-        };
-
-        if count > 0 {
-            #[cfg(not(target_arch = "wasm32"))]
-            let duration_ms = start.elapsed().as_millis() as u64;
-            #[cfg(target_arch = "wasm32")]
-            let duration_ms = (Date::now() - start) as u64;
-
-            self.emit_chaotic_event(
-                crate::framework_events_ce::ChaoticEvent::MemoryConsolidated {
-                    episode_count: count,
-                    duration_ms,
-                },
-            )
-            .await;
-        }
-
-        Ok(count)
+        let metadata = HashMap::from([(
+            "searchable_text".to_string(),
+            serde_json::Value::String(text.to_string()),
+        )]);
+        self.inject_concept_with_ttl_metadata(id.to_string(), vector, ttl_seconds, metadata)
+            .await
     }
 
     /// Inject a concept from text using the embedding provider. Convenience for storing text-based concepts.
     pub async fn inject_text(&self, id: &str, text: &str) -> Result<()> {
-        let embedding = self.embedding_provider.embed(text).await?;
-        let vector = self
-            .embedding_provider
-            .project(&embedding, &self.projection);
-        self.inject_concept(id, vector).await
+        self.inject_text_with_metadata(id, text, HashMap::new())
+            .await
     }
 
-    /// Inject a concept from text with metadata.
+    /// Inject a concept from text with metadata and preserve the searchable source text.
     pub async fn inject_text_with_metadata(
         &self,
         id: &str,
         text: &str,
-        metadata: HashMap<String, serde_json::Value>,
+        mut metadata: HashMap<String, serde_json::Value>,
     ) -> Result<()> {
         let embedding = self.embedding_provider.embed(text).await?;
         let vector = self
             .embedding_provider
             .project(&embedding, &self.projection);
+        metadata.insert(
+            "searchable_text".to_string(),
+            serde_json::Value::String(text.to_string()),
+        );
         self.inject_concept_with_metadata(id, vector, metadata)
             .await
     }
@@ -197,6 +182,13 @@ impl crate::framework::ChaoticSemanticFramework {
             };
         };
         let namespace = self.namespace.read().await.clone();
+        let Some(scope) = self.absence_scope_key(&namespace) else {
+            return AbsenceShortCircuit {
+                revision: 0,
+                record_id: None,
+                result: None,
+            };
+        };
         // A record is only authoritative for the content it was observed
         // against, so the decision needs the namespace's current revision —
         // bumped by every durable concept mutation (ADR-0093). An unreadable
@@ -210,14 +202,19 @@ impl crate::framework::ChaoticSemanticFramework {
                 result: None,
             };
         };
-        let lookup = crate::retrieval::bm25::lookup_absence(
+        let lookup = crate::retrieval::bm25::lookup_absence_scoped(
             query,
+            &scope,
             store.as_ref(),
             ABSENCE_MIN_ATTEMPTS,
             &namespace,
             revision,
         )
         .await;
+        if lookup.short_circuit {
+            #[cfg(feature = "prometheus")]
+            crate::observability::prom::record_absence_short_circuit();
+        }
         let result = lookup.short_circuit.then(|| {
             crate::retrieval::hybrid::HybridResult::Abstained(
                 crate::retrieval::hybrid::RetrievalAbstention {
@@ -234,6 +231,18 @@ impl crate::framework::ChaoticSemanticFramework {
             record_id: lookup.entry_id,
             result,
         }
+    }
+    #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
+    fn absence_scope_key(&self, namespace: &str) -> Option<String> {
+        if self.embedding_provider.name() != "hdc-text" {
+            return None;
+        }
+        Some(format!(
+            "semantic-only-v1|namespace={namespace}|provider={}|dimension={}|threshold={:08x}|filter=none",
+            self.embedding_provider.name(),
+            self.embedding_provider.native_dim(),
+            self.config.pattern_recognition_threshold.to_bits(),
+        ))
     }
 
     /// Current namespace revision, or `None` when persistence cannot read it.
@@ -260,11 +269,15 @@ impl crate::framework::ChaoticSemanticFramework {
             return;
         };
         let namespace = self.namespace.read().await.clone();
-        if let Err(e) = crate::bridge_persistence::persist_absence(
+        let Some(scope) = self.absence_scope_key(&namespace) else {
+            return;
+        };
+        if let Err(e) = crate::bridge_persistence::persist_absence_scoped(
             abstention,
             store.as_ref(),
             &namespace,
             namespace_revision,
+            &scope,
         )
         .await
         {
@@ -288,8 +301,8 @@ impl crate::framework::ChaoticSemanticFramework {
         }
     }
 
-    /// Probe for similar concepts using text input. Encodes the query text via the embedding provider.
-    pub async fn probe_text(&self, query: &str, top_k: usize) -> Result<HybridResult> {
+    /// Probe using semantic-only HDC retrieval and the configured embedding provider.
+    pub async fn probe_text_semantic(&self, query: &str, top_k: usize) -> Result<HybridResult> {
         #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
         let absence = self.absence_short_circuit(query).await;
         #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
@@ -342,56 +355,6 @@ impl crate::framework::ChaoticSemanticFramework {
             .last_retrieval_stats(&ns)
             .best_score_seen;
         Ok((results, best_score))
-    }
-
-    /// Probe for similar concepts using text input and metadata filtering.
-    pub async fn probe_text_filtered(
-        &self,
-        query: &str,
-        top_k: usize,
-        filter: &MetadataFilter,
-    ) -> Result<HybridResult> {
-        #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-        let absence = self.absence_short_circuit(query).await;
-        #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-        if let Some(result) = absence.result {
-            return Ok(result);
-        }
-
-        let embedding = self.embedding_provider.embed(query).await?;
-        let vector = self
-            .embedding_provider
-            .project(&embedding, &self.projection);
-        let results = self.probe_filtered(&vector, top_k, filter).await?;
-
-        if results.is_empty() {
-            let ns = self.namespace.read().await;
-            let best_score = self
-                .singularity
-                .read()
-                .await
-                .last_retrieval_stats(&ns)
-                .best_score_seen;
-
-            let abstention = RetrievalAbstention {
-                query: query.to_string(),
-                min_score_threshold: self.config.pattern_recognition_threshold as f32,
-                best_score_seen: best_score,
-                attempted_modes: vec!["Filtered".to_string()],
-                timestamp: chrono::Utc::now(),
-            };
-
-            #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-            self.persist_absence_record(&abstention, absence.revision)
-                .await;
-
-            Ok(HybridResult::Abstained(abstention))
-        } else {
-            #[cfg(all(not(target_arch = "wasm32"), feature = "persistence"))]
-            self.clear_absence_record(absence.record_id).await;
-
-            Ok(HybridResult::Success(results))
-        }
     }
 
     /// Query for a session using text input. Filters results to those with matching `session_id` metadata.
