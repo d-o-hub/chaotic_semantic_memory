@@ -496,9 +496,9 @@ jobs:
         if ! grep -q '^\[package.metadata.wasm-pack.profile.release\]' crates/csm-wasm/Cargo.toml; then
           cat >> crates/csm-wasm/Cargo.toml <<'EOF'
 
-[package.metadata.wasm-pack.profile.release]
-wasm-opt = ["-O4", "--enable-bulk-memory"]
-EOF
+        [package.metadata.wasm-pack.profile.release]
+        wasm-opt = ["-O4", "--enable-bulk-memory"]
+        EOF
         fi
         bash scripts/build-wasm.sh release-web
         jq ".version = \"${{ needs.validate.outputs.version }}\"" wasm/package.json > wasm/package.json.tmp
