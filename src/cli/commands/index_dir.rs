@@ -31,7 +31,7 @@ pub async fn run_index_dir(
     args: IndexDirArgs,
     db_path: Option<&Path>,
     format: OutputFormat,
-) -> Result<()> {
+) -> Result<IndexDirSummary> {
     let framework: crate::framework::ChaoticSemanticFramework =
         create_framework_with_namespace(db_path, &args.namespace).await?;
 
@@ -261,34 +261,81 @@ pub async fn run_index_dir(
         deleted_count += 1;
     }
 
-    let file_count = staged_files.len();
+    let summary = IndexDirSummary {
+        files_processed: staged_files.len(),
+        chunks_indexed: indexed_count,
+        chunks_replaced: replaced_count,
+        chunks_deleted: deleted_count,
+        skipped: skipped_count,
+        namespace: args.namespace.clone(),
+        scope: declared_scope.clone(),
+        sync_mode: args.sync,
+    };
 
+    match index_dir_report(&summary, format) {
+        IndexDirReport::Json(json) => println!("{json}"),
+        IndexDirReport::Message(message) => print_success(&message, format),
+    }
+
+    Ok(summary)
+}
+
+/// Counters and scope identity describing one completed `index-dir` run.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IndexDirSummary {
+    /// Number of matched source files staged for indexing.
+    pub files_processed: usize,
+    /// Chunks inserted that were not present before this run.
+    pub chunks_indexed: usize,
+    /// Chunks whose ids already existed and were re-injected.
+    pub chunks_replaced: usize,
+    /// Obsolete chunks deleted by synchronization (sync mode only).
+    pub chunks_deleted: usize,
+    /// Empty chunks skipped during staging.
+    pub skipped: usize,
+    /// Namespace the run operated on.
+    pub namespace: String,
+    /// Effective managed scope (declared, or glob-derived).
+    pub scope: String,
+    /// Whether source synchronization was enabled.
+    pub sync_mode: bool,
+}
+
+/// Rendered user-facing output for an `index-dir` run, selected by format.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum IndexDirReport {
+    /// Pretty-printed JSON object, rendered for `OutputFormat::Json`.
+    Json(String),
+    /// Human-readable success line, handed to `print_success` otherwise.
+    Message(String),
+}
+
+/// Build the user-facing report for `summary` under `format`.
+pub(crate) fn index_dir_report(summary: &IndexDirSummary, format: OutputFormat) -> IndexDirReport {
     if format == OutputFormat::Json {
         let output = serde_json::json!({
             "status": "success",
-            "files_processed": file_count,
-            "chunks_indexed": indexed_count,
-            "chunks_replaced": replaced_count,
-            "chunks_deleted": deleted_count,
-            "skipped": skipped_count,
-            "namespace": args.namespace,
-            "scope": declared_scope,
-            "sync_mode": args.sync,
+            "files_processed": summary.files_processed,
+            "chunks_indexed": summary.chunks_indexed,
+            "chunks_replaced": summary.chunks_replaced,
+            "chunks_deleted": summary.chunks_deleted,
+            "skipped": summary.skipped,
+            "namespace": summary.namespace,
+            "scope": summary.scope,
+            "sync_mode": summary.sync_mode,
         });
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&output).unwrap_or_default()
-        );
+        IndexDirReport::Json(serde_json::to_string_pretty(&output).unwrap_or_default())
     } else {
-        print_success(
-            &format!(
-                "Indexed {indexed_count} new chunks ({replaced_count} replaced, {deleted_count} deleted) from {file_count} files ({skipped_count} skipped) [scope: {declared_scope}]"
-            ),
-            format,
-        );
+        IndexDirReport::Message(format!(
+            "Indexed {} new chunks ({} replaced, {} deleted) from {} files ({} skipped) [scope: {}]",
+            summary.chunks_indexed,
+            summary.chunks_replaced,
+            summary.chunks_deleted,
+            summary.files_processed,
+            summary.skipped,
+            summary.scope,
+        ))
     }
-
-    Ok(())
 }
 
 /// A chunk of markdown content.
@@ -384,3 +431,7 @@ fn parse_heading(line: &str) -> Option<(usize, String)> {
 #[cfg(test)]
 #[path = "index_dir_tests.rs"]
 mod index_dir_tests;
+
+#[cfg(test)]
+#[path = "index_dir_summary_tests.rs"]
+mod index_dir_summary_tests;

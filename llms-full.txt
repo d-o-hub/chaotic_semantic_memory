@@ -178,6 +178,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn normalize_source_path
 - pub fn compute_fingerprint
 - pub fn run_index_dir
+- pub struct IndexDirSummary
 - pub struct MarkdownChunk
 - pub fn chunk_by_heading
 
@@ -1913,6 +1914,24 @@ pub fn run_import(args: ImportArgs, db_path: Option<&Path>, format: OutputFormat
 
 ## src/cli/commands/index_dir.rs
 
+### IndexDirSummary
+
+```rust
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IndexDirSummary {
+    pub files_processed: usize,
+    pub chunks_indexed: usize,
+    pub chunks_replaced: usize,
+    pub chunks_deleted: usize,
+    pub skipped: usize,
+    pub namespace: String,
+    pub scope: String,
+    pub sync_mode: bool,
+}
+```
+
+Counters and scope identity describing one completed `index-dir` run.
+
 ### MarkdownChunk
 
 ```rust
@@ -1956,8 +1975,10 @@ Normalize source file path to ensure stable identity across invocation directori
 ### run_index_dir
 
 ```rust
-pub fn run_index_dir(args: IndexDirArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+pub fn run_index_dir(args: IndexDirArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<IndexDirSummary>
 ```
+
+## src/cli/commands/index_dir_summary_tests.rs
 
 ## src/cli/commands/index_dir_tests.rs
 

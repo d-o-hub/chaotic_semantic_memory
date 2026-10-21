@@ -303,9 +303,9 @@ workflow:
 current_status:
   active_wave: 33
   swarm_groups: 5
-  total_tests: 1054
-  tests_passing: 1054
-  modules_under_loc_limit: 101/101
+  total_tests: 1064
+  tests_passing: 1064
+  modules_under_loc_limit: 102/102
   performance_gates: 4/4 passing
   
 guardrails:

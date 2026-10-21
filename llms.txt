@@ -178,6 +178,7 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 - pub fn normalize_source_path
 - pub fn compute_fingerprint
 - pub fn run_index_dir
+- pub struct IndexDirSummary
 - pub struct MarkdownChunk
 - pub fn chunk_by_heading
 

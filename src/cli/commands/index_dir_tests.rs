@@ -227,9 +227,14 @@ async fn test_run_index_dir_reconciliation_branches_and_counts() {
         sync: false,
         scope: None,
     };
-    run_index_dir(args1, Some(&db_path), OutputFormat::Table)
+    let summary1 = run_index_dir(args1, Some(&db_path), OutputFormat::Table)
         .await
         .unwrap();
+    assert_eq!(summary1.files_processed, 1);
+    assert_eq!(summary1.chunks_indexed, 2);
+    assert_eq!(summary1.chunks_replaced, 0);
+    assert_eq!(summary1.chunks_deleted, 0);
+    assert!(!summary1.sync_mode);
 
     let fw1 = create_framework_with_namespace(Some(&db_path), "counts_ns")
         .await
@@ -267,9 +272,14 @@ async fn test_run_index_dir_reconciliation_branches_and_counts() {
         scope: None,
     };
 
-    run_index_dir(args2.clone(), Some(&db_path), OutputFormat::Json)
+    let summary2 = run_index_dir(args2.clone(), Some(&db_path), OutputFormat::Json)
         .await
         .unwrap();
+    assert_eq!(summary2.files_processed, 1);
+    assert_eq!(summary2.chunks_indexed, 0);
+    assert_eq!(summary2.chunks_replaced, 1);
+    assert_eq!(summary2.chunks_deleted, 2);
+    assert!(summary2.sync_mode);
 
     let fw2 = create_framework_with_namespace(Some(&db_path), "counts_ns")
         .await
@@ -305,9 +315,13 @@ async fn test_run_index_dir_reconciliation_branches_and_counts() {
     // 3. Delete file and reindex scope with sync=true: scope should become completely empty
     fs::remove_file(&file1).unwrap();
 
-    run_index_dir(args2, Some(&db_path), OutputFormat::Json)
+    let summary3 = run_index_dir(args2, Some(&db_path), OutputFormat::Json)
         .await
         .unwrap();
+    assert_eq!(summary3.files_processed, 0);
+    assert_eq!(summary3.chunks_indexed, 0);
+    assert_eq!(summary3.chunks_replaced, 0);
+    assert_eq!(summary3.chunks_deleted, 1);
 
     let fw3 = create_framework_with_namespace(Some(&db_path), "counts_ns")
         .await
