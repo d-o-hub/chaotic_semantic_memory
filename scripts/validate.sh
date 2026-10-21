@@ -291,6 +291,17 @@ else
   exit 1
 fi
 
+# Shared conventions validation (ADR-0090)
+if [[ -x "${SCRIPT_DIR}/check-shared-conventions.sh" ]]; then
+  echo "==> Shared conventions validation (fail-closed)"
+  "${SCRIPT_DIR}/check-shared-conventions.sh"
+  echo "==> Shared conventions gate fixture"
+  "${SCRIPT_DIR}/test-check-shared-conventions.sh"
+else
+  echo "Error: scripts/check-shared-conventions.sh missing or not executable"
+  exit 1
+fi
+
 # LLM context drift gate (#828): docs/architecture/context.yaml carried stale
 # counters for months (skills 19/33, ADRs 16/95, active_wave 11/33, tests
 # 134/1044) and two dead key-file paths, and nothing read the file. The

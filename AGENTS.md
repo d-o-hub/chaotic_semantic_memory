@@ -90,3 +90,4 @@ Build and maintain `chaotic_semantic_memory` as a production Rust crate for AI m
 - `@agents-docs/accuracy-guardrails.md` — API verification
 - `@agents-docs/quick-reference.md` — Commands and cheat sheet
 - `@agents-docs/self-learning-patterns.md` — Compound engineering
+- `@.agents/context/shared-conventions.md` — Shared cross-repository conventions (load only for cross-repo work)

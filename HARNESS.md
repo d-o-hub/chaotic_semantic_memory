@@ -133,6 +133,7 @@ Full list: [`agents-docs/hard-constraints.md`](agents-docs/hard-constraints.md).
 | GOAP world state | `plans/GOAP_STATE.md`, `plans/ACTIONS.md` |
 | ADRs | `plans/adr/`, `plans/ADR_REGISTRY.md` |
 | Skills | `.agents/skills/*/` (`testing-validation`, `rust-development`, `goap-planning`, …) |
+| Cross-repo context | `.agents/context/shared-conventions.md` (load only for cross-repo work) |
 | Quick commands | `agents-docs/quick-reference.md` |
 
 ---
