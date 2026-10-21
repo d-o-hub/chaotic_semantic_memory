@@ -78,6 +78,12 @@ pub fn probe_text_schema() -> Value {
                 "type": "integer",
                 "description": "Number of results to return",
                 "default": 10
+            },
+            "mode": {
+                "type": "string",
+                "enum": ["auto", "semantic_only", "keyword_only"],
+                "description": "Retrieval mode; semantic_only explicitly disables keyword search",
+                "default": "auto"
             }
         },
         "required": ["query"]

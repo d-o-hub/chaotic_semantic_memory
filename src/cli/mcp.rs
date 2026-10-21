@@ -11,13 +11,21 @@ pub enum McpCommands {
 #[cfg(feature = "mcp")]
 #[derive(Args, Debug, Clone)]
 pub struct McpServeArgs {
-    /// Transport to use: stdio, sse.
+    /// Transport to use: stdio or Streamable HTTP.
     #[arg(long, value_enum, default_value = "stdio")]
     pub transport: crate::mcp::TransportType,
 
-    /// Bind address for SSE transport (e.g. 127.0.0.1:8765).
+    /// Bind address for Streamable HTTP (e.g. 127.0.0.1:8765).
     #[arg(long)]
     pub bind: Option<String>,
+
+    /// Allowed HTTP Host values; repeat for each hostname or authority.
+    #[arg(long = "allowed-host")]
+    pub allowed_hosts: Vec<String>,
+
+    /// Allowed browser Origin values; repeat for each origin.
+    #[arg(long = "allowed-origin")]
+    pub allowed_origins: Vec<String>,
 
     /// Background TTL cleanup for this long-running server (0 = disabled).
     ///
@@ -70,17 +78,26 @@ mod tests {
             "mcp",
             "serve",
             "--transport",
-            "sse",
+            "streamable-http",
             "--bind",
             "127.0.0.1:8765",
+            "--allowed-host",
+            "memory.example",
+            "--allowed-origin",
+            "https://app.example",
             "--ttl-cleanup-interval",
             "7",
         ])
         .expect("mcp serve should parse every flag");
         match args.command {
             crate::cli::args::Commands::Mcp(McpCommands::Serve(cmd)) => {
-                assert!(matches!(cmd.transport, crate::mcp::TransportType::Sse));
+                assert!(matches!(
+                    cmd.transport,
+                    crate::mcp::TransportType::StreamableHttp
+                ));
                 assert_eq!(cmd.bind.as_deref(), Some("127.0.0.1:8765"));
+                assert_eq!(cmd.allowed_hosts, ["memory.example"]);
+                assert_eq!(cmd.allowed_origins, ["https://app.example"]);
                 assert_eq!(cmd.ttl_cleanup.ttl_cleanup_interval, 7);
             }
             other => panic!("expected Mcp::Serve, got {other:?}"),

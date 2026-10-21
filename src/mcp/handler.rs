@@ -2,6 +2,7 @@
 //!
 //! Combined tool and resource handler implementing rmcp::ServerHandler.
 
+use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -102,6 +103,17 @@ impl McpHandler {
     }
 }
 
+async fn with_cancellation<T>(
+    cancelled: impl Future<Output = ()>,
+    operation: impl Future<Output = Result<T, ErrorData>>,
+) -> Result<T, ErrorData> {
+    tokio::select! {
+        biased;
+        () = cancelled => Err(ErrorData::new(ErrorCode(-32800), "Request cancelled", None)),
+        result = operation => result,
+    }
+}
+
 impl ServerHandler for McpHandler {
     fn get_info(&self) -> ServerConfig {
         let mut caps = ServerCapabilities::default();
@@ -125,9 +137,13 @@ impl ServerHandler for McpHandler {
         context: RequestContext<RoleServer>,
     ) -> Result<InitializeResult, ErrorData> {
         if context.peer.peer_info().is_none() {
-            context.peer.set_peer_info(request);
+            context.peer.set_peer_info(request.clone());
         }
-        Ok(self.get_info())
+        self.negotiate_initialize(&request)
+    }
+
+    fn supported_protocol_versions(&self) -> Cow<'static, [ProtocolVersion]> {
+        Cow::Borrowed(ProtocolVersion::known_up_to(&ProtocolVersion::V_2026_07_28))
     }
 
     async fn list_tools(
@@ -192,21 +208,24 @@ impl ServerHandler for McpHandler {
     async fn call_tool(
         &self,
         request: CallToolRequestParams,
-        _context: RequestContext<RoleServer>,
+        context: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, ErrorData> {
         let name = request.name.as_ref();
         let args = request.arguments.map_or(Value::Null, Value::Object);
+        with_cancellation(context.ct.cancelled(), async {
+            let result = self
+                .execute_tool(name, args)
+                .await
+                .map_err(Self::map_error)?;
 
-        let result = self
-            .execute_tool(name, args)
-            .await
-            .map_err(Self::map_error)?;
-
-        Ok(CallToolResult::success(vec![ContentBlock::text(
-            #[allow(clippy::unwrap_used)] // serde_json serialization of valid data is infallible
-            serde_json::to_string_pretty(&result).unwrap(),
-        )])
-        .into())
+            Ok(CallToolResult::success(vec![ContentBlock::text(
+                #[allow(clippy::unwrap_used)]
+                // serde_json serialization of valid data is infallible
+                serde_json::to_string_pretty(&result).unwrap(),
+            )])
+            .into())
+        })
+        .await
     }
 
     async fn list_resources(

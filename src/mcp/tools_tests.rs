@@ -296,3 +296,44 @@ async fn test_handler_default_keeps_the_reaper_off() {
     );
     fw.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn text_query_keyword_mode_finds_long_document_and_returns_concept_id() {
+    let handler = handler_with_framework().await;
+    let text = format!("{}needlequasar", "padding ".repeat(35));
+    handler
+        .execute_tool(
+            "memory_inject_text",
+            json!({"concept_id": "long-document", "text": text}),
+        )
+        .await
+        .unwrap();
+
+    let result = handler
+        .execute_tool(
+            "memory_probe_text",
+            json!({
+                "query": "needlequasar",
+                "top_k": 1,
+                "mode": "keyword_only"
+            }),
+        )
+        .await
+        .unwrap();
+    assert_eq!(result["status"], "ok");
+    assert_eq!(result["results"][0]["concept_id"], "long-document");
+    assert!(result["results"][0]["score"].is_number());
+
+    let semantic = handler
+        .execute_tool(
+            "memory_probe_text",
+            json!({
+                "query": "needlequasar",
+                "top_k": 1,
+                "mode": "semantic_only"
+            }),
+        )
+        .await
+        .unwrap();
+    assert_eq!(semantic["results"][0]["concept_id"], "long-document");
+}

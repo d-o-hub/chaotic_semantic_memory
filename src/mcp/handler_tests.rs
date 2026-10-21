@@ -5,7 +5,7 @@
 //! These assertions live in the **lib** target deliberately. The mutation
 //! profile runs `--lib` only (`scripts/mutation_test.sh`), so an assertion that
 //! lives in `tests/**` cannot kill a mutant in `src/mcp/**` — the sharpness rule
-//! in `AGENTS.md` step 11. `tests/mcp_sse_integration.rs` still owns the
+//! in `AGENTS.md` step 11. `tests/mcp_streamable_http_integration.rs` owns the
 //! end-to-end HTTP path; this module owns the crate-internal one.
 //!
 //! Parent: `src/mcp/handler.rs`. Sibling coverage stays where it is:
@@ -13,7 +13,7 @@
 //! `server_tests.rs` owns the transport exit path.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use super::{McpHandler, res_def, tool_def};
+use super::{McpHandler, res_def, tool_def, with_cancellation};
 use crate::mcp::schema;
 use crate::metadata_filter::MetadataFilter;
 use base64::Engine;
@@ -82,7 +82,7 @@ fn every_advertised_tool_schema_names_and_requires_its_arguments() {
         (
             "memory_probe_text",
             schema::probe_text_schema,
-            &["query", "top_k"],
+            &["query", "top_k", "mode"],
             &["query"],
         ),
         (
@@ -458,4 +458,40 @@ async fn read_resource_serves_every_advertised_uri_and_rejects_unknown_ones() {
         unknown.to_string().contains("Unknown resource URI"),
         "{unknown}"
     );
+}
+
+#[tokio::test]
+async fn cancelled_tool_request_drops_work_and_returns_protocol_error() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use tokio::sync::oneshot;
+
+    struct DropSignal(Arc<AtomicBool>);
+    impl Drop for DropSignal {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::Relaxed);
+        }
+    }
+
+    let dropped = Arc::new(AtomicBool::new(false));
+    let drop_signal = DropSignal(Arc::clone(&dropped));
+    let (cancel_tx, cancel_rx) = oneshot::channel();
+    let (started_tx, started_rx) = oneshot::channel();
+    let operation = async move {
+        let _drop_signal = drop_signal;
+        started_tx.send(()).unwrap();
+        std::future::pending::<Result<(), rmcp::model::ErrorData>>().await
+    };
+    let task = tokio::spawn(with_cancellation(
+        async move {
+            let _ = cancel_rx.await;
+        },
+        operation,
+    ));
+
+    started_rx.await.unwrap();
+    cancel_tx.send(()).unwrap();
+    let error = task.await.unwrap().unwrap_err();
+    assert_eq!(error.code, ErrorCode(-32800));
+    assert!(dropped.load(Ordering::Relaxed));
 }
