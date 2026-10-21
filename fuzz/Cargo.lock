@@ -339,7 +339,7 @@ dependencies = [
 
 [[package]]
 name = "chaotic_semantic_memory"
-version = "0.3.8"
+version = "0.3.9"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -576,14 +576,14 @@ dependencies = [
 
 [[package]]
 name = "csm-chaos"
-version = "0.3.8"
+version = "0.3.9"
 dependencies = [
  "libm",
 ]
 
 [[package]]
 name = "csm-core-lib"
-version = "0.3.8"
+version = "0.3.9"
 dependencies = [
  "base64 0.22.1",
  "bincode",
@@ -600,7 +600,7 @@ dependencies = [
 
 [[package]]
 name = "csm-embedding"
-version = "0.3.8"
+version = "0.3.9"
 dependencies = [
  "async-trait",
  "csm-core-lib",
@@ -614,7 +614,7 @@ dependencies = [
 
 [[package]]
 name = "csm-memory"
-version = "0.3.8"
+version = "0.3.9"
 dependencies = [
  "bincode",
  "csm-core-lib",
@@ -629,7 +629,7 @@ dependencies = [
 
 [[package]]
 name = "csm-persistence"
-version = "0.3.8"
+version = "0.3.9"
 dependencies = [
  "async-trait",
  "csm-core-lib",
@@ -646,7 +646,7 @@ dependencies = [
 
 [[package]]
 name = "csm-retrieval"
-version = "0.3.8"
+version = "0.3.9"
 dependencies = [
  "async-trait",
  "chrono",
@@ -661,7 +661,7 @@ dependencies = [
 
 [[package]]
 name = "csm-traits"
-version = "0.3.8"
+version = "0.3.9"
 dependencies = [
  "async-trait",
  "chrono",

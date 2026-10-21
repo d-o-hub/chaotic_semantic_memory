@@ -165,7 +165,7 @@ jobs:
         echo "is-recovery=false" >> $GITHUB_OUTPUT
 
     - name: Create pull request with regenerated llms.txt
-      if: steps.tag.outputs.release-needed == true && steps.tag.outputs.is-recovery != true
+      if: steps.tag.outputs.release-needed == 'true' && steps.tag.outputs.is-recovery != 'true'
       uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
@@ -209,7 +209,7 @@ jobs:
             arch: x64
     runs-on: ${{ matrix.runner }}
     needs: validate
-    if: needs.validate.outputs.release-needed == true
+    if: needs.validate.outputs.release-needed == 'true'
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
@@ -256,7 +256,7 @@ jobs:
   build-wasm:
     runs-on: ubuntu-24.04
     needs: validate
-    if: needs.validate.outputs.release-needed == true
+    if: needs.validate.outputs.release-needed == 'true'
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
@@ -291,7 +291,7 @@ jobs:
   publish-crates:
     runs-on: ubuntu-24.04
     needs: [validate, build-cli-matrix]
-    if: needs.validate.outputs.release-needed == true
+    if: needs.validate.outputs.release-needed == 'true'
     environment: crates.io
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -375,7 +375,7 @@ jobs:
   create-github-release:
     runs-on: ubuntu-24.04
     needs: [validate, build-cli-matrix, build-wasm]
-    if: needs.validate.outputs.release-needed == true
+    if: needs.validate.outputs.release-needed == 'true'
     permissions:
       contents: write
     steps:
@@ -453,7 +453,7 @@ jobs:
   publish-npm-wasm:
     runs-on: ubuntu-24.04
     needs: [validate, build-wasm]
-    if: needs.validate.outputs.release-needed == true
+    if: needs.validate.outputs.release-needed == 'true'
     environment: npm
     permissions:
       id-token: write
@@ -491,7 +491,7 @@ jobs:
         fi
 
     - name: Build WASM package
-      if: steps.npm-check.outputs.already-published != true
+      if: steps.npm-check.outputs.already-published != 'true'
       run: |
         if ! grep -q '^\[package.metadata.wasm-pack.profile.release\]' crates/csm-wasm/Cargo.toml; then
           cat >> crates/csm-wasm/Cargo.toml <<'EOF'
@@ -505,7 +505,7 @@ EOF
         mv wasm/package.json.tmp wasm/package.json
 
     - name: Publish WASM to npm
-      if: steps.npm-check.outputs.already-published != true
+      if: steps.npm-check.outputs.already-published != 'true'
       run: |
         cd wasm
         npm publish --provenance --access public || npm publish --access public
@@ -515,7 +515,7 @@ EOF
   publish-npm-cli:
     runs-on: ubuntu-24.04
     needs: [validate, build-cli-matrix, create-github-release]
-    if: needs.validate.outputs.release-needed == true
+    if: needs.validate.outputs.release-needed == 'true'
     environment: npm-cli
     permissions:
       id-token: write
@@ -566,7 +566,7 @@ EOF
         fi
 
     - name: Build CLI npm package
-      if: steps.npm-check.outputs.already-published != true
+      if: steps.npm-check.outputs.already-published != 'true'
       run: |
         VERSION="${{ needs.validate.outputs.version }}"
         jq ".version = \"$VERSION\"" cli-npm/package.json > cli-npm/package.json.tmp
@@ -574,7 +574,7 @@ EOF
         cp LICENSE cli-npm/
 
     - name: Publish CLI to npm
-      if: steps.npm-check.outputs.already-published != true
+      if: steps.npm-check.outputs.already-published != 'true'
       run: |
         cd cli-npm
         npm publish --provenance --access public || npm publish --access public
