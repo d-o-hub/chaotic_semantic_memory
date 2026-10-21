@@ -5,23 +5,26 @@ description: "Validate the chaotic_semantic_memory crate: compile, test, lint, L
 
 # Testing Validation
 
-## Quick Validation
+## Required Validation
 
-Run `scripts/validate.sh` for the full gate sequence.
-
-## Gate Sequence (manual)
+Run both repository gates after implementation:
 
 ```bash
-# Minimal output mode (2026 best practice)
-export CARGO_TERM_PROGRESS_WHEN=never
-
-cargo check --message-format=short
-cargo test --all-features --quiet  # or: cargo nextest run --all-features
-cargo fmt --check
-cargo clippy -- -D warnings
+scripts/validate.sh
+scripts/harness-check.sh all
 ```
 
-Then check LOC limits with `scripts/loc-check.sh`.
+On a fresh checkout, run `scripts/install-hooks.sh` first. Strict validation
+must not silently install hooks.
+
+If the full Cargo test/link step exceeds local memory, use
+`scripts/validate-low-memory.sh` for the bounded-memory Rust subset. It does not
+replace either required gate or their non-Cargo checks; a failed compiler or
+linker remains a failure.
+
+For a nontrivial feature or bug fix, exercise the changed path with a focused
+smoke scenario in addition to tests. A passing compile or test suite alone does
+not prove the user-visible behavior; report only observed results.
 
 ## Benchmark Validation
 
@@ -39,7 +42,7 @@ cargo bench --bench benchmark -- --baseline main
 
 | Layer | Location | What to test |
 |---|---|---|
-| Unit | `src/*.rs` `#[cfg(test)]` | Core logic, edge cases, error paths |
+| Unit | `src/**/*.rs`, `crates/*/src/**/*.rs` | Mutation-visible logic, boundaries, errors, and state transitions |
 | Integration | `tests/*.rs` | Public API behavior, persistence roundtrips |
 | Benchmarks | `benches/benchmark.rs` | Performance targets (reservoir_step < 100μs @ 50k) |
 
@@ -60,7 +63,7 @@ Use separate test files in `tests/` for:
 
 ## LOC Enforcement
 
-Every file in `src/*.rs` must be ≤ 500 lines. Run `scripts/loc-check.sh` to verify.
+Every Rust file under `src/` and `crates/` must be ≤ 500 lines. Run `scripts/loc-check.sh` to verify.
 
 ## Documentation Link & Command Validation
 

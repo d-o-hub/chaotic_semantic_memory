@@ -19,22 +19,35 @@ Use [Conventional Commits](https://www.conventionalcommits.org/) format:
 
 See `references/commit-types.md` for full type/scope guide and examples.
 
-## Validation Gates (Pre-Commit)
+## Branch and Validation Gates
 
-Run before every commit:
+- Never commit or push directly on `main`; create or use a task branch first.
+- Stage only the intended paths. Never use `git add -A` in a dirty worktree.
+- On a fresh checkout, run `scripts/install-hooks.sh` before validation.
+- Before every commit, run both required repository gates:
 
 ```bash
-export CARGO_TERM_PROGRESS_WHEN=never
-cargo check --message-format=short
-cargo test --all-features --quiet
-cargo fmt --check
-cargo clippy -- -D warnings
+scripts/validate.sh
+scripts/harness-check.sh all
 ```
 
-Or use: `scripts/validate.sh`
+- If `Cargo.toml` or `Cargo.lock` changes, also run `cargo deny --locked check`.
+- Validate the full commit range with
+  `npx commitlint --from origin/main --to HEAD --verbose`.
+- `commitlint` applies to the entire branch range on every change; include it in the pre-commit checklist even when cargo tests and repository gates pass.
 
 ## Review Rule
+
 - Block commits that introduce hardcoded runtime settings or unexplained numeric literals in tunable paths.
+
+## Pull Request Handoff
+
+- Roast the proposed PR diff using `skill://pr-roast-triage` before creating or
+  merging a PR; record the verdict in `plans/PR_ROAST_<date>.md`.
+- Confirm remote CI checks belong to the exact PR head SHA; a green badge or
+  stale-head run is not evidence.
+- Creating a PR does not authorize merging it. Merge only when directly asked,
+  after a current-head CI pass and a recorded roast verdict.
 
 ## Performance Gate
 

@@ -68,11 +68,17 @@ Execute appropriate remediation based on classification:
 - **test**: Analyze failure, modify test or code
 
 ### 4. Retry
-```bash
-git add -A
-git commit -m "fix: automated remediation for <error-type>"
-git push
-```
+
+Stage only the intended tracked paths before running
+`scripts/self-fix-loop.sh`; it refuses detached HEAD, `main`, branch mismatch,
+unstaged edits, and untracked files. It commits the staged set only—never
+`git add -A`—and refuses to rebase automatically after a rejected push.
+
+Before each push, type the exact `origin/<branch>@<sha>` target shown by the
+script. Non-interactive use requires setting
+`SELF_FIX_LOOP_CONFIRM_PUSH=origin/<branch>@<sha>` for the commit being pushed.
+Review the SHA and target before confirming; a token for another branch or SHA
+does not authorize the push.
 
 ### 5. Monitor
 ```bash
@@ -95,14 +101,18 @@ User: "The CI is failing, fix it automatically"
 Agent: [Self-Fix Loop activated]
 1. Detected: clippy error `unused_variable`
 2. Classified: lint warning
-3. Fixed: Prefixed with `_` to suppress
-4. Retried: Push, CI passes
+3. Fixed: addressed the unused variable at its source
+4. Retried: Push, CI passes after exact-target confirmation
 5. Result: PASS after 1 iteration
 ```
 
 ## Safety Constraints
 
-- Never force-push to main/master
-- Never skip CI with `--no-verify`
-- Always create new commits (never amend existing)
+- Refuse `main` and detached HEAD before any commit or remote operation.
+- Require a clean unstaged/untracked worktree; commit only operator-staged files.
+- Require an exact remote/branch/SHA confirmation before each push.
+- A remote/branch/SHA mismatch is a hard stop: do not push, bypass the refusal, or skip hooks/CI. Reinspect the exact target and require matching confirmation before any later push attempt.
+- Never use `git add -A`, force-push, or auto-rebase.
+- Never skip CI with `--no-verify`.
+- Always create new commits (never amend existing).
 - Preserve commit message style from repository

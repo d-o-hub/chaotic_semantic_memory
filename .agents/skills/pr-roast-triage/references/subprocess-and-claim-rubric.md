@@ -17,8 +17,8 @@ Three checks a green CI cannot make for you:
    comment "give it a moment to initialize signal handlers" has two silent failure
    modes: too short and the signal lands before the handler installs (exit 143, red
    for the wrong reason); too long and a loaded runner is flaky. The child prints a
-   line at exactly the moment in question — `Press Ctrl+C to stop.`, `MCP SSE server
-   listening on http://…` — so wait for that line, then settle.
+   line at exactly the moment in question — `Press Ctrl+C to stop.`, `MCP
+   Streamable HTTP server listening on http://…` — so wait for that line, then settle.
 3. **A `csm` spawn needs an explicit `--database`.** With none,
    `src/cli/args.rs:20` falls back to git-local storage, so `csm watch` /
    `csm mcp serve` create and write `.git/memory-index/csm.db` inside the checkout

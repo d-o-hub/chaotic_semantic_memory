@@ -11,15 +11,17 @@ Automated release pipeline: version sync, Trusted Publishing (crates.io/npm), an
 
 1. **Never push directly to `main`.** Use branch → PR → required CI green → merge.
 2. **Never create release tags manually for routine releases.** Tag owner is `.github/workflows/release.yml` (job `validate` / step “Ensure release tag exists”).
-3. **Single trigger:** the workflow runs when the **CI workflow completes successfully on `main`** (`workflow_run` on `ci.yml`; no polling and no ceiling) or on `workflow_dispatch`, which must see a green CI run for HEAD. It then applies the version/tag check and creates `v{version}` from `Cargo.toml`.
+3. **Same-SHA release gate:** `release.yml` is triggered by successful completion of `Pre-Release Gate` on `main`; that gate itself starts only after successful CI and evaluates the same `head_sha`. The workflow checks out and tags that exact SHA. A manual dispatch must find completed-success CI and Pre-Release Gate runs for the same `github.sha`; absent, running, failed, or mismatched evidence is a hard stop.
 4. Identify the artifact channel first via the `dist-channel-selection` skill.
 
 ## Protected release flow
 
 ```
 feature branch → PR → CI green → merge to main
-        → CI completes on main → release.yml (workflow_run) → create tag v* → publish
+        → CI completes for main SHA → Pre-Release Gate checks that SHA
+        → release.yml checks out that SHA → create tag v* → publish
 ```
+`release.yml` owns the version tag and library/package publication. `dist.yml` reacts to the resulting tag and builds platform-specific CLI binaries for the GitHub Release; it is not a second tag or crate/npm publisher.
 
 ### Operator steps
 
@@ -37,11 +39,9 @@ git checkout -b release/v0.2.0
 
 # 4. Local gates
 ./scripts/pre-release-validate.sh --skip-bench
-# Optional skill-local extras:
-.agents/skills/release-management/scripts/validate-release.sh
 
-# 5. Commit on the branch — never on main
-git add -A
+# 5. Commit only the intended release files on the branch — never on main
+git add Cargo.toml Cargo.lock CHANGELOG.md VERSION wasm/package.json cli-npm/package.json
 git commit -m "release: v0.2.0"
 
 # 6. PR → wait for CI → merge (squash preferred; no --auto multi-PR loops)

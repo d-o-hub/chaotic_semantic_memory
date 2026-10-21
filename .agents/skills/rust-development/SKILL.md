@@ -6,12 +6,15 @@ description: "Implement or refactor Rust in this repository. Use when writing ne
 # Rust Development
 
 ## Workflow
-1. Read @AGENTS.md constraints.
-2. Read the target file and its neighbors before editing.
-3. Follow the patterns in `reference/codebase-patterns.md`.
-4. Run `scripts/validate.sh` after changes.
-5. Verify LOC: every `.rs` file in `src/` AND `crates/` must be ≤ 500 lines.
-6. Run `cargo deny check` if Cargo.lock was modified (supply chain audit).
+1. Read `AGENTS.md` and the target file and neighbors before editing.
+2. Follow the patterns in `reference/codebase-patterns.md`.
+3. On a fresh checkout, run `scripts/install-hooks.sh` before validation.
+4. Run both `scripts/validate.sh` and `scripts/harness-check.sh all` after changes; do not treat one as a substitute for the other.
+5. Verify the changed behavior with a focused smoke scenario in addition to tests.
+6. Keep every Rust file under `src/` and `crates/` at or below 500 LOC.
+7. If production logic in `src/` or `crates/` changes, add mutation-visible unit assertions in the library target; integration-only tests do not count for the mutation gate.
+8. Run `cargo deny --locked check` when Cargo manifests or `Cargo.lock` change.
+9. For exported symbol changes, query LSP references before editing and update every caller.
 
 ## Module Map
 
@@ -43,6 +46,7 @@ description: "Implement or refactor Rust in this repository. Use when writing ne
 - No magic numbers in production logic: use named constants and configurable env/config parameters for tunables.
 - **LOC gate applies to `crates/` too** — workspace crate source files at `crates/*/src/*.rs` have the same ≤ 500 LOC limit.
 - **When adding a new workspace crate scope**, also add it to `commitlint.config.cjs` scope-enum.
+- Preserve rationale comments; extract a child module rather than stripping comments to satisfy the LOC limit.
 
 ## When Adding a New Module
 - Add `pub mod name;` to `lib.rs`.

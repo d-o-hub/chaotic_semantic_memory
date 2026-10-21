@@ -71,10 +71,10 @@ Close the losers with reason `superseded by #<keeper>`.
 
 **A live duplicate can hold coverage the keeper lacks — fold, then dominate.** Diff the
 rival's *test* files, not just its source: #834 proved the SIGTERM path on
-`csm mcp serve --transport sse` while the keeper #836 covered only `watch`. Take that one
-dimension into the keeper's own harness and say in the roast that the competitor supplied
-it. Two agents reaching the same design independently is also the cheapest confirmation
-the design is the obvious one.
+`csm mcp serve --transport streamable-http` while the keeper #836 covered only
+`watch`. Take that one dimension into the keeper's own harness and say in the
+roast that the competitor supplied it. Two agents reaching the same design
+independently is also the cheapest confirmation the design is the obvious one.
 
 **Closed predecessors are duplicates too — and `gh pr list` cannot see them.**
 A bot re-files the same finding under a new task id, so grep the roast records
@@ -137,6 +137,7 @@ A predecessor closed **without** a valid measurement passes on the *demand*, not
     called — the "after" number was slower (92.5 → 93.3 µs) because it timed
     unrelated code. Check the sign too: an "after" that is *worse* is evidence
     against the claim, not neutral.
+  - State all three in the verdict: the benchmark reaches changed code, its input distribution exercises the affected case, and the measured direction/sign supports the claim. A `perf` → `refactor` title change never bypasses this evidence bar.
   - **A bench can be blind three ways (#800; #909/#891; #917).** By its *arguments*
     (`permute(321)` never reaches the word-aligned path); by the *callee's fast path*
     (`make_candidates` prefills `score = 1.0`, so `rerank`'s `>= 0.99` return starved every
@@ -211,9 +212,8 @@ A predecessor closed **without** a valid measurement passes on the *demand*, not
 - **GitHub CLI GraphQL deprecation**: `gh pr edit` and `gh issue view` fail if querying
   deprecated `projectCards`. Query specific `--json` fields for reads, or use
   `gh api -X PATCH repos/<owner>/<repo>/pulls/<id> -f title="..."` for editing PR titles.
-- **Multi-issue parent linkage**: When a parent PR implements multiple child issues,
-  ensure all child issues (`Fixes #A`, `Fixes #B`) are declared in the PR body so all
-  issues close cleanly upon merge.
+- **Multi-issue parent linkage**: a parent PR implementing several child issues declares each
+  (`Fixes #A`, `Fixes #B`) in the body, so all issues close cleanly on merge.
 
 ## Step 5 — Manual merge order (emit, do not execute unless instructed)
 
@@ -238,9 +238,8 @@ git diff --stat origin/main...<branch> # no surprise reverts?
 gh pr merge <n> --squash --delete-branch
 ```
 
-Verified-safe shortcut: `gh api -X PUT repos/<owner>/<repo>/pulls/<n>/update-branch`
-then wait for CI; confirm a CI run exists for the *post-rebase* SHA before
-trusting a green tick.
+Verified-safe shortcut: `gh api -X PUT repos/<owner>/<repo>/pulls/<n>/update-branch` then wait
+for CI; confirm a run exists for the *post-rebase* SHA before trusting a green tick.
 
 ## Step 6 — Record in codebase
 
