@@ -120,7 +120,7 @@ unsafe fn hamming_distance_1280_avx2(lhs: *const u8, rhs: *const u8) -> u32 {
     // Max bits per byte = 8. 8 * UNROLL_FACTOR * (LOADS_PER_FLUSH / UNROLL_FACTOR) = 8 * 20 = 160.
     // 160 safely fits in u8 (255) to prevent overflow during deferred accumulation.
     const _: () = assert!(80 % (LOADS_PER_FLUSH * 2) == 0);
-    const _: () = assert!(LOADS_PER_FLUSH % (UNROLL_FACTOR * 2) == 0);
+    const _: () = assert!(LOADS_PER_FLUSH.is_multiple_of(UNROLL_FACTOR * 2));
 
     let lookup = _mm256_setr_epi8(
         0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3,

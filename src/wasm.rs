@@ -1,17 +1,14 @@
 //! WASM bindings for chaotic semantic memory
 
-use bincode::Options;
 use js_sys::{Array, Float32Array, Uint8Array};
-use tracing::warn;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 
 pub(crate) use crate::export_payload::{
-    BinaryExportPayload, ExportPayload, concept_to_export, export_to_concept, unix_now_secs,
+    BinaryExportPayload, ExportPayload, concept_to_export, decode_binary_export,
+    encode_binary_export, export_to_concept, unix_now_secs,
 };
 pub(crate) use crate::framework::ChaoticSemanticFramework;
-pub(crate) use crate::framework_validation::MAX_IMPORT_SIZE;
-use crate::singularity::Concept;
 pub(crate) use crate::wasm_ext::{concept_to_js_value, to_js_error};
 pub(crate) use csm_core_lib::hyperdim::HVec10240;
 
@@ -368,66 +365,29 @@ impl WasmFramework {
             }
         };
 
-        // Use BinaryExportPayload for bincode compatibility (serde_json::Value is incompatible with bincode)
         let binary_payload = BinaryExportPayload::from(payload);
-        let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
-        let data = options.serialize(&binary_payload).map_err(to_js_error)?;
+        let data = encode_binary_export(&binary_payload).map_err(to_js_error)?;
         Ok(Uint8Array::from(data.as_slice()))
     }
 
-    /// Import state from bytes previously produced by .
+    /// Import state from bytes previously produced by `export_to_bytes`.
     #[wasm_bindgen(js_name = importFromBytes)]
     pub async fn import_from_bytes(&self, data: Uint8Array, merge: bool) -> Result<usize, JsValue> {
         let bytes = data.to_vec();
-
-        if bytes.len() > MAX_IMPORT_SIZE as usize {
-            return Err(JsValue::from_str(&format!(
-                "Import data size {} exceeds maximum allowed size {}",
-                bytes.len(),
-                MAX_IMPORT_SIZE
-            )));
-        }
-
-        // Deserialize as BinaryExportPayload (bincode-compatible), then convert to ExportPayload
-        let options = bincode::DefaultOptions::new().with_limit(MAX_IMPORT_SIZE);
-        let binary_payload: BinaryExportPayload =
-            options.deserialize(&bytes).map_err(to_js_error)?;
+        let binary_payload = decode_binary_export(&bytes).map_err(to_js_error)?;
         let payload = binary_payload.to_export_payload().map_err(to_js_error)?;
-        let concepts: Vec<Concept> = payload
+        let concepts: Vec<_> = payload
             .concepts
             .iter()
             .cloned()
             .map(export_to_concept)
             .collect();
-
-        let ns = self.framework.namespace().await;
-
-        if !merge {
-            let mut singularity = self.framework.singularity.write().await;
-            let ns = self.framework.namespace().await;
-            singularity.clear(&ns);
-        }
-
         let concept_count = concepts.len();
-        let mut singularity = self.framework.singularity.write().await;
-        for concept in concepts {
-            self.framework
-                .validate_concept(&concept)
-                .map_err(to_js_error)?;
-            singularity.inject(&ns, concept).map_err(to_js_error)?;
-        }
 
-        for (from, to, strength) in &payload.associations {
-            if let Err(error) = singularity.associate(&ns, from, to, *strength) {
-                warn!(
-                    from_id = %from,
-                    to_id = %to,
-                    strength = *strength,
-                    error = %error,
-                    "skipping invalid association during wasm import"
-                );
-            }
-        }
+        self.framework
+            .apply_import_payload(&concepts, &payload.associations, merge)
+            .await
+            .map_err(to_js_error)?;
 
         Ok(concept_count)
     }

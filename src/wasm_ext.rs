@@ -32,6 +32,24 @@ pub(crate) fn validate_min_strength(min_strength: f32) -> Result<(), &'static st
 }
 
 #[cfg(target_arch = "wasm32")]
+fn hybrid_result_to_array(
+    result: crate::retrieval::hybrid::HybridResult,
+) -> Result<Array, JsValue> {
+    let array = Array::new();
+    if let crate::retrieval::hybrid::HybridResult::Success(results) = result {
+        for (concept_id, score) in results {
+            let obj = js_sys::Object::new();
+            js_sys::Reflect::set(&obj, &"concept_id".into(), &concept_id.into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+            js_sys::Reflect::set(&obj, &"score".into(), &score.into())
+                .map_err(|_| JsValue::from_str("failed to set JS property"))?;
+            array.push(&obj);
+        }
+    }
+    Ok(array)
+}
+
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 impl WasmFramework {
     /// Get framework stats
@@ -167,27 +185,25 @@ impl WasmFramework {
             .map_err(to_js_error)
     }
 
-    /// Probe for similar concepts using text
+    /// Probe for similar concepts using hybrid text retrieval.
     pub async fn probe_text(&self, query: String, top_k: usize) -> Result<Array, JsValue> {
         let result = self
             .framework
             .probe_text(&query, top_k)
             .await
             .map_err(to_js_error)?;
+        hybrid_result_to_array(result)
+    }
 
-        let array = Array::new();
-        if let crate::retrieval::hybrid::HybridResult::Success(results) = result {
-            for (id, similarity) in results {
-                let obj = js_sys::Object::new();
-                js_sys::Reflect::set(&obj, &"id".into(), &id.into())
-                    .map_err(|_| JsValue::from_str("failed to set JS property"))?;
-                js_sys::Reflect::set(&obj, &"similarity".into(), &similarity.into())
-                    .map_err(|_| JsValue::from_str("failed to set JS property"))?;
-                array.push(&obj);
-            }
-        }
-
-        Ok(array)
+    /// Probe text using HDC semantic retrieval only.
+    #[wasm_bindgen(js_name = probeTextSemantic)]
+    pub async fn probe_text_semantic(&self, query: String, top_k: usize) -> Result<Array, JsValue> {
+        let result = self
+            .framework
+            .probe_text_semantic(&query, top_k)
+            .await
+            .map_err(to_js_error)?;
+        hybrid_result_to_array(result)
     }
 
     /// List all historical versions of a concept.
