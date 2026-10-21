@@ -222,6 +222,19 @@ impl TextEncoder {
             Cow::Borrowed(text)
         };
 
+        // Algorithmic Optimization: Fast-path for single-token non-code-aware inputs.
+        // Bypasses `Vec<&str>` allocation and deallocation when `ngram_size` is None.
+        if !self.config.code_aware && self.config.ngram_size.is_none() {
+            let mut it = processed.split_whitespace();
+            if let Some(first) = it.next() {
+                if it.next().is_none() {
+                    return self.token_to_hvec(first);
+                }
+            } else {
+                return HVec10240::zero();
+            }
+        }
+
         let tokens = if self.config.code_aware {
             Self::tokenize_code(&processed)
         } else {
@@ -243,14 +256,11 @@ impl TextEncoder {
         }
 
         // Generate position-encoded vectors for each token
-        let encoded_vectors: Vec<HVec10240> = tokens
-            .iter()
-            .enumerate()
-            .map(|(pos, &token)| {
-                let base = self.token_to_hvec(token);
-                base.permute(pos.saturating_mul(self.config.position_stride))
-            })
-            .collect();
+        let mut encoded_vectors = Vec::with_capacity(tokens.len());
+        for (pos, &token) in tokens.iter().enumerate() {
+            let base = self.token_to_hvec(token);
+            encoded_vectors.push(base.permute(pos.saturating_mul(self.config.position_stride)));
+        }
 
         // Bundle all position-encoded vectors.
         // `HVec10240::bundle` only fails on empty input; we guard against that above,
