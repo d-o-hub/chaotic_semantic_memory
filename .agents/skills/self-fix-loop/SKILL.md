@@ -85,6 +85,23 @@ does not authorize the push.
 gh run watch --exit-status
 ```
 
+Read the verdict, never the wrapper. Two traps that have each produced a false green in
+this repo:
+
+- A backgrounded command run as `cmd; echo "RC=$?"` reports the *`echo`*'s exit code in
+  the completion notification, so the task says "exit code 0" while `RC=1` is in the log.
+  Capture the code into the log file (`cmd; echo "RC=$?" >> log`) or run bare.
+- Anything through a pipe reports the last process: `./scripts/validate.sh | tail -40`
+  yields `tail`'s 0. Same for `&&`-chains used as "run then show".
+
+### 6. A rejected push: classify before retrying
+
+`git fetch` and read `origin/<branch>` history — a bot/owner merge often lands on the PR
+branch mid-loop. If the remote addition touches **none** of your paths, replay your commit
+onto it (`git rebase origin/<branch>`, then a fast-forward push) so the author's merge
+commit survives; if it overlaps, stop and re-resolve deliberately. Never `--force`, and
+never treat the refusal as a transient network error.
+
 ## Escalation Criteria
 
 Stop the loop and escalate when:
@@ -92,6 +109,11 @@ Stop the loop and escalate when:
 - Error type is unclassifiable
 - Fix requires architectural change
 - Multiple unrelated failures detected
+- The fix is a CI gate that reads a *generated* counter (`validate_llm_context.py`
+  compares `modules_under_loc_limit` against live `src/**/*.rs`, and `tests_count` against
+  `total_tests`/`tests_passing`): the number must be re-measured from the tree, not typed.
+  Count test registrations from harness output (`N passed; M filtered out`) — `grep
+  '#\[test\]'` is blind to `#[tokio::test]` and `#[test_case]`.
 
 ## Example Usage
 

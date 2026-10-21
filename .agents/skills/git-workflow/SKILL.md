@@ -116,6 +116,34 @@ gh pr list --state open --json number,reviewDecision \
   *before* the push that starts the run, then merge from the verified head. Never retitle
   `perf(` → `refactor(` to make the gate skip — that is gate-gaming, not evidence.
 
+## Landing a Wide Uncommitted Working Set
+
+A 100+-path **staged index** with no commits (a carried-over working set) is not a branch yet, and the
+instinct to rebase it onto a moved `main` is the wrong one. Protocol used for the 157-path audit wave:
+
+1. **Split the index into scoped commits with `git commit --only -- <paths>`.** `--only` builds the
+   commit from worktree content for *just* those paths and leaves the rest of the index staged, so one
+   `git status` read of the whole set stays intact while each commitlint scope gets its own commit.
+   Verify each group with `npx commitlint --from origin/main --to HEAD --verbose` at the end.
+   (Never `git add -A`; the point is that the operator's index is consumed deliberately.)
+2. **Merge `main` in once, do not rebase.** 11 commits had landed meanwhile
+   (`git rev-list --count "$(git merge-base HEAD origin/main)..origin/main"`). A rebase replays every
+   commit through the *generated* files (`llms.txt`, `llms-full.txt`, `Cargo.lock`, script/skill
+   catalogs) and re-resolves each conflict it creates; one
+   `git commit --only`-finished branch + a single `git merge --no-commit --no-ff origin/main` resolves
+   them once. Regenerate generated files (`scripts/gen-llms-txt.sh`, `gen_script_catalog.py`) instead of
+   hand-picking their hunks.
+3. **Resolve per-hunk, never per-file, where both sides fixed the same region.** Both sides of this
+   merge contained *landed* work: taking ours re-introduced the unchecked HNSW
+   `unsafe { Self::as_hvec10240(..) }` cast `main` had removed; taking theirs dropped the wave's
+   `searchable_text` metadata insert. The right answer was `main`'s structure with the branch's insert
+   re-applied inside it. For every conflicted file ask: does either side contain something the other
+   does not know about, and which side is `main`?
+4. **Re-measure the counters after the merge, not before.** `docs/architecture/context.yaml`
+   `total_tests`/`tests_passing` and `plans/GOAP_STATE.md` `tests_count` must agree with each other and
+   `modules_under_loc_limit` must equal the live `src/**/*.rs` count
+   (`tests/validate_llm_context.py:263`); a merge that adds test files moves all of them.
+
 ## Merging Multiple PRs (Sequential Merge Protocol)
 
 **⚠️ NEVER use `--auto` merge when the repo requires "up to date with base branch".**

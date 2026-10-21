@@ -211,3 +211,44 @@ Two rulings that survived, and why they differ:
   the *same* fixed saving is ~4 % against an inflated 650 ns base and ~7 % against a 471 ns base, so
   a host-dependent denominator can make a correct claim look inflated. Say which host class produced
   the number, because a reviewer cannot reproduce a pair measured on a different class.
+
+## A green `Cargo Deny` proves no banned version, not fewest edges (2026-10-21, #926 post-merge)
+
+The roast said "drop the `Cargo.lock` hunk", the author did not, and CI could not object: 0.59.0 is not
+advisory-flagged and `deny.toml` has no `windows-sys` rule, so `Cargo Deny` stayed green and the PR
+merged carrying the churn. Counted from the locks (`grep -c '"windows-sys 0.59.0"' Cargo.lock`):
+
+| head | unforced `windows-sys 0.59.0` edges |
+|---|---|
+| `7b72e869` (#928, after the advisory prune) | 2 |
+| `4a85fd47` (#926 merged) | **11** |
+
+Two properties make this class invisible: a rebase **applies cleanly** (the bumps the PR shared with
+`main` drop out as no-ops while the resolver churn survives), and the rubric's "no lockfile churn"
+bullet has no mechanical check behind it. So measure instead of trusting the merge state — before any
+squash of a PR that touches `Cargo.lock`:
+
+```bash
+git diff origin/main HEAD -- Cargo.lock | grep -cE '^[+-] "windows-sys'   # edge count, both directions
+git show <head>:Cargo.lock | grep -c 'name = "windows-sys"'               # duplicate versions
+```
+
+The cure is usually not hand-editing: re-resolving the lock on a current tree (`cargo update -p <crate>`
+or any build against the merged manifest) pruned 11 → 4 unasked. Lock churn is a *generation* problem —
+carry the regenerated file, not the bot's hunk.
+
+## A counter that leaves the function only through `println!` cannot be mutation-killed (#926)
+
+Seven survivors in `run_index_dir` at 75 % < 85 %, and three families shared one cause:
+`replaced_count` / `deleted_count` / the JSON-vs-message branch choice were observable only on stdout,
+while `scripts/mutation_test.sh` scores the `--lib` target — no test in `src/**` can see stdout it never
+captures. `+= → -=` underflows and `+= → *=` zeroes a value nobody asserts on, so the mutant lives.
+
+One shape change kills all three families: the command **returns** its counters
+(`run_index_dir() -> Result<IndexDirSummary>`) and the print/JSON selection moves into a pure
+`index_dir_report`. Then `-=` panics on underflow, `*=` fails `== 1`, and a flipped comparison changes
+the returned *variant*, which two `#[test]`s can assert field-by-field. stdout stayed byte-identical
+(`cli_parity` 3/3), so the refactor is invisible to users and visible to the gate. The general test to
+ask of any bot PR that adds a counter: **which target does the mutation gate run, and can that target
+observe this value?** If the answer is stdout, exit code, or `tests/**`, the number is unguarded no
+matter how many assertions exist.
