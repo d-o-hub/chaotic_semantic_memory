@@ -21,17 +21,13 @@ impl ChaoticSemanticFramework {
         query: HVec10240,
         config: GraphRagConfig,
     ) -> Result<Vec<GraphRagResult>> {
-        if config.anchor_top_k > 0 {
-            self.validate_top_k(config.anchor_top_k)?;
-        }
-        if config.final_top_k > 0 {
-            self.validate_top_k(config.final_top_k)?;
-        }
-
         let (concepts, associations) = {
             let sing = self.singularity.read().await;
-            let ns = self.namespace.read().await;
-            (sing.all_concepts(&ns), sing.all_associations(&ns))
+            let ns = self.namespace().await;
+            let now = crate::singularity::unix_now_secs();
+            let mut concepts = sing.all_concepts(&ns);
+            concepts.retain(|concept| concept.expires_at.is_none_or(|expires| expires > now));
+            (concepts, sing.all_associations(&ns))
         };
 
         graph_rag_retrieve(&query, &concepts, &associations, &config)
@@ -81,5 +77,34 @@ mod tests {
             !results.is_empty(),
             "probe_with_graph must return at least one result"
         );
+    }
+    #[tokio::test]
+    async fn graph_rag_does_not_select_expired_anchors() {
+        let framework = ChaoticSemanticFramework::builder()
+            .without_persistence()
+            .build()
+            .await
+            .unwrap();
+        let query = HVec10240::zero();
+        framework
+            .inject_concept_with_ttl("expired", query, 0)
+            .await
+            .unwrap();
+        framework
+            .inject_concept("active", HVec10240::random())
+            .await
+            .unwrap();
+        let config = GraphRagConfig {
+            anchor_top_k: 1,
+            max_hops: 0,
+            min_assoc_strength: 0.0,
+            similarity_weight: 1.0,
+            graph_weight: 0.0,
+            final_top_k: 1,
+        };
+
+        let results = framework.probe_with_graph(query, config).await.unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].id, "active");
     }
 }

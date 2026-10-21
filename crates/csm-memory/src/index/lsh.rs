@@ -76,10 +76,10 @@ impl<H: Hypervector> LshIndex<H> {
         for (i, &bit_pos) in bits.iter().enumerate() {
             let byte_idx = bit_pos >> 3;
             let bit_idx = bit_pos & 7;
-            if let Some(&byte) = bytes.get(byte_idx) {
-                if (byte & (1 << bit_idx)) != 0 {
-                    hash |= 1u64 << i;
-                }
+            if let Some(&byte) = bytes.get(byte_idx)
+                && (byte & (1 << bit_idx)) != 0
+            {
+                hash |= 1u64 << i;
             }
         }
         hash
@@ -195,10 +195,10 @@ impl<H: Hypervector + 'static> AnnIndex<H> for LshIndex<H> {
             let hash = self.compute_hash_from_bytes(&query_bytes, i);
             if let Some(bucket) = self.tables[i].get(&hash) {
                 for id in bucket {
-                    if let Some(concept) = concepts.get(id) {
-                        if filter.matches(&concept.metadata) {
-                            candidates.insert(id.as_str());
-                        }
+                    if let Some(concept) = concepts.get(id)
+                        && filter.matches(&concept.metadata)
+                    {
+                        candidates.insert(id.as_str());
                     }
                 }
             }

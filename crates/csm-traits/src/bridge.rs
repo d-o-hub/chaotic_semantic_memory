@@ -128,10 +128,10 @@ impl ConceptGraph {
             } else {
                 // If not found, attempt case-insensitive lookup
                 let lowered = token.to_lowercase();
-                if &lowered != token {
-                    if let Some(ids) = self.label_index.get(&lowered) {
-                        matched.extend(ids.iter().map(String::as_str));
-                    }
+                if &lowered != token
+                    && let Some(ids) = self.label_index.get(&lowered)
+                {
+                    matched.extend(ids.iter().map(String::as_str));
                 }
             }
         }

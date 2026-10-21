@@ -134,7 +134,13 @@ impl ChaoticSemanticFramework {
 
         // Get filtered concept IDs first
         let query_hv = bridge.encoder().encode(query);
-        let filtered_results = singularity.find_similar_filtered(&ns, &query_hv, top_k, filter);
+        let filtered_results = singularity.find_similar_active(
+            &ns,
+            &query_hv,
+            top_k,
+            crate::singularity::unix_now_secs(),
+            Some(filter),
+        );
         let filtered_ids: std::collections::HashSet<String> = filtered_results
             .as_ref()
             .iter()
@@ -227,8 +233,10 @@ mod tests {
 
     use crate::concept_builder::ConceptBuilder;
     use crate::framework_builder::FrameworkBuilder;
+    use crate::retrieval::hybrid::HybridResult;
     use crate::semantic_bridge::{CanonicalConcept, ConceptGraph};
     use csm_core_lib::encoder::TextEncoder;
+    use csm_core_lib::hyperdim::HVec10240;
 
     #[tokio::test]
     async fn test_probe_bridge_text_empty() {
@@ -291,5 +299,37 @@ mod tests {
 
         assert!(!results.is_empty());
         assert!(results.iter().any(|(id, _)| id == "test-concept"));
+    }
+    #[tokio::test]
+    async fn bridge_retrieval_excludes_expired_primary_matches() {
+        let framework = FrameworkBuilder::new()
+            .without_persistence()
+            .build()
+            .await
+            .unwrap();
+        let encoder = TextEncoder::new();
+        let query = "ttl marker";
+        framework
+            .inject_concept_with_ttl("expired", encoder.encode(query), 0)
+            .await
+            .unwrap();
+        framework
+            .inject_concept("active", HVec10240::zero())
+            .await
+            .unwrap();
+        let bridge =
+            crate::bridge_retrieval::BridgeRetrieval::with_defaults(encoder, ConceptGraph::new());
+
+        match framework
+            .probe_bridge_text(query, 1, &bridge)
+            .await
+            .unwrap()
+        {
+            HybridResult::Success(results) => {
+                assert_eq!(results.len(), 1);
+                assert_eq!(results[0].0, "active");
+            }
+            HybridResult::Abstained(_) => panic!("active concept should be returned"),
+        }
     }
 }

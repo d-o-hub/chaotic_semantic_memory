@@ -1,6 +1,5 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 // Exact float comparisons for BM25 score test assertions
-
 use super::super::*;
 
 #[test]
@@ -498,3 +497,4 @@ fn test_zero_score_documents_excluded_from_results() {
     assert!(!ids.contains("nomatch2"));
     assert!(!ids.contains("nomatch3"));
 }
+mod property_tests;
