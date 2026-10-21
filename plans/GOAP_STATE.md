@@ -22,8 +22,8 @@ world_state:
   benchmarks_exist: true
   wasm_compiles: true
   binary_built: true
-  documentation_complete: true
-  validated: false               # 2026-09-30: wave-32/33 exits re-verified vs GOAP_AUDIT_2026_07_14.md; residuals queued — TTL shutdown, absence invalidation, failure-path/query-count tests, gate+catalog consolidation, scheduled/release evidence tiers
+  documentation_complete: true       # 2026-10-20: MCP, versioned exports, OTLP, and same-SHA release docs reconciled; link/changelog/llms gates pass
+  validated: false                  # 2026-10-20: audit follow-ups are implemented; final validate.sh and harness-check all remain
   ci_all_checks_passed: true     # 2026-10-03: #817 merged as 1389c9e with CI 37139534832 green on the
                                #   landing head (27 jobs: 25 success, 2 skipped, 0 failure) incl. the
                                #   mutation-test job that had gone red at 25% on its first head c47d676
@@ -43,11 +43,7 @@ world_state:
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "fe20979"           # 2026-10-15: fetched after #895 (8fbae79) and #896 (fe20979) landed
-                               #   (2026-10-09). Moves since: the 2026-10-15 PR roast landed as #894
-                               #   (b2e081a), after #892/#883/#884/#885/#886/#888 and the #828/#878
-                               #   close-outs. Read from `git log --oneline origin/main`, never from the
-                               #   previous entry.
+  main_head: "e62c63f2"           # 2026-10-19: fetched origin/main before audit; branch rebased onto this head. Read from `git log --oneline origin/main`, never from the previous entry.
   tests_count: 1054              # 2026-10-15: 1044 + 8 (#833) + 2 (#897) = 1054. The #833 half:
                                #   the 8 lib-target tests added for the src/mcp
                                #   mutation baseline (#833): 7 in `src/mcp/handler_tests.rs` and 1 in
@@ -68,13 +64,20 @@ world_state:
   skills_count: 33               # 2026-09-07: +pr-roast-triage (find .agents/skills -name SKILL.md | wc -l)
   coverage_lines_percent: 74     # 2026-09-18: cargo +nightly llvm-cov --workspace --lib --tests --branch
   coverage_branches_percent: 64  # same run; unit-only targets measure 68/53, hence --tests matters
-  adr_registry_count: 95         # 2026-10-01: check-adr-parity.sh ok (registry=95, disk=94, 0003 N/A)
-  adr_disk_count: 94
-  integration_test_files: 73     # tests/*.rs (2026-10-04 recount: +cli_shutdown_signal.rs)
+  adr_registry_count: 98         # 2026-10-20: check-adr-parity.sh ok (registry=98, disk=97, 0003 N/A).
+                               #   The three new rows are ADR-0100 (versioned Postcard export), ADR-0101
+                               #   (MCP Streamable HTTP + security) and ADR-0102 (bounded OTLP lifecycle).
+                               #   The gate's id pattern was `00[0-9]{2}`, so ids >= 0100 were invisible to it;
+                               #   it now matches all four-digit IDs (`[0-9]{4}`), with missing/present
+                               #   fixtures for 0100 and 1000. 97 unique ids on disk vs 98 files: ADR-0024 has two files.
+  adr_disk_count: 97
+  integration_test_files: 73     # tests/*.rs (2026-10-20 recount: `ls tests/*.rs | wc -l` = 73 — the
+                               #   new mcp_streamable_http_integration.rs replaced the deleted
+                               #   mcp_sse_integration.rs, so the count is unchanged)
 
   # ── Plans pointers ────────────────────────────────────────────
   plans_active_index: "plans/README.md"
-  plans_recommendations_canonical: "plans/RECOMMENDATIONS_2026_07_20.md"
+  plans_recommendations_canonical: "plans/RECOMMENDATIONS_2026_10_19.md"
   plans_archive_roots:
     - "plans/.archive/2026-07-20-historical"
     - "plans/.archive/2026-08-08-historical"
@@ -159,7 +162,28 @@ world_state:
   persistence_disabled_false_success_removed: true  # 2026-08-11: replace_persistence_disabled_noops (ADR-0094); CLI DB config rejected w/o feature
   wasm_ci_release_artifact_identical: true  # 2026-09-20: CI builds + smoke-tests the release/web package via scripts/build-wasm.sh (same command release.yml publishes); size gate measures that artifact (656 657 B, sha256-pinned)
   performance_claims_have_current_artifacts: true  # 2026-09-17: plans/evidence/scale_2026_09_17 (three manifests, #733/#734)
-  critical_skill_evals_passing: false             # behavioral evals deferred
+  critical_skill_evals_passing: true              # 2026-10-20: five critical skills x 4 deterministic cases = 20
+                               #   cases, each response judged against every case assertion
+                               #   (`judge_batch`, typesafe/jev-1.13.0). Final run: 20/20 pass, mean
+                               #   probability 0.871, no judge failures. Evidence and the two skill-rule
+                               #   changes the first run forced: `plans/evidence/skill_eval_2026_10_20.md`.
+                               #   Functional pass rate only — no claim about time saved or run-to-run
+                               #   consistency, and the lowest case (0.58) is a deliberate follow-up.
+  binary_export_codec_maintained: true            # 2026-10-20 (ADR-0100): new public binary snapshots are
+                               #   written with Postcard behind the `CSMBIN01` envelope; bincode 1.x
+                               #   (RUSTSEC-2025-0141) remains only for legacy readers and internal ANN
+                               #   storage. The writer streams through a size-limited writer, so the
+                               #   100 MiB import limit is enforced during serialization.
+  mcp_transport_is_current_protocol: true         # 2026-10-20 (ADR-0101): `Transport::Sse` -> `Transport::StreamableHttp`
+                               #   (breaking, no alias), rmcp's current stateless Streamable HTTP path with
+                               #   the session manager kept only for negotiated legacy versions. Non-loopback
+                               #   binds require a bearer token; Host allow-list and Origin validation are
+                               #   enforced; the token is compared in constant time.
+  otlp_export_is_bounded_and_observable: true     # 2026-10-20 (ADR-0102): bounded batch span processor with
+                               #   explicit queue/batch/delay/request-timeout/shutdown bounds; the export
+                               #   timeout is bound on the gRPC channel because the SDK exposes
+                               #   `BatchConfigBuilder::with_max_export_timeout` only behind its experimental
+                               #   async-runtime processor. `force_flush`/`shutdown` report failures.
   fuzz_short_runs_on_pr: true                     # fuzz.yml fuzz-short job: 30s runs of changed targets on PRs
   fuzz_scheduled_full_runs: true                  # fuzz-full weekly cron (Sun 03:00 UTC); nightly toolchain + nix shell dropped (PR #690); first scheduled green 2026-09-13 (run 34746887403) after red ×6 (08-02..09-06)
   duckdb_companion_published: true                # 2026-09-27: csm-duckdb 0.3.8 first-published (owner d-o-hub); release.yml lockstep integration queued
@@ -213,7 +237,13 @@ world_state:
                                #   results at all.
   link_validators_single_and_wired: true  # 2026-10-10 (#840 -> PR #869, 1fd790e8): one link checker (check-docs-links.sh) wired into validate.sh + the lint job with a 9-case fixture; validate-links.sh deleted.
   skill_catalog_generated_and_gated: true  # 2026-10-12 (#828 -> PRs #847/#880): CATALOG.md is generated from the tree and drift-gated (#847); docs/architecture/context.yaml counters are compared against live sources by tests/validate_llm_context.py (skills/ADRs/active_wave/tests/LOC coverage, module and key-file existence), wired into validate.sh with a 12-case fixture (#880, d951067a); gen-agents-context.sh retired.
-  release_wait_event_driven: true                 # 2026-09-30: release.yml triggers on CI completion (workflow_run, head_sha-pinned); no polling ceiling. Proof: runs 36746741481 + 36746882951 green, publishes correctly skipped
+  release_wait_event_driven: true                 # 2026-10-20: `release.yml` subscribes to successful
+                               #   Pre-Release Gate completion on `main`, checks out and tags its exact
+                               #   `workflow_run.head_sha`, and manual dispatch verifies completed-success
+                               #   CI + gate runs for the same SHA. `dist.yml` owns only tag-triggered CLI
+                               #   binaries; a main push with no PR diff is explicitly “mutation not run,”
+                               #   not a passing score. Decision in ADR-0042; operator contract in
+                               #   `.agents/skills/release-management/SKILL.md`.
   crates_publish_precheck_ownership_aware: true   # 2026-09-30: owners API (free or d-o-hub passes; other owners fail; unknown HTTP fails closed) replaces the published-version comparison; verified live incl. negative control
   csm_duckdb_in_release_publish_order: true       # 2026-09-30: dedicated step after the root publish waits for the root version in the index; companion loop exposes failures instead of swallowing them
   ttl_cleanup_has_bounded_shutdown: true          # 2026-10-01: ADR-0099 — shared CleanupTask, cooperative watch cancel (no abort), bounded await in shutdown(); loop also stops on last-handle drop. 20 TTL + 2 unit tests; mutation-test green. 2026-10-03 (#813, f999998): `shutdown()` now actually runs on the `csm watch` SIGINT path and after the `mcp::serve` transport ends; that call-site wiring rests on review + a manual SIGINT smoke — the `run_watch -> Ok(())` entry-point mutant is excluded in `scripts/mutation_test.sh`. 2026-10-03 (#817): both paths can now actually hold a reaper — see `servers_reap_expired_concepts`
@@ -291,4 +321,16 @@ world_state:
   goap_state_duplicate_key_fixed: true  # benchmark_workspace_tests_run_in_ci dup removed 2026-08-08
 
   # Must remain the LAST key and appear exactly once (see header).
-  action_last_completed: triage_pr_roast_2026_10_19  # 2026-10-19 — six-PR roast: #917 measured +8% slower and closed as no-impact; #918-#922 dependabot keepers.
+  action_last_completed: implement_audit_followups_2026_10_20  # 2026-10-20 — the follow-up set from
+                               # RECOMMENDATIONS_2026_10_19.md is implemented on this branch: durable-or-unchanged
+                               #   mutations, transactional replacement import, one TTL/namespace policy
+                               #   (durable purge, namespace loading, cold export with edges), a versioned
+                               #   Postcard export envelope (ADR-0100), the current MCP Streamable HTTP
+                               #   transport with host/origin/token policy (ADR-0101), a bounded OTLP export
+                               #   lifecycle (ADR-0102), the shared BM25 ownership + long-document indexing
+                               #   path, GraphRAG ownership consolidation, the gate-graph/script-catalog
+                               #   work, and measured behavioral skill evals (20/20, evidence in
+                               #   plans/evidence/skill_eval_2026_10_20.md). Three ADRs added
+                               #   (registry 98 / disk 97). `gh auth status` succeeded and the open
+                               #   issue list is empty, so the queue stays at 0. Open dependency PRs
+                               #   #920 (conflicting) and #921 (one failing check) are unrelated.

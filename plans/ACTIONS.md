@@ -13,6 +13,32 @@
 > entries to this file.
 >
 
+> Last completed (verified 2026-10-20):
+> `implement_audit_followups_2026_10_20` — the follow-up set recorded in
+> `plans/RECOMMENDATIONS_2026_10_19.md` is implemented on this branch. What landed, by area:
+> durable-or-unchanged mutations (every public mutation commits to the durable rows first; a
+> persistence failure leaves the live framework *and* a fresh reload at the pre-mutation state);
+> transactional replacement import (the whole payload — concepts and association endpoints — is
+> validated before any memory or durable row changes, and an invalid endpoint rejects the whole
+> replacement); one TTL/namespace policy (a persistent purge removes expired concepts *and* their
+> durable rows, a namespace switch loads the target namespace's concepts *and* associations, and a
+> cold export carries the graph edges); a versioned, bounded binary export envelope
+> (`CSMBIN01` + Postcard, ADR-0100) shared by the native, namespace-byte and WASM paths; the
+> current MCP Streamable HTTP transport with explicit Host/Origin/bearer-token policy
+> (`Transport::Sse` -> `Transport::StreamableHttp`, breaking, ADR-0101); a bounded OTLP export
+> lifecycle with observable flush/shutdown (ADR-0102); one shared BM25 owner with long-document
+> indexing and stable JSON concept ids; GraphRAG ownership consolidation; the release path now treats
+> the Pre-Release Gate as a same-SHA publication blocker (release.yml owns tag/package publication;
+> dist.yml owns only tag-triggered CLI binaries; main-push mutation evidence is explicitly not run);
+> the gate-graph/script-catalog work (required-vs-CI-only checks, generated catalog, actionlint and
+> optional ShellCheck); and measured behavioral skill evals — five skills x 4 cases = 20/20, mean
+> probability 0.871, evidence in `plans/evidence/skill_eval_2026_10_20.md`.
+> Three ADRs added (registry 98 rows / 97 unique ids on disk). The ADR-parity gate's old
+> `00[0-9]{2}` pattern ignored ids >= 0100; it now matches all four-digit IDs (`[0-9]{4}`), with
+> missing/present fixtures at 0100 and 1000. The queue stays at 0 because `gh issue list --state
+> open` returned no open issues. Preflight found two unrelated open dependency PRs: #920 conflicts
+> and #921 has one failing check; no open issue or PR duplicates this implementation.
+>
 > Last completed (verified 2026-10-19):
 > `triage_pr_roast_2026_10_19` — six open PRs, 0 issues, empty queue. Draft Jules PR #917
 > (`perf(retrieval)`: sort `query_weights` by posting length in `Bm25Index::search`) was **closed as

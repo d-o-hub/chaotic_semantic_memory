@@ -1602,3 +1602,88 @@ available direct proof for that branch.
 Unrelated draft PR #915 (`perf(core): fast-path 0-shift in HVec10240::permute`) was reviewed,
 roasted, and closed as a no-impact duplicate of #800, #814, and #819 (commitlint perf gate failed,
 by-value copy refuted, no new benchmark evidence), clearing the PR-drain gate condition for PR #916.
+
+## 2026-10-20: the 2026-10-19 audit follow-up set, implemented on one branch
+
+`plans/RECOMMENDATIONS_2026_10_19.md` recorded a P0–P2 backlog. This round implements it.
+
+**Durable-or-unchanged mutations.** Every public mutation now commits to the durable rows before
+it touches memory, and a persistence failure leaves both the live framework and a fresh reload at
+the pre-mutation state. The failure matrix is a real matrix, not one case per method: inject,
+delete, batch inject, metadata update, association, association batch, reinforcement, and pruning
+each have a simulated-failure test that asserts the *reload* equals the pre-state, not just the
+in-memory count. A failed `associate_many` applies no prefix of its batch. A namespace revision
+advances exactly once per durable graph mutation.
+
+**Transactional replacement import.** The old path cleared the namespace and then validated, so a
+malformed payload left memory emptied and durable rows half-written. The new path stages and
+validates the whole payload — concepts *and* association endpoints — before any state changes, and
+an association naming a missing concept rejects the entire replacement instead of being skipped.
+
+**One TTL and namespace policy.** A persistent purge removes expired concepts, their associations,
+and their durable rows, so a reload cannot resurrect them. A namespace switch loads the target
+namespace's associations, not only its concepts. A cold namespace export includes the graph edges.
+
+**Versioned, bounded binary export (ADR-0100).** New public snapshots are written with Postcard
+behind the `CSMBIN01` envelope (format version 1, codec id 2) instead of bincode 1.x
+(RUSTSEC-2025-0141). The writer streams through a size-limited `Write` implementation, so a
+snapshot can never exceed the 100 MiB import limit before the check — the old path allocated the
+whole buffer first. The reader still accepts the historical version-1 fixed-int bincode envelope
+and both un-enveloped legacy payloads, so existing exports keep loading. The native file API, the
+namespace byte API and the WASM `exportToBytes` binding share one encoder and one decoder.
+
+**MCP transport and security (ADR-0101).** `Transport::Sse` is renamed to
+`Transport::StreamableHttp` — a breaking change with no alias, because the deprecated HTTP+SSE
+label was the public name of a server that speaks Streamable HTTP. rmcp's current stateless path
+handles current clients; the local session manager stays for negotiated legacy versions only. A
+non-loopback bind now *requires* a bearer token, the default Host allow-list is loopback-only,
+Origin validation is enforced, and the token is compared in constant time. Stdio is unchanged.
+
+**Bounded OTLP lifecycle (ADR-0102).** The gRPC exporter uses a bounded batch span processor
+instead of the synchronous simple processor, so a slow collector no longer adds its latency to
+request handling. `OtlpBatchConfig` makes the queue size, batch size, scheduled delay, per-request
+export timeout and shutdown timeout explicit; `force_flush` and `shutdown` report their failures
+instead of discarding them.
+
+**Retrieval consistency.** BM25 has one owner (`csm-retrieval`); the CLI no longer rebuilds an
+index per query and no longer truncates documents at 200 characters; the CLI's JSON result carries
+the stable concept id. GraphRAG has one implementation owner with the root module reduced to a
+re-export, and its public config rejects NaN, infinity and out-of-range weights with
+`InvalidInput`.
+
+**Gate graph and tooling.** The required-vs-CI-only gate set is explicit; a missing required
+dependency fails closed and a deliberate skip is outside the required set. `scripts/SCRIPT_CATALOG.md`
+is generated and drift-gated, with a fixture that classifies owner, purpose, file mutation, remote
+mutation, caller and fixture per script. `actionlint` is gated fail-closed; ShellCheck is opt-in
+and says so. `scripts/validate-low-memory.sh` is a bounded Cargo-only development path that is
+explicitly *not* a substitute for the two required gates.
+The pre-release gate is a publication blocker: `release.yml` waits for its successful result on
+the same `head_sha`, and manual dispatch verifies both CI and the gate for the same SHA.
+`dist.yml` builds platform CLI binaries only; a main push with no bounded PR diff reports
+mutation evidence as “not run,” not a passing score. The decision is recorded in ADR-0042 and
+the `release-management` skill.
+
+**Measured behavioral skill evals.** Five critical skills x 4 deterministic cases = 20 cases, each
+response judged against every case assertion. The first measured run scored 18/20 and exposed two
+rubric gaps the skills did not state (a performance verdict that omitted the retitle rule; a
+push-confirmation refusal that omitted the hooks/CI rule) and one fragile case (a gate list that
+omitted the full-range commitlint check). The skills and their cases were tightened and the suite
+rerun: **20/20, mean probability 0.871**, no judge failures. Evidence:
+`plans/evidence/skill_eval_2026_10_20.md`.
+
+**One blind spot found while doing it.** The ADR-parity gate matched only `00[0-9]{2}`, so every ADR
+id from 0100 upward was invisible to it: a registry row pointing at a missing ADR-0100 file would
+have passed. The pattern now matches the full four-digit space (`[0-9]{4}`), with missing/present
+fixtures at the first post-0099 id (0100) and the unpadded boundary (1000). The same class of check
+— a gate whose pattern is narrower than the data it guards — is worth re-auditing elsewhere.
+
+**Verification status at this update.** The first `scripts/validate.sh` run reached Clippy and
+failed on a lossy `u32`→`f32` Hamming-distance cast; the checked `u16` conversion now preserves
+the HVec10240 distance domain without a precision-loss lint. Clippy then exposed the newer
+`chunks_exact_to_as_chunks` lint in the scalar LSH path; the two fixed-size slices now use
+`as_chunks::<4>()` with the same remainder loop. ADR parity and its six fixtures, the workflow /
+GOAP / mutation / catalog safety fixture chain, and changed-script ShellCheck have passed. Full
+`scripts/validate.sh` and `scripts/harness-check.sh all` still need a green run after these fixes;
+no hosted CI run or PR exists for this branch yet. `gh auth status` succeeded, open issues were
+empty, and the only open PRs were unrelated dependabot updates #920 (conflicting) and #921 (one
+failing check); neither duplicates this change set.
