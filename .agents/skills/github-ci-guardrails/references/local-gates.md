@@ -110,3 +110,16 @@ cargo metadata --locked --format-version 1 >/dev/null   # lock <-> manifests sti
 cargo deny check                                       # all four checks ok
 grep -c '"windows-sys 0.59.0"' Cargo.lock              # both versions still referenced => keep both
 ```
+
+**A clean rebase is not proof the lock is minimal — this failure mode is silent.** The #926 hunk that
+carried the same bumps *and* the same 9 churn edges was rebased onto post-#928 `main` to check what
+would happen: it applied cleanly (`Rebasing (1/4)…(4/4) Successfully rebased`), the bumps dropped out as
+already-applied no-ops, and the result was `Cargo.lock | 19 ++++++++++---------` consisting of the nine
+`windows-sys` edges plus one legitimate `sha2` line. Git reports nothing wrong with a PR whose only
+remaining lock effect is to undo pruning that just landed. Verify after every rebase that touches a
+lock:
+
+```bash
+git rebase origin/main && git diff --stat origin/main HEAD -- Cargo.lock   # expect the intended count
+git diff origin/main HEAD -- Cargo.lock | grep -c '^[+-] "windows-sys'      # 0 => no churn reintroduced
+```
