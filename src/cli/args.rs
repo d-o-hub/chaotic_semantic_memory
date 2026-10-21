@@ -299,6 +299,14 @@ pub struct IndexDirArgs {
     /// Use code-aware encoding for source code content.
     #[arg(long)]
     pub code_aware: bool,
+
+    /// Synchronize source files (reconciles obsolete chunks and deleted files).
+    #[arg(long)]
+    pub sync: bool,
+
+    /// Explicit managed ingestion scope identifier (defaults to normalized glob pattern).
+    #[arg(long, value_name = "SCOPE")]
+    pub scope: Option<String>,
 }
 
 /// Arguments for the delete command.

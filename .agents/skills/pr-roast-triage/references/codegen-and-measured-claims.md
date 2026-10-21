@@ -114,7 +114,7 @@ workaround either. Before treating a lockfile bump as trivial, check
 `/api/v1/crates/<crate>/<ver>`); the cure is a dependabot `ignore` with a
 "remove when the MSRV moves" reason, or an MSRV move — a whole-repo decision.
 
-# Interleaving on `csm-ref-01`: two binaries, not two rebuilds (2026-10-19, #917)
+## Interleaving on `csm-ref-01`: two binaries, not two rebuilds (2026-10-19, #917)
 
 `csm-ref-01` is a ThinkPad T480 (i5-8350U, `powersave` governor) running a desktop session,
 and a `cargo bench` leg competes with the rebuild that produced it. Absolute times for the
@@ -155,3 +155,59 @@ pattern. Here it predicted the measured sign: reordering the *term* loop cannot 
 `doc_idx`, so the working set over `doc_scores`/`factors` is unchanged and the sort is pure
 overhead.
 
+## Search for the predecessor before you publish the verdict (PR #927, 2026-10-21)
+
+I roasted #927 (`perf(encoder)`: guard ahead of `split_whitespace().collect()` on the single-token
+path), posted it, and only *then* ran Step 3's symbol grep. The search was decisive on three axes and
+cost two follow-up comments to correct the record:
+
+1. **It refuted a charge I had asserted.** I wrote that "zero-allocation" was a misnomer because
+   `HVec10240::new_seeded` "allocates 1 280 bytes". `pub struct HVec10240 { pub data: [u128; 80] }`
+   (`hyperdim.rs:39`) is an inline array returned by value — stack, no heap. **Before calling a title
+   a misnomer, check where the bytes live:** a `-> Self` of a fixed-size array is not an allocation.
+   This is the mirror image of the existing rule that a by-value `-> Self` *rules out* a zero-copy claim.
+2. **It upgraded "undeclared second change" to "already rejected twice".** The bundled
+   `map(..).collect()` → `with_capacity` + push hunk is measured in this very file at
+   `progress/LEARNINGS.md:159` (#776: both forms `1 alloc / n × 1 280 B` at n = 1/3/10, "**expect this
+   hunk in most 'avoid intermediate allocations' bot PRs**"), was ordered dropped in
+   `plans/PR_ROAST_2026_10_15.md` repair 1 (#889), and #897's commit message says it is
+   "deliberately not included". A hunk with a recorded verdict **inherits it — do not re-litigate it,
+   and do not ask for it back as a second PR.**
+3. **It explained the magnitude before I measured anything.** #889 recorded the post-#897 profile as
+   `1 alloc / 64 B`, "the surviving 64 B is the token `Vec<&str>`". So #927 could only ever remove one
+   64-byte malloc/free — and 64 B is itself a mechanism check (a 1-element `Vec<&str>` takes minimum
+   capacity 4 × 16 B). My measured −23.8 ns mean sat right at that ceiling.
+
+Cheapest form, before composing: `grep -rn '<symbol>' plans/PR_ROAST_*.md progress/LEARNINGS.md`,
+`git log --oneline -- <touched file>`, and **blame the lines the PR "adds"** — if `main` already
+contains the change, the PR's delta is only what surrounds it.
+
+## When a guard is behaviourally invisible, an allocation count is the only admissible evidence
+
+A fast path that duplicates an existing early-return returns *identical values*, so no assertion can
+distinguish presence from absence. #927's guard and `encoder.rs:241` are exactly this: #897's landed
+tests (`encoder.rs:423`, `:438`) kill the `tokens.len() == 1` mutant and stay green whether the guard
+exists or not. Demand the counting-`GlobalAlloc` before/after (`1 alloc / 64 B → 0 allocs`) instead of
+a percentage, and check whether CI can even see the gap — `scripts/mutation_test.sh` scores `--lib` for
+`csm-retrieval` + `chaotic_semantic_memory` only, so `csm-core-lib` sits outside the mutation gate.
+
+## Report the arm mean *with* the unchanged-arm control, and read a sign count as the statistic
+
+Absolute times on this host sit ~38 % above the committed `plans/evidence/bench_encoder_2026_10_15/`
+values (`encode_single_1tok` ~650 ns here vs ~471 ns committed; `encode_short_3tok` +53 %), so
+comparing against a committed baseline in absolute terms is invalid — only within-run pairing means
+anything. #927 measured −23.8 ns mean over 6 pairs, which looks like a win until the control runs:
+repeats of the **same binary** spread 3.4 ns and **41.1 ns** on that bench. The floor exceeded the
+effect, so no single pair proved anything and a ~5 % headline is unmeasurable here.
+
+Two rulings that survived, and why they differ:
+
+- **6/6 pairs slower on `encode_batch_5docs` stands.** Sign consistency is not judged by delta size —
+  six independent pairs in one direction is ≈1/64 under a random-sign null, and a wide floor cannot
+  manufacture that. The mechanism was independent too: the guard scans `split_whitespace()` and the
+  `collect()` below it scans again, so every multi-token input pays twice.
+- **5/6 with one flipped pair does not establish a magnitude**, only a direction, and belongs in the
+  verdict as "not resolvable on this instrument" rather than "overstated". Note the asymmetry:
+  the *same* fixed saving is ~4 % against an inflated 650 ns base and ~7 % against a 471 ns base, so
+  a host-dependent denominator can make a correct claim look inflated. Say which host class produced
+  the number, because a reviewer cannot reproduce a pair measured on a different class.

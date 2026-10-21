@@ -254,7 +254,7 @@ impl<H: Hypervector + 'static> AnnIndex<H> for HnswIndex<H> {
                     .iter()
                     .filter(|(_, c)| filter.matches(&c.metadata))
                     .map(|(id, c)| {
-                        let dist = hvec.hamming_distance(unsafe { Self::as_hvec10240(&c.vector) });
+                        let dist = query.hamming_distance(&c.vector);
                         (id.clone(), 1.0 - (dist as f32 / 5120.0))
                     })
                     .collect();

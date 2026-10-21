@@ -39,6 +39,124 @@ fn inject_ok() {
         .assert()
         .success();
 }
+
+#[test]
+fn index_dir_sync_lifecycle() {
+    use std::fs;
+
+    let temp_dir = tempfile::tempdir().unwrap();
+    let db_file = temp_dir.path().join("csm.db");
+    let docs_dir = temp_dir.path().join("docs");
+    fs::create_dir_all(&docs_dir).unwrap();
+
+    let doc1 = docs_dir.join("guide.md");
+    let doc2 = docs_dir.join("faq.md");
+
+    fs::write(
+        &doc1,
+        "# Guide\n\n## Section One\nUnique text for section one\n\n## Section Two\nUnique text for section two\n",
+    )
+    .unwrap();
+    fs::write(
+        &doc2,
+        "# FAQ\n\n## FAQ Section\nUnique text for FAQ section\n",
+    )
+    .unwrap();
+
+    let glob_pat = format!("{}/docs/*.md", temp_dir.path().display());
+
+    // 1. Initial index and query both sections
+    csm()
+        .arg("--database")
+        .arg(&db_file)
+        .arg("index-dir")
+        .arg("-g")
+        .arg(&glob_pat)
+        .arg("--output-format")
+        .arg("json")
+        .assert()
+        .success();
+
+    csm()
+        .arg("--database")
+        .arg(&db_file)
+        .arg("query")
+        .arg("section one")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("guide.md:2:0"));
+
+    csm()
+        .arg("--database")
+        .arg(&db_file)
+        .arg("query")
+        .arg("section two")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("guide.md:2:1"));
+
+    // 2. Remove Section Two from guide.md and reindex in sync mode
+    fs::write(
+        &doc1,
+        "# Guide\n\n## Section One\nUnique text for section one updated\n",
+    )
+    .unwrap();
+
+    csm()
+        .arg("--database")
+        .arg(&db_file)
+        .arg("index-dir")
+        .arg("-g")
+        .arg(&glob_pat)
+        .arg("--sync")
+        .arg("--output-format")
+        .arg("json")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"chunks_deleted\": 1"));
+
+    // 3. Delete faq.md and synchronize scope; faq chunk disappears
+    fs::remove_file(&doc2).unwrap();
+
+    csm()
+        .arg("--database")
+        .arg(&db_file)
+        .arg("index-dir")
+        .arg("-g")
+        .arg(&glob_pat)
+        .arg("--sync")
+        .arg("--output-format")
+        .arg("json")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"chunks_deleted\": 1"));
+
+    // 4. Reindex unchanged content; no duplicate accumulation
+    csm()
+        .arg("--database")
+        .arg(&db_file)
+        .arg("index-dir")
+        .arg("-g")
+        .arg(&glob_pat)
+        .arg("--sync")
+        .arg("--output-format")
+        .arg("json")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"chunks_replaced\": 1"))
+        .stdout(predicate::str::contains("\"chunks_indexed\": 0"));
+
+    // 5. Malformed/invalid glob syntax fails non-zero
+    csm()
+        .arg("--database")
+        .arg(&db_file)
+        .arg("index-dir")
+        .arg("-g")
+        .arg("[invalid_glob")
+        .arg("--sync")
+        .assert()
+        .failure();
+}
 #[test]
 fn inject_dup() {
     let d = db();

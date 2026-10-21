@@ -316,6 +316,8 @@ pub mod prelude {
 #[cfg(all(test, not(target_arch = "wasm32"), feature = "persistence"))]
 mod bridge_persistence_tests;
 #[cfg(test)]
+mod bridge_retrieval_expiry_tests;
+#[cfg(test)]
 mod bridge_retrieval_tests;
 #[cfg(all(test, not(target_arch = "wasm32"), feature = "persistence"))]
 mod framework_absence_scope_tests;

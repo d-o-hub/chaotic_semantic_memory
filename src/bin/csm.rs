@@ -147,7 +147,10 @@ mod native {
             Commands::IndexJsonl(cmd) => {
                 run_index_jsonl(cmd.clone(), db_path.as_deref(), fmt).await
             }
-            Commands::IndexDir(cmd) => run_index_dir(cmd.clone(), db_path.as_deref(), fmt).await,
+            Commands::IndexDir(cmd) => {
+                run_index_dir(cmd.clone(), db_path.as_deref(), fmt).await?;
+                Ok(())
+            }
             Commands::Delete(cmd) => run_delete(cmd.clone(), db_path.as_deref(), fmt).await,
             Commands::Get(cmd) => run_get(cmd.clone(), db_path.as_deref(), fmt).await,
             Commands::History(cmd) => run_history(cmd.clone(), db_path.as_deref(), fmt).await,

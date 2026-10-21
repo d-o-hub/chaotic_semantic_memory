@@ -37,6 +37,7 @@
 - rmcp (3.4) [features: server, macros, transport-io, server-side-http, transport-streamable-http-server]
 - serde
 - serde_json
+- sha2
 - subtle (2.6)
 - tempfile
 - thiserror
@@ -47,7 +48,7 @@
 **Features:**
 - ann-hnsw: [dep:hnsw_rs, csm-memory/ann-hnsw]
 - ann-lsh: [csm-memory/ann-lsh]
-- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob]
+- cli: [dep:clap, dep:clap_complete, dep:anyhow, dep:colored, dep:glob, dep:sha2]
 - cloudevents: [dep:cloudevents-sdk, dep:uuid, uuid/js]
 - default: [cli, persistence, parallel]
 - embed-fastembed: [csm-embedding/embed-fastembed]
@@ -178,7 +179,10 @@ Created by: [cargo-llms-txt](https://github.com/masinc/cargo-llms-txt)
 
 ### src/cli/commands/index_dir.rs
 
+- pub fn normalize_source_path
+- pub fn compute_fingerprint
 - pub fn run_index_dir
+- pub struct IndexDirSummary
 - pub struct MarkdownChunk
 - pub fn chunk_by_heading
 
@@ -1406,6 +1410,8 @@ impl BridgeRetrieval {
 }
 ```
 
+## src/bridge_retrieval_expiry_tests.rs
+
 ## src/bridge_retrieval_tests.rs
 
 ## src/cli/args.rs
@@ -1587,6 +1593,8 @@ pub struct IndexDirArgs {
     pub glob: Vec<String>,
     pub heading_level: usize,
     pub code_aware: bool,
+    pub sync: bool,
+    pub scope: Option<String>,
 }
 ```
 
@@ -1947,6 +1955,24 @@ pub fn run_import(args: ImportArgs, db_path: Option<&Path>, format: OutputFormat
 
 ## src/cli/commands/index_dir.rs
 
+### IndexDirSummary
+
+```rust
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IndexDirSummary {
+    pub files_processed: usize,
+    pub chunks_indexed: usize,
+    pub chunks_replaced: usize,
+    pub chunks_deleted: usize,
+    pub skipped: usize,
+    pub namespace: String,
+    pub scope: String,
+    pub sync_mode: bool,
+}
+```
+
+Counters and scope identity describing one completed `index-dir` run.
+
 ### MarkdownChunk
 
 ```rust
@@ -1971,11 +1997,31 @@ Chunk markdown content by heading boundaries.
 Only chunks at headings >= min_level (default 2 for ##).
 Heading level 1 (#) is typically the document title and skipped.
 
+### compute_fingerprint
+
+```rust
+pub fn compute_fingerprint(content: &str) -> String
+```
+
+Compute SHA-256 fingerprint hex digest for chunk content.
+
+### normalize_source_path
+
+```rust
+pub fn normalize_source_path(path: &Path) -> String
+```
+
+Normalize source file path to ensure stable identity across invocation directories and relative spellings.
+
 ### run_index_dir
 
 ```rust
-pub fn run_index_dir(args: IndexDirArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<()>
+pub fn run_index_dir(args: IndexDirArgs, db_path: Option<&Path>, format: OutputFormat) -> Result<IndexDirSummary>
 ```
+
+## src/cli/commands/index_dir_summary_tests.rs
+
+## src/cli/commands/index_dir_tests.rs
 
 ## src/cli/commands/index_jsonl.rs
 

@@ -1,168 +1,47 @@
-# d-o-hub Shared Conventions
+# Shared Cross-Repository Conventions
 
-Cross-repo conventions for the d-o-hub organization. Referenced by `AGENTS.md`
-and consumable by derived repositories.
-
----
-
-## Commit Format
-
-[Conventional Commits](https://www.conventionalcommits.org/) required.
-
-```
-<type>(<scope>): <description>
-
-[optional body]
-[optional footer(s)]
-```
-
-### Types
-
-| Type | Purpose | Version Bump |
-|------|---------|--------------|
-| `feat` | New feature | Minor |
-| `fix` | Bug fix | Patch |
-| `perf` | Performance improvement | Patch |
-| `refactor` | Code change (no feature/fix) | None |
-| `docs` | Documentation only | None |
-| `test` | Adding/fixing tests | None |
-| `chore` | Maintenance, deps | None |
-| `ci` | CI/CD changes | None |
-| `build` | Build system changes | None |
-
-### Breaking Changes
-
-Add `!` after type/scope: `feat(framework)!: remove deprecated API`
-Or include `BREAKING CHANGE:` footer.
-
-### Scopes (per-repo)
-
-Scopes are enforced via `commitlint.config.cjs` in each repo. Common scopes:
-- Module names (`singularity`, `reservoir`, `framework`, `persistence`)
-- Infrastructure (`ci`, `build`, `deps`, `release`)
-- Cross-cutting (`docs`, `clippy`, `lints`, `workspace`)
+Cross-repository conventions for `d-o-hub` organization projects (including `rust-2026-template` and derived crates such as `chaotic_semantic_memory`).
 
 ---
 
-## Branch Naming
+## Ownership & Conflict Resolution
 
-```
-<type>/<scope>-<description>
-```
-
-Examples:
-- `feat/retrieval-bm25-scoring`
-- `fix/persistence-fk-constraint`
-- `perf/core-simd-hamming`
-- `test/inline-tests-coverage`
-- `chore/deps-update-tokio`
+- **Local Ownership**: Repository-specific implementation, validation rules, domain logic, and local skills reside in each repository's `@AGENTS.md` and local `.agents/skills/`.
+- **Shared Context Scope**: This context document contains *only* conventions verified to apply across all d-o-hub repositories.
+- **Conflict Resolution**: When a shared convention conflicts with a repository's local rules, **the local repository's safety and quality contract wins**. Document the conflict in local learnings rather than blindly syncing or overriding local standards.
 
 ---
 
-## Pull Request Requirements
+## Canonical Instructions & Validation Discovery
 
-1. **Branch from main** — never commit directly to `main`
-2. **All CI checks must pass** — including:
-   - `cargo check --all-features`
-   - `cargo test --all-features`
-   - `cargo fmt --check`
-   - `cargo clippy -- -D warnings`
-   - Codacy static analysis
-   - CodeQL security scanning
-   - Cross-platform builds (Linux, macOS, Windows)
-3. **Squash merge** — preferred merge strategy for clean history
-4. **Title follows conventional commit format** — enforced by commitlint
-5. **Delete branch after merge** — keep remote clean
+Agents working across repositories can discover canonical entrypoints without scanning all skill trees:
 
-### PR Title Format
-
-```
-<type>(<scope>): <concise description under 70 chars>
-```
-
-### PR Description Structure
-
-```markdown
-## Summary
-Brief description of what changed and why.
-
-## Changes
-- Bullet list of specific changes
-
-## Testing
-How the changes were verified.
-```
+- **Canonical Instructions**: Read `@AGENTS.md` and `@HARNESS.md` at the repository root.
+- **Validation Commands**: Run the repository's standard validation entrypoint:
+  - CSM: `./scripts/harness-check.sh all` and `./scripts/validate.sh`
+  - Template: `scripts/quality-gates.sh` or `make test`
 
 ---
 
-## Quality Thresholds
+## Branch & PR Hygiene
 
-| Gate | Threshold | Enforcement |
-|------|-----------|-------------|
-| Source file LOC | ≤ 500 lines | CI gate + pre-commit |
-| Test:source ratio | ≥ 90% | Monitored |
-| Clippy warnings | 0 (deny all) | CI blocks merge |
-| Format | `cargo fmt` standard | CI blocks merge |
-| Coverage regression | No decrease | Codacy quality gate |
-| Mutation score | ≥ 85% | CI gate (mutation-test job) |
+- **Protected Main Branch**: Never commit or push directly to `main`. Create a feature branch off latest `main`.
+- **Branch Naming**: Use `<type>/<scope>-<description>` (e.g., `feat/retrieval-bm25`, `fix/persistence-fk`).
+- **Conventional Commits**: PR titles and commit messages must follow Conventional Commits format (`<type>(<scope>): <description>`).
+- **Up-to-Date Rebase Before Merge**: Every PR must be rebased against current `main`, pass CI on that head, and be merged cleanly.
+- **Squash Merge**: Prefer squash-and-merge with a clear, conventional commit title.
 
 ---
 
-## Dependency Policy
+## Evidence-Based CI Claims
 
-- Pin exact versions in `Cargo.lock` (committed to repo)
-- Use workspace dependency inheritance (`[workspace.dependencies]`)
-- Dependabot enabled for automated updates
-- `cargo deny` enforces:
-  - License allowlist (MIT, Apache-2.0, BSD-2/3, ISC, etc.)
-  - Advisory database (RUSTSEC)
-  - Source restrictions (no unknown registries/git)
-- Prefer well-maintained crates; document unmaintained deps with justification
+- **Verifiable Proof Required**: All assertions regarding performance gains, benchmark improvements, or CI fixes MUST include verifiable evidence (Criterion benchmark output, test logs, or recorded artifacts) in the PR description.
+- **No Gate Evasion**: Changing commit types (e.g., `perf` to `refactor`) to bypass PR evidence requirements or claiming unverified performance gains is strictly prohibited.
 
 ---
 
-## Security Standards
+## Issue & PR Scope
 
-- Parameterized SQL queries (never string interpolation)
-- Input validation at API boundaries (size limits, format checks)
-- No `unwrap()`/`expect()`/`panic!()` in library code (warn lint, test exemption)
-- `unsafe` blocks require `// SAFETY:` comments and are restricted to SIMD modules
-- File path validation (no path traversal)
-- Secrets never logged or returned in responses
-
----
-
-## Architecture Decision Records (ADRs)
-
-For significant design decisions:
-
-1. Create `plans/adr/NNNN-<slug>.md` (next sequential number)
-2. Register in `plans/ADR_REGISTRY.md`
-3. Format: Status, Context, Decision, Consequences
-4. ADRs are immutable once accepted; supersede with new ADR if needed
-
----
-
-## CI/CD Conventions
-
-- Primary CI: GitHub Actions (`.github/workflows/ci.yml`)
-- Release: `release.yml` runs when CI completes successfully on `main` (`workflow_run` on `ci.yml`); a manual dispatch must see green CI for HEAD
-- Platform matrix: linux-x64, linux-arm64, macos-arm64, macos-x64, windows-x64
-- WASM: Separate build + size gate
-- Never use `gh pr merge --auto` when merging multiple PRs (rebase loop risk)
-- Merge one PR → rebase next → wait for CI → merge → repeat
-
----
-
-## GOAP Planning System
-
-State tracked in `plans/GOAP_STATE.md` and `plans/ACTIONS.md`:
-- `GOAP_STATE.md`: Current world state (boolean flags, metrics)
-- `ACTIONS.md`: Action queue with preconditions, effects, status
-
-Valid action statuses: `queued`, `in_progress`, `complete`, `blocked`, `deferred`
-
-Update after every completed task:
-- Set `action_last_completed` (exactly once in file)
-- Update relevant world state flags
-- Mark action status as `complete`
+- **Atomic PRs**: Each PR should address a single focused task or issue scope.
+- **Traceability**: Reference corresponding issues or ADR rationale (e.g., `@plans/adr/0090-harness-engineering-template-alignment.md`).
+- **No Skill Duplication**: Do not copy `SKILL.md` trees or re-create local skill catalogs in shared context files.

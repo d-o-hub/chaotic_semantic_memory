@@ -43,8 +43,16 @@ world_state:
 
   # ── Canonical metrics (update in place with date comment) ────
   product_version: "0.3.8"       # crates.io 0.3.6/0.3.7/0.3.8 all published
-  main_head: "e62c63f2"           # 2026-10-19: fetched origin/main before audit; branch rebased onto this head. Read from `git log --oneline origin/main`, never from the previous entry.
-  tests_count: 1054              # 2026-10-15: 1044 + 8 (#833) + 2 (#897) = 1054. The #833 half:
+  main_head: "4a85fd47"          # 2026-10-21: fetched origin/main before merging this wave; #926
+                               #   landed as 4a85fd47 and #931 as f440cf00 while this branch sat
+                               #   uncommitted, so the wave carries a merge rather than a rebase.
+                               #   Read from `git log --oneline origin/main`, never from the
+                               #   previous entry.
+  tests_count: 1064              # 2026-10-21: 1054 + 10 (#926): index_dir's 5 inline tests became
+                               #   11 in `index_dir_tests.rs` (extracted, not stripped) plus 4 in
+                               #   `index_dir_summary_tests.rs` — 15 registered in the lib-target run,
+                               #   all mutation-visible. Delta on the last measured value.
+                               # 2026-10-15: 1044 + 8 (#833) + 2 (#897) = 1054. The #833 half:
                                #   the 8 lib-target tests added for the src/mcp
                                #   mutation baseline (#833): 7 in `src/mcp/handler_tests.rs` and 1 in
                                #   `src/mcp/wire_tests.rs`. The file registered 8 tests when the mcp

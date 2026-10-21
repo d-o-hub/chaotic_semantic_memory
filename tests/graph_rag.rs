@@ -464,3 +464,61 @@ async fn test_graph_rag_truncation_logic() {
     all_sims.sort_by(|a, b| b.1.total_cmp(&a.1));
     assert_eq!(results_strict[1].id, all_sims[1].0);
 }
+
+/// `probe_with_graph` filters concepts with `expires_at.is_none_or(|e| e > now)`,
+/// a strict comparison: a concept expiring in the current second is already
+/// gone, while one with a full hour left must still be reachable.
+#[tokio::test]
+async fn test_graph_rag_ttl_keeps_live_and_drops_concepts_expiring_now() {
+    let framework = setup_framework().await;
+
+    let v_live = HVec10240::new_seeded(7);
+    framework
+        .inject_concept_with_ttl("live", v_live, 3600)
+        .await
+        .unwrap();
+
+    // Built back-to-back with the probe below, so `expires_at` resolves to the
+    // unix second the probe reads as `now`.
+    let v_expiring = HVec10240::new_seeded(8);
+    framework
+        .inject_concept_with_ttl("expiring-now", v_expiring, 0)
+        .await
+        .unwrap();
+
+    let live_ids: Vec<String> = framework
+        .probe_with_graph(
+            v_live,
+            GraphRagConfig {
+                final_top_k: 10,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap()
+        .iter()
+        .map(|r| r.id.clone())
+        .collect();
+    assert!(
+        live_ids.contains(&"live".to_string()),
+        "a concept with an hour of TTL left must still be recalled, got {live_ids:?}"
+    );
+
+    let expiring_ids: Vec<String> = framework
+        .probe_with_graph(
+            v_expiring,
+            GraphRagConfig {
+                final_top_k: 10,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap()
+        .iter()
+        .map(|r| r.id.clone())
+        .collect();
+    assert!(
+        !expiring_ids.contains(&"expiring-now".to_string()),
+        "`expires > now` is strict: a concept expiring in this second must be dropped, got {expiring_ids:?}"
+    );
+}
