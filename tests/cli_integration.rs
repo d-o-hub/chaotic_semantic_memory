@@ -428,7 +428,7 @@ fn workflow_index_long_jsonl_and_query_returns_stable_json_identifier() {
         .arg("query")
         .arg("needlequasar")
         .arg("--keyword-only")
-        .arg("--format")
+        .arg("--output-format")
         .arg("json")
         .assert()
         .success()
