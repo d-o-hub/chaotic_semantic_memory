@@ -85,9 +85,28 @@ async fn import_json_with_associations_to_nonexistent_concepts() {
     );
     std::fs::write(path, modified).unwrap();
 
-    // Import should succeed, but skip invalid associations (logged warning)
-    let imported = framework.import_json(path, true).await.unwrap();
-    assert_eq!(imported, 1);
+    // A merge import still validates every endpoint: `main` skipped the dangling
+    // edge with a warning and reported the concept as imported, so a caller could
+    // not tell that half of the payload's graph was dropped.
+    match framework.import_json(path, true).await {
+        Err(MemoryError::NotFound { entity, id }) => {
+            assert_eq!(entity, "Concept", "the report must name the entity");
+            assert_eq!(
+                id, "nonexistent",
+                "the endpoint missing from both the payload and the store must be the one reported"
+            );
+        }
+        other => {
+            panic!("a dangling association endpoint must reject a merge import, got {other:?}")
+        }
+    }
+    assert!(
+        framework
+            .get_concept("assoc-source")
+            .await
+            .unwrap()
+            .is_some()
+    );
 }
 
 #[tokio::test]
